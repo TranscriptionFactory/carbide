@@ -55,6 +55,9 @@ the explorer to be *multi-dimensional*, not just a folder mirror.
 
 ### 1. Pivot Views — Multi-Dimensional Explorer
 
+**MAJOR CRITICISM:**: This is exactly what bases are meant to accomplish 
+**ASSESSMENT:LOW VALUE/DEFER or coordinate with bases implementation**
+
 Let users "pivot" the file tree by different axes. A toggle or dropdown at the top of the explorer
 switches the organization mode:
 
@@ -95,6 +98,7 @@ UI and virtual tree node type.
 ---
 
 ### 3. Contextual Sidebar (Activity-Aware Explorer)
+**ASSESSMENT:HIGH VALUE/DEFER - can this potentially replace the right rail?**
 
 When editing a note, the explorer adapts to show a "Related" section above the normal tree:
 
@@ -119,6 +123,7 @@ connections *without* switching to the graph view — perfect for quick navigati
 ---
 
 ### 4. Two-Pane Explorer (Column + List)
+**ASSESSMENT:UNSURE**
 
 A mode that splits the explorer into two panes:
 
@@ -142,7 +147,7 @@ merged with a data table — best of both worlds.
 ---
 
 ### 5. Peek Preview (Quick Look)
-
+**ASSESSMENT:UNSURE**
 Press Space on any file to open a preview panel (not a full navigation):
 
 ```
@@ -173,6 +178,8 @@ backlinks, and action buttons. No full page load — just a glance.
 
 ### 6. Workspace Snapshots
 
+**MAJOR CRITICISM:**: This is exactly what bases are meant to accomplish 
+**ASSESSMENT:LOW VALUE/DEFER or coordinate with bases implementation**
 Save the complete sidebar/editor state as a named workspace. A workspace captures:
 
 - Which files are open and in what tab groups

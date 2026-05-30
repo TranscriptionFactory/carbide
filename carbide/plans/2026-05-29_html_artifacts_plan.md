@@ -1,5 +1,7 @@
 # Implementation Plan — HTML / LLM Artifacts as First-Class Vault Citizens
 
+## ⚠️ PHASE 4 REMAINING
+
 **Date:** 2026-05-29
 **Motivation:** HTML pages have become a natural medium for LLMs to communicate ideas — interactive, information-dense, self-contained. Carbide already renders `.html` files as sanitized previews, but the surrounding ecosystem (indexing, graph, transclusion, security model, authoring) treats them as second-class. This plan closes that gap so HTML artifacts compose into notes the same way images and code blocks do, and so LLM-generated artifacts have a coherent capture/render/edit story.
 
@@ -22,12 +24,14 @@
 These are the cleanup gaps identified during planning. Without them, every later phase has to work around half-supported HTML. None of these introduces new UX surface — they finish the existing pipeline.
 
 **Status (2026-05-29):** Implemented and verified.
+
 - P0.1 ✅ — `FileCategory::Html` variant added; `"html" | "htm"` moved out of the `Code` arm; `as_str()` returns `"html"`; classification test added.
 - P0.2 ✅ — `scraper = "0.27"` added; new `html_extractor` module with `extract_html_text(bytes) -> {title, body}`; chardet decode + DOM walk that skips `<script>`/`<style>`/`<noscript>`/`<template>` and inserts separators around block tags; wired into `extract_content`'s `Html` branch and `index_single_file_from_disk` (extracted `<title>` / first `<h1>` flows into `meta.title`). `ExtractedContent` gained an optional `title` field. Seven unit tests cover title extraction, tag stripping, script/style/noscript skipping, block-tag separation, and the empty-input case.
 - P0.3 ✅ — `html|htm` appended to `ATTACHMENT_EXT_RE` (TS) and `ATTACHMENT_EXTENSIONS` (Rust). Unit tests on both sides assert `.html`/`.htm` classify as attachments, not outlinks.
 - P0.4 ✅ — Decision reaffirmed in code: backlinks FROM html are deferred to Phase 4 (no code change).
 
 **Verification:**
+
 - `cargo check` — clean (only pre-existing warnings).
 - `cargo test --lib features::search::text_extractor` — 18 passed, including the new `classify_html_extensions` test.
 - `cargo test --lib features::search::html_extractor::` — 7 passed (all new tests).
@@ -42,11 +46,13 @@ These are the cleanup gaps identified during planning. Without them, every later
 **Scope:** Give HTML its own category in the indexer so we can route extraction and metadata differently.
 
 **Approach:**
+
 1. In `src-tauri/src/features/search/text_extractor.rs`, add `FileCategory::Html` variant; move `"html" | "htm"` from the `Code` match arm to a dedicated arm.
 2. `extract_content` gets an `Html` branch that calls a new `extract_html_text(bytes)` (see P0.2).
 3. Update `as_str()` to return `"html"`.
 
 **Acceptance:**
+
 - `.html` files in the index report `file_type = "html"` (was `"code"`).
 - All existing `classify_file` tests still pass; new test asserts HTML classification.
 
@@ -59,6 +65,7 @@ These are the cleanup gaps identified during planning. Without them, every later
 **Scope:** Stop indexing markup noise (class names, inline JS tokens). Index visible text.
 
 **Approach:**
+
 1. Add `scraper` (or `html5ever` directly) to `src-tauri/Cargo.toml`.
 2. New module `src-tauri/src/features/search/html_extractor.rs` with `extract_html_text(bytes) -> (title, body)`:
    - Decode bytes via `chardetng` (reuse `decode_text_body`'s detector).
@@ -67,6 +74,7 @@ These are the cleanup gaps identified during planning. Without them, every later
 3. `extract_content` `Html` branch calls this; title flows into `meta.title`, body into `notes_fts.body`.
 
 **Acceptance:**
+
 - FTS search for a class name appearing only in markup (e.g., `bg-blue-500`) returns no HTML results.
 - FTS search for visible text appearing in `<p>` returns the HTML file.
 - Title-extraction test: file with `<title>Dashboard</title>` indexes with `title = "Dashboard"`.
@@ -80,11 +88,13 @@ These are the cleanup gaps identified during planning. Without them, every later
 **Scope:** Make markdown-to-html links resolve correctly.
 
 **Approach:**
+
 1. `src/lib/features/links/domain/extract_local_links.ts:14` — add `html|htm` to `ATTACHMENT_EXT_RE`.
 2. `src-tauri/src/features/search/db.rs:1820` — add `".html", ".htm"` to `ATTACHMENT_EXTENSIONS`.
 3. Add a unit test on each side: `[chart](page.html)` classifies as attachment, not outlink.
 
 **Acceptance:**
+
 - Markdown link `[foo](bar.html)` appears in `attachment_paths`, not `outlink_paths`.
 - No phantom orphan edges in graph view for HTML-targeted links.
 
@@ -105,12 +115,14 @@ These are the cleanup gaps identified during planning. Without them, every later
 The current `html_view_mode` is a binary `source | visual` toggle. Expand to three modes, with the third (Live) being the one that makes LLM artifacts actually work.
 
 **Status (2026-05-29):** Implemented and verified.
+
 - P1.1 ✅ — `HtmlViewMode` widened to `"source" | "safe" | "live"`; `HTML_VIEW_MODES` constant added. `toggle_html_view_mode` replaced with `set_html_view_mode(mode)` + `cycle_html_view_mode(tab_id)`. Service default switched from `"visual"` to `"safe"`. 3-segment radio toggle in `document_viewer_content.svelte` with Source / Safe / Live buttons; Live click without trust opens the trust dialog. Store/test fixtures updated.
 - P1.2 ✅ — `sandboxed_iframe.svelte` extended with optional `srcdoc` prop (back-compat: `src` and `on_message` are now optional too). New `html_live_renderer.svelte` wraps `SandboxedIframe`, derives a strict CSP per trust grant (`connect-src 'none'` by default, opt-in `*` when `live+net`), and falls back to wrapping bare content in a minimal `<!DOCTYPE html>` shell when the source lacks `<head>`/`<html>`. Routed from `document_viewer_content.svelte` when `html_mode === "live" && live_allowed`.
 - P1.3 ✅ — Rust feature `features/trusted_html`: `.carbide/trusted_html.json` storage with per-file and per-folder maps; resolver prefers file → nearest-ancestor folder → `safe`. Five new Tauri commands (`trusted_html_get_level`, `_list`, `_grant`, `_revoke`, `_parent_folder`) registered in the app handler and specta builder. TS-side `TrustedHtmlPort` + `create_trusted_html_tauri_adapter`, wired through `Ports` and `create_prod_ports`. `DocumentStore` gained `trust_levels`, `pending_trust_request`, and open/close helpers. `DocumentService` gained `refresh_trust_level`, `list_trusted_html`, `grant_trust`, `revoke_trust`, `request_trust_grant`, `resolve_pending_trust`. New `trusted_html_dialog.svelte` (file vs folder, Live vs Live+Network) mounted next to the document viewer.
 - P1.4 ✅ — New `domain/html_theme_vars.ts` exports `build_theme_vars(theme)` and `build_theme_style_block(theme)`; injected into the live iframe's `<head>` as `:root { --carbide-bg, --carbide-fg, --carbide-muted-fg, --carbide-border, --carbide-accent, --carbide-accent-fg, --carbide-link, --carbide-code-bg, --carbide-code-fg, --carbide-font-sans, --carbide-font-mono, --carbide-scheme }` plus `color-scheme: light|dark`. Static CSS, refreshes when Svelte re-renders the iframe on theme change. Documentation deferred to Phase 3.3.
 
 **Verification:**
+
 - `cargo check` — clean (only pre-existing warnings).
 - `cargo test --lib features::trusted_html::` — 7 / 7 pass (defaults, file grants, folder propagation, file-overrides-folder, sibling isolation, parent-folder strip, leading-slash normalization).
 - `pnpm check` — 0 errors (3 pre-existing warnings in `image_alt_editor.svelte`).
@@ -123,11 +135,13 @@ The current `html_view_mode` is a binary `source | visual` toggle. Expand to thr
 **Scope:** Replace the boolean toggle with `source | safe | live` enum.
 
 **Approach:**
+
 1. `src/lib/features/document/state/document_store.svelte.ts` — change `html_view_mode: "source" | "visual"` to `"source" | "safe" | "live"`. Default to `safe` (current behavior).
 2. `src/lib/features/document/ui/document_viewer_content.svelte:42` — replace `toggle_html_view_mode` with a 3-segment toggle. Live segment is disabled unless the file (or its folder) has a trust grant.
 3. Persist the chosen mode per-file in document state (currently per-tab; carry forward).
 
 **Acceptance:**
+
 - Existing notes preserved: any file currently rendering shows `safe` after the change.
 - Clicking Live without a trust grant shows a "Trust this file?" / "Trust folder?" dialog; clicking either grants and switches mode.
 - Source mode unchanged from today.
@@ -141,6 +155,7 @@ The current `html_view_mode` is a binary `source | visual` toggle. Expand to thr
 **Scope:** Render unsanitized HTML with JS, isolated from Carbide and the vault.
 
 **Approach:**
+
 1. New component `src/lib/features/document/ui/html_live_renderer.svelte` wrapping `sandboxed_iframe.svelte`. Props: `content` (raw HTML string), `theme`, `allow_network` (bool, default false).
 2. Iframe `srcdoc` injects:
    - `<meta http-equiv="Content-Security-Policy" content="...">` matching the trust grant (no `connect-src` when network disabled).
@@ -148,6 +163,7 @@ The current `html_view_mode` is a binary `source | visual` toggle. Expand to thr
 3. `document_viewer_content.svelte` routes Live mode to this component, Safe mode to existing `html_viewer.svelte`.
 
 **Acceptance:**
+
 - A test fixture with a working `<canvas>` + `<script>` animation renders and animates in Live mode.
 - The same file in Safe mode shows static fallback (no animation).
 - An artifact attempting `fetch("https://example.com")` fails when `allow_network=false`; succeeds when granted (verified via DevTools console).
@@ -162,12 +178,14 @@ The current `html_view_mode` is a binary `source | visual` toggle. Expand to thr
 **Scope:** Persist user decisions about which HTML files may run scripts.
 
 **Approach:**
+
 1. New port `TrustedHtmlPort` in `src/lib/features/document/ports.ts` with `is_trusted(path)`, `grant_file(path, level)`, `grant_folder(path, level)`, `revoke(path)`.
 2. Tauri adapter persists to `<vault>/.carbide/trusted_html.json` (existing `.carbide` config dir convention).
 3. UI: trust dialog (Phase 1.1) + settings panel section "Trusted HTML files" with revoke buttons.
 4. Trust level enum: `safe` (default, no grant needed), `live`, `live+net`.
 
 **Acceptance:**
+
 - Granting a folder propagates to new HTML files added to that folder.
 - Revoking returns the file to Safe mode immediately (any open Live render reloads).
 - `.carbide/trusted_html.json` is human-readable and editable.
@@ -181,11 +199,13 @@ The current `html_view_mode` is a binary `source | visual` toggle. Expand to thr
 **Scope:** Live artifacts that use Carbide tokens look native.
 
 **Approach:**
+
 1. In `html_live_renderer.svelte`, prepend an injected `<style>:root { --carbide-fg: ...; --carbide-bg: ...; ... }</style>` to the iframe `srcdoc`. Source the values from `stores.ui.active_theme`.
 2. Document the available variables in `docs/html_artifacts.md` (new file in Phase 3.3).
 3. No JS bridge required — purely CSS, refresh-on-theme-change handled by Svelte reactivity re-rendering the iframe.
 
 **Acceptance:**
+
 - A test fixture using `color: var(--carbide-fg, black)` matches the surrounding app on both light and dark themes.
 - A fixture not using the variables renders identically to before (no regression).
 
@@ -198,11 +218,13 @@ The current `html_view_mode` is a binary `source | visual` toggle. Expand to thr
 The synergy point. Notes stay readable markdown; HTML artifacts become composable blocks.
 
 **Status (2026-05-29):** Implemented and verified.
+
 - P2.1 ✅ — `detect_embed_type` returns `"html"` for `.html`/`.htm`. The `file_embed` NodeView grew a vanilla-DOM `html` branch that creates a sandboxed iframe (`sandbox="allow-same-origin"`, no scripts) and loads the embedded artifact via `resolve_asset_url → fetch → text → build_safe_embed_srcdoc`. Default is Safe regardless of the file's trust grant — embeds are passive previews; the existing "Open in tab" toolbar button is the route to Live mode. New shared module `src/lib/features/editor/adapters/html_embed_renderer.ts` exports `build_safe_embed_srcdoc(...)`, `rewrite_embed_assets(...)`, and `SAFE_EMBED_SANDBOX = "allow-same-origin"`.
 - P2.2 ✅ — `parse_embed_fragment` now returns `{ page, height, params: Record<string,string> }`, splitting reserved keys (`page`, `height`) from arbitrary user params. A new `serialize_embed_fragment` round-trips back into `#k=v&…` for `pm_to_mdast`. The `file_embed` schema gained a `params` attr (default `{}`) with `data-params` JSON round-trip in `toDOM`/`parseDOM`. `mdast_to_pm.convert_wiki_embed` + both branches of `file_embed_plugin.appendTransaction` thread `parsed.params` onto the node. For v1 the params are not consumable by Safe-mode embed JS (Safe sandbox strips scripts); the wire is in place for future Live-mode embed.
 - P2.3 ✅ — `rewrite_embed_assets(html, host_path, resolver)` regex-rewrites `src=`, `href=`, and `poster=` for vault-relative paths, resolving each through the embed-resolver against the embedder's directory. Absolute URLs (`http(s):`, `//`, `data:`, `blob:`, `mailto:`, `tel:`, `#anchor`) are left untouched. `..` and `.` segments are normalized before resolution. Resolver failures fall through silently — the original href stays in the rewritten document. CSP in the safe srcdoc allows `img-src/font-src/media-src … carbide-asset:` to let the resolved asset protocol load; `connect-src 'none'` keeps dynamic `fetch()` blocked (deferred to Phase 4 as planned).
 
 **Verification:**
+
 - `pnpm check` — 0 errors (3 pre-existing warnings in `image_alt_editor.svelte`).
 - `pnpm test` — 3883 / 3883 pass, including the new `html_embed_renderer` tests and the extended `file_embed_plugin` tests (html detection + params round-trip).
 - `cd src-tauri && cargo check` — clean (only pre-existing warnings).
@@ -214,12 +236,14 @@ The synergy point. Notes stay readable markdown; HTML artifacts become composabl
 **Scope:** Make `![[chart.html]]` render an embedded sandboxed iframe inside a note.
 
 **Approach:**
+
 1. `src/lib/features/editor/adapters/file_embed_plugin.ts:30` — extend `detect_embed_type` to return `"html"` for `.html`/`.htm`.
 2. Confirm `EXCLUDED_EXTENSIONS` (line 24) doesn't block it (it doesn't — currently only `md`, `canvas`, `excalidraw`).
 3. `file_embed_view_plugin.ts` — add `case "html"` in the NodeView that instantiates a sandboxed iframe with the embed's height. Reuse `html_live_renderer.svelte`'s render path via a dynamic Svelte mount, or build a vanilla-JS equivalent if Svelte-in-PM is awkward (check existing `note_embed_view_plugin.ts` for pattern).
 4. Default the embed to **Safe** mode regardless of file-level trust — embeds are passive previews; user explicitly opens the file to get Live mode.
 
 **Acceptance:**
+
 - A note containing `![[chart.html]]` renders the artifact inline at the specified height.
 - Default embed is sanitized (no JS); a small "Open in tab for live view" affordance is present.
 - Backlinks: the note containing the embed appears in the HTML file's backlinks panel (rides on P0.3).
@@ -233,11 +257,13 @@ The synergy point. Notes stay readable markdown; HTML artifacts become composabl
 **Scope:** Allow parameterized artifacts — `![[chart.html#data=sales.csv&theme=dark]]`.
 
 **Approach:**
+
 1. `parse_embed_fragment` in `file_embed_plugin.ts:39` already extracts query-string-style fragments; extend it to pass arbitrary key/value pairs through to the iframe `src`.
 2. Artifact reads `URLSearchParams(window.location.search)` to consume them.
 3. No new RPC; query string only. Vault-file references (`data=sales.csv`) get resolved by Carbide to data URIs / asset URLs at embed-render time — see P2.3.
 
 **Acceptance:**
+
 - An embed with `#height=200` renders at 200px (existing).
 - An embed with `#title=Hello` sets a fixture artifact's text to "Hello".
 - Vault-path params (`#data=sales.csv`) are resolved through the existing asset URL resolver and arrive at the iframe as URLs the artifact can `fetch()` (network grant required for vault asset fetch from inside the sandbox — likely not for v1; defer to vault-RPC phase).
@@ -253,6 +279,7 @@ The synergy point. Notes stay readable markdown; HTML artifacts become composabl
 **Decision:** **In-scope only for static references (`<img src="...">`) via `srcdoc` URL rewriting; defer dynamic `fetch()` to Phase 4.** Reason: `fetch()` from inside the sandbox requires either `allow-same-origin` (security regression) or a postMessage RPC bridge (new surface area). Static rewriting covers the common case (charts referencing images) without opening either.
 
 **Approach:**
+
 1. Before injecting `srcdoc`, regex-rewrite `src="some/path.png"` to the corresponding asset URL the same way `note_html.ts:rewrite_wiki_image_embeds` does for note rendering.
 2. Document the limitation in `docs/html_artifacts.md`.
 
@@ -267,11 +294,13 @@ The synergy point. Notes stay readable markdown; HTML artifacts become composabl
 These turn the feature from "view your own HTML files" into "the natural place to keep LLM artifacts."
 
 **Status (2026-05-29):** Implemented and verified.
+
 - P3.1 ✅ — New action `document.paste_html_artifact` (id: `document_paste_html_artifact`). It reads `text/html` from the clipboard via `navigator.clipboard.read()`, derives an artifact filename from the `<title>` (falling back to first `<h1>`, then `pasted-html`) plus a `YYYYMMDD-HHMMSS` suffix for uniqueness, writes the file in the open note's folder via `DocumentPort.write_file`, writes a sidecar `<name>.html.meta.json` with `{ source: "clipboard", pasted_at: <iso> }`, and inserts `![[<name>.html]]` at the cursor through `services.editor.insert_text`. New domain module `domain/html_artifact_paste.ts` houses pure helpers (`extract_html_title`, `slugify_for_filename`, `format_timestamp_for_filename`, `derive_artifact_filename`, `join_vault_path`, `provenance_sidecar_path`, `build_clipboard_provenance`, `serialize_provenance`, `parse_provenance`, `format_provenance_banner`). `DocumentService` gained `save_html_artifact(folder, html, now?)`. The plan's "prompt for filename" step is deferred for v1 — the auto-derived slug + timestamp prevents collisions; users rename through the file tree.
 - P3.2 ✅ — `ArtifactProvenance` moved into `types/document.ts` so the store can hold it without breaking the stores-cannot-import-domain layering rule. `DocumentStore` gained a `provenance` map plus `get_provenance` / `set_provenance`. `DocumentService` gained `read_provenance`, `refresh_provenance`, and `clear_provenance` (delete sidecar via the new `DocumentPort.delete_file` method, with in-memory state cleared even when delete fails). `document_viewer_content.svelte` refreshes provenance on HTML open in the same `$effect` as trust level and renders a banner above the renderer (`"Pasted from clipboard on <date>"`) with an ✕ button wired to a new `document.clear_provenance` action. `DocumentPort.delete_file` was added with its Tauri adapter (`delete_vault_file` invoke) and a no-op test adapter.
 - P3.3 ✅ — `docs/html_artifacts.md` covers the three render modes, trust grants and the `.carbide/trusted_html.json` store, `![[file.html]]` transclusion semantics, the paste-from-clipboard flow with sidecar schema, the provenance banner and clear action, the theme variable list injected in Live mode, the FTS indexing decisions, the security envelope, and the documented limitations (no embed `fetch()`, no JS-rendered FTS, no HTML-source backlinks yet, no rename prompt in v1). Linked from `docs/getting_started.md`.
 
 **Verification:**
+
 - `pnpm check` — 0 errors (3 pre-existing warnings in `image_alt_editor.svelte`).
 - `pnpm lint` — fails on the same pre-existing layering violation in `note_actions.ts:38` (introduced by `fbf3accc`, untouched by this phase).
 - `pnpm test` — 3914 / 3914 pass, including the new `html_artifact_paste` domain tests (round-trip, slugify, title extraction, banner format) and the new `DocumentService` tests for `save_html_artifact`, `read_provenance`, `refresh_provenance`, and `clear_provenance`.
@@ -283,12 +312,14 @@ These turn the feature from "view your own HTML files" into "the natural place t
 **Scope:** Detect HTML in the clipboard; offer to save as an artifact and insert a transclusion.
 
 **Approach:**
+
 1. Add a new action `html.paste_as_artifact` in `src/lib/features/document/application/document_actions.ts` (or a new `html_actions.ts` if it grows).
 2. Action reads clipboard (`navigator.clipboard.read()` → `text/html`); if present and looks like a full document (`<!doctype`, `<html`), prompt for filename (default: derived from `<title>` slug), write to current folder, insert `![[<name>.html]]` at cursor.
 3. Also generate a sidecar `<name>.html.meta.json` capturing: `source: "clipboard"`, `pasted_at`, optional user-entered tag for the source model/chat.
 4. Add a hotkey suggestion (`Cmd+Shift+V`?) — defer binding to user.
 
 **Acceptance:**
+
 - Copy an LLM-generated HTML response, hit the action, get an artifact file + transclusion inserted in one step.
 - Sidecar metadata is created and persisted.
 - If clipboard contains plain text, action no-ops with a notice.
@@ -302,11 +333,13 @@ These turn the feature from "view your own HTML files" into "the natural place t
 **Scope:** Surface artifact origin in the UI.
 
 **Approach:**
+
 1. When viewing a `.html` file with a sidecar `.meta.json`, show a small banner above the renderer: "Pasted from clipboard on 2026-05-29" (or whatever metadata exists).
 2. Provide an action to edit/clear metadata.
 3. Sidecar schema kept minimal — extensible map, no required fields beyond `source`.
 
 **Acceptance:**
+
 - Banner displays for files with sidecar metadata.
 - No banner / no error for files without.
 
@@ -352,7 +385,7 @@ Phase 2.1 (transclusion route) ──► 2.2 (params) ──► 2.3 (asset rewri
 Phase 3.1 (paste capture) ──► 3.2 (provenance UI) ──► 3.3 (docs)
 ```
 
-Phase 0 is mostly mechanical and can land independently — recommended as its own PR to unblock everything else cleanly. Phases 1 and 2 are the substance; each is one PR. Phase 3 is one more PR. Total: ~4 PRs.
+Phase 0 is mostly mechanical and can land independently — recommended as its own PR to unblock everything else cleanly. Phases 1 and 2 are the substance; each is one PR. Phase 3 is one more PR. Total: \~4 PRs.
 
 ## Verification checklist (per PR, per AGENTS.md)
 
