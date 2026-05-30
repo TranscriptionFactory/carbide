@@ -19,6 +19,13 @@ function filename_from_path(path: string): string {
   return path.split("/").at(-1) ?? path;
 }
 
+export function build_wiki_link(markdown_path: string): string {
+  const filename = filename_from_path(markdown_path);
+  const dot = filename.lastIndexOf(".");
+  const name = dot >= 0 ? filename.slice(0, dot) : filename;
+  return `[[${name}]]`;
+}
+
 export function build_file_link(
   vault_relative_path: string,
   note_path: string,
@@ -85,17 +92,20 @@ export function create_file_drop_prose_plugin(
           .map((p) => p.trim())
           .filter(Boolean);
 
-        const non_markdown = paths.filter((p) => !is_markdown_path(p));
-        if (non_markdown.length === 0) return false;
-
         event.preventDefault();
 
         const context_state = editor_context_plugin_key.getState(view.state);
         const note_path = context_state?.note_path ?? "";
 
-        const links = non_markdown
-          .map((p) => build_file_link(p, note_path))
-          .join("\n");
+        const fragments = paths.map((p) =>
+          is_markdown_path(p)
+            ? build_wiki_link(p)
+            : build_file_link(p, note_path),
+        );
+
+        if (fragments.length === 0) return false;
+
+        const insertion = fragments.join("\n");
 
         const drop_pos = view.posAtCoords({
           left: event.clientX,
@@ -105,7 +115,7 @@ export function create_file_drop_prose_plugin(
           ? drop_pos.pos
           : view.state.doc.content.size;
 
-        const tr = view.state.tr.insertText(links, insert_pos);
+        const tr = view.state.tr.insertText(insertion, insert_pos);
         view.dispatch(tr.scrollIntoView());
         view.focus();
 

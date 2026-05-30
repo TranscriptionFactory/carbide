@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import {
   build_file_link,
+  build_wiki_link,
   create_file_drop_prose_plugin,
 } from "$lib/features/editor/domain/file_drop_plugin";
 import type { PastedImagePayload } from "$lib/shared/types/editor";
@@ -126,6 +127,24 @@ function make_editable_view() {
       object
   >[0];
 }
+
+describe("build_wiki_link", () => {
+  it("strips the .md extension and wraps in double brackets", () => {
+    expect(build_wiki_link("notes/release.md")).toBe("[[release]]");
+  });
+
+  it("handles a markdown file at the root", () => {
+    expect(build_wiki_link("inbox.md")).toBe("[[inbox]]");
+  });
+
+  it("handles deeply nested markdown paths", () => {
+    expect(build_wiki_link("Work/Q2/2026/plan.md")).toBe("[[plan]]");
+  });
+
+  it("supports the .markdown long extension", () => {
+    expect(build_wiki_link("notes/release.markdown")).toBe("[[release]]");
+  });
+});
 
 describe("create_file_drop_prose_plugin — external file drop", () => {
   it("calls callback for each valid external file", async () => {
