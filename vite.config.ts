@@ -44,11 +44,6 @@ export default defineConfig({
       include: ["stream", "buffer", "process", "events", "util"],
     }),
   ],
-  resolve: {
-    alias: {
-      pdfkit: resolve("node_modules/pdfkit/js/pdfkit.standalone.js"),
-    },
-  },
   build: {
     chunkSizeWarningLimit: 3500,
     rollupOptions: {
@@ -91,5 +86,13 @@ export default defineConfig({
         import.meta.url,
       ).pathname,
     },
+  },
+  resolve: {
+    alias: {
+      pdfkit: resolve("node_modules/pdfkit/js/pdfkit.standalone.js"),
+    },
+    ...(process.env.VITEST || process.env.NODE_ENV === "test"
+      ? { conditions: ["browser"] }
+      : {}),
   },
 });
