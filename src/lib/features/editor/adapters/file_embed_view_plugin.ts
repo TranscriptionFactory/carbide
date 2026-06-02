@@ -47,7 +47,7 @@ class FileEmbedView implements NodeView {
   dom: HTMLElement;
   private _destroyed = false;
   private _media_el: HTMLAudioElement | HTMLVideoElement | null = null;
-  private _pdf_doc: { destroy(): void } | null = null;
+  private _pdf_doc: { loadingTask: { destroy(): void } } | null = null;
   private node: ProseNode;
   private view: EditorView;
   private get_pos: () => number | undefined;
@@ -314,7 +314,7 @@ class FileEmbedView implements NodeView {
       this._pdf_doc = doc;
 
       if (this._destroyed) {
-        doc.destroy();
+        doc.loadingTask.destroy();
         return;
       }
 
@@ -351,7 +351,7 @@ class FileEmbedView implements NodeView {
         return;
       }
 
-      await page.render({ canvasContext: ctx, viewport }).promise;
+      await page.render({ canvas, canvasContext: ctx, viewport }).promise;
 
       if (this._destroyed) return;
 
@@ -409,7 +409,7 @@ class FileEmbedView implements NodeView {
       this._media_el.load();
     }
     if (this._pdf_doc) {
-      this._pdf_doc.destroy();
+      this._pdf_doc.loadingTask.destroy();
     }
   }
 }
