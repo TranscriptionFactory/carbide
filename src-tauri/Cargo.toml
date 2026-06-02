@@ -104,7 +104,7 @@ gtk = "=0.18.2"
 filetime = "0.2"
 
 [patch.crates-io]
-wry = { path = "patches/wry-0.54.4" }
+wry = { path = "patches/wry-0.55.1" }
 
 [profile.release]
 opt-level = "s"
