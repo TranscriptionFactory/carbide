@@ -63,9 +63,9 @@
       </button>
 
       {#if task.section}
-        <div class="flex items-center gap-1">
+        <div class="flex items-center gap-1" title={task.section}>
           <Hash size={10} />
-          {task.section}
+          {task.section.split("/").pop()}
         </div>
       {/if}
 
