@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, type Mocked } from "vitest";
 import { PluginRpcHandler } from "$lib/features/plugin/application/plugin_rpc_handler";
 import type { PluginManifest } from "$lib/features/plugin/ports";
 import type { ExternalMcpAdapter } from "$lib/features/plugin/adapters/external_mcp_tauri_adapter";
@@ -18,9 +18,7 @@ function make_manifest(
   };
 }
 
-function make_sidecar_mock(): {
-  [K in keyof ExternalMcpAdapter]: ReturnType<typeof vi.fn>;
-} {
+function make_sidecar_mock(): Mocked<ExternalMcpAdapter> {
   return {
     start: vi.fn().mockResolvedValue(undefined),
     stop: vi.fn().mockResolvedValue(undefined),
@@ -28,7 +26,7 @@ function make_sidecar_mock(): {
       .fn()
       .mockResolvedValue({ content: [{ type: "text", text: "ok" }] }),
     status: vi.fn().mockResolvedValue({ status: "running", tool_count: 5 }),
-  };
+  } as unknown as Mocked<ExternalMcpAdapter>;
 }
 
 function make_context(sidecar: ExternalMcpAdapter) {

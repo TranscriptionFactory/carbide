@@ -1,4 +1,4 @@
-import { describe, expect, it, vi, beforeEach } from "vitest";
+import { describe, expect, it, vi, beforeEach, type Mock } from "vitest";
 
 vi.mock("@tauri-apps/api/event", () => ({
   listen: vi.fn(),
@@ -31,7 +31,7 @@ describe("plugin_metadata_events.reactor", () => {
   let captured_callback:
     | ((event: { payload: MetadataChangedPayload }) => void)
     | null;
-  let unlisten_fn: ReturnType<typeof vi.fn>;
+  let unlisten_fn: Mock<() => void>;
 
   beforeEach(() => {
     vi.clearAllMocks();
