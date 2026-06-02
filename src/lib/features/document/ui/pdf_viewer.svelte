@@ -112,7 +112,7 @@
       observer = null;
     }
 
-    prev_doc?.destroy().catch(() => {});
+    prev_doc?.loadingTask.destroy().catch(() => {});
 
     try {
       const pdfjs = await import("pdfjs-dist");
@@ -128,7 +128,7 @@
       const data = new Uint8Array(await resp.arrayBuffer());
       const doc = await pdfjs.getDocument({ data }).promise;
       if (revision !== load_revision) {
-        doc.destroy().catch(() => {});
+        doc.loadingTask.destroy().catch(() => {});
         return;
       }
       pdf_doc = doc;
@@ -185,7 +185,7 @@
       canvas.style.width = `${css_viewport.width}px`;
       canvas.style.height = `${css_viewport.height}px`;
 
-      await page.render({ canvasContext: ctx, viewport }).promise;
+      await page.render({ canvas, canvasContext: ctx, viewport }).promise;
 
       if (text_layer_div) {
         text_layer_div.innerHTML = "";
@@ -309,7 +309,11 @@
       paginated_canvas_el.style.width = `${css_viewport.width}px`;
       paginated_canvas_el.style.height = `${css_viewport.height}px`;
 
-      await page.render({ canvasContext: ctx, viewport }).promise;
+      await page.render({
+        canvas: paginated_canvas_el,
+        canvasContext: ctx,
+        viewport,
+      }).promise;
 
       if (paginated_text_layer_el) {
         paginated_text_layer_el.innerHTML = "";
@@ -655,7 +659,7 @@
   onMount(() => {
     return () => {
       observer?.disconnect();
-      pdf_doc?.destroy();
+      pdf_doc?.loadingTask.destroy();
     };
   });
 </script>
