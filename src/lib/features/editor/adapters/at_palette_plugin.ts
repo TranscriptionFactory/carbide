@@ -27,6 +27,7 @@ type AtPaletteState = {
   query: string;
   selected_index: number;
   items_by_category: Partial<Record<AtPaletteCategory, AtPaletteItem[]>>;
+  active_prefix: AtPaletteCategory | "all" | "files";
 };
 
 const EMPTY_STATE: AtPaletteState = {
@@ -35,6 +36,7 @@ const EMPTY_STATE: AtPaletteState = {
   query: "",
   selected_index: 0,
   items_by_category: {},
+  active_prefix: "all",
 };
 
 export const at_palette_plugin_key = new PluginKey<AtPaletteState>(
@@ -127,6 +129,22 @@ const CATEGORY_LABELS: Record<AtPaletteCategory, string> = {
   references: "References",
   commands: "Commands",
 };
+
+type LegendEntry = {
+  prefix: string;
+  label: string;
+  match: AtPaletteCategory | "files";
+};
+
+const LEGEND_ENTRIES: LegendEntry[] = [
+  { prefix: "/", label: "note", match: "notes" },
+  { prefix: "//", label: "file", match: "files" },
+  { prefix: "#", label: "heading", match: "headings" },
+  { prefix: "t", label: "tag", match: "tags" },
+  { prefix: "[", label: "ref", match: "references" },
+  { prefix: "d", label: "date", match: "dates" },
+  { prefix: ">", label: "cmd", match: "commands" },
+];
 
 function flatten_items(
   items_by_category: Partial<Record<AtPaletteCategory, AtPaletteItem[]>>,
@@ -245,10 +263,38 @@ function item_secondary_text(item: AtPaletteItem): string | null {
   }
 }
 
+function render_legend(
+  active_prefix: AtPaletteCategory | "all" | "files",
+): HTMLElement {
+  const legend = document.createElement("div");
+  legend.className = "AtPalette__legend";
+  for (const entry of LEGEND_ENTRIES) {
+    const chip = document.createElement("span");
+    chip.className = "AtPalette__legend-chip";
+    if (entry.match === active_prefix) {
+      chip.classList.add("AtPalette__legend-chip--active");
+    }
+
+    const key = document.createElement("span");
+    key.className = "AtPalette__legend-key";
+    key.textContent = entry.prefix;
+    chip.appendChild(key);
+
+    const label = document.createElement("span");
+    label.className = "AtPalette__legend-label";
+    label.textContent = entry.label;
+    chip.appendChild(label);
+
+    legend.appendChild(chip);
+  }
+  return legend;
+}
+
 function render_dropdown(
   dropdown: HTMLElement,
   flat_items: AtPaletteItem[],
   selected_index: number,
+  active_prefix: AtPaletteCategory | "all" | "files",
   on_select: (index: number) => void,
 ) {
   dropdown.innerHTML = "";
@@ -290,6 +336,8 @@ function render_dropdown(
     });
     dropdown.appendChild(row);
   }
+
+  dropdown.appendChild(render_legend(active_prefix));
 }
 
 function insert_for_item(
@@ -400,9 +448,15 @@ export function create_at_palette_prose_plugin(
       return;
     }
 
-    render_dropdown(dropdown, items, palette_state.selected_index, (i) => {
-      accept(view, i);
-    });
+    render_dropdown(
+      dropdown,
+      items,
+      palette_state.selected_index,
+      palette_state.active_prefix,
+      (i) => {
+        accept(view, i);
+      },
+    );
 
     scroll_selected_into_view(dropdown, palette_state.selected_index);
 
@@ -516,6 +570,11 @@ export function create_at_palette_prose_plugin(
 
           const all_items = flatten_items(next_by_category);
 
+          const active_prefix: AtPaletteCategory | "all" | "files" =
+            prefix.category === "notes" && prefix.markdown_only === false
+              ? "files"
+              : prefix.category;
+
           palette_state = {
             active: true,
             query,
@@ -528,6 +587,7 @@ export function create_at_palette_prose_plugin(
                     Math.max(0, all_items.length - 1),
                   ),
             items_by_category: next_by_category,
+            active_prefix,
           };
 
           if (!was_active) {
