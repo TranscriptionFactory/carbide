@@ -124,11 +124,10 @@ export class AiStore {
       return;
     }
 
-    const next_target =
-      context.target === "selection" &&
-      (!context.selection || context.selection.text.trim() === "")
-        ? "full_note"
-        : context.target;
+    const tgt_is_sel = context.target === "selection";
+    const sel = context.selection;
+    const sel_empty = !sel || sel.text.trim() === "";
+    const next_target = tgt_is_sel && sel_empty ? "full_note" : context.target;
 
     this.dialog.context = {
       ...context,
