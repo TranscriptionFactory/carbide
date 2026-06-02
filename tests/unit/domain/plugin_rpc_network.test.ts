@@ -1,4 +1,6 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, type Mock } from "vitest";
+
+type AnyMock = Mock<(...args: any[]) => any>;
 import { PluginRpcHandler } from "$lib/features/plugin/application/plugin_rpc_handler";
 import type { PluginManifest } from "$lib/features/plugin/ports";
 
@@ -17,7 +19,7 @@ function make_manifest(
   };
 }
 
-function make_context(network_fetch = vi.fn()) {
+function make_context(network_fetch: AnyMock = vi.fn()) {
   return {
     services: {
       note: {
@@ -61,9 +63,9 @@ function make_context(network_fetch = vi.fn()) {
 
 function make_settings_service(granted_permissions: string[]): {
   is_permission_granted: (id: string, perm: string) => boolean;
-  get_setting: ReturnType<typeof vi.fn>;
-  set_setting: ReturnType<typeof vi.fn>;
-  get_all_settings: ReturnType<typeof vi.fn>;
+  get_setting: AnyMock;
+  set_setting: AnyMock;
+  get_all_settings: AnyMock;
 } {
   return {
     is_permission_granted: (_id: string, perm: string) =>
@@ -75,7 +77,7 @@ function make_settings_service(granted_permissions: string[]): {
 }
 
 describe("network.fetch RPC handler", () => {
-  let fetch_mock: ReturnType<typeof vi.fn>;
+  let fetch_mock: AnyMock;
   let handler: PluginRpcHandler;
 
   beforeEach(() => {

@@ -1,7 +1,15 @@
 /**
  * @vitest-environment jsdom
  */
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import {
+  describe,
+  it,
+  expect,
+  vi,
+  beforeEach,
+  afterEach,
+  type Mock,
+} from "vitest";
 import {
   create_cursor_anchor,
   position_suggest_dropdown,
@@ -109,7 +117,7 @@ describe("scroll_selected_into_view", () => {
 describe("attach_outside_dismiss", () => {
   let floating: HTMLElement;
   let editor_dom: HTMLElement;
-  let on_dismiss: ReturnType<typeof vi.fn>;
+  let on_dismiss: Mock<() => void>;
   let detach: () => void;
 
   beforeEach(() => {

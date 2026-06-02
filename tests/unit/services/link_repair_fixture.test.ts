@@ -1,6 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+
+const HERE = dirname(fileURLToPath(import.meta.url));
 import { LinkRepairService } from "$lib/features/links/application/link_repair_service";
 import { EditorStore } from "$lib/features/editor/state/editor_store.svelte";
 import { TabStore } from "$lib/features/tab/state/tab_store.svelte";
@@ -28,7 +31,7 @@ type Fixture = {
 };
 
 function load_fixture(): Fixture {
-  const path = resolve(process.cwd(), "tests/fixtures/link_repair_cases.json");
+  const path = resolve(HERE, "../../fixtures/link_repair_cases.json");
   const raw = readFileSync(path, "utf-8");
   return JSON.parse(raw);
 }
