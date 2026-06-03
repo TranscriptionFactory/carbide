@@ -105,9 +105,9 @@ export function detect_prefix(query: string): DetectedPrefix {
     return { category: "references", stripped_query: query.slice(1) };
   if (query.startsWith(">"))
     return { category: "commands", stripped_query: query.slice(1) };
-  if (query.startsWith("d "))
+  if (query.startsWith("d:"))
     return { category: "dates", stripped_query: query.slice(2) };
-  if (query.startsWith("t "))
+  if (query.startsWith("t:"))
     return { category: "tags", stripped_query: query.slice(2) };
   return { category: "all", stripped_query: query };
 }
@@ -140,9 +140,9 @@ const LEGEND_ENTRIES: LegendEntry[] = [
   { prefix: "/", label: "note", match: "notes" },
   { prefix: "//", label: "file", match: "files" },
   { prefix: "#", label: "heading", match: "headings" },
-  { prefix: "t", label: "tag", match: "tags" },
+  { prefix: "t:", label: "tag", match: "tags" },
   { prefix: "[", label: "ref", match: "references" },
-  { prefix: "d", label: "date", match: "dates" },
+  { prefix: "d:", label: "date", match: "dates" },
   { prefix: ">", label: "cmd", match: "commands" },
 ];
 
