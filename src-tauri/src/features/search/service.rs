@@ -1592,9 +1592,10 @@ fn handle_embed_batch(
             }
         } else {
             // block embed disabled: fall back to direct batch embed on FTS bodies. (ref: DL-002)
-            // 16 in release: BatchLongest padding means one long section pads all others;
-            // batch_size=16 caps worst-case Metal tensor at [16,12,256,256].
-            let batch_size: usize = if cfg!(debug_assertions) { 5 } else { 16 };
+            // BatchLongest padding means one long section pads all others. With f16
+            // Metal weights, batch_size=32 keeps the worst-case [32,12,256,256] attention
+            // tensor at the same byte budget as the previous f32 [16,12,256,256].
+            let batch_size: usize = if cfg!(debug_assertions) { 5 } else { 32 };
             for chunk in notes_needing_embedding.chunks(batch_size) {
                 if cancel.load(Ordering::Relaxed) {
                     break;
@@ -1723,9 +1724,10 @@ fn handle_block_embed_batch(
         },
     );
 
-    // 16 in release: BatchLongest padding means one long section pads all others;
-    // batch_size=16 caps worst-case Metal tensor at [16,12,256,256]. (ref: DL-002)
-    let batch_size: usize = if cfg!(debug_assertions) { 5 } else { 16 };
+    // BatchLongest padding means one long section pads all others. With f16
+    // Metal weights, batch_size=32 keeps the worst-case [32,12,256,256] attention
+    // tensor at the same byte budget as the previous f32 [16,12,256,256]. (ref: DL-002)
+    let batch_size: usize = if cfg!(debug_assertions) { 5 } else { 32 };
     let mut block_embedded = 0usize;
     let mut fts_cache: HashMap<String, Option<String>> = HashMap::new();
 
