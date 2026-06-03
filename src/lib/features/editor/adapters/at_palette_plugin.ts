@@ -80,7 +80,7 @@ export function extract_at_trigger(
   };
 }
 
-type DetectedPrefix = {
+export type DetectedPrefix = {
   category: AtPaletteCategory | "all";
   stripped_query: string;
   markdown_only?: boolean;
@@ -209,6 +209,27 @@ function resolve_command_items(
         cmd.description.toLowerCase().includes(q),
     )
     .slice(0, 10);
+}
+
+export function dispatch_palette_queries(
+  query: string,
+  prefix: DetectedPrefix,
+  config: AtPalettePluginConfig,
+): void {
+  const { category, stripped_query, markdown_only } = prefix;
+  if (category === "all") {
+    config.on_note_query?.(query, false);
+    config.on_heading_query?.(null, query);
+    config.on_tag_query?.(query);
+    config.on_cite_query?.(query);
+    return;
+  }
+  if (category === "notes")
+    config.on_note_query?.(stripped_query, markdown_only ?? false);
+  else if (category === "headings")
+    config.on_heading_query?.(null, stripped_query);
+  else if (category === "tags") config.on_tag_query?.(stripped_query);
+  else if (category === "references") config.on_cite_query?.(stripped_query);
 }
 
 export type AtPalettePluginConfig = {
@@ -468,15 +489,7 @@ export function create_at_palette_prose_plugin(
   function fire_async_queries(query: string, prefix: DetectedPrefix) {
     if (debounce_timer) clearTimeout(debounce_timer);
     debounce_timer = setTimeout(() => {
-      const cat = prefix.category;
-      const sq = prefix.stripped_query;
-      if (cat === "all" || cat === "notes")
-        config.on_note_query?.(sq || query, prefix.markdown_only ?? false);
-      if (cat === "all" || cat === "headings")
-        config.on_heading_query?.(null, sq || query);
-      if (cat === "all" || cat === "tags") config.on_tag_query?.(sq || query);
-      if (cat === "all" || cat === "references")
-        config.on_cite_query?.(sq || query);
+      dispatch_palette_queries(query, prefix, config);
     }, 50);
   }
 
