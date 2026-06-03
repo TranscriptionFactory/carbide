@@ -1,10 +1,12 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { Schema } from "prosemirror-model";
 import { EditorState, TextSelection } from "prosemirror-state";
 import {
   extract_at_trigger,
   detect_prefix,
+  dispatch_palette_queries,
 } from "$lib/features/editor/adapters/at_palette_plugin";
+import type { AtPalettePluginConfig } from "$lib/features/editor/adapters/at_palette_plugin";
 
 function create_schema() {
   return new Schema({
@@ -209,5 +211,107 @@ describe("detect_prefix", () => {
     const result = detect_prefix("");
     expect(result.category).toBe("all");
     expect(result.stripped_query).toBe("");
+  });
+
+  it("strips prefix even when nothing follows ('#')", () => {
+    const result = detect_prefix("#");
+    expect(result.category).toBe("headings");
+    expect(result.stripped_query).toBe("");
+  });
+
+  it("strips prefix even when nothing follows ('[')", () => {
+    const result = detect_prefix("[");
+    expect(result.category).toBe("references");
+    expect(result.stripped_query).toBe("");
+  });
+
+  it("strips prefix even when nothing follows ('t ')", () => {
+    const result = detect_prefix("t ");
+    expect(result.category).toBe("tags");
+    expect(result.stripped_query).toBe("");
+  });
+});
+
+function make_config_spies() {
+  const config: AtPalettePluginConfig = {
+    on_note_query: vi.fn(),
+    on_heading_query: vi.fn(),
+    on_tag_query: vi.fn(),
+    on_cite_query: vi.fn(),
+    on_cite_accept: vi.fn(),
+    on_command_execute: vi.fn(),
+    get_commands: () => [],
+  };
+  return config;
+}
+
+describe("dispatch_palette_queries", () => {
+  it("'#' (no follow-up) fires heading query with empty string, not '#'", () => {
+    const config = make_config_spies();
+    dispatch_palette_queries("#", detect_prefix("#"), config);
+    expect(config.on_heading_query).toHaveBeenCalledWith(null, "");
+    expect(config.on_tag_query).not.toHaveBeenCalled();
+    expect(config.on_cite_query).not.toHaveBeenCalled();
+    expect(config.on_note_query).not.toHaveBeenCalled();
+  });
+
+  it("'[' (no follow-up) fires cite query with empty string, not '['", () => {
+    const config = make_config_spies();
+    dispatch_palette_queries("[", detect_prefix("["), config);
+    expect(config.on_cite_query).toHaveBeenCalledWith("");
+    expect(config.on_tag_query).not.toHaveBeenCalled();
+    expect(config.on_heading_query).not.toHaveBeenCalled();
+    expect(config.on_note_query).not.toHaveBeenCalled();
+  });
+
+  it("'t ' (no follow-up) fires tag query with empty string, not 't '", () => {
+    const config = make_config_spies();
+    dispatch_palette_queries("t ", detect_prefix("t "), config);
+    expect(config.on_tag_query).toHaveBeenCalledWith("");
+    expect(config.on_heading_query).not.toHaveBeenCalled();
+    expect(config.on_cite_query).not.toHaveBeenCalled();
+    expect(config.on_note_query).not.toHaveBeenCalled();
+  });
+
+  it("'#intro' passes only the stripped query to heading callback", () => {
+    const config = make_config_spies();
+    dispatch_palette_queries("#intro", detect_prefix("#intro"), config);
+    expect(config.on_heading_query).toHaveBeenCalledWith(null, "intro");
+    expect(config.on_tag_query).not.toHaveBeenCalled();
+  });
+
+  it("'[smith' passes only the stripped query to cite callback", () => {
+    const config = make_config_spies();
+    dispatch_palette_queries("[smith", detect_prefix("[smith"), config);
+    expect(config.on_cite_query).toHaveBeenCalledWith("smith");
+    expect(config.on_heading_query).not.toHaveBeenCalled();
+  });
+
+  it("'t project' passes only the stripped query to tag callback", () => {
+    const config = make_config_spies();
+    dispatch_palette_queries("t project", detect_prefix("t project"), config);
+    expect(config.on_tag_query).toHaveBeenCalledWith("project");
+    expect(config.on_heading_query).not.toHaveBeenCalled();
+  });
+
+  it("'/roadmap' passes stripped query and markdown_only=true", () => {
+    const config = make_config_spies();
+    dispatch_palette_queries("/roadmap", detect_prefix("/roadmap"), config);
+    expect(config.on_note_query).toHaveBeenCalledWith("roadmap", true);
+  });
+
+  it("'//roadmap' passes stripped query and markdown_only=false", () => {
+    const config = make_config_spies();
+    dispatch_palette_queries("//roadmap", detect_prefix("//roadmap"), config);
+    expect(config.on_note_query).toHaveBeenCalledWith("roadmap", false);
+  });
+
+  it("plain query (no prefix) fans out to all callbacks with raw query", () => {
+    const config = make_config_spies();
+    dispatch_palette_queries("hello", detect_prefix("hello"), config);
+    expect(config.on_note_query).toHaveBeenCalledWith("hello", false);
+    expect(config.on_heading_query).toHaveBeenCalledWith(null, "hello");
+    expect(config.on_tag_query).toHaveBeenCalledWith("hello");
+    expect(config.on_cite_query).toHaveBeenCalledWith("hello");
   });
 });
