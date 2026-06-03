@@ -22,10 +22,8 @@
   const active_tab = $derived(stores.tab.active_tab);
   const is_canvas_tab = $derived.by(() => {
     const tab = active_tab;
-    return (
-      tab?.kind === "document" &&
-      (tab.file_type === "canvas" || tab.file_type === "excalidraw")
-    );
+    if (tab?.kind !== "document") return false;
+    return tab.file_type === "canvas" || tab.file_type === "excalidraw";
   });
   const document_viewer_state = $derived.by(() => {
     const tab = active_tab;
