@@ -267,7 +267,7 @@ describe("dispatch_palette_queries", () => {
   it("'#' (no follow-up) fires heading query with empty string, not '#'", () => {
     const config = make_config_spies();
     dispatch_palette_queries("#", detect_prefix("#"), config);
-    expect(config.on_heading_query).toHaveBeenCalledWith(null, "");
+    expect(config.on_heading_query).toHaveBeenCalledWith("");
     expect(config.on_tag_query).not.toHaveBeenCalled();
     expect(config.on_cite_query).not.toHaveBeenCalled();
     expect(config.on_note_query).not.toHaveBeenCalled();
@@ -294,7 +294,7 @@ describe("dispatch_palette_queries", () => {
   it("'#intro' passes only the stripped query to heading callback", () => {
     const config = make_config_spies();
     dispatch_palette_queries("#intro", detect_prefix("#intro"), config);
-    expect(config.on_heading_query).toHaveBeenCalledWith(null, "intro");
+    expect(config.on_heading_query).toHaveBeenCalledWith("intro");
     expect(config.on_tag_query).not.toHaveBeenCalled();
   });
 
@@ -328,7 +328,7 @@ describe("dispatch_palette_queries", () => {
     const config = make_config_spies();
     dispatch_palette_queries("hello", detect_prefix("hello"), config);
     expect(config.on_note_query).toHaveBeenCalledWith("hello", false);
-    expect(config.on_heading_query).toHaveBeenCalledWith(null, "hello");
+    expect(config.on_heading_query).toHaveBeenCalledWith("hello");
     expect(config.on_tag_query).toHaveBeenCalledWith("hello");
     expect(config.on_cite_query).toHaveBeenCalledWith("hello");
   });
