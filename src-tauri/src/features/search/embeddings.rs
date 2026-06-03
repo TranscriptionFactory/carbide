@@ -1,6 +1,6 @@
-use candle_core::{Device, Tensor};
+use candle_core::{DType, Device, Tensor};
 use candle_nn::VarBuilder;
-use candle_transformers::models::bert::{BertModel, Config, DTYPE};
+use candle_transformers::models::bert::{BertModel, Config};
 use hf_hub::api::sync::ApiBuilder;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -36,6 +36,14 @@ impl EmbeddingService {
             }
         };
 
+        // f16 on Metal halves attention-tensor memory and ~2x the GPU matmul
+        // throughput on M2 (M4 hides the f32 cost). CPU keeps f32 because
+        // Accelerate's BLAS is f32-tuned and its f16 path is slower.
+        let model_dtype = match device {
+            Device::Metal(_) => DType::F16,
+            _ => DType::F32,
+        };
+
         let api = ApiBuilder::new()
             .with_cache_dir(cache_dir)
             .with_progress(false)
@@ -59,7 +67,7 @@ impl EmbeddingService {
         .map_err(|e| format!("parse config: {e}"))?;
 
         let vb = unsafe {
-            VarBuilder::from_mmaped_safetensors(&[weights_path], DTYPE, &device)
+            VarBuilder::from_mmaped_safetensors(&[weights_path], model_dtype, &device)
                 .map_err(|e| format!("load weights: {e}"))?
         };
 
@@ -141,9 +149,19 @@ impl EmbeddingService {
             return Err("embedding cancelled".to_string());
         }
 
-        // Mean pooling: mask-weighted average over sequence dimension
+        // Pool + L2 norm on CPU. These six tiny ops on [B, S, D] tensors don't
+        // amortize Metal kernel-launch overhead at any realistic batch size,
+        // and we want the final output back on CPU regardless. Casting hidden
+        // from f16->f32 here also keeps the norm/division numerically stable.
+        let hidden = hidden
+            .to_device(&Device::Cpu)
+            .map_err(|e| e.to_string())?
+            .to_dtype(DType::F32)
+            .map_err(|e| e.to_string())?;
         let mask_f = attention_mask
-            .to_dtype(DTYPE)
+            .to_device(&Device::Cpu)
+            .map_err(|e| e.to_string())?
+            .to_dtype(DType::F32)
             .map_err(|e| e.to_string())?
             .unsqueeze(2)
             .map_err(|e| e.to_string())?;
@@ -157,7 +175,6 @@ impl EmbeddingService {
             .broadcast_div(&sum_mask)
             .map_err(|e| e.to_string())?;
 
-        // L2 normalize
         let norm = pooled
             .sqr()
             .map_err(|e| e.to_string())?
