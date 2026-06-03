@@ -219,24 +219,21 @@ export function dispatch_palette_queries(
   const { category, stripped_query, markdown_only } = prefix;
   if (category === "all") {
     config.on_note_query?.(query, false);
-    config.on_heading_query?.(null, query);
+    config.on_heading_query?.(query);
     config.on_tag_query?.(query);
     config.on_cite_query?.(query);
     return;
   }
   if (category === "notes")
     config.on_note_query?.(stripped_query, markdown_only ?? false);
-  else if (category === "headings")
-    config.on_heading_query?.(null, stripped_query);
+  else if (category === "headings") config.on_heading_query?.(stripped_query);
   else if (category === "tags") config.on_tag_query?.(stripped_query);
   else if (category === "references") config.on_cite_query?.(stripped_query);
 }
 
 export type AtPalettePluginConfig = {
   on_note_query?: ((query: string, markdown_only: boolean) => void) | undefined;
-  on_heading_query?:
-    | ((note_name: string | null, heading_query: string) => void)
-    | undefined;
+  on_heading_query?: ((heading_query: string) => void) | undefined;
   on_tag_query?: ((query: string) => void) | undefined;
   on_cite_query?: ((query: string) => void) | undefined;
   on_cite_accept?: ((citekey: string) => void) | undefined;

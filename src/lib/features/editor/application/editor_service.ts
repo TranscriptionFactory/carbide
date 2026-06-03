@@ -969,45 +969,24 @@ export class EditorService {
 
   private handle_at_palette_heading_query(
     generation: number,
-    note_name: string | null,
     heading_query: string,
   ): void {
     if (!this.is_generation_current(generation)) return;
     const search_service = this.search_service;
     if (!search_service) return;
-    const vault_id = this.vault_store.active_vault_id;
-    if (!vault_id) return;
 
-    const resolve_path = async (): Promise<string | null> => {
-      if (note_name === null) return this.get_active_note_path();
-      const source_path = this.get_active_note_path();
-      if (!source_path) return null;
-      return search_service.resolve_wiki_link(source_path, note_name);
-    };
-
-    void resolve_path().then(async (resolved_path) => {
-      if (!resolved_path || !this.is_generation_current(generation)) {
-        this.session?.set_at_palette_suggestions?.("headings", []);
-        return;
-      }
-      const headings = await search_service.get_note_headings(
-        vault_id,
-        resolved_path,
-      );
-      if (!this.is_generation_current(generation)) return;
-
-      const query_lower = heading_query.toLowerCase();
-      const note_path = resolved_path;
-      const items: AtPaletteItem[] = headings
-        .filter((h) => h.text.toLowerCase().includes(query_lower))
-        .map((h) => ({
+    void search_service
+      .search_headings_matching(heading_query, 20)
+      .then((matches) => {
+        if (!this.is_generation_current(generation)) return;
+        const items: AtPaletteItem[] = matches.map((h) => ({
           category: "headings" as const,
           text: h.text,
           level: h.level,
-          note_path,
+          note_path: h.note_path,
         }));
-      this.session?.set_at_palette_suggestions?.("headings", items);
-    });
+        this.session?.set_at_palette_suggestions?.("headings", items);
+      });
   }
 
   private handle_at_palette_tag_query(generation: number, query: string): void {
@@ -1145,15 +1124,8 @@ export class EditorService {
       ) => {
         this.handle_at_palette_note_query(generation, query, markdown_only);
       };
-      events.on_at_palette_heading_query = (
-        note_name: string | null,
-        heading_query: string,
-      ) => {
-        this.handle_at_palette_heading_query(
-          generation,
-          note_name,
-          heading_query,
-        );
+      events.on_at_palette_heading_query = (heading_query: string) => {
+        this.handle_at_palette_heading_query(generation, heading_query);
       };
       events.on_at_palette_tag_query = (query: string) => {
         this.handle_at_palette_tag_query(generation, query);
