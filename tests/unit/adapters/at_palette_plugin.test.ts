@@ -189,16 +189,28 @@ describe("detect_prefix", () => {
     expect(result.stripped_query).toBe("new");
   });
 
-  it("maps 'd ' to dates", () => {
-    const result = detect_prefix("d tomorrow");
+  it("maps 'd:' to dates", () => {
+    const result = detect_prefix("d:tomorrow");
     expect(result.category).toBe("dates");
     expect(result.stripped_query).toBe("tomorrow");
   });
 
-  it("maps 't ' to tags", () => {
-    const result = detect_prefix("t project");
+  it("maps 't:' to tags", () => {
+    const result = detect_prefix("t:project");
     expect(result.category).toBe("tags");
     expect(result.stripped_query).toBe("project");
+  });
+
+  it("does not activate tag mode for 't ' (legacy space rule removed)", () => {
+    const result = detect_prefix("t project");
+    expect(result.category).toBe("all");
+    expect(result.stripped_query).toBe("t project");
+  });
+
+  it("does not activate tag mode for bare 't' (collides with words like 'table')", () => {
+    const result = detect_prefix("table");
+    expect(result.category).toBe("all");
+    expect(result.stripped_query).toBe("table");
   });
 
   it("maps plain text to all", () => {
@@ -225,9 +237,15 @@ describe("detect_prefix", () => {
     expect(result.stripped_query).toBe("");
   });
 
-  it("strips prefix even when nothing follows ('t ')", () => {
-    const result = detect_prefix("t ");
+  it("strips prefix even when nothing follows ('t:')", () => {
+    const result = detect_prefix("t:");
     expect(result.category).toBe("tags");
+    expect(result.stripped_query).toBe("");
+  });
+
+  it("strips prefix even when nothing follows ('d:')", () => {
+    const result = detect_prefix("d:");
+    expect(result.category).toBe("dates");
     expect(result.stripped_query).toBe("");
   });
 });
@@ -264,9 +282,9 @@ describe("dispatch_palette_queries", () => {
     expect(config.on_note_query).not.toHaveBeenCalled();
   });
 
-  it("'t ' (no follow-up) fires tag query with empty string, not 't '", () => {
+  it("'t:' (no follow-up) fires tag query with empty string, not 't:'", () => {
     const config = make_config_spies();
-    dispatch_palette_queries("t ", detect_prefix("t "), config);
+    dispatch_palette_queries("t:", detect_prefix("t:"), config);
     expect(config.on_tag_query).toHaveBeenCalledWith("");
     expect(config.on_heading_query).not.toHaveBeenCalled();
     expect(config.on_cite_query).not.toHaveBeenCalled();
@@ -287,9 +305,9 @@ describe("dispatch_palette_queries", () => {
     expect(config.on_heading_query).not.toHaveBeenCalled();
   });
 
-  it("'t project' passes only the stripped query to tag callback", () => {
+  it("'t:project' passes only the stripped query to tag callback", () => {
     const config = make_config_spies();
-    dispatch_palette_queries("t project", detect_prefix("t project"), config);
+    dispatch_palette_queries("t:project", detect_prefix("t:project"), config);
     expect(config.on_tag_query).toHaveBeenCalledWith("project");
     expect(config.on_heading_query).not.toHaveBeenCalled();
   });
