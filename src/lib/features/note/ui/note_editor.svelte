@@ -20,21 +20,25 @@
   const editor_mode = $derived(stores.editor.editor_mode);
   const split_view = $derived(stores.editor.split_view);
   const active_tab = $derived(stores.tab.active_tab);
-  const is_canvas_tab = $derived(
-    active_tab?.kind === "document" &&
-      (active_tab.file_type === "canvas" ||
-        active_tab.file_type === "excalidraw"),
-  );
-  const document_viewer_state = $derived(
-    active_tab?.kind === "document"
-      ? stores.document.get_viewer_state(active_tab.id)
-      : undefined,
-  );
-  const document_content_state = $derived(
-    active_tab?.kind === "document"
-      ? stores.document.get_content_state(active_tab.id)
-      : undefined,
-  );
+  const is_canvas_tab = $derived.by(() => {
+    const tab = active_tab;
+    return (
+      tab?.kind === "document" &&
+      (tab.file_type === "canvas" || tab.file_type === "excalidraw")
+    );
+  });
+  const document_viewer_state = $derived.by(() => {
+    const tab = active_tab;
+    return tab?.kind === "document"
+      ? stores.document.get_viewer_state(tab.id)
+      : undefined;
+  });
+  const document_content_state = $derived.by(() => {
+    const tab = active_tab;
+    return tab?.kind === "document"
+      ? stores.document.get_content_state(tab.id)
+      : undefined;
+  });
 
   const zoom = $derived(stores.editor.zoom);
 
