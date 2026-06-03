@@ -38,7 +38,12 @@
     let last_toast_time = 0;
     const TOAST_THROTTLE_MS = 3000;
 
-    function throttled_error_toast(label: string, detail: string) {
+    function throttled_error_toast(
+      label: string,
+      detail: string,
+      origin?: unknown,
+    ) {
+      console.error(`[${label}]`, origin ?? detail);
       log.error(label, { error: detail });
       const now = Date.now();
       if (now - last_toast_time < TOAST_THROTTLE_MS) return;
@@ -49,13 +54,21 @@
     const on_error = (event: ErrorEvent) => {
       event.preventDefault();
       if (!event.error) return;
-      throttled_error_toast("Unhandled error", error_message(event.error));
+      throttled_error_toast(
+        "Unhandled error",
+        error_message(event.error),
+        event.error,
+      );
     };
 
     const on_rejection = (event: PromiseRejectionEvent) => {
       event.preventDefault();
       if (!event.reason) return;
-      throttled_error_toast("Unhandled rejection", error_message(event.reason));
+      throttled_error_toast(
+        "Unhandled rejection",
+        error_message(event.reason),
+        event.reason,
+      );
     };
 
     window.addEventListener("error", on_error);
