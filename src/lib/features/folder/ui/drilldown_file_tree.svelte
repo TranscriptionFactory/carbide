@@ -15,6 +15,9 @@
     sanitize_note_color,
     sanitize_note_icon,
   } from "$lib/features/folder/domain/note_visuals";
+  import * as ContextMenu from "$lib/components/ui/context-menu";
+  import { Star, StarOff, Copy, Pencil, Trash2, FolderOpen, ExternalLink, Columns2 } from "@lucide/svelte";
+  import { toast } from "svelte-sonner";
 
   const PEEK_DELAY_MS = 500;
 
@@ -27,6 +30,13 @@
     on_enter_folder,
     on_open_note,
     on_open_file,
+    on_rename,
+    on_delete,
+    on_toggle_star,
+    on_open_to_side,
+    on_reveal_in_finder,
+    on_open_in_default_app,
+    is_starred,
   }: {
     notes: NoteMeta[];
     folder_paths: string[];
@@ -36,6 +46,13 @@
     on_enter_folder: (path: string) => void;
     on_open_note: (path: string) => void;
     on_open_file: (path: string) => void;
+    on_rename?: ((path: string) => void) | undefined;
+    on_delete?: ((path: string) => void) | undefined;
+    on_toggle_star?: ((path: string) => void) | undefined;
+    on_open_to_side?: ((path: string) => void) | undefined;
+    on_reveal_in_finder?: ((path: string) => void) | undefined;
+    on_open_in_default_app?: ((path: string) => void) | undefined;
+    is_starred?: ((path: string) => boolean) | undefined;
   } = $props();
 
   const listing = $derived(
@@ -115,33 +132,104 @@
         {@const entry_icon = entry.note
           ? sanitize_note_icon(entry.note.icon)
           : null}
-        <button
-          type="button"
-          class="DrillRow w-full flex items-center gap-2 px-3 py-1.5 text-sm text-left hover:bg-zinc-100 dark:hover:bg-zinc-900"
-          style={entry_color ? `--note-color: ${entry_color};` : ""}
-          ondblclick={() => activate(entry)}
-          onclick={() => activate(entry)}
-          onmouseenter={(e) => start_peek(entry, e)}
-          onmouseleave={clear_peek}
-        >
-          {#if entry_color}
-            <span class="DrillRow__color-stripe" aria-hidden="true"></span>
-          {/if}
-          {#if entry.is_folder}
-            <Folder size={14} class="text-zinc-500 shrink-0" />
-          {:else if entry.note}
-            {#if entry_icon}
-              <span class="DrillRow__icon-emoji" aria-hidden="true"
-                >{entry_icon}</span
+        {@const starred = is_starred?.(entry.path) ?? false}
+        <ContextMenu.Root>
+          <ContextMenu.Trigger class="w-full">
+            <button
+              type="button"
+              class="DrillRow w-full flex items-center gap-2 px-3 py-1.5 text-sm text-left hover:bg-zinc-100 dark:hover:bg-zinc-900"
+              style={entry_color ? `--note-color: ${entry_color};` : ""}
+              ondblclick={() => activate(entry)}
+              onclick={() => activate(entry)}
+              onmouseenter={(e) => start_peek(entry, e)}
+              onmouseleave={clear_peek}
+            >
+              {#if entry_color}
+                <span class="DrillRow__color-stripe" aria-hidden="true"></span>
+              {/if}
+              {#if entry.is_folder}
+                <Folder size={14} class="text-zinc-500 shrink-0" />
+              {:else if entry.note}
+                {#if entry_icon}
+                  <span class="DrillRow__icon-emoji" aria-hidden="true"
+                    >{entry_icon}</span
+                  >
+                {:else}
+                  <FileText size={14} class="text-zinc-400 shrink-0" />
+                {/if}
+              {:else}
+                <File size={14} class="text-zinc-400 shrink-0" />
+              {/if}
+              <span class="truncate">{entry.name}</span>
+            </button>
+          </ContextMenu.Trigger>
+          <ContextMenu.Portal>
+            <ContextMenu.Content>
+              {#if on_toggle_star}
+                <ContextMenu.Item onSelect={() => on_toggle_star(entry.path)}>
+                  {#if starred}
+                    <StarOff class="mr-2 h-4 w-4" />
+                    <span>Unstar</span>
+                  {:else}
+                    <Star class="mr-2 h-4 w-4" />
+                    <span>Star</span>
+                  {/if}
+                </ContextMenu.Item>
+              {/if}
+              <ContextMenu.Item
+                onSelect={async () => {
+                  try {
+                    await navigator.clipboard.writeText(entry.path);
+                    toast.success("Path copied");
+                  } catch {
+                    toast.error("Failed to copy path");
+                  }
+                }}
               >
-            {:else}
-              <FileText size={14} class="text-zinc-400 shrink-0" />
-            {/if}
-          {:else}
-            <File size={14} class="text-zinc-400 shrink-0" />
-          {/if}
-          <span class="truncate">{entry.name}</span>
-        </button>
+                <Copy class="mr-2 h-4 w-4" />
+                <span>Copy Path</span>
+              </ContextMenu.Item>
+              {#if on_open_to_side && !entry.is_folder}
+                <ContextMenu.Item onSelect={() => on_open_to_side(entry.path)}>
+                  <Columns2 class="mr-2 h-4 w-4" />
+                  <span>Open to Side</span>
+                </ContextMenu.Item>
+              {/if}
+              {#if on_reveal_in_finder}
+                <ContextMenu.Separator />
+                <ContextMenu.Item
+                  onSelect={() => on_reveal_in_finder(entry.path)}
+                >
+                  <FolderOpen class="mr-2 h-4 w-4" />
+                  <span>Reveal in File Manager</span>
+                </ContextMenu.Item>
+              {/if}
+              {#if on_open_in_default_app}
+                <ContextMenu.Item
+                  onSelect={() => on_open_in_default_app(entry.path)}
+                >
+                  <ExternalLink class="mr-2 h-4 w-4" />
+                  <span>Open in Default App</span>
+                </ContextMenu.Item>
+              {/if}
+              {#if on_rename || on_delete}
+                <ContextMenu.Separator />
+                {#if on_rename}
+                  <ContextMenu.Item onSelect={() => on_rename(entry.path)}>
+                    <Pencil class="mr-2 h-4 w-4" />
+                    <span>Rename</span>
+                  </ContextMenu.Item>
+                {/if}
+                {#if on_delete}
+                  <ContextMenu.Item onSelect={() => on_delete(entry.path)}>
+                    <Trash2 class="mr-2 h-4 w-4" />
+                    <span>Delete</span>
+                  </ContextMenu.Item>
+                {/if}
+              {/if}
+            </ContextMenu.Content>
+          </ContextMenu.Portal>
+        </ContextMenu.Root>
       {/each}
     {/if}
   </div>
