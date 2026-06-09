@@ -20,7 +20,12 @@ import { find_language_label, search_languages } from "./language_registry";
 import { LruCache } from "$lib/shared/utils/lru_cache";
 import { schema } from "./schema";
 import { create_logger } from "$lib/shared/utils/logger";
-import { parse_task_query, group_tasks } from "$lib/features/task";
+import {
+  parse_task_query,
+  group_tasks,
+  leaf_of_section,
+  full_section_path,
+} from "$lib/features/task";
 import type { Task, TaskQuery, TaskStatus } from "$lib/features/task";
 
 export type TaskQueryCallbacks = {
@@ -357,7 +362,8 @@ async function render_task_query_results(
           meta_el.appendChild(document.createTextNode(" · "));
           const section_el = document.createElement("span");
           section_el.className = "task-query-section";
-          section_el.textContent = task.section;
+          section_el.textContent = leaf_of_section(task.section);
+          section_el.title = full_section_path(task.section);
           meta_el.appendChild(section_el);
         }
 
