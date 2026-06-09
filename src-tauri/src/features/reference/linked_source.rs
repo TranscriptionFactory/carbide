@@ -697,7 +697,14 @@ pub async fn linked_source_extract_file(
 pub async fn linked_source_list_files(
     folder_path: String,
 ) -> Result<Vec<LinkedSourceFileInfo>, String> {
-    tokio::task::spawn_blocking(move || {
+    // Guard against unreachable mounts (e.g. an unmounted iCloud folder) whose
+    // FS calls can stall for many seconds. If the walk overruns, return early
+    // so callers (and the UI) aren't held hostage; the orphaned blocking task
+    // finishes and is dropped.
+    const LIST_FILES_TIMEOUT: Duration = Duration::from_secs(5);
+    let label = folder_path.clone();
+
+    let handle = tokio::task::spawn_blocking(move || {
         let root = PathBuf::from(&folder_path);
         if !root.is_dir() {
             return Err(format!("not a directory: {folder_path}"));
@@ -727,9 +734,12 @@ pub async fn linked_source_list_files(
             .collect();
 
         Ok(entries)
-    })
-    .await
-    .map_err(|e| format!("spawn_blocking: {e}"))?
+    });
+
+    match tokio::time::timeout(LIST_FILES_TIMEOUT, handle).await {
+        Ok(join_result) => join_result.map_err(|e| format!("spawn_blocking: {e}"))?,
+        Err(_) => Err(format!("listing linked source files timed out: {label}")),
+    }
 }
 
 // ---------------------------------------------------------------------------

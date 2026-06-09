@@ -262,6 +262,15 @@ export function register_reference_actions(input: {
   });
 
   registry.register({
+    id: "reference.refresh_linked_sources",
+    label: "References: Refresh Linked Sources",
+    execute: async () => {
+      await reference_service.verify_linked_sources();
+      await reference_service.rescan_all_enabled_sources();
+    },
+  });
+
+  registry.register({
     id: "reference.toggle_linked_source",
     label: "References: Toggle Linked Source",
     execute: async (source_id: unknown) => {
