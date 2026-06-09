@@ -37,6 +37,10 @@ export function register_ai_actions(
 ) {
   const { registry, services, ai_service, ai_store } = input;
   let dialog_revision = 0;
+  let last_inline_prompts: {
+    system_prompt: string;
+    user_prompt: string;
+  } | null = null;
 
   function ai_enabled() {
     return input.stores.ui.editor_settings.ai_enabled;
@@ -509,9 +513,9 @@ export function register_ai_actions(
       const view = get_inline_view();
       if (!view) return;
 
-      const p = payload as { command_id?: string; prompt?: string } | undefined;
-      const command_id = p?.command_id;
-      const prompt = p?.prompt;
+      const p = payload as
+        | { command_id?: string; prompt?: string; retry?: boolean }
+        | undefined;
 
       const state = get_ai_menu_state(view.state);
       if (!state.open || state.streaming) return;
@@ -522,22 +526,43 @@ export function register_ai_actions(
         return;
       }
 
-      const resolved_command = command_id ?? (prompt ? "custom" : "continue");
-      const commands = resolve_inline_commands(
-        input.stores.ui.editor_settings.ai_inline_commands,
-      );
-      const ctx = extract_inline_context(view);
-      const prompt_input: Parameters<typeof build_ai_inline_prompt>[0] = {
-        command_id: resolved_command,
-        context_text: ctx.context_text,
-        commands,
-      };
-      if (prompt) prompt_input.custom_prompt = prompt;
-      if (ctx.selection_text) prompt_input.selection_text = ctx.selection_text;
-      const prompts = build_ai_inline_prompt(prompt_input);
+      let prompts: { system_prompt: string; user_prompt: string };
+      if (p?.retry) {
+        if (!last_inline_prompts) return;
+        prompts = last_inline_prompts;
+        const tr = view.state.tr.delete(state.ai_range_from, state.ai_range_to);
+        tr.setMeta("addToHistory", false);
+        tr.setMeta(ai_menu_plugin_key, { action: "retry" });
+        view.dispatch(tr);
+      } else {
+        const command_id = p?.command_id;
+        const prompt = p?.prompt;
+        const resolved_command = command_id ?? (prompt ? "custom" : "continue");
+        const commands = resolve_inline_commands(
+          input.stores.ui.editor_settings.ai_inline_commands,
+        );
+        const ctx = extract_inline_context(view);
+        const prompt_input: Parameters<typeof build_ai_inline_prompt>[0] = {
+          command_id: resolved_command,
+          context_text: ctx.context_text,
+          commands,
+        };
+        if (prompt) prompt_input.custom_prompt = prompt;
+        if (ctx.selection_text)
+          prompt_input.selection_text = ctx.selection_text;
+        prompts = build_ai_inline_prompt(prompt_input);
+        last_inline_prompts = prompts;
 
-      const anchor_pos = view.state.selection.from;
-      dispatch_ai_menu(view, { action: "start_stream", anchor_pos });
+        const { from, to } = view.state.selection;
+        const tr = view.state.tr;
+        if (from !== to) tr.delete(from, to);
+        tr.setMeta("addToHistory", false);
+        tr.setMeta(ai_menu_plugin_key, {
+          action: "start_stream",
+          anchor_pos: from,
+        });
+        view.dispatch(tr);
+      }
 
       try {
         for await (const chunk of ai_service.stream_inline({
