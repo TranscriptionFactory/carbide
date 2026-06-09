@@ -48,13 +48,18 @@ export type AiMenuMeta =
   | { action: "open" }
   | { action: "close" }
   | { action: "start_stream"; anchor_pos: number }
+  | { action: "retry" }
   | { action: "stream_text"; text: string }
   | { action: "stream_done" }
   | { action: "accept" }
   | { action: "reject" };
 
 export type AiMenuPluginConfig = {
-  on_execute: (payload: { command_id?: string; prompt?: string }) => void;
+  on_execute: (payload: {
+    command_id?: string;
+    prompt?: string;
+    retry?: boolean;
+  }) => void;
   get_commands?: () => AiInlineCommand[];
   on_open_settings?: () => void;
 };
@@ -111,6 +116,7 @@ export function create_ai_menu_plugin(
               open: true,
               mode: has_selection ? "selection_command" : "cursor_command",
               anchor_pos: selection.from,
+              original_doc: new_state.doc,
             };
           }
           case "close":
@@ -120,9 +126,15 @@ export function create_ai_menu_plugin(
             return {
               ...prev,
               streaming: true,
-              original_doc: tr.before,
               ai_range_from: meta.anchor_pos,
               ai_range_to: meta.anchor_pos,
+            };
+
+          case "retry":
+            return {
+              ...prev,
+              streaming: true,
+              ai_range_to: prev.ai_range_from,
             };
 
           case "stream_text": {
@@ -211,6 +223,7 @@ export function create_ai_menu_plugin(
             on_submit: (prompt: string) => config?.on_execute?.({ prompt }),
             on_command: (id: string) =>
               config?.on_execute?.({ command_id: id }),
+            on_retry: () => config?.on_execute?.({ retry: true }),
             on_accept: () =>
               dispatch_ai_menu(editor_view, { action: "accept" }),
             on_reject: () => reject_ai_inline(editor_view),

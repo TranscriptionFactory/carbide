@@ -16,6 +16,7 @@
     commands: AiInlineCommand[];
     on_submit: (prompt: string) => void;
     on_command: (command_id: string) => void;
+    on_retry: () => void;
     on_accept: () => void;
     on_reject: () => void;
     on_close: () => void;
@@ -28,6 +29,7 @@
     commands,
     on_submit,
     on_command,
+    on_retry,
     on_accept,
     on_reject,
     on_close,
@@ -86,11 +88,7 @@
         <X size={14} />
         <span>Discard</span>
       </button>
-      <button
-        type="button"
-        class="AiInlineMenu__action-btn"
-        onclick={() => on_command("retry")}
-      >
+      <button type="button" class="AiInlineMenu__action-btn" onclick={on_retry}>
         <RotateCcw size={14} />
         <span>Try again</span>
       </button>
