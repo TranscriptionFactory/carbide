@@ -37,8 +37,20 @@
     }
   });
 
+  let refreshing = $state(false);
+
   async function add_source() {
     await ctx.action_registry.execute("reference.add_linked_source");
+  }
+
+  async function refresh_sources() {
+    if (refreshing) return;
+    refreshing = true;
+    try {
+      await ctx.action_registry.execute("reference.refresh_linked_sources");
+    } finally {
+      refreshing = false;
+    }
   }
 
   async function remove_source(id: string) {
@@ -79,13 +91,25 @@
 <div class="LinkedSourceManager">
   <div class="flex items-center justify-between px-3 py-2 border-b">
     <p class="text-xs text-muted-foreground font-medium">Linked Sources</p>
-    <button
-      class="flex items-center gap-1 px-1.5 py-0.5 rounded text-xs hover:bg-muted"
-      onclick={add_source}
-      title="Add linked source folder"
-    >
-      <FolderPlus class="w-3.5 h-3.5" />
-    </button>
+    <div class="flex items-center gap-1">
+      {#if ref_store.linked_sources.length > 0}
+        <button
+          class="flex items-center gap-1 px-1.5 py-0.5 rounded text-xs hover:bg-muted"
+          onclick={refresh_sources}
+          disabled={refreshing}
+          title="Refresh sources (re-validate and rescan)"
+        >
+          <RefreshCw class="w-3.5 h-3.5 {refreshing ? 'animate-spin' : ''}" />
+        </button>
+      {/if}
+      <button
+        class="flex items-center gap-1 px-1.5 py-0.5 rounded text-xs hover:bg-muted"
+        onclick={add_source}
+        title="Add linked source folder"
+      >
+        <FolderPlus class="w-3.5 h-3.5" />
+      </button>
+    </div>
   </div>
 
   {#if ref_store.linked_sources.length === 0}
