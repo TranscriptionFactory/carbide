@@ -1,12 +1,23 @@
 <script lang="ts">
+  import { onMount } from "svelte";
   import { sanitize_html } from "$lib/shared/html";
 
   interface Props {
     content: string;
     theme: "light" | "dark";
+    initial_scroll_top?: number;
+    on_scroll_change?: (scroll_top: number) => void;
   }
 
-  let { content, theme }: Props = $props();
+  let {
+    content,
+    theme,
+    initial_scroll_top = 0,
+    on_scroll_change,
+  }: Props = $props();
+
+  let frame: HTMLIFrameElement | undefined = $state();
+  let scroll_timer: ReturnType<typeof setTimeout> | undefined;
 
   const sanitized = $derived(sanitize_html(content));
 
@@ -28,6 +39,30 @@
       blockquote: "#71717a",
     },
   } as const;
+
+  function on_frame_load() {
+    const doc = frame?.contentDocument;
+    if (!doc) return;
+
+    requestAnimationFrame(() => {
+      const scrollable = doc.scrollingElement ?? doc.documentElement;
+      scrollable.scrollTop = initial_scroll_top;
+    });
+
+    doc.addEventListener("scroll", () => {
+      clearTimeout(scroll_timer);
+      scroll_timer = setTimeout(() => {
+        const scrollable = doc.scrollingElement ?? doc.documentElement;
+        on_scroll_change?.(scrollable.scrollTop);
+      }, 150);
+    });
+  }
+
+  onMount(() => {
+    return () => {
+      clearTimeout(scroll_timer);
+    };
+  });
 
   const srcdoc = $derived.by(() => {
     const p = palettes[theme];
@@ -68,10 +103,12 @@
 
 <div class="HtmlViewer">
   <iframe
+    bind:this={frame}
     class="HtmlViewer__frame"
     sandbox="allow-same-origin"
     title="HTML document preview"
     {srcdoc}
+    onload={on_frame_load}
   ></iframe>
 </div>
 

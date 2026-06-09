@@ -15,9 +15,18 @@
     theme: Theme;
     allow_network?: boolean;
     asset_root?: string;
+    initial_scroll_top?: number;
+    on_scroll_change?: (scroll_top: number) => void;
   }
 
-  let { content, theme, allow_network = false, asset_root }: Props = $props();
+  let {
+    content,
+    theme,
+    allow_network = false,
+    asset_root,
+    initial_scroll_top = 0,
+    on_scroll_change,
+  }: Props = $props();
 
   let src = $state<string | null>(null);
 
