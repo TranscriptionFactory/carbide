@@ -71,6 +71,10 @@
     stores.tab.set_dirty(viewer_state.tab_id, true);
   }
 
+  function handle_scroll_change(scroll_top: number): void {
+    stores.document.update_scroll(viewer_state.tab_id, scroll_top);
+  }
+
   async function set_html_view_mode(mode: HtmlViewMode): Promise<void> {
     if (mode === "live" && !live_allowed) {
       const granted = await services.document.request_trust_grant(
@@ -181,11 +185,15 @@
         theme={stores.ui.active_theme}
         {allow_network}
         asset_root={parent_folder_path(viewer_state.file_path)}
+        initial_scroll_top={viewer_state.scroll_top}
+        on_scroll_change={handle_scroll_change}
       />
     {:else}
       <HtmlViewer
         content={current_content}
         theme={stores.ui.active_theme.color_scheme}
+        initial_scroll_top={viewer_state.scroll_top}
+        on_scroll_change={handle_scroll_change}
       />
     {/if}
   {:else if viewer_state.file_type === "text" && current_content !== null}
