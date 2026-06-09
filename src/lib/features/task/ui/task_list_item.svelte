@@ -1,5 +1,9 @@
 <script lang="ts">
   import type { Task, TaskStatus } from "../types";
+  import {
+    leaf_of_section,
+    full_section_path,
+  } from "$lib/features/task/domain/section_label";
   import { use_app_context } from "$lib/app/context/app_context.svelte";
   import Calendar from "@lucide/svelte/icons/calendar";
   import FileText from "@lucide/svelte/icons/file-text";
@@ -63,9 +67,12 @@
       </button>
 
       {#if task.section}
-        <div class="flex items-center gap-1" title={task.section}>
+        <div
+          class="flex items-center gap-1"
+          title={full_section_path(task.section)}
+        >
           <Hash size={10} />
-          {task.section.split("/").pop()}
+          {leaf_of_section(task.section)}
         </div>
       {/if}
 

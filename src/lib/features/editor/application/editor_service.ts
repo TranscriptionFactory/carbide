@@ -33,6 +33,7 @@ import type { OutlineStore } from "$lib/features/outline";
 import type { AssetsPort, NotesPort } from "$lib/features/note";
 import type { TagPort } from "$lib/features/tags";
 import { normalize_markdown_line_breaks } from "$lib/features/editor/domain/markdown_line_breaks";
+import { rank_tags } from "$lib/features/tags";
 import { is_draft_note_path } from "$lib/features/note";
 import { error_message } from "$lib/shared/utils/error_message";
 import { create_logger } from "$lib/shared/utils/logger";
@@ -890,10 +891,12 @@ export class EditorService {
 
     void tag_port.list_all_tags(vault_id).then((tags) => {
       if (!this.is_generation_current(generation)) return;
-      const lower_query = query.toLowerCase();
-      const filtered = tags.filter((t) =>
-        t.tag.toLowerCase().startsWith(lower_query),
-      );
+      const tag_map = new Map(tags.map((t) => [t.tag, t]));
+      const ranked = rank_tags(query, Array.from(tag_map.keys()), 20);
+      const filtered = ranked.flatMap((m) => {
+        const entry = tag_map.get(m.tag);
+        return entry ? [entry] : [];
+      });
       this.session?.set_tag_suggestions?.(filtered);
     });
   }
@@ -998,14 +1001,14 @@ export class EditorService {
 
     void tag_port.list_all_tags(vault_id).then((tags) => {
       if (!this.is_generation_current(generation)) return;
-      const lower_query = query.toLowerCase();
-      const items: AtPaletteItem[] = tags
-        .filter((t) => t.tag.toLowerCase().startsWith(lower_query))
-        .map((t) => ({
-          category: "tags" as const,
-          tag: t.tag,
-          count: t.count,
-        }));
+      const tag_map = new Map(tags.map((t) => [t.tag, t]));
+      const ranked = rank_tags(query, Array.from(tag_map.keys()), 20);
+      const items: AtPaletteItem[] = ranked.flatMap((m) => {
+        const entry = tag_map.get(m.tag);
+        return entry
+          ? [{ category: "tags" as const, tag: entry.tag, count: entry.count }]
+          : [];
+      });
       this.session?.set_at_palette_suggestions?.("tags", items);
     });
   }
