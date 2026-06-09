@@ -687,9 +687,9 @@ export class ReferenceService {
       for (const removed_path of removed_paths) {
         const note = existing_by_path.get(removed_path);
         if (note) {
-          // Resolve via vault-relative or home-relative path only.
-          // Do NOT pass external_file_path — it points to the old, missing
-          // location and resolve_linked_path would return it immediately.
+          // Resolve via vault-relative or home-relative path only;
+          // external_file_path is the stale location we are relocating away
+          // from, so omit it from the candidate meta.
           const resolve_meta: LinkedSourceMeta = {};
           if (note.vault_relative_path)
             resolve_meta.vault_relative_path = note.vault_relative_path;

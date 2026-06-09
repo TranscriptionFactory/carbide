@@ -47,13 +47,17 @@ export function compute_home_relative_path(
   return "~/" + file_path.slice(normalized_home.length);
 }
 
+// `external_file_path` is a cache hint, not the source of truth: it is the
+// absolute path recorded by the machine that indexed the file and may point at
+// a location that does not exist on another machine. Prefer the portable
+// anchors (vault-relative, then home-relative) and fall back to the cached
+// absolute path only when no anchor is available. Callers that need an existing
+// file (open/preview) should validate the result against the filesystem.
 export function resolve_linked_path(
   meta: LinkedSourceMeta,
   vault_root: string,
   home_dir: string,
 ): string | null {
-  if (meta.external_file_path) return meta.external_file_path;
-
   if (meta.vault_relative_path && vault_root) {
     return posix_resolve(vault_root, meta.vault_relative_path);
   }
@@ -61,6 +65,8 @@ export function resolve_linked_path(
   if (meta.home_relative_path && home_dir) {
     return meta.home_relative_path.replace(/^~/, home_dir);
   }
+
+  if (meta.external_file_path) return meta.external_file_path;
 
   return null;
 }
