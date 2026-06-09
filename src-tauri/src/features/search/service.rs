@@ -2328,19 +2328,68 @@ pub fn resolve_linked_note_file_path(
         .ok()
         .map(|p| p.to_string_lossy().into_owned());
 
-    if let (Some(hrp), Some(home)) = (&home_relative_path, &home_dir) {
-        if hrp.starts_with("~/") {
-            let expanded = format!("{}{}", home, &hrp[1..]);
-            return Ok(Some(expanded));
+    Ok(resolve_existing_linked_path(
+        external_file_path,
+        home_relative_path,
+        vault_relative_path,
+        home_dir.as_deref(),
+        vault_root.as_deref(),
+        |p| Path::new(p).exists(),
+    ))
+}
+
+// Resolves a linked note's stored anchors to a concrete file path. The portable
+// anchors (vault-relative, then home-relative) take priority over
+// `external_file_path`, which is only a cache of the absolute path on the
+// machine that indexed the file and may not exist elsewhere. Among the
+// candidates we return the first one that actually exists on disk; if none
+// exist we fall back to the most-portable candidate as a best guess so callers
+// still surface a "file not found" rather than silently doing nothing.
+fn resolve_existing_linked_path(
+    external_file_path: Option<String>,
+    home_relative_path: Option<String>,
+    vault_relative_path: Option<String>,
+    home_dir: Option<&str>,
+    vault_root: Option<&str>,
+    exists: impl Fn(&str) -> bool,
+) -> Option<String> {
+    let mut candidates: Vec<String> = Vec::new();
+
+    if let (Some(vrp), Some(root)) = (&vault_relative_path, vault_root) {
+        candidates.push(lexically_normalize(Path::new(root).join(vrp)));
+    }
+    if let (Some(hrp), Some(home)) = (&home_relative_path, home_dir) {
+        if let Some(rest) = hrp.strip_prefix("~/") {
+            candidates.push(format!("{}/{}", home.trim_end_matches('/'), rest));
         }
     }
-
-    if let (Some(vrp), Some(root)) = (&vault_relative_path, &vault_root) {
-        let resolved = std::path::Path::new(root).join(vrp);
-        return Ok(Some(resolved.to_string_lossy().into_owned()));
+    if let Some(ext) = external_file_path {
+        candidates.push(ext);
     }
 
-    Ok(external_file_path)
+    candidates
+        .iter()
+        .find(|p| exists(p))
+        .cloned()
+        .or_else(|| candidates.into_iter().next())
+}
+
+// Resolves `.`/`..` components lexically (without touching the filesystem) so a
+// vault-relative anchor like `../linked/x.pdf` joined onto the vault root yields
+// a clean absolute path rather than one containing `..` segments.
+fn lexically_normalize(path: PathBuf) -> String {
+    use std::path::Component;
+    let mut out = PathBuf::new();
+    for component in path.components() {
+        match component {
+            Component::ParentDir => {
+                out.pop();
+            }
+            Component::CurDir => {}
+            other => out.push(other),
+        }
+    }
+    out.to_string_lossy().into_owned()
 }
 
 #[tauri::command]
@@ -3061,6 +3110,75 @@ mod tests {
             .iter()
             .map(|(k, v)| (k.to_string(), v.to_string()))
             .collect()
+    }
+
+    #[test]
+    fn resolve_existing_prefers_existing_vault_relative_over_stale_external() {
+        let existing = ["/Users/bob/projects/linked/paper.pdf"];
+        let resolved = resolve_existing_linked_path(
+            Some("/Users/alice/icloud/paper.pdf".into()),
+            None,
+            Some("../linked/paper.pdf".into()),
+            Some("/Users/bob"),
+            Some("/Users/bob/projects/vault"),
+            |p| existing.contains(&p),
+        );
+        assert_eq!(
+            resolved.as_deref(),
+            Some("/Users/bob/projects/linked/paper.pdf")
+        );
+    }
+
+    #[test]
+    fn resolve_existing_falls_through_to_external_when_anchors_missing() {
+        let existing = ["/Users/alice/icloud/paper.pdf"];
+        let resolved = resolve_existing_linked_path(
+            Some("/Users/alice/icloud/paper.pdf".into()),
+            None,
+            Some("../linked/paper.pdf".into()),
+            Some("/Users/bob"),
+            Some("/Users/bob/projects/vault"),
+            |p| existing.contains(&p),
+        );
+        assert_eq!(resolved.as_deref(), Some("/Users/alice/icloud/paper.pdf"));
+    }
+
+    #[test]
+    fn resolve_existing_expands_home_relative_anchor() {
+        let existing = ["/Users/bob/Library/paper.pdf"];
+        let resolved = resolve_existing_linked_path(
+            None,
+            Some("~/Library/paper.pdf".into()),
+            None,
+            Some("/Users/bob"),
+            None,
+            |p| existing.contains(&p),
+        );
+        assert_eq!(resolved.as_deref(), Some("/Users/bob/Library/paper.pdf"));
+    }
+
+    #[test]
+    fn resolve_existing_returns_best_guess_when_nothing_exists() {
+        let resolved = resolve_existing_linked_path(
+            Some("/Users/alice/icloud/paper.pdf".into()),
+            None,
+            Some("../linked/paper.pdf".into()),
+            Some("/Users/bob"),
+            Some("/Users/bob/projects/vault"),
+            |_| false,
+        );
+        // Falls back to the most-portable candidate (vault-relative) as a guess.
+        assert_eq!(
+            resolved.as_deref(),
+            Some("/Users/bob/projects/linked/paper.pdf")
+        );
+    }
+
+    #[test]
+    fn resolve_existing_returns_none_without_candidates() {
+        let resolved =
+            resolve_existing_linked_path(None, None, None, Some("/Users/bob"), None, |_| true);
+        assert_eq!(resolved, None);
     }
 
     #[test]

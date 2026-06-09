@@ -69,7 +69,7 @@ describe("resolve_linked_path", () => {
   const vault_root = "/Users/bob/projects/vault";
   const home_dir = "/Users/bob";
 
-  it("returns absolute path when present", () => {
+  it("returns the cached absolute path when it is the only anchor", () => {
     expect(
       resolve_linked_path(
         { external_file_path: "/Users/abir/papers/paper.pdf" },
@@ -107,7 +107,7 @@ describe("resolve_linked_path", () => {
     expect(resolve_linked_path({}, vault_root, home_dir)).toBeNull();
   });
 
-  it("prefers absolute over vault-relative", () => {
+  it("prefers vault-relative over the cached absolute path", () => {
     expect(
       resolve_linked_path(
         {
@@ -117,7 +117,20 @@ describe("resolve_linked_path", () => {
         vault_root,
         home_dir,
       ),
-    ).toBe("/absolute/path.pdf");
+    ).toBe("/Users/bob/projects/other/path.pdf");
+  });
+
+  it("prefers home-relative over the cached absolute path", () => {
+    expect(
+      resolve_linked_path(
+        {
+          external_file_path: "/absolute/path.pdf",
+          home_relative_path: "~/Library/paper.pdf",
+        },
+        vault_root,
+        home_dir,
+      ),
+    ).toBe("/Users/bob/Library/paper.pdf");
   });
 
   it("prefers vault-relative over home-relative", () => {
