@@ -1,0 +1,475 @@
+<!doctype html>
+<html lang="en" data-color-scheme="light">
+<head>
+<meta charset="utf-8"/>
+<title>Carbide v5 — Atelier · Glass</title>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    /* prose = Inter (Carbide's existing default) — no serif */
+    --serif: "Inter", system-ui, -apple-system, sans-serif;
+    --sans: "Geist", system-ui, -apple-system, sans-serif;
+    --mono: "Geist Mono", ui-monospace, Menlo, monospace;
+
+    /* Atelier · Glass (light) — cool luminous mesh, frosted surfaces, violet-indigo ink */
+    --bg-a: oklch(0.96 0.03 270);
+    --bg-b: oklch(0.95 0.035 220);
+    --bg-c: oklch(0.97 0.025 320);
+    --canvas: oklch(0.965 0.018 260);
+
+    --fg: oklch(0.28 0.03 280);
+    --fg-2: oklch(0.44 0.025 278);
+    --fg-3: oklch(0.58 0.02 276);
+    --fg-4: oklch(0.70 0.016 274);
+
+    /* glass surface = translucent white-ish + blur */
+    --glass: oklch(1 0 0 / 0.55);
+    --glass-2: oklch(1 0 0 / 0.40);
+    --glass-strong: oklch(1 0 0 / 0.72);
+    --glass-edge: oklch(1 0 0 / 0.65);
+    --hairline: oklch(0.5 0.03 270 / 0.16);
+    --hairline-strong: oklch(0.5 0.03 270 / 0.28);
+    --hover: oklch(1 0 0 / 0.45);
+
+    --accent: oklch(0.52 0.16 280);
+    --accent-soft: oklch(0.70 0.12 282);
+    --accent-bg: oklch(0.7 0.12 282 / 0.16);
+    --accent-ink: oklch(0.42 0.16 280);
+    --sepia: oklch(0.6 0.12 40);
+    --sepia-bg: oklch(0.7 0.12 45 / 0.16);
+    --dirty: oklch(0.62 0.15 35);
+
+    --blur: 22px;
+    --shadow: 0 1px 1px oklch(0.3 0.05 280 / 0.05), 0 10px 30px oklch(0.3 0.06 280 / 0.10);
+    --shadow-lift: 0 2px 6px oklch(0.3 0.05 280 / 0.10), 0 26px 70px oklch(0.3 0.08 280 / 0.18);
+    --inner-hi: inset 0 1px 0 oklch(1 0 0 / 0.55);
+  }
+  [data-color-scheme="dark"] {
+    /* Atelier · Glass (dark) — deep cool aurora, smoked-glass surfaces */
+    --bg-a: oklch(0.24 0.05 280);
+    --bg-b: oklch(0.21 0.045 250);
+    --bg-c: oklch(0.26 0.06 320);
+    --canvas: oklch(0.20 0.03 270);
+
+    --fg: oklch(0.94 0.02 280);
+    --fg-2: oklch(0.80 0.02 278);
+    --fg-3: oklch(0.64 0.02 276);
+    --fg-4: oklch(0.52 0.018 274);
+
+    --glass: oklch(0.7 0.04 280 / 0.14);
+    --glass-2: oklch(0.7 0.04 280 / 0.09);
+    --glass-strong: oklch(0.72 0.05 280 / 0.22);
+    --glass-edge: oklch(1 0 0 / 0.12);
+    --hairline: oklch(1 0 0 / 0.10);
+    --hairline-strong: oklch(1 0 0 / 0.18);
+    --hover: oklch(1 0 0 / 0.07);
+
+    --accent: oklch(0.78 0.15 282);
+    --accent-soft: oklch(0.62 0.13 282);
+    --accent-bg: oklch(0.7 0.14 282 / 0.20);
+    --accent-ink: oklch(0.86 0.13 282);
+    --sepia: oklch(0.78 0.11 50);
+    --sepia-bg: oklch(0.7 0.12 50 / 0.18);
+    --dirty: oklch(0.76 0.14 40);
+
+    --shadow: 0 1px 1px oklch(0 0 0 / 0.3), 0 12px 36px oklch(0 0 0 / 0.4);
+    --shadow-lift: 0 2px 8px oklch(0 0 0 / 0.45), 0 30px 80px oklch(0 0 0 / 0.55);
+    --inner-hi: inset 0 1px 0 oklch(1 0 0 / 0.10);
+  }
+
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    color: var(--fg);
+    font-family: var(--sans); font-size: 13.5px; line-height: 1.5;
+    -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility;
+    background:
+      radial-gradient(60% 55% at 12% 8%, var(--bg-a), transparent 70%),
+      radial-gradient(55% 60% at 92% 18%, var(--bg-c), transparent 68%),
+      radial-gradient(70% 65% at 50% 110%, var(--bg-b), transparent 70%),
+      var(--canvas);
+    background-attachment: fixed;
+  }
+  button { font-family: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
+  ::selection { background: color-mix(in oklch, var(--accent) 26%, transparent); }
+  ::-webkit-scrollbar { width: 9px; height: 9px; }
+  ::-webkit-scrollbar-thumb { background: var(--hairline-strong); border-radius: 5px; border: 2px solid transparent; background-clip: padding-box; }
+  ::-webkit-scrollbar-track { background: transparent; }
+
+  /* glass mixin via utility */
+  .g {
+    background: var(--glass);
+    backdrop-filter: blur(var(--blur)) saturate(1.4);
+    -webkit-backdrop-filter: blur(var(--blur)) saturate(1.4);
+    border: 1px solid var(--glass-edge);
+    box-shadow: var(--shadow), var(--inner-hi);
+  }
+
+  .app { display: flex; flex-direction: column; height: 100%; }
+
+  .topbar {
+    display: grid; grid-template-columns: 1fr auto 1fr; align-items: center;
+    height: 48px; padding: 0 16px; position: relative; z-index: 30;
+    background: var(--glass-2);
+    backdrop-filter: blur(var(--blur)) saturate(1.4);
+    -webkit-backdrop-filter: blur(var(--blur)) saturate(1.4);
+    border-bottom: 1px solid var(--hairline);
+  }
+  .brand { display: flex; align-items: center; gap: 9px; font-size: 12.5px; color: var(--fg-2); }
+  .brand b { color: var(--fg); font-weight: 600; }
+  .brand .dot { width: 7px; height: 7px; border-radius: 50%; background: linear-gradient(var(--accent), var(--accent-soft)); box-shadow: 0 0 8px var(--accent-soft); }
+  .vault-meta { color: var(--fg-4); font-family: var(--mono); font-size: 11px; }
+
+  .modes { display: flex; gap: 3px; padding: 3px; border-radius: 999px;
+    background: var(--glass-2); border: 1px solid var(--hairline);
+    backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
+  .modes button { font-size: 12px; padding: 5px 16px; border-radius: 999px; color: var(--fg-3); transition: color .15s, background .15s; }
+  .modes button:hover { color: var(--fg); }
+  .modes button.on { color: var(--fg); background: var(--glass-strong); box-shadow: var(--shadow), var(--inner-hi); font-weight: 500; }
+
+  .top-right { display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
+  .icon-btn { width: 31px; height: 31px; display: grid; place-items: center; border-radius: 9px; color: var(--fg-3); transition: background .15s, color .15s; }
+  .icon-btn:hover { background: var(--hover); color: var(--fg); }
+  .kbar {
+    display: flex; align-items: center; gap: 8px; height: 31px; padding: 0 11px 0 13px;
+    border-radius: 999px; color: var(--fg-3); font-size: 12px;
+    background: var(--glass); border: 1px solid var(--glass-edge);
+    backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+    transition: color .15s; box-shadow: var(--inner-hi);
+  }
+  .kbar:hover { color: var(--fg); }
+  .kbar kbd { font-family: var(--mono); font-size: 10.5px; padding: 2px 6px; border-radius: 5px; background: var(--glass-2); border: 1px solid var(--hairline); color: var(--fg-3); }
+
+  .body { flex: 1; position: relative; overflow: hidden; }
+
+  /* edge rails */
+  .rail { position: absolute; top: 0; bottom: 0; width: 14px; z-index: 20; }
+  .rail.left { left: 0; } .rail.right { right: 0; }
+  .rail .tab { width: 14px; height: 100%; display: flex; align-items: center; justify-content: center; color: var(--fg-4); }
+  .rail .tab span { writing-mode: vertical-rl; font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; font-family: var(--mono); }
+  .rail:hover .tab { color: var(--accent); }
+  .rail .panel-peek {
+    position: absolute; top: 12px; bottom: 12px; width: 256px; border-radius: 16px;
+    background: var(--glass); backdrop-filter: blur(var(--blur)) saturate(1.5); -webkit-backdrop-filter: blur(var(--blur)) saturate(1.5);
+    border: 1px solid var(--glass-edge); box-shadow: var(--shadow-lift), var(--inner-hi);
+    opacity: 0; pointer-events: none; transform: translateX(-12px);
+    transition: opacity .18s ease, transform .22s cubic-bezier(.2,.7,.2,1);
+    padding: 14px; overflow: auto;
+  }
+  /* persistent left sidebar (vault) — relaxed zero-chrome, lives where vault is today */
+  .rail.left { width: 268px; }
+  .rail.left .tab { display: none; }
+  .rail.left .panel-peek { left: 12px; opacity: 1; transform: none; pointer-events: auto; width: 246px; }
+  .view { left: 282px; }
+  .rail.right .panel-peek { right: 10px; transform: translateX(12px); }
+  .rail:hover .panel-peek { opacity: 1; transform: translateX(0); pointer-events: auto; }
+
+  .peek-h { font-family: var(--mono); font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--fg-4); margin: 2px 4px 10px; }
+  .folder-row { display: flex; align-items: center; justify-content: space-between; padding: 5px 8px; border-radius: 8px; color: var(--fg-2); font-size: 12.5px; }
+  .folder-row:hover { background: var(--hover); color: var(--fg); }
+  .folder-row .count { font-family: var(--mono); font-size: 10.5px; color: var(--fg-4); }
+  .folder-row .fname { display: flex; align-items: center; gap: 8px; }
+  .folder-row .fname svg { color: var(--fg-4); }
+  .bl-item { padding: 8px 9px; border-radius: 10px; } .bl-item:hover { background: var(--hover); }
+  .bl-item .t { font-family: var(--serif); font-size: 14px; color: var(--fg); }
+  .bl-item .s { font-size: 11.5px; color: var(--fg-3); margin-top: 2px; }
+
+  .view { position: absolute; inset: 0; overflow: auto; }
+  .view[hidden] { display: none; }
+
+  /* TIMELINE */
+  .stream { max-width: 770px; margin: 0 auto; padding: 42px 28px 120px; }
+  .stream-head { text-align: center; margin-bottom: 6px; }
+  .stream-head h1 { font-family: var(--serif); font-weight: 500; font-size: 27px; letter-spacing: -0.01em; margin: 0; }
+  .stream-head p { color: var(--fg-3); font-size: 13px; margin: 6px 0 0; }
+
+  .day { position: relative; padding: 30px 0 10px; }
+  .day + .day { border-top: 1px solid var(--hairline); }
+  .day-rule { display: flex; align-items: baseline; gap: 14px; margin-bottom: 16px; }
+  .day-date { font-family: var(--serif); font-weight: 500; font-size: 21px; color: var(--fg); white-space: nowrap; }
+  .day-dow { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--fg-4); }
+  .day-rule .line { flex: 1; height: 1px; background: var(--hairline); }
+  .day-rule .agg { font-family: var(--mono); font-size: 11px; color: var(--fg-4); white-space: nowrap; }
+  .day.today .day-date { color: var(--accent-ink); }
+  .day.today .day-date::after { content: "· Today"; font-family: var(--sans); font-size: 12px; color: var(--sepia); margin-left: 8px; font-weight: 500; }
+
+  .note-card {
+    border-radius: 16px; padding: 20px 24px; margin-bottom: 14px;
+    background: var(--glass); backdrop-filter: blur(var(--blur)) saturate(1.4); -webkit-backdrop-filter: blur(var(--blur)) saturate(1.4);
+    border: 1px solid var(--glass-edge); box-shadow: var(--shadow), var(--inner-hi);
+  }
+  .note-card.compose { border-style: dashed; border-color: var(--hairline-strong); background: var(--glass-2); }
+  .note-card h2 { font-family: var(--serif); font-weight: 600; font-size: 18px; margin: 0 0 4px; }
+  .note-card .prose { font-family: var(--serif); font-size: 16px; line-height: 1.62; color: var(--fg); }
+  .note-card .prose p { margin: 0 0 6px; }
+  .note-card .prose .muted { color: var(--fg-3); }
+  .checkitem { display: flex; align-items: flex-start; gap: 10px; font-family: var(--serif); font-size: 15.5px; padding: 3px 0; }
+  .checkitem .box { width: 15px; height: 15px; border: 1.5px solid var(--hairline-strong); border-radius: 4px; margin-top: 4px; flex: none; }
+  .checkitem.done .box { background: var(--accent); border-color: var(--accent); position: relative; }
+  .checkitem.done .box::after { content: "✓"; color: white; font-size: 10px; position: absolute; inset: 0; display: grid; place-items: center; }
+  .checkitem.done span { color: var(--fg-3); text-decoration: line-through; text-decoration-color: var(--fg-4); }
+  .pill-urgent { font-family: var(--sans); font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--dirty); border: 1px solid color-mix(in oklch, var(--dirty) 45%, transparent); padding: 1px 7px; border-radius: 999px; margin-left: 8px; }
+
+  .activity { display: flex; flex-direction: column; gap: 1px;
+    border-radius: 16px; padding: 6px;
+    background: var(--glass-2); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+    border: 1px solid var(--hairline); box-shadow: var(--inner-hi); }
+  .act-row { display: flex; align-items: center; gap: 12px; padding: 8px 12px; border-radius: 11px; transition: background .12s; }
+  .act-row:hover { background: var(--hover); }
+  .act-glyph { width: 26px; height: 26px; flex: none; display: grid; place-items: center; border-radius: 8px; background: var(--glass-strong); color: var(--fg-3); box-shadow: var(--inner-hi); }
+  .act-glyph.edit { background: var(--accent-bg); color: var(--accent-ink); }
+  .act-glyph.commit { background: var(--sepia-bg); color: var(--sepia); }
+  .act-main { min-width: 0; flex: 1; }
+  .act-title { font-family: var(--serif); font-size: 15px; color: var(--fg); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .act-sub { font-size: 11.5px; color: var(--fg-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-family: var(--mono); }
+  .act-time { font-family: var(--mono); font-size: 10.5px; color: var(--fg-4); white-space: nowrap; }
+  .act-path { color: var(--fg-4); }
+
+  .tagrow { display: flex; flex-wrap: wrap; gap: 6px; margin: 14px 2px 4px; }
+  .tag { font-family: var(--mono); font-size: 11px; color: var(--accent-ink); background: var(--accent-bg); padding: 2px 9px; border-radius: 999px; border: 1px solid var(--hairline); }
+  .tag.sepia { color: var(--sepia); background: var(--sepia-bg); }
+  .tag .n { opacity: 0.55; margin-left: 4px; }
+
+  /* EDITOR */
+  .editor-wrap { max-width: 720px; margin: 0 auto; padding: 60px 28px 160px; }
+  .doc-glass { border-radius: 20px; padding: 44px 48px;
+    background: var(--glass); backdrop-filter: blur(var(--blur)) saturate(1.4); -webkit-backdrop-filter: blur(var(--blur)) saturate(1.4);
+    border: 1px solid var(--glass-edge); box-shadow: var(--shadow-lift), var(--inner-hi); }
+  .doc-kicker { font-family: var(--mono); font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--sepia); margin-bottom: 14px; }
+  .doc-title { font-family: var(--serif); font-weight: 600; font-size: 33px; line-height: 1.16; letter-spacing: -0.015em; margin: 0 0 6px; }
+  .doc-meta { font-family: var(--mono); font-size: 11.5px; color: var(--fg-4); margin-bottom: 28px; display: flex; gap: 14px; }
+  .doc-meta .dirty-dot { color: var(--dirty); }
+  .doc-body { font-family: var(--serif); font-size: 18px; line-height: 1.7; color: var(--fg); }
+  .doc-body p { margin: 0 0 18px; }
+  .doc-body h3 { font-size: 21px; font-weight: 600; margin: 32px 0 10px; }
+  .doc-body em { color: var(--fg-2); }
+  .doc-body .link { color: var(--accent-ink); border-bottom: 1px solid var(--accent-soft); text-decoration: none; }
+  .doc-body code { font-family: var(--mono); font-size: 14.5px; background: var(--glass-2); padding: 1px 6px; border-radius: 5px; border: 1px solid var(--hairline); }
+  .doc-body blockquote { margin: 0 0 18px; padding: 4px 0 4px 20px; border-left: 2px solid var(--sepia); color: var(--fg-2); font-style: italic; }
+  .caret { display: inline-block; width: 2px; height: 1.05em; background: var(--accent); vertical-align: text-bottom; animation: blink 1.1s step-end infinite; margin-left: 1px; }
+  @keyframes blink { 50% { opacity: 0; } }
+
+  /* CANVAS */
+  .canvas-stage { position: absolute; inset: 0; overflow: hidden; }
+  .ccard {
+    position: absolute; width: 212px; border-radius: 15px; padding: 13px 15px; cursor: grab;
+    background: var(--glass); backdrop-filter: blur(18px) saturate(1.5); -webkit-backdrop-filter: blur(18px) saturate(1.5);
+    border: 1px solid var(--glass-edge); box-shadow: var(--shadow-lift), var(--inner-hi);
+  }
+  .ccard h4 { font-family: var(--serif); font-weight: 600; font-size: 15px; margin: 0 0 6px; display: flex; align-items: center; gap: 8px; }
+  .ccard h4 .swatch { width: 9px; height: 9px; border-radius: 3px; box-shadow: 0 0 8px currentColor; }
+  .ccard p { font-size: 12px; color: var(--fg-3); margin: 0; line-height: 1.45; }
+  .ccard .meta { margin-top: 9px; font-family: var(--mono); font-size: 10px; color: var(--fg-4); display: flex; justify-content: space-between; }
+  .ccard.big { width: 258px; }
+  .canvas-hint { position: absolute; left: 50%; bottom: 22px; transform: translateX(-50%); font-family: var(--mono); font-size: 11px; color: var(--fg-3);
+    background: var(--glass); border: 1px solid var(--glass-edge); padding: 7px 15px; border-radius: 999px; box-shadow: var(--shadow), var(--inner-hi);
+    backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); }
+
+  /* palette */
+  .scrim { position: fixed; inset: 0; background: oklch(0.25 0.04 280 / 0.30); backdrop-filter: blur(4px); z-index: 50; display: none; align-items: flex-start; justify-content: center; }
+  .scrim.open { display: flex; }
+  .palette { margin-top: 12vh; width: min(640px, 92vw); border-radius: 20px; overflow: hidden; animation: pop .14s ease;
+    background: var(--glass-strong); backdrop-filter: blur(30px) saturate(1.6); -webkit-backdrop-filter: blur(30px) saturate(1.6);
+    border: 1px solid var(--glass-edge); box-shadow: var(--shadow-lift), var(--inner-hi); }
+  @keyframes pop { from { transform: translateY(-6px) scale(.985); opacity: .4; } }
+  .palette input { width: 100%; border: 0; outline: 0; background: transparent; color: var(--fg);
+    font-family: var(--serif); font-size: 20px; padding: 18px 22px; border-bottom: 1px solid var(--hairline); }
+  .palette input::placeholder { color: var(--fg-4); }
+  .pal-section { padding: 8px; }
+  .pal-label { font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--fg-4); padding: 6px 12px 4px; }
+  .pal-item { display: flex; align-items: center; gap: 12px; padding: 9px 12px; border-radius: 11px; }
+  .pal-item:first-of-type { background: var(--accent-bg); }
+  .pal-item .pg { width: 24px; height: 24px; flex: none; border-radius: 7px; background: var(--glass-2); display: grid; place-items: center; color: var(--fg-3); border: 1px solid var(--hairline); }
+  .pal-item:first-of-type .pg { color: var(--accent-ink); }
+  .pal-item .pt { font-size: 13.5px; color: var(--fg); flex: 1; }
+  .pal-item .pp { font-family: var(--mono); font-size: 10.5px; color: var(--fg-4); }
+  .pal-foot { display: flex; gap: 16px; padding: 9px 16px; border-top: 1px solid var(--hairline); font-family: var(--mono); font-size: 10.5px; color: var(--fg-4); }
+  .pal-foot kbd { background: var(--glass-2); border: 1px solid var(--hairline); border-radius: 4px; padding: 1px 5px; }
+
+  .annot { position: fixed; left: 16px; bottom: 14px; z-index: 40; font-family: var(--mono); font-size: 10.5px; color: var(--fg-3); max-width: 400px; line-height: 1.5;
+    background: var(--glass); border: 1px solid var(--glass-edge); padding: 8px 12px; border-radius: 11px; backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); box-shadow: var(--inner-hi); }
+  .annot b { color: var(--accent-ink); }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="topbar">
+    <div class="brand"><span class="dot"></span><b>1_NOTES</b><span>JishnuLab</span><span class="vault-meta">· 771 notes</span></div>
+    <div class="modes" id="modes">
+      <button data-mode="timeline" class="on">Timeline</button>
+      <button data-mode="editor">Editor</button>
+      <button data-mode="canvas">Canvas</button>
+    </div>
+    <div class="top-right">
+      <button class="icon-btn" id="theme" title="Toggle light/dark glass">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4 12H2M22 12h-2M5 5l1.5 1.5M17.5 17.5L19 19M19 5l-1.5 1.5M6.5 17.5L5 19"/></svg>
+      </button>
+      <button class="kbar" id="open-pal"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg> Search or run a command <kbd>⌘K</kbd></button>
+    </div>
+  </div>
+
+  <div class="body">
+    <div class="rail left">
+      <div class="tab"><span>Vault</span></div>
+      <div class="panel-peek">
+        <div class="peek-h">Folders</div>
+        <div class="folder-row"><span class="fname"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 7h6l2 2h10v9H3z"/></svg> 99_ARCH</span><span class="count">389</span></div>
+        <div class="folder-row"><span class="fname"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 7h6l2 2h10v9H3z"/></svg> 4_PROJ</span><span class="count">130</span></div>
+        <div class="folder-row"><span class="fname"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 7h6l2 2h10v9H3z"/></svg> 2_REFS</span><span class="count">69</span></div>
+        <div class="folder-row"><span class="fname"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 7h6l2 2h10v9H3z"/></svg> 1_LOGS</span><span class="count">52</span></div>
+        <div class="folder-row"><span class="fname"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 7h6l2 2h10v9H3z"/></svg> 9_CODE</span><span class="count">44</span></div>
+        <div class="peek-h" style="margin-top:18px">Pinned tags</div>
+        <div class="folder-row"><span class="fname">#proj/metaboloformer</span><span class="count">7</span></div>
+        <div class="folder-row"><span class="fname">#priors/exposomics/nafld</span><span class="count">12</span></div>
+        <div class="folder-row"><span class="fname">#proj/dlcm</span><span class="count">6</span></div>
+      </div>
+    </div>
+    <div class="rail right">
+      <div class="tab"><span>Context</span></div>
+      <div class="panel-peek">
+        <div class="peek-h">Linked from today</div>
+        <div class="bl-item"><div class="t">pathway_prior_null_result</div><div class="s">"…confirms the negative finding from 06-04"</div></div>
+        <div class="bl-item"><div class="t">rank_bottleneck_S1</div><div class="s">Review-finding S1 reproduces on NAFLD #2</div></div>
+        <div class="peek-h" style="margin-top:16px">Git · main</div>
+        <div class="bl-item"><div class="t">2 uncommitted</div><div class="s">todo.md, 2026-06-09.md</div></div>
+      </div>
+    </div>
+
+    <!-- TIMELINE -->
+    <div class="view" id="view-timeline">
+      <div class="stream">
+        <div class="stream-head"><h1>The Stream</h1><p>Your notebook as it happened — newest first. Write today, glance back, jump anywhere.</p></div>
+
+        <div class="day today">
+          <div class="day-rule"><span class="day-date">June 10</span><span class="day-dow">Wed</span><span class="line"></span><span class="agg">3 edited · 2 tasks</span></div>
+          <div class="note-card compose">
+            <h2>Daily note</h2>
+            <div class="prose"><p>Picking up the pathway-prior thread — <span class="muted">06-04 null result reproduced on the second cohort, so the graph prior is officially parked.</span> Next: write up the negative result cleanly and pivot metaboloformer toward the quantified-ReDU pilot.<span class="caret"></span></p></div>
+          </div>
+          <div class="note-card" style="padding:16px 22px">
+            <h2 style="font-size:15px;display:flex;align-items:center;">Urgent <span class="pill-urgent">0_TODO/todo.md</span></h2>
+            <div class="checkitem"><span class="box"></span><span>Write up <em>pathway-prior null result</em> as a standalone note</span></div>
+            <div class="checkitem"><span class="box"></span><span>Draft ReDU quantified-pilot manifest (PRACTICAL_NEXT_STEP)</span></div>
+            <div class="checkitem done"><span class="box"></span><span>Confirm S1 reproduces on NAFLD cohort #2</span></div>
+          </div>
+          <div class="activity"><div class="act-row"><div class="act-glyph edit">✎</div><div class="act-main"><div class="act-title">carbide</div><div class="act-sub act-path">3_INBOX/carbide.md · Current issues</div></div><div class="act-time">00:34</div></div></div>
+        </div>
+
+        <div class="day">
+          <div class="day-rule"><span class="day-date">June 9</span><span class="day-dow">Tue</span><span class="line"></span><span class="agg">14 edited · metabolomicPriors</span></div>
+          <div class="note-card"><h2>Important</h2><div class="prose"><p class="muted">Big documentation sweep across <code style="font-family:var(--mono);font-size:13px">metabolomicPriors</code> — refreshed every module + script README, plus the pathway-analysis and transfer-learning runbooks. Tree is now self-describing.</p></div></div>
+          <div class="activity">
+            <div class="act-row"><div class="act-glyph edit">✎</div><div class="act-main"><div class="act-title">Transfer Learning Pipeline</div><div class="act-sub act-path">9_CODE/…/docs/transfer_learning_pipeline.md</div></div><div class="act-time">17:56</div></div>
+            <div class="act-row"><div class="act-glyph edit">✎</div><div class="act-main"><div class="act-title">Fix: Correct metabolite importance back-projection</div><div class="act-sub act-path">…/docs/temporal-humming-thunder.md</div></div><div class="act-time">17:56</div></div>
+            <div class="act-row"><div class="act-glyph edit">✎</div><div class="act-main"><div class="act-title">Plan: Add Proteomics Support to PAM</div><div class="act-sub act-path">…/docs/proteomic_metabolomic_PAM.md</div></div><div class="act-time">17:56</div></div>
+            <div class="act-row"><div class="act-glyph edit">✎</div><div class="act-main"><div class="act-title">src/ — Module Reference</div><div class="act-sub act-path">9_CODE/metabolomicPriors/src/README.md</div></div><div class="act-time">17:56</div></div>
+            <div class="act-row" style="color:var(--fg-3)"><div class="act-glyph">+10</div><div class="act-main"><div class="act-title" style="color:var(--fg-3)">10 more docs in this sweep</div><div class="act-sub act-path">pathway analysis · workbench prep · runbooks</div></div><div class="act-time">17:56</div></div>
+          </div>
+          <div class="tagrow"><span class="tag">#proj/metaboloformer<span class="n">7</span></span><span class="tag">#priors/exposomics/nafld<span class="n">12</span></span><span class="tag">#proj/dlcm<span class="n">6</span></span><span class="tag sepia">#SBATCH<span class="n">82</span></span></div>
+        </div>
+
+        <div class="day">
+          <div class="day-rule"><span class="day-date">June 4</span><span class="day-dow">Thu</span><span class="line"></span><span class="agg">1 result note</span></div>
+          <div class="note-card" id="jump-null" style="cursor:pointer">
+            <h2>Pathway-graph priors do not improve metabolite-embedding disease classification</h2>
+            <div class="prose"><p class="muted">Across NAFLD cohorts, adding a pathway-graph prior to the contrastive objective produced no measurable lift over the unpriored baseline — within noise on AUROC and rank metrics. <em style="color:var(--accent-ink)">Open in Editor →</em></p></div>
+            <div class="tagrow"><span class="tag">#proj/priors<span class="n">4</span></span><span class="tag">#proj/exposomics<span class="n">4</span></span></div>
+          </div>
+        </div>
+
+        <div class="day">
+          <div class="day-rule"><span class="day-date">June 1</span><span class="day-dow">Mon</span><span class="line"></span><span class="agg">2 edited</span></div>
+          <div class="activity">
+            <div class="act-row"><div class="act-glyph edit">✎</div><div class="act-main"><div class="act-title">Jaccard adjacency prior — evaluation results</div><div class="act-sub act-path">…/docs/2026-06-01_jaccard_prior_eval.md</div></div><div class="act-time">—</div></div>
+            <div class="act-row"><div class="act-glyph commit">⌥</div><div class="act-main"><div class="act-title">Session prompt — redesign GC training objective</div><div class="act-sub act-path">…/docs/2026-05-31_gc_objective_redesign_PROMPT.md</div></div><div class="act-time">—</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- EDITOR -->
+    <div class="view" id="view-editor" hidden>
+      <div class="editor-wrap">
+        <div class="doc-glass">
+          <div class="doc-kicker">9_CODE / metabolomicPriors / docs · 2026-06-04</div>
+          <h1 class="doc-title">Pathway-graph priors do not improve metabolite-embedding disease classification</h1>
+          <div class="doc-meta"><span class="dirty-dot">● unsaved</span><span>1,240 words</span><span>backlinks 4</span><span>#proj/priors</span></div>
+          <div class="doc-body">
+            <p>The hypothesis was clean: if disease signal lives in coordinated <em>pathways</em> rather than single metabolites, then biasing the embedding with a pathway-graph prior should sharpen the downstream classifier. Three weeks of runs say otherwise.</p>
+            <h3>Result</h3>
+            <p>Across both NAFLD cohorts, the pathway-priored model is statistically indistinguishable from the unpriored baseline — AUROC deltas sit inside the seed-to-seed noise band, and the rank-bottleneck described in <a class="link" href="#">[[rank_bottleneck_S1]]</a> persists regardless of the prior.</p>
+            <blockquote>The prior changes <em>which</em> metabolites cluster, but not <em>how separable</em> the disease classes become. It reorganises without informing.</blockquote>
+            <h3>Why this matters</h3>
+            <p>It closes the graph-prior branch for <a class="link" href="#">[[metaboloformer]]</a> and frees effort for the quantified-ReDU pilot. The negative result is worth a clean writeup — see <a class="link" href="#">[[PRACTICAL_NEXT_STEP]]</a>.<span class="caret"></span></p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CANVAS -->
+    <div class="view" id="view-canvas" hidden>
+      <div class="canvas-stage">
+        <svg style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none">
+          <defs><marker id="dot" markerWidth="6" markerHeight="6" refX="3" refY="3"><circle cx="3" cy="3" r="2.4" fill="var(--accent-soft)"/></marker></defs>
+          <path d="M340,210 C 430,210 470,150 560,150" fill="none" stroke="var(--accent-soft)" stroke-width="1.6" marker-end="url(#dot)"/>
+          <path d="M340,250 C 440,260 470,330 560,340" fill="none" stroke="var(--accent-soft)" stroke-width="1.6" marker-end="url(#dot)"/>
+          <path d="M250,300 C 250,360 330,420 410,430" fill="none" stroke="var(--sepia)" stroke-width="1.4" stroke-dasharray="4 4" marker-end="url(#dot)"/>
+          <path d="M620,210 C 660,260 660,300 640,330" fill="none" stroke="var(--accent-soft)" stroke-width="1.6"/>
+        </svg>
+        <div class="ccard big" style="left:120px; top:190px;"><h4><span class="swatch" style="background:var(--accent);color:var(--accent)"></span>metaboloformer</h4><p>Transformer over metabolite embeddings. Graph-prior branch closed; pivoting to quantified ReDU.</p><div class="meta"><span>4_PROJ</span><span>#proj · 7 notes</span></div></div>
+        <div class="ccard" style="left:560px; top:110px;"><h4><span class="swatch" style="background:var(--sepia);color:var(--sepia)"></span>pathway prior — null</h4><p>No lift over baseline across NAFLD cohorts. Reorganises without informing.</p><div class="meta"><span>2026-06-04</span><span>result</span></div></div>
+        <div class="ccard" style="left:560px; top:300px;"><h4><span class="swatch" style="background:oklch(0.65 0.15 150);color:oklch(0.65 0.15 150)"></span>exposomics / nafld</h4><p>Quantified-cohort acquisition + ReDU pilot manifest.</p><div class="meta"><span>#priors</span><span>12 notes</span></div></div>
+        <div class="ccard" style="left:330px; top:400px;"><h4><span class="swatch" style="background:oklch(0.62 0.15 320);color:oklch(0.62 0.15 320)"></span>dlcm</h4><p>Deep latent class model — parallel track, shares the embedding stack.</p><div class="meta"><span>4_PROJ</span><span>6 notes</span></div></div>
+        <div class="ccard" style="left:120px; top:360px;"><h4><span class="swatch" style="background:var(--fg-3);color:var(--fg-3)"></span>SBATCH runs</h4><p>82 tagged HPC jobs feeding the embedding experiments.</p><div class="meta"><span>1_LOGS</span><span>#SBATCH</span></div></div>
+        <div class="canvas-hint">scroll = pan · ⌘scroll = zoom · double-click a card = expand into Editor</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="scrim" id="scrim">
+  <div class="palette" role="dialog" aria-label="Command palette">
+    <input placeholder="Jump to a note, run a command, ask AI…" value="path" id="pal-input"/>
+    <div class="pal-section">
+      <div class="pal-label">Recently edited</div>
+      <div class="pal-item"><div class="pg">✎</div><div class="pt">Pathway-graph priors do not improve… <span style="color:var(--fg-4)">(null result)</span></div><div class="pp">06-04</div></div>
+      <div class="pal-item"><div class="pg">✎</div><div class="pt">Transfer Learning Pipeline</div><div class="pp">…/docs/</div></div>
+      <div class="pal-item"><div class="pg">✎</div><div class="pt">Pathway Coefficient Analysis</div><div class="pp">PATHWAY_ANALYSIS_README</div></div>
+      <div class="pal-label" style="margin-top:6px">Commands</div>
+      <div class="pal-item"><div class="pg">⊞</div><div class="pt">Open Canvas for #proj/metaboloformer</div><div class="pp">mode</div></div>
+      <div class="pal-item"><div class="pg">✦</div><div class="pt">Ask AI about this vault…</div><div class="pp">summon</div></div>
+    </div>
+    <div class="pal-foot"><span><kbd>↑↓</kbd> navigate</span><span><kbd>↵</kbd> open</span><span><kbd>⌘↵</kbd> open in split</span><span><kbd>esc</kbd> dismiss</span></div>
+  </div>
+</div>
+
+<div class="annot"><b>v5 · Atelier — Glass</b> · same Timeline layout, <b>surface_style: glass</b> skin · Inter prose. Persistent <b>vault sidebar</b> (left), hover the <b>right edge</b> for context, toggle <b>warmth ☀</b>, press <b>⌘K</b>. Real data from 1_NOTES.</div>
+
+<script>
+  const modes = document.getElementById('modes');
+  const views = { timeline: 'view-timeline', editor: 'view-editor', canvas: 'view-canvas' };
+  function setMode(m){
+    [...modes.children].forEach(b => b.classList.toggle('on', b.dataset.mode === m));
+    Object.entries(views).forEach(([k,id]) => document.getElementById(id).hidden = (k !== m));
+  }
+  modes.addEventListener('click', e => { const b = e.target.closest('button'); if (b) setMode(b.dataset.mode); });
+  document.getElementById('jump-null').addEventListener('click', () => setMode('editor'));
+  document.getElementById('theme').addEventListener('click', () => {
+    const h = document.documentElement;
+    h.dataset.colorScheme = h.dataset.colorScheme === 'dark' ? 'light' : 'dark';
+  });
+  const scrim = document.getElementById('scrim');
+  const openPal = () => { scrim.classList.add('open'); setTimeout(()=>document.getElementById('pal-input').focus(), 30); };
+  const closePal = () => scrim.classList.remove('open');
+  document.getElementById('open-pal').addEventListener('click', openPal);
+  scrim.addEventListener('click', e => { if (e.target === scrim) closePal(); });
+  window.addEventListener('keydown', e => {
+    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); scrim.classList.contains('open') ? closePal() : openPal(); }
+    if (e.key === 'Escape') closePal();
+  });
+</script>
+</body>
+</html>
