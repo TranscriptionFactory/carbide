@@ -1,0 +1,40 @@
+ ✓ tests/unit/adapters/task_toggle_cycle.test.ts (12 tests) 15ms
+ ✓ tests/unit/adapters/heading_keymap.test.ts (5 tests) 15ms
+ ✓ tests/unit/domain/block_drop_roundtrip.test.ts (7 tests) 15ms
+ ✓ tests/unit/adapters/formatting_toolbar_commands.test.ts (16 tests) 12ms
+ ✓ tests/unit/adapters/callout_keymap.test.ts (7 tests) 10ms
+ ✓ tests/unit/adapters/suggest_dropdown_utils.test.ts (14 tests) 10ms
+ ✓ tests/unit/adapters/html_embed_renderer.test.ts (9 tests) 6ms
+ ✓ tests/unit/features/heading_fold_plugin.test.ts (15 tests) 7ms
+stderr | tests/unit/adapters/block_transforms.test.ts > duplicate_block > duplicates callout preserving structure
+TextSelection endpoint not pointing into a node with inline content (callout)
+
+ ✓ tests/unit/adapters/block_transforms.test.ts (23 tests) 6ms
+ ✓ tests/unit/adapters/clipboard_text_serializer.test.ts (5 tests) 6ms
+ ✓ tests/unit/adapters/block_selection_plugin.test.ts (12 tests) 4ms
+ ✓ tests/unit/domain/compute_block_drop.test.ts (15 tests) 4ms
+ ✓ tests/unit/features/table_toolbar_alignment.test.ts (4 tests) 2ms
+stderr | tests/unit/adapters/cross_block_selection.test.ts > cross-block selection (schema isolation) > allows TextSelection spanning from paragraph into callout content
+TextSelection endpoint not pointing into a node with inline content (callout_body)
+
+ ✓ tests/unit/adapters/cross_block_selection.test.ts (4 tests) 3ms
+ ✓ tests/unit/domain/detect_draggable_blocks.test.ts (10 tests) 3ms
+ ✓ tests/unit/adapters/block_drag_handle_plugin.test.ts (2 tests) 2ms
+ ✓ tests/unit/features/lint/ui/lint_status_indicator.test.ts (2 tests) 21ms
+ ✓ tests/unit/features/plugin/ui/plugin_manager.test.ts (2 tests) 44ms
+ ✓ tests/unit/features/plugin/ui/plugin_settings_dialog.test.ts (9 tests) 57ms
+11:44:59 PM [vite-plugin-svelte] src/lib/features/editor/ui/image_alt_editor.svelte:23:21 This reference only captures the initial value of `current_alt`. Did you mean to reference it inside a closure instead?
+https://svelte.dev/e/state_referenced_locally
+11:44:59 PM [vite-plugin-svelte] src/lib/features/editor/ui/image_alt_editor.svelte:55:0 Visible, non-interactive elements with a click event must be accompanied by a keyboard event handler. Consider whether an interactive element such as `<button type="button">` or `<a>` might be more appropriate
+https://svelte.dev/e/a11y_click_events_have_key_events
+11:44:59 PM [vite-plugin-svelte] src/lib/features/editor/ui/image_alt_editor.svelte:55:0 `<div>` with a click or mousedown handler must have an ARIA role
+https://svelte.dev/e/a11y_no_static_element_interactions
+ ✓ tests/unit/features/editor/ui/editor_status_bar.test.ts (2 tests) 28ms
+ ✓ tests/unit/adapters/prosemirror_dirty_state_mode_switch.test.ts (4 tests) 43ms
+ ✓ tests/unit/adapters/prosemirror_dirty_state.test.ts (6 tests) 137ms
+
+ Test Files  364 passed (364)
+      Tests  3993 passed (3993)
+   Start at  23:43:57
+   Duration  62.10s (transform 27.44s, setup 0ms, collect 470.09s, tests 3.53s, environment 9.39s, prepare 11.30s)
+

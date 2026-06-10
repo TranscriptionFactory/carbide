@@ -1,0 +1,76 @@
+
+> carbide@1.43.1 tauri /Users/abir/src/carbide
+> tauri dev
+
+     Running BeforeDevCommand (`pnpm dev`)
+
+> carbide@1.43.1 dev /Users/abir/src/carbide
+> vite dev
+
+
+  VITE v6.4.2  ready in 580 ms
+
+  ➜  Local:   http://127.0.0.1:5173/
+     Running DevCommand (`cargo  run --no-default-features --color always --`)
+        Info Watching /Users/abir/src/carbide/src-tauri for changes...
+[1m[92m   Compiling[0m objc2-security v0.3.2
+[1m[92m   Compiling[0m objc2-javascript-core v0.3.2
+[1m[92m   Compiling[0m carbide v1.43.1 (/Users/abir/src/carbide/src-tauri)
+[1m[96m    Building[0m [=======================> ] 774/793: objc2-security, objc2-javas…[K[1m[92m   Compiling[0m objc2-web-kit v0.3.2
+[1m[96m    Building[0m [=======================> ] 774/793: objc2-security, objc2-web-k…[1m[96m    Building[0m [=======================> ] 775/793: objc2-web-kit, objc2-javasc…[1m[96m    Building[0m [=======================> ] 776/793: objc2-web-kit, carbide(buil…[1m[96m    Building[0m [=======================> ] 777/793: objc2-web-kit               3:56:18 PM [vite] (client) page reload src-tauri/target/debug/excalidraw-dist/index.html
+3:56:18 PM [vite] (client) page reload src-tauri/target/debug/_up_/plugins/smart-templates/index.html
+3:56:18 PM [vite] (client) page reload src-tauri/target/debug/_up_/plugins/html-to-markdown/index.html
+3:56:18 PM [vite] (client) page reload src-tauri/target/debug/_up_/plugins/slides/index.html
+[K[1m[92m   Compiling[0m wry v0.54.4 (/Users/abir/src/carbide/src-tauri/patches/wry-0.54.4)
+[1m[92m   Compiling[0m tauri-runtime v2.10.1
+[1m[96m    Building[0m [=======================> ] 777/793: objc2-web-kit, wry, tauri-r…[1m[96m    Building[0m [=======================> ] 778/793: wry, tauri-runtime          [1m[96m    Building[0m [=======================> ] 779/793: wry                         [K[1m[92m   Compiling[0m tauri-runtime-wry v2.10.1
+[1m[96m    Building[0m [=======================> ] 779/793: wry, tauri-runtime-wry      [K[1m[92m   Compiling[0m tauri v2.10.3
+[1m[96m    Building[0m [=======================> ] 779/793: wry, tauri-runtime-wry, tau…[1m[96m    Building[0m [=======================> ] 780/793: tauri-runtime-wry, tauri    [1m[96m    Building[0m [=======================> ] 781/793: tauri                       [K[1m[92m   Compiling[0m tauri-plugin-fs v2.5.0
+[1m[92m   Compiling[0m tauri-plugin-single-instance v2.4.1
+[1m[92m   Compiling[0m tauri-plugin-log v2.8.0
+[1m[92m   Compiling[0m tauri-specta v2.0.0-rc.21
+[1m[92m   Compiling[0m tauri-plugin-updater v2.10.1
+[1m[92m   Compiling[0m tauri-plugin-pty v0.2.1
+[1m[92m   Compiling[0m tauri-plugin-opener v2.5.3
+[1m[92m   Compiling[0m tauri-plugin-window-state v2.4.1
+[1m[96m    Building[0m [=======================> ] 781/793: tauri-plugin-log, tauri-plu…[1m[96m    Building[0m [=======================> ] 782/793: tauri-plugin-log, tauri-plu…[1m[96m    Building[0m [=======================> ] 783/793: tauri-plugin-log, tauri-plu…[1m[96m    Building[0m [=======================> ] 784/793: tauri-plugin-log, tauri-spe…[1m[96m    Building[0m [=======================> ] 785/793: tauri-plugin-log, tauri-spe…[1m[96m    Building[0m [=======================> ] 786/793: tauri-specta, tauri-plugin-…[1m[96m    Building[0m [=======================> ] 787/793: tauri-plugin-updater, tauri…[K[1m[92m   Compiling[0m tauri-plugin-dialog v2.6.0
+[1m[96m    Building[0m [=======================> ] 787/793: tauri-plugin-updater, tauri…[1m[96m    Building[0m [=======================> ] 788/793: tauri-plugin-updater, tauri…[1m[96m    Building[0m [=======================> ] 789/793: tauri-plugin-dialog, tauri  [1m[96m    Building[0m [=======================> ] 790/793: tauri-plugin-dialog         [1m[96m    Building[0m [=======================> ] 790/793: carbide, tauri-plugin-dialog[1m[96m    Building[0m [=======================> ] 791/793: carbide                     [K[1m[33mwarning[0m[1m: constant `INIT_TIMEOUT_MS` is never used[0m
+  [1m[94m--> [0msrc/features/external_mcp/client.rs:10:7
+   [1m[94m|[0m
+[1m[94m10[0m [1m[94m|[0m const INIT_TIMEOUT_MS: u64 = 30_000;
+   [1m[94m|[0m       [1m[33m^^^^^^^^^^^^^^^[0m
+   [1m[94m|[0m
+   [1m[94m= [0m[1mnote[0m: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+[1m[96m    Building[0m [=======================> ] 791/793: carbide                     [K[1m[33mwarning[0m[1m: constant `REQUEST_TIMEOUT_MS` is never used[0m
+  [1m[94m--> [0msrc/features/external_mcp/client.rs:11:7
+   [1m[94m|[0m
+[1m[94m11[0m [1m[94m|[0m const REQUEST_TIMEOUT_MS: u64 = 120_000;
+   [1m[94m|[0m       [1m[33m^^^^^^^^^^^^^^^^^^[0m
+
+[1m[96m    Building[0m [=======================> ] 791/793: carbide                     [K[1m[33mwarning[0m[1m: variant `Notification` is never constructed[0m
+  [1m[94m--> [0msrc/features/external_mcp/client.rs:19:5
+   [1m[94m|[0m
+[1m[94m13[0m [1m[94m|[0m enum McpOutgoing {
+   [1m[94m|[0m      [1m[94m-----------[0m [1m[94mvariant in this enum[0m
+[1m[94m...[0m
+[1m[94m19[0m [1m[94m|[0m     Notification {
+   [1m[94m|[0m     [1m[33m^^^^^^^^^^^^[0m
+
+[1m[96m    Building[0m [=======================> ] 791/793: carbide                     [K[1m[33mwarning[0m[1m: methods `cached_tools` and `list_tools` are never used[0m
+  [1m[94m--> [0msrc/features/external_mcp/client.rs:61:12
+   [1m[94m|[0m
+[1m[94m33[0m [1m[94m|[0m impl ExternalMcpClient {
+   [1m[94m|[0m [1m[94m----------------------[0m [1m[94mmethods in this implementation[0m
+[1m[94m...[0m
+[1m[94m61[0m [1m[94m|[0m     pub fn cached_tools(&self) -> &[serde_json::Value] {
+   [1m[94m|[0m            [1m[33m^^^^^^^^^^^^[0m
+[1m[94m...[0m
+[1m[94m77[0m [1m[94m|[0m     pub async fn list_tools(&self) -> Result<Vec<serde_json::Value>, ExternalMcpError> {
+   [1m[94m|[0m                  [1m[33m^^^^^^^^^^[0m
+
+[1m[96m    Building[0m [=======================> ] 791/793: carbide                     [K[1m[33mwarning[0m: `carbide` (lib) generated 4 warnings
+[1m[96m    Building[0m [=======================> ] 792/793: carbide(bin)                [K[1m[92m    Finished[0m ]8;;https://doc.rust-lang.org/cargo/reference/profiles.html#default-profiles\`dev` profile [unoptimized + debuginfo]]8;;\ target(s) in 26.07s
+[1m[92m     Running[0m `target/debug/carbide`
+PANIC at src/app/mod.rs:457:10: unknown
+ ELIFECYCLE  Command failed with exit code 101.

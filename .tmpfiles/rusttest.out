@@ -1,0 +1,113 @@
+   Compiling carbide v2.1.0 (/Users/abir/src/carbide/src-tauri)
+warning: unused imports: `get_note_meta`, `re_resolve_orphan_outlinks`, and `upsert_note_simple`
+ --> src/tests/../../tests/search_db_behavior.rs:3:85
+  |
+3 |     compute_sync_plan, extract_frontmatter_properties, get_backlinks, get_manifest, get_note_meta,
+  |                                                                                     ^^^^^^^^^^^^^
+4 |     get_orphan_outlinks, get_outlinks, list_note_paths_by_prefix, open_search_db_at_path,
+5 |     query_bases, re_resolve_orphan_outlinks, rebuild_index, remove_notes_by_prefix,
+  |                  ^^^^^^^^^^^^^^^^^^^^^^^^^^
+6 |     rename_folder_paths, rename_note_path, search, set_outlinks, suggest_planned, sync_index,
+7 |     upsert_note, upsert_note_simple,
+  |                  ^^^^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `SmartLinkRuleGroup`
+ --> src/tests/../../tests/smart_links_config.rs:1:51
+  |
+1 | use crate::features::smart_links::{default_rules, SmartLinkRuleGroup};
+  |                                                   ^^^^^^^^^^^^^^^^^^
+
+warning: unused variable: `router`
+   --> src/features/mcp/http.rs:462:20
+    |
+462 |     fn mcp_request(router: Router, token: &str, body: &str) -> Request<Body> {
+    |                    ^^^^^^ help: if this is intentional, prefix it with an underscore: `_router`
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused variable: `config_path`
+   --> src/features/mcp/setup.rs:516:13
+    |
+516 |         let config_path = dir.path().join("Claude/claude_desktop_config.json");
+    |             ^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_config_path`
+
+warning: constant `INIT_TIMEOUT_MS` is never used
+  --> src/features/external_mcp/client.rs:10:7
+   |
+10 | const INIT_TIMEOUT_MS: u64 = 30_000;
+   |       ^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: constant `REQUEST_TIMEOUT_MS` is never used
+  --> src/features/external_mcp/client.rs:11:7
+   |
+11 | const REQUEST_TIMEOUT_MS: u64 = 120_000;
+   |       ^^^^^^^^^^^^^^^^^^
+
+warning: variant `Notification` is never constructed
+  --> src/features/external_mcp/client.rs:19:5
+   |
+13 | enum McpOutgoing {
+   |      ----------- variant in this enum
+...
+19 |     Notification {
+   |     ^^^^^^^^^^^^
+
+warning: methods `cached_tools` and `list_tools` are never used
+  --> src/features/external_mcp/client.rs:61:12
+   |
+33 | impl ExternalMcpClient {
+   | ---------------------- methods in this implementation
+...
+61 |     pub fn cached_tools(&self) -> &[serde_json::Value] {
+   |            ^^^^^^^^^^^^
+...
+77 |     pub async fn list_tools(&self) -> Result<Vec<serde_json::Value>, ExternalMcpError> {
+   |                  ^^^^^^^^^^
+
+warning: `carbide` (lib test) generated 8 warnings (run `cargo fix --lib -p carbide --tests` to apply 4 suggestions)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 5.43s
+     Running unittests src/lib.rs (src-tauri/target/debug/deps/carbide-96bccec34e531a11)
+
+running 35 tests
+test features::mcp::cli_routes::tests::test_default_bases_limit ... ok
+test features::bases::service::tests::by_tag_seed_has_no_required_property_and_uses_tree_mode ... ok
+test features::bases::service::tests::slugify_keeps_alphanumerics_and_collapses_separators ... ok
+test features::bases::service::tests::modified_this_week_seed_filters_and_sorts ... ok
+test features::bases::service::tests::by_created_month_seed_uses_date_format ... ok
+test features::bases::service::tests::default_seeds_cover_planned_views ... ok
+test features::mcp::cli_routes::tests::test_bases_query_params_defaults ... ok
+test features::mcp::cli_routes::tests::test_bases_query_params_with_filters ... ok
+test features::search::db::tests::query_bases_empty_result_set ... ok
+test features::search::db::tests::query_bases_content_fts_no_match ... ok
+test features::search::db::tests::query_bases_accessed_filter_selects_stale_notes ... ok
+test features::search::db::tests::query_bases_filter_by_not_contains_direct_col ... ok
+test features::search::db::tests::query_bases_filter_by_neq ... ok
+test features::search::db::tests::query_bases_filter_by_property_equality ... ok
+test features::search::db::tests::query_bases_filter_by_property_contains ... ok
+test features::search::db::tests::query_bases_filter_by_not_contains_property ... ok
+test features::search::db::tests::query_bases_content_fts_combined_with_property ... ok
+test features::search::db::tests::query_bases_filter_by_content_fts ... ok
+test features::search::db::tests::query_bases_no_filters_returns_all_notes ... ok
+test features::search::db::tests::query_bases_filter_by_tag ... ok
+test features::search::db::tests::query_bases_filter_property_numeric_lte ... ok
+test features::search::db::tests::query_bases_filter_content_not_contains ... ok
+test features::search::db::tests::query_bases_filter_tag_neq ... ok
+test features::search::db::tests::query_bases_filter_tag_contains ... ok
+test features::search::db::tests::resolve_bases_now_value_parses_relative_offsets ... ok
+test features::search::db::tests::resolve_bases_property_maps_date_aliases ... ok
+test features::search::db::tests::query_bases_filter_tag_not_contains ... ok
+test features::search::db::tests::query_bases_modified_filter_uses_mtime_and_now ... ok
+test features::search::db::tests::query_bases_filter_property_numeric_gt ... ok
+test features::search::db::tests::query_bases_multiple_filters_anded ... ok
+test features::search::db::tests::query_bases_returns_properties_and_tags_per_row ... ok
+test features::search::db::tests::query_bases_sort_by_title_asc ... ok
+test features::search::db::tests::query_bases_pagination_limit_and_offset ... ok
+test features::search::db::tests::query_bases_sort_by_property_desc ... ok
+test features::search::db::tests::query_bases_sort_by_property_asc ... ok
+
+test result: ok. 35 passed; 0 failed; 0 ignored; 0 measured; 522 filtered out; finished in 0.33s
+
