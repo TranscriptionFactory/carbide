@@ -1,0 +1,4 @@
+=== STATE ===
+52:[1m[92m    Finished[0m ]8;;https://doc.rust-lang.org/cargo/reference/profiles.html#default-profiles\`dev` profile [unoptimized + debuginfo]]8;;\ target(s) in 0.71s
+54:PANIC at src/app/mod.rs:457:10: unknown
+55: ELIFECYCLE  Command failed with exit code 101.

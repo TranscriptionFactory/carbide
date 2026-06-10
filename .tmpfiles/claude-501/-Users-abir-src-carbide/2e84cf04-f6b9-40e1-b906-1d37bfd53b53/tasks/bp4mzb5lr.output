@@ -1,0 +1,12 @@
+[WARN] The "pnpm" field in package.json is no longer read by pnpm. The following keys were ignored: "pnpm.overrides". See https://pnpm.io/settings for the new home of each setting.
+
+> carbide@2.1.0 check /Users/abir/src/carbide
+> svelte-kit sync && svelte-check --tsconfig ./tsconfig.json
+
+1780112709689 START "/Users/abir/src/carbide"
+1780112709697 WARNING "src/lib/features/editor/ui/image_alt_editor.svelte" 23:22 "This reference only captures the initial value of `current_alt`. Did you mean to reference it inside a closure instead?\nhttps://svelte.dev/e/state_referenced_locally"
+1780112709697 WARNING "src/lib/features/editor/ui/image_alt_editor.svelte" 55:1 "Visible, non-interactive elements with a click event must be accompanied by a keyboard event handler. Consider whether an interactive element such as `<button type=\"button\">` or `<a>` might be more appropriate\nhttps://svelte.dev/e/a11y_click_events_have_key_events"
+1780112709697 WARNING "src/lib/features/editor/ui/image_alt_editor.svelte" 55:1 "`<div>` with a click or mousedown handler must have an ARIA role\nhttps://svelte.dev/e/a11y_no_static_element_interactions"
+1780112709698 ERROR "src/lib/features/note/state/note_store.svelte.ts" 114:5 "Type '(NoteMeta | { blurb: string; color: string | undefined; icon: string | undefined; id: NotePath; path: NotePath; name: string; title: string; mtime_ms: number; ... 14 more ...; linked_source_id?: string; })[]' is not assignable to type 'NoteMeta[]'.\n  Type 'NoteMeta | { blurb: string; color: string | undefined; icon: string | undefined; id: NotePath; path: NotePath; name: string; title: string; mtime_ms: number; ... 14 more ...; linked_source_id?: string; }' is not assignable to type 'NoteMeta' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.\n    Type '{ blurb: string; color: string | undefined; icon: string | undefined; id: NoteId; path: NotePath; name: string; title: string; mtime_ms: number; ctime_ms: number; size_bytes: number; file_type: string | null; ... 11 more ...; linked_source_id?: string; }' is not assignable to type 'NoteMeta' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.\n      Types of property 'color' are incompatible.\n        Type 'string | undefined' is not assignable to type 'string'.\n          Type 'undefined' is not assignable to type 'string'."
+1780112709698 COMPLETED 7014 FILES 1 ERRORS 3 WARNINGS 2 FILES_WITH_PROBLEMS
+ ELIFECYCLE  Command failed with exit code 1.

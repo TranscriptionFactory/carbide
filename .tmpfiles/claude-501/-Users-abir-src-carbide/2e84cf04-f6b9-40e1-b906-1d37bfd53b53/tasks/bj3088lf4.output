@@ -1,0 +1,39 @@
+    Checking carbide v2.1.0 (/Users/abir/src/carbide/src-tauri)
+warning: constant `INIT_TIMEOUT_MS` is never used
+  --> src/features/external_mcp/client.rs:10:7
+   |
+10 | const INIT_TIMEOUT_MS: u64 = 30_000;
+   |       ^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: constant `REQUEST_TIMEOUT_MS` is never used
+  --> src/features/external_mcp/client.rs:11:7
+   |
+11 | const REQUEST_TIMEOUT_MS: u64 = 120_000;
+   |       ^^^^^^^^^^^^^^^^^^
+
+warning: variant `Notification` is never constructed
+  --> src/features/external_mcp/client.rs:19:5
+   |
+13 | enum McpOutgoing {
+   |      ----------- variant in this enum
+...
+19 |     Notification {
+   |     ^^^^^^^^^^^^
+
+warning: methods `cached_tools` and `list_tools` are never used
+  --> src/features/external_mcp/client.rs:61:12
+   |
+33 | impl ExternalMcpClient {
+   | ---------------------- methods in this implementation
+...
+61 |     pub fn cached_tools(&self) -> &[serde_json::Value] {
+   |            ^^^^^^^^^^^^
+...
+77 |     pub async fn list_tools(&self) -> Result<Vec<serde_json::Value>, ExternalMcpError> {
+   |                  ^^^^^^^^^^
+
+warning: `carbide` (lib) generated 4 warnings
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 5.75s
+zsh:1: no such file or directory: .tmpfiles/claude-e242-cwd
