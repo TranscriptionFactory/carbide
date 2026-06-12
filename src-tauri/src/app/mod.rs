@@ -1,4 +1,5 @@
 pub mod menu;
+pub mod tray;
 
 use crate::features;
 use crate::shared;
@@ -34,6 +35,7 @@ fn handle_file_open(app: &tauri::AppHandle, path: String) {
     });
 
     if let Some(window) = app.get_webview_window("main") {
+        let _ = window.show();
         let _ = window.unminimize();
         let _ = window.set_focus();
     }
@@ -166,6 +168,9 @@ pub fn run() {
             // STT init removed — archived on archive/stt-main
 
             features::mcp::http::http_server_auto_start(app.handle());
+
+            tray::build_tray(app)?;
+            tray::register_close_to_tray(app);
 
             Ok(())
         })

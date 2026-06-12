@@ -52,19 +52,32 @@ pub fn save_settings(app: &AppHandle, store: &SettingsStore) -> Result<(), Strin
     io_utils::atomic_write(&path, &bytes)
 }
 
+pub fn read_bool(store: &SettingsStore, key: &str) -> bool {
+    matches!(store.settings.get(key), Some(Value::Bool(true)))
+}
+
+pub fn get_setting_value(app: &AppHandle, key: &str) -> Option<Value> {
+    load_settings(app)
+        .ok()
+        .and_then(|s| s.settings.get(key).cloned())
+}
+
+pub fn set_setting_value(app: &AppHandle, key: String, value: Value) -> Result<(), String> {
+    let _guard = SETTINGS_LOCK.lock().map_err(|e| e.to_string())?;
+    let mut store = load_settings(app)?;
+    store.settings.insert(key, value);
+    save_settings(app, &store)?;
+    Ok(())
+}
+
 #[tauri::command]
 pub async fn get_setting(key: String, app: AppHandle) -> Result<Option<Value>, String> {
     log::trace!("Getting setting key={}", key);
-    let store = load_settings(&app)?;
-    Ok(store.settings.get(&key).cloned())
+    Ok(get_setting_value(&app, &key))
 }
 
 #[tauri::command]
 pub async fn set_setting(key: String, value: Value, app: AppHandle) -> Result<(), String> {
     log::trace!("Setting key={}", key);
-    let _guard = SETTINGS_LOCK.lock().map_err(|e| e.to_string())?;
-    let mut store = load_settings(&app)?;
-    store.settings.insert(key, value);
-    save_settings(&app, &store)?;
-    Ok(())
+    set_setting_value(&app, key, value)
 }
