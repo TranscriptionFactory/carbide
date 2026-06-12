@@ -10,6 +10,9 @@ mod search_db_behavior;
 #[path = "../../tests/vault_settings_service_parse.rs"]
 mod vault_settings_service_parse;
 
+#[path = "../../tests/settings_read_bool.rs"]
+mod settings_read_bool;
+
 #[path = "../../tests/mcp_types.rs"]
 mod mcp_types;
 
