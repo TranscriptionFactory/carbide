@@ -658,10 +658,12 @@ export class SearchService {
       access_history: this.get_access_history?.(),
     });
 
-    return ranked.map(({ ranked: _ranked, relevance: _relevance, ...rest }) => ({
-      ...rest,
-      score: _ranked.total,
-    }));
+    return ranked.map(
+      ({ ranked: _ranked, relevance: _relevance, ...rest }) => ({
+        ...rest,
+        score: _ranked.total,
+      }),
+    );
   }
 
   reset_search_notes_operation() {

@@ -197,11 +197,13 @@ describe("problems_panel_filter", () => {
       );
 
       expect(result).toHaveLength(2);
-      expect(result.every((e) => {
-        if (e.kind === "diagnostic") return e.data.severity === "error";
-        if (e.kind === "log") return e.data.level === "error";
-        return false;
-      })).toBe(true);
+      expect(
+        result.every((e) => {
+          if (e.kind === "diagnostic") return e.data.severity === "error";
+          if (e.kind === "log") return e.data.level === "error";
+          return false;
+        }),
+      ).toBe(true);
     });
 
     it("'trace' severity only matches log entries with level 'trace'", () => {

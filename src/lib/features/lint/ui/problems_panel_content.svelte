@@ -21,7 +21,10 @@
     build_unified_entries,
     filter_diagnostics,
   } from "$lib/features/lint/ui/problems_panel_filter";
-  import type { StreamFilter, SeverityFilter } from "$lib/features/lint/ui/problems_panel_filter";
+  import type {
+    StreamFilter,
+    SeverityFilter,
+  } from "$lib/features/lint/ui/problems_panel_filter";
 
   const { stores, action_registry } = use_app_context();
 
@@ -312,8 +315,9 @@
         {#if entry.kind === "log"}
           <div class="ProblemsPanel__log-row">
             <span
-              class="ProblemsPanel__log-level {log_level_class(entry.data.level)}"
-              >{entry.data.level}</span
+              class="ProblemsPanel__log-level {log_level_class(
+                entry.data.level,
+              )}">{entry.data.level}</span
             >
             <span class="ProblemsPanel__log-time"
               >{format_timestamp(entry.data.timestamp)}</span
@@ -343,12 +347,9 @@
                 <Icon
                   class="ProblemsPanel__severity-icon ProblemsPanel__severity-icon--{diagnostic.severity}"
                 />
-                <span class="ProblemsPanel__message"
-                  >{diagnostic.message}</span
-                >
+                <span class="ProblemsPanel__message">{diagnostic.message}</span>
                 {#if diagnostic.rule_id}
-                  <span class="ProblemsPanel__rule">{diagnostic.rule_id}</span
-                  >
+                  <span class="ProblemsPanel__rule">{diagnostic.rule_id}</span>
                 {/if}
                 <span class="ProblemsPanel__location">
                   Ln {diagnostic.line}, Col {diagnostic.column}
@@ -377,8 +378,9 @@
         {#if entry.kind === "log"}
           <div class="ProblemsPanel__log-row">
             <span
-              class="ProblemsPanel__log-level {log_level_class(entry.data.level)}"
-              >{entry.data.level}</span
+              class="ProblemsPanel__log-level {log_level_class(
+                entry.data.level,
+              )}">{entry.data.level}</span
             >
             <span class="ProblemsPanel__log-time"
               >{format_timestamp(entry.data.timestamp)}</span
@@ -393,14 +395,14 @@
             class:ProblemsPanel__row--fixable={entry.data.fixable}
             onclick={() => navigate_to(entry.data)}
             onkeydown={(e: KeyboardEvent) => {
-              if (e.key === "Enter" || e.key === " ")
-                navigate_to(entry.data);
+              if (e.key === "Enter" || e.key === " ") navigate_to(entry.data);
             }}
             role="button"
             tabindex="0"
           >
             <Icon
-              class="ProblemsPanel__severity-icon ProblemsPanel__severity-icon--{entry.data.severity}"
+              class="ProblemsPanel__severity-icon ProblemsPanel__severity-icon--{entry
+                .data.severity}"
             />
             <span class="ProblemsPanel__message">{entry.data.message}</span>
             {#if entry.data.rule_id}
