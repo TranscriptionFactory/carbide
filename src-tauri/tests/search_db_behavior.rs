@@ -443,6 +443,66 @@ fn search_returns_file_type_from_db() {
 }
 
 #[test]
+fn search_ranks_verbatim_phrase_above_scattered_terms() {
+    let tmp = TempDir::new().expect("temp dir");
+    let conn = open_search_db_at_path(&tmp.path().join("test.db")).expect("db should open");
+
+    let insert = |path: &str, title: &str, body: &str| {
+        let meta = IndexNoteMeta {
+            id: path.to_string(),
+            path: path.to_string(),
+            title: title.to_string(),
+            name: path.trim_end_matches(".md").to_string(),
+            mtime_ms: 100,
+            ctime_ms: 50,
+            size_bytes: body.len() as i64,
+            file_type: None,
+            source: None,
+        };
+        upsert_note(&conn, &meta, body).expect("upsert should succeed");
+    };
+
+    // The correct note contains the query as a verbatim phrase, once, and its
+    // title shares no words with the query.
+    insert(
+        "2026-06-08.md",
+        "2026-06-08",
+        "Consistency is the name of the game when building habits.",
+    );
+    // Decoys repeat every individual query token many times but never as the
+    // phrase. Before phrase-aware matching these outranked the correct note
+    // because each common term's IDF collapsed to ~0 and bm25 went flat.
+    insert(
+        "game-theory.md",
+        "Game Theory Names",
+        "game game game theory. the the the. of of of. name name names naming named.",
+    );
+    insert(
+        "offsite.md",
+        "Offsite Theme Notes",
+        "the theme of the offsite. theory. names. the the the of of. game over.",
+    );
+
+    let results = search(&conn, "name of the game", SearchScope::All, 10)
+        .expect("search should succeed");
+    assert_eq!(
+        results.first().map(|h| h.note.path.as_str()),
+        Some("2026-06-08.md"),
+        "verbatim-phrase note should rank first, got: {:?}",
+        results.iter().map(|h| &h.note.path).collect::<Vec<_>>()
+    );
+
+    // Recall is preserved when no exact phrase exists: a note containing all
+    // terms (non-adjacent) still matches.
+    let recall = search(&conn, "consistency habits", SearchScope::All, 10)
+        .expect("search should succeed");
+    assert_eq!(
+        recall.first().map(|h| h.note.path.as_str()),
+        Some("2026-06-08.md")
+    );
+}
+
+#[test]
 fn rename_note_path_moves_note_record() {
     let tmp = TempDir::new().expect("temp dir");
     let db = tmp.path().join("test.db");

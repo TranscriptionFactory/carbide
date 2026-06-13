@@ -2507,7 +2507,56 @@ fn escape_fts_query(query: &str) -> String {
         .join(" ")
 }
 
+/// Build an FTS5 MATCH expression for a free-text query.
+///
+/// Multi-word queries are matched two ways, OR-ed together: an exact-phrase
+/// clause and the prefix-AND clause of the individual terms. The phrase clause
+/// is what lets a verbatim multi-word match rank highly. When every term is a
+/// common word (e.g. "name of the game"), each term's IDF collapses toward zero
+/// and bm25 can no longer distinguish a note containing the verbatim phrase from
+/// notes that merely repeat the words; without the phrase arm the correct note
+/// ranks arbitrarily. The prefix-AND arm preserves recall when the exact phrase
+/// is absent. Single-word queries keep the original prefix behavior.
+fn build_fts_match(query: &str, scope: SearchScope) -> String {
+    let terms: Vec<String> = query
+        .split_whitespace()
+        .filter_map(|term| {
+            let clean: String = term
+                .chars()
+                .filter(|c| c.is_alphanumeric() || *c == '_' || *c == '-')
+                .collect();
+            if clean.is_empty() {
+                None
+            } else {
+                Some(clean)
+            }
+        })
+        .collect();
 
+    if terms.is_empty() {
+        return String::new();
+    }
+
+    let prefix_and = terms
+        .iter()
+        .map(|t| format!("\"{t}\"*"))
+        .collect::<Vec<_>>()
+        .join(" ");
+
+    let expr = if terms.len() >= 2 {
+        let phrase = terms.join(" ");
+        format!("\"{phrase}\" OR ({prefix_and})")
+    } else {
+        prefix_and
+    };
+
+    match scope {
+        SearchScope::All => expr,
+        SearchScope::Title => format!("title : ({expr})"),
+        SearchScope::Path => format!("path : ({expr})"),
+        SearchScope::Content => format!("body : ({expr})"),
+    }
+}
 
 fn like_contains_pattern(query: &str) -> String {
     let escaped = query
@@ -2583,13 +2632,10 @@ pub fn search(
         return Ok(Vec::new());
     }
 
-    let escaped = escape_fts_query(trimmed);
-    let match_expr = match scope {
-        SearchScope::All => escaped,
-        SearchScope::Title => format!("title : {escaped}"),
-        SearchScope::Path => format!("path : {escaped}"),
-        SearchScope::Content => format!("body : {escaped}"),
-    };
+    let match_expr = build_fts_match(trimmed, scope);
+    if match_expr.is_empty() {
+        return Ok(Vec::new());
+    }
 
     let sql = format!(
         "SELECT n.path, n.title, n.mtime_ms, n.size_bytes,
