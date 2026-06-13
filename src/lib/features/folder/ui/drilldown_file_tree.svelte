@@ -16,7 +16,16 @@
     sanitize_note_icon,
   } from "$lib/features/folder/domain/note_visuals";
   import * as ContextMenu from "$lib/components/ui/context-menu";
-  import { Star, StarOff, Copy, Pencil, Trash2, FolderOpen, ExternalLink, Columns2 } from "@lucide/svelte";
+  import {
+    Star,
+    StarOff,
+    Copy,
+    Pencil,
+    Trash2,
+    FolderOpen,
+    ExternalLink,
+    Columns2,
+  } from "@lucide/svelte";
   import { toast } from "svelte-sonner";
 
   const PEEK_DELAY_MS = 500;

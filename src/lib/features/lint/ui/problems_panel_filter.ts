@@ -98,9 +98,12 @@ export function build_unified_entries(
   const include_logs = stream === "all" || stream === "logs";
 
   const diagnostic_entries: UnifiedEntry[] = include_diagnostics
-    ? filter_diagnostics(diagnostics, severity, source_filter, search_query).map(
-        (d) => ({ kind: "diagnostic" as const, data: d }),
-      )
+    ? filter_diagnostics(
+        diagnostics,
+        severity,
+        source_filter,
+        search_query,
+      ).map((d) => ({ kind: "diagnostic" as const, data: d }))
     : [];
 
   const log_entries: UnifiedEntry[] = include_logs
