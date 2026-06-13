@@ -4091,6 +4091,23 @@
               mcp_enabled={editor_settings.mcp_enabled}
               on_toggle_mcp={(v) => update("mcp_enabled", v)}
             />
+            <div class="SettingsDialog__row">
+              <div class="SettingsDialog__label-group">
+                <span class="SettingsDialog__label"
+                  >Keep Running in Menu Bar</span
+                >
+                <span class="SettingsDialog__description"
+                  >Closing the window hides Carbide to the menu bar instead of
+                  quitting, keeping the MCP server running</span
+                >
+              </div>
+              <Switch.Root
+                checked={editor_settings.close_to_tray}
+                onCheckedChange={(v: boolean) => {
+                  update("close_to_tray", v);
+                }}
+              />
+            </div>
           </div>
           <!-- STT removed — archived on archive/stt-main -->
           <!-- {:else if active_category === "speech"}

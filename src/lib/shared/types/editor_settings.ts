@@ -199,6 +199,7 @@ export type EditorSettings = {
   editor_block_drag_handle_visibility: BlockDragHandleVisibility;
   vim_nav_enabled: boolean;
   mcp_enabled: boolean;
+  close_to_tray: boolean;
   // STT removed — archived on archive/stt-main
   // stt_enabled: boolean;
   // stt_model_id: string;
@@ -313,6 +314,7 @@ export const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
   editor_block_drag_handle_visibility: "on_hover",
   vim_nav_enabled: false,
   mcp_enabled: true,
+  close_to_tray: false,
   // STT removed — archived on archive/stt-main
   // stt_enabled: false,
   // stt_model_id: "moonshine-base",
@@ -468,6 +470,7 @@ export const GLOBAL_ONLY_SETTING_KEYS: readonly (keyof EditorSettings)[] = [
   "editor_block_drag_handle_visibility",
   "vim_nav_enabled",
   "mcp_enabled",
+  "close_to_tray",
   // STT removed — archived on archive/stt-main
   // "stt_enabled",
   // "stt_model_id",

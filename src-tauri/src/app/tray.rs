@@ -5,7 +5,7 @@ use tauri::{AppHandle, Manager, WindowEvent};
 use crate::features::mcp::http::DEFAULT_PORT;
 use crate::features::settings::service as settings;
 
-pub const CLOSE_TO_TRAY_KEY: &str = "app.closeToTray";
+pub const CLOSE_TO_TRAY_KEY: &str = "close_to_tray";
 
 pub fn close_to_tray_enabled(app: &AppHandle) -> bool {
     settings::load_settings(app)
