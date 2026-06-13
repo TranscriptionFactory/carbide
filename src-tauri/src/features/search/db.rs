@@ -2689,7 +2689,12 @@ pub fn suggest(conn: &Connection, query: &str, limit: usize) -> Result<Vec<Sugge
     if escaped.is_empty() {
         return Ok(Vec::new());
     }
-    let match_expr = format!("{{title name path}} : {escaped}");
+    // Wrap the term group in parentheses so the column filter applies to every
+    // term. Without the parens, `{title name path} : "a"* "b"*` binds the column
+    // restriction to "a"* only and lets "b"* match unrestricted columns (body),
+    // so a multi-word query would surface notes whose body — not title/path —
+    // contains the trailing terms.
+    let match_expr = format!("{{title name path}} : ({escaped})");
 
     let sql = "SELECT n.path, n.title, n.mtime_ms, n.size_bytes,
                       bm25(notes_fts, 15.0, 20.0, 5.0, 0.0) as rank,
