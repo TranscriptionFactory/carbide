@@ -640,13 +640,25 @@ export class SearchService {
     );
     if (note_items.length === 0) return items;
 
-    const ranked = rank_notes(note_items, {
+    // The backend returns hits already ordered by relevance (BM25 for FTS,
+    // fused score for hybrid), best first. Encode that ordering as a normalized
+    // relevance in [0, 1] from each item's position so the omnibar re-rank
+    // keeps the backend's relevance order within a match-kind bucket instead of
+    // discarding it. Position is used rather than the raw score because FTS and
+    // hybrid scores have different signs and scales.
+    const last = note_items.length - 1;
+    const with_relevance = note_items.map((item, index) => ({
+      ...item,
+      relevance: last > 0 ? (last - index) / last : 1,
+    }));
+
+    const ranked = rank_notes(with_relevance, {
       query: trimmed,
       now_ms: this.now_ms(),
       access_history: this.get_access_history?.(),
     });
 
-    return ranked.map(({ ranked: _ranked, ...rest }) => ({
+    return ranked.map(({ ranked: _ranked, relevance: _relevance, ...rest }) => ({
       ...rest,
       score: _ranked.total,
     }));

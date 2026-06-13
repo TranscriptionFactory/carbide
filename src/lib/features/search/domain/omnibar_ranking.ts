@@ -6,6 +6,13 @@ export const OMNIBAR_SCORES = {
   fuzzy: 0.3,
   recency_boost_per_access: 0.1,
   recency_boost_max: 0.3,
+  // Weight applied to the backend (BM25 / hybrid) relevance, supplied per item
+  // as a normalized value in [0, 1] where 1 is the most relevant result. This
+  // preserves the backend's relevance ordering within a match-kind bucket
+  // instead of leaving it to an incidental stable sort, and lets a strongly
+  // relevant body-only match (which scores 0 on title/name/path) hold its
+  // position rather than being reordered by recency alone.
+  relevance_weight: 0.3,
 } as const;
 
 export const RECENCY_WINDOW_MS = 24 * 60 * 60 * 1000;
@@ -21,6 +28,7 @@ export type RankingContext = {
 export type RankedScore = {
   match_score: number;
   recency_boost: number;
+  relevance_boost: number;
   total: number;
   kind: "exact_prefix" | "substring" | "fuzzy" | "none";
 };
@@ -99,18 +107,30 @@ export function recency_boost(
 export function score_note(
   note: NoteMeta,
   context: RankingContext,
+  relevance = 0,
 ): RankedScore {
   const kind = classify_match(context.query, targets_for(note));
   const ms = match_score(kind);
   const rb = kind === "none" ? 0 : recency_boost(note.id, context);
-  return { match_score: ms, recency_boost: rb, total: ms + rb, kind };
+  const clamped = relevance < 0 ? 0 : relevance > 1 ? 1 : relevance;
+  const rel = clamped * OMNIBAR_SCORES.relevance_weight;
+  return {
+    match_score: ms,
+    recency_boost: rb,
+    relevance_boost: rel,
+    total: ms + rb + rel,
+    kind,
+  };
 }
 
-export function rank_notes<T extends { note: NoteMeta }>(
+export function rank_notes<T extends { note: NoteMeta; relevance?: number }>(
   items: readonly T[],
   context: RankingContext,
 ): Array<T & { ranked: RankedScore }> {
   return items
-    .map((item) => ({ ...item, ranked: score_note(item.note, context) }))
+    .map((item) => ({
+      ...item,
+      ranked: score_note(item.note, context, item.relevance ?? 0),
+    }))
     .sort((a, b) => b.ranked.total - a.ranked.total);
 }
