@@ -197,3 +197,55 @@ describe("score_note + rank_notes (50-note fixture)", () => {
     expect(result.total).toBe(0);
   });
 });
+
+describe("backend relevance integration", () => {
+  it("defaults relevance to 0 so totals match the documented constants", () => {
+    const s = score_note(make_note("alpha-1"), { query: "alpha", now_ms: 0 });
+    expect(s.relevance_boost).toBe(0);
+    expect(s.total).toBe(OMNIBAR_SCORES.exact_prefix);
+  });
+
+  it("orders same-kind matches by backend relevance, not input order", () => {
+    const low = make_note("alpha-low");
+    const high = make_note("alpha-high");
+    // Input order puts the less-relevant note first; relevance must reorder.
+    const ranked = rank_notes(
+      [
+        { note: low, relevance: 0.1 },
+        { note: high, relevance: 0.9 },
+      ],
+      { query: "alpha", now_ms: 0 },
+    );
+    expect(ranked[0]?.note).toBe(high);
+    expect(ranked[1]?.note).toBe(low);
+  });
+
+  it("orders body-only matches by backend relevance", () => {
+    // Neither title/name/path contains "alpha" -> both are kind "none", which
+    // gets no recency boost; relevance is the only differentiator.
+    const weak = make_note("zzz-weak");
+    const strong = make_note("zzz-strong");
+    const ranked = rank_notes(
+      [
+        { note: weak, relevance: 0.2 },
+        { note: strong, relevance: 0.95 },
+      ],
+      { query: "alpha", now_ms: 0 },
+    );
+    expect(ranked.map((r) => r.ranked.kind)).toEqual(["none", "none"]);
+    expect(ranked[0]?.note).toBe(strong);
+  });
+
+  it("keeps the match-kind bucket above relevance: a title match outranks a top-relevance body match", () => {
+    const title = make_note("alpha-note"); // exact_prefix for "alpha"
+    const body = make_note("zzz-unrelated"); // "none" for "alpha"
+    const ranked = rank_notes(
+      [
+        { note: body, relevance: 1 },
+        { note: title, relevance: 0 },
+      ],
+      { query: "alpha", now_ms: 0 },
+    );
+    expect(ranked[0]?.note).toBe(title);
+  });
+});
