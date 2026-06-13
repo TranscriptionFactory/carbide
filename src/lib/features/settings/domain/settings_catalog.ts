@@ -977,6 +977,24 @@ export const SETTINGS_REGISTRY: SettingDefinition[] = [
     keywords: ["mcp", "model", "context", "protocol", "enable", "disable"],
   },
   {
+    key: "close_to_tray",
+    label: "Keep Running in Menu Bar",
+    description:
+      "Closing the window hides Carbide to the menu bar instead of quitting, keeping the MCP server running",
+    category: "MCP",
+    keywords: [
+      "tray",
+      "menu bar",
+      "close",
+      "hide",
+      "quit",
+      "background",
+      "headless",
+      "window",
+      "minimize",
+    ],
+  },
+  {
     key: "daily_notes_folder",
     label: "Daily Notes Folder",
     description: "Root folder for daily notes",
