@@ -8,28 +8,28 @@
 
 > Legend: `[x]` = Implemented | `[~]` = Partially Implemented | `[ ]` = Not Implemented
 
-| #   | Feature Area                     | Status | Notes                                                             |
-| --- | -------------------------------- | ------ | ----------------------------------------------------------------- |
-| 1   | Internal Linking                 | `[x]`  | Wikilinks, aliases, heading/block refs, autocomplete              |
-| 2   | Embeds & Transclusion            | `[~]`  | Note/file/image embeds; no PDF page-range or audio/video embeds   |
-| 3   | Tags                             | `[~]`  | Inline tags with autocomplete; no tag pane or hierarchical search |
-| 4   | Callouts                         | `[x]`  | All 32 types, foldable, nested content                            |
-| 5   | Properties (Frontmatter)         | `[~]`  | Parsed and preserved; no visual property editor                   |
-| 6   | Math & Equations                 | `[x]`  | Inline and block LaTeX via KaTeX                                  |
-| 7   | Mermaid Diagrams                 | `[x]`  | Rendered in code blocks with caching                              |
-| 8   | Highlights, Comments, Formatting | `[~]`  | Highlights and strikethrough; no `%%` comments                    |
-| 9   | Code Blocks                      | `[x]`  | 50+ languages, Shiki highlighting                                 |
-| 10  | Footnotes                        | `[ ]`  | Not implemented                                                   |
-| 11  | Tables                           | `[x]`  | GFM tables with alignment, keyboard nav                           |
-| 12  | Lists                            | `[x]`  | Bullet, ordered, task lists with checkboxes                       |
-| 13  | Canvas                           | `[x]`  | Separate canvas feature (Excalidraw-based)                        |
-| 14  | Obsidian URI Scheme              | `[ ]`  | Not implemented                                                   |
-| 15  | HTML in Obsidian                 | `[~]`  | `<details>` supported; limited other HTML                         |
-| 16  | Queries & Dynamic Content        | `[~]`  | Task query blocks and note query system; no Dataview/DQL          |
-| 17  | Templates                        | `[~]`  | Note name templates with date tokens; no content templates        |
-| 18  | CSS Customization                | `[~]`  | Theme system exists; no user CSS snippets                         |
-| 19  | Keyboard Shortcuts               | `[x]`  | Customizable hotkey system                                        |
-| 20  | Tips, Tricks, Patterns           | `[~]`  | Some patterns supported via editor features                       |
+| #   | Feature Area                     | Status | Notes                                                                         |
+| --- | -------------------------------- | ------ | ----------------------------------------------------------------------------- |
+| 1   | Internal Linking                 | `[x]`  | Wikilinks, aliases, heading/block refs, autocomplete                          |
+| 2   | Embeds & Transclusion            | `[~]`  | Note/file/image embeds; no PDF page-range or audio/video embeds               |
+| 3   | Tags                             | `[~]`  | Inline tags with autocomplete; no tag pane or hierarchical search             |
+| 4   | Callouts                         | `[x]`  | All 32 types, foldable, nested content                                        |
+| 5   | Properties (Frontmatter)         | `[~]`  | Parsed and preserved; no visual property editor                               |
+| 6   | Math & Equations                 | `[x]`  | Inline and block LaTeX via KaTeX                                              |
+| 7   | Mermaid Diagrams                 | `[x]`  | Rendered in code blocks with caching                                          |
+| 8   | Highlights, Comments, Formatting | `[~]`  | Highlights and strikethrough; no `%%` comments                                |
+| 9   | Code Blocks                      | `[x]`  | 50+ languages, Shiki highlighting                                             |
+| 10  | Footnotes                        | `[ ]`  | Not implemented                                                               |
+| 11  | Tables                           | `[x]`  | GFM tables with alignment, keyboard nav                                       |
+| 12  | Lists                            | `[x]`  | Bullet, ordered, task lists with checkboxes                                   |
+| 13  | Canvas                           | `[x]`  | Separate canvas feature (Excalidraw-based)                                    |
+| 14  | Obsidian URI Scheme              | `[ ]`  | Not implemented                                                               |
+| 15  | HTML in Obsidian                 | `[~]`  | `<details>` supported; limited other HTML                                     |
+| 16  | Queries & Dynamic Content        | `[~]`  | Native Smart Blocks (live query/base/backlinks/tasks embeds); no Dataview/DQL |
+| 17  | Templates                        | `[~]`  | Note name templates with date tokens; no content templates                    |
+| 18  | CSS Customization                | `[~]`  | Theme system exists; no user CSS snippets                                     |
+| 19  | Keyboard Shortcuts               | `[x]`  | Customizable hotkey system                                                    |
+| 20  | Tips, Tricks, Patterns           | `[~]`  | Some patterns supported via editor features                                   |
 
 ---
 
@@ -1679,13 +1679,13 @@ Use HTML tables when you need cell merging, rowspan/colspan, or multi-line cell 
 
 # 16 — Queries and Dynamic Content `[~]`
 
-> **Carbide status:** Carbide implements its own task query blocks (````tasks` code blocks) and a note query system with clause-based filtering (`named`, `with`, `in`, `linked_from`, `with_property`). Dataview/DQL and Obsidian's native `query` blocks are not supported.
+> **Carbide status:** Carbide has native **Smart Blocks** — live, self-updating fenced code blocks that embed generated content in a note: ``query` (matching notes), ``base` (an embedded Bases view), ````backlinks` (notes linking here), and ````tasks` (interactive task lists). They use Carbide's own clause-based query language (`named`, `with`, `in`, `linked from`, `with_property`), **not** Dataview/DQL or Obsidian's `query` syntax, which are not supported. See [Search & Queries → Smart Blocks](./search_and_queries.md#smart-blocks-live-embeds).
 
 ---
 
 ## 16.1 Search / Query Block (Core Feature) `[~]`
 
-> **Carbide status:** Obsidian's `query` syntax is not supported. Carbide has its own note query system accessible via the query panel, with clauses like `notes named "..."`, `notes with #tag`, `notes in "Folder"`, `notes linked_from [[Note]]`, and property-based filtering with operators (`=`, `!=`, `>`, `<`, `contains`). Supports AND/OR logic, regex, and saved queries.
+> **Carbide status:** Obsidian's `query` syntax is not supported. Carbide has its own note query system with clauses like `notes named "..."`, `notes with #tag`, `notes in "Folder"`, `notes linked from [[Note]]`, and property-based filtering with operators (`=`, `!=`, `>`, `<`, `contains`). It supports AND/OR logic, regex, and saved queries, and is available both in the query panel and as a live ````query` Smart Block embedded in a note (insert via **Insert Query Block**). Note that clauses are space-separated (`with #tag`), not colon-prefixed. See [Search & Queries](./search_and_queries.md#smart-blocks-live-embeds).
 
 Obsidian has a built-in query block (no plugins needed):
 

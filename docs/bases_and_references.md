@@ -61,6 +61,25 @@ Load a saved view to restore its filters, sort, and view mode. Delete views you 
 
 Results are paginated (100 per page). Use Prev/Next buttons and the "X–Y of Z" counter in the footer to navigate.
 
+### Embedded Base Blocks
+
+Beyond the sidebar panel, a Bases view can be embedded directly inside a note as a live Smart Block. A ` ```base ` fenced block renders any of the six views inline, driven by a query-language expression:
+
+````markdown
+```base
+view: kanban
+group_by: status
+query: notes with #project-x
+```
+````
+
+- `view` selects the renderer (`table`, `list`, `kanban`, `gallery`, `calendar`, `tree`); `group_by` and `date_property` configure kanban/tree and calendar respectively.
+- A view switcher above the block lets you change modes inline, and in-view config edits are written back into the block body — so the note file is the single source of truth (no separate saved view needed).
+- Large result sets are capped at 1000 rows with a visible "Showing N of M" indicator.
+- Insert one via the command palette: **Insert Base View**.
+
+Each embedded block has its own independent state, so multiple base blocks in one note don't interfere. For the full Smart Blocks reference (query and backlinks blocks, insertion, live behavior), see [Search & Queries → Smart Blocks](./search_and_queries.md#smart-blocks-live-embeds).
+
 ---
 
 ## References
