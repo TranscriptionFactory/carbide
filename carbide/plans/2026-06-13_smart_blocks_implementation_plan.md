@@ -1,7 +1,7 @@
 # Implementation Plan — Smart Blocks (Live Query Embeds)
 
 **Date:** 2026-06-13
-**Status:** Proposed — not started
+**Status:** P0 complete (2026-06-13) — P1–P4 pending
 **Related:** `carbide/feature_opportunity_assay.md` (Tier 1 #4), `TODO.md` (Smart Blocks)
 
 ---
@@ -162,7 +162,15 @@ export interface SmartBlockRegistry {
 
 ## Phases
 
-### P0 — Block-type registry + `tasks` migration (foundation) ⏳
+### P0 — Block-type registry + `tasks` migration (foundation) ✅ DONE
+
+**Landed 2026-06-13** across commits: `74291ab` (pure domain), `82e14be` (pre-fix:
+4 layering violations), `f44d363` (tasks handler), `f17e6f7` (CodeBlockView →
+registry + wiring), plus step-5 transition tests. Gates: `pnpm test` 4084/4084,
+`pnpm check` clean (pre-existing baseline only), `lint:layering` passes, `cargo check`
+0 errors. `pnpm lint` OOMs whole-repo in this environment (infra, not code); scoped
+lint on touched files = zero new findings. Review found no Critical/High; M1/L1 gaps
+deferred to P1 (above). Tasks parity verified behavior-preserving.
 
 **Scope.** Stand up `smart_blocks/` skeleton; refactor `CodeBlockView` to consult a
 `SmartBlockRegistry`; migrate the existing `tasks` block onto it as the first handler.

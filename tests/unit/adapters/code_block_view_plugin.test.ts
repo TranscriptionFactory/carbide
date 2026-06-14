@@ -921,5 +921,104 @@ describe("CodeBlockView", () => {
 
       view.destroy();
     });
+
+    it("transitions mermaid -> tasks: tears down mermaid, sets up smart block", async () => {
+      const callbacks: TaskQueryCallbacks = {
+        query_tasks: vi.fn(async () => [make_task()]),
+        toggle_task: vi.fn(async () => {}),
+      };
+      const container_el = document.createElement("div");
+      document.body.appendChild(container_el);
+      container = container_el;
+
+      const code_block = schema.nodes.code_block.create(
+        { language: "mermaid" },
+        schema.text("status is todo"),
+      );
+      const doc = schema.nodes.doc.create(null, [code_block]);
+      const plugin = create_code_block_view_prose_plugin(
+        make_smart_blocks_config(callbacks),
+      );
+      const state = EditorState.create({ doc, plugins: [plugin] });
+      const view = new EditorView(container_el, {
+        state,
+        dispatchTransaction: (tr) => {
+          view.updateState(view.state.apply(tr));
+        },
+      });
+
+      expect(container_el.querySelector(".mermaid-preview")).not.toBeNull();
+      expect(container_el.querySelector(".task-query-results")).toBeNull();
+
+      view.dispatch(
+        view.state.tr.setNodeMarkup(0, undefined, { language: "tasks" }),
+      );
+
+      expect(container_el.querySelector(".mermaid-preview")).toBeNull();
+      expect(container_el.querySelector(".task-query-results")).not.toBeNull();
+
+      await vi.runAllTimersAsync();
+      expect(callbacks.query_tasks).toHaveBeenCalled();
+
+      view.destroy();
+    });
+
+    it("transitions tasks -> mermaid: tears down smart block, sets up mermaid", async () => {
+      const callbacks: TaskQueryCallbacks = {
+        query_tasks: vi.fn(async () => [make_task()]),
+        toggle_task: vi.fn(async () => {}),
+      };
+      const { view, container: c } = create_editor_with_tasks_block(
+        "status is todo",
+        callbacks,
+      );
+      container = c;
+
+      await vi.runAllTimersAsync();
+      expect(c.querySelector(".task-query-results")).not.toBeNull();
+      expect(c.querySelector(".mermaid-toggle-btn")).not.toBeNull();
+
+      view.dispatch(
+        view.state.tr.setNodeMarkup(0, undefined, { language: "mermaid" }),
+      );
+
+      expect(c.querySelector(".task-query-results")).toBeNull();
+      expect(c.querySelector(".mermaid-preview")).not.toBeNull();
+      expect(c.querySelector(".mermaid-toggle-btn")).not.toBeNull();
+
+      view.destroy();
+    });
+
+    it("round-trips tasks -> plain -> tasks without leaking chrome", async () => {
+      const callbacks: TaskQueryCallbacks = {
+        query_tasks: vi.fn(async () => [make_task()]),
+        toggle_task: vi.fn(async () => {}),
+      };
+      const { view, container: c } = create_editor_with_tasks_block(
+        "status is todo",
+        callbacks,
+      );
+      container = c;
+
+      await vi.runAllTimersAsync();
+
+      view.dispatch(
+        view.state.tr.setNodeMarkup(0, undefined, { language: "javascript" }),
+      );
+      expect(c.querySelectorAll(".task-query-results").length).toBe(0);
+      expect(c.querySelectorAll(".mermaid-toggle-btn").length).toBe(0);
+
+      view.dispatch(
+        view.state.tr.setNodeMarkup(0, undefined, { language: "tasks" }),
+      );
+
+      expect(c.querySelectorAll(".task-query-results").length).toBe(1);
+      expect(c.querySelectorAll(".mermaid-toggle-btn").length).toBe(1);
+
+      await vi.runAllTimersAsync();
+      expect(c.querySelectorAll(".task-query-item").length).toBe(1);
+
+      view.destroy();
+    });
   });
 });
