@@ -57,9 +57,11 @@ Each candidate feature is evaluated on:
 
 ### 1. Vault RAG Chat — Conversational AI Over Your Knowledge Base
 
+> **Plan:** Detailed phased implementation plan at `carbide/plans/2026-06-14_vault_rag_chat_implementation_plan.md`. That plan supersedes the rougher sketch in Appendix A on three points: the embedding model is `snowflake-arctic-embed-xs` (not BGE-small), retrieval should be block- not whole-note-granular (D3), and follow-up turns need query rewriting before retrieval (D4). It also records the decision **not** to adopt an external RAG framework (LEANN / HGMem) — both duplicate the existing, proven backend.
+
 **What:** A full chat interface that answers questions by retrieving relevant notes, embedding them as context, and generating cited, sourced responses — all local-first with streaming.
 
-**Why it's different:** Obsidian has 20+ community plugins attempting this (Copilot, Smart Connections, BMO, etc.) — none match what a built-in implementation could achieve. Carbide already has the hard parts: BGE-small embeddings, hnsw_rs vector index, Reciprocal Rank Fusion search, and an MCP server that exposes this surface to external agents. The missing piece is a chat UI + retrieval-augmented generation loop that streams responses with source annotations.
+**Why it's different:** Obsidian has 20+ community plugins attempting this (Copilot, Smart Connections, BMO, etc.) — none match what a built-in implementation could achieve. Carbide already has the hard parts: `snowflake-arctic-embed-xs` embeddings (note- _and_ block-level, both already indexed), hnsw_rs vector index, Reciprocal Rank Fusion search, and an MCP server that exposes this surface to external agents. The missing piece is a chat UI + retrieval-augmented generation loop that streams responses with source annotations.
 
 **Architecture fit:**
 - Leverages: `search/` (FTS5 + semantic), `ai/` (CLI providers), `editor/` (for rendering responses as rich markdown), `mcp/` (exposes RAG as MCP tools)
@@ -370,7 +372,8 @@ Every building block for Vault RAG Chat already exists in the codebase:
 
 | Capability | Location | How it's used |
 |---|---|---|
-| **Hybrid search** (FTS5 + BGE-small embeddings + RRF) | `SearchPort.hybrid_search()`, Rust `hybrid.rs:9` | Retrieves top-N relevant notes for a user question |
+| **Hybrid search** (FTS5 + `snowflake-arctic-embed-xs` embeddings + RRF) | `SearchPort.hybrid_search()`, Rust `hybrid.rs:9` | Retrieves top-N relevant notes for a user question |
+| **Block-level embeddings** (already indexed) | `block_index`, Rust `hnsw_index.rs:73`; `find_similar_blocks()` | Today only block→block; a small `search_blocks(query)` Rust command enables text→block retrieval (see plan D3) |
 | **Semantic similarity** (find related notes by embedding) | `SearchPort.find_similar_notes()` | Already used by `AiService.fetch_vault_context()` to inject context into AI prompts (`ai_service.ts:68`) |
 | **AI streaming** (token-by-token from CLI providers) | `AiStreamPort.stream_text()`, Rust `ai/stream.rs` | Streams LLM responses as `AsyncIterable<AiStreamChunk>` |
 | **AI prompt execution** (non-streaming) | `AiPort.execute()`, `AiService.execute()` | Full prompt → response for non-streamed queries |
@@ -741,7 +744,7 @@ interface RagPort {
 
 - **Zero Rust code** — every Tauri command needed already exists (`search_notes`, `read_note`, AI execute/stream, file I/O)
 - **Zero new IPC** — `AiPort`, `AiStreamPort`, `SearchPort`, `WorkspaceIndexPort` cover the full surface
-- **Zero embedding/index changes** — BGE-small + hnsw_rs + RRF is the correct retrieval backend
+- **Zero embedding/index changes** (Phase 1–2) — `snowflake-arctic-embed-xs` + hnsw_rs + RRF is the correct retrieval backend. Phase 3 adds **one** Rust command (`search_blocks`) that reuses the existing block index + embed path for block-granular retrieval (plan D3) — no new model, crate, or index.
 - **Zero new dependencies** — no npm packages, no Cargo crates
 - **Zero MCP changes** (Phase 1-2) — existing `search_notes` + `read_note` tools are sufficient; a `rag_query` MCP tool can be added in Phase 3
 
@@ -752,7 +755,8 @@ interface RagPort {
 | Decision | Choice | Rationale |
 |---|---|---|
 | **Chat history persistence** | JSON files in `.carbide/rag/sessions/<uuid>.json` | Simpler than SQLite; markdown-native; human-readable |
-| **Retrieval strategy** | `hybrid_search()` — FTS5 + vector + RRF | Already implemented, proven, returns scored + snippet-annotated hits |
+| **Retrieval strategy** | `hybrid_search()` (note-level) in P1; block-granular via `search_blocks()` in P3 | `hybrid_search()` is proven and zero-Rust for P1. Whole-note bodies blow the token budget (STEP 2 below) — block retrieval expanded to enclosing section is higher-precision and tighter (plan D3) |
+| **Follow-up retrieval** | Query rewriting before retrieval (plan D4) | "Re-retrieve per message" alone retrieves poorly on follow-ups like "why?" — rewrite to a standalone query against history first, then retrieve |
 | **Context window budget** | 8K tokens for context, reserve 2K for response | Conservative default; configurable per provider |
 | **Citation format** | `[N]` notation in LLM output, parsed in stream, rendered as wikilinks | Standard convention, simple regex parsing, maps to existing `[[link]]` infrastructure |
 | **Conversation scope** | Vault-wide (default), folder/tag filter (optional) | Start simple; scoping adds retrieval filtering with no new infrastructure |
