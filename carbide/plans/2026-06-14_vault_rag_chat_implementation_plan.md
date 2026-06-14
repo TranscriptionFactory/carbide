@@ -1,7 +1,7 @@
 # Implementation Plan — Vault RAG Chat
 
 **Date:** 2026-06-14
-**Status:** Not started
+**Status:** Phase 1 complete — Phase 2 not started
 **Related:** `carbide/feature_opportunity_assay.md` (Tier 1 #1 + Appendix A), `carbide/TODO.md`
 **Decision tree:** `docs/architecture.md` (followed religiously — new `rag/` feature module, hexagonal anatomy)
 
@@ -186,9 +186,28 @@ it; matches the project's local-first file conventions.
 
 ## Phases
 
-### Phase 1 — Core loop (read-only, single-turn) — 2–3 sessions
+### Phase 1 — Core loop (read-only, single-turn) — ✅ DONE
 
 **Goal.** Open chat → ask → get a cited answer → click a citation to open the note.
+
+**Status — shipped on `feat/rag-chat`:**
+- Part A (`fd1ca8fc`): pure domain (`rag_types`, `rag_context_assembler`,
+  `rag_prompt_builder`, `rag_citations`) + `RagService.query()`; 22 unit tests.
+- Part B: `rag_store.svelte.ts` (`$state` class), `register_rag_actions`
+  (`rag.open` / `rag.ask` / `rag.open_citation`), `rag_panel` / `rag_input` /
+  `rag_message` UI, wired into `create_app_context` as a **sidebar view**
+  (`register_sidebar_view({ id: "rag", … })`); 12 unit tests
+  (`tests/unit/stores/rag_store.test.ts`, `tests/unit/actions/register_rag_actions.test.ts`).
+- Assistant text renders as plain text + clickable `[N]` citation badges and a
+  Sources list (never `innerHTML` of model output); unmapped `[N]` stay plain text.
+- Empty / loading ("Searching your vault…") / error+retry states all explicit.
+- Gate green: `pnpm check` (0 new errors), `pnpm test` (34 rag tests), scoped
+  oxlint clean on rag-owned files, `pnpm format`. No Rust touched.
+
+**Deferred from P1 to P2 (intentionally):** token estimator stays char/4; no
+streaming (stream accumulated to completion); no multi-turn / persistence /
+scope filter; full trusted-markdown render of the answer body (P1 ships
+plain-text + badges, which satisfies the security invariant).
 
 **Scope.** Note-level retrieval via existing `hybrid_search()` (zero Rust). No
 streaming yet (use a single execute or accumulate the stream to completion), no
