@@ -81,11 +81,13 @@ import {
   create_smart_block_registry,
   create_tasks_smart_block_handler,
   create_query_smart_block_handler,
+  create_backlinks_smart_block_handler,
 } from "$lib/features/smart_blocks";
 import type {
   TaskQueryCallbacks,
   SmartBlockContext,
   QueryResult,
+  NoteLinksSnapshot,
 } from "$lib/features/smart_blocks";
 import type { TaskPort } from "$lib/features/task";
 import type { ToolbarVisibility } from "$lib/shared/types/editor_settings";
@@ -258,6 +260,10 @@ function build_task_query_callbacks(
 function build_smart_blocks_config(deps: {
   task_port: TaskPort;
   run_query: (text: string) => Promise<QueryResult>;
+  get_links: (
+    vault_id: VaultId,
+    note_path: string,
+  ) => Promise<NoteLinksSnapshot>;
   get_note_path: () => string;
   get_vault_id: () => VaultId | null;
   open_note: SmartBlockContext["open_note"] | undefined;
@@ -275,6 +281,9 @@ function build_smart_blocks_config(deps: {
   );
   registry.register(
     create_query_smart_block_handler({ run_query: deps.run_query }),
+  );
+  registry.register(
+    create_backlinks_smart_block_handler({ get_links: deps.get_links }),
   );
 
   return {
@@ -296,6 +305,10 @@ export function create_prosemirror_editor_port(args?: {
   ai_inline_config?: AiMenuPluginConfig;
   task_port?: TaskPort;
   run_query?: (text: string) => Promise<QueryResult>;
+  get_links?: (
+    vault_id: VaultId,
+    note_path: string,
+  ) => Promise<NoteLinksSnapshot>;
   subscribe_to_changes?: SmartBlockContext["subscribe_to_changes"];
   note_embed?: {
     read_note: (vault_id: string, note_path: string) => Promise<string>;
@@ -311,6 +324,7 @@ export function create_prosemirror_editor_port(args?: {
   const ai_inline_config = args?.ai_inline_config;
   const task_port = args?.task_port;
   const run_query = args?.run_query;
+  const get_links = args?.get_links;
   const subscribe_to_changes = args?.subscribe_to_changes;
   const note_embed_args = args?.note_embed;
 
@@ -383,6 +397,15 @@ export function create_prosemirror_editor_port(args?: {
                     total: 0,
                     elapsed_ms: 0,
                     query_text: "",
+                  })),
+              get_links:
+                get_links ??
+                (() =>
+                  Promise.resolve({
+                    backlinks: [],
+                    outlinks: [],
+                    orphan_links: [],
+                    attachments: [],
                   })),
               get_note_path: () => current_note_path,
               get_vault_id: () => current_vault_id,

@@ -5,7 +5,10 @@ import type { SlashCommandConfig } from "./slash_command_plugin";
 import type { AiMenuPluginConfig } from "./ai_menu_plugin";
 import type { TaskPort } from "$lib/features/task";
 import type { VaultFsEvent } from "$lib/features/watcher";
-import type { QueryResult } from "$lib/features/smart_blocks";
+import type {
+  QueryResult,
+  NoteLinksSnapshot,
+} from "$lib/features/smart_blocks";
 
 type ResolveAssetUrlForVault = (
   vault_id: VaultId,
@@ -20,6 +23,10 @@ export function create_lazy_editor_port(args?: {
   ai_inline_config?: AiMenuPluginConfig;
   task_port?: TaskPort;
   run_query?: (text: string) => Promise<QueryResult>;
+  get_links?: (
+    vault_id: VaultId,
+    note_path: string,
+  ) => Promise<NoteLinksSnapshot>;
   subscribe_to_changes?: (handler: (event: VaultFsEvent) => void) => () => void;
   note_embed?: {
     read_note: (vault_id: string, note_path: string) => Promise<string>;

@@ -175,6 +175,8 @@ export function create_prod_ports(): Ports & {
       task_port: task,
       run_query: (text) =>
         query_runner.run?.(text) ?? Promise.resolve(EMPTY_QUERY_RESULT),
+      get_links: (vault_id, note_path) =>
+        search.get_note_links_snapshot(vault_id, note_path),
       subscribe_to_changes: (handler) => watcher.subscribe_fs_events(handler),
       note_embed: {
         read_note: (vault_id, note_path) =>

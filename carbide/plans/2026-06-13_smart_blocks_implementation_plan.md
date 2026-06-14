@@ -1,7 +1,7 @@
 # Implementation Plan — Smart Blocks (Live Query Embeds)
 
 **Date:** 2026-06-13
-**Status:** P0–P1 complete (2026-06-13) — P2–P4 pending
+**Status:** P0–P2 complete (2026-06-14) — P3–P4 pending
 **Related:** `carbide/feature_opportunity_assay.md` (Tier 1 #4), `TODO.md` (Smart Blocks)
 
 ---
@@ -266,14 +266,32 @@ notes as a clickable, live list. Read-only.
 
 ---
 
-### P2 — `backlinks` block ⏳
+### P2 — `backlinks` block ✅ DONE
 
-**Scope.** A ` ```backlinks ` block renders the host note's backlinks (optionally
-outlinks/attachments via body flags).
+**Landed 2026-06-14** (working tree, pending review). `create_backlinks_smart_block_handler({ get_links })`
+calls `get_note_links_snapshot(vault_id, note_path)` (read from `SmartBlockContext` — no
+`get_vault_id` threaded into the builder, since both are on `ctx`) and renders backlinks as
+clickable note rows. `show: outlinks` body flag switches to outlinks (both `NoteMeta[]`,
+shared render path); attachments deferred (divergent shape, no demand). No `note_path`/
+`vault_id` → graceful "Save note to see backlinks" info state (not an error). `get_links`
+threaded as its own editor-port arg (`create_prod_ports` → `search.get_note_links_snapshot`),
+editor imports only the `smart_blocks` entrypoint (`NoteLinksSnapshot` re-exported there).
+
+**Reactive-scaffold extraction (P1 carry-over, resolved here — "second user triggers it").**
+Debounce + per-instance stale-guard token + `subscribe`/`destroy` lifecycle extracted to
+`ui/reactive_block.ts` (`create_reactive_block(ctx, run)`); note-row + loading/empty/info/error
+rendering extracted to `ui/note_rows.ts` with unified `smart-block-*` classes. The `query`
+handler was migrated onto both helpers (its `query-block-*` classes renamed to `smart-block-*`;
+P1 tests updated — no CSS existed yet, zero migration). Both handlers now share one CSS block
+(`src/styles/editor.css`) and one lifecycle implementation.
 
 **Approach.** `create_backlinks_smart_block({ get_links })` calls
 `get_note_links_snapshot(vault_id, ctx.note_path)` and renders `backlinks` as a list.
 Body options (e.g. `show: outlinks`) parsed by the handler. Re-run on FS change.
+
+Gates: `pnpm test` 4103/4103 green, `pnpm check` baseline-only (17 pre-existing), `lint:layering`
+passes, scoped oxlint zero new findings (test-file `require-await` matches the accepted P1
+query-test pattern). TypeScript-only, zero Rust.
 
 **Acceptance (BDD).**
 - In note A linked from B and C, the block lists B and C; adding a link from D updates

@@ -89,9 +89,9 @@ describe("query smart block handler", () => {
 
     await vi.advanceTimersByTimeAsync(150);
 
-    const rows = instance.dom.querySelectorAll<HTMLElement>(".query-block-row");
+    const rows = instance.dom.querySelectorAll<HTMLElement>(".smart-block-row");
     expect(rows.length).toBe(2);
-    expect(rows[0]?.querySelector(".query-block-path")?.textContent).toBe(
+    expect(rows[0]?.querySelector(".smart-block-path")?.textContent).toBe(
       "a/1.md",
     );
 
@@ -106,7 +106,7 @@ describe("query smart block handler", () => {
 
     await vi.advanceTimersByTimeAsync(150);
 
-    const empty = instance.dom.querySelector(".query-block-empty");
+    const empty = instance.dom.querySelector(".smart-block-empty");
     expect(empty?.textContent).toBe("No results");
   });
 
@@ -123,7 +123,7 @@ describe("query smart block handler", () => {
 
     await vi.advanceTimersByTimeAsync(150);
 
-    const error = instance.dom.querySelector(".query-block-error");
+    const error = instance.dom.querySelector(".smart-block-error");
     expect(error).not.toBeNull();
     expect(error?.textContent).toContain("bad query");
     expect(error?.textContent).toContain("position 5");
@@ -154,13 +154,13 @@ describe("query smart block handler", () => {
     const instance = handler.create(make_spec("notes in:a/"), ctx);
 
     await vi.advanceTimersByTimeAsync(150);
-    expect(instance.dom.querySelectorAll(".query-block-row").length).toBe(1);
+    expect(instance.dom.querySelectorAll(".smart-block-row").length).toBe(1);
 
     fire_change();
     await vi.advanceTimersByTimeAsync(150);
 
     expect(run_query).toHaveBeenCalledTimes(2);
-    expect(instance.dom.querySelectorAll(".query-block-row").length).toBe(2);
+    expect(instance.dom.querySelectorAll(".smart-block-row").length).toBe(2);
   });
 
   it("drops a stale out-of-order result so the newest render wins", async () => {
@@ -181,13 +181,13 @@ describe("query smart block handler", () => {
 
     fast.resolve(make_result(["fast.md"]));
     await vi.advanceTimersByTimeAsync(0);
-    expect(instance.dom.querySelector(".query-block-path")?.textContent).toBe(
+    expect(instance.dom.querySelector(".smart-block-path")?.textContent).toBe(
       "fast.md",
     );
 
     slow.resolve(make_result(["slow.md"]));
     await vi.advanceTimersByTimeAsync(0);
-    expect(instance.dom.querySelector(".query-block-path")?.textContent).toBe(
+    expect(instance.dom.querySelector(".smart-block-path")?.textContent).toBe(
       "fast.md",
     );
   });
