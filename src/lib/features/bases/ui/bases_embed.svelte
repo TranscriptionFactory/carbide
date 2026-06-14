@@ -1,6 +1,11 @@
 <script lang="ts">
   import type { BasesStore } from "../state/bases_store.svelte";
-  import type { KanbanConfig, CalendarConfig, TreeConfig } from "../ports";
+  import type {
+    KanbanConfig,
+    CalendarConfig,
+    TreeConfig,
+    ViewMode,
+  } from "../ports";
   import BasesTable from "./bases_table.svelte";
   import BasesKanban from "./bases_kanban.svelte";
   import BasesGallery from "./bases_gallery.svelte";
@@ -17,6 +22,21 @@
     on_config_change?: () => void;
   } = $props();
 
+  const VIEW_MODES: ViewMode[] = [
+    "table",
+    "list",
+    "kanban",
+    "gallery",
+    "calendar",
+    "tree",
+  ];
+
+  function update_view_mode(mode: ViewMode) {
+    if (store.active_view_mode === mode) return;
+    store.active_view_mode = mode;
+    on_config_change?.();
+  }
+
   function update_kanban(config: KanbanConfig) {
     store.kanban_config = config;
     on_config_change?.();
@@ -32,6 +52,22 @@
     on_config_change?.();
   }
 </script>
+
+{#if !store.error}
+  <div class="smart-block-view-switcher" role="group" aria-label="View mode">
+    {#each VIEW_MODES as mode}
+      <button
+        type="button"
+        class="smart-block-view-btn"
+        class:active={store.active_view_mode === mode}
+        aria-pressed={store.active_view_mode === mode}
+        onclick={() => update_view_mode(mode)}
+      >
+        {mode}
+      </button>
+    {/each}
+  </div>
+{/if}
 
 {#if store.error}
   <div class="smart-block-error">{store.error}</div>

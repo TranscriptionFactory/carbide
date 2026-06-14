@@ -1131,6 +1131,35 @@
   font-style: italic;
 }
 
+.smart-block-view-switcher {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin-bottom: var(--space-2);
+}
+
+.smart-block-view-btn {
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--muted-foreground);
+  font-size: var(--text-xs);
+  text-transform: capitalize;
+  cursor: pointer;
+}
+
+.smart-block-view-btn:hover {
+  background: var(--accent);
+  color: var(--accent-foreground);
+}
+
+.smart-block-view-btn.active {
+  background: var(--accent);
+  color: var(--accent-foreground);
+  border-color: var(--accent);
+}
+
 .smart-block-base-list {
   display: flex;
   flex-direction: column;
