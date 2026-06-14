@@ -1060,7 +1060,9 @@ describe("CodeBlockView", () => {
         original_io as typeof IntersectionObserver;
     });
 
-    function make_query_config(run_query: (text: string) => Promise<QueryResult>) {
+    function make_query_config(
+      run_query: (text: string) => Promise<QueryResult>,
+    ) {
       const registry = create_smart_block_registry();
       registry.register(create_query_smart_block_handler({ run_query }));
       return {

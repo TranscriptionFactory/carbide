@@ -122,8 +122,10 @@ describe("base smart block handler", () => {
     expect(text).toContain("todo");
     expect(text).toContain("done");
 
-    const card = [...instance.dom.querySelectorAll("button")].find((b) =>
-      b.textContent?.includes("a"),
+    const card = [...instance.dom.querySelectorAll("button")].find(
+      (b) =>
+        !b.classList.contains("smart-block-view-btn") &&
+        b.textContent?.includes("a"),
     );
     card?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     expect(ctx.open_note).toHaveBeenCalledWith("a.md");
@@ -259,6 +261,31 @@ describe("base smart block handler", () => {
     await settle();
 
     expect(instance.dom.querySelector(".smart-block-truncation")).toBeNull();
+  });
+
+  it("switches view mode from the in-block switcher, persisting to the body without re-querying", async () => {
+    const run_base_query = vi.fn(async () =>
+      make_outcome([make_row("a.md", "todo")]),
+    );
+    const handler = create_base_smart_block_handler({ run_base_query });
+    const { ctx } = make_ctx();
+    const instance = handler.create(make_spec(KANBAN_BODY), ctx);
+
+    await settle();
+    expect(instance.dom.querySelector("table")).toBeNull();
+
+    const table_btn = [
+      ...instance.dom.querySelectorAll(".smart-block-view-btn"),
+    ].find((b) => b.textContent?.trim() === "table");
+    expect(table_btn).toBeDefined();
+    table_btn?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    flushSync();
+
+    expect(instance.dom.querySelector("table")).not.toBeNull();
+    expect(ctx.update_body).toHaveBeenCalledWith(
+      "view: table\nquery: notes with:#project-x",
+    );
+    expect(run_base_query).toHaveBeenCalledTimes(1);
   });
 
   it("renders an error state for an invalid body and never queries", async () => {
