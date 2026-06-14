@@ -822,13 +822,30 @@ class CodeBlockView implements NodeView {
     return parse_smart_block(this.current_language, this.node.textContent);
   }
 
+  private write_smart_block_body(text: string) {
+    const pos = this.get_pos();
+    if (pos === undefined) return;
+    const node = this.view.state.doc.nodeAt(pos);
+    if (!node || node.type.name !== "code_block") return;
+    if (node.textContent === text) return;
+    const start = pos + 1;
+    const end = pos + node.nodeSize - 1;
+    const tr =
+      text.length > 0
+        ? this.view.state.tr.replaceWith(start, end, schema.text(text))
+        : this.view.state.tr.delete(start, end);
+    this.view.dispatch(tr);
+  }
+
   private setup_smart_block(handler: SmartBlockHandler) {
     if (!this.smart_blocks) return;
 
-    const instance = handler.create(
-      this.current_smart_block_spec(),
-      this.smart_blocks.make_context(),
-    );
+    const instance = handler.create(this.current_smart_block_spec(), {
+      ...this.smart_blocks.make_context(),
+      update_body: (text: string) => {
+        this.write_smart_block_body(text);
+      },
+    });
 
     const toggle_btn = document.createElement("button");
     toggle_btn.className = "mermaid-toggle-btn";

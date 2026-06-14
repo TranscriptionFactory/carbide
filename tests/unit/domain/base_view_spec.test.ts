@@ -27,17 +27,23 @@ describe("parse_base_view_spec", () => {
   });
 
   it("splits comma-separated group_by for tree views", () => {
-    const result = parse_base_view_spec("view: tree\ngroup_by: year, month\nquery: notes");
+    const result = parse_base_view_spec(
+      "view: tree\ngroup_by: year, month\nquery: notes",
+    );
     expect(result.ok && result.spec.group_by).toEqual(["year", "month"]);
   });
 
   it("parses date_property for calendar views", () => {
-    const result = parse_base_view_spec("view: calendar\ndate_property: due\nquery: notes");
+    const result = parse_base_view_spec(
+      "view: calendar\ndate_property: due\nquery: notes",
+    );
     expect(result.ok && result.spec.date_property).toBe("due");
   });
 
   it("ignores blank and malformed lines", () => {
-    const result = parse_base_view_spec("\nview: list\n   \ngarbage line\nquery: notes");
+    const result = parse_base_view_spec(
+      "\nview: list\n   \ngarbage line\nquery: notes",
+    );
     expect(result.ok && result.spec.view).toBe("list");
   });
 
@@ -81,7 +87,9 @@ describe("serialize_base_view_spec", () => {
   });
 
   it("omits group_by for views that do not use it", () => {
-    const text = serialize_base_view_spec(spec({ view: "table", group_by: ["status"] }));
+    const text = serialize_base_view_spec(
+      spec({ view: "table", group_by: ["status"] }),
+    );
     expect(text).toBe("view: table\nquery: notes with:#project-x");
   });
 
@@ -89,6 +97,8 @@ describe("serialize_base_view_spec", () => {
     const text = serialize_base_view_spec(
       spec({ view: "calendar", date_property: "due" }),
     );
-    expect(text).toBe("view: calendar\ndate_property: due\nquery: notes with:#project-x");
+    expect(text).toBe(
+      "view: calendar\ndate_property: due\nquery: notes with:#project-x",
+    );
   });
 });

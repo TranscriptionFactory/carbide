@@ -82,12 +82,14 @@ import {
   create_tasks_smart_block_handler,
   create_query_smart_block_handler,
   create_backlinks_smart_block_handler,
+  create_base_smart_block_handler,
 } from "$lib/features/smart_blocks";
 import type {
   TaskQueryCallbacks,
   SmartBlockContext,
   QueryResult,
   NoteLinksSnapshot,
+  BaseQueryOutcome,
 } from "$lib/features/smart_blocks";
 import type { TaskPort } from "$lib/features/task";
 import type { ToolbarVisibility } from "$lib/shared/types/editor_settings";
@@ -264,6 +266,10 @@ function build_smart_blocks_config(deps: {
     vault_id: VaultId,
     note_path: string,
   ) => Promise<NoteLinksSnapshot>;
+  run_base_query: (
+    vault_id: VaultId,
+    query: string,
+  ) => Promise<BaseQueryOutcome>;
   get_note_path: () => string;
   get_vault_id: () => VaultId | null;
   open_note: SmartBlockContext["open_note"] | undefined;
@@ -284,6 +290,9 @@ function build_smart_blocks_config(deps: {
   );
   registry.register(
     create_backlinks_smart_block_handler({ get_links: deps.get_links }),
+  );
+  registry.register(
+    create_base_smart_block_handler({ run_base_query: deps.run_base_query }),
   );
 
   return {
@@ -309,6 +318,10 @@ export function create_prosemirror_editor_port(args?: {
     vault_id: VaultId,
     note_path: string,
   ) => Promise<NoteLinksSnapshot>;
+  run_base_query?: (
+    vault_id: VaultId,
+    query: string,
+  ) => Promise<BaseQueryOutcome>;
   subscribe_to_changes?: SmartBlockContext["subscribe_to_changes"];
   note_embed?: {
     read_note: (vault_id: string, note_path: string) => Promise<string>;
@@ -325,6 +338,7 @@ export function create_prosemirror_editor_port(args?: {
   const task_port = args?.task_port;
   const run_query = args?.run_query;
   const get_links = args?.get_links;
+  const run_base_query = args?.run_base_query;
   const subscribe_to_changes = args?.subscribe_to_changes;
   const note_embed_args = args?.note_embed;
 
@@ -407,6 +421,9 @@ export function create_prosemirror_editor_port(args?: {
                     orphan_links: [],
                     attachments: [],
                   })),
+              run_base_query:
+                run_base_query ??
+                (() => Promise.resolve({ rows: [], available_properties: [] })),
               get_note_path: () => current_note_path,
               get_vault_id: () => current_vault_id,
               open_note: events.on_internal_link_click
