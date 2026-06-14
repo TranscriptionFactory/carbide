@@ -62,6 +62,18 @@ import {
 import type { SlashCommand } from "$lib/features/editor";
 import type { Ports } from "$lib/app/di/app_ports";
 import type { VaultId, NoteId } from "$lib/shared/types/ids";
+import type { QueryResult } from "$lib/features/query";
+
+const EMPTY_QUERY_RESULT: QueryResult = {
+  items: [],
+  total: 0,
+  elapsed_ms: 0,
+  query_text: "",
+};
+
+export type QueryRunner = {
+  run: ((text: string) => Promise<QueryResult>) | null;
+};
 
 export type SlashCommandProvider = {
   get_plugin_commands: () => SlashCommand[];
@@ -89,6 +101,7 @@ export type AiInlineHandler = {
 export function create_prod_ports(): Ports & {
   slash_command_provider: SlashCommandProvider;
   ai_inline_handler: AiInlineHandler;
+  query_runner: QueryRunner;
 } {
   const assets = create_assets_tauri_adapter();
   const vault = create_vault_tauri_adapter();
@@ -122,10 +135,12 @@ export function create_prod_ports(): Ports & {
     get_commands: null,
     on_open_settings: null,
   };
+  const query_runner: QueryRunner = { run: null };
 
   return {
     slash_command_provider,
     ai_inline_handler,
+    query_runner,
     vault,
     notes,
     index,
@@ -158,6 +173,9 @@ export function create_prod_ports(): Ports & {
         on_open_settings: () => ai_inline_handler.on_open_settings?.(),
       },
       task_port: task,
+      run_query: (text) =>
+        query_runner.run?.(text) ?? Promise.resolve(EMPTY_QUERY_RESULT),
+      subscribe_to_changes: (handler) => watcher.subscribe_fs_events(handler),
       note_embed: {
         read_note: (vault_id, note_path) =>
           notes

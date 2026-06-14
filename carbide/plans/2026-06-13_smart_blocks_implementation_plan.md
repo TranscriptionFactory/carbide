@@ -1,7 +1,7 @@
 # Implementation Plan — Smart Blocks (Live Query Embeds)
 
 **Date:** 2026-06-13
-**Status:** P0 complete (2026-06-13) — P1–P4 pending
+**Status:** P0–P1 complete (2026-06-13) — P2–P4 pending
 **Related:** `carbide/feature_opportunity_assay.md` (Tier 1 #4), `TODO.md` (Smart Blocks)
 
 ---
@@ -218,7 +218,20 @@ No new user-facing block types. Behavior-preserving.
 
 ---
 
-### P1 — `query` block (note lists) ⏳
+### P1 — `query` block (note lists) ✅ DONE
+
+**Landed 2026-06-13** (working tree, pending review). `QueryService.run()` added as a
+detached parse+solve (no `query_store` mutation); `execute()` refactored to reuse it via
+a `QueryParseError` carrying the parser caret offset. `create_query_smart_block_handler`
+registered alongside `tasks`; first reactive handler — debounce (~150 ms) + per-instance
+stale-guard token + `destroy()` unsubscribe/timer-clear (kept inline; extraction deferred
+to P2 per "second user triggers it"). **M1 resolved:** `subscribe_to_changes` threaded as
+its own editor-port arg (`create_prod_ports` → `watcher.subscribe_fs_events`), decoupled
+from `note_embed`; `run_query` late-bound via a `query_runner` holder (the established
+`ai_inline_handler` pattern) wired in `+page.svelte` from `app.services.query.run`. **L1:**
+`open_note` now threads the optional `fragment` (encoded as `path#fragment`). Gates:
+`pnpm test` (query+smart_blocks+adapters) green, `pnpm check` baseline-only (17 pre-existing),
+`lint:layering` passes, `cargo check` 0 errors, scoped oxlint zero new findings.
 
 **Scope.** A ` ```query ` block runs a `query/` expression and renders the matching
 notes as a clickable, live list. Read-only.

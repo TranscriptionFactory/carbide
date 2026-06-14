@@ -80,10 +80,12 @@ import type { AiMenuPluginConfig } from "$lib/features/editor/adapters/ai_menu_p
 import {
   create_smart_block_registry,
   create_tasks_smart_block_handler,
+  create_query_smart_block_handler,
 } from "$lib/features/smart_blocks";
 import type {
   TaskQueryCallbacks,
   SmartBlockContext,
+  QueryResult,
 } from "$lib/features/smart_blocks";
 import type { TaskPort } from "$lib/features/task";
 import type { ToolbarVisibility } from "$lib/shared/types/editor_settings";
@@ -255,9 +257,10 @@ function build_task_query_callbacks(
 
 function build_smart_blocks_config(deps: {
   task_port: TaskPort;
+  run_query: (text: string) => Promise<QueryResult>;
   get_note_path: () => string;
   get_vault_id: () => VaultId | null;
-  open_note: ((path: string) => void) | undefined;
+  open_note: SmartBlockContext["open_note"] | undefined;
   subscribe_to_changes: SmartBlockContext["subscribe_to_changes"];
 }) {
   const registry = create_smart_block_registry();
@@ -269,6 +272,9 @@ function build_smart_blocks_config(deps: {
         deps.open_note,
       ),
     ),
+  );
+  registry.register(
+    create_query_smart_block_handler({ run_query: deps.run_query }),
   );
 
   return {
@@ -289,6 +295,8 @@ export function create_prosemirror_editor_port(args?: {
   slash_config?: SlashCommandConfig;
   ai_inline_config?: AiMenuPluginConfig;
   task_port?: TaskPort;
+  run_query?: (text: string) => Promise<QueryResult>;
+  subscribe_to_changes?: SmartBlockContext["subscribe_to_changes"];
   note_embed?: {
     read_note: (vault_id: string, note_path: string) => Promise<string>;
     subscribe_to_changes: (
@@ -302,6 +310,8 @@ export function create_prosemirror_editor_port(args?: {
   const slash_config = args?.slash_config;
   const ai_inline_config = args?.ai_inline_config;
   const task_port = args?.task_port;
+  const run_query = args?.run_query;
+  const subscribe_to_changes = args?.subscribe_to_changes;
   const note_embed_args = args?.note_embed;
 
   return {
@@ -365,19 +375,27 @@ export function create_prosemirror_editor_port(args?: {
           ...(task_port && {
             smart_blocks: build_smart_blocks_config({
               task_port,
+              run_query:
+                run_query ??
+                (() =>
+                  Promise.resolve({
+                    items: [],
+                    total: 0,
+                    elapsed_ms: 0,
+                    query_text: "",
+                  })),
               get_note_path: () => current_note_path,
               get_vault_id: () => current_vault_id,
               open_note: events.on_internal_link_click
-                ? (path: string) => {
+                ? (path: string, fragment?: string) => {
                     events.on_internal_link_click?.(
-                      path,
+                      fragment ? `${path}#${fragment}` : path,
                       current_note_path,
                       "wiki",
                     );
                   }
                 : undefined,
-              subscribe_to_changes:
-                note_embed_args?.subscribe_to_changes ?? (() => () => {}),
+              subscribe_to_changes: subscribe_to_changes ?? (() => () => {}),
             }),
           }),
           ...(note_embed_args && {
