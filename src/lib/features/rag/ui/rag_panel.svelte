@@ -17,7 +17,7 @@
   );
 
   const last_question = $derived(
-    [...rag.messages].reverse().find((m) => m.role === "user")?.content ?? "",
+    rag.messages.findLast((m) => m.role === "user")?.content ?? "",
   );
 
   const EXAMPLES = [
