@@ -197,8 +197,9 @@ export function create_prod_ports(): Ports & {
         );
         const rows = result.items
           .map((item) => by_path.get(item.note.path))
-          .filter((row): row is NonNullable<typeof row> => row !== undefined);
-        return { rows, available_properties };
+          .filter((row): row is NonNullable<typeof row> => row !== undefined)
+          .slice(0, BASE_QUERY_ROW_CAP);
+        return { rows, available_properties, total: result.items.length };
       },
       subscribe_to_changes: (handler) => watcher.subscribe_fs_events(handler),
       note_embed: {
