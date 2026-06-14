@@ -11,6 +11,7 @@ export type SmartBlockContext = {
   vault_id: VaultId | null;
   open_note: (path: string, fragment?: string) => void;
   subscribe_to_changes: (handler: (event: VaultFsEvent) => void) => () => void;
+  update_body?: (text: string) => void;
 };
 
 export interface SmartBlockInstance {

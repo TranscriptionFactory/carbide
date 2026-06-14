@@ -71,6 +71,8 @@ const EMPTY_QUERY_RESULT: QueryResult = {
   query_text: "",
 };
 
+const BASE_QUERY_ROW_CAP = 1000;
+
 export type QueryRunner = {
   run: ((text: string) => Promise<QueryResult>) | null;
 };
@@ -177,6 +179,27 @@ export function create_prod_ports(): Ports & {
         query_runner.run?.(text) ?? Promise.resolve(EMPTY_QUERY_RESULT),
       get_links: (vault_id, note_path) =>
         search.get_note_links_snapshot(vault_id, note_path),
+      run_base_query: async (vault_id, text) => {
+        const result = query_runner.run
+          ? await query_runner.run(text)
+          : EMPTY_QUERY_RESULT;
+        const [results, available_properties] = await Promise.all([
+          bases.query(vault_id, {
+            filters: [],
+            sort: [],
+            limit: BASE_QUERY_ROW_CAP,
+            offset: 0,
+          }),
+          bases.list_properties(vault_id),
+        ]);
+        const by_path = new Map(
+          results.rows.map((row) => [row.note.path, row]),
+        );
+        const rows = result.items
+          .map((item) => by_path.get(item.note.path))
+          .filter((row): row is NonNullable<typeof row> => row !== undefined);
+        return { rows, available_properties };
+      },
       subscribe_to_changes: (handler) => watcher.subscribe_fs_events(handler),
       note_embed: {
         read_note: (vault_id, note_path) =>

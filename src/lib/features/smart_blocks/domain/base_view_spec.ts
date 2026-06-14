@@ -34,8 +34,10 @@ export function parse_base_view_spec(body: string): BaseViewParseResult {
   for (const line of body.split("\n")) {
     if (line.trim().length === 0) continue;
     const match = LINE_RE.exec(line);
-    if (!match) continue;
-    fields.set(match[1]!.toLowerCase(), match[2]!.trim());
+    const key = match?.[1];
+    const value = match?.[2];
+    if (key === undefined || value === undefined) continue;
+    fields.set(key.toLowerCase(), value.trim());
   }
 
   const query = fields.get("query") ?? "";

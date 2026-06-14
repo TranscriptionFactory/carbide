@@ -6,6 +6,11 @@ export { create_query_smart_block_handler } from "./ui/handlers/query_smart_bloc
 export type { QuerySmartBlockDeps } from "./ui/handlers/query_smart_block";
 export { create_backlinks_smart_block_handler } from "./ui/handlers/backlinks_smart_block";
 export type { BacklinksSmartBlockDeps } from "./ui/handlers/backlinks_smart_block";
+export { create_base_smart_block_handler } from "./ui/handlers/base_smart_block";
+export type {
+  BaseSmartBlockDeps,
+  BaseQueryOutcome,
+} from "./ui/handlers/base_smart_block";
 export type { QueryResult } from "$lib/features/query";
 export type { NoteLinksSnapshot } from "$lib/features/search";
 export type {

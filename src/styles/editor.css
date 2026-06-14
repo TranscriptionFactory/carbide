@@ -1124,6 +1124,30 @@
   font-style: italic;
 }
 
+.smart-block-base-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.smart-block-base-list-item {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  padding: var(--space-1) 0;
+  text-align: left;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: inherit;
+  color: inherit;
+}
+
+.smart-block-base-list-item:hover .smart-block-title {
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-underline-offset: 2px;
+}
+
 /* ── Code block copy button ── */
 
 .code-block-wrapper .code-block-copy {
