@@ -303,6 +303,10 @@ export const ACTION_IDS = {
   ai_close_inline_menu: "ai.close_inline_menu",
   ai_toggle_vault_context: "ai.toggle_vault_context",
 
+  rag_open: "rag.open",
+  rag_ask: "rag.ask",
+  rag_open_citation: "rag.open_citation",
+
   tab_open_to_side: "tab.open_to_side",
   tab_toggle_split: "tab.toggle_split",
   tab_set_active_pane: "tab.set_active_pane",

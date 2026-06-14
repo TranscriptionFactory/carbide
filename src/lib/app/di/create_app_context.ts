@@ -46,6 +46,7 @@ import {
 } from "$lib/features/graph";
 import { register_window_actions } from "$lib/features/window";
 import { AiService, register_ai_actions } from "$lib/features/ai";
+import { RagService, RagPanel, register_rag_actions } from "$lib/features/rag";
 import type { AiProviderConfig } from "$lib/shared/types/ai_provider_config";
 import type { AiProviderHint } from "$lib/features/plugin";
 import {
@@ -105,7 +106,13 @@ import {
 import { PluginManager } from "$lib/features/plugin";
 import { CanvasPanel } from "$lib/features/canvas";
 import { mount_reactors } from "$lib/reactors";
-import { Blocks, PencilRuler, BookMarked, Database } from "@lucide/svelte";
+import {
+  Blocks,
+  PencilRuler,
+  BookMarked,
+  Database,
+  MessagesSquare,
+} from "@lucide/svelte";
 import { create_workspace_reconcile } from "$lib/app/orchestration/workspace_reconcile";
 import { as_markdown_text, as_note_path } from "$lib/shared/types/ids";
 import { is_linked_note_path } from "$lib/shared/types/note";
@@ -228,6 +235,13 @@ export function create_app_context(input: {
     label: "Bases",
     icon: Database,
     panel: BasesPanel,
+  });
+
+  plugin_service.register_sidebar_view({
+    id: "rag",
+    label: "Chat",
+    icon: MessagesSquare,
+    panel: RagPanel,
   });
 
   const search_service = new SearchService(
@@ -786,6 +800,13 @@ export function create_app_context(input: {
     input.ports.search,
   );
 
+  const rag_service = new RagService(
+    input.ports.search,
+    input.ports.notes,
+    input.ports.ai_stream,
+    stores.vault,
+  );
+
   const bases_service = new BasesService(input.ports.bases, stores.bases);
 
   const task_service = new TaskService(
@@ -1193,6 +1214,12 @@ export function create_app_context(input: {
     ...base_action_input,
     ai_store: stores.ai,
     ai_service,
+  });
+
+  register_rag_actions({
+    ...base_action_input,
+    rag_store: stores.rag,
+    rag_service,
   });
 
   register_graph_actions({

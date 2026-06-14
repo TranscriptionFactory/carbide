@@ -1,4 +1,7 @@
 export { RagService } from "$lib/features/rag/application/rag_service";
+export { RagStore } from "$lib/features/rag/state/rag_store.svelte";
+export { register_rag_actions } from "$lib/features/rag/application/rag_actions";
+export { default as RagPanel } from "$lib/features/rag/ui/rag_panel.svelte";
 export {
   assemble_context,
   estimate_tokens,
