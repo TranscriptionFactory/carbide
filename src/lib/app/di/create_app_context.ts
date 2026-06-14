@@ -896,6 +896,7 @@ export function create_app_context(input: {
       theme: theme_service,
       bases: bases_service,
       task: task_service,
+      query: query_service,
       plugin: plugin_service,
       plugin_settings: plugin_settings_service,
       reference: reference_service,

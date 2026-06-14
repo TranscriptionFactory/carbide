@@ -9,11 +9,19 @@ import {
   validate_query_name,
 } from "../domain/saved_query";
 import type { QueryStore } from "../state/query_store.svelte";
+import type { QueryError, QueryResult } from "../types";
 
 export const QUERY_OP_KEYS = {
   save: "query.save",
   delete: "query.delete_saved",
 } as const;
+
+export class QueryParseError extends Error {
+  constructor(readonly query_error: QueryError) {
+    super(query_error.message);
+    this.name = "QueryParseError";
+  }
+}
 
 export class QueryService {
   constructor(
@@ -23,6 +31,23 @@ export class QueryService {
     private readonly saved_query_port: SavedQueryPort,
     private readonly op_store: OpStore,
   ) {}
+
+  async run(query_text: string): Promise<QueryResult> {
+    const vault = this.vault_store.vault;
+    if (!vault) throw new Error("No vault open");
+
+    const trimmed = query_text.trim();
+    if (!trimmed) {
+      return { items: [], total: 0, elapsed_ms: 0, query_text: "" };
+    }
+
+    const parsed = parse_query(trimmed);
+    if (!parsed.ok) throw new QueryParseError(parsed.error);
+
+    const result = await solve_query(vault.id, parsed.query, this.backends);
+    result.query_text = trimmed;
+    return result;
+  }
 
   async execute(query_text: string): Promise<void> {
     const vault = this.vault_store.vault;
@@ -36,22 +61,19 @@ export class QueryService {
 
     this.store.set_running(trimmed);
 
-    const parsed = parse_query(trimmed);
-    if (!parsed.ok) {
-      this.store.set_error(parsed.error);
-      return;
-    }
-
     try {
-      const result = await solve_query(vault.id, parsed.query, this.backends);
-      result.query_text = trimmed;
-      this.store.set_result(result);
+      this.store.set_result(await this.run(trimmed));
     } catch (e) {
-      this.store.set_error({
-        message: e instanceof Error ? e.message : "Query execution failed",
-        position: 0,
-        length: 0,
-      });
+      this.store.set_error(
+        e instanceof QueryParseError
+          ? e.query_error
+          : {
+              message:
+                e instanceof Error ? e.message : "Query execution failed",
+              position: 0,
+              length: 0,
+            },
+      );
     }
   }
 

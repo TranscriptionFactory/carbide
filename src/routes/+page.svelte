@@ -54,6 +54,8 @@
   ports.ai_inline_handler.on_open_settings = () =>
     void app.action_registry.execute(ACTION_IDS.settings_open, "ai");
 
+  ports.query_runner.run = (text) => app.services.query.run(text);
+
   provide_app_context(app);
 
   let destroyed = false;
