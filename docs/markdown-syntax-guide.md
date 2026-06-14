@@ -164,7 +164,7 @@ You can toggle wikilinks on/off in **Settings → Files & Links → Use `[[Wikil
 
 ## 1.7 Unlinked Mentions `[ ]`
 
-> **Carbide status:** Not implemented. No backlinks pane or unlinked mention detection.
+> **Carbide status:** Partially implemented. Carbide _does_ have a backlinks pane — the **Links Panel** (toggle via "Toggle Links Panel") shows **linked mentions** as a Backlinks section, alongside Outlinks, Planned (unresolved) links, Attachments, and External links; a live ````backlinks` Smart Block embeds the same linked mentions in a note. **Unlinked mentions** (notes containing the title/alias as plain text without a link) are _not_ detected — that specific feature is what remains unimplemented.
 
 Obsidian's backlinks pane shows two sections:
 
