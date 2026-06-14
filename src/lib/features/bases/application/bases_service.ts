@@ -131,4 +131,10 @@ export class BasesService {
       return 0;
     }
   }
+
+  async refresh_for_active_vault(vault_id: VaultId): Promise<void> {
+    await this.refresh_properties(vault_id);
+    await this.seed_default_views(vault_id);
+    await this.run_query(vault_id);
+  }
 }
