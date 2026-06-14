@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { smart_block_scaffold } from "$lib/features/smart_blocks/domain/smart_block_scaffold";
 import { parse_base_view_spec } from "$lib/features/smart_blocks/domain/base_view_spec";
+import { parse_query } from "$lib/features/query/domain/query_parser";
 
 function fenced_body(scaffold: string, type: string): string {
   const lines = scaffold.split("\n");
@@ -26,8 +27,17 @@ describe("smart_block_scaffold", () => {
     }
   });
 
-  it("produces a query scaffold with a non-empty body", () => {
+  it("produces a query scaffold whose body parses with the real query parser", () => {
     const body = fenced_body(smart_block_scaffold("query"), "query");
-    expect(body.trim().length).toBeGreaterThan(0);
+    expect(parse_query(body).ok).toBe(true);
+  });
+
+  it("produces a base scaffold whose query line parses with the real query parser", () => {
+    const body = fenced_body(smart_block_scaffold("base"), "base");
+    const result = parse_base_view_spec(body);
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(parse_query(result.spec.query).ok).toBe(true);
+    }
   });
 });
