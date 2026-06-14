@@ -1071,6 +1071,59 @@
   font-style: italic;
 }
 
+/* ── Smart block results (query / backlinks) ── */
+
+.smart-block-results {
+  padding: var(--space-3) var(--space-4);
+  background: var(--editor-code-bg);
+  border: 1px solid var(--editor-code-border);
+  border-top: none;
+  border-radius: 0 0 calc(var(--radius) * 0.75) calc(var(--radius) * 0.75);
+  font-size: var(--text-sm);
+}
+
+.smart-block-row {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  padding: var(--space-1) 0;
+  cursor: pointer;
+}
+
+.smart-block-row:hover .smart-block-title {
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-underline-offset: 2px;
+}
+
+.smart-block-title {
+  flex-shrink: 0;
+}
+
+.smart-block-path {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--text-xs);
+  color: var(--muted-foreground);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.smart-block-loading,
+.smart-block-empty,
+.smart-block-info {
+  color: var(--muted-foreground);
+  font-size: var(--text-sm);
+  font-style: italic;
+}
+
+.smart-block-error {
+  color: var(--destructive);
+  font-size: var(--text-sm);
+  font-style: italic;
+}
+
 /* ── Code block copy button ── */
 
 .code-block-wrapper .code-block-copy {
@@ -1153,7 +1206,8 @@
 .code-block-wrapper[data-collapsed="true"] pre,
 .code-block-wrapper[data-collapsed="true"] .code-block-resize-handle,
 .code-block-wrapper[data-collapsed="true"] .mermaid-preview,
-.code-block-wrapper[data-collapsed="true"] .task-query-results {
+.code-block-wrapper[data-collapsed="true"] .task-query-results,
+.code-block-wrapper[data-collapsed="true"] .smart-block-results {
   display: none;
 }
 
