@@ -388,6 +388,10 @@ export const ACTION_IDS = {
   bases_open_as_tab: "bases.open_as_tab",
   bases_update_property: "bases.update_property",
 
+  smart_block_insert_query: "smart_block.insert_query",
+  smart_block_insert_base: "smart_block.insert_base",
+  smart_block_insert_backlinks: "smart_block.insert_backlinks",
+
   query_execute: "query.execute",
   query_clear: "query.clear",
   query_toggle_panel: "query.toggle_panel",

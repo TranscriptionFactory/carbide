@@ -28,6 +28,7 @@ import {
   LinksService,
   register_links_actions,
 } from "$lib/features/links";
+import { register_smart_block_actions } from "$lib/features/smart_blocks";
 import { SecondaryEditorManager } from "$lib/features/tab";
 import {
   register_terminal_actions,
@@ -910,6 +911,8 @@ export function create_app_context(input: {
   register_actions(base_action_input);
 
   register_links_actions(action_registry, editor_service);
+
+  register_smart_block_actions(action_registry, editor_service);
 
   plugin_service.initialize_rpc({
     services: {
