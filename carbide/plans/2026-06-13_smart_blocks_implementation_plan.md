@@ -1,7 +1,7 @@
 # Implementation Plan — Smart Blocks (Live Query Embeds)
 
 **Date:** 2026-06-13
-**Status:** P0–P3 complete (2026-06-14) — P4 pending
+**Status:** P0–P4 complete (2026-06-14)
 **Related:** `carbide/feature_opportunity_assay.md` (Tier 1 #4), `TODO.md` (Smart Blocks)
 
 ---
@@ -372,7 +372,60 @@ NodeView lifecycle; performance with many embedded views. Mitigate with lazy mou
 
 ---
 
-### P4 — Polish: config UI, performance, omnibar insertion ⏳
+### P4 — Polish: config UI, performance, omnibar insertion ✅ DONE
+
+**Landed 2026-06-14** (working tree, pending review). Three resolved decisions
+drove the build:
+
+- **Omnibar insertion (D-insert).** `smart_blocks/application/smart_block_actions.ts`
+  registers `smart_block.insert_query` / `insert_base` / `insert_backlinks`,
+  each dropping a scaffolded fenced block at the cursor via
+  `editor.insert_text` — `parse_markdown` turns the fence into a `code_block`
+  NodeView, so the base scaffold renders immediately. Pure
+  `domain/smart_block_scaffold.ts` builds the fenced text (base scaffold parses
+  to a valid renderable spec). Wired in `create_app_context` next to
+  `register_links_actions` (same `(registry, editor_service)` shape; actions
+  import only `ACTION_IDS` + the editor entrypoint — layering clean). Surfaced
+  in Cmd+P via `COMMANDS_REGISTRY` + `COMMAND_TO_ACTION_ID` (gated `has_open_note`).
+- **Viewport-gated mount (D-viewport).** The IntersectionObserver lives in the
+  `CodeBlockView` NodeView (it owns the DOM + lifecycle an observer needs),
+  deferring `handler.create()` — and thus the block's query — until first
+  intersection; the reactive block then owns its own lifecycle. The source
+  `pre` stays visible while gated so each block keeps real layout height (a
+  collapsed block would make all blocks intersect at once and defeat gating).
+  One-shot observer, disconnected on fire **and** on teardown — `teardown_smart_block`
+  runs unconditionally on language change so a pending observer can't leak.
+  Falls back to immediate mount when `IntersectionObserver` is absent (jsdom,
+  older runtimes), preserving P0–P3 behavior + tests.
+- **N of M (D-cap).** `run_base_query` reports the true matched total
+  (`result.items.length`) and caps shown rows deterministically in query order;
+  `BaseQueryOutcome.total?` threads it (handler falls back to `rows.length`).
+  `BasesEmbed` renders a "Showing N of M" affordance only when `total` exceeds
+  the shown set — replacing P3's silent 1000-row cap. N = matched-and-shown,
+  M = matched-total.
+- **In-block config (D-config).** The view-mode switcher lives inside
+  `BasesEmbed` (the bases entrypoint, so the editor stays decoupled), reusing
+  the P3 `on_config_change → persist → serialize_base_view_spec + ctx.update_body`
+  seam. Switching re-renders the embedded view reactively (no note remount) and
+  round-trips through the block body. "Shared debounce" was already satisfied by
+  P2's `reactive_block.ts`; a global cross-instance timer would be wrong (blocks
+  would clobber each other's schedules), so none was added.
+
+A `/simplify` pass followed: fixed the pending-observer leak (above) and
+deduped the `ViewMode` list into a canonical `VIEW_MODES` export on
+`bases/ports.ts` (consumed by `bases_embed.svelte` + `base_view_spec.ts`,
+removing two hardcoded copies); left `bases_panel`'s icon-map switcher as-is
+(divergent structure, out of scope), and kept viewport gating in the NodeView
+(declined the "move into reactive_block" altitude suggestion — the editor is the
+only smart-block-mounting surface today; generalizing for a speculative second
+consumer would add DOM coupling to a DOM-agnostic seam).
+
+Gates: `pnpm test` 4135/4135 green (+12: scaffold + action unit tests, base
+affordance + view-switcher integration, viewport-gating + observer-leak NodeView
+tests), `pnpm check` baseline-only (17 pre-existing in note_service.ts /
+problems_panel_filter.test.ts), `lint:layering` passes, scoped oxlint zero new
+findings (test-file `require-await` / `no-non-null-assertion` match the accepted
+P1–P3 pattern). TypeScript-only, zero Rust.
 
 **Scope.** Insertion commands, config affordances, performance hardening.
 
