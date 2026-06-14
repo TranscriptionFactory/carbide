@@ -166,6 +166,21 @@ it; matches the project's local-first file conventions.
 - **Security.** Rendered assistant markdown goes through the existing trusted
   ProseMirror/markdown render path (wikilinks, KaTeX, Shiki), never `innerHTML` of
   model output. Citations resolve to real vault paths before becoming clickable.
+- **Reuse-bindings (off-the-shelf / in-repo — bind to these, do NOT re-implement).**
+  The hard primitives already exist in-process; later phases must bind to them rather
+  than grow parallel solutions:
+  - *Assistant markdown render* → existing ProseMirror + markdown-it + Shiki + KaTeX +
+    wikilink path (same as the Security bullet). A second renderer is XSS surface + drift.
+  - *Cross-chunk stream buffering* (D5/P2) → reuse `MarkdownJoiner` (`ai/`,
+    `process_chunk`/`flush`) for partial-token joining. Only the `[N]` citation
+    cross-chunk buffer is genuinely new; the markdown side sits on `MarkdownJoiner`.
+  - *Session IDs* (D6) → built-in `crypto.randomUUID()`; no `uuid` dependency.
+  - *Session JSON persistence* (D6) → the existing `.carbide/` file-write pattern
+    (how settings/themes persist); no new storage mechanism.
+  - *MCP `rag_query`/`rag_status`* (P3) → existing MCP tool surface (`mcp/tools/*`);
+    reuse, don't add transport.
+  - *Block embed + ANN for `search_blocks`* (D3/P3) → existing `candle` embed +
+    `hnsw_rs` `block_index`; it's a new query *path* over an existing index, not a new index.
 
 ---
 
@@ -271,8 +286,13 @@ multi-turn, no persistence, no scope filter.
 1. **Panel host** — dockable tab vs persistent right sidebar vs both. Lean: sidebar
    panel (like search), promotable to a tab. *(P1)*
 2. **Reranking** — RRF top-15 → top-K with no reranker leaves precision on the table.
-   A cross-encoder rerank would be a new Rust model dependency — deliberately deferred;
-   evaluate after P2 with real retrieval-quality data. *(post-P2)*
+   Deliberately deferred; evaluate after P2 with real retrieval-quality data. **When it
+   lands, this is buy-not-build:** a reranker is a *pretrained cross-encoder*
+   (bge-reranker / jina-reranker class), not a hand-rolled scorer. Load it through the
+   **`candle` inference path already in-tree** (the arctic embedding model already runs on
+   `candle` + HF `tokenizers`), or via a focused crate like `fastembed-rs` if we accept an
+   ONNX runtime. Do **not** write a custom scorer; do **not** use a cloud rerank API
+   (Cohere/Jina) — that breaks local-first. *(post-P2)*
 3. **Query-rewrite cost** — LLM rewrite adds a round-trip per follow-up. Heuristic
    (pronoun/ellipsis detection) first, LLM rewrite only when needed? *(P2, D4)*
 4. **Token estimator** — char/4 vs a real tokenizer. Char/4 for P1; revisit if budget
