@@ -11,8 +11,10 @@ import type { SmartBlocksConfig } from "$lib/features/editor/adapters/code_block
 import {
   create_smart_block_registry,
   create_tasks_smart_block_handler,
+  create_query_smart_block_handler,
   type TaskQueryCallbacks,
 } from "$lib/features/smart_blocks";
+import type { QueryResult } from "$lib/features/query";
 import type { SmartBlockContext } from "$lib/features/smart_blocks";
 import type { Task } from "$lib/features/task";
 
@@ -1019,6 +1021,120 @@ describe("CodeBlockView", () => {
       expect(c.querySelectorAll(".task-query-item").length).toBe(1);
 
       view.destroy();
+    });
+  });
+
+  describe("viewport-gated mount", () => {
+    type MockObserverEntry = { isIntersecting: boolean; target: Element };
+
+    class MockIntersectionObserver {
+      static instances: MockIntersectionObserver[] = [];
+      private elements: Element[] = [];
+      constructor(private cb: (entries: MockObserverEntry[]) => void) {
+        MockIntersectionObserver.instances.push(this);
+      }
+      observe(el: Element) {
+        this.elements.push(el);
+      }
+      disconnect() {
+        this.elements = [];
+      }
+      enter() {
+        this.cb(
+          this.elements.map((target) => ({ isIntersecting: true, target })),
+        );
+      }
+    }
+
+    let original_io: typeof IntersectionObserver | undefined;
+
+    beforeEach(() => {
+      MockIntersectionObserver.instances = [];
+      original_io = globalThis.IntersectionObserver;
+      globalThis.IntersectionObserver =
+        MockIntersectionObserver as unknown as typeof IntersectionObserver;
+    });
+
+    afterEach(() => {
+      globalThis.IntersectionObserver =
+        original_io as typeof IntersectionObserver;
+    });
+
+    function make_query_config(run_query: (text: string) => Promise<QueryResult>) {
+      const registry = create_smart_block_registry();
+      registry.register(create_query_smart_block_handler({ run_query }));
+      return {
+        registry,
+        make_context: () => ({
+          note_path: null,
+          vault_id: null,
+          open_note: () => {},
+          subscribe_to_changes: () => () => {},
+        }),
+      };
+    }
+
+    function create_editor_with_query_block(
+      run_query: (text: string) => Promise<QueryResult>,
+    ): { view: EditorView; container: HTMLElement } {
+      const container_el = document.createElement("div");
+      document.body.appendChild(container_el);
+      const code_block = schema.nodes.code_block.create(
+        { language: "query" },
+        schema.text("notes with:#x"),
+      );
+      const doc = schema.nodes.doc.create(null, [code_block]);
+      const plugin = create_code_block_view_prose_plugin(
+        make_query_config(run_query),
+      );
+      const state = EditorState.create({ doc, plugins: [plugin] });
+      const view = new EditorView(container_el, {
+        state,
+        dispatchTransaction: (tr) => {
+          view.updateState(view.state.apply(tr));
+        },
+      });
+      return { view, container: container_el };
+    }
+
+    const empty_result: QueryResult = {
+      items: [],
+      total: 0,
+      elapsed_ms: 0,
+      query_text: "",
+    };
+
+    it("defers the query until the block scrolls into view", async () => {
+      const run_query = vi.fn(async () => empty_result);
+      const { view, container: c } = create_editor_with_query_block(run_query);
+      container = c;
+
+      await vi.runAllTimersAsync();
+      expect(run_query).not.toHaveBeenCalled();
+      expect(c.querySelector(".smart-block-results")).toBeNull();
+
+      MockIntersectionObserver.instances[0]?.enter();
+      await vi.runAllTimersAsync();
+
+      expect(run_query).toHaveBeenCalledTimes(1);
+      expect(c.querySelector(".smart-block-results")).not.toBeNull();
+
+      view.destroy();
+    });
+
+    it("does not leak an observer when destroyed before intersecting", () => {
+      const run_query = vi.fn(async () => empty_result);
+      const { view, container: c } = create_editor_with_query_block(run_query);
+      container = c;
+
+      const [observer] = MockIntersectionObserver.instances;
+      if (!observer) throw new Error("observer was not created");
+      const disconnect_spy = vi.spyOn(observer, "disconnect");
+
+      view.destroy();
+
+      expect(disconnect_spy).toHaveBeenCalled();
+      expect(run_query).not.toHaveBeenCalled();
     });
   });
 });

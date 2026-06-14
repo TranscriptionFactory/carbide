@@ -368,6 +368,8 @@ class CodeBlockView implements NodeView {
   private backdrop_el: HTMLElement | null = null;
   private mermaid: MermaidState | null = null;
   private smart_block: SmartBlockState | null = null;
+  private smart_block_observer: IntersectionObserver | null = null;
+  private pending_handler: SmartBlockHandler | null = null;
   private current_language: string;
   private collapse_btn: HTMLButtonElement;
   private line_count_el: HTMLSpanElement;
@@ -840,6 +842,30 @@ class CodeBlockView implements NodeView {
   private setup_smart_block(handler: SmartBlockHandler) {
     if (!this.smart_blocks) return;
 
+    if (typeof IntersectionObserver !== "function") {
+      this.mount_smart_block(handler);
+      return;
+    }
+
+    this.pending_handler = handler;
+    this.smart_block_observer = new IntersectionObserver((entries) => {
+      if (!entries.some((entry) => entry.isIntersecting)) return;
+      const pending = this.pending_handler;
+      this.disconnect_smart_block_observer();
+      if (pending) this.mount_smart_block(pending);
+    });
+    this.smart_block_observer.observe(this.dom);
+  }
+
+  private disconnect_smart_block_observer() {
+    this.smart_block_observer?.disconnect();
+    this.smart_block_observer = null;
+    this.pending_handler = null;
+  }
+
+  private mount_smart_block(handler: SmartBlockHandler) {
+    if (!this.smart_blocks) return;
+
     const instance = handler.create(this.current_smart_block_spec(), {
       ...this.smart_blocks.make_context(),
       update_body: (text: string) => {
@@ -887,6 +913,7 @@ class CodeBlockView implements NodeView {
   }
 
   private teardown_smart_block() {
+    this.disconnect_smart_block_observer();
     if (!this.smart_block) return;
     this.smart_block.instance.destroy();
     this.smart_block.toggle_btn.remove();
