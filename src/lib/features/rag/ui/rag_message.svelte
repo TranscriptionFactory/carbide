@@ -7,8 +7,8 @@
     RagMessage,
   } from "$lib/features/rag/domain/rag_types";
 
-  type Props = { message: RagMessage };
-  let { message }: Props = $props();
+  type Props = { message: RagMessage; is_streaming?: boolean };
+  let { message, is_streaming = false }: Props = $props();
 
   const { action_registry } = use_app_context();
 
@@ -72,7 +72,10 @@
             onclick={() => open_citation(segment.citation)}
             >[{segment.citation.index}]</button
           >{/if}
-      {/each}
+      {/each}{#if is_streaming}<span
+          class="ml-0.5 inline-block w-1.5 animate-pulse select-none align-baseline text-foreground"
+          aria-hidden="true">▍</span
+        >{/if}
     </div>
 
     {#if message.citations.length > 0}

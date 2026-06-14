@@ -17,8 +17,6 @@ export {
 export type {
   RagCitation,
   RagMessage,
-  RagQueryResult,
-  RagQueryStatus,
   RagRetrievedContext,
   RagRole,
   RagStreamEvent,

@@ -24,16 +24,6 @@ export type RagMessage = {
   citations: RagCitation[];
 };
 
-export type RagQueryStatus = "answered" | "no_results" | "failed";
-
-export type RagQueryResult = {
-  content: string;
-  citations: RagCitation[];
-  contexts: RagRetrievedContext[];
-  status: RagQueryStatus;
-  error: string | null;
-};
-
 export type RagStreamEvent =
   | { type: "text"; text: string }
   | { type: "citation"; citation: RagCitation }

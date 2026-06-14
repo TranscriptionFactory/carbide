@@ -58,7 +58,10 @@
     {:else}
       <div class="flex flex-col gap-4">
         {#each rag.messages as message (message.id)}
-          <RagMessage {message} />
+          <RagMessage
+            {message}
+            is_streaming={message.id === rag.streaming_id}
+          />
         {/each}
 
         {#if rag.is_loading}

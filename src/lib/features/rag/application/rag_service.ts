@@ -11,14 +11,12 @@ import {
   type RagContextCandidate,
 } from "$lib/features/rag/domain/rag_context_assembler";
 import { build_rag_prompt } from "$lib/features/rag/domain/rag_prompt_builder";
-import {
-  build_citation_map,
-  resolve_citations,
-} from "$lib/features/rag/domain/rag_citations";
+import { build_citation_map } from "$lib/features/rag/domain/rag_citations";
+import { RagStreamParser } from "$lib/features/rag/domain/rag_stream_parser";
 import type {
   RagCitation,
-  RagQueryResult,
   RagRetrievedContext,
+  RagStreamEvent,
 } from "$lib/features/rag/domain/rag_types";
 
 const log = create_logger("rag_service");
@@ -36,6 +34,14 @@ function to_citation(context: RagRetrievedContext): RagCitation {
   };
 }
 
+export type RagQueryInput = {
+  question: string;
+  provider_config: AiProviderConfig;
+  retrieve_limit?: number;
+  context_limit?: number;
+  assembler_options?: AssembleContextOptions;
+};
+
 export class RagService {
   constructor(
     private readonly search_port: SearchPort,
@@ -44,15 +50,12 @@ export class RagService {
     private readonly vault_store: VaultStore,
   ) {}
 
-  async query(input: {
-    question: string;
-    provider_config: AiProviderConfig;
-    retrieve_limit?: number;
-    context_limit?: number;
-    assembler_options?: AssembleContextOptions;
-  }): Promise<RagQueryResult> {
+  async *query(input: RagQueryInput): AsyncGenerator<RagStreamEvent> {
     const vault = this.vault_store.vault;
-    if (!vault) return this.failed("No active vault");
+    if (!vault) {
+      yield { type: "error", error: "No active vault" };
+      return;
+    }
 
     let hits;
     try {
@@ -63,10 +66,14 @@ export class RagService {
       );
     } catch (err) {
       log.warn("RAG retrieval failed", { error: error_message(err) });
-      return this.failed("Search failed. Try again.");
+      yield { type: "error", error: "Search failed. Try again." };
+      return;
     }
 
-    if (hits.length === 0) return this.no_results();
+    if (hits.length === 0) {
+      yield* this.no_results();
+      return;
+    }
 
     const top = hits.slice(0, input.context_limit ?? DEFAULT_CONTEXT_LIMIT);
     const candidates = (
@@ -92,7 +99,10 @@ export class RagService {
       )
     ).filter((c): c is RagContextCandidate => c !== null);
 
-    if (candidates.length === 0) return this.no_results();
+    if (candidates.length === 0) {
+      yield* this.no_results();
+      return;
+    }
 
     const contexts = assemble_context(candidates, input.assembler_options);
     const { system_prompt, user_prompt } = build_rag_prompt({
@@ -100,63 +110,29 @@ export class RagService {
       contexts,
     });
 
-    const { text, error } = await this.accumulate_stream(
-      input.provider_config,
-      system_prompt,
-      user_prompt,
+    const parser = new RagStreamParser(
+      build_citation_map(contexts.map(to_citation)),
     );
 
-    if (error && !text) return this.failed(error);
-
-    const citation_map = build_citation_map(contexts.map(to_citation));
-    const citations = resolve_citations(text, citation_map);
-
-    return {
-      content: text,
-      citations,
-      contexts,
-      status: "answered",
-      error: error ?? null,
-    };
-  }
-
-  private async accumulate_stream(
-    provider_config: AiProviderConfig,
-    system_prompt: string,
-    user_prompt: string,
-  ): Promise<{ text: string; error: string | null }> {
-    let text = "";
     for await (const chunk of this.ai_stream_port.stream_text({
-      provider_config,
+      provider_config: input.provider_config,
       system_prompt,
       messages: [{ role: "user", content: user_prompt }],
     })) {
       if (chunk.type === "text") {
-        text += chunk.text;
+        yield* parser.push(chunk.text);
       } else if (chunk.type === "error") {
-        return { text, error: chunk.error };
+        yield { type: "error", error: chunk.error };
+        return;
       }
     }
-    return { text, error: null };
+
+    yield* parser.flush();
+    yield { type: "done" };
   }
 
-  private failed(error: string): RagQueryResult {
-    return {
-      content: "",
-      citations: [],
-      contexts: [],
-      status: "failed",
-      error,
-    };
-  }
-
-  private no_results(): RagQueryResult {
-    return {
-      content: NO_RESULTS_MESSAGE,
-      citations: [],
-      contexts: [],
-      status: "no_results",
-      error: null,
-    };
+  private *no_results(): Generator<RagStreamEvent> {
+    yield { type: "text", text: NO_RESULTS_MESSAGE };
+    yield { type: "done" };
   }
 }
