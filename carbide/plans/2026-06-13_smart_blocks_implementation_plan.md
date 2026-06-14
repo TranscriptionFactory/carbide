@@ -1,7 +1,7 @@
 # Implementation Plan — Smart Blocks (Live Query Embeds)
 
 **Date:** 2026-06-13
-**Status:** P0–P2 complete (2026-06-14) — P3–P4 pending
+**Status:** P0–P3 complete (2026-06-14) — P4 pending
 **Related:** `carbide/feature_opportunity_assay.md` (Tier 1 #4), `TODO.md` (Smart Blocks)
 
 ---
@@ -303,7 +303,44 @@ query-test pattern). TypeScript-only, zero Rust.
 
 ---
 
-### P3 — `base` block (embedded bases views) ⏳ — the big lift
+### P3 — `base` block (embedded bases views) ✅ DONE
+
+**Landed 2026-06-14** (working tree, pending review). A ` ```base ` block embeds any
+of the 6 bases views inline, driven by a unified text query, with view mode + config
+read from the block body. Key decisions resolved during the build:
+
+- **One wrapper, no remounts (D-mount).** New `bases/ui/bases_embed.svelte` switches
+  all 6 views reactively off a per-block `new BasesStore()` (the `list` view renders
+  inline, since no `bases_list.svelte` exists). The handler mounts it once via Svelte 5
+  `mount()`; view/config/result changes are store mutations, so switching `view:` or
+  receiving new rows never remounts. Exported through the `bases` **entrypoint** —
+  `smart_blocks` imports only `$lib/features/bases` (no deep cross-feature import;
+  `lint:layering` clean).
+- **Config write-back (the hard one).** Added an **optional** `update_body?(text)` to
+  `SmartBlockContext`, injected per-instance by the NodeView in `setup_smart_block`
+  (`{ ...make_context(), update_body }`). It replaces the `code_block` text via
+  `get_pos()` + node size — the same transaction shape as the existing Tab / `commit_height`
+  handlers. In-view pickers (kanban group-by, calendar date-property, tree group-by)
+  serialize store state back into the block body, so the doc stays the single source of
+  truth. Optional typing kept P1/P2 handlers + fixtures untouched.
+- **Body parser (pure).** `domain/base_view_spec.ts`: `parse_base_view_spec` /
+  `serialize_base_view_spec` — hand-parsed `key: value` lines (no YAML dep); the `query:`
+  line keeps inner `with:#tag` colons; missing query / unknown view → typed error → error
+  state. `update()` re-runs the query **only** when the query text changed.
+- **Reactivity.** Reuses `ui/reactive_block.ts` (debounce + stale-guard token +
+  subscribe/destroy); `destroy()` unmounts the component, unsubscribes, clears the timer.
+- **Query → rows bridge.** `run_base_query(vault_id, text)` wired in `create_prod_ports`:
+  run the text query for matching paths, enrich via `bases.query` (empty filter) +
+  `bases.list_properties`, intersect by path preserving query order. Capped at 1000 rows;
+  the "showing N of M" affordance is deferred to P4.
+- **Viewport-gated mount:** deferred to P4 (its listed home); no speculative seam stubbed
+  now.
+
+Gates: `pnpm test` 4123/4123 green (+20: pure parser/serializer in `tests/unit/domain`,
+handler integration mounting real bases components in jsdom in `tests/unit/adapters`),
+`pnpm check` baseline-only (17 pre-existing), `lint:layering` passes, scoped oxlint zero
+new findings (test-file `require-await` matches the accepted P1/P2 pattern), `cargo check`
+0 errors. TypeScript-only, zero Rust.
 
 **Scope.** A ` ```base ` block embeds any of the 6 bases views (table/list/kanban/
 gallery/calendar/tree) inline, driven by a query, with view mode + config from the
