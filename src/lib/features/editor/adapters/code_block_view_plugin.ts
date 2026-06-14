@@ -20,18 +20,17 @@ import { find_language_label, search_languages } from "./language_registry";
 import { LruCache } from "$lib/shared/utils/lru_cache";
 import { schema } from "./schema";
 import { create_logger } from "$lib/shared/utils/logger";
-import {
-  parse_task_query,
-  group_tasks,
-  leaf_of_section,
-  full_section_path,
-} from "$lib/features/task";
-import type { Task, TaskQuery, TaskStatus } from "$lib/features/task";
+import { parse_smart_block } from "$lib/features/smart_blocks";
+import type {
+  SmartBlockContext,
+  SmartBlockHandler,
+  SmartBlockInstance,
+  SmartBlockRegistry,
+} from "$lib/features/smart_blocks";
 
-export type TaskQueryCallbacks = {
-  query_tasks: (query: TaskQuery) => Promise<Task[]>;
-  toggle_task: (task: Task) => Promise<void>;
-  open_note?: (path: string) => void;
+export type SmartBlocksConfig = {
+  registry: SmartBlockRegistry;
+  make_context: () => SmartBlockContext;
 };
 
 const log = create_logger("code_block_view");
@@ -198,13 +197,11 @@ type MermaidState = {
   pan_y: number;
 };
 
-type TaskQueryState = {
+type SmartBlockState = {
+  instance: SmartBlockInstance;
   is_preview: boolean;
-  preview_container: HTMLElement;
   toggle_btn: HTMLButtonElement;
-  render_timer: ReturnType<typeof setTimeout> | undefined;
   last_rendered_content: string;
-  callbacks: TaskQueryCallbacks;
 };
 
 function mermaid_cache_key(code: string): string {
@@ -259,133 +256,6 @@ async function render_mermaid_preview(
   } catch (error: unknown) {
     log.error("Mermaid render failed", { error });
     container.innerHTML = '<div class="mermaid-error">Invalid diagram</div>';
-  }
-}
-
-function next_task_status(status: TaskStatus): TaskStatus {
-  const cycle: Record<TaskStatus, TaskStatus> = {
-    todo: "doing",
-    doing: "done",
-    done: "todo",
-  };
-  return cycle[status];
-}
-
-function file_name_from_path(path: string): string {
-  const parts = path.split("/");
-  const name = parts[parts.length - 1] ?? path;
-  return name.replace(/\.md$/, "");
-}
-
-async function render_task_query_results(
-  code: string,
-  container: HTMLElement,
-  callbacks: TaskQueryCallbacks,
-): Promise<void> {
-  if (!code.trim()) {
-    container.innerHTML = '<div class="task-query-empty">Empty query</div>';
-    return;
-  }
-
-  const parsed = parse_task_query(code);
-
-  if (parsed.errors.length > 0) {
-    container.innerHTML = `<div class="task-query-error">${parsed.errors.map((e) => `<div>${e}</div>`).join("")}</div>`;
-    return;
-  }
-
-  try {
-    const tasks = await callbacks.query_tasks(parsed.query);
-
-    if (tasks.length === 0) {
-      container.innerHTML =
-        '<div class="task-query-empty">No matching tasks</div>';
-      return;
-    }
-
-    container.innerHTML = "";
-
-    const grouped = group_tasks(tasks, parsed.grouping);
-
-    for (const group of grouped) {
-      const group_el = document.createElement("div");
-      group_el.className = "task-query-group";
-
-      if (group.label) {
-        const header = document.createElement("div");
-        header.className = "task-query-group-header";
-        header.textContent = group.label;
-        group_el.appendChild(header);
-      }
-
-      for (const task of group.tasks) {
-        const item = document.createElement("div");
-        item.className = "task-query-item";
-
-        const checkbox = document.createElement("input");
-        checkbox.type = "checkbox";
-        checkbox.checked = task.status === "done";
-        checkbox.indeterminate = task.status === "doing";
-        checkbox.addEventListener("change", (e) => {
-          e.preventDefault();
-          const new_status = next_task_status(task.status);
-          task.status = new_status;
-          checkbox.checked = new_status === "done";
-          checkbox.indeterminate = new_status === "doing";
-          text_el.classList.toggle("task-query-done", new_status === "done");
-          text_el.classList.toggle("task-query-doing", new_status === "doing");
-          void callbacks.toggle_task({ ...task, status: new_status });
-        });
-
-        const text_el = document.createElement("span");
-        text_el.className = "task-query-text";
-        if (task.status === "done") text_el.classList.add("task-query-done");
-        if (task.status === "doing") text_el.classList.add("task-query-doing");
-        text_el.textContent = task.text;
-
-        const meta_el = document.createElement("span");
-        meta_el.className = "task-query-meta";
-
-        const file_el = document.createElement("span");
-        file_el.textContent = file_name_from_path(task.path);
-        const on_open = callbacks.open_note;
-        if (on_open) {
-          file_el.className = "task-query-file-link";
-          file_el.addEventListener("click", (e) => {
-            e.stopPropagation();
-            on_open(task.path);
-          });
-        }
-        meta_el.appendChild(file_el);
-
-        if (task.section) {
-          meta_el.appendChild(document.createTextNode(" · "));
-          const section_el = document.createElement("span");
-          section_el.className = "task-query-section";
-          section_el.textContent = leaf_of_section(task.section);
-          section_el.title = full_section_path(task.section);
-          meta_el.appendChild(section_el);
-        }
-
-        if (task.due_date) {
-          const sep = document.createTextNode(" · ");
-          meta_el.appendChild(sep);
-          const date_el = document.createElement("span");
-          date_el.textContent = task.due_date;
-          meta_el.appendChild(date_el);
-        }
-
-        item.appendChild(checkbox);
-        item.appendChild(text_el);
-        item.appendChild(meta_el);
-        group_el.appendChild(item);
-      }
-
-      container.appendChild(group_el);
-    }
-  } catch (error: unknown) {
-    log.error("Task query failed", { error });
-    container.innerHTML = '<div class="task-query-error">Query failed</div>';
   }
 }
 
@@ -497,7 +367,7 @@ class CodeBlockView implements NodeView {
   private picker_el: HTMLElement | null = null;
   private backdrop_el: HTMLElement | null = null;
   private mermaid: MermaidState | null = null;
-  private task_query: TaskQueryState | null = null;
+  private smart_block: SmartBlockState | null = null;
   private current_language: string;
   private collapse_btn: HTMLButtonElement;
   private line_count_el: HTMLSpanElement;
@@ -510,7 +380,7 @@ class CodeBlockView implements NodeView {
     private node: ProseNode,
     private view: EditorView,
     private get_pos: () => number | undefined,
-    private task_query_callbacks?: TaskQueryCallbacks,
+    private smart_blocks?: SmartBlocksConfig,
   ) {
     this.current_language = (node.attrs.language as string) ?? "";
 
@@ -592,8 +462,9 @@ class CodeBlockView implements NodeView {
 
     if (this.current_language === "mermaid") {
       this.setup_mermaid();
-    } else if (this.current_language === "tasks" && this.task_query_callbacks) {
-      this.setup_task_query(this.task_query_callbacks);
+    } else {
+      const handler = this.smart_blocks?.registry.get(this.current_language);
+      if (handler) this.setup_smart_block(handler);
     }
   }
 
@@ -947,9 +818,17 @@ class CodeBlockView implements NodeView {
     this.pre.style.display = "";
   }
 
-  private setup_task_query(callbacks: TaskQueryCallbacks) {
-    const preview_container = document.createElement("div");
-    preview_container.className = "task-query-results";
+  private current_smart_block_spec() {
+    return parse_smart_block(this.current_language, this.node.textContent);
+  }
+
+  private setup_smart_block(handler: SmartBlockHandler) {
+    if (!this.smart_blocks) return;
+
+    const instance = handler.create(
+      this.current_smart_block_spec(),
+      this.smart_blocks.make_context(),
+    );
 
     const toggle_btn = document.createElement("button");
     toggle_btn.className = "mermaid-toggle-btn";
@@ -958,61 +837,43 @@ class CodeBlockView implements NodeView {
     toggle_btn.addEventListener("mousedown", (e) => {
       e.preventDefault();
       e.stopPropagation();
-      this.toggle_task_query_preview();
+      this.toggle_smart_block_preview();
     });
 
     this.toolbar.insertBefore(toggle_btn, this.toolbar.lastChild);
-    this.dom.appendChild(preview_container);
+    this.dom.appendChild(instance.dom);
 
-    this.task_query = {
+    this.smart_block = {
+      instance,
       is_preview: true,
-      preview_container,
       toggle_btn,
-      render_timer: undefined,
       last_rendered_content: this.node.textContent,
-      callbacks,
     };
 
     this.pre.style.display = "none";
-    this.schedule_task_query_render();
   }
 
-  private toggle_task_query_preview() {
-    if (!this.task_query) return;
-    this.task_query.is_preview = !this.task_query.is_preview;
+  private toggle_smart_block_preview() {
+    if (!this.smart_block) return;
+    this.smart_block.is_preview = !this.smart_block.is_preview;
 
-    if (this.task_query.is_preview) {
+    if (this.smart_block.is_preview) {
       this.pre.style.display = "none";
-      this.task_query.preview_container.style.display = "";
-      this.task_query.toggle_btn.textContent = "Edit";
-      this.schedule_task_query_render();
+      this.smart_block.instance.dom.style.display = "";
+      this.smart_block.toggle_btn.textContent = "Edit";
+      this.smart_block.instance.update(this.current_smart_block_spec());
     } else {
       this.pre.style.display = "";
-      this.task_query.preview_container.style.display = "none";
-      this.task_query.toggle_btn.textContent = "Preview";
+      this.smart_block.instance.dom.style.display = "none";
+      this.smart_block.toggle_btn.textContent = "Preview";
     }
   }
 
-  private schedule_task_query_render() {
-    if (!this.task_query) return;
-    clearTimeout(this.task_query.render_timer);
-    this.task_query.render_timer = setTimeout(() => {
-      if (!this.task_query) return;
-      const code = this.node.textContent;
-      void render_task_query_results(
-        code,
-        this.task_query.preview_container,
-        this.task_query.callbacks,
-      );
-    }, 150);
-  }
-
-  private teardown_task_query() {
-    if (!this.task_query) return;
-    clearTimeout(this.task_query.render_timer);
-    this.task_query.preview_container.remove();
-    this.task_query.toggle_btn.remove();
-    this.task_query = null;
+  private teardown_smart_block() {
+    if (!this.smart_block) return;
+    this.smart_block.instance.destroy();
+    this.smart_block.toggle_btn.remove();
+    this.smart_block = null;
     this.pre.style.display = "";
   }
 
@@ -1074,30 +935,24 @@ class CodeBlockView implements NodeView {
     const new_lang = (updated.attrs.language as string) ?? "";
     const old_lang = this.current_language;
 
-    if (new_lang === "mermaid" && old_lang !== "mermaid") {
-      if (old_lang === "tasks") this.teardown_task_query();
-      this.setup_mermaid();
-    } else if (new_lang !== "mermaid" && old_lang === "mermaid") {
-      this.teardown_mermaid();
-      if (new_lang === "tasks" && this.task_query_callbacks) {
-        this.setup_task_query(this.task_query_callbacks);
-      }
-    } else if (
-      new_lang === "tasks" &&
-      old_lang !== "tasks" &&
-      this.task_query_callbacks
-    ) {
-      this.setup_task_query(this.task_query_callbacks);
-    } else if (new_lang !== "tasks" && old_lang === "tasks") {
-      this.teardown_task_query();
-    }
+    this.node = updated;
 
-    if (new_lang !== this.current_language) {
+    if (new_lang !== old_lang) {
       this.current_language = new_lang;
       this.contentDOM.className = new_lang
         ? `language-${String(new_lang)}`
         : "";
       this.lang_label.textContent = find_language_label(new_lang);
+
+      if (this.smart_block) this.teardown_smart_block();
+
+      if (new_lang === "mermaid") {
+        if (old_lang !== "mermaid") this.setup_mermaid();
+      } else {
+        if (old_lang === "mermaid") this.teardown_mermaid();
+        const handler = this.smart_blocks?.registry.get(new_lang);
+        if (handler) this.setup_smart_block(handler);
+      }
     }
 
     if (!this.is_resizing) {
@@ -1112,15 +967,14 @@ class CodeBlockView implements NodeView {
       }
     }
 
-    if (this.task_query?.is_preview) {
+    if (this.smart_block?.is_preview) {
       const new_content = updated.textContent;
-      if (new_content !== this.task_query.last_rendered_content) {
-        this.task_query.last_rendered_content = new_content;
-        this.schedule_task_query_render();
+      if (new_content !== this.smart_block.last_rendered_content) {
+        this.smart_block.last_rendered_content = new_content;
+        this.smart_block.instance.update(this.current_smart_block_spec());
       }
     }
 
-    this.node = updated;
     return true;
   }
 
@@ -1131,14 +985,14 @@ class CodeBlockView implements NodeView {
       event.target.closest(".code-block-toolbar") !== null ||
       event.target.closest(".code-block-collapse") !== null ||
       event.target.closest(".code-block-resize-handle") !== null ||
-      event.target.closest(".task-query-results") !== null ||
+      this.smart_block?.instance.dom.contains(event.target) === true ||
       event.target.closest(".mermaid-preview") !== null
     );
   }
 
   ignoreMutation(mutation: ViewMutationRecord): boolean {
     if (
-      this.task_query?.preview_container.contains(mutation.target) ||
+      this.smart_block?.instance.dom.contains(mutation.target) ||
       this.mermaid?.preview_container.contains(mutation.target)
     ) {
       return true;
@@ -1154,23 +1008,21 @@ class CodeBlockView implements NodeView {
     if (this.mermaid) {
       clearTimeout(this.mermaid.render_timer);
     }
-    if (this.task_query) {
-      clearTimeout(this.task_query.render_timer);
-    }
+    this.teardown_smart_block();
   }
 }
 
 export const code_block_view_plugin_key = new PluginKey("code-block-view");
 
 export function create_code_block_view_prose_plugin(
-  task_query_callbacks?: TaskQueryCallbacks,
+  smart_blocks?: SmartBlocksConfig,
 ): Plugin {
   return new Plugin({
     key: code_block_view_plugin_key,
     props: {
       nodeViews: {
         code_block: (node, view, get_pos) =>
-          new CodeBlockView(node, view, get_pos, task_query_callbacks),
+          new CodeBlockView(node, view, get_pos, smart_blocks),
       },
       handleDOMEvents: {
         keydown(view, event) {

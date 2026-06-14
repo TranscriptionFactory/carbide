@@ -224,6 +224,15 @@ notes as a clickable, live list. Read-only.
   inline for invalid queries.
 - Subscribe to FS changes → re-run.
 
+**Carried from P0 review (resolve here, where reactivity first matters).**
+- **M1 — `subscribe_to_changes` ungating:** P0 wires `SmartBlockContext.subscribe_to_changes`
+  from `note_embed_args`, falling back to a no-op when `note_embed` is absent. Tasks never
+  subscribe so P0 is unaffected, but the query block IS reactive — thread
+  `subscribe_to_changes` as its own independent editor-port arg so there is no silent
+  no-op path when a reactive handler runs.
+- **L1 — `open_note` fragment:** the P0 `make_context` wrapper drops the optional
+  `fragment?` arg. Wire it through if the query/backlinks row-open needs heading targets.
+
 **Acceptance (BDD).**
 - `notes with:#project-x in:work/` lists exactly the notes the query panel returns for
   the same text; clicking a row opens that note.
