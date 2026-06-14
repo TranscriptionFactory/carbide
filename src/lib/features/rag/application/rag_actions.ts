@@ -67,22 +67,29 @@ export function register_rag_actions(
       stores.op.start(RAG_OP_KEY, Date.now());
 
       try {
-        const result = await rag_service.query({
+        let errored = false;
+        for await (const event of rag_service.query({
           question,
           provider_config: provider,
-        });
-        rag_store.add_assistant_message(result.content, result.citations);
-        if (result.status === "failed") {
-          const message = result.error ?? "RAG query failed";
-          rag_store.set_error(message);
-          stores.op.fail(RAG_OP_KEY, message);
-        } else {
-          rag_store.finish_loading();
+        })) {
+          if (event.type === "text") {
+            if (!rag_store.streaming_id) rag_store.start_streaming();
+            rag_store.append_streaming_text(event.text);
+          } else if (event.type === "citation") {
+            rag_store.add_streaming_citation(event.citation);
+          } else if (event.type === "error") {
+            rag_store.fail_streaming(event.error);
+            stores.op.fail(RAG_OP_KEY, event.error);
+            errored = true;
+          }
+        }
+        if (!errored) {
+          rag_store.finish_streaming();
           stores.op.succeed(RAG_OP_KEY);
         }
       } catch (err) {
         const message = error_message(err);
-        rag_store.set_error(message);
+        rag_store.fail_streaming(message);
         stores.op.fail(RAG_OP_KEY, message);
       }
     },

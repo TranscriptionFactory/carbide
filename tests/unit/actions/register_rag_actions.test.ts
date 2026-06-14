@@ -6,7 +6,7 @@ import { RagStore } from "$lib/features/rag";
 import { UIStore } from "$lib/app/orchestration/ui_store.svelte";
 import { OpStore } from "$lib/app/orchestration/op_store.svelte";
 import { BUILTIN_PROVIDER_PRESETS } from "$lib/shared/types/ai_provider_config";
-import type { RagQueryResult } from "$lib/features/rag/domain/rag_types";
+import type { RagStreamEvent } from "$lib/features/rag/domain/rag_types";
 import { toast } from "svelte-sonner";
 
 const PROVIDER_ID = BUILTIN_PROVIDER_PRESETS[0]?.id ?? "claude";
@@ -21,17 +21,23 @@ vi.mock("svelte-sonner", () => ({
   },
 }));
 
-function answered(content: string): RagQueryResult {
-  return {
-    content,
-    citations: [{ index: 1, note_path: "notes/q.md", title: "Q" }],
-    contexts: [],
-    status: "answered",
-    error: null,
-  };
+const ANSWERED_EVENTS: RagStreamEvent[] = [
+  { type: "text", text: "42 [1]." },
+  {
+    type: "citation",
+    citation: { index: 1, note_path: "notes/q.md", title: "Q" },
+  },
+  { type: "done" },
+];
+
+function stream_query(events: RagStreamEvent[]) {
+  // eslint-disable-next-line @typescript-eslint/require-await
+  return vi.fn(async function* () {
+    for (const event of events) yield event;
+  });
 }
 
-function create_harness(query_result: RagQueryResult = answered("42 [1].")) {
+function create_harness(events: RagStreamEvent[] = ANSWERED_EVENTS) {
   const registry = new ActionRegistry();
   const rag_store = new RagStore();
   const stores = {
@@ -41,7 +47,7 @@ function create_harness(query_result: RagQueryResult = answered("42 [1].")) {
   stores.ui.editor_settings.ai_providers = BUILTIN_PROVIDER_PRESETS;
   stores.ui.editor_settings.ai_default_provider_id = PROVIDER_ID;
 
-  const rag_service = { query: vi.fn().mockResolvedValue(query_result) };
+  const rag_service = { query: stream_query(events) };
 
   const note_open = vi.fn();
   registry.register({
@@ -84,13 +90,9 @@ describe("register_rag_actions", () => {
   });
 
   it("asks: surfaces a failed query as store error", async () => {
-    const { registry, rag_store, stores } = create_harness({
-      content: "",
-      citations: [],
-      contexts: [],
-      status: "failed",
-      error: "index down",
-    });
+    const { registry, rag_store, stores } = create_harness([
+      { type: "error", error: "index down" },
+    ]);
 
     await registry.execute(ACTION_IDS.rag_ask, "q");
 

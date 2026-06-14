@@ -5,6 +5,10 @@ import { create_test_vault } from "../helpers/test_fixtures";
 import type { AiStreamChunk } from "$lib/features/ai";
 import type { AiProviderConfig } from "$lib/shared/types/ai_provider_config";
 import type { HybridSearchHit } from "$lib/shared/types/search";
+import type {
+  RagCitation,
+  RagStreamEvent,
+} from "$lib/features/rag/domain/rag_types";
 
 const provider: AiProviderConfig = {
   id: "ollama",
@@ -52,8 +56,31 @@ function make_vault_store() {
   return store;
 }
 
-function text_stream(text: string) {
-  return stream_of({ type: "text", text }, { type: "done" });
+function text_stream(...texts: string[]) {
+  return stream_of(
+    ...texts.map((text): AiStreamChunk => ({ type: "text", text })),
+    { type: "done" },
+  );
+}
+
+type Collected = {
+  content: string;
+  citations: RagCitation[];
+  error: string | null;
+};
+
+async function collect(
+  gen: AsyncGenerator<RagStreamEvent>,
+): Promise<Collected> {
+  let content = "";
+  const citations: RagCitation[] = [];
+  let error: string | null = null;
+  for await (const event of gen) {
+    if (event.type === "text") content += event.text;
+    else if (event.type === "citation") citations.push(event.citation);
+    else if (event.type === "error") error = event.error;
+  }
+  return { content, citations, error };
 }
 
 describe("RagService.query", () => {
@@ -74,22 +101,47 @@ describe("RagService.query", () => {
       make_vault_store(),
     );
 
-    const result = await service.query({
-      question: "what is it?",
-      provider_config: provider,
-    });
+    const result = await collect(
+      service.query({ question: "what is it?", provider_config: provider }),
+    );
 
     expect(search.hybrid_search).toHaveBeenCalledWith(
       expect.anything(),
       { raw: "what is it?", text: "what is it?", scope: "all" },
       15,
     );
-    expect(result.status).toBe("answered");
     expect(result.content).toContain("[1]");
     expect(result.citations).toEqual([
       { index: 1, note_path: "notes/q.md", title: "Q" },
     ]);
-    expect(result.contexts).toHaveLength(1);
+    expect(result.error).toBeNull();
+  });
+
+  it("renders a citation split across two stream chunks once", async () => {
+    const search = {
+      hybrid_search: vi
+        .fn()
+        .mockResolvedValue([hit("notes/q.md", "Q", "1", 0.9)]),
+    };
+    const notes = {
+      read_note: vi.fn().mockResolvedValue({ markdown: "Body." }),
+    };
+    const stream = text_stream("The answer is 42 [", "1].");
+    const service = new RagService(
+      search as never,
+      notes as never,
+      stream as never,
+      make_vault_store(),
+    );
+
+    const result = await collect(
+      service.query({ question: "q", provider_config: provider }),
+    );
+
+    expect(result.content).toBe("The answer is 42 [1].");
+    expect(result.citations).toEqual([
+      { index: 1, note_path: "notes/q.md", title: "Q" },
+    ]);
   });
 
   it("returns no_results without calling the model when retrieval is empty", async () => {
@@ -103,12 +155,11 @@ describe("RagService.query", () => {
       make_vault_store(),
     );
 
-    const result = await service.query({
-      question: "x",
-      provider_config: provider,
-    });
+    const result = await collect(
+      service.query({ question: "x", provider_config: provider }),
+    );
 
-    expect(result.status).toBe("no_results");
+    expect(result.content).toMatch(/couldn't find/i);
     expect(result.citations).toEqual([]);
     expect(notes.read_note).not.toHaveBeenCalled();
     expect(stream.stream_text).not.toHaveBeenCalled();
@@ -131,10 +182,9 @@ describe("RagService.query", () => {
       make_vault_store(),
     );
 
-    const result = await service.query({
-      question: "q",
-      provider_config: provider,
-    });
+    const result = await collect(
+      service.query({ question: "q", provider_config: provider }),
+    );
 
     expect(result.citations.map((c) => c.index)).toEqual([1]);
   });
@@ -156,12 +206,11 @@ describe("RagService.query", () => {
       make_vault_store(),
     );
 
-    const result = await service.query({
-      question: "q",
-      provider_config: provider,
-    });
+    const result = await collect(
+      service.query({ question: "q", provider_config: provider }),
+    );
 
-    expect(result.status).toBe("no_results");
+    expect(result.content).toMatch(/couldn't find/i);
     expect(stream.stream_text).not.toHaveBeenCalled();
   });
 
@@ -176,12 +225,10 @@ describe("RagService.query", () => {
       make_vault_store(),
     );
 
-    const result = await service.query({
-      question: "q",
-      provider_config: provider,
-    });
+    const result = await collect(
+      service.query({ question: "q", provider_config: provider }),
+    );
 
-    expect(result.status).toBe("failed");
     expect(result.error).toBeTruthy();
   });
 
@@ -202,12 +249,10 @@ describe("RagService.query", () => {
       make_vault_store(),
     );
 
-    const result = await service.query({
-      question: "q",
-      provider_config: provider,
-    });
+    const result = await collect(
+      service.query({ question: "q", provider_config: provider }),
+    );
 
-    expect(result.status).toBe("failed");
     expect(result.error).toBe("model crashed");
   });
 
@@ -219,11 +264,10 @@ describe("RagService.query", () => {
       new VaultStore(),
     );
 
-    const result = await service.query({
-      question: "q",
-      provider_config: provider,
-    });
+    const result = await collect(
+      service.query({ question: "q", provider_config: provider }),
+    );
 
-    expect(result.status).toBe("failed");
+    expect(result.error).toBeTruthy();
   });
 });

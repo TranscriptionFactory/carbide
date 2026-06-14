@@ -8,6 +8,7 @@ export class RagStore {
   is_loading = $state(false);
   error = $state<string | null>(null);
   provider_id = $state("");
+  streaming_id = $state<string | null>(null);
 
   set_provider(provider_id: string) {
     this.provider_id = provider_id;
@@ -35,6 +36,53 @@ export class RagStore {
     return message;
   }
 
+  start_streaming(): string {
+    const message: RagMessage = {
+      id: crypto.randomUUID(),
+      role: "assistant",
+      content: "",
+      citations: [],
+    };
+    this.messages = [...this.messages, message];
+    this.streaming_id = message.id;
+    this.is_loading = false;
+    return message.id;
+  }
+
+  append_streaming_text(text: string) {
+    this.update_streaming((m) => ({ ...m, content: m.content + text }));
+  }
+
+  add_streaming_citation(citation: RagCitation) {
+    this.update_streaming((m) =>
+      m.citations.some((c) => c.index === citation.index)
+        ? m
+        : { ...m, citations: [...m.citations, citation] },
+    );
+  }
+
+  finish_streaming() {
+    this.streaming_id = null;
+    this.is_loading = false;
+  }
+
+  fail_streaming(error: string) {
+    if (this.streaming_id) {
+      const id = this.streaming_id;
+      this.messages = this.messages.filter(
+        (m) => !(m.id === id && m.content === ""),
+      );
+      this.streaming_id = null;
+    }
+    this.set_error(error);
+  }
+
+  private update_streaming(transform: (message: RagMessage) => RagMessage) {
+    const id = this.streaming_id;
+    if (!id) return;
+    this.messages = this.messages.map((m) => (m.id === id ? transform(m) : m));
+  }
+
   start_loading() {
     this.is_loading = true;
     this.error = null;
@@ -53,5 +101,6 @@ export class RagStore {
     this.messages = [];
     this.error = null;
     this.is_loading = false;
+    this.streaming_id = null;
   }
 }
