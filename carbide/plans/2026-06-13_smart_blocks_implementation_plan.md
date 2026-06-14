@@ -181,6 +181,17 @@ No new user-facing block types. Behavior-preserving.
   pass the registry through `create_code_block_extension(registry)` →
   `create_code_block_view_prose_plugin(registry)`.
 
+**Resolved gates (2026-06-13, pre-flight).**
+- **R1 — Reactivity:** `SmartBlockContext.subscribe_to_changes` IS in the P0 interface
+  (so P1/P2/P3 reuse it), but the `tasks` handler does **not** subscribe — P0 stays
+  strictly behavior-preserving. `subscribe_to_changes` is ungated from `note_embed_args`
+  at wiring so smart blocks get reactivity independently.
+- **R2 — DOM boundary:** the NodeView keeps the chrome (source/preview toggle, `pre`
+  show/hide, height/collapse). `SmartBlockInstance.dom` is the rendered **preview body
+  only**. Matches the "reuse existing toggle" cross-cutting note; smallest diff.
+- **R3 — `mermaid`:** stays a hardcoded NodeView branch (`if (lang === "mermaid")`)
+  alongside `const handler = registry.get(lang)`. Not registry-fied.
+
 **Acceptance (BDD).**
 - Given an existing ` ```tasks ` block, when the note opens, it renders the identical
   live task list and checkbox toggles still write task state.
@@ -188,6 +199,10 @@ No new user-facing block types. Behavior-preserving.
   `create`/`update`/`destroy` fire in order and leak no subscriptions.
 - `mermaid` blocks and plain code blocks (Shiki) are unaffected.
 - `pnpm lint:layering` passes — editor imports only the `smart_blocks` entrypoint.
+- **Explicit regression test:** a tasks-parity test asserts the migrated `tasks` handler
+  renders identical DOM to the pre-migration path (P0 deliverable, not implicit).
+- **Quality gate:** `pnpm check && pnpm lint && pnpm test && (cd src-tauri && cargo check)`
+  all green before P0 is considered done.
 
 **Files.** `smart_blocks/*` (new); `editor/adapters/code_block_view_plugin.ts`,
 `code_block_extension.ts`, `prosemirror_adapter.ts` (refactor); `app/.../create_app_context.ts` (wiring).
