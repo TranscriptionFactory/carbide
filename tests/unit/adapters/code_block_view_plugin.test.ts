@@ -1138,5 +1138,24 @@ describe("CodeBlockView", () => {
       expect(disconnect_spy).toHaveBeenCalled();
       expect(run_query).not.toHaveBeenCalled();
     });
+
+    it("disconnects the pending observer when the language changes before intersecting", () => {
+      const run_query = vi.fn(async () => empty_result);
+      const { view, container: c } = create_editor_with_query_block(run_query);
+      container = c;
+
+      const [observer] = MockIntersectionObserver.instances;
+      if (!observer) throw new Error("observer was not created");
+      const disconnect_spy = vi.spyOn(observer, "disconnect");
+
+      view.dispatch(
+        view.state.tr.setNodeMarkup(0, undefined, { language: "javascript" }),
+      );
+
+      expect(disconnect_spy).toHaveBeenCalled();
+      expect(run_query).not.toHaveBeenCalled();
+
+      view.destroy();
+    });
   });
 });

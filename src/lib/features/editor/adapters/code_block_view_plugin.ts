@@ -988,7 +988,7 @@ class CodeBlockView implements NodeView {
         : "";
       this.lang_label.textContent = find_language_label(new_lang);
 
-      if (this.smart_block) this.teardown_smart_block();
+      this.teardown_smart_block();
 
       if (new_lang === "mermaid") {
         if (old_lang !== "mermaid") this.setup_mermaid();

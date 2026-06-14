@@ -1,10 +1,11 @@
 <script lang="ts">
   import type { BasesStore } from "../state/bases_store.svelte";
-  import type {
-    KanbanConfig,
-    CalendarConfig,
-    TreeConfig,
-    ViewMode,
+  import {
+    VIEW_MODES,
+    type KanbanConfig,
+    type CalendarConfig,
+    type TreeConfig,
+    type ViewMode,
   } from "../ports";
   import BasesTable from "./bases_table.svelte";
   import BasesKanban from "./bases_kanban.svelte";
@@ -21,15 +22,6 @@
     on_note_click: (path: string) => void;
     on_config_change?: () => void;
   } = $props();
-
-  const VIEW_MODES: ViewMode[] = [
-    "table",
-    "list",
-    "kanban",
-    "gallery",
-    "calendar",
-    "tree",
-  ];
 
   function update_view_mode(mode: ViewMode) {
     if (store.active_view_mode === mode) return;

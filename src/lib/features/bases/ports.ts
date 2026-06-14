@@ -54,6 +54,15 @@ export type ViewMode =
   | "calendar"
   | "tree";
 
+export const VIEW_MODES: readonly ViewMode[] = [
+  "table",
+  "list",
+  "kanban",
+  "gallery",
+  "calendar",
+  "tree",
+];
+
 export type KanbanConfig = {
   group_by: string;
   column_order?: string[];

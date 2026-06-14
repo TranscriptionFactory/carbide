@@ -1,4 +1,4 @@
-import type { ViewMode } from "$lib/features/bases";
+import { VIEW_MODES, type ViewMode } from "$lib/features/bases";
 
 export type BaseViewSpec = {
   view: ViewMode;
@@ -10,15 +10,6 @@ export type BaseViewSpec = {
 export type BaseViewParseResult =
   | { ok: true; spec: BaseViewSpec }
   | { ok: false; error: string };
-
-const VIEW_MODES: readonly ViewMode[] = [
-  "table",
-  "list",
-  "kanban",
-  "gallery",
-  "calendar",
-  "tree",
-];
 
 const LINE_RE = /^\s*([a-zA-Z_]+)\s*:\s*(.*)$/;
 
