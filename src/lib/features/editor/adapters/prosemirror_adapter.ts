@@ -77,7 +77,14 @@ import type {
 import type { ToolbarConfig } from "$lib/features/editor/extensions/toolbar_extension";
 import type { SlashCommandConfig } from "$lib/features/editor/adapters/slash_command_plugin";
 import type { AiMenuPluginConfig } from "$lib/features/editor/adapters/ai_menu_plugin";
-import type { TaskQueryCallbacks } from "$lib/features/editor/adapters/code_block_view_plugin";
+import {
+  create_smart_block_registry,
+  create_tasks_smart_block_handler,
+} from "$lib/features/smart_blocks";
+import type {
+  TaskQueryCallbacks,
+  SmartBlockContext,
+} from "$lib/features/smart_blocks";
 import type { TaskPort } from "$lib/features/task";
 import type { ToolbarVisibility } from "$lib/shared/types/editor_settings";
 import { trigger_lsp_hover } from "./lsp_hover_plugin";
@@ -246,6 +253,35 @@ function build_task_query_callbacks(
   };
 }
 
+function build_smart_blocks_config(deps: {
+  task_port: TaskPort;
+  get_note_path: () => string;
+  get_vault_id: () => VaultId | null;
+  open_note: ((path: string) => void) | undefined;
+  subscribe_to_changes: SmartBlockContext["subscribe_to_changes"];
+}) {
+  const registry = create_smart_block_registry();
+  registry.register(
+    create_tasks_smart_block_handler(
+      build_task_query_callbacks(
+        deps.task_port,
+        deps.get_vault_id,
+        deps.open_note,
+      ),
+    ),
+  );
+
+  return {
+    registry,
+    make_context: (): SmartBlockContext => ({
+      note_path: deps.get_note_path(),
+      vault_id: deps.get_vault_id(),
+      open_note: deps.open_note ?? (() => {}),
+      subscribe_to_changes: deps.subscribe_to_changes,
+    }),
+  };
+}
+
 export function create_prosemirror_editor_port(args?: {
   resolve_asset_url_for_vault?: ResolveAssetUrlForVault;
   load_svg_preview?: (vault_id: string, path: string) => Promise<string | null>;
@@ -327,10 +363,11 @@ export function create_prosemirror_editor_port(args?: {
             config.native_wiki_suggest_enabled ?? true,
           native_link_click_enabled: config.native_link_click_enabled ?? true,
           ...(task_port && {
-            task_query_callbacks: build_task_query_callbacks(
+            smart_blocks: build_smart_blocks_config({
               task_port,
-              () => current_vault_id,
-              events.on_internal_link_click
+              get_note_path: () => current_note_path,
+              get_vault_id: () => current_vault_id,
+              open_note: events.on_internal_link_click
                 ? (path: string) => {
                     events.on_internal_link_click?.(
                       path,
@@ -339,7 +376,9 @@ export function create_prosemirror_editor_port(args?: {
                     );
                   }
                 : undefined,
-            ),
+              subscribe_to_changes:
+                note_embed_args?.subscribe_to_changes ?? (() => () => {}),
+            }),
           }),
           ...(note_embed_args && {
             note_embed: {

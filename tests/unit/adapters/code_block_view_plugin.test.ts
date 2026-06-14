@@ -7,6 +7,41 @@ import { EditorView } from "prosemirror-view";
 import type { Node as ProseNode } from "prosemirror-model";
 import { schema } from "$lib/features/editor/adapters/schema";
 import { create_code_block_view_prose_plugin } from "$lib/features/editor/adapters/code_block_view_plugin";
+import type { SmartBlocksConfig } from "$lib/features/editor/adapters/code_block_view_plugin";
+import {
+  create_smart_block_registry,
+  create_tasks_smart_block_handler,
+  type TaskQueryCallbacks,
+} from "$lib/features/smart_blocks";
+import type { SmartBlockContext } from "$lib/features/smart_blocks";
+import type { Task } from "$lib/features/task";
+
+function make_task(overrides: Partial<Task> = {}): Task {
+  return {
+    id: "t1",
+    path: "notes/today.md",
+    text: "buy milk",
+    status: "todo",
+    due_date: null,
+    line_number: 1,
+    section: null,
+    ...overrides,
+  };
+}
+
+function make_smart_blocks_config(
+  callbacks: TaskQueryCallbacks,
+): SmartBlocksConfig {
+  const registry = create_smart_block_registry();
+  registry.register(create_tasks_smart_block_handler(callbacks));
+  const make_context = (): SmartBlockContext => ({
+    note_path: null,
+    vault_id: null,
+    open_note: () => {},
+    subscribe_to_changes: () => () => {},
+  });
+  return { registry, make_context };
+}
 
 function create_editor_with_code_block(
   language: string = "",
@@ -741,6 +776,150 @@ describe("CodeBlockView", () => {
       view.destroy();
 
       expect(document.body.style.userSelect).toBe("");
+    });
+  });
+
+  describe("tasks smart block (registry parity)", () => {
+    function create_editor_with_tasks_block(
+      code: string,
+      callbacks: TaskQueryCallbacks,
+    ): { view: EditorView; container: HTMLElement } {
+      const container_el = document.createElement("div");
+      document.body.appendChild(container_el);
+
+      const code_block = schema.nodes.code_block.create(
+        { language: "tasks" },
+        code.length > 0 ? schema.text(code) : [],
+      );
+      const doc = schema.nodes.doc.create(null, [code_block]);
+
+      const plugin = create_code_block_view_prose_plugin(
+        make_smart_blocks_config(callbacks),
+      );
+      const state = EditorState.create({ doc, plugins: [plugin] });
+
+      const view = new EditorView(container_el, {
+        state,
+        dispatchTransaction: (tr) => {
+          const new_state = view.state.apply(tr);
+          view.updateState(new_state);
+        },
+      });
+
+      return { view, container: container_el };
+    }
+
+    it("renders task rows through the registry handler", async () => {
+      const callbacks: TaskQueryCallbacks = {
+        query_tasks: vi.fn(async () => [make_task()]),
+        toggle_task: vi.fn(async () => {}),
+      };
+      const { view, container: c } = create_editor_with_tasks_block(
+        "status is todo",
+        callbacks,
+      );
+      container = c;
+
+      const results = c.querySelector(".task-query-results");
+      expect(results).not.toBeNull();
+      expect(c.querySelector(".mermaid-toggle-btn")?.textContent).toBe("Edit");
+
+      await vi.runAllTimersAsync();
+
+      expect(callbacks.query_tasks).toHaveBeenCalledTimes(1);
+      expect(c.querySelectorAll(".task-query-item").length).toBe(1);
+
+      view.destroy();
+    });
+
+    it("toggles a task with the cycled status when its checkbox is clicked", async () => {
+      const callbacks: TaskQueryCallbacks = {
+        query_tasks: vi.fn(async () => [make_task({ status: "todo" })]),
+        toggle_task: vi.fn(async () => {}),
+      };
+      const { view, container: c } = create_editor_with_tasks_block(
+        "status is todo",
+        callbacks,
+      );
+      container = c;
+
+      await vi.runAllTimersAsync();
+
+      const checkbox = c.querySelector<HTMLInputElement>(
+        ".task-query-item input[type=checkbox]",
+      )!;
+      checkbox.dispatchEvent(new Event("change"));
+
+      expect(callbacks.toggle_task).toHaveBeenCalledTimes(1);
+      expect(callbacks.toggle_task).toHaveBeenCalledWith(
+        expect.objectContaining({ status: "doing" }),
+      );
+
+      view.destroy();
+    });
+
+    it("tears down the smart block when language changes away from tasks", async () => {
+      const callbacks: TaskQueryCallbacks = {
+        query_tasks: vi.fn(async () => [make_task()]),
+        toggle_task: vi.fn(async () => {}),
+      };
+      const { view, container: c } = create_editor_with_tasks_block(
+        "status is todo",
+        callbacks,
+      );
+      container = c;
+
+      await vi.runAllTimersAsync();
+      expect(c.querySelector(".task-query-results")).not.toBeNull();
+
+      const tr = view.state.tr.setNodeMarkup(0, undefined, {
+        language: "javascript",
+      });
+      view.dispatch(tr);
+
+      expect(c.querySelector(".task-query-results")).toBeNull();
+      expect(c.querySelector(".mermaid-toggle-btn")).toBeNull();
+
+      view.destroy();
+    });
+
+    it("sets up the smart block when language changes to tasks", async () => {
+      const callbacks: TaskQueryCallbacks = {
+        query_tasks: vi.fn(async () => [make_task()]),
+        toggle_task: vi.fn(async () => {}),
+      };
+      const container_el = document.createElement("div");
+      document.body.appendChild(container_el);
+      container = container_el;
+
+      const code_block = schema.nodes.code_block.create(
+        { language: "javascript" },
+        schema.text("status is todo"),
+      );
+      const doc = schema.nodes.doc.create(null, [code_block]);
+      const plugin = create_code_block_view_prose_plugin(
+        make_smart_blocks_config(callbacks),
+      );
+      const state = EditorState.create({ doc, plugins: [plugin] });
+      const view = new EditorView(container_el, {
+        state,
+        dispatchTransaction: (tr) => {
+          view.updateState(view.state.apply(tr));
+        },
+      });
+
+      expect(container_el.querySelector(".task-query-results")).toBeNull();
+
+      view.dispatch(
+        view.state.tr.setNodeMarkup(0, undefined, { language: "tasks" }),
+      );
+
+      expect(container_el.querySelector(".task-query-results")).not.toBeNull();
+
+      await vi.runAllTimersAsync();
+      expect(callbacks.query_tasks).toHaveBeenCalled();
+
+      view.destroy();
     });
   });
 });
