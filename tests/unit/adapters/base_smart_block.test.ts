@@ -55,8 +55,12 @@ const STATUS_PROP: PropertyInfo = {
   unique_values: ["todo", "done"],
 };
 
-function make_outcome(rows: BaseNoteRow[]): BaseQueryOutcome {
-  return { rows, available_properties: [STATUS_PROP] };
+function make_outcome(rows: BaseNoteRow[], total?: number): BaseQueryOutcome {
+  return {
+    rows,
+    available_properties: [STATUS_PROP],
+    ...(total !== undefined && { total }),
+  };
 }
 
 function make_spec(body: string): SmartBlockSpec {
@@ -224,6 +228,37 @@ describe("base smart block handler", () => {
     expect(ctx.update_body).toHaveBeenCalledWith(
       "view: kanban\ngroup_by: status\nquery: notes",
     );
+  });
+
+  it("surfaces a 'showing N of M' affordance when the result set is capped", async () => {
+    const run_base_query = vi.fn(async () =>
+      make_outcome([make_row("a.md", "todo"), make_row("b.md", "done")], 57),
+    );
+    const handler = create_base_smart_block_handler({ run_base_query });
+    const instance = handler.create(
+      make_spec("view: table\nquery: notes"),
+      make_ctx().ctx,
+    );
+
+    await settle();
+
+    const affordance = instance.dom.querySelector(".smart-block-truncation");
+    expect(affordance?.textContent).toContain("Showing 2 of 57");
+  });
+
+  it("omits the affordance when every match is shown", async () => {
+    const run_base_query = vi.fn(async () =>
+      make_outcome([make_row("a.md", "todo")], 1),
+    );
+    const handler = create_base_smart_block_handler({ run_base_query });
+    const instance = handler.create(
+      make_spec("view: table\nquery: notes"),
+      make_ctx().ctx,
+    );
+
+    await settle();
+
+    expect(instance.dom.querySelector(".smart-block-truncation")).toBeNull();
   });
 
   it("renders an error state for an invalid body and never queries", async () => {

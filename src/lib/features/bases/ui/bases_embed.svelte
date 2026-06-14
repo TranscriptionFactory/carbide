@@ -81,3 +81,9 @@
 {:else}
   <BasesTable rows={store.result_set} {on_note_click} />
 {/if}
+
+{#if store.result_set.length > 0 && store.total_count > store.result_set.length}
+  <div class="smart-block-truncation">
+    Showing {store.result_set.length} of {store.total_count}
+  </div>
+{/if}

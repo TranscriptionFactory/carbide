@@ -1124,6 +1124,13 @@
   font-style: italic;
 }
 
+.smart-block-truncation {
+  margin-top: var(--space-2);
+  color: var(--muted-foreground);
+  font-size: var(--text-xs);
+  font-style: italic;
+}
+
 .smart-block-base-list {
   display: flex;
   flex-direction: column;

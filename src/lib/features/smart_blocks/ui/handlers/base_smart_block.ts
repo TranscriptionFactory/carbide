@@ -25,6 +25,7 @@ const log = create_logger("base_smart_block");
 export type BaseQueryOutcome = {
   rows: BaseNoteRow[];
   available_properties: PropertyInfo[];
+  total?: number;
 };
 
 export type BaseSmartBlockDeps = {
@@ -97,13 +98,11 @@ export function create_base_smart_block_handler(
         }
         store.loading = true;
         try {
-          const { rows, available_properties } = await deps.run_base_query(
-            vault_id,
-            query,
-          );
+          const { rows, available_properties, total } =
+            await deps.run_base_query(vault_id, query);
           if (!is_current()) return;
           store.available_properties = available_properties;
-          store.set_results({ rows, total: rows.length });
+          store.set_results({ rows, total: total ?? rows.length });
           store.error = null;
         } catch (error: unknown) {
           if (!is_current()) return;
