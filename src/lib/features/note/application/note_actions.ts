@@ -35,7 +35,7 @@ import {
 } from "$lib/shared/utils/path";
 import type { InternalLinkSource } from "$lib/features/editor";
 import { find_frontmatter_span } from "$lib/shared/domain/frontmatter_parser";
-import { inject_initial_frontmatter } from "$lib/features/metadata/domain/frontmatter_writer";
+import { inject_initial_frontmatter } from "$lib/features/metadata";
 import { toast } from "svelte-sonner";
 
 type WikiLinkPayload = {
