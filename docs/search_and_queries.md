@@ -110,6 +110,87 @@ Groups can be nested with braces `{ }` for complex logic.
 
 Save queries as `.query` files in your vault for reuse. The query panel provides a UI for managing saved queries.
 
+## Smart Blocks (Live Embeds)
+
+Smart Blocks turn a fenced code block into live, self-updating content generated from a query rather than typed by hand. A Smart Block re-renders automatically when the vault changes, and reuses Carbide's existing engines — the query language, Bases views, and the backlinks index — so there is one mental model, not a separate query DSL bolted on.
+
+A Smart Block is a fenced code block keyed by its language:
+
+| Language    | Renders                                                          | Backed by                         |
+| ----------- | ---------------------------------------------------------------- | --------------------------------- |
+| `query`     | A live, clickable list of matching notes                         | [Query Language](#query-language) |
+| `base`      | An embedded Bases view (table/list/kanban/gallery/calendar/tree) | [Bases](#bases)                   |
+| `backlinks` | A live list of notes linking to the current note                 | Backlinks index                   |
+| `tasks`     | A live task list with interactive checkboxes                     | [Task Queries](#task-queries)     |
+
+> The `tasks` block shipped earlier; `query`, `base`, and `backlinks` are the newer additions.
+
+### Query Block
+
+Lists the notes matching a [query](#query-language), refreshed live as the vault changes. Click a row to open the note.
+
+````markdown
+```query
+notes with #project-x in "work"
+```
+````
+
+The body is a query-language expression (the same syntax as the query panel and omnibar — space-separated clauses, **not** `with:#tag`). An invalid query renders the parser error and its caret position inline instead of crashing.
+
+### Backlinks Block
+
+Lists notes that link to the current note. Add `show: outlinks` to list outgoing links instead of backlinks.
+
+````markdown
+```backlinks
+show: outlinks
+```
+````
+
+An unsaved buffer (no file path yet) shows a "save note to see backlinks" hint rather than an error.
+
+### Base Block
+
+Embeds any of the six Bases views inline, driven by a query. The body is a set of `key: value` lines:
+
+````markdown
+```base
+view: kanban
+group_by: status
+query: notes with #project-x
+```
+````
+
+| Key             | Meaning                                                               |
+| --------------- | --------------------------------------------------------------------- |
+| `view`          | `table` (default), `list`, `kanban`, `gallery`, `calendar`, or `tree` |
+| `query`         | A query-language expression selecting the rows (**required**)         |
+| `group_by`      | Grouping property for `kanban` / `tree`                               |
+| `date_property` | Date property for `calendar`                                          |
+
+**In-block view switcher** — buttons above the view switch between modes (table ↔ kanban ↔ …) without remounting the note; the choice is written back into the block body so it persists in the file. Other in-view config (kanban group-by, calendar date property, tree grouping) round-trips the same way — the note stays the single source of truth.
+
+**Result cap** — large result sets are capped (1000 rows). When the cap applies, the block shows a "Showing N of M" line rather than truncating silently.
+
+See [Bases & References](./bases_and_references.md#embedded-base-blocks) for more on the underlying views.
+
+### Inserting blocks
+
+From the command palette (`Cmd+P` / `Ctrl+P`):
+
+- **Insert Query Block**
+- **Insert Base View**
+- **Insert Backlinks Block**
+
+Each drops a ready-to-edit scaffold at the cursor.
+
+### Behavior shared by all Smart Blocks
+
+- **Live** — every block subscribes to vault changes, debounces (~150 ms), and re-runs its query.
+- **Source / preview toggle** — each block keeps the standard code-block Edit/Preview toggle, so you can see and edit the source.
+- **Viewport-gated** — a block defers its query until it scrolls into view, so notes with many blocks stay responsive.
+- **Explicit states** — each block renders distinct loading, empty ("No results"), and error states.
+
 ## Search Graph
 
 **Shortcut**: `Cmd+Alt+G` (or via command palette)
