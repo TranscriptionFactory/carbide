@@ -37,8 +37,12 @@
   let renaming_id = $state<string | null>(null);
   let rename_value = $state("");
 
+  let listed_views_for: string | null = null;
   $effect(() => {
-    if (stores.vault.vault?.id && stores.bases.saved_views.length === 0) {
+    const vault_id = stores.vault.vault?.id;
+    if (!vault_id || vault_id === listed_views_for) return;
+    listed_views_for = vault_id;
+    if (stores.bases.saved_views.length === 0) {
       void action_registry.execute(ACTION_IDS.bases_list_views);
     }
   });
