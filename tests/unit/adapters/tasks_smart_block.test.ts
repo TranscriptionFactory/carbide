@@ -29,12 +29,15 @@ function make_spec(body: string): SmartBlockSpec {
   return { type: "tasks", body };
 }
 
-function make_ctx(): SmartBlockContext {
+function make_ctx(
+  overrides: Partial<SmartBlockContext> = {},
+): SmartBlockContext {
   return {
     note_path: null,
     vault_id: null,
     open_note: vi.fn(),
     subscribe_to_changes: vi.fn(() => () => undefined),
+    ...overrides,
   };
 }
 
@@ -94,6 +97,46 @@ describe("tasks smart block handler", () => {
 
     expect(callbacks.query_tasks).not.toHaveBeenCalled();
     expect(instance.dom.querySelector(".task-query-error")).not.toBeNull();
+  });
+
+  it("renders parse-error text as inert content, never as markup", async () => {
+    const callbacks = make_callbacks();
+    const handler = create_tasks_smart_block_handler(callbacks);
+    const instance = handler.create(
+      make_spec("<img src=x onerror=alert(1)>"),
+      make_ctx(),
+    );
+
+    await vi.runAllTimersAsync();
+
+    const error = instance.dom.querySelector(".task-query-error");
+    expect(error).not.toBeNull();
+    expect(instance.dom.querySelector("img")).toBeNull();
+    expect(error?.textContent).toContain("<img src=x onerror=alert(1)>");
+  });
+
+  it("re-runs the query when the vault emits a change", async () => {
+    let emit: (() => void) | undefined;
+    const callbacks = make_callbacks();
+    const handler = create_tasks_smart_block_handler(callbacks);
+    handler.create(
+      make_spec("status is doing"),
+      make_ctx({
+        subscribe_to_changes: (handler_fn) => {
+          emit = () => {
+            handler_fn({} as never);
+          };
+          return () => undefined;
+        },
+      }),
+    );
+
+    await vi.runAllTimersAsync();
+    expect(callbacks.query_tasks).toHaveBeenCalledTimes(1);
+
+    emit?.();
+    await vi.runAllTimersAsync();
+    expect(callbacks.query_tasks).toHaveBeenCalledTimes(2);
   });
 
   it("toggles a task with the cycled status when its checkbox is clicked", async () => {
