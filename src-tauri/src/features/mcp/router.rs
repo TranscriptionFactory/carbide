@@ -169,6 +169,7 @@ impl McpRouter {
         defs.extend(tools::references::tool_definitions());
         defs.extend(tools::git::tool_definitions());
         defs.extend(tools::tasks::tool_definitions());
+        defs.extend(tools::rag::tool_definitions());
         defs
     }
 
@@ -203,6 +204,9 @@ impl McpRouter {
             return result;
         }
         if let Some(result) = tools::tasks::dispatch(app, name, arguments_ref) {
+            return result;
+        }
+        if let Some(result) = tools::rag::dispatch(app, name, arguments_ref) {
             return result;
         }
 
