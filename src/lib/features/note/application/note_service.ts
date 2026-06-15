@@ -781,8 +781,8 @@ export class NoteService {
       this.notes_store.update_note_after_save(
         open_note.meta.id,
         result.blurb,
-        result.color,
-        result.icon,
+        result.color ?? undefined,
+        result.icon ?? undefined,
       );
     } else {
       new_mtime = await this.notes_port.write_note(
