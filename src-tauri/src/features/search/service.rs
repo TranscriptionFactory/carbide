@@ -176,6 +176,7 @@ enum DbCommand {
         vault_id: String,
         cancel: Arc<AtomicBool>,
         is_embedding: Arc<AtomicBool>,
+        embed_queued: Arc<AtomicBool>,
     },
     RebuildEmbeddings {
         vault_root: PathBuf,
@@ -220,6 +221,10 @@ struct VaultWorker {
     read_conn: Arc<Mutex<Connection>>,
     cancel: Arc<AtomicBool>,
     is_embedding: Arc<AtomicBool>,
+    // Set when an EmbedBatch is enqueued, cleared when the worker dequeues it.
+    // Closes the window between enqueue and dequeue where is_embedding is still
+    // false, so concurrent embed_sync calls don't queue duplicate passes.
+    embed_queued: Arc<AtomicBool>,
     join_handle: Option<JoinHandle<()>>,
     note_index: SharedVectorIndex,
     block_index: SharedVectorIndex,
@@ -495,6 +500,7 @@ pub(crate) fn ensure_worker(app: &AppHandle, vault_id: &str) -> Result<(), Strin
         read_conn: Arc::new(Mutex::new(read_conn)),
         cancel: Arc::new(AtomicBool::new(false)),
         is_embedding: Arc::new(AtomicBool::new(false)),
+        embed_queued: Arc::new(AtomicBool::new(false)),
         join_handle: Some(handle),
         note_index,
         block_index,
@@ -806,7 +812,9 @@ fn dispatch_command(
             vault_id,
             cancel,
             is_embedding,
+            embed_queued,
         } => {
+            embed_queued.store(false, Ordering::Relaxed);
             is_embedding.store(true, Ordering::Relaxed);
             handle_embed_batch(
                 conn,
@@ -2768,30 +2776,44 @@ pub fn rebuild_embeddings(app: AppHandle, vault_id: String) -> Result<(), String
 #[specta::specta]
 pub fn embed_sync(app: AppHandle, vault_id: String) -> Result<(), String> {
     ensure_worker(&app, &vault_id)?;
-    {
+    let embed_queued = {
         let state = app.state::<SearchDbState>();
         let map = state.workers.lock().map_err(|e| e.to_string())?;
         let worker = map.get(&vault_id).ok_or("vault worker not found")?;
-        if worker.is_embedding.load(Ordering::Relaxed) {
-            log::info!("embed_sync: skipped, embedding already in progress");
+        if worker.is_embedding.load(Ordering::Relaxed)
+            || worker.embed_queued.load(Ordering::Relaxed)
+        {
+            log::info!("embed_sync: skipped, embedding already in progress or queued");
             return Ok(());
         }
+        worker.embed_queued.store(true, Ordering::Relaxed);
+        Arc::clone(&worker.embed_queued)
+    };
+
+    // Past this point embed_queued is set; reset it on any failure so a skipped
+    // enqueue never wedges future syncs.
+    let send = (|| {
+        let vault_root = storage::vault_path(&app, &vault_id)?;
+        let cancel = fresh_worker_cancel_token(&app, &vault_id)?;
+        let is_embedding = get_worker_is_embedding(&app, &vault_id)?;
+        send_write(
+            &app,
+            &vault_id,
+            DbCommand::EmbedBatch {
+                vault_root,
+                app_handle: app.clone(),
+                vault_id: vault_id.clone(),
+                cancel,
+                is_embedding,
+                embed_queued: Arc::clone(&embed_queued),
+            },
+        )
+    })();
+
+    if send.is_err() {
+        embed_queued.store(false, Ordering::Relaxed);
     }
-    let vault_root = storage::vault_path(&app, &vault_id)?;
-    let cancel = fresh_worker_cancel_token(&app, &vault_id)?;
-    let is_embedding = get_worker_is_embedding(&app, &vault_id)?;
-    let vid = vault_id.clone();
-    send_write(
-        &app,
-        &vault_id,
-        DbCommand::EmbedBatch {
-            vault_root,
-            app_handle: app.clone(),
-            vault_id: vid,
-            cancel,
-            is_embedding,
-        },
-    )
+    send
 }
 
 #[tauri::command]
