@@ -42,6 +42,7 @@ import { create_linked_source_tree_reactor } from "$lib/reactors/linked_source_t
 import { create_plugin_note_indexed_reactor } from "$lib/reactors/plugin_note_indexed.reactor.svelte";
 import { create_plugin_metadata_events_reactor } from "$lib/reactors/plugin_metadata_events.reactor.svelte";
 import { create_mcp_autostart_reactor } from "$lib/reactors/mcp_autostart.reactor.svelte";
+import { create_rag_sessions_load_reactor } from "$lib/reactors/rag_sessions_load.reactor.svelte";
 import { create_visual_editor_diagnostics_reactor } from "$lib/reactors/visual_editor_diagnostics.reactor.svelte";
 // STT removed — archived on archive/stt-main
 // import { create_stt_settings_sync_reactor } from "$lib/reactors/stt_settings_sync.reactor.svelte";
@@ -87,6 +88,7 @@ import type { CodeLspService } from "$lib/features/code_lsp";
 import type { ThemeService } from "$lib/features/theme";
 import type { ReferenceService, ReferenceStore } from "$lib/features/reference";
 import type { McpService } from "$lib/features/mcp";
+import type { RagService, RagStore } from "$lib/features/rag";
 // import type { SttStore, SttService } from "$lib/features/stt";
 
 export type ReactorContext = {
@@ -134,6 +136,8 @@ export type ReactorContext = {
   reference_service: ReferenceService;
   reference_store: ReferenceStore;
   mcp_service: McpService;
+  rag_store: RagStore;
+  rag_service: RagService;
   // stt_store: SttStore;
   // stt_service: SttService;
 };
@@ -384,6 +388,11 @@ export function mount_reactors(context: ReactorContext): ReactorHandles {
       context.vault_store,
       context.ui_store,
       context.mcp_service,
+    ),
+    create_rag_sessions_load_reactor(
+      context.rag_store,
+      context.rag_service,
+      context.vault_store,
     ),
     // STT removed — archived on archive/stt-main
     // create_stt_settings_sync_reactor(context.ui_store, context.stt_store),

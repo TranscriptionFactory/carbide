@@ -1434,6 +1434,8 @@ export function create_app_context(input: {
     reference_service,
     reference_store: stores.reference,
     mcp_service,
+    rag_store: stores.rag,
+    rag_service,
     // stt_store: stores.stt,
     // stt_service,
   });
