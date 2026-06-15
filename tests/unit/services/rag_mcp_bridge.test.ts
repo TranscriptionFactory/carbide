@@ -62,6 +62,7 @@ function make_service(...chunks: AiStreamChunk[]) {
     vault_store,
     persistence,
     tag as never,
+    { load_view: vi.fn(), query: vi.fn() } as never,
   );
 }
 

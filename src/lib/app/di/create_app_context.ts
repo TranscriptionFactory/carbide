@@ -807,6 +807,7 @@ export function create_app_context(input: {
     stores.vault,
     input.ports.rag_persistence,
     input.ports.tag,
+    input.ports.bases,
   );
 
   const bases_service = new BasesService(input.ports.bases, stores.bases);

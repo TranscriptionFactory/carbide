@@ -5,6 +5,7 @@ import type { SearchPort } from "$lib/features/search";
 import type { NotesPort } from "$lib/features/note";
 import type { AiStreamPort } from "$lib/features/ai";
 import type { TagPort } from "$lib/features/tags";
+import type { BasesPort } from "$lib/features/bases/ports";
 import type { AiProviderConfig } from "$lib/shared/types/ai_provider_config";
 import type { NoteId, VaultId } from "$lib/shared/types/ids";
 import { is_linked_note_path } from "$lib/shared/types/note";
@@ -22,6 +23,7 @@ import { parse_mentions } from "$lib/features/rag/domain/rag_mentions";
 import {
   normalize_folder_scope,
   normalize_tag_scope,
+  normalize_base_scope,
   path_in_folder,
 } from "$lib/features/rag/domain/rag_scope";
 import type {
@@ -120,6 +122,7 @@ export class RagService {
     private readonly vault_store: VaultStore,
     private readonly persistence_port: RagPersistencePort,
     private readonly tag_port: TagPort,
+    private readonly bases_port: BasesPort,
   ) {}
 
   async list_sessions(vault_id: string): Promise<RagSessionSummary[]> {
@@ -328,20 +331,50 @@ export class RagService {
     hits: RetrievalHit[],
     scope: RagScope | undefined,
   ): Promise<RetrievalHit[]> {
-    const folder_scope = normalize_folder_scope(scope?.folder);
-    if (folder_scope) {
-      hits = hits.filter((hit) => path_in_folder(hit.note_path, folder_scope));
+    const folders = (scope?.folders ?? [])
+      .map(normalize_folder_scope)
+      .filter((f): f is string => f !== null);
+    if (folders.length > 0) {
+      hits = hits.filter((hit) =>
+        folders.some((folder) => path_in_folder(hit.note_path, folder)),
+      );
     }
 
-    const tag_scope = normalize_tag_scope(scope?.tag);
-    if (tag_scope) {
+    const tags = (scope?.tags ?? [])
+      .map(normalize_tag_scope)
+      .filter((t): t is string => t !== null);
+    if (tags.length > 0) {
       try {
-        const tagged = new Set(
-          await this.tag_port.get_notes_for_tag(vault_id, tag_scope),
+        const sets = await Promise.all(
+          tags.map((tag) => this.tag_port.get_notes_for_tag(vault_id, tag)),
         );
+        const tagged = new Set(sets.flat());
         hits = hits.filter((hit) => tagged.has(hit.note_path));
       } catch (err) {
         log.warn("RAG tag scope filter failed", { error: error_message(err) });
+      }
+    }
+
+    const bases = (scope?.bases ?? [])
+      .map(normalize_base_scope)
+      .filter((b): b is string => b !== null);
+    if (bases.length > 0) {
+      try {
+        const sets = await Promise.all(
+          bases.map(async (path) => {
+            const view = await this.bases_port.load_view(vault_id, path);
+            const result = await this.bases_port.query(vault_id, {
+              ...view.query,
+              limit: 10000,
+              offset: 0,
+            });
+            return result.rows.map((row) => row.note.path);
+          }),
+        );
+        const scoped = new Set<string>(sets.flat());
+        hits = hits.filter((hit) => scoped.has(hit.note_path));
+      } catch (err) {
+        log.warn("RAG base scope filter failed", { error: error_message(err) });
       }
     }
     return hits;

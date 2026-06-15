@@ -47,8 +47,8 @@ export function create_rag_mcp_bridge_reactor(
       };
     } else {
       const scope: RagScope = {};
-      if (event.folder) scope.folder = event.folder;
-      if (event.tag) scope.tag = event.tag;
+      if (event.folder) scope.folders = [event.folder];
+      if (event.tag) scope.tags = [event.tag];
       try {
         response = await collect_rag_query_response(
           rag_service.query({

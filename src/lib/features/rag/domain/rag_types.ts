@@ -31,8 +31,9 @@ export type RagStreamEvent =
   | { type: "error"; error: string };
 
 export type RagScope = {
-  folder?: string;
-  tag?: string;
+  folders?: string[];
+  tags?: string[];
+  bases?: string[];
 };
 
 export type RagSessionSummary = {
