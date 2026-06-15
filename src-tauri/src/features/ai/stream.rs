@@ -1,4 +1,5 @@
 use crate::features::pipeline::service as pipeline;
+use futures_util::StreamExt;
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use std::collections::HashMap;
@@ -51,6 +52,86 @@ fn build_prompt_text(system_prompt: &str, messages: &[AiMessage]) -> String {
         parts.push(format!("<{}>\n{}\n</{}>", msg.role, msg.content, msg.role));
     }
     parts.join("\n\n")
+}
+
+fn chat_completions_url(base_url: &str) -> String {
+    format!("{}/chat/completions", base_url.trim_end_matches('/'))
+}
+
+fn build_chat_request_body(
+    system_prompt: &str,
+    messages: &[AiMessage],
+    model: &str,
+) -> serde_json::Value {
+    let mut msgs: Vec<serde_json::Value> = Vec::new();
+    if !system_prompt.is_empty() {
+        msgs.push(serde_json::json!({ "role": "system", "content": system_prompt }));
+    }
+    for msg in messages {
+        msgs.push(serde_json::json!({ "role": msg.role, "content": msg.content }));
+    }
+    serde_json::json!({
+        "model": model,
+        "messages": msgs,
+        "stream": true,
+    })
+}
+
+#[derive(Deserialize)]
+struct ChatChunk {
+    choices: Vec<ChatChoice>,
+}
+
+#[derive(Deserialize)]
+struct ChatChoice {
+    #[serde(default)]
+    delta: ChatDelta,
+}
+
+#[derive(Deserialize, Default)]
+struct ChatDelta {
+    content: Option<String>,
+}
+
+enum SseEvent {
+    Delta(String),
+    Done,
+}
+
+struct SseDecoder {
+    buf: Vec<u8>,
+}
+
+impl SseDecoder {
+    fn new() -> Self {
+        Self { buf: Vec::new() }
+    }
+
+    fn push(&mut self, bytes: &[u8]) -> Vec<SseEvent> {
+        self.buf.extend_from_slice(bytes);
+        let mut events = Vec::new();
+        while let Some(idx) = self.buf.iter().position(|&b| b == b'\n') {
+            let line_bytes: Vec<u8> = self.buf.drain(..=idx).collect();
+            let line = String::from_utf8_lossy(&line_bytes);
+            if let Some(event) = parse_sse_line(line.trim_end_matches(['\r', '\n'])) {
+                events.push(event);
+            }
+        }
+        events
+    }
+}
+
+fn parse_sse_line(line: &str) -> Option<SseEvent> {
+    let data = line.strip_prefix("data:")?.trim();
+    if data.is_empty() {
+        return None;
+    }
+    if data == "[DONE]" {
+        return Some(SseEvent::Done);
+    }
+    let chunk: ChatChunk = serde_json::from_str(data).ok()?;
+    let content = chunk.choices.into_iter().next()?.delta.content?;
+    Some(SseEvent::Delta(content))
 }
 
 #[tauri::command]
@@ -266,7 +347,116 @@ pub async fn ai_stream_abort(
 
 #[cfg(test)]
 mod tests {
-    use super::clamp_stderr;
+    use super::{
+        build_chat_request_body, chat_completions_url, clamp_stderr, AiMessage, SseDecoder,
+        SseEvent,
+    };
+
+    fn deltas(events: Vec<SseEvent>) -> Vec<String> {
+        events
+            .into_iter()
+            .filter_map(|e| match e {
+                SseEvent::Delta(t) => Some(t),
+                SseEvent::Done => None,
+            })
+            .collect()
+    }
+
+    #[test]
+    fn chat_url_appends_completions_path() {
+        assert_eq!(
+            chat_completions_url("http://localhost:1234/v1"),
+            "http://localhost:1234/v1/chat/completions"
+        );
+    }
+
+    #[test]
+    fn chat_url_strips_trailing_slash() {
+        assert_eq!(
+            chat_completions_url("http://localhost:1234/v1/"),
+            "http://localhost:1234/v1/chat/completions"
+        );
+    }
+
+    #[test]
+    fn request_body_prepends_system_and_keeps_messages() {
+        let msgs = vec![AiMessage {
+            role: "user".into(),
+            content: "hi".into(),
+        }];
+        let body = build_chat_request_body("sys", &msgs, "m");
+        assert_eq!(body["model"], "m");
+        assert_eq!(body["stream"], true);
+        let arr = body["messages"].as_array().unwrap();
+        assert_eq!(arr.len(), 2);
+        assert_eq!(arr[0]["role"], "system");
+        assert_eq!(arr[0]["content"], "sys");
+        assert_eq!(arr[1]["role"], "user");
+        assert_eq!(arr[1]["content"], "hi");
+    }
+
+    #[test]
+    fn request_body_omits_empty_system() {
+        let body = build_chat_request_body("", &[], "m");
+        assert_eq!(body["messages"].as_array().unwrap().len(), 0);
+    }
+
+    #[test]
+    fn decoder_emits_single_delta() {
+        let mut d = SseDecoder::new();
+        let evs = d.push(b"data: {\"choices\":[{\"delta\":{\"content\":\"Hi\"}}]}\n\n");
+        assert_eq!(deltas(evs), vec!["Hi".to_string()]);
+    }
+
+    #[test]
+    fn decoder_reassembles_event_split_across_chunks() {
+        let mut d = SseDecoder::new();
+        assert!(d.push(b"data: {\"choices\":[{\"delta\":{\"con").is_empty());
+        let evs = d.push(b"tent\":\"Hi\"}}]}\n");
+        assert_eq!(deltas(evs), vec!["Hi".to_string()]);
+    }
+
+    #[test]
+    fn decoder_yields_multiple_events_in_one_chunk() {
+        let mut d = SseDecoder::new();
+        let evs = d.push(
+            b"data: {\"choices\":[{\"delta\":{\"content\":\"a\"}}]}\ndata: {\"choices\":[{\"delta\":{\"content\":\"b\"}}]}\n",
+        );
+        assert_eq!(deltas(evs), vec!["a".to_string(), "b".to_string()]);
+    }
+
+    #[test]
+    fn decoder_emits_done_on_sentinel() {
+        let mut d = SseDecoder::new();
+        let evs = d.push(b"data: [DONE]\n\n");
+        assert!(matches!(evs.as_slice(), [SseEvent::Done]));
+    }
+
+    #[test]
+    fn decoder_ignores_blank_and_comment_lines() {
+        let mut d = SseDecoder::new();
+        assert!(d.push(b": ping\n\n").is_empty());
+    }
+
+    #[test]
+    fn decoder_skips_malformed_json() {
+        let mut d = SseDecoder::new();
+        assert!(d.push(b"data: {not json}\n").is_empty());
+    }
+
+    #[test]
+    fn decoder_skips_content_less_delta() {
+        let mut d = SseDecoder::new();
+        let evs = d.push(b"data: {\"choices\":[{\"delta\":{}}]}\n");
+        assert!(deltas(evs).is_empty());
+    }
+
+    #[test]
+    fn decoder_handles_multibyte_content() {
+        let mut d = SseDecoder::new();
+        let evs = d.push("data: {\"choices\":[{\"delta\":{\"content\":\"é\"}}]}\n".as_bytes());
+        assert_eq!(deltas(evs), vec!["é".to_string()]);
+    }
 
     #[test]
     fn empty_or_whitespace_stderr_yields_nothing() {
