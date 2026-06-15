@@ -7,6 +7,7 @@ export { create_rag_persistence_tauri_adapter } from "$lib/features/rag/adapters
 export {
   assemble_context,
   estimate_tokens,
+  extract_section,
   type AssembleContextOptions,
   type RagContextCandidate,
 } from "$lib/features/rag/domain/rag_context_assembler";

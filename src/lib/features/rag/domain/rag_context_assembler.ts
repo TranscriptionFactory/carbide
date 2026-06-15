@@ -22,6 +22,18 @@ export function estimate_tokens(
   return Math.ceil(text.length / chars_per_token);
 }
 
+export function extract_section(
+  markdown: string,
+  start_line: number,
+  end_line: number,
+): string {
+  const lines = markdown.split("\n");
+  const start = Math.max(0, start_line);
+  const end = Math.min(lines.length, end_line + 1);
+  if (start >= lines.length || start >= end) return "";
+  return lines.slice(start, end).join("\n");
+}
+
 function dedupe_by_path(
   candidates: RagContextCandidate[],
 ): RagContextCandidate[] {
