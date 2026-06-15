@@ -306,6 +306,7 @@ export const ACTION_IDS = {
   rag_open: "rag.open",
   rag_ask: "rag.ask",
   rag_open_citation: "rag.open_citation",
+  rag_new_chat: "rag.new_chat",
 
   tab_open_to_side: "tab.open_to_side",
   tab_toggle_split: "tab.toggle_split",

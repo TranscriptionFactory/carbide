@@ -1,5 +1,10 @@
 <script lang="ts">
-  import { MessagesSquare, Loader2, AlertCircle } from "@lucide/svelte";
+  import {
+    MessagesSquare,
+    Loader2,
+    AlertCircle,
+    SquarePen,
+  } from "@lucide/svelte";
   import { Button } from "$lib/components/ui/button";
   import { use_app_context } from "$lib/app/context/app_context.svelte";
   import { ACTION_IDS } from "$lib/app";
@@ -37,9 +42,23 @@
   function change_scope(scope: string) {
     rag.set_scope(scope);
   }
+
+  function new_chat() {
+    void action_registry.execute(ACTION_IDS.rag_new_chat);
+  }
 </script>
 
 <div class="flex h-full flex-col">
+  {#if rag.messages.length > 0}
+    <div class="flex items-center justify-between border-b px-3 py-1.5">
+      <span class="text-xs font-medium text-muted-foreground">Vault Chat</span>
+      <Button variant="ghost" size="sm" class="h-7 gap-1.5" onclick={new_chat}>
+        <SquarePen class="size-3.5" />
+        New chat
+      </Button>
+    </div>
+  {/if}
+
   <div class="flex-1 overflow-y-auto p-3">
     {#if rag.messages.length === 0 && !rag.is_loading}
       <div
