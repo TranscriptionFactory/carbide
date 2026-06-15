@@ -49,7 +49,7 @@ describe("problems_panel_filter", () => {
       ];
       const result = filter_diagnostics(items, "error", "all", "");
       expect(result).toHaveLength(1);
-      expect(result[0].severity).toBe("error");
+      expect(result[0]?.severity).toBe("error");
     });
 
     it("excludes diagnostics when severity is 'debug' (no diagnostic equivalent)", () => {
@@ -69,7 +69,7 @@ describe("problems_panel_filter", () => {
       ];
       const result = filter_diagnostics(items, "all", "lint", "");
       expect(result).toHaveLength(1);
-      expect(result[0].source).toBe("lint");
+      expect(result[0]?.source).toBe("lint");
     });
 
     it("filters by search query against message", () => {
@@ -79,7 +79,7 @@ describe("problems_panel_filter", () => {
       ];
       const result = filter_diagnostics(items, "all", "all", "unused");
       expect(result).toHaveLength(1);
-      expect(result[0].message).toBe("unused variable");
+      expect(result[0]?.message).toBe("unused variable");
     });
 
     it("filters by search query against rule_id", () => {
@@ -89,7 +89,7 @@ describe("problems_panel_filter", () => {
       ];
       const result = filter_diagnostics(items, "all", "all", "unused");
       expect(result).toHaveLength(1);
-      expect(result[0].rule_id).toBe("no-unused-vars");
+      expect(result[0]?.rule_id).toBe("no-unused-vars");
     });
   });
 
@@ -111,7 +111,7 @@ describe("problems_panel_filter", () => {
       ];
       const result = filter_logs(items, "error", "");
       expect(result).toHaveLength(1);
-      expect(result[0].level).toBe("error");
+      expect(result[0]?.level).toBe("error");
     });
 
     it("filters log entries by warning level (warn maps to warning)", () => {
@@ -121,7 +121,7 @@ describe("problems_panel_filter", () => {
       ];
       const result = filter_logs(items, "warning", "");
       expect(result).toHaveLength(1);
-      expect(result[0].level).toBe("warn");
+      expect(result[0]?.level).toBe("warn");
     });
 
     it("filters log entries by info level", () => {
@@ -131,7 +131,7 @@ describe("problems_panel_filter", () => {
       ];
       const result = filter_logs(items, "info", "");
       expect(result).toHaveLength(1);
-      expect(result[0].level).toBe("info");
+      expect(result[0]?.level).toBe("info");
     });
 
     it("only matches trace level when severity is 'trace'", () => {
@@ -142,7 +142,7 @@ describe("problems_panel_filter", () => {
       ];
       const result = filter_logs(items, "trace", "");
       expect(result).toHaveLength(1);
-      expect(result[0].level).toBe("trace");
+      expect(result[0]?.level).toBe("trace");
     });
 
     it("excludes log entries when severity is 'hint' (no log equivalent)", () => {
@@ -157,7 +157,7 @@ describe("problems_panel_filter", () => {
       ];
       const result = filter_logs(items, "all", "started");
       expect(result).toHaveLength(1);
-      expect(result[0].message).toBe("app started");
+      expect(result[0]?.message).toBe("app started");
     });
   });
 
@@ -221,8 +221,10 @@ describe("problems_panel_filter", () => {
       );
 
       expect(result).toHaveLength(1);
-      expect(result[0].kind).toBe("log");
-      expect((result[0].data as { level: string }).level).toBe("trace");
+      expect(result[0]?.kind).toBe("log");
+      expect((result[0]?.data as { level: string } | undefined)?.level).toBe(
+        "trace",
+      );
     });
 
     it("stream 'diagnostics' shows only diagnostics regardless of log entries", () => {
@@ -239,7 +241,7 @@ describe("problems_panel_filter", () => {
       );
 
       expect(result).toHaveLength(1);
-      expect(result[0].kind).toBe("diagnostic");
+      expect(result[0]?.kind).toBe("diagnostic");
     });
 
     it("stream 'logs' shows only log entries regardless of diagnostics", () => {
@@ -256,7 +258,7 @@ describe("problems_panel_filter", () => {
       );
 
       expect(result).toHaveLength(1);
-      expect(result[0].kind).toBe("log");
+      expect(result[0]?.kind).toBe("log");
     });
 
     it("stream 'all' merges and sorts by timestamp", () => {
@@ -272,8 +274,8 @@ describe("problems_panel_filter", () => {
         "",
       );
 
-      expect(result[0].timestamp).toBe(100);
-      expect(result[1].timestamp).toBe(300);
+      expect(result[0]?.timestamp).toBe(100);
+      expect(result[1]?.timestamp).toBe(300);
     });
   });
 });

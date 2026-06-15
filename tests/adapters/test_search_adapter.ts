@@ -139,6 +139,8 @@ export function create_test_search_adapter(): SearchPort {
         next_due_date: null,
         last_indexed_at: 0,
       }),
+    get_indexed_body: (_vault_id: VaultId, _note_path: string) =>
+      Promise.resolve(null),
     get_file_cache: (_vault_id: VaultId, _note_path: string) =>
       Promise.resolve({
         frontmatter: {},
