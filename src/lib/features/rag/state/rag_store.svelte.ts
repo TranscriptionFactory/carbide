@@ -8,10 +8,15 @@ export class RagStore {
   is_loading = $state(false);
   error = $state<string | null>(null);
   provider_id = $state("");
+  scope = $state("");
   streaming_id = $state<string | null>(null);
 
   set_provider(provider_id: string) {
     this.provider_id = provider_id;
+  }
+
+  set_scope(scope: string) {
+    this.scope = scope;
   }
 
   add_user_message(content: string): RagMessage {

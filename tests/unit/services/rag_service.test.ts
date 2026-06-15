@@ -181,6 +181,63 @@ describe("RagService.query", () => {
     expect(query?.text).not.toBe("why?");
   });
 
+  it("restricts retrieved sources to the folder scope", async () => {
+    const search = {
+      hybrid_search: vi
+        .fn()
+        .mockResolvedValue([
+          hit("projects/a.md", "A", "1", 0.9),
+          hit("archive/b.md", "B", "2", 0.8),
+        ]),
+    };
+    const notes = {
+      read_note: vi.fn().mockResolvedValue({ markdown: "Body." }),
+    };
+    const service = new RagService(
+      search as never,
+      notes as never,
+      text_stream("Answer [1].") as never,
+      make_vault_store(),
+    );
+
+    await collect(
+      service.query({
+        question: "what is it?",
+        provider_config: provider,
+        scope: "projects",
+      }),
+    );
+
+    const read_ids = notes.read_note.mock.calls.map((call) => call[1]);
+    expect(read_ids).toEqual(["1"]);
+  });
+
+  it("returns no_results when the scope filters out every hit", async () => {
+    const search = {
+      hybrid_search: vi
+        .fn()
+        .mockResolvedValue([hit("archive/b.md", "B", "2", 0.8)]),
+    };
+    const notes = { read_note: vi.fn() };
+    const service = new RagService(
+      search as never,
+      notes as never,
+      text_stream("unused") as never,
+      make_vault_store(),
+    );
+
+    const result = await collect(
+      service.query({
+        question: "q",
+        provider_config: provider,
+        scope: "projects",
+      }),
+    );
+
+    expect(result.content).toMatch(/couldn't find/i);
+    expect(notes.read_note).not.toHaveBeenCalled();
+  });
+
   it("returns no_results without calling the model when retrieval is empty", async () => {
     const search = { hybrid_search: vi.fn().mockResolvedValue([]) };
     const notes = { read_note: vi.fn() };

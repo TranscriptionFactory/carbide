@@ -1,24 +1,29 @@
 <script lang="ts">
-  import { SendHorizontal } from "@lucide/svelte";
+  import { SendHorizontal, FolderTree } from "@lucide/svelte";
   import * as Select from "$lib/components/ui/select/index.js";
   import { Button } from "$lib/components/ui/button";
   import { Textarea } from "$lib/components/ui/textarea";
+  import { Input } from "$lib/components/ui/input";
   import type { AiProviderConfig } from "$lib/shared/types/ai_provider_config";
 
   type Props = {
     providers: AiProviderConfig[];
     provider_id: string;
+    scope: string;
     is_loading: boolean;
     on_submit: (question: string) => void;
     on_provider_change: (provider_id: string) => void;
+    on_scope_change: (scope: string) => void;
   };
 
   let {
     providers,
     provider_id,
+    scope,
     is_loading,
     on_submit,
     on_provider_change,
+    on_scope_change,
   }: Props = $props();
 
   let value = $state("");
@@ -48,6 +53,17 @@
     onkeydown={on_keydown}
     class="resize-none text-sm"
   />
+  <div class="relative">
+    <FolderTree
+      class="absolute left-2 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground"
+    />
+    <Input
+      value={scope}
+      oninput={(event) => on_scope_change(event.currentTarget.value)}
+      placeholder="Scope to a folder (e.g. projects/)…"
+      class="h-8 pl-7 text-xs"
+    />
+  </div>
   <div class="flex items-center justify-between gap-2">
     <Select.Root
       type="single"

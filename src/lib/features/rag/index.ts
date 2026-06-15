@@ -14,6 +14,10 @@ export {
   type RagRewriteResult,
 } from "$lib/features/rag/domain/rag_query_rewriter";
 export {
+  normalize_folder_scope,
+  path_in_folder,
+} from "$lib/features/rag/domain/rag_scope";
+export {
   build_citation_map,
   match_citation_markers,
   resolve_citations,
