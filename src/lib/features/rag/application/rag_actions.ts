@@ -8,6 +8,11 @@ import type { RagService } from "$lib/features/rag/application/rag_service";
 
 const RAG_OP_KEY = "rag.ask";
 
+function payload_field(payload: unknown, field: string): string {
+  if (typeof payload === "string") return payload;
+  return String((payload as Record<string, unknown>)?.[field] ?? "");
+}
+
 export function register_rag_actions(
   input: ActionRegistrationInput & {
     rag_store: RagStore;
@@ -51,10 +56,7 @@ export function register_rag_actions(
       }
       if (stores.op.is_pending(RAG_OP_KEY)) return;
 
-      const question =
-        typeof payload === "string"
-          ? payload.trim()
-          : String((payload as { question?: string })?.question ?? "").trim();
+      const question = payload_field(payload, "question").trim();
       if (!question) return;
 
       const provider = resolve_provider();
@@ -117,10 +119,7 @@ export function register_rag_actions(
     id: ACTION_IDS.rag_open_citation,
     label: "Open Cited Note",
     execute: async (payload: unknown) => {
-      const note_path =
-        typeof payload === "string"
-          ? payload
-          : String((payload as { note_path?: string })?.note_path ?? "");
+      const note_path = payload_field(payload, "note_path");
       if (!note_path) return;
       await registry.execute(ACTION_IDS.note_open, note_path);
     },
