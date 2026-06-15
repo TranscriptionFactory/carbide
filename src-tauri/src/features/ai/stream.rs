@@ -149,9 +149,7 @@ pub async fn ai_stream_start(
 
     match &provider_config.transport {
         AiTransport::Cli { command, args } => {
-            let resolved_model = model
-                .or(provider_config.model.clone())
-                .unwrap_or_default();
+            let resolved_model = model.or(provider_config.model.clone()).unwrap_or_default();
             let prompt_text = build_prompt_text(&system_prompt, &messages);
             let prompt_via_stdin = !args.iter().any(|a| a.contains("{prompt}"));
 
@@ -175,18 +173,22 @@ pub async fn ai_stream_start(
             .map_err(|e| e.to_string())?;
 
             if !exists {
-                let _ = app.emit(&event_name, AiStreamEvent::Error {
-                    error: format!("{} CLI not found", provider_config.name),
-                });
+                let _ = app.emit(
+                    &event_name,
+                    AiStreamEvent::Error {
+                        error: format!("{} CLI not found", provider_config.name),
+                    },
+                );
                 return Ok(());
             }
 
             let (abort_tx, abort_rx) = tokio::sync::oneshot::channel::<()>();
 
-            state.handles.lock().await.insert(
-                request_id.clone(),
-                StreamHandle { abort_tx },
-            );
+            state
+                .handles
+                .lock()
+                .await
+                .insert(request_id.clone(), StreamHandle { abort_tx });
 
             let command = command.clone();
             let stdin_input = if prompt_via_stdin {
@@ -218,9 +220,7 @@ pub async fn ai_stream_start(
             base_url,
             api_key_env,
         } => {
-            let resolved_model = model
-                .or(provider_config.model.clone())
-                .unwrap_or_default();
+            let resolved_model = model.or(provider_config.model.clone()).unwrap_or_default();
             let url = chat_completions_url(base_url);
             let body = build_chat_request_body(&system_prompt, &messages, &resolved_model);
             let auth_token = api_key_env
@@ -229,10 +229,11 @@ pub async fn ai_stream_start(
                 .filter(|value| !value.is_empty());
 
             let (abort_tx, abort_rx) = tokio::sync::oneshot::channel::<()>();
-            state.handles.lock().await.insert(
-                request_id.clone(),
-                StreamHandle { abort_tx },
-            );
+            state
+                .handles
+                .lock()
+                .await
+                .insert(request_id.clone(), StreamHandle { abort_tx });
 
             tokio::spawn(async move {
                 let result =
@@ -342,7 +343,9 @@ async fn run_streaming_cli(
         cmd.stdin(std::process::Stdio::piped());
     }
 
-    let mut child = cmd.spawn().map_err(|e| format!("Failed to spawn {command}: {e}"))?;
+    let mut child = cmd
+        .spawn()
+        .map_err(|e| format!("Failed to spawn {command}: {e}"))?;
 
     if let Some(input) = stdin_input {
         if let Some(mut stdin) = child.stdin.take() {
@@ -355,10 +358,7 @@ async fn run_streaming_cli(
         }
     }
 
-    let stdout = child
-        .stdout
-        .take()
-        .ok_or("Failed to capture stdout")?;
+    let stdout = child.stdout.take().ok_or("Failed to capture stdout")?;
 
     let stderr_handle = child.stderr.take().map(|stderr| {
         tokio::spawn(async move {
