@@ -247,6 +247,19 @@ pub async fn start_server(
     Ok(())
 }
 
+const SHUTDOWN_GRACE: std::time::Duration = std::time::Duration::from_secs(2);
+
+async fn shutdown_task(mut handle: tokio::task::JoinHandle<()>) {
+    if tokio::time::timeout(SHUTDOWN_GRACE, &mut handle)
+        .await
+        .is_err()
+    {
+        log::warn!("HTTP server graceful shutdown timed out; aborting task to release the port");
+        handle.abort();
+        let _ = handle.await;
+    }
+}
+
 struct ServerInner {
     shutdown_tx: Option<watch::Sender<bool>>,
     task_handle: Option<tokio::task::JoinHandle<()>>,
@@ -319,7 +332,7 @@ impl HttpServerState {
         }
 
         if let Some(handle) = inner.task_handle.take() {
-            let _ = tokio::time::timeout(std::time::Duration::from_secs(5), handle).await;
+            shutdown_task(handle).await;
         }
 
         inner.running = false;
@@ -696,6 +709,25 @@ mod tests {
         let body = axum::body::to_bytes(resp.into_body(), 1024).await.unwrap();
         let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
         assert_eq!(json["status"], "ok");
+    }
+
+    #[tokio::test]
+    async fn test_shutdown_task_aborts_hung_server() {
+        // A server whose graceful shutdown never completes (e.g. an open SSE
+        // keep-alive stream) must be aborted so the listener — and its port — is
+        // released rather than detached and leaked.
+        let handle = tokio::spawn(std::future::pending::<()>());
+        tokio::time::timeout(SHUTDOWN_GRACE * 4, shutdown_task(handle))
+            .await
+            .expect("shutdown_task must return by aborting a task that never completes");
+    }
+
+    #[tokio::test]
+    async fn test_shutdown_task_awaits_clean_exit() {
+        let handle = tokio::spawn(async {});
+        tokio::time::timeout(SHUTDOWN_GRACE, shutdown_task(handle))
+            .await
+            .expect("shutdown_task must return promptly when the task exits cleanly");
     }
 
     #[tokio::test]
