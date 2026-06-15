@@ -315,6 +315,18 @@ pub fn tags_get_notes_for_tag_prefix(
     })
 }
 
+#[tauri::command]
+#[specta::specta]
+pub fn get_indexed_body(
+    app: AppHandle,
+    vault_id: String,
+    note_path: String,
+) -> Result<Option<String>, String> {
+    with_read_conn(&app, &vault_id, |conn| {
+        Ok(search_db::get_fts_body(conn, &note_path))
+    })
+}
+
 pub(crate) fn shutdown_worker_internal(app: &AppHandle, vault_id: &str) -> Result<(), String> {
     let state = app.state::<SearchDbState>();
     let mut map = state.workers.lock().map_err(|e| e.to_string())?;

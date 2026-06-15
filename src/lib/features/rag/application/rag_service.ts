@@ -7,6 +7,7 @@ import type { AiStreamPort } from "$lib/features/ai";
 import type { TagPort } from "$lib/features/tags";
 import type { AiProviderConfig } from "$lib/shared/types/ai_provider_config";
 import type { NoteId, VaultId } from "$lib/shared/types/ids";
+import { is_linked_note_path } from "$lib/shared/types/note";
 import {
   assemble_context,
   extract_section,
@@ -212,21 +213,27 @@ export class RagService {
       build_citation_map(contexts.map(to_citation)),
     );
 
-    for await (const chunk of this.ai_stream_port.stream_text({
-      provider_config: input.provider_config,
-      system_prompt,
-      messages: [{ role: "user", content: user_prompt }],
-    })) {
-      if (chunk.type === "text") {
-        yield* parser.push(chunk.text);
-      } else if (chunk.type === "error") {
-        yield { type: "error", error: chunk.error };
-        return;
+    const controller = new AbortController();
+    try {
+      for await (const chunk of this.ai_stream_port.stream_text({
+        provider_config: input.provider_config,
+        system_prompt,
+        messages: [{ role: "user", content: user_prompt }],
+        signal: controller.signal,
+      })) {
+        if (chunk.type === "text") {
+          yield* parser.push(chunk.text);
+        } else if (chunk.type === "error") {
+          yield { type: "error", error: chunk.error };
+          return;
+        }
       }
-    }
 
-    yield* parser.flush();
-    yield { type: "done" };
+      yield* parser.flush();
+      yield { type: "done" };
+    } finally {
+      controller.abort();
+    }
   }
 
   private async resolve_pinned(
@@ -340,6 +347,17 @@ export class RagService {
     return hits;
   }
 
+  private async read_hit_markdown(
+    vault_id: VaultId,
+    hit: RetrievalHit,
+  ): Promise<string | null> {
+    if (is_linked_note_path(hit.note_path)) {
+      return this.search_port.get_indexed_body(vault_id, hit.note_path);
+    }
+    const doc = await this.notes_port.read_note(vault_id, hit.note_id);
+    return doc.markdown;
+  }
+
   private async build_candidates(
     vault_id: VaultId,
     hits: RetrievalHit[],
@@ -347,14 +365,15 @@ export class RagService {
     const candidates = await Promise.all(
       hits.map(async (hit): Promise<RagContextCandidate | null> => {
         try {
-          const doc = await this.notes_port.read_note(vault_id, hit.note_id);
+          const markdown = await this.read_hit_markdown(vault_id, hit);
+          if (markdown == null) return null;
           const text = hit.section
             ? extract_section(
-                doc.markdown,
+                markdown,
                 hit.section.start_line,
                 hit.section.end_line,
               )
-            : doc.markdown;
+            : markdown;
           if (hit.section && text.trim().length === 0) return null;
           return {
             note_path: hit.note_path,

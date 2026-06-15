@@ -414,6 +414,16 @@ export function create_search_tauri_adapter(): SearchPort {
       });
     },
 
+    async get_indexed_body(
+      vault_id: VaultId,
+      note_path: string,
+    ): Promise<string | null> {
+      return invoke_search<string | null>("get_indexed_body", {
+        vaultId: vault_id,
+        notePath: note_path,
+      });
+    },
+
     async get_file_cache(
       vault_id: VaultId,
       note_path: string,

@@ -15,5 +15,4 @@ export interface AiPort {
 
 export interface AiStreamPort {
   stream_text(input: AiStreamRequest): AsyncIterable<AiStreamChunk>;
-  abort(request_id: string): void;
 }
