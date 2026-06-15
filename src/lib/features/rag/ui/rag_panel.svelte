@@ -10,6 +10,7 @@
   import { ACTION_IDS } from "$lib/app";
   import RagMessage from "$lib/features/rag/ui/rag_message.svelte";
   import RagInput from "$lib/features/rag/ui/rag_input.svelte";
+  import type { RagScope } from "$lib/features/rag/domain/rag_types";
 
   const { stores, action_registry } = use_app_context();
 
@@ -39,7 +40,7 @@
     rag.set_provider(id);
   }
 
-  function change_scope(scope: string) {
+  function change_scope(scope: RagScope) {
     rag.set_scope(scope);
   }
 

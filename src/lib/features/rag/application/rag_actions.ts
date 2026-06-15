@@ -20,10 +20,16 @@ export function register_rag_actions(
   },
 ) {
   const { registry, stores, rag_store, rag_service } = input;
-  let turn_revision = 0;
 
   function get_providers(): AiProviderConfig[] {
     return stores.ui.editor_settings.ai_providers;
+  }
+
+  function persist_session(id: string | null) {
+    const vault_id = stores.vault.active_vault_id;
+    const session = rag_store.sessions.find((s) => s.id === id);
+    if (!vault_id || !session) return;
+    void rag_service.save_session(vault_id, session);
   }
 
   function resolve_provider(): AiProviderConfig | null {
@@ -65,7 +71,7 @@ export function register_rag_actions(
         return;
       }
 
-      const revision = ++turn_revision;
+      const revision = rag_store.begin_turn();
       const history = [...rag_store.messages];
       rag_store.add_user_message(question);
       rag_store.start_loading();
@@ -79,7 +85,7 @@ export function register_rag_actions(
           history,
           scope: rag_store.scope,
         })) {
-          if (revision !== turn_revision) return;
+          if (revision !== rag_store.revision) return;
           if (event.type === "text") {
             if (!rag_store.streaming_id) rag_store.start_streaming();
             rag_store.append_streaming_text(event.text);
@@ -91,13 +97,14 @@ export function register_rag_actions(
             errored = true;
           }
         }
-        if (revision !== turn_revision) return;
+        if (revision !== rag_store.revision) return;
         if (!errored) {
           rag_store.finish_streaming();
           stores.op.succeed(RAG_OP_KEY);
+          persist_session(rag_store.active_id);
         }
       } catch (err) {
-        if (revision !== turn_revision) return;
+        if (revision !== rag_store.revision) return;
         const message = error_message(err);
         rag_store.fail_streaming(message);
         stores.op.fail(RAG_OP_KEY, message);
@@ -109,9 +116,43 @@ export function register_rag_actions(
     id: ACTION_IDS.rag_new_chat,
     label: "New Vault Chat",
     execute: () => {
-      turn_revision += 1;
-      rag_store.clear();
+      rag_store.start_new_session();
       stores.op.reset(RAG_OP_KEY);
+    },
+  });
+
+  registry.register({
+    id: ACTION_IDS.rag_switch_session,
+    label: "Switch Vault Chat Session",
+    execute: (...args: unknown[]) => {
+      const id = typeof args[0] === "string" ? args[0] : "";
+      if (!id) return;
+      rag_store.switch_session(id);
+      stores.op.reset(RAG_OP_KEY);
+    },
+  });
+
+  registry.register({
+    id: ACTION_IDS.rag_rename_session,
+    label: "Rename Vault Chat Session",
+    execute: (...args: unknown[]) => {
+      const [id, title] = args as [unknown, unknown];
+      if (typeof id !== "string" || typeof title !== "string") return;
+      rag_store.rename_session(id, title);
+      persist_session(id);
+    },
+  });
+
+  registry.register({
+    id: ACTION_IDS.rag_delete_session,
+    label: "Delete Vault Chat Session",
+    execute: (...args: unknown[]) => {
+      const id = typeof args[0] === "string" ? args[0] : "";
+      if (!id) return;
+      const vault_id = stores.vault.active_vault_id;
+      rag_store.delete_session(id);
+      stores.op.reset(RAG_OP_KEY);
+      if (vault_id) void rag_service.delete_session(vault_id, id);
     },
   });
 

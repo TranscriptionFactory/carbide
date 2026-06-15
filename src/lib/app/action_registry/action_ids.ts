@@ -307,6 +307,9 @@ export const ACTION_IDS = {
   rag_ask: "rag.ask",
   rag_open_citation: "rag.open_citation",
   rag_new_chat: "rag.new_chat",
+  rag_switch_session: "rag.switch_session",
+  rag_rename_session: "rag.rename_session",
+  rag_delete_session: "rag.delete_session",
 
   tab_open_to_side: "tab.open_to_side",
   tab_toggle_split: "tab.toggle_split",

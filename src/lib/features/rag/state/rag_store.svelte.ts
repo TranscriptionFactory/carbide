@@ -1,54 +1,81 @@
+import { derive_session_title } from "$lib/features/rag/domain/rag_session";
 import type {
   RagCitation,
   RagMessage,
+  RagRole,
+  RagScope,
+  RagSession,
+  RagSessionSummary,
 } from "$lib/features/rag/domain/rag_types";
 
+function new_message(
+  role: RagRole,
+  content: string,
+  citations: RagCitation[] = [],
+): RagMessage {
+  return { id: crypto.randomUUID(), role, content, citations };
+}
+
 export class RagStore {
-  messages = $state<RagMessage[]>([]);
+  sessions = $state<RagSession[]>([]);
+  active_id = $state<string | null>(null);
   is_loading = $state(false);
   error = $state<string | null>(null);
   provider_id = $state("");
-  scope = $state("");
+  scope = $state<RagScope>({});
   streaming_id = $state<string | null>(null);
+  revision = $state(0);
+
+  readonly active = $derived(
+    this.sessions.find((s) => s.id === this.active_id) ?? null,
+  );
+  readonly messages = $derived(this.active?.messages ?? []);
+  readonly summaries: RagSessionSummary[] = $derived(
+    this.sessions
+      .map(({ id, title, created_at, updated_at }) => ({
+        id,
+        title,
+        created_at,
+        updated_at,
+      }))
+      .sort((a, b) => b.updated_at - a.updated_at),
+  );
 
   set_provider(provider_id: string) {
     this.provider_id = provider_id;
+    this.patch_active((s) => ({ ...s, provider_id }));
   }
 
-  set_scope(scope: string) {
+  set_scope(scope: RagScope) {
     this.scope = scope;
+    this.patch_active((s) => ({ ...s, scope }));
   }
 
   add_user_message(content: string): RagMessage {
-    const message: RagMessage = {
-      id: crypto.randomUUID(),
-      role: "user",
-      content,
-      citations: [],
-    };
-    this.messages = [...this.messages, message];
+    const message = new_message("user", content);
+    if (this.active_id) {
+      this.patch_active((s) =>
+        this.touch({ ...s, messages: [...s.messages, message] }),
+      );
+    } else {
+      this.create_session(message);
+    }
     return message;
   }
 
   add_assistant_message(content: string, citations: RagCitation[]): RagMessage {
-    const message: RagMessage = {
-      id: crypto.randomUUID(),
-      role: "assistant",
-      content,
-      citations,
-    };
-    this.messages = [...this.messages, message];
+    const message = new_message("assistant", content, citations);
+    this.patch_active((s) =>
+      this.touch({ ...s, messages: [...s.messages, message] }),
+    );
     return message;
   }
 
   start_streaming(): string {
-    const message: RagMessage = {
-      id: crypto.randomUUID(),
-      role: "assistant",
-      content: "",
-      citations: [],
-    };
-    this.messages = [...this.messages, message];
+    const message = new_message("assistant", "");
+    this.patch_active((s) =>
+      this.touch({ ...s, messages: [...s.messages, message] }),
+    );
     this.streaming_id = message.id;
     this.is_loading = false;
     return message.id;
@@ -69,23 +96,19 @@ export class RagStore {
   finish_streaming() {
     this.streaming_id = null;
     this.is_loading = false;
+    this.patch_active((s) => this.touch(s));
   }
 
   fail_streaming(error: string) {
-    if (this.streaming_id) {
-      const id = this.streaming_id;
-      this.messages = this.messages.filter(
-        (m) => !(m.id === id && m.content === ""),
-      );
+    const sid = this.streaming_id;
+    if (sid) {
+      this.patch_active((s) => ({
+        ...s,
+        messages: s.messages.filter((m) => !(m.id === sid && m.content === "")),
+      }));
       this.streaming_id = null;
     }
     this.set_error(error);
-  }
-
-  private update_streaming(transform: (message: RagMessage) => RagMessage) {
-    const id = this.streaming_id;
-    if (!id) return;
-    this.messages = this.messages.map((m) => (m.id === id ? transform(m) : m));
   }
 
   start_loading() {
@@ -102,10 +125,89 @@ export class RagStore {
     this.is_loading = false;
   }
 
-  clear() {
-    this.messages = [];
+  start_new_session() {
+    this.active_id = null;
     this.error = null;
     this.is_loading = false;
     this.streaming_id = null;
+    this.revision += 1;
+  }
+
+  switch_session(id: string) {
+    const session = this.sessions.find((s) => s.id === id);
+    if (!session) return;
+    this.active_id = id;
+    this.provider_id = session.provider_id;
+    this.scope = session.scope;
+    this.error = null;
+    this.is_loading = false;
+    this.streaming_id = null;
+    this.revision += 1;
+  }
+
+  rename_session(id: string, title: string) {
+    const next = title.trim();
+    if (next === "") return;
+    this.sessions = this.sessions.map((s) =>
+      s.id === id ? this.touch({ ...s, title: next }) : s,
+    );
+  }
+
+  delete_session(id: string) {
+    this.sessions = this.sessions.filter((s) => s.id !== id);
+    if (this.active_id === id) {
+      this.active_id = null;
+      this.streaming_id = null;
+      this.is_loading = false;
+      this.error = null;
+    }
+    this.revision += 1;
+  }
+
+  hydrate(sessions: RagSession[]) {
+    this.sessions = sessions;
+    this.active_id = null;
+    this.streaming_id = null;
+    this.is_loading = false;
+    this.error = null;
+  }
+
+  begin_turn(): number {
+    this.revision += 1;
+    return this.revision;
+  }
+
+  private create_session(first: RagMessage) {
+    const now = Date.now();
+    const session: RagSession = {
+      id: crypto.randomUUID(),
+      title: derive_session_title(first.content),
+      created_at: now,
+      updated_at: now,
+      messages: [first],
+      provider_id: this.provider_id,
+      scope: this.scope,
+    };
+    this.sessions = [session, ...this.sessions];
+    this.active_id = session.id;
+  }
+
+  private patch_active(transform: (session: RagSession) => RagSession) {
+    const id = this.active_id;
+    if (!id) return;
+    this.sessions = this.sessions.map((s) => (s.id === id ? transform(s) : s));
+  }
+
+  private update_streaming(transform: (message: RagMessage) => RagMessage) {
+    const sid = this.streaming_id;
+    if (!sid) return;
+    this.patch_active((s) => ({
+      ...s,
+      messages: s.messages.map((m) => (m.id === sid ? transform(m) : m)),
+    }));
+  }
+
+  private touch(session: RagSession): RagSession {
+    return { ...session, updated_at: Date.now() };
   }
 }

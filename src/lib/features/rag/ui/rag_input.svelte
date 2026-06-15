@@ -5,15 +5,16 @@
   import { Textarea } from "$lib/components/ui/textarea";
   import { Input } from "$lib/components/ui/input";
   import type { AiProviderConfig } from "$lib/shared/types/ai_provider_config";
+  import type { RagScope } from "$lib/features/rag/domain/rag_types";
 
   type Props = {
     providers: AiProviderConfig[];
     provider_id: string;
-    scope: string;
+    scope: RagScope;
     is_loading: boolean;
     on_submit: (question: string) => void;
     on_provider_change: (provider_id: string) => void;
-    on_scope_change: (scope: string) => void;
+    on_scope_change: (scope: RagScope) => void;
   };
 
   let {
@@ -58,8 +59,9 @@
       class="absolute left-2 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground"
     />
     <Input
-      value={scope}
-      oninput={(event) => on_scope_change(event.currentTarget.value)}
+      value={scope.folder ?? ""}
+      oninput={(event) =>
+        on_scope_change({ ...scope, folder: event.currentTarget.value })}
       placeholder="Scope to a folder (e.g. projects/)…"
       class="h-8 pl-7 text-xs"
     />

@@ -211,7 +211,7 @@ describe("RagService.query", () => {
       service.query({
         question: "what is it?",
         provider_config: provider,
-        scope: "projects",
+        scope: { folder: "projects" },
       }),
     );
 
@@ -238,7 +238,7 @@ describe("RagService.query", () => {
       service.query({
         question: "q",
         provider_config: provider,
-        scope: "projects",
+        scope: { folder: "projects" },
       }),
     );
 
