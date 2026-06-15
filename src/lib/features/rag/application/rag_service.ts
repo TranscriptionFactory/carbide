@@ -278,15 +278,42 @@ export class RagService {
     input: RagQueryInput,
   ): Promise<RetrievalHit[]> {
     const limit = input.retrieve_limit ?? DEFAULT_RETRIEVE_LIMIT;
-    const blocks = await this.search_port.search_blocks(vault_id, query, limit);
-    if (blocks.length > 0) return blocks.map(block_to_hit);
+    const [notes, blocks] = await Promise.all([
+      this.search_port.hybrid_search(
+        vault_id,
+        { raw: query, text: query, scope: "all" },
+        limit,
+      ),
+      this.search_port.search_blocks(vault_id, query, limit).catch((err) => {
+        log.warn("RAG block retrieval failed; using whole-note context", {
+          error: error_message(err),
+        });
+        return [] as BlockSectionHit[];
+      }),
+    ]);
 
-    const notes = await this.search_port.hybrid_search(
-      vault_id,
-      { raw: query, text: query, scope: "all" },
-      limit,
-    );
-    return notes.map(note_to_hit);
+    if (notes.length === 0) {
+      return blocks.map(block_to_hit);
+    }
+
+    const section_by_path = new Map<string, BlockSectionHit>();
+    for (const block of blocks) {
+      if (!section_by_path.has(block.note.path)) {
+        section_by_path.set(block.note.path, block);
+      }
+    }
+
+    return notes.map((hit) => {
+      const base = note_to_hit(hit);
+      const block = section_by_path.get(hit.note.path);
+      if (block) {
+        base.section = {
+          start_line: block.start_line,
+          end_line: block.end_line,
+        };
+      }
+      return base;
+    });
   }
 
   private async apply_scope(
