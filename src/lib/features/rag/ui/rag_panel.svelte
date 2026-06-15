@@ -33,6 +33,10 @@
   function change_provider(id: string) {
     rag.set_provider(id);
   }
+
+  function change_scope(scope: string) {
+    rag.set_scope(scope);
+  }
 </script>
 
 <div class="flex h-full flex-col">
@@ -98,8 +102,10 @@
   <RagInput
     {providers}
     {provider_id}
+    scope={rag.scope}
     is_loading={rag.is_loading}
     on_submit={ask}
     on_provider_change={change_provider}
+    on_scope_change={change_scope}
   />
 </div>

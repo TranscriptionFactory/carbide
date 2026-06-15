@@ -14,6 +14,10 @@ import { build_rag_prompt } from "$lib/features/rag/domain/rag_prompt_builder";
 import { build_citation_map } from "$lib/features/rag/domain/rag_citations";
 import { RagStreamParser } from "$lib/features/rag/domain/rag_stream_parser";
 import { rewrite_query } from "$lib/features/rag/domain/rag_query_rewriter";
+import {
+  normalize_folder_scope,
+  path_in_folder,
+} from "$lib/features/rag/domain/rag_scope";
 import type {
   RagCitation,
   RagMessage,
@@ -57,6 +61,7 @@ export type RagQueryInput = {
   question: string;
   provider_config: AiProviderConfig;
   history?: RagMessage[];
+  scope?: string;
   retrieve_limit?: number;
   context_limit?: number;
   assembler_options?: AssembleContextOptions;
@@ -93,6 +98,11 @@ export class RagService {
       log.warn("RAG retrieval failed", { error: error_message(err) });
       yield { type: "error", error: "Search failed. Try again." };
       return;
+    }
+
+    const folder_scope = normalize_folder_scope(input.scope);
+    if (folder_scope) {
+      hits = hits.filter((hit) => path_in_folder(hit.note.path, folder_scope));
     }
 
     if (hits.length === 0) {

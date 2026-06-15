@@ -73,6 +73,7 @@ export function register_rag_actions(
           question,
           provider_config: provider,
           history,
+          scope: rag_store.scope,
         })) {
           if (event.type === "text") {
             if (!rag_store.streaming_id) rag_store.start_streaming();
