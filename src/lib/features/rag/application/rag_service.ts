@@ -17,6 +17,7 @@ import { build_rag_prompt } from "$lib/features/rag/domain/rag_prompt_builder";
 import { build_citation_map } from "$lib/features/rag/domain/rag_citations";
 import { RagStreamParser } from "$lib/features/rag/domain/rag_stream_parser";
 import { rewrite_query } from "$lib/features/rag/domain/rag_query_rewriter";
+import { parse_mentions } from "$lib/features/rag/domain/rag_mentions";
 import {
   normalize_folder_scope,
   normalize_tag_scope,
@@ -43,6 +44,7 @@ const log = create_logger("rag_service");
 const DEFAULT_RETRIEVE_LIMIT = 15;
 const DEFAULT_CONTEXT_LIMIT = 8;
 const CITED_NOTE_BOOST = 1.25;
+const PINNED_SCORE = Number.MAX_SAFE_INTEGER;
 const NO_RESULTS_MESSAGE =
   "I couldn't find anything in your vault that answers that.";
 
@@ -160,10 +162,15 @@ export class RagService {
       return;
     }
 
+    const { mentions, cleaned_question } = parse_mentions(input.question);
+
     const rewrite = rewrite_query({
-      question: input.question,
+      question: cleaned_question,
       history: input.history ?? [],
     });
+
+    const pinned = await this.resolve_pinned(vault.id, mentions);
+    const pinned_paths = new Set(pinned.map((hit) => hit.note_path));
 
     let hits: RetrievalHit[];
     try {
@@ -175,15 +182,19 @@ export class RagService {
     }
 
     hits = await this.apply_scope(vault.id, hits, input.scope);
+    hits = hits.filter((hit) => !pinned_paths.has(hit.note_path));
 
-    if (hits.length === 0) {
+    if (hits.length === 0 && pinned.length === 0) {
       yield* this.no_results();
       return;
     }
 
     const ranked = boost_cited_notes(hits, rewrite.boost_paths);
     const top = ranked.slice(0, input.context_limit ?? DEFAULT_CONTEXT_LIMIT);
-    const candidates = await this.build_candidates(vault.id, top);
+    const candidates = await this.build_candidates(vault.id, [
+      ...pinned,
+      ...top,
+    ]);
 
     if (candidates.length === 0) {
       yield* this.no_results();
@@ -192,7 +203,7 @@ export class RagService {
 
     const contexts = assemble_context(candidates, input.assembler_options);
     const { system_prompt, user_prompt } = build_rag_prompt({
-      question: input.question,
+      question: cleaned_question,
       contexts,
       history: input.history ?? [],
     });
@@ -216,6 +227,49 @@ export class RagService {
 
     yield* parser.flush();
     yield { type: "done" };
+  }
+
+  private async resolve_pinned(
+    vault_id: VaultId,
+    mentions: string[],
+  ): Promise<RetrievalHit[]> {
+    if (mentions.length === 0) return [];
+
+    const resolved = await Promise.all(
+      mentions.map(async (name): Promise<RetrievalHit | null> => {
+        try {
+          const suggestions = await this.search_port.suggest_wiki_links(
+            vault_id,
+            name,
+            1,
+          );
+          const existing = suggestions.find((s) => s.kind === "existing");
+          if (!existing) return null;
+          return {
+            note_path: existing.note.path,
+            note_id: existing.note.id,
+            title: existing.note.title,
+            score: PINNED_SCORE,
+            source: "both",
+          };
+        } catch (err) {
+          log.warn("RAG mention resolution failed", {
+            mention: name,
+            error: error_message(err),
+          });
+          return null;
+        }
+      }),
+    );
+
+    const seen = new Set<string>();
+    const pinned: RetrievalHit[] = [];
+    for (const hit of resolved) {
+      if (!hit || seen.has(hit.note_path)) continue;
+      seen.add(hit.note_path);
+      pinned.push(hit);
+    }
+    return pinned;
   }
 
   private async retrieve(

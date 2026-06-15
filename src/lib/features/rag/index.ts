@@ -13,6 +13,10 @@ export {
 } from "$lib/features/rag/domain/rag_context_assembler";
 export { build_rag_prompt } from "$lib/features/rag/domain/rag_prompt_builder";
 export {
+  parse_mentions,
+  type ParsedMentions,
+} from "$lib/features/rag/domain/rag_mentions";
+export {
   rewrite_query,
   type RagRewriteResult,
 } from "$lib/features/rag/domain/rag_query_rewriter";

@@ -194,6 +194,59 @@ describe("RagService.query", () => {
     ]);
   });
 
+  it("pins an @mentioned note into context regardless of retrieval score", async () => {
+    const search = {
+      search_blocks: vi.fn().mockResolvedValue([]),
+      hybrid_search: vi
+        .fn()
+        .mockResolvedValue([hit("notes/other.md", "Other", "2", 0.9)]),
+      suggest_wiki_links: vi.fn().mockResolvedValue([
+        {
+          kind: "existing",
+          note: note_meta("notes/spec.md", "Spec", "1"),
+          score: 1,
+        },
+      ]),
+    };
+    const notes = {
+      read_note: vi.fn().mockImplementation((_vault: unknown, id: string) =>
+        Promise.resolve({
+          markdown:
+            id === "1" ? "Spec body: the cutoff is 30 days." : "Other body.",
+        }),
+      ),
+    };
+    const stream = text_stream("Per the spec [1] and other [2].");
+    const service = new RagService(
+      search as never,
+      notes as never,
+      stream as never,
+      make_vault_store(),
+      persistence,
+      tag as never,
+    );
+
+    const result = await collect(
+      service.query({
+        question: "summarize @spec please",
+        provider_config: provider,
+      }),
+    );
+
+    expect(search.suggest_wiki_links).toHaveBeenCalledWith(
+      expect.anything(),
+      "spec",
+      1,
+    );
+    expect(result.citations.map((c) => c.note_path)).toContain("notes/spec.md");
+
+    const call = stream.stream_text.mock.calls[0] as unknown[] | undefined;
+    const request = call?.[0] as
+      | { messages: { content: string }[] }
+      | undefined;
+    expect(request?.messages[0]?.content ?? "").toContain("cutoff is 30 days");
+  });
+
   it("renders a citation split across two stream chunks once", async () => {
     const search = {
       search_blocks: vi.fn().mockResolvedValue([]),
