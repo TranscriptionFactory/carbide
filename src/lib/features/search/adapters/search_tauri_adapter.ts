@@ -20,6 +20,7 @@ import type {
   WikiSuggestion,
   SemanticSearchHit,
   HybridSearchHit,
+  BlockSectionHit,
   EmbeddingStatus,
   HitSource,
   SearchQueryInput,
@@ -83,6 +84,15 @@ type TauriHybridSearchHit = {
   snippet: string | null;
   snippet_page: number | null;
   source: HitSource;
+};
+
+type TauriBlockSectionHit = {
+  note: TauriNoteMeta;
+  heading_id: string;
+  heading: string;
+  start_line: number;
+  end_line: number;
+  distance: number;
 };
 
 type TauriEmbeddingStatus = {
@@ -340,6 +350,29 @@ export function create_search_tauri_adapter(): SearchPort {
         snippet: hit.snippet ?? undefined,
         snippet_page: hit.snippet_page ?? undefined,
         source: hit.source,
+      }));
+    },
+
+    async search_blocks(
+      vault_id: VaultId,
+      query: string,
+      limit = 15,
+    ): Promise<BlockSectionHit[]> {
+      const hits = await invoke_search<TauriBlockSectionHit[]>(
+        "search_blocks",
+        {
+          vaultId: vault_id,
+          query,
+          limit,
+        },
+      );
+      return hits.map((hit) => ({
+        note: to_note_meta(hit.note),
+        heading_id: hit.heading_id,
+        heading: hit.heading,
+        start_line: hit.start_line,
+        end_line: hit.end_line,
+        distance: hit.distance,
       }));
     },
 

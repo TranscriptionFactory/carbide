@@ -53,6 +53,7 @@ function make_mock_search_port(
     resolve_wiki_link: vi.fn().mockResolvedValue(null),
     semantic_search: vi.fn().mockResolvedValue([]),
     hybrid_search: vi.fn().mockResolvedValue(hybrid_results),
+    search_blocks: vi.fn().mockResolvedValue([]),
     get_embedding_status: vi.fn().mockResolvedValue({
       total_notes: 0,
       embedded_notes: 0,
