@@ -17,6 +17,7 @@ export {
 } from "$lib/features/rag/domain/rag_query_rewriter";
 export {
   normalize_folder_scope,
+  normalize_tag_scope,
   path_in_folder,
 } from "$lib/features/rag/domain/rag_scope";
 export {

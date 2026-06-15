@@ -12,6 +12,7 @@ import type {
 } from "$lib/features/rag/domain/rag_types";
 
 const persistence = create_test_rag_persistence_adapter();
+const tag = { get_notes_for_tag: vi.fn().mockResolvedValue([]) };
 
 const provider: AiProviderConfig = {
   id: "ollama",
@@ -103,6 +104,7 @@ describe("RagService.query", () => {
       stream as never,
       make_vault_store(),
       persistence,
+      tag as never,
     );
 
     const result = await collect(
@@ -137,6 +139,7 @@ describe("RagService.query", () => {
       stream as never,
       make_vault_store(),
       persistence,
+      tag as never,
     );
 
     const result = await collect(
@@ -164,6 +167,7 @@ describe("RagService.query", () => {
       text_stream("Because [1].") as never,
       make_vault_store(),
       persistence,
+      tag as never,
     );
 
     await collect(
@@ -205,6 +209,7 @@ describe("RagService.query", () => {
       text_stream("Answer [1].") as never,
       make_vault_store(),
       persistence,
+      tag as never,
     );
 
     await collect(
@@ -215,6 +220,46 @@ describe("RagService.query", () => {
       }),
     );
 
+    const read_ids = notes.read_note.mock.calls.map((call) => call[1]);
+    expect(read_ids).toEqual(["1"]);
+  });
+
+  it("restricts retrieved sources to notes carrying the tag scope", async () => {
+    const search = {
+      hybrid_search: vi
+        .fn()
+        .mockResolvedValue([
+          hit("projects/a.md", "A", "1", 0.9),
+          hit("archive/b.md", "B", "2", 0.8),
+        ]),
+    };
+    const notes = {
+      read_note: vi.fn().mockResolvedValue({ markdown: "Body." }),
+    };
+    const tag_port = {
+      get_notes_for_tag: vi.fn().mockResolvedValue(["projects/a.md"]),
+    };
+    const service = new RagService(
+      search as never,
+      notes as never,
+      text_stream("Answer [1].") as never,
+      make_vault_store(),
+      persistence,
+      tag_port as never,
+    );
+
+    await collect(
+      service.query({
+        question: "what is it?",
+        provider_config: provider,
+        scope: { tag: "#active" },
+      }),
+    );
+
+    expect(tag_port.get_notes_for_tag).toHaveBeenCalledWith(
+      expect.anything(),
+      "active",
+    );
     const read_ids = notes.read_note.mock.calls.map((call) => call[1]);
     expect(read_ids).toEqual(["1"]);
   });
@@ -232,6 +277,7 @@ describe("RagService.query", () => {
       text_stream("unused") as never,
       make_vault_store(),
       persistence,
+      tag as never,
     );
 
     const result = await collect(
@@ -256,6 +302,7 @@ describe("RagService.query", () => {
       stream as never,
       make_vault_store(),
       persistence,
+      tag as never,
     );
 
     const result = await collect(
@@ -284,6 +331,7 @@ describe("RagService.query", () => {
       stream as never,
       make_vault_store(),
       persistence,
+      tag as never,
     );
 
     const result = await collect(
@@ -309,6 +357,7 @@ describe("RagService.query", () => {
       stream as never,
       make_vault_store(),
       persistence,
+      tag as never,
     );
 
     const result = await collect(
@@ -329,6 +378,7 @@ describe("RagService.query", () => {
       text_stream("x") as never,
       make_vault_store(),
       persistence,
+      tag as never,
     );
 
     const result = await collect(
@@ -354,6 +404,7 @@ describe("RagService.query", () => {
       stream as never,
       make_vault_store(),
       persistence,
+      tag as never,
     );
 
     const result = await collect(
@@ -370,6 +421,7 @@ describe("RagService.query", () => {
       text_stream("x") as never,
       new VaultStore(),
       persistence,
+      tag as never,
     );
 
     const result = await collect(

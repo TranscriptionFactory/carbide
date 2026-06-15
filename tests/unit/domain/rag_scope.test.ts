@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   normalize_folder_scope,
+  normalize_tag_scope,
   path_in_folder,
 } from "$lib/features/rag/domain/rag_scope";
 
@@ -16,6 +17,22 @@ describe("normalize_folder_scope", () => {
     expect(normalize_folder_scope("projects")).toBe("projects/");
     expect(normalize_folder_scope("/projects/")).toBe("projects/");
     expect(normalize_folder_scope("  work/active  ")).toBe("work/active/");
+  });
+});
+
+describe("normalize_tag_scope", () => {
+  it("returns null for empty or whitespace input", () => {
+    expect(normalize_tag_scope("")).toBeNull();
+    expect(normalize_tag_scope("   ")).toBeNull();
+    expect(normalize_tag_scope("#")).toBeNull();
+    expect(normalize_tag_scope(null)).toBeNull();
+    expect(normalize_tag_scope(undefined)).toBeNull();
+  });
+
+  it("trims whitespace and strips a leading hash", () => {
+    expect(normalize_tag_scope("active")).toBe("active");
+    expect(normalize_tag_scope("#active")).toBe("active");
+    expect(normalize_tag_scope("  #project/active  ")).toBe("project/active");
   });
 });
 
