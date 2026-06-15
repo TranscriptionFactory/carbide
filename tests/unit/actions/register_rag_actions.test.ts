@@ -43,11 +43,16 @@ function create_harness(events: RagStreamEvent[] = ANSWERED_EVENTS) {
   const stores = {
     ui: new UIStore(),
     op: new OpStore(),
+    vault: { active_vault_id: "v1" },
   };
   stores.ui.editor_settings.ai_providers = BUILTIN_PROVIDER_PRESETS;
   stores.ui.editor_settings.ai_default_provider_id = PROVIDER_ID;
 
-  const rag_service = { query: stream_query(events) };
+  const rag_service = {
+    query: stream_query(events),
+    save_session: vi.fn().mockResolvedValue(undefined),
+    delete_session: vi.fn().mockResolvedValue(undefined),
+  };
 
   const note_open = vi.fn();
   registry.register({
@@ -87,6 +92,55 @@ describe("register_rag_actions", () => {
     expect(rag_store.messages[1]?.citations).toHaveLength(1);
     expect(rag_store.is_loading).toBe(false);
     expect(stores.op.get("rag.ask").status).toBe("success");
+  });
+
+  it("asks: persists the active session after a completed turn", async () => {
+    const { registry, rag_service } = create_harness();
+
+    await registry.execute(ACTION_IDS.rag_ask, "what is it?");
+
+    expect(rag_service.save_session).toHaveBeenCalledTimes(1);
+    const [vault_id, session] = rag_service.save_session.mock.calls[0] ?? [];
+    expect(vault_id).toBe("v1");
+    expect(session.messages.map((m: { role: string }) => m.role)).toEqual([
+      "user",
+      "assistant",
+    ]);
+  });
+
+  it("delete session: removes from the store and deletes the persisted file", async () => {
+    const { registry, rag_store, rag_service } = create_harness();
+    await registry.execute(ACTION_IDS.rag_ask, "what is it?");
+    const id = rag_store.active_id;
+
+    await registry.execute(ACTION_IDS.rag_delete_session, id);
+
+    expect(rag_store.sessions).toEqual([]);
+    expect(rag_service.delete_session).toHaveBeenCalledWith("v1", id);
+  });
+
+  it("switching sessions mid-stream does not let the old turn write into it", async () => {
+    const { registry, rag_store, rag_service } = create_harness();
+    await registry.execute(ACTION_IDS.rag_ask, "first question");
+    const first_id = rag_store.active_id;
+
+    rag_service.query = vi.fn(
+      async function* (): AsyncGenerator<RagStreamEvent> {
+        yield { type: "text", text: "answer for second" };
+        // user switches back to the first session mid-stream
+        await registry.execute(ACTION_IDS.rag_switch_session, first_id);
+        yield { type: "text", text: " continued" };
+        yield { type: "done" };
+      },
+    );
+
+    rag_store.start_new_session();
+    await registry.execute(ACTION_IDS.rag_ask, "second question");
+
+    const first = rag_store.sessions.find((s) => s.id === first_id);
+    expect(first?.messages.some((m) => m.content.includes("continued"))).toBe(
+      false,
+    );
   });
 
   it("asks: surfaces a failed query as store error", async () => {

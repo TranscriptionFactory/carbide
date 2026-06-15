@@ -22,6 +22,7 @@ import type {
   RagCitation,
   RagMessage,
   RagRetrievedContext,
+  RagScope,
   RagSession,
   RagSessionSummary,
   RagStreamEvent,
@@ -64,7 +65,7 @@ export type RagQueryInput = {
   question: string;
   provider_config: AiProviderConfig;
   history?: RagMessage[];
-  scope?: string;
+  scope?: RagScope;
   retrieve_limit?: number;
   context_limit?: number;
   assembler_options?: AssembleContextOptions;
@@ -138,7 +139,7 @@ export class RagService {
       return;
     }
 
-    const folder_scope = normalize_folder_scope(input.scope);
+    const folder_scope = normalize_folder_scope(input.scope?.folder);
     if (folder_scope) {
       hits = hits.filter((hit) => path_in_folder(hit.note.path, folder_scope));
     }
