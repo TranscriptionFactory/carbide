@@ -46,9 +46,10 @@ ranking/recall drifts depending on whether a note was last touched by an
 incremental save or a batch rebuild. The `DL-003` comment declares
 composition-from-blocks the design — the save path doesn't honor it.
 
-**Fix:** make both paths agree (compose the note vector from block vectors on
-save too, falling back to `embed_one` only when there are no qualifying blocks).
-Deferred — design-consistency decision, separate change from #1/#3/#6.
+**Fix (done):** `embed_note_on_save` now embeds blocks first, then composes the
+note vector by mean-pooling the note's block vectors (via
+`get_block_embeddings_for_note`), falling back to `embed_one(embed_text_for_note)`
+only when there are no qualifying sections — identical to `handle_embed_batch`.
 
 ### 3. [MED] HNSW search can request more neighbours than `ef`, degrading recall
 
@@ -133,5 +134,5 @@ syncs both enqueue. `get_embedding_status` also hardcodes `is_embedding: false`
 - [x] #1 — index dims derived from model
 - [x] #3 — `ef_search = fetch.max(32)`
 - [x] #6 — sleep a fraction of batch time
-- [ ] #2 — note-vector consistency (deferred; design decision)
+- [x] #2 — note-vector consistency (both paths compose from blocks)
 - [ ] #4, #5, #7, #8, #9 — open

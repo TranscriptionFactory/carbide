@@ -943,17 +943,7 @@ fn embed_note_on_save(
         Err(_) => return,
     };
 
-    let note_text = search_db::get_fts_body(conn, note_id).unwrap_or_else(|| markdown.to_string());
-    match model.embed_one(&note_text) {
-        Ok(embedding) => {
-            let _ = vector_db::upsert_embedding(conn, note_id, &embedding);
-            if let Ok(mut ni) = note_index.write() {
-                ni.insert(note_id, embedding);
-            }
-        }
-        Err(e) => log::warn!("embed_on_save: note embed failed for {note_id}: {e}"),
-    }
-
+    // Block embeddings first; the note-level vector is composed from them below. (ref: DL-003)
     let (_, _, sections) = search_db::extract_markdown_structure(markdown);
     let lines: Vec<&str> = markdown.lines().collect();
     let old_hashes = vector_db::get_block_hashes(conn, note_id);
@@ -1018,6 +1008,25 @@ fn embed_note_on_save(
             .collect();
         for key in orphaned_keys {
             bi.remove(&key);
+        }
+    }
+
+    // Compose the note-level vector from its block vectors, matching the batch
+    // composition path; fall back to a direct embed when the note has no
+    // qualifying sections. (ref: DL-003, DL-005)
+    let block_vecs = vector_db::get_block_embeddings_for_note(conn, note_id);
+    let note_vec = if block_vecs.is_empty() {
+        model.embed_one(&embed_text_for_note(conn, note_id)).ok()
+    } else {
+        let vecs: Vec<Vec<f32>> = block_vecs.into_iter().map(|(_, v)| v).collect();
+        Some(vector_db::mean_pool_normalize(&vecs))
+    };
+    if let Some(embedding) = note_vec {
+        if let Err(e) = vector_db::upsert_embedding(conn, note_id, &embedding) {
+            log::warn!("embed_on_save: note upsert failed for {note_id}: {e}");
+        }
+        if let Ok(mut ni) = note_index.write() {
+            ni.insert(note_id, embedding);
         }
     }
 }
