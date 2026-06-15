@@ -1,7 +1,7 @@
 # Implementation Plan — Vault RAG Chat
 
 **Date:** 2026-06-14
-**Status:** Phase 1 complete — Phase 2 mostly complete (streaming, rewriter, multi-turn, folder scope, stale guard shipped; **session persistence + UI and tag scope deferred**)
+**Status:** Phase 1 complete — Phase 2 complete (streaming, rewriter, multi-turn, folder scope, stale guard, **session persistence + list UI (D6), and tag scope** all shipped)
 **Related:** `carbide/feature_opportunity_assay.md` (Tier 1 #1 + Appendix A), `carbide/TODO.md`
 **Decision tree:** `docs/architecture.md` (followed religiously — new `rag/` feature module, hexagonal anatomy)
 
@@ -266,17 +266,31 @@ multi-turn, no persistence, no scope filter.
   `pnpm format`. No Rust touched. code-simplifier pass applied (payload-coercion
   dedup).
 
-**Deferred to session 2 (intentionally):**
-- **Session persistence + list UI (D6)** — `.carbide/rag/sessions/<uuid>.json`
-  via a new `RagPersistencePort` + tauri adapter (reuse
-  `read/write/delete_vault_file`; note `list_vault_files_by_extension` excludes
-  `.carbide/`, so use a manifest index, not directory listing). Session
-  new/rename/delete/switch + store refactor. This is the heavy, separable piece
-  and owns the "closing/reopening restores sessions" and "provider switch
-  mid-session" acceptance rows.
-- **Tag scope** — needs reliable frontmatter + inline `#tag` extraction (the
-  `reference` feature already parses frontmatter; bind to it rather than
-  duplicate). Folder-prefix scope already satisfies the scope acceptance row.
+**Session 2 — shipped on `feat/rag-chat`:**
+- ✅ **Session persistence + list UI (D6)** — `RagPersistencePort` +
+  tauri adapter persisting a `.carbide/rag/index.json` manifest
+  (summaries) plus per-session `.carbide/rag/sessions/<uuid>.json` records;
+  enumerated via the manifest because `list_vault_files_by_extension`
+  excludes `.carbide/`. `RagStore` refactored to own `sessions[]` +
+  `active_id` with derived `messages`/`summaries`; session
+  new/switch/rename/delete bump the shared `revision` stale-guard.
+  Save-on-turn-complete (+ rename/delete) through `RagService`; a vault-change
+  reactor (`load_rag_sessions`) hydrates on boot/switch. Persistence is
+  **fail-soft** (browse-mode `.carbide/` write rejection is caught + logged,
+  chat keeps working in-memory). Panel gains a history list (switch/inline
+  rename/delete). Provider/scope persisted per session.
+- ✅ **Tag scope** — `RagScope` is now `{ folder?, tag? }`; pure
+  `normalize_tag_scope`; `RagService` post-filters hits via
+  `TagPort.get_notes_for_tag`. **Bound to `TagPort`, not the `reference`
+  feature's `extract_frontmatter`** — the tag index is Rust-backed, covers
+  both frontmatter `tags:` and inline `#tags`, and is already a port, so it
+  satisfies D2 (rag depends on ports, not peer internals) without
+  re-implementing tag extraction or missing inline tags. Tag input added to
+  `rag_input.svelte`.
+- ✅ Gate green: `pnpm check` (0 new errors — 17 pre-existing unchanged),
+  `pnpm test` (full suite 4215 green; 79 rag tests), scoped oxlint clean on
+  touched files, `pnpm format`. No Rust touched (manifest approach avoids it).
+  code-simplifier pass applied (`to_session_summary` cross-layer dedup).
 
 **Deliverables.**
 - Streaming via `AiStreamPort.stream_text()`; `RagService.query()` becomes an
