@@ -2,6 +2,7 @@ pub mod git;
 pub mod graph;
 pub mod metadata;
 pub mod notes;
+pub mod rag;
 pub mod references;
 pub mod search;
 pub mod tasks;

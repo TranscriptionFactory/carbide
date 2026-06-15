@@ -126,6 +126,7 @@ pub fn run() {
         .manage(shared::asset_cache::AssetCacheState::new())
         .manage(shared::live_html::LiveHtmlStore::default())
         .manage(features::mcp::http::HttpServerState::default())
+        .manage(features::mcp::rag_bridge::RagBridgeState::default())
         .manage(features::external_mcp::ExternalMcpState::default())
         .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
             log::info!("Second instance launched with args: {:?}", args);
@@ -403,6 +404,7 @@ pub fn run() {
             features::mcp::setup::mcp_uninstall_cli,
             features::mcp::router::mcp_list_tool_definitions,
             features::mcp::router::mcp_call_tool,
+            features::mcp::rag_bridge::rag_query_respond,
             features::smart_links::smart_links_load_rules,
             features::smart_links::smart_links_save_rules,
             features::smart_links::smart_links_compute_suggestions,
