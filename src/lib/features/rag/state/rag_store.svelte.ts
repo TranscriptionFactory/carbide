@@ -1,4 +1,7 @@
-import { derive_session_title } from "$lib/features/rag/domain/rag_session";
+import {
+  derive_session_title,
+  to_session_summary,
+} from "$lib/features/rag/domain/rag_session";
 import type {
   RagCitation,
   RagMessage,
@@ -32,12 +35,7 @@ export class RagStore {
   readonly messages = $derived(this.active?.messages ?? []);
   readonly summaries: RagSessionSummary[] = $derived(
     this.sessions
-      .map(({ id, title, created_at, updated_at }) => ({
-        id,
-        title,
-        created_at,
-        updated_at,
-      }))
+      .map(to_session_summary)
       .sort((a, b) => b.updated_at - a.updated_at),
   );
 

@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { APP_DIR } from "$lib/shared/constants/special_folders";
+import { to_session_summary } from "$lib/features/rag/domain/rag_session";
 import type { RagPersistencePort } from "$lib/features/rag/ports";
 import type {
   RagSession,
@@ -11,15 +12,6 @@ const INDEX_PATH = `${RAG_DIR}/index.json`;
 
 function session_path(id: string): string {
   return `${RAG_DIR}/sessions/${id}.json`;
-}
-
-function to_summary(session: RagSession): RagSessionSummary {
-  return {
-    id: session.id,
-    title: session.title,
-    created_at: session.created_at,
-    updated_at: session.updated_at,
-  };
 }
 
 async function read_json<T>(
@@ -71,7 +63,7 @@ export function create_rag_persistence_tauri_adapter(): RagPersistencePort {
       await write_json(vault_id, session_path(session.id), session);
       const index = await read_index(vault_id);
       const next = sort_by_recency([
-        to_summary(session),
+        to_session_summary(session),
         ...index.filter((s) => s.id !== session.id),
       ]);
       await write_json(vault_id, INDEX_PATH, next);
