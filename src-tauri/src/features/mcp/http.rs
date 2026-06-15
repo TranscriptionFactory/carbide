@@ -556,6 +556,32 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_mcp_endpoint_exposes_rag_tools() {
+        let router = test_mcp_router("secret");
+        let body = r#"{"jsonrpc":"2.0","method":"tools/list","id":2}"#;
+        let req = mcp_request(router.clone(), "secret", body);
+        let resp = ServiceExt::<Request<Body>>::oneshot(router, req)
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+
+        let json = response_json(resp).await;
+        let tools = json["result"]["tools"].as_array().unwrap();
+
+        let rag_query = tools
+            .iter()
+            .find(|t| t["name"] == "rag_query")
+            .expect("rag_query tool is exposed over the MCP protocol");
+        assert_eq!(rag_query["inputSchema"]["required"][0], "question");
+
+        let rag_status = tools
+            .iter()
+            .find(|t| t["name"] == "rag_status")
+            .expect("rag_status tool is exposed over the MCP protocol");
+        assert_eq!(rag_status["inputSchema"]["required"][0], "vault_id");
+    }
+
+    #[tokio::test]
     async fn test_mcp_endpoint_unknown_method() {
         let router = test_mcp_router("secret");
         let body = r#"{"jsonrpc":"2.0","method":"unknown/method","id":3}"#;
