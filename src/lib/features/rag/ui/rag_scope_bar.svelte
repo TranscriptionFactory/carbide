@@ -53,10 +53,28 @@
     })),
   ]);
 
-  const groups = $derived(
-    build_scope_suggestions(query, { folder_paths, tags, saved_views }, scope),
+  type Entry = { item: ScopeSuggestion; section: string | undefined };
+  const entries = $derived<Entry[]>(
+    (() => {
+      const groups = build_scope_suggestions(
+        query,
+        { folder_paths, tags, saved_views },
+        scope,
+      );
+      const titles: Record<ScopeKind, string> = {
+        folder: "Folders",
+        tag: "Tags",
+        base: "Bases",
+      };
+      return [groups.folders, groups.tags, groups.bases].flatMap((items) =>
+        items.map((item, i) => ({
+          item,
+          section: i === 0 ? titles[item.kind] : undefined,
+        })),
+      );
+    })(),
   );
-  const flat = $derived([...groups.folders, ...groups.tags, ...groups.bases]);
+  const flat = $derived(entries.map((entry) => entry.item));
 
   function add(item: ScopeSuggestion) {
     const key = SCOPE_KEY[item.kind];
@@ -169,27 +187,12 @@
     />
     {#if show_dropdown && flat.length > 0}
       <div class="ScopeBar__dropdown">
-        {#if groups.folders.length > 0}
-          <div class="ScopeBar__section">Folders</div>
-          {#each groups.folders as item, i (item.value)}
-            {@render suggestion_item(item, i)}
-          {/each}
-        {/if}
-        {#if groups.tags.length > 0}
-          <div class="ScopeBar__section">Tags</div>
-          {#each groups.tags as item, i (item.value)}
-            {@render suggestion_item(item, groups.folders.length + i)}
-          {/each}
-        {/if}
-        {#if groups.bases.length > 0}
-          <div class="ScopeBar__section">Bases</div>
-          {#each groups.bases as item, i (item.value)}
-            {@render suggestion_item(
-              item,
-              groups.folders.length + groups.tags.length + i,
-            )}
-          {/each}
-        {/if}
+        {#each entries as entry, index (entry.item.kind + entry.item.value)}
+          {#if entry.section}
+            <div class="ScopeBar__section">{entry.section}</div>
+          {/if}
+          {@render suggestion_item(entry.item, index)}
+        {/each}
       </div>
     {/if}
   </div>

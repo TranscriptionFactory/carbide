@@ -343,41 +343,51 @@ export class RagService {
     const tags = (scope?.tags ?? [])
       .map(normalize_tag_scope)
       .filter((t): t is string => t !== null);
-    if (tags.length > 0) {
-      try {
-        const sets = await Promise.all(
-          tags.map((tag) => this.tag_port.get_notes_for_tag(vault_id, tag)),
-        );
-        const tagged = new Set(sets.flat());
-        hits = hits.filter((hit) => tagged.has(hit.note_path));
-      } catch (err) {
-        log.warn("RAG tag scope filter failed", { error: error_message(err) });
-      }
-    }
+    hits = await this.keep_in_note_set(
+      hits,
+      tags,
+      (tag) => this.tag_port.get_notes_for_tag(vault_id, tag),
+      "tag",
+    );
 
     const bases = (scope?.bases ?? [])
       .map(normalize_base_scope)
       .filter((b): b is string => b !== null);
-    if (bases.length > 0) {
-      try {
-        const sets = await Promise.all(
-          bases.map(async (path) => {
-            const view = await this.bases_port.load_view(vault_id, path);
-            const result = await this.bases_port.query(vault_id, {
-              ...view.query,
-              limit: 10000,
-              offset: 0,
-            });
-            return result.rows.map((row) => row.note.path);
-          }),
-        );
-        const scoped = new Set<string>(sets.flat());
-        hits = hits.filter((hit) => scoped.has(hit.note_path));
-      } catch (err) {
-        log.warn("RAG base scope filter failed", { error: error_message(err) });
-      }
-    }
+    hits = await this.keep_in_note_set(
+      hits,
+      bases,
+      async (path) => {
+        const view = await this.bases_port.load_view(vault_id, path);
+        const result = await this.bases_port.query(vault_id, {
+          ...view.query,
+          limit: 10000,
+          offset: 0,
+        });
+        return result.rows.map((row) => row.note.path);
+      },
+      "base",
+    );
+
     return hits;
+  }
+
+  private async keep_in_note_set(
+    hits: RetrievalHit[],
+    values: string[],
+    resolve: (value: string) => Promise<string[]>,
+    label: string,
+  ): Promise<RetrievalHit[]> {
+    if (values.length === 0) return hits;
+    try {
+      const sets = await Promise.all(values.map(resolve));
+      const allowed = new Set<string>(sets.flat());
+      return hits.filter((hit) => allowed.has(hit.note_path));
+    } catch (err) {
+      log.warn(`RAG ${label} scope filter failed`, {
+        error: error_message(err),
+      });
+      return hits;
+    }
   }
 
   private async read_hit_markdown(
