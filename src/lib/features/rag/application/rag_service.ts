@@ -13,18 +13,37 @@ import {
 import { build_rag_prompt } from "$lib/features/rag/domain/rag_prompt_builder";
 import { build_citation_map } from "$lib/features/rag/domain/rag_citations";
 import { RagStreamParser } from "$lib/features/rag/domain/rag_stream_parser";
+import { rewrite_query } from "$lib/features/rag/domain/rag_query_rewriter";
 import type {
   RagCitation,
+  RagMessage,
   RagRetrievedContext,
   RagStreamEvent,
 } from "$lib/features/rag/domain/rag_types";
+import type { HybridSearchHit } from "$lib/shared/types/search";
 
 const log = create_logger("rag_service");
 
 const DEFAULT_RETRIEVE_LIMIT = 15;
 const DEFAULT_CONTEXT_LIMIT = 8;
+const CITED_NOTE_BOOST = 1.25;
 const NO_RESULTS_MESSAGE =
   "I couldn't find anything in your vault that answers that.";
+
+function boost_cited_notes(
+  hits: HybridSearchHit[],
+  boost_paths: string[],
+): HybridSearchHit[] {
+  if (boost_paths.length === 0) return hits;
+  const boosted = new Set(boost_paths);
+  return hits
+    .map((hit) =>
+      boosted.has(hit.note.path)
+        ? { ...hit, score: hit.score * CITED_NOTE_BOOST }
+        : hit,
+    )
+    .sort((a, b) => b.score - a.score);
+}
 
 function to_citation(context: RagRetrievedContext): RagCitation {
   return {
@@ -37,6 +56,7 @@ function to_citation(context: RagRetrievedContext): RagCitation {
 export type RagQueryInput = {
   question: string;
   provider_config: AiProviderConfig;
+  history?: RagMessage[];
   retrieve_limit?: number;
   context_limit?: number;
   assembler_options?: AssembleContextOptions;
@@ -57,11 +77,16 @@ export class RagService {
       return;
     }
 
+    const rewrite = rewrite_query({
+      question: input.question,
+      history: input.history ?? [],
+    });
+
     let hits;
     try {
       hits = await this.search_port.hybrid_search(
         vault.id,
-        { raw: input.question, text: input.question, scope: "all" },
+        { raw: rewrite.query, text: rewrite.query, scope: "all" },
         input.retrieve_limit ?? DEFAULT_RETRIEVE_LIMIT,
       );
     } catch (err) {
@@ -75,7 +100,8 @@ export class RagService {
       return;
     }
 
-    const top = hits.slice(0, input.context_limit ?? DEFAULT_CONTEXT_LIMIT);
+    const ranked = boost_cited_notes(hits, rewrite.boost_paths);
+    const top = ranked.slice(0, input.context_limit ?? DEFAULT_CONTEXT_LIMIT);
     const candidates = (
       await Promise.all(
         top.map(async (hit): Promise<RagContextCandidate | null> => {

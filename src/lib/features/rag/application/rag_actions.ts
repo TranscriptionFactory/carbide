@@ -62,6 +62,7 @@ export function register_rag_actions(
         return;
       }
 
+      const history = [...rag_store.messages];
       rag_store.add_user_message(question);
       rag_store.start_loading();
       stores.op.start(RAG_OP_KEY, Date.now());
@@ -71,6 +72,7 @@ export function register_rag_actions(
         for await (const event of rag_service.query({
           question,
           provider_config: provider,
+          history,
         })) {
           if (event.type === "text") {
             if (!rag_store.streaming_id) rag_store.start_streaming();

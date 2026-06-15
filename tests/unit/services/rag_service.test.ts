@@ -144,6 +144,43 @@ describe("RagService.query", () => {
     ]);
   });
 
+  it("retrieves on the rewritten standalone query for a follow-up", async () => {
+    const search = {
+      hybrid_search: vi
+        .fn()
+        .mockResolvedValue([hit("notes/q.md", "Q", "1", 0.9)]),
+    };
+    const notes = {
+      read_note: vi.fn().mockResolvedValue({ markdown: "Body." }),
+    };
+    const service = new RagService(
+      search as never,
+      notes as never,
+      text_stream("Because [1].") as never,
+      make_vault_store(),
+    );
+
+    await collect(
+      service.query({
+        question: "why?",
+        provider_config: provider,
+        history: [
+          {
+            id: "u1",
+            role: "user",
+            content: "Does it use Postgres?",
+            citations: [],
+          },
+          { id: "a1", role: "assistant", content: "Yes.", citations: [] },
+        ],
+      }),
+    );
+
+    const query = search.hybrid_search.mock.calls[0]?.[1];
+    expect(query?.text).toContain("Postgres");
+    expect(query?.text).not.toBe("why?");
+  });
+
   it("returns no_results without calling the model when retrieval is empty", async () => {
     const search = { hybrid_search: vi.fn().mockResolvedValue([]) };
     const notes = { read_note: vi.fn() };
