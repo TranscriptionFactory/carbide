@@ -6,15 +6,12 @@ export type RagRewriteResult = {
   boost_paths: string[];
 };
 
-const FOLLOW_UP_LEADS = new Set([
+const CONTINUATION_LEADS = new Set(["and", "but", "so", "then", "also"]);
+
+const WH_LEADS = new Set([
   "why",
   "how",
   "what",
-  "and",
-  "but",
-  "so",
-  "then",
-  "also",
   "who",
   "whom",
   "when",
@@ -40,6 +37,7 @@ const DEPENDENT_REFERENTS = new Set([
 ]);
 
 const MAX_DEPENDENT_WORDS = 8;
+const MAX_ELLIPTICAL_WORDS = 3;
 const BOOST_PATH_LIMIT = 8;
 
 function words(text: string): string[] {
@@ -50,8 +48,11 @@ function is_dependent(question: string): boolean {
   const tokens = words(question);
   if (tokens.length === 0 || tokens.length > MAX_DEPENDENT_WORDS) return false;
   const [first] = tokens;
-  if (first && FOLLOW_UP_LEADS.has(first)) return true;
-  return tokens.some((token) => DEPENDENT_REFERENTS.has(token));
+  if (first && CONTINUATION_LEADS.has(first)) return true;
+  if (tokens.some((token) => DEPENDENT_REFERENTS.has(token))) return true;
+  return Boolean(
+    first && WH_LEADS.has(first) && tokens.length <= MAX_ELLIPTICAL_WORDS,
+  );
 }
 
 function last_user_question(history: RagMessage[]): string | null {

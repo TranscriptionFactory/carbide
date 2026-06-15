@@ -10,7 +10,12 @@ import type {
 const RAG_DIR = `${APP_DIR}/rag`;
 const INDEX_PATH = `${RAG_DIR}/index.json`;
 
+const SAFE_ID = /^[A-Za-z0-9_-]+$/;
+
 function session_path(id: string): string {
+  if (!SAFE_ID.test(id)) {
+    throw new Error(`Invalid RAG session id: ${id}`);
+  }
   return `${RAG_DIR}/sessions/${id}.json`;
 }
 
