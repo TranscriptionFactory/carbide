@@ -260,7 +260,7 @@ pub fn run_extract_pdf_text(file_path: &str) {
     let mut offsets = Vec::with_capacity(pages.len());
     for page_text in &pages {
         offsets.push(body.len());
-        body.push_str(page_text);
+        body.push_str(&page_text.replace('\0', ""));
         body.push('\n');
     }
     if body.len() > MAX_INDEXABLE_BYTES {
