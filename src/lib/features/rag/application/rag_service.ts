@@ -134,6 +134,7 @@ export class RagService {
     const { system_prompt, user_prompt } = build_rag_prompt({
       question: input.question,
       contexts,
+      history: input.history ?? [],
     });
 
     const parser = new RagStreamParser(

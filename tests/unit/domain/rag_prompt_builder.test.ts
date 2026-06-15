@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { build_rag_prompt, type RagRetrievedContext } from "$lib/features/rag";
+import {
+  build_rag_prompt,
+  type RagMessage,
+  type RagRetrievedContext,
+} from "$lib/features/rag";
 
 const contexts: RagRetrievedContext[] = [
   {
@@ -55,5 +59,68 @@ describe("build_rag_prompt", () => {
     });
 
     expect(user_prompt).toContain("<question>\nHow do I brew?\n</question>");
+  });
+
+  it("omits the conversation section when there is no history", () => {
+    const { user_prompt } = build_rag_prompt({
+      question: "How do I brew?",
+      contexts,
+      history: [],
+    });
+
+    expect(user_prompt).not.toContain("<conversation>");
+  });
+
+  it("injects prior turns as a conversation section, stripping stale citations", () => {
+    const history: RagMessage[] = [
+      { id: "u1", role: "user", content: "What is pour over?", citations: [] },
+      {
+        id: "a1",
+        role: "assistant",
+        content: "A manual brew method [3].",
+        citations: [],
+      },
+    ];
+
+    const { user_prompt } = build_rag_prompt({
+      question: "What temperature?",
+      contexts,
+      history,
+    });
+
+    expect(user_prompt).toContain("<conversation>");
+    expect(user_prompt).toContain("User: What is pour over?");
+    expect(user_prompt).toContain("Assistant: A manual brew method.");
+    expect(user_prompt).not.toContain("[3]");
+    expect(user_prompt.indexOf("<conversation>")).toBeLessThan(
+      user_prompt.indexOf("<question>"),
+    );
+  });
+
+  it("drops the oldest turns when history exceeds the token budget", () => {
+    const history: RagMessage[] = [
+      {
+        id: "old",
+        role: "user",
+        content: "OLDEST question here",
+        citations: [],
+      },
+      {
+        id: "new",
+        role: "user",
+        content: "NEWEST question here",
+        citations: [],
+      },
+    ];
+
+    const { user_prompt } = build_rag_prompt({
+      question: "follow up",
+      contexts,
+      history,
+      history_token_budget: 8,
+    });
+
+    expect(user_prompt).toContain("NEWEST");
+    expect(user_prompt).not.toContain("OLDEST");
   });
 });
