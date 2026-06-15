@@ -102,7 +102,7 @@ export class RagStore {
     if (sid) {
       this.patch_active((s) => ({
         ...s,
-        messages: s.messages.filter((m) => !(m.id === sid && m.content === "")),
+        messages: s.messages.filter((m) => m.id !== sid),
       }));
       this.streaming_id = null;
     }

@@ -29,6 +29,7 @@ export function create_ai_stream_adapter(): AiStreamPort {
             queue.push(chunk);
             if (chunk.type === "done" || chunk.type === "error") {
               queue.end();
+              unlisten();
             }
           },
         );

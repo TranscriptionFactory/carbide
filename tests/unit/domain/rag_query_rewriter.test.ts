@@ -62,6 +62,19 @@ describe("rewrite_query", () => {
     expect(result.boost_paths).toEqual([]);
   });
 
+  it("does not merge a standalone wh-question with an unrelated prior turn", () => {
+    const history = [
+      user("Does the project use Postgres?"),
+      assistant("Yes, via SQLx.", ["db/postgres.md"]),
+    ];
+
+    const question = "What time is the standup?";
+    const result = rewrite_query({ question, history });
+
+    expect(result.rewritten).toBe(false);
+    expect(result.query).toBe(question);
+  });
+
   it("does not rewrite a follow-up when there is no prior question", () => {
     const result = rewrite_query({ question: "why?", history: [] });
 
