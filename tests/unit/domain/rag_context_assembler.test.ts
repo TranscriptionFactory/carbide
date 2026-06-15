@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   assemble_context,
   estimate_tokens,
+  extract_section,
   type RagContextCandidate,
 } from "$lib/features/rag";
 
@@ -23,6 +24,28 @@ describe("estimate_tokens", () => {
     expect(estimate_tokens("12345678")).toBe(2);
     expect(estimate_tokens("123")).toBe(1);
     expect(estimate_tokens("")).toBe(0);
+  });
+});
+
+describe("extract_section", () => {
+  const markdown = ["# Title", "intro", "## Body", "answer here", "tail"].join(
+    "\n",
+  );
+
+  it("slices the inclusive line range of the enclosing section", () => {
+    expect(extract_section(markdown, 2, 3)).toBe("## Body\nanswer here");
+  });
+
+  it("clamps an end line past the document to the last line", () => {
+    expect(extract_section(markdown, 4, 99)).toBe("tail");
+  });
+
+  it("returns empty when the start line is beyond the document", () => {
+    expect(extract_section(markdown, 50, 60)).toBe("");
+  });
+
+  it("returns a single line when start equals end", () => {
+    expect(extract_section(markdown, 0, 0)).toBe("# Title");
   });
 });
 

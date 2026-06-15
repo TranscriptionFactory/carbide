@@ -5,7 +5,10 @@ import { create_test_vault } from "../helpers/test_fixtures";
 import { create_test_rag_persistence_adapter } from "../../adapters/test_rag_persistence_adapter";
 import type { AiStreamChunk } from "$lib/features/ai";
 import type { AiProviderConfig } from "$lib/shared/types/ai_provider_config";
-import type { HybridSearchHit } from "$lib/shared/types/search";
+import type {
+  BlockSectionHit,
+  HybridSearchHit,
+} from "$lib/shared/types/search";
 import type {
   RagCitation,
   RagStreamEvent,
@@ -42,6 +45,24 @@ function hit(
   score: number,
 ): HybridSearchHit {
   return { note: note_meta(path, title, id) as never, score, source: "both" };
+}
+
+function block_hit(
+  path: string,
+  title: string,
+  id: string,
+  start_line: number,
+  end_line: number,
+  distance: number,
+): BlockSectionHit {
+  return {
+    note: note_meta(path, title, id) as never,
+    heading_id: "h",
+    heading: title,
+    start_line,
+    end_line,
+    distance,
+  };
 }
 
 function stream_of(...chunks: AiStreamChunk[]) {
@@ -90,6 +111,7 @@ async function collect(
 describe("RagService.query", () => {
   it("retrieves, answers, and cites the note that holds the answer", async () => {
     const search = {
+      search_blocks: vi.fn().mockResolvedValue([]),
       hybrid_search: vi
         .fn()
         .mockResolvedValue([hit("notes/q.md", "Q", "1", 0.9)]),
@@ -123,8 +145,58 @@ describe("RagService.query", () => {
     expect(result.error).toBeNull();
   });
 
+  it("retrieves the answering section of a long note and stays within budget", async () => {
+    const lines: string[] = [];
+    for (let i = 0; i < 400; i++) lines.push(`intro filler line ${i}`);
+    const start = lines.length;
+    lines.push("## Deployment");
+    lines.push("The service deploys to Fly.io every night.");
+    const end = lines.length - 1;
+    for (let i = 0; i < 400; i++) lines.push(`tail filler line ${i}`);
+    const markdown = lines.join("\n");
+
+    const search = {
+      search_blocks: vi
+        .fn()
+        .mockResolvedValue([
+          block_hit("notes/ops.md", "Ops", "1", start, end, 0.1),
+        ]),
+      hybrid_search: vi.fn(),
+    };
+    const notes = { read_note: vi.fn().mockResolvedValue({ markdown }) };
+    const stream = text_stream("It deploys nightly to Fly.io [1].");
+    const service = new RagService(
+      search as never,
+      notes as never,
+      stream as never,
+      make_vault_store(),
+      persistence,
+      tag as never,
+    );
+
+    const result = await collect(
+      service.query({
+        question: "where does it deploy?",
+        provider_config: provider,
+      }),
+    );
+
+    expect(search.hybrid_search).not.toHaveBeenCalled();
+    const call = stream.stream_text.mock.calls[0] as unknown[] | undefined;
+    const request = call?.[0] as
+      | { messages: { content: string }[] }
+      | undefined;
+    const user_prompt = request?.messages[0]?.content ?? "";
+    expect(user_prompt).toContain("deploys to Fly.io every night");
+    expect(user_prompt).not.toContain("intro filler line 200");
+    expect(result.citations).toEqual([
+      { index: 1, note_path: "notes/ops.md", title: "Ops" },
+    ]);
+  });
+
   it("renders a citation split across two stream chunks once", async () => {
     const search = {
+      search_blocks: vi.fn().mockResolvedValue([]),
       hybrid_search: vi
         .fn()
         .mockResolvedValue([hit("notes/q.md", "Q", "1", 0.9)]),
@@ -154,6 +226,7 @@ describe("RagService.query", () => {
 
   it("retrieves on the rewritten standalone query for a follow-up", async () => {
     const search = {
+      search_blocks: vi.fn().mockResolvedValue([]),
       hybrid_search: vi
         .fn()
         .mockResolvedValue([hit("notes/q.md", "Q", "1", 0.9)]),
@@ -193,6 +266,7 @@ describe("RagService.query", () => {
 
   it("restricts retrieved sources to the folder scope", async () => {
     const search = {
+      search_blocks: vi.fn().mockResolvedValue([]),
       hybrid_search: vi
         .fn()
         .mockResolvedValue([
@@ -226,6 +300,7 @@ describe("RagService.query", () => {
 
   it("restricts retrieved sources to notes carrying the tag scope", async () => {
     const search = {
+      search_blocks: vi.fn().mockResolvedValue([]),
       hybrid_search: vi
         .fn()
         .mockResolvedValue([
@@ -266,6 +341,7 @@ describe("RagService.query", () => {
 
   it("returns no_results when the scope filters out every hit", async () => {
     const search = {
+      search_blocks: vi.fn().mockResolvedValue([]),
       hybrid_search: vi
         .fn()
         .mockResolvedValue([hit("archive/b.md", "B", "2", 0.8)]),
@@ -293,7 +369,10 @@ describe("RagService.query", () => {
   });
 
   it("returns no_results without calling the model when retrieval is empty", async () => {
-    const search = { hybrid_search: vi.fn().mockResolvedValue([]) };
+    const search = {
+      search_blocks: vi.fn().mockResolvedValue([]),
+      hybrid_search: vi.fn().mockResolvedValue([]),
+    };
     const notes = { read_note: vi.fn() };
     const stream = text_stream("unused");
     const service = new RagService(
@@ -317,6 +396,7 @@ describe("RagService.query", () => {
 
   it("drops citations that do not map to a retrieved source", async () => {
     const search = {
+      search_blocks: vi.fn().mockResolvedValue([]),
       hybrid_search: vi
         .fn()
         .mockResolvedValue([hit("notes/q.md", "Q", "1", 0.9)]),
@@ -343,6 +423,7 @@ describe("RagService.query", () => {
 
   it("falls back to no_results when every retrieved note fails to read", async () => {
     const search = {
+      search_blocks: vi.fn().mockResolvedValue([]),
       hybrid_search: vi
         .fn()
         .mockResolvedValue([hit("notes/q.md", "Q", "1", 0.9)]),
@@ -370,6 +451,7 @@ describe("RagService.query", () => {
 
   it("fails when retrieval throws", async () => {
     const search = {
+      search_blocks: vi.fn().mockResolvedValue([]),
       hybrid_search: vi.fn().mockRejectedValue(new Error("index down")),
     };
     const service = new RagService(
@@ -390,6 +472,7 @@ describe("RagService.query", () => {
 
   it("fails when the stream errors before producing text", async () => {
     const search = {
+      search_blocks: vi.fn().mockResolvedValue([]),
       hybrid_search: vi
         .fn()
         .mockResolvedValue([hit("notes/q.md", "Q", "1", 0.9)]),
