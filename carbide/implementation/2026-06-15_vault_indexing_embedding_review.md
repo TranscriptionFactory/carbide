@@ -160,5 +160,9 @@ syncs both enqueue. `get_embedding_status` also hardcodes `is_embedding: false`
 - [x] #2 — note-vector consistency (both paths compose from blocks)
 - [x] #8 — HTML selectors hoisted to `LazyLock` statics
 - [x] #9b — `embed_queued` atomic closes the embed_sync double-enqueue window
-- [ ] #4, #5, #7 — open
+- [x] #7 — dead brute-force `knn_search_batch` removed; `knn_search_batch_indexed`
+  consolidated into `vector_db.rs` with semantics note; `knn_search` gated to
+  tests; parity/exclusion/threshold/dedup tests added (prod path was already
+  index-backed)
+- [ ] #4, #5 — open
 - [ ] #9a — `get_embedding_status` still hardcodes `is_embedding: false` (open)
