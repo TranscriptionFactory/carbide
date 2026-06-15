@@ -62,4 +62,25 @@ export const BUILTIN_PROVIDER_PRESETS: AiProviderConfig[] = [
     install_url: "https://ollama.com",
     is_preset: true,
   },
+  {
+    id: "lmstudio",
+    name: "LM Studio (server)",
+    transport: {
+      kind: "api",
+      base_url: "http://localhost:1234/v1",
+    },
+    install_url: "https://lmstudio.ai/docs/app/api",
+    is_preset: true,
+  },
+  {
+    id: "llama-server",
+    name: "llama.cpp (llama-server)",
+    transport: {
+      kind: "api",
+      base_url: "http://localhost:8080/v1",
+    },
+    install_url:
+      "https://github.com/ggml-org/llama.cpp/blob/master/tools/server/README.md",
+    is_preset: true,
+  },
 ];
