@@ -1,3 +1,4 @@
+use super::hnsw_index::VectorIndex;
 use rusqlite::{params, Connection};
 use std::collections::{HashMap, HashSet};
 
@@ -103,7 +104,8 @@ pub fn rename_embeddings_by_prefix(
     Ok(())
 }
 
-pub fn knn_search(
+#[cfg(test)]
+fn knn_search(
     conn: &Connection,
     query_vec: &[f32],
     limit: usize,
@@ -132,49 +134,45 @@ pub fn knn_search(
     Ok(scored)
 }
 
-pub fn knn_search_batch(
-    conn: &Connection,
+/// Pairwise semantic edges among a *selected set* of notes (the related-notes
+/// graph). Vectors are read from the in-memory index via `get_vector`, so there
+/// is no SQLite scan or per-call deserialization.
+///
+/// This is intentionally exhaustive within `paths` rather than delegating to
+/// `VectorIndex::search`: that returns *global* nearest neighbours which, once
+/// filtered back down to `paths`, would silently drop in-set edges that fall
+/// outside the global top-K. The O(set²) cost is over O(1) in-memory lookups on
+/// a user-selected subset, not the whole vault. `distance_threshold` is on the
+/// same scale as `VectorIndex` distances (`dot_distance = 1 − dot ≡ DistCosine`
+/// for the L2-normalized vectors we store).
+pub(crate) fn knn_search_batch_indexed(
+    note_index: &VectorIndex,
     paths: &[String],
     limit: usize,
     distance_threshold: f32,
-    linked_sets: &std::collections::HashMap<String, std::collections::HashSet<String>>,
-) -> Result<Vec<(String, String, f32)>, String> {
-    let mut stmt = conn
-        .prepare("SELECT path, embedding FROM note_embeddings")
-        .map_err(|e| e.to_string())?;
-
-    let embedding_map: std::collections::HashMap<String, Vec<f32>> = stmt
-        .query_map([], |row| {
-            let path: String = row.get(0)?;
-            let blob: Vec<u8> = row.get(1)?;
-            Ok((path, blob))
-        })
-        .map_err(|e| e.to_string())?
-        .filter_map(|r| r.ok())
-        .map(|(path, blob)| {
-            let vec = bytes_to_floats(&blob);
-            (path, vec)
-        })
-        .collect();
-
-    let path_set: std::collections::HashSet<&str> = paths.iter().map(|s| s.as_str()).collect();
-    let mut seen = std::collections::HashSet::new();
+    linked_sets: &HashMap<String, HashSet<String>>,
+) -> Vec<(String, String, f32)> {
+    let path_set: HashSet<&str> = paths.iter().map(|s| s.as_str()).collect();
+    let mut seen = HashSet::new();
     let mut edges = Vec::new();
+    let empty_set = HashSet::new();
 
     for query_path in paths {
-        let query_vec = match embedding_map.get(query_path.as_str()) {
+        let query_vec = match note_index.get_vector(query_path) {
             Some(v) => v,
             None => continue,
         };
 
-        let empty_set = std::collections::HashSet::new();
         let linked = linked_sets.get(query_path.as_str()).unwrap_or(&empty_set);
 
-        let mut scored: Vec<(&str, f32)> = embedding_map
+        let mut scored: Vec<(&str, f32)> = paths
             .iter()
-            .filter(|(p, _)| p.as_str() != query_path.as_str() && !linked.contains(p.as_str()))
-            .map(|(p, v)| (p.as_str(), dot_distance(query_vec, v)))
-            .filter(|(_, d)| *d < distance_threshold)
+            .filter(|p| p.as_str() != query_path.as_str() && !linked.contains(p.as_str()))
+            .filter_map(|p| {
+                let v = note_index.get_vector(p)?;
+                let dist = dot_distance(query_vec, v);
+                (dist < distance_threshold).then_some((p.as_str(), dist))
+            })
             .collect();
 
         scored.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal));
@@ -185,20 +183,19 @@ pub fn knn_search_batch(
                 continue;
             }
             let key = if query_path.as_str() < target {
-                (query_path.as_str(), target)
+                format!("{query_path}|{target}")
             } else {
-                (target, query_path.as_str())
+                format!("{target}|{query_path}")
             };
-            let key_string = format!("{}|{}", key.0, key.1);
-            if seen.contains(&key_string) {
+            if seen.contains(&key) {
                 continue;
             }
-            seen.insert(key_string);
+            seen.insert(key);
             edges.push((query_path.clone(), target.to_string(), distance));
         }
     }
 
-    Ok(edges)
+    edges
 }
 
 // --- Block embeddings (section-level) ---
@@ -777,5 +774,145 @@ mod tests {
             sim_v2 < 0.99,
             "composed vec must differ from block-2 alone: {sim_v2}"
         );
+    }
+
+    use super::VectorIndex;
+
+    // Four 2-D unit vectors with hand-verifiable cosine distances:
+    //   a·b=0.8 (d=0.2)  a·c=0.6 (d=0.4)  a·d=0   (d=1.0)
+    //   b·c=0.96 (d=0.04) b·d=0.6 (d=0.4)  c·d=0.8 (d=0.2)
+    fn graph_index() -> VectorIndex {
+        let mut idx = VectorIndex::new(2);
+        idx.insert("a.md", vec![1.0, 0.0]);
+        idx.insert("b.md", vec![0.8, 0.6]);
+        idx.insert("c.md", vec![0.6, 0.8]);
+        idx.insert("d.md", vec![0.0, 1.0]);
+        idx
+    }
+
+    fn paths(items: &[&str]) -> Vec<String> {
+        items.iter().map(|s| s.to_string()).collect()
+    }
+
+    fn undirected(edges: &[(String, String, f32)]) -> HashSet<(String, String)> {
+        edges
+            .iter()
+            .map(|(a, b, _)| {
+                if a < b {
+                    (a.clone(), b.clone())
+                } else {
+                    (b.clone(), a.clone())
+                }
+            })
+            .collect()
+    }
+
+    fn expect_edges(pairs: &[(&str, &str)]) -> HashSet<(String, String)> {
+        pairs
+            .iter()
+            .map(|(a, b)| {
+                let (a, b) = (a.to_string(), b.to_string());
+                if a < b {
+                    (a, b)
+                } else {
+                    (b, a)
+                }
+            })
+            .collect()
+    }
+
+    fn linked(entries: &[(&str, &[&str])]) -> HashMap<String, HashSet<String>> {
+        entries
+            .iter()
+            .map(|(k, vs)| {
+                (
+                    k.to_string(),
+                    vs.iter().map(|s| s.to_string()).collect::<HashSet<_>>(),
+                )
+            })
+            .collect()
+    }
+
+    #[test]
+    fn knn_batch_edges_are_symmetric_and_threshold_bounded() {
+        let idx = graph_index();
+        let edges =
+            knn_search_batch_indexed(&idx, &paths(&["a.md", "b.md", "c.md", "d.md"]), 10, 1.0, &HashMap::new());
+        // Every pair with distance < 1.0; a–d (d=1.0) is excluded by the strict bound.
+        assert_eq!(
+            undirected(&edges),
+            expect_edges(&[("a.md", "b.md"), ("a.md", "c.md"), ("b.md", "c.md"), ("b.md", "d.md"), ("c.md", "d.md")])
+        );
+        // b–c is reachable from both b and c, yet appears once: symmetric dedup.
+        assert_eq!(edges.len(), undirected(&edges).len(), "edges must be deduped");
+        assert!(edges.iter().all(|(s, t, _)| s != t), "no self-edges");
+    }
+
+    #[test]
+    fn knn_batch_threshold_filters_distant_pairs() {
+        let idx = graph_index();
+        let edges =
+            knn_search_batch_indexed(&idx, &paths(&["a.md", "b.md", "c.md", "d.md"]), 10, 0.3, &HashMap::new());
+        assert_eq!(
+            undirected(&edges),
+            expect_edges(&[("a.md", "b.md"), ("b.md", "c.md"), ("c.md", "d.md")])
+        );
+    }
+
+    #[test]
+    fn knn_batch_excludes_self() {
+        let idx = graph_index();
+        let edges = knn_search_batch_indexed(&idx, &paths(&["a.md", "b.md"]), 10, 2.0, &HashMap::new());
+        // a–a has distance 0 but must never be emitted.
+        assert_eq!(undirected(&edges), expect_edges(&[("a.md", "b.md")]));
+        assert!(edges.iter().all(|(s, t, _)| s != t));
+    }
+
+    #[test]
+    fn knn_batch_excludes_linked_pairs() {
+        let idx = graph_index();
+        let edges = knn_search_batch_indexed(
+            &idx,
+            &paths(&["a.md", "b.md", "c.md"]),
+            10,
+            2.0,
+            &linked(&[("a.md", &["b.md"]), ("b.md", &["a.md"])]),
+        );
+        // a–b is suppressed in both directions; the remaining edges survive.
+        assert_eq!(undirected(&edges), expect_edges(&[("a.md", "c.md"), ("b.md", "c.md")]));
+    }
+
+    #[test]
+    fn knn_batch_limit_caps_neighbours_per_node() {
+        let idx = graph_index();
+        let edges =
+            knn_search_batch_indexed(&idx, &paths(&["a.md", "b.md", "c.md", "d.md"]), 1, 2.0, &HashMap::new());
+        // Per-node nearest: a→b, b→c, c→b, d→c — three undirected edges after dedup.
+        assert_eq!(
+            undirected(&edges),
+            expect_edges(&[("a.md", "b.md"), ("b.md", "c.md"), ("c.md", "d.md")])
+        );
+    }
+
+    #[test]
+    fn indexed_search_matches_bruteforce_topk() {
+        let conn = setup();
+        let mut idx = VectorIndex::new(384);
+        let notes = ["n0.md", "n1.md", "n2.md", "n3.md", "n4.md"];
+        for (i, note) in notes.iter().enumerate() {
+            let v = fake_embedding(0.13 + 0.14 * i as f32);
+            upsert_embedding(&conn, note, &v).unwrap();
+            idx.insert(note, v);
+        }
+        let query = fake_embedding(0.2);
+
+        let brute: Vec<String> = knn_search(&conn, &query, 3)
+            .unwrap()
+            .into_iter()
+            .map(|(p, _)| p)
+            .collect();
+        let indexed: Vec<String> = idx.search(&query, 3).into_iter().map(|(p, _)| p).collect();
+
+        assert_eq!(indexed, brute, "HNSW top-K must match brute-force top-K");
     }
 }

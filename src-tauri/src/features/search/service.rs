@@ -2655,7 +2655,7 @@ pub fn semantic_search_batch(
     })?;
 
     let edges = with_note_index(&app, &vault_id, |idx| {
-        knn_search_batch_indexed(idx, &paths, limit, distance_threshold, &linked_sets)
+        vector_db::knn_search_batch_indexed(idx, &paths, limit, distance_threshold, &linked_sets)
     })?;
 
     Ok(edges
@@ -2862,64 +2862,6 @@ pub fn note_get_file_cache(
     with_read_conn(&app, &vault_id, |conn| {
         search_db::get_file_cache(conn, &note_path)
     })
-}
-
-fn knn_search_batch_indexed(
-    note_index: &VectorIndex,
-    paths: &[String],
-    limit: usize,
-    distance_threshold: f32,
-    linked_sets: &HashMap<String, std::collections::HashSet<String>>,
-) -> Vec<(String, String, f32)> {
-    let path_set: std::collections::HashSet<&str> = paths.iter().map(|s| s.as_str()).collect();
-    let mut seen = std::collections::HashSet::new();
-    let mut edges = Vec::new();
-    let empty_set = std::collections::HashSet::new();
-
-    for query_path in paths {
-        let query_vec = match note_index.get_vector(query_path) {
-            Some(v) => v,
-            None => continue,
-        };
-
-        let linked = linked_sets.get(query_path.as_str()).unwrap_or(&empty_set);
-
-        // Compute pairwise distances using in-memory vectors
-        let mut scored: Vec<(&str, f32)> = paths
-            .iter()
-            .filter(|p| p.as_str() != query_path.as_str() && !linked.contains(p.as_str()))
-            .filter_map(|p| {
-                let v = note_index.get_vector(p)?;
-                let dist = vector_db::dot_distance(query_vec, v);
-                if dist < distance_threshold {
-                    Some((p.as_str(), dist))
-                } else {
-                    None
-                }
-            })
-            .collect();
-
-        scored.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal));
-        scored.truncate(limit);
-
-        for (target, distance) in scored {
-            if !path_set.contains(target) {
-                continue;
-            }
-            let key = if query_path.as_str() < target {
-                format!("{}|{}", query_path, target)
-            } else {
-                format!("{}|{}", target, query_path)
-            };
-            if seen.contains(&key) {
-                continue;
-            }
-            seen.insert(key);
-            edges.push((query_path.clone(), target.to_string(), distance));
-        }
-    }
-
-    edges
 }
 
 fn strip_link_suffix(raw: &str) -> &str {
