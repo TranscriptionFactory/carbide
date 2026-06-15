@@ -10,6 +10,10 @@ export {
 } from "$lib/features/rag/domain/rag_context_assembler";
 export { build_rag_prompt } from "$lib/features/rag/domain/rag_prompt_builder";
 export {
+  rewrite_query,
+  type RagRewriteResult,
+} from "$lib/features/rag/domain/rag_query_rewriter";
+export {
   build_citation_map,
   match_citation_markers,
   resolve_citations,
