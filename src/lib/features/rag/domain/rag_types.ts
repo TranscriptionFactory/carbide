@@ -29,3 +29,21 @@ export type RagStreamEvent =
   | { type: "citation"; citation: RagCitation }
   | { type: "done" }
   | { type: "error"; error: string };
+
+export type RagScope = {
+  folder?: string;
+  tag?: string;
+};
+
+export type RagSessionSummary = {
+  id: string;
+  title: string;
+  created_at: number;
+  updated_at: number;
+};
+
+export type RagSession = RagSessionSummary & {
+  messages: RagMessage[];
+  provider_id: string;
+  scope: RagScope;
+};

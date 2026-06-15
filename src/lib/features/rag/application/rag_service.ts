@@ -22,8 +22,11 @@ import type {
   RagCitation,
   RagMessage,
   RagRetrievedContext,
+  RagSession,
+  RagSessionSummary,
   RagStreamEvent,
 } from "$lib/features/rag/domain/rag_types";
+import type { RagPersistencePort } from "$lib/features/rag/ports";
 import type { HybridSearchHit } from "$lib/shared/types/search";
 
 const log = create_logger("rag_service");
@@ -73,7 +76,42 @@ export class RagService {
     private readonly notes_port: NotesPort,
     private readonly ai_stream_port: AiStreamPort,
     private readonly vault_store: VaultStore,
+    private readonly persistence_port: RagPersistencePort,
   ) {}
+
+  async list_sessions(vault_id: string): Promise<RagSessionSummary[]> {
+    try {
+      return await this.persistence_port.list_sessions(vault_id);
+    } catch (err) {
+      log.warn("RAG list_sessions failed", { error: error_message(err) });
+      return [];
+    }
+  }
+
+  async load_session(vault_id: string, id: string): Promise<RagSession | null> {
+    try {
+      return await this.persistence_port.load_session(vault_id, id);
+    } catch (err) {
+      log.warn("RAG load_session failed", { error: error_message(err) });
+      return null;
+    }
+  }
+
+  async save_session(vault_id: string, session: RagSession): Promise<void> {
+    try {
+      await this.persistence_port.save_session(vault_id, session);
+    } catch (err) {
+      log.warn("RAG save_session failed", { error: error_message(err) });
+    }
+  }
+
+  async delete_session(vault_id: string, id: string): Promise<void> {
+    try {
+      await this.persistence_port.delete_session(vault_id, id);
+    } catch (err) {
+      log.warn("RAG delete_session failed", { error: error_message(err) });
+    }
+  }
 
   async *query(input: RagQueryInput): AsyncGenerator<RagStreamEvent> {
     const vault = this.vault_store.vault;

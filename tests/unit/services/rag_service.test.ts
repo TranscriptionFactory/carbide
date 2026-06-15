@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { RagService } from "$lib/features/rag";
 import { VaultStore } from "$lib/features/vault";
 import { create_test_vault } from "../helpers/test_fixtures";
+import { create_test_rag_persistence_adapter } from "../../adapters/test_rag_persistence_adapter";
 import type { AiStreamChunk } from "$lib/features/ai";
 import type { AiProviderConfig } from "$lib/shared/types/ai_provider_config";
 import type { HybridSearchHit } from "$lib/shared/types/search";
@@ -9,6 +10,8 @@ import type {
   RagCitation,
   RagStreamEvent,
 } from "$lib/features/rag/domain/rag_types";
+
+const persistence = create_test_rag_persistence_adapter();
 
 const provider: AiProviderConfig = {
   id: "ollama",
@@ -99,6 +102,7 @@ describe("RagService.query", () => {
       notes as never,
       stream as never,
       make_vault_store(),
+      persistence,
     );
 
     const result = await collect(
@@ -132,6 +136,7 @@ describe("RagService.query", () => {
       notes as never,
       stream as never,
       make_vault_store(),
+      persistence,
     );
 
     const result = await collect(
@@ -158,6 +163,7 @@ describe("RagService.query", () => {
       notes as never,
       text_stream("Because [1].") as never,
       make_vault_store(),
+      persistence,
     );
 
     await collect(
@@ -198,6 +204,7 @@ describe("RagService.query", () => {
       notes as never,
       text_stream("Answer [1].") as never,
       make_vault_store(),
+      persistence,
     );
 
     await collect(
@@ -224,6 +231,7 @@ describe("RagService.query", () => {
       notes as never,
       text_stream("unused") as never,
       make_vault_store(),
+      persistence,
     );
 
     const result = await collect(
@@ -247,6 +255,7 @@ describe("RagService.query", () => {
       notes as never,
       stream as never,
       make_vault_store(),
+      persistence,
     );
 
     const result = await collect(
@@ -274,6 +283,7 @@ describe("RagService.query", () => {
       notes as never,
       stream as never,
       make_vault_store(),
+      persistence,
     );
 
     const result = await collect(
@@ -298,6 +308,7 @@ describe("RagService.query", () => {
       notes as never,
       stream as never,
       make_vault_store(),
+      persistence,
     );
 
     const result = await collect(
@@ -317,6 +328,7 @@ describe("RagService.query", () => {
       { read_note: vi.fn() } as never,
       text_stream("x") as never,
       make_vault_store(),
+      persistence,
     );
 
     const result = await collect(
@@ -341,6 +353,7 @@ describe("RagService.query", () => {
       notes as never,
       stream as never,
       make_vault_store(),
+      persistence,
     );
 
     const result = await collect(
@@ -356,6 +369,7 @@ describe("RagService.query", () => {
       { read_note: vi.fn() } as never,
       text_stream("x") as never,
       new VaultStore(),
+      persistence,
     );
 
     const result = await collect(

@@ -2,6 +2,8 @@ export { RagService } from "$lib/features/rag/application/rag_service";
 export { RagStore } from "$lib/features/rag/state/rag_store.svelte";
 export { register_rag_actions } from "$lib/features/rag/application/rag_actions";
 export { default as RagPanel } from "$lib/features/rag/ui/rag_panel.svelte";
+export type { RagPersistencePort } from "$lib/features/rag/ports";
+export { create_rag_persistence_tauri_adapter } from "$lib/features/rag/adapters/rag_persistence_tauri_adapter";
 export {
   assemble_context,
   estimate_tokens,
@@ -27,5 +29,8 @@ export type {
   RagMessage,
   RagRetrievedContext,
   RagRole,
+  RagScope,
+  RagSession,
+  RagSessionSummary,
   RagStreamEvent,
 } from "$lib/features/rag/domain/rag_types";
