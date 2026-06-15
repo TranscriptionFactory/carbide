@@ -102,6 +102,29 @@ HNSW index.
 
 **Fix:** route these through the in-memory index.
 
+**Investigation (2026-06-15):** The index-backed path already exists and is wired
+up — this is a *cleanup*, not new work.
+
+- Every production semantic caller already uses the in-memory index:
+  `semantic_search`, `find_similar_notes`, `search_blocks` go through
+  `VectorIndex::search` (HNSW); `semantic_search_batch` goes through
+  `knn_search_batch_indexed` (`service.rs`), which sources vectors from the
+  in-memory index via `get_vector` — no SQLite scan, no per-call deserialize.
+- The two brute-force fns are dead: `knn_search` has zero production callers (only
+  two in-file tests use it); `knn_search_batch` has zero callers anywhere.
+- The metric/threshold concern is a non-issue: `dot_distance = 1 − dot ≡
+  DistCosine` for the L2-normalized vectors we store (same order, same scale), and
+  no path mixes the two. The batch fn is *intentionally* exhaustive pairwise
+  within the selected path set — routing it through `VectorIndex::search` would
+  return global NN filtered down to the set and silently drop in-set edges, so it
+  must stay as-is.
+
+**Plan:** (a) delete dead `knn_search_batch`; (b) move `knn_search_batch_indexed`
+into `vector_db.rs` next to `dot_distance` + the test fixtures, with a doc note on
+why it stays pairwise-within-set; (c) gate `knn_search` behind `#[cfg(test)]` as a
+brute-force test oracle; (d) add parity/self-exclusion/linked-exclusion/threshold/
+symmetric-dedup tests for the index-backed batch fn.
+
 ### 8. [MED] `Selector::parse` recompiled per HTML file
 
 `html_extractor.rs:28,35,43` reparse constant `"title"`/`"h1"`/`"body"`
