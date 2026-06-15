@@ -63,7 +63,7 @@ impl VectorIndex {
                 };
                 for row in rows.flatten() {
                     let vec = super::vector_db::bytes_to_floats(&row.1);
-                    if vec.len() == dims {
+                    if !vec.is_empty() {
                         idx.insert(&row.0, vec);
                     }
                 }
@@ -93,7 +93,7 @@ impl VectorIndex {
                 for row in rows.flatten() {
                     let key = format!("{}\0{}", row.0, row.1);
                     let vec = super::vector_db::bytes_to_floats(&row.2);
-                    if vec.len() == dims {
+                    if !vec.is_empty() {
                         idx.insert(&key, vec);
                     }
                 }
@@ -114,7 +114,26 @@ impl VectorIndex {
     }
 
     pub fn insert(&mut self, str_key: &str, vector: Vec<f32>) {
-        if vector.len() != self.dims {
+        // The active model's output dimension is not known when the index is
+        // constructed (the model loads lazily and is user-configurable), so an
+        // empty index conforms to whatever the first inserted vector provides.
+        // If the dimension actually changes (embedding model switched), rebuild
+        // the empty graph so no stale points of the old dimension remain — a
+        // cosine distance across mismatched lengths would otherwise be invalid.
+        if self.key_to_id.is_empty() && vector.len() != self.dims {
+            self.dims = vector.len();
+            self.hnsw = Hnsw::new(
+                MAX_NB_CONNECTION,
+                10_000,
+                NB_LAYER,
+                EF_CONSTRUCTION,
+                DistCosine,
+            );
+            self.id_to_key.clear();
+            self.next_id = 0;
+        }
+
+        if vector.is_empty() || vector.len() != self.dims {
             return;
         }
 
@@ -197,9 +216,11 @@ impl VectorIndex {
             return vec![];
         }
 
-        let ef_search = (limit * 2).max(32);
         // Over-fetch to account for stale entries
         let fetch = (limit + self.stale_count()).max(limit * 2);
+        // HNSW requires ef >= the number of neighbours requested; clamping ef to
+        // `fetch` keeps recall from collapsing once stale entries inflate `fetch`.
+        let ef_search = fetch.max(32);
         let neighbours = self.hnsw.search(query, fetch, ef_search);
 
         let mut results = Vec::with_capacity(limit);
@@ -374,6 +395,53 @@ mod tests {
 
         assert_eq!(idx.get_vector("key").unwrap(), &v2);
         assert_eq!(idx.len(), 1);
+    }
+
+    #[test]
+    fn adopts_dimension_from_first_vector() {
+        // Index constructed with a stale hint dimension; the first inserted
+        // vector dictates the real dimension (model output is unknown at build).
+        let mut idx = VectorIndex::new(384);
+        let v = unit_vec(0.3, 768);
+        idx.insert("a", v.clone());
+
+        assert_eq!(idx.len(), 1);
+        let results = idx.search(&v, 1);
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].0, "a");
+    }
+
+    #[test]
+    fn dimension_change_after_clear_works() {
+        // Simulates an embedding-model switch: 384-dim data, clear, then 768-dim.
+        let mut idx = VectorIndex::new(384);
+        idx.insert("old", unit_vec(0.1, 384));
+        idx.clear();
+
+        let v = unit_vec(0.5, 768);
+        idx.insert("new", v.clone());
+
+        assert_eq!(idx.len(), 1);
+        assert_eq!(idx.get_vector("new").unwrap().len(), 768);
+        let results = idx.search(&v, 1);
+        assert_eq!(results[0].0, "new");
+    }
+
+    #[test]
+    fn rejects_mismatched_dimension_while_populated() {
+        let mut idx = VectorIndex::new(8);
+        idx.insert("a", unit_vec(0.1, 8));
+        idx.insert("b", unit_vec(0.2, 16));
+
+        assert_eq!(idx.len(), 1);
+        assert!(idx.get_vector("b").is_none());
+    }
+
+    #[test]
+    fn empty_vector_is_rejected() {
+        let mut idx = VectorIndex::new(8);
+        idx.insert("a", vec![]);
+        assert_eq!(idx.len(), 0);
     }
 
     #[test]
