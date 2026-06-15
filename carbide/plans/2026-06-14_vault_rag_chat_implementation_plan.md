@@ -1,7 +1,7 @@
 # Implementation Plan — Vault RAG Chat
 
 **Date:** 2026-06-14
-**Status:** Phase 1 complete — Phase 2 complete (streaming, rewriter, multi-turn, folder scope, stale guard, **session persistence + list UI (D6), and tag scope** all shipped)
+**Status:** Phase 1 complete — Phase 2 complete (streaming, rewriter, multi-turn, folder scope, stale guard, **session persistence + list UI (D6), and tag scope** all shipped) — **Phase 3 complete (D3 block→section retrieval, @mention pinned context, MCP `rag_query`/`rag_status`)**
 **Related:** `carbide/feature_opportunity_assay.md` (Tier 1 #1 + Appendix A), `carbide/TODO.md`
 **Decision tree:** `docs/architecture.md` (followed religiously — new `rag/` feature module, hexagonal anatomy)
 
@@ -314,9 +314,52 @@ multi-turn, no persistence, no scope filter.
 - A folder/tag scope restricts retrieved sources to that scope.
 - **Quality gate:** as P1, plus a streaming-citation integration test.
 
-### Phase 3 — Power features + external access — 1–2 sessions
+### Phase 3 — Power features + external access — ✅ DONE
 
 **Goal.** Block-level retrieval, MCP exposure, advanced context.
+
+**Status — shipped on `feat/rag-chat`:**
+- ✅ **D3 block→section retrieval** — Rust `search_blocks(query, limit)` embeds the
+  query, searches the existing `block_index`, and joins `note_sections`/`notes` into
+  `BlockSectionHit { note, heading, start_line, end_line, distance }` (a new query
+  *path*, not a new index). Exposed as `SearchPort.search_blocks()`. `RagService.query()`
+  now retrieves at section granularity (pure `extract_section` mirrors the Rust line
+  slicing) and budgets per section; whole-note `hybrid_search` remains the fallback when
+  block retrieval returns nothing (short notes / empty block index). Block score =
+  `1/(1+distance)`. Rust unit test: `db::get_section`; pure tests: `extract_section`;
+  service test: a long note's answering section reaches the model within budget.
+- ✅ **@mention pinned context** — pure `parse_mentions` (strips `@`, dedupes) feeds a
+  forced-context path: pinned notes resolve via `SearchPort.suggest_wiki_links`, enter
+  assembly with a max sentinel score so they lead the budget and take the first citation
+  indices, then retrieved sections fill the rest. Retrieved hits dedupe against pinned
+  paths. Tests: `parse_mentions` + a service test asserting an @mentioned note is in
+  context and cited regardless of retrieval score.
+- ✅ **MCP `rag_query` + `rag_status`** — **`rag_query` reuses the real frontend
+  `RagService.query()`** (no parallel retrieval logic) via an **FE event-bridge**: the
+  Rust MCP handler emits `rag://mcp-query`, a boot reactor runs `RagService.query()` and
+  returns the cited answer through the `rag_query_respond` command; the handler blocks on
+  a channel with a 180s timeout and a webview-window guard. **Decision (see below):** the
+  MCP server also runs headless (`carbide mcp` stdio) where no webview exists, so
+  `rag_query` requires the desktop app to be running and returns a clear error headless —
+  chosen over a Rust reimplementation (which the "no parallel logic" rule forbids).
+  `rag_status` is pure Rust (embedding model version, embedded/total counts, indexing
+  flag, bridge availability). Tests: FE `collect_rag_query_response` == in-app collection
+  for the same `query()`; Rust `format_rag_response` formatting.
+- ⏸️ **Saved prompt templates** — deferred (optional in the original scope; not required
+  by any acceptance criterion). Revisit if there's demand.
+- ✅ Gate green: `pnpm check` (0 new errors — 17 pre-existing unchanged), `pnpm test`
+  (full suite 4228; +13 rag-related), `cd src-tauri && cargo check` (0 errors), scoped
+  oxlint clean on touched files, `pnpm format`.
+
+**Architecture decision (MCP ↔ RagService).** The MCP server is pure Rust (axum HTTP +
+`carbide mcp` stdio); `RagService.query()` is frontend TS by design (D2 keeps the
+retrieval/assembly/citation orchestration in pure, unit-testable TS domain). "Reuse
+`RagService.query()`, no parallel logic" therefore cannot be honored by a headless Rust
+reimplementation. Resolved with the **FE event-bridge**: identical quality for the common
+case (app running, which is also where the HTTP server lives); headless stdio degrades
+with a clear error. Revisit only if headless `rag_query` becomes a hard requirement —
+then the orchestration would move to Rust as the single source of truth (a larger
+refactor that would partially undo D2).
 
 **Deliverables.**
 - **D3 block retrieval:** Rust `search_blocks(query, limit)` (embed query → search
