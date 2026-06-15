@@ -132,6 +132,10 @@ export interface SearchPort {
   get_embedding_status(vault_id: VaultId): Promise<EmbeddingStatus>;
   rebuild_embeddings(vault_id: VaultId): Promise<void>;
   get_note_stats(vault_id: VaultId, note_path: string): Promise<NoteStats>;
+  get_indexed_body(
+    vault_id: VaultId,
+    note_path: string,
+  ): Promise<string | null>;
   get_file_cache(vault_id: VaultId, note_path: string): Promise<FileCache>;
   search_headings(
     vault_id: VaultId,

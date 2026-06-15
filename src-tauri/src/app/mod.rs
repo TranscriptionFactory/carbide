@@ -226,6 +226,7 @@ pub fn run() {
             features::search::service::clear_embedding_model_cache,
             shared::asset_cache::purge_all_asset_caches,
             features::search::service::get_note_stats,
+            features::search::service::get_indexed_body,
             features::search::service::get_note_headings,
             features::search::service::get_note_links,
             features::search::service::note_get_file_cache,

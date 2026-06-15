@@ -3,7 +3,7 @@ import { RagService } from "$lib/features/rag";
 import { VaultStore } from "$lib/features/vault";
 import { create_test_vault } from "../helpers/test_fixtures";
 import { create_test_rag_persistence_adapter } from "../../adapters/test_rag_persistence_adapter";
-import type { AiStreamChunk } from "$lib/features/ai";
+import type { AiStreamChunk, AiStreamRequest } from "$lib/features/ai";
 import type { AiProviderConfig } from "$lib/shared/types/ai_provider_config";
 import type {
   BlockSectionHit,
@@ -71,8 +71,24 @@ function stream_of(...chunks: AiStreamChunk[]) {
     stream_text: vi.fn(async function* () {
       for (const chunk of chunks) yield chunk;
     }),
-    abort: vi.fn(),
   };
+}
+
+function capturing_stream(...texts: string[]) {
+  const captured: { signal: AbortSignal | undefined } = { signal: undefined };
+  const stream = {
+    stream_text: vi.fn((input: AiStreamRequest) => {
+      captured.signal = input.signal;
+      // eslint-disable-next-line @typescript-eslint/require-await
+      return (async function* () {
+        for (const text of texts) {
+          yield { type: "text", text } as AiStreamChunk;
+        }
+        yield { type: "done" } as AiStreamChunk;
+      })();
+    }),
+  };
+  return { stream, captured };
 }
 
 function make_vault_store() {
@@ -141,6 +157,45 @@ describe("RagService.query", () => {
     expect(result.content).toContain("[1]");
     expect(result.citations).toEqual([
       { index: 1, note_path: "notes/q.md", title: "Q" },
+    ]);
+    expect(result.error).toBeNull();
+  });
+
+  it("reads linked-source hits from the index instead of the filesystem", async () => {
+    const linked_path = "@linked/papers/clustering.pdf";
+    const search = {
+      search_blocks: vi.fn().mockResolvedValue([]),
+      hybrid_search: vi
+        .fn()
+        .mockResolvedValue([hit(linked_path, "Clustering", "linked-1", 0.9)]),
+      get_indexed_body: vi
+        .fn()
+        .mockResolvedValue("Clustering is significant for high dimensions."),
+    };
+    const notes = {
+      read_note: vi.fn().mockRejectedValue(new Error("No such file")),
+    };
+    const stream = text_stream("It is significant [1].");
+    const service = new RagService(
+      search as never,
+      notes as never,
+      stream as never,
+      make_vault_store(),
+      persistence,
+      tag as never,
+    );
+
+    const result = await collect(
+      service.query({ question: "is clustering significant?", provider_config: provider }),
+    );
+
+    expect(search.get_indexed_body).toHaveBeenCalledWith(
+      expect.anything(),
+      linked_path,
+    );
+    expect(notes.read_note).not.toHaveBeenCalled();
+    expect(result.citations).toEqual([
+      { index: 1, note_path: linked_path, title: "Clustering" },
     ]);
     expect(result.error).toBeNull();
   });
@@ -604,6 +659,73 @@ describe("RagService.query", () => {
     );
 
     expect(result.error).toBe("model crashed");
+  });
+
+  it("aborts the backend stream when the consumer abandons the turn mid-stream", async () => {
+    const search = {
+      search_blocks: vi.fn().mockResolvedValue([]),
+      hybrid_search: vi
+        .fn()
+        .mockResolvedValue([hit("notes/q.md", "Q", "1", 0.9)]),
+    };
+    const notes = {
+      read_note: vi.fn().mockResolvedValue({ markdown: "Body." }),
+    };
+    const { stream, captured } = capturing_stream(
+      "first part ",
+      "second part ",
+      "third part",
+    );
+    const service = new RagService(
+      search as never,
+      notes as never,
+      stream as never,
+      make_vault_store(),
+      persistence,
+      tag as never,
+    );
+
+    for await (const event of service.query({
+      question: "q",
+      provider_config: provider,
+    })) {
+      if (event.type === "text") break;
+    }
+
+    expect(captured.signal?.aborted).toBe(true);
+  });
+
+  it("does not abort the backend stream on natural completion", async () => {
+    const search = {
+      search_blocks: vi.fn().mockResolvedValue([]),
+      hybrid_search: vi
+        .fn()
+        .mockResolvedValue([hit("notes/q.md", "Q", "1", 0.9)]),
+    };
+    const notes = {
+      read_note: vi.fn().mockResolvedValue({ markdown: "Body." }),
+    };
+    const { stream, captured } = capturing_stream("All done.");
+    const service = new RagService(
+      search as never,
+      notes as never,
+      stream as never,
+      make_vault_store(),
+      persistence,
+      tag as never,
+    );
+
+    let aborted_during_stream = false;
+    for await (const event of service.query({
+      question: "q",
+      provider_config: provider,
+    })) {
+      if (event.type === "text" && captured.signal?.aborted) {
+        aborted_during_stream = true;
+      }
+    }
+
+    expect(aborted_during_stream).toBe(false);
   });
 
   it("fails when there is no active vault", async () => {

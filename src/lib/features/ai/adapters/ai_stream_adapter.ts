@@ -14,6 +14,7 @@ export function create_ai_stream_adapter(): AiStreamPort {
     stream_text(input: AiStreamRequest): AsyncIterable<AiStreamChunk> {
       const request_id = crypto.randomUUID();
       const queue = new AsyncQueue<AiStreamChunk>();
+      const signal = input.signal;
 
       const iterable: AsyncIterable<AiStreamChunk> = {
         [Symbol.asyncIterator]() {
@@ -28,11 +29,27 @@ export function create_ai_stream_adapter(): AiStreamPort {
             const chunk = event.payload;
             queue.push(chunk);
             if (chunk.type === "done" || chunk.type === "error") {
-              queue.end();
-              unlisten();
+              teardown();
             }
           },
         );
+
+        const teardown = () => {
+          unlisten();
+          signal?.removeEventListener("abort", on_abort);
+          queue.end();
+        };
+
+        const on_abort = () => {
+          void tauri_invoke("ai_stream_abort", { requestId: request_id });
+          teardown();
+        };
+
+        if (signal?.aborted) {
+          on_abort();
+          return;
+        }
+        signal?.addEventListener("abort", on_abort);
 
         try {
           await tauri_invoke("ai_stream_start", {
@@ -45,16 +62,11 @@ export function create_ai_stream_adapter(): AiStreamPort {
         } catch (e) {
           const msg = e instanceof Error ? e.message : String(e);
           queue.push({ type: "error", error: msg });
-          queue.end();
-          unlisten();
+          teardown();
         }
       })();
 
       return iterable;
-    },
-
-    abort(request_id: string): void {
-      void tauri_invoke("ai_stream_abort", { requestId: request_id });
     },
   };
 }

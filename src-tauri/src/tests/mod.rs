@@ -115,6 +115,7 @@ mod specta_export {
                 crate::features::search::service::clear_embedding_model_cache,
                 crate::shared::asset_cache::purge_all_asset_caches,
                 crate::features::search::service::get_note_stats,
+                crate::features::search::service::get_indexed_body,
                 crate::features::search::service::query_linked_notes_by_source,
                 crate::features::search::service::count_linked_notes_by_source,
                 crate::features::search::service::find_note_by_citekey,

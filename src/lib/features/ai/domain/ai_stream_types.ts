@@ -10,6 +10,7 @@ export type AiStreamRequest = {
   system_prompt: string;
   messages: AiMessage[];
   model?: string;
+  signal?: AbortSignal;
 };
 
 export type AiStreamChunk =

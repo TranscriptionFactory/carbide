@@ -36,7 +36,6 @@ function create_test_ai_stream_adapter(): AiStreamPort {
       (async function* () {
         yield { type: "done" as const };
       })(),
-    abort: () => {},
   };
 }
 
