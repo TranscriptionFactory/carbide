@@ -1,7 +1,7 @@
 # Implementation Plan — Vault RAG Chat
 
 **Date:** 2026-06-14
-**Status:** Phase 1 complete — Phase 2 not started
+**Status:** Phase 1 complete — Phase 2 mostly complete (streaming, rewriter, multi-turn, folder scope, stale guard shipped; **session persistence + UI and tag scope deferred**)
 **Related:** `carbide/feature_opportunity_assay.md` (Tier 1 #1 + Appendix A), `carbide/TODO.md`
 **Decision tree:** `docs/architecture.md` (followed religiously — new `rag/` feature module, hexagonal anatomy)
 
@@ -242,6 +242,41 @@ multi-turn, no persistence, no scope filter.
 ### Phase 2 — Conversation + streaming + persistence — 2 sessions
 
 **Goal.** Full multi-turn chat with streaming, history, and session management.
+
+**Status — session 1 shipped on `feat/rag-chat`:**
+- ✅ **Streaming** (`005a4320`): `RagService.query()` is an
+  `AsyncGenerator<RagStreamEvent>`; new pure `RagStreamParser` reuses
+  `MarkdownJoiner` and buffers partial `[N]` markers across chunks (D5);
+  `rag_message.svelte` shows a blinking cursor while streaming. The in-flight
+  assistant message grows incrementally in `rag_store`.
+- ✅ **Query rewriter D4** (`f35b5442`): pure heuristic `rag_query_rewriter.ts`
+  resolves bare/pronoun follow-ups against the prior question into a standalone
+  retrieval query; cited-note score boost (×1.25) for topic continuity. Prompt
+  still answers the original question.
+- ✅ **Multi-turn history** (`44cdbf45`): `build_rag_prompt` (still pure) injects
+  recent turns as a budgeted `<conversation>` section (char/4, newest-first),
+  stripping stale `[N]` markers.
+- ✅ **Folder-prefix scope** (`50072e15`): pure `rag_scope.ts`; service
+  post-filters hits by folder prefix; scope input wired store → input.
+- ✅ **Stale-response guard + new-chat** (`de373f8f`): per-turn revision token
+  bails streaming writes/finalization when superseded; `rag.new_chat` clears +
+  resets the op + bumps the revision; panel "New chat" button.
+- ✅ Gate green: `pnpm check` (0 new errors — 17 pre-existing unchanged),
+  `pnpm test` (full suite 4193 green; 57 rag tests), scoped oxlint clean,
+  `pnpm format`. No Rust touched. code-simplifier pass applied (payload-coercion
+  dedup).
+
+**Deferred to session 2 (intentionally):**
+- **Session persistence + list UI (D6)** — `.carbide/rag/sessions/<uuid>.json`
+  via a new `RagPersistencePort` + tauri adapter (reuse
+  `read/write/delete_vault_file`; note `list_vault_files_by_extension` excludes
+  `.carbide/`, so use a manifest index, not directory listing). Session
+  new/rename/delete/switch + store refactor. This is the heavy, separable piece
+  and owns the "closing/reopening restores sessions" and "provider switch
+  mid-session" acceptance rows.
+- **Tag scope** — needs reliable frontmatter + inline `#tag` extraction (the
+  `reference` feature already parses frontmatter; bind to it rather than
+  duplicate). Folder-prefix scope already satisfies the scope acceptance row.
 
 **Deliverables.**
 - Streaming via `AiStreamPort.stream_text()`; `RagService.query()` becomes an
