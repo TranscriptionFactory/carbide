@@ -214,10 +214,113 @@ pub async fn ai_stream_start(
 
             Ok(())
         }
-        AiTransport::Api { .. } => {
-            Err("API-based streaming is not yet supported".to_string())
+        AiTransport::Api {
+            base_url,
+            api_key_env,
+        } => {
+            let resolved_model = model
+                .or(provider_config.model.clone())
+                .unwrap_or_default();
+            let url = chat_completions_url(base_url);
+            let body = build_chat_request_body(&system_prompt, &messages, &resolved_model);
+            let auth_token = api_key_env
+                .as_ref()
+                .and_then(|name| std::env::var(name).ok())
+                .filter(|value| !value.is_empty());
+
+            let (abort_tx, abort_rx) = tokio::sync::oneshot::channel::<()>();
+            state.handles.lock().await.insert(
+                request_id.clone(),
+                StreamHandle { abort_tx },
+            );
+
+            tokio::spawn(async move {
+                let result =
+                    run_streaming_api(&app, &event_name, &url, body, auth_token, abort_rx).await;
+
+                if let Err(e) = result {
+                    let _ = app.emit(&event_name, AiStreamEvent::Error { error: e });
+                }
+            });
+
+            Ok(())
         }
     }
+}
+
+async fn run_streaming_api(
+    app: &AppHandle,
+    event_name: &str,
+    url: &str,
+    body: serde_json::Value,
+    auth_token: Option<String>,
+    abort_rx: tokio::sync::oneshot::Receiver<()>,
+) -> Result<(), String> {
+    let client = reqwest::Client::builder()
+        .connect_timeout(std::time::Duration::from_secs(10))
+        .build()
+        .map_err(|e| format!("Failed to build HTTP client: {e}"))?;
+
+    let mut request = client.post(url).json(&body);
+    if let Some(token) = auth_token {
+        request = request.bearer_auth(token);
+    }
+
+    tokio::select! {
+        result = stream_chat_completions(app, event_name, request) => result,
+        _ = abort_rx => {
+            let _ = app.emit(event_name, AiStreamEvent::Error {
+                error: "aborted".to_string(),
+            });
+            Ok(())
+        }
+    }
+}
+
+async fn stream_chat_completions(
+    app: &AppHandle,
+    event_name: &str,
+    request: reqwest::RequestBuilder,
+) -> Result<(), String> {
+    let response = request
+        .send()
+        .await
+        .map_err(|e| format!("Could not reach AI server: {e}"))?;
+
+    if !response.status().is_success() {
+        let status = response.status();
+        let detail = clamp_stderr(&response.text().await.unwrap_or_default());
+        let error = if detail.is_empty() {
+            format!("AI server returned {status}")
+        } else {
+            format!("AI server returned {status}: {detail}")
+        };
+        let _ = app.emit(event_name, AiStreamEvent::Error { error });
+        return Ok(());
+    }
+
+    let mut stream = response.bytes_stream();
+    let mut decoder = SseDecoder::new();
+
+    while let Some(chunk) = stream.next().await {
+        let bytes = chunk.map_err(|e| format!("Stream error: {e}"))?;
+        for event in decoder.push(&bytes) {
+            match event {
+                SseEvent::Delta(text) => {
+                    if !text.is_empty() {
+                        let _ = app.emit(event_name, AiStreamEvent::Text { text });
+                    }
+                }
+                SseEvent::Done => {
+                    let _ = app.emit(event_name, AiStreamEvent::Done);
+                    return Ok(());
+                }
+            }
+        }
+    }
+
+    let _ = app.emit(event_name, AiStreamEvent::Done);
+    Ok(())
 }
 
 async fn run_streaming_cli(
