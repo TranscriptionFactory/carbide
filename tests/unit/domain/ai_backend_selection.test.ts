@@ -9,7 +9,13 @@ import type { AiProviderConfig } from "$lib/shared/types/ai_provider_config";
 describe("preferred_ai_backend_order", () => {
   it("returns all providers in order for auto mode", () => {
     const result = preferred_ai_backend_order("auto", BUILTIN_PROVIDER_PRESETS);
-    expect(result.map((p) => p.id)).toEqual(["claude", "codex", "ollama"]);
+    expect(result.map((p) => p.id)).toEqual([
+      "claude",
+      "codex",
+      "ollama",
+      "lmstudio",
+      "llama-server",
+    ]);
   });
 
   it("returns a single explicit provider when configured", () => {
@@ -26,7 +32,13 @@ describe("preferred_ai_backend_order", () => {
       "nonexistent",
       BUILTIN_PROVIDER_PRESETS,
     );
-    expect(result.map((p) => p.id)).toEqual(["claude", "codex", "ollama"]);
+    expect(result.map((p) => p.id)).toEqual([
+      "claude",
+      "codex",
+      "ollama",
+      "lmstudio",
+      "llama-server",
+    ]);
   });
 
   it("works with custom providers", () => {

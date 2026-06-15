@@ -33,7 +33,7 @@ describe("migrate_ai_settings", () => {
 
     expect(result).not.toBeNull();
     expect(result!.ai_default_provider_id).toBe("ollama");
-    expect(result!.ai_providers).toHaveLength(3);
+    expect(result!.ai_providers).toHaveLength(5);
 
     const claude = result!.ai_providers.find((p) => p.id === "claude");
     expect(claude?.transport).toEqual({
