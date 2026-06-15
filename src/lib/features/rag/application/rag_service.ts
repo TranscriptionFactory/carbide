@@ -4,6 +4,7 @@ import type { VaultStore } from "$lib/features/vault";
 import type { SearchPort } from "$lib/features/search";
 import type { NotesPort } from "$lib/features/note";
 import type { AiStreamPort } from "$lib/features/ai";
+import type { TagPort } from "$lib/features/tags";
 import type { AiProviderConfig } from "$lib/shared/types/ai_provider_config";
 import {
   assemble_context,
@@ -16,6 +17,7 @@ import { RagStreamParser } from "$lib/features/rag/domain/rag_stream_parser";
 import { rewrite_query } from "$lib/features/rag/domain/rag_query_rewriter";
 import {
   normalize_folder_scope,
+  normalize_tag_scope,
   path_in_folder,
 } from "$lib/features/rag/domain/rag_scope";
 import type {
@@ -78,6 +80,7 @@ export class RagService {
     private readonly ai_stream_port: AiStreamPort,
     private readonly vault_store: VaultStore,
     private readonly persistence_port: RagPersistencePort,
+    private readonly tag_port: TagPort,
   ) {}
 
   async list_sessions(vault_id: string): Promise<RagSessionSummary[]> {
@@ -142,6 +145,18 @@ export class RagService {
     const folder_scope = normalize_folder_scope(input.scope?.folder);
     if (folder_scope) {
       hits = hits.filter((hit) => path_in_folder(hit.note.path, folder_scope));
+    }
+
+    const tag_scope = normalize_tag_scope(input.scope?.tag);
+    if (tag_scope) {
+      try {
+        const tagged = new Set(
+          await this.tag_port.get_notes_for_tag(vault.id, tag_scope),
+        );
+        hits = hits.filter((hit) => tagged.has(hit.note.path));
+      } catch (err) {
+        log.warn("RAG tag scope filter failed", { error: error_message(err) });
+      }
     }
 
     if (hits.length === 0) {

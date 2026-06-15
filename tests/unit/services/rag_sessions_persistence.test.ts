@@ -17,6 +17,7 @@ function make_service(persistence = create_test_rag_persistence_adapter()) {
     { stream_text: () => (async function* () {})(), abort: () => {} } as never,
     vault_store,
     persistence,
+    { get_notes_for_tag: () => Promise.resolve([]) } as never,
   );
 }
 

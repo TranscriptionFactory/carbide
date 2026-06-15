@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { SendHorizontal, FolderTree } from "@lucide/svelte";
+  import { SendHorizontal, FolderTree, Hash } from "@lucide/svelte";
   import * as Select from "$lib/components/ui/select/index.js";
   import { Button } from "$lib/components/ui/button";
   import { Textarea } from "$lib/components/ui/textarea";
@@ -63,6 +63,18 @@
       oninput={(event) =>
         on_scope_change({ ...scope, folder: event.currentTarget.value })}
       placeholder="Scope to a folder (e.g. projects/)…"
+      class="h-8 pl-7 text-xs"
+    />
+  </div>
+  <div class="relative">
+    <Hash
+      class="absolute left-2 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground"
+    />
+    <Input
+      value={scope.tag ?? ""}
+      oninput={(event) =>
+        on_scope_change({ ...scope, tag: event.currentTarget.value })}
+      placeholder="Scope to a tag (e.g. project/active)…"
       class="h-8 pl-7 text-xs"
     />
   </div>
