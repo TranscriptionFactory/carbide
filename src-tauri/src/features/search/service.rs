@@ -3,8 +3,8 @@ use crate::features::search::db::{self as search_db, AttachmentLink, OrphanLink}
 use crate::features::search::embeddings::{EmbeddingService, EmbeddingServiceState};
 use crate::features::search::hnsw_index::{SharedVectorIndex, VectorIndex};
 use crate::features::search::model::{
-    BatchSemanticEdge, BlockSearchHit, EmbeddingStatus, HybridSearchHit, IndexNoteMeta, SearchHit,
-    SearchScope, SemanticSearchHit,
+    BatchSemanticEdge, BlockSearchHit, BlockSectionHit, EmbeddingStatus, HybridSearchHit,
+    IndexNoteMeta, SearchHit, SearchScope, SemanticSearchHit,
 };
 use crate::features::search::{hybrid, vector_db};
 use crate::features::settings::service as settings_service;
@@ -2571,6 +2571,51 @@ pub fn find_similar_blocks(
         .collect();
 
     Ok(results)
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn search_blocks(
+    app: AppHandle,
+    vault_id: String,
+    query: String,
+    limit: Option<usize>,
+) -> Result<Vec<BlockSectionHit>, String> {
+    let embedding_state = app.state::<EmbeddingServiceState>();
+    let cache_dir = resolve_embedding_cache_dir(&app);
+    let short_id = resolve_embedding_model_id(&app);
+    let hf_repo = short_id_to_hf_repo(&short_id);
+    let model = embedding_state.get_or_init(cache_dir, hf_repo, &app)?;
+    let query_vec = model.embed_one(&query)?;
+    let limit = limit.unwrap_or(15);
+
+    let raw = with_block_index(&app, &vault_id, |idx| idx.search(&query_vec, limit))?;
+
+    with_read_conn(&app, &vault_id, |conn| {
+        let mut results = Vec::with_capacity(raw.len());
+        for (key, distance) in &raw {
+            let Some((path, heading_id)) = key.split_once('\0') else {
+                continue;
+            };
+            let Some((heading, start_line, end_line)) =
+                search_db::get_section(conn, path, heading_id)?
+            else {
+                continue;
+            };
+            let Some(note) = search_db::get_note_meta(conn, path)? else {
+                continue;
+            };
+            results.push(BlockSectionHit {
+                note,
+                heading_id: heading_id.to_string(),
+                heading,
+                start_line: start_line as u32,
+                end_line: end_line as u32,
+                distance: *distance,
+            });
+        }
+        Ok(results)
+    })
 }
 
 #[tauri::command]

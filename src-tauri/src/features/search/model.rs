@@ -23,6 +23,16 @@ pub struct BlockSearchHit {
     pub distance: f32,
 }
 
+#[derive(Debug, Serialize, Clone, Type)]
+pub struct BlockSectionHit {
+    pub note: IndexNoteMeta,
+    pub heading_id: String,
+    pub heading: String,
+    pub start_line: u32,
+    pub end_line: u32,
+    pub distance: f32,
+}
+
 #[derive(Debug, Serialize, Clone, PartialEq, Type)]
 #[serde(rename_all = "snake_case")]
 pub enum HitSource {

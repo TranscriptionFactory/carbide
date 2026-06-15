@@ -90,6 +90,7 @@ describe("SearchService", () => {
       resolve_wiki_link: vi.fn().mockResolvedValue(null),
       semantic_search: vi.fn().mockResolvedValue([]),
       hybrid_search: vi.fn().mockResolvedValue([]),
+      search_blocks: vi.fn().mockResolvedValue([]),
       get_embedding_status: vi.fn().mockResolvedValue({
         total_notes: 0,
         embedded_notes: 0,
@@ -152,6 +153,7 @@ describe("SearchService", () => {
       resolve_wiki_link: vi.fn().mockResolvedValue(null),
       semantic_search: vi.fn().mockResolvedValue([]),
       hybrid_search: vi.fn().mockResolvedValue([]),
+      search_blocks: vi.fn().mockResolvedValue([]),
       get_embedding_status: vi.fn().mockResolvedValue({
         total_notes: 0,
         embedded_notes: 0,
@@ -213,6 +215,7 @@ describe("SearchService", () => {
       resolve_wiki_link: vi.fn().mockResolvedValue(null),
       semantic_search: vi.fn().mockResolvedValue([]),
       hybrid_search: vi.fn().mockResolvedValue([]),
+      search_blocks: vi.fn().mockResolvedValue([]),
       get_embedding_status: vi.fn().mockResolvedValue({
         total_notes: 0,
         embedded_notes: 0,
@@ -271,6 +274,7 @@ describe("SearchService", () => {
       resolve_wiki_link: vi.fn().mockResolvedValue(null),
       semantic_search: vi.fn().mockResolvedValue([]),
       hybrid_search: vi.fn().mockResolvedValue([]),
+      search_blocks: vi.fn().mockResolvedValue([]),
       get_embedding_status: vi.fn().mockResolvedValue({
         total_notes: 0,
         embedded_notes: 0,
@@ -336,6 +340,7 @@ describe("SearchService", () => {
       resolve_wiki_link: vi.fn().mockResolvedValue(null),
       semantic_search: vi.fn().mockResolvedValue([]),
       hybrid_search: vi.fn().mockResolvedValue([]),
+      search_blocks: vi.fn().mockResolvedValue([]),
       get_embedding_status: vi.fn().mockResolvedValue({
         total_notes: 0,
         embedded_notes: 0,
@@ -409,6 +414,7 @@ describe("SearchService", () => {
       resolve_wiki_link: vi.fn().mockResolvedValue(null),
       semantic_search: vi.fn().mockResolvedValue([]),
       hybrid_search: vi.fn().mockResolvedValue([]),
+      search_blocks: vi.fn().mockResolvedValue([]),
       get_embedding_status: vi.fn().mockResolvedValue({
         total_notes: 0,
         embedded_notes: 0,
@@ -483,6 +489,7 @@ describe("SearchService", () => {
       resolve_wiki_link: vi.fn().mockResolvedValue("docs/wiki.md"),
       semantic_search: vi.fn().mockResolvedValue([]),
       hybrid_search: vi.fn().mockResolvedValue([]),
+      search_blocks: vi.fn().mockResolvedValue([]),
       get_embedding_status: vi.fn().mockResolvedValue({
         total_notes: 0,
         embedded_notes: 0,
@@ -541,6 +548,7 @@ describe("SearchService", () => {
       resolve_wiki_link: vi.fn().mockResolvedValue(null),
       semantic_search: vi.fn().mockResolvedValue([]),
       hybrid_search: vi.fn().mockResolvedValue([]),
+      search_blocks: vi.fn().mockResolvedValue([]),
       get_embedding_status: vi.fn().mockResolvedValue({
         total_notes: 0,
         embedded_notes: 0,
@@ -611,6 +619,7 @@ describe("SearchService", () => {
       resolve_wiki_link: vi.fn().mockResolvedValue("exposomics.md"),
       semantic_search: vi.fn().mockResolvedValue([]),
       hybrid_search: vi.fn().mockResolvedValue([]),
+      search_blocks: vi.fn().mockResolvedValue([]),
       get_embedding_status: vi.fn().mockResolvedValue({
         total_notes: 0,
         embedded_notes: 0,
@@ -712,6 +721,7 @@ describe("SearchService", () => {
         hybrid_search: overrides.hybrid_search_error
           ? vi.fn().mockRejectedValue(overrides.hybrid_search_error)
           : vi.fn().mockResolvedValue(overrides.hybrid_search_results ?? []),
+        search_blocks: vi.fn().mockResolvedValue([]),
         get_embedding_status: vi.fn().mockResolvedValue({
           total_notes: 0,
           embedded_notes: 0,
@@ -943,6 +953,7 @@ describe("SearchService", () => {
         resolve_wiki_link: vi.fn().mockResolvedValue(null),
         semantic_search: vi.fn().mockResolvedValue([]),
         hybrid_search: vi.fn().mockResolvedValue([]),
+        search_blocks: vi.fn().mockResolvedValue([]),
         get_embedding_status: vi.fn().mockResolvedValue({
           total_notes: 0,
           embedded_notes: 0,

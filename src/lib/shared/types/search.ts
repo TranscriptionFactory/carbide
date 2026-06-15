@@ -103,6 +103,15 @@ export type HybridSearchHit = {
   source: HitSource;
 };
 
+export type BlockSectionHit = {
+  note: NoteMeta;
+  heading_id: string;
+  heading: string;
+  start_line: number;
+  end_line: number;
+  distance: number;
+};
+
 export type EmbeddingStatus = {
   total_notes: number;
   embedded_notes: number;

@@ -3137,6 +3137,26 @@ pub fn get_note_meta(conn: &Connection, path: &str) -> Result<Option<IndexNoteMe
     }
 }
 
+pub fn get_section(
+    conn: &Connection,
+    path: &str,
+    heading_id: &str,
+) -> Result<Option<(String, i64, i64)>, String> {
+    let mut stmt = conn
+        .prepare(
+            "SELECT title, start_line, end_line FROM note_sections
+             WHERE path = ?1 AND heading_id = ?2",
+        )
+        .map_err(|e| e.to_string())?;
+    match stmt.query_row(params![path, heading_id], |row| {
+        Ok((row.get(0)?, row.get(1)?, row.get(2)?))
+    }) {
+        Ok(section) => Ok(Some(section)),
+        Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+        Err(error) => Err(error.to_string()),
+    }
+}
+
 pub fn get_outlinks(conn: &Connection, path: &str) -> Result<Vec<IndexNoteMeta>, String> {
     let sql = "SELECT n.path, n.title, n.mtime_ms, n.size_bytes, n.file_type
                FROM outlinks o
@@ -4657,6 +4677,30 @@ mod tests {
         assert_eq!(sections.len(), 1);
         assert_eq!(sections[0].0, "e.md");
         assert_eq!(sections[0].1, "h-2-long-section-0");
+    }
+
+    #[test]
+    fn get_section_resolves_heading_to_title_and_bounds() {
+        let conn = Connection::open_in_memory().expect("in-memory db");
+        init_schema(&conn).expect("schema");
+
+        let meta = note("s.md", "Sections");
+        let body = "# Intro\n\nIntro words here.\n\n## Details\n\nThe answer lives in this section with plenty of words.";
+        upsert_note(&conn, &meta, body).expect("upsert");
+
+        let sections = get_embeddable_sections(&conn, 0, 0).expect("sections");
+        assert!(!sections.is_empty());
+        for (path, heading_id, start, end) in &sections {
+            let (title, s_start, s_end) = get_section(&conn, path, heading_id)
+                .expect("query")
+                .expect("section present");
+            assert_eq!((s_start, s_end), (*start, *end));
+            assert!(!title.is_empty());
+        }
+
+        assert!(get_section(&conn, "s.md", "no-such-heading")
+            .expect("query")
+            .is_none());
     }
 
     #[test]

@@ -104,6 +104,7 @@ mod specta_export {
                 crate::features::search::service::semantic_search,
                 crate::features::search::service::find_similar_notes,
                 crate::features::search::service::semantic_search_batch,
+                crate::features::search::service::search_blocks,
                 crate::features::search::service::hybrid_search,
                 crate::features::search::service::get_embedding_status,
                 crate::features::search::service::rebuild_embeddings,

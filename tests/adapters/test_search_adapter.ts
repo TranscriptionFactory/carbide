@@ -117,6 +117,7 @@ export function create_test_search_adapter(): SearchPort {
     semantic_search_batch: () => Promise.resolve([]),
     semantic_search: () => Promise.resolve([]),
     hybrid_search: () => Promise.resolve([]),
+    search_blocks: () => Promise.resolve([]),
     get_embedding_status: () =>
       Promise.resolve({
         total_notes: 0,

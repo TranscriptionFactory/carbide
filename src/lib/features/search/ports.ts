@@ -8,6 +8,7 @@ import type {
   IndexProgressEvent,
   SemanticSearchHit,
   HybridSearchHit,
+  BlockSectionHit,
   EmbeddingStatus,
   EmbeddingProgressEvent,
   SearchQueryInput,
@@ -117,6 +118,11 @@ export interface SearchPort {
     query: SearchQueryInput,
     limit?: number,
   ): Promise<HybridSearchHit[]>;
+  search_blocks(
+    vault_id: VaultId,
+    query: string,
+    limit?: number,
+  ): Promise<BlockSectionHit[]>;
   semantic_search_batch(
     vault_id: VaultId,
     paths: string[],
