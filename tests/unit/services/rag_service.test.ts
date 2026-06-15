@@ -186,7 +186,10 @@ describe("RagService.query", () => {
     );
 
     const result = await collect(
-      service.query({ question: "is clustering significant?", provider_config: provider }),
+      service.query({
+        question: "is clustering significant?",
+        provider_config: provider,
+      }),
     );
 
     expect(search.get_indexed_body).toHaveBeenCalledWith(

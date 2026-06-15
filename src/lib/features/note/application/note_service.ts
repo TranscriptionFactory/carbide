@@ -116,8 +116,8 @@ export class NoteService {
     this.notes_store.update_note_after_save(
       note_id,
       result.blurb,
-      result.color,
-      result.icon,
+      result.color ?? undefined,
+      result.icon ?? undefined,
     );
     return result;
   }
