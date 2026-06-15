@@ -15,6 +15,7 @@ export function register_rag_actions(
   },
 ) {
   const { registry, stores, rag_store, rag_service } = input;
+  let turn_revision = 0;
 
   function get_providers(): AiProviderConfig[] {
     return stores.ui.editor_settings.ai_providers;
@@ -62,6 +63,7 @@ export function register_rag_actions(
         return;
       }
 
+      const revision = ++turn_revision;
       const history = [...rag_store.messages];
       rag_store.add_user_message(question);
       rag_store.start_loading();
@@ -75,6 +77,7 @@ export function register_rag_actions(
           history,
           scope: rag_store.scope,
         })) {
+          if (revision !== turn_revision) return;
           if (event.type === "text") {
             if (!rag_store.streaming_id) rag_store.start_streaming();
             rag_store.append_streaming_text(event.text);
@@ -86,15 +89,27 @@ export function register_rag_actions(
             errored = true;
           }
         }
+        if (revision !== turn_revision) return;
         if (!errored) {
           rag_store.finish_streaming();
           stores.op.succeed(RAG_OP_KEY);
         }
       } catch (err) {
+        if (revision !== turn_revision) return;
         const message = error_message(err);
         rag_store.fail_streaming(message);
         stores.op.fail(RAG_OP_KEY, message);
       }
+    },
+  });
+
+  registry.register({
+    id: ACTION_IDS.rag_new_chat,
+    label: "New Vault Chat",
+    execute: () => {
+      turn_revision += 1;
+      rag_store.clear();
+      stores.op.reset(RAG_OP_KEY);
     },
   });
 

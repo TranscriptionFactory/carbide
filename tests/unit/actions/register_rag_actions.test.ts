@@ -100,6 +100,36 @@ describe("register_rag_actions", () => {
     expect(stores.op.get("rag.ask").status).toBe("error");
   });
 
+  it("new chat clears the conversation and resets the pending op", async () => {
+    const { registry, rag_store, stores } = create_harness();
+    await registry.execute(ACTION_IDS.rag_ask, "what is it?");
+    expect(rag_store.messages.length).toBeGreaterThan(0);
+
+    await registry.execute(ACTION_IDS.rag_new_chat);
+
+    expect(rag_store.messages).toEqual([]);
+    expect(stores.op.get("rag.ask").status).toBe("idle");
+  });
+
+  it("a turn invalidated mid-stream stops writing to the store", async () => {
+    const { registry, rag_store, rag_service, stores } = create_harness();
+    rag_service.query = vi.fn(
+      async function* (): AsyncGenerator<RagStreamEvent> {
+        yield { type: "text", text: "partial" };
+        // the user starts a new chat while this turn is still streaming
+        await registry.execute(ACTION_IDS.rag_new_chat);
+        yield { type: "text", text: " more" };
+        yield { type: "done" };
+      },
+    );
+
+    await registry.execute(ACTION_IDS.rag_ask, "q");
+
+    expect(rag_store.messages).toEqual([]);
+    expect(rag_store.streaming_id).toBeNull();
+    expect(stores.op.get("rag.ask").status).toBe("idle");
+  });
+
   it("asks: ignores blank questions", async () => {
     const { registry, rag_service, rag_store } = create_harness();
 
