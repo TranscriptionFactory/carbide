@@ -176,6 +176,15 @@ async fn run_streaming_cli(
         .take()
         .ok_or("Failed to capture stdout")?;
 
+    let stderr_handle = child.stderr.take().map(|stderr| {
+        tokio::spawn(async move {
+            use tokio::io::AsyncReadExt;
+            let mut buf = String::new();
+            let _ = BufReader::new(stderr).read_to_string(&mut buf).await;
+            buf
+        })
+    });
+
     let mut reader = BufReader::new(stdout).lines();
 
     tokio::select! {
@@ -194,9 +203,13 @@ async fn run_streaming_cli(
                 }
                 Ok(s) => {
                     let code = s.code().unwrap_or(-1);
-                    let _ = app.emit(event_name, AiStreamEvent::Error {
-                        error: format!("Process exited with code {code}"),
-                    });
+                    let detail = collect_stderr_tail(stderr_handle).await;
+                    let error = if detail.is_empty() {
+                        format!("Process exited with code {code}")
+                    } else {
+                        format!("Process exited with code {code}: {detail}")
+                    };
+                    let _ = app.emit(event_name, AiStreamEvent::Error { error });
                 }
                 Err(e) => {
                     let _ = app.emit(event_name, AiStreamEvent::Error {
@@ -216,6 +229,29 @@ async fn run_streaming_cli(
     Ok(())
 }
 
+async fn collect_stderr_tail(handle: Option<tokio::task::JoinHandle<String>>) -> String {
+    let Some(handle) = handle else {
+        return String::new();
+    };
+    clamp_stderr(&handle.await.unwrap_or_default())
+}
+
+fn clamp_stderr(raw: &str) -> String {
+    const MAX_CHARS: usize = 800;
+    let trimmed = raw.trim();
+    if trimmed.is_empty() {
+        return String::new();
+    }
+
+    let chars: Vec<char> = trimmed.chars().collect();
+    if chars.len() <= MAX_CHARS {
+        trimmed.to_string()
+    } else {
+        let tail: String = chars[chars.len() - MAX_CHARS..].iter().collect();
+        format!("…{tail}")
+    }
+}
+
 #[tauri::command]
 #[specta::specta]
 pub async fn ai_stream_abort(
@@ -226,4 +262,40 @@ pub async fn ai_stream_abort(
         let _ = handle.abort_tx.send(());
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::clamp_stderr;
+
+    #[test]
+    fn empty_or_whitespace_stderr_yields_nothing() {
+        assert_eq!(clamp_stderr(""), "");
+        assert_eq!(clamp_stderr("   \n\t "), "");
+    }
+
+    #[test]
+    fn short_stderr_is_trimmed_and_kept() {
+        assert_eq!(
+            clamp_stderr("\n  Error: not authenticated\n"),
+            "Error: not authenticated"
+        );
+    }
+
+    #[test]
+    fn long_stderr_keeps_a_marked_tail() {
+        let raw = "x".repeat(2000);
+        let out = clamp_stderr(&raw);
+        assert!(out.starts_with('…'));
+        assert_eq!(out.chars().count(), 801);
+        assert!(out.ends_with('x'));
+    }
+
+    #[test]
+    fn multibyte_stderr_is_not_split_mid_char() {
+        let raw = "é".repeat(2000);
+        let out = clamp_stderr(&raw);
+        assert!(out.starts_with('…'));
+        assert_eq!(out.chars().count(), 801);
+    }
 }
