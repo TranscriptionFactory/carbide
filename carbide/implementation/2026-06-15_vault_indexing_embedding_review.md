@@ -135,4 +135,7 @@ syncs both enqueue. `get_embedding_status` also hardcodes `is_embedding: false`
 - [x] #3 — `ef_search = fetch.max(32)`
 - [x] #6 — sleep a fraction of batch time
 - [x] #2 — note-vector consistency (both paths compose from blocks)
-- [ ] #4, #5, #7, #8, #9 — open
+- [x] #8 — HTML selectors hoisted to `LazyLock` statics
+- [x] #9b — `embed_queued` atomic closes the embed_sync double-enqueue window
+- [ ] #4, #5, #7 — open
+- [ ] #9a — `get_embedding_status` still hardcodes `is_embedding: false` (open)

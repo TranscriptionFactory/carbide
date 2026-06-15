@@ -1,4 +1,11 @@
 use scraper::{Html, Selector};
+use std::sync::LazyLock;
+
+// Constant selectors compiled once; reparsing them per HTML file was pure
+// repeated work in the full-index hot loop. The literals cannot fail to parse.
+static TITLE_SEL: LazyLock<Selector> = LazyLock::new(|| Selector::parse("title").unwrap());
+static H1_SEL: LazyLock<Selector> = LazyLock::new(|| Selector::parse("h1").unwrap());
+static BODY_SEL: LazyLock<Selector> = LazyLock::new(|| Selector::parse("body").unwrap());
 
 pub struct HtmlExtraction {
     pub title: Option<String>,
@@ -25,26 +32,20 @@ pub fn extract_html_text(bytes: &[u8]) -> HtmlExtraction {
 }
 
 fn extract_title(doc: &Html) -> Option<String> {
-    let title_sel = Selector::parse("title").ok()?;
-    if let Some(node) = doc.select(&title_sel).next() {
+    if let Some(node) = doc.select(&TITLE_SEL).next() {
         let text = collect_text(&node).trim().to_string();
         if !text.is_empty() {
             return Some(text);
         }
     }
-    let h1_sel = Selector::parse("h1").ok()?;
-    doc.select(&h1_sel)
+    doc.select(&H1_SEL)
         .next()
         .map(|n| collect_text(&n).trim().to_string())
         .filter(|s| !s.is_empty())
 }
 
 fn extract_visible_text(doc: &Html) -> String {
-    let body_sel = match Selector::parse("body") {
-        Ok(s) => s,
-        Err(_) => return String::new(),
-    };
-    let root = doc.select(&body_sel).next();
+    let root = doc.select(&BODY_SEL).next();
     let mut out = String::new();
     match root {
         Some(node) => append_text(&node, &mut out),
