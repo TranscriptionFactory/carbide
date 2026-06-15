@@ -322,12 +322,20 @@ multi-turn, no persistence, no scope filter.
 - ✅ **D3 block→section retrieval** — Rust `search_blocks(query, limit)` embeds the
   query, searches the existing `block_index`, and joins `note_sections`/`notes` into
   `BlockSectionHit { note, heading, start_line, end_line, distance }` (a new query
-  *path*, not a new index). Exposed as `SearchPort.search_blocks()`. `RagService.query()`
-  now retrieves at section granularity (pure `extract_section` mirrors the Rust line
-  slicing) and budgets per section; whole-note `hybrid_search` remains the fallback when
-  block retrieval returns nothing (short notes / empty block index). Block score =
-  `1/(1+distance)`. Rust unit test: `db::get_section`; pure tests: `extract_section`;
-  service test: a long note's answering section reaches the model within budget.
+  *path*, not a new index). Exposed as `SearchPort.search_blocks()`. **Retrieval design
+  (corrected after live testing):** `hybrid_search` (FTS + vector + RRF) is the **recall
+  backbone** — it carries keyword matches that pure-vector block search misses — and
+  `search_blocks` is a **best-effort precision overlay**: for each hybrid-retrieved note
+  that also appears in the block results, its whole-note text is replaced by the matched
+  section (pure `extract_section`, mirrors the Rust line slicing) to tighten the budget;
+  keyword-only notes keep full-note text. Block retrieval failures are non-fatal (hybrid
+  still answers); block-only retrieval is used only if hybrid returns nothing.
+  *(The original "block-primary, hybrid-fallback" wiring was a bug — vector block search
+  almost always returns some sections, so the FTS fallback never fired and exact/rare
+  terms like a model name went unfound even though `carbide search` matched them.)* Block
+  score = `1/(1+distance)`. Rust unit test: `db::get_section`; pure tests:
+  `extract_section`; service tests: a long note's answering section reaches the model
+  within budget, **and** hybrid keyword recall survives unrelated block hits.
 - ✅ **@mention pinned context** — pure `parse_mentions` (strips `@`, dedupes) feeds a
   forced-context path: pinned notes resolve via `SearchPort.suggest_wiki_links`, enter
   assembly with a max sentinel score so they lead the budget and take the first citation

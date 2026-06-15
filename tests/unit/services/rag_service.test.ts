@@ -156,12 +156,14 @@ describe("RagService.query", () => {
     const markdown = lines.join("\n");
 
     const search = {
+      hybrid_search: vi
+        .fn()
+        .mockResolvedValue([hit("notes/ops.md", "Ops", "1", 0.9)]),
       search_blocks: vi
         .fn()
         .mockResolvedValue([
           block_hit("notes/ops.md", "Ops", "1", start, end, 0.1),
         ]),
-      hybrid_search: vi.fn(),
     };
     const notes = { read_note: vi.fn().mockResolvedValue({ markdown }) };
     const stream = text_stream("It deploys nightly to Fly.io [1].");
@@ -181,7 +183,6 @@ describe("RagService.query", () => {
       }),
     );
 
-    expect(search.hybrid_search).not.toHaveBeenCalled();
     const call = stream.stream_text.mock.calls[0] as unknown[] | undefined;
     const request = call?.[0] as
       | { messages: { content: string }[] }
@@ -192,6 +193,61 @@ describe("RagService.query", () => {
     expect(result.citations).toEqual([
       { index: 1, note_path: "notes/ops.md", title: "Ops" },
     ]);
+  });
+
+  it("keeps hybrid keyword recall even when block search returns only unrelated sections", async () => {
+    const search = {
+      hybrid_search: vi
+        .fn()
+        .mockResolvedValue([
+          hit("notes/metaboloformer.md", "Metaboloformer", "1", 0.95),
+        ]),
+      search_blocks: vi
+        .fn()
+        .mockResolvedValue([
+          block_hit("notes/other.md", "Other", "2", 0, 1, 0.2),
+        ]),
+    };
+    const notes = {
+      read_note: vi.fn().mockImplementation((_vault: unknown, id: string) =>
+        Promise.resolve({
+          markdown:
+            id === "1"
+              ? "Metaboloformer is a transformer model for metabolomics."
+              : "Unrelated content.",
+        }),
+      ),
+    };
+    const stream = text_stream(
+      "Metaboloformer is a transformer for metabolomics [1].",
+    );
+    const service = new RagService(
+      search as never,
+      notes as never,
+      stream as never,
+      make_vault_store(),
+      persistence,
+      tag as never,
+    );
+
+    const result = await collect(
+      service.query({
+        question: "what is metaboloformer",
+        provider_config: provider,
+      }),
+    );
+
+    expect(result.citations.map((c) => c.note_path)).toContain(
+      "notes/metaboloformer.md",
+    );
+    expect(notes.read_note.mock.calls.map((call) => call[1])).toContain("1");
+    const call = stream.stream_text.mock.calls[0] as unknown[] | undefined;
+    const request = call?.[0] as
+      | { messages: { content: string }[] }
+      | undefined;
+    expect(request?.messages[0]?.content ?? "").toContain(
+      "transformer model for metabolomics",
+    );
   });
 
   it("pins an @mentioned note into context regardless of retrieval score", async () => {
