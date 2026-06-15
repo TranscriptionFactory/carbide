@@ -1636,7 +1636,10 @@ fn handle_embed_batch(
                         total,
                     },
                 );
-                let sleep_ms = batch_start.elapsed().as_millis() as u64;
+                // Yield CPU to the foreground without halving indexing throughput:
+                // the worker already runs at background QoS, so a short fraction of
+                // the batch time is enough to stay responsive. (was: full batch time)
+                let sleep_ms = (batch_start.elapsed().as_millis() as u64) / 4;
                 std::thread::sleep(std::time::Duration::from_millis(sleep_ms));
                 while let Ok(cmd) = rx.try_recv() {
                     match cmd {
@@ -1804,7 +1807,10 @@ fn handle_block_embed_batch(
             }
         }
 
-        let sleep_ms = batch_start.elapsed().as_millis() as u64;
+        // Yield CPU to the foreground without halving indexing throughput:
+        // the worker already runs at background QoS, so a short fraction of
+        // the batch time is enough to stay responsive. (was: full batch time)
+        let sleep_ms = (batch_start.elapsed().as_millis() as u64) / 4;
         std::thread::sleep(std::time::Duration::from_millis(sleep_ms));
 
         while let Ok(cmd) = rx.try_recv() {
