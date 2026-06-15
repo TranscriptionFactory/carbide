@@ -288,6 +288,16 @@ async fn stream_chat_completions(
         .await
         .map_err(|e| format!("Could not reach AI server: {e}"))?;
 
+    consume_sse_response(response, &mut |event| {
+        let _ = app.emit(event_name, event);
+    })
+    .await
+}
+
+async fn consume_sse_response<F: FnMut(AiStreamEvent)>(
+    response: reqwest::Response,
+    emit: &mut F,
+) -> Result<(), String> {
     if !response.status().is_success() {
         let status = response.status();
         let detail = clamp_stderr(&response.text().await.unwrap_or_default());
@@ -296,7 +306,7 @@ async fn stream_chat_completions(
         } else {
             format!("AI server returned {status}: {detail}")
         };
-        let _ = app.emit(event_name, AiStreamEvent::Error { error });
+        emit(AiStreamEvent::Error { error });
         return Ok(());
     }
 
@@ -309,18 +319,18 @@ async fn stream_chat_completions(
             match event {
                 SseEvent::Delta(text) => {
                     if !text.is_empty() {
-                        let _ = app.emit(event_name, AiStreamEvent::Text { text });
+                        emit(AiStreamEvent::Text { text });
                     }
                 }
                 SseEvent::Done => {
-                    let _ = app.emit(event_name, AiStreamEvent::Done);
+                    emit(AiStreamEvent::Done);
                     return Ok(());
                 }
             }
         }
     }
 
-    let _ = app.emit(event_name, AiStreamEvent::Done);
+    emit(AiStreamEvent::Done);
     Ok(())
 }
 
@@ -590,5 +600,89 @@ mod tests {
         let out = clamp_stderr(&raw);
         assert!(out.starts_with('…'));
         assert_eq!(out.chars().count(), 801);
+    }
+
+    fn spawn_mock_server(response: String) -> std::net::SocketAddr {
+        use std::io::{Read, Write};
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let addr = listener.local_addr().unwrap();
+        std::thread::spawn(move || {
+            let (mut conn, _) = listener.accept().unwrap();
+            let mut buf = [0u8; 2048];
+            let _ = conn.read(&mut buf);
+            let _ = conn.write_all(response.as_bytes());
+            let _ = conn.flush();
+        });
+        addr
+    }
+
+    #[tokio::test]
+    async fn streams_deltas_from_mock_llama_server() {
+        let body = concat!(
+            "data: {\"choices\":[{\"delta\":{\"role\":\"assistant\"}}]}\n\n",
+            "data: {\"choices\":[{\"delta\":{\"content\":\"Hello\"}}]}\n\n",
+            "data: {\"choices\":[{\"delta\":{\"content\":\" world\"}}]}\n\n",
+            "data: {\"choices\":[{\"delta\":{},\"finish_reason\":\"stop\"}]}\n\n",
+            "data: [DONE]\n\n",
+        );
+        let addr = spawn_mock_server(format!(
+            "HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nConnection: close\r\n\r\n{body}"
+        ));
+
+        let response = reqwest::Client::new()
+            .post(format!("http://{addr}/v1/chat/completions"))
+            .json(&super::build_chat_request_body(
+                "sys",
+                &[AiMessage {
+                    role: "user".into(),
+                    content: "hi".into(),
+                }],
+                "m",
+            ))
+            .send()
+            .await
+            .unwrap();
+
+        let mut events = Vec::new();
+        super::consume_sse_response(response, &mut |e| events.push(e))
+            .await
+            .unwrap();
+
+        let texts: Vec<String> = events
+            .iter()
+            .filter_map(|e| match e {
+                super::AiStreamEvent::Text { text } => Some(text.clone()),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(texts, vec!["Hello".to_string(), " world".to_string()]);
+        assert!(matches!(events.last(), Some(super::AiStreamEvent::Done)));
+    }
+
+    #[tokio::test]
+    async fn surfaces_http_error_status_from_mock_server() {
+        let addr = spawn_mock_server(
+            "HTTP/1.1 500 Internal Server Error\r\nConnection: close\r\n\r\nmodel not loaded"
+                .to_string(),
+        );
+
+        let response = reqwest::Client::new()
+            .post(format!("http://{addr}/v1/chat/completions"))
+            .send()
+            .await
+            .unwrap();
+
+        let mut events = Vec::new();
+        super::consume_sse_response(response, &mut |e| events.push(e))
+            .await
+            .unwrap();
+
+        match events.as_slice() {
+            [super::AiStreamEvent::Error { error }] => {
+                assert!(error.contains("500"), "got: {error}");
+                assert!(error.contains("model not loaded"), "got: {error}");
+            }
+            other => panic!("expected one error event, got {other:?}"),
+        }
     }
 }
