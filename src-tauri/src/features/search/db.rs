@@ -2381,9 +2381,10 @@ pub fn get_fts_body(conn: &Connection, path: &str) -> Option<String> {
     conn.query_row(
         "SELECT body FROM notes_fts WHERE path = ?1",
         params![path],
-        |row| row.get(0),
+        |row| row.get::<_, String>(0),
     )
     .ok()
+    .map(|body| body.replace('\0', ""))
 }
 
 pub fn get_all_notes_from_db(conn: &Connection) -> Result<BTreeMap<String, IndexNoteMeta>, String> {
@@ -3217,6 +3218,19 @@ mod tests {
         assert!(outlinks.is_empty());
         let orphans = get_orphan_outlinks(&conn, &source.path).expect("orphans should load");
         assert!(orphans.is_empty());
+    }
+
+    #[test]
+    fn get_fts_body_strips_nul_bytes() {
+        let conn = Connection::open_in_memory().expect("in-memory db");
+        init_schema(&conn).expect("schema");
+
+        let meta = note("@linked/papers/scan.pdf", "Scan");
+        upsert_note(&conn, &meta, "page one\0page two\0").expect("upsert");
+
+        let body = get_fts_body(&conn, "@linked/papers/scan.pdf").expect("body");
+        assert!(!body.contains('\0'));
+        assert_eq!(body, "page onepage two");
     }
 
     #[test]
