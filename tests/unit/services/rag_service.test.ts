@@ -16,6 +16,7 @@ import type {
 
 const persistence = create_test_rag_persistence_adapter();
 const tag = { get_notes_for_tag: vi.fn().mockResolvedValue([]) };
+const bases = { load_view: vi.fn(), query: vi.fn() };
 
 const provider: AiProviderConfig = {
   id: "ollama",
@@ -143,6 +144,7 @@ describe("RagService.query", () => {
       make_vault_store(),
       persistence,
       tag as never,
+      bases as never,
     );
 
     const result = await collect(
@@ -183,6 +185,7 @@ describe("RagService.query", () => {
       make_vault_store(),
       persistence,
       tag as never,
+      bases as never,
     );
 
     const result = await collect(
@@ -232,6 +235,7 @@ describe("RagService.query", () => {
       make_vault_store(),
       persistence,
       tag as never,
+      bases as never,
     );
 
     const result = await collect(
@@ -286,6 +290,7 @@ describe("RagService.query", () => {
       make_vault_store(),
       persistence,
       tag as never,
+      bases as never,
     );
 
     const result = await collect(
@@ -338,6 +343,7 @@ describe("RagService.query", () => {
       make_vault_store(),
       persistence,
       tag as never,
+      bases as never,
     );
 
     const result = await collect(
@@ -379,6 +385,7 @@ describe("RagService.query", () => {
       make_vault_store(),
       persistence,
       tag as never,
+      bases as never,
     );
 
     const result = await collect(
@@ -408,6 +415,7 @@ describe("RagService.query", () => {
       make_vault_store(),
       persistence,
       tag as never,
+      bases as never,
     );
 
     await collect(
@@ -451,13 +459,14 @@ describe("RagService.query", () => {
       make_vault_store(),
       persistence,
       tag as never,
+      bases as never,
     );
 
     await collect(
       service.query({
         question: "what is it?",
         provider_config: provider,
-        scope: { folder: "projects" },
+        scope: { folders: ["projects"] },
       }),
     );
 
@@ -488,13 +497,14 @@ describe("RagService.query", () => {
       make_vault_store(),
       persistence,
       tag_port as never,
+      bases as never,
     );
 
     await collect(
       service.query({
         question: "what is it?",
         provider_config: provider,
-        scope: { tag: "#active" },
+        scope: { tags: ["#active"] },
       }),
     );
 
@@ -504,6 +514,249 @@ describe("RagService.query", () => {
     );
     const read_ids = notes.read_note.mock.calls.map((call) => call[1]);
     expect(read_ids).toEqual(["1"]);
+  });
+
+  it("restricts retrieved sources to the base view's note-set", async () => {
+    const search = {
+      search_blocks: vi.fn().mockResolvedValue([]),
+      hybrid_search: vi
+        .fn()
+        .mockResolvedValue([
+          hit("projects/a.md", "A", "1", 0.9),
+          hit("archive/b.md", "B", "2", 0.8),
+        ]),
+    };
+    const notes = {
+      read_note: vi.fn().mockResolvedValue({ markdown: "Body." }),
+    };
+    const bases_port = {
+      load_view: vi.fn().mockResolvedValue({
+        query: { filters: [], sort: [], limit: 50, offset: 0 },
+      }),
+      query: vi.fn().mockResolvedValue({
+        rows: [{ note: { path: "projects/a.md" } }],
+        total: 1,
+      }),
+    };
+    const service = new RagService(
+      search as never,
+      notes as never,
+      text_stream("Answer [1].") as never,
+      make_vault_store(),
+      persistence,
+      tag as never,
+      bases_port as never,
+    );
+
+    await collect(
+      service.query({
+        question: "what is it?",
+        provider_config: provider,
+        scope: { bases: ["views/active.base"] },
+      }),
+    );
+
+    expect(bases_port.load_view).toHaveBeenCalledWith(
+      expect.anything(),
+      "views/active.base",
+    );
+    const read_ids = notes.read_note.mock.calls.map((call) => call[1]);
+    expect(read_ids).toEqual(["1"]);
+  });
+
+  it("raises the base query limit so a small saved-view page size cannot truncate the note-set", async () => {
+    const search = {
+      search_blocks: vi.fn().mockResolvedValue([]),
+      hybrid_search: vi
+        .fn()
+        .mockResolvedValue([hit("projects/a.md", "A", "1", 0.9)]),
+    };
+    const notes = {
+      read_note: vi.fn().mockResolvedValue({ markdown: "Body." }),
+    };
+    const bases_port = {
+      load_view: vi.fn().mockResolvedValue({
+        query: { filters: [], sort: [], limit: 5, offset: 10 },
+      }),
+      query: vi.fn().mockResolvedValue({
+        rows: [{ note: { path: "projects/a.md" } }],
+        total: 1,
+      }),
+    };
+    const service = new RagService(
+      search as never,
+      notes as never,
+      text_stream("Answer [1].") as never,
+      make_vault_store(),
+      persistence,
+      tag as never,
+      bases_port as never,
+    );
+
+    await collect(
+      service.query({
+        question: "what is it?",
+        provider_config: provider,
+        scope: { bases: ["views/active.base"] },
+      }),
+    );
+
+    expect(bases_port.query).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ limit: 10000, offset: 0 }),
+    );
+  });
+
+  it("keeps a hit matched by any of several folder scopes", async () => {
+    const search = {
+      search_blocks: vi.fn().mockResolvedValue([]),
+      hybrid_search: vi
+        .fn()
+        .mockResolvedValue([
+          hit("projects/a.md", "A", "1", 0.9),
+          hit("archive/b.md", "B", "2", 0.8),
+          hit("other/c.md", "C", "3", 0.7),
+        ]),
+    };
+    const notes = {
+      read_note: vi.fn().mockResolvedValue({ markdown: "Body." }),
+    };
+    const service = new RagService(
+      search as never,
+      notes as never,
+      text_stream("Answer [1].") as never,
+      make_vault_store(),
+      persistence,
+      tag as never,
+      bases as never,
+    );
+
+    await collect(
+      service.query({
+        question: "what is it?",
+        provider_config: provider,
+        scope: { folders: ["projects", "archive"] },
+      }),
+    );
+
+    const read_ids = notes.read_note.mock.calls.map((call) => call[1]);
+    expect(read_ids).toEqual(["1", "2"]);
+  });
+
+  it("intersects folder and tag scopes across categories", async () => {
+    const search = {
+      search_blocks: vi.fn().mockResolvedValue([]),
+      hybrid_search: vi
+        .fn()
+        .mockResolvedValue([
+          hit("projects/a.md", "A", "1", 0.9),
+          hit("projects/b.md", "B", "2", 0.8),
+          hit("archive/c.md", "C", "3", 0.7),
+        ]),
+    };
+    const notes = {
+      read_note: vi.fn().mockResolvedValue({ markdown: "Body." }),
+    };
+    const tag_port = {
+      get_notes_for_tag: vi
+        .fn()
+        .mockResolvedValue(["projects/b.md", "archive/c.md"]),
+    };
+    const service = new RagService(
+      search as never,
+      notes as never,
+      text_stream("Answer [1].") as never,
+      make_vault_store(),
+      persistence,
+      tag_port as never,
+      bases as never,
+    );
+
+    await collect(
+      service.query({
+        question: "what is it?",
+        provider_config: provider,
+        scope: { folders: ["projects"], tags: ["active"] },
+      }),
+    );
+
+    const read_ids = notes.read_note.mock.calls.map((call) => call[1]);
+    expect(read_ids).toEqual(["2"]);
+  });
+
+  it("leaves results unfiltered and warns when a base view fails to load", async () => {
+    const search = {
+      search_blocks: vi.fn().mockResolvedValue([]),
+      hybrid_search: vi
+        .fn()
+        .mockResolvedValue([
+          hit("projects/a.md", "A", "1", 0.9),
+          hit("archive/b.md", "B", "2", 0.8),
+        ]),
+    };
+    const notes = {
+      read_note: vi.fn().mockResolvedValue({ markdown: "Body." }),
+    };
+    const bases_port = {
+      load_view: vi.fn().mockRejectedValue(new Error("missing view")),
+      query: vi.fn(),
+    };
+    const service = new RagService(
+      search as never,
+      notes as never,
+      text_stream("Answer [1].") as never,
+      make_vault_store(),
+      persistence,
+      tag as never,
+      bases_port as never,
+    );
+
+    const result = await collect(
+      service.query({
+        question: "what is it?",
+        provider_config: provider,
+        scope: { bases: ["views/missing.base"] },
+      }),
+    );
+
+    expect(result.error).toBeNull();
+    const read_ids = notes.read_note.mock.calls.map((call) => call[1]);
+    expect(read_ids).toEqual(["1", "2"]);
+  });
+
+  it("never calls scope ports when scope arrays are empty", async () => {
+    const search = {
+      search_blocks: vi.fn().mockResolvedValue([]),
+      hybrid_search: vi
+        .fn()
+        .mockResolvedValue([hit("projects/a.md", "A", "1", 0.9)]),
+    };
+    const notes = {
+      read_note: vi.fn().mockResolvedValue({ markdown: "Body." }),
+    };
+    const tag_port = { get_notes_for_tag: vi.fn() };
+    const bases_port = { load_view: vi.fn(), query: vi.fn() };
+    const service = new RagService(
+      search as never,
+      notes as never,
+      text_stream("Answer [1].") as never,
+      make_vault_store(),
+      persistence,
+      tag_port as never,
+      bases_port as never,
+    );
+
+    await collect(
+      service.query({
+        question: "what is it?",
+        provider_config: provider,
+        scope: { folders: [], tags: [], bases: [] },
+      }),
+    );
+
+    expect(tag_port.get_notes_for_tag).not.toHaveBeenCalled();
+    expect(bases_port.load_view).not.toHaveBeenCalled();
+    expect(bases_port.query).not.toHaveBeenCalled();
   });
 
   it("returns no_results when the scope filters out every hit", async () => {
@@ -521,13 +774,14 @@ describe("RagService.query", () => {
       make_vault_store(),
       persistence,
       tag as never,
+      bases as never,
     );
 
     const result = await collect(
       service.query({
         question: "q",
         provider_config: provider,
-        scope: { folder: "projects" },
+        scope: { folders: ["projects"] },
       }),
     );
 
@@ -549,6 +803,7 @@ describe("RagService.query", () => {
       make_vault_store(),
       persistence,
       tag as never,
+      bases as never,
     );
 
     const result = await collect(
@@ -579,6 +834,7 @@ describe("RagService.query", () => {
       make_vault_store(),
       persistence,
       tag as never,
+      bases as never,
     );
 
     const result = await collect(
@@ -606,6 +862,7 @@ describe("RagService.query", () => {
       make_vault_store(),
       persistence,
       tag as never,
+      bases as never,
     );
 
     const result = await collect(
@@ -628,6 +885,7 @@ describe("RagService.query", () => {
       make_vault_store(),
       persistence,
       tag as never,
+      bases as never,
     );
 
     const result = await collect(
@@ -655,6 +913,7 @@ describe("RagService.query", () => {
       make_vault_store(),
       persistence,
       tag as never,
+      bases as never,
     );
 
     const result = await collect(
@@ -686,6 +945,7 @@ describe("RagService.query", () => {
       make_vault_store(),
       persistence,
       tag as never,
+      bases as never,
     );
 
     for await (const event of service.query({
@@ -716,6 +976,7 @@ describe("RagService.query", () => {
       make_vault_store(),
       persistence,
       tag as never,
+      bases as never,
     );
 
     let aborted_during_stream = false;
@@ -739,6 +1000,7 @@ describe("RagService.query", () => {
       new VaultStore(),
       persistence,
       tag as never,
+      bases as never,
     );
 
     const result = await collect(

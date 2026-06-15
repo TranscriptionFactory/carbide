@@ -51,12 +51,12 @@ describe("RagStore", () => {
   it("snapshots the current provider and scope into a new session", () => {
     const store = new RagStore();
     store.set_provider("ollama");
-    store.set_scope({ folder: "projects/" });
+    store.set_scope({ folders: ["projects/"] });
 
     store.add_user_message("q");
 
     expect(store.sessions[0]?.provider_id).toBe("ollama");
-    expect(store.sessions[0]?.scope).toEqual({ folder: "projects/" });
+    expect(store.sessions[0]?.scope).toEqual({ folders: ["projects/"] });
   });
 
   it("start_new_session deactivates and bumps the revision", () => {
@@ -74,7 +74,7 @@ describe("RagStore", () => {
   it("switch_session restores provider/scope and bumps the revision", () => {
     const store = new RagStore();
     store.hydrate([
-      saved_session({ id: "a", provider_id: "claude", scope: { tag: "x" } }),
+      saved_session({ id: "a", provider_id: "claude", scope: { tags: ["x"] } }),
     ]);
     const before = store.revision;
 
@@ -82,7 +82,7 @@ describe("RagStore", () => {
 
     expect(store.active_id).toBe("a");
     expect(store.provider_id).toBe("claude");
-    expect(store.scope).toEqual({ tag: "x" });
+    expect(store.scope).toEqual({ tags: ["x"] });
     expect(store.revision).toBe(before + 1);
   });
 

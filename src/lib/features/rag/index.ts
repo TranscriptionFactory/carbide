@@ -28,8 +28,17 @@ export {
 export {
   normalize_folder_scope,
   normalize_tag_scope,
+  normalize_base_scope,
+  migrate_scope,
   path_in_folder,
 } from "$lib/features/rag/domain/rag_scope";
+export {
+  build_scope_suggestions,
+  type ScopeKind,
+  type ScopeSuggestion,
+  type ScopeSources,
+  type ScopeSuggestions,
+} from "$lib/features/rag/domain/rag_scope_suggest";
 export {
   build_citation_map,
   match_citation_markers,

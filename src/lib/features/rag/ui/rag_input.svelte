@@ -1,16 +1,21 @@
 <script lang="ts">
-  import { SendHorizontal, FolderTree, Hash } from "@lucide/svelte";
+  import { SendHorizontal } from "@lucide/svelte";
   import * as Select from "$lib/components/ui/select/index.js";
   import { Button } from "$lib/components/ui/button";
   import { Textarea } from "$lib/components/ui/textarea";
-  import { Input } from "$lib/components/ui/input";
+  import RagScopeBar from "$lib/features/rag/ui/rag_scope_bar.svelte";
   import type { AiProviderConfig } from "$lib/shared/types/ai_provider_config";
+  import type { TagInfo } from "$lib/features/tags/types";
+  import type { SavedViewInfo } from "$lib/features/bases/ports";
   import type { RagScope } from "$lib/features/rag/domain/rag_types";
 
   type Props = {
     providers: AiProviderConfig[];
     provider_id: string;
     scope: RagScope;
+    folder_paths: string[];
+    tags: TagInfo[];
+    saved_views: SavedViewInfo[];
     is_loading: boolean;
     on_submit: (question: string) => void;
     on_provider_change: (provider_id: string) => void;
@@ -21,6 +26,9 @@
     providers,
     provider_id,
     scope,
+    folder_paths,
+    tags,
+    saved_views,
     is_loading,
     on_submit,
     on_provider_change,
@@ -54,30 +62,7 @@
     onkeydown={on_keydown}
     class="resize-none text-sm"
   />
-  <div class="relative">
-    <FolderTree
-      class="absolute left-2 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground"
-    />
-    <Input
-      value={scope.folder ?? ""}
-      oninput={(event) =>
-        on_scope_change({ ...scope, folder: event.currentTarget.value })}
-      placeholder="Scope to a folder (e.g. projects/)…"
-      class="h-8 pl-7 text-xs"
-    />
-  </div>
-  <div class="relative">
-    <Hash
-      class="absolute left-2 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground"
-    />
-    <Input
-      value={scope.tag ?? ""}
-      oninput={(event) =>
-        on_scope_change({ ...scope, tag: event.currentTarget.value })}
-      placeholder="Scope to a tag (e.g. project/active)…"
-      class="h-8 pl-7 text-xs"
-    />
-  </div>
+  <RagScopeBar {scope} {folder_paths} {tags} {saved_views} {on_scope_change} />
   <div class="flex items-center justify-between gap-2">
     <Select.Root
       type="single"

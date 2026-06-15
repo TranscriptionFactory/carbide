@@ -1,6 +1,7 @@
 import type { VaultStore } from "$lib/features/vault";
 import type { RagService, RagStore } from "$lib/features/rag";
 import type { RagSession } from "$lib/features/rag";
+import { migrate_scope } from "$lib/features/rag";
 
 export async function load_rag_sessions(
   rag_store: RagStore,
@@ -15,7 +16,9 @@ export async function load_rag_sessions(
         rag_service.load_session(vault_id, summary.id),
       ),
     )
-  ).filter((session): session is RagSession => session !== null);
+  )
+    .filter((session): session is RagSession => session !== null)
+    .map((session) => ({ ...session, scope: migrate_scope(session.scope) }));
   if (!is_current()) return;
   rag_store.hydrate(sessions);
 }

@@ -37,6 +37,12 @@
   let renaming_id = $state<string | null>(null);
   let rename_value = $state("");
 
+  $effect(() => {
+    if (stores.vault.vault?.id && stores.bases.saved_views.length === 0) {
+      void action_registry.execute(ACTION_IDS.bases_list_views);
+    }
+  });
+
   const EXAMPLES = [
     "What did I write about this week?",
     "Summarize my notes on this project.",
@@ -251,6 +257,9 @@
     {providers}
     {provider_id}
     scope={rag.scope}
+    folder_paths={stores.notes.folder_paths}
+    tags={stores.tag.tags}
+    saved_views={stores.bases.saved_views}
     is_loading={rag.is_loading}
     on_submit={ask}
     on_provider_change={change_provider}

@@ -4,7 +4,7 @@ import { VaultStore } from "$lib/features/vault";
 import { load_rag_sessions } from "$lib/reactors/rag_sessions_load.reactor.svelte";
 import { create_test_rag_persistence_adapter } from "../../adapters/test_rag_persistence_adapter";
 import { create_test_vault } from "../helpers/test_fixtures";
-import type { RagSession } from "$lib/features/rag/domain/rag_types";
+import type { RagScope, RagSession } from "$lib/features/rag/domain/rag_types";
 
 const VAULT_ID = "v1";
 
@@ -18,6 +18,10 @@ function make_service(persistence = create_test_rag_persistence_adapter()) {
     vault_store,
     persistence,
     { get_notes_for_tag: () => Promise.resolve([]) } as never,
+    {
+      load_view: () => Promise.resolve(),
+      query: () => Promise.resolve(),
+    } as never,
   );
 }
 
@@ -32,7 +36,7 @@ function session(overrides: Partial<RagSession> = {}): RagSession {
       { id: "m2", role: "assistant", content: "X is Y [1].", citations: [] },
     ],
     provider_id: "ollama",
-    scope: { folder: "projects/" },
+    scope: { folders: ["projects/"] },
     ...overrides,
   };
 }
@@ -53,7 +57,25 @@ describe("rag session persistence round-trip", () => {
     store.switch_session("a");
     expect(store.messages).toEqual(session({ id: "a" }).messages);
     expect(store.provider_id).toBe("ollama");
-    expect(store.scope).toEqual({ folder: "projects/" });
+    expect(store.scope).toEqual({ folders: ["projects/"] });
+  });
+
+  it("migrates a legacy single-value scope when loading old sessions", async () => {
+    const persistence = create_test_rag_persistence_adapter();
+    const writer = make_service(persistence);
+    await writer.save_session(
+      VAULT_ID,
+      session({
+        id: "legacy",
+        scope: { folder: "projects", tag: "active" } as unknown as RagScope,
+      }),
+    );
+
+    const store = new RagStore();
+    await load_rag_sessions(store, make_service(persistence), VAULT_ID);
+
+    store.switch_session("legacy");
+    expect(store.scope).toEqual({ folders: ["projects"], tags: ["active"] });
   });
 
   it("save_session fails soft when the vault rejects .carbide/ writes (browse mode)", async () => {
