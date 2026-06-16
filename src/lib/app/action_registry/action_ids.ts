@@ -340,6 +340,7 @@ export const ACTION_IDS = {
   canvas_export_search_graph_as_canvas: "canvas.export_search_graph_as_canvas",
 
   links_insert_suggested_link: "links.insert_suggested_link",
+  links_link_unlinked_mention: "links.link_unlinked_mention",
 
   tags_refresh: "tags.refresh",
   tags_select: "tags.select",
