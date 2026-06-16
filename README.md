@@ -1,4 +1,4 @@
-<img src="./assets/carbide_icon.jpg" alt="Carbide" width="235">
+<img src="./assets/carbide_updated.png" alt="Carbide" width="235">
 
 [![Release](https://github.com/TranscriptionFactory/carbide/actions/workflows/release.yml/badge.svg)](https://github.com/TranscriptionFactory/carbide/actions/workflows/release.yml)
 
