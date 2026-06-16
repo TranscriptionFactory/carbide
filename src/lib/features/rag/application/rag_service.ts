@@ -19,6 +19,7 @@ import { build_rag_prompt } from "$lib/features/rag/domain/rag_prompt_builder";
 import { build_citation_map } from "$lib/features/rag/domain/rag_citations";
 import { RagStreamParser } from "$lib/features/rag/domain/rag_stream_parser";
 import { rewrite_query } from "$lib/features/rag/domain/rag_query_rewriter";
+import { analyze_query } from "$lib/features/rag/domain/rag_query_analysis";
 import { parse_mentions } from "$lib/features/rag/domain/rag_mentions";
 import {
   normalize_folder_scope,
@@ -38,6 +39,7 @@ import type {
 import type { RagPersistencePort } from "$lib/features/rag/ports";
 import type {
   BlockSectionHit,
+  DateRange,
   HitSource,
   HybridSearchHit,
 } from "$lib/shared/types/search";
@@ -46,6 +48,7 @@ const log = create_logger("rag_service");
 
 const DEFAULT_RETRIEVE_LIMIT = 15;
 const DEFAULT_CONTEXT_LIMIT = 8;
+const SCOPE_OVERFETCH = 6;
 const CITED_NOTE_BOOST = 1.25;
 const PINNED_SCORE = Number.MAX_SAFE_INTEGER;
 const NO_RESULTS_MESSAGE =
@@ -173,12 +176,22 @@ export class RagService {
       history: input.history ?? [],
     });
 
+    const analysis = analyze_query(rewrite.query, Date.now());
+    const retrieval_query =
+      analysis.topic !== "" ? analysis.topic : rewrite.query;
+    const retrieve_limit = this.effective_retrieve_limit(input);
+
     const pinned = await this.resolve_pinned(vault.id, mentions);
     const pinned_paths = new Set(pinned.map((hit) => hit.note_path));
 
     let hits: RetrievalHit[];
     try {
-      hits = await this.retrieve(vault.id, rewrite.query, input);
+      hits = await this.retrieve(
+        vault.id,
+        retrieval_query,
+        analysis.date_range,
+        retrieve_limit,
+      );
     } catch (err) {
       log.warn("RAG retrieval failed", { error: error_message(err) });
       yield { type: "error", error: "Search failed. Try again." };
@@ -282,24 +295,42 @@ export class RagService {
     return pinned;
   }
 
+  private scope_is_active(scope: RagScope | undefined): boolean {
+    if (!scope) return false;
+    return (
+      (scope.folders?.length ?? 0) +
+        (scope.tags?.length ?? 0) +
+        (scope.bases?.length ?? 0) >
+      0
+    );
+  }
+
+  private effective_retrieve_limit(input: RagQueryInput): number {
+    const base = input.retrieve_limit ?? DEFAULT_RETRIEVE_LIMIT;
+    return this.scope_is_active(input.scope) ? base * SCOPE_OVERFETCH : base;
+  }
+
   private async retrieve(
     vault_id: VaultId,
     query: string,
-    input: RagQueryInput,
+    date_range: DateRange | null,
+    limit: number,
   ): Promise<RetrievalHit[]> {
-    const limit = input.retrieve_limit ?? DEFAULT_RETRIEVE_LIMIT;
     const [notes, blocks] = await Promise.all([
       this.search_port.hybrid_search(
         vault_id,
         { raw: query, text: query, scope: "all" },
         limit,
+        date_range,
       ),
-      this.search_port.search_blocks(vault_id, query, limit).catch((err) => {
-        log.warn("RAG block retrieval failed; using whole-note context", {
-          error: error_message(err),
-        });
-        return [] as BlockSectionHit[];
-      }),
+      this.search_port
+        .search_blocks(vault_id, query, limit, date_range)
+        .catch((err) => {
+          log.warn("RAG block retrieval failed; using whole-note context", {
+            error: error_message(err),
+          });
+          return [] as BlockSectionHit[];
+        }),
     ]);
 
     if (notes.length === 0) {

@@ -24,6 +24,7 @@ import type {
   EmbeddingStatus,
   HitSource,
   SearchQueryInput,
+  DateRange,
 } from "$lib/shared/types/search";
 import { tauri_invoke } from "$lib/shared/adapters/tauri_invoke";
 
@@ -335,6 +336,7 @@ export function create_search_tauri_adapter(): SearchPort {
       vault_id: VaultId,
       query: SearchQueryInput,
       limit = 20,
+      date_range: DateRange | null = null,
     ): Promise<HybridSearchHit[]> {
       const hits = await invoke_search<TauriHybridSearchHit[]>(
         "hybrid_search",
@@ -342,6 +344,7 @@ export function create_search_tauri_adapter(): SearchPort {
           vaultId: vault_id,
           query,
           limit,
+          dateRange: date_range,
         },
       );
       return hits.map((hit) => ({
@@ -357,6 +360,7 @@ export function create_search_tauri_adapter(): SearchPort {
       vault_id: VaultId,
       query: string,
       limit = 15,
+      date_range: DateRange | null = null,
     ): Promise<BlockSectionHit[]> {
       const hits = await invoke_search<TauriBlockSectionHit[]>(
         "search_blocks",
@@ -364,6 +368,7 @@ export function create_search_tauri_adapter(): SearchPort {
           vaultId: vault_id,
           query,
           limit,
+          dateRange: date_range,
         },
       );
       return hits.map((hit) => ({

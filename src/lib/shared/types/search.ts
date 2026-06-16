@@ -30,6 +30,8 @@ export type SearchQuery = {
 
 export type SearchQueryInput = Pick<SearchQuery, "raw" | "text" | "scope">;
 
+export type DateRange = { start_ms: number; end_ms: number };
+
 export type NoteSearchHit = {
   note: NoteMeta;
   score: number;
