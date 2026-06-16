@@ -353,8 +353,11 @@ multi-turn, no persistence, no scope filter.
   `rag_status` is pure Rust (embedding model version, embedded/total counts, indexing
   flag, bridge availability). Tests: FE `collect_rag_query_response` == in-app collection
   for the same `query()`; Rust `format_rag_response` formatting.
-- ⏸️ **Saved prompt templates** — deferred (optional in the original scope; not required
-  by any acceptance criterion). Revisit if there's demand.
+- ✅ **Saved prompt templates** — pure `rag_prompt_templates.ts` ships four scope-aware
+  quick-actions (Summarize / Action items / Open questions / Timeline) that interpolate
+  the active folder/tag/base scope (`scope_phrase`) into the query. Surfaced as chips in
+  the panel empty state (replacing the hardcoded example questions). "Find contradictions"
+  intentionally skipped. Tests: `tests/unit/domain/rag_prompt_templates.test.ts`.
 - ✅ Gate green: `pnpm check` (0 new errors — 17 pre-existing unchanged), `pnpm test`
   (full suite 4228; +13 rag-related), `cd src-tauri && cargo check` (0 errors), scoped
   oxlint clean on touched files, `pnpm format`.
