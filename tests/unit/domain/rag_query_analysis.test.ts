@@ -1,8 +1,16 @@
 import { describe, expect, it } from "vitest";
 import { analyze_query } from "$lib/features/rag/domain/rag_query_analysis";
+import type { DateRange } from "$lib/shared/types/search";
 
 const DAY_MS = 86_400_000;
 const NOW = new Date(2026, 5, 15, 12, 0, 0).getTime();
+
+function range_of(question: string): DateRange {
+  const { date_range } = analyze_query(question, NOW);
+  if (date_range === null)
+    throw new Error(`expected a date range: ${question}`);
+  return date_range;
+}
 
 describe("analyze_query topic extraction", () => {
   it("reduces a meta-query to its bare topic", () => {
@@ -14,15 +22,15 @@ describe("analyze_query topic extraction", () => {
   });
 
   it("strips leading filler phrases", () => {
-    expect(analyze_query("summarize my notes on transformer attention", NOW).topic).toBe(
-      "transformer attention",
-    );
-    expect(analyze_query("what did I write about batch normalization", NOW).topic).toBe(
-      "batch normalization",
-    );
-    expect(analyze_query("show me notes about gradient clipping", NOW).topic).toBe(
-      "gradient clipping",
-    );
+    expect(
+      analyze_query("summarize my notes on transformer attention", NOW).topic,
+    ).toBe("transformer attention");
+    expect(
+      analyze_query("what did I write about batch normalization", NOW).topic,
+    ).toBe("batch normalization");
+    expect(
+      analyze_query("show me notes about gradient clipping", NOW).topic,
+    ).toBe("gradient clipping");
   });
 
   it("leaves a self-contained question untouched", () => {
@@ -33,7 +41,10 @@ describe("analyze_query topic extraction", () => {
   });
 
   it("yields an empty topic when only filler and a date remain", () => {
-    const { topic, date_range } = analyze_query("what did I write last week", NOW);
+    const { topic, date_range } = analyze_query(
+      "what did I write last week",
+      NOW,
+    );
     expect(topic).toBe("");
     expect(date_range).not.toBeNull();
   });
@@ -41,31 +52,32 @@ describe("analyze_query topic extraction", () => {
 
 describe("analyze_query date ranges", () => {
   it("returns no range when no date phrase is present", () => {
-    expect(analyze_query("metaboloformer architecture", NOW).date_range).toBeNull();
+    expect(
+      analyze_query("metaboloformer architecture", NOW).date_range,
+    ).toBeNull();
   });
 
   it("resolves 'last week' to the previous calendar week", () => {
-    const { date_range } = analyze_query("notes from last week", NOW);
-    expect(date_range).not.toBeNull();
-    expect(date_range!.end_ms - date_range!.start_ms).toBe(7 * DAY_MS);
-    expect(date_range!.end_ms).toBeLessThanOrEqual(NOW);
+    const range = range_of("notes from last week");
+    expect(range.end_ms - range.start_ms).toBe(7 * DAY_MS);
+    expect(range.end_ms).toBeLessThanOrEqual(NOW);
   });
 
   it("resolves an explicit 'last N days' window", () => {
-    const { date_range } = analyze_query("anything about rag in the last 3 days", NOW);
-    expect(date_range).toEqual({ start_ms: NOW - 3 * DAY_MS, end_ms: NOW });
+    const range = range_of("anything about rag in the last 3 days");
+    expect(range).toEqual({ start_ms: NOW - 3 * DAY_MS, end_ms: NOW });
   });
 
   it("resolves 'yesterday' to a one-day window ending today", () => {
-    const { date_range } = analyze_query("what did I note yesterday", NOW);
-    expect(date_range!.end_ms - date_range!.start_ms).toBe(DAY_MS);
-    expect(date_range!.end_ms).toBeLessThanOrEqual(NOW);
+    const range = range_of("what did I note yesterday");
+    expect(range.end_ms - range.start_ms).toBe(DAY_MS);
+    expect(range.end_ms).toBeLessThanOrEqual(NOW);
   });
 
   it("resolves 'today' to a window ending at now", () => {
-    const { date_range } = analyze_query("today's notes on clustering", NOW);
-    expect(date_range!.end_ms).toBe(NOW);
-    expect(date_range!.start_ms).toBeLessThan(NOW);
+    const range = range_of("today's notes on clustering");
+    expect(range.end_ms).toBe(NOW);
+    expect(range.start_ms).toBeLessThan(NOW);
   });
 
   it("prefers the numeric window over the bare 'last week' rule", () => {

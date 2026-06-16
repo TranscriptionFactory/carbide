@@ -1,4 +1,4 @@
-export type DateRange = { start_ms: number; end_ms: number };
+import type { DateRange } from "$lib/shared/types/search";
 
 export type QueryAnalysis = {
   topic: string;
@@ -187,8 +187,13 @@ function strip_edge_stopwords(text: string): string {
   const tokens = text.split(/\s+/).filter((t) => t !== "");
   let start = 0;
   let end = tokens.length;
-  while (start < end && EDGE_STOPWORDS.has(tokens[start].toLowerCase())) start++;
-  while (end > start && EDGE_STOPWORDS.has(tokens[end - 1].toLowerCase())) end--;
+  while (start < end && EDGE_STOPWORDS.has((tokens[start] ?? "").toLowerCase()))
+    start++;
+  while (
+    end > start &&
+    EDGE_STOPWORDS.has((tokens[end - 1] ?? "").toLowerCase())
+  )
+    end--;
   return tokens.slice(start, end).join(" ");
 }
 

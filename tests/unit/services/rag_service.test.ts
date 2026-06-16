@@ -155,12 +155,81 @@ describe("RagService.query", () => {
       expect.anything(),
       { raw: "what is it?", text: "what is it?", scope: "all" },
       15,
+      null,
     );
     expect(result.content).toContain("[1]");
     expect(result.citations).toEqual([
       { index: 1, note_path: "notes/q.md", title: "Q" },
     ]);
     expect(result.error).toBeNull();
+  });
+
+  it("retrieves the bare topic and a date window for a meta-query", async () => {
+    const search = {
+      search_blocks: vi.fn().mockResolvedValue([]),
+      hybrid_search: vi
+        .fn()
+        .mockResolvedValue([hit("notes/m.md", "M", "1", 0.9)]),
+    };
+    const notes = {
+      read_note: vi.fn().mockResolvedValue({ markdown: "Metaboloformer." }),
+    };
+    const service = new RagService(
+      search as never,
+      notes as never,
+      text_stream("done [1].") as never,
+      make_vault_store(),
+      persistence,
+      tag as never,
+      bases as never,
+    );
+
+    await collect(
+      service.query({
+        question:
+          "tell me about the notes I wrote about metaboloformer last week",
+        provider_config: provider,
+      }),
+    );
+
+    const call = search.hybrid_search.mock.calls[0];
+    expect(call?.[1]).toMatchObject({ text: "metaboloformer" });
+    expect(call?.[3]).toMatchObject({
+      start_ms: expect.any(Number),
+      end_ms: expect.any(Number),
+    });
+    expect(search.search_blocks.mock.calls[0]?.[1]).toBe("metaboloformer");
+  });
+
+  it("over-fetches when a scope is active so filtered hits survive", async () => {
+    const search = {
+      search_blocks: vi.fn().mockResolvedValue([]),
+      hybrid_search: vi
+        .fn()
+        .mockResolvedValue([hit("journal/a.md", "A", "1", 0.9)]),
+    };
+    const notes = {
+      read_note: vi.fn().mockResolvedValue({ markdown: "Entry." }),
+    };
+    const service = new RagService(
+      search as never,
+      notes as never,
+      text_stream("done [1].") as never,
+      make_vault_store(),
+      persistence,
+      tag as never,
+      bases as never,
+    );
+
+    await collect(
+      service.query({
+        question: "standup notes",
+        provider_config: provider,
+        scope: { folders: ["journal"] },
+      }),
+    );
+
+    expect(search.hybrid_search.mock.calls[0]?.[2]).toBe(15 * 6);
   });
 
   it("reads linked-source hits from the index instead of the filesystem", async () => {
