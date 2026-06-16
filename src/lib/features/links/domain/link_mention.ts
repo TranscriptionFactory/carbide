@@ -2,7 +2,7 @@ function escape_regex(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-export function link_first_mention(
+export function link_mentions(
   markdown: string,
   title: string,
 ): { markdown: string; changed: boolean } {
@@ -11,11 +11,12 @@ export function link_first_mention(
 
   const pattern = new RegExp(
     `(?<![\\w[])${escape_regex(trimmed)}(?![\\w\\]])`,
-    "i",
+    "gi",
   );
 
   const lines = markdown.split("\n");
   let in_fence = false;
+  let changed = false;
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i] ?? "";
@@ -24,11 +25,14 @@ export function link_first_mention(
       continue;
     }
     if (in_fence) continue;
-    if (pattern.test(line)) {
-      lines[i] = line.replace(pattern, `[[${trimmed}]]`);
-      return { markdown: lines.join("\n"), changed: true };
+    const replaced = line.replace(pattern, `[[${trimmed}]]`);
+    if (replaced !== line) {
+      lines[i] = replaced;
+      changed = true;
     }
   }
 
-  return { markdown, changed: false };
+  return changed
+    ? { markdown: lines.join("\n"), changed: true }
+    : { markdown, changed: false };
 }
