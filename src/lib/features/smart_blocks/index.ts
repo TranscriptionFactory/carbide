@@ -1,8 +1,7 @@
 export { create_smart_block_registry } from "./domain/smart_block_registry";
 export { parse_smart_block } from "./domain/smart_block_spec";
-export { register_smart_block_actions } from "./application/smart_block_actions";
 export {
-  smart_block_scaffold,
+  smart_block_body,
   type SmartBlockScaffoldType,
 } from "./domain/smart_block_scaffold";
 export { create_tasks_smart_block_handler } from "./ui/handlers/tasks_smart_block";

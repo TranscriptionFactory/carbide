@@ -14,6 +14,10 @@ import {
   destroy_dropdown,
 } from "./suggest_dropdown_utils";
 import { fuzzy_score_fields } from "$lib/shared/utils/fuzzy_score";
+import {
+  smart_block_body,
+  type SmartBlockScaffoldType,
+} from "$lib/features/smart_blocks";
 
 export const slash_plugin_key = new PluginKey("slash-command");
 
@@ -357,16 +361,24 @@ function make_frontmatter_insert() {
   };
 }
 
-function make_task_query_insert() {
+function make_smart_block_insert(type: SmartBlockScaffoldType) {
   return (view: EditorView, from: number) => {
     const { state } = view;
     const code_type = state.schema.nodes["code_block"];
-    if (!code_type) return;
-    const cursor = state.selection.from;
-    const content = state.schema.text("not done\nsort by due_date");
-    const node = code_type.create({ language: "tasks" }, content);
-    const tr = state.tr.delete(from, cursor).insert(from, node);
-    tr.setSelection(TextSelection.create(tr.doc, from + 1));
+    const para = state.schema.nodes["paragraph"];
+    if (!code_type || !para) return;
+
+    const body = smart_block_body(type);
+    const node =
+      body.length > 0
+        ? code_type.create({ language: type }, state.schema.text(body))
+        : code_type.create({ language: type });
+
+    const $pos = state.doc.resolve(from);
+    const start = $pos.before();
+    const tr = state.tr.replaceWith(start, $pos.after(), [node, para.create()]);
+    const sel = TextSelection.findFrom(tr.doc.resolve(start + 1), 1);
+    if (sel) tr.setSelection(sel);
     view.dispatch(tr.scrollIntoView());
   };
 }
@@ -462,12 +474,46 @@ export function create_commands(): SlashCommand[] {
       insert: make_todo_insert(),
     },
     {
+      id: "query",
+      label: "Query Block",
+      description: "Live query block listing matching notes",
+      icon: "🔍",
+      keywords: ["query", "block", "smart", "live", "embed", "list", "notes"],
+      insert: make_smart_block_insert("query"),
+    },
+    {
+      id: "base",
+      label: "Base View",
+      description: "Embedded database view driven by a query",
+      icon: "🗃️",
+      keywords: [
+        "base",
+        "bases",
+        "block",
+        "smart",
+        "table",
+        "kanban",
+        "embed",
+        "database",
+        "view",
+      ],
+      insert: make_smart_block_insert("base"),
+    },
+    {
+      id: "backlinks",
+      label: "Backlinks",
+      description: "Live list of notes that link here",
+      icon: "🔗",
+      keywords: ["backlinks", "links", "block", "smart", "embed"],
+      insert: make_smart_block_insert("backlinks"),
+    },
+    {
       id: "task-query",
       label: "Task Query",
       description: "Live query of tasks from your vault",
-      icon: "🔍",
+      icon: "✅",
       keywords: ["task", "query", "filter", "search", "tasks"],
-      insert: make_task_query_insert(),
+      insert: make_smart_block_insert("tasks"),
     },
     {
       id: "blockquote",
