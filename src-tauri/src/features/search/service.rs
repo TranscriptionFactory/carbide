@@ -3,8 +3,8 @@ use crate::features::search::db::{self as search_db, AttachmentLink, OrphanLink}
 use crate::features::search::embeddings::{EmbeddingService, EmbeddingServiceState};
 use crate::features::search::hnsw_index::{SharedVectorIndex, VectorIndex};
 use crate::features::search::model::{
-    BatchSemanticEdge, BlockSearchHit, BlockSectionHit, EmbeddingStatus, HybridSearchHit,
-    IndexNoteMeta, SearchHit, SearchScope, SemanticSearchHit,
+    BatchSemanticEdge, BlockSearchHit, BlockSectionHit, DateRange, EmbeddingStatus,
+    HybridSearchHit, IndexNoteMeta, SearchHit, SearchScope, SemanticSearchHit,
 };
 use crate::features::search::{hybrid, vector_db};
 use crate::features::settings::service as settings_service;
@@ -2085,7 +2085,7 @@ pub fn index_search(
 ) -> Result<Vec<SearchHit>, String> {
     log::debug!("Searching index vault_id={} query={}", vault_id, query.text);
     with_read_conn(&app, &vault_id, |conn| {
-        search_db::search(conn, &query.text, query.scope, 50)
+        search_db::search(conn, &query.text, query.scope, 50, None)
     })
 }
 
@@ -2615,6 +2615,7 @@ pub fn search_blocks(
     vault_id: String,
     query: String,
     limit: Option<usize>,
+    date_range: Option<DateRange>,
 ) -> Result<Vec<BlockSectionHit>, String> {
     let embedding_state = app.state::<EmbeddingServiceState>();
     let cache_dir = resolve_embedding_cache_dir(&app);
@@ -2623,12 +2624,20 @@ pub fn search_blocks(
     let model = embedding_state.get_or_init(cache_dir, hf_repo, &app)?;
     let query_vec = model.embed_one(&query)?;
     let limit = limit.unwrap_or(15);
+    let fetch = if date_range.is_some() {
+        (limit * 20).max(500)
+    } else {
+        limit
+    };
 
-    let raw = with_block_index(&app, &vault_id, |idx| idx.search(&query_vec, limit))?;
+    let raw = with_block_index(&app, &vault_id, |idx| idx.search(&query_vec, fetch))?;
 
     with_read_conn(&app, &vault_id, |conn| {
-        let mut results = Vec::with_capacity(raw.len());
+        let mut results = Vec::with_capacity(limit);
         for (key, distance) in &raw {
+            if results.len() >= limit {
+                break;
+            }
             let Some((path, heading_id)) = key.split_once('\0') else {
                 continue;
             };
@@ -2640,6 +2649,11 @@ pub fn search_blocks(
             let Some(note) = search_db::get_note_meta(conn, path)? else {
                 continue;
             };
+            if let Some(d) = date_range {
+                if note.mtime_ms < d.start_ms || note.mtime_ms >= d.end_ms {
+                    continue;
+                }
+            }
             results.push(BlockSectionHit {
                 note,
                 heading_id: heading_id.to_string(),
@@ -2687,6 +2701,7 @@ pub async fn hybrid_search(
     vault_id: String,
     query: SearchQueryInput,
     limit: Option<usize>,
+    date_range: Option<DateRange>,
 ) -> Result<Vec<HybridSearchHit>, String> {
     let embedding_state = app.state::<EmbeddingServiceState>();
     let cache_dir = resolve_embedding_cache_dir(&app);
@@ -2694,6 +2709,7 @@ pub async fn hybrid_search(
     let hf_repo = short_id_to_hf_repo(&short_id);
     let model = embedding_state.get_or_init(cache_dir, hf_repo, &app)?;
     let limit = limit.unwrap_or(20);
+    let date_range = date_range.map(|d| (d.start_ms, d.end_ms));
 
     let (read_conn, ni) = {
         ensure_worker(&app, &vault_id)?;
@@ -2709,7 +2725,7 @@ pub async fn hybrid_search(
     tauri::async_runtime::spawn_blocking(move || {
         let conn = read_conn.lock().map_err(|e| e.to_string())?;
         let idx = ni.read().map_err(|e| e.to_string())?;
-        hybrid::hybrid_search(&conn, &idx, &model, &query, limit)
+        hybrid::hybrid_search(&conn, &idx, &model, &query, limit, date_range)
     })
     .await
     .map_err(|e| e.to_string())?
@@ -2744,7 +2760,7 @@ pub(crate) fn hybrid_search_sync(
         scope: SearchScope::All,
     };
 
-    hybrid::hybrid_search(&conn, &idx, &model, &query_input, limit)
+    hybrid::hybrid_search(&conn, &idx, &model, &query_input, limit, None)
 }
 
 #[tauri::command]
