@@ -17,6 +17,10 @@ pub fn hybrid_search(
     let query_vec = model.embed_one(&query.text)?;
 
     let over_fetch = limit * 3;
+    // FTS pushes the date filter into SQL, but the vector index has no filter
+    // API, so we over-fetch and filter afterward. For a narrow window in a
+    // very large vault the in-range notes may fall outside this pool; FTS still
+    // covers those, so retrieval degrades rather than failing.
     let vector_fetch = if date_range.is_some() {
         (limit * 20).max(500)
     } else {

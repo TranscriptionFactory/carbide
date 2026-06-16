@@ -40,6 +40,15 @@ describe("analyze_query topic extraction", () => {
     expect(date_range).toBeNull();
   });
 
+  it("preserves content-bearing words at the topic edges", () => {
+    expect(
+      analyze_query("summarize my notes on release notes", NOW).topic,
+    ).toBe("release notes");
+    expect(
+      analyze_query("what did I write about the model I created", NOW).topic,
+    ).toBe("model I created");
+  });
+
   it("yields an empty topic when only filler and a date remain", () => {
     const { topic, date_range } = analyze_query(
       "what did I write last week",
