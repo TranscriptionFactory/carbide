@@ -49,7 +49,11 @@
   });
 
   const templates = $derived(
-    RAG_TEMPLATES.map((t) => ({ id: t.id, label: t.label, query: t.build(rag.scope) })),
+    RAG_TEMPLATES.map((t) => ({
+      id: t.id,
+      label: t.label,
+      query: t.build(rag.scope),
+    })),
   );
 
   function ask(question: string) {

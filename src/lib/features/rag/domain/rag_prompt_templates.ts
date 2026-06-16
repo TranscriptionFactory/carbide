@@ -25,10 +25,14 @@ export function scope_phrase(scope: RagScope): string {
 
   if (folders.length) {
     const label = folders.map((f) => `"${f.replace(/\/+$/, "")}"`);
-    parts.push(`the ${folders.length > 1 ? "folders" : "folder"} ${join_human(label)}`);
+    parts.push(
+      `the ${folders.length > 1 ? "folders" : "folder"} ${join_human(label)}`,
+    );
   }
   if (tags.length) {
-    parts.push(`notes tagged ${join_human(tags.map((t) => `#${t.replace(/^#/, "")}`))}`);
+    parts.push(
+      `notes tagged ${join_human(tags.map((t) => `#${t.replace(/^#/, "")}`))}`,
+    );
   }
   if (bases.length) {
     parts.push(`the ${join_human(bases.map((b) => `"${b}"`))} view`);
@@ -42,7 +46,8 @@ export const RAG_TEMPLATES: RagTemplate[] = [
   {
     id: "summarize_scope",
     label: "Summarize",
-    build: (scope) => `Summarize the key points and themes across ${scope_phrase(scope)}.`,
+    build: (scope) =>
+      `Summarize the key points and themes across ${scope_phrase(scope)}.`,
   },
   {
     id: "extract_action_items",
