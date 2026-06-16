@@ -11,6 +11,8 @@
 
   const { stores, action_registry } = use_app_context();
 
+  let { title = "Suggested" }: { title?: string } = $props();
+
   const loading = $derived(stores.links.suggested_links_loading);
   const suggestions = $derived(stores.links.suggested_links);
 
@@ -18,8 +20,15 @@
     return `${String(Math.round(similarity * 100))}%`;
   }
 
-  function insert_link(title: string) {
-    void action_registry.execute(ACTION_IDS.links_insert_suggested_link, title);
+  function insert_link(note_title: string) {
+    void action_registry.execute(
+      ACTION_IDS.links_insert_suggested_link,
+      note_title,
+    );
+  }
+
+  function open_note(path: string) {
+    void action_registry.execute(ACTION_IDS.note_open, path);
   }
 
   function has_rules(rules: SmartLinkRuleMatch[] | undefined): boolean {
@@ -27,11 +36,7 @@
   }
 </script>
 
-<LinkSection
-  title="Suggested"
-  count={suggestions.length}
-  default_expanded={true}
->
+<LinkSection {title} count={suggestions.length} default_expanded={true}>
   {#if loading}
     <p class="SuggestedLinksSection__state">Loading suggestions...</p>
   {:else if suggestions.length === 0}
@@ -40,9 +45,14 @@
     {#each suggestions as suggestion (suggestion.note.path)}
       <div class="SuggestedLinksSection__item">
         <div class="SuggestedLinksSection__item-info">
-          <span class="SuggestedLinksSection__item-title">
+          <button
+            type="button"
+            class="SuggestedLinksSection__item-title"
+            onclick={() => open_note(suggestion.note.path)}
+            title={suggestion.note.path}
+          >
             {suggestion.note.title || suggestion.note.name}
-          </span>
+          </button>
           <span class="SuggestedLinksSection__item-badge">
             {similarity_label(suggestion.similarity)}
           </span>
@@ -108,6 +118,16 @@
     text-overflow: ellipsis;
     white-space: nowrap;
     min-width: 0;
+    flex: 1;
+    text-align: start;
+    background: none;
+    border: 0;
+    padding: 0;
+    cursor: pointer;
+  }
+
+  .SuggestedLinksSection__item-title:hover {
+    text-decoration: underline;
   }
 
   .SuggestedLinksSection__item-badge {

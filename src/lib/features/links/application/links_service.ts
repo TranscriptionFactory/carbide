@@ -4,7 +4,9 @@ import type { LinksStore } from "$lib/features/links/state/links_store.svelte";
 import type { VaultId } from "$lib/shared/types/ids";
 import type { MarkdownLspPort } from "$lib/features/markdown_lsp";
 import type { MarkdownLspStore } from "$lib/features/markdown_lsp";
+import type { TagPort } from "$lib/features/tags";
 import type { NoteMeta } from "$lib/shared/types/note";
+import type { NoteSearchHit } from "$lib/shared/types/search";
 import { create_logger } from "$lib/shared/utils/logger";
 import { error_message } from "$lib/shared/utils/error_message";
 import { extract_local_links } from "../domain/extract_local_links";
@@ -12,8 +14,17 @@ import {
   merge_suggestions,
   path_to_note_meta,
 } from "../domain/merge_suggestions";
+import {
+  collect_shared_tag_notes,
+  filter_unlinked_mentions,
+} from "../domain/related_context";
 
 const log = create_logger("links_service");
+
+function note_title_from_path(note_path: string): string {
+  const leaf = note_path.split("/").pop() ?? note_path;
+  return leaf.replace(/\.md$/i, "").trim();
+}
 
 function uri_to_relative_path(uri: string, vault_path: string): string | null {
   let decoded: string;
@@ -40,6 +51,7 @@ export class LinksService {
     private readonly links_store: LinksStore,
     private readonly markdown_lsp_port: MarkdownLspPort,
     private readonly markdown_lsp_store: MarkdownLspStore,
+    private readonly tag_port?: TagPort,
   ) {}
 
   private get_active_vault_id(): VaultId | null {
@@ -218,6 +230,80 @@ export class LinksService {
 
   clear_suggested_links() {
     this.links_store.clear_suggested_links();
+  }
+
+  async load_related_context(
+    note_path: string,
+    tags: string[],
+    limit = 8,
+  ): Promise<void> {
+    const vault_id = this.get_active_vault_id();
+    if (!vault_id) {
+      this.links_store.clear_related();
+      return;
+    }
+
+    this.links_store.start_related_load(note_path);
+
+    const title = note_title_from_path(note_path);
+    const linked = new Set<string>([
+      note_path,
+      ...this.links_store.backlinks.map((n) => n.path),
+      ...this.links_store.outlinks.map((n) => n.path),
+    ]);
+
+    const [tag_paths, mentions] = await Promise.allSettled([
+      this.load_shared_tag_paths(vault_id, tags),
+      title
+        ? this.search_port.search_notes(
+            vault_id,
+            { raw: title, text: title, scope: "content", domain: "notes" },
+            limit * 2,
+          )
+        : Promise.resolve<NoteSearchHit[]>([]),
+    ]);
+
+    if (this.links_store.related_note_path !== note_path) return;
+
+    if (tag_paths.status === "rejected") {
+      log.error("Failed to load shared-tag notes", {
+        error: error_message(tag_paths.reason),
+      });
+    }
+    if (mentions.status === "rejected") {
+      log.error("Failed to load unlinked mentions", {
+        error: error_message(mentions.reason),
+      });
+    }
+
+    const shared_tag = collect_shared_tag_notes(
+      tag_paths.status === "fulfilled" ? tag_paths.value : [],
+      linked,
+      limit,
+    );
+    const unlinked = filter_unlinked_mentions(
+      mentions.status === "fulfilled" ? mentions.value : [],
+      new Set([...linked, ...shared_tag.map((n) => n.path)]),
+      limit,
+    );
+
+    this.links_store.set_related(note_path, { shared_tag, unlinked });
+  }
+
+  private async load_shared_tag_paths(
+    vault_id: VaultId,
+    tags: string[],
+  ): Promise<string[]> {
+    const tag_port = this.tag_port;
+    if (!tag_port || tags.length === 0) return [];
+    const results = await Promise.all(
+      tags.map((tag) => tag_port.get_notes_for_tag(vault_id, tag)),
+    );
+    return results.flat();
+  }
+
+  clear_related() {
+    this.links_store.clear_related();
   }
 
   clear() {

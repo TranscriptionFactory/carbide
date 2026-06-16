@@ -44,6 +44,11 @@ export class LinksStore {
   suggested_links_loading = $state(false);
   suggested_links_note_path = $state<string | null>(null);
 
+  related_shared_tag = $state<NoteMeta[]>([]);
+  related_unlinked = $state<NoteMeta[]>([]);
+  related_loading = $state(false);
+  related_note_path = $state<string | null>(null);
+
   set_local_snapshot(note_path: string, snapshot: LocalLinksSnapshot) {
     this.active_note_path = note_path;
     this.local_outlink_paths = snapshot.outlink_paths;
@@ -103,6 +108,30 @@ export class LinksStore {
     this.suggested_links = [];
   }
 
+  start_related_load(note_path: string) {
+    this.related_note_path = note_path;
+    this.related_loading = true;
+    this.related_shared_tag = [];
+    this.related_unlinked = [];
+  }
+
+  set_related(
+    note_path: string,
+    related: { shared_tag: NoteMeta[]; unlinked: NoteMeta[] },
+  ) {
+    this.related_note_path = note_path;
+    this.related_loading = false;
+    this.related_shared_tag = related.shared_tag;
+    this.related_unlinked = related.unlinked;
+  }
+
+  clear_related() {
+    this.related_note_path = null;
+    this.related_loading = false;
+    this.related_shared_tag = [];
+    this.related_unlinked = [];
+  }
+
   clear() {
     this.active_note_path = null;
     this.local_outlink_paths = [];
@@ -115,6 +144,7 @@ export class LinksStore {
     this.global_status = "idle";
     this.global_error = null;
     this.clear_suggested_links();
+    this.clear_related();
   }
 
   reset() {

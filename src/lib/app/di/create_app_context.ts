@@ -681,6 +681,7 @@ export function create_app_context(input: {
     stores.links,
     input.ports.markdown_lsp,
     stores.markdown_lsp,
+    input.ports.tag,
   );
 
   const hotkey_service = new HotkeyService(

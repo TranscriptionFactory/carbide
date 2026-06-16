@@ -26,7 +26,7 @@ import { create_bases_refresh_reactor } from "$lib/reactors/bases_refresh.reacto
 import { create_task_sync_reactor } from "$lib/reactors/task_sync.reactor.svelte";
 import { create_menu_action_reactor } from "$lib/reactors/menu_action.reactor.svelte";
 import { create_embedding_model_loaded_reactor } from "$lib/reactors/embedding_model_loaded.reactor.svelte";
-import { create_suggested_links_refresh_reactor } from "$lib/reactors/suggested_links_refresh.reactor.svelte";
+import { create_related_panel_refresh_reactor } from "$lib/reactors/related_panel_refresh.reactor.svelte";
 import { create_lint_reactor } from "$lib/reactors/lint.reactor.svelte";
 import { create_markdown_lsp_lifecycle_reactor } from "$lib/reactors/markdown_lsp_lifecycle.reactor.svelte";
 import { create_lsp_document_sync_reactor } from "$lib/reactors/lsp_document_sync.reactor.svelte";
@@ -321,9 +321,10 @@ export function mount_reactors(context: ReactorContext): ReactorHandles {
       context.vault_store,
       context.workspace_index_port,
     ),
-    create_suggested_links_refresh_reactor(
+    create_related_panel_refresh_reactor(
       context.editor_store,
       context.ui_store,
+      context.metadata_store,
       context.links_service,
     ),
     create_lint_reactor(

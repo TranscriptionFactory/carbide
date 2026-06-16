@@ -1,10 +1,12 @@
 <script lang="ts">
   import { use_app_context } from "$lib/app/context/app_context.svelte";
   import { ACTION_IDS } from "$lib/app/action_registry/action_ids";
+  import SuggestedLinksSection from "$lib/features/links/ui/suggested_links_section.svelte";
   import FileText from "@lucide/svelte/icons/file-text";
   import Hash from "@lucide/svelte/icons/hash";
   import History from "@lucide/svelte/icons/history";
   import Folder from "@lucide/svelte/icons/folder";
+  import Link2Off from "@lucide/svelte/icons/link-2-off";
 
   const { stores, action_registry } = use_app_context();
 
@@ -16,50 +18,36 @@
     return idx >= 0 ? open_note_path.slice(0, idx) : "";
   });
 
+  function folder_of(path: string): string {
+    const idx = path.lastIndexOf("/");
+    return idx >= 0 ? path.slice(0, idx) : "";
+  }
+
+  const shared_tag_notes = $derived(stores.links.related_shared_tag);
+  const unlinked_mentions = $derived(stores.links.related_unlinked);
+
   const siblings = $derived.by(() => {
     if (!open_note_path) return [];
     return stores.notes.notes
-      .filter((n) => {
-        if (n.path === open_note_path) return false;
-        const idx = n.path.lastIndexOf("/");
-        const folder = idx >= 0 ? n.path.slice(0, idx) : "";
-        return folder === current_folder;
-      })
+      .filter(
+        (n) =>
+          n.path !== open_note_path && folder_of(n.path) === current_folder,
+      )
       .slice(0, 30);
   });
 
   const recent_in_folder = $derived.by(() => {
     if (!open_note_path) return [];
     return stores.notes.recent_notes
-      .filter((n) => {
-        if (n.path === open_note_path) return false;
-        const idx = n.path.lastIndexOf("/");
-        const folder = idx >= 0 ? n.path.slice(0, idx) : "";
-        return folder === current_folder;
-      })
+      .filter(
+        (n) =>
+          n.path !== open_note_path && folder_of(n.path) === current_folder,
+      )
       .slice(0, 8);
   });
 
-  const tag_chips = $derived(
-    stores.metadata.tags.map((t) => t.tag).slice(0, 20),
-  );
-
   function open_note(path: string) {
     void action_registry.execute(ACTION_IDS.note_open, path);
-  }
-
-  function open_tag_query(tag: string) {
-    stores.bases.query = {
-      ...stores.bases.query,
-      filters: [{ property: "tag", operator: "eq", value: tag }],
-      offset: 0,
-    };
-    stores.bases.active_view_name = `Tag: ${tag}`;
-    stores.ui.set_sidebar_view("bases");
-    const vault_id = stores.vault.active_vault_id;
-    if (vault_id) {
-      void action_registry.execute(ACTION_IDS.bases_refresh);
-    }
   }
 </script>
 
@@ -67,14 +55,39 @@
   {#if !open_note_path}
     <p class="RelatedPanel__empty">Open a note to see related context.</p>
   {:else}
-    {#if recent_in_folder.length > 0}
+    <SuggestedLinksSection title="Similar notes" />
+
+    {#if shared_tag_notes.length > 0}
       <section class="RelatedPanel__section">
         <header class="RelatedPanel__heading">
-          <History size={12} />
-          <span>Recent in folder</span>
+          <Hash size={12} />
+          <span>Shared tags</span>
         </header>
         <ul class="RelatedPanel__list">
-          {#each recent_in_folder as note (note.path)}
+          {#each shared_tag_notes as note (note.path)}
+            <li>
+              <button
+                type="button"
+                class="RelatedPanel__row"
+                onclick={() => open_note(note.path)}
+              >
+                <FileText size={12} />
+                <span class="truncate">{note.title || note.name}</span>
+              </button>
+            </li>
+          {/each}
+        </ul>
+      </section>
+    {/if}
+
+    {#if unlinked_mentions.length > 0}
+      <section class="RelatedPanel__section">
+        <header class="RelatedPanel__heading">
+          <Link2Off size={12} />
+          <span>Unlinked mentions</span>
+        </header>
+        <ul class="RelatedPanel__list">
+          {#each unlinked_mentions as note (note.path)}
             <li>
               <button
                 type="button"
@@ -115,23 +128,26 @@
       {/if}
     </section>
 
-    {#if tag_chips.length > 0}
+    {#if recent_in_folder.length > 0}
       <section class="RelatedPanel__section">
         <header class="RelatedPanel__heading">
-          <Hash size={12} />
-          <span>Shared tags</span>
+          <History size={12} />
+          <span>Recently edited</span>
         </header>
-        <div class="RelatedPanel__chips">
-          {#each tag_chips as tag (tag)}
-            <button
-              type="button"
-              class="RelatedPanel__chip"
-              onclick={() => open_tag_query(tag)}
-            >
-              #{tag}
-            </button>
+        <ul class="RelatedPanel__list">
+          {#each recent_in_folder as note (note.path)}
+            <li>
+              <button
+                type="button"
+                class="RelatedPanel__row"
+                onclick={() => open_note(note.path)}
+              >
+                <FileText size={12} />
+                <span class="truncate">{note.title || note.name}</span>
+              </button>
+            </li>
           {/each}
-        </div>
+        </ul>
       </section>
     {/if}
   {/if}
@@ -193,23 +209,5 @@
   }
   .RelatedPanel__row:hover {
     background: var(--muted);
-  }
-  .RelatedPanel__chips {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.25rem;
-    padding: 0 0.5rem;
-  }
-  .RelatedPanel__chip {
-    font-size: 0.625rem;
-    padding: 0.125rem 0.375rem;
-    border-radius: 9999px;
-    background: var(--muted);
-    color: var(--foreground);
-    border: 0;
-    cursor: pointer;
-  }
-  .RelatedPanel__chip:hover {
-    background: var(--accent);
   }
 </style>
