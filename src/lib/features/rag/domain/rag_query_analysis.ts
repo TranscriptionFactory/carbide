@@ -62,7 +62,7 @@ const DATE_RULES: DateRule[] = [
   {
     re: /\b(?:in |over |during )?(?:the )?(?:last|past|previous) week\b/i,
     range: (now) => ({
-      start_ms: start_of_week(now) - 7 * DAY_MS,
+      start_ms: start_of_week(start_of_week(now) - DAY_MS),
       end_ms: start_of_week(now),
     }),
   },
@@ -115,6 +115,7 @@ const LEADING_PHRASES = [
   "what have i written about",
   "what did i write about",
   "the notes i wrote about",
+  "the notes i wrote",
   "summarize my notes about",
   "summarize my notes on",
   "show me the notes about",
@@ -150,16 +151,6 @@ const EDGE_STOPWORDS = new Set([
   "my",
   "a",
   "an",
-  "i",
-  "notes",
-  "note",
-  "wrote",
-  "written",
-  "made",
-  "created",
-  "that",
-  "those",
-  "these",
   "please",
 ]);
 
@@ -217,8 +208,7 @@ export function analyze_query(question: string, now: number): QueryAnalysis {
 
   const { date_range, without_date } = extract_date_range(trimmed, now);
 
-  const stripped = strip_edge_stopwords(strip_leading_phrases(without_date));
-  const topic = stripped === "" ? "" : stripped;
+  const topic = strip_edge_stopwords(strip_leading_phrases(without_date));
 
   return { topic, date_range };
 }
