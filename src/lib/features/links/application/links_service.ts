@@ -21,7 +21,7 @@ import {
   collect_shared_tag_notes,
   filter_unlinked_mentions,
 } from "../domain/related_context";
-import { link_first_mention } from "../domain/link_mention";
+import { link_mentions } from "../domain/link_mention";
 
 const log = create_logger("links_service");
 
@@ -319,7 +319,7 @@ export class LinksService {
     const note_path = as_note_path(mention_path);
     try {
       const doc = await this.note_service.read_note(vault_id, note_path);
-      const { markdown, changed } = link_first_mention(doc.markdown, title);
+      const { markdown, changed } = link_mentions(doc.markdown, title);
       if (!changed) {
         this.links_store.remove_unlinked_mention(mention_path);
         return false;

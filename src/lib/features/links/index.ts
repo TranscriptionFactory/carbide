@@ -16,4 +16,4 @@ export {
   collect_shared_tag_notes,
   filter_unlinked_mentions,
 } from "$lib/features/links/domain/related_context";
-export { link_first_mention } from "$lib/features/links/domain/link_mention";
+export { link_mentions } from "$lib/features/links/domain/link_mention";
