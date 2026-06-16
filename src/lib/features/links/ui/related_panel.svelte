@@ -7,10 +7,15 @@
   import History from "@lucide/svelte/icons/history";
   import Folder from "@lucide/svelte/icons/folder";
   import Link2Off from "@lucide/svelte/icons/link-2-off";
+  import Link2 from "@lucide/svelte/icons/link-2";
 
   const { stores, action_registry } = use_app_context();
 
-  const open_note_path = $derived(stores.editor.open_note?.meta.path ?? "");
+  const open_note = $derived(stores.editor.open_note);
+  const open_note_path = $derived(open_note?.meta.path ?? "");
+  const current_title = $derived(
+    open_note?.meta.title || open_note?.meta.name || "",
+  );
 
   const current_folder = $derived.by(() => {
     if (!open_note_path) return "";
@@ -36,18 +41,24 @@
       .slice(0, 30);
   });
 
-  const recent_in_folder = $derived.by(() => {
+  const recently_edited = $derived.by(() => {
     if (!open_note_path) return [];
     return stores.notes.recent_notes
-      .filter(
-        (n) =>
-          n.path !== open_note_path && folder_of(n.path) === current_folder,
-      )
+      .filter((n) => n.path !== open_note_path)
       .slice(0, 8);
   });
 
-  function open_note(path: string) {
+  function open(path: string) {
     void action_registry.execute(ACTION_IDS.note_open, path);
+  }
+
+  function link_mention(path: string) {
+    if (!current_title) return;
+    void action_registry.execute(
+      ACTION_IDS.links_link_unlinked_mention,
+      path,
+      current_title,
+    );
   }
 </script>
 
@@ -69,7 +80,7 @@
               <button
                 type="button"
                 class="RelatedPanel__row"
-                onclick={() => open_note(note.path)}
+                onclick={() => open(note.path)}
               >
                 <FileText size={12} />
                 <span class="truncate">{note.title || note.name}</span>
@@ -88,14 +99,24 @@
         </header>
         <ul class="RelatedPanel__list">
           {#each unlinked_mentions as note (note.path)}
-            <li>
+            <li class="RelatedPanel__mention">
               <button
                 type="button"
                 class="RelatedPanel__row"
-                onclick={() => open_note(note.path)}
+                onclick={() => open(note.path)}
               >
                 <FileText size={12} />
                 <span class="truncate">{note.title || note.name}</span>
+              </button>
+              <button
+                type="button"
+                class="RelatedPanel__link-btn"
+                onclick={() => link_mention(note.path)}
+                disabled={!current_title}
+                title="Link this mention to the current note"
+                aria-label="Link this mention"
+              >
+                <Link2 size={12} />
               </button>
             </li>
           {/each}
@@ -117,7 +138,7 @@
               <button
                 type="button"
                 class="RelatedPanel__row"
-                onclick={() => open_note(note.path)}
+                onclick={() => open(note.path)}
               >
                 <FileText size={12} />
                 <span class="truncate">{note.title || note.name}</span>
@@ -128,19 +149,19 @@
       {/if}
     </section>
 
-    {#if recent_in_folder.length > 0}
+    {#if recently_edited.length > 0}
       <section class="RelatedPanel__section">
         <header class="RelatedPanel__heading">
           <History size={12} />
           <span>Recently edited</span>
         </header>
         <ul class="RelatedPanel__list">
-          {#each recent_in_folder as note (note.path)}
+          {#each recently_edited as note (note.path)}
             <li>
               <button
                 type="button"
                 class="RelatedPanel__row"
-                onclick={() => open_note(note.path)}
+                onclick={() => open(note.path)}
               >
                 <FileText size={12} />
                 <span class="truncate">{note.title || note.name}</span>
@@ -209,5 +230,38 @@
   }
   .RelatedPanel__row:hover {
     background: var(--muted);
+  }
+  .RelatedPanel__mention {
+    display: flex;
+    align-items: center;
+  }
+  .RelatedPanel__mention .RelatedPanel__row {
+    flex: 1;
+    min-width: 0;
+  }
+  .RelatedPanel__link-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.5rem;
+    height: 1.5rem;
+    flex-shrink: 0;
+    border: 0;
+    border-radius: 0.25rem;
+    background: transparent;
+    color: var(--muted-foreground);
+    cursor: pointer;
+    opacity: 0;
+  }
+  .RelatedPanel__mention:hover .RelatedPanel__link-btn {
+    opacity: 1;
+  }
+  .RelatedPanel__link-btn:hover {
+    background: var(--accent);
+    color: var(--foreground);
+  }
+  .RelatedPanel__link-btn:disabled {
+    cursor: default;
+    opacity: 0;
   }
 </style>

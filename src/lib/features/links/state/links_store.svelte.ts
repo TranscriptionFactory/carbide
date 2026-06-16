@@ -125,6 +125,12 @@ export class LinksStore {
     this.related_unlinked = related.unlinked;
   }
 
+  remove_unlinked_mention(path: string) {
+    this.related_unlinked = this.related_unlinked.filter(
+      (note) => note.path !== path,
+    );
+  }
+
   clear_related() {
     this.related_note_path = null;
     this.related_loading = false;

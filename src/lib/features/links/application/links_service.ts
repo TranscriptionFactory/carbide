@@ -5,8 +5,11 @@ import type { VaultId } from "$lib/shared/types/ids";
 import type { MarkdownLspPort } from "$lib/features/markdown_lsp";
 import type { MarkdownLspStore } from "$lib/features/markdown_lsp";
 import type { TagPort } from "$lib/features/tags";
+import type { NoteService } from "$lib/features/note";
+import type { TabStore } from "$lib/features/tab";
 import type { NoteMeta } from "$lib/shared/types/note";
 import type { NoteSearchHit } from "$lib/shared/types/search";
+import { as_markdown_text, as_note_path } from "$lib/shared/types/ids";
 import { create_logger } from "$lib/shared/utils/logger";
 import { error_message } from "$lib/shared/utils/error_message";
 import { extract_local_links } from "../domain/extract_local_links";
@@ -18,6 +21,7 @@ import {
   collect_shared_tag_notes,
   filter_unlinked_mentions,
 } from "../domain/related_context";
+import { link_first_mention } from "../domain/link_mention";
 
 const log = create_logger("links_service");
 
@@ -52,6 +56,8 @@ export class LinksService {
     private readonly markdown_lsp_port: MarkdownLspPort,
     private readonly markdown_lsp_store: MarkdownLspStore,
     private readonly tag_port?: TagPort,
+    private readonly note_service?: NoteService,
+    private readonly tab_store?: TabStore,
   ) {}
 
   private get_active_vault_id(): VaultId | null {
@@ -304,6 +310,36 @@ export class LinksService {
 
   clear_related() {
     this.links_store.clear_related();
+  }
+
+  async link_mention(mention_path: string, title: string): Promise<boolean> {
+    const vault_id = this.get_active_vault_id();
+    if (!vault_id || !this.note_service) return false;
+
+    const note_path = as_note_path(mention_path);
+    try {
+      const doc = await this.note_service.read_note(vault_id, note_path);
+      const { markdown, changed } = link_first_mention(doc.markdown, title);
+      if (!changed) {
+        this.links_store.remove_unlinked_mention(mention_path);
+        return false;
+      }
+
+      await this.note_service.write_note_indexed(
+        vault_id,
+        note_path,
+        as_markdown_text(markdown),
+      );
+      this.tab_store?.invalidate_cache_by_path(note_path);
+      this.links_store.remove_unlinked_mention(mention_path);
+      return true;
+    } catch (error) {
+      log.error("Failed to link unlinked mention", {
+        mention_path,
+        error: error_message(error),
+      });
+      return false;
+    }
   }
 
   clear() {

@@ -822,3 +822,77 @@ describe("LinksService.load_related_context", () => {
     expect(links_store.related_unlinked.map((n) => n.path)).toEqual(["m.md"]);
   });
 });
+
+function make_note_service(markdown: string) {
+  return {
+    read_note: vi.fn().mockResolvedValue({ markdown }),
+    write_note_indexed: vi.fn().mockResolvedValue({ blurb: "" }),
+  };
+}
+
+describe("LinksService.link_mention", () => {
+  it("links the first mention, persists, and drops it from the panel", async () => {
+    const note_service = make_note_service("I mention Topic here.");
+    const tab_store = { invalidate_cache_by_path: vi.fn() };
+
+    const vault_store = new VaultStore();
+    vault_store.set_vault(create_test_vault());
+    const links_store = new LinksStore();
+    links_store.set_related("Topic.md", {
+      shared_tag: [],
+      unlinked: [note("mention.md")],
+    });
+
+    const service = new LinksService(
+      make_search_port(),
+      vault_store,
+      links_store,
+      make_markdown_lsp_port(),
+      make_markdown_lsp_store(),
+      make_tag_port(),
+      note_service as never,
+      tab_store as never,
+    );
+
+    const result = await service.link_mention("mention.md", "Topic");
+
+    expect(result).toBe(true);
+    expect(note_service.write_note_indexed).toHaveBeenCalledWith(
+      "vault-1",
+      "mention.md",
+      "I mention [[Topic]] here.",
+    );
+    expect(tab_store.invalidate_cache_by_path).toHaveBeenCalledWith(
+      "mention.md",
+    );
+    expect(links_store.related_unlinked).toEqual([]);
+  });
+
+  it("does not write when the title is absent, but clears the stale entry", async () => {
+    const note_service = make_note_service("nothing relevant here");
+    const vault_store = new VaultStore();
+    vault_store.set_vault(create_test_vault());
+    const links_store = new LinksStore();
+    links_store.set_related("Topic.md", {
+      shared_tag: [],
+      unlinked: [note("mention.md")],
+    });
+
+    const service = new LinksService(
+      make_search_port(),
+      vault_store,
+      links_store,
+      make_markdown_lsp_port(),
+      make_markdown_lsp_store(),
+      make_tag_port(),
+      note_service as never,
+      { invalidate_cache_by_path: vi.fn() } as never,
+    );
+
+    const result = await service.link_mention("mention.md", "Topic");
+
+    expect(result).toBe(false);
+    expect(note_service.write_note_indexed).not.toHaveBeenCalled();
+    expect(links_store.related_unlinked).toEqual([]);
+  });
+});

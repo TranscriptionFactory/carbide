@@ -675,15 +675,6 @@ export function create_app_context(input: {
     now_ms,
   );
 
-  const links_service = new LinksService(
-    input.ports.search,
-    stores.vault,
-    stores.links,
-    input.ports.markdown_lsp,
-    stores.markdown_lsp,
-    input.ports.tag,
-  );
-
   const hotkey_service = new HotkeyService(
     input.ports.settings,
     stores.op,
@@ -735,6 +726,17 @@ export function create_app_context(input: {
     secondary_editor_manager,
     stores.parsed_note_cache,
     stores.diagnostics,
+  );
+
+  const links_service = new LinksService(
+    input.ports.search,
+    stores.vault,
+    stores.links,
+    input.ports.markdown_lsp,
+    stores.markdown_lsp,
+    input.ports.tag,
+    note_service,
+    stores.tab,
   );
 
   const tab_service = new TabService(
@@ -934,7 +936,7 @@ export function create_app_context(input: {
 
   register_actions(base_action_input);
 
-  register_links_actions(action_registry, editor_service);
+  register_links_actions(action_registry, editor_service, links_service);
 
   plugin_service.initialize_rpc({
     services: {
