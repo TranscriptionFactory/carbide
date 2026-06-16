@@ -2627,6 +2627,7 @@ pub fn search(
     query: &str,
     scope: SearchScope,
     limit: usize,
+    date_range: Option<(i64, i64)>,
 ) -> Result<Vec<SearchHit>, String> {
     let trimmed = query.trim();
     if trimmed.is_empty() {
@@ -2638,6 +2639,32 @@ pub fn search(
         return Ok(Vec::new());
     }
 
+    fn map_search_row(row: &rusqlite::Row) -> rusqlite::Result<SearchHit> {
+        let snippet: Option<String> = row.get(4)?;
+        let offsets_json: Option<String> = row.get(7)?;
+        let body: Option<String> = row.get(8)?;
+        let source: Option<String> = row.get(9)?;
+        let snippet_page = resolve_snippet_page_from_json(
+            snippet.as_deref(),
+            body.as_deref(),
+            offsets_json.as_deref(),
+        );
+        let mut note = note_meta_from_row_cols(row, Some(6))?;
+        note.source = source;
+        Ok(SearchHit {
+            note,
+            score: row.get(5)?,
+            snippet,
+            snippet_page,
+        })
+    }
+
+    let date_clause = if date_range.is_some() {
+        " AND n.mtime_ms >= ?3 AND n.mtime_ms < ?4"
+    } else {
+        ""
+    };
+
     let sql = format!(
         "SELECT n.path, n.title, n.mtime_ms, n.size_bytes,
                 snippet(notes_fts, 3, '<b>', '</b>', '...', 30) as snippet,
@@ -2648,35 +2675,36 @@ pub fn search(
                 n.source
          FROM notes_fts
          JOIN notes n ON n.path = notes_fts.path
-         WHERE notes_fts MATCH ?1
+         WHERE notes_fts MATCH ?1{date_clause}
          ORDER BY rank
          LIMIT ?2"
     );
 
     let mut stmt = conn.prepare(&sql).map_err(|e| e.to_string())?;
-    let rows = stmt
-        .query_map(params![match_expr, limit], |row| {
-            let snippet: Option<String> = row.get(4)?;
-            let offsets_json: Option<String> = row.get(7)?;
-            let body: Option<String> = row.get(8)?;
-            let source: Option<String> = row.get(9)?;
-            let snippet_page = resolve_snippet_page_from_json(
-                snippet.as_deref(),
-                body.as_deref(),
-                offsets_json.as_deref(),
-            );
-            let mut note = note_meta_from_row_cols(row, Some(6))?;
-            note.source = source;
-            Ok(SearchHit {
-                note,
-                score: row.get(5)?,
-                snippet,
-                snippet_page,
-            })
-        })
-        .map_err(|e| e.to_string())?;
+    let rows = match date_range {
+        Some((start_ms, end_ms)) => {
+            stmt.query_map(params![match_expr, limit, start_ms, end_ms], map_search_row)
+        }
+        None => stmt.query_map(params![match_expr, limit], map_search_row),
+    }
+    .map_err(|e| e.to_string())?;
 
     rows.collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())
+}
+
+pub fn paths_in_mtime_range(
+    conn: &Connection,
+    start_ms: i64,
+    end_ms: i64,
+) -> Result<std::collections::HashSet<String>, String> {
+    let mut stmt = conn
+        .prepare("SELECT path FROM notes WHERE mtime_ms >= ?1 AND mtime_ms < ?2")
+        .map_err(|e| e.to_string())?;
+    let rows = stmt
+        .query_map(params![start_ms, end_ms], |row| row.get::<_, String>(0))
+        .map_err(|e| e.to_string())?;
+    rows.collect::<Result<std::collections::HashSet<_>, _>>()
         .map_err(|e| e.to_string())
 }
 

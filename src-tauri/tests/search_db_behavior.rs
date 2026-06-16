@@ -100,7 +100,7 @@ fn remove_notes_by_prefix_deletes_matching_and_keeps_others() {
     assert_eq!(manifest.len(), 1);
     assert!(manifest.contains_key("misc/c.md"));
 
-    let results = search(&conn, "body", SearchScope::All, 10).expect("search should succeed");
+    let results = search(&conn, "body", SearchScope::All, 10, None).expect("search should succeed");
     assert_eq!(results.len(), 1);
     assert_eq!(results[0].note.path, "misc/c.md");
 }
@@ -437,7 +437,7 @@ fn search_returns_file_type_from_db() {
     };
     upsert_note(&conn, &meta, "quarterly results revenue growth").expect("upsert should succeed");
 
-    let results = search(&conn, "quarterly", SearchScope::All, 10).expect("search should succeed");
+    let results = search(&conn, "quarterly", SearchScope::All, 10, None).expect("search should succeed");
     assert_eq!(results.len(), 1);
     assert_eq!(results[0].note.file_type, Some("pdf".to_string()));
 }
@@ -483,7 +483,7 @@ fn search_ranks_verbatim_phrase_above_scattered_terms() {
         "the theme of the offsite. theory. names. the the the of of. game over.",
     );
 
-    let results = search(&conn, "name of the game", SearchScope::All, 10)
+    let results = search(&conn, "name of the game", SearchScope::All, 10, None)
         .expect("search should succeed");
     assert_eq!(
         results.first().map(|h| h.note.path.as_str()),
@@ -494,7 +494,7 @@ fn search_ranks_verbatim_phrase_above_scattered_terms() {
 
     // Recall is preserved when no exact phrase exists: a note containing all
     // terms (non-adjacent) still matches.
-    let recall = search(&conn, "consistency habits", SearchScope::All, 10)
+    let recall = search(&conn, "consistency habits", SearchScope::All, 10, None)
         .expect("search should succeed");
     assert_eq!(
         recall.first().map(|h| h.note.path.as_str()),
@@ -856,4 +856,67 @@ fn rebuild_re_resolves_cross_batch_orphans() {
     let backlinks = get_backlinks(&conn, "journal/2026-05-09.md").expect("backlinks");
     assert_eq!(backlinks.len(), 1, "cross-batch link should be resolved by re_resolve_orphan_outlinks");
     assert_eq!(backlinks[0].path, "notes/source.md");
+}
+
+#[test]
+fn search_date_range_filters_by_mtime() {
+    let tmp = TempDir::new().expect("temp dir should be created");
+    let conn = open_search_db_at_path(&tmp.path().join("test.db")).expect("db should open");
+
+    let notes = [("recent.md", 5_000_i64), ("old.md", 1_000_i64)];
+    for (path, mtime) in notes {
+        let meta = IndexNoteMeta {
+            id: path.to_string(),
+            path: path.to_string(),
+            title: path.to_string(),
+            name: path.to_string(),
+            mtime_ms: mtime,
+            ctime_ms: mtime,
+            size_bytes: 10,
+            file_type: None,
+            source: None,
+        };
+        upsert_note(&conn, &meta, "metaboloformer benchmarks").expect("upsert should succeed");
+    }
+
+    let all = search(&conn, "metaboloformer", SearchScope::All, 10, None).expect("search");
+    assert_eq!(all.len(), 2);
+
+    let windowed = search(
+        &conn,
+        "metaboloformer",
+        SearchScope::All,
+        10,
+        Some((4_000, 6_000)),
+    )
+    .expect("search");
+    assert_eq!(windowed.len(), 1);
+    assert_eq!(windowed[0].note.path, "recent.md");
+}
+
+#[test]
+fn paths_in_mtime_range_returns_only_in_window() {
+    use crate::features::search::db::paths_in_mtime_range;
+
+    let tmp = TempDir::new().expect("temp dir should be created");
+    let conn = open_search_db_at_path(&tmp.path().join("test.db")).expect("db should open");
+
+    for (path, mtime) in [("a.md", 1_000_i64), ("b.md", 5_000_i64), ("c.md", 9_000_i64)] {
+        let meta = IndexNoteMeta {
+            id: path.to_string(),
+            path: path.to_string(),
+            title: path.to_string(),
+            name: path.to_string(),
+            mtime_ms: mtime,
+            ctime_ms: mtime,
+            size_bytes: 10,
+            file_type: None,
+            source: None,
+        };
+        upsert_note(&conn, &meta, "body").expect("upsert should succeed");
+    }
+
+    let in_range = paths_in_mtime_range(&conn, 4_000, 9_000).expect("range query");
+    assert_eq!(in_range.len(), 1);
+    assert!(in_range.contains("b.md"));
 }

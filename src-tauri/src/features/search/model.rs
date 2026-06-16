@@ -15,6 +15,12 @@ pub struct BatchSemanticEdge {
     pub distance: f32,
 }
 
+#[derive(Debug, Deserialize, Clone, Copy, Type)]
+pub struct DateRange {
+    pub start_ms: i64,
+    pub end_ms: i64,
+}
+
 #[derive(Debug, Serialize, Clone, Type)]
 #[serde(rename_all = "camelCase")]
 pub struct BlockSearchHit {

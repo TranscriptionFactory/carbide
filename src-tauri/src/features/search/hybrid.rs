@@ -12,15 +12,27 @@ pub fn hybrid_search(
     model: &EmbeddingService,
     query: &SearchQueryInput,
     limit: usize,
+    date_range: Option<(i64, i64)>,
 ) -> Result<Vec<HybridSearchHit>, String> {
     let query_vec = model.embed_one(&query.text)?;
 
     let over_fetch = limit * 3;
+    let vector_fetch = if date_range.is_some() {
+        (limit * 20).max(500)
+    } else {
+        over_fetch
+    };
 
-    let vector_hits = note_index.search(&query_vec, over_fetch);
+    let mut vector_hits = note_index.search(&query_vec, vector_fetch);
 
     let fts_hits =
-        search_db::search(conn, &query.text, query.scope, over_fetch).unwrap_or_default();
+        search_db::search(conn, &query.text, query.scope, over_fetch, date_range).unwrap_or_default();
+
+    if let Some((start_ms, end_ms)) = date_range {
+        let allowed = search_db::paths_in_mtime_range(conn, start_ms, end_ms)?;
+        vector_hits.retain(|(path, _)| allowed.contains(path));
+        vector_hits.truncate(over_fetch);
+    }
 
     let merged = rrf_merge(conn, &fts_hits, &vector_hits, limit, &query.text);
 
