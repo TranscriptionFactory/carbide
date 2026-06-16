@@ -742,3 +742,83 @@ describe("LinksService.load_suggested_links", () => {
     expect(links_store.suggested_links[0]?.note.path).toBe("b-similar.md");
   });
 });
+
+function make_tag_port(notes_for_tag: string[] = []) {
+  return {
+    list_all_tags: vi.fn().mockResolvedValue([]),
+    get_notes_for_tag: vi.fn().mockResolvedValue(notes_for_tag),
+    get_notes_for_tag_prefix: vi.fn().mockResolvedValue([]),
+  };
+}
+
+describe("LinksService.load_related_context", () => {
+  it("loads shared-tag notes and unlinked mentions, excluding self and links", async () => {
+    const search_port = make_search_port({
+      search_notes: vi.fn().mockResolvedValue([
+        { note: note("self.md"), score: 1 },
+        { note: note("linked.md"), score: 1 },
+        { note: note("shared.md"), score: 1 },
+        { note: note("mention.md"), score: 1 },
+      ]),
+    });
+    const tag_port = make_tag_port(["shared.md", "self.md"]);
+
+    const vault_store = new VaultStore();
+    vault_store.set_vault(create_test_vault());
+    const links_store = new LinksStore();
+    links_store.set_global_snapshot("self.md", {
+      backlinks: [note("linked.md")],
+      outlinks: [],
+      orphan_links: [],
+      attachments: [],
+    });
+
+    const service = new LinksService(
+      search_port,
+      vault_store,
+      links_store,
+      make_markdown_lsp_port(),
+      make_markdown_lsp_store(),
+      tag_port,
+    );
+
+    await service.load_related_context("self.md", ["work"]);
+
+    expect(tag_port.get_notes_for_tag).toHaveBeenCalledWith("vault-1", "work");
+    expect(search_port.search_notes).toHaveBeenCalledWith(
+      "vault-1",
+      { raw: "self", text: "self", scope: "content", domain: "notes" },
+      16,
+    );
+    expect(links_store.related_shared_tag.map((n) => n.path)).toEqual([
+      "shared.md",
+    ]);
+    expect(links_store.related_unlinked.map((n) => n.path)).toEqual([
+      "mention.md",
+    ]);
+    expect(links_store.related_loading).toBe(false);
+  });
+
+  it("skips the shared-tag query when no tag port is wired", async () => {
+    const search_port = make_search_port({
+      search_notes: vi
+        .fn()
+        .mockResolvedValue([{ note: note("m.md"), score: 1 }]),
+    });
+    const vault_store = new VaultStore();
+    vault_store.set_vault(create_test_vault());
+    const links_store = new LinksStore();
+    const service = new LinksService(
+      search_port,
+      vault_store,
+      links_store,
+      make_markdown_lsp_port(),
+      make_markdown_lsp_store(),
+    );
+
+    await service.load_related_context("note.md", ["work"]);
+
+    expect(links_store.related_shared_tag).toEqual([]);
+    expect(links_store.related_unlinked.map((n) => n.path)).toEqual(["m.md"]);
+  });
+});

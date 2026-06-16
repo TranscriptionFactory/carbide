@@ -12,3 +12,7 @@ export type {
 } from "$lib/features/links/types/link";
 export { extract_local_links } from "$lib/features/links/domain/extract_local_links";
 export { merge_suggestions } from "$lib/features/links/domain/merge_suggestions";
+export {
+  collect_shared_tag_notes,
+  filter_unlinked_mentions,
+} from "$lib/features/links/domain/related_context";
