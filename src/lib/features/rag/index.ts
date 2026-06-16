@@ -26,6 +26,12 @@ export {
   type RagRewriteResult,
 } from "$lib/features/rag/domain/rag_query_rewriter";
 export {
+  RAG_TEMPLATES,
+  scope_phrase,
+  type RagTemplate,
+  type RagTemplateId,
+} from "$lib/features/rag/domain/rag_prompt_templates";
+export {
   normalize_folder_scope,
   normalize_tag_scope,
   normalize_base_scope,

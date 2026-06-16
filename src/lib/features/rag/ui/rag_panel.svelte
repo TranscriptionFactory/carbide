@@ -17,6 +17,7 @@
   import RagMessage from "$lib/features/rag/ui/rag_message.svelte";
   import RagInput from "$lib/features/rag/ui/rag_input.svelte";
   import type { RagScope } from "$lib/features/rag/domain/rag_types";
+  import { RAG_TEMPLATES } from "$lib/features/rag/domain/rag_prompt_templates";
 
   const { stores, action_registry } = use_app_context();
 
@@ -47,11 +48,9 @@
     }
   });
 
-  const EXAMPLES = [
-    "What did I write about this week?",
-    "Summarize my notes on this project.",
-    "What are the open questions in my vault?",
-  ];
+  const templates = $derived(
+    RAG_TEMPLATES.map((t) => ({ id: t.id, label: t.label, query: t.build(rag.scope) })),
+  );
 
   function ask(question: string) {
     void action_registry.execute(ACTION_IDS.rag_ask, question);
@@ -204,14 +203,15 @@
         >
           <MessagesSquare class="size-8 text-muted-foreground" />
           <div class="text-sm font-medium">Ask anything about your vault</div>
-          <div class="flex flex-col gap-1">
-            {#each EXAMPLES as example (example)}
+          <div class="flex flex-wrap justify-center gap-1">
+            {#each templates as template (template.id)}
               <button
                 type="button"
                 class="rounded-md border px-3 py-1.5 text-xs text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-                onclick={() => ask(example)}
+                title={template.query}
+                onclick={() => ask(template.query)}
               >
-                {example}
+                {template.label}
               </button>
             {/each}
           </div>
