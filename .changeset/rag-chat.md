@@ -10,5 +10,5 @@ Add RAG-powered chat over the vault.
 - Scope-aware prompt templates in the chat empty state
 - MCP `rag_query` and `rag_status` tools via the front-end event bridge
 - OpenAI-compatible API streaming with LM Studio and llama-server presets
-- Authored/discovered link split in the right rail
+- Authored/discovered link split in the right rail, vault-wide "Recently edited", and a hover "Link" action that converts every unlinked mention of a note's title into a wiki-link
 - Smart blocks: unified insertion on the slash menu, and fixed a tasks-block XSS hole plus a reactivity gap
