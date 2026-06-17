@@ -360,6 +360,10 @@ class View {
         }
     }
     expand() {
+        // Carbide patch: guard against a detached/half-navigated iframe document
+        // (see Paginator.render) — `this.document` can be null or body-less when a
+        // ResizeObserver / fonts.ready / requestAnimationFrame callback fires here.
+        if (!this.document?.documentElement) return
         const { documentElement } = this.document
         if (this.#column) {
             const side = this.#vertical ? 'height' : 'width'
@@ -753,6 +757,12 @@ export class Paginator extends HTMLElement {
     }
     render() {
         if (!this.#view) return
+        // Carbide patch: the container ResizeObserver can fire mid section-swap,
+        // while the iframe is still navigating to the next blob: document and its
+        // <body> has not been parsed. Reflowing then throws in
+        // setStylesImportant(doc.body); skip and let load()/expand() reflow once
+        // the document is ready.
+        if (!this.#view.document?.body) return
         this.#view.render(this.#beforeRender({
             vertical: this.#vertical,
             rtl: this.#rtl,
