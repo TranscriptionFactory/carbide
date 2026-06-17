@@ -322,6 +322,7 @@ export const ACTION_IDS = {
   document_toggle_source: "document.toggle_source",
   document_paste_html_artifact: "document.paste_html_artifact",
   document_clear_provenance: "document.clear_provenance",
+  document_save_reading_position: "document.save_reading_position",
 
   window_open_viewer: "window.open_viewer",
   window_open_new: "window.open_new",

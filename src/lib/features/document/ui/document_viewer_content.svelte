@@ -6,6 +6,7 @@
     DocumentViewerState,
   } from "$lib/features/document/state/document_store.svelte";
   import PdfViewer from "$lib/features/document/ui/pdf_viewer.svelte";
+  import EpubViewer from "$lib/features/document/ui/epub_viewer.svelte";
   import ImageViewer from "$lib/features/document/ui/image_viewer.svelte";
   import DocumentEditor from "$lib/features/document/ui/document_editor.svelte";
   import HtmlViewer from "$lib/features/document/ui/html_viewer.svelte";
@@ -73,6 +74,13 @@
 
   function handle_scroll_change(scroll_top: number): void {
     stores.document.update_scroll(viewer_state.tab_id, scroll_top);
+  }
+
+  function handle_epub_position_change(cfi: string): void {
+    void action_registry.execute(ACTION_IDS.document_save_reading_position, {
+      tab_id: viewer_state.tab_id,
+      cfi,
+    });
   }
 
   async function set_html_view_mode(mode: HtmlViewMode): Promise<void> {
@@ -162,6 +170,15 @@
         default_zoom={stores.ui.editor_settings.document_pdf_default_zoom}
         scroll_mode={stores.ui.editor_settings.document_pdf_scroll_mode}
         on_metadata={handle_pdf_metadata}
+      />
+    {/key}
+  {:else if viewer_state.file_type === "epub" && asset_url}
+    {#key `${viewer_state.tab_id}:${viewer_state.file_path}`}
+      <EpubViewer
+        src={asset_url}
+        theme={stores.ui.active_theme}
+        initial_cfi={viewer_state.cfi}
+        on_position_change={handle_epub_position_change}
       />
     {/key}
   {:else if viewer_state.file_type === "image" && asset_url}

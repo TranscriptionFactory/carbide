@@ -14,6 +14,7 @@ export type DocumentViewerState = {
   zoom: number;
   scroll_top: number;
   pdf_page: number;
+  cfi: string | null;
   html_view_mode: HtmlViewMode;
   load_status: "idle" | "loading" | "ready" | "error";
   error_message: string | null;
@@ -118,6 +119,10 @@ export class DocumentStore {
 
   update_pdf_page(tab_id: string, page: number): void {
     this.#patch(tab_id, { pdf_page: page });
+  }
+
+  update_cfi(tab_id: string, cfi: string | null): void {
+    this.#patch(tab_id, { cfi });
   }
 
   set_html_view_mode(tab_id: string, mode: HtmlViewMode): void {

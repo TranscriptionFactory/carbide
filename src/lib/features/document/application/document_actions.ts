@@ -15,6 +15,7 @@ import { toast } from "svelte-sonner";
 type DocumentOpenPayload = {
   file_path: string;
   initial_pdf_page?: number;
+  initial_cfi?: string;
 };
 
 function normalize_initial_pdf_page(value: unknown): number | undefined {
@@ -43,6 +44,9 @@ function parse_document_open_payload(
   const initial_pdf_page = normalize_initial_pdf_page(record.initial_pdf_page);
   if (initial_pdf_page !== undefined) {
     parsed.initial_pdf_page = initial_pdf_page;
+  }
+  if (typeof record.initial_cfi === "string" && record.initial_cfi) {
+    parsed.initial_cfi = record.initial_cfi;
   }
   return parsed;
 }
@@ -102,7 +106,7 @@ export function register_document_actions(
     execute: async (...args: unknown[]) => {
       const parsed = parse_document_open_payload(args[0]);
       if (!parsed) return;
-      const { file_path, initial_pdf_page } = parsed;
+      const { file_path, initial_pdf_page, initial_cfi } = parsed;
       const vault_id = stores.vault.vault?.id;
       if (!vault_id) return;
 
@@ -123,7 +127,20 @@ export function register_document_actions(
         file_path,
         file_type,
         initial_pdf_page,
+        initial_cfi,
       );
+    },
+  });
+
+  registry.register({
+    id: ACTION_IDS.document_save_reading_position,
+    label: "Save Reading Position",
+    execute: async (...args: unknown[]) => {
+      const payload = args[0];
+      if (!payload || typeof payload !== "object") return;
+      const { tab_id, cfi } = payload as { tab_id?: unknown; cfi?: unknown };
+      if (typeof tab_id !== "string" || typeof cfi !== "string") return;
+      await document_service.save_reading_position(tab_id, cfi);
     },
   });
 

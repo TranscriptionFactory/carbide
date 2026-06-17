@@ -1,6 +1,7 @@
 import type {
   DocumentPort,
   PdfExportPort,
+  ReadingPositionPort,
   TrustEntry,
   TrustLevel,
   TrustScope,
@@ -52,6 +53,7 @@ export class DocumentService {
     private readonly inactive_content_limit = DEFAULT_INACTIVE_CONTENT_LIMIT,
     private readonly pdf_export_port?: PdfExportPort,
     private readonly trusted_html_port?: TrustedHtmlPort,
+    private readonly reading_position_port?: ReadingPositionPort,
   ) {
     this.document_store.set_inactive_content_limit(inactive_content_limit);
   }
@@ -181,6 +183,7 @@ export class DocumentService {
     file_path: string,
     file_type: DocumentFileType,
     initial_pdf_page?: number,
+    initial_cfi?: string,
   ): Promise<void> {
     const normalized_initial_pdf_page =
       typeof initial_pdf_page === "number" &&
@@ -189,6 +192,10 @@ export class DocumentService {
         ? initial_pdf_page
         : undefined;
     if (!this.document_store.get_viewer_state(tab_id)) {
+      const cfi =
+        file_type === "epub"
+          ? (initial_cfi ?? (await this.read_saved_position(file_path)))
+          : null;
       this.document_store.set_viewer_state(tab_id, {
         tab_id,
         file_path,
@@ -196,6 +203,7 @@ export class DocumentService {
         zoom: 1,
         scroll_top: 0,
         pdf_page: normalized_initial_pdf_page ?? 1,
+        cfi,
         html_view_mode: "safe",
         load_status: "idle",
         error_message: null,
@@ -205,6 +213,25 @@ export class DocumentService {
     }
 
     await this.ensure_content(tab_id);
+  }
+
+  private async read_saved_position(file_path: string): Promise<string | null> {
+    const vault_id = this.vault_store.vault?.id;
+    if (!vault_id || !this.reading_position_port) return null;
+    try {
+      return await this.reading_position_port.get(vault_id, file_path);
+    } catch {
+      return null;
+    }
+  }
+
+  async save_reading_position(tab_id: string, cfi: string): Promise<void> {
+    const vault_id = this.vault_store.vault?.id;
+    if (!vault_id || !this.reading_position_port) return;
+    const viewer = this.document_store.get_viewer_state(tab_id);
+    if (!viewer || viewer.file_type !== "epub") return;
+    this.document_store.update_cfi(tab_id, cfi);
+    await this.reading_position_port.set(vault_id, viewer.file_path, cfi);
   }
 
   async force_load_content(tab_id: string): Promise<void> {

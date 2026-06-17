@@ -638,6 +638,7 @@ describe("DocumentService", () => {
         zoom: 1,
         scroll_top: 0,
         pdf_page: 1,
+        cfi: null,
         html_view_mode,
         load_status: "ready",
         error_message: null,
@@ -715,6 +716,7 @@ describe("DocumentService", () => {
         zoom: 1,
         scroll_top: 0,
         pdf_page: 1,
+        cfi: null,
         html_view_mode: "source",
         load_status: "ready",
         error_message: null,
@@ -740,6 +742,7 @@ describe("DocumentService", () => {
         zoom: 1,
         scroll_top: 0,
         pdf_page: 1,
+        cfi: null,
         html_view_mode: "source",
         load_status: "loading",
         error_message: null,
@@ -767,6 +770,7 @@ describe("DocumentService", () => {
         zoom: 1,
         scroll_top: 0,
         pdf_page: 1,
+        cfi: null,
         html_view_mode: "source",
         load_status: "ready",
         error_message: null,
@@ -820,6 +824,117 @@ describe("DocumentService", () => {
       expect(service.apply_html_source_output("missing-tab", "<p>x</p>")).toBe(
         false,
       );
+    });
+  });
+
+  describe("reading position", () => {
+    function create_reading_position_port(saved: string | null = null) {
+      return {
+        get: vi.fn().mockResolvedValue(saved),
+        set: vi.fn().mockResolvedValue(undefined),
+      };
+    }
+
+    function make_service(
+      document_store: DocumentStore,
+      vault_store: VaultStore,
+      reading_position_port: ReturnType<typeof create_reading_position_port>,
+    ) {
+      return new DocumentService(
+        create_document_port(),
+        vault_store,
+        document_store,
+        () => 10,
+        3,
+        undefined,
+        undefined,
+        reading_position_port,
+      );
+    }
+
+    it("seeds cfi from the reading position port when opening an epub", async () => {
+      const document_store = new DocumentStore();
+      const vault_store = new VaultStore();
+      vault_store.vault = create_test_vault();
+      const port = create_reading_position_port("epubcfi(/6/4!/4/2)");
+      const service = make_service(document_store, vault_store, port);
+
+      await service.open_document("tab-epub", "books/a.epub", "epub");
+
+      expect(port.get).toHaveBeenCalledWith(
+        vault_store.vault?.id,
+        "books/a.epub",
+      );
+      expect(document_store.get_viewer_state("tab-epub")?.cfi).toBe(
+        "epubcfi(/6/4!/4/2)",
+      );
+    });
+
+    it("prefers an explicit initial_cfi over the saved position", async () => {
+      const document_store = new DocumentStore();
+      const vault_store = new VaultStore();
+      vault_store.vault = create_test_vault();
+      const port = create_reading_position_port("epubcfi(saved)");
+      const service = make_service(document_store, vault_store, port);
+
+      await service.open_document(
+        "tab-epub",
+        "books/a.epub",
+        "epub",
+        undefined,
+        "epubcfi(explicit)",
+      );
+
+      expect(port.get).not.toHaveBeenCalled();
+      expect(document_store.get_viewer_state("tab-epub")?.cfi).toBe(
+        "epubcfi(explicit)",
+      );
+    });
+
+    it("leaves cfi null and skips the port for non-epub documents", async () => {
+      const document_store = new DocumentStore();
+      const vault_store = new VaultStore();
+      vault_store.vault = create_test_vault();
+      const port = create_reading_position_port("epubcfi(saved)");
+      const service = make_service(document_store, vault_store, port);
+
+      await service.open_document("tab-pdf", "docs/paper.pdf", "pdf");
+
+      expect(port.get).not.toHaveBeenCalled();
+      expect(document_store.get_viewer_state("tab-pdf")?.cfi).toBeNull();
+    });
+
+    it("save_reading_position writes through the port and updates the store", async () => {
+      const document_store = new DocumentStore();
+      const vault_store = new VaultStore();
+      vault_store.vault = create_test_vault();
+      const port = create_reading_position_port();
+      const service = make_service(document_store, vault_store, port);
+
+      await service.open_document("tab-epub", "books/a.epub", "epub");
+      await service.save_reading_position("tab-epub", "epubcfi(/6/8!/2)");
+
+      expect(port.set).toHaveBeenCalledWith(
+        vault_store.vault?.id,
+        "books/a.epub",
+        "epubcfi(/6/8!/2)",
+      );
+      expect(document_store.get_viewer_state("tab-epub")?.cfi).toBe(
+        "epubcfi(/6/8!/2)",
+      );
+    });
+
+    it("save_reading_position is a no-op for non-epub tabs", async () => {
+      const document_store = new DocumentStore();
+      const vault_store = new VaultStore();
+      vault_store.vault = create_test_vault();
+      const port = create_reading_position_port();
+      const service = make_service(document_store, vault_store, port);
+
+      await service.open_document("tab-pdf", "docs/paper.pdf", "pdf");
+      await service.save_reading_position("tab-pdf", "epubcfi(x)");
+
+      expect(port.set).not.toHaveBeenCalled();
     });
   });
 });
