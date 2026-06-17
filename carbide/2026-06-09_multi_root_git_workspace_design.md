@@ -51,8 +51,9 @@ backlinks, viewing, and editing with zero new code.**
 
 1. **Clone into a subfolder.** `git clone --filter=blob:none --sparse` the repo
    into `vault/sources/<repo>/`, with a sparse pattern of `*.md` (or whatever
-   globs you want). Add `sources/` to the vault's `.gitignore` so the vault's
-   git autocommit leaves the nested repos alone.
+   globs you want). Add `/sources/` to the vault repo's **`.git/info/exclude`**
+   (NOT `.gitignore` — see the gap section) so vault git leaves the nested repos
+   alone while Carbide keeps indexing them.
    → *Search, backlinks, viewing, and editing all work immediately.*
 
 2. **Pull/push via terminal, for now.** For a handful of repos this is genuinely
@@ -73,9 +74,22 @@ The vault autocommits itself (git autocommit reactor). A clone *inside* the
 vault is a nested `.git`; the vault-level git UI only ever targets the vault
 root, so it can't commit/push the inner repo. Two consequences:
 
-- gitignore the `sources/` folder so vault autocommit doesn't try to swallow the
-  nested repos as gitlinks.
+- Exclude the `sources/` folder from vault git via **`.git/info/exclude`**, not
+  `.gitignore`. Both stop vault git from swallowing the nested repos as gitlinks,
+  but the search index's ignore matcher (`shared/vault_ignore.rs`) reads
+  `.gitignore` and `.vaultignore` — so `.gitignore` would also de-index every
+  synced doc (no FTS, no backlinks). `.git/info/exclude` is local-only and the
+  matcher does not read it, so it hides the repos from vault git while Carbide
+  keeps indexing them.
 - in-app commit/push to a source repo requires pointing git at the *inner* repo.
+- **Autocommit correctness, not just push.** The autocommit reactor stages
+  *specific edited paths* via libgit2 `index.add_path` (`git/service.rs`), which
+  bypasses ignore rules entirely (`.gitignore` *and* `info/exclude`). So editing
+  a source-repo note in Carbide force-stages it into the *vault* repo (wrong
+  repo), regardless of the exclude above. Until the resolver below lands, treat
+  synced docs as read-mostly in-app, or edit them via the inner repo. Root-aware
+  git is what makes in-app editing of nested repos correct — not merely a push
+  convenience.
 
 Because the Rust git commands already accept an arbitrary path, closing this gap
 is a **frontend wiring change, not a module**:
