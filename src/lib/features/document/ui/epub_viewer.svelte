@@ -15,6 +15,10 @@
     FoliateSearchSubitem,
   } from "$lib/features/document/types/foliate";
   import { build_theme_vars } from "$lib/features/document/domain/html_theme_vars";
+  import {
+    inject_csp,
+    is_html_type,
+  } from "$lib/features/document/domain/epub_csp";
   import type { Theme } from "$lib/shared/types/theme";
 
   interface Props {
@@ -25,14 +29,6 @@
   }
 
   let { src, theme, initial_cfi, on_position_change }: Props = $props();
-
-  // Same-origin book iframes are required for pagination, so book scripts are
-  // neutralized with a strict per-document CSP instead of an iframe sandbox.
-  // `blob:` is allowed for img/style/font/media because foliate serves the
-  // book's own resources (including linked stylesheets) as blob: URLs.
-  const BOOK_CSP =
-    "default-src 'none'; img-src data: blob:; style-src 'unsafe-inline' data: blob:; " +
-    "font-src data: blob:; media-src data: blob:; script-src 'none'";
 
   let container_el: HTMLDivElement | undefined = $state();
   let search_input_el: HTMLInputElement | undefined = $state();
@@ -53,27 +49,6 @@
   let search_index = $state(0);
   let searching = $state(false);
   let search_generation = 0;
-
-  function is_html_type(type: string): boolean {
-    return (
-      type.startsWith("application/xhtml+xml") || type.startsWith("text/html")
-    );
-  }
-
-  function inject_csp(html: string): string {
-    const meta = `<meta http-equiv="Content-Security-Policy" content="${BOOK_CSP}">`;
-    const head = /<head[^>]*>/i.exec(html);
-    if (head) {
-      const at = head.index + head[0].length;
-      return html.slice(0, at) + meta + html.slice(at);
-    }
-    const root = /<html[^>]*>/i.exec(html);
-    if (root) {
-      const at = root.index + root[0].length;
-      return `${html.slice(0, at)}<head>${meta}</head>${html.slice(at)}`;
-    }
-    return meta + html;
-  }
 
   function build_book_css(t: Theme): string {
     const v = build_theme_vars(t);
