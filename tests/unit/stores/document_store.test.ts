@@ -13,6 +13,7 @@ function make_state(tab_id: string): DocumentViewerState {
     zoom: 1,
     scroll_top: 0,
     pdf_page: 1,
+    cfi: null,
     html_view_mode: "safe",
     load_status: "idle",
     error_message: null,

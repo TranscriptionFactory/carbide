@@ -83,7 +83,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; img-src 'self' data: blob: carbide-asset: carbide-plugin:; style-src 'self' 'unsafe-inline'; script-src 'self' blob: carbide-plugin:; worker-src 'self' blob:; connect-src 'self' ipc: http://ipc.localhost carbide-asset:; frame-src carbide-plugin: carbide-excalidraw: carbide-asset: carbide-html:"
+      "csp": "default-src 'self'; img-src 'self' data: blob: carbide-asset: carbide-plugin:; style-src 'self' 'unsafe-inline'; script-src 'self' blob: carbide-plugin:; worker-src 'self' blob:; connect-src 'self' ipc: http://ipc.localhost carbide-asset:; frame-src carbide-plugin: carbide-excalidraw: carbide-asset: carbide-html: blob:"
     }
   }
 }

@@ -38,6 +38,11 @@ export type TrustEntry = {
   level: TrustLevel;
 };
 
+export interface ReadingPositionPort {
+  get(vault_id: string, path: string): Promise<string | null>;
+  set(vault_id: string, path: string, cfi: string): Promise<void>;
+}
+
 export interface TrustedHtmlPort {
   get_level(vault_id: string, file_path: string): Promise<TrustLevel>;
   list(vault_id: string): Promise<TrustEntry[]>;

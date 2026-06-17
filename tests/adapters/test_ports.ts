@@ -81,6 +81,10 @@ export function create_test_ports(): Ports {
         return Promise.resolve(i >= 0 ? p.slice(0, i) : "");
       },
     },
+    reading_position: {
+      get: () => Promise.resolve(null),
+      set: () => Promise.resolve(),
+    },
     terminal: create_test_terminal_adapter(),
     window: create_test_window_adapter(),
     watcher: create_test_watcher_adapter(),

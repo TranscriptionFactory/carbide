@@ -415,6 +415,8 @@ pub fn run() {
             features::trusted_html::trusted_html_grant,
             features::trusted_html::trusted_html_revoke,
             features::trusted_html::trusted_html_parent_folder,
+            features::reading_position::reading_position_get,
+            features::reading_position::reading_position_set,
             features::external_mcp::external_mcp_start,
             features::external_mcp::external_mcp_stop,
             features::external_mcp::external_mcp_call_tool,

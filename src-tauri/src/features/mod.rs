@@ -11,6 +11,7 @@ pub mod mcp;
 pub mod notes;
 pub mod pipeline;
 pub mod plugin;
+pub mod reading_position;
 pub mod reference;
 
 pub mod search;

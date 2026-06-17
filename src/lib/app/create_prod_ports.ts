@@ -26,6 +26,7 @@ import { create_git_tauri_adapter } from "$lib/features/git";
 import {
   create_document_tauri_adapter,
   create_trusted_html_tauri_adapter,
+  create_reading_position_tauri_adapter,
 } from "$lib/features/document";
 import { create_terminal_tauri_adapter } from "$lib/features/terminal";
 import { create_window_tauri_adapter } from "$lib/features/window";
@@ -216,6 +217,7 @@ export function create_prod_ports(): Ports & {
     git,
     document: create_document_tauri_adapter(),
     trusted_html: create_trusted_html_tauri_adapter(),
+    reading_position: create_reading_position_tauri_adapter(),
     terminal: create_terminal_tauri_adapter(),
     window: create_window_tauri_adapter(),
     watcher,

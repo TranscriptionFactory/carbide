@@ -11,6 +11,7 @@ export {
   type DocumentPort,
   type PdfExportPort,
   type TrustedHtmlPort,
+  type ReadingPositionPort,
   type TrustLevel,
   type TrustScope,
   type TrustEntry,
@@ -18,6 +19,7 @@ export {
 export { create_document_tauri_adapter } from "$lib/features/document/adapters/document_tauri_adapter";
 export { create_pdf_export_tauri_adapter } from "$lib/features/document/adapters/pdf_export_tauri_adapter";
 export { create_trusted_html_tauri_adapter } from "$lib/features/document/adapters/trusted_html_tauri_adapter";
+export { create_reading_position_tauri_adapter } from "$lib/features/document/adapters/reading_position_tauri_adapter";
 export {
   render_note_to_html,
   type ImageResolver,
