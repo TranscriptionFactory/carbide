@@ -68,6 +68,7 @@ sha2 = "0.10"
 flate2 = "1"
 tar = "0.4"
 zip = { version = "2", default-features = false, features = ["deflate"] }
+quick-xml = "0.38"
 url = "2.5.8"
 pdf-extract = "0.10.0"
 lopdf = "0.34"

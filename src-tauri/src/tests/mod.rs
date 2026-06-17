@@ -226,6 +226,9 @@ mod specta_export {
                 crate::features::trusted_html::trusted_html_grant,
                 crate::features::trusted_html::trusted_html_revoke,
                 crate::features::trusted_html::trusted_html_parent_folder,
+                // Reading position (EPUB)
+                crate::features::reading_position::reading_position_get,
+                crate::features::reading_position::reading_position_set,
                 // Live HTML scheme
                 crate::shared::live_html::html_live_register,
                 crate::shared::live_html::html_live_release,

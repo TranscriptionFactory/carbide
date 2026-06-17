@@ -9,6 +9,7 @@ pub enum FileCategory {
     Canvas,
     Pdf,
     Html,
+    Epub,
     Code,
     Text,
     Binary,
@@ -21,6 +22,7 @@ impl FileCategory {
             Self::Canvas => "canvas",
             Self::Pdf => "pdf",
             Self::Html => "html",
+            Self::Epub => "epub",
             Self::Code => "code",
             Self::Text => "text",
             Self::Binary => "binary",
@@ -46,6 +48,7 @@ pub fn classify_file(path: &Path) -> FileCategory {
         "canvas" | "excalidraw" => FileCategory::Canvas,
         "pdf" => FileCategory::Pdf,
         "html" | "htm" => FileCategory::Html,
+        "epub" => FileCategory::Epub,
         "py" | "r" | "rs" | "ts" | "js" | "jsx" | "tsx" | "json" | "yaml" | "yml" | "toml"
         | "sh" | "bash" | "css" | "scss" | "xml" | "sql" | "go" | "java" | "kt" | "c"
         | "cpp" | "h" | "hpp" | "cs" | "rb" | "lua" | "zig" | "swift" | "dart" | "ex" | "exs"
@@ -76,7 +79,7 @@ fn is_known_text_filename(path: &Path) -> bool {
     )
 }
 
-const MAX_INDEXABLE_BYTES: usize = 512 * 1024; // 512 KB body cap for FTS
+pub(crate) const MAX_INDEXABLE_BYTES: usize = 512 * 1024; // 512 KB body cap for FTS
 
 pub fn extract_content(path: &Path, bytes: &[u8]) -> ExtractedContent {
     let category = classify_file(path);
@@ -103,6 +106,15 @@ pub fn extract_content(path: &Path, bytes: &[u8]) -> ExtractedContent {
             let extraction = crate::features::search::html_extractor::extract_html_text(bytes);
             ExtractedContent {
                 category: FileCategory::Html,
+                title: extraction.title,
+                body: truncate_body(extraction.body),
+                page_offsets: vec![],
+            }
+        }
+        FileCategory::Epub => {
+            let extraction = crate::features::search::epub_extractor::extract_epub_text(bytes);
+            ExtractedContent {
+                category: FileCategory::Epub,
                 title: extraction.title,
                 body: truncate_body(extraction.body),
                 page_offsets: vec![],
@@ -240,6 +252,11 @@ mod tests {
             classify_file(&PathBuf::from("artifacts/page.html")).as_str(),
             "html"
         );
+    }
+
+    #[test]
+    fn classify_epub() {
+        assert_eq!(classify_file(&PathBuf::from("book.epub")).as_str(), "epub");
     }
 
     #[test]

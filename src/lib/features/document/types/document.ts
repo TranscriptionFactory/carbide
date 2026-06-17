@@ -3,11 +3,12 @@ export type DocumentFileType =
   | "image"
   | "text"
   | "html"
+  | "epub"
   | "canvas"
   | "excalidraw";
 
 export function is_binary_type(file_type: DocumentFileType): boolean {
-  return file_type === "pdf" || file_type === "image";
+  return file_type === "pdf" || file_type === "image" || file_type === "epub";
 }
 
 export function is_editable_type(file_type: DocumentFileType): boolean {
