@@ -54,4 +54,11 @@ render a book without a script-blocking CSP.
 ## Updating
 
 Re-copy the file list above from the new upstream commit, re-apply the two `view.js`
-patches, update the commit hash + date here, and re-run `pnpm check`/`pnpm build`.
+patches and the two `paginator.js` reflow guards (search `Carbide patch` in each
+file), update the commit hash + date here, and re-run `pnpm check`/`pnpm build`.
+
+The `paginator.js` guards make `Paginator.render()` and `View.expand()` no-op when the
+section iframe is detached or mid-navigation (its `contentDocument`/`<body>` is null).
+The container `ResizeObserver` can fire during a section swap, before the next `blob:`
+document has parsed its `<body>`; without the guards `setStylesImportant(doc.body, …)`
+throws `Cannot destructure property 'style' from null`.
