@@ -29,6 +29,7 @@ export type GitPullStrategy = "merge" | "rebase" | "ff_only";
 export type DocumentPdfZoomMode = "actual_size" | "fit_width";
 export type DocumentPdfScrollMode = "continuous" | "paginated";
 export type DocumentImageBackground = "checkerboard" | "light" | "dark";
+export type DocumentEpubFlow = "paginated" | "scrolled";
 export type EditorSpacingDensity =
   | "extra_compact"
   | "compact"
@@ -165,6 +166,11 @@ export type EditorSettings = {
   document_pdf_scroll_mode: DocumentPdfScrollMode;
   document_code_wrap: boolean;
   document_image_background: DocumentImageBackground;
+  document_epub_flow: DocumentEpubFlow;
+  document_epub_max_column_count: number;
+  document_epub_max_inline_size: number;
+  document_epub_font_scale: number;
+  document_epub_line_height: number;
   document_inactive_cache_limit: number;
   semantic_similarity_threshold: number;
   semantic_suggested_links_limit: number;
@@ -280,6 +286,11 @@ export const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
   document_pdf_scroll_mode: "continuous",
   document_code_wrap: true,
   document_image_background: "checkerboard",
+  document_epub_flow: "scrolled",
+  document_epub_max_column_count: 2,
+  document_epub_max_inline_size: 720,
+  document_epub_font_scale: 100,
+  document_epub_line_height: 1.6,
   document_inactive_cache_limit: 3,
   semantic_similarity_threshold: 0.5,
   semantic_suggested_links_limit: 5,
@@ -455,6 +466,11 @@ export const GLOBAL_ONLY_SETTING_KEYS: readonly (keyof EditorSettings)[] = [
   "document_pdf_scroll_mode",
   "document_code_wrap",
   "document_image_background",
+  "document_epub_flow",
+  "document_epub_max_column_count",
+  "document_epub_max_inline_size",
+  "document_epub_font_scale",
+  "document_epub_line_height",
   "document_inactive_cache_limit",
   "graph_force_link_distance",
   "graph_force_charge_strength",
