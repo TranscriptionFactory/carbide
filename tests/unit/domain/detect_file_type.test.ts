@@ -37,6 +37,16 @@ describe("detect_file_type", () => {
     });
   });
 
+  describe("epub type", () => {
+    it("maps .epub to epub", () => {
+      expect(detect_file_type("book.epub")).toBe("epub");
+    });
+
+    it("is case-insensitive for epub", () => {
+      expect(detect_file_type("book.EPUB")).toBe("epub");
+    });
+  });
+
   describe("text type (text-by-default)", () => {
     it.each([
       ".csv",

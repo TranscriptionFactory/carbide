@@ -12,6 +12,7 @@ const SPECIAL_TYPE_MAP: Record<string, DocumentFileType> = {
   ".webp": "image",
   ".html": "html",
   ".htm": "html",
+  ".epub": "epub",
   ".canvas": "canvas",
   ".excalidraw": "excalidraw",
 };

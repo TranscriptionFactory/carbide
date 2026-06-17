@@ -1820,7 +1820,7 @@ const BATCH_SIZE: usize = 100;
 
 const ATTACHMENT_EXTENSIONS: &[&str] = &[
     ".png", ".jpg", ".jpeg", ".gif", ".svg", ".webp", ".bmp", ".ico",
-    ".pdf", ".html", ".htm",
+    ".pdf", ".html", ".htm", ".epub",
     ".mp3", ".mp4", ".wav", ".ogg", ".webm", ".flac",
     ".zip", ".tar", ".gz", ".rar",
     ".csv", ".xlsx", ".docx", ".pptx",
@@ -2118,6 +2118,18 @@ fn index_single_file_from_disk(
             Ok(())
         }
         FileCategory::Html => {
+            let bytes = std::fs::read(abs).unwrap_or_default();
+            let content = extract_content(abs, &bytes);
+            if let Some(t) = &content.title {
+                if !t.is_empty() {
+                    meta.title = t.clone();
+                }
+            }
+            upsert_plain_content(conn, meta, &content.body, &content.page_offsets)?;
+            pending_links.push((meta.path.clone(), vec![]));
+            Ok(())
+        }
+        FileCategory::Epub => {
             let bytes = std::fs::read(abs).unwrap_or_default();
             let content = extract_content(abs, &bytes);
             if let Some(t) = &content.title {

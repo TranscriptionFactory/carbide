@@ -289,6 +289,7 @@ describe("note_open in browse window context", () => {
       "docs/report.pdf",
       "pdf",
       undefined,
+      undefined,
     );
     expect(stores.tab.tabs).toHaveLength(1);
     const tab0 = stores.tab.tabs[0];
@@ -335,6 +336,7 @@ describe("note_open in browse window context", () => {
       "docs/report.pdf",
       "pdf",
       3,
+      undefined,
     );
   });
 
@@ -354,6 +356,7 @@ describe("note_open in browse window context", () => {
       "docs/report.pdf",
       "pdf",
       4,
+      undefined,
     );
   });
 });

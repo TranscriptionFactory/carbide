@@ -755,6 +755,7 @@ export function create_app_context(input: {
     undefined,
     create_pdf_export_tauri_adapter(),
     input.ports.trusted_html,
+    input.ports.reading_position,
   );
 
   const terminal_service = new TerminalService(
