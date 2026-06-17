@@ -44,6 +44,7 @@
   //   type AudioDeviceInfo,
   // } from "$lib/features/stt";
   import type {
+    DocumentEpubFlow,
     DocumentImageBackground,
     DocumentPdfScrollMode,
     DocumentPdfZoomMode,
@@ -493,6 +494,16 @@
   const document_cache_limit_options = [1, 2, 3, 5, 8].map((n) => ({
     value: String(n),
     label: `${String(n)} documents`,
+  }));
+
+  const epub_flow_options: { value: DocumentEpubFlow; label: string }[] = [
+    { value: "scrolled", label: "Scrolled" },
+    { value: "paginated", label: "Paginated" },
+  ];
+
+  const epub_column_options = [1, 2].map((n) => ({
+    value: String(n),
+    label: n === 1 ? "Single" : "Double",
   }));
 
   const density_options = EDITOR_SPACING_DENSITY_OPTIONS;
@@ -3198,6 +3209,227 @@
                   disabled={editor_settings.document_inactive_cache_limit ===
                     DEFAULT_EDITOR_SETTINGS.document_inactive_cache_limit}
                   title={`Reset to default (${String(DEFAULT_EDITOR_SETTINGS.document_inactive_cache_limit)} documents)`}
+                >
+                  <RotateCcw />
+                </button>
+              </div>
+            </div>
+
+            <div class="SettingsDialog__row">
+              <div class="SettingsDialog__label-group">
+                <span class="SettingsDialog__label">EPUB Reading Mode</span>
+                <span class="SettingsDialog__description"
+                  >Continuous scrolling or paginated page-turning</span
+                >
+              </div>
+              <div class="flex items-center gap-3">
+                <Select.Root
+                  type="single"
+                  value={editor_settings.document_epub_flow}
+                  onValueChange={(v: string | undefined) => {
+                    if (v) update("document_epub_flow", v as DocumentEpubFlow);
+                  }}
+                >
+                  <Select.Trigger class="w-32">
+                    <span data-slot="select-value">
+                      {epub_flow_options.find(
+                        (o) => o.value === editor_settings.document_epub_flow,
+                      )?.label ?? "Scrolled"}
+                    </span>
+                  </Select.Trigger>
+                  <Select.Content>
+                    {#each epub_flow_options as opt (opt.value)}
+                      <Select.Item value={opt.value}>{opt.label}</Select.Item>
+                    {/each}
+                  </Select.Content>
+                </Select.Root>
+                <button
+                  type="button"
+                  class="SettingsDialog__reset"
+                  onclick={() =>
+                    update(
+                      "document_epub_flow",
+                      DEFAULT_EDITOR_SETTINGS.document_epub_flow,
+                    )}
+                  disabled={editor_settings.document_epub_flow ===
+                    DEFAULT_EDITOR_SETTINGS.document_epub_flow}
+                  title="Reset to default (Scrolled)"
+                >
+                  <RotateCcw />
+                </button>
+              </div>
+            </div>
+
+            <div class="SettingsDialog__row">
+              <div class="SettingsDialog__label-group">
+                <span class="SettingsDialog__label">EPUB Columns</span>
+                <span class="SettingsDialog__description"
+                  >Single or double pages when paginated (wide windows)</span
+                >
+              </div>
+              <div class="flex items-center gap-3">
+                <Select.Root
+                  type="single"
+                  value={String(editor_settings.document_epub_max_column_count)}
+                  onValueChange={(v: string | undefined) => {
+                    if (v) update("document_epub_max_column_count", Number(v));
+                  }}
+                  disabled={editor_settings.document_epub_flow === "scrolled"}
+                >
+                  <Select.Trigger class="w-32">
+                    <span data-slot="select-value">
+                      {epub_column_options.find(
+                        (o) =>
+                          o.value ===
+                          String(
+                            editor_settings.document_epub_max_column_count,
+                          ),
+                      )?.label ?? "Double"}
+                    </span>
+                  </Select.Trigger>
+                  <Select.Content>
+                    {#each epub_column_options as opt (opt.value)}
+                      <Select.Item value={opt.value}>{opt.label}</Select.Item>
+                    {/each}
+                  </Select.Content>
+                </Select.Root>
+                <button
+                  type="button"
+                  class="SettingsDialog__reset"
+                  onclick={() =>
+                    update(
+                      "document_epub_max_column_count",
+                      DEFAULT_EDITOR_SETTINGS.document_epub_max_column_count,
+                    )}
+                  disabled={editor_settings.document_epub_max_column_count ===
+                    DEFAULT_EDITOR_SETTINGS.document_epub_max_column_count}
+                  title="Reset to default (Double)"
+                >
+                  <RotateCcw />
+                </button>
+              </div>
+            </div>
+
+            <div class="SettingsDialog__row">
+              <div class="SettingsDialog__label-group">
+                <span class="SettingsDialog__label">EPUB Text Width</span>
+                <span class="SettingsDialog__description"
+                  >Maximum width of a text column</span
+                >
+              </div>
+              <div class="flex items-center gap-3">
+                <Slider
+                  type="single"
+                  value={editor_settings.document_epub_max_inline_size}
+                  onValueChange={(v: number | undefined) => {
+                    if (v !== undefined) {
+                      update("document_epub_max_inline_size", Math.round(v));
+                    }
+                  }}
+                  min={480}
+                  max={1200}
+                  step={20}
+                  class="w-24"
+                />
+                <span class="text-sm tabular-nums w-14"
+                  >{editor_settings.document_epub_max_inline_size}px</span
+                >
+                <button
+                  type="button"
+                  class="SettingsDialog__reset"
+                  onclick={() =>
+                    update(
+                      "document_epub_max_inline_size",
+                      DEFAULT_EDITOR_SETTINGS.document_epub_max_inline_size,
+                    )}
+                  disabled={editor_settings.document_epub_max_inline_size ===
+                    DEFAULT_EDITOR_SETTINGS.document_epub_max_inline_size}
+                  title={`Reset to default (${String(DEFAULT_EDITOR_SETTINGS.document_epub_max_inline_size)}px)`}
+                >
+                  <RotateCcw />
+                </button>
+              </div>
+            </div>
+
+            <div class="SettingsDialog__row">
+              <div class="SettingsDialog__label-group">
+                <span class="SettingsDialog__label">EPUB Font Size</span>
+                <span class="SettingsDialog__description"
+                  >Scales the book's text relative to its default</span
+                >
+              </div>
+              <div class="flex items-center gap-3">
+                <Slider
+                  type="single"
+                  value={editor_settings.document_epub_font_scale}
+                  onValueChange={(v: number | undefined) => {
+                    if (v !== undefined) {
+                      update("document_epub_font_scale", Math.round(v));
+                    }
+                  }}
+                  min={70}
+                  max={200}
+                  step={5}
+                  class="w-24"
+                />
+                <span class="text-sm tabular-nums w-14"
+                  >{editor_settings.document_epub_font_scale}%</span
+                >
+                <button
+                  type="button"
+                  class="SettingsDialog__reset"
+                  onclick={() =>
+                    update(
+                      "document_epub_font_scale",
+                      DEFAULT_EDITOR_SETTINGS.document_epub_font_scale,
+                    )}
+                  disabled={editor_settings.document_epub_font_scale ===
+                    DEFAULT_EDITOR_SETTINGS.document_epub_font_scale}
+                  title={`Reset to default (${String(DEFAULT_EDITOR_SETTINGS.document_epub_font_scale)}%)`}
+                >
+                  <RotateCcw />
+                </button>
+              </div>
+            </div>
+
+            <div class="SettingsDialog__row">
+              <div class="SettingsDialog__label-group">
+                <span class="SettingsDialog__label">EPUB Line Spacing</span>
+                <span class="SettingsDialog__description"
+                  >Line height multiplier for body text</span
+                >
+              </div>
+              <div class="flex items-center gap-3">
+                <Slider
+                  type="single"
+                  value={editor_settings.document_epub_line_height}
+                  onValueChange={(v: number | undefined) => {
+                    if (v !== undefined) {
+                      update(
+                        "document_epub_line_height",
+                        Math.round(v * 10) / 10,
+                      );
+                    }
+                  }}
+                  min={1.2}
+                  max={2.2}
+                  step={0.1}
+                  class="w-24"
+                />
+                <span class="text-sm tabular-nums w-8"
+                  >{editor_settings.document_epub_line_height.toFixed(1)}</span
+                >
+                <button
+                  type="button"
+                  class="SettingsDialog__reset"
+                  onclick={() =>
+                    update(
+                      "document_epub_line_height",
+                      DEFAULT_EDITOR_SETTINGS.document_epub_line_height,
+                    )}
+                  disabled={editor_settings.document_epub_line_height ===
+                    DEFAULT_EDITOR_SETTINGS.document_epub_line_height}
+                  title={`Reset to default (${String(DEFAULT_EDITOR_SETTINGS.document_epub_line_height)})`}
                 >
                   <RotateCcw />
                 </button>

@@ -14,21 +14,37 @@
     FoliateTransformData,
     FoliateSearchSubitem,
   } from "$lib/features/document/types/foliate";
-  import { build_theme_vars } from "$lib/features/document/domain/html_theme_vars";
   import {
     inject_csp,
     is_html_type,
   } from "$lib/features/document/domain/epub_csp";
+  import { build_book_css } from "$lib/features/document/domain/epub_book_css";
   import type { Theme } from "$lib/shared/types/theme";
+  import type { DocumentEpubFlow } from "$lib/shared/types/editor_settings";
 
   interface Props {
     src: string;
     theme: Theme;
     initial_cfi: string | null;
     on_position_change: (cfi: string) => void;
+    flow: DocumentEpubFlow;
+    max_column_count: number;
+    max_inline_size: number;
+    font_scale: number;
+    line_height: number;
   }
 
-  let { src, theme, initial_cfi, on_position_change }: Props = $props();
+  let {
+    src,
+    theme,
+    initial_cfi,
+    on_position_change,
+    flow,
+    max_column_count,
+    max_inline_size,
+    font_scale,
+    line_height,
+  }: Props = $props();
 
   let container_el: HTMLDivElement | undefined = $state();
   let search_input_el: HTMLInputElement | undefined = $state();
@@ -50,23 +66,6 @@
   let searching = $state(false);
   let search_generation = 0;
 
-  function build_book_css(t: Theme): string {
-    const v = build_theme_vars(t);
-    return `
-      html { color-scheme: ${v["--carbide-scheme"]}; }
-      html, body {
-        background: ${v["--carbide-bg"]};
-        color: ${v["--carbide-fg"]};
-        font-family: ${v["--carbide-font-sans"]};
-      }
-      a:any-link { color: ${v["--carbide-link"]}; }
-      code, pre, kbd, samp { font-family: ${v["--carbide-font-mono"]}; }
-      pre { white-space: pre-wrap; }
-      img, svg, video { max-width: 100%; height: auto; }
-      p, li, blockquote, dd { line-height: 1.6; }
-    `;
-  }
-
   function harden_book(): void {
     const target = view?.book?.transformTarget;
     if (!target) return;
@@ -84,7 +83,20 @@
   }
 
   function apply_theme(): void {
-    view?.renderer?.setStyles?.(build_book_css(theme));
+    view?.renderer?.setStyles?.(
+      build_book_css(theme, { font_scale, line_height }),
+    );
+  }
+
+  function apply_layout(): void {
+    const renderer = view?.renderer;
+    if (!renderer) return;
+    renderer.setAttribute(
+      "flow",
+      flow === "scrolled" ? "scrolled" : "paginated",
+    );
+    renderer.setAttribute("max-column-count", String(max_column_count));
+    renderer.setAttribute("max-inline-size", `${max_inline_size}px`);
   }
 
   function handle_relocate(detail: FoliateRelocateDetail): void {
@@ -118,6 +130,7 @@
       if (revision !== load_revision) return;
 
       harden_book();
+      apply_layout();
       apply_theme();
       toc = view.book?.toc ?? [];
 
@@ -258,7 +271,16 @@
 
   $effect(() => {
     void theme;
+    void font_scale;
+    void line_height;
     untrack(() => apply_theme());
+  });
+
+  $effect(() => {
+    void flow;
+    void max_column_count;
+    void max_inline_size;
+    untrack(() => apply_layout());
   });
 </script>
 

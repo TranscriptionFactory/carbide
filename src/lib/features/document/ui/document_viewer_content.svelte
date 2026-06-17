@@ -179,6 +179,13 @@
         theme={stores.ui.active_theme}
         initial_cfi={viewer_state.cfi}
         on_position_change={handle_epub_position_change}
+        flow={stores.ui.editor_settings.document_epub_flow}
+        max_column_count={stores.ui.editor_settings
+          .document_epub_max_column_count}
+        max_inline_size={stores.ui.editor_settings
+          .document_epub_max_inline_size}
+        font_scale={stores.ui.editor_settings.document_epub_font_scale}
+        line_height={stores.ui.editor_settings.document_epub_line_height}
       />
     {/key}
   {:else if viewer_state.file_type === "image" && asset_url}
