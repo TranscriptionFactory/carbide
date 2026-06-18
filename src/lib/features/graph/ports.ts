@@ -76,6 +76,12 @@ export type GraphCacheStats = {
   hit_rate: number;
 };
 
+export type SearchGraphSortMode =
+  | "relevance"
+  | "date_created"
+  | "date_modified"
+  | "name";
+
 export type SearchGraphNodeKind = "hit" | "neighbor";
 
 export type SearchGraphNode = {
