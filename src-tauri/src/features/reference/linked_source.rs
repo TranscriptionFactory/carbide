@@ -248,7 +248,7 @@ pub fn run_extract_pdf_text(file_path: &str) {
         }
     };
 
-    let pages = match pdf_extract::extract_text_from_mem_by_pages(&bytes) {
+    let pages = match crate::features::search::text_extractor::extract_pdf_pages_salvaged(&bytes) {
         Ok(p) => p,
         Err(e) => {
             eprintln!("PDF text extraction: {e}");
