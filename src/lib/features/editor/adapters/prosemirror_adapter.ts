@@ -983,6 +983,18 @@ export function create_prosemirror_editor_port(args?: {
               } catch {
                 // positions invalid for new doc
               }
+            } else if (next_config.restore_cursor_offset !== undefined) {
+              try {
+                const pos = md_offset_to_prose_pos(
+                  new_parsed_doc,
+                  next_config.restore_cursor_offset,
+                  normalized_initial_markdown,
+                );
+                const clamped = Math.min(pos, new_parsed_doc.content.size);
+                selection = TextSelection.create(new_parsed_doc, clamped);
+              } catch {
+                // offset invalid for new doc
+              }
             }
 
             const state_config: Parameters<typeof EditorState.create>[0] = {
