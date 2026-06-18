@@ -32,7 +32,7 @@ is backend-isolated and can land independently.
 
 **Component:** features/graph (search-graph result list)
 **Severity:** Medium
-**Status:** Confirmed — feature gap, no menu wired at all.
+**Status:** ✅ Done — `37426171` (branch `fix/bug12-graph`). shadcn `ContextMenu` on result cards; behaviors threaded as props from `search_graph_tab_view.svelte` (component stays IO-free). Was: confirmed feature gap, no menu wired.
 
 **Evidence:**
 
@@ -90,7 +90,7 @@ selecting each fires the corresponding prop callback with the node path.
 
 **Component:** features/graph (search-graph result list)
 **Severity:** Medium
-**Status:** Confirmed — sort is descending-only; no direction toggle.
+**Status:** ✅ Done — `45cde4cb` + `37426171` (branch `fix/bug12-graph`). asc/desc toggle; comparator parameterized with a direction multiplier (hits-before-neighbors preserved); `sort_mode`/`sort_ascending` persisted on `SearchGraphInstance` via registry actions; optional `"name"` sort added. Was: confirmed descending-only, no direction toggle.
 
 **Evidence:**
 
@@ -145,8 +145,7 @@ sort state round-trips through persistence.
 
 **Component:** features/links (Related panel → "Similar notes" section)
 **Severity:** Low
-**Status:** Confirmed — the number is mathematically correct; this is a
-clarity/UX problem, possibly compounded by per-chunk matching.
+**Status:** ✅ Done — `48af8e81` (branch `fix/bug3-similarity`). Clarity pass only: badge capped at 99% for non-identical (`Math.min(99, …)` unless distance is exactly 0) + cosine-similarity tooltip, via a new pure `similarity_label.ts` helper. **Confirmed NOTE-level scoring (not per-chunk)** — `hit.distance` comes from `find_similar_notes` against the note index using mean-pooled per-note vectors; the per-chunk path (`find_similar_blocks`) is never used by the Related panel. So no section relabel / threshold change (those were conditional on chunk-level). Was: confirmed mathematically correct; clarity/UX problem.
 
 **Evidence:**
 
@@ -212,7 +211,7 @@ clarity pass (step 1) and confirm chunk-vs-note before investing further.
 
 **Component:** cross-cutting — every panel that opens a path by dispatching `note_open`
 **Severity:** High
-**Status:** Confirmed — **not** a detection bug; a routing bug at ~25 call sites.
+**Status:** ✅ Done — `955c4373` (branch `fix/bug4-open-routing`). Centralized routing in the `note_open` handler (delegates to `document_open` when `detect_file_type` is non-null); **zero** call-site edits. Caveat validated: note paths on disk always carry `.md` (`list_notes`/`find_notes_by_name` skip non-`.md`), so no misrouting regression. Was: confirmed routing bug at ~25 call sites.
 
 **Evidence:**
 
@@ -317,8 +316,7 @@ safe.
 
 **Component:** features/editor (ProseMirror buffer lifecycle) + reactors/tab
 **Severity:** High
-**Status:** Confirmed — selection is captured per tab but not applied when the
-buffer is recreated on switch.
+**Status:** ✅ Done — `b187dc53` + `31e1ec53` (branch `fix/bug5-tab-cursor`). Saved offset threaded reactor→service→adapter and applied as `state_config.selection` (clamped to `doc.content.size`) **before** `EditorState.create()` on the `reuse_cache` path, so the buffer is born at the right position (no jump-then-correct); guard fixed `> 0` → `>= 0` (extracted to a pure resolver). Was: selection captured per tab but not applied on buffer recreate.
 
 **Evidence (the failure chain):**
 
@@ -383,8 +381,7 @@ offset 0 and ordered after the default.
 
 **Component:** features/search (text_extractor) — Rust backend, `pdf-extract` crate
 **Severity:** Medium
-**Status:** Confirmed — `pdf-extract` panics internally on unknown glyphs; the
-panic is isolated (no app crash) but loses the **entire** document's text.
+**Status:** ✅ Done — `0e5a50f0` (branch `fix/bug6-pdf`). **Option 1 (per-page salvage)**: rebuilt the per-page loop from the public API (`Document::load_mem` + `output_doc_page` per page) wrapping each page in `catch_unwind(AssertUnwindSafe(…))`, so one bad glyph drops one page, not the doc; scoped panic-hook swap; thread/timeout isolation kept. No dep changes (0.10.0 is newest; spike confirmed nothing to bump to). Mirrored into the `linked_source.rs` subprocess path. Was: pdf-extract panics on unknown glyphs, losing the entire document.
 
 **Evidence:**
 
@@ -468,3 +465,35 @@ absent or still panics.
 - **Sequencing:** 4 and 5 are the high-severity, daily-friction items — do them
   first and commit each independently. 1+2 share a file and ship together. 3 is a
   quick clarity pass. 6 is backend-isolated.
+
+---
+
+## Integration outcome — 2026-06-17
+
+All six bugs implemented in parallel across five isolated worktrees, then merged
+into `integration/2026-06-17-bugfixes` (off `bbca361f`) in priority order **A → B
+→ C → E → D** with **zero merge conflicts** (files were disjoint; `action_ids.ts`
+took only two additive lines from Track C).
+
+| Bug | Branch | Commit(s) |
+| --- | --- | --- |
+| 4 | `fix/bug4-open-routing` | `955c4373` |
+| 5 | `fix/bug5-tab-cursor` | `b187dc53`, `31e1ec53` |
+| 1+2 | `fix/bug12-graph` | `45cde4cb`, `37426171` |
+| 6 | `fix/bug6-pdf` | `0e5a50f0` |
+| 3 | `fix/bug3-similarity` | `48af8e81` |
+
+**Full gate on the merged tree — all green:** `pnpm check` 0 errors;
+layering clean (no violations in touched files); `pnpm test` **4347/4347 pass**
+(403 files); `cargo check` Finished; oxlint (scoped) **0 new** violations (all
+remaining errors sit on pre-existing lines outside the changed hunks); prettier
+clean on all touched files.
+
+**Deferred (optional follow-up not taken):** removing the now-redundant
+`detect_file_type` branches in `omnibar_actions.ts:367-377,399-409` and
+`search_graph_tab_view.svelte:65-74`. They are correct and harmless (they
+short-circuit to `document_open` before `note_open` is reached). Collapsing them
+onto the centralized `note_open` route requires confirming that `document_open`
+treats the *resolved* path (`resolve_omnibar_file_path` / `resolve_file_path`)
+and the *raw* `note_path` (what `note_open`'s BUG-4 branch forwards) identically —
+not verified, so left for a dedicated change rather than improvised at merge time.
