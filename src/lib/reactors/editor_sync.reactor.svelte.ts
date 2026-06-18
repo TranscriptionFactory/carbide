@@ -1,6 +1,16 @@
 import type { EditorStore } from "$lib/features/editor";
 import type { EditorService } from "$lib/features/editor";
 import type { BufferRestorePolicy } from "$lib/features/editor";
+import type { PendingCursorRestore } from "$lib/features/editor";
+
+export function resolve_editor_sync_cursor_offset(
+  pending: PendingCursorRestore | null,
+): number | undefined {
+  if (pending && pending.markdown_cursor_offset >= 0) {
+    return pending.markdown_cursor_offset;
+  }
+  return undefined;
+}
 
 export function resolve_editor_sync_open(input: {
   open_note_id: string;
@@ -74,12 +84,13 @@ export function create_editor_sync_reactor(
       });
 
       const pending = editor_store.consume_pending_cursor_restore();
-      const restore_cursor_offset =
-        pending && pending.markdown_cursor_offset >= 0
-          ? pending.markdown_cursor_offset
-          : undefined;
+      const restore_cursor_offset = resolve_editor_sync_cursor_offset(pending);
 
-      editor_service.open_buffer(open_note, restore_policy, restore_cursor_offset);
+      editor_service.open_buffer(
+        open_note,
+        restore_policy,
+        restore_cursor_offset,
+      );
 
       if (restore_cursor_offset !== undefined) {
         editor_service.set_cursor_from_markdown_offset(restore_cursor_offset);
