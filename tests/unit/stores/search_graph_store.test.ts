@@ -105,6 +105,45 @@ describe("SearchGraphStore", () => {
     });
   });
 
+  describe("sorting", () => {
+    it("new instance defaults to relevance descending", () => {
+      const store = make_store_with_instance();
+      expect(store.get_instance("tab1")?.sort_mode).toBe("relevance");
+      expect(store.get_instance("tab1")?.sort_ascending).toBe(false);
+    });
+
+    it("set_sort_mode persists the chosen mode", () => {
+      const store = make_store_with_instance();
+      store.set_sort_mode("tab1", "date_modified");
+      expect(store.get_instance("tab1")?.sort_mode).toBe("date_modified");
+      store.set_sort_mode("tab1", "name");
+      expect(store.get_instance("tab1")?.sort_mode).toBe("name");
+    });
+
+    it("toggle_sort_order flips and round-trips sort_ascending", () => {
+      const store = make_store_with_instance();
+      store.toggle_sort_order("tab1");
+      expect(store.get_instance("tab1")?.sort_ascending).toBe(true);
+      store.toggle_sort_order("tab1");
+      expect(store.get_instance("tab1")?.sort_ascending).toBe(false);
+    });
+
+    it("set_sort_mode preserves the direction", () => {
+      const store = make_store_with_instance();
+      store.toggle_sort_order("tab1");
+      store.set_sort_mode("tab1", "name");
+      expect(store.get_instance("tab1")?.sort_ascending).toBe(true);
+      expect(store.get_instance("tab1")?.sort_mode).toBe("name");
+    });
+
+    it("sort setters on a missing tab are no-ops", () => {
+      const store = new SearchGraphStore();
+      store.set_sort_mode("missing", "name");
+      store.toggle_sort_order("missing");
+      expect(store.get_instance("missing")).toBeUndefined();
+    });
+  });
+
   describe("defaults", () => {
     it("new instance has empty selected_node_ids", () => {
       const store = make_store_with_instance();

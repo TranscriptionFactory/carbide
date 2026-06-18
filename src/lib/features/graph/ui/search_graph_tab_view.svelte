@@ -4,9 +4,11 @@
   import { use_app_context } from "$lib/app/context/app_context.svelte";
   import { detect_file_type } from "$lib/features/document";
   import { is_linked_note_path } from "$lib/shared/types/note";
+  import type { SearchGraphSortMode } from "$lib/features/graph/domain/sort_search_graph_nodes";
   import { Button } from "$lib/components/ui/button";
   import { Input } from "$lib/components/ui/input";
   import * as Resizable from "$lib/components/ui/resizable/index.js";
+  import { toast } from "svelte-sonner";
   import SearchGraphCanvas from "$lib/features/graph/ui/search_graph_canvas.svelte";
   import SearchGraphResultList from "$lib/features/graph/ui/search_graph_result_list.svelte";
 
@@ -116,6 +118,57 @@
 
   function handle_toggle_neighbors() {
     stores.search_graph.toggle_neighbors(tab_id);
+  }
+
+  function handle_set_sort_mode(mode: SearchGraphSortMode) {
+    void action_registry.execute(ACTION_IDS.search_graph_set_sort_mode, {
+      tab_id,
+      sort_mode: mode,
+    });
+  }
+
+  function handle_toggle_sort_order() {
+    void action_registry.execute(
+      ACTION_IDS.search_graph_toggle_sort_order,
+      tab_id,
+    );
+  }
+
+  function open_to_side(path: string) {
+    void action_registry.execute(ACTION_IDS.tab_open_to_side, path);
+  }
+
+  function find_similar(path: string) {
+    expand_node(path);
+  }
+
+  async function resolve_absolute_path(path: string): Promise<string | null> {
+    if (path.startsWith("/")) return path;
+    const resolved = await resolve_file_path(path);
+    if (resolved && resolved.startsWith("/")) return resolved;
+    const vault_path = stores.vault.vault?.path;
+    return vault_path ? `${vault_path}/${path}` : null;
+  }
+
+  async function copy_path(path: string) {
+    const absolute = await resolve_absolute_path(path);
+    if (!absolute) return;
+    try {
+      await navigator.clipboard.writeText(absolute);
+      toast.success("Path copied");
+    } catch {
+      toast.error("Failed to copy path");
+    }
+  }
+
+  async function reveal_in_file_manager(path: string) {
+    const absolute = await resolve_absolute_path(path);
+    if (absolute) void services.shell.reveal_in_file_manager(absolute);
+  }
+
+  async function open_in_default_app(path: string) {
+    const absolute = await resolve_absolute_path(path);
+    if (absolute) void services.shell.open_path(absolute);
   }
 </script>
 
@@ -244,6 +297,8 @@
             scroll_to_path={instance?.scroll_to_path ?? null}
             show_neighbors={instance?.show_neighbors ?? true}
             min_score={instance?.min_score ?? 0}
+            sort_mode={instance?.sort_mode ?? "relevance"}
+            sort_ascending={instance?.sort_ascending ?? false}
             on_select={select_node}
             on_hover={hover_node}
             on_open={open_node}
@@ -251,6 +306,13 @@
             on_toggle_select={handle_toggle_select}
             on_set_min_score={handle_set_min_score}
             on_toggle_neighbors={handle_toggle_neighbors}
+            on_set_sort_mode={handle_set_sort_mode}
+            on_toggle_sort_order={handle_toggle_sort_order}
+            on_open_to_side={open_to_side}
+            on_copy_path={copy_path}
+            on_reveal_in_file_manager={reveal_in_file_manager}
+            on_open_in_default_app={open_in_default_app}
+            on_find_similar={find_similar}
           />
         </Resizable.Pane>
       </Resizable.PaneGroup>
