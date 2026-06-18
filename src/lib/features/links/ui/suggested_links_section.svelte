@@ -3,11 +3,16 @@
   import { use_app_context } from "$lib/app/context/app_context.svelte";
   import { ACTION_IDS } from "$lib/app";
   import PlusIcon from "@lucide/svelte/icons/plus";
+  import * as Tooltip from "$lib/components/ui/tooltip/index.js";
   import {
     rule_chip_label,
     rule_chip_title,
     type SmartLinkRuleMatch,
   } from "$lib/features/smart_links";
+  import {
+    SIMILARITY_TOOLTIP,
+    similarity_label,
+  } from "$lib/features/links/domain/similarity_label";
 
   const { stores, action_registry } = use_app_context();
 
@@ -15,10 +20,6 @@
 
   const loading = $derived(stores.links.suggested_links_loading);
   const suggestions = $derived(stores.links.suggested_links);
-
-  function similarity_label(similarity: number): string {
-    return `${String(Math.round(similarity * 100))}%`;
-  }
 
   function insert_link(note_title: string) {
     void action_registry.execute(
@@ -53,9 +54,16 @@
           >
             {suggestion.note.title || suggestion.note.name}
           </button>
-          <span class="SuggestedLinksSection__item-badge">
-            {similarity_label(suggestion.similarity)}
-          </span>
+          <Tooltip.Root>
+            <Tooltip.Trigger>
+              {#snippet child({ props })}
+                <span {...props} class="SuggestedLinksSection__item-badge">
+                  {similarity_label(suggestion.similarity)}
+                </span>
+              {/snippet}
+            </Tooltip.Trigger>
+            <Tooltip.Content side="left">{SIMILARITY_TOOLTIP}</Tooltip.Content>
+          </Tooltip.Root>
           {#if has_rules(suggestion.rules)}
             {#each suggestion.rules as rule (rule.ruleId)}
               <span
