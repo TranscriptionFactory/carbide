@@ -72,13 +72,17 @@ export function create_editor_sync_reactor(
         open_note_id: open_note.meta.id,
         last_note_id: previous_note_id,
       });
-      editor_service.open_buffer(open_note, restore_policy);
 
       const pending = editor_store.consume_pending_cursor_restore();
-      if (pending && pending.markdown_cursor_offset > 0) {
-        editor_service.set_cursor_from_markdown_offset(
-          pending.markdown_cursor_offset,
-        );
+      const restore_cursor_offset =
+        pending && pending.markdown_cursor_offset >= 0
+          ? pending.markdown_cursor_offset
+          : undefined;
+
+      editor_service.open_buffer(open_note, restore_policy, restore_cursor_offset);
+
+      if (restore_cursor_offset !== undefined) {
+        editor_service.set_cursor_from_markdown_offset(restore_cursor_offset);
       }
     });
   });
