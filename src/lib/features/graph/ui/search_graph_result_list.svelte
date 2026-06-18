@@ -4,12 +4,16 @@
     SearchGraphEdge,
     SearchGraphEdgeType,
   } from "$lib/features/graph/ports";
+  import {
+    sort_search_graph_nodes,
+    type SearchGraphSortMode,
+  } from "$lib/features/graph/domain/sort_search_graph_nodes";
+  import { build_search_graph_result_menu } from "$lib/features/graph/domain/search_graph_result_menu";
   import * as Select from "$lib/components/ui/select/index.js";
+  import * as ContextMenu from "$lib/components/ui/context-menu";
   import { Button } from "$lib/components/ui/button";
   import { Input } from "$lib/components/ui/input";
-  import { Users, X } from "@lucide/svelte";
-
-  type SortMode = "relevance" | "date_created" | "date_modified";
+  import { Users, X, ArrowDownAZ, ArrowUpAZ } from "@lucide/svelte";
 
   type Props = {
     nodes: SearchGraphNode[];
@@ -20,6 +24,8 @@
     scroll_to_path: string | null;
     show_neighbors: boolean;
     min_score: number;
+    sort_mode: SearchGraphSortMode;
+    sort_ascending: boolean;
     on_select: (path: string) => void;
     on_hover: (path: string | null) => void;
     on_open: (path: string) => void;
@@ -31,6 +37,13 @@
     ) => void;
     on_set_min_score: (score: number) => void;
     on_toggle_neighbors: () => void;
+    on_set_sort_mode: (mode: SearchGraphSortMode) => void;
+    on_toggle_sort_order: () => void;
+    on_open_to_side: (path: string) => void;
+    on_copy_path: (path: string) => void;
+    on_reveal_in_file_manager: (path: string) => void;
+    on_open_in_default_app: (path: string) => void;
+    on_find_similar: (path: string) => void;
   };
 
   let {
@@ -42,6 +55,8 @@
     scroll_to_path,
     show_neighbors,
     min_score,
+    sort_mode,
+    sort_ascending,
     on_select,
     on_hover,
     on_open,
@@ -49,10 +64,16 @@
     on_toggle_select,
     on_set_min_score,
     on_toggle_neighbors,
+    on_set_sort_mode,
+    on_toggle_sort_order,
+    on_open_to_side,
+    on_copy_path,
+    on_reveal_in_file_manager,
+    on_open_in_default_app,
+    on_find_similar,
   }: Props = $props();
 
   let card_elements = $state<Map<string, HTMLElement>>(new Map());
-  let sort_mode = $state<SortMode>("relevance");
   let show_markdown = $state(true);
   let show_non_markdown = $state(true);
   let show_vault = $state(true);
@@ -77,28 +98,16 @@
   );
 
   const sorted_nodes = $derived(
-    [...filtered_nodes].sort((a, b) => {
-      if (a.kind !== b.kind) return a.kind === "hit" ? -1 : 1;
-      if (sort_mode === "date_modified") {
-        const diff = (b.date_modified_ms ?? 0) - (a.date_modified_ms ?? 0);
-        if (diff !== 0) return diff;
-        return (b.score ?? 0) - (a.score ?? 0);
-      }
-      if (sort_mode === "date_created") {
-        const diff = (b.date_created_ms ?? 0) - (a.date_created_ms ?? 0);
-        if (diff !== 0) return diff;
-        return (b.score ?? 0) - (a.score ?? 0);
-      }
-      return (b.score ?? 0) - (a.score ?? 0);
-    }),
+    sort_search_graph_nodes(filtered_nodes, sort_mode, sort_ascending),
   );
 
   const ordered_paths = $derived(sorted_nodes.map((n) => n.path));
 
-  const sort_options: { value: SortMode; label: string }[] = [
+  const sort_options: { value: SearchGraphSortMode; label: string }[] = [
     { value: "relevance", label: "Relevance" },
     { value: "date_modified", label: "Modified" },
     { value: "date_created", label: "Created" },
+    { value: "name", label: "Name" },
   ];
 
   const has_non_markdown = $derived(
@@ -163,7 +172,7 @@
       type="single"
       value={sort_mode}
       onValueChange={(v: string | undefined) => {
-        if (v) sort_mode = v as SortMode;
+        if (v) on_set_sort_mode(v as SearchGraphSortMode);
       }}
     >
       <Select.Trigger class="SearchGraphResultList__sort-trigger">
@@ -177,6 +186,20 @@
         {/each}
       </Select.Content>
     </Select.Root>
+    <Button
+      variant="outline"
+      size="sm"
+      class="SearchGraphResultList__filter-btn"
+      title={sort_ascending ? "Sort ascending" : "Sort descending"}
+      aria-pressed={sort_ascending}
+      onclick={on_toggle_sort_order}
+    >
+      {#if sort_ascending}
+        <ArrowUpAZ size={12} />
+      {:else}
+        <ArrowDownAZ size={12} />
+      {/if}
+    </Button>
     {#if has_non_markdown}
       <Button
         variant={show_markdown ? "default" : "outline"}
@@ -248,82 +271,109 @@
     {#each sorted_nodes as node (node.path)}
       {@const edge_types = edge_types_for_node(node.path)}
       {@const is_multi_selected = selected_node_ids.has(node.path)}
-      <button
-        use:register_card={node.path}
-        class="SearchGraphResultList__card"
-        class:SearchGraphResultList__card--selected={selected_node_id ===
-          node.path}
-        class:SearchGraphResultList__card--multi-selected={is_multi_selected}
-        class:SearchGraphResultList__card--hovered={hovered_node_id ===
-          node.path}
-        class:SearchGraphResultList__card--hit={node.kind === "hit"}
-        class:SearchGraphResultList__card--neighbor={node.kind === "neighbor"}
-        onclick={(e) => handle_card_click(e, node.path)}
-        ondblclick={() => on_open(node.path)}
-        onpointerenter={() => on_hover(node.path)}
-        onpointerleave={() => on_hover(null)}
-      >
-        <div class="SearchGraphResultList__header">
-          <span class="SearchGraphResultList__title">{node.title}</span>
-          <div class="SearchGraphResultList__header-right">
-            {#if node.kind === "hit" && node.score != null}
-              <span class="SearchGraphResultList__score"
-                >{node.score.toFixed(2)}</span
-              >
-            {/if}
-            <span
-              class="SearchGraphResultList__badge"
-              class:SearchGraphResultList__badge--hit={node.kind === "hit"}
-              class:SearchGraphResultList__badge--neighbor={node.kind ===
-                "neighbor"}
+      {@const menu_items = build_search_graph_result_menu(node.path, {
+        on_open,
+        on_open_to_side,
+        on_copy_path,
+        on_reveal_in_file_manager,
+        on_open_in_default_app,
+        on_find_similar,
+        on_focus_node: on_select,
+      })}
+      <ContextMenu.Root>
+        <ContextMenu.Trigger class="w-full">
+          <button
+            use:register_card={node.path}
+            class="SearchGraphResultList__card"
+            class:SearchGraphResultList__card--selected={selected_node_id ===
+              node.path}
+            class:SearchGraphResultList__card--multi-selected={is_multi_selected}
+            class:SearchGraphResultList__card--hovered={hovered_node_id ===
+              node.path}
+            class:SearchGraphResultList__card--hit={node.kind === "hit"}
+            class:SearchGraphResultList__card--neighbor={node.kind ===
+              "neighbor"}
+            onclick={(e) => handle_card_click(e, node.path)}
+            ondblclick={() => on_open(node.path)}
+            onpointerenter={() => on_hover(node.path)}
+            onpointerleave={() => on_hover(null)}
+          >
+            <div class="SearchGraphResultList__header">
+              <span class="SearchGraphResultList__title">{node.title}</span>
+              <div class="SearchGraphResultList__header-right">
+                {#if node.kind === "hit" && node.score != null}
+                  <span class="SearchGraphResultList__score"
+                    >{node.score.toFixed(2)}</span
+                  >
+                {/if}
+                <span
+                  class="SearchGraphResultList__badge"
+                  class:SearchGraphResultList__badge--hit={node.kind === "hit"}
+                  class:SearchGraphResultList__badge--neighbor={node.kind ===
+                    "neighbor"}
+                >
+                  {node.kind}
+                </span>
+              </div>
+            </div>
+            <span class="SearchGraphResultList__path"
+              >{format_path(node.path)}</span
             >
-              {node.kind}
-            </span>
-          </div>
-        </div>
-        <span class="SearchGraphResultList__path">{format_path(node.path)}</span
-        >
-        {#if node.snippet}
-          <p class="SearchGraphResultList__snippet">{node.snippet}</p>
-        {/if}
-        {#if edge_types.size > 0}
-          <div class="SearchGraphResultList__edges">
-            {#if edge_types.has("wiki")}
-              <span
-                class="SearchGraphResultList__edge-indicator SearchGraphResultList__edge-indicator--wiki"
-                title="Wiki link"
-              >
-                <span
-                  class="SearchGraphResultList__edge-line SearchGraphResultList__edge-line--wiki"
-                ></span>
-                wiki
-              </span>
+            {#if node.snippet}
+              <p class="SearchGraphResultList__snippet">{node.snippet}</p>
             {/if}
-            {#if edge_types.has("semantic")}
-              <span
-                class="SearchGraphResultList__edge-indicator SearchGraphResultList__edge-indicator--semantic"
-                title="Semantic"
-              >
-                <span
-                  class="SearchGraphResultList__edge-line SearchGraphResultList__edge-line--semantic"
-                ></span>
-                semantic
-              </span>
+            {#if edge_types.size > 0}
+              <div class="SearchGraphResultList__edges">
+                {#if edge_types.has("wiki")}
+                  <span
+                    class="SearchGraphResultList__edge-indicator SearchGraphResultList__edge-indicator--wiki"
+                    title="Wiki link"
+                  >
+                    <span
+                      class="SearchGraphResultList__edge-line SearchGraphResultList__edge-line--wiki"
+                    ></span>
+                    wiki
+                  </span>
+                {/if}
+                {#if edge_types.has("semantic")}
+                  <span
+                    class="SearchGraphResultList__edge-indicator SearchGraphResultList__edge-indicator--semantic"
+                    title="Semantic"
+                  >
+                    <span
+                      class="SearchGraphResultList__edge-line SearchGraphResultList__edge-line--semantic"
+                    ></span>
+                    semantic
+                  </span>
+                {/if}
+                {#if edge_types.has("smart_link")}
+                  <span
+                    class="SearchGraphResultList__edge-indicator SearchGraphResultList__edge-indicator--smart"
+                    title="Smart link"
+                  >
+                    <span
+                      class="SearchGraphResultList__edge-line SearchGraphResultList__edge-line--smart"
+                    ></span>
+                    smart
+                  </span>
+                {/if}
+              </div>
             {/if}
-            {#if edge_types.has("smart_link")}
-              <span
-                class="SearchGraphResultList__edge-indicator SearchGraphResultList__edge-indicator--smart"
-                title="Smart link"
-              >
-                <span
-                  class="SearchGraphResultList__edge-line SearchGraphResultList__edge-line--smart"
-                ></span>
-                smart
-              </span>
-            {/if}
-          </div>
-        {/if}
-      </button>
+          </button>
+        </ContextMenu.Trigger>
+        <ContextMenu.Portal>
+          <ContextMenu.Content>
+            {#each menu_items as item (item.id)}
+              {#if item.separator_before}
+                <ContextMenu.Separator />
+              {/if}
+              <ContextMenu.Item onSelect={item.select}>
+                <span>{item.label}</span>
+              </ContextMenu.Item>
+            {/each}
+          </ContextMenu.Content>
+        </ContextMenu.Portal>
+      </ContextMenu.Root>
     {/each}
     {#if sorted_nodes.length === 0}
       <p class="SearchGraphResultList__empty">No results</p>
