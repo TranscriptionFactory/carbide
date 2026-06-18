@@ -360,3 +360,98 @@ describe("note_open in browse window context", () => {
     );
   });
 });
+
+describe("note_open extension routing", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("delegates a .sh path to document_open instead of the markdown editor", async () => {
+    const { registry, stores, services } = create_harness();
+    stores.vault.set_vault(make_vault());
+
+    await registry.execute(ACTION_IDS.note_open, "cheatsheets/setup.sh");
+
+    expect(services.note.open_note).not.toHaveBeenCalled();
+    expect(services.document.open_document).toHaveBeenCalledWith(
+      expect.any(String),
+      "cheatsheets/setup.sh",
+      "text",
+      undefined,
+      undefined,
+    );
+    const tab0 = stores.tab.tabs[0];
+    expect(tab0?.kind).toBe("document");
+  });
+
+  it("opens a .md path as a note, not a document", async () => {
+    const { registry, stores, services } = create_harness();
+    stores.vault.set_vault(make_vault());
+
+    await registry.execute(ACTION_IDS.note_open, "cheatsheets/bash.md");
+
+    expect(services.document.open_document).not.toHaveBeenCalled();
+    expect(services.note.open_note).toHaveBeenCalledWith(
+      "cheatsheets/bash.md",
+      false,
+      { cleanup_if_missing: false },
+    );
+    expect(stores.tab.tabs[0]?.kind).toBe("note");
+  });
+
+  it("opens an extensionless path as a note, not a document", async () => {
+    const { registry, stores, services } = create_harness();
+    stores.vault.set_vault(make_vault());
+
+    await registry.execute(ACTION_IDS.note_open, "Some Note");
+
+    expect(services.document.open_document).not.toHaveBeenCalled();
+    expect(services.note.open_note).toHaveBeenCalledWith("Some Note", false, {
+      cleanup_if_missing: false,
+    });
+    expect(stores.tab.tabs[0]?.kind).toBe("note");
+  });
+
+  it.each(["docs/report.pdf", "page/index.html", "books/novel.epub"])(
+    "routes %s from a non-omnibar surface to document_open",
+    async (path) => {
+      const { registry, stores, services } = create_harness();
+      stores.vault.set_vault(make_vault());
+
+      await registry.execute(ACTION_IDS.note_open, path);
+
+      expect(services.note.open_note).not.toHaveBeenCalled();
+      expect(services.document.open_document).toHaveBeenCalled();
+      expect(stores.tab.tabs[0]?.kind).toBe("document");
+    },
+  );
+
+  it("routes the { note_path } arg shape by extension", async () => {
+    const { registry, stores, services } = create_harness();
+    stores.vault.set_vault(make_vault());
+
+    await registry.execute(ACTION_IDS.note_open, {
+      note_path: "scripts/build.sh",
+      cleanup_if_missing: false,
+    });
+
+    expect(services.note.open_note).not.toHaveBeenCalled();
+    expect(services.document.open_document).toHaveBeenCalledWith(
+      expect.any(String),
+      "scripts/build.sh",
+      "text",
+      undefined,
+      undefined,
+    );
+  });
+
+  it("routes the bare-string arg shape by extension", async () => {
+    const { registry, stores, services } = create_harness();
+    stores.vault.set_vault(make_vault());
+
+    await registry.execute(ACTION_IDS.note_open, "scripts/build.sh");
+
+    expect(services.note.open_note).not.toHaveBeenCalled();
+    expect(services.document.open_document).toHaveBeenCalled();
+  });
+});
