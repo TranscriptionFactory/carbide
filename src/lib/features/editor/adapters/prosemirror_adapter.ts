@@ -18,6 +18,7 @@ import type { BufferConfig, EditorPort } from "$lib/features/editor/ports";
 import type { YDocManager } from "./ydoc_manager";
 import type { AssetPath, VaultId } from "$lib/shared/types/ids";
 import { normalize_markdown_line_breaks } from "$lib/features/editor/domain/markdown_line_breaks";
+import { compute_doc_diff_replacement } from "$lib/features/editor/domain/doc_diff";
 import {
   prose_cursor_to_md_offset,
   md_offset_to_prose_pos,
@@ -759,22 +760,16 @@ export function create_prosemirror_editor_port(args?: {
             return false;
           }
 
-          const old_content = view.state.doc.content;
-          const new_content = new_doc.content;
-          const start = old_content.findDiffStart(new_content);
-          if (start == null) return false;
-
-          const end = old_content.findDiffEnd(new_content);
-          if (!end) return false;
-
-          const old_end = Math.max(start, end.a);
-          const new_end = Math.max(start, end.b);
-          const slice = new_content.cut(start, new_end);
+          const replacement = compute_doc_diff_replacement(
+            view.state.doc,
+            new_doc,
+          );
+          if (!replacement) return false;
 
           const tr = view.state.tr.replace(
-            start,
-            old_end,
-            new Slice(slice, 0, 0),
+            replacement.from,
+            replacement.to,
+            replacement.slice,
           );
           tr.setMeta("addToHistory", false);
           suppress_change_echo = true;
