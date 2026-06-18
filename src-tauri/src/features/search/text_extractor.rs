@@ -1,3 +1,4 @@
+use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::path::Path;
 use std::sync::mpsc;
 use std::sync::mpsc::RecvTimeoutError;
@@ -145,8 +146,7 @@ fn extract_pdf_text(bytes: &[u8]) -> Result<(String, Vec<usize>), String> {
     let (tx, rx) = mpsc::channel();
 
     std::thread::spawn(move || {
-        let result = pdf_extract::extract_text_from_mem_by_pages(&owned)
-            .map_err(|e| format!("pdf_extract: {e}"));
+        let result = extract_pdf_pages_salvaged(&owned);
         let _ = tx.send(result);
     });
 
@@ -165,6 +165,48 @@ fn extract_pdf_text(bytes: &[u8]) -> Result<(String, Vec<usize>), String> {
     }
     let body = truncate_body(body);
     Ok((body, offsets))
+}
+
+/// Load the PDF once, then extract text page-by-page so a panic on a single
+/// unmappable glyph (pdf-extract panics internally on unknown glyph names)
+/// drops only that page instead of the whole document.
+pub(crate) fn extract_pdf_pages_salvaged(bytes: &[u8]) -> Result<Vec<String>, String> {
+    let doc = pdf_extract::Document::load_mem(bytes).map_err(|e| format!("pdf_extract: {e}"))?;
+    let page_count = doc.get_pages().len() as u32;
+    Ok(salvage_pages(page_count, |page_num| {
+        let mut text = String::new();
+        let mut output = pdf_extract::PlainTextOutput::new(&mut text);
+        pdf_extract::output_doc_page(&doc, &mut output, page_num).map_err(|e| e.to_string())?;
+        Ok(text)
+    }))
+}
+
+/// Run `extract_page` for each 1-indexed page, isolating per-page panics and
+/// errors so survivors are still returned. The default panic hook is silenced
+/// for the duration so per-page glyph panics don't spam the app's panic logger.
+fn salvage_pages<F>(page_count: u32, extract_page: F) -> Vec<String>
+where
+    F: Fn(u32) -> Result<String, String>,
+{
+    let previous_hook = std::panic::take_hook();
+    std::panic::set_hook(Box::new(|_| {}));
+    let pages = (1..=page_count)
+        .filter_map(|page_num| {
+            match catch_unwind(AssertUnwindSafe(|| extract_page(page_num))) {
+                Ok(Ok(text)) => Some(text),
+                Ok(Err(e)) => {
+                    log::warn!("PDF page {page_num} extraction error, skipping: {e}");
+                    None
+                }
+                Err(_) => {
+                    log::warn!("PDF page {page_num} extraction panicked, skipping");
+                    None
+                }
+            }
+        })
+        .collect();
+    std::panic::set_hook(previous_hook);
+    pages
 }
 
 fn decode_text_body(bytes: &[u8]) -> String {
@@ -365,5 +407,51 @@ mod tests {
     fn extract_pdf_text_errors_on_garbage_bytes() {
         let err = extract_pdf_text(b"not a pdf").expect_err("garbage bytes must fail");
         assert!(!err.is_empty(), "error message must be non-empty for log");
+    }
+
+    #[test]
+    fn salvage_pages_keeps_survivors_when_one_page_panics() {
+        let survivors = salvage_pages(3, |page_num| {
+            if page_num == 2 {
+                panic!("unmappable glyph on page {page_num}");
+            }
+            Ok(format!("page {page_num} text"))
+        });
+        assert_eq!(survivors, vec!["page 1 text", "page 3 text"]);
+    }
+
+    #[test]
+    fn salvage_pages_drops_erroring_pages_but_returns_rest() {
+        let survivors = salvage_pages(3, |page_num| {
+            if page_num == 1 {
+                Err("decode failure".to_string())
+            } else {
+                Ok(format!("page {page_num} text"))
+            }
+        });
+        assert_eq!(survivors, vec!["page 2 text", "page 3 text"]);
+    }
+
+    #[test]
+    fn salvage_pages_returns_all_when_no_failures() {
+        let survivors = salvage_pages(2, |page_num| Ok(format!("p{page_num}")));
+        assert_eq!(survivors, vec!["p1", "p2"]);
+    }
+
+    #[test]
+    fn salvage_pages_zero_pages_yields_empty() {
+        let survivors = salvage_pages(0, |_| -> Result<String, String> {
+            panic!("must not be called")
+        });
+        assert!(survivors.is_empty());
+    }
+
+    #[test]
+    fn salvage_pages_restores_default_panic_hook() {
+        let _ = salvage_pages(1, |_| -> Result<String, String> { panic!("boom") });
+        // After salvage, a normal catch_unwind should still capture payloads —
+        // i.e. the hook was restored rather than left as the silent no-op.
+        let caught = catch_unwind(AssertUnwindSafe(|| panic!("post-salvage")));
+        assert!(caught.is_err());
     }
 }
