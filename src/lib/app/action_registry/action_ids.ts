@@ -155,6 +155,8 @@ export const ACTION_IDS = {
   search_graph_clear_selected: "search_graph.clear_selected",
   search_graph_toggle_neighbors: "search_graph.toggle_neighbors",
   search_graph_set_min_score: "search_graph.set_min_score",
+  search_graph_set_sort_mode: "search_graph.set_sort_mode",
+  search_graph_toggle_sort_order: "search_graph.toggle_sort_order",
 
   help_open: "help.open",
   help_close: "help.close",

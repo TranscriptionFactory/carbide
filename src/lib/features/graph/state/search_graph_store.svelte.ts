@@ -1,4 +1,4 @@
-import type { SearchGraphSnapshot } from "../ports";
+import type { SearchGraphSnapshot, SearchGraphSortMode } from "../ports";
 
 export type SearchGraphStatus = "idle" | "loading" | "ready" | "error";
 
@@ -17,6 +17,8 @@ export type SearchGraphInstance = {
   show_smart_link_edges: boolean;
   show_neighbors: boolean;
   min_score: number;
+  sort_mode: SearchGraphSortMode;
+  sort_ascending: boolean;
 };
 
 function create_instance(query: string): SearchGraphInstance {
@@ -35,6 +37,8 @@ function create_instance(query: string): SearchGraphInstance {
     show_smart_link_edges: false,
     show_neighbors: true,
     min_score: 0,
+    sort_mode: "relevance",
+    sort_ascending: false,
   };
 }
 
@@ -176,6 +180,16 @@ export class SearchGraphStore {
 
   set_min_score(tab_id: string, score: number): void {
     this.update(tab_id, { min_score: score });
+  }
+
+  set_sort_mode(tab_id: string, sort_mode: SearchGraphSortMode): void {
+    this.update(tab_id, { sort_mode });
+  }
+
+  toggle_sort_order(tab_id: string): void {
+    const inst = this.instances.get(tab_id);
+    if (!inst) return;
+    this.update(tab_id, { sort_ascending: !inst.sort_ascending });
   }
 
   update_query(tab_id: string, query: string): void {

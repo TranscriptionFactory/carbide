@@ -2,6 +2,7 @@ import type { ActionRegistrationInput } from "$lib/app/action_registry/action_re
 import { ACTION_IDS } from "$lib/app/action_registry/action_ids";
 import type { GraphService } from "$lib/features/graph/application/graph_service";
 import type { SearchGraphStore } from "$lib/features/graph/state/search_graph_store.svelte";
+import type { SearchGraphSortMode } from "$lib/features/graph/domain/sort_search_graph_nodes";
 
 export function register_search_graph_actions(
   input: ActionRegistrationInput & {
@@ -144,6 +145,28 @@ export function register_search_graph_actions(
     execute: (tab_id: unknown) => {
       if (typeof tab_id !== "string") return;
       search_graph_store.clear_selected(tab_id);
+    },
+  });
+
+  registry.register({
+    id: ACTION_IDS.search_graph_set_sort_mode,
+    label: "Set Search Graph Sort Mode",
+    execute: (payload: unknown) => {
+      const { tab_id, sort_mode } = (payload ?? {}) as {
+        tab_id?: string;
+        sort_mode?: SearchGraphSortMode;
+      };
+      if (!tab_id || !sort_mode) return;
+      search_graph_store.set_sort_mode(tab_id, sort_mode);
+    },
+  });
+
+  registry.register({
+    id: ACTION_IDS.search_graph_toggle_sort_order,
+    label: "Toggle Search Graph Sort Order",
+    execute: (tab_id: unknown) => {
+      if (typeof tab_id !== "string") return;
+      search_graph_store.toggle_sort_order(tab_id);
     },
   });
 }
