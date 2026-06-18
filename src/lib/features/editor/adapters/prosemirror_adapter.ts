@@ -16,7 +16,7 @@ import { ySyncPlugin } from "y-prosemirror";
 import type { XmlFragment as YXmlFragment } from "yjs";
 import type { BufferConfig, EditorPort } from "$lib/features/editor/ports";
 import type { YDocManager } from "./ydoc_manager";
-import type { AssetPath, VaultId } from "$lib/shared/types/ids";
+import type { VaultId } from "$lib/shared/types/ids";
 import { normalize_markdown_line_breaks } from "$lib/features/editor/domain/markdown_line_breaks";
 import { compute_doc_diff_replacement } from "$lib/features/editor/domain/doc_diff";
 import {
