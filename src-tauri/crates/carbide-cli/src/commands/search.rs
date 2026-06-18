@@ -55,6 +55,15 @@ pub async fn reindex(client: &CarbideClient, vault_id: &str, json: bool) -> Resu
     Ok(())
 }
 
+fn truncate_preview(text: &str, max_chars: usize) -> String {
+    if text.chars().count() <= max_chars {
+        return text.to_string();
+    }
+    let keep = max_chars.saturating_sub(3);
+    let truncated: String = text.chars().take(keep).collect();
+    format!("{truncated}...")
+}
+
 pub async fn search(
     client: &CarbideClient,
     vault_id: &str,
@@ -94,12 +103,7 @@ pub async fn search(
             println!("{} (score: {:.2})", path, score);
             if !snippet.is_empty() {
                 let trimmed = snippet.trim().replace('\n', " ");
-                let preview = if trimmed.len() > 120 {
-                    format!("{}...", &trimmed[..117])
-                } else {
-                    trimmed
-                };
-                println!("  {}", preview);
+                println!("  {}", truncate_preview(&trimmed, 120));
             }
         }
     }
@@ -252,4 +256,32 @@ pub async fn outline(
         }
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::truncate_preview;
+
+    #[test]
+    fn returns_text_unchanged_when_within_limit() {
+        assert_eq!(truncate_preview("short snippet", 120), "short snippet");
+    }
+
+    #[test]
+    fn truncates_long_ascii_with_ellipsis() {
+        let long = "a".repeat(200);
+        let out = truncate_preview(&long, 120);
+        assert_eq!(out.chars().count(), 120);
+        assert!(out.ends_with("..."));
+    }
+
+    #[test]
+    fn does_not_split_multibyte_char_at_boundary() {
+        // '→' is 3 bytes; placed so a byte-index slice at 117 would land mid-char.
+        let snippet = format!("{}→ tail", "x".repeat(116));
+        let out = truncate_preview(&snippet, 120);
+        assert!(out.ends_with("..."));
+        assert!(out.is_char_boundary(out.len()));
+        assert_eq!(out.chars().count(), 120);
+    }
 }
