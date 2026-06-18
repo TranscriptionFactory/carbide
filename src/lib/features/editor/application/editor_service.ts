@@ -251,6 +251,7 @@ export class EditorService {
   open_buffer(
     note: OpenNoteState,
     restore_policy: BufferRestorePolicy = "reuse_cache",
+    restore_cursor_offset?: number,
   ): void {
     this.active_note = note;
 
@@ -261,6 +262,7 @@ export class EditorService {
       vault_id: this.vault_store.vault?.id ?? null,
       initial_markdown: note.markdown,
       restore_policy,
+      ...(restore_cursor_offset !== undefined ? { restore_cursor_offset } : {}),
     });
     this.focus();
   }

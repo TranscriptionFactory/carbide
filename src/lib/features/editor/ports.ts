@@ -23,6 +23,7 @@ export type BufferConfig = {
   vault_id: VaultId | null;
   initial_markdown: string;
   restore_policy: BufferRestorePolicy;
+  restore_cursor_offset?: number;
 };
 
 export type BufferRestorePolicy = "reuse_cache" | "fresh";
