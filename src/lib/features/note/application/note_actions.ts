@@ -401,6 +401,13 @@ export function register_note_actions(input: ActionRegistrationInput) {
           return;
         }
 
+        if (detect_file_type(filename_from_path(note_path))) {
+          await registry.execute(ACTION_IDS.document_open, {
+            file_path: note_path,
+          });
+          return;
+        }
+
         const existing_tab = stores.tab.find_tab_by_path(note_path as NotePath);
         if (existing_tab) {
           if (stores.tab.active_tab_id !== existing_tab.id) {
