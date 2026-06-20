@@ -49,9 +49,19 @@ export const GUIDES: GuideEntry[] = [
     description: "Organize notes with bases and cross-references",
   },
   {
+    slug: "ai_and_chat",
+    title: "AI & Vault Chat",
+    description: "Providers, inline ask/edit, and cited vault chat",
+  },
+  {
     slug: "markdown-syntax-guide",
     title: "Markdown Syntax Guide",
     description: "Supported markdown features and extensions",
+  },
+  {
+    slug: "document_viewers",
+    title: "Document Viewers",
+    description: "PDF, EPUB, and other in-app document viewers",
   },
   {
     slug: "plugin_howto",

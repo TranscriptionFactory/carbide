@@ -51,6 +51,7 @@
   const built_in_features = [
     "Semantic Search",
     "Inline AI",
+    "Vault Chat",
     "Action Registry",
     "Terminal",
     "Git & Versioning",
@@ -60,6 +61,7 @@
     "Diagnostics",
     "Mermaid Diagrams",
     "Canvas",
+    "EPUB Reader",
     "Tasks & Kanban",
   ] as const;
 
@@ -229,9 +231,9 @@
             <p class="WelcomeDialog__card-gate-label">Open a vault first</p>
           {/if}
           <p class="WelcomeDialog__card-body">
-            Enable inline AI commands, semantic search, and graph semantics.
-            Tune providers, embeddings, and diagnostics before you start
-            writing.
+            Enable inline AI commands and cited Vault Chat over your notes, plus
+            semantic search and graph semantics. Tune providers, embeddings, and
+            diagnostics before you start writing.
           </p>
           <div class="WelcomeDialog__actions">
             <Button

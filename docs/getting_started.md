@@ -14,6 +14,8 @@ Carbide is a local-first knowledge studio built around Markdown vaults, semantic
 - **Create and organize**: New notes and folders flow through the vault-aware action registry; everything is stored as plain Markdown with optional git auto-commit.
 - **Semantic search & graph**: Carbide fuses SQLite FTS, embeddings, and graph edges. Enable or tune embeddings under **Settings → Semantic** and explore connections in the graph view.
 - **AI inline commands**: Configure providers under **Settings → AI**, then trigger inline transforms from the editor to rewrite, summarize, or generate structured outputs with vault context.
+- **Vault Chat**: Open the **Chat** sidebar view to ask cited questions across your whole vault. Scope a conversation to folders, tags, or Bases views, and click any citation to open its source note.
+- **Documents & EPUB**: Open PDFs, EPUBs, images, and HTML directly from the vault. The EPUB reader offers a table of contents and in-document search, and resumes your last reading position automatically.
 - **Help & shortcuts**: Press **F1** to open the help dialog for keyboard bindings and Markdown syntax. The omnibar also lists actions with their bound keys.
 
 ## Where to go next
@@ -21,6 +23,8 @@ Carbide is a local-first knowledge studio built around Markdown vaults, semantic
 - **Architecture and decision tree**: See how features are composed and where to place new code in [`docs/architecture.md`](./architecture.md).
 - **Plugins and extension points**: Build or install plugins via [`docs/plugin_howto.md`](./plugin_howto.md) and `docs/example-plugins/`.
 - **Markdown & documents**: Reference the [`docs/markdown-syntax-guide.md`](./markdown-syntax-guide.md) for supported syntax, embeds, and PDF handling.
+- **AI & Vault Chat**: Set up providers and learn how cited vault chat retrieves and cites your notes in [`docs/ai_and_chat.md`](./ai_and_chat.md).
+- **Document viewers**: See the PDF/EPUB readers, supported file types, and reading-position persistence in [`docs/document_viewers.md`](./document_viewers.md).
 - **HTML artifacts**: See [`docs/html_artifacts.md`](./html_artifacts.md) for the three render modes (Source / Safe / Live), trust grants, transclusion syntax, paste-from-clipboard, and provenance metadata.
 - **Search & queries**: Explore the omnibar, query language, search graph, bases, and task queries in [`docs/search_and_queries.md`](./search_and_queries.md).
 - **Bases, references, and data**: Learn how structured queries and citations work in [`docs/bases_and_references.md`](./bases_and_references.md) and where Carbide stores data in [`docs/data_storage_locations.md`](./data_storage_locations.md).
