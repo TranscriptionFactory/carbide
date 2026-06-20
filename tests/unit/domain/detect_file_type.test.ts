@@ -47,9 +47,18 @@ describe("detect_file_type", () => {
     });
   });
 
+  describe("csv type", () => {
+    it("maps .csv to csv", () => {
+      expect(detect_file_type("data.csv")).toBe("csv");
+    });
+
+    it("is case-insensitive for csv", () => {
+      expect(detect_file_type("data.CSV")).toBe("csv");
+    });
+  });
+
   describe("text type (text-by-default)", () => {
     it.each([
-      ".csv",
       ".tsv",
       ".py",
       ".r",

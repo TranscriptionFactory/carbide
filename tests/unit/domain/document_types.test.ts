@@ -10,8 +10,8 @@ describe("detect_file_type", () => {
     expect(detect_file_type("image.PNG")).toBe("image");
   });
 
-  it("detects text for csv (collapsed type)", () => {
-    expect(detect_file_type("data.csv")).toBe("text");
+  it("detects csv", () => {
+    expect(detect_file_type("data.csv")).toBe("csv");
   });
 
   it("detects text for code files (collapsed type)", () => {

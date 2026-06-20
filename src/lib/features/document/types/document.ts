@@ -4,6 +4,7 @@ export type DocumentFileType =
   | "text"
   | "html"
   | "epub"
+  | "csv"
   | "canvas"
   | "excalidraw";
 
