@@ -8,6 +8,7 @@
   import PdfViewer from "$lib/features/document/ui/pdf_viewer.svelte";
   import EpubViewer from "$lib/features/document/ui/epub_viewer.svelte";
   import ImageViewer from "$lib/features/document/ui/image_viewer.svelte";
+  import CsvViewer from "$lib/features/document/ui/csv_viewer.svelte";
   import DocumentEditor from "$lib/features/document/ui/document_editor.svelte";
   import HtmlViewer from "$lib/features/document/ui/html_viewer.svelte";
   import HtmlLiveRenderer from "$lib/features/document/ui/html_live_renderer.svelte";
@@ -220,6 +221,8 @@
         on_scroll_change={handle_scroll_change}
       />
     {/if}
+  {:else if viewer_state.file_type === "csv" && current_content !== null}
+    <CsvViewer content={current_content} />
   {:else if viewer_state.file_type === "text" && current_content !== null}
     {#key `${viewer_state.tab_id}:${viewer_state.file_path}:${stores.ui.editor_settings.document_code_wrap ? "wrap" : "nowrap"}`}
       <DocumentEditor

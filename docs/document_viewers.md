@@ -13,6 +13,7 @@ binary falls back to a text/code editor.
 | Image       | `.png` `.jpg` `.jpeg` `.gif` `.svg` `.webp` | Image viewer (zoom/pan, background style)                              |
 | HTML        | `.html` `.htm`                              | Source / Safe / Live modes — see [HTML Artifacts](./html_artifacts.md) |
 | Canvas      | `.canvas` `.excalidraw`                     | Excalidraw canvas                                                      |
+| CSV         | `.csv`                                      | Sortable table (virtualized rows, click-to-copy cells)                 |
 | Code / text | any other non-binary extension              | CodeMirror editor with syntax highlighting                             |
 
 A **5 MB display cap** applies: files above it show a size warning with a **Load anyway**
@@ -77,3 +78,10 @@ PDFs render with pdf.js. The viewer supports:
 
 To go the other direction, Markdown notes export to PDF via Carbide's self-contained HTML
 renderer (the bundled **PDF Export** plugin); see the README's _Document Rendering & Export_.
+
+## CSV viewer
+
+`.csv` files open as a read-only table. The first row is treated as the header, values are
+type-inferred, and rows are virtualized so large files scroll smoothly. Click a column header
+to sort (ascending → descending → unsorted); click any cell to copy its value. CSV contents
+are also full-text indexed, so they surface in search like any other text file.

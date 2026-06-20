@@ -35,7 +35,7 @@ export type HtmlSourceContext = {
 };
 
 function needs_text_content(file_type: DocumentFileType): boolean {
-  return file_type === "text" || file_type === "html";
+  return file_type === "text" || file_type === "html" || file_type === "csv";
 }
 
 function derive_html_title(file_path: string): string {
