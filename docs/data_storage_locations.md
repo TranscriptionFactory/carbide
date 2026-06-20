@@ -12,15 +12,17 @@
 
 ## Per-Vault (`<VAULT>/.carbide/`)
 
-| File/Dir                  | Purpose                           |
-| ------------------------- | --------------------------------- |
-| `settings.json`           | Vault-specific settings           |
-| `smart-links/rules.json`  | Smart link rules                  |
-| `references/library.json` | Bibliography metadata             |
-| `references/annotations/` | Reference annotations             |
-| `plugin_settings.json`    | Plugin config & permissions       |
-| `plugins/`                | Installed plugins & assets        |
-| `.mcp.json`               | MCP server config for Claude Code |
+| File/Dir                  | Purpose                                                   |
+| ------------------------- | --------------------------------------------------------- |
+| `settings.json`           | Vault-specific settings                                   |
+| `smart-links/rules.json`  | Smart link rules                                          |
+| `references/library.json` | Bibliography metadata                                     |
+| `references/annotations/` | Reference annotations                                     |
+| `rag/`                    | Vault Chat sessions (`index.json` + `sessions/<id>.json`) |
+| `reading_positions.json`  | Saved EPUB reading positions (CFI per file)               |
+| `plugin_settings.json`    | Plugin config & permissions                               |
+| `plugins/`                | Installed plugins & assets                                |
+| `.mcp.json`               | MCP server config for Claude Code                         |
 
 ## Per-Vault (root level)
 

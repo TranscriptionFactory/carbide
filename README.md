@@ -69,7 +69,7 @@ Or open **System Settings → Privacy & Security** and click **Open Anyway** in 
 - Wikilinks, heading/block references, backlink tracking, unresolved-link diagnostics, and rename-aware link repair
 - Inline embeds for notes, headings, blocks, images, PDFs, **HTML artifacts**, audio/video, files, and Mermaid diagrams
 - Edit-in-place for transclusions via a pencil action on the embed toolbar
-- Split panes, draggable/pinned tabs, zen/focus modes, line numbers, zoom, and Vim-style navigation
+- Split panes, draggable/pinned tabs, zen/focus modes, line numbers, zoom, and optional Vim navigation (hjkl/gg/G across the file tree, tabs, and outline, with a cheatsheet)
 - Document outline, block transforms, drag-and-drop, find/replace, copy as Markdown/HTML
 - Daily notes and configurable naming templates
 
@@ -78,8 +78,11 @@ Or open **System Settings → Privacy & Security** and click **Open Anyway** in 
 - Markdown-to-PDF via a self-contained HTML renderer + native platform PDF capture (macOS, Windows, Linux)
 - PDF export inlines images, renders Mermaid diagrams, and rasterizes SVG/KaTeX math
 - Mermaid SVG export and Mermaid rendering in slides export
-- In-app viewers for PDF, image, code, HTML, and CSV; Excalidraw canvases; external viewer windows
+- **EPUB reader** (Foliate.js) with table of contents, paginated/scrolled flow, in-document search, and saved reading position
+- In-app viewers for PDF, EPUB, image, code, HTML, and CSV; Excalidraw canvases; external viewer windows
 - Linked PDF/HTML source folders keep source material in place with content-addressed extraction cache
+
+See [Document Viewers](docs/document_viewers.md).
 
 ### HTML Artifacts
 
@@ -101,6 +104,7 @@ See [HTML Artifacts](docs/html_artifacts.md) for render modes, trust grants, tra
 - **Task queries**: status, path, section, text, tag, and due-date filters with boolean operators, relative dates, and hierarchical heading scoping (`section under <heading>`)
 - **Fuzzy + hierarchical tag matching**: `#parent` matches `#parent/child`; typos fall back to fuzzy across all tags
 - **Search graph** and **Bases** (UI-driven frontmatter views — table/list/kanban/gallery/calendar)
+- **Smart Links**: rule-based suggestions surface candidate wikilinks from configurable matching rules
 
 See [Search & Queries](docs/search_and_queries.md).
 
@@ -128,9 +132,13 @@ See [Search & Queries](docs/search_and_queries.md).
 
 ### AI Assistance
 
-- CLI-based provider presets for Claude Code, Codex, and Ollama; auto-resolution by local CLI availability
+- Provider presets for Claude Code, Codex, and Ollama (CLI) plus LM Studio and llama.cpp (local OpenAI-compatible servers); auto-resolution by local availability
+- **Vault Chat (RAG)**: multi-turn chat over hybrid retrieval with numbered click-to-open citations, persisted auto-titled sessions, folder/tag/Bases scope chips, quick-start templates, per-session provider, and `@`-mention pinning
 - Ask/edit modes with inline accept-reject flow
 - Prompt builder composes requests from vault and editor context; AI-generated file-tree descriptions
+- Vault Chat is also reachable over MCP (`rag_query`, `rag_status`) for Claude Desktop/Code
+
+See [AI & Vault Chat](docs/ai_and_chat.md).
 
 ### References, Citations & Linked Sources
 
@@ -159,7 +167,7 @@ See [Plugin How-To](docs/plugin_howto.md).
 
 ### Layout & Customization
 
-- Sidebar views: explorer, dashboard, starred, graph, tasks, tags, source control, daily notes
+- Sidebar views: explorer, dashboard, starred, graph, tasks, tags, chat, source control, daily notes
 - 20+ themes (light/dark), CSS token editor, rebindable hotkeys, command-palette actions
 - Layout variants, context rail, outline/tasks panels, zen/focus modes, per-vault settings
 
@@ -174,23 +182,23 @@ See [Plugin How-To](docs/plugin_howto.md).
 
 ## Tech Stack
 
-| Layer             | Technology                                                                                                                              |
-| ----------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| Shell             | Tauri 2, tauri-specta, Tauri updater/dialog/log/opener/window-state/single-instance plugins                                             |
-| Frontend          | Svelte 5, SvelteKit, TypeScript, Vite, Tailwind CSS 4, shadcn-svelte, bits-ui, paneforge                                                |
-| Editor            | ProseMirror, CodeMirror 6, Shiki, KaTeX, markdown-it, unified/remark/mdast, comrak                                                      |
-| Backend           | Rust, tokio, rusqlite, notify, git2, ropey, rayon, specta                                                                               |
-| Search            | SQLite FTS5, Candle BGE-small embeddings, hnsw_rs vector index, Reciprocal Rank Fusion                                                  |
-| Graph             | d3-force, Pixi.js/WebGL, worker-based force layout                                                                                      |
-| Canvas & Diagrams | Excalidraw, Mermaid                                                                                                                     |
-| LSP & Tooling     | lsp-types, custom Rust LSP client, rumdl, IWE, Markdown Oxide, Marksman, language-server discovery for code files                       |
-| Plugins & MCP     | Sandboxed iframes, postMessage/RPC bridge, custom `carbide-plugin://` scheme, Axum/Tower HTTP server, JSON-RPC 2.0 MCP stdio/http flows |
-| AI                | CLI-based providers for Claude Code, Codex, and Ollama; streaming CLI execution; configurable provider presets                          |
-| Git               | git2 backend operations plus source-control UI/actions                                                                                  |
-| PDF & Documents   | pdfjs-dist, pdfkit, pdf-extract, lopdf, browser document viewers                                                                        |
-| Citations         | Citation.js, BibTeX, CSL, RIS, Zotero Better BibTeX integration                                                                         |
-| Terminal          | xterm.js, xterm fit/WebGL addons, tauri-pty                                                                                             |
-| Testing & Quality | Vitest, svelte-check, oxlint, custom layering lint, Prettier, stylelint, Rust tests                                                     |
+| Layer             | Technology                                                                                                                                               |
+| ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Shell             | Tauri 2, tauri-specta, Tauri updater/dialog/log/opener/window-state/single-instance plugins                                                              |
+| Frontend          | Svelte 5, SvelteKit, TypeScript, Vite, Tailwind CSS 4, shadcn-svelte, bits-ui, paneforge                                                                 |
+| Editor            | ProseMirror, CodeMirror 6, Shiki, KaTeX, markdown-it, unified/remark/mdast, comrak                                                                       |
+| Backend           | Rust, tokio, rusqlite, notify, git2, ropey, rayon, specta                                                                                                |
+| Search            | SQLite FTS5, Candle BGE-small embeddings, hnsw_rs vector index, Reciprocal Rank Fusion                                                                   |
+| Graph             | d3-force, Pixi.js/WebGL, worker-based force layout                                                                                                       |
+| Canvas & Diagrams | Excalidraw, Mermaid                                                                                                                                      |
+| LSP & Tooling     | lsp-types, custom Rust LSP client, rumdl, IWE, Markdown Oxide, Marksman, language-server discovery for code files                                        |
+| Plugins & MCP     | Sandboxed iframes, postMessage/RPC bridge, custom `carbide-plugin://` scheme, Axum/Tower HTTP server, JSON-RPC 2.0 MCP stdio/http flows                  |
+| AI                | Provider presets — Claude Code, Codex, Ollama (CLI), LM Studio, llama.cpp (OpenAI-compatible API); streaming execution; vault RAG over FTS5 + embeddings |
+| Git               | git2 backend operations plus source-control UI/actions                                                                                                   |
+| PDF & Documents   | pdfjs-dist, pdfkit, pdf-extract, lopdf, Foliate.js (EPUB), browser document viewers                                                                      |
+| Citations         | Citation.js, BibTeX, CSL, RIS, Zotero Better BibTeX integration                                                                                          |
+| Terminal          | xterm.js, xterm fit/WebGL addons, tauri-pty                                                                                                              |
+| Testing & Quality | Vitest, svelte-check, oxlint, custom layering lint, Prettier, stylelint, Rust tests                                                                      |
 
 ---
 
@@ -199,8 +207,10 @@ See [Plugin How-To](docs/plugin_howto.md).
 - [Getting Started](docs/getting_started.md) — first-run flow, core actions, and quick links
 - [Search & Queries](docs/search_and_queries.md) — omnibar, inline `@` palette, query language, search graph, bases, task queries
 - [Bases & References](docs/bases_and_references.md) — database views, citations, linked sources, Zotero
+- [AI & Vault Chat](docs/ai_and_chat.md) — providers, inline ask/edit, Vault Chat retrieval, MCP tools
 - [Markdown Syntax Guide](docs/markdown-syntax-guide.md) — supported syntax and embeds
 - [HTML Artifacts](docs/html_artifacts.md) — render modes, trust grants, transclusion, paste-as-artifact, security model
+- [Document Viewers](docs/document_viewers.md) — PDF, EPUB reader, in-app viewers, reading position
 - [Architecture](docs/architecture.md) — decision tree, layering rules, and project map
 - [Plugin How-To](docs/plugin_howto.md) — build plugins, use permissions, call RPC/SDK APIs, and run external MCP sidecars
 - [HTML to Markdown Plugin](docs/html_to_markdown_plugin.md) — bundled conversion plugin details
