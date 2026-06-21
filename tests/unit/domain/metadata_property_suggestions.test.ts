@@ -20,8 +20,18 @@ const STANDARD: StandardField[] = [
 ];
 
 const VAULT: VaultProperty[] = [
-  { name: "status", property_type: "string", count: 12, unique_values: ["done", "blocked"] },
-  { name: "author", property_type: "string", count: 3, unique_values: ["alice"] },
+  {
+    name: "status",
+    property_type: "string",
+    count: 12,
+    unique_values: ["done", "blocked"],
+  },
+  {
+    name: "author",
+    property_type: "string",
+    count: 3,
+    unique_values: ["alice"],
+  },
 ];
 
 describe("build_key_suggestions", () => {
@@ -38,7 +48,11 @@ describe("build_key_suggestions", () => {
     const result = build_key_suggestions("", VAULT, [], STANDARD);
     const standard_first = result.filter((s) => s.source === "standard");
     const vault_first_index = result.findIndex((s) => s.source === "vault");
-    expect(result.slice(0, standard_first.length).every((s) => s.source === "standard")).toBe(true);
+    expect(
+      result
+        .slice(0, standard_first.length)
+        .every((s) => s.source === "standard"),
+    ).toBe(true);
     expect(vault_first_index).toBeGreaterThanOrEqual(standard_first.length);
   });
 

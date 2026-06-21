@@ -15,9 +15,9 @@ export function register_metadata_actions(
   registry.register({
     id: ACTION_IDS.metadata_refresh,
     label: "Refresh Metadata",
-    execute: async (path: unknown) => {
+    execute: (path: unknown) => {
       if (typeof path !== "string") return;
-      await metadata_service.refresh(path);
+      metadata_service.refresh(path);
     },
   });
 

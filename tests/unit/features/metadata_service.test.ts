@@ -3,10 +3,7 @@ import { MetadataService } from "$lib/features/metadata/application/metadata_ser
 import { MetadataStore } from "$lib/features/metadata/state/metadata_store.svelte";
 import type { EditorStore, EditorService } from "$lib/features/editor";
 import type { MetadataPort } from "$lib/features/metadata/ports";
-import type {
-  NoteProperty,
-  VaultProperty,
-} from "$lib/features/metadata/types";
+import type { NoteProperty, VaultProperty } from "$lib/features/metadata/types";
 
 function create_mock_editor_store(
   note_path: string | null,
@@ -237,7 +234,12 @@ describe("MetadataService", () => {
     const store = new MetadataStore();
     const editor_store = create_mock_editor_store("notes/test.md");
     const registry: VaultProperty[] = [
-      { name: "status", property_type: "string", count: 3, unique_values: ["todo"] },
+      {
+        name: "status",
+        property_type: "string",
+        count: 3,
+        unique_values: ["todo"],
+      },
     ];
     const { service, port } = create_service(
       store,
