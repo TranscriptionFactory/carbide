@@ -1088,6 +1088,14 @@ fn evict_note_from_indices(
     }
 }
 
+/// CPU yield between embedding batches. The worker runs at background QoS, so a
+/// small slice of the batch time keeps the UI responsive; the cap stops a few
+/// slow batches from stalling the whole pass on proportional idle sleep.
+/// (finding #7)
+fn yield_sleep_ms(batch_elapsed: std::time::Duration) -> u64 {
+    (batch_elapsed.as_millis() as u64 / 4).min(50)
+}
+
 fn extract_title(markdown: &str) -> Option<String> {
     let mut in_frontmatter = false;
     let mut seen_frontmatter_start = false;
@@ -1712,7 +1720,7 @@ fn handle_embed_batch(
                 // Yield CPU to the foreground without halving indexing throughput:
                 // the worker already runs at background QoS, so a short fraction of
                 // the batch time is enough to stay responsive. (was: full batch time)
-                let sleep_ms = (batch_start.elapsed().as_millis() as u64) / 4;
+                let sleep_ms = yield_sleep_ms(batch_start.elapsed());
                 std::thread::sleep(std::time::Duration::from_millis(sleep_ms));
                 while let Ok(cmd) = rx.try_recv() {
                     match cmd {
@@ -1877,7 +1885,7 @@ fn handle_block_embed_batch(
         // Yield CPU to the foreground without halving indexing throughput:
         // the worker already runs at background QoS, so a short fraction of
         // the batch time is enough to stay responsive. (was: full batch time)
-        let sleep_ms = (batch_start.elapsed().as_millis() as u64) / 4;
+        let sleep_ms = yield_sleep_ms(batch_start.elapsed());
         std::thread::sleep(std::time::Duration::from_millis(sleep_ms));
 
         while let Ok(cmd) = rx.try_recv() {
@@ -3200,6 +3208,14 @@ mod tests {
             .iter()
             .map(|(k, v)| (k.to_string(), v.to_string()))
             .collect()
+    }
+
+    #[test]
+    fn yield_sleep_is_quarter_batch_capped_at_50ms() {
+        use std::time::Duration;
+        assert_eq!(yield_sleep_ms(Duration::from_millis(40)), 10);
+        assert_eq!(yield_sleep_ms(Duration::from_millis(200)), 50);
+        assert_eq!(yield_sleep_ms(Duration::from_secs(2)), 50);
     }
 
     #[test]
