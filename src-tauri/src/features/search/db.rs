@@ -1822,6 +1822,14 @@ pub fn compute_sync_plan(
 const BATCH_SIZE: usize = 100;
 const REBUILD_BATCH_SIZE: usize = 500;
 
+/// Refreshes SQLite's query-planner statistics after a bulk index operation.
+/// Cheap (a near no-op when little changed) and keeps planner choices sound as
+/// the index grows from delete-and-reinsert churn. (finding #11)
+fn run_pragma_optimize(conn: &Connection) -> Result<(), String> {
+    conn.execute_batch("PRAGMA optimize")
+        .map_err(|e| e.to_string())
+}
+
 const ATTACHMENT_EXTENSIONS: &[&str] = &[
     ".png", ".jpg", ".jpeg", ".gif", ".svg", ".webp", ".bmp", ".ico",
     ".pdf", ".html", ".htm", ".epub",
@@ -2077,6 +2085,10 @@ pub fn rebuild_index(
         log::info!("rebuild_index: re-resolved {} cross-batch orphan outlinks", re_resolved);
     }
 
+    if let Err(e) = run_pragma_optimize(conn) {
+        log::warn!("rebuild_index: PRAGMA optimize failed: {e}");
+    }
+
     Ok(IndexResult {
         total,
         indexed,
@@ -2290,6 +2302,10 @@ pub fn sync_index(
 
     if let Ok(head) = resolve_git_head(vault_root) {
         let _ = set_index_meta(conn, "last_indexed_commit", &head);
+    }
+
+    if let Err(e) = run_pragma_optimize(conn) {
+        log::warn!("sync_index: PRAGMA optimize failed: {e}");
     }
 
     Ok(IndexResult {
@@ -3290,6 +3306,14 @@ mod tests {
             file_type: None,
             source: None,
         }
+    }
+
+    #[test]
+    fn run_pragma_optimize_succeeds_on_populated_index() {
+        let conn = Connection::open_in_memory().expect("in-memory db");
+        init_schema(&conn).expect("schema");
+        upsert_note(&conn, &note("notes/a.md", "A"), "hello world").expect("upsert");
+        assert!(run_pragma_optimize(&conn).is_ok());
     }
 
     #[test]
