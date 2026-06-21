@@ -8,7 +8,7 @@ export type PropertyType =
 
 export type NoteProperty = {
   key: string;
-  value: string;
+  value: string | string[];
   type: PropertyType;
 };
 

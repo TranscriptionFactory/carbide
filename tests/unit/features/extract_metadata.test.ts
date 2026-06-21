@@ -43,7 +43,7 @@ describe("extract_metadata", () => {
     ]);
   });
 
-  it("handles non-string frontmatter values as JSON", () => {
+  it("stringifies scalar non-string values and keeps list values as arrays", () => {
     const md = "---\ncount: 42\nenabled: true\nitems:\n  - a\n  - b\n---\n";
     const result = extract_metadata(md);
 
@@ -53,7 +53,20 @@ describe("extract_metadata", () => {
 
     expect(count).toEqual({ key: "count", value: "42", type: "number" });
     expect(enabled).toEqual({ key: "enabled", value: "true", type: "boolean" });
-    expect(items?.type).toBe("tags");
+    expect(items).toEqual({ key: "items", value: ["a", "b"], type: "tags" });
+  });
+
+  it("preserves inline list (flow) values as arrays for non-tags keys", () => {
+    const md =
+      '---\nkeywords: ["Variables", "Functions", "Brace expansions"]\n---\n';
+    const result = extract_metadata(md);
+
+    const keywords = result.properties.find((p) => p.key === "keywords");
+    expect(keywords).toEqual({
+      key: "keywords",
+      value: ["Variables", "Functions", "Brace expansions"],
+      type: "tags",
+    });
   });
 
   it("returns empty metadata for markdown without frontmatter", () => {
