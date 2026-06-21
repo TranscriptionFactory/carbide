@@ -327,6 +327,7 @@ export class VaultService {
     try {
       await this.index_port.rebuild_index(vault_id);
       this.succeed_operation("vault.reindex");
+      this.trigger_embed_sync(vault_id);
       return { status: "success" };
     } catch (error) {
       const message = this.fail_operation(
@@ -359,6 +360,7 @@ export class VaultService {
     try {
       await this.index_port.sync_index(vault_id);
       this.succeed_operation("vault.sync_index");
+      this.trigger_embed_sync(vault_id);
       return { status: "success" };
     } catch (error) {
       const message = this.fail_operation(
@@ -393,6 +395,17 @@ export class VaultService {
       });
       await this.index_port.sync_index(vault_id);
     }
+    this.trigger_embed_sync(vault_id);
+  }
+
+  // Chase a completed index sync with an embedding pass so externally edited
+  // notes re-embed promptly. Fire-and-forget: the backend embed_sync coalesces
+  // concurrent/queued passes (embed_queued) and only re-embeds changed content,
+  // so a failed enqueue must never fail or delay the index sync itself.
+  private trigger_embed_sync(vault_id: VaultId): void {
+    void this.index_port.embed_sync(vault_id).catch((error: unknown) => {
+      log.warn("Embedding sync after index update failed", { error });
+    });
   }
 
   private async change_vault(
@@ -621,12 +634,20 @@ export class VaultService {
     vault_id: VaultId,
     open_revision: number,
   ) {
-    this.index_port.sync_index(vault_id).catch((error: unknown) => {
-      if (!this.is_current_open_revision(open_revision)) {
-        return;
-      }
-      log.error("Background index sync failed", { error });
-    });
+    this.index_port
+      .sync_index(vault_id)
+      .then(() => {
+        if (!this.is_current_open_revision(open_revision)) {
+          return;
+        }
+        this.trigger_embed_sync(vault_id);
+      })
+      .catch((error: unknown) => {
+        if (!this.is_current_open_revision(open_revision)) {
+          return;
+        }
+        log.error("Background index sync failed", { error });
+      });
   }
 
   private trigger_background_note_count_refresh(

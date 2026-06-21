@@ -468,7 +468,13 @@ export function create_mock_index_port(): WorkspaceIndexPort & {
   _calls: {
     cancel_index: VaultId[];
     sync_index: VaultId[];
+    sync_index_paths: {
+      vault_id: VaultId;
+      changed_paths: string[];
+      removed_paths: string[];
+    }[];
     rebuild_index: VaultId[];
+    embed_sync: VaultId[];
     list_note_paths_by_prefix: { vault_id: VaultId; prefix: string }[];
     upsert_note: { vault_id: VaultId; note_id: NoteId }[];
     remove_note: { vault_id: VaultId; note_id: NoteId }[];
@@ -491,7 +497,13 @@ export function create_mock_index_port(): WorkspaceIndexPort & {
     _calls: {
       cancel_index: [] as VaultId[],
       sync_index: [] as VaultId[],
+      sync_index_paths: [] as {
+        vault_id: VaultId;
+        changed_paths: string[];
+        removed_paths: string[];
+      }[],
       rebuild_index: [] as VaultId[],
+      embed_sync: [] as VaultId[],
       list_note_paths_by_prefix: [] as { vault_id: VaultId; prefix: string }[],
       upsert_note: [] as { vault_id: VaultId; note_id: NoteId }[],
       remove_note: [] as { vault_id: VaultId; note_id: NoteId }[],
@@ -566,10 +578,20 @@ export function create_mock_index_port(): WorkspaceIndexPort & {
     subscribe_embedding_progress() {
       return () => {};
     },
-    embed_sync() {
+    embed_sync(vault_id: VaultId) {
+      mock._calls.embed_sync.push(vault_id);
       return Promise.resolve();
     },
-    sync_index_paths() {
+    sync_index_paths(
+      vault_id: VaultId,
+      changed_paths: string[],
+      removed_paths: string[],
+    ) {
+      mock._calls.sync_index_paths.push({
+        vault_id,
+        changed_paths,
+        removed_paths,
+      });
       return Promise.resolve();
     },
     find_notes_by_name() {
