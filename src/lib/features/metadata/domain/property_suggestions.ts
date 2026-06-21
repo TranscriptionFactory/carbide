@@ -101,7 +101,9 @@ export function build_key_suggestions(
     scored.push({ entry, score, indices: key_match?.indices ?? [] });
   }
 
-  scored.sort((a, b) => b.score - a.score || default_key_order(a.entry, b.entry));
+  scored.sort(
+    (a, b) => b.score - a.score || default_key_order(a.entry, b.entry),
+  );
   return scored.map(({ entry, indices }) => ({
     ...to_key_suggestion(entry),
     indices,

@@ -9,7 +9,6 @@ import {
 } from "../domain/frontmatter_writer";
 import { find_standard_field } from "../domain/standard_fields";
 import { as_markdown_text } from "$lib/shared/types/ids";
-import type { NoteId } from "$lib/shared/types/ids";
 
 export class MetadataService {
   constructor(
@@ -55,7 +54,9 @@ export class MetadataService {
   }
 
   remove_property(key: string) {
-    this.write_markdown((markdown) => remove_frontmatter_property(markdown, key));
+    this.write_markdown((markdown) =>
+      remove_frontmatter_property(markdown, key),
+    );
   }
 
   clear() {
@@ -69,7 +70,7 @@ export class MetadataService {
     const new_markdown = transform(open_note.markdown);
     if (new_markdown === open_note.markdown) return;
 
-    const note_id = open_note.meta.id as NoteId;
+    const note_id = open_note.meta.id;
     this.editor_service.sync_visual_from_markdown_undoable(new_markdown);
     this.editor_store.set_markdown(note_id, as_markdown_text(new_markdown));
     this.editor_store.set_dirty(note_id, true);

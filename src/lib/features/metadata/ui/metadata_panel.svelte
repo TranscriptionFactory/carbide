@@ -7,6 +7,11 @@
   import XIcon from "@lucide/svelte/icons/x";
   import CheckIcon from "@lucide/svelte/icons/check";
   import { ACTION_IDS } from "$lib/app/action_registry/action_ids";
+  import PropertyCombobox from "./property_combobox.svelte";
+  import {
+    build_key_suggestions,
+    value_suggestions_for_key,
+  } from "../domain/property_suggestions";
 
   const { stores, action_registry } = use_app_context();
 
@@ -18,19 +23,45 @@
   const editing_key = $derived(stores.metadata.editing_key);
   const adding = $derived(stores.metadata.adding);
 
+  let new_key = $state("");
+  let new_value = $state("");
+  let edit_value = $state("");
+
+  const registry = $derived(stores.metadata.property_registry);
+  const existing_keys = $derived(properties.map((p) => p.key));
+
+  const key_items = $derived(
+    build_key_suggestions(new_key, registry, existing_keys).map((s) => ({
+      value: s.key,
+      hint: s.type,
+      description:
+        s.description ??
+        (s.count !== null
+          ? `used in ${s.count} ${s.count === 1 ? "note" : "notes"}`
+          : null),
+      indices: s.indices,
+    })),
+  );
+
+  const add_value_items = $derived(
+    value_suggestions_for_key(new_key, new_value, registry),
+  );
+  const edit_value_items = $derived(
+    editing_key
+      ? value_suggestions_for_key(editing_key, edit_value, registry)
+      : [],
+  );
+
   const frontmatter_tags = $derived(
     tags.filter((t) => t.source === "frontmatter"),
   );
   const inline_tags = $derived(tags.filter((t) => t.source === "inline"));
 
-  let new_key = $state("");
-  let new_value = $state("");
-  let edit_value = $state("");
-
   function handle_add() {
     stores.metadata.begin_add();
     new_key = "";
     new_value = "";
+    action_registry.execute(ACTION_IDS.metadata_load_suggestions);
   }
 
   function confirm_add() {
@@ -45,6 +76,7 @@
   function handle_edit(key: string, current_value: string) {
     stores.metadata.begin_edit(key);
     edit_value = current_value;
+    action_registry.execute(ACTION_IDS.metadata_load_suggestions);
   }
 
   function confirm_edit(key: string) {
@@ -98,25 +130,27 @@
 
     {#if adding}
       <div class="MetadataPanel__inline-form">
-        <input
-          class="MetadataPanel__input"
-          type="text"
+        <PropertyCombobox
+          value={new_key}
+          items={key_items}
           placeholder="Key"
-          bind:value={new_key}
-          onkeydown={(e: KeyboardEvent) => {
-            if (e.key === "Enter") confirm_add();
-            if (e.key === "Escape") cancel();
-          }}
+          autofocus
+          on_input={(t) => (new_key = t)}
+          on_select={(v) => (new_key = v)}
+          on_enter={confirm_add}
+          on_escape={cancel}
         />
-        <input
-          class="MetadataPanel__input"
-          type="text"
+        <PropertyCombobox
+          value={new_value}
+          items={add_value_items}
           placeholder="Value"
-          bind:value={new_value}
-          onkeydown={(e: KeyboardEvent) => {
-            if (e.key === "Enter") confirm_add();
-            if (e.key === "Escape") cancel();
+          on_input={(t) => (new_value = t)}
+          on_select={(v) => {
+            new_value = v;
+            confirm_add();
           }}
+          on_enter={confirm_add}
+          on_escape={cancel}
         />
         <div class="MetadataPanel__inline-actions">
           <button class="MetadataPanel__icon-btn" onclick={confirm_add}>
@@ -137,14 +171,17 @@
             <div class="MetadataPanel__prop">
               {#if editing_key === prop.key}
                 <dt class="MetadataPanel__prop-key">{prop.key}</dt>
-                <input
-                  class="MetadataPanel__input MetadataPanel__input--inline"
-                  type="text"
-                  bind:value={edit_value}
-                  onkeydown={(e: KeyboardEvent) => {
-                    if (e.key === "Enter") confirm_edit(prop.key);
-                    if (e.key === "Escape") cancel();
+                <PropertyCombobox
+                  value={edit_value}
+                  items={edit_value_items}
+                  autofocus
+                  on_input={(t) => (edit_value = t)}
+                  on_select={(v) => {
+                    edit_value = v;
+                    confirm_edit(prop.key);
                   }}
+                  on_enter={() => confirm_edit(prop.key)}
+                  on_escape={cancel}
                 />
                 <div class="MetadataPanel__inline-actions">
                   <button
@@ -291,26 +328,6 @@
     padding: var(--space-2);
     border-radius: var(--radius-sm);
     background: var(--accent);
-  }
-
-  .MetadataPanel__input {
-    flex: 1;
-    min-width: 0;
-    padding: var(--space-0-5) var(--space-1);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    background: var(--background);
-    color: var(--foreground);
-    font-size: var(--text-xs);
-  }
-
-  .MetadataPanel__input--inline {
-    flex: 1;
-  }
-
-  .MetadataPanel__input:focus {
-    outline: none;
-    border-color: var(--ring);
   }
 
   .MetadataPanel__inline-actions {
