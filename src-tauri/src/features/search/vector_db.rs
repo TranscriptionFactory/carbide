@@ -251,7 +251,7 @@ pub fn get_block_hashes(conn: &Connection, path: &str) -> HashMap<String, String
 /// `current_hashes` maps `heading_id -> content_hash` for the note's current
 /// embeddable sections. The bulk index path (rebuild/sync) only ever *adds*
 /// missing embeddings, so without this it would keep serving vectors computed
-/// from the old content indefinitely. (finding #1)
+/// from the old content indefinitely.
 pub fn invalidate_changed_block_embeddings(
     conn: &Connection,
     path: &str,
