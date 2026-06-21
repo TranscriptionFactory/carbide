@@ -434,3 +434,41 @@ This check runs every time `EmbedBatch` is dispatched. If the version matches, i
 - Search command palette (`search_commands.ts`) implementation quality
 - Embedding model accuracy/regression testing
 - Multi-vault concurrent indexing behavior under load
+
+---
+
+## Resolution Status (appended 2026-06-21)
+
+Remediation pass on branch `fix/vault-indexing-review`. Findings re-verified
+against code before acting; the prioritization and the choices below were
+approved by the maintainer. Findings 1–16 use the **body** numbering. The
+historical findings above are unchanged; this section only records disposition.
+
+| # | Body finding | Disposition | Commit | Notes |
+|---|---|---|---|---|
+| 1 | rebuild/sync leaves embeddings stale vs content | **FIXED** | `b8e12919` (+ simplify `67085d94`) | Approach (c): content-hash-aware invalidation at the indexing seam (`invalidate_changed_embeddings` in `db.rs` → `vector_db::invalidate_changed_block_embeddings`). Re-embed only changed/removed sections; note vector cleared for recomposition. Convergence verified (identical re-index is a no-op). Refined away from the literal per-pass body-read gate to avoid a steady-state regression while preserving the approved behavior. |
+| 2 | `sync_index_paths` never refreshes HNSW | **FIXED** | `dc8f013e` | `evict_note_from_indices` drops removed/vanished paths from both HNSW indices in `handle_sync_paths`. |
+| 3 | FTS stores raw markdown | **DEFER** | — | Design trade-off; needs full re-index, benefit speculative, no user-pain evidence. Maintainer go/no-go: defer. |
+| 4 | HNSW stale-node accumulation | **FIXED** | `a7b4903f` | Wired the already-tested `compact_if_stale()` (>30% stale) into both embed paths via `compact_indices_if_stale`. |
+| 5 | change detection ignores content hash | **DEFER** | — | Adds blake3 to the common path to avoid rare wasted re-index; not worth it. |
+| 6 | `BATCH_SIZE=100` excessive transactions | **FIXED** | `8a920d74` | `REBUILD_BATCH_SIZE=500` for bulk rebuild; sync stays 100. (Review's per-commit fsync claim is inaccurate under WAL+`synchronous=NORMAL`; benefit is reduced txn overhead.) |
+| 7 | embedding yield sleep proportional | **FIXED** | `c4de4fdf` | `yield_sleep_ms` caps the per-batch yield at 50ms. |
+| 8 | `get_block_embedded_keys` loads all keys | **DEFER** | — | ~3MB @50K sections, transient; gating-rewrite risk > benefit. |
+| 9 | PDF thread per file | **DEFER/WONTFIX** | — | The spawned thread provides the 15s timeout + panic isolation; removing it trades safety for ~0 gain. |
+| 10 | `sync_index` loads full manifest | **DEFER** | — | ~5MB @50K, transient; streaming rewrite risk not justified. |
+| 11 | no PRAGMA optimize / VACUUM | **FIXED (optimize)** | `e5336e67` | `run_pragma_optimize` after full rebuild/sync. VACUUM deferred. Maintainer go/no-go: optimize yes. |
+| 12 | magic `@linked/` string | **DEFER** | — | Most of the 27 sites are SQL literals (`NOT LIKE '@linked/%'`) where a constant doesn't substitute cleanly. Maintainer go/no-go: defer. |
+| 13 | watcher debounce only for modify | **DEFER** | — | add/remove can't be dropped like modify; coalescing needs design; risk of UI desync. Maintainer go/no-go: defer. |
+| 14 | path-prefix index | **WONTFIX** | — | `note_embeddings.path TEXT PRIMARY KEY` already indexes prefix range scans. |
+| 15 | equal-weight mean-pool | **DEFER/WONTFIX** | — | Unmeasured ML tuning, no eval harness; could regress (DL-003 reports current works). Maintainer go/no-go: defer. |
+| 16 | model-version check per embed_batch | **DEFER/WONTFIX** | — | Negligible (one indexed PK lookup per *batch*); caching adds invalidation risk of silent mis-embedding. |
+
+Tests added (inline `#[cfg(test)]`, the repo's de-facto Rust convention since
+`autotests = false` leaves `tests/*.rs` unwired except `external_mcp_state`):
+`hnsw_index::compact_if_stale_compacts_only_past_threshold`,
+`service::{evict_note_from_indices…, yield_sleep_is_quarter_batch_capped_at_50ms}`,
+`vector_db::{invalidate_changed_block_embeddings_only_clears_on_content_change,
+invalidate_leaves_unrelated_notes_untouched}`,
+`db::{invalidate_changed_embeddings_reembeds_only_changed_sections,
+run_pragma_optimize_succeeds_on_populated_index}`. Gates: `cargo check` clean,
+189 search lib tests pass, `pnpm check` clean.
