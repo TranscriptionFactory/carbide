@@ -2177,6 +2177,7 @@ fn index_single_file_text(
         crate::features::tasks::service::save_tasks(conn, &meta.path, &tasks)?;
         let props = extract_frontmatter_properties(raw);
         save_properties(conn, &meta.path, &props)?;
+        invalidate_changed_embeddings(conn, &meta.path, raw)?;
     }
     Ok(())
 }
@@ -3033,6 +3034,61 @@ pub fn get_note_headings(
         .map_err(|e| e.to_string())
 }
 
+/// A section qualifies for its own block embedding when it is long enough to
+/// carry standalone meaning. These thresholds define "embeddable" everywhere:
+/// the section queries below, the embed passes, and the staleness check.
+pub(crate) const BLOCK_EMBED_MIN_WORDS: i64 = 20;
+pub(crate) const BLOCK_EMBED_MIN_LINES: i64 = 10;
+
+/// Slices a section's text out of `lines` the one way every embedding path must
+/// agree on, so the content hash is identical across indexing and embedding.
+/// Returns `None` for an out-of-range or blank section.
+pub(crate) fn slice_section_text(lines: &[&str], start_line: i64, end_line: i64) -> Option<String> {
+    let start = start_line as usize;
+    let end = (end_line as usize + 1).min(lines.len());
+    if start >= lines.len() {
+        return None;
+    }
+    let text = lines[start..end].join("\n");
+    if text.trim().is_empty() {
+        None
+    } else {
+        Some(text)
+    }
+}
+
+/// Maps `heading_id -> content_hash` for a markdown note's current embeddable
+/// sections, computed the same way the embed passes hash section text. This is
+/// the ground truth the stored block hashes are compared against.
+pub(crate) fn embeddable_section_hashes(raw: &str) -> HashMap<String, String> {
+    let (_, _, sections) = extract_markdown_structure(raw);
+    let lines: Vec<&str> = raw.lines().collect();
+    let mut current: HashMap<String, String> = HashMap::new();
+    for s in &sections {
+        if s.word_count < BLOCK_EMBED_MIN_WORDS
+            && (s.end_line - s.start_line) < BLOCK_EMBED_MIN_LINES
+        {
+            continue;
+        }
+        if let Some(text) = slice_section_text(&lines, s.start_line, s.end_line) {
+            current.insert(
+                s.heading_id.clone(),
+                blake3::hash(text.as_bytes()).to_hex().to_string(),
+            );
+        }
+    }
+    current
+}
+
+/// After re-indexing a markdown note, drops embeddings whose section content
+/// changed (or whose section was removed) so the background embed pass recomputes
+/// them. The bulk index path only fills in missing keys, so without this a
+/// rebuild or external edit leaves vectors matching the old content. (finding #1)
+fn invalidate_changed_embeddings(conn: &Connection, path: &str, raw: &str) -> Result<bool, String> {
+    let current = embeddable_section_hashes(raw);
+    vector_db::invalidate_changed_block_embeddings(conn, path, &current)
+}
+
 pub fn get_embeddable_sections(
     conn: &Connection,
     min_words: i64,
@@ -3230,6 +3286,50 @@ mod tests {
             file_type: None,
             source: None,
         }
+    }
+
+    #[test]
+    fn invalidate_changed_embeddings_reembeds_only_changed_sections() {
+        let conn = Connection::open_in_memory().expect("in-memory db");
+        init_schema(&conn).expect("schema");
+        vector_db::init_vector_schema(&conn).expect("vector schema");
+
+        let path = "n.md";
+        let body = |label: &str| {
+            (1..=10)
+                .map(|i| format!("{label}-line-{i}"))
+                .collect::<Vec<_>>()
+                .join("\n")
+        };
+        let raw_v1 = format!("# Alpha\n\n{}\n\n# Beta\n\n{}\n", body("a"), body("b"));
+
+        // Seed embeddings exactly as the embed pass would have for v1.
+        let v1 = embeddable_section_hashes(&raw_v1);
+        assert_eq!(v1.len(), 2, "two embeddable sections expected");
+        for (heading, hash) in &v1 {
+            vector_db::upsert_block_embedding(&conn, path, heading, &[0.1f32; 384], hash).unwrap();
+        }
+        vector_db::upsert_embedding(&conn, path, &[0.1f32; 384]).unwrap();
+
+        // Convergence: re-indexing identical content invalidates nothing.
+        assert!(!invalidate_changed_embeddings(&conn, path, &raw_v1).unwrap());
+        assert_eq!(vector_db::get_block_embedding_count(&conn), 2);
+        assert!(vector_db::get_embedding(&conn, path).is_some());
+
+        // Only Beta's body changes: Beta's block is dropped, Alpha's kept, the
+        // note vector cleared for recomposition.
+        let raw_v2 = format!("# Alpha\n\n{}\n\n# Beta\n\n{}\n", body("a"), body("CHANGED"));
+        assert!(invalidate_changed_embeddings(&conn, path, &raw_v2).unwrap());
+        let remaining = vector_db::get_block_hashes(&conn, path);
+        let v2 = embeddable_section_hashes(&raw_v2);
+        for (heading, hash) in &v1 {
+            if v2.get(heading) == Some(hash) {
+                assert!(remaining.contains_key(heading), "unchanged section dropped");
+            } else {
+                assert!(!remaining.contains_key(heading), "changed section kept");
+            }
+        }
+        assert!(vector_db::get_embedding(&conn, path).is_none(), "note vector not cleared");
     }
 
     #[test]

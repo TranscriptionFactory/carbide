@@ -243,6 +243,37 @@ pub fn get_block_hashes(conn: &Connection, path: &str) -> HashMap<String, String
     rows.filter_map(|r| r.ok()).collect()
 }
 
+/// Drops the embeddings made stale by a content change. A block embedding is
+/// deleted when its section was removed or its `content_hash` no longer matches
+/// the current section text; the note-level embedding is cleared whenever the
+/// embeddable section set changed at all, so it is recomposed from fresh blocks.
+///
+/// `current_hashes` maps `heading_id -> content_hash` for the note's current
+/// embeddable sections. The bulk index path (rebuild/sync) only ever *adds*
+/// missing embeddings, so without this it would keep serving vectors computed
+/// from the old content indefinitely. (finding #1)
+pub fn invalidate_changed_block_embeddings(
+    conn: &Connection,
+    path: &str,
+    current_hashes: &HashMap<String, String>,
+) -> Result<bool, String> {
+    let stored = get_block_hashes(conn, path);
+    if stored == *current_hashes {
+        return Ok(false);
+    }
+    for (heading_id, stored_hash) in &stored {
+        if current_hashes.get(heading_id) != Some(stored_hash) {
+            conn.execute(
+                "DELETE FROM block_embeddings WHERE path = ?1 AND heading_id = ?2",
+                params![path, heading_id],
+            )
+            .map_err(|e| e.to_string())?;
+        }
+    }
+    remove_embedding(conn, path)?;
+    Ok(true)
+}
+
 pub fn remove_block_embeddings_except(
     conn: &Connection,
     path: &str,
@@ -709,6 +740,58 @@ mod tests {
             .filter_map(|r| r.ok())
             .collect();
         assert_eq!(fallback_paths, vec!["other.md"]);
+    }
+
+    fn hashes(entries: &[(&str, &str)]) -> HashMap<String, String> {
+        entries
+            .iter()
+            .map(|(h, c)| (h.to_string(), c.to_string()))
+            .collect()
+    }
+
+    #[test]
+    fn invalidate_changed_block_embeddings_only_clears_on_content_change() {
+        let conn = setup();
+        let emb = fake_embedding(0.3);
+        upsert_block_embedding(&conn, "n.md", "h1", &emb, "hashA").unwrap();
+        upsert_block_embedding(&conn, "n.md", "h2", &emb, "hashB").unwrap();
+        upsert_embedding(&conn, "n.md", &emb).unwrap();
+
+        // Unchanged: identical hashes -> no-op, embeddings preserved.
+        let changed =
+            invalidate_changed_block_embeddings(&conn, "n.md", &hashes(&[("h1", "hashA"), ("h2", "hashB")]))
+                .unwrap();
+        assert!(!changed);
+        assert_eq!(get_block_embedding_count(&conn), 2);
+        assert!(get_embedding(&conn, "n.md").is_some());
+
+        // h1 content changed, h2 removed, h3 added: stale/removed blocks dropped,
+        // note vector cleared so it recomposes; added section left for the gate.
+        let changed = invalidate_changed_block_embeddings(
+            &conn,
+            "n.md",
+            &hashes(&[("h1", "hashA2"), ("h3", "hashC")]),
+        )
+        .unwrap();
+        assert!(changed);
+        let remaining = get_block_hashes(&conn, "n.md");
+        assert!(remaining.is_empty(), "changed h1 and removed h2 must be dropped");
+        assert!(get_embedding(&conn, "n.md").is_none(), "note vector must be cleared");
+    }
+
+    #[test]
+    fn invalidate_leaves_unrelated_notes_untouched() {
+        let conn = setup();
+        let emb = fake_embedding(0.5);
+        upsert_block_embedding(&conn, "a.md", "h1", &emb, "hashA").unwrap();
+        upsert_block_embedding(&conn, "b.md", "h1", &emb, "hashB").unwrap();
+        upsert_embedding(&conn, "b.md", &emb).unwrap();
+
+        invalidate_changed_block_embeddings(&conn, "a.md", &hashes(&[("h1", "changed")])).unwrap();
+
+        assert!(get_block_hashes(&conn, "a.md").is_empty());
+        assert_eq!(get_block_hashes(&conn, "b.md").get("h1").map(String::as_str), Some("hashB"));
+        assert!(get_embedding(&conn, "b.md").is_some());
     }
 
     #[test]
