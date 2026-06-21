@@ -221,6 +221,27 @@ describe("MetadataService", () => {
     expect(editor_store.open_note?.markdown).toContain("aliases: [foo, bar]");
   });
 
+  it("keeps a non-standard list property as a YAML list when edited", () => {
+    const store = new MetadataStore();
+    const editor_store = create_mock_editor_store(
+      "notes/test.md",
+      "---\nkeywords: [Variables, Functions]\n---\n# Hello",
+    );
+    const { service } = create_service(store, editor_store);
+
+    service.refresh("notes/test.md");
+    service.update_property("keywords", "Variables, Functions, Loops");
+
+    expect(editor_store.open_note?.markdown).toContain(
+      "keywords: [Variables, Functions, Loops]",
+    );
+    expect(store.properties).toContainEqual({
+      key: "keywords",
+      value: ["Variables", "Functions", "Loops"],
+      type: "tags",
+    });
+  });
+
   it("does nothing when there is no open note", () => {
     const store = new MetadataStore();
     const editor_store = create_mock_editor_store(null);

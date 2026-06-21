@@ -48,11 +48,12 @@ export class MetadataService {
   }
 
   update_property(key: string, value: string) {
+    const known_type = this.store.properties.find((p) => p.key === key)?.type;
     this.write_markdown((markdown) =>
       update_frontmatter_property(
         markdown,
         key,
-        coerce_field_value(key, value),
+        coerce_field_value(key, value, known_type),
       ),
     );
   }

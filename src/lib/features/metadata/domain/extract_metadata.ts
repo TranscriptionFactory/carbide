@@ -6,6 +6,15 @@ import { infer_property_type } from "./infer_property_type";
 
 const INLINE_TAG_RE = /(?:^|\s)#([a-zA-Z][\w/-]*)/g;
 
+function to_property_value(value: unknown): string | string[] {
+  if (Array.isArray(value))
+    return value.map((v) => (typeof v === "string" ? v : JSON.stringify(v)));
+  if (typeof value === "string") return value;
+  if (value === null || value === undefined) return "";
+  if (typeof value === "object") return JSON.stringify(value);
+  return String(value);
+}
+
 export function extract_metadata(markdown: string): NoteMetadata {
   const tree = parse_to_mdast(markdown);
   const properties: NoteProperty[] = [];
@@ -33,11 +42,10 @@ export function extract_metadata(markdown: string): NoteMetadata {
           }
         }
       } else {
-        const type = infer_property_type(value);
         properties.push({
           key,
-          value: typeof value === "string" ? value : JSON.stringify(value),
-          type,
+          value: to_property_value(value),
+          type: infer_property_type(value),
         });
       }
     }

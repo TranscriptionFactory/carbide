@@ -100,6 +100,10 @@
   function cancel() {
     stores.metadata.cancel_edit();
   }
+
+  function value_text(value: string | string[]): string {
+    return Array.isArray(value) ? value.join(", ") : value;
+  }
 </script>
 
 <div class="MetadataPanel">
@@ -202,13 +206,24 @@
                 </div>
               {:else}
                 <dt class="MetadataPanel__prop-key">{prop.key}</dt>
-                <dd class="MetadataPanel__prop-value" title={prop.value}>
-                  {prop.value}
-                </dd>
+                {#if Array.isArray(prop.value)}
+                  <dd
+                    class="MetadataPanel__prop-value MetadataPanel__prop-value--list"
+                  >
+                    {#each prop.value as item, i (i)}
+                      <span class="MetadataPanel__tag">{item}</span>
+                    {/each}
+                  </dd>
+                {:else}
+                  <dd class="MetadataPanel__prop-value" title={prop.value}>
+                    {prop.value}
+                  </dd>
+                {/if}
                 <div class="MetadataPanel__prop-actions">
                   <button
                     class="MetadataPanel__icon-btn"
-                    onclick={() => handle_edit(prop.key, prop.value)}
+                    onclick={() =>
+                      handle_edit(prop.key, value_text(prop.value))}
                     title="Edit"
                   >
                     <PencilIcon />
@@ -423,6 +438,14 @@
     text-overflow: ellipsis;
     white-space: nowrap;
     flex: 1;
+  }
+
+  .MetadataPanel__prop-value--list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-1);
+    overflow: visible;
+    white-space: normal;
   }
 
   .MetadataPanel__prop-actions {

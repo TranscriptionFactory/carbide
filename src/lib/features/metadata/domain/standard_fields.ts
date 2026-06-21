@@ -1,4 +1,4 @@
-import type { StandardField } from "../types";
+import type { PropertyType, StandardField } from "../types";
 
 export const STANDARD_FIELDS: StandardField[] = [
   {
@@ -69,12 +69,19 @@ export function find_standard_field(key: string): StandardField | undefined {
   return STANDARD_FIELDS.find((f) => f.key === key);
 }
 
+function is_list_type(type: PropertyType | undefined): boolean {
+  return type === "tags" || type === "array";
+}
+
 export function coerce_field_value(
   key: string,
   value: string,
+  known_type?: PropertyType,
 ): string | string[] {
-  const type = find_standard_field(key)?.type;
-  if (type === "tags" || type === "array") {
+  if (
+    is_list_type(known_type) ||
+    is_list_type(find_standard_field(key)?.type)
+  ) {
     return value
       .split(",")
       .map((part) => part.trim())
