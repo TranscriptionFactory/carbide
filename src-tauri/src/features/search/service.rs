@@ -1069,6 +1069,29 @@ fn compact_indices_if_stale(note_index: &SharedVectorIndex, block_index: &Shared
     }
 }
 
+/// Drops deleted notes' vectors from both in-memory HNSW indices. The note vector
+/// is keyed by path; block vectors are keyed by `path\0heading`, so the block
+/// index is pruned by prefix.
+fn evict_note_from_indices(
+    note_index: &SharedVectorIndex,
+    block_index: &SharedVectorIndex,
+    paths: &[&str],
+) {
+    if paths.is_empty() {
+        return;
+    }
+    if let Ok(mut ni) = note_index.write() {
+        for path in paths {
+            ni.remove(path);
+        }
+    }
+    if let Ok(mut bi) = block_index.write() {
+        for path in paths {
+            bi.remove_by_prefix(&format!("{path}\0"));
+        }
+    }
+}
+
 fn extract_title(markdown: &str) -> Option<String> {
     let mut in_frontmatter = false;
     let mut seen_frontmatter_start = false;
@@ -1384,6 +1407,7 @@ fn handle_sync_paths(
         }
     }
 
+    let mut evicted: Vec<&str> = removed_paths.iter().map(String::as_str).collect();
     for path in removed_paths {
         notes_cache.remove(path);
     }
@@ -1395,8 +1419,14 @@ fn handle_sync_paths(
             }
         } else {
             notes_cache.remove(rel_path);
+            evicted.push(rel_path.as_str());
         }
     }
+
+    // sync_index_paths deletes removed notes from SQLite (remove_note) but never
+    // touches the in-memory HNSW, so it would keep serving vectors for deleted
+    // notes until the next full RebuildIndex. (finding #2)
+    evict_note_from_indices(note_index, block_index, &evicted);
 
     for cmd in deferred.into_inner() {
         if matches!(
@@ -3182,6 +3212,34 @@ mod tests {
             .iter()
             .map(|(k, v)| (k.to_string(), v.to_string()))
             .collect()
+    }
+
+    #[test]
+    fn evict_note_from_indices_drops_note_and_block_vectors() {
+        let note_index: SharedVectorIndex = Arc::new(RwLock::new(VectorIndex::new(4)));
+        let block_index: SharedVectorIndex = Arc::new(RwLock::new(VectorIndex::new(4)));
+        {
+            let mut ni = note_index.write().unwrap();
+            ni.insert("a.md", vec![1.0, 0.0, 0.0, 0.0]);
+            ni.insert("b.md", vec![0.0, 1.0, 0.0, 0.0]);
+            let mut bi = block_index.write().unwrap();
+            bi.insert("a.md\0h1", vec![1.0, 0.0, 0.0, 0.0]);
+            bi.insert("a.md\0h2", vec![0.0, 1.0, 0.0, 0.0]);
+            bi.insert("b.md\0h1", vec![0.0, 0.0, 1.0, 0.0]);
+        }
+
+        evict_note_from_indices(&note_index, &block_index, &["a.md"]);
+
+        let ni = note_index.read().unwrap();
+        assert!(ni.get_vector("a.md").is_none(), "deleted note vector remains");
+        assert!(ni.get_vector("b.md").is_some(), "sibling note vector evicted");
+        let bi = block_index.read().unwrap();
+        assert!(bi.get_vector("a.md\0h1").is_none());
+        assert!(bi.get_vector("a.md\0h2").is_none());
+        assert!(
+            bi.get_vector("b.md\0h1").is_some(),
+            "sibling block vector evicted"
+        );
     }
 
     #[test]
