@@ -44,6 +44,7 @@ import {
   MarketplaceTauriAdapter,
 } from "$lib/features/plugin";
 import { create_canvas_tauri_adapter } from "$lib/features/canvas";
+import { create_metadata_tauri_adapter } from "$lib/features/metadata";
 import { create_tag_tauri_adapter } from "$lib/features/tags";
 import { create_lint_tauri_adapter } from "$lib/features/lint";
 import { create_markdown_lsp_tauri_adapter } from "$lib/features/markdown_lsp";
@@ -230,6 +231,7 @@ export function create_prod_ports(): Ports & {
     plugin_settings,
     marketplace,
     canvas,
+    metadata: create_metadata_tauri_adapter(),
     tag: create_tag_tauri_adapter(),
     lint: create_lint_tauri_adapter(),
     markdown_lsp: create_markdown_lsp_tauri_adapter(),

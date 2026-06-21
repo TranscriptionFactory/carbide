@@ -138,6 +138,10 @@ export function create_test_ports(): Ports {
       read_svg_preview: () => Promise.resolve(null),
       write_svg_preview: () => Promise.resolve(),
     },
+    metadata: {
+      get_file_cache: () => Promise.reject("Not found"),
+      list_properties: () => Promise.resolve([]),
+    },
     tag: {
       list_all_tags: () => Promise.resolve([]),
       get_notes_for_tag: () => Promise.resolve([]),

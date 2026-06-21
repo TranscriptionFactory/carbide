@@ -1,4 +1,6 @@
 export * from "./types";
+export * from "./ports";
+export * from "./adapters/metadata_tauri_adapter";
 export * from "./state/metadata_store.svelte";
 export * from "./application/metadata_service";
 export * from "./application/metadata_actions";
