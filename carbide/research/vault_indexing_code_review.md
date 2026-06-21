@@ -28,12 +28,18 @@
 > | `sync_search_index` | `index_build` | `service.rs:2008` |
 > | `rebuild_search_index` | `index_rebuild` | `service.rs:2065` |
 > | `embed_sync` | `embed_sync` | correct |
-> | `index_upsert_note_with_content` | `index_upsert_note_with_content` | correct |
+> | `index_upsert_note_with_content` | `index_upsert_note` | `service.rs:2170` |
 >
 > The frontend adapter the review cites
 > (`workspace_index_tauri_adapter.ts:209,250,264`) already uses the correct
 > `index_build`/`index_rebuild` names — the diagram's names are a documentation
 > error only; no behavioral impact.
+>
+> **Follow-up correction (verification pass):** Row 4 of the table above was
+> itself inaccurate. `index_upsert_note_with_content` (`service.rs:2182`) is
+> **not** a `#[tauri::command]` — it is an internal `pub fn` helper. The
+> registered command is `index_upsert_note` (`service.rs:2170`), corrected in the
+> table above. `embed_sync` (`service.rs:2805`) is a genuine command.
 ┌──────────────────────▼──────────────────────────────┐
 │  Rust Backend                                       │
 │                                                     │
@@ -68,6 +74,15 @@
 │      notes (DL-005)                                 │
 └─────────────────────────────────────────────────────┘
 ```
+
+> **Correction (verification pass):** The `VaultWorker` field list in the diagram
+> above is partly inaccurate. Verified against the struct definition
+> (`service.rs:219-231`), the worker owns `write_tx: mpsc::Sender<DbCommand>` (the
+> writer-thread channel), `read_conn: Arc<Mutex<Connection>>`, `note_index`, and
+> `block_index` (both `SharedVectorIndex`). `write_conn: Connection` and
+> `notes_cache: BTreeMap<String, IndexNoteMeta>` are **not** struct fields — they
+> are locals inside `writer_thread_loop`, threaded through `dispatch_command` by
+> `&mut`. Diagram error only; no behavioral impact.
 
 ---
 
@@ -114,7 +129,8 @@ However, `handle_rebuild` does **not** clear embeddings beforehand. If notes cha
 > arrives externally on the channel during the operation (`service.rs:1125`).
 > `handle_rebuild` itself (`service.rs:1268-1292`) enqueues no `RebuildIndex`;
 > the only automatic `RebuildIndex` is sent once on worker startup
-> (`service.rs:500`).
+> (`service.rs:500`); the HNSW-from-SQLite rebuild it triggers lives in the
+> `RebuildIndex` dispatch handler (`service.rs:867-876`).
 >
 > **Actual behavior:** After `handle_rebuild`, the in-memory HNSW indices are
 > left entirely untouched — neither cleared nor rebuilt from SQLite. Confirmed
