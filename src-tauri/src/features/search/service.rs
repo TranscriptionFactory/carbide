@@ -972,9 +972,10 @@ fn embed_note_on_save(
     let mut to_embed: Vec<(&str, String, String)> = Vec::new();
 
     for section in &sections {
-        if section.word_count < search_db::BLOCK_EMBED_MIN_WORDS
-            && (section.end_line - section.start_line) < search_db::BLOCK_EMBED_MIN_LINES
-        {
+        if !search_db::is_embeddable_section(
+            section.word_count,
+            section.end_line - section.start_line,
+        ) {
             continue;
         }
 
@@ -1091,7 +1092,6 @@ fn evict_note_from_indices(
 /// CPU yield between embedding batches. The worker runs at background QoS, so a
 /// small slice of the batch time keeps the UI responsive; the cap stops a few
 /// slow batches from stalling the whole pass on proportional idle sleep.
-/// (finding #7)
 fn yield_sleep_ms(batch_elapsed: std::time::Duration) -> u64 {
     (batch_elapsed.as_millis() as u64 / 4).min(50)
 }
@@ -1429,7 +1429,7 @@ fn handle_sync_paths(
 
     // sync_index_paths deletes removed notes from SQLite (remove_note) but never
     // touches the in-memory HNSW, so it would keep serving vectors for deleted
-    // notes until the next full RebuildIndex. (finding #2)
+    // notes until the next full RebuildIndex.
     evict_note_from_indices(note_index, block_index, &evicted);
 
     for cmd in deferred.into_inner() {

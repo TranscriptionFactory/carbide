@@ -1824,7 +1824,7 @@ const REBUILD_BATCH_SIZE: usize = 500;
 
 /// Refreshes SQLite's query-planner statistics after a bulk index operation.
 /// Cheap (a near no-op when little changed) and keeps planner choices sound as
-/// the index grows from delete-and-reinsert churn. (finding #11)
+/// the index grows from delete-and-reinsert churn.
 fn run_pragma_optimize(conn: &Connection) -> Result<(), String> {
     conn.execute_batch("PRAGMA optimize")
         .map_err(|e| e.to_string())
@@ -3060,6 +3060,11 @@ pub fn get_note_headings(
 pub(crate) const BLOCK_EMBED_MIN_WORDS: i64 = 20;
 pub(crate) const BLOCK_EMBED_MIN_LINES: i64 = 10;
 
+/// Whether a section is substantial enough to warrant its own block embedding.
+pub(crate) fn is_embeddable_section(word_count: i64, line_span: i64) -> bool {
+    word_count >= BLOCK_EMBED_MIN_WORDS || line_span >= BLOCK_EMBED_MIN_LINES
+}
+
 /// Slices a section's text out of `lines` the one way every embedding path must
 /// agree on, so the content hash is identical across indexing and embedding.
 /// Returns `None` for an out-of-range or blank section.
@@ -3085,9 +3090,7 @@ pub(crate) fn embeddable_section_hashes(raw: &str) -> HashMap<String, String> {
     let lines: Vec<&str> = raw.lines().collect();
     let mut current: HashMap<String, String> = HashMap::new();
     for s in &sections {
-        if s.word_count < BLOCK_EMBED_MIN_WORDS
-            && (s.end_line - s.start_line) < BLOCK_EMBED_MIN_LINES
-        {
+        if !is_embeddable_section(s.word_count, s.end_line - s.start_line) {
             continue;
         }
         if let Some(text) = slice_section_text(&lines, s.start_line, s.end_line) {
@@ -3103,7 +3106,7 @@ pub(crate) fn embeddable_section_hashes(raw: &str) -> HashMap<String, String> {
 /// After re-indexing a markdown note, drops embeddings whose section content
 /// changed (or whose section was removed) so the background embed pass recomputes
 /// them. The bulk index path only fills in missing keys, so without this a
-/// rebuild or external edit leaves vectors matching the old content. (finding #1)
+/// rebuild or external edit leaves vectors matching the old content.
 fn invalidate_changed_embeddings(conn: &Connection, path: &str, raw: &str) -> Result<bool, String> {
     let current = embeddable_section_hashes(raw);
     vector_db::invalidate_changed_block_embeddings(conn, path, &current)
