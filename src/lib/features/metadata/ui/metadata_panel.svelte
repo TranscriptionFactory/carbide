@@ -57,11 +57,17 @@
   );
   const inline_tags = $derived(tags.filter((t) => t.source === "inline"));
 
+  function load_suggestions() {
+    if (registry.length === 0) {
+      action_registry.execute(ACTION_IDS.metadata_load_suggestions);
+    }
+  }
+
   function handle_add() {
     stores.metadata.begin_add();
     new_key = "";
     new_value = "";
-    action_registry.execute(ACTION_IDS.metadata_load_suggestions);
+    load_suggestions();
   }
 
   function confirm_add() {
@@ -76,7 +82,7 @@
   function handle_edit(key: string, current_value: string) {
     stores.metadata.begin_edit(key);
     edit_value = current_value;
-    action_registry.execute(ACTION_IDS.metadata_load_suggestions);
+    load_suggestions();
   }
 
   function confirm_edit(key: string) {

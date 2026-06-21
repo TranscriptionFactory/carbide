@@ -68,3 +68,17 @@ export const STANDARD_FIELDS: StandardField[] = [
 export function find_standard_field(key: string): StandardField | undefined {
   return STANDARD_FIELDS.find((f) => f.key === key);
 }
+
+export function coerce_field_value(
+  key: string,
+  value: string,
+): string | string[] {
+  const type = find_standard_field(key)?.type;
+  if (type === "tags" || type === "array") {
+    return value
+      .split(",")
+      .map((part) => part.trim())
+      .filter(Boolean);
+  }
+  return value;
+}
