@@ -22,6 +22,35 @@ export type NoteMetadata = {
   tags: NoteTag[];
 };
 
+export type VaultProperty = {
+  name: string;
+  property_type: string;
+  count: number;
+  unique_values: string[] | null;
+};
+
+export type StandardField = {
+  key: string;
+  type: PropertyType;
+  description: string;
+  values?: string[];
+  keywords?: string[];
+};
+
+export type KeySuggestion = {
+  key: string;
+  type: PropertyType;
+  description: string | null;
+  source: "standard" | "vault";
+  count: number | null;
+  indices: number[];
+};
+
+export type ValueSuggestion = {
+  value: string;
+  indices: number[];
+};
+
 export type CachedHeading = {
   level: number;
   text: string;
