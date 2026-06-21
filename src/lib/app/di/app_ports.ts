@@ -24,6 +24,7 @@ import type {
   MarketplacePort,
 } from "$lib/features/plugin";
 import type { CanvasPort } from "$lib/features/canvas";
+import type { MetadataPort } from "$lib/features/metadata";
 import type { TagPort } from "$lib/features/tags";
 import type { LintPort } from "$lib/features/lint";
 import type { MarkdownLspPort } from "$lib/features/markdown_lsp";
@@ -70,6 +71,7 @@ export type Ports = {
   plugin_settings: PluginSettingsPort;
   marketplace: MarketplacePort;
   canvas: CanvasPort;
+  metadata: MetadataPort;
   tag: TagPort;
   lint: LintPort;
   markdown_lsp: MarkdownLspPort;

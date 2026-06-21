@@ -835,7 +835,12 @@ export function create_app_context(input: {
 
   const tag_service = new TagService(input.ports.tag, stores.tag, stores.vault);
 
-  const metadata_service = new MetadataService(stores.metadata, stores.editor);
+  const metadata_service = new MetadataService(
+  stores.metadata,
+  stores.editor,
+  editor_service,
+  input.ports.metadata,
+);
 
   const toolchain_service = new ToolchainService(
     input.ports.toolchain,
@@ -1256,6 +1261,7 @@ export function create_app_context(input: {
     metadata_service,
     stores.metadata,
     stores.ui,
+    stores.vault,
   );
 
   register_reference_actions({

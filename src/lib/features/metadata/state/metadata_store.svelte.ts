@@ -1,8 +1,9 @@
-import type { NoteProperty, NoteTag } from "../types";
+import type { NoteProperty, NoteTag, VaultProperty } from "../types";
 
 export class MetadataStore {
   properties = $state<NoteProperty[]>([]);
   tags = $state<NoteTag[]>([]);
+  property_registry = $state<VaultProperty[]>([]);
   loading = $state(false);
   error = $state<string | null>(null);
   note_path = $state<string | null>(null);
@@ -16,29 +17,16 @@ export class MetadataStore {
     this.error = null;
   }
 
+  set_property_registry(registry: VaultProperty[]) {
+    this.property_registry = registry;
+  }
+
   set_loading(loading: boolean) {
     this.loading = loading;
   }
 
   set_error(error: string | null) {
     this.error = error;
-  }
-
-  add_property(key: string, value: string) {
-    if (this.properties.some((p) => p.key === key)) return;
-    this.properties = [...this.properties, { key, value, type: "string" }];
-    this.adding = false;
-  }
-
-  update_property(key: string, value: string) {
-    this.properties = this.properties.map((p) =>
-      p.key === key ? { ...p, value } : p,
-    );
-    this.editing_key = null;
-  }
-
-  remove_property(key: string) {
-    this.properties = this.properties.filter((p) => p.key !== key);
   }
 
   begin_add() {
