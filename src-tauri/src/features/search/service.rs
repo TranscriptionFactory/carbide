@@ -972,21 +972,17 @@ fn embed_note_on_save(
     let mut to_embed: Vec<(&str, String, String)> = Vec::new();
 
     for section in &sections {
-        if section.word_count < BLOCK_EMBED_MIN_WORDS
-            && (section.end_line - section.start_line) < BLOCK_EMBED_MIN_LINES
+        if section.word_count < search_db::BLOCK_EMBED_MIN_WORDS
+            && (section.end_line - section.start_line) < search_db::BLOCK_EMBED_MIN_LINES
         {
             continue;
         }
 
-        let start = section.start_line as usize;
-        let end = (section.end_line as usize + 1).min(lines.len());
-        if start >= lines.len() {
+        let Some(section_text) =
+            search_db::slice_section_text(&lines, section.start_line, section.end_line)
+        else {
             continue;
-        }
-        let section_text = lines[start..end].join("\n");
-        if section_text.trim().is_empty() {
-            continue;
-        }
+        };
 
         let hash = blake3::hash(section_text.as_bytes()).to_hex().to_string();
         kept_heading_ids.push(&section.heading_id);
@@ -1756,9 +1752,6 @@ fn handle_embed_batch(
     }
 }
 
-const BLOCK_EMBED_MIN_WORDS: i64 = 20;
-const BLOCK_EMBED_MIN_LINES: i64 = 10;
-
 fn handle_block_embed_batch(
     conn: &Connection,
     cancel: &Arc<AtomicBool>,
@@ -1773,8 +1766,8 @@ fn handle_block_embed_batch(
 ) {
     let sections = match search_db::get_embeddable_sections(
         conn,
-        BLOCK_EMBED_MIN_WORDS,
-        BLOCK_EMBED_MIN_LINES,
+        search_db::BLOCK_EMBED_MIN_WORDS,
+        search_db::BLOCK_EMBED_MIN_LINES,
     ) {
         Ok(s) => s,
         Err(e) => {
@@ -1831,15 +1824,10 @@ fn handle_block_embed_batch(
                 None => continue,
             };
             let lines: Vec<&str> = body.lines().collect();
-            let start = *start_line as usize;
-            let end = (*end_line as usize + 1).min(lines.len());
-            if start >= lines.len() {
+            let Some(section_text) = search_db::slice_section_text(&lines, *start_line, *end_line)
+            else {
                 continue;
-            }
-            let section_text = lines[start..end].join("\n");
-            if section_text.trim().is_empty() {
-                continue;
-            }
+            };
             let hash = blake3::hash(section_text.as_bytes()).to_hex().to_string();
             keys.push((path.as_str(), heading_id.as_str()));
             texts.push(section_text);
