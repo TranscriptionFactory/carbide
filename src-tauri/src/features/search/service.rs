@@ -1049,6 +1049,24 @@ fn embed_note_on_save(
             ni.insert(note_id, embedding);
         }
     }
+
+    compact_indices_if_stale(note_index, block_index);
+}
+
+/// Reclaims accumulated stale HNSW nodes once they exceed the rebuild threshold.
+/// Every re-embed overwrites a key, leaving a dead node `hnsw_rs` cannot delete;
+/// without this, the graph grows unbounded across edits until the next restart.
+fn compact_indices_if_stale(note_index: &SharedVectorIndex, block_index: &SharedVectorIndex) {
+    if let Ok(mut ni) = note_index.write() {
+        if ni.compact_if_stale() {
+            log::info!("note_index compacted: stale nodes reclaimed");
+        }
+    }
+    if let Ok(mut bi) = block_index.write() {
+        if bi.compact_if_stale() {
+            log::info!("block_index compacted: stale nodes reclaimed");
+        }
+    }
 }
 
 fn extract_title(markdown: &str) -> Option<String> {
@@ -1700,6 +1718,8 @@ fn handle_embed_batch(
             },
         );
     }
+
+    compact_indices_if_stale(note_index, block_index);
 
     for cmd in deferred {
         dispatch_command(conn, cmd, notes_cache, rx, note_index, block_index);

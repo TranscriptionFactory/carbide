@@ -284,6 +284,18 @@ impl VectorIndex {
             self.insert(&key, vec);
         }
     }
+
+    /// Compacts the graph in place when stale (overwritten/removed) nodes exceed
+    /// the rebuild threshold, reclaiming the dead nodes that `hnsw_rs` cannot
+    /// delete. Returns whether a compaction ran. Cheap to call when not stale.
+    pub fn compact_if_stale(&mut self) -> bool {
+        if self.needs_rebuild() {
+            self.compact_from_vectors();
+            true
+        } else {
+            false
+        }
+    }
 }
 
 #[cfg(test)]
@@ -481,5 +493,32 @@ mod tests {
         let v = unit_vec(25.0 * 0.01, 8);
         let results = idx.search(&v, 5);
         assert!(!results.is_empty());
+    }
+
+    #[test]
+    fn compact_if_stale_compacts_only_past_threshold() {
+        let mut idx = VectorIndex::new(8);
+        for i in 0..200 {
+            idx.insert(&format!("k{i}"), unit_vec(i as f32 * 0.01, 8));
+        }
+
+        // Below threshold: no compaction, stale nodes retained.
+        for i in 0..50 {
+            idx.remove(&format!("k{i}"));
+        }
+        assert_eq!(idx.stale_count(), 50);
+        assert!(!idx.compact_if_stale());
+        assert_eq!(idx.stale_count(), 50);
+
+        // Past >30% threshold: compaction runs and clears stale nodes losslessly.
+        for i in 50..120 {
+            idx.remove(&format!("k{i}"));
+        }
+        assert!(idx.needs_rebuild());
+        assert!(idx.compact_if_stale());
+        assert_eq!(idx.stale_count(), 0);
+        assert_eq!(idx.len(), 80);
+        let v = unit_vec(150.0 * 0.01, 8);
+        assert!(!idx.search(&v, 5).is_empty());
     }
 }
