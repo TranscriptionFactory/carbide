@@ -472,3 +472,26 @@ invalidate_leaves_unrelated_notes_untouched}`,
 `db::{invalidate_changed_embeddings_reembeds_only_changed_sections,
 run_pragma_optimize_succeeds_on_populated_index}`. Gates: `cargo check` clean,
 189 search lib tests pass, `pnpm check` clean.
+
+### Follow-up: auto-chain the embed pass after an index sync
+
+Finding 1 made the embed pass *recompute* changed content, but the pass still
+only ran on its own triggers (the model-load reactor and the manual "Update
+Embeddings" action). Nothing chased a `sync_index` / `sync_index_paths` /
+`rebuild_index` with an embed pass, so externally edited notes kept stale
+vectors until one of those out-of-band triggers fired.
+
+**Decision — frontend, in `VaultService`.** Per `docs/architecture.md` the embed
+chase is the tail of the index-sync async workflow ("Async workflow with IO +
+store updates → Service method"), and the backend stays a thin IPC layer. Embed-
+trigger *policy* already lives on the frontend (model-load reactor, manual
+action); keeping the new trigger there avoids splitting that policy across
+runtimes. A private `trigger_embed_sync` fires `index_port.embed_sync` (fire-and-
+forget; the backend `embed_sync` command coalesces concurrent/queued passes via
+`embed_queued`, so it is idempotent under rapid successive syncs). It is invoked
+at every sync completion point — `sync_index`, `sync_index_paths` (including the
+full-sync fallback), `rebuild_index`, and the vault-open background sync. The
+last is the case a reconcile/action-layer hook would miss, since it bypasses both
+the public service method and the action registry. Gates: `pnpm check`, scoped
+`oxlint`, and `pnpm test` clean (vault_service: 19 pass — 6 new embed-chase
+scenarios plus an embed assertion on the existing vault-open test).

@@ -93,6 +93,7 @@ describe("VaultService", () => {
       rename_folder_paths: vi.fn(),
       subscribe_index_progress: vi.fn().mockReturnValue(() => {}),
       subscribe_vault_scan_stats: vi.fn().mockReturnValue(() => {}),
+      embed_sync: vi.fn().mockResolvedValue(undefined),
     };
 
     const settings_port = {
@@ -189,6 +190,7 @@ describe("VaultService", () => {
       rename_folder_paths: vi.fn(),
       subscribe_index_progress: vi.fn().mockReturnValue(() => {}),
       subscribe_vault_scan_stats: vi.fn().mockReturnValue(() => {}),
+      embed_sync: vi.fn().mockResolvedValue(undefined),
     };
 
     const settings_port = {
@@ -218,6 +220,9 @@ describe("VaultService", () => {
     const result = await service.change_vault_by_path(vault.path);
     expect(result.status).toBe("opened");
     expect(index_port.sync_index).toHaveBeenCalledTimes(1);
+    await vi.waitFor(() =>
+      expect(index_port.embed_sync).toHaveBeenCalledWith(vault.id),
+    );
   });
 
   it("returns failure when selecting an unavailable vault by id", async () => {
@@ -564,6 +569,7 @@ describe("VaultService", () => {
       rename_folder_paths: vi.fn(),
       subscribe_index_progress: vi.fn().mockReturnValue(() => {}),
       subscribe_vault_scan_stats: vi.fn().mockReturnValue(() => {}),
+      embed_sync: vi.fn().mockResolvedValue(undefined),
     };
 
     const settings_port = {
@@ -627,6 +633,7 @@ describe("VaultService", () => {
       rename_folder_paths: vi.fn(),
       subscribe_index_progress: vi.fn().mockReturnValue(() => {}),
       subscribe_vault_scan_stats: vi.fn().mockReturnValue(() => {}),
+      embed_sync: vi.fn().mockResolvedValue(undefined),
     };
 
     const service = new VaultService(
@@ -691,6 +698,7 @@ describe("VaultService", () => {
       rename_folder_paths: vi.fn(),
       subscribe_index_progress: vi.fn().mockReturnValue(() => {}),
       subscribe_vault_scan_stats: vi.fn().mockReturnValue(() => {}),
+      embed_sync: vi.fn().mockResolvedValue(undefined),
     };
 
     const service = new VaultService(
@@ -1002,5 +1010,134 @@ describe("VaultService", () => {
       error: "Cannot remove active vault",
     });
     expect(vault_port.remove_vault).not.toHaveBeenCalled();
+  });
+});
+
+describe("VaultService embedding chase", () => {
+  function make_index_port() {
+    return {
+      cancel_index: vi.fn().mockResolvedValue(undefined),
+      sync_index: vi.fn().mockResolvedValue(undefined),
+      sync_index_paths: vi.fn().mockResolvedValue(undefined),
+      rebuild_index: vi.fn().mockResolvedValue(undefined),
+      embed_sync: vi.fn().mockResolvedValue(undefined),
+      upsert_note: vi.fn(),
+      remove_note: vi.fn(),
+      remove_notes: vi.fn(),
+      remove_notes_by_prefix: vi.fn(),
+      rename_note_path: vi.fn(),
+      rename_folder_paths: vi.fn(),
+      subscribe_index_progress: vi.fn().mockReturnValue(() => {}),
+      subscribe_vault_scan_stats: vi.fn().mockReturnValue(() => {}),
+    };
+  }
+
+  function make_service(index_port: ReturnType<typeof make_index_port>) {
+    const vault: Vault = {
+      id: as_vault_id("vault-a"),
+      name: "Vault A",
+      path: as_vault_path("/vault/a"),
+      created_at: 1,
+      mode: "vault",
+    };
+    const vault_store = new VaultStore();
+    vault_store.set_vault(vault);
+    const search_store = new SearchStore();
+    const service = new VaultService(
+      {
+        choose_vault: vi.fn(),
+        open_vault: vi.fn(),
+        open_vault_by_id: vi.fn(),
+        list_vaults: vi.fn(),
+        remember_last_vault: vi.fn(),
+        get_last_vault_id: vi.fn(),
+      } as never,
+      { list_folder_contents: vi.fn(), get_folder_stats: vi.fn() } as never,
+      index_port as never,
+      { get_setting: vi.fn(), set_setting: vi.fn() } as never,
+      {
+        get_vault_setting: vi.fn(),
+        set_vault_setting: vi.fn(),
+        delete_vault_setting: vi.fn(),
+      } as never,
+      vault_store,
+      new NotesStore(),
+      new EditorStore(),
+      new OpStore(),
+      search_store,
+      () => 1,
+    );
+    return { service, vault, search_store };
+  }
+
+  it("chases a successful sync_index with embed_sync", async () => {
+    const index_port = make_index_port();
+    const { service, vault } = make_service(index_port);
+
+    const result = await service.sync_index();
+
+    expect(result).toEqual({ status: "success" });
+    expect(index_port.embed_sync).toHaveBeenCalledWith(vault.id);
+  });
+
+  it("chases a successful rebuild_index with embed_sync", async () => {
+    const index_port = make_index_port();
+    const { service, vault } = make_service(index_port);
+
+    const result = await service.rebuild_index();
+
+    expect(result).toEqual({ status: "success" });
+    expect(index_port.embed_sync).toHaveBeenCalledWith(vault.id);
+  });
+
+  it("chases an incremental sync_index_paths with embed_sync", async () => {
+    const index_port = make_index_port();
+    const { service, vault } = make_service(index_port);
+
+    await service.sync_index_paths(["a.md"], []);
+
+    expect(index_port.sync_index_paths).toHaveBeenCalledWith(
+      vault.id,
+      ["a.md"],
+      [],
+    );
+    expect(index_port.embed_sync).toHaveBeenCalledWith(vault.id);
+  });
+
+  it("chases the full-sync fallback with embed_sync", async () => {
+    const index_port = make_index_port();
+    index_port.sync_index_paths.mockRejectedValueOnce(new Error("boom"));
+    const { service, vault } = make_service(index_port);
+
+    await service.sync_index_paths(["a.md"], []);
+
+    expect(index_port.sync_index).toHaveBeenCalledWith(vault.id);
+    expect(index_port.embed_sync).toHaveBeenCalledWith(vault.id);
+  });
+
+  it("does not embed when sync_index is skipped while indexing is active", async () => {
+    const index_port = make_index_port();
+    const { service, vault, search_store } = make_service(index_port);
+    search_store.set_index_progress({
+      status: "started",
+      vault_id: vault.id,
+      total: 100,
+    });
+
+    const result = await service.sync_index();
+
+    expect(result).toEqual({ status: "skipped" });
+    expect(index_port.sync_index).not.toHaveBeenCalled();
+    expect(index_port.embed_sync).not.toHaveBeenCalled();
+  });
+
+  it("keeps sync_index successful when the embed enqueue fails", async () => {
+    const index_port = make_index_port();
+    index_port.embed_sync.mockRejectedValueOnce(new Error("embed boom"));
+    const { service } = make_service(index_port);
+
+    const result = await service.sync_index();
+
+    expect(result).toEqual({ status: "success" });
   });
 });
