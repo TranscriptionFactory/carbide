@@ -7,7 +7,7 @@ import {
   remove_frontmatter_property,
   update_frontmatter_property,
 } from "../domain/frontmatter_writer";
-import { find_standard_field } from "../domain/standard_fields";
+import { coerce_field_value } from "../domain/standard_fields";
 import { as_markdown_text } from "$lib/shared/types/ids";
 
 export class MetadataService {
@@ -43,13 +43,17 @@ export class MetadataService {
 
   add_property(key: string, value: string) {
     this.write_markdown((markdown) =>
-      add_frontmatter_property(markdown, key, coerce_value(key, value)),
+      add_frontmatter_property(markdown, key, coerce_field_value(key, value)),
     );
   }
 
   update_property(key: string, value: string) {
     this.write_markdown((markdown) =>
-      update_frontmatter_property(markdown, key, coerce_value(key, value)),
+      update_frontmatter_property(
+        markdown,
+        key,
+        coerce_field_value(key, value),
+      ),
     );
   }
 
@@ -76,15 +80,4 @@ export class MetadataService {
     this.editor_store.set_dirty(note_id, true);
     this.refresh(open_note.meta.path);
   }
-}
-
-function coerce_value(key: string, value: string): string | string[] {
-  const type = find_standard_field(key)?.type;
-  if (type === "tags" || type === "array") {
-    return value
-      .split(",")
-      .map((part) => part.trim())
-      .filter(Boolean);
-  }
-  return value;
 }
