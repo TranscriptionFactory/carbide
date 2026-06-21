@@ -1816,7 +1816,11 @@ pub fn compute_sync_plan(
     }
 }
 
+// Incremental sync keeps a small write txn so a cancel/rollback loses little and
+// readers see updates sooner. Full rebuild favors throughput: fewer commits over
+// a bulk, fully-rebuildable dataset.
 const BATCH_SIZE: usize = 100;
+const REBUILD_BATCH_SIZE: usize = 500;
 
 const ATTACHMENT_EXTENSIONS: &[&str] = &[
     ".png", ".jpg", ".jpeg", ".gif", ".svg", ".webp", ".bmp", ".ico",
@@ -2040,7 +2044,7 @@ pub fn rebuild_index(
     on_progress(0, total);
 
     let mut indexed: usize = 0;
-    for batch in paths.chunks(BATCH_SIZE) {
+    for batch in paths.chunks(REBUILD_BATCH_SIZE) {
         if cancel.load(Ordering::Relaxed) {
             break;
         }
