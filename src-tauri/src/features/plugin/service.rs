@@ -121,18 +121,25 @@ pub fn user_plugins_dir(home_dir: &Path) -> PathBuf {
 
 pub const BUNDLED_PLUGIN_IDS: &[&str] = &["smart-templates", "html-to-markdown", "slides"];
 
+// Tauri maps `../plugins/**` resources under a `_up_` prefix in packaged
+// builds, while `tauri dev` exposes them at `plugins/` directly. Probe both.
+fn resolve_bundled_dir(resource_dir: &Path, plugin_id: &str) -> Option<PathBuf> {
+    ["_up_/plugins", "plugins"]
+        .into_iter()
+        .map(|sub| resource_dir.join(sub).join(plugin_id))
+        .find(|dir| dir.join("manifest.json").exists())
+}
+
 pub fn install_bundled_plugins(resource_dir: &Path, home_dir: &Path) -> Result<Vec<String>> {
     let user_dir = user_plugins_dir(home_dir);
     let mut installed = Vec::new();
 
     for &plugin_id in BUNDLED_PLUGIN_IDS {
-        let bundled_dir = resource_dir.join("plugins").join(plugin_id);
-        let bundled_manifest_path = bundled_dir.join("manifest.json");
-
-        if !bundled_manifest_path.exists() {
+        let Some(bundled_dir) = resolve_bundled_dir(resource_dir, plugin_id) else {
             log::warn!("Bundled plugin '{}' not found in resources", plugin_id);
             continue;
-        }
+        };
+        let bundled_manifest_path = bundled_dir.join("manifest.json");
 
         let bundled_manifest: PluginManifest = serde_json::from_str(
             &fs::read_to_string(&bundled_manifest_path)
@@ -180,4 +187,61 @@ fn copy_dir_recursive(src: &Path, dst: &Path) -> Result<()> {
         }
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn write_bundled_manifest(dir: &Path, plugin_id: &str, version: &str) {
+        let plugin_dir = dir.join(plugin_id);
+        fs::create_dir_all(&plugin_dir).unwrap();
+        let manifest = format!(
+            r#"{{"id":"{plugin_id}","name":"{plugin_id}","version":"{version}","author":"carbide","description":"","api_version":"1","permissions":[]}}"#
+        );
+        fs::write(plugin_dir.join("manifest.json"), manifest).unwrap();
+    }
+
+    #[test]
+    fn installs_plugins_bundled_under_up_prefix() {
+        let resource_dir = tempfile::tempdir().unwrap();
+        let home_dir = tempfile::tempdir().unwrap();
+        let plugin_id = BUNDLED_PLUGIN_IDS[0];
+
+        write_bundled_manifest(
+            &resource_dir.path().join("_up_").join("plugins"),
+            plugin_id,
+            "1.0.0",
+        );
+
+        let installed = install_bundled_plugins(resource_dir.path(), home_dir.path()).unwrap();
+
+        assert!(installed.contains(&plugin_id.to_string()));
+        assert!(user_plugins_dir(home_dir.path())
+            .join(plugin_id)
+            .join("manifest.json")
+            .exists());
+    }
+
+    #[test]
+    fn resolves_dev_layout_without_up_prefix() {
+        let resource_dir = tempfile::tempdir().unwrap();
+        let plugin_id = BUNDLED_PLUGIN_IDS[0];
+
+        write_bundled_manifest(&resource_dir.path().join("plugins"), plugin_id, "1.0.0");
+
+        assert_eq!(
+            resolve_bundled_dir(resource_dir.path(), plugin_id),
+            Some(resource_dir.path().join("plugins").join(plugin_id)),
+        );
+    }
+
+    #[test]
+    fn returns_none_when_plugin_absent() {
+        let resource_dir = tempfile::tempdir().unwrap();
+        assert_eq!(
+            resolve_bundled_dir(resource_dir.path(), BUNDLED_PLUGIN_IDS[0]),
+            None,
+        );
+    }
 }
