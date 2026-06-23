@@ -404,7 +404,7 @@ pub fn search_notes_index(
         scope: SearchScope::All,
     };
 
-    search_service::index_search(app.clone(), vault_id.to_string(), query_input)
+    search_service::index_search(app.clone(), vault_id.to_string(), query_input, Some(limit))
         .map(|hits| hits.into_iter().take(limit).collect())
         .map_err(OpError::Internal)
 }
