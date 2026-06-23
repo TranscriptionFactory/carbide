@@ -190,6 +190,7 @@ export function create_search_tauri_adapter(): SearchPort {
       const hits = await invoke_search<TauriSearchHit[]>("index_search", {
         vaultId: vault_id,
         query,
+        limit,
       });
       return hits.slice(0, limit).map((hit) => ({
         note: to_note_meta(hit.note),

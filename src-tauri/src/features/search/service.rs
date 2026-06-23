@@ -2128,10 +2128,12 @@ pub fn index_search(
     app: AppHandle,
     vault_id: String,
     query: SearchQueryInput,
+    limit: Option<usize>,
 ) -> Result<Vec<SearchHit>, String> {
     log::debug!("Searching index vault_id={} query={}", vault_id, query.text);
+    let max = limit.unwrap_or(50);
     with_read_conn(&app, &vault_id, |conn| {
-        search_db::search(conn, &query.text, query.scope, 50, None)
+        search_db::search(conn, &query.text, query.scope, max, None)
     })
 }
 
