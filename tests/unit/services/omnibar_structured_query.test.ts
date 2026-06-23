@@ -161,7 +161,7 @@ describe("looks_structured", () => {
     expect(looks_structured("folders named test")).toBe(true);
   });
 
-  it("returns true for clause keywords", () => {
+  it("returns true for clauses carrying value syntax or linked-from", () => {
     expect(looks_structured("with #rust")).toBe(true);
     expect(looks_structured("named /regex/")).toBe(true);
     expect(looks_structured('in "Projects"')).toBe(true);
@@ -173,12 +173,20 @@ describe("looks_structured", () => {
     expect(looks_structured("#rust")).toBe(true);
     expect(looks_structured("/regex/")).toBe(true);
     expect(looks_structured("[[wikilink]]")).toBe(true);
+    expect(looks_structured("with due_date = 2024")).toBe(true);
   });
 
   it("returns false for plain text queries", () => {
     expect(looks_structured("hello world")).toBe(false);
     expect(looks_structured("react components")).toBe(false);
     expect(looks_structured("")).toBe(false);
+  });
+
+  it("returns false for bare keywords at the start of a query", () => {
+    expect(looks_structured("in progress")).toBe(false);
+    expect(looks_structured("with images")).toBe(false);
+    expect(looks_structured("named entities")).toBe(false);
+    expect(looks_structured("not today")).toBe(false);
   });
 
   it("returns false for command prefix", () => {
@@ -237,7 +245,7 @@ describe("SearchService.search_omnibar structured queries", () => {
       make_mock_search_port(hits),
     );
 
-    const result = await service.search_omnibar("with");
+    const result = await service.search_omnibar("status = open");
 
     expect(result.domain).toBe("notes");
     expect(search_port.hybrid_search).toHaveBeenCalled();
