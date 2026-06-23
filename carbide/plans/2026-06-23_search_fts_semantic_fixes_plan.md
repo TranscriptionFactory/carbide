@@ -26,6 +26,8 @@ and **#5** ship together (same function, same graph-search path). **#6** last
 
 ## FIX-1: `looks_structured` hijacks plain-English queries
 
+**Status:** ✅ Implemented (`fix(search): stop looks_structured hijacking
+plain-English queries`).
 **Component:** features/search (omnibar structured-query detection)
 **Severity:** High
 **Files:**
@@ -79,8 +81,13 @@ the unanchored regex fails the FIX-1 test gate.)
    they already handle the valid structured forms correctly. The fix is purely
    in the detection gate.
 
-3. No changes to `omnibar.svelte` `structured_hint` — it already fires on
-   prefix matches, which now correctly correspond to actual structured queries.
+3. No changes to `omnibar.svelte` `structured_hint` (left as-is). Note a minor
+   residual UX nuance: `structured_hint` (`omnibar.svelte:191`) still fires its
+   own prefix hints for `with `/`named `/`in `, so a plain query like
+   `with images` shows the structured-syntax hint even though it now routes to
+   hybrid. The hint is educational (it shows how to *make* the query
+   structured), so this is acceptable and out of scope for FIX-1; revisit only
+   if it confuses users.
 
 **Test matrix** (update `tests/unit/services/omnibar_structured_query.test.ts`):
 
@@ -109,9 +116,14 @@ the unanchored regex fails the FIX-1 test gate.)
 | `within`               | `false`  | no standalone keyword                  |
 | `> theme`              | `false`  | bare leading operator, no property name before `>` |
 
-The existing test cases at `:157-191` cover a subset; add the new negative
-cases (`in progress`, `with images`, `named entities`, `not today`) and the
-property-operator positive case (`with due_date = 2024`).
+Implemented: added the negative cases (`in progress`, `with images`,
+`named entities`, `not today`) and the property-operator positive
+(`with due_date = 2024`); renamed the "clause keywords" group (those cases now
+match via value syntax / `linked from`, not bare keywords). Also updated the
+`search_omnibar` parse-failure test — its old `"with"` query is no longer
+structured, so it now uses `"status = open"` (structured via operator, but the
+leading word isn't a clause keyword → parse fails → hybrid fallback), keeping
+that branch covered.
 
 **Verification:**
 - `pnpm test -- tests/unit/services/omnibar_structured_query.test.ts`
@@ -380,6 +392,12 @@ worth the concurrency complexity.
 
 ## FIX-6: Inconsistent BM25 score sign in `index_suggest`
 
+**Status:** ✅ Implemented (`fix(search): normalize index_suggest BM25 score
+sign consistently`). Shipped as a faithful refactor: the post-fetch logic
+(negate → threshold → merge → sort → truncate) was extracted into a pure
+`finalize_suggestions(fts, threshold, max, fetch_fuzzy)` helper so the negation
+ordering is unit-testable without a DB. `fetch_fuzzy` is a lazy closure, so the
+fuzzy query still only runs on the sparse path (logic unchanged).
 **Component:** features/search (Rust suggest command)
 **Severity:** Low
 **Files:**
@@ -419,11 +437,16 @@ consumer sorting by `score` would misorder.
    (`service.rs:2176-2180`) already expects higher = better, so positive
    scores are correct for both the early-return path and the merge path.
 
-**Test plan:**
-- Add a Rust integration test that calls `index_suggest` with a query matching
-  ≥5 notes and asserts all returned `score` values are positive.
-- Add a test with a query matching <5 notes and assert the same (existing
-  behavior, now also positive — should already pass).
+**Test plan (implemented):** unit tests on the extracted `finalize_suggestions`
+helper (`service.rs` tests module) — no DB or `AppHandle` needed, since the
+helper is pure:
+- dense FTS path (≥ threshold): asserts scores are normalized to positive (the
+  regression) **and** the lazy `fetch_fuzzy` is not invoked;
+- sparse path (< threshold): asserts negate + dedup + descending sort;
+- truncation to `max`.
+A true `index_suggest` integration test is impractical (the command needs a
+live `AppHandle`/vault connection pool with no test harness); the pure helper
+covers the same invariants deterministically.
 
 **Verification:**
 - `cd src-tauri && cargo check`
@@ -440,15 +463,15 @@ consumer sorting by `score` would misorder.
 
 ## Execution order
 
-Status: **FIX-2 and FIX-3 implemented** (commits on
-`feat/search-fts-semantic-fixes`; `cargo check`, `pnpm check`, `pnpm test`,
-oxlint all green). FIX-1's regex was corrected in this plan but **not yet
-applied to `search_service.ts`**. FIX-6 not yet started.
+Status: **All four fixes implemented** on `feat/search-fts-semantic-fixes`,
+one commit each. Gates green: `cargo check` (0 errors), `cargo test`
+(finalize_suggestions), `pnpm check` (0 errors), `pnpm test` (4381 passed),
+oxlint on touched files. (FIX-5 remains optional/unimplemented.)
 
-1. **FIX-1** (plan corrected; source change pending) → verify: `pnpm test`, `pnpm check`, `pnpm lint`
+1. **FIX-1** ✅ done → verify: `pnpm test`, `pnpm check`
 2. **FIX-2** ✅ done → verify: `cargo check`, `pnpm check`, `pnpm test`
 3. **FIX-3** ✅ done (incl. cache-key alignment in step 4) → verify: `cargo check`, `pnpm test`, `pnpm check`
-4. **FIX-6** → verify: `cargo check`, `cargo test`
+4. **FIX-6** ✅ done (extracted `finalize_suggestions` helper + unit tests) → verify: `cargo check`, `cargo test`
 5. **(Optional) FIX-5** → verify: `pnpm test`, `pnpm check`
 6. **Final gate** — run all post-edit checks per AGENTS.md:
    - `pnpm check` — Svelte/TypeScript type checking
