@@ -2137,6 +2137,44 @@ pub fn index_search(
     })
 }
 
+// Normalize FTS BM25 scores (negative; more negative = better) to positive,
+// then merge in fuzzy suggestions only when FTS is sparse. Negation runs
+// unconditionally — before the early return — so the exposed score has a
+// consistent positive scale regardless of result count. `fetch_fuzzy` is lazy
+// so the extra query only runs on the sparse path.
+fn finalize_suggestions(
+    mut fts_results: Vec<search_db::SuggestionHit>,
+    fuzzy_threshold: usize,
+    max: usize,
+    fetch_fuzzy: impl FnOnce() -> Result<Vec<search_db::SuggestionHit>, String>,
+) -> Result<Vec<search_db::SuggestionHit>, String> {
+    for hit in &mut fts_results {
+        hit.score = -hit.score;
+    }
+    if fts_results.len() >= fuzzy_threshold {
+        return Ok(fts_results);
+    }
+    let fuzzy_results = fetch_fuzzy()?;
+    let seen: std::collections::HashSet<String> =
+        fts_results.iter().map(|h| h.note.path.clone()).collect();
+    let mut merged = fts_results;
+    for hit in fuzzy_results {
+        if !seen.contains(&hit.note.path) {
+            merged.push(hit);
+        }
+    }
+    // Re-sort the full merged list so the best results float to the top
+    // regardless of source. Both FTS (now positive) and skim scores use
+    // higher = better after normalization.
+    merged.sort_by(|a, b| {
+        b.score
+            .partial_cmp(&a.score)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
+    merged.truncate(max);
+    Ok(merged)
+}
+
 #[tauri::command]
 #[specta::specta]
 pub fn index_suggest(
@@ -2153,35 +2191,10 @@ pub fn index_suggest(
     let max = limit.unwrap_or(15);
     let fuzzy_threshold = 5;
     with_read_conn(&app, &vault_id, |conn| {
-        let mut fts_results = search_db::suggest(conn, &query, max)?;
-        if fts_results.len() >= fuzzy_threshold {
-            return Ok(fts_results);
-        }
-        // BM25 scores are negative (more negative = better match).
-        // Normalize to positive (higher = better) so consumers get a
-        // consistent scale when FTS and fuzzy results are merged.
-        for hit in &mut fts_results {
-            hit.score = -hit.score;
-        }
-        let fuzzy_results = search_db::fuzzy_suggest(conn, &query, max)?;
-        let seen: std::collections::HashSet<String> =
-            fts_results.iter().map(|h| h.note.path.clone()).collect();
-        let mut merged = fts_results;
-        for hit in fuzzy_results {
-            if !seen.contains(&hit.note.path) {
-                merged.push(hit);
-            }
-        }
-        // Re-sort the full merged list so the best results float to the
-        // top regardless of source. Both FTS (now positive) and skim
-        // scores use higher = better after normalization.
-        merged.sort_by(|a, b| {
-            b.score
-                .partial_cmp(&a.score)
-                .unwrap_or(std::cmp::Ordering::Equal)
-        });
-        merged.truncate(max);
-        Ok(merged)
+        let fts_results = search_db::suggest(conn, &query, max)?;
+        finalize_suggestions(fts_results, fuzzy_threshold, max, || {
+            search_db::fuzzy_suggest(conn, &query, max)
+        })
     })
 }
 
@@ -3210,6 +3223,77 @@ mod tests {
             .iter()
             .map(|(k, v)| (k.to_string(), v.to_string()))
             .collect()
+    }
+
+    fn suggestion(path: &str, score: f64) -> search_db::SuggestionHit {
+        search_db::SuggestionHit {
+            note: crate::features::search::model::IndexNoteMeta {
+                id: path.to_string(),
+                path: path.to_string(),
+                title: path.to_string(),
+                name: path.to_string(),
+                mtime_ms: 0,
+                ctime_ms: 0,
+                size_bytes: 0,
+                file_type: None,
+                source: None,
+            },
+            score,
+        }
+    }
+
+    fn paths(hits: &[search_db::SuggestionHit]) -> Vec<String> {
+        hits.iter().map(|h| h.note.path.clone()).collect()
+    }
+
+    #[test]
+    fn finalize_suggestions_normalizes_scores_on_dense_fts_path() {
+        // >= threshold: return FTS only, without fetching fuzzy, and flip the
+        // negative BM25 scores to positive (the FIX-6 regression — the dense
+        // path previously leaked raw negative scores).
+        let fts = vec![
+            suggestion("a.md", -5.0),
+            suggestion("b.md", -4.0),
+            suggestion("c.md", -3.0),
+            suggestion("d.md", -2.0),
+            suggestion("e.md", -1.0),
+        ];
+        let mut fuzzy_called = false;
+        let out = finalize_suggestions(fts, 5, 15, || {
+            fuzzy_called = true;
+            Ok(vec![])
+        })
+        .unwrap();
+
+        assert!(!fuzzy_called, "fuzzy fetched on the dense path");
+        assert_eq!(out.len(), 5);
+        assert!(
+            out.iter().all(|h| h.score > 0.0),
+            "dense-path scores not normalized to positive"
+        );
+    }
+
+    #[test]
+    fn finalize_suggestions_merges_dedups_and_sorts_on_sparse_path() {
+        let fts = vec![suggestion("a.md", -1.0), suggestion("b.md", -3.0)];
+        let fuzzy = vec![suggestion("a.md", 5.0), suggestion("c.md", 2.0)];
+
+        let out = finalize_suggestions(fts, 5, 15, || Ok(fuzzy)).unwrap();
+
+        // a.md(-1 -> 1.0), b.md(-3 -> 3.0); fuzzy a.md deduped, c.md(2.0) kept;
+        // sorted desc by score.
+        assert_eq!(paths(&out), vec!["b.md", "c.md", "a.md"]);
+        assert!(out.iter().all(|h| h.score > 0.0));
+    }
+
+    #[test]
+    fn finalize_suggestions_truncates_to_max() {
+        let fts = vec![suggestion("a.md", -1.0)];
+        let fuzzy = vec![suggestion("b.md", 9.0), suggestion("c.md", 8.0)];
+
+        let out = finalize_suggestions(fts, 5, 2, || Ok(fuzzy)).unwrap();
+
+        assert_eq!(paths(&out), vec!["b.md", "c.md"]);
     }
 
     #[test]
