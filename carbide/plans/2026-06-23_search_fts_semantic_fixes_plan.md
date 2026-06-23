@@ -251,16 +251,15 @@ changing any interface, port, or struct.
 
 **Fix plan:**
 
-1. **Rust** — `embeddings.rs:11-15`: add a cache field to the struct:
+1. **Rust** — `embeddings.rs:11-15`: add a cache field to the struct (`Mutex`
+   is already imported at the top of the file — no new `use` needed):
 
    ```rust
-   use std::sync::Mutex;
-
    pub struct EmbeddingService {
        model: BertModel,
        tokenizer: Tokenizer,
        device: Device,
-       cache: Mutex<Option<(String, Vec<f32>)>>,
+       last_embed: Mutex<Option<(String, Vec<f32>)>>,
    }
    ```
 
@@ -271,18 +270,20 @@ changing any interface, port, or struct.
        model,
        tokenizer,
        device,
-       cache: Mutex::new(None),
+       last_embed: Mutex::new(None),
    })
    ```
 
 3. **Rust** — `embeddings.rs:101-106` (`embed_one`): check cache before
-   computing:
+   computing. Bind the cached entry by `ref` — destructuring `Some((cached_text,
+   ..))` by value tries to move the `String` out of the `MutexGuard` deref and
+   fails to compile (`E0507`):
 
    ```rust
    pub fn embed_one(&self, text: &str) -> Result<Vec<f32>, String> {
        {
-           let cache = self.cache.lock().map_err(|e| e.to_string())?;
-           if let Some((cached_text, ref cached_vec)) = *cache {
+           let cache = self.last_embed.lock().map_err(|e| e.to_string())?;
+           if let Some((ref cached_text, ref cached_vec)) = *cache {
                if cached_text == text {
                    return Ok(cached_vec.clone());
                }
@@ -292,19 +293,39 @@ changing any interface, port, or struct.
        let result = results
            .pop()
            .ok_or_else(|| "no embedding result".to_string())?;
-       let mut cache = self.cache.lock().map_err(|e| e.to_string())?;
-       *cache = Some((text.to_string(), result.clone()));
+       *self.last_embed.lock().map_err(|e| e.to_string())? =
+           Some((text.to_string(), result.clone()));
        Ok(result)
    }
    ```
 
    The cache holds exactly one entry (the last query). No eviction logic needed
    — a new `EmbeddingService` is created on model change. The lock is held only
-   for the HashMap check/store, not during `embed_batch` (the expensive forward
+   for the cache check/store, not during `embed_batch` (the expensive forward
    pass runs outside the lock).
 
-4. **Do NOT change `hybrid_search`, `HybridSearchHit`, or `rrf_merge`** — the
-   cache alone eliminates the redundant computation. Threading distance through
+4. **Align the cache key in `execute_search_graph`** (`graph_service.ts:409`):
+   the cache only hits when both calls embed the *same string*. The hybrid path
+   embeds `parse_search_query(query).text` (via `run_search_pipeline`), but the
+   semantic call passes the **raw** `query` — so a scope-prefixed query like
+   `title:foo` embeds `"foo"` for hybrid and `"title:foo"` for semantic and the
+   cache misses. Pass the parsed text to `semantic_search` so both embed the
+   same string:
+
+   ```ts
+   const sem_hits = await this.search_port.semantic_search(
+     vault_id,
+     parse_search_query(query).text,
+     20,
+   );
+   ```
+
+   This is also the correct semantic-search input — scope prefixes are search
+   directives, not content. For plain queries `parse_search_query(query).text`
+   already equals the raw query, so behavior is unchanged there.
+
+5. **Do NOT change `hybrid_search`, `HybridSearchHit`, or `rrf_merge`** — the
+   cache eliminates the redundant computation. Threading distance through
    `rrf_merge` into `HybridSearchHit` would require changing a `#[derive(Type)]`
    struct, regenerating TS bindings, and updating the port interface —
    over-engineering for this fix.
@@ -333,13 +354,14 @@ the worst case is the current behavior (one redundant embedding), not worse.
 worth the concurrency complexity.
 
 **Test plan:**
-- Add a Rust unit test in `embeddings.rs` (or a new test module) that calls
-  `embed_one` twice with the same text and asserts the second call returns
-  the same vector (and ideally that `embed_batch` is called once — though
-  without mocking the model, this may require a test-only counter).
-- Add a TS test in `tests/unit/services/` that asserts `execute_search_graph`
-  calls `semantic_search` and `run_search_pipeline` (existing behavior
-  preserved).
+- No Rust unit test for `embed_one`: exercising it requires loading the BERT
+  model (network/HF download), which is non-deterministic and has no precedent
+  in the search crate (`embeddings.rs` has no test module). `cargo check`
+  covers the cache's compilation; the behavior is pinned on the TS side.
+- TS test (`tests/unit/services/graph_service_semantic.test.ts`): assert
+  `execute_search_graph` calls `semantic_search` with the **parsed** text
+  (`title:foo` → `"foo"`, plain queries unchanged), which pins the cache-key
+  alignment from step 4 against silent regression.
 
 **Verification:**
 - `cd src-tauri && cargo check`
@@ -418,9 +440,14 @@ consumer sorting by `score` would misorder.
 
 ## Execution order
 
-1. **FIX-1** → verify: `pnpm test`, `pnpm check`, `pnpm lint`
-2. **FIX-2** → verify: `cargo check`, `pnpm check`, `pnpm test`
-3. **FIX-3** → verify: `cargo check`, `cargo test`, `pnpm test`, `pnpm check`
+Status: **FIX-2 and FIX-3 implemented** (commits on
+`feat/search-fts-semantic-fixes`; `cargo check`, `pnpm check`, `pnpm test`,
+oxlint all green). FIX-1's regex was corrected in this plan but **not yet
+applied to `search_service.ts`**. FIX-6 not yet started.
+
+1. **FIX-1** (plan corrected; source change pending) → verify: `pnpm test`, `pnpm check`, `pnpm lint`
+2. **FIX-2** ✅ done → verify: `cargo check`, `pnpm check`, `pnpm test`
+3. **FIX-3** ✅ done (incl. cache-key alignment in step 4) → verify: `cargo check`, `pnpm test`, `pnpm check`
 4. **FIX-6** → verify: `cargo check`, `cargo test`
 5. **(Optional) FIX-5** → verify: `pnpm test`, `pnpm check`
 6. **Final gate** — run all post-edit checks per AGENTS.md:
