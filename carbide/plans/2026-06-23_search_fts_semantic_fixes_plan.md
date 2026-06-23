@@ -44,8 +44,17 @@ fall back to hybrid, so they're safe by accident.
 **Fix:** Rewrite `looks_structured` to trigger structured mode only when the
 query has a **form prefix** (`notes`/`files`/`folders` at start) **or**
 **unambiguous value syntax** (`#tag`, `/regex/`, `[[wikilink]]`, `"quoted
-string"`, property operators `=`/`!=`/`>`/`<`/`>=`/`<=`) **or** the two-word
-keyword `linked from`. Remove bare `in`/`with`/`named`/`not` keyword detection.
+string"`, property operators `=`/`!=`/`>`/`<`/`>=`/`<=` **preceded by a property
+name**) **or** the two-word keyword `linked from`. Remove bare
+`in`/`with`/`named`/`not` keyword detection.
+
+The property-operator branch is anchored to require a preceding identifier
+(`(?:^|\s)[\w.][\w.-]*\s*` before the operator). Without this anchor, a bare
+leading operator matches the command prefix — e.g. `> theme` matches `>` + space
+and `looks_structured` wrongly returns `true`. (In the live omnibar, `>` is
+routed to the `commands` domain by `parse_search_query` before the gate runs, so
+this never bites production — but `looks_structured` is unit-tested directly, so
+the unanchored regex fails the FIX-1 test gate.)
 
 **Fix plan:**
 
@@ -54,7 +63,7 @@ keyword `linked from`. Remove bare `in`/`with`/`named`/`not` keyword detection.
    ```ts
    const STRUCTURED_FORM_PREFIX = /^(?:notes?|files?|folders?)\s/i;
    const STRUCTURED_VALUE_SYNTAX =
-     /(?:#\w|\/[^/]*\/|\[\[[^\]]*\]\]|"[^"]*"|(?:!=|>=|<=|=|>|<)(?:\s|$))/;
+     /(?:#\w|\/[^/]*\/|\[\[[^\]]*\]\]|"[^"]*"|(?:^|\s)[\w.][\w.-]*\s*(?:!=|>=|<=|=|>|<)(?:\s|$))/;
    const STRUCTURED_LINKED_FROM = /(?:^|\s)linked\s+from\s/i;
 
    export function looks_structured(query: string): boolean {
@@ -98,7 +107,7 @@ keyword `linked from`. Remove bare `in`/`with`/`named`/`not` keyword detection.
 | `` (empty)             | `false`  | empty                                  |
 | `notification`         | `false`  | no standalone keyword                  |
 | `within`               | `false`  | no standalone keyword                  |
-| `> theme`              | `false`  | command prefix, `>` not followed by ws |
+| `> theme`              | `false`  | bare leading operator, no property name before `>` |
 
 The existing test cases at `:157-191` cover a subset; add the new negative
 cases (`in progress`, `with images`, `named entities`, `not today`) and the
@@ -112,6 +121,9 @@ property-operator positive case (`with due_date = 2024`).
 **Anti-pattern guards:**
 - Do NOT add `not` back as a standalone keyword trigger — it's always
   accompanied by value syntax or a form prefix in valid queries.
+- Do NOT un-anchor the property-operator branch to a bare `(?:!=|>=|<=|=|>|<)`
+  — it must keep the `(?:^|\s)[\w.][\w.-]*\s*` identifier prefix, or it matches
+  the command prefix `> theme` and breaks the existing `looks_structured` test.
 - Do NOT change the parser or solver — they're correct; only the gate is wrong.
 - Do NOT add quoted-string detection that matches unbalanced quotes — use
   `"[^"]*"` (closed quotes only) to avoid false positives on prose like
