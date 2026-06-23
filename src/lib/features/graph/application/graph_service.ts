@@ -14,6 +14,7 @@ import {
 } from "$lib/features/graph/domain/smart_link_edges";
 import type { SearchPort } from "$lib/features/search";
 import type { SearchService } from "$lib/features/search";
+import { parse_search_query } from "$lib/features/search/domain/search_query_parser";
 import {
   extract_search_subgraph,
   compute_auto_expanded_ids,
@@ -406,9 +407,13 @@ export class GraphService {
           SEMANTIC_EDGE_DISTANCE_THRESHOLD,
         );
 
+        // Embed the same parsed text the hybrid pipeline used so the backend's
+        // single-entry embedding cache hits instead of recomputing the query
+        // vector. (Scope prefixes like `title:` are search directives, not
+        // content, so stripping them is also the right semantic-search input.)
         const sem_hits = await this.search_port.semantic_search(
           vault_id,
-          query,
+          parse_search_query(query).text,
           20,
         );
         semantic_boost_paths = new Map(

@@ -245,6 +245,70 @@ describe("GraphService.load_semantic_edges", () => {
   });
 });
 
+function make_mock_search_graph_store() {
+  return {
+    set_loading: vi.fn(),
+    update_query: vi.fn(),
+    set_snapshot: vi.fn(),
+    set_error: vi.fn(),
+  };
+}
+
+function setup_search_graph() {
+  const graph_store = new GraphStore();
+  const vault_store = new VaultStore();
+  const editor_store = new EditorStore();
+  const graph_port = make_mock_graph_port();
+  const search_port = make_mock_search_port([]);
+  const search_graph_store = make_mock_search_graph_store();
+
+  vault_store.set_vault(create_test_vault({ id: "vault-1" as VaultId }));
+
+  const search_service = {
+    run_search_pipeline: vi.fn().mockResolvedValue({ hits: [] }),
+  } as unknown as SearchService;
+
+  const service = new GraphService(
+    graph_port,
+    search_port,
+    search_service,
+    vault_store,
+    editor_store,
+    graph_store,
+    search_graph_store as never,
+  );
+
+  return { service, search_port };
+}
+
+describe("GraphService.execute_search_graph", () => {
+  it("embeds the parsed query text in semantic_search so the cache hits", async () => {
+    const { service, search_port } = setup_search_graph();
+
+    await service.execute_search_graph("tab-1", "title:foo");
+
+    // hybrid_search (via run_search_pipeline) embeds parse_search_query().text;
+    // semantic_search must embed the same stripped text, not the raw query.
+    expect(search_port.semantic_search).toHaveBeenCalledWith(
+      "vault-1",
+      "foo",
+      20,
+    );
+  });
+
+  it("passes plain queries through unchanged", async () => {
+    const { service, search_port } = setup_search_graph();
+
+    await service.execute_search_graph("tab-2", "react components");
+
+    expect(search_port.semantic_search).toHaveBeenCalledWith(
+      "vault-1",
+      "react components",
+      20,
+    );
+  });
+});
+
 describe("GraphService.toggle_semantic_edges", () => {
   it("toggles show_semantic_edges on", async () => {
     const { service, graph_store } = setup();

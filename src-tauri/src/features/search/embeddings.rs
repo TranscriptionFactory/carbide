@@ -12,6 +12,10 @@ pub struct EmbeddingService {
     model: BertModel,
     tokenizer: Tokenizer,
     device: Device,
+    // Single-entry cache of the last single-text embedding. The search graph
+    // embeds the same query twice in one pass (hybrid + semantic); this lets
+    // the second call skip a redundant BERT forward pass.
+    last_embed: Mutex<Option<(String, Vec<f32>)>>,
 }
 
 impl EmbeddingService {
@@ -95,14 +99,25 @@ impl EmbeddingService {
             model,
             tokenizer,
             device,
+            last_embed: Mutex::new(None),
         })
     }
 
     pub fn embed_one(&self, text: &str) -> Result<Vec<f32>, String> {
+        {
+            let cache = self.last_embed.lock().map_err(|e| e.to_string())?;
+            if let Some((ref cached_text, ref cached_vec)) = *cache {
+                if cached_text == text {
+                    return Ok(cached_vec.clone());
+                }
+            }
+        }
         let mut results = self.embed_batch(&[text], None)?;
-        results
+        let result = results
             .pop()
-            .ok_or_else(|| "no embedding result".to_string())
+            .ok_or_else(|| "no embedding result".to_string())?;
+        *self.last_embed.lock().map_err(|e| e.to_string())? = Some((text.to_string(), result.clone()));
+        Ok(result)
     }
 
     pub fn embed_batch(
