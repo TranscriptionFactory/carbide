@@ -196,7 +196,7 @@ jobs:
       - uses: tauri-apps/tauri-action@v0.6.2
         with:
           releaseId: ${{ needs.create-release.outputs.release_id }}
-          includeUpdaterJson: true
+          includeUpdaterJson: false
           args: ${{ matrix.args }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -204,8 +204,62 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
           NODE_OPTIONS: --max-old-space-size=4096
 
+  generate-updater-json:
+    needs: [release]
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Download updater signatures
+        run: |
+          gh release download "$GITHUB_REF_NAME" \
+            --repo "$GITHUB_REPOSITORY" \
+            --pattern "*.sig" \
+            --dir sigs
+
+      - name: Assemble and upload latest.json
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          PUB_DATE="$(date -u +%Y-%m-%dT%H:%M:%S.000Z)"
+          python3 - "$VERSION" "$PUB_DATE" <<'PY'
+          import json, os, sys
+
+          version, pub_date = sys.argv[1], sys.argv[2]
+          base = f"https://github.com/{os.environ['GITHUB_REPOSITORY']}/releases/latest/download"
+
+          groups = [
+              (["darwin-aarch64", "darwin-aarch64-app"], "carbide_aarch64.app.tar.gz"),
+              (["darwin-x86_64", "darwin-x86_64-app"], "carbide_x64.app.tar.gz"),
+              (["linux-x86_64", "linux-x86_64-appimage"], f"carbide_{version}_amd64.AppImage"),
+              (["linux-x86_64-deb"], f"carbide_{version}_amd64.deb"),
+              (["linux-x86_64-rpm"], f"carbide-{version}-1.x86_64.rpm"),
+              (["windows-x86_64", "windows-x86_64-msi"], f"carbide_{version}_x64_en-US.msi"),
+              (["windows-x86_64-nsis"], f"carbide_{version}_x64-setup.exe"),
+          ]
+
+          def signature(filename):
+              with open(os.path.join("sigs", filename + ".sig")) as f:
+                  return f.read().strip()
+
+          platforms = {}
+          for keys, filename in groups:
+              entry = {"signature": signature(filename), "url": f"{base}/{filename}"}
+              for key in keys:
+                  platforms[key] = entry
+
+          manifest = {"version": version, "notes": "", "pub_date": pub_date, "platforms": platforms}
+          with open("latest.json", "w") as f:
+              json.dump(manifest, f, indent=2)
+          print(f"latest.json assembled with {len(platforms)} platform entries")
+          PY
+
+          gh release upload "$GITHUB_REF_NAME" latest.json \
+            --repo "$GITHUB_REPOSITORY" --clobber
+
   publish-release:
-    needs: [release, create-release]
+    needs: [generate-updater-json, create-release]
     permissions:
       contents: write
     runs-on: ubuntu-latest
