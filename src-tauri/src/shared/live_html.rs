@@ -15,6 +15,7 @@ thread_local! {
 struct Entry {
     html: Vec<u8>,
     asset_root: Option<PathBuf>,
+    allow_network: bool,
 }
 
 #[derive(Default)]
@@ -23,7 +24,7 @@ pub struct LiveHtmlStore {
 }
 
 impl LiveHtmlStore {
-    pub fn register(&self, html: String, asset_root: Option<PathBuf>) -> String {
+    pub fn register(&self, html: String, asset_root: Option<PathBuf>, allow_network: bool) -> String {
         let token = new_token();
         let mut docs = self.docs.lock().expect("live_html docs lock poisoned");
         if docs.len() >= MAX_TOKENS {
@@ -35,6 +36,7 @@ impl LiveHtmlStore {
             Entry {
                 html: html.into_bytes(),
                 asset_root: canonical_root,
+                allow_network,
             },
         );
         token
@@ -45,9 +47,9 @@ impl LiveHtmlStore {
         docs.remove(token);
     }
 
-    pub fn get_html(&self, token: &str) -> Option<Vec<u8>> {
+    pub fn get_html(&self, token: &str) -> Option<(Vec<u8>, bool)> {
         let docs = self.docs.lock().expect("live_html docs lock poisoned");
-        docs.get(token).map(|e| e.html.clone())
+        docs.get(token).map(|e| (e.html.clone(), e.allow_network))
     }
 
     pub fn resolve_asset(&self, token: &str, sub_path: &str) -> Option<(PathBuf, Vec<u8>)> {
@@ -133,15 +135,37 @@ fn evict_oldest(docs: &mut HashMap<String, Entry>) {
     }
 }
 
-pub fn live_html_csp() -> &'static str {
-    "default-src 'none'; \
-     script-src 'unsafe-inline' 'unsafe-eval' blob: data:; \
-     style-src 'unsafe-inline' data:; \
-     img-src data: blob: https: http: carbide-html:; \
-     font-src data: https: http: carbide-html:; \
-     media-src data: blob: https: http: carbide-html:; \
-     connect-src *; \
-     frame-src data: blob:"
+// Canonical CSP policy — kept in lockstep with `build_live_csp()` in
+// src/lib/features/document/domain/html_live_document.ts. The directive table is
+// pinned by tests on both sides (carbide/plans/2026-06-24_live_html_remote_scripts_plan.md).
+// `https:` in script-src/style-src and `connect-src *` are gated on the live+net tier.
+pub fn live_html_csp(allow_network: bool) -> String {
+    let script_src = if allow_network {
+        "script-src 'unsafe-inline' 'unsafe-eval' blob: data: https:"
+    } else {
+        "script-src 'unsafe-inline' 'unsafe-eval' blob: data:"
+    };
+    let style_src = if allow_network {
+        "style-src 'unsafe-inline' data: https:"
+    } else {
+        "style-src 'unsafe-inline' data:"
+    };
+    let connect_src = if allow_network {
+        "connect-src *"
+    } else {
+        "connect-src 'none'"
+    };
+    [
+        "default-src 'none'",
+        script_src,
+        style_src,
+        "img-src data: blob: https: http: carbide-html:",
+        "font-src data: https: http: carbide-html:",
+        "media-src data: blob: https: http: carbide-html:",
+        "frame-src data: blob:",
+        connect_src,
+    ]
+    .join("; ")
 }
 
 pub fn handle_live_html_request(
@@ -176,7 +200,7 @@ pub fn handle_live_html_request(
 
     if sub_clean.is_empty() {
         match store.get_html(token) {
-            Some(bytes) => build_html_response(200, bytes),
+            Some((bytes, allow_network)) => build_html_response(200, bytes, allow_network),
             None => error_response(&uri, 404, "live-html token not found"),
         }
     } else {
@@ -188,13 +212,13 @@ pub fn handle_live_html_request(
     }
 }
 
-fn build_html_response(status: u16, body: Vec<u8>) -> Response<Vec<u8>> {
+fn build_html_response(status: u16, body: Vec<u8>, allow_network: bool) -> Response<Vec<u8>> {
     Response::builder()
         .status(status)
         .header("Content-Type", "text/html; charset=utf-8")
         .header("Content-Length", body.len().to_string())
         .header("Cache-Control", "no-store")
-        .header("Content-Security-Policy", live_html_csp())
+        .header("Content-Security-Policy", live_html_csp(allow_network))
         .header("X-Frame-Options", "SAMEORIGIN")
         .body(body)
         .unwrap_or_else(|error| {
@@ -249,9 +273,10 @@ pub fn html_live_register(
     state: tauri::State<LiveHtmlStore>,
     html: String,
     asset_root: Option<String>,
+    allow_network: bool,
 ) -> String {
     let root = asset_root.filter(|s| !s.is_empty()).map(PathBuf::from);
-    let token = state.register(html, root);
+    let token = state.register(html, root, allow_network);
     format!("{}://{}/{}/", SCHEME, HOST, token)
 }
 
@@ -287,9 +312,12 @@ mod tests {
     fn register_round_trips_and_release_removes() {
         let store = LiveHtmlStore::default();
         let html = "<!doctype html><html><body><script>1</script></body></html>".to_string();
-        let token = store.register(html.clone(), None);
+        let token = store.register(html.clone(), None, false);
         assert_eq!(store.len(), 1);
-        assert_eq!(store.get_html(&token).map(String::from_utf8), Some(Ok(html)));
+        assert_eq!(
+            store.get_html(&token).map(|(b, _)| String::from_utf8(b)),
+            Some(Ok(html)),
+        );
 
         store.release(&token);
         assert_eq!(store.len(), 0);
@@ -299,8 +327,8 @@ mod tests {
     #[test]
     fn each_register_returns_a_distinct_token() {
         let store = LiveHtmlStore::default();
-        let a = store.register("<p>a</p>".to_string(), None);
-        let b = store.register("<p>b</p>".to_string(), None);
+        let a = store.register("<p>a</p>".to_string(), None, false);
+        let b = store.register("<p>b</p>".to_string(), None, false);
         assert_ne!(a, b);
     }
 
@@ -308,7 +336,7 @@ mod tests {
     fn evicts_oldest_when_over_capacity() {
         let store = LiveHtmlStore::default();
         for i in 0..(MAX_TOKENS + 4) {
-            store.register(format!("<p>{}</p>", i), None);
+            store.register(format!("<p>{}</p>", i), None, false);
         }
         assert_eq!(store.len(), MAX_TOKENS);
     }
@@ -316,7 +344,7 @@ mod tests {
     #[test]
     fn handler_returns_html_for_known_token() {
         let store = LiveHtmlStore::default();
-        let token = store.register("<p>hello</p>".to_string(), None);
+        let token = store.register("<p>hello</p>".to_string(), None, false);
         let uri = format!("carbide-html://live/{}/", token);
         let response = handle_live_html_request(&store, &make_request(&uri));
         assert_eq!(response.status(), 200);
@@ -330,7 +358,7 @@ mod tests {
     #[test]
     fn handler_serves_html_with_and_without_trailing_slash() {
         let store = LiveHtmlStore::default();
-        let token = store.register("<p>x</p>".to_string(), None);
+        let token = store.register("<p>x</p>".to_string(), None, false);
         for uri in [
             format!("carbide-html://live/{}", token),
             format!("carbide-html://live/{}/", token),
@@ -368,7 +396,7 @@ mod tests {
     #[test]
     fn token_from_url_round_trips_a_registered_url() {
         let store = LiveHtmlStore::default();
-        let token = store.register("<p>x</p>".to_string(), None);
+        let token = store.register("<p>x</p>".to_string(), None, false);
         let url = format!("{}://{}/{}/", SCHEME, HOST, token);
         assert_eq!(token_from_url(&url), Some(token.as_str()));
     }
@@ -382,7 +410,7 @@ mod tests {
     #[test]
     fn csp_response_header_is_present_and_grants_inline_scripts() {
         let store = LiveHtmlStore::default();
-        let token = store.register("<p>ok</p>".to_string(), None);
+        let token = store.register("<p>ok</p>".to_string(), None, false);
         let response = handle_live_html_request(
             &store,
             &make_request(&format!("carbide-html://live/{}/", token)),
@@ -396,11 +424,66 @@ mod tests {
     }
 
     #[test]
+    fn csp_live_omits_https_from_scripts_and_styles() {
+        let csp = live_html_csp(false);
+        assert!(csp.contains("script-src 'unsafe-inline' 'unsafe-eval' blob: data:;"));
+        assert!(!csp.contains("script-src 'unsafe-inline' 'unsafe-eval' blob: data: https:"));
+        assert!(csp.contains("style-src 'unsafe-inline' data:;"));
+        assert!(!csp.contains("style-src 'unsafe-inline' data: https:"));
+        assert!(csp.contains("connect-src 'none'"));
+    }
+
+    #[test]
+    fn csp_livenet_allows_https_scripts_and_styles() {
+        let csp = live_html_csp(true);
+        assert!(csp.contains("script-src 'unsafe-inline' 'unsafe-eval' blob: data: https:"));
+        assert!(csp.contains("style-src 'unsafe-inline' data: https:"));
+        assert!(csp.contains("connect-src *"));
+    }
+
+    #[test]
+    fn csp_never_allows_http_for_scripts_or_styles() {
+        for csp in [live_html_csp(false), live_html_csp(true)] {
+            let script = csp
+                .split("; ")
+                .find(|d| d.starts_with("script-src"))
+                .unwrap();
+            let style = csp
+                .split("; ")
+                .find(|d| d.starts_with("style-src"))
+                .unwrap();
+            assert!(!script.contains("http:"), "script-src had http: in {}", csp);
+            assert!(!style.contains("http:"), "style-src had http: in {}", csp);
+        }
+    }
+
+    fn header_csp(store: &LiveHtmlStore, allow_network: bool) -> String {
+        let token = store.register("<p>ok</p>".to_string(), None, allow_network);
+        let response = handle_live_html_request(
+            store,
+            &make_request(&format!("carbide-html://live/{}/", token)),
+        );
+        response
+            .headers()
+            .get("Content-Security-Policy")
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or_default()
+            .to_string()
+    }
+
+    #[test]
+    fn handler_emits_tier_csp_header() {
+        let store = LiveHtmlStore::default();
+        assert_eq!(header_csp(&store, true), live_html_csp(true));
+        assert_eq!(header_csp(&store, false), live_html_csp(false));
+    }
+
+    #[test]
     fn serves_a_sub_path_asset_from_the_doc_folder() {
         let tmp = tempfile::tempdir().unwrap();
         std::fs::write(tmp.path().join("logo.png"), b"PNG_BYTES").unwrap();
         let store = LiveHtmlStore::default();
-        let token = store.register("<p>x</p>".to_string(), Some(tmp.path().to_path_buf()));
+        let token = store.register("<p>x</p>".to_string(), Some(tmp.path().to_path_buf()), false);
 
         let uri = format!("carbide-html://live/{}/logo.png", token);
         let resp = handle_live_html_request(&store, &make_request(&uri));
@@ -417,7 +500,7 @@ mod tests {
         let tmp = tempfile::tempdir().unwrap();
         std::fs::write(tmp.path().join("my photo.png"), b"PHOTO").unwrap();
         let store = LiveHtmlStore::default();
-        let token = store.register("<p>x</p>".to_string(), Some(tmp.path().to_path_buf()));
+        let token = store.register("<p>x</p>".to_string(), Some(tmp.path().to_path_buf()), false);
 
         let uri = format!("carbide-html://live/{}/my%20photo.png", token);
         let resp = handle_live_html_request(&store, &make_request(&uri));
@@ -432,7 +515,7 @@ mod tests {
         std::fs::create_dir(&parent).unwrap();
         std::fs::write(tmp.path().join("secret.txt"), b"SECRET").unwrap();
         let store = LiveHtmlStore::default();
-        let token = store.register("<p>x</p>".to_string(), Some(parent));
+        let token = store.register("<p>x</p>".to_string(), Some(parent), false);
 
         let uri = format!("carbide-html://live/{}/../secret.txt", token);
         let resp = handle_live_html_request(&store, &make_request(&uri));
@@ -442,7 +525,7 @@ mod tests {
     #[test]
     fn returns_404_for_sub_path_when_no_asset_root_is_registered() {
         let store = LiveHtmlStore::default();
-        let token = store.register("<p>x</p>".to_string(), None);
+        let token = store.register("<p>x</p>".to_string(), None, false);
         let uri = format!("carbide-html://live/{}/logo.png", token);
         let resp = handle_live_html_request(&store, &make_request(&uri));
         assert_eq!(resp.status(), 404);
