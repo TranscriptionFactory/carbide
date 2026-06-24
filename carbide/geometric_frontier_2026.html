@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Geometric Frontier 2026 | Research Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc; /* slate-50 */
+            color: #1e293b; /* slate-800 */
+        }
+
+        .mono { font-family: 'JetBrains Mono', monospace; }
+
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 800px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 350px;
+            max-height: 400px;
+        }
+
+        .nav-item.active {
+            background-color: #fef3c7; /* amber-100 */
+            border-left: 4px solid #d97706; /* amber-600 */
+            color: #92400e; /* amber-800 */
+        }
+
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(226, 232, 240, 0.8);
+        }
+
+        .transition-all { transition: all 0.3s ease; }
+
+        /* Hide sections by default */
+        .content-section { display: none; }
+        .content-section.active { display: block; animation: fadeIn 0.4s ease-out; }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col md:flex-row">
+
+    <!-- Sidebar Navigation -->
+    <aside class="w-full md:w-72 bg-white border-r border-slate-200 flex-shrink-0 flex flex-col h-screen sticky top-0 z-50">
+        <div class="p-6 border-b border-slate-100">
+            <h1 class="text-xl font-bold tracking-tight text-slate-900">Geometric <span class="text-amber-600">Frontier</span></h1>
+            <p class="text-xs text-slate-500 font-medium uppercase mt-1">Status: June 2026 Archive</p>
+        </div>
+        
+        <nav class="flex-1 overflow-y-auto p-4 space-y-2">
+            <button onclick="showSection('overview')" id="nav-overview" class="nav-item active w-full text-left px-4 py-3 rounded-lg text-sm font-semibold flex items-center transition-all">
+                <span>Executive Overview</span>
+            </button>
+            <button onclick="showSection('foundations')" id="nav-foundations" class="nav-item w-full text-left px-4 py-3 rounded-lg text-sm font-semibold flex items-center transition-all">
+                <span>Graph Foundation Models</span>
+            </button>
+            <button onclick="showSection('scaling')" id="nav-scaling" class="nav-item w-full text-left px-4 py-3 rounded-lg text-sm font-semibold flex items-center transition-all">
+                <span>Scaling & Infrastructure</span>
+            </button>
+            <button onclick="showSection('topology')" id="nav-topology" class="nav-item w-full text-left px-4 py-3 rounded-lg text-sm font-semibold flex items-center transition-all">
+                <span>Topological Reckoning</span>
+            </button>
+            <button onclick="showSection('symmetry')" id="nav-symmetry" class="nav-item w-full text-left px-4 py-3 rounded-lg text-sm font-semibold flex items-center transition-all">
+                <span>Symmetry & Physics</span>
+            </button>
+            <button onclick="showSection('agentic')" id="nav-agentic" class="nav-item w-full text-left px-4 py-3 rounded-lg text-sm font-semibold flex items-center transition-all">
+                <span>Agentic GraphRAG</span>
+            </button>
+            <button onclick="showSection('solvers')" id="nav-solvers" class="nav-item w-full text-left px-4 py-3 rounded-lg text-sm font-semibold flex items-center transition-all">
+                <span>MPNN Pathologies</span>
+            </button>
+        </nav>
+
+        <div class="p-4 border-t border-slate-100 text-[10px] text-slate-400">
+            &copy; 2026 Geometric Deep Learning Consortium. <br>All models simulated via Riemannian Manifolds.
+        </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <main class="flex-1 overflow-y-auto px-6 py-10 md:px-12">
+        <div class="max-w-5xl mx-auto">
+
+            <!-- Section: Overview -->
+            <section id="section-overview" class="content-section active space-y-8">
+                <header class="space-y-4">
+                    <div class="inline-block px-3 py-1 bg-amber-100 text-amber-700 text-xs font-bold rounded-full uppercase tracking-wider">State of the Field</div>
+                    <h2 class="text-4xl font-extrabold text-slate-900 leading-tight">The 2026 Shift: From Task-Specific GNNs to Universal Foundations</h2>
+                    <p class="text-lg text-slate-600 leading-relaxed max-w-3xl">
+                        By June 2026, the landscape of graph machine learning has definitively shifted. This overview explores the core transition from isolated Graph Neural Networks to integrated Graph Foundation Models (GFMs). The primary goal of this dashboard is to demonstrate how the field has solved "zero-shot" transferability through synthetic pretraining and tabular-graph convergence, while simultaneously facing a crisis in topological generalization.
+                    </p>
+                </header>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div class="glass-panel p-6 rounded-2xl shadow-sm border border-slate-200">
+                        <div class="text-amber-600 text-2xl font-bold mb-1">1.4B</div>
+                        <div class="text-sm font-bold text-slate-800 uppercase tracking-wide">Max Model Parameters</div>
+                        <p class="text-xs text-slate-500 mt-2">Empirical scaling laws established for billion-scale geometric transformers via GraphBFF.</p>
+                    </div>
+                    <div class="glass-panel p-6 rounded-2xl shadow-sm border border-slate-200">
+                        <div class="text-amber-600 text-2xl font-bold mb-1">2M+</div>
+                        <div class="text-sm font-bold text-slate-800 uppercase tracking-wide">Synthetic Datasets</div>
+                        <p class="text-xs text-slate-500 mt-2">GraphPFN pretraining uses an infinite stream of synthetic topologies to eliminate domain bias.</p>
+                    </div>
+                    <div class="glass-panel p-6 rounded-2xl shadow-sm border border-slate-200">
+                        <div class="text-amber-600 text-2xl font-bold mb-1">50% &darr;</div>
+                        <div class="text-sm font-bold text-slate-800 uppercase tracking-wide">Topological Accuracy Drop</div>
+                        <p class="text-xs text-slate-500 mt-2">Current TDL models fail to generalize beyond initial combinatorial meshes on re-triangulated manifolds.</p>
+                    </div>
+                </div>
+
+                <div class="bg-slate-900 text-slate-100 p-8 rounded-3xl overflow-hidden relative">
+                    <h3 class="text-xl font-bold mb-4">Core Research Thesis</h3>
+                    <p class="text-slate-300 leading-relaxed italic">
+                        "The maturation of Graph Foundation Models (GFMs) has resolved the data scarcity problem through synthetic priors, but has exposed a fundamental combinatorial trap: our models understand 'meshes,' not 'shapes.' The next phase of 2026 research pivots toward true subdivision-invariant inductive biases."
+                    </p>
+                </div>
+            </section>
+
+            <!-- Section: Foundations -->
+            <section id="section-foundations" class="content-section space-y-8">
+                <header class="space-y-4">
+                    <h2 class="text-3xl font-bold text-slate-900">The Rise of Graph Foundation Models</h2>
+                    <p class="text-slate-600 leading-relaxed">
+                        This section explores the transition away from task-specific architectures. We analyze the **Tabular-Graph Convergence** (G2T-FM) and **Synthetic Priors** (GraphPFN) that allow models to process arbitrary node-feature dimensions without specialized retraining. Explore the comparative framework below to see how different architectures handle structural and semantic heterogeneity.
+                    </p>
+                </header>
+
+                <div class="overflow-x-auto rounded-xl border border-slate-200 shadow-sm">
+                    <table class="w-full text-left bg-white text-sm">
+                        <thead class="bg-slate-50 border-b border-slate-200">
+                            <tr>
+                                <th class="px-6 py-4 font-bold text-slate-700">Framework</th>
+                                <th class="px-6 py-4 font-bold text-slate-700">Core Mechanism</th>
+                                <th class="px-6 py-4 font-bold text-slate-700">Primary Advantage</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100">
+                            <tr>
+                                <td class="px-6 py-4 font-bold text-amber-700">G2T-FM</td>
+                                <td class="px-6 py-4">Tabular Models (TabPFNv2) + NFA/PEARL Encodings</td>
+                                <td class="px-6 py-4">Universality across non-textual node dimensions.</td>
+                            </tr>
+                            <tr>
+                                <td class="px-6 py-4 font-bold text-amber-700">GraphPFN</td>
+                                <td class="px-6 py-4">LimiX backbone + Synthetic SCM/SBM Pretraining</td>
+                                <td class="px-6 py-4">Eliminates real-world data scarcity and domain bias.</td>
+                            </tr>
+                            <tr>
+                                <td class="px-6 py-4 font-bold text-amber-700">SCR</td>
+                                <td class="px-6 py-4">Semantic Conditional Message Passing (SCMP)</td>
+                                <td class="px-6 py-4">True zero-shot reasoning across 38+ domains.</td>
+                            </tr>
+                            <tr>
+                                <td class="px-6 py-4 font-bold text-amber-700">R-GFM</td>
+                                <td class="px-6 py-4">Riemannian Graph-of-Graphs Projection</td>
+                                <td class="px-6 py-4">Reduces domain errors across varying graph scales.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="bg-white p-6 rounded-2xl border border-slate-200">
+                    <h4 class="font-bold text-slate-900 mb-4">Focus: The G2T-FM Mechanism</h4>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div class="p-4 bg-slate-50 rounded-lg">
+                            <div class="text-xs font-bold text-slate-400 mb-1 uppercase">Step 1</div>
+                            <div class="text-sm font-bold mb-2">NFA Aggregation</div>
+                            <p class="text-xs text-slate-500 italic">Computes statistical bounds (mean, max, min) for numerical features across localized neighborhoods.</p>
+                        </div>
+                        <div class="p-4 bg-slate-50 rounded-lg">
+                            <div class="text-xs font-bold text-slate-400 mb-1 uppercase">Step 2</div>
+                            <div class="text-sm font-bold mb-2">Structural Anchoring</div>
+                            <p class="text-xs text-slate-500 italic">Appends node degree, PageRank, and Laplacian eigenvectors to anchor the node globally.</p>
+                        </div>
+                        <div class="p-4 bg-slate-50 rounded-lg">
+                            <div class="text-xs font-bold text-slate-400 mb-1 uppercase">Step 3</div>
+                            <div class="text-sm font-bold mb-2">PEARL Signatures</div>
+                            <p class="text-xs text-slate-500 italic">Generates permutation-equivariant signatures to break symmetries in regular graphs.</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Section: Scaling -->
+            <section id="section-scaling" class="content-section space-y-8">
+                <header class="space-y-4">
+                    <h2 class="text-3xl font-bold text-slate-900">Scaling Laws & Infrastructure</h2>
+                    <p class="text-slate-600 leading-relaxed">
+                        Geometric deep learning has reached the "Billion-Parameter" milestone. This section details the **GraphBFF** findings, proving that validation loss follows a predictable power-law. Use the visualization below to understand how KL-Batching and Round-Robin scheduling enable massive-scale training on sparse, heterogeneous data.
+                    </p>
+                </header>
+
+                <div class="glass-panel p-8 rounded-3xl border border-slate-200">
+                    <h3 class="text-lg font-bold text-center mb-6">Neural Scaling Law for Graphs (Power Law)</h3>
+                    <div class="chart-container">
+                        <canvas id="scalingChart"></canvas>
+                    </div>
+                    <p class="text-xs text-center text-slate-400 mt-4 italic">Simulated Power-Law Curve: Validation Loss vs. Parameters (Log Scale Logic)</p>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div class="space-y-4">
+                        <h4 class="font-bold text-slate-900 border-l-4 border-amber-500 pl-3">KL-Batching</h4>
+                        <p class="text-sm text-slate-600 leading-relaxed">
+                            A storage-level heuristic that partitions graphs using clustering algorithms. Batches are aggregated to minimize the <strong>Kullback-Leibler (KL) divergence</strong> between the batch's edge-type distribution and the global graph. This ensures every batch is a statistically representative microcosm of the network.
+                        </p>
+                    </div>
+                    <div class="space-y-4">
+                        <h4 class="font-bold text-slate-900 border-l-4 border-amber-500 pl-3">Round-Robin Batching</h4>
+                        <p class="text-sm text-slate-600 leading-relaxed">
+                            A GPU-level heuristic that prevents "hyper-prevalent" edge types from overwhelming gradient updates. Edges are sequestered by type and fed in a cyclic sequence, preventing catastrophic forgetting of rare structural relations.
+                        </p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Section: Topology -->
+            <section id="section-topology" class="content-section space-y-8">
+                <header class="space-y-4">
+                    <h2 class="text-3xl font-bold text-slate-900">The Topological Reckoning</h2>
+                    <p class="text-slate-600 leading-relaxed">
+                        A landmark 2026 study Disrupts the Topological Deep Learning (TDL) community. While simplicial and cellular complexes capture multi-way interactions, they appear to overfit to combinatorial artifacts rather than true shape. The chart below visualizes the **catastrophic performance drop** when models face re-triangulated (subdivided) manifolds.
+                    </p>
+                </header>
+
+                <div class="glass-panel p-8 rounded-3xl border border-slate-200">
+                    <h3 class="text-lg font-bold text-center mb-6">The Subdivision Crisis: Generalization Failure</h3>
+                    <div class="chart-container">
+                        <canvas id="topologyChart"></canvas>
+                    </div>
+                    <div class="mt-8 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-slate-600">
+                        <div class="p-4 bg-red-50 rounded-xl border border-red-100">
+                            <span class="font-bold text-red-700 uppercase text-xs block mb-1">Finding</span>
+                            Moving just one step out-of-distribution (e.g., 16-graded stellar subdivision) causes performance to plummet by over 50%.
+                        </div>
+                        <div class="p-4 bg-amber-50 rounded-xl border border-amber-100">
+                            <span class="font-bold text-amber-700 uppercase text-xs block mb-1">Conclusion</span>
+                            Models memorize combinatorial "meshes" (nodes/edges) rather than internalizing scale-invariant topological homeostasis.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="bg-white p-5 rounded-2xl border border-slate-200 text-center">
+                        <div class="mono text-xs text-amber-600 font-bold mb-2">MCN</div>
+                        <div class="text-sm font-bold">Multi-Cellular Networks</div>
+                        <p class="text-xs text-slate-500 mt-2">Distinguishes between a Möbius strip and a standard cylinder via equivariant linear updates.</p>
+                    </div>
+                    <div class="bg-white p-5 rounded-2xl border border-slate-200 text-center">
+                        <div class="mono text-xs text-amber-600 font-bold mb-2">CTNN</div>
+                        <div class="text-sm font-bold">Copresheaf TNNs</div>
+                        <p class="text-xs text-slate-500 mt-2">A unified framework treating features as copresheaves over structured topologies.</p>
+                    </div>
+                    <div class="bg-white p-5 rounded-2xl border border-slate-200 text-center">
+                        <div class="mono text-xs text-amber-600 font-bold mb-2">SSN</div>
+                        <div class="text-sm font-bold">Semi-Simplicial NNs</div>
+                        <p class="text-xs text-slate-500 mt-2">Captures directional signals in brain pathways using directed higher-order motifs.</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Section: Symmetry -->
+            <section id="section-symmetry" class="content-section space-y-8">
+                <header class="space-y-4">
+                    <h2 class="text-3xl font-bold text-slate-900">Dynamic Symmetry & Physics</h2>
+                    <p class="text-slate-600 leading-relaxed">
+                        Equivariant Neural Networks (ENNs) are essential for physics and biology, yet absolute rigidity is now seen as a flaw. This section covers **ASEN**, which allows "symmetry breaking" for asymmetric biological systems, and **EBFormer** for nanotechnology transistor prediction.
+                    </p>
+                </header>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="p-6 rounded-2xl bg-white border border-slate-200 space-y-3">
+                        <div class="flex items-center space-x-2">
+                            <span class="w-3 h-3 rounded-full bg-amber-500"></span>
+                            <h4 class="font-bold text-slate-900">ASEN Framework</h4>
+                        </div>
+                        <p class="text-sm text-slate-600">
+                            Introduces dynamically modulated "symmetry breaking." Uses <strong>2-closure</strong> approximations to let a single network transition between human pose estimation and chemical tasks without architectural code changes.
+                        </p>
+                    </div>
+                    <div class="p-6 rounded-2xl bg-white border border-slate-200 space-y-3">
+                        <div class="flex items-center space-x-2">
+                            <span class="w-3 h-3 rounded-full bg-blue-500"></span>
+                            <h4 class="font-bold text-slate-900">EBFormer (Materials)</h4>
+                        </div>
+                        <p class="text-sm text-slate-600">
+                            Uses geometry-aware boundary cross-attention to predict electronic properties of nanoscale transistors. Operates orders-of-magnitude faster than quantum confinement simulators.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="bg-amber-50 border border-amber-100 p-8 rounded-3xl">
+                    <h3 class="text-xl font-bold text-amber-900 mb-4">The Clinical Trade-off</h3>
+                    <p class="text-sm text-amber-800 leading-relaxed">
+                        Research via <strong>EAMS (Equivariant Anatomical Mesh Segmentor)</strong> reveals that strict equivariance can degrade organ segmentation accuracy. Biological systems are inherently asymmetric. To solve this, researchers now intentionally "relax" equivariance using anatomy-aware PCA frames and Heat Kernel Signatures.
+                    </p>
+                    <div class="mt-4 flex space-x-4">
+                        <span class="px-3 py-1 bg-white rounded-full text-xs font-bold text-amber-600 shadow-sm">EquiBind (Docking)</span>
+                        <span class="px-3 py-1 bg-white rounded-full text-xs font-bold text-amber-600 shadow-sm">AtomSurf (PPI)</span>
+                        <span class="px-3 py-1 bg-white rounded-full text-xs font-bold text-amber-600 shadow-sm">FRAME (Expansion)</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Section: Agentic -->
+            <section id="section-agentic" class="content-section space-y-8">
+                <header class="space-y-4">
+                    <h2 class="text-3xl font-bold text-slate-900">Agentic GraphRAG: The R1 Paradigm</h2>
+                    <p class="text-slate-600 leading-relaxed">
+                        Graph Retrieval-Augmented Generation has evolved from static lookups to agentic reinforcement learning. The **R1 Series** (AutoGraph, GraphRAG, ProGraph) integrates outcome-based and process-constrained rewards to optimize both the construction and navigation of knowledge graphs.
+                    </p>
+                </header>
+
+                <div class="grid grid-cols-1 gap-4">
+                    <!-- R1 Model Cards -->
+                    <div class="group relative bg-white border border-slate-200 p-6 rounded-2xl transition-all hover:shadow-md">
+                        <div class="flex justify-between items-start mb-4">
+                            <div>
+                                <h4 class="text-lg font-bold text-slate-900">AutoGraph-R1</h4>
+                                <p class="text-xs text-amber-600 font-mono">Target: KG Construction Policy</p>
+                            </div>
+                            <span class="px-2 py-1 bg-slate-100 rounded text-[10px] font-bold uppercase">Task-Aware</span>
+                        </div>
+                        <p class="text-sm text-slate-600">Uses <strong>Knowledge-Carrying Rewards ($R_C$)</strong> to incentivize structurally contiguous pathways required for multi-hop deduction. Prevents decoupled, suboptimal graph creation.</p>
+                    </div>
+
+                    <div class="group relative bg-white border border-slate-200 p-6 rounded-2xl transition-all hover:shadow-md">
+                        <div class="flex justify-between items-start mb-4">
+                            <div>
+                                <h4 class="text-lg font-bold text-slate-900">GraphRAG-R1</h4>
+                                <p class="text-xs text-amber-600 font-mono">Target: Reasoning Policy (GRPO)</p>
+                            </div>
+                            <span class="px-2 py-1 bg-slate-100 rounded text-[10px] font-bold uppercase">Cost-Aware</span>
+                        </div>
+                        <p class="text-sm text-slate-600">Implements <strong>Progressive Retrieval Attenuation (PRA)</strong> to force deep-graph exploration, while a <strong>Cost-Aware F1 (CAF)</strong> reward penalizes computational over-thinking.</p>
+                    </div>
+
+                    <div class="group relative bg-white border border-slate-200 p-6 rounded-2xl transition-all hover:shadow-md">
+                        <div class="flex justify-between items-start mb-4">
+                            <div>
+                                <h4 class="text-lg font-bold text-slate-900">ProGraph-R1</h4>
+                                <p class="text-xs text-amber-600 font-mono">Target: Step-Level Progress</p>
+                            </div>
+                            <span class="px-2 py-1 bg-slate-100 rounded text-[10px] font-bold uppercase">Structure-First</span>
+                        </div>
+                        <p class="text-sm text-slate-600">Provides dense, intermediate rewards based on <strong>uncertainty reduction</strong> at every node hop. Uses hypergraph retrieval to enforce actual topological connectivity over hallucinated semantic similarity.</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Section: Solvers -->
+            <section id="section-solvers" class="content-section space-y-8">
+                <header class="space-y-4">
+                    <h2 class="text-3xl font-bold text-slate-900">Resolving MPNN Pathologies</h2>
+                    <p class="text-slate-600 leading-relaxed">
+                        Message Passing Neural Networks (MPNNs) face the dual threats of **Oversmoothing** (loss of distinction) and **Oversquashing** (information bottlenecks). This section details the mathematically rigorous solvers introduced in late 2025 and early 2026.
+                    </p>
+                </header>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div class="p-6 bg-white border border-slate-200 rounded-2xl">
+                        <h4 class="font-bold mb-3 text-slate-800">Spectral Sparsification</h4>
+                        <p class="text-xs text-slate-500 leading-relaxed">Selectively rewires graphs to alleviate squashing bottlenecks while strictly preserving the <strong>eigenvalues of the graph Laplacian</strong>, maintaining the topological fingerprint.</p>
+                    </div>
+                    <div class="p-6 bg-white border border-slate-200 rounded-2xl">
+                        <h4 class="font-bold mb-3 text-slate-800">Fractal Shortcuts</h4>
+                        <p class="text-xs text-slate-500 leading-relaxed">Injects hierarchical hub connections that reduce <strong>effective resistance</strong> between distant nodes, enabling long-range propagation without hyper-connectivity inflation.</p>
+                    </div>
+                    <div class="p-6 bg-white border border-slate-200 rounded-2xl">
+                        <h4 class="font-bold mb-3 text-slate-800">Riemannian Solvers</h4>
+                        <p class="text-xs text-slate-500 leading-relaxed">Models message-passing as a <strong>Heat Equation solver</strong> on a Riemannian manifold. Locally adjusts boundary conditions at each node to mitigate squashing without causing gradient vanishing.</p>
+                    </div>
+                </div>
+
+                <div class="p-6 bg-slate-100 rounded-2xl border-l-4 border-slate-800">
+                    <p class="text-sm font-medium text-slate-700 italic">
+                        "The homophily-heterophily dichotomy is now considered an incomplete heuristic. 2026 analysis shows performance is task-dependent, requiring targeted geometric analysis over universal assumptions."
+                    </p>
+                </div>
+            </section>
+
+        </div>
+    </main>
+
+    <script>
+        // Navigation Logic
+        function showSection(sectionId) {
+            // Hide all sections
+            document.querySelectorAll('.content-section').forEach(section => {
+                section.classList.remove('active');
+            });
+            // Show target section
+            document.getElementById('section-' + sectionId).classList.add('active');
+            
+            // Update Nav State
+            document.querySelectorAll('.nav-item').forEach(item => {
+                item.classList.remove('active');
+            });
+            document.getElementById('nav-' + sectionId).classList.add('active');
+
+            // Scroll to top of main content
+            document.querySelector('main').scrollTo({ top: 0, behavior: 'smooth' });
+
+            // Trigger chart animations if needed
+            if(sectionId === 'scaling') initScalingChart();
+            if(sectionId === 'topology') initTopologyChart();
+        }
+
+        // Charts
+        let scalingChartInstance = null;
+        let topologyChartInstance = null;
+
+        function initScalingChart() {
+            if (scalingChartInstance) return;
+            const ctx = document.getElementById('scalingChart').getContext('2d');
+            scalingChartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: ['1M', '10M', '50M', '100M', '500M', '1B', '1.4B'],
+                    datasets: [{
+                        label: 'Validation Loss (GraphBFF)',
+                        data: [2.5, 1.8, 1.4, 1.1, 0.85, 0.7, 0.65],
+                        borderColor: '#d97706',
+                        backgroundColor: 'rgba(217, 119, 6, 0.1)',
+                        fill: true,
+                        tension: 0.4,
+                        borderWidth: 3,
+                        pointRadius: 4,
+                        pointBackgroundColor: '#d97706'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        y: { 
+                            beginAtZero: false,
+                            title: { display: true, text: 'Validation Loss', font: { weight: 'bold' } }
+                        },
+                        x: {
+                            title: { display: true, text: 'Model Parameters', font: { weight: 'bold' } }
+                        }
+                    }
+                }
+            });
+        }
+
+        function initTopologyChart() {
+            if (topologyChartInstance) return;
+            const ctx = document.getElementById('topologyChart').getContext('2d');
+            topologyChartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: ['Base (0)', 'Stellar 1', 'Stellar 2', 'Stellar 4', 'Stellar 8', 'Stellar 16'],
+                    datasets: [
+                        {
+                            label: 'CWN (Cellular)',
+                            data: [99, 92, 78, 62, 51, 44],
+                            borderColor: '#ef4444',
+                            borderDash: [5, 5],
+                            tension: 0.2
+                        },
+                        {
+                            label: 'HOMP (Higher-Order)',
+                            data: [98, 90, 82, 68, 55, 48],
+                            borderColor: '#3b82f6',
+                            tension: 0.2
+                        },
+                        {
+                            label: 'Standard GNN',
+                            data: [88, 85, 76, 65, 53, 49],
+                            borderColor: '#10b981',
+                            tension: 0.2
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'bottom' }
+                    },
+                    scales: {
+                        y: { 
+                            min: 30,
+                            max: 100,
+                            title: { display: true, text: 'Accuracy (%)', font: { weight: 'bold' } }
+                        },
+                        x: {
+                            title: { display: true, text: 'Subdivision Grade', font: { weight: 'bold' } }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Initialize first section charts
+        window.onload = () => {
+            // No charts in overview
+        };
+    </script>
+</body>
+</html>
