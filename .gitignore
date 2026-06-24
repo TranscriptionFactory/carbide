@@ -26,7 +26,7 @@ devlog/
 .ralph/
 opencode.json
 .eslintcache
-
+.tmpfiles
 # sidecar binaries (built/downloaded at build time)
 src-tauri/binaries/rumdl*
 src-tauri/binaries/iwes*
