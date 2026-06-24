@@ -54,6 +54,7 @@
       const url = await invoke<string>("html_live_register", {
         html: doc,
         assetRoot: root ?? null,
+        allowNetwork: network,
       });
       if (cancelled) {
         void invoke("html_live_release", { url });

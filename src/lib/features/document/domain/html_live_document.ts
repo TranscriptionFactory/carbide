@@ -4,15 +4,25 @@ interface BuildLiveHtmlDocumentInput {
   allow_network: boolean;
 }
 
+// Canonical CSP policy — kept in lockstep with `live_html_csp()` in
+// src-tauri/src/shared/live_html.rs. The directive table is pinned by tests on both
+// sides (carbide/plans/2026-06-24_live_html_remote_scripts_plan.md). `https:` in
+// script-src/style-src and `connect-src *` are gated on the live+net tier.
 export function build_live_csp(allow_network: boolean): string {
+  const script_src = allow_network
+    ? "script-src 'unsafe-inline' 'unsafe-eval' blob: data: https:"
+    : "script-src 'unsafe-inline' 'unsafe-eval' blob: data:";
+  const style_src = allow_network
+    ? "style-src 'unsafe-inline' data: https:"
+    : "style-src 'unsafe-inline' data:";
   const connect = allow_network ? "*" : "'none'";
   return [
     "default-src 'none'",
-    "script-src 'unsafe-inline' 'unsafe-eval' blob: data:",
-    "style-src 'unsafe-inline' data:",
-    "img-src data: blob: https: http:",
-    "font-src data: https: http:",
-    "media-src data: blob: https: http:",
+    script_src,
+    style_src,
+    "img-src data: blob: https: http: carbide-html:",
+    "font-src data: https: http: carbide-html:",
+    "media-src data: blob: https: http: carbide-html:",
     "frame-src data: blob:",
     `connect-src ${connect}`,
   ].join("; ");

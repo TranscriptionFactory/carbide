@@ -1,7 +1,7 @@
 # Live-HTML Remote Scripts/Styles — Implementation Plan
 
 **Date:** 2026-06-24
-**Status:** Proposed
+**Status:** Implemented (2026-06-24)
 **Area:** `document` feature — live HTML rendering (`carbide-html://` scheme)
 
 ## Problem
@@ -214,12 +214,12 @@ does not address. Separate plan.
 
 ## Task checklist
 
-- [ ] Rust: `Entry` + `register` + `get_html` carry `allow_network`
-- [ ] Rust: `live_html_csp(bool)` + `build_html_response` + handler tier-aware
-- [ ] Rust: `html_live_register` command takes `allow_network`
-- [ ] TS: `build_live_csp` adds `https:` (live+net) + `carbide-html:` (img/font/media)
-- [ ] Svelte: pass `allowNetwork` to `html_live_register` invoke
-- [ ] Regen `bindings.ts`
-- [ ] Rust CSP/handler tests + TS CSP tests + sandbox invariant test
-- [ ] Manual acceptance on `geometric_frontier_2026.html`
-- [ ] `cargo check` / `pnpm check` / `pnpm test` / scoped lint / `pnpm format`
+- [x] Rust: `Entry` + `register` + `get_html` carry `allow_network`
+- [x] Rust: `live_html_csp(bool)` + `build_html_response` + handler tier-aware
+- [x] Rust: `html_live_register` command takes `allow_network`
+- [x] TS: `build_live_csp` adds `https:` (live+net) + `carbide-html:` (img/font/media)
+- [x] Svelte: pass `allowNetwork` to `html_live_register` invoke
+- [x] Regen `bindings.ts`
+- [x] Rust CSP/handler tests + TS CSP tests + sandbox invariant test
+- [ ] Manual acceptance on `geometric_frontier_2026.html` (requires running app)
+- [x] `cargo check` / `pnpm check` / `pnpm test` / scoped lint / `pnpm format`
