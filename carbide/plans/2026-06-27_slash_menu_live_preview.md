@@ -1,6 +1,6 @@
 # Slash menu live preview pane
 
-**Status:** proposed
+**Status:** implemented
 **Scope:** editor-only, additive UI enhancement
 **Origin:** ported pattern from OpenKnowledge (`packages/app/src/editor/slash-command/SlashCommandMenu.tsx` + `items.tsx`), where each slash item ships a `preview.render()` that draws a real, styled mini-example of the block it inserts, shown in a pane beside the item list.
 

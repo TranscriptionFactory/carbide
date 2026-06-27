@@ -18,6 +18,7 @@ import {
   smart_block_body,
   type SmartBlockScaffoldType,
 } from "$lib/features/smart_blocks";
+import { PREVIEW_BUILDERS, build_preview } from "./slash_command_previews";
 
 export const slash_plugin_key = new PluginKey("slash-command");
 
@@ -39,6 +40,7 @@ export type SlashCommand = {
   is_available?: (state: EditorState) => boolean;
   source?: "builtin" | "plugin";
   plugin_name?: string;
+  preview?: () => HTMLElement;
 };
 
 export type SlashCommandConfig = {
@@ -384,7 +386,7 @@ function make_smart_block_insert(type: SmartBlockScaffoldType) {
 }
 
 export function create_commands(): SlashCommand[] {
-  return [
+  const commands: SlashCommand[] = [
     {
       id: "h1",
       label: "Heading 1",
@@ -605,6 +607,16 @@ export function create_commands(): SlashCommand[] {
         state.doc.firstChild?.type.name !== "frontmatter",
     },
   ];
+
+  return commands.map((cmd) => {
+    const preview = PREVIEW_BUILDERS[cmd.id];
+    return preview ? { ...cmd, preview } : cmd;
+  });
+}
+
+function scroll_selected_in_list(menu: HTMLElement, index: number): void {
+  const list = menu.querySelector<HTMLElement>(".SlashMenu__list");
+  if (list) scroll_selected_into_view(list, index);
 }
 
 function create_menu_el(): HTMLElement {
@@ -618,9 +630,14 @@ function render_items(
   menu: HTMLElement,
   state: SlashState,
   on_click: (cmd: SlashCommand) => void,
+  preview_cache: Map<string, HTMLElement>,
 ): void {
   menu.innerHTML = "";
   if (state.filtered.length === 0) return;
+
+  const list = document.createElement("div");
+  list.className = "SlashMenu__list scroll-fade-mask";
+  list.setAttribute("role", "listbox");
 
   for (let i = 0; i < state.filtered.length; i++) {
     const cmd = state.filtered[i];
@@ -629,6 +646,8 @@ function render_items(
     const row = document.createElement("button");
     row.type = "button";
     row.className = "SlashMenu__item";
+    row.setAttribute("role", "option");
+    row.setAttribute("aria-selected", String(i === state.selected_index));
     if (i === state.selected_index)
       row.classList.add("SlashMenu__item--selected");
 
@@ -664,14 +683,31 @@ function render_items(
       on_click(cmd);
     });
 
-    menu.appendChild(row);
+    list.appendChild(row);
   }
+
+  menu.appendChild(list);
+
+  const selected = state.filtered[state.selected_index];
+  if (!selected) return;
+
+  const preview = document.createElement("div");
+  preview.className = "SlashMenu__preview";
+  preview.setAttribute("aria-hidden", "true");
+
+  const frame = document.createElement("div");
+  frame.className = "SlashMenu__preview-frame";
+  frame.appendChild(build_preview(selected, preview_cache));
+
+  preview.appendChild(frame);
+  menu.appendChild(preview);
 }
 
 export function create_slash_command_prose_plugin(
   config?: SlashCommandConfig,
 ): Plugin {
   const builtin_commands = create_commands();
+  const preview_cache = new Map<string, HTMLElement>();
 
   let slash_state: SlashState = EMPTY_STATE;
   let menu: HTMLElement | null = null;
@@ -731,7 +767,13 @@ export function create_slash_command_prose_plugin(
             filtered,
           };
 
-          if (menu) render_items(menu, slash_state, (cmd) => accept_fn?.(cmd));
+          if (menu)
+            render_items(
+              menu,
+              slash_state,
+              (cmd) => accept_fn?.(cmd),
+              preview_cache,
+            );
 
           if (menu && filtered.length > 0) {
             const anchor = create_cursor_anchor(view);
@@ -764,8 +806,13 @@ export function create_slash_command_prose_plugin(
             selected_index:
               (slash_state.selected_index + 1) % slash_state.filtered.length,
           };
-          render_items(menu, slash_state, (cmd) => accept_fn?.(cmd));
-          scroll_selected_into_view(menu, slash_state.selected_index);
+          render_items(
+            menu,
+            slash_state,
+            (cmd) => accept_fn?.(cmd),
+            preview_cache,
+          );
+          scroll_selected_in_list(menu, slash_state.selected_index);
           return true;
         }
 
@@ -777,8 +824,13 @@ export function create_slash_command_prose_plugin(
               (slash_state.selected_index - 1 + slash_state.filtered.length) %
               slash_state.filtered.length,
           };
-          render_items(menu, slash_state, (cmd) => accept_fn?.(cmd));
-          scroll_selected_into_view(menu, slash_state.selected_index);
+          render_items(
+            menu,
+            slash_state,
+            (cmd) => accept_fn?.(cmd),
+            preview_cache,
+          );
+          scroll_selected_in_list(menu, slash_state.selected_index);
           return true;
         }
 
