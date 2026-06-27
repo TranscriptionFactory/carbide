@@ -34,6 +34,7 @@ import {
   parent_folder_path,
 } from "$lib/shared/utils/path";
 import type { InternalLinkSource } from "$lib/features/editor";
+import { resolve_wiki_link_target } from "$lib/features/editor";
 import { find_frontmatter_span } from "$lib/shared/domain/frontmatter_parser";
 import { inject_initial_frontmatter } from "$lib/features/metadata";
 import { toast } from "svelte-sonner";
@@ -139,6 +140,28 @@ function parse_pdf_page_suffix(suffix: InternalLinkSuffix): number | undefined {
   }
   const page = Number.parseInt(page_value, 10);
   return page > 0 ? page : undefined;
+}
+
+function resolve_wiki_link_fallback(
+  stores: ActionRegistrationInput["stores"],
+  raw_path: string,
+): string | null {
+  const base_target = (raw_path.split("#", 1)[0] ?? "").split("?", 1)[0] ?? "";
+  if (!base_target.trim()) return null;
+
+  const doc_name_to_path = new Map<string, string>();
+  for (const note of stores.notes.notes) {
+    const doc_name = note.path.endsWith(".md")
+      ? note.path.slice(0, -3)
+      : note.path;
+    doc_name_to_path.set(doc_name, note.path);
+  }
+
+  const fallback_doc = resolve_wiki_link_target(
+    base_target,
+    new Set(doc_name_to_path.keys()),
+  );
+  return fallback_doc ? (doc_name_to_path.get(fallback_doc) ?? null) : null;
 }
 
 export function register_note_actions(input: ActionRegistrationInput) {
@@ -449,7 +472,7 @@ export function register_note_actions(input: ActionRegistrationInput) {
           return;
         }
 
-        const resolved =
+        let resolved =
           parsed.source === "wiki"
             ? await services.search.resolve_wiki_link(
                 parsed.base_note_path,
@@ -459,6 +482,9 @@ export function register_note_actions(input: ActionRegistrationInput) {
                 parsed.base_note_path,
                 parsed.raw_path,
               );
+        if (!resolved && parsed.source === "wiki") {
+          resolved = resolve_wiki_link_fallback(stores, parsed.raw_path);
+        }
         if (!resolved) {
           toast.error("Cannot link outside the vault");
           return;
