@@ -54,6 +54,7 @@ const code_block: NodeSpec = {
   code: true,
   attrs: {
     language: { default: "" },
+    meta: { default: "" },
     height: { default: null },
     collapsed: { default: false },
   },
@@ -63,14 +64,20 @@ const code_block: NodeSpec = {
       preserveWhitespace: "full" as const,
       getAttrs(dom) {
         if (!(dom instanceof HTMLElement)) return false;
-        return { language: dom.dataset["language"] || "" };
+        return {
+          language: dom.dataset["language"] || "",
+          meta: dom.dataset["meta"] || "",
+        };
       },
     },
   ],
   toDOM(node) {
     return [
       "pre",
-      { "data-language": (node.attrs["language"] as string) || undefined },
+      {
+        "data-language": (node.attrs["language"] as string) || undefined,
+        "data-meta": (node.attrs["meta"] as string) || undefined,
+      },
       ["code", 0],
     ];
   },

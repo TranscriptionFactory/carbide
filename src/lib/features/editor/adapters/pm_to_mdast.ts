@@ -188,6 +188,7 @@ function convert_block_node(node: PmNode): MdastNode | MdastNode[] | null {
       return {
         type: "code",
         lang: (node.attrs["language"] as string) || null,
+        meta: (node.attrs["meta"] as string) || null,
         value: node.textContent,
       };
     }

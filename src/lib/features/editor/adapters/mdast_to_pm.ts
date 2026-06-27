@@ -133,9 +133,10 @@ function convert_block(node: AnyMdastNode): PmNode | null {
 
     case "code": {
       const lang = (node.lang as string) || "";
+      const meta = (node.meta as string) || "";
       const val = (node.value as string) || "";
       return schema.nodes.code_block.create(
-        { language: lang },
+        { language: lang, meta },
         val ? schema.text(val) : undefined,
       );
     }
