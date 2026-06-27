@@ -7,6 +7,7 @@ import { OpStore } from "$lib/app/orchestration/op_store.svelte";
 import type { OpenNoteState } from "$lib/shared/types/editor";
 import { as_markdown_text, as_note_path } from "$lib/shared/types/ids";
 import { create_test_vault } from "../helpers/test_fixtures";
+import { DEFAULT_FIND_OPTIONS } from "$lib/features/editor/domain/find_types";
 
 function create_open_note(note_path: string, markdown: string): OpenNoteState {
   const path = as_note_path(note_path);
@@ -77,11 +78,19 @@ describe("EditorService update_find_state", () => {
 
     await service.mount({ root, note });
 
-    service.update_find_state("test", 0);
-    expect(session.update_find_state).toHaveBeenCalledWith("test", 0);
+    service.update_find_state("test", 0, DEFAULT_FIND_OPTIONS);
+    expect(session.update_find_state).toHaveBeenCalledWith(
+      "test",
+      0,
+      DEFAULT_FIND_OPTIONS,
+    );
 
-    service.update_find_state("another", 3);
-    expect(session.update_find_state).toHaveBeenCalledWith("another", 3);
+    service.update_find_state("another", 3, DEFAULT_FIND_OPTIONS);
+    expect(session.update_find_state).toHaveBeenCalledWith(
+      "another",
+      3,
+      DEFAULT_FIND_OPTIONS,
+    );
   });
 
   it("does not throw when no session exists", () => {
@@ -107,7 +116,7 @@ describe("EditorService update_find_state", () => {
     );
 
     expect(() => {
-      service.update_find_state("test", 0);
+      service.update_find_state("test", 0, DEFAULT_FIND_OPTIONS);
     }).not.toThrow();
   });
 
@@ -140,10 +149,18 @@ describe("EditorService update_find_state", () => {
 
     await service.mount({ root, note });
 
-    service.update_find_state("test", 0);
-    expect(session.update_find_state).toHaveBeenCalledWith("test", 0);
+    service.update_find_state("test", 0, DEFAULT_FIND_OPTIONS);
+    expect(session.update_find_state).toHaveBeenCalledWith(
+      "test",
+      0,
+      DEFAULT_FIND_OPTIONS,
+    );
 
-    service.update_find_state("", 0);
-    expect(session.update_find_state).toHaveBeenCalledWith("", 0);
+    service.update_find_state("", 0, DEFAULT_FIND_OPTIONS);
+    expect(session.update_find_state).toHaveBeenCalledWith(
+      "",
+      0,
+      DEFAULT_FIND_OPTIONS,
+    );
   });
 });

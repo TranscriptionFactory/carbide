@@ -57,6 +57,10 @@ import {
   restore_heading_folds,
 } from "$lib/features/editor/extensions";
 import { heading_fold_plugin_key } from "$lib/features/editor/adapters/heading_fold_plugin";
+import { find_literal_matches_in_doc } from "$lib/features/editor/domain/find_literal_matcher";
+import { next_active_index_after_replacement } from "$lib/features/editor/domain/find_active_index";
+import type { FindOptions } from "$lib/features/editor/domain/find_types";
+import type { FindReplaceResult } from "$lib/features/editor/ports";
 import {
   create_turn_into_command,
   duplicate_block as duplicate_block_cmd,
@@ -1108,12 +1112,17 @@ export function create_prosemirror_editor_port(args?: {
           if (!view) return;
           set_at_palette_suggestions(view, category, items);
         },
-        update_find_state(query: string, selected_index: number): number {
+        update_find_state(
+          query: string,
+          selected_index: number,
+          options: FindOptions,
+        ): number {
           let match_count = 0;
           run_view_action((v) => {
             const tr = v.state.tr.setMeta(find_highlight_plugin_key, {
               query,
               selected_index,
+              options,
             });
             v.dispatch(tr);
 
@@ -1135,18 +1144,56 @@ export function create_prosemirror_editor_port(args?: {
           });
           return match_count;
         },
-        replace_at_match(match_index: number, replacement: string) {
+        replace_at_match(
+          match_index: number,
+          replacement: string,
+        ): FindReplaceResult {
+          let result: FindReplaceResult = {
+            match_count: 0,
+            selected_index: 0,
+          };
           run_view_action((v) => {
             const plugin_state = find_highlight_plugin_key.getState(v.state);
             if (!plugin_state?.match_positions.length) return;
             const match = plugin_state.match_positions[match_index];
             if (!match) return;
-            v.dispatch(
-              v.state.tr.insertText(replacement, match.from, match.to),
+
+            const tr = v.state.tr.insertText(replacement, match.from, match.to);
+            const next_matches = find_literal_matches_in_doc(
+              tr.doc,
+              plugin_state.query,
+              plugin_state.options,
             );
+            const next_index = next_active_index_after_replacement(
+              next_matches,
+              match.from,
+              replacement.length,
+            );
+            tr.setMeta(find_highlight_plugin_key, {
+              query: plugin_state.query,
+              selected_index: next_index,
+              options: plugin_state.options,
+            });
+            const next_match = next_matches[next_index];
+            if (next_match) {
+              tr.setSelection(
+                TextSelection.create(tr.doc, next_match.from, next_match.to),
+              );
+              tr.scrollIntoView();
+            }
+            v.dispatch(tr);
+            result = {
+              match_count: next_matches.length,
+              selected_index: next_index,
+            };
           });
+          return result;
         },
-        replace_all_matches(replacement: string) {
+        replace_all_matches(replacement: string): FindReplaceResult {
+          let result: FindReplaceResult = {
+            match_count: 0,
+            selected_index: 0,
+          };
           run_view_action((v) => {
             const plugin_state = find_highlight_plugin_key.getState(v.state);
             if (!plugin_state?.match_positions.length) return;
@@ -1157,8 +1204,20 @@ export function create_prosemirror_editor_port(args?: {
             for (const match of sorted) {
               tr = tr.insertText(replacement, match.from, match.to);
             }
+            const next_matches = find_literal_matches_in_doc(
+              tr.doc,
+              plugin_state.query,
+              plugin_state.options,
+            );
+            tr.setMeta(find_highlight_plugin_key, {
+              query: plugin_state.query,
+              selected_index: 0,
+              options: plugin_state.options,
+            });
             v.dispatch(tr);
+            result = { match_count: next_matches.length, selected_index: 0 };
           });
+          return result;
         },
         scroll_to_position(pos: number) {
           run_view_action((v) => {

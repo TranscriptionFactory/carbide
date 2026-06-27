@@ -3,8 +3,10 @@ import type {
   InternalLinkSource,
   EditorPort,
   EditorSession,
+  FindReplaceResult,
   WikiQueryEvent,
 } from "$lib/features/editor/ports";
+import type { FindOptions } from "$lib/features/editor/domain/find_types";
 import type { CiteSuggestionItem } from "$lib/features/editor/adapters/cite_suggest_plugin";
 import type { AtPaletteItem } from "$lib/features/editor/adapters/at_palette_types";
 import type { ToolbarVisibility } from "$lib/shared/types/editor_settings";
@@ -522,16 +524,35 @@ export class EditorService {
     this.session?.close_buffer(note_path);
   }
 
-  update_find_state(query: string, selected_index: number): number {
-    return this.session?.update_find_state?.(query, selected_index) ?? 0;
+  update_find_state(
+    query: string,
+    selected_index: number,
+    options: FindOptions,
+  ): number {
+    return (
+      this.session?.update_find_state?.(query, selected_index, options) ?? 0
+    );
   }
 
-  replace_at_match(match_index: number, replacement: string) {
-    this.session?.replace_at_match?.(match_index, replacement);
+  replace_at_match(
+    match_index: number,
+    replacement: string,
+  ): FindReplaceResult {
+    return (
+      this.session?.replace_at_match?.(match_index, replacement) ?? {
+        match_count: 0,
+        selected_index: 0,
+      }
+    );
   }
 
-  replace_all_matches(replacement: string) {
-    this.session?.replace_all_matches?.(replacement);
+  replace_all_matches(replacement: string): FindReplaceResult {
+    return (
+      this.session?.replace_all_matches?.(replacement) ?? {
+        match_count: 0,
+        selected_index: 0,
+      }
+    );
   }
 
   get_markdown(): string {

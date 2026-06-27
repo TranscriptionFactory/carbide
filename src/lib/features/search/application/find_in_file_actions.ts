@@ -143,14 +143,13 @@ export function register_find_in_file_actions(input: ActionRegistrationInput) {
     label: "Replace",
     execute: () => {
       const { selected_match_index, replace_text } = stores.ui.find_in_file;
-      const total = stores.search.find_match_count;
-      if (total === 0) return;
-      services.editor.replace_at_match(selected_match_index, replace_text);
-      const new_index =
-        stores.search.find_match_count > 0
-          ? Math.min(selected_match_index, stores.search.find_match_count - 1)
-          : 0;
-      update_find_state({ selected_match_index: new_index });
+      if (stores.search.find_match_count === 0) return;
+      const result = services.editor.replace_at_match(
+        selected_match_index,
+        replace_text,
+      );
+      stores.search.set_find_match_count(result.match_count);
+      update_find_state({ selected_match_index: result.selected_index });
     },
   });
 
@@ -160,8 +159,31 @@ export function register_find_in_file_actions(input: ActionRegistrationInput) {
     execute: () => {
       const { replace_text } = stores.ui.find_in_file;
       if (stores.search.find_match_count === 0) return;
-      services.editor.replace_all_matches(replace_text);
-      update_find_state({ selected_match_index: 0 });
+      const result = services.editor.replace_all_matches(replace_text);
+      stores.search.set_find_match_count(result.match_count);
+      update_find_state({ selected_match_index: result.selected_index });
+    },
+  });
+
+  registry.register({
+    id: ACTION_IDS.find_in_file_toggle_case,
+    label: "Toggle Match Case",
+    execute: () => {
+      update_find_state({
+        case_sensitive: !stores.ui.find_in_file.case_sensitive,
+        selected_match_index: 0,
+      });
+    },
+  });
+
+  registry.register({
+    id: ACTION_IDS.find_in_file_toggle_whole_word,
+    label: "Toggle Whole Word",
+    execute: () => {
+      update_find_state({
+        whole_word: !stores.ui.find_in_file.whole_word,
+        selected_match_index: 0,
+      });
     },
   });
 }

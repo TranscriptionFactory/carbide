@@ -1004,6 +1004,8 @@
                           .selected_match_index}
                         show_replace={stores.ui.find_in_file.show_replace}
                         replace_text={stores.ui.find_in_file.replace_text}
+                        case_sensitive={stores.ui.find_in_file.case_sensitive}
+                        whole_word={stores.ui.find_in_file.whole_word}
                         on_query_change={(query: string) =>
                           void action_registry.execute(
                             ACTION_IDS.find_in_file_set_query,
@@ -1024,6 +1026,14 @@
                         on_toggle_replace={() =>
                           void action_registry.execute(
                             ACTION_IDS.find_in_file_toggle_replace,
+                          )}
+                        on_toggle_case={() =>
+                          void action_registry.execute(
+                            ACTION_IDS.find_in_file_toggle_case,
+                          )}
+                        on_toggle_whole_word={() =>
+                          void action_registry.execute(
+                            ACTION_IDS.find_in_file_toggle_whole_word,
                           )}
                         on_replace_text_change={(text: string) =>
                           void action_registry.execute(
