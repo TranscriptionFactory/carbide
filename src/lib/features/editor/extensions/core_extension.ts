@@ -13,6 +13,7 @@ import {
   liftListItem,
   sinkListItem,
 } from "prosemirror-schema-list";
+import { undoInputRule } from "prosemirror-inputrules";
 import { dropCursor } from "prosemirror-dropcursor";
 import { gapCursor } from "prosemirror-gapcursor";
 import { schema } from "../adapters/markdown_pipeline";
@@ -213,6 +214,7 @@ export function create_core_extension(ctx: PluginContext): EditorExtension {
     );
   }
 
+  plugins.push(keymap({ Backspace: undoInputRule }));
   plugins.push(keymap(baseKeymap));
   plugins.push(use_yjs ? yUndoPlugin() : history());
   plugins.push(dropCursor());
