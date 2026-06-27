@@ -17,6 +17,10 @@ import {
   note_embed_plugin_key,
 } from "../adapters/note_embed_plugin";
 import { create_note_embed_view_plugin } from "../adapters/note_embed_view_plugin";
+import {
+  create_html_embed_plugin,
+  html_embed_plugin_key,
+} from "../adapters/html_embed_input_plugin";
 import { as_asset_path } from "$lib/shared/types/ids";
 import type { EditorExtension, PluginContext } from "./types";
 
@@ -28,6 +32,7 @@ export function create_embed_extension(ctx: PluginContext): EditorExtension {
   };
 
   plugins.push(create_excalidraw_embed_plugin());
+  plugins.push(create_html_embed_plugin());
 
   const embed_callbacks: ExcalidrawEmbedCallbacks = {
     on_open_file: open_document,
@@ -88,4 +93,5 @@ export {
   excalidraw_embed_plugin_key,
   file_embed_plugin_key,
   note_embed_plugin_key,
+  html_embed_plugin_key,
 };
