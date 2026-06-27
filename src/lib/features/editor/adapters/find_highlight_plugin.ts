@@ -1,18 +1,26 @@
 import { Plugin, PluginKey } from "prosemirror-state";
 import { Decoration, DecorationSet } from "prosemirror-view";
 import type { Node as ProseNode } from "prosemirror-model";
+import {
+  DEFAULT_FIND_OPTIONS,
+  type FindMatchRange,
+  type FindOptions,
+} from "$lib/features/editor/domain/find_types";
+import { find_literal_matches_in_doc } from "$lib/features/editor/domain/find_literal_matcher";
 
 type FindHighlightMeta = {
   query: string;
   selected_index: number;
+  options?: FindOptions;
 };
 
-type MatchPosition = { from: number; to: number };
+type MatchPosition = FindMatchRange;
 
 type FindHighlightState = {
   decorations: DecorationSet;
   query: string;
   selected_index: number;
+  options: FindOptions;
   match_positions: MatchPosition[];
 };
 
@@ -22,28 +30,6 @@ function is_find_highlight_meta(value: unknown): value is FindHighlightMeta {
   return (
     typeof obj.query === "string" && typeof obj.selected_index === "number"
   );
-}
-
-function escape_regex(str: string): string {
-  return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
-function find_text_matches(doc: ProseNode, query: string): MatchPosition[] {
-  const matches: MatchPosition[] = [];
-  const pattern = new RegExp(escape_regex(query), "gi");
-
-  doc.descendants((node, pos) => {
-    if (!node.isText || !node.text) return;
-    let match: RegExpExecArray | null = null;
-    while ((match = pattern.exec(node.text)) !== null) {
-      matches.push({
-        from: pos + match.index,
-        to: pos + match.index + match[0].length,
-      });
-    }
-  });
-
-  return matches;
 }
 
 function build_decorations(
@@ -76,6 +62,7 @@ export function create_find_highlight_prose_plugin(): Plugin<FindHighlightState>
           decorations: DecorationSet.empty,
           query: "",
           selected_index: 0,
+          options: DEFAULT_FIND_OPTIONS,
           match_positions: [],
         };
       },
@@ -84,32 +71,45 @@ export function create_find_highlight_prose_plugin(): Plugin<FindHighlightState>
 
         if (is_find_highlight_meta(meta)) {
           const { query, selected_index } = meta;
+          const options = meta.options ?? plugin_state.options;
 
           if (!query) {
             return {
               decorations: DecorationSet.empty,
               query: "",
               selected_index: 0,
+              options,
               match_positions: [],
             };
           }
 
-          const match_positions = find_text_matches(new_state.doc, query);
+          const match_positions = find_literal_matches_in_doc(
+            new_state.doc,
+            query,
+            options,
+          );
           const decorations = build_decorations(
             new_state.doc,
             match_positions,
             selected_index,
           );
 
-          return { decorations, query, selected_index, match_positions };
+          return {
+            decorations,
+            query,
+            selected_index,
+            options,
+            match_positions,
+          };
         }
 
         if (!plugin_state.query) return plugin_state;
 
         if (tr.docChanged) {
-          const match_positions = find_text_matches(
+          const match_positions = find_literal_matches_in_doc(
             new_state.doc,
             plugin_state.query,
+            plugin_state.options,
           );
           const decorations = build_decorations(
             new_state.doc,

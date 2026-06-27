@@ -1,0 +1,151 @@
+/* ============================================================================
+   MOTION UTILITIES
+   Ported/adapted from OpenKnowledge (packages/app/src/globals.css). Two pieces:
+
+   1. Scroll-driven edge fade-mask — fades the top/bottom (or left/right) edge of
+      a scroll container only when there is content scrolled out of view. Pure
+      CSS, no JS, no theme tokens (mask alpha only), so it drops in unchanged.
+
+   2. A reduced-motion baseline. Carbide previously shipped no
+      `prefers-reduced-motion` handling at all; this is the standard a11y reset.
+      It is intentionally global — scope it down if a specific animation must
+      survive the user's OS "reduce motion" preference.
+
+   Browser support: scroll-driven animations require a Chromium-115+/Safari-26-
+   class webview. Older webviews (e.g. some WebKitGTK builds on Linux) skip the
+   @supports block and get the always-on static fade — graceful, no regression.
+   ============================================================================ */
+
+@property --scroll-fade-top {
+  syntax: "<number>";
+  initial-value: 1;
+  inherits: false;
+}
+@property --scroll-fade-bottom {
+  syntax: "<number>";
+  initial-value: 1;
+  inherits: false;
+}
+@property --scroll-fade-left {
+  syntax: "<number>";
+  initial-value: 1;
+  inherits: false;
+}
+@property --scroll-fade-right {
+  syntax: "<number>";
+  initial-value: 1;
+  inherits: false;
+}
+
+@keyframes scroll-fade-top-in {
+  from {
+    --scroll-fade-top: 1;
+  }
+
+  to {
+    --scroll-fade-top: 0;
+  }
+}
+@keyframes scroll-fade-bottom-out {
+  from {
+    --scroll-fade-bottom: 0;
+  }
+
+  to {
+    --scroll-fade-bottom: 1;
+  }
+}
+@keyframes scroll-fade-left-in {
+  from {
+    --scroll-fade-left: 1;
+  }
+
+  to {
+    --scroll-fade-left: 0;
+  }
+}
+@keyframes scroll-fade-right-out {
+  from {
+    --scroll-fade-right: 0;
+  }
+
+  to {
+    --scroll-fade-right: 1;
+  }
+}
+
+/* Fallback: always-on static fade (no scroll-driven support). */
+.scroll-fade-mask {
+  mask-image: linear-gradient(
+    to bottom,
+    transparent 0,
+    black 1rem,
+    black calc(100% - 1rem),
+    transparent 100%
+  );
+}
+
+.scroll-fade-mask-x {
+  mask-image: linear-gradient(
+    to right,
+    transparent 0,
+    black 1rem,
+    black calc(100% - 1rem),
+    transparent 100%
+  );
+}
+
+@supports (animation-timeline: scroll(self)) {
+  .scroll-fade-mask {
+    mask-image: linear-gradient(
+      to bottom,
+      rgb(0 0 0 / var(--scroll-fade-top)) 0,
+      black 1rem,
+      black calc(100% - 1rem),
+      rgb(0 0 0 / var(--scroll-fade-bottom)) 100%
+    );
+    animation-name: scroll-fade-top-in, scroll-fade-bottom-out;
+    animation-duration: auto;
+    animation-timing-function: linear;
+    animation-fill-mode: both;
+    animation-timeline: scroll(self);
+    animation-range:
+      0 1rem,
+      calc(100% - 1rem) 100%;
+  }
+
+  .scroll-fade-mask-x {
+    mask-image: linear-gradient(
+      to right,
+      rgb(0 0 0 / var(--scroll-fade-left)) 0,
+      black 1rem,
+      black calc(100% - 1rem),
+      rgb(0 0 0 / var(--scroll-fade-right)) 100%
+    );
+    animation-name: scroll-fade-left-in, scroll-fade-right-out;
+    animation-duration: auto;
+    animation-timing-function: linear;
+    animation-fill-mode: both;
+    animation-timeline: scroll(self inline);
+    animation-range:
+      0 1rem,
+      calc(100% - 1rem) 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  /* Keep the fade as a static mask rather than a scroll-driven animation. */
+  .scroll-fade-mask,
+  .scroll-fade-mask-x {
+    animation: none !important;
+  }
+}

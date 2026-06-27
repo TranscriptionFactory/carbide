@@ -12,11 +12,15 @@
     selected_match_index: number;
     show_replace: boolean;
     replace_text: string;
+    case_sensitive: boolean;
+    whole_word: boolean;
     on_query_change: (query: string) => void;
     on_next: () => void;
     on_prev: () => void;
     on_close: () => void;
     on_toggle_replace: () => void;
+    on_toggle_case: () => void;
+    on_toggle_whole_word: () => void;
     on_replace_text_change: (text: string) => void;
     on_replace_one: () => void;
     on_replace_all: () => void;
@@ -29,11 +33,15 @@
     selected_match_index,
     show_replace,
     replace_text,
+    case_sensitive,
+    whole_word,
     on_query_change,
     on_next,
     on_prev,
     on_close,
     on_toggle_replace,
+    on_toggle_case,
+    on_toggle_whole_word,
     on_replace_text_change,
     on_replace_one,
     on_replace_all,
@@ -111,6 +119,24 @@
       {#if count_display}
         <span class="FindInFileBar__count">{count_display}</span>
       {/if}
+      <button
+        class="FindInFileBar__option"
+        class:FindInFileBar__option--active={case_sensitive}
+        onclick={on_toggle_case}
+        aria-pressed={case_sensitive}
+        title="Match case"
+      >
+        Aa
+      </button>
+      <button
+        class="FindInFileBar__option"
+        class:FindInFileBar__option--active={whole_word}
+        onclick={on_toggle_whole_word}
+        aria-pressed={whole_word}
+        title="Whole word"
+      >
+        Ab|
+      </button>
       <button
         class="FindInFileBar__nav"
         onclick={on_prev}
@@ -230,6 +256,33 @@
   .FindInFileBar__nav:disabled {
     opacity: 0.3;
     cursor: default;
+  }
+
+  .FindInFileBar__option {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: var(--size-touch-sm);
+    padding: var(--space-1) var(--space-1-5);
+    font-size: var(--text-xs);
+    font-weight: var(--font-weight-medium);
+    border-radius: var(--radius-sm);
+    color: var(--muted-foreground);
+    background: transparent;
+    white-space: nowrap;
+    transition:
+      color var(--duration-fast) var(--ease-default),
+      background-color var(--duration-fast) var(--ease-default);
+  }
+
+  .FindInFileBar__option:hover {
+    color: var(--foreground);
+    background-color: var(--accent);
+  }
+
+  .FindInFileBar__option--active {
+    color: var(--accent-foreground);
+    background-color: var(--accent);
   }
 
   .FindInFileBar__action {

@@ -209,6 +209,8 @@ export const ACTION_IDS = {
   find_in_file_set_replace_text: "find_in_file.set_replace_text",
   find_in_file_replace_one: "find_in_file.replace_one",
   find_in_file_replace_all: "find_in_file.replace_all",
+  find_in_file_toggle_case: "find_in_file.toggle_case",
+  find_in_file_toggle_whole_word: "find_in_file.toggle_whole_word",
 
   tab_close: "tab.close",
   tab_close_other: "tab.close_other",

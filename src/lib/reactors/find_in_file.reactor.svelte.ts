@@ -10,11 +10,13 @@ export function create_find_in_file_reactor(
 ): () => void {
   return $effect.root(() => {
     $effect(() => {
-      const { open, query, selected_match_index } = ui_store.find_in_file;
+      const { open, query, selected_match_index, case_sensitive, whole_word } =
+        ui_store.find_in_file;
       const _session_rev = editor_store.session_revision;
+      const options = { case_sensitive, whole_word };
 
       if (!open || !query) {
-        editor_service.update_find_state("", 0);
+        editor_service.update_find_state("", 0, options);
         search_store.set_find_match_count(0);
         return;
       }
@@ -22,6 +24,7 @@ export function create_find_in_file_reactor(
       const count = editor_service.update_find_state(
         query,
         selected_match_index,
+        options,
       );
       search_store.set_find_match_count(count);
     });

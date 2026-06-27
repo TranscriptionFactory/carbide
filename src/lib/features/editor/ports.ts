@@ -12,6 +12,12 @@ import type {
 } from "$lib/features/editor/adapters/at_palette_types";
 import type { ToolbarVisibility } from "$lib/shared/types/editor_settings";
 import type { Diagnostic } from "$lib/features/diagnostics";
+import type { FindOptions } from "$lib/features/editor/domain/find_types";
+
+export type FindReplaceResult = {
+  match_count: number;
+  selected_index: number;
+};
 
 export type WikiQueryEvent =
   | { kind: "note"; query: string }
@@ -68,9 +74,16 @@ export type EditorSession = {
   open_buffer: (config: BufferConfig) => void;
   rename_buffer: (old_note_path: string, new_note_path: string) => void;
   close_buffer: (note_path: string) => void;
-  update_find_state?: (query: string, selected_index: number) => number;
-  replace_at_match?: (match_index: number, replacement: string) => void;
-  replace_all_matches?: (replacement: string) => void;
+  update_find_state?: (
+    query: string,
+    selected_index: number,
+    options: FindOptions,
+  ) => number;
+  replace_at_match?: (
+    match_index: number,
+    replacement: string,
+  ) => FindReplaceResult;
+  replace_all_matches?: (replacement: string) => FindReplaceResult;
   scroll_to_position?: (pos: number) => void;
   get_cursor_markdown_offset?: () => number;
   set_cursor_from_markdown_offset?: (offset: number) => void;
