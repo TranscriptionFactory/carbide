@@ -17,6 +17,12 @@ import {
   ZoomOut,
 } from "lucide-static";
 import { find_language_label, search_languages } from "./language_registry";
+import {
+  is_previewable_language,
+  meta_has_token,
+  build_code_preview_srcdoc,
+  CODE_PREVIEW_SANDBOX,
+} from "./code_preview";
 import { LruCache } from "$lib/shared/utils/lru_cache";
 import { schema } from "./schema";
 import { create_logger } from "$lib/shared/utils/logger";
@@ -204,6 +210,14 @@ type SmartBlockState = {
   last_rendered_content: string;
 };
 
+type HtmlPreviewState = {
+  is_preview: boolean;
+  container: HTMLElement;
+  iframe: HTMLIFrameElement;
+  toggle_btn: HTMLButtonElement;
+  last_rendered_content: string;
+};
+
 function mermaid_cache_key(code: string): string {
   const theme =
     document.documentElement.getAttribute("data-color-scheme") === "dark"
@@ -367,6 +381,8 @@ class CodeBlockView implements NodeView {
   private picker_el: HTMLElement | null = null;
   private backdrop_el: HTMLElement | null = null;
   private mermaid: MermaidState | null = null;
+  private html_preview: HtmlPreviewState | null = null;
+  private preview_timer: ReturnType<typeof setTimeout> | undefined;
   private smart_block: SmartBlockState | null = null;
   private smart_block_observer: IntersectionObserver | null = null;
   private pending_handler: SmartBlockHandler | null = null;
@@ -467,6 +483,8 @@ class CodeBlockView implements NodeView {
     } else {
       const handler = this.smart_blocks?.registry.get(this.current_language);
       if (handler) this.setup_smart_block(handler);
+      else if (is_previewable_language(this.current_language))
+        this.setup_html_preview();
     }
   }
 
@@ -489,6 +507,96 @@ class CodeBlockView implements NodeView {
       height,
     });
     this.view.dispatch(tr);
+  }
+
+  private setup_html_preview() {
+    const container = document.createElement("div");
+    container.className = "code-block-preview";
+    container.contentEditable = "false";
+
+    const iframe = document.createElement("iframe");
+    iframe.className = "code-block-preview-frame";
+    iframe.setAttribute("sandbox", CODE_PREVIEW_SANDBOX);
+    iframe.setAttribute("referrerpolicy", "no-referrer");
+    iframe.setAttribute("loading", "lazy");
+    iframe.title = "Code preview";
+    container.appendChild(iframe);
+
+    const toggle_btn = document.createElement("button");
+    toggle_btn.className = "code-block-preview-toggle";
+    toggle_btn.type = "button";
+    toggle_btn.textContent = "Preview";
+    toggle_btn.addEventListener("mousedown", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      this.toggle_html_preview();
+    });
+
+    const copy_btn = this.toolbar.lastChild;
+    this.toolbar.insertBefore(toggle_btn, copy_btn);
+    this.dom.appendChild(container);
+
+    const show = meta_has_token(
+      (this.node.attrs["meta"] as string) ?? "",
+      "preview",
+    );
+
+    this.html_preview = {
+      is_preview: show,
+      container,
+      iframe,
+      toggle_btn,
+      last_rendered_content: "",
+    };
+    this.apply_html_preview_state();
+    if (show) this.render_html_preview();
+  }
+
+  private apply_html_preview_state() {
+    if (!this.html_preview) return;
+    const on = this.html_preview.is_preview;
+    this.html_preview.container.style.display = on ? "" : "none";
+    this.html_preview.toggle_btn.classList.toggle(
+      "code-block-preview-toggle--active",
+      on,
+    );
+  }
+
+  private toggle_html_preview() {
+    if (!this.html_preview) return;
+    this.html_preview.is_preview = !this.html_preview.is_preview;
+    this.apply_html_preview_state();
+    if (this.html_preview.is_preview) this.render_html_preview();
+  }
+
+  private schedule_preview_render() {
+    clearTimeout(this.preview_timer);
+    this.preview_timer = setTimeout(() => {
+      this.render_html_preview();
+    }, 250);
+  }
+
+  private render_html_preview() {
+    if (!this.html_preview) return;
+    const source = this.node.textContent;
+    this.html_preview.last_rendered_content = source;
+    const theme =
+      document.documentElement.getAttribute("data-color-scheme") === "dark"
+        ? "dark"
+        : "light";
+    this.html_preview.iframe.srcdoc = build_code_preview_srcdoc(
+      this.current_language,
+      source,
+      theme,
+    );
+  }
+
+  private teardown_html_preview() {
+    if (!this.html_preview) return;
+    clearTimeout(this.preview_timer);
+    this.html_preview.toggle_btn.remove();
+    this.html_preview.container.remove();
+    this.html_preview = null;
   }
 
   private setup_mermaid() {
@@ -989,6 +1097,7 @@ class CodeBlockView implements NodeView {
       this.lang_label.textContent = find_language_label(new_lang);
 
       this.teardown_smart_block();
+      this.teardown_html_preview();
 
       if (new_lang === "mermaid") {
         if (old_lang !== "mermaid") this.setup_mermaid();
@@ -996,6 +1105,7 @@ class CodeBlockView implements NodeView {
         if (old_lang === "mermaid") this.teardown_mermaid();
         const handler = this.smart_blocks?.registry.get(new_lang);
         if (handler) this.setup_smart_block(handler);
+        else if (is_previewable_language(new_lang)) this.setup_html_preview();
       }
     }
 
@@ -1019,6 +1129,14 @@ class CodeBlockView implements NodeView {
       }
     }
 
+    if (this.html_preview?.is_preview) {
+      const new_content = updated.textContent;
+      if (new_content !== this.html_preview.last_rendered_content) {
+        this.html_preview.last_rendered_content = new_content;
+        this.schedule_preview_render();
+      }
+    }
+
     return true;
   }
 
@@ -1030,14 +1148,16 @@ class CodeBlockView implements NodeView {
       event.target.closest(".code-block-collapse") !== null ||
       event.target.closest(".code-block-resize-handle") !== null ||
       this.smart_block?.instance.dom.contains(event.target) === true ||
-      event.target.closest(".mermaid-preview") !== null
+      event.target.closest(".mermaid-preview") !== null ||
+      event.target.closest(".code-block-preview") !== null
     );
   }
 
   ignoreMutation(mutation: ViewMutationRecord): boolean {
     if (
       this.smart_block?.instance.dom.contains(mutation.target) ||
-      this.mermaid?.preview_container.contains(mutation.target)
+      this.mermaid?.preview_container.contains(mutation.target) ||
+      this.html_preview?.container.contains(mutation.target)
     ) {
       return true;
     }
@@ -1052,6 +1172,7 @@ class CodeBlockView implements NodeView {
     if (this.mermaid) {
       clearTimeout(this.mermaid.render_timer);
     }
+    clearTimeout(this.preview_timer);
     this.teardown_smart_block();
   }
 }
