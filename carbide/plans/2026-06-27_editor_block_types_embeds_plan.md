@@ -2,14 +2,23 @@
 
 ## Status
 
-**Deferred.** This is item **#3** of the open-knowledge → Carbide editor port. Item **#4
-(capability upgrades)** shipped on branch `feat/editor-capability-upgrades`
-(2026-06-27): case-sensitive / whole-word find with post-replace cursor advance, stronger
-paste-is-markdown detection + clipboard-source fingerprinting, and a frontend wiki-link
-resolution fallback. #3 was split out at sign-off so #4 could land independently.
+**Implemented (2026-06-27)** on branch `feat/editor-capability-upgrades`, following the
+build sequence below. This is item **#3** of the open-knowledge → Carbide editor port;
+item **#4 (capability upgrades)** shipped earlier the same day.
+
+Commits:
+
+- `feat(editor): carry code-block fence meta through markdown round-trip` (3a meta attr)
+- `feat(editor): web_embed + video nodes with lossless HTML round-trip` (3b serialization)
+- `feat(editor): live HTML/CSS/JS preview pane for code blocks` (3a preview)
+- `feat(editor): in-editor conversion of typed/pasted iframe & video blocks` (3b authoring)
+
+Deferred polish: 8-point resize handles on the embed/video NodeView (nodes already render
+via schema `toDOM`; `<video>` exposes native controls, so step 3's "renders / controls"
+gate is met — only drag-resize remains).
 
 This document preserves the **serialization decision** agreed during #4 planning so it is
-not lost, and sketches the build sequence for when #3 is picked up.
+not lost, and records the as-built build sequence.
 
 ## Scope
 
@@ -32,16 +41,24 @@ New external-media nodes (**Embed iframe / Video**) serialize via **native HTML 
 Rationale: keeps the on-disk markdown portable and renderer-agnostic (any markdown viewer
 shows the raw HTML), and avoids inventing bespoke directive syntax.
 
-Consequences for implementation:
+Consequences for implementation (as built):
 
-- **`mdast_to_pm.ts` currently drops `html`.** As of 2026-06-27 the converter has
-  `case "html": return null;` (in `src/lib/features/editor/adapters/mdast_to_pm.ts`, the
-  `html` branch of the node switch). #3 must replace that with logic that recognizes
-  `<iframe>` / `<video>` HTML and produces the corresponding PM nodes.
-- **Add a remark plugin mirroring `remark_wiki_embed`** (see
-  `src/lib/features/editor/adapters/remark_plugins/remark_wiki_embed.ts`, ~1.4K) to handle
-  the embed HTML on the parse side, and a `pm_to_mdast.ts` path that emits `html` nodes on
-  the write side. `remark-stringify` passes `html` nodes through verbatim.
+- **`mdast_to_pm.ts` `html` handling.** The `case "html": return null;` branch is kept for
+  unrecognized HTML; recognized embeds are handled via dedicated `embed`/`video` mdast
+  nodes (see next point), so `mdast_to_pm` gained `case "embed"` / `case "video"` rather
+  than parsing HTML strings inline.
+- **`remark_html_embed` mirrors `remark_wiki_embed`.** Implemented at
+  `src/lib/features/editor/adapters/remark_plugins/remark_html_embed.ts`. Empirically,
+  remark-parse emits **two different shapes**: `<iframe>` is a CommonMark block tag → a
+  single block `html` node, while `<video>` is **not** a block tag → a paragraph wrapping
+  inline `html` nodes. The plugin catches *both* shapes and emits `embed`/`video` mdast
+  nodes. (A separate parse plugin was strictly required only for `<video>`; `<iframe>`
+  alone could have been read directly, but one plugin handling both is simpler.)
+- **Write side emits plain `html` nodes** in `pm_to_mdast.ts` via
+  `serialize_web_embed` / `serialize_video` (`html_embed.ts`); `remark-stringify` passes
+  them through verbatim, so **no custom stringify handler** was needed. Serialization omits
+  empty/default attributes and uses a fixed attribute order, so round-trips are
+  byte-stable for canonical input and semantics-stable otherwise (order normalizes).
 - **No standalone Audio node.** Vault-local audio is already covered by `file_embed`'s
   `![[clip.mp3]]` wiki-embed syntax. Do not add an Audio block type.
 
@@ -58,18 +75,26 @@ The preview UI itself (rendering HTML/CSS/JS output) builds on the existing code
 plugin (`code_block_view_plugin.ts`) — gate the preview affordance on `language ∈
 {html, css, js}` and/or a `meta` flag.
 
-## Build sequence (when picked up)
+## Build sequence (as built)
 
-Follow `docs/architecture.md` decision tree first.
+Followed `docs/architecture.md` decision tree (these are editor adapter-layer changes:
+schema, mdast converters, remark plugins, and a NodeView/`appendTransaction` plugin).
 
-1. **3a meta attr** → verify: `code.meta` survives a markdown → PM → markdown round-trip
-   (add `pm_to_mdast` / `mdast_to_pm` test).
-2. **3a preview** → verify: an `html`/`css`/`js` code block renders a live preview pane;
-   toggling preview does not corrupt source.
-3. **3b Embed/Video schema + views** → verify: node renders; resize/controls behave.
-4. **3b serialization** (the decision above): remark plugin + `mdast_to_pm` `html` handling
-   + `pm_to_mdast` `html` emission → verify: `<iframe>`/`<video>` round-trips losslessly
-   through disk markdown.
+1. **3a meta attr** ✅ — `code_block` gained a `meta` attr (schema + both converters).
+   Verified by `tests/unit/adapters/code_block_meta_roundtrip.test.ts` (info string after
+   the language survives markdown → PM → markdown).
+2. **3a preview** ✅ — `code_preview.ts` (pure gating + sandboxed srcdoc builder) +
+   `setup_html_preview()` in `code_block_view_plugin.ts`. Toggle seeded from the `preview`
+   meta token; `sandbox=allow-scripts`, strict CSP. Verified by
+   `tests/unit/adapters/code_preview.test.ts`.
+3. **3b Embed/Video schema + authoring** ✅ (resize handles deferred) — `web_embed` +
+   `video` atom nodes in `schema.ts` with sandboxed, functional `toDOM`;
+   `html_embed_input_plugin.ts` converts typed/pasted iframe/video paragraphs in-editor.
+   Verified by `tests/unit/adapters/html_embed_input_plugin.test.ts`.
+4. **3b serialization** ✅ — `remark_html_embed` + `html_embed.ts` +
+   `mdast_to_pm`/`pm_to_mdast` wiring. Verified by
+   `tests/unit/adapters/html_embed_roundtrip.test.ts` (lossless `<iframe>`/`<video>`
+   round-trip through disk markdown).
 
 ## Source references
 
