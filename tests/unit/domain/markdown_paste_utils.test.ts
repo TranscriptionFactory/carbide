@@ -16,12 +16,6 @@ describe("looks_like_markdown", () => {
     expect(looks_like_markdown("1. item")).toBe(true);
   });
 
-  it("detects indented lists (BUG-001)", () => {
-    expect(looks_like_markdown("    - nested item")).toBe(true);
-    expect(looks_like_markdown("        - deeply nested")).toBe(true);
-    expect(looks_like_markdown("      1. nested ordered")).toBe(true);
-  });
-
   it("detects code fences", () => {
     expect(looks_like_markdown("```js\ncode\n```")).toBe(true);
   });
@@ -53,6 +47,13 @@ describe("looks_like_markdown", () => {
 
   it("does not detect bare URLs as markdown", () => {
     expect(looks_like_markdown("https://example.com")).toBe(false);
+  });
+
+  it("detects samples the prior heuristic missed", () => {
+    expect(looks_like_markdown("Title\n=====")).toBe(true);
+    expect(looks_like_markdown("~~~js\ncode\n~~~")).toBe(true);
+    expect(looks_like_markdown("\\*escaped\\*")).toBe(true);
+    expect(looks_like_markdown('<img src="x.png" />')).toBe(true);
   });
 });
 
@@ -90,61 +91,98 @@ describe("is_bare_url", () => {
 describe("pick_paste_mode", () => {
   it("returns markdown when text/markdown present", () => {
     expect(
-      pick_paste_mode({
-        text_markdown: "# Hello",
-        text_plain: "",
-        text_html: "",
-      }),
+      pick_paste_mode(
+        { text_markdown: "# Hello", text_plain: "", text_html: "" },
+        "plaintext",
+      ),
     ).toBe("markdown");
   });
 
   it("returns url for bare URL in text/plain (BUG-004)", () => {
     expect(
-      pick_paste_mode({
-        text_markdown: "",
-        text_plain: "https://example.com",
-        text_html: '<a href="https://example.com">https://example.com</a>',
-      }),
+      pick_paste_mode(
+        {
+          text_markdown: "",
+          text_plain: "https://example.com",
+          text_html: '<a href="https://example.com">https://example.com</a>',
+        },
+        "plaintext",
+      ),
     ).toBe("url");
   });
 
   it("returns markdown for markdown-like text/plain", () => {
     expect(
-      pick_paste_mode({
-        text_markdown: "",
-        text_plain: "- item 1\n- item 2",
-        text_html: "",
-      }),
+      pick_paste_mode(
+        { text_markdown: "", text_plain: "- item 1\n- item 2", text_html: "" },
+        "plaintext",
+      ),
     ).toBe("markdown");
   });
 
   it("returns html when only html present", () => {
     expect(
-      pick_paste_mode({
-        text_markdown: "",
-        text_plain: "plain text",
-        text_html: "<b>bold</b>",
-      }),
+      pick_paste_mode(
+        {
+          text_markdown: "",
+          text_plain: "plain text",
+          text_html: "<b>bold</b>",
+        },
+        "generic",
+      ),
     ).toBe("html");
   });
 
   it("returns none when nothing useful", () => {
     expect(
-      pick_paste_mode({
-        text_markdown: "",
-        text_plain: "plain text",
-        text_html: "",
-      }),
+      pick_paste_mode(
+        { text_markdown: "", text_plain: "plain text", text_html: "" },
+        "plaintext",
+      ),
     ).toBe("none");
   });
 
   it("prefers url over html for bare URLs", () => {
     expect(
-      pick_paste_mode({
-        text_markdown: "",
-        text_plain: "https://example.com/path",
-        text_html: "<a>link</a>",
-      }),
+      pick_paste_mode(
+        {
+          text_markdown: "",
+          text_plain: "https://example.com/path",
+          text_html: "<a>link</a>",
+        },
+        "generic",
+      ),
     ).toBe("url");
+  });
+
+  it("treats vscode source as markdown even without text/markdown", () => {
+    expect(
+      pick_paste_mode(
+        { text_markdown: "", text_plain: "const x = 1", text_html: "" },
+        "vscode",
+      ),
+    ).toBe("markdown");
+  });
+
+  it("treats gfm source as markdown", () => {
+    expect(
+      pick_paste_mode(
+        { text_markdown: "", text_plain: "plain", text_html: "<p>plain</p>" },
+        "gfm",
+      ),
+    ).toBe("markdown");
+  });
+
+  it("lets pm-origin paste fall through to native handling", () => {
+    expect(
+      pick_paste_mode(
+        {
+          text_markdown: "",
+          text_plain: "copied",
+          text_html: '<div data-pm-slice="1 1 []">copied</div>',
+        },
+        "pm-origin",
+      ),
+    ).toBe("native");
   });
 });

@@ -44,41 +44,45 @@ describe("looks_like_markdown", () => {
 describe("pick_paste_mode", () => {
   it("prefers text/markdown over html", () => {
     expect(
-      pick_paste_mode({
-        text_markdown: "# Title",
-        text_plain: "",
-        text_html: "<h1>Title</h1>",
-      }),
+      pick_paste_mode(
+        {
+          text_markdown: "# Title",
+          text_plain: "",
+          text_html: "<h1>Title</h1>",
+        },
+        "generic",
+      ),
     ).toBe("markdown");
   });
 
   it("uses markdown when plain text looks like markdown", () => {
     expect(
-      pick_paste_mode({
-        text_markdown: "",
-        text_plain: "- item",
-        text_html: "",
-      }),
+      pick_paste_mode(
+        { text_markdown: "", text_plain: "- item", text_html: "" },
+        "plaintext",
+      ),
     ).toBe("markdown");
   });
 
   it("falls back to html when no markdown is detected", () => {
     expect(
-      pick_paste_mode({
-        text_markdown: "",
-        text_plain: "Just text",
-        text_html: "<p>Just text</p>",
-      }),
+      pick_paste_mode(
+        {
+          text_markdown: "",
+          text_plain: "Just text",
+          text_html: "<p>Just text</p>",
+        },
+        "generic",
+      ),
     ).toBe("html");
   });
 
   it("returns none when clipboard is empty", () => {
     expect(
-      pick_paste_mode({
-        text_markdown: "",
-        text_plain: "",
-        text_html: "",
-      }),
+      pick_paste_mode(
+        { text_markdown: "", text_plain: "", text_html: "" },
+        "plaintext",
+      ),
     ).toBe("none");
   });
 });
