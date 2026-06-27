@@ -2,6 +2,7 @@ import { unified } from "unified";
 import remarkParse from "remark-parse";
 import remarkStringify from "remark-stringify";
 import type { Options as StringifyOptions } from "remark-stringify";
+import type { Info, State } from "mdast-util-to-markdown";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import remarkFrontmatter from "remark-frontmatter";
@@ -11,6 +12,7 @@ import { remark_details, details_to_markdown } from "./remark_details";
 import { remark_callout, callout_to_markdown } from "./remark_callout";
 import { remark_wiki_embed } from "./remark_wiki_embed";
 import { remark_task_doing } from "./remark_task_doing";
+import { safe_text } from "./text_escape";
 
 type StringifyState = {
   enter: (s: string) => () => void;
@@ -74,6 +76,12 @@ const stringify_options: StringifyOptions = {
     table: table_handler,
     wikiEmbed: wiki_embed_handler,
     doingCheckbox: () => "[-] ",
+    text: (
+      node: { value?: string },
+      _parent: unknown,
+      state: State,
+      info: Info,
+    ) => safe_text(state, node.value ?? "", info),
   } as unknown as StringifyOptions["handlers"],
 };
 
