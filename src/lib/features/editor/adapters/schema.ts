@@ -547,6 +547,100 @@ const file_embed: NodeSpec = {
   },
 };
 
+const web_embed: NodeSpec = {
+  group: "block",
+  atom: true,
+  selectable: true,
+  draggable: true,
+  marks: "",
+  attrs: {
+    src: { default: "" },
+    title: { default: "" },
+    width: { default: "" },
+    height: { default: "" },
+    align: { default: "center" },
+  },
+  parseDOM: [
+    {
+      tag: "iframe[src]",
+      getAttrs(dom) {
+        if (!(dom instanceof HTMLElement)) return false;
+        return {
+          src: dom.getAttribute("src") ?? "",
+          title: dom.getAttribute("title") ?? "",
+          width: dom.getAttribute("width") ?? "",
+          height: dom.getAttribute("height") ?? "",
+          align: dom.getAttribute("data-align") ?? "center",
+        };
+      },
+    },
+  ],
+  toDOM(node) {
+    const align = node.attrs["align"] as string;
+    const attrs: Record<string, string> = {
+      src: node.attrs["src"] as string,
+      sandbox:
+        "allow-scripts allow-same-origin allow-popups allow-forms allow-presentation",
+      loading: "lazy",
+      referrerpolicy: "strict-origin-when-cross-origin",
+    };
+    if (node.attrs["title"]) attrs["title"] = node.attrs["title"] as string;
+    if (node.attrs["width"]) attrs["width"] = node.attrs["width"] as string;
+    if (node.attrs["height"]) attrs["height"] = node.attrs["height"] as string;
+    if (align && align !== "center") attrs["data-align"] = align;
+    return ["iframe", attrs];
+  },
+};
+
+const video: NodeSpec = {
+  group: "block",
+  atom: true,
+  selectable: true,
+  draggable: true,
+  marks: "",
+  attrs: {
+    src: { default: "" },
+    poster: { default: "" },
+    width: { default: "" },
+    height: { default: "" },
+    controls: { default: true },
+    autoplay: { default: false },
+    loop: { default: false },
+    muted: { default: false },
+  },
+  parseDOM: [
+    {
+      tag: "video[src]",
+      getAttrs(dom) {
+        if (!(dom instanceof HTMLElement)) return false;
+        return {
+          src: dom.getAttribute("src") ?? "",
+          poster: dom.getAttribute("poster") ?? "",
+          width: dom.getAttribute("width") ?? "",
+          height: dom.getAttribute("height") ?? "",
+          controls: dom.hasAttribute("controls"),
+          autoplay: dom.hasAttribute("autoplay"),
+          loop: dom.hasAttribute("loop"),
+          muted: dom.hasAttribute("muted"),
+        };
+      },
+    },
+  ],
+  toDOM(node) {
+    const attrs: Record<string, string> = {
+      src: node.attrs["src"] as string,
+    };
+    if (node.attrs["poster"]) attrs["poster"] = node.attrs["poster"] as string;
+    if (node.attrs["width"]) attrs["width"] = node.attrs["width"] as string;
+    if (node.attrs["height"]) attrs["height"] = node.attrs["height"] as string;
+    if (node.attrs["controls"]) attrs["controls"] = "";
+    if (node.attrs["autoplay"]) attrs["autoplay"] = "";
+    if (node.attrs["loop"]) attrs["loop"] = "";
+    if (node.attrs["muted"]) attrs["muted"] = "";
+    return ["video", attrs];
+  },
+};
+
 const frontmatter: NodeSpec = {
   group: "block",
   content: "text*",
@@ -865,6 +959,8 @@ export const schema = new Schema({
     excalidraw_embed,
     note_embed,
     file_embed,
+    web_embed,
+    video,
     "image-block": image_block,
     image,
     hardbreak,

@@ -1,6 +1,7 @@
 import type { Node as PmNode, Mark } from "prosemirror-model";
 import type { Root, RootContent, PhrasingContent } from "mdast";
 import { serialize_embed_fragment } from "./file_embed_plugin";
+import { serialize_web_embed, serialize_video } from "./html_embed";
 
 type MdastNode = Record<string, unknown> & { type: string };
 
@@ -309,6 +310,35 @@ function convert_block_node(node: PmNode): MdastNode | MdastNode[] | null {
         node.attrs["params"] as Record<string, string> | undefined,
       );
       return { type: "wikiEmbed", value: `![[${src}${fragment}]]` };
+    }
+
+    case "web_embed": {
+      return {
+        type: "html",
+        value: serialize_web_embed({
+          src: (node.attrs["src"] as string) || "",
+          title: (node.attrs["title"] as string) || "",
+          width: (node.attrs["width"] as string) || "",
+          height: (node.attrs["height"] as string) || "",
+          align: (node.attrs["align"] as string) || "center",
+        }),
+      };
+    }
+
+    case "video": {
+      return {
+        type: "html",
+        value: serialize_video({
+          src: (node.attrs["src"] as string) || "",
+          poster: (node.attrs["poster"] as string) || "",
+          width: (node.attrs["width"] as string) || "",
+          height: (node.attrs["height"] as string) || "",
+          controls: Boolean(node.attrs["controls"]),
+          autoplay: Boolean(node.attrs["autoplay"]),
+          loop: Boolean(node.attrs["loop"]),
+          muted: Boolean(node.attrs["muted"]),
+        }),
+      };
     }
 
     case "image-block":

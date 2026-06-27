@@ -184,6 +184,29 @@ function convert_block(node: AnyMdastNode): PmNode | null {
       return convert_wiki_embed(node);
     }
 
+    case "embed": {
+      return schema.nodes.web_embed.create({
+        src: (node.url as string) || "",
+        title: (node.title as string) || "",
+        width: (node.width as string) || "",
+        height: (node.height as string) || "",
+        align: (node.align as string) || "center",
+      });
+    }
+
+    case "video": {
+      return schema.nodes.video.create({
+        src: (node.url as string) || "",
+        poster: (node.poster as string) || "",
+        width: (node.width as string) || "",
+        height: (node.height as string) || "",
+        controls: Boolean(node.controls),
+        autoplay: Boolean(node.autoplay),
+        loop: Boolean(node.loop),
+        muted: Boolean(node.muted),
+      });
+    }
+
     case "html": {
       return null;
     }

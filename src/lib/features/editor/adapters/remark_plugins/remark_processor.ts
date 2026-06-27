@@ -11,6 +11,7 @@ import { remark_highlight, highlight_to_markdown } from "./remark_highlight";
 import { remark_details, details_to_markdown } from "./remark_details";
 import { remark_callout, callout_to_markdown } from "./remark_callout";
 import { remark_wiki_embed } from "./remark_wiki_embed";
+import { remark_html_embed } from "./remark_html_embed";
 import { remark_task_doing } from "./remark_task_doing";
 import { safe_text } from "./text_escape";
 
@@ -95,7 +96,8 @@ export const parse_processor = unified()
   .use(remark_highlight)
   .use(remark_details)
   .use(remark_callout)
-  .use(remark_wiki_embed);
+  .use(remark_wiki_embed)
+  .use(remark_html_embed);
 
 export const fallback_parse_processor = unified()
   .use(remarkParse)
