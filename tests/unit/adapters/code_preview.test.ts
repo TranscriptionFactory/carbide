@@ -89,4 +89,32 @@ describe("preview srcdoc", () => {
     );
     expect(build_code_preview_srcdoc("html", "x", "light")).toContain("<html>");
   });
+
+  it("pins color-scheme to the active theme rather than light dark", () => {
+    expect(build_code_preview_srcdoc("html", "x", "light")).toContain(
+      "color-scheme:light",
+    );
+    expect(build_code_preview_srcdoc("html", "x", "dark")).toContain(
+      "color-scheme:dark",
+    );
+    expect(build_code_preview_srcdoc("html", "x", "light")).not.toContain(
+      "color-scheme: light dark",
+    );
+  });
+
+  it("forwards theme tokens into the preview :root", () => {
+    const doc = build_code_preview_srcdoc("html", "x", "light", {
+      "--foreground": "oklch(0.25 0.012 66)",
+      "--chart-1": "oklch(0.7 0.15 40)",
+    });
+    expect(doc).toContain("--foreground:oklch(0.25 0.012 66);");
+    expect(doc).toContain("--chart-1:oklch(0.7 0.15 40);");
+  });
+
+  it("drops token entries that could break out of the style block", () => {
+    const doc = build_code_preview_srcdoc("html", "x", "light", {
+      "--evil": "red}</style><script>alert(1)</script>",
+    });
+    expect(doc).not.toContain("alert(1)");
+  });
 });

@@ -21,6 +21,7 @@ import {
   is_previewable_language,
   meta_has_token,
   build_code_preview_srcdoc,
+  read_preview_theme_tokens,
   CODE_PREVIEW_SANDBOX,
 } from "./code_preview";
 import { LruCache } from "$lib/shared/utils/lru_cache";
@@ -588,6 +589,7 @@ class CodeBlockView implements NodeView {
       this.current_language,
       source,
       theme,
+      read_preview_theme_tokens(),
     );
   }
 

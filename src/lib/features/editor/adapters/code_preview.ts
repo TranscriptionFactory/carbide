@@ -41,10 +41,59 @@ const PREVIEW_CSP = [
 ].join("; ");
 
 const PREVIEW_BASE_STYLES = `
-:root { color-scheme: light dark; }
-body { margin: 0; padding: 12px 16px; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 14px; line-height: 1.55; color: var(--carbide-fg, #18181b); background: var(--carbide-bg, transparent); word-wrap: break-word; }
+body { margin: 0; padding: 12px 16px; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 14px; line-height: 1.55; color: var(--foreground, #18181b); background: var(--background, #ffffff); word-wrap: break-word; }
 img, video, canvas, svg { max-width: 100%; }
 `;
+
+export const PREVIEW_THEME_TOKENS = [
+  "--background",
+  "--foreground",
+  "--card",
+  "--card-foreground",
+  "--popover",
+  "--popover-foreground",
+  "--muted",
+  "--muted-foreground",
+  "--border",
+  "--input",
+  "--ring",
+  "--primary",
+  "--primary-foreground",
+  "--secondary",
+  "--secondary-foreground",
+  "--accent",
+  "--accent-foreground",
+  "--destructive",
+  "--destructive-foreground",
+  "--radius",
+  "--chart-1",
+  "--chart-2",
+  "--chart-3",
+  "--chart-4",
+  "--chart-5",
+];
+
+export function read_preview_theme_tokens(): Record<string, string> {
+  if (typeof document === "undefined") return {};
+  const computed = getComputedStyle(document.documentElement);
+  const tokens: Record<string, string> = {};
+  for (const name of PREVIEW_THEME_TOKENS) {
+    const value = computed.getPropertyValue(name).trim();
+    if (value) tokens[name] = value;
+  }
+  return tokens;
+}
+
+function render_root_block(
+  theme: "light" | "dark",
+  tokens: Record<string, string>,
+): string {
+  const decls = Object.entries(tokens)
+    .filter(([name, value]) => !/[<>{}]/.test(name + value))
+    .map(([name, value]) => `${name}:${value};`)
+    .join("");
+  return `:root{color-scheme:${theme};${decls}}`;
+}
 
 export const CODE_PREVIEW_SANDBOX = "allow-scripts";
 
@@ -63,8 +112,10 @@ export function build_code_preview_srcdoc(
   language: string,
   source: string,
   theme: "light" | "dark" = "light",
+  tokens: Record<string, string> = {},
 ): string {
   const body = wrap_preview_body(language, source);
   const dark_class = theme === "dark" ? ' class="dark"' : "";
-  return `<!DOCTYPE html><html${dark_class}><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="${PREVIEW_CSP}"><style>${PREVIEW_BASE_STYLES}</style></head><body>${body}</body></html>`;
+  const root_block = render_root_block(theme, tokens);
+  return `<!DOCTYPE html><html${dark_class}><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="${PREVIEW_CSP}"><style>${root_block}${PREVIEW_BASE_STYLES}</style></head><body>${body}</body></html>`;
 }
