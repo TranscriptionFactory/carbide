@@ -56,7 +56,7 @@ lazy_static = "1.5.0"
 candle-core = { version = "0.9", default-features = false }
 candle-nn = { version = "0.9", default-features = false }
 candle-transformers = { version = "0.9", default-features = false }
-hf-hub = { version = "0.5", features = ["tokio"] }
+hf-hub = { version = "0.5", default-features = false, features = ["tokio", "ureq", "rustls-tls"] }
 tokenizers = { version = "0.22", default-features = false, features = ["onig"] }
 fuzzy-matcher = "0.3"
 specta = { version = "=2.0.0-rc.22" }
