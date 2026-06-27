@@ -3,6 +3,7 @@ import { Slice } from "prosemirror-model";
 import type { Node } from "prosemirror-model";
 import type { EditorView } from "prosemirror-view";
 import { pick_paste_mode } from "./markdown_paste_utils";
+import { detect_clipboard_source } from "$lib/features/editor/domain/detect_clipboard_source";
 import { html_to_markdown } from "$lib/shared/html";
 
 function is_list_node(node: Node): boolean {
@@ -131,7 +132,13 @@ export function create_markdown_paste_prose_plugin(
         const text_plain = clipboardData.getData("text/plain");
         const text_html = clipboardData.getData("text/html");
 
-        const mode = pick_paste_mode({ text_markdown, text_plain, text_html });
+        const clipboard_source = detect_clipboard_source(clipboardData);
+        const mode = pick_paste_mode(
+          { text_markdown, text_plain, text_html },
+          clipboard_source,
+        );
+
+        if (mode === "native") return false;
 
         if (mode === "none") {
           if (!has_clipboard_files(clipboardData)) {
