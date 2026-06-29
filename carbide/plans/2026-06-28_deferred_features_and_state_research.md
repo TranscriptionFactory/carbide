@@ -12,7 +12,7 @@ The first batch (see the bug-reports-and-fix-plan doc) clears the six high-prior
 | 2 | **#5** Block add dropdown | Authoring | M | none (reuses slash registry) |
 | 3 | **#8** Ghost text placeholder | Authoring | S–M | none |
 | 4 | **#4** Nodeview resize consistency | Nodeviews | M | none |
-| 5 | **#6** Table port from OK | Tables | M–L (phased) | none |
+| 5 | **#6** Table restyle to OK look + edge insert bars (re-spec; porting framing superseded) | Tables | S–M | none |
 
 #5 and #8 share the slash-command architecture but touch different files (`block_drag_handle_plugin.ts` vs a new placeholder plugin) — parallel-safe. #7 must follow #1. #4 and #6 are independent of everything else.
 
@@ -82,7 +82,24 @@ The first batch (see the bug-reports-and-fix-plan doc) clears the six high-prior
 
 ---
 
-### #6 — Table formatting port from Open Knowledge — `Medium–Large` (phased)
+### #6 — Table restyle to the Open Knowledge look + edge insert bars — `S–M` — **SHIPPED (pass 1)**
+
+> **Re-spec note (2026-06-29):** The original "port OK's TipTap table extensions" framing below is **superseded**. The user narrowed the intent: **do not port anything from TipTap→ProseMirror.** The goal is purely (1) restyle Carbide's existing raw-ProseMirror tables to *look* like OK's (flat grid, clean header, soft selected-cell tint) and (2) move add/delete affordances to the table's edges. Full re-spec: `~/.claude/plans/peppy-sniffing-hearth.md`. Markdown column-width persistence is explicitly out of scope (markdown has no width concept).
+
+**Shipped this pass (branch `feat/table-ok-restyle`):**
+- **Part A — engine on.** `table_extension.ts` now registers `columnResizing()` + `tableEditing()` (order: resizing then editing) alongside the existing keymap + floating toolbar. Tables now render through prosemirror-tables' `TableView` → real `.tableWrapper`, genuine multi-cell selection, `.column-resize-handle`.
+- **Part B — flat-grid restyle.** `src/styles/editor.css`: `border-collapse: collapse`, outer radius/border dropped, scroll/`max-height` moved off `table` onto `.tableWrapper`, full `1px` cell borders + `position: relative`, non-uppercase `600`-weight header on `var(--muted)`, **stripes + row-hover removed**, `.selectedCell::after` accent tint, `.column-resize-handle` style. Retired dead tokens `--editor-table-header-bg` / `--editor-table-stripe`; kept `--editor-table-border`.
+- **Part C — edge `+` bars.** NEW `table_edge_controls_plugin.ts` (editor-relative overlay modeled on `block_drag_handle_plugin.ts`): right bar appends a column, bottom bar appends a row; hover-reveal, hide-on-leave. NEW `table_command_utils.ts` — `find_table_at(view, coords)`, `append_column(state, table)`, `append_row(state, table)`. **Design deviation from the re-spec:** instead of "place a CellSelection at the edge cell then run `addColumnAfter`", the helpers use prosemirror-tables' lower-level `addColumn`/`addRow(tr, rect, index)` with `index = map.width`/`map.height`. This produces a single transaction, is view-free, and is directly unit-testable — no selection juggling, no `select_cell_at` helper needed.
+- **Tests:** `tests/unit/adapters/table_command_utils.test.ts` (append grows map by exactly 1, doc stays valid, no `colwidth` leak); extended `table_serialization.test.ts` (byte-stable round-trip with the new plugins; edge-appended col/row serializes clean, no width markup). All `pnpm check`/`lint`/`test` green (4606 tests).
+
+**Verified-clean risk (from re-spec):** the floating toolbar's Fit/Full layout toggle vs `TableView` — `TableView` renders its own `<table>` and ignores `schema.table.toDOM`, so the `table-fixed-layout` class may not reach the rendered table once `columnResizing` is active. Not addressed this pass per the re-spec's "don't expand scope unless it visibly regresses"; folded into the follow-up.
+
+**Deferred follow-up (out of scope this pass):**
+- Per-row/column **pill handle menus** (insert-at-position, delete, toggle header, align) + **removal of the floating toolbar** — distribute its controls to the edges, fold the layout toggle into the column pill, extract shared command helpers (the toolbar's own `find_table_dom` stays untouched until then). Template: `image_context_menu_plugin.ts`.
+- Persisting column widths to markdown.
+- Frozen/sticky headers (the old step 3) — only if requested; needs editor scroll-container discovery.
+
+<details><summary>Original (superseded) porting plan</summary>
 
 OK is React/TipTap; Carbide is raw ProseMirror + Svelte. Each port translates a React component/extension into a ProseMirror plugin (+ Svelte-mounted DOM where a menu is needed). Recommended order = cheapest/highest-value first:
 
@@ -95,6 +112,8 @@ OK is React/TipTap; Carbide is raw ProseMirror + Svelte. Each port translates a 
 
 **Build note:** Steps 1 and 2 are independent and parallel-safe; do them first. Step 3 needs DOM scroll-container discovery (inspect the rendered editor). Step 4 is the most UI-heavy (Svelte menu lifecycle).
 **Verify:** round-trip a table with custom spacing → byte-stable markdown (step 1); edge bars insert row/col (step 2); header stays visible on vertical scroll (step 3); cell handle menu performs all ops incl. header toggle (step 4). Extend `table_serialization.test.ts`.
+
+</details>
 
 ---
 
