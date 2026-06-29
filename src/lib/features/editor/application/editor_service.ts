@@ -9,6 +9,7 @@ import type {
 import type { FindOptions } from "$lib/features/editor/domain/find_types";
 import type { CiteSuggestionItem } from "$lib/features/editor/adapters/cite_suggest_plugin";
 import type { AtPaletteItem } from "$lib/features/editor/adapters/at_palette_types";
+import { rank_note_suggestions } from "./rank_note_suggestions";
 import type { ToolbarVisibility } from "$lib/shared/types/editor_settings";
 import type { Diagnostic } from "$lib/features/diagnostics";
 import {
@@ -984,15 +985,17 @@ export class EditorService {
             (r) => r.kind === "planned" || r.note.file_type === null,
           )
         : result.results;
-      const items: AtPaletteItem[] = this.map_wiki_suggestions(filtered).map(
-        (r) => ({
-          category: "notes" as const,
-          title: r.title,
-          path: r.path,
-          kind: r.kind,
-          ref_count: r.ref_count,
-        }),
+      const ranked = rank_note_suggestions(
+        query,
+        this.map_wiki_suggestions(filtered),
       );
+      const items: AtPaletteItem[] = ranked.map((r) => ({
+        category: "notes" as const,
+        title: r.title,
+        path: r.path,
+        kind: r.kind,
+        ref_count: r.ref_count,
+      }));
       this.session?.set_at_palette_suggestions?.("notes", items);
     });
   }
