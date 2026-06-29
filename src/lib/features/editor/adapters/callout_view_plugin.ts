@@ -73,6 +73,9 @@ class CalloutBlockView implements NodeView {
     if (folded) this.dom.classList.add("callout-block--folded");
     this.dom.dataset["callout"] = "";
     this.dom.dataset["calloutType"] = canonical;
+    this.dom.dataset["foldable"] = String(foldable);
+    this.dom.dataset["defaultFolded"] = String(node.attrs["default_folded"]);
+    this.dom.dataset["folded"] = String(folded);
 
     const header = document.createElement("div");
     header.className = "callout-block__header";
@@ -122,6 +125,7 @@ class CalloutBlockView implements NodeView {
       this.dom.classList.add("callout-block--folded");
     }
     this.dom.dataset["calloutType"] = canonical;
+    this.dom.dataset["folded"] = String(updated.attrs["folded"]);
     this.icon_el.innerHTML = icon_svg(get_icon_for_type(callout_type));
     return true;
   }

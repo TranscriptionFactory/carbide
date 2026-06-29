@@ -392,6 +392,7 @@ const callout: NodeSpec = {
           callout_type: dom.dataset["calloutType"] || "note",
           foldable: dom.dataset["foldable"] === "true",
           default_folded: dom.dataset["defaultFolded"] === "true",
+          folded: dom.dataset["folded"] === "true",
         };
       },
     },
@@ -404,6 +405,7 @@ const callout: NodeSpec = {
         "data-callout-type": node.attrs["callout_type"] as string,
         "data-foldable": String(node.attrs["foldable"]),
         "data-default-folded": String(node.attrs["default_folded"]),
+        "data-folded": String(node.attrs["folded"]),
         class: `callout-block callout-block--${node.attrs["callout_type"] as string}`,
       },
       0,
