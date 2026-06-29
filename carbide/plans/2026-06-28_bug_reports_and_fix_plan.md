@@ -55,6 +55,12 @@
 
 ## 4. Staged First Batch — Concrete Steps
 
+> **STATUS — Part 1 complete (2026-06-28).** All six top bugs (#1, #2, #3, #11, #12, #14) implemented, unit-tested, and committed on `fix/triage-batch-1` (one commit each). Full suite green: 423 files / 4600 tests, `pnpm check` 0 errors. Deviations from the plan's assumptions, surfaced during implementation, are noted inline below.
+> - **#11** root cause was **backend**, not the frontend filter: `scan_folder_entries` is non-recursive. Fixed with **no Rust change** by sourcing the picker from the already-recursive `list_folders` command (via `list_all_folders`) on save-dialog open — the same source the settings picker uses.
+> - **#2** the caller (`file_embed_view_plugin.ts`) had no editor-context theme; it reads `data-color-scheme` off `document.documentElement` directly, like `code_block_view_plugin.ts`.
+> - **#3** is a timing fix (bounded re-assert across frames); its end-to-end behavior still needs **manual verification in the running app** (incl. the dialog case) — not unit-testable.
+> - **#14** error *display* already worked end-to-end; the only real defect was the silent scope-degrade, now surfaced as an error.
+
 ### #1 — Callout collapse state-loss (S1) — `Small`
 **Cause (confirmed):** `schema.ts:384` declares `folded`, but `parseDOM.getAttrs` (`schema.ts:389-396`) and `toDOM` (`schema.ts:399-410`) omit it; runtime fold toggles via `setNodeMarkup` (`callout_view_plugin.ts:103-112`) are lost on any DOM re-parse / clipboard / serialization round-trip.
 **Steps:**
