@@ -49,8 +49,6 @@
     transparent
   );
   --editor-table-border: var(--border);
-  --editor-table-header-bg: var(--background-surface-2);
-  --editor-table-stripe: color-mix(in oklch, var(--muted) 25%, transparent);
   --editor-selection-bg: color-mix(in oklch, var(--primary) 20%, transparent);
   --editor-hr-gradient-start: transparent;
   --editor-hr-gradient-mid: var(--border-strong);
@@ -1371,14 +1369,8 @@
 
 .ProseMirror table {
   table-layout: auto;
-  border-collapse: separate;
+  border-collapse: collapse;
   border-spacing: 0;
-  margin-top: calc(var(--editor-spacing) * 0.75);
-  margin-bottom: calc(var(--editor-spacing) * 1.25);
-  overflow: auto;
-  max-height: 80vh;
-  border-radius: calc(var(--radius) * 0.75);
-  border: 1px solid var(--editor-table-border);
   font-size: 0.95em;
   display: table;
 }
@@ -1388,45 +1380,88 @@
   table-layout: fixed;
 }
 
+.ProseMirror .tableWrapper {
+  overflow-x: auto;
+  max-height: 80vh;
+  margin-top: calc(var(--editor-spacing) * 0.75);
+  margin-bottom: calc(var(--editor-spacing) * 1.25);
+}
+
 .ProseMirror th,
 .ProseMirror td {
+  position: relative;
   padding: var(
       --editor-table-cell-padding-y,
       calc(var(--editor-spacing) * 0.25)
     )
     var(--editor-table-cell-padding-x, calc(var(--editor-spacing) * 0.45));
-  border-bottom: 1px solid var(--editor-table-border);
-  border-right: 1px solid var(--editor-table-border);
+  border: 1px solid var(--editor-table-border);
   text-align: left;
   line-height: 1.5;
 }
 
-.ProseMirror th:last-child,
-.ProseMirror td:last-child {
-  border-right: none;
-}
-
 .ProseMirror th {
-  background: var(--editor-table-header-bg);
-  font-weight: 500;
+  background: var(--muted);
+  font-weight: 600;
   color: var(--editor-text);
   font-size: 0.875em;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
   font-feature-settings: "tnum" 1;
 }
 
-.ProseMirror tbody tr:last-child td {
-  border-bottom: none;
+.ProseMirror .selectedCell::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--accent);
+  opacity: 0.35;
+  pointer-events: none;
 }
 
-.ProseMirror tbody tr:nth-child(even) td {
-  background: var(--editor-table-stripe);
+.ProseMirror .column-resize-handle {
+  position: absolute;
+  right: -1px;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--primary);
+  pointer-events: none;
 }
 
-.ProseMirror tbody tr:hover td {
-  background: color-mix(in oklch, var(--muted) 35%, transparent);
-  transition: background var(--duration-fast) var(--ease-default);
+.ProseMirror.resize-cursor {
+  cursor: col-resize;
+}
+
+.table-edge-controls-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.table-edge-bar {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: auto;
+  cursor: pointer;
+  background: transparent;
+  border-radius: calc(var(--radius) * 0.5);
+  color: transparent;
+  transition:
+    background var(--duration-fast) var(--ease-default),
+    color var(--duration-fast) var(--ease-default);
+}
+
+.table-edge-bar:hover {
+  background: color-mix(in oklch, var(--muted) 70%, transparent);
+  color: var(--muted-foreground);
+}
+
+.table-edge-bar__glyph {
+  font-size: 0.85rem;
+  font-weight: 600;
+  line-height: 1;
+  user-select: none;
 }
 
 /* ============================================

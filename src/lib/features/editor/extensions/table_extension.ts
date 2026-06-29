@@ -1,7 +1,8 @@
 import { keymap } from "prosemirror-keymap";
 import type { Plugin } from "prosemirror-state";
-import { goToNextCell } from "prosemirror-tables";
+import { columnResizing, goToNextCell, tableEditing } from "prosemirror-tables";
 import { create_table_toolbar_prose_plugin } from "../adapters/table_toolbar_plugin";
+import { create_table_edge_controls_prose_plugin } from "../adapters/table_edge_controls_plugin";
 import type { EditorExtension } from "./types";
 
 export function create_table_extension(): EditorExtension {
@@ -10,7 +11,10 @@ export function create_table_extension(): EditorExtension {
       Tab: goToNextCell(1),
       "Shift-Tab": goToNextCell(-1),
     }),
+    columnResizing(),
+    tableEditing(),
     create_table_toolbar_prose_plugin(),
+    create_table_edge_controls_prose_plugin(),
   ];
 
   return { plugins };
