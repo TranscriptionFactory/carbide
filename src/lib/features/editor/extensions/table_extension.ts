@@ -14,7 +14,7 @@ export function create_table_extension(): EditorExtension {
       Backspace: select_table_on_backspace,
     }),
     columnResizing(),
-    tableEditing(),
+    tableEditing({ allowTableNodeSelection: true }),
     create_table_toolbar_prose_plugin(),
     create_table_edge_controls_prose_plugin(),
   ];
