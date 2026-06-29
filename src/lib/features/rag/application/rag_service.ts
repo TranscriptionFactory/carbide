@@ -54,6 +54,13 @@ const PINNED_SCORE = Number.MAX_SAFE_INTEGER;
 const NO_RESULTS_MESSAGE =
   "I couldn't find anything in your vault that answers that.";
 
+export class RagScopeError extends Error {
+  constructor(readonly label: string) {
+    super(`scope:${label}`);
+    this.name = "RagScopeError";
+  }
+}
+
 type RetrievalHit = {
   note_path: string;
   note_id: NoteId;
@@ -198,7 +205,18 @@ export class RagService {
       return;
     }
 
-    hits = await this.apply_scope(vault.id, hits, input.scope);
+    try {
+      hits = await this.apply_scope(vault.id, hits, input.scope);
+    } catch (err) {
+      if (err instanceof RagScopeError) {
+        yield {
+          type: "error",
+          error: `Couldn't apply the ${err.label} scope filter, so I stopped instead of searching outside your scope. Try again.`,
+        };
+        return;
+      }
+      throw err;
+    }
     hits = hits.filter((hit) => !pinned_paths.has(hit.note_path));
 
     if (hits.length === 0 && pinned.length === 0) {
@@ -417,7 +435,7 @@ export class RagService {
       log.warn(`RAG ${label} scope filter failed`, {
         error: error_message(err),
       });
-      return hits;
+      throw new RagScopeError(label);
     }
   }
 
