@@ -266,6 +266,14 @@ export function register_note_actions(input: ActionRegistrationInput) {
       source,
     };
     services.note.reset_save_operation();
+
+    const vault_id = stores.vault.vault?.id;
+    if (vault_id) {
+      void services.note
+        .list_all_folders(vault_id)
+        .then((folders) => stores.notes.set_folder_paths(folders))
+        .catch(() => {});
+    }
   }
 
   function apply_saved_note(saved_path: NotePath, close_dialog: boolean) {
