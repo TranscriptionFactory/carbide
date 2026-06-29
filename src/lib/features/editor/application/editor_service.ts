@@ -445,13 +445,17 @@ export class EditorService {
   }
 
   set_scroll_top(value: number) {
-    const container = this.host_root?.parentElement;
-    if (!container || value <= 0) return;
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        container.scrollTop = value;
-      });
-    });
+    if (value <= 0) return;
+    let frames = 0;
+    const apply = () => {
+      const container = this.host_root?.parentElement;
+      if (!container) return;
+      container.scrollTop = value;
+      if (container.scrollTop < value && frames++ < 8) {
+        requestAnimationFrame(apply);
+      }
+    };
+    requestAnimationFrame(apply);
   }
 
   focus() {

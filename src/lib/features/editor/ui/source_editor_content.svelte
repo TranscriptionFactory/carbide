@@ -133,15 +133,19 @@
 
     const scroll_fraction = stores.editor.scroll_fraction;
     if (scroll_fraction > 0) {
-      requestAnimationFrame(() => {
+      let frames = 0;
+      const apply = () => {
         if (!view) return;
         const scroller = editor_root?.querySelector(".cm-scroller");
         if (!scroller) return;
         const max_scroll = scroller.scrollHeight - scroller.clientHeight;
         if (max_scroll > 0) {
           scroller.scrollTop = Math.round(scroll_fraction * max_scroll);
+        } else if (frames++ < 8) {
+          requestAnimationFrame(apply);
         }
-      });
+      };
+      requestAnimationFrame(apply);
     }
 
     on_cursor_change(compute_cursor_info());
