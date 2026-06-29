@@ -107,7 +107,11 @@ function build_state_with_trailing(
   return EditorState.create({
     doc,
     schema,
-    plugins: [columnResizing(), tableEditing(), ...extra_plugins],
+    plugins: [
+      columnResizing(),
+      tableEditing({ allowTableNodeSelection: true }),
+      ...extra_plugins,
+    ],
   });
 }
 
