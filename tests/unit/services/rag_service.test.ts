@@ -753,7 +753,7 @@ describe("RagService.query", () => {
     expect(read_ids).toEqual(["2"]);
   });
 
-  it("leaves results unfiltered and warns when a base view fails to load", async () => {
+  it("surfaces an error and refuses to search outside scope when a base view fails to load", async () => {
     const search = {
       search_blocks: vi.fn().mockResolvedValue([]),
       hybrid_search: vi
@@ -788,9 +788,46 @@ describe("RagService.query", () => {
       }),
     );
 
-    expect(result.error).toBeNull();
-    const read_ids = notes.read_note.mock.calls.map((call) => call[1]);
-    expect(read_ids).toEqual(["1", "2"]);
+    expect(result.error).toMatch(/scope filter/i);
+    expect(notes.read_note).not.toHaveBeenCalled();
+  });
+
+  it("surfaces an error rather than widening when a tag scope lookup throws", async () => {
+    const search = {
+      search_blocks: vi.fn().mockResolvedValue([]),
+      hybrid_search: vi
+        .fn()
+        .mockResolvedValue([
+          hit("projects/a.md", "A", "1", 0.9),
+          hit("archive/b.md", "B", "2", 0.8),
+        ]),
+    };
+    const notes = {
+      read_note: vi.fn().mockResolvedValue({ markdown: "Body." }),
+    };
+    const tag_port = {
+      get_notes_for_tag: vi.fn().mockRejectedValue(new Error("index down")),
+    };
+    const service = new RagService(
+      search as never,
+      notes as never,
+      text_stream("Answer [1].") as never,
+      make_vault_store(),
+      persistence,
+      tag_port as never,
+      bases as never,
+    );
+
+    const result = await collect(
+      service.query({
+        question: "what is it?",
+        provider_config: provider,
+        scope: { tags: ["#active"] },
+      }),
+    );
+
+    expect(result.error).toMatch(/scope filter/i);
+    expect(notes.read_note).not.toHaveBeenCalled();
   });
 
   it("never calls scope ports when scope arrays are empty", async () => {

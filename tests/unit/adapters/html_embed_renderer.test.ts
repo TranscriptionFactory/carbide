@@ -101,4 +101,46 @@ describe("build_safe_embed_srcdoc", () => {
     });
     expect(srcdoc).toContain(`carbide-asset://v/n/logo.png`);
   });
+
+  it("injects theme tokens and color-scheme into :root", async () => {
+    const srcdoc = await build_safe_embed_srcdoc({
+      content: `<p>hi</p>`,
+      host_file_path: "n/x.html",
+      theme: "light",
+      tokens: { "--background": "#ffffff", "--foreground": "#111111" },
+    });
+    expect(srcdoc).toContain("color-scheme:light");
+    expect(srcdoc).toContain("--background:#ffffff;");
+    expect(srcdoc).toContain("--foreground:#111111;");
+  });
+
+  it("marks the document dark when theme is dark", async () => {
+    const srcdoc = await build_safe_embed_srcdoc({
+      content: `<p>hi</p>`,
+      host_file_path: "n/x.html",
+      theme: "dark",
+    });
+    expect(srcdoc).toContain('<html class="dark">');
+    expect(srcdoc).toContain("color-scheme:dark");
+  });
+
+  it("defaults to a light, opaque background and drops legacy --carbide vars", async () => {
+    const srcdoc = await build_safe_embed_srcdoc({
+      content: `<p>hi</p>`,
+      host_file_path: "n/x.html",
+    });
+    expect(srcdoc).toContain("color-scheme:light");
+    expect(srcdoc).not.toContain("--carbide-");
+    expect(srcdoc).not.toContain("transparent");
+  });
+
+  it("drops tokens carrying CSS-injection characters", async () => {
+    const srcdoc = await build_safe_embed_srcdoc({
+      content: `<p>hi</p>`,
+      host_file_path: "n/x.html",
+      theme: "light",
+      tokens: { "--background": "}</style><script>evil()" },
+    });
+    expect(srcdoc).not.toContain("evil()");
+  });
 });
