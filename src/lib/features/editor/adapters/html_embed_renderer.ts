@@ -1,4 +1,5 @@
 import { sanitize_html } from "$lib/shared/html";
+import { render_root_block } from "./code_preview";
 
 const SAFE_EMBED_CSP = [
   "default-src 'none'",
@@ -10,14 +11,14 @@ const SAFE_EMBED_CSP = [
 ].join("; ");
 
 const SAFE_EMBED_STYLES = `
-body { margin: 0; padding: 12px 16px; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 14px; line-height: 1.55; color: var(--carbide-fg, #18181b); background: var(--carbide-bg, transparent); word-wrap: break-word; }
+body { margin: 0; padding: 12px 16px; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 14px; line-height: 1.55; color: var(--foreground, #18181b); background: var(--background, #ffffff); word-wrap: break-word; }
 img, video, audio, canvas, svg { max-width: 100%; height: auto; }
-a { color: var(--carbide-link, #2563eb); }
-pre { background: var(--carbide-code-bg, #f4f4f5); color: var(--carbide-code-fg, inherit); padding: 8px 12px; border-radius: 4px; overflow-x: auto; }
-code { background: var(--carbide-code-bg, #f4f4f5); padding: 1px 4px; border-radius: 2px; font-size: 0.92em; }
+a { color: var(--primary, #2563eb); }
+pre { background: var(--muted, #f4f4f5); color: var(--muted-foreground, inherit); padding: 8px 12px; border-radius: 4px; overflow-x: auto; }
+code { background: var(--muted, #f4f4f5); padding: 1px 4px; border-radius: 2px; font-size: 0.92em; }
 pre code { background: none; padding: 0; }
 table { border-collapse: collapse; }
-th, td { border: 1px solid var(--carbide-border, #e4e4e7); padding: 4px 8px; }
+th, td { border: 1px solid var(--border, #e4e4e7); padding: 4px 8px; }
 `;
 
 const ABSOLUTE_URL_RE =
@@ -113,6 +114,8 @@ export type SafeEmbedOptions = {
   content: string;
   host_file_path: string;
   resolve_asset_url?: EmbedAssetResolver | undefined;
+  theme?: "light" | "dark";
+  tokens?: Record<string, string>;
 };
 
 export async function build_safe_embed_srcdoc(
@@ -124,7 +127,10 @@ export async function build_safe_embed_srcdoc(
     options.resolve_asset_url,
   );
   const sanitized = sanitize_html(rewritten);
-  return `<!DOCTYPE html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="${SAFE_EMBED_CSP}"><style>${SAFE_EMBED_STYLES}</style></head><body>${sanitized}</body></html>`;
+  const theme = options.theme ?? "light";
+  const dark_class = theme === "dark" ? ' class="dark"' : "";
+  const root_block = render_root_block(theme, options.tokens ?? {});
+  return `<!DOCTYPE html><html${dark_class}><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="${SAFE_EMBED_CSP}"><style>${root_block}${SAFE_EMBED_STYLES}</style></head><body>${sanitized}</body></html>`;
 }
 
 export const SAFE_EMBED_SANDBOX = "allow-same-origin";

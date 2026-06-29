@@ -102,6 +102,7 @@ function create_tab_actions_harness() {
       save_note: vi.fn().mockResolvedValue({ status: "saved" }),
       skip_mtime_guard: vi.fn(),
       write_note_content: vi.fn().mockResolvedValue(undefined),
+      list_all_folders: vi.fn().mockResolvedValue([]),
       reset_save_operation: vi.fn(),
       reset_asset_write_operation: vi.fn(),
       reset_delete_operation: vi.fn(),
