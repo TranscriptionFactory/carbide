@@ -84,7 +84,7 @@ export function read_preview_theme_tokens(): Record<string, string> {
   return tokens;
 }
 
-function render_root_block(
+export function render_root_block(
   theme: "light" | "dark",
   tokens: Record<string, string>,
 ): string {
