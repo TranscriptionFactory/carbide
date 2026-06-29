@@ -16,6 +16,7 @@ import {
   build_safe_embed_srcdoc,
   SAFE_EMBED_SANDBOX,
 } from "./html_embed_renderer";
+import { read_preview_theme_tokens } from "./code_preview";
 
 const log = create_logger("file_embed_view");
 
@@ -209,6 +210,12 @@ class FileEmbedView implements NodeView {
                 content: html_text,
                 host_file_path: src,
                 resolve_asset_url: callbacks.resolve_asset_url,
+                theme:
+                  document.documentElement.getAttribute("data-color-scheme") ===
+                  "dark"
+                    ? "dark"
+                    : "light",
+                tokens: read_preview_theme_tokens(),
               });
               if (this._destroyed) return;
               iframe.srcdoc = srcdoc;
