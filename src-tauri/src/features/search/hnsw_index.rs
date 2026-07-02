@@ -1,13 +1,33 @@
 use hnsw_rs::anndists::dist::distances::DistCosine;
+use hnsw_rs::api::AnnT;
 use hnsw_rs::hnsw::Hnsw;
-use std::collections::HashMap;
+use hnsw_rs::hnswio::HnswIo;
+use serde::{Deserialize, Serialize};
+use std::collections::{HashMap, HashSet};
+use std::path::Path;
 use std::sync::{Arc, RwLock};
 
 const MAX_NB_CONNECTION: usize = 16;
 const NB_LAYER: usize = 16;
 const EF_CONSTRUCTION: usize = 200;
 
+/// Bump when the persisted companion layout changes so old dumps are rejected.
+const META_FORMAT_VERSION: u32 = 1;
+
 pub type SharedVectorIndex = Arc<RwLock<VectorIndex>>;
+
+/// Companion metadata persisted next to the hnsw graph dump. The graph files
+/// hold the points + `d_id`s; this restores our external side maps and guards
+/// against reloading a dump built by a different model/layout.
+#[derive(Serialize, Deserialize)]
+struct IndexMeta {
+    format_version: u32,
+    model_version: String,
+    dims: usize,
+    next_id: usize,
+    graph_basename: String,
+    id_to_key: Vec<(usize, String)>,
+}
 
 pub struct VectorIndex {
     dims: usize,
@@ -16,6 +36,7 @@ pub struct VectorIndex {
     id_to_key: HashMap<usize, String>,
     vectors: HashMap<String, Vec<f32>>,
     next_id: usize,
+    dirty: bool,
 }
 
 impl VectorIndex {
@@ -34,20 +55,25 @@ impl VectorIndex {
             id_to_key: HashMap::new(),
             vectors: HashMap::new(),
             next_id: 0,
+            dirty: false,
         }
     }
 
-    pub fn rebuild_from_sqlite(conn: &rusqlite::Connection, index_name: &str, dims: usize) -> Self {
-        let mut idx = Self::new(dims);
-        let start = std::time::Instant::now();
-
+    /// Single SQL path shared by rebuild and dump-reconcile: yields every
+    /// non-empty embedding as `(key, vector)`. Notes are keyed by `path`; blocks
+    /// by `format!("{path}\0{heading_id}")`.
+    fn for_each_embedding(
+        conn: &rusqlite::Connection,
+        index_name: &str,
+        mut f: impl FnMut(String, Vec<f32>),
+    ) {
         match index_name {
             "notes" => {
                 let mut stmt = match conn.prepare("SELECT path, embedding FROM note_embeddings") {
                     Ok(s) => s,
                     Err(e) => {
-                        log::warn!("VectorIndex::rebuild_from_sqlite(notes): {e}");
-                        return idx;
+                        log::warn!("VectorIndex::for_each_embedding(notes): {e}");
+                        return;
                     }
                 };
                 let rows = match stmt.query_map([], |row| {
@@ -57,14 +83,14 @@ impl VectorIndex {
                 }) {
                     Ok(r) => r,
                     Err(e) => {
-                        log::warn!("VectorIndex::rebuild_from_sqlite(notes): {e}");
-                        return idx;
+                        log::warn!("VectorIndex::for_each_embedding(notes): {e}");
+                        return;
                     }
                 };
                 for row in rows.flatten() {
                     let vec = super::vector_db::bytes_to_floats(&row.1);
                     if !vec.is_empty() {
-                        idx.insert(&row.0, vec);
+                        f(row.0, vec);
                     }
                 }
             }
@@ -74,8 +100,8 @@ impl VectorIndex {
                 {
                     Ok(s) => s,
                     Err(e) => {
-                        log::warn!("VectorIndex::rebuild_from_sqlite(blocks): {e}");
-                        return idx;
+                        log::warn!("VectorIndex::for_each_embedding(blocks): {e}");
+                        return;
                     }
                 };
                 let rows = match stmt.query_map([], |row| {
@@ -86,22 +112,43 @@ impl VectorIndex {
                 }) {
                     Ok(r) => r,
                     Err(e) => {
-                        log::warn!("VectorIndex::rebuild_from_sqlite(blocks): {e}");
-                        return idx;
+                        log::warn!("VectorIndex::for_each_embedding(blocks): {e}");
+                        return;
                     }
                 };
                 for row in rows.flatten() {
                     let key = format!("{}\0{}", row.0, row.1);
                     let vec = super::vector_db::bytes_to_floats(&row.2);
                     if !vec.is_empty() {
-                        idx.insert(&key, vec);
+                        f(key, vec);
                     }
                 }
             }
             _ => {
-                log::warn!("VectorIndex::rebuild_from_sqlite: unknown index_name={index_name}");
+                log::warn!("VectorIndex::for_each_embedding: unknown index_name={index_name}");
             }
         }
+    }
+
+    fn peek_dims(conn: &rusqlite::Connection, index_name: &str) -> Option<usize> {
+        let sql = match index_name {
+            "notes" => "SELECT embedding FROM note_embeddings LIMIT 1",
+            "blocks" => "SELECT embedding FROM block_embeddings LIMIT 1",
+            _ => return None,
+        };
+        conn.query_row(sql, [], |row| row.get::<_, Vec<u8>>(0))
+            .ok()
+            .map(|blob| super::vector_db::bytes_to_floats(&blob).len())
+            .filter(|n| *n > 0)
+    }
+
+    pub fn rebuild_from_sqlite(conn: &rusqlite::Connection, index_name: &str, dims: usize) -> Self {
+        let mut idx = Self::new(dims);
+        let start = std::time::Instant::now();
+
+        Self::for_each_embedding(conn, index_name, |key, vec| {
+            idx.insert(&key, vec);
+        });
 
         let elapsed = start.elapsed();
         log::info!(
@@ -153,12 +200,14 @@ impl VectorIndex {
         self.key_to_id.insert(str_key.to_string(), id);
         self.id_to_key.insert(id, str_key.to_string());
         self.vectors.insert(str_key.to_string(), vector);
+        self.dirty = true;
     }
 
     pub fn remove(&mut self, str_key: &str) {
         if let Some(id) = self.key_to_id.remove(str_key) {
             self.id_to_key.remove(&id);
             self.vectors.remove(str_key);
+            self.dirty = true;
         }
     }
 
@@ -181,6 +230,7 @@ impl VectorIndex {
             }
             self.key_to_id.insert(new_key.to_string(), id);
             self.id_to_key.insert(id, new_key.to_string());
+            self.dirty = true;
         }
     }
 
@@ -209,6 +259,7 @@ impl VectorIndex {
         self.id_to_key.clear();
         self.vectors.clear();
         self.next_id = 0;
+        self.dirty = true;
     }
 
     pub fn search(&self, query: &[f32], limit: usize) -> Vec<(String, f32)> {
@@ -294,6 +345,164 @@ impl VectorIndex {
             true
         } else {
             false
+        }
+    }
+
+    pub fn is_dirty(&self) -> bool {
+        self.dirty
+    }
+
+    pub fn mark_clean(&mut self) {
+        self.dirty = false;
+    }
+
+    /// Persists the built graph (`<basename>.hnsw.graph` + `.hnsw.data`) plus a
+    /// companion `<basename>.hnsw.meta` holding our side maps. The meta is
+    /// written atomically (temp + rename) so a killed dump never leaves a
+    /// half-written companion that would mis-map `d_id`s on reload.
+    pub fn dump(&self, dir: &Path, basename: &str, model_version: &str) -> anyhow::Result<()> {
+        std::fs::create_dir_all(dir)?;
+        let graph_basename = self.hnsw.file_dump(dir, basename)?;
+
+        let meta = IndexMeta {
+            format_version: META_FORMAT_VERSION,
+            model_version: model_version.to_string(),
+            dims: self.dims,
+            next_id: self.next_id,
+            graph_basename,
+            id_to_key: self.id_to_key.iter().map(|(k, v)| (*k, v.clone())).collect(),
+        };
+
+        let meta_path = dir.join(format!("{basename}.hnsw.meta"));
+        let tmp_path = dir.join(format!("{basename}.hnsw.meta.tmp"));
+        std::fs::write(&tmp_path, serde_json::to_vec(&meta)?)?;
+        std::fs::rename(&tmp_path, &meta_path)?;
+        Ok(())
+    }
+
+    /// Loads a previously dumped graph if the companion meta matches the
+    /// expected model/layout. Returns `None` (never an error) on any mismatch
+    /// or missing/corrupt file, so the caller falls back to a clean rebuild.
+    /// The reloaded index has an empty `vectors` map; call
+    /// [`reconcile_from_sqlite`] to repopulate it and apply deltas.
+    pub fn load_from_dump(
+        dir: &Path,
+        basename: &str,
+        expected_model_version: &str,
+        expected_dims: usize,
+    ) -> Option<Self> {
+        let meta_path = dir.join(format!("{basename}.hnsw.meta"));
+        let bytes = std::fs::read(&meta_path).ok()?;
+        let meta: IndexMeta = serde_json::from_slice(&bytes).ok()?;
+
+        if meta.format_version != META_FORMAT_VERSION
+            || meta.model_version != expected_model_version
+            || meta.dims != expected_dims
+        {
+            return None;
+        }
+
+        // The graph companion files must exist; `HnswIo` opens them with an
+        // internal `.unwrap()`, so a present-meta/absent-graph state would panic
+        // the caller rather than fall back. Check first and bail cleanly.
+        let graph_file = dir.join(format!("{}.hnsw.graph", meta.graph_basename));
+        let data_file = dir.join(format!("{}.hnsw.data", meta.graph_basename));
+        if !graph_file.exists() || !data_file.exists() {
+            return None;
+        }
+
+        // `load_hnsw` borrows the `HnswIo` for the lifetime of the returned
+        // graph. With default (non-mmap) reload the points own their data, so we
+        // leak the small `HnswIo` to obtain the `'static` the field requires.
+        // This is a rare (per index load, startup only), few-KB intentional leak.
+        // The leak lives inside the closure so the returned graph borrows only
+        // the leaked `'static` heap — not a captured variable — which lets
+        // `catch_unwind` backstop a corrupt/truncated graph (surfaced as a panic
+        // mid-read rather than an `Err`) without the borrow escaping.
+        let dir_owned = dir.to_path_buf();
+        let graph_basename = meta.graph_basename;
+        let loaded = std::panic::catch_unwind(std::panic::AssertUnwindSafe(
+            move || -> anyhow::Result<Hnsw<'static, f32, DistCosine>> {
+                let hnswio = Box::leak(Box::new(HnswIo::new(&dir_owned, &graph_basename)));
+                HnswIo::load_hnsw::<f32, DistCosine>(hnswio)
+            },
+        ));
+        let hnsw = match loaded {
+            Ok(Ok(h)) => h,
+            Ok(Err(e)) => {
+                log::warn!("VectorIndex::load_from_dump({basename}): {e}");
+                return None;
+            }
+            Err(_) => {
+                log::warn!("VectorIndex::load_from_dump({basename}): corrupt graph, rebuilding");
+                return None;
+            }
+        };
+
+        let id_to_key: HashMap<usize, String> = meta.id_to_key.into_iter().collect();
+        let key_to_id: HashMap<String, usize> =
+            id_to_key.iter().map(|(id, key)| (key.clone(), *id)).collect();
+
+        Some(Self {
+            dims: meta.dims,
+            hnsw,
+            key_to_id,
+            id_to_key,
+            vectors: HashMap::new(),
+            next_id: meta.next_id,
+            dirty: false,
+        })
+    }
+
+    /// Repopulates the `vectors` map from SQLite and applies any deltas since the
+    /// dump: inserts keys new to the graph, removes loaded keys no longer in
+    /// SQLite. Makes a slightly-stale dump correct and restores `get_vector` /
+    /// `compact_from_vectors`. Only flips `dirty` when a delta is applied.
+    pub fn reconcile_from_sqlite(&mut self, conn: &rusqlite::Connection, index_name: &str) {
+        let mut seen: HashSet<String> = HashSet::with_capacity(self.key_to_id.len());
+        Self::for_each_embedding(conn, index_name, |key, vec| {
+            seen.insert(key.clone());
+            if self.key_to_id.contains_key(&key) {
+                self.vectors.insert(key, vec);
+            } else {
+                self.insert(&key, vec);
+            }
+        });
+
+        let removed: Vec<String> = self
+            .key_to_id
+            .keys()
+            .filter(|k| !seen.contains(*k))
+            .cloned()
+            .collect();
+        for key in removed {
+            self.remove(&key);
+        }
+    }
+
+    /// Startup entry point: load the persisted graph and reconcile against
+    /// SQLite, or rebuild from scratch when no valid dump exists. A freshly
+    /// rebuilt (or delta-reconciled) index is left `dirty` so the caller can
+    /// persist it for the next launch.
+    pub fn load_or_rebuild(
+        conn: &rusqlite::Connection,
+        index_name: &str,
+        dims: usize,
+        dir: &Path,
+        basename: &str,
+        model_version: &str,
+    ) -> Self {
+        let expected_dims = Self::peek_dims(conn, index_name).unwrap_or(dims);
+        match Self::load_from_dump(dir, basename, model_version, expected_dims) {
+            Some(mut idx) => {
+                idx.reconcile_from_sqlite(conn, index_name);
+                log::info!(
+                    "VectorIndex::load_or_rebuild({index_name}): loaded {} vectors from dump",
+                    idx.len()
+                );
+                idx
+            }
+            None => Self::rebuild_from_sqlite(conn, index_name, dims),
         }
     }
 }
@@ -520,5 +729,120 @@ mod tests {
         assert_eq!(idx.len(), 80);
         let v = unit_vec(150.0 * 0.01, 8);
         assert!(!idx.search(&v, 5).is_empty());
+    }
+
+    fn scratch_dir(tag: &str) -> std::path::PathBuf {
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        static COUNTER: AtomicUsize = AtomicUsize::new(0);
+        let n = COUNTER.fetch_add(1, Ordering::Relaxed);
+        let dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("target")
+            .join("test-tmp")
+            .join(format!("hnsw-{tag}-{}-{n}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        dir
+    }
+
+    fn blob(v: &[f32]) -> Vec<u8> {
+        v.iter().flat_map(|f| f.to_le_bytes()).collect()
+    }
+
+    fn mem_conn(rows: &[(&str, Vec<f32>)]) -> rusqlite::Connection {
+        let conn = rusqlite::Connection::open_in_memory().unwrap();
+        conn.execute(
+            "CREATE TABLE note_embeddings (path TEXT PRIMARY KEY, embedding BLOB)",
+            [],
+        )
+        .unwrap();
+        for (path, vec) in rows {
+            conn.execute(
+                "INSERT INTO note_embeddings (path, embedding) VALUES (?1, ?2)",
+                rusqlite::params![path, blob(vec)],
+            )
+            .unwrap();
+        }
+        conn
+    }
+
+    #[test]
+    fn dump_load_roundtrip_preserves_graph_and_mapping() {
+        let dir = scratch_dir("roundtrip");
+        let mut idx = VectorIndex::new(8);
+        for i in 0..12 {
+            idx.insert(&format!("k{i}"), unit_vec(i as f32 * 0.07, 8));
+        }
+        let query = unit_vec(3.0 * 0.07, 8);
+        let before = idx.search(&query, 5);
+
+        idx.dump(&dir, "notes-test", "m1").unwrap();
+        let loaded = VectorIndex::load_from_dump(&dir, "notes-test", "m1", 8).unwrap();
+
+        assert_eq!(loaded.len(), idx.len());
+        let after = loaded.search(&query, 5);
+        assert_eq!(before, after);
+    }
+
+    #[test]
+    fn load_from_dump_rejects_model_version_mismatch() {
+        let dir = scratch_dir("model-mismatch");
+        let mut idx = VectorIndex::new(8);
+        idx.insert("a", unit_vec(0.1, 8));
+        idx.dump(&dir, "notes-test", "m1").unwrap();
+
+        assert!(VectorIndex::load_from_dump(&dir, "notes-test", "m2", 8).is_none());
+        assert!(VectorIndex::load_from_dump(&dir, "notes-test", "m1", 8).is_some());
+    }
+
+    #[test]
+    fn load_from_dump_rejects_dims_mismatch() {
+        let dir = scratch_dir("dims-mismatch");
+        let mut idx = VectorIndex::new(8);
+        idx.insert("a", unit_vec(0.1, 8));
+        idx.dump(&dir, "notes-test", "m1").unwrap();
+
+        assert!(VectorIndex::load_from_dump(&dir, "notes-test", "m1", 16).is_none());
+    }
+
+    #[test]
+    fn load_from_dump_absent_graph_returns_none() {
+        let dir = scratch_dir("absent-graph");
+        let mut idx = VectorIndex::new(8);
+        idx.insert("a", unit_vec(0.1, 8));
+        idx.dump(&dir, "notes-test", "m1").unwrap();
+
+        // Meta survives but the graph file is gone (partial deletion / tamper):
+        // must fall back cleanly instead of panicking on the internal unwrap.
+        std::fs::remove_file(dir.join("notes-test.hnsw.graph")).unwrap();
+        assert!(VectorIndex::load_from_dump(&dir, "notes-test", "m1", 8).is_none());
+    }
+
+    #[test]
+    fn reconcile_applies_added_and_removed_deltas() {
+        let dir = scratch_dir("reconcile");
+        // Dump holds keys a and b.
+        let mut idx = VectorIndex::new(8);
+        let va = unit_vec(0.1, 8);
+        let vb = unit_vec(0.4, 8);
+        idx.insert("a", va.clone());
+        idx.insert("b", vb);
+        idx.dump(&dir, "notes-test", "m1").unwrap();
+
+        // SQLite has a (unchanged) and c (new); b was deleted.
+        let vc = unit_vec(0.9, 8);
+        let conn = mem_conn(&[("a", va.clone()), ("c", vc.clone())]);
+
+        let mut loaded = VectorIndex::load_from_dump(&dir, "notes-test", "m1", 8).unwrap();
+        loaded.reconcile_from_sqlite(&conn, "notes");
+
+        assert_eq!(loaded.len(), 2);
+        assert!(loaded.get_vector("c").is_some());
+        assert!(loaded.get_vector("b").is_none());
+
+        let hits_a = loaded.search(&va, 5);
+        assert!(hits_a.iter().any(|(k, _)| k == "a"));
+        assert!(hits_a.iter().all(|(k, _)| k != "b"));
+        let hits_c = loaded.search(&vc, 5);
+        assert!(hits_c.iter().any(|(k, _)| k == "c"));
     }
 }

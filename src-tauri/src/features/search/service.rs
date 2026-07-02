@@ -492,6 +492,7 @@ pub(crate) fn ensure_worker(app: &AppHandle, vault_id: &str) -> Result<(), Strin
 
     let read_conn = search_db::open_search_db(app, vault_id)?;
     let write_conn = search_db::open_search_db(app, vault_id)?;
+    let dump_dir = search_db::db_cache_dir(app)?;
 
     let note_index = Arc::new(RwLock::new(VectorIndex::new(384)));
     let block_index = Arc::new(RwLock::new(VectorIndex::new(384)));
@@ -504,7 +505,7 @@ pub(crate) fn ensure_worker(app: &AppHandle, vault_id: &str) -> Result<(), Strin
     let vid_for_writer = vault_id.to_string();
     let handle = std::thread::spawn(move || {
         set_current_thread_to_background_qos();
-        writer_thread_loop(vid_for_writer, rx, write_conn, ni, bi);
+        writer_thread_loop(vid_for_writer, dump_dir, rx, write_conn, ni, bi);
     });
 
     let worker = VaultWorker {
@@ -522,12 +523,17 @@ pub(crate) fn ensure_worker(app: &AppHandle, vault_id: &str) -> Result<(), Strin
 }
 
 fn writer_thread_loop(
-    _vault_id: String,
+    vault_id: String,
+    dump_dir: PathBuf,
     rx: Receiver<DbCommand>,
     conn: Connection,
     note_index: SharedVectorIndex,
     block_index: SharedVectorIndex,
 ) {
+    let ctx = PersistCtx {
+        dir: dump_dir,
+        vault_id,
+    };
     let mut notes_cache: BTreeMap<String, IndexNoteMeta> =
         match search_db::get_all_notes_from_db(&conn) {
             Ok(map) => map,
@@ -538,10 +544,109 @@ fn writer_thread_loop(
         };
 
     for cmd in &rx {
+        // RebuildIndex is the startup population step: load the persisted graph
+        // (or rebuild from SQLite), then persist a freshly-built graph for the
+        // next launch. It is only ever enqueued once, at worker spawn.
+        if let DbCommand::RebuildIndex = &cmd {
+            load_or_rebuild_indices(&conn, &ctx, &note_index, &block_index);
+            maybe_dump_indices(&conn, &ctx, &note_index, &block_index);
+            continue;
+        }
+
+        // The big "settle" moments; persist the graph once they complete so the
+        // dump stays fresh without write-amplifying on every keystroke upsert.
+        let is_settle = matches!(
+            &cmd,
+            DbCommand::EmbedBatch { .. } | DbCommand::RebuildEmbeddings { .. }
+        );
+
         match dispatch_command(&conn, cmd, &mut notes_cache, &rx, &note_index, &block_index) {
             LoopAction::Continue => {}
             LoopAction::Break => break,
         }
+
+        if is_settle {
+            maybe_dump_indices(&conn, &ctx, &note_index, &block_index);
+        }
+    }
+
+    // Shutdown (loop broke) or channel closed: persist any unsaved mutations.
+    // The dump is atomic, so a mid-write join timeout never corrupts on-disk
+    // state — next start simply falls back to a rebuild.
+    maybe_dump_indices(&conn, &ctx, &note_index, &block_index);
+}
+
+/// Persistence context for the writer thread: the shared cache dir plus the
+/// vault id used to derive per-index dump basenames.
+struct PersistCtx {
+    dir: PathBuf,
+    vault_id: String,
+}
+
+impl PersistCtx {
+    fn basename(&self, index_name: &str) -> String {
+        format!("{}-{}", self.vault_id, index_name)
+    }
+}
+
+fn load_or_rebuild_indices(
+    conn: &Connection,
+    ctx: &PersistCtx,
+    note_index: &SharedVectorIndex,
+    block_index: &SharedVectorIndex,
+) {
+    let model_version = vector_db::get_model_version(conn).unwrap_or_default();
+    let new_note_index = VectorIndex::load_or_rebuild(
+        conn,
+        "notes",
+        384,
+        &ctx.dir,
+        &ctx.basename("notes"),
+        &model_version,
+    );
+    let new_block_index = VectorIndex::load_or_rebuild(
+        conn,
+        "blocks",
+        384,
+        &ctx.dir,
+        &ctx.basename("blocks"),
+        &model_version,
+    );
+    if let Ok(mut ni) = note_index.write() {
+        *ni = new_note_index;
+    }
+    if let Ok(mut bi) = block_index.write() {
+        *bi = new_block_index;
+    }
+}
+
+fn maybe_dump_indices(
+    conn: &Connection,
+    ctx: &PersistCtx,
+    note_index: &SharedVectorIndex,
+    block_index: &SharedVectorIndex,
+) {
+    let model_version = vector_db::get_model_version(conn).unwrap_or_default();
+    dump_index_if_dirty(ctx, "notes", note_index, &model_version);
+    dump_index_if_dirty(ctx, "blocks", block_index, &model_version);
+}
+
+fn dump_index_if_dirty(
+    ctx: &PersistCtx,
+    index_name: &str,
+    index: &SharedVectorIndex,
+    model_version: &str,
+) {
+    let Ok(mut idx) = index.write() else { return };
+    if !idx.is_dirty() {
+        return;
+    }
+    match idx.dump(&ctx.dir, &ctx.basename(index_name), model_version) {
+        Ok(()) => {
+            idx.mark_clean();
+            log::info!("{index_name}_index dumped: {} vectors persisted", idx.len());
+        }
+        Err(e) => log::warn!("{index_name}_index dump failed: {e}"),
     }
 }
 
