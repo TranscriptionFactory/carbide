@@ -222,7 +222,7 @@
   }
 </script>
 
-<div class="flex h-full min-h-0 min-w-0 flex-col">
+<div class="flex h-full min-h-0 min-w-0 flex-col" class:animate-agent-breathing={is_executing}>
   <!-- Toolbar -->
   <div class="flex flex-wrap items-center gap-2 border-b px-3 py-2">
     <Select.Root
