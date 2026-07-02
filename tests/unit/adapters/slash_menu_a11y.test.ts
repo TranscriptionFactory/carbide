@@ -61,7 +61,9 @@ describe("slash menu ARIA attributes", () => {
     );
     expect(selected.length).toBe(1);
     expect(selected[0]?.id).toBe(
-      menu.querySelector('[role="listbox"]')?.getAttribute("aria-activedescendant"),
+      menu
+        .querySelector('[role="listbox"]')
+        ?.getAttribute("aria-activedescendant"),
     );
   });
 
@@ -85,7 +87,10 @@ describe("slash menu focus-steal prevention", () => {
     const { menu } = setup(make_state());
     const item = menu.querySelector<HTMLButtonElement>('[role="option"]');
     expect(item).not.toBeNull();
-    const event = new MouseEvent("mousedown", { bubbles: true, cancelable: true });
+    const event = new MouseEvent("mousedown", {
+      bubbles: true,
+      cancelable: true,
+    });
     item!.dispatchEvent(event);
     expect(event.defaultPrevented).toBe(true);
   });
@@ -94,7 +99,10 @@ describe("slash menu focus-steal prevention", () => {
     const { menu } = setup(make_state());
     const preview = menu.querySelector<HTMLElement>(".SlashMenu__preview");
     expect(preview).not.toBeNull();
-    const event = new MouseEvent("mousedown", { bubbles: true, cancelable: true });
+    const event = new MouseEvent("mousedown", {
+      bubbles: true,
+      cancelable: true,
+    });
     preview!.dispatchEvent(event);
     expect(event.defaultPrevented).toBe(true);
   });
@@ -111,7 +119,9 @@ describe("slash menu hover selection", () => {
 
   it("mouseenter on first item calls on_select with index 0", () => {
     const cmds = create_commands().slice(0, 3);
-    const { menu, on_select } = setup(make_state({ selected_index: 2, filtered: cmds }));
+    const { menu, on_select } = setup(
+      make_state({ selected_index: 2, filtered: cmds }),
+    );
     const options = menu.querySelectorAll<HTMLElement>('[role="option"]');
     options[0]?.dispatchEvent(new MouseEvent("mouseenter", { bubbles: true }));
     expect(on_select).toHaveBeenCalledWith(0);

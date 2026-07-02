@@ -78,19 +78,13 @@
   >
     <div class="flex items-center gap-3">
       <div class="flex items-center gap-1">
-        <button
-          class="p-1 hover:bg-accent rounded"
-          onclick={prev_month}
-        >
+        <button class="p-1 hover:bg-accent rounded" onclick={prev_month}>
           <ChevronLeft size={14} />
         </button>
         <span class="text-sm font-semibold w-40 text-center"
           >{calendar.label}</span
         >
-        <button
-          class="p-1 hover:bg-accent rounded"
-          onclick={next_month}
-        >
+        <button class="p-1 hover:bg-accent rounded" onclick={next_month}>
           <ChevronRight size={14} />
         </button>
       </div>

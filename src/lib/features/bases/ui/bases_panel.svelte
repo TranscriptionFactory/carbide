@@ -267,9 +267,7 @@
 </script>
 
 <div class="h-full flex flex-col bg-background">
-  <div
-    class="px-3 py-2 border-b border-border space-y-1.5"
-  >
+  <div class="px-3 py-2 border-b border-border space-y-1.5">
     <div class="flex items-center justify-between">
       <h2 class="text-sm font-semibold truncate">
         Bases{#if bases_store.active_view_name}<span
@@ -277,7 +275,9 @@
           >
             — {bases_store.active_view_name}</span
           >{/if}
-        <span class="ml-1 text-xs font-normal text-muted-foreground tabular-nums">
+        <span
+          class="ml-1 text-xs font-normal text-muted-foreground tabular-nums"
+        >
           {#if bases_store.loading}…{:else}({bases_store.total_count} note{bases_store.total_count !==
             1
               ? "s"
@@ -327,9 +327,7 @@
       </div>
     </div>
     <div class="flex items-center gap-1.5">
-      <div
-        class="flex items-center bg-muted rounded-md p-0.5 shrink-0"
-      >
+      <div class="flex items-center bg-muted rounded-md p-0.5 shrink-0">
         {#each [{ mode: "table" as ViewMode, icon: Table, label: "Table" }, { mode: "list" as ViewMode, icon: List, label: "List" }, { mode: "tree" as ViewMode, icon: ListTree, label: "Tree" }, { mode: "kanban" as ViewMode, icon: Columns3, label: "Kanban" }, { mode: "gallery" as ViewMode, icon: LayoutGrid, label: "Gallery" }, { mode: "calendar" as ViewMode, icon: CalendarDays, label: "Calendar" }] as view_option}
           <button
             class="p-1 rounded {bases_store.active_view_mode ===
@@ -415,9 +413,7 @@
   </div>
 
   {#if views_open}
-    <div
-      class="px-4 py-3 border-b border-border space-y-3 bg-muted/30"
-    >
+    <div class="px-4 py-3 border-b border-border space-y-3 bg-muted/30">
       <div class="flex items-end gap-2">
         <div class="flex-1 min-w-0">
           <label
@@ -476,9 +472,7 @@
   {/if}
 
   {#if filters_open}
-    <div
-      class="px-4 py-3 border-b border-border space-y-3 bg-muted/30"
-    >
+    <div class="px-4 py-3 border-b border-border space-y-3 bg-muted/30">
       {#if bases_store.query.filters.length > 0}
         <div class="space-y-1.5">
           {#each bases_store.query.filters as filter, i}
@@ -491,8 +485,7 @@
                 >{OPERATORS.find((o) => o.value === filter.operator)?.label ??
                   filter.operator}</span
               >
-              <span
-                class="px-2 py-1 bg-muted rounded truncate max-w-[120px]"
+              <span class="px-2 py-1 bg-muted rounded truncate max-w-[120px]"
                 >{filter.value || '""'}</span
               >
               <button
@@ -516,7 +509,8 @@
         <div class="flex-1 min-w-0">
           <label
             for="filter-property"
-            class="block text-[10px] text-muted-foreground mb-0.5">Property</label
+            class="block text-[10px] text-muted-foreground mb-0.5"
+            >Property</label
           >
           <select
             id="filter-property"
@@ -628,9 +622,7 @@
   {/if}
 
   {#if has_filters && !filters_open}
-    <div
-      class="px-4 py-1.5 border-b border-border flex items-center gap-2"
-    >
+    <div class="px-4 py-1.5 border-b border-border flex items-center gap-2">
       <Filter size={12} class="text-blue-500" />
       <span class="text-[11px] text-muted-foreground"
         >{bases_store.query.filters.length} filter{bases_store.query.filters
@@ -647,7 +639,9 @@
 
   <div class="flex-1 overflow-auto">
     {#if bases_store.loading && bases_store.result_set.length === 0}
-      <div class="h-full flex items-center justify-center text-muted-foreground">
+      <div
+        class="h-full flex items-center justify-center text-muted-foreground"
+      >
         <RefreshCw size={24} class="animate-spin" />
       </div>
     {:else if bases_store.error}
@@ -736,8 +730,7 @@
               {#each Object.entries(row.properties) as [key, prop]}
                 <div class="flex items-center gap-2 text-[11px]">
                   <span class="text-muted-foreground truncate">{key}:</span>
-                  <span
-                    class="text-foreground truncate font-medium"
+                  <span class="text-foreground truncate font-medium"
                     >{prop.value}</span
                   >
                 </div>

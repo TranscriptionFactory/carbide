@@ -16,7 +16,9 @@
   let { vault_name, note_title, branch, on_branch_click }: Props = $props();
 
   const mac = is_mac();
-  const inline_start = mac ? `${MACOS_TRAFFIC_LIGHT_SAFE_PADDING}px` : "var(--space-3)";
+  const inline_start = mac
+    ? `${MACOS_TRAFFIC_LIGHT_SAFE_PADDING}px`
+    : "var(--space-3)";
 
   onMount(() => {
     if (mac) {

@@ -2,6 +2,7 @@
   import { onMount } from "svelte";
   import AppShellDialogs from "$lib/app/bootstrap/ui/app_shell_dialogs.svelte";
   import WorkspaceLayout from "$lib/app/bootstrap/ui/workspace_layout.svelte";
+  import CustomTitleBar from "$lib/features/window/ui/custom_title_bar.svelte";
   import { VaultSelectionPanel } from "$lib/features/vault";
   import { use_keyboard_shortcuts } from "$lib/hooks/use_keyboard_shortcuts.svelte";
   import { use_external_links } from "$lib/hooks/use_external_links.svelte";
@@ -81,6 +82,8 @@
     void action_registry.execute(ACTION_IDS.app_mounted);
   });
 </script>
+
+<CustomTitleBar />
 
 {#if !has_vault}
   <div class="mx-auto max-w-[65ch] p-8">

@@ -31,9 +31,7 @@
             />
           </div>
         {:else}
-          <div
-            class="h-24 bg-muted flex items-center justify-center"
-          >
+          <div class="h-24 bg-muted flex items-center justify-center">
             <span class="text-3xl opacity-30">📄</span>
           </div>
         {/if}
@@ -71,9 +69,7 @@
               {#each Object.entries(row.properties).slice(0, 3) as [key, prop]}
                 <div class="flex items-center gap-1 text-[10px]">
                   <span class="text-muted-foreground truncate">{key}:</span>
-                  <span class="text-foreground truncate"
-                    >{prop.value}</span
-                  >
+                  <span class="text-foreground truncate">{prop.value}</span>
                 </div>
               {/each}
             </div>
@@ -81,16 +77,16 @@
 
           {#if row.stats.task_count > 0}
             <div class="flex items-center gap-2">
-              <div
-                class="flex-1 h-1 bg-muted rounded-full overflow-hidden"
-              >
+              <div class="flex-1 h-1 bg-muted rounded-full overflow-hidden">
                 <div
                   class="h-full bg-emerald-500 rounded-full"
                   style="width: {(row.stats.tasks_done / row.stats.task_count) *
                     100}%"
                 ></div>
               </div>
-              <span class="text-[10px] text-muted-foreground tabular-nums shrink-0">
+              <span
+                class="text-[10px] text-muted-foreground tabular-nums shrink-0"
+              >
                 {row.stats.tasks_done}/{row.stats.task_count}
               </span>
             </div>
