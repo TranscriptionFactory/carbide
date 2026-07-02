@@ -74,19 +74,19 @@
 
 {#if !group_by}
   <div class="h-full flex flex-col items-center justify-center gap-3 p-8">
-    <p class="text-sm text-zinc-500">Select a property to group by:</p>
+    <p class="text-sm text-muted-foreground">Select a property to group by:</p>
     <div class="flex flex-wrap gap-2 justify-center max-w-md">
       {#each groupable_properties as prop}
         <button
-          class="px-3 py-1.5 text-xs bg-zinc-100 dark:bg-zinc-800 rounded-md hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors"
+          class="px-3 py-1.5 text-xs bg-muted rounded-md hover:bg-accent transition-colors"
           onclick={() => on_config_change({ group_by: prop.name })}
         >
           {prop.name}
-          <span class="text-zinc-400 ml-1">({prop.count})</span>
+          <span class="text-muted-foreground ml-1">({prop.count})</span>
         </button>
       {/each}
       {#if groupable_properties.length === 0}
-        <p class="text-xs text-zinc-400">
+        <p class="text-xs text-muted-foreground">
           No low-cardinality properties found. Add frontmatter properties like
           "status" or "priority" to your notes.
         </p>
@@ -96,14 +96,14 @@
 {:else}
   <div class="h-full flex flex-col">
     <div
-      class="flex items-center gap-2 px-4 py-2 border-b border-zinc-200 dark:border-zinc-800"
+      class="flex items-center gap-2 px-4 py-2 border-b border-border"
     >
-      <span class="text-[10px] text-zinc-500 uppercase tracking-wider"
+      <span class="text-[10px] text-muted-foreground uppercase tracking-wider"
         >Group by:</span
       >
       <div class="relative">
         <select
-          class="text-xs pl-2 pr-6 py-1 bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-md appearance-none cursor-pointer"
+          class="text-xs pl-2 pr-6 py-1 bg-muted border border-border rounded-md appearance-none cursor-pointer"
           value={group_by}
           onchange={(e) =>
             on_config_change({
@@ -117,7 +117,7 @@
         </select>
         <ChevronDown
           size={10}
-          class="absolute right-1.5 top-1/2 -translate-y-1/2 text-zinc-400 pointer-events-none"
+          class="absolute right-1.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"
         />
       </div>
     </div>
@@ -126,21 +126,21 @@
       <div class="flex h-full gap-4 p-4 min-w-min">
         {#each columns as column}
           <div
-            class="flex flex-col w-64 min-w-[256px] bg-zinc-50 dark:bg-zinc-900/50 rounded-lg border transition-colors {drag_over_column ===
+            class="flex flex-col w-64 min-w-[256px] bg-muted/50 rounded-lg border transition-colors {drag_over_column ===
             column.value
               ? 'border-blue-400 dark:border-blue-500'
-              : 'border-zinc-200 dark:border-zinc-800'}"
+              : 'border-border'}"
             role="group"
             ondragover={(e) => handle_dragover(e, column.value)}
             ondragleave={(e) => handle_dragleave(e, column.value)}
             ondrop={(e) => handle_drop_on_column(e, column.value)}
           >
             <div
-              class="flex items-center justify-between px-3 py-2 border-b border-zinc-200 dark:border-zinc-800"
+              class="flex items-center justify-between px-3 py-2 border-b border-border"
             >
               <span class="text-xs font-semibold truncate">{column.value}</span>
               <span
-                class="text-[10px] text-zinc-400 tabular-nums ml-2 shrink-0"
+                class="text-[10px] text-muted-foreground tabular-nums ml-2 shrink-0"
               >
                 {column.rows.length}
               </span>
@@ -149,7 +149,7 @@
               {#each column.rows as row}
                 <button
                   type="button"
-                  class="w-full text-left p-2.5 bg-white dark:bg-zinc-900 rounded-md border border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700 transition-colors cursor-pointer shadow-sm {dragging_path ===
+                  class="w-full text-left p-2.5 bg-card rounded-md border border-border hover:border-border/60 transition-colors cursor-pointer shadow-sm {dragging_path ===
                   row.note.path
                     ? 'opacity-50'
                     : ''}"
@@ -165,7 +165,7 @@
                     <div class="flex flex-wrap gap-1 mb-1">
                       {#each row.tags.slice(0, 3) as tag}
                         <span
-                          class="px-1 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-[9px] text-zinc-500"
+                          class="px-1 py-0.5 rounded bg-muted text-[9px] text-muted-foreground"
                         >
                           #{tag}
                         </span>
@@ -173,7 +173,7 @@
                     </div>
                   {/if}
                   {#if row.stats.task_count > 0}
-                    <div class="text-[10px] text-zinc-400">
+                    <div class="text-[10px] text-muted-foreground">
                       {row.stats.tasks_done}/{row.stats.task_count} tasks
                     </div>
                   {/if}

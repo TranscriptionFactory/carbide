@@ -74,12 +74,12 @@
 
 <div class="h-full flex flex-col">
   <div
-    class="flex items-center justify-between px-4 py-2 border-b border-zinc-200 dark:border-zinc-800"
+    class="flex items-center justify-between px-4 py-2 border-b border-border"
   >
     <div class="flex items-center gap-3">
       <div class="flex items-center gap-1">
         <button
-          class="p-1 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded"
+          class="p-1 hover:bg-accent rounded"
           onclick={prev_month}
         >
           <ChevronLeft size={14} />
@@ -88,26 +88,26 @@
           >{calendar.label}</span
         >
         <button
-          class="p-1 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded"
+          class="p-1 hover:bg-accent rounded"
           onclick={next_month}
         >
           <ChevronRight size={14} />
         </button>
       </div>
       <button
-        class="text-[10px] px-2 py-0.5 bg-zinc-100 dark:bg-zinc-800 rounded hover:bg-zinc-200 dark:hover:bg-zinc-700"
+        class="text-[10px] px-2 py-0.5 bg-muted rounded hover:bg-accent"
         onclick={go_today}
       >
         Today
       </button>
     </div>
     <div class="flex items-center gap-2">
-      <span class="text-[10px] text-zinc-500 uppercase tracking-wider"
+      <span class="text-[10px] text-muted-foreground uppercase tracking-wider"
         >Date:</span
       >
       <div class="relative">
         <select
-          class="text-xs pl-2 pr-6 py-1 bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-md appearance-none cursor-pointer"
+          class="text-xs pl-2 pr-6 py-1 bg-muted border border-border rounded-md appearance-none cursor-pointer"
           value={date_property}
           onchange={(e) =>
             on_config_change({
@@ -120,7 +120,7 @@
         </select>
         <ChevronDown
           size={10}
-          class="absolute right-1.5 top-1/2 -translate-y-1/2 text-zinc-400 pointer-events-none"
+          class="absolute right-1.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"
         />
       </div>
     </div>
@@ -130,14 +130,14 @@
     <div class="grid grid-cols-7 gap-px">
       {#each WEEKDAYS as day}
         <div
-          class="text-center text-[10px] font-semibold text-zinc-500 uppercase tracking-wider py-2"
+          class="text-center text-[10px] font-semibold text-muted-foreground uppercase tracking-wider py-2"
         >
           {day}
         </div>
       {/each}
       {#each calendar.days as day}
         <div
-          class="min-h-[80px] p-1 border border-zinc-100 dark:border-zinc-800/50 rounded-sm {day.is_current_month
+          class="min-h-[80px] p-1 border border-border rounded-sm {day.is_current_month
             ? ''
             : 'opacity-40'} {day.is_today
             ? 'bg-blue-50/50 dark:bg-blue-950/20 ring-1 ring-blue-200 dark:ring-blue-800'
@@ -146,7 +146,7 @@
           <div
             class="text-[10px] tabular-nums mb-0.5 {day.is_today
               ? 'font-bold text-blue-600 dark:text-blue-400'
-              : 'text-zinc-400'}"
+              : 'text-muted-foreground'}"
           >
             {day.day}
           </div>
@@ -154,7 +154,7 @@
             {#each day.rows.slice(0, MAX_VISIBLE_NOTES) as row}
               <button
                 type="button"
-                class="w-full text-left text-[10px] px-1 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 truncate cursor-pointer transition-colors"
+                class="w-full text-left text-[10px] px-1 py-0.5 rounded bg-muted hover:bg-accent truncate cursor-pointer transition-colors"
                 onclick={() => on_note_click(row.note.path)}
                 title={row.note.title || row.note.name}
               >
@@ -162,7 +162,7 @@
               </button>
             {/each}
             {#if day.rows.length > MAX_VISIBLE_NOTES}
-              <div class="text-[9px] text-zinc-400 px-1">
+              <div class="text-[9px] text-muted-foreground px-1">
                 +{day.rows.length - MAX_VISIBLE_NOTES} more
               </div>
             {/if}
