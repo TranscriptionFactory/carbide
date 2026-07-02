@@ -179,7 +179,8 @@
 }
 
 .animate-agent-flash {
-  animation: agent-flash 2s var(--ease-out-strong, cubic-bezier(0.23, 1, 0.32, 1)) forwards;
+  animation: agent-flash 2s
+    var(--ease-out-strong, cubic-bezier(0.23, 1, 0.32, 1)) forwards;
 }
 
 .animate-agent-breathing {
@@ -210,11 +211,19 @@
 
 @media (prefers-reduced-transparency: reduce) {
   .animate-agent-flash {
-    background: color-mix(in oklch, var(--accent-agent) 8%, transparent) !important;
+    background: color-mix(
+      in oklch,
+      var(--accent-agent) 8%,
+      transparent
+    ) !important;
     box-shadow: inset 3px 0 0 var(--accent-agent) !important;
   }
 
   .animate-agent-breathing {
-    background: color-mix(in oklch, var(--accent-agent) 8%, transparent) !important;
+    background: color-mix(
+      in oklch,
+      var(--accent-agent) 8%,
+      transparent
+    ) !important;
   }
 }
