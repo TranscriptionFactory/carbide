@@ -45,6 +45,12 @@
     overflow: hidden;
     display: flex;
     flex-direction: column;
+    border-radius: 12px;
+    box-shadow: 0 8px 18px rgba(15, 23, 42, 0.12), 0 1px 3px rgba(15, 23, 42, 0.10);
+  }
+
+  :global([data-color-scheme="dark"]) .ViewerShell {
+    box-shadow: 0 12px 26px rgba(0, 0, 0, 0.30), 0 1px 4px rgba(0, 0, 0, 0.22);
   }
 
   .ViewerShell__empty {
