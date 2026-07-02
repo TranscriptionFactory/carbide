@@ -78,18 +78,18 @@
   <div>
     <button
       type="button"
-      class="w-full flex items-center gap-1.5 px-2 py-1 text-xs hover:bg-zinc-100 dark:hover:bg-zinc-900 text-left"
+      class="w-full flex items-center gap-1.5 px-2 py-1 text-xs hover:bg-accent text-left"
       style="padding-left: {depth * 14 + 8}px"
       onclick={() => toggle(node.path)}
     >
       {#if is_expanded}
-        <ChevronDown size={12} class="text-zinc-400 shrink-0" />
+        <ChevronDown size={12} class="text-muted-foreground shrink-0" />
       {:else}
-        <ChevronRight size={12} class="text-zinc-400 shrink-0" />
+        <ChevronRight size={12} class="text-muted-foreground shrink-0" />
       {/if}
-      <Folder size={12} class="text-zinc-500 shrink-0" />
+      <Folder size={12} class="text-muted-foreground shrink-0" />
       <span class="truncate font-medium">{node.label}</span>
-      <span class="text-[10px] text-zinc-400 tabular-nums ml-auto shrink-0">
+      <span class="text-[10px] text-muted-foreground tabular-nums ml-auto shrink-0">
         {node.rows.length + count_descendant_rows(node)}
       </span>
     </button>
@@ -100,11 +100,11 @@
       {#each node.rows as row}
         <button
           type="button"
-          class="w-full flex items-center gap-1.5 px-2 py-1 text-xs hover:bg-zinc-100 dark:hover:bg-zinc-900 text-left"
+          class="w-full flex items-center gap-1.5 px-2 py-1 text-xs hover:bg-accent text-left"
           style="padding-left: {(depth + 1) * 14 + 8}px"
           onclick={() => on_note_click(row.note.path)}
         >
-          <FileText size={12} class="text-zinc-400 shrink-0" />
+          <FileText size={12} class="text-muted-foreground shrink-0" />
           <span class="truncate">{row.note.title || row.note.name}</span>
         </button>
       {/each}
@@ -114,12 +114,12 @@
 
 <div class="h-full flex flex-col">
   <div
-    class="px-3 py-2 border-b border-zinc-200 dark:border-zinc-800 flex items-center gap-2 flex-wrap"
+    class="px-3 py-2 border-b border-border flex items-center gap-2 flex-wrap"
   >
-    <span class="text-[10px] text-zinc-500 shrink-0">Group by:</span>
+    <span class="text-[10px] text-muted-foreground shrink-0">Group by:</span>
     {#each group_by as prop, i}
       <span
-        class="inline-flex items-center gap-1 text-xs px-2 py-0.5 bg-zinc-100 dark:bg-zinc-800 rounded"
+        class="inline-flex items-center gap-1 text-xs px-2 py-0.5 bg-muted rounded"
       >
         {prop}
         <button
@@ -133,7 +133,7 @@
       </span>
     {/each}
     <select
-      class="text-xs px-1 py-0.5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded"
+      class="text-xs px-1 py-0.5 bg-card border border-border rounded"
       value=""
       onchange={(e) => {
         const value = (e.target as HTMLSelectElement).value;
@@ -158,10 +158,10 @@
       {#each rows as row}
         <button
           type="button"
-          class="w-full flex items-center gap-1.5 px-3 py-1 text-xs hover:bg-zinc-100 dark:hover:bg-zinc-900 text-left"
+          class="w-full flex items-center gap-1.5 px-3 py-1 text-xs hover:bg-accent text-left"
           onclick={() => on_note_click(row.note.path)}
         >
-          <FileText size={12} class="text-zinc-400 shrink-0" />
+          <FileText size={12} class="text-muted-foreground shrink-0" />
           <span class="truncate">{row.note.title || row.note.name}</span>
         </button>
       {/each}
