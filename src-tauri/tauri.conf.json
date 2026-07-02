@@ -88,6 +88,7 @@
   },
   "app": {
     "withGlobalTauri": false,
+    "macOSPrivateApi": true,
     "windows": [
       {
         "title": "carbide",
@@ -95,7 +96,14 @@
         "height": 820,
         "resizable": true,
         "dragDropEnabled": false,
-        "zoomHotkeysEnabled": false
+        "zoomHotkeysEnabled": false,
+        "titleBarStyle": "Overlay",
+        "hiddenTitle": true,
+        "trafficLightPosition": {
+          "x": 18,
+          "y": 24
+        },
+        "backgroundColor": "#F8F7F5"
       }
     ],
     "security": {
