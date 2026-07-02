@@ -70,6 +70,15 @@
   /* Selection highlight */
   --selection-bg: oklch(0.92 0.04 var(--accent-hue));
 
+  /* Accent-hue-tracked soft selection halo (Phase 8 #4).
+     Light: 0.18 alpha; dark override below at 0.32 alpha. */
+  --selection-soft: oklch(0.66 0.18 var(--accent-hue) / 0.18);
+
+  /* Reserved AI-state accent — terracotta hue ~40 (Phase 8 #5).
+     Used exclusively for agent-flash / agent-breathing signals.
+     Never repurpose for product UI chrome. */
+  --accent-agent: oklch(0.68 0.13 40);
+
   /* Warning semantic color */
   --warning: oklch(0.8 0.14 85);
   --warning-bg: oklch(0.97 0.025 85);
@@ -298,6 +307,8 @@
   --focus-ring-offset: oklch(0.175 0 0);
 
   --selection-bg: oklch(0.28 0.05 var(--accent-hue));
+  --selection-soft: oklch(0.72 0.16 var(--accent-hue) / 0.32);
+  --accent-agent: oklch(0.72 0.13 40);
 
   --warning: oklch(0.86 0.12 90);
   --warning-bg: oklch(0.24 0.035 85);
@@ -378,6 +389,10 @@
 
   /* Selection */
   --color-selection-bg: var(--selection-bg);
+  --color-selection-soft: var(--selection-soft);
+
+  /* AI-state accent */
+  --color-accent-agent: var(--accent-agent);
 
   /* Shadows */
   --shadow-xs: var(--shadow-xs);
