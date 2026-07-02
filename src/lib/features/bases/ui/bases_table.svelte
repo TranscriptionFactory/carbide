@@ -42,10 +42,10 @@
   <table class="w-full text-left text-xs border-collapse">
     <thead>
       <tr
-        class="border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900"
+        class="border-b border-border bg-muted/50"
       >
         <th
-          class="px-4 py-2 font-semibold text-zinc-500 uppercase tracking-wider cursor-pointer hover:text-zinc-700 dark:hover:text-zinc-300 select-none"
+          class="px-4 py-2 font-semibold text-muted-foreground uppercase tracking-wider cursor-pointer hover:text-foreground select-none"
           onclick={() => on_sort_toggle?.("title")}
         >
           <span class="inline-flex items-center gap-1">
@@ -59,7 +59,7 @@
         </th>
         {#each all_keys as key}
           <th
-            class="px-4 py-2 font-semibold text-zinc-500 uppercase tracking-wider cursor-pointer hover:text-zinc-700 dark:hover:text-zinc-300 select-none"
+            class="px-4 py-2 font-semibold text-muted-foreground uppercase tracking-wider cursor-pointer hover:text-foreground select-none"
             onclick={() => on_sort_toggle?.(key)}
           >
             <span class="inline-flex items-center gap-1">
@@ -73,12 +73,12 @@
           </th>
         {/each}
         <th
-          class="px-4 py-2 font-semibold text-zinc-500 uppercase tracking-wider"
+          class="px-4 py-2 font-semibold text-muted-foreground uppercase tracking-wider"
           >Tags</th
         >
         {#if has_tasks}
           <th
-            class="px-4 py-2 font-semibold text-zinc-500 uppercase tracking-wider cursor-pointer hover:text-zinc-700 dark:hover:text-zinc-300 select-none"
+            class="px-4 py-2 font-semibold text-muted-foreground uppercase tracking-wider cursor-pointer hover:text-foreground select-none"
             onclick={() => on_sort_toggle?.("task_count")}
           >
             <span class="inline-flex items-center gap-1">
@@ -96,14 +96,14 @@
     <tbody>
       {#each rows as row}
         <tr
-          class="border-b border-zinc-100 dark:border-zinc-900 hover:bg-zinc-50 dark:hover:bg-zinc-900/50 cursor-pointer"
+          class="border-b border-border hover:bg-muted/50 cursor-pointer"
           onclick={() => on_note_click(row.note.path)}
         >
-          <td class="px-4 py-2 font-medium text-zinc-900 dark:text-zinc-100">
+          <td class="px-4 py-2 font-medium text-foreground">
             {row.note.title || row.note.name}
           </td>
           {#each all_keys as key}
-            <td class="px-4 py-2 text-zinc-600 dark:text-zinc-400">
+            <td class="px-4 py-2 text-muted-foreground">
               {row.properties[key]?.value ?? ""}
             </td>
           {/each}
@@ -111,7 +111,7 @@
             <div class="flex flex-wrap gap-1">
               {#each row.tags as tag}
                 <span
-                  class="px-1 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-[10px]"
+                  class="px-1 py-0.5 rounded bg-muted text-[10px]"
                 >
                   #{tag}
                 </span>
@@ -119,7 +119,7 @@
             </div>
           </td>
           {#if has_tasks}
-            <td class="px-4 py-2 text-zinc-600 dark:text-zinc-400">
+            <td class="px-4 py-2 text-muted-foreground">
               {#if row.stats.task_count > 0}
                 <span class="inline-flex items-center gap-1.5">
                   <span class="text-xs font-medium"
