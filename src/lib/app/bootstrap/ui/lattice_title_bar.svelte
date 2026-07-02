@@ -1,5 +1,10 @@
 <script lang="ts">
+  import { onMount } from "svelte";
   import { GitBranch } from "@lucide/svelte";
+  import {
+    is_mac,
+    MACOS_TRAFFIC_LIGHT_SAFE_PADDING,
+  } from "$lib/features/window/domain/platform";
 
   type Props = {
     vault_name: string;
@@ -9,9 +14,22 @@
   };
 
   let { vault_name, note_title, branch, on_branch_click }: Props = $props();
+
+  const mac = is_mac();
+  const inline_start = mac ? `${MACOS_TRAFFIC_LIGHT_SAFE_PADDING}px` : "var(--space-3)";
+
+  onMount(() => {
+    if (mac) {
+      document.body.classList.add("mac-chrome");
+    }
+  });
 </script>
 
-<div class="LatticeTitleBar" data-tauri-drag-region>
+<div
+  class="LatticeTitleBar"
+  style="padding-inline-start:{inline_start}"
+  data-tauri-drag-region
+>
   <div class="LatticeTitleBar__breadcrumbs">
     <span class="LatticeTitleBar__vault">{vault_name}</span>
     {#if note_title}
@@ -35,7 +53,7 @@
     align-items: center;
     justify-content: space-between;
     height: 36px;
-    padding-inline: var(--space-3);
+    padding-inline-end: var(--space-3);
     background-color: var(--background-surface-2, var(--sidebar));
     border-block-end: 1px solid var(--border);
     -webkit-app-region: drag;
