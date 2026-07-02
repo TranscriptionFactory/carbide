@@ -97,3 +97,32 @@
   max-width: var(--size-dialog-xl);
   padding: var(--space-8);
 }
+
+/* Global affordance — interactive controls advertise clickability */
+:where(
+  button:not(:disabled):not([aria-disabled="true"]),
+  [role="button"]:not([aria-disabled="true"]):not([data-disabled]),
+  [role="menuitem"]:not([aria-disabled="true"]):not([data-disabled]),
+  [role="menuitemcheckbox"]:not([aria-disabled="true"]):not([data-disabled]),
+  [role="menuitemradio"]:not([aria-disabled="true"]):not([data-disabled]),
+  [role="option"]:not([aria-disabled="true"]):not([data-disabled])
+) {
+  cursor: pointer;
+}
+
+/* Global focus-visible ring — non-destructive base (components may override) */
+:where(
+  button,
+  [role="button"],
+  [role="menuitem"],
+  [role="menuitemcheckbox"],
+  [role="menuitemradio"],
+  [role="option"],
+  a,
+  input,
+  select,
+  textarea
+):focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
