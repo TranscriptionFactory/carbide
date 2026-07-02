@@ -95,9 +95,7 @@
   </div>
 {:else}
   <div class="h-full flex flex-col">
-    <div
-      class="flex items-center gap-2 px-4 py-2 border-b border-border"
-    >
+    <div class="flex items-center gap-2 px-4 py-2 border-b border-border">
       <span class="text-[10px] text-muted-foreground uppercase tracking-wider"
         >Group by:</span
       >

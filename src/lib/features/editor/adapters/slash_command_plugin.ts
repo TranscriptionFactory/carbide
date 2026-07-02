@@ -621,7 +621,10 @@ function scroll_selected_in_list(menu: HTMLElement, index: number): void {
 
 let menu_id_counter = 0;
 
-export function create_menu_el(): { menu: HTMLElement; live_region: HTMLElement } {
+export function create_menu_el(): {
+  menu: HTMLElement;
+  live_region: HTMLElement;
+} {
   const menu = document.createElement("div");
   menu.className = "SlashMenu";
   menu.dataset.show = "false";

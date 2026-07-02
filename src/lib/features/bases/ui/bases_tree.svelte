@@ -89,7 +89,9 @@
       {/if}
       <Folder size={12} class="text-muted-foreground shrink-0" />
       <span class="truncate font-medium">{node.label}</span>
-      <span class="text-[10px] text-muted-foreground tabular-nums ml-auto shrink-0">
+      <span
+        class="text-[10px] text-muted-foreground tabular-nums ml-auto shrink-0"
+      >
         {node.rows.length + count_descendant_rows(node)}
       </span>
     </button>

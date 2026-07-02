@@ -2,6 +2,7 @@ import {
   apply_theme,
   resolve_effective_source_shiki_theme,
 } from "$lib/shared/utils/apply_theme";
+import { sync_window_material } from "$lib/features/window";
 import type { UIStore } from "$lib/app";
 import type { ThemeService } from "$lib/features/theme";
 
@@ -15,6 +16,7 @@ export function create_theme_reactor(
         persist_to_cache: !ui_store.theme_has_draft,
         color_scheme_preference: ui_store.color_scheme_preference,
       });
+      void sync_window_material(ui_store.active_theme.surface_style);
       const source_theme = resolve_effective_source_shiki_theme(
         ui_store.active_theme,
       );

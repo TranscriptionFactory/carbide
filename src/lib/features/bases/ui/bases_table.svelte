@@ -41,9 +41,7 @@
 <div class="overflow-x-auto">
   <table class="w-full text-left text-xs border-collapse">
     <thead>
-      <tr
-        class="border-b border-border bg-muted/50"
-      >
+      <tr class="border-b border-border bg-muted/50">
         <th
           class="px-4 py-2 font-semibold text-muted-foreground uppercase tracking-wider cursor-pointer hover:text-foreground select-none"
           onclick={() => on_sort_toggle?.("title")}
@@ -110,9 +108,7 @@
           <td class="px-4 py-2">
             <div class="flex flex-wrap gap-1">
               {#each row.tags as tag}
-                <span
-                  class="px-1 py-0.5 rounded bg-muted text-[10px]"
-                >
+                <span class="px-1 py-0.5 rounded bg-muted text-[10px]">
                   #{tag}
                 </span>
               {/each}

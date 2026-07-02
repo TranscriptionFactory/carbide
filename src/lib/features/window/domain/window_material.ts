@@ -4,9 +4,8 @@ import { is_tauri } from "$lib/features/window/domain/platform";
 const GLASS_MATERIAL_CLASS = "data-tauri-material";
 
 async function apply_tauri_vibrancy(): Promise<void> {
-  const { getCurrentWindow, Effect, EffectState } = await import(
-    "@tauri-apps/api/window"
-  );
+  const { getCurrentWindow, Effect, EffectState } =
+    await import("@tauri-apps/api/window");
   const win = getCurrentWindow();
   await win.setEffects({
     effects: [Effect.Acrylic, Effect.UnderWindowBackground],
