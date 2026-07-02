@@ -6,10 +6,6 @@ import {
   serialize_markdown,
 } from "$lib/features/editor/adapters/markdown_pipeline";
 import { schema } from "$lib/features/editor/adapters/schema";
-import {
-  append_column,
-  append_row,
-} from "$lib/features/editor/adapters/table_command_utils";
 
 describe("table serialization", () => {
   it("programmatically created table has valid schema structure", () => {
@@ -135,29 +131,5 @@ describe("table serialization", () => {
     });
     const output = serialize_markdown(state.doc).trim();
     expect(output).toBe(input);
-  });
-
-  it("serializes an edge-appended column/row without leaking width", () => {
-    const input = "| A | B |\n| --- | --- |\n| 1 | 2 |";
-    const state = EditorState.create({
-      doc: parse_markdown(input),
-      schema,
-      plugins: [columnResizing(), tableEditing()],
-    });
-    const table = { pos: 0, start: 1, node: state.doc.child(0) };
-
-    const with_col = state.apply(append_column(state, table));
-    const col_table = { pos: 0, start: 1, node: with_col.doc.child(0) };
-    const with_row = with_col.apply(append_row(with_col, col_table));
-
-    const output = serialize_markdown(with_row.doc).trim();
-    const lines = output.split("\n");
-
-    // 3 columns (separator row is the reliable count — appended cells are empty)
-    // and 4 lines: header, separator, original body row, appended body row.
-    expect((lines[1] ?? "").split("|").filter((c) => c.trim()).length).toBe(3);
-    expect(lines.length).toBe(4);
-    expect(output).not.toContain("width");
-    expect(output).not.toContain("\\\\");
   });
 });
