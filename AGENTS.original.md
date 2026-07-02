@@ -1,7 +1,7 @@
 <!-- Key Documentation -->
 
-For adding/updating any feature, always refer to decision tree in `docs/architecture.md` FIRST and adhere to it RELIGIOUSLY.
-This repo is implementation base for Carbide project. For Carbide-facing product work, also consult `carbide/carbide-project-guide.md` `carbide/TODO.md` `carbide/plugin_system.md` when they apply.
+For adding/updating any feature, always refer to the decision tree in `docs/architecture.md` FIRST and adhere to it RELIGIOUSLY.
+This repository is the implementation base for the Carbide project. For Carbide-facing product work, also consult `carbide/carbide-project-guide.md`, `carbide/TODO.md`, and `carbide/plugin_system.md` when they apply.
 
 ## Persona
 
@@ -22,18 +22,18 @@ This repo is implementation base for Carbide project. For Carbide-facing product
   - Identify scenarios and edge cases first, define invariants and work towards 100% coverage on those scenarios
 - Architectural decisions must have well-thought, traceable rationale
 - Project is active; prefer clean refactors over backward compatibility. Internal API breaks are OK if it simplifies design and tests/examples are updated. 0 users as of now
-- Maintain high standards for tests; don't lower them to "make things pass"
+- Maintain high standards for tests; don't lower them just to "make things pass"
 
 ## Post edit tasks
 
-- For major features, code-changes, invoke subagent (code-simplifier subagent/skill) w/ full context to simplify w/o breaking logic or "requirements" that user proposed. Simplification will be penalized if it breaks existing code patterns, standards or guidelines
-- When you have made **code changes** run following and fix any issues:
+- For major features, code-changes, invoke a subagent (code-simplifier subagent/skill) with full context to simplify WITHOUT breaking the logic or the "requirements" that user proposed. Simplification will be penalized if it breaks existing code patterns, standards or guidelines
+- When you have made **code changes** run the following and fix any issues:
   - `pnpm check` — Svelte/TypeScript type checking
   - `pnpm lint` — oxlint linting
   - `pnpm test` — Vitest unit/integration tests
-  - `cd src-tauri && cargo check` — Rust type checking (run from `src-tauri/` dir)
+  - `cd src-tauri && cargo check` — Rust type checking (run from `src-tauri/` directory)
   - `pnpm format` — Prettier (writes formatting)
-- Add tests in right location (if we should), even if user might have forgotten to ask you to create them
+- Add tests in the right location (if we should), even if the user might have forgotten to ask you to create them
 
 ## Implementation Guidelines
 
@@ -42,19 +42,19 @@ This repo is implementation base for Carbide project. For Carbide-facing product
 - Use strict, consistent naming conventions
 - Write small functions, avoid "fat" ones
 - Don't assume library usage; review before using
-- Check for latest stable version of packages before adding dependencies
+- Check for the latest stable version of packages before adding dependencies
 - NO comments/docstrings. Only add to non-obvious code
 - Avoid inlined imports
 - Keep related things together, but don't "fatten" modules
-- Code should be readable like prose, w/ clear flow
+- Code should be readable like prose, with clear flow
 - Use `gh` CLI for GitHub interaction
 - Do not version control `devlog/` or refer to it in PRs/issues
 - Keep code testable: non-trivial functions/classes must be easy to test
-- For UI, always use shadcn semantic utilities. Use custom utilities only when shadcn lacks specific token
-- Store tests in top-level `tests/` dir, separate from logic
+- For UI, always use shadcn semantic utilities. Use custom utilities only when shadcn lacks the specific token
+- Store tests in a top-level `tests/` directory, separate from logic
 - Use separate files for tests and group tests semantically by file, and use descriptive names
 - Use reusable modules for shared fixtures/helpers
-- Prefer focused unit tests by default; incrementally grow coverage w/ meaningful cases
+- Prefer focused unit tests by default; incrementally grow coverage with meaningful cases
 - Tests must be deterministic, readable, and fail loudly on assertion failures.
 
 ## Agentic guidelines
@@ -68,6 +68,6 @@ Use `agent-browser` for web automation. Run `agent-browser --help` for all comma
 Core workflow:
 
 1. `agent-browser open <url>` - Navigate to page
-2. `agent-browser snapshot -i` - Get interactive elements w/ refs (@e1, @e2)
+2. `agent-browser snapshot -i` - Get interactive elements with refs (@e1, @e2)
 3. `agent-browser click @e1` / `fill @e2 "text"` - Interact using refs
 4. Re-snapshot after page changes
