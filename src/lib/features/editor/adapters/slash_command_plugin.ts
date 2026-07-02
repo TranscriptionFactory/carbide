@@ -22,7 +22,7 @@ import { PREVIEW_BUILDERS, build_preview } from "./slash_command_previews";
 
 export const slash_plugin_key = new PluginKey("slash-command");
 
-type SlashState = {
+export type SlashState = {
   active: boolean;
   query: string;
   from: number;
@@ -619,25 +619,54 @@ function scroll_selected_in_list(menu: HTMLElement, index: number): void {
   if (list) scroll_selected_into_view(list, index);
 }
 
-function create_menu_el(): HTMLElement {
-  const el = document.createElement("div");
-  el.className = "SlashMenu";
-  el.dataset.show = "false";
-  return el;
+let menu_id_counter = 0;
+
+export function create_menu_el(): { menu: HTMLElement; live_region: HTMLElement } {
+  const menu = document.createElement("div");
+  menu.className = "SlashMenu";
+  menu.dataset.show = "false";
+  menu.dataset.menuId = String(++menu_id_counter);
+
+  const live_region = document.createElement("span");
+  live_region.className = "SlashMenu__live-region";
+  live_region.setAttribute("aria-live", "polite");
+  live_region.setAttribute("aria-atomic", "true");
+  menu.appendChild(live_region);
+
+  return { menu, live_region };
 }
 
-function render_items(
+function option_id(menu_id: string, index: number): string {
+  return `slash-menu-${menu_id}-option-${String(index)}`;
+}
+
+export function render_items(
   menu: HTMLElement,
+  live_region: HTMLElement,
   state: SlashState,
+  on_select: (index: number) => void,
   on_click: (cmd: SlashCommand) => void,
   preview_cache: Map<string, HTMLElement>,
 ): void {
-  menu.innerHTML = "";
-  if (state.filtered.length === 0) return;
+  const mid = menu.dataset.menuId ?? "0";
+
+  const existing_list = menu.querySelector(".SlashMenu__list");
+  const existing_preview = menu.querySelector(".SlashMenu__preview");
+  existing_list?.remove();
+  existing_preview?.remove();
+
+  if (state.filtered.length === 0) {
+    live_region.textContent = "No results";
+    return;
+  }
 
   const list = document.createElement("div");
   list.className = "SlashMenu__list scroll-fade-mask";
   list.setAttribute("role", "listbox");
+  list.setAttribute("aria-label", "Slash commands");
+
+  const active_id = option_id(mid, state.selected_index);
+  list.setAttribute("aria-activedescendant", active_id);
 
   for (let i = 0; i < state.filtered.length; i++) {
     const cmd = state.filtered[i];
@@ -645,6 +674,7 @@ function render_items(
 
     const row = document.createElement("button");
     row.type = "button";
+    row.id = option_id(mid, i);
     row.className = "SlashMenu__item";
     row.setAttribute("role", "option");
     row.setAttribute("aria-selected", String(i === state.selected_index));
@@ -678,6 +708,7 @@ function render_items(
 
     row.appendChild(text_el);
 
+    row.addEventListener("mouseenter", () => on_select(i));
     row.addEventListener("mousedown", (e) => {
       e.preventDefault();
       on_click(cmd);
@@ -686,14 +717,17 @@ function render_items(
     list.appendChild(row);
   }
 
-  menu.appendChild(list);
+  menu.insertBefore(list, live_region.nextSibling);
 
   const selected = state.filtered[state.selected_index];
   if (!selected) return;
 
+  live_region.textContent = selected.label;
+
   const preview = document.createElement("div");
   preview.className = "SlashMenu__preview";
   preview.setAttribute("aria-hidden", "true");
+  preview.addEventListener("mousedown", (e) => e.preventDefault());
 
   const frame = document.createElement("div");
   frame.className = "SlashMenu__preview-frame";
@@ -711,14 +745,32 @@ export function create_slash_command_prose_plugin(
 
   let slash_state: SlashState = EMPTY_STATE;
   let menu: HTMLElement | null = null;
+  let live_region: HTMLElement | null = null;
   let accept_fn: ((cmd: SlashCommand) => void) | null = null;
   let detach_dismiss: (() => void) | null = null;
+
+  function do_render(): void {
+    if (!menu || !live_region) return;
+    render_items(
+      menu,
+      live_region,
+      slash_state,
+      (index) => {
+        slash_state = { ...slash_state, selected_index: index };
+        do_render();
+      },
+      (cmd) => accept_fn?.(cmd),
+      preview_cache,
+    );
+  }
 
   return new Plugin({
     key: slash_plugin_key,
 
     view(editor_view) {
-      menu = create_menu_el();
+      const created = create_menu_el();
+      menu = created.menu;
+      live_region = created.live_region;
       mount_dropdown(menu);
 
       accept_fn = (cmd) => {
@@ -767,13 +819,7 @@ export function create_slash_command_prose_plugin(
             filtered,
           };
 
-          if (menu)
-            render_items(
-              menu,
-              slash_state,
-              (cmd) => accept_fn?.(cmd),
-              preview_cache,
-            );
+          do_render();
 
           if (menu && filtered.length > 0) {
             const anchor = create_cursor_anchor(view);
@@ -787,6 +833,7 @@ export function create_slash_command_prose_plugin(
         destroy() {
           destroy_dropdown(menu, detach_dismiss);
           menu = null;
+          live_region = null;
           detach_dismiss = null;
           accept_fn = null;
         },
@@ -806,12 +853,7 @@ export function create_slash_command_prose_plugin(
             selected_index:
               (slash_state.selected_index + 1) % slash_state.filtered.length,
           };
-          render_items(
-            menu,
-            slash_state,
-            (cmd) => accept_fn?.(cmd),
-            preview_cache,
-          );
+          do_render();
           scroll_selected_in_list(menu, slash_state.selected_index);
           return true;
         }
@@ -824,12 +866,7 @@ export function create_slash_command_prose_plugin(
               (slash_state.selected_index - 1 + slash_state.filtered.length) %
               slash_state.filtered.length,
           };
-          render_items(
-            menu,
-            slash_state,
-            (cmd) => accept_fn?.(cmd),
-            preview_cache,
-          );
+          do_render();
           scroll_selected_in_list(menu, slash_state.selected_index);
           return true;
         }
