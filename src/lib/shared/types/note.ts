@@ -24,6 +24,7 @@ export type NoteMeta = {
   linked_source_id?: string;
   color?: string | undefined;
   icon?: string | undefined;
+  is_a?: string | undefined;
 };
 
 export function is_linked_note(note: NoteMeta): boolean {

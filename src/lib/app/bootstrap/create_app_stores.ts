@@ -13,6 +13,8 @@ import { DocumentStore } from "$lib/features/document";
 import { AiStore } from "$lib/features/ai";
 import { GraphStore } from "$lib/features/graph";
 import { BasesStore, BaseCountsStore } from "$lib/features/bases";
+import { TypesStore } from "$lib/features/types";
+import { InboxStore } from "$lib/features/folder";
 import { TaskStore } from "$lib/features/task";
 import {
   PluginStore,
@@ -56,6 +58,8 @@ export type AppStores = {
   graph: GraphStore;
   bases: BasesStore;
   bases_counts: BaseCountsStore;
+  types: TypesStore;
+  inbox: InboxStore;
   task: TaskStore;
   plugin: PluginStore;
   plugin_settings: PluginSettingsStore;
@@ -99,6 +103,8 @@ export function create_app_stores(): AppStores {
     graph: new GraphStore(),
     bases: new BasesStore(),
     bases_counts: new BaseCountsStore(),
+    types: new TypesStore(),
+    inbox: new InboxStore(),
     task: new TaskStore(),
     plugin: new PluginStore(),
     plugin_settings: new PluginSettingsStore(),

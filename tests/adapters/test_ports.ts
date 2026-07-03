@@ -102,6 +102,10 @@ export function create_test_ports(): Ports {
       update_property: () => Promise.resolve(),
       seed_default_views: () => Promise.resolve(0),
     },
+    types: {
+      list_types: () => Promise.resolve([]),
+      list_definition_notes: () => Promise.resolve([]),
+    },
     task: {
       queryTasks: () => Promise.resolve([]),
       getTasksForNote: () => Promise.resolve([]),
