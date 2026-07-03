@@ -329,13 +329,11 @@
    BLOCK DRAG HANDLE
    ============================================ */
 
-.block-drag-handle-overlay {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  pointer-events: none;
-  user-select: none;
-  z-index: 2;
+.show-block-drag-handle.ProseMirror,
+.show-block-drag-handle .ProseMirror,
+.block-drag-handle-always.ProseMirror,
+.block-drag-handle-always .ProseMirror {
+  position: relative;
 }
 
 .block-drag-handle {
@@ -351,36 +349,47 @@
   justify-content: center;
   gap: 1px;
   user-select: none;
-  pointer-events: auto;
+  pointer-events: none;
   border-radius: var(--radius-sm, 3px);
+  z-index: 2;
+}
+
+/* invisible hit padding bridging the gutter to the text column */
+.block-drag-handle::before {
+  content: "";
+  position: absolute;
+  top: -6px;
+  bottom: -6px;
+  left: -6px;
+  right: -0.25rem;
 }
 
 .show-block-drag-handle .block-drag-handle {
   display: flex;
 }
 
+/* on_hover mode: reveal only the hovered/near block's handle */
+.show-block-drag-handle:not(.block-drag-handle-always) .block-drag-handle--near,
+.show-block-drag-handle:not(.block-drag-handle-always)
+  .block-drag-handle:hover {
+  opacity: 0.6;
+  pointer-events: auto;
+}
+
+/* always mode: every handle rests at a low opacity */
 .block-drag-handle-always .block-drag-handle {
   opacity: 0.5;
+  pointer-events: auto;
 }
 
-/* on_hover mode: fade in when mouse is near a block */
-.show-block-drag-handle:not(.block-drag-handle-always)
-  .block-drag-handle--near {
-  opacity: 0.55;
-}
-
-/* always mode: bump slightly when mouse is near */
-.block-drag-handle-always .block-drag-handle--near {
-  opacity: 0.7;
-}
-
-.block-drag-handle--hover {
-  opacity: 0.9;
+.block-drag-handle-always .block-drag-handle--near,
+.block-drag-handle-always .block-drag-handle:hover {
+  opacity: 0.85;
   background: var(--background-surface-2, oklch(0.95 0 0));
 }
 
 .block-drag-handle--dragging {
-  opacity: 0.6;
+  opacity: 0.6 !important;
   cursor: grabbing;
 }
 
