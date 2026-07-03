@@ -68,7 +68,7 @@ export type FileTreeStyle =
   | "refined";
 export type FileTreeBlurbPosition = "caption" | "heading";
 
-export type FileTreeMode = "tree" | "drilldown";
+export type FileTreeMode = "tree" | "drilldown" | "inbox";
 export type LintFormatter = "prettier" | "rumdl";
 export type MarkdownLspProvider = "iwes" | "markdown_oxide" | "marksman";
 export type EmbeddingModelId =
