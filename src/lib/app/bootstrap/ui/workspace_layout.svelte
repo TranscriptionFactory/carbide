@@ -296,7 +296,7 @@
 {#if stores.vault.vault}
   <!-- svelte-ignore a11y_no_static_element_interactions -->
   <div
-    class="flex h-screen flex-col"
+    class="WorkspaceLayout flex h-screen flex-col"
     class:WorkspaceLayout--zen={zen_mode}
     class:WorkspaceLayout--monolith={is_monolith}
     class:WorkspaceLayout--workbench={is_workbench}

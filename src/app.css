@@ -59,5 +59,10 @@
   body {
     @apply h-full bg-background text-foreground;
     font-family: var(--font-ui);
+    --macos-drag-strip-height: 36px;
+  }
+
+  body.macos-drag-strip .WorkspaceLayout {
+    padding-block-start: var(--macos-drag-strip-height);
   }
 }
