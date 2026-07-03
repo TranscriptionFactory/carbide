@@ -35,7 +35,10 @@ import type {
 import { create_logger } from "$lib/shared/utils/logger";
 import { parent_folder_path } from "$lib/shared/utils/path";
 import { get_invalid_drop_reason } from "$lib/features/folder/domain/filetree";
-import type { EditorSettings } from "$lib/shared/types/editor_settings";
+import type {
+  EditorSettings,
+  FileTreeMode,
+} from "$lib/shared/types/editor_settings";
 
 const log = create_logger("folder_actions");
 
@@ -556,21 +559,34 @@ export function register_folder_actions(input: ActionRegistrationInput) {
       },
     });
 
+    const persist_file_tree_mode = async (mode: FileTreeMode) => {
+      const updated: EditorSettings = {
+        ...stores.ui.editor_settings,
+        file_tree_mode: mode,
+      };
+      const result = await services.settings.save_settings(updated);
+      if (result.status === "success") {
+        stores.ui.set_editor_settings(updated);
+      }
+    };
+
     registry.register({
       id: ACTION_IDS.filetree_toggle_mode,
       label: "Toggle File Tree Mode",
       execute: async () => {
+        const cycle: FileTreeMode[] = ["tree", "drilldown", "inbox"];
         const current = stores.ui.editor_settings.file_tree_mode ?? "tree";
-        const next: "tree" | "drilldown" =
-          current === "tree" ? "drilldown" : "tree";
-        const updated: EditorSettings = {
-          ...stores.ui.editor_settings,
-          file_tree_mode: next,
-        };
-        const result = await services.settings.save_settings(updated);
-        if (result.status === "success") {
-          stores.ui.set_editor_settings(updated);
-        }
+        const next =
+          cycle[(cycle.indexOf(current) + 1) % cycle.length] ?? "tree";
+        await persist_file_tree_mode(next);
+      },
+    });
+
+    registry.register({
+      id: ACTION_IDS.filetree_set_mode,
+      label: "Set File Tree Mode",
+      execute: async (mode_input: unknown) => {
+        await persist_file_tree_mode(mode_input as FileTreeMode);
       },
     });
 
