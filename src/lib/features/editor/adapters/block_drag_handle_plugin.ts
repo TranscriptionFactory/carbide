@@ -276,6 +276,54 @@ export function create_block_drag_handle_prose_plugin(): Plugin {
       let keystroke_count = 0;
       let focus_mode_active = false;
       let near_pos: number | null = null;
+      let align_frame: number | null = null;
+
+      function align_handles() {
+        const pm_rect = editor_dom.getBoundingClientRect();
+        const scroll_top = editor_dom.scrollTop;
+        const measured: { el: HTMLElement; top: number }[] = [];
+
+        for (let i = handles.length - 1; i >= 0; i--) {
+          const entry = handles[i];
+          if (!entry) continue;
+          if (!entry.el.isConnected) {
+            handles.splice(i, 1);
+            continue;
+          }
+          const pos = entry.get_pos();
+          if (pos == null) continue;
+          const dom = editor_view.nodeDOM(pos);
+          if (!(dom instanceof HTMLElement)) continue;
+
+          const block_rect = dom.getBoundingClientRect();
+          const style = getComputedStyle(dom);
+          const line_height = parseFloat(style.lineHeight) || block_rect.height;
+          const padding_top = parseFloat(style.paddingTop) || 0;
+          const handle_height = entry.el.offsetHeight || 24;
+          const baseline_offset =
+            padding_top + line_height * 0.9 - handle_height;
+          const top =
+            block_rect.top - pm_rect.top + scroll_top + baseline_offset;
+          measured.push({ el: entry.el, top });
+        }
+
+        for (const m of measured) m.el.style.top = `${String(m.top)}px`;
+      }
+
+      function schedule_align() {
+        if (typeof requestAnimationFrame === "undefined") return;
+        if (align_frame !== null) return;
+        align_frame = requestAnimationFrame(() => {
+          align_frame = null;
+          align_handles();
+        });
+      }
+
+      const resize_observer =
+        typeof ResizeObserver === "undefined"
+          ? null
+          : new ResizeObserver(() => schedule_align());
+      resize_observer?.observe(editor_dom);
 
       function is_feature_enabled(): boolean {
         return editor_dom.closest(".show-block-drag-handle") !== null;
@@ -343,8 +391,15 @@ export function create_block_drag_handle_prose_plugin(): Plugin {
       editor_dom.addEventListener("mouseleave", on_mouseleave);
       editor_dom.addEventListener("keydown", on_keydown);
 
+      schedule_align();
+
       return {
+        update() {
+          schedule_align();
+        },
         destroy() {
+          if (align_frame !== null) cancelAnimationFrame(align_frame);
+          resize_observer?.disconnect();
           exit_focus_mode();
           insert_menu?.destroy();
           insert_menu = null;
