@@ -18,6 +18,7 @@ type TauriNoteMeta = {
   ctime_ms: number;
   size_bytes: number;
   file_type: string | null;
+  is_a?: string | null;
 };
 
 type TauriGraphNeighborhoodSnapshot = {
@@ -42,6 +43,7 @@ function to_note_meta(note: TauriNoteMeta): NoteMeta {
     ctime_ms: note.ctime_ms,
     size_bytes: note.size_bytes,
     file_type: note.file_type,
+    is_a: note.is_a ?? undefined,
   };
 }
 

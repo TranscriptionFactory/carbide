@@ -17,6 +17,7 @@ import type { WatcherPort } from "$lib/features/watcher";
 import type { AiPort, AiStreamPort } from "$lib/features/ai";
 import type { GraphPort } from "$lib/features/graph";
 import type { BasesPort } from "$lib/features/bases";
+import type { TypesPort } from "$lib/features/types";
 import type { TaskPort } from "$lib/features/task";
 import type {
   PluginHostPort,
@@ -66,6 +67,7 @@ export type Ports = {
   ai_stream: AiStreamPort;
   graph: GraphPort;
   bases: BasesPort;
+  types: TypesPort;
   task: TaskPort;
   plugin: PluginHostPort;
   plugin_settings: PluginSettingsPort;

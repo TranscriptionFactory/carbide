@@ -53,6 +53,7 @@ import {
   BasesPanel,
   register_bases_actions,
 } from "$lib/features/bases";
+import { TypesService, register_types_actions } from "$lib/features/types";
 import { WatcherService } from "$lib/features/watcher";
 import { TaskService, register_task_actions } from "$lib/features/task";
 import {
@@ -816,6 +817,12 @@ export function create_app_context(input: {
 
   const bases_service = new BasesService(input.ports.bases, stores.bases);
 
+  const types_service = new TypesService(
+    input.ports.types,
+    input.ports.notes,
+    stores.types,
+  );
+
   const task_service = new TaskService(
     input.ports.task,
     stores.task,
@@ -1377,6 +1384,16 @@ export function create_app_context(input: {
     stores.tab,
   );
 
+  register_types_actions(
+    action_registry,
+    types_service,
+    stores.types,
+    bases_service,
+    stores.bases,
+    stores.vault,
+    stores.ui,
+  );
+
   register_task_actions(action_registry, task_service, stores.task, stores.ui);
 
   register_query_actions(action_registry, query_service, stores.ui);
@@ -1422,6 +1439,7 @@ export function create_app_context(input: {
     terminal_service,
     graph_service,
     bases_service,
+    types_service,
     watcher_service,
     action_registry,
     workspace_reconcile,

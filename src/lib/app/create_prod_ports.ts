@@ -37,6 +37,7 @@ import {
 } from "$lib/features/ai";
 import { create_graph_remark_adapter } from "$lib/features/graph";
 import { create_bases_tauri_adapter } from "$lib/features/bases";
+import { create_types_tauri_adapter } from "$lib/features/types";
 import { create_task_tauri_adapter } from "$lib/features/task";
 import {
   PluginHostAdapter,
@@ -128,6 +129,7 @@ export function create_prod_ports(): Ports & {
     throw new Error(result.error);
   });
   const bases = create_bases_tauri_adapter();
+  const types = create_types_tauri_adapter();
   const task = create_task_tauri_adapter();
   const plugin = new PluginHostAdapter();
   const plugin_settings = new PluginSettingsTauriAdapter();
@@ -226,6 +228,7 @@ export function create_prod_ports(): Ports & {
     ai_stream,
     graph,
     bases,
+    types,
     task,
     plugin,
     plugin_settings,
