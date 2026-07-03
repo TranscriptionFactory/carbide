@@ -1,4 +1,5 @@
 import { Plugin, PluginKey, TextSelection } from "prosemirror-state";
+import { Decoration, DecorationSet } from "prosemirror-view";
 import type { EditorView } from "prosemirror-view";
 import type { Node as ProseNode } from "prosemirror-model";
 import { is_draggable_node_type } from "../domain/detect_draggable_blocks";
@@ -7,11 +8,23 @@ import {
   apply_block_move,
 } from "../domain/compute_block_drop";
 import { compute_heading_ranges } from "./heading_fold_plugin";
+import {
+  create_block_insert_menu,
+  type BlockInsertMenu,
+} from "./block_insert_menu";
 
-const block_drag_handle_plugin_key = new PluginKey("block_drag_handle");
+const block_drag_handle_plugin_key = new PluginKey<DragHandleState>(
+  "block_drag_handle",
+);
 
-const HIDE_DELAY_MS = 150;
 const FOCUS_MODE_KEYSTROKE_THRESHOLD = 4;
+
+type DragHandleState = { set: DecorationSet; starts: number[] };
+type HandleEntry = { el: HTMLElement; get_pos: () => number | undefined };
+type BuildHandle = (
+  view: EditorView,
+  get_pos: () => number | undefined,
+) => HTMLElement;
 
 function resolve_top_level_block(
   view: EditorView,
@@ -27,14 +40,7 @@ function resolve_top_level_block(
   return { pos: top_pos, node };
 }
 
-function create_overlay_element(): HTMLDivElement {
-  const overlay = document.createElement("div");
-  overlay.className = "block-drag-handle-overlay";
-  overlay.contentEditable = "false";
-  return overlay;
-}
-
-function create_handle_element(): HTMLDivElement {
+function build_handle_element(): HTMLDivElement {
   const handle = document.createElement("div");
   handle.className = "block-drag-handle";
   handle.contentEditable = "false";
@@ -55,18 +61,23 @@ function create_handle_element(): HTMLDivElement {
   return handle;
 }
 
-function insert_paragraph_below(view: EditorView, block_pos: number) {
+export function insert_paragraph_below(
+  view: EditorView,
+  block_pos: number,
+): number | null {
   const node = view.state.doc.nodeAt(block_pos);
-  if (!node) return;
+  if (!node) return null;
 
   const insert_pos = block_pos + node.nodeSize;
   const paragraph = view.state.schema.nodes["paragraph"]?.create();
-  if (!paragraph) return;
+  if (!paragraph) return null;
 
+  const from = insert_pos + 1;
   const tr = view.state.tr.insert(insert_pos, paragraph);
-  tr.setSelection(TextSelection.create(tr.doc, insert_pos + 1));
+  tr.setSelection(TextSelection.create(tr.doc, from));
   view.dispatch(tr.scrollIntoView());
   view.focus();
+  return from;
 }
 
 function compute_drag_range(
@@ -88,13 +99,149 @@ function compute_drag_range(
   return { from: block_pos, to: block_pos + node.nodeSize };
 }
 
+function collect_top_level_starts(doc: ProseNode): number[] {
+  const starts: number[] = [];
+  doc.forEach((node, offset) => {
+    if (is_draggable_node_type(node.type.name)) starts.push(offset);
+  });
+  return starts;
+}
+
+function arrays_equal(a: number[], b: number[]): boolean {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    if (a[i] !== b[i]) return false;
+  }
+  return true;
+}
+
+export function build_drag_handle_decorations(
+  doc: ProseNode,
+  build_handle: BuildHandle,
+): DecorationSet {
+  const decorations: Decoration[] = [];
+  doc.forEach((node, offset) => {
+    if (!is_draggable_node_type(node.type.name)) return;
+    decorations.push(
+      Decoration.widget(offset, build_handle, {
+        side: -1,
+        ignoreSelection: true,
+        stopEvent: () => true,
+      }),
+    );
+  });
+  return DecorationSet.create(doc, decorations);
+}
+
 export function create_block_drag_handle_prose_plugin(): Plugin {
   let dragging_range: { from: number; to: number } | null = null;
+  let is_dragging = false;
+  let insert_menu: BlockInsertMenu | null = null;
+  const handles: HandleEntry[] = [];
 
-  return new Plugin({
+  function on_dragstart(
+    view: EditorView,
+    get_pos: () => number | undefined,
+    handle: HTMLElement,
+    event: DragEvent,
+  ) {
+    const block_pos = get_pos();
+    if (block_pos == null) return;
+
+    const range = compute_drag_range(view, block_pos);
+    if (!range) return;
+
+    is_dragging = true;
+    handle.classList.add("block-drag-handle--dragging");
+    dragging_range = range;
+
+    const sel = TextSelection.create(view.state.doc, range.from, range.to);
+    view.dispatch(view.state.tr.setSelection(sel));
+
+    const slice = view.state.doc.slice(range.from, range.to);
+    const dom_node = view.nodeDOM(block_pos);
+    if (dom_node instanceof HTMLElement && event.dataTransfer) {
+      event.dataTransfer.effectAllowed = "move";
+      event.dataTransfer.setDragImage(dom_node, 0, 0);
+    }
+
+    view.dragging = { slice, move: true };
+  }
+
+  function on_dragend(handle: HTMLElement) {
+    is_dragging = false;
+    handle.classList.remove("block-drag-handle--dragging");
+    dragging_range = null;
+  }
+
+  function on_insert_click(
+    view: EditorView,
+    get_pos: () => number | undefined,
+    anchor_el: HTMLElement,
+    event: MouseEvent,
+  ) {
+    event.preventDefault();
+    event.stopPropagation();
+    const block_pos = get_pos();
+    if (block_pos == null) return;
+
+    const anchor_rect = anchor_el.getBoundingClientRect();
+    const from = insert_paragraph_below(view, block_pos);
+    if (from == null) return;
+    insert_menu?.open(anchor_rect, from);
+  }
+
+  function build_handle(
+    view: EditorView,
+    get_pos: () => number | undefined,
+  ): HTMLElement {
+    const handle = build_handle_element();
+    const insert_btn = handle.querySelector(
+      ".block-drag-handle__insert",
+    ) as HTMLElement;
+
+    handle.addEventListener("dragstart", (event) =>
+      on_dragstart(view, get_pos, handle, event),
+    );
+    handle.addEventListener("dragend", () => on_dragend(handle));
+    insert_btn.addEventListener("mousedown", (event) =>
+      on_insert_click(view, get_pos, insert_btn, event),
+    );
+
+    handles.push({ el: handle, get_pos });
+    return handle;
+  }
+
+  function build_set(doc: ProseNode): DecorationSet {
+    return build_drag_handle_decorations(doc, build_handle);
+  }
+
+  return new Plugin<DragHandleState>({
     key: block_drag_handle_plugin_key,
 
+    state: {
+      init(_config, { doc }) {
+        return { set: build_set(doc), starts: collect_top_level_starts(doc) };
+      },
+      apply(tr, prev) {
+        if (!tr.docChanged) return prev;
+        const curr_starts = collect_top_level_starts(tr.doc);
+        const mapped_starts = prev.starts.map((p) => tr.mapping.map(p, -1));
+        if (arrays_equal(curr_starts, mapped_starts)) {
+          return { set: prev.set.map(tr.mapping, tr.doc), starts: curr_starts };
+        }
+        return { set: build_set(tr.doc), starts: curr_starts };
+      },
+    },
+
     props: {
+      decorations(state) {
+        return (
+          block_drag_handle_plugin_key.getState(state)?.set ??
+          DecorationSet.empty
+        );
+      },
+
       handleDrop(view, event, _slice, moved) {
         if (dragging_range == null) return false;
         if (!moved) return false;
@@ -124,39 +271,62 @@ export function create_block_drag_handle_prose_plugin(): Plugin {
     },
 
     view(editor_view: EditorView) {
-      const overlay = create_overlay_element();
-      const handle = create_handle_element();
-      const insert_btn = handle.querySelector(
-        ".block-drag-handle__insert",
-      ) as HTMLElement;
-      let current_block_pos: number | null = null;
-      let is_dragging = false;
-      let hide_timer: ReturnType<typeof setTimeout> | null = null;
-
+      const editor_dom = editor_view.dom;
+      insert_menu = create_block_insert_menu(editor_view);
       let keystroke_count = 0;
       let focus_mode_active = false;
+      let near_pos: number | null = null;
+      let align_frame: number | null = null;
 
-      const editor_dom = editor_view.dom;
+      function align_handles() {
+        const pm_rect = editor_dom.getBoundingClientRect();
+        const scroll_top = editor_dom.scrollTop;
+        const measured: { el: HTMLElement; top: number }[] = [];
 
-      if (!editor_dom.parentElement) {
-        return {};
+        for (let i = handles.length - 1; i >= 0; i--) {
+          const entry = handles[i];
+          if (!entry) continue;
+          if (!entry.el.isConnected) {
+            handles.splice(i, 1);
+            continue;
+          }
+          const pos = entry.get_pos();
+          if (pos == null) continue;
+          const dom = editor_view.nodeDOM(pos);
+          if (!(dom instanceof HTMLElement)) continue;
+
+          const block_rect = dom.getBoundingClientRect();
+          const style = getComputedStyle(dom);
+          const line_height = parseFloat(style.lineHeight) || block_rect.height;
+          const padding_top = parseFloat(style.paddingTop) || 0;
+          const handle_height = entry.el.offsetHeight || 24;
+          const baseline_offset =
+            padding_top + line_height * 0.9 - handle_height;
+          const top =
+            block_rect.top - pm_rect.top + scroll_top + baseline_offset;
+          measured.push({ el: entry.el, top });
+        }
+
+        for (const m of measured) m.el.style.top = `${String(m.top)}px`;
       }
 
-      const mount_target: HTMLElement = editor_dom.parentElement;
+      function schedule_align() {
+        if (typeof requestAnimationFrame === "undefined") return;
+        if (align_frame !== null) return;
+        align_frame = requestAnimationFrame(() => {
+          align_frame = null;
+          align_handles();
+        });
+      }
 
-      mount_target.style.position = "relative";
-      overlay.appendChild(handle);
-      mount_target.appendChild(overlay);
+      const resize_observer =
+        typeof ResizeObserver === "undefined"
+          ? null
+          : new ResizeObserver(() => schedule_align());
+      resize_observer?.observe(editor_dom);
 
       function is_feature_enabled(): boolean {
         return editor_dom.closest(".show-block-drag-handle") !== null;
-      }
-
-      function cancel_pending_hide() {
-        if (hide_timer !== null) {
-          clearTimeout(hide_timer);
-          hide_timer = null;
-        }
       }
 
       function enter_focus_mode() {
@@ -179,192 +349,63 @@ export function create_block_drag_handle_prose_plugin(): Plugin {
         }
       }
 
-      function position_handle(view: EditorView, block_pos: number) {
-        const node = view.state.doc.nodeAt(block_pos);
-        if (!node) {
-          hide_handle();
-          return;
-        }
-
-        const dom_node = view.nodeDOM(block_pos);
-        if (!dom_node || !(dom_node instanceof HTMLElement)) {
-          hide_handle();
-          return;
-        }
-
-        cancel_pending_hide();
-
-        const mount_target_rect = mount_target.getBoundingClientRect();
-        const block_rect = dom_node.getBoundingClientRect();
-
-        const style = getComputedStyle(dom_node);
-        const line_height = parseFloat(style.lineHeight) || block_rect.height;
-        const padding_top = parseFloat(style.paddingTop) || 0;
-        const handle_height = handle.offsetHeight || 24;
-        const baseline_offset = padding_top + line_height * 0.9 - handle_height;
-
-        overlay.style.left = `${String(editor_dom.offsetLeft)}px`;
-        overlay.style.width = `${String(editor_dom.offsetWidth)}px`;
-        handle.style.top = `${String(block_rect.top - mount_target_rect.top + mount_target.scrollTop + baseline_offset)}px`;
-        handle.style.display = "";
-        handle.classList.add("block-drag-handle--near");
-        handle.dataset["blockPos"] = String(block_pos);
-        current_block_pos = block_pos;
-      }
-
-      function hide_handle() {
-        cancel_pending_hide();
-        handle.style.display = "none";
-        handle.classList.remove("block-drag-handle--near");
-        handle.removeAttribute("data-block-pos");
-        current_block_pos = null;
-      }
-
-      function schedule_hide() {
-        cancel_pending_hide();
-        hide_timer = setTimeout(() => {
-          hide_timer = null;
-          if (!handle.matches(":hover")) {
-            hide_handle();
+      function set_near(pos: number | null) {
+        if (pos === near_pos) return;
+        near_pos = pos;
+        for (let i = handles.length - 1; i >= 0; i--) {
+          const entry = handles[i];
+          if (!entry) continue;
+          if (!entry.el.isConnected) {
+            handles.splice(i, 1);
+            continue;
           }
-        }, HIDE_DELAY_MS);
+          const p = entry.get_pos();
+          entry.el.classList.toggle(
+            "block-drag-handle--near",
+            p != null && p === pos,
+          );
+        }
       }
 
       function on_mousemove(event: MouseEvent) {
         exit_focus_mode();
-
         if (is_dragging) return;
         if (!is_feature_enabled()) return;
 
-        cancel_pending_hide();
-
-        const pos_info = editor_view.posAtCoords({
+        const info = editor_view.posAtCoords({
           left: event.clientX,
           top: event.clientY,
         });
-        if (!pos_info) {
-          schedule_hide();
-          return;
-        }
+        if (!info) return;
 
-        const block = resolve_top_level_block(editor_view, pos_info.pos);
-        if (!block) {
-          schedule_hide();
-          return;
-        }
-
-        if (block.pos !== current_block_pos) {
-          position_handle(editor_view, block.pos);
-        }
+        const block = resolve_top_level_block(editor_view, info.pos);
+        if (block) set_near(block.pos);
       }
 
       function on_mouseleave() {
         if (is_dragging) return;
-        schedule_hide();
-      }
-
-      function on_handle_mouseenter() {
-        cancel_pending_hide();
-        handle.classList.add("block-drag-handle--hover");
-      }
-
-      function on_handle_mouseleave(event: MouseEvent) {
-        handle.classList.remove("block-drag-handle--hover");
-        const related = event.relatedTarget;
-        if (
-          !is_dragging &&
-          related !== editor_dom &&
-          !editor_dom.contains(related as Node)
-        ) {
-          hide_handle();
-        }
-      }
-
-      function on_insert_click(event: MouseEvent) {
-        event.preventDefault();
-        event.stopPropagation();
-        if (current_block_pos !== null) {
-          insert_paragraph_below(editor_view, current_block_pos);
-        }
-      }
-
-      function on_dragstart(event: DragEvent) {
-        if (current_block_pos === null) return;
-
-        const range = compute_drag_range(editor_view, current_block_pos);
-        if (!range) return;
-
-        is_dragging = true;
-        handle.classList.add("block-drag-handle--dragging");
-
-        dragging_range = range;
-
-        const sel = TextSelection.create(
-          editor_view.state.doc,
-          range.from,
-          range.to,
-        );
-        editor_view.dispatch(editor_view.state.tr.setSelection(sel));
-
-        const slice = editor_view.state.doc.slice(range.from, range.to);
-
-        const dom_node = editor_view.nodeDOM(current_block_pos);
-        if (dom_node instanceof HTMLElement && event.dataTransfer) {
-          event.dataTransfer.effectAllowed = "move";
-          event.dataTransfer.setDragImage(dom_node, 0, 0);
-        }
-
-        editor_view.dragging = {
-          slice,
-          move: true,
-        };
-      }
-
-      function on_dragend() {
-        is_dragging = false;
-        handle.classList.remove("block-drag-handle--dragging");
-
-        dragging_range = null;
-
-        hide_handle();
+        set_near(null);
       }
 
       editor_dom.addEventListener("mousemove", on_mousemove);
       editor_dom.addEventListener("mouseleave", on_mouseleave);
       editor_dom.addEventListener("keydown", on_keydown);
-      handle.addEventListener("mouseenter", on_handle_mouseenter);
-      handle.addEventListener("mouseleave", on_handle_mouseleave);
-      insert_btn.addEventListener("mousedown", on_insert_click);
-      handle.addEventListener("dragstart", on_dragstart);
-      handle.addEventListener("dragend", on_dragend);
 
-      hide_handle();
+      schedule_align();
 
       return {
-        update(view: EditorView) {
-          if (is_dragging) return;
-          if (current_block_pos !== null) {
-            const node = view.state.doc.nodeAt(current_block_pos);
-            if (!node || !is_draggable_node_type(node.type.name)) {
-              hide_handle();
-            } else {
-              position_handle(view, current_block_pos);
-            }
-          }
+        update() {
+          schedule_align();
         },
-
         destroy() {
-          cancel_pending_hide();
+          if (align_frame !== null) cancelAnimationFrame(align_frame);
+          resize_observer?.disconnect();
           exit_focus_mode();
+          insert_menu?.destroy();
+          insert_menu = null;
           editor_dom.removeEventListener("mousemove", on_mousemove);
           editor_dom.removeEventListener("mouseleave", on_mouseleave);
           editor_dom.removeEventListener("keydown", on_keydown);
-          handle.removeEventListener("mouseenter", on_handle_mouseenter);
-          handle.removeEventListener("mouseleave", on_handle_mouseleave);
-          insert_btn.removeEventListener("mousedown", on_insert_click);
-          handle.removeEventListener("dragstart", on_dragstart);
-          handle.removeEventListener("dragend", on_dragend);
-          overlay.remove();
         },
       };
     },

@@ -3,6 +3,12 @@
   import AppShellDialogs from "$lib/app/bootstrap/ui/app_shell_dialogs.svelte";
   import WorkspaceLayout from "$lib/app/bootstrap/ui/workspace_layout.svelte";
   import CustomTitleBar from "$lib/features/window/ui/custom_title_bar.svelte";
+  import MacosDragStrip from "$lib/features/window/ui/macos_drag_strip.svelte";
+  import {
+    is_mac,
+    is_tauri,
+    should_show_macos_drag_strip,
+  } from "$lib/features/window/domain/platform";
   import { VaultSelectionPanel } from "$lib/features/vault";
   import { use_keyboard_shortcuts } from "$lib/hooks/use_keyboard_shortcuts.svelte";
   import { use_external_links } from "$lib/hooks/use_external_links.svelte";
@@ -24,6 +30,21 @@
 
   const has_vault = $derived(stores.vault.vault !== null);
   const omnibar_open = $derived(stores.ui.omnibar.open);
+
+  const is_mac_desktop = is_tauri() && is_mac();
+  const lattice_title_bar_visible = $derived(
+    has_vault &&
+      stores.ui.active_theme.layout_variant === "lattice" &&
+      !stores.ui.zen_mode,
+  );
+  const show_mac_drag_strip = $derived(
+    should_show_macos_drag_strip(is_mac_desktop, lattice_title_bar_visible),
+  );
+
+  $effect(() => {
+    document.body.classList.toggle("macos-drag-strip", show_mac_drag_strip);
+    return () => document.body.classList.remove("macos-drag-strip");
+  });
 
   const any_blocking_dialog_open = $derived(
     stores.ui.system_dialog_open ||
@@ -84,6 +105,10 @@
 </script>
 
 <CustomTitleBar />
+
+{#if show_mac_drag_strip}
+  <MacosDragStrip />
+{/if}
 
 {#if !has_vault}
   <div class="mx-auto max-w-[65ch] p-8">
