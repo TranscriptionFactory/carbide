@@ -236,6 +236,7 @@ pub fn run() {
             features::search::service::index_note_links_snapshot,
             features::bases::service::bases_list_properties,
             features::bases::service::bases_query,
+            features::bases::service::bases_count_many,
             features::bases::service::bases_save_view,
             features::bases::service::bases_load_view,
             features::bases::service::bases_list_views,

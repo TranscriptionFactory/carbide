@@ -1412,6 +1412,7 @@ export function create_app_context(input: {
     links_store: stores.links,
     graph_store: stores.graph,
     bases_store: stores.bases,
+    bases_counts_store: stores.bases_counts,
     editor_service,
     note_service,
     vault_service,
