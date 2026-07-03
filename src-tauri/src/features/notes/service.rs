@@ -31,6 +31,8 @@ pub struct NoteMeta {
     pub color: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub icon: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub is_a: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Type)]
@@ -269,14 +271,17 @@ fn read_head_text(path: &Path) -> String {
     String::from_utf8_lossy(&buf).into_owned()
 }
 
-pub(crate) fn extract_color_icon(path: &Path) -> (Option<String>, Option<String>) {
+pub(crate) fn extract_color_icon_type(
+    path: &Path,
+) -> (Option<String>, Option<String>, Option<String>) {
     let head = read_head_text(path);
     if head.is_empty() {
-        return (None, None);
+        return (None, None, None);
     }
     (
         extract_frontmatter_str_field(&head, "color"),
         extract_frontmatter_str_field(&head, "icon"),
+        extract_frontmatter_str_field(&head, "type"),
     )
 }
 
@@ -424,7 +429,7 @@ pub(crate) fn build_note_meta(
         .and_then(|m| m.get(rel_path).cloned())
         .unwrap_or_else(|| extract_title(&abs));
     let blurb = extract_blurb(&abs);
-    let (color, icon) = extract_color_icon(&abs);
+    let (color, icon, is_a) = extract_color_icon_type(&abs);
     let (mtime_ms, ctime_ms, size_bytes) = file_meta(&abs)?;
 
     Ok(NoteMeta {
@@ -438,6 +443,7 @@ pub(crate) fn build_note_meta(
         size_bytes,
         color,
         icon,
+        is_a,
     })
 }
 

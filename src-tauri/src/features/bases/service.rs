@@ -70,6 +70,15 @@ pub fn bases_query(
 
 #[tauri::command]
 #[specta::specta]
+pub fn list_types(
+    app: AppHandle,
+    vault_id: String,
+) -> Result<Vec<search_db::TypeCount>, String> {
+    search_service::with_read_conn(&app, &vault_id, |conn| search_db::list_types(conn))
+}
+
+#[tauri::command]
+#[specta::specta]
 pub fn bases_save_view(
     app: AppHandle,
     vault_id: String,

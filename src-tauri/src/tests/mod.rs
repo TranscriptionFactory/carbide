@@ -154,6 +154,7 @@ mod specta_export {
                 crate::features::bases::service::bases_query,
                 crate::features::bases::service::bases_save_view,
                 crate::features::bases::service::bases_load_view,
+                crate::features::bases::service::list_types,
                 // Watcher commands (2)
                 crate::features::watcher::service::watch_vault,
                 crate::features::watcher::service::unwatch_vault,

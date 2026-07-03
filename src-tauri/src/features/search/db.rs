@@ -34,6 +34,12 @@ pub struct OrphanLink {
     pub ref_count: i64,
 }
 
+#[derive(Debug, Serialize, Type)]
+pub struct TypeCount {
+    pub name: String,
+    pub count: u32,
+}
+
 #[derive(Debug, Clone, Serialize, Type)]
 pub struct VaultScanStats {
     pub note_count: usize,
@@ -5556,6 +5562,30 @@ pub fn list_all_properties(
     }
 
     Ok(props)
+}
+
+pub fn list_types(conn: &Connection) -> Result<Vec<TypeCount>, String> {
+    let mut stmt = conn
+        .prepare(
+            "SELECT value AS name, COUNT(*) AS count
+             FROM note_properties
+             WHERE key = 'type'
+             GROUP BY value
+             ORDER BY name ASC",
+        )
+        .map_err(|e| e.to_string())?;
+
+    let rows = stmt
+        .query_map([], |row| {
+            Ok(TypeCount {
+                name: row.get(0)?,
+                count: row.get(1)?,
+            })
+        })
+        .map_err(|e| e.to_string())?;
+
+    rows.collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())
 }
 
 fn resolve_bases_property(prop: &str) -> &str {
