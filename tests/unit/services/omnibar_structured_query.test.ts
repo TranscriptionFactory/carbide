@@ -118,6 +118,7 @@ function make_mock_bases_port(): BasesPort {
   return {
     list_properties: vi.fn().mockResolvedValue([]),
     query: vi.fn().mockResolvedValue({ items: [], total: 0 }),
+    count_many: vi.fn().mockResolvedValue([]),
     save_view: vi.fn().mockResolvedValue(undefined),
     load_view: vi
       .fn()

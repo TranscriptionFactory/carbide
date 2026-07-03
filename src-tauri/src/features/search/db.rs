@@ -3616,6 +3616,38 @@ mod tests {
     }
 
     #[test]
+    fn count_bases_many_batches_counts_per_query() {
+        let conn = open_mem_db();
+        let now_ms = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_millis() as i64)
+            .unwrap_or(0);
+
+        let mut recent = note("q/recent.md", "Recent");
+        recent.mtime_ms = now_ms - 86_400_000;
+        upsert_note(&conn, &recent, "body").expect("recent");
+
+        let mut stale = note("q/stale.md", "Stale");
+        stale.mtime_ms = now_ms - 30 * 86_400_000;
+        upsert_note(&conn, &stale, "body").expect("stale");
+
+        insert_prop(&conn, "q/recent.md", "status", "done", "string");
+
+        let counts = count_bases_many(
+            &conn,
+            &[
+                make_query(vec![], vec![], 100, 0),
+                make_query(vec![filter("modified", "gt", "now()-7d")], vec![], 100, 0),
+                make_query(vec![filter("status", "eq", "done")], vec![], 100, 0),
+                make_query(vec![filter("status", "eq", "missing")], vec![], 100, 0),
+            ],
+        )
+        .expect("count");
+
+        assert_eq!(counts, vec![2, 1, 1, 0]);
+    }
+
+    #[test]
     fn remove_note_cleans_up_rows() {
         let conn = open_mem_db();
         let meta = note("notes/c.md", "Note C");
@@ -5616,126 +5648,7 @@ pub fn query_bases(
     let is_direct_col = |prop: &str| direct_columns.contains(&prop) || stat_columns.contains(&prop);
     let is_task_agg_col = |prop: &str| task_agg_columns.contains(&prop);
 
-    let mut where_clauses = Vec::new();
-    let mut params: Vec<Box<dyn rusqlite::ToSql>> = Vec::new();
-
-    for filter in &query.filters {
-        let prop = resolve_bases_property(&filter.property);
-        let value = resolve_bases_now_value(&filter.value, now_ms)
-            .map(|ms| ms.to_string())
-            .unwrap_or_else(|| filter.value.clone());
-
-        if prop == "content" {
-            let fts_query = escape_fts_query(&value);
-            let negated = filter.operator == "not_contains";
-            let inop = if negated { "NOT IN" } else { "IN" };
-            where_clauses.push(format!(
-                "notes.path {} (SELECT path FROM notes_fts WHERE notes_fts MATCH ?{})",
-                inop,
-                params.len() + 1
-            ));
-            params.push(Box::new(fts_query));
-        } else if prop == "tag" || prop == "tags" {
-            let negated = matches!(filter.operator.as_str(), "neq" | "not_contains");
-            let inop = if negated { "NOT IN" } else { "IN" };
-            if filter.operator == "contains" || filter.operator == "not_contains" {
-                where_clauses.push(format!(
-                    "notes.path {} (SELECT path FROM note_inline_tags WHERE tag LIKE ?{})",
-                    inop,
-                    params.len() + 1
-                ));
-                params.push(Box::new(format!("%{}%", value)));
-            } else {
-                where_clauses.push(format!(
-                    "notes.path {} (SELECT path FROM note_inline_tags WHERE tag = ?{})",
-                    inop,
-                    params.len() + 1
-                ));
-                params.push(Box::new(value.clone()));
-            }
-        } else if is_task_agg_col(prop) {
-            let op = match filter.operator.as_str() {
-                "eq" => "=",
-                "neq" => "!=",
-                "gt" => ">",
-                "lt" => "<",
-                "gte" => ">=",
-                "lte" => "<=",
-                _ => "=",
-            };
-            let col = format!("COALESCE(task_agg.{}, 0)", prop);
-            where_clauses.push(format!("{} {} ?{}", col, op, params.len() + 1));
-            params.push(Box::new(value.clone()));
-        } else if is_direct_col(prop) {
-            let op = match filter.operator.as_str() {
-                "eq" => "=",
-                "neq" => "!=",
-                "contains" => "LIKE",
-                "not_contains" => "NOT LIKE",
-                "gt" => ">",
-                "lt" => "<",
-                "gte" => ">=",
-                "lte" => "<=",
-                _ => "=",
-            };
-            let val = if filter.operator == "contains" || filter.operator == "not_contains" {
-                format!("%{}%", value)
-            } else {
-                value.clone()
-            };
-            where_clauses.push(format!("notes.{} {} ?{}", prop, op, params.len() + 1));
-            params.push(Box::new(val));
-        } else {
-            let op = match filter.operator.as_str() {
-                "eq" => "=",
-                "neq" => "!=",
-                "contains" => "LIKE",
-                "not_contains" => "NOT LIKE",
-                "gt" => ">",
-                "lt" => "<",
-                "gte" => ">=",
-                "lte" => "<=",
-                _ => "=",
-            };
-            let val = if filter.operator == "contains" || filter.operator == "not_contains" {
-                format!("%{}%", value)
-            } else {
-                value.clone()
-            };
-
-            let numeric_ops = matches!(filter.operator.as_str(), "gt" | "lt" | "gte" | "lte");
-            if numeric_ops {
-                where_clauses.push(format!(
-                    "notes.path IN (SELECT path FROM note_properties WHERE key = ?{} AND CAST(value AS REAL) {} CAST(?{} AS REAL))",
-                    params.len() + 1,
-                    op,
-                    params.len() + 2
-                ));
-            } else if filter.operator == "not_contains" || filter.operator == "neq" {
-                where_clauses.push(format!(
-                    "notes.path NOT IN (SELECT path FROM note_properties WHERE key = ?{} AND value {} ?{})",
-                    params.len() + 1,
-                    if filter.operator == "not_contains" { "LIKE" } else { "=" },
-                    params.len() + 2
-                ));
-            } else {
-                where_clauses.push(format!(
-                    "notes.path IN (SELECT path FROM note_properties WHERE key = ?{} AND value {} ?{})",
-                    params.len() + 1,
-                    op,
-                    params.len() + 2
-                ));
-            }
-            params.push(Box::new(filter.property.clone()));
-            params.push(Box::new(val));
-        }
-    }
-
-    let where_sql = if where_clauses.is_empty() {
-        "".to_string()
-    } else {
-        format!("WHERE {}", where_clauses.join(" AND "))
-    };
+    let (where_sql, params) = build_bases_where(&query, now_ms);
 
     let order_sql = if let Some(sort) = query.sort.first() {
         let sort_prop = resolve_bases_property(&sort.property);
@@ -5892,4 +5805,180 @@ pub fn query_bases(
         .map_err(|e| e.to_string())?;
 
     Ok(crate::features::search::model::BaseQueryResults { rows, total })
+}
+
+fn build_bases_where(
+    query: &crate::features::search::model::BaseQuery,
+    now_ms: i64,
+) -> (String, Vec<Box<dyn rusqlite::ToSql>>) {
+    let stat_columns = [
+        "word_count",
+        "char_count",
+        "heading_count",
+        "outlink_count",
+        "reading_time_secs",
+    ];
+    let direct_columns = ["path", "title", "mtime_ms", "ctime_ms", "size_bytes"];
+    let task_agg_columns = ["task_count", "tasks_done", "tasks_todo", "next_due_date"];
+
+    let is_direct_col = |prop: &str| direct_columns.contains(&prop) || stat_columns.contains(&prop);
+    let is_task_agg_col = |prop: &str| task_agg_columns.contains(&prop);
+
+    let mut where_clauses = Vec::new();
+    let mut params: Vec<Box<dyn rusqlite::ToSql>> = Vec::new();
+
+    for filter in &query.filters {
+        let prop = resolve_bases_property(&filter.property);
+        let value = resolve_bases_now_value(&filter.value, now_ms)
+            .map(|ms| ms.to_string())
+            .unwrap_or_else(|| filter.value.clone());
+
+        if prop == "content" {
+            let fts_query = escape_fts_query(&value);
+            let negated = filter.operator == "not_contains";
+            let inop = if negated { "NOT IN" } else { "IN" };
+            where_clauses.push(format!(
+                "notes.path {} (SELECT path FROM notes_fts WHERE notes_fts MATCH ?{})",
+                inop,
+                params.len() + 1
+            ));
+            params.push(Box::new(fts_query));
+        } else if prop == "tag" || prop == "tags" {
+            let negated = matches!(filter.operator.as_str(), "neq" | "not_contains");
+            let inop = if negated { "NOT IN" } else { "IN" };
+            if filter.operator == "contains" || filter.operator == "not_contains" {
+                where_clauses.push(format!(
+                    "notes.path {} (SELECT path FROM note_inline_tags WHERE tag LIKE ?{})",
+                    inop,
+                    params.len() + 1
+                ));
+                params.push(Box::new(format!("%{}%", value)));
+            } else {
+                where_clauses.push(format!(
+                    "notes.path {} (SELECT path FROM note_inline_tags WHERE tag = ?{})",
+                    inop,
+                    params.len() + 1
+                ));
+                params.push(Box::new(value.clone()));
+            }
+        } else if is_task_agg_col(prop) {
+            let op = match filter.operator.as_str() {
+                "eq" => "=",
+                "neq" => "!=",
+                "gt" => ">",
+                "lt" => "<",
+                "gte" => ">=",
+                "lte" => "<=",
+                _ => "=",
+            };
+            let col = format!("COALESCE(task_agg.{}, 0)", prop);
+            where_clauses.push(format!("{} {} ?{}", col, op, params.len() + 1));
+            params.push(Box::new(value.clone()));
+        } else if is_direct_col(prop) {
+            let op = match filter.operator.as_str() {
+                "eq" => "=",
+                "neq" => "!=",
+                "contains" => "LIKE",
+                "not_contains" => "NOT LIKE",
+                "gt" => ">",
+                "lt" => "<",
+                "gte" => ">=",
+                "lte" => "<=",
+                _ => "=",
+            };
+            let val = if filter.operator == "contains" || filter.operator == "not_contains" {
+                format!("%{}%", value)
+            } else {
+                value.clone()
+            };
+            where_clauses.push(format!("notes.{} {} ?{}", prop, op, params.len() + 1));
+            params.push(Box::new(val));
+        } else {
+            let op = match filter.operator.as_str() {
+                "eq" => "=",
+                "neq" => "!=",
+                "contains" => "LIKE",
+                "not_contains" => "NOT LIKE",
+                "gt" => ">",
+                "lt" => "<",
+                "gte" => ">=",
+                "lte" => "<=",
+                _ => "=",
+            };
+            let val = if filter.operator == "contains" || filter.operator == "not_contains" {
+                format!("%{}%", value)
+            } else {
+                value.clone()
+            };
+
+            let numeric_ops = matches!(filter.operator.as_str(), "gt" | "lt" | "gte" | "lte");
+            if numeric_ops {
+                where_clauses.push(format!(
+                    "notes.path IN (SELECT path FROM note_properties WHERE key = ?{} AND CAST(value AS REAL) {} CAST(?{} AS REAL))",
+                    params.len() + 1,
+                    op,
+                    params.len() + 2
+                ));
+            } else if filter.operator == "not_contains" || filter.operator == "neq" {
+                where_clauses.push(format!(
+                    "notes.path NOT IN (SELECT path FROM note_properties WHERE key = ?{} AND value {} ?{})",
+                    params.len() + 1,
+                    if filter.operator == "not_contains" { "LIKE" } else { "=" },
+                    params.len() + 2
+                ));
+            } else {
+                where_clauses.push(format!(
+                    "notes.path IN (SELECT path FROM note_properties WHERE key = ?{} AND value {} ?{})",
+                    params.len() + 1,
+                    op,
+                    params.len() + 2
+                ));
+            }
+            params.push(Box::new(filter.property.clone()));
+            params.push(Box::new(val));
+        }
+    }
+
+    let where_sql = if where_clauses.is_empty() {
+        String::new()
+    } else {
+        format!("WHERE {}", where_clauses.join(" AND "))
+    };
+
+    (where_sql, params)
+}
+
+pub fn count_bases_many(
+    conn: &Connection,
+    queries: &[crate::features::search::model::BaseQuery],
+) -> Result<Vec<u32>, String> {
+    let now_ms = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis() as i64)
+        .unwrap_or(0);
+
+    let mut counts = Vec::with_capacity(queries.len());
+    for query in queries {
+        let (where_sql, params) = build_bases_where(query, now_ms);
+        let sql = format!(
+            "SELECT COUNT(*) FROM notes \
+             LEFT JOIN ( \
+               SELECT path, COUNT(*) as task_count, \
+                 SUM(CASE WHEN status = 'done' THEN 1 ELSE 0 END) as tasks_done, \
+                 SUM(CASE WHEN status = 'todo' THEN 1 ELSE 0 END) as tasks_todo, \
+                 MIN(CASE WHEN status != 'done' AND due_date IS NOT NULL THEN due_date END) as next_due_date \
+               FROM tasks GROUP BY path \
+             ) task_agg ON task_agg.path = notes.path \
+             {}",
+            where_sql
+        );
+        let mut stmt = conn.prepare(&sql).map_err(|e| e.to_string())?;
+        let param_refs: Vec<&dyn rusqlite::ToSql> = params.iter().map(|b| b.as_ref()).collect();
+        let count: i64 = stmt
+            .query_row(&param_refs[..], |row| row.get(0))
+            .map_err(|e| e.to_string())?;
+        counts.push(count.max(0) as u32);
+    }
+
+    Ok(counts)
 }

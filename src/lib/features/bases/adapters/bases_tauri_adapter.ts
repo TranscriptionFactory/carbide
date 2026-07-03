@@ -20,6 +20,12 @@ export function create_bases_tauri_adapter(): BasesPort {
     ): Promise<BaseQueryResults> {
       return invoke("bases_query", { vaultId: vault_id, query });
     },
+    async count_many(
+      vault_id: VaultId,
+      queries: BaseQuery[],
+    ): Promise<number[]> {
+      return invoke("bases_count_many", { vaultId: vault_id, queries });
+    },
     async save_view(
       vault_id: VaultId,
       path: string,

@@ -23,6 +23,7 @@ import { create_document_cache_reactor } from "$lib/reactors/document_cache.reac
 import { create_terminal_reconcile_reactor } from "$lib/reactors/terminal_reconcile.reactor.svelte";
 import { create_graph_refresh_reactor } from "$lib/reactors/graph_refresh.reactor.svelte";
 import { create_bases_refresh_reactor } from "$lib/reactors/bases_refresh.reactor.svelte";
+import { create_bases_counts_reactor } from "$lib/reactors/bases_counts.reactor.svelte";
 import { create_task_sync_reactor } from "$lib/reactors/task_sync.reactor.svelte";
 import { create_menu_action_reactor } from "$lib/reactors/menu_action.reactor.svelte";
 import { create_embedding_model_loaded_reactor } from "$lib/reactors/embedding_model_loaded.reactor.svelte";
@@ -73,7 +74,11 @@ import type { DocumentService } from "$lib/features/document";
 import type { WorkspaceReconcile } from "$lib/app/orchestration/workspace_reconcile";
 import type { TerminalService, TerminalStore } from "$lib/features/terminal";
 import type { GraphService, GraphStore } from "$lib/features/graph";
-import type { BasesService, BasesStore } from "$lib/features/bases";
+import type {
+  BasesService,
+  BasesStore,
+  BaseCountsStore,
+} from "$lib/features/bases";
 import type { TaskService } from "$lib/features/task";
 import type { LintStore, LintService } from "$lib/features/lint";
 import type {
@@ -105,6 +110,7 @@ export type ReactorContext = {
   links_store: LinksStore;
   graph_store: GraphStore;
   bases_store: BasesStore;
+  bases_counts_store: BaseCountsStore;
   editor_service: EditorService;
   note_service: NoteService;
   vault_service: VaultService;
@@ -299,6 +305,12 @@ export function mount_reactors(context: ReactorContext): ReactorHandles {
       context.graph_service,
     ),
     create_bases_refresh_reactor(context.vault_store, context.bases_service),
+    create_bases_counts_reactor(
+      context.vault_store,
+      context.search_store,
+      context.bases_service,
+      context.bases_counts_store,
+    ),
     create_reference_library_load_reactor(
       context.vault_store,
       context.reference_service,

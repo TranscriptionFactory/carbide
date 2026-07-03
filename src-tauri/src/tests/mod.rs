@@ -149,9 +149,10 @@ mod specta_export {
                 crate::features::vault::service::get_last_vault_id,
                 crate::features::vault::service::resolve_file_to_vault,
                 crate::features::vault::service::refresh_note_count,
-                // Bases commands (4)
+                // Bases commands (5)
                 crate::features::bases::service::bases_list_properties,
                 crate::features::bases::service::bases_query,
+                crate::features::bases::service::bases_count_many,
                 crate::features::bases::service::bases_save_view,
                 crate::features::bases::service::bases_load_view,
                 // Watcher commands (2)
