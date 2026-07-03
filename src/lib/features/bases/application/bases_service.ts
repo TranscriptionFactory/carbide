@@ -6,6 +6,7 @@ import type {
   ViewMode,
 } from "../ports";
 import type { BasesStore } from "../state/bases_store.svelte";
+import type { BaseCountsStore } from "../state/base_counts_store.svelte";
 
 export class BasesService {
   private active_revision = 0;
@@ -136,5 +137,26 @@ export class BasesService {
     await this.refresh_properties(vault_id);
     await this.seed_default_views(vault_id);
     await this.run_query(vault_id);
+  }
+
+  async refresh_counts(
+    vault_id: VaultId,
+    counts_store: BaseCountsStore,
+  ): Promise<void> {
+    try {
+      const views = await this.port.list_views(vault_id);
+      const definitions = await Promise.all(
+        views.map((v) => this.port.load_view(vault_id, v.path)),
+      );
+      const counts = await this.port.count_many(
+        vault_id,
+        definitions.map((d) => d.query),
+      );
+      counts_store.set_many(
+        views.map((v, i) => [v.path, counts[i] ?? 0] as [string, number]),
+      );
+    } catch (e) {
+      this.store.error = String(e);
+    }
   }
 }

@@ -36,6 +36,10 @@ pub struct BaseViewDefinition {
     pub query: BaseQuery,
     pub view_mode: String, // "table" | "list" | "kanban" | "gallery" | "calendar" | "tree"
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub icon: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub color: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub kanban_config: Option<KanbanConfig>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub calendar_config: Option<CalendarConfig>,
@@ -47,6 +51,10 @@ pub struct BaseViewDefinition {
 pub struct SavedViewInfo {
     pub name: String,
     pub path: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub icon: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub color: Option<String>,
 }
 
 #[tauri::command]
@@ -66,6 +74,18 @@ pub fn bases_query(
     query: BaseQuery,
 ) -> Result<BaseQueryResults, String> {
     search_service::with_read_conn(&app, &vault_id, |conn| search_db::query_bases(conn, query))
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn bases_count_many(
+    app: AppHandle,
+    vault_id: String,
+    queries: Vec<BaseQuery>,
+) -> Result<Vec<u32>, String> {
+    search_service::with_read_conn(&app, &vault_id, |conn| {
+        search_db::count_bases_many(conn, &queries)
+    })
 }
 
 #[tauri::command]
@@ -129,6 +149,8 @@ pub fn bases_list_views(app: AppHandle, vault_id: String) -> Result<Vec<SavedVie
                 views.push(SavedViewInfo {
                     name: view.name,
                     path: rel.to_string_lossy().into_owned(),
+                    icon: view.icon,
+                    color: view.color,
                 });
             }
         }
@@ -183,6 +205,8 @@ fn default_seed_views() -> Vec<(BaseViewDefinition, Option<&'static str>)> {
                 name: "By Tag".into(),
                 query: q(vec![], vec![]),
                 view_mode: "tree".into(),
+                icon: None,
+                color: None,
                 kanban_config: None,
                 calendar_config: None,
                 tree_config: Some(TreeConfig {
@@ -197,6 +221,8 @@ fn default_seed_views() -> Vec<(BaseViewDefinition, Option<&'static str>)> {
                 name: "By Created Month".into(),
                 query: q(vec![], vec![]),
                 view_mode: "tree".into(),
+                icon: None,
+                color: None,
                 kanban_config: None,
                 calendar_config: None,
                 tree_config: Some(TreeConfig {
@@ -211,6 +237,8 @@ fn default_seed_views() -> Vec<(BaseViewDefinition, Option<&'static str>)> {
                 name: "By Status".into(),
                 query: q(vec![], vec![]),
                 view_mode: "tree".into(),
+                icon: None,
+                color: None,
                 kanban_config: None,
                 calendar_config: None,
                 tree_config: Some(TreeConfig {
@@ -235,6 +263,8 @@ fn default_seed_views() -> Vec<(BaseViewDefinition, Option<&'static str>)> {
                     }],
                 ),
                 view_mode: "list".into(),
+                icon: None,
+                color: None,
                 kanban_config: None,
                 calendar_config: None,
                 tree_config: None,
@@ -253,6 +283,8 @@ fn default_seed_views() -> Vec<(BaseViewDefinition, Option<&'static str>)> {
                     vec![],
                 ),
                 view_mode: "list".into(),
+                icon: None,
+                color: None,
                 kanban_config: None,
                 calendar_config: None,
                 tree_config: None,
@@ -271,6 +303,8 @@ fn default_seed_views() -> Vec<(BaseViewDefinition, Option<&'static str>)> {
                     vec![],
                 ),
                 view_mode: "list".into(),
+                icon: None,
+                color: None,
                 kanban_config: None,
                 calendar_config: None,
                 tree_config: None,
