@@ -34,7 +34,8 @@
   import { QuickCaptureDialog } from "$lib/features/task";
   import { MissingLinkedSourceDialog } from "$lib/features/reference";
   import { use_app_context } from "$lib/app/context/app_context.svelte";
-  import { ACTION_IDS } from "$lib/app";
+  import SidebarViewSwitcher from "$lib/app/bootstrap/ui/sidebar_view_switcher.svelte";
+  import { ACTION_IDS, SIDEBAR_VIEW_REGISTRY } from "$lib/app";
   // STT removed — archived on archive/stt-main
   // import type { DownloadProgress } from "$lib/features/stt";
   import type { StorageStats } from "$lib/features/settings";
@@ -76,6 +77,10 @@
 
   const vault_dashboard_open = $derived(
     is_vault_mode && stores.ui.vault_dashboard.open,
+  );
+
+  const sidebar_switcher_views = $derived(
+    SIDEBAR_VIEW_REGISTRY.filter((v) => !v.vault_only || is_vault_mode),
   );
   const vault_dashboard_recent = $derived(
     stores.notes.recent_notes.map((n) => ({
@@ -314,6 +319,21 @@
       void action_registry.execute(ACTION_IDS.omnibar_open);
     }}
     on_view_all_tags={() => {}}
+  />
+
+  <SidebarViewSwitcher
+    open={stores.ui.sidebar_switcher.open}
+    views={sidebar_switcher_views}
+    dynamic_views={stores.plugin.sidebar_views}
+    on_select={(id) => {
+      void action_registry.execute(ACTION_IDS.ui_set_sidebar_view, id);
+      void action_registry.execute(ACTION_IDS.ui_close_sidebar_switcher);
+    }}
+    on_open_change={(open) => {
+      if (!open) {
+        void action_registry.execute(ACTION_IDS.ui_close_sidebar_switcher);
+      }
+    }}
   />
 {/if}
 

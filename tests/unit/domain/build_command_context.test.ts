@@ -5,6 +5,7 @@ import { GitStore } from "$lib/features/git/state/git_store.svelte";
 import { AiStore } from "$lib/features/ai/state/ai_store.svelte";
 import { UIStore } from "$lib/app/orchestration/ui_store.svelte";
 import { TabStore } from "$lib/features/tab/state/tab_store.svelte";
+import { VaultStore } from "$lib/features/vault/state/vault_store.svelte";
 import type { Tab } from "$lib/features/tab/types/tab";
 
 function make_note_tab(path: string): Tab {
@@ -39,6 +40,7 @@ function make_stores(
     ai?: Partial<AiStore>;
     ui?: Partial<UIStore>;
     active_tab?: Tab | null;
+    is_vault_mode?: boolean;
   } = {},
 ) {
   const editor = new EditorStore();
@@ -46,6 +48,7 @@ function make_stores(
   const ai = new AiStore();
   const ui = new UIStore();
   const tab = new TabStore();
+  const vault = new VaultStore();
 
   if (overrides.editor?.open_note) {
     editor.open_note = overrides.editor.open_note;
@@ -69,8 +72,11 @@ function make_stores(
     tab.tabs = [overrides.active_tab];
     tab.active_tab_id = overrides.active_tab.id;
   }
+  if (overrides.is_vault_mode) {
+    vault.vault = { mode: "vault" } as any;
+  }
 
-  return { editor, tab, git, ai, ui };
+  return { editor, tab, git, ai, ui, vault };
 }
 
 function make_open_note(path: string) {
@@ -104,6 +110,19 @@ describe("build_command_context", () => {
     expect(ctx.has_selection).toBe(false);
     expect(ctx.is_canvas_file).toBe(false);
     expect(ctx.is_excalidraw_file).toBe(false);
+    expect(ctx.is_vault_mode).toBe(false);
+  });
+
+  it("populates is_vault_mode from the vault store", () => {
+    const stores = make_stores({ is_vault_mode: true });
+    const ctx = build_command_context(stores);
+    expect(ctx.is_vault_mode).toBe(true);
+  });
+
+  it("reports is_vault_mode false outside vault mode", () => {
+    const stores = make_stores({ is_vault_mode: false });
+    const ctx = build_command_context(stores);
+    expect(ctx.is_vault_mode).toBe(false);
   });
 
   it("detects open note when active tab is a note", () => {

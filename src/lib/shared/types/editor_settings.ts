@@ -228,6 +228,7 @@ export type EditorSettings = {
   daily_notes_folder: string;
   daily_note_name_format: string;
   daily_note_subfolder_format: DailyNoteSubfolderFormat;
+  sidebar_views_config: { id: string; visible: boolean }[];
 };
 
 export const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
@@ -349,6 +350,16 @@ export const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
   daily_notes_folder: "Journal",
   daily_note_name_format: "%Y-%m-%d",
   daily_note_subfolder_format: "none",
+  sidebar_views_config: [
+    { id: "explorer", visible: true },
+    { id: "starred", visible: true },
+    { id: "dashboard", visible: false },
+    { id: "tasks", visible: true },
+    { id: "daily_notes", visible: true },
+    { id: "tags", visible: true },
+    { id: "graph", visible: true },
+    { id: "source_control", visible: true },
+  ],
 };
 
 export const SETTINGS_KEY = "editor" as const;

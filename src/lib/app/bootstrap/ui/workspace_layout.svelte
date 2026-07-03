@@ -33,7 +33,13 @@
   import { flatten_filetree } from "$lib/features/folder";
   import { derive_starred_tree } from "$lib/features/folder";
   import { use_app_context } from "$lib/app/context/app_context.svelte";
-  import { ACTION_IDS, SIDEBAR_VIEWS } from "$lib/app";
+  import {
+    ACTION_IDS,
+    SIDEBAR_VIEWS,
+    resolve_sidebar_views_config,
+    sidebar_view_def,
+  } from "$lib/app";
+  import type { SidebarViewDef } from "$lib/app";
   import type { NoteMeta } from "$lib/shared/types/note";
   import {
     FilePlus,
@@ -250,17 +256,23 @@
     return explorer_header_actions;
   });
 
+  const configured_views = $derived(
+    resolve_sidebar_views_config(stores.ui.editor_settings.sidebar_views_config)
+      .filter((entry) => entry.visible)
+      .map((entry) => sidebar_view_def(entry.id))
+      .filter((def): def is SidebarViewDef => def !== undefined)
+      .filter((def) => !def.vault_only || is_vault_mode),
+  );
+
   $effect(() => {
-    if (
-      !is_vault_mode &&
-      (stores.ui.sidebar_view === SIDEBAR_VIEWS.starred ||
-        stores.ui.sidebar_view === SIDEBAR_VIEWS.dashboard)
-    ) {
-      void action_registry.execute(
-        ACTION_IDS.ui_set_sidebar_view,
-        SIDEBAR_VIEWS.explorer,
-      );
-    }
+    const active = stores.ui.sidebar_view;
+    const is_configured = configured_views.some((view) => view.id === active);
+    const is_plugin = stores.plugin.sidebar_views.some(
+      (view) => view.id === active,
+    );
+    if (is_configured || is_plugin) return;
+    const fallback = configured_views[0]?.id ?? SIDEBAR_VIEWS.explorer;
+    void action_registry.execute(ACTION_IDS.ui_set_sidebar_view, fallback);
   });
 
   function toggle_sidebar_view(view: string) {
@@ -351,6 +363,7 @@
           sidebar_open={stores.ui.sidebar_open}
           active_view={stores.ui.sidebar_view}
           {is_vault_mode}
+          {configured_views}
           dynamic_views={stores.plugin.sidebar_views}
           on_open_view={toggle_sidebar_view}
           on_open_help={() =>

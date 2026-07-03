@@ -6,7 +6,11 @@ import type {
   OmnibarFileTypeFilter,
 } from "$lib/shared/types/search";
 import type { CommandId } from "$lib/features/search/types/command_palette";
-import { COMMANDS_REGISTRY } from "$lib/features/search/domain/search_commands";
+import {
+  COMMANDS_REGISTRY,
+  is_sidebar_view_command,
+  SIDEBAR_VIEW_COMMAND_PREFIX,
+} from "$lib/features/search/domain/search_commands";
 import { parse_search_query } from "$lib/features/search/domain/search_query_parser";
 import { as_note_path, type VaultId } from "$lib/shared/types/ids";
 import { detect_file_type } from "$lib/features/document";
@@ -18,6 +22,8 @@ export const COMMAND_TO_ACTION_ID: Record<CommandId, string> = {
   change_vault: ACTION_IDS.vault_request_change,
   open_settings: ACTION_IDS.settings_open,
   open_hotkeys: ACTION_IDS.settings_open,
+  configure_sidebar: ACTION_IDS.settings_open,
+  open_sidebar_switcher: ACTION_IDS.ui_open_sidebar_switcher,
   sync_index: ACTION_IDS.vault_sync_index,
   reindex_vault: ACTION_IDS.vault_reindex,
   show_vault_dashboard: ACTION_IDS.ui_open_vault_dashboard,
@@ -323,11 +329,20 @@ async function execute_command(
   command_id: CommandId,
 ) {
   const { registry } = input;
+
+  if (is_sidebar_view_command(command_id)) {
+    const view_id = command_id.slice(SIDEBAR_VIEW_COMMAND_PREFIX.length);
+    await registry.execute(ACTION_IDS.ui_set_sidebar_view, view_id);
+    return;
+  }
+
   const action_id = COMMAND_TO_ACTION_ID[command_id];
 
   if (action_id) {
     if (command_id === "open_hotkeys") {
       await registry.execute(action_id, "hotkeys");
+    } else if (command_id === "configure_sidebar") {
+      await registry.execute(action_id, "sidebar");
     } else {
       await registry.execute(action_id);
     }

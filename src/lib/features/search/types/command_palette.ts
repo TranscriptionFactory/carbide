@@ -88,6 +88,13 @@ export type CommandIcon =
   | "blocks"
   | "maximize"
   | "search"
+  | "files"
+  | "star"
+  | "layout-dashboard"
+  | "list-checks"
+  | "calendar-days"
+  | "tags"
+  | "network"
   | (string & {});
 
 export type CommandDefinition = {

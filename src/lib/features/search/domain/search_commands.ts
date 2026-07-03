@@ -1,6 +1,8 @@
 import type { CommandDefinition } from "$lib/features/search/types/command_palette";
+import type { CommandContext } from "$lib/features/search/types/command_context";
+import { SIDEBAR_VIEW_REGISTRY } from "$lib/app/sidebar_views";
 
-export const COMMANDS_REGISTRY: CommandDefinition[] = [
+const BASE_COMMANDS: CommandDefinition[] = [
   {
     id: "create_new_note",
     label: "Create new note",
@@ -609,4 +611,58 @@ export const COMMANDS_REGISTRY: CommandDefinition[] = [
     icon: "file-plus",
     when: (ctx) => ctx.has_open_note,
   },
+];
+
+export const SIDEBAR_VIEW_COMMAND_PREFIX = "sidebar_view:";
+
+export function sidebar_view_command_id(view_id: string): string {
+  return `${SIDEBAR_VIEW_COMMAND_PREFIX}${view_id}`;
+}
+
+export function is_sidebar_view_command(command_id: string): boolean {
+  return command_id.startsWith(SIDEBAR_VIEW_COMMAND_PREFIX);
+}
+
+const SIDEBAR_VIEW_COMMANDS: CommandDefinition[] = SIDEBAR_VIEW_REGISTRY.map(
+  (view) => ({
+    id: sidebar_view_command_id(view.id),
+    label: `Go to ${view.label}`,
+    description: `Switch the sidebar to the ${view.label} view`,
+    keywords: [...view.keywords, "sidebar", "view"],
+    icon: view.command_icon,
+    ...(view.vault_only
+      ? { when: (ctx: CommandContext) => ctx.is_vault_mode }
+      : {}),
+  }),
+);
+
+const SIDEBAR_META_COMMANDS: CommandDefinition[] = [
+  {
+    id: "configure_sidebar",
+    label: "Configure Sidebar",
+    description: "Show, hide, and reorder activity bar views",
+    keywords: [
+      "sidebar",
+      "activity",
+      "bar",
+      "configure",
+      "customize",
+      "views",
+      "reorder",
+    ],
+    icon: "settings",
+  },
+  {
+    id: "open_sidebar_switcher",
+    label: "Go to Sidebar View…",
+    description: "Pick a sidebar view to switch to",
+    keywords: ["sidebar", "view", "switch", "go", "navigate"],
+    icon: "list-tree",
+  },
+];
+
+export const COMMANDS_REGISTRY: CommandDefinition[] = [
+  ...BASE_COMMANDS,
+  ...SIDEBAR_META_COMMANDS,
+  ...SIDEBAR_VIEW_COMMANDS,
 ];

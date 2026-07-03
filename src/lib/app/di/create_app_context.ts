@@ -272,6 +272,7 @@ export function create_app_context(input: {
         git: stores.git,
         ai: stores.ai,
         ui: stores.ui,
+        vault: stores.vault,
       }),
     input.ports.tag,
     input.ports.bases,

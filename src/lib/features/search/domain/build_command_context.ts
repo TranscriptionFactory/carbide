@@ -4,6 +4,7 @@ import type { GitStore } from "$lib/features/git";
 import type { AiStore } from "$lib/features/ai";
 import type { UIStore } from "$lib/app/orchestration/ui_store.svelte";
 import type { TabStore } from "$lib/features/tab";
+import type { VaultStore } from "$lib/features/vault";
 
 type ContextStores = {
   editor: EditorStore;
@@ -11,6 +12,7 @@ type ContextStores = {
   git: GitStore;
   ai: AiStore;
   ui: UIStore;
+  vault: VaultStore;
 };
 
 export function build_command_context(stores: ContextStores): CommandContext {
@@ -31,5 +33,6 @@ export function build_command_context(stores: ContextStores): CommandContext {
     is_excalidraw_file: note_path.endsWith(".excalidraw"),
     is_html_document:
       active_tab?.kind === "document" && active_tab.file_type === "html",
+    is_vault_mode: stores.vault.is_vault_mode,
   };
 }

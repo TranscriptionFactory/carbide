@@ -2,7 +2,10 @@ import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import { ActionRegistry } from "$lib/app/action_registry/action_registry";
 import { ACTION_IDS } from "$lib/app/action_registry/action_ids";
 import { register_omnibar_actions } from "$lib/features/search/application/omnibar_actions";
-import { COMMANDS_REGISTRY } from "$lib/features/search/domain/search_commands";
+import {
+  COMMANDS_REGISTRY,
+  sidebar_view_command_id,
+} from "$lib/features/search/domain/search_commands";
 import { UIStore } from "$lib/app/orchestration/ui_store.svelte";
 import { VaultStore } from "$lib/features/vault/state/vault_store.svelte";
 import { NotesStore } from "$lib/features/note/state/note_store.svelte";
@@ -454,5 +457,78 @@ describe("register_omnibar_actions", () => {
       expect(action_spies[action_id]).toHaveBeenCalledTimes(1);
       stores.ui.omnibar = { ...stores.ui.omnibar, open: true };
     }
+  });
+
+  it("routes a sidebar-view command to ui_set_sidebar_view and records MRU", async () => {
+    const { registry, stores } = create_omnibar_actions_harness();
+    const set_sidebar_view = vi.fn().mockResolvedValue(undefined);
+    registry.register({
+      id: ACTION_IDS.ui_set_sidebar_view,
+      label: "Set Sidebar View",
+      execute: set_sidebar_view,
+    });
+
+    stores.ui.omnibar = { ...stores.ui.omnibar, open: true };
+    const command_id = sidebar_view_command_id("graph");
+    const command = COMMANDS_REGISTRY.find((item) => item.id === command_id);
+    if (!command) throw new Error("missing sidebar view command");
+
+    await registry.execute(ACTION_IDS.omnibar_confirm_item, {
+      kind: "command",
+      command,
+      score: 1,
+    });
+
+    expect(set_sidebar_view).toHaveBeenCalledWith("graph");
+    expect(stores.ui.recent_command_ids[0]).toBe(command_id);
+    expect(stores.ui.omnibar.open).toBe(false);
+  });
+
+  it("routes configure_sidebar to settings_open with the sidebar category", async () => {
+    const { registry, stores } = create_omnibar_actions_harness();
+    const settings_open = vi.fn().mockResolvedValue(undefined);
+    registry.register({
+      id: ACTION_IDS.settings_open,
+      label: "Open Settings",
+      execute: settings_open,
+    });
+
+    stores.ui.omnibar = { ...stores.ui.omnibar, open: true };
+    const command = COMMANDS_REGISTRY.find(
+      (item) => item.id === "configure_sidebar",
+    );
+    if (!command) throw new Error("missing configure_sidebar command");
+
+    await registry.execute(ACTION_IDS.omnibar_confirm_item, {
+      kind: "command",
+      command,
+      score: 1,
+    });
+
+    expect(settings_open).toHaveBeenCalledWith("sidebar");
+  });
+
+  it("routes open_sidebar_switcher to ui_open_sidebar_switcher", async () => {
+    const { registry, stores } = create_omnibar_actions_harness();
+    const open_switcher = vi.fn().mockResolvedValue(undefined);
+    registry.register({
+      id: ACTION_IDS.ui_open_sidebar_switcher,
+      label: "Open Sidebar Switcher",
+      execute: open_switcher,
+    });
+
+    stores.ui.omnibar = { ...stores.ui.omnibar, open: true };
+    const command = COMMANDS_REGISTRY.find(
+      (item) => item.id === "open_sidebar_switcher",
+    );
+    if (!command) throw new Error("missing open_sidebar_switcher command");
+
+    await registry.execute(ACTION_IDS.omnibar_confirm_item, {
+      kind: "command",
+      command,
+      score: 1,
+    });
+
+    expect(open_switcher).toHaveBeenCalledTimes(1);
   });
 });
