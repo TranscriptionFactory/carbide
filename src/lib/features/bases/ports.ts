@@ -81,6 +81,8 @@ export interface BaseViewDefinition {
   name: string;
   query: BaseQuery;
   view_mode: string;
+  icon?: string;
+  color?: string;
   kanban_config?: KanbanConfig;
   calendar_config?: CalendarConfig;
   tree_config?: TreeConfig;
@@ -89,11 +91,14 @@ export interface BaseViewDefinition {
 export interface SavedViewInfo {
   name: string;
   path: string;
+  icon?: string;
+  color?: string;
 }
 
 export interface BasesPort {
   list_properties(vault_id: VaultId): Promise<PropertyInfo[]>;
   query(vault_id: VaultId, query: BaseQuery): Promise<BaseQueryResults>;
+  count_many(vault_id: VaultId, queries: BaseQuery[]): Promise<number[]>;
   save_view(
     vault_id: VaultId,
     path: string,

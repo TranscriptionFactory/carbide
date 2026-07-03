@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { BasesService } from "$lib/features/bases/application/bases_service";
 import { BasesStore } from "$lib/features/bases/state/bases_store.svelte";
+import { BaseCountsStore } from "$lib/features/bases/state/base_counts_store.svelte";
 import type {
   BasesPort,
   PropertyInfo,
@@ -14,6 +15,7 @@ function make_port(overrides: Partial<BasesPort> = {}): BasesPort {
   return {
     list_properties: vi.fn().mockResolvedValue([]),
     query: vi.fn().mockResolvedValue({ rows: [], total: 0 }),
+    count_many: vi.fn().mockResolvedValue([]),
     save_view: vi.fn().mockResolvedValue(undefined),
     load_view: vi.fn().mockResolvedValue({
       name: "Default",
@@ -106,6 +108,49 @@ describe("BasesService", () => {
 
     expect(store.error).toContain("query failed");
     expect(store.loading).toBe(false);
+  });
+
+  it("refresh_counts batches count_many across saved views and populates the count store", async () => {
+    const views = [
+      { name: "A", path: "views/a.json" },
+      { name: "B", path: "views/b.json" },
+    ];
+    const load_view = vi.fn().mockImplementation((_id, path: string) =>
+      Promise.resolve({
+        name: path,
+        query: { filters: [], sort: [], limit: 100, offset: 0 },
+        view_mode: "table",
+      }),
+    );
+    const count_many = vi.fn().mockResolvedValue([3, 7]);
+    const { service } = make_service({
+      list_views: vi.fn().mockResolvedValue(views),
+      load_view,
+      count_many,
+    });
+    const counts = new BaseCountsStore();
+
+    await service.refresh_counts(VAULT_ID, counts);
+
+    expect(load_view).toHaveBeenCalledTimes(2);
+    expect(count_many).toHaveBeenCalledTimes(1);
+    expect(counts.get("views/a.json")).toBe(3);
+    expect(counts.get("views/b.json")).toBe(7);
+  });
+
+  it("refresh_counts records an error when count_many fails", async () => {
+    const { service, store } = make_service({
+      list_views: vi
+        .fn()
+        .mockResolvedValue([{ name: "A", path: "views/a.json" }]),
+      count_many: vi.fn().mockRejectedValue(new Error("count failed")),
+    });
+    const counts = new BaseCountsStore();
+
+    await service.refresh_counts(VAULT_ID, counts);
+
+    expect(store.error).toContain("count failed");
+    expect(counts.get("views/a.json")).toBeUndefined();
   });
 
   it("run_query clears error before execution", async () => {

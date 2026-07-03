@@ -94,6 +94,7 @@ export function create_test_ports(): Ports {
     bases: {
       list_properties: () => Promise.resolve([]),
       query: () => Promise.resolve({ rows: [], total: 0 }),
+      count_many: () => Promise.resolve([]),
       save_view: () => Promise.resolve(),
       load_view: () => Promise.reject("Not found"),
       list_views: () => Promise.resolve([]),
