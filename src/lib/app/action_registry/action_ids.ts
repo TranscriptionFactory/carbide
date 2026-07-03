@@ -101,6 +101,10 @@ export const ACTION_IDS = {
   filetree_toggle_mode: "filetree.toggle_mode",
   filetree_open_folder_note: "filetree.open_folder_note",
 
+  inbox_set_sort: "inbox.set_sort",
+  inbox_set_period: "inbox.set_period",
+  inbox_reload: "inbox.reload",
+
   shell_open_url: "shell.open_url",
   shell_open_path: "shell.open_path",
   shell_reveal_in_file_manager: "shell.reveal_in_file_manager",
