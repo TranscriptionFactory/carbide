@@ -799,6 +799,7 @@
                         >
                           <InboxFileView
                             results={stores.inbox.results}
+                            error={stores.inbox.error}
                             sort={stores.ui.editor_settings.inbox_sort.option}
                             direction={stores.ui.editor_settings.inbox_sort
                               .direction}

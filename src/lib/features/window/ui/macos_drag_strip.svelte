@@ -14,7 +14,10 @@
     position: fixed;
     top: 0;
     inset-inline: 0;
-    z-index: 40;
+    /* z-index 0 + early DOM position keeps the strip below any theme chrome
+       rendered in the top band (e.g. triptych/cockpit place the ActivityBar
+       at top:0); a higher value swallows every click on that chrome */
+    z-index: 0;
     height: var(--macos-drag-strip-height);
     -webkit-app-region: drag;
     user-select: none;

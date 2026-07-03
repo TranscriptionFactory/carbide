@@ -3332,12 +3332,15 @@
   padding-left: 3.5em;
 }
 
-.show-line-numbers .ProseMirror > * {
+/* :not(.block-drag-handle): handle widgets are top-level children too;
+   counting them skews numbering and position:relative would cancel the
+   absolute margin placement they rely on */
+.show-line-numbers .ProseMirror > *:not(.block-drag-handle) {
   counter-increment: line-number;
   position: relative;
 }
 
-.show-line-numbers .ProseMirror > *::before {
+.show-line-numbers .ProseMirror > *:not(.block-drag-handle)::before {
   content: counter(line-number);
   position: absolute;
   left: -3.5em;

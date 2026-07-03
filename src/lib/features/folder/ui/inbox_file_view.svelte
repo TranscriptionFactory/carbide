@@ -16,6 +16,7 @@
     sort: InboxSort;
     direction: SortDirection;
     period: InboxPeriod;
+    error?: string | null;
     on_change_sort: (sort: InboxSort) => void;
     on_change_direction: (direction: SortDirection) => void;
     on_change_period: (period: InboxPeriod) => void;
@@ -27,6 +28,7 @@
     sort,
     direction,
     period,
+    error = null,
     on_change_sort,
     on_change_direction,
     on_change_period,
@@ -153,7 +155,13 @@
     </div>
   </div>
 
-  {#if results.length === 0}
+  {#if error}
+    <div
+      class="flex-1 flex items-center justify-center px-3 text-center text-xs text-destructive"
+    >
+      {error}
+    </div>
+  {:else if results.length === 0}
     <div class="flex-1 flex items-center justify-center text-xs text-zinc-500">
       No recent notes
     </div>

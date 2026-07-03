@@ -21,7 +21,9 @@
   }: Props = $props();
 </script>
 
-<div class="ActivityBar">
+<!-- drag region only fires when the bar background itself is the event
+     target, so the buttons inside stay fully clickable -->
+<div class="ActivityBar" data-tauri-drag-region>
   <div class="ActivityBar__section">
     {#each configured_views as view (view.id)}
       <button
