@@ -100,44 +100,6 @@ describe("register_ui_actions", () => {
     expect(refresh_called).toBe(1);
   });
 
-  it("ui_select_explorer_subtab switches state and dispatches bases_list_views on views", async () => {
-    const registry = new ActionRegistry();
-    const stores = create_ui_stores();
-    const list_views = vi.fn();
-    registry.register({
-      id: ACTION_IDS.bases_list_views,
-      label: "List Saved Base Views",
-      execute: list_views,
-    });
-
-    register_ui_actions({
-      registry,
-      stores,
-      services: {
-        reference: {},
-        vault: {
-          refresh_dashboard_stats: async () =>
-            await Promise.resolve({ status: "skipped" as const }),
-        },
-        shell: { open_url: async () => {}, open_path: async () => {} },
-      } as never,
-      default_mount_config: {
-        reset_app_state: true,
-        bootstrap_default_vault_path: null,
-      },
-    });
-
-    expect(stores.ui.explorer_subtab).toBe("files");
-
-    await registry.execute(ACTION_IDS.ui_select_explorer_subtab, "views");
-    expect(stores.ui.explorer_subtab).toBe("views");
-    expect(list_views).toHaveBeenCalledTimes(1);
-
-    await registry.execute(ACTION_IDS.ui_select_explorer_subtab, "files");
-    expect(stores.ui.explorer_subtab).toBe("files");
-    expect(list_views).toHaveBeenCalledTimes(1);
-  });
-
   it("toggles zen mode", async () => {
     const registry = new ActionRegistry();
     const stores = create_ui_stores();

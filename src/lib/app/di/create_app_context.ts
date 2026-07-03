@@ -6,7 +6,7 @@ import { register_actions } from "$lib/app/action_registry/register_actions";
 import type { AppMountConfig } from "$lib/features/vault";
 import { VaultService } from "$lib/features/vault";
 import { NoteService, resolve_relative_asset_path } from "$lib/features/note";
-import { FolderService } from "$lib/features/folder";
+import { FolderService, register_inbox_actions } from "$lib/features/folder";
 import { SettingsService } from "$lib/features/settings";
 import {
   SearchService,
@@ -1383,6 +1383,16 @@ export function create_app_context(input: {
     stores.ui,
     stores.tab,
   );
+
+  register_inbox_actions({
+    registry: action_registry,
+    bases_port: input.ports.bases,
+    inbox_store: stores.inbox,
+    vault_store: stores.vault,
+    ui_store: stores.ui,
+    settings_service,
+    now: () => Date.now(),
+  });
 
   register_types_actions(
     action_registry,
