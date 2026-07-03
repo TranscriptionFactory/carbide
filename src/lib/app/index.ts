@@ -1,6 +1,16 @@
 export { ACTION_IDS } from "$lib/app/action_registry/action_ids";
-export { SIDEBAR_VIEWS } from "$lib/app/sidebar_views";
-export type { SidebarView } from "$lib/app/sidebar_views";
+export {
+  SIDEBAR_VIEWS,
+  SIDEBAR_VIEW_REGISTRY,
+  sidebar_view_def,
+  default_sidebar_views_config,
+  resolve_sidebar_views_config,
+} from "$lib/app/sidebar_views";
+export type {
+  SidebarView,
+  SidebarViewDef,
+  SidebarViewConfigEntry,
+} from "$lib/app/sidebar_views";
 export { ActionRegistry } from "$lib/app/action_registry/action_registry";
 export type { ActionRegistrationInput } from "$lib/app/action_registry/action_registration_input";
 export { register_actions } from "$lib/app/action_registry/register_actions";

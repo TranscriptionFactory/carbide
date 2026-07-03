@@ -1,24 +1,13 @@
 <script lang="ts">
-  import {
-    Files,
-    LayoutDashboard,
-    Settings,
-    Star,
-    CircleHelp,
-    Network,
-    ListChecks,
-    Tags,
-    GitBranch,
-    CalendarDays,
-  } from "@lucide/svelte";
+  import { Settings, CircleHelp } from "@lucide/svelte";
   import type { SidebarView as DynamicSidebarView } from "$lib/features/plugin";
-  import { SIDEBAR_VIEWS } from "$lib/app";
-  import type { SidebarView } from "$lib/app";
+  import type { SidebarView, SidebarViewDef } from "$lib/app";
 
   type Props = {
     sidebar_open: boolean;
     active_view: SidebarView;
     is_vault_mode: boolean;
+    configured_views: SidebarViewDef[];
     dynamic_views?: DynamicSidebarView[];
     on_open_view: (id: string) => void;
     on_open_help: () => void;
@@ -29,6 +18,7 @@
     sidebar_open,
     active_view,
     is_vault_mode,
+    configured_views,
     dynamic_views = [],
     on_open_view,
     on_open_help,
@@ -38,104 +28,21 @@
 
 <div class="ActivityBar">
   <div class="ActivityBar__section">
-    <button
-      type="button"
-      class="ActivityBar__button"
-      class:ActivityBar__button--active={sidebar_open &&
-        active_view === SIDEBAR_VIEWS.explorer}
-      onclick={() => on_open_view(SIDEBAR_VIEWS.explorer)}
-      aria-pressed={sidebar_open && active_view === SIDEBAR_VIEWS.explorer}
-      aria-label="Explorer"
-    >
-      <Files class="ActivityBar__icon" />
-    </button>
+    {#each configured_views as view (view.id)}
+      <button
+        type="button"
+        class="ActivityBar__button"
+        class:ActivityBar__button--active={sidebar_open &&
+          active_view === view.id}
+        onclick={() => on_open_view(view.id)}
+        aria-pressed={sidebar_open && active_view === view.id}
+        aria-label={view.label}
+      >
+        <view.icon class="ActivityBar__icon" />
+      </button>
+    {/each}
 
     {#if is_vault_mode}
-      <button
-        type="button"
-        class="ActivityBar__button"
-        class:ActivityBar__button--active={sidebar_open &&
-          active_view === SIDEBAR_VIEWS.starred}
-        onclick={() => on_open_view(SIDEBAR_VIEWS.starred)}
-        aria-pressed={sidebar_open && active_view === SIDEBAR_VIEWS.starred}
-        aria-label="Starred"
-      >
-        <Star class="ActivityBar__icon" />
-      </button>
-
-      <button
-        type="button"
-        class="ActivityBar__button"
-        class:ActivityBar__button--active={sidebar_open &&
-          active_view === SIDEBAR_VIEWS.dashboard}
-        onclick={() => on_open_view(SIDEBAR_VIEWS.dashboard)}
-        aria-pressed={sidebar_open && active_view === SIDEBAR_VIEWS.dashboard}
-        aria-label="Dashboard"
-      >
-        <LayoutDashboard class="ActivityBar__icon" />
-      </button>
-
-      <button
-        type="button"
-        class="ActivityBar__button"
-        class:ActivityBar__button--active={sidebar_open &&
-          active_view === SIDEBAR_VIEWS.tasks}
-        onclick={() => on_open_view(SIDEBAR_VIEWS.tasks)}
-        aria-pressed={sidebar_open && active_view === SIDEBAR_VIEWS.tasks}
-        aria-label="Tasks"
-      >
-        <ListChecks class="ActivityBar__icon" />
-      </button>
-
-      <button
-        type="button"
-        class="ActivityBar__button"
-        class:ActivityBar__button--active={sidebar_open &&
-          active_view === SIDEBAR_VIEWS.daily_notes}
-        onclick={() => on_open_view(SIDEBAR_VIEWS.daily_notes)}
-        aria-pressed={sidebar_open && active_view === SIDEBAR_VIEWS.daily_notes}
-        aria-label="Daily Notes"
-      >
-        <CalendarDays class="ActivityBar__icon" />
-      </button>
-
-      <button
-        type="button"
-        class="ActivityBar__button"
-        class:ActivityBar__button--active={sidebar_open &&
-          active_view === SIDEBAR_VIEWS.tags}
-        onclick={() => on_open_view(SIDEBAR_VIEWS.tags)}
-        aria-pressed={sidebar_open && active_view === SIDEBAR_VIEWS.tags}
-        aria-label="Tags"
-      >
-        <Tags class="ActivityBar__icon" />
-      </button>
-
-      <button
-        type="button"
-        class="ActivityBar__button"
-        class:ActivityBar__button--active={sidebar_open &&
-          active_view === SIDEBAR_VIEWS.graph}
-        onclick={() => on_open_view(SIDEBAR_VIEWS.graph)}
-        aria-pressed={sidebar_open && active_view === SIDEBAR_VIEWS.graph}
-        aria-label="Graph"
-      >
-        <Network class="ActivityBar__icon" />
-      </button>
-
-      <button
-        type="button"
-        class="ActivityBar__button"
-        class:ActivityBar__button--active={sidebar_open &&
-          active_view === SIDEBAR_VIEWS.source_control}
-        onclick={() => on_open_view(SIDEBAR_VIEWS.source_control)}
-        aria-pressed={sidebar_open &&
-          active_view === SIDEBAR_VIEWS.source_control}
-        aria-label="Source Control"
-      >
-        <GitBranch class="ActivityBar__icon" />
-      </button>
-
       {#each dynamic_views as view (view.id)}
         <button
           type="button"

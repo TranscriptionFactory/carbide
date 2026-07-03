@@ -37,6 +37,7 @@
   import { McpSettings } from "$lib/features/mcp";
   import ThemeSettings from "$lib/features/settings/ui/theme_settings.svelte";
   import IgnoredFoldersInput from "$lib/features/settings/ui/ignored_folders_input.svelte";
+  import SidebarViewsPicker from "$lib/features/settings/ui/sidebar_views_picker.svelte";
   // import {
   //   SttSettings,
   //   type ModelInfo,
@@ -1509,6 +1510,19 @@
           <h2 class="SettingsDialog__content-header">Sidebar</h2>
 
           <div class="SettingsDialog__section-content">
+            <div class="SettingsDialog__row">
+              <div class="SettingsDialog__label-group">
+                <span class="SettingsDialog__label">Activity Bar Views</span>
+                <span class="SettingsDialog__description"
+                  >Show, hide, and reorder the views in the activity bar</span
+                >
+              </div>
+            </div>
+            <SidebarViewsPicker
+              config={editor_settings.sidebar_views_config}
+              on_change={(next) => update("sidebar_views_config", next)}
+            />
+
             <div class="SettingsDialog__row">
               <div class="SettingsDialog__label-group">
                 <span class="SettingsDialog__label">Max Open Tabs</span>

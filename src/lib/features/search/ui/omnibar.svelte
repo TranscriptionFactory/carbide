@@ -24,6 +24,12 @@
   import MaximizeIcon from "@lucide/svelte/icons/maximize";
   import ChevronRightIcon from "@lucide/svelte/icons/chevron-right";
   import NetworkIcon from "@lucide/svelte/icons/network";
+  import FilesIcon from "@lucide/svelte/icons/files";
+  import StarIcon from "@lucide/svelte/icons/star";
+  import LayoutDashboardIcon from "@lucide/svelte/icons/layout-dashboard";
+  import ListChecksIcon from "@lucide/svelte/icons/list-checks";
+  import CalendarDaysIcon from "@lucide/svelte/icons/calendar-days";
+  import TagsIcon from "@lucide/svelte/icons/tags";
   import type {
     OmnibarItem,
     OmnibarScope,
@@ -56,6 +62,13 @@
     blocks: BlocksIcon,
     maximize: MaximizeIcon,
     search: SearchIcon,
+    files: FilesIcon,
+    star: StarIcon,
+    "layout-dashboard": LayoutDashboardIcon,
+    "list-checks": ListChecksIcon,
+    "calendar-days": CalendarDaysIcon,
+    tags: TagsIcon,
+    network: NetworkIcon,
   };
 
   function note_icon(file_type: string | null): Component {

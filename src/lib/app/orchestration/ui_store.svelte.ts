@@ -154,6 +154,10 @@ const INITIAL_VAULT_DASHBOARD = {
   open: false,
 } as const;
 
+const INITIAL_SIDEBAR_SWITCHER = {
+  open: false,
+} as const;
+
 const INITIAL_TAB_CLOSE_CONFIRM = {
   open: false,
   tab_id: null as string | null,
@@ -390,6 +394,10 @@ export class UIStore {
     open: boolean;
   }>({ ...INITIAL_VAULT_DASHBOARD });
 
+  sidebar_switcher = $state<{
+    open: boolean;
+  }>({ ...INITIAL_SIDEBAR_SWITCHER });
+
   tab_close_confirm = $state<{
     open: boolean;
     tab_id: string | null;
@@ -610,6 +618,7 @@ export class UIStore {
     this.help_dialog = { ...INITIAL_HELP_DIALOG };
     this.welcome_dialog = { ...INITIAL_WELCOME_DIALOG };
     this.vault_dashboard = { ...INITIAL_VAULT_DASHBOARD };
+    this.sidebar_switcher = { ...INITIAL_SIDEBAR_SWITCHER };
     this.tab_close_confirm = { ...INITIAL_TAB_CLOSE_CONFIRM };
     this.version_history_dialog = { ...INITIAL_VERSION_HISTORY_DIALOG };
     this.checkpoint_dialog = { ...INITIAL_CHECKPOINT_DIALOG };

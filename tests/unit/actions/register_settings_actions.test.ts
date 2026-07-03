@@ -118,6 +118,36 @@ describe("register_settings_actions", () => {
     expect(stores.ui.settings_dialog.has_unsaved_changes).toBe(false);
   });
 
+  it("flips the dirty flag when reordering sidebar_views_config", async () => {
+    const { registry, stores } = create_harness();
+
+    const reordered = [
+      ...DEFAULT_EDITOR_SETTINGS.sidebar_views_config,
+    ].reverse();
+
+    await registry.execute(ACTION_IDS.settings_update, {
+      ...DEFAULT_EDITOR_SETTINGS,
+      sidebar_views_config: reordered,
+    });
+
+    expect(stores.ui.settings_dialog.has_unsaved_changes).toBe(true);
+  });
+
+  it("flips the dirty flag when toggling a sidebar view's visibility", async () => {
+    const { registry, stores } = create_harness();
+
+    const toggled = DEFAULT_EDITOR_SETTINGS.sidebar_views_config.map((entry) =>
+      entry.id === "dashboard" ? { ...entry, visible: true } : entry,
+    );
+
+    await registry.execute(ACTION_IDS.settings_update, {
+      ...DEFAULT_EDITOR_SETTINGS,
+      sidebar_views_config: toggled,
+    });
+
+    expect(stores.ui.settings_dialog.has_unsaved_changes).toBe(true);
+  });
+
   it("tracks appearance setting changes in the dirty state", async () => {
     const { registry, stores } = create_harness();
 

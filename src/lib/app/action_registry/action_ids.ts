@@ -120,6 +120,8 @@ export const ACTION_IDS = {
   ui_quick_capture: "ui.quick_capture",
   ui_open_vault_dashboard: "ui.open_vault_dashboard",
   ui_close_vault_dashboard: "ui.close_vault_dashboard",
+  ui_open_sidebar_switcher: "ui.open_sidebar_switcher",
+  ui_close_sidebar_switcher: "ui.close_sidebar_switcher",
   ui_open_plugins: "ui.open_plugins",
 
   graph_toggle_panel: "graph.toggle_panel",

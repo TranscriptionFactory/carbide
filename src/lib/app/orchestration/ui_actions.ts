@@ -16,6 +16,10 @@ export function register_ui_actions(input: ActionRegistrationInput) {
     stores.ui.vault_dashboard = { open };
   }
 
+  function set_sidebar_switcher_open(open: boolean) {
+    stores.ui.sidebar_switcher = { open };
+  }
+
   function execute_open_external_url(url: unknown) {
     if (typeof url !== "string") {
       return;
@@ -218,6 +222,22 @@ export function register_ui_actions(input: ActionRegistrationInput) {
     label: "Close Vault Dashboard",
     execute: () => {
       set_vault_dashboard_open(false);
+    },
+  });
+
+  registry.register({
+    id: ACTION_IDS.ui_open_sidebar_switcher,
+    label: "Go to Sidebar View",
+    execute: () => {
+      set_sidebar_switcher_open(true);
+    },
+  });
+
+  registry.register({
+    id: ACTION_IDS.ui_close_sidebar_switcher,
+    label: "Close Sidebar View Switcher",
+    execute: () => {
+      set_sidebar_switcher_open(false);
     },
   });
 
