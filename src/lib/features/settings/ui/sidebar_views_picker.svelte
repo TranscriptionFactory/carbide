@@ -3,18 +3,21 @@
   import {
     SIDEBAR_VIEWS,
     resolve_sidebar_views_config,
-    sidebar_view_def,
+    sidebar_view_meta,
   } from "$lib/app";
-  import type { SidebarViewConfigEntry } from "$lib/app";
+  import type { SidebarViewConfigEntry, DynamicSidebarView } from "$lib/app";
 
   type Props = {
     config: SidebarViewConfigEntry[];
+    dynamic_views?: DynamicSidebarView[];
     on_change: (next: SidebarViewConfigEntry[]) => void;
   };
 
-  let { config, on_change }: Props = $props();
+  let { config, dynamic_views = [], on_change }: Props = $props();
 
-  const resolved = $derived(resolve_sidebar_views_config(config));
+  const resolved = $derived(
+    resolve_sidebar_views_config(config, dynamic_views),
+  );
   const enabled = $derived(resolved.filter((entry) => entry.visible));
   const available = $derived(resolved.filter((entry) => !entry.visible));
 
@@ -51,7 +54,7 @@
     <span class="text-xs font-medium text-muted-foreground">Enabled</span>
     <div class="flex flex-col gap-1">
       {#each enabled as entry, i (entry.id)}
-        {@const def = sidebar_view_def(entry.id)}
+        {@const def = sidebar_view_meta(entry.id, dynamic_views)}
         {#if def}
           <div class="flex items-center gap-2 rounded-md border p-2">
             <def.icon class="size-4 shrink-0 text-muted-foreground" />
@@ -97,7 +100,7 @@
       <span class="text-xs font-medium text-muted-foreground">Available</span>
       <div class="flex flex-wrap gap-2">
         {#each available as entry (entry.id)}
-          {@const def = sidebar_view_def(entry.id)}
+          {@const def = sidebar_view_meta(entry.id, dynamic_views)}
           {#if def}
             <button
               type="button"

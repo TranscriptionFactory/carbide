@@ -1,14 +1,11 @@
 <script lang="ts">
   import { Settings, CircleHelp } from "@lucide/svelte";
-  import type { SidebarView as DynamicSidebarView } from "$lib/features/plugin";
-  import type { SidebarView, SidebarViewDef } from "$lib/app";
+  import type { SidebarView, SidebarViewMeta } from "$lib/app";
 
   type Props = {
     sidebar_open: boolean;
     active_view: SidebarView;
-    is_vault_mode: boolean;
-    configured_views: SidebarViewDef[];
-    dynamic_views?: DynamicSidebarView[];
+    configured_views: SidebarViewMeta[];
     on_open_view: (id: string) => void;
     on_open_help: () => void;
     on_open_settings: () => void;
@@ -17,9 +14,7 @@
   let {
     sidebar_open,
     active_view,
-    is_vault_mode,
     configured_views,
-    dynamic_views = [],
     on_open_view,
     on_open_help,
     on_open_settings,
@@ -41,22 +36,6 @@
         <view.icon class="ActivityBar__icon" />
       </button>
     {/each}
-
-    {#if is_vault_mode}
-      {#each dynamic_views as view (view.id)}
-        <button
-          type="button"
-          class="ActivityBar__button"
-          class:ActivityBar__button--active={sidebar_open &&
-            active_view === view.id}
-          onclick={() => on_open_view(view.id)}
-          aria-pressed={sidebar_open && active_view === view.id}
-          aria-label={view.label}
-        >
-          <view.icon class="ActivityBar__icon" />
-        </button>
-      {/each}
-    {/if}
   </div>
 
   <div class="ActivityBar__section">

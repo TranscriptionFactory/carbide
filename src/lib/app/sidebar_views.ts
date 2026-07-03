@@ -38,6 +38,20 @@ export type SidebarViewDef = {
 
 export type SidebarViewConfigEntry = { id: string; visible: boolean };
 
+export type SidebarViewMeta = {
+  id: string;
+  label: string;
+  icon: Component<IconProps>;
+  vault_only: boolean;
+  default_visible: boolean;
+};
+
+export type DynamicSidebarView = {
+  id: string;
+  label: string;
+  icon: Component<IconProps>;
+};
+
 export const SIDEBAR_VIEW_REGISTRY: SidebarViewDef[] = [
   {
     id: SIDEBAR_VIEWS.explorer,
@@ -117,8 +131,44 @@ export function sidebar_view_def(id: string): SidebarViewDef | undefined {
   return SIDEBAR_VIEW_REGISTRY.find((v) => v.id === id);
 }
 
-export function default_sidebar_views_config(): SidebarViewConfigEntry[] {
-  return SIDEBAR_VIEW_REGISTRY.map((v) => ({
+export function combined_sidebar_view_registry(
+  dynamic: DynamicSidebarView[] = [],
+): SidebarViewMeta[] {
+  const metas: SidebarViewMeta[] = SIDEBAR_VIEW_REGISTRY.map((v) => ({
+    id: v.id,
+    label: v.label,
+    icon: v.icon,
+    vault_only: v.vault_only,
+    default_visible: v.default_visible,
+  }));
+  const present = new Set(metas.map((m) => m.id));
+
+  for (const view of dynamic) {
+    if (present.has(view.id)) continue;
+    metas.push({
+      id: view.id,
+      label: view.label,
+      icon: view.icon,
+      vault_only: true,
+      default_visible: true,
+    });
+    present.add(view.id);
+  }
+
+  return metas;
+}
+
+export function sidebar_view_meta(
+  id: string,
+  dynamic: DynamicSidebarView[] = [],
+): SidebarViewMeta | undefined {
+  return combined_sidebar_view_registry(dynamic).find((m) => m.id === id);
+}
+
+export function default_sidebar_views_config(
+  dynamic: DynamicSidebarView[] = [],
+): SidebarViewConfigEntry[] {
+  return combined_sidebar_view_registry(dynamic).map((v) => ({
     id: v.id,
     visible: v.default_visible,
   }));
@@ -126,16 +176,19 @@ export function default_sidebar_views_config(): SidebarViewConfigEntry[] {
 
 export function resolve_sidebar_views_config(
   stored: SidebarViewConfigEntry[] | null | undefined,
+  dynamic: DynamicSidebarView[] = [],
 ): SidebarViewConfigEntry[] {
+  const registry = combined_sidebar_view_registry(dynamic);
+  const known = new Set(registry.map((v) => v.id));
   const entries = Array.isArray(stored) ? stored : [];
   const result: SidebarViewConfigEntry[] = entries
-    .filter((entry) => sidebar_view_def(entry.id) !== undefined)
+    .filter((entry) => known.has(entry.id))
     .map((entry) => ({ id: entry.id, visible: entry.visible }));
   const present = new Set(result.map((entry) => entry.id));
 
-  SIDEBAR_VIEW_REGISTRY.forEach((view, index) => {
+  registry.forEach((view, index) => {
     if (present.has(view.id)) return;
-    const previous = SIDEBAR_VIEW_REGISTRY[index - 1];
+    const previous = registry[index - 1];
     const insert_at =
       previous === undefined
         ? 0

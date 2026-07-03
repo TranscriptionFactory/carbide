@@ -3,12 +3,16 @@ export {
   SIDEBAR_VIEWS,
   SIDEBAR_VIEW_REGISTRY,
   sidebar_view_def,
+  sidebar_view_meta,
+  combined_sidebar_view_registry,
   default_sidebar_views_config,
   resolve_sidebar_views_config,
 } from "$lib/app/sidebar_views";
 export type {
   SidebarView,
   SidebarViewDef,
+  SidebarViewMeta,
+  DynamicSidebarView,
   SidebarViewConfigEntry,
 } from "$lib/app/sidebar_views";
 export { ActionRegistry } from "$lib/app/action_registry/action_registry";
