@@ -99,18 +99,6 @@ export function register_ui_actions(input: ActionRegistrationInput) {
   });
 
   registry.register({
-    id: ACTION_IDS.ui_select_explorer_subtab,
-    label: "Select Explorer Sub-tab",
-    execute: async (tab: unknown) => {
-      const next = tab === "views" ? "views" : "files";
-      stores.ui.set_explorer_subtab(next);
-      if (next === "views") {
-        await registry.execute(ACTION_IDS.bases_list_views);
-      }
-    },
-  });
-
-  registry.register({
     id: ACTION_IDS.ui_toggle_context_rail,
     label: "Toggle Context Panel",
     shortcut: "CmdOrCtrl+Shift+L",

@@ -8,7 +8,10 @@
     VirtualFileTree,
     PathBreadcrumb,
     DrillDownFileTree,
+    InboxFileView,
   } from "$lib/features/folder";
+  import { BasesRailSection } from "$lib/features/bases";
+  import { TypesRailSection, build_type_sections } from "$lib/features/types";
   import {
     VaultDashboardPanel,
     VaultSwitcherDropdown,
@@ -86,6 +89,12 @@
   const is_lattice = $derived(layout_variant === "lattice");
   const is_obsidian = $derived(layout_variant === "obsidian");
   const is_drift = $derived(layout_variant === "drift");
+
+  $effect(() => {
+    if (stores.ui.editor_settings.file_tree_mode === "inbox") {
+      void action_registry.execute(ACTION_IDS.inbox_reload);
+    }
+  });
 
   function starred_node_id(root_path: string, relative_path: string): string {
     return `starred:${root_path}:${relative_path}`;
@@ -717,65 +726,105 @@
                     hidden={stores.ui.sidebar_view !== "explorer"}
                   >
                     <Sidebar.GroupContent class="h-full flex flex-col min-h-0">
+                      <BasesRailSection />
+                      <TypesRailSection
+                        sections={build_type_sections(
+                          stores.types.backend_types,
+                          stores.types.definitions,
+                        )}
+                        active_type={stores.types.active_type}
+                        on_select={(name) =>
+                          void action_registry.execute(
+                            ACTION_IDS.types_select,
+                            name,
+                          )}
+                        on_create={() =>
+                          void action_registry.execute(ACTION_IDS.types_create)}
+                        on_toggle_visibility={(section) =>
+                          void action_registry.execute(
+                            ACTION_IDS.types_set_visibility,
+                            section.name,
+                            !section.visible,
+                          )}
+                        on_rename={(section, label) =>
+                          void action_registry.execute(
+                            ACTION_IDS.types_rename,
+                            section.name,
+                            label,
+                          )}
+                        on_customize={(section) =>
+                          void action_registry.execute(
+                            ACTION_IDS.types_set_icon_color,
+                            section.name,
+                            section.icon,
+                            section.color,
+                          )}
+                        on_delete={(section) =>
+                          void action_registry.execute(
+                            ACTION_IDS.types_select,
+                            section.name,
+                          )}
+                      />
                       <div
                         class="flex items-center border-b border-zinc-200 dark:border-zinc-800 px-1 shrink-0"
+                        role="group"
+                        aria-label="File tree mode"
                       >
-                        {#each [{ id: "files" as const, label: "Files" }, { id: "views" as const, label: "Views" }] as tab}
+                        {#each [{ mode: "tree" as const, label: "Tree" }, { mode: "drilldown" as const, label: "Drill" }, { mode: "inbox" as const, label: "Inbox" }] as mode_tab}
                           <button
                             type="button"
-                            class="px-3 py-1.5 text-xs font-medium border-b-2 -mb-px transition-colors {stores
-                              .ui.explorer_subtab === tab.id
+                            aria-pressed={(stores.ui.editor_settings
+                              .file_tree_mode ?? "tree") === mode_tab.mode}
+                            class="px-2.5 py-1.5 text-xs font-medium border-b-2 -mb-px transition-colors {(stores
+                              .ui.editor_settings.file_tree_mode ?? 'tree') ===
+                            mode_tab.mode
                               ? 'border-blue-500 text-foreground'
                               : 'border-transparent text-zinc-500 hover:text-foreground'}"
                             onclick={() =>
                               void action_registry.execute(
-                                ACTION_IDS.ui_select_explorer_subtab,
-                                tab.id,
+                                ACTION_IDS.filetree_set_mode,
+                                mode_tab.mode,
                               )}
                           >
-                            {tab.label}
+                            {mode_tab.label}
                           </button>
                         {/each}
-                        {#if stores.ui.explorer_subtab === "files"}
-                          <button
-                            type="button"
-                            class="ml-auto mr-1 px-2 py-1 text-[10px] font-medium uppercase tracking-wider rounded text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-900"
-                            title="Switch explorer mode"
-                            onclick={() =>
-                              void action_registry.execute(
-                                ACTION_IDS.filetree_toggle_mode,
-                              )}
-                          >
-                            {stores.ui.editor_settings.file_tree_mode ===
-                            "drilldown"
-                              ? "Drill"
-                              : "Tree"}
-                          </button>
-                        {/if}
                       </div>
-                      {#if stores.ui.explorer_subtab === "views"}
-                        <div class="flex-1 overflow-auto p-2 space-y-1">
-                          {#if stores.bases.saved_views.length === 0}
-                            <p class="text-xs text-zinc-500 px-2 py-3">
-                              No saved bases views yet.
-                            </p>
-                          {:else}
-                            {#each stores.bases.saved_views as view (view.path)}
-                              <button
-                                type="button"
-                                class="w-full text-left text-xs px-2 py-1.5 rounded hover:bg-zinc-100 dark:hover:bg-zinc-900 truncate"
-                                onclick={() => {
-                                  void action_registry.execute(
-                                    ACTION_IDS.bases_load_view,
-                                    view.path,
-                                  );
-                                  stores.ui.set_sidebar_view("bases");
-                                }}
-                              >
-                                {view.name}
-                              </button>
-                            {/each}
-                          {/if}
+                      {#if stores.ui.editor_settings.file_tree_mode === "inbox"}
+                        <!-- svelte-ignore a11y_no_static_element_interactions -->
+                        <div
+                          class="flex-1 min-h-0"
+                          data-vim-nav-region="file_tree"
+                          tabindex="-1"
+                        >
+                          <InboxFileView
+                            results={stores.inbox.results}
+                            sort={stores.ui.editor_settings.inbox_sort.option}
+                            direction={stores.ui.editor_settings.inbox_sort
+                              .direction}
+                            period={stores.ui.editor_settings.inbox_period}
+                            on_change_sort={(s) =>
+                              void action_registry.execute(
+                                ACTION_IDS.inbox_set_sort,
+                                s,
+                              )}
+                            on_change_direction={(d) =>
+                              void action_registry.execute(
+                                ACTION_IDS.inbox_set_sort,
+                                stores.ui.editor_settings.inbox_sort.option,
+                                d,
+                              )}
+                            on_change_period={(p) =>
+                              void action_registry.execute(
+                                ACTION_IDS.inbox_set_period,
+                                p,
+                              )}
+                            on_open_note={(path) =>
+                              void action_registry.execute(
+                                ACTION_IDS.note_open,
+                                path,
+                              )}
+                          />
                         </div>
                       {:else if stores.ui.editor_settings.file_tree_mode === "drilldown"}
                         <!-- svelte-ignore a11y_no_static_element_interactions -->
