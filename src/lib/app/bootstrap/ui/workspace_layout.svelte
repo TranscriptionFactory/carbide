@@ -37,9 +37,9 @@
     ACTION_IDS,
     SIDEBAR_VIEWS,
     resolve_sidebar_views_config,
-    sidebar_view_def,
+    sidebar_view_meta,
   } from "$lib/app";
-  import type { SidebarViewDef } from "$lib/app";
+  import type { SidebarViewMeta } from "$lib/app";
   import type { NoteMeta } from "$lib/shared/types/note";
   import {
     FilePlus,
@@ -256,21 +256,22 @@
     return explorer_header_actions;
   });
 
+  const dynamic_sidebar_views = $derived(stores.plugin.sidebar_views);
+
   const configured_views = $derived(
-    resolve_sidebar_views_config(stores.ui.editor_settings.sidebar_views_config)
+    resolve_sidebar_views_config(
+      stores.ui.editor_settings.sidebar_views_config,
+      dynamic_sidebar_views,
+    )
       .filter((entry) => entry.visible)
-      .map((entry) => sidebar_view_def(entry.id))
-      .filter((def): def is SidebarViewDef => def !== undefined)
-      .filter((def) => !def.vault_only || is_vault_mode),
+      .map((entry) => sidebar_view_meta(entry.id, dynamic_sidebar_views))
+      .filter((meta): meta is SidebarViewMeta => meta !== undefined)
+      .filter((meta) => !meta.vault_only || is_vault_mode),
   );
 
   $effect(() => {
     const active = stores.ui.sidebar_view;
-    const is_configured = configured_views.some((view) => view.id === active);
-    const is_plugin = stores.plugin.sidebar_views.some(
-      (view) => view.id === active,
-    );
-    if (is_configured || is_plugin) return;
+    if (configured_views.some((view) => view.id === active)) return;
     const fallback = configured_views[0]?.id ?? SIDEBAR_VIEWS.explorer;
     void action_registry.execute(ACTION_IDS.ui_set_sidebar_view, fallback);
   });
@@ -362,9 +363,7 @@
         <ActivityBar
           sidebar_open={stores.ui.sidebar_open}
           active_view={stores.ui.sidebar_view}
-          {is_vault_mode}
           {configured_views}
-          dynamic_views={stores.plugin.sidebar_views}
           on_open_view={toggle_sidebar_view}
           on_open_help={() =>
             void action_registry.execute(ACTION_IDS.help_open)}

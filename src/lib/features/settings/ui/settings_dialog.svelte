@@ -96,6 +96,7 @@
   } from "$lib/features/ai";
   import type { Theme, ColorSchemePreference } from "$lib/shared/types/theme";
   import type { HotkeyConfig, HotkeyBinding } from "$lib/features/hotkey";
+  import type { DynamicSidebarView } from "$lib/app";
   import { slide } from "svelte/transition";
   import { draggable } from "$lib/shared/utils/draggable";
   import { resizable_element } from "$lib/shared/utils/resizable_element";
@@ -113,6 +114,7 @@
     hotkeys_config: HotkeyConfig;
     user_themes: Theme[];
     active_theme: Theme;
+    sidebar_dynamic_views?: DynamicSidebarView[];
     on_update_settings: (settings: EditorSettings) => void;
     on_git_remote_url_change: (url: string) => void;
     on_category_change: (category: SettingsCategory) => void;
@@ -180,6 +182,7 @@
     hotkeys_config,
     user_themes,
     active_theme,
+    sidebar_dynamic_views = [],
     on_update_settings,
     on_git_remote_url_change,
     on_category_change,
@@ -1520,6 +1523,7 @@
             </div>
             <SidebarViewsPicker
               config={editor_settings.sidebar_views_config}
+              dynamic_views={sidebar_dynamic_views}
               on_change={(next) => update("sidebar_views_config", next)}
             />
 

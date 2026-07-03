@@ -1,12 +1,18 @@
 import { describe, expect, it } from "vitest";
 import {
   SIDEBAR_VIEW_REGISTRY,
+  combined_sidebar_view_registry,
   default_sidebar_views_config,
   resolve_sidebar_views_config,
 } from "$lib/app/sidebar_views";
+import type { DynamicSidebarView } from "$lib/app/sidebar_views";
 import { DEFAULT_EDITOR_SETTINGS } from "$lib/shared/types/editor_settings";
 
 const REGISTRY_IDS = SIDEBAR_VIEW_REGISTRY.map((view) => view.id);
+
+const ICON = {} as DynamicSidebarView["icon"];
+const dyn = (id: string): DynamicSidebarView => ({ id, label: id, icon: ICON });
+const DYNAMIC: DynamicSidebarView[] = [dyn("references"), dyn("bases")];
 
 describe("default_sidebar_views_config", () => {
   it("defaults dashboard to hidden and everything else visible", () => {
@@ -87,5 +93,60 @@ describe("resolve_sidebar_views_config", () => {
     expect(new Set(resolved.map((entry) => entry.id)).size).toBe(
       REGISTRY_IDS.length,
     );
+  });
+});
+
+describe("combined_sidebar_view_registry", () => {
+  it("appends dynamic views as vault-only and visible by default", () => {
+    const combined = combined_sidebar_view_registry(DYNAMIC);
+    const references = combined.find((v) => v.id === "references");
+
+    expect(references).toBeDefined();
+    expect(references?.vault_only).toBe(true);
+    expect(references?.default_visible).toBe(true);
+    // Static views keep their canonical order, dynamic views follow.
+    expect(combined.map((v) => v.id).slice(0, REGISTRY_IDS.length)).toEqual(
+      REGISTRY_IDS,
+    );
+    expect(combined.map((v) => v.id).slice(REGISTRY_IDS.length)).toEqual([
+      "references",
+      "bases",
+    ]);
+  });
+
+  it("lets a static registry id win over a colliding dynamic id", () => {
+    const combined = combined_sidebar_view_registry([dyn("explorer")]);
+    const explorer = combined.filter((v) => v.id === "explorer");
+    expect(explorer).toHaveLength(1);
+    expect(explorer[0]?.vault_only).toBe(false);
+  });
+});
+
+describe("resolve_sidebar_views_config with dynamic views", () => {
+  it("includes registered dynamic views, defaulting them to visible", () => {
+    const resolved = resolve_sidebar_views_config([], DYNAMIC);
+    const references = resolved.find((entry) => entry.id === "references");
+    expect(references?.visible).toBe(true);
+    expect(resolved.map((entry) => entry.id)).toEqual([
+      ...REGISTRY_IDS,
+      "references",
+      "bases",
+    ]);
+  });
+
+  it("preserves user visibility/order for a dynamic view", () => {
+    const resolved = resolve_sidebar_views_config(
+      [{ id: "bases", visible: false }],
+      DYNAMIC,
+    );
+    expect(resolved.find((entry) => entry.id === "bases")?.visible).toBe(false);
+  });
+
+  it("drops a stored dynamic id once its view is unregistered", () => {
+    const resolved = resolve_sidebar_views_config(
+      [{ id: "references", visible: true }],
+      [],
+    );
+    expect(resolved.some((entry) => entry.id === "references")).toBe(false);
   });
 });

@@ -35,7 +35,12 @@
   import { MissingLinkedSourceDialog } from "$lib/features/reference";
   import { use_app_context } from "$lib/app/context/app_context.svelte";
   import SidebarViewSwitcher from "$lib/app/bootstrap/ui/sidebar_view_switcher.svelte";
-  import { ACTION_IDS, SIDEBAR_VIEW_REGISTRY } from "$lib/app";
+  import {
+    ACTION_IDS,
+    resolve_sidebar_views_config,
+    sidebar_view_meta,
+  } from "$lib/app";
+  import type { SidebarViewMeta } from "$lib/app";
   // STT removed — archived on archive/stt-main
   // import type { DownloadProgress } from "$lib/features/stt";
   import type { StorageStats } from "$lib/features/settings";
@@ -80,7 +85,14 @@
   );
 
   const sidebar_switcher_views = $derived(
-    SIDEBAR_VIEW_REGISTRY.filter((v) => !v.vault_only || is_vault_mode),
+    resolve_sidebar_views_config(
+      stores.ui.editor_settings.sidebar_views_config,
+      stores.plugin.sidebar_views,
+    )
+      .filter((entry) => entry.visible)
+      .map((entry) => sidebar_view_meta(entry.id, stores.plugin.sidebar_views))
+      .filter((meta): meta is SidebarViewMeta => meta !== undefined)
+      .filter((meta) => !meta.vault_only || is_vault_mode),
   );
   const vault_dashboard_recent = $derived(
     stores.notes.recent_notes.map((n) => ({
@@ -324,7 +336,6 @@
   <SidebarViewSwitcher
     open={stores.ui.sidebar_switcher.open}
     views={sidebar_switcher_views}
-    dynamic_views={stores.plugin.sidebar_views}
     on_select={(id) => {
       void action_registry.execute(ACTION_IDS.ui_set_sidebar_view, id);
       void action_registry.execute(ACTION_IDS.ui_close_sidebar_switcher);
@@ -443,6 +454,7 @@
 <SettingsDialog
   open={stores.ui.settings_dialog.open}
   editor_settings={stores.ui.settings_dialog.current_settings}
+  sidebar_dynamic_views={stores.plugin.sidebar_views}
   folder_paths={stores.ui.settings_dialog.all_folder_paths}
   git_enabled={stores.git.enabled}
   git_remote_url={stores.ui.settings_dialog.git_remote_url}

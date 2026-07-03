@@ -1,23 +1,15 @@
 <script lang="ts">
   import * as Dialog from "$lib/components/ui/dialog/index.js";
-  import type { SidebarViewDef } from "$lib/app";
-  import type { SidebarView as DynamicSidebarView } from "$lib/features/plugin";
+  import type { SidebarViewMeta } from "$lib/app";
 
   type Props = {
     open: boolean;
-    views: SidebarViewDef[];
-    dynamic_views?: DynamicSidebarView[];
+    views: SidebarViewMeta[];
     on_select: (id: string) => void;
     on_open_change: (open: boolean) => void;
   };
 
-  let {
-    open,
-    views,
-    dynamic_views = [],
-    on_select,
-    on_open_change,
-  }: Props = $props();
+  let { open, views, on_select, on_open_change }: Props = $props();
 </script>
 
 <Dialog.Root {open} onOpenChange={on_open_change}>
@@ -31,17 +23,6 @@
 
     <div class="SidebarViewSwitcher__list">
       {#each views as view (view.id)}
-        <button
-          type="button"
-          class="SidebarViewSwitcher__item"
-          onclick={() => on_select(view.id)}
-        >
-          <view.icon class="SidebarViewSwitcher__icon" />
-          <span>{view.label}</span>
-        </button>
-      {/each}
-
-      {#each dynamic_views as view (view.id)}
         <button
           type="button"
           class="SidebarViewSwitcher__item"
