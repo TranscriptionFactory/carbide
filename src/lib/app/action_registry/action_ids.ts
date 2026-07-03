@@ -410,6 +410,14 @@ export const ACTION_IDS = {
   bases_open_as_tab: "bases.open_as_tab",
   bases_update_property: "bases.update_property",
 
+  types_refresh: "types.refresh",
+  types_create: "types.create",
+  types_set_icon_color: "types.set_icon_color",
+  types_set_visibility: "types.set_visibility",
+  types_reorder: "types.reorder",
+  types_rename: "types.rename",
+  types_select: "types.select",
+
   query_execute: "query.execute",
   query_clear: "query.clear",
   query_toggle_panel: "query.toggle_panel",

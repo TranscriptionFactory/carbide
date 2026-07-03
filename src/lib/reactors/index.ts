@@ -24,6 +24,7 @@ import { create_terminal_reconcile_reactor } from "$lib/reactors/terminal_reconc
 import { create_graph_refresh_reactor } from "$lib/reactors/graph_refresh.reactor.svelte";
 import { create_bases_refresh_reactor } from "$lib/reactors/bases_refresh.reactor.svelte";
 import { create_bases_counts_reactor } from "$lib/reactors/bases_counts.reactor.svelte";
+import { create_types_refresh_reactor } from "$lib/reactors/types_refresh.reactor.svelte";
 import { create_task_sync_reactor } from "$lib/reactors/task_sync.reactor.svelte";
 import { create_menu_action_reactor } from "$lib/reactors/menu_action.reactor.svelte";
 import { create_embedding_model_loaded_reactor } from "$lib/reactors/embedding_model_loaded.reactor.svelte";
@@ -79,6 +80,7 @@ import type {
   BasesStore,
   BaseCountsStore,
 } from "$lib/features/bases";
+import type { TypesService } from "$lib/features/types";
 import type { TaskService } from "$lib/features/task";
 import type { LintStore, LintService } from "$lib/features/lint";
 import type {
@@ -121,6 +123,7 @@ export type ReactorContext = {
   terminal_service: TerminalService;
   graph_service: GraphService;
   bases_service: BasesService;
+  types_service: TypesService;
   watcher_service: WatcherService;
   action_registry: ActionRegistry;
   workspace_reconcile?: WorkspaceReconcile | undefined;
@@ -311,6 +314,7 @@ export function mount_reactors(context: ReactorContext): ReactorHandles {
       context.bases_service,
       context.bases_counts_store,
     ),
+    create_types_refresh_reactor(context.vault_store, context.types_service),
     create_reference_library_load_reactor(
       context.vault_store,
       context.reference_service,

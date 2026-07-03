@@ -40,6 +40,7 @@ function to_note_meta(meta: {
   ctime_ms?: number;
   size_bytes: number;
   file_type?: string | null;
+  is_a?: string | null;
 }): NoteMeta {
   return {
     id: meta.id as NoteId,
@@ -51,6 +52,7 @@ function to_note_meta(meta: {
     ctime_ms: meta.ctime_ms ?? meta.mtime_ms,
     size_bytes: meta.size_bytes,
     file_type: meta.file_type ?? null,
+    is_a: meta.is_a ?? undefined,
   };
 }
 
