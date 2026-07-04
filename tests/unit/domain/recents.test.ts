@@ -1,31 +1,31 @@
 import { describe, it, expect } from "vitest";
 import {
-  build_inbox_query,
+  build_recents_query,
   default_direction,
-  type InboxPeriod,
-  type InboxSort,
+  type RecentsPeriod,
+  type RecentsSort,
   type SortDirection,
-} from "$lib/features/folder/domain/inbox";
+} from "$lib/features/folder/domain/recents";
 
 const NOW_MS = 1_700_000_000_000;
 const DAY_MS = 86_400_000;
 const LIMIT = 200;
 
-const PERIOD_DAYS: Record<Exclude<InboxPeriod, "all">, number> = {
+const PERIOD_DAYS: Record<Exclude<RecentsPeriod, "all">, number> = {
   week: 7,
   month: 30,
   quarter: 90,
 };
 
-const SORT_PROPERTY: Record<InboxSort, string> = {
+const SORT_PROPERTY: Record<RecentsSort, string> = {
   modified: "modified",
   created: "created",
   title: "title",
 };
 
-const SORTS: InboxSort[] = ["modified", "created", "title"];
+const SORTS: RecentsSort[] = ["modified", "created", "title"];
 const DIRECTIONS: SortDirection[] = ["asc", "desc"];
-const PERIODS: InboxPeriod[] = ["all", "week", "month", "quarter"];
+const PERIODS: RecentsPeriod[] = ["all", "week", "month", "quarter"];
 
 describe("default_direction", () => {
   it("defaults time-based sorts to descending", () => {
@@ -38,10 +38,10 @@ describe("default_direction", () => {
   });
 });
 
-describe("build_inbox_query", () => {
+describe("build_recents_query", () => {
   it("maps every sort option to the matching bases property", () => {
     for (const sort of SORTS) {
-      const query = build_inbox_query({
+      const query = build_recents_query({
         sort,
         direction: "desc",
         period: "all",
@@ -57,7 +57,7 @@ describe("build_inbox_query", () => {
   it("maps direction to the descending flag for every sort", () => {
     for (const sort of SORTS) {
       for (const direction of DIRECTIONS) {
-        const query = build_inbox_query({
+        const query = build_recents_query({
           sort,
           direction,
           period: "all",
@@ -71,7 +71,7 @@ describe("build_inbox_query", () => {
 
   it("emits no filter for the 'all' period", () => {
     for (const sort of SORTS) {
-      const query = build_inbox_query({
+      const query = build_recents_query({
         sort,
         direction: default_direction(sort),
         period: "all",
@@ -84,7 +84,7 @@ describe("build_inbox_query", () => {
 
   it("emits a created>=cutoff filter with correct window math per period", () => {
     for (const period of ["week", "month", "quarter"] as const) {
-      const query = build_inbox_query({
+      const query = build_recents_query({
         sort: "modified",
         direction: "desc",
         period,
@@ -102,7 +102,7 @@ describe("build_inbox_query", () => {
     for (const sort of SORTS) {
       for (const direction of DIRECTIONS) {
         for (const period of PERIODS) {
-          const query = build_inbox_query({
+          const query = build_recents_query({
             sort,
             direction,
             period,
@@ -117,14 +117,14 @@ describe("build_inbox_query", () => {
   });
 
   it("is deterministic under an injected now_ms", () => {
-    const a = build_inbox_query({
+    const a = build_recents_query({
       sort: "created",
       direction: "asc",
       period: "quarter",
       now_ms: NOW_MS,
       limit: 50,
     });
-    const b = build_inbox_query({
+    const b = build_recents_query({
       sort: "created",
       direction: "asc",
       period: "quarter",

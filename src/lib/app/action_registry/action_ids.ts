@@ -102,9 +102,9 @@ export const ACTION_IDS = {
   filetree_set_mode: "filetree.set_mode",
   filetree_open_folder_note: "filetree.open_folder_note",
 
-  inbox_set_sort: "inbox.set_sort",
-  inbox_set_period: "inbox.set_period",
-  inbox_reload: "inbox.reload",
+  recents_set_sort: "recents.set_sort",
+  recents_set_period: "recents.set_period",
+  recents_reload: "recents.reload",
 
   shell_open_url: "shell.open_url",
   shell_open_path: "shell.open_path",
