@@ -6,6 +6,11 @@
     ShieldCheck,
     ShieldAlert,
     Shield,
+    Terminal,
+    CircleAlert,
+    Zap,
+    Search,
+    Bot,
   } from "@lucide/svelte";
   import * as Tooltip from "$lib/components/ui/tooltip/index.js";
   import { GitStatusWidget } from "$lib/features/git";
@@ -20,6 +25,24 @@
   import type { NavContext } from "$lib/features/vim_nav";
   // STT removed — archived on archive/stt-main
   // import { SttStatusIndicator } from "$lib/features/stt";
+
+  type BottomPanelTab =
+    | "terminal"
+    | "problems"
+    | "lsp_results"
+    | "query"
+    | "ai"
+    | "trust";
+
+  const PANEL_TABS: { id: BottomPanelTab; label: string; icon: typeof Info }[] =
+    [
+      { id: "terminal", label: "Terminal", icon: Terminal },
+      { id: "problems", label: "Problems", icon: CircleAlert },
+      { id: "lsp_results", label: "LSP", icon: Zap },
+      { id: "query", label: "Query", icon: Search },
+      { id: "ai", label: "AI Assistant", icon: Bot },
+      { id: "trust", label: "Trust", icon: ShieldCheck },
+    ];
 
   interface Props {
     cursor_info: CursorInfo | null;
@@ -69,6 +92,9 @@
     on_vim_nav_cheatsheet: () => void;
     html_trust_level: TrustLevel | null;
     on_html_trust_click: () => void;
+    bottom_panel_open: boolean;
+    bottom_panel_tab: BottomPanelTab;
+    on_panel_tab_click: (tab: BottomPanelTab) => void;
     // STT removed — archived on archive/stt-main
     // stt_enabled: boolean;
     // stt_recording_state: "idle" | "recording" | "processing";
@@ -126,6 +152,9 @@
     on_vim_nav_cheatsheet,
     html_trust_level,
     on_html_trust_click,
+    bottom_panel_open,
+    bottom_panel_tab,
+    on_panel_tab_click,
     // stt_enabled,
     // stt_recording_state,
     // stt_model_loading,
@@ -311,6 +340,35 @@
       </span>
       <span class="StatusBar__separator" aria-hidden="true"></span>
     {/if}
+    <div class="StatusBar__panel-tabs">
+      <Tooltip.Provider delayDuration={0}>
+        {#each PANEL_TABS as panel_tab (panel_tab.id)}
+          {@const active =
+            bottom_panel_open && bottom_panel_tab === panel_tab.id}
+          <Tooltip.Root>
+            <Tooltip.Trigger>
+              {#snippet child({ props })}
+                <button
+                  {...props}
+                  type="button"
+                  class="StatusBar__action"
+                  class:StatusBar__action--active={active}
+                  aria-pressed={active}
+                  aria-label="{panel_tab.label} panel"
+                  onclick={() => on_panel_tab_click(panel_tab.id)}
+                >
+                  <panel_tab.icon />
+                </button>
+              {/snippet}
+            </Tooltip.Trigger>
+            <Tooltip.Content side="top" sideOffset={4}>
+              {panel_tab.label}
+            </Tooltip.Content>
+          </Tooltip.Root>
+        {/each}
+      </Tooltip.Provider>
+    </div>
+    <span class="StatusBar__separator" aria-hidden="true"></span>
     <button
       type="button"
       class="StatusBar__vault-action"
@@ -548,6 +606,15 @@
 
   .StatusBar__action--active {
     opacity: 1;
+  }
+
+  .StatusBar__panel-tabs {
+    display: flex;
+    align-items: center;
+  }
+
+  .StatusBar__panel-tabs .StatusBar__action--active {
+    color: var(--primary);
   }
 
   .StatusBar__mode-toggle {

@@ -235,6 +235,102 @@ describe("register_ui_actions", () => {
     expect(stores.ui.context_rail_open).toBe(false);
   });
 
+  it("toggles bottom panel tabs from the status bar", async () => {
+    const registry = new ActionRegistry();
+    const stores = create_ui_stores();
+
+    register_ui_actions({
+      registry,
+      stores,
+      services: {
+        reference: {},
+        vault: {
+          refresh_dashboard_stats: async () =>
+            await Promise.resolve({ status: "skipped" as const }),
+        },
+        shell: { open_url: async () => {}, open_path: async () => {} },
+      } as never,
+      default_mount_config: {
+        reset_app_state: true,
+        bootstrap_default_vault_path: null,
+      },
+    });
+
+    expect(stores.ui.bottom_panel_open).toBe(false);
+
+    await registry.execute(ACTION_IDS.ui_toggle_bottom_panel_tab, "problems");
+    expect(stores.ui.bottom_panel_open).toBe(true);
+    expect(stores.ui.bottom_panel_tab).toBe("problems");
+
+    await registry.execute(ACTION_IDS.ui_toggle_bottom_panel_tab, "ai");
+    expect(stores.ui.bottom_panel_open).toBe(true);
+    expect(stores.ui.bottom_panel_tab).toBe("ai");
+
+    await registry.execute(ACTION_IDS.ui_toggle_bottom_panel_tab, "ai");
+    expect(stores.ui.bottom_panel_open).toBe(false);
+    expect(stores.ui.bottom_panel_tab).toBe("ai");
+  });
+
+  it("delegates terminal tab toggles to the terminal action", async () => {
+    const registry = new ActionRegistry();
+    const stores = create_ui_stores();
+
+    const terminal_toggle = vi.fn();
+    registry.register({
+      id: ACTION_IDS.terminal_toggle,
+      label: "Toggle Terminal",
+      execute: terminal_toggle,
+    });
+
+    register_ui_actions({
+      registry,
+      stores,
+      services: {
+        reference: {},
+        vault: {
+          refresh_dashboard_stats: async () =>
+            await Promise.resolve({ status: "skipped" as const }),
+        },
+        shell: { open_url: async () => {}, open_path: async () => {} },
+      } as never,
+      default_mount_config: {
+        reset_app_state: true,
+        bootstrap_default_vault_path: null,
+      },
+    });
+
+    await registry.execute(ACTION_IDS.ui_toggle_bottom_panel_tab, "terminal");
+    expect(terminal_toggle).toHaveBeenCalledTimes(1);
+    expect(stores.ui.bottom_panel_open).toBe(false);
+  });
+
+  it("ignores unknown bottom panel tabs", async () => {
+    const registry = new ActionRegistry();
+    const stores = create_ui_stores();
+
+    register_ui_actions({
+      registry,
+      stores,
+      services: {
+        reference: {},
+        vault: {
+          refresh_dashboard_stats: async () =>
+            await Promise.resolve({ status: "skipped" as const }),
+        },
+        shell: { open_url: async () => {}, open_path: async () => {} },
+      } as never,
+      default_mount_config: {
+        reset_app_state: true,
+        bootstrap_default_vault_path: null,
+      },
+    });
+
+    await registry.execute(ACTION_IDS.ui_toggle_bottom_panel_tab, "bogus");
+    await registry.execute(ACTION_IDS.ui_toggle_bottom_panel_tab, undefined);
+    expect(stores.ui.bottom_panel_open).toBe(false);
+    expect(stores.ui.bottom_panel_tab).toBe("terminal");
+  });
+
   it("switches from graph to outline by closing graph first", async () => {
     const registry = new ActionRegistry();
     const stores = create_ui_stores();

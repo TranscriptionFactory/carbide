@@ -127,6 +127,7 @@ export const ACTION_IDS = {
   ui_open_sidebar_switcher: "ui.open_sidebar_switcher",
   ui_close_sidebar_switcher: "ui.close_sidebar_switcher",
   ui_open_plugins: "ui.open_plugins",
+  ui_toggle_bottom_panel_tab: "ui.toggle_bottom_panel_tab",
 
   graph_toggle_panel: "graph.toggle_panel",
   graph_close: "graph.close",

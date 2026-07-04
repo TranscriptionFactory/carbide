@@ -2,6 +2,16 @@ import { ACTION_IDS } from "$lib/app/action_registry/action_ids";
 import type { ActionRegistrationInput } from "$lib/app/action_registry/action_registration_input";
 import { SIDEBAR_VIEWS } from "$lib/app/sidebar_views";
 import type { SidebarView } from "$lib/app/sidebar_views";
+import type { BottomPanelTab } from "$lib/app/orchestration/ui_store.svelte";
+
+const BOTTOM_PANEL_TABS: readonly BottomPanelTab[] = [
+  "terminal",
+  "problems",
+  "lsp_results",
+  "query",
+  "ai",
+  "trust",
+];
 
 export function register_ui_actions(input: ActionRegistrationInput) {
   const { registry, stores, services } = input;
@@ -226,6 +236,31 @@ export function register_ui_actions(input: ActionRegistrationInput) {
     label: "Close Sidebar View Switcher",
     execute: () => {
       set_sidebar_switcher_open(false);
+    },
+  });
+
+  registry.register({
+    id: ACTION_IDS.ui_toggle_bottom_panel_tab,
+    label: "Toggle Bottom Panel Tab",
+    execute: async (tab: unknown) => {
+      if (!BOTTOM_PANEL_TABS.includes(tab as BottomPanelTab)) return;
+      const panel_tab = tab as BottomPanelTab;
+
+      if (panel_tab === "terminal") {
+        await registry.execute(ACTION_IDS.terminal_toggle);
+        return;
+      }
+
+      if (
+        stores.ui.bottom_panel_open &&
+        stores.ui.bottom_panel_tab === panel_tab
+      ) {
+        stores.ui.bottom_panel_open = false;
+        return;
+      }
+
+      stores.ui.bottom_panel_tab = panel_tab;
+      stores.ui.bottom_panel_open = true;
     },
   });
 
