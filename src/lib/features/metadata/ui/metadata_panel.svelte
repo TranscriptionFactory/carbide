@@ -14,6 +14,7 @@
     build_key_suggestions,
     value_suggestions_for_key,
   } from "../domain/property_suggestions";
+  import { key_suggestion_items } from "../domain/suggestion_items";
 
   const { stores, action_registry } = use_app_context();
 
@@ -33,16 +34,9 @@
   const existing_keys = $derived(properties.map((p) => p.key));
 
   const key_items = $derived(
-    build_key_suggestions(new_key, registry, existing_keys).map((s) => ({
-      value: s.key,
-      hint: s.type,
-      description:
-        s.description ??
-        (s.count !== null
-          ? `used in ${s.count} ${s.count === 1 ? "note" : "notes"}`
-          : null),
-      indices: s.indices,
-    })),
+    key_suggestion_items(
+      build_key_suggestions(new_key, registry, existing_keys),
+    ),
   );
 
   const add_value_items = $derived(

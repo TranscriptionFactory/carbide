@@ -74,6 +74,8 @@
     );
   ports.frontmatter_widget.on_remove = (key) =>
     void app.action_registry.execute(ACTION_IDS.metadata_delete_property, key);
+  ports.frontmatter_widget.on_load_suggestions = () =>
+    void app.action_registry.execute(ACTION_IDS.metadata_load_suggestions);
 
   ports.tag_pill_menu.get_color = (tag) =>
     tag_color_for(app.stores.tag.tag_colors, tag);

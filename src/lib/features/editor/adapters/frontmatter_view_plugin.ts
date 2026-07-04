@@ -11,6 +11,7 @@ export type FrontmatterWidgetConfig = {
   on_update: (key: string, value: string) => void;
   on_add: (key: string, value: string) => void;
   on_remove: (key: string) => void;
+  on_load_suggestions: () => void;
 };
 
 class FrontmatterNodeView implements NodeView {
