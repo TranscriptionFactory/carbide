@@ -25,7 +25,7 @@
     cli_status: AiCliStatus;
     cli_error: string | null;
     target: AiApplyTarget;
-    context_kind: "note" | "html_document";
+    context_kind: "note" | "document";
     note_path: string | null;
     note_title: string | null;
     selection_text: string | null;
@@ -100,7 +100,7 @@
     selection_text ? selection_text.trim().slice(0, 180) : "",
   );
   const subject_word = $derived(
-    context_kind === "html_document" ? "document" : "note",
+    context_kind === "document" ? "document" : "note",
   );
   const description_text = $derived(
     description ??
@@ -372,7 +372,7 @@
               Apply Selected
             {:else if target === "selection"}
               Apply to Selection
-            {:else if context_kind === "html_document"}
+            {:else if context_kind === "document"}
               Replace Document
             {:else}
               Replace Note

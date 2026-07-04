@@ -23,7 +23,7 @@ export {
   type AiMode,
   type AiCliStatus,
   type AiDialogContext,
-  type AiDialogHtmlContext,
+  type AiDialogDocumentContext,
   type AiDialogNoteContext,
   type AiExecutionResult,
   type AiPortExecuteRequest,
@@ -38,7 +38,7 @@ export {
 } from "$lib/features/ai/domain/ai_types";
 export {
   build_ai_prompt,
-  build_ai_html_prompt,
+  build_ai_document_prompt,
   build_ai_inline_prompt,
 } from "$lib/features/ai/domain/ai_prompt_builder";
 export { migrate_ai_settings } from "$lib/features/ai/domain/ai_settings_migration";

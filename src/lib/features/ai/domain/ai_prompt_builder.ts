@@ -113,10 +113,10 @@ export function build_ai_prompt(input: {
   return parts.join("\n\n");
 }
 
-export function build_ai_html_prompt(input: {
+export function build_ai_document_prompt(input: {
   file_path: string;
   file_title: string;
-  html: string;
+  content: string;
   user_prompt: string;
   mode: AiMode;
 }): string {
@@ -124,21 +124,21 @@ export function build_ai_html_prompt(input: {
 
   if (input.mode === "ask") {
     return [
-      "You are a helpful assistant answering a question about the content of an HTML document.",
+      "You are a helpful assistant answering a question about the content of a document. The document's format is indicated by its file extension.",
       "Answer the user's question clearly and concisely.",
-      "Do not return edited HTML. Do not rewrite the markup.",
+      "Do not return edited content. Do not rewrite the document.",
       `Document: ${input.file_title} (${input.file_path})`,
-      section("current_html", input.html),
+      section("current_content", input.content),
       section("user_question", user_prompt),
     ].join("\n\n");
   }
 
   return [
-    "You are editing an HTML document.",
-    "Return ONLY the complete edited HTML for the document and retain all content that is not meant to be edited.",
-    "Do not include commentary, explanations, or enclose the HTML in code fences.",
+    "You are editing a document. The document's format is indicated by its file extension.",
+    "Return ONLY the complete edited content for the document and retain all content that is not meant to be edited.",
+    "Do not include commentary, explanations, or enclose the content in code fences.",
     `Document: ${input.file_title} (${input.file_path})`,
-    section("current_html", input.html),
+    section("current_content", input.content),
     section("user_instructions", user_prompt),
   ].join("\n\n");
 }

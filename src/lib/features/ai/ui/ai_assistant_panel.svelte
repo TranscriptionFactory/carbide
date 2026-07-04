@@ -12,7 +12,7 @@
   const has_session = $derived(session.open && session.context !== null);
 
   type ViewData = {
-    context_kind: "note" | "html_document";
+    context_kind: "note" | "document";
     target: "selection" | "full_note";
     note_path: string | null;
     note_title: string | null;
@@ -30,14 +30,14 @@
           selection_text: null,
           original_text: "",
         }
-      : session.context.kind === "html_document"
+      : session.context.kind === "document"
         ? {
-            context_kind: "html_document",
+            context_kind: "document",
             target: "full_note",
             note_path: session.context.file_path,
             note_title: session.context.file_title,
             selection_text: null,
-            original_text: session.context.html,
+            original_text: session.context.content,
           }
         : {
             context_kind: "note",
@@ -110,8 +110,8 @@
     <div class="space-y-2">
       <h2 class="text-base font-semibold">AI Assistant</h2>
       <p class="text-sm text-muted-foreground">
-        Open a note or an HTML document (Source mode) to start a draft-editing
-        session and review changes before applying them.
+        Open a note or an editable document to start a draft-editing session and
+        review changes before applying them.
       </p>
     </div>
     <Button onclick={start_session}>Use Current Tab</Button>

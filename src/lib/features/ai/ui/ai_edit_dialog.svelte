@@ -18,7 +18,7 @@
     cli_status: AiCliStatus;
     cli_error: string | null;
     target: AiApplyTarget;
-    context_kind: "note" | "html_document";
+    context_kind: "note" | "document";
     note_path: string | null;
     note_title: string | null;
     selection_text: string | null;

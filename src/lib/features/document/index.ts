@@ -27,7 +27,7 @@ export {
 } from "$lib/features/document/domain/note_html";
 export {
   DocumentService,
-  type HtmlSourceContext,
+  type DocumentAiContext,
 } from "$lib/features/document/application/document_service";
 export { register_document_actions } from "$lib/features/document/application/document_actions";
 export { default as DocumentViewer } from "$lib/features/document/ui/document_viewer.svelte";
