@@ -5,6 +5,7 @@ import type {
   TabEditorSnapshot,
   ClosedTabEntry,
   Pane,
+  SplitDirection,
 } from "$lib/features/tab/types/tab";
 import type { OpenNoteState } from "$lib/shared/types/editor";
 import {
@@ -22,6 +23,7 @@ export class TabStore {
   tabs = $state<Tab[]>([]);
   active_tab_id = $state<TabId | null>(null);
   active_pane = $state<Pane>("primary");
+  split_direction = $state<SplitDirection>("horizontal");
   closed_tab_history = $state<ClosedTabEntry[]>([]);
   editor_snapshots = $state<Map<TabId, TabEditorSnapshot>>(new Map());
   note_cache = $state<Map<TabId, OpenNoteState>>(new Map());
@@ -594,6 +596,11 @@ export class TabStore {
     this.active_pane = pane;
   }
 
+  toggle_split_direction() {
+    this.split_direction =
+      this.split_direction === "horizontal" ? "vertical" : "horizontal";
+  }
+
   restore_tabs(tabs: Tab[], active_tab_id: TabId | null) {
     this.tabs = tabs;
     this.conflicted_note_paths = new Map();
@@ -619,6 +626,7 @@ export class TabStore {
     this.tabs = [];
     this.active_tab_id = null;
     this.active_pane = "primary";
+    this.split_direction = "horizontal";
     this.closed_tab_history = [];
     this.editor_snapshots = new Map();
     this.note_cache = new Map();

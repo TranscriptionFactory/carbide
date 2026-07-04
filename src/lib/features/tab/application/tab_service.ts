@@ -100,6 +100,7 @@ export class TabService {
       }),
       active_tab_path,
       active_pane: this.tab_store.active_pane,
+      split_direction: this.tab_store.split_direction,
     };
   }
 
@@ -319,6 +320,9 @@ export class TabService {
     this.tab_store.restore_tabs(restored_tabs, active_id);
     if (persisted.active_pane) {
       this.tab_store.set_active_pane(persisted.active_pane);
+    }
+    if (persisted.split_direction) {
+      this.tab_store.split_direction = persisted.split_direction;
     }
     this.restore_cursor_snapshots(restored_tabs, persisted.tabs);
 

@@ -1063,6 +1063,23 @@ describe("register_tab_actions", () => {
       expect(stores.tab.get_cached_note("a.md")?.meta.path).toBe("a.md");
     });
 
+    it("toggles split direction only while split", async () => {
+      const { registry, stores } = create_tab_actions_harness();
+      stores.tab.open_tab(np("a.md"), "A");
+      expect(stores.tab.split_direction).toBe("horizontal");
+
+      await registry.execute(ACTION_IDS.tab_toggle_split_direction);
+      expect(stores.tab.split_direction).toBe("horizontal");
+
+      stores.editor.set_open_note(mock_open_note("a.md"));
+      await registry.execute(ACTION_IDS.tab_toggle_split);
+      await registry.execute(ACTION_IDS.tab_toggle_split_direction);
+      expect(stores.tab.split_direction).toBe("vertical");
+
+      await registry.execute(ACTION_IDS.tab_toggle_split_direction);
+      expect(stores.tab.split_direction).toBe("horizontal");
+    });
+
     it("unseats the secondary pane when already split", async () => {
       const { registry, stores } = create_tab_actions_harness();
       stores.tab.open_tab(np("a.md"), "A");
