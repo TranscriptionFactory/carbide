@@ -1,5 +1,6 @@
 use quick_xml::events::Event;
 use quick_xml::reader::Reader;
+use quick_xml::XmlVersion;
 use std::collections::HashMap;
 use std::io::{Cursor, Read};
 use zip::ZipArchive;
@@ -133,7 +134,7 @@ fn parse_opf(opf_xml: &[u8]) -> ParsedOpf {
             }
             Ok(Event::Text(t)) => {
                 if in_title && title.is_none() {
-                    if let Ok(text) = t.xml_content() {
+                    if let Ok(text) = t.xml_content(XmlVersion::Implicit1_0) {
                         let trimmed = text.trim();
                         if !trimmed.is_empty() {
                             title = Some(trimmed.to_string());
@@ -185,7 +186,10 @@ fn local_name(qualified: &[u8]) -> &[u8] {
 fn attr_value(e: &quick_xml::events::BytesStart, key: &[u8]) -> Option<String> {
     for attr in e.attributes().flatten() {
         if local_name(attr.key.as_ref()) == key {
-            return attr.unescape_value().ok().map(|v| v.into_owned());
+            return attr
+                .normalized_value(XmlVersion::Implicit1_0)
+                .ok()
+                .map(|v| v.into_owned());
         }
     }
     None
