@@ -3354,6 +3354,28 @@
   pointer-events: none;
 }
 
+/* Heading markers own the gutter slot on heading rows. The :not() above
+   raised the line-number rule's specificity past the base marker rules,
+   so restate the marker content at higher specificity. */
+.show-line-numbers.show-heading-markers .ProseMirror > h1::before {
+  content: "#";
+}
+.show-line-numbers.show-heading-markers .ProseMirror > h2::before {
+  content: "##";
+}
+.show-line-numbers.show-heading-markers .ProseMirror > h3::before {
+  content: "###";
+}
+.show-line-numbers.show-heading-markers .ProseMirror > h4::before {
+  content: "####";
+}
+.show-line-numbers.show-heading-markers .ProseMirror > h5::before {
+  content: "#####";
+}
+.show-line-numbers.show-heading-markers .ProseMirror > h6::before {
+  content: "######";
+}
+
 /* --- Multi-block selection --- */
 .block-selected {
   background: color-mix(in oklch, var(--primary) 8%, transparent);
