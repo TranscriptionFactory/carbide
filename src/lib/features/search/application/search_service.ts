@@ -11,6 +11,7 @@ import type {
   InFileMatch,
   OmnibarItem,
   PlannedLinkSuggestion,
+  SearchQuery,
   WikiSuggestion,
 } from "$lib/shared/types/search";
 import type {
@@ -23,7 +24,10 @@ import type {
 } from "$lib/features/search/types/search_service_result";
 import { parse_search_query } from "$lib/features/search/domain/search_query_parser";
 import { search_within_text } from "$lib/features/search/domain/search_within_text";
-import { COMMANDS_REGISTRY } from "$lib/features/search/domain/search_commands";
+import {
+  COMMANDS_REGISTRY,
+  sidebar_view_commands,
+} from "$lib/features/search/domain/search_commands";
 import { SETTINGS_REGISTRY } from "$lib/features/settings";
 import { error_message } from "$lib/shared/utils/error_message";
 import { create_logger } from "$lib/shared/utils/logger";
@@ -51,6 +55,7 @@ const WIKI_SUGGEST_EXISTING_RESERVE = 10;
 const WIKI_SUGGEST_PLANNED_RESERVE = 5;
 const LIVE_FIND_TIMEOUT_MS = 100;
 const LIVE_FIND_LIMIT = 8;
+const BLENDED_COMMAND_LIMIT = 3;
 
 const STRUCTURED_FORM_PREFIX = /^(?:notes?|files?|folders?)\s/i;
 const STRUCTURED_VALUE_SYNTAX =
@@ -486,8 +491,19 @@ export class SearchService {
 
   search_commands(query: string): OmnibarItem[] {
     const static_commands = COMMANDS_REGISTRY;
+    const view_commands = sidebar_view_commands(
+      this.plugin_store?.sidebar_views ?? [],
+    );
     const dynamic_commands = this.plugin_store?.commands ?? [];
-    const all_commands = [...static_commands, ...dynamic_commands];
+    const merged = new Map<string, CommandDefinition>();
+    for (const command of [
+      ...static_commands,
+      ...view_commands,
+      ...dynamic_commands,
+    ]) {
+      merged.set(command.id, command);
+    }
+    const all_commands = Array.from(merged.values());
 
     const available_commands = all_commands.filter((command) => {
       if (!this.is_command_enabled(command)) {
@@ -611,7 +627,10 @@ export class SearchService {
         }));
         return {
           domain: "notes",
-          items: this.rank_note_items(items, raw_query),
+          items: this.blend_top_commands(
+            this.rank_note_items(items, raw_query),
+            parsed,
+          ),
         };
       } catch (error) {
         log.warn("Hybrid search unavailable, falling back to FTS", {
@@ -630,9 +649,25 @@ export class SearchService {
     }));
     return {
       domain: "notes",
-      items: this.rank_note_items(fts_items, raw_query),
+      items: this.blend_top_commands(
+        this.rank_note_items(fts_items, raw_query),
+        parsed,
+      ),
       status: result.status,
     };
+  }
+
+  private blend_top_commands(
+    items: OmnibarItem[],
+    parsed: SearchQuery,
+  ): OmnibarItem[] {
+    if (parsed.scope !== "all" || !parsed.text.trim()) return items;
+    const commands = this.search_commands(parsed.text).slice(
+      0,
+      BLENDED_COMMAND_LIMIT,
+    );
+    if (commands.length === 0) return items;
+    return [...items, ...commands];
   }
 
   private rank_note_items(items: OmnibarItem[], query: string): OmnibarItem[] {

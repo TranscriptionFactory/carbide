@@ -147,6 +147,7 @@ type StaticSidebarView = {
   id: string;
   label: string;
   icon: Component<IconProps>;
+  keywords?: string[];
   panel: Component<Record<string, never>>;
   panel_props?: undefined;
 };
@@ -155,6 +156,7 @@ type PluginSidebarView = {
   id: string;
   label: string;
   icon: Component<IconProps>;
+  keywords?: string[];
   panel: Component<{
     plugin_id?: string | undefined;
     label?: string | undefined;
