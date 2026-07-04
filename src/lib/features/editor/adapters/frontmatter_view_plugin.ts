@@ -15,23 +15,14 @@ export type FrontmatterWidgetConfig = {
 
 class FrontmatterNodeView implements NodeView {
   dom: HTMLElement;
-  private svelte_app: Record<string, unknown> | undefined;
+  private svelte_app: Record<string, unknown>;
 
-  constructor(
-    private node: ProseNode,
-    private config: FrontmatterWidgetConfig,
-  ) {
+  constructor(config: FrontmatterWidgetConfig) {
     this.dom = document.createElement("div");
     this.dom.dataset["type"] = "frontmatter";
     this.svelte_app = mount(FrontmatterInlineWidget, {
       target: this.dom,
-      props: {
-        metadata_store: this.config.metadata_store,
-        is_enabled: this.config.is_enabled,
-        on_update: this.config.on_update,
-        on_add: this.config.on_add,
-        on_remove: this.config.on_remove,
-      },
+      props: { ...config },
     });
   }
 
@@ -40,7 +31,7 @@ class FrontmatterNodeView implements NodeView {
   }
 
   destroy() {
-    if (this.svelte_app) void unmount(this.svelte_app);
+    void unmount(this.svelte_app);
   }
 
   stopEvent(): boolean {
@@ -59,7 +50,7 @@ export function create_frontmatter_view_plugin(
     key: new PluginKey("frontmatter-view"),
     props: {
       nodeViews: {
-        frontmatter: (node) => new FrontmatterNodeView(node, config),
+        frontmatter: () => new FrontmatterNodeView(config),
       },
     },
   });

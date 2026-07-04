@@ -538,24 +538,29 @@ export function register_folder_actions(input: ActionRegistrationInput) {
       },
     });
 
+    const folder_note_target = (folder_input: unknown) => {
+      const folder_path = String(folder_input ?? "").trim();
+      const base_name = folder_path.split("/").pop();
+      if (!folder_path || !base_name) return null;
+      const note_path = `${folder_path}/${base_name}.md`;
+      return {
+        folder_path,
+        note_path,
+        exists: stores.notes.notes.some((n) => n.path === note_path),
+      };
+    };
+
     registry.register({
       id: ACTION_IDS.filetree_open_folder_note,
       label: "Open Folder Note",
       execute: async (folder_input: unknown) => {
-        const folder_path = String(folder_input ?? "").trim();
-        if (!folder_path) return;
+        const target = folder_note_target(folder_input);
+        if (!target || !target.exists) return;
         // Open the landing note on expand only, never on collapse. Both call
         // sites (tree select, drill-down enter) mutate expanded_paths before
         // dispatching this, so the post-toggle state distinguishes the two.
-        if (!stores.ui.filetree.expanded_paths.has(folder_path)) return;
-        const base_name = folder_path.split("/").pop();
-        if (!base_name) return;
-        const folder_note_path = `${folder_path}/${base_name}.md`;
-        const exists = stores.notes.notes.some(
-          (n) => n.path === folder_note_path,
-        );
-        if (!exists) return;
-        await registry.execute(ACTION_IDS.note_open, folder_note_path);
+        if (!stores.ui.filetree.expanded_paths.has(target.folder_path)) return;
+        await registry.execute(ACTION_IDS.note_open, target.note_path);
       },
     });
 
@@ -563,16 +568,10 @@ export function register_folder_actions(input: ActionRegistrationInput) {
       id: ACTION_IDS.filetree_create_or_open_folder_note,
       label: "Create or Open Folder Note",
       execute: async (folder_input: unknown) => {
-        const folder_path = String(folder_input ?? "").trim();
-        if (!folder_path) return;
-        const base_name = folder_path.split("/").pop();
-        if (!base_name) return;
-        const folder_note_path = `${folder_path}/${base_name}.md`;
-        const existed = stores.notes.notes.some(
-          (n) => n.path === folder_note_path,
-        );
-        await registry.execute(ACTION_IDS.note_open, folder_note_path);
-        if (!existed) {
+        const target = folder_note_target(folder_input);
+        if (!target) return;
+        await registry.execute(ACTION_IDS.note_open, target.note_path);
+        if (!target.exists) {
           await registry.execute(ACTION_IDS.note_add_frontmatter);
         }
       },

@@ -183,24 +183,13 @@
             <div class="MetadataPanel__prop">
               {#if editing_key === prop.key}
                 <dt class="MetadataPanel__prop-key">{prop.key}</dt>
-                {#if prop.key === "color"}
-                  <ColorSwatchPicker
+                {#if prop.key === "color" || prop.key === "icon"}
+                  {@const Picker =
+                    prop.key === "color" ? ColorSwatchPicker : IconPicker}
+                  <Picker
                     value={typeof prop.value === "string" ? prop.value : null}
-                    on_select={(color) => {
-                      edit_value = color;
-                      confirm_edit(prop.key);
-                    }}
-                  />
-                  <div class="MetadataPanel__inline-actions">
-                    <button class="MetadataPanel__icon-btn" onclick={cancel}>
-                      <XIcon />
-                    </button>
-                  </div>
-                {:else if prop.key === "icon"}
-                  <IconPicker
-                    value={typeof prop.value === "string" ? prop.value : null}
-                    on_select={(icon) => {
-                      edit_value = icon;
+                    on_select={(v) => {
+                      edit_value = v;
                       confirm_edit(prop.key);
                     }}
                   />
