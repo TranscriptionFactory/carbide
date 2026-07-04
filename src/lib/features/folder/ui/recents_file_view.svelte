@@ -1,10 +1,13 @@
 <script lang="ts">
   import { createVirtualizer } from "@tanstack/svelte-virtual";
   import * as Select from "$lib/components/ui/select/index.js";
+  import * as ContextMenu from "$lib/components/ui/context-menu";
+  import EntryContextMenu from "./entry_context_menu.svelte";
   import ArrowUp from "@lucide/svelte/icons/arrow-up";
   import ArrowDown from "@lucide/svelte/icons/arrow-down";
   import FileText from "@lucide/svelte/icons/file-text";
   import type { BaseNoteRow } from "$lib/features/bases";
+  import type { NoteMeta } from "$lib/shared/types/note";
   import type {
     RecentsPeriod,
     RecentsSort,
@@ -21,6 +24,14 @@
     on_change_direction: (direction: SortDirection) => void;
     on_change_period: (period: RecentsPeriod) => void;
     on_open_note: (path: string) => void;
+    is_starred?: (path: string) => boolean;
+    on_toggle_star?: (note: NoteMeta) => void;
+    on_open_to_side?: (note: NoteMeta) => void;
+    on_open_in_new_window?: (note: NoteMeta) => void;
+    on_reveal_in_finder?: (note: NoteMeta) => void;
+    on_open_in_default_app?: (note: NoteMeta) => void;
+    on_rename?: (note: NoteMeta) => void;
+    on_delete?: (note: NoteMeta) => void;
   };
 
   let {
@@ -33,7 +44,22 @@
     on_change_direction,
     on_change_period,
     on_open_note,
+    is_starred,
+    on_toggle_star,
+    on_open_to_side,
+    on_open_in_new_window,
+    on_reveal_in_finder,
+    on_open_in_default_app,
+    on_rename,
+    on_delete,
   }: Props = $props();
+
+  function bind_note(
+    callback: ((note: NoteMeta) => void) | undefined,
+    note: NoteMeta,
+  ): ((path: string) => void) | undefined {
+    return callback ? () => callback(note) : undefined;
+  }
 
   const SORT_OPTIONS: { value: RecentsSort; label: string }[] = [
     { value: "modified", label: "Modified" },
@@ -181,31 +207,54 @@
               class="absolute left-0 top-0 w-full"
               style="height: {virtual_row.size}px; transform: translateY({virtual_row.start}px)"
             >
-              <button
-                type="button"
-                class="flex flex-col items-start w-full h-full px-3 py-1.5 text-left hover:bg-zinc-100 dark:hover:bg-zinc-900"
-                onclick={() => on_open_note(row.note.path)}
-              >
-                <div class="flex items-center gap-1.5 w-full min-w-0">
-                  <FileText
-                    class="size-3.5 shrink-0"
-                    style={row.note.color
-                      ? `color: ${row.note.color}`
-                      : undefined}
-                  />
-                  <span class="text-xs font-medium truncate">
-                    {row.note.title || row.note.name}
-                  </span>
-                  <span class="ml-auto text-[10px] text-zinc-500 shrink-0">
-                    {format_timestamp(timestamp_of(row))}
-                  </span>
-                </div>
-                {#if row.note.blurb}
-                  <span class="text-[10px] text-zinc-500 truncate w-full pl-5">
-                    {row.note.blurb}
-                  </span>
-                {/if}
-              </button>
+              <ContextMenu.Root>
+                <ContextMenu.Trigger class="block w-full h-full">
+                  <button
+                    type="button"
+                    class="flex flex-col items-start w-full h-full px-3 py-1.5 text-left hover:bg-zinc-100 dark:hover:bg-zinc-900"
+                    onclick={() => on_open_note(row.note.path)}
+                  >
+                    <div class="flex items-center gap-1.5 w-full min-w-0">
+                      <FileText
+                        class="size-3.5 shrink-0"
+                        style={row.note.color
+                          ? `color: ${row.note.color}`
+                          : undefined}
+                      />
+                      <span class="text-xs font-medium truncate">
+                        {row.note.title || row.note.name}
+                      </span>
+                      <span class="ml-auto text-[10px] text-zinc-500 shrink-0">
+                        {format_timestamp(timestamp_of(row))}
+                      </span>
+                    </div>
+                    {#if row.note.blurb}
+                      <span
+                        class="text-[10px] text-zinc-500 truncate w-full pl-5"
+                      >
+                        {row.note.blurb}
+                      </span>
+                    {/if}
+                  </button>
+                </ContextMenu.Trigger>
+                <EntryContextMenu
+                  path={row.note.path}
+                  starred={is_starred?.(row.note.path) ?? false}
+                  on_toggle_star={bind_note(on_toggle_star, row.note)}
+                  on_open_to_side={bind_note(on_open_to_side, row.note)}
+                  on_open_in_new_window={bind_note(
+                    on_open_in_new_window,
+                    row.note,
+                  )}
+                  on_reveal_in_finder={bind_note(on_reveal_in_finder, row.note)}
+                  on_open_in_default_app={bind_note(
+                    on_open_in_default_app,
+                    row.note,
+                  )}
+                  on_rename={bind_note(on_rename, row.note)}
+                  on_delete={bind_note(on_delete, row.note)}
+                />
+              </ContextMenu.Root>
             </div>
           {/if}
         {/each}

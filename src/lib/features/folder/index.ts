@@ -18,6 +18,7 @@ export {
   sanitize_note_icon,
 } from "$lib/features/folder/domain/note_visuals";
 export { flatten_filetree } from "$lib/features/folder/domain/flatten_filetree";
+export { resolve_entry_target } from "$lib/features/folder/domain/drilldown";
 export { derive_starred_tree } from "$lib/features/folder/domain/derive_starred_tree";
 export { default as CreateFolderDialog } from "$lib/features/folder/ui/create_folder_dialog.svelte";
 export { default as DeleteFolderDialog } from "$lib/features/folder/ui/delete_folder_dialog.svelte";
