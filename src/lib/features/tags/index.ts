@@ -1,6 +1,7 @@
 export * from "./types";
 export * from "./domain/build_tag_tree";
 export * from "./domain/tag_matcher";
+export * from "./domain/tag_colors";
 export * from "./ports";
 export * from "./adapters/tag_tauri_adapter";
 export * from "./state/tag_store.svelte";

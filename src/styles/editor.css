@@ -2357,6 +2357,46 @@
 }
 
 /* ============================================
+   INLINE TAG PILLS
+   ============================================ */
+
+/* Inline decoration over literal `#tag` text; pills are presentation only,
+   so the underlying markdown stays untouched. `--tag-pill-color` is set
+   per-tag by the vault-wide stylesheet in apply_tag_pill_colors. Text color
+   mixes the chosen color with the editor foreground so low-contrast picks
+   (yellow, white) stay readable in both themes. Inline display plus
+   overflow-wrap keeps very long unbroken tags inside the content column. */
+.ProseMirror .tag-pill {
+  padding: 0.05em 0.4em;
+  border-radius: 0.625rem;
+  font-size: 0.85em;
+  font-weight: 500;
+  color: color-mix(
+    in oklab,
+    var(--tag-pill-color, var(--primary)) 55%,
+    var(--editor-foreground)
+  );
+  background-color: color-mix(
+    in oklab,
+    var(--tag-pill-color, var(--primary)) 12%,
+    transparent
+  );
+  overflow-wrap: anywhere;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+  cursor: pointer;
+  transition: background-color var(--duration-fast) var(--ease-default);
+}
+
+.ProseMirror .tag-pill:hover {
+  background-color: color-mix(
+    in oklab,
+    var(--tag-pill-color, var(--primary)) 22%,
+    transparent
+  );
+}
+
+/* ============================================
    CITE SUGGEST DROPDOWN
    ============================================ */
 

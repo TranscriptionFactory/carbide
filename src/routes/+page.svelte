@@ -9,6 +9,7 @@
   import { parse_window_init } from "$lib/features/window";
   import { to_editor_slash_commands } from "$lib/features/plugin";
   import { resolve_inline_commands } from "$lib/features/ai";
+  import { tag_color_for } from "$lib/features/tags";
 
   const url_params = new URLSearchParams(window.location.search);
   const vault_path_param = url_params.get("vault_path");
@@ -73,6 +74,13 @@
     );
   ports.frontmatter_widget.on_remove = (key) =>
     void app.action_registry.execute(ACTION_IDS.metadata_delete_property, key);
+
+  ports.tag_pill_menu.get_color = (tag) =>
+    tag_color_for(app.stores.tag.tag_colors, tag);
+  ports.tag_pill_menu.on_set_color = (tag, color) =>
+    void app.action_registry.execute(ACTION_IDS.tags_set_color, tag, color);
+  ports.tag_pill_menu.on_clear_color = (tag) =>
+    void app.action_registry.execute(ACTION_IDS.tags_clear_color, tag);
 
   provide_app_context(app);
 

@@ -841,7 +841,12 @@ export function create_app_context(input: {
     input.ports.notes,
   );
 
-  const tag_service = new TagService(input.ports.tag, stores.tag, stores.vault);
+  const tag_service = new TagService(
+    input.ports.tag,
+    stores.tag,
+    stores.vault,
+    input.ports.vault_settings,
+  );
 
   const metadata_service = new MetadataService(
     stores.metadata,
@@ -1477,6 +1482,8 @@ export function create_app_context(input: {
     mcp_service,
     rag_store: stores.rag,
     rag_service,
+    tag_store: stores.tag,
+    tag_service,
     // stt_store: stores.stt,
     // stt_service,
   });
