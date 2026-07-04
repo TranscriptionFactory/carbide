@@ -379,6 +379,7 @@ const callout: NodeSpec = {
   defining: true,
   attrs: {
     callout_type: { default: "note" },
+    callout_color: { default: null },
     foldable: { default: false },
     default_folded: { default: false },
     folded: { default: false },
@@ -390,6 +391,7 @@ const callout: NodeSpec = {
         if (!(dom instanceof HTMLElement)) return false;
         return {
           callout_type: dom.dataset["calloutType"] || "note",
+          callout_color: dom.dataset["calloutColor"] || null,
           foldable: dom.dataset["foldable"] === "true",
           default_folded: dom.dataset["defaultFolded"] === "true",
           folded: dom.dataset["folded"] === "true",
@@ -398,18 +400,20 @@ const callout: NodeSpec = {
     },
   ],
   toDOM(node) {
-    return [
-      "div",
-      {
-        "data-callout": "",
-        "data-callout-type": node.attrs["callout_type"] as string,
-        "data-foldable": String(node.attrs["foldable"]),
-        "data-default-folded": String(node.attrs["default_folded"]),
-        "data-folded": String(node.attrs["folded"]),
-        class: `callout-block callout-block--${node.attrs["callout_type"] as string}`,
-      },
-      0,
-    ];
+    const color = node.attrs["callout_color"] as string | null;
+    const attrs: Record<string, string> = {
+      "data-callout": "",
+      "data-callout-type": node.attrs["callout_type"] as string,
+      "data-foldable": String(node.attrs["foldable"]),
+      "data-default-folded": String(node.attrs["default_folded"]),
+      "data-folded": String(node.attrs["folded"]),
+      class: `callout-block callout-block--${node.attrs["callout_type"] as string}`,
+    };
+    if (color) {
+      attrs["data-callout-color"] = color;
+      attrs["style"] = `--callout-color: ${color}`;
+    }
+    return ["div", attrs, 0];
   },
 };
 
