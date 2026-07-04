@@ -26,6 +26,7 @@ import { create_diagnostics_decoration_plugin } from "../adapters/diagnostics_de
 import { create_block_selection_plugin } from "../adapters/block_selection_plugin";
 import { create_ai_inline_extension } from "./ai_inline_extension";
 import type { AiMenuPluginConfig } from "../adapters/ai_menu_plugin";
+import { create_frontmatter_extension } from "./frontmatter_extension";
 
 export type AssembledExtensions = {
   plugins: Plugin[];
@@ -41,6 +42,7 @@ export function assemble_extensions(
   const extensions: EditorExtension[] = [
     create_heading_extension(),
     create_core_extension(ctx),
+    create_frontmatter_extension(ctx),
     create_code_block_extension(ctx.smart_blocks),
     create_math_extension(),
     create_details_extension(),

@@ -6,7 +6,7 @@ import { create_debounced_task_controller } from "./debounced_task";
 
 type MetadataSyncState = {
   last_note_path: string | null;
-  last_panel_open: boolean;
+  last_surface_open: boolean;
   last_markdown: string | null;
   loaded_note_path: string | null;
 };
@@ -14,6 +14,8 @@ type MetadataSyncState = {
 type MetadataSyncInput = {
   open_note_path: string | null;
   panel_open: boolean;
+  inline_widget_enabled: boolean;
+  visual_mode: boolean;
   markdown: string | null;
   snapshot_note_path: string | null;
   has_error: boolean;
@@ -29,9 +31,12 @@ export function resolve_metadata_sync_decision(
   state: MetadataSyncState,
   input: MetadataSyncInput,
 ): MetadataSyncDecision {
+  const surface_open =
+    input.panel_open || (input.inline_widget_enabled && input.visual_mode);
+
   const next_state: MetadataSyncState = {
     last_note_path: input.open_note_path,
-    last_panel_open: input.panel_open,
+    last_surface_open: surface_open,
     last_markdown: input.markdown,
     loaded_note_path: state.loaded_note_path,
   };
@@ -41,12 +46,12 @@ export function resolve_metadata_sync_decision(
     return { action: "clear", note_path: null, next_state };
   }
 
-  if (!input.panel_open) {
+  if (!surface_open) {
     return { action: "noop", note_path: input.open_note_path, next_state };
   }
 
   const path_changed = input.open_note_path !== state.last_note_path;
-  const panel_opened = input.panel_open && !state.last_panel_open;
+  const surface_opened = surface_open && !state.last_surface_open;
   const markdown_changed =
     input.markdown !== state.last_markdown &&
     state.last_note_path === input.open_note_path;
@@ -55,7 +60,7 @@ export function resolve_metadata_sync_decision(
   const has_ready_snapshot =
     input.snapshot_note_path === input.open_note_path && !input.has_error;
 
-  if (path_changed || (panel_opened && (not_loaded || !has_ready_snapshot))) {
+  if (path_changed || (surface_opened && (not_loaded || !has_ready_snapshot))) {
     next_state.loaded_note_path = input.open_note_path;
     return { action: "load_now", note_path: input.open_note_path, next_state };
   }
@@ -82,7 +87,7 @@ export function create_metadata_sync_reactor(
 ) {
   let state: MetadataSyncState = {
     last_note_path: null,
-    last_panel_open: false,
+    last_surface_open: false,
     last_markdown: null,
     loaded_note_path: null,
   };
@@ -98,6 +103,8 @@ export function create_metadata_sync_reactor(
         panel_open:
           ui_store.context_rail_open &&
           ui_store.context_rail_tab === "metadata",
+        inline_widget_enabled: ui_store.editor_settings.show_inline_frontmatter,
+        visual_mode: editor_store.editor_mode !== "source",
         markdown: editor_store.open_note?.markdown ?? null,
         snapshot_note_path: metadata_store.note_path,
         has_error: metadata_store.error !== null,

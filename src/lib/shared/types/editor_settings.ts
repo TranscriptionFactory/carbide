@@ -186,6 +186,7 @@ export type EditorSettings = {
   graph_force_charge_max_distance: number;
   outline_mode: OutlineMode;
   editor_toolbar_visibility: ToolbarVisibility;
+  show_inline_frontmatter: boolean;
   file_tree_style: FileTreeStyle;
   file_tree_show_blurb: boolean;
   file_tree_blurb_position: FileTreeBlurbPosition;
@@ -309,6 +310,7 @@ export const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
   graph_force_charge_max_distance: 500,
   outline_mode: "rail",
   editor_toolbar_visibility: "always_show",
+  show_inline_frontmatter: true,
   file_tree_style: "airy_minimal",
   file_tree_show_blurb: false,
   file_tree_blurb_position: "caption",
@@ -496,6 +498,7 @@ export const GLOBAL_ONLY_SETTING_KEYS: readonly (keyof EditorSettings)[] = [
   "graph_force_charge_max_distance",
   "outline_mode",
   "editor_toolbar_visibility",
+  "show_inline_frontmatter",
   "file_tree_style",
   "file_tree_show_blurb",
   "file_tree_blurb_position",

@@ -4,6 +4,8 @@ import type { MetadataService } from "./metadata_service";
 import type { MetadataStore } from "../state/metadata_store.svelte";
 import type { UIStore } from "$lib/app/orchestration/ui_store.svelte";
 import type { VaultStore } from "$lib/features/vault";
+import type { SettingsService } from "$lib/features/settings";
+import type { EditorSettings } from "$lib/shared/types/editor_settings";
 
 export function register_metadata_actions(
   registry: ActionRegistry,
@@ -11,6 +13,7 @@ export function register_metadata_actions(
   metadata_store: MetadataStore,
   ui_store: UIStore,
   vault_store: VaultStore,
+  settings_service: SettingsService,
 ) {
   registry.register({
     id: ACTION_IDS.metadata_refresh,
@@ -99,6 +102,22 @@ export function register_metadata_actions(
       const vault_id = vault_store.active_vault_id;
       if (!vault_id) return;
       await metadata_service.load_suggestions(vault_id);
+    },
+  });
+
+  registry.register({
+    id: ACTION_IDS.metadata_toggle_inline_frontmatter,
+    label: "Toggle Inline Frontmatter",
+    execute: async () => {
+      const updated: EditorSettings = {
+        ...ui_store.editor_settings,
+        show_inline_frontmatter:
+          !ui_store.editor_settings.show_inline_frontmatter,
+      };
+      const result = await settings_service.save_settings(updated);
+      if (result.status === "success") {
+        ui_store.set_editor_settings(updated);
+      }
     },
   });
 }

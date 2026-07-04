@@ -12,3 +12,4 @@ export * from "./domain/property_suggestions";
 export { default as MetadataPanel } from "./ui/metadata_panel.svelte";
 export { default as ColorSwatchPicker } from "./ui/color_swatch_picker.svelte";
 export { default as IconPicker } from "./ui/icon_picker.svelte";
+export { default as FrontmatterInlineWidget } from "./ui/frontmatter_inline_widget.svelte";

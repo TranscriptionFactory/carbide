@@ -1854,6 +1854,23 @@
 
               <div class="SettingsDialog__row">
                 <div class="SettingsDialog__label-group">
+                  <span class="SettingsDialog__label">Inline Frontmatter</span>
+                  <span class="SettingsDialog__description"
+                    >Show an editable properties widget at the top of notes with
+                    frontmatter</span
+                  >
+                </div>
+                <div class="flex items-center gap-3">
+                  <Switch.Root
+                    checked={editor_settings.show_inline_frontmatter}
+                    onCheckedChange={(v: boolean) =>
+                      update("show_inline_frontmatter", v)}
+                  />
+                </div>
+              </div>
+
+              <div class="SettingsDialog__row">
+                <div class="SettingsDialog__label-group">
                   <span class="SettingsDialog__label">Block Drag Handle</span>
                   <span class="SettingsDialog__description"
                     >Show a drag handle in the gutter to reorder blocks</span

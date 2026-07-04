@@ -302,6 +302,22 @@ export const SETTINGS_REGISTRY: SettingDefinition[] = [
     keywords: ["editor", "width", "line length", "layout", "readability"],
   },
   {
+    key: "show_inline_frontmatter",
+    label: "Inline Frontmatter",
+    description:
+      "Show an editable properties widget at the top of notes with frontmatter",
+    category: "Editor",
+    keywords: [
+      "editor",
+      "frontmatter",
+      "properties",
+      "metadata",
+      "inline",
+      "widget",
+      "yaml",
+    ],
+  },
+  {
     key: "editor_selection_color",
     label: "Selection Color",
     description: "Override the editor selection highlight color",
