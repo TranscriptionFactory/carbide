@@ -758,6 +758,7 @@
                             sections={build_type_sections(
                               stores.types.backend_types,
                               stores.types.definitions,
+                              { include_hidden: true },
                             )}
                             active_type={stores.types.active_type}
                             on_select={(name) =>
@@ -765,9 +766,10 @@
                                 ACTION_IDS.types_select,
                                 name,
                               )}
-                            on_create={() =>
+                            on_create={(name) =>
                               void action_registry.execute(
                                 ACTION_IDS.types_create,
+                                name,
                               )}
                             on_toggle_visibility={(section) =>
                               void action_registry.execute(

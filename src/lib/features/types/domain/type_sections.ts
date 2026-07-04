@@ -30,6 +30,7 @@ function to_type_section(
 export function build_type_sections(
   backend_types: BackendTypeCount[],
   definitions: TypeDefinition[],
+  options: { include_hidden?: boolean } = {},
 ): TypeSection[] {
   const counts = new Map<string, number>();
   for (const entry of backend_types) {
@@ -52,6 +53,6 @@ export function build_type_sections(
   );
 
   return sections
-    .filter((section) => section.visible)
+    .filter((section) => options.include_hidden || section.visible)
     .sort((a, b) => a.order - b.order || a.name.localeCompare(b.name));
 }
