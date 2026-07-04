@@ -20,6 +20,7 @@
   } = $props();
 
   let input_el: HTMLInputElement | undefined;
+  // svelte-ignore state_referenced_locally
   let value = $state(current_alt);
 
   onMount(() => {
@@ -52,6 +53,8 @@
 
 <svelte:window onkeydown={handle_keydown} />
 
+<!-- svelte-ignore a11y_click_events_have_key_events -->
+<!-- svelte-ignore a11y_no_static_element_interactions -->
 <div
   class="fixed rounded-md border bg-popover p-3 shadow-md"
   style="left: {x}px; top: {y}px; z-index: 70; width: 280px"

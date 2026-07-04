@@ -83,6 +83,23 @@ describe("build_type_sections", () => {
     expect(sections.map((s) => s.name)).toEqual(["Public"]);
   });
 
+  it("retains hidden types when include_hidden is set", () => {
+    const backend: BackendTypeCount[] = [
+      { name: "Public", count: 1 },
+      { name: "Hidden", count: 1 },
+    ];
+    const definitions = [def("Hidden", { visible: false })];
+
+    const sections = build_type_sections(backend, definitions, {
+      include_hidden: true,
+    });
+
+    expect(sections.map((s) => [s.name, s.visible])).toEqual([
+      ["Hidden", false],
+      ["Public", true],
+    ]);
+  });
+
   it("resolves metadata from the matching definition note", () => {
     const backend: BackendTypeCount[] = [{ name: "Person", count: 2 }];
     const definitions = [

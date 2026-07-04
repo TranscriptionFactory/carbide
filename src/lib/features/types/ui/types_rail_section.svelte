@@ -3,6 +3,7 @@
     ChevronDown,
     ChevronRight,
     Eye,
+    EyeOff,
     Plus,
     Tag,
     Pencil,
@@ -18,7 +19,7 @@
     open?: boolean;
     on_toggle?: () => void;
     on_select: (name: string) => void;
-    on_create: () => void;
+    on_create: (name: string) => void;
     on_toggle_visibility: (section: TypeSection) => void;
     on_rename: (section: TypeSection, label: string) => void;
     on_customize: (section: TypeSection) => void;
@@ -40,6 +41,13 @@
 
   let renaming_path = $state<string | null>(null);
   let rename_value = $state("");
+  let show_hidden = $state(false);
+  let creating = $state(false);
+  let create_value = $state("");
+
+  const visible_sections = $derived(
+    show_hidden ? sections : sections.filter((section) => section.visible),
+  );
 
   function focus_on_mount(el: HTMLInputElement) {
     el.focus();
@@ -49,6 +57,18 @@
   function toggle() {
     if (on_toggle) on_toggle();
     else open = !open;
+  }
+
+  function start_create() {
+    open = true;
+    creating = true;
+    create_value = "";
+  }
+
+  function commit_create() {
+    const name = create_value.trim();
+    creating = false;
+    if (name) on_create(name);
   }
 
   function start_rename(section: TypeSection) {
@@ -78,16 +98,23 @@
       <button
         type="button"
         class="TypesRail__icon-button"
-        aria-label="Toggle type visibility"
-        onclick={() => sections[0] && on_toggle_visibility(sections[0])}
+        aria-label={show_hidden ? "Conceal hidden types" : "Show hidden types"}
+        title={show_hidden ? "Conceal hidden types" : "Show hidden types"}
+        aria-pressed={show_hidden}
+        onclick={() => (show_hidden = !show_hidden)}
       >
-        <Eye class="TypesRail__action-icon" />
+        {#if show_hidden}
+          <EyeOff class="TypesRail__action-icon" />
+        {:else}
+          <Eye class="TypesRail__action-icon" />
+        {/if}
       </button>
       <button
         type="button"
         class="TypesRail__icon-button"
         aria-label="Create type"
-        onclick={on_create}
+        title="Create type"
+        onclick={start_create}
       >
         <Plus class="TypesRail__action-icon" />
       </button>
@@ -96,12 +123,28 @@
 
   {#if open}
     <ul class="TypesRail__list">
-      {#each sections as section (section.name)}
+      {#if creating}
+        <li class="TypesRail__row">
+          <input
+            class="TypesRail__rename"
+            placeholder="Type name..."
+            bind:value={create_value}
+            use:focus_on_mount
+            onblur={commit_create}
+            onkeydown={(e) => {
+              if (e.key === "Enter") commit_create();
+              if (e.key === "Escape") creating = false;
+            }}
+          />
+        </li>
+      {/if}
+      {#each visible_sections as section (section.name)}
         <ContextMenu.Root>
           <ContextMenu.Trigger class="TypesRail__trigger">
             <li
               class="TypesRail__row"
               class:is-active={section.name === active_type}
+              class:is-hidden={!section.visible}
             >
               {#if renaming_path === section.path}
                 <input
@@ -145,6 +188,18 @@
               >
                 <Palette class="TypesRail__menu-icon" />
                 Customize icon &amp; color
+              </ContextMenu.Item>
+              <ContextMenu.Item
+                disabled={!section.path}
+                onSelect={() => on_toggle_visibility(section)}
+              >
+                {#if section.visible}
+                  <EyeOff class="TypesRail__menu-icon" />
+                  Hide
+                {:else}
+                  <Eye class="TypesRail__menu-icon" />
+                  Show
+                {/if}
               </ContextMenu.Item>
               <ContextMenu.Item
                 disabled={!section.path}
@@ -243,6 +298,10 @@
 
   .TypesRail__row.is-active {
     background-color: var(--accent);
+  }
+
+  .TypesRail__row.is-hidden {
+    opacity: 0.5;
   }
 
   .TypesRail__select {
