@@ -14,6 +14,7 @@ type PersistedTabSnapshot = {
   }[];
   active: string | null;
   active_pane: string;
+  split_direction: string;
 };
 
 export function create_tab_persist_reactor(
@@ -45,6 +46,7 @@ export function create_tab_persist_reactor(
       }),
       active: tab_store.active_tab_id,
       active_pane: tab_store.active_pane,
+      split_direction: tab_store.split_direction,
     };
   }
 

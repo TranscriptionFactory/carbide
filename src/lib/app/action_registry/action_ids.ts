@@ -324,6 +324,7 @@ export const ACTION_IDS = {
 
   tab_open_to_side: "tab.open_to_side",
   tab_toggle_split: "tab.toggle_split",
+  tab_toggle_split_direction: "tab.toggle_split_direction",
   tab_set_active_pane: "tab.set_active_pane",
 
   document_open: "document.open",

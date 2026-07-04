@@ -85,6 +85,7 @@ describe("TabService", () => {
         "open_tabs",
         {
           active_pane: "primary",
+          split_direction: "horizontal",
           tabs: [
             { kind: "note", note_path: beta, is_pinned: true, cursor: null },
             { kind: "note", note_path: alpha, is_pinned: false, cursor: null },
@@ -160,6 +161,7 @@ describe("TabService", () => {
         "open_tabs",
         {
           active_pane: "primary",
+          split_direction: "horizontal",
           tabs: [
             {
               kind: "note",
@@ -209,6 +211,7 @@ describe("TabService", () => {
         "open_tabs",
         {
           active_pane: "primary",
+          split_direction: "horizontal",
           tabs: [
             { kind: "note", note_path: known, is_pinned: false, cursor: null },
           ],
@@ -259,6 +262,7 @@ describe("TabService", () => {
         "open_tabs",
         {
           active_pane: "primary",
+          split_direction: "horizontal",
           tabs: [
             { kind: "note", note_path: alpha, is_pinned: false, cursor: null },
             { kind: "note", note_path: beta, is_pinned: false, cursor: null },
@@ -492,6 +496,72 @@ describe("TabService", () => {
       service.clear_conflict(alpha);
       expect(tab_store.has_conflict(alpha)).toBe(false);
       expect(service.has_conflict(alpha)).toBe(false);
+    });
+  });
+
+  describe("split direction persistence", () => {
+    it("round-trips split_direction through save and restore", async () => {
+      const { service, vault_settings_port, tab_store, notes_store } =
+        create_setup();
+
+      const alpha = as_note_path("docs/alpha.md");
+      notes_store.set_notes([
+        {
+          id: alpha,
+          path: alpha,
+          name: "alpha",
+          title: "alpha",
+          blurb: "",
+          mtime_ms: 0,
+          ctime_ms: 0,
+          size_bytes: 0,
+          file_type: null,
+        },
+      ]);
+      tab_store.open_tab(alpha, "alpha");
+      tab_store.toggle_split_direction();
+      expect(tab_store.split_direction).toBe("vertical");
+
+      await service.save_tabs();
+
+      const saved_call = vault_settings_port.set_local_setting.mock.calls[0];
+      const saved_state = saved_call?.[2] as PersistedTabState;
+      expect(saved_state.split_direction).toBe("vertical");
+
+      const new_tab_store = new TabStore();
+      const restore_vault_store = new VaultStore();
+      restore_vault_store.set_vault(
+        create_test_vault({ id: as_vault_id("vault-a") }),
+      );
+      const restore_service = new TabService(
+        vault_settings_port as never,
+        restore_vault_store,
+        new_tab_store,
+        notes_store,
+        { open_note: vi.fn().mockResolvedValue({ status: "opened" }) } as never,
+      );
+
+      await restore_service.restore_tabs(saved_state);
+
+      expect(new_tab_store.split_direction).toBe("vertical");
+    });
+
+    it("defaults to horizontal when persisted state predates split_direction", async () => {
+      const { service, tab_store } = create_setup();
+
+      await service.restore_tabs({
+        tabs: [
+          {
+            kind: "note",
+            note_path: as_note_path("docs/alpha.md"),
+            is_pinned: false,
+            cursor: null,
+          },
+        ],
+        active_tab_path: null,
+      });
+
+      expect(tab_store.split_direction).toBe("horizontal");
     });
   });
 

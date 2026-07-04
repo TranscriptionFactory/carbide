@@ -533,6 +533,15 @@ export function register_tab_actions(input: ActionRegistrationInput) {
   });
 
   registry.register({
+    id: ACTION_IDS.tab_toggle_split_direction,
+    label: "Toggle Split Direction",
+    when: () => stores.tab.is_split,
+    execute: () => {
+      stores.tab.toggle_split_direction();
+    },
+  });
+
+  registry.register({
     id: ACTION_IDS.tab_set_active_pane,
     label: "Set Active Pane",
     execute: (pane: unknown) => {

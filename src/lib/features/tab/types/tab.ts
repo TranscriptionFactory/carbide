@@ -3,6 +3,7 @@ import type { CursorInfo, OpenNoteState } from "$lib/shared/types/editor";
 
 export type TabId = string;
 export type Pane = "primary" | "secondary";
+export type SplitDirection = "horizontal" | "vertical";
 
 export type Tab = {
   id: TabId;
@@ -51,4 +52,5 @@ export type PersistedTabState = {
   tabs: PersistedTab[];
   active_tab_path: string | null;
   active_pane?: Pane;
+  split_direction?: SplitDirection;
 };
