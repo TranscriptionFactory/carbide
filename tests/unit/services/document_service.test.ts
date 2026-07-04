@@ -616,55 +616,55 @@ describe("DocumentService", () => {
     });
   });
 
-  describe("get_document_ai_context", () => {
-    function setup_doc(
-      tab_id: string,
-      file_path: string,
-      file_type: "html" | "text" | "csv",
-      content: string | null,
-      html_view_mode: "source" | "safe" | "live" = "source",
-    ) {
-      const document_store = new DocumentStore();
-      const vault_store = new VaultStore();
-      vault_store.vault = create_test_vault();
-      const document_port = create_document_port();
-      const service = new DocumentService(
-        document_port,
-        vault_store,
-        document_store,
-      );
-      document_store.set_viewer_state(tab_id, {
+  function setup_doc(
+    tab_id: string,
+    file_path: string,
+    file_type: "html" | "text" | "csv",
+    content: string | null,
+    html_view_mode: "source" | "safe" | "live" = "source",
+  ) {
+    const document_store = new DocumentStore();
+    const vault_store = new VaultStore();
+    vault_store.vault = create_test_vault();
+    const document_port = create_document_port();
+    const service = new DocumentService(
+      document_port,
+      vault_store,
+      document_store,
+    );
+    document_store.set_viewer_state(tab_id, {
+      tab_id,
+      file_path,
+      file_type,
+      zoom: 1,
+      scroll_top: 0,
+      pdf_page: 1,
+      cfi: null,
+      html_view_mode,
+      load_status: content === null ? "loading" : "ready",
+      error_message: null,
+    });
+    if (content !== null) {
+      document_store.set_content_state(tab_id, {
         tab_id,
         file_path,
         file_type,
-        zoom: 1,
-        scroll_top: 0,
-        pdf_page: 1,
-        cfi: null,
-        html_view_mode,
-        load_status: content === null ? "loading" : "ready",
+        status: "ready",
         error_message: null,
+        content,
+        edited_content: null,
+        is_dirty: false,
+        buffer_id: null,
+        line_count: content.split("\n").length,
+        asset_url: null,
+        last_accessed_at: 0,
+        pdf_metadata: null,
       });
-      if (content !== null) {
-        document_store.set_content_state(tab_id, {
-          tab_id,
-          file_path,
-          file_type,
-          status: "ready",
-          error_message: null,
-          content,
-          edited_content: null,
-          is_dirty: false,
-          buffer_id: null,
-          line_count: content.split("\n").length,
-          asset_url: null,
-          last_accessed_at: 0,
-          pdf_metadata: null,
-        });
-      }
-      return { service, document_store };
     }
+    return { service, document_store };
+  }
 
+  describe("get_document_ai_context", () => {
     it("returns a context for an html document", () => {
       const { service } = setup_doc(
         "tab-html",
@@ -748,51 +748,6 @@ describe("DocumentService", () => {
   });
 
   describe("apply_document_ai_output", () => {
-    function setup_doc(
-      tab_id: string,
-      file_path: string,
-      file_type: "html" | "text",
-      content: string,
-    ) {
-      const document_store = new DocumentStore();
-      const vault_store = new VaultStore();
-      vault_store.vault = create_test_vault();
-      const document_port = create_document_port();
-      const service = new DocumentService(
-        document_port,
-        vault_store,
-        document_store,
-      );
-      document_store.set_viewer_state(tab_id, {
-        tab_id,
-        file_path,
-        file_type,
-        zoom: 1,
-        scroll_top: 0,
-        pdf_page: 1,
-        cfi: null,
-        html_view_mode: "source",
-        load_status: "ready",
-        error_message: null,
-      });
-      document_store.set_content_state(tab_id, {
-        tab_id,
-        file_path,
-        file_type,
-        status: "ready",
-        error_message: null,
-        content,
-        edited_content: null,
-        is_dirty: false,
-        buffer_id: null,
-        line_count: content.split("\n").length,
-        asset_url: null,
-        last_accessed_at: 0,
-        pdf_metadata: null,
-      });
-      return { service, document_store };
-    }
-
     it("writes through document_store.set_edited_content and marks dirty", () => {
       const { service, document_store } = setup_doc(
         "tab-html",

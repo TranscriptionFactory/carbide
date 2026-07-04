@@ -135,7 +135,7 @@ const BASE_COMMANDS: CommandDefinition[] = [
   {
     id: "ai_assistant",
     label: "AI Assistant",
-    description: "Open the AI assistant for the current note",
+    description: "Open the AI assistant for the current note or document",
     keywords: [
       "ai",
       "assistant",
@@ -148,7 +148,8 @@ const BASE_COMMANDS: CommandDefinition[] = [
       "local",
     ],
     icon: "sparkles",
-    when: (ctx) => ctx.has_open_note && ctx.has_ai_cli,
+    when: (ctx) =>
+      (ctx.has_open_note || ctx.is_editable_document) && ctx.has_ai_cli,
   },
   {
     id: "toggle_links_panel",

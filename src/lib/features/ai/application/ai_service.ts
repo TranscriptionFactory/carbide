@@ -119,7 +119,6 @@ export class AiService {
     const { context } = input;
     let prompt: string;
     let working_path: string;
-    let subject: "note" | "document";
 
     if (context.kind === "document") {
       prompt = build_ai_document_prompt({
@@ -130,7 +129,6 @@ export class AiService {
         mode: input.mode,
       });
       working_path = context.file_path;
-      subject = "document";
     } else {
       let vault_context: AiVaultContext | undefined;
       if (input.vault_context_settings?.enabled) {
@@ -149,7 +147,6 @@ export class AiService {
         ...(vault_context ? { vault_context } : {}),
       });
       working_path = context.note_path;
-      subject = "note";
     }
 
     const result = await this.ai_port.execute({
@@ -173,7 +170,7 @@ export class AiService {
         result.error ??
         (result.success
           ? null
-          : `${input.provider_config.name} failed to ${input.mode === "ask" ? "answer the question" : `edit the ${subject}`}`),
+          : `${input.provider_config.name} failed to ${input.mode === "ask" ? "answer the question" : `edit the ${context.kind}`}`),
     };
   }
 
