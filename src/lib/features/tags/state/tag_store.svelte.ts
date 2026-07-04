@@ -10,9 +10,14 @@ export class TagStore {
   notes_loading = $state(false);
   search_query = $state("");
   expanded_tags = $state<Set<string>>(new Set());
+  tag_colors = $state<Record<string, string>>({});
 
   set_tags(tags: TagInfo[]) {
     this.tags = tags;
+  }
+
+  set_tag_colors(colors: Record<string, string>) {
+    this.tag_colors = colors;
   }
 
   set_loading(loading: boolean) {
@@ -64,5 +69,6 @@ export class TagStore {
     this.notes_loading = false;
     this.search_query = "";
     this.expanded_tags = new Set();
+    this.tag_colors = {};
   }
 }

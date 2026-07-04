@@ -46,6 +46,24 @@ export function register_tag_actions(
   });
 
   registry.register({
+    id: ACTION_IDS.tags_set_color,
+    label: "Set Tag Color",
+    execute: async (tag: unknown, color: unknown) => {
+      if (typeof tag !== "string" || typeof color !== "string") return;
+      await tag_service.set_tag_color(tag, color);
+    },
+  });
+
+  registry.register({
+    id: ACTION_IDS.tags_clear_color,
+    label: "Clear Tag Color",
+    execute: async (tag: unknown) => {
+      if (typeof tag !== "string") return;
+      await tag_service.clear_tag_color(tag);
+    },
+  });
+
+  registry.register({
     id: ACTION_IDS.tags_toggle_expanded,
     label: "Toggle Tag Expanded",
     execute: (tag: unknown) => {
