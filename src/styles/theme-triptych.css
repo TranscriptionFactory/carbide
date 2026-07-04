@@ -114,3 +114,13 @@
     font-size: var(--text-xs);
   }
 }
+
+/* Absolute positioning resolves against the WorkspaceLayout border box, so the
+   macOS drag-strip padding does not push the top bar down; offset it explicitly
+   or it overlaps the traffic-light band and leaves the padding as a blank strip */
+body.macos-drag-strip
+  [data-layout-variant="triptych"]
+  .WorkspaceLayout--triptych
+  .ActivityBar {
+  top: var(--macos-drag-strip-height);
+}

@@ -52,6 +52,7 @@
   const OVERSCAN = 8;
 
   let scroll_container: HTMLDivElement | null = $state(null);
+  let previous_results_count = -1;
 
   const virtualizer = createVirtualizer<HTMLDivElement, HTMLDivElement>({
     count: 0,
@@ -63,7 +64,12 @@
   $effect(() => {
     const v = $virtualizer;
     if (!v) return;
-    v.setOptions({ count: results.length });
+    /* measure() notifies the $virtualizer store, which re-runs this effect;
+       the count guard is what terminates that cycle */
+    const next_count = results.length;
+    if (next_count === previous_results_count) return;
+    previous_results_count = next_count;
+    v.setOptions({ count: next_count });
     v.measure();
   });
 
