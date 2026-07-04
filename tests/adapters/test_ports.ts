@@ -146,6 +146,7 @@ export function create_test_ports(): Ports {
     metadata: {
       get_file_cache: () => Promise.reject("Not found"),
       list_properties: () => Promise.resolve([]),
+      update_property: () => Promise.resolve(),
     },
     tag: {
       list_all_tags: () => Promise.resolve([]),

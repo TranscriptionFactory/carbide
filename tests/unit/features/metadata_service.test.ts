@@ -3,6 +3,7 @@ import { MetadataService } from "$lib/features/metadata/application/metadata_ser
 import { MetadataStore } from "$lib/features/metadata/state/metadata_store.svelte";
 import type { EditorStore, EditorService } from "$lib/features/editor";
 import type { MetadataPort } from "$lib/features/metadata/ports";
+import { NotesStore } from "$lib/features/note/state/note_store.svelte";
 import type { NoteProperty, VaultProperty } from "$lib/features/metadata/types";
 
 function create_mock_editor_store(
@@ -35,6 +36,7 @@ function create_mock_port(properties: VaultProperty[] = []): MetadataPort {
   return {
     get_file_cache: vi.fn().mockRejectedValue("not found"),
     list_properties: vi.fn().mockResolvedValue(properties),
+    update_property: vi.fn().mockResolvedValue(undefined),
   };
 }
 
@@ -49,6 +51,7 @@ function create_service(
       editor_store,
       create_mock_editor_service(),
       port,
+      new NotesStore(),
     ),
     port,
   };

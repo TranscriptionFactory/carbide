@@ -8,6 +8,8 @@
   import CheckIcon from "@lucide/svelte/icons/check";
   import { ACTION_IDS } from "$lib/app/action_registry/action_ids";
   import PropertyCombobox from "./property_combobox.svelte";
+  import ColorSwatchPicker from "./color_swatch_picker.svelte";
+  import IconPicker from "./icon_picker.svelte";
   import {
     build_key_suggestions,
     value_suggestions_for_key,
@@ -181,29 +183,57 @@
             <div class="MetadataPanel__prop">
               {#if editing_key === prop.key}
                 <dt class="MetadataPanel__prop-key">{prop.key}</dt>
-                <PropertyCombobox
-                  value={edit_value}
-                  items={edit_value_items}
-                  autofocus
-                  on_input={(t) => (edit_value = t)}
-                  on_select={(v) => {
-                    edit_value = v;
-                    confirm_edit(prop.key);
-                  }}
-                  on_enter={() => confirm_edit(prop.key)}
-                  on_escape={cancel}
-                />
-                <div class="MetadataPanel__inline-actions">
-                  <button
-                    class="MetadataPanel__icon-btn"
-                    onclick={() => confirm_edit(prop.key)}
-                  >
-                    <CheckIcon />
-                  </button>
-                  <button class="MetadataPanel__icon-btn" onclick={cancel}>
-                    <XIcon />
-                  </button>
-                </div>
+                {#if prop.key === "color"}
+                  <ColorSwatchPicker
+                    value={typeof prop.value === "string" ? prop.value : null}
+                    on_select={(color) => {
+                      edit_value = color;
+                      confirm_edit(prop.key);
+                    }}
+                  />
+                  <div class="MetadataPanel__inline-actions">
+                    <button class="MetadataPanel__icon-btn" onclick={cancel}>
+                      <XIcon />
+                    </button>
+                  </div>
+                {:else if prop.key === "icon"}
+                  <IconPicker
+                    value={typeof prop.value === "string" ? prop.value : null}
+                    on_select={(icon) => {
+                      edit_value = icon;
+                      confirm_edit(prop.key);
+                    }}
+                  />
+                  <div class="MetadataPanel__inline-actions">
+                    <button class="MetadataPanel__icon-btn" onclick={cancel}>
+                      <XIcon />
+                    </button>
+                  </div>
+                {:else}
+                  <PropertyCombobox
+                    value={edit_value}
+                    items={edit_value_items}
+                    autofocus
+                    on_input={(t) => (edit_value = t)}
+                    on_select={(v) => {
+                      edit_value = v;
+                      confirm_edit(prop.key);
+                    }}
+                    on_enter={() => confirm_edit(prop.key)}
+                    on_escape={cancel}
+                  />
+                  <div class="MetadataPanel__inline-actions">
+                    <button
+                      class="MetadataPanel__icon-btn"
+                      onclick={() => confirm_edit(prop.key)}
+                    >
+                      <CheckIcon />
+                    </button>
+                    <button class="MetadataPanel__icon-btn" onclick={cancel}>
+                      <XIcon />
+                    </button>
+                  </div>
+                {/if}
               {:else}
                 <dt class="MetadataPanel__prop-key">{prop.key}</dt>
                 {#if Array.isArray(prop.value)}

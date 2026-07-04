@@ -2,7 +2,7 @@ import { find_frontmatter_span } from "$lib/shared/domain/frontmatter_parser";
 
 const NEEDS_QUOTE_RE = /[:#{}\[\]>|*&!%@`,"]|^(true|false|yes|no|null|~)$/i;
 
-function format_yaml_value(value: unknown): string {
+export function format_yaml_value(value: unknown): string {
   if (value === null || value === undefined) return "null";
   if (typeof value === "boolean") return String(value);
   if (typeof value === "number") return String(value);

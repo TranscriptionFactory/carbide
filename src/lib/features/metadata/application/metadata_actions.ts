@@ -66,6 +66,33 @@ export function register_metadata_actions(
   });
 
   registry.register({
+    id: ACTION_IDS.metadata_set_property_for_path,
+    label: "Set Metadata Property For Path",
+    execute: async (payload: unknown) => {
+      const { note_path, key, value } = (payload ?? {}) as {
+        note_path?: unknown;
+        key?: unknown;
+        value?: unknown;
+      };
+      if (
+        typeof note_path !== "string" ||
+        typeof key !== "string" ||
+        typeof value !== "string"
+      ) {
+        return;
+      }
+      const vault_id = vault_store.active_vault_id;
+      if (!vault_id) return;
+      await metadata_service.set_property_for_path(
+        vault_id,
+        note_path,
+        key,
+        value,
+      );
+    },
+  });
+
+  registry.register({
     id: ACTION_IDS.metadata_load_suggestions,
     label: "Load Metadata Suggestions",
     execute: async () => {

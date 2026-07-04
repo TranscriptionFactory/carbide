@@ -12,6 +12,11 @@ export {
   is_valid_drop_target,
   move_destination_path,
 } from "$lib/features/folder/domain/filetree";
+export {
+  NAMED_COLOR_OPTIONS,
+  sanitize_note_color,
+  sanitize_note_icon,
+} from "$lib/features/folder/domain/note_visuals";
 export { flatten_filetree } from "$lib/features/folder/domain/flatten_filetree";
 export { derive_starred_tree } from "$lib/features/folder/domain/derive_starred_tree";
 export { default as CreateFolderDialog } from "$lib/features/folder/ui/create_folder_dialog.svelte";

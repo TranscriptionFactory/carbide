@@ -57,6 +57,7 @@
   import type { FileTreeBlurbPosition } from "$lib/shared/types/editor_settings";
   import { detect_file_type } from "$lib/features/document";
   import {
+    NAMED_COLOR_OPTIONS,
     sanitize_note_color,
     sanitize_note_icon,
   } from "$lib/features/folder/domain/note_visuals";
@@ -79,6 +80,8 @@
     FolderOpen,
     ExternalLink,
     Sparkles,
+    Palette,
+    Smile,
   } from "@lucide/svelte";
   import { toast } from "svelte-sonner";
 
@@ -123,6 +126,9 @@
     on_request_create_canvas?: (() => void) | undefined;
     on_request_create_folder?: ((folder_path: string) => void) | undefined;
     on_request_folder_note?: ((folder_path: string) => void) | undefined;
+    on_set_note_property?:
+      | ((note_path: string, key: string, value: string) => void)
+      | undefined;
     on_toggle_star?: ((path: string) => void) | undefined;
     selection_count?: number;
     all_selected_starred?: boolean;
@@ -164,6 +170,7 @@
     on_request_create_canvas,
     on_request_create_folder,
     on_request_folder_note,
+    on_set_note_property,
     on_toggle_star,
     selection_count = 1,
     all_selected_starred = false,
@@ -460,6 +467,52 @@
                     : "Create Folder Note"}</span
                 >
               </ContextMenu.Item>
+            {/if}
+            {#if on_set_note_property && node.folder_note}
+              {@const folder_note_path = node.folder_note.path}
+              <ContextMenu.Sub>
+                <ContextMenu.SubTrigger>
+                  <Palette class="mr-2 h-4 w-4" />
+                  <span>Folder Color</span>
+                </ContextMenu.SubTrigger>
+                <ContextMenu.SubContent>
+                  {#each NAMED_COLOR_OPTIONS as color (color)}
+                    <ContextMenu.Item
+                      onSelect={() =>
+                        on_set_note_property(folder_note_path, "color", color)}
+                    >
+                      <span
+                        class="mr-2 inline-block size-3 rounded-full border border-border"
+                        style="background-color: {color};"
+                        aria-hidden="true"
+                      ></span>
+                      <span class="capitalize">{color}</span>
+                    </ContextMenu.Item>
+                  {/each}
+                </ContextMenu.SubContent>
+              </ContextMenu.Sub>
+              <ContextMenu.Sub>
+                <ContextMenu.SubTrigger>
+                  <Smile class="mr-2 h-4 w-4" />
+                  <span>Folder Icon</span>
+                </ContextMenu.SubTrigger>
+                <ContextMenu.SubContent class="p-2">
+                  <input
+                    class="h-7 w-40 rounded border border-input bg-background px-2 text-xs"
+                    type="text"
+                    placeholder="Emoji or glyph"
+                    onkeydown={(e) => {
+                      e.stopPropagation();
+                      if (e.key !== "Enter") return;
+                      e.preventDefault();
+                      const icon = sanitize_note_icon(e.currentTarget.value);
+                      if (icon) {
+                        on_set_note_property(folder_note_path, "icon", icon);
+                      }
+                    }}
+                  />
+                </ContextMenu.SubContent>
+              </ContextMenu.Sub>
             {/if}
             <ContextMenu.Separator />
           {/if}
