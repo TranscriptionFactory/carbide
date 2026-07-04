@@ -83,6 +83,7 @@ import type { ToolbarConfig } from "$lib/features/editor/extensions/toolbar_exte
 import type { SlashCommandConfig } from "$lib/features/editor/adapters/slash_command_plugin";
 import type { AiMenuPluginConfig } from "$lib/features/editor/adapters/ai_menu_plugin";
 import type { FrontmatterWidgetConfig } from "$lib/features/editor/adapters/frontmatter_view_plugin";
+import type { TagPillMenuConfig } from "$lib/features/editor/adapters/tag_pill_plugin";
 import {
   create_smart_block_registry,
   create_tasks_smart_block_handler,
@@ -319,6 +320,7 @@ export function create_prosemirror_editor_port(args?: {
   slash_config?: SlashCommandConfig;
   ai_inline_config?: AiMenuPluginConfig;
   frontmatter_widget?: FrontmatterWidgetConfig;
+  tag_pill_menu?: TagPillMenuConfig;
   task_port?: TaskPort;
   run_query?: (text: string) => Promise<QueryResult>;
   get_links?: (
@@ -343,6 +345,7 @@ export function create_prosemirror_editor_port(args?: {
   const slash_config = args?.slash_config;
   const ai_inline_config = args?.ai_inline_config;
   const frontmatter_widget = args?.frontmatter_widget;
+  const tag_pill_menu = args?.tag_pill_menu;
   const task_port = args?.task_port;
   const run_query = args?.run_query;
   const get_links = args?.get_links;
@@ -404,6 +407,7 @@ export function create_prosemirror_editor_port(args?: {
           resolve_asset_url_for_vault,
           load_svg_preview: load_svg_preview_fn,
           frontmatter_widget,
+          tag_pill_menu,
           use_yjs: !!ydoc_manager,
           native_link_hover_enabled: config.native_link_hover_enabled ?? true,
           native_wiki_suggest_enabled:
