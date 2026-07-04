@@ -109,22 +109,72 @@ describe("slash menu focus-steal prevention", () => {
 });
 
 describe("slash menu hover selection", () => {
-  it("mouseenter on an item calls on_select with that item's index", () => {
+  it("pointer movement onto an item calls on_select with that item's index", () => {
     const cmds = create_commands().slice(0, 3);
     const { menu, on_select } = setup(make_state({ filtered: cmds }));
     const options = menu.querySelectorAll<HTMLElement>('[role="option"]');
-    options[2]?.dispatchEvent(new MouseEvent("mouseenter", { bubbles: true }));
+    options[2]?.dispatchEvent(
+      new MouseEvent("mousemove", { bubbles: true, clientX: 11, clientY: 21 }),
+    );
     expect(on_select).toHaveBeenCalledWith(2);
   });
 
-  it("mouseenter on first item calls on_select with index 0", () => {
+  it("pointer movement onto first item calls on_select with index 0", () => {
     const cmds = create_commands().slice(0, 3);
     const { menu, on_select } = setup(
       make_state({ selected_index: 2, filtered: cmds }),
     );
     const options = menu.querySelectorAll<HTMLElement>('[role="option"]');
-    options[0]?.dispatchEvent(new MouseEvent("mouseenter", { bubbles: true }));
+    options[0]?.dispatchEvent(
+      new MouseEvent("mousemove", { bubbles: true, clientX: 12, clientY: 22 }),
+    );
     expect(on_select).toHaveBeenCalledWith(0);
+  });
+
+  it("scroll-induced hover with unchanged coordinates does not change selection", () => {
+    const cmds = create_commands().slice(0, 3);
+    const { menu, on_select } = setup(make_state({ filtered: cmds }));
+    const options = menu.querySelectorAll<HTMLElement>('[role="option"]');
+    options[1]?.dispatchEvent(
+      new MouseEvent("mousemove", { bubbles: true, clientX: 13, clientY: 23 }),
+    );
+    expect(on_select).toHaveBeenCalledWith(1);
+    on_select.mockClear();
+    options[2]?.dispatchEvent(
+      new MouseEvent("mousemove", { bubbles: true, clientX: 13, clientY: 23 }),
+    );
+    expect(on_select).not.toHaveBeenCalled();
+  });
+
+  it("pointer movement within the already-selected item does not re-select", () => {
+    const cmds = create_commands().slice(0, 3);
+    const { menu, on_select } = setup(
+      make_state({ selected_index: 1, filtered: cmds }),
+    );
+    const options = menu.querySelectorAll<HTMLElement>('[role="option"]');
+    options[1]?.dispatchEvent(
+      new MouseEvent("mousemove", { bubbles: true, clientX: 14, clientY: 24 }),
+    );
+    expect(on_select).not.toHaveBeenCalled();
+  });
+});
+
+describe("slash menu re-render preserves scroll position", () => {
+  it("keeps list scrollTop across re-render", () => {
+    const cmds = create_commands().slice(0, 3);
+    const { menu, live_region, on_select, on_click } = setup(
+      make_state({ filtered: cmds }),
+    );
+    const list = menu.querySelector<HTMLElement>(".SlashMenu__list");
+    expect(list).not.toBeNull();
+    if (list) list.scrollTop = 42;
+
+    const state2 = make_state({ selected_index: 2, filtered: cmds });
+    render_items(menu, live_region, state2, on_select, on_click, new Map());
+
+    const new_list = menu.querySelector<HTMLElement>(".SlashMenu__list");
+    expect(new_list).not.toBe(list);
+    expect(new_list?.scrollTop).toBe(42);
   });
 });
 

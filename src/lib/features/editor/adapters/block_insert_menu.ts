@@ -116,6 +116,7 @@ export function create_block_insert_menu(view: EditorView): BlockInsertMenu {
 
     is_open = true;
     render();
+    scroll_selected();
     menu.style.display = "block";
     position_suggest_dropdown(menu, {
       getBoundingClientRect: () => anchor,
