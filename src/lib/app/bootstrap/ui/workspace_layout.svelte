@@ -1124,34 +1124,48 @@
                             ACTION_IDS.find_in_file_replace_all,
                           )}
                       />
-                      <div
-                        class="SplitViewContainer"
-                        class:SplitViewContainer--split={split_view_active}
+                      <Resizable.PaneGroup
+                        direction={stores.tab.split_direction}
+                        class="relative min-h-0 min-w-0 flex-1"
                       >
-                        <!-- svelte-ignore a11y_click_events_have_key_events -->
-                        <!-- svelte-ignore a11y_no_static_element_interactions -->
-                        <div
-                          class="SplitViewContainer__primary"
-                          onclick={() => {
-                            if (split_view_active) {
-                              void action_registry.execute(
-                                ACTION_IDS.tab_set_active_pane,
-                                "primary",
-                              );
-                            }
-                          }}
-                        >
-                          <NoteEditor />
-                          <FloatingOutline />
-                        </div>
-                        {#if split_view_active}
-                          <div class="SplitViewContainer__handle"></div>
-                          <div class="SplitViewContainer__secondary">
-                            <SecondaryNoteEditor />
+                        <Resizable.Pane minSize={20} order={1}>
+                          <!-- svelte-ignore a11y_click_events_have_key_events -->
+                          <!-- svelte-ignore a11y_no_static_element_interactions -->
+                          <div
+                            class="EditorPane"
+                            class:EditorPane--focused={split_view_active &&
+                              stores.tab.active_pane === "primary"}
+                            onclick={() => {
+                              if (split_view_active) {
+                                void action_registry.execute(
+                                  ACTION_IDS.tab_set_active_pane,
+                                  "primary",
+                                );
+                              }
+                            }}
+                          >
+                            <NoteEditor />
+                            <FloatingOutline />
                           </div>
+                        </Resizable.Pane>
+                        {#if split_view_active}
+                          <Resizable.Handle />
+                          <Resizable.Pane
+                            defaultSize={50}
+                            minSize={20}
+                            order={2}
+                          >
+                            <div
+                              class="EditorPane"
+                              class:EditorPane--focused={stores.tab
+                                .active_pane === "secondary"}
+                            >
+                              <SecondaryNoteEditor />
+                            </div>
+                          </Resizable.Pane>
                         {/if}
                         <SplitDropZone />
-                      </div>
+                      </Resizable.PaneGroup>
                     </div>
                   </div>
                 </Resizable.Pane>
@@ -1270,38 +1284,16 @@
     margin-inline: auto;
   }
 
-  .SplitViewContainer {
-    display: flex;
-    flex-direction: row;
-    height: 100%;
-    overflow: hidden;
+  .EditorPane {
     position: relative;
-  }
-
-  .SplitViewContainer__primary {
-    position: relative;
-    flex: 1;
-    min-width: 0;
     height: 100%;
+    min-width: 0;
+    min-height: 0;
     overflow: hidden;
   }
 
-  .SplitViewContainer--split .SplitViewContainer__primary {
-    flex: 1 1 50%;
-  }
-
-  .SplitViewContainer__handle {
-    width: 1px;
-    flex-shrink: 0;
-    background-color: var(--border);
-    cursor: col-resize;
-  }
-
-  .SplitViewContainer__secondary {
-    flex: 1 1 50%;
-    min-width: 0;
-    height: 100%;
-    overflow: hidden;
+  .EditorPane--focused {
+    box-shadow: inset 0 0 0 1px var(--focus-ring);
   }
 
   .SidebarHeader {
