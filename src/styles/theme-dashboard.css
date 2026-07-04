@@ -92,3 +92,10 @@
     width: 2px;
   }
 }
+
+/* Absolute positioning resolves against the WorkspaceLayout border box, so the
+   macOS drag-strip padding does not push the rail down; offset it explicitly
+   or its top icons sit under the traffic lights */
+body.macos-drag-strip .WorkspaceLayout--dashboard .ActivityBar {
+  top: var(--macos-drag-strip-height);
+}
