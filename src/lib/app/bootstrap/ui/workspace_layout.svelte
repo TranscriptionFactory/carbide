@@ -554,6 +554,11 @@
                               ACTION_IDS.folder_request_create,
                               folder_path,
                             )}
+                          on_request_folder_note={(folder_path: string) =>
+                            void action_registry.execute(
+                              ACTION_IDS.filetree_create_or_open_folder_note,
+                              folder_path,
+                            )}
                           on_toggle_star={toggle_star_for_selection}
                           on_open_to_side={(path: string) =>
                             void action_registry.execute(
@@ -961,6 +966,11 @@
                             on_request_create_folder={(folder_path: string) =>
                               void action_registry.execute(
                                 ACTION_IDS.folder_request_create,
+                                folder_path,
+                              )}
+                            on_request_folder_note={(folder_path: string) =>
+                              void action_registry.execute(
+                                ACTION_IDS.filetree_create_or_open_folder_note,
                                 folder_path,
                               )}
                             on_toggle_star={toggle_star_for_selection}

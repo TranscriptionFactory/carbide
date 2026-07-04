@@ -450,3 +450,40 @@ describe("flatten_filetree", () => {
     expect(result[0]?.file_meta?.extension).toBe("pdf");
   });
 });
+
+describe("flatten_filetree folder notes", () => {
+  it("exposes folder note meta on collapsed folder nodes", () => {
+    const folder_note = {
+      ...make_note("Projects/Projects.md"),
+      color: "red",
+      icon: "🚀",
+    };
+    const result = flatten_filetree({
+      notes: [folder_note],
+      folder_paths: ["Projects"],
+      files: [],
+      expanded_paths: new Set<string>(),
+      load_states: new Map(),
+      error_messages: new Map(),
+      show_hidden_files: false,
+      pagination: new Map(),
+    });
+    const folder = result.find((n) => n.path === "Projects");
+    expect(folder?.folder_note?.color).toBe("red");
+    expect(folder?.folder_note?.icon).toBe("🚀");
+  });
+
+  it("leaves folder_note null when no matching note exists", () => {
+    const result = flatten_filetree({
+      notes: [make_note("Projects/other.md")],
+      folder_paths: ["Projects"],
+      files: [],
+      expanded_paths: new Set<string>(),
+      load_states: new Map(),
+      error_messages: new Map(),
+      show_hidden_files: false,
+      pagination: new Map(),
+    });
+    expect(result.find((n) => n.path === "Projects")?.folder_note).toBeNull();
+  });
+});

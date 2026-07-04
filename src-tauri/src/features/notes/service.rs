@@ -447,6 +447,12 @@ pub(crate) fn build_note_meta(
     })
 }
 
+pub(crate) fn folder_note_candidate(root: &Path, folder_rel: &str) -> Option<String> {
+    let leaf = folder_rel.rsplit('/').next()?;
+    let candidate = format!("{}/{}.md", folder_rel, leaf);
+    root.join(&candidate).is_file().then_some(candidate)
+}
+
 #[tauri::command]
 #[specta::specta]
 pub fn list_notes(app: AppHandle, vault_id: String) -> Result<Vec<NoteMeta>, String> {
@@ -1200,6 +1206,7 @@ pub struct FolderContents {
     pub notes: Vec<NoteMeta>,
     pub files: Vec<FileMeta>,
     pub subfolders: Vec<String>,
+    pub folder_notes: Vec<NoteMeta>,
     pub total_count: usize,
     pub has_more: bool,
 }
@@ -1697,8 +1704,9 @@ pub fn list_folder_contents(
     let mut notes = Vec::new();
     let mut files = Vec::new();
     let mut subfolders = Vec::new();
+    let mut folder_notes = Vec::new();
 
-    let md_paths: Vec<String> = items[start..end]
+    let mut md_paths: Vec<String> = items[start..end]
         .iter()
         .filter(|e| !e.is_dir && e.name.ends_with(".md"))
         .map(|e| {
@@ -1709,6 +1717,14 @@ pub fn list_folder_contents(
             }
         })
         .collect();
+    md_paths.extend(items[start..end].iter().filter(|e| e.is_dir).filter_map(|e| {
+        let rel = if folder_path.is_empty() {
+            e.name.clone()
+        } else {
+            format!("{}/{}", folder_path, e.name)
+        };
+        folder_note_candidate(&root, &rel)
+    }));
 
     let cached_titles = search_db::open_search_db(&app, &vault_id)
         .and_then(|conn| search_db::get_cached_titles(&conn, &md_paths))
@@ -1722,6 +1738,9 @@ pub fn list_folder_contents(
         };
 
         if entry.is_dir {
+            if let Some(candidate) = folder_note_candidate(&root, &rel) {
+                folder_notes.push(build_note_meta(&root, &candidate, cached_titles.as_ref())?);
+            }
             subfolders.push(rel);
         } else if entry.name.ends_with(".md") {
             notes.push(build_note_meta(&root, &rel, cached_titles.as_ref())?);
@@ -1747,6 +1766,7 @@ pub fn list_folder_contents(
         notes,
         files,
         subfolders,
+        folder_notes,
         total_count,
         has_more: end < total_count,
     })

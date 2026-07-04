@@ -4,7 +4,10 @@ import type {
   FolderLoadState,
   FolderPaginationState,
 } from "$lib/shared/types/filetree";
-import type { FileTreeNode } from "$lib/features/folder/domain/filetree";
+import {
+  folder_note_of,
+  type FileTreeNode,
+} from "$lib/features/folder/domain/filetree";
 import { as_note_path } from "$lib/shared/types/ids";
 
 function starred_node_id(root_path: string, relative_path: string): string {
@@ -76,6 +79,7 @@ export function derive_starred_tree(input: Input): FlatTreeNode[] {
         has_error: false,
         error_message: null,
         note: note_meta,
+        folder_note: null,
         file_meta: note_node?.file_meta ?? null,
         parent_path: null,
         is_load_more: false,
@@ -99,6 +103,7 @@ export function derive_starred_tree(input: Input): FlatTreeNode[] {
       has_error: root_load_state === "error",
       error_message: input.error_messages.get(root_path) ?? null,
       note: null,
+      folder_note: root_node ? folder_note_of(root_node) : null,
       file_meta: null,
       parent_path: null,
       is_load_more: false,
@@ -159,6 +164,7 @@ function visit_tree(input: {
       has_error: load_state === "error",
       error_message: input.error_messages.get(actual_path) ?? null,
       note: child.note,
+      folder_note: folder_note_of(child),
       file_meta: child.file_meta,
       parent_path: input.parent_path,
       is_load_more: false,
@@ -199,6 +205,7 @@ function visit_tree(input: {
       has_error: pagination_state.load_state === "error",
       error_message: pagination_state.error_message,
       note: null,
+      folder_note: null,
       file_meta: null,
       parent_path: input.parent_path,
       is_load_more: true,

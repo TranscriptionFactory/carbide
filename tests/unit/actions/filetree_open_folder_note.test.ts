@@ -32,6 +32,13 @@ function build_input(notes: NoteMeta[], expanded_paths: string[] = []) {
     execute: note_open,
   });
 
+  const add_frontmatter = vi.fn();
+  registry.register({
+    id: ACTION_IDS.note_add_frontmatter,
+    label: "Add Frontmatter",
+    execute: add_frontmatter,
+  });
+
   // Minimal stub: register_folder_actions touches many stores but
   // filetree_open_folder_note only reads notes_store.notes,
   // ui.filetree.expanded_paths, and dispatches note_open.
@@ -45,7 +52,7 @@ function build_input(notes: NoteMeta[], expanded_paths: string[] = []) {
   } as never;
 
   register_folder_actions(input);
-  return { registry, note_open };
+  return { registry, note_open, add_frontmatter };
 }
 
 describe("filetree_open_folder_note action", () => {
@@ -99,5 +106,41 @@ describe("filetree_open_folder_note action", () => {
     await registry.execute(ACTION_IDS.filetree_open_folder_note, "Work/Q2");
 
     expect(note_open).toHaveBeenCalledWith("Work/Q2/Q2.md");
+  });
+});
+
+describe("filetree_create_or_open_folder_note action", () => {
+  it("opens an existing folder note without seeding frontmatter", async () => {
+    const { registry, note_open, add_frontmatter } = build_input([
+      make_note("Projects/Projects.md"),
+    ]);
+
+    await registry.execute(
+      ACTION_IDS.filetree_create_or_open_folder_note,
+      "Projects",
+    );
+
+    expect(note_open).toHaveBeenCalledWith("Projects/Projects.md");
+    expect(add_frontmatter).not.toHaveBeenCalled();
+  });
+
+  it("creates a missing folder note and seeds frontmatter", async () => {
+    const { registry, note_open, add_frontmatter } = build_input([]);
+
+    await registry.execute(
+      ACTION_IDS.filetree_create_or_open_folder_note,
+      "Projects",
+    );
+
+    expect(note_open).toHaveBeenCalledWith("Projects/Projects.md");
+    expect(add_frontmatter).toHaveBeenCalled();
+  });
+
+  it("ignores empty folder paths", async () => {
+    const { registry, note_open } = build_input([make_note("a.md")]);
+
+    await registry.execute(ACTION_IDS.filetree_create_or_open_folder_note, "");
+
+    expect(note_open).not.toHaveBeenCalled();
   });
 });

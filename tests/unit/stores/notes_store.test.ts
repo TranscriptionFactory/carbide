@@ -482,3 +482,33 @@ describe("NotesStore starred paths", () => {
     expect(store.starred_paths).toEqual(["misc.md"]);
   });
 });
+
+describe("NotesStore.merge_folder_contents folder notes", () => {
+  it("merges folder_notes into the notes list", () => {
+    const store = new NotesStore();
+    store.merge_folder_contents("", {
+      ...folder_contents([note("readme.md")], ["Projects"]),
+      folder_notes: [note("Projects/Projects.md")],
+    });
+    expect(store.notes.map((n) => n.path)).toEqual([
+      "Projects/Projects.md",
+      "readme.md",
+    ]);
+  });
+
+  it("keeps folder notes fresh on refresh of the parent folder", () => {
+    const store = new NotesStore();
+    const stale = { ...note("Projects/Projects.md"), color: "red" };
+    const fresh = { ...note("Projects/Projects.md"), color: "blue" };
+    store.merge_folder_contents("", {
+      ...folder_contents([], ["Projects"]),
+      folder_notes: [stale],
+    });
+    store.merge_folder_contents("", {
+      ...folder_contents([], ["Projects"]),
+      folder_notes: [fresh],
+    });
+    expect(store.notes).toHaveLength(1);
+    expect(store.notes[0]?.color).toBe("blue");
+  });
+});

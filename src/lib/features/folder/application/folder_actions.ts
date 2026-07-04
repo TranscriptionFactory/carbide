@@ -559,6 +559,25 @@ export function register_folder_actions(input: ActionRegistrationInput) {
       },
     });
 
+    registry.register({
+      id: ACTION_IDS.filetree_create_or_open_folder_note,
+      label: "Create or Open Folder Note",
+      execute: async (folder_input: unknown) => {
+        const folder_path = String(folder_input ?? "").trim();
+        if (!folder_path) return;
+        const base_name = folder_path.split("/").pop();
+        if (!base_name) return;
+        const folder_note_path = `${folder_path}/${base_name}.md`;
+        const existed = stores.notes.notes.some(
+          (n) => n.path === folder_note_path,
+        );
+        await registry.execute(ACTION_IDS.note_open, folder_note_path);
+        if (!existed) {
+          await registry.execute(ACTION_IDS.note_add_frontmatter);
+        }
+      },
+    });
+
     const persist_file_tree_mode = async (mode: FileTreeMode) => {
       const updated: EditorSettings = {
         ...stores.ui.editor_settings,

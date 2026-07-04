@@ -147,3 +147,42 @@ fn folder_entries_cache_hit_and_invalidation() {
 
     let _ = std::fs::remove_dir_all(&root);
 }
+
+#[test]
+fn folder_note_candidate_finds_matching_note() {
+    let root = mk_temp_dir();
+    std::fs::create_dir_all(root.join("Projects")).expect("folder should be created");
+    std::fs::write(
+        root.join("Projects/Projects.md"),
+        "---\ncolor: red\nicon: \"🚀\"\n---\nbody",
+    )
+    .expect("folder note should be created");
+
+    let candidate = crate::features::notes::service::folder_note_candidate(&root, "Projects");
+    assert_eq!(candidate.as_deref(), Some("Projects/Projects.md"));
+
+    let meta =
+        crate::features::notes::service::build_note_meta(&root, &candidate.unwrap(), None)
+            .expect("meta should build");
+    assert_eq!(meta.color.as_deref(), Some("red"));
+    assert_eq!(meta.icon.as_deref(), Some("🚀"));
+    let _ = std::fs::remove_dir_all(&root);
+}
+
+#[test]
+fn folder_note_candidate_ignores_bare_and_mismatched_folders() {
+    let root = mk_temp_dir();
+    std::fs::create_dir_all(root.join("Empty")).expect("folder should be created");
+    std::fs::create_dir_all(root.join("Other")).expect("folder should be created");
+    std::fs::write(root.join("Other/notes.md"), "body").expect("note should be created");
+
+    assert_eq!(
+        crate::features::notes::service::folder_note_candidate(&root, "Empty"),
+        None
+    );
+    assert_eq!(
+        crate::features::notes::service::folder_note_candidate(&root, "Other"),
+        None
+    );
+    let _ = std::fs::remove_dir_all(&root);
+}
