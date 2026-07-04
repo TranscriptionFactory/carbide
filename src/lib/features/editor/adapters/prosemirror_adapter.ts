@@ -82,6 +82,7 @@ import type {
 import type { ToolbarConfig } from "$lib/features/editor/extensions/toolbar_extension";
 import type { SlashCommandConfig } from "$lib/features/editor/adapters/slash_command_plugin";
 import type { AiMenuPluginConfig } from "$lib/features/editor/adapters/ai_menu_plugin";
+import type { FrontmatterWidgetConfig } from "$lib/features/editor/adapters/frontmatter_view_plugin";
 import {
   create_smart_block_registry,
   create_tasks_smart_block_handler,
@@ -317,6 +318,7 @@ export function create_prosemirror_editor_port(args?: {
   ydoc_manager?: YDocManager;
   slash_config?: SlashCommandConfig;
   ai_inline_config?: AiMenuPluginConfig;
+  frontmatter_widget?: FrontmatterWidgetConfig;
   task_port?: TaskPort;
   run_query?: (text: string) => Promise<QueryResult>;
   get_links?: (
@@ -340,6 +342,7 @@ export function create_prosemirror_editor_port(args?: {
   const ydoc_manager = args?.ydoc_manager ?? null;
   const slash_config = args?.slash_config;
   const ai_inline_config = args?.ai_inline_config;
+  const frontmatter_widget = args?.frontmatter_widget;
   const task_port = args?.task_port;
   const run_query = args?.run_query;
   const get_links = args?.get_links;
@@ -400,6 +403,7 @@ export function create_prosemirror_editor_port(args?: {
           get_markdown: () => current_markdown,
           resolve_asset_url_for_vault,
           load_svg_preview: load_svg_preview_fn,
+          frontmatter_widget,
           use_yjs: !!ydoc_manager,
           native_link_hover_enabled: config.native_link_hover_enabled ?? true,
           native_wiki_suggest_enabled:

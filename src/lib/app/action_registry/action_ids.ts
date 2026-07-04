@@ -371,6 +371,7 @@ export const ACTION_IDS = {
   metadata_delete_property: "metadata.delete_property",
   metadata_load_suggestions: "metadata.load_suggestions",
   metadata_set_property_for_path: "metadata.set_property_for_path",
+  metadata_toggle_inline_frontmatter: "metadata.toggle_inline_frontmatter",
 
   lint_format_file: "lint.format_file",
   lint_format_vault: "lint.format_vault",

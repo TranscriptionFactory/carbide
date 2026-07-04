@@ -1271,6 +1271,7 @@ export function create_app_context(input: {
     stores.metadata,
     stores.ui,
     stores.vault,
+    settings_service,
   );
 
   register_reference_actions({

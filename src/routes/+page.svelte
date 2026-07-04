@@ -56,6 +56,24 @@
 
   ports.query_runner.run = (text) => app.services.query.run(text);
 
+  ports.frontmatter_widget.metadata_store = app.stores.metadata;
+  ports.frontmatter_widget.is_enabled = () =>
+    app.stores.ui.editor_settings.show_inline_frontmatter;
+  ports.frontmatter_widget.on_update = (key, value) =>
+    void app.action_registry.execute(
+      ACTION_IDS.metadata_update_property,
+      key,
+      value,
+    );
+  ports.frontmatter_widget.on_add = (key, value) =>
+    void app.action_registry.execute(
+      ACTION_IDS.metadata_add_property,
+      key,
+      value,
+    );
+  ports.frontmatter_widget.on_remove = (key) =>
+    void app.action_registry.execute(ACTION_IDS.metadata_delete_property, key);
+
   provide_app_context(app);
 
   let destroyed = false;

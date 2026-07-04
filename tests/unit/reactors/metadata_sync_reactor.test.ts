@@ -4,14 +4,14 @@ import { resolve_metadata_sync_decision } from "$lib/reactors/metadata_sync.reac
 function state(
   input?: Partial<{
     last_note_path: string | null;
-    last_panel_open: boolean;
+    last_surface_open: boolean;
     last_markdown: string | null;
     loaded_note_path: string | null;
   }>,
 ) {
   return {
     last_note_path: null,
-    last_panel_open: false,
+    last_surface_open: false,
     last_markdown: null,
     loaded_note_path: null,
     ...input,
@@ -22,6 +22,8 @@ function input(
   value: Partial<{
     open_note_path: string | null;
     panel_open: boolean;
+    inline_widget_enabled: boolean;
+    visual_mode: boolean;
     markdown: string | null;
     snapshot_note_path: string | null;
     has_error: boolean;
@@ -30,6 +32,8 @@ function input(
   return {
     open_note_path: null,
     panel_open: false,
+    inline_widget_enabled: false,
+    visual_mode: false,
     markdown: null,
     snapshot_note_path: null,
     has_error: false,
@@ -42,7 +46,7 @@ describe("metadata_sync.reactor", () => {
     const result = resolve_metadata_sync_decision(
       state({
         last_note_path: "docs/a.md",
-        last_panel_open: true,
+        last_surface_open: true,
         loaded_note_path: "docs/a.md",
       }),
       input({
@@ -72,7 +76,7 @@ describe("metadata_sync.reactor", () => {
     const result = resolve_metadata_sync_decision(
       state({
         last_note_path: "docs/a.md",
-        last_panel_open: false,
+        last_surface_open: false,
         last_markdown: "# Hello",
       }),
       input({
@@ -91,7 +95,7 @@ describe("metadata_sync.reactor", () => {
     const result = resolve_metadata_sync_decision(
       state({
         last_note_path: "docs/a.md",
-        last_panel_open: true,
+        last_surface_open: true,
         loaded_note_path: "docs/a.md",
         last_markdown: "# A",
       }),
@@ -111,7 +115,7 @@ describe("metadata_sync.reactor", () => {
     const result = resolve_metadata_sync_decision(
       state({
         last_note_path: "docs/a.md",
-        last_panel_open: true,
+        last_surface_open: true,
         last_markdown: "# Hello",
         loaded_note_path: "docs/a.md",
       }),
@@ -131,7 +135,7 @@ describe("metadata_sync.reactor", () => {
     const result = resolve_metadata_sync_decision(
       state({
         last_note_path: "docs/a.md",
-        last_panel_open: false,
+        last_surface_open: false,
         last_markdown: "# Hello",
         loaded_note_path: "docs/a.md",
       }),
@@ -150,7 +154,7 @@ describe("metadata_sync.reactor", () => {
     const result = resolve_metadata_sync_decision(
       state({
         last_note_path: "docs/a.md",
-        last_panel_open: false,
+        last_surface_open: false,
         last_markdown: "# Hello",
         loaded_note_path: "docs/a.md",
       }),
@@ -169,7 +173,7 @@ describe("metadata_sync.reactor", () => {
     const result = resolve_metadata_sync_decision(
       state({
         last_note_path: "docs/a.md",
-        last_panel_open: false,
+        last_surface_open: false,
         last_markdown: "# Hello",
         loaded_note_path: "docs/a.md",
       }),
@@ -179,6 +183,92 @@ describe("metadata_sync.reactor", () => {
         markdown: "# Hello",
         snapshot_note_path: null,
         has_error: true,
+      }),
+    );
+
+    expect(result.action).toBe("load_now");
+    expect(result.note_path).toBe("docs/a.md");
+  });
+
+  it("syncs when the inline widget is enabled in visual mode with panel closed", () => {
+    const result = resolve_metadata_sync_decision(
+      state({
+        last_note_path: "docs/a.md",
+        last_surface_open: false,
+        last_markdown: "# Hello",
+        loaded_note_path: null,
+      }),
+      input({
+        open_note_path: "docs/a.md",
+        panel_open: false,
+        inline_widget_enabled: true,
+        visual_mode: true,
+        markdown: "# Hello",
+        snapshot_note_path: null,
+      }),
+    );
+
+    expect(result.action).toBe("load_now");
+    expect(result.note_path).toBe("docs/a.md");
+  });
+
+  it("does not sync when the inline widget is disabled and the panel is closed", () => {
+    const result = resolve_metadata_sync_decision(
+      state({
+        last_note_path: "docs/a.md",
+        last_surface_open: false,
+        last_markdown: "# Hello",
+        loaded_note_path: null,
+      }),
+      input({
+        open_note_path: "docs/a.md",
+        panel_open: false,
+        inline_widget_enabled: false,
+        visual_mode: true,
+        markdown: "# Hello",
+        snapshot_note_path: null,
+      }),
+    );
+
+    expect(result.action).toBe("noop");
+  });
+
+  it("does not sync in source mode when the panel is closed", () => {
+    const result = resolve_metadata_sync_decision(
+      state({
+        last_note_path: "docs/a.md",
+        last_surface_open: false,
+        last_markdown: "# Hello",
+        loaded_note_path: null,
+      }),
+      input({
+        open_note_path: "docs/a.md",
+        panel_open: false,
+        inline_widget_enabled: true,
+        visual_mode: false,
+        markdown: "# Hello",
+        snapshot_note_path: null,
+      }),
+    );
+
+    expect(result.action).toBe("noop");
+  });
+
+  it("syncs when the panel is open regardless of the inline widget or mode", () => {
+    const result = resolve_metadata_sync_decision(
+      state({
+        last_note_path: "docs/a.md",
+        last_surface_open: false,
+        last_markdown: "# Hello",
+        loaded_note_path: "docs/a.md",
+      }),
+      input({
+        open_note_path: "docs/a.md",
+        panel_open: true,
+        inline_widget_enabled: false,
+        visual_mode: false,
+        markdown: "# Hello",
+        snapshot_note_path: null,
       }),
     );
 

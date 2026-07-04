@@ -63,7 +63,10 @@ import {
   create_doi_tauri_adapter,
   create_linked_source_tauri_adapter,
 } from "$lib/features/reference";
-import type { SlashCommand } from "$lib/features/editor";
+import type {
+  SlashCommand,
+  FrontmatterWidgetConfig,
+} from "$lib/features/editor";
 import type { Ports } from "$lib/app/di/app_ports";
 import type { VaultId, NoteId } from "$lib/shared/types/ids";
 import type { QueryResult } from "$lib/features/query";
@@ -108,6 +111,7 @@ export function create_prod_ports(): Ports & {
   slash_command_provider: SlashCommandProvider;
   ai_inline_handler: AiInlineHandler;
   query_runner: QueryRunner;
+  frontmatter_widget: FrontmatterWidgetConfig;
 } {
   const assets = create_assets_tauri_adapter();
   const vault = create_vault_tauri_adapter();
@@ -143,11 +147,19 @@ export function create_prod_ports(): Ports & {
     on_open_settings: null,
   };
   const query_runner: QueryRunner = { run: null };
+  const frontmatter_widget: FrontmatterWidgetConfig = {
+    metadata_store: null,
+    is_enabled: () => false,
+    on_update: () => {},
+    on_add: () => {},
+    on_remove: () => {},
+  };
 
   return {
     slash_command_provider,
     ai_inline_handler,
     query_runner,
+    frontmatter_widget,
     vault,
     notes,
     index,
@@ -179,6 +191,7 @@ export function create_prod_ports(): Ports & {
         get_commands: () => ai_inline_handler.get_commands?.() ?? [],
         on_open_settings: () => ai_inline_handler.on_open_settings?.(),
       },
+      frontmatter_widget,
       task_port: task,
       run_query: (text) =>
         query_runner.run?.(text) ?? Promise.resolve(EMPTY_QUERY_RESULT),
