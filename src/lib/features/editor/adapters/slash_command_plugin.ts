@@ -643,6 +643,11 @@ function option_id(menu_id: string, index: number): string {
   return `slash-menu-${menu_id}-option-${String(index)}`;
 }
 
+// Scrolling moves rows under a stationary cursor, which fires hover events
+// with unchanged coordinates; ignore those so scroll and hover don't fight.
+let last_hover_x = -1;
+let last_hover_y = -1;
+
 export function render_items(
   menu: HTMLElement,
   live_region: HTMLElement,
@@ -655,6 +660,8 @@ export function render_items(
 
   const existing_list = menu.querySelector(".SlashMenu__list");
   const existing_preview = menu.querySelector(".SlashMenu__preview");
+  const prev_scroll_top =
+    existing_list instanceof HTMLElement ? existing_list.scrollTop : 0;
   existing_list?.remove();
   existing_preview?.remove();
 
@@ -711,7 +718,12 @@ export function render_items(
 
     row.appendChild(text_el);
 
-    row.addEventListener("mouseenter", () => on_select(i));
+    row.addEventListener("mousemove", (e) => {
+      if (e.clientX === last_hover_x && e.clientY === last_hover_y) return;
+      last_hover_x = e.clientX;
+      last_hover_y = e.clientY;
+      if (i !== state.selected_index) on_select(i);
+    });
     row.addEventListener("mousedown", (e) => {
       e.preventDefault();
       on_click(cmd);
@@ -721,6 +733,7 @@ export function render_items(
   }
 
   menu.insertBefore(list, live_region.nextSibling);
+  list.scrollTop = prev_scroll_top;
 
   const selected = state.filtered[state.selected_index];
   if (!selected) return;
@@ -810,6 +823,7 @@ export function create_slash_command_prose_plugin(
           const filtered = filter_commands(available, query);
           const prev_index = slash_state.selected_index;
           const prev_query = slash_state.query;
+          const was_active = slash_state.active;
 
           slash_state = {
             active: true,
@@ -823,6 +837,10 @@ export function create_slash_command_prose_plugin(
           };
 
           do_render();
+
+          if (menu && (!was_active || query !== prev_query)) {
+            scroll_selected_in_list(menu, slash_state.selected_index);
+          }
 
           if (menu && filtered.length > 0) {
             const anchor = create_cursor_anchor(view);
