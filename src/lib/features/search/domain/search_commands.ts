@@ -1,6 +1,7 @@
 import type { CommandDefinition } from "$lib/features/search/types/command_palette";
 import type { CommandContext } from "$lib/features/search/types/command_context";
-import { SIDEBAR_VIEW_REGISTRY } from "$lib/app/sidebar_views";
+import { combined_sidebar_view_registry } from "$lib/app/sidebar_views";
+import type { DynamicSidebarView } from "$lib/app/sidebar_views";
 
 const BASE_COMMANDS: CommandDefinition[] = [
   {
@@ -624,8 +625,10 @@ export function is_sidebar_view_command(command_id: string): boolean {
   return command_id.startsWith(SIDEBAR_VIEW_COMMAND_PREFIX);
 }
 
-const SIDEBAR_VIEW_COMMANDS: CommandDefinition[] = SIDEBAR_VIEW_REGISTRY.map(
-  (view) => ({
+export function sidebar_view_commands(
+  dynamic: DynamicSidebarView[] = [],
+): CommandDefinition[] {
+  return combined_sidebar_view_registry(dynamic).map((view) => ({
     id: sidebar_view_command_id(view.id),
     label: `Go to ${view.label}`,
     description: `Switch the sidebar to the ${view.label} view`,
@@ -634,8 +637,10 @@ const SIDEBAR_VIEW_COMMANDS: CommandDefinition[] = SIDEBAR_VIEW_REGISTRY.map(
     ...(view.vault_only
       ? { when: (ctx: CommandContext) => ctx.is_vault_mode }
       : {}),
-  }),
-);
+  }));
+}
+
+const SIDEBAR_VIEW_COMMANDS: CommandDefinition[] = sidebar_view_commands();
 
 const SIDEBAR_META_COMMANDS: CommandDefinition[] = [
   {

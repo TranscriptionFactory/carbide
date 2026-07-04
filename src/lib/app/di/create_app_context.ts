@@ -213,6 +213,7 @@ export function create_app_context(input: {
     id: "canvases",
     label: "Canvases",
     icon: PencilRuler,
+    keywords: ["canvases", "canvas", "drawings", "excalidraw", "whiteboard"],
     panel: CanvasPanel,
   });
 
@@ -220,6 +221,7 @@ export function create_app_context(input: {
     id: "plugins",
     label: "Plugins",
     icon: Blocks,
+    keywords: ["plugins", "extensions", "addons", "marketplace"],
     panel: PluginManager,
   });
 
@@ -227,6 +229,7 @@ export function create_app_context(input: {
     id: "references",
     label: "References",
     icon: BookMarked,
+    keywords: ["references", "citations", "bibliography", "bibtex", "papers"],
     panel: CitationPicker,
   });
 
@@ -234,6 +237,7 @@ export function create_app_context(input: {
     id: "bases",
     label: "Bases",
     icon: Database,
+    keywords: ["bases", "database", "table", "properties", "query"],
     panel: BasesPanel,
   });
 
@@ -241,6 +245,7 @@ export function create_app_context(input: {
     id: "rag",
     label: "Chat",
     icon: MessagesSquare,
+    keywords: ["chat", "rag", "ai", "assistant", "ask"],
     panel: RagPanel,
   });
 
