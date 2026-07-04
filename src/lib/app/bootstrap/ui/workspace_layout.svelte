@@ -731,7 +731,7 @@
                         role="group"
                         aria-label="File tree mode"
                       >
-                        {#each [{ mode: "tree" as const, label: "Tree" }, { mode: "drilldown" as const, label: "Drill" }, { mode: "inbox" as const, label: "Inbox" }, { mode: "bases" as const, label: "Bases" }] as mode_tab}
+                        {#each [{ mode: "tree" as const, label: "Tree" }, { mode: "drilldown" as const, label: "Folders" }, { mode: "inbox" as const, label: "Recents" }, { mode: "bases" as const, label: "Bases" }] as mode_tab}
                           <button
                             type="button"
                             aria-pressed={(stores.ui.editor_settings
