@@ -1,6 +1,10 @@
 import type { VaultPort } from "$lib/features/vault/ports";
 import type { NotesPort, FolderStats } from "$lib/features/note/ports";
-import type { WorkspaceIndexPort } from "$lib/features/search/ports";
+import type {
+  SearchPort,
+  WorkspaceIndexPort,
+} from "$lib/features/search/ports";
+import type { FileCache } from "$lib/features/metadata";
 import type {
   VaultId,
   VaultPath,
@@ -633,6 +637,60 @@ export function create_mock_watcher_port(): WatcherPort & {
     },
   };
   return mock;
+}
+
+export function create_mock_search_port(): SearchPort {
+  return {
+    search_notes: () => Promise.resolve([]),
+    suggest_wiki_links: () => Promise.resolve([]),
+    suggest_planned_links: () => Promise.resolve([]),
+    get_note_links_snapshot: () =>
+      Promise.resolve({
+        backlinks: [],
+        outlinks: [],
+        orphan_links: [],
+        attachments: [],
+      }),
+    extract_local_note_links: () =>
+      Promise.resolve({ outlink_paths: [], external_links: [] }),
+    rewrite_note_links: (markdown: string) =>
+      Promise.resolve({ markdown, changed: false }),
+    resolve_note_link: () => Promise.resolve(null),
+    resolve_wiki_link: () => Promise.resolve(null),
+    find_similar_notes: () => Promise.resolve([]),
+    semantic_search: () => Promise.resolve([]),
+    hybrid_search: () => Promise.resolve([]),
+    search_blocks: () => Promise.resolve([]),
+    semantic_search_batch: () => Promise.resolve([]),
+    get_embedding_status: () =>
+      Promise.resolve({
+        total_notes: 0,
+        embedded_notes: 0,
+        model_version: "unavailable",
+        is_embedding: false,
+      }),
+    rebuild_embeddings: () => Promise.resolve(),
+    get_note_stats: () =>
+      Promise.resolve({
+        word_count: 0,
+        char_count: 0,
+        heading_count: 0,
+        outlink_count: 0,
+        reading_time_secs: 0,
+        task_count: 0,
+        tasks_done: 0,
+        tasks_todo: 0,
+        next_due_date: null,
+        last_indexed_at: 0,
+      }),
+    get_indexed_body: () => Promise.resolve(null),
+    get_file_cache: () => Promise.resolve({} as FileCache),
+    search_headings: () => Promise.resolve([]),
+    load_smart_link_rules: () => Promise.resolve([]),
+    save_smart_link_rules: () => Promise.resolve(),
+    compute_smart_link_suggestions: () => Promise.resolve([]),
+    compute_smart_link_vault_edges: () => Promise.resolve([]),
+  };
 }
 
 export function create_mock_saved_query_port() {
