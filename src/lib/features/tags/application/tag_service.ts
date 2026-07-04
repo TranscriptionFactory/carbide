@@ -1,12 +1,19 @@
 import type { TagPort } from "../ports";
 import type { TagStore } from "../state/tag_store.svelte";
-import type { VaultStore } from "$lib/features/vault";
+import type { VaultSettingsPort, VaultStore } from "$lib/features/vault";
+import {
+  TAG_COLORS_SETTING_KEY,
+  sanitize_tag_colors,
+  with_tag_color,
+  without_tag_color,
+} from "../domain/tag_colors";
 
 export class TagService {
   constructor(
     private readonly port: TagPort,
     private readonly store: TagStore,
     private readonly vault_store: VaultStore,
+    private readonly vault_settings_port?: VaultSettingsPort,
   ) {}
 
   async refresh_tags() {
@@ -22,6 +29,47 @@ export class TagService {
       this.store.set_error(e instanceof Error ? e.message : String(e));
     } finally {
       this.store.set_loading(false);
+    }
+  }
+
+  async load_tag_colors() {
+    const vault = this.vault_store.vault;
+    if (!vault || !this.vault_settings_port) return;
+    try {
+      const raw = await this.vault_settings_port.get_vault_setting<unknown>(
+        vault.id,
+        TAG_COLORS_SETTING_KEY,
+      );
+      this.store.set_tag_colors(sanitize_tag_colors(raw));
+    } catch (e) {
+      this.store.set_error(e instanceof Error ? e.message : String(e));
+    }
+  }
+
+  async set_tag_color(tag: string, color: string) {
+    const next = with_tag_color(this.store.tag_colors, tag, color);
+    if (!next || next === this.store.tag_colors) return;
+    await this.persist_tag_colors(next);
+  }
+
+  async clear_tag_color(tag: string) {
+    const next = without_tag_color(this.store.tag_colors, tag);
+    if (next === this.store.tag_colors) return;
+    await this.persist_tag_colors(next);
+  }
+
+  private async persist_tag_colors(next: Record<string, string>) {
+    const vault = this.vault_store.vault;
+    if (!vault || !this.vault_settings_port) return;
+    this.store.set_tag_colors(next);
+    try {
+      await this.vault_settings_port.set_vault_setting(
+        vault.id,
+        TAG_COLORS_SETTING_KEY,
+        next,
+      );
+    } catch (e) {
+      this.store.set_error(e instanceof Error ? e.message : String(e));
     }
   }
 
