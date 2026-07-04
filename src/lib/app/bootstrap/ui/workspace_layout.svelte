@@ -1242,6 +1242,13 @@
           void action_registry.execute(ACTION_IDS.vim_nav_cheatsheet_toggle)}
         {html_trust_level}
         on_html_trust_click={open_trust_panel}
+        bottom_panel_open={stores.ui.bottom_panel_open}
+        bottom_panel_tab={stores.ui.bottom_panel_tab}
+        on_panel_tab_click={(tab) =>
+          void action_registry.execute(
+            ACTION_IDS.ui_toggle_bottom_panel_tab,
+            tab,
+          )}
       />
     {/if}
 

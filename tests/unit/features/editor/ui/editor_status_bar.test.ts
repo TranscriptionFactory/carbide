@@ -73,6 +73,9 @@ function render_editor_status_bar(props?: {
       on_vim_nav_cheatsheet: vi.fn(),
       html_trust_level: null,
       on_html_trust_click: vi.fn(),
+      bottom_panel_open: false,
+      bottom_panel_tab: "terminal",
+      on_panel_tab_click: vi.fn(),
     },
   });
 
