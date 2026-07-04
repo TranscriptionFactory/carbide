@@ -163,38 +163,10 @@
       void action_registry.execute(ACTION_IDS.tab_close, tab_id);
     }
   }
-
-  function handle_bar_dragover(event: DragEvent) {
-    if (!event.dataTransfer) return;
-    if (event.dataTransfer.types.includes(DRAG_MIME.SPLIT_PANE)) {
-      event.preventDefault();
-      event.dataTransfer.dropEffect = "move";
-    }
-  }
-
-  function handle_bar_drop(event: DragEvent) {
-    if (!event.dataTransfer) return;
-    const split_pane_path = event.dataTransfer.getData(DRAG_MIME.SPLIT_PANE);
-    if (split_pane_path) {
-      event.preventDefault();
-      stores.tab.unseat_secondary();
-      void action_registry.execute(ACTION_IDS.note_open, {
-        note_path: split_pane_path,
-        cleanup_if_missing: false,
-      });
-    }
-  }
 </script>
 
 {#if tabs.length > 0}
-  <div
-    class="TabBar"
-    role="tablist"
-    tabindex="0"
-    aria-label="Open tabs"
-    ondragover={handle_bar_dragover}
-    ondrop={handle_bar_drop}
-  >
+  <div class="TabBar" role="tablist" tabindex="0" aria-label="Open tabs">
     {#if can_scroll_left}
       <button
         type="button"
@@ -365,20 +337,40 @@
               >
                 Reveal in File Tree
               </ContextMenu.Item>
-              <ContextMenu.Item
-                disabled={tab.kind !== "note"}
-                onSelect={() => {
-                  if (tab.kind === "note") {
+              {#if is_secondary}
+                <ContextMenu.Item
+                  onSelect={() =>
+                    void action_registry.execute(ACTION_IDS.tab_toggle_split)}
+                >
+                  <Columns2 class="mr-2 h-4 w-4" />
+                  Unsplit
+                </ContextMenu.Item>
+              {:else}
+                <ContextMenu.Item
+                  disabled={tab.kind !== "note"}
+                  onSelect={() => {
+                    if (tab.kind === "note") {
+                      void action_registry.execute(
+                        ACTION_IDS.tab_open_to_side,
+                        tab.note_path,
+                      );
+                    }
+                  }}
+                >
+                  <Columns2 class="mr-2 h-4 w-4" />
+                  Open to Side
+                </ContextMenu.Item>
+              {/if}
+              {#if stores.tab.is_split}
+                <ContextMenu.Item
+                  onSelect={() =>
                     void action_registry.execute(
-                      ACTION_IDS.tab_open_to_side,
-                      tab.note_path,
-                    );
-                  }
-                }}
-              >
-                <Columns2 class="mr-2 h-4 w-4" />
-                Open to Side
-              </ContextMenu.Item>
+                      ACTION_IDS.tab_toggle_split_direction,
+                    )}
+                >
+                  Toggle Split Direction
+                </ContextMenu.Item>
+              {/if}
               {#if tab.kind === "document" || tab.kind === "note"}
                 <ContextMenu.Item
                   onSelect={() => {
