@@ -8,6 +8,7 @@ import { create_recent_notes_persist_reactor } from "$lib/reactors/recent_notes_
 import { create_starred_persist_reactor } from "$lib/reactors/starred_persist.reactor.svelte";
 import { create_tab_dirty_sync_reactor } from "$lib/reactors/tab_dirty_sync.reactor.svelte";
 import { create_tab_persist_reactor } from "$lib/reactors/tab_persist.reactor.svelte";
+import { create_secondary_note_load_reactor } from "$lib/reactors/secondary_note_load.reactor.svelte";
 import { create_git_autocommit_reactor } from "$lib/reactors/git_autocommit.reactor.svelte";
 import { create_git_auto_fetch_reactor } from "$lib/reactors/git_auto_fetch.reactor.svelte";
 import { create_recent_commands_persist_reactor } from "$lib/reactors/recent_commands_persist.reactor.svelte";
@@ -236,6 +237,7 @@ export function mount_reactors(context: ReactorContext): ReactorHandles {
       context.vault_store,
       context.tab_service,
     ),
+    create_secondary_note_load_reactor(context.tab_store, context.tab_service),
     create_git_autocommit_reactor(
       context.editor_store,
       context.git_store,

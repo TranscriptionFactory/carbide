@@ -6,6 +6,7 @@ import type { NoteService } from "$lib/features/note";
 import type { Tab, PersistedTabState } from "$lib/features/tab/types/tab";
 import type { NotePath, VaultId } from "$lib/shared/types/ids";
 import { note_name_from_path } from "$lib/shared/utils/path";
+import { to_open_note_state } from "$lib/shared/types/editor";
 import { create_logger } from "$lib/shared/utils/logger";
 import { GRAPH_TAB_ID, GRAPH_TAB_TITLE } from "$lib/features/graph";
 import { BASES_TAB_ID, BASES_TAB_TITLE } from "$lib/features/bases";
@@ -14,6 +15,8 @@ const log = create_logger("tab_service");
 const TABS_KEY = "open_tabs";
 
 export class TabService {
+  private secondary_load_path: NotePath | null = null;
+
   constructor(
     private readonly vault_settings_port: VaultSettingsPort,
     private readonly vault_store: VaultStore,
@@ -182,6 +185,36 @@ export class TabService {
 
   remove_tab(note_path: NotePath) {
     this.tab_store.remove_tab_by_path(note_path);
+  }
+
+  async load_secondary_note(): Promise<void> {
+    const vault_id = this.get_active_vault_id();
+    if (!vault_id) return;
+
+    const secondary = this.tab_store.secondary_tab;
+    if (!secondary || secondary.kind !== "note") return;
+    if (this.tab_store.get_cached_note(secondary.id)) return;
+    if (this.secondary_load_path === secondary.note_path) return;
+
+    this.secondary_load_path = secondary.note_path;
+    try {
+      const doc = await this.note_service.read_note(
+        vault_id,
+        secondary.note_path,
+      );
+      const current = this.tab_store.secondary_tab;
+      if (!current || current.id !== secondary.id) return;
+      if (this.tab_store.get_cached_note(secondary.id)) return;
+      this.tab_store.set_cached_note(secondary.id, to_open_note_state(doc));
+    } catch (error) {
+      log.error("Load secondary note failed", {
+        note_path: secondary.note_path,
+        error,
+      });
+      this.tab_store.unseat_secondary();
+    } finally {
+      this.secondary_load_path = null;
+    }
   }
 
   async load_tabs(): Promise<PersistedTabState | null> {
