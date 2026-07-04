@@ -66,8 +66,8 @@ function create_harness() {
       apply_ai_output: vi.fn().mockReturnValue(true),
     },
     document: {
-      get_html_source_context: vi.fn().mockReturnValue(null),
-      apply_html_source_output: vi.fn().mockReturnValue(true),
+      get_document_ai_context: vi.fn().mockReturnValue(null),
+      apply_document_ai_output: vi.fn().mockReturnValue(true),
     },
     clipboard: {},
     shell: {},
@@ -341,56 +341,85 @@ describe("register_ai_actions", () => {
     );
   });
 
-  describe("html document tab", () => {
-    function open_html_tab(
+  describe("document tab", () => {
+    function open_document_tab(
       stores: ReturnType<typeof create_harness>["stores"],
+      overrides?: { id?: string; file_path?: string; file_type?: string },
     ) {
       stores.tab.set_dirty = vi.fn();
       Object.defineProperty(stores.tab, "active_tab", {
         configurable: true,
         get: () => ({
-          id: "tab-html",
+          id: overrides?.id ?? "tab-html",
           kind: "document",
-          file_path: "notes/chart.html",
-          file_type: "html",
+          file_path: overrides?.file_path ?? "notes/chart.html",
+          file_type: overrides?.file_type ?? "html",
         }),
       });
     }
 
-    it("opens an html_document AI session when an html tab is active", async () => {
+    it("opens a document AI session when an html tab is active", async () => {
       const { registry, stores, services, ai_store } = create_harness();
-      open_html_tab(stores);
-      services.document.get_html_source_context = vi.fn().mockReturnValue({
+      open_document_tab(stores);
+      services.document.get_document_ai_context = vi.fn().mockReturnValue({
         tab_id: "tab-html",
         file_path: "notes/chart.html",
         file_title: "chart",
-        html: "<p>x</p>",
+        content: "<p>x</p>",
       });
 
       await registry.execute(ACTION_IDS.ai_open_assistant);
 
-      expect(services.document.get_html_source_context).toHaveBeenCalledWith(
+      expect(services.document.get_document_ai_context).toHaveBeenCalledWith(
         "tab-html",
       );
       expect(ai_store.dialog.open).toBe(true);
       const ctx = ai_store.dialog.context;
-      expect(ctx?.kind).toBe("html_document");
-      if (ctx?.kind === "html_document") {
+      expect(ctx?.kind).toBe("document");
+      if (ctx?.kind === "document") {
         expect(ctx.tab_id).toBe("tab-html");
         expect(ctx.file_title).toBe("chart");
-        expect(ctx.html).toBe("<p>x</p>");
+        expect(ctx.content).toBe("<p>x</p>");
       }
       expect(ai_store.dialog.vault_context_enabled).toBe(false);
     });
 
+    it("opens a document AI session when a text tab is active", async () => {
+      const { registry, stores, services, ai_store } = create_harness();
+      open_document_tab(stores, {
+        id: "tab-text",
+        file_path: "scripts/build.py",
+        file_type: "text",
+      });
+      services.document.get_document_ai_context = vi.fn().mockReturnValue({
+        tab_id: "tab-text",
+        file_path: "scripts/build.py",
+        file_title: "build",
+        content: "print('x')",
+      });
+
+      await registry.execute(ACTION_IDS.ai_open_assistant);
+
+      expect(services.document.get_document_ai_context).toHaveBeenCalledWith(
+        "tab-text",
+      );
+      expect(ai_store.dialog.open).toBe(true);
+      const ctx = ai_store.dialog.context;
+      expect(ctx?.kind).toBe("document");
+      if (ctx?.kind === "document") {
+        expect(ctx.file_path).toBe("scripts/build.py");
+        expect(ctx.content).toBe("print('x')");
+      }
+    });
+
     it("applies AI output through document_service and marks the tab dirty", async () => {
       const { registry, stores, services, ai_service } = create_harness();
-      open_html_tab(stores);
-      services.document.get_html_source_context = vi.fn().mockReturnValue({
+      open_document_tab(stores);
+      services.document.get_document_ai_context = vi.fn().mockReturnValue({
         tab_id: "tab-html",
         file_path: "notes/chart.html",
         file_title: "chart",
-        html: "<p>x</p>",
+        content: "<p>x</p>",
       });
       ai_service.execute = vi.fn().mockResolvedValue({
         success: true,
@@ -403,7 +432,7 @@ describe("register_ai_actions", () => {
       await registry.execute(ACTION_IDS.ai_execute);
       await registry.execute(ACTION_IDS.ai_apply_result);
 
-      expect(services.document.apply_html_source_output).toHaveBeenCalledWith(
+      expect(services.document.apply_document_ai_output).toHaveBeenCalledWith(
         "tab-html",
         "<p>y</p>",
       );

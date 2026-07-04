@@ -616,10 +616,12 @@ describe("DocumentService", () => {
     });
   });
 
-  describe("get_html_source_context", () => {
-    function setup_html_doc(
+  describe("get_document_ai_context", () => {
+    function setup_doc(
+      tab_id: string,
       file_path: string,
-      content: string,
+      file_type: "html" | "text" | "csv",
+      content: string | null,
       html_view_mode: "source" | "safe" | "live" = "source",
     ) {
       const document_store = new DocumentStore();
@@ -631,129 +633,127 @@ describe("DocumentService", () => {
         vault_store,
         document_store,
       );
-      document_store.set_viewer_state("tab-html", {
-        tab_id: "tab-html",
+      document_store.set_viewer_state(tab_id, {
+        tab_id,
         file_path,
-        file_type: "html",
+        file_type,
         zoom: 1,
         scroll_top: 0,
         pdf_page: 1,
         cfi: null,
         html_view_mode,
-        load_status: "ready",
+        load_status: content === null ? "loading" : "ready",
         error_message: null,
       });
-      document_store.set_content_state("tab-html", {
-        tab_id: "tab-html",
-        file_path,
-        file_type: "html",
-        status: "ready",
-        error_message: null,
-        content,
-        edited_content: null,
-        is_dirty: false,
-        buffer_id: null,
-        line_count: content.split("\n").length,
-        asset_url: null,
-        last_accessed_at: 0,
-        pdf_metadata: null,
-      });
+      if (content !== null) {
+        document_store.set_content_state(tab_id, {
+          tab_id,
+          file_path,
+          file_type,
+          status: "ready",
+          error_message: null,
+          content,
+          edited_content: null,
+          is_dirty: false,
+          buffer_id: null,
+          line_count: content.split("\n").length,
+          asset_url: null,
+          last_accessed_at: 0,
+          pdf_metadata: null,
+        });
+      }
       return { service, document_store };
     }
 
-    it("returns an html context for a Source-mode html document", () => {
-      const { service } = setup_html_doc(
+    it("returns a context for an html document", () => {
+      const { service } = setup_doc(
+        "tab-html",
         "notes/chart.html",
+        "html",
         "<html><body>x</body></html>",
       );
 
-      const ctx = service.get_html_source_context("tab-html");
+      const ctx = service.get_document_ai_context("tab-html");
 
       expect(ctx).toEqual({
         tab_id: "tab-html",
         file_path: "notes/chart.html",
         file_title: "chart",
-        html: "<html><body>x</body></html>",
+        content: "<html><body>x</body></html>",
+      });
+    });
+
+    it("returns a context for an html document in Live mode", () => {
+      const { service } = setup_doc(
+        "tab-html",
+        "notes/chart.html",
+        "html",
+        "<p>x</p>",
+        "live",
+      );
+
+      expect(service.get_document_ai_context("tab-html")?.content).toBe(
+        "<p>x</p>",
+      );
+    });
+
+    it("returns a context for a text document", () => {
+      const { service } = setup_doc(
+        "tab-text",
+        "scripts/build.py",
+        "text",
+        "print('x')",
+      );
+
+      const ctx = service.get_document_ai_context("tab-text");
+
+      expect(ctx).toEqual({
+        tab_id: "tab-text",
+        file_path: "scripts/build.py",
+        file_title: "build",
+        content: "print('x')",
       });
     });
 
     it("prefers edited_content over content", () => {
-      const { service, document_store } = setup_html_doc(
+      const { service, document_store } = setup_doc(
+        "tab-html",
         "notes/chart.html",
+        "html",
         "<p>old</p>",
       );
       document_store.set_edited_content("tab-html", "<p>new</p>");
 
-      const ctx = service.get_html_source_context("tab-html");
+      const ctx = service.get_document_ai_context("tab-html");
 
-      expect(ctx?.html).toBe("<p>new</p>");
+      expect(ctx?.content).toBe("<p>new</p>");
     });
 
-    it("returns null when the document is not in Source mode", () => {
-      const { service } = setup_html_doc(
-        "notes/chart.html",
-        "<p>x</p>",
-        "safe",
-      );
+    it("returns null for non-editable document types", () => {
+      const { service } = setup_doc("tab-csv", "data/rows.csv", "csv", "a,b");
 
-      expect(service.get_html_source_context("tab-html")).toBeNull();
-    });
-
-    it("returns null for non-html documents", () => {
-      const document_store = new DocumentStore();
-      const vault_store = new VaultStore();
-      vault_store.vault = create_test_vault();
-      const document_port = create_document_port();
-      const service = new DocumentService(
-        document_port,
-        vault_store,
-        document_store,
-      );
-      document_store.set_viewer_state("tab-text", {
-        tab_id: "tab-text",
-        file_path: "notes/readme.txt",
-        file_type: "text",
-        zoom: 1,
-        scroll_top: 0,
-        pdf_page: 1,
-        cfi: null,
-        html_view_mode: "source",
-        load_status: "ready",
-        error_message: null,
-      });
-
-      expect(service.get_html_source_context("tab-text")).toBeNull();
+      expect(service.get_document_ai_context("tab-csv")).toBeNull();
     });
 
     it("returns null when content has not loaded", () => {
-      const document_store = new DocumentStore();
-      const vault_store = new VaultStore();
-      vault_store.vault = create_test_vault();
-      const document_port = create_document_port();
-      const service = new DocumentService(
-        document_port,
-        vault_store,
-        document_store,
+      const { service } = setup_doc(
+        "tab-html",
+        "notes/chart.html",
+        "html",
+        null,
       );
-      document_store.set_viewer_state("tab-html", {
-        tab_id: "tab-html",
-        file_path: "notes/chart.html",
-        file_type: "html",
-        zoom: 1,
-        scroll_top: 0,
-        pdf_page: 1,
-        cfi: null,
-        html_view_mode: "source",
-        load_status: "loading",
-        error_message: null,
-      });
 
-      expect(service.get_html_source_context("tab-html")).toBeNull();
+      expect(service.get_document_ai_context("tab-html")).toBeNull();
     });
   });
 
-  describe("apply_html_source_output", () => {
-    function setup_html_doc(file_path: string, content: string) {
+  describe("apply_document_ai_output", () => {
+    function setup_doc(
+      tab_id: string,
+      file_path: string,
+      file_type: "html" | "text",
+      content: string,
+    ) {
       const document_store = new DocumentStore();
       const vault_store = new VaultStore();
       vault_store.vault = create_test_vault();
@@ -763,10 +763,10 @@ describe("DocumentService", () => {
         vault_store,
         document_store,
       );
-      document_store.set_viewer_state("tab-html", {
-        tab_id: "tab-html",
+      document_store.set_viewer_state(tab_id, {
+        tab_id,
         file_path,
-        file_type: "html",
+        file_type,
         zoom: 1,
         scroll_top: 0,
         pdf_page: 1,
@@ -775,10 +775,10 @@ describe("DocumentService", () => {
         load_status: "ready",
         error_message: null,
       });
-      document_store.set_content_state("tab-html", {
-        tab_id: "tab-html",
+      document_store.set_content_state(tab_id, {
+        tab_id,
         file_path,
-        file_type: "html",
+        file_type,
         status: "ready",
         error_message: null,
         content,
@@ -794,12 +794,14 @@ describe("DocumentService", () => {
     }
 
     it("writes through document_store.set_edited_content and marks dirty", () => {
-      const { service, document_store } = setup_html_doc(
+      const { service, document_store } = setup_doc(
+        "tab-html",
         "notes/chart.html",
+        "html",
         "<p>old</p>",
       );
 
-      const applied = service.apply_html_source_output(
+      const applied = service.apply_document_ai_output(
         "tab-html",
         "<p>new</p>",
       );
@@ -810,7 +812,26 @@ describe("DocumentService", () => {
       expect(state?.is_dirty).toBe(true);
     });
 
-    it("returns false when the tab is not an html document", () => {
+    it("applies output to a text document", () => {
+      const { service, document_store } = setup_doc(
+        "tab-text",
+        "scripts/build.py",
+        "text",
+        "print('x')",
+      );
+
+      const applied = service.apply_document_ai_output(
+        "tab-text",
+        "print('y')",
+      );
+
+      expect(applied).toBe(true);
+      expect(document_store.get_content_state("tab-text")?.edited_content).toBe(
+        "print('y')",
+      );
+    });
+
+    it("returns false when the tab is not an editable document", () => {
       const document_store = new DocumentStore();
       const vault_store = new VaultStore();
       vault_store.vault = create_test_vault();
@@ -821,7 +842,7 @@ describe("DocumentService", () => {
         document_store,
       );
 
-      expect(service.apply_html_source_output("missing-tab", "<p>x</p>")).toBe(
+      expect(service.apply_document_ai_output("missing-tab", "<p>x</p>")).toBe(
         false,
       );
     });

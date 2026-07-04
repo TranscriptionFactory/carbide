@@ -62,14 +62,6 @@ fn validate_note_path(vault_path: &str, note_path: &str) -> Result<(), String> {
         }
     }
 
-    let extension = note_path_buf
-        .extension()
-        .and_then(|value| value.to_str())
-        .unwrap_or("");
-    if !extension.eq_ignore_ascii_case("md") && !extension.eq_ignore_ascii_case("markdown") {
-        return Err("AI editing is only supported for markdown files".to_string());
-    }
-
     let joined = vault_root.join(note_path_buf);
     if !joined.starts_with(&vault_root) {
         return Err("Note path must stay inside the vault".to_string());

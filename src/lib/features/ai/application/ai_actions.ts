@@ -119,15 +119,15 @@ export function register_ai_actions(
 
   function resolve_dialog_context(): AiDialogContext | null {
     const active_tab = input.stores.tab.active_tab;
-    if (active_tab?.kind === "document" && active_tab.file_type === "html") {
-      const html_ctx = services.document.get_html_source_context(active_tab.id);
-      if (html_ctx) {
+    if (active_tab?.kind === "document") {
+      const doc_ctx = services.document.get_document_ai_context(active_tab.id);
+      if (doc_ctx) {
         return {
-          kind: "html_document",
-          tab_id: html_ctx.tab_id,
-          file_path: html_ctx.file_path,
-          file_title: html_ctx.file_title,
-          html: html_ctx.html,
+          kind: "document",
+          tab_id: doc_ctx.tab_id,
+          file_path: doc_ctx.file_path,
+          file_title: doc_ctx.file_title,
+          content: doc_ctx.content,
           target: "full_note",
         };
       }
@@ -158,9 +158,7 @@ export function register_ai_actions(
         input.stores.ui.bottom_panel_open = true;
         return;
       }
-      toast.info(
-        "Open a note or HTML document (Source mode) to use AI editing",
-      );
+      toast.info("Open a note or an editable document to use AI editing");
       return;
     }
 
@@ -217,7 +215,7 @@ export function register_ai_actions(
     }
 
     const vault_context_enabled =
-      context.kind === "html_document"
+      context.kind === "document"
         ? false
         : input.stores.ui.editor_settings.ai_vault_context_enabled;
 
@@ -365,7 +363,7 @@ export function register_ai_actions(
       if (dialog.cli_status !== "available") return;
       if (dialog.prompt.trim() === "") {
         const subject =
-          dialog.context.kind === "html_document" ? "document" : "note";
+          dialog.context.kind === "document" ? "document" : "note";
         toast.info(
           dialog.mode === "ask"
             ? `Type a question about the ${subject}`
@@ -435,8 +433,8 @@ export function register_ai_actions(
 
       const ctx = dialog.context;
       let applied: boolean;
-      if (ctx.kind === "html_document") {
-        applied = services.document.apply_html_source_output(
+      if (ctx.kind === "document") {
+        applied = services.document.apply_document_ai_output(
           ctx.tab_id,
           output,
         );

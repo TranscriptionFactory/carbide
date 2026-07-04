@@ -20,16 +20,16 @@ type AiDialogNoteContext = {
   target: AiApplyTarget;
 };
 
-type AiDialogHtmlContext = {
-  kind: "html_document";
+type AiDialogDocumentContext = {
+  kind: "document";
   tab_id: string;
   file_path: string;
   file_title: string;
-  html: string;
+  content: string;
   target: "full_note";
 };
 
-type AiDialogContext = AiDialogNoteContext | AiDialogHtmlContext;
+type AiDialogContext = AiDialogNoteContext | AiDialogDocumentContext;
 
 type AiConversationTurn = {
   id: number;
@@ -119,7 +119,7 @@ export class AiStore {
       return;
     }
 
-    if (context.kind === "html_document") {
+    if (context.kind === "document") {
       this.dialog.context = context;
       return;
     }

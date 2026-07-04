@@ -14,7 +14,7 @@ import type {
 } from "$lib/features/ai/domain/ai_types";
 import { provider_command } from "$lib/features/ai/domain/ai_types";
 import {
-  build_ai_html_prompt,
+  build_ai_document_prompt,
   build_ai_prompt,
 } from "$lib/features/ai/domain/ai_prompt_builder";
 import { as_note_path } from "$lib/shared/types/ids";
@@ -121,11 +121,11 @@ export class AiService {
     let working_path: string;
     let subject: "note" | "document";
 
-    if (context.kind === "html_document") {
-      prompt = build_ai_html_prompt({
+    if (context.kind === "document") {
+      prompt = build_ai_document_prompt({
         file_path: context.file_path,
         file_title: context.file_title,
-        html: context.html,
+        content: context.content,
         user_prompt: input.prompt,
         mode: input.mode,
       });

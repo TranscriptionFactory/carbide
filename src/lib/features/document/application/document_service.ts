@@ -9,7 +9,10 @@ import type {
 } from "$lib/features/document/ports";
 import type { DocumentStore } from "$lib/features/document/state/document_store.svelte";
 import type { DocumentContentState } from "$lib/features/document/state/document_store.svelte";
-import type { DocumentFileType } from "$lib/features/document/types/document";
+import {
+  is_editable_type,
+  type DocumentFileType,
+} from "$lib/features/document/types/document";
 import type { VaultStore } from "$lib/features/vault";
 import {
   render_note_to_html,
@@ -27,20 +30,21 @@ import {
 
 const DEFAULT_INACTIVE_CONTENT_LIMIT = 3;
 
-export type HtmlSourceContext = {
+export type DocumentAiContext = {
   tab_id: string;
   file_path: string;
   file_title: string;
-  html: string;
+  content: string;
 };
 
 function needs_text_content(file_type: DocumentFileType): boolean {
   return file_type === "text" || file_type === "html" || file_type === "csv";
 }
 
-function derive_html_title(file_path: string): string {
+function derive_document_title(file_path: string): string {
   const basename = file_path.split("/").pop() ?? file_path;
-  const without_ext = basename.replace(/\.html?$/i, "");
+  const dot_index = basename.lastIndexOf(".");
+  const without_ext = dot_index > 0 ? basename.slice(0, dot_index) : basename;
   return without_ext || basename;
 }
 
@@ -323,23 +327,22 @@ export class DocumentService {
     }
   }
 
-  get_html_source_context(tab_id: string): HtmlSourceContext | null {
+  get_document_ai_context(tab_id: string): DocumentAiContext | null {
     const viewer = this.document_store.get_viewer_state(tab_id);
-    if (!viewer || viewer.file_type !== "html") return null;
-    if (viewer.html_view_mode !== "source") return null;
-    const html = this.document_store.get_current_content(tab_id);
-    if (html === null) return null;
+    if (!viewer || !is_editable_type(viewer.file_type)) return null;
+    const content = this.document_store.get_current_content(tab_id);
+    if (content === null) return null;
     return {
       tab_id,
       file_path: viewer.file_path,
-      file_title: derive_html_title(viewer.file_path),
-      html,
+      file_title: derive_document_title(viewer.file_path),
+      content,
     };
   }
 
-  apply_html_source_output(tab_id: string, output: string): boolean {
+  apply_document_ai_output(tab_id: string, output: string): boolean {
     const viewer = this.document_store.get_viewer_state(tab_id);
-    if (!viewer || viewer.file_type !== "html") return false;
+    if (!viewer || !is_editable_type(viewer.file_type)) return false;
     this.document_store.set_edited_content(tab_id, output);
     return true;
   }
