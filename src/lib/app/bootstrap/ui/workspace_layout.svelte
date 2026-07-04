@@ -726,51 +726,12 @@
                     hidden={stores.ui.sidebar_view !== "explorer"}
                   >
                     <Sidebar.GroupContent class="h-full flex flex-col min-h-0">
-                      <BasesRailSection />
-                      <TypesRailSection
-                        sections={build_type_sections(
-                          stores.types.backend_types,
-                          stores.types.definitions,
-                        )}
-                        active_type={stores.types.active_type}
-                        on_select={(name) =>
-                          void action_registry.execute(
-                            ACTION_IDS.types_select,
-                            name,
-                          )}
-                        on_create={() =>
-                          void action_registry.execute(ACTION_IDS.types_create)}
-                        on_toggle_visibility={(section) =>
-                          void action_registry.execute(
-                            ACTION_IDS.types_set_visibility,
-                            section.name,
-                            !section.visible,
-                          )}
-                        on_rename={(section, label) =>
-                          void action_registry.execute(
-                            ACTION_IDS.types_rename,
-                            section.name,
-                            label,
-                          )}
-                        on_customize={(section) =>
-                          void action_registry.execute(
-                            ACTION_IDS.types_set_icon_color,
-                            section.name,
-                            section.icon,
-                            section.color,
-                          )}
-                        on_delete={(section) =>
-                          void action_registry.execute(
-                            ACTION_IDS.types_select,
-                            section.name,
-                          )}
-                      />
                       <div
                         class="flex items-center border-b border-zinc-200 dark:border-zinc-800 px-1 shrink-0"
                         role="group"
                         aria-label="File tree mode"
                       >
-                        {#each [{ mode: "tree" as const, label: "Tree" }, { mode: "drilldown" as const, label: "Drill" }, { mode: "inbox" as const, label: "Inbox" }] as mode_tab}
+                        {#each [{ mode: "tree" as const, label: "Tree" }, { mode: "drilldown" as const, label: "Drill" }, { mode: "inbox" as const, label: "Inbox" }, { mode: "bases" as const, label: "Bases" }] as mode_tab}
                           <button
                             type="button"
                             aria-pressed={(stores.ui.editor_settings
@@ -790,7 +751,57 @@
                           </button>
                         {/each}
                       </div>
-                      {#if stores.ui.editor_settings.file_tree_mode === "inbox"}
+                      {#if stores.ui.editor_settings.file_tree_mode === "bases"}
+                        <div class="flex-1 min-h-0 overflow-y-auto">
+                          <BasesRailSection />
+                          <TypesRailSection
+                            sections={build_type_sections(
+                              stores.types.backend_types,
+                              stores.types.definitions,
+                            )}
+                            active_type={stores.types.active_type}
+                            on_select={(name) =>
+                              void action_registry.execute(
+                                ACTION_IDS.types_select,
+                                name,
+                              )}
+                            on_create={() =>
+                              void action_registry.execute(
+                                ACTION_IDS.types_create,
+                              )}
+                            on_toggle_visibility={(section) =>
+                              void action_registry.execute(
+                                ACTION_IDS.types_set_visibility,
+                                section.path,
+                                !section.visible,
+                              )}
+                            on_rename={(section, label) =>
+                              void action_registry.execute(
+                                ACTION_IDS.types_rename,
+                                section.path,
+                                label,
+                              )}
+                            on_customize={(section) =>
+                              void action_registry.execute(
+                                ACTION_IDS.types_set_icon_color,
+                                section.path,
+                                section.icon,
+                                section.color,
+                              )}
+                            on_delete={(section) => {
+                              const note = stores.notes.notes.find(
+                                (n) => n.path === section.path,
+                              );
+                              if (note) {
+                                void action_registry.execute(
+                                  ACTION_IDS.note_request_delete,
+                                  note,
+                                );
+                              }
+                            }}
+                          />
+                        </div>
+                      {:else if stores.ui.editor_settings.file_tree_mode === "inbox"}
                         <!-- svelte-ignore a11y_no_static_element_interactions -->
                         <div
                           class="flex-1 min-h-0"

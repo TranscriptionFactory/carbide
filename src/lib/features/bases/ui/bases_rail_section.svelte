@@ -86,7 +86,16 @@
   {#if expanded}
     <div class="px-1 pb-1 space-y-0.5">
       {#if stores.bases.saved_views.length === 0}
-        <p class="text-xs text-zinc-500 px-2 py-2">No saved views yet.</p>
+        <div class="px-2 py-2 space-y-1">
+          <p class="text-xs text-zinc-500">No bases views created yet.</p>
+          <button
+            type="button"
+            class="text-xs text-blue-500 hover:text-blue-600"
+            onclick={create_view}
+          >
+            Create a view
+          </button>
+        </div>
       {:else}
         {#each stores.bases.saved_views as view (view.path)}
           {@const icon = sanitize_icon(view.icon)}

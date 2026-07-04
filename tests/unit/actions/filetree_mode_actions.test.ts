@@ -57,7 +57,7 @@ describe("filetree_set_mode action", () => {
 
   it("does not persist when the save fails", async () => {
     const registry = new ActionRegistry();
-    let editor_settings = { file_tree_mode: "tree" } as EditorSettings;
+    const editor_settings = { file_tree_mode: "tree" } as EditorSettings;
     const set_editor_settings = vi.fn();
     const save_settings = vi.fn(async () => ({
       status: "failed" as const,
@@ -86,7 +86,7 @@ describe("filetree_set_mode action", () => {
 });
 
 describe("filetree_toggle_mode action", () => {
-  it("cycles tree -> drilldown -> inbox -> tree", async () => {
+  it("cycles tree -> drilldown -> inbox -> bases -> tree", async () => {
     const { registry, current_mode } = build_input("tree");
 
     await registry.execute(ACTION_IDS.filetree_toggle_mode);
@@ -94,6 +94,9 @@ describe("filetree_toggle_mode action", () => {
 
     await registry.execute(ACTION_IDS.filetree_toggle_mode);
     expect(current_mode()).toBe("inbox");
+
+    await registry.execute(ACTION_IDS.filetree_toggle_mode);
+    expect(current_mode()).toBe("bases");
 
     await registry.execute(ACTION_IDS.filetree_toggle_mode);
     expect(current_mode()).toBe("tree");
