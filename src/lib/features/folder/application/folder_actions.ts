@@ -574,7 +574,7 @@ export function register_folder_actions(input: ActionRegistrationInput) {
       id: ACTION_IDS.filetree_toggle_mode,
       label: "Toggle File Tree Mode",
       execute: async () => {
-        const cycle: FileTreeMode[] = ["tree", "drilldown", "inbox"];
+        const cycle: FileTreeMode[] = ["tree", "drilldown", "inbox", "bases"];
         const current = stores.ui.editor_settings.file_tree_mode ?? "tree";
         const next =
           cycle[(cycle.indexOf(current) + 1) % cycle.length] ?? "tree";

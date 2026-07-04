@@ -68,7 +68,7 @@ export type FileTreeStyle =
   | "refined";
 export type FileTreeBlurbPosition = "caption" | "heading";
 
-export type FileTreeMode = "tree" | "drilldown" | "inbox";
+export type FileTreeMode = "tree" | "drilldown" | "inbox" | "bases";
 export type InboxSort = "modified" | "created" | "title";
 export type SortDirection = "asc" | "desc";
 export type InboxPeriod = "all" | "week" | "month" | "quarter";
