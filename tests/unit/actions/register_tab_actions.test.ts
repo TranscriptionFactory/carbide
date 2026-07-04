@@ -1009,4 +1009,116 @@ describe("register_tab_actions", () => {
       expect(stores.tab.tabs).toHaveLength(0);
     });
   });
+
+  describe("tab_open_to_side content delivery", () => {
+    it("does not load the side note into the primary editor", async () => {
+      const { registry, stores, services } = create_tab_actions_harness();
+      stores.tab.open_tab(np("a.md"), "A");
+      stores.editor.set_open_note(mock_open_note("a.md"));
+
+      await registry.execute(ACTION_IDS.tab_open_to_side, "b.md");
+
+      expect(services.note.open_note).not.toHaveBeenCalled();
+      expect(stores.editor.open_note?.meta.path).toBe("a.md");
+      expect(stores.tab.secondary_tab?.id).toBe("b.md");
+      expect(stores.tab.active_pane).toBe("secondary");
+    });
+
+    it("seeds the cache when the moved tab is the open note", async () => {
+      const { registry, stores } = create_tab_actions_harness();
+      stores.tab.open_tab(np("a.md"), "A");
+      stores.tab.open_tab(np("b.md"), "B");
+      stores.editor.set_open_note({
+        ...mock_open_note("b.md"),
+        is_dirty: true,
+      });
+
+      await registry.execute(ACTION_IDS.tab_open_to_side, "b.md");
+
+      const cached = stores.tab.get_cached_note("b.md");
+      expect(cached?.meta.path).toBe("b.md");
+      expect(cached?.is_dirty).toBe(true);
+    });
+
+    it("does not seed the cache for an unrelated note", async () => {
+      const { registry, stores } = create_tab_actions_harness();
+      stores.tab.open_tab(np("a.md"), "A");
+      stores.editor.set_open_note(mock_open_note("a.md"));
+
+      await registry.execute(ACTION_IDS.tab_open_to_side, "b.md");
+
+      expect(stores.tab.get_cached_note("b.md")).toBeNull();
+    });
+  });
+
+  describe("tab_toggle_split", () => {
+    it("seeds the active note into the secondary cache when splitting", async () => {
+      const { registry, stores } = create_tab_actions_harness();
+      stores.tab.open_tab(np("a.md"), "A");
+      stores.editor.set_open_note(mock_open_note("a.md"));
+
+      await registry.execute(ACTION_IDS.tab_toggle_split);
+
+      expect(stores.tab.is_split).toBe(true);
+      expect(stores.tab.get_cached_note("a.md")?.meta.path).toBe("a.md");
+    });
+
+    it("unseats the secondary pane when already split", async () => {
+      const { registry, stores } = create_tab_actions_harness();
+      stores.tab.open_tab(np("a.md"), "A");
+      stores.editor.set_open_note(mock_open_note("a.md"));
+      await registry.execute(ACTION_IDS.tab_toggle_split);
+
+      await registry.execute(ACTION_IDS.tab_toggle_split);
+
+      expect(stores.tab.is_split).toBe(false);
+      expect(stores.tab.active_pane).toBe("primary");
+    });
+  });
+
+  describe("secondary pane activation", () => {
+    it("activating the secondary tab focuses the secondary pane without touching the primary editor", async () => {
+      const { registry, stores, services } = create_tab_actions_harness();
+      stores.tab.open_tab(np("a.md"), "A");
+      stores.tab.open_tab(np("b.md"), "B");
+      stores.tab.open_to_side(np("b.md"));
+      stores.tab.activate_tab(np("a.md"));
+      stores.tab.set_active_pane("primary");
+      stores.editor.set_open_note(mock_open_note("a.md"));
+
+      await registry.execute(ACTION_IDS.tab_activate, "b.md");
+
+      expect(stores.tab.active_pane).toBe("secondary");
+      expect(stores.editor.open_note?.meta.path).toBe("a.md");
+      expect(services.note.open_note).not.toHaveBeenCalled();
+    });
+
+    it("activating a primary tab focuses the primary pane", async () => {
+      const { registry, stores } = create_tab_actions_harness();
+      stores.tab.open_tab(np("a.md"), "A");
+      stores.tab.open_tab(np("b.md"), "B");
+      stores.tab.open_to_side(np("b.md"));
+
+      await registry.execute(ACTION_IDS.tab_activate, "a.md");
+
+      expect(stores.tab.active_pane).toBe("primary");
+    });
+  });
+
+  describe("snapshot attribution guard", () => {
+    it("does not cache the primary note under the secondary tab id", async () => {
+      const { registry, stores } = create_tab_actions_harness();
+      stores.tab.open_tab(np("a.md"), "A");
+      stores.tab.open_tab(np("b.md"), "B");
+      stores.tab.open_to_side(np("b.md"));
+      stores.editor.set_open_note({
+        ...mock_open_note("a.md"),
+        is_dirty: true,
+      });
+
+      await registry.execute(ACTION_IDS.tab_activate, "a.md");
+
+      expect(stores.tab.get_cached_note("b.md")).toBeNull();
+    });
+  });
 });

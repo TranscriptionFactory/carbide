@@ -30,7 +30,19 @@ export function register_tab_actions(input: ActionRegistrationInput) {
   async function activate_tab_and_open_note(tab_id: string) {
     await capture_active_tab_snapshot(input);
     stores.tab.activate_tab(tab_id);
+    const activated = stores.tab.active_tab;
+    if (activated) {
+      stores.tab.set_active_pane(activated.pane);
+    }
     await open_active_tab_note(input);
+  }
+
+  function seed_secondary_cache(tab: Tab) {
+    if (tab.kind !== "note") return;
+    const open_note = stores.editor.open_note;
+    if (open_note && open_note.meta.path === tab.note_path) {
+      stores.tab.set_cached_note(tab.id, { ...open_note });
+    }
   }
 
   function open_single_close_confirm(tab_id: string, tab_title: string) {
@@ -487,6 +499,7 @@ export function register_tab_actions(input: ActionRegistrationInput) {
         note_path as import("$lib/shared/types/ids").NotePath,
       );
       if (existing) {
+        seed_secondary_cache(existing);
         stores.tab.open_to_side(existing.id);
         return;
       }
@@ -498,8 +511,8 @@ export function register_tab_actions(input: ActionRegistrationInput) {
         note_path.split("/").pop()?.replace(/\.md$/, "") ?? note_path,
       );
       if (!tab) return;
+      seed_secondary_cache(tab);
       stores.tab.open_to_side(tab.id);
-      await open_active_tab_note(input);
     },
   });
 
@@ -514,6 +527,7 @@ export function register_tab_actions(input: ActionRegistrationInput) {
       }
       const active = stores.tab.active_tab;
       if (!active || active.kind !== "note") return;
+      seed_secondary_cache(active);
       stores.tab.open_to_side(active.id);
     },
   });

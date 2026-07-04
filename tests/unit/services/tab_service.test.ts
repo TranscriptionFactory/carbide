@@ -21,6 +21,7 @@ function create_setup() {
   const notes_store = new NotesStore();
   const note_service = {
     open_note: vi.fn().mockResolvedValue({ status: "opened" }),
+    read_note: vi.fn(),
   };
   const service = new TabService(
     vault_settings_port as never,
@@ -491,6 +492,82 @@ describe("TabService", () => {
       service.clear_conflict(alpha);
       expect(tab_store.has_conflict(alpha)).toBe(false);
       expect(service.has_conflict(alpha)).toBe(false);
+    });
+  });
+
+  describe("load_secondary_note", () => {
+    function mock_note_doc(path: string) {
+      return {
+        meta: {
+          id: as_note_path(path),
+          path: as_note_path(path),
+          name: path,
+          title: path.replace(".md", ""),
+          blurb: "",
+          mtime_ms: 0,
+          ctime_ms: 0,
+          size_bytes: 0,
+          file_type: null,
+        },
+        markdown: "# hello",
+      };
+    }
+
+    it("loads the secondary note into the tab cache", async () => {
+      const { service, tab_store, note_service } = create_setup();
+      const alpha = as_note_path("docs/alpha.md");
+      tab_store.open_tab(alpha, "alpha");
+      tab_store.open_to_side(alpha);
+      note_service.read_note.mockResolvedValueOnce(mock_note_doc(alpha));
+
+      await service.load_secondary_note();
+
+      expect(note_service.read_note).toHaveBeenCalledWith(
+        as_vault_id("vault-a"),
+        alpha,
+      );
+      const cached = tab_store.get_cached_note(alpha);
+      expect(cached?.markdown).toBe("# hello");
+      expect(cached?.is_dirty).toBe(false);
+    });
+
+    it("skips loading when the secondary note is already cached", async () => {
+      const { service, tab_store, note_service } = create_setup();
+      const alpha = as_note_path("docs/alpha.md");
+      tab_store.open_tab(alpha, "alpha");
+      tab_store.open_to_side(alpha);
+      tab_store.set_cached_note(alpha, {
+        ...mock_note_doc(alpha),
+        buffer_id: alpha,
+        is_dirty: true,
+      } as never);
+
+      await service.load_secondary_note();
+
+      expect(note_service.read_note).not.toHaveBeenCalled();
+      expect(tab_store.get_cached_note(alpha)?.is_dirty).toBe(true);
+    });
+
+    it("does nothing without a secondary note tab", async () => {
+      const { service, tab_store, note_service } = create_setup();
+      tab_store.open_tab(as_note_path("docs/alpha.md"), "alpha");
+
+      await service.load_secondary_note();
+
+      expect(note_service.read_note).not.toHaveBeenCalled();
+    });
+
+    it("unseats the secondary pane when the note cannot be read", async () => {
+      const { service, tab_store, note_service } = create_setup();
+      const alpha = as_note_path("docs/alpha.md");
+      tab_store.open_tab(alpha, "alpha");
+      tab_store.open_to_side(alpha);
+      note_service.read_note.mockRejectedValueOnce(new Error("not found"));
+
+      await service.load_secondary_note();
+
+      expect(tab_store.is_split).toBe(false);
+      expect(tab_store.get_cached_note(alpha)).toBeNull();
     });
   });
 

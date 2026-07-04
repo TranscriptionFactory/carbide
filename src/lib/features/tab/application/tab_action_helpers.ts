@@ -116,7 +116,12 @@ export async function capture_active_tab_snapshot(
   });
 
   const open_note = stores.editor.open_note;
-  if (open_note) {
+  const active_tab = stores.tab.active_tab;
+  const owns_open_note =
+    active_tab?.kind === "note" &&
+    open_note &&
+    active_tab.note_path === open_note.meta.path;
+  if (open_note && owns_open_note) {
     if (open_note.is_dirty && stores.ui.editor_settings.autosave_enabled) {
       await services.note.save_note(null, true, "primary");
     }
@@ -136,6 +141,10 @@ export async function open_active_tab_note(input: ActionRegistrationInput) {
   if (!active_tab || active_tab.kind !== "note") {
     stores.editor.clear_open_note();
     stores.outline.clear();
+    return;
+  }
+
+  if (active_tab.pane === "secondary") {
     return;
   }
 
