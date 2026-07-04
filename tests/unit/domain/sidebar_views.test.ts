@@ -120,6 +120,46 @@ describe("combined_sidebar_view_registry", () => {
     expect(explorer).toHaveLength(1);
     expect(explorer[0]?.vault_only).toBe(false);
   });
+
+  it("carries keywords and command icons for command generation", () => {
+    const combined = combined_sidebar_view_registry([
+      {
+        id: "references",
+        label: "References",
+        icon: ICON,
+        keywords: ["citations"],
+      },
+      dyn("bases"),
+    ]);
+
+    const source_control = combined.find((v) => v.id === "source_control");
+    expect(source_control?.keywords).toContain("git");
+    expect(source_control?.command_icon).toBe("git-branch");
+
+    const references = combined.find((v) => v.id === "references");
+    expect(references?.keywords).toEqual(["citations"]);
+    expect(references?.command_icon).toBe("list-tree");
+
+    const bases = combined.find((v) => v.id === "bases");
+    expect(bases?.keywords).toEqual([]);
+  });
+
+  it("keeps hidden views available to the sidebar switcher", () => {
+    const stored = default_sidebar_views_config(DYNAMIC).map((entry) => ({
+      ...entry,
+      visible: false,
+    }));
+
+    const visible_ids = resolve_sidebar_views_config(stored, DYNAMIC)
+      .filter((entry) => entry.visible)
+      .map((entry) => entry.id);
+    expect(visible_ids).toEqual([]);
+
+    const switcher_ids = combined_sidebar_view_registry(DYNAMIC).map(
+      (v) => v.id,
+    );
+    expect(switcher_ids).toEqual([...REGISTRY_IDS, "references", "bases"]);
+  });
 });
 
 describe("resolve_sidebar_views_config with dynamic views", () => {

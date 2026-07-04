@@ -3,9 +3,11 @@ import {
   COMMANDS_REGISTRY,
   SIDEBAR_VIEW_COMMAND_PREFIX,
   sidebar_view_command_id,
+  sidebar_view_commands,
   is_sidebar_view_command,
 } from "$lib/features/search/domain/search_commands";
 import { SIDEBAR_VIEW_REGISTRY } from "$lib/app/sidebar_views";
+import type { DynamicSidebarView } from "$lib/app/sidebar_views";
 import type { CommandContext } from "$lib/features/search/types/command_context";
 
 function ctx(is_vault_mode: boolean): CommandContext {
@@ -53,5 +55,40 @@ describe("sidebar view commands", () => {
     expect(
       COMMANDS_REGISTRY.find((c) => c.id === "open_sidebar_switcher"),
     ).toBeDefined();
+  });
+});
+
+describe("sidebar_view_commands with dynamic views", () => {
+  const ICON = {} as DynamicSidebarView["icon"];
+  const references: DynamicSidebarView = {
+    id: "references",
+    label: "References",
+    icon: ICON,
+    keywords: ["citations"],
+  };
+
+  it("generates commands for dynamic views alongside static ones", () => {
+    const commands = sidebar_view_commands([references]);
+
+    for (const view of SIDEBAR_VIEW_REGISTRY) {
+      expect(
+        commands.some((c) => c.id === sidebar_view_command_id(view.id)),
+      ).toBe(true);
+    }
+
+    const command = commands.find(
+      (c) => c.id === sidebar_view_command_id("references"),
+    );
+    expect(command?.label).toBe("Go to References");
+    expect(command?.keywords).toContain("citations");
+  });
+
+  it("gates dynamic view commands behind vault mode", () => {
+    const commands = sidebar_view_commands([references]);
+    const command = commands.find(
+      (c) => c.id === sidebar_view_command_id("references"),
+    );
+    expect(command?.when?.(ctx(false))).toBe(false);
+    expect(command?.when?.(ctx(true))).toBe(true);
   });
 });

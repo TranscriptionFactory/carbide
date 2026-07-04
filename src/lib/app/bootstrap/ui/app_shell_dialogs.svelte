@@ -35,12 +35,7 @@
   import { MissingLinkedSourceDialog } from "$lib/features/reference";
   import { use_app_context } from "$lib/app/context/app_context.svelte";
   import SidebarViewSwitcher from "$lib/app/bootstrap/ui/sidebar_view_switcher.svelte";
-  import {
-    ACTION_IDS,
-    resolve_sidebar_views_config,
-    sidebar_view_meta,
-  } from "$lib/app";
-  import type { SidebarViewMeta } from "$lib/app";
+  import { ACTION_IDS, combined_sidebar_view_registry } from "$lib/app";
   // STT removed — archived on archive/stt-main
   // import type { DownloadProgress } from "$lib/features/stt";
   import type { StorageStats } from "$lib/features/settings";
@@ -85,14 +80,9 @@
   );
 
   const sidebar_switcher_views = $derived(
-    resolve_sidebar_views_config(
-      stores.ui.editor_settings.sidebar_views_config,
-      stores.plugin.sidebar_views,
-    )
-      .filter((entry) => entry.visible)
-      .map((entry) => sidebar_view_meta(entry.id, stores.plugin.sidebar_views))
-      .filter((meta): meta is SidebarViewMeta => meta !== undefined)
-      .filter((meta) => !meta.vault_only || is_vault_mode),
+    combined_sidebar_view_registry(stores.plugin.sidebar_views).filter(
+      (meta) => !meta.vault_only || is_vault_mode,
+    ),
   );
   const vault_dashboard_recent = $derived(
     stores.notes.recent_notes.map((n) => ({

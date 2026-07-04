@@ -14,7 +14,12 @@ import type {
   WikiSuggestion,
 } from "$lib/shared/types/search";
 import { create_test_vault } from "../helpers/test_fixtures";
-import { create_mock_index_port } from "../helpers/mock_ports";
+import {
+  create_mock_index_port,
+  create_mock_search_port,
+} from "../helpers/mock_ports";
+import { PluginStore } from "$lib/features/plugin/state/plugin_store.svelte";
+import type { SidebarView } from "$lib/features/plugin/ports";
 
 function create_deferred<T>() {
   let resolve: (value: T) => void = () => {};
@@ -772,7 +777,9 @@ describe("SearchService", () => {
       expect(search_port.hybrid_search).toHaveBeenCalledTimes(1);
       expect(search_port.search_notes).not.toHaveBeenCalled();
       expect(result.domain).toBe("notes");
-      expect(result.items).toHaveLength(1);
+      expect(result.items.filter((item) => item.kind === "note")).toHaveLength(
+        1,
+      );
       expect(result.items[0]).toMatchObject({
         kind: "note",
         source: "vector",
@@ -868,7 +875,9 @@ describe("SearchService", () => {
 
       expect(search_port.hybrid_search).toHaveBeenCalledTimes(1);
       expect(search_port.search_notes).toHaveBeenCalledTimes(1);
-      expect(result.items).toHaveLength(1);
+      expect(result.items.filter((item) => item.kind === "note")).toHaveLength(
+        1,
+      );
       expect(result.items[0]).toMatchObject({ kind: "note" });
       if (result.items[0]?.kind === "note") {
         expect(result.items[0].source).toBeUndefined();
@@ -912,7 +921,10 @@ describe("SearchService", () => {
 
       expect(search_port.hybrid_search).not.toHaveBeenCalled();
       expect(search_port.search_notes).toHaveBeenCalledTimes(1);
-      expect(result.items).toHaveLength(1);
+      expect(result.items.filter((item) => item.kind === "note")).toHaveLength(
+        1,
+      );
+      expect(result.items[0]).toMatchObject({ kind: "note" });
     });
 
     it("commands and planned domains still skip hybrid search", async () => {
@@ -1045,5 +1057,108 @@ describe("SearchService", () => {
 
       expect(result).toEqual([]);
     });
+  });
+});
+
+describe("SearchService sidebar view commands", () => {
+  function create_plugin_store_with_references(): PluginStore {
+    const plugin_store = new PluginStore();
+    plugin_store.register_sidebar_view({
+      id: "references",
+      label: "References",
+      icon: {} as SidebarView["icon"],
+      keywords: ["citations"],
+      panel: {} as SidebarView["panel"],
+    } as SidebarView);
+    return plugin_store;
+  }
+
+  it("includes dynamically registered sidebar views in command search", () => {
+    const service = new SearchService(
+      create_mock_search_port(),
+      new VaultStore(),
+      new OpStore(),
+      () => 1,
+      () => true,
+      undefined,
+      create_plugin_store_with_references(),
+    );
+
+    const results = service.search_commands("references");
+
+    expect(
+      results.some(
+        (result) =>
+          result.kind === "command" &&
+          result.command.id === "sidebar_view:references",
+      ),
+    ).toBe(true);
+  });
+
+  it("matches dynamic view commands on multi-word queries via keywords", () => {
+    const service = new SearchService(
+      create_mock_search_port(),
+      new VaultStore(),
+      new OpStore(),
+      () => 1,
+      () => true,
+      undefined,
+      create_plugin_store_with_references(),
+    );
+
+    const results = service.search_commands("go citations");
+
+    expect(
+      results.some(
+        (result) =>
+          result.kind === "command" &&
+          result.command.id === "sidebar_view:references",
+      ),
+    ).toBe(true);
+  });
+});
+
+describe("SearchService blended command results", () => {
+  it("surfaces Go to Source Control for a bare 'source control' query", async () => {
+    const vault_store = new VaultStore();
+    vault_store.set_vault(create_test_vault());
+
+    const service = new SearchService(
+      create_mock_search_port(),
+      vault_store,
+      new OpStore(),
+      () => 1,
+    );
+
+    const result = await service.search_omnibar("source control");
+
+    expect(result.domain).toBe("notes");
+    expect(
+      result.items.some(
+        (item) =>
+          item.kind === "command" &&
+          item.command.id === "sidebar_view:source_control",
+      ),
+    ).toBe(true);
+    expect(
+      result.items.filter((item) => item.kind === "command").length,
+    ).toBeLessThanOrEqual(3);
+  });
+
+  it("keeps the commands-only prefix mode intact", async () => {
+    const vault_store = new VaultStore();
+    vault_store.set_vault(create_test_vault());
+
+    const service = new SearchService(
+      create_mock_search_port(),
+      vault_store,
+      new OpStore(),
+      () => 1,
+    );
+
+    const result = await service.search_omnibar("> source control");
+
+    expect(result.domain).toBe("commands");
+    expect(result.items.every((item) => item.kind !== "note")).toBe(true);
   });
 });

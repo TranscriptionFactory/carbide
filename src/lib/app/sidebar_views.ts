@@ -42,6 +42,8 @@ export type SidebarViewMeta = {
   id: string;
   label: string;
   icon: Component<IconProps>;
+  command_icon: string;
+  keywords: string[];
   vault_only: boolean;
   default_visible: boolean;
 };
@@ -50,6 +52,7 @@ export type DynamicSidebarView = {
   id: string;
   label: string;
   icon: Component<IconProps>;
+  keywords?: string[];
 };
 
 export const SIDEBAR_VIEW_REGISTRY: SidebarViewDef[] = [
@@ -138,6 +141,8 @@ export function combined_sidebar_view_registry(
     id: v.id,
     label: v.label,
     icon: v.icon,
+    command_icon: v.command_icon,
+    keywords: v.keywords,
     vault_only: v.vault_only,
     default_visible: v.default_visible,
   }));
@@ -149,6 +154,8 @@ export function combined_sidebar_view_registry(
       id: view.id,
       label: view.label,
       icon: view.icon,
+      command_icon: "list-tree",
+      keywords: view.keywords ?? [],
       vault_only: true,
       default_visible: true,
     });
