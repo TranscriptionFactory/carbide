@@ -94,3 +94,33 @@ describe("list_folder", () => {
     expect(draft.note?.path).toBe("work/draft.md");
   });
 });
+
+describe("list_folder folder notes", () => {
+  it("attaches folder note meta to folder entries", () => {
+    const listing = list_folder(
+      [make_note("work/work.md")],
+      ["work"],
+      [],
+      "",
+      false,
+    );
+    const folder = listing.entries.find((e) => e.path === "work");
+    expect(folder?.folder_note?.path).toBe("work/work.md");
+  });
+
+  it("leaves folder_note null for bare folders", () => {
+    const listing = list_folder(
+      [make_note("work/draft.md")],
+      ["work", "personal"],
+      [],
+      "",
+      false,
+    );
+    expect(
+      listing.entries.find((e) => e.path === "work")?.folder_note,
+    ).toBeNull();
+    expect(
+      listing.entries.find((e) => e.path === "personal")?.folder_note,
+    ).toBeNull();
+  });
+});

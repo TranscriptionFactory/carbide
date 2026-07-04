@@ -135,11 +135,12 @@
       </p>
     {:else}
       {#each sorted_entries as entry (entry.path)}
-        {@const entry_color = entry.note
-          ? sanitize_note_color(entry.note.color)
+        {@const entry_visual = entry.note ?? entry.folder_note}
+        {@const entry_color = entry_visual
+          ? sanitize_note_color(entry_visual.color)
           : null}
-        {@const entry_icon = entry.note
-          ? sanitize_note_icon(entry.note.icon)
+        {@const entry_icon = entry_visual
+          ? sanitize_note_icon(entry_visual.icon)
           : null}
         {@const starred = is_starred?.(entry.path) ?? false}
         <ContextMenu.Root>
@@ -157,7 +158,13 @@
                 <span class="DrillRow__color-stripe" aria-hidden="true"></span>
               {/if}
               {#if entry.is_folder}
-                <Folder size={14} class="text-zinc-500 shrink-0" />
+                {#if entry_icon}
+                  <span class="DrillRow__icon-emoji" aria-hidden="true"
+                    >{entry_icon}</span
+                  >
+                {:else}
+                  <Folder size={14} class="text-zinc-500 shrink-0" />
+                {/if}
               {:else if entry.note}
                 {#if entry_icon}
                   <span class="DrillRow__icon-emoji" aria-hidden="true"

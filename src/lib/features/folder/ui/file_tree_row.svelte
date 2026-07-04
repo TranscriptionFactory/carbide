@@ -122,6 +122,7 @@
     on_request_create_note?: (() => void) | undefined;
     on_request_create_canvas?: (() => void) | undefined;
     on_request_create_folder?: ((folder_path: string) => void) | undefined;
+    on_request_folder_note?: ((folder_path: string) => void) | undefined;
     on_toggle_star?: ((path: string) => void) | undefined;
     selection_count?: number;
     all_selected_starred?: boolean;
@@ -162,6 +163,7 @@
     on_request_create_note,
     on_request_create_canvas,
     on_request_create_folder,
+    on_request_folder_note,
     on_toggle_star,
     selection_count = 1,
     all_selected_starred = false,
@@ -175,11 +177,12 @@
   }: Props = $props();
 
   const is_linked = $derived(is_linked_note_path(node.path));
+  const visual_note = $derived(node.note ?? node.folder_note);
   const note_color = $derived(
-    node.note ? sanitize_note_color(node.note.color) : null,
+    visual_note ? sanitize_note_color(visual_note.color) : null,
   );
   const note_icon = $derived(
-    node.note ? sanitize_note_icon(node.note.icon) : null,
+    visual_note ? sanitize_note_icon(visual_note.icon) : null,
   );
 
   function activate_row() {
@@ -327,6 +330,12 @@
           {/if}
         </button>
       {/if}
+      {#if note_icon}
+        <span
+          class="TreeRow__type-icon TreeRow__type-icon--emoji"
+          aria-hidden="true">{note_icon}</span
+        >
+      {/if}
       <span class="TreeRow__label">{node.name}</span>
       {#if is_starred}
         <Star class="TreeRow__star-icon" />
@@ -438,6 +447,18 @@
               <ContextMenu.Item onSelect={() => on_request_create_canvas()}>
                 <FilePlus class="mr-2 h-4 w-4" />
                 <span>New Canvas</span>
+              </ContextMenu.Item>
+            {/if}
+            {#if on_request_folder_note}
+              <ContextMenu.Item
+                onSelect={() => on_request_folder_note(node.path)}
+              >
+                <FileText class="mr-2 h-4 w-4" />
+                <span
+                  >{node.folder_note
+                    ? "Open Folder Note"
+                    : "Create Folder Note"}</span
+                >
               </ContextMenu.Item>
             {/if}
             <ContextMenu.Separator />

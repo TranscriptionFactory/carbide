@@ -7,6 +7,7 @@ import type {
 } from "$lib/shared/types/filetree";
 import {
   build_filetree,
+  folder_note_of,
   sort_tree,
   type FileTreeNode,
 } from "$lib/features/folder/domain/filetree";
@@ -61,6 +62,7 @@ export function flatten_filetree(input: FlattenInput): FlatTreeNode[] {
         has_error: load_state === "error",
         error_message: error_messages.get(child.path) ?? null,
         note: child.note,
+        folder_note: folder_note_of(child),
         file_meta: child.file_meta,
         parent_path,
         is_load_more: false,
@@ -90,6 +92,7 @@ export function flatten_filetree(input: FlattenInput): FlatTreeNode[] {
         has_error: pagination_state.load_state === "error",
         error_message: pagination_state.error_message,
         note: null,
+        folder_note: null,
         file_meta: null,
         parent_path: node.path,
         is_load_more: true,

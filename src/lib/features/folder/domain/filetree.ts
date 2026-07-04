@@ -10,6 +10,11 @@ export type FileTreeNode = {
   is_folder: boolean;
 };
 
+export function folder_note_of(node: FileTreeNode): NoteMeta | null {
+  if (!node.is_folder) return null;
+  return node.children.get(`${node.name}.md`)?.note ?? null;
+}
+
 export function build_filetree(
   notes: NoteMeta[],
   folder_paths: string[] = [],

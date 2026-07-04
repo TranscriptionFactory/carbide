@@ -21,6 +21,7 @@ export type FlatTreeNode = {
   has_error: boolean;
   error_message: string | null;
   note: NoteMeta | null;
+  folder_note: NoteMeta | null;
   file_meta: FileMeta | null;
   parent_path: string | null;
   is_load_more: boolean;
@@ -30,6 +31,7 @@ export type FolderContents = {
   notes: NoteMeta[];
   subfolders: string[];
   files?: FileMeta[];
+  folder_notes?: NoteMeta[];
   total_count: number;
   has_more: boolean;
 };

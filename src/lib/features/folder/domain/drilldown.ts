@@ -2,6 +2,7 @@ import type { NoteMeta } from "$lib/shared/types/note";
 import type { FileMeta } from "$lib/shared/types/filetree";
 import {
   build_filetree,
+  folder_note_of,
   sort_tree,
   type FileTreeNode,
 } from "$lib/features/folder/domain/filetree";
@@ -11,6 +12,7 @@ export type DrillDownEntry = {
   name: string;
   is_folder: boolean;
   note: NoteMeta | null;
+  folder_note: NoteMeta | null;
   file_meta: FileMeta | null;
 };
 
@@ -57,6 +59,7 @@ export function list_folder(
         name: child.name,
         is_folder: child.is_folder,
         note: child.note,
+        folder_note: folder_note_of(child),
         file_meta: child.file_meta,
       });
     }

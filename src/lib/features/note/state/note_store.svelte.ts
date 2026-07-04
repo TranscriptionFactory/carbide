@@ -326,6 +326,9 @@ export class NotesStore {
     for (const note of contents.notes) {
       note_map.set(note.id, note);
     }
+    for (const note of contents.folder_notes ?? []) {
+      note_map.set(note.id, note);
+    }
     this.notes = [...note_map.values()].sort((a, b) =>
       a.path.localeCompare(b.path),
     );
@@ -355,7 +358,7 @@ export class NotesStore {
   append_folder_page(_folder_path: string, contents: FolderContents) {
     const retained_notes = [...this.notes];
     const note_ids = new Set(retained_notes.map((note) => note.id));
-    for (const note of contents.notes) {
+    for (const note of [...contents.notes, ...(contents.folder_notes ?? [])]) {
       if (note_ids.has(note.id)) {
         continue;
       }

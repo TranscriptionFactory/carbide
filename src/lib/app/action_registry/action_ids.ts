@@ -101,6 +101,7 @@ export const ACTION_IDS = {
   filetree_toggle_mode: "filetree.toggle_mode",
   filetree_set_mode: "filetree.set_mode",
   filetree_open_folder_note: "filetree.open_folder_note",
+  filetree_create_or_open_folder_note: "filetree.create_or_open_folder_note",
 
   recents_set_sort: "recents.set_sort",
   recents_set_period: "recents.set_period",
