@@ -40,6 +40,22 @@ function find_folder(root: FileTreeNode, path: string): FileTreeNode | null {
   return current;
 }
 
+export type SidebarEntryTarget =
+  | { kind: "folder"; path: string }
+  | { kind: "note"; note: NoteMeta };
+
+export function resolve_entry_target(
+  path: string,
+  folder_paths: string[],
+  notes: NoteMeta[],
+): SidebarEntryTarget | null {
+  if (folder_paths.includes(path)) {
+    return { kind: "folder", path };
+  }
+  const note = notes.find((n) => n.path === path);
+  return note ? { kind: "note", note } : null;
+}
+
 export function list_folder(
   notes: NoteMeta[],
   folder_paths: string[],

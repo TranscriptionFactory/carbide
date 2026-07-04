@@ -35,6 +35,7 @@
   import { build_filetree, sort_tree } from "$lib/features/folder";
   import { flatten_filetree } from "$lib/features/folder";
   import { derive_starred_tree } from "$lib/features/folder";
+  import { resolve_entry_target } from "$lib/features/folder";
   import { use_app_context } from "$lib/app/context/app_context.svelte";
   import {
     ACTION_IDS,
@@ -98,6 +99,26 @@
 
   function starred_node_id(root_path: string, relative_path: string): string {
     return `starred:${root_path}:${relative_path}`;
+  }
+
+  function execute_sidebar_entry_action(
+    path: string,
+    folder_action_id: string,
+    note_action_id: string,
+  ) {
+    const target = resolve_entry_target(
+      path,
+      stores.notes.folder_paths,
+      stores.notes.notes,
+    );
+    if (!target) {
+      return;
+    }
+    if (target.kind === "folder") {
+      void action_registry.execute(folder_action_id, target.path);
+    } else {
+      void action_registry.execute(note_action_id, target.note);
+    }
   }
 
   function toggle_star_for_selection(payload: {
@@ -852,6 +873,49 @@
                                 ACTION_IDS.note_open,
                                 path,
                               )}
+                            is_starred={(path: string) =>
+                              stores.notes.is_starred_path(path)}
+                            on_toggle_star={(note: NoteMeta) =>
+                              void action_registry.execute(
+                                ACTION_IDS.note_toggle_star,
+                                note,
+                              )}
+                            on_open_to_side={(note: NoteMeta) =>
+                              void action_registry.execute(
+                                ACTION_IDS.tab_open_to_side,
+                                note.path,
+                              )}
+                            on_open_in_new_window={(note: NoteMeta) =>
+                              void action_registry.execute(
+                                ACTION_IDS.window_open_viewer,
+                                note.path,
+                              )}
+                            on_reveal_in_finder={(note: NoteMeta) => {
+                              const vault_path = stores.vault.vault?.path;
+                              if (vault_path) {
+                                void services.shell.reveal_in_file_manager(
+                                  `${vault_path}/${note.path}`,
+                                );
+                              }
+                            }}
+                            on_open_in_default_app={(note: NoteMeta) => {
+                              const vault_path = stores.vault.vault?.path;
+                              if (vault_path) {
+                                void services.shell.open_path(
+                                  `${vault_path}/${note.path}`,
+                                );
+                              }
+                            }}
+                            on_rename={(note: NoteMeta) =>
+                              void action_registry.execute(
+                                ACTION_IDS.note_request_rename,
+                                note,
+                              )}
+                            on_delete={(note: NoteMeta) =>
+                              void action_registry.execute(
+                                ACTION_IDS.note_request_delete,
+                                note,
+                              )}
                           />
                         </div>
                       {:else if stores.ui.editor_settings.file_tree_mode === "drilldown"}
@@ -887,6 +951,52 @@
                               void action_registry.execute(
                                 ACTION_IDS.document_open,
                                 path,
+                              )}
+                            is_starred={(path: string) =>
+                              stores.notes.is_starred_path(path)}
+                            on_toggle_star={(path: string) =>
+                              void action_registry.execute(
+                                stores.notes.folder_paths.includes(path)
+                                  ? ACTION_IDS.folder_toggle_star
+                                  : ACTION_IDS.note_toggle_star,
+                                path,
+                              )}
+                            on_open_to_side={(path: string) =>
+                              void action_registry.execute(
+                                ACTION_IDS.tab_open_to_side,
+                                path,
+                              )}
+                            on_reveal_in_finder={(path: string) => {
+                              const vault_path = stores.vault.vault?.path;
+                              if (vault_path) {
+                                void services.shell.reveal_in_file_manager(
+                                  `${vault_path}/${path}`,
+                                );
+                              }
+                            }}
+                            on_open_in_default_app={(path: string) => {
+                              if (path.startsWith("/")) {
+                                void services.shell.open_path(path);
+                              } else {
+                                const vault_path = stores.vault.vault?.path;
+                                if (vault_path) {
+                                  void services.shell.open_path(
+                                    `${vault_path}/${path}`,
+                                  );
+                                }
+                              }
+                            }}
+                            on_rename={(path: string) =>
+                              execute_sidebar_entry_action(
+                                path,
+                                ACTION_IDS.folder_request_rename,
+                                ACTION_IDS.note_request_rename,
+                              )}
+                            on_delete={(path: string) =>
+                              execute_sidebar_entry_action(
+                                path,
+                                ACTION_IDS.folder_request_delete,
+                                ACTION_IDS.note_request_delete,
                               )}
                           />
                         </div>
