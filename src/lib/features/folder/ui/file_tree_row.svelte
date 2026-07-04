@@ -389,6 +389,55 @@
   </div>
 {/snippet}
 
+{#snippet note_visual_menu(
+  note_path: string,
+  color_label: string,
+  icon_label: string,
+)}
+  <ContextMenu.Sub>
+    <ContextMenu.SubTrigger>
+      <Palette class="mr-2 h-4 w-4" />
+      <span>{color_label}</span>
+    </ContextMenu.SubTrigger>
+    <ContextMenu.SubContent>
+      {#each NAMED_COLOR_OPTIONS as color (color)}
+        <ContextMenu.Item
+          onSelect={() => on_set_note_property?.(note_path, "color", color)}
+        >
+          <span
+            class="mr-2 inline-block size-3 rounded-full border border-border"
+            style="background-color: {color};"
+            aria-hidden="true"
+          ></span>
+          <span class="capitalize">{color}</span>
+        </ContextMenu.Item>
+      {/each}
+    </ContextMenu.SubContent>
+  </ContextMenu.Sub>
+  <ContextMenu.Sub>
+    <ContextMenu.SubTrigger>
+      <Smile class="mr-2 h-4 w-4" />
+      <span>{icon_label}</span>
+    </ContextMenu.SubTrigger>
+    <ContextMenu.SubContent class="p-2">
+      <input
+        class="h-7 w-40 rounded border border-input bg-background px-2 text-xs"
+        type="text"
+        placeholder="Emoji or glyph"
+        onkeydown={(e) => {
+          e.stopPropagation();
+          if (e.key !== "Enter") return;
+          e.preventDefault();
+          const icon = sanitize_note_icon(e.currentTarget.value);
+          if (icon) {
+            on_set_note_property?.(note_path, "icon", icon);
+          }
+        }}
+      />
+    </ContextMenu.SubContent>
+  </ContextMenu.Sub>
+{/snippet}
+
 {#if node.is_load_more}
   <div
     class="TreeRow TreeRow--load-more"
@@ -469,50 +518,11 @@
               </ContextMenu.Item>
             {/if}
             {#if on_set_note_property && node.folder_note}
-              {@const folder_note_path = node.folder_note.path}
-              <ContextMenu.Sub>
-                <ContextMenu.SubTrigger>
-                  <Palette class="mr-2 h-4 w-4" />
-                  <span>Folder Color</span>
-                </ContextMenu.SubTrigger>
-                <ContextMenu.SubContent>
-                  {#each NAMED_COLOR_OPTIONS as color (color)}
-                    <ContextMenu.Item
-                      onSelect={() =>
-                        on_set_note_property(folder_note_path, "color", color)}
-                    >
-                      <span
-                        class="mr-2 inline-block size-3 rounded-full border border-border"
-                        style="background-color: {color};"
-                        aria-hidden="true"
-                      ></span>
-                      <span class="capitalize">{color}</span>
-                    </ContextMenu.Item>
-                  {/each}
-                </ContextMenu.SubContent>
-              </ContextMenu.Sub>
-              <ContextMenu.Sub>
-                <ContextMenu.SubTrigger>
-                  <Smile class="mr-2 h-4 w-4" />
-                  <span>Folder Icon</span>
-                </ContextMenu.SubTrigger>
-                <ContextMenu.SubContent class="p-2">
-                  <input
-                    class="h-7 w-40 rounded border border-input bg-background px-2 text-xs"
-                    type="text"
-                    placeholder="Emoji or glyph"
-                    onkeydown={(e) => {
-                      e.stopPropagation();
-                      if (e.key !== "Enter") return;
-                      e.preventDefault();
-                      const icon = sanitize_note_icon(e.currentTarget.value);
-                      if (icon) {
-                        on_set_note_property(folder_note_path, "icon", icon);
-                      }
-                    }}
-                  />
-                </ContextMenu.SubContent>
-              </ContextMenu.Sub>
+              {@render note_visual_menu(
+                node.folder_note.path,
+                "Folder Color",
+                "Folder Icon",
+              )}
             {/if}
             <ContextMenu.Separator />
           {/if}
@@ -656,6 +666,9 @@
             <Copy class="mr-2 h-4 w-4" />
             <span>Copy File Path</span>
           </ContextMenu.Item>
+          {#if node.note && on_set_note_property && !is_linked}
+            {@render note_visual_menu(node.note.path, "Color", "Icon")}
+          {/if}
           {#if is_linked && on_open_in_default_app}
             <ContextMenu.Separator />
             <ContextMenu.Item
