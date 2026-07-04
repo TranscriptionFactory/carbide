@@ -388,6 +388,7 @@ function convert_callout(node: AnyMdastNode): PmNode {
     (node.data as {
       callout_type?: string;
       title?: string;
+      color?: string | null;
       foldable?: boolean;
       default_folded?: boolean;
     }) ?? {};
@@ -415,6 +416,7 @@ function convert_callout(node: AnyMdastNode): PmNode {
   return schema.nodes.callout.create(
     {
       callout_type: data.callout_type || "note",
+      callout_color: data.color ?? null,
       foldable: data.foldable ?? false,
       default_folded: data.default_folded ?? false,
       folded: data.default_folded ?? false,

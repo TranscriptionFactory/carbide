@@ -36,11 +36,44 @@ export type CalloutType = (typeof CALLOUT_TYPES)[number];
 const CALLOUT_TYPE_SET = new Set<string>(CALLOUT_TYPES);
 
 const CALLOUT_DIRECTIVE_RE =
-  /^\[!(?<type>[^\]]+)\](?<fold>[+-])?(?:\s+(?<title>.*))?$/;
+  /^\[!(?<type>[^\]|]+)(?:\|(?<color>[^\]]*))?\](?<fold>[+-])?(?:\s+(?<title>.*))?$/;
+
+export const CALLOUT_COLORS = [
+  "red",
+  "orange",
+  "yellow",
+  "green",
+  "teal",
+  "blue",
+  "indigo",
+  "purple",
+  "pink",
+  "brown",
+  "gray",
+  "black",
+  "white",
+] as const;
+
+const CALLOUT_COLOR_SET = new Set<string>([...CALLOUT_COLORS, "grey"]);
+const HEX_COLOR_RE =
+  /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/;
+
+export function sanitize_callout_color(
+  raw: string | null | undefined,
+): string | null {
+  if (!raw) return null;
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+  if (HEX_COLOR_RE.test(trimmed)) return trimmed;
+  const lower = trimmed.toLowerCase();
+  if (CALLOUT_COLOR_SET.has(lower)) return lower;
+  return null;
+}
 
 export type CalloutData = {
   callout_type: CalloutType;
   title: string;
+  color: string | null;
   foldable: boolean;
   default_folded: boolean;
 };
@@ -90,6 +123,7 @@ export function parse_callout_directive(text: string): CalloutData | null {
   return {
     callout_type,
     title: explicit_title || capitalize(raw_type),
+    color: sanitize_callout_color(match.groups["color"]),
     foldable: fold === "+" || fold === "-",
     default_folded: fold === "-",
   };
@@ -100,7 +134,8 @@ export function format_callout_directive(data: CalloutData): string {
   const default_title = capitalize(data.callout_type);
   const title_part =
     data.title && data.title !== default_title ? ` ${data.title}` : "";
-  return `[!${data.callout_type}]${fold_marker}${title_part}`;
+  const color_part = data.color ? `|${data.color}` : "";
+  return `[!${data.callout_type}${color_part}]${fold_marker}${title_part}`;
 }
 
 function is_blockquote_callout(node: RootContent): node is Blockquote {
@@ -157,6 +192,7 @@ function transform_blockquote_to_callout(bq: Blockquote): MdastNode {
     data: {
       callout_type: data.callout_type,
       title: data.title,
+      color: data.color,
       foldable: data.foldable,
       default_folded: data.default_folded,
     },
@@ -200,6 +236,7 @@ export const callout_to_markdown = {
       data?: {
         callout_type?: string;
         title?: string;
+        color?: string | null;
         foldable?: boolean;
         default_folded?: boolean;
       };
@@ -218,6 +255,7 @@ export const callout_to_markdown = {
     const directive = format_callout_directive({
       callout_type: callout_type as CalloutType,
       title,
+      color: d.color ?? null,
       foldable,
       default_folded,
     });
