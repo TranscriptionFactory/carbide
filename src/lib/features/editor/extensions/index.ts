@@ -27,6 +27,7 @@ import { create_block_selection_plugin } from "../adapters/block_selection_plugi
 import { create_ai_inline_extension } from "./ai_inline_extension";
 import type { AiMenuPluginConfig } from "../adapters/ai_menu_plugin";
 import { create_frontmatter_extension } from "./frontmatter_extension";
+import { create_tag_pill_extension } from "./tag_pill_extension";
 
 export type AssembledExtensions = {
   plugins: Plugin[];
@@ -62,6 +63,7 @@ export function assemble_extensions(
     create_image_context_menu_extension(),
     create_block_drag_handle_extension(),
     create_ai_inline_extension(ai_inline_config),
+    create_tag_pill_extension(ctx.tag_pill_menu),
     { plugins: [create_block_selection_plugin()] },
     { plugins: [create_diagnostics_decoration_plugin(ctx.get_markdown)] },
   ];

@@ -4,6 +4,7 @@ import type { YDocManager } from "./ydoc_manager";
 import type { SlashCommandConfig } from "./slash_command_plugin";
 import type { AiMenuPluginConfig } from "./ai_menu_plugin";
 import type { FrontmatterWidgetConfig } from "./frontmatter_view_plugin";
+import type { TagPillMenuConfig } from "./tag_pill_plugin";
 import type { TaskPort } from "$lib/features/task";
 import type { VaultFsEvent } from "$lib/features/watcher";
 import type {
@@ -24,6 +25,7 @@ export function create_lazy_editor_port(args?: {
   slash_config?: SlashCommandConfig;
   ai_inline_config?: AiMenuPluginConfig;
   frontmatter_widget?: FrontmatterWidgetConfig;
+  tag_pill_menu?: TagPillMenuConfig;
   task_port?: TaskPort;
   run_query?: (text: string) => Promise<QueryResult>;
   get_links?: (

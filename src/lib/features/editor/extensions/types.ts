@@ -4,6 +4,7 @@ import type { EditorEventHandlers } from "$lib/features/editor/ports";
 import type { AssetPath, VaultId } from "$lib/shared/types/ids";
 import type { SmartBlocksConfig } from "../adapters/code_block_view_plugin";
 import type { FrontmatterWidgetConfig } from "../adapters/frontmatter_view_plugin";
+import type { TagPillMenuConfig } from "../adapters/tag_pill_plugin";
 import type { VaultFsEvent } from "$lib/features/watcher";
 
 export type ResolveAssetUrlForVault = (
@@ -33,6 +34,7 @@ export type PluginContext = {
   smart_blocks?: SmartBlocksConfig;
   note_embed?: NoteEmbedContext;
   frontmatter_widget?: FrontmatterWidgetConfig | undefined;
+  tag_pill_menu?: TagPillMenuConfig | undefined;
 };
 
 export type EditorExtension = {

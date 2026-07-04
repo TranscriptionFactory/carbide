@@ -66,6 +66,7 @@ import {
 import type {
   SlashCommand,
   FrontmatterWidgetConfig,
+  TagPillMenuConfig,
 } from "$lib/features/editor";
 import type { Ports } from "$lib/app/di/app_ports";
 import type { VaultId, NoteId } from "$lib/shared/types/ids";
@@ -112,6 +113,7 @@ export function create_prod_ports(): Ports & {
   ai_inline_handler: AiInlineHandler;
   query_runner: QueryRunner;
   frontmatter_widget: FrontmatterWidgetConfig;
+  tag_pill_menu: TagPillMenuConfig;
 } {
   const assets = create_assets_tauri_adapter();
   const vault = create_vault_tauri_adapter();
@@ -154,12 +156,18 @@ export function create_prod_ports(): Ports & {
     on_add: () => {},
     on_remove: () => {},
   };
+  const tag_pill_menu: TagPillMenuConfig = {
+    get_color: () => null,
+    on_set_color: () => {},
+    on_clear_color: () => {},
+  };
 
   return {
     slash_command_provider,
     ai_inline_handler,
     query_runner,
     frontmatter_widget,
+    tag_pill_menu,
     vault,
     notes,
     index,
@@ -192,6 +200,7 @@ export function create_prod_ports(): Ports & {
         on_open_settings: () => ai_inline_handler.on_open_settings?.(),
       },
       frontmatter_widget,
+      tag_pill_menu,
       task_port: task,
       run_query: (text) =>
         query_runner.run?.(text) ?? Promise.resolve(EMPTY_QUERY_RESULT),
