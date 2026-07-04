@@ -16,17 +16,7 @@
     sanitize_note_icon,
   } from "$lib/features/folder/domain/note_visuals";
   import * as ContextMenu from "$lib/components/ui/context-menu";
-  import {
-    Star,
-    StarOff,
-    Copy,
-    Pencil,
-    Trash2,
-    FolderOpen,
-    ExternalLink,
-    Columns2,
-  } from "@lucide/svelte";
-  import { toast } from "svelte-sonner";
+  import EntryContextMenu from "./entry_context_menu.svelte";
 
   const PEEK_DELAY_MS = 500;
 
@@ -179,72 +169,16 @@
               <span class="truncate">{entry.name}</span>
             </button>
           </ContextMenu.Trigger>
-          <ContextMenu.Portal>
-            <ContextMenu.Content>
-              {#if on_toggle_star}
-                <ContextMenu.Item onSelect={() => on_toggle_star(entry.path)}>
-                  {#if starred}
-                    <StarOff class="mr-2 h-4 w-4" />
-                    <span>Unstar</span>
-                  {:else}
-                    <Star class="mr-2 h-4 w-4" />
-                    <span>Star</span>
-                  {/if}
-                </ContextMenu.Item>
-              {/if}
-              <ContextMenu.Item
-                onSelect={async () => {
-                  try {
-                    await navigator.clipboard.writeText(entry.path);
-                    toast.success("Path copied");
-                  } catch {
-                    toast.error("Failed to copy path");
-                  }
-                }}
-              >
-                <Copy class="mr-2 h-4 w-4" />
-                <span>Copy Path</span>
-              </ContextMenu.Item>
-              {#if on_open_to_side && !entry.is_folder}
-                <ContextMenu.Item onSelect={() => on_open_to_side(entry.path)}>
-                  <Columns2 class="mr-2 h-4 w-4" />
-                  <span>Open to Side</span>
-                </ContextMenu.Item>
-              {/if}
-              {#if on_reveal_in_finder}
-                <ContextMenu.Separator />
-                <ContextMenu.Item
-                  onSelect={() => on_reveal_in_finder(entry.path)}
-                >
-                  <FolderOpen class="mr-2 h-4 w-4" />
-                  <span>Reveal in File Manager</span>
-                </ContextMenu.Item>
-              {/if}
-              {#if on_open_in_default_app}
-                <ContextMenu.Item
-                  onSelect={() => on_open_in_default_app(entry.path)}
-                >
-                  <ExternalLink class="mr-2 h-4 w-4" />
-                  <span>Open in Default App</span>
-                </ContextMenu.Item>
-              {/if}
-              {#if on_rename || on_delete}
-                <ContextMenu.Separator />
-                {#if on_rename}
-                  <ContextMenu.Item onSelect={() => on_rename(entry.path)}>
-                    <Pencil class="mr-2 h-4 w-4" />
-                    <span>Rename</span>
-                  </ContextMenu.Item>
-                {/if}
-                {#if on_delete}
-                  <ContextMenu.Item onSelect={() => on_delete(entry.path)}>
-                    <Trash2 class="mr-2 h-4 w-4" />
-                    <span>Delete</span>
-                  </ContextMenu.Item>
-                {/if}
-              {/if}
-            </ContextMenu.Content>
-          </ContextMenu.Portal>
+          <EntryContextMenu
+            path={entry.path}
+            {starred}
+            {on_toggle_star}
+            on_open_to_side={entry.is_folder ? undefined : on_open_to_side}
+            {on_reveal_in_finder}
+            {on_open_in_default_app}
+            {on_rename}
+            {on_delete}
+          />
         </ContextMenu.Root>
       {/each}
     {/if}
