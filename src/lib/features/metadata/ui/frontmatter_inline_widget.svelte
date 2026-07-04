@@ -2,6 +2,12 @@
   import type { MetadataStore } from "../state/metadata_store.svelte";
   import ColorSwatchPicker from "./color_swatch_picker.svelte";
   import IconPicker from "./icon_picker.svelte";
+  import PropertyCombobox from "./property_combobox.svelte";
+  import {
+    build_key_suggestions,
+    value_suggestions_for_key,
+  } from "../domain/property_suggestions";
+  import { key_suggestion_items } from "../domain/suggestion_items";
   import ChevronDownIcon from "@lucide/svelte/icons/chevron-down";
   import ChevronRightIcon from "@lucide/svelte/icons/chevron-right";
   import PlusIcon from "@lucide/svelte/icons/plus";
@@ -16,10 +22,17 @@
     on_update: (key: string, value: string) => void;
     on_add: (key: string, value: string) => void;
     on_remove: (key: string) => void;
+    on_load_suggestions: () => void;
   };
 
-  let { metadata_store, is_enabled, on_update, on_add, on_remove }: Props =
-    $props();
+  let {
+    metadata_store,
+    is_enabled,
+    on_update,
+    on_add,
+    on_remove,
+    on_load_suggestions,
+  }: Props = $props();
 
   const enabled = $derived(is_enabled());
   const properties = $derived(metadata_store?.properties ?? []);
@@ -33,13 +46,35 @@
   let new_key = $state("");
   let new_value = $state("");
 
+  const registry = $derived(metadata_store?.property_registry ?? []);
+  const existing_keys = $derived(properties.map((p) => p.key));
+
+  const key_items = $derived(
+    key_suggestion_items(
+      build_key_suggestions(new_key, registry, existing_keys),
+    ),
+  );
+  const add_value_items = $derived(
+    value_suggestions_for_key(new_key, new_value, registry),
+  );
+  const edit_value_items = $derived(
+    editing_key
+      ? value_suggestions_for_key(editing_key, edit_value, registry)
+      : [],
+  );
+
   function value_text(value: string | string[]): string {
     return Array.isArray(value) ? value.join(", ") : value;
+  }
+
+  function load_suggestions() {
+    if (registry.length === 0) on_load_suggestions();
   }
 
   function start_edit(key: string, current: string) {
     metadata_store?.begin_edit(key);
     edit_value = current;
+    load_suggestions();
   }
 
   function commit_edit(key: string) {
@@ -54,6 +89,7 @@
     adding = true;
     new_key = "";
     new_value = "";
+    load_suggestions();
   }
 
   function confirm_add() {
@@ -114,26 +150,27 @@
     {#if !collapsed}
       {#if adding}
         <div class="FrontmatterInline__add">
-          <input
-            class="FrontmatterInline__input"
+          <PropertyCombobox
+            value={new_key}
+            items={key_items}
             placeholder="Key"
-            bind:value={new_key}
-            onkeydown={(e) => {
-              if (e.key === "Escape") cancel_add();
-            }}
+            autofocus
+            on_input={(t) => (new_key = t)}
+            on_select={(v) => (new_key = v)}
+            on_enter={confirm_add}
+            on_escape={cancel_add}
           />
-          <input
-            class="FrontmatterInline__input"
+          <PropertyCombobox
+            value={new_value}
+            items={add_value_items}
             placeholder="Value"
-            bind:value={new_value}
-            onkeydown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                confirm_add();
-              } else if (e.key === "Escape") {
-                cancel_add();
-              }
+            on_input={(t) => (new_value = t)}
+            on_select={(v) => {
+              new_value = v;
+              confirm_add();
             }}
+            on_enter={confirm_add}
+            on_escape={cancel_add}
           />
           <button
             type="button"
@@ -173,20 +210,32 @@
                     <XIcon />
                   </button>
                 {:else}
-                  <input
-                    class="FrontmatterInline__input"
-                    bind:value={edit_value}
-                    onkeydown={(e) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault();
-                        commit_edit(prop.key);
-                      } else if (e.key === "Escape") {
-                        e.preventDefault();
-                        cancel_edit();
-                      }
+                  <PropertyCombobox
+                    value={edit_value}
+                    items={edit_value_items}
+                    autofocus
+                    on_input={(t) => (edit_value = t)}
+                    on_select={(v) => {
+                      edit_value = v;
+                      commit_edit(prop.key);
                     }}
-                    onblur={() => commit_edit(prop.key)}
+                    on_enter={() => commit_edit(prop.key)}
+                    on_escape={cancel_edit}
                   />
+                  <button
+                    type="button"
+                    class="FrontmatterInline__icon-btn"
+                    onclick={() => commit_edit(prop.key)}
+                  >
+                    <CheckIcon />
+                  </button>
+                  <button
+                    type="button"
+                    class="FrontmatterInline__icon-btn"
+                    onclick={cancel_edit}
+                  >
+                    <XIcon />
+                  </button>
                 {/if}
               {:else if Array.isArray(prop.value)}
                 <dd
@@ -268,18 +317,6 @@
     align-items: center;
     gap: var(--space-1);
     margin-block-start: var(--space-2);
-  }
-
-  .FrontmatterInline__input {
-    height: var(--size-7, 1.75rem);
-    min-width: 0;
-    flex: 1;
-    border-radius: var(--radius-sm);
-    border: 1px solid var(--input);
-    background: var(--background);
-    padding-inline: var(--space-2);
-    font-size: var(--text-xs);
-    color: var(--foreground);
   }
 
   .FrontmatterInline__props {

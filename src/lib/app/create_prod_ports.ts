@@ -155,6 +155,7 @@ export function create_prod_ports(): Ports & {
     on_update: () => {},
     on_add: () => {},
     on_remove: () => {},
+    on_load_suggestions: () => {},
   };
   const tag_pill_menu: TagPillMenuConfig = {
     get_color: () => null,
