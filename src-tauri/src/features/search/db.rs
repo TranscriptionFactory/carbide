@@ -4063,6 +4063,21 @@ mod tests {
     }
 
     #[test]
+    fn query_bases_sort_by_property_asc_puts_notes_without_property_last() {
+        let conn = open_mem_db();
+        upsert_note(&conn, &note("q/a.md", "A"), "body").expect("a");
+        upsert_note(&conn, &note("q/b.md", "B"), "body").expect("b");
+        upsert_note(&conn, &note("q/c.md", "C"), "body").expect("c");
+        insert_prop(&conn, "q/b.md", "rank", "2", "number");
+        insert_prop(&conn, "q/c.md", "rank", "1", "number");
+
+        let result = query_bases(&conn, make_query(vec![], vec![sort("rank", false)], 100, 0))
+            .expect("query");
+        let paths: Vec<&str> = result.rows.iter().map(|r| r.note.path.as_str()).collect();
+        assert_eq!(paths, vec!["q/c.md", "q/b.md", "q/a.md"]);
+    }
+
+    #[test]
     fn query_bases_sort_by_title_asc() {
         let conn = open_mem_db();
         upsert_note(&conn, &note("q/z.md", "Zebra"), "body").expect("z");
@@ -5696,7 +5711,7 @@ pub fn query_bases(
             )
         } else {
             format!(
-                "ORDER BY (SELECT value FROM note_properties WHERE path = notes.path AND key = ?{}) {}",
+                "ORDER BY (SELECT value FROM note_properties WHERE path = notes.path AND key = ?{}) {} NULLS LAST",
                 params.len() + 1,
                 if sort.descending { "DESC" } else { "ASC" }
             )
