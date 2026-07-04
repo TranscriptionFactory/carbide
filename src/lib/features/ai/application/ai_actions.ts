@@ -122,14 +122,7 @@ export function register_ai_actions(
     if (active_tab?.kind === "document") {
       const doc_ctx = services.document.get_document_ai_context(active_tab.id);
       if (doc_ctx) {
-        return {
-          kind: "document",
-          tab_id: doc_ctx.tab_id,
-          file_path: doc_ctx.file_path,
-          file_title: doc_ctx.file_title,
-          content: doc_ctx.content,
-          target: "full_note",
-        };
+        return { kind: "document", ...doc_ctx, target: "full_note" };
       }
       return null;
     }
@@ -362,8 +355,7 @@ export function register_ai_actions(
       if (dialog.is_executing) return;
       if (dialog.cli_status !== "available") return;
       if (dialog.prompt.trim() === "") {
-        const subject =
-          dialog.context.kind === "document" ? "document" : "note";
+        const subject = dialog.context.kind;
         toast.info(
           dialog.mode === "ask"
             ? `Type a question about the ${subject}`

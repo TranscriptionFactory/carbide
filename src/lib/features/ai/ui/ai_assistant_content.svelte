@@ -99,9 +99,7 @@
   const selection_preview = $derived(
     selection_text ? selection_text.trim().slice(0, 180) : "",
   );
-  const subject_word = $derived(
-    context_kind === "document" ? "document" : "note",
-  );
+  const subject_word = $derived(context_kind);
   const description_text = $derived(
     description ??
       (note_title

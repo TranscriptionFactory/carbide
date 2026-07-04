@@ -344,17 +344,12 @@ describe("register_ai_actions", () => {
   describe("document tab", () => {
     function open_document_tab(
       stores: ReturnType<typeof create_harness>["stores"],
-      overrides?: { id?: string; file_path?: string; file_type?: string },
+      id = "tab-html",
     ) {
       stores.tab.set_dirty = vi.fn();
       Object.defineProperty(stores.tab, "active_tab", {
         configurable: true,
-        get: () => ({
-          id: overrides?.id ?? "tab-html",
-          kind: "document",
-          file_path: overrides?.file_path ?? "notes/chart.html",
-          file_type: overrides?.file_type ?? "html",
-        }),
+        get: () => ({ id, kind: "document" }),
       });
     }
 
@@ -386,11 +381,7 @@ describe("register_ai_actions", () => {
 
     it("opens a document AI session when a text tab is active", async () => {
       const { registry, stores, services, ai_store } = create_harness();
-      open_document_tab(stores, {
-        id: "tab-text",
-        file_path: "scripts/build.py",
-        file_type: "text",
-      });
+      open_document_tab(stores, "tab-text");
       services.document.get_document_ai_context = vi.fn().mockReturnValue({
         tab_id: "tab-text",
         file_path: "scripts/build.py",

@@ -37,7 +37,7 @@
             note_path: session.context.file_path,
             note_title: session.context.file_title,
             selection_text: null,
-            original_text: session.context.content,
+            original_text: context_original_text(session.context),
           }
         : {
             context_kind: "note",
