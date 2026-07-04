@@ -14,7 +14,7 @@ import { AiStore } from "$lib/features/ai";
 import { GraphStore } from "$lib/features/graph";
 import { BasesStore, BaseCountsStore } from "$lib/features/bases";
 import { TypesStore } from "$lib/features/types";
-import { InboxStore } from "$lib/features/folder";
+import { RecentsStore } from "$lib/features/folder";
 import { TaskStore } from "$lib/features/task";
 import {
   PluginStore,
@@ -59,7 +59,7 @@ export type AppStores = {
   bases: BasesStore;
   bases_counts: BaseCountsStore;
   types: TypesStore;
-  inbox: InboxStore;
+  recents: RecentsStore;
   task: TaskStore;
   plugin: PluginStore;
   plugin_settings: PluginSettingsStore;
@@ -104,7 +104,7 @@ export function create_app_stores(): AppStores {
     bases: new BasesStore(),
     bases_counts: new BaseCountsStore(),
     types: new TypesStore(),
-    inbox: new InboxStore(),
+    recents: new RecentsStore(),
     task: new TaskStore(),
     plugin: new PluginStore(),
     plugin_settings: new PluginSettingsStore(),

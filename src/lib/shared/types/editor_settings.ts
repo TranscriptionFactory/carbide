@@ -68,10 +68,10 @@ export type FileTreeStyle =
   | "refined";
 export type FileTreeBlurbPosition = "caption" | "heading";
 
-export type FileTreeMode = "tree" | "drilldown" | "inbox" | "bases";
-export type InboxSort = "modified" | "created" | "title";
+export type FileTreeMode = "tree" | "drilldown" | "recents" | "bases";
+export type RecentsSort = "modified" | "created" | "title";
 export type SortDirection = "asc" | "desc";
-export type InboxPeriod = "all" | "week" | "month" | "quarter";
+export type RecentsPeriod = "all" | "week" | "month" | "quarter";
 export type LintFormatter = "prettier" | "rumdl";
 export type MarkdownLspProvider = "iwes" | "markdown_oxide" | "marksman";
 export type EmbeddingModelId =
@@ -191,8 +191,8 @@ export type EditorSettings = {
   file_tree_blurb_position: FileTreeBlurbPosition;
   file_tree_show_linked_sources: boolean;
   file_tree_mode: FileTreeMode;
-  inbox_sort: { option: InboxSort; direction: SortDirection };
-  inbox_period: InboxPeriod;
+  recents_sort: { option: RecentsSort; direction: SortDirection };
+  recents_period: RecentsPeriod;
   default_note_name_template: string;
   lint_enabled: boolean;
   lint_format_on_save: boolean;
@@ -314,8 +314,8 @@ export const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
   file_tree_blurb_position: "caption",
   file_tree_show_linked_sources: true,
   file_tree_mode: "tree",
-  inbox_sort: { option: "modified", direction: "desc" },
-  inbox_period: "all",
+  recents_sort: { option: "modified", direction: "desc" },
+  recents_period: "all",
   default_note_name_template: "",
   lint_enabled: true,
   lint_format_on_save: false,
@@ -500,8 +500,8 @@ export const GLOBAL_ONLY_SETTING_KEYS: readonly (keyof EditorSettings)[] = [
   "file_tree_show_blurb",
   "file_tree_blurb_position",
   "file_tree_mode",
-  "inbox_sort",
-  "inbox_period",
+  "recents_sort",
+  "recents_period",
   "editor_block_drag_handle",
   "editor_block_drag_handle_visibility",
   "vim_nav_enabled",

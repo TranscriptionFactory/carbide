@@ -6,20 +6,20 @@
   import FileText from "@lucide/svelte/icons/file-text";
   import type { BaseNoteRow } from "$lib/features/bases";
   import type {
-    InboxPeriod,
-    InboxSort,
+    RecentsPeriod,
+    RecentsSort,
     SortDirection,
   } from "$lib/shared/types/editor_settings";
 
   type Props = {
     results: BaseNoteRow[];
-    sort: InboxSort;
+    sort: RecentsSort;
     direction: SortDirection;
-    period: InboxPeriod;
+    period: RecentsPeriod;
     error?: string | null;
-    on_change_sort: (sort: InboxSort) => void;
+    on_change_sort: (sort: RecentsSort) => void;
     on_change_direction: (direction: SortDirection) => void;
-    on_change_period: (period: InboxPeriod) => void;
+    on_change_period: (period: RecentsPeriod) => void;
     on_open_note: (path: string) => void;
   };
 
@@ -35,13 +35,13 @@
     on_open_note,
   }: Props = $props();
 
-  const SORT_OPTIONS: { value: InboxSort; label: string }[] = [
+  const SORT_OPTIONS: { value: RecentsSort; label: string }[] = [
     { value: "modified", label: "Modified" },
     { value: "created", label: "Created" },
     { value: "title", label: "Title" },
   ];
 
-  const PERIOD_OPTIONS: { value: InboxPeriod; label: string }[] = [
+  const PERIOD_OPTIONS: { value: RecentsPeriod; label: string }[] = [
     { value: "all", label: "All" },
     { value: "week", label: "Week" },
     { value: "month", label: "Month" },

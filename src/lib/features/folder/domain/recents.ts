@@ -1,45 +1,45 @@
 import type { BaseFilter, BaseQuery, BaseSort } from "$lib/features/bases";
 import type {
-  InboxPeriod,
-  InboxSort,
+  RecentsPeriod,
+  RecentsSort,
   SortDirection,
 } from "$lib/shared/types/editor_settings";
 
-export type { InboxPeriod, InboxSort, SortDirection };
+export type { RecentsPeriod, RecentsSort, SortDirection };
 
 const DAY_MS = 86_400_000;
 
-const PERIOD_WINDOW_DAYS: Record<Exclude<InboxPeriod, "all">, number> = {
+const PERIOD_WINDOW_DAYS: Record<Exclude<RecentsPeriod, "all">, number> = {
   week: 7,
   month: 30,
   quarter: 90,
 };
 
-const SORT_PROPERTY: Record<InboxSort, string> = {
+const SORT_PROPERTY: Record<RecentsSort, string> = {
   modified: "modified",
   created: "created",
   title: "title",
 };
 
-export function default_direction(sort: InboxSort): SortDirection {
+export function default_direction(sort: RecentsSort): SortDirection {
   return sort === "title" ? "asc" : "desc";
 }
 
-type BuildInboxQueryInput = {
-  sort: InboxSort;
+type BuildRecentsQueryInput = {
+  sort: RecentsSort;
   direction: SortDirection;
-  period: InboxPeriod;
+  period: RecentsPeriod;
   now_ms: number;
   limit: number;
 };
 
-export function build_inbox_query({
+export function build_recents_query({
   sort,
   direction,
   period,
   now_ms,
   limit,
-}: BuildInboxQueryInput): BaseQuery {
+}: BuildRecentsQueryInput): BaseQuery {
   const base_sort: BaseSort = {
     property: SORT_PROPERTY[sort],
     descending: direction === "desc",

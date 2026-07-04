@@ -6,20 +6,20 @@ import type { UIStore } from "$lib/app/orchestration/ui_store.svelte";
 import type { SettingsService } from "$lib/features/settings";
 import type { EditorSettings } from "$lib/shared/types/editor_settings";
 import {
-  build_inbox_query,
+  build_recents_query,
   default_direction,
-  type InboxPeriod,
-  type InboxSort,
+  type RecentsPeriod,
+  type RecentsSort,
   type SortDirection,
-} from "$lib/features/folder/domain/inbox";
-import type { InboxStore } from "$lib/features/folder/state/inbox_store.svelte";
+} from "$lib/features/folder/domain/recents";
+import type { RecentsStore } from "$lib/features/folder/state/recents_store.svelte";
 
-const INBOX_LIMIT = 200;
+const RECENTS_LIMIT = 200;
 
-type InboxActionsInput = {
+type RecentsActionsInput = {
   registry: ActionRegistry;
   bases_port: BasesPort;
-  inbox_store: InboxStore;
+  recents_store: RecentsStore;
   vault_store: VaultStore;
   ui_store: UIStore;
   settings_service: SettingsService;
@@ -37,51 +37,51 @@ async function persist_editor_settings(
   }
 }
 
-export function register_inbox_actions({
+export function register_recents_actions({
   registry,
   bases_port,
-  inbox_store,
+  recents_store,
   vault_store,
   ui_store,
   settings_service,
   now,
-}: InboxActionsInput) {
+}: RecentsActionsInput) {
   async function reload() {
     const vault_id = vault_store.active_vault_id;
     if (!vault_id) return;
 
-    const { option, direction } = ui_store.editor_settings.inbox_sort;
-    const period = ui_store.editor_settings.inbox_period;
-    const query = build_inbox_query({
+    const { option, direction } = ui_store.editor_settings.recents_sort;
+    const period = ui_store.editor_settings.recents_period;
+    const query = build_recents_query({
       sort: option,
       direction,
       period,
       now_ms: now(),
-      limit: INBOX_LIMIT,
+      limit: RECENTS_LIMIT,
     });
 
-    inbox_store.loading = true;
-    inbox_store.error = null;
+    recents_store.loading = true;
+    recents_store.error = null;
     try {
       const results = await bases_port.query(vault_id, query);
-      inbox_store.set_results(results.rows);
+      recents_store.set_results(results.rows);
     } catch (e) {
-      inbox_store.error = String(e);
+      recents_store.error = String(e);
     } finally {
-      inbox_store.loading = false;
+      recents_store.loading = false;
     }
   }
 
   registry.register({
-    id: ACTION_IDS.inbox_set_sort,
-    label: "Set Inbox Sort",
+    id: ACTION_IDS.recents_set_sort,
+    label: "Set Recents Sort",
     execute: async (...args: unknown[]) => {
-      const option = args[0] as InboxSort;
+      const option = args[0] as RecentsSort;
       const direction =
         (args[1] as SortDirection | undefined) ?? default_direction(option);
       const updated: EditorSettings = {
         ...ui_store.editor_settings,
-        inbox_sort: { option, direction },
+        recents_sort: { option, direction },
       };
       await persist_editor_settings(settings_service, ui_store, updated);
       await reload();
@@ -89,13 +89,13 @@ export function register_inbox_actions({
   });
 
   registry.register({
-    id: ACTION_IDS.inbox_set_period,
-    label: "Set Inbox Period",
+    id: ACTION_IDS.recents_set_period,
+    label: "Set Recents Period",
     execute: async (...args: unknown[]) => {
-      const period = args[0] as InboxPeriod;
+      const period = args[0] as RecentsPeriod;
       const updated: EditorSettings = {
         ...ui_store.editor_settings,
-        inbox_period: period,
+        recents_period: period,
       };
       await persist_editor_settings(settings_service, ui_store, updated);
       await reload();
@@ -103,8 +103,8 @@ export function register_inbox_actions({
   });
 
   registry.register({
-    id: ACTION_IDS.inbox_reload,
-    label: "Reload Inbox",
+    id: ACTION_IDS.recents_reload,
+    label: "Reload Recents",
     execute: reload,
   });
 }

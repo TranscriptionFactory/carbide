@@ -45,14 +45,14 @@ describe("filetree_set_mode action", () => {
     const { registry, save_settings, set_editor_settings, current_mode } =
       build_input("tree");
 
-    await registry.execute(ACTION_IDS.filetree_set_mode, "inbox");
+    await registry.execute(ACTION_IDS.filetree_set_mode, "recents");
 
     expect(save_settings).toHaveBeenCalledTimes(1);
     expect(save_settings).toHaveBeenCalledWith(
-      expect.objectContaining({ file_tree_mode: "inbox" }),
+      expect.objectContaining({ file_tree_mode: "recents" }),
     );
     expect(set_editor_settings).toHaveBeenCalledTimes(1);
-    expect(current_mode()).toBe("inbox");
+    expect(current_mode()).toBe("recents");
   });
 
   it("does not persist when the save fails", async () => {
@@ -86,14 +86,14 @@ describe("filetree_set_mode action", () => {
 });
 
 describe("filetree_toggle_mode action", () => {
-  it("cycles tree -> drilldown -> inbox -> bases -> tree", async () => {
+  it("cycles tree -> drilldown -> recents -> bases -> tree", async () => {
     const { registry, current_mode } = build_input("tree");
 
     await registry.execute(ACTION_IDS.filetree_toggle_mode);
     expect(current_mode()).toBe("drilldown");
 
     await registry.execute(ACTION_IDS.filetree_toggle_mode);
-    expect(current_mode()).toBe("inbox");
+    expect(current_mode()).toBe("recents");
 
     await registry.execute(ACTION_IDS.filetree_toggle_mode);
     expect(current_mode()).toBe("bases");

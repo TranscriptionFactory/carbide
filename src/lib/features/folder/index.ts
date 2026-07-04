@@ -21,18 +21,18 @@ export { default as FiletreeMoveConflictDialog } from "$lib/features/folder/ui/f
 export { default as VirtualFileTree } from "$lib/features/folder/ui/virtual_file_tree.svelte";
 export { default as PathBreadcrumb } from "$lib/features/folder/ui/path_breadcrumb.svelte";
 export { default as DrillDownFileTree } from "$lib/features/folder/ui/drilldown_file_tree.svelte";
-export { default as InboxFileView } from "$lib/features/folder/ui/inbox_file_view.svelte";
-export { register_inbox_actions } from "$lib/features/folder/application/inbox_actions";
-export { InboxStore } from "$lib/features/folder/state/inbox_store.svelte";
+export { default as RecentsFileView } from "$lib/features/folder/ui/recents_file_view.svelte";
+export { register_recents_actions } from "$lib/features/folder/application/recents_actions";
+export { RecentsStore } from "$lib/features/folder/state/recents_store.svelte";
 export {
-  build_inbox_query,
+  build_recents_query,
   default_direction,
-} from "$lib/features/folder/domain/inbox";
+} from "$lib/features/folder/domain/recents";
 export type {
-  InboxSort,
-  InboxPeriod,
+  RecentsSort,
+  RecentsPeriod,
   SortDirection,
-} from "$lib/features/folder/domain/inbox";
+} from "$lib/features/folder/domain/recents";
 export type {
   FolderMutationResult,
   FolderMoveResult,

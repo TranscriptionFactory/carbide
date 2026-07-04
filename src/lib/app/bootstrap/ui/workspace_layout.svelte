@@ -8,7 +8,7 @@
     VirtualFileTree,
     PathBreadcrumb,
     DrillDownFileTree,
-    InboxFileView,
+    RecentsFileView,
   } from "$lib/features/folder";
   import { BasesRailSection } from "$lib/features/bases";
   import { TypesRailSection, build_type_sections } from "$lib/features/types";
@@ -91,8 +91,8 @@
   const is_drift = $derived(layout_variant === "drift");
 
   $effect(() => {
-    if (stores.ui.editor_settings.file_tree_mode === "inbox") {
-      void action_registry.execute(ACTION_IDS.inbox_reload);
+    if (stores.ui.editor_settings.file_tree_mode === "recents") {
+      void action_registry.execute(ACTION_IDS.recents_reload);
     }
   });
 
@@ -731,7 +731,7 @@
                         role="group"
                         aria-label="File tree mode"
                       >
-                        {#each [{ mode: "tree" as const, label: "Tree" }, { mode: "drilldown" as const, label: "Folders" }, { mode: "inbox" as const, label: "Recents" }, { mode: "bases" as const, label: "Bases" }] as mode_tab}
+                        {#each [{ mode: "tree" as const, label: "Tree" }, { mode: "drilldown" as const, label: "Folders" }, { mode: "recents" as const, label: "Recents" }, { mode: "bases" as const, label: "Bases" }] as mode_tab}
                           <button
                             type="button"
                             aria-pressed={(stores.ui.editor_settings
@@ -803,34 +803,34 @@
                             }}
                           />
                         </div>
-                      {:else if stores.ui.editor_settings.file_tree_mode === "inbox"}
+                      {:else if stores.ui.editor_settings.file_tree_mode === "recents"}
                         <!-- svelte-ignore a11y_no_static_element_interactions -->
                         <div
                           class="flex-1 min-h-0"
                           data-vim-nav-region="file_tree"
                           tabindex="-1"
                         >
-                          <InboxFileView
-                            results={stores.inbox.results}
-                            error={stores.inbox.error}
-                            sort={stores.ui.editor_settings.inbox_sort.option}
-                            direction={stores.ui.editor_settings.inbox_sort
+                          <RecentsFileView
+                            results={stores.recents.results}
+                            error={stores.recents.error}
+                            sort={stores.ui.editor_settings.recents_sort.option}
+                            direction={stores.ui.editor_settings.recents_sort
                               .direction}
-                            period={stores.ui.editor_settings.inbox_period}
+                            period={stores.ui.editor_settings.recents_period}
                             on_change_sort={(s) =>
                               void action_registry.execute(
-                                ACTION_IDS.inbox_set_sort,
+                                ACTION_IDS.recents_set_sort,
                                 s,
                               )}
                             on_change_direction={(d) =>
                               void action_registry.execute(
-                                ACTION_IDS.inbox_set_sort,
-                                stores.ui.editor_settings.inbox_sort.option,
+                                ACTION_IDS.recents_set_sort,
+                                stores.ui.editor_settings.recents_sort.option,
                                 d,
                               )}
                             on_change_period={(p) =>
                               void action_registry.execute(
-                                ACTION_IDS.inbox_set_period,
+                                ACTION_IDS.recents_set_period,
                                 p,
                               )}
                             on_open_note={(path) =>
