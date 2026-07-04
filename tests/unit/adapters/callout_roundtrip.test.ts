@@ -17,6 +17,7 @@ describe("callout directive parsing", () => {
     expect(result).toEqual({
       callout_type: "note",
       title: "Note",
+      color: null,
       foldable: false,
       default_folded: false,
     });
@@ -27,6 +28,7 @@ describe("callout directive parsing", () => {
     expect(result).toEqual({
       callout_type: "warning",
       title: "Be careful!",
+      color: null,
       foldable: false,
       default_folded: false,
     });
@@ -37,6 +39,7 @@ describe("callout directive parsing", () => {
     expect(result).toEqual({
       callout_type: "tip",
       title: "Tip",
+      color: null,
       foldable: true,
       default_folded: false,
     });
@@ -47,6 +50,7 @@ describe("callout directive parsing", () => {
     expect(result).toEqual({
       callout_type: "danger",
       title: "Watch out",
+      color: null,
       foldable: true,
       default_folded: true,
     });
@@ -75,6 +79,7 @@ describe("callout directive formatting", () => {
       format_callout_directive({
         callout_type: "note",
         title: "Note",
+        color: null,
         foldable: false,
         default_folded: false,
       }),
@@ -86,6 +91,7 @@ describe("callout directive formatting", () => {
       format_callout_directive({
         callout_type: "warning",
         title: "Be careful!",
+        color: null,
         foldable: false,
         default_folded: false,
       }),
@@ -97,6 +103,7 @@ describe("callout directive formatting", () => {
       format_callout_directive({
         callout_type: "tip",
         title: "Tip",
+        color: null,
         foldable: true,
         default_folded: true,
       }),
