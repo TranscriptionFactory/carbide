@@ -7,6 +7,7 @@
   const { stores, action_registry } = use_app_context();
 
   const visible = $derived(stores.ui.tab_drag_active && !stores.tab.is_split);
+  const is_vertical = $derived(stores.tab.split_direction === "vertical");
 
   let drag_over = $state(false);
 
@@ -42,6 +43,7 @@
   <div
     class="SplitDropZone"
     class:SplitDropZone--over={drag_over}
+    class:SplitDropZone--vertical={is_vertical}
     ondragover={handle_dragover}
     ondragleave={handle_dragleave}
     ondrop={handle_drop}
@@ -65,6 +67,13 @@
       background-color var(--duration-fast) var(--ease-default),
       opacity var(--duration-fast) var(--ease-default);
     pointer-events: all;
+  }
+
+  .SplitDropZone--vertical {
+    left: 0;
+    top: 50%;
+    border-left: none;
+    border-top: 2px dashed var(--interactive);
   }
 
   .SplitDropZone--over {
