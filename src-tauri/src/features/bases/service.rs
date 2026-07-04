@@ -390,7 +390,7 @@ pub fn bases_update_property(
 fn update_frontmatter_key(markdown: &str, key: &str, value: &str) -> Result<String, String> {
     let lines: Vec<&str> = markdown.lines().collect();
     if lines.is_empty() || lines[0].trim() != "---" {
-        return Err("Note has no frontmatter block".to_string());
+        return Ok(format!("---\n{}: {}\n---\n{}", key, value, markdown));
     }
 
     let end_idx = lines
@@ -441,6 +441,32 @@ fn update_frontmatter_key(markdown: &str, key: &str, value: &str) -> Result<Stri
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn update_frontmatter_key_creates_block_when_missing() {
+        let updated = update_frontmatter_key("body text\n", "color", "\"#ff0000\"").unwrap();
+        assert_eq!(updated, "---\ncolor: \"#ff0000\"\n---\nbody text\n");
+    }
+
+    #[test]
+    fn update_frontmatter_key_creates_block_for_empty_note() {
+        let updated = update_frontmatter_key("", "icon", "\"🚀\"").unwrap();
+        assert_eq!(updated, "---\nicon: \"🚀\"\n---\n");
+    }
+
+    #[test]
+    fn update_frontmatter_key_replaces_existing_key() {
+        let updated =
+            update_frontmatter_key("---\ncolor: red\n---\nbody\n", "color", "\"blue\"").unwrap();
+        assert_eq!(updated, "---\ncolor: \"blue\"\n---\nbody\n");
+    }
+
+    #[test]
+    fn update_frontmatter_key_appends_missing_key() {
+        let updated =
+            update_frontmatter_key("---\ntitle: x\n---\nbody\n", "icon", "\"📁\"").unwrap();
+        assert_eq!(updated, "---\ntitle: x\nicon: \"📁\"\n---\nbody\n");
+    }
 
     #[test]
     fn slugify_keeps_alphanumerics_and_collapses_separators() {

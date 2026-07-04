@@ -13,6 +13,20 @@ export class MetadataTauriAdapter implements MetadataPort {
   async list_properties(vaultId: string): Promise<VaultProperty[]> {
     return invoke<VaultProperty[]>("bases_list_properties", { vaultId });
   }
+
+  async update_property(
+    vaultId: string,
+    notePath: string,
+    key: string,
+    value: string,
+  ): Promise<void> {
+    return invoke<void>("bases_update_property", {
+      vaultId,
+      notePath,
+      key,
+      value,
+    });
+  }
 }
 
 export function create_metadata_tauri_adapter(): MetadataPort {

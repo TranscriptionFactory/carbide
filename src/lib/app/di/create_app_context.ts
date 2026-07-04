@@ -848,6 +848,7 @@ export function create_app_context(input: {
     stores.editor,
     editor_service,
     input.ports.metadata,
+    stores.notes,
   );
 
   const toolchain_service = new ToolchainService(

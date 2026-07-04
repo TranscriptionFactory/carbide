@@ -105,6 +105,22 @@ export class NotesStore {
     );
   }
 
+  update_note_visuals(
+    note_id: NoteId,
+    color: string | undefined,
+    icon: string | undefined,
+  ) {
+    this.notes = this.notes.map((note) =>
+      note.id === note_id
+        ? {
+            ...note,
+            ...(color !== undefined ? { color } : {}),
+            ...(icon !== undefined ? { icon } : {}),
+          }
+        : note,
+    );
+  }
+
   update_note_after_save(
     note_id: NoteId,
     blurb: string,

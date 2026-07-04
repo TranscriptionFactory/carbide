@@ -1,7 +1,7 @@
 const HEX_COLOR =
   /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/;
 
-const NAMED_COLORS = new Set([
+export const NAMED_COLOR_OPTIONS = [
   "red",
   "orange",
   "yellow",
@@ -13,10 +13,11 @@ const NAMED_COLORS = new Set([
   "pink",
   "brown",
   "gray",
-  "grey",
   "black",
   "white",
-]);
+];
+
+const NAMED_COLORS = new Set([...NAMED_COLOR_OPTIONS, "grey"]);
 
 export function sanitize_note_color(value: string | undefined): string | null {
   if (!value) return null;

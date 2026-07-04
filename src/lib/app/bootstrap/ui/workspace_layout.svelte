@@ -559,6 +559,15 @@
                               ACTION_IDS.filetree_create_or_open_folder_note,
                               folder_path,
                             )}
+                          on_set_note_property={(
+                            note_path: string,
+                            key: string,
+                            value: string,
+                          ) =>
+                            void action_registry.execute(
+                              ACTION_IDS.metadata_set_property_for_path,
+                              { note_path, key, value },
+                            )}
                           on_toggle_star={toggle_star_for_selection}
                           on_open_to_side={(path: string) =>
                             void action_registry.execute(
@@ -972,6 +981,15 @@
                               void action_registry.execute(
                                 ACTION_IDS.filetree_create_or_open_folder_note,
                                 folder_path,
+                              )}
+                            on_set_note_property={(
+                              note_path: string,
+                              key: string,
+                              value: string,
+                            ) =>
+                              void action_registry.execute(
+                                ACTION_IDS.metadata_set_property_for_path,
+                                { note_path, key, value },
                               )}
                             on_toggle_star={toggle_star_for_selection}
                             on_open_to_side={(path: string) =>

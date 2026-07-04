@@ -42,6 +42,9 @@
     on_request_create_canvas?: (() => void) | undefined;
     on_request_create_folder?: ((folder_path: string) => void) | undefined;
     on_request_folder_note?: ((folder_path: string) => void) | undefined;
+    on_set_note_property?:
+      | ((note_path: string, key: string, value: string) => void)
+      | undefined;
     on_toggle_star?:
       | ((payload: { paths: string[]; all_starred: boolean }) => void)
       | undefined;
@@ -84,6 +87,7 @@
     on_request_create_canvas,
     on_request_create_folder,
     on_request_folder_note,
+    on_set_note_property,
     on_toggle_star,
     on_open_to_side,
     on_open_in_new_window,
@@ -544,6 +548,7 @@
             {on_request_create_canvas}
             {on_request_create_folder}
             {on_request_folder_note}
+            {on_set_note_property}
             {on_open_to_side}
             {on_open_in_new_window}
             {on_reveal_in_finder}
