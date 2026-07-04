@@ -67,6 +67,27 @@
   }
 </script>
 
+{#snippet prop_actions(key: string, value: string | string[])}
+  <div class="FrontmatterInline__prop-actions">
+    <button
+      type="button"
+      class="FrontmatterInline__icon-btn"
+      title="Edit"
+      onclick={() => start_edit(key, value_text(value))}
+    >
+      <PencilIcon />
+    </button>
+    <button
+      type="button"
+      class="FrontmatterInline__icon-btn FrontmatterInline__icon-btn--danger"
+      title="Delete"
+      onclick={() => on_remove(key)}
+    >
+      <TrashIcon />
+    </button>
+  </div>
+{/snippet}
+
 {#if enabled && has_content}
   <div class="FrontmatterInline" contenteditable="false">
     <div class="FrontmatterInline__header">
@@ -137,22 +158,12 @@
             <div class="FrontmatterInline__prop">
               <dt class="FrontmatterInline__prop-key">{prop.key}</dt>
               {#if editing_key === prop.key}
-                {#if prop.key === "color"}
-                  <ColorSwatchPicker
+                {#if prop.key === "color" || prop.key === "icon"}
+                  {@const Picker =
+                    prop.key === "color" ? ColorSwatchPicker : IconPicker}
+                  <Picker
                     value={typeof prop.value === "string" ? prop.value : null}
-                    on_select={(color) => on_update(prop.key, color)}
-                  />
-                  <button
-                    type="button"
-                    class="FrontmatterInline__icon-btn"
-                    onclick={cancel_edit}
-                  >
-                    <XIcon />
-                  </button>
-                {:else if prop.key === "icon"}
-                  <IconPicker
-                    value={typeof prop.value === "string" ? prop.value : null}
-                    on_select={(icon) => on_update(prop.key, icon)}
+                    on_select={(v) => on_update(prop.key, v)}
                   />
                   <button
                     type="button"
@@ -185,46 +196,12 @@
                     <span class="FrontmatterInline__tag">{item}</span>
                   {/each}
                 </dd>
-                <div class="FrontmatterInline__prop-actions">
-                  <button
-                    type="button"
-                    class="FrontmatterInline__icon-btn"
-                    title="Edit"
-                    onclick={() => start_edit(prop.key, value_text(prop.value))}
-                  >
-                    <PencilIcon />
-                  </button>
-                  <button
-                    type="button"
-                    class="FrontmatterInline__icon-btn FrontmatterInline__icon-btn--danger"
-                    title="Delete"
-                    onclick={() => on_remove(prop.key)}
-                  >
-                    <TrashIcon />
-                  </button>
-                </div>
+                {@render prop_actions(prop.key, prop.value)}
               {:else}
                 <dd class="FrontmatterInline__prop-value" title={prop.value}>
                   {prop.value}
                 </dd>
-                <div class="FrontmatterInline__prop-actions">
-                  <button
-                    type="button"
-                    class="FrontmatterInline__icon-btn"
-                    title="Edit"
-                    onclick={() => start_edit(prop.key, value_text(prop.value))}
-                  >
-                    <PencilIcon />
-                  </button>
-                  <button
-                    type="button"
-                    class="FrontmatterInline__icon-btn FrontmatterInline__icon-btn--danger"
-                    title="Delete"
-                    onclick={() => on_remove(prop.key)}
-                  >
-                    <TrashIcon />
-                  </button>
-                </div>
+                {@render prop_actions(prop.key, prop.value)}
               {/if}
             </div>
           {/each}
