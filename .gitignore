@@ -1,36 +1,47 @@
-.serena_home/
-.serena/
-.serena
-.cursor/
+# Agent and editor local state
+.claude/
 .codex/
-.iwe/
-.serena/
-.claude/
+.cursor/
 .gemini/
-.claude/
+.iwe/
+.ralph/
+.serena/
+.serena_home/
 .vscode/
-.codex/**
+.design-engineer/
+opencode.json
+.mcp.json
+
+# Environment and dependencies
 .env
+.venv/
 node_modules/
+.pnpm-store/
+
+# Build output and generated files
 .svelte-kit/
-src-tauri/gen/
 build/
 dist/
-.DS_Store
+src-tauri/gen/
 src-tauri/target/
 src-tauri/excalidraw-dist/
-.pnpm-store/
-devlog/
-.design-engineer/
-.ignore
-.ralph/
-opencode.json
 .eslintcache
+
+# Local OS/cache files
+.DS_Store
 .tmpfiles
-# sidecar binaries (built/downloaded at build time)
+.ignore
+.shiftlog/
+
+# Development-only docs
+# Do not version control devlog/ or refer to it in PRs/issues.
+devlog/
+
+# Sidecar binaries built or downloaded at build time
 src-tauri/binaries/rumdl*
 src-tauri/binaries/iwes*
 src-tauri/binaries/carbide-cli*
 !src-tauri/binaries/.gitkeep
-.shiftlog/
-.rumdl.toml
+
+# Nested vault/tool state produced by local documentation vaults
+**/.carbide/.rumdl.toml
