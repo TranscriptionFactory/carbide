@@ -1,5 +1,11 @@
 # carbide
 
+## 2.10.1
+
+### Patch Changes
+
+- 069688c: Fixing linked sources path resolution bug
+
 ## 2.10.0
 
 ### Minor Changes
