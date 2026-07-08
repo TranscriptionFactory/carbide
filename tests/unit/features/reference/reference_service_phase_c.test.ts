@@ -187,12 +187,7 @@ describe("Phase C: Source Unavailability Handling", () => {
       const service = new ReferenceService(
         storage,
         store,
-        {
-          vault: {
-            id: "test-vault",
-            path: "/Users/abir/CLOUD/JishnuLab/VAULT",
-          },
-        } as never,
+        make_vault_store("/Users/abir/CLOUD/JishnuLab/VAULT"),
         op_store,
         now_ms,
         null,
@@ -231,12 +226,7 @@ describe("Phase C: Source Unavailability Handling", () => {
       const service = new ReferenceService(
         storage,
         store,
-        {
-          vault: {
-            id: "test-vault",
-            path: "/Users/abir/CLOUD/JishnuLab/VAULT",
-          },
-        } as never,
+        make_vault_store("/Users/abir/CLOUD/JishnuLab/VAULT"),
         op_store,
         now_ms,
         null,
