@@ -1,6 +1,6 @@
 [package]
 name = "carbide-cli"
-version = "2.10.0"
+version = "2.10.1"
 edition = "2021"
 description = "CLI client for Carbide note-taking app"
 
