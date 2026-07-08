@@ -44,6 +44,7 @@ export type LinkedSource = {
   enabled: boolean;
   last_scan_at: number | null;
   home_relative_path?: string;
+  vault_relative_path?: string;
 };
 
 export type ScanEntry = {

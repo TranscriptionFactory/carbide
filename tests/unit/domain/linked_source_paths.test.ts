@@ -4,6 +4,7 @@ import {
   compute_home_relative_path,
   resolve_linked_path,
   resolve_linked_source_root,
+  linked_source_root_candidates,
   enrich_meta_with_paths,
 } from "$lib/features/reference/domain/linked_source_paths";
 
@@ -222,5 +223,61 @@ describe("resolve_linked_source_root", () => {
         "/Users/abir",
       ),
     ).toBe("/Users/abir/CLOUD/LINKED_SOURCES");
+  });
+
+  it("prefers vault_relative_path over home_relative_path", () => {
+    expect(
+      resolve_linked_source_root(
+        {
+          path: "/Users/aar126/CLOUD/_CPCB/JishnuLab/4_PAPERS",
+          home_relative_path: "~/CLOUD/_CPCB/JishnuLab/4_PAPERS",
+          vault_relative_path: "../4_PAPERS",
+        },
+        "/Users/abir",
+        "/Users/abir/CLOUD/JishnuLab/VAULT",
+      ),
+    ).toBe("/Users/abir/CLOUD/JishnuLab/4_PAPERS");
+  });
+});
+
+describe("linked_source_root_candidates", () => {
+  const source = {
+    path: "/Users/aar126/CLOUD/_CPCB/JishnuLab/4_PAPERS",
+    home_relative_path: "~/CLOUD/_CPCB/JishnuLab/4_PAPERS",
+    vault_relative_path: "../4_PAPERS",
+  };
+
+  it("orders candidates vault-relative, home-relative, then raw path", () => {
+    expect(
+      linked_source_root_candidates(
+        source,
+        "/Users/abir",
+        "/Users/abir/CLOUD/JishnuLab/VAULT",
+      ),
+    ).toEqual([
+      "/Users/abir/CLOUD/JishnuLab/4_PAPERS",
+      "/Users/abir/CLOUD/_CPCB/JishnuLab/4_PAPERS",
+      "/Users/aar126/CLOUD/_CPCB/JishnuLab/4_PAPERS",
+    ]);
+  });
+
+  it("omits anchors whose base is unavailable", () => {
+    expect(linked_source_root_candidates(source, "", "")).toEqual([
+      "/Users/aar126/CLOUD/_CPCB/JishnuLab/4_PAPERS",
+    ]);
+  });
+
+  it("dedupes candidates that resolve to the same path", () => {
+    expect(
+      linked_source_root_candidates(
+        {
+          path: "/Users/abir/CLOUD/JishnuLab/4_PAPERS",
+          home_relative_path: "~/CLOUD/JishnuLab/4_PAPERS",
+          vault_relative_path: "../4_PAPERS",
+        },
+        "/Users/abir",
+        "/Users/abir/CLOUD/JishnuLab/VAULT",
+      ),
+    ).toEqual(["/Users/abir/CLOUD/JishnuLab/4_PAPERS"]);
   });
 });

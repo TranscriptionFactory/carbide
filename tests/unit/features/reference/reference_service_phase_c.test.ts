@@ -166,6 +166,92 @@ describe("Phase C: Source Unavailability Handling", () => {
       expect(store.missing_linked_sources).toHaveLength(0);
     });
 
+    it("resolves via vault-relative anchor when home-anchored path is missing", async () => {
+      const source = make_source({
+        path: "/Users/aar126/CLOUD/_CPCB/JishnuLab/4_PAPERS",
+        home_relative_path: "~/CLOUD/_CPCB/JishnuLab/4_PAPERS",
+        vault_relative_path: "../4_PAPERS",
+      });
+      vault_settings = make_mock_vault_settings_port([source]);
+      ls_port = make_mock_linked_source_port();
+      (ls_port.resolve_home_dir as ReturnType<typeof vi.fn>).mockResolvedValue(
+        "/Users/abir",
+      );
+      (ls_port.list_files as ReturnType<typeof vi.fn>).mockImplementation(
+        (path: string) =>
+          path === "/Users/abir/CLOUD/JishnuLab/4_PAPERS"
+            ? Promise.resolve([])
+            : Promise.reject(new Error(`not a directory: ${path}`)),
+      );
+
+      const service = new ReferenceService(
+        storage,
+        store,
+        {
+          vault: {
+            id: "test-vault",
+            path: "/Users/abir/CLOUD/JishnuLab/VAULT",
+          },
+        } as never,
+        op_store,
+        now_ms,
+        null,
+        null,
+        ls_port,
+        vault_settings,
+      );
+
+      await service.verify_linked_sources();
+
+      expect(store.missing_linked_sources).toHaveLength(0);
+      const updated = store.linked_sources.find((s) => s.id === "source-1");
+      expect(updated?.path).toBe("/Users/abir/CLOUD/JishnuLab/4_PAPERS");
+      expect(updated?.home_relative_path).toBe("~/CLOUD/JishnuLab/4_PAPERS");
+      expect(updated?.vault_relative_path).toBe("../4_PAPERS");
+      expect(vault_settings.set_vault_setting).toHaveBeenCalled();
+    });
+
+    it("backfills vault_relative_path for a source found via home anchor", async () => {
+      const source = make_source({
+        path: "/Users/aar126/CLOUD/JishnuLab/4_PAPERS",
+        home_relative_path: "~/CLOUD/JishnuLab/4_PAPERS",
+      });
+      vault_settings = make_mock_vault_settings_port([source]);
+      ls_port = make_mock_linked_source_port();
+      (ls_port.resolve_home_dir as ReturnType<typeof vi.fn>).mockResolvedValue(
+        "/Users/abir",
+      );
+      (ls_port.list_files as ReturnType<typeof vi.fn>).mockImplementation(
+        (path: string) =>
+          path === "/Users/abir/CLOUD/JishnuLab/4_PAPERS"
+            ? Promise.resolve([])
+            : Promise.reject(new Error(`not a directory: ${path}`)),
+      );
+
+      const service = new ReferenceService(
+        storage,
+        store,
+        {
+          vault: {
+            id: "test-vault",
+            path: "/Users/abir/CLOUD/JishnuLab/VAULT",
+          },
+        } as never,
+        op_store,
+        now_ms,
+        null,
+        null,
+        ls_port,
+        vault_settings,
+      );
+
+      await service.verify_linked_sources();
+
+      expect(store.missing_linked_sources).toHaveLength(0);
+      const updated = store.linked_sources.find((s) => s.id === "source-1");
+      expect(updated?.vault_relative_path).toBe("../4_PAPERS");
+    });
+
     it("skips disabled sources during verification", async () => {
       const source = make_source({ enabled: false });
       vault_settings = make_mock_vault_settings_port([source]);

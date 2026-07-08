@@ -71,12 +71,44 @@ export function resolve_linked_path(
   return null;
 }
 
-export function resolve_linked_source_root(
-  source: { path: string; home_relative_path?: string },
+type LinkedSourceAnchors = {
+  path: string;
+  home_relative_path?: string;
+  vault_relative_path?: string;
+};
+
+// A source root is anchored three ways, ordered most- to least-portable:
+// vault-relative survives any mount-point difference as long as the source
+// moves together with the vault (e.g. siblings in a shared iCloud folder that
+// participants place at different locations), home-relative survives username
+// differences, and the raw absolute path is whatever the last machine saw.
+// Callers that can touch the filesystem should probe candidates in order and
+// keep the first that exists.
+export function linked_source_root_candidates(
+  source: LinkedSourceAnchors,
   home_dir: string,
+  vault_root: string,
+): string[] {
+  const candidates: string[] = [];
+  if (source.vault_relative_path && vault_root) {
+    candidates.push(posix_resolve(vault_root, source.vault_relative_path));
+  }
+  if (source.home_relative_path && home_dir) {
+    candidates.push(source.home_relative_path.replace(/^~/, home_dir));
+  }
+  candidates.push(source.path);
+  return [...new Set(candidates)];
+}
+
+export function resolve_linked_source_root(
+  source: LinkedSourceAnchors,
+  home_dir: string,
+  vault_root = "",
 ): string {
-  if (!source.home_relative_path || !home_dir) return source.path;
-  return source.home_relative_path.replace(/^~/, home_dir);
+  return (
+    linked_source_root_candidates(source, home_dir, vault_root)[0] ??
+    source.path
+  );
 }
 
 export function enrich_meta_with_paths(
