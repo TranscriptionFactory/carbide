@@ -47,6 +47,33 @@ export function compute_home_relative_path(
   return "~/" + file_path.slice(normalized_home.length);
 }
 
+type PortableAnchors = {
+  vault_relative_path?: string;
+  home_relative_path?: string;
+};
+
+// Anchors are ordered most- to least-portable: vault-relative survives any
+// mount-point difference as long as the target moves together with the vault
+// (e.g. siblings in a shared iCloud folder that participants place at
+// different locations), home-relative survives username differences, and the
+// absolute path is whatever the last machine saw.
+function anchor_candidates(
+  anchors: PortableAnchors,
+  absolute: string | undefined,
+  home_dir: string,
+  vault_root: string,
+): string[] {
+  const candidates: string[] = [];
+  if (anchors.vault_relative_path && vault_root) {
+    candidates.push(posix_resolve(vault_root, anchors.vault_relative_path));
+  }
+  if (anchors.home_relative_path && home_dir) {
+    candidates.push(anchors.home_relative_path.replace(/^~/, home_dir));
+  }
+  if (absolute) candidates.push(absolute);
+  return [...new Set(candidates)];
+}
+
 // `external_file_path` is a cache hint, not the source of truth: it is the
 // absolute path recorded by the machine that indexed the file and may point at
 // a location that does not exist on another machine. Prefer the portable
@@ -58,57 +85,34 @@ export function resolve_linked_path(
   vault_root: string,
   home_dir: string,
 ): string | null {
-  if (meta.vault_relative_path && vault_root) {
-    return posix_resolve(vault_root, meta.vault_relative_path);
-  }
-
-  if (meta.home_relative_path && home_dir) {
-    return meta.home_relative_path.replace(/^~/, home_dir);
-  }
-
-  if (meta.external_file_path) return meta.external_file_path;
-
-  return null;
+  return (
+    anchor_candidates(meta, meta.external_file_path, home_dir, vault_root)[0] ??
+    null
+  );
 }
 
-type LinkedSourceAnchors = {
-  path: string;
-  home_relative_path?: string;
-  vault_relative_path?: string;
-};
-
-// A source root is anchored three ways, ordered most- to least-portable:
-// vault-relative survives any mount-point difference as long as the source
-// moves together with the vault (e.g. siblings in a shared iCloud folder that
-// participants place at different locations), home-relative survives username
-// differences, and the raw absolute path is whatever the last machine saw.
 // Callers that can touch the filesystem should probe candidates in order and
 // keep the first that exists.
 export function linked_source_root_candidates(
-  source: LinkedSourceAnchors,
+  source: { path: string } & PortableAnchors,
   home_dir: string,
   vault_root: string,
 ): string[] {
-  const candidates: string[] = [];
-  if (source.vault_relative_path && vault_root) {
-    candidates.push(posix_resolve(vault_root, source.vault_relative_path));
-  }
-  if (source.home_relative_path && home_dir) {
-    candidates.push(source.home_relative_path.replace(/^~/, home_dir));
-  }
-  candidates.push(source.path);
-  return [...new Set(candidates)];
+  return anchor_candidates(source, source.path, home_dir, vault_root);
 }
 
-export function resolve_linked_source_root(
-  source: LinkedSourceAnchors,
+export function compute_source_anchors(
+  path: string,
   home_dir: string,
-  vault_root = "",
-): string {
-  return (
-    linked_source_root_candidates(source, home_dir, vault_root)[0] ??
-    source.path
-  );
+  vault_root: string,
+): { path: string } & PortableAnchors {
+  const hrp = compute_home_relative_path(path, home_dir);
+  const vrp = compute_vault_relative_path(path, vault_root);
+  return {
+    path,
+    ...(hrp ? { home_relative_path: hrp } : {}),
+    ...(vrp ? { vault_relative_path: vrp } : {}),
+  };
 }
 
 export function enrich_meta_with_paths(

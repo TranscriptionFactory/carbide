@@ -65,6 +65,6 @@ export function make_annotation(
   };
 }
 
-export function make_vault_store() {
-  return { vault: { id: "test-vault", path: "/tmp/test" } } as never;
+export function make_vault_store(path = "/tmp/test") {
+  return { vault: { id: "test-vault", path } } as never;
 }

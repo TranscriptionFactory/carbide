@@ -37,8 +37,8 @@ import {
 } from "../domain/linked_source_utils";
 import {
   resolve_linked_path,
-  resolve_linked_source_root,
   linked_source_root_candidates,
+  compute_source_anchors,
   enrich_meta_with_paths,
   compute_vault_relative_path,
   compute_home_relative_path,
@@ -543,22 +543,22 @@ export class ReferenceService {
     );
   }
 
-  private source_anchor_patch(
-    path: string,
+  private refresh_source_anchors(
+    source: LinkedSource,
+    located_path: string,
     home_dir: string,
     vault_root: string,
-  ): {
-    path: string;
-    home_relative_path?: string;
-    vault_relative_path?: string;
-  } {
-    const hrp = compute_home_relative_path(path, home_dir);
-    const vrp = compute_vault_relative_path(path, vault_root);
-    return {
-      path,
-      ...(hrp ? { home_relative_path: hrp } : {}),
-      ...(vrp ? { vault_relative_path: vrp } : {}),
-    };
+  ): boolean {
+    const anchors = compute_source_anchors(located_path, home_dir, vault_root);
+    const changed =
+      anchors.path !== source.path ||
+      (anchors.home_relative_path !== undefined &&
+        anchors.home_relative_path !== source.home_relative_path) ||
+      (anchors.vault_relative_path !== undefined &&
+        anchors.vault_relative_path !== source.vault_relative_path);
+    if (!changed) return false;
+    this.store.update_linked_source(source.id, anchors);
+    return true;
   }
 
   private async locate_source_root(
@@ -601,7 +601,7 @@ export class ReferenceService {
       name,
       enabled: true,
       last_scan_at: null,
-      ...this.source_anchor_patch(path, home_dir, vault_root),
+      ...compute_source_anchors(path, home_dir, vault_root),
     };
 
     this.store.add_linked_source(source);
@@ -672,19 +672,15 @@ export class ReferenceService {
         vault_root,
       );
       if (!located) {
-        throw new Error(
-          `Folder not found: ${resolve_linked_source_root(source, home_dir, vault_root)}`,
+        const tried = linked_source_root_candidates(
+          source,
+          home_dir,
+          vault_root,
         );
+        throw new Error(`Folder not found: ${tried.join(", ")}`);
       }
-      const effective_path = located.path;
-      if (effective_path !== source.path || !source.vault_relative_path) {
-        this.store.update_linked_source(
-          source_id,
-          this.source_anchor_patch(effective_path, home_dir, vault_root),
-        );
-      }
-
-      const file_infos = located.file_infos;
+      const { path: effective_path, file_infos } = located;
+      this.refresh_source_anchors(source, effective_path, home_dir, vault_root);
       const current_files = new Map(
         file_infos.map((f) => [f.file_path, f.modified_at]),
       );
@@ -979,11 +975,9 @@ export class ReferenceService {
       );
 
       if (located) {
-        if (located.path !== source.path || !source.vault_relative_path) {
-          this.store.update_linked_source(
-            source.id,
-            this.source_anchor_patch(located.path, home_dir, vault_root),
-          );
+        if (
+          this.refresh_source_anchors(source, located.path, home_dir, vault_root)
+        ) {
           sources_updated = true;
         }
       } else {
@@ -1031,7 +1025,7 @@ export class ReferenceService {
     const vault_root = this.vault_store.vault?.path ?? "";
     this.store.update_linked_source(
       source_id,
-      this.source_anchor_patch(new_path, home_dir, vault_root),
+      compute_source_anchors(new_path, home_dir, vault_root),
     );
     await this.save_linked_sources();
     this.store.dismiss_missing_linked_source(source_id);
