@@ -173,7 +173,6 @@ export async function open_active_tab_note(input: ActionRegistrationInput) {
     if (snapshot) {
       stores.editor.set_cursor_offset(snapshot.cursor_offset);
     }
-    services.editor.set_scroll_top(snapshot?.scroll_top ?? 0);
     return;
   }
 
@@ -183,7 +182,6 @@ export async function open_active_tab_note(input: ActionRegistrationInput) {
     if (snapshot) {
       stores.editor.set_cursor_offset(snapshot.cursor_offset);
     }
-    services.editor.set_scroll_top(snapshot?.scroll_top ?? 0);
   }
 }
 
