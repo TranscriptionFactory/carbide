@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   is_resolved_wiki_link_target,
   resolve_wiki_link_target,
+  resolve_wiki_link_note_path,
+  resolve_wiki_file_target,
 } from "$lib/features/editor/domain/wiki_link_resolution";
 
 describe("resolve_wiki_link_target", () => {
@@ -86,6 +88,100 @@ describe("resolve_wiki_link_target", () => {
   it("legacy folder note resolves a path-shaped target", () => {
     const pages = new Set(["docs/api/api"]);
     expect(resolve_wiki_link_target("docs/api", pages)).toBe("docs/api/api");
+  });
+});
+
+describe("resolve_wiki_link_note_path", () => {
+  const paths = [
+    "README.md",
+    "docs/getting-started.md",
+    "andrew-data/project-x/analysis.md",
+  ];
+
+  it("returns the full note path for an exact vault-relative target", () => {
+    expect(resolve_wiki_link_note_path("README.md", paths)).toBe("README.md");
+    expect(resolve_wiki_link_note_path("docs/getting-started.md", paths)).toBe(
+      "docs/getting-started.md",
+    );
+  });
+
+  it("resolves a bare basename target to a subfolder note", () => {
+    expect(resolve_wiki_link_note_path("analysis.md", paths)).toBe(
+      "andrew-data/project-x/analysis.md",
+    );
+    expect(resolve_wiki_link_note_path("analysis", paths)).toBe(
+      "andrew-data/project-x/analysis.md",
+    );
+  });
+
+  it("resolves case-mismatched targets", () => {
+    expect(resolve_wiki_link_note_path("readme", paths)).toBe("README.md");
+    expect(resolve_wiki_link_note_path("readme.md", paths)).toBe("README.md");
+  });
+
+  it("strips fragment and query suffixes before resolving", () => {
+    expect(resolve_wiki_link_note_path("analysis#Results", paths)).toBe(
+      "andrew-data/project-x/analysis.md",
+    );
+    expect(resolve_wiki_link_note_path("analysis?x=1", paths)).toBe(
+      "andrew-data/project-x/analysis.md",
+    );
+  });
+
+  it("returns null for absent or empty targets", () => {
+    expect(resolve_wiki_link_note_path("missing.md", paths)).toBeNull();
+    expect(resolve_wiki_link_note_path("", paths)).toBeNull();
+    expect(resolve_wiki_link_note_path("   ", paths)).toBeNull();
+  });
+});
+
+describe("resolve_wiki_file_target", () => {
+  const files = [
+    "papers/deep-learning.pdf",
+    "media/Talk Recording.mp4",
+    "root.pdf",
+  ];
+
+  it("returns an exact vault-relative path unchanged", () => {
+    expect(resolve_wiki_file_target("root.pdf", files)).toBe("root.pdf");
+    expect(resolve_wiki_file_target("papers/deep-learning.pdf", files)).toBe(
+      "papers/deep-learning.pdf",
+    );
+  });
+
+  it("resolves a bare filename to its subfolder path", () => {
+    expect(resolve_wiki_file_target("deep-learning.pdf", files)).toBe(
+      "papers/deep-learning.pdf",
+    );
+  });
+
+  it("matches basenames case-insensitively", () => {
+    expect(resolve_wiki_file_target("talk recording.mp4", files)).toBe(
+      "media/Talk Recording.mp4",
+    );
+  });
+
+  it("matches full paths case-insensitively", () => {
+    expect(resolve_wiki_file_target("PAPERS/Deep-Learning.PDF", files)).toBe(
+      "papers/deep-learning.pdf",
+    );
+  });
+
+  it("tie-breaks colliding basenames alphabetically", () => {
+    const colliding = ["z/scan.pdf", "a/scan.pdf", "m/scan.pdf"];
+    expect(resolve_wiki_file_target("scan.pdf", colliding)).toBe("a/scan.pdf");
+  });
+
+  it("does not basename-match path-shaped targets", () => {
+    expect(
+      resolve_wiki_file_target("wrong-folder/deep-learning.pdf", files),
+    ).toBeUndefined();
+  });
+
+  it("returns undefined for absent or empty targets", () => {
+    expect(resolve_wiki_file_target("missing.pdf", files)).toBeUndefined();
+    expect(resolve_wiki_file_target("", files)).toBeUndefined();
+    expect(resolve_wiki_file_target("   ", files)).toBeUndefined();
   });
 });
 

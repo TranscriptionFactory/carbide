@@ -49,6 +49,9 @@ export function create_test_assets_adapter(): AssetsPort {
     search_assets() {
       return Promise.resolve([]);
     },
+    list_files_by_extension() {
+      return Promise.resolve([]);
+    },
     invalidate_asset_cache() {
       return Promise.resolve();
     },

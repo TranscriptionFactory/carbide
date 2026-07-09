@@ -87,7 +87,7 @@ export function assemble_extensions(
 }
 
 export type { PluginContext, EditorExtension } from "./types";
-export type { ResolveAssetUrlForVault } from "./types";
+export type { ResolveAssetUrlForVault, ResolveVaultFilePath } from "./types";
 export {
   editor_context_plugin_key,
   outline_plugin_key,
