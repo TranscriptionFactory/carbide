@@ -25,6 +25,7 @@ import {
   as_vault_id,
   as_vault_path,
 } from "$lib/shared/types/ids";
+import type { OmnibarItem } from "$lib/shared/types/search";
 import { create_test_note, create_test_vault } from "../helpers/test_fixtures";
 
 function create_omnibar_actions_harness() {
@@ -530,5 +531,134 @@ describe("register_omnibar_actions", () => {
     });
 
     expect(open_switcher).toHaveBeenCalledTimes(1);
+  });
+
+  describe("view controls", () => {
+    const raw_items = (): OmnibarItem[] => [
+      { kind: "note", note: create_test_note("docs/beta", "Beta"), score: 1 },
+      {
+        kind: "note",
+        note: create_test_note("docs/alpha", "Alpha"),
+        score: 0.5,
+      },
+      {
+        kind: "command",
+        command: {
+          id: "open_settings",
+          label: "Open Settings",
+          description: "",
+          keywords: [],
+          icon: "settings",
+        },
+        score: 0,
+      } as OmnibarItem,
+      {
+        kind: "setting",
+        setting: {
+          key: "editor.font",
+          label: "Font",
+          description: "",
+          category: "Editor",
+          keywords: [],
+        },
+        score: 0,
+      },
+    ];
+
+    function seed_results(
+      harness: ReturnType<typeof create_omnibar_actions_harness>,
+    ): OmnibarItem[] {
+      const raw = raw_items();
+      harness.stores.search.set_omnibar_items_raw(raw);
+      harness.stores.search.set_omnibar_items(raw);
+      return raw;
+    }
+
+    it("re-derives from raw on kind filter toggle without re-querying", async () => {
+      const harness = create_omnibar_actions_harness();
+      const raw = seed_results(harness);
+
+      await harness.registry.execute(
+        ACTION_IDS.omnibar_toggle_kind_filter,
+        "commands",
+      );
+      expect(harness.stores.search.omnibar_items.map((i) => i.kind)).toEqual([
+        "command",
+      ]);
+      expect(harness.stores.ui.omnibar.selected_index).toBe(0);
+      expect(harness.services.search.search_omnibar).not.toHaveBeenCalled();
+
+      await harness.registry.execute(
+        ACTION_IDS.omnibar_toggle_kind_filter,
+        "commands",
+      );
+      expect(harness.stores.search.omnibar_items).toEqual(raw);
+    });
+
+    it("sorts by name and restores raw order when back on relevance", async () => {
+      const harness = create_omnibar_actions_harness();
+      const raw = seed_results(harness);
+
+      await harness.registry.execute(ACTION_IDS.omnibar_set_sort_mode, "name");
+      expect(
+        harness.stores.search.omnibar_items.map((i) => {
+          switch (i.kind) {
+            case "note":
+              return i.note.title;
+            case "command":
+              return i.command.label;
+            case "setting":
+              return i.setting.label;
+            default:
+              return "";
+          }
+        }),
+      ).toEqual(["Alpha", "Beta", "Font", "Open Settings"]);
+      expect(harness.services.search.search_omnibar).not.toHaveBeenCalled();
+
+      await harness.registry.execute(
+        ACTION_IDS.omnibar_set_sort_mode,
+        "relevance",
+      );
+      expect(harness.stores.search.omnibar_items).toEqual(raw);
+    });
+
+    it("clear_filters resets kind filters and sort mode", async () => {
+      const harness = create_omnibar_actions_harness();
+      const raw = seed_results(harness);
+      harness.stores.ui.omnibar = {
+        ...harness.stores.ui.omnibar,
+        kind_filters: ["settings"],
+        sort_mode: "name",
+      };
+
+      await harness.registry.execute(ACTION_IDS.omnibar_clear_filters);
+
+      expect(harness.stores.ui.omnibar.kind_filters).toEqual([]);
+      expect(harness.stores.ui.omnibar.sort_mode).toBe("relevance");
+      expect(harness.stores.search.omnibar_items).toEqual(raw);
+    });
+
+    it("applies pre-set kind filters and sort to fresh query results", async () => {
+      const harness = create_omnibar_actions_harness();
+      harness.services.search.search_omnibar = vi
+        .fn()
+        .mockResolvedValue({ domain: "notes", items: raw_items() });
+      harness.stores.ui.omnibar = {
+        ...harness.stores.ui.omnibar,
+        open: true,
+        kind_filters: ["notes"],
+        sort_mode: "name",
+      };
+
+      await harness.registry.execute(ACTION_IDS.omnibar_set_query, "doc");
+      await vi.advanceTimersByTimeAsync(200);
+
+      expect(
+        harness.stores.search.omnibar_items.map(
+          (i) => i.kind === "note" && i.note.title,
+        ),
+      ).toEqual(["Alpha", "Beta"]);
+    });
   });
 });

@@ -34,7 +34,10 @@
     OmnibarItem,
     OmnibarScope,
     OmnibarFileTypeFilter,
+    OmnibarKindFilter,
+    OmnibarSortMode,
   } from "$lib/shared/types/search";
+  import { apply_kind_filters } from "$lib/features/search/domain/omnibar_view";
   import XIcon from "@lucide/svelte/icons/x";
   import type { NoteMeta } from "$lib/shared/types/note";
   import type { CommandIcon as CommandIconType } from "$lib/features/search/types/command_palette";
@@ -104,6 +107,8 @@
     is_searching: boolean;
     scope: OmnibarScope;
     file_type_filters: OmnibarFileTypeFilter[];
+    kind_filters: OmnibarKindFilter[];
+    sort_mode: OmnibarSortMode;
     items: OmnibarItem[];
     recent_notes: NoteMeta[];
     recent_command_ids: string[];
@@ -115,6 +120,8 @@
     on_selected_index_change: (index: number) => void;
     on_scope_change: (scope: OmnibarScope) => void;
     on_toggle_file_type_filter: (filter: OmnibarFileTypeFilter) => void;
+    on_toggle_kind_filter: (filter: OmnibarKindFilter) => void;
+    on_sort_mode_change: (mode: OmnibarSortMode) => void;
     on_clear_filters: () => void;
     on_confirm: (item: OmnibarItem) => void;
     on_view_as_graph: (query: string) => void;
@@ -127,6 +134,8 @@
     is_searching,
     scope,
     file_type_filters,
+    kind_filters,
+    sort_mode,
     items,
     recent_notes,
     recent_command_ids,
@@ -138,6 +147,8 @@
     on_selected_index_change,
     on_scope_change,
     on_toggle_file_type_filter,
+    on_toggle_kind_filter,
+    on_sort_mode_change,
     on_clear_filters,
     on_confirm,
     on_view_as_graph,
@@ -162,9 +173,29 @@
     { scope: "current_vault", mnemonic: "v", label: "Vault" },
     { scope: "all_vaults", mnemonic: "a", label: "All" },
   ];
+  const KIND_FILTERS: {
+    filter: OmnibarKindFilter;
+    mnemonic: string;
+    label: string;
+  }[] = [
+    { filter: "notes", mnemonic: "n", label: "Notes" },
+    { filter: "commands", mnemonic: "o", label: "Commands" },
+    { filter: "settings", mnemonic: "s", label: "Settings" },
+  ];
+  const SORT_MODES: {
+    mode: OmnibarSortMode;
+    mnemonic: string;
+    label: string;
+  }[] = [
+    { mode: "relevance", mnemonic: "1", label: "Relevance" },
+    { mode: "name", mnemonic: "2", label: "Name" },
+    { mode: "recency", mnemonic: "3", label: "Recency" },
+  ];
   type FilterMnemonicEntry =
     | { kind: "type"; filter: OmnibarFileTypeFilter }
-    | { kind: "scope"; scope: OmnibarScope };
+    | { kind: "scope"; scope: OmnibarScope }
+    | { kind: "item_kind"; filter: OmnibarKindFilter }
+    | { kind: "sort"; mode: OmnibarSortMode };
   const FILTER_MNEMONICS = new Map<string, FilterMnemonicEntry>([
     ...TYPE_FILTERS.map(
       ({ mnemonic, filter }): [string, FilterMnemonicEntry] => [
@@ -178,6 +209,16 @@
         { kind: "scope", scope: s },
       ],
     ),
+    ...KIND_FILTERS.map(
+      ({ mnemonic, filter }): [string, FilterMnemonicEntry] => [
+        mnemonic,
+        { kind: "item_kind", filter },
+      ],
+    ),
+    ...SORT_MODES.map(({ mnemonic, mode }): [string, FilterMnemonicEntry] => [
+      mnemonic,
+      { kind: "sort", mode },
+    ]),
   ]);
 
   let input_ref: HTMLInputElement | null = $state(null);
@@ -305,7 +346,7 @@
       command,
       score: 0,
     }));
-    return [...recent, ...commands];
+    return apply_kind_filters([...recent, ...commands], kind_filters);
   });
 
   const visible_items: OmnibarItem[] = $derived.by(() => {
@@ -337,17 +378,32 @@
     has_query && !is_command_mode && !is_all_vaults && items.length > 0,
   );
 
+  const mru_notes_visible = $derived(
+    kind_filters.length === 0 || kind_filters.includes("notes"),
+  );
+  const mru_commands_visible = $derived(
+    kind_filters.length === 0 || kind_filters.includes("commands"),
+  );
   const show_recent_header = $derived(
-    !has_query && !is_command_mode && !is_all_vaults && recent_notes.length > 0,
+    !has_query &&
+      !is_command_mode &&
+      !is_all_vaults &&
+      mru_notes_visible &&
+      recent_notes.length > 0,
   );
   const show_commands_header = $derived(
     !has_query &&
       !is_command_mode &&
       !is_all_vaults &&
+      mru_commands_visible &&
       (COMMANDS_REGISTRY.length > 0 || plugin_commands.length > 0),
   );
   const commands_start_index = $derived(
-    !has_query && !is_command_mode && !is_all_vaults ? recent_notes.length : -1,
+    !has_query && !is_command_mode && !is_all_vaults
+      ? mru_notes_visible
+        ? recent_notes.length
+        : 0
+      : -1,
   );
 
   function get_item_id(item: OmnibarItem): string {
@@ -404,8 +460,12 @@
       if (entry) {
         if (entry.kind === "type") {
           on_toggle_file_type_filter(entry.filter);
-        } else {
+        } else if (entry.kind === "scope") {
           on_scope_change(entry.scope);
+        } else if (entry.kind === "item_kind") {
+          on_toggle_kind_filter(entry.filter);
+        } else {
+          on_sort_mode_change(entry.mode);
         }
         return;
       }
@@ -509,6 +569,28 @@
           </button>
         {/if}
       {/each}
+      {#each kind_filters as kf}
+        {@const def = KIND_FILTERS.find((k) => k.filter === kf)}
+        {#if def}
+          <button
+            class="Omnibar__active-chip"
+            onclick={() => on_toggle_kind_filter(kf)}
+          >
+            {def.label}
+            <XIcon />
+          </button>
+        {/if}
+      {/each}
+      {#if sort_mode !== "relevance"}
+        {@const def = SORT_MODES.find((s) => s.mode === sort_mode)}
+        <button
+          class="Omnibar__active-chip"
+          onclick={() => on_sort_mode_change("relevance")}
+        >
+          Sort: {def?.label}
+          <XIcon />
+        </button>
+      {/if}
       {#if is_searching}
         <div class="Omnibar__spinner"></div>
       {/if}
@@ -531,6 +613,21 @@
             </button>
           {/each}
         </div>
+        <div class="Omnibar__filter-row">
+          <span class="Omnibar__filter-label">Kind</span>
+          {#each KIND_FILTERS as kf}
+            <button
+              class="Omnibar__filter-chip"
+              class:Omnibar__filter-chip--active={kind_filters.includes(
+                kf.filter,
+              )}
+              onclick={() => on_toggle_kind_filter(kf.filter)}
+            >
+              <kbd>{kf.mnemonic.toUpperCase()}</kbd>
+              {kf.label}
+            </button>
+          {/each}
+        </div>
         {#if has_multiple_vaults}
           <div class="Omnibar__filter-row">
             <span class="Omnibar__filter-label">Source</span>
@@ -546,6 +643,19 @@
             {/each}
           </div>
         {/if}
+        <div class="Omnibar__filter-row">
+          <span class="Omnibar__filter-label">Sort</span>
+          {#each SORT_MODES as sm}
+            <button
+              class="Omnibar__filter-chip"
+              class:Omnibar__filter-chip--active={sort_mode === sm.mode}
+              onclick={() => on_sort_mode_change(sm.mode)}
+            >
+              <kbd>{sm.mnemonic}</kbd>
+              {sm.label}
+            </button>
+          {/each}
+        </div>
         <span class="Omnibar__filter-hint"
           >press letter to toggle · Tab/Esc to close</span
         >
