@@ -1,3 +1,4 @@
+import { invoke } from "@tauri-apps/api/core";
 import { Plugin, PluginKey, TextSelection } from "prosemirror-state";
 import type { Node as ProseNode } from "prosemirror-model";
 import type {
@@ -217,6 +218,8 @@ type HtmlPreviewState = {
   iframe: HTMLIFrameElement;
   toggle_btn: HTMLButtonElement;
   last_rendered_content: string;
+  live_url: string | null;
+  render_seq: number;
 };
 
 function mermaid_cache_key(code: string): string {
@@ -519,7 +522,6 @@ class CodeBlockView implements NodeView {
     iframe.className = "code-block-preview-frame";
     iframe.setAttribute("sandbox", CODE_PREVIEW_SANDBOX);
     iframe.setAttribute("referrerpolicy", "no-referrer");
-    iframe.setAttribute("loading", "lazy");
     iframe.title = "Code preview";
     container.appendChild(iframe);
 
@@ -548,6 +550,8 @@ class CodeBlockView implements NodeView {
       iframe,
       toggle_btn,
       last_rendered_content: "",
+      live_url: null,
+      render_seq: 0,
     };
     this.apply_html_preview_state();
     if (show) this.render_html_preview();
@@ -579,23 +583,48 @@ class CodeBlockView implements NodeView {
 
   private render_html_preview() {
     if (!this.html_preview) return;
+    const state = this.html_preview;
     const source = this.node.textContent;
-    this.html_preview.last_rendered_content = source;
+    state.last_rendered_content = source;
     const theme =
       document.documentElement.getAttribute("data-color-scheme") === "dark"
         ? "dark"
         : "light";
-    this.html_preview.iframe.srcdoc = build_code_preview_srcdoc(
+    const doc = build_code_preview_srcdoc(
       this.current_language,
       source,
       theme,
       read_preview_theme_tokens(),
     );
+    // Served via the carbide-html: protocol; srcdoc frames are blocked by the
+    // host CSP frame-src in WebKit.
+    const seq = ++state.render_seq;
+    void (async () => {
+      const url = await invoke<string>("html_live_register", {
+        html: doc,
+        assetRoot: null,
+        allowNetwork: false,
+      });
+      if (this.html_preview !== state || seq !== state.render_seq) {
+        void invoke("html_live_release", { url });
+        return;
+      }
+      if (state.live_url)
+        void invoke("html_live_release", { url: state.live_url });
+      state.live_url = url;
+      state.iframe.src = url;
+    })().catch((error: unknown) => {
+      log.error("HTML preview render failed", { error });
+    });
   }
 
   private teardown_html_preview() {
     if (!this.html_preview) return;
     clearTimeout(this.preview_timer);
+    this.html_preview.render_seq++;
+    if (this.html_preview.live_url) {
+      void invoke("html_live_release", { url: this.html_preview.live_url });
+    }
     this.html_preview.toggle_btn.remove();
     this.html_preview.container.remove();
     this.html_preview = null;
@@ -1175,6 +1204,7 @@ class CodeBlockView implements NodeView {
       clearTimeout(this.mermaid.render_timer);
     }
     clearTimeout(this.preview_timer);
+    this.teardown_html_preview();
     this.teardown_smart_block();
   }
 }
