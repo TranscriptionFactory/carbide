@@ -218,6 +218,7 @@ type HtmlPreviewState = {
   iframe: HTMLIFrameElement;
   toggle_btn: HTMLButtonElement;
   last_rendered_content: string;
+  last_rendered_theme: string;
   live_url: string | null;
   render_seq: number;
 };
@@ -550,6 +551,7 @@ class CodeBlockView implements NodeView {
       iframe,
       toggle_btn,
       last_rendered_content: "",
+      last_rendered_theme: "",
       live_url: null,
       render_seq: 0,
     };
@@ -585,11 +587,19 @@ class CodeBlockView implements NodeView {
     if (!this.html_preview) return;
     const state = this.html_preview;
     const source = this.node.textContent;
-    state.last_rendered_content = source;
     const theme =
       document.documentElement.getAttribute("data-color-scheme") === "dark"
         ? "dark"
         : "light";
+    if (
+      state.live_url &&
+      source === state.last_rendered_content &&
+      theme === state.last_rendered_theme
+    ) {
+      return;
+    }
+    state.last_rendered_content = source;
+    state.last_rendered_theme = theme;
     const doc = build_code_preview_srcdoc(
       this.current_language,
       source,
@@ -598,14 +608,21 @@ class CodeBlockView implements NodeView {
     );
     // Served via the carbide-html: protocol; srcdoc frames are blocked by the
     // host CSP frame-src in WebKit.
-    const seq = ++state.render_seq;
-    void (async () => {
+    void this.swap_preview_src(state, doc, ++state.render_seq);
+  }
+
+  private async swap_preview_src(
+    state: HtmlPreviewState,
+    doc: string,
+    seq: number,
+  ) {
+    try {
       const url = await invoke<string>("html_live_register", {
         html: doc,
         assetRoot: null,
         allowNetwork: false,
       });
-      if (this.html_preview !== state || seq !== state.render_seq) {
+      if (seq !== state.render_seq) {
         void invoke("html_live_release", { url });
         return;
       }
@@ -613,9 +630,9 @@ class CodeBlockView implements NodeView {
         void invoke("html_live_release", { url: state.live_url });
       state.live_url = url;
       state.iframe.src = url;
-    })().catch((error: unknown) => {
+    } catch (error) {
       log.error("HTML preview render failed", { error });
-    });
+    }
   }
 
   private teardown_html_preview() {
@@ -1203,7 +1220,6 @@ class CodeBlockView implements NodeView {
     if (this.mermaid) {
       clearTimeout(this.mermaid.render_timer);
     }
-    clearTimeout(this.preview_timer);
     this.teardown_html_preview();
     this.teardown_smart_block();
   }
