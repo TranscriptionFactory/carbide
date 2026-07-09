@@ -185,6 +185,8 @@ export const ACTION_IDS = {
   omnibar_confirm_cross_vault_open: "omnibar.confirm_cross_vault_open",
   omnibar_cancel_cross_vault_open: "omnibar.cancel_cross_vault_open",
   omnibar_toggle_file_type_filter: "omnibar.toggle_file_type_filter",
+  omnibar_toggle_kind_filter: "omnibar.toggle_kind_filter",
+  omnibar_set_sort_mode: "omnibar.set_sort_mode",
   omnibar_clear_filters: "omnibar.clear_filters",
 
   editor_fold_toggle: "editor.fold.toggle",

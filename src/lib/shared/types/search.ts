@@ -20,6 +20,8 @@ export type OmnibarFileTypeFilter =
   | "code"
   | "canvas"
   | "image";
+export type OmnibarSortMode = "relevance" | "name" | "recency";
+export type OmnibarKindFilter = "notes" | "commands" | "settings";
 
 export type SearchQuery = {
   raw: string;
