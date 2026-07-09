@@ -46,6 +46,8 @@
   import type {
     OmnibarScope,
     OmnibarFileTypeFilter,
+    OmnibarKindFilter,
+    OmnibarSortMode,
   } from "$lib/shared/types/search";
   import type {
     EditorSettings,
@@ -614,6 +616,8 @@
   is_searching={stores.ui.omnibar.is_searching}
   scope={stores.ui.omnibar.scope}
   file_type_filters={stores.ui.omnibar.file_type_filters}
+  kind_filters={stores.ui.omnibar.kind_filters}
+  sort_mode={stores.ui.omnibar.sort_mode}
   items={stores.search.omnibar_items}
   recent_notes={recent_notes_for_display}
   recent_command_ids={stores.ui.recent_command_ids}
@@ -638,6 +642,10 @@
       ACTION_IDS.omnibar_toggle_file_type_filter,
       filter,
     )}
+  on_toggle_kind_filter={(filter: OmnibarKindFilter) =>
+    void action_registry.execute(ACTION_IDS.omnibar_toggle_kind_filter, filter)}
+  on_sort_mode_change={(mode: OmnibarSortMode) =>
+    void action_registry.execute(ACTION_IDS.omnibar_set_sort_mode, mode)}
   on_clear_filters={() =>
     void action_registry.execute(ACTION_IDS.omnibar_clear_filters)}
   on_confirm={(item: OmnibarItem) =>

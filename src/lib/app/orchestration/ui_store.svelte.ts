@@ -22,6 +22,8 @@ import type { PastedImagePayload } from "$lib/shared/types/editor";
 import type {
   OmnibarScope,
   OmnibarFileTypeFilter,
+  OmnibarKindFilter,
+  OmnibarSortMode,
 } from "$lib/shared/types/search";
 import type {
   HotkeyConfig,
@@ -106,6 +108,8 @@ const INITIAL_OMNIBAR: {
   is_searching: boolean;
   scope: OmnibarScope;
   file_type_filters: OmnibarFileTypeFilter[];
+  kind_filters: OmnibarKindFilter[];
+  sort_mode: OmnibarSortMode;
 } = {
   open: false,
   query: "",
@@ -113,6 +117,8 @@ const INITIAL_OMNIBAR: {
   is_searching: false,
   scope: "current_vault",
   file_type_filters: [],
+  kind_filters: [],
+  sort_mode: "relevance",
 };
 
 const INITIAL_FIND_IN_FILE = {
@@ -349,6 +355,8 @@ export class UIStore {
     is_searching: boolean;
     scope: OmnibarScope;
     file_type_filters: OmnibarFileTypeFilter[];
+    kind_filters: OmnibarKindFilter[];
+    sort_mode: OmnibarSortMode;
   }>({ ...INITIAL_OMNIBAR });
 
   find_in_file = $state<{
