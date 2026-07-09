@@ -11,7 +11,26 @@ export type OmnibarSortContext = {
   recent_command_ids: readonly string[];
 };
 
-export function file_type_matches(
+const NAME_COLLATOR = new Intl.Collator(undefined, {
+  sensitivity: "base",
+  numeric: true,
+});
+
+export function mru_comparator(
+  recent_command_ids: readonly string[],
+): (a: string, b: string) => number {
+  const mru_index = new Map(recent_command_ids.map((id, i) => [id, i]));
+  return (a, b) => {
+    const a_idx = mru_index.get(a);
+    const b_idx = mru_index.get(b);
+    if (a_idx !== undefined && b_idx !== undefined) return a_idx - b_idx;
+    if (a_idx !== undefined) return -1;
+    if (b_idx !== undefined) return 1;
+    return 0;
+  };
+}
+
+function file_type_matches(
   file_type: string | null,
   filter: OmnibarFileTypeFilter,
 ): boolean {
@@ -101,10 +120,7 @@ export function sort_omnibar_items(
 
   if (mode === "name") {
     return [...items].sort((a, b) =>
-      item_title(a).localeCompare(item_title(b), undefined, {
-        sensitivity: "base",
-        numeric: true,
-      }),
+      NAME_COLLATOR.compare(item_title(a), item_title(b)),
     );
   }
 
@@ -128,21 +144,16 @@ export function sort_omnibar_items(
     }
   }
 
-  const sorted_notes = [...notes].sort(
-    (a, b) =>
-      note_recency_ms(b.note, context.access_history) -
-      note_recency_ms(a.note, context.access_history),
+  const recency_keys = new Map(
+    notes.map((item) => [
+      item,
+      note_recency_ms(item.note, context.access_history),
+    ]),
   );
+  notes.sort((a, b) => (recency_keys.get(b) ?? 0) - (recency_keys.get(a) ?? 0));
 
-  const mru_index = new Map(context.recent_command_ids.map((id, i) => [id, i]));
-  const sorted_commands = [...commands].sort((a, b) => {
-    const a_idx = mru_index.get(a.command.id);
-    const b_idx = mru_index.get(b.command.id);
-    if (a_idx !== undefined && b_idx !== undefined) return a_idx - b_idx;
-    if (a_idx !== undefined) return -1;
-    if (b_idx !== undefined) return 1;
-    return 0;
-  });
+  const by_mru = mru_comparator(context.recent_command_ids);
+  commands.sort((a, b) => by_mru(a.command.id, b.command.id));
 
-  return [...sorted_notes, ...sorted_commands, ...rest];
+  return [...notes, ...commands, ...rest];
 }
