@@ -446,7 +446,7 @@ export class EditorService {
   }
 
   set_scroll_top(value: number) {
-    if (value <= 0) return;
+    if (value < 0) return;
     let frames = 0;
     const apply = () => {
       const container = this.host_root?.parentElement;

@@ -12,6 +12,15 @@ export function resolve_editor_sync_cursor_offset(
   return undefined;
 }
 
+export function resolve_editor_sync_scroll_top(
+  pending: PendingCursorRestore | null,
+): number | undefined {
+  if (pending && pending.scroll_top >= 0) {
+    return pending.scroll_top;
+  }
+  return undefined;
+}
+
 export function resolve_editor_sync_open(input: {
   open_note_id: string;
   open_note_buffer_id: string;
@@ -94,6 +103,11 @@ export function create_editor_sync_reactor(
 
       if (restore_cursor_offset !== undefined) {
         editor_service.set_cursor_from_markdown_offset(restore_cursor_offset);
+      }
+
+      const restore_scroll_top = resolve_editor_sync_scroll_top(pending);
+      if (restore_scroll_top !== undefined) {
+        editor_service.set_scroll_top(restore_scroll_top);
       }
     });
   });
