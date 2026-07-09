@@ -48,17 +48,28 @@ export function create_embed_extension(ctx: PluginContext): EditorExtension {
   plugins.push(create_excalidraw_embed_view_plugin(embed_callbacks));
 
   plugins.push(create_file_embed_plugin());
+  const resolve_asset_url_for_vault = ctx.resolve_asset_url_for_vault;
   plugins.push(
     create_file_embed_view_plugin({
       on_open_file: open_document,
-      resolve_asset_url: ctx.resolve_asset_url_for_vault
-        ? (src) => {
+      resolve_asset_url: resolve_asset_url_for_vault
+        ? async (src) => {
             const vault_id = ctx.get_vault_id();
             if (!vault_id) return src;
-            return ctx.resolve_asset_url_for_vault!(
-              vault_id,
-              as_asset_path(decodeURIComponent(src)),
-            );
+            const decoded = decodeURIComponent(src);
+            let target = decoded;
+            if (
+              ctx.resolve_vault_file_path &&
+              !decoded.startsWith("/") &&
+              !decoded.startsWith("@linked/")
+            ) {
+              const resolved = await ctx.resolve_vault_file_path(
+                vault_id,
+                decoded,
+              );
+              if (resolved) target = resolved;
+            }
+            return resolve_asset_url_for_vault(vault_id, as_asset_path(target));
           }
         : undefined,
     }),

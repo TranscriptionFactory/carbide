@@ -18,6 +18,8 @@ import {
 import {
   create_milkdown_editor_port,
   create_ydoc_manager,
+  resolve_wiki_link_note_path,
+  resolve_wiki_file_target,
 } from "$lib/features/editor";
 import { commands } from "$lib/generated/bindings";
 import { create_clipboard_tauri_adapter } from "$lib/features/clipboard";
@@ -189,6 +191,12 @@ export function create_prod_ports(): Ports & {
         }
         return assets.resolve_asset_url(vault_id, asset_path);
       },
+      resolve_vault_file_path: async (vault_id, target) => {
+        const extension = /\.([a-zA-Z0-9]+)$/.exec(target)?.[1];
+        if (!extension) return null;
+        const paths = await assets.list_files_by_extension(vault_id, extension);
+        return resolve_wiki_file_target(target, paths) ?? null;
+      },
       load_svg_preview: (vault_id, path) =>
         canvas.read_svg_preview(vault_id, path),
       ydoc_manager: create_ydoc_manager(),
@@ -231,10 +239,22 @@ export function create_prod_ports(): Ports & {
       },
       subscribe_to_changes: (handler) => watcher.subscribe_fs_events(handler),
       note_embed: {
-        read_note: (vault_id, note_path) =>
-          notes
-            .read_note(vault_id as VaultId, note_path as NoteId)
-            .then((d) => d.markdown),
+        read_note: async (vault_id, note_path) => {
+          const vid = vault_id as VaultId;
+          try {
+            const doc = await notes.read_note(vid, note_path as NoteId);
+            return doc.markdown;
+          } catch (error) {
+            const metas = await notes.list_notes(vid);
+            const resolved = resolve_wiki_link_note_path(
+              note_path,
+              metas.map((meta) => meta.path),
+            );
+            if (!resolved || resolved === note_path) throw error;
+            const doc = await notes.read_note(vid, resolved as NoteId);
+            return doc.markdown;
+          }
+        },
         subscribe_to_changes: (handler) => watcher.subscribe_fs_events(handler),
       },
     }),

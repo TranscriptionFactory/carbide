@@ -77,6 +77,7 @@ import {
 import { SKIP_FRONTMATTER_GUARD } from "$lib/features/editor/adapters/frontmatter_guard_plugin";
 import type {
   ResolveAssetUrlForVault,
+  ResolveVaultFilePath,
   CiteSuggestionItem,
 } from "$lib/features/editor/extensions";
 import type { ToolbarConfig } from "$lib/features/editor/extensions/toolbar_extension";
@@ -315,6 +316,7 @@ function build_smart_blocks_config(deps: {
 
 export function create_prosemirror_editor_port(args?: {
   resolve_asset_url_for_vault?: ResolveAssetUrlForVault;
+  resolve_vault_file_path?: ResolveVaultFilePath;
   load_svg_preview?: (vault_id: string, path: string) => Promise<string | null>;
   ydoc_manager?: YDocManager;
   slash_config?: SlashCommandConfig;
@@ -340,6 +342,7 @@ export function create_prosemirror_editor_port(args?: {
   };
 }): EditorPort {
   const resolve_asset_url_for_vault = args?.resolve_asset_url_for_vault ?? null;
+  const resolve_vault_file_path = args?.resolve_vault_file_path;
   const load_svg_preview_fn = args?.load_svg_preview ?? undefined;
   const ydoc_manager = args?.ydoc_manager ?? null;
   const slash_config = args?.slash_config;
@@ -405,6 +408,7 @@ export function create_prosemirror_editor_port(args?: {
           get_vault_id: () => current_vault_id,
           get_markdown: () => current_markdown,
           resolve_asset_url_for_vault,
+          resolve_vault_file_path,
           load_svg_preview: load_svg_preview_fn,
           frontmatter_widget,
           tag_pill_menu,

@@ -12,6 +12,11 @@ export type ResolveAssetUrlForVault = (
   asset_path: AssetPath,
 ) => string | Promise<string>;
 
+export type ResolveVaultFilePath = (
+  vault_id: VaultId,
+  target: string,
+) => Promise<string | null>;
+
 export type NoteEmbedContext = {
   read_note: (note_path: string) => Promise<string>;
   parse_markdown: (markdown: string) => ProseNode;
@@ -24,6 +29,7 @@ export type PluginContext = {
   get_vault_id: () => VaultId | null;
   get_markdown: () => string;
   resolve_asset_url_for_vault: ResolveAssetUrlForVault | null;
+  resolve_vault_file_path?: ResolveVaultFilePath | undefined;
   load_svg_preview?:
     | ((vault_id: string, path: string) => Promise<string | null>)
     | undefined;

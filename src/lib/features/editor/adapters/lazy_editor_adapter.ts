@@ -18,8 +18,14 @@ type ResolveAssetUrlForVault = (
   asset_path: AssetPath,
 ) => string | Promise<string>;
 
+type ResolveVaultFilePath = (
+  vault_id: VaultId,
+  target: string,
+) => Promise<string | null>;
+
 export function create_lazy_editor_port(args?: {
   resolve_asset_url_for_vault?: ResolveAssetUrlForVault;
+  resolve_vault_file_path?: ResolveVaultFilePath;
   load_svg_preview?: (vault_id: string, path: string) => Promise<string | null>;
   ydoc_manager?: YDocManager;
   slash_config?: SlashCommandConfig;

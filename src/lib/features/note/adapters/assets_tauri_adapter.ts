@@ -44,6 +44,13 @@ export function create_assets_tauri_adapter(): AssetsPort {
         limit,
       });
     },
+    async list_files_by_extension(vault_id, extension) {
+      const files = await tauri_invoke<Array<{ path: string }>>(
+        "list_vault_files_by_extension",
+        { vaultId: vault_id, extension },
+      );
+      return files.map((f) => f.path);
+    },
     async invalidate_asset_cache(vault_id, asset_path) {
       return tauri_invoke<void>("invalidate_asset_cache", {
         vaultId: vault_id,

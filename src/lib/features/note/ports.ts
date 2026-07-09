@@ -38,6 +38,10 @@ export interface AssetsPort {
     query: string,
     limit: number,
   ): Promise<string[]>;
+  list_files_by_extension(
+    vault_id: VaultId,
+    extension: string,
+  ): Promise<string[]>;
   invalidate_asset_cache(vault_id: VaultId, asset_path: string): Promise<void>;
 }
 
