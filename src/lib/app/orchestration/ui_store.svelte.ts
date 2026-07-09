@@ -348,16 +348,7 @@ export class UIStore {
     all_folder_paths: string[];
   }>(initial_settings_dialog(DEFAULT_EDITOR_SETTINGS));
 
-  omnibar = $state<{
-    open: boolean;
-    query: string;
-    selected_index: number;
-    is_searching: boolean;
-    scope: OmnibarScope;
-    file_type_filters: OmnibarFileTypeFilter[];
-    kind_filters: OmnibarKindFilter[];
-    sort_mode: OmnibarSortMode;
-  }>({ ...INITIAL_OMNIBAR });
+  omnibar = $state<typeof INITIAL_OMNIBAR>({ ...INITIAL_OMNIBAR });
 
   find_in_file = $state<{
     open: boolean;
