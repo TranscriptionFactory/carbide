@@ -1,5 +1,11 @@
 # carbide
 
+## 2.11.1
+
+### Patch Changes
+
+- 86d4d2e: Editor: `![[note]]` and `![[file.pdf]]` embeds now resolve their targets like wiki links (exact → case-insensitive → basename lookup), so transclusions load when the target lives in a subfolder or differs in casing.
+
 ## 2.11.0
 
 ### Minor Changes
