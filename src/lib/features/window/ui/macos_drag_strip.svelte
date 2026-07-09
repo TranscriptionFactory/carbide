@@ -14,10 +14,13 @@
     position: fixed;
     top: 0;
     inset-inline: 0;
-    /* z-index 0 + early DOM position keeps the strip below any theme chrome
-       rendered in the top band (e.g. triptych/cockpit place the ActivityBar
-       at top:0); a higher value swallows every click on that chrome */
-    z-index: 0;
+    /* Must sit above workspace content: themes that position .WorkspaceLayout
+       (triptych/cockpit/theater/dashboard) otherwise hit-test their top
+       padding band over the strip, so a titlebar mousedown starts a text
+       selection instead of a window drag. Stays below portaled overlays
+       (z-50) and floating theme chrome (z>=150); theme CSS offsets any
+       top-band ActivityBar below the strip rather than relying on z-order */
+    z-index: 40;
     height: var(--macos-drag-strip-height);
     -webkit-app-region: drag;
     user-select: none;
