@@ -37,7 +37,7 @@
     OmnibarKindFilter,
     OmnibarSortMode,
   } from "$lib/shared/types/search";
-  import { apply_kind_filters } from "$lib/features/search/domain/omnibar_view";
+  import { mru_comparator } from "$lib/features/search/domain/omnibar_view";
   import XIcon from "@lucide/svelte/icons/x";
   import type { NoteMeta } from "$lib/shared/types/note";
   import type { CommandIcon as CommandIconType } from "$lib/features/search/types/command_palette";
@@ -313,16 +313,18 @@
   });
 
   const sorted_commands = $derived.by(() => {
-    const mru_index = new Map(recent_command_ids.map((id, i) => [id, i]));
-    return [...COMMANDS_REGISTRY, ...plugin_commands].sort((a, b) => {
-      const a_idx = mru_index.get(a.id);
-      const b_idx = mru_index.get(b.id);
-      if (a_idx !== undefined && b_idx !== undefined) return a_idx - b_idx;
-      if (a_idx !== undefined) return -1;
-      if (b_idx !== undefined) return 1;
-      return 0;
-    });
+    const by_mru = mru_comparator(recent_command_ids);
+    return [...COMMANDS_REGISTRY, ...plugin_commands].sort((a, b) =>
+      by_mru(a.id, b.id),
+    );
   });
+
+  const mru_notes_visible = $derived(
+    kind_filters.length === 0 || kind_filters.includes("notes"),
+  );
+  const mru_commands_visible = $derived(
+    kind_filters.length === 0 || kind_filters.includes("commands"),
+  );
 
   const display_items: OmnibarItem[] = $derived.by(() => {
     if (has_query) return items;
@@ -337,16 +339,20 @@
 
     if (is_all_vaults) return [];
 
-    const recent: OmnibarItem[] = recent_notes.map((note) => ({
-      kind: "recent_note" as const,
-      note,
-    }));
-    const commands: OmnibarItem[] = sorted_commands.map((command) => ({
-      kind: "command" as const,
-      command,
-      score: 0,
-    }));
-    return apply_kind_filters([...recent, ...commands], kind_filters);
+    const recent: OmnibarItem[] = mru_notes_visible
+      ? recent_notes.map((note) => ({
+          kind: "recent_note" as const,
+          note,
+        }))
+      : [];
+    const commands: OmnibarItem[] = mru_commands_visible
+      ? sorted_commands.map((command) => ({
+          kind: "command" as const,
+          command,
+          score: 0,
+        }))
+      : [];
+    return [...recent, ...commands];
   });
 
   const visible_items: OmnibarItem[] = $derived.by(() => {
@@ -378,18 +384,14 @@
     has_query && !is_command_mode && !is_all_vaults && items.length > 0,
   );
 
-  const mru_notes_visible = $derived(
-    kind_filters.length === 0 || kind_filters.includes("notes"),
-  );
-  const mru_commands_visible = $derived(
-    kind_filters.length === 0 || kind_filters.includes("commands"),
+  const visible_recent_count = $derived(
+    mru_notes_visible ? recent_notes.length : 0,
   );
   const show_recent_header = $derived(
     !has_query &&
       !is_command_mode &&
       !is_all_vaults &&
-      mru_notes_visible &&
-      recent_notes.length > 0,
+      visible_recent_count > 0,
   );
   const show_commands_header = $derived(
     !has_query &&
@@ -400,9 +402,7 @@
   );
   const commands_start_index = $derived(
     !has_query && !is_command_mode && !is_all_vaults
-      ? mru_notes_visible
-        ? recent_notes.length
-        : 0
+      ? visible_recent_count
       : -1,
   );
 
