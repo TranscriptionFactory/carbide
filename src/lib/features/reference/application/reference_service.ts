@@ -976,7 +976,12 @@ export class ReferenceService {
 
       if (located) {
         if (
-          this.refresh_source_anchors(source, located.path, home_dir, vault_root)
+          this.refresh_source_anchors(
+            source,
+            located.path,
+            home_dir,
+            vault_root,
+          )
         ) {
           sources_updated = true;
         }
