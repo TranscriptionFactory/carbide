@@ -441,15 +441,28 @@ export class EditorService {
     };
   }
 
+  // host_root's direct parent is not the scroller in non-split visual mode
+  // (.NoteEditor owns overflow-y there; .NoteEditor__split-pane in split mode),
+  // so walk up to the first scrollable ancestor.
+  private resolve_scroll_container(): HTMLElement | null {
+    let el: HTMLElement | null = this.host_root?.parentElement ?? null;
+    while (el) {
+      const overflow_y = getComputedStyle(el).overflowY;
+      if (overflow_y === "auto" || overflow_y === "scroll") return el;
+      el = el.parentElement;
+    }
+    return null;
+  }
+
   get_scroll_top(): number {
-    return this.host_root?.parentElement?.scrollTop ?? 0;
+    return this.resolve_scroll_container()?.scrollTop ?? 0;
   }
 
   set_scroll_top(value: number) {
     if (value < 0) return;
     let frames = 0;
     const apply = () => {
-      const container = this.host_root?.parentElement;
+      const container = this.resolve_scroll_container();
       if (!container) return;
       container.scrollTop = value;
       if (container.scrollTop < value && frames++ < 8) {
