@@ -351,7 +351,9 @@ function convert_table(node: AnyMdastNode): PmNode {
     pm_rows.push(schema.nodes.table_row.create(null, pm_cells));
   });
 
-  return schema.nodes.table.create(null, pm_rows);
+  const layout =
+    (node.data as { layout?: string })?.layout === "fixed" ? "fixed" : "auto";
+  return schema.nodes.table.create({ layout }, pm_rows);
 }
 
 function convert_details(node: AnyMdastNode): PmNode {
