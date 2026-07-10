@@ -27,8 +27,7 @@ import {
 } from "$lib/features/editor";
 import { build_ai_inline_prompt } from "$lib/features/ai/domain/ai_prompt_builder";
 import { resolve_inline_commands } from "$lib/features/ai/domain/ai_inline_commands";
-import { collect_note_image_parts } from "$lib/features/ai/application/note_image_loader";
-import type { AiImagePart } from "$lib/features/ai/domain/ai_stream_types";
+import { collect_open_note_image_parts } from "$lib/features/ai/application/note_image_loader";
 import type { EditorView } from "prosemirror-view";
 
 export function register_ai_actions(
@@ -39,21 +38,6 @@ export function register_ai_actions(
 ) {
   const { registry, services, ai_service, ai_store } = input;
 
-  async function collect_open_note_images(): Promise<AiImagePart[]> {
-    const open_note = input.stores.editor?.open_note;
-    const vault_id = input.stores.vault?.active_vault_id;
-    if (!open_note || !vault_id) return [];
-    try {
-      return await collect_note_image_parts({
-        note_path: String(open_note.meta.path),
-        markdown: String(open_note.markdown),
-        vault_id,
-        resolve_asset_url: (v, p) => services.document.resolve_asset_url(v, p),
-      });
-    } catch {
-      return [];
-    }
-  }
   let dialog_revision = 0;
   let last_inline_prompts: {
     system_prompt: string;
@@ -572,7 +556,7 @@ export function register_ai_actions(
         view.dispatch(tr);
       }
 
-      const images = await collect_open_note_images();
+      const images = await collect_open_note_image_parts(input);
 
       try {
         for await (const chunk of ai_service.stream_inline({

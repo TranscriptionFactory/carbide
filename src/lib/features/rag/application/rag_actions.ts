@@ -2,7 +2,7 @@ import { toast } from "svelte-sonner";
 import type { ActionRegistrationInput } from "$lib/app";
 import { ACTION_IDS } from "$lib/app";
 import { error_message } from "$lib/shared/utils/error_message";
-import { collect_note_image_parts, type AiImagePart } from "$lib/features/ai";
+import { collect_open_note_image_parts } from "$lib/features/ai";
 import type { AiProviderConfig } from "$lib/shared/types/ai_provider_config";
 import type { RagStore } from "$lib/features/rag/state/rag_store.svelte";
 import type { RagService } from "$lib/features/rag/application/rag_service";
@@ -20,23 +20,7 @@ export function register_rag_actions(
     rag_service: RagService;
   },
 ) {
-  const { registry, stores, services, rag_store, rag_service } = input;
-
-  async function collect_open_note_images(): Promise<AiImagePart[]> {
-    const open_note = stores.editor?.open_note;
-    const vault_id = stores.vault?.active_vault_id;
-    if (!open_note || !vault_id) return [];
-    try {
-      return await collect_note_image_parts({
-        note_path: String(open_note.meta.path),
-        markdown: String(open_note.markdown),
-        vault_id,
-        resolve_asset_url: (v, p) => services.document.resolve_asset_url(v, p),
-      });
-    } catch {
-      return [];
-    }
-  }
+  const { registry, stores, rag_store, rag_service } = input;
 
   function get_providers(): AiProviderConfig[] {
     return stores.ui.editor_settings.ai_providers;
@@ -94,7 +78,7 @@ export function register_rag_actions(
       rag_store.start_loading();
       stores.op.start(RAG_OP_KEY, Date.now());
 
-      const image_parts = await collect_open_note_images();
+      const image_parts = await collect_open_note_image_parts(input);
 
       try {
         let errored = false;
