@@ -178,16 +178,18 @@ function make_callout_insert(callout_type: string) {
     const title_text =
       callout_type.charAt(0).toUpperCase() + callout_type.slice(1);
     const $pos = state.doc.resolve(from);
-    const node = callout.create({ callout_type }, [
-      callout_title.create(null, state.schema.text(title_text)),
-      callout_body.create(null, para.create()),
-    ]);
-    const tr = state.tr.replaceWith($pos.before(), $pos.after(), node);
-    const sel = TextSelection.findFrom(
-      tr.doc.resolve($pos.before() + 2 + title_text.length + 1),
-      1,
+    const node = callout.create(
+      { callout_type, foldable: true, default_folded: true, folded: true },
+      [
+        callout_title.create(null, state.schema.text(title_text)),
+        callout_body.create(null, para.create()),
+      ],
     );
-    if (sel) tr.setSelection(sel);
+    const tr = state.tr.replaceWith($pos.before(), $pos.after(), node);
+    const title_start = $pos.before() + 2;
+    tr.setSelection(
+      TextSelection.create(tr.doc, title_start, title_start + title_text.length),
+    );
     view.dispatch(tr.scrollIntoView());
   };
 }
