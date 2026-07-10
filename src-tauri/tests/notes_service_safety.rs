@@ -2,7 +2,7 @@
 use crate::features::notes::service::safe_vault_abs_for_write;
 use crate::features::notes::service::{
     get_or_scan_folder_entries, invalidate_folder_cache, rename_with_temp_path, safe_vault_abs,
-    safe_vault_rename_target_abs, scan_folder_entries,
+    safe_vault_rename_target_abs, scan_folder_entries, uniquify_filename,
 };
 use crate::shared::storage;
 use crate::shared::vault_ignore::VaultIgnoreMatcher;
@@ -185,4 +185,29 @@ fn folder_note_candidate_ignores_bare_and_mismatched_folders() {
         None
     );
     let _ = std::fs::remove_dir_all(&root);
+}
+
+#[test]
+fn uniquify_filename_returns_original_when_free() {
+    let dir = mk_temp_dir();
+    assert_eq!(uniquify_filename(&dir, "photo.png"), "photo.png");
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn uniquify_filename_appends_counter_on_collision() {
+    let dir = mk_temp_dir();
+    std::fs::write(dir.join("photo.png"), b"a").unwrap();
+    assert_eq!(uniquify_filename(&dir, "photo.png"), "photo-2.png");
+    std::fs::write(dir.join("photo-2.png"), b"b").unwrap();
+    assert_eq!(uniquify_filename(&dir, "photo.png"), "photo-3.png");
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn uniquify_filename_handles_missing_extension() {
+    let dir = mk_temp_dir();
+    std::fs::write(dir.join("photo"), b"a").unwrap();
+    assert_eq!(uniquify_filename(&dir, "photo"), "photo-2");
+    let _ = std::fs::remove_dir_all(&dir);
 }

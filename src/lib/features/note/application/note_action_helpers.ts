@@ -83,7 +83,7 @@ type AttachmentSaveOptions = {
   attachment_folder?: string;
 };
 
-const DEFAULT_ATTACHMENT_NAME_TEMPLATE = "%Y-%m-%d_%H%M";
+const DEFAULT_ATTACHMENT_NAME_TEMPLATE = "%Y-%m-%d_%H%M%S";
 
 export function build_default_attachment_name(now: Date): string {
   return format_note_name(DEFAULT_ATTACHMENT_NAME_TEMPLATE, now);
