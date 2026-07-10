@@ -327,6 +327,10 @@ export class DocumentService {
     }
   }
 
+  resolve_asset_url(vault_id: string, file_path: string): string {
+    return this.document_port.resolve_asset_url(vault_id, file_path);
+  }
+
   get_document_ai_context(tab_id: string): DocumentAiContext | null {
     const viewer = this.document_store.get_viewer_state(tab_id);
     if (!viewer || !is_editable_type(viewer.file_type)) return null;

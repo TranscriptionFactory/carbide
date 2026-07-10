@@ -13,7 +13,71 @@ use super::service::{AiProviderConfig, AiTransport};
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct AiMessage {
     pub role: String,
-    pub content: String,
+    pub content: AiMessageContent,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+#[serde(untagged)]
+pub enum AiMessageContent {
+    Text(String),
+    Parts(Vec<AiContentPart>),
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+#[serde(tag = "type")]
+pub enum AiContentPart {
+    #[serde(rename = "text")]
+    Text { text: String },
+    #[serde(rename = "image")]
+    Image { media_type: String, data: String },
+}
+
+impl From<String> for AiMessageContent {
+    fn from(text: String) -> Self {
+        AiMessageContent::Text(text)
+    }
+}
+
+impl From<&str> for AiMessageContent {
+    fn from(text: &str) -> Self {
+        AiMessageContent::Text(text.to_string())
+    }
+}
+
+impl AiMessageContent {
+    fn as_prompt_text(&self) -> String {
+        match self {
+            AiMessageContent::Text(text) => text.clone(),
+            AiMessageContent::Parts(parts) => parts
+                .iter()
+                .map(|part| match part {
+                    AiContentPart::Text { text } => text.clone(),
+                    AiContentPart::Image { .. } => "[image omitted]".to_string(),
+                })
+                .collect::<Vec<String>>()
+                .join("\n"),
+        }
+    }
+
+    fn to_chat_content(&self) -> serde_json::Value {
+        match self {
+            AiMessageContent::Text(text) => serde_json::Value::String(text.clone()),
+            AiMessageContent::Parts(parts) => serde_json::Value::Array(
+                parts
+                    .iter()
+                    .map(|part| match part {
+                        AiContentPart::Text { text } => {
+                            serde_json::json!({ "type": "text", "text": text })
+                        }
+                        AiContentPart::Image { media_type, data } => serde_json::json!({
+                            "type": "image_url",
+                            "image_url": { "url": format!("data:{media_type};base64,{data}") },
+                        }),
+                    })
+                    .collect(),
+            ),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
@@ -49,7 +113,12 @@ fn build_prompt_text(system_prompt: &str, messages: &[AiMessage]) -> String {
         parts.push(format!("<system>\n{system_prompt}\n</system>"));
     }
     for msg in messages {
-        parts.push(format!("<{}>\n{}\n</{}>", msg.role, msg.content, msg.role));
+        parts.push(format!(
+            "<{}>\n{}\n</{}>",
+            msg.role,
+            msg.content.as_prompt_text(),
+            msg.role
+        ));
     }
     parts.join("\n\n")
 }
@@ -68,7 +137,7 @@ fn build_chat_request_body(
         msgs.push(serde_json::json!({ "role": "system", "content": system_prompt }));
     }
     for msg in messages {
-        msgs.push(serde_json::json!({ "role": msg.role, "content": msg.content }));
+        msgs.push(serde_json::json!({ "role": msg.role, "content": msg.content.to_chat_content() }));
     }
     serde_json::json!({
         "model": model,
@@ -461,8 +530,8 @@ pub async fn ai_stream_abort(
 #[cfg(test)]
 mod tests {
     use super::{
-        build_chat_request_body, chat_completions_url, clamp_stderr, AiMessage, SseDecoder,
-        SseEvent,
+        build_chat_request_body, build_prompt_text, chat_completions_url, clamp_stderr,
+        AiContentPart, AiMessage, AiMessageContent, SseDecoder, SseEvent,
     };
 
     fn deltas(events: Vec<SseEvent>) -> Vec<String> {
@@ -684,5 +753,75 @@ mod tests {
             }
             other => panic!("expected one error event, got {other:?}"),
         }
+    }
+
+    #[test]
+    fn message_content_deserializes_untagged() {
+        let text: AiMessage = serde_json::from_str(r#"{"role":"user","content":"hi"}"#).unwrap();
+        assert!(matches!(text.content, AiMessageContent::Text(ref s) if s == "hi"));
+
+        let parts: AiMessage = serde_json::from_str(
+            r#"{"role":"user","content":[{"type":"text","text":"hi"},{"type":"image","media_type":"image/png","data":"abc"}]}"#,
+        )
+        .unwrap();
+        match parts.content {
+            AiMessageContent::Parts(ref p) => assert_eq!(p.len(), 2),
+            _ => panic!("expected parts"),
+        }
+    }
+
+    #[test]
+    fn chat_request_body_encodes_image_parts_as_image_url() {
+        let messages = vec![AiMessage {
+            role: "user".to_string(),
+            content: AiMessageContent::Parts(vec![
+                AiContentPart::Text {
+                    text: "look".to_string(),
+                },
+                AiContentPart::Image {
+                    media_type: "image/png".to_string(),
+                    data: "abc".to_string(),
+                },
+            ]),
+        }];
+        let body = build_chat_request_body("", &messages, "m");
+        let content = &body["messages"][0]["content"];
+        assert_eq!(content[0]["type"], "text");
+        assert_eq!(content[1]["type"], "image_url");
+        assert_eq!(
+            content[1]["image_url"]["url"],
+            "data:image/png;base64,abc"
+        );
+    }
+
+    #[test]
+    fn chat_request_body_keeps_plain_string_content() {
+        let messages = vec![AiMessage {
+            role: "user".to_string(),
+            content: AiMessageContent::Text("hi".to_string()),
+        }];
+        let body = build_chat_request_body("sys", &messages, "m");
+        assert_eq!(body["messages"][0]["content"], "sys");
+        assert_eq!(body["messages"][1]["content"], "hi");
+    }
+
+    #[test]
+    fn cli_prompt_strips_images() {
+        let messages = vec![AiMessage {
+            role: "user".to_string(),
+            content: AiMessageContent::Parts(vec![
+                AiContentPart::Text {
+                    text: "describe".to_string(),
+                },
+                AiContentPart::Image {
+                    media_type: "image/png".to_string(),
+                    data: "abc".to_string(),
+                },
+            ]),
+        }];
+        let prompt = build_prompt_text("", &messages);
+        assert!(prompt.contains("describe"));
+        assert!(prompt.contains("[image omitted]"));
+        assert!(!prompt.contains("abc"));
     }
 }

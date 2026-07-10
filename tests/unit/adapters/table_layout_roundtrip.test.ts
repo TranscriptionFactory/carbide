@@ -28,11 +28,13 @@ function make_pm_table(layout: "auto" | "fixed") {
   return schema.nodes.doc.create(null, [table]);
 }
 
-function find_table(doc: ReturnType<typeof parse_markdown>) {
+function find_table(
+  doc: ReturnType<typeof parse_markdown>,
+): { attrs: Record<string, unknown> } | null {
   let found: { attrs: Record<string, unknown> } | null = null;
   doc.descendants((node) => {
     if (node.type === schema.nodes.table) {
-      found = node as unknown as { attrs: Record<string, unknown> };
+      found = node;
       return false;
     }
     return true;

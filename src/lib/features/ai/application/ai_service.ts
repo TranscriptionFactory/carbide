@@ -18,7 +18,10 @@ import {
   build_ai_prompt,
 } from "$lib/features/ai/domain/ai_prompt_builder";
 import { as_note_path } from "$lib/shared/types/ids";
-import type { AiStreamChunk } from "$lib/features/ai/domain/ai_stream_types";
+import type {
+  AiStreamChunk,
+  AiImagePart,
+} from "$lib/features/ai/domain/ai_stream_types";
 import { MarkdownJoiner } from "$lib/features/ai/domain/markdown_joiner";
 
 const log = create_logger("ai_service");
@@ -178,6 +181,7 @@ export class AiService {
     provider_config: AiProviderConfig;
     system_prompt: string;
     user_prompt: string;
+    images?: AiImagePart[];
   }): AsyncGenerator<AiStreamChunk> {
     if (!this.ai_stream_port) {
       yield { type: "error", error: "Streaming is not available" };
@@ -189,7 +193,14 @@ export class AiService {
     for await (const chunk of this.ai_stream_port.stream_text({
       provider_config: input.provider_config,
       system_prompt: input.system_prompt,
-      messages: [{ role: "user", content: input.user_prompt }],
+      messages: [
+        {
+          role: "user",
+          content: input.images?.length
+            ? [{ type: "text", text: input.user_prompt }, ...input.images]
+            : input.user_prompt,
+        },
+      ],
     })) {
       if (chunk.type === "text") {
         const text = joiner.process_chunk(chunk.text);
