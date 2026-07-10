@@ -2,6 +2,7 @@ import type { Node as PmNode, Mark } from "prosemirror-model";
 import type { Root, RootContent, PhrasingContent } from "mdast";
 import { serialize_embed_fragment } from "./file_embed_plugin";
 import { serialize_web_embed, serialize_video } from "./html_embed";
+import { format_table_meta_comment } from "./remark_plugins/remark_table_meta";
 
 type MdastNode = Record<string, unknown> & { type: string };
 
@@ -218,6 +219,12 @@ function convert_block_node(node: PmNode): MdastNode | MdastNode[] | null {
     }
 
     case "table": {
+      if (node.attrs["layout"] === "fixed") {
+        return [
+          { type: "html", value: format_table_meta_comment("fixed") },
+          convert_table(node),
+        ];
+      }
       return convert_table(node);
     }
 
