@@ -106,6 +106,14 @@ function extend_selection_up(
   return true;
 }
 
+export function selection_in_table(state: EditorState): boolean {
+  const $head = state.selection.$head;
+  for (let depth = $head.depth; depth >= 1; depth--) {
+    if ($head.node(depth).type.spec["tableRole"] != null) return true;
+  }
+  return false;
+}
+
 export function create_core_extension(ctx: PluginContext): EditorExtension {
   const plugins: Plugin[] = [];
   const use_yjs = ctx.use_yjs ?? false;
@@ -208,8 +216,14 @@ export function create_core_extension(ctx: PluginContext): EditorExtension {
           splitListItem(list_item_type),
           liftListItem(list_item_type),
         ),
-        Tab: chainCommands(sinkListItem(list_item_type), () => true),
-        "Shift-Tab": chainCommands(liftListItem(list_item_type), () => true),
+        Tab: chainCommands(
+          sinkListItem(list_item_type),
+          (state) => !selection_in_table(state),
+        ),
+        "Shift-Tab": chainCommands(
+          liftListItem(list_item_type),
+          (state) => !selection_in_table(state),
+        ),
       }),
     );
   }
