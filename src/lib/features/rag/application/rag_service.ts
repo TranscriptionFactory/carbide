@@ -3,7 +3,7 @@ import { error_message } from "$lib/shared/utils/error_message";
 import type { VaultStore } from "$lib/features/vault";
 import type { SearchPort } from "$lib/features/search";
 import type { NotesPort } from "$lib/features/note";
-import type { AiStreamPort } from "$lib/features/ai";
+import type { AiStreamPort, AiImagePart } from "$lib/features/ai";
 import type { TagPort } from "$lib/features/tags";
 import type { BasesPort } from "$lib/features/bases/ports";
 import type { AiProviderConfig } from "$lib/shared/types/ai_provider_config";
@@ -122,6 +122,7 @@ export type RagQueryInput = {
   retrieve_limit?: number;
   context_limit?: number;
   assembler_options?: AssembleContextOptions;
+  image_parts?: AiImagePart[];
 };
 
 export class RagService {
@@ -252,7 +253,14 @@ export class RagService {
       for await (const chunk of this.ai_stream_port.stream_text({
         provider_config: input.provider_config,
         system_prompt,
-        messages: [{ role: "user", content: user_prompt }],
+        messages: [
+          {
+            role: "user",
+            content: input.image_parts?.length
+              ? [{ type: "text", text: user_prompt }, ...input.image_parts]
+              : user_prompt,
+          },
+        ],
         signal: controller.signal,
       })) {
         if (chunk.type === "text") {

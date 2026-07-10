@@ -12,7 +12,12 @@ export type {
   AiStreamChunk,
   AiStreamRequest,
   AiMessage,
+  AiMessageContent,
+  AiTextPart,
+  AiImagePart,
 } from "$lib/features/ai/domain/ai_stream_types";
+export { extract_note_image_targets } from "$lib/features/ai/domain/note_image_refs";
+export { collect_note_image_parts } from "$lib/features/ai/application/note_image_loader";
 export { MarkdownJoiner } from "$lib/features/ai/domain/markdown_joiner";
 export {
   BUILTIN_PROVIDER_PRESETS,

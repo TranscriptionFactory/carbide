@@ -1,8 +1,14 @@
 import type { AiProviderConfig } from "$lib/shared/types/ai_provider_config";
 
+export type AiTextPart = { type: "text"; text: string };
+
+export type AiImagePart = { type: "image"; media_type: string; data: string };
+
+export type AiMessageContent = string | Array<AiTextPart | AiImagePart>;
+
 export type AiMessage = {
   role: "system" | "user" | "assistant";
-  content: string;
+  content: AiMessageContent;
 };
 
 export type AiStreamRequest = {
