@@ -57,8 +57,8 @@ const ASSET_PATH = as_asset_path("notes/.assets/my-note-1.png");
 
 describe("save_and_insert_file", () => {
   it("formats the default attachment name with the common timestamp schema", () => {
-    expect(build_default_attachment_name(new Date("2026-03-21T14:05:00"))).toBe(
-      "2026-03-21_1405",
+    expect(build_default_attachment_name(new Date("2026-03-21T14:05:07"))).toBe(
+      "2026-03-21_140507",
     );
   });
 
@@ -275,13 +275,13 @@ describe("save_and_insert_file", () => {
       const payload = make_payload("report.pdf", "application/pdf");
       const { input, save_pasted_image } = make_input(NOTE_ID, NOTE_PATH, {
         status: "saved",
-        asset_path: as_asset_path("notes/.assets/2026-03-21_1405.pdf"),
+        asset_path: as_asset_path("notes/.assets/2026-03-21_140500.pdf"),
       });
 
       await save_and_insert_file(input, NOTE_ID, NOTE_PATH, payload);
 
       expect(save_pasted_image).toHaveBeenCalledWith(NOTE_PATH, payload, {
-        custom_filename: "2026-03-21_1405",
+        custom_filename: "2026-03-21_140500",
       });
     } finally {
       vi.useRealTimers();
@@ -298,13 +298,13 @@ describe("save_and_insert_image", () => {
       const payload = make_payload("photo.png", "image/png");
       const { input, save_pasted_image } = make_input(NOTE_ID, NOTE_PATH, {
         status: "saved",
-        asset_path: as_asset_path("notes/.assets/2026-03-21_1405.png"),
+        asset_path: as_asset_path("notes/.assets/2026-03-21_140500.png"),
       });
 
       await save_and_insert_image(input, NOTE_ID, NOTE_PATH, payload);
 
       expect(save_pasted_image).toHaveBeenCalledWith(NOTE_PATH, payload, {
-        custom_filename: "2026-03-21_1405",
+        custom_filename: "2026-03-21_140500",
       });
     } finally {
       vi.useRealTimers();

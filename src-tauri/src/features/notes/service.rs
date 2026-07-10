@@ -815,6 +815,35 @@ fn sanitize_stem(value: &str) -> String {
     }
 }
 
+// Checked-then-written without a lock (TOCTOU): acceptable for a single-user desktop app.
+pub(crate) fn uniquify_filename(dir: &Path, filename: &str) -> String {
+    if !dir.join(filename).exists() {
+        return filename.to_string();
+    }
+
+    let path = Path::new(filename);
+    let stem = path
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .unwrap_or(filename);
+    let ext = path.extension().and_then(|e| e.to_str());
+
+    for counter in 2..10_000u32 {
+        let candidate = match ext {
+            Some(ext) => format!("{stem}-{counter}.{ext}"),
+            None => format!("{stem}-{counter}"),
+        };
+        if !dir.join(&candidate).exists() {
+            return candidate;
+        }
+    }
+
+    match ext {
+        Some(ext) => format!("{stem}-{}.{ext}", storage::now_ms()),
+        None => format!("{stem}-{}", storage::now_ms()),
+    }
+}
+
 #[tauri::command]
 #[specta::specta]
 pub fn write_image_asset(args: WriteImageAssetArgs, app: AppHandle) -> Result<String, String> {
@@ -871,6 +900,8 @@ pub fn write_image_asset(args: WriteImageAssetArgs, app: AppHandle) -> Result<St
             ext
         )
     };
+
+    let filename = uniquify_filename(&root.join(attachment_folder), &filename);
 
     let rel_path = PathBuf::from(attachment_folder).join(filename);
     let rel = storage::normalize_relative_path(&rel_path);

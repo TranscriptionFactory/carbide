@@ -112,7 +112,7 @@ describe("register_note_actions image flows", () => {
     });
 
     expect(stores.ui.image_paste_dialog.open).toBe(true);
-    expect(stores.ui.image_paste_dialog.filename).toBe("2026-03-21_1405");
+    expect(stores.ui.image_paste_dialog.filename).toBe("2026-03-21_140500");
     expect(stores.ui.image_paste_dialog.target_folder).toBe(".assets");
     expect(services.note.reset_asset_write_operation).toHaveBeenCalledOnce();
   });
