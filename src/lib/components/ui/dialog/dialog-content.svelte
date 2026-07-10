@@ -13,12 +13,36 @@
 		portalProps,
 		children,
 		showCloseButton = true,
+		onOpenAutoFocus,
+		onCloseAutoFocus,
 		...restProps
 	}: WithoutChildrenOrChild<DialogPrimitive.ContentProps> & {
 		portalProps?: WithoutChildrenOrChild<ComponentProps<typeof DialogPortal>>;
 		children: Snippet;
 		showCloseButton?: boolean;
 	} = $props();
+
+	// bits-ui restores focus on close with a plain el.focus(), which scrolls the
+	// pre-focused element (e.g. the editor selection) into view and jumps the
+	// page. Capture the pre-focused element ourselves (onOpenAutoFocus fires
+	// before bits moves focus) and restore it with preventScroll.
+	let pre_focused: HTMLElement | null = null;
+
+	function handle_open_auto_focus(e: Event) {
+		pre_focused =
+			document.activeElement instanceof HTMLElement ? document.activeElement : null;
+		onOpenAutoFocus?.(e);
+	}
+
+	function handle_close_auto_focus(e: Event) {
+		onCloseAutoFocus?.(e);
+		if (e.defaultPrevented) return;
+		e.preventDefault();
+		if (pre_focused && document.contains(pre_focused)) {
+			pre_focused.focus({ preventScroll: true });
+		}
+		pre_focused = null;
+	}
 </script>
 
 <DialogPortal {...portalProps}>
@@ -30,6 +54,8 @@
 			"bg-background data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 fixed top-[50%] left-[50%] z-50 grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-lg border p-6 shadow-lg duration-200 sm:max-w-lg",
 			className
 		)}
+		onOpenAutoFocus={handle_open_auto_focus}
+		onCloseAutoFocus={handle_close_auto_focus}
 		{...restProps}
 	>
 		{@render children?.()}

@@ -342,6 +342,7 @@ class FileEmbedView implements NodeView {
       const scroll_wrapper = document.createElement("div");
       scroll_wrapper.className = "file-embed-pdf-scroll";
       scroll_wrapper.style.overflow = "auto";
+      scroll_wrapper.style.overscrollBehavior = "contain";
       scroll_wrapper.style.height = "100%";
 
       const canvas = document.createElement("canvas");

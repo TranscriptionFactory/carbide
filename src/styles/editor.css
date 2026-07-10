@@ -21,7 +21,6 @@
   --editor-italic-color: inherit;
   --editor-blockquote-text: var(--muted-foreground);
   --editor-code-border: var(--border);
-  --editor-code-block-max-height: 24rem;
   --editor-paragraph-spacing: var(--editor-spacing);
   --editor-list-spacing: var(--editor-spacing);
   --editor-list-item-spacing: calc(var(--editor-spacing) * 0.35);
@@ -669,9 +668,10 @@
   color: var(--editor-code-block-text);
   border-radius: var(--editor-code-block-radius);
   padding: var(--editor-code-block-padding);
+  /* Vertical scrolling belongs to the page scroller; only user-resized
+     blocks get their own (inline styles via apply_height). */
   overflow-x: auto;
-  overflow-y: auto;
-  max-height: var(--editor-code-block-max-height);
+  overscroll-behavior-x: contain;
   font-family: var(--font-mono);
   font-size: 0.8125em;
   line-height: 1.65;
@@ -1393,8 +1393,10 @@
 }
 
 .ProseMirror .tableWrapper {
+  /* No max-height: a cap turns overflow-x's computed overflow-y:auto into
+     a nested vertical scroller that fights the page scroller. */
   overflow-x: auto;
-  max-height: 80vh;
+  overscroll-behavior-x: contain;
   margin-top: calc(var(--editor-spacing) * 0.75);
   margin-bottom: calc(var(--editor-spacing) * 1.25);
 }
@@ -3468,8 +3470,6 @@
   font-size: 0.875rem;
   line-height: 1.6;
   color: var(--editor-foreground);
-  max-height: 400px;
-  overflow-y: auto;
 }
 
 .note-embed__content > :first-child {

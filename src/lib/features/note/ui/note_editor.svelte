@@ -213,6 +213,10 @@
     display: flex;
     flex-direction: column;
     overflow-y: auto;
+    overscroll-behavior-y: contain;
+    /* Keep the browser from re-anchoring scroll when decorations/NodeViews
+       resize near the viewport edge. */
+    overflow-anchor: none;
     height: 100%;
   }
 
@@ -239,6 +243,8 @@
     flex: 1 1 50%;
     min-width: 0;
     overflow-y: auto;
+    overscroll-behavior-y: contain;
+    overflow-anchor: none;
     height: 100%;
   }
 

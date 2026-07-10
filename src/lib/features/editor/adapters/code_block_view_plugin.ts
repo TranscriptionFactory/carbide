@@ -284,9 +284,15 @@ function apply_height(pre: HTMLElement, height: number | null) {
   if (height !== null && height > 0) {
     pre.style.height = `${String(height)}px`;
     pre.style.maxHeight = "none";
+    // Stylesheet no longer caps code blocks; a user-resized block is the
+    // one case that still needs its own vertical scroller.
+    pre.style.overflowY = "auto";
+    pre.style.overscrollBehavior = "contain";
   } else {
     pre.style.removeProperty("height");
     pre.style.removeProperty("max-height");
+    pre.style.removeProperty("overflow-y");
+    pre.style.removeProperty("overscroll-behavior");
   }
 }
 
@@ -783,6 +789,10 @@ class CodeBlockView implements NodeView {
       "wheel",
       (e) => {
         if (!this.mermaid) return;
+        // Zoom only with a modifier (or in fullscreen) so plain wheel
+        // keeps scrolling the page over inline previews.
+        const fullscreen = container.classList.contains("mermaid-fullscreen");
+        if (!fullscreen && !e.ctrlKey && !e.metaKey) return;
         e.preventDefault();
         const delta = e.deltaY > 0 ? -0.1 : 0.1;
         this.mermaid_zoom(delta);
