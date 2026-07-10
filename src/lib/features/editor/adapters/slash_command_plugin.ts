@@ -188,7 +188,11 @@ function make_callout_insert(callout_type: string) {
     const tr = state.tr.replaceWith($pos.before(), $pos.after(), node);
     const title_start = $pos.before() + 2;
     tr.setSelection(
-      TextSelection.create(tr.doc, title_start, title_start + title_text.length),
+      TextSelection.create(
+        tr.doc,
+        title_start,
+        title_start + title_text.length,
+      ),
     );
     view.dispatch(tr.scrollIntoView());
   };
