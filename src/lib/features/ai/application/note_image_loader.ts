@@ -15,6 +15,39 @@ export type CollectNoteImagePartsInput = {
   resolve_asset_url: (vault_id: string, file_path: string) => string;
 };
 
+export type OpenNoteImageContext = {
+  stores?: {
+    editor?: {
+      open_note?: { meta: { path: unknown }; markdown: unknown } | null;
+    };
+    vault?: { active_vault_id?: string | null };
+  };
+  services: {
+    document: {
+      resolve_asset_url: (vault_id: string, file_path: string) => string;
+    };
+  };
+};
+
+export async function collect_open_note_image_parts(
+  ctx: OpenNoteImageContext,
+): Promise<AiImagePart[]> {
+  const open_note = ctx.stores?.editor?.open_note;
+  const vault_id = ctx.stores?.vault?.active_vault_id;
+  if (!open_note || !vault_id) return [];
+  try {
+    return await collect_note_image_parts({
+      note_path: String(open_note.meta.path),
+      markdown: String(open_note.markdown),
+      vault_id,
+      resolve_asset_url: (v, p) =>
+        ctx.services.document.resolve_asset_url(v, p),
+    });
+  } catch {
+    return [];
+  }
+}
+
 function bytes_to_base64(bytes: Uint8Array): string {
   let binary = "";
   const chunk = 0x8000;
