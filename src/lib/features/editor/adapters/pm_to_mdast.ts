@@ -274,14 +274,21 @@ function convert_block_node(node: PmNode): MdastNode | MdastNode[] | null {
       const callout_type = (node.attrs["callout_type"] as string) || "note";
       const color = (node.attrs["callout_color"] as string | null) ?? null;
       const foldable = (node.attrs["foldable"] as boolean) || false;
-      const default_folded = (node.attrs["default_folded"] as boolean) || false;
+      const folded = (node.attrs["folded"] as boolean) || false;
       const title = node.child(0);
       const body = node.child(1);
+      const title_text = title.textContent.trim();
       const title_inline = convert_pm_inline(title);
       const body_children = convert_children(body);
       return {
         type: "callout",
-        data: { callout_type, color, foldable, default_folded },
+        data: {
+          callout_type,
+          title: title_text,
+          color,
+          foldable,
+          default_folded: folded,
+        },
         children: [
           { type: "calloutTitle", children: title_inline },
           { type: "calloutBody", children: body_children },

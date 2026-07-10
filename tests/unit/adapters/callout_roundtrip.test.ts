@@ -207,28 +207,85 @@ describe("callout markdown roundtrip", () => {
     expect(callout?.attrs["folded"]).toBe(false);
   });
 
-  it("folded attr is not serialized to markdown", () => {
+  it("fold marker reflects live folded state on serialize", () => {
+    const make = (folded: boolean) =>
+      schema.nodes.doc.create(null, [
+        schema.nodes.callout.create(
+          {
+            callout_type: "tip",
+            foldable: true,
+            default_folded: true,
+            folded,
+          },
+          [
+            schema.nodes.callout_title.create(null, schema.text("Tip")),
+            schema.nodes.callout_body.create(null, [
+              schema.nodes.paragraph.create(null, schema.text("Content")),
+            ]),
+          ],
+        ),
+      ]);
+
+    expect(serialize_markdown(make(true)).trim()).toContain("[!tip]-");
+    expect(serialize_markdown(make(false)).trim()).toContain("[!tip]+");
+  });
+
+  it("live folded state survives serialize→parse remount", () => {
+    const input = "> [!danger]- Watch out\n> Danger zone.";
+    const doc = parse_markdown(input);
+    const output = serialize_markdown(doc).trim();
+    expect(output).toContain("[!danger]-");
+
+    const reparsed = parse_markdown(output);
+    const callout = reparsed.firstChild;
+    expect(callout?.attrs["default_folded"]).toBe(true);
+    expect(callout?.attrs["folded"]).toBe(true);
+  });
+
+  it("custom title round-trips through markdown", () => {
+    const input = "> [!warning] Be careful!\n> Something dangerous.";
+    const doc = parse_markdown(input);
+    const output = serialize_markdown(doc).trim();
+    expect(output).toContain("[!warning] Be careful!");
+  });
+
+  it("edited title serializes into the directive", () => {
     const callout = schema.nodes.callout.create(
-      {
-        callout_type: "tip",
-        foldable: true,
-        default_folded: true,
-        folded: false,
-      },
+      { callout_type: "note", foldable: false, default_folded: false },
       [
-        schema.nodes.callout_title.create(null, schema.text("Tip")),
+        schema.nodes.callout_title.create(null, schema.text("My custom title")),
         schema.nodes.callout_body.create(null, [
-          schema.nodes.paragraph.create(null, schema.text("Content")),
+          schema.nodes.paragraph.create(null, schema.text("Body")),
         ]),
       ],
     );
     const doc = schema.nodes.doc.create(null, [callout]);
     const output = serialize_markdown(doc).trim();
-    expect(output).toContain("[!tip]-");
-    expect(output).not.toContain("folded");
+    expect(output).toContain("[!note] My custom title");
+  });
 
-    const reparsed = parse_markdown(output);
-    const reparsed_callout = reparsed.firstChild;
-    expect(reparsed_callout?.attrs["default_folded"]).toBe(true);
+  it("default title stays omitted from the directive", () => {
+    const callout = schema.nodes.callout.create(
+      { callout_type: "note", foldable: false, default_folded: false },
+      [
+        schema.nodes.callout_title.create(null, schema.text("Note")),
+        schema.nodes.callout_body.create(null, [
+          schema.nodes.paragraph.create(null, schema.text("Body")),
+        ]),
+      ],
+    );
+    const doc = schema.nodes.doc.create(null, [callout]);
+    const output = serialize_markdown(doc).trim();
+    expect(output).toContain("> [!note]\n");
+    expect(output).not.toContain("[!note] Note");
+  });
+
+  it("plain [!note] callout stays markerless through roundtrip", () => {
+    const input = "> [!note]\n> Simple note.";
+    const doc = parse_markdown(input);
+    const output = serialize_markdown(doc).trim();
+    expect(output).toContain("[!note]");
+    expect(output).not.toContain("[!note]+");
+    expect(output).not.toContain("[!note]-");
   });
 });
