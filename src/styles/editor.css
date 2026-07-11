@@ -450,6 +450,37 @@
   pointer-events: none;
 }
 
+/* Snapped drop indicator for handle drags */
+.block-drop-indicator {
+  position: absolute;
+  height: 2px;
+  background: var(--primary, oklch(0.6 0.2 260));
+  border-radius: 1px;
+  pointer-events: none;
+  display: none;
+  z-index: 50;
+}
+
+/* Native dropcursor shows the unsnapped position — hide it during handle
+   drags only (it renders outside .ProseMirror, so gate on body class) */
+body.block-handle-dragging .prosemirror-dropcursor-block,
+body.block-handle-dragging .prosemirror-dropcursor-inline {
+  display: none !important;
+}
+
+.block-drag-image__badge {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--primary, oklch(0.6 0.2 260));
+  color: var(--primary-foreground, #fff);
+  font-size: 0.7rem;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
 /* ============================================
    TYPOGRAPHY — PARAGRAPHS & INLINE
    ============================================ */

@@ -80,7 +80,28 @@ export function insert_paragraph_below(
   return from;
 }
 
-function compute_drag_range(
+function select_drag_range(
+  view: EditorView,
+  range: { from: number; to: number },
+) {
+  const sel = TextSelection.create(view.state.doc, range.from, range.to);
+  view.dispatch(view.state.tr.setSelection(sel));
+  view.focus();
+}
+
+export function count_section_body_blocks(
+  doc: ProseNode,
+  from: number,
+  to: number,
+): number {
+  let count = 0;
+  doc.forEach((node, offset) => {
+    if (offset >= from && offset + node.nodeSize <= to) count++;
+  });
+  return Math.max(0, count - 1);
+}
+
+export function compute_drag_range(
   view: EditorView,
   block_pos: number,
 ): { from: number; to: number } | null {
@@ -139,6 +160,114 @@ export function create_block_drag_handle_prose_plugin(): Plugin {
   let insert_menu: BlockInsertMenu | null = null;
   const handles: HandleEntry[] = [];
 
+  let drop_indicator: HTMLElement | null = null;
+  let indicator_frame: number | null = null;
+  let last_drag_coords: { x: number; y: number } | null = null;
+  let drag_image_wrapper: HTMLElement | null = null;
+  let drag_prev_selection: ReturnType<
+    EditorView["state"]["selection"]["getBookmark"]
+  > | null = null;
+  let drop_succeeded = false;
+
+  function ensure_drop_indicator(view: EditorView): HTMLElement {
+    if (!drop_indicator) {
+      drop_indicator = document.createElement("div");
+      drop_indicator.className = "block-drop-indicator";
+    }
+    const parent =
+      view.dom.offsetParent ?? view.dom.parentElement ?? document.body;
+    if (drop_indicator.parentNode !== parent)
+      parent.appendChild(drop_indicator);
+    return drop_indicator;
+  }
+
+  function hide_drop_indicator() {
+    if (indicator_frame !== null) {
+      cancelAnimationFrame(indicator_frame);
+      indicator_frame = null;
+    }
+    last_drag_coords = null;
+    if (drop_indicator) drop_indicator.style.display = "none";
+  }
+
+  function position_drop_indicator(view: EditorView, x: number, y: number) {
+    const coords = view.posAtCoords({ left: x, top: y });
+    if (!coords) {
+      hide_drop_indicator();
+      return;
+    }
+    const range = dragging_range;
+    if (!range) {
+      hide_drop_indicator();
+      return;
+    }
+    const result = compute_section_drop(
+      view.state.doc,
+      range.from,
+      range.to,
+      coords.pos,
+    );
+    if (!result) {
+      hide_drop_indicator();
+      return;
+    }
+
+    const el = ensure_drop_indicator(view);
+    const line = view.coordsAtPos(result.insert_pos);
+    const parent = view.dom.offsetParent;
+    let parent_left: number;
+    let parent_top: number;
+    if (
+      !parent ||
+      (parent === document.body &&
+        getComputedStyle(parent).position === "static")
+    ) {
+      parent_left = -window.scrollX;
+      parent_top = -window.scrollY;
+    } else {
+      const rect = parent.getBoundingClientRect();
+      parent_left = rect.left - parent.scrollLeft;
+      parent_top = rect.top - parent.scrollTop;
+    }
+    const editor_rect = view.dom.getBoundingClientRect();
+    el.style.left = `${String(editor_rect.left - parent_left)}px`;
+    el.style.width = `${String(editor_rect.width)}px`;
+    el.style.top = `${String(line.top - parent_top - 1)}px`;
+    el.style.display = "block";
+  }
+
+  function schedule_drop_indicator(view: EditorView, x: number, y: number) {
+    last_drag_coords = { x, y };
+    if (indicator_frame !== null) return;
+    indicator_frame = requestAnimationFrame(() => {
+      indicator_frame = null;
+      if (last_drag_coords && dragging_range) {
+        position_drop_indicator(view, last_drag_coords.x, last_drag_coords.y);
+      }
+    });
+  }
+
+  function remove_drag_image_wrapper() {
+    drag_image_wrapper?.remove();
+    drag_image_wrapper = null;
+  }
+
+  function build_drag_image(dom_node: HTMLElement, extra: number): HTMLElement {
+    const wrapper = document.createElement("div");
+    wrapper.className = "block-drag-image";
+    wrapper.style.position = "absolute";
+    wrapper.style.top = "-10000px";
+    wrapper.style.left = "0";
+    wrapper.style.width = `${String(dom_node.offsetWidth)}px`;
+    wrapper.appendChild(dom_node.cloneNode(true));
+    const badge = document.createElement("span");
+    badge.className = "block-drag-image__badge";
+    badge.textContent = `+${String(extra)} block${extra === 1 ? "" : "s"}`;
+    wrapper.appendChild(badge);
+    document.body.appendChild(wrapper);
+    return wrapper;
+  }
+
   function on_dragstart(
     view: EditorView,
     get_pos: () => number | undefined,
@@ -153,25 +282,47 @@ export function create_block_drag_handle_prose_plugin(): Plugin {
 
     is_dragging = true;
     handle.classList.add("block-drag-handle--dragging");
+    document.body.classList.add("block-handle-dragging");
     dragging_range = range;
+    drag_prev_selection = view.state.selection.getBookmark();
+    drop_succeeded = false;
 
-    const sel = TextSelection.create(view.state.doc, range.from, range.to);
-    view.dispatch(view.state.tr.setSelection(sel));
+    select_drag_range(view, range);
 
     const slice = view.state.doc.slice(range.from, range.to);
     const dom_node = view.nodeDOM(block_pos);
     if (dom_node instanceof HTMLElement && event.dataTransfer) {
       event.dataTransfer.effectAllowed = "move";
-      event.dataTransfer.setDragImage(dom_node, 0, 0);
+      const extra = count_section_body_blocks(
+        view.state.doc,
+        range.from,
+        range.to,
+      );
+      if (extra > 0) {
+        drag_image_wrapper = build_drag_image(dom_node, extra);
+        event.dataTransfer.setDragImage(drag_image_wrapper, 0, 0);
+      } else {
+        event.dataTransfer.setDragImage(dom_node, 0, 0);
+      }
     }
 
     view.dragging = { slice, move: true };
   }
 
-  function on_dragend(handle: HTMLElement) {
+  function on_dragend(view: EditorView, handle: HTMLElement) {
     is_dragging = false;
     handle.classList.remove("block-drag-handle--dragging");
+    document.body.classList.remove("block-handle-dragging");
     dragging_range = null;
+    hide_drop_indicator();
+    remove_drag_image_wrapper();
+
+    if (!drop_succeeded && drag_prev_selection) {
+      const sel = drag_prev_selection.resolve(view.state.doc);
+      view.dispatch(view.state.tr.setSelection(sel));
+    }
+    drag_prev_selection = null;
+    drop_succeeded = false;
   }
 
   function on_insert_click(
@@ -203,7 +354,7 @@ export function create_block_drag_handle_prose_plugin(): Plugin {
     handle.addEventListener("dragstart", (event) =>
       on_dragstart(view, get_pos, handle, event),
     );
-    handle.addEventListener("dragend", () => on_dragend(handle));
+    handle.addEventListener("dragend", () => on_dragend(view, handle));
     insert_btn.addEventListener("mousedown", (event) =>
       on_insert_click(view, get_pos, insert_btn, event),
     );
@@ -242,11 +393,20 @@ export function create_block_drag_handle_prose_plugin(): Plugin {
         );
       },
 
+      handleDOMEvents: {
+        dragover(view, event) {
+          if (dragging_range == null) return false;
+          schedule_drop_indicator(view, event.clientX, event.clientY);
+          return false;
+        },
+      },
+
       handleDrop(view, event, _slice, moved) {
         if (dragging_range == null) return false;
         if (!moved) return false;
 
         const range = dragging_range;
+        hide_drop_indicator();
         const coords = view.posAtCoords({
           left: event.clientX,
           top: event.clientY,
@@ -265,6 +425,7 @@ export function create_block_drag_handle_prose_plugin(): Plugin {
         apply_block_move(tr, result);
         view.dispatch(tr);
 
+        drop_succeeded = true;
         dragging_range = null;
         return true;
       },
@@ -401,6 +562,11 @@ export function create_block_drag_handle_prose_plugin(): Plugin {
           if (align_frame !== null) cancelAnimationFrame(align_frame);
           resize_observer?.disconnect();
           exit_focus_mode();
+          hide_drop_indicator();
+          drop_indicator?.remove();
+          drop_indicator = null;
+          remove_drag_image_wrapper();
+          document.body.classList.remove("block-handle-dragging");
           insert_menu?.destroy();
           insert_menu = null;
           editor_dom.removeEventListener("mousemove", on_mousemove);
