@@ -183,6 +183,7 @@
         id: n.path,
         kind: n.kind,
         group: n.group,
+        label_len: n.title.length,
       })),
       edges,
       force_params,
@@ -191,7 +192,7 @@
         ? {
             mode: "both" as const,
             folder_strength: 0.3,
-            hit_center_strength: 0.4,
+            hit_center_strength: 0.15,
           }
         : undefined,
     });
