@@ -11,6 +11,7 @@
     EDITOR_BLOCKQUOTE_BORDER_WIDTH_OPTIONS,
     EDITOR_LINK_UNDERLINE_STYLE_OPTIONS,
     EDITOR_DIVIDER_STYLE_OPTIONS,
+    EDITOR_BLOCK_DRAG_HANDLE_OPTIONS,
   } from "$lib/shared/types/editor_settings";
   import type {
     EditorSettings,
@@ -18,6 +19,7 @@
     EditorCodeBlockRadius,
     EditorLinkUnderlineStyle,
     EditorDividerStyle,
+    BlockDragHandleMode,
   } from "$lib/shared/types/editor_settings";
 
   type Props = {
@@ -36,6 +38,7 @@
     EDITOR_BLOCKQUOTE_BORDER_WIDTH_OPTIONS;
   const link_underline_style_options = EDITOR_LINK_UNDERLINE_STYLE_OPTIONS;
   const divider_style_options = EDITOR_DIVIDER_STYLE_OPTIONS;
+  const block_drag_handle_options = EDITOR_BLOCK_DRAG_HANDLE_OPTIONS;
 
   function is_default<K extends keyof EditorSettings>(key: K): boolean {
     return editor_settings[key] === DEFAULT_EDITOR_SETTINGS[key];
@@ -421,11 +424,26 @@
     <div class="EditorTuningPanel__row">
       <span class="EditorTuningPanel__label">Block Drag Handle</span>
       <div class="EditorTuningPanel__controls">
-        <Switch.Root
-          checked={editor_settings.editor_block_drag_handle}
-          onCheckedChange={(v: boolean) =>
-            on_update("editor_block_drag_handle", v)}
-        />
+        <Select.Root
+          type="single"
+          value={editor_settings.editor_block_drag_handle}
+          onValueChange={(v: string | undefined) => {
+            if (v) on_update("editor_block_drag_handle", v as BlockDragHandleMode);
+          }}
+        >
+          <Select.Trigger class="w-28">
+            <span>
+              {block_drag_handle_options.find(
+                (o) => o.value === editor_settings.editor_block_drag_handle,
+              )?.label ?? "On Hover"}
+            </span>
+          </Select.Trigger>
+          <Select.Content>
+            {#each block_drag_handle_options as option (option.value)}
+              <Select.Item value={option.value}>{option.label}</Select.Item>
+            {/each}
+          </Select.Content>
+        </Select.Root>
         <button
           type="button"
           class="EditorTuningPanel__reset"
