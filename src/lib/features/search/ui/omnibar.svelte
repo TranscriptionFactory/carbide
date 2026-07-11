@@ -315,12 +315,12 @@
     }
   });
 
+  const all_commands = $derived(
+    dedupe_commands_by_id([...COMMANDS_REGISTRY, ...plugin_commands]),
+  );
   const sorted_commands = $derived.by(() => {
     const by_mru = mru_comparator(recent_command_ids);
-    return dedupe_commands_by_id([
-      ...COMMANDS_REGISTRY,
-      ...plugin_commands,
-    ]).sort((a, b) => by_mru(a.id, b.id));
+    return [...all_commands].sort((a, b) => by_mru(a.id, b.id));
   });
 
   const mru_notes_visible = $derived(

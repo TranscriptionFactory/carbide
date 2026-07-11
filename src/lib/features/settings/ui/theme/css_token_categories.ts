@@ -3,7 +3,16 @@ export type TokenCategory = {
   tokens: string[];
 };
 
-export const CATEGORIES: TokenCategory[] = [
+export function dedupe_category_tokens(
+  categories: TokenCategory[],
+): TokenCategory[] {
+  return categories.map((cat) => ({
+    ...cat,
+    tokens: [...new Set(cat.tokens)],
+  }));
+}
+
+const RAW_CATEGORIES: TokenCategory[] = [
   {
     label: "Colors",
     tokens: [
@@ -248,3 +257,6 @@ export const CATEGORIES: TokenCategory[] = [
     tokens: ["--indicator-dirty", "--indicator-clean"],
   },
 ];
+
+export const CATEGORIES: TokenCategory[] =
+  dedupe_category_tokens(RAW_CATEGORIES);
