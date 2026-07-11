@@ -1,9 +1,5 @@
 import type { EmbeddingStatus } from "$lib/shared/types/search";
-
-export type RagReadiness =
-  | { state: "checking" }
-  | { state: "indexing"; embedded: number; total: number }
-  | { state: "ready" };
+import type { RagReadiness } from "$lib/features/rag/types/rag_readiness";
 
 export function derive_rag_readiness(status: EmbeddingStatus): RagReadiness {
   const indexing =
