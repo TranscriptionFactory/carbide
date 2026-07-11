@@ -4,6 +4,7 @@ import type { VaultStore } from "$lib/features/vault";
 import type { SearchPort } from "$lib/features/search";
 import type { NotesPort } from "$lib/features/note";
 import type { AiStreamPort, AiImagePart } from "$lib/features/ai";
+import { humanize_ai_error } from "$lib/features/ai";
 import type { TagPort } from "$lib/features/tags";
 import type { BasesPort } from "$lib/features/bases/ports";
 import type { AiProviderConfig } from "$lib/shared/types/ai_provider_config";
@@ -266,7 +267,12 @@ export class RagService {
         if (chunk.type === "text") {
           yield* parser.push(chunk.text);
         } else if (chunk.type === "error") {
-          yield { type: "error", error: chunk.error };
+          const friendly = humanize_ai_error(
+            chunk.error,
+            input.provider_config,
+          );
+          log.warn("RAG stream failed", { error: friendly.detail });
+          yield { type: "error", error: friendly.message };
           return;
         }
       }
