@@ -30,34 +30,6 @@ function katex_woff2_only(): Plugin {
   };
 }
 
-function manual_chunks(id: string): string | undefined {
-  if (!id.includes("node_modules")) {
-    return undefined;
-  }
-
-  if (id.includes("pdfjs-dist")) {
-    return "pdf";
-  }
-
-  if (id.includes("@xterm") || id.includes("tauri-pty")) {
-    return "terminal";
-  }
-
-  if (id.includes("mermaid")) {
-    return "mermaid";
-  }
-
-  if (
-    id.includes("codemirror") ||
-    id.includes("@codemirror") ||
-    id.includes("prismjs")
-  ) {
-    return "editor-viewer";
-  }
-
-  return undefined;
-}
-
 export default defineConfig({
   plugins: [
     sveltekit(),
@@ -77,9 +49,6 @@ export default defineConfig({
         )
           return;
         defaultHandler(warning);
-      },
-      output: {
-        manualChunks: manual_chunks,
       },
     },
   },
