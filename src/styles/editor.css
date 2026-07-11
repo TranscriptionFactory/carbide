@@ -381,6 +381,17 @@
   background: var(--background-surface-2, oklch(0.95 0 0));
 }
 
+.show-block-drag-handle .block-drag-handle:focus-within {
+  opacity: 0.9;
+  pointer-events: auto;
+}
+
+.block-drag-handle:focus-visible,
+.block-drag-handle__insert:focus-visible {
+  outline: 2px solid var(--ring, oklch(0.6 0.2 260));
+  outline-offset: 1px;
+}
+
 /* always mode: every handle rests at a low opacity */
 .block-drag-handle-always .block-drag-handle {
   opacity: 0.5;
