@@ -428,7 +428,8 @@
           type="single"
           value={editor_settings.editor_block_drag_handle}
           onValueChange={(v: string | undefined) => {
-            if (v) on_update("editor_block_drag_handle", v as BlockDragHandleMode);
+            if (v)
+              on_update("editor_block_drag_handle", v as BlockDragHandleMode);
           }}
         >
           <Select.Trigger class="w-28">

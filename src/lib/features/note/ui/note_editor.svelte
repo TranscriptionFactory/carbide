@@ -98,8 +98,7 @@
                 .editor_heading_markers}
               class:show-block-drag-handle={stores.ui.editor_settings
                 .editor_block_drag_handle === "on_hover" ||
-                stores.ui.editor_settings.editor_block_drag_handle ===
-                  "always"}
+                stores.ui.editor_settings.editor_block_drag_handle === "always"}
               class:block-drag-handle-always={stores.ui.editor_settings
                 .editor_block_drag_handle === "always"}
             ></div>
