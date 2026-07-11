@@ -1892,7 +1892,8 @@
                       <span
                         >{EDITOR_BLOCK_DRAG_HANDLE_OPTIONS.find(
                           (o) =>
-                            o.value === editor_settings.editor_block_drag_handle,
+                            o.value ===
+                            editor_settings.editor_block_drag_handle,
                         )?.label ?? "On Hover"}</span
                       >
                     </Select.Trigger>

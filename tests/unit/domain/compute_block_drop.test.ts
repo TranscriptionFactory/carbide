@@ -6,6 +6,7 @@ import { EditorState } from "prosemirror-state";
 import { schema } from "$lib/features/editor/adapters/markdown_pipeline";
 import {
   compute_block_drop,
+  compute_section_drop,
   resolve_drop_target,
   apply_block_move,
 } from "$lib/features/editor/domain/compute_block_drop";
@@ -211,5 +212,36 @@ describe("apply_block_move", () => {
     const doc = make_doc(make_paragraph("A"), make_paragraph("B"));
     const result = compute_block_drop(doc, 0, 1);
     expect(result).toBeNull();
+  });
+});
+
+describe("compute_section_drop", () => {
+  it("returns null when dropping inside the source section", () => {
+    const doc = make_doc(
+      make_heading(1, "A"),
+      make_paragraph("one"),
+      make_paragraph("two"),
+      make_heading(2, "B"),
+    );
+    const section_to =
+      doc.child(0).nodeSize + doc.child(1).nodeSize + doc.child(2).nodeSize;
+    const inside = doc.child(0).nodeSize + 1;
+    expect(compute_section_drop(doc, 0, section_to, inside)).toBeNull();
+  });
+
+  it("returns the snapped boundary when dropping outside the section", () => {
+    const doc = make_doc(
+      make_heading(1, "A"),
+      make_paragraph("one"),
+      make_heading(2, "B"),
+      make_paragraph("two"),
+    );
+    const section_to = doc.child(0).nodeSize + doc.child(1).nodeSize;
+    const result = compute_section_drop(doc, 0, section_to, doc.content.size);
+    expect(result).toEqual({
+      from: 0,
+      to: section_to,
+      insert_pos: doc.content.size,
+    });
   });
 });

@@ -43,7 +43,7 @@ function resolve_top_level_block(
   return { pos: top_pos, node };
 }
 
-function build_handle_element(): HTMLDivElement {
+export function build_handle_element(): HTMLDivElement {
   const handle = document.createElement("div");
   handle.className = "block-drag-handle";
   handle.contentEditable = "false";

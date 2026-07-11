@@ -16,11 +16,7 @@ import {
 } from "./suggest_dropdown_utils";
 
 export type BlockInsertMenu = {
-  open: (
-    anchor: DOMRect,
-    insert_from: number,
-    on_dismiss?: () => void,
-  ) => void;
+  open: (anchor: DOMRect, insert_from: number, on_dismiss?: () => void) => void;
   destroy: () => void;
 };
 
