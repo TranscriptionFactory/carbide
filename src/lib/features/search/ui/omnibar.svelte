@@ -37,7 +37,10 @@
     OmnibarKindFilter,
     OmnibarSortMode,
   } from "$lib/shared/types/search";
-  import { mru_comparator } from "$lib/features/search/domain/omnibar_view";
+  import {
+    mru_comparator,
+    dedupe_commands_by_id,
+  } from "$lib/features/search/domain/omnibar_view";
   import XIcon from "@lucide/svelte/icons/x";
   import type { NoteMeta } from "$lib/shared/types/note";
   import type { CommandIcon as CommandIconType } from "$lib/features/search/types/command_palette";
@@ -314,9 +317,10 @@
 
   const sorted_commands = $derived.by(() => {
     const by_mru = mru_comparator(recent_command_ids);
-    return [...COMMANDS_REGISTRY, ...plugin_commands].sort((a, b) =>
-      by_mru(a.id, b.id),
-    );
+    return dedupe_commands_by_id([
+      ...COMMANDS_REGISTRY,
+      ...plugin_commands,
+    ]).sort((a, b) => by_mru(a.id, b.id));
   });
 
   const mru_notes_visible = $derived(
