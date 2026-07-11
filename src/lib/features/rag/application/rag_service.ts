@@ -37,10 +37,8 @@ import type {
   RagSessionSummary,
   RagStreamEvent,
 } from "$lib/features/rag/domain/rag_types";
-import {
-  derive_rag_readiness,
-  type RagReadiness,
-} from "$lib/features/rag/domain/rag_readiness";
+import { derive_rag_readiness } from "$lib/features/rag/domain/rag_readiness";
+import type { RagReadiness } from "$lib/features/rag/types/rag_readiness";
 import type { RagPersistencePort } from "$lib/features/rag/ports";
 import type {
   BlockSectionHit,

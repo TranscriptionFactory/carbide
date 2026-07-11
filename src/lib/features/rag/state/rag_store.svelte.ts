@@ -10,7 +10,7 @@ import type {
   RagSession,
   RagSessionSummary,
 } from "$lib/features/rag/domain/rag_types";
-import type { RagReadiness } from "$lib/features/rag/domain/rag_readiness";
+import type { RagReadiness } from "$lib/features/rag/types/rag_readiness";
 
 function new_message(
   role: RagRole,
