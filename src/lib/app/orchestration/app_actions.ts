@@ -379,12 +379,8 @@ export function register_app_actions(input: ActionRegistrationInput) {
         const block_anchor = services.editor.get_cursor_block_anchor();
         const flush_result = services.editor.flush();
         if (flush_result) {
-          const scroll_top = services.editor.get_scroll_top();
-          const markdown_len = flush_result.markdown.length;
           editor_store.set_scroll_fraction(
-            markdown_len > 0
-              ? Math.min(scroll_top / (markdown_len * 0.5), 1)
-              : 0,
+            services.editor.get_scroll_fraction(),
           );
           editor_store.set_cursor_offset(
             Math.min(md_offset, flush_result.markdown.length),

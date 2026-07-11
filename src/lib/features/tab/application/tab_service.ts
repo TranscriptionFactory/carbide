@@ -128,7 +128,7 @@ export class TabService {
       if (!tab) continue;
 
       this.tab_store.set_snapshot(tab.id, {
-        scroll_top: 0,
+        scroll_fraction: 0,
         cursor: persisted_tab.cursor,
         cursor_offset: 0,
         markdown_cursor_offset: 0,

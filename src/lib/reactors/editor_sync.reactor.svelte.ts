@@ -12,11 +12,11 @@ export function resolve_editor_sync_cursor_offset(
   return undefined;
 }
 
-export function resolve_editor_sync_scroll_top(
+export function resolve_editor_sync_scroll_fraction(
   pending: PendingCursorRestore | null,
 ): number | undefined {
-  if (pending && pending.scroll_top >= 0) {
-    return pending.scroll_top;
+  if (pending && pending.scroll_fraction >= 0) {
+    return pending.scroll_fraction;
   }
   return undefined;
 }
@@ -105,9 +105,10 @@ export function create_editor_sync_reactor(
         editor_service.set_cursor_from_markdown_offset(restore_cursor_offset);
       }
 
-      const restore_scroll_top = resolve_editor_sync_scroll_top(pending);
-      if (restore_scroll_top !== undefined) {
-        editor_service.set_scroll_top(restore_scroll_top);
+      const restore_scroll_fraction =
+        resolve_editor_sync_scroll_fraction(pending);
+      if (restore_scroll_fraction !== undefined) {
+        editor_service.set_scroll_fraction(restore_scroll_fraction);
       }
     });
   });

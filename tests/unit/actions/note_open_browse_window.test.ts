@@ -135,7 +135,7 @@ function create_harness() {
       is_mounted: vi.fn().mockReturnValue(true),
       open_buffer: vi.fn(),
       close_buffer: vi.fn(),
-      get_scroll_top: vi.fn().mockReturnValue(0),
+      get_scroll_fraction: vi.fn().mockReturnValue(0),
       get_cursor_markdown_offset: vi.fn().mockReturnValue(0),
     },
     clipboard: {},

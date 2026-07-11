@@ -170,7 +170,7 @@ describe("TabStore", () => {
       const store = new TabStore();
       store.open_tab(np("a.md"), "a");
       store.set_snapshot("a.md", {
-        scroll_top: 100,
+        scroll_fraction: 0.5,
         cursor: null,
         cursor_offset: 0,
         markdown_cursor_offset: 0,
@@ -283,7 +283,7 @@ describe("TabStore", () => {
       store.open_tab(np("a.md"), "a");
       store.open_tab(np("b.md"), "b");
       store.set_snapshot("a.md", {
-        scroll_top: 50,
+        scroll_fraction: 0.25,
         cursor: null,
         cursor_offset: 0,
         markdown_cursor_offset: 0,
@@ -499,7 +499,7 @@ describe("TabStore", () => {
       const store = new TabStore();
       store.open_tab(np("old.md"), "old");
       store.set_snapshot("old.md", {
-        scroll_top: 42,
+        scroll_fraction: 0.42,
         cursor: null,
         cursor_offset: 0,
         markdown_cursor_offset: 0,
@@ -508,7 +508,7 @@ describe("TabStore", () => {
       store.update_tab_path(np("old.md"), np("new.md"));
 
       expect(store.get_snapshot("old.md")).toBeNull();
-      expect(store.get_snapshot("new.md")?.scroll_top).toBe(42);
+      expect(store.get_snapshot("new.md")?.scroll_fraction).toBe(0.42);
     });
 
     it("migrates note cache to new path", () => {
@@ -683,7 +683,7 @@ describe("TabStore", () => {
         kind: "note",
         note_path: np("a.md"),
         title: "a",
-        scroll_top: 10,
+        scroll_fraction: 0.1,
         cursor: null,
         draft_note: null,
       });
@@ -691,7 +691,7 @@ describe("TabStore", () => {
         kind: "note",
         note_path: np("b.md"),
         title: "b",
-        scroll_top: 20,
+        scroll_fraction: 0.2,
         cursor: null,
         draft_note: null,
       });
@@ -715,7 +715,7 @@ describe("TabStore", () => {
           kind: "note",
           note_path: np(`${String(i)}.md`),
           title: String(i),
-          scroll_top: 0,
+          scroll_fraction: 0,
           cursor: null,
           draft_note: null,
         });
@@ -908,7 +908,7 @@ describe("TabStore", () => {
       store.open_tab(np("a.md"), "a");
       store.set_dirty("a.md", true);
       store.set_snapshot("a.md", {
-        scroll_top: 50,
+        scroll_fraction: 0.25,
         cursor: null,
         cursor_offset: 0,
         markdown_cursor_offset: 0,
@@ -917,7 +917,7 @@ describe("TabStore", () => {
         kind: "note",
         note_path: np("b.md"),
         title: "b",
-        scroll_top: 0,
+        scroll_fraction: 0,
         cursor: null,
         draft_note: null,
       });

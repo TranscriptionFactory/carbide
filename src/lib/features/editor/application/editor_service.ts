@@ -454,18 +454,27 @@ export class EditorService {
     return null;
   }
 
-  get_scroll_top(): number {
-    return this.resolve_scroll_container()?.scrollTop ?? 0;
+  get_scroll_fraction(): number {
+    const container = this.resolve_scroll_container();
+    if (!container) return 0;
+    const max_scroll = container.scrollHeight - container.clientHeight;
+    return max_scroll > 0 ? container.scrollTop / max_scroll : 0;
   }
 
-  set_scroll_top(value: number) {
-    if (value < 0) return;
+  set_scroll_fraction(fraction: number) {
+    if (fraction < 0) return;
     let frames = 0;
     const apply = () => {
       const container = this.resolve_scroll_container();
       if (!container) return;
-      container.scrollTop = value;
-      if (container.scrollTop < value && frames++ < 8) {
+      if (fraction === 0) {
+        container.scrollTop = 0;
+        return;
+      }
+      const max_scroll = container.scrollHeight - container.clientHeight;
+      if (max_scroll > 0) {
+        container.scrollTop = Math.round(fraction * max_scroll);
+      } else if (frames++ < 8) {
         requestAnimationFrame(apply);
       }
     };

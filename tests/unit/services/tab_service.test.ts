@@ -142,13 +142,13 @@ describe("TabService", () => {
         total_words: 0,
       };
       tab_store.set_snapshot(alpha, {
-        scroll_top: 0,
+        scroll_fraction: 0,
         cursor: alpha_cursor,
         cursor_offset: 0,
         markdown_cursor_offset: 0,
       });
       tab_store.set_snapshot(beta, {
-        scroll_top: 0,
+        scroll_fraction: 0,
         cursor: beta_cursor,
         cursor_offset: 0,
         markdown_cursor_offset: 0,
@@ -350,7 +350,7 @@ describe("TabService", () => {
       await service.restore_tabs(persisted);
 
       expect(tab_store.get_snapshot(as_note_path("docs/alpha.md"))).toEqual({
-        scroll_top: 0,
+        scroll_fraction: 0,
         cursor: alpha_cursor,
         cursor_offset: 0,
         markdown_cursor_offset: 0,
