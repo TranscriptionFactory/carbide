@@ -5,6 +5,7 @@ import type {
   OmnibarSortMode,
 } from "$lib/shared/types/search";
 import type { AccessHistory } from "$lib/features/search/domain/omnibar_ranking";
+import type { CommandDefinition } from "$lib/features/search/types/command_palette";
 
 export type OmnibarSortContext = {
   access_history?: AccessHistory | undefined;
@@ -28,6 +29,19 @@ export function mru_comparator(
     if (b_idx !== undefined) return 1;
     return 0;
   };
+}
+
+export function dedupe_commands_by_id(
+  commands: readonly CommandDefinition[],
+): CommandDefinition[] {
+  const seen = new Set<string>();
+  const result: CommandDefinition[] = [];
+  for (const command of commands) {
+    if (seen.has(command.id)) continue;
+    seen.add(command.id);
+    result.push(command);
+  }
+  return result;
 }
 
 function file_type_matches(

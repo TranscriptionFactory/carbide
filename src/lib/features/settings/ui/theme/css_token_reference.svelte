@@ -40,11 +40,15 @@
     search.trim()
       ? CATEGORIES.map((cat) => ({
           ...cat,
-          tokens: cat.tokens.filter((t) =>
-            t.toLowerCase().includes(search.toLowerCase()),
-          ),
+          tokens: [
+            ...new Set(
+              cat.tokens.filter((t) =>
+                t.toLowerCase().includes(search.toLowerCase()),
+              ),
+            ),
+          ],
         })).filter((cat) => cat.tokens.length > 0)
-      : CATEGORIES,
+      : CATEGORIES.map((cat) => ({ ...cat, tokens: [...new Set(cat.tokens)] })),
   );
 
   function is_overridden(token: string): boolean {

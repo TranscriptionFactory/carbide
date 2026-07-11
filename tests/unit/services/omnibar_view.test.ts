@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
   apply_kind_filters,
+  dedupe_commands_by_id,
   sort_omnibar_items,
 } from "$lib/features/search/domain/omnibar_view";
 import type { OmnibarItem } from "$lib/shared/types/search";
+import type { CommandDefinition } from "$lib/features/search/types/command_palette";
 import type { NoteMeta } from "$lib/shared/types/note";
 import { as_note_path } from "$lib/shared/types/ids";
 
@@ -108,6 +110,44 @@ describe("apply_kind_filters", () => {
     expect(
       apply_kind_filters(mixed, ["commands", "settings"]).map((i) => i.kind),
     ).toEqual(["command", "setting"]);
+  });
+});
+
+describe("dedupe_commands_by_id", () => {
+  function command_def(id: string, label: string): CommandDefinition {
+    return {
+      id: id as CommandDefinition["id"],
+      label,
+      description: "",
+      keywords: [],
+      icon: "settings",
+    };
+  }
+
+  it("returns commands unchanged when all ids are unique", () => {
+    const commands = [command_def("a", "A"), command_def("b", "B")];
+    expect(dedupe_commands_by_id(commands)).toEqual(commands);
+  });
+
+  it("keeps the first command for a duplicated id and drops later collisions", () => {
+    const builtin = command_def("open_settings", "Built-in Settings");
+    const plugin = command_def("open_settings", "Plugin Settings");
+    expect(dedupe_commands_by_id([builtin, plugin])).toEqual([builtin]);
+  });
+
+  it("preserves order across multiple collisions", () => {
+    const commands = [
+      command_def("a", "A1"),
+      command_def("b", "B"),
+      command_def("a", "A2"),
+      command_def("c", "C"),
+      command_def("b", "B2"),
+    ];
+    expect(dedupe_commands_by_id(commands).map((c) => c.label)).toEqual([
+      "A1",
+      "B",
+      "C",
+    ]);
   });
 });
 
