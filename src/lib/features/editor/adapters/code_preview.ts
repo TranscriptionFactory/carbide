@@ -27,19 +27,6 @@ export function should_show_preview(language: string, meta: string): boolean {
   return is_previewable_language(language) && meta_has_token(meta, "preview");
 }
 
-const PREVIEW_CSP = [
-  "default-src 'none'",
-  "script-src 'unsafe-inline' https:",
-  "style-src 'unsafe-inline' https: data:",
-  "img-src https: data: blob:",
-  "font-src https: data:",
-  "connect-src https: data: blob:",
-  "media-src https: data: blob:",
-  "frame-src https:",
-  "form-action 'none'",
-  "base-uri 'none'",
-].join("; ");
-
 const PREVIEW_BASE_STYLES = `
 body { margin: 0; padding: 12px 16px; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 14px; line-height: 1.55; color: var(--foreground, #18181b); background: var(--background, #ffffff); word-wrap: break-word; }
 img, video, canvas, svg { max-width: 100%; }
@@ -117,5 +104,5 @@ export function build_code_preview_srcdoc(
   const body = wrap_preview_body(language, source);
   const dark_class = theme === "dark" ? ' class="dark"' : "";
   const root_block = render_root_block(theme, tokens);
-  return `<!DOCTYPE html><html${dark_class}><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="${PREVIEW_CSP}"><style>${root_block}${PREVIEW_BASE_STYLES}</style></head><body>${body}</body></html>`;
+  return `<!DOCTYPE html><html${dark_class}><head><meta charset="utf-8"><style>${root_block}${PREVIEW_BASE_STYLES}</style></head><body>${body}</body></html>`;
 }

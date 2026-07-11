@@ -59,11 +59,9 @@ describe("preview srcdoc", () => {
     expect(CODE_PREVIEW_SANDBOX).toBe("allow-scripts");
   });
 
-  it("carries a locked-down CSP that denies external script origins", () => {
+  it("omits a meta CSP so the carbide-html header is the single source", () => {
     const doc = build_code_preview_srcdoc("html", "<p>hi</p>");
-    expect(doc).toContain("default-src 'none'");
-    expect(doc).toContain("base-uri 'none'");
-    expect(doc).not.toContain("script-src 'unsafe-inline' 'unsafe-eval'");
+    expect(doc).not.toContain("Content-Security-Policy");
   });
 
   it("embeds raw html source directly", () => {

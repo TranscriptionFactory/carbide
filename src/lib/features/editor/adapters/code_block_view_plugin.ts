@@ -216,6 +216,7 @@ type HtmlPreviewState = {
   is_preview: boolean;
   container: HTMLElement;
   iframe: HTMLIFrameElement;
+  error_el: HTMLElement;
   toggle_btn: HTMLButtonElement;
   last_rendered_content: string;
   last_rendered_theme: string;
@@ -532,6 +533,11 @@ class CodeBlockView implements NodeView {
     iframe.title = "Code preview";
     container.appendChild(iframe);
 
+    const error_el = document.createElement("div");
+    error_el.className = "code-block-preview-error";
+    error_el.hidden = true;
+    container.appendChild(error_el);
+
     const toggle_btn = document.createElement("button");
     toggle_btn.className = "code-block-preview-toggle";
     toggle_btn.type = "button";
@@ -555,6 +561,7 @@ class CodeBlockView implements NodeView {
       is_preview: show,
       container,
       iframe,
+      error_el,
       toggle_btn,
       last_rendered_content: "",
       last_rendered_theme: "",
@@ -636,8 +643,14 @@ class CodeBlockView implements NodeView {
         void invoke("html_live_release", { url: state.live_url });
       state.live_url = url;
       state.iframe.src = url;
+      state.error_el.hidden = true;
+      state.iframe.hidden = false;
     } catch (error) {
       log.error("HTML preview render failed", { error });
+      if (seq !== state.render_seq) return;
+      state.error_el.textContent = "Preview unavailable — failed to render.";
+      state.error_el.hidden = false;
+      state.iframe.hidden = true;
     }
   }
 
