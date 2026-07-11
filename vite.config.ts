@@ -1,4 +1,3 @@
-import { resolve } from "node:path";
 import { sveltekit } from "@sveltejs/kit/vite";
 import { defineConfig, type Plugin } from "vitest/config";
 import tailwindcss from "@tailwindcss/vite";
@@ -46,10 +45,6 @@ function manual_chunks(id: string): string | undefined {
 
   if (id.includes("mermaid")) {
     return "mermaid";
-  }
-
-  if (id.includes("pdfkit")) {
-    return "pdfkit";
   }
 
   if (
@@ -116,9 +111,6 @@ export default defineConfig({
     },
   },
   resolve: {
-    alias: {
-      pdfkit: resolve("node_modules/pdfkit/js/pdfkit.standalone.js"),
-    },
     ...(process.env.VITEST || process.env.NODE_ENV === "test"
       ? { conditions: ["browser"] }
       : {}),
