@@ -19,6 +19,7 @@ const block_drag_handle_plugin_key = new PluginKey<DragHandleState>(
 );
 
 const FOCUS_MODE_KEYSTROKE_THRESHOLD = 4;
+const FOCUS_EXIT_MOVE_THRESHOLD_PX = 5;
 
 type DragHandleState = { set: DecorationSet; starts: number[] };
 type HandleEntry = { el: HTMLElement; get_pos: () => number | undefined };
@@ -48,11 +49,13 @@ function build_handle_element(): HTMLDivElement {
   handle.draggable = true;
   handle.setAttribute("aria-label", "Drag to reorder block");
   handle.setAttribute("role", "button");
+  handle.title = "Drag to move block · Click to select";
 
   const insert_btn = document.createElement("div");
   insert_btn.className = "block-drag-handle__insert";
   insert_btn.setAttribute("aria-label", "Insert block below");
   insert_btn.setAttribute("role", "button");
+  insert_btn.title = "Insert block below";
   handle.appendChild(insert_btn);
 
   const grip = document.createElement("div");
@@ -191,6 +194,7 @@ export function create_block_drag_handle_prose_plugin(): Plugin {
     EditorView["state"]["selection"]["getBookmark"]
   > | null = null;
   let drop_succeeded = false;
+  let suppress_click = false;
 
   function ensure_drop_indicator(view: EditorView): HTMLElement {
     if (!drop_indicator) {
@@ -304,6 +308,7 @@ export function create_block_drag_handle_prose_plugin(): Plugin {
     if (!range) return;
 
     is_dragging = true;
+    suppress_click = true;
     handle.classList.add("block-drag-handle--dragging");
     document.body.classList.add("block-handle-dragging");
     dragging_range = range;
@@ -390,6 +395,20 @@ export function create_block_drag_handle_prose_plugin(): Plugin {
       on_dragstart(view, get_pos, handle, event),
     );
     handle.addEventListener("dragend", () => on_dragend(view, handle));
+    handle.addEventListener("mousedown", () => {
+      suppress_click = false;
+    });
+    handle.addEventListener("click", (event) => {
+      if (event.target instanceof Node && insert_btn.contains(event.target))
+        return;
+      if (suppress_click) return;
+      event.preventDefault();
+      event.stopPropagation();
+      const block_pos = get_pos();
+      if (block_pos == null) return;
+      const range = compute_drag_range(view, block_pos);
+      if (range) select_drag_range(view, range);
+    });
     insert_btn.addEventListener("mousedown", (event) =>
       on_insert_click(view, get_pos, insert_btn, event),
     );
@@ -471,6 +490,7 @@ export function create_block_drag_handle_prose_plugin(): Plugin {
       insert_menu = create_block_insert_menu(editor_view);
       let keystroke_count = 0;
       let focus_mode_active = false;
+      let focus_exit_movement = 0;
       let near_pos: number | null = null;
       let align_frame: number | null = null;
 
@@ -528,6 +548,7 @@ export function create_block_drag_handle_prose_plugin(): Plugin {
       function enter_focus_mode() {
         if (focus_mode_active) return;
         focus_mode_active = true;
+        focus_exit_movement = 0;
         editor_dom.classList.add("typing-focus");
       }
 
@@ -564,6 +585,11 @@ export function create_block_drag_handle_prose_plugin(): Plugin {
       }
 
       function on_mousemove(event: MouseEvent) {
+        if (focus_mode_active) {
+          focus_exit_movement +=
+            Math.abs(event.movementX) + Math.abs(event.movementY);
+          if (focus_exit_movement < FOCUS_EXIT_MOVE_THRESHOLD_PX) return;
+        }
         exit_focus_mode();
         if (is_dragging) return;
         if (!is_feature_enabled()) return;

@@ -368,11 +368,17 @@
 }
 
 /* on_hover mode: reveal only the hovered/near block's handle */
-.show-block-drag-handle:not(.block-drag-handle-always) .block-drag-handle--near,
 .show-block-drag-handle:not(.block-drag-handle-always)
-  .block-drag-handle:hover {
+  .block-drag-handle--near {
   opacity: 0.6;
   pointer-events: auto;
+}
+
+.show-block-drag-handle:not(.block-drag-handle-always)
+  .block-drag-handle:hover {
+  opacity: 0.9;
+  pointer-events: auto;
+  background: var(--background-surface-2, oklch(0.95 0 0));
 }
 
 /* always mode: every handle rests at a low opacity */
