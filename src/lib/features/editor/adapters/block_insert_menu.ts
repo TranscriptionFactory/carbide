@@ -16,7 +16,11 @@ import {
 } from "./suggest_dropdown_utils";
 
 export type BlockInsertMenu = {
-  open: (anchor: DOMRect, insert_from: number) => void;
+  open: (
+    anchor: DOMRect,
+    insert_from: number,
+    on_dismiss?: () => void,
+  ) => void;
   destroy: () => void;
 };
 
@@ -36,6 +40,7 @@ export function create_block_insert_menu(view: EditorView): BlockInsertMenu {
   let from = 0;
   let is_open = false;
   let detach_dismiss: (() => void) | null = null;
+  let on_dismiss: (() => void) | null = null;
 
   function menu_state(): SlashState {
     return {
@@ -67,6 +72,7 @@ export function create_block_insert_menu(view: EditorView): BlockInsertMenu {
   }
 
   function accept(cmd: SlashCommand): void {
+    on_dismiss = null;
     close();
     cmd.insert(view, from);
     view.focus();
@@ -79,6 +85,9 @@ export function create_block_insert_menu(view: EditorView): BlockInsertMenu {
     detach_dismiss?.();
     detach_dismiss = null;
     document.removeEventListener("keydown", on_keydown, true);
+    const dismiss = on_dismiss;
+    on_dismiss = null;
+    dismiss?.();
   }
 
   function on_keydown(event: KeyboardEvent): void {
@@ -108,12 +117,17 @@ export function create_block_insert_menu(view: EditorView): BlockInsertMenu {
     }
   }
 
-  function open(anchor: DOMRect, insert_from: number): void {
+  function open(
+    anchor: DOMRect,
+    insert_from: number,
+    dismiss?: () => void,
+  ): void {
     from = insert_from;
     selected_index = 0;
     commands = block_insert_commands(view.state);
     if (commands.length === 0) return;
 
+    on_dismiss = dismiss ?? null;
     is_open = true;
     render();
     scroll_selected();

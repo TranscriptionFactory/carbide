@@ -1,4 +1,5 @@
 import { Plugin, PluginKey, TextSelection } from "prosemirror-state";
+import type { SelectionBookmark } from "prosemirror-state";
 import { Decoration, DecorationSet } from "prosemirror-view";
 import type { EditorView } from "prosemirror-view";
 import type { Node as ProseNode } from "prosemirror-model";
@@ -78,6 +79,28 @@ export function insert_paragraph_below(
   view.dispatch(tr.scrollIntoView());
   view.focus();
   return from;
+}
+
+export function remove_empty_placeholder(
+  view: EditorView,
+  from: number,
+  prev_selection: SelectionBookmark,
+): void {
+  if (!view.dom.isConnected) return;
+  const doc = view.state.doc;
+  if (from < 0 || from > doc.content.size) return;
+
+  const $from = doc.resolve(from);
+  if ($from.depth !== 1) return;
+  const parent = $from.parent;
+  if (parent.type.name !== "paragraph" || parent.content.size !== 0) return;
+
+  const sel = view.state.selection;
+  if (!sel.empty || sel.from !== from) return;
+
+  const tr = view.state.tr.delete($from.before(1), $from.after(1));
+  tr.setSelection(prev_selection.resolve(tr.doc));
+  view.dispatch(tr);
 }
 
 function select_drag_range(
@@ -331,15 +354,27 @@ export function create_block_drag_handle_prose_plugin(): Plugin {
     anchor_el: HTMLElement,
     event: MouseEvent,
   ) {
+    if (event.button !== 0) return;
     event.preventDefault();
     event.stopPropagation();
+    open_insert_menu(view, get_pos, anchor_el);
+  }
+
+  function open_insert_menu(
+    view: EditorView,
+    get_pos: () => number | undefined,
+    anchor_el: HTMLElement,
+  ) {
     const block_pos = get_pos();
     if (block_pos == null) return;
 
     const anchor_rect = anchor_el.getBoundingClientRect();
+    const prev_selection = view.state.selection.getBookmark();
     const from = insert_paragraph_below(view, block_pos);
     if (from == null) return;
-    insert_menu?.open(anchor_rect, from);
+    insert_menu?.open(anchor_rect, from, () => {
+      remove_empty_placeholder(view, from, prev_selection);
+    });
   }
 
   function build_handle(
