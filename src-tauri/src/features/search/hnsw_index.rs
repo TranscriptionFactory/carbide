@@ -845,4 +845,68 @@ mod tests {
         let hits_c = loaded.search(&vc, 5);
         assert!(hits_c.iter().any(|(k, _)| k == "c"));
     }
+
+    #[test]
+    fn load_or_rebuild_loads_clean_when_dump_fresh() {
+        let dir = scratch_dir("fresh-load");
+        let va = unit_vec(0.1, 8);
+        let conn = mem_conn(&[("a", va.clone())]);
+        let idx = VectorIndex::rebuild_from_sqlite(&conn, "notes", 8);
+        idx.dump(&dir, "notes-test", "m1").unwrap();
+
+        let loaded = VectorIndex::load_or_rebuild(&conn, "notes", 8, &dir, "notes-test", "m1");
+
+        assert_eq!(loaded.len(), 1);
+        assert!(!loaded.is_dirty());
+        assert!(loaded.search(&va, 1).iter().any(|(k, _)| k == "a"));
+    }
+
+    #[test]
+    fn load_or_rebuild_rebuilds_on_model_version_change() {
+        let dir = scratch_dir("stale-model");
+        let va = unit_vec(0.1, 8);
+        let vb = unit_vec(0.5, 8);
+        let conn = mem_conn(&[("a", va.clone()), ("b", vb)]);
+        let idx = VectorIndex::rebuild_from_sqlite(&conn, "notes", 8);
+        idx.dump(&dir, "notes-test", "m1").unwrap();
+
+        let rebuilt = VectorIndex::load_or_rebuild(&conn, "notes", 8, &dir, "notes-test", "m2");
+
+        assert_eq!(rebuilt.len(), 2);
+        // A rebuilt index must stay dirty so the caller re-dumps it under the new model.
+        assert!(rebuilt.is_dirty());
+        assert!(rebuilt.search(&va, 2).iter().any(|(k, _)| k == "a"));
+    }
+
+    #[test]
+    fn corrupt_meta_falls_back_to_rebuild() {
+        let dir = scratch_dir("corrupt-meta");
+        let va = unit_vec(0.1, 8);
+        let conn = mem_conn(&[("a", va.clone())]);
+        let idx = VectorIndex::rebuild_from_sqlite(&conn, "notes", 8);
+        idx.dump(&dir, "notes-test", "m1").unwrap();
+        std::fs::write(dir.join("notes-test.hnsw.meta"), b"{not json").unwrap();
+
+        let rebuilt = VectorIndex::load_or_rebuild(&conn, "notes", 8, &dir, "notes-test", "m1");
+
+        assert_eq!(rebuilt.len(), 1);
+        assert!(rebuilt.is_dirty());
+        assert!(rebuilt.search(&va, 1).iter().any(|(k, _)| k == "a"));
+    }
+
+    #[test]
+    fn corrupt_graph_falls_back_to_rebuild() {
+        let dir = scratch_dir("corrupt-graph");
+        let va = unit_vec(0.1, 8);
+        let conn = mem_conn(&[("a", va.clone())]);
+        let idx = VectorIndex::rebuild_from_sqlite(&conn, "notes", 8);
+        idx.dump(&dir, "notes-test", "m1").unwrap();
+        std::fs::write(dir.join("notes-test.hnsw.graph"), b"garbage").unwrap();
+
+        let rebuilt = VectorIndex::load_or_rebuild(&conn, "notes", 8, &dir, "notes-test", "m1");
+
+        assert_eq!(rebuilt.len(), 1);
+        assert!(rebuilt.is_dirty());
+        assert!(rebuilt.search(&va, 1).iter().any(|(k, _)| k == "a"));
+    }
 }
