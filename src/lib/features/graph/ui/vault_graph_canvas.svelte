@@ -80,6 +80,7 @@
   let renderer_ready = $state(false);
   let worker = $state<Worker | null>(null);
   let edge_tooltip = $state<EdgeHoverInfo | null>(null);
+  let pending_fit = false;
 
   let context_menu = $state<{
     node_id: string;
@@ -132,6 +133,7 @@
   function feed_graph(r: VaultGraphRenderer, snap: VaultGraphSnapshot) {
     const edges = plain_edges(snap);
     r.set_graph(plain_nodes(snap), edges);
+    pending_fit = true;
 
     const profile = compute_degradation_profile(
       snap.nodes.length,
@@ -166,6 +168,10 @@
           });
         }
         r.update_positions(positions);
+        if (pending_fit) {
+          pending_fit = false;
+          r.fit_to_content();
+        }
       } else if (msg.type === "clusters" && on_clusters_computed) {
         on_clusters_computed(msg.assignments as Record<string, number>);
       }

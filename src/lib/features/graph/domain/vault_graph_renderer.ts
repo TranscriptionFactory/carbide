@@ -23,6 +23,7 @@ import {
   sample_edges,
   type DegradationProfile,
 } from "$lib/features/graph/domain/graph_degrade";
+import { truncate_label } from "$lib/features/graph/domain/graph_layout_tuning";
 
 const LOD_FULL_ZOOM = 0.6;
 const LOD_MEDIUM_ZOOM = 0.3;
@@ -243,7 +244,7 @@ export class VaultGraphRenderer {
       c.addChild(circle);
 
       const label = new T({
-        text: node.label,
+        text: truncate_label(node.label),
         style: {
           fontSize: 11,
           fill: this.colors.label_fill,
@@ -388,8 +389,8 @@ export class VaultGraphRenderer {
     edges: Array<{ source: string; target: string; label: string }>,
   ): void {
     this.clear_edge_labels();
-    if (!this.edges_gfx) return;
-    const { Text } = require("pixi.js") as typeof import("pixi.js");
+    if (!this.edges_gfx || !this.pixi) return;
+    const { Text } = this.pixi;
     for (const edge of edges) {
       const src = this.node_map.get(edge.source);
       const tgt = this.node_map.get(edge.target);
@@ -434,7 +435,13 @@ export class VaultGraphRenderer {
   }
 
   highlight_node(id: string | null): void {
+    if (this.hovered_id != null && this.hovered_id !== id) {
+      const prev = this.node_map.get(this.hovered_id);
+      if (prev) prev.label.text = truncate_label(prev.label_text);
+    }
     this.hovered_id = id;
+    const entry = id != null ? this.node_map.get(id) : undefined;
+    if (entry) entry.label.text = entry.label_text;
     this.rebuild_hovered_connections();
     this.edges_dirty = true;
     this.request_render();
@@ -467,6 +474,27 @@ export class VaultGraphRenderer {
   set_filter(matching_ids: Set<string> | null): void {
     this.filter_set = matching_ids;
     this.edges_dirty = true;
+    this.request_render();
+  }
+
+  fit_to_content(padding = 40): void {
+    if (!this.vp || this.node_map.size === 0) return;
+    let min_x = Infinity;
+    let min_y = Infinity;
+    let max_x = -Infinity;
+    let max_y = -Infinity;
+    for (const entry of this.node_map.values()) {
+      min_x = Math.min(min_x, entry.x);
+      min_y = Math.min(min_y, entry.y);
+      max_x = Math.max(max_x, entry.x);
+      max_y = Math.max(max_y, entry.y);
+    }
+    const scale = Math.min(
+      (this.vp.screenWidth - padding * 2) / Math.max(max_x - min_x, 1),
+      (this.vp.screenHeight - padding * 2) / Math.max(max_y - min_y, 1),
+    );
+    this.vp.setZoom(Math.min(Math.max(scale, 0.05), 4));
+    this.vp.moveCenter((min_x + max_x) / 2, (min_y + max_y) / 2);
     this.request_render();
   }
 
