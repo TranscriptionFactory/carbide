@@ -123,11 +123,7 @@ export function count_section_body_blocks(
   from: number,
   to: number,
 ): number {
-  let count = 0;
-  doc.forEach((node, offset) => {
-    if (offset >= from && offset + node.nodeSize <= to) count++;
-  });
-  return Math.max(0, count - 1);
+  return Math.max(0, doc.slice(from, to).content.childCount - 1);
 }
 
 export function compute_drag_range(
@@ -193,21 +189,16 @@ export function create_block_drag_handle_prose_plugin(): Plugin {
   let indicator_frame: number | null = null;
   let last_drag_coords: { x: number; y: number } | null = null;
   let drag_image_wrapper: HTMLElement | null = null;
-  let drag_prev_selection: ReturnType<
-    EditorView["state"]["selection"]["getBookmark"]
-  > | null = null;
+  let drag_prev_selection: SelectionBookmark | null = null;
   let drop_succeeded = false;
   let suppress_click = false;
 
-  function ensure_drop_indicator(view: EditorView): HTMLElement {
+  function ensure_drop_indicator(): HTMLElement {
     if (!drop_indicator) {
       drop_indicator = document.createElement("div");
       drop_indicator.className = "block-drop-indicator";
+      document.body.appendChild(drop_indicator);
     }
-    const parent =
-      view.dom.offsetParent ?? view.dom.parentElement ?? document.body;
-    if (drop_indicator.parentNode !== parent)
-      parent.appendChild(drop_indicator);
     return drop_indicator;
   }
 
@@ -221,48 +212,23 @@ export function create_block_drag_handle_prose_plugin(): Plugin {
   }
 
   function position_drop_indicator(view: EditorView, x: number, y: number) {
-    const coords = view.posAtCoords({ left: x, top: y });
-    if (!coords) {
-      hide_drop_indicator();
-      return;
-    }
     const range = dragging_range;
-    if (!range) {
-      hide_drop_indicator();
-      return;
-    }
-    const result = compute_section_drop(
-      view.state.doc,
-      range.from,
-      range.to,
-      coords.pos,
-    );
+    const coords = range ? view.posAtCoords({ left: x, top: y }) : null;
+    const result =
+      range && coords
+        ? compute_section_drop(view.state.doc, range.from, range.to, coords.pos)
+        : null;
     if (!result) {
       hide_drop_indicator();
       return;
     }
 
-    const el = ensure_drop_indicator(view);
+    const el = ensure_drop_indicator();
     const line = view.coordsAtPos(result.insert_pos);
-    const parent = view.dom.offsetParent;
-    let parent_left: number;
-    let parent_top: number;
-    if (
-      !parent ||
-      (parent === document.body &&
-        getComputedStyle(parent).position === "static")
-    ) {
-      parent_left = -window.scrollX;
-      parent_top = -window.scrollY;
-    } else {
-      const rect = parent.getBoundingClientRect();
-      parent_left = rect.left - parent.scrollLeft;
-      parent_top = rect.top - parent.scrollTop;
-    }
     const editor_rect = view.dom.getBoundingClientRect();
-    el.style.left = `${String(editor_rect.left - parent_left)}px`;
+    el.style.left = `${String(editor_rect.left)}px`;
     el.style.width = `${String(editor_rect.width)}px`;
-    el.style.top = `${String(line.top - parent_top - 1)}px`;
+    el.style.top = `${String(line.top - 1)}px`;
     el.style.display = "block";
   }
 
@@ -353,7 +319,13 @@ export function create_block_drag_handle_prose_plugin(): Plugin {
       view.dispatch(view.state.tr.setSelection(sel));
     }
     drag_prev_selection = null;
-    drop_succeeded = false;
+  }
+
+  function select_block(view: EditorView, get_pos: () => number | undefined) {
+    const block_pos = get_pos();
+    if (block_pos == null) return;
+    const range = compute_drag_range(view, block_pos);
+    if (range) select_drag_range(view, range);
   }
 
   function on_insert_click(
@@ -407,10 +379,7 @@ export function create_block_drag_handle_prose_plugin(): Plugin {
       if (suppress_click) return;
       event.preventDefault();
       event.stopPropagation();
-      const block_pos = get_pos();
-      if (block_pos == null) return;
-      const range = compute_drag_range(view, block_pos);
-      if (range) select_drag_range(view, range);
+      select_block(view, get_pos);
     });
     handle.addEventListener("keydown", (event) => {
       if (event.key !== "Enter" && event.key !== " ") return;
@@ -420,10 +389,7 @@ export function create_block_drag_handle_prose_plugin(): Plugin {
         open_insert_menu(view, get_pos, insert_btn);
         return;
       }
-      const block_pos = get_pos();
-      if (block_pos == null) return;
-      const range = compute_drag_range(view, block_pos);
-      if (range) select_drag_range(view, range);
+      select_block(view, get_pos);
     });
     insert_btn.addEventListener("mousedown", (event) =>
       on_insert_click(view, get_pos, insert_btn, event),
@@ -509,6 +475,8 @@ export function create_block_drag_handle_prose_plugin(): Plugin {
       let focus_exit_movement = 0;
       let near_pos: number | null = null;
       let align_frame: number | null = null;
+      let mouse_frame: number | null = null;
+      let last_mouse: { x: number; y: number } | null = null;
 
       function align_handles() {
         const pm_rect = editor_dom.getBoundingClientRect();
@@ -583,7 +551,7 @@ export function create_block_drag_handle_prose_plugin(): Plugin {
       function on_keydown(event: KeyboardEvent) {
         if (
           event.target instanceof Element &&
-          event.target.closest(".block-drag-handle")
+          event.target.closest('[contenteditable="false"]')
         )
           return;
         keystroke_count++;
@@ -620,14 +588,19 @@ export function create_block_drag_handle_prose_plugin(): Plugin {
         if (is_dragging) return;
         if (!is_feature_enabled()) return;
 
-        const info = editor_view.posAtCoords({
-          left: event.clientX,
-          top: event.clientY,
+        last_mouse = { x: event.clientX, y: event.clientY };
+        if (mouse_frame !== null) return;
+        mouse_frame = requestAnimationFrame(() => {
+          mouse_frame = null;
+          if (!last_mouse || is_dragging) return;
+          const info = editor_view.posAtCoords({
+            left: last_mouse.x,
+            top: last_mouse.y,
+          });
+          if (!info) return;
+          const block = resolve_top_level_block(editor_view, info.pos);
+          if (block) set_near(block.pos);
         });
-        if (!info) return;
-
-        const block = resolve_top_level_block(editor_view, info.pos);
-        if (block) set_near(block.pos);
       }
 
       function on_mouseleave() {
@@ -643,11 +616,12 @@ export function create_block_drag_handle_prose_plugin(): Plugin {
       schedule_align();
 
       return {
-        update() {
-          schedule_align();
+        update(view, prev_state) {
+          if (view.state.doc !== prev_state.doc) schedule_align();
         },
         destroy() {
           if (align_frame !== null) cancelAnimationFrame(align_frame);
+          if (mouse_frame !== null) cancelAnimationFrame(mouse_frame);
           resize_observer?.disconnect();
           exit_focus_mode();
           hide_drop_indicator();
