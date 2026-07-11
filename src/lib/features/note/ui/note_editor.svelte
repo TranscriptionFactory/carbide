@@ -97,9 +97,11 @@
               class:show-heading-markers={stores.ui.editor_settings
                 .editor_heading_markers}
               class:show-block-drag-handle={stores.ui.editor_settings
-                .editor_block_drag_handle}
+                .editor_block_drag_handle === "on_hover" ||
+                stores.ui.editor_settings.editor_block_drag_handle ===
+                  "always"}
               class:block-drag-handle-always={stores.ui.editor_settings
-                .editor_block_drag_handle_visibility === "always_show"}
+                .editor_block_drag_handle === "always"}
             ></div>
           </EditorContextMenu>
         </div>
@@ -147,9 +149,10 @@
             class:show-heading-markers={stores.ui.editor_settings
               .editor_heading_markers}
             class:show-block-drag-handle={stores.ui.editor_settings
-              .editor_block_drag_handle}
+              .editor_block_drag_handle === "on_hover" ||
+              stores.ui.editor_settings.editor_block_drag_handle === "always"}
             class:block-drag-handle-always={stores.ui.editor_settings
-              .editor_block_drag_handle_visibility === "always_show"}
+              .editor_block_drag_handle === "always"}
           ></div>
         </EditorContextMenu>
       </div>

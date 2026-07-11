@@ -411,17 +411,21 @@ export const SETTINGS_REGISTRY: SettingDefinition[] = [
     key: "editor_block_drag_handle",
     label: "Block Drag Handle",
     description:
-      "Show a drag handle in the left gutter to reorder blocks by dragging",
+      "Show a drag handle in the left gutter to reorder blocks: off, on hover, or always",
     category: "Editor",
-    keywords: ["drag", "handle", "block", "reorder", "move", "grip", "gutter"],
-  },
-  {
-    key: "editor_block_drag_handle_visibility",
-    label: "Block Drag Handle Visibility",
-    description:
-      "Control when the block drag handle is visible: on hover or always",
-    category: "Editor",
-    keywords: ["drag", "handle", "visibility", "hover", "always", "show"],
+    keywords: [
+      "drag",
+      "handle",
+      "block",
+      "reorder",
+      "move",
+      "grip",
+      "gutter",
+      "visibility",
+      "hover",
+      "always",
+      "show",
+    ],
   },
   {
     key: "editor_spellcheck",

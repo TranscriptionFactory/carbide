@@ -63,7 +63,7 @@
     FileTreeBlurbPosition,
     OutlineMode,
     ToolbarVisibility,
-    BlockDragHandleVisibility,
+    BlockDragHandleMode,
     TerminalFontWeight,
     TerminalCursorStyle,
     SettingsCategory,
@@ -76,7 +76,7 @@
     EDITOR_LINK_UNDERLINE_STYLE_OPTIONS,
     EDITOR_DIVIDER_STYLE_OPTIONS,
     EDITOR_TOOLBAR_VISIBILITY_OPTIONS,
-    EDITOR_BLOCK_DRAG_HANDLE_VISIBILITY_OPTIONS,
+    EDITOR_BLOCK_DRAG_HANDLE_OPTIONS,
     EMBEDDING_MODEL_OPTIONS,
     type MarkdownLspProvider,
     type EmbeddingModelId,
@@ -1877,41 +1877,33 @@
                   >
                 </div>
                 <div class="flex items-center gap-3">
-                  <Switch.Root
-                    checked={editor_settings.editor_block_drag_handle}
-                    onCheckedChange={(v: boolean) =>
-                      update("editor_block_drag_handle", v)}
-                  />
-                  {#if editor_settings.editor_block_drag_handle}
-                    <Select.Root
-                      type="single"
-                      value={editor_settings.editor_block_drag_handle_visibility}
-                      onValueChange={(v: string | undefined) => {
-                        if (v)
-                          update(
-                            "editor_block_drag_handle_visibility",
-                            v as BlockDragHandleVisibility,
-                          );
-                      }}
-                    >
-                      <Select.Trigger class="w-32">
-                        <span
-                          >{EDITOR_BLOCK_DRAG_HANDLE_VISIBILITY_OPTIONS.find(
-                            (o) =>
-                              o.value ===
-                              editor_settings.editor_block_drag_handle_visibility,
-                          )?.label ?? "On Hover"}</span
+                  <Select.Root
+                    type="single"
+                    value={editor_settings.editor_block_drag_handle}
+                    onValueChange={(v: string | undefined) => {
+                      if (v)
+                        update(
+                          "editor_block_drag_handle",
+                          v as BlockDragHandleMode,
+                        );
+                    }}
+                  >
+                    <Select.Trigger class="w-32">
+                      <span
+                        >{EDITOR_BLOCK_DRAG_HANDLE_OPTIONS.find(
+                          (o) =>
+                            o.value === editor_settings.editor_block_drag_handle,
+                        )?.label ?? "On Hover"}</span
+                      >
+                    </Select.Trigger>
+                    <Select.Content>
+                      {#each EDITOR_BLOCK_DRAG_HANDLE_OPTIONS as option (option.value)}
+                        <Select.Item value={option.value}
+                          >{option.label}</Select.Item
                         >
-                      </Select.Trigger>
-                      <Select.Content>
-                        {#each EDITOR_BLOCK_DRAG_HANDLE_VISIBILITY_OPTIONS as option (option.value)}
-                          <Select.Item value={option.value}
-                            >{option.label}</Select.Item
-                          >
-                        {/each}
-                      </Select.Content>
-                    </Select.Root>
-                  {/if}
+                      {/each}
+                    </Select.Content>
+                  </Select.Root>
                 </div>
               </div>
 
