@@ -20,6 +20,7 @@ const block_drag_handle_plugin_key = new PluginKey<DragHandleState>(
 
 const FOCUS_MODE_KEYSTROKE_THRESHOLD = 4;
 const FOCUS_EXIT_MOVE_THRESHOLD_PX = 5;
+const ALIGN_CULL_MARGIN_PX = 300;
 
 type DragHandleState = { set: DecorationSet; starts: number[] };
 type HandleEntry = { el: HTMLElement; get_pos: () => number | undefined };
@@ -527,6 +528,11 @@ export function create_block_drag_handle_prose_plugin(): Plugin {
           if (!(dom instanceof HTMLElement)) continue;
 
           const block_rect = dom.getBoundingClientRect();
+          if (
+            block_rect.bottom < pm_rect.top - ALIGN_CULL_MARGIN_PX ||
+            block_rect.top > pm_rect.bottom + ALIGN_CULL_MARGIN_PX
+          )
+            continue;
           const style = getComputedStyle(dom);
           const line_height = parseFloat(style.lineHeight) || block_rect.height;
           const padding_top = parseFloat(style.paddingTop) || 0;
@@ -632,6 +638,7 @@ export function create_block_drag_handle_prose_plugin(): Plugin {
       editor_dom.addEventListener("mousemove", on_mousemove);
       editor_dom.addEventListener("mouseleave", on_mouseleave);
       editor_dom.addEventListener("keydown", on_keydown);
+      editor_dom.addEventListener("scroll", schedule_align, { passive: true });
 
       schedule_align();
 
@@ -653,6 +660,7 @@ export function create_block_drag_handle_prose_plugin(): Plugin {
           editor_dom.removeEventListener("mousemove", on_mousemove);
           editor_dom.removeEventListener("mouseleave", on_mouseleave);
           editor_dom.removeEventListener("keydown", on_keydown);
+          editor_dom.removeEventListener("scroll", schedule_align);
         },
       };
     },
