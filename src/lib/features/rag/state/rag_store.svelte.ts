@@ -10,6 +10,7 @@ import type {
   RagSession,
   RagSessionSummary,
 } from "$lib/features/rag/domain/rag_types";
+import type { RagReadiness } from "$lib/features/rag/domain/rag_readiness";
 
 function new_message(
   role: RagRole,
@@ -28,6 +29,7 @@ export class RagStore {
   scope = $state<RagScope>({});
   streaming_id = $state<string | null>(null);
   revision = $state(0);
+  readiness = $state<RagReadiness>({ state: "checking" });
 
   readonly active = $derived(
     this.sessions.find((s) => s.id === this.active_id) ?? null,
@@ -47,6 +49,10 @@ export class RagStore {
   set_scope(scope: RagScope) {
     this.scope = scope;
     this.patch_active((s) => ({ ...s, scope }));
+  }
+
+  set_readiness(readiness: RagReadiness) {
+    this.readiness = readiness;
   }
 
   add_user_message(content: string): RagMessage {

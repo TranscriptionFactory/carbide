@@ -37,6 +37,10 @@ import type {
   RagSessionSummary,
   RagStreamEvent,
 } from "$lib/features/rag/domain/rag_types";
+import {
+  derive_rag_readiness,
+  type RagReadiness,
+} from "$lib/features/rag/domain/rag_readiness";
 import type { RagPersistencePort } from "$lib/features/rag/ports";
 import type {
   BlockSectionHit,
@@ -136,6 +140,20 @@ export class RagService {
     private readonly tag_port: TagPort,
     private readonly bases_port: BasesPort,
   ) {}
+
+  async check_readiness(): Promise<RagReadiness> {
+    const vault = this.vault_store.vault;
+    if (!vault) return { state: "checking" };
+    try {
+      const status = await this.search_port.get_embedding_status(vault.id);
+      return derive_rag_readiness(status);
+    } catch (err) {
+      log.warn("RAG embedding status check failed", {
+        error: error_message(err),
+      });
+      return { state: "ready" };
+    }
+  }
 
   async list_sessions(vault_id: string): Promise<RagSessionSummary[]> {
     try {
@@ -500,8 +518,16 @@ export class RagService {
     return candidates.filter((c): c is RagContextCandidate => c !== null);
   }
 
-  private *no_results(): Generator<RagStreamEvent> {
-    yield { type: "text", text: NO_RESULTS_MESSAGE };
+  private async *no_results(): AsyncGenerator<RagStreamEvent> {
+    const readiness = await this.check_readiness();
+    if (readiness.state === "indexing") {
+      yield {
+        type: "text",
+        text: `I couldn't find anything yet — your vault is still being indexed (${readiness.embedded} of ${readiness.total} notes). Try again once indexing finishes.`,
+      };
+    } else {
+      yield { type: "text", text: NO_RESULTS_MESSAGE };
+    }
     yield { type: "done" };
   }
 }

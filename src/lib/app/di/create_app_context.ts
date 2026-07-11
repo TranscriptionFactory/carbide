@@ -955,6 +955,7 @@ export function create_app_context(input: {
       smart_links: smart_links_service,
       mcp: mcp_service,
       document: document_service,
+      rag: rag_service,
     },
     default_mount_config: input.default_mount_config,
   };

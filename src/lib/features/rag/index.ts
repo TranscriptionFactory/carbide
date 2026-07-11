@@ -50,6 +50,10 @@ export {
   match_citation_markers,
   resolve_citations,
 } from "$lib/features/rag/domain/rag_citations";
+export {
+  derive_rag_readiness,
+  type RagReadiness,
+} from "$lib/features/rag/domain/rag_readiness";
 export type {
   RagCitation,
   RagMessage,
