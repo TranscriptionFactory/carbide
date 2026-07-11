@@ -11,7 +11,7 @@ import type { BlockAnchor } from "$lib/features/editor/adapters/cursor_offset_ma
 export type PendingCursorRestore = {
   markdown_cursor_offset: number;
   source_cursor_offset: number;
-  scroll_top: number;
+  scroll_fraction: number;
 };
 
 const ZOOM_MIN = 0.5;

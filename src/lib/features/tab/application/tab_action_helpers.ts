@@ -38,7 +38,7 @@ function push_closed_tab_history(
   const snapshot = stores.tab.get_snapshot(tab.id);
   const base = {
     title: tab.title,
-    scroll_top: snapshot?.scroll_top ?? 0,
+    scroll_fraction: snapshot?.scroll_fraction ?? 0,
     cursor: snapshot?.cursor ?? null,
     draft_note: resolve_closed_tab_draft(stores, tab.id),
   };
@@ -109,7 +109,7 @@ export async function capture_active_tab_snapshot(
       : services.editor.get_cursor_markdown_offset();
 
   stores.tab.set_snapshot(active_id, {
-    scroll_top: services.editor.get_scroll_top(),
+    scroll_fraction: services.editor.get_scroll_fraction(),
     cursor,
     cursor_offset: stores.editor.cursor_offset,
     markdown_cursor_offset,
@@ -161,7 +161,7 @@ export async function open_active_tab_note(input: ActionRegistrationInput) {
     stores.editor.set_pending_cursor_restore({
       markdown_cursor_offset: snapshot.markdown_cursor_offset,
       source_cursor_offset: snapshot.cursor_offset,
-      scroll_top: snapshot.scroll_top,
+      scroll_fraction: snapshot.scroll_fraction,
     });
   }
 

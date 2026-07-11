@@ -113,9 +113,9 @@ function create_tab_actions_harness() {
     search: {},
     editor: {
       flush: vi.fn().mockReturnValue(null),
-      get_scroll_top: vi.fn().mockReturnValue(0),
+      get_scroll_fraction: vi.fn().mockReturnValue(0),
       get_cursor_markdown_offset: vi.fn().mockReturnValue(0),
-      set_scroll_top: vi.fn(),
+      set_scroll_fraction: vi.fn(),
       close_buffer: vi.fn(),
     },
     clipboard: {
@@ -491,7 +491,7 @@ describe("register_tab_actions", () => {
         kind: "note",
         note_path: np("closed.md"),
         title: "closed",
-        scroll_top: 50,
+        scroll_fraction: 0.5,
         cursor: null,
         draft_note: null,
       });
@@ -532,7 +532,7 @@ describe("register_tab_actions", () => {
         kind: "note",
         note_path: draft_path,
         title: "Untitled-1",
-        scroll_top: 0,
+        scroll_fraction: 0,
         cursor: null,
         draft_note: untitled_note,
       });

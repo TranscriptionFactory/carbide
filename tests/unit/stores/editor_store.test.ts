@@ -134,7 +134,7 @@ describe("EditorStore", () => {
     store.set_pending_cursor_restore({
       markdown_cursor_offset: 42,
       source_cursor_offset: 10,
-      scroll_top: 100,
+      scroll_fraction: 0.5,
     });
 
     store.set_open_note(create_open_note_state(note2));
@@ -142,7 +142,7 @@ describe("EditorStore", () => {
     expect(store.pending_cursor_restore).toEqual({
       markdown_cursor_offset: 42,
       source_cursor_offset: 10,
-      scroll_top: 100,
+      scroll_fraction: 0.5,
     });
   });
 
@@ -151,7 +151,7 @@ describe("EditorStore", () => {
     store.set_pending_cursor_restore({
       markdown_cursor_offset: 42,
       source_cursor_offset: 10,
-      scroll_top: 100,
+      scroll_fraction: 0.5,
     });
 
     const result = store.consume_pending_cursor_restore();
@@ -159,7 +159,7 @@ describe("EditorStore", () => {
     expect(result).toEqual({
       markdown_cursor_offset: 42,
       source_cursor_offset: 10,
-      scroll_top: 100,
+      scroll_fraction: 0.5,
     });
     expect(store.pending_cursor_restore).toBeNull();
   });
@@ -169,7 +169,7 @@ describe("EditorStore", () => {
     store.set_pending_cursor_restore({
       markdown_cursor_offset: 42,
       source_cursor_offset: 10,
-      scroll_top: 100,
+      scroll_fraction: 0.5,
     });
 
     store.clear_open_note();
@@ -182,7 +182,7 @@ describe("EditorStore", () => {
     store.set_pending_cursor_restore({
       markdown_cursor_offset: 42,
       source_cursor_offset: 10,
-      scroll_top: 100,
+      scroll_fraction: 0.5,
     });
 
     store.reset();

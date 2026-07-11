@@ -20,7 +20,7 @@ export type Tab = {
 );
 
 export type TabEditorSnapshot = {
-  scroll_top: number;
+  scroll_fraction: number;
   cursor: CursorInfo | null;
   cursor_offset: number;
   markdown_cursor_offset: number;
@@ -28,7 +28,7 @@ export type TabEditorSnapshot = {
 
 export type ClosedTabEntry = {
   title: string;
-  scroll_top: number;
+  scroll_fraction: number;
   cursor: CursorInfo | null;
   draft_note: OpenNoteState | null;
 } & (

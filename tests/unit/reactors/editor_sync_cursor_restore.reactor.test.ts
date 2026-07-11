@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   resolve_editor_sync_cursor_offset,
   resolve_editor_sync_restore_policy,
-  resolve_editor_sync_scroll_top,
+  resolve_editor_sync_scroll_fraction,
 } from "$lib/reactors/editor_sync.reactor.svelte";
 
 describe("editor_sync.reactor cursor restore on tab switch", () => {
@@ -14,7 +14,7 @@ describe("editor_sync.reactor cursor restore on tab switch", () => {
     const offset = resolve_editor_sync_cursor_offset({
       markdown_cursor_offset: 7,
       source_cursor_offset: 7,
-      scroll_top: 120,
+      scroll_fraction: 0.5,
     });
 
     expect(policy).toBe("reuse_cache");
@@ -26,7 +26,7 @@ describe("editor_sync.reactor cursor restore on tab switch", () => {
       resolve_editor_sync_cursor_offset({
         markdown_cursor_offset: 0,
         source_cursor_offset: 0,
-        scroll_top: 0,
+        scroll_fraction: 0,
       }),
     ).toBe(0);
   });
@@ -40,32 +40,32 @@ describe("editor_sync.reactor cursor restore on tab switch", () => {
       resolve_editor_sync_cursor_offset({
         markdown_cursor_offset: -1,
         source_cursor_offset: 0,
-        scroll_top: 0,
+        scroll_fraction: 0,
       }),
     ).toBeUndefined();
   });
 
-  it("restores a saved mid-document scroll position", () => {
+  it("restores a saved mid-document scroll fraction", () => {
     expect(
-      resolve_editor_sync_scroll_top({
+      resolve_editor_sync_scroll_fraction({
         markdown_cursor_offset: 7,
         source_cursor_offset: 7,
-        scroll_top: 120,
+        scroll_fraction: 0.42,
       }),
-    ).toBe(120);
+    ).toBe(0.42);
   });
 
-  it("restores an exact top-of-document scroll position", () => {
+  it("restores an explicit top-of-document fraction to reset the persistent scroller", () => {
     expect(
-      resolve_editor_sync_scroll_top({
+      resolve_editor_sync_scroll_fraction({
         markdown_cursor_offset: 0,
         source_cursor_offset: 0,
-        scroll_top: 0,
+        scroll_fraction: 0,
       }),
     ).toBe(0);
   });
 
-  it("yields no scroll position when there is no pending restore", () => {
-    expect(resolve_editor_sync_scroll_top(null)).toBeUndefined();
+  it("yields no scroll fraction when there is no pending restore", () => {
+    expect(resolve_editor_sync_scroll_fraction(null)).toBeUndefined();
   });
 });

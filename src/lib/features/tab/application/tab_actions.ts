@@ -282,9 +282,9 @@ export function register_tab_actions(input: ActionRegistrationInput) {
       const tab = try_open_tab(input, entry.note_path, entry.title);
       if (!tab) return;
 
-      if (entry.cursor || entry.scroll_top > 0) {
+      if (entry.cursor || entry.scroll_fraction > 0) {
         stores.tab.set_snapshot(tab.id, {
-          scroll_top: entry.scroll_top,
+          scroll_fraction: entry.scroll_fraction,
           cursor: entry.cursor,
           cursor_offset: 0,
           markdown_cursor_offset: 0,
