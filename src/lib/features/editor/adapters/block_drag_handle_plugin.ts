@@ -50,12 +50,14 @@ function build_handle_element(): HTMLDivElement {
   handle.setAttribute("aria-label", "Drag to reorder block");
   handle.setAttribute("role", "button");
   handle.title = "Drag to move block · Click to select";
+  handle.tabIndex = 0;
 
   const insert_btn = document.createElement("div");
   insert_btn.className = "block-drag-handle__insert";
   insert_btn.setAttribute("aria-label", "Insert block below");
   insert_btn.setAttribute("role", "button");
   insert_btn.title = "Insert block below";
+  insert_btn.tabIndex = 0;
   handle.appendChild(insert_btn);
 
   const grip = document.createElement("div");
@@ -409,6 +411,19 @@ export function create_block_drag_handle_prose_plugin(): Plugin {
       const range = compute_drag_range(view, block_pos);
       if (range) select_drag_range(view, range);
     });
+    handle.addEventListener("keydown", (event) => {
+      if (event.key !== "Enter" && event.key !== " ") return;
+      event.preventDefault();
+      event.stopPropagation();
+      if (event.target === insert_btn) {
+        open_insert_menu(view, get_pos, insert_btn);
+        return;
+      }
+      const block_pos = get_pos();
+      if (block_pos == null) return;
+      const range = compute_drag_range(view, block_pos);
+      if (range) select_drag_range(view, range);
+    });
     insert_btn.addEventListener("mousedown", (event) =>
       on_insert_click(view, get_pos, insert_btn, event),
     );
@@ -559,7 +574,12 @@ export function create_block_drag_handle_prose_plugin(): Plugin {
         editor_dom.classList.remove("typing-focus");
       }
 
-      function on_keydown() {
+      function on_keydown(event: KeyboardEvent) {
+        if (
+          event.target instanceof Element &&
+          event.target.closest(".block-drag-handle")
+        )
+          return;
         keystroke_count++;
         if (keystroke_count >= FOCUS_MODE_KEYSTROKE_THRESHOLD) {
           enter_focus_mode();
