@@ -129,13 +129,13 @@ describe("dedupe_commands_by_id", () => {
     expect(dedupe_commands_by_id(commands)).toEqual(commands);
   });
 
-  it("keeps the first command for a duplicated id and drops later collisions", () => {
+  it("keeps the last command for a duplicated id, matching search-path merge semantics", () => {
     const builtin = command_def("open_settings", "Built-in Settings");
     const plugin = command_def("open_settings", "Plugin Settings");
-    expect(dedupe_commands_by_id([builtin, plugin])).toEqual([builtin]);
+    expect(dedupe_commands_by_id([builtin, plugin])).toEqual([plugin]);
   });
 
-  it("preserves order across multiple collisions", () => {
+  it("preserves first-occurrence order across multiple collisions", () => {
     const commands = [
       command_def("a", "A1"),
       command_def("b", "B"),
@@ -144,8 +144,8 @@ describe("dedupe_commands_by_id", () => {
       command_def("b", "B2"),
     ];
     expect(dedupe_commands_by_id(commands).map((c) => c.label)).toEqual([
-      "A1",
-      "B",
+      "A2",
+      "B2",
       "C",
     ]);
   });

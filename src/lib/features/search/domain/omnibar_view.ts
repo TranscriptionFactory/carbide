@@ -34,14 +34,7 @@ export function mru_comparator(
 export function dedupe_commands_by_id(
   commands: readonly CommandDefinition[],
 ): CommandDefinition[] {
-  const seen = new Set<string>();
-  const result: CommandDefinition[] = [];
-  for (const command of commands) {
-    if (seen.has(command.id)) continue;
-    seen.add(command.id);
-    result.push(command);
-  }
-  return result;
+  return [...new Map(commands.map((c) => [c.id, c])).values()];
 }
 
 function file_type_matches(

@@ -24,6 +24,7 @@ import type {
 } from "$lib/features/search/types/search_service_result";
 import { parse_search_query } from "$lib/features/search/domain/search_query_parser";
 import { search_within_text } from "$lib/features/search/domain/search_within_text";
+import { dedupe_commands_by_id } from "$lib/features/search/domain/omnibar_view";
 import {
   COMMANDS_REGISTRY,
   sidebar_view_commands,
@@ -495,15 +496,11 @@ export class SearchService {
       this.plugin_store?.sidebar_views ?? [],
     );
     const dynamic_commands = this.plugin_store?.commands ?? [];
-    const merged = new Map<string, CommandDefinition>();
-    for (const command of [
+    const all_commands = dedupe_commands_by_id([
       ...static_commands,
       ...view_commands,
       ...dynamic_commands,
-    ]) {
-      merged.set(command.id, command);
-    }
-    const all_commands = Array.from(merged.values());
+    ]);
 
     const available_commands = all_commands.filter((command) => {
       if (!this.is_command_enabled(command)) {

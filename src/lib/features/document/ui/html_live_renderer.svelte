@@ -49,7 +49,6 @@
       const doc = build_live_html_document({
         content: with_math,
         theme_style: katex_css + theme_block,
-        allow_network: network,
       });
       const url = await invoke<string>("html_live_register", {
         html: doc,
