@@ -14,6 +14,7 @@ import type {
   SemanticEdge,
   VaultGraphSnapshot,
 } from "$lib/features/graph/ports";
+import { label_collision_radius } from "$lib/features/graph/domain/graph_layout_tuning";
 
 export type ForceNode = SimulationNodeDatum & {
   id: string;
@@ -98,7 +99,12 @@ export function create_vault_graph_simulation(
     .force("center", forceCenter(0, 0))
     .force("x", forceX(0).strength(0.03))
     .force("y", forceY(0).strength(0.03))
-    .force("collide", forceCollide<ForceNode>(20))
+    .force(
+      "collide",
+      forceCollide<ForceNode>((d) =>
+        label_collision_radius(d.label.length, 20),
+      ),
+    )
     .alphaMin(0.005)
     .alphaDecay(0.02)
     .stop();

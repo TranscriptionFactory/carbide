@@ -43,6 +43,13 @@
     on_expand_node,
   }: Props = $props();
 
+  const search_force_params = {
+    link_distance: 130,
+    charge_strength: -300,
+    collision_radius: 48,
+    charge_max_distance: 500,
+  };
+
   function folder_from_path(path: string): string {
     const idx = path.lastIndexOf("/");
     return idx >= 0 ? path.slice(0, idx) : "";
@@ -175,4 +182,5 @@
   {on_hover_node}
   {on_open_node}
   {on_expand_node}
+  force_params={search_force_params}
 />
