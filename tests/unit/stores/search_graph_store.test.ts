@@ -159,6 +159,27 @@ describe("SearchGraphStore", () => {
       const store = make_store_with_instance();
       expect(store.get_instance("tab1")?.min_score).toBe(0);
     });
+
+    it("new instance has graph_expanded false", () => {
+      const store = make_store_with_instance();
+      expect(store.get_instance("tab1")?.graph_expanded).toBe(false);
+    });
+  });
+
+  describe("graph expansion", () => {
+    it("set_graph_expanded persists and round-trips", () => {
+      const store = make_store_with_instance();
+      store.set_graph_expanded("tab1", true);
+      expect(store.get_instance("tab1")?.graph_expanded).toBe(true);
+      store.set_graph_expanded("tab1", false);
+      expect(store.get_instance("tab1")?.graph_expanded).toBe(false);
+    });
+
+    it("set_graph_expanded on missing tab is a no-op", () => {
+      const store = new SearchGraphStore();
+      store.set_graph_expanded("missing", true);
+      expect(store.get_instance("missing")).toBeUndefined();
+    });
   });
 
   describe("operations on missing tab", () => {
