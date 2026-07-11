@@ -40,6 +40,14 @@
 
   const zoom = $derived(stores.editor.zoom);
 
+  const drag_handle_mode = $derived(
+    stores.ui.editor_settings.editor_block_drag_handle,
+  );
+  const show_drag_handle = $derived(
+    drag_handle_mode === "on_hover" || drag_handle_mode === "always",
+  );
+  const drag_handle_always = $derived(drag_handle_mode === "always");
+
   const create_note_hotkey = $derived(
     stores.ui.hotkeys_config.bindings.find(
       (b) => b.action_id === ACTION_IDS.note_create,
@@ -96,11 +104,8 @@
                 .source_editor_line_numbers}
               class:show-heading-markers={stores.ui.editor_settings
                 .editor_heading_markers}
-              class:show-block-drag-handle={stores.ui.editor_settings
-                .editor_block_drag_handle === "on_hover" ||
-                stores.ui.editor_settings.editor_block_drag_handle === "always"}
-              class:block-drag-handle-always={stores.ui.editor_settings
-                .editor_block_drag_handle === "always"}
+              class:show-block-drag-handle={show_drag_handle}
+              class:block-drag-handle-always={drag_handle_always}
             ></div>
           </EditorContextMenu>
         </div>
@@ -147,11 +152,8 @@
               .source_editor_line_numbers}
             class:show-heading-markers={stores.ui.editor_settings
               .editor_heading_markers}
-            class:show-block-drag-handle={stores.ui.editor_settings
-              .editor_block_drag_handle === "on_hover" ||
-              stores.ui.editor_settings.editor_block_drag_handle === "always"}
-            class:block-drag-handle-always={stores.ui.editor_settings
-              .editor_block_drag_handle === "always"}
+            class:show-block-drag-handle={show_drag_handle}
+            class:block-drag-handle-always={drag_handle_always}
           ></div>
         </EditorContextMenu>
       </div>
