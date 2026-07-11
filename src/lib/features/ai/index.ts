@@ -23,6 +23,10 @@ export {
 } from "$lib/features/ai/application/note_image_loader";
 export { MarkdownJoiner } from "$lib/features/ai/domain/markdown_joiner";
 export {
+  humanize_ai_error,
+  type AiUserError,
+} from "$lib/features/ai/domain/ai_error_messages";
+export {
   BUILTIN_PROVIDER_PRESETS,
   type AiApplyTarget,
   type AiTransport,
