@@ -1,39 +1,33 @@
-import { resolve } from "node:path";
 import { sveltekit } from "@sveltejs/kit/vite";
-import { defineConfig } from "vitest/config";
+import { defineConfig, type Plugin } from "vitest/config";
 import tailwindcss from "@tailwindcss/vite";
 import { nodePolyfills } from "vite-plugin-node-polyfills";
 
-function manual_chunks(id: string): string | undefined {
-  if (!id.includes("node_modules")) {
-    return undefined;
-  }
+const KATEX_FALLBACK_SRC =
+  /,url\([^)]*KaTeX_[^)]*\.(?:woff|ttf)\)\s*format\((["']?)(?:woff|truetype)\1\)/g;
 
-  if (id.includes("pdfjs-dist")) {
-    return "pdf";
-  }
-
-  if (id.includes("@xterm") || id.includes("tauri-pty")) {
-    return "terminal";
-  }
-
-  if (id.includes("mermaid")) {
-    return "mermaid";
-  }
-
-  if (id.includes("pdfkit")) {
-    return "pdfkit";
-  }
-
-  if (
-    id.includes("codemirror") ||
-    id.includes("@codemirror") ||
-    id.includes("prismjs")
-  ) {
-    return "editor-viewer";
-  }
-
-  return undefined;
+function katex_woff2_only(): Plugin {
+  return {
+    name: "katex-woff2-only",
+    apply: "build",
+    enforce: "post",
+    generateBundle(_options, bundle) {
+      for (const [file_name, output] of Object.entries(bundle)) {
+        if (output.type !== "asset") continue;
+        if (/KaTeX_[^/]+\.(?:woff|ttf)$/.test(file_name)) {
+          delete bundle[file_name];
+        } else if (file_name.endsWith(".css")) {
+          const css =
+            typeof output.source === "string"
+              ? output.source
+              : new TextDecoder().decode(output.source);
+          if (css.includes("KaTeX_")) {
+            output.source = css.replace(KATEX_FALLBACK_SRC, "");
+          }
+        }
+      }
+    },
+  };
 }
 
 export default defineConfig({
@@ -43,6 +37,7 @@ export default defineConfig({
     nodePolyfills({
       include: ["stream", "buffer", "process", "events", "util"],
     }),
+    katex_woff2_only(),
   ],
   build: {
     chunkSizeWarningLimit: 3500,
@@ -54,9 +49,6 @@ export default defineConfig({
         )
           return;
         defaultHandler(warning);
-      },
-      output: {
-        manualChunks: manual_chunks,
       },
     },
   },
@@ -88,9 +80,6 @@ export default defineConfig({
     },
   },
   resolve: {
-    alias: {
-      pdfkit: resolve("node_modules/pdfkit/js/pdfkit.standalone.js"),
-    },
     ...(process.env.VITEST || process.env.NODE_ENV === "test"
       ? { conditions: ["browser"] }
       : {}),

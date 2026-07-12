@@ -6,11 +6,6 @@ export type { LogEntry } from "$lib/features/lint/state/log_store.svelte";
 export { LintService } from "$lib/features/lint/application/lint_service";
 export { register_lint_actions } from "$lib/features/lint/application/lint_actions";
 export { apply_lint_text_edits } from "$lib/features/lint/domain/apply_text_edits";
-export {
-  map_lint_diagnostics,
-  update_cm_diagnostics,
-  create_lint_extensions,
-} from "$lib/features/lint/editor/cm_lint_source";
 export type {
   LintTextEdit,
   LintStatus,
