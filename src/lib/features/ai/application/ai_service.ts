@@ -23,6 +23,7 @@ import type {
   AiImagePart,
 } from "$lib/features/ai/domain/ai_stream_types";
 import { MarkdownJoiner } from "$lib/features/ai/domain/markdown_joiner";
+import { humanize_ai_error } from "$lib/features/ai/domain/ai_error_messages";
 
 const log = create_logger("ai_service");
 
@@ -169,11 +170,11 @@ export class AiService {
 
     return {
       ...result,
-      error:
-        result.error ??
-        (result.success
+      error: result.error
+        ? humanize_ai_error(result.error, input.provider_config).message
+        : result.success
           ? null
-          : `${input.provider_config.name} failed to ${input.mode === "ask" ? "answer the question" : `edit the ${context.kind}`}`),
+          : `${input.provider_config.name} failed to ${input.mode === "ask" ? "answer the question" : `edit the ${context.kind}`}`,
     };
   }
 
@@ -208,7 +209,16 @@ export class AiService {
       } else {
         const remaining = joiner.flush();
         if (remaining) yield { type: "text", text: remaining };
-        yield chunk;
+        if (chunk.type === "error") {
+          const friendly = humanize_ai_error(
+            chunk.error,
+            input.provider_config,
+          );
+          log.warn("AI inline stream failed", { error: friendly.detail });
+          yield { type: "error", error: friendly.message };
+        } else {
+          yield chunk;
+        }
       }
     }
   }
