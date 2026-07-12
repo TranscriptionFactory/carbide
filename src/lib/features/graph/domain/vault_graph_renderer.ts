@@ -24,6 +24,7 @@ import {
   type DegradationProfile,
 } from "$lib/features/graph/domain/graph_degrade";
 import { truncate_label } from "$lib/features/graph/domain/graph_layout_tuning";
+import { compute_fit_transform } from "$lib/features/graph/domain/graph_fit";
 
 const LOD_FULL_ZOOM = 0.6;
 const LOD_MEDIUM_ZOOM = 0.3;
@@ -105,6 +106,8 @@ export class VaultGraphRenderer {
     label_visible_min_zoom: 0,
   };
 
+  user_has_interacted = false;
+
   on_node_click: (id: string) => void = () => {};
   on_node_hover: (id: string | null) => void = () => {};
   on_node_dblclick: (id: string) => void = () => {};
@@ -172,6 +175,13 @@ export class VaultGraphRenderer {
 
     this.vp.on("moved", () => this.request_render());
     this.vp.on("zoomed", () => this.request_render());
+
+    const mark_interacted = () => {
+      this.user_has_interacted = true;
+    };
+    this.vp.on("drag-start", mark_interacted);
+    this.vp.on("wheel-scroll", mark_interacted);
+    this.vp.on("pinch-start", mark_interacted);
 
     this.cluster_gfx = new pixi.Graphics();
     this.edges_gfx = new pixi.Graphics();
@@ -479,22 +489,18 @@ export class VaultGraphRenderer {
 
   fit_to_content(padding = 40): void {
     if (!this.vp || this.node_map.size === 0) return;
-    let min_x = Infinity;
-    let min_y = Infinity;
-    let max_x = -Infinity;
-    let max_y = -Infinity;
-    for (const entry of this.node_map.values()) {
-      min_x = Math.min(min_x, entry.x);
-      min_y = Math.min(min_y, entry.y);
-      max_x = Math.max(max_x, entry.x);
-      max_y = Math.max(max_y, entry.y);
-    }
-    const scale = Math.min(
-      (this.vp.screenWidth - padding * 2) / Math.max(max_x - min_x, 1),
-      (this.vp.screenHeight - padding * 2) / Math.max(max_y - min_y, 1),
+    const points = [...this.node_map.values()].map((e) => ({
+      x: e.x,
+      y: e.y,
+    }));
+    const fit = compute_fit_transform(
+      points,
+      this.vp.screenWidth,
+      this.vp.screenHeight,
+      padding,
     );
-    this.vp.setZoom(Math.min(Math.max(scale, 0.05), 4));
-    this.vp.moveCenter((min_x + max_x) / 2, (min_y + max_y) / 2);
+    this.vp.setZoom(fit.scale);
+    this.vp.moveCenter(fit.center_x, fit.center_y);
     this.request_render();
   }
 
