@@ -41,6 +41,11 @@
     mru_comparator,
     dedupe_commands_by_id,
   } from "$lib/features/search/domain/omnibar_view";
+  import { build_omnibar_rows } from "$lib/features/search/domain/omnibar_rows";
+  import type {
+    OmnibarRow,
+    OmnibarVaultGroup,
+  } from "$lib/features/search/domain/omnibar_rows";
   import XIcon from "@lucide/svelte/icons/x";
   import type { NoteMeta } from "$lib/shared/types/note";
   import type { CommandIcon as CommandIconType } from "$lib/features/search/types/command_palette";
@@ -258,15 +263,6 @@
     return null;
   });
 
-  type VaultGroup = {
-    vault_name: string;
-    vault_id: string;
-    items: OmnibarItem[];
-    vault_note_count: number | null;
-    vault_last_opened_at: number | null;
-    vault_is_available: boolean;
-  };
-
   function format_relative_time(timestamp_ms: number): string {
     const delta = Date.now() - timestamp_ms;
     const seconds = Math.floor(delta / 1000);
@@ -284,10 +280,10 @@
     return "just now";
   }
 
-  const vault_groups: VaultGroup[] = $derived.by(() => {
+  const vault_groups: OmnibarVaultGroup[] = $derived.by(() => {
     if (!is_all_vaults || !has_query) return [];
 
-    const groups = new Map<string, VaultGroup>();
+    const groups = new Map<string, OmnibarVaultGroup>();
     for (const item of items) {
       if (item.kind !== "cross_vault_note") continue;
       let group = groups.get(item.vault_id);
@@ -359,21 +355,10 @@
     return [...recent, ...commands];
   });
 
-  const visible_items: OmnibarItem[] = $derived.by(() => {
+  const visible_items: OmnibarRow[] = $derived.by(() => {
     if (!is_all_vaults || !has_query) return display_items;
 
-    return display_items.filter((item) => {
-      if (item.kind !== "cross_vault_note") return true;
-      return !collapsed_vaults.has(item.vault_id);
-    });
-  });
-
-  const visible_item_index = $derived.by(() => {
-    const map = new Map<OmnibarItem, number>();
-    for (let i = 0; i < visible_items.length; i++) {
-      map.set(visible_items[i]!, i);
-    }
-    return map;
+    return build_omnibar_rows(vault_groups, collapsed_vaults);
   });
 
   const action_id_to_key = $derived.by(() => {
@@ -425,6 +410,13 @@
       case "setting":
         return `omni-setting-${item.setting.key}`;
     }
+  }
+
+  function get_row_id(row: OmnibarRow): string {
+    if (row.kind === "vault_group_header") {
+      return `omni-vault-${row.group.vault_id}`;
+    }
+    return get_item_id(row);
   }
 
   function toggle_vault_group(vault_id: string) {
@@ -511,14 +503,20 @@
           );
         }
         break;
-      case "Enter":
+      case "Enter": {
         event.preventDefault();
-        if (visible_items[selected_index]) {
-          on_confirm(visible_items[selected_index]);
+        const row = visible_items[selected_index];
+        if (row && row.kind === "vault_group_header") {
+          toggle_vault_group(row.group.vault_id);
+          break;
+        }
+        if (row) {
+          on_confirm(row);
         } else if (query.trim().startsWith("?")) {
           on_confirm(null as unknown as OmnibarItem);
         }
         break;
+      }
     }
   }
 
@@ -691,7 +689,7 @@
       role="listbox"
       tabindex="0"
       aria-activedescendant={visible_items[selected_index]
-        ? get_item_id(visible_items[selected_index])
+        ? get_row_id(visible_items[selected_index])
         : undefined}
       class="Omnibar__list"
       onmousemove={() => {
@@ -700,95 +698,100 @@
     >
       {#if is_all_vaults && has_query}
         {#if vault_groups.length > 0}
-          {#each vault_groups as group, group_idx}
-            {@const is_collapsed = collapsed_vaults.has(group.vault_id)}
-            <button
-              class="Omnibar__vault-facet"
-              class:Omnibar__vault-facet--bordered={group_idx > 0}
-              class:Omnibar__vault-facet--unavailable={!group.vault_is_available}
-              onclick={() => toggle_vault_group(group.vault_id)}
-              aria-expanded={!is_collapsed}
-            >
-              <div class="Omnibar__vault-facet-header">
-                <span
-                  class="Omnibar__vault-facet-chevron"
-                  class:Omnibar__vault-facet-chevron--open={!is_collapsed}
-                >
-                  <ChevronRightIcon />
-                </span>
-                <LibraryIcon />
-                <span class="Omnibar__vault-facet-name">{group.vault_name}</span
-                >
-                {#if !group.vault_is_available}
-                  <span class="Omnibar__vault-facet-unavailable"
-                    >Unavailable</span
+          {#each visible_items as row, row_idx (get_row_id(row))}
+            {#if row.kind === "vault_group_header"}
+              {@const group = row.group}
+              {@const is_collapsed = collapsed_vaults.has(group.vault_id)}
+              <button
+                id={get_row_id(row)}
+                role="option"
+                aria-selected={row_idx === selected_index}
+                class="Omnibar__vault-facet"
+                class:Omnibar__vault-facet--bordered={row_idx > 0}
+                class:Omnibar__vault-facet--unavailable={!group.vault_is_available}
+                class:Omnibar__item--selected={row_idx === selected_index}
+                onmouseenter={() => {
+                  if (!mouse_moved) return;
+                  on_selected_index_change(row_idx);
+                }}
+                onclick={() => toggle_vault_group(group.vault_id)}
+              >
+                <div class="Omnibar__vault-facet-header">
+                  <span
+                    class="Omnibar__vault-facet-chevron"
+                    class:Omnibar__vault-facet-chevron--open={!is_collapsed}
                   >
-                {/if}
-                <span class="Omnibar__vault-facet-count"
-                  >{group.items.length}</span
-                >
-              </div>
-              <div class="Omnibar__vault-facet-meta">
-                <span class="Omnibar__vault-facet-chip"
-                  >{group.vault_note_count != null
-                    ? `${group.vault_note_count} notes`
-                    : "-- notes"}</span
-                >
-                <span class="Omnibar__vault-facet-sep">·</span>
-                <span class="Omnibar__vault-facet-chip"
-                  >{group.vault_last_opened_at != null
-                    ? `Opened ${format_relative_time(group.vault_last_opened_at)}`
-                    : "Opened --"}</span
-                >
-              </div>
-            </button>
-            {#if !is_collapsed}
-              {#each group.items as item (get_item_id(item))}
-                {@const vis_index = visible_item_index.get(item) ?? -1}
-                <button
-                  id={get_item_id(item)}
-                  role="option"
-                  aria-selected={vis_index === selected_index}
-                  class="Omnibar__item"
-                  class:Omnibar__item--selected={vis_index === selected_index}
-                  onmouseenter={() => {
-                    if (!mouse_moved) return;
-                    on_selected_index_change(vis_index);
-                  }}
-                  onclick={() => {
-                    on_confirm(item);
-                  }}
-                >
-                  {#if item.kind === "cross_vault_note"}
-                    {@const CrossIcon = note_icon(item.note.file_type)}
-                    {@const cross_badge = file_type_label(item.note.file_type)}
-                    <div class="Omnibar__item-row">
-                      <CrossIcon />
-                      <div class="Omnibar__item-content">
-                        <span class="Omnibar__item-title"
-                          >{item.note.title}</span
-                        >
-                        <span class="Omnibar__item-path">{item.note.path}</span>
-                        {#if item.snippet}
-                          <span class="Omnibar__item-snippet">
-                            {#if item.snippet_page}
-                              <span class="Omnibar__page-ref"
-                                >p.{item.snippet_page}</span
-                              >
-                            {/if}
-                            {item.snippet}
-                          </span>
-                        {/if}
-                      </div>
-                      {#if cross_badge}
-                        <span class="Omnibar__badge">{cross_badge}</span>
-                      {/if}
-                      <span class="Omnibar__vault-badge">{item.vault_name}</span
-                      >
-                    </div>
+                    <ChevronRightIcon />
+                  </span>
+                  <LibraryIcon />
+                  <span class="Omnibar__vault-facet-name"
+                    >{group.vault_name}</span
+                  >
+                  {#if !group.vault_is_available}
+                    <span class="Omnibar__vault-facet-unavailable"
+                      >Unavailable</span
+                    >
                   {/if}
-                </button>
-              {/each}
+                  <span class="Omnibar__vault-facet-count"
+                    >{group.items.length}</span
+                  >
+                </div>
+                <div class="Omnibar__vault-facet-meta">
+                  <span class="Omnibar__vault-facet-chip"
+                    >{group.vault_note_count != null
+                      ? `${group.vault_note_count} notes`
+                      : "-- notes"}</span
+                  >
+                  <span class="Omnibar__vault-facet-sep">·</span>
+                  <span class="Omnibar__vault-facet-chip"
+                    >{group.vault_last_opened_at != null
+                      ? `Opened ${format_relative_time(group.vault_last_opened_at)}`
+                      : "Opened --"}</span
+                  >
+                </div>
+              </button>
+            {:else}
+              {@const item = row}
+              <button
+                id={get_item_id(item)}
+                role="option"
+                aria-selected={row_idx === selected_index}
+                class="Omnibar__item"
+                class:Omnibar__item--selected={row_idx === selected_index}
+                onmouseenter={() => {
+                  if (!mouse_moved) return;
+                  on_selected_index_change(row_idx);
+                }}
+                onclick={() => {
+                  on_confirm(item);
+                }}
+              >
+                {#if item.kind === "cross_vault_note"}
+                  {@const CrossIcon = note_icon(item.note.file_type)}
+                  {@const cross_badge = file_type_label(item.note.file_type)}
+                  <div class="Omnibar__item-row">
+                    <CrossIcon />
+                    <div class="Omnibar__item-content">
+                      <span class="Omnibar__item-title">{item.note.title}</span>
+                      <span class="Omnibar__item-path">{item.note.path}</span>
+                      {#if item.snippet}
+                        <span class="Omnibar__item-snippet">
+                          {#if item.snippet_page}
+                            <span class="Omnibar__page-ref"
+                              >p.{item.snippet_page}</span
+                            >
+                          {/if}
+                          {item.snippet}
+                        </span>
+                      {/if}
+                    </div>
+                    {#if cross_badge}
+                      <span class="Omnibar__badge">{cross_badge}</span>
+                    {/if}
+                    <span class="Omnibar__vault-badge">{item.vault_name}</span>
+                  </div>
+                {/if}
+              </button>
             {/if}
           {/each}
         {:else if !is_searching}
