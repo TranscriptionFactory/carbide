@@ -187,6 +187,89 @@
   animation: agent-breathing 2.4s ease-in-out infinite;
 }
 
+/* ============================================================================
+   INTERACTION-STATE ANIMATIONS
+
+   undo-ready          — one-shot scale pop + accent glow; signals that an
+                         action just became undoable.
+   settings-flash      — two-pulse destructive outline; calls attention to a
+                         settings control.
+   collapsible-down/up — expand/collapse for a collapsible content region. No
+                         measured content height is available, so these animate
+                         max-height/opacity against a fixed cap; taller content
+                         snaps to full height when the animation ends.
+
+   All are suppressed by prefers-reduced-motion.
+   ============================================================================ */
+
+@keyframes undo-ready {
+  0%,
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 transparent;
+  }
+  50% {
+    transform: scale(1.06);
+    box-shadow: 0 0 10px 2px var(--accent-glow);
+  }
+}
+
+@keyframes settings-flash {
+  0%,
+  100% {
+    outline: 2px solid transparent;
+  }
+  50% {
+    outline: 2px solid var(--destructive);
+  }
+}
+
+@keyframes collapsible-down {
+  from {
+    max-height: 0;
+    opacity: 0;
+  }
+  to {
+    max-height: 480px;
+    opacity: 1;
+  }
+}
+
+/* visibility pins the region visible while collapsing; the consumer's resting
+   closed state is expected to hide it. */
+@keyframes collapsible-up {
+  from {
+    max-height: 480px;
+    opacity: 1;
+    visibility: visible;
+  }
+  to {
+    max-height: 0;
+    opacity: 0;
+    visibility: visible;
+  }
+}
+
+.animate-undo-ready {
+  animation: undo-ready 0.45s
+    var(--ease-out-strong, cubic-bezier(0.23, 1, 0.32, 1));
+}
+
+.animate-settings-flash {
+  outline-offset: 2px;
+  animation: settings-flash 0.3s var(--ease-in-out, ease-in-out) 2;
+}
+
+.animate-collapsible-down {
+  overflow: hidden;
+  animation: collapsible-down 0.2s var(--ease-out, ease-out);
+}
+
+.animate-collapsible-up {
+  overflow: hidden;
+  animation: collapsible-up 0.2s var(--ease-in, ease-in);
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -204,7 +287,11 @@
   }
 
   .animate-agent-flash,
-  .animate-agent-breathing {
+  .animate-agent-breathing,
+  .animate-undo-ready,
+  .animate-settings-flash,
+  .animate-collapsible-down,
+  .animate-collapsible-up {
     animation: none !important;
   }
 }
