@@ -81,6 +81,7 @@
   let worker = $state<Worker | null>(null);
   let edge_tooltip = $state<EdgeHoverInfo | null>(null);
   let pending_fit = false;
+  let positions_received = false;
 
   let context_menu = $state<{
     node_id: string;
@@ -134,6 +135,7 @@
     const edges = plain_edges(snap);
     r.set_graph(plain_nodes(snap), edges);
     pending_fit = true;
+    positions_received = false;
 
     const profile = compute_degradation_profile(
       snap.nodes.length,
@@ -168,6 +170,7 @@
           });
         }
         r.update_positions(positions);
+        positions_received = true;
         if (pending_fit) {
           pending_fit = false;
           r.fit_to_content();
@@ -236,7 +239,9 @@
     };
 
     const resize_observer = new ResizeObserver(() => {
-      if (renderer === r) r.resize();
+      if (renderer !== r) return;
+      r.resize();
+      if (!r.user_has_interacted && positions_received) r.fit_to_content();
     });
 
     r.initialize(el)
