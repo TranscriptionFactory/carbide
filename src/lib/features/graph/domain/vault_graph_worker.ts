@@ -14,11 +14,16 @@ import {
   label_propagation,
   is_clustering_meaningful,
 } from "./graph_clustering";
+import {
+  compute_tick_budget,
+  label_collision_radius,
+} from "./graph_layout_tuning";
 
 type WorkerNode = SimulationNodeDatum & {
   id: string;
   kind?: "hit" | "neighbor";
   group?: string;
+  label_len?: number;
 };
 type WorkerEdge = SimulationLinkDatum<WorkerNode> & {
   source_id: string;
@@ -47,6 +52,7 @@ type InboundMessage =
         y?: number;
         kind?: "hit" | "neighbor";
         group?: string;
+        label_len?: number;
       }[];
       edges: { source: string; target: string }[];
       force_params?: ForceParams;
@@ -69,10 +75,6 @@ let simulation: Simulation<WorkerNode, WorkerEdge> | null = null;
 let nodes: WorkerNode[] = [];
 let node_ids: string[] = [];
 let tick_cap: number | null = null;
-
-function compute_tick_budget(node_count: number): number {
-  return Math.max(50, Math.min(Math.round(node_count * 0.5), 500));
-}
 
 function post(msg: OutboundMessage, transfer?: Transferable[]): void {
   if (transfer) {
@@ -125,6 +127,7 @@ function handle_init(msg: Extract<InboundMessage, { type: "init" }>): void {
     const node: WorkerNode = { id: n.id, x: n.x, y: n.y };
     if (n.kind != null) node.kind = n.kind;
     if (n.group != null) node.group = n.group;
+    if (n.label_len != null) node.label_len = n.label_len;
     return node;
   });
   node_ids = nodes.map((n) => n.id);
@@ -153,7 +156,12 @@ function handle_init(msg: Extract<InboundMessage, { type: "init" }>): void {
     )
     .force("charge", forceManyBody().strength(charge).distanceMax(charge_max))
     .force("center", forceCenter(0, 0))
-    .force("collide", forceCollide(collision))
+    .force(
+      "collide",
+      forceCollide<WorkerNode>((d) =>
+        label_collision_radius(d.label_len ?? 0, collision),
+      ),
+    )
     .stop();
 
   const gp = msg.grouping;
