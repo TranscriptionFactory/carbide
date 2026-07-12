@@ -1,5 +1,13 @@
 <script lang="ts">
-  import { LayoutGrid, Search, Sparkles, Link, X } from "@lucide/svelte";
+  import {
+    LayoutGrid,
+    Maximize2,
+    Minimize2,
+    Search,
+    Sparkles,
+    Link,
+    X,
+  } from "@lucide/svelte";
   import { ACTION_IDS } from "$lib/app";
   import { use_app_context } from "$lib/app/context/app_context.svelte";
   import { detect_file_type } from "$lib/features/document";
@@ -89,6 +97,21 @@
   }
 
   let last_clicked_path = $state<string | null>(null);
+  let list_pane = $state<{
+    collapse: () => void;
+    expand: () => void;
+    isCollapsed: () => boolean;
+  } | null>(null);
+  const graph_expanded = $derived(instance?.graph_expanded ?? false);
+
+  $effect(() => {
+    if (!list_pane) return;
+    if (graph_expanded && !list_pane.isCollapsed()) {
+      list_pane.collapse();
+    } else if (!graph_expanded && list_pane.isCollapsed()) {
+      list_pane.expand();
+    }
+  });
 
   function handle_toggle_select(
     path: string,
@@ -217,6 +240,20 @@
         <Button
           variant="ghost"
           size="icon"
+          title={graph_expanded ? "Show result list" : "Expand graph"}
+          aria-pressed={graph_expanded}
+          onclick={() =>
+            stores.search_graph.set_graph_expanded(tab_id, !graph_expanded)}
+        >
+          {#if graph_expanded}
+            <Minimize2 size={14} />
+          {:else}
+            <Maximize2 size={14} />
+          {/if}
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
           title="Export as canvas"
           onclick={() =>
             void action_registry.execute(
@@ -287,7 +324,16 @@
           />
         </Resizable.Pane>
         <Resizable.Handle />
-        <Resizable.Pane defaultSize={60} minSize={30}>
+        <Resizable.Pane
+          bind:this={list_pane}
+          defaultSize={60}
+          minSize={30}
+          collapsible
+          collapsedSize={0}
+          onCollapse={() =>
+            stores.search_graph.set_graph_expanded(tab_id, true)}
+          onExpand={() => stores.search_graph.set_graph_expanded(tab_id, false)}
+        >
           <SearchGraphResultList
             nodes={snapshot.nodes}
             edges={snapshot.edges}

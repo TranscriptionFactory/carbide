@@ -19,6 +19,7 @@ export type SearchGraphInstance = {
   min_score: number;
   sort_mode: SearchGraphSortMode;
   sort_ascending: boolean;
+  graph_expanded: boolean;
 };
 
 function create_instance(query: string): SearchGraphInstance {
@@ -39,6 +40,7 @@ function create_instance(query: string): SearchGraphInstance {
     min_score: 0,
     sort_mode: "relevance",
     sort_ascending: false,
+    graph_expanded: false,
   };
 }
 
@@ -180,6 +182,10 @@ export class SearchGraphStore {
 
   set_min_score(tab_id: string, score: number): void {
     this.update(tab_id, { min_score: score });
+  }
+
+  set_graph_expanded(tab_id: string, expanded: boolean): void {
+    this.update(tab_id, { graph_expanded: expanded });
   }
 
   set_sort_mode(tab_id: string, sort_mode: SearchGraphSortMode): void {
