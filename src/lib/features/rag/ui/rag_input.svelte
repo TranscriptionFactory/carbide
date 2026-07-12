@@ -8,6 +8,7 @@
   import type { TagInfo } from "$lib/features/tags/types";
   import type { SavedViewInfo } from "$lib/features/bases/ports";
   import type { RagScope } from "$lib/features/rag/domain/rag_types";
+  import type { RagReadiness } from "$lib/features/rag/types/rag_readiness";
 
   type Props = {
     providers: AiProviderConfig[];
@@ -17,6 +18,7 @@
     tags: TagInfo[];
     saved_views: SavedViewInfo[];
     is_loading: boolean;
+    readiness_state: RagReadiness["state"];
     on_submit: (question: string) => void;
     on_provider_change: (provider_id: string) => void;
     on_scope_change: (scope: RagScope) => void;
@@ -30,6 +32,7 @@
     tags,
     saved_views,
     is_loading,
+    readiness_state,
     on_submit,
     on_provider_change,
     on_scope_change,
@@ -39,6 +42,13 @@
 
   const provider_config = $derived(providers.find((p) => p.id === provider_id));
   const can_submit = $derived(value.trim() !== "" && !is_loading);
+  const placeholder = $derived(
+    readiness_state === "indexing"
+      ? "Ask anything — vault is still indexing, answers may be incomplete…"
+      : readiness_state === "checking"
+        ? "Checking vault index…"
+        : "Ask anything about your vault…",
+  );
 
   function submit() {
     if (!can_submit) return;
@@ -58,7 +68,7 @@
   <Textarea
     bind:value
     rows={2}
-    placeholder="Ask anything about your vault…"
+    {placeholder}
     onkeydown={on_keydown}
     class="resize-none text-sm"
   />

@@ -922,6 +922,38 @@ describe("RagService.query", () => {
     expect(stream.stream_text).not.toHaveBeenCalled();
   });
 
+  it("explains an in-progress index instead of the canned no-results reply", async () => {
+    const search = {
+      search_blocks: vi.fn().mockResolvedValue([]),
+      hybrid_search: vi.fn().mockResolvedValue([]),
+      get_embedding_status: vi.fn().mockResolvedValue({
+        total_notes: 20,
+        embedded_notes: 3,
+        model_version: "v1",
+        is_embedding: false,
+      }),
+    };
+    const notes = { read_note: vi.fn() };
+    const stream = text_stream("unused");
+    const service = new RagService(
+      search as never,
+      notes as never,
+      stream as never,
+      make_vault_store(),
+      persistence,
+      tag as never,
+      bases as never,
+    );
+
+    const result = await collect(
+      service.query({ question: "x", provider_config: provider }),
+    );
+
+    expect(result.content).toContain("still being indexed (3 of 20 notes)");
+    expect(result.content).not.toMatch(/couldn't find anything in your vault/i);
+    expect(stream.stream_text).not.toHaveBeenCalled();
+  });
+
   it("drops citations that do not map to a retrieved source", async () => {
     const search = {
       search_blocks: vi.fn().mockResolvedValue([]),
@@ -1026,7 +1058,7 @@ describe("RagService.query", () => {
       service.query({ question: "q", provider_config: provider }),
     );
 
-    expect(result.error).toBe("model crashed");
+    expect(result.error).toBe("Ollama request failed — see logs for details.");
   });
 
   it("aborts the backend stream when the consumer abandons the turn mid-stream", async () => {

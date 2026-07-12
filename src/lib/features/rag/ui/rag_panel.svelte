@@ -19,7 +19,9 @@
   import type { RagScope } from "$lib/features/rag/domain/rag_types";
   import { RAG_TEMPLATES } from "$lib/features/rag/domain/rag_prompt_templates";
 
-  const { stores, action_registry } = use_app_context();
+  const { stores, services, action_registry } = use_app_context();
+
+  const READINESS_POLL_MS = 5000;
 
   const rag = stores.rag;
   const providers = $derived(stores.ui.editor_settings.ai_providers);
@@ -46,6 +48,23 @@
     if (stores.bases.saved_views.length === 0) {
       void action_registry.execute(ACTION_IDS.bases_list_views);
     }
+  });
+
+  $effect(() => {
+    const vault_id = stores.vault.vault?.id;
+    rag.set_readiness({ state: "checking" });
+    if (!vault_id) return;
+    let cancelled = false;
+    const refresh = async () => {
+      const readiness = await services.rag.check_readiness();
+      if (!cancelled) rag.set_readiness(readiness);
+    };
+    void refresh();
+    const interval = setInterval(refresh, READINESS_POLL_MS);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
   });
 
   const templates = $derived(
@@ -134,6 +153,16 @@
         <SquarePen class="size-3.5" />
         New chat
       </Button>
+    </div>
+  {/if}
+
+  {#if rag.readiness.state === "indexing"}
+    <div
+      class="flex items-center gap-2 border-b bg-muted/50 px-3 py-1.5 text-xs text-muted-foreground"
+    >
+      <Loader2 class="size-3.5 shrink-0 animate-spin" />
+      Indexing your vault — answers may be incomplete ({rag.readiness.embedded}
+      of {rag.readiness.total} notes)
     </div>
   {/if}
 
@@ -269,6 +298,7 @@
     tags={stores.tag.tags}
     saved_views={stores.bases.saved_views}
     is_loading={rag.is_loading}
+    readiness_state={rag.readiness.state}
     on_submit={ask}
     on_provider_change={change_provider}
     on_scope_change={change_scope}

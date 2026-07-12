@@ -107,7 +107,7 @@ describe("collect_rag_query_response", () => {
     ]);
   });
 
-  it("surfaces a stream error as the response error", async () => {
+  it("surfaces a stream error as a normalized response error", async () => {
     const mcp = await collect_rag_query_response(
       make_service({ type: "error", error: "model crashed" }).query({
         question: "q",
@@ -115,6 +115,6 @@ describe("collect_rag_query_response", () => {
       }),
     );
 
-    expect(mcp.error).toBe("model crashed");
+    expect(mcp.error).toBe("Ollama request failed — see logs for details.");
   });
 });
