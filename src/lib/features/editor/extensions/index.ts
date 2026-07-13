@@ -24,6 +24,7 @@ import { create_image_context_menu_extension } from "./image_context_menu_extens
 import { create_block_drag_handle_extension } from "./block_drag_handle_extension";
 import { create_diagnostics_decoration_plugin } from "../adapters/diagnostics_decoration_plugin";
 import { create_block_selection_plugin } from "../adapters/block_selection_plugin";
+import { create_placeholder_plugin } from "../adapters/placeholder_plugin";
 import { create_ai_inline_extension } from "./ai_inline_extension";
 import type { AiMenuPluginConfig } from "../adapters/ai_menu_plugin";
 import { create_frontmatter_extension } from "./frontmatter_extension";
@@ -66,6 +67,7 @@ export function assemble_extensions(
     create_tag_pill_extension(ctx.tag_pill_menu),
     { plugins: [create_block_selection_plugin()] },
     { plugins: [create_diagnostics_decoration_plugin(ctx.get_markdown)] },
+    { plugins: [create_placeholder_plugin()] },
   ];
 
   const plugins: Plugin[] = [];
