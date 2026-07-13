@@ -23,6 +23,8 @@
   import "../styles/component_overrides.css";
   import "prosemirror-view/style/prosemirror.css";
   import "../styles/editor.css";
+  import "../styles/forced_colors.css";
+  import "../styles/print.css";
   import "katex/dist/katex.min.css";
   import { Toaster } from "$lib/components/ui/sonner";
   import { toast } from "svelte-sonner";
