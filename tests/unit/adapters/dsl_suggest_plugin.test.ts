@@ -53,9 +53,9 @@ function mount(
 ) {
   const block =
     language === null
-      ? schema.nodes["paragraph"]!.create(null, schema.text("is"))
-      : schema.nodes["code_block"]!.create({ language }, schema.text("is"));
-  const doc = schema.nodes["doc"]!.create(null, [block]);
+      ? schema.node("paragraph", null, schema.text("is"))
+      : schema.node("code_block", { language }, schema.text("is"));
+  const doc = schema.node("doc", null, [block]);
   const state = EditorState.create({
     doc,
     plugins: [make_plugin(key, langs)],
