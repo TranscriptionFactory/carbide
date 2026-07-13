@@ -4,6 +4,7 @@ import type { ActionRegistrationInput } from "$lib/app";
 import { ACTION_IDS } from "$lib/app";
 import type {
   AiApplyTarget,
+  AiCliProbeStatus,
   AiDialogContext,
   AiMode,
 } from "$lib/features/ai/domain/ai_types";
@@ -76,8 +77,7 @@ export function register_ai_actions(
     if (default_id === "auto") {
       const auto = await resolve_auto_ai_backend({
         providers,
-        check_availability: async (cfg) =>
-          await ai_service.check_availability(cfg),
+        detect_status: async (cfg) => (await ai_service.detect(cfg)).status,
       });
       return auto ?? null;
     }
@@ -98,7 +98,7 @@ export function register_ai_actions(
     }
 
     try {
-      const available = await ai_service.check_availability(config);
+      const probe = await ai_service.detect(config);
       if (revision !== dialog_revision) return;
       if (
         !ai_store.dialog.open ||
@@ -106,7 +106,13 @@ export function register_ai_actions(
       ) {
         return;
       }
-      ai_store.set_cli_status(available ? "available" : "unavailable");
+      const status =
+        probe.status === "present"
+          ? "available"
+          : probe.status === "missing"
+            ? "unavailable"
+            : "unknown";
+      ai_store.set_cli_status(status);
     } catch (error) {
       if (revision !== dialog_revision) return;
       if (
@@ -189,15 +195,20 @@ export function register_ai_actions(
       const { ai_default_provider_id } = input.stores.ui.editor_settings;
       if (ai_default_provider_id === "auto") {
         const providers = get_providers();
+        let last_status: AiCliProbeStatus | null = null;
         const auto_provider = await resolve_auto_ai_backend({
           providers,
-          check_availability: async (config) =>
-            await ai_service.check_availability(config),
+          detect_status: async (config) => {
+            last_status = (await ai_service.detect(config)).status;
+            return last_status;
+          },
         });
 
         if (auto_provider) {
           next_provider_id = auto_provider.id;
-          preset_cli_status = "available";
+          if (last_status === "present") {
+            preset_cli_status = "available";
+          }
         } else {
           next_provider_id = providers[0]?.id ?? "claude";
           preset_cli_status = "error";
@@ -641,8 +652,7 @@ export function register_ai_actions(
       if (resolved_provider_id === "auto") {
         const auto_provider = await resolve_auto_ai_backend({
           providers,
-          check_availability: async (cfg) =>
-            await ai_service.check_availability(cfg),
+          detect_status: async (cfg) => (await ai_service.detect(cfg)).status,
         });
         resolved_provider_id = auto_provider?.id ?? "";
       }

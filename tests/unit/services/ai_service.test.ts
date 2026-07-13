@@ -22,6 +22,12 @@ const ollama_config: AiProviderConfig = {
 function create_ai_port() {
   return {
     check_cli: vi.fn().mockResolvedValue(true),
+    detect_cli: vi.fn().mockResolvedValue({
+      status: "present",
+      resolved_path: "/usr/local/bin/claude",
+      version: "1.0.0",
+      error: null,
+    }),
     execute: vi.fn().mockResolvedValue({
       success: true,
       output: "# Updated",
@@ -133,7 +139,7 @@ describe("AiService", () => {
       },
     });
 
-    expect(ai_port.check_cli).toHaveBeenCalledWith({
+    expect(ai_port.detect_cli).toHaveBeenCalledWith({
       command: "/usr/local/bin/claude",
     });
   });
@@ -153,7 +159,7 @@ describe("AiService", () => {
     });
 
     expect(result).toBe(true);
-    expect(ai_port.check_cli).not.toHaveBeenCalled();
+    expect(ai_port.detect_cli).not.toHaveBeenCalled();
   });
 
   it("builds and executes a full-note request against the active vault", async () => {

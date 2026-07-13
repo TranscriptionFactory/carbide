@@ -124,7 +124,7 @@
   const execute_disabled = $derived(
     prompt.trim() === "" ||
       is_executing ||
-      cli_status !== "available" ||
+      (cli_status !== "available" && cli_status !== "unknown") ||
       (provider_config?.transport.kind === "cli" &&
         provider_config.transport.args.some((a) => a.includes("{model}")) &&
         !provider_config?.model?.trim()),
@@ -321,6 +321,11 @@
           {provider_config.install_url}
         </a>
       {/if}
+    </div>
+  {:else if cli_status === "unknown"}
+    <div class="border-b bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
+      {provider_config?.name ?? "CLI"} availability unknown — will try when you
+      send.
     </div>
   {:else if cli_status === "error"}
     <div

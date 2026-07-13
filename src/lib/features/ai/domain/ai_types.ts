@@ -18,7 +18,17 @@ export type AiCliStatus =
   | "checking"
   | "available"
   | "unavailable"
+  | "unknown"
   | "error";
+
+export type AiCliProbeStatus = "present" | "missing" | "unknown";
+
+export type AiCliProbe = {
+  status: AiCliProbeStatus;
+  resolved_path: string | null;
+  version: string | null;
+  error: string | null;
+};
 
 export type AiExecutionResult = {
   success: boolean;

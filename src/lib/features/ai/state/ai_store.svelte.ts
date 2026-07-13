@@ -3,7 +3,13 @@ import type { MarkdownText, NotePath } from "$lib/shared/types/ids";
 
 type AiMode = "edit" | "ask";
 type AiApplyTarget = "selection" | "full_note";
-type AiCliStatus = "idle" | "checking" | "available" | "unavailable" | "error";
+type AiCliStatus =
+  | "idle"
+  | "checking"
+  | "available"
+  | "unavailable"
+  | "unknown"
+  | "error";
 
 type AiExecutionResult = {
   success: boolean;
