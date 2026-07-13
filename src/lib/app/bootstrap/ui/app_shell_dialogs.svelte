@@ -30,6 +30,7 @@
   import { HotkeyRecorderDialog } from "$lib/features/hotkey";
   import HelpDialog from "$lib/app/bootstrap/ui/help_dialog.svelte";
   import WelcomeDialog from "$lib/app/bootstrap/ui/welcome_dialog.svelte";
+  import OmniQueryDialog from "$lib/app/bootstrap/ui/omni_query_dialog.svelte";
   import { VimNavCheatsheet } from "$lib/features/vim_nav";
   import { QuickCaptureDialog } from "$lib/features/task";
   import { MissingLinkedSourceDialog } from "$lib/features/reference";
@@ -771,6 +772,8 @@
   open={stores.ui.quick_capture_open}
   on_open_change={(open) => (stores.ui.quick_capture_open = open)}
 />
+
+<OmniQueryDialog />
 
 <WelcomeDialog
   open={stores.ui.welcome_dialog.open}

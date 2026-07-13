@@ -431,6 +431,7 @@ export const ACTION_IDS = {
   query_clear: "query.clear",
   query_toggle_panel: "query.toggle_panel",
   query_open: "query.open",
+  query_builder_open: "query.builder_open",
   query_save: "query.save",
   query_save_cancel: "query.save_cancel",
   query_load: "query.load",

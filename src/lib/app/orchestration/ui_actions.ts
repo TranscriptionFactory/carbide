@@ -206,6 +206,14 @@ export function register_ui_actions(input: ActionRegistrationInput) {
   });
 
   registry.register({
+    id: ACTION_IDS.query_builder_open,
+    label: "Build query…",
+    execute: () => {
+      stores.ui.query_builder_open = true;
+    },
+  });
+
+  registry.register({
     id: ACTION_IDS.ui_open_vault_dashboard,
     label: "Open Vault Dashboard",
     shortcut: "CmdOrCtrl+Shift+D",
