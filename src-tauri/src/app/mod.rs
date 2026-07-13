@@ -177,6 +177,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             features::ai::service::ai_check_cli,
+            features::ai::service::ai_detect_cli,
             features::ai::service::ai_execute_cli,
             features::ai::stream::ai_stream_start,
             features::ai::stream::ai_stream_abort,

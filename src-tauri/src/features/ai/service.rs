@@ -118,6 +118,14 @@ pub async fn ai_check_cli(command: String) -> Result<bool, String> {
 
 #[tauri::command]
 #[specta::specta]
+pub async fn ai_detect_cli(command: String) -> Result<pipeline::CliProbe, String> {
+    tauri::async_runtime::spawn_blocking(move || pipeline::probe_cli(&command))
+        .await
+        .map_err(|e| format!("Failed to detect AI CLI: {}", e))
+}
+
+#[tauri::command]
+#[specta::specta]
 pub async fn ai_execute_cli(
     provider_config: AiProviderConfig,
     vault_path: String,
