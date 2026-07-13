@@ -324,8 +324,7 @@
     </div>
   {:else if cli_status === "unknown"}
     <div class="border-b bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
-      {provider_config?.name ?? "CLI"} availability unknown — will try when you
-      send.
+      {provider_config?.name ?? "CLI"} availability unknown — will try when you send.
     </div>
   {:else if cli_status === "error"}
     <div

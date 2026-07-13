@@ -510,7 +510,8 @@
     void action_registry.execute(ACTION_IDS.toolchain_install, id)}
   on_toolchain_uninstall={(id: string) =>
     void action_registry.execute(ACTION_IDS.toolchain_uninstall, id)}
-  on_ai_provider_detect={(config: AiProviderConfig) => services.ai.detect(config)}
+  on_ai_provider_detect={(config: AiProviderConfig) =>
+    services.ai.detect(config)}
   {iwe_config_status}
   on_iwe_open_config={() =>
     void action_registry.execute(ACTION_IDS.iwe_open_config)}
