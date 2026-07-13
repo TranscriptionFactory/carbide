@@ -7,6 +7,7 @@ export * from "./adapters/task_tauri_adapter";
 export * from "./state/task_store.svelte";
 export * from "./application/task_service";
 export { default as TaskPanel } from "./ui/task_panel.svelte";
+export { default as TaskQueryBuilder } from "./ui/task_query_builder.svelte";
 export { default as QuickCaptureDialog } from "./ui/quick_capture_dialog.svelte";
 export { register_task_actions } from "./application/task_actions";
 

@@ -26,7 +26,12 @@ import type {
   EditorSelectionSnapshot,
   PastedImagePayload,
 } from "$lib/shared/types/editor";
-import type { MarkdownText, NoteId, NotePath } from "$lib/shared/types/ids";
+import type {
+  MarkdownText,
+  NoteId,
+  NotePath,
+  VaultId,
+} from "$lib/shared/types/ids";
 import { as_markdown_text, as_note_path } from "$lib/shared/types/ids";
 import type { EditorStore } from "$lib/features/editor/state/editor_store.svelte";
 import type { VaultStore } from "$lib/features/vault";
@@ -38,6 +43,9 @@ import type { TagPort } from "$lib/features/tags";
 import { normalize_markdown_line_breaks } from "$lib/features/editor/domain/markdown_line_breaks";
 import { rank_tags } from "$lib/features/tags";
 import { is_draft_note_path } from "$lib/features/note";
+import { suggest_query } from "$lib/features/query";
+import { suggest_base_spec } from "$lib/features/smart_blocks";
+import type { DslContext } from "$lib/shared/types/dsl_suggestion";
 import { error_message } from "$lib/shared/utils/error_message";
 import { create_logger } from "$lib/shared/utils/logger";
 
@@ -191,6 +199,10 @@ type EditorSessionEvents = Parameters<EditorPort["start_session"]>[0]["events"];
 
 export class EditorService {
   private session: EditorSession | null = null;
+  private dsl_ctx_memo: {
+    vault_id: VaultId;
+    ctx: Promise<DslContext>;
+  } | null = null;
   private host_root: HTMLDivElement | null = null;
   private active_note: OpenNoteState | null = null;
   private session_generation = 0;
@@ -951,6 +963,52 @@ export class EditorService {
     });
   }
 
+  private get_dsl_context(vault_id: VaultId): Promise<DslContext> {
+    if (this.dsl_ctx_memo?.vault_id === vault_id) {
+      return this.dsl_ctx_memo.ctx;
+    }
+    const ctx = this.build_dsl_context(vault_id);
+    this.dsl_ctx_memo = { vault_id, ctx };
+    return ctx;
+  }
+
+  private async build_dsl_context(vault_id: VaultId): Promise<DslContext> {
+    const tag_port = this.tag_port;
+    const notes_port = this.notes_port;
+    const [tags, notes, folders] = await Promise.all([
+      tag_port?.list_all_tags(vault_id) ?? Promise.resolve([]),
+      notes_port?.list_notes(vault_id) ?? Promise.resolve([]),
+      notes_port?.list_folders(vault_id) ?? Promise.resolve([]),
+    ]);
+    return {
+      tags: tags.map((t) => t.tag),
+      note_names: notes.map((n) => n.name),
+      folder_paths: folders,
+      // ponytail: no bases port here; add optional list_properties dep when
+      // property suggestions matter in-editor
+      property_names: [],
+    };
+  }
+
+  private handle_dsl_suggest_query(
+    generation: number,
+    language: "query" | "base",
+    query: string,
+  ): void {
+    if (!this.is_generation_current(generation)) return;
+    const vault_id = this.vault_store.active_vault_id;
+    if (!vault_id) return;
+
+    void this.get_dsl_context(vault_id).then((ctx) => {
+      if (!this.is_generation_current(generation)) return;
+      const result =
+        language === "query"
+          ? suggest_query(query, ctx)
+          : suggest_base_spec(query, ctx);
+      this.session?.set_dsl_suggestions?.(language, result.items, result.from);
+    });
+  }
+
   private handle_cite_suggest_query(query: string): void {
     const reference_store = this.reference_store;
     if (!reference_store) return;
@@ -1160,6 +1218,21 @@ export class EditorService {
     if (this.tag_port) {
       events.on_tag_suggest_query = (query: string) => {
         this.handle_tag_suggest_query(generation, query);
+      };
+    }
+
+    if (this.tag_port || this.notes_port) {
+      events.on_dsl_query_suggest = (query: string) => {
+        this.handle_dsl_suggest_query(generation, "query", query);
+      };
+      events.on_dsl_query_dismiss = () => {
+        this.session?.set_dsl_suggestions?.("query", [], 0);
+      };
+      events.on_dsl_base_suggest = (query: string) => {
+        this.handle_dsl_suggest_query(generation, "base", query);
+      };
+      events.on_dsl_base_dismiss = () => {
+        this.session?.set_dsl_suggestions?.("base", [], 0);
       };
     }
 

@@ -10,3 +10,4 @@ export * from "./application/query_service";
 export * from "./application/query_actions";
 export { create_saved_query_tauri_adapter } from "./adapters/saved_query_tauri_adapter";
 export { default as QueryPanelContent } from "./ui/query_panel_content.svelte";
+export { default as QueryBuilder } from "./ui/query_builder.svelte";

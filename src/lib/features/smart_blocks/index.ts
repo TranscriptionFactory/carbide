@@ -1,5 +1,6 @@
 export { create_smart_block_registry } from "./domain/smart_block_registry";
 export { parse_smart_block } from "./domain/smart_block_spec";
+export { suggest_base_spec } from "./domain/base_view_suggestions";
 export {
   smart_block_body,
   type SmartBlockScaffoldType,
