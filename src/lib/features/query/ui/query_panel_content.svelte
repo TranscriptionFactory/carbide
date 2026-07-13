@@ -1,7 +1,12 @@
 <script lang="ts">
+  import { tick } from "svelte";
   import { use_app_context } from "$lib/app/context/app_context.svelte";
   import { ACTION_IDS } from "$lib/app";
   import { query_name_from_path } from "../domain/saved_query";
+  import { suggest_query } from "../domain/query_suggestions";
+  import { DslSuggestController } from "$lib/components/ui/dsl_suggest.svelte";
+  import DslSuggestDropdown from "$lib/components/ui/dsl_suggest_dropdown.svelte";
+  import type { DslContext } from "$lib/shared/types/dsl_suggestion";
   import QueryResultList from "./query_result_list.svelte";
   import QueryResultCards from "./query_result_cards.svelte";
   import QueryResultFeed from "./query_result_feed.svelte";
@@ -10,11 +15,12 @@
   import Rows from "@lucide/svelte/icons/rows-3";
   import NetworkIcon from "@lucide/svelte/icons/network";
 
-  const { stores, action_registry } = use_app_context();
+  const { stores, services, action_registry } = use_app_context();
 
   type ResultViewMode = "list" | "cards" | "feed";
 
   let input_value = $state(stores.query.query_text || "");
+  let input_el = $state<HTMLInputElement | null>(null);
   let save_name = $state("");
   let show_save_input = $state(false);
   let view_mode: ResultViewMode = $state("list");
@@ -29,10 +35,47 @@
   );
   const save_pending = $derived(save_op.status === "pending");
 
+  const suggest = new DslSuggestController({
+    provider: suggest_query,
+    get_ctx,
+    apply: apply_suggestion,
+  });
+
+  function get_ctx(): DslContext {
+    return {
+      tags: stores.tag.tags.map((t) => t.tag),
+      note_names: stores.notes.notes.map((n) => n.name),
+      folder_paths: stores.notes.folder_paths,
+      property_names: stores.bases.available_properties.map((p) => p.name),
+    };
+  }
+
+  async function apply_suggestion(from: number, insert: string) {
+    const el = input_el;
+    const cursor = el?.selectionStart ?? input_value.length;
+    input_value = input_value.slice(0, from) + insert + input_value.slice(cursor);
+    const next_cursor = from + insert.length;
+    await tick();
+    el?.setSelectionRange(next_cursor, next_cursor);
+    el?.focus();
+    suggest.update(input_value.slice(0, next_cursor));
+  }
+
+  function update_suggestions() {
+    suggest.update(input_value.slice(0, input_el?.selectionStart ?? input_value.length));
+  }
+
   $effect(() => {
     const vault = stores.vault.vault;
     if (!vault) return;
     void action_registry.execute(ACTION_IDS.query_list_saved);
+  });
+
+  $effect(() => {
+    const vault = stores.vault.vault;
+    if (!vault) return;
+    void action_registry.execute(ACTION_IDS.tags_refresh);
+    void services.bases.refresh_properties(vault.id);
   });
 
   async function execute() {
@@ -40,6 +83,7 @@
   }
 
   function handle_keydown(event: KeyboardEvent) {
+    if (suggest.keydown(event)) return;
     if (event.key === "Enter" && !event.shiftKey) {
       event.preventDefault();
       void execute();
@@ -107,14 +151,27 @@
 
 <div class="QueryPanel">
   <div class="QueryPanel__input-row">
-    <input
-      class="QueryPanel__input"
-      type="text"
-      bind:value={input_value}
-      onkeydown={handle_keydown}
-      placeholder="e.g. Notes with #project and in [[Archive]]"
-      spellcheck="false"
-    />
+    <div class="QueryPanel__input-wrap">
+      <input
+        class="QueryPanel__input"
+        type="text"
+        bind:this={input_el}
+        bind:value={input_value}
+        onkeydown={handle_keydown}
+        oninput={update_suggestions}
+        onclick={update_suggestions}
+        onblur={() => suggest.close()}
+        placeholder="e.g. Notes with #project and in [[Archive]]"
+        spellcheck="false"
+      />
+      {#if suggest.open}
+        <DslSuggestDropdown
+          items={suggest.items}
+          selected_index={suggest.selected_index}
+          on_select={(i) => suggest.accept(i)}
+        />
+      {/if}
+    </div>
     <button
       type="button"
       class="QueryPanel__run"
@@ -258,8 +315,13 @@
     flex-shrink: 0;
   }
 
-  .QueryPanel__input {
+  .QueryPanel__input-wrap {
+    position: relative;
     flex: 1;
+  }
+
+  .QueryPanel__input {
+    width: 100%;
     padding: var(--space-1) var(--space-2);
     font-size: var(--text-sm);
     font-family: var(--font-mono);
