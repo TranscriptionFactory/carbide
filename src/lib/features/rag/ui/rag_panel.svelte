@@ -79,6 +79,14 @@
     void action_registry.execute(ACTION_IDS.rag_ask, question);
   }
 
+  function stop() {
+    void action_registry.execute(ACTION_IDS.rag_stop);
+  }
+
+  const provider_name = $derived(
+    providers.find((p) => p.id === provider_id)?.name ?? "the AI provider",
+  );
+
   function change_provider(id: string) {
     rag.set_provider(id);
   }
@@ -261,7 +269,9 @@
           {#if rag.is_loading}
             <div class="flex items-center gap-2 text-sm text-muted-foreground">
               <Loader2 class="size-4 animate-spin" />
-              Searching your vault…
+              {rag.loading_stage === "generating"
+                ? `Waiting for ${provider_name}…`
+                : "Searching your vault…"}
             </div>
           {/if}
 
@@ -298,8 +308,10 @@
     tags={stores.tag.tags}
     saved_views={stores.bases.saved_views}
     is_loading={rag.is_loading}
+    is_streaming={rag.streaming_id !== null}
     readiness_state={rag.readiness.state}
     on_submit={ask}
+    on_stop={stop}
     on_provider_change={change_provider}
     on_scope_change={change_scope}
   />

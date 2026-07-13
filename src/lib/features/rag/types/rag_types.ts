@@ -25,6 +25,7 @@ export type RagMessage = {
 };
 
 export type RagStreamEvent =
+  | { type: "generating" }
   | { type: "text"; text: string }
   | { type: "citation"; citation: RagCitation }
   | { type: "done" }
