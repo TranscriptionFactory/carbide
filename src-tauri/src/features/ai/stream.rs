@@ -232,22 +232,22 @@ pub async fn ai_stream_start(
 
             let path = pipeline::get_expanded_path();
 
-            let exists = tauri::async_runtime::spawn_blocking({
+            let probe = tauri::async_runtime::spawn_blocking({
                 let command = command.clone();
                 let path = path.clone();
-                move || pipeline::check_cli_exists(&command, &path)
+                move || pipeline::resolve_cli_with_path(&command, &path)
             })
             .await
-            .map_err(|e| e.to_string())?
             .map_err(|e| e.to_string())?;
 
-            if !exists {
-                let _ = app.emit(
-                    &event_name,
-                    AiStreamEvent::Error {
-                        error: format!("{} CLI not found", provider_config.name),
-                    },
-                );
+            if probe.status == pipeline::CliProbeStatus::Missing {
+                let error = match &probe.error {
+                    Some(detail) if detail.contains("not executable") => {
+                        format!("{}: {}", provider_config.name, detail)
+                    }
+                    _ => format!("{} CLI not found", provider_config.name),
+                };
+                let _ = app.emit(&event_name, AiStreamEvent::Error { error });
                 return Ok(());
             }
 
@@ -259,7 +259,13 @@ pub async fn ai_stream_start(
                 .await
                 .insert(request_id.clone(), StreamHandle { abort_tx });
 
-            let command = command.clone();
+            let path = probe
+                .resolved_path
+                .as_deref()
+                .and_then(|p| std::path::Path::new(p).parent())
+                .map(|parent| pipeline::path_with_dir_prepended(parent, &path))
+                .unwrap_or(path);
+            let command = probe.resolved_path.unwrap_or_else(|| command.clone());
             let stdin_input = if prompt_via_stdin {
                 Some(prompt_text)
             } else {
