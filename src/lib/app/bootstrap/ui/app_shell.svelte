@@ -13,6 +13,7 @@
   import { use_keyboard_shortcuts } from "$lib/hooks/use_keyboard_shortcuts.svelte";
   import { use_external_links } from "$lib/hooks/use_external_links.svelte";
   import { use_app_context } from "$lib/app/context/app_context.svelte";
+  import LiveRegion from "$lib/shared/a11y/live_region.svelte";
   import { ACTION_IDS } from "$lib/app";
   import type { VaultId } from "$lib/shared/types/ids";
 
@@ -139,6 +140,8 @@
 {/if}
 
 <AppShellDialogs {hide_choose_vault_button} />
+
+<LiveRegion />
 
 <svelte:window
   onclick={external_links.handle_click}
