@@ -21,6 +21,13 @@
     on_action,
     children,
   }: Props = $props();
+
+  let has_toggled = $state(false);
+
+  function handle_toggle() {
+    has_toggled = true;
+    on_toggle();
+  }
 </script>
 
 <div class="CollapsibleSection">
@@ -28,7 +35,7 @@
     <button
       type="button"
       class="CollapsibleSection__toggle"
-      onclick={on_toggle}
+      onclick={handle_toggle}
     >
       {#if open}
         <ChevronDown class="CollapsibleSection__chevron" />
@@ -50,9 +57,14 @@
       </button>
     {/if}
   </div>
-  {#if open}
+  <div
+    class="CollapsibleSection__content"
+    class:CollapsibleSection__content--closed={!open}
+    class:animate-collapsible-down={has_toggled && open}
+    class:animate-collapsible-up={has_toggled && !open}
+  >
     {@render children()}
-  {/if}
+  </div>
 </div>
 
 <style>
@@ -101,5 +113,15 @@
 
   .CollapsibleSection__header:hover .CollapsibleSection__action {
     opacity: 1;
+  }
+
+  .CollapsibleSection__content {
+    overflow: hidden;
+  }
+
+  .CollapsibleSection__content--closed {
+    max-height: 0;
+    opacity: 0;
+    visibility: hidden;
   }
 </style>

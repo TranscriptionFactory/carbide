@@ -2071,7 +2071,7 @@ body.block-handle-dragging .prosemirror-dropcursor-inline {
    PLACEHOLDER
    ============================================ */
 
-.ProseMirror p.is-empty:first-child::before {
+.ProseMirror p.is-empty::before {
   content: attr(data-placeholder);
   color: var(--editor-text-muted);
   opacity: 0.4;
