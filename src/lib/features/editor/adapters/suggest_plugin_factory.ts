@@ -190,16 +190,13 @@ export function create_suggest_prose_plugin<TItem>(
 
           const $from = editor_state.selection.$from;
           const in_code_block = $from.parent.type.name === "code_block";
-          const code_block_allowed =
-            in_code_block &&
-            (config.code_block_languages?.includes(
-              ($from.parent.attrs["language"] as string) ?? "",
-            ) ??
-              false);
-          if (
-            !$from.parent.isTextblock ||
-            (in_code_block && !code_block_allowed)
-          ) {
+          const scope_ok = config.code_block_languages
+            ? in_code_block &&
+              config.code_block_languages.includes(
+                ($from.parent.attrs["language"] as string) ?? "",
+              )
+            : !in_code_block;
+          if (!$from.parent.isTextblock || !scope_ok) {
             if (plugin_state.active) dismiss(view, false);
             dismissed_query = null;
             dismissed_from = null;

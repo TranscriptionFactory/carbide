@@ -47,14 +47,14 @@ function make_plugin(key: PluginKey<SuggestState<Item>>, langs?: string[]) {
 }
 
 function mount(
-  language: string,
+  language: string | null,
   key: PluginKey<SuggestState<Item>>,
   langs?: string[],
 ) {
-  const block = schema.nodes["code_block"]!.create(
-    { language },
-    schema.text("is"),
-  );
+  const block =
+    language === null
+      ? schema.nodes["paragraph"]!.create(null, schema.text("is"))
+      : schema.nodes["code_block"]!.create({ language }, schema.text("is"));
   const doc = schema.nodes["doc"]!.create(null, [block]);
   const state = EditorState.create({
     doc,
@@ -87,5 +87,15 @@ describe("dsl suggest gating", () => {
   it("default config (no code_block_languages) refuses any code_block", () => {
     const key = new PluginKey<SuggestState<Item>>("t3");
     expect(mount("query", key, undefined)).toBe(false);
+  });
+
+  it("code_block-scoped config does not activate in ordinary paragraphs", () => {
+    const key = new PluginKey<SuggestState<Item>>("t4");
+    expect(mount(null, key, ["query"])).toBe(false);
+  });
+
+  it("default config still activates in ordinary paragraphs", () => {
+    const key = new PluginKey<SuggestState<Item>>("t5");
+    expect(mount(null, key, undefined)).toBe(true);
   });
 });
