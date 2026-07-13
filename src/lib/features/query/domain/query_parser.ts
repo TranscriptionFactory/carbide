@@ -10,7 +10,7 @@ import type {
   ValueKind,
 } from "../types";
 
-const FORMS: Record<string, QueryForm> = {
+export const FORMS: Record<string, QueryForm> = {
   notes: "notes",
   note: "notes",
   folders: "folders",
@@ -19,13 +19,13 @@ const FORMS: Record<string, QueryForm> = {
   file: "files",
 };
 
-const CLAUSE_KEYWORDS: Record<string, ClauseType> = {
+export const CLAUSE_KEYWORDS: Record<string, ClauseType> = {
   named: "named",
   with: "with",
   in: "in",
 };
 
-const PROPERTY_OPERATORS = ["=", "!=", ">", "<", ">=", "<=", "contains"];
+export const PROPERTY_OPERATORS = ["=", "!=", ">", "<", ">=", "<=", "contains"];
 
 class Parser {
   private pos = 0;
