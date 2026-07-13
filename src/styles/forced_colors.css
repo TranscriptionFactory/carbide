@@ -1,0 +1,28 @@
+/* Windows High Contrast (forced-colors) — WHCM strips backgrounds and
+   box-shadows, so anything conveyed by them must fall back to outlines
+   drawn in system colors. */
+@media (forced-colors: active) {
+  /* !important beats `focus:outline-none` utilities (0,2,0 specificity);
+     safe because it's scoped to WHCM, where outlines are the only focus cue. */
+  :focus-visible {
+    outline: 2px solid Highlight !important;
+    outline-offset: 2px !important;
+  }
+
+  ::selection,
+  .ProseMirror ::selection {
+    background: Highlight;
+    color: HighlightText;
+  }
+
+  .block-selected {
+    background: transparent;
+    outline: 2px solid SelectedItem;
+  }
+
+  /* Focused-pane indicator is an inset box-shadow, which WHCM removes. */
+  .EditorPane--focused {
+    outline: 2px solid Highlight;
+    outline-offset: -2px;
+  }
+}

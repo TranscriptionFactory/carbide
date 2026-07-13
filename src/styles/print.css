@@ -1,0 +1,58 @@
+/* Print styles for the main app window. PDF export uses a separate
+   hidden-window document (export_html_to_pdf) and does not go through here. */
+@media print {
+  html,
+  body {
+    height: auto !important;
+    overflow: visible !important;
+    background: #fff !important;
+  }
+
+  .ActivityBar,
+  .LatticeTitleBar,
+  .TabBar,
+  .StatusBar,
+  .FindInFileBar,
+  .BottomPanel,
+  .FormattingToolbar,
+  .FloatingOutline,
+  [data-pane-resizer],
+  [data-pane]:has([data-slot="sidebar"]),
+  [data-pane]:has(.BottomPanel),
+  [data-sonner-toaster],
+  [data-slot="dialog-overlay"],
+  [data-slot="dialog-content"],
+  [role="dialog"],
+  [role="alertdialog"] {
+    display: none !important;
+  }
+
+  .WorkspaceLayout,
+  .WorkspaceLayout .overflow-hidden,
+  .WorkspaceLayout .overflow-y-auto,
+  .WorkspaceLayout [data-pane-group],
+  .WorkspaceLayout [data-pane],
+  .EditorPane,
+  .NoteEditor,
+  .NoteEditor__visual-wrapper {
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
+
+  .NoteEditor,
+  .ProseMirror,
+  .cm-editor {
+    background: #fff !important;
+    color: #000 !important;
+  }
+
+  .ProseMirror {
+    max-width: none !important;
+  }
+
+  .ProseMirror :is(pre, table, blockquote, img, figure) {
+    break-inside: avoid;
+  }
+}

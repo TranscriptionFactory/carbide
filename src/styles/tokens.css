@@ -284,3 +284,10 @@
   --sidebar-primary-foreground: oklch(0.115 0.008 68);
   --sidebar-ring: oklch(0.68 0.14 255);
 }
+
+/* Native form controls + text caret pick up the theme (inherited properties,
+   set once at the root). */
+:root {
+  accent-color: var(--primary);
+  caret-color: var(--foreground);
+}

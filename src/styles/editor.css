@@ -119,6 +119,7 @@
   font-size: var(--editor-font-size);
   line-height: var(--editor-line-height);
   color: var(--editor-text);
+  caret-color: var(--editor-foreground);
   outline: none;
   max-width: var(--editor-max-width);
   margin: 0 auto;
