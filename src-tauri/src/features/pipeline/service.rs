@@ -416,9 +416,12 @@ pub async fn execute_pipeline(
     let mut task = tauri::async_runtime::spawn_blocking(move || {
         let path = get_expanded_path();
         let resolved = resolve_cli_with_path(&command, &path);
-        if resolved.status == CliProbeStatus::Missing {
+        if resolved.status != CliProbeStatus::Present {
             let error = match resolved.error {
                 Some(detail) if detail.contains("not executable") => detail,
+                _ if resolved.status == CliProbeStatus::Unknown => {
+                    format!("Could not verify command: {}", command)
+                }
                 _ => format!("Command not found: {}", command),
             };
             return PipelineResult {

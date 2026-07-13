@@ -39,7 +39,7 @@ describe("migrate_ai_settings", () => {
     expect(claude?.transport).toEqual({
       kind: "cli",
       command: "/custom/claude",
-      args: ["-p", "{prompt}", "--output-format", "text"],
+      args: ["-p", "--output-format", "text"],
     });
 
     const ollama = result!.ai_providers.find((p) => p.id === "ollama");
@@ -63,7 +63,7 @@ describe("migrate_ai_settings", () => {
     expect(claude?.transport).toEqual({
       kind: "cli",
       command: "claude",
-      args: ["-p", "{prompt}", "--output-format", "text"],
+      args: ["-p", "--output-format", "text"],
     });
 
     const ollama = result!.ai_providers.find((p) => p.id === "ollama");

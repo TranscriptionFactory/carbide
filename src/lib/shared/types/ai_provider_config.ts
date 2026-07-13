@@ -28,7 +28,7 @@ export const BUILTIN_PROVIDER_PRESETS: AiProviderConfig[] = [
     transport: {
       kind: "cli",
       command: "claude",
-      args: ["-p", "{prompt}", "--output-format", "text"],
+      args: ["-p", "--output-format", "text"],
     },
     install_url: "https://code.claude.com/docs/en/quickstart",
     is_preset: true,
