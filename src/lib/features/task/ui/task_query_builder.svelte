@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { untrack } from "svelte";
   import { use_app_context } from "$lib/app/context/app_context.svelte";
   import {
     build_task_query_text,
@@ -9,13 +8,13 @@
     type TaskSortSpec,
   } from "../domain/task_query_builder";
   import type { TaskGrouping, TaskStatus } from "../types";
+  import { SORTABLE_PROPS, GROUPABLE_PROPS } from "../parse_task_query";
 
   type Props = {
     on_insert: (text: string) => void;
-    collapsed?: boolean;
   };
 
-  let { on_insert, collapsed = false }: Props = $props();
+  let { on_insert }: Props = $props();
 
   const { stores } = use_app_context();
 
@@ -37,18 +36,11 @@
     "after",
     "on",
   ];
-  const sort_props = ["status", "text", "path", "due_date", "section"];
-  const group_props: TaskGrouping[] = [
-    "none",
-    "note",
-    "section",
-    "due_date",
-    "status",
-  ];
+  const sort_props = [...SORTABLE_PROPS];
+  const group_props = ["none", ...GROUPABLE_PROPS] as TaskGrouping[];
 
   const tag_options = $derived(stores.tag.tags.map((t) => t.tag));
 
-  let open = $state(untrack(() => !collapsed));
   let clauses = $state<TaskQueryClause[]>([{ kind: "status", status: "todo" }]);
   let sort = $state<TaskSortSpec[]>([]);
   let group_by = $state<TaskGrouping>("none");
@@ -143,174 +135,160 @@
 </script>
 
 <div class="TaskQueryBuilder">
-  <button
-    type="button"
-    class="TaskQueryBuilder__toggle"
-    onclick={() => (open = !open)}
-  >
-    {open ? "▾" : "▸"} Builder
-  </button>
+  <div class="TaskQueryBuilder__body">
+    {#each clauses as clause, i (i)}
+      <div class="TaskQueryBuilder__row">
+        <select
+          class="TaskQueryBuilder__select"
+          value={clause.kind}
+          onchange={(e) =>
+            change_kind(i, e.currentTarget.value as TaskQueryClause["kind"])}
+        >
+          {#each clause_kinds as kind (kind)}
+            <option value={kind}>{kind}</option>
+          {/each}
+        </select>
 
-  {#if open}
-    <div class="TaskQueryBuilder__body">
-      {#each clauses as clause, i (i)}
-        <div class="TaskQueryBuilder__row">
+        {#if clause.kind === "status"}
+          <select bind:value={clause.status} class="TaskQueryBuilder__select">
+            {#each statuses as s (s)}
+              <option value={s}>{s}</option>
+            {/each}
+          </select>
+        {:else if clause.kind === "due"}
           <select
             class="TaskQueryBuilder__select"
-            value={clause.kind}
+            value={clause.due.kind}
             onchange={(e) =>
-              change_kind(i, e.currentTarget.value as TaskQueryClause["kind"])}
+              change_due(i, e.currentTarget.value as DueClause["kind"])}
           >
-            {#each clause_kinds as kind (kind)}
-              <option value={kind}>{kind}</option>
+            {#each due_kinds as k (k)}
+              <option value={k}>{k.replace("_", " ")}</option>
             {/each}
           </select>
-
-          {#if clause.kind === "status"}
-            <select bind:value={clause.status} class="TaskQueryBuilder__select">
-              {#each statuses as s (s)}
-                <option value={s}>{s}</option>
-              {/each}
-            </select>
-          {:else if clause.kind === "due"}
-            <select
-              class="TaskQueryBuilder__select"
-              value={clause.due.kind}
-              onchange={(e) =>
-                change_due(i, e.currentTarget.value as DueClause["kind"])}
-            >
-              {#each due_kinds as k (k)}
-                <option value={k}>{k.replace("_", " ")}</option>
-              {/each}
-            </select>
-            {#if clause.due.kind === "next_days"}
-              <input
-                class="TaskQueryBuilder__input TaskQueryBuilder__days"
-                type="number"
-                min="1"
-                bind:value={clause.due.days}
-              />
-            {:else if clause.due.kind === "before" || clause.due.kind === "after" || clause.due.kind === "on"}
-              <input
-                class="TaskQueryBuilder__input"
-                type="date"
-                bind:value={clause.due.date}
-              />
-            {/if}
-          {:else if clause.kind === "tag"}
-            <select bind:value={clause.tag} class="TaskQueryBuilder__select">
-              <option value="" disabled>Select tag…</option>
-              {#each tag_options as tag (tag)}
-                <option value={tag}>{tag}</option>
-              {/each}
-            </select>
-          {:else if clause.kind === "path"}
+          {#if clause.due.kind === "next_days"}
+            <input
+              class="TaskQueryBuilder__input TaskQueryBuilder__days"
+              type="number"
+              min="1"
+              bind:value={clause.due.days}
+            />
+          {:else if clause.due.kind === "before" || clause.due.kind === "after" || clause.due.kind === "on"}
             <input
               class="TaskQueryBuilder__input"
-              type="text"
-              placeholder="path includes…"
-              bind:value={clause.text}
+              type="date"
+              bind:value={clause.due.date}
             />
-          {:else if clause.kind === "text"}
-            <input
-              class="TaskQueryBuilder__input"
-              type="text"
-              placeholder="text includes…"
-              bind:value={clause.text}
-            />
-          {:else if clause.kind === "section"}
-            <select bind:value={clause.match} class="TaskQueryBuilder__select">
-              {#each ["is", "under"] as const as m (m)}
-                <option value={m}>{m}</option>
-              {/each}
-            </select>
-            <input
-              class="TaskQueryBuilder__input"
-              type="text"
-              placeholder="heading"
-              bind:value={clause.heading}
-            />
-            {#if clause.match === "under"}
-              <label class="TaskQueryBuilder__check">
-                <input
-                  type="checkbox"
-                  checked={clause.include_subheadings !== false}
-                  onchange={(e) => {
-                    if (clause.kind === "section")
-                      clause.include_subheadings = e.currentTarget.checked;
-                  }}
-                />
-                subheadings
-              </label>
-            {/if}
           {/if}
-
-          <button
-            type="button"
-            class="TaskQueryBuilder__remove"
-            onclick={() => remove_clause(i)}
-            disabled={clauses.length === 1}
-            title="Remove clause"
-          >
-            ×
-          </button>
-        </div>
-      {/each}
-
-      {#each sort as row, i (i)}
-        <div class="TaskQueryBuilder__row">
-          <span class="TaskQueryBuilder__label">sort by</span>
-          <select bind:value={row.property} class="TaskQueryBuilder__select">
-            {#each sort_props as p (p)}
-              <option value={p}>{p}</option>
+        {:else if clause.kind === "tag"}
+          <select bind:value={clause.tag} class="TaskQueryBuilder__select">
+            <option value="" disabled>Select tag…</option>
+            {#each tag_options as tag (tag)}
+              <option value={tag}>{tag}</option>
             {/each}
           </select>
-          <label class="TaskQueryBuilder__check">
-            <input type="checkbox" bind:checked={row.descending} />
-            desc
-          </label>
-          <button
-            type="button"
-            class="TaskQueryBuilder__remove"
-            onclick={() => remove_sort(i)}
-            title="Remove sort"
-          >
-            ×
-          </button>
-        </div>
-      {/each}
+        {:else if clause.kind === "path"}
+          <input
+            class="TaskQueryBuilder__input"
+            type="text"
+            placeholder="path includes…"
+            bind:value={clause.text}
+          />
+        {:else if clause.kind === "text"}
+          <input
+            class="TaskQueryBuilder__input"
+            type="text"
+            placeholder="text includes…"
+            bind:value={clause.text}
+          />
+        {:else if clause.kind === "section"}
+          <select bind:value={clause.match} class="TaskQueryBuilder__select">
+            {#each ["is", "under"] as const as m (m)}
+              <option value={m}>{m}</option>
+            {/each}
+          </select>
+          <input
+            class="TaskQueryBuilder__input"
+            type="text"
+            placeholder="heading"
+            bind:value={clause.heading}
+          />
+          {#if clause.match === "under"}
+            <label class="TaskQueryBuilder__check">
+              <input
+                type="checkbox"
+                checked={clause.include_subheadings !== false}
+                onchange={(e) => {
+                  if (clause.kind === "section")
+                    clause.include_subheadings = e.currentTarget.checked;
+                }}
+              />
+              subheadings
+            </label>
+          {/if}
+        {/if}
 
-      <label class="TaskQueryBuilder__group">
-        <span>Group by</span>
-        <select bind:value={group_by} class="TaskQueryBuilder__select">
-          {#each group_props as p (p)}
+        <button
+          type="button"
+          class="TaskQueryBuilder__remove"
+          onclick={() => remove_clause(i)}
+          disabled={clauses.length === 1}
+          title="Remove clause"
+        >
+          ×
+        </button>
+      </div>
+    {/each}
+
+    {#each sort as row, i (i)}
+      <div class="TaskQueryBuilder__row">
+        <span class="TaskQueryBuilder__label">sort by</span>
+        <select bind:value={row.property} class="TaskQueryBuilder__select">
+          {#each sort_props as p (p)}
             <option value={p}>{p}</option>
           {/each}
         </select>
-      </label>
-
-      <div class="TaskQueryBuilder__actions">
+        <label class="TaskQueryBuilder__check">
+          <input type="checkbox" bind:checked={row.descending} />
+          desc
+        </label>
         <button
           type="button"
-          class="TaskQueryBuilder__add"
-          onclick={add_clause}
+          class="TaskQueryBuilder__remove"
+          onclick={() => remove_sort(i)}
+          title="Remove sort"
         >
-          + clause
-        </button>
-        <button type="button" class="TaskQueryBuilder__add" onclick={add_sort}>
-          + sort
-        </button>
-        <button
-          type="button"
-          class="TaskQueryBuilder__insert"
-          onclick={insert}
-          disabled={!valid}
-        >
-          Insert
+          ×
         </button>
       </div>
+    {/each}
+
+    <label class="TaskQueryBuilder__group">
+      <span>Group by</span>
+      <select bind:value={group_by} class="TaskQueryBuilder__select">
+        {#each group_props as p (p)}
+          <option value={p}>{p}</option>
+        {/each}
+      </select>
+    </label>
+
+    <div class="TaskQueryBuilder__actions">
+      <button type="button" class="TaskQueryBuilder__add" onclick={add_clause}>
+        + clause
+      </button>
+      <button type="button" class="TaskQueryBuilder__add" onclick={add_sort}>
+        + sort
+      </button>
+      <button
+        type="button"
+        class="TaskQueryBuilder__insert"
+        onclick={insert}
+        disabled={!valid}
+      >
+        Insert
+      </button>
     </div>
-  {/if}
+  </div>
 </div>
 
 <style>
@@ -319,19 +297,6 @@
     flex-direction: column;
     gap: var(--space-1);
     flex-shrink: 0;
-  }
-
-  .TaskQueryBuilder__toggle {
-    align-self: flex-start;
-    font-size: var(--text-xs);
-    color: var(--muted-foreground);
-    padding: var(--space-0-5) var(--space-1);
-    border-radius: var(--radius-sm);
-  }
-
-  .TaskQueryBuilder__toggle:hover {
-    background-color: var(--accent);
-    color: var(--accent-foreground);
   }
 
   .TaskQueryBuilder__body {

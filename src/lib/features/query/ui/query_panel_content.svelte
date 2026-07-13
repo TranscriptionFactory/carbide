@@ -37,20 +37,18 @@
   );
   const save_pending = $derived(save_op.status === "pending");
 
-  const suggest = new DslSuggestController({
-    provider: suggest_query,
-    get_ctx,
-    apply: apply_suggestion,
+  const suggest_ctx: DslContext = $derived({
+    tags: stores.tag.tags.map((t) => t.tag),
+    note_names: stores.notes.notes.map((n) => n.name),
+    folder_paths: stores.notes.folder_paths,
+    property_names: stores.bases.available_properties.map((p) => p.name),
   });
 
-  function get_ctx(): DslContext {
-    return {
-      tags: stores.tag.tags.map((t) => t.tag),
-      note_names: stores.notes.notes.map((n) => n.name),
-      folder_paths: stores.notes.folder_paths,
-      property_names: stores.bases.available_properties.map((p) => p.name),
-    };
-  }
+  const suggest = new DslSuggestController({
+    provider: suggest_query,
+    get_ctx: () => suggest_ctx,
+    apply: apply_suggestion,
+  });
 
   async function apply_suggestion(from: number, insert: string) {
     const el = input_el;

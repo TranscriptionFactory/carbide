@@ -44,7 +44,12 @@ export function suggest_base_spec(
   if (key === "view") {
     return {
       from: from_base,
-      items: filter_dsl_suggestions([...VIEW_MODES], partial, (v) => v, "view mode"),
+      items: filter_dsl_suggestions(
+        [...VIEW_MODES],
+        partial,
+        (v) => v,
+        "view mode",
+      ),
     };
   }
 
