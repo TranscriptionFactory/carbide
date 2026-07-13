@@ -47,8 +47,38 @@
       ? "Ask anything — vault is still indexing, answers may be incomplete…"
       : readiness_state === "checking"
         ? "Checking vault index…"
-        : "Ask anything about your vault…",
+        : "",
   );
+
+  const EXAMPLE_PROMPTS = [
+    "Ask anything about your vault…",
+    "What are the main themes across my recent notes?",
+    "Summarize everything I've written about this project",
+    "What open questions did I leave in my meeting notes?",
+    "Find connections between my reading notes and my drafts",
+  ];
+
+  let example_index = $state(0);
+  let example_visible = $state(true);
+  const show_examples = $derived(readiness_state === "ready" && value === "");
+
+  $effect(() => {
+    if (!show_examples) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    let fade_timer: ReturnType<typeof setTimeout> | undefined;
+    const interval = setInterval(() => {
+      example_visible = false;
+      fade_timer = setTimeout(() => {
+        example_index = (example_index + 1) % EXAMPLE_PROMPTS.length;
+        example_visible = true;
+      }, 500);
+    }, 5200);
+    return () => {
+      clearInterval(interval);
+      if (fade_timer) clearTimeout(fade_timer);
+      example_visible = true;
+    };
+  });
 
   function submit() {
     if (!can_submit) return;
@@ -65,13 +95,24 @@
 </script>
 
 <div class="flex flex-col gap-2 border-t p-2">
-  <Textarea
-    bind:value
-    rows={2}
-    {placeholder}
-    onkeydown={on_keydown}
-    class="resize-none text-sm"
-  />
+  <div class="relative">
+    <Textarea
+      bind:value
+      rows={2}
+      {placeholder}
+      onkeydown={on_keydown}
+      class="resize-none text-sm"
+    />
+    {#if show_examples}
+      <span
+        class="pointer-events-none absolute left-3 top-2 pr-3 text-sm text-muted-foreground transition-opacity duration-500"
+        class:opacity-0={!example_visible}
+        aria-hidden="true"
+      >
+        {EXAMPLE_PROMPTS[example_index]}
+      </span>
+    {/if}
+  </div>
   <RagScopeBar {scope} {folder_paths} {tags} {saved_views} {on_scope_change} />
   <div class="flex items-center justify-between gap-2">
     <Select.Root

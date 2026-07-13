@@ -25,8 +25,7 @@ function display_name(
   probes: ReadonlyMap<string, AiProviderProbeState>,
 ): string {
   const entry = probes.get(provider.id);
-  const version =
-    entry?.state === "done" ? entry.probe.version : null;
+  const version = entry?.state === "done" ? entry.probe.version : null;
   return version ? `${provider.name} ${version}` : provider.name;
 }
 
