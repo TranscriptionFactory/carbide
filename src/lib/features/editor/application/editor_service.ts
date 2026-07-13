@@ -963,6 +963,7 @@ export class EditorService {
     });
   }
 
+  // memo is cleared on suggest dismiss, bounding staleness to one suggest session
   private get_dsl_context(vault_id: VaultId): Promise<DslContext> {
     if (this.dsl_ctx_memo?.vault_id === vault_id) {
       return this.dsl_ctx_memo.ctx;
@@ -1005,7 +1006,11 @@ export class EditorService {
         language === "query"
           ? suggest_query(query, ctx)
           : suggest_base_spec(query, ctx);
-      this.session?.set_dsl_suggestions?.(language, result.items, result.from);
+      this.session?.set_dsl_suggestions?.(
+        language,
+        result.items.slice(0, 20),
+        result.from,
+      );
     });
   }
 
@@ -1226,12 +1231,14 @@ export class EditorService {
         this.handle_dsl_suggest_query(generation, "query", query);
       };
       events.on_dsl_query_dismiss = () => {
+        this.dsl_ctx_memo = null;
         this.session?.set_dsl_suggestions?.("query", [], 0);
       };
       events.on_dsl_base_suggest = (query: string) => {
         this.handle_dsl_suggest_query(generation, "base", query);
       };
       events.on_dsl_base_dismiss = () => {
+        this.dsl_ctx_memo = null;
         this.session?.set_dsl_suggestions?.("base", [], 0);
       };
     }

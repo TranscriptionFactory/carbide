@@ -1,7 +1,8 @@
-import type {
-  DslContext,
-  DslSuggestResult,
-  DslSuggestion,
+import {
+  filter_dsl_suggestions,
+  type DslContext,
+  type DslSuggestResult,
+  type DslSuggestion,
 } from "$lib/shared/types/dsl_suggestion";
 import { CLAUSE_KEYWORDS, FORMS, PROPERTY_OPERATORS } from "./query_parser";
 
@@ -112,35 +113,14 @@ function scan(text: string): ScanState {
   };
 }
 
-function items_from(
-  values: string[],
-  partial: string,
-  wrap: (v: string) => string,
-  detail?: string,
-): DslSuggestion[] {
-  const lower = partial.toLowerCase();
-  return values
-    .filter((v) => v.toLowerCase().startsWith(lower))
-    .map((v) =>
-      detail === undefined
-        ? { label: v, insert: wrap(v) }
-        : { label: v, insert: wrap(v), detail },
-    );
-}
+const items_from = filter_dsl_suggestions;
 
 function keyword_items(
   words: string[],
   partial: string,
   detail?: string,
 ): DslSuggestion[] {
-  const lower = partial.toLowerCase();
-  return words
-    .filter((w) => w.toLowerCase().startsWith(lower))
-    .map((w) =>
-      detail === undefined
-        ? { label: w, insert: w }
-        : { label: w, insert: w, detail },
-    );
+  return filter_dsl_suggestions(words, partial, undefined, detail);
 }
 
 function unbalanced_closers(state: ScanState): DslSuggestion[] {
@@ -276,7 +256,7 @@ function positional_items(
     return keyword_items(["from"], partial, "linked from");
   }
 
-  if (lower === "from" && prev_is_linked_from(state)) {
+  if (lower === "from" && state.clause === "linked") {
     return items_from(ctx.note_names ?? [], partial, (v) => `[[${v}]]`, "note");
   }
 
@@ -288,8 +268,4 @@ function positional_items(
   }
 
   return [...keyword_items(JOIN_WORDS, partial, "join"), ...closers];
-}
-
-function prev_is_linked_from(state: ScanState): boolean {
-  return state.clause === "linked";
 }

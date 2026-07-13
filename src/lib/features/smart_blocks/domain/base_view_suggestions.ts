@@ -1,7 +1,7 @@
-import type {
-  DslContext,
-  DslSuggestResult,
-  DslSuggestion,
+import {
+  filter_dsl_suggestions,
+  type DslContext,
+  type DslSuggestResult,
 } from "$lib/shared/types/dsl_suggestion";
 import { suggest_query } from "$lib/features/query";
 import { VIEW_MODES } from "$lib/features/bases";
@@ -11,22 +11,6 @@ const KEYS = ["view", "query", "group_by", "date_property"];
 function line_bounds(text: string): { start: number; line: string } {
   const start = text.lastIndexOf("\n") + 1;
   return { start, line: text.slice(start) };
-}
-
-function filter_prefix(
-  values: string[],
-  partial: string,
-  wrap: (v: string) => string,
-  detail?: string,
-): DslSuggestion[] {
-  const lower = partial.toLowerCase();
-  return values
-    .filter((v) => v.toLowerCase().startsWith(lower))
-    .map((v) =>
-      detail === undefined
-        ? { label: v, insert: wrap(v) }
-        : { label: v, insert: wrap(v), detail },
-    );
 }
 
 export function suggest_base_spec(
@@ -41,7 +25,7 @@ export function suggest_base_spec(
     const from = start + (line.length - partial.length);
     return {
       from,
-      items: filter_prefix(KEYS, partial, (v) => `${v}: `, "field"),
+      items: filter_dsl_suggestions(KEYS, partial, (v) => `${v}: `, "field"),
     };
   }
 
@@ -60,14 +44,14 @@ export function suggest_base_spec(
   if (key === "view") {
     return {
       from: from_base,
-      items: filter_prefix([...VIEW_MODES], partial, (v) => v, "view mode"),
+      items: filter_dsl_suggestions([...VIEW_MODES], partial, (v) => v, "view mode"),
     };
   }
 
   if (key === "group_by" || key === "date_property") {
     return {
       from: from_base,
-      items: filter_prefix(
+      items: filter_dsl_suggestions(
         ctx.property_names ?? [],
         partial,
         (v) => v,

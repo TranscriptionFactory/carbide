@@ -57,7 +57,6 @@ function follow_set(tokens: string[], ctx: DslContext): DslSuggestion[] {
       case "path":
       case "section":
       case "text":
-        return plain(["includes"]);
       case "tag":
         return plain(["includes"]);
       case "due":

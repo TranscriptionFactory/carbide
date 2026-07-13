@@ -5,6 +5,8 @@ import type {
   DslSuggestProvider,
 } from "$lib/shared/types/dsl_suggestion";
 
+const MAX_ITEMS = 20;
+
 type Options = {
   provider: DslSuggestProvider;
   get_ctx: () => DslContext;
@@ -30,7 +32,7 @@ export class DslSuggestController {
 
   update(text_before_cursor: string) {
     const result = this.provider(text_before_cursor, this.get_ctx());
-    this.items = result.items;
+    this.items = result.items.slice(0, MAX_ITEMS);
     this.from = result.from;
     this.partial = text_before_cursor.slice(result.from);
     this.selected_index = 0;

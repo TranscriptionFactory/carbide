@@ -21,17 +21,6 @@ export type DslSuggestPluginConfig = {
   on_dismiss: () => void;
 };
 
-function extract_dsl_query(text_before: string): {
-  query: string;
-  from_offset: number;
-} {
-  const token_match = text_before.match(/\S+$/);
-  const from_offset = token_match
-    ? text_before.length - token_match[0].length
-    : text_before.length;
-  return { query: text_before, from_offset };
-}
-
 function render_items(
   dropdown: HTMLElement,
   items: DslItem[],
@@ -75,10 +64,9 @@ export function create_dsl_suggest_prose_plugin(
     key,
     class_name: "DslSuggest",
     code_block_languages: [config.language],
-    extract(text_before) {
-      const { query, from_offset } = extract_dsl_query(text_before);
-      return { query, from_offset };
-    },
+    // replacement position comes from the provider via per-item from_offset;
+    // the factory's from_offset only keys dismissal dedup, where query suffices
+    extract: (text_before) => ({ query: text_before, from_offset: 0 }),
     render_items,
     accept(view, item) {
       const block_start = view.state.selection.$from.start();
@@ -108,10 +96,7 @@ export function create_dsl_suggest_prose_plugin(
     on_query: config.on_query,
     on_dismiss: config.on_dismiss,
     handle_tab(view, state, accept_fn) {
-      if (state.items.length >= 1) {
-        accept_fn(view, state.selected_index);
-        return true;
-      }
+      accept_fn(view, state.selected_index);
       return true;
     },
   });
