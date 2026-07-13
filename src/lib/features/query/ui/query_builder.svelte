@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { untrack } from "svelte";
   import { use_app_context } from "$lib/app/context/app_context.svelte";
   import FolderSuggestInput from "$lib/components/ui/folder_suggest_input.svelte";
   import {
@@ -10,13 +9,13 @@
     type QueryBuilderSpec,
   } from "../domain/query_builder";
   import type { JoinOp, QueryForm } from "../types";
+  import { PROPERTY_OPERATORS } from "../domain/query_parser";
 
   type Props = {
     on_insert: (text: string) => void;
-    collapsed?: boolean;
   };
 
-  let { on_insert, collapsed = false }: Props = $props();
+  let { on_insert }: Props = $props();
 
   const { stores } = use_app_context();
 
@@ -28,20 +27,11 @@
     "linked_from",
     "property",
   ];
-  const operators: PropertyOperator[] = [
-    "=",
-    "!=",
-    ">",
-    "<",
-    ">=",
-    "<=",
-    "contains",
-  ];
+  const operators = PROPERTY_OPERATORS as readonly PropertyOperator[];
 
   const tag_options = $derived(stores.tag.tags.map((t) => t.tag));
   const folder_paths = $derived(stores.notes.folder_paths);
 
-  let open = $state(untrack(() => !collapsed));
   let form = $state<QueryForm>("notes");
   let clauses = $state<QueryBuilderClauseEntry[]>([
     { clause: { kind: "named", name: "" } },
@@ -107,139 +97,125 @@
 </script>
 
 <div class="QueryBuilder">
-  <button
-    type="button"
-    class="QueryBuilder__toggle"
-    onclick={() => (open = !open)}
-  >
-    {open ? "▾" : "▸"} Builder
-  </button>
+  <div class="QueryBuilder__body">
+    <label class="QueryBuilder__form">
+      <span>Form</span>
+      <select bind:value={form} class="QueryBuilder__select">
+        {#each forms as f (f)}
+          <option value={f}>{f}</option>
+        {/each}
+      </select>
+    </label>
 
-  {#if open}
-    <div class="QueryBuilder__body">
-      <label class="QueryBuilder__form">
-        <span>Form</span>
-        <select bind:value={form} class="QueryBuilder__select">
-          {#each forms as f (f)}
-            <option value={f}>{f}</option>
-          {/each}
-        </select>
-      </label>
-
-      {#each clauses as entry, i (i)}
-        <div class="QueryBuilder__row">
-          {#if i > 0}
-            <select
-              bind:value={entry.connective}
-              class="QueryBuilder__select QueryBuilder__connective"
-            >
-              {#each ["and", "or"] as const as op (op)}
-                <option value={op}>{op}</option>
-              {/each}
-            </select>
-          {/if}
-
-          <label class="QueryBuilder__negate">
-            <input type="checkbox" bind:checked={entry.clause.negated} />
-            not
-          </label>
-
+    {#each clauses as entry, i (i)}
+      <div class="QueryBuilder__row">
+        {#if i > 0}
           <select
-            class="QueryBuilder__select"
-            value={entry.clause.kind}
-            onchange={(e) =>
-              change_kind(
-                i,
-                e.currentTarget.value as QueryBuilderClause["kind"],
-              )}
+            bind:value={entry.connective}
+            class="QueryBuilder__select QueryBuilder__connective"
           >
-            {#each clause_kinds as kind (kind)}
-              <option value={kind}>{kind}</option>
+            {#each ["and", "or"] as const as op (op)}
+              <option value={op}>{op}</option>
             {/each}
           </select>
+        {/if}
 
-          {#if entry.clause.kind === "named"}
-            <input
-              class="QueryBuilder__input"
-              type="text"
-              placeholder="name"
-              bind:value={entry.clause.name}
-            />
-          {:else if entry.clause.kind === "tag"}
-            <select bind:value={entry.clause.tag} class="QueryBuilder__select">
-              <option value="" disabled>Select tag…</option>
-              {#each tag_options as tag (tag)}
-                <option value={tag}>{tag}</option>
-              {/each}
-            </select>
-          {:else if entry.clause.kind === "folder"}
-            <div class="QueryBuilder__grow">
-              <FolderSuggestInput
-                value={entry.clause.folder}
-                {folder_paths}
-                on_change={(path) => {
-                  if (entry.clause.kind === "folder")
-                    entry.clause.folder = path;
-                }}
-              />
-            </div>
-          {:else if entry.clause.kind === "linked_from"}
-            <input
-              class="QueryBuilder__input"
-              type="text"
-              placeholder="note name"
-              bind:value={entry.clause.note}
-            />
-          {:else if entry.clause.kind === "property"}
-            <input
-              class="QueryBuilder__input QueryBuilder__prop"
-              type="text"
-              placeholder="property"
-              bind:value={entry.clause.property}
-            />
-            <select
-              bind:value={entry.clause.operator}
-              class="QueryBuilder__select"
-            >
-              {#each operators as op (op)}
-                <option value={op}>{op}</option>
-              {/each}
-            </select>
-            <input
-              class="QueryBuilder__input"
-              type="text"
-              placeholder="value"
-              bind:value={entry.clause.value}
-            />
-          {/if}
+        <label class="QueryBuilder__negate">
+          <input type="checkbox" bind:checked={entry.clause.negated} />
+          not
+        </label>
 
-          <button
-            type="button"
-            class="QueryBuilder__remove"
-            onclick={() => remove_clause(i)}
-            disabled={clauses.length === 1}
-            title="Remove clause"
+        <select
+          class="QueryBuilder__select"
+          value={entry.clause.kind}
+          onchange={(e) =>
+            change_kind(i, e.currentTarget.value as QueryBuilderClause["kind"])}
+        >
+          {#each clause_kinds as kind (kind)}
+            <option value={kind}>{kind}</option>
+          {/each}
+        </select>
+
+        {#if entry.clause.kind === "named"}
+          <input
+            class="QueryBuilder__input"
+            type="text"
+            placeholder="name"
+            bind:value={entry.clause.name}
+          />
+        {:else if entry.clause.kind === "tag"}
+          <select bind:value={entry.clause.tag} class="QueryBuilder__select">
+            <option value="" disabled>Select tag…</option>
+            {#each tag_options as tag (tag)}
+              <option value={tag}>{tag}</option>
+            {/each}
+          </select>
+        {:else if entry.clause.kind === "folder"}
+          <div class="QueryBuilder__grow">
+            <FolderSuggestInput
+              value={entry.clause.folder}
+              {folder_paths}
+              on_change={(path) => {
+                if (entry.clause.kind === "folder") entry.clause.folder = path;
+              }}
+            />
+          </div>
+        {:else if entry.clause.kind === "linked_from"}
+          <input
+            class="QueryBuilder__input"
+            type="text"
+            placeholder="note name"
+            bind:value={entry.clause.note}
+          />
+        {:else if entry.clause.kind === "property"}
+          <input
+            class="QueryBuilder__input QueryBuilder__prop"
+            type="text"
+            placeholder="property"
+            bind:value={entry.clause.property}
+          />
+          <select
+            bind:value={entry.clause.operator}
+            class="QueryBuilder__select"
           >
-            ×
-          </button>
-        </div>
-      {/each}
+            {#each operators as op (op)}
+              <option value={op}>{op}</option>
+            {/each}
+          </select>
+          <input
+            class="QueryBuilder__input"
+            type="text"
+            placeholder="value"
+            bind:value={entry.clause.value}
+          />
+        {/if}
 
-      <div class="QueryBuilder__actions">
-        <button type="button" class="QueryBuilder__add" onclick={add_clause}>
-          + clause
-        </button>
         <button
           type="button"
-          class="QueryBuilder__insert"
-          onclick={insert}
-          disabled={!valid}
+          class="QueryBuilder__remove"
+          onclick={() => remove_clause(i)}
+          disabled={clauses.length === 1}
+          title="Remove clause"
         >
-          Insert
+          ×
         </button>
       </div>
+    {/each}
+
+    <div class="QueryBuilder__actions">
+      <button type="button" class="QueryBuilder__add" onclick={add_clause}>
+        + clause
+      </button>
+      <button
+        type="button"
+        class="QueryBuilder__insert"
+        onclick={insert}
+        disabled={!valid}
+      >
+        Insert
+      </button>
     </div>
-  {/if}
+  </div>
 </div>
 
 <style>
@@ -248,19 +224,6 @@
     flex-direction: column;
     gap: var(--space-1);
     flex-shrink: 0;
-  }
-
-  .QueryBuilder__toggle {
-    align-self: flex-start;
-    font-size: var(--text-xs);
-    color: var(--muted-foreground);
-    padding: var(--space-0-5) var(--space-1);
-    border-radius: var(--radius-sm);
-  }
-
-  .QueryBuilder__toggle:hover {
-    background-color: var(--accent);
-    color: var(--accent-foreground);
   }
 
   .QueryBuilder__body {

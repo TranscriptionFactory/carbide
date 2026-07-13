@@ -38,9 +38,11 @@
 
   let dslTextarea = $state<HTMLTextAreaElement | null>(null);
 
+  const suggest_tags = $derived(tagStore.tags.map((t) => t.tag));
+
   const suggest = new DslSuggestController({
     provider: suggest_task_query,
-    get_ctx: () => ({ tags: tagStore.tags.map((t) => t.tag) }),
+    get_ctx: () => ({ tags: suggest_tags }),
     apply: async (from, insert) => {
       const el = dslTextarea;
       if (!el) return;
@@ -53,25 +55,10 @@
     },
   });
 
-  const NAV_KEYS = new Set([
-    "ArrowUp",
-    "ArrowDown",
-    "ArrowLeft",
-    "ArrowRight",
-    "Enter",
-    "Escape",
-    "Tab",
-  ]);
-
   function dsl_suggest_update() {
     const el = dslTextarea;
     if (!el) return;
     suggest.update(el.value.slice(0, el.selectionStart));
-  }
-
-  function dsl_keyup(e: KeyboardEvent) {
-    if (NAV_KEYS.has(e.key)) return;
-    dsl_suggest_update();
   }
 
   function dsl_keydown(e: KeyboardEvent) {
@@ -300,7 +287,6 @@
               placeholder="status is todo&#10;due this week&#10;sort by due_date"
               bind:value={taskStore.queryText}
               oninput={dsl_suggest_update}
-              onkeyup={dsl_keyup}
               onclick={dsl_suggest_update}
               onkeydown={dsl_keydown}
               onblur={() => suggest.close()}
