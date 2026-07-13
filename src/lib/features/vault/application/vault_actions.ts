@@ -6,6 +6,7 @@ import { PAGE_SIZE } from "$lib/shared/constants/pagination";
 import type { EditorSettings } from "$lib/shared/types/editor_settings";
 import type { VaultId } from "$lib/shared/types/ids";
 import { toast } from "svelte-sonner";
+import { announce } from "$lib/shared/a11y/live_announcer.svelte";
 
 async function apply_opened_vault(
   input: ActionRegistrationInput,
@@ -456,6 +457,7 @@ export function register_vault_actions(input: ActionRegistrationInput) {
     when: () => stores.vault.is_vault_mode,
     execute: async () => {
       await services.search.rebuild_all_embeddings();
+      announce("Embedding index rebuild complete");
     },
   });
 }

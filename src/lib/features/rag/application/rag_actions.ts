@@ -2,6 +2,7 @@ import { toast } from "svelte-sonner";
 import type { ActionRegistrationInput } from "$lib/app";
 import { ACTION_IDS } from "$lib/app";
 import { error_message } from "$lib/shared/utils/error_message";
+import { announce } from "$lib/shared/a11y/live_announcer.svelte";
 import { collect_open_note_image_parts } from "$lib/features/ai";
 import type { AiProviderConfig } from "$lib/shared/types/ai_provider_config";
 import type { RagStore } from "$lib/features/rag/state/rag_store.svelte";
@@ -120,6 +121,7 @@ export function register_rag_actions(
           rag_store.finish_streaming();
           stores.op.succeed(RAG_OP_KEY);
           persist_session(rag_store.active_id);
+          announce("Vault chat reply ready");
         }
       } catch (err) {
         if (revision !== rag_store.revision) return;
