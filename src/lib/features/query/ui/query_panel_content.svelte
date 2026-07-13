@@ -6,6 +6,7 @@
   import { suggest_query } from "../domain/query_suggestions";
   import { DslSuggestController } from "$lib/components/ui/dsl_suggest.svelte";
   import DslSuggestDropdown from "$lib/components/ui/dsl_suggest_dropdown.svelte";
+  import QueryBuilder from "./query_builder.svelte";
   import type { DslContext } from "$lib/shared/types/dsl_suggestion";
   import QueryResultList from "./query_result_list.svelte";
   import QueryResultCards from "./query_result_cards.svelte";
@@ -23,6 +24,7 @@
   let input_el = $state<HTMLInputElement | null>(null);
   let save_name = $state("");
   let show_save_input = $state(false);
+  let show_builder = $state(false);
   let view_mode: ResultViewMode = $state("list");
   const status = $derived(stores.query.status);
   const result = $derived(stores.query.result);
@@ -189,7 +191,20 @@
     >
       Save
     </button>
+    <button
+      type="button"
+      class="QueryPanel__save-btn"
+      class:QueryPanel__save-btn--active={show_builder}
+      onclick={() => (show_builder = !show_builder)}
+      title="Query builder"
+    >
+      Builder
+    </button>
   </div>
+
+  {#if show_builder}
+    <QueryBuilder on_insert={(text) => (input_value = text)} />
+  {/if}
 
   {#if show_save_input}
     <div class="QueryPanel__save-row">
@@ -360,6 +375,11 @@
 
   .QueryPanel__save-btn:disabled {
     opacity: 0.4;
+  }
+
+  .QueryPanel__save-btn--active {
+    background-color: var(--muted);
+    color: var(--foreground);
   }
 
   .QueryPanel__save-row {
