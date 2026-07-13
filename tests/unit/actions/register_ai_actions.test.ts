@@ -78,7 +78,7 @@ function create_harness() {
     reference: {} as any,
   };
   const ai_service = {
-    check_availability: vi.fn().mockResolvedValue(true),
+    detect: vi.fn().mockResolvedValue(probe("present")),
     execute: vi.fn(),
   };
 
@@ -100,6 +100,10 @@ function create_harness() {
   return { registry, stores, services, ai_store, ai_service };
 }
 
+function probe(status: "present" | "missing" | "unknown") {
+  return { status, resolved_path: null, version: null, error: null };
+}
+
 describe("register_ai_actions", () => {
   it("does not open or execute AI when AI is disabled", async () => {
     const { registry, stores, ai_store, ai_service } = create_harness();
@@ -110,7 +114,7 @@ describe("register_ai_actions", () => {
 
     expect(ai_store.dialog.open).toBe(false);
     expect(stores.ui.bottom_panel_open).toBe(false);
-    expect(ai_service.check_availability).not.toHaveBeenCalled();
+    expect(ai_service.detect).not.toHaveBeenCalled();
     expect(ai_service.execute).not.toHaveBeenCalled();
     expect(toast.info).toHaveBeenCalledWith(
       "AI Assistant is disabled in settings",
@@ -125,7 +129,7 @@ describe("register_ai_actions", () => {
     expect(stores.ui.bottom_panel_open).toBe(true);
     expect(stores.ui.bottom_panel_tab).toBe("ai");
     expect(ai_store.dialog.open).toBe(true);
-    expect(ai_service.check_availability).toHaveBeenCalledWith(
+    expect(ai_service.detect).toHaveBeenCalledWith(
       expect.objectContaining({ id: "claude" }),
     );
   });
@@ -137,27 +141,27 @@ describe("register_ai_actions", () => {
     await registry.execute(ACTION_IDS.ai_open_assistant);
 
     expect(ai_store.dialog.provider_id).toBe("codex");
-    expect(ai_service.check_availability).toHaveBeenCalledWith(
+    expect(ai_service.detect).toHaveBeenCalledWith(
       expect.objectContaining({ id: "codex" }),
     );
   });
 
   it("auto-selects the first available provider", async () => {
     const { registry, ai_store, ai_service } = create_harness();
-    ai_service.check_availability = vi
+    ai_service.detect = vi
       .fn()
-      .mockResolvedValueOnce(false)
-      .mockResolvedValueOnce(true);
+      .mockResolvedValueOnce(probe("missing"))
+      .mockResolvedValueOnce(probe("present"));
 
     await registry.execute(ACTION_IDS.ai_open_assistant);
 
     expect(ai_store.dialog.provider_id).toBe("codex");
     expect(ai_store.dialog.cli_status).toBe("available");
-    expect(ai_service.check_availability).toHaveBeenNthCalledWith(
+    expect(ai_service.detect).toHaveBeenNthCalledWith(
       1,
       expect.objectContaining({ id: "claude" }),
     );
-    expect(ai_service.check_availability).toHaveBeenNthCalledWith(
+    expect(ai_service.detect).toHaveBeenNthCalledWith(
       2,
       expect.objectContaining({ id: "codex" }),
     );
@@ -165,7 +169,7 @@ describe("register_ai_actions", () => {
 
   it("shows a generic setup error when auto-select cannot find any provider", async () => {
     const { registry, ai_store, ai_service } = create_harness();
-    ai_service.check_availability = vi.fn().mockResolvedValue(false);
+    ai_service.detect = vi.fn().mockResolvedValue(probe("missing"));
 
     await registry.execute(ACTION_IDS.ai_open_assistant);
 
@@ -181,7 +185,7 @@ describe("register_ai_actions", () => {
     await registry.execute(ACTION_IDS.ai_update_provider, "ollama");
 
     expect(ai_store.dialog.provider_id).toBe("ollama");
-    expect(ai_service.check_availability).toHaveBeenCalledWith(
+    expect(ai_service.detect).toHaveBeenCalledWith(
       expect.objectContaining({ id: "ollama" }),
     );
   });
@@ -277,7 +281,7 @@ describe("register_ai_actions", () => {
       output: "# Updated",
       error: null,
     });
-    expect(ai_service.check_availability).toHaveBeenCalledTimes(1);
+    expect(ai_service.detect).toHaveBeenCalledTimes(1);
   });
 
   it("preserves result and turns when switching providers", async () => {

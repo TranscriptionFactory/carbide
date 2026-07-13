@@ -1,5 +1,6 @@
 import type {
   AiCliCheckRequest,
+  AiCliProbe,
   AiExecutionResult,
   AiPortExecuteRequest,
 } from "$lib/features/ai/domain/ai_types";
@@ -10,6 +11,7 @@ import type {
 
 export interface AiPort {
   check_cli(input: AiCliCheckRequest): Promise<boolean>;
+  detect_cli(input: AiCliCheckRequest): Promise<AiCliProbe>;
   execute(input: AiPortExecuteRequest): Promise<AiExecutionResult>;
 }
 

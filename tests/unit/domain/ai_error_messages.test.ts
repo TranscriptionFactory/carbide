@@ -31,6 +31,37 @@ describe("humanize_ai_error", () => {
     expect(result.message).toContain("CLI not found — install it");
   });
 
+  it("maps not-executable errors to a chmod hint", () => {
+    const result = humanize_ai_error(
+      "Claude Code: /home/u/bin/claude found but not executable",
+      cli_provider,
+    );
+    expect(result.message).toBe(
+      "Claude Code CLI was found but is not executable — run chmod +x on it or reinstall.",
+    );
+    expect(result.detail).toContain("not executable");
+  });
+
+  it("maps CLI auth failures to a terminal login hint", () => {
+    const result = humanize_ai_error(
+      "Invalid API key · Please run /login",
+      cli_provider,
+    );
+    expect(result.message).toBe(
+      "Claude Code is not signed in — run `claude` in a terminal to log in, then try again.",
+    );
+  });
+
+  it("maps api auth failures to a settings hint", () => {
+    const result = humanize_ai_error(
+      "AI server returned 401 Unauthorized",
+      api_provider,
+    );
+    expect(result.message).toBe(
+      "LM Studio rejected the request — check your API key in Settings.",
+    );
+  });
+
   it("maps connection refused to an unreachable message naming the base URL", () => {
     const result = humanize_ai_error(
       "Could not reach AI server: error sending request: Connection refused (os error 111)",

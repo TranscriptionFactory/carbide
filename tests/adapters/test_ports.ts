@@ -21,6 +21,13 @@ import type { AiPort, AiStreamPort } from "$lib/features/ai";
 function create_test_ai_adapter(): AiPort {
   return {
     check_cli: () => Promise.resolve(true),
+    detect_cli: () =>
+      Promise.resolve({
+        status: "present" as const,
+        resolved_path: null,
+        version: null,
+        error: null,
+      }),
     execute: () =>
       Promise.resolve({
         success: true,

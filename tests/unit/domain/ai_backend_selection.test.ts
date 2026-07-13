@@ -61,36 +61,78 @@ describe("preferred_ai_backend_order", () => {
 });
 
 describe("resolve_auto_ai_backend", () => {
-  it("returns the first available provider in priority order", async () => {
-    const check_availability = vi
+  it("returns the first present provider in priority order", async () => {
+    const detect_status = vi
       .fn()
-      .mockResolvedValueOnce(false)
-      .mockResolvedValueOnce(true);
+      .mockResolvedValueOnce("missing")
+      .mockResolvedValueOnce("present");
 
     const result = await resolve_auto_ai_backend({
       providers: BUILTIN_PROVIDER_PRESETS,
-      check_availability,
+      detect_status,
     });
 
     expect(result?.id).toBe("codex");
-    expect(check_availability).toHaveBeenCalledTimes(2);
-    expect(check_availability.mock.calls[0]![0].id).toBe("claude");
-    expect(check_availability.mock.calls[1]![0].id).toBe("codex");
+    expect(detect_status).toHaveBeenCalledTimes(2);
+    expect(detect_status.mock.calls[0]![0].id).toBe("claude");
+    expect(detect_status.mock.calls[1]![0].id).toBe("codex");
   });
 
-  it("returns null when no provider is available", async () => {
+  it("prefers a later present provider over an earlier unknown one", async () => {
+    const detect_status = vi
+      .fn()
+      .mockResolvedValueOnce("unknown")
+      .mockResolvedValueOnce("present");
+
     const result = await resolve_auto_ai_backend({
       providers: BUILTIN_PROVIDER_PRESETS,
-      check_availability: vi.fn().mockResolvedValue(false),
+      detect_status,
+    });
+
+    expect(result?.id).toBe("codex");
+  });
+
+  it("falls back to the first unknown provider when none are present", async () => {
+    const detect_status = vi
+      .fn()
+      .mockResolvedValueOnce("missing")
+      .mockResolvedValue("unknown");
+
+    const result = await resolve_auto_ai_backend({
+      providers: BUILTIN_PROVIDER_PRESETS,
+      detect_status,
+    });
+
+    expect(result?.id).toBe("codex");
+  });
+
+  it("never selects a missing provider", async () => {
+    const result = await resolve_auto_ai_backend({
+      providers: BUILTIN_PROVIDER_PRESETS,
+      detect_status: vi.fn().mockResolvedValue("missing"),
     });
 
     expect(result).toBeNull();
   });
 
+  it("treats detection errors as unknown", async () => {
+    const detect_status = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("probe failed"))
+      .mockResolvedValue("missing");
+
+    const result = await resolve_auto_ai_backend({
+      providers: BUILTIN_PROVIDER_PRESETS,
+      detect_status,
+    });
+
+    expect(result?.id).toBe("claude");
+  });
+
   it("returns null for empty providers list", async () => {
     const result = await resolve_auto_ai_backend({
       providers: [],
-      check_availability: vi.fn().mockResolvedValue(true),
+      detect_status: vi.fn().mockResolvedValue("present"),
     });
 
     expect(result).toBeNull();

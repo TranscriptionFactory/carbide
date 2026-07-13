@@ -4,6 +4,7 @@ import type { VaultStore } from "$lib/features/vault";
 import type { AiPort, AiStreamPort } from "$lib/features/ai/ports";
 import type { SearchPort } from "$lib/features/search";
 import type {
+  AiCliProbe,
   AiDialogContext,
   AiExecutionResult,
   AiMode,
@@ -44,9 +45,20 @@ export class AiService {
   ) {}
 
   async check_availability(config: AiProviderConfig): Promise<boolean> {
+    return (await this.detect(config)).status === "present";
+  }
+
+  async detect(config: AiProviderConfig): Promise<AiCliProbe> {
     const command = provider_command(config);
-    if (!command) return true;
-    return await this.ai_port.check_cli({ command });
+    if (!command) {
+      return {
+        status: "present",
+        resolved_path: null,
+        version: null,
+        error: null,
+      };
+    }
+    return await this.ai_port.detect_cli({ command });
   }
 
   private async fetch_vault_context(
