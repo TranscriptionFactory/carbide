@@ -23,6 +23,14 @@ export {
 } from "$lib/features/ai/application/note_image_loader";
 export { MarkdownJoiner } from "$lib/features/ai/domain/markdown_joiner";
 export {
+  describe_default_provider,
+  type AiProviderProbeState,
+} from "$lib/features/ai/domain/ai_provider_status";
+export type {
+  AiCliProbe,
+  AiCliProbeStatus,
+} from "$lib/features/ai/domain/ai_types";
+export {
   humanize_ai_error,
   type AiUserError,
 } from "$lib/features/ai/domain/ai_error_messages";
