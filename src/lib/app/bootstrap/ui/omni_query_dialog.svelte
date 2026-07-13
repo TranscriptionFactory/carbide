@@ -3,8 +3,8 @@
   import { Button } from "$lib/components/ui/button";
   import { use_app_context } from "$lib/app/context/app_context.svelte";
   import { ACTION_IDS } from "$lib/app/action_registry/action_ids";
-  import QueryBuilder from "$lib/features/query/ui/query_builder.svelte";
-  import TaskQueryBuilder from "$lib/features/task/ui/task_query_builder.svelte";
+  import { QueryBuilder } from "$lib/features/query";
+  import { TaskQueryBuilder } from "$lib/features/task";
 
   const { stores, action_registry } = use_app_context();
 
