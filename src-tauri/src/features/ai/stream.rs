@@ -240,11 +240,15 @@ pub async fn ai_stream_start(
             .await
             .map_err(|e| e.to_string())?;
 
-            if probe.status == pipeline::CliProbeStatus::Missing {
-                let error = match &probe.error {
-                    Some(detail) if detail.contains("not executable") => {
+            if probe.status != pipeline::CliProbeStatus::Present {
+                let error = match (&probe.status, &probe.error) {
+                    (_, Some(detail)) if detail.contains("not executable") => {
                         format!("{}: {}", provider_config.name, detail)
                     }
+                    (pipeline::CliProbeStatus::Unknown, _) => format!(
+                        "Could not verify the {} CLI — set an absolute command path in AI settings",
+                        provider_config.name
+                    ),
                     _ => format!("{} CLI not found", provider_config.name),
                 };
                 let _ = app.emit(&event_name, AiStreamEvent::Error { error });
@@ -460,9 +464,9 @@ async fn run_streaming_cli(
         _ = async {
             while let Ok(Some(line)) = reader.next_line().await {
                 let cleaned = pipeline::clean_cli_output(&line);
-                if !cleaned.is_empty() {
-                    let _ = app.emit(event_name, AiStreamEvent::Text { text: cleaned });
-                }
+                // Re-append the newline next_line() strips so multi-line CLI
+                // replies keep their paragraph structure downstream
+                let _ = app.emit(event_name, AiStreamEvent::Text { text: format!("{cleaned}\n") });
             }
 
             let status = child.wait().await;
