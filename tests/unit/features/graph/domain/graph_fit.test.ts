@@ -12,7 +12,7 @@ describe("compute_fit_transform", () => {
   it("ignores a far outlier among 20+ clustered points", () => {
     const points = [...cluster(24), { x: 100_000, y: 100_000 }];
     const fit = compute_fit_transform(points, 800, 600, 40);
-    expect(fit.scale).toBeGreaterThanOrEqual(0.3);
+    expect(fit.scale).toBeGreaterThanOrEqual(0.7);
     expect(fit.center_x).toBeLessThan(1000);
     expect(fit.center_y).toBeLessThan(1000);
   });
@@ -44,7 +44,7 @@ describe("compute_fit_transform", () => {
     expect(with_outlier.center_x).toBeCloseTo(50_000);
   });
 
-  it("clamps scale to the 0.3 floor for widely spread points", () => {
+  it("clamps scale to the readability floor for widely spread points", () => {
     const fit = compute_fit_transform(
       [
         { x: 0, y: 0 },
@@ -54,7 +54,7 @@ describe("compute_fit_transform", () => {
       600,
       40,
     );
-    expect(fit.scale).toBe(0.3);
+    expect(fit.scale).toBe(0.7);
   });
 
   it("returns a safe transform for empty input", () => {

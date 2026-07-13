@@ -4,7 +4,9 @@ export type FitTransform = {
   center_y: number;
 };
 
-const FIT_MIN_SCALE = 0.3;
+// Readability floor: initial view keeps the dense core legible (labels gate at
+// zoom >= 0.6 on degraded profiles) instead of fitting a huge layout to specks
+const FIT_MIN_SCALE = 0.7;
 const FIT_MAX_SCALE = 4;
 const PERCENTILE_MIN_POINTS = 20;
 
