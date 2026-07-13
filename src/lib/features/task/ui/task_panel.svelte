@@ -16,6 +16,7 @@
   import RefreshCw from "@lucide/svelte/icons/refresh-cw";
   import Search from "@lucide/svelte/icons/search";
   import Code from "@lucide/svelte/icons/code";
+  import Wrench from "@lucide/svelte/icons/wrench";
   import LayoutList from "@lucide/svelte/icons/layout-list";
   import Kanban from "@lucide/svelte/icons/kanban";
   import Calendar from "@lucide/svelte/icons/calendar";
@@ -26,8 +27,11 @@
   import ArrowDown from "@lucide/svelte/icons/arrow-down";
   import { Button } from "$lib/components/ui/button";
   import { Input } from "$lib/components/ui/input";
+  import TaskQueryBuilder from "./task_query_builder.svelte";
 
   const { stores, services, action_registry } = use_app_context();
+
+  let show_builder = $state(false);
   const taskStore = stores.task;
   const taskService = services.task;
   const tagStore = stores.tag;
@@ -280,6 +284,15 @@
           >
             <Code size={14} />
           </Button>
+          <Button
+            variant={show_builder ? "secondary" : "ghost"}
+            size="icon"
+            class="h-8 w-8 shrink-0"
+            onclick={() => (show_builder = !show_builder)}
+            title="Query builder"
+          >
+            <Wrench size={14} />
+          </Button>
           <div class="relative flex-1">
             <textarea
               bind:this={dslTextarea}
@@ -301,6 +314,11 @@
             {/if}
           </div>
         </div>
+        {#if show_builder}
+          <TaskQueryBuilder
+            on_insert={(text) => (taskStore.queryText = text)}
+          />
+        {/if}
         {#if queryErrors.length > 0}
           <div class="text-[10px] text-destructive px-1">
             {#each queryErrors as err}
