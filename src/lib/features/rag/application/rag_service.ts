@@ -6,7 +6,7 @@ import type { NotesPort } from "$lib/features/note";
 import type { AiStreamPort, AiImagePart } from "$lib/features/ai";
 import { humanize_ai_error } from "$lib/features/ai";
 import type { TagPort } from "$lib/features/tags";
-import type { BasesPort } from "$lib/features/bases/ports";
+import type { BasesPort } from "$lib/features/bases";
 import type { AiProviderConfig } from "$lib/shared/types/ai_provider_config";
 import type { NoteId, VaultId } from "$lib/shared/types/ids";
 import { is_linked_note_path } from "$lib/shared/types/note";
@@ -17,6 +17,7 @@ import {
   type RagContextCandidate,
 } from "$lib/features/rag/domain/rag_context_assembler";
 import { build_rag_prompt } from "$lib/features/rag/domain/rag_prompt_builder";
+import { migrate_scope } from "$lib/features/rag/domain/rag_scope";
 import { build_citation_map } from "$lib/features/rag/domain/rag_citations";
 import { RagStreamParser } from "$lib/features/rag/domain/rag_stream_parser";
 import { rewrite_query } from "$lib/features/rag/domain/rag_query_rewriter";
@@ -169,6 +170,16 @@ export class RagService {
       log.warn("RAG load_session failed", { error: error_message(err) });
       return null;
     }
+  }
+
+  async load_all_sessions(vault_id: string): Promise<RagSession[]> {
+    const summaries = await this.list_sessions(vault_id);
+    const sessions = await Promise.all(
+      summaries.map((summary) => this.load_session(vault_id, summary.id)),
+    );
+    return sessions
+      .filter((session): session is RagSession => session !== null)
+      .map((session) => ({ ...session, scope: migrate_scope(session.scope) }));
   }
 
   async save_session(vault_id: string, session: RagSession): Promise<void> {

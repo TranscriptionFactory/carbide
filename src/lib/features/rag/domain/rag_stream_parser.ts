@@ -1,4 +1,4 @@
-import { MarkdownJoiner } from "$lib/features/ai/domain/markdown_joiner";
+import { MarkdownJoiner } from "$lib/features/ai";
 import { match_citation_markers } from "$lib/features/rag/domain/rag_citations";
 import type {
   RagCitation,

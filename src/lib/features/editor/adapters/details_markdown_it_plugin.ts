@@ -11,7 +11,7 @@ const DETAILS_OPEN_TAG_RE = /^<details[\s>]/i;
 const DETAILS_CLOSE_RE = /^\s*<\/details>\s*$/i;
 
 function get_line(state: StateBlock, i: number): string {
-  return state.src.slice(state.bMarks[i]!, state.eMarks[i]!).trim();
+  return state.src.slice(state.bMarks[i], state.eMarks[i]).trim();
 }
 
 function details_rule(

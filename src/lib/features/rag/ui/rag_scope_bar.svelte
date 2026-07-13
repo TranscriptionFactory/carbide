@@ -1,7 +1,7 @@
 <script lang="ts">
   import { FolderTree, Hash, Layers, X } from "@lucide/svelte";
-  import type { TagInfo } from "$lib/features/tags/types";
-  import type { SavedViewInfo } from "$lib/features/bases/ports";
+  import type { TagInfo } from "$lib/features/tags";
+  import type { SavedViewInfo } from "$lib/features/bases";
   import type { RagScope } from "$lib/features/rag/domain/rag_types";
   import {
     build_scope_suggestions,

@@ -1,7 +1,7 @@
 import {
   derive_session_title,
   to_session_summary,
-} from "$lib/features/rag/domain/rag_session";
+} from "$lib/features/rag/types/rag_session";
 import type {
   RagCitation,
   RagMessage,
@@ -9,7 +9,7 @@ import type {
   RagScope,
   RagSession,
   RagSessionSummary,
-} from "$lib/features/rag/domain/rag_types";
+} from "$lib/features/rag/types/rag_types";
 import type { RagReadiness } from "$lib/features/rag/types/rag_readiness";
 
 function new_message(

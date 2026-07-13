@@ -1,6 +1,7 @@
 export { SearchService } from "$lib/features/search/application/search_service";
 export { build_command_context } from "$lib/features/search/domain/build_command_context";
 export { COMMANDS_REGISTRY } from "$lib/features/search/domain/search_commands";
+export { parse_search_query } from "$lib/features/search/domain/search_query_parser";
 export { COMMAND_TO_ACTION_ID } from "$lib/features/search/application/omnibar_actions";
 export { register_omnibar_actions } from "$lib/features/search/application/omnibar_actions";
 export { register_find_in_file_actions } from "$lib/features/search/application/find_in_file_actions";

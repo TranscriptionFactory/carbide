@@ -5,8 +5,8 @@
   import { Textarea } from "$lib/components/ui/textarea";
   import RagScopeBar from "$lib/features/rag/ui/rag_scope_bar.svelte";
   import type { AiProviderConfig } from "$lib/shared/types/ai_provider_config";
-  import type { TagInfo } from "$lib/features/tags/types";
-  import type { SavedViewInfo } from "$lib/features/bases/ports";
+  import type { TagInfo } from "$lib/features/tags";
+  import type { SavedViewInfo } from "$lib/features/bases";
   import type { RagScope } from "$lib/features/rag/domain/rag_types";
   import type { RagReadiness } from "$lib/features/rag/types/rag_readiness";
 

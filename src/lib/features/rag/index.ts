@@ -1,10 +1,13 @@
 export { RagService } from "$lib/features/rag/application/rag_service";
 export {
   collect_rag_query_response,
+  handle_rag_mcp_query,
   type RagMcpCitation,
+  type RagMcpQueryEvent,
   type RagQueryResponse,
 } from "$lib/features/rag/application/rag_mcp_bridge";
 export { RagStore } from "$lib/features/rag/state/rag_store.svelte";
+export { load_rag_sessions } from "$lib/features/rag/application/rag_sessions_load";
 export { register_rag_actions } from "$lib/features/rag/application/rag_actions";
 export { default as RagPanel } from "$lib/features/rag/ui/rag_panel.svelte";
 export type { RagPersistencePort } from "$lib/features/rag/ports";

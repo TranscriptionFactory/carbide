@@ -226,7 +226,9 @@ describe("apply_theme", () => {
   it.each(BUILTIN_THEMES.map((t) => [t.id, t]))(
     "applies builtin theme %s without error",
     (_id, theme) => {
-      expect(() => apply_theme(theme)).not.toThrow();
+      expect(() => {
+        apply_theme(theme);
+      }).not.toThrow();
       expect(attributes.get("data-color-scheme")).toBe(theme.color_scheme);
       expect(store.size).toBeGreaterThan(0);
     },

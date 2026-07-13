@@ -4,7 +4,7 @@
   import {
     is_mac,
     MACOS_TRAFFIC_LIGHT_SAFE_PADDING,
-  } from "$lib/features/window/domain/platform";
+  } from "$lib/features/window";
 
   type Props = {
     vault_name: string;
