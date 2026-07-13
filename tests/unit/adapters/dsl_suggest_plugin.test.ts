@@ -37,7 +37,7 @@ function make_plugin(key: PluginKey<SuggestState<Item>>, langs?: string[]) {
   return create_suggest_prose_plugin<Item>({
     key,
     class_name: "DslSuggestTest",
-    code_block_languages: langs,
+    ...(langs ? { code_block_languages: langs } : {}),
     extract: (text_before) => ({ query: text_before, from_offset: 0 }),
     render_items: () => {},
     accept: () => {},
@@ -46,7 +46,11 @@ function make_plugin(key: PluginKey<SuggestState<Item>>, langs?: string[]) {
   });
 }
 
-function mount(language: string, key: PluginKey<SuggestState<Item>>, langs?: string[]) {
+function mount(
+  language: string,
+  key: PluginKey<SuggestState<Item>>,
+  langs?: string[],
+) {
   const block = schema.nodes["code_block"]!.create(
     { language },
     schema.text("is"),
@@ -61,7 +65,9 @@ function mount(language: string, key: PluginKey<SuggestState<Item>>, langs?: str
   );
   const el = document.createElement("div");
   const view = new EditorView(el, { state: cursor });
-  view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, 3)));
+  view.dispatch(
+    view.state.tr.setSelection(TextSelection.create(view.state.doc, 3)),
+  );
   const active = key.getState(view.state)?.active ?? false;
   view.destroy();
   return active;

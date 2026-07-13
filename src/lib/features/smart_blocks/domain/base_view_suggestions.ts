@@ -67,7 +67,12 @@ export function suggest_base_spec(
   if (key === "group_by" || key === "date_property") {
     return {
       from: from_base,
-      items: filter_prefix(ctx.property_names ?? [], partial, (v) => v, "property"),
+      items: filter_prefix(
+        ctx.property_names ?? [],
+        partial,
+        (v) => v,
+        "property",
+      ),
     };
   }
 

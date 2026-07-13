@@ -134,9 +134,7 @@
   }
 
   const spec = $derived<TaskQueryBuilderSpec>({ clauses, sort, group_by });
-  const valid = $derived(
-    clauses.length > 0 && clauses.every(clause_valid),
-  );
+  const valid = $derived(clauses.length > 0 && clauses.every(clause_valid));
 
   function insert() {
     if (!valid) return;

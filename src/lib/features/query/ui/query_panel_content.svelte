@@ -55,7 +55,8 @@
   async function apply_suggestion(from: number, insert: string) {
     const el = input_el;
     const cursor = el?.selectionStart ?? input_value.length;
-    input_value = input_value.slice(0, from) + insert + input_value.slice(cursor);
+    input_value =
+      input_value.slice(0, from) + insert + input_value.slice(cursor);
     const next_cursor = from + insert.length;
     await tick();
     el?.setSelectionRange(next_cursor, next_cursor);
@@ -64,7 +65,9 @@
   }
 
   function update_suggestions() {
-    suggest.update(input_value.slice(0, input_el?.selectionStart ?? input_value.length));
+    suggest.update(
+      input_value.slice(0, input_el?.selectionStart ?? input_value.length),
+    );
   }
 
   $effect(() => {

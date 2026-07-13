@@ -47,7 +47,9 @@
     { clause: { kind: "named", name: "" } },
   ]);
 
-  function default_clause(kind: QueryBuilderClause["kind"]): QueryBuilderClause {
+  function default_clause(
+    kind: QueryBuilderClause["kind"],
+  ): QueryBuilderClause {
     switch (kind) {
       case "named":
         return { kind: "named", name: "" };
@@ -176,7 +178,8 @@
                 value={entry.clause.folder}
                 {folder_paths}
                 on_change={(path) => {
-                  if (entry.clause.kind === "folder") entry.clause.folder = path;
+                  if (entry.clause.kind === "folder")
+                    entry.clause.folder = path;
                 }}
               />
             </div>
@@ -223,11 +226,7 @@
       {/each}
 
       <div class="QueryBuilder__actions">
-        <button
-          type="button"
-          class="QueryBuilder__add"
-          onclick={add_clause}
-        >
+        <button type="button" class="QueryBuilder__add" onclick={add_clause}>
           + clause
         </button>
         <button

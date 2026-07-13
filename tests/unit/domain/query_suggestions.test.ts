@@ -19,15 +19,29 @@ function inserts(text: string, c: DslContext = ctx): string[] {
 
 describe("suggest_query positional candidates", () => {
   it("suggests forms on empty input", () => {
-    expect(labels("")).toEqual(["notes", "note", "folders", "folder", "files", "file"]);
+    expect(labels("")).toEqual([
+      "notes",
+      "note",
+      "folders",
+      "folder",
+      "files",
+      "file",
+    ]);
   });
 
   it("suggests clause starters after a form", () => {
-    expect(labels("notes ")).toEqual(["named", "with", "in", "linked from", "not", "("]);
+    expect(labels("notes ")).toEqual([
+      "named",
+      "with",
+      "in",
+      "linked from",
+      "not",
+      "(",
+    ]);
   });
 
   it("suggests clause starters after a join", () => {
-    expect(labels("notes named \"x\" and ")).toEqual([
+    expect(labels('notes named "x" and ')).toEqual([
       "named",
       "with",
       "in",
@@ -38,7 +52,14 @@ describe("suggest_query positional candidates", () => {
   });
 
   it("suggests clause starters after a group opener", () => {
-    expect(labels("notes (")).toEqual(["named", "with", "in", "linked from", "not", "("]);
+    expect(labels("notes (")).toEqual([
+      "named",
+      "with",
+      "in",
+      "linked from",
+      "not",
+      "(",
+    ]);
   });
 
   it("offers quote, regex and quoted note names after named", () => {
@@ -71,7 +92,9 @@ describe("suggest_query positional candidates", () => {
   it("suggests wikilink note names after linked from", () => {
     const res = suggest_query("notes linked from ", ctx);
     expect(res.items.map((i) => i.label)).toEqual(["Alpha", "Beta", "alto"]);
-    expect(res.items.find((i) => i.label === "Alpha")?.insert).toBe("[[Alpha]]");
+    expect(res.items.find((i) => i.label === "Alpha")?.insert).toBe(
+      "[[Alpha]]",
+    );
   });
 
   it("suggests property operators after a with-property", () => {
@@ -118,7 +141,10 @@ describe("suggest_query unclosed constructs", () => {
 
   it("suggests folder paths inside an unclosed quote after in", () => {
     const res = suggest_query('notes in "work', ctx);
-    expect(res.items.map((i) => i.label)).toEqual(["work/reports", "work/notes"]);
+    expect(res.items.map((i) => i.label)).toEqual([
+      "work/reports",
+      "work/notes",
+    ]);
     expect(res.from).toBe('notes in "'.length);
     expect(res.items[0]?.insert).toBe('work/reports"');
   });
@@ -171,7 +197,14 @@ describe("suggest_query subquery recursion", () => {
 
 describe("suggest_query newline handling", () => {
   it("treats newlines as whitespace", () => {
-    expect(labels("notes\n")).toEqual(["named", "with", "in", "linked from", "not", "("]);
+    expect(labels("notes\n")).toEqual([
+      "named",
+      "with",
+      "in",
+      "linked from",
+      "not",
+      "(",
+    ]);
     expect(labels("notes with\n#pro")).toEqual(["project", "prospect"]);
   });
 });

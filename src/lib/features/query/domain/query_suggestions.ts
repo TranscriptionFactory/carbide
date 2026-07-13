@@ -121,7 +121,11 @@ function items_from(
   const lower = partial.toLowerCase();
   return values
     .filter((v) => v.toLowerCase().startsWith(lower))
-    .map((v) => (detail === undefined ? { label: v, insert: wrap(v) } : { label: v, insert: wrap(v), detail }));
+    .map((v) =>
+      detail === undefined
+        ? { label: v, insert: wrap(v) }
+        : { label: v, insert: wrap(v), detail },
+    );
 }
 
 function keyword_items(
@@ -132,7 +136,11 @@ function keyword_items(
   const lower = partial.toLowerCase();
   return words
     .filter((w) => w.toLowerCase().startsWith(lower))
-    .map((w) => (detail === undefined ? { label: w, insert: w } : { label: w, insert: w, detail }));
+    .map((w) =>
+      detail === undefined
+        ? { label: w, insert: w }
+        : { label: w, insert: w, detail },
+    );
 }
 
 function unbalanced_closers(state: ScanState): DslSuggestion[] {
@@ -168,12 +176,7 @@ export function suggest_query(
     const partial = text_before_cursor.slice(from);
     return {
       from,
-      items: items_from(
-        ctx.note_names ?? [],
-        partial,
-        (v) => `${v}]]`,
-        "note",
-      ),
+      items: items_from(ctx.note_names ?? [], partial, (v) => `${v}]]`, "note"),
     };
   }
 
@@ -210,12 +213,7 @@ export function suggest_query(
     const tag_partial = partial.slice(1);
     return {
       from,
-      items: items_from(
-        ctx.tags ?? [],
-        tag_partial,
-        (v) => `#${v}`,
-        "tag",
-      ),
+      items: items_from(ctx.tags ?? [], tag_partial, (v) => `#${v}`, "tag"),
     };
   }
 
@@ -244,7 +242,12 @@ function positional_items(
     return keyword_items(FORM_WORDS, partial, "form");
   }
 
-  if (FORMS[lower] || JOIN_WORDS.includes(lower) || lower === "not" || prev_word === "(") {
+  if (
+    FORMS[lower] ||
+    JOIN_WORDS.includes(lower) ||
+    lower === "not" ||
+    prev_word === "("
+  ) {
     return keyword_items(CLAUSE_STARTERS, partial, "clause");
   }
 
@@ -274,15 +277,13 @@ function positional_items(
   }
 
   if (lower === "from" && prev_is_linked_from(state)) {
-    return items_from(
-      ctx.note_names ?? [],
-      partial,
-      (v) => `[[${v}]]`,
-      "note",
-    );
+    return items_from(ctx.note_names ?? [], partial, (v) => `[[${v}]]`, "note");
   }
 
-  if (state.clause === "with" && ctx.property_names?.some((p) => p.toLowerCase() === lower)) {
+  if (
+    state.clause === "with" &&
+    ctx.property_names?.some((p) => p.toLowerCase() === lower)
+  ) {
     return keyword_items(PROPERTY_OPERATORS, partial, "operator");
   }
 
