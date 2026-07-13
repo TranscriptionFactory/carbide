@@ -431,6 +431,7 @@ export class UIStore {
   tab_drag_active = $state(false);
 
   quick_capture_open = $state(false);
+  query_builder_open = $state(false);
 
   bottom_panel_open = $state(false);
   bottom_panel_tab = $state<BottomPanelTab>("terminal");
@@ -619,6 +620,7 @@ export class UIStore {
     this.add_remote_dialog = { ...INITIAL_ADD_REMOTE_DIALOG };
     this.diff_viewer_dialog = { ...INITIAL_DIFF_VIEWER_DIALOG };
     this.vault_switcher_open = false;
+    this.query_builder_open = false;
     this.zen_mode = false;
     this.context_rail_open = false;
     this.context_rail_tab = "links";
