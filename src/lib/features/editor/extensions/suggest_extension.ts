@@ -14,6 +14,10 @@ import {
   type CiteSuggestPluginConfig,
 } from "../adapters/cite_suggest_plugin";
 import {
+  set_dsl_suggestions,
+  create_dsl_suggest_prose_plugin,
+} from "../adapters/dsl_suggest_plugin";
+import {
   set_image_suggestions,
   create_image_suggest_prose_plugin,
   type ImageSuggestPluginConfig,
@@ -77,6 +81,26 @@ export function create_suggest_extension(
       on_dismiss: () => {},
     };
     plugins.push(create_tag_suggest_prose_plugin(tag_suggest_config) as Plugin);
+  }
+
+  if (ctx.events.on_dsl_query_suggest) {
+    plugins.push(
+      create_dsl_suggest_prose_plugin({
+        language: "query",
+        on_query: ctx.events.on_dsl_query_suggest,
+        on_dismiss: ctx.events.on_dsl_query_dismiss ?? (() => {}),
+      }) as Plugin,
+    );
+  }
+
+  if (ctx.events.on_dsl_base_suggest) {
+    plugins.push(
+      create_dsl_suggest_prose_plugin({
+        language: "base",
+        on_query: ctx.events.on_dsl_base_suggest,
+        on_dismiss: ctx.events.on_dsl_base_dismiss ?? (() => {}),
+      }) as Plugin,
+    );
   }
 
   if (ctx.events.on_cite_suggest_query) {

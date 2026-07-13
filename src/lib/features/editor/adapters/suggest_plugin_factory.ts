@@ -37,6 +37,7 @@ type SuggestConfig<TItem> = {
   on_query: (query: string) => void;
   on_dismiss: () => void;
   on_accepted?: () => void;
+  code_block_languages?: string[];
   debounce_ms?: number;
   handle_tab?: (
     view: EditorView,
@@ -188,9 +189,16 @@ export function create_suggest_prose_plugin<TItem>(
           }
 
           const $from = editor_state.selection.$from;
+          const in_code_block = $from.parent.type.name === "code_block";
+          const code_block_allowed =
+            in_code_block &&
+            (config.code_block_languages?.includes(
+              ($from.parent.attrs["language"] as string) ?? "",
+            ) ??
+              false);
           if (
             !$from.parent.isTextblock ||
-            $from.parent.type.name === "code_block"
+            (in_code_block && !code_block_allowed)
           ) {
             if (plugin_state.active) dismiss(view, false);
             dismissed_query = null;

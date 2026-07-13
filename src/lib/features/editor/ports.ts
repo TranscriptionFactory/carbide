@@ -6,6 +6,8 @@ import type {
 } from "$lib/shared/types/editor";
 import type { OutlineHeading } from "$lib/features/outline";
 import type { CiteSuggestionItem } from "$lib/features/editor/adapters/cite_suggest_plugin";
+import type { DslLanguage } from "$lib/features/editor/adapters/dsl_suggest_plugin";
+import type { DslSuggestion } from "$lib/shared/types/dsl_suggestion";
 import type {
   AtPaletteCategory,
   AtPaletteItem,
@@ -66,6 +68,11 @@ export type EditorSession = {
     items: Array<{ path: string; name: string }>,
   ) => void;
   set_tag_suggestions?: (items: Array<{ tag: string; count: number }>) => void;
+  set_dsl_suggestions?: (
+    language: DslLanguage,
+    items: DslSuggestion[],
+    from_offset: number,
+  ) => void;
   set_cite_suggestions?: (items: CiteSuggestionItem[]) => void;
   set_at_palette_suggestions?: (
     category: AtPaletteCategory,
@@ -137,6 +144,10 @@ export type EditorEventHandlers = {
   on_wiki_suggest_query?: (event: WikiQueryEvent) => void;
   on_image_suggest_query?: (query: string) => void;
   on_tag_suggest_query?: (query: string) => void;
+  on_dsl_query_suggest?: (query: string) => void;
+  on_dsl_query_dismiss?: () => void;
+  on_dsl_base_suggest?: (query: string) => void;
+  on_dsl_base_dismiss?: () => void;
   on_cite_suggest_query?: (query: string) => void;
   on_cite_accept?: (citekey: string) => void;
   on_at_palette_note_query?: (query: string, markdown_only: boolean) => void;

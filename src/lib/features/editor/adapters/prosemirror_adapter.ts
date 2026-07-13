@@ -57,6 +57,11 @@ import {
   restore_heading_folds,
 } from "$lib/features/editor/extensions";
 import { heading_fold_plugin_key } from "$lib/features/editor/adapters/heading_fold_plugin";
+import {
+  set_dsl_suggestions,
+  type DslLanguage,
+} from "$lib/features/editor/adapters/dsl_suggest_plugin";
+import type { DslSuggestion } from "$lib/shared/types/dsl_suggestion";
 import { find_literal_matches_in_doc } from "$lib/features/editor/domain/find_literal_matcher";
 import { next_active_index_after_replacement } from "$lib/features/editor/domain/find_active_index";
 import type { FindOptions } from "$lib/features/editor/domain/find_types";
@@ -1112,6 +1117,14 @@ export function create_prosemirror_editor_port(args?: {
         set_tag_suggestions(items: Array<{ tag: string; count: number }>) {
           if (!view) return;
           set_tag_suggestions(view, items);
+        },
+        set_dsl_suggestions(
+          language: DslLanguage,
+          items: DslSuggestion[],
+          from_offset: number,
+        ) {
+          if (!view) return;
+          set_dsl_suggestions(view, language, items, from_offset);
         },
         set_cite_suggestions(items: CiteSuggestionItem[]) {
           if (!view) return;
