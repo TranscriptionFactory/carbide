@@ -53,6 +53,7 @@
     EditorSettings,
     SettingsCategory,
   } from "$lib/shared/types/editor_settings";
+  import type { AiProviderConfig } from "$lib/shared/types/ai_provider_config";
   import type { VaultId } from "$lib/shared/types/ids";
   import type { HotkeyBinding, HotkeyOverride } from "$lib/features/hotkey";
   import type { Theme, ColorSchemePreference } from "$lib/shared/types/theme";
@@ -67,7 +68,7 @@
 
   let { hide_choose_vault_button = false }: Props = $props();
 
-  const { stores, action_registry, ports } = use_app_context();
+  const { stores, action_registry, ports, services } = use_app_context();
 
   const has_vault = $derived(stores.vault.vault !== null);
   const is_vault_mode = $derived(stores.vault.is_vault_mode);
@@ -509,6 +510,7 @@
     void action_registry.execute(ACTION_IDS.toolchain_install, id)}
   on_toolchain_uninstall={(id: string) =>
     void action_registry.execute(ACTION_IDS.toolchain_uninstall, id)}
+  on_ai_provider_detect={(config: AiProviderConfig) => services.ai.detect(config)}
   {iwe_config_status}
   on_iwe_open_config={() =>
     void action_registry.execute(ACTION_IDS.iwe_open_config)}

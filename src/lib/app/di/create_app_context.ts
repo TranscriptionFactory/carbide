@@ -956,6 +956,7 @@ export function create_app_context(input: {
       mcp: mcp_service,
       document: document_service,
       rag: rag_service,
+      ai: ai_service,
     },
     default_mount_config: input.default_mount_config,
   };

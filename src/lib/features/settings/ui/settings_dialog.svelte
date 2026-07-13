@@ -29,6 +29,12 @@
   import CircleCheckIcon from "@lucide/svelte/icons/circle-check";
   import CircleXIcon from "@lucide/svelte/icons/circle-x";
   import type { ToolInfo } from "$lib/features/toolchain";
+  import { SvelteMap } from "svelte/reactivity";
+  import {
+    describe_default_provider,
+    type AiCliProbe,
+    type AiProviderProbeState,
+  } from "$lib/features/ai";
   import { toast } from "svelte-sonner";
   import type { StorageStats } from "$lib/features/settings/ports";
   import { format_bytes } from "$lib/shared/utils/format_bytes";
@@ -155,6 +161,7 @@
     toolchain_tools: ToolInfo[];
     on_toolchain_install: (tool_id: string) => void;
     on_toolchain_uninstall: (tool_id: string) => void;
+    on_ai_provider_detect: (config: AiProviderConfig) => Promise<AiCliProbe>;
     // STT removed — archived on archive/stt-main
     // stt_models: ModelInfo[];
     // stt_active_model_id: string | null;
@@ -220,6 +227,7 @@
     toolchain_tools,
     on_toolchain_install,
     on_toolchain_uninstall,
+    on_ai_provider_detect,
     // stt_models,
     // stt_active_model_id,
     // stt_model_loading,
@@ -355,6 +363,44 @@
       update("ai_default_provider_id", "auto");
     }
   }
+
+  const ai_probes = new SvelteMap<string, AiProviderProbeState>();
+  let ai_probes_started = false;
+
+  function probe_ai_provider(provider: AiProviderConfig) {
+    if (provider.transport.kind !== "cli") return;
+    ai_probes.set(provider.id, { state: "probing" });
+    on_ai_provider_detect(provider)
+      .then((probe) => ai_probes.set(provider.id, { state: "done", probe }))
+      .catch((e) =>
+        ai_probes.set(provider.id, {
+          state: "done",
+          probe: {
+            status: "unknown",
+            resolved_path: null,
+            version: null,
+            error: String(e),
+          },
+        }),
+      );
+  }
+
+  $effect(() => {
+    if (open && active_category === "ai" && !ai_probes_started) {
+      ai_probes_started = true;
+      for (const provider of editor_settings.ai_providers) {
+        probe_ai_provider(provider);
+      }
+    }
+  });
+
+  const default_provider_sentence = $derived(
+    describe_default_provider(
+      editor_settings.ai_default_provider_id,
+      editor_settings.ai_providers,
+      ai_probes,
+    ),
+  );
 
   function provider_summary(p: AiProviderConfig): string {
     if (p.transport.kind === "cli") {
@@ -728,6 +774,12 @@
               </div>
             </div>
 
+            {#if !ai_settings_disabled && default_provider_sentence}
+              <p class="text-xs text-muted-foreground">
+                {default_provider_sentence}
+              </p>
+            {/if}
+
             <div class="space-y-2">
               <div class="flex items-center justify-between">
                 <div class="SettingsDialog__label-group">
@@ -749,6 +801,49 @@
                           >({provider.model})</span
                         >
                       {/if}
+                      {#if provider.transport.kind === "cli"}
+                        {@const probe_entry = ai_probes.get(provider.id)}
+                        {#if !probe_entry || probe_entry.state === "probing"}
+                          <span
+                            class="ml-2 inline-flex items-center gap-1 text-xs text-muted-foreground"
+                          >
+                            <LoaderCircleIcon class="size-3 animate-spin" />
+                            Checking…
+                          </span>
+                        {:else if probe_entry.probe.status === "present"}
+                          <span
+                            class="ml-2 inline-flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400"
+                          >
+                            <CircleCheckIcon class="size-3" />
+                            Installed{probe_entry.probe.version
+                              ? ` · v${probe_entry.probe.version}`
+                              : ""}
+                          </span>
+                        {:else if probe_entry.probe.status === "missing"}
+                          <span
+                            class="ml-2 inline-flex items-center gap-1 text-xs text-destructive"
+                          >
+                            <CircleXIcon class="size-3" />
+                            Not installed
+                          </span>
+                          {#if provider.install_url}
+                            <a
+                              class="ml-1 text-xs text-muted-foreground underline"
+                              href={provider.install_url}
+                              target="_blank"
+                              rel="noreferrer">Install</a
+                            >
+                          {/if}
+                        {:else}
+                          <span class="ml-2 text-xs text-muted-foreground"
+                            >Availability unknown</span
+                          >
+                        {/if}
+                      {:else}
+                        <span class="ml-2 text-xs text-muted-foreground"
+                          >Checked at request time</span
+                        >
+                      {/if}
                       <div
                         class="text-xs text-muted-foreground font-mono truncate"
                       >
@@ -756,6 +851,19 @@
                       </div>
                     </div>
                     <div class="flex items-center gap-1">
+                      {#if provider.transport.kind === "cli"}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onclick={() => probe_ai_provider(provider)}
+                          disabled={ai_settings_disabled ||
+                            ai_probes.get(provider.id)?.state === "probing"}
+                        >
+                          {ai_probes.get(provider.id)?.state === "probing"
+                            ? "Testing…"
+                            : "Test"}
+                        </Button>
+                      {/if}
                       <button
                         type="button"
                         class="SettingsDialog__reset"
