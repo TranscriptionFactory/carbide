@@ -14,14 +14,19 @@ export type ParsedTaskQuery = {
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
-const SORTABLE_PROPS = new Set([
+export const SORTABLE_PROPS = new Set([
   "status",
   "text",
   "path",
   "due_date",
   "section",
 ]);
-const GROUPABLE_PROPS = new Set(["status", "note", "section", "due_date"]);
+export const GROUPABLE_PROPS = new Set([
+  "status",
+  "note",
+  "section",
+  "due_date",
+]);
 
 function parse_status_clause(rest: string): TaskFilter | null {
   const match = rest.match(/^is\s+(todo|doing|done)$/);
