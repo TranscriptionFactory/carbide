@@ -21,11 +21,14 @@ export type DslSuggestPluginConfig = {
   on_dismiss: () => void;
 };
 
-function extract_dsl_query(
-  text_before: string,
-): { query: string; from_offset: number } {
+function extract_dsl_query(text_before: string): {
+  query: string;
+  from_offset: number;
+} {
   const token_match = text_before.match(/\S+$/);
-  const from_offset = token_match ? text_before.length - token_match[0].length : text_before.length;
+  const from_offset = token_match
+    ? text_before.length - token_match[0].length
+    : text_before.length;
   return { query: text_before, from_offset };
 }
 
@@ -64,7 +67,9 @@ function render_items(
   }
 }
 
-export function create_dsl_suggest_prose_plugin(config: DslSuggestPluginConfig) {
+export function create_dsl_suggest_prose_plugin(
+  config: DslSuggestPluginConfig,
+) {
   const key = plugin_keys[config.language];
   return create_suggest_prose_plugin<DslItem>({
     key,
@@ -118,7 +123,10 @@ export function set_dsl_suggestions(
   items: DslSuggestion[],
   from_offset: number,
 ) {
-  const with_offset: DslItem[] = items.map((item) => ({ ...item, from_offset }));
+  const with_offset: DslItem[] = items.map((item) => ({
+    ...item,
+    from_offset,
+  }));
   view.dispatch(
     view.state.tr.setMeta(plugin_keys[language], { items: with_offset }),
   );

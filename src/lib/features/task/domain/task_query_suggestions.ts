@@ -98,7 +98,8 @@ export function suggest_task_query(
   const line_start = text_before_cursor.lastIndexOf("\n") + 1;
   const line = text_before_cursor.slice(line_start);
 
-  if (/(?:^|\s)#\s/.test(line)) return { from: text_before_cursor.length, items: [] };
+  if (/(?:^|\s)#\s/.test(line))
+    return { from: text_before_cursor.length, items: [] };
 
   const at_word_boundary = line === "" || /\s$/.test(line);
   const partial = at_word_boundary ? "" : (line.match(/\S+$/)?.[0] ?? "");
