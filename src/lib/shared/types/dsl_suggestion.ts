@@ -20,3 +20,19 @@ export type DslSuggestProvider = (
   text_before_cursor: string,
   ctx: DslContext,
 ) => DslSuggestResult;
+
+export function filter_dsl_suggestions(
+  values: string[],
+  partial: string,
+  wrap: (v: string) => string = (v) => v,
+  detail?: string,
+): DslSuggestion[] {
+  const lower = partial.toLowerCase();
+  return values
+    .filter((v) => v.toLowerCase().startsWith(lower))
+    .map((v) =>
+      detail === undefined
+        ? { label: v, insert: wrap(v) }
+        : { label: v, insert: wrap(v), detail },
+    );
+}
