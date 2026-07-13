@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { RagService, RagStore } from "$lib/features/rag";
 import { VaultStore } from "$lib/features/vault";
-import { load_rag_sessions } from "$lib/reactors/rag_sessions_load.reactor.svelte";
+import { load_rag_sessions } from "$lib/features/rag";
 import { create_test_rag_persistence_adapter } from "../../adapters/test_rag_persistence_adapter";
 import { create_test_vault } from "../helpers/test_fixtures";
 import type { RagScope, RagSession } from "$lib/features/rag/domain/rag_types";

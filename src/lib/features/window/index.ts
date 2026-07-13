@@ -19,3 +19,5 @@ export {
   MACOS_TRAFFIC_LIGHT_SAFE_PADDING,
 } from "$lib/features/window/domain/platform";
 export { sync_window_material } from "$lib/features/window/domain/window_material";
+export { default as CustomTitleBar } from "$lib/features/window/ui/custom_title_bar.svelte";
+export { default as MacosDragStrip } from "$lib/features/window/ui/macos_drag_strip.svelte";

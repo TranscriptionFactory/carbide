@@ -2,7 +2,7 @@ import type { CommandContext } from "$lib/features/search/types/command_context"
 import {
   is_editable_type,
   type DocumentFileType,
-} from "$lib/features/document/types/document";
+} from "$lib/features/document";
 import type { EditorStore } from "$lib/features/editor";
 import type { GitStore } from "$lib/features/git";
 import type { AiStore } from "$lib/features/ai";

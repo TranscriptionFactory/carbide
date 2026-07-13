@@ -1,7 +1,7 @@
 import { filter_folder_paths } from "$lib/shared/utils/filter_folder_paths";
-import { rank_tags } from "$lib/features/tags/domain/tag_matcher";
-import type { TagInfo } from "$lib/features/tags/types";
-import type { SavedViewInfo } from "$lib/features/bases/ports";
+import { rank_tags } from "$lib/features/tags";
+import type { TagInfo } from "$lib/features/tags";
+import type { SavedViewInfo } from "$lib/features/bases";
 import type { RagScope } from "$lib/features/rag/domain/rag_types";
 
 export type ScopeKind = "folder" | "tag" | "base";

@@ -14,7 +14,7 @@ import {
 } from "$lib/features/graph/domain/smart_link_edges";
 import type { SearchPort } from "$lib/features/search";
 import type { SearchService } from "$lib/features/search";
-import { parse_search_query } from "$lib/features/search/domain/search_query_parser";
+import { parse_search_query } from "$lib/features/search";
 import {
   extract_search_subgraph,
   compute_auto_expanded_ids,

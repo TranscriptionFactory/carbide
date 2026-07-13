@@ -2,13 +2,13 @@
   import { onMount } from "svelte";
   import AppShellDialogs from "$lib/app/bootstrap/ui/app_shell_dialogs.svelte";
   import WorkspaceLayout from "$lib/app/bootstrap/ui/workspace_layout.svelte";
-  import CustomTitleBar from "$lib/features/window/ui/custom_title_bar.svelte";
-  import MacosDragStrip from "$lib/features/window/ui/macos_drag_strip.svelte";
   import {
+    CustomTitleBar,
+    MacosDragStrip,
     is_mac,
     is_tauri,
     should_show_macos_drag_strip,
-  } from "$lib/features/window/domain/platform";
+  } from "$lib/features/window";
   import { VaultSelectionPanel } from "$lib/features/vault";
   import { use_keyboard_shortcuts } from "$lib/hooks/use_keyboard_shortcuts.svelte";
   import { use_external_links } from "$lib/hooks/use_external_links.svelte";

@@ -2,6 +2,7 @@ export {
   type DocumentFileType,
   detect_file_type,
 } from "$lib/features/document/domain/document_types";
+export { is_editable_type } from "$lib/features/document/types/document";
 export {
   DocumentStore,
   type DocumentContentState,

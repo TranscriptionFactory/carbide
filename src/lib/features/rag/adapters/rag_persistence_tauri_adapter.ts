@@ -1,6 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { APP_DIR } from "$lib/shared/constants/special_folders";
-import { to_session_summary } from "$lib/features/rag/domain/rag_session";
+import { to_session_summary } from "$lib/features/rag/types/rag_session";
 import type { RagPersistencePort } from "$lib/features/rag/ports";
 import type {
   RagSession,
