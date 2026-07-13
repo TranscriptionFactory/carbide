@@ -3,8 +3,12 @@
   import TaskListItem from "./task_list_item.svelte";
   import KanbanView from "./kanban_view.svelte";
   import ScheduleView from "./schedule_view.svelte";
-  import { onMount } from "svelte";
+  import { onMount, tick } from "svelte";
   import { parse_task_query } from "../parse_task_query";
+  import { suggest_task_query } from "../domain/task_query_suggestions";
+  import { DslSuggestController } from "$lib/components/ui/dsl_suggest.svelte";
+  import DslSuggestDropdown from "$lib/components/ui/dsl_suggest_dropdown.svelte";
+  import { ACTION_IDS } from "$lib/app/action_registry/action_ids";
   import { group_tasks } from "../domain/group_tasks";
   import type { FilterExpr, TaskGrouping } from "../types";
   import CheckCircle2 from "@lucide/svelte/icons/check-circle-2";
@@ -23,9 +27,52 @@
   import { Button } from "$lib/components/ui/button";
   import { Input } from "$lib/components/ui/input";
 
-  const { stores, services } = use_app_context();
+  const { stores, services, action_registry } = use_app_context();
   const taskStore = stores.task;
   const taskService = services.task;
+  const tagStore = stores.tag;
+
+  let dslTextarea = $state<HTMLTextAreaElement | null>(null);
+
+  const suggest = new DslSuggestController({
+    provider: suggest_task_query,
+    get_ctx: () => ({ tags: tagStore.tags.map((t) => t.tag) }),
+    apply: async (from, insert) => {
+      const el = dslTextarea;
+      if (!el) return;
+      const text = taskStore.queryText;
+      taskStore.queryText =
+        text.slice(0, from) + insert + text.slice(el.selectionStart);
+      const cursor = from + insert.length;
+      await tick();
+      el.setSelectionRange(cursor, cursor);
+    },
+  });
+
+  const NAV_KEYS = new Set([
+    "ArrowUp",
+    "ArrowDown",
+    "ArrowLeft",
+    "ArrowRight",
+    "Enter",
+    "Escape",
+    "Tab",
+  ]);
+
+  function dsl_suggest_update() {
+    const el = dslTextarea;
+    if (!el) return;
+    suggest.update(el.value.slice(0, el.selectionStart));
+  }
+
+  function dsl_keyup(e: KeyboardEvent) {
+    if (NAV_KEYS.has(e.key)) return;
+    dsl_suggest_update();
+  }
+
+  function dsl_keydown(e: KeyboardEvent) {
+    if (suggest.keydown(e)) return;
+  }
 
   const HIDE_DONE: FilterExpr = {
     type: "atom",
@@ -116,6 +163,7 @@
   onMount(() => {
     mounted = true;
     taskService.refreshTasks();
+    void action_registry.execute(ACTION_IDS.tags_refresh);
   });
 
   function refresh() {
@@ -232,11 +280,26 @@
           >
             <Code size={14} />
           </Button>
-          <textarea
-            class="flex-1 min-h-[60px] max-h-[120px] rounded-md border bg-background px-2 py-1.5 text-xs font-mono resize-y focus:outline-none focus:ring-1 focus:ring-ring"
-            placeholder="status is todo&#10;due this week&#10;sort by due_date"
-            bind:value={taskStore.queryText}
-          ></textarea>
+          <div class="relative flex-1">
+            <textarea
+              bind:this={dslTextarea}
+              class="w-full min-h-[60px] max-h-[120px] rounded-md border bg-background px-2 py-1.5 text-xs font-mono resize-y focus:outline-none focus:ring-1 focus:ring-ring"
+              placeholder="status is todo&#10;due this week&#10;sort by due_date"
+              bind:value={taskStore.queryText}
+              oninput={dsl_suggest_update}
+              onkeyup={dsl_keyup}
+              onclick={dsl_suggest_update}
+              onkeydown={dsl_keydown}
+              onblur={() => suggest.close()}
+            ></textarea>
+            {#if suggest.open}
+              <DslSuggestDropdown
+                items={suggest.items}
+                selected_index={suggest.selected_index}
+                on_select={(i) => suggest.accept(i)}
+              />
+            {/if}
+          </div>
         </div>
         {#if queryErrors.length > 0}
           <div class="text-[10px] text-destructive px-1">
