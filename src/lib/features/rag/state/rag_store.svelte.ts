@@ -24,6 +24,7 @@ export class RagStore {
   sessions = $state<RagSession[]>([]);
   active_id = $state<string | null>(null);
   is_loading = $state(false);
+  loading_stage = $state<"searching" | "generating">("searching");
   error = $state<string | null>(null);
   provider_id = $state("");
   scope = $state<RagScope>({});
@@ -117,7 +118,12 @@ export class RagStore {
 
   start_loading() {
     this.is_loading = true;
+    this.loading_stage = "searching";
     this.error = null;
+  }
+
+  set_loading_stage(stage: "searching" | "generating") {
+    this.loading_stage = stage;
   }
 
   finish_loading() {

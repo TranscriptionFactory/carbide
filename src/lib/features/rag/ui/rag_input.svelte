@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { SendHorizontal } from "@lucide/svelte";
+  import { SendHorizontal, Square } from "@lucide/svelte";
   import * as Select from "$lib/components/ui/select/index.js";
   import { Button } from "$lib/components/ui/button";
   import { Textarea } from "$lib/components/ui/textarea";
@@ -18,8 +18,10 @@
     tags: TagInfo[];
     saved_views: SavedViewInfo[];
     is_loading: boolean;
+    is_streaming: boolean;
     readiness_state: RagReadiness["state"];
     on_submit: (question: string) => void;
+    on_stop: () => void;
     on_provider_change: (provider_id: string) => void;
     on_scope_change: (scope: RagScope) => void;
   };
@@ -32,8 +34,10 @@
     tags,
     saved_views,
     is_loading,
+    is_streaming,
     readiness_state,
     on_submit,
+    on_stop,
     on_provider_change,
     on_scope_change,
   }: Props = $props();
@@ -134,9 +138,15 @@
       </Select.Content>
     </Select.Root>
 
-    <Button size="sm" disabled={!can_submit} onclick={submit}>
-      <SendHorizontal class="size-4" />
-      Ask
-    </Button>
+    {#if is_loading || is_streaming}
+      <Button size="sm" variant="secondary" onclick={on_stop} title="Stop">
+        <Square class="size-4" />
+      </Button>
+    {:else}
+      <Button size="sm" disabled={!can_submit} onclick={submit}>
+        <SendHorizontal class="size-4" />
+        Ask
+      </Button>
+    {/if}
   </div>
 </div>

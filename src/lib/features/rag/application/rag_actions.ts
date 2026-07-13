@@ -53,6 +53,16 @@ export function register_rag_actions(
     },
   });
 
+  let ask_abort: AbortController | null = null;
+
+  registry.register({
+    id: ACTION_IDS.rag_stop,
+    label: "Stop Vault Chat Reply",
+    execute: () => {
+      ask_abort?.abort();
+    },
+  });
+
   registry.register({
     id: ACTION_IDS.rag_ask,
     label: "Ask Vault Chat",
@@ -80,6 +90,7 @@ export function register_rag_actions(
 
       const image_parts = await collect_open_note_image_parts(input);
 
+      ask_abort = new AbortController();
       try {
         let errored = false;
         for await (const event of rag_service.query({
@@ -88,9 +99,12 @@ export function register_rag_actions(
           history,
           scope: rag_store.scope,
           image_parts,
+          signal: ask_abort.signal,
         })) {
           if (revision !== rag_store.revision) return;
-          if (event.type === "text") {
+          if (event.type === "generating") {
+            rag_store.set_loading_stage("generating");
+          } else if (event.type === "text") {
             if (!rag_store.streaming_id) rag_store.start_streaming();
             rag_store.append_streaming_text(event.text);
           } else if (event.type === "citation") {
@@ -112,6 +126,8 @@ export function register_rag_actions(
         const message = error_message(err);
         rag_store.fail_streaming(message);
         stores.op.fail(RAG_OP_KEY, message);
+      } finally {
+        ask_abort = null;
       }
     },
   });

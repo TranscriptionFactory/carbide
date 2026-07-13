@@ -127,6 +127,7 @@ export type RagQueryInput = {
   context_limit?: number;
   assembler_options?: AssembleContextOptions;
   image_parts?: AiImagePart[];
+  signal?: AbortSignal;
 };
 
 export class RagService {
@@ -277,7 +278,11 @@ export class RagService {
     );
 
     const controller = new AbortController();
+    const forward_abort = () => controller.abort();
+    if (input.signal?.aborted) controller.abort();
+    input.signal?.addEventListener("abort", forward_abort, { once: true });
     try {
+      yield { type: "generating" };
       for await (const chunk of this.ai_stream_port.stream_text({
         provider_config: input.provider_config,
         system_prompt,
@@ -307,6 +312,7 @@ export class RagService {
       yield* parser.flush();
       yield { type: "done" };
     } finally {
+      input.signal?.removeEventListener("abort", forward_abort);
       controller.abort();
     }
   }
