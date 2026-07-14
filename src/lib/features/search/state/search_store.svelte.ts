@@ -1,9 +1,19 @@
 import type { OmnibarItem, InFileMatch } from "$lib/shared/types/search";
-import type { IndexProgressEvent } from "$lib/shared/types/search";
+import type {
+  EmbeddingProgressEvent,
+  IndexProgressEvent,
+} from "$lib/shared/types/search";
 
 export type IndexProgress = {
   status: "idle" | "indexing" | "completed" | "failed";
   indexed: number;
+  total: number;
+  error: string | null;
+};
+
+export type EmbeddingProgress = {
+  status: "idle" | "embedding" | "completed" | "failed";
+  embedded: number;
   total: number;
   error: string | null;
 };
@@ -16,6 +26,12 @@ export class SearchStore {
   index_progress = $state<IndexProgress>({
     status: "idle",
     indexed: 0,
+    total: 0,
+    error: null,
+  });
+  embedding_progress = $state<EmbeddingProgress>({
+    status: "idle",
+    embedded: 0,
     total: 0,
     error: null,
   });
@@ -57,6 +73,46 @@ export class SearchStore {
     }
   }
 
+  set_embedding_progress(event: EmbeddingProgressEvent) {
+    switch (event.status) {
+      case "started":
+      case "block_started":
+        this.embedding_progress = {
+          status: "embedding",
+          embedded: 0,
+          total: event.total,
+          error: null,
+        };
+        break;
+      case "progress":
+      case "block_progress":
+        this.embedding_progress = {
+          status: "embedding",
+          embedded: event.embedded,
+          total: event.total,
+          error: null,
+        };
+        break;
+      case "completed":
+      case "block_completed":
+        this.embedding_progress = {
+          status: "completed",
+          embedded: event.embedded,
+          total: event.embedded,
+          error: null,
+        };
+        break;
+      case "failed":
+        this.embedding_progress = {
+          status: "failed",
+          embedded: 0,
+          total: 0,
+          error: event.error,
+        };
+        break;
+    }
+  }
+
   set_omnibar_items(items: OmnibarItem[]) {
     this.omnibar_items = items;
   }
@@ -89,5 +145,11 @@ export class SearchStore {
     this.in_file_matches = [];
     this.find_match_count = 0;
     this.index_progress = { status: "idle", indexed: 0, total: 0, error: null };
+    this.embedding_progress = {
+      status: "idle",
+      embedded: 0,
+      total: 0,
+      error: null,
+    };
   }
 }

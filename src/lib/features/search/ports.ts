@@ -214,5 +214,6 @@ export interface WorkspaceIndexPort {
   subscribe_embedding_progress(
     callback: (event: EmbeddingProgressEvent) => void,
   ): () => void;
+  rebuild_embeddings(vault_id: VaultId): Promise<void>;
   embed_sync(vault_id: VaultId): Promise<void>;
 }
