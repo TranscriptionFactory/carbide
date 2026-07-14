@@ -6,6 +6,12 @@
 
   const { stores, action_registry } = use_app_context();
 
+  const current_title = $derived(
+    stores.editor.open_note?.meta.title ||
+      stores.editor.open_note?.meta.name ||
+      "",
+  );
+
   const global_status = $derived(stores.links.global_status);
   const global_error = $derived(stores.links.global_error);
 
@@ -49,6 +55,10 @@
     void action_registry.execute(ACTION_IDS.shell_open_path, path);
   }
 
+  function insert_link(title: string) {
+    void action_registry.execute(ACTION_IDS.links_insert_suggested_link, title);
+  }
+
   function title_from_path(path: string): string {
     const leaf = path.split("/").pop() ?? path;
     return leaf.endsWith(".md") ? leaf.slice(0, -3) : leaf;
@@ -76,6 +86,8 @@
           path={link.path}
           backlink
           onclick={() => open_existing_note(link.path)}
+          on_insert={() => insert_link(link.title)}
+          insert_disabled={!current_title}
         />
       {/each}
     {/if}

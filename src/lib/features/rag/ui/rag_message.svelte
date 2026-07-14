@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { FileText } from "@lucide/svelte";
+  import { FileText, Plus } from "@lucide/svelte";
   import { use_app_context } from "$lib/app/context/app_context.svelte";
   import { ACTION_IDS } from "$lib/app";
   import type {
@@ -14,7 +14,13 @@
   type Props = { message: RagMessage; is_streaming?: boolean };
   let { message, is_streaming = false }: Props = $props();
 
-  const { action_registry } = use_app_context();
+  const { stores, action_registry } = use_app_context();
+
+  const current_title = $derived(
+    stores.editor.open_note?.meta.title ||
+      stores.editor.open_note?.meta.name ||
+      "",
+  );
 
   const citation_map = $derived(
     new Map(message.citations.map((c) => [c.index, c])),
@@ -35,6 +41,11 @@
       ACTION_IDS.rag_open_citation,
       citation.note_path,
     );
+  }
+
+  function insert_link(title: string) {
+    if (!current_title) return;
+    void action_registry.execute(ACTION_IDS.links_insert_suggested_link, title);
   }
 
   let content_el = $state<HTMLElement | null>(null);
@@ -88,18 +99,30 @@
           >
         {/if}
         {#each message.citations as citation (citation.index)}
-          <button
-            type="button"
-            class="flex items-center gap-2 rounded px-1 py-1 text-left text-xs hover:bg-accent hover:text-accent-foreground"
-            onclick={() => open_citation(citation)}
-          >
-            <span class="text-muted-foreground">[{citation.index}]</span>
-            <FileText class="size-3.5 shrink-0 text-muted-foreground" />
-            <span class="truncate">{citation.title}</span>
-            <span class="truncate text-muted-foreground"
-              >{citation.note_path}</span
+          <div class="group flex items-center gap-1">
+            <button
+              type="button"
+              class="flex flex-1 items-center gap-2 rounded px-1 py-1 text-left text-xs hover:bg-accent hover:text-accent-foreground"
+              onclick={() => open_citation(citation)}
             >
-          </button>
+              <span class="text-muted-foreground">[{citation.index}]</span>
+              <FileText class="size-3.5 shrink-0 text-muted-foreground" />
+              <span class="truncate">{citation.title}</span>
+              <span class="truncate text-muted-foreground"
+                >{citation.note_path}</span
+              >
+            </button>
+            <button
+              type="button"
+              class="flex size-6 shrink-0 items-center justify-center rounded text-muted-foreground opacity-0 hover:bg-accent hover:text-accent-foreground group-hover:opacity-100 disabled:cursor-default disabled:opacity-0"
+              onclick={() => insert_link(citation.title)}
+              disabled={!current_title}
+              title="Insert link"
+              aria-label="Insert link"
+            >
+              <Plus class="size-3.5" />
+            </button>
+          </div>
         {/each}
       </div>
     {/if}

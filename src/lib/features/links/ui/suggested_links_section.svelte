@@ -20,8 +20,14 @@
 
   const loading = $derived(stores.links.suggested_links_loading);
   const suggestions = $derived(stores.links.suggested_links);
+  const current_title = $derived(
+    stores.editor.open_note?.meta.title ||
+      stores.editor.open_note?.meta.name ||
+      "",
+  );
 
   function insert_link(note_title: string) {
+    if (!current_title) return;
     void action_registry.execute(
       ACTION_IDS.links_insert_suggested_link,
       note_title,
@@ -80,6 +86,7 @@
           class="SuggestedLinksSection__add-btn"
           onclick={() =>
             insert_link(suggestion.note.title || suggestion.note.name)}
+          disabled={!current_title}
           title="Insert wiki-link"
         >
           <PlusIcon />
@@ -177,6 +184,16 @@
   .SuggestedLinksSection__add-btn:hover {
     color: var(--foreground);
     background-color: var(--accent);
+  }
+
+  .SuggestedLinksSection__add-btn:disabled {
+    cursor: default;
+    opacity: 0.4;
+  }
+
+  .SuggestedLinksSection__add-btn:disabled:hover {
+    color: var(--muted-foreground);
+    background-color: transparent;
   }
 
   .SuggestedLinksSection__add-btn :global(svg) {
