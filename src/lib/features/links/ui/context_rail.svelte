@@ -20,11 +20,26 @@
   const outline_docked = $derived(
     stores.ui.editor_settings.outline_mode === "docked",
   );
+  /* In docked mode the outline icon toggles the docked pane rather than a rail
+     panel, so keep it unless the note has no headings (the pane is gated on
+     headings too, so a toggle would be a no-op). */
   const tabs = $derived(
-    outline_docked ? all_tabs.filter((t) => t.id !== "outline") : all_tabs,
+    outline_docked && stores.outline.headings.length === 0
+      ? all_tabs.filter((t) => t.id !== "outline")
+      : all_tabs,
   );
 
+  function is_tab_active(id: (typeof tabs)[number]["id"]): boolean {
+    if (id === "outline" && outline_docked)
+      return stores.ui.outline_docked_open;
+    return stores.ui.context_rail_open && stores.ui.context_rail_tab === id;
+  }
+
   function on_icon_click(id: (typeof tabs)[number]["id"]) {
+    if (id === "outline" && outline_docked) {
+      stores.ui.outline_docked_open = !stores.ui.outline_docked_open;
+      return;
+    }
     if (stores.ui.context_rail_open && stores.ui.context_rail_tab === id) {
       stores.ui.context_rail_open = false;
     } else {
@@ -71,11 +86,9 @@
               {...props}
               type="button"
               class="ContextRail__icon-btn"
-              class:ContextRail__icon-btn--active={stores.ui
-                .context_rail_open && stores.ui.context_rail_tab === tab.id}
+              class:ContextRail__icon-btn--active={is_tab_active(tab.id)}
               onclick={() => on_icon_click(tab.id)}
-              aria-pressed={stores.ui.context_rail_open &&
-                stores.ui.context_rail_tab === tab.id}
+              aria-pressed={is_tab_active(tab.id)}
               aria-label={tab.label}
             >
               <tab.icon size={18} />
