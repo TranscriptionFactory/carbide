@@ -405,21 +405,35 @@ pub fn search_notes_index(
     };
 
     search_service::index_search(app.clone(), vault_id.to_string(), query_input, Some(limit))
-        .map(|hits| hits.into_iter().take(limit).collect())
+        .map(|hits| {
+            hits.into_iter()
+                .take(limit)
+                .map(|mut h| {
+                    // BM25 is negative (more negative = better); negate so all
+                    // MCP-exposed scores are positive higher-is-better.
+                    h.score = -h.score;
+                    h
+                })
+                .collect()
+        })
         .map_err(OpError::Internal)
 }
 
+/// On semantic failure falls back to FTS; the second tuple element carries the
+/// fallback reason so callers can surface the degradation.
 pub fn search_notes_hybrid(
     app: &AppHandle,
     vault_id: &str,
     query: &str,
     limit: usize,
-) -> Result<Vec<crate::features::search::model::HybridSearchHit>, OpError> {
+) -> Result<(Vec<crate::features::search::model::HybridSearchHit>, Option<String>), OpError> {
     match search_service::hybrid_search_sync(app, vault_id, query, limit) {
-        Ok(hits) => Ok(hits),
-        Err(_) => {
+        Ok(hits) => Ok((hits, None)),
+        Err(err) => {
+            log::warn!("semantic search unavailable, falling back to FTS: {err}");
             search_notes_index(app, vault_id, query, limit).map(|hits| {
-                hits.into_iter()
+                let hits = hits
+                    .into_iter()
                     .map(|h| crate::features::search::model::HybridSearchHit {
                         note: h.note,
                         score: h.score,
@@ -427,7 +441,8 @@ pub fn search_notes_hybrid(
                         snippet_page: None,
                         source: crate::features::search::model::HitSource::Fts,
                     })
-                    .collect()
+                    .collect();
+                (hits, Some(err))
             })
         }
     }
