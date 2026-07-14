@@ -15,6 +15,12 @@
   const headings = $derived(stores.outline.headings);
   const active_heading_id = $derived(stores.outline.active_heading_id);
   const collapsed_ids = $derived(stores.outline.collapsed_ids);
+  /* In source mode the ProseMirror headings are display:none (zero rects) and
+     heading.pos is a markdown line number, so geometry and PM navigation are
+     both meaningless. */
+  const scroll_spy_enabled = $derived(
+    stores.editor.editor_mode !== "source" || stores.editor.split_view,
+  );
 
   let scroll_raf: number | undefined;
   let cached_heading_tops: number[] = [];
@@ -48,7 +54,7 @@
   function compute_heading_tops() {
     heading_tops_raf = undefined;
     const container = find_editor_scroll_container();
-    if (!container || headings.length === 0) {
+    if (!container || headings.length === 0 || !scroll_spy_enabled) {
       cached_heading_tops = [];
       return;
     }
@@ -67,7 +73,7 @@
 
   function update_active_heading() {
     const container = find_editor_scroll_container();
-    if (!container) {
+    if (!container || !scroll_spy_enabled) {
       stores.outline.set_active_heading(null);
       return;
     }
@@ -103,6 +109,7 @@
 
   $effect(() => {
     void headings.length;
+    void scroll_spy_enabled;
     queue_heading_tops();
   });
 
@@ -149,6 +156,7 @@
   }
 
   function handle_click(heading: OutlineHeading) {
+    if (!scroll_spy_enabled) return;
     void action_registry.execute(
       ACTION_IDS.outline_scroll_to_heading,
       heading.pos,
@@ -161,7 +169,7 @@
   }
 </script>
 
-<div class="OutlinePanel">
+<div class="OutlinePanel" class:OutlinePanel--static={!scroll_spy_enabled}>
   {#if headings.length === 0}
     <div class="OutlinePanel__empty">
       <div class="OutlinePanel__empty-icon">
@@ -311,6 +319,10 @@
   .OutlinePanel__item:hover {
     color: var(--foreground);
     background-color: var(--accent);
+  }
+
+  .OutlinePanel--static .OutlinePanel__item {
+    cursor: default;
   }
 
   .OutlinePanel__item--active,
