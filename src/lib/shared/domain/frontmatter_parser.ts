@@ -1,4 +1,4 @@
-const OPENING_FENCE = /^---[ \t]*\n/;
+export const OPENING_FENCE = /^---[ \t]*\n/;
 const CLOSING_FENCE_INLINE = /\n---[ \t]*(?:\n|$)/;
 const CLOSING_FENCE_START = /^---[ \t]*(?:\n|$)/;
 
