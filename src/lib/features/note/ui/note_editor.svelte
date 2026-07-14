@@ -8,7 +8,7 @@
   import { Button } from "$lib/components/ui/button";
   import { DocumentViewer } from "$lib/features/document";
   import { CanvasViewer } from "$lib/features/canvas";
-  import { SourceEditor, resolve_width_mode } from "$lib/features/editor";
+  import { SourceEditor, resolve_note_width_mode } from "$lib/features/editor";
   import { GraphTabView, SearchGraphTabView } from "$lib/features/graph";
   import { BasesPanel } from "$lib/features/bases";
   import { EditorContextMenu } from "$lib/features/editor";
@@ -41,11 +41,9 @@
   const zoom = $derived(stores.editor.zoom);
 
   const width_mode = $derived(
-    resolve_width_mode(
-      open_note
-        ? stores.editor.width_mode_overrides[open_note.meta.path]
-        : undefined,
-      open_note?.markdown,
+    resolve_note_width_mode(
+      open_note,
+      stores.editor.width_mode_overrides,
       stores.ui.editor_settings.editor_width_mode,
     ),
   );

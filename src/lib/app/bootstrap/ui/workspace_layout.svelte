@@ -21,7 +21,10 @@
   import BottomPanel from "$lib/app/bootstrap/ui/bottom_panel.svelte";
   import { TabBar } from "$lib/features/tab";
   import { FindInFileBar } from "$lib/features/search";
-  import { EditorStatusBar, resolve_width_mode } from "$lib/features/editor";
+  import {
+    EditorStatusBar,
+    resolve_note_width_mode,
+  } from "$lib/features/editor";
   import { ContextRail } from "$lib/features/links";
   import { is_editable_target } from "$lib/shared/utils/editable_target";
   import { DockedOutline, FloatingOutline } from "$lib/features/outline";
@@ -205,11 +208,9 @@
 
   const word_count = $derived(stores.editor.cursor?.total_words ?? 0);
   const note_width_mode = $derived(
-    resolve_width_mode(
-      stores.editor.open_note
-        ? stores.editor.width_mode_overrides[stores.editor.open_note.meta.path]
-        : undefined,
-      stores.editor.open_note?.markdown,
+    resolve_note_width_mode(
+      stores.editor.open_note,
+      stores.editor.width_mode_overrides,
       stores.ui.editor_settings.editor_width_mode,
     ),
   );
