@@ -377,18 +377,9 @@ export const SETTINGS_REGISTRY: SettingDefinition[] = [
     key: "editor_toolbar_visibility",
     label: "Toolbar Visibility",
     description:
-      "Controls when the formatting toolbar appears: on text selection, always visible, or hidden",
+      "Controls whether the formatting toolbar is always visible or hidden",
     category: "Editor",
-    keywords: [
-      "toolbar",
-      "formatting",
-      "visibility",
-      "floating",
-      "sticky",
-      "hide",
-      "show",
-      "selection",
-    ],
+    keywords: ["toolbar", "formatting", "visibility", "sticky", "hide", "show"],
   },
   {
     key: "editor_heading_markers",
