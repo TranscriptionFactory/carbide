@@ -2,6 +2,10 @@
   import { use_app_context } from "$lib/app/context/app_context.svelte";
   import { ACTION_IDS } from "$lib/app";
   import type { OutlineHeading } from "$lib/features/outline/types/outline";
+  import {
+    compute_active_heading_id,
+    compute_visible_headings,
+  } from "$lib/features/outline/domain/outline_view";
   import ChevronRightIcon from "@lucide/svelte/icons/chevron-right";
   import ListTreeIcon from "@lucide/svelte/icons/list-tree";
   import { onDestroy } from "svelte";
@@ -49,42 +53,19 @@
 
   function update_active_heading() {
     const container = find_editor_scroll_container();
-    if (
-      !container ||
-      headings.length === 0 ||
-      cached_heading_tops.length === 0
-    ) {
+    if (!container) {
       stores.outline.set_active_heading(null);
       return;
     }
 
-    const threshold = container.scrollTop + 80;
-    let last_id: string | null = null;
-
-    for (
-      let i = 0;
-      i < headings.length && i < cached_heading_tops.length;
-      i++
-    ) {
-      const top = cached_heading_tops[i];
-      const h = headings[i];
-      if (top === undefined || !h) break;
-      if (top <= threshold) {
-        last_id = h.id;
-      } else {
-        break;
-      }
-    }
-
-    const max_scroll = container.scrollHeight - container.clientHeight;
-    if (max_scroll > 0 && container.scrollTop >= max_scroll - 2) {
-      const last_heading = headings[headings.length - 1];
-      if (last_heading) {
-        last_id = last_heading.id;
-      }
-    }
-
-    stores.outline.set_active_heading(last_id ?? headings[0]?.id ?? null);
+    stores.outline.set_active_heading(
+      compute_active_heading_id(
+        headings,
+        cached_heading_tops,
+        container.scrollTop,
+        container.scrollHeight - container.clientHeight,
+      ),
+    );
   }
 
   function handle_scroll() {
@@ -96,11 +77,19 @@
   }
 
   let current_scroll_container: HTMLElement | null = null;
+  let resize_observer: ResizeObserver | undefined;
+
+  function queue_heading_tops() {
+    if (heading_tops_raf) cancelAnimationFrame(heading_tops_raf);
+    heading_tops_raf = requestAnimationFrame(() => {
+      compute_heading_tops();
+      update_active_heading();
+    });
+  }
 
   $effect(() => {
     void headings.length;
-    if (heading_tops_raf) cancelAnimationFrame(heading_tops_raf);
-    heading_tops_raf = requestAnimationFrame(compute_heading_tops);
+    queue_heading_tops();
   });
 
   $effect(() => {
@@ -110,11 +99,20 @@
       current_scroll_container?.removeEventListener("scroll", handle_scroll);
       current_scroll_container = container;
       container?.addEventListener("scroll", handle_scroll, { passive: true });
+      resize_observer?.disconnect();
+      if (container) {
+        resize_observer = new ResizeObserver(queue_heading_tops);
+        resize_observer.observe(container);
+        const content = container.querySelector(".NoteEditor__content");
+        if (content) resize_observer.observe(content);
+      }
     }
 
     return () => {
       current_scroll_container?.removeEventListener("scroll", handle_scroll);
       current_scroll_container = null;
+      resize_observer?.disconnect();
+      resize_observer = undefined;
     };
   });
 
@@ -122,31 +120,12 @@
     if (scroll_raf) cancelAnimationFrame(scroll_raf);
     if (heading_tops_raf) cancelAnimationFrame(heading_tops_raf);
     current_scroll_container?.removeEventListener("scroll", handle_scroll);
+    resize_observer?.disconnect();
   });
 
-  const visible_headings = $derived.by(() => {
-    const result: OutlineHeading[] = [];
-    const skip_below_level: number[] = [];
-
-    for (const heading of headings) {
-      while (
-        skip_below_level.length > 0 &&
-        heading.level <= (skip_below_level[skip_below_level.length - 1] ?? 0)
-      ) {
-        skip_below_level.pop();
-      }
-
-      if (skip_below_level.length > 0) continue;
-
-      result.push(heading);
-
-      if (collapsed_ids.has(heading.id)) {
-        skip_below_level.push(heading.level);
-      }
-    }
-
-    return result;
-  });
+  const visible_headings = $derived(
+    compute_visible_headings(headings, collapsed_ids),
+  );
 
   function has_children(heading: OutlineHeading): boolean {
     const idx = headings.indexOf(heading);
