@@ -98,6 +98,7 @@ function create_harness(options: HarnessOptions = {}) {
     },
     settings: {
       load_recent_command_ids: vi.fn().mockResolvedValue(["settings.open"]),
+      load_outline_pane_size: vi.fn().mockResolvedValue(null),
       load_welcome_state: vi.fn().mockResolvedValue({ seen_version: 999 }),
     },
     hotkey: {
@@ -379,6 +380,55 @@ describe("register_app_actions", () => {
       await registry.execute(ACTION_IDS.app_handle_file_open, "/some/file.md");
 
       expect(toast.error).toHaveBeenCalledWith("Failed to open file");
+    });
+  });
+
+  describe("set_note_width", () => {
+    function open_note_with_markdown(
+      stores: ReturnType<typeof create_harness>["stores"],
+      markdown: string,
+    ) {
+      stores.editor.set_open_note({
+        ...create_app_note(),
+        markdown: as_markdown_text(markdown),
+      });
+    }
+
+    it("writes frontmatter and clears the transient override when frontmatter is writable", async () => {
+      const { registry, stores } = create_harness();
+      const execute_metadata_update = vi.fn().mockResolvedValue(undefined);
+      registry.register({
+        id: ACTION_IDS.metadata_update_property,
+        label: "Update Property",
+        execute: execute_metadata_update,
+      });
+
+      open_note_with_markdown(stores, "# A");
+      stores.editor.set_width_mode_override(as_note_path("notes/a.md"), "wide");
+
+      await registry.execute(ACTION_IDS.editor_set_width_wide);
+
+      expect(execute_metadata_update).toHaveBeenCalledWith("_width", "wide");
+      expect(stores.editor.width_mode_overrides).toEqual({});
+    });
+
+    it("sets a transient override without writing frontmatter when frontmatter is not writable", async () => {
+      const { registry, stores } = create_harness();
+      const execute_metadata_update = vi.fn().mockResolvedValue(undefined);
+      registry.register({
+        id: ACTION_IDS.metadata_update_property,
+        label: "Update Property",
+        execute: execute_metadata_update,
+      });
+
+      open_note_with_markdown(stores, "---\n_width: wide\nBody");
+
+      await registry.execute(ACTION_IDS.editor_set_width_wide);
+
+      expect(execute_metadata_update).not.toHaveBeenCalled();
+      expect(stores.editor.width_mode_overrides).toEqual({
+        "notes/a.md": "wide",
+      });
     });
   });
 });

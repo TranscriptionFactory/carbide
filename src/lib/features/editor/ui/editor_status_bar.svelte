@@ -1,5 +1,7 @@
 <script lang="ts">
   import {
+    ChevronsLeftRight,
+    ChevronsRightLeft,
     Info,
     FolderOpen,
     RefreshCw,
@@ -75,6 +77,8 @@
     editor_mode: import("$lib/shared/types/editor").EditorMode;
     split_view: boolean;
     on_split_toggle: () => void;
+    width_mode: import("$lib/shared/types/editor_settings").EditorWidthMode;
+    on_width_toggle: () => void;
     lint_is_running: boolean;
     lint_error_count: number;
     lint_warning_count: number;
@@ -153,6 +157,8 @@
     on_mode_toggle,
     split_view,
     on_split_toggle,
+    width_mode,
+    on_width_toggle,
     show_line_numbers,
     on_line_numbers_toggle,
     zoom_percent,
@@ -262,6 +268,35 @@
     >
       Split
     </button>
+    <span class="StatusBar__separator" aria-hidden="true"></span>
+    <Tooltip.Provider delayDuration={0}>
+      <Tooltip.Root>
+        <Tooltip.Trigger>
+          {#snippet child({ props })}
+            <button
+              {...props}
+              type="button"
+              class="StatusBar__mode-toggle"
+              class:StatusBar__mode-toggle--active={width_mode === "wide"}
+              onclick={on_width_toggle}
+              aria-label="Toggle note width"
+              disabled={!has_note}
+            >
+              {#if width_mode === "wide"}
+                <ChevronsRightLeft />
+              {:else}
+                <ChevronsLeftRight />
+              {/if}
+            </button>
+          {/snippet}
+        </Tooltip.Trigger>
+        <Tooltip.Content side="top" sideOffset={4}>
+          {width_mode === "wide"
+            ? "Note width: wide — switch to normal"
+            : "Note width: normal — switch to wide"}
+        </Tooltip.Content>
+      </Tooltip.Root>
+    </Tooltip.Provider>
     <span class="StatusBar__separator" aria-hidden="true"></span>
     <button
       type="button"
@@ -672,6 +707,7 @@
 
   :global(.StatusBar__item svg),
   :global(.StatusBar__action svg),
+  :global(.StatusBar__mode-toggle svg),
   :global(.StatusBar__vault-action svg) {
     width: var(--size-icon-xs);
     height: var(--size-icon-xs);

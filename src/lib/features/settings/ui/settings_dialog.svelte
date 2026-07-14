@@ -69,6 +69,7 @@
     FileTreeBlurbPosition,
     OutlineMode,
     ToolbarVisibility,
+    EditorWidthMode,
     BlockDragHandleMode,
     TerminalFontWeight,
     TerminalCursorStyle,
@@ -82,6 +83,7 @@
     EDITOR_LINK_UNDERLINE_STYLE_OPTIONS,
     EDITOR_DIVIDER_STYLE_OPTIONS,
     EDITOR_TOOLBAR_VISIBILITY_OPTIONS,
+    EDITOR_WIDTH_MODE_OPTIONS,
     EDITOR_BLOCK_DRAG_HANDLE_OPTIONS,
     EMBEDDING_MODEL_OPTIONS,
     type MarkdownLspProvider,
@@ -1956,6 +1958,37 @@
                   <RotateCcw />
                 </button>
               </div>
+            </div>
+
+            <div class="SettingsDialog__row">
+              <div class="SettingsDialog__label-group">
+                <span class="SettingsDialog__label">Default Note Width</span>
+                <span class="SettingsDialog__description"
+                  >Width mode for notes without a _width frontmatter key</span
+                >
+              </div>
+              <Select.Root
+                type="single"
+                value={editor_settings.editor_width_mode}
+                onValueChange={(v: string | undefined) => {
+                  if (v) update("editor_width_mode", v as EditorWidthMode);
+                }}
+              >
+                <Select.Trigger class="w-32">
+                  <span data-slot="select-value"
+                    >{EDITOR_WIDTH_MODE_OPTIONS.find(
+                      (o) => o.value === editor_settings.editor_width_mode,
+                    )?.label ?? "Normal"}</span
+                  >
+                </Select.Trigger>
+                <Select.Content>
+                  {#each EDITOR_WIDTH_MODE_OPTIONS as option (option.value)}
+                    <Select.Item value={option.value}
+                      >{option.label}</Select.Item
+                    >
+                  {/each}
+                </Select.Content>
+              </Select.Root>
             </div>
 
             <div class="SettingsDialog__row">

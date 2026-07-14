@@ -302,6 +302,14 @@ export const SETTINGS_REGISTRY: SettingDefinition[] = [
     keywords: ["editor", "width", "line length", "layout", "readability"],
   },
   {
+    key: "editor_width_mode",
+    label: "Default Note Width",
+    description:
+      "Default editor width mode for notes without a _width frontmatter key",
+    category: "Editor",
+    keywords: ["editor", "width", "wide", "normal", "layout", "readability"],
+  },
+  {
     key: "show_inline_frontmatter",
     label: "Inline Frontmatter",
     description:
