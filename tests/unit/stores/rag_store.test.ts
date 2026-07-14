@@ -169,4 +169,48 @@ describe("RagStore", () => {
     store.set_provider("ollama");
     expect(store.provider_id).toBe("ollama");
   });
+
+  it("fail_streaming keeps a partial reply and surfaces the error beneath it", () => {
+    const store = new RagStore();
+    store.add_user_message("q");
+    store.start_streaming();
+    store.append_streaming_text("partial answer");
+
+    store.fail_streaming("rate limited");
+
+    expect(store.messages.map((m) => m.content)).toEqual([
+      "q",
+      "partial answer",
+    ]);
+    expect(store.streaming_id).toBeNull();
+    expect(store.error).toBe("rate limited");
+  });
+
+  it("fail_streaming drops an empty streaming placeholder", () => {
+    const store = new RagStore();
+    store.add_user_message("q");
+    store.start_streaming();
+
+    store.fail_streaming("model crashed");
+
+    expect(store.messages.map((m) => m.role)).toEqual(["user"]);
+    expect(store.streaming_id).toBeNull();
+    expect(store.error).toBe("model crashed");
+  });
+
+  it("set_streaming_context_stats stamps stats onto the streaming message", () => {
+    const store = new RagStore();
+    store.add_user_message("q");
+    store.start_streaming();
+
+    store.set_streaming_context_stats({ retrieved: 8, used: 3, truncated: 1 });
+    store.append_streaming_text("answer");
+    store.finish_streaming();
+
+    expect(store.messages[1]?.context_stats).toEqual({
+      retrieved: 8,
+      used: 3,
+      truncated: 1,
+    });
+  });
 });

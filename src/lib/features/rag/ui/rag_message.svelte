@@ -6,42 +6,29 @@
     RagCitation,
     RagMessage,
   } from "$lib/features/rag/domain/rag_types";
+  import {
+    render_rag_markdown,
+    CITATION_INDEX_ATTR,
+  } from "$lib/features/rag/domain/rag_markdown";
 
   type Props = { message: RagMessage; is_streaming?: boolean };
   let { message, is_streaming = false }: Props = $props();
 
   const { action_registry } = use_app_context();
 
-  const CITATION_MARKER = /\[(\d+)\]/g;
-
-  type Segment =
-    | { kind: "text"; text: string }
-    | { kind: "citation"; citation: RagCitation };
-
   const citation_map = $derived(
     new Map(message.citations.map((c) => [c.index, c])),
   );
 
-  const segments = $derived<Segment[]>(build_segments(message.content));
+  const rendered_html = $derived(
+    render_rag_markdown(message.content, citation_map),
+  );
 
-  function build_segments(content: string): Segment[] {
-    const result: Segment[] = [];
-    let last = 0;
-    for (const match of content.matchAll(CITATION_MARKER)) {
-      const index = Number(match[1]);
-      const citation = citation_map.get(index);
-      if (!citation || match.index === undefined) continue;
-      if (match.index > last) {
-        result.push({ kind: "text", text: content.slice(last, match.index) });
-      }
-      result.push({ kind: "citation", citation });
-      last = match.index + match[0].length;
-    }
-    if (last < content.length) {
-      result.push({ kind: "text", text: content.slice(last) });
-    }
-    return result;
-  }
+  const stats = $derived(message.context_stats);
+  const show_stats = $derived(
+    stats !== undefined &&
+      (stats.used < stats.retrieved || stats.truncated > 0),
+  );
 
   function open_citation(citation: RagCitation) {
     void action_registry.execute(
@@ -49,6 +36,24 @@
       citation.note_path,
     );
   }
+
+  let content_el = $state<HTMLElement | null>(null);
+
+  $effect(() => {
+    const el = content_el;
+    if (!el) return;
+    const on_click = (event: MouseEvent) => {
+      const target = (event.target as HTMLElement | null)?.closest(
+        `[${CITATION_INDEX_ATTR}]`,
+      );
+      if (!target) return;
+      const index = Number(target.getAttribute(CITATION_INDEX_ATTR));
+      const citation = citation_map.get(index);
+      if (citation) open_citation(citation);
+    };
+    el.addEventListener("click", on_click);
+    return () => el.removeEventListener("click", on_click);
+  });
 </script>
 
 {#if message.role === "user"}
@@ -61,26 +66,27 @@
   </div>
 {:else}
   <div class="flex flex-col gap-2">
-    <div class="text-sm leading-relaxed text-foreground">
-      {#each segments as segment, i (i)}
-        {#if segment.kind === "text"}<span class="whitespace-pre-wrap"
-            >{segment.text}</span
-          >{:else}<button
-            type="button"
-            class="mx-0.5 inline-flex items-center rounded bg-muted px-1 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-            title={segment.citation.title}
-            onclick={() => open_citation(segment.citation)}
-            >[{segment.citation.index}]</button
-          >{/if}
-      {/each}{#if is_streaming}<span
+    <div
+      bind:this={content_el}
+      class="rag-markdown text-sm leading-relaxed text-foreground"
+    >
+      {@html rendered_html}{#if is_streaming}<span
           class="ml-0.5 inline-block w-1.5 animate-pulse select-none align-baseline text-foreground"
           aria-hidden="true">▍</span
         >{/if}
     </div>
 
-    {#if message.citations.length > 0}
+    {#if message.citations.length > 0 || show_stats}
       <div class="flex flex-col gap-1 border-t pt-2">
         <span class="text-xs font-medium text-muted-foreground">Sources</span>
+        {#if show_stats && stats}
+          <span class="text-xs text-muted-foreground"
+            >Using {stats.used} of {stats.retrieved} retrieved notes{stats.truncated >
+            0
+              ? ` (${stats.truncated} truncated to fit)`
+              : ""}</span
+          >
+        {/if}
         {#each message.citations as citation (citation.index)}
           <button
             type="button"
@@ -99,3 +105,40 @@
     {/if}
   </div>
 {/if}
+
+<style>
+  .rag-markdown :global(> :not(:last-child)) {
+    margin-bottom: 0.5rem;
+  }
+  .rag-markdown :global(ul),
+  .rag-markdown :global(ol) {
+    padding-left: 1.25rem;
+  }
+  .rag-markdown :global(ul) {
+    list-style: disc;
+  }
+  .rag-markdown :global(ol) {
+    list-style: decimal;
+  }
+  .rag-markdown :global(pre) {
+    overflow-x: auto;
+    border-radius: calc(var(--radius) - 2px);
+    background: var(--muted);
+    padding: 0.5rem;
+  }
+  .rag-markdown :global(code) {
+    font-family: var(--font-mono, monospace);
+    font-size: 0.85em;
+  }
+  .rag-markdown :global(blockquote) {
+    border-left: 2px solid var(--border);
+    padding-left: 0.75rem;
+    color: var(--muted-foreground);
+  }
+  .rag-markdown :global(h1),
+  .rag-markdown :global(h2),
+  .rag-markdown :global(h3),
+  .rag-markdown :global(h4) {
+    font-weight: 600;
+  }
+</style>

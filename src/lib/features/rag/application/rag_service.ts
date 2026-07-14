@@ -57,6 +57,8 @@ const CITED_NOTE_BOOST = 1.25;
 const PINNED_SCORE = Number.MAX_SAFE_INTEGER;
 const NO_RESULTS_MESSAGE =
   "I couldn't find anything in your vault that answers that.";
+const SCOPE_FILTERED_MESSAGE =
+  "I found matching notes, but your active scope filtered them all out. Try widening or clearing the scope.";
 
 export class RagScopeError extends Error {
   constructor(readonly label: string) {
@@ -124,7 +126,6 @@ export type RagQueryInput = {
   history?: RagMessage[];
   scope?: RagScope;
   retrieve_limit?: number;
-  context_limit?: number;
   assembler_options?: AssembleContextOptions;
   image_parts?: AiImagePart[];
   signal?: AbortSignal;
@@ -148,10 +149,9 @@ export class RagService {
       const status = await this.search_port.get_embedding_status(vault.id);
       return derive_rag_readiness(status);
     } catch (err) {
-      log.warn("RAG embedding status check failed", {
-        error: error_message(err),
-      });
-      return { state: "ready" };
+      const reason = error_message(err);
+      log.warn("RAG embedding status check failed", { error: reason });
+      return { state: "unavailable", reason };
     }
   }
 
@@ -235,6 +235,7 @@ export class RagService {
       return;
     }
 
+    const unscoped_hit_count = hits.length;
     try {
       hits = await this.apply_scope(vault.id, hits, input.scope);
     } catch (err) {
@@ -250,12 +251,17 @@ export class RagService {
     hits = hits.filter((hit) => !pinned_paths.has(hit.note_path));
 
     if (hits.length === 0 && pinned.length === 0) {
+      if (this.scope_is_active(input.scope) && unscoped_hit_count > 0) {
+        yield { type: "text", text: SCOPE_FILTERED_MESSAGE };
+        yield { type: "done" };
+        return;
+      }
       yield* this.no_results();
       return;
     }
 
     const ranked = boost_cited_notes(hits, rewrite.boost_paths);
-    const top = ranked.slice(0, input.context_limit ?? DEFAULT_CONTEXT_LIMIT);
+    const top = ranked.slice(0, DEFAULT_CONTEXT_LIMIT);
     const candidates = await this.build_candidates(vault.id, [
       ...pinned,
       ...top,
@@ -267,6 +273,14 @@ export class RagService {
     }
 
     const contexts = assemble_context(candidates, input.assembler_options);
+    yield {
+      type: "sources",
+      stats: {
+        retrieved: new Set(candidates.map((c) => c.note_path)).size,
+        used: contexts.length,
+        truncated: contexts.filter((c) => c.truncated).length,
+      },
+    };
     const { system_prompt, user_prompt } = build_rag_prompt({
       question: cleaned_question,
       contexts,

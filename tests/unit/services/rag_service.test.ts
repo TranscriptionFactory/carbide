@@ -865,7 +865,7 @@ describe("RagService.query", () => {
     expect(bases_port.query).not.toHaveBeenCalled();
   });
 
-  it("returns no_results when the scope filters out every hit", async () => {
+  it("says the scope filtered everything when raw retrieval had hits", async () => {
     const search = {
       search_blocks: vi.fn().mockResolvedValue([]),
       hybrid_search: vi
@@ -891,8 +891,42 @@ describe("RagService.query", () => {
       }),
     );
 
-    expect(result.content).toMatch(/couldn't find/i);
+    expect(result.content).toContain("scope filtered them all out");
+    expect(result.content).toMatch(/widening or clearing/i);
+    expect(result.content).not.toMatch(/couldn't find/i);
     expect(notes.read_note).not.toHaveBeenCalled();
+  });
+
+  it("keeps the plain no-results reply when a scoped retrieval had no raw hits", async () => {
+    const search = {
+      search_blocks: vi.fn().mockResolvedValue([]),
+      hybrid_search: vi.fn().mockResolvedValue([]),
+      get_embedding_status: vi.fn().mockResolvedValue({
+        total_notes: 5,
+        embedded_notes: 5,
+        model_version: "v1",
+        is_embedding: false,
+      }),
+    };
+    const service = new RagService(
+      search as never,
+      { read_note: vi.fn() } as never,
+      text_stream("unused") as never,
+      make_vault_store(),
+      persistence,
+      tag as never,
+      bases as never,
+    );
+
+    const result = await collect(
+      service.query({
+        question: "q",
+        provider_config: provider,
+        scope: { folders: ["projects"] },
+      }),
+    );
+
+    expect(result.content).toMatch(/couldn't find/i);
   });
 
   it("returns no_results without calling the model when retrieval is empty", async () => {
@@ -952,6 +986,50 @@ describe("RagService.query", () => {
     expect(result.content).toContain("still being indexed (3 of 20 notes)");
     expect(result.content).not.toMatch(/couldn't find anything in your vault/i);
     expect(stream.stream_text).not.toHaveBeenCalled();
+  });
+
+  it("reports how many retrieved sources were actually used", async () => {
+    const search = {
+      search_blocks: vi.fn().mockResolvedValue([]),
+      hybrid_search: vi
+        .fn()
+        .mockResolvedValue([
+          hit("notes/long.md", "Long", "1", 0.9),
+          hit("notes/starved.md", "Starved", "2", 0.5),
+        ]),
+    };
+    const notes = {
+      read_note: vi.fn().mockResolvedValue({ markdown: "x".repeat(500) }),
+    };
+    const service = new RagService(
+      search as never,
+      notes as never,
+      text_stream("answer [1].") as never,
+      make_vault_store(),
+      persistence,
+      tag as never,
+      bases as never,
+    );
+
+    const events: RagStreamEvent[] = [];
+    for await (const event of service.query({
+      question: "q",
+      provider_config: provider,
+      assembler_options: {
+        token_budget: 100,
+        reserve_tokens: 0,
+        chars_per_token: 1,
+        min_context_chars: 10,
+      },
+    })) {
+      events.push(event);
+    }
+
+    const sources = events.find((e) => e.type === "sources");
+    expect(sources).toEqual({
+      type: "sources",
+      stats: { retrieved: 2, used: 1, truncated: 1 },
+    });
   });
 
   it("drops citations that do not map to a retrieved source", async () => {
@@ -1146,5 +1224,51 @@ describe("RagService.query", () => {
     );
 
     expect(result.error).toBeTruthy();
+  });
+});
+
+describe("RagService.check_readiness", () => {
+  it("reports unavailable with the reason when the status check throws", async () => {
+    const search = {
+      get_embedding_status: vi.fn().mockRejectedValue(new Error("db locked")),
+    };
+    const service = new RagService(
+      search as never,
+      { read_note: vi.fn() } as never,
+      text_stream("x") as never,
+      make_vault_store(),
+      persistence,
+      tag as never,
+      bases as never,
+    );
+
+    await expect(service.check_readiness()).resolves.toEqual({
+      state: "unavailable",
+      reason: "db locked",
+    });
+  });
+
+  it("reports ready when the index is fully embedded", async () => {
+    const search = {
+      get_embedding_status: vi.fn().mockResolvedValue({
+        total_notes: 3,
+        embedded_notes: 3,
+        model_version: "v1",
+        is_embedding: false,
+      }),
+    };
+    const service = new RagService(
+      search as never,
+      { read_note: vi.fn() } as never,
+      text_stream("x") as never,
+      make_vault_store(),
+      persistence,
+      tag as never,
+      bases as never,
+    );
+
+    await expect(service.check_readiness()).resolves.toEqual({
+      state: "ready",
+    });
   });
 });

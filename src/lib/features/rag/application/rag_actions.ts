@@ -4,11 +4,30 @@ import { ACTION_IDS } from "$lib/app";
 import { error_message } from "$lib/shared/utils/error_message";
 import { announce } from "$lib/shared/a11y/live_announcer.svelte";
 import { collect_open_note_image_parts } from "$lib/features/ai";
+import type { AiImagePart } from "$lib/features/ai";
 import type { AiProviderConfig } from "$lib/shared/types/ai_provider_config";
+import { DEFAULT_EDITOR_SETTINGS } from "$lib/shared/types/editor_settings";
+import type { RagContextStats } from "$lib/features/rag/domain/rag_types";
+import { should_attach_open_note_images } from "$lib/features/rag/domain/rag_open_note_images";
 import type { RagStore } from "$lib/features/rag/state/rag_store.svelte";
 import type { RagService } from "$lib/features/rag/application/rag_service";
 
 const RAG_OP_KEY = "rag.ask";
+
+const RETRIEVE_LIMIT_MIN = 1;
+const RETRIEVE_LIMIT_MAX = 50;
+const TOKEN_BUDGET_MIN = 1000;
+const TOKEN_BUDGET_MAX = 128000;
+
+function clamp_setting(
+  value: number,
+  min: number,
+  max: number,
+  fallback: number,
+): number {
+  if (!Number.isFinite(value)) return fallback;
+  return Math.min(max, Math.max(min, Math.round(value)));
+}
 
 function payload_field(payload: unknown, field: string): string {
   if (typeof payload === "string") return payload;
@@ -89,24 +108,59 @@ export function register_rag_actions(
       rag_store.start_loading();
       stores.op.start(RAG_OP_KEY, Date.now());
 
-      const image_parts = await collect_open_note_image_parts(input);
+      const open_note = stores.editor.open_note;
+      let image_parts: AiImagePart[] = [];
+      if (
+        open_note &&
+        should_attach_open_note_images({
+          question,
+          scope: rag_store.scope,
+          note_path: String(open_note.meta.path),
+          note_title: String(open_note.meta.title),
+        })
+      ) {
+        image_parts = await collect_open_note_image_parts(input);
+      }
 
       ask_abort = new AbortController();
+      let context_stats: RagContextStats | null = null;
       try {
         let errored = false;
+        const settings = stores.ui.editor_settings;
         for await (const event of rag_service.query({
           question,
           provider_config: provider,
           history,
           scope: rag_store.scope,
+          retrieve_limit: clamp_setting(
+            settings.ai_rag_retrieve_limit,
+            RETRIEVE_LIMIT_MIN,
+            RETRIEVE_LIMIT_MAX,
+            DEFAULT_EDITOR_SETTINGS.ai_rag_retrieve_limit,
+          ),
+          assembler_options: {
+            token_budget: clamp_setting(
+              settings.ai_rag_context_token_budget,
+              TOKEN_BUDGET_MIN,
+              TOKEN_BUDGET_MAX,
+              DEFAULT_EDITOR_SETTINGS.ai_rag_context_token_budget,
+            ),
+          },
           image_parts,
           signal: ask_abort.signal,
         })) {
           if (revision !== rag_store.revision) return;
           if (event.type === "generating") {
             rag_store.set_loading_stage("generating");
+          } else if (event.type === "sources") {
+            context_stats = event.stats;
           } else if (event.type === "text") {
-            if (!rag_store.streaming_id) rag_store.start_streaming();
+            if (!rag_store.streaming_id) {
+              rag_store.start_streaming();
+              if (context_stats) {
+                rag_store.set_streaming_context_stats(context_stats);
+              }
+            }
             rag_store.append_streaming_text(event.text);
           } else if (event.type === "citation") {
             rag_store.add_streaming_citation(event.citation);
@@ -120,14 +174,16 @@ export function register_rag_actions(
         if (!errored) {
           rag_store.finish_streaming();
           stores.op.succeed(RAG_OP_KEY);
-          persist_session(rag_store.active_id);
           announce("Vault chat reply ready");
         }
+        // persist failed turns too, so the exchange survives a reload
+        persist_session(rag_store.active_id);
       } catch (err) {
         if (revision !== rag_store.revision) return;
         const message = error_message(err);
         rag_store.fail_streaming(message);
         stores.op.fail(RAG_OP_KEY, message);
+        persist_session(rag_store.active_id);
       } finally {
         ask_abort = null;
       }
