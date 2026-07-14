@@ -18,7 +18,7 @@ export type ResolveVaultFilePath = (
 ) => Promise<string | null>;
 
 export type NoteEmbedContext = {
-  read_note: (note_path: string) => Promise<string>;
+  read_note: (note_path: string) => Promise<string | null>;
   parse_markdown: (markdown: string) => ProseNode;
   subscribe_to_changes: (handler: (event: VaultFsEvent) => void) => () => void;
 };

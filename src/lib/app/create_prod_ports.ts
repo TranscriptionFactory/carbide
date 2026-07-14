@@ -250,7 +250,8 @@ export function create_prod_ports(): Ports & {
               note_path,
               metas.map((meta) => meta.path),
             );
-            if (!resolved || resolved === note_path) throw error;
+            if (!resolved) return null;
+            if (resolved === note_path) throw error;
             const doc = await notes.read_note(vid, resolved as NoteId);
             return doc.markdown;
           }
