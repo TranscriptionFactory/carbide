@@ -31,11 +31,7 @@
   --text-lg: 14px;
   --text-xl: 18px;
 
-  --size-titlebar: calc(28px * var(--density));
   --size-activity-bar: calc(36px * var(--density));
-  --size-statusbar: calc(24px * var(--density));
-  --size-tabbar: calc(28px * var(--density));
-  --size-row: calc(22px * var(--density));
 
   --interactive: oklch(0.72 0.18 145);
   --focus-ring: oklch(0.72 0.18 145);
@@ -99,11 +95,7 @@
   --text-2xl: 32px;
   --leading-normal: 1.6;
 
-  --size-titlebar: calc(36px * var(--density));
   --size-activity-bar: calc(48px * var(--density));
-  --size-statusbar: calc(20px * var(--density));
-  --size-tabbar: calc(38px * var(--density));
-  --size-row: calc(30px * var(--density));
 
   --shadow-1: none;
   --shadow-2: none;
@@ -132,7 +124,6 @@
   --focus-ring: oklch(0.55 0.1 30);
   --ring: oklch(0.55 0.1 30);
   --statusbar-bg: transparent;
-  --statusbar-fg: oklch(0.42 0.01 60);
   --tab-inactive-bg: oklch(0.97 0.014 80);
   --tab-active-bg: oklch(0.985 0.012 80);
   --editor-link: oklch(0.4 0.1 30);
@@ -154,7 +145,6 @@
   --interactive: oklch(0.78 0.12 60);
   --focus-ring: oklch(0.78 0.12 60);
   --statusbar-bg: transparent;
-  --statusbar-fg: oklch(0.78 0.012 80);
   --tab-inactive-bg: oklch(0.22 0.013 60);
   --tab-active-bg: oklch(0.2 0.012 60);
   --editor-link: oklch(0.78 0.12 60);
@@ -181,11 +171,7 @@
   --text-xl: 18px;
   --leading-normal: 1.45;
 
-  --size-titlebar: calc(26px * var(--density));
   --size-activity-bar: calc(32px * var(--density));
-  --size-statusbar: calc(20px * var(--density));
-  --size-tabbar: calc(26px * var(--density));
-  --size-row: calc(22px * var(--density));
 
   --shadow-1: none;
   --shadow-2: none;
@@ -221,7 +207,6 @@
   --ring: oklch(0.85 0.16 85);
   --accent: oklch(0.18 0.04 85);
   --accent-foreground: oklch(0.95 0.16 85);
-  --accent-hover: oklch(0.22 0.05 85);
   --statusbar-bg: oklch(0.85 0.16 85);
   --statusbar-fg: oklch(0.1 0.005 80);
   --tab-active-bg: oklch(0.1 0.005 80);
@@ -261,6 +246,37 @@
   --editor-link: oklch(0.45 0.14 250);
   --editor-selection: oklch(0.25 0.06 30 / 0.18);
   --editor-code-bg: oklch(0.94 0.014 85);
+}
+
+/* ============== Glass ======================================
+   Frosted chrome: translucent surfaces come from the blueprint;
+   the blur lives here. html prefix beats Svelte-scoped rules.
+   ============================================================ */
+html[data-theme="glass"] .ActivityBar {
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+/* ============== Floating ===================================
+   Pill activity bar detached from the window edges.
+   ============================================================ */
+html[data-theme="floating"] .ActivityBar {
+  margin: 1rem;
+  height: calc(100% - 2rem);
+  border-radius: 2rem;
+  border-inline-end: none;
+  box-shadow: var(--shadow-md);
+}
+
+html[data-theme="floating"] .SidebarHeader {
+  border-radius: 1rem 1rem 0 0;
+}
+
+/* ============== Neon =======================================
+   Glow on the active activity-bar button.
+   ============================================================ */
+html[data-theme="neon"] .ActivityBar__button--active {
+  box-shadow: 0 0 8px var(--accent-glow);
 }
 
 /* ============== Density tokens =============================
