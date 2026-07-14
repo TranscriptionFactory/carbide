@@ -24,20 +24,24 @@
     }
   }
 
-  function on_overlay_pointerdown(e: PointerEvent) {
-    if (!(e.target as HTMLElement).closest(".ContextRail__panel")) {
-      stores.ui.context_rail_open = false;
+  function on_window_pointerdown(e: PointerEvent) {
+    if (!stores.ui.context_rail_open) return;
+    const target = e.target as HTMLElement;
+    if (
+      target.closest(".ContextRail") ||
+      target.closest(".ProseMirror, .cm-editor, input, textarea") ||
+      target.isContentEditable
+    ) {
+      return;
     }
+    stores.ui.context_rail_open = false;
   }
 </script>
 
+<svelte:window onpointerdown={on_window_pointerdown} />
+
 <div class="ContextRail">
   {#if stores.ui.context_rail_open}
-    <!-- svelte-ignore a11y_no_static_element_interactions -->
-    <div
-      class="ContextRail__backdrop"
-      onpointerdown={on_overlay_pointerdown}
-    ></div>
     <div class="ContextRail__panel">
       {#if stores.ui.context_rail_tab === "links"}
         <LinksPanel />
@@ -125,12 +129,6 @@
   .ContextRail__icon-btn--active {
     color: var(--interactive);
     background-color: var(--accent);
-  }
-
-  .ContextRail__backdrop {
-    position: fixed;
-    inset: 0;
-    z-index: 1;
   }
 
   .ContextRail__panel {
