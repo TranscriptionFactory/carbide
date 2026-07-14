@@ -11,10 +11,20 @@ const log = create_logger("note_embed_view");
 
 export type NoteEmbedCallbacks = {
   on_open_note: (path: string, fragment?: string) => void;
-  read_note: (note_path: string) => Promise<string>;
+  read_note: (note_path: string) => Promise<string | null>;
   parse_markdown: (markdown: string) => ProseNode;
   subscribe_to_changes: (handler: (event: VaultFsEvent) => void) => () => void;
 };
+
+export function embed_src_matches_path(
+  src: string,
+  note_path: string,
+): boolean {
+  const norm = (s: string) => s.replace(/\.md$/i, "").toLowerCase();
+  const src_norm = norm(src);
+  const path_norm = norm(note_path);
+  return path_norm === src_norm || path_norm.endsWith(`/${src_norm}`);
+}
 
 function extract_heading_section(
   markdown: string,
@@ -187,8 +197,10 @@ class NoteEmbedView implements NodeView {
     this._unsubscribe = callbacks.subscribe_to_changes((event) => {
       if (this._destroyed) return;
       if (
-        event.type === "note_changed_externally" &&
-        event.note_path === this._src
+        (event.type === "note_changed_externally" ||
+          event.type === "note_added" ||
+          event.type === "note_removed") &&
+        embed_src_matches_path(this._src, event.note_path)
       ) {
         void this._render_content();
       }
@@ -215,6 +227,11 @@ class NoteEmbedView implements NodeView {
     try {
       const markdown = await this._callbacks.read_note(this._src);
       if (this._destroyed) return;
+
+      if (markdown === null) {
+        this._content_el.textContent = "Note not found";
+        return;
+      }
 
       let content_md = markdown;
       if (this._fragment) {
