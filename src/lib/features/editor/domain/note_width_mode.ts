@@ -1,10 +1,12 @@
 import { parse as parse_yaml } from "yaml";
-import { find_frontmatter_span } from "$lib/shared/domain/frontmatter_parser";
+import {
+  find_frontmatter_span,
+  OPENING_FENCE,
+} from "$lib/shared/domain/frontmatter_parser";
 import type { EditorWidthMode } from "$lib/shared/types/editor_settings";
+import type { OpenNoteState } from "$lib/shared/types/editor";
 
 export const WIDTH_FRONTMATTER_KEY = "_width";
-
-const OPENING_FENCE = /^---[ \t]*\n/;
 
 export function read_frontmatter_width_mode(
   markdown: string,
@@ -48,4 +50,16 @@ export function resolve_width_mode(
     if (from_frontmatter) return from_frontmatter;
   }
   return app_default;
+}
+
+export function resolve_note_width_mode(
+  note: OpenNoteState | null | undefined,
+  overrides: Record<string, EditorWidthMode>,
+  app_default: EditorWidthMode,
+): EditorWidthMode {
+  return resolve_width_mode(
+    note ? overrides[note.meta.path] : undefined,
+    note?.markdown,
+    app_default,
+  );
 }
