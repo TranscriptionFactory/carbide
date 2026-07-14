@@ -20,11 +20,25 @@
   let cached_heading_tops: number[] = [];
   let heading_tops_raf: number | undefined;
   let list_element = $state<HTMLElement>();
+  let marker_top = $state(0);
+  let marker_height = $state(0);
 
   $effect(() => {
-    if (!active_heading_id) return;
-    const item = list_element?.querySelector(".OutlinePanel__item--active");
-    item?.scrollIntoView({ block: "nearest" });
+    void visible_headings;
+    if (!active_heading_id || !list_element) {
+      marker_height = 0;
+      return;
+    }
+    const item = list_element.querySelector<HTMLElement>(
+      ".OutlinePanel__item--active",
+    );
+    if (!item) {
+      marker_height = 0;
+      return;
+    }
+    marker_top = item.offsetTop;
+    marker_height = item.offsetHeight;
+    item.scrollIntoView({ block: "nearest" });
   });
 
   function find_editor_scroll_container(): HTMLElement | null {
@@ -157,12 +171,24 @@
     </div>
   {:else}
     <nav class="OutlinePanel__list" bind:this={list_element}>
+      <span
+        class="OutlinePanel__marker"
+        style:transform="translateY({marker_top}px)"
+        style:height="{marker_height}px"
+        style:opacity={marker_height > 0 ? 1 : 0}
+      ></span>
       {#each visible_headings as heading (heading.id)}
         <button
           type="button"
           class="OutlinePanel__item"
           class:OutlinePanel__item--active={heading.id === active_heading_id}
-          style="padding-inline-start: {(heading.level - 1) * 12 + 8}px"
+          data-level={heading.level}
+          title={heading.text}
+          aria-current={heading.id === active_heading_id
+            ? "location"
+            : undefined}
+          style="padding-inline-start: {(heading.level - 1) * 12 +
+            8}px; --outline-depth: {heading.level - 1}"
           onclick={() => handle_click(heading)}
         >
           {#if has_children(heading)}
@@ -227,8 +253,22 @@
   }
 
   .OutlinePanel__list {
+    position: relative;
     display: flex;
     flex-direction: column;
+  }
+
+  .OutlinePanel__marker {
+    position: absolute;
+    inset-block-start: 0;
+    inset-inline-start: 0;
+    width: 2px;
+    background-color: var(--interactive);
+    pointer-events: none;
+    transition:
+      transform var(--duration-slower) var(--ease-default),
+      height var(--duration-slower) var(--ease-default),
+      opacity var(--duration-fast) var(--ease-default);
   }
 
   .OutlinePanel__item {
@@ -245,9 +285,27 @@
     color: var(--muted-foreground);
     text-align: start;
     line-height: 1.4;
+    background-image: repeating-linear-gradient(
+      to right,
+      var(--border) 0 1px,
+      transparent 1px 12px
+    );
+    background-repeat: no-repeat;
+    background-position-x: 8px;
+    background-size: calc(var(--outline-depth, 0) * 12px) 100%;
     transition:
       color var(--duration-fast) var(--ease-default),
       background-color var(--duration-fast) var(--ease-default);
+  }
+
+  .OutlinePanel__item[data-level="1"] {
+    font-size: var(--text-sm);
+    font-weight: 600;
+    color: var(--secondary-foreground);
+  }
+
+  .OutlinePanel__item[data-level="2"] {
+    color: var(--secondary-foreground);
   }
 
   .OutlinePanel__item:hover {
@@ -255,9 +313,10 @@
     background-color: var(--accent);
   }
 
-  .OutlinePanel__item--active {
+  .OutlinePanel__item--active,
+  .OutlinePanel__item--active[data-level="1"],
+  .OutlinePanel__item--active[data-level="2"] {
     color: var(--interactive);
-    font-weight: 500;
   }
 
   .OutlinePanel__chevron {
