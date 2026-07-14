@@ -12,6 +12,7 @@ import {
   TableMap,
   selectionCell,
 } from "prosemirror-tables";
+import { autoUpdate } from "@floating-ui/dom";
 import {
   compute_floating_position,
   Z_TABLE_TOOLBAR,
@@ -279,8 +280,11 @@ export function create_table_toolbar_prose_plugin(): Plugin {
   let toolbar_el: HTMLElement | null = null;
   let align_btn_refs: AlignmentButtonRefs | null = null;
   let layout_btn_refs: LayoutButtonRefs | null = null;
+  let stop_auto_update: (() => void) | null = null;
 
   function remove_toolbar() {
+    stop_auto_update?.();
+    stop_auto_update = null;
     toolbar_el?.remove();
     toolbar_el = null;
     align_btn_refs = null;
@@ -332,6 +336,18 @@ export function create_table_toolbar_prose_plugin(): Plugin {
             layout_btn_refs = layout_btns;
             toolbar_el.style.zIndex = String(Z_TABLE_TOOLBAR);
             document.body.appendChild(toolbar_el);
+            stop_auto_update = autoUpdate(table_dom, toolbar_el, () => {
+              void compute_floating_position(table_dom, toolbar_el!, "top").then(
+                ({ x, y }) => {
+                  if (!toolbar_el) return;
+                  Object.assign(toolbar_el.style, {
+                    position: "absolute",
+                    left: `${String(x)}px`,
+                    top: `${String(y)}px`,
+                  });
+                },
+              );
+            });
           }
 
           if (align_btn_refs) {
@@ -343,17 +359,6 @@ export function create_table_toolbar_prose_plugin(): Plugin {
             const current_layout = get_table_layout(view);
             update_toggle_buttons(layout_btn_refs, current_layout);
           }
-
-          void compute_floating_position(table_dom, toolbar_el, "top").then(
-            ({ x, y }) => {
-              if (!toolbar_el) return;
-              Object.assign(toolbar_el.style, {
-                position: "absolute",
-                left: `${String(x)}px`,
-                top: `${String(y)}px`,
-              });
-            },
-          );
         },
         destroy() {
           view.dom.removeEventListener("focusout", on_blur);
