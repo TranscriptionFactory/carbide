@@ -79,10 +79,18 @@ export function create_suggest_prose_plugin<TItem>(
 
   function show_dropdown(view: EditorView) {
     if (!dropdown) return;
+    const el = dropdown;
     const anchor = create_cursor_anchor(view);
-    dropdown.style.display = "block";
+    const first_show = !is_visible;
+    if (first_show) el.style.visibility = "hidden";
+    el.style.display = "block";
     is_visible = true;
-    position_suggest_dropdown(dropdown, anchor);
+    const positioned = position_suggest_dropdown(el, anchor);
+    if (first_show) {
+      void positioned.then(() => {
+        el.style.visibility = "";
+      });
+    }
   }
 
   function hide_dropdown() {
