@@ -366,7 +366,9 @@ export function register_ai_actions(
       const dialog = ai_store.dialog;
       if (!dialog.open || !dialog.context) return;
       if (dialog.is_executing) return;
-      if (dialog.cli_status !== "available") return;
+      // "unknown" stays executable — the banner promises "will try when you send"
+      if (dialog.cli_status !== "available" && dialog.cli_status !== "unknown")
+        return;
       if (dialog.prompt.trim() === "") {
         const subject = dialog.context.kind;
         toast.info(
@@ -467,6 +469,20 @@ export function register_ai_actions(
     return services.editor.get_editor_view();
   }
 
+  // On stream failure keep any partial output reviewable (accept/discard);
+  // with nothing streamed, reject to restore the doc (a selection may have
+  // been deleted when the stream started).
+  function fail_inline_stream(view: EditorView, message: string) {
+    toast.error(message);
+    const state = get_ai_menu_state(view.state);
+    if (!state.open) return;
+    if (state.ai_range_to > state.ai_range_from) {
+      dispatch_ai_menu(view, { action: "stream_done" });
+    } else {
+      reject_ai_inline(view);
+    }
+  }
+
   function extract_inline_context(view: EditorView): {
     context_text: string;
     selection_text?: string;
@@ -520,14 +536,15 @@ export function register_ai_actions(
         | { command_id?: string; prompt?: string; retry?: boolean }
         | undefined;
 
-      const state = get_ai_menu_state(view.state);
-      if (!state.open || state.streaming) return;
-
       const config = await resolve_provider("cli");
       if (!config) {
         toast.error("No CLI AI provider available");
         return;
       }
+
+      // read after the async provider probe: closes the double-trigger window
+      const state = get_ai_menu_state(view.state);
+      if (!state.open || state.streaming) return;
 
       let prompts: { system_prompt: string; user_prompt: string };
       if (p?.retry) {
@@ -568,17 +585,23 @@ export function register_ai_actions(
       }
 
       const images = await collect_open_note_image_parts(input);
+      if (!get_ai_menu_state(view.state).open) return;
 
+      const abort = new AbortController();
       try {
         for await (const chunk of ai_service.stream_inline({
           provider_config: config,
           system_prompt: prompts.system_prompt,
           user_prompt: prompts.user_prompt,
           images,
+          signal: abort.signal,
         })) {
           if (chunk.type === "text") {
             const current_state = get_ai_menu_state(view.state);
-            if (!current_state.open) return;
+            if (!current_state.open) {
+              abort.abort();
+              return;
+            }
             const insert_pos = current_state.ai_range_to;
             const tr = view.state.tr.insertText(chunk.text, insert_pos);
             tr.setMeta("addToHistory", false);
@@ -588,15 +611,13 @@ export function register_ai_actions(
             });
             view.dispatch(tr);
           } else if (chunk.type === "error") {
-            toast.error(chunk.error);
-            dispatch_ai_menu(view, { action: "close" });
+            fail_inline_stream(view, chunk.error);
             return;
           }
         }
         dispatch_ai_menu(view, { action: "stream_done" });
       } catch (err) {
-        toast.error(error_message(err));
-        dispatch_ai_menu(view, { action: "close" });
+        fail_inline_stream(view, error_message(err));
       }
     },
   });

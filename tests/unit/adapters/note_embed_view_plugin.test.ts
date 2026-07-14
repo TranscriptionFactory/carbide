@@ -3,7 +3,9 @@ import { embed_src_matches_path } from "$lib/features/editor/adapters/note_embed
 
 describe("embed_src_matches_path", () => {
   it("matches a name-only src against a nested fs path", () => {
-    expect(embed_src_matches_path("Meeting Notes", "work/Meeting Notes.md")).toBe(true);
+    expect(
+      embed_src_matches_path("Meeting Notes", "work/Meeting Notes.md"),
+    ).toBe(true);
   });
 
   it("matches an exact path src with extension stripped", () => {
