@@ -13,8 +13,8 @@ export function create_cursor_anchor(view: EditorView): Element {
 export function position_suggest_dropdown(
   floating: HTMLElement,
   anchor: Element,
-): void {
-  void computePosition(anchor, floating, {
+): Promise<void> {
+  return computePosition(anchor, floating, {
     placement: "bottom-start",
     middleware: [offset(6), flip(), shift({ padding: 8 })],
   }).then(({ x, y }) => {
@@ -73,6 +73,10 @@ export function attach_outside_dismiss(
 export function mount_dropdown(el: HTMLElement): void {
   el.style.display = "none";
   el.style.position = "fixed";
+  // offscreen until the first computePosition resolves — an unpositioned
+  // fixed element would paint at its static flow position for one frame
+  el.style.left = "-9999px";
+  el.style.top = "-9999px";
   el.style.zIndex = "9999";
   document.body.appendChild(el);
 }

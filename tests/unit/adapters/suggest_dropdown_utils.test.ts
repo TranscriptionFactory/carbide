@@ -185,6 +185,14 @@ describe("mount_dropdown", () => {
     expect(document.body.contains(el)).toBe(true);
     el.remove();
   });
+
+  it("parks the dropdown offscreen so the first paint never lands at the viewport origin", () => {
+    const el = document.createElement("div");
+    mount_dropdown(el);
+    expect(el.style.left).toBe("-9999px");
+    expect(el.style.top).toBe("-9999px");
+    el.remove();
+  });
 });
 
 describe("destroy_dropdown", () => {
