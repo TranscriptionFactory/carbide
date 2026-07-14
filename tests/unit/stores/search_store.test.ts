@@ -58,4 +58,101 @@ describe("SearchStore", () => {
     expect(store.omnibar_items).toEqual([]);
     expect(store.in_file_matches).toEqual([]);
   });
+
+  it("tracks a full embedding run through started/progress/completed", () => {
+    const store = new SearchStore();
+
+    store.set_embedding_progress({
+      status: "started",
+      vault_id: "vault-a",
+      total: 4,
+    });
+    expect(store.embedding_progress).toEqual({
+      status: "embedding",
+      embedded: 0,
+      total: 4,
+      error: null,
+    });
+
+    store.set_embedding_progress({
+      status: "progress",
+      vault_id: "vault-a",
+      embedded: 2,
+      total: 4,
+    });
+    expect(store.embedding_progress).toEqual({
+      status: "embedding",
+      embedded: 2,
+      total: 4,
+      error: null,
+    });
+
+    store.set_embedding_progress({
+      status: "completed",
+      vault_id: "vault-a",
+      embedded: 4,
+      elapsed_ms: 10,
+    });
+    expect(store.embedding_progress).toEqual({
+      status: "completed",
+      embedded: 4,
+      total: 4,
+      error: null,
+    });
+  });
+
+  it("tracks incremental block embedding events", () => {
+    const store = new SearchStore();
+
+    store.set_embedding_progress({
+      status: "block_started",
+      vault_id: "vault-a",
+      total: 2,
+    });
+    expect(store.embedding_progress.status).toBe("embedding");
+
+    store.set_embedding_progress({
+      status: "block_progress",
+      vault_id: "vault-a",
+      embedded: 1,
+      total: 2,
+    });
+    expect(store.embedding_progress).toEqual({
+      status: "embedding",
+      embedded: 1,
+      total: 2,
+      error: null,
+    });
+
+    store.set_embedding_progress({
+      status: "block_completed",
+      vault_id: "vault-a",
+      embedded: 2,
+    });
+    expect(store.embedding_progress.status).toBe("completed");
+  });
+
+  it("records embedding failure and clears it on reset", () => {
+    const store = new SearchStore();
+
+    store.set_embedding_progress({
+      status: "failed",
+      vault_id: "vault-a",
+      error: "model unavailable",
+    });
+    expect(store.embedding_progress).toEqual({
+      status: "failed",
+      embedded: 0,
+      total: 0,
+      error: "model unavailable",
+    });
+
+    store.reset();
+    expect(store.embedding_progress).toEqual({
+      status: "idle",
+      embedded: 0,
+      total: 0,
+      error: null,
+    });
+  });
 });

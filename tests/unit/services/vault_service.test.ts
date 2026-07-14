@@ -11,6 +11,7 @@ import {
   as_vault_path,
 } from "$lib/shared/types/ids";
 import type { Vault } from "$lib/shared/types/vault";
+import type { EmbeddingProgressEvent } from "$lib/shared/types/search";
 
 function create_deferred<T>() {
   let resolve: (value: T) => void = () => {};
@@ -93,6 +94,7 @@ describe("VaultService", () => {
       rename_folder_paths: vi.fn(),
       subscribe_index_progress: vi.fn().mockReturnValue(() => {}),
       subscribe_vault_scan_stats: vi.fn().mockReturnValue(() => {}),
+      subscribe_embedding_progress: vi.fn().mockReturnValue(() => {}),
       embed_sync: vi.fn().mockResolvedValue(undefined),
     };
 
@@ -190,6 +192,7 @@ describe("VaultService", () => {
       rename_folder_paths: vi.fn(),
       subscribe_index_progress: vi.fn().mockReturnValue(() => {}),
       subscribe_vault_scan_stats: vi.fn().mockReturnValue(() => {}),
+      subscribe_embedding_progress: vi.fn().mockReturnValue(() => {}),
       embed_sync: vi.fn().mockResolvedValue(undefined),
     };
 
@@ -270,6 +273,7 @@ describe("VaultService", () => {
         rename_folder_paths: vi.fn(),
         subscribe_index_progress: vi.fn().mockReturnValue(() => {}),
         subscribe_vault_scan_stats: vi.fn().mockReturnValue(() => {}),
+        subscribe_embedding_progress: vi.fn().mockReturnValue(() => {}),
       } as never,
       {
         get_setting: vi.fn().mockResolvedValue(null),
@@ -318,6 +322,7 @@ describe("VaultService", () => {
         rename_folder_paths: vi.fn(),
         subscribe_index_progress: vi.fn().mockReturnValue(() => {}),
         subscribe_vault_scan_stats: vi.fn().mockReturnValue(() => {}),
+        subscribe_embedding_progress: vi.fn().mockReturnValue(() => {}),
       } as never,
       { get_setting: vi.fn(), set_setting: vi.fn() } as never,
       {
@@ -403,6 +408,7 @@ describe("VaultService", () => {
         rename_folder_paths: vi.fn(),
         subscribe_index_progress: vi.fn().mockReturnValue(() => {}),
         subscribe_vault_scan_stats: vi.fn().mockReturnValue(() => {}),
+        subscribe_embedding_progress: vi.fn().mockReturnValue(() => {}),
       } as never,
       settings_port as never,
       {
@@ -487,6 +493,7 @@ describe("VaultService", () => {
         rename_folder_paths: vi.fn(),
         subscribe_index_progress: vi.fn().mockReturnValue(() => {}),
         subscribe_vault_scan_stats: vi.fn().mockReturnValue(() => {}),
+        subscribe_embedding_progress: vi.fn().mockReturnValue(() => {}),
       } as never,
       {
         get_setting: vi.fn().mockResolvedValue([vault_b.id]),
@@ -569,6 +576,7 @@ describe("VaultService", () => {
       rename_folder_paths: vi.fn(),
       subscribe_index_progress: vi.fn().mockReturnValue(() => {}),
       subscribe_vault_scan_stats: vi.fn().mockReturnValue(() => {}),
+      subscribe_embedding_progress: vi.fn().mockReturnValue(() => {}),
       embed_sync: vi.fn().mockResolvedValue(undefined),
     };
 
@@ -633,6 +641,7 @@ describe("VaultService", () => {
       rename_folder_paths: vi.fn(),
       subscribe_index_progress: vi.fn().mockReturnValue(() => {}),
       subscribe_vault_scan_stats: vi.fn().mockReturnValue(() => {}),
+      subscribe_embedding_progress: vi.fn().mockReturnValue(() => {}),
       embed_sync: vi.fn().mockResolvedValue(undefined),
     };
 
@@ -698,6 +707,7 @@ describe("VaultService", () => {
       rename_folder_paths: vi.fn(),
       subscribe_index_progress: vi.fn().mockReturnValue(() => {}),
       subscribe_vault_scan_stats: vi.fn().mockReturnValue(() => {}),
+      subscribe_embedding_progress: vi.fn().mockReturnValue(() => {}),
       embed_sync: vi.fn().mockResolvedValue(undefined),
     };
 
@@ -775,6 +785,7 @@ describe("VaultService", () => {
         rename_folder_paths: vi.fn(),
         subscribe_index_progress: vi.fn().mockReturnValue(() => {}),
         subscribe_vault_scan_stats: vi.fn().mockReturnValue(() => {}),
+        subscribe_embedding_progress: vi.fn().mockReturnValue(() => {}),
       } as never,
       { get_setting: vi.fn(), set_setting: vi.fn() } as never,
       {
@@ -844,6 +855,7 @@ describe("VaultService", () => {
         rename_folder_paths: vi.fn(),
         subscribe_index_progress: vi.fn().mockReturnValue(() => {}),
         subscribe_vault_scan_stats: vi.fn().mockReturnValue(() => {}),
+        subscribe_embedding_progress: vi.fn().mockReturnValue(() => {}),
       } as never,
       { get_setting: vi.fn(), set_setting: vi.fn() } as never,
       {
@@ -920,6 +932,7 @@ describe("VaultService", () => {
         rename_folder_paths: vi.fn(),
         subscribe_index_progress: vi.fn().mockReturnValue(() => {}),
         subscribe_vault_scan_stats: vi.fn().mockReturnValue(() => {}),
+        subscribe_embedding_progress: vi.fn().mockReturnValue(() => {}),
       } as never,
       settings_port as never,
       {
@@ -987,6 +1000,7 @@ describe("VaultService", () => {
         rename_folder_paths: vi.fn(),
         subscribe_index_progress: vi.fn().mockReturnValue(() => {}),
         subscribe_vault_scan_stats: vi.fn().mockReturnValue(() => {}),
+        subscribe_embedding_progress: vi.fn().mockReturnValue(() => {}),
       } as never,
       { get_setting: vi.fn(), set_setting: vi.fn() } as never,
       {
@@ -1029,6 +1043,8 @@ describe("VaultService embedding chase", () => {
       rename_folder_paths: vi.fn(),
       subscribe_index_progress: vi.fn().mockReturnValue(() => {}),
       subscribe_vault_scan_stats: vi.fn().mockReturnValue(() => {}),
+      subscribe_embedding_progress: vi.fn().mockReturnValue(() => {}),
+      rebuild_embeddings: vi.fn().mockResolvedValue(undefined),
     };
   }
 
@@ -1043,6 +1059,7 @@ describe("VaultService embedding chase", () => {
     const vault_store = new VaultStore();
     vault_store.set_vault(vault);
     const search_store = new SearchStore();
+    const op_store = new OpStore();
     const service = new VaultService(
       {
         choose_vault: vi.fn(),
@@ -1063,11 +1080,11 @@ describe("VaultService embedding chase", () => {
       vault_store,
       new NotesStore(),
       new EditorStore(),
-      new OpStore(),
+      op_store,
       search_store,
       () => 1,
     );
-    return { service, vault, search_store };
+    return { service, vault, search_store, op_store };
   }
 
   it("chases a successful sync_index with embed_sync", async () => {
@@ -1139,5 +1156,121 @@ describe("VaultService embedding chase", () => {
     const result = await service.sync_index();
 
     expect(result).toEqual({ status: "success" });
+  });
+
+  it("skips rebuild_index while a reindex operation is already pending", async () => {
+    const index_port = make_index_port();
+    const first_rebuild = create_deferred<void>();
+    index_port.rebuild_index.mockReturnValueOnce(first_rebuild.promise);
+    const { service } = make_service(index_port);
+
+    const first = service.rebuild_index();
+    const second = await service.rebuild_index();
+
+    expect(second).toEqual({ status: "skipped" });
+    expect(index_port.rebuild_index).toHaveBeenCalledTimes(1);
+
+    first_rebuild.resolve(undefined);
+    await expect(first).resolves.toEqual({ status: "success" });
+  });
+
+  function capture_embedding_emit(
+    index_port: ReturnType<typeof make_index_port>,
+  ) {
+    let emit: ((event: EmbeddingProgressEvent) => void) | null = null;
+    index_port.subscribe_embedding_progress = vi.fn(
+      (callback: (event: EmbeddingProgressEvent) => void) => {
+        emit = callback;
+        return () => {};
+      },
+    );
+    return (event: EmbeddingProgressEvent) => emit?.(event);
+  }
+
+  it("resolves rebuild_embeddings on the completed embedding event", async () => {
+    const index_port = make_index_port();
+    const emit = capture_embedding_emit(index_port);
+    const { service, vault, op_store } = make_service(index_port);
+
+    const pending = service.rebuild_embeddings();
+    expect(op_store.is_pending("vault.rebuild_embeddings")).toBe(true);
+
+    emit({
+      status: "completed",
+      vault_id: vault.id,
+      embedded: 3,
+      elapsed_ms: 5,
+    });
+
+    await expect(pending).resolves.toEqual({ status: "success" });
+    expect(index_port.rebuild_embeddings).toHaveBeenCalledWith(vault.id);
+    expect(op_store.is_pending("vault.rebuild_embeddings")).toBe(false);
+  });
+
+  it("fails rebuild_embeddings on the failed embedding event", async () => {
+    const index_port = make_index_port();
+    const emit = capture_embedding_emit(index_port);
+    const { service, vault, op_store } = make_service(index_port);
+
+    const pending = service.rebuild_embeddings();
+    emit({ status: "failed", vault_id: vault.id, error: "model unavailable" });
+
+    await expect(pending).resolves.toEqual({
+      status: "failed",
+      error: "model unavailable",
+    });
+    expect(op_store.get("vault.rebuild_embeddings").status).toBe("error");
+  });
+
+  it("ignores block events while waiting for a rebuild_embeddings run", async () => {
+    const index_port = make_index_port();
+    const emit = capture_embedding_emit(index_port);
+    const { service, vault } = make_service(index_port);
+
+    const pending = service.rebuild_embeddings();
+    emit({ status: "block_completed", vault_id: vault.id, embedded: 1 });
+    emit({
+      status: "completed",
+      vault_id: vault.id,
+      embedded: 3,
+      elapsed_ms: 5,
+    });
+
+    await expect(pending).resolves.toEqual({ status: "success" });
+  });
+
+  it("skips rebuild_embeddings while a rebuild is already pending", async () => {
+    const index_port = make_index_port();
+    const emit = capture_embedding_emit(index_port);
+    const { service, vault } = make_service(index_port);
+
+    const first = service.rebuild_embeddings();
+    const second = await service.rebuild_embeddings();
+
+    expect(second).toEqual({ status: "skipped" });
+    expect(index_port.rebuild_embeddings).toHaveBeenCalledTimes(1);
+
+    emit({
+      status: "completed",
+      vault_id: vault.id,
+      embedded: 3,
+      elapsed_ms: 5,
+    });
+    await expect(first).resolves.toEqual({ status: "success" });
+  });
+
+  it("skips rebuild_embeddings while a background embed pass is active", async () => {
+    const index_port = make_index_port();
+    const { service, vault, search_store } = make_service(index_port);
+    search_store.set_embedding_progress({
+      status: "block_started",
+      vault_id: vault.id,
+      total: 4,
+    });
+
+    const result = await service.rebuild_embeddings();
+
+    expect(result).toEqual({ status: "skipped" });
+    expect(index_port.rebuild_embeddings).not.toHaveBeenCalled();
   });
 });

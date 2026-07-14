@@ -2,6 +2,10 @@
   import { use_app_context } from "$lib/app/context/app_context.svelte";
   import { ACTION_IDS } from "$lib/app";
   import type { OutlineHeading } from "$lib/features/outline/types/outline";
+  import {
+    compute_active_heading_id,
+    compute_visible_headings,
+  } from "$lib/features/outline/domain/outline_view";
   import ChevronRightIcon from "@lucide/svelte/icons/chevron-right";
   import ListTreeIcon from "@lucide/svelte/icons/list-tree";
   import { onDestroy } from "svelte";
@@ -11,10 +15,37 @@
   const headings = $derived(stores.outline.headings);
   const active_heading_id = $derived(stores.outline.active_heading_id);
   const collapsed_ids = $derived(stores.outline.collapsed_ids);
+  /* In source mode the ProseMirror headings are display:none (zero rects) and
+     heading.pos is a markdown line number, so geometry and PM navigation are
+     both meaningless. */
+  const scroll_spy_enabled = $derived(
+    stores.editor.editor_mode !== "source" || stores.editor.split_view,
+  );
 
   let scroll_raf: number | undefined;
   let cached_heading_tops: number[] = [];
   let heading_tops_raf: number | undefined;
+  let list_element = $state<HTMLElement>();
+  let marker_top = $state(0);
+  let marker_height = $state(0);
+
+  $effect(() => {
+    void visible_headings;
+    if (!active_heading_id || !list_element) {
+      marker_height = 0;
+      return;
+    }
+    const item = list_element.querySelector<HTMLElement>(
+      ".OutlinePanel__item--active",
+    );
+    if (!item) {
+      marker_height = 0;
+      return;
+    }
+    marker_top = item.offsetTop;
+    marker_height = item.offsetHeight;
+    item.scrollIntoView({ block: "nearest" });
+  });
 
   function find_editor_scroll_container(): HTMLElement | null {
     return document.querySelector(".NoteEditor");
@@ -23,7 +54,7 @@
   function compute_heading_tops() {
     heading_tops_raf = undefined;
     const container = find_editor_scroll_container();
-    if (!container || headings.length === 0) {
+    if (!container || headings.length === 0 || !scroll_spy_enabled) {
       cached_heading_tops = [];
       return;
     }
@@ -42,42 +73,19 @@
 
   function update_active_heading() {
     const container = find_editor_scroll_container();
-    if (
-      !container ||
-      headings.length === 0 ||
-      cached_heading_tops.length === 0
-    ) {
+    if (!container || !scroll_spy_enabled) {
       stores.outline.set_active_heading(null);
       return;
     }
 
-    const threshold = container.scrollTop + 80;
-    let last_id: string | null = null;
-
-    for (
-      let i = 0;
-      i < headings.length && i < cached_heading_tops.length;
-      i++
-    ) {
-      const top = cached_heading_tops[i];
-      const h = headings[i];
-      if (top === undefined || !h) break;
-      if (top <= threshold) {
-        last_id = h.id;
-      } else {
-        break;
-      }
-    }
-
-    const max_scroll = container.scrollHeight - container.clientHeight;
-    if (max_scroll > 0 && container.scrollTop >= max_scroll - 2) {
-      const last_heading = headings[headings.length - 1];
-      if (last_heading) {
-        last_id = last_heading.id;
-      }
-    }
-
-    stores.outline.set_active_heading(last_id ?? headings[0]?.id ?? null);
+    stores.outline.set_active_heading(
+      compute_active_heading_id(
+        headings,
+        cached_heading_tops,
+        container.scrollTop,
+        container.scrollHeight - container.clientHeight,
+      ),
+    );
   }
 
   function handle_scroll() {
@@ -89,11 +97,20 @@
   }
 
   let current_scroll_container: HTMLElement | null = null;
+  let resize_observer: ResizeObserver | undefined;
+
+  function queue_heading_tops() {
+    if (heading_tops_raf) cancelAnimationFrame(heading_tops_raf);
+    heading_tops_raf = requestAnimationFrame(() => {
+      compute_heading_tops();
+      update_active_heading();
+    });
+  }
 
   $effect(() => {
     void headings.length;
-    if (heading_tops_raf) cancelAnimationFrame(heading_tops_raf);
-    heading_tops_raf = requestAnimationFrame(compute_heading_tops);
+    void scroll_spy_enabled;
+    queue_heading_tops();
   });
 
   $effect(() => {
@@ -103,11 +120,20 @@
       current_scroll_container?.removeEventListener("scroll", handle_scroll);
       current_scroll_container = container;
       container?.addEventListener("scroll", handle_scroll, { passive: true });
+      resize_observer?.disconnect();
+      if (container) {
+        resize_observer = new ResizeObserver(queue_heading_tops);
+        resize_observer.observe(container);
+        const content = container.querySelector(".NoteEditor__content");
+        if (content) resize_observer.observe(content);
+      }
     }
 
     return () => {
       current_scroll_container?.removeEventListener("scroll", handle_scroll);
       current_scroll_container = null;
+      resize_observer?.disconnect();
+      resize_observer = undefined;
     };
   });
 
@@ -115,31 +141,12 @@
     if (scroll_raf) cancelAnimationFrame(scroll_raf);
     if (heading_tops_raf) cancelAnimationFrame(heading_tops_raf);
     current_scroll_container?.removeEventListener("scroll", handle_scroll);
+    resize_observer?.disconnect();
   });
 
-  const visible_headings = $derived.by(() => {
-    const result: OutlineHeading[] = [];
-    const skip_below_level: number[] = [];
-
-    for (const heading of headings) {
-      while (
-        skip_below_level.length > 0 &&
-        heading.level <= (skip_below_level[skip_below_level.length - 1] ?? 0)
-      ) {
-        skip_below_level.pop();
-      }
-
-      if (skip_below_level.length > 0) continue;
-
-      result.push(heading);
-
-      if (collapsed_ids.has(heading.id)) {
-        skip_below_level.push(heading.level);
-      }
-    }
-
-    return result;
-  });
+  const visible_headings = $derived(
+    compute_visible_headings(headings, collapsed_ids),
+  );
 
   function has_children(heading: OutlineHeading): boolean {
     const idx = headings.indexOf(heading);
@@ -149,19 +156,26 @@
   }
 
   function handle_click(heading: OutlineHeading) {
+    if (!scroll_spy_enabled) return;
     void action_registry.execute(
       ACTION_IDS.outline_scroll_to_heading,
       heading.pos,
     );
   }
 
-  function toggle_collapsed(event: Event, heading: OutlineHeading) {
+  function toggle_collapsed(
+    event: MouseEvent | KeyboardEvent,
+    heading: OutlineHeading,
+  ) {
     event.stopPropagation();
     stores.outline.toggle_collapsed(heading.id);
+    if (event.altKey && scroll_spy_enabled) {
+      void action_registry.execute(ACTION_IDS.editor_fold_toggle, heading.pos);
+    }
   }
 </script>
 
-<div class="OutlinePanel">
+<div class="OutlinePanel" class:OutlinePanel--static={!scroll_spy_enabled}>
   {#if headings.length === 0}
     <div class="OutlinePanel__empty">
       <div class="OutlinePanel__empty-icon">
@@ -170,13 +184,25 @@
       <p class="OutlinePanel__empty-text">No headings</p>
     </div>
   {:else}
-    <nav class="OutlinePanel__list">
+    <nav class="OutlinePanel__list" bind:this={list_element}>
+      <span
+        class="OutlinePanel__marker"
+        style:transform="translateY({marker_top}px)"
+        style:height="{marker_height}px"
+        style:opacity={marker_height > 0 ? 1 : 0}
+      ></span>
       {#each visible_headings as heading (heading.id)}
         <button
           type="button"
           class="OutlinePanel__item"
           class:OutlinePanel__item--active={heading.id === active_heading_id}
-          style="padding-inline-start: {(heading.level - 1) * 12 + 8}px"
+          data-level={heading.level}
+          title={heading.text}
+          aria-current={heading.id === active_heading_id
+            ? "location"
+            : undefined}
+          style="padding-inline-start: {(heading.level - 1) * 12 +
+            8}px; --outline-depth: {heading.level - 1}"
           onclick={() => handle_click(heading)}
         >
           {#if has_children(heading)}
@@ -241,8 +267,22 @@
   }
 
   .OutlinePanel__list {
+    position: relative;
     display: flex;
     flex-direction: column;
+  }
+
+  .OutlinePanel__marker {
+    position: absolute;
+    inset-block-start: 0;
+    inset-inline-start: 0;
+    width: 2px;
+    background-color: var(--interactive);
+    pointer-events: none;
+    transition:
+      transform var(--duration-slower) var(--ease-default),
+      height var(--duration-slower) var(--ease-default),
+      opacity var(--duration-fast) var(--ease-default);
   }
 
   .OutlinePanel__item {
@@ -259,9 +299,27 @@
     color: var(--muted-foreground);
     text-align: start;
     line-height: 1.4;
+    background-image: repeating-linear-gradient(
+      to right,
+      var(--border) 0 1px,
+      transparent 1px 12px
+    );
+    background-repeat: no-repeat;
+    background-position-x: 8px;
+    background-size: calc(var(--outline-depth, 0) * 12px) 100%;
     transition:
       color var(--duration-fast) var(--ease-default),
       background-color var(--duration-fast) var(--ease-default);
+  }
+
+  .OutlinePanel__item[data-level="1"] {
+    font-size: var(--text-sm);
+    font-weight: 600;
+    color: var(--secondary-foreground);
+  }
+
+  .OutlinePanel__item[data-level="2"] {
+    color: var(--secondary-foreground);
   }
 
   .OutlinePanel__item:hover {
@@ -269,9 +327,12 @@
     background-color: var(--accent);
   }
 
-  .OutlinePanel__item--active {
+  .OutlinePanel--static .OutlinePanel__item {
+    cursor: default;
+  }
+
+  .OutlinePanel__item.OutlinePanel__item--active {
     color: var(--interactive);
-    font-weight: 500;
   }
 
   .OutlinePanel__chevron {

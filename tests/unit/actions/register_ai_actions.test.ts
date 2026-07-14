@@ -1,4 +1,15 @@
 import { describe, expect, it, vi } from "vitest";
+import { Schema } from "prosemirror-model";
+import {
+  EditorState,
+  TextSelection,
+  type Transaction,
+} from "prosemirror-state";
+import type { EditorView } from "prosemirror-view";
+import {
+  create_ai_menu_plugin,
+  get_ai_menu_state,
+} from "$lib/features/editor/adapters/ai_menu_plugin";
 import { ActionRegistry } from "$lib/app/action_registry/action_registry";
 import { ACTION_IDS } from "$lib/app/action_registry/action_ids";
 import { register_ai_actions } from "$lib/features/ai/application/ai_actions";
@@ -64,6 +75,7 @@ function create_harness() {
         selection: null,
       }),
       apply_ai_output: vi.fn().mockReturnValue(true),
+      get_editor_view: vi.fn().mockReturnValue(null),
     },
     document: {
       get_document_ai_context: vi.fn().mockReturnValue(null),
@@ -80,6 +92,7 @@ function create_harness() {
   const ai_service = {
     detect: vi.fn().mockResolvedValue(probe("present")),
     execute: vi.fn(),
+    stream_inline: vi.fn(),
   };
 
   stores.ui.editor_settings.ai_providers = BUILTIN_PROVIDER_PRESETS;
@@ -433,6 +446,147 @@ describe("register_ai_actions", () => {
       );
       expect(stores.tab.set_dirty).toHaveBeenCalledWith("tab-html", true);
       expect(services.editor.apply_ai_output).not.toHaveBeenCalled();
+    });
+  });
+
+  it("executes with an unknown CLI status instead of silently ignoring the click", async () => {
+    const { registry, stores, ai_store, ai_service } = create_harness();
+    stores.ui.editor_settings.ai_default_provider_id = "codex";
+    ai_service.detect = vi.fn().mockResolvedValue(probe("unknown"));
+    ai_service.execute = vi.fn().mockResolvedValue({
+      success: true,
+      output: "# Updated",
+      error: null,
+    });
+
+    await registry.execute(ACTION_IDS.ai_open_assistant);
+    expect(ai_store.dialog.cli_status).toBe("unknown");
+
+    await registry.execute(ACTION_IDS.ai_update_prompt, "Tighten this note");
+    await registry.execute(ACTION_IDS.ai_execute);
+
+    expect(ai_service.execute).toHaveBeenCalled();
+    expect(ai_store.dialog.result?.success).toBe(true);
+  });
+
+  describe("inline AI streaming", () => {
+    function create_inline_view(text = "Hello world") {
+      const schema = new Schema({
+        nodes: {
+          doc: { content: "block+" },
+          paragraph: { group: "block", content: "inline*" },
+          text: { group: "inline" },
+        },
+      });
+      let state = EditorState.create({
+        doc: schema.node("doc", null, [
+          schema.node("paragraph", null, [schema.text(text)]),
+        ]),
+        plugins: [create_ai_menu_plugin()],
+      });
+      const view = {
+        get state() {
+          return state;
+        },
+        dispatch(tr: Transaction) {
+          state = state.apply(tr);
+        },
+      };
+      return view as unknown as EditorView;
+    }
+
+    function setup_inline(text?: string) {
+      const harness = create_harness();
+      const view = create_inline_view(text);
+      harness.services.editor.get_editor_view = vi.fn().mockReturnValue(view);
+      return { ...harness, view };
+    }
+
+    it("preserves partial output for review when the stream errors midway", async () => {
+      const { registry, view, ai_service } = setup_inline();
+      ai_service.stream_inline = vi.fn(function* () {
+        yield { type: "text", text: "Partial draft" };
+        yield { type: "error", error: "boom" };
+      });
+
+      await registry.execute(ACTION_IDS.ai_open_inline_menu);
+      await registry.execute(ACTION_IDS.ai_execute_inline, {
+        command_id: "continue",
+      });
+
+      const ps = get_ai_menu_state(view.state);
+      expect(view.state.doc.textContent).toContain("Partial draft");
+      expect(ps.open).toBe(true);
+      expect(ps.streaming).toBe(false);
+      expect(ps.mode).toBe("cursor_suggestion");
+      expect(toast.error).toHaveBeenCalledWith("boom");
+    });
+
+    it("restores the original doc when the stream errors before any output", async () => {
+      const { registry, view, ai_service } = setup_inline("Hello world");
+      ai_service.stream_inline = vi.fn(function* () {
+        yield { type: "error", error: "not signed in" };
+      });
+
+      view.dispatch(
+        view.state.tr.setSelection(TextSelection.create(view.state.doc, 1, 6)),
+      );
+      await registry.execute(ACTION_IDS.ai_open_inline_menu);
+      await registry.execute(ACTION_IDS.ai_execute_inline, {
+        command_id: "improve",
+      });
+
+      expect(view.state.doc.textContent).toBe("Hello world");
+      expect(get_ai_menu_state(view.state).open).toBe(false);
+      expect(toast.error).toHaveBeenCalledWith("not signed in");
+    });
+
+    it("starts only one stream when execute fires twice in a row", async () => {
+      const { registry, ai_service } = setup_inline();
+      ai_service.stream_inline = vi.fn(function* () {
+        yield { type: "text", text: "once" };
+      });
+
+      await registry.execute(ACTION_IDS.ai_open_inline_menu);
+      await Promise.all([
+        registry.execute(ACTION_IDS.ai_execute_inline, {
+          command_id: "continue",
+        }),
+        registry.execute(ACTION_IDS.ai_execute_inline, {
+          command_id: "continue",
+        }),
+      ]);
+
+      expect(ai_service.stream_inline).toHaveBeenCalledTimes(1);
+    });
+
+    it("aborts the stream when the menu closes midway", async () => {
+      const { registry, view, ai_service } = setup_inline();
+      let release!: () => void;
+      const gate = new Promise<void>((resolve) => (release = resolve));
+      let captured_signal: AbortSignal | undefined;
+      ai_service.stream_inline = vi.fn(async function* (input: {
+        signal?: AbortSignal;
+      }) {
+        captured_signal = input.signal;
+        yield { type: "text", text: "partial" };
+        await gate;
+        yield { type: "text", text: "more" };
+      });
+
+      await registry.execute(ACTION_IDS.ai_open_inline_menu);
+      const exec = registry.execute(ACTION_IDS.ai_execute_inline, {
+        command_id: "continue",
+      });
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      expect(view.state.doc.textContent).toContain("partial");
+
+      await registry.execute(ACTION_IDS.ai_close_inline_menu);
+      release();
+      await exec;
+
+      expect(captured_signal?.aborted).toBe(true);
+      expect(view.state.doc.textContent).not.toContain("more");
     });
   });
 });

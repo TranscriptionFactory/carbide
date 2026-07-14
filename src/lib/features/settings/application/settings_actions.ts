@@ -198,6 +198,8 @@ export function register_settings_actions(input: ActionRegistrationInput) {
           persisted_settings.semantic_graph_edges_per_note ||
         settings.semantic_graph_max_vault_size !==
           persisted_settings.semantic_graph_max_vault_size;
+      const embedding_model_changed =
+        settings.embedding_model_id !== persisted_settings.embedding_model_id;
       const result = await services.settings.save_settings(settings);
 
       if (result.status === "success") {
@@ -222,6 +224,11 @@ export function register_settings_actions(input: ActionRegistrationInput) {
         }
         if (semantic_graph_changed) {
           stores.graph.set_semantic_edges([]);
+        }
+        if (embedding_model_changed) {
+          // embed_sync loads the new model; the backend's model-version check
+          // then clears stale vectors and re-embeds, keeping the catalog promise
+          void registry.execute(ACTION_IDS.vault_update_embeddings);
         }
       }
 

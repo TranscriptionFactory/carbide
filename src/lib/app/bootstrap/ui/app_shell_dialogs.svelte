@@ -581,10 +581,18 @@
       );
     }
   }}
-  on_reindex_vault={() =>
-    void action_registry.execute(ACTION_IDS.vault_reindex)}
-  on_rebuild_embeddings={() =>
-    void action_registry.execute(ACTION_IDS.vault_rebuild_embeddings)}
+  on_reindex_vault={async () => {
+    await action_registry.execute(ACTION_IDS.vault_reindex);
+    void fetch_storage_stats();
+  }}
+  on_rebuild_embeddings={async () => {
+    await action_registry.execute(ACTION_IDS.vault_rebuild_embeddings);
+    void fetch_storage_stats();
+  }}
+  is_reindexing={stores.op.is_pending("vault.reindex") ||
+    stores.search.index_progress.status === "indexing"}
+  is_rebuilding_embeddings={stores.op.is_pending("vault.rebuild_embeddings") ||
+    stores.search.embedding_progress.status === "embedding"}
 />
 
 <CreateFolderDialog

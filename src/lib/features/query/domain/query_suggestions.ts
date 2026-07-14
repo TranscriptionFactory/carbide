@@ -10,6 +10,8 @@ const FORM_WORDS = Object.keys(FORMS);
 const CLAUSE_WORDS = Object.keys(CLAUSE_KEYWORDS);
 const JOIN_WORDS = ["and", "or"];
 const CLAUSE_STARTERS = [...CLAUSE_WORDS, "linked from", "not", "("];
+const BUILTIN_PROPERTIES = ["created", "modified", "accessed"];
+const DATE_VALUES = ['"now()-1d"', '"now()-7d"', '"now()-30d"', '"now()"'];
 
 interface ScanState {
   open_braces: number[];
@@ -242,6 +244,7 @@ function positional_items(
     return [
       ...items_from(ctx.tags ?? [], partial, (v) => `#${v}`, "tag"),
       ...keyword_items(ctx.property_names ?? [], partial, "property"),
+      ...keyword_items(BUILTIN_PROPERTIES, partial, "date property"),
     ];
   }
 
@@ -262,9 +265,14 @@ function positional_items(
 
   if (
     state.clause === "with" &&
-    ctx.property_names?.some((p) => p.toLowerCase() === lower)
+    (BUILTIN_PROPERTIES.includes(lower) ||
+      ctx.property_names?.some((p) => p.toLowerCase() === lower))
   ) {
     return keyword_items(PROPERTY_OPERATORS, partial, "operator");
+  }
+
+  if (state.clause === "with" && PROPERTY_OPERATORS.includes(prev_word)) {
+    return keyword_items(DATE_VALUES, partial, "relative date");
   }
 
   return [...keyword_items(JOIN_WORDS, partial, "join"), ...closers];

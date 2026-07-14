@@ -527,8 +527,10 @@ export function register_app_actions(input: ActionRegistrationInput) {
   registry.register({
     id: ACTION_IDS.editor_fold_toggle,
     label: "Toggle Heading Fold",
-    execute: () => {
-      services.editor.toggle_heading_fold();
+    execute: (pos: unknown) => {
+      services.editor.toggle_heading_fold(
+        typeof pos === "number" ? pos : undefined,
+      );
     },
   });
 

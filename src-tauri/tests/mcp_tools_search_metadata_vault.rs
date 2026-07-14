@@ -7,10 +7,11 @@ fn search_tool_definitions_count() {
 }
 
 #[test]
-fn search_notes_requires_vault_id_and_query() {
+fn search_notes_requires_query_with_optional_vault_id() {
     let defs = search::tool_definitions();
     let search_def = defs.iter().find(|d| d.name == "search_notes").unwrap();
-    assert!(search_def
+    assert!(search_def.input_schema.properties.contains_key("vault_id"));
+    assert!(!search_def
         .input_schema
         .required
         .contains(&"vault_id".to_string()));

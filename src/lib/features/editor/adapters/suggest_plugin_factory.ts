@@ -2,6 +2,7 @@ import { Plugin, PluginKey } from "prosemirror-state";
 import type { EditorView } from "prosemirror-view";
 import {
   create_cursor_anchor,
+  get_cursor_coords,
   position_suggest_dropdown,
   scroll_selected_into_view,
   attach_outside_dismiss,
@@ -67,6 +68,7 @@ export function create_suggest_prose_plugin<TItem>(
 
   let dropdown: HTMLElement | null = null;
   let is_visible = false;
+  let position_raf: number | null = null;
   let debounce_timer: ReturnType<typeof setTimeout> | null = null;
   let suppress_next_activation = false;
   let dismissed_query: string | null = null;
@@ -79,14 +81,52 @@ export function create_suggest_prose_plugin<TItem>(
 
   function show_dropdown(view: EditorView) {
     if (!dropdown) return;
-    const anchor = create_cursor_anchor(view);
-    dropdown.style.display = "block";
+    cancel_position_retry();
+    const el = dropdown;
+    const first_show = !is_visible;
+    el.style.display = "block";
     is_visible = true;
-    position_suggest_dropdown(dropdown, anchor);
+    position_when_ready(view, el, first_show, 10);
+  }
+
+  // the cursor's DOM may not be laid out yet on first activation (smart
+  // blocks swap preview -> edit asynchronously); positioning against those
+  // coords would pin the dropdown to the viewport origin, so stay hidden
+  // and retry for a few frames until coordsAtPos reports a real rect
+  function position_when_ready(
+    view: EditorView,
+    el: HTMLElement,
+    reveal_after: boolean,
+    attempts: number,
+  ) {
+    if (get_cursor_coords(view) === null) {
+      el.style.visibility = "hidden";
+      if (attempts > 0) {
+        position_raf = requestAnimationFrame(() => {
+          position_raf = null;
+          if (!is_visible) return;
+          position_when_ready(view, el, true, attempts - 1);
+        });
+      }
+      return;
+    }
+    if (reveal_after) el.style.visibility = "hidden";
+    const anchor = create_cursor_anchor(view);
+    void position_suggest_dropdown(el, anchor).then(() => {
+      el.style.visibility = "";
+    });
+  }
+
+  function cancel_position_retry() {
+    if (position_raf !== null) {
+      cancelAnimationFrame(position_raf);
+      position_raf = null;
+    }
   }
 
   function hide_dropdown() {
     if (!dropdown) return;
+    cancel_position_retry();
     dropdown.style.display = "none";
     is_visible = false;
   }
@@ -262,6 +302,7 @@ export function create_suggest_prose_plugin<TItem>(
           sync_dropdown(view, get_state(view));
         },
         destroy() {
+          cancel_position_retry();
           destroy_dropdown(dropdown, detach_dismiss);
           dropdown = null;
           detach_dismiss = null;

@@ -98,6 +98,17 @@ describe("assemble_context", () => {
     expect(result).toHaveLength(1);
     expect(result[0]?.text.length).toBeLessThan(long.length);
     expect(result[0]?.text).toContain("…[truncated]");
+    expect(result[0]?.truncated).toBe(true);
+  });
+
+  it("does not flag untruncated notes", () => {
+    const result = assemble_context([candidate({ text: "short" })], {
+      token_budget: 1000,
+      reserve_tokens: 0,
+      min_context_chars: 1,
+    });
+
+    expect(result[0]?.truncated).toBeUndefined();
   });
 
   it("stops including notes once the budget is exhausted", () => {

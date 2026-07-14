@@ -52,18 +52,33 @@
 
   $effect(() => {
     const vault_id = stores.vault.vault?.id;
+    // provider changes re-arm the poll alongside vault switches
+    void rag.provider_id;
     rag.set_readiness({ state: "checking" });
     if (!vault_id) return;
     let cancelled = false;
+    let interval: ReturnType<typeof setInterval> | null = null;
+    const stop_polling = () => {
+      if (interval !== null) {
+        clearInterval(interval);
+        interval = null;
+      }
+    };
+    // poll only while not ready; ready is stable until vault/provider change
     const refresh = async () => {
       const readiness = await services.rag.check_readiness();
-      if (!cancelled) rag.set_readiness(readiness);
+      if (cancelled) return;
+      rag.set_readiness(readiness);
+      if (readiness.state === "ready") {
+        stop_polling();
+      } else if (interval === null) {
+        interval = setInterval(() => void refresh(), READINESS_POLL_MS);
+      }
     };
     void refresh();
-    const interval = setInterval(refresh, READINESS_POLL_MS);
     return () => {
       cancelled = true;
-      clearInterval(interval);
+      stop_polling();
     };
   });
 
@@ -87,12 +102,21 @@
     providers.find((p) => p.id === provider_id)?.name ?? "the AI provider",
   );
 
+  function persist_active_session() {
+    const vault_id = stores.vault.vault?.id;
+    const session = rag.active;
+    if (!vault_id || !session) return;
+    void services.rag.save_session(vault_id, session);
+  }
+
   function change_provider(id: string) {
     rag.set_provider(id);
+    persist_active_session();
   }
 
   function change_scope(scope: RagScope) {
     rag.set_scope(scope);
+    persist_active_session();
   }
 
   function new_chat() {
@@ -171,6 +195,14 @@
       <Loader2 class="size-3.5 shrink-0 animate-spin" />
       Indexing your vault — answers may be incomplete ({rag.readiness.embedded}
       of {rag.readiness.total} notes)
+    </div>
+  {:else if rag.readiness.state === "unavailable"}
+    <div
+      class="flex items-center gap-2 border-b bg-muted/50 px-3 py-1.5 text-xs text-muted-foreground"
+    >
+      <AlertCircle class="size-3.5 shrink-0" />
+      Couldn't check the vault index — answers may be incomplete ({rag.readiness
+        .reason})
     </div>
   {/if}
 

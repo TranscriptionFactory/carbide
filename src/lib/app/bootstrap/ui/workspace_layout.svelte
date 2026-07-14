@@ -23,7 +23,8 @@
   import { FindInFileBar } from "$lib/features/search";
   import { EditorStatusBar } from "$lib/features/editor";
   import { ContextRail } from "$lib/features/links";
-  import { FloatingOutline } from "$lib/features/outline";
+  import { is_editable_target } from "$lib/shared/utils/editable_target";
+  import { DockedOutline, FloatingOutline } from "$lib/features/outline";
   import { GraphPanel } from "$lib/features/graph";
   import { TaskPanel } from "$lib/features/task";
   import { TagPanel } from "$lib/features/tags";
@@ -75,6 +76,11 @@
     return { todo, doing, done };
   });
   const zen_mode = $derived(stores.ui.zen_mode);
+  const outline_docked = $derived(
+    stores.ui.editor_settings.outline_mode === "docked" &&
+      stores.ui.outline_docked_open &&
+      !stores.ui.zen_mode,
+  );
   const layout_variant = $derived(stores.ui.active_theme.layout_variant);
   const is_monolith = $derived(layout_variant === "monolith");
   const is_workbench = $derived(layout_variant === "workbench");
@@ -359,13 +365,7 @@
           | "tab_bar"
           | "outline";
         stores.vim_nav.set_context(ctx);
-      } else if (
-        target.closest(".ProseMirror") ||
-        target.closest(".cm-editor") ||
-        target.isContentEditable ||
-        target.tagName === "INPUT" ||
-        target.tagName === "TEXTAREA"
-      ) {
+      } else if (is_editable_target(target)) {
         stores.vim_nav.set_context("none");
       }
     }}
@@ -1321,6 +1321,18 @@
               </Resizable.PaneGroup>
             </Sidebar.Inset>
           </Resizable.Pane>
+          {#if outline_docked}
+            <Resizable.Handle />
+            <Resizable.Pane
+              defaultSize={stores.ui.outline_pane_size}
+              minSize={10}
+              maxSize={40}
+              order={3}
+              onResize={(size) => (stores.ui.outline_pane_size = size)}
+            >
+              <DockedOutline />
+            </Resizable.Pane>
+          {/if}
           {#if !zen_mode}
             <div class="WorkspaceLayout__context-rail">
               <ContextRail />
@@ -1339,6 +1351,11 @@
         index_progress={is_vault_mode
           ? stores.search.index_progress
           : { status: "idle", indexed: 0, total: 0, error: null }}
+        is_reindex_pending={is_vault_mode &&
+          stores.op.is_pending("vault.reindex")}
+        embedding_progress={is_vault_mode
+          ? stores.search.embedding_progress
+          : { status: "idle", embedded: 0, total: 0, error: null }}
         vault_name={stores.vault.vault?.name ?? null}
         git_enabled={is_vault_mode && stores.git.enabled}
         git_branch={is_vault_mode ? stores.git.branch : ""}

@@ -582,6 +582,9 @@ export function create_mock_index_port(): WorkspaceIndexPort & {
     subscribe_embedding_progress() {
       return () => {};
     },
+    rebuild_embeddings() {
+      return Promise.resolve();
+    },
     embed_sync(vault_id: VaultId) {
       mock._calls.embed_sync.push(vault_id);
       return Promise.resolve();

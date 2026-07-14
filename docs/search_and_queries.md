@@ -76,13 +76,39 @@ Default is `notes` if omitted.
 
 ### Clauses
 
-| Clause          | Description                    | Example                          |
-| --------------- | ------------------------------ | -------------------------------- |
-| `named`         | Title match (text or regex)    | `named /machine learning/`       |
-| `with`          | Content or tag match           | `with #rust`                     |
-| `in`            | Folder path                    | `in "Projects"`                  |
-| `linked from`   | Notes that link to this target | `linked from "Research"`         |
-| `with_property` | Frontmatter property filter    | `with_property author = "Smith"` |
+| Clause             | Description                    | Example                    |
+| ------------------ | ------------------------------ | -------------------------- |
+| `named`            | Title match (text or regex)    | `named /machine learning/` |
+| `with`             | Content or tag match           | `with #rust`               |
+| `in`               | Folder path                    | `in "Projects"`            |
+| `linked from`      | Notes that link to this target | `linked from "Research"`   |
+| `with <prop> <op>` | Property filter                | `with author = "Smith"`    |
+
+### Property Filters
+
+`with <property> <operator> <value>` filters on note properties. Operators:
+`=`, `!=`, `>`, `<`, `>=`, `<=`, `contains`.
+
+Any frontmatter property works, plus built-in properties:
+
+| Property                                                                          | Meaning                      |
+| --------------------------------------------------------------------------------- | ---------------------------- |
+| `created`                                                                         | File creation time           |
+| `modified`, `accessed`                                                            | File modification time       |
+| `title`, `path`, `size_bytes`                                                     | File metadata                |
+| `word_count`, `char_count`, `heading_count`, `outlink_count`, `reading_time_secs` | Note statistics              |
+| `task_count`, `tasks_done`, `tasks_todo`, `next_due_date`                         | Task aggregates              |
+| `tag`, `content`                                                                  | Inline tag / full-text match |
+
+Date values use `now()` with an optional offset: `now()-7d`, `now()+1h`.
+Units: `s`, `m`, `h`, `d`, `w`. Values containing parentheses must be quoted —
+bare values only allow word characters, `/`, `-`, and `.`.
+
+```
+notes with created > "now()-1d"
+notes with modified > "now()-7d" and with #project
+notes with word_count > 500
+```
 
 ### Values
 

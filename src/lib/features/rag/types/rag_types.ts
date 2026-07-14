@@ -13,6 +13,13 @@ export type RagRetrievedContext = {
   text: string;
   score: number;
   source: HitSource;
+  truncated?: boolean;
+};
+
+export type RagContextStats = {
+  retrieved: number;
+  used: number;
+  truncated: number;
 };
 
 export type RagRole = "user" | "assistant";
@@ -22,12 +29,14 @@ export type RagMessage = {
   role: RagRole;
   content: string;
   citations: RagCitation[];
+  context_stats?: RagContextStats;
 };
 
 export type RagStreamEvent =
   | { type: "generating" }
   | { type: "text"; text: string }
   | { type: "citation"; citation: RagCitation }
+  | { type: "sources"; stats: RagContextStats }
   | { type: "done" }
   | { type: "error"; error: string };
 

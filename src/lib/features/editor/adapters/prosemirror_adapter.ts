@@ -34,6 +34,7 @@ import type {
   EditorSelectionSnapshot,
 } from "$lib/shared/types/editor";
 
+import { active_heading_at } from "./outline_plugin";
 import {
   assemble_extensions,
   editor_context_plugin_key,
@@ -176,6 +177,7 @@ const cursor_plugin_key = new PluginKey("cursor-tracker");
 function create_cursor_plugin(
   on_cursor_change: (info: CursorInfo) => void,
   on_selection_change?: (selection: EditorSelectionSnapshot | null) => void,
+  on_active_heading_change?: (id: string | null) => void,
 ): Plugin {
   return new Plugin({
     key: cursor_plugin_key,
@@ -188,6 +190,7 @@ function create_cursor_plugin(
       };
       let prev_doc: ProseNode | null = null;
       let prev_selection: EditorState["selection"] | null = null;
+      let prev_active_heading: string | null = null;
 
       return {
         update: (view) => {
@@ -221,6 +224,19 @@ function create_cursor_plugin(
                 start: null,
                 end: null,
               });
+            }
+          }
+
+          if (selection_changed && on_active_heading_change) {
+            const headings =
+              outline_plugin_key.getState(view.state)?.headings ?? [];
+            const active = active_heading_at(
+              headings,
+              view.state.selection.from,
+            );
+            if (active !== prev_active_heading) {
+              prev_active_heading = active;
+              on_active_heading_change(active);
             }
           }
         },
@@ -340,7 +356,7 @@ export function create_prosemirror_editor_port(args?: {
   ) => Promise<BaseQueryOutcome>;
   subscribe_to_changes?: SmartBlockContext["subscribe_to_changes"];
   note_embed?: {
-    read_note: (vault_id: string, note_path: string) => Promise<string>;
+    read_note: (vault_id: string, note_path: string) => Promise<string | null>;
     subscribe_to_changes: (
       handler: (event: import("$lib/features/watcher").VaultFsEvent) => void,
     ) => () => void;
@@ -370,6 +386,7 @@ export function create_prosemirror_editor_port(args?: {
         on_cursor_change,
         on_selection_change,
         on_outline_change,
+        on_active_heading_change,
       } = events;
 
       let current_markdown = normalize_markdown(initial_markdown);
@@ -539,7 +556,11 @@ export function create_prosemirror_editor_port(args?: {
 
       if (on_cursor_change) {
         base_plugins.push(
-          create_cursor_plugin(on_cursor_change, on_selection_change),
+          create_cursor_plugin(
+            on_cursor_change,
+            on_selection_change,
+            on_active_heading_change,
+          ),
         );
       }
 
@@ -1248,11 +1269,11 @@ export function create_prosemirror_editor_port(args?: {
           run_view_action((v) => {
             const node = v.nodeDOM(pos);
             if (node instanceof HTMLElement) {
-              node.scrollIntoView({ behavior: "smooth", block: "start" });
+              node.scrollIntoView({ behavior: "smooth", block: "center" });
             } else if (node instanceof Node) {
               (node as ChildNode).parentElement?.scrollIntoView({
                 behavior: "smooth",
-                block: "start",
+                block: "center",
               });
             }
           });

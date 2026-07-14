@@ -132,6 +132,11 @@ export function register_ui_actions(input: ActionRegistrationInput) {
         return;
       }
 
+      if (stores.ui.editor_settings.outline_mode === "docked") {
+        stores.ui.outline_docked_open = !stores.ui.outline_docked_open;
+        return;
+      }
+
       if (
         stores.ui.context_rail_open &&
         stores.ui.context_rail_tab === "outline"

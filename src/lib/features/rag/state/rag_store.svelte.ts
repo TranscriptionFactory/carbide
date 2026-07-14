@@ -4,6 +4,7 @@ import {
 } from "$lib/features/rag/types/rag_session";
 import type {
   RagCitation,
+  RagContextStats,
   RagMessage,
   RagRole,
   RagScope,
@@ -90,6 +91,10 @@ export class RagStore {
     this.update_streaming((m) => ({ ...m, content: m.content + text }));
   }
 
+  set_streaming_context_stats(stats: RagContextStats) {
+    this.update_streaming((m) => ({ ...m, context_stats: stats }));
+  }
+
   add_streaming_citation(citation: RagCitation) {
     this.update_streaming((m) =>
       m.citations.some((c) => c.index === citation.index)
@@ -107,10 +112,16 @@ export class RagStore {
   fail_streaming(error: string) {
     const sid = this.streaming_id;
     if (sid) {
-      this.patch_active((s) => ({
-        ...s,
-        messages: s.messages.filter((m) => m.id !== sid),
-      }));
+      const partial = this.messages.find((m) => m.id === sid);
+      if (partial && partial.content !== "") {
+        // keep the partial answer; the error renders beneath it
+        this.patch_active((s) => this.touch(s));
+      } else {
+        this.patch_active((s) => ({
+          ...s,
+          messages: s.messages.filter((m) => m.id !== sid),
+        }));
+      }
       this.streaming_id = null;
     }
     this.set_error(error);

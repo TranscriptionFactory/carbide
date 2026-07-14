@@ -5,7 +5,8 @@ use hf_hub::api::sync::ApiBuilder;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
-use tauri::{AppHandle, Emitter};
+use std::time::{Duration, Instant};
+use tauri::{AppHandle, Emitter, Manager};
 use tokenizers::{PaddingParams, PaddingStrategy, Tokenizer, TruncationParams, TruncationStrategy};
 
 pub struct EmbeddingService {
@@ -217,14 +218,26 @@ impl EmbeddingService {
     }
 }
 
+// After a load failure (offline machine, corrupt cache), skip retries for this
+// long so every note save doesn't re-run HF network round-trips.
+const LOAD_FAILURE_COOLDOWN: Duration = Duration::from_secs(60);
+
 pub struct EmbeddingServiceState {
     inner: Mutex<Option<(String, Arc<EmbeddingService>)>>,
+    // Serializes model loads so `inner` is never held across an HF download;
+    // try_get stays non-blocking while a load is in flight.
+    init_lock: Mutex<()>,
+    last_failure: Mutex<Option<(String, Instant)>>,
+    init_queued: AtomicBool,
 }
 
 impl Default for EmbeddingServiceState {
     fn default() -> Self {
         Self {
             inner: Mutex::new(None),
+            init_lock: Mutex::new(()),
+            last_failure: Mutex::new(None),
+            init_queued: AtomicBool::new(false),
         }
     }
 }
@@ -236,27 +249,65 @@ impl EmbeddingServiceState {
         model_id: &str,
         app_handle: &AppHandle,
     ) -> Result<Arc<EmbeddingService>, String> {
-        let mut guard = self.inner.lock().map_err(|e| e.to_string())?;
-        if let Some((ref loaded_id, ref service)) = *guard {
-            if loaded_id == model_id {
-                return Ok(Arc::clone(service));
-            }
-            log::info!("Embedding model changed: {loaded_id} -> {model_id}, reinitializing");
+        if let Some(service) = self.try_get(model_id) {
+            return Ok(service);
         }
-        let service = EmbeddingService::new(cache_dir, model_id).map_err(|e| {
-            log::error!("Failed to load embedding model {model_id}: {e}");
-            e
-        })?;
-        let arc = Arc::new(service);
-        *guard = Some((model_id.to_string(), Arc::clone(&arc)));
-        let _ = app_handle.emit("embedding_model_loaded", ());
-        Ok(arc)
+        {
+            let failure = self.last_failure.lock().map_err(|e| e.to_string())?;
+            if let Some((failed_id, at)) = failure.as_ref() {
+                if failed_id == model_id && at.elapsed() < LOAD_FAILURE_COOLDOWN {
+                    return Err(format!(
+                        "embedding model {model_id} failed to load recently; retry deferred"
+                    ));
+                }
+            }
+        }
+
+        let _init_guard = self.init_lock.lock().map_err(|e| e.to_string())?;
+        if let Some(service) = self.try_get(model_id) {
+            return Ok(service);
+        }
+        if let Ok(guard) = self.inner.lock() {
+            if let Some((loaded_id, _)) = guard.as_ref() {
+                log::info!("Embedding model changed: {loaded_id} -> {model_id}, reinitializing");
+            }
+        }
+        match EmbeddingService::new(cache_dir, model_id) {
+            Ok(service) => {
+                let arc = Arc::new(service);
+                *self.inner.lock().map_err(|e| e.to_string())? =
+                    Some((model_id.to_string(), Arc::clone(&arc)));
+                *self.last_failure.lock().map_err(|e| e.to_string())? = None;
+                let _ = app_handle.emit("embedding_model_loaded", ());
+                Ok(arc)
+            }
+            Err(e) => {
+                log::error!("Failed to load embedding model {model_id}: {e}");
+                *self.last_failure.lock().map_err(|e| e.to_string())? =
+                    Some((model_id.to_string(), Instant::now()));
+                Err(e)
+            }
+        }
     }
 
-    pub fn _get(&self) -> Option<Arc<EmbeddingService>> {
-        self.inner
-            .lock()
-            .ok()
-            .and_then(|g| g.as_ref().map(|(_, s)| Arc::clone(s)))
+    pub fn try_get(&self, model_id: &str) -> Option<Arc<EmbeddingService>> {
+        self.inner.lock().ok().and_then(|g| {
+            g.as_ref()
+                .and_then(|(id, s)| (id == model_id).then(|| Arc::clone(s)))
+        })
+    }
+
+    /// Kicks off a model load off the calling thread. Query paths use this so a
+    /// cold cache never blocks a search on a synchronous HF download.
+    pub fn init_in_background(&self, cache_dir: PathBuf, model_id: String, app_handle: &AppHandle) {
+        if self.init_queued.swap(true, Ordering::SeqCst) {
+            return;
+        }
+        let app = app_handle.clone();
+        std::thread::spawn(move || {
+            let state = app.state::<EmbeddingServiceState>();
+            let _ = state.get_or_init(cache_dir, &model_id, &app);
+            state.init_queued.store(false, Ordering::SeqCst);
+        });
     }
 }
