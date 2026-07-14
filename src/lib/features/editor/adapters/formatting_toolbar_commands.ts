@@ -3,9 +3,10 @@ import { toggleMark, setBlockType, wrapIn } from "prosemirror-commands";
 import { wrapInList } from "prosemirror-schema-list";
 import { undo as pmUndo, redo as pmRedo } from "prosemirror-history";
 import { yUndoPluginKey, undo as yUndo, redo as yRedo } from "y-prosemirror";
-import { TextSelection, type EditorState } from "prosemirror-state";
+import type { EditorState } from "prosemirror-state";
 import type { Transaction } from "prosemirror-state";
 import type { Mark, MarkType, NodeType } from "prosemirror-model";
+import type { PastedImagePayload } from "$lib/shared/types/editor";
 import { schema } from "./markdown_pipeline";
 
 export type FormattingCommand =
@@ -196,11 +197,10 @@ export function is_command_available(
   if (command === "link") {
     return link_selection_state(view).can_edit;
   }
-  if (
-    command === "image" ||
-    command === "table" ||
-    command === "horizontal_rule"
-  ) {
+  if (command === "image") {
+    return !state.selection.$from.parent.type.spec.code;
+  }
+  if (command === "table" || command === "horizontal_rule") {
     return true;
   }
 
@@ -358,33 +358,38 @@ function mark_range_at_cursor(
   return from < to ? { from, to } : null;
 }
 
-export async function insert_image(view: EditorView): Promise<boolean> {
-  const image_block = get_node_type("image-block");
-  if (!image_block) return false;
+const IMAGE_MIME_BY_EXT: Record<string, string> = {
+  png: "image/png",
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  gif: "image/gif",
+  webp: "image/webp",
+  svg: "image/svg+xml",
+  avif: "image/avif",
+};
+
+export async function pick_image_payload(): Promise<PastedImagePayload | null> {
   try {
     const { open } = await import("@tauri-apps/plugin-dialog");
     const selected = await open({
       title: "Insert Image",
       multiple: false,
       directory: false,
-      filters: [
-        {
-          name: "Images",
-          extensions: ["png", "jpg", "jpeg", "gif", "webp", "svg", "avif"],
-        },
-      ],
+      filters: [{ name: "Images", extensions: Object.keys(IMAGE_MIME_BY_EXT) }],
     });
-    if (typeof selected !== "string") return false;
+    if (typeof selected !== "string") return null;
     const { convertFileSrc } = await import("@tauri-apps/api/core");
-    const src = convertFileSrc(selected);
-    const node = image_block.create({ src });
-    const tr = view.state.tr.replaceSelectionWith(node);
-    tr.setSelection(TextSelection.create(tr.doc, view.state.selection.from));
-    view.dispatch(tr.scrollIntoView());
-    view.focus();
-    return true;
+    const response = await fetch(convertFileSrc(selected));
+    const bytes = new Uint8Array(await response.arrayBuffer());
+    const file_name = selected.split(/[\\/]/).pop() ?? null;
+    const ext = file_name?.split(".").pop()?.toLowerCase() ?? "";
+    return {
+      bytes,
+      mime_type: IMAGE_MIME_BY_EXT[ext] ?? "application/octet-stream",
+      file_name,
+    };
   } catch {
-    return false;
+    return null;
   }
 }
 

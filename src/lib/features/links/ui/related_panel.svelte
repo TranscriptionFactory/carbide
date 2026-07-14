@@ -1,6 +1,7 @@
 <script lang="ts">
   import { use_app_context } from "$lib/app/context/app_context.svelte";
   import { ACTION_IDS } from "$lib/app/action_registry/action_ids";
+  import type { NoteMeta } from "$lib/shared/types/note";
   import SuggestedLinksSection from "$lib/features/links/ui/suggested_links_section.svelte";
   import FileText from "@lucide/svelte/icons/file-text";
   import Hash from "@lucide/svelte/icons/hash";
@@ -68,6 +69,29 @@
   }
 </script>
 
+{#snippet note_row(note: NoteMeta)}
+  <li class="RelatedPanel__mention">
+    <button
+      type="button"
+      class="RelatedPanel__row"
+      onclick={() => open(note.path)}
+    >
+      <FileText size={12} />
+      <span class="truncate">{note.title || note.name}</span>
+    </button>
+    <button
+      type="button"
+      class="RelatedPanel__link-btn"
+      onclick={() => insert_link(note.title || note.name)}
+      disabled={!current_title}
+      title="Insert link"
+      aria-label="Insert link"
+    >
+      <Plus size={12} />
+    </button>
+  </li>
+{/snippet}
+
 <div class="RelatedPanel">
   {#if !open_note_path}
     <p class="RelatedPanel__empty">Open a note to see related context.</p>
@@ -82,26 +106,7 @@
         </header>
         <ul class="RelatedPanel__list">
           {#each shared_tag_notes as note (note.path)}
-            <li class="RelatedPanel__mention">
-              <button
-                type="button"
-                class="RelatedPanel__row"
-                onclick={() => open(note.path)}
-              >
-                <FileText size={12} />
-                <span class="truncate">{note.title || note.name}</span>
-              </button>
-              <button
-                type="button"
-                class="RelatedPanel__link-btn"
-                onclick={() => insert_link(note.title || note.name)}
-                disabled={!current_title}
-                title="Insert link"
-                aria-label="Insert link"
-              >
-                <Plus size={12} />
-              </button>
-            </li>
+            {@render note_row(note)}
           {/each}
         </ul>
       </section>
@@ -150,26 +155,7 @@
       {:else}
         <ul class="RelatedPanel__list">
           {#each siblings as note (note.path)}
-            <li class="RelatedPanel__mention">
-              <button
-                type="button"
-                class="RelatedPanel__row"
-                onclick={() => open(note.path)}
-              >
-                <FileText size={12} />
-                <span class="truncate">{note.title || note.name}</span>
-              </button>
-              <button
-                type="button"
-                class="RelatedPanel__link-btn"
-                onclick={() => insert_link(note.title || note.name)}
-                disabled={!current_title}
-                title="Insert link"
-                aria-label="Insert link"
-              >
-                <Plus size={12} />
-              </button>
-            </li>
+            {@render note_row(note)}
           {/each}
         </ul>
       {/if}
@@ -183,26 +169,7 @@
         </header>
         <ul class="RelatedPanel__list">
           {#each recently_edited as note (note.path)}
-            <li class="RelatedPanel__mention">
-              <button
-                type="button"
-                class="RelatedPanel__row"
-                onclick={() => open(note.path)}
-              >
-                <FileText size={12} />
-                <span class="truncate">{note.title || note.name}</span>
-              </button>
-              <button
-                type="button"
-                class="RelatedPanel__link-btn"
-                onclick={() => insert_link(note.title || note.name)}
-                disabled={!current_title}
-                title="Insert link"
-                aria-label="Insert link"
-              >
-                <Plus size={12} />
-              </button>
-            </li>
+            {@render note_row(note)}
           {/each}
         </ul>
       </section>

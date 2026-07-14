@@ -60,7 +60,10 @@ export function assemble_extensions(
     create_embed_extension(ctx),
     create_paste_extension(ctx),
     create_lsp_extension(ctx),
-    create_toolbar_extension(toolbar_config),
+    create_toolbar_extension(
+      toolbar_config,
+      ctx.events.on_image_paste_requested,
+    ),
     create_image_context_menu_extension(),
     create_block_drag_handle_extension(),
     create_ai_inline_extension(ai_inline_config),

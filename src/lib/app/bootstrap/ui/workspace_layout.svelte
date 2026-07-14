@@ -23,6 +23,7 @@
   import { FindInFileBar } from "$lib/features/search";
   import { EditorStatusBar } from "$lib/features/editor";
   import { ContextRail } from "$lib/features/links";
+  import { is_editable_target } from "$lib/shared/utils/editable_target";
   import { FloatingOutline } from "$lib/features/outline";
   import { GraphPanel } from "$lib/features/graph";
   import { TaskPanel } from "$lib/features/task";
@@ -359,13 +360,7 @@
           | "tab_bar"
           | "outline";
         stores.vim_nav.set_context(ctx);
-      } else if (
-        target.closest(".ProseMirror") ||
-        target.closest(".cm-editor") ||
-        target.isContentEditable ||
-        target.tagName === "INPUT" ||
-        target.tagName === "TEXTAREA"
-      ) {
+      } else if (is_editable_target(target)) {
         stores.vim_nav.set_context("none");
       }
     }}
