@@ -152,6 +152,14 @@
    Hierarchy through size and space, not boldness.
    ============================================ */
 
+/* Outline clicks scroll headings with block: "start". This offset keeps the
+   landed heading inside the scroll-spy active band (scroll_top + 80 in
+   outline_view.ts), so the outline marker follows the clicked heading, and
+   gives the heading breathing room below the top edge. Keep < that threshold. */
+.ProseMirror :is(h1, h2, h3, h4, h5, h6) {
+  scroll-margin-top: 72px;
+}
+
 .ProseMirror h1 {
   font-size: var(--editor-heading-1);
   font-weight: var(--editor-headings-h1-font-weight);
