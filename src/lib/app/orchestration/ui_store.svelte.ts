@@ -252,6 +252,8 @@ export class UIStore {
   sidebar_pane_size = $state(25);
   zen_mode = $state(false);
   floating_outline_collapsed = $state(false);
+  outline_docked_open = $state(true);
+  outline_pane_size = $state(20);
   sidebar_view = $state<SidebarView>("explorer");
   selected_folder_path = $state("");
   filetree_revealed_note_path = $state("");
@@ -568,6 +570,12 @@ export class UIStore {
   }
 
   set_editor_settings(settings: EditorSettings) {
+    if (
+      settings.outline_mode === "docked" &&
+      this.editor_settings.outline_mode !== "docked"
+    ) {
+      this.outline_docked_open = true;
+    }
     this.editor_settings = settings;
     this.editor_settings_loaded = true;
   }

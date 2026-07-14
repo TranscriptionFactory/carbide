@@ -976,9 +976,18 @@ export const SETTINGS_REGISTRY: SettingDefinition[] = [
     key: "outline_mode",
     label: "Outline Position",
     description:
-      "Show outline as a floating panel over the editor or in the sidebar rail",
+      "Show outline as a floating panel over the editor, in the sidebar rail, or docked as a resizable pane",
     category: "Sidebar",
-    keywords: ["outline", "position", "floating", "sidebar", "rail", "panel"],
+    keywords: [
+      "outline",
+      "position",
+      "floating",
+      "sidebar",
+      "rail",
+      "panel",
+      "docked",
+      "pane",
+    ],
   },
   {
     key: "terminal_background_color",

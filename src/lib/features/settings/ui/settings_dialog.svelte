@@ -1783,8 +1783,8 @@
               <div class="SettingsDialog__label-group">
                 <span class="SettingsDialog__label">Outline Position</span>
                 <span class="SettingsDialog__description"
-                  >Show outline as a floating panel over the editor or in the
-                  sidebar rail</span
+                  >Show outline as a floating panel over the editor, in the
+                  sidebar rail, or docked as a resizable pane</span
                 >
               </div>
               <Select.Root
@@ -1796,14 +1796,17 @@
               >
                 <Select.Trigger class="w-28">
                   <span data-slot="select-value"
-                    >{editor_settings.outline_mode === "floating"
-                      ? "Floating"
-                      : "Sidebar"}</span
+                    >{{
+                      rail: "Sidebar",
+                      floating: "Floating",
+                      docked: "Docked",
+                    }[editor_settings.outline_mode]}</span
                   >
                 </Select.Trigger>
                 <Select.Content>
                   <Select.Item value="rail">Sidebar</Select.Item>
                   <Select.Item value="floating">Floating</Select.Item>
+                  <Select.Item value="docked">Docked</Select.Item>
                 </Select.Content>
               </Select.Root>
             </div>

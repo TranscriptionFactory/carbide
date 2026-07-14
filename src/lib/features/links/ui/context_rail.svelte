@@ -10,12 +10,19 @@
 
   const { stores } = use_app_context();
 
-  const tabs = [
+  const all_tabs = [
     { id: "links" as const, label: "Links", icon: Link },
     { id: "outline" as const, label: "Outline", icon: List },
     { id: "metadata" as const, label: "Meta", icon: Tags },
     { id: "related" as const, label: "Related", icon: Compass },
   ];
+
+  const outline_docked = $derived(
+    stores.ui.editor_settings.outline_mode === "docked",
+  );
+  const tabs = $derived(
+    outline_docked ? all_tabs.filter((t) => t.id !== "outline") : all_tabs,
+  );
 
   function on_icon_click(id: (typeof tabs)[number]["id"]) {
     if (stores.ui.context_rail_open && stores.ui.context_rail_tab === id) {
@@ -42,7 +49,7 @@
     <div class="ContextRail__panel">
       {#if stores.ui.context_rail_tab === "links"}
         <LinksPanel />
-      {:else if stores.ui.context_rail_tab === "outline"}
+      {:else if stores.ui.context_rail_tab === "outline" && !outline_docked}
         <!-- svelte-ignore a11y_no_static_element_interactions -->
         <div data-vim-nav-region="outline" tabindex="-1" class="h-full">
           <OutlinePanel />
