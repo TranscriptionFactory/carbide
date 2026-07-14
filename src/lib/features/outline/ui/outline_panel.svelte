@@ -163,9 +163,15 @@
     );
   }
 
-  function toggle_collapsed(event: Event, heading: OutlineHeading) {
+  function toggle_collapsed(
+    event: MouseEvent | KeyboardEvent,
+    heading: OutlineHeading,
+  ) {
     event.stopPropagation();
     stores.outline.toggle_collapsed(heading.id);
+    if (event.altKey && scroll_spy_enabled) {
+      void action_registry.execute(ACTION_IDS.editor_fold_toggle, heading.pos);
+    }
   }
 </script>
 
