@@ -652,6 +652,11 @@
                                 overwrite,
                               },
                             )}
+                          on_import_external_files={(files, target_folder) =>
+                            void action_registry.execute(
+                              ACTION_IDS.filetree_import_external_files,
+                              { files, target_folder },
+                            )}
                         />
                       </Sidebar.GroupContent>
                     </Sidebar.Group>
@@ -1163,6 +1168,11 @@
                                   target_folder,
                                   overwrite,
                                 },
+                              )}
+                            on_import_external_files={(files, target_folder) =>
+                              void action_registry.execute(
+                                ACTION_IDS.filetree_import_external_files,
+                                { files, target_folder },
                               )}
                           />
                         </div>

@@ -2,6 +2,7 @@
   import { untrack } from "svelte";
   import { createVirtualizer } from "@tanstack/svelte-virtual";
   import { get_invalid_drop_reason } from "$lib/features/folder/domain/filetree";
+  import { resolve_external_drop_folder } from "$lib/features/folder/domain/external_import";
   import type { FlatTreeNode, MoveItem } from "$lib/shared/types/filetree";
   import type { NoteMeta } from "$lib/shared/types/note";
   import type {
@@ -61,6 +62,9 @@
       target_folder: string,
       overwrite: boolean,
     ) => void;
+    on_import_external_files?:
+      | ((files: File[], target_folder: string) => void)
+      | undefined;
   };
 
   let {
@@ -98,6 +102,7 @@
     on_load_more,
     on_retry_load_more,
     on_move_items,
+    on_import_external_files,
   }: Props = $props();
 
   const TREE_STYLE_ROW_HEIGHTS: Record<FileTreeStyle, number> = {
@@ -340,7 +345,25 @@
     }
   }
 
+  function is_external_file_drag(event: DragEvent): boolean {
+    return (
+      dragging_items.length === 0 &&
+      !!on_import_external_files &&
+      !!event.dataTransfer?.types.includes("Files")
+    );
+  }
+
   function handle_drag_over_target(target_folder: string, event: DragEvent) {
+    if (is_external_file_drag(event)) {
+      event.preventDefault();
+      event.stopPropagation();
+      drag_over_target = target_folder;
+      drag_over_invalid = false;
+      if (event.dataTransfer) {
+        event.dataTransfer.dropEffect = "copy";
+      }
+      return;
+    }
     if (dragging_items.length === 0) {
       return;
     }
@@ -355,6 +378,18 @@
   }
 
   function handle_drop_target(target_folder: string, event: DragEvent) {
+    if (is_external_file_drag(event)) {
+      event.preventDefault();
+      event.stopPropagation();
+      const files = Array.from(event.dataTransfer?.files ?? []).filter(
+        (file) => file.name,
+      );
+      if (files.length > 0) {
+        on_import_external_files?.(files, target_folder);
+      }
+      reset_drag_state();
+      return;
+    }
     if (dragging_items.length === 0) {
       return;
     }
@@ -368,6 +403,10 @@
   }
 
   function handle_drag_over_row(node: FlatTreeNode, event: DragEvent) {
+    if (is_external_file_drag(event)) {
+      handle_drag_over_target(resolve_external_drop_folder(node), event);
+      return;
+    }
     if (!node.is_folder) {
       if (dragging_items.length > 0) {
         event.preventDefault();
@@ -388,6 +427,10 @@
   }
 
   function handle_drop_row(node: FlatTreeNode, event: DragEvent) {
+    if (is_external_file_drag(event)) {
+      handle_drop_target(resolve_external_drop_folder(node), event);
+      return;
+    }
     if (!node.is_folder) {
       return;
     }

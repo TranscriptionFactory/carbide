@@ -360,6 +360,43 @@ export class NoteService {
     }
   }
 
+  async import_markdown_file(
+    note_path: NotePath,
+    markdown: MarkdownText,
+  ): Promise<
+    | { status: "created"; meta: NoteMeta }
+    | { status: "skipped" }
+    | { status: "failed"; error: string }
+  > {
+    const vault_id = this.get_active_vault_id();
+    if (!vault_id) {
+      return { status: "skipped" };
+    }
+
+    this.start_operation("note.import");
+    try {
+      this.on_file_written?.(note_path);
+      const meta = await this.notes_port.create_note(
+        vault_id,
+        note_path,
+        markdown,
+      );
+      await this.run_index_update(() =>
+        this.index_port.upsert_note(vault_id, meta.id),
+      );
+      this.notes_store.add_note(meta);
+      this.succeed_operation("note.import");
+      return { status: "created", meta };
+    } catch (error) {
+      const message = this.fail_operation(
+        "note.import",
+        "Import markdown file failed",
+        error,
+      );
+      return { status: "failed", error: message };
+    }
+  }
+
   async delete_note(note: NoteMeta): Promise<NoteDeleteResult> {
     const vault_id = this.get_active_vault_id();
     if (!vault_id) {
