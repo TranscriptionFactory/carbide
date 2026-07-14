@@ -1246,6 +1246,23 @@ pub fn upsert_linked_content(
         file_type: Some(file_type.to_string()),
         source: Some("linked".to_string()),
     };
+    // Linked notes are embedded from the FTS body (they have no sections), and
+    // the bulk embed pass only fills in missing keys — drop the stale vector
+    // when re-extraction changed the body so it gets recomputed, mirroring
+    // invalidate_changed_embeddings on the markdown path.
+    let body_changed = conn
+        .query_row(
+            "SELECT body FROM notes_fts WHERE path = ?1",
+            params![meta.path],
+            |row| row.get::<_, String>(0),
+        )
+        .map(|old_body| old_body != body)
+        .unwrap_or(false);
+    if body_changed {
+        if let Err(e) = vector_db::remove_embedding(conn, &meta.path) {
+            log::debug!("vector_db::remove_embedding skipped: {e}");
+        }
+    }
     upsert_plain_content(conn, &meta, body, page_offsets)?;
     update_linked_metadata(conn, &meta.path, linked_meta)?;
     Ok(meta)
@@ -5203,7 +5220,9 @@ pub fn rename_folder_paths(
     new_prefix: &str,
 ) -> Result<usize, String> {
     let like_pattern = like_prefix_pattern(old_prefix);
-    let old_len = old_prefix.len() as i64;
+    // SQLite substr() is character-based for TEXT; a byte count would strip
+    // extra characters when the prefix contains multi-byte UTF-8.
+    let old_len = old_prefix.chars().count() as i64;
 
     let count: usize = conn
         .query_row(

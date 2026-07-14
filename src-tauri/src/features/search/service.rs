@@ -8,7 +8,6 @@ use crate::features::search::model::{
 };
 use crate::features::search::{hybrid, vector_db};
 use crate::features::settings::service as settings_service;
-use crate::features::vault_settings::service::get_vault_setting_value;
 use crate::shared::storage::{self, VaultMode};
 use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
@@ -29,6 +28,26 @@ pub(crate) fn resolve_embedding_model_id(app: &AppHandle) -> String {
         .and_then(|store| store.settings.get("embedding_model_id").cloned())
         .and_then(|v| v.as_str().map(String::from))
         .unwrap_or_else(|| "snowflake-arctic-embed-xs".to_string())
+}
+
+// The enable flags are GLOBAL_ONLY on the frontend: they live in the global
+// settings store (like embedding_model_id), never in the vault-scoped record.
+pub(crate) fn embedding_flags(store: &settings_service::SettingsStore) -> (bool, bool) {
+    let flag = |key: &str| {
+        store
+            .settings
+            .get(key)
+            .and_then(|v| v.as_bool())
+            .unwrap_or(true)
+    };
+    (
+        flag("embedding_note_enabled"),
+        flag("embedding_block_enabled"),
+    )
+}
+
+fn resolve_embedding_flags(app: &AppHandle) -> (bool, bool) {
+    embedding_flags(&settings_service::load_settings(app).unwrap_or_default())
 }
 
 pub(crate) fn short_id_to_hf_repo(short_id: &str) -> &str {
@@ -970,14 +989,11 @@ fn dispatch_command(
             is_embedding.store(false, Ordering::Relaxed);
         }
         DbCommand::RebuildIndex => {
-            let new_note_index = VectorIndex::rebuild_from_sqlite(conn, "notes", 384);
-            let new_block_index = VectorIndex::rebuild_from_sqlite(conn, "blocks", 384);
-            if let Ok(mut ni) = note_index.write() {
-                *ni = new_note_index;
-            }
-            if let Ok(mut bi) = block_index.write() {
-                *bi = new_block_index;
-            }
+            // Only ever enqueued once at worker spawn and intercepted by
+            // writer_thread_loop before dispatch (load_or_rebuild_indices +
+            // maybe_dump_indices). Reaching this arm means a new sender routed
+            // it through dispatch/deferred-replay, bypassing persistence.
+            log::warn!("RebuildIndex reached dispatch_command; it is handled at the loop level");
         }
         DbCommand::Shutdown => {
             return LoopAction::Break;
@@ -1059,22 +1075,49 @@ fn embed_note_on_save(
     block_index: &SharedVectorIndex,
     app_handle: &AppHandle,
 ) {
-    let embedding_state = app_handle.state::<EmbeddingServiceState>();
-    let cache_dir = resolve_embedding_cache_dir(app_handle);
-    let short_id = resolve_embedding_model_id(app_handle);
-    let hf_repo = short_id_to_hf_repo(&short_id);
-    let model = match embedding_state.get_or_init(cache_dir, hf_repo, app_handle) {
-        Ok(m) => m,
-        Err(_) => return,
+    // Flags gate before get_or_init so a disabled setting never loads (or
+    // downloads) the model on the save path.
+    let (note_embed_enabled, block_embed_enabled) = resolve_embedding_flags(app_handle);
+    let model = if note_embed_enabled || block_embed_enabled {
+        let embedding_state = app_handle.state::<EmbeddingServiceState>();
+        let cache_dir = resolve_embedding_cache_dir(app_handle);
+        let short_id = resolve_embedding_model_id(app_handle);
+        let hf_repo = short_id_to_hf_repo(&short_id);
+        embedding_state
+            .get_or_init(cache_dir, hf_repo, app_handle)
+            .ok()
+    } else {
+        None
     };
+    apply_note_embedding_on_save(
+        conn,
+        note_id,
+        markdown,
+        note_index,
+        block_index,
+        note_embed_enabled,
+        block_embed_enabled,
+        model.as_deref(),
+    );
+}
 
-    // Block embeddings first; the note-level vector is composed from them below. (ref: DL-003)
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn apply_note_embedding_on_save(
+    conn: &Connection,
+    note_id: &str,
+    markdown: &str,
+    note_index: &SharedVectorIndex,
+    block_index: &SharedVectorIndex,
+    note_embed_enabled: bool,
+    block_embed_enabled: bool,
+    model: Option<&EmbeddingService>,
+) {
     let (_, _, sections) = search_db::extract_markdown_structure(markdown);
     let lines: Vec<&str> = markdown.lines().collect();
     let old_hashes = vector_db::get_block_hashes(conn, note_id);
 
-    let mut kept_heading_ids: Vec<&str> = Vec::new();
-    let mut to_embed: Vec<(&str, String, String)> = Vec::new();
+    let mut current_hashes: HashMap<String, String> = HashMap::new();
+    let mut candidates: Vec<(&str, String, String)> = Vec::new();
 
     for section in &sections {
         if !search_db::is_embeddable_section(
@@ -1091,64 +1134,80 @@ fn embed_note_on_save(
         };
 
         let hash = blake3::hash(section_text.as_bytes()).to_hex().to_string();
-        kept_heading_ids.push(&section.heading_id);
-
-        if old_hashes.get(&section.heading_id).map(|h| h.as_str()) == Some(&hash) {
-            continue;
-        }
-        to_embed.push((&section.heading_id, section_text, hash));
+        current_hashes.insert(section.heading_id.clone(), hash.clone());
+        candidates.push((&section.heading_id, section_text, hash));
     }
 
-    if !to_embed.is_empty() {
-        let texts: Vec<&str> = to_embed.iter().map(|(_, text, _)| text.as_str()).collect();
-        match model.embed_batch(&texts, None) {
-            Ok(embeddings) => {
-                for ((heading_id, _, hash), embedding) in to_embed.iter().zip(embeddings.iter()) {
-                    let _ = vector_db::upsert_block_embedding(
-                        conn, note_id, heading_id, embedding, hash,
-                    );
-                    if let Ok(mut bi) = block_index.write() {
-                        let composite_key = format!("{note_id}\0{heading_id}");
-                        bi.insert(&composite_key, embedding.clone());
-                    }
-                }
-            }
-            Err(e) => log::warn!("embed_on_save: block embed failed for {note_id}: {e}"),
-        }
-    }
-
-    let _ = vector_db::remove_block_embeddings_except(conn, note_id, &kept_heading_ids);
+    // Stale-row cleanup is cheap SQL and runs unconditionally — even when
+    // embedding is disabled or the model failed to load — so rows for changed
+    // or removed sections (plus the composed note vector) never survive a
+    // content change. The presence-based bulk passes would otherwise treat
+    // them as already embedded.
+    let _ = vector_db::invalidate_changed_block_embeddings(conn, note_id, &current_hashes);
     if let Ok(mut bi) = block_index.write() {
         let prefix = format!("{note_id}\0");
         let orphaned_keys: Vec<String> = bi
             .keys_with_prefix(&prefix)
             .into_iter()
-            .filter(|k| {
-                let heading_id = &k[prefix.len()..];
-                !kept_heading_ids.contains(&heading_id)
-            })
+            .filter(|k| !current_hashes.contains_key(&k[prefix.len()..]))
             .collect();
         for key in orphaned_keys {
             bi.remove(&key);
         }
     }
 
+    let Some(model) = model else {
+        return;
+    };
+
+    // Block embeddings first; the note-level vector is composed from them below. (ref: DL-003)
+    if block_embed_enabled {
+        let to_embed: Vec<&(&str, String, String)> = candidates
+            .iter()
+            .filter(|(heading_id, _, hash)| {
+                old_hashes.get(*heading_id).map(|h| h.as_str()) != Some(hash.as_str())
+            })
+            .collect();
+
+        if !to_embed.is_empty() {
+            let texts: Vec<&str> = to_embed.iter().map(|(_, text, _)| text.as_str()).collect();
+            match model.embed_batch(&texts, None) {
+                Ok(embeddings) => {
+                    for ((heading_id, _, hash), embedding) in
+                        to_embed.iter().zip(embeddings.iter())
+                    {
+                        let _ = vector_db::upsert_block_embedding(
+                            conn, note_id, heading_id, embedding, hash,
+                        );
+                        if let Ok(mut bi) = block_index.write() {
+                            let composite_key = format!("{note_id}\0{heading_id}");
+                            bi.insert(&composite_key, embedding.clone());
+                        }
+                    }
+                }
+                Err(e) => log::warn!("embed_on_save: block embed failed for {note_id}: {e}"),
+            }
+        }
+    }
+
     // Compose the note-level vector from its block vectors, matching the batch
     // composition path; fall back to a direct embed when the note has no
     // qualifying sections. (ref: DL-003, DL-005)
-    let block_vecs = vector_db::get_block_embeddings_for_note(conn, note_id);
-    let note_vec = if block_vecs.is_empty() {
-        model.embed_one(&embed_text_for_note(conn, note_id)).ok()
-    } else {
-        let vecs: Vec<Vec<f32>> = block_vecs.into_iter().map(|(_, v)| v).collect();
-        Some(vector_db::mean_pool_normalize(&vecs))
-    };
-    if let Some(embedding) = note_vec {
-        if let Err(e) = vector_db::upsert_embedding(conn, note_id, &embedding) {
-            log::warn!("embed_on_save: note upsert failed for {note_id}: {e}");
-        }
-        if let Ok(mut ni) = note_index.write() {
-            ni.insert(note_id, embedding);
+    if note_embed_enabled {
+        let block_vecs = vector_db::get_block_embeddings_for_note(conn, note_id);
+        let note_vec = if block_vecs.is_empty() {
+            model.embed_one(&embed_text_for_note(conn, note_id)).ok()
+        } else {
+            let vecs: Vec<Vec<f32>> = block_vecs.into_iter().map(|(_, v)| v).collect();
+            Some(vector_db::mean_pool_normalize(&vecs))
+        };
+        if let Some(embedding) = note_vec {
+            if let Err(e) = vector_db::upsert_embedding(conn, note_id, &embedding) {
+                log::warn!("embed_on_save: note upsert failed for {note_id}: {e}");
+            }
+            if let Ok(mut ni) = note_index.write() {
+                ni.insert(note_id, embedding);
+            }
         }
     }
 
@@ -1582,8 +1641,15 @@ fn handle_embed_batch(
     //    from blocks covers all sections without truncation. Notes with zero block
     //    embeddings fall back to embed_one on FTS body or filename. (ref: DL-003, DL-005)
     //
-    // Both phases are gated by per-vault feature flags (embedding_block_enabled,
-    // embedding_note_enabled). If both disabled, returns immediately.
+    // Both phases are gated by global feature flags (embedding_block_enabled,
+    // embedding_note_enabled), checked before get_or_init so a disabled
+    // setting never loads (or downloads) the model.
+    let (note_embed_enabled, block_embed_enabled) = resolve_embedding_flags(app_handle);
+    if !note_embed_enabled && !block_embed_enabled {
+        log::info!("embed_batch: both note and block embedding disabled for {vault_id}");
+        return;
+    }
+
     let embedding_state = app_handle.state::<EmbeddingServiceState>();
     let cache_dir = resolve_embedding_cache_dir(app_handle);
     let short_id = resolve_embedding_model_id(app_handle);
@@ -1602,25 +1668,6 @@ fn handle_embed_batch(
             return;
         }
     };
-
-    let (note_embed_enabled, block_embed_enabled) = {
-        let enabled = |key: &str| -> bool {
-            get_vault_setting_value(app_handle, vault_id, "editor")
-                .ok()
-                .flatten()
-                .and_then(|v| v.get(key)?.as_bool())
-                .unwrap_or(true)
-        };
-        (
-            enabled("embedding_note_enabled"),
-            enabled("embedding_block_enabled"),
-        )
-    };
-
-    if !note_embed_enabled && !block_embed_enabled {
-        log::info!("embed_batch: both note and block embedding disabled for {vault_id}");
-        return;
-    }
 
     if clear_first {
         if let Err(e) = vector_db::clear_all_embeddings(conn) {
@@ -2114,6 +2161,21 @@ fn send_write_blocking(
     make_cmd: impl FnOnce(SyncSender<Result<(), String>>) -> DbCommand,
 ) -> Result<(), String> {
     send_write_reply(app, vault_id, make_cmd)
+}
+
+/// Query-path model access: never blocks on a synchronous HF download. On a
+/// cold cache the load is kicked off in the background and the query returns
+/// an error, letting callers degrade to keyword-only for this request.
+fn query_model(app: &AppHandle) -> Result<Arc<EmbeddingService>, String> {
+    let embedding_state = app.state::<EmbeddingServiceState>();
+    let cache_dir = resolve_embedding_cache_dir(app);
+    let short_id = resolve_embedding_model_id(app);
+    let hf_repo = short_id_to_hf_repo(&short_id);
+    if let Some(model) = embedding_state.try_get(hf_repo) {
+        return Ok(model);
+    }
+    embedding_state.init_in_background(cache_dir, hf_repo.to_string(), app);
+    Err("embedding model not ready; initializing in background".to_string())
 }
 
 fn get_worker_is_embedding(app: &AppHandle, vault_id: &str) -> Result<Arc<AtomicBool>, String> {
@@ -2648,11 +2710,7 @@ pub fn semantic_search(
     query: String,
     limit: Option<usize>,
 ) -> Result<Vec<SemanticSearchHit>, String> {
-    let embedding_state = app.state::<EmbeddingServiceState>();
-    let cache_dir = resolve_embedding_cache_dir(&app);
-    let short_id = resolve_embedding_model_id(&app);
-    let hf_repo = short_id_to_hf_repo(&short_id);
-    let model = embedding_state.get_or_init(cache_dir, hf_repo, &app)?;
+    let model = query_model(&app)?;
     let query_vec = model.embed_one(&query)?;
     let limit = limit.unwrap_or(20);
 
@@ -2783,17 +2841,16 @@ pub fn search_blocks(
     limit: Option<usize>,
     date_range: Option<DateRange>,
 ) -> Result<Vec<BlockSectionHit>, String> {
-    let embedding_state = app.state::<EmbeddingServiceState>();
-    let cache_dir = resolve_embedding_cache_dir(&app);
-    let short_id = resolve_embedding_model_id(&app);
-    let hf_repo = short_id_to_hf_repo(&short_id);
-    let model = embedding_state.get_or_init(cache_dir, hf_repo, &app)?;
+    let model = query_model(&app)?;
     let query_vec = model.embed_one(&query)?;
     let limit = limit.unwrap_or(15);
     let fetch = if date_range.is_some() {
         (limit * 20).max(500)
     } else {
-        limit
+        // Over-fetch so candidates dropped on missed SQLite lookups (stale
+        // index keys during embed/remove windows) don't shrink results below
+        // limit; mirrors hybrid_search's 3x pool.
+        limit * 3
     };
 
     let raw = with_block_index(&app, &vault_id, |idx| idx.search(&query_vec, fetch))?;
@@ -2869,11 +2926,7 @@ pub async fn hybrid_search(
     limit: Option<usize>,
     date_range: Option<DateRange>,
 ) -> Result<Vec<HybridSearchHit>, String> {
-    let embedding_state = app.state::<EmbeddingServiceState>();
-    let cache_dir = resolve_embedding_cache_dir(&app);
-    let short_id = resolve_embedding_model_id(&app);
-    let hf_repo = short_id_to_hf_repo(&short_id);
-    let model = embedding_state.get_or_init(cache_dir, hf_repo, &app)?;
+    let model = query_model(&app)?;
     let limit = limit.unwrap_or(20);
     let date_range = date_range.map(|d| (d.start_ms, d.end_ms));
 
@@ -2903,11 +2956,7 @@ pub(crate) fn hybrid_search_sync(
     query: &str,
     limit: usize,
 ) -> Result<Vec<HybridSearchHit>, String> {
-    let embedding_state = app.state::<EmbeddingServiceState>();
-    let cache_dir = resolve_embedding_cache_dir(app);
-    let short_id = resolve_embedding_model_id(app);
-    let hf_repo = short_id_to_hf_repo(&short_id);
-    let model = embedding_state.get_or_init(cache_dir, hf_repo, app)?;
+    let model = query_model(app)?;
 
     ensure_worker(app, vault_id)?;
     let state = app.state::<SearchDbState>();
@@ -2932,6 +2981,14 @@ pub(crate) fn hybrid_search_sync(
 #[tauri::command]
 #[specta::specta]
 pub fn get_embedding_status(app: AppHandle, vault_id: String) -> Result<EmbeddingStatus, String> {
+    let is_embedding = {
+        let state = app.state::<SearchDbState>();
+        let map = state.workers.lock().map_err(|e| e.to_string())?;
+        map.get(&vault_id).is_some_and(|worker| {
+            worker.is_embedding.load(Ordering::Relaxed)
+                || worker.embed_queued.load(Ordering::Relaxed)
+        })
+    };
     with_read_conn(&app, &vault_id, |conn| {
         let total_notes = search_db::get_note_count(conn)?;
         let embedded_notes = vector_db::get_embedding_count(conn);
@@ -2941,7 +2998,7 @@ pub fn get_embedding_status(app: AppHandle, vault_id: String) -> Result<Embeddin
             total_notes,
             embedded_notes,
             model_version,
-            is_embedding: false,
+            is_embedding,
         })
     })
 }

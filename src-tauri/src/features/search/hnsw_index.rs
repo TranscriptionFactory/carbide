@@ -356,20 +356,28 @@ impl VectorIndex {
         self.dirty = false;
     }
 
-    /// Persists the built graph (`<basename>.hnsw.graph` + `.hnsw.data`) plus a
-    /// companion `<basename>.hnsw.meta` holding our side maps. The meta is
-    /// written atomically (temp + rename) so a killed dump never leaves a
-    /// half-written companion that would mis-map `d_id`s on reload.
+    /// Persists the built graph (`<basename>-<gen>.hnsw.graph` + `.hnsw.data`)
+    /// plus a companion `<basename>.hnsw.meta` holding our side maps. The graph
+    /// is written under a fresh generation basename and the meta (which names
+    /// that generation) is renamed into place last, so a kill mid-dump leaves
+    /// the previous meta→graph pairing intact instead of pairing a new graph
+    /// with old `d_id` mappings. `load_from_dump` only opens the graph files the
+    /// meta names, falling back to rebuild if they are missing. Superseded
+    /// generations are pruned after the swap.
     pub fn dump(&self, dir: &Path, basename: &str, model_version: &str) -> anyhow::Result<()> {
         std::fs::create_dir_all(dir)?;
-        let graph_basename = self.hnsw.file_dump(dir, basename)?;
+        let generation = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_millis())
+            .unwrap_or(0);
+        let graph_basename = self.hnsw.file_dump(dir, &format!("{basename}-{generation}"))?;
 
         let meta = IndexMeta {
             format_version: META_FORMAT_VERSION,
             model_version: model_version.to_string(),
             dims: self.dims,
             next_id: self.next_id,
-            graph_basename,
+            graph_basename: graph_basename.clone(),
             id_to_key: self.id_to_key.iter().map(|(k, v)| (*k, v.clone())).collect(),
         };
 
@@ -377,7 +385,31 @@ impl VectorIndex {
         let tmp_path = dir.join(format!("{basename}.hnsw.meta.tmp"));
         std::fs::write(&tmp_path, serde_json::to_vec(&meta)?)?;
         std::fs::rename(&tmp_path, &meta_path)?;
+        Self::prune_stale_graph_files(dir, basename, &graph_basename);
         Ok(())
+    }
+
+    /// Removes graph/data files of older generations (including pre-generation
+    /// `<basename>.hnsw.*` dumps) once the meta points at `keep`. Best-effort:
+    /// leftovers from a crash here are cleaned by the next dump.
+    fn prune_stale_graph_files(dir: &Path, basename: &str, keep: &str) {
+        let Ok(entries) = std::fs::read_dir(dir) else {
+            return;
+        };
+        for entry in entries.flatten() {
+            let name = entry.file_name();
+            let Some(name) = name.to_str() else {
+                continue;
+            };
+            if !name.ends_with(".hnsw.graph") && !name.ends_with(".hnsw.data") {
+                continue;
+            }
+            let ours = name.starts_with(&format!("{basename}-"))
+                || name.starts_with(&format!("{basename}."));
+            if ours && !name.starts_with(&format!("{keep}.")) {
+                let _ = std::fs::remove_file(entry.path());
+            }
+        }
     }
 
     /// Loads a previously dumped graph if the companion meta matches the
@@ -455,28 +487,47 @@ impl VectorIndex {
     }
 
     /// Repopulates the `vectors` map from SQLite and applies any deltas since the
-    /// dump: inserts keys new to the graph, removes loaded keys no longer in
+    /// dump: inserts keys new to the graph, re-inserts keys whose vector changed
+    /// (marking the old graph point stale), removes loaded keys no longer in
     /// SQLite. Makes a slightly-stale dump correct and restores `get_vector` /
     /// `compact_from_vectors`. Only flips `dirty` when a delta is applied.
     pub fn reconcile_from_sqlite(&mut self, conn: &rusqlite::Connection, index_name: &str) {
-        let mut seen: HashSet<String> = HashSet::with_capacity(self.key_to_id.len());
+        let mut sqlite_vecs: HashMap<String, Vec<f32>> = HashMap::new();
         Self::for_each_embedding(conn, index_name, |key, vec| {
-            seen.insert(key.clone());
-            if self.key_to_id.contains_key(&key) {
-                self.vectors.insert(key, vec);
-            } else {
-                self.insert(&key, vec);
-            }
+            sqlite_vecs.insert(key, vec);
         });
+
+        // Graph points own the vectors used for search ranking, and SQLite is
+        // updated on every save while the graph is only dumped on settle. A key
+        // whose SQLite vector no longer matches its graph point (crash between
+        // save and dump) must be re-inserted, not just refreshed in `vectors`.
+        let mut changed: HashSet<String> = HashSet::new();
+        for point in self.hnsw.get_point_indexation().into_iter() {
+            if let Some(key) = self.id_to_key.get(&point.get_origin_id()) {
+                if let Some(vec) = sqlite_vecs.get(key) {
+                    if point.get_v() != vec.as_slice() {
+                        changed.insert(key.clone());
+                    }
+                }
+            }
+        }
 
         let removed: Vec<String> = self
             .key_to_id
             .keys()
-            .filter(|k| !seen.contains(*k))
+            .filter(|k| !sqlite_vecs.contains_key(*k))
             .cloned()
             .collect();
         for key in removed {
             self.remove(&key);
+        }
+
+        for (key, vec) in sqlite_vecs {
+            if self.key_to_id.contains_key(&key) && !changed.contains(&key) {
+                self.vectors.insert(key, vec);
+            } else {
+                self.insert(&key, vec);
+            }
         }
     }
 
@@ -748,6 +799,15 @@ mod tests {
         v.iter().flat_map(|f| f.to_le_bytes()).collect()
     }
 
+    fn graph_files(dir: &Path) -> Vec<std::path::PathBuf> {
+        std::fs::read_dir(dir)
+            .unwrap()
+            .flatten()
+            .map(|e| e.path())
+            .filter(|p| p.to_string_lossy().ends_with(".hnsw.graph"))
+            .collect()
+    }
+
     fn mem_conn(rows: &[(&str, Vec<f32>)]) -> rusqlite::Connection {
         let conn = rusqlite::Connection::open_in_memory().unwrap();
         conn.execute(
@@ -813,7 +873,7 @@ mod tests {
 
         // Meta survives but the graph file is gone (partial deletion / tamper):
         // must fall back cleanly instead of panicking on the internal unwrap.
-        std::fs::remove_file(dir.join("notes-test.hnsw.graph")).unwrap();
+        std::fs::remove_file(&graph_files(&dir)[0]).unwrap();
         assert!(VectorIndex::load_from_dump(&dir, "notes-test", "m1", 8).is_none());
     }
 
@@ -901,12 +961,78 @@ mod tests {
         let conn = mem_conn(&[("a", va.clone())]);
         let idx = VectorIndex::rebuild_from_sqlite(&conn, "notes", 8);
         idx.dump(&dir, "notes-test", "m1").unwrap();
-        std::fs::write(dir.join("notes-test.hnsw.graph"), b"garbage").unwrap();
+        std::fs::write(&graph_files(&dir)[0], b"garbage").unwrap();
 
         let rebuilt = VectorIndex::load_or_rebuild(&conn, "notes", 8, &dir, "notes-test", "m1");
 
         assert_eq!(rebuilt.len(), 1);
         assert!(rebuilt.is_dirty());
         assert!(rebuilt.search(&va, 1).iter().any(|(k, _)| k == "a"));
+    }
+
+    #[test]
+    fn reconcile_reinserts_changed_vectors() {
+        let dir = scratch_dir("reconcile-changed");
+        let va_old = unit_vec(0.1, 8);
+        let va_new = unit_vec(0.9, 8);
+        let mut idx = VectorIndex::new(8);
+        idx.insert("a", va_old);
+        idx.dump(&dir, "notes-test", "m1").unwrap();
+
+        // SQLite was updated after the dump (save without settle, then crash).
+        let conn = mem_conn(&[("a", va_new.clone())]);
+        let mut loaded = VectorIndex::load_from_dump(&dir, "notes-test", "m1", 8).unwrap();
+        loaded.reconcile_from_sqlite(&conn, "notes");
+
+        assert_eq!(loaded.get_vector("a"), Some(&va_new));
+        assert_eq!(loaded.len(), 1);
+        // Search must rank by the fresh vector, not the dumped pre-edit point.
+        let hits = loaded.search(&va_new, 5);
+        assert_eq!(hits[0].0, "a");
+        assert!(hits[0].1 < 1e-5);
+        // The healed graph must be persisted on the next settle.
+        assert!(loaded.is_dirty());
+    }
+
+    #[test]
+    fn dump_prunes_superseded_generations() {
+        let dir = scratch_dir("prune");
+        let mut idx = VectorIndex::new(8);
+        idx.insert("a", unit_vec(0.1, 8));
+        idx.dump(&dir, "notes-test", "m1").unwrap();
+        std::thread::sleep(std::time::Duration::from_millis(2));
+        idx.insert("b", unit_vec(0.4, 8));
+        idx.dump(&dir, "notes-test", "m1").unwrap();
+
+        assert_eq!(graph_files(&dir).len(), 1);
+        let loaded = VectorIndex::load_from_dump(&dir, "notes-test", "m1", 8).unwrap();
+        assert_eq!(loaded.len(), 2);
+    }
+
+    #[test]
+    fn crash_between_graph_dump_and_meta_keeps_previous_pairing() {
+        let dir = scratch_dir("crash-window");
+        let va = unit_vec(0.1, 8);
+        let vb = unit_vec(0.4, 8);
+        let mut idx = VectorIndex::new(8);
+        idx.insert("a", va.clone());
+        idx.insert("b", vb.clone());
+        idx.dump(&dir, "notes-test", "m1").unwrap();
+
+        // Simulate a kill after the graph hits disk but before the meta rename:
+        // a permuted (compacted) graph lands under a newer generation basename
+        // while the meta still names the old generation.
+        let mut permuted = VectorIndex::new(8);
+        permuted.insert("b", vb);
+        permuted.insert("a", va.clone());
+        permuted
+            .hnsw
+            .file_dump(&dir, "notes-test-99999999999999")
+            .unwrap();
+
+        // Load must pair the old meta with the old graph, never the new one.
+        let loaded = VectorIndex::load_from_dump(&dir, "notes-test", "m1", 8).unwrap();
+        let hits = loaded.search(&va, 1);
+        assert_eq!(hits[0].0, "a");
     }
 }
