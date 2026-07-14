@@ -156,6 +156,7 @@ export type EditorEventHandlers = {
   on_at_palette_cite_query?: (query: string) => void;
   on_at_palette_command_execute?: (command_id: string) => void;
   on_outline_change?: (headings: OutlineHeading[]) => void;
+  on_active_heading_change?: (id: string | null) => void;
   on_markdown_lsp_hover?: (
     line: number,
     character: number,

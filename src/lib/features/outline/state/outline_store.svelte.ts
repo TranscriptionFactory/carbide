@@ -8,6 +8,7 @@ export class OutlineStore {
 
   private collapsed_map = new Map<string, Set<string>>();
   private current_note_path: string | null = null;
+  private cursor_active_until = 0;
 
   set_headings(headings: OutlineHeading[], note_path?: string) {
     if (
@@ -44,7 +45,15 @@ export class OutlineStore {
   }
 
   set_active_heading(id: string | null) {
+    if (performance.now() < this.cursor_active_until) return;
     this.active_heading_id = id;
+  }
+
+  set_active_from_cursor(id: string | null) {
+    this.active_heading_id = id;
+    // suppress scroll-spy briefly so a selection-triggered scrollIntoView
+    // doesn't clobber the cursor-driven active heading
+    this.cursor_active_until = performance.now() + 250;
   }
 
   toggle_collapsed(id: string) {

@@ -1289,6 +1289,10 @@ export class EditorService {
           }
         }
       };
+      events.on_active_heading_change = (id) => {
+        if (!this.is_generation_current(generation)) return;
+        outline_store.set_active_from_cursor(id);
+      };
     }
 
     if (this.callbacks.on_markdown_lsp_hover) {
