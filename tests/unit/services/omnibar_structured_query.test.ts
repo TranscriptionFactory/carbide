@@ -87,6 +87,7 @@ function make_mock_index_port() {
     subscribe_index_progress: vi.fn().mockReturnValue(() => {}),
     subscribe_vault_scan_stats: vi.fn().mockReturnValue(() => {}),
     subscribe_embedding_progress: vi.fn().mockReturnValue(() => {}),
+    rebuild_embeddings: vi.fn().mockResolvedValue(undefined),
     embed_sync: vi.fn().mockResolvedValue(undefined),
   };
 }

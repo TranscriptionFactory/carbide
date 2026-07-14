@@ -1,4 +1,15 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { toast } from "svelte-sonner";
+
+vi.mock("svelte-sonner", () => ({
+  toast: {
+    success: vi.fn(),
+    error: vi.fn(),
+    info: vi.fn(),
+    warning: vi.fn(),
+    loading: vi.fn(),
+  },
+}));
 import { ActionRegistry } from "$lib/app/action_registry/action_registry";
 import { ACTION_IDS } from "$lib/app/action_registry/action_ids";
 import { register_vault_actions } from "$lib/features/vault/application/vault_actions";
@@ -54,7 +65,8 @@ function create_vault_actions_harness() {
       select_pinned_vault_by_slot: vi.fn(),
       remove_vault_from_registry: vi.fn(),
       toggle_vault_pin: vi.fn(),
-      rebuild_index: vi.fn(),
+      rebuild_index: vi.fn().mockResolvedValue({ status: "success" }),
+      rebuild_embeddings: vi.fn().mockResolvedValue({ status: "success" }),
       sync_index: vi.fn().mockResolvedValue({ status: "success" }),
       reset_change_operation: vi.fn(),
       apply_opened_vault: vi.fn().mockResolvedValue(undefined),
@@ -467,5 +479,106 @@ describe("register_vault_actions", () => {
         "cached",
       );
     });
+  });
+});
+
+describe("vault index and embedding feedback", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  function make_vault_mode_harness() {
+    const harness = create_vault_actions_harness();
+    harness.stores.vault.set_vault({
+      id: as_vault_id("vault-a"),
+      name: "Vault A",
+      path: as_vault_path("/vault/a"),
+      created_at: 1,
+      mode: "vault",
+    });
+    return harness;
+  }
+
+  it("toasts info when reindex is skipped because indexing is active", async () => {
+    const { registry, services } = make_vault_mode_harness();
+    services.vault.rebuild_index = vi
+      .fn()
+      .mockResolvedValue({ status: "skipped" });
+
+    await registry.execute(ACTION_IDS.vault_reindex);
+
+    expect(toast.info).toHaveBeenCalledWith("Indexing already in progress");
+  });
+
+  it("toasts success when reindex completes", async () => {
+    const { registry } = make_vault_mode_harness();
+
+    await registry.execute(ACTION_IDS.vault_reindex);
+
+    expect(toast.success).toHaveBeenCalledWith("Vault index rebuilt");
+  });
+
+  it("toasts the error when reindex fails", async () => {
+    const { registry, services } = make_vault_mode_harness();
+    services.vault.rebuild_index = vi
+      .fn()
+      .mockResolvedValue({ status: "failed", error: "boom" });
+
+    await registry.execute(ACTION_IDS.vault_reindex);
+
+    expect(toast.error).toHaveBeenCalledWith("boom");
+  });
+
+  it("drives embedding rebuild toasts from the run result", async () => {
+    const { registry, services } = make_vault_mode_harness();
+
+    await registry.execute(ACTION_IDS.vault_rebuild_embeddings);
+
+    expect(services.vault.rebuild_embeddings).toHaveBeenCalled();
+    expect(toast.info).toHaveBeenCalledWith("Rebuilding embeddings…");
+    expect(toast.success).toHaveBeenCalledWith(
+      "Embedding index rebuild complete",
+    );
+  });
+
+  it("toasts the error when the embedding rebuild fails", async () => {
+    const { registry, services } = make_vault_mode_harness();
+    services.vault.rebuild_embeddings = vi
+      .fn()
+      .mockResolvedValue({ status: "failed", error: "model unavailable" });
+
+    await registry.execute(ACTION_IDS.vault_rebuild_embeddings);
+
+    expect(toast.error).toHaveBeenCalledWith(
+      "Embedding rebuild failed: model unavailable",
+    );
+    expect(toast.success).not.toHaveBeenCalled();
+  });
+
+  it("short-circuits embedding rebuild while one is already pending", async () => {
+    const { registry, stores, services } = make_vault_mode_harness();
+    stores.op.start("vault.rebuild_embeddings", 1);
+
+    await registry.execute(ACTION_IDS.vault_rebuild_embeddings);
+
+    expect(services.vault.rebuild_embeddings).not.toHaveBeenCalled();
+    expect(toast.info).toHaveBeenCalledWith(
+      "Embedding rebuild already in progress",
+    );
+  });
+
+  it("short-circuits embedding update while an embed pass is active", async () => {
+    const { registry, stores } = make_vault_mode_harness();
+    stores.search.set_embedding_progress({
+      status: "block_started",
+      vault_id: "vault-a",
+      total: 2,
+    });
+
+    await registry.execute(ACTION_IDS.vault_update_embeddings);
+
+    expect(toast.info).toHaveBeenCalledWith(
+      "Embedding update already in progress",
+    );
   });
 });

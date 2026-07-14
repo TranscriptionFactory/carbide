@@ -79,6 +79,7 @@ export class VaultService {
   ) {}
 
   private index_progress_unsubscribe: (() => void) | null = null;
+  private embedding_progress_unsubscribe: (() => void) | null = null;
   private scan_stats_unsubscribe: (() => void) | null = null;
   private active_open_revision = 0;
 
@@ -318,7 +319,10 @@ export class VaultService {
     if (!vault_id || !this.vault_store.is_vault_mode) {
       return { status: "skipped" };
     }
-    if (this.search_store.index_progress.status === "indexing") {
+    if (
+      this.op_store.is_pending("vault.reindex") ||
+      this.search_store.index_progress.status === "indexing"
+    ) {
       return { status: "skipped" };
     }
 
@@ -340,6 +344,71 @@ export class VaultService {
         error: message,
       };
     }
+  }
+
+  async rebuild_embeddings(): Promise<
+    | { status: "success" }
+    | { status: "skipped" }
+    | { status: "failed"; error: string }
+  > {
+    const vault_id = this.get_active_vault_id();
+    if (!vault_id || !this.vault_store.is_vault_mode) {
+      return { status: "skipped" };
+    }
+    if (
+      this.op_store.is_pending("vault.rebuild_embeddings") ||
+      this.search_store.embedding_progress.status === "embedding"
+    ) {
+      return { status: "skipped" };
+    }
+
+    this.start_operation("vault.rebuild_embeddings");
+
+    try {
+      const run_result = this.wait_for_embedding_run(vault_id);
+      await this.index_port.rebuild_embeddings(vault_id);
+      const result = await run_result;
+      if (result.status === "failed") {
+        const message = this.fail_operation(
+          "vault.rebuild_embeddings",
+          "Rebuild embeddings failed",
+          new Error(result.error),
+        );
+        return { status: "failed", error: message };
+      }
+      this.succeed_operation("vault.rebuild_embeddings");
+      return { status: "success" };
+    } catch (error) {
+      const message = this.fail_operation(
+        "vault.rebuild_embeddings",
+        "Rebuild embeddings failed",
+        error,
+      );
+      return { status: "failed", error: message };
+    }
+  }
+
+  // Full-run rebuilds report only via "completed"/"failed" embedding events;
+  // block_* events belong to incremental embed syncs and must not resolve this.
+  // ponytail: never resolves if the backend dies mid-run — op stays pending
+  // until vault reopen; add a timeout if that shows up in practice.
+  private wait_for_embedding_run(
+    vault_id: VaultId,
+  ): Promise<{ status: "completed" } | { status: "failed"; error: string }> {
+    return new Promise((resolve) => {
+      const unsubscribe = this.index_port.subscribe_embedding_progress(
+        (event) => {
+          if (event.vault_id !== vault_id) return;
+          if (event.status === "completed") {
+            unsubscribe();
+            resolve({ status: "completed" });
+          } else if (event.status === "failed") {
+            unsubscribe();
+            resolve({ status: "failed", error: event.error });
+          }
+        },
+      );
+    });
   }
 
   async sync_index(): Promise<
@@ -459,6 +528,7 @@ export class VaultService {
     if (vault.mode === "vault") {
       this.subscribe_vault_scan_stats_events(vault.id, open_revision);
       this.subscribe_open_vault_index_progress(vault.id, open_revision);
+      this.subscribe_open_vault_embedding_progress(vault.id, open_revision);
       this.trigger_background_index_sync(vault.id, open_revision);
     }
 
@@ -628,6 +698,21 @@ export class VaultService {
         }
       },
     );
+  }
+
+  private subscribe_open_vault_embedding_progress(
+    vault_id: VaultId,
+    open_revision: number,
+  ) {
+    this.embedding_progress_unsubscribe =
+      this.index_port.subscribe_embedding_progress((event) => {
+        if (!this.is_current_open_revision(open_revision)) {
+          return;
+        }
+        if (event.vault_id === vault_id) {
+          this.search_store.set_embedding_progress(event);
+        }
+      });
   }
 
   private trigger_background_index_sync(
@@ -869,6 +954,8 @@ export class VaultService {
   private clear_open_runtime_subscriptions(): void {
     this.index_progress_unsubscribe?.();
     this.index_progress_unsubscribe = null;
+    this.embedding_progress_unsubscribe?.();
+    this.embedding_progress_unsubscribe = null;
     this.scan_stats_unsubscribe?.();
     this.scan_stats_unsubscribe = null;
   }

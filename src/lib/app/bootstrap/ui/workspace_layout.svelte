@@ -1339,6 +1339,11 @@
         index_progress={is_vault_mode
           ? stores.search.index_progress
           : { status: "idle", indexed: 0, total: 0, error: null }}
+        is_reindex_pending={is_vault_mode &&
+          stores.op.is_pending("vault.reindex")}
+        embedding_progress={is_vault_mode
+          ? stores.search.embedding_progress
+          : { status: "idle", embedded: 0, total: 0, error: null }}
         vault_name={stores.vault.vault?.name ?? null}
         git_enabled={is_vault_mode && stores.git.enabled}
         git_branch={is_vault_mode ? stores.git.branch : ""}

@@ -436,8 +436,12 @@ export function register_vault_actions(input: ActionRegistrationInput) {
     when: () => stores.vault.is_vault_mode,
     execute: async () => {
       const result = await services.vault.rebuild_index();
-      if (result.status === "failed") {
+      if (result.status === "skipped") {
+        toast.info("Indexing already in progress");
+      } else if (result.status === "failed") {
         toast.error(result.error);
+      } else {
+        toast.success("Vault index rebuilt");
       }
     },
   });
@@ -447,6 +451,14 @@ export function register_vault_actions(input: ActionRegistrationInput) {
     label: "Update Embeddings",
     when: () => stores.vault.is_vault_mode,
     execute: async () => {
+      if (
+        stores.op.is_pending("vault.rebuild_embeddings") ||
+        stores.search.embedding_progress.status === "embedding"
+      ) {
+        toast.info("Embedding update already in progress");
+        return;
+      }
+      toast.info("Updating embeddings…");
       await services.search.update_embeddings();
     },
   });
@@ -456,8 +468,23 @@ export function register_vault_actions(input: ActionRegistrationInput) {
     label: "Rebuild All Embeddings",
     when: () => stores.vault.is_vault_mode,
     execute: async () => {
-      await services.search.rebuild_all_embeddings();
-      announce("Embedding index rebuild complete");
+      if (
+        stores.op.is_pending("vault.rebuild_embeddings") ||
+        stores.search.embedding_progress.status === "embedding"
+      ) {
+        toast.info("Embedding rebuild already in progress");
+        return;
+      }
+      toast.info("Rebuilding embeddings…");
+      const result = await services.vault.rebuild_embeddings();
+      if (result.status === "skipped") {
+        toast.info("Embedding rebuild already in progress");
+      } else if (result.status === "failed") {
+        toast.error(`Embedding rebuild failed: ${result.error}`);
+      } else {
+        toast.success("Embedding index rebuild complete");
+        announce("Embedding index rebuild complete");
+      }
     },
   });
 }

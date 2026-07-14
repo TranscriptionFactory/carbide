@@ -371,6 +371,12 @@ export function create_workspace_index_tauri_adapter(): WorkspaceIndexPort {
       };
     },
 
+    async rebuild_embeddings(vault_id: VaultId): Promise<void> {
+      await tauri_invoke<undefined>("rebuild_embeddings", {
+        vaultId: vault_id,
+      });
+    },
+
     async embed_sync(vault_id: VaultId): Promise<void> {
       await tauri_invoke<undefined>("embed_sync", {
         vaultId: vault_id,
