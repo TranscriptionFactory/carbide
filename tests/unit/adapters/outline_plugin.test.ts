@@ -1,7 +1,11 @@
 import { describe, it, expect } from "vitest";
 import { Schema } from "prosemirror-model";
 import type { Node as ProseNode } from "prosemirror-model";
-import { extract_headings } from "$lib/features/editor/adapters/outline_plugin";
+import {
+  active_heading_at,
+  extract_headings,
+} from "$lib/features/editor/adapters/outline_plugin";
+import type { OutlineHeading } from "$lib/features/outline";
 
 function create_schema_with_headings() {
   return new Schema({
@@ -113,5 +117,33 @@ describe("extract_headings", () => {
     expect(headings).toHaveLength(2);
     const [first, second] = headings;
     expect(first?.pos ?? 0).toBeLessThan(second?.pos ?? 0);
+  });
+});
+
+describe("active_heading_at", () => {
+  const headings: OutlineHeading[] = [
+    { id: "h-1-a-0", level: 1, text: "A", pos: 10 },
+    { id: "h-2-b-0", level: 2, text: "B", pos: 50 },
+    { id: "h-2-c-0", level: 2, text: "C", pos: 100 },
+  ];
+
+  it("returns null for empty headings", () => {
+    expect(active_heading_at([], 5)).toBeNull();
+  });
+
+  it("returns null before the first heading", () => {
+    expect(active_heading_at(headings, 5)).toBeNull();
+  });
+
+  it("returns the heading at its exact position", () => {
+    expect(active_heading_at(headings, 10)).toBe("h-1-a-0");
+  });
+
+  it("returns the section containing the position", () => {
+    expect(active_heading_at(headings, 60)).toBe("h-2-b-0");
+  });
+
+  it("returns the last heading past the end", () => {
+    expect(active_heading_at(headings, 9999)).toBe("h-2-c-0");
   });
 });
