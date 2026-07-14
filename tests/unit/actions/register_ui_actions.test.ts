@@ -209,6 +209,10 @@ describe("register_ui_actions", () => {
   it("toggles context rail outline when outline_mode is rail", async () => {
     const registry = new ActionRegistry();
     const stores = create_ui_stores();
+    stores.ui.set_editor_settings({
+      ...stores.ui.editor_settings,
+      outline_mode: "rail",
+    });
 
     register_ui_actions({
       registry,
@@ -334,6 +338,10 @@ describe("register_ui_actions", () => {
   it("switches from graph to outline by closing graph first", async () => {
     const registry = new ActionRegistry();
     const stores = create_ui_stores();
+    stores.ui.set_editor_settings({
+      ...stores.ui.editor_settings,
+      outline_mode: "rail",
+    });
 
     stores.graph.set_panel_open(true);
     stores.ui.set_context_rail_tab("graph");

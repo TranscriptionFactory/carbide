@@ -63,10 +63,13 @@
     padding-top: var(--triptych-bar-height);
   }
 
+  /* flex-grow 40 sits on paneforge's percent scale so the docked outline
+     pane (inline flex-grow = its size %) stays resizable alongside the
+     pinned equal-width sidebar and editor columns */
   [data-slot="sidebar-wrapper"]
     > [data-pane-group][data-direction="horizontal"]
     > [data-pane][order="1"] {
-    flex: 1 1 0% !important;
+    flex: 40 1 0% !important;
     min-width: 0 !important;
     max-width: none !important;
     border-inline-end: var(--triptych-divider-width) solid var(--border);
@@ -76,13 +79,10 @@
   [data-slot="sidebar-wrapper"]
     > [data-pane-group][data-direction="horizontal"]
     > [data-pane][order="2"] {
-    flex: 1 1 0% !important;
+    flex: 40 1 0% !important;
   }
 
   [data-pane-group][data-direction="horizontal"] > [data-pane][order="3"] {
-    flex: 1 1 0% !important;
-    min-width: 0 !important;
-    max-width: none !important;
     border-inline-start: var(--triptych-divider-width) solid var(--border);
     background-color: var(--background-surface-2);
   }
@@ -93,7 +93,9 @@
     border-inline-start: none;
   }
 
-  [data-resizable-handle] {
+  [data-slot="sidebar-wrapper"]
+    > [data-pane-group][data-direction="horizontal"]
+    > [data-pane-resizer]:not([data-outline-handle]) {
     display: none !important;
   }
 
