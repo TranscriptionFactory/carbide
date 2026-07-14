@@ -331,9 +331,7 @@
     cursor: default;
   }
 
-  .OutlinePanel__item--active,
-  .OutlinePanel__item--active[data-level="1"],
-  .OutlinePanel__item--active[data-level="2"] {
+  .OutlinePanel__item.OutlinePanel__item--active {
     color: var(--interactive);
   }
 
