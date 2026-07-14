@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { OutlineStore } from "$lib/features/outline";
 import type { OutlineHeading } from "$lib/features/outline";
 
@@ -52,6 +52,29 @@ describe("OutlineStore", () => {
     store.set_active_heading("h-5");
     store.set_active_heading(null);
     expect(store.active_heading_id).toBeNull();
+  });
+
+  it("sets active heading from cursor", () => {
+    const store = new OutlineStore();
+    store.set_active_from_cursor("h-cursor");
+    expect(store.active_heading_id).toBe("h-cursor");
+  });
+
+  it("suppresses scroll updates briefly after a cursor-driven set", () => {
+    const now = vi.spyOn(performance, "now");
+    try {
+      const store = new OutlineStore();
+      now.mockReturnValue(1000);
+      store.set_active_from_cursor("h-cursor");
+      store.set_active_heading("h-scroll");
+      expect(store.active_heading_id).toBe("h-cursor");
+
+      now.mockReturnValue(1300);
+      store.set_active_heading("h-scroll");
+      expect(store.active_heading_id).toBe("h-scroll");
+    } finally {
+      now.mockRestore();
+    }
   });
 
   it("toggles collapsed state", () => {
