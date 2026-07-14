@@ -920,3 +920,92 @@ fn paths_in_mtime_range_returns_only_in_window() {
     assert_eq!(in_range.len(), 1);
     assert!(in_range.contains("b.md"));
 }
+
+#[test]
+fn rename_folder_paths_uses_char_offset_for_multibyte_prefix() {
+    use crate::features::search::vector_db;
+
+    let tmp = TempDir::new().expect("temp dir should be created");
+    let conn = open_search_db_at_path(&tmp.path().join("test.db")).expect("db should open");
+    vector_db::init_vector_schema(&conn).expect("vector schema should init");
+
+    let meta = IndexNoteMeta {
+        id: "café/note.md".to_string(),
+        path: "café/note.md".to_string(),
+        title: "Note".to_string(),
+        name: "note".to_string(),
+        mtime_ms: 100,
+        ctime_ms: 50,
+        size_bytes: 10,
+        file_type: None,
+        source: None,
+    };
+    upsert_note(&conn, &meta, "body").expect("upsert should succeed");
+    vector_db::upsert_embedding(&conn, "café/note.md", &[0.1, 0.2]).expect("embedding upsert");
+
+    // "café/" is 5 chars but 6 bytes; a byte-based substr offset would eat the
+    // first character of every child path.
+    let renamed = rename_folder_paths(&conn, "café/", "renamed/").expect("rename should succeed");
+    assert_eq!(renamed, 1);
+
+    let manifest = get_manifest(&conn).expect("manifest should load");
+    assert!(manifest.contains_key("renamed/note.md"));
+    assert!(vector_db::get_embedding(&conn, "renamed/note.md").is_some());
+    assert!(vector_db::get_embedding(&conn, "renamed/ote.md").is_none());
+}
+
+#[test]
+fn upsert_linked_content_invalidates_embedding_when_body_changes() {
+    use crate::features::search::db::upsert_linked_content;
+    use crate::features::search::model::LinkedSourceMeta;
+    use crate::features::search::vector_db;
+
+    let tmp = TempDir::new().expect("temp dir should be created");
+    let conn = open_search_db_at_path(&tmp.path().join("test.db")).expect("db should open");
+    vector_db::init_vector_schema(&conn).expect("vector schema should init");
+    let linked_meta = LinkedSourceMeta::default();
+
+    let meta = upsert_linked_content(
+        &conn,
+        "papers",
+        "/refs/paper.pdf",
+        "Paper",
+        "extracted text v1",
+        &[],
+        "pdf",
+        1_000,
+        &linked_meta,
+    )
+    .expect("first upsert should succeed");
+    vector_db::upsert_embedding(&conn, &meta.path, &[0.1, 0.2]).expect("embedding upsert");
+
+    // Re-import with identical extracted text keeps the vector.
+    upsert_linked_content(
+        &conn,
+        "papers",
+        "/refs/paper.pdf",
+        "Paper",
+        "extracted text v1",
+        &[],
+        "pdf",
+        2_000,
+        &linked_meta,
+    )
+    .expect("unchanged upsert should succeed");
+    assert!(vector_db::get_embedding(&conn, &meta.path).is_some());
+
+    // Re-import with changed extracted text drops it so the embed pass recomputes.
+    upsert_linked_content(
+        &conn,
+        "papers",
+        "/refs/paper.pdf",
+        "Paper",
+        "extracted text v2",
+        &[],
+        "pdf",
+        3_000,
+        &linked_meta,
+    )
+    .expect("changed upsert should succeed");
+    assert!(vector_db::get_embedding(&conn, &meta.path).is_none());
+}
