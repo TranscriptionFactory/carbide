@@ -84,6 +84,7 @@ export function assemble_context(
         ...candidate,
         index,
         text: candidate.text.slice(0, keep) + TRUNCATION_MARKER,
+        truncated: true,
       });
       used_chars = available_chars;
     }
