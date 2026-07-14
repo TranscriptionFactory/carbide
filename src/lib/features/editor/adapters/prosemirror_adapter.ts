@@ -739,12 +739,22 @@ export function create_prosemirror_editor_port(args?: {
       const handle = {
         destroy() {
           if (!view) return;
+          const dying_view = view;
+          view = null;
           clearTimeout(outline_timer);
           buffer_map.clear();
-          ydoc_manager?.clear();
           current_xml_fragment = null;
-          view.destroy();
-          view = null;
+          // A throw in ydoc clear or plugin-view destroy must not leave the
+          // dead editor DOM (and its toolbar host) attached to the root.
+          try {
+            ydoc_manager?.clear();
+          } finally {
+            try {
+              dying_view.destroy();
+            } finally {
+              dying_view.dom.remove();
+            }
+          }
         },
         set_markdown(markdown: string) {
           if (!view) return;
