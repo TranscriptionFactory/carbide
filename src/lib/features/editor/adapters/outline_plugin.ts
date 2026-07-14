@@ -35,6 +35,18 @@ export function extract_headings(doc: ProseNode): OutlineHeading[] {
   return headings;
 }
 
+export function active_heading_at(
+  headings: OutlineHeading[],
+  pos: number,
+): string | null {
+  let active: string | null = null;
+  for (const h of headings) {
+    if (h.pos > pos) break;
+    active = h.id;
+  }
+  return active;
+}
+
 function headings_equal(a: OutlineHeading[], b: OutlineHeading[]): boolean {
   if (a.length !== b.length) return false;
   for (let i = 0; i < a.length; i++) {
