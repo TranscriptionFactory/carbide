@@ -30,6 +30,7 @@ export type {
 export { extract_headings_from_markdown } from "$lib/features/editor/domain/extract_headings";
 export {
   resolve_width_mode,
+  resolve_note_width_mode,
   can_write_width_frontmatter,
   WIDTH_FRONTMATTER_KEY,
 } from "$lib/features/editor/domain/note_width_mode";

@@ -2,7 +2,7 @@
   import { use_app_context } from "$lib/app/context/app_context.svelte";
   import { ACTION_IDS } from "$lib/app";
   import type { OpenNoteState } from "$lib/shared/types/editor";
-  import { resolve_width_mode } from "$lib/features/editor";
+  import { resolve_note_width_mode } from "$lib/features/editor";
 
   const { stores, action_registry, secondary_editor_manager } =
     use_app_context();
@@ -13,11 +13,9 @@
   );
 
   const width_mode = $derived(
-    resolve_width_mode(
-      secondary_note
-        ? stores.editor.width_mode_overrides[secondary_note.meta.path]
-        : undefined,
-      secondary_note?.markdown,
+    resolve_note_width_mode(
+      secondary_note,
+      stores.editor.width_mode_overrides,
       stores.ui.editor_settings.editor_width_mode,
     ),
   );
