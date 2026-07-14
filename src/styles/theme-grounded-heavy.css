@@ -2,7 +2,7 @@
    GROUNDED HEAVY LAYOUT OVERRIDES (BOTTOM-UP)
    ============================================ */
 
-.WorkspaceLayout--grounded-heavy {
+[data-layout-variant="grounded_heavy"] .WorkspaceLayout--grounded-heavy {
   --grounded-heavy-deck-height: var(--size-touch-lg);
   --grounded-heavy-deck-offset: var(--space-2);
   --grounded-heavy-sidebar-width: 18rem;
@@ -53,6 +53,7 @@
     border: 1px solid var(--border);
     border-radius: var(--radius-md);
     background-color: color-mix(in oklch, var(--card) 95%, transparent);
+    color: var(--foreground);
     backdrop-filter: blur(8px);
     box-shadow: var(--shadow-sm);
     z-index: 100;

@@ -34,6 +34,7 @@
   --radius-lg: calc(var(--radius) + 4px);
   --radius-xl: calc(var(--radius) + 8px);
   --radius-pill: 999px;
+  --radius-full: 9999px;
 
   /* Type scale */
   --font-sans: ui-sans-serif, -apple-system, "Segoe UI", "Inter", sans-serif;
@@ -72,7 +73,6 @@
   --size-titlebar: calc(34px * var(--density));
   --size-activity-bar: calc(44px * var(--density));
   --size-activity-icon: 18px;
-  --size-statusbar: calc(22px * var(--density));
   --size-tabbar: calc(34px * var(--density));
   --size-row: calc(28px * var(--density));
 

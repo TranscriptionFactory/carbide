@@ -111,6 +111,7 @@
     border: 1px solid var(--border);
     border-radius: var(--radius-full);
     background-color: color-mix(in oklch, var(--card) 80%, transparent);
+    color: var(--foreground);
     backdrop-filter: blur(16px);
     box-shadow: var(--shadow-xs);
     z-index: 100;
