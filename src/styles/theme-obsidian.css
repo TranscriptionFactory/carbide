@@ -90,6 +90,7 @@
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
     background-color: var(--glass-strong);
+    color: var(--foreground);
   }
 
   /* Panel rounded corners */

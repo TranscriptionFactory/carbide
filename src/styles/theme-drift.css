@@ -234,6 +234,7 @@
       var(--glass-strong) 84%,
       transparent
     ) !important;
+    color: var(--foreground);
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
     box-shadow: var(--shadow-md);

@@ -2,7 +2,7 @@
    HUD LAYOUT OVERRIDES (CORNER-FOCUSED)
    ============================================ */
 
-.WorkspaceLayout--hud {
+[data-layout-variant="hud"] .WorkspaceLayout--hud {
   --hud-margin: var(--space-4);
   --hud-radius: var(--radius-xl);
   --hud-sidebar-width: 16rem;
@@ -52,6 +52,7 @@
     border: 1px solid var(--border);
     border-radius: var(--hud-radius);
     background-color: color-mix(in oklch, var(--card) 90%, transparent);
+    color: var(--foreground);
     backdrop-filter: blur(12px);
     box-shadow: var(--shadow-lg);
     z-index: 100;

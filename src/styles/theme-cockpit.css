@@ -63,7 +63,6 @@
 
   .StatusBar {
     border-top: 1px solid var(--border);
-    background-color: var(--card);
     font-family: var(--font-family-mono);
   }
 }

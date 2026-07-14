@@ -2,7 +2,7 @@
    ZEN DECK LAYOUT OVERRIDES (WRITER-FIRST)
    ============================================ */
 
-.WorkspaceLayout--zen-deck {
+[data-layout-variant="zen_deck"] .WorkspaceLayout--zen-deck {
   --editor-max-width: 100ch;
   --zen-dock-height: 4rem;
   --zen-sidebar-width: 20rem;
@@ -60,6 +60,7 @@
     padding: var(--space-2) var(--space-4);
     border: none;
     background: transparent;
+    color: var(--foreground);
     opacity: 0.3;
     transition: opacity var(--duration-normal);
   }

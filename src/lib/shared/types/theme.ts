@@ -11,7 +11,14 @@ export type ThemeSpacing =
 
 export type ThemeDensity = "compact" | "regular" | "airy";
 
-export type ThemeCssTheme = "carbide" | "cockpit" | "paper" | "terminal";
+export type ThemeCssTheme =
+  | "carbide"
+  | "cockpit"
+  | "paper"
+  | "terminal"
+  | "glass"
+  | "floating"
+  | "neon";
 
 export type ThemeHeadingColor = "inherit" | "primary" | "accent";
 
@@ -346,6 +353,7 @@ const BP_NEON: ThemeBlueprint = {
   surface_chroma: 0.015,
   accent_hue: 300,
   accent_chroma: 0.25,
+  css_theme: "neon",
   heading_color: "primary",
   bold_style: "color-accent",
   code_block_style: "filled",
@@ -437,6 +445,7 @@ const BP_PAPER: ThemeBlueprint = {
   blockquote_style: "accent-bar",
   structural_overrides: {
     "--radius": "0.25rem",
+    "--size-status-bar": "calc(20px * var(--density))",
   },
   color_overrides_light: {
     "--editor-link": "oklch(0.45 0.1 55)",
@@ -511,6 +520,7 @@ const BP_FLOATING: ThemeBlueprint = {
   surface_chroma: 0,
   accent_hue: 250,
   accent_chroma: 0.08,
+  css_theme: "floating",
   spacing: "spacious",
   structural_overrides: {
     "--radius": "1rem",
@@ -589,6 +599,7 @@ const BP_GLASS: ThemeBlueprint = {
   surface_chroma: 0,
   accent_hue: 250,
   accent_chroma: 0.1,
+  css_theme: "glass",
   surface_style: "glass",
   structural_overrides: {
     "--radius": "0.75rem",
@@ -599,7 +610,7 @@ const BP_GLASS: ThemeBlueprint = {
     "--background": "oklch(0.97 0 0)",
     "--foreground": "oklch(0.145 0 0)",
     "--card": "oklch(1 0 0 / 80%)",
-    "--popover": "oklch(1 0 0 / 90%)",
+    "--popover": "oklch(1 0 0)",
     "--primary": "oklch(0.4 0.1 250)",
     "--primary-foreground": "oklch(1 0 0)",
     "--secondary": "oklch(0.95 0 0 / 70%)",
@@ -630,7 +641,7 @@ const BP_GLASS: ThemeBlueprint = {
     "--background": "oklch(0.13 0 0)",
     "--foreground": "oklch(0.985 0 0)",
     "--card": "oklch(0.15 0 0 / 80%)",
-    "--popover": "oklch(0.18 0 0 / 90%)",
+    "--popover": "oklch(0.18 0 0)",
     "--primary": "oklch(0.7 0.1 250)",
     "--primary-foreground": "oklch(0.1 0 0)",
     "--secondary": "oklch(0.21 0 0 / 70%)",
@@ -880,8 +891,6 @@ const BP_WORKBENCH: ThemeBlueprint = {
     "--muted": "oklch(0.85 0.01 250)",
     "--border": "oklch(0.75 0.01 250)",
     "--primary": "oklch(0.6 0.2 25)",
-    "--sidebar": "oklch(0.88 0.01 250)",
-    "--sidebar-border": "oklch(0.7 0.01 250)",
     "--shadow-sm": "inset 0 1px 2px oklch(0 0 0 / 10%)",
     "--shadow-md":
       "0 4px 6px -1px oklch(0 0 0 / 10%), 0 2px 4px -1px oklch(0 0 0 / 6%)",
@@ -895,8 +904,6 @@ const BP_WORKBENCH: ThemeBlueprint = {
     "--muted": "oklch(0.15 0.01 250)",
     "--border": "oklch(0.25 0.01 250)",
     "--primary": "oklch(0.7 0.2 25)",
-    "--sidebar": "oklch(0.16 0.01 250)",
-    "--sidebar-border": "oklch(0.1 0.01 250)",
     "--shadow-sm": "inset 0 1px 2px oklch(0 0 0 / 40%)",
     "--shadow-md": "0 4px 6px -1px oklch(0 0 0 / 40%)",
     "--shadow-lg": "0 10px 15px -3px oklch(0 0 0 / 50%)",
@@ -1048,6 +1055,7 @@ const BP_COCKPIT: ThemeBlueprint = {
   css_theme: "cockpit",
   structural_overrides: {
     "--radius": "0.375rem",
+    "--size-status-bar": "calc(24px * var(--density))",
   },
   color_overrides_light: {
     "--background": "oklch(0.97 0.005 170)",
@@ -1178,6 +1186,16 @@ const OBSIDIAN_DARK_COLORS: Record<string, string> = {
   "--scrollbar-thumb": "oklch(1 0 0 / 0.12)",
 };
 
+const OBSIDIAN_LIGHT_COLORS: Record<string, string> = {
+  "--background": "oklch(0.965 0.01 275)",
+  "--card": "oklch(0.99 0.008 275 / 0.7)",
+  "--popover": "oklch(0.99 0.008 275)",
+  "--sidebar": "oklch(0.99 0.008 275 / 0.7)",
+  "--border": "oklch(0 0 0 / 0.1)",
+  "--border-strong": "oklch(0 0 0 / 0.18)",
+  "--sidebar-border": "oklch(0 0 0 / 0.1)",
+};
+
 const BP_OBSIDIAN: ThemeBlueprint = {
   base_name: "Obsidian",
   category: "specialty",
@@ -1193,6 +1211,7 @@ const BP_OBSIDIAN: ThemeBlueprint = {
     "--shadow-md": "0 4px 12px -2px oklch(0 0 0 / 0.4)",
     "--shadow-lg": "0 20px 40px -10px oklch(0 0 0 / 0.6)",
   },
+  color_overrides_light: OBSIDIAN_LIGHT_COLORS,
   color_overrides_dark: OBSIDIAN_DARK_COLORS,
 };
 
@@ -1211,15 +1230,16 @@ const BP_DRIFT: ThemeBlueprint = {
     "--shadow-md": "0 4px 16px -4px oklch(0 0 0 / 0.5)",
     "--shadow-lg": "0 20px 50px -15px oklch(0 0 0 / 0.6)",
   },
+  color_overrides_light: OBSIDIAN_LIGHT_COLORS,
   color_overrides_dark: OBSIDIAN_DARK_COLORS,
 };
 
 const BP_TERMINAL: ThemeBlueprint = {
   base_name: "Terminal",
   category: "specialty",
-  surface_hue: 120,
+  surface_hue: 85,
   surface_chroma: 0.005,
-  accent_hue: 130,
+  accent_hue: 85,
   accent_chroma: 0.15,
   css_theme: "terminal",
   density: "compact",
@@ -1229,34 +1249,7 @@ const BP_TERMINAL: ThemeBlueprint = {
   shiki_theme_dark: "github-dark",
   structural_overrides: {
     "--radius": "0px",
-  },
-  color_overrides_light: {
-    "--background": "oklch(0.95 0.008 120)",
-    "--foreground": "oklch(0.25 0.04 130)",
-    "--card": "oklch(0.93 0.01 120)",
-    "--primary": "oklch(0.45 0.15 130)",
-    "--primary-foreground": "oklch(0.95 0.008 120)",
-    "--border": "oklch(0.82 0.02 120)",
-    "--muted": "oklch(0.9 0.01 120)",
-    "--muted-foreground": "oklch(0.45 0.02 120)",
-    "--accent": "oklch(0.88 0.04 130)",
-    "--accent-foreground": "oklch(0.25 0.04 130)",
-    "--sidebar": "oklch(0.92 0.01 120)",
-    "--sidebar-border": "oklch(0.82 0.02 120)",
-  },
-  color_overrides_dark: {
-    "--background": "oklch(0.12 0.008 120)",
-    "--foreground": "oklch(0.82 0.12 130)",
-    "--card": "oklch(0.15 0.01 120)",
-    "--primary": "oklch(0.72 0.18 130)",
-    "--primary-foreground": "oklch(0.12 0.008 120)",
-    "--border": "oklch(0.24 0.015 120)",
-    "--muted": "oklch(0.18 0.01 120)",
-    "--muted-foreground": "oklch(0.55 0.05 130)",
-    "--accent": "oklch(0.22 0.03 130)",
-    "--accent-foreground": "oklch(0.82 0.12 130)",
-    "--sidebar": "oklch(0.14 0.01 120)",
-    "--sidebar-border": "oklch(0.22 0.015 120)",
+    "--size-status-bar": "calc(20px * var(--density))",
   },
 };
 const BLUEPRINTS: ThemeBlueprint[] = [

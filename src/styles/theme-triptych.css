@@ -110,6 +110,7 @@
   .StatusBar {
     border-top: var(--triptych-divider-width) solid var(--border);
     background-color: var(--background-surface-2);
+    color: var(--foreground);
     font-family: var(--font-family-mono);
     font-size: var(--text-xs);
   }
