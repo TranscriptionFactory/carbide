@@ -1,9 +1,27 @@
 import type { EditorView } from "prosemirror-view";
 import { computePosition, flip, shift, offset } from "@floating-ui/dom";
 
-export function create_cursor_anchor(view: EditorView): Element {
+type CursorCoords = { left: number; top: number; bottom: number };
+
+// null when the selection's DOM is not laid out yet (e.g. a smart-block
+// node view swapping from preview to edit mode renders asynchronously) —
+// coordsAtPos then throws or reports the viewport origin
+export function get_cursor_coords(view: EditorView): CursorCoords | null {
   const { $from } = view.state.selection;
-  const coords = view.coordsAtPos($from.pos);
+  let coords: CursorCoords;
+  try {
+    coords = view.coordsAtPos($from.pos);
+  } catch {
+    return null;
+  }
+  if (coords.left === 0 && coords.top === 0 && coords.bottom === 0) {
+    return null;
+  }
+  return coords;
+}
+
+export function create_cursor_anchor(view: EditorView): Element {
+  const coords = get_cursor_coords(view) ?? { left: 0, top: 0, bottom: 0 };
   return {
     getBoundingClientRect: () =>
       new DOMRect(coords.left, coords.top, 0, coords.bottom - coords.top),
