@@ -6,6 +6,8 @@ mod plugin_protocol;
 
 #[path = "../../tests/search_db_behavior.rs"]
 mod search_db_behavior;
+#[path = "../../tests/search_embed_gating.rs"]
+mod search_embed_gating;
 
 #[path = "../../tests/vault_settings_service_parse.rs"]
 mod vault_settings_service_parse;

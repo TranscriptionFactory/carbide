@@ -377,18 +377,9 @@ export const SETTINGS_REGISTRY: SettingDefinition[] = [
     key: "editor_toolbar_visibility",
     label: "Toolbar Visibility",
     description:
-      "Controls when the formatting toolbar appears: on text selection, always visible, or hidden",
+      "Controls whether the formatting toolbar is always visible or hidden",
     category: "Editor",
-    keywords: [
-      "toolbar",
-      "formatting",
-      "visibility",
-      "floating",
-      "sticky",
-      "hide",
-      "show",
-      "selection",
-    ],
+    keywords: ["toolbar", "formatting", "visibility", "sticky", "hide", "show"],
   },
   {
     key: "editor_heading_markers",
@@ -613,6 +604,22 @@ export const SETTINGS_REGISTRY: SettingDefinition[] = [
     description: "Maximum time to wait for an AI CLI response",
     category: "AI",
     keywords: ["ai", "timeout", "seconds", "duration", "cli"],
+  },
+  {
+    key: "ai_rag_retrieve_limit",
+    label: "Chat Retrieval Sources",
+    description:
+      "How many notes vault chat retrieves as candidate context per question",
+    category: "AI",
+    keywords: ["ai", "rag", "chat", "vault", "retrieval", "sources", "limit"],
+  },
+  {
+    key: "ai_rag_context_token_budget",
+    label: "Chat Context Token Budget",
+    description:
+      "Approximate token budget for note context included in vault chat prompts",
+    category: "AI",
+    keywords: ["ai", "rag", "chat", "vault", "context", "tokens", "budget"],
   },
   {
     key: "document_pdf_default_zoom",
@@ -969,9 +976,18 @@ export const SETTINGS_REGISTRY: SettingDefinition[] = [
     key: "outline_mode",
     label: "Outline Position",
     description:
-      "Show outline as a floating panel over the editor or in the sidebar rail",
+      "Show outline as a floating panel over the editor, in the sidebar rail, or docked as a resizable pane",
     category: "Sidebar",
-    keywords: ["outline", "position", "floating", "sidebar", "rail", "panel"],
+    keywords: [
+      "outline",
+      "position",
+      "floating",
+      "sidebar",
+      "rail",
+      "panel",
+      "docked",
+      "pane",
+    ],
   },
   {
     key: "terminal_background_color",

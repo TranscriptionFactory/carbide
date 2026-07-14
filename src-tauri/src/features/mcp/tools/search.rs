@@ -44,11 +44,11 @@ fn search_notes_def() -> ToolDefinition {
 
     ToolDefinition {
         name: "search_notes".into(),
-        description: "Search across note titles and content. Supports full-text search (default) and semantic/hybrid search for conceptual queries. Returns tab-separated lines of path, title, and relevance score, with matching text snippets on the next line.".into(),
+        description: "Search across note titles and content. Supports full-text search (default) and semantic/hybrid search for conceptual queries. Returns tab-separated lines of path, title, and relevance score (positive, higher is better; scale differs between modes), with matching text snippets on the next line.".into(),
         input_schema: InputSchema {
             schema_type: "object".into(),
             properties,
-            required: vec!["vault_id".into(), "query".into()],
+            required: vec!["query".into()],
         },
     }
 }
@@ -91,51 +91,75 @@ fn handle_search_notes(app: &AppHandle, arguments: Option<&Value>) -> ToolResult
 
     if is_semantic {
         match shared_ops::search_notes_hybrid(app, &args.vault_id, &args.query, max) {
-            Ok(hits) => {
-                if hits.is_empty() {
-                    return ToolResult::text("No results found.".into());
-                }
-                let lines: Vec<String> = hits
-                    .iter()
-                    .map(|hit| {
-                        let snippet = hit
-                            .snippet
-                            .as_deref()
-                            .map(|s| format!("\n  {}", s))
-                            .unwrap_or_default();
-                        format!(
-                            "{}\t{}\t{:.2}{}",
-                            hit.note.path, hit.note.title, hit.score, snippet
-                        )
-                    })
-                    .collect();
-                ToolResult::text(lines.join("\n"))
+            Ok((hits, fallback)) => {
+                let body = format_hits(hits.iter().map(|hit| {
+                    (
+                        hit.note.path.as_str(),
+                        hit.note.title.as_str(),
+                        hit.score,
+                        hit.snippet.as_deref(),
+                    )
+                }));
+                let text = match fallback {
+                    Some(reason) => format!(
+                        "note: semantic search unavailable ({}); returning keyword-only results\n{}",
+                        reason, body
+                    ),
+                    None => body,
+                };
+                ToolResult::text(text)
             }
             Err(e) => op_err_to_tool_result(e),
         }
     } else {
         match shared_ops::search_notes_index(app, &args.vault_id, &args.query, max) {
-            Ok(hits) => {
-                if hits.is_empty() {
-                    return ToolResult::text("No results found.".into());
-                }
-                let lines: Vec<String> = hits
-                    .iter()
-                    .map(|hit| {
-                        let snippet = hit
-                            .snippet
-                            .as_deref()
-                            .map(|s| format!("\n  {}", s))
-                            .unwrap_or_default();
-                        format!(
-                            "{}\t{}\t{:.2}{}",
-                            hit.note.path, hit.note.title, hit.score, snippet
-                        )
-                    })
-                    .collect();
-                ToolResult::text(lines.join("\n"))
-            }
+            Ok(hits) => ToolResult::text(format_hits(hits.iter().map(|hit| {
+                (
+                    hit.note.path.as_str(),
+                    hit.note.title.as_str(),
+                    hit.score,
+                    hit.snippet.as_deref(),
+                )
+            }))),
             Err(e) => op_err_to_tool_result(e),
         }
+    }
+}
+
+fn format_hits<'a>(
+    hits: impl Iterator<Item = (&'a str, &'a str, f32, Option<&'a str>)>,
+) -> String {
+    let lines: Vec<String> = hits
+        .map(|(path, title, score, snippet)| {
+            let snippet = snippet.map(|s| format!("\n  {}", s)).unwrap_or_default();
+            format!("{}\t{}\t{:.2}{}", path, title, score, snippet)
+        })
+        .collect();
+    if lines.is_empty() {
+        "No results found.".into()
+    } else {
+        lines.join("\n")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn format_hits_returns_placeholder_when_empty() {
+        assert_eq!(format_hits(std::iter::empty()), "No results found.");
+    }
+
+    #[test]
+    fn format_hits_emits_tab_separated_lines_with_indented_snippets() {
+        let hits = vec![
+            ("a.md", "Alpha", 0.5f32, Some("match text")),
+            ("b.md", "Beta", 0.25f32, None),
+        ];
+        assert_eq!(
+            format_hits(hits.into_iter()),
+            "a.md\tAlpha\t0.50\n  match text\nb.md\tBeta\t0.25"
+        );
     }
 }

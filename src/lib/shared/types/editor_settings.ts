@@ -57,7 +57,7 @@ export type TerminalFontWeight =
 export type TerminalCursorStyle = "block" | "underline" | "bar";
 export type DailyNoteSubfolderFormat = "none" | "year" | "year_month";
 export type PanelSide = "left" | "right";
-export type OutlineMode = "rail" | "floating";
+export type OutlineMode = "rail" | "floating" | "docked";
 export type ToolbarVisibility = "always_show" | "always_hide";
 export type BlockDragHandleMode = "off" | "on_hover" | "always";
 export type FileTreeStyle =
@@ -165,6 +165,8 @@ export type EditorSettings = {
   ai_vault_context_similar_limit: number;
   ai_vault_context_include_links: boolean;
   ai_vault_context_similarity_threshold: number;
+  ai_rag_retrieve_limit: number;
+  ai_rag_context_token_budget: number;
   document_pdf_default_zoom: DocumentPdfZoomMode;
   document_pdf_scroll_mode: DocumentPdfScrollMode;
   document_code_wrap: boolean;
@@ -288,6 +290,8 @@ export const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
   ai_vault_context_similar_limit: 5,
   ai_vault_context_include_links: true,
   ai_vault_context_similarity_threshold: 0.5,
+  ai_rag_retrieve_limit: 15,
+  ai_rag_context_token_budget: 8000,
   document_pdf_default_zoom: "fit_width",
   document_pdf_scroll_mode: "continuous",
   document_code_wrap: true,
@@ -480,6 +484,8 @@ export const GLOBAL_ONLY_SETTING_KEYS: readonly (keyof EditorSettings)[] = [
   "ai_vault_context_similar_limit",
   "ai_vault_context_include_links",
   "ai_vault_context_similarity_threshold",
+  "ai_rag_retrieve_limit",
+  "ai_rag_context_token_budget",
   "iwe_ai_provider_id",
   "document_pdf_default_zoom",
   "document_pdf_scroll_mode",

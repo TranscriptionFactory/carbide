@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ActionRegistry } from "$lib/app/action_registry/action_registry";
 import { ACTION_IDS } from "$lib/app/action_registry/action_ids";
 import { register_rag_actions } from "$lib/features/rag";
@@ -6,7 +6,9 @@ import { RagStore } from "$lib/features/rag";
 import { UIStore } from "$lib/app/orchestration/ui_store.svelte";
 import { OpStore } from "$lib/app/orchestration/op_store.svelte";
 import { BUILTIN_PROVIDER_PRESETS } from "$lib/shared/types/ai_provider_config";
+import { DEFAULT_EDITOR_SETTINGS } from "$lib/shared/types/editor_settings";
 import type { RagStreamEvent } from "$lib/features/rag/domain/rag_types";
+import { collect_open_note_image_parts } from "$lib/features/ai";
 import { toast } from "svelte-sonner";
 
 const PROVIDER_ID = BUILTIN_PROVIDER_PRESETS[0]?.id ?? "claude";
@@ -20,6 +22,18 @@ vi.mock("svelte-sonner", () => ({
     loading: vi.fn(),
   },
 }));
+
+vi.mock("$lib/features/ai", async (importOriginal) => {
+  const original = await importOriginal<typeof import("$lib/features/ai")>();
+  return {
+    ...original,
+    collect_open_note_image_parts: vi
+      .fn()
+      .mockResolvedValue([
+        { type: "image", media_type: "image/png", data: "abc" },
+      ]),
+  };
+});
 
 const ANSWERED_EVENTS: RagStreamEvent[] = [
   { type: "text", text: "42 [1]." },
@@ -44,6 +58,9 @@ function create_harness(events: RagStreamEvent[] = ANSWERED_EVENTS) {
     ui: new UIStore(),
     op: new OpStore(),
     vault: { active_vault_id: "v1" },
+    editor: {
+      open_note: null as { meta: { path: string; title: string } } | null,
+    },
   };
   stores.ui.editor_settings.ai_providers = BUILTIN_PROVIDER_PRESETS;
   stores.ui.editor_settings.ai_default_provider_id = PROVIDER_ID;
@@ -76,6 +93,10 @@ function create_harness(events: RagStreamEvent[] = ANSWERED_EVENTS) {
   return { registry, stores, rag_store, rag_service, note_open };
 }
 
+beforeEach(() => {
+  vi.clearAllMocks();
+});
+
 describe("register_rag_actions", () => {
   it("asks: runs the query and records user + assistant messages", async () => {
     const { registry, rag_store, rag_service, stores } = create_harness();
@@ -92,6 +113,53 @@ describe("register_rag_actions", () => {
     expect(rag_store.messages[1]?.citations).toHaveLength(1);
     expect(rag_store.is_loading).toBe(false);
     expect(stores.op.get("rag.ask").status).toBe("success");
+  });
+
+  it("asks: passes RAG retrieval settings from editor settings", async () => {
+    const { registry, rag_service, stores } = create_harness();
+    stores.ui.editor_settings.ai_rag_retrieve_limit = 30;
+    stores.ui.editor_settings.ai_rag_context_token_budget = 12000;
+
+    await registry.execute(ACTION_IDS.rag_ask, "what is it?");
+
+    expect(rag_service.query).toHaveBeenCalledWith(
+      expect.objectContaining({
+        retrieve_limit: 30,
+        assembler_options: { token_budget: 12000 },
+      }),
+    );
+  });
+
+  it("asks: clamps out-of-range retrieval settings to sane bounds", async () => {
+    const { registry, rag_service, stores } = create_harness();
+    stores.ui.editor_settings.ai_rag_retrieve_limit = 999;
+    stores.ui.editor_settings.ai_rag_context_token_budget = 1;
+
+    await registry.execute(ACTION_IDS.rag_ask, "what is it?");
+
+    expect(rag_service.query).toHaveBeenCalledWith(
+      expect.objectContaining({
+        retrieve_limit: 50,
+        assembler_options: { token_budget: 1000 },
+      }),
+    );
+  });
+
+  it("asks: falls back to defaults when retrieval settings are invalid", async () => {
+    const { registry, rag_service, stores } = create_harness();
+    stores.ui.editor_settings.ai_rag_retrieve_limit = Number.NaN;
+    stores.ui.editor_settings.ai_rag_context_token_budget = Number.NaN;
+
+    await registry.execute(ACTION_IDS.rag_ask, "what is it?");
+
+    expect(rag_service.query).toHaveBeenCalledWith(
+      expect.objectContaining({
+        retrieve_limit: DEFAULT_EDITOR_SETTINGS.ai_rag_retrieve_limit,
+        assembler_options: {
+          token_budget: DEFAULT_EDITOR_SETTINGS.ai_rag_context_token_budget,
+        },
+      }),
+    );
   });
 
   it("asks: persists the active session after a completed turn", async () => {
@@ -152,6 +220,82 @@ describe("register_rag_actions", () => {
 
     expect(rag_store.error).toBe("index down");
     expect(stores.op.get("rag.ask").status).toBe("error");
+  });
+
+  it("asks: persists the session even when the turn fails", async () => {
+    const { registry, rag_service } = create_harness([
+      { type: "error", error: "index down" },
+    ]);
+
+    await registry.execute(ACTION_IDS.rag_ask, "doomed question");
+
+    expect(rag_service.save_session).toHaveBeenCalledTimes(1);
+    const [vault_id, session] = (rag_service.save_session.mock.calls[0] ??
+      []) as [string, { messages: { content: string }[] }];
+    expect(vault_id).toBe("v1");
+    expect(session.messages.map((m) => m.content)).toEqual(["doomed question"]);
+  });
+
+  it("asks: keeps the partial reply when the stream errors mid-answer", async () => {
+    const { registry, rag_store } = create_harness([
+      { type: "text", text: "partial answer" },
+      { type: "error", error: "rate limited" },
+    ]);
+
+    await registry.execute(ACTION_IDS.rag_ask, "q");
+
+    expect(rag_store.messages.map((m) => m.content)).toEqual([
+      "q",
+      "partial answer",
+    ]);
+    expect(rag_store.error).toBe("rate limited");
+  });
+
+  it("asks: skips open-note images for an unrelated vault-wide question", async () => {
+    const { registry, rag_service, stores } = create_harness();
+    stores.editor.open_note = {
+      meta: { path: "notes/pic.md", title: "Pic" },
+    };
+
+    await registry.execute(ACTION_IDS.rag_ask, "what did I write last week?");
+
+    expect(collect_open_note_image_parts).not.toHaveBeenCalled();
+    expect(rag_service.query).toHaveBeenCalledWith(
+      expect.objectContaining({ image_parts: [] }),
+    );
+  });
+
+  it("asks: attaches open-note images when the note is @mentioned", async () => {
+    const { registry, rag_service, stores } = create_harness();
+    stores.editor.open_note = {
+      meta: { path: "notes/pic.md", title: "Pic" },
+    };
+
+    await registry.execute(ACTION_IDS.rag_ask, "explain the diagram in @Pic");
+
+    expect(collect_open_note_image_parts).toHaveBeenCalledTimes(1);
+    expect(rag_service.query).toHaveBeenCalledWith(
+      expect.objectContaining({
+        image_parts: [{ type: "image", media_type: "image/png", data: "abc" }],
+      }),
+    );
+  });
+
+  it("asks: attaches open-note images when the note sits inside the folder scope", async () => {
+    const { registry, rag_service, rag_store, stores } = create_harness();
+    stores.editor.open_note = {
+      meta: { path: "projects/pic.md", title: "Pic" },
+    };
+    rag_store.set_scope({ folders: ["projects"] });
+
+    await registry.execute(ACTION_IDS.rag_ask, "what is in this folder?");
+
+    expect(collect_open_note_image_parts).toHaveBeenCalledTimes(1);
+    expect(rag_service.query).toHaveBeenCalledWith(
+      expect.objectContaining({
+        image_parts: [{ type: "image", media_type: "image/png", data: "abc" }],
+      }),
+    );
   });
 
   it("new chat clears the conversation and resets the pending op", async () => {

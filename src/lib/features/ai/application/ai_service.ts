@@ -195,6 +195,7 @@ export class AiService {
     system_prompt: string;
     user_prompt: string;
     images?: AiImagePart[];
+    signal?: AbortSignal;
   }): AsyncGenerator<AiStreamChunk> {
     if (!this.ai_stream_port) {
       yield { type: "error", error: "Streaming is not available" };
@@ -214,6 +215,7 @@ export class AiService {
             : input.user_prompt,
         },
       ],
+      ...(input.signal ? { signal: input.signal } : {}),
     })) {
       if (chunk.type === "text") {
         const text = joiner.process_chunk(chunk.text);

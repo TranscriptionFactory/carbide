@@ -261,4 +261,43 @@ describe("query_solver", () => {
     const result = await solve_query(VAULT_ID, query, make_backends());
     expect(result.elapsed_ms).toBeGreaterThanOrEqual(0);
   });
+
+  it("translates symbolic property operators to bases operators", async () => {
+    const bases = { query: vi.fn().mockResolvedValue({ rows: [], total: 0 }) };
+    const cases: Array<[string, string]> = [
+      ["=", "eq"],
+      ["!=", "neq"],
+      [">", "gt"],
+      ["<", "lt"],
+      [">=", "gte"],
+      ["<=", "lte"],
+      ["contains", "contains"],
+    ];
+    for (const [symbolic, expected] of cases) {
+      const query: ParsedQuery = {
+        form: "notes",
+        root: {
+          kind: "clause",
+          type: "with_property",
+          negated: false,
+          value: { kind: "text", value: "now()-1d" },
+          property_name: "created",
+          property_operator: symbolic,
+        },
+      };
+      await solve_query(
+        VAULT_ID,
+        query,
+        make_backends({ bases: bases as never }),
+      );
+      expect(bases.query).toHaveBeenLastCalledWith(VAULT_ID, {
+        filters: [
+          { property: "created", operator: expected, value: "now()-1d" },
+        ],
+        sort: [],
+        limit: 200,
+        offset: 0,
+      });
+    }
+  });
 });

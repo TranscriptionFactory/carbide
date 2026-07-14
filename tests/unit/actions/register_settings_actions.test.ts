@@ -312,4 +312,42 @@ describe("register_settings_actions", () => {
       sync_index: true,
     });
   });
+
+  it("triggers an embedding update when the embedding model changes", async () => {
+    const { registry } = create_harness();
+    const update_embeddings = vi.fn();
+    registry.register({
+      id: ACTION_IDS.vault_update_embeddings,
+      label: "Update Embeddings",
+      execute: update_embeddings,
+    });
+    const draft: EditorSettings = {
+      ...DEFAULT_EDITOR_SETTINGS,
+      embedding_model_id: "bge-small-en-v1.5",
+    };
+
+    await registry.execute(ACTION_IDS.settings_update, draft);
+    await registry.execute(ACTION_IDS.settings_save);
+
+    expect(update_embeddings).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not trigger an embedding update when the model is unchanged", async () => {
+    const { registry } = create_harness();
+    const update_embeddings = vi.fn();
+    registry.register({
+      id: ACTION_IDS.vault_update_embeddings,
+      label: "Update Embeddings",
+      execute: update_embeddings,
+    });
+    const draft: EditorSettings = {
+      ...DEFAULT_EDITOR_SETTINGS,
+      autosave_delay_ms: 3500,
+    };
+
+    await registry.execute(ACTION_IDS.settings_update, draft);
+    await registry.execute(ACTION_IDS.settings_save);
+
+    expect(update_embeddings).not.toHaveBeenCalled();
+  });
 });

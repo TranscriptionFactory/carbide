@@ -109,6 +109,33 @@ describe("suggest_query positional candidates", () => {
     ]);
   });
 
+  it("offers builtin date properties after with", () => {
+    expect(labels("notes with ")).toEqual(
+      expect.arrayContaining(["created", "modified", "accessed"]),
+    );
+  });
+
+  it("suggests property operators after a builtin date property", () => {
+    expect(labels("notes with created ")).toEqual([
+      "=",
+      "!=",
+      ">",
+      "<",
+      ">=",
+      "<=",
+      "contains",
+    ]);
+  });
+
+  it("suggests relative date values after a property operator", () => {
+    expect(labels("notes with created > ")).toEqual([
+      '"now()-1d"',
+      '"now()-7d"',
+      '"now()-30d"',
+      '"now()"',
+    ]);
+  });
+
   it("suggests connectives after a complete clause", () => {
     expect(labels('notes named "foo" ')).toEqual(["and", "or"]);
   });

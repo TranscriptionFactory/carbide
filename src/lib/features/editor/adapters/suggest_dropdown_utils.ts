@@ -1,9 +1,27 @@
 import type { EditorView } from "prosemirror-view";
 import { computePosition, flip, shift, offset } from "@floating-ui/dom";
 
-export function create_cursor_anchor(view: EditorView): Element {
+type CursorCoords = { left: number; top: number; bottom: number };
+
+// null when the selection's DOM is not laid out yet (e.g. a smart-block
+// node view swapping from preview to edit mode renders asynchronously) —
+// coordsAtPos then throws or reports the viewport origin
+export function get_cursor_coords(view: EditorView): CursorCoords | null {
   const { $from } = view.state.selection;
-  const coords = view.coordsAtPos($from.pos);
+  let coords: CursorCoords;
+  try {
+    coords = view.coordsAtPos($from.pos);
+  } catch {
+    return null;
+  }
+  if (coords.left === 0 && coords.top === 0 && coords.bottom === 0) {
+    return null;
+  }
+  return coords;
+}
+
+export function create_cursor_anchor(view: EditorView): Element {
+  const coords = get_cursor_coords(view) ?? { left: 0, top: 0, bottom: 0 };
   return {
     getBoundingClientRect: () =>
       new DOMRect(coords.left, coords.top, 0, coords.bottom - coords.top),
@@ -13,8 +31,8 @@ export function create_cursor_anchor(view: EditorView): Element {
 export function position_suggest_dropdown(
   floating: HTMLElement,
   anchor: Element,
-): void {
-  void computePosition(anchor, floating, {
+): Promise<void> {
+  return computePosition(anchor, floating, {
     placement: "bottom-start",
     middleware: [offset(6), flip(), shift({ padding: 8 })],
   }).then(({ x, y }) => {
@@ -73,6 +91,10 @@ export function attach_outside_dismiss(
 export function mount_dropdown(el: HTMLElement): void {
   el.style.display = "none";
   el.style.position = "fixed";
+  // offscreen until the first computePosition resolves — an unpositioned
+  // fixed element would paint at its static flow position for one frame
+  el.style.left = "-9999px";
+  el.style.top = "-9999px";
   el.style.zIndex = "9999";
   document.body.appendChild(el);
 }

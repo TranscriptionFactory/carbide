@@ -6,15 +6,23 @@
   import { OutlinePanel } from "$lib/features/outline";
   import { MetadataPanel } from "$lib/features/metadata";
   import { use_app_context } from "$lib/app/context/app_context.svelte";
+  import { is_editable_target } from "$lib/shared/utils/editable_target";
 
   const { stores } = use_app_context();
 
-  const tabs = [
+  const all_tabs = [
     { id: "links" as const, label: "Links", icon: Link },
     { id: "outline" as const, label: "Outline", icon: List },
     { id: "metadata" as const, label: "Meta", icon: Tags },
     { id: "related" as const, label: "Related", icon: Compass },
   ];
+
+  const outline_docked = $derived(
+    stores.ui.editor_settings.outline_mode === "docked",
+  );
+  const tabs = $derived(
+    outline_docked ? all_tabs.filter((t) => t.id !== "outline") : all_tabs,
+  );
 
   function on_icon_click(id: (typeof tabs)[number]["id"]) {
     if (stores.ui.context_rail_open && stores.ui.context_rail_tab === id) {
@@ -24,24 +32,24 @@
     }
   }
 
-  function on_overlay_pointerdown(e: PointerEvent) {
-    if (!(e.target as HTMLElement).closest(".ContextRail__panel")) {
-      stores.ui.context_rail_open = false;
+  function on_window_pointerdown(e: PointerEvent) {
+    if (!stores.ui.context_rail_open) return;
+    const target = e.target as HTMLElement;
+    if (target.closest(".ContextRail") || is_editable_target(target)) {
+      return;
     }
+    stores.ui.context_rail_open = false;
   }
 </script>
 
+<svelte:window onpointerdown={on_window_pointerdown} />
+
 <div class="ContextRail">
   {#if stores.ui.context_rail_open}
-    <!-- svelte-ignore a11y_no_static_element_interactions -->
-    <div
-      class="ContextRail__backdrop"
-      onpointerdown={on_overlay_pointerdown}
-    ></div>
     <div class="ContextRail__panel">
       {#if stores.ui.context_rail_tab === "links"}
         <LinksPanel />
-      {:else if stores.ui.context_rail_tab === "outline"}
+      {:else if stores.ui.context_rail_tab === "outline" && !outline_docked}
         <!-- svelte-ignore a11y_no_static_element_interactions -->
         <div data-vim-nav-region="outline" tabindex="-1" class="h-full">
           <OutlinePanel />
@@ -125,12 +133,6 @@
   .ContextRail__icon-btn--active {
     color: var(--interactive);
     background-color: var(--accent);
-  }
-
-  .ContextRail__backdrop {
-    position: fixed;
-    inset: 0;
-    z-index: 1;
   }
 
   .ContextRail__panel {

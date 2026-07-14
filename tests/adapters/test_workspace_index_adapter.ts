@@ -17,6 +17,7 @@ export function create_test_workspace_index_adapter(): WorkspaceIndexPort {
     subscribe_index_progress: () => () => {},
     subscribe_vault_scan_stats: () => () => {},
     subscribe_embedding_progress: () => () => {},
+    rebuild_embeddings: () => Promise.resolve(),
     embed_sync: () => Promise.resolve(),
   };
 }

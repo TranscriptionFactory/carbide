@@ -32,6 +32,13 @@ function render_editor_status_bar(props?: {
       has_note: false,
       last_saved_at: null,
       index_progress: { status: "idle", indexed: 0, total: 0, error: null },
+      is_reindex_pending: false,
+      embedding_progress: {
+        status: "idle",
+        embedded: 0,
+        total: 0,
+        error: null,
+      },
       vault_name: null,
       git_enabled: false,
       git_branch: "",

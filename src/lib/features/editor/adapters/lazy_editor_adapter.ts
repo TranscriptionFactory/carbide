@@ -44,7 +44,7 @@ export function create_lazy_editor_port(args?: {
   ) => Promise<BaseQueryOutcome>;
   subscribe_to_changes?: (handler: (event: VaultFsEvent) => void) => () => void;
   note_embed?: {
-    read_note: (vault_id: string, note_path: string) => Promise<string>;
+    read_note: (vault_id: string, note_path: string) => Promise<string | null>;
     subscribe_to_changes: (
       handler: (event: VaultFsEvent) => void,
     ) => () => void;

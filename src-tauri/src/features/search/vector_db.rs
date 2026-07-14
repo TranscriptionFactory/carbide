@@ -95,7 +95,9 @@ pub fn rename_embeddings_by_prefix(
         .replace('%', r"\%")
         .replace('_', r"\_");
     let pattern = format!("{escaped}%");
-    let old_len = old_prefix.len() as i64;
+    // SQLite substr() is character-based for TEXT; a byte count would strip
+    // extra characters when the prefix contains multi-byte UTF-8.
+    let old_len = old_prefix.chars().count() as i64;
     conn.execute(
         "UPDATE note_embeddings SET path = ?1 || substr(path, ?2 + 1) WHERE path LIKE ?3 ESCAPE '\\'",
         params![new_prefix, old_len, pattern],
@@ -274,33 +276,6 @@ pub fn invalidate_changed_block_embeddings(
     Ok(true)
 }
 
-pub fn remove_block_embeddings_except(
-    conn: &Connection,
-    path: &str,
-    keep_heading_ids: &[&str],
-) -> Result<(), String> {
-    if keep_heading_ids.is_empty() {
-        return remove_block_embeddings(conn, path);
-    }
-    let placeholders: Vec<String> = (0..keep_heading_ids.len())
-        .map(|i| format!("?{}", i + 2))
-        .collect();
-    let sql = format!(
-        "DELETE FROM block_embeddings WHERE path = ?1 AND heading_id NOT IN ({})",
-        placeholders.join(", ")
-    );
-    let mut stmt = conn.prepare(&sql).map_err(|e| e.to_string())?;
-    let mut params_vec: Vec<Box<dyn rusqlite::types::ToSql>> = vec![Box::new(path.to_string())];
-    for id in keep_heading_ids {
-        params_vec.push(Box::new(id.to_string()));
-    }
-    let params_refs: Vec<&dyn rusqlite::types::ToSql> =
-        params_vec.iter().map(|p| p.as_ref()).collect();
-    stmt.execute(params_refs.as_slice())
-        .map_err(|e| e.to_string())?;
-    Ok(())
-}
-
 pub fn remove_block_embeddings_by_prefix(conn: &Connection, prefix: &str) -> Result<(), String> {
     let escaped = prefix
         .replace('\\', r"\\")
@@ -338,7 +313,9 @@ pub fn rename_block_embeddings_by_prefix(
         .replace('%', r"\%")
         .replace('_', r"\_");
     let pattern = format!("{escaped}%");
-    let old_len = old_prefix.len() as i64;
+    // SQLite substr() is character-based for TEXT; a byte count would strip
+    // extra characters when the prefix contains multi-byte UTF-8.
+    let old_len = old_prefix.chars().count() as i64;
     conn.execute(
         "UPDATE block_embeddings SET path = ?1 || substr(path, ?2 + 1) WHERE path LIKE ?3 ESCAPE '\\'",
         params![new_prefix, old_len, pattern],

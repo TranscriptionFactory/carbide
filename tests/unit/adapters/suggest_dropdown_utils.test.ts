@@ -12,6 +12,7 @@ import {
 } from "vitest";
 import {
   create_cursor_anchor,
+  get_cursor_coords,
   position_suggest_dropdown,
   scroll_selected_into_view,
   attach_outside_dismiss,
@@ -48,6 +49,26 @@ describe("create_cursor_anchor", () => {
     expect(rect.top).toBe(20);
     expect(rect.width).toBe(0);
     expect(rect.height).toBe(20);
+  });
+});
+
+describe("get_cursor_coords", () => {
+  it("returns coords for a laid-out cursor", () => {
+    const view = make_mock_view();
+    expect(get_cursor_coords(view)).toEqual({ left: 10, top: 20, bottom: 40 });
+  });
+
+  it("returns null when coordsAtPos reports the viewport origin (DOM not laid out)", () => {
+    const view = make_mock_view({ left: 0, top: 0, bottom: 0 });
+    expect(get_cursor_coords(view)).toBeNull();
+  });
+
+  it("returns null when coordsAtPos throws", () => {
+    const view = make_mock_view();
+    (view.coordsAtPos as Mock).mockImplementation(() => {
+      throw new Error("no DOM at pos");
+    });
+    expect(get_cursor_coords(view)).toBeNull();
   });
 });
 
@@ -183,6 +204,14 @@ describe("mount_dropdown", () => {
     expect(el.style.position).toBe("fixed");
     expect(el.style.zIndex).toBe("9999");
     expect(document.body.contains(el)).toBe(true);
+    el.remove();
+  });
+
+  it("parks the dropdown offscreen so the first paint never lands at the viewport origin", () => {
+    const el = document.createElement("div");
+    mount_dropdown(el);
+    expect(el.style.left).toBe("-9999px");
+    expect(el.style.top).toBe("-9999px");
     el.remove();
   });
 });

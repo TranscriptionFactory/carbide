@@ -215,6 +215,11 @@ impl McpRouter {
 
     fn inject_vault_id(&self, app: &AppHandle, arguments: Option<&Value>) -> Option<Value> {
         let Some(args) = arguments else {
+            if let Ok(Some(vault_id)) = shared_ops::get_active_vault_id(app) {
+                let mut obj = serde_json::Map::new();
+                obj.insert("vault_id".into(), Value::String(vault_id));
+                return Some(Value::Object(obj));
+            }
             return None;
         };
         let Some(obj) = args.as_object() else {

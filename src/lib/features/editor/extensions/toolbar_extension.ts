@@ -10,11 +10,14 @@ import {
 import {
   type FormattingCommand,
   toggle_format,
+  pick_image_payload,
 } from "../adapters/formatting_toolbar_commands";
+import type { PastedImagePayload } from "$lib/shared/types/editor";
 import type { EditorExtension } from "./types";
 
 export function create_toolbar_extension(
   config: ToolbarConfig = { toolbar_visibility: "always_show" },
+  on_image_payload?: (payload: PastedImagePayload) => void,
 ): EditorExtension {
   let toolbar_container: HTMLElement | null = null;
   let toolbar_view: EditorView | null = null;
@@ -53,6 +56,14 @@ export function create_toolbar_extension(
           toggle_format(command, view);
           view.focus();
         },
+        ...(on_image_payload
+          ? {
+              on_image_pick: async () => {
+                const payload = await pick_image_payload();
+                if (payload) on_image_payload(payload);
+              },
+            }
+          : {}),
       },
     });
   }

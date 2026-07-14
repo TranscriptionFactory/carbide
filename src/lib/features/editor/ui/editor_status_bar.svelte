@@ -51,6 +51,15 @@
     has_note: boolean;
     last_saved_at: number | null;
     index_progress: IndexProgress;
+    is_reindex_pending: boolean;
+    // structural copy of search's EmbeddingProgress; layering rules forbid a
+    // deep import and the barrel does not export it yet
+    embedding_progress: {
+      status: "idle" | "embedding" | "completed" | "failed";
+      embedded: number;
+      total: number;
+      error: string | null;
+    };
     vault_name: string | null;
     git_enabled: boolean;
     git_branch: string;
@@ -111,6 +120,8 @@
     has_note,
     last_saved_at,
     index_progress,
+    is_reindex_pending,
+    embedding_progress,
     vault_name,
     git_enabled,
     git_branch,
@@ -324,6 +335,12 @@
         {/if}
       </span>
       <span class="StatusBar__separator" aria-hidden="true"></span>
+    {:else if is_reindex_pending}
+      <span class="StatusBar__item StatusBar__item--indexing">
+        <RefreshCw class="StatusBar__spinner" />
+        <span>Indexing...</span>
+      </span>
+      <span class="StatusBar__separator" aria-hidden="true"></span>
     {:else if index_progress.status === "failed"}
       <button
         type="button"
@@ -337,6 +354,19 @@
     {:else if show_completed}
       <span class="StatusBar__item StatusBar__item--completed">
         <span>Indexed</span>
+      </span>
+      <span class="StatusBar__separator" aria-hidden="true"></span>
+    {/if}
+    {#if embedding_progress.status === "embedding"}
+      <span class="StatusBar__item StatusBar__item--indexing">
+        <RefreshCw class="StatusBar__spinner" />
+        {#if embedding_progress.total > 0}
+          <span>
+            Embedding {embedding_progress.embedded}/{embedding_progress.total}
+          </span>
+        {:else}
+          <span>Embedding...</span>
+        {/if}
       </span>
       <span class="StatusBar__separator" aria-hidden="true"></span>
     {/if}
