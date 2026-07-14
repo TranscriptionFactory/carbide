@@ -239,6 +239,41 @@ describe("register_ui_actions", () => {
     expect(stores.ui.context_rail_open).toBe(false);
   });
 
+  it("toggles the docked outline pane when outline_mode is docked", async () => {
+    const registry = new ActionRegistry();
+    const stores = create_ui_stores();
+    stores.ui.set_editor_settings({
+      ...stores.ui.editor_settings,
+      outline_mode: "docked",
+    });
+
+    register_ui_actions({
+      registry,
+      stores,
+      services: {
+        reference: {},
+        vault: {
+          refresh_dashboard_stats: async () =>
+            await Promise.resolve({ status: "skipped" as const }),
+        },
+        shell: { open_url: async () => {}, open_path: async () => {} },
+      } as never,
+      default_mount_config: {
+        reset_app_state: true,
+        bootstrap_default_vault_path: null,
+      },
+    });
+
+    expect(stores.ui.outline_docked_open).toBe(true);
+
+    await registry.execute(ACTION_IDS.ui_toggle_outline_panel);
+    expect(stores.ui.outline_docked_open).toBe(false);
+    expect(stores.ui.context_rail_open).toBe(false);
+
+    await registry.execute(ACTION_IDS.ui_toggle_outline_panel);
+    expect(stores.ui.outline_docked_open).toBe(true);
+  });
+
   it("toggles bottom panel tabs from the status bar", async () => {
     const registry = new ActionRegistry();
     const stores = create_ui_stores();
