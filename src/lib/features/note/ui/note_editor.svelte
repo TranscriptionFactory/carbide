@@ -8,7 +8,7 @@
   import { Button } from "$lib/components/ui/button";
   import { DocumentViewer } from "$lib/features/document";
   import { CanvasViewer } from "$lib/features/canvas";
-  import { SourceEditor } from "$lib/features/editor";
+  import { SourceEditor, resolve_width_mode } from "$lib/features/editor";
   import { GraphTabView, SearchGraphTabView } from "$lib/features/graph";
   import { BasesPanel } from "$lib/features/bases";
   import { EditorContextMenu } from "$lib/features/editor";
@@ -39,6 +39,16 @@
   });
 
   const zoom = $derived(stores.editor.zoom);
+
+  const width_mode = $derived(
+    resolve_width_mode(
+      open_note
+        ? stores.editor.width_mode_overrides[open_note.meta.path]
+        : undefined,
+      open_note?.markdown,
+      stores.ui.editor_settings.editor_width_mode,
+    ),
+  );
 
   const drag_handle_mode = $derived(
     stores.ui.editor_settings.editor_block_drag_handle,
@@ -71,7 +81,11 @@
   }
 </script>
 
-<div class="NoteEditor" style:zoom={zoom !== 1 ? zoom : undefined}>
+<div
+  class="NoteEditor"
+  data-width-mode={width_mode}
+  style:zoom={zoom !== 1 ? zoom : undefined}
+>
   {#if active_tab?.kind === "search_graph"}
     <SearchGraphTabView
       tab_id={active_tab.id}

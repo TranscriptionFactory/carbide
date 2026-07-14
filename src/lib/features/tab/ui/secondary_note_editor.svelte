@@ -2,6 +2,7 @@
   import { use_app_context } from "$lib/app/context/app_context.svelte";
   import { ACTION_IDS } from "$lib/app";
   import type { OpenNoteState } from "$lib/shared/types/editor";
+  import { resolve_width_mode } from "$lib/features/editor";
 
   const { stores, action_registry, secondary_editor_manager } =
     use_app_context();
@@ -9,6 +10,16 @@
   const secondary_tab = $derived(stores.tab.secondary_tab);
   const secondary_note = $derived(
     secondary_tab ? stores.tab.get_cached_note(secondary_tab.id) : null,
+  );
+
+  const width_mode = $derived(
+    resolve_width_mode(
+      secondary_note
+        ? stores.editor.width_mode_overrides[secondary_note.meta.path]
+        : undefined,
+      secondary_note?.markdown,
+      stores.ui.editor_settings.editor_width_mode,
+    ),
   );
 
   function mount_editor(node: HTMLDivElement, note: OpenNoteState) {
@@ -31,7 +42,11 @@
 
 <!-- svelte-ignore a11y_click_events_have_key_events -->
 <!-- svelte-ignore a11y_no_static_element_interactions -->
-<div class="SecondaryNoteEditor" onclick={handle_focus}>
+<div
+  class="SecondaryNoteEditor"
+  data-width-mode={width_mode}
+  onclick={handle_focus}
+>
   {#if secondary_note}
     <div
       use:mount_editor={secondary_note}

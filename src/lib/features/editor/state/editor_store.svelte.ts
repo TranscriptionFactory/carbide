@@ -6,6 +6,7 @@ import type {
 import type { NoteId, NotePath } from "$lib/shared/types/ids";
 import { note_name_from_path } from "$lib/shared/utils/path";
 import type { EditorMode } from "$lib/shared/types/editor";
+import type { EditorWidthMode } from "$lib/shared/types/editor_settings";
 import type { BlockAnchor } from "$lib/features/editor/adapters/cursor_offset_mapper";
 
 export type PendingCursorRestore = {
@@ -33,6 +34,20 @@ export class EditorStore {
   zoom = $state(1.0);
   pending_heading_fragment = $state<string | null>(null);
   pending_cursor_restore = $state<PendingCursorRestore | null>(null);
+  width_mode_overrides = $state<Record<string, EditorWidthMode>>({});
+
+  set_width_mode_override(note_path: string, mode: EditorWidthMode) {
+    this.width_mode_overrides = {
+      ...this.width_mode_overrides,
+      [note_path]: mode,
+    };
+  }
+
+  clear_width_mode_override(note_path: string) {
+    if (!(note_path in this.width_mode_overrides)) return;
+    const { [note_path]: _removed, ...rest } = this.width_mode_overrides;
+    this.width_mode_overrides = rest;
+  }
 
   set_pending_heading_fragment(fragment: string | null) {
     this.pending_heading_fragment = fragment;
