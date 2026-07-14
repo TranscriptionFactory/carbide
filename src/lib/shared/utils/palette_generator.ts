@@ -160,8 +160,8 @@ const UI_TOKEN_SPECS: Record<string, TokenSpec> = {
   "--border": { light_l: 0.92, dark_l: 0.31, source: "surface" },
   "--input": { light_l: 0.92, dark_l: 0.33, source: "surface" },
   "--sidebar": {
-    light_l: 0.985,
-    dark_l: 0.19,
+    light_l: 0.965,
+    dark_l: 0.16,
     source: "surface",
     glass_alpha: 0.55,
   },

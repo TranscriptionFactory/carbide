@@ -2,7 +2,7 @@
    DASHBOARD LAYOUT OVERRIDES (LEFT-HEAVY)
    ============================================ */
 
-.WorkspaceLayout--dashboard {
+[data-layout-variant="dashboard"] .WorkspaceLayout--dashboard {
   --dashboard-sidebar-width: 22rem;
   --dashboard-rail-width: 4rem;
 
@@ -85,6 +85,7 @@
   .StatusBar {
     border-top: 1px solid var(--border);
     background-color: var(--card);
+    color: var(--foreground);
   }
 
   [data-resizable-handle] {
