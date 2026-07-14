@@ -133,6 +133,18 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* Wide width mode — set via data-width-mode on the editor container
+   (resolution: transient override → note frontmatter `_width` → app default) */
+[data-width-mode="wide"] {
+  --editor-max-width: none;
+  --source-editor-max-width: none;
+}
+
+[data-width-mode="wide"] .milkdown .ProseMirror {
+  max-width: none;
+  padding-inline: clamp(24px, 4vw, 72px);
+}
+
 /* ============================================
    TYPOGRAPHY — HEADINGS
    ============================================

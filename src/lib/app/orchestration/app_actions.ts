@@ -1,7 +1,14 @@
 import { ACTION_IDS } from "$lib/app/action_registry/action_ids";
 import type { ActionRegistrationInput } from "$lib/app/action_registry/action_registration_input";
 import type { OpenNoteState } from "$lib/shared/types/editor";
-import { DEFAULT_EDITOR_SETTINGS } from "$lib/shared/types/editor_settings";
+import {
+  DEFAULT_EDITOR_SETTINGS,
+  type EditorWidthMode,
+} from "$lib/shared/types/editor_settings";
+import {
+  can_write_width_frontmatter,
+  WIDTH_FRONTMATTER_KEY,
+} from "$lib/features/editor";
 import { as_note_path, as_vault_path } from "$lib/shared/types/ids";
 import { WELCOME_STATE_VERSION } from "$lib/features/settings";
 import { DEFAULT_HOTKEYS } from "$lib/features/hotkey";
@@ -92,14 +99,23 @@ async function load_non_vault_bootstrap_data(
   input: ActionRegistrationInput,
 ): Promise<Omit<AppBootstrapData, "vault_initialize_result">> {
   const { services } = input;
-  const [recent_command_ids, outline_pane_size, hotkey_overrides, theme_result] =
-    await Promise.all([
-      services.settings.load_recent_command_ids(),
-      services.settings.load_outline_pane_size(),
-      services.hotkey.load_hotkey_overrides(),
-      services.theme.load_themes(),
-    ]);
-  return { recent_command_ids, outline_pane_size, hotkey_overrides, theme_result };
+  const [
+    recent_command_ids,
+    outline_pane_size,
+    hotkey_overrides,
+    theme_result,
+  ] = await Promise.all([
+    services.settings.load_recent_command_ids(),
+    services.settings.load_outline_pane_size(),
+    services.hotkey.load_hotkey_overrides(),
+    services.theme.load_themes(),
+  ]);
+  return {
+    recent_command_ids,
+    outline_pane_size,
+    hotkey_overrides,
+    theme_result,
+  };
 }
 
 function apply_loaded_preferences(
@@ -499,6 +515,37 @@ export function register_app_actions(input: ActionRegistrationInput) {
       };
       input.stores.ui.set_editor_settings(updated);
       await services.settings.save_settings(updated);
+    },
+  });
+
+  const set_note_width = (mode: EditorWidthMode) => {
+    const open_note = input.stores.editor.open_note;
+    if (!open_note) return;
+    if (can_write_width_frontmatter(open_note.markdown)) {
+      input.stores.editor.clear_width_mode_override(open_note.meta.path);
+      void registry.execute(
+        ACTION_IDS.metadata_update_property,
+        WIDTH_FRONTMATTER_KEY,
+        mode,
+      );
+    } else {
+      input.stores.editor.set_width_mode_override(open_note.meta.path, mode);
+    }
+  };
+
+  registry.register({
+    id: ACTION_IDS.editor_set_width_normal,
+    label: "Set Note Width: Normal",
+    execute: () => {
+      set_note_width("normal");
+    },
+  });
+
+  registry.register({
+    id: ACTION_IDS.editor_set_width_wide,
+    label: "Set Note Width: Wide",
+    execute: () => {
+      set_note_width("wide");
     },
   });
 

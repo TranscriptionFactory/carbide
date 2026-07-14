@@ -7,6 +7,8 @@ export const ACTION_IDS = {
   editor_toggle_split_view: "editor.toggle_split_view",
   editor_toggle_read_only: "editor.toggle_read_only",
   editor_toggle_line_numbers: "editor.toggle_line_numbers",
+  editor_set_width_normal: "editor.set_width_normal",
+  editor_set_width_wide: "editor.set_width_wide",
   editor_zoom_in: "editor.zoom_in",
   editor_zoom_out: "editor.zoom_out",
   editor_zoom_reset: "editor.zoom_reset",

@@ -29,6 +29,11 @@ export type {
 } from "$lib/shared/types/editor";
 export { extract_headings_from_markdown } from "$lib/features/editor/domain/extract_headings";
 export {
+  resolve_width_mode,
+  can_write_width_frontmatter,
+  WIDTH_FRONTMATTER_KEY,
+} from "$lib/features/editor/domain/note_width_mode";
+export {
   resolve_wiki_link_target,
   resolve_wiki_link_note_path,
   resolve_wiki_file_target,
