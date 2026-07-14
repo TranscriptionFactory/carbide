@@ -311,7 +311,7 @@ export const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
   graph_force_charge_strength: -200,
   graph_force_collision_radius: 20,
   graph_force_charge_max_distance: 500,
-  outline_mode: "rail",
+  outline_mode: "docked",
   editor_toolbar_visibility: "always_show",
   show_inline_frontmatter: true,
   file_tree_style: "airy_minimal",

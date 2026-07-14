@@ -79,6 +79,7 @@
   const outline_docked = $derived(
     stores.ui.editor_settings.outline_mode === "docked" &&
       stores.ui.outline_docked_open &&
+      stores.outline.headings.length > 0 &&
       !stores.ui.zen_mode,
   );
   const layout_variant = $derived(stores.ui.active_theme.layout_variant);
@@ -1332,7 +1333,7 @@
             </Sidebar.Inset>
           </Resizable.Pane>
           {#if outline_docked}
-            <Resizable.Handle />
+            <Resizable.Handle data-outline-handle="" />
             <Resizable.Pane
               defaultSize={stores.ui.outline_pane_size}
               minSize={10}
