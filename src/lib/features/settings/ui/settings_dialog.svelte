@@ -1530,7 +1530,8 @@
 
             <div class="SettingsDialog__row">
               <div class="SettingsDialog__label-group">
-                <span class="SettingsDialog__label">Chat Retrieval Sources</span>
+                <span class="SettingsDialog__label">Chat Retrieval Sources</span
+                >
                 <span class="SettingsDialog__description"
                   >How many notes vault chat retrieves as candidate context per
                   question</span
