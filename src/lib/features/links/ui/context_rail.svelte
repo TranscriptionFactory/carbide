@@ -6,6 +6,7 @@
   import { OutlinePanel } from "$lib/features/outline";
   import { MetadataPanel } from "$lib/features/metadata";
   import { use_app_context } from "$lib/app/context/app_context.svelte";
+  import { is_editable_target } from "$lib/shared/utils/editable_target";
 
   const { stores } = use_app_context();
 
@@ -27,11 +28,7 @@
   function on_window_pointerdown(e: PointerEvent) {
     if (!stores.ui.context_rail_open) return;
     const target = e.target as HTMLElement;
-    if (
-      target.closest(".ContextRail") ||
-      target.closest(".ProseMirror, .cm-editor, input, textarea") ||
-      target.isContentEditable
-    ) {
+    if (target.closest(".ContextRail") || is_editable_target(target)) {
       return;
     }
     stores.ui.context_rail_open = false;

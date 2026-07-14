@@ -27,7 +27,6 @@
     link_selection_state,
     apply_link,
     remove_link,
-    insert_image,
   } from "../adapters/formatting_toolbar_commands";
   import { shortcut_hint } from "./formatting_shortcuts";
 
@@ -35,9 +34,11 @@
     get_view: () => EditorView | null;
     get_state_version: () => number;
     on_command: (command: FormattingCommand) => void;
+    on_image_pick?: () => Promise<void>;
   }
 
-  let { get_view, get_state_version, on_command }: Props = $props();
+  let { get_view, get_state_version, on_command, on_image_pick }: Props =
+    $props();
 
   let link_popover_open = $state(false);
   let link_input_value = $state("");
@@ -181,7 +182,7 @@
       return;
     }
     if (command === "image") {
-      void insert_image(view);
+      void on_image_pick?.();
       return;
     }
     view.focus();
@@ -199,7 +200,8 @@
       {@const current_view = get_view()}
       {@const is_active = is_button_active(button)}
       {@const available = current_view
-        ? is_command_available(button.id, current_view)
+        ? is_command_available(button.id, current_view) &&
+          (button.id !== "image" || !!on_image_pick)
         : false}
       {@const hint = shortcut_hint(button.id)}
       {@const label = hint ? `${button.label} (${hint})` : button.label}
