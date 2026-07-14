@@ -22,14 +22,8 @@
       toggle_title={collapsed ? "Expand outline" : "Collapse outline"}
       on_toggle={() =>
         void action_registry.execute(ACTION_IDS.ui_toggle_outline_panel)}
-      close_title="Switch to sidebar"
-      on_close={() => {
-        const updated = {
-          ...stores.ui.editor_settings,
-          outline_mode: "rail" as const,
-        };
-        stores.ui.set_editor_settings(updated);
-      }}
+      close_title="Hide outline"
+      on_close={() => (stores.ui.floating_outline_collapsed = true)}
     >
       <OutlinePanel />
     </OutlineShell>
