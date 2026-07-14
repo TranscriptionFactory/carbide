@@ -35,6 +35,11 @@ import type {
 import { create_logger } from "$lib/shared/utils/logger";
 import { parent_folder_path } from "$lib/shared/utils/path";
 import { get_invalid_drop_reason } from "$lib/features/folder/domain/filetree";
+import {
+  classify_external_files,
+  uniquify_note_path,
+} from "$lib/features/folder/domain/external_import";
+import { as_markdown_text, as_note_path } from "$lib/shared/types/ids";
 import type {
   EditorSettings,
   FileTreeMode,
@@ -110,6 +115,33 @@ function parse_move_items_payload(payload: unknown): MoveItemsPayload | null {
     target_folder:
       typeof record.target_folder === "string" ? record.target_folder : "",
     overwrite: Boolean(record.overwrite),
+  };
+}
+
+type ImportExternalFilesPayload = {
+  files: File[];
+  target_folder: string;
+};
+
+function parse_import_external_files_payload(
+  payload: unknown,
+): ImportExternalFilesPayload | null {
+  if (!payload || typeof payload !== "object") {
+    return null;
+  }
+  const record = payload as Record<string, unknown>;
+  const files = Array.isArray(record.files)
+    ? record.files.filter(
+        (entry): entry is File => entry instanceof File && entry.name !== "",
+      )
+    : [];
+  if (files.length === 0) {
+    return null;
+  }
+  return {
+    files,
+    target_folder:
+      typeof record.target_folder === "string" ? record.target_folder : "",
   };
 }
 
@@ -477,6 +509,101 @@ export function register_folder_actions(input: ActionRegistrationInput) {
       label: "Cancel File Tree Move Conflicts",
       execute: () => {
         close_move_conflict_dialog();
+      },
+    });
+  }
+
+  async function execute_import_external_files(
+    files: File[],
+    target_folder: string,
+  ) {
+    const { markdown_files, asset_files } = classify_external_files(files);
+    let imported_markdown = false;
+    let imported_asset = false;
+
+    for (const file of markdown_files) {
+      try {
+        const note_path = uniquify_note_path(
+          target_folder,
+          file.name,
+          stores.notes.notes.map((note) => note.path),
+        );
+        const result = await services.note.import_markdown_file(
+          as_note_path(note_path),
+          as_markdown_text(await file.text()),
+        );
+        if (result.status === "created") {
+          imported_markdown = true;
+        } else if (result.status === "failed") {
+          log.warn("Markdown import failed", {
+            name: file.name,
+            error: result.error,
+          });
+        }
+      } catch (error) {
+        log.warn("Markdown import failed", { name: file.name, error });
+      }
+    }
+
+    if (asset_files.length > 0) {
+      const attachment_folder =
+        stores.ui.editor_settings.attachment_folder || ".assets";
+      const anchor_note_path = as_note_path(
+        target_folder ? `${target_folder}/import.md` : "import.md",
+      );
+      for (const file of asset_files) {
+        // Dropped OS directories surface as empty File entries with no mime.
+        if (file.size === 0 && file.type === "") {
+          log.warn("Skipping unreadable dropped entry", { name: file.name });
+          continue;
+        }
+        try {
+          const buffer = await file.arrayBuffer();
+          const result = await services.note.save_pasted_image(
+            anchor_note_path,
+            {
+              bytes: new Uint8Array(buffer),
+              mime_type: file.type || "application/octet-stream",
+              file_name: file.name,
+            },
+            { custom_filename: file.name, attachment_folder },
+          );
+          if (result.status === "saved") {
+            imported_asset = true;
+          } else if (result.status === "failed") {
+            log.warn("Asset import failed", {
+              name: file.name,
+              error: result.error,
+            });
+          }
+        } catch (error) {
+          log.warn("Asset import failed", { name: file.name, error });
+        }
+      }
+    }
+
+    const paths_to_clear = new Set<string>();
+    if (imported_markdown) {
+      paths_to_clear.add(target_folder);
+    }
+    if (imported_asset) {
+      paths_to_clear.add("");
+    }
+    if (paths_to_clear.size > 0) {
+      batch_clear_folder_filetree_state(input, paths_to_clear);
+    }
+  }
+
+  function register_external_import_actions() {
+    registry.register({
+      id: ACTION_IDS.filetree_import_external_files,
+      label: "Import Dropped Files",
+      execute: async (payload: unknown) => {
+        const parsed = parse_import_external_files_payload(payload);
+        if (!parsed) {
+          return;
+        }
+        await execute_import_external_files(parsed.files, parsed.target_folder);
       },
     });
   }
@@ -908,6 +1035,7 @@ export function register_folder_actions(input: ActionRegistrationInput) {
   register_create_actions();
   register_selection_actions();
   register_move_actions();
+  register_external_import_actions();
   register_navigation_actions();
   register_delete_actions();
   register_rename_actions();
