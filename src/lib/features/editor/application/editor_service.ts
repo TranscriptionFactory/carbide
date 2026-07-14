@@ -206,6 +206,8 @@ export class EditorService {
   private host_root: HTMLDivElement | null = null;
   private active_note: OpenNoteState | null = null;
   private session_generation = 0;
+  private transition: Promise<void> = Promise.resolve();
+  private transition_depth = 0;
   private native_link_hover_enabled = true;
   private native_wiki_suggest_enabled = true;
   private native_link_click_enabled = true;
@@ -253,7 +255,9 @@ export class EditorService {
 
   unmount() {
     this.invalidate_session_generation();
-    this.teardown_session();
+    void this.enqueue_transition(() => {
+      this.teardown_session();
+    });
     this.host_root = null;
     this.active_note = null;
     this.editor_store.session_revision++;
@@ -1442,7 +1446,40 @@ export class EditorService {
     return events;
   }
 
-  private async recreate_session(): Promise<void> {
+  // Session transitions must never interleave: the lazy editor port awaits
+  // before creating the view, so overlapping recreates can attach a stale
+  // view (and toolbar) to the current root. Serialize all transitions;
+  // generation checks remain as a second line of defense.
+  private enqueue_transition(run: () => void | Promise<void>): Promise<void> {
+    this.transition_depth++;
+    let next: Promise<void>;
+    if (this.transition_depth === 1) {
+      try {
+        next = Promise.resolve(run());
+      } catch (error) {
+        next = Promise.reject(
+          error instanceof Error ? error : new Error(String(error)),
+        );
+      }
+    } else {
+      next = this.transition.then(run);
+    }
+    this.transition = next
+      .then(
+        () => undefined,
+        () => undefined,
+      )
+      .then(() => {
+        this.transition_depth--;
+      });
+    return next;
+  }
+
+  private recreate_session(): Promise<void> {
+    return this.enqueue_transition(() => this.perform_recreate_session());
+  }
+
+  private async perform_recreate_session(): Promise<void> {
     const host_root = this.host_root;
     const active_note = this.active_note;
     if (!host_root || !active_note) return;
@@ -1485,6 +1522,7 @@ export class EditorService {
       session.destroy();
     } catch (error) {
       log.error("Editor teardown failed", { error });
+      session.get_view?.()?.dom.remove();
     }
   }
 }
