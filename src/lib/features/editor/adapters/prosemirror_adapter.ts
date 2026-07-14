@@ -1269,11 +1269,11 @@ export function create_prosemirror_editor_port(args?: {
           run_view_action((v) => {
             const node = v.nodeDOM(pos);
             if (node instanceof HTMLElement) {
-              node.scrollIntoView({ behavior: "smooth", block: "start" });
+              node.scrollIntoView({ behavior: "smooth", block: "center" });
             } else if (node instanceof Node) {
               (node as ChildNode).parentElement?.scrollIntoView({
                 behavior: "smooth",
-                block: "start",
+                block: "center",
               });
             }
           });

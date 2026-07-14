@@ -15,6 +15,13 @@
   let scroll_raf: number | undefined;
   let cached_heading_tops: number[] = [];
   let heading_tops_raf: number | undefined;
+  let list_element = $state<HTMLElement>();
+
+  $effect(() => {
+    if (!active_heading_id) return;
+    const item = list_element?.querySelector(".OutlinePanel__item--active");
+    item?.scrollIntoView({ block: "nearest" });
+  });
 
   function find_editor_scroll_container(): HTMLElement | null {
     return document.querySelector(".NoteEditor");
@@ -170,7 +177,7 @@
       <p class="OutlinePanel__empty-text">No headings</p>
     </div>
   {:else}
-    <nav class="OutlinePanel__list">
+    <nav class="OutlinePanel__list" bind:this={list_element}>
       {#each visible_headings as heading (heading.id)}
         <button
           type="button"
