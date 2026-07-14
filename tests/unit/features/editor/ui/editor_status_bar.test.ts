@@ -19,6 +19,9 @@ function render_editor_status_bar(props?: {
   lint_is_running?: boolean;
   lint_error_count?: number;
   lint_warning_count?: number;
+  has_note?: boolean;
+  width_mode?: "normal" | "wide";
+  on_width_toggle?: () => void;
 }) {
   const target = document.createElement("div");
   document.body.appendChild(target);
@@ -29,7 +32,7 @@ function render_editor_status_bar(props?: {
       cursor_info: null,
       word_count: 0,
       line_count: 0,
-      has_note: false,
+      has_note: props?.has_note ?? false,
       last_saved_at: null,
       index_progress: { status: "idle", indexed: 0, total: 0, error: null },
       is_reindex_pending: false,
@@ -70,6 +73,8 @@ function render_editor_status_bar(props?: {
       on_mode_toggle: vi.fn(),
       split_view: false,
       on_split_toggle: vi.fn(),
+      width_mode: props?.width_mode ?? "normal",
+      on_width_toggle: props?.on_width_toggle ?? vi.fn(),
       show_line_numbers: true,
       on_line_numbers_toggle: vi.fn(),
       zoom_percent: 100,
@@ -99,6 +104,11 @@ function render_editor_status_bar(props?: {
 
 function get_button_by_title(title: string): HTMLButtonElement | null {
   const element = document.body.querySelector(`button[title="${title}"]`);
+  return element instanceof HTMLButtonElement ? element : null;
+}
+
+function get_button_by_aria_label(label: string): HTMLButtonElement | null {
+  const element = document.body.querySelector(`button[aria-label="${label}"]`);
   return element instanceof HTMLButtonElement ? element : null;
 }
 
@@ -134,6 +144,56 @@ describe("editor_status_bar.svelte", () => {
 
     expect(problems_button).toBeInstanceOf(HTMLButtonElement);
     expect(format_button).toBeInstanceOf(HTMLButtonElement);
+
+    view.cleanup();
+  });
+
+  it("reflects wide width mode on the width toggle", () => {
+    const view = render_editor_status_bar({
+      has_note: true,
+      width_mode: "wide",
+    });
+
+    const width_button = get_button_by_aria_label("Toggle note width");
+
+    expect(width_button).toBeInstanceOf(HTMLButtonElement);
+    expect(
+      width_button?.classList.contains("StatusBar__mode-toggle--active"),
+    ).toBe(true);
+    expect(document.body.textContent).toContain(
+      "Note width: wide — switch to normal",
+    );
+
+    view.cleanup();
+  });
+
+  it("reflects normal width mode on the width toggle", () => {
+    const view = render_editor_status_bar({
+      has_note: true,
+      width_mode: "normal",
+    });
+
+    const width_button = get_button_by_aria_label("Toggle note width");
+
+    expect(width_button).toBeInstanceOf(HTMLButtonElement);
+    expect(
+      width_button?.classList.contains("StatusBar__mode-toggle--active"),
+    ).toBe(false);
+    expect(document.body.textContent).toContain(
+      "Note width: normal — switch to wide",
+    );
+
+    view.cleanup();
+  });
+
+  it("invokes on_width_toggle when the width toggle is clicked", () => {
+    const on_width_toggle = vi.fn();
+    const view = render_editor_status_bar({ has_note: true, on_width_toggle });
+
+    const width_button = get_button_by_aria_label("Toggle note width");
+    width_button?.click();
+
+    expect(on_width_toggle).toHaveBeenCalledTimes(1);
 
     view.cleanup();
   });

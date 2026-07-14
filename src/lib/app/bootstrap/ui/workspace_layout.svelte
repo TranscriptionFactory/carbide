@@ -21,7 +21,7 @@
   import BottomPanel from "$lib/app/bootstrap/ui/bottom_panel.svelte";
   import { TabBar } from "$lib/features/tab";
   import { FindInFileBar } from "$lib/features/search";
-  import { EditorStatusBar } from "$lib/features/editor";
+  import { EditorStatusBar, resolve_width_mode } from "$lib/features/editor";
   import { ContextRail } from "$lib/features/links";
   import { is_editable_target } from "$lib/shared/utils/editable_target";
   import { DockedOutline, FloatingOutline } from "$lib/features/outline";
@@ -204,6 +204,15 @@
   });
 
   const word_count = $derived(stores.editor.cursor?.total_words ?? 0);
+  const note_width_mode = $derived(
+    resolve_width_mode(
+      stores.editor.open_note
+        ? stores.editor.width_mode_overrides[stores.editor.open_note.meta.path]
+        : undefined,
+      stores.editor.open_note?.markdown,
+      stores.ui.editor_settings.editor_width_mode,
+    ),
+  );
   const line_count = $derived(stores.editor.cursor?.total_lines ?? 0);
 
   const html_trust_level = $derived.by(() => {
@@ -1406,6 +1415,13 @@
         split_view={stores.editor.split_view}
         on_split_toggle={() =>
           void action_registry.execute(ACTION_IDS.editor_toggle_split_view)}
+        width_mode={note_width_mode}
+        on_width_toggle={() =>
+          void action_registry.execute(
+            note_width_mode === "wide"
+              ? ACTION_IDS.editor_set_width_normal
+              : ACTION_IDS.editor_set_width_wide,
+          )}
         status_bar_items={stores.plugin.status_bar_items}
         on_mode_toggle={() =>
           void action_registry.execute(ACTION_IDS.editor_toggle_mode)}
@@ -1445,8 +1461,15 @@
 {/if}
 
 <style>
+  /* Snapshot the pre-wide-override width at the zen root so the
+     [data-width-mode="wide"] --editor-max-width override on descendant
+     editors cannot widen zen mode */
+  .WorkspaceLayout--zen {
+    --zen-editor-max-width: var(--editor-max-width, 72ch);
+  }
+
   .WorkspaceLayout--zen :global(.cm-editor) {
-    max-width: var(--editor-max-width, 72ch);
+    max-width: var(--zen-editor-max-width);
     margin-inline: auto;
   }
 

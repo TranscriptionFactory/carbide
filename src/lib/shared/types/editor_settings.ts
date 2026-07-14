@@ -37,6 +37,7 @@ export type EditorSpacingDensity =
   | "relaxed"
   | "spacious";
 export type EditorLinkUnderlineStyle = "solid" | "dotted" | "wavy";
+export type EditorWidthMode = "normal" | "wide";
 export type EditorDividerStyle = "gradient" | "solid" | "dashed" | "dotted";
 export type EditorCodeBlockPadding = EditorSpacingDensity;
 export type EditorCodeBlockRadius = "tight" | "normal" | "soft";
@@ -126,6 +127,7 @@ export type EditorSettings = {
   show_vault_dashboard_on_open: boolean;
   max_open_tabs: number;
   editor_max_width_ch: number;
+  editor_width_mode: EditorWidthMode;
   editor_selection_color: string;
   editor_heading_spacing_density: EditorSpacingDensity;
   editor_paragraph_spacing_density: EditorSpacingDensity;
@@ -251,6 +253,7 @@ export const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
   show_vault_dashboard_on_open: false,
   max_open_tabs: 5,
   editor_max_width_ch: 90,
+  editor_width_mode: "normal",
   editor_selection_color: "",
   editor_heading_spacing_density: "normal",
   editor_paragraph_spacing_density: "normal",
@@ -427,6 +430,14 @@ export const EDITOR_TOOLBAR_VISIBILITY_OPTIONS: {
   { value: "always_hide", label: "Always Hide" },
 ];
 
+export const EDITOR_WIDTH_MODE_OPTIONS: {
+  value: EditorWidthMode;
+  label: string;
+}[] = [
+  { value: "normal", label: "Normal" },
+  { value: "wide", label: "Wide" },
+];
+
 export const EDITOR_BLOCK_DRAG_HANDLE_OPTIONS: {
   value: BlockDragHandleMode;
   label: string;
@@ -445,6 +456,7 @@ export const GLOBAL_ONLY_SETTING_KEYS: readonly (keyof EditorSettings)[] = [
   "autosave_enabled",
   "autosave_delay_ms",
   "editor_max_width_ch",
+  "editor_width_mode",
   "editor_selection_color",
   "editor_heading_spacing_density",
   "editor_paragraph_spacing_density",
