@@ -340,10 +340,7 @@ export function create_prosemirror_editor_port(args?: {
   ) => Promise<BaseQueryOutcome>;
   subscribe_to_changes?: SmartBlockContext["subscribe_to_changes"];
   note_embed?: {
-    read_note: (
-      vault_id: string,
-      note_path: string,
-    ) => Promise<string | null>;
+    read_note: (vault_id: string, note_path: string) => Promise<string | null>;
     subscribe_to_changes: (
       handler: (event: import("$lib/features/watcher").VaultFsEvent) => void,
     ) => () => void;
