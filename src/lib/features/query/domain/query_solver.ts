@@ -280,6 +280,15 @@ async function resolve_linked_from(
   }));
 }
 
+const BASES_OPERATORS: Record<string, string> = {
+  "=": "eq",
+  "!=": "neq",
+  ">": "gt",
+  "<": "lt",
+  ">=": "gte",
+  "<=": "lte",
+};
+
 async function resolve_with_property(
   vault_id: VaultId,
   property_name: string,
@@ -288,8 +297,11 @@ async function resolve_with_property(
   backends: QueryBackends,
 ): Promise<QueryResultItem[]> {
   const text = extract_text(value);
+  const bases_operator = BASES_OPERATORS[operator] ?? operator;
   const results = await backends.bases.query(vault_id, {
-    filters: [{ property: property_name, operator, value: text }],
+    filters: [
+      { property: property_name, operator: bases_operator, value: text },
+    ],
     sort: [],
     limit: 200,
     offset: 0,
