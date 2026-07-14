@@ -1974,7 +1974,7 @@
                     >{EDITOR_TOOLBAR_VISIBILITY_OPTIONS.find(
                       (o) =>
                         o.value === editor_settings.editor_toolbar_visibility,
-                    )?.label ?? "On Selection"}</span
+                    )?.label ?? "Always Show"}</span
                   >
                 </Select.Trigger>
                 <Select.Content>

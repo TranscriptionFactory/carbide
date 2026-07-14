@@ -337,16 +337,18 @@ export function create_table_toolbar_prose_plugin(): Plugin {
             toolbar_el.style.zIndex = String(Z_TABLE_TOOLBAR);
             document.body.appendChild(toolbar_el);
             stop_auto_update = autoUpdate(table_dom, toolbar_el, () => {
-              void compute_floating_position(table_dom, toolbar_el!, "top").then(
-                ({ x, y }) => {
-                  if (!toolbar_el) return;
-                  Object.assign(toolbar_el.style, {
-                    position: "absolute",
-                    left: `${String(x)}px`,
-                    top: `${String(y)}px`,
-                  });
-                },
-              );
+              void compute_floating_position(
+                table_dom,
+                toolbar_el!,
+                "top",
+              ).then(({ x, y }) => {
+                if (!toolbar_el) return;
+                Object.assign(toolbar_el.style, {
+                  position: "absolute",
+                  left: `${String(x)}px`,
+                  top: `${String(y)}px`,
+                });
+              });
             });
           }
 
