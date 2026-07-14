@@ -158,6 +158,8 @@
     on_purge_asset_caches: () => void;
     on_reindex_vault: () => void;
     on_rebuild_embeddings: () => void;
+    is_reindexing: boolean;
+    is_rebuilding_embeddings: boolean;
     toolchain_tools: ToolInfo[];
     on_toolchain_install: (tool_id: string) => void;
     on_toolchain_uninstall: (tool_id: string) => void;
@@ -224,6 +226,8 @@
     on_purge_asset_caches,
     on_reindex_vault,
     on_rebuild_embeddings,
+    is_reindexing,
+    is_rebuilding_embeddings,
     toolchain_tools,
     on_toolchain_install,
     on_toolchain_uninstall,
@@ -316,6 +320,9 @@
     value: String(n),
     label: n >= 60 ? `${String(n / 60)} min` : `${String(n)} sec`,
   }));
+
+  const ai_rag_retrieve_options = [5, 10, 15, 25, 40].map(String);
+  const ai_rag_budget_options = [4000, 8000, 12000, 16000].map(String);
 
   const transport_kind_options = [
     { value: "cli", label: "CLI" },
@@ -1515,6 +1522,100 @@
                     editor_settings.ai_execution_timeout_seconds ===
                       DEFAULT_EDITOR_SETTINGS.ai_execution_timeout_seconds}
                   title={`Reset to default (${String(DEFAULT_EDITOR_SETTINGS.ai_execution_timeout_seconds)} sec)`}
+                >
+                  <RotateCcw />
+                </button>
+              </div>
+            </div>
+
+            <div class="SettingsDialog__row">
+              <div class="SettingsDialog__label-group">
+                <span class="SettingsDialog__label">Chat Retrieval Sources</span>
+                <span class="SettingsDialog__description"
+                  >How many notes vault chat retrieves as candidate context per
+                  question</span
+                >
+              </div>
+              <div class="flex items-center gap-3">
+                <Select.Root
+                  type="single"
+                  value={String(editor_settings.ai_rag_retrieve_limit)}
+                  onValueChange={(v: string | undefined) => {
+                    if (v) update("ai_rag_retrieve_limit", Number(v));
+                  }}
+                  disabled={ai_settings_disabled}
+                >
+                  <Select.Trigger class="w-28">
+                    <span data-slot="select-value">
+                      {String(editor_settings.ai_rag_retrieve_limit)} notes
+                    </span>
+                  </Select.Trigger>
+                  <Select.Content>
+                    {#each ai_rag_retrieve_options as opt (opt)}
+                      <Select.Item value={opt}>{opt} notes</Select.Item>
+                    {/each}
+                  </Select.Content>
+                </Select.Root>
+                <button
+                  type="button"
+                  class="SettingsDialog__reset"
+                  onclick={() =>
+                    update(
+                      "ai_rag_retrieve_limit",
+                      DEFAULT_EDITOR_SETTINGS.ai_rag_retrieve_limit,
+                    )}
+                  disabled={ai_settings_disabled ||
+                    editor_settings.ai_rag_retrieve_limit ===
+                      DEFAULT_EDITOR_SETTINGS.ai_rag_retrieve_limit}
+                  title={`Reset to default (${String(DEFAULT_EDITOR_SETTINGS.ai_rag_retrieve_limit)})`}
+                >
+                  <RotateCcw />
+                </button>
+              </div>
+            </div>
+
+            <div class="SettingsDialog__row">
+              <div class="SettingsDialog__label-group">
+                <span class="SettingsDialog__label"
+                  >Chat Context Token Budget</span
+                >
+                <span class="SettingsDialog__description"
+                  >Approximate token budget for note context included in vault
+                  chat prompts</span
+                >
+              </div>
+              <div class="flex items-center gap-3">
+                <Select.Root
+                  type="single"
+                  value={String(editor_settings.ai_rag_context_token_budget)}
+                  onValueChange={(v: string | undefined) => {
+                    if (v) update("ai_rag_context_token_budget", Number(v));
+                  }}
+                  disabled={ai_settings_disabled}
+                >
+                  <Select.Trigger class="w-28">
+                    <span data-slot="select-value">
+                      {String(editor_settings.ai_rag_context_token_budget)}
+                    </span>
+                  </Select.Trigger>
+                  <Select.Content>
+                    {#each ai_rag_budget_options as opt (opt)}
+                      <Select.Item value={opt}>{opt} tokens</Select.Item>
+                    {/each}
+                  </Select.Content>
+                </Select.Root>
+                <button
+                  type="button"
+                  class="SettingsDialog__reset"
+                  onclick={() =>
+                    update(
+                      "ai_rag_context_token_budget",
+                      DEFAULT_EDITOR_SETTINGS.ai_rag_context_token_budget,
+                    )}
+                  disabled={ai_settings_disabled ||
+                    editor_settings.ai_rag_context_token_budget ===
+                      DEFAULT_EDITOR_SETTINGS.ai_rag_context_token_budget}
+                  title={`Reset to default (${String(DEFAULT_EDITOR_SETTINGS.ai_rag_context_token_budget)})`}
                 >
                   <RotateCcw />
                 </button>
@@ -4587,8 +4688,13 @@
                   >Re-index all notes in the current vault from scratch</span
                 >
               </div>
-              <Button variant="outline" size="sm" onclick={on_reindex_vault}>
-                Reindex
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={is_reindexing}
+                onclick={on_reindex_vault}
+              >
+                {is_reindexing ? "Reindexing..." : "Reindex"}
               </Button>
             </div>
 
@@ -4602,9 +4708,10 @@
               <Button
                 variant="outline"
                 size="sm"
+                disabled={is_rebuilding_embeddings}
                 onclick={on_rebuild_embeddings}
               >
-                Rebuild
+                {is_rebuilding_embeddings ? "Rebuilding..." : "Rebuild"}
               </Button>
             </div>
 

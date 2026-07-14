@@ -615,6 +615,22 @@ export const SETTINGS_REGISTRY: SettingDefinition[] = [
     keywords: ["ai", "timeout", "seconds", "duration", "cli"],
   },
   {
+    key: "ai_rag_retrieve_limit",
+    label: "Chat Retrieval Sources",
+    description:
+      "How many notes vault chat retrieves as candidate context per question",
+    category: "AI",
+    keywords: ["ai", "rag", "chat", "vault", "retrieval", "sources", "limit"],
+  },
+  {
+    key: "ai_rag_context_token_budget",
+    label: "Chat Context Token Budget",
+    description:
+      "Approximate token budget for note context included in vault chat prompts",
+    category: "AI",
+    keywords: ["ai", "rag", "chat", "vault", "context", "tokens", "budget"],
+  },
+  {
     key: "document_pdf_default_zoom",
     label: "PDF Default Zoom",
     description: "Initial zoom mode when opening PDFs",
