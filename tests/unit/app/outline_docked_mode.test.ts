@@ -3,14 +3,18 @@ import { UIStore } from "$lib/app/orchestration/ui_store.svelte";
 import { DEFAULT_EDITOR_SETTINGS } from "$lib/shared/types/editor_settings";
 
 describe("outline docked mode", () => {
-  it("defaults to open with rail mode", () => {
+  it("defaults to open with docked mode", () => {
     const ui = new UIStore();
     expect(ui.outline_docked_open).toBe(true);
-    expect(ui.editor_settings.outline_mode).toBe("rail");
+    expect(ui.editor_settings.outline_mode).toBe("docked");
   });
 
   it("reopens the docked pane when switching into docked mode", () => {
     const ui = new UIStore();
+    ui.set_editor_settings({
+      ...DEFAULT_EDITOR_SETTINGS,
+      outline_mode: "rail",
+    });
     ui.outline_docked_open = false;
     ui.set_editor_settings({
       ...DEFAULT_EDITOR_SETTINGS,

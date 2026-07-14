@@ -25,6 +25,11 @@ type AppBootstrapData = {
       ActionRegistrationInput["services"]["settings"]["load_recent_command_ids"]
     >
   >;
+  outline_pane_size: Awaited<
+    ReturnType<
+      ActionRegistrationInput["services"]["settings"]["load_outline_pane_size"]
+    >
+  >;
   hotkey_overrides: Awaited<
     ReturnType<
       ActionRegistrationInput["services"]["hotkey"]["load_hotkey_overrides"]
@@ -63,11 +68,13 @@ async function load_bootstrap_data(
   const [
     vault_initialize_result,
     recent_command_ids,
+    outline_pane_size,
     hotkey_overrides,
     theme_result,
   ] = await Promise.all([
     services.vault.initialize(default_mount_config),
     services.settings.load_recent_command_ids(),
+    services.settings.load_outline_pane_size(),
     services.hotkey.load_hotkey_overrides(),
     services.theme.load_themes(),
   ]);
@@ -75,6 +82,7 @@ async function load_bootstrap_data(
   return {
     vault_initialize_result,
     recent_command_ids,
+    outline_pane_size,
     hotkey_overrides,
     theme_result,
   };
@@ -84,13 +92,14 @@ async function load_non_vault_bootstrap_data(
   input: ActionRegistrationInput,
 ): Promise<Omit<AppBootstrapData, "vault_initialize_result">> {
   const { services } = input;
-  const [recent_command_ids, hotkey_overrides, theme_result] =
+  const [recent_command_ids, outline_pane_size, hotkey_overrides, theme_result] =
     await Promise.all([
       services.settings.load_recent_command_ids(),
+      services.settings.load_outline_pane_size(),
       services.hotkey.load_hotkey_overrides(),
       services.theme.load_themes(),
     ]);
-  return { recent_command_ids, hotkey_overrides, theme_result };
+  return { recent_command_ids, outline_pane_size, hotkey_overrides, theme_result };
 }
 
 function apply_loaded_preferences(
@@ -106,6 +115,9 @@ function apply_loaded_preferences(
   stores.ui.set_system_light_theme_id(data.theme_result.system_light_theme_id);
   stores.ui.set_system_dark_theme_id(data.theme_result.system_dark_theme_id);
   stores.ui.set_recent_command_ids(data.recent_command_ids);
+  if (data.outline_pane_size !== null) {
+    stores.ui.outline_pane_size = data.outline_pane_size;
+  }
 
   stores.ui.hotkey_overrides = data.hotkey_overrides;
   const hotkeys_config = services.hotkey.merge_config(
