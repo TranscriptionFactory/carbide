@@ -114,8 +114,9 @@ describe("GraphService.load_semantic_edges", () => {
     expect(graph_store.semantic_edges).toHaveLength(0);
   });
 
-  it("does nothing when vault has more than 500 nodes", async () => {
-    const { service, graph_store, search_port } = setup();
+  it("computes semantic edges regardless of vault size (no cap)", async () => {
+    const edges = [make_edge("note-0.md", "note-1.md", 0.2)];
+    const { service, graph_store, search_port } = setup(edges);
     const nodes = Array.from({ length: 501 }, (_, i) => ({
       path: `note-${String(i)}.md`,
       title: `Note ${String(i)}`,
@@ -127,8 +128,8 @@ describe("GraphService.load_semantic_edges", () => {
     });
 
     await service.load_semantic_edges();
-    expect(search_port.semantic_search_batch).not.toHaveBeenCalled();
-    expect(graph_store.semantic_edges).toHaveLength(0);
+    expect(search_port.semantic_search_batch).toHaveBeenCalled();
+    expect(graph_store.semantic_edges).toHaveLength(1);
   });
 
   it("does nothing when no embeddings exist", async () => {
@@ -223,25 +224,83 @@ describe("GraphService.load_semantic_edges", () => {
     );
   });
 
-  it("respects custom max_vault_size setting", async () => {
-    const edges = [make_edge("a.md", "b.md", 0.1)];
-    const { service, graph_store, search_port } = setup(edges);
+  it("surfaces a notice and stays off when embeddings are missing", async () => {
+    const { service, graph_store, search_port } = setup([]);
 
-    const nodes = Array.from({ length: 150 }, (_, i) => ({
-      path: `note-${String(i)}.md`,
-      title: `Note ${String(i)}`,
-    }));
-    graph_store.set_vault_snapshot({
-      nodes,
-      edges: [],
-      stats: { node_count: 150, edge_count: 0 },
+    (
+      search_port.get_embedding_status as ReturnType<typeof vi.fn>
+    ).mockResolvedValue({
+      total_notes: 5,
+      embedded_notes: 0,
+      model_version: "",
+      is_embedding: false,
     });
 
-    await service.load_semantic_edges({ max_vault_size: 100 });
-    expect(search_port.semantic_search_batch).not.toHaveBeenCalled();
+    graph_store.set_vault_snapshot({
+      nodes: [{ path: "a.md", title: "A" }],
+      edges: [],
+      stats: { node_count: 1, edge_count: 0 },
+    });
+    graph_store.set_show_semantic_edges(true);
 
-    await service.load_semantic_edges({ max_vault_size: 200 });
-    expect(search_port.semantic_search_batch).toHaveBeenCalled();
+    await service.load_semantic_edges();
+
+    expect(search_port.semantic_search_batch).not.toHaveBeenCalled();
+    expect(graph_store.show_semantic_edges).toBe(false);
+    expect(graph_store.edge_notice).not.toBeNull();
+  });
+});
+
+describe("GraphService.load_vault_graph auto-enables inferred edges", () => {
+  function setup_auto(node_count: number, threshold: number) {
+    const graph_store = new GraphStore();
+    const vault_store = new VaultStore();
+    const editor_store = new EditorStore();
+    const graph_port = make_mock_graph_port();
+    const search_port = make_mock_search_port([make_edge("a.md", "b.md", 0.2)]);
+    vault_store.set_vault(create_test_vault({ id: "vault-1" as VaultId }));
+    (graph_port.load_vault_graph as ReturnType<typeof vi.fn>).mockResolvedValue(
+      {
+        nodes: [
+          { path: "a.md", title: "A" },
+          { path: "b.md", title: "B" },
+        ],
+        edges: [],
+        stats: { node_count, edge_count: 0 },
+      },
+    );
+    const search_service = {
+      run_search_pipeline: vi.fn().mockResolvedValue({ hits: [] }),
+    } as unknown as SearchService;
+    const service = new GraphService(
+      graph_port,
+      search_port,
+      search_service,
+      vault_store,
+      editor_store,
+      graph_store,
+      undefined,
+      () => ({
+        auto_threshold: threshold,
+        knn_limit: 3,
+        distance_threshold: 0.5,
+      }),
+    );
+    return { service, graph_store, search_port };
+  }
+
+  it("shows semantic edges automatically for vaults within the threshold", async () => {
+    const { service, graph_store } = setup_auto(2, 2000);
+    await service.load_vault_graph();
+    expect(graph_store.show_semantic_edges).toBe(true);
+    expect(graph_store.semantic_edges).toHaveLength(1);
+  });
+
+  it("leaves inferred edges off for vaults above the threshold", async () => {
+    const { service, graph_store, search_port } = setup_auto(5000, 2000);
+    await service.load_vault_graph();
+    expect(graph_store.show_semantic_edges).toBe(false);
+    expect(search_port.semantic_search_batch).not.toHaveBeenCalled();
   });
 });
 

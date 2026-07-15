@@ -5,10 +5,8 @@ import type { GraphStore } from "$lib/features/graph/state/graph_store.svelte";
 import {
   SEMANTIC_EDGE_DISTANCE_THRESHOLD,
   SEMANTIC_EDGE_KNN_LIMIT,
-  SEMANTIC_EDGE_MAX_VAULT_SIZE,
 } from "$lib/features/graph/domain/semantic_edges";
 import {
-  SMART_LINK_EDGE_MAX_VAULT_SIZE,
   SMART_LINK_EDGE_MIN_SCORE,
   SMART_LINK_EDGE_PER_NOTE_LIMIT,
 } from "$lib/features/graph/domain/smart_link_edges";
@@ -42,6 +40,11 @@ export class GraphService {
     private readonly editor_store: EditorStore,
     private readonly graph_store: GraphStore,
     private readonly search_graph_store?: SearchGraphStore,
+    private readonly get_auto_edge_config?: () => {
+      auto_threshold: number;
+      knn_limit: number;
+      distance_threshold: number;
+    },
   ) {}
 
   private get_active_vault_id() {
@@ -129,11 +132,31 @@ export class GraphService {
         edges: snapshot.stats.edge_count,
       });
       this.graph_store.set_vault_snapshot(snapshot);
+      await this.maybe_auto_load_vault_edges(snapshot.stats.node_count);
     } catch (error) {
       if (revision !== this.vault_load_revision) return;
       const message = error_message(error);
       log.error("Load vault graph failed", { error: message });
       this.graph_store.set_error("vault", message);
+    }
+  }
+
+  private async maybe_auto_load_vault_edges(node_count: number): Promise<void> {
+    const cfg = this.get_auto_edge_config?.();
+    if (!cfg || node_count === 0 || node_count > cfg.auto_threshold) return;
+
+    // ponytail: re-enables on every load while edges are empty (e.g. no
+    // embeddings yet); acceptable since the compute is cheap and idempotent.
+    if (this.graph_store.semantic_edges.length === 0) {
+      this.graph_store.set_show_semantic_edges(true);
+      await this.load_semantic_edges({
+        knn_limit: cfg.knn_limit,
+        distance_threshold: cfg.distance_threshold,
+      });
+    }
+    if (this.graph_store.smart_link_edges.length === 0) {
+      this.graph_store.set_show_smart_link_edges(true);
+      await this.load_smart_link_edges();
     }
   }
 
@@ -205,7 +228,6 @@ export class GraphService {
   }
 
   async load_semantic_edges(settings?: {
-    max_vault_size?: number;
     knn_limit?: number;
     distance_threshold?: number;
   }): Promise<void> {
@@ -213,17 +235,8 @@ export class GraphService {
     const snapshot = this.graph_store.vault_snapshot;
     if (!vault_id || !snapshot) return;
 
-    const max_size = settings?.max_vault_size ?? SEMANTIC_EDGE_MAX_VAULT_SIZE;
     const knn_limit = settings?.knn_limit ?? SEMANTIC_EDGE_KNN_LIMIT;
     const threshold = settings?.distance_threshold;
-
-    if (snapshot.stats.node_count > max_size) {
-      log.warn("Vault too large for semantic edges", {
-        node_count: snapshot.stats.node_count,
-        max_size,
-      });
-      return;
-    }
 
     try {
       const status = await this.search_port.get_embedding_status(vault_id);
@@ -232,6 +245,10 @@ export class GraphService {
           total_notes: status.total_notes,
           model_version: status.model_version,
         });
+        this.graph_store.set_show_semantic_edges(false);
+        this.graph_store.set_edge_notice(
+          "Semantic connections need embeddings — build the index in Settings → Semantic.",
+        );
         return;
       }
       log.info("Loading semantic edges", {
@@ -268,6 +285,7 @@ export class GraphService {
       });
 
       this.graph_store.set_semantic_edges(edges);
+      this.graph_store.set_edge_notice(null);
     } catch (error) {
       if (revision !== this.semantic_load_revision) return;
       log.error("Failed to load semantic edges", {
@@ -277,7 +295,6 @@ export class GraphService {
   }
 
   async toggle_semantic_edges(settings?: {
-    max_vault_size?: number;
     knn_limit?: number;
     distance_threshold?: number;
   }): Promise<void> {
@@ -291,23 +308,12 @@ export class GraphService {
   }
 
   async load_smart_link_edges(settings?: {
-    max_vault_size?: number;
     min_score?: number;
     per_note_limit?: number;
   }): Promise<void> {
     const vault_id = this.get_active_vault_id();
     const snapshot = this.graph_store.vault_snapshot;
     if (!vault_id || !snapshot) return;
-
-    const max_size = settings?.max_vault_size ?? SMART_LINK_EDGE_MAX_VAULT_SIZE;
-
-    if (snapshot.stats.node_count > max_size) {
-      log.warn("Vault too large for smart link edges", {
-        node_count: snapshot.stats.node_count,
-        max_size,
-      });
-      return;
-    }
 
     const revision = ++this.smart_link_load_revision;
     const min_score = settings?.min_score ?? SMART_LINK_EDGE_MIN_SCORE;
@@ -348,7 +354,6 @@ export class GraphService {
   }
 
   async toggle_smart_link_edges(settings?: {
-    max_vault_size?: number;
     min_score?: number;
     per_note_limit?: number;
   }): Promise<void> {

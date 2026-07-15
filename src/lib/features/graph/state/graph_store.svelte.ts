@@ -25,6 +25,7 @@ export class GraphStore {
   show_semantic_edges = $state(false);
   smart_link_edges = $state<SmartLinkEdge[]>([]);
   show_smart_link_edges = $state(false);
+  edge_notice = $state<string | null>(null);
   hierarchy_tree = $state<HierarchyTreeNode[] | null>(null);
   hierarchy_root_key = $state<string | null>(null);
   group_mode = $state<GraphGroupMode>("folder");
@@ -113,12 +114,24 @@ export class GraphStore {
     this.show_semantic_edges = !this.show_semantic_edges;
   }
 
+  set_show_semantic_edges(show: boolean) {
+    this.show_semantic_edges = show;
+  }
+
   set_smart_link_edges(edges: SmartLinkEdge[]) {
     this.smart_link_edges = edges;
   }
 
   toggle_show_smart_link_edges() {
     this.show_smart_link_edges = !this.show_smart_link_edges;
+  }
+
+  set_show_smart_link_edges(show: boolean) {
+    this.show_smart_link_edges = show;
+  }
+
+  set_edge_notice(notice: string | null) {
+    this.edge_notice = notice;
   }
 
   start_loading_hierarchy() {
@@ -163,6 +176,7 @@ export class GraphStore {
     this.show_semantic_edges = false;
     this.smart_link_edges = [];
     this.show_smart_link_edges = false;
+    this.edge_notice = null;
     this.cluster_assignments = null;
     this.focus_node_path = null;
     this.focus_mode_active = false;

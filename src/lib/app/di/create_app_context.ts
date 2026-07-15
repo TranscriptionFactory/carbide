@@ -801,6 +801,12 @@ export function create_app_context(input: {
     stores.editor,
     stores.graph,
     stores.search_graph,
+    () => ({
+      auto_threshold: stores.ui.editor_settings.semantic_graph_max_vault_size,
+      knn_limit: stores.ui.editor_settings.semantic_graph_edges_per_note,
+      distance_threshold:
+        stores.ui.editor_settings.semantic_similarity_threshold,
+    }),
   );
 
   const ai_service = new AiService(

@@ -38,9 +38,7 @@
   const smart_link_edges = $derived(stores.graph.smart_link_edges);
   const show_smart_link_edges = $derived(stores.graph.show_smart_link_edges);
   const vault_node_count = $derived(vault_snapshot?.stats.node_count ?? 0);
-  const max_vault_size = $derived(
-    stores.ui.editor_settings.semantic_graph_max_vault_size,
-  );
+  const edge_notice = $derived(stores.graph.edge_notice);
   const graph_tab_active = $derived(stores.tab.active_tab?.kind === "graph");
   const group_mode = $derived(stores.graph.group_mode);
   const focus_mode_active = $derived(stores.graph.focus_mode_active);
@@ -146,7 +144,7 @@
           ? "Hide semantic connections"
           : "Show semantic connections"}
         aria-pressed={show_semantic_edges}
-        disabled={vault_node_count === 0 || vault_node_count > max_vault_size}
+        disabled={vault_node_count === 0}
         onclick={() =>
           void action_registry.execute(ACTION_IDS.graph_toggle_semantic_edges)}
       >
@@ -159,7 +157,7 @@
           ? "Hide smart link connections"
           : "Show smart link connections"}
         aria-pressed={show_smart_link_edges}
-        disabled={vault_node_count === 0 || vault_node_count > max_vault_size}
+        disabled={vault_node_count === 0}
         onclick={() =>
           void action_registry.execute(
             ACTION_IDS.graph_toggle_smart_link_edges,
@@ -244,6 +242,12 @@
       <span>{String(snapshot.stats.edge_count)} edges</span>
       <span>{String(snapshot.stats.bidirectional_count)} bidirectional</span>
       <span>{String(snapshot.stats.orphan_count)} planned</span>
+    </div>
+  {/if}
+
+  {#if edge_notice}
+    <div class="GraphPanel__stats GraphPanel__notice">
+      <span>{edge_notice}</span>
     </div>
   {/if}
 
@@ -423,6 +427,10 @@
     font-size: var(--text-xs);
     color: var(--muted-foreground);
     border-block-end: 1px solid var(--border-subtle, var(--border));
+  }
+
+  .GraphPanel__notice {
+    color: var(--warning, var(--muted-foreground));
   }
 
   .GraphPanel__body {

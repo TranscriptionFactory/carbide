@@ -135,7 +135,6 @@ export function register_graph_actions(
     execute: async () => {
       const s = stores.ui.editor_settings;
       await graph_service.toggle_semantic_edges({
-        max_vault_size: s.semantic_graph_max_vault_size,
         knn_limit: s.semantic_graph_edges_per_note,
         distance_threshold: s.semantic_similarity_threshold,
       });
