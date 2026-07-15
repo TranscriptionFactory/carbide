@@ -16,6 +16,7 @@ export type AiStreamRequest = {
   system_prompt: string;
   messages: AiMessage[];
   model?: string;
+  vault_path?: string;
   signal?: AbortSignal;
 };
 
