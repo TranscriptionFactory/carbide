@@ -215,6 +215,9 @@ export class AiService {
             : input.user_prompt,
         },
       ],
+      ...(this.vault_store.vault?.path
+        ? { vault_path: this.vault_store.vault.path }
+        : {}),
       ...(input.signal ? { signal: input.signal } : {}),
     })) {
       if (chunk.type === "text") {

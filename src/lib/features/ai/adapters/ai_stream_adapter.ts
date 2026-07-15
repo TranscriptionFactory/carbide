@@ -58,6 +58,7 @@ export function create_ai_stream_adapter(): AiStreamPort {
             systemPrompt: input.system_prompt,
             messages: input.messages,
             model: input.model ?? null,
+            vaultPath: input.vault_path ?? null,
           });
         } catch (e) {
           const msg = e instanceof Error ? e.message : String(e);

@@ -308,6 +308,9 @@ export class RagService {
               : user_prompt,
           },
         ],
+        ...(this.vault_store.vault?.path
+          ? { vault_path: this.vault_store.vault.path }
+          : {}),
         signal: controller.signal,
       })) {
         if (chunk.type === "text") {

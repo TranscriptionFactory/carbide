@@ -213,6 +213,7 @@ pub async fn ai_stream_start(
     system_prompt: String,
     messages: Vec<AiMessage>,
     model: Option<String>,
+    vault_path: Option<String>,
 ) -> Result<(), String> {
     let event_name = format!("ai:chunk:{}", request_id);
 
@@ -284,6 +285,7 @@ pub async fn ai_stream_start(
                     &final_args,
                     stdin_input.as_deref(),
                     &path,
+                    vault_path.as_deref(),
                     abort_rx,
                 )
                 .await;
@@ -420,6 +422,7 @@ async fn run_streaming_cli(
     args: &[String],
     stdin_input: Option<&str>,
     path: &str,
+    cwd: Option<&str>,
     abort_rx: tokio::sync::oneshot::Receiver<()>,
 ) -> Result<(), String> {
     let mut cmd = Command::new(command);
@@ -427,6 +430,10 @@ async fn run_streaming_cli(
         .env("PATH", path)
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped());
+
+    if let Some(dir) = cwd.filter(|d| !d.is_empty()) {
+        cmd.current_dir(dir);
+    }
 
     if stdin_input.is_some() {
         cmd.stdin(std::process::Stdio::piped());
