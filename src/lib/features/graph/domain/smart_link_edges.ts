@@ -4,7 +4,6 @@ import type {
 } from "$lib/features/graph/ports";
 
 export const SMART_LINK_EDGE_MIN_SCORE = 0.1;
-export const SMART_LINK_EDGE_MAX_VAULT_SIZE = 500;
 export const SMART_LINK_EDGE_PER_NOTE_LIMIT = 5;
 
 export type SmartLinkSuggestionHit = {

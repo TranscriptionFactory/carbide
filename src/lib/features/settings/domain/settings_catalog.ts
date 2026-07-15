@@ -698,11 +698,11 @@ export const SETTINGS_REGISTRY: SettingDefinition[] = [
   },
   {
     key: "semantic_graph_max_vault_size",
-    label: "Graph Max Vault Size",
+    label: "Graph Auto-Edge Threshold",
     description:
-      "Semantic graph edges are disabled for vaults larger than this (performance)",
+      "Semantic and smart-link edges are shown automatically for vaults up to this size; larger vaults can still enable them manually",
     category: "Semantic",
-    keywords: ["graph", "vault", "size", "limit", "performance"],
+    keywords: ["graph", "vault", "size", "auto", "edges", "semantic"],
   },
   {
     key: "semantic_omnibar_enabled",

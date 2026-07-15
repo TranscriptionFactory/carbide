@@ -4529,9 +4529,12 @@
 
             <div class="SettingsDialog__row">
               <div class="SettingsDialog__label-group">
-                <span class="SettingsDialog__label">Graph Max Vault Size</span>
+                <span class="SettingsDialog__label"
+                  >Graph Auto-Edge Threshold</span
+                >
                 <span class="SettingsDialog__description"
-                  >Semantic edges disabled for vaults larger than this</span
+                  >Semantic and smart-link edges show automatically up to this
+                  vault size; larger vaults enable them manually</span
                 >
               </div>
               <div class="flex items-center gap-3">
@@ -4542,9 +4545,9 @@
                     if (v !== undefined)
                       update("semantic_graph_max_vault_size", v);
                   }}
-                  min={50}
-                  max={1000}
-                  step={50}
+                  min={100}
+                  max={10000}
+                  step={100}
                   class="w-32"
                 />
                 <span class="text-sm tabular-nums w-10"

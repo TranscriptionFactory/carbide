@@ -1,7 +1,6 @@
 import type { SemanticEdge } from "$lib/features/graph/ports";
 import type { SemanticSearchHit } from "$lib/shared/types/search";
 
-export const SEMANTIC_EDGE_MAX_VAULT_SIZE = 500;
 export const SEMANTIC_EDGE_DISTANCE_THRESHOLD = 0.5;
 export const SEMANTIC_EDGE_KNN_LIMIT = 3;
 
