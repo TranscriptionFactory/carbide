@@ -110,15 +110,10 @@ impl Default for AiStreamState {
 fn build_prompt_text(system_prompt: &str, messages: &[AiMessage]) -> String {
     let mut parts = Vec::new();
     if !system_prompt.is_empty() {
-        parts.push(format!("<system>\n{system_prompt}\n</system>"));
+        parts.push(system_prompt.to_string());
     }
     for msg in messages {
-        parts.push(format!(
-            "<{}>\n{}\n</{}>",
-            msg.role,
-            msg.content.as_prompt_text(),
-            msg.role
-        ));
+        parts.push(msg.content.as_prompt_text());
     }
     parts.join("\n\n")
 }
@@ -840,5 +835,19 @@ mod tests {
         assert!(prompt.contains("describe"));
         assert!(prompt.contains("[image omitted]"));
         assert!(!prompt.contains("abc"));
+    }
+
+    #[test]
+    fn cli_prompt_never_injects_role_tags() {
+        let messages = vec![AiMessage {
+            role: "user".to_string(),
+            content: AiMessageContent::Text("the question".to_string()),
+        }];
+        let prompt = build_prompt_text("You are an assistant.", &messages);
+        assert!(prompt.contains("You are an assistant."));
+        assert!(prompt.contains("the question"));
+        for tag in ["<system>", "</system>", "<user>", "</user>"] {
+            assert!(!prompt.contains(tag), "prompt must not inject {tag}");
+        }
     }
 }
