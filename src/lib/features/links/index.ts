@@ -6,6 +6,7 @@ export { register_links_actions } from "$lib/features/links/application/links_ac
 export { LinksStore } from "$lib/features/links/state/links_store.svelte";
 export type { SuggestedLink } from "$lib/features/links/state/links_store.svelte";
 export { default as ContextRail } from "$lib/features/links/ui/context_rail.svelte";
+export { default as ContextRailPanel } from "$lib/features/links/ui/context_rail_panel.svelte";
 export type {
   AttachmentLink,
   ExternalLink,

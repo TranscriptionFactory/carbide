@@ -441,6 +441,8 @@ export class UIStore {
   context_rail_open = $state(false);
   context_rail_tab = $state<ContextRailTab>("links");
   context_rail_side = $state<"left" | "right">("right");
+  // ponytail: session-only; persist across restarts by mirroring outline_pane_size if wanted
+  context_rail_pane_size = $state(20);
 
   hotkeys_config = $state<HotkeyConfig>({ bindings: [] });
 

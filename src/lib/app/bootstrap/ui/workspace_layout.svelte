@@ -25,7 +25,7 @@
     EditorStatusBar,
     resolve_note_width_mode,
   } from "$lib/features/editor";
-  import { ContextRail } from "$lib/features/links";
+  import { ContextRail, ContextRailPanel } from "$lib/features/links";
   import { is_editable_target } from "$lib/shared/utils/editable_target";
   import { DockedOutline, FloatingOutline } from "$lib/features/outline";
   import { GraphPanel } from "$lib/features/graph";
@@ -1352,6 +1352,18 @@
               onResize={(size) => (stores.ui.outline_pane_size = size)}
             >
               <DockedOutline />
+            </Resizable.Pane>
+          {/if}
+          {#if !zen_mode && stores.ui.context_rail_open}
+            <Resizable.Handle />
+            <Resizable.Pane
+              defaultSize={stores.ui.context_rail_pane_size}
+              minSize={12}
+              maxSize={40}
+              order={4}
+              onResize={(size) => (stores.ui.context_rail_pane_size = size)}
+            >
+              <ContextRailPanel />
             </Resizable.Pane>
           {/if}
           {#if !zen_mode}
