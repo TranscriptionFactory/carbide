@@ -18,10 +18,15 @@ function create_empty_doc(): PmNode {
   return schema.nodes["doc"]!.create(null, paragraph ? [paragraph] : []);
 }
 
+function create_raw_doc(markdown: string): PmNode {
+  const raw = schema.nodes["raw_block"]!.create(null, schema.text(markdown));
+  return schema.nodes["doc"]!.create(null, [raw]);
+}
+
 export function parse_markdown(markdown: string): PmNode {
   try {
     const tree = parse_to_mdast(markdown);
-    return mdast_to_pm(tree);
+    return mdast_to_pm(tree, markdown);
   } catch (err) {
     console.warn(
       "[markdown_pipeline] Primary parse failed, trying fallback with reduced plugins:",
@@ -31,13 +36,13 @@ export function parse_markdown(markdown: string): PmNode {
       const tree = fallback_parse_processor.runSync(
         fallback_parse_processor.parse(markdown),
       ) as Root;
-      return mdast_to_pm(tree);
+      return mdast_to_pm(tree, markdown);
     } catch (fallback_err) {
       console.warn(
-        "[markdown_pipeline] Fallback parse also failed, returning empty document:",
+        "[markdown_pipeline] Fallback parse also failed, preserving source as raw block:",
         fallback_err,
       );
-      return create_empty_doc();
+      return markdown ? create_raw_doc(markdown) : create_empty_doc();
     }
   }
 }

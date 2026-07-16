@@ -43,6 +43,11 @@ function convert_inline_pm_node(node: PmNode): PhrasingContent {
         alt: (node.attrs["alt"] as string) || "",
         title: (node.attrs["title"] as string) || null,
       } as PhrasingContent;
+    case "raw_inline":
+      return {
+        type: "html",
+        value: (node.attrs["value"] as string) || "",
+      } as PhrasingContent;
     default:
       return { type: "text", value: node.textContent } as PhrasingContent;
   }
@@ -193,6 +198,12 @@ function convert_block_node(node: PmNode): MdastNode | MdastNode[] | null {
         meta: (node.attrs["meta"] as string) || null,
         value: node.textContent,
       };
+    }
+
+    case "raw_block": {
+      return node.textContent
+        ? { type: "html", value: node.textContent }
+        : null;
     }
 
     case "hr":
