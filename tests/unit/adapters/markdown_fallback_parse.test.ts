@@ -1,5 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { parse_markdown } from "$lib/features/editor/adapters/markdown_pipeline";
+import {
+  parse_markdown,
+  serialize_markdown,
+} from "$lib/features/editor/adapters/markdown_pipeline";
 import {
   parse_processor,
   fallback_parse_processor,
@@ -49,7 +52,7 @@ describe("markdown fallback deserialization", () => {
     warn_spy.mockRestore();
   });
 
-  it("returns empty doc when both primary and fallback throw", () => {
+  it("preserves the source as a raw block when both primary and fallback throw", () => {
     const warn_spy = vi.spyOn(console, "warn").mockImplementation(() => {});
 
     vi.spyOn(parse_processor, "runSync").mockImplementationOnce(() => {
@@ -60,15 +63,35 @@ describe("markdown fallback deserialization", () => {
       throw new Error("fallback also exploded");
     });
 
-    const doc = parse_markdown("anything");
+    const input = "# Some heading\n\ncontent that must not be wiped";
+    const doc = parse_markdown(input);
     expect(doc.type.name).toBe("doc");
     expect(doc.childCount).toBe(1);
-    expect(doc.child(0).type.name).toBe("paragraph");
+    expect(doc.child(0).type.name).toBe("raw_block");
+    expect(doc.child(0).textContent).toBe(input);
+    expect(serialize_markdown(doc).trimEnd()).toBe(input);
 
     expect(warn_spy).toHaveBeenCalledWith(
       expect.stringContaining("Fallback parse also failed"),
       expect.any(Error),
     );
     warn_spy.mockRestore();
+  });
+
+  it("returns empty paragraph doc when both parsers throw on empty input", () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    vi.spyOn(parse_processor, "runSync").mockImplementationOnce(() => {
+      throw new Error("primary parse exploded");
+    });
+
+    vi.spyOn(fallback_parse_processor, "runSync").mockImplementationOnce(() => {
+      throw new Error("fallback also exploded");
+    });
+
+    const doc = parse_markdown("");
+    expect(doc.type.name).toBe("doc");
+    expect(doc.childCount).toBe(1);
+    expect(doc.child(0).type.name).toBe("paragraph");
   });
 });
