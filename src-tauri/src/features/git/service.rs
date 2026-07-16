@@ -693,6 +693,8 @@ fn run_with_timeout(
 ) -> Result<std::process::Output, String> {
     let child = cmd
         .stdin(std::process::Stdio::null())
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
         .spawn()
         .map_err(|e| format!("failed to spawn git: {}", e))?;
 
