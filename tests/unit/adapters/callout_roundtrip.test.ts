@@ -289,3 +289,44 @@ describe("callout markdown roundtrip", () => {
     expect(output).not.toContain("[!note]-");
   });
 });
+
+describe("callout with leading divider (setext fusion)", () => {
+  it("parses a directive fused with a --- divider as callout with hr body", () => {
+    const input = "> [!note|red]\n> ---\n> Body text";
+    const doc = parse_markdown(input);
+    const callout = doc.firstChild;
+    expect(callout?.type.name).toBe("callout");
+    expect(callout?.attrs["callout_type"]).toBe("note");
+    expect(callout?.attrs["callout_color"]).toBe("red");
+
+    const body = callout?.child(1);
+    expect(body?.child(0).type.name).toBe("hr");
+    expect(body?.child(1).type.name).toBe("paragraph");
+    expect(body?.child(1).textContent).toBe("Body text");
+  });
+
+  it("serializes a leading-divider body with a bare > gap and reaches a fixed point", () => {
+    const input = "> [!note|red]\n> ---\n> Body text";
+    const once = serialize_markdown(parse_markdown(input));
+    expect(once.trimEnd()).toBe("> [!note|red]\n>\n> ---\n>\n> Body text");
+    expect(serialize_markdown(parse_markdown(once))).toBe(once);
+  });
+
+  it("heals the corrupted ATX form > ## [!note|red]", () => {
+    const input = "> ## [!note|red]\n> Body text";
+    const doc = parse_markdown(input);
+    const callout = doc.firstChild;
+    expect(callout?.type.name).toBe("callout");
+    expect(callout?.attrs["callout_color"]).toBe("red");
+
+    const body = callout?.child(1);
+    expect(body?.child(0).type.name).toBe("paragraph");
+    expect(body?.child(0).textContent).toBe("Body text");
+  });
+
+  it("leaves blockquote headings without a directive untouched", () => {
+    const input = "> ## Just a heading\n> Body";
+    const doc = parse_markdown(input);
+    expect(doc.firstChild?.type.name).toBe("blockquote");
+  });
+});

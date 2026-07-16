@@ -1,4 +1,11 @@
-import type { Root, RootContent, Blockquote, Paragraph, Text } from "mdast";
+import type {
+  Root,
+  RootContent,
+  Blockquote,
+  Paragraph,
+  Heading,
+  Text,
+} from "mdast";
 import type { Plugin } from "unified";
 
 export const CALLOUT_TYPES = [
@@ -142,9 +149,12 @@ function is_blockquote_callout(node: RootContent): node is Blockquote {
   if (node.type !== "blockquote") return false;
   const bq = node as Blockquote;
   const first_child = bq.children[0];
-  if (!first_child || first_child.type !== "paragraph") return false;
-  const para = first_child as Paragraph;
-  const first_inline = para.children[0];
+  if (
+    !first_child ||
+    (first_child.type !== "paragraph" && first_child.type !== "heading")
+  )
+    return false;
+  const first_inline = (first_child as Paragraph | Heading).children[0];
   if (!first_inline || first_inline.type !== "text") return false;
   const text = (first_inline as Text).value;
   return CALLOUT_DIRECTIVE_RE.test(text.split("\n")[0] ?? "");
@@ -153,8 +163,8 @@ function is_blockquote_callout(node: RootContent): node is Blockquote {
 type MdastNode = Record<string, unknown> & { type: string };
 
 function transform_blockquote_to_callout(bq: Blockquote): MdastNode {
-  const first_para = bq.children[0] as Paragraph;
-  const first_text = first_para.children[0] as Text;
+  const first_block = bq.children[0] as Paragraph | Heading;
+  const first_text = first_block.children[0] as Text;
   const lines = first_text.value.split("\n");
   const directive_line = lines[0] ?? "";
 
@@ -162,7 +172,7 @@ function transform_blockquote_to_callout(bq: Blockquote): MdastNode {
   if (!data) return bq as unknown as MdastNode;
 
   const remaining_first_line = lines.slice(1).join("\n").trim();
-  const remaining_para_children = first_para.children.slice(1);
+  const remaining_para_children = first_block.children.slice(1);
 
   const body_children: RootContent[] = [];
 
@@ -178,6 +188,17 @@ function transform_blockquote_to_callout(bq: Blockquote): MdastNode {
         children: new_inline,
       } as Paragraph);
     }
+  }
+
+  // Multi-line depth-2 heading = setext: a `---` divider line fused into the
+  // directive as its underline. Re-insert it; ATX headings are single-line.
+  const consumed_divider =
+    first_block.type === "heading" &&
+    first_block.depth === 2 &&
+    (first_block.position?.end.line ?? 0) >
+      (first_block.position?.start.line ?? 0);
+  if (consumed_divider) {
+    body_children.push({ type: "thematicBreak" } as RootContent);
   }
 
   body_children.push(...(bq.children.slice(1) as RootContent[]));
@@ -268,7 +289,11 @@ export const callout_to_markdown = {
       .map((line) => (line ? `> ${line}` : ">"))
       .join("\n");
 
-    return `> ${directive}\n${body_lines}`;
+    // A body starting with a `---`/`===` line would fuse with the directive
+    // into a setext heading on re-parse; a bare `>` line keeps them apart.
+    const needs_gap = /^ {0,3}(-+|=+)\s*$/.test(body_str.split("\n")[0] ?? "");
+
+    return `> ${directive}\n${needs_gap ? ">\n" : ""}${body_lines}`;
   },
   calloutTitle(): string {
     return "";
