@@ -26,7 +26,7 @@ function create_raw_inline(value: string, marks: Mark[]): PmNode {
   return schema.nodes.raw_inline.create(
     { value },
     null,
-    marks.length > 0 ? marks : null,
+    marks.length > 0 ? marks : undefined,
   );
 }
 
