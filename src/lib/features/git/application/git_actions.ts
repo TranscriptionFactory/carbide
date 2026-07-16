@@ -167,7 +167,7 @@ export function register_git_actions(input: ActionRegistrationInput) {
         toast.success("Git repository initialized");
         return;
       }
-      toast.error(result.error);
+      toast.error(result.error || "Failed to initialize repository");
     },
   });
 
@@ -325,7 +325,7 @@ export function register_git_actions(input: ActionRegistrationInput) {
         toast.info("No changes to checkpoint", { id: toast_id });
         return;
       }
-      toast.error(result.error, { id: toast_id });
+      toast.error(result.error || "Checkpoint failed", { id: toast_id });
     },
   });
 
@@ -348,7 +348,7 @@ export function register_git_actions(input: ActionRegistrationInput) {
           id: toast_id,
         });
       } else {
-        toast.error(result.error ?? "Push failed", { id: toast_id });
+        toast.error(result.error || "Push failed", { id: toast_id });
       }
     },
   });
@@ -364,7 +364,7 @@ export function register_git_actions(input: ActionRegistrationInput) {
           id: toast_id,
         });
       } else {
-        toast.error(result.error ?? "Fetch failed", { id: toast_id });
+        toast.error(result.error || "Fetch failed", { id: toast_id });
       }
     },
   });
@@ -382,7 +382,7 @@ export function register_git_actions(input: ActionRegistrationInput) {
           id: toast_id,
         });
       } else {
-        toast.error(result.error ?? "Pull failed", { id: toast_id });
+        toast.error(result.error || "Pull failed", { id: toast_id });
       }
     },
   });
@@ -398,7 +398,7 @@ export function register_git_actions(input: ActionRegistrationInput) {
       if (result.success) {
         toast.success("Synced successfully", { id: toast_id });
       } else {
-        toast.error(result.error ?? "Sync failed", { id: toast_id });
+        toast.error(result.error || "Sync failed", { id: toast_id });
       }
     },
   });
