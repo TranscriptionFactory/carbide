@@ -5,6 +5,31 @@ import { detect_embed_type, parse_embed_fragment } from "./file_embed_plugin";
 
 type AnyMdastNode = Record<string, unknown> & { type: string };
 
+let current_source = "";
+
+function slice_source(node: AnyMdastNode): string {
+  const position = node.position as
+    | { start?: { offset?: number }; end?: { offset?: number } }
+    | undefined;
+  const start = position?.start?.offset;
+  const end = position?.end?.offset;
+  if (typeof start !== "number" || typeof end !== "number") return "";
+  return current_source.slice(start, end);
+}
+
+function create_raw_block(value: string): PmNode | null {
+  if (!value) return null;
+  return schema.nodes.raw_block.create(null, schema.text(value));
+}
+
+function create_raw_inline(value: string, marks: Mark[]): PmNode {
+  return schema.nodes.raw_inline.create(
+    { value },
+    null,
+    marks.length > 0 ? marks : null,
+  );
+}
+
 function flatten_inline(
   nodes: AnyMdastNode[],
   marks: Mark[],
@@ -91,13 +116,14 @@ function flatten_inline(
         break;
       case "html": {
         const html_val = (node.value as string) || "";
-        const text_match = html_val.replace(/<[^>]*>/g, "");
-        if (text_match)
-          result.push(schema.text(text_match, marks.length > 0 ? marks : null));
+        if (html_val) result.push(create_raw_inline(html_val, marks));
         break;
       }
-      default:
+      default: {
+        const raw = slice_source(node);
+        if (raw) result.push(create_raw_inline(raw, marks));
         break;
+      }
     }
   }
 }
@@ -208,11 +234,11 @@ function convert_block(node: AnyMdastNode): PmNode | null {
     }
 
     case "html": {
-      return null;
+      return create_raw_block((node.value as string) || "");
     }
 
     default:
-      return null;
+      return create_raw_block(slice_source(node));
   }
 }
 
@@ -436,7 +462,8 @@ function convert_blocks(nodes: AnyMdastNode[]): PmNode[] {
   return result;
 }
 
-export function mdast_to_pm(tree: Root): PmNode {
+export function mdast_to_pm(tree: Root, source = ""): PmNode {
+  current_source = source;
   const children = tree.children as unknown as AnyMdastNode[];
   const pm_children = convert_blocks(children);
 

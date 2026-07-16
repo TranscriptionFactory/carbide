@@ -14,6 +14,46 @@ const paragraph: NodeSpec = {
   },
 };
 
+const raw_block: NodeSpec = {
+  content: "text*",
+  group: "block",
+  marks: "",
+  code: true,
+  defining: true,
+  parseDOM: [
+    {
+      tag: "pre[data-type='raw_block']",
+      preserveWhitespace: "full" as const,
+    },
+  ],
+  toDOM() {
+    return ["pre", { "data-type": "raw_block" }, ["code", 0]];
+  },
+};
+
+const raw_inline: NodeSpec = {
+  inline: true,
+  group: "inline",
+  selectable: true,
+  atom: true,
+  attrs: {
+    value: { default: "" },
+  },
+  parseDOM: [
+    {
+      tag: "span[data-type='raw_inline']",
+      getAttrs(dom) {
+        if (!(dom instanceof HTMLElement)) return false;
+        return { value: dom.getAttribute("data-value") || "" };
+      },
+    },
+  ],
+  toDOM(node) {
+    const value = (node.attrs["value"] as string) || "";
+    return ["span", { "data-type": "raw_inline", "data-value": value }, value];
+  },
+};
+
 const heading: NodeSpec = {
   attrs: {
     id: { default: "" },
@@ -949,6 +989,8 @@ export const schema = new Schema({
     doc,
     text: { group: "inline" },
     paragraph,
+    raw_block,
+    raw_inline,
     heading,
     blockquote,
     code_block,
