@@ -98,6 +98,18 @@
   padding: var(--space-8);
 }
 
+/* ============================================
+   CHROME PARAMETER CONSUMPTION
+   ============================================
+   Themes are token-only (ADR 0001); the CSS that
+   reads those tokens lives here. Inert at defaults.
+   ============================================ */
+
+.ActivityBar {
+  backdrop-filter: blur(var(--chrome-blur, 0px));
+  -webkit-backdrop-filter: blur(var(--chrome-blur, 0px));
+}
+
 /* Global affordance — interactive controls advertise clickability */
 :where(
   button:not(:disabled):not([aria-disabled="true"]),
