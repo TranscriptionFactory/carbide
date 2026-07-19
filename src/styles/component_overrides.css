@@ -105,9 +105,38 @@
    reads those tokens lives here. Inert at defaults.
    ============================================ */
 
-.ActivityBar {
+.ActivityBar,
+.TabBar,
+.StatusBar {
   backdrop-filter: blur(var(--chrome-blur, 0px));
   -webkit-backdrop-filter: blur(var(--chrome-blur, 0px));
+}
+
+/* Workspace backdrop + grain layers — inert (none) unless a theme
+   sets --workspace-backdrop / --workspace-grain (obsidian identity) */
+.WorkspaceLayout {
+  position: relative;
+  isolation: isolate;
+}
+
+.WorkspaceLayout::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  background: var(--workspace-backdrop, none);
+  pointer-events: none;
+}
+
+.WorkspaceLayout::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background-image: var(--workspace-grain, none);
+  background-size: var(--workspace-grain-size, 4px)
+    var(--workspace-grain-size, 4px);
+  pointer-events: none;
 }
 
 /* Global affordance — interactive controls advertise clickability */
