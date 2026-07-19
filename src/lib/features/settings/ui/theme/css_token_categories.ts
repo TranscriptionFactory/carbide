@@ -58,13 +58,8 @@ const RAW_CATEGORIES: TokenCategory[] = [
       "--interactive-muted",
       "--interactive-bg",
       "--interactive-bg-hover",
-      "--interactive-border",
       "--interactive-border-subtle",
-      "--interactive-border-strong",
       "--interactive-text-on-bg",
-      "--interactive-text-subtle",
-      "--interactive-disabled",
-      "--interactive-disabled-bg",
     ],
   },
   {
@@ -75,12 +70,11 @@ const RAW_CATEGORIES: TokenCategory[] = [
       "--foreground-tertiary",
       "--border-strong",
       "--border-subtle",
-      "--accent-hover",
     ],
   },
   {
     label: "Focus & Selection",
-    tokens: ["--focus-ring", "--focus-ring-offset", "--selection-bg", "--ring"],
+    tokens: ["--focus-ring", "--selection-bg", "--ring"],
   },
   {
     label: "Sidebar",
@@ -128,7 +122,6 @@ const RAW_CATEGORIES: TokenCategory[] = [
   {
     label: "Spacing",
     tokens: [
-      "--space-0",
       "--space-0-5",
       "--space-1",
       "--space-1-5",
@@ -169,8 +162,6 @@ const RAW_CATEGORIES: TokenCategory[] = [
       "--size-activity-bar",
       "--size-status-bar",
       "--size-tree-row",
-      "--size-dialog-sm",
-      "--size-dialog-md",
       "--size-dialog-lg",
       "--size-dialog-xl",
     ],
@@ -190,7 +181,6 @@ const RAW_CATEGORIES: TokenCategory[] = [
       "--editor-heading-4",
       "--editor-heading-5",
       "--editor-heading-6",
-      "--editor-bullet-size",
       "--editor-checkbox-size",
       "--editor-font-size",
       "--editor-line-height",
@@ -229,19 +219,11 @@ const RAW_CATEGORIES: TokenCategory[] = [
   },
   {
     label: "Borders",
-    tokens: ["--radius", "--border-width-default", "--border-width-thick"],
+    tokens: ["--radius"],
   },
   {
     label: "Z-Index",
-    tokens: [
-      "--z-base",
-      "--z-dropdown",
-      "--z-sticky",
-      "--z-overlay",
-      "--z-modal",
-      "--z-popover",
-      "--z-tooltip",
-    ],
+    tokens: ["--z-dropdown", "--z-sticky"],
   },
   {
     label: "Warning",

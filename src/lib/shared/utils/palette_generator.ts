@@ -184,7 +184,6 @@ const UI_TOKEN_SPECS: Record<string, TokenSpec> = {
   },
   "--border-strong": { light_l: 0.86, dark_l: 0.38, source: "surface" },
   "--border-subtle": { light_l: 0.95, dark_l: 0.225, source: "surface" },
-  "--accent-hover": { light_l: 0.94, dark_l: 0.3, source: "surface" },
   "--primary": { light_l: 0.48, dark_l: 0.68, source: "accent" },
   "--primary-foreground": { light_l: 1.0, dark_l: 0.1, source: "neutral" },
   "--interactive": { light_l: 0.48, dark_l: 0.68, source: "accent" },
