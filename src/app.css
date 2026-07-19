@@ -1,5 +1,9 @@
 @import "tailwindcss";
 
+/* Pin the layer order: `tokens` (tokens.css) must sort after Tailwind's
+   `theme` layer or Tailwind's defaults (e.g. --text-xs) would win. */
+@layer theme, base, components, utilities, tokens;
+
 @import "tw-animate-css";
 
 @custom-variant dark (&:is([data-color-scheme="dark"] *));
@@ -50,6 +54,10 @@
 @layer base {
   * {
     @apply border-border outline-ring/50;
+
+    /* Firefox scrollbar */
+    scrollbar-width: thin;
+    scrollbar-color: var(--scrollbar-thumb) transparent;
   }
 
   html {
@@ -94,11 +102,5 @@
 
   ::-webkit-scrollbar-thumb:hover {
     background: var(--scrollbar-thumb-hover);
-  }
-
-  /* Firefox scrollbar */
-  * {
-    scrollbar-width: thin;
-    scrollbar-color: var(--scrollbar-thumb) transparent;
   }
 }

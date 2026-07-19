@@ -3,7 +3,7 @@
    ============================================
    Reusable BEM patterns for consistency.
    No shadcn overrides — those are handled
-   by remapping tokens in design_tokens.css.
+   by remapping tokens in tokens.css.
    ============================================ */
 
 /* Selection pattern utility */
@@ -130,7 +130,7 @@
 /* ============================================
    ACCENT UTILITY CLASSES
    ============================================
-   Moved verbatim from the former design_tokens.css.
+   Moved from the retired secondary token file (Phase 0).
    Kept inside @layer utilities: the manual .bg-interactive
    (tinted, var(--interactive-bg)) must keep beating the
    Tailwind-generated .bg-interactive (solid accent) by
