@@ -87,7 +87,6 @@
     background-color: var(--card);
     color: var(--foreground);
   }
-
 }
 
 /* Absolute positioning resolves against the WorkspaceLayout border box, so the

@@ -193,7 +193,6 @@
   .SplitViewContainer {
     height: 100%;
   }
-
 }
 
 /* Absolute positioning resolves against the WorkspaceLayout border box, so the
