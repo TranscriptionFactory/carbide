@@ -129,8 +129,4 @@
     background-color: var(--background);
   }
 
-  /* Hide handles in this layout as panes are absolute */
-  [data-resizable-handle] {
-    display: none !important;
-  }
 }
