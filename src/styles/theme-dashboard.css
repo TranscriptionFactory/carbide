@@ -88,10 +88,6 @@
     color: var(--foreground);
   }
 
-  [data-resizable-handle] {
-    background-color: var(--border);
-    width: 2px;
-  }
 }
 
 /* Absolute positioning resolves against the WorkspaceLayout border box, so the

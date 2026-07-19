@@ -128,7 +128,4 @@
     backdrop-filter: blur(8px);
   }
 
-  [data-resizable-handle] {
-    display: none !important;
-  }
 }

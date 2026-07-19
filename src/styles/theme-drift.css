@@ -257,11 +257,6 @@
     border-radius: var(--radius);
   }
 
-  /* Hide resize handles */
-  [data-resizable-handle] {
-    display: none !important;
-  }
-
   [data-slot="sidebar-wrapper"] > [data-pane-group] {
     width: 100% !important;
     flex: 1 1 auto !important;

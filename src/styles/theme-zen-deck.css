@@ -149,7 +149,4 @@
     height: var(--size-touch-sm);
   }
 
-  [data-resizable-handle] {
-    display: none !important;
-  }
 }
