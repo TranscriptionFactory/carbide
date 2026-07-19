@@ -203,9 +203,6 @@ importers:
       shiki:
         specifier: ^4.1.0
         version: 4.1.0
-      svelte-themes:
-        specifier: ^2.0.10
-        version: 2.0.10(svelte@5.56.1)
       tauri-pty:
         specifier: ^0.2.1
         version: 0.2.1
@@ -4229,11 +4226,6 @@ packages:
     resolution: {integrity: sha512-5cd3p7wa4cq0NsqslMwdlPb7x1JglEZ/GKrLePWNr5bCxR1nagAVrY01FRFrXfUGs41miLt3C327+8XJo5BzZw==}
     peerDependencies:
       svelte: ^5.0.0
-
-  svelte-themes@2.0.10:
-    resolution: {integrity: sha512-PlUXhJTm29o45DKi7l/iCvrjaHLXsy/HGmVR4RL4VnUwp86YZpTehPK5F5h8zk3oG7V0QFFR9BpsxPV+i40IoA==}
-    peerDependencies:
-      svelte: ^4.0.0 || ^5.0.0
 
   svelte-toolbelt@0.10.6:
     resolution: {integrity: sha512-YWuX+RE+CnWYx09yseAe4ZVMM7e7GRFZM6OYWpBKOb++s+SQ8RBIMMe+Bs/CznBMc0QPLjr+vDBxTAkozXsFXQ==}
@@ -9132,10 +9124,6 @@ snapshots:
   svelte-sonner@1.1.1(svelte@5.56.1):
     dependencies:
       runed: 0.28.0(svelte@5.56.1)
-      svelte: 5.56.1
-
-  svelte-themes@2.0.10(svelte@5.56.1):
-    dependencies:
       svelte: 5.56.1
 
   svelte-toolbelt@0.10.6(@sveltejs/kit@2.61.1(@sveltejs/vite-plugin-svelte@7.1.2(svelte@5.56.1)(vite@8.0.16(@types/node@22.19.11)(jiti@2.7.0)(yaml@2.8.3)))(svelte@5.56.1)(typescript@6.0.3)(vite@8.0.16(@types/node@22.19.11)(jiti@2.7.0)(yaml@2.8.3)))(svelte@5.56.1):

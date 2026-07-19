@@ -89,7 +89,6 @@
     "remark-rehype": "^11.1.2",
     "remark-stringify": "^11.0.0",
     "shiki": "^4.1.0",
-    "svelte-themes": "^2.0.10",
     "tauri-pty": "^0.2.1",
     "turndown": "^7.2.4",
     "turndown-plugin-gfm": "^1.0.2",
