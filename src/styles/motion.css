@@ -142,7 +142,7 @@
    agent-breathing — subtle infinite pulse while the agent is actively editing.
 
    Both reference --accent-agent (reserved terracotta, defined in
-   design_tokens.css). Both are suppressed by prefers-reduced-motion.
+   tokens.css). Both are suppressed by prefers-reduced-motion.
    ============================================================================ */
 
 @keyframes agent-flash {

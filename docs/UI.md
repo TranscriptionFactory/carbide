@@ -19,7 +19,7 @@ This document defines the design system, conventions, and standards for carbide'
 src/
 ├── app.css                    # shadcn-svelte tokens (DO NOT MODIFY)
 ├── styles/
-│   ├── design_tokens.css      # Extended design system tokens (accent, spacing, typography)
+│   ├── tokens.css             # Design tokens — single source (3-tier: primitive, semantic, component)
 │   ├── component_overrides.css # BEM patterns, toast overrides, DialogSection
 │   └── editor.css             # Milkdown/ProseMirror editor styles
 ├── lib/types/
@@ -37,11 +37,11 @@ src/
     └── *.svelte               # Application components
 ```
 
-**Important**: Never modify `app.css` directly — it's managed by shadcn-svelte CLI. Extend tokens in `design_tokens.css`.
+**Important**: Extend tokens in `src/styles/tokens.css` (the single token file). `app.css` holds the Tailwind v4 setup, the shadcn `@theme inline` bridge, and base styles.
 
 Theme settings (accent color, fonts, editor typography, element styles) are applied at runtime by `src/lib/reactors/theme.reactor.svelte.ts`, which calls `src/lib/utils/apply_theme.ts`. Themes are global (cross-vault), stored via `SettingsPort`.
 
-**Design token usage**: Default to shadcn semantic utilities (`bg-card`, `text-foreground`, `border-border`, etc.). Use custom tokens from `design_tokens.css` only when shadcn lacks the specific token (e.g. `--interactive-bg`, `--focus-ring`, `--size-tree-row`).
+**Design token usage**: Default to shadcn semantic utilities (`bg-card`, `text-foreground`, `border-border`, etc.). Use custom tokens from `tokens.css` only when shadcn lacks the specific token (e.g. `--interactive-bg`, `--focus-ring`, `--size-tree-row`).
 
 ---
 
@@ -61,7 +61,7 @@ Use these for general UI:
 | `--border`           | Default borders                     |
 | `--destructive`      | Error states, delete actions        |
 
-### Interactive Colors (from design_tokens.css)
+### Interactive Colors (from tokens.css)
 
 Use these for selection, focus, and active states:
 
@@ -564,7 +564,7 @@ height: var(--size-status-bar);
 }
 ```
 
-### Utility Classes (design_tokens.css)
+### Utility Classes (component_overrides.css)
 
 - `.is-active` / `.is-active-subtle` — selected/active background states
 - `.has-indicator` — activity bar–style left indicator line
