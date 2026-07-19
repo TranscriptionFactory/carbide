@@ -127,5 +127,4 @@
     background-color: color-mix(in oklch, var(--card) 50%, transparent);
     backdrop-filter: blur(8px);
   }
-
 }
