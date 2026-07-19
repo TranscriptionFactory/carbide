@@ -29,10 +29,3 @@ export function is_tauri(): boolean {
 export function should_use_custom_window_chrome(): boolean {
   return is_tauri() && (is_linux() || is_windows());
 }
-
-export function should_show_macos_drag_strip(
-  is_mac_desktop: boolean,
-  lattice_title_bar_visible: boolean,
-): boolean {
-  return is_mac_desktop && !lattice_title_bar_visible;
-}

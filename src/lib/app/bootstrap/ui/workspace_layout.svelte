@@ -34,7 +34,6 @@
   import { SourceControlPanel } from "$lib/features/git";
   import { DailyNotesPanel } from "$lib/features/daily_notes";
   import { PluginRuntimeContainer } from "$lib/features/plugin";
-  import LatticeTitleBar from "$lib/app/bootstrap/ui/lattice_title_bar.svelte";
   import { SvelteSet } from "svelte/reactivity";
   import { build_filetree, sort_tree } from "$lib/features/folder";
   import { flatten_filetree } from "$lib/features/folder";
@@ -86,20 +85,9 @@
       !stores.ui.zen_mode,
   );
   const layout_variant = $derived(stores.ui.active_theme.layout_variant);
-  const is_monolith = $derived(layout_variant === "monolith");
-  const is_workbench = $derived(layout_variant === "workbench");
-  const is_command_deck = $derived(layout_variant === "command_deck");
-  const is_grounded_heavy = $derived(layout_variant === "grounded_heavy");
-  const is_hud = $derived(layout_variant === "hud");
-  const is_zen_deck = $derived(layout_variant === "zen_deck");
-  const is_dashboard = $derived(layout_variant === "dashboard");
   const is_spotlight = $derived(layout_variant === "spotlight");
-  const is_cockpit = $derived(layout_variant === "cockpit");
   const is_theater = $derived(layout_variant === "theater");
-  const is_triptych = $derived(layout_variant === "triptych");
-  const is_lattice = $derived(layout_variant === "lattice");
   const is_obsidian = $derived(layout_variant === "obsidian");
-  const is_drift = $derived(layout_variant === "drift");
 
   $effect(() => {
     if (stores.ui.editor_settings.file_tree_mode === "recents") {
@@ -345,20 +333,9 @@
   <div
     class="WorkspaceLayout flex h-screen flex-col"
     class:WorkspaceLayout--zen={zen_mode}
-    class:WorkspaceLayout--monolith={is_monolith}
-    class:WorkspaceLayout--workbench={is_workbench}
-    class:WorkspaceLayout--command-deck={is_command_deck}
-    class:WorkspaceLayout--grounded-heavy={is_grounded_heavy}
-    class:WorkspaceLayout--hud={is_hud}
-    class:WorkspaceLayout--zen-deck={is_zen_deck}
-    class:WorkspaceLayout--dashboard={is_dashboard}
     class:WorkspaceLayout--spotlight={is_spotlight}
-    class:WorkspaceLayout--cockpit={is_cockpit}
     class:WorkspaceLayout--theater={is_theater}
-    class:WorkspaceLayout--triptych={is_triptych}
-    class:WorkspaceLayout--lattice={is_lattice}
     class:WorkspaceLayout--obsidian={is_obsidian}
-    class:WorkspaceLayout--drift={is_drift}
     data-sidebar-open={stores.ui.sidebar_open}
     onpointerdown={(e) => {
       if (stores.ui.selected_items.size <= 1) return;
@@ -386,19 +363,6 @@
       }
     }}
   >
-    {#if is_lattice && !zen_mode}
-      <LatticeTitleBar
-        vault_name={stores.vault.vault?.name ?? ""}
-        note_title={stores.editor.open_note?.meta.title ?? null}
-        branch={stores.git.branch}
-        on_branch_click={() => {
-          void action_registry.execute(
-            ACTION_IDS.ui_set_sidebar_view,
-            SIDEBAR_VIEWS.source_control,
-          );
-        }}
-      />
-    {/if}
     <div class="flex min-h-0 min-w-0 flex-1 overflow-hidden">
       {#if !zen_mode}
         <ActivityBar

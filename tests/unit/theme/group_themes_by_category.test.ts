@@ -1,23 +1,23 @@
 import { describe, it, expect } from "vitest";
 import {
-  BUILTIN_NORDIC_DARK,
+  BUILTIN_CARBIDE_DARK,
   group_themes_by_category,
   type Theme,
   type ThemeCategory,
 } from "$lib/shared/types/theme";
 
 function make_theme(category: ThemeCategory, name: string): Theme {
-  return { ...BUILTIN_NORDIC_DARK, id: name, name, category };
+  return { ...BUILTIN_CARBIDE_DARK, id: name, name, category };
 }
 
 describe("group_themes_by_category", () => {
   it("groups themes by category in order: core, stylized, layout, specialty", () => {
     const themes = [
-      make_theme("layout", "Monolith"),
-      make_theme("core", "Nordic"),
-      make_theme("specialty", "Terminal"),
-      make_theme("stylized", "Neon"),
-      make_theme("core", "Dense"),
+      make_theme("layout", "Spotlight"),
+      make_theme("core", "Carbide"),
+      make_theme("specialty", "Obsidian"),
+      make_theme("stylized", "Glass"),
+      make_theme("layout", "Theater"),
     ];
     const groups = group_themes_by_category(themes);
     expect(groups.map((g) => g.category)).toEqual([
@@ -46,7 +46,7 @@ describe("group_themes_by_category", () => {
   });
 
   it("omits categories with no themes", () => {
-    const themes = [make_theme("core", "Nordic")];
+    const themes = [make_theme("core", "Carbide")];
     const groups = group_themes_by_category(themes);
     expect(groups).toHaveLength(1);
     expect(groups[0]!.category).toBe("core");

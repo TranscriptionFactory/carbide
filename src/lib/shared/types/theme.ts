@@ -13,12 +13,10 @@ export type ThemeDensity = "compact" | "regular" | "airy";
 
 export type ThemeCssTheme =
   | "carbide"
-  | "cockpit"
-  | "paper"
-  | "terminal"
   | "glass"
-  | "floating"
-  | "neon";
+  | "spotlight"
+  | "theater"
+  | "obsidian";
 
 export type ThemeHeadingColor = "inherit" | "primary" | "accent";
 
@@ -41,20 +39,9 @@ export const THEME_CATEGORY_LABELS: Record<ThemeCategory, string> = {
 
 export type ThemeLayoutVariant =
   | "default"
-  | "monolith"
-  | "grounded_heavy"
-  | "hud"
-  | "zen_deck"
-  | "dashboard"
-  | "workbench"
-  | "command_deck"
   | "spotlight"
-  | "cockpit"
   | "theater"
-  | "triptych"
-  | "lattice"
-  | "obsidian"
-  | "drift";
+  | "obsidian";
 
 export type Theme = {
   id: string;
@@ -251,336 +238,14 @@ export function expand_blueprint(bp: ThemeBlueprint): Theme[] {
   });
 }
 
-const BP_NORDIC: ThemeBlueprint = {
-  base_name: "Nordic",
+const BP_CARBIDE: ThemeBlueprint = {
+  base_name: "Carbide",
   category: "core",
   surface_hue: 68,
   surface_chroma: 0.008,
   accent_hue: 155,
   accent_chroma: 0.11,
-};
-
-const BP_BRUTALIST: ThemeBlueprint = {
-  base_name: "Brutalist",
-  category: "core",
-  surface_hue: 0,
-  surface_chroma: 0,
-  accent_hue: 30,
-  accent_chroma: 0.18,
-  font_family_sans: "SF Mono",
-  heading_font_weight: 800,
-  bold_style: "heavier",
-  blockquote_style: "minimal",
-  code_block_style: "borderless",
-  spacing: "compact",
-  structural_overrides: {
-    "--radius": "0",
-    "--shadow-xs": "none",
-    "--shadow-sm": "none",
-    "--shadow-md": "none",
-    "--shadow-lg": "none",
-    "--scrollbar-width": "8px",
-  },
-  color_overrides_light: {
-    "--background": "oklch(0.97 0 0)",
-    "--foreground": "oklch(0.1 0 0)",
-    "--card": "oklch(1 0 0)",
-    "--popover": "oklch(1 0 0)",
-    "--primary": "oklch(0.1 0 0)",
-    "--primary-foreground": "oklch(1 0 0)",
-    "--secondary": "oklch(0.93 0 0)",
-    "--muted": "oklch(0.93 0 0)",
-    "--muted-foreground": "oklch(0.45 0 0)",
-    "--accent": "oklch(0.85 0.18 30)",
-    "--accent-foreground": "oklch(0.1 0 0)",
-    "--border": "oklch(0.1 0 0)",
-    "--input": "oklch(0.1 0 0)",
-    "--ring": "oklch(0.1 0 0)",
-    "--sidebar": "oklch(0.97 0 0)",
-    "--sidebar-border": "oklch(0.1 0 0)",
-    "--background-surface-2": "oklch(0.95 0 0)",
-    "--background-surface-3": "oklch(0.93 0 0)",
-    "--border-strong": "oklch(0.1 0 0)",
-    "--border-subtle": "oklch(0.7 0 0)",
-    "--interactive": "oklch(0.1 0 0)",
-    "--interactive-hover": "oklch(0.85 0.18 30)",
-    "--interactive-bg": "oklch(0.93 0 0)",
-    "--interactive-bg-hover": "oklch(0.88 0 0)",
-    "--focus-ring": "oklch(0.85 0.18 30)",
-    "--selection-bg": "oklch(0.88 0.1 30)",
-    "--scrollbar-thumb": "oklch(0.1 0 0)",
-    "--scrollbar-thumb-hover": "oklch(0.85 0.18 30)",
-  },
-  color_overrides_dark: {
-    "--background": "oklch(0.11 0 0)",
-    "--foreground": "oklch(0.95 0 0)",
-    "--card": "oklch(0.15 0 0)",
-    "--popover": "oklch(0.15 0 0)",
-    "--primary": "oklch(0.95 0 0)",
-    "--primary-foreground": "oklch(0.08 0 0)",
-    "--secondary": "oklch(0.19 0 0)",
-    "--muted": "oklch(0.19 0 0)",
-    "--muted-foreground": "oklch(0.6 0 0)",
-    "--accent": "oklch(0.7 0.2 30)",
-    "--accent-foreground": "oklch(0.95 0 0)",
-    "--border": "oklch(0.95 0 0)",
-    "--input": "oklch(0.95 0 0)",
-    "--ring": "oklch(0.95 0 0)",
-    "--sidebar": "oklch(0.11 0 0)",
-    "--sidebar-border": "oklch(0.95 0 0)",
-    "--background-surface-2": "oklch(0.13 0 0)",
-    "--background-surface-3": "oklch(0.17 0 0)",
-    "--border-strong": "oklch(0.95 0 0)",
-    "--border-subtle": "oklch(0.33 0 0)",
-    "--interactive": "oklch(0.95 0 0)",
-    "--interactive-hover": "oklch(0.7 0.2 30)",
-    "--interactive-bg": "oklch(0.19 0 0)",
-    "--interactive-bg-hover": "oklch(0.23 0 0)",
-    "--focus-ring": "oklch(0.7 0.2 30)",
-    "--selection-bg": "oklch(0.28 0.08 30)",
-    "--scrollbar-thumb": "oklch(0.95 0 0)",
-    "--scrollbar-thumb-hover": "oklch(0.7 0.2 30)",
-  },
-};
-
-const BP_NEON: ThemeBlueprint = {
-  base_name: "Neon",
-  category: "stylized",
-  surface_hue: 280,
-  surface_chroma: 0.015,
-  accent_hue: 300,
-  accent_chroma: 0.25,
-  css_theme: "neon",
-  heading_color: "primary",
-  bold_style: "color-accent",
-  code_block_style: "filled",
-  structural_overrides: {
-    "--radius": "0.375rem",
-  },
-  color_overrides_light: {
-    "--background": "oklch(0.99 0 0)",
-    "--foreground": "oklch(0.15 0 0)",
-    "--card": "oklch(1 0 0)",
-    "--popover": "oklch(1 0 0)",
-    "--primary": "oklch(0.55 0.25 300)",
-    "--primary-foreground": "oklch(1 0 0)",
-    "--secondary": "oklch(0.96 0.02 300)",
-    "--secondary-foreground": "oklch(0.2 0 0)",
-    "--muted": "oklch(0.96 0.01 300)",
-    "--muted-foreground": "oklch(0.5 0 0)",
-    "--accent": "oklch(0.7 0.2 195)",
-    "--accent-foreground": "oklch(0.15 0 0)",
-    "--border": "oklch(0.92 0.015 300)",
-    "--input": "oklch(0.92 0.015 300)",
-    "--ring": "oklch(0.55 0.25 300)",
-    "--sidebar": "oklch(0.98 0.01 300)",
-    "--sidebar-border": "oklch(0.92 0.015 300)",
-    "--background-surface-2": "oklch(0.97 0.01 300)",
-    "--background-surface-3": "oklch(0.95 0.015 300)",
-    "--border-strong": "oklch(0.85 0.02 300)",
-    "--border-subtle": "oklch(0.95 0.01 300)",
-    "--interactive": "oklch(0.55 0.25 300)",
-    "--interactive-hover": "oklch(0.48 0.25 300)",
-    "--interactive-bg": "oklch(0.96 0.03 300)",
-    "--interactive-bg-hover": "oklch(0.93 0.04 300)",
-    "--focus-ring": "oklch(0.7 0.2 195)",
-    "--selection-bg": "oklch(0.92 0.05 300)",
-    "--shadow-sm": "0 2px 8px oklch(0.55 0.15 300 / 10%)",
-    "--shadow-md": "0 4px 16px oklch(0.55 0.15 300 / 12%)",
-    "--shadow-lg": "0 8px 32px oklch(0.55 0.15 300 / 15%)",
-  },
-  color_overrides_dark: {
-    "--background": "oklch(0.09 0.015 280)",
-    "--foreground": "oklch(0.92 0.01 280)",
-    "--card": "oklch(0.13 0.02 280)",
-    "--popover": "oklch(0.13 0.02 280)",
-    "--primary": "oklch(0.72 0.25 300)",
-    "--primary-foreground": "oklch(0.06 0 0)",
-    "--secondary": "oklch(0.17 0.02 280)",
-    "--muted": "oklch(0.17 0.02 280)",
-    "--muted-foreground": "oklch(0.55 0.01 280)",
-    "--accent": "oklch(0.75 0.18 195)",
-    "--accent-foreground": "oklch(0.06 0 0)",
-    "--border": "oklch(0.72 0.25 300 / 20%)",
-    "--input": "oklch(0.72 0.25 300 / 25%)",
-    "--ring": "oklch(0.72 0.25 300)",
-    "--sidebar": "oklch(0.10 0.015 280)",
-    "--sidebar-border": "oklch(0.72 0.25 300 / 15%)",
-    "--background-surface-2": "oklch(0.12 0.02 280)",
-    "--background-surface-3": "oklch(0.15 0.02 280)",
-    "--border-strong": "oklch(0.72 0.25 300 / 35%)",
-    "--border-subtle": "oklch(0.72 0.25 300 / 10%)",
-    "--interactive": "oklch(0.72 0.25 300)",
-    "--interactive-hover": "oklch(0.78 0.22 300)",
-    "--interactive-bg": "oklch(0.17 0.04 300)",
-    "--interactive-bg-hover": "oklch(0.21 0.05 300)",
-    "--focus-ring": "oklch(0.75 0.18 195)",
-    "--selection-bg": "oklch(0.21 0.08 300)",
-    "--shadow-sm": "0 2px 10px oklch(0.72 0.2 300 / 15%)",
-    "--shadow-md": "0 4px 20px oklch(0.72 0.2 300 / 20%)",
-    "--shadow-lg": "0 8px 40px oklch(0.72 0.2 300 / 25%)",
-    "--scrollbar-thumb": "oklch(0.72 0.25 300 / 30%)",
-    "--scrollbar-thumb-hover": "oklch(0.72 0.25 300 / 50%)",
-  },
-};
-
-const BP_PAPER: ThemeBlueprint = {
-  base_name: "Paper",
-  category: "core",
-  surface_hue: 55,
-  surface_chroma: 0.015,
-  accent_hue: 45,
-  accent_chroma: 0.08,
-  css_theme: "paper",
-  font_size: 1.0625,
-  line_height: 1.85,
-  spacing: "spacious",
-  heading_color: "primary",
-  heading_font_weight: 600,
-  blockquote_style: "accent-bar",
-  structural_overrides: {
-    "--radius": "0.25rem",
-    "--size-status-bar": "calc(20px * var(--density))",
-  },
-  color_overrides_light: {
-    "--editor-link": "oklch(0.45 0.1 55)",
-    "--background": "oklch(0.96 0.015 75)",
-    "--foreground": "oklch(0.22 0.02 55)",
-    "--card": "oklch(0.98 0.012 78)",
-    "--popover": "oklch(0.98 0.012 78)",
-    "--primary": "oklch(0.42 0.08 45)",
-    "--primary-foreground": "oklch(0.97 0.01 75)",
-    "--secondary": "oklch(0.93 0.018 75)",
-    "--muted": "oklch(0.93 0.015 75)",
-    "--muted-foreground": "oklch(0.52 0.02 60)",
-    "--accent": "oklch(0.88 0.04 75)",
-    "--accent-foreground": "oklch(0.3 0.03 55)",
-    "--border": "oklch(0.88 0.02 72)",
-    "--input": "oklch(0.88 0.02 72)",
-    "--ring": "oklch(0.42 0.08 45)",
-    "--sidebar": "oklch(0.94 0.018 74)",
-    "--sidebar-border": "oklch(0.88 0.02 72)",
-    "--background-surface-2": "oklch(0.94 0.016 76)",
-    "--background-surface-3": "oklch(0.91 0.02 73)",
-    "--border-strong": "oklch(0.82 0.025 70)",
-    "--border-subtle": "oklch(0.92 0.012 76)",
-    "--interactive": "oklch(0.42 0.08 45)",
-    "--interactive-hover": "oklch(0.36 0.08 45)",
-    "--interactive-bg": "oklch(0.94 0.025 60)",
-    "--interactive-bg-hover": "oklch(0.91 0.03 58)",
-    "--focus-ring": "oklch(0.55 0.1 45)",
-    "--selection-bg": "oklch(0.9 0.04 60)",
-    "--scrollbar-thumb": "oklch(0.82 0.025 70)",
-    "--scrollbar-thumb-hover": "oklch(0.75 0.03 65)",
-  },
-  color_overrides_dark: {
-    "--editor-link": "oklch(0.62 0.1 55)",
-    "--background": "oklch(0.19 0.015 55)",
-    "--foreground": "oklch(0.9 0.015 75)",
-    "--card": "oklch(0.23 0.015 55)",
-    "--popover": "oklch(0.23 0.015 55)",
-    "--primary": "oklch(0.68 0.1 45)",
-    "--primary-foreground": "oklch(0.12 0.01 55)",
-    "--secondary": "oklch(0.25 0.015 55)",
-    "--muted": "oklch(0.25 0.015 55)",
-    "--muted-foreground": "oklch(0.58 0.015 65)",
-    "--accent": "oklch(0.33 0.025 55)",
-    "--accent-foreground": "oklch(0.9 0.015 75)",
-    "--border": "oklch(0.3 0.02 55)",
-    "--input": "oklch(0.3 0.02 55)",
-    "--ring": "oklch(0.68 0.1 45)",
-    "--sidebar": "oklch(0.20 0.015 55)",
-    "--sidebar-border": "oklch(0.28 0.015 55)",
-    "--background-surface-2": "oklch(0.22 0.015 55)",
-    "--background-surface-3": "oklch(0.26 0.015 55)",
-    "--border-strong": "oklch(0.36 0.02 55)",
-    "--border-subtle": "oklch(0.25 0.01 55)",
-    "--interactive": "oklch(0.68 0.1 45)",
-    "--interactive-hover": "oklch(0.74 0.1 45)",
-    "--interactive-bg": "oklch(0.25 0.03 50)",
-    "--interactive-bg-hover": "oklch(0.29 0.035 48)",
-    "--focus-ring": "oklch(0.68 0.1 45)",
-    "--selection-bg": "oklch(0.29 0.04 50)",
-    "--scrollbar-thumb": "oklch(0.3 0.015 55)",
-    "--scrollbar-thumb-hover": "oklch(0.38 0.02 55)",
-  },
-};
-
-const BP_FLOATING: ThemeBlueprint = {
-  base_name: "Floating",
-  category: "stylized",
-  surface_hue: 0,
-  surface_chroma: 0,
-  accent_hue: 250,
-  accent_chroma: 0.08,
-  css_theme: "floating",
-  spacing: "spacious",
-  structural_overrides: {
-    "--radius": "1rem",
-    "--size-activity-bar": "3.5rem",
-  },
-  color_overrides_light: {
-    "--background": "oklch(0.95 0 0)",
-    "--foreground": "oklch(0.2 0 0)",
-    "--card": "oklch(1 0 0)",
-    "--popover": "oklch(1 0 0)",
-    "--primary": "oklch(0.35 0.05 250)",
-    "--primary-foreground": "oklch(1 0 0)",
-    "--secondary": "oklch(0.96 0 0)",
-    "--muted": "oklch(0.96 0 0)",
-    "--muted-foreground": "oklch(0.5 0 0)",
-    "--accent": "oklch(0.96 0 0)",
-    "--accent-foreground": "oklch(0.2 0 0)",
-    "--border": "oklch(0.9 0 0)",
-    "--input": "oklch(0.9 0 0)",
-    "--ring": "oklch(0.35 0.05 250)",
-    "--sidebar": "oklch(1 0 0)",
-    "--sidebar-border": "oklch(0.9 0 0)",
-    "--background-surface-2": "oklch(0.98 0 0)",
-    "--background-surface-3": "oklch(0.97 0 0)",
-    "--border-strong": "oklch(0.85 0 0)",
-    "--border-subtle": "oklch(0.92 0 0)",
-    "--interactive": "oklch(0.35 0.05 250)",
-    "--interactive-hover": "oklch(0.3 0.05 250)",
-    "--interactive-bg": "oklch(0.96 0 0)",
-    "--interactive-bg-hover": "oklch(0.93 0 0)",
-    "--focus-ring": "oklch(0.55 0.1 250)",
-    "--selection-bg": "oklch(0.92 0.03 250)",
-    "--shadow-sm": "0 4px 6px -1px oklch(0 0 0 / 5%)",
-    "--shadow-md": "0 10px 15px -3px oklch(0 0 0 / 10%)",
-    "--shadow-lg": "0 20px 25px -5px oklch(0 0 0 / 12%)",
-  },
-  color_overrides_dark: {
-    "--background": "oklch(0.15 0 0)",
-    "--foreground": "oklch(0.95 0 0)",
-    "--card": "oklch(0.21 0 0)",
-    "--popover": "oklch(0.21 0 0)",
-    "--primary": "oklch(0.7 0.08 250)",
-    "--primary-foreground": "oklch(0.1 0 0)",
-    "--secondary": "oklch(0.23 0 0)",
-    "--muted": "oklch(0.23 0 0)",
-    "--muted-foreground": "oklch(0.6 0 0)",
-    "--accent": "oklch(0.25 0 0)",
-    "--accent-foreground": "oklch(0.95 0 0)",
-    "--border": "oklch(1 0 0 / 10%)",
-    "--input": "oklch(1 0 0 / 12%)",
-    "--ring": "oklch(0.7 0.08 250)",
-    "--sidebar": "oklch(0.21 0 0)",
-    "--sidebar-border": "oklch(1 0 0 / 10%)",
-    "--background-surface-2": "oklch(0.23 0 0)",
-    "--background-surface-3": "oklch(0.25 0 0)",
-    "--border-strong": "oklch(1 0 0 / 20%)",
-    "--border-subtle": "oklch(1 0 0 / 8%)",
-    "--interactive": "oklch(0.7 0.08 250)",
-    "--interactive-hover": "oklch(0.76 0.08 250)",
-    "--interactive-bg": "oklch(0.23 0 0)",
-    "--interactive-bg-hover": "oklch(0.27 0 0)",
-    "--focus-ring": "oklch(0.7 0.08 250)",
-    "--selection-bg": "oklch(0.27 0.04 250)",
-    "--shadow-sm": "0 4px 6px -1px oklch(0 0 0 / 15%)",
-    "--shadow-md": "0 10px 15px -3px oklch(0 0 0 / 25%)",
-    "--shadow-lg": "0 20px 25px -5px oklch(0 0 0 / 30%)",
-  },
+  css_theme: "carbide",
 };
 
 const BP_GLASS: ThemeBlueprint = {
@@ -659,345 +324,6 @@ const BP_GLASS: ThemeBlueprint = {
   },
 };
 
-const BP_DENSE: ThemeBlueprint = {
-  base_name: "Dense",
-  category: "core",
-  surface_hue: 0,
-  surface_chroma: 0,
-  accent_hue: 250,
-  accent_chroma: 0.15,
-  spacing: "compact",
-  font_size: 0.9375,
-  line_height: 1.6,
-  structural_overrides: {
-    "--radius": "0.25rem",
-    "--size-activity-bar": "2.25rem",
-    "--size-activity-icon": "1rem",
-    "--size-touch-sm": "1.5rem",
-    "--size-touch": "1.75rem",
-    "--size-tree-row": "1.625rem",
-    "--size-status-bar": "1.375rem",
-    "--text-xs": "0.625rem",
-    "--text-sm": "0.75rem",
-    "--text-base": "0.8125rem",
-  },
-  color_overrides_light: {
-    "--background": "oklch(0.98 0 0)",
-    "--foreground": "oklch(0.15 0 0)",
-    "--card": "oklch(1 0 0)",
-    "--popover": "oklch(1 0 0)",
-    "--primary": "oklch(0.45 0.15 250)",
-    "--primary-foreground": "oklch(1 0 0)",
-    "--secondary": "oklch(0.96 0 0)",
-    "--muted": "oklch(0.95 0 0)",
-    "--muted-foreground": "oklch(0.4 0 0)",
-    "--accent": "oklch(0.95 0 0)",
-    "--accent-foreground": "oklch(0.15 0 0)",
-    "--border": "oklch(0.9 0 0)",
-    "--input": "oklch(0.9 0 0)",
-    "--ring": "oklch(0.45 0.15 250)",
-    "--sidebar": "oklch(0.95 0 0)",
-    "--sidebar-border": "oklch(0.9 0 0)",
-    "--background-surface-2": "oklch(0.96 0 0)",
-    "--background-surface-3": "oklch(0.93 0 0)",
-    "--border-strong": "oklch(0.85 0 0)",
-    "--border-subtle": "oklch(0.92 0 0)",
-    "--interactive": "oklch(0.45 0.15 250)",
-    "--interactive-hover": "oklch(0.4 0.15 250)",
-    "--interactive-bg": "oklch(0.96 0 0)",
-    "--interactive-bg-hover": "oklch(0.93 0 0)",
-    "--focus-ring": "oklch(0.55 0.15 250)",
-    "--selection-bg": "oklch(0.9 0.06 250)",
-  },
-  color_overrides_dark: {
-    "--background": "oklch(0.19 0 0)",
-    "--foreground": "oklch(0.95 0 0)",
-    "--card": "oklch(0.17 0 0)",
-    "--popover": "oklch(0.17 0 0)",
-    "--primary": "oklch(0.65 0.2 250)",
-    "--primary-foreground": "oklch(1 0 0)",
-    "--secondary": "oklch(0.23 0 0)",
-    "--muted": "oklch(0.25 0 0)",
-    "--muted-foreground": "oklch(0.65 0 0)",
-    "--accent": "oklch(0.25 0 0)",
-    "--accent-foreground": "oklch(0.95 0 0)",
-    "--border": "oklch(0.25 0 0)",
-    "--input": "oklch(0.28 0 0)",
-    "--ring": "oklch(0.65 0.2 250)",
-    "--sidebar": "oklch(0.17 0 0)",
-    "--sidebar-border": "oklch(0.25 0 0)",
-    "--background-surface-2": "oklch(0.21 0 0)",
-    "--background-surface-3": "oklch(0.23 0 0)",
-    "--border-strong": "oklch(0.3 0 0)",
-    "--border-subtle": "oklch(0.25 0 0)",
-    "--interactive": "oklch(0.65 0.2 250)",
-    "--interactive-hover": "oklch(0.72 0.2 250)",
-    "--interactive-bg": "oklch(0.23 0 0)",
-    "--interactive-bg-hover": "oklch(0.28 0 0)",
-    "--focus-ring": "oklch(0.65 0.2 250)",
-    "--selection-bg": "oklch(0.28 0.08 250)",
-  },
-};
-
-const BP_LINEAR: ThemeBlueprint = {
-  base_name: "Linear",
-  category: "core",
-  surface_hue: 0,
-  surface_chroma: 0,
-  accent_hue: 0,
-  accent_chroma: 0,
-  structural_overrides: {
-    "--radius": "0.5rem",
-    "--size-activity-bar": "2.5rem",
-    "--size-activity-icon": "1.125rem",
-  },
-  color_overrides_light: {
-    "--background": "oklch(1 0 0)",
-    "--foreground": "oklch(0.145 0 0)",
-    "--card": "oklch(1 0 0)",
-    "--popover": "oklch(1 0 0)",
-    "--primary": "oklch(0.145 0 0)",
-    "--primary-foreground": "oklch(0.985 0 0)",
-    "--secondary": "oklch(0.98 0 0)",
-    "--secondary-foreground": "oklch(0.205 0 0)",
-    "--muted": "oklch(0.98 0 0)",
-    "--muted-foreground": "oklch(0.556 0 0)",
-    "--accent": "oklch(0.98 0 0)",
-    "--accent-foreground": "oklch(0.205 0 0)",
-    "--border": "oklch(0.95 0 0)",
-    "--input": "oklch(0.95 0 0)",
-    "--ring": "oklch(0.8 0 0)",
-    "--sidebar": "oklch(0.99 0 0)",
-    "--sidebar-border": "oklch(0.95 0 0)",
-    "--background-surface-2": "oklch(0.99 0 0)",
-    "--background-surface-3": "oklch(0.98 0 0)",
-    "--border-strong": "oklch(0.9 0 0)",
-    "--border-subtle": "oklch(0.97 0 0)",
-    "--interactive": "oklch(0.145 0 0)",
-    "--interactive-hover": "oklch(0.3 0 0)",
-    "--interactive-bg": "oklch(0.98 0 0)",
-    "--interactive-bg-hover": "oklch(0.96 0 0)",
-    "--focus-ring": "oklch(0.5 0 0)",
-    "--selection-bg": "oklch(0.94 0 0)",
-    "--shadow-sm":
-      "0 1px 2px color-mix(in oklch, oklch(0 0 0) 5%, transparent)",
-    "--shadow-md":
-      "0 4px 6px -1px color-mix(in oklch, oklch(0 0 0) 7%, transparent)",
-  },
-  color_overrides_dark: {
-    "--background": "oklch(0.15 0 0)",
-    "--foreground": "oklch(0.985 0 0)",
-    "--card": "oklch(0.17 0 0)",
-    "--popover": "oklch(0.17 0 0)",
-    "--primary": "oklch(0.985 0 0)",
-    "--primary-foreground": "oklch(0.12 0 0)",
-    "--secondary": "oklch(0.21 0 0)",
-    "--muted": "oklch(0.21 0 0)",
-    "--muted-foreground": "oklch(0.708 0 0)",
-    "--accent": "oklch(0.21 0 0)",
-    "--accent-foreground": "oklch(0.985 0 0)",
-    "--border": "oklch(1 0 0 / 8%)",
-    "--input": "oklch(1 0 0 / 12%)",
-    "--ring": "oklch(1 0 0 / 20%)",
-    "--sidebar": "oklch(1 0 0 / 0%)",
-    "--sidebar-border": "oklch(1 0 0 / 8%)",
-    "--background-surface-2": "oklch(0.17 0 0)",
-    "--background-surface-3": "oklch(0.19 0 0)",
-    "--border-strong": "oklch(1 0 0 / 15%)",
-    "--border-subtle": "oklch(1 0 0 / 5%)",
-    "--interactive": "oklch(0.985 0 0)",
-    "--interactive-hover": "oklch(0.8 0 0)",
-    "--interactive-bg": "oklch(0.21 0 0)",
-    "--interactive-bg-hover": "oklch(0.25 0 0)",
-    "--focus-ring": "oklch(0.6 0 0)",
-    "--selection-bg": "oklch(0.25 0 0)",
-    "--shadow-sm":
-      "0 1px 2px color-mix(in oklch, oklch(0 0 0) 20%, transparent)",
-    "--shadow-md":
-      "0 4px 6px -1px color-mix(in oklch, oklch(0 0 0) 20%, transparent)",
-  },
-};
-
-const BP_MONOLITH: ThemeBlueprint = {
-  base_name: "Monolith",
-  category: "layout",
-  surface_hue: 80,
-  surface_chroma: 0.005,
-  accent_hue: 60,
-  accent_chroma: 0.02,
-  layout_variant: "monolith",
-  font_family_sans: "Newsreader",
-  font_size: 1.125,
-  line_height: 1.8,
-  spacing: "spacious",
-  structural_overrides: {
-    "--radius": "0.75rem",
-    "--editor-max-width": "70ch",
-    "--font-sans": '"Newsreader", "Charter", Georgia, serif',
-    "--font-mono": '"JetBrains Mono", monospace',
-  },
-  color_overrides_light: {
-    "--background": "oklch(0.98 0.005 80)",
-    "--foreground": "oklch(0.25 0.01 60)",
-    "--card": "oklch(1 0 0 / 80%)",
-    "--primary": "oklch(0.3 0.02 60)",
-    "--muted": "oklch(0.95 0.005 80)",
-    "--border": "oklch(0 0 0 / 5%)",
-    "--shadow-lg": "0 25px 50px -12px oklch(0 0 0 / 8%)",
-  },
-  color_overrides_dark: {
-    "--background": "oklch(0.12 0 0)",
-    "--foreground": "oklch(0.85 0 0)",
-    "--card": "oklch(0.15 0 0 / 80%)",
-    "--primary": "oklch(0.9 0 0)",
-    "--muted": "oklch(0.18 0 0)",
-    "--border": "oklch(1 0 0 / 5%)",
-    "--shadow-lg": "0 25px 50px -12px oklch(0 0 0 / 50%)",
-  },
-};
-
-const BP_WORKBENCH: ThemeBlueprint = {
-  base_name: "Workbench",
-  category: "layout",
-  surface_hue: 250,
-  surface_chroma: 0.01,
-  accent_hue: 25,
-  accent_chroma: 0.2,
-  layout_variant: "workbench",
-  structural_overrides: {
-    "--radius": "0.25rem",
-  },
-  color_overrides_light: {
-    "--background": "oklch(0.9 0.01 250)",
-    "--foreground": "oklch(0.2 0.01 250)",
-    "--card": "oklch(0.94 0.01 250)",
-    "--muted": "oklch(0.85 0.01 250)",
-    "--border": "oklch(0.75 0.01 250)",
-    "--primary": "oklch(0.6 0.2 25)",
-    "--shadow-sm": "inset 0 1px 2px oklch(0 0 0 / 10%)",
-    "--shadow-md":
-      "0 4px 6px -1px oklch(0 0 0 / 10%), 0 2px 4px -1px oklch(0 0 0 / 6%)",
-    "--shadow-lg":
-      "0 10px 15px -3px oklch(0 0 0 / 10%), 0 4px 6px -2px oklch(0 0 0 / 5%)",
-  },
-  color_overrides_dark: {
-    "--background": "oklch(0.18 0.01 250)",
-    "--foreground": "oklch(0.9 0.01 250)",
-    "--card": "oklch(0.21 0.01 250)",
-    "--muted": "oklch(0.15 0.01 250)",
-    "--border": "oklch(0.25 0.01 250)",
-    "--primary": "oklch(0.7 0.2 25)",
-    "--shadow-sm": "inset 0 1px 2px oklch(0 0 0 / 40%)",
-    "--shadow-md": "0 4px 6px -1px oklch(0 0 0 / 40%)",
-    "--shadow-lg": "0 10px 15px -3px oklch(0 0 0 / 50%)",
-  },
-};
-
-const BP_COMMAND_DECK: ThemeBlueprint = {
-  base_name: "Command Deck",
-  category: "layout",
-  surface_hue: 0,
-  surface_chroma: 0,
-  accent_hue: 200,
-  accent_chroma: 0.15,
-  layout_variant: "command_deck",
-  structural_overrides: {
-    "--radius": "0.5rem",
-  },
-  color_overrides_light: {
-    "--background": "oklch(0.98 0 0)",
-    "--card": "oklch(1 0 0)",
-    "--border": "oklch(0.9 0 0)",
-    "--primary": "oklch(0.5 0.15 200)",
-  },
-  color_overrides_dark: {
-    "--background": "oklch(0.13 0 0)",
-    "--card": "oklch(0.17 0 0)",
-    "--border": "oklch(0.2 0 0)",
-    "--primary": "oklch(0.7 0.15 200)",
-  },
-};
-
-const BP_GROUNDED_HEAVY: ThemeBlueprint = {
-  base_name: "Grounded Heavy",
-  category: "layout",
-  surface_hue: 0,
-  surface_chroma: 0,
-  accent_hue: 240,
-  accent_chroma: 0.12,
-  layout_variant: "grounded_heavy",
-  schemes: "dark_only",
-  structural_overrides: {
-    "--radius": "0.75rem",
-  },
-  color_overrides_dark: {
-    "--background": "oklch(0.1 0 0)",
-    "--card": "oklch(0.14 0.01 240)",
-    "--border": "oklch(0.22 0.01 240)",
-    "--primary": "oklch(0.65 0.12 240)",
-  },
-};
-
-const BP_HUD: ThemeBlueprint = {
-  base_name: "HUD",
-  category: "layout",
-  surface_hue: 0,
-  surface_chroma: 0,
-  accent_hue: 280,
-  accent_chroma: 0.15,
-  layout_variant: "hud",
-  schemes: "dark_only",
-  structural_overrides: {
-    "--radius": "1rem",
-  },
-  color_overrides_dark: {
-    "--background": "oklch(0.11 0 0)",
-    "--card": "oklch(0.15 0 0 / 0.8)",
-    "--border": "oklch(0.2 0 0 / 0.5)",
-    "--primary": "oklch(0.7 0.15 280)",
-  },
-};
-
-const BP_ZEN_DECK: ThemeBlueprint = {
-  base_name: "Zen Deck",
-  category: "layout",
-  surface_hue: 0,
-  surface_chroma: 0,
-  accent_hue: 180,
-  accent_chroma: 0.05,
-  layout_variant: "zen_deck",
-  schemes: "dark_only",
-  structural_overrides: {
-    "--radius": "2rem",
-  },
-  color_overrides_dark: {
-    "--background": "oklch(0.05 0 0)",
-    "--card": "oklch(0.1 0 0 / 0.9)",
-    "--border": "oklch(0.15 0 0)",
-    "--primary": "oklch(0.6 0.05 180)",
-  },
-};
-
-const BP_DASHBOARD: ThemeBlueprint = {
-  base_name: "Dashboard",
-  category: "layout",
-  surface_hue: 0,
-  surface_chroma: 0,
-  accent_hue: 220,
-  accent_chroma: 0.1,
-  layout_variant: "dashboard",
-  schemes: "dark_only",
-  structural_overrides: {
-    "--radius": "0.5rem",
-  },
-  color_overrides_dark: {
-    "--background": "oklch(0.13 0 0)",
-    "--card": "oklch(0.15 0.02 220)",
-    "--border": "oklch(0.18 0.02 220)",
-    "--primary": "oklch(0.6 0.15 220)",
-  },
-};
-
 const BP_SPOTLIGHT: ThemeBlueprint = {
   base_name: "Spotlight",
   category: "layout",
@@ -1006,6 +332,7 @@ const BP_SPOTLIGHT: ThemeBlueprint = {
   accent_hue: 210,
   accent_chroma: 0.06,
   layout_variant: "spotlight",
+  css_theme: "spotlight",
   structural_overrides: {
     "--radius": "1rem",
   },
@@ -1027,33 +354,6 @@ const BP_SPOTLIGHT: ThemeBlueprint = {
   },
 };
 
-const BP_COCKPIT: ThemeBlueprint = {
-  base_name: "Cockpit",
-  category: "layout",
-  surface_hue: 170,
-  surface_chroma: 0.005,
-  accent_hue: 170,
-  accent_chroma: 0.12,
-  layout_variant: "cockpit",
-  css_theme: "cockpit",
-  structural_overrides: {
-    "--radius": "0.375rem",
-    "--size-status-bar": "calc(24px * var(--density))",
-  },
-  color_overrides_light: {
-    "--background": "oklch(0.97 0.005 170)",
-    "--card": "oklch(0.99 0.003 170)",
-    "--border": "oklch(0.9 0.008 170)",
-    "--primary": "oklch(0.48 0.12 170)",
-  },
-  color_overrides_dark: {
-    "--background": "oklch(0.13 0.005 170)",
-    "--card": "oklch(0.17 0.005 170)",
-    "--border": "oklch(0.22 0.005 170)",
-    "--primary": "oklch(0.65 0.12 170)",
-  },
-};
-
 const BP_THEATER: ThemeBlueprint = {
   base_name: "Theater",
   category: "layout",
@@ -1062,6 +362,7 @@ const BP_THEATER: ThemeBlueprint = {
   accent_hue: 260,
   accent_chroma: 0.1,
   layout_variant: "theater",
+  css_theme: "theater",
   structural_overrides: {
     "--radius": "0.75rem",
   },
@@ -1078,64 +379,6 @@ const BP_THEATER: ThemeBlueprint = {
     "--border": "oklch(1 0 0 / 6%)",
     "--primary": "oklch(0.7 0.1 260)",
     "--interactive": "oklch(0.7 0.12 260)",
-  },
-};
-
-const BP_TRIPTYCH: ThemeBlueprint = {
-  base_name: "Triptych",
-  category: "layout",
-  surface_hue: 145,
-  surface_chroma: 0.003,
-  accent_hue: 145,
-  accent_chroma: 0.1,
-  layout_variant: "triptych",
-  structural_overrides: {
-    "--radius": "0.25rem",
-  },
-  color_overrides_light: {
-    "--background": "oklch(0.98 0.003 145)",
-    "--card": "oklch(1 0 0)",
-    "--background-surface-2": "oklch(0.96 0.005 145)",
-    "--background-surface-3": "oklch(0.94 0.008 145)",
-    "--border": "oklch(0.88 0.01 145)",
-    "--primary": "oklch(0.45 0.1 145)",
-  },
-  color_overrides_dark: {
-    "--background": "oklch(0.15 0.003 145)",
-    "--card": "oklch(0.18 0.005 145)",
-    "--background-surface-2": "oklch(0.17 0.005 145)",
-    "--background-surface-3": "oklch(0.20 0.008 145)",
-    "--border": "oklch(0.25 0.008 145)",
-    "--primary": "oklch(0.65 0.1 145)",
-  },
-};
-
-const BP_LATTICE: ThemeBlueprint = {
-  base_name: "Lattice",
-  category: "layout",
-  surface_hue: 190,
-  surface_chroma: 0.004,
-  accent_hue: 190,
-  accent_chroma: 0.08,
-  layout_variant: "lattice",
-  font_family_sans: "Geist",
-  font_family_mono: "Geist Mono",
-  structural_overrides: {
-    "--radius": "0.375rem",
-  },
-  color_overrides_light: {
-    "--background": "oklch(0.98 0.004 190)",
-    "--card": "oklch(1 0 0)",
-    "--background-surface-2": "oklch(0.96 0.005 190)",
-    "--border": "oklch(0.89 0.008 190)",
-    "--primary": "oklch(0.45 0.08 190)",
-  },
-  color_overrides_dark: {
-    "--background": "oklch(0.14 0.004 190)",
-    "--card": "oklch(0.18 0.005 190)",
-    "--background-surface-2": "oklch(0.16 0.005 190)",
-    "--border": "oklch(0.23 0.008 190)",
-    "--primary": "oklch(0.65 0.08 190)",
   },
 };
 
@@ -1187,6 +430,7 @@ const BP_OBSIDIAN: ThemeBlueprint = {
   accent_chroma: 0.19,
   surface_style: "glass",
   layout_variant: "obsidian",
+  css_theme: "obsidian",
   schemes: "both",
   structural_overrides: {
     "--radius": "0.875rem",
@@ -1197,67 +441,12 @@ const BP_OBSIDIAN: ThemeBlueprint = {
   color_overrides_dark: OBSIDIAN_DARK_COLORS,
 };
 
-const BP_DRIFT: ThemeBlueprint = {
-  base_name: "Drift",
-  category: "specialty",
-  surface_hue: 275,
-  surface_chroma: 0.018,
-  accent_hue: 285,
-  accent_chroma: 0.19,
-  surface_style: "glass",
-  layout_variant: "drift",
-  schemes: "both",
-  structural_overrides: {
-    "--radius": "1rem",
-    "--shadow-md": "0 4px 16px -4px oklch(0 0 0 / 0.5)",
-    "--shadow-lg": "0 20px 50px -15px oklch(0 0 0 / 0.6)",
-  },
-  color_overrides_light: OBSIDIAN_LIGHT_COLORS,
-  color_overrides_dark: OBSIDIAN_DARK_COLORS,
-};
-
-const BP_TERMINAL: ThemeBlueprint = {
-  base_name: "Terminal",
-  category: "specialty",
-  surface_hue: 85,
-  surface_chroma: 0.005,
-  accent_hue: 85,
-  accent_chroma: 0.15,
-  css_theme: "terminal",
-  density: "compact",
-  font_family_sans: "'JetBrains Mono', 'Fira Code', monospace",
-  font_family_mono: "'JetBrains Mono', 'Fira Code', monospace",
-  spacing: "compact",
-  shiki_theme_dark: "github-dark",
-  structural_overrides: {
-    "--radius": "0px",
-    "--size-status-bar": "calc(20px * var(--density))",
-  },
-};
 const BLUEPRINTS: ThemeBlueprint[] = [
-  BP_NORDIC,
-  BP_BRUTALIST,
-  BP_NEON,
-  BP_PAPER,
-  BP_FLOATING,
+  BP_CARBIDE,
   BP_GLASS,
-  BP_DENSE,
-  BP_LINEAR,
-  BP_MONOLITH,
-  BP_WORKBENCH,
-  BP_COMMAND_DECK,
-  BP_GROUNDED_HEAVY,
-  BP_HUD,
-  BP_ZEN_DECK,
-  BP_DASHBOARD,
   BP_SPOTLIGHT,
-  BP_COCKPIT,
   BP_THEATER,
-  BP_TRIPTYCH,
-  BP_LATTICE,
   BP_OBSIDIAN,
-  BP_DRIFT,
-  BP_TERMINAL,
 ];
 
 export const BUILTIN_THEMES: readonly Theme[] =
@@ -1269,8 +458,8 @@ function find_builtin(id: string): Theme {
   return found;
 }
 
-export const BUILTIN_NORDIC_LIGHT: Theme = find_builtin("nordic-light");
-export const BUILTIN_NORDIC_DARK: Theme = find_builtin("nordic-dark");
+export const BUILTIN_CARBIDE_LIGHT: Theme = find_builtin("carbide-light");
+export const BUILTIN_CARBIDE_DARK: Theme = find_builtin("carbide-dark");
 
 export const AVAILABLE_SHIKI_THEMES = {
   light: [
@@ -1293,16 +482,16 @@ export const AVAILABLE_SHIKI_THEMES = {
   ],
 } as const;
 
-export const DEFAULT_THEME_ID = "nordic-dark";
-export const DEFAULT_LIGHT_THEME_ID = "nordic-light";
-export const DEFAULT_DARK_THEME_ID = "nordic-dark";
+export const DEFAULT_THEME_ID = "carbide-dark";
+export const DEFAULT_LIGHT_THEME_ID = "carbide-light";
+export const DEFAULT_DARK_THEME_ID = "carbide-dark";
 
 export function get_all_themes(user_themes: Theme[]): Theme[] {
   return [...BUILTIN_THEMES, ...user_themes];
 }
 
 export function resolve_theme(all_themes: Theme[], active_id: string): Theme {
-  return all_themes.find((t) => t.id === active_id) ?? BUILTIN_NORDIC_DARK;
+  return all_themes.find((t) => t.id === active_id) ?? BUILTIN_CARBIDE_DARK;
 }
 
 export function create_user_theme(name: string, base: Theme): Theme {

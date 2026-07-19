@@ -3,6 +3,7 @@ import type { OpStore } from "$lib/app";
 import type { Theme, ColorSchemePreference } from "$lib/shared/types/theme";
 import { resolve_source_shiki_vars } from "$lib/features/editor";
 import {
+  BUILTIN_THEMES,
   DEFAULT_THEME_ID,
   DEFAULT_LIGHT_THEME_ID,
   DEFAULT_DARK_THEME_ID,
@@ -75,17 +76,35 @@ export class ThemeService {
         ]);
 
       const user_themes = parse_stored_themes(stored_themes);
-      const active_theme_id =
+      const raw_active_id =
         typeof stored_id === "string" ? stored_id : DEFAULT_THEME_ID;
-      const color_scheme_preference = is_color_scheme_preference(stored_pref)
-        ? stored_pref
-        : infer_preference_from_theme_id(active_theme_id);
-      const system_light_theme_id =
+      const raw_light_id =
         typeof stored_light === "string"
           ? stored_light
           : DEFAULT_LIGHT_THEME_ID;
-      const system_dark_theme_id =
+      const raw_dark_id =
         typeof stored_dark === "string" ? stored_dark : DEFAULT_DARK_THEME_ID;
+
+      const active_theme_id = remap_theme_id(raw_active_id, user_themes);
+      const system_light_theme_id = remap_theme_id(raw_light_id, user_themes);
+      const system_dark_theme_id = remap_theme_id(raw_dark_id, user_themes);
+
+      if (active_theme_id !== raw_active_id) {
+        await this.save_active_theme_id(active_theme_id);
+      }
+      if (
+        system_light_theme_id !== raw_light_id ||
+        system_dark_theme_id !== raw_dark_id
+      ) {
+        await this.save_system_theme_ids(
+          system_light_theme_id,
+          system_dark_theme_id,
+        );
+      }
+
+      const color_scheme_preference = is_color_scheme_preference(stored_pref)
+        ? stored_pref
+        : infer_preference_from_theme_id(active_theme_id);
 
       this.op_store.succeed("theme.load");
       return {
@@ -215,4 +234,41 @@ function infer_preference_from_theme_id(
   theme_id: string,
 ): ColorSchemePreference {
   return theme_id.endsWith("-light") ? "light" : "dark";
+}
+
+/* Phase 1 cull fallback (ADR 0001 §5): culled builtin base name → kept base
+   name, scheme suffix preserved. Unknown builtin-shaped ids fall back to
+   carbide by suffix; user themes (UUID ids) pass through untouched. */
+const CULLED_BASE_FALLBACK: Record<string, string> = {
+  nordic: "carbide",
+  brutalist: "carbide",
+  dense: "carbide",
+  linear: "carbide",
+  monolith: "carbide",
+  workbench: "carbide",
+  lattice: "carbide",
+  paper: "spotlight",
+  triptych: "spotlight",
+  "zen-deck": "spotlight",
+  neon: "theater",
+  "command-deck": "theater",
+  cockpit: "theater",
+  terminal: "theater",
+  "grounded-heavy": "theater",
+  hud: "theater",
+  dashboard: "obsidian",
+  drift: "obsidian",
+  floating: "glass",
+};
+
+export function remap_theme_id(
+  id: string,
+  user_themes: readonly { id: string }[],
+): string {
+  if (BUILTIN_THEMES.some((t) => t.id === id)) return id;
+  if (user_themes.some((t) => t.id === id)) return id;
+
+  const suffix = id.endsWith("-light") ? "light" : "dark";
+  const base = id.replace(/-(light|dark)$/, "");
+  return `${CULLED_BASE_FALLBACK[base] ?? "carbide"}-${suffix}`;
 }

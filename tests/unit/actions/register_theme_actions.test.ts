@@ -3,7 +3,7 @@ import { ActionRegistry } from "$lib/app/action_registry/action_registry";
 import { ACTION_IDS } from "$lib/app/action_registry/action_ids";
 import { UIStore } from "$lib/app/orchestration/ui_store.svelte";
 import { register_theme_actions } from "$lib/features/theme";
-import { BUILTIN_NORDIC_DARK, type Theme } from "$lib/shared/types/theme";
+import { BUILTIN_CARBIDE_DARK, type Theme } from "$lib/shared/types/theme";
 
 function create_theme(
   id: string,
@@ -11,7 +11,7 @@ function create_theme(
   overrides: Partial<Theme> = {},
 ): Theme {
   return {
-    ...BUILTIN_NORDIC_DARK,
+    ...BUILTIN_CARBIDE_DARK,
     id,
     name,
     is_builtin: false,
@@ -26,10 +26,10 @@ function create_harness() {
   const theme_service = {
     load_themes: vi.fn().mockResolvedValue({
       user_themes: [],
-      active_theme_id: BUILTIN_NORDIC_DARK.id,
+      active_theme_id: BUILTIN_CARBIDE_DARK.id,
       color_scheme_preference: "dark",
-      system_light_theme_id: "nordic-light",
-      system_dark_theme_id: "nordic-dark",
+      system_light_theme_id: "carbide-light",
+      system_dark_theme_id: "carbide-dark",
     }),
     save_user_themes: vi.fn().mockResolvedValue(undefined),
     save_active_theme_id: vi.fn().mockResolvedValue(undefined),

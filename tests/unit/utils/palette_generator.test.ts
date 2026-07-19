@@ -6,7 +6,7 @@ import {
   type UiTokenParams,
 } from "$lib/shared/utils/palette_generator";
 import type { Theme } from "$lib/shared/types/theme";
-import { BUILTIN_NORDIC_DARK } from "$lib/shared/types/theme";
+import { BUILTIN_CARBIDE_DARK } from "$lib/shared/types/theme";
 
 const OKLCH_RE = /^oklch\(\d+\.\d+ \d+\.\d+ \d+(\.\d+)?\)$/;
 
@@ -54,7 +54,7 @@ describe("generate_palette", () => {
 
 describe("apply_auto_palette", () => {
   function make_theme(overrides: Partial<Theme> = {}): Theme {
-    return { ...BUILTIN_NORDIC_DARK, is_builtin: false, ...overrides };
+    return { ...BUILTIN_CARBIDE_DARK, is_builtin: false, ...overrides };
   }
 
   it("fills null color fields when auto_palette is true", () => {

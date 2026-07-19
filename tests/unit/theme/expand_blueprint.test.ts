@@ -110,7 +110,7 @@ describe("expand_blueprint", () => {
   it("propagates optional fields when set", () => {
     const bp: ThemeBlueprint = {
       ...MINIMAL_BP,
-      layout_variant: "cockpit",
+      layout_variant: "spotlight",
       font_family_sans: "Roboto",
       font_family_mono: "Fira Code",
       font_size: 1.125,
@@ -125,7 +125,7 @@ describe("expand_blueprint", () => {
     };
     const themes = expand_blueprint(bp);
     for (const t of themes) {
-      expect(t.layout_variant).toBe("cockpit");
+      expect(t.layout_variant).toBe("spotlight");
       expect(t.font_family_sans).toBe("Roboto");
       expect(t.font_family_mono).toBe("Fira Code");
       expect(t.font_size).toBe(1.125);

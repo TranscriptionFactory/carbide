@@ -21,7 +21,18 @@
             document.documentElement.setAttribute("data-color-scheme", scheme);
             document.documentElement.style.setProperty("color-scheme", scheme);
           }
-          if (cache.data_theme) {
+          // Pre-v2 caches may carry a culled theme's data_theme + full stale
+          // token map: apply only the (theme-independent) color scheme and let
+          // apply_theme rewrite a v2 cache on first paint.
+          if (cache.v !== 2) return;
+          var kept_themes = [
+            "carbide",
+            "glass",
+            "spotlight",
+            "theater",
+            "obsidian",
+          ];
+          if (cache.data_theme && kept_themes.indexOf(cache.data_theme) !== -1) {
             document.documentElement.setAttribute(
               "data-theme",
               cache.data_theme,
