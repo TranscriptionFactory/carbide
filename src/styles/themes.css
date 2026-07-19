@@ -234,33 +234,11 @@
 
 /* ============== Glass ======================================
    Frosted chrome: translucent surfaces come from the blueprint;
-   the blur lives here. html prefix beats Svelte-scoped rules.
+   blur is delivered token-only via --chrome-blur, consumed by
+   the components layer (component_overrides.css).
    ============================================================ */
-html[data-theme="glass"] .ActivityBar {
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-}
-
-/* ============== Floating ===================================
-   Pill activity bar detached from the window edges.
-   ============================================================ */
-html[data-theme="floating"] .ActivityBar {
-  margin: 1rem;
-  height: calc(100% - 2rem);
-  border-radius: 2rem;
-  border-inline-end: none;
-  box-shadow: var(--shadow-md);
-}
-
-html[data-theme="floating"] .SidebarHeader {
-  border-radius: 1rem 1rem 0 0;
-}
-
-/* ============== Neon =======================================
-   Glow on the active activity-bar button.
-   ============================================================ */
-html[data-theme="neon"] .ActivityBar__button--active {
-  box-shadow: 0 0 8px var(--accent-glow);
+[data-theme="glass"] {
+  --chrome-blur: 20px;
 }
 
 /* ============== Density tokens =============================

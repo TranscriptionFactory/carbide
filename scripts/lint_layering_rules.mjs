@@ -260,6 +260,138 @@ function files_for_layer(layer) {
 
 const violations = [];
 
+// ---- Theme contract (ADR 0001): themes are token-only [data-theme] blocks ----
+
+const theme_selector_regex =
+  /^(html)?\[data-theme(="[a-z0-9-]+")?\](\[data-color-scheme(="[a-z]+")?\])?$/;
+
+const theme_component_selector_patterns = [
+  /\.ActivityBar/,
+  /\.TabBar/,
+  /\.StatusBar/,
+  /\.SidebarPanel/,
+  /\.WorkspaceLayout/,
+  /\.NoteEditor/,
+  /\.ContextRail/,
+  /\[data-slot=/,
+  /\[data-pane/,
+];
+
+function strip_css_comments(content) {
+  return content.replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, " "));
+}
+
+function find_block_end(content, open_brace_index) {
+  let depth = 0;
+  for (let i = open_brace_index; i < content.length; i++) {
+    if (content[i] === "{") depth += 1;
+    else if (content[i] === "}") {
+      depth -= 1;
+      if (depth === 0) return i;
+    }
+  }
+  return content.length - 1;
+}
+
+function lint_theme_block(file_path, content, selector, body_start, body_end) {
+  const trimmed_selector = selector.trim().replace(/\s+/g, " ");
+  if (!theme_selector_regex.test(trimmed_selector)) {
+    violations.push({
+      file: relative_path(file_path),
+      line: line_number(content, body_start),
+      message:
+        `theme contract: selector "${trimmed_selector}" is not a pure ` +
+        "[data-theme][data-color-scheme] block (no descendants, classes, or elements)",
+    });
+    return;
+  }
+
+  const body = content.slice(body_start + 1, body_end);
+  const declaration_regex = /([^;{}]+?):([^;{}]*);|[^;{}]*\{/g;
+  let decl_match = declaration_regex.exec(body);
+  while (decl_match) {
+    const absolute_index = body_start + 1 + decl_match.index;
+    if (decl_match[0].endsWith("{")) {
+      violations.push({
+        file: relative_path(file_path),
+        line: line_number(content, absolute_index),
+        message:
+          "theme contract: nested rule inside a [data-theme] block; " +
+          "theme blocks may only declare --* custom properties",
+      });
+    } else {
+      const property = decl_match[1].trim();
+      if (!/^--[\w-]+$/.test(property)) {
+        violations.push({
+          file: relative_path(file_path),
+          line: line_number(content, absolute_index),
+          message:
+            `theme contract: declaration "${property}" is not a --* custom property; ` +
+            "themes may only recolor via tokens",
+        });
+      }
+    }
+    decl_match = declaration_regex.exec(body);
+  }
+}
+
+function lint_theme_file(file_path) {
+  const raw = fs.readFileSync(file_path, "utf8");
+  const content = strip_css_comments(raw);
+
+  const important_regex = /!important/g;
+  let important_match = important_regex.exec(content);
+  while (important_match) {
+    violations.push({
+      file: relative_path(file_path),
+      line: line_number(content, important_match.index),
+      message: "theme contract: !important is forbidden in theme CSS",
+    });
+    important_match = important_regex.exec(content);
+  }
+
+  let cursor = 0;
+  while (cursor < content.length) {
+    const open_brace = content.indexOf("{", cursor);
+    if (open_brace === -1) break;
+    const selector_start = Math.max(
+      content.lastIndexOf("}", open_brace),
+      content.lastIndexOf(";", open_brace),
+    );
+    const selector = content.slice(selector_start + 1, open_brace);
+    const block_end = find_block_end(content, open_brace);
+
+    if (selector.trim().startsWith("@layer")) {
+      // descend into @layer theme wrappers; treat contents as top level
+      cursor = open_brace + 1;
+      continue;
+    }
+
+    if (selector.includes("[data-theme")) {
+      lint_theme_block(file_path, content, selector, open_brace, block_end);
+    } else {
+      for (const pattern of theme_component_selector_patterns) {
+        if (pattern.test(selector)) {
+          violations.push({
+            file: relative_path(file_path),
+            line: line_number(content, open_brace),
+            message:
+              `theme contract: component selector "${selector.trim()}" in theme CSS; ` +
+              "component styling belongs to the components layer",
+          });
+          break;
+        }
+      }
+    }
+    cursor = block_end + 1;
+  }
+}
+
+const themes_css_path = path.join(project_root, "src/styles/themes.css");
+if (fs.existsSync(themes_css_path)) {
+  lint_theme_file(themes_css_path);
+}
+
 for (const rule of layer_rules) {
   const files = files_for_layer(rule.layer);
 
