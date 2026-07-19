@@ -7,7 +7,6 @@
     MacosDragStrip,
     is_mac,
     is_tauri,
-    should_show_macos_drag_strip,
   } from "$lib/features/window";
   import { VaultSelectionPanel } from "$lib/features/vault";
   import { use_keyboard_shortcuts } from "$lib/hooks/use_keyboard_shortcuts.svelte";
@@ -33,14 +32,7 @@
   const omnibar_open = $derived(stores.ui.omnibar.open);
 
   const is_mac_desktop = is_tauri() && is_mac();
-  const lattice_title_bar_visible = $derived(
-    has_vault &&
-      stores.ui.active_theme.layout_variant === "lattice" &&
-      !stores.ui.zen_mode,
-  );
-  const show_mac_drag_strip = $derived(
-    should_show_macos_drag_strip(is_mac_desktop, lattice_title_bar_visible),
-  );
+  const show_mac_drag_strip = is_mac_desktop;
 
   $effect(() => {
     document.body.classList.toggle("macos-drag-strip", show_mac_drag_strip);

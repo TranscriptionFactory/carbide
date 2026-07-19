@@ -15,7 +15,6 @@ export {
   is_windows,
   is_tauri,
   should_use_custom_window_chrome,
-  should_show_macos_drag_strip,
   MACOS_TRAFFIC_LIGHT_SAFE_PADDING,
 } from "$lib/features/window/domain/platform";
 export { sync_window_material } from "$lib/features/window/domain/window_material";

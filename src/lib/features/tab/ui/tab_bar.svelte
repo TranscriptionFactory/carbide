@@ -30,13 +30,6 @@
 
   const tabs = $derived(stores.tab.tabs);
   const active_tab_id = $derived(stores.tab.active_tab_id);
-  const layout_variant = $derived(stores.ui.active_theme.layout_variant);
-  const is_command_deck = $derived(layout_variant === "command_deck");
-  const is_grounded_heavy = $derived(layout_variant === "grounded_heavy");
-  const is_hud = $derived(layout_variant === "hud");
-  const is_zen_deck = $derived(layout_variant === "zen_deck");
-  const is_dashboard = $derived(layout_variant === "dashboard");
-  const is_drift = $derived(layout_variant === "drift");
 
   let scroll_container: HTMLDivElement | undefined = $state();
   let can_scroll_left = $state(false);
@@ -454,21 +447,19 @@
       </button>
     {/if}
 
-    {#if !is_command_deck && !is_grounded_heavy && !is_hud && !is_zen_deck && !is_dashboard && !is_drift}
-      <div class="TabBar__actions">
-        <button
-          type="button"
-          class="TabBar__action-btn"
-          class:TabBar__action-btn--active={stores.ui.context_rail_open}
-          onclick={() =>
-            void action_registry.execute(ACTION_IDS.ui_toggle_context_rail)}
-          aria-pressed={stores.ui.context_rail_open}
-          aria-label="Toggle context panel"
-        >
-          <PanelRight class="TabBar__action-icon" />
-        </button>
-      </div>
-    {/if}
+    <div class="TabBar__actions">
+      <button
+        type="button"
+        class="TabBar__action-btn"
+        class:TabBar__action-btn--active={stores.ui.context_rail_open}
+        onclick={() =>
+          void action_registry.execute(ACTION_IDS.ui_toggle_context_rail)}
+        aria-pressed={stores.ui.context_rail_open}
+        aria-label="Toggle context panel"
+      >
+        <PanelRight class="TabBar__action-icon" />
+      </button>
+    </div>
   </div>
 {/if}
 

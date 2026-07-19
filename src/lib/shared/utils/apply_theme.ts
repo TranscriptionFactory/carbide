@@ -27,6 +27,7 @@ const BOLD_WEIGHT_MAP: Record<string, string> = {
 };
 
 const THEME_CACHE_KEY = "carbide_active_theme_cache";
+const THEME_CACHE_VERSION = 2;
 
 function apply_optional(
   entries: [string, string][],
@@ -36,6 +37,10 @@ function apply_optional(
   if (value) entries.push([key, value]);
 }
 
+/* Builtin themes live as static [data-theme] token blocks in themes.css;
+   the runtime override set is only what CSS cannot know: accent params,
+   resolved font stacks, and editor typography preferences. User themes
+   additionally get their generated palette + token_overrides inline. */
 function build_token_entries(theme: Theme): [string, string][] {
   const entries: [string, string][] = [
     ["--accent-hue", String(theme.accent_hue)],
@@ -118,31 +123,25 @@ function build_token_entries(theme: Theme): [string, string][] {
   );
   apply_optional(entries, "--graph-label", theme.graph_label_color);
 
-  const generated = generate_ui_tokens({
-    surface_hue: theme.surface_hue,
-    surface_chroma: theme.surface_chroma,
-    accent_hue: theme.accent_hue,
-    accent_chroma: theme.accent_chroma,
-    scheme: theme.color_scheme,
-    style: theme.surface_style,
-  });
-  for (const [key, value] of Object.entries(generated)) {
-    entries.push([key, value]);
-  }
+  if (!theme.is_builtin) {
+    const generated = generate_ui_tokens({
+      surface_hue: theme.surface_hue,
+      surface_chroma: theme.surface_chroma,
+      accent_hue: theme.accent_hue,
+      accent_chroma: theme.accent_chroma,
+      scheme: theme.color_scheme,
+      style: theme.surface_style,
+    });
+    for (const [key, value] of Object.entries(generated)) {
+      entries.push([key, value]);
+    }
 
-  for (const [key, value] of Object.entries(theme.token_overrides)) {
-    entries.push([key.startsWith("--") ? key : `--${key}`, value]);
+    for (const [key, value] of Object.entries(theme.token_overrides)) {
+      entries.push([key.startsWith("--") ? key : `--${key}`, value]);
+    }
   }
 
   return entries;
-}
-
-const LAYOUT_TO_DATA_THEME: Record<string, string> = {
-  cockpit: "cockpit",
-};
-
-function resolve_data_theme(layout_variant: string): string {
-  return LAYOUT_TO_DATA_THEME[layout_variant] ?? "carbide";
 }
 
 let applied_property_keys: string[] = [];
@@ -172,7 +171,7 @@ export function apply_theme(
       : theme.shiki_theme_light;
   root.setAttribute("data-shiki-theme", shiki_theme);
 
-  const resolved = apply_auto_palette(theme);
+  const resolved = theme.is_builtin ? theme : apply_auto_palette(theme);
   const entries = build_token_entries(resolved);
   applied_property_keys = entries.map(([k]) => k);
 
@@ -180,8 +179,7 @@ export function apply_theme(
     root.style.setProperty(key, value);
   }
 
-  const data_theme =
-    theme.css_theme ?? resolve_data_theme(theme.layout_variant);
+  const data_theme = theme.css_theme ?? "carbide";
   root.setAttribute("data-theme", data_theme);
 
   root.setAttribute("data-density", theme.density);
@@ -206,8 +204,9 @@ function cache_theme_for_fouc(
 ): void {
   try {
     const cache: Record<string, unknown> = {
+      v: THEME_CACHE_VERSION,
       color_scheme: theme.color_scheme,
-      data_theme: theme.css_theme ?? resolve_data_theme(theme.layout_variant),
+      data_theme: theme.css_theme ?? "carbide",
       density: theme.density,
       tokens: Object.fromEntries(entries),
     };

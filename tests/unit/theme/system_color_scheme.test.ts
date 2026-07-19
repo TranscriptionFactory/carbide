@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   find_paired_theme_id,
   BUILTIN_THEMES,
-  BUILTIN_NORDIC_DARK,
+  BUILTIN_CARBIDE_DARK,
   type Theme,
 } from "$lib/shared/types/theme";
 
@@ -12,7 +12,7 @@ function create_user_theme(
   color_scheme: "light" | "dark",
 ): Theme {
   return {
-    ...BUILTIN_NORDIC_DARK,
+    ...BUILTIN_CARBIDE_DARK,
     id,
     name,
     color_scheme,
@@ -23,21 +23,21 @@ function create_user_theme(
 
 describe("find_paired_theme_id", () => {
   it("finds the light pair of a builtin dark theme", () => {
-    const result = find_paired_theme_id("nordic-dark", [...BUILTIN_THEMES]);
-    expect(result).toBe("nordic-light");
+    const result = find_paired_theme_id("carbide-dark", [...BUILTIN_THEMES]);
+    expect(result).toBe("carbide-light");
   });
 
   it("finds the dark pair of a builtin light theme", () => {
-    const result = find_paired_theme_id("nordic-light", [...BUILTIN_THEMES]);
-    expect(result).toBe("nordic-dark");
+    const result = find_paired_theme_id("carbide-light", [...BUILTIN_THEMES]);
+    expect(result).toBe("carbide-dark");
   });
 
-  it("pairs paper themes correctly", () => {
-    expect(find_paired_theme_id("paper-dark", [...BUILTIN_THEMES])).toBe(
-      "paper-light",
+  it("pairs spotlight themes correctly", () => {
+    expect(find_paired_theme_id("spotlight-dark", [...BUILTIN_THEMES])).toBe(
+      "spotlight-light",
     );
-    expect(find_paired_theme_id("paper-light", [...BUILTIN_THEMES])).toBe(
-      "paper-dark",
+    expect(find_paired_theme_id("spotlight-light", [...BUILTIN_THEMES])).toBe(
+      "spotlight-dark",
     );
   });
 
