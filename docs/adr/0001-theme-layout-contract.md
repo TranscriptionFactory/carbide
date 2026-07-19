@@ -7,11 +7,11 @@
 ## Context
 
 Carbide shipped ~42 builtin theme ids from 23 blueprints (`src/lib/shared/types/theme.ts`),
-plus 14 `theme-*.css` files carrying *structural* CSS — `position: absolute` chrome
+plus 14 `theme-*.css` files carrying _structural_ CSS — `position: absolute` chrome
 relocation, deep `[data-pane][order=N]` selectors into paneforge/shadcn internals, and
 CSS-vs-inline-style `!important` warfare. Themes forced layout (`layout_variant`), layout
 lived in skin CSS, and DOM changes silently rotted order-indexed selectors (both the
-spotlight and theater files ended up pinning the *outline* pane with rules written for the
+spotlight and theater files ended up pinning the _outline_ pane with rules written for the
 context rail, while their `.ContextRail` rules matched nothing).
 
 The style substrate is one merged `src/styles/tokens.css` plus an
@@ -56,11 +56,11 @@ Layout variants become **layout presets** (a named bundle of parameter values ov
 default layout) plus at most **one structural capability** built into the default layout
 component in Phase 2. Per-variant decomposition verdicts (adopted):
 
-| Variant | Verdict | Shape |
-| --- | --- | --- |
-| **Obsidian** | **preset** (high confidence) | Pure paint. 4 parameters: `--chrome-blur: 20px` (unifies the old 16/20/24 spread), `--workspace-backdrop` (dual `--accent-glow` radial gradients), `--workspace-grain` (4px dot-grid, 4% dark / 6% light), `--panel-radius: var(--radius)`. Zero structure; needs ~4 inert base consumption rules in the components layer. |
-| **Spotlight** | **hybrid → preset**, contingent on a `panels: docked\|overlay` mode | 8 parameters: editor-width 80ch (via the *setting*, not token shadowing), sidebar-width 18rem pinned, `--statusbar-shape: floating-pill`, activitybar-mode floating-dock, tabbar-mode floating-pill (36rem, fill-active), `--chrome-idle-opacity` 0.35/0.4, `--chrome-glass` (card@80% + blur 16px), pill radii/shadows. One structure item: overlay side panels (all of its `!important` existed only to defeat paneforge inline flex). |
-| **Theater** | **hybrid → preset**, contingent on `chrome-mode: edge-reveal` | 8 parameters: `chrome-mode: edge-reveal`, editor-width 80ch, sidebar-width 20rem, `--statusbar-shape: floating-pill`, `--tab-active-indicator: fill`, `--radius: 0.75rem`, reveal motion from existing motion tokens, edge-width 3px. One structure item: sidebar/rail as fixed-width overlays outside the resizable pane system — a conditional DOM fork in `workspace_layout.svelte`, the pattern zen mode already uses. |
+| Variant       | Verdict                                                             | Shape                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| ------------- | ------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Obsidian**  | **preset** (high confidence)                                        | Pure paint. 4 parameters: `--chrome-blur: 20px` (unifies the old 16/20/24 spread), `--workspace-backdrop` (dual `--accent-glow` radial gradients), `--workspace-grain` (4px dot-grid, 4% dark / 6% light), `--panel-radius: var(--radius)`. Zero structure; needs ~4 inert base consumption rules in the components layer.                                                                                                               |
+| **Spotlight** | **hybrid → preset**, contingent on a `panels: docked\|overlay` mode | 8 parameters: editor-width 80ch (via the _setting_, not token shadowing), sidebar-width 18rem pinned, `--statusbar-shape: floating-pill`, activitybar-mode floating-dock, tabbar-mode floating-pill (36rem, fill-active), `--chrome-idle-opacity` 0.35/0.4, `--chrome-glass` (card@80% + blur 16px), pill radii/shadows. One structure item: overlay side panels (all of its `!important` existed only to defeat paneforge inline flex). |
+| **Theater**   | **hybrid → preset**, contingent on `chrome-mode: edge-reveal`       | 8 parameters: `chrome-mode: edge-reveal`, editor-width 80ch, sidebar-width 20rem, `--statusbar-shape: floating-pill`, `--tab-active-indicator: fill`, `--radius: 0.75rem`, reveal motion from existing motion tokens, edge-width 3px. One structure item: sidebar/rail as fixed-width overlays outside the resizable pane system — a conditional DOM fork in `workspace_layout.svelte`, the pattern zen mode already uses.               |
 
 Both structure items are **overlay side surfaces**. Phase 2 builds this **once** into the
 single default layout — a `panels: "docked" | "overlay"` render branch (the overlay branch
@@ -70,7 +70,7 @@ strips, collapse/reveal) is component-owned CSS keyed off affordance flags
 (`data-statusbar-shape` precedent), never theme CSS.
 
 The `layout_variant` theme field is severed: the theme picker selects a recolor; the layout
-preset is chosen independently (a theme may *suggest* a default pairing).
+preset is chosen independently (a theme may _suggest_ a default pairing).
 
 ### 3. The 6 kept themes and the cull
 

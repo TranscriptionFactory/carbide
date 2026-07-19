@@ -380,6 +380,9 @@
    or its top edge sits under the traffic lights. (The pre-migration selector
    put [data-layout-variant] under body and could never match; data attrs live
    on <html>.) */
-[data-layout-variant="theater"] body.macos-drag-strip .WorkspaceLayout .ActivityBar {
+[data-layout-variant="theater"]
+  body.macos-drag-strip
+  .WorkspaceLayout
+  .ActivityBar {
   top: var(--macos-drag-strip-height);
 }

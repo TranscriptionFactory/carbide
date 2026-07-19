@@ -32,7 +32,10 @@
             "theater",
             "obsidian",
           ];
-          if (cache.data_theme && kept_themes.indexOf(cache.data_theme) !== -1) {
+          if (
+            cache.data_theme &&
+            kept_themes.indexOf(cache.data_theme) !== -1
+          ) {
             document.documentElement.setAttribute(
               "data-theme",
               cache.data_theme,
