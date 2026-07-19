@@ -126,3 +126,67 @@
   outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
 }
+
+/* ============================================
+   ACCENT UTILITY CLASSES
+   ============================================
+   Moved verbatim from the former design_tokens.css.
+   Kept inside @layer utilities: the manual .bg-interactive
+   (tinted, var(--interactive-bg)) must keep beating the
+   Tailwind-generated .bg-interactive (solid accent) by
+   later document order WITHIN the utilities layer.
+   ============================================ */
+
+@layer utilities {
+  /* Interactive background states */
+  .bg-interactive {
+    background-color: var(--interactive-bg);
+  }
+
+  .bg-interactive-hover {
+    background-color: var(--interactive-bg-hover);
+  }
+
+  /* Active/selected states with accent */
+  .is-active {
+    background-color: var(--interactive-bg);
+    color: var(--interactive);
+  }
+
+  .is-active-subtle {
+    background-color: color-mix(
+      in oklch,
+      var(--interactive-bg) 50%,
+      transparent
+    );
+  }
+
+  /* Focus ring utility */
+  .focus-ring-interactive {
+    &:focus-visible {
+      outline-color: var(--focus-ring);
+    }
+  }
+
+  /* Indicator line (for active states like activity bar) */
+  .has-indicator {
+    position: relative;
+
+    &::before {
+      content: "";
+      position: absolute;
+      inset-block: var(--space-2);
+      inset-inline-start: 0;
+      width: 2px;
+      background-color: var(--interactive);
+      border-radius: 1px;
+      opacity: 0;
+      transition: opacity var(--duration-fast) var(--ease-default);
+    }
+
+    &[data-active="true"]::before,
+    &.is-active::before {
+      opacity: 1;
+    }
+  }
+}
