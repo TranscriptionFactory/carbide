@@ -156,10 +156,12 @@
   /* ----------- Tier 2: Semantic (LIGHT default) ----------- */
   :root,
   [data-color-scheme="light"] {
-    /* Accent parameters: Spruce green (hue 155). Themes and the accent
-     picker rewrite these; the whole accent scale derives from them. */
-    --accent-hue: 155;
-    --accent-chroma: 0.11;
+    /* Accent parameters: Carbide purple #7e1dfb = oklch(0.5337 0.2808 293.24),
+     chroma clamped to the max in-gamut value at the L0.48 anchor (ADR 0001 §4).
+     Themes and the accent picker rewrite these; the whole accent scale
+     derives from them. */
+    --accent-hue: 293.24;
+    --accent-chroma: 0.2663;
 
     /* Accent scale (50-900) — formerly --teal-* */
     --accent-50: oklch(0.97 0.02 var(--accent-hue));
@@ -232,7 +234,7 @@
     --popover: oklch(1 0 0);
     --popover-foreground: oklch(0.27 0.012 66);
 
-    /* Spruce accent primary */
+    /* Purple accent primary */
     --primary: var(--accent-500);
     --primary-foreground: oklch(1 0 0);
     /* Hover state: #EBEBEA */

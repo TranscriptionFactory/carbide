@@ -5,8 +5,9 @@
 
    Blocks are generated from the kept blueprints via the same
    pipeline apply_theme used to run inline (generate_ui_tokens +
-   generate_palette + blueprint overrides), so the rendered
-   output is identical to the pre-cull runtime application.
+   generate_palette + blueprint overrides). Accent identity is
+   purple #7e1dfb (ADR 0001 §4); values out of sRGB gamut at a
+   given lightness rely on CSS chroma-reducing gamut mapping.
    ============================================================ */
 
 /* ============== Carbide (default pair) ===================== */
@@ -27,29 +28,29 @@
   --foreground-tertiary: oklch(0.620 0.0080 68.0);
   --border-strong: oklch(0.860 0.0080 68.0);
   --border-subtle: oklch(0.950 0.0080 68.0);
-  --primary: oklch(0.480 0.1100 155.0);
+  --primary: oklch(0.480 0.2663 293.2);
   --primary-foreground: oklch(1.000 0.0000 0.0);
-  --interactive: oklch(0.480 0.1100 155.0);
-  --interactive-hover: oklch(0.430 0.1100 155.0);
+  --interactive: oklch(0.480 0.2663 293.2);
+  --interactive-hover: oklch(0.430 0.2663 293.2);
   --scrollbar-thumb: oklch(0.890 0.0080 68.0);
   --scrollbar-thumb-hover: oklch(0.830 0.0080 68.0);
-  --ring: oklch(0.600 0.1000 155.0);
-  --accent: oklch(0.940 0.0300 155.0);
-  --accent-foreground: oklch(0.370 0.0900 155.0);
+  --ring: oklch(0.600 0.1000 293.2);
+  --accent: oklch(0.940 0.0300 293.2);
+  --accent-foreground: oklch(0.370 0.0900 293.2);
   --destructive: oklch(0.550 0.2200 25.0);
   --destructive-foreground: oklch(1.000 0.0000 0.0);
-  --editor-text: oklch(0.250 0.0200 155.0);
-  --editor-link: oklch(0.500 0.1100 155.0);
-  --editor-bold-color: oklch(0.420 0.0660 155.0);
-  --editor-italic-color: oklch(0.480 0.0440 155.0);
-  --editor-blockquote-border: oklch(0.600 0.0550 155.0);
-  --editor-blockquote-text: oklch(0.450 0.0220 155.0);
-  --editor-code-bg: oklch(0.950 0.0088 155.0);
-  --editor-code-block-text: oklch(0.350 0.0330 155.0);
-  --editor-code-inline-bg: oklch(0.930 0.0132 155.0);
-  --editor-code-inline-text: oklch(0.400 0.0440 155.0);
-  --editor-mark-bg: oklch(0.880 0.0330 185.0);
-  --editor-mark-text: oklch(0.250 0.0110 185.0);
+  --editor-text: oklch(0.250 0.0484 293.2);
+  --editor-link: oklch(0.500 0.2663 293.2);
+  --editor-bold-color: oklch(0.420 0.1598 293.2);
+  --editor-italic-color: oklch(0.480 0.1065 293.2);
+  --editor-blockquote-border: oklch(0.600 0.1331 293.2);
+  --editor-blockquote-text: oklch(0.450 0.0533 293.2);
+  --editor-code-bg: oklch(0.950 0.0213 293.2);
+  --editor-code-block-text: oklch(0.350 0.0799 293.2);
+  --editor-code-inline-bg: oklch(0.930 0.0320 293.2);
+  --editor-code-inline-text: oklch(0.400 0.1065 293.2);
+  --editor-mark-bg: oklch(0.880 0.0799 323.2);
+  --editor-mark-text: oklch(0.250 0.0266 323.2);
 }
 [data-theme="carbide"][data-color-scheme="dark"] {
   --background: oklch(0.180 0.0080 68.0);
@@ -68,29 +69,29 @@
   --foreground-tertiary: oklch(0.550 0.0080 68.0);
   --border-strong: oklch(0.380 0.0080 68.0);
   --border-subtle: oklch(0.225 0.0080 68.0);
-  --primary: oklch(0.680 0.1100 155.0);
+  --primary: oklch(0.680 0.2663 293.2);
   --primary-foreground: oklch(0.100 0.0000 0.0);
-  --interactive: oklch(0.680 0.1100 155.0);
-  --interactive-hover: oklch(0.730 0.1100 155.0);
+  --interactive: oklch(0.680 0.2663 293.2);
+  --interactive-hover: oklch(0.730 0.2663 293.2);
   --scrollbar-thumb: oklch(0.330 0.0080 68.0);
   --scrollbar-thumb-hover: oklch(0.400 0.0080 68.0);
-  --ring: oklch(0.680 0.1100 155.0);
-  --accent: oklch(0.320 0.0600 155.0);
-  --accent-foreground: oklch(0.880 0.0600 155.0);
+  --ring: oklch(0.680 0.1100 293.2);
+  --accent: oklch(0.320 0.0600 293.2);
+  --accent-foreground: oklch(0.880 0.0600 293.2);
   --destructive: oklch(0.650 0.2200 25.0);
   --destructive-foreground: oklch(0.100 0.0000 0.0);
-  --editor-text: oklch(0.880 0.0200 155.0);
-  --editor-link: oklch(0.720 0.1100 155.0);
-  --editor-bold-color: oklch(0.750 0.0660 155.0);
-  --editor-italic-color: oklch(0.700 0.0440 155.0);
-  --editor-blockquote-border: oklch(0.550 0.0550 155.0);
-  --editor-blockquote-text: oklch(0.700 0.0220 155.0);
-  --editor-code-bg: oklch(0.180 0.0088 155.0);
-  --editor-code-block-text: oklch(0.800 0.0330 155.0);
-  --editor-code-inline-bg: oklch(0.200 0.0132 155.0);
-  --editor-code-inline-text: oklch(0.780 0.0440 155.0);
-  --editor-mark-bg: oklch(0.300 0.0330 185.0);
-  --editor-mark-text: oklch(0.900 0.0110 185.0);
+  --editor-text: oklch(0.880 0.0484 293.2);
+  --editor-link: oklch(0.720 0.2663 293.2);
+  --editor-bold-color: oklch(0.750 0.1598 293.2);
+  --editor-italic-color: oklch(0.700 0.1065 293.2);
+  --editor-blockquote-border: oklch(0.550 0.1331 293.2);
+  --editor-blockquote-text: oklch(0.700 0.0533 293.2);
+  --editor-code-bg: oklch(0.180 0.0213 293.2);
+  --editor-code-block-text: oklch(0.800 0.0799 293.2);
+  --editor-code-inline-bg: oklch(0.200 0.0320 293.2);
+  --editor-code-inline-text: oklch(0.780 0.1065 293.2);
+  --editor-mark-bg: oklch(0.300 0.0799 323.2);
+  --editor-mark-text: oklch(0.900 0.0266 323.2);
 }
 
 /* ============== Glass ====================================== */
@@ -311,29 +312,29 @@
   --foreground-tertiary: oklch(0.620 0.0000 0.0);
   --border-strong: oklch(0.860 0.0000 0.0);
   --border-subtle: oklch(0.950 0.0000 0.0);
-  --primary: oklch(0.5 0.1 260);
+  --primary: oklch(0.5 0.1 293.24);
   --primary-foreground: oklch(1.000 0.0000 0.0);
-  --interactive: oklch(0.5 0.12 260);
-  --interactive-hover: oklch(0.430 0.1000 260.0);
+  --interactive: oklch(0.5 0.12 293.24);
+  --interactive-hover: oklch(0.430 0.1000 293.2);
   --scrollbar-thumb: oklch(0.890 0.0000 0.0);
   --scrollbar-thumb-hover: oklch(0.830 0.0000 0.0);
-  --ring: oklch(0.600 0.1000 260.0);
-  --accent: oklch(0.940 0.0300 260.0);
-  --accent-foreground: oklch(0.370 0.0900 260.0);
+  --ring: oklch(0.600 0.1000 293.2);
+  --accent: oklch(0.940 0.0300 293.2);
+  --accent-foreground: oklch(0.370 0.0900 293.2);
   --destructive: oklch(0.550 0.2200 25.0);
   --destructive-foreground: oklch(1.000 0.0000 0.0);
-  --editor-text: oklch(0.250 0.0182 260.0);
-  --editor-link: oklch(0.500 0.1000 260.0);
-  --editor-bold-color: oklch(0.420 0.0600 260.0);
-  --editor-italic-color: oklch(0.480 0.0400 260.0);
-  --editor-blockquote-border: oklch(0.600 0.0500 260.0);
-  --editor-blockquote-text: oklch(0.450 0.0200 260.0);
-  --editor-code-bg: oklch(0.950 0.0080 260.0);
-  --editor-code-block-text: oklch(0.350 0.0300 260.0);
-  --editor-code-inline-bg: oklch(0.930 0.0120 260.0);
-  --editor-code-inline-text: oklch(0.400 0.0400 260.0);
-  --editor-mark-bg: oklch(0.880 0.0300 290.0);
-  --editor-mark-text: oklch(0.250 0.0100 290.0);
+  --editor-text: oklch(0.250 0.0182 293.2);
+  --editor-link: oklch(0.500 0.1000 293.2);
+  --editor-bold-color: oklch(0.420 0.0600 293.2);
+  --editor-italic-color: oklch(0.480 0.0400 293.2);
+  --editor-blockquote-border: oklch(0.600 0.0500 293.2);
+  --editor-blockquote-text: oklch(0.450 0.0200 293.2);
+  --editor-code-bg: oklch(0.950 0.0080 293.2);
+  --editor-code-block-text: oklch(0.350 0.0300 293.2);
+  --editor-code-inline-bg: oklch(0.930 0.0120 293.2);
+  --editor-code-inline-text: oklch(0.400 0.0400 293.2);
+  --editor-mark-bg: oklch(0.880 0.0300 323.2);
+  --editor-mark-text: oklch(0.250 0.0100 323.2);
 }
 [data-theme="theater"][data-color-scheme="dark"] {
   --background: oklch(0.08 0 0);
@@ -352,29 +353,29 @@
   --foreground-tertiary: oklch(0.550 0.0000 0.0);
   --border-strong: oklch(0.380 0.0000 0.0);
   --border-subtle: oklch(0.225 0.0000 0.0);
-  --primary: oklch(0.7 0.1 260);
+  --primary: oklch(0.7 0.1 293.24);
   --primary-foreground: oklch(0.100 0.0000 0.0);
-  --interactive: oklch(0.7 0.12 260);
-  --interactive-hover: oklch(0.730 0.1000 260.0);
+  --interactive: oklch(0.7 0.12 293.24);
+  --interactive-hover: oklch(0.730 0.1000 293.2);
   --scrollbar-thumb: oklch(0.330 0.0000 0.0);
   --scrollbar-thumb-hover: oklch(0.400 0.0000 0.0);
-  --ring: oklch(0.680 0.1100 260.0);
-  --accent: oklch(0.320 0.0600 260.0);
-  --accent-foreground: oklch(0.880 0.0600 260.0);
+  --ring: oklch(0.680 0.1100 293.2);
+  --accent: oklch(0.320 0.0600 293.2);
+  --accent-foreground: oklch(0.880 0.0600 293.2);
   --destructive: oklch(0.650 0.2200 25.0);
   --destructive-foreground: oklch(0.100 0.0000 0.0);
-  --editor-text: oklch(0.880 0.0182 260.0);
-  --editor-link: oklch(0.720 0.1000 260.0);
-  --editor-bold-color: oklch(0.750 0.0600 260.0);
-  --editor-italic-color: oklch(0.700 0.0400 260.0);
-  --editor-blockquote-border: oklch(0.550 0.0500 260.0);
-  --editor-blockquote-text: oklch(0.700 0.0200 260.0);
-  --editor-code-bg: oklch(0.180 0.0080 260.0);
-  --editor-code-block-text: oklch(0.800 0.0300 260.0);
-  --editor-code-inline-bg: oklch(0.200 0.0120 260.0);
-  --editor-code-inline-text: oklch(0.780 0.0400 260.0);
-  --editor-mark-bg: oklch(0.300 0.0300 290.0);
-  --editor-mark-text: oklch(0.900 0.0100 290.0);
+  --editor-text: oklch(0.880 0.0182 293.2);
+  --editor-link: oklch(0.720 0.1000 293.2);
+  --editor-bold-color: oklch(0.750 0.0600 293.2);
+  --editor-italic-color: oklch(0.700 0.0400 293.2);
+  --editor-blockquote-border: oklch(0.550 0.0500 293.2);
+  --editor-blockquote-text: oklch(0.700 0.0200 293.2);
+  --editor-code-bg: oklch(0.180 0.0080 293.2);
+  --editor-code-block-text: oklch(0.800 0.0300 293.2);
+  --editor-code-inline-bg: oklch(0.200 0.0120 293.2);
+  --editor-code-inline-text: oklch(0.780 0.0400 293.2);
+  --editor-mark-bg: oklch(0.300 0.0300 323.2);
+  --editor-mark-text: oklch(0.900 0.0100 323.2);
 }
 
 /* ============== Obsidian =================================== */

@@ -108,8 +108,8 @@ const SHARED_DEFAULTS: Omit<
   layout_variant: "default",
   css_theme: null,
   density: "regular",
-  accent_hue: 155,
-  accent_chroma: 0.11,
+  accent_hue: 293.24,
+  accent_chroma: 0.2663,
   surface_hue: 68,
   surface_chroma: 0.008,
   surface_style: "solid",
@@ -238,13 +238,15 @@ export function expand_blueprint(bp: ThemeBlueprint): Theme[] {
   });
 }
 
+/* Accent identity: purple #7e1dfb = oklch(0.5337 0.2808 293.24); chroma
+   clamped to the max in-gamut value at the light L0.48 anchor (ADR 0001 §4). */
 const BP_CARBIDE: ThemeBlueprint = {
   base_name: "Carbide",
   category: "core",
   surface_hue: 68,
   surface_chroma: 0.008,
-  accent_hue: 155,
-  accent_chroma: 0.11,
+  accent_hue: 293.24,
+  accent_chroma: 0.2663,
   css_theme: "carbide",
 };
 
@@ -359,7 +361,7 @@ const BP_THEATER: ThemeBlueprint = {
   category: "layout",
   surface_hue: 0,
   surface_chroma: 0,
-  accent_hue: 260,
+  accent_hue: 293.24,
   accent_chroma: 0.1,
   layout_variant: "theater",
   css_theme: "theater",
@@ -370,15 +372,15 @@ const BP_THEATER: ThemeBlueprint = {
     "--background": "oklch(0.99 0 0)",
     "--card": "oklch(1 0 0)",
     "--border": "oklch(0 0 0 / 6%)",
-    "--primary": "oklch(0.5 0.1 260)",
-    "--interactive": "oklch(0.5 0.12 260)",
+    "--primary": "oklch(0.5 0.1 293.24)",
+    "--interactive": "oklch(0.5 0.12 293.24)",
   },
   color_overrides_dark: {
     "--background": "oklch(0.08 0 0)",
     "--card": "oklch(0.13 0 0)",
     "--border": "oklch(1 0 0 / 6%)",
-    "--primary": "oklch(0.7 0.1 260)",
-    "--interactive": "oklch(0.7 0.12 260)",
+    "--primary": "oklch(0.7 0.1 293.24)",
+    "--interactive": "oklch(0.7 0.12 293.24)",
   },
 };
 
