@@ -392,6 +392,24 @@ if (fs.existsSync(themes_css_path)) {
   lint_theme_file(themes_css_path);
 }
 
+// Post-cull, per-theme CSS files are retired outright: a theme is a token
+// block in themes.css, never a stylesheet of its own.
+const styles_dir = path.join(project_root, "src/styles");
+if (fs.existsSync(styles_dir)) {
+  for (const entry of fs.readdirSync(styles_dir)) {
+    if (/^theme-.*\.css$/.test(entry)) {
+      violations.push({
+        file: `src/styles/${entry}`,
+        line: 1,
+        message:
+          "theme contract: theme-*.css files are retired; express themes as " +
+          "token-only [data-theme] blocks in themes.css (layout CSS belongs " +
+          "to the components layer)",
+      });
+    }
+  }
+}
+
 for (const rule of layer_rules) {
   const files = files_for_layer(rule.layer);
 

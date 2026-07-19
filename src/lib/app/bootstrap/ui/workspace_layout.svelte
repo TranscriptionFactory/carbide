@@ -84,10 +84,6 @@
       stores.outline.headings.length > 0 &&
       !stores.ui.zen_mode,
   );
-  const layout_variant = $derived(stores.ui.active_theme.layout_variant);
-  const is_spotlight = $derived(layout_variant === "spotlight");
-  const is_theater = $derived(layout_variant === "theater");
-  const is_obsidian = $derived(layout_variant === "obsidian");
 
   $effect(() => {
     if (stores.ui.editor_settings.file_tree_mode === "recents") {
@@ -333,9 +329,6 @@
   <div
     class="WorkspaceLayout flex h-screen flex-col"
     class:WorkspaceLayout--zen={zen_mode}
-    class:WorkspaceLayout--spotlight={is_spotlight}
-    class:WorkspaceLayout--theater={is_theater}
-    class:WorkspaceLayout--obsidian={is_obsidian}
     data-sidebar-open={stores.ui.sidebar_open}
     onpointerdown={(e) => {
       if (stores.ui.selected_items.size <= 1) return;

@@ -308,6 +308,7 @@
     --editor-code-bg: oklch(0.955 0.009 83);
 
     /* Tier 3: Tabs */
+    --tabbar-bg: var(--background);
     --tab-active-bg: var(--background);
     --tab-active-fg: var(--foreground);
     --tab-inactive-bg: var(--background-surface-3);

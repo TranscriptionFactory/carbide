@@ -196,8 +196,14 @@
 }
 
 /* ============== Spotlight ================================== */
+/* Identity: floating auto-fading glass pill chrome. Values here;
+   the consuming mode CSS lives in layout_variants.css. */
 [data-theme="spotlight"] {
   --radius: 1rem;
+  --chrome-blur: 16px;
+  --chrome-glass: color-mix(in oklch, var(--card) 80%, transparent);
+  --chrome-idle-opacity: 0.35;
+  --statusbar-idle-opacity: 0.4;
 }
 [data-theme="spotlight"][data-color-scheme="light"] {
   --background: oklch(0.98 0 0);
@@ -372,10 +378,19 @@
 }
 
 /* ============== Obsidian =================================== */
+/* Identity: violet glass over a glowing, grained void. The
+   backdrop/grain/blur are consumed by inert base rules in
+   component_overrides.css (ADR 0001). */
 [data-theme="obsidian"] {
   --radius: 0.875rem;
   --shadow-md: 0 4px 12px -2px oklch(0 0 0 / 0.4);
   --shadow-lg: 0 20px 40px -10px oklch(0 0 0 / 0.6);
+  --chrome-blur: 20px;
+  --workspace-grain-size: 4px;
+  --activity-bar-bg: var(--glass-strong);
+  --statusbar-bg: var(--glass-strong);
+  --statusbar-fg: var(--foreground);
+  --tabbar-bg: var(--glass);
 }
 [data-theme="obsidian"][data-color-scheme="light"] {
   --background: oklch(0.965 0.01 275);
@@ -417,6 +432,22 @@
   --editor-code-inline-text: oklch(0.400 0.0760 285.0);
   --editor-mark-bg: oklch(0.880 0.0570 315.0);
   --editor-mark-text: oklch(0.250 0.0190 315.0);
+  --workspace-backdrop:
+    radial-gradient(
+      ellipse 80% 60% at 30% 20%,
+      color-mix(in oklch, var(--accent-glow) 50%, transparent) 0%,
+      transparent 70%
+    ),
+    radial-gradient(
+      ellipse 60% 50% at 75% 70%,
+      color-mix(in oklch, var(--accent-glow) 30%, transparent) 0%,
+      transparent 70%
+    ),
+    var(--background);
+  --workspace-grain: radial-gradient(
+    color-mix(in oklch, var(--foreground) 6%, transparent) 1px,
+    transparent 1px
+  );
 }
 [data-theme="obsidian"][data-color-scheme="dark"] {
   --background: oklch(0.13 0.018 275);
@@ -460,6 +491,22 @@
   --editor-mark-text: oklch(0.900 0.0190 315.0);
   --interactive-bg: color-mix(in oklch, oklch(0.78 0.19 285) 20%, transparent);
   --selection-bg: color-mix(in oklch, oklch(0.78 0.19 285) 30%, transparent);
+  --workspace-backdrop:
+    radial-gradient(
+      ellipse 80% 60% at 30% 20%,
+      var(--accent-glow) 0%,
+      transparent 70%
+    ),
+    radial-gradient(
+      ellipse 60% 50% at 75% 70%,
+      color-mix(in oklch, var(--accent-glow) 80%, transparent) 0%,
+      transparent 70%
+    ),
+    var(--background);
+  --workspace-grain: radial-gradient(
+    color-mix(in oklch, var(--foreground) 4%, transparent) 1px,
+    transparent 1px
+  );
 }
 
 /* ============== Density tokens =============================

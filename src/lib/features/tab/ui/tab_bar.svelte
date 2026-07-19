@@ -469,7 +469,7 @@
     align-items: stretch;
     height: var(--size-touch-lg);
     min-width: 0;
-    background-color: var(--background);
+    background-color: var(--tabbar-bg);
     border-block-end: 1px solid var(--tab-border);
     position: relative;
     flex-shrink: 0;
