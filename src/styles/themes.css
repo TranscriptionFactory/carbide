@@ -19,10 +19,8 @@
    ============================================================ */
 [data-theme="cockpit"] {
   --font-ui: var(--font-mono);
-  --font-body: var(--font-mono);
 
   --radius: 2px;
-  --radius-pill: 2px;
 
   --text-xs: 10px;
   --text-sm: 11px;
@@ -82,11 +80,8 @@
    ============================================================ */
 [data-theme="paper"] {
   --font-ui: var(--font-serif);
-  --font-body: var(--font-serif);
-  --font-code: var(--font-mono);
 
   --radius: 0px;
-  --radius-pill: 999px;
 
   --text-base: 14px;
   --text-md: 15px;
@@ -157,11 +152,8 @@
    ============================================================ */
 [data-theme="terminal"] {
   --font-ui: var(--font-mono);
-  --font-body: var(--font-mono);
-  --font-code: var(--font-mono);
 
   --radius: 0px;
-  --radius-pill: 0px;
 
   --text-xs: 11px;
   --text-sm: 12px;

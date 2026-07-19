@@ -3,7 +3,6 @@
    ============================================ */
 
 [data-layout-variant="workbench"] .WorkspaceLayout--workbench {
-  --border-width-default: 2px;
   --radius: 0.25rem;
 
   --sidebar: var(--background-surface-2);
