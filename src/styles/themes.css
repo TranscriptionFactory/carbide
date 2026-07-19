@@ -18,22 +18,17 @@
    status bar. Sharper radii. Active row highlight ribbon.
    ============================================================ */
 [data-theme="cockpit"] {
+  /* Text-size + accent (--interactive/--focus-ring/--ring) overrides removed
+     in Phase 0: dead on main (lost to design_tokens.css import order), they
+     would go live under @layer tokens. Re-add deliberately in Phase 2. */
   --font-ui: var(--font-mono);
 
   --radius: 2px;
 
-  --text-xs: 10px;
-  --text-sm: 11px;
-  --text-base: 12px;
-  --text-md: 13px;
-  --text-lg: 14px;
   --text-xl: 18px;
 
   --size-activity-bar: calc(36px * var(--density));
 
-  --interactive: oklch(0.72 0.18 145);
-  --focus-ring: oklch(0.72 0.18 145);
-  --ring: oklch(0.72 0.18 145);
   --statusbar-bg: oklch(0.72 0.18 145);
   --statusbar-fg: oklch(0.14 0 0);
   --editor-link: oklch(0.65 0.18 220);
@@ -83,9 +78,9 @@
 
   --radius: 0px;
 
+  /* --text-lg: 17px removed in Phase 0 (dead on main, see cockpit note) */
   --text-base: 14px;
   --text-md: 15px;
-  --text-lg: 17px;
   --text-xl: 22px;
   --text-2xl: 32px;
   --leading-normal: 1.6;
@@ -155,11 +150,8 @@
 
   --radius: 0px;
 
+  /* --text-sm/base/md/lg removed in Phase 0 (dead on main, see cockpit note) */
   --text-xs: 11px;
-  --text-sm: 12px;
-  --text-base: 13px;
-  --text-md: 13px;
-  --text-lg: 15px;
   --text-xl: 18px;
   --leading-normal: 1.45;
 
