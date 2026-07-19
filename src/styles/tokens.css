@@ -7,22 +7,30 @@
 
    Themes override at any tier. Most themes only touch Tier 2.
    Density / radius / scheme tweaks override Tier 1 globals.
+
+   Single source of truth — merged from the former
+   design_tokens.css (Phase 0 of the 2026-07-19 UI overhaul).
+   Collision values carry the design_tokens runtime winners so
+   the merge is visually inert; retuning happens in Phase 2.
    ============================================================ */
 
 /* ----------- Tier 1: Primitives (defaults — neutral) ----------- */
 :root {
-  /* Spacing scale (4px base) */
-  --space-0: 0px;
+  /* Spacing scale (4px base, rem) */
+  --space-0: 0;
   --space-px: 1px;
-  --space-1: 4px;
-  --space-2: 8px;
-  --space-3: 12px;
-  --space-4: 16px;
-  --space-5: 20px;
-  --space-6: 24px;
-  --space-8: 32px;
-  --space-10: 40px;
-  --space-12: 48px;
+  --space-0-5: 0.125rem; /* 2px */
+  --space-1: 0.25rem; /* 4px */
+  --space-1-5: 0.375rem; /* 6px */
+  --space-2: 0.5rem; /* 8px */
+  --space-2-5: 0.625rem; /* 10px */
+  --space-3: 0.75rem; /* 12px */
+  --space-4: 1rem; /* 16px */
+  --space-5: 1.25rem; /* 20px */
+  --space-6: 1.5rem; /* 24px */
+  --space-8: 2rem; /* 32px */
+  --space-10: 2.5rem; /* 40px */
+  --space-12: 3rem; /* 48px */
 
   /* Density multiplier — Tweaks rewrite this */
   --density: 1;
@@ -44,12 +52,18 @@
   --font-ui: var(--font-sans);
   --font-body: var(--font-sans);
   --font-code: var(--font-mono);
+  /* Theme-facing font names (written by apply_theme, read by the
+     settings token reference panel) */
+  --font-family-sans: "Inter", system-ui, -apple-system, sans-serif;
+  --font-family-mono:
+    "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+    monospace;
 
-  --text-xs: 11px;
-  --text-sm: 12px;
-  --text-base: 13px;
-  --text-md: 14px;
-  --text-lg: 16px;
+  --text-xs: 0.6875rem; /* 11px - status bar, badges, section headers */
+  --text-sm: 0.8125rem; /* 13px - secondary text, descriptions */
+  --text-base: 0.875rem; /* 14px - body text, list items */
+  --text-md: 0.9375rem; /* 15px - emphasized body */
+  --text-lg: 1rem; /* 16px - primary content */
   --text-xl: 20px;
   --text-2xl: 28px;
 
@@ -63,28 +77,178 @@
   --weight-bold: 700;
 
   /* Motion */
-  --duration-fast: 90ms;
-  --duration-normal: 160ms;
-  --duration-slow: 280ms;
-  --ease-default: cubic-bezier(0.2, 0.6, 0.2, 1);
-  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --duration-fast: 100ms;
+  --duration-normal: 150ms;
+  --duration-slow: 200ms;
+  --duration-slower: 300ms;
 
-  /* Sizes — chrome */
+  --ease-default: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);
+  --ease-out: cubic-bezier(0, 0, 0.2, 1);
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+  /* Punchier, settle-fast curves (ported from OpenKnowledge). Use for menus,
+     panels, and marker slides where --ease-out feels soft. */
+  --ease-out-strong: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out-strong: cubic-bezier(0.77, 0, 0.175, 1);
+
+  /* Sizes — chrome (density-scaled) */
   --size-titlebar: calc(34px * var(--density));
   --size-activity-bar: calc(44px * var(--density));
-  --size-activity-icon: 18px;
+  --size-activity-icon: 1.25rem; /* 20px */
   --size-tabbar: calc(34px * var(--density));
   --size-row: calc(28px * var(--density));
+  --size-status-bar: 1.625rem; /* 26px — static; density wiring is Phase 2 */
+
+  /* Sizes — icons */
+  --size-icon-xs: 0.75rem; /* 12px */
+  --size-icon-sm: 0.875rem; /* 14px */
+  --size-icon: 1rem; /* 16px */
+  --size-icon-md: 1.25rem; /* 20px */
+  --size-icon-lg: 1.5rem; /* 24px */
+
+  /* Sizes — touch targets */
+  --size-touch-xs: 1.5rem; /* 24px - minimum touch */
+  --size-touch-sm: 1.75rem; /* 28px */
+  --size-touch: 2rem; /* 32px - default touch target */
+  --size-touch-md: 2.25rem; /* 36px */
+  --size-touch-lg: 2.5rem; /* 40px */
+
+  /* Sizes — tree */
+  --size-tree-row: 1.875rem; /* 30px — static; density wiring is Phase 2 */
+  --size-tree-blurb-gap: 2px; /* gap between heading and blurb within a row */
+  --size-tree-blurb-extra: 1.25rem; /* extra row height when blurb is shown */
+  --size-tree-indent: 1rem;
+  --size-tree-base-padding: 0.5rem;
+
+  /* Sizes — dialogs */
+  --size-dialog-sm: 24rem;
+  --size-dialog-md: 28rem;
+  --size-dialog-lg: 32rem;
+  --size-dialog-xl: 40rem;
+  --size-dialog-list-height: 20rem;
+  --size-dialog-list-height-lg: 28rem;
+
+  /* Editor dimensions */
+  --editor-heading-1: 1.75em;
+  --editor-heading-2: 1.1875em;
+  --editor-heading-3: 1.125em;
+  --editor-heading-4: 1.0625em;
+  --editor-heading-5: 1em;
+  --editor-heading-6: 0.875em;
+  --editor-bullet-size: 4px;
+  --editor-bullet-nested-size: 3px;
+  --editor-checkbox-size: 14px;
+  --editor-checkmark-width: 4px;
+  --editor-checkmark-height: 7px;
+  --editor-checkmark-stroke: 2px;
+  --editor-checkmark-offset: -1px;
+
+  /* Border system */
+  --border-width-default: 1px;
+  --border-width-thick: 2px;
+
+  /* Z-index scale */
+  --z-base: 0;
+  --z-dropdown: 10;
+  --z-sticky: 20;
+  --z-overlay: 30;
+  --z-modal: 40;
+  --z-popover: 50;
+  --z-tooltip: 60;
+
+  /* Scrollbar */
+  --scrollbar-width: 5px;
 
   /* Shadows */
   --shadow-1: 0 1px 2px oklch(0 0 0 / 0.04), 0 1px 1px oklch(0 0 0 / 0.03);
   --shadow-2: 0 4px 12px oklch(0 0 0 / 0.06), 0 1px 3px oklch(0 0 0 / 0.04);
   --shadow-3: 0 12px 32px oklch(0 0 0 / 0.1), 0 2px 6px oklch(0 0 0 / 0.05);
+  /* Warm-tinted depth system (via --shadow-color, scheme blocks below) */
+  --shadow-xs: 0 1px 2px
+    color-mix(in oklch, var(--shadow-color) 5%, transparent);
+  --shadow-sm:
+    0 1px 3px color-mix(in oklch, var(--shadow-color) 7%, transparent),
+    0 1px 2px color-mix(in oklch, var(--shadow-color) 5%, transparent);
+  --shadow-md:
+    0 4px 6px -1px color-mix(in oklch, var(--shadow-color) 7%, transparent),
+    0 2px 4px -2px color-mix(in oklch, var(--shadow-color) 5%, transparent);
+  --shadow-lg:
+    0 10px 15px -3px color-mix(in oklch, var(--shadow-color) 7%, transparent),
+    0 4px 6px -4px color-mix(in oklch, var(--shadow-color) 5%, transparent);
 }
 
 /* ----------- Tier 2: Semantic (LIGHT default) ----------- */
 :root,
 [data-color-scheme="light"] {
+  /* Accent parameters: Spruce green (hue 155). Themes and the accent
+     picker rewrite these; the whole accent scale derives from them. */
+  --accent-hue: 155;
+  --accent-chroma: 0.11;
+
+  /* Accent scale (50-900) — formerly --teal-* */
+  --accent-50: oklch(0.97 0.02 var(--accent-hue));
+  --accent-100: oklch(0.94 0.03 var(--accent-hue));
+  --accent-200: oklch(0.88 0.05 var(--accent-hue));
+  --accent-300: oklch(0.78 0.07 var(--accent-hue));
+  --accent-400: oklch(0.65 0.09 var(--accent-hue));
+  --accent-500: oklch(0.48 var(--accent-chroma) var(--accent-hue));
+  --accent-600: oklch(0.43 var(--accent-chroma) var(--accent-hue));
+  --accent-700: oklch(0.37 0.09 var(--accent-hue));
+  --accent-800: oklch(0.3 0.07 var(--accent-hue));
+  --accent-900: oklch(0.22 0.05 var(--accent-hue));
+
+  /* Compat aliases — remove after one release. Scheme resolution flows
+     through --accent-N, so one :root alias block suffices. */
+  --teal-50: var(--accent-50);
+  --teal-100: var(--accent-100);
+  --teal-200: var(--accent-200);
+  --teal-300: var(--accent-300);
+  --teal-400: var(--accent-400);
+  --teal-500: var(--accent-500);
+  --teal-600: var(--accent-600);
+  --teal-700: var(--accent-700);
+  --teal-800: var(--accent-800);
+  --teal-900: var(--accent-900);
+
+  /* Interactive accent — focus, selection, primary actions */
+  --interactive: oklch(0.48 var(--accent-chroma) var(--accent-hue));
+  --interactive-hover: oklch(0.43 var(--accent-chroma) var(--accent-hue));
+  --interactive-muted: oklch(
+    0.55 calc(var(--accent-chroma) * 0.5) var(--accent-hue)
+  );
+  --interactive-bg: oklch(0.96 0.025 var(--accent-hue));
+  --interactive-bg-hover: oklch(0.93 0.03 var(--accent-hue));
+  --interactive-border: var(--accent-300);
+  --interactive-border-subtle: var(--accent-200);
+  --interactive-border-strong: var(--accent-500);
+  --interactive-text-on-bg: var(--accent-700);
+  --interactive-text-subtle: var(--accent-400);
+  --interactive-disabled: var(--accent-300);
+  --interactive-disabled-bg: var(--accent-50);
+
+  /* Focus ring */
+  --focus-ring: oklch(0.6 0.1 var(--accent-hue));
+  --focus-ring-offset: oklch(1 0 0);
+
+  /* Selection highlight */
+  --selection-bg: oklch(0.92 0.04 var(--accent-hue));
+  --selection-soft: oklch(0.66 0.18 var(--accent-hue) / 0.18);
+
+  /* Reserved AI-state accent — terracotta hue ~40.
+     Used exclusively for agent-flash / agent-breathing signals.
+     Never repurpose for product UI chrome. */
+  --accent-agent: oklch(0.68 0.13 40);
+
+  /* Warning semantic color */
+  --warning: oklch(0.8 0.14 85);
+  --warning-bg: oklch(0.97 0.025 85);
+  --warning-text-on-bg: oklch(0.4 0.1 85);
+  --warning-border: oklch(0.88 0.06 85);
+
+  /* Status indicators */
+  --indicator-dirty: oklch(0.62 0.12 44);
+  --indicator-clean: var(--interactive);
+
   /* Warm-neutral surfaces: #FFFFFF app/card/popover, #F7F6F3 sidebar */
   --background: oklch(1 0 0);
   --background-surface-2: oklch(0.974 0.007 83);
@@ -95,49 +259,77 @@
   --foreground-tertiary: oklch(0.64 0.005 64);
 
   --card: oklch(1 0 0);
-  --card-foreground: var(--foreground);
+  --card-foreground: oklch(0.27 0.012 66);
   --popover: oklch(1 0 0);
-  --popover-foreground: var(--foreground);
+  --popover-foreground: oklch(0.27 0.012 66);
 
-  /* Blue primary: #155DFF */
-  --primary: oklch(0.5 0.24 255);
+  /* Spruce accent primary */
+  --primary: var(--accent-500);
   --primary-foreground: oklch(1 0 0);
   /* Hover state: #EBEBEA */
   --secondary: oklch(0.929 0.004 82);
-  --secondary-foreground: var(--foreground);
+  --secondary-foreground: oklch(0.27 0.012 66);
 
   /* Hover-subtle: #F0F0EF */
   --muted: oklch(0.949 0.003 82);
   --muted-foreground: oklch(0.52 0.006 64);
-  --accent: oklch(0.929 0.004 82);
-  --accent-foreground: var(--foreground);
+  --accent: var(--accent-100);
+  --accent-foreground: var(--accent-700);
   /* Slightly deeper hover: between #EBEBEA and #D9D9D6 */
   --accent-hover: oklch(0.91 0.006 82);
 
-  --interactive: oklch(0.5 0.24 255);
-  --interactive-hover: oklch(0.44 0.24 255);
   --destructive: oklch(0.577 0.245 27.325);
   --success: oklch(0.62 0.14 152);
-  --warning: oklch(0.74 0.16 75);
 
   /* Borders: #E9E9E7 default/subtle, #D9D9D6 strong */
   --border: oklch(0.924 0.005 82);
   --border-strong: oklch(0.875 0.006 82);
   --border-subtle: oklch(0.944 0.004 82);
   --input: oklch(0.924 0.005 82);
-  /* Focus ring / ring: #155DFF */
-  --ring: oklch(0.5 0.24 255);
-  --focus-ring: oklch(0.5 0.24 255);
+  --ring: var(--focus-ring);
+
+  /* V4 token aliases */
+  --fg-2: var(--muted-foreground);
+  --fg-3: var(--foreground-tertiary);
+  --glass: color-mix(in oklch, var(--card) 55%, transparent);
+  --glass-strong: var(--card);
+  --accent-glow: color-mix(in oklch, var(--primary) 30%, transparent);
+  --on-accent: var(--primary-foreground);
+
+  /* ----- 9-accent role set (forward-looking, Phase 2 consumers) -----
+     Paired fg + translucent bg per role so a surface repaint can never
+     orphan its text color. Light bgs ≈ 12% alpha. */
+  --accent-blue: #155dff;
+  --accent-blue-light: #155dff1f;
+  --accent-green: #0f7b4a;
+  --accent-green-light: #0f7b4a1f;
+  --accent-orange: #d9730d;
+  --accent-orange-light: #d9730d1f;
+  --accent-red: #d44c47;
+  --accent-red-light: #d44c471f;
+  --accent-purple: #9065b0;
+  --accent-purple-light: #9065b01f;
+  --accent-yellow: #cb912f;
+  --accent-yellow-light: #cb912f1f;
+  --accent-teal: #0e7c86;
+  --accent-teal-light: #0e7c861f;
+  --accent-pink: #c14c8a;
+  --accent-pink-light: #c14c8a1f;
+  --accent-gray: #787774;
+  --accent-gray-light: #7877741f;
 
   /* Tier 3: Component-level (sidebar) */
   /* Sidebar: #F7F6F3 */
   --sidebar: oklch(0.974 0.007 83);
-  --sidebar-foreground: var(--foreground);
+  --sidebar-foreground: oklch(0.27 0.012 66);
   --sidebar-muted-foreground: oklch(0.52 0.006 64);
   --sidebar-accent: oklch(0.929 0.004 82);
-  --sidebar-accent-foreground: var(--foreground);
+  --sidebar-accent-foreground: oklch(0.27 0.012 66);
   --sidebar-border: oklch(0.924 0.005 82);
   --sidebar-active-bar: var(--interactive);
+  --sidebar-primary: var(--accent-500);
+  --sidebar-primary-foreground: oklch(1 0 0);
+  --sidebar-ring: var(--focus-ring);
 
   /* Tier 3: Activity Bar */
   --activity-bar-bg: var(--sidebar);
@@ -162,6 +354,13 @@
   /* Tier 3: Status bar */
   --statusbar-bg: var(--interactive);
   --statusbar-fg: oklch(1 0 0);
+
+  /* Tier 3: Scrollbar */
+  --scrollbar-thumb: oklch(0.89 0.008 80);
+  --scrollbar-thumb-hover: oklch(0.83 0.01 78);
+
+  /* Tier 3: Depth */
+  --shadow-color: oklch(0.25 0.01 66);
 
   /* ----- Tier 3: Affordance flags (defaults) -----
      Themes flip these to reshape components without editing component code. */
@@ -191,13 +390,52 @@
   --chart-4: oklch(0.828 0.189 84.429);
   --chart-5: oklch(0.769 0.188 70.08);
   --semantic-edge: oklch(0.55 0.2 300);
-  --sidebar-primary: oklch(0.5 0.24 255);
-  --sidebar-primary-foreground: oklch(1 0 0);
-  --sidebar-ring: oklch(0.5 0.24 255);
 }
 
 /* ----------- Tier 2: Semantic (DARK) ----------- */
 [data-color-scheme="dark"] {
+  /* Inverted accent scale for dark mode */
+  --accent-50: oklch(0.22 0.04 var(--accent-hue));
+  --accent-100: oklch(0.26 0.05 var(--accent-hue));
+  --accent-200: oklch(0.32 0.06 var(--accent-hue));
+  --accent-300: oklch(0.42 0.07 var(--accent-hue));
+  --accent-400: oklch(0.55 0.09 var(--accent-hue));
+  --accent-500: oklch(0.68 var(--accent-chroma) var(--accent-hue));
+  --accent-600: oklch(0.73 var(--accent-chroma) var(--accent-hue));
+  --accent-700: oklch(0.8 0.09 var(--accent-hue));
+  --accent-800: oklch(0.88 0.06 var(--accent-hue));
+  --accent-900: oklch(0.95 0.03 var(--accent-hue));
+
+  /* Adjusted interactive colors for dark mode */
+  --interactive: oklch(0.68 var(--accent-chroma) var(--accent-hue));
+  --interactive-hover: oklch(0.73 var(--accent-chroma) var(--accent-hue));
+  --interactive-muted: oklch(
+    0.62 calc(var(--accent-chroma) * 0.6) var(--accent-hue)
+  );
+  --interactive-bg: oklch(0.24 0.035 var(--accent-hue));
+  --interactive-bg-hover: oklch(0.28 0.04 var(--accent-hue));
+  --interactive-border: var(--accent-400);
+  --interactive-border-subtle: var(--accent-300);
+  --interactive-border-strong: var(--accent-500);
+  --interactive-text-on-bg: var(--accent-800);
+  --interactive-disabled: var(--accent-400);
+  --interactive-disabled-bg: var(--accent-100);
+
+  --focus-ring: oklch(0.68 0.11 var(--accent-hue));
+  --focus-ring-offset: oklch(0.175 0 0);
+
+  --selection-bg: oklch(0.28 0.05 var(--accent-hue));
+  --selection-soft: oklch(0.72 0.16 var(--accent-hue) / 0.32);
+  --accent-agent: oklch(0.72 0.13 40);
+
+  --warning: oklch(0.86 0.12 90);
+  --warning-bg: oklch(0.24 0.035 85);
+  --warning-text-on-bg: oklch(0.88 0.08 90);
+  --warning-border: oklch(0.38 0.06 85);
+
+  --indicator-dirty: oklch(0.7 0.1 44);
+  --indicator-clean: var(--interactive);
+
   /* Warm near-black: #1F1E1B app, #191814 sidebar, #23221F card/panel */
   --background: oklch(0.148 0.008 68);
   --background-surface-2: oklch(0.175 0.008 68);
@@ -209,29 +447,25 @@
 
   /* Card: #23221F, Popover: #292823 */
   --card: oklch(0.175 0.008 68);
-  --card-foreground: var(--foreground);
+  --card-foreground: oklch(0.895 0.011 78);
   --popover: oklch(0.198 0.008 68);
-  --popover-foreground: var(--foreground);
+  --popover-foreground: oklch(0.895 0.011 78);
 
-  /* Blue primary dark: #78A4FF */
-  --primary: oklch(0.68 0.14 255);
+  --primary: var(--accent-500);
   --primary-foreground: oklch(0.115 0.008 68);
   /* Hover state: #2D2B27 */
   --secondary: oklch(0.213 0.008 68);
-  --secondary-foreground: var(--foreground);
+  --secondary-foreground: oklch(0.895 0.011 78);
 
   /* Hover-subtle: #262520 */
   --muted: oklch(0.187 0.007 68);
   --muted-foreground: oklch(0.52 0.01 68);
-  --accent: oklch(0.213 0.008 68);
-  --accent-foreground: var(--foreground);
+  --accent: var(--accent-200);
+  --accent-foreground: var(--accent-800);
   --accent-hover: oklch(0.24 0.008 68);
 
-  --interactive: oklch(0.68 0.14 255);
-  --interactive-hover: oklch(0.74 0.14 255);
   --destructive: oklch(0.704 0.191 22.216);
   --success: oklch(0.7 0.14 152);
-  --warning: oklch(0.8 0.16 75);
 
   /* Borders: #34322D default, #2A2925 subtle, #46433B strong */
   --border: oklch(0.24 0.008 68);
@@ -239,18 +473,39 @@
   --border-subtle: oklch(0.2 0.007 68);
   /* Input border: #3A3832 */
   --input: oklch(0.265 0.008 68);
-  /* Focus ring dark: #78A4FF */
-  --ring: oklch(0.68 0.14 255);
-  --focus-ring: oklch(0.68 0.14 255);
+  --ring: var(--focus-ring);
+
+  /* 9-accent role set — per-token lightened, bgs ≈ 16% alpha */
+  --accent-blue: #78a4ff;
+  --accent-blue-light: #78a4ff29;
+  --accent-green: #4fbf8b;
+  --accent-green-light: #4fbf8b29;
+  --accent-orange: #f1975a;
+  --accent-orange-light: #f1975a29;
+  --accent-red: #ed8b87;
+  --accent-red-light: #ed8b8729;
+  --accent-purple: #bb98d4;
+  --accent-purple-light: #bb98d429;
+  --accent-yellow: #e0b35c;
+  --accent-yellow-light: #e0b35c29;
+  --accent-teal: #55b8c2;
+  --accent-teal-light: #55b8c229;
+  --accent-pink: #e091b8;
+  --accent-pink-light: #e091b829;
+  --accent-gray: #a8a69f;
+  --accent-gray-light: #a8a69f29;
 
   /* Sidebar: #191814 */
   --sidebar: oklch(0.122 0.008 68);
-  --sidebar-foreground: var(--foreground);
+  --sidebar-foreground: oklch(0.895 0.011 78);
   --sidebar-muted-foreground: oklch(0.52 0.01 68);
   --sidebar-accent: oklch(0.213 0.008 68);
-  --sidebar-accent-foreground: var(--foreground);
+  --sidebar-accent-foreground: oklch(0.895 0.011 78);
   --sidebar-border: oklch(0.24 0.008 68);
   --sidebar-active-bar: var(--interactive);
+  --sidebar-primary: var(--accent-500);
+  --sidebar-primary-foreground: oklch(0.115 0.008 68);
+  --sidebar-ring: var(--focus-ring);
 
   /* Tier 3: Activity Bar */
   --activity-bar-bg: var(--sidebar);
@@ -273,6 +528,13 @@
   --statusbar-bg: var(--interactive);
   --statusbar-fg: oklch(0.115 0.008 68);
 
+  /* Scrollbar dark */
+  --scrollbar-thumb: oklch(0.265 0.008 68);
+  --scrollbar-thumb-hover: oklch(0.32 0.008 68);
+
+  /* Shadows more subtle in dark mode */
+  --shadow-color: oklch(0.05 0 0);
+
   /* --- Tokens carried from app.css (not in handoff) --- */
   --chart-1: oklch(0.488 0.243 264.376);
   --chart-2: oklch(0.696 0.17 162.48);
@@ -280,9 +542,6 @@
   --chart-4: oklch(0.627 0.265 303.9);
   --chart-5: oklch(0.645 0.246 16.439);
   --semantic-edge: oklch(0.72 0.2 300);
-  --sidebar-primary: oklch(0.68 0.14 255);
-  --sidebar-primary-foreground: oklch(0.115 0.008 68);
-  --sidebar-ring: oklch(0.68 0.14 255);
 }
 
 /* Native form controls + text caret pick up the theme (inherited properties,
