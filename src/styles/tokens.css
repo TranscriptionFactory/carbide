@@ -73,6 +73,11 @@
     --weight-semibold: 600;
     --weight-bold: 700;
 
+    /* Overline set - 10px/400/+0.02em tracking (uppercase, --foreground-tertiary) */
+    --text-overline: var(--text-2xs);
+    --weight-overline: var(--weight-regular);
+    --tracking-overline: 0.02em;
+
     /* Motion budget — micro-interactions (hover, active, open/close)
      transition 120-200ms only (fast|normal|slow); ambient loops
      (sync pulse, shimmer) use --duration-ambient (0.8-1.2s band).
