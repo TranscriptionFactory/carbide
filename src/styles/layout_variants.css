@@ -15,7 +15,7 @@
 [data-layout-variant="spotlight"] .WorkspaceLayout {
   --editor-max-width: 80ch;
   --spotlight-tabbar-max-width: 36rem;
-  --spotlight-sidebar-width: 18rem;
+  --overlay-panel-width: 18rem;
 
   .ActivityBar {
     position: absolute;
@@ -65,11 +65,6 @@
     inset-block-end: var(--space-0-5);
     width: auto;
     height: 2px;
-  }
-
-  [data-slot="sidebar-wrapper"]
-    > [data-pane-group][data-direction="horizontal"] {
-    position: relative;
   }
 
   .TabBar {
@@ -131,59 +126,9 @@
 
   [data-slot="sidebar-wrapper"]
     > [data-pane-group][data-direction="horizontal"]
-    > [data-pane][order="1"] {
-    position: absolute;
-    top: var(--space-3);
-    left: var(--space-3);
-    bottom: var(--space-3);
-    width: var(--spotlight-sidebar-width);
-    min-width: var(--spotlight-sidebar-width);
-    max-width: var(--spotlight-sidebar-width);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-lg);
-    background-color: var(--chrome-glass);
-    backdrop-filter: blur(var(--chrome-blur, 0px));
-    box-shadow: var(--shadow-2xl);
-    z-index: 150;
-    overflow: hidden;
-    flex: none !important;
-  }
-
-  [data-slot="sidebar-wrapper"]
-    > [data-pane-group][data-direction="horizontal"]
-    > [data-pane][order="2"] {
-    position: relative;
-    z-index: 10;
-  }
-
-  [data-slot="sidebar-wrapper"]
-    > [data-pane-group][data-direction="horizontal"]
     > [data-pane][order="2"]
     [data-slot="sidebar-inset"] {
     padding-top: calc(var(--size-touch-lg) + var(--space-8));
-  }
-
-  /* Context-rail pane as overlay card. Was written against order=3
-     before DockedOutline took that slot; order=4 is the intended
-     ContextRailPanel target (stale-selector bug fixed here). */
-  [data-slot="sidebar-wrapper"]
-    > [data-pane-group][data-direction="horizontal"]
-    > [data-pane][order="4"] {
-    position: absolute;
-    top: var(--space-3);
-    right: var(--space-3);
-    bottom: var(--space-3);
-    width: var(--spotlight-sidebar-width) !important;
-    min-width: var(--spotlight-sidebar-width) !important;
-    max-width: var(--spotlight-sidebar-width) !important;
-    border: 1px solid var(--border);
-    border-radius: var(--radius-lg);
-    background-color: var(--chrome-glass);
-    backdrop-filter: blur(var(--chrome-blur, 0px));
-    box-shadow: var(--shadow-2xl);
-    z-index: 150;
-    overflow: hidden;
-    flex: none !important;
   }
 
   .NoteEditor {
@@ -196,7 +141,7 @@
 [data-layout-variant="theater"] .WorkspaceLayout {
   --editor-max-width: 80ch;
   --theater-edge-width: 3px;
-  --theater-sidebar-width: 20rem;
+  --overlay-panel-width: 20rem;
   --theater-reveal-speed: var(--duration-slow);
   --theater-reveal-ease: var(--ease-out);
 
@@ -316,57 +261,6 @@
     &:hover {
       opacity: 1;
     }
-  }
-
-  [data-slot="sidebar-wrapper"]
-    > [data-pane-group][data-direction="horizontal"] {
-    position: relative;
-  }
-
-  [data-slot="sidebar-wrapper"]
-    > [data-pane-group][data-direction="horizontal"]
-    > [data-pane][order="1"] {
-    position: absolute;
-    top: 0;
-    left: 0;
-    bottom: 0;
-    width: var(--theater-sidebar-width) !important;
-    min-width: var(--theater-sidebar-width) !important;
-    max-width: var(--theater-sidebar-width) !important;
-    z-index: 180;
-    background-color: color-mix(in oklch, var(--card) 95%, transparent);
-    backdrop-filter: blur(24px);
-    border-inline-end: 1px solid var(--border);
-    box-shadow: var(--shadow-3);
-    flex: none !important;
-  }
-
-  [data-slot="sidebar-wrapper"]
-    > [data-pane-group][data-direction="horizontal"]
-    > [data-pane][order="2"] {
-    position: relative;
-    z-index: 10;
-  }
-
-  /* Context-rail pane as overlay. Was written against order=3 before
-     DockedOutline took that slot; order=4 is the intended
-     ContextRailPanel target (stale-selector bug fixed here). */
-  [data-slot="sidebar-wrapper"]
-    > [data-pane-group][data-direction="horizontal"]
-    > [data-pane][order="4"] {
-    position: absolute;
-    top: 0;
-    right: 0;
-    bottom: 0;
-    width: var(--theater-sidebar-width) !important;
-    min-width: var(--theater-sidebar-width) !important;
-    max-width: var(--theater-sidebar-width) !important;
-    z-index: 180;
-    background-color: color-mix(in oklch, var(--card) 95%, transparent);
-    backdrop-filter: blur(24px);
-    border-inline-start: 1px solid var(--border);
-    box-shadow: var(--shadow-3);
-    flex: none !important;
   }
 
   .NoteEditor {

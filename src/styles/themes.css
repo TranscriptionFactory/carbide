@@ -307,6 +307,8 @@
 /* ============== Theater ==================================== */
 [data-theme="theater"] {
   --radius: 0.75rem;
+  --chrome-glass: color-mix(in oklch, var(--card) 95%, transparent);
+  --chrome-blur: 24px;
 }
 [data-theme="theater"][data-color-scheme="light"] {
   --background: oklch(0.99 0 0);

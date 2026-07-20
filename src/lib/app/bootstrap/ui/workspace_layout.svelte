@@ -19,6 +19,10 @@
   import { PluginRuntimeContainer } from "$lib/features/plugin";
   import { use_app_context } from "$lib/app/context/app_context.svelte";
   import {
+    panels_mode,
+    resolve_layout_variant,
+  } from "$lib/app/bootstrap/layout_mode";
+  import {
     ACTION_IDS,
     SIDEBAR_VIEWS,
     resolve_sidebar_views_config,
@@ -34,6 +38,20 @@
 
   const zen_mode = $derived(stores.ui.zen_mode);
   const show_chrome = $derived(!stores.ui.zen_mode);
+  const layout_variant = $derived(
+    resolve_layout_variant(
+      stores.ui.active_theme,
+      stores.ui.editor_settings.layout_preset,
+    ),
+  );
+  const panels = $derived(panels_mode(layout_variant));
+  const overlay_style = $derived(
+    layout_variant === "spotlight" ? "card" : "flush",
+  );
+  const show_sidebar = $derived(stores.ui.sidebar_open && show_chrome);
+  const show_context_rail_panel = $derived(
+    show_chrome && stores.ui.context_rail_open,
+  );
   const outline_docked = $derived(
     stores.ui.editor_settings.outline_mode === "docked" &&
       stores.ui.outline_docked_open &&
@@ -147,198 +165,228 @@
             void action_registry.execute(ACTION_IDS.settings_open)}
         />
       {/if}
+      {#snippet sidebar_body()}
+        <WorkspaceSidebar />
+      {/snippet}
+      {#snippet rail_body()}
+        <ContextRailPanel />
+      {/snippet}
       <Sidebar.Provider
         open={stores.ui.sidebar_open && show_chrome}
         class="flex-1 min-h-0"
       >
-        <Resizable.PaneGroup direction="horizontal" class="flex-1 min-w-0">
-          {#if stores.ui.sidebar_open && show_chrome}
-            <Resizable.Pane
-              defaultSize={stores.ui.sidebar_pane_size}
-              minSize={15}
-              maxSize={40}
-              order={1}
-              onResize={(size) => (stores.ui.sidebar_pane_size = size)}
-            >
-              <WorkspaceSidebar />
-            </Resizable.Pane>
-            <Resizable.Handle />
-          {/if}
-          <Resizable.Pane order={2}>
-            <Sidebar.Inset class="flex h-full min-h-0 flex-col">
-              <Resizable.PaneGroup direction="vertical" class="flex-1 min-h-0">
-                <Resizable.Pane
-                  defaultSize={bottom_panel_open ? 70 : 100}
-                  minSize={20}
-                  order={1}
+        <div class="WorkspaceLayout__panes">
+          <Resizable.PaneGroup direction="horizontal" class="flex-1 min-w-0">
+            {#if show_sidebar && panels === "docked"}
+              <Resizable.Pane
+                defaultSize={stores.ui.sidebar_pane_size}
+                minSize={15}
+                maxSize={40}
+                order={1}
+                onResize={(size) => (stores.ui.sidebar_pane_size = size)}
+              >
+                {@render sidebar_body()}
+              </Resizable.Pane>
+              <Resizable.Handle />
+            {/if}
+            <Resizable.Pane order={2}>
+              <Sidebar.Inset class="flex h-full min-h-0 flex-col">
+                <Resizable.PaneGroup
+                  direction="vertical"
+                  class="flex-1 min-h-0"
                 >
-                  <div class="flex h-full min-h-0 min-w-0 flex-col">
-                    {#if show_chrome}
-                      <!-- svelte-ignore a11y_no_static_element_interactions -->
-                      <div data-vim-nav-region="tab_bar" tabindex="-1">
-                        <TabBar />
-                      </div>
-                    {/if}
-                    {#if show_chrome && stores.editor.open_note}
-                      <PathBreadcrumb
-                        note_path={stores.editor.open_note.meta.path}
-                        note_title={stores.editor.open_note.meta.title}
-                        vault_name={stores.vault.vault?.name ?? null}
-                        on_select_folder={(folder_path) =>
-                          void action_registry.execute(
-                            ACTION_IDS.filetree_reveal_folder,
-                            folder_path,
-                          )}
-                        on_reveal_note={(note_path) =>
-                          void action_registry.execute(
-                            ACTION_IDS.filetree_reveal_note,
-                            note_path,
-                          )}
-                      />
-                    {/if}
-                    <div class="flex min-h-0 flex-1 flex-col">
-                      <FindInFileBar
-                        open={stores.ui.find_in_file.open}
-                        query={stores.ui.find_in_file.query}
-                        match_count={stores.search.find_match_count}
-                        selected_match_index={stores.ui.find_in_file
-                          .selected_match_index}
-                        show_replace={stores.ui.find_in_file.show_replace}
-                        replace_text={stores.ui.find_in_file.replace_text}
-                        case_sensitive={stores.ui.find_in_file.case_sensitive}
-                        whole_word={stores.ui.find_in_file.whole_word}
-                        on_query_change={(query: string) =>
-                          void action_registry.execute(
-                            ACTION_IDS.find_in_file_set_query,
-                            query,
-                          )}
-                        on_next={() =>
-                          void action_registry.execute(
-                            ACTION_IDS.find_in_file_next,
-                          )}
-                        on_prev={() =>
-                          void action_registry.execute(
-                            ACTION_IDS.find_in_file_prev,
-                          )}
-                        on_close={() =>
-                          void action_registry.execute(
-                            ACTION_IDS.find_in_file_close,
-                          )}
-                        on_toggle_replace={() =>
-                          void action_registry.execute(
-                            ACTION_IDS.find_in_file_toggle_replace,
-                          )}
-                        on_toggle_case={() =>
-                          void action_registry.execute(
-                            ACTION_IDS.find_in_file_toggle_case,
-                          )}
-                        on_toggle_whole_word={() =>
-                          void action_registry.execute(
-                            ACTION_IDS.find_in_file_toggle_whole_word,
-                          )}
-                        on_replace_text_change={(text: string) =>
-                          void action_registry.execute(
-                            ACTION_IDS.find_in_file_set_replace_text,
-                            text,
-                          )}
-                        on_replace_one={() =>
-                          void action_registry.execute(
-                            ACTION_IDS.find_in_file_replace_one,
-                          )}
-                        on_replace_all={() =>
-                          void action_registry.execute(
-                            ACTION_IDS.find_in_file_replace_all,
-                          )}
-                      />
-                      <Resizable.PaneGroup
-                        direction={stores.tab.split_direction}
-                        class="relative min-h-0 min-w-0 flex-1"
-                      >
-                        <Resizable.Pane minSize={20} order={1}>
-                          <!-- svelte-ignore a11y_click_events_have_key_events -->
-                          <!-- svelte-ignore a11y_no_static_element_interactions -->
-                          <div
-                            class="EditorPane"
-                            class:EditorPane--focused={split_view_active &&
-                              stores.tab.active_pane === "primary"}
-                            onclick={() => {
-                              if (split_view_active) {
-                                void action_registry.execute(
-                                  ACTION_IDS.tab_set_active_pane,
-                                  "primary",
-                                );
-                              }
-                            }}
-                          >
-                            <NoteEditor />
-                            <FloatingOutline />
-                          </div>
-                        </Resizable.Pane>
-                        {#if split_view_active}
-                          <Resizable.Handle />
-                          <Resizable.Pane
-                            defaultSize={50}
-                            minSize={20}
-                            order={2}
-                          >
+                  <Resizable.Pane
+                    defaultSize={bottom_panel_open ? 70 : 100}
+                    minSize={20}
+                    order={1}
+                  >
+                    <div class="flex h-full min-h-0 min-w-0 flex-col">
+                      {#if show_chrome}
+                        <!-- svelte-ignore a11y_no_static_element_interactions -->
+                        <div data-vim-nav-region="tab_bar" tabindex="-1">
+                          <TabBar />
+                        </div>
+                      {/if}
+                      {#if show_chrome && stores.editor.open_note}
+                        <PathBreadcrumb
+                          note_path={stores.editor.open_note.meta.path}
+                          note_title={stores.editor.open_note.meta.title}
+                          vault_name={stores.vault.vault?.name ?? null}
+                          on_select_folder={(folder_path) =>
+                            void action_registry.execute(
+                              ACTION_IDS.filetree_reveal_folder,
+                              folder_path,
+                            )}
+                          on_reveal_note={(note_path) =>
+                            void action_registry.execute(
+                              ACTION_IDS.filetree_reveal_note,
+                              note_path,
+                            )}
+                        />
+                      {/if}
+                      <div class="flex min-h-0 flex-1 flex-col">
+                        <FindInFileBar
+                          open={stores.ui.find_in_file.open}
+                          query={stores.ui.find_in_file.query}
+                          match_count={stores.search.find_match_count}
+                          selected_match_index={stores.ui.find_in_file
+                            .selected_match_index}
+                          show_replace={stores.ui.find_in_file.show_replace}
+                          replace_text={stores.ui.find_in_file.replace_text}
+                          case_sensitive={stores.ui.find_in_file.case_sensitive}
+                          whole_word={stores.ui.find_in_file.whole_word}
+                          on_query_change={(query: string) =>
+                            void action_registry.execute(
+                              ACTION_IDS.find_in_file_set_query,
+                              query,
+                            )}
+                          on_next={() =>
+                            void action_registry.execute(
+                              ACTION_IDS.find_in_file_next,
+                            )}
+                          on_prev={() =>
+                            void action_registry.execute(
+                              ACTION_IDS.find_in_file_prev,
+                            )}
+                          on_close={() =>
+                            void action_registry.execute(
+                              ACTION_IDS.find_in_file_close,
+                            )}
+                          on_toggle_replace={() =>
+                            void action_registry.execute(
+                              ACTION_IDS.find_in_file_toggle_replace,
+                            )}
+                          on_toggle_case={() =>
+                            void action_registry.execute(
+                              ACTION_IDS.find_in_file_toggle_case,
+                            )}
+                          on_toggle_whole_word={() =>
+                            void action_registry.execute(
+                              ACTION_IDS.find_in_file_toggle_whole_word,
+                            )}
+                          on_replace_text_change={(text: string) =>
+                            void action_registry.execute(
+                              ACTION_IDS.find_in_file_set_replace_text,
+                              text,
+                            )}
+                          on_replace_one={() =>
+                            void action_registry.execute(
+                              ACTION_IDS.find_in_file_replace_one,
+                            )}
+                          on_replace_all={() =>
+                            void action_registry.execute(
+                              ACTION_IDS.find_in_file_replace_all,
+                            )}
+                        />
+                        <Resizable.PaneGroup
+                          direction={stores.tab.split_direction}
+                          class="relative min-h-0 min-w-0 flex-1"
+                        >
+                          <Resizable.Pane minSize={20} order={1}>
+                            <!-- svelte-ignore a11y_click_events_have_key_events -->
+                            <!-- svelte-ignore a11y_no_static_element_interactions -->
                             <div
                               class="EditorPane"
-                              class:EditorPane--focused={stores.tab
-                                .active_pane === "secondary"}
+                              class:EditorPane--focused={split_view_active &&
+                                stores.tab.active_pane === "primary"}
+                              onclick={() => {
+                                if (split_view_active) {
+                                  void action_registry.execute(
+                                    ACTION_IDS.tab_set_active_pane,
+                                    "primary",
+                                  );
+                                }
+                              }}
                             >
-                              <SecondaryNoteEditor />
+                              <NoteEditor />
+                              <FloatingOutline />
                             </div>
                           </Resizable.Pane>
-                        {/if}
-                        <SplitDropZone />
-                      </Resizable.PaneGroup>
+                          {#if split_view_active}
+                            <Resizable.Handle />
+                            <Resizable.Pane
+                              defaultSize={50}
+                              minSize={20}
+                              order={2}
+                            >
+                              <div
+                                class="EditorPane"
+                                class:EditorPane--focused={stores.tab
+                                  .active_pane === "secondary"}
+                              >
+                                <SecondaryNoteEditor />
+                              </div>
+                            </Resizable.Pane>
+                          {/if}
+                          <SplitDropZone />
+                        </Resizable.PaneGroup>
+                      </div>
                     </div>
-                  </div>
-                </Resizable.Pane>
-                {#if bottom_panel_open}
-                  <Resizable.Handle />
-                  <Resizable.Pane
-                    defaultSize={30}
-                    minSize={10}
-                    maxSize={80}
-                    order={2}
-                  >
-                    <BottomPanel />
                   </Resizable.Pane>
-                {/if}
-              </Resizable.PaneGroup>
-            </Sidebar.Inset>
-          </Resizable.Pane>
-          {#if outline_docked}
-            <Resizable.Handle data-outline-handle="" />
-            <Resizable.Pane
-              defaultSize={stores.ui.outline_pane_size}
-              minSize={10}
-              maxSize={40}
-              order={3}
-              onResize={(size) => (stores.ui.outline_pane_size = size)}
-            >
-              <DockedOutline />
+                  {#if bottom_panel_open}
+                    <Resizable.Handle />
+                    <Resizable.Pane
+                      defaultSize={30}
+                      minSize={10}
+                      maxSize={80}
+                      order={2}
+                    >
+                      <BottomPanel />
+                    </Resizable.Pane>
+                  {/if}
+                </Resizable.PaneGroup>
+              </Sidebar.Inset>
             </Resizable.Pane>
-          {/if}
-          {#if show_chrome && stores.ui.context_rail_open}
-            <Resizable.Handle />
-            <Resizable.Pane
-              defaultSize={stores.ui.context_rail_pane_size}
-              minSize={12}
-              maxSize={40}
-              order={4}
-              onResize={(size) => (stores.ui.context_rail_pane_size = size)}
+            {#if outline_docked}
+              <Resizable.Handle data-outline-handle="" />
+              <Resizable.Pane
+                defaultSize={stores.ui.outline_pane_size}
+                minSize={10}
+                maxSize={40}
+                order={3}
+                onResize={(size) => (stores.ui.outline_pane_size = size)}
+              >
+                <DockedOutline />
+              </Resizable.Pane>
+            {/if}
+            {#if show_context_rail_panel && panels === "docked"}
+              <Resizable.Handle />
+              <Resizable.Pane
+                defaultSize={stores.ui.context_rail_pane_size}
+                minSize={12}
+                maxSize={40}
+                order={4}
+                onResize={(size) => (stores.ui.context_rail_pane_size = size)}
+              >
+                {@render rail_body()}
+              </Resizable.Pane>
+            {/if}
+            {#if show_chrome}
+              <div class="WorkspaceLayout__context-rail">
+                <ContextRail />
+              </div>
+            {/if}
+          </Resizable.PaneGroup>
+
+          {#if show_sidebar && panels === "overlay"}
+            <div
+              class="WorkspaceLayout__overlay-panel WorkspaceLayout__overlay-panel--start"
+              class:WorkspaceLayout__overlay-panel--card={overlay_style ===
+                "card"}
             >
-              <ContextRailPanel />
-            </Resizable.Pane>
-          {/if}
-          {#if show_chrome}
-            <div class="WorkspaceLayout__context-rail">
-              <ContextRail />
+              {@render sidebar_body()}
             </div>
           {/if}
-        </Resizable.PaneGroup>
+          {#if show_context_rail_panel && panels === "overlay"}
+            <div
+              class="WorkspaceLayout__overlay-panel WorkspaceLayout__overlay-panel--end"
+              class:WorkspaceLayout__overlay-panel--card={overlay_style ===
+                "card"}
+            >
+              {@render rail_body()}
+            </div>
+          {/if}
+        </div>
       </Sidebar.Provider>
     </div>
     {#if show_chrome}
@@ -482,5 +530,53 @@
     width: 36px;
     flex-shrink: 0;
     overflow: visible;
+  }
+
+  .WorkspaceLayout__panes {
+    position: relative;
+    display: flex;
+    flex: 1;
+    min-width: 0;
+    min-height: 0;
+  }
+
+  /* Overlay side panels (panels === "overlay"): positioned siblings after the
+     PaneGroup in DOM order — no paneforge fight, no !important. */
+  .WorkspaceLayout__overlay-panel {
+    position: absolute;
+    inset-block: 0;
+    width: var(--overlay-panel-width, 18rem);
+    z-index: 180;
+    overflow: hidden;
+    background-color: var(--chrome-glass);
+    backdrop-filter: blur(var(--chrome-blur, 0px));
+    box-shadow: var(--shadow-3);
+  }
+
+  .WorkspaceLayout__overlay-panel--start {
+    inset-inline-start: 0;
+    border-inline-end: 1px solid var(--border);
+  }
+
+  .WorkspaceLayout__overlay-panel--end {
+    inset-inline-end: 0;
+    border-inline-start: 1px solid var(--border);
+  }
+
+  .WorkspaceLayout__overlay-panel--card {
+    inset-block: var(--space-3);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    z-index: 150;
+  }
+
+  .WorkspaceLayout__overlay-panel--card.WorkspaceLayout__overlay-panel--start {
+    inset-inline-start: var(--space-3);
+    border-inline-end-width: 1px;
+  }
+
+  .WorkspaceLayout__overlay-panel--card.WorkspaceLayout__overlay-panel--end {
+    inset-inline-end: var(--space-3);
+    border-inline-start-width: 1px;
   }
 </style>
