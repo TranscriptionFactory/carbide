@@ -3,95 +3,106 @@
    recolors over tokens.css defaults (ADR 0001). No component
    selectors, no !important; enforced by pnpm lint:layering.
 
-   Blocks are generated from the kept blueprints via the same
-   pipeline apply_theme used to run inline (generate_ui_tokens +
+   The Carbide pair is hand-tuned per token (ADR §3: polished
+   defaults; dark is warm, not inverted). The other four blocks
+   are generated from their kept blueprints via the pipeline
+   apply_theme used to run inline (generate_ui_tokens +
    generate_palette + blueprint overrides). Accent identity is
-   purple #7e1dfb (ADR 0001 §4); values out of sRGB gamut at a
-   given lightness rely on CSS chroma-reducing gamut mapping.
+   purple #7e1dfb = oklch(0.5337 0.2808 293.24) (ADR 0001 §4);
+   values out of sRGB gamut at a given lightness rely on CSS
+   chroma-reducing gamut mapping.
    ============================================================ */
 
-/* ============== Carbide (default pair) ===================== */
+/* ============== Carbide (default pair, hand-tuned) ==========
+   Light: warm paper — surface hues drift 70-80 with chroma
+   0.004-0.009 (borders more neutral than fills), ink warmer and
+   more chromatic (hue ~58-62) than the surfaces it sits on.
+   Dark: warm charcoal, not an inversion — hues drop to 56-66
+   (warmer than light), chroma rises to 0.010-0.014, background
+   lifted to L 0.205, muted text lifted for contrast, and the
+   accent is an explicit in-gamut lavender (L 0.70 C 0.17)
+   instead of a gamut-mapped clamp of the light anchor. */
 [data-theme="carbide"][data-color-scheme="light"] {
-  --background: oklch(0.985 0.008 68);
-  --foreground: oklch(0.25 0.008 68);
-  --card: oklch(0.985 0.008 68);
-  --popover: oklch(0.99 0.008 68);
-  --secondary: oklch(0.965 0.008 68);
-  --muted: oklch(0.965 0.008 68);
-  --muted-foreground: oklch(0.55 0.008 68);
-  --border: oklch(0.92 0.008 68);
-  --input: oklch(0.92 0.008 68);
-  --sidebar: oklch(0.965 0.008 68);
-  --sidebar-border: oklch(0.94 0.008 68);
-  --background-surface-2: oklch(0.965 0.008 68);
-  --background-surface-3: oklch(0.94 0.008 68);
-  --foreground-tertiary: oklch(0.62 0.008 68);
-  --border-strong: oklch(0.86 0.008 68);
-  --border-subtle: oklch(0.95 0.008 68);
-  --primary: oklch(0.48 0.2663 293.2);
-  --primary-foreground: oklch(1 0 0);
-  --interactive: oklch(0.48 0.2663 293.2);
-  --interactive-hover: oklch(0.43 0.2663 293.2);
-  --scrollbar-thumb: oklch(0.89 0.008 68);
-  --scrollbar-thumb-hover: oklch(0.83 0.008 68);
-  --ring: oklch(0.6 0.1 293.2);
-  --accent: oklch(0.94 0.03 293.2);
-  --accent-foreground: oklch(0.37 0.09 293.2);
-  --destructive: oklch(0.55 0.22 25);
-  --destructive-foreground: oklch(1 0 0);
-  --editor-text: oklch(0.25 0.0484 293.2);
-  --editor-link: oklch(0.5 0.2663 293.2);
-  --editor-bold-color: oklch(0.42 0.1598 293.2);
-  --editor-italic-color: oklch(0.48 0.1065 293.2);
-  --editor-blockquote-border: oklch(0.6 0.1331 293.2);
-  --editor-blockquote-text: oklch(0.45 0.0533 293.2);
-  --editor-code-bg: oklch(0.95 0.0213 293.2);
-  --editor-code-block-text: oklch(0.35 0.0799 293.2);
-  --editor-code-inline-bg: oklch(0.93 0.032 293.2);
-  --editor-code-inline-text: oklch(0.4 0.1065 293.2);
-  --editor-mark-bg: oklch(0.88 0.0799 323.2);
-  --editor-mark-text: oklch(0.25 0.0266 323.2);
+  --background: oklch(0.986 0.006 78);
+  --foreground: oklch(0.246 0.012 58);
+  --card: oklch(0.986 0.006 78);
+  --popover: oklch(0.992 0.004 80);
+  --secondary: oklch(0.965 0.0075 74);
+  --muted: oklch(0.965 0.0075 74);
+  --muted-foreground: oklch(0.53 0.014 60);
+  --border: oklch(0.918 0.006 70);
+  --input: oklch(0.918 0.006 70);
+  --sidebar: oklch(0.97 0.008 76);
+  --sidebar-border: oklch(0.938 0.007 72);
+  --background-surface-2: oklch(0.965 0.0075 74);
+  --background-surface-3: oklch(0.94 0.009 72);
+  --foreground-tertiary: oklch(0.6 0.012 62);
+  --border-strong: oklch(0.857 0.008 68);
+  --border-subtle: oklch(0.95 0.005 76);
+  --primary: oklch(0.5337 0.2808 293.24);
+  --primary-foreground: oklch(0.995 0.004 300);
+  --interactive: oklch(0.5337 0.2808 293.24);
+  --interactive-hover: oklch(0.48 0.2663 293.24);
+  --scrollbar-thumb: oklch(0.889 0.006 72);
+  --scrollbar-thumb-hover: oklch(0.83 0.008 70);
+  --ring: oklch(0.62 0.12 293.24);
+  --accent: oklch(0.941 0.032 296);
+  --accent-foreground: oklch(0.38 0.1 293.24);
+  --destructive: oklch(0.548 0.2 27);
+  --destructive-foreground: oklch(0.995 0.004 300);
+  --editor-text: oklch(0.26 0.028 295);
+  --editor-link: oklch(0.5337 0.2808 293.24);
+  --editor-bold-color: oklch(0.42 0.155 293.24);
+  --editor-italic-color: oklch(0.48 0.1 294);
+  --editor-blockquote-border: oklch(0.61 0.13 293.24);
+  --editor-blockquote-text: oklch(0.45 0.05 295);
+  --editor-code-bg: oklch(0.955 0.018 296);
+  --editor-code-block-text: oklch(0.35 0.078 293.24);
+  --editor-code-inline-bg: oklch(0.931 0.03 296);
+  --editor-code-inline-text: oklch(0.4 0.104 293.24);
+  --editor-mark-bg: oklch(0.882 0.078 323);
+  --editor-mark-text: oklch(0.25 0.026 323);
 }
 [data-theme="carbide"][data-color-scheme="dark"] {
-  --background: oklch(0.18 0.008 68);
-  --foreground: oklch(0.92 0.008 68);
-  --card: oklch(0.22 0.008 68);
-  --popover: oklch(0.22 0.008 68);
-  --secondary: oklch(0.265 0.008 68);
-  --muted: oklch(0.265 0.008 68);
-  --muted-foreground: oklch(0.58 0.008 68);
-  --border: oklch(0.31 0.008 68);
-  --input: oklch(0.33 0.008 68);
-  --sidebar: oklch(0.16 0.008 68);
-  --sidebar-border: oklch(0.28 0.008 68);
-  --background-surface-2: oklch(0.225 0.008 68);
-  --background-surface-3: oklch(0.255 0.008 68);
-  --foreground-tertiary: oklch(0.55 0.008 68);
-  --border-strong: oklch(0.38 0.008 68);
-  --border-subtle: oklch(0.225 0.008 68);
-  --primary: oklch(0.68 0.2663 293.2);
-  --primary-foreground: oklch(0.1 0 0);
-  --interactive: oklch(0.68 0.2663 293.2);
-  --interactive-hover: oklch(0.73 0.2663 293.2);
-  --scrollbar-thumb: oklch(0.33 0.008 68);
-  --scrollbar-thumb-hover: oklch(0.4 0.008 68);
-  --ring: oklch(0.68 0.11 293.2);
-  --accent: oklch(0.32 0.06 293.2);
-  --accent-foreground: oklch(0.88 0.06 293.2);
-  --destructive: oklch(0.65 0.22 25);
-  --destructive-foreground: oklch(0.1 0 0);
-  --editor-text: oklch(0.88 0.0484 293.2);
-  --editor-link: oklch(0.72 0.2663 293.2);
-  --editor-bold-color: oklch(0.75 0.1598 293.2);
-  --editor-italic-color: oklch(0.7 0.1065 293.2);
-  --editor-blockquote-border: oklch(0.55 0.1331 293.2);
-  --editor-blockquote-text: oklch(0.7 0.0533 293.2);
-  --editor-code-bg: oklch(0.18 0.0213 293.2);
-  --editor-code-block-text: oklch(0.8 0.0799 293.2);
-  --editor-code-inline-bg: oklch(0.2 0.032 293.2);
-  --editor-code-inline-text: oklch(0.78 0.1065 293.2);
-  --editor-mark-bg: oklch(0.3 0.0799 323.2);
-  --editor-mark-text: oklch(0.9 0.0266 323.2);
+  --background: oklch(0.205 0.011 58);
+  --foreground: oklch(0.923 0.009 76);
+  --card: oklch(0.243 0.012 60);
+  --popover: oklch(0.25 0.012 60);
+  --secondary: oklch(0.285 0.012 62);
+  --muted: oklch(0.285 0.012 62);
+  --muted-foreground: oklch(0.655 0.014 68);
+  --border: oklch(0.325 0.012 62);
+  --input: oklch(0.345 0.012 62);
+  --sidebar: oklch(0.183 0.01 56);
+  --sidebar-border: oklch(0.295 0.011 60);
+  --background-surface-2: oklch(0.248 0.012 60);
+  --background-surface-3: oklch(0.278 0.013 62);
+  --foreground-tertiary: oklch(0.6 0.013 66);
+  --border-strong: oklch(0.395 0.013 64);
+  --border-subtle: oklch(0.248 0.01 60);
+  --primary: oklch(0.7 0.17 293.24);
+  --primary-foreground: oklch(0.145 0.01 58);
+  --interactive: oklch(0.7 0.17 293.24);
+  --interactive-hover: oklch(0.74 0.148 293.24);
+  --scrollbar-thumb: oklch(0.345 0.011 60);
+  --scrollbar-thumb-hover: oklch(0.41 0.012 62);
+  --ring: oklch(0.7 0.11 293.24);
+  --accent: oklch(0.33 0.055 294);
+  --accent-foreground: oklch(0.89 0.05 296);
+  --destructive: oklch(0.655 0.19 29);
+  --destructive-foreground: oklch(0.145 0.01 58);
+  --editor-text: oklch(0.885 0.03 296);
+  --editor-link: oklch(0.74 0.148 293.24);
+  --editor-bold-color: oklch(0.755 0.14 293.24);
+  --editor-italic-color: oklch(0.71 0.09 294);
+  --editor-blockquote-border: oklch(0.56 0.13 293.24);
+  --editor-blockquote-text: oklch(0.71 0.05 296);
+  --editor-code-bg: oklch(0.185 0.018 290);
+  --editor-code-block-text: oklch(0.805 0.075 294);
+  --editor-code-inline-bg: oklch(0.225 0.028 292);
+  --editor-code-inline-text: oklch(0.785 0.1 293.24);
+  --editor-mark-bg: oklch(0.31 0.075 323);
+  --editor-mark-text: oklch(0.905 0.026 323);
 }
 
 /* ============== Glass ====================================== */
