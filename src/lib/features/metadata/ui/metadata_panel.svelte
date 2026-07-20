@@ -339,7 +339,6 @@
     color: var(--muted-foreground);
     background: transparent;
     border: 1px dashed var(--border);
-    cursor: pointer;
     transition: all var(--duration-fast) var(--ease-default);
   }
 
@@ -379,7 +378,6 @@
     color: var(--muted-foreground);
     background: transparent;
     border: none;
-    cursor: pointer;
     opacity: 0;
     transition: all var(--duration-fast) var(--ease-default);
   }

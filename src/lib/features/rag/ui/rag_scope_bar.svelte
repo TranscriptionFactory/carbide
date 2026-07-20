@@ -232,7 +232,7 @@
 
   .ScopeBar__chip-remove {
     all: unset;
-    cursor: pointer;
+    cursor: pointer; /* all:unset beats the global :where() cursor rule */
     display: inline-flex;
     align-items: center;
     color: var(--muted-foreground);
@@ -306,7 +306,7 @@
 
   .ScopeBar__item {
     all: unset;
-    cursor: pointer;
+    cursor: pointer; /* all:unset beats the global :where() cursor rule */
     display: flex;
     align-items: center;
     gap: 0.375rem;

@@ -85,7 +85,6 @@
     padding: var(--space-1) var(--space-3);
     border: none;
     background: none;
-    cursor: pointer;
     border-radius: var(--radius-sm);
     text-align: left;
     transition: background-color var(--duration-fast) var(--ease-default);
@@ -105,7 +104,6 @@
     margin-right: var(--space-2);
     border: none;
     background: none;
-    cursor: pointer;
     color: var(--muted-foreground);
     border-radius: var(--radius-sm);
     opacity: 0;

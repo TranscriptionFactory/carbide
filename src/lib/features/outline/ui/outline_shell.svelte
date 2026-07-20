@@ -80,7 +80,6 @@
     height: var(--size-icon-sm);
     border: none;
     background: none;
-    cursor: pointer;
     color: var(--muted-foreground);
     border-radius: var(--radius-sm);
     transition:

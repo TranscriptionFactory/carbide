@@ -439,7 +439,6 @@
     border: 1px solid var(--border);
     border-radius: var(--radius-md);
     background: var(--card);
-    cursor: pointer;
     text-align: start;
     transition:
       background-color 150ms,

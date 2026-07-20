@@ -196,7 +196,6 @@
     color: var(--foreground);
     background: color-mix(in oklch, var(--muted) 60%, transparent);
     border: none;
-    cursor: pointer;
     text-align: left;
     transition: background 80ms ease;
   }
@@ -327,7 +326,6 @@
     background: transparent;
     border: 1px solid transparent;
     border-radius: calc(var(--radius-sm, 0.25rem) * 0.75);
-    cursor: pointer;
     padding: 0;
     transition: all 80ms ease;
   }
@@ -351,7 +349,6 @@
     background: transparent;
     border: 1px solid transparent;
     border-radius: calc(var(--radius-sm, 0.25rem) * 0.75);
-    cursor: pointer;
     padding: 0;
     transition: all 80ms ease;
   }

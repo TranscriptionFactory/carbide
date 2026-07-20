@@ -895,7 +895,6 @@
     border: none;
     background: transparent;
     color: var(--foreground);
-    cursor: pointer;
     transition: background-color 0.15s ease;
   }
 
@@ -1080,7 +1079,6 @@
     border: none;
     background: transparent;
     color: var(--foreground);
-    cursor: pointer;
     border-radius: var(--radius-sm);
     transition: background-color 0.15s ease;
   }
@@ -1103,7 +1101,6 @@
     border: none;
     background: transparent;
     color: var(--muted-foreground);
-    cursor: pointer;
     border-radius: var(--radius-sm);
     transition: background-color 0.15s ease;
   }

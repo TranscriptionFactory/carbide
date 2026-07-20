@@ -382,7 +382,6 @@
     border: none;
     background: transparent;
     border-radius: var(--radius-md);
-    cursor: pointer;
     transition: background-color var(--duration-fast) var(--ease-default);
   }
 
@@ -412,7 +411,6 @@
     background: transparent;
     border-radius: var(--radius-sm);
     color: transparent;
-    cursor: pointer;
     transition: color var(--duration-fast) var(--ease-default);
   }
 

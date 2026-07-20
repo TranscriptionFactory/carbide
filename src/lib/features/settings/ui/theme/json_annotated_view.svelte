@@ -340,7 +340,6 @@
     border: 1px solid var(--border);
     border-radius: calc(var(--radius-sm, 0.25rem) * 0.75);
     padding: 1px var(--space-1-5);
-    cursor: pointer;
     transition: all 80ms ease;
   }
 
@@ -377,7 +376,6 @@
     background: transparent;
     border: 1px solid transparent;
     border-radius: calc(var(--radius-sm, 0.25rem) * 0.75);
-    cursor: pointer;
     padding: 0;
   }
 
@@ -395,7 +393,6 @@
     color: var(--muted-foreground);
     background: transparent;
     border: none;
-    cursor: pointer;
     padding: 0;
     font-family: inherit;
   }

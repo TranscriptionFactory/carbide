@@ -211,7 +211,6 @@
     color: var(--muted-foreground);
     background: transparent;
     border: none;
-    cursor: pointer;
     line-height: 1;
     padding: 0 var(--space-1);
   }

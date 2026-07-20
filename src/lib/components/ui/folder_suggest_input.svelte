@@ -252,7 +252,7 @@
 
   .FolderSuggest__item {
     all: unset;
-    cursor: pointer;
+    cursor: pointer; /* all:unset beats the global :where() cursor rule */
     padding: 0.375rem 0.75rem;
     font-size: 0.875rem;
     line-height: 1.5rem;

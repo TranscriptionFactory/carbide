@@ -138,7 +138,6 @@
     background: none;
     border: 0;
     padding: 0;
-    cursor: pointer;
   }
 
   .SuggestedLinksSection__item-title:hover {
@@ -173,7 +172,6 @@
     height: var(--size-icon-sm);
     border: none;
     background: none;
-    cursor: pointer;
     color: var(--muted-foreground);
     border-radius: var(--radius-sm);
     transition:

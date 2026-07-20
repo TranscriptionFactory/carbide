@@ -298,7 +298,6 @@
     padding: 0;
     background: transparent;
     border: none;
-    cursor: pointer;
     font-size: var(--text-xs);
     font-weight: 600;
     text-transform: uppercase;
@@ -380,7 +379,6 @@
     color: var(--muted-foreground);
     background: transparent;
     border: none;
-    cursor: pointer;
     opacity: 0;
     transition: all var(--duration-fast) var(--ease-default);
   }

@@ -229,7 +229,6 @@
     background: transparent;
     color: var(--foreground);
     border: 0;
-    cursor: pointer;
   }
   .RelatedPanel__row:hover {
     background: var(--muted);
@@ -253,7 +252,6 @@
     border-radius: 0.25rem;
     background: transparent;
     color: var(--muted-foreground);
-    cursor: pointer;
     opacity: 0;
   }
   .RelatedPanel__mention:hover .RelatedPanel__link-btn {

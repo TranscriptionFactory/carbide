@@ -566,7 +566,6 @@
   }
 
   .StatusBar__item--clickable {
-    cursor: pointer;
     transition: color var(--duration-fast) var(--ease-default);
   }
 

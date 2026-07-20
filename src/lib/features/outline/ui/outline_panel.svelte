@@ -292,7 +292,6 @@
     width: 100%;
     border: none;
     background: none;
-    cursor: pointer;
     padding-block: var(--space-1);
     padding-inline-end: var(--space-2);
     font-size: var(--text-xs);

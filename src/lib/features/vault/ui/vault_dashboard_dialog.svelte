@@ -351,7 +351,6 @@
     border-radius: var(--radius);
     background: transparent;
     border: none;
-    cursor: pointer;
     text-align: left;
     transition:
       background-color var(--duration-fast) var(--ease-default),

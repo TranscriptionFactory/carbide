@@ -531,10 +531,10 @@
 
   .VaultGraph__context_menu_item {
     all: unset;
+    cursor: pointer; /* all:unset beats the global :where() cursor rule */
     display: block;
     padding: var(--space-2) var(--space-3);
     font-size: var(--text-xs);
-    cursor: pointer;
     white-space: nowrap;
   }
 

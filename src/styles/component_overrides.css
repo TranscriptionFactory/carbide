@@ -146,7 +146,8 @@
   [role="menuitem"]:not([aria-disabled="true"]):not([data-disabled]),
   [role="menuitemcheckbox"]:not([aria-disabled="true"]):not([data-disabled]),
   [role="menuitemradio"]:not([aria-disabled="true"]):not([data-disabled]),
-  [role="option"]:not([aria-disabled="true"]):not([data-disabled])
+  [role="option"]:not([aria-disabled="true"]):not([data-disabled]),
+  [role="tab"]:not([aria-disabled="true"]):not([data-disabled])
 ) {
   cursor: pointer;
 }

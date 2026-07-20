@@ -324,7 +324,6 @@
     background-color: var(--primary);
     border: none;
     border-radius: var(--radius-sm);
-    cursor: pointer;
   }
 
   .FormattingToolbar__link-action--remove {
@@ -349,7 +348,6 @@
     border-radius: var(--radius-sm);
     background: transparent;
     color: var(--muted-foreground);
-    cursor: pointer;
     transition:
       background-color 100ms ease,
       color 100ms ease;

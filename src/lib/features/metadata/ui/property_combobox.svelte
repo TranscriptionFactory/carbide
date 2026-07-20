@@ -170,7 +170,7 @@
 
   .PropertyCombobox__item {
     all: unset;
-    cursor: pointer;
+    cursor: pointer; /* all:unset beats the global :where() cursor rule */
     display: flex;
     flex-direction: column;
     gap: 1px;

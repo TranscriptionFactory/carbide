@@ -51,7 +51,7 @@
 
   .DslSuggest__item {
     all: unset;
-    cursor: pointer;
+    cursor: pointer; /* all:unset beats the global :where() cursor rule */
     display: flex;
     align-items: baseline;
     gap: 0.5rem;

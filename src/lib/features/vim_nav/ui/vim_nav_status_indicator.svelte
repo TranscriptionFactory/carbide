@@ -48,7 +48,6 @@
     padding: 0 var(--space-1-5);
     border-radius: var(--radius-sm);
     font-size: var(--text-xs);
-    cursor: pointer;
     transition: opacity var(--duration-fast) var(--ease-default);
   }
 
