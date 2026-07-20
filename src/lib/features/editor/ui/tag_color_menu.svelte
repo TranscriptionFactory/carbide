@@ -6,6 +6,7 @@
   } from "$lib/features/editor/adapters/tag_pill_plugin";
   import { Z_CONTEXT_MENU } from "$lib/features/editor/adapters/floating_toolbar_utils";
   import { ColorSwatchPicker } from "$lib/features/metadata";
+  import { contain_focus } from "$lib/components/ui/contain_focus";
 
   let {
     view,
@@ -65,6 +66,8 @@
     style="left: min({menu.clientX}px, calc(100vw - 15rem)); top: min({menu.clientY}px, calc(100vh - 10rem)); z-index: {Z_CONTEXT_MENU}"
     role="dialog"
     aria-label="Tag color"
+    data-testid="tag-color-menu"
+    use:contain_focus
   >
     <div
       class="flex w-56 flex-col gap-2 rounded-md border border-border bg-popover p-2 text-popover-foreground shadow-md"
@@ -76,6 +79,7 @@
           type="button"
           class="h-7 rounded border border-border px-2 text-xs text-muted-foreground hover:bg-muted"
           onclick={clear_color}
+          data-testid="tag-color-clear"
         >
           Remove color
         </button>

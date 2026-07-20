@@ -10,6 +10,7 @@
   import { use_app_context } from "$lib/app/context/app_context.svelte";
   import { ACTION_IDS } from "$lib/app";
   import { parse_daily_note_date } from "$lib/features/daily_notes/domain/daily_note_path";
+  import EmptyMessage from "$lib/components/ui/empty_message.svelte";
 
   const { stores, action_registry } = use_app_context();
 
@@ -121,6 +122,9 @@
       {/snippet}
     </Calendar.Root>
   </div>
+  {#if daily_dates.size === 0}
+    <EmptyMessage text="No daily notes yet" hint="Pick a date to create one" />
+  {/if}
 </div>
 
 <style>

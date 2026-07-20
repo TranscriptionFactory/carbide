@@ -88,12 +88,17 @@
 </script>
 
 {#if open}
-  <div class="FindInFileBar" class:FindInFileBar--with-replace={show_replace}>
+  <div
+    class="FindInFileBar"
+    class:FindInFileBar--with-replace={show_replace}
+    data-testid="find-bar"
+  >
     <div class="FindInFileBar__row">
       <button
         class="FindInFileBar__toggle"
         onclick={on_toggle_replace}
         aria-label={show_replace ? "Collapse replace" : "Expand replace"}
+        data-testid="find-toggle-replace"
       >
         {#if show_replace}
           <ChevronDownIcon />
@@ -115,9 +120,12 @@
         autocorrect="off"
         autocapitalize="off"
         autocomplete="off"
+        data-testid="find-input"
       />
       {#if count_display}
-        <span class="FindInFileBar__count">{count_display}</span>
+        <span class="FindInFileBar__count" data-testid="find-count"
+          >{count_display}</span
+        >
       {/if}
       <button
         class="FindInFileBar__option"
@@ -125,6 +133,7 @@
         onclick={on_toggle_case}
         aria-pressed={case_sensitive}
         title="Match case"
+        data-testid="find-case"
       >
         Aa
       </button>
@@ -134,6 +143,7 @@
         onclick={on_toggle_whole_word}
         aria-pressed={whole_word}
         title="Whole word"
+        data-testid="find-whole-word"
       >
         Ab|
       </button>
@@ -141,6 +151,8 @@
         class="FindInFileBar__nav"
         onclick={on_prev}
         disabled={match_count === 0}
+        aria-label="Previous match"
+        data-testid="find-prev"
       >
         <ChevronUpIcon />
       </button>
@@ -148,10 +160,17 @@
         class="FindInFileBar__nav"
         onclick={on_next}
         disabled={match_count === 0}
+        aria-label="Next match"
+        data-testid="find-next"
       >
         <ChevronDownIcon />
       </button>
-      <button class="FindInFileBar__close" onclick={on_close}>
+      <button
+        class="FindInFileBar__close"
+        onclick={on_close}
+        aria-label="Close find bar"
+        data-testid="find-close"
+      >
         <XIcon />
       </button>
     </div>
@@ -172,11 +191,13 @@
           autocorrect="off"
           autocapitalize="off"
           autocomplete="off"
+          data-testid="replace-input"
         />
         <button
           class="FindInFileBar__action"
           onclick={on_replace_one}
           disabled={match_count === 0}
+          data-testid="replace-one"
         >
           Replace
         </button>
@@ -184,6 +205,7 @@
           class="FindInFileBar__action"
           onclick={on_replace_all}
           disabled={match_count === 0}
+          data-testid="replace-all"
         >
           All
         </button>
@@ -194,11 +216,19 @@
 
 <style>
   .FindInFileBar {
+    position: absolute;
+    top: var(--space-2);
+    inset-inline-end: var(--space-5);
+    z-index: var(--z-dropdown);
+    width: min(26rem, calc(100% - 2 * var(--space-5)));
     display: flex;
     flex-direction: column;
-    padding: var(--space-1-5) var(--space-3);
-    border-bottom: 1px solid var(--border);
-    background-color: var(--background);
+    padding: var(--space-1);
+    background-color: var(--popover);
+    border-radius: var(--radius-lg);
+    box-shadow:
+      var(--shadow-2),
+      inset 0 0 0 1px var(--border);
     gap: var(--space-1);
   }
 
@@ -216,6 +246,7 @@
   .FindInFileBar__input {
     flex: 1;
     min-width: 0;
+    height: var(--size-touch-xs);
     padding: var(--space-1) var(--space-2);
     font-size: var(--text-sm);
     border: 1px solid var(--border);
@@ -231,6 +262,7 @@
 
   .FindInFileBar__count {
     font-size: var(--text-xs);
+    font-variant-numeric: tabular-nums;
     color: var(--muted-foreground);
     white-space: nowrap;
   }
@@ -241,16 +273,20 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: var(--space-1);
+    min-width: var(--size-touch-xs);
+    min-height: var(--size-touch-xs);
     border-radius: var(--radius-sm);
     color: var(--muted-foreground);
-    transition: color var(--duration-fast) var(--ease-default);
+    transition:
+      color var(--duration-normal) var(--ease-default),
+      background-color var(--duration-normal) var(--ease-default);
   }
 
   .FindInFileBar__toggle:hover,
-  .FindInFileBar__nav:hover,
+  .FindInFileBar__nav:hover:not(:disabled),
   .FindInFileBar__close:hover {
     color: var(--foreground);
+    background-color: var(--accent);
   }
 
   .FindInFileBar__nav:disabled {
@@ -265,7 +301,7 @@
     min-width: var(--size-touch-sm);
     padding: var(--space-1) var(--space-1-5);
     font-size: var(--text-xs);
-    font-weight: var(--font-weight-medium);
+    font-weight: 500;
     border-radius: var(--radius-sm);
     color: var(--muted-foreground);
     background: transparent;

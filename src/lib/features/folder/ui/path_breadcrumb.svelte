@@ -72,7 +72,7 @@
 </script>
 
 {#if segments.length > 0}
-  <nav class="Breadcrumb" aria-label="Note location">
+  <nav class="Breadcrumb" aria-label="Note location" data-testid="breadcrumb">
     <ol class="Breadcrumb__list">
       {#each segments as segment, i (segment.key)}
         {#if i > 0}
@@ -89,6 +89,8 @@
             class="Breadcrumb__segment"
             class:Breadcrumb__segment--root={segment.kind === "root"}
             class:Breadcrumb__segment--current={segment.kind === "note"}
+            data-testid="breadcrumb-segment"
+            data-segment-kind={segment.kind}
             onclick={() => handle_click(segment)}
             aria-current={segment.kind === "note" ? "page" : undefined}
             title={segment.kind === "note"
@@ -107,12 +109,10 @@
   .Breadcrumb {
     display: flex;
     align-items: center;
-    min-height: var(--size-touch-xs);
+    height: var(--size-touch-sm);
     padding-inline: var(--space-3);
-    padding-block: var(--space-1);
     font-size: var(--text-xs);
     color: var(--muted-foreground);
-    border-bottom: 1px solid var(--border-subtle, var(--border));
     background-color: var(--background);
     flex-shrink: 0;
     overflow: hidden;
@@ -162,8 +162,8 @@
     text-overflow: ellipsis;
     white-space: nowrap;
     transition:
-      color var(--duration-fast) var(--ease-default),
-      background-color var(--duration-fast) var(--ease-default);
+      color var(--duration-normal) var(--ease-default),
+      background-color var(--duration-normal) var(--ease-default);
   }
 
   .Breadcrumb__segment:hover:not(:disabled) {
@@ -178,7 +178,7 @@
 
   .Breadcrumb__segment--current {
     color: var(--foreground);
-    font-weight: var(--font-weight-medium, 500);
+    font-weight: 500;
   }
 
   :global(.Breadcrumb__sep svg) {

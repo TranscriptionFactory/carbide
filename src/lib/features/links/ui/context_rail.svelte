@@ -43,7 +43,7 @@
   }
 </script>
 
-<div class="ContextRail__icons">
+<div class="ContextRail__icons" data-testid="context-rail">
   {#each tabs as tab (tab.id)}
     <Tooltip.Root>
       <Tooltip.Trigger>
@@ -56,8 +56,9 @@
             onclick={() => on_icon_click(tab.id)}
             aria-pressed={is_tab_active(tab.id)}
             aria-label={tab.label}
+            data-testid={"context-rail-tab-" + tab.id}
           >
-            <tab.icon size={18} />
+            <tab.icon size={16} />
           </button>
         {/snippet}
       </Tooltip.Trigger>
@@ -76,7 +77,7 @@
     height: 100%;
     padding-block: var(--space-2);
     background-color: var(--background);
-    border-inline-start: 1px solid var(--border);
+    box-shadow: inset 1px 0 0 var(--border);
     flex-shrink: 0;
     z-index: 2;
   }
@@ -85,15 +86,15 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 28px;
-    height: 28px;
+    width: var(--size-touch-xs);
+    height: var(--size-touch-xs);
     border: none;
     background: none;
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-md);
     color: var(--muted-foreground);
     transition:
-      color var(--duration-fast) var(--ease-default),
-      background-color var(--duration-fast) var(--ease-default);
+      color var(--duration-normal) var(--ease-default),
+      background-color var(--duration-normal) var(--ease-default);
   }
 
   .ContextRail__icon-btn:hover {
@@ -103,6 +104,6 @@
 
   .ContextRail__icon-btn--active {
     color: var(--interactive);
-    background-color: var(--accent);
+    background-color: var(--interactive-bg);
   }
 </style>

@@ -12,6 +12,7 @@
   } from "@lucide/svelte";
   import { Button } from "$lib/components/ui/button";
   import { Input } from "$lib/components/ui/input";
+  import EmptyMessage from "$lib/components/ui/empty_message.svelte";
   import { use_app_context } from "$lib/app/context/app_context.svelte";
   import { ACTION_IDS } from "$lib/app";
   import RagMessage from "$lib/features/rag/ui/rag_message.svelte";
@@ -271,23 +272,24 @@
   {:else}
     <div class="flex-1 overflow-y-auto p-3">
       {#if rag.messages.length === 0 && !rag.is_loading}
-        <div
-          class="flex h-full flex-col items-center justify-center gap-3 text-center"
-        >
-          <MessagesSquare class="size-8 text-muted-foreground" />
-          <div class="text-sm font-medium">Ask anything about your vault</div>
-          <div class="flex flex-wrap justify-center gap-1">
-            {#each templates as template (template.id)}
-              <button
-                type="button"
-                class="rounded-md border px-3 py-1.5 text-xs text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-                title={template.query}
-                onclick={() => ask(template.query)}
-              >
-                {template.label}
-              </button>
-            {/each}
-          </div>
+        <div class="flex h-full items-center justify-center">
+          <EmptyMessage
+            icon={MessagesSquare}
+            text="Ask anything about your vault"
+          >
+            <div class="flex flex-wrap justify-center gap-1">
+              {#each templates as template (template.id)}
+                <button
+                  type="button"
+                  class="rounded-md border px-3 py-1.5 text-xs text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                  title={template.query}
+                  onclick={() => ask(template.query)}
+                >
+                  {template.label}
+                </button>
+              {/each}
+            </div>
+          </EmptyMessage>
         </div>
       {:else}
         <div class="flex flex-col gap-4">

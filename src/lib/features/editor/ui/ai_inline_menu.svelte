@@ -9,6 +9,7 @@
   } from "@lucide/svelte";
   import type { AiMenuMode } from "../adapters/ai_menu_plugin";
   import type { AiInlineCommand } from "$lib/features/ai";
+  import { contain_focus } from "$lib/components/ui/contain_focus";
 
   interface Props {
     mode: AiMenuMode;
@@ -64,7 +65,13 @@
   }
 </script>
 
-<div class="AiInlineMenu" role="dialog" aria-label="AI inline menu">
+<div
+  class="AiInlineMenu"
+  role="dialog"
+  aria-label="AI inline menu"
+  data-testid="ai-inline-menu"
+  use:contain_focus
+>
   {#if streaming}
     <div class="AiInlineMenu__streaming">
       <Loader2 size={14} class="AiInlineMenu__spinner" />
@@ -76,6 +83,7 @@
         type="button"
         class="AiInlineMenu__action-btn AiInlineMenu__action-btn--accept"
         onclick={on_accept}
+        data-testid="ai-inline-accept"
       >
         <Check size={14} />
         <span>Accept</span>
@@ -84,11 +92,17 @@
         type="button"
         class="AiInlineMenu__action-btn AiInlineMenu__action-btn--reject"
         onclick={on_reject}
+        data-testid="ai-inline-reject"
       >
         <X size={14} />
         <span>Discard</span>
       </button>
-      <button type="button" class="AiInlineMenu__action-btn" onclick={on_retry}>
+      <button
+        type="button"
+        class="AiInlineMenu__action-btn"
+        onclick={on_retry}
+        data-testid="ai-inline-retry"
+      >
         <RotateCcw size={14} />
         <span>Try again</span>
       </button>
@@ -106,6 +120,7 @@
       <button
         type="button"
         class="AiInlineMenu__submit"
+        data-testid="ai-inline-submit"
         disabled={!prompt_text.trim()}
         onclick={() => {
           if (prompt_text.trim()) {
