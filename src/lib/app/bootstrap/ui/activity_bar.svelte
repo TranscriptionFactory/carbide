@@ -201,11 +201,18 @@
     top: 0;
     left: 0;
     bottom: 0;
-    width: var(--chrome-edge-width, 3px);
+    /* The CustomTitleBar window-resize handle (6px, z 1001) covers the strip's
+       whole 3px, eating :hover. A transparent border widens the hit box past
+       the handle while background-clip keeps the painted strip at 3px;
+       overflow:hidden clips pseudo-elements, so a ::after hit zone would not
+       work here. border-box sizing makes the border additive via calc. */
+    width: calc(var(--chrome-edge-width, 3px) + 9px);
     padding: 0;
     overflow: hidden;
     background-color: var(--interactive);
     border: none;
+    border-right: 9px solid transparent;
+    background-clip: padding-box;
     border-radius: 0;
     opacity: 0.4;
     z-index: 200;
@@ -221,6 +228,7 @@
   :global([data-chrome-mode="edge-reveal"]) .ActivityBar:hover {
     width: var(--size-activity-bar);
     padding-block: var(--space-2);
+    border-right: none;
     opacity: 1;
     background-color: color-mix(in oklch, var(--card) 95%, transparent);
     backdrop-filter: blur(20px);
