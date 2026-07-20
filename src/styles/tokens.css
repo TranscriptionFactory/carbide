@@ -98,7 +98,7 @@
     /* Sizes — chrome (density-scaled) */
     --size-titlebar: calc(34px * var(--density));
     --size-activity-bar: calc(44px * var(--density));
-    --size-activity-icon: 1.25rem; /* 20px */
+    --size-activity-icon: 1rem; /* 16px */
     --size-control: calc(24px * var(--density)); /* 24px control height */
     --size-tabbar: calc(36px * var(--density));
     --size-row: calc(28px * var(--density));
@@ -344,7 +344,7 @@
 
     /* ----- Tier 3: Affordance flags (defaults) -----
      Themes flip these to reshape components without editing component code. */
-    --statusbar-shape: "bar"; /* "bar" | "transparent" | "segments" */
+    --statusbar-shape: "bar"; /* "bar" | "transparent" | "segments" | "floating-pill" | "hover-pill" */
     --statusbar-divider: color-mix(
       in oklch,
       var(--statusbar-fg) 20%,
@@ -355,6 +355,9 @@
     --tab-active-indicator: "underline"; /* "underline" | "border" | "fill" | "none" */
     --tab-active-indicator-color: var(--interactive);
     --tab-active-indicator-thickness: 2px;
+    --tab-active-indicator-fg: var(
+      --background
+    ); /* text color on "fill" active tabs */
 
     --sidebar-active-shape: "ribbon"; /* "ribbon" | "fill" | "weight" | "invert" */
 
