@@ -402,7 +402,6 @@
   --shadow-2: 0 4px 12px -2px oklch(0 0 0 / 0.4);
   --shadow-3: 0 20px 40px -10px oklch(0 0 0 / 0.6);
   --chrome-blur: 20px;
-  --sidebar-blur: var(--chrome-blur);
   --workspace-grain-size: 4px;
   --activity-bar-bg: var(--glass-strong);
   --statusbar-bg: var(--glass-strong);

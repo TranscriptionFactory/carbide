@@ -112,13 +112,6 @@
   -webkit-backdrop-filter: blur(var(--chrome-blur, 0px));
 }
 
-/* Sidebar-pane blur — inert (0px) unless a theme sets --sidebar-blur
-   (obsidian: translucent --sidebar over the glow/grain layers) */
-.WorkspaceLayout [data-slot="sidebar"] {
-  backdrop-filter: blur(var(--sidebar-blur, 0px));
-  -webkit-backdrop-filter: blur(var(--sidebar-blur, 0px));
-}
-
 /* Workspace backdrop + grain layers — inert (none) unless a theme
    sets --workspace-backdrop / --workspace-grain (obsidian identity) */
 .WorkspaceLayout {
