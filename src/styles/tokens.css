@@ -55,7 +55,9 @@
       "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
       monospace;
 
-    --text-xs: 0.6875rem; /* 11px - status bar, badges, section headers */
+    --text-2xs: 0.625rem; /* 10px - overlines (uppercase, +0.02em tracking) */
+    --text-xs: 0.6875rem; /* 11px - labels (weight 500), status bar, badges */
+    --text-chrome: 0.75rem; /* 12px - chrome body text (tab titles, tree rows, panels) */
     --text-sm: 0.8125rem; /* 13px - secondary text, descriptions */
     --text-base: 0.875rem; /* 14px - body text, list items */
     --text-md: 0.9375rem; /* 15px - emphasized body */
@@ -89,9 +91,10 @@
     --size-titlebar: calc(34px * var(--density));
     --size-activity-bar: calc(44px * var(--density));
     --size-activity-icon: 1.25rem; /* 20px */
-    --size-tabbar: calc(34px * var(--density));
+    --size-control: calc(24px * var(--density)); /* 24px control height */
+    --size-tabbar: calc(36px * var(--density));
     --size-row: calc(28px * var(--density));
-    --size-status-bar: 1.625rem; /* 26px — static; density wiring is Phase 2 */
+    --size-status-bar: calc(30px * var(--density));
 
     /* Sizes — icons */
     --size-icon-xs: 0.75rem; /* 12px */
@@ -108,7 +111,7 @@
     --size-touch-lg: 2.5rem; /* 40px */
 
     /* Sizes — tree */
-    --size-tree-row: 1.875rem; /* 30px — static; density wiring is Phase 2 */
+    --size-tree-row: calc(30px * var(--density)); /* density wired, value unchanged */
     --size-tree-blurb-gap: 2px; /* gap between heading and blurb within a row */
     --size-tree-blurb-extra: 1.25rem; /* extra row height when blurb is shown */
     --size-tree-indent: 1rem;

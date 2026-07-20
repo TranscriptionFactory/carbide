@@ -139,7 +139,9 @@ const RAW_CATEGORIES: TokenCategory[] = [
   {
     label: "Typography",
     tokens: [
+      "--text-2xs",
       "--text-xs",
+      "--text-chrome",
       "--text-sm",
       "--text-base",
       "--text-md",
@@ -160,6 +162,7 @@ const RAW_CATEGORIES: TokenCategory[] = [
       "--size-touch-md",
       "--size-touch-lg",
       "--size-activity-bar",
+      "--size-control",
       "--size-status-bar",
       "--size-tree-row",
       "--size-dialog-lg",
