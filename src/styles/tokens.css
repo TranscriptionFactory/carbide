@@ -43,11 +43,10 @@
     --radius-full: 9999px;
 
     /* Type scale */
-    --font-sans: ui-sans-serif, -apple-system, "Segoe UI", "Inter", sans-serif;
+    --font-sans: "Inter", ui-sans-serif, -apple-system, "Segoe UI", sans-serif;
     --font-serif:
       "Iowan Old Style", "Charter", "Source Serif Pro", Georgia, serif;
-    --font-mono: "JetBrains Mono", "SF Mono", ui-monospace, Menlo, monospace;
-    --font-ui: var(--font-sans);
+    --font-mono: "IBM Plex Mono", "JetBrains Mono", ui-monospace, Menlo, monospace;
     /* Theme-facing font names (written by apply_theme, read by the
      settings token reference panel) */
     --font-family-sans: "Inter", system-ui, -apple-system, sans-serif;

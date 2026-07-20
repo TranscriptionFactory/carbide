@@ -77,7 +77,7 @@ describe("apply_theme", () => {
   it("sets font family tokens", () => {
     apply_theme(BUILTIN_CARBIDE_LIGHT);
     expect(store.get("--font-family-sans")).toContain("Inter");
-    expect(store.get("--font-family-mono")).toContain("JetBrains Mono");
+    expect(store.get("--font-family-mono")).toContain("IBM Plex Mono");
   });
 
   it("sets editor typography tokens", () => {
