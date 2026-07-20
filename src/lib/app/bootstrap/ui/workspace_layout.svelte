@@ -540,6 +540,14 @@
     min-height: 0;
   }
 
+  /* Clear the floating tab pill (interim; absorbed by the Phase 2 tab_bar
+     rebuild) */
+  :global([data-tabbar-mode="floating-pill"])
+    .WorkspaceLayout
+    :global([data-slot="sidebar-inset"]) {
+    padding-top: calc(var(--size-touch-lg) + var(--space-8));
+  }
+
   /* Overlay side panels (panels === "overlay"): positioned siblings after the
      PaneGroup in DOM order — no paneforge fight, no !important. */
   .WorkspaceLayout__overlay-panel {

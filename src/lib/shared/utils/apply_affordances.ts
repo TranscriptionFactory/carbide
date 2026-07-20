@@ -8,6 +8,9 @@ const AFFORDANCE_MAP: Record<string, { attr: string; fallback: string }> = {
     attr: "data-sidebar-active",
     fallback: "ribbon",
   },
+  "--chrome-mode": { attr: "data-chrome-mode", fallback: "normal" },
+  "--activitybar-mode": { attr: "data-activitybar-mode", fallback: "rail" },
+  "--tabbar-mode": { attr: "data-tabbar-mode", fallback: "bar" },
 };
 
 function strip_css_quotes(value: string): string {

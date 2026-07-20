@@ -1,0 +1,33 @@
+/* Layout presets: parameter values over the default layout, keyed off
+   [data-layout-variant] (never [data-theme] — ADR 0001 §2). Flag tokens are
+   read by apply_affordances(); geometry tokens by component/overlay CSS. */
+[data-layout-variant="spotlight"] {
+  --overlay-panel-width: 18rem;
+  --tabbar-max-width: 36rem;
+  --activitybar-mode: "floating-dock";
+  --tabbar-mode: "floating-pill";
+  --statusbar-shape: "floating-pill";
+}
+
+[data-layout-variant="theater"] {
+  --overlay-panel-width: 20rem;
+  --chrome-mode: "edge-reveal";
+  --chrome-edge-width: 3px;
+  --chrome-reveal-speed: var(--duration-slow);
+  --chrome-reveal-ease: var(--ease-out);
+  --statusbar-shape: "hover-pill";
+  --tab-active-indicator: "fill";
+}
+
+/* Transitional until Phase 2 settings-driven width presets: the scoped custom
+   property beats the apply_editor_width inline root style without !important. */
+[data-layout-variant="spotlight"] .WorkspaceLayout,
+[data-layout-variant="theater"] .WorkspaceLayout {
+  --editor-max-width: 80ch;
+}
+
+[data-layout-variant="spotlight"] .WorkspaceLayout .NoteEditor,
+[data-layout-variant="theater"] .WorkspaceLayout .NoteEditor {
+  max-width: var(--editor-max-width);
+  margin-inline: auto;
+}
