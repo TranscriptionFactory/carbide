@@ -15,7 +15,7 @@
   } from "$lib/features/editor";
   import { ContextRail, ContextRailPanel } from "$lib/features/links";
   import { is_editable_target } from "$lib/shared/utils/editable_target";
-  import { DockedOutline, FloatingOutline } from "$lib/features/outline";
+  import { DockedOutline } from "$lib/features/outline";
   import { PluginRuntimeContainer } from "$lib/features/plugin";
   import { use_app_context } from "$lib/app/context/app_context.svelte";
   import {
@@ -301,7 +301,6 @@
                               }}
                             >
                               <NoteEditor />
-                              <FloatingOutline />
                             </div>
                           </Resizable.Pane>
                           {#if split_view_active}
