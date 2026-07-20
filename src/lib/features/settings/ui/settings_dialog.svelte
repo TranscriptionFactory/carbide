@@ -1837,14 +1837,12 @@
                   <span data-slot="select-value"
                     >{{
                       rail: "Sidebar",
-                      floating: "Floating",
                       docked: "Docked",
                     }[editor_settings.outline_mode]}</span
                   >
                 </Select.Trigger>
                 <Select.Content>
                   <Select.Item value="rail">Sidebar</Select.Item>
-                  <Select.Item value="floating">Floating</Select.Item>
                   <Select.Item value="docked">Docked</Select.Item>
                 </Select.Content>
               </Select.Root>
