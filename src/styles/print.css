@@ -14,7 +14,6 @@
   .FindInFileBar,
   .BottomPanel,
   .FormattingToolbar,
-  .FloatingOutline,
   [data-pane-resizer],
   [data-pane]:has([data-slot="sidebar"]),
   [data-pane]:has(.BottomPanel),

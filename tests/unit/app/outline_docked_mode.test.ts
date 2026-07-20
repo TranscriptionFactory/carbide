@@ -43,7 +43,7 @@ describe("outline docked mode", () => {
     ui.outline_docked_open = false;
     ui.set_editor_settings({
       ...DEFAULT_EDITOR_SETTINGS,
-      outline_mode: "floating",
+      outline_mode: "rail",
     });
     expect(ui.outline_docked_open).toBe(false);
   });

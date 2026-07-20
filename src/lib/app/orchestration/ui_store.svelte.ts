@@ -251,7 +251,6 @@ export class UIStore {
   sidebar_open = $state(true);
   sidebar_pane_size = $state(25);
   zen_mode = $state(false);
-  floating_outline_collapsed = $state(false);
   outline_docked_open = $state(true);
   outline_pane_size = $state(20);
   sidebar_view = $state<SidebarView>("explorer");
@@ -437,11 +436,12 @@ export class UIStore {
 
   bottom_panel_open = $state(false);
   bottom_panel_tab = $state<BottomPanelTab>("terminal");
+  bottom_panel_pane_size = $state(30);
+  editor_split_pane_size = $state(50);
 
   context_rail_open = $state(false);
   context_rail_tab = $state<ContextRailTab>("links");
   context_rail_side = $state<"left" | "right">("right");
-  // ponytail: session-only; persist across restarts by mirroring outline_pane_size if wanted
   context_rail_pane_size = $state(20);
 
   hotkeys_config = $state<HotkeyConfig>({ bindings: [] });
@@ -558,7 +558,17 @@ export class UIStore {
   }
 
   toggle_context_rail() {
-    this.context_rail_open = !this.context_rail_open;
+    if (this.context_rail_open) {
+      this.context_rail_open = false;
+    } else {
+      this.open_context_rail();
+    }
+  }
+
+  open_context_rail(tab: ContextRailTab = this.context_rail_tab) {
+    this.context_rail_tab = tab;
+    this.context_rail_open = true;
+    this.outline_docked_open = false;
   }
 
   close_context_rail(tab: ContextRailTab = this.context_rail_tab) {
@@ -567,8 +577,16 @@ export class UIStore {
   }
 
   set_context_rail_tab(tab: ContextRailTab) {
-    this.context_rail_tab = tab;
-    this.context_rail_open = true;
+    this.open_context_rail(tab);
+  }
+
+  toggle_docked_outline() {
+    if (this.outline_docked_open) {
+      this.outline_docked_open = false;
+    } else {
+      this.outline_docked_open = true;
+      this.context_rail_open = false;
+    }
   }
 
   set_editor_settings(settings: EditorSettings) {
@@ -577,6 +595,7 @@ export class UIStore {
       this.editor_settings.outline_mode !== "docked"
     ) {
       this.outline_docked_open = true;
+      this.context_rail_open = false;
     }
     this.editor_settings = settings;
     this.editor_settings_loaded = true;

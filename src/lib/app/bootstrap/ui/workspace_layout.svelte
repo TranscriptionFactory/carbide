@@ -15,7 +15,7 @@
   } from "$lib/features/editor";
   import { ContextRail, ContextRailPanel } from "$lib/features/links";
   import { is_editable_target } from "$lib/shared/utils/editable_target";
-  import { DockedOutline, FloatingOutline } from "$lib/features/outline";
+  import { DockedOutline } from "$lib/features/outline";
   import { PluginRuntimeContainer } from "$lib/features/plugin";
   import { use_app_context } from "$lib/app/context/app_context.svelte";
   import {
@@ -196,7 +196,9 @@
                   class="flex-1 min-h-0"
                 >
                   <Resizable.Pane
-                    defaultSize={bottom_panel_open ? 70 : 100}
+                    defaultSize={bottom_panel_open
+                      ? 100 - stores.ui.bottom_panel_pane_size
+                      : 100}
                     minSize={20}
                     order={1}
                   >
@@ -299,15 +301,16 @@
                               }}
                             >
                               <NoteEditor />
-                              <FloatingOutline />
                             </div>
                           </Resizable.Pane>
                           {#if split_view_active}
                             <Resizable.Handle />
                             <Resizable.Pane
-                              defaultSize={50}
+                              defaultSize={stores.ui.editor_split_pane_size}
                               minSize={20}
                               order={2}
+                              onResize={(size) =>
+                                (stores.ui.editor_split_pane_size = size)}
                             >
                               <div
                                 class="EditorPane"
@@ -326,10 +329,12 @@
                   {#if bottom_panel_open}
                     <Resizable.Handle />
                     <Resizable.Pane
-                      defaultSize={30}
+                      defaultSize={stores.ui.bottom_panel_pane_size}
                       minSize={10}
                       maxSize={80}
                       order={2}
+                      onResize={(size) =>
+                        (stores.ui.bottom_panel_pane_size = size)}
                     >
                       <BottomPanel />
                     </Resizable.Pane>
