@@ -36,10 +36,10 @@
 
     /* Radius scale — Tweaks rewrite --radius */
     --radius: 6px;
-    --radius-sm: calc(var(--radius) - 2px);
-    --radius-md: var(--radius);
-    --radius-lg: calc(var(--radius) + 4px);
-    --radius-xl: calc(var(--radius) + 8px);
+    --radius-sm: calc(var(--radius) - 2px); /* 4px */
+    --radius-md: var(--radius); /* 6px */
+    --radius-lg: calc(var(--radius) + 2px); /* 8px */
+    --radius-xl: calc(var(--radius) + 6px); /* 12px */
     --radius-full: 9999px;
 
     /* Type scale */
