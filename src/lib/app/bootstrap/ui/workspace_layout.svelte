@@ -17,6 +17,7 @@
   import { is_editable_target } from "$lib/shared/utils/editable_target";
   import { DockedOutline } from "$lib/features/outline";
   import { PluginRuntimeContainer } from "$lib/features/plugin";
+  import { NoteDiffService, GitDiffView } from "$lib/features/git";
   import { use_app_context } from "$lib/app/context/app_context.svelte";
   import {
     panels_mode,
@@ -30,7 +31,19 @@
   } from "$lib/app";
   import type { SidebarViewMeta } from "$lib/app";
 
-  const { stores, action_registry } = use_app_context();
+  const { stores, action_registry, services } = use_app_context();
+
+  const note_diff = new NoteDiffService({
+    load_diff: (path) => services.git.get_working_diff(path),
+    load_diff_at_commit: (path, commit_hash) =>
+      services.git.get_diff(`${commit_hash}~1`, commit_hash, path),
+  });
+
+  $effect(() => {
+    note_diff.set_active_path(stores.editor.open_note?.meta.path ?? null);
+  });
+
+  $effect(() => () => note_diff.dispose());
 
   const split_view_active = $derived(stores.tab.is_split);
   const bottom_panel_open = $derived(stores.ui.bottom_panel_open);
@@ -226,6 +239,21 @@
                             )}
                         />
                       {/if}
+                      {#if show_chrome && stores.editor.open_note}
+                        <div class="NoteDiffBar">
+                          <button
+                            type="button"
+                            class="NoteDiffBar__toggle"
+                            class:NoteDiffBar__toggle--active={note_diff.diff_mode}
+                            data-testid="note-diff-toggle"
+                            aria-pressed={note_diff.diff_mode}
+                            title="Toggle note-relative diff"
+                            onclick={() => void note_diff.toggle()}
+                          >
+                            Diff
+                          </button>
+                        </div>
+                      {/if}
                       <div class="relative flex min-h-0 flex-1 flex-col">
                         <FindInFileBar
                           open={stores.ui.find_in_file.open}
@@ -301,6 +329,14 @@
                               }}
                             >
                               <NoteEditor />
+                              {#if note_diff.diff_mode}
+                                <div
+                                  class="NoteDiffOverlay"
+                                  data-testid="note-diff-view"
+                                >
+                                  <GitDiffView diff={note_diff.diff_content} />
+                                </div>
+                              {/if}
                             </div>
                           </Resizable.Pane>
                           {#if split_view_active}
@@ -525,6 +561,40 @@
 
   .EditorPane--focused {
     box-shadow: inset 0 0 0 1px var(--focus-ring);
+  }
+
+  .NoteDiffBar {
+    display: flex;
+    justify-content: flex-end;
+    padding-inline: var(--space-3);
+  }
+
+  .NoteDiffBar__toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
+    padding: var(--space-1) var(--space-2);
+    border-radius: var(--radius-md);
+    color: var(--muted-foreground);
+    font-size: var(--text-xs);
+  }
+
+  .NoteDiffBar__toggle:hover {
+    background-color: var(--muted);
+  }
+
+  .NoteDiffBar__toggle--active {
+    color: var(--accent-foreground);
+    background-color: var(--accent);
+  }
+
+  .NoteDiffOverlay {
+    position: absolute;
+    inset: 0;
+    z-index: 5;
+    overflow: auto;
+    background-color: var(--background);
+    padding: var(--space-4);
   }
 
   :global(.StarredGroupLabel) {

@@ -1,5 +1,10 @@
 export { register_git_actions } from "$lib/features/git/application/git_actions";
 export { GitService } from "$lib/features/git/application/git_service";
+export {
+  NoteDiffService,
+  type CommitDiffRequest,
+  type NoteDiffLoaders,
+} from "$lib/features/git/application/note_diff_service";
 export { GitStore } from "$lib/features/git/state/git_store.svelte";
 export type { GitPort } from "$lib/features/git/ports";
 export { create_git_tauri_adapter } from "$lib/features/git/adapters/git_tauri_adapter";
@@ -8,6 +13,7 @@ export { default as VersionHistoryDialog } from "$lib/features/git/ui/version_hi
 export { default as CheckpointDialog } from "$lib/features/git/ui/checkpoint_dialog.svelte";
 export { default as AddRemoteDialog } from "$lib/features/git/ui/add_remote_dialog.svelte";
 export { default as DiffViewerDialog } from "$lib/features/git/ui/diff_viewer_dialog.svelte";
+export { default as GitDiffView } from "$lib/features/git/ui/git_diff_view.svelte";
 export { default as SourceControlPanel } from "$lib/features/git/ui/source_control_panel.svelte";
 export {
   CHECKPOINT_PREFIX,
