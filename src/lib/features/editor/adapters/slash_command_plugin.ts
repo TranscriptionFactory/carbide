@@ -19,6 +19,10 @@ import {
   type SmartBlockScaffoldType,
 } from "$lib/features/smart_blocks";
 import { PREVIEW_BUILDERS, build_preview } from "./slash_command_previews";
+import {
+  detect_intentional_mouse_movement,
+  type MouseMovementSnapshot,
+} from "$lib/shared/utils/mouse_movement";
 
 export const slash_plugin_key = new PluginKey("slash-command");
 
@@ -651,8 +655,7 @@ function option_id(menu_id: string, index: number): string {
 
 // Scrolling moves rows under a stationary cursor, which fires hover events
 // with unchanged coordinates; ignore those so scroll and hover don't fight.
-let last_hover_x = -1;
-let last_hover_y = -1;
+let last_mouse_snapshot: MouseMovementSnapshot | null = null;
 
 export function render_items(
   menu: HTMLElement,
@@ -725,10 +728,12 @@ export function render_items(
     row.appendChild(text_el);
 
     row.addEventListener("mousemove", (e) => {
-      if (e.clientX === last_hover_x && e.clientY === last_hover_y) return;
-      last_hover_x = e.clientX;
-      last_hover_y = e.clientY;
-      if (i !== state.selected_index) on_select(i);
+      const decision = detect_intentional_mouse_movement(
+        e,
+        last_mouse_snapshot,
+      );
+      last_mouse_snapshot = decision.snapshot;
+      if (decision.moved && i !== state.selected_index) on_select(i);
     });
     row.addEventListener("mousedown", (e) => {
       e.preventDefault();
