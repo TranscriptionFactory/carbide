@@ -1,5 +1,5 @@
 import type { Component } from "svelte";
-import { SIDEBAR_VIEWS } from "$lib/app";
+import { SIDEBAR_VIEWS } from "$lib/app/sidebar_views";
 import { GraphPanel } from "$lib/features/graph";
 import { TaskPanel } from "$lib/features/task";
 import { TagPanel } from "$lib/features/tags";
@@ -8,14 +8,33 @@ import { DailyNotesPanel } from "$lib/features/daily_notes";
 import SidebarStarredView from "$lib/app/bootstrap/ui/sidebar_starred_view.svelte";
 import SidebarDashboardView from "$lib/app/bootstrap/ui/sidebar_dashboard_view.svelte";
 
+/* Getters, not values: the feature barrels above sit in an import cycle with
+   the $lib/app barrel (feature panel → $lib/app → AppShell → … → this file).
+   Eager map values dereference the bindings during module evaluation and
+   throw a TDZ ReferenceError; getters defer the access to render time, the
+   same timing the pre-registry workspace_layout template relied on. */
 export const SIDEBAR_PANEL_COMPONENTS: Record<string, Component> = {
-  [SIDEBAR_VIEWS.starred]: SidebarStarredView,
-  [SIDEBAR_VIEWS.dashboard]: SidebarDashboardView,
-  [SIDEBAR_VIEWS.graph]: GraphPanel,
-  [SIDEBAR_VIEWS.tasks]: TaskPanel,
-  [SIDEBAR_VIEWS.tags]: TagPanel,
-  [SIDEBAR_VIEWS.source_control]: SourceControlPanel,
-  [SIDEBAR_VIEWS.daily_notes]: DailyNotesPanel,
+  get [SIDEBAR_VIEWS.starred]() {
+    return SidebarStarredView;
+  },
+  get [SIDEBAR_VIEWS.dashboard]() {
+    return SidebarDashboardView;
+  },
+  get [SIDEBAR_VIEWS.graph]() {
+    return GraphPanel;
+  },
+  get [SIDEBAR_VIEWS.tasks]() {
+    return TaskPanel;
+  },
+  get [SIDEBAR_VIEWS.tags]() {
+    return TagPanel;
+  },
+  get [SIDEBAR_VIEWS.source_control]() {
+    return SourceControlPanel;
+  },
+  get [SIDEBAR_VIEWS.daily_notes]() {
+    return DailyNotesPanel;
+  },
 };
 
 /* Views whose sidebar header shows the registry label; everything else
