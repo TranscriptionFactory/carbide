@@ -23,7 +23,7 @@
 
 <!-- drag region only fires when the bar background itself is the event
      target, so the buttons inside stay fully clickable -->
-<div class="ActivityBar" data-tauri-drag-region>
+<div class="ActivityBar" data-testid="activity-bar" data-tauri-drag-region>
   <div class="ActivityBar__section">
     {#each configured_views as view (view.id)}
       <button
@@ -31,6 +31,8 @@
         class="ActivityBar__button"
         class:ActivityBar__button--active={sidebar_open &&
           active_view === view.id}
+        data-testid="activity-bar-button"
+        data-view-id={view.id}
         onclick={() => on_open_view(view.id)}
         aria-pressed={sidebar_open && active_view === view.id}
         aria-label={view.label}
@@ -44,6 +46,7 @@
     <button
       type="button"
       class="ActivityBar__button"
+      data-testid="activity-bar-help"
       onclick={on_open_help}
       aria-label="Help"
     >
@@ -52,6 +55,7 @@
     <button
       type="button"
       class="ActivityBar__button"
+      data-testid="activity-bar-settings"
       onclick={on_open_settings}
       aria-label="Settings"
     >
@@ -68,42 +72,48 @@
     justify-content: space-between;
     width: var(--size-activity-bar);
     height: 100%;
-    padding-block: var(--space-1);
+    padding-block: var(--space-2);
     background-color: var(--activity-bar-bg);
-    border-inline-end: 1px solid var(--sidebar-border);
+    box-shadow: inset -1px 0 0 var(--sidebar-border);
   }
 
   .ActivityBar__section {
     display: flex;
     flex-direction: column;
+    align-items: center;
+    gap: var(--space-1);
   }
 
   .ActivityBar__button {
     position: relative;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: var(--size-activity-bar);
-    height: var(--size-activity-bar);
-    color: var(--activity-bar-fg);
-    opacity: 0.35;
+    display: grid;
+    place-items: center;
+    width: var(--size-touch-xs);
+    height: var(--size-touch-xs);
+    border-radius: var(--radius-md);
+    color: var(--muted-foreground);
     transition:
-      opacity var(--duration-normal) var(--ease-default),
-      background-color var(--duration-fast) var(--ease-default);
+      background-color var(--duration-normal) var(--ease-default),
+      color var(--duration-normal) var(--ease-default);
   }
 
   .ActivityBar__button:hover {
-    opacity: 1;
+    background-color: color-mix(
+      in oklch,
+      var(--activity-bar-fg) 8%,
+      transparent
+    );
+    color: var(--activity-bar-fg);
   }
 
   .ActivityBar__button:focus-visible {
-    opacity: 1;
+    color: var(--activity-bar-fg);
     outline: 2px solid var(--focus-ring);
     outline-offset: -2px;
   }
 
   .ActivityBar__button--active {
-    opacity: 0.9;
+    color: var(--activity-bar-fg);
   }
 
   .ActivityBar__button--active::before {
@@ -127,6 +137,7 @@
   }
   :global([data-sidebar-active="fill"]) .ActivityBar__button--active {
     background-color: var(--sidebar-accent);
+    color: var(--interactive);
   }
 
   :global([data-sidebar-active="weight"]) .ActivityBar__button--active::before {
@@ -162,7 +173,8 @@
     transition: opacity var(--duration-normal) var(--ease-default);
   }
 
-  :global([data-activitybar-mode="floating-dock"]) .ActivityBar:hover {
+  :global([data-activitybar-mode="floating-dock"]) .ActivityBar:hover,
+  :global([data-activitybar-mode="floating-dock"]) .ActivityBar:focus-within {
     opacity: 1;
   }
 
@@ -180,8 +192,6 @@
   }
 
   :global([data-activitybar-mode="floating-dock"]) .ActivityBar__button {
-    width: var(--size-touch-sm);
-    height: var(--size-touch-sm);
     border-radius: var(--radius-full);
   }
 
@@ -225,7 +235,8 @@
       box-shadow var(--chrome-reveal-speed) var(--chrome-reveal-ease);
   }
 
-  :global([data-chrome-mode="edge-reveal"]) .ActivityBar:hover {
+  :global([data-chrome-mode="edge-reveal"]) .ActivityBar:hover,
+  :global([data-chrome-mode="edge-reveal"]) .ActivityBar:focus-within {
     width: var(--size-activity-bar);
     padding-block: var(--space-2);
     border-right: none;
@@ -249,8 +260,6 @@
   }
 
   :global([data-chrome-mode="edge-reveal"]) .ActivityBar__button {
-    width: var(--size-touch-sm);
-    height: var(--size-touch-sm);
     border-radius: var(--radius-sm);
   }
 
