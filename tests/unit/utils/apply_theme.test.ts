@@ -71,7 +71,7 @@ describe("apply_theme", () => {
   it("sets accent parametric tokens", () => {
     apply_theme(BUILTIN_CARBIDE_DARK);
     expect(store.get("--accent-hue")).toBe("293.24");
-    expect(store.get("--accent-chroma")).toBe("0.2663");
+    expect(store.get("--accent-chroma")).toBe("0.2808");
   });
 
   it("sets font family tokens", () => {

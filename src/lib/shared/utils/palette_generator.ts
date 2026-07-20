@@ -184,10 +184,10 @@ const UI_TOKEN_SPECS: Record<string, TokenSpec> = {
   },
   "--border-strong": { light_l: 0.86, dark_l: 0.38, source: "surface" },
   "--border-subtle": { light_l: 0.95, dark_l: 0.225, source: "surface" },
-  "--primary": { light_l: 0.48, dark_l: 0.68, source: "accent" },
+  "--primary": { light_l: 0.5337, dark_l: 0.68, source: "accent" },
   "--primary-foreground": { light_l: 1.0, dark_l: 0.1, source: "neutral" },
-  "--interactive": { light_l: 0.48, dark_l: 0.68, source: "accent" },
-  "--interactive-hover": { light_l: 0.43, dark_l: 0.73, source: "accent" },
+  "--interactive": { light_l: 0.5337, dark_l: 0.68, source: "accent" },
+  "--interactive-hover": { light_l: 0.48, dark_l: 0.73, source: "accent" },
   "--scrollbar-thumb": { light_l: 0.89, dark_l: 0.33, source: "surface" },
   "--scrollbar-thumb-hover": {
     light_l: 0.83,
