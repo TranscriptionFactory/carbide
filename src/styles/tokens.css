@@ -157,11 +157,11 @@
   :root,
   [data-color-scheme="light"] {
     /* Accent parameters: Carbide purple #7e1dfb = oklch(0.5337 0.2808 293.24),
-     chroma clamped to the max in-gamut value at the L0.48 anchor (ADR 0001 §4).
-     Themes and the accent picker rewrite these; the whole accent scale
-     derives from them. */
+     rendered exactly by the L0.5337 light anchor below (in sRGB gamut; max
+     chroma at that lightness is 0.2889 — ADR 0001 §4). Themes and the accent
+     picker rewrite these; the whole accent scale derives from them. */
     --accent-hue: 293.24;
-    --accent-chroma: 0.2663;
+    --accent-chroma: 0.2808;
 
     /* Accent scale (50-900) — formerly --teal-* */
     --accent-50: oklch(0.97 0.02 var(--accent-hue));
@@ -169,8 +169,8 @@
     --accent-200: oklch(0.88 0.05 var(--accent-hue));
     --accent-300: oklch(0.78 0.07 var(--accent-hue));
     --accent-400: oklch(0.65 0.09 var(--accent-hue));
-    --accent-500: oklch(0.48 var(--accent-chroma) var(--accent-hue));
-    --accent-600: oklch(0.43 var(--accent-chroma) var(--accent-hue));
+    --accent-500: oklch(0.5337 var(--accent-chroma) var(--accent-hue));
+    --accent-600: oklch(0.48 var(--accent-chroma) var(--accent-hue));
     --accent-700: oklch(0.37 0.09 var(--accent-hue));
     --accent-800: oklch(0.3 0.07 var(--accent-hue));
     --accent-900: oklch(0.22 0.05 var(--accent-hue));
@@ -189,8 +189,8 @@
     --teal-900: var(--accent-900);
 
     /* Interactive accent — focus, selection, primary actions */
-    --interactive: oklch(0.48 var(--accent-chroma) var(--accent-hue));
-    --interactive-hover: oklch(0.43 var(--accent-chroma) var(--accent-hue));
+    --interactive: oklch(0.5337 var(--accent-chroma) var(--accent-hue));
+    --interactive-hover: oklch(0.48 var(--accent-chroma) var(--accent-hue));
     --interactive-muted: oklch(
       0.55 calc(var(--accent-chroma) * 0.5) var(--accent-hue)
     );

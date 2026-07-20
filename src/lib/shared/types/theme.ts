@@ -109,7 +109,7 @@ const SHARED_DEFAULTS: Omit<
   css_theme: null,
   density: "regular",
   accent_hue: 293.24,
-  accent_chroma: 0.2663,
+  accent_chroma: 0.2808,
   surface_hue: 68,
   surface_chroma: 0.008,
   surface_style: "solid",
@@ -238,15 +238,16 @@ export function expand_blueprint(bp: ThemeBlueprint): Theme[] {
   });
 }
 
-/* Accent identity: purple #7e1dfb = oklch(0.5337 0.2808 293.24); chroma
-   clamped to the max in-gamut value at the light L0.48 anchor (ADR 0001 §4). */
+/* Accent identity: purple #7e1dfb = oklch(0.5337 0.2808 293.24), rendered
+   exactly at the L0.5337 light anchor (ADR 0001 §4). Dark schemes lift L and
+   rely on CSS gamut mapping (chroma-reducing, hue-preserving). */
 const BP_CARBIDE: ThemeBlueprint = {
   base_name: "Carbide",
   category: "core",
   surface_hue: 68,
   surface_chroma: 0.008,
   accent_hue: 293.24,
-  accent_chroma: 0.2663,
+  accent_chroma: 0.2808,
   css_theme: "carbide",
 };
 

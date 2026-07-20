@@ -115,7 +115,7 @@ describe("generate_ui_tokens", () => {
     });
     expect(tokens["--background"]).toBe("oklch(0.985 0.0080 68.0)");
     expect(tokens["--foreground"]).toBe("oklch(0.250 0.0080 68.0)");
-    expect(tokens["--primary"]).toBe("oklch(0.480 0.1100 155.0)");
+    expect(tokens["--primary"]).toBe("oklch(0.534 0.1100 155.0)");
   });
 
   it("adds alpha channels for glass style", () => {
