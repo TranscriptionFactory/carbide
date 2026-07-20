@@ -111,12 +111,7 @@ const RAW_CATEGORIES: TokenCategory[] = [
   },
   {
     label: "Shadows",
-    tokens: [
-      "--shadow-1",
-      "--shadow-2",
-      "--shadow-3",
-      "--shadow-color",
-    ],
+    tokens: ["--shadow-1", "--shadow-2", "--shadow-3", "--shadow-color"],
   },
   {
     label: "Spacing",
