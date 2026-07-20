@@ -224,7 +224,7 @@
                             )}
                         />
                       {/if}
-                      <div class="flex min-h-0 flex-1 flex-col">
+                      <div class="relative flex min-h-0 flex-1 flex-col">
                         <FindInFileBar
                           open={stores.ui.find_in_file.open}
                           query={stores.ui.find_in_file.query}

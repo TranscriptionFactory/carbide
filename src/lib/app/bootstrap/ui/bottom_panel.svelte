@@ -7,6 +7,8 @@
     Bot,
     ShieldCheck,
   } from "@lucide/svelte";
+  import type { Component } from "svelte";
+  import * as Tabs from "$lib/components/ui/tabs";
   import { use_app_context } from "$lib/app/context/app_context.svelte";
   import { ACTION_IDS } from "$lib/app";
   import type { BottomPanelTab } from "$lib/app/orchestration/ui_store.svelte";
@@ -48,74 +50,62 @@
     import("$lib/features/document/ui/trust_panel_content.svelte");
 
   const query_result_count = $derived(stores.query.result?.total ?? 0);
+
+  type TabDef = {
+    id: BottomPanelTab;
+    label: string;
+    icon: Component;
+    badge?: () => number;
+  };
+
+  const tab_defs: TabDef[] = [
+    { id: "terminal", label: "Terminal", icon: Terminal },
+    {
+      id: "problems",
+      label: "Problems",
+      icon: CircleAlert,
+      badge: () => error_count + warning_count,
+    },
+    {
+      id: "lsp_results",
+      label: "LSP",
+      icon: Zap,
+      badge: () => lsp_result_count,
+    },
+    {
+      id: "query",
+      label: "Query",
+      icon: Search,
+      badge: () => query_result_count,
+    },
+    { id: "ai", label: "AI", icon: Bot },
+    { id: "trust", label: "Trust", icon: ShieldCheck },
+  ];
 </script>
 
-<div class="BottomPanel">
-  <div class="BottomPanel__tabs">
-    <button
-      type="button"
-      class="BottomPanel__tab"
-      class:BottomPanel__tab--active={active_tab === "terminal"}
-      onclick={() => set_tab("terminal")}
-    >
-      <Terminal class="BottomPanel__tab-icon" />
-      Terminal
-    </button>
-    <button
-      type="button"
-      class="BottomPanel__tab"
-      class:BottomPanel__tab--active={active_tab === "problems"}
-      class:BottomPanel__tab--issues={has_issues && active_tab !== "problems"}
-      onclick={() => set_tab("problems")}
-    >
-      <CircleAlert class="BottomPanel__tab-icon" />
-      Problems
-      {#if has_issues}
-        <span class="BottomPanel__badge">{error_count + warning_count}</span>
-      {/if}
-    </button>
-    <button
-      type="button"
-      class="BottomPanel__tab"
-      class:BottomPanel__tab--active={active_tab === "lsp_results"}
-      onclick={() => set_tab("lsp_results")}
-    >
-      <Zap class="BottomPanel__tab-icon" />
-      LSP
-      {#if lsp_result_count > 0}
-        <span class="BottomPanel__badge">{lsp_result_count}</span>
-      {/if}
-    </button>
-    <button
-      type="button"
-      class="BottomPanel__tab"
-      class:BottomPanel__tab--active={active_tab === "query"}
-      onclick={() => set_tab("query")}
-    >
-      <Search class="BottomPanel__tab-icon" />
-      Query
-      {#if query_result_count > 0}
-        <span class="BottomPanel__badge">{query_result_count}</span>
-      {/if}
-    </button>
-    <button
-      type="button"
-      class="BottomPanel__tab"
-      class:BottomPanel__tab--active={active_tab === "ai"}
-      onclick={() => set_tab("ai")}
-    >
-      <Bot class="BottomPanel__tab-icon" />
-      AI
-    </button>
-    <button
-      type="button"
-      class="BottomPanel__tab"
-      class:BottomPanel__tab--active={active_tab === "trust"}
-      onclick={() => set_tab("trust")}
-    >
-      <ShieldCheck class="BottomPanel__tab-icon" />
-      Trust
-    </button>
+<Tabs.Root
+  value={active_tab}
+  onValueChange={(v) => set_tab(v as BottomPanelTab)}
+  class="BottomPanel"
+  data-testid="bottom-panel"
+>
+  <div class="BottomPanel__bar">
+    <Tabs.List class="BottomPanel__tabs">
+      {#each tab_defs as t (t.id)}
+        <Tabs.Trigger
+          value={t.id}
+          class="BottomPanel__tab"
+          data-issues={t.id === "problems" && has_issues ? "" : undefined}
+          data-testid={"bottom-panel-tab-" + t.id}
+        >
+          <t.icon class="BottomPanel__tab-icon" />
+          {t.label}
+          {#if t.badge && t.badge() > 0}
+            <span class="BottomPanel__badge">{t.badge()}</span>
+          {/if}
+        </Tabs.Trigger>
+      {/each}
+    </Tabs.List>
     <div class="BottomPanel__spacer"></div>
     <button
       type="button"
@@ -123,53 +113,57 @@
       onclick={close}
       aria-label="Close panel"
       title="Close panel"
+      data-testid="bottom-panel-close"
     >
       &times;
     </button>
   </div>
-  <div class="BottomPanel__content">
-    {#if active_tab === "terminal"}
-      {#await load_terminal() then mod}
-        <mod.default />
-      {:catch}
-        <div class="BottomPanel__error">Failed to load terminal</div>
-      {/await}
-    {:else if active_tab === "lsp_results"}
-      {#await load_lsp_results() then mod}
-        <mod.default />
-      {:catch}
-        <div class="BottomPanel__error">Failed to load panel</div>
-      {/await}
-    {:else if active_tab === "query"}
-      {#await load_query() then mod}
-        <mod.default />
-      {:catch}
-        <div class="BottomPanel__error">Failed to load panel</div>
-      {/await}
-    {:else if active_tab === "ai"}
-      {#await load_ai() then mod}
-        <mod.default />
-      {:catch}
-        <div class="BottomPanel__error">Failed to load AI panel</div>
-      {/await}
-    {:else if active_tab === "trust"}
-      {#await load_trust() then mod}
-        <mod.default />
-      {:catch}
-        <div class="BottomPanel__error">Failed to load trust panel</div>
-      {/await}
-    {:else}
-      {#await load_problems() then mod}
-        <mod.default />
-      {:catch}
-        <div class="BottomPanel__error">Failed to load panel</div>
-      {/await}
-    {/if}
-  </div>
-</div>
+  <Tabs.Content value="terminal" class="BottomPanel__content">
+    {#await load_terminal() then mod}
+      <mod.default />
+    {:catch}
+      <div class="BottomPanel__error">Failed to load terminal</div>
+    {/await}
+  </Tabs.Content>
+  <Tabs.Content value="lsp_results" class="BottomPanel__content">
+    {#await load_lsp_results() then mod}
+      <mod.default />
+    {:catch}
+      <div class="BottomPanel__error">Failed to load panel</div>
+    {/await}
+  </Tabs.Content>
+  <Tabs.Content value="query" class="BottomPanel__content">
+    {#await load_query() then mod}
+      <mod.default />
+    {:catch}
+      <div class="BottomPanel__error">Failed to load panel</div>
+    {/await}
+  </Tabs.Content>
+  <Tabs.Content value="ai" class="BottomPanel__content">
+    {#await load_ai() then mod}
+      <mod.default />
+    {:catch}
+      <div class="BottomPanel__error">Failed to load AI panel</div>
+    {/await}
+  </Tabs.Content>
+  <Tabs.Content value="trust" class="BottomPanel__content">
+    {#await load_trust() then mod}
+      <mod.default />
+    {:catch}
+      <div class="BottomPanel__error">Failed to load trust panel</div>
+    {/await}
+  </Tabs.Content>
+  <Tabs.Content value="problems" class="BottomPanel__content">
+    {#await load_problems() then mod}
+      <mod.default />
+    {:catch}
+      <div class="BottomPanel__error">Failed to load panel</div>
+    {/await}
+  </Tabs.Content>
+</Tabs.Root>
 
 <style>
-  .BottomPanel {
+  :global(.BottomPanel) {
     display: flex;
     flex-direction: column;
     height: 100%;
@@ -177,43 +171,51 @@
     color: var(--foreground);
   }
 
-  .BottomPanel__tabs {
+  .BottomPanel__bar {
     display: flex;
     align-items: center;
     height: var(--size-touch-sm, 2rem);
-    border-bottom: 1px solid var(--border);
+    box-shadow: inset 0 -1px 0 var(--border);
     padding-inline: var(--space-1);
     gap: var(--space-0-5);
     flex-shrink: 0;
   }
 
-  .BottomPanel__tab {
+  :global(.BottomPanel__tabs) {
+    display: flex;
+    align-items: center;
+    gap: var(--space-0-5);
+  }
+
+  :global(.BottomPanel__tab) {
     display: inline-flex;
     align-items: center;
     gap: var(--space-1);
-    padding: var(--space-0-5) var(--space-2);
+    height: var(--size-touch-xs);
+    padding-inline: var(--space-2);
     font-size: var(--text-xs);
+    font-weight: 500;
     color: var(--muted-foreground);
-    border-bottom: 2px solid transparent;
-    opacity: 0.7;
+    border-radius: var(--radius-md) var(--radius-md) 0 0;
     transition:
-      opacity var(--duration-fast) var(--ease-default),
-      color var(--duration-fast) var(--ease-default);
+      color var(--duration-normal) var(--ease-default),
+      background-color var(--duration-normal) var(--ease-default),
+      box-shadow var(--duration-normal) var(--ease-default);
   }
 
-  .BottomPanel__tab:hover {
-    opacity: 1;
+  :global(.BottomPanel__tab:hover) {
     color: var(--foreground);
+    background-color: var(--accent);
   }
 
-  .BottomPanel__tab--active {
-    opacity: 1;
+  :global(.BottomPanel__tab[data-state="active"]) {
     color: var(--foreground);
-    border-bottom-color: var(--primary);
+    background-color: var(--background);
+    box-shadow: inset 0 0 0 1px var(--border);
   }
 
-  .BottomPanel__tab--issues {
-    color: var(--warning, oklch(0.75 0.15 85));
+  :global(.BottomPanel__tab[data-issues][data-state="inactive"]) {
+    color: var(--warning);
   }
 
   :global(.BottomPanel__tab-icon) {
@@ -257,7 +259,7 @@
     color: var(--foreground);
   }
 
-  .BottomPanel__content {
+  :global(.BottomPanel__content) {
     flex: 1;
     min-height: 0;
     overflow: hidden;
