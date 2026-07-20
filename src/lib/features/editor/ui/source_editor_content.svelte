@@ -6,6 +6,7 @@
   } from "$lib/shared/types/editor";
   import type { OutlineHeading } from "$lib/features/outline";
   import { extract_headings_from_markdown } from "$lib/features/editor/domain/extract_headings";
+  import { OutlineBuildScheduler } from "$lib/features/editor/domain/outline_build_scheduler";
   import { sync_source_editor_markdown } from "$lib/features/editor/domain/source_editor_sync";
   import {
     build_source_editor_background_theme_spec,
@@ -58,7 +59,7 @@
   let last_applied_markdown: string | null = null;
   let dispatching_from_store = false;
   let store_timer: ReturnType<typeof setTimeout> | null = null;
-  let outline_timer: ReturnType<typeof setTimeout> | undefined;
+  const outline_scheduler = new OutlineBuildScheduler();
   let destroyed = false;
   let mounted_markdown_change: ((markdown: string) => void) | null = null;
   let tracked_note_id: NoteId | null = stores.editor.open_note?.meta.id ?? null;
@@ -107,11 +108,10 @@
 
   function queue_outline_sync(content: string) {
     if (!on_outline_change) return;
-    clearTimeout(outline_timer);
     const cb = on_outline_change;
-    outline_timer = setTimeout(() => {
+    outline_scheduler.schedule(() => {
       cb(extract_headings_from_markdown(content));
-    }, 300);
+    });
   }
 
   function restore_cursor_and_scroll() {
@@ -398,7 +398,7 @@
       on_destroy?.({ cursor_offset, scroll_fraction });
     }
 
-    clearTimeout(outline_timer);
+    outline_scheduler.dispose();
     view?.destroy();
     view = undefined;
   });
