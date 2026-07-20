@@ -114,7 +114,12 @@ describe("slash menu hover selection", () => {
     const { menu, on_select } = setup(make_state({ filtered: cmds }));
     const options = menu.querySelectorAll<HTMLElement>('[role="option"]');
     options[2]?.dispatchEvent(
-      new MouseEvent("mousemove", { bubbles: true, clientX: 11, clientY: 21 }),
+      new MouseEvent("mousemove", {
+        bubbles: true,
+        clientX: 11,
+        clientY: 21,
+        movementX: 1,
+      }),
     );
     expect(on_select).toHaveBeenCalledWith(2);
   });
