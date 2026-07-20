@@ -216,7 +216,7 @@ const RAW_CATEGORIES: TokenCategory[] = [
       "--duration-fast",
       "--duration-normal",
       "--duration-slow",
-      "--duration-slower",
+      "--duration-ambient",
     ],
   },
   {
