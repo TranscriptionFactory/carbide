@@ -1008,6 +1008,40 @@ describe("register_tab_actions", () => {
       expect(stores.tab.is_split).toBe(false);
       expect(stores.tab.tabs).toHaveLength(0);
     });
+
+    it("clears the primary editor when the last primary tab closes and the secondary tab takes over", async () => {
+      const { registry, stores } = create_tab_actions_harness();
+      stores.tab.open_tab(np("a.md"), "A");
+      stores.tab.open_tab(np("b.md"), "B");
+      stores.tab.open_to_side("b.md");
+      stores.tab.activate_tab("a.md");
+      stores.tab.set_active_pane("primary");
+      stores.editor.set_open_note(mock_open_note("a.md"));
+
+      await registry.execute(ACTION_IDS.tab_close);
+
+      expect(stores.tab.tabs).toHaveLength(1);
+      expect(stores.tab.tabs[0]?.id).toBe("b.md");
+      expect(stores.tab.active_pane).toBe("secondary");
+      expect(stores.editor.open_note).toBeNull();
+    });
+
+    it("loads the next primary tab into the primary editor when the active primary tab closes", async () => {
+      const { registry, stores, services } = create_tab_actions_harness();
+      stores.tab.open_tab(np("a.md"), "A");
+      stores.tab.open_tab(np("c.md"), "C");
+      stores.tab.open_tab(np("b.md"), "B");
+      stores.tab.open_to_side("b.md");
+      stores.tab.activate_tab("a.md");
+      stores.tab.set_active_pane("primary");
+      stores.editor.set_open_note(mock_open_note("a.md"));
+
+      await registry.execute(ACTION_IDS.tab_close);
+
+      expect(stores.tab.active_tab_id).toBe("c.md");
+      expect(stores.tab.active_pane).toBe("primary");
+      expect(services.note.open_note).toHaveBeenCalledWith("c.md", false);
+    });
   });
 
   describe("tab_open_to_side content delivery", () => {

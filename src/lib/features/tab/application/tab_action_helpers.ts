@@ -2,7 +2,10 @@ import type { ActionRegistrationInput } from "$lib/app/action_registry/action_re
 import type { Tab, TabId } from "$lib/features/tab/types/tab";
 import { is_draft_note_path } from "$lib/features/note";
 import type { NotePath } from "$lib/shared/types/ids";
-import { parent_folder_path } from "$lib/shared/utils/path";
+import {
+  parent_folder_path,
+  paths_equal_ignore_case,
+} from "$lib/shared/utils/path";
 import { toast } from "svelte-sonner";
 
 type BatchCloseMode = "all" | "other" | "right";
@@ -145,6 +148,22 @@ export async function open_active_tab_note(input: ActionRegistrationInput) {
   }
 
   if (active_tab.pane === "secondary") {
+    // The primary editor keeps rendering `open_note` while the secondary pane
+    // is active; if no primary tab owns that note anymore (its tab closed),
+    // clear it so the pane doesn't ghost the closed note.
+    const open_path = stores.editor.open_note?.meta.path;
+    const has_primary_owner =
+      open_path != null &&
+      stores.tab.tabs.some(
+        (t) =>
+          t.kind === "note" &&
+          t.pane === "primary" &&
+          paths_equal_ignore_case(t.note_path, open_path),
+      );
+    if (open_path && !has_primary_owner) {
+      stores.editor.clear_open_note();
+      stores.outline.clear();
+    }
     return;
   }
 

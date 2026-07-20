@@ -242,15 +242,23 @@ export class TabStore {
       return null;
     }
 
+    const closing_pane = closing_tab?.pane ?? "primary";
+    const same_pane_next = this.mru_order
+      .map((id) => this.tabs.find((t) => t.id === id))
+      .find((t) => t?.pane === closing_pane);
     const mru_next = this.mru_order[0];
-    const next_tab = mru_next ? this.tabs.find((t) => t.id === mru_next) : null;
+    const next_tab =
+      same_pane_next ??
+      (mru_next ? (this.tabs.find((t) => t.id === mru_next) ?? null) : null);
 
     if (next_tab) {
       this.active_tab_id = next_tab.id;
+      this.active_pane = next_tab.pane;
     } else {
       const next_index = Math.min(index, this.tabs.length - 1);
       const fallback = this.tabs[next_index];
       this.active_tab_id = fallback?.id ?? null;
+      this.active_pane = fallback?.pane ?? "primary";
     }
     return this.active_tab_id;
   }
