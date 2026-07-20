@@ -143,8 +143,8 @@
 }
 
 .block-drag-handle__insert {
-  width: 16px;
-  height: 16px;
+  width: var(--size-icon);
+  height: var(--size-icon);
   border-radius: var(--radius-sm, 3px);
   cursor: pointer;
   position: relative;
@@ -162,7 +162,7 @@
 }
 
 .block-drag-handle__insert::before {
-  width: 8px;
+  width: var(--space-2);
   height: 1.5px;
   top: 50%;
   left: 50%;
@@ -171,7 +171,7 @@
 
 .block-drag-handle__insert::after {
   width: 1.5px;
-  height: 8px;
+  height: var(--space-2);
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
@@ -183,8 +183,8 @@
 }
 
 .block-drag-handle__grip {
-  width: 8px;
-  height: 14px;
+  width: var(--space-2);
+  height: var(--size-icon-sm);
   background-image: radial-gradient(
     circle,
     var(--muted-foreground) 1.1px,
@@ -220,12 +220,12 @@ body.block-handle-dragging .prosemirror-dropcursor-inline {
 
 .block-drag-image__badge {
   position: absolute;
-  top: 4px;
-  right: 4px;
-  padding: 1px 6px;
-  border-radius: 999px;
+  top: var(--space-1);
+  right: var(--space-1);
+  padding: 1px var(--space-1-5);
+  border-radius: var(--radius-full);
   background: var(--primary, oklch(0.6 0.2 260));
-  color: var(--primary-foreground, #fff);
+  color: var(--primary-foreground);
   font-size: 0.7rem;
   line-height: 1.4;
   white-space: nowrap;
@@ -545,7 +545,7 @@ body.block-handle-dragging .prosemirror-dropcursor-inline {
   position: absolute;
   right: -4px;
   top: 0;
-  width: 8px;
+  width: var(--space-2);
   height: 100%;
   background: transparent;
   opacity: 0;
@@ -1255,8 +1255,8 @@ body.block-handle-dragging .prosemirror-dropcursor-inline {
 }
 
 .lsp-lightbulb svg {
-  width: 14px;
-  height: 14px;
+  width: var(--size-icon-sm);
+  height: var(--size-icon-sm);
 }
 
 .lsp-lightbulb:hover {
@@ -1427,7 +1427,7 @@ body.block-handle-dragging .prosemirror-dropcursor-inline {
 
 .SlashMenu__mock-row {
   height: 0.5rem;
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   background: color-mix(in oklch, var(--muted-foreground) 18%, transparent);
 }
 
