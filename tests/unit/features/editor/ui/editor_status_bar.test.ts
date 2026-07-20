@@ -239,7 +239,9 @@ describe("editor_status_bar.svelte", () => {
     });
 
     const badge = get_by_testid("status-conflict-count");
-    expect(badge?.textContent).toContain("3 conflicts");
+    expect(badge?.textContent?.replace(/\s+/g, " ").trim()).toContain(
+      "3 conflicts",
+    );
 
     badge?.click();
     expect(on_conflicts_click).toHaveBeenCalledTimes(1);
