@@ -64,19 +64,28 @@ describe("apply_affordances", () => {
     expect(attributes.get("data-statusbar-shape")).toBe("bar");
     expect(attributes.get("data-tab-indicator")).toBe("underline");
     expect(attributes.get("data-sidebar-active")).toBe("ribbon");
+    expect(attributes.get("data-chrome-mode")).toBe("normal");
+    expect(attributes.get("data-activitybar-mode")).toBe("rail");
+    expect(attributes.get("data-tabbar-mode")).toBe("bar");
   });
 
-  it("sets all three affordance attributes", () => {
+  it("sets all affordance attributes", () => {
     css_properties.set("--statusbar-shape", '"bar"');
     css_properties.set("--tab-active-indicator", '"fill"');
     css_properties.set("--sidebar-active-shape", '"weight"');
+    css_properties.set("--chrome-mode", '"edge-reveal"');
+    css_properties.set("--activitybar-mode", '"floating-dock"');
+    css_properties.set("--tabbar-mode", '"floating-pill"');
 
     apply_affordances();
 
-    expect(attributes.size).toBe(3);
+    expect(attributes.size).toBe(6);
     expect(attributes.get("data-statusbar-shape")).toBe("bar");
     expect(attributes.get("data-tab-indicator")).toBe("fill");
     expect(attributes.get("data-sidebar-active")).toBe("weight");
+    expect(attributes.get("data-chrome-mode")).toBe("edge-reveal");
+    expect(attributes.get("data-activitybar-mode")).toBe("floating-dock");
+    expect(attributes.get("data-tabbar-mode")).toBe("floating-pill");
   });
 
   it("is a no-op when document is undefined", () => {

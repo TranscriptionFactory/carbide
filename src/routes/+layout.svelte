@@ -5,7 +5,7 @@
   import "../styles/tokens.css";
   import "../styles/themes.css";
   import "../styles/motion.css";
-  import "../styles/layout_variants.css";
+  import "../styles/layout_presets.css";
   import "../styles/component_overrides.css";
   import "prosemirror-view/style/prosemirror.css";
   import "../styles/editor.css";

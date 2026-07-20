@@ -140,4 +140,116 @@
     background-color: var(--interactive);
     color: var(--background);
   }
+
+  /* ----- Activity-bar mode contract (layout presets) ----- */
+  /* floating-dock (spotlight): horizontal glass pill, bottom-left */
+  :global([data-activitybar-mode="floating-dock"]) .ActivityBar {
+    position: absolute;
+    bottom: var(--space-3);
+    left: var(--space-3);
+    height: auto;
+    width: auto;
+    flex-direction: row;
+    align-items: center;
+    padding: var(--space-1) var(--space-2);
+    gap: var(--space-1);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-full);
+    background-color: var(--chrome-glass);
+    box-shadow: var(--shadow-2);
+    z-index: 100;
+    opacity: var(--chrome-idle-opacity, 1);
+    transition: opacity var(--duration-normal) var(--ease-default);
+  }
+
+  :global([data-activitybar-mode="floating-dock"]) .ActivityBar:hover {
+    opacity: 1;
+  }
+
+  :global([data-activitybar-mode="floating-dock"]) .ActivityBar__section {
+    flex-direction: row;
+    align-items: center;
+    gap: var(--space-1);
+  }
+
+  :global([data-activitybar-mode="floating-dock"])
+    .ActivityBar__section:first-child {
+    padding-inline-end: var(--space-2);
+    border-inline-end: 1px solid var(--border);
+    margin-inline-end: var(--space-2);
+  }
+
+  :global([data-activitybar-mode="floating-dock"]) .ActivityBar__button {
+    width: var(--size-touch-sm);
+    height: var(--size-touch-sm);
+    border-radius: var(--radius-full);
+  }
+
+  :global([data-activitybar-mode="floating-dock"])
+    .ActivityBar__button--active::before {
+    inset-inline-start: var(--space-1);
+    inset-inline-end: var(--space-1);
+    inset-block-start: auto;
+    inset-block-end: var(--space-0-5);
+    width: auto;
+    height: 2px;
+  }
+
+  /* edge-reveal (theater): accent edge strip that expands on hover */
+  :global([data-chrome-mode="edge-reveal"]) .ActivityBar {
+    position: absolute;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: var(--chrome-edge-width, 3px);
+    padding: 0;
+    overflow: hidden;
+    background-color: var(--interactive);
+    border: none;
+    border-radius: 0;
+    opacity: 0.4;
+    z-index: 200;
+    transition:
+      width var(--chrome-reveal-speed) var(--chrome-reveal-ease),
+      opacity var(--chrome-reveal-speed) var(--chrome-reveal-ease),
+      background-color var(--chrome-reveal-speed) var(--chrome-reveal-ease),
+      padding var(--chrome-reveal-speed) var(--chrome-reveal-ease),
+      border-radius var(--chrome-reveal-speed) var(--chrome-reveal-ease),
+      box-shadow var(--chrome-reveal-speed) var(--chrome-reveal-ease);
+  }
+
+  :global([data-chrome-mode="edge-reveal"]) .ActivityBar:hover {
+    width: var(--size-activity-bar);
+    padding-block: var(--space-2);
+    opacity: 1;
+    background-color: color-mix(in oklch, var(--card) 95%, transparent);
+    backdrop-filter: blur(20px);
+    border-radius: 0 var(--radius-lg) var(--radius-lg) 0;
+    box-shadow: var(--shadow-3);
+  }
+
+  :global([data-chrome-mode="edge-reveal"]) .ActivityBar__section {
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-0-5);
+  }
+
+  :global([data-chrome-mode="edge-reveal"]) .ActivityBar__section:first-child {
+    padding-block-end: var(--space-1);
+    border-block-end: 1px solid var(--border);
+    margin-block-end: var(--space-1);
+  }
+
+  :global([data-chrome-mode="edge-reveal"]) .ActivityBar__button {
+    width: var(--size-touch-sm);
+    height: var(--size-touch-sm);
+    border-radius: var(--radius-sm);
+  }
+
+  /* Absolute positioning resolves against the WorkspaceLayout border box, so
+     the macOS drag-strip padding does not push the rail down; offset it
+     explicitly or its top edge sits under the traffic lights. */
+  :global([data-chrome-mode="edge-reveal"] body.macos-drag-strip) .ActivityBar {
+    top: var(--macos-drag-strip-height);
+  }
 </style>

@@ -755,4 +755,50 @@
     display: inline-flex;
     align-items: center;
   }
+
+  /* floating-pill (spotlight preset): idle-faded glass pill, bottom-right */
+  :global([data-statusbar-shape="floating-pill"]) .StatusBar {
+    position: absolute;
+    bottom: var(--space-3);
+    right: var(--space-3);
+    width: auto;
+    height: var(--size-touch-sm);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-full);
+    background-color: var(--chrome-glass);
+    color: var(--foreground);
+    box-shadow: var(--shadow-1);
+    z-index: 100;
+    overflow: hidden;
+    opacity: var(--statusbar-idle-opacity, 1);
+    transition: opacity var(--duration-normal) var(--ease-default);
+  }
+
+  :global([data-statusbar-shape="floating-pill"]) .StatusBar:hover {
+    opacity: 1;
+  }
+
+  /* hover-pill (theater preset): hidden until hover, bottom-center */
+  :global([data-statusbar-shape="hover-pill"]) .StatusBar {
+    position: absolute;
+    bottom: var(--space-2);
+    left: 50%;
+    transform: translateX(-50%);
+    width: auto;
+    height: auto;
+    padding: var(--space-0-5) var(--space-3);
+    border: none;
+    border-radius: var(--radius-full);
+    background-color: color-mix(in oklch, var(--card) 70%, transparent);
+    color: var(--foreground);
+    backdrop-filter: blur(12px);
+    z-index: 100;
+    opacity: 0;
+    transition: opacity var(--chrome-reveal-speed, var(--duration-slow))
+      var(--chrome-reveal-ease, var(--ease-out));
+  }
+
+  :global([data-statusbar-shape="hover-pill"]) .StatusBar:hover {
+    opacity: 1;
+  }
 </style>

@@ -734,4 +734,83 @@
   :global([data-tab-indicator="none"]) .TabBar__tab--active::after {
     display: none;
   }
+
+  /* ----- Tab-bar mode contract (layout presets) ----- */
+  /* floating-pill (spotlight): centered glass pill */
+  :global([data-tabbar-mode="floating-pill"]) .TabBar {
+    position: absolute;
+    top: var(--space-3);
+    left: 50%;
+    transform: translateX(-50%);
+    height: var(--size-touch-lg);
+    width: max-content;
+    max-width: var(--tabbar-max-width, 36rem);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-full);
+    background-color: var(--chrome-glass);
+    box-shadow: var(--shadow-2);
+    z-index: 100;
+    overflow: hidden;
+  }
+
+  :global([data-tabbar-mode="floating-pill"]) .TabBar__tab {
+    margin-block: var(--space-1);
+    margin-inline: var(--space-1);
+    height: calc(100% - var(--space-2));
+    border-radius: var(--radius-full);
+    border-inline-end: none;
+  }
+
+  :global([data-tabbar-mode="floating-pill"]) .TabBar__tab--active {
+    background-color: color-mix(in oklch, var(--muted) 60%, transparent);
+  }
+
+  :global([data-tabbar-mode="floating-pill"]) .TabBar__tab--active::after {
+    inset-inline: var(--space-2);
+  }
+
+  :global([data-tabbar-mode="floating-pill"]) .TabBar__actions {
+    border-inline-start: none;
+  }
+
+  /* edge-reveal (theater): accent top strip that expands on hover */
+  :global([data-chrome-mode="edge-reveal"]) .TabBar {
+    position: absolute;
+    top: 0;
+    left: var(--chrome-edge-width, 3px);
+    right: 0;
+    height: var(--chrome-edge-width, 3px);
+    overflow: hidden;
+    background-color: var(--interactive);
+    border: none;
+    border-radius: 0;
+    opacity: 0.3;
+    z-index: 199;
+    transition:
+      height var(--chrome-reveal-speed) var(--chrome-reveal-ease),
+      opacity var(--chrome-reveal-speed) var(--chrome-reveal-ease),
+      background-color var(--chrome-reveal-speed) var(--chrome-reveal-ease),
+      border-radius var(--chrome-reveal-speed) var(--chrome-reveal-ease),
+      box-shadow var(--chrome-reveal-speed) var(--chrome-reveal-ease);
+  }
+
+  :global([data-chrome-mode="edge-reveal"]) .TabBar:hover {
+    height: var(--size-touch-lg);
+    opacity: 1;
+    background-color: color-mix(in oklch, var(--card) 95%, transparent);
+    backdrop-filter: blur(20px);
+    border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+    box-shadow: var(--shadow-3);
+  }
+
+  :global([data-chrome-mode="edge-reveal"]) .TabBar__tab {
+    margin-block: var(--space-1);
+    height: calc(100% - var(--space-2));
+    border-radius: var(--radius-sm);
+    border-inline-end: none;
+  }
+
+  :global([data-chrome-mode="edge-reveal"]) .TabBar__actions {
+    border-inline-start: none;
+  }
 </style>
