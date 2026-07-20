@@ -37,11 +37,7 @@ export const THEME_CATEGORY_LABELS: Record<ThemeCategory, string> = {
   specialty: "Specialty",
 };
 
-export type ThemeLayoutVariant =
-  | "default"
-  | "spotlight"
-  | "theater"
-  | "obsidian";
+export type ThemeLayoutVariant = "default" | "spotlight" | "theater";
 
 export type Theme = {
   id: string;
@@ -432,7 +428,7 @@ const BP_OBSIDIAN: ThemeBlueprint = {
   accent_hue: 285,
   accent_chroma: 0.19,
   surface_style: "glass",
-  layout_variant: "obsidian",
+  layout_variant: "default",
   css_theme: "obsidian",
   schemes: "both",
   structural_overrides: {

@@ -46,7 +46,8 @@
     --font-sans: "Inter", ui-sans-serif, -apple-system, "Segoe UI", sans-serif;
     --font-serif:
       "Iowan Old Style", "Charter", "Source Serif Pro", Georgia, serif;
-    --font-mono: "IBM Plex Mono", "JetBrains Mono", ui-monospace, Menlo, monospace;
+    --font-mono:
+      "IBM Plex Mono", "JetBrains Mono", ui-monospace, Menlo, monospace;
     /* Theme-facing font names (written by apply_theme, read by the
      settings token reference panel) */
     --font-family-sans: "Inter", system-ui, -apple-system, sans-serif;
@@ -113,7 +114,9 @@
     --size-touch-lg: 2.5rem; /* 40px */
 
     /* Sizes — tree */
-    --size-tree-row: calc(30px * var(--density)); /* density wired, value unchanged */
+    --size-tree-row: calc(
+      30px * var(--density)
+    ); /* density wired, value unchanged */
     --size-tree-blurb-gap: 2px; /* gap between heading and blurb within a row */
     --size-tree-blurb-extra: 1.25rem; /* extra row height when blurb is shown */
     --size-tree-indent: 1rem;
@@ -142,7 +145,8 @@
 
     /* Elevation scale — 1: rows/inputs, 2: floating bars/popovers, 3: dialogs/menus.
      Warm-tinted via --shadow-color (scheme blocks below); dark overrides there. */
-    --shadow-1: 0 1px 2px color-mix(in oklch, var(--shadow-color) 6%, transparent);
+    --shadow-1: 0 1px 2px
+      color-mix(in oklch, var(--shadow-color) 6%, transparent);
     --shadow-2:
       0 3px 8px color-mix(in oklch, var(--shadow-color) 10%, transparent),
       0 1px 2px color-mix(in oklch, var(--shadow-color) 6%, transparent);
@@ -349,6 +353,12 @@
 
     --sidebar-active-shape: "ribbon"; /* "ribbon" | "fill" | "weight" | "invert" */
 
+    /* Chrome surface defaults — themes/presets override; defaults keep any
+     theme × layout-preset combination valid (theme→layout severed). */
+    --chrome-glass: var(--glass);
+    --chrome-idle-opacity: 1;
+    --statusbar-idle-opacity: 1;
+
     --heading-prefix-h1: ""; /* themes can set "# ", etc. */
     --heading-prefix-h2: "";
     --heading-prefix-h3: "";
@@ -497,7 +507,8 @@
 
     /* Shadows heavier in dark mode */
     --shadow-color: oklch(0.05 0 0);
-    --shadow-1: 0 1px 2px color-mix(in oklch, var(--shadow-color) 30%, transparent);
+    --shadow-1: 0 1px 2px
+      color-mix(in oklch, var(--shadow-color) 30%, transparent);
     --shadow-2:
       0 3px 8px color-mix(in oklch, var(--shadow-color) 40%, transparent),
       0 1px 2px color-mix(in oklch, var(--shadow-color) 30%, transparent);

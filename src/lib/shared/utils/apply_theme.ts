@@ -1,4 +1,8 @@
-import type { Theme, ColorSchemePreference } from "$lib/shared/types/theme";
+import type {
+  Theme,
+  ColorSchemePreference,
+  ThemeLayoutVariant,
+} from "$lib/shared/types/theme";
 import {
   apply_auto_palette,
   generate_ui_tokens,
@@ -151,6 +155,7 @@ export function apply_theme(
   options: {
     persist_to_cache?: boolean;
     color_scheme_preference?: ColorSchemePreference;
+    layout_variant?: ThemeLayoutVariant;
   } = {},
 ): void {
   if (typeof document === "undefined") return;
@@ -162,7 +167,10 @@ export function apply_theme(
   }
 
   root.setAttribute("data-color-scheme", theme.color_scheme);
-  root.setAttribute("data-layout-variant", theme.layout_variant);
+  root.setAttribute(
+    "data-layout-variant",
+    options.layout_variant ?? theme.layout_variant,
+  );
   root.style.setProperty("color-scheme", theme.color_scheme);
 
   const shiki_theme =

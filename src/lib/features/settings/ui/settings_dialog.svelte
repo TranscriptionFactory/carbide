@@ -70,6 +70,7 @@
     OutlineMode,
     ToolbarVisibility,
     EditorWidthMode,
+    LayoutPreset,
     BlockDragHandleMode,
     TerminalFontWeight,
     TerminalCursorStyle,
@@ -84,6 +85,7 @@
     EDITOR_DIVIDER_STYLE_OPTIONS,
     EDITOR_TOOLBAR_VISIBILITY_OPTIONS,
     EDITOR_WIDTH_MODE_OPTIONS,
+    LAYOUT_PRESET_OPTIONS,
     EDITOR_BLOCK_DRAG_HANDLE_OPTIONS,
     EMBEDDING_MODEL_OPTIONS,
     type MarkdownLspProvider,
@@ -704,6 +706,40 @@
             on_set_color_scheme_preference={on_theme_set_color_scheme_preference}
             on_set_system_themes={on_theme_set_system_themes}
           />
+
+          <div class="SettingsDialog__section-content">
+            <div class="SettingsDialog__row">
+              <div class="SettingsDialog__label-group">
+                <span class="SettingsDialog__label">Layout</span>
+                <span class="SettingsDialog__description"
+                  >Workspace layout preset; Automatic follows the theme's
+                  suggested layout</span
+                >
+              </div>
+              <Select.Root
+                type="single"
+                value={editor_settings.layout_preset}
+                onValueChange={(v: string | undefined) => {
+                  if (v) update("layout_preset", v as LayoutPreset);
+                }}
+              >
+                <Select.Trigger class="w-32">
+                  <span data-slot="select-value"
+                    >{LAYOUT_PRESET_OPTIONS.find(
+                      (o) => o.value === editor_settings.layout_preset,
+                    )?.label ?? "Automatic"}</span
+                  >
+                </Select.Trigger>
+                <Select.Content>
+                  {#each LAYOUT_PRESET_OPTIONS as option (option.value)}
+                    <Select.Item value={option.value}
+                      >{option.label}</Select.Item
+                    >
+                  {/each}
+                </Select.Content>
+              </Select.Root>
+            </div>
+          </div>
         {:else if active_category === "ai"}
           <h2 class="SettingsDialog__content-header">AI</h2>
 

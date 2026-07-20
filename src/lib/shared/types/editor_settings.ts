@@ -38,6 +38,7 @@ export type EditorSpacingDensity =
   | "spacious";
 export type EditorLinkUnderlineStyle = "solid" | "dotted" | "wavy";
 export type EditorWidthMode = "normal" | "wide";
+export type LayoutPreset = "auto" | "default" | "spotlight" | "theater";
 export type EditorDividerStyle = "gradient" | "solid" | "dashed" | "dotted";
 export type EditorCodeBlockPadding = EditorSpacingDensity;
 export type EditorCodeBlockRadius = "tight" | "normal" | "soft";
@@ -128,6 +129,7 @@ export type EditorSettings = {
   max_open_tabs: number;
   editor_max_width_ch: number;
   editor_width_mode: EditorWidthMode;
+  layout_preset: LayoutPreset;
   editor_selection_color: string;
   editor_heading_spacing_density: EditorSpacingDensity;
   editor_paragraph_spacing_density: EditorSpacingDensity;
@@ -254,6 +256,7 @@ export const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
   max_open_tabs: 5,
   editor_max_width_ch: 90,
   editor_width_mode: "normal",
+  layout_preset: "auto",
   editor_selection_color: "",
   editor_heading_spacing_density: "normal",
   editor_paragraph_spacing_density: "normal",
@@ -438,6 +441,16 @@ export const EDITOR_WIDTH_MODE_OPTIONS: {
   { value: "wide", label: "Wide" },
 ];
 
+export const LAYOUT_PRESET_OPTIONS: {
+  value: LayoutPreset;
+  label: string;
+}[] = [
+  { value: "auto", label: "Automatic" },
+  { value: "default", label: "Default" },
+  { value: "spotlight", label: "Spotlight" },
+  { value: "theater", label: "Theater" },
+];
+
 export const EDITOR_BLOCK_DRAG_HANDLE_OPTIONS: {
   value: BlockDragHandleMode;
   label: string;
@@ -457,6 +470,7 @@ export const GLOBAL_ONLY_SETTING_KEYS: readonly (keyof EditorSettings)[] = [
   "autosave_delay_ms",
   "editor_max_width_ch",
   "editor_width_mode",
+  "layout_preset",
   "editor_selection_color",
   "editor_heading_spacing_density",
   "editor_paragraph_spacing_density",
