@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 describe("task list styling", () => {
   test("targets ProseMirror task items by data attributes, not Milkdown classes", () => {
     const css = readFileSync(
-      new URL("../../../src/styles/editor.css", import.meta.url),
+      new URL("../../../src/styles/typography.css", import.meta.url),
       "utf-8",
     );
     const normalized = css.replace(/\s+/g, " ");
@@ -27,7 +27,7 @@ describe("task list styling", () => {
 
   test("uses direct child selector for checked strikethrough, not descendant", () => {
     const css = readFileSync(
-      new URL("../../../src/styles/editor.css", import.meta.url),
+      new URL("../../../src/styles/typography.css", import.meta.url),
       "utf-8",
     );
     const normalized = css.replace(/\s+/g, " ");
