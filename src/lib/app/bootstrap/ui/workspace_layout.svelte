@@ -414,6 +414,15 @@
         git_is_fetching={is_vault_mode && stores.op.is_pending("git.fetch")}
         git_ahead={is_vault_mode ? stores.git.ahead : 0}
         git_behind={is_vault_mode ? stores.git.behind : 0}
+        git_conflicts={is_vault_mode ? stores.git.conflict_count : 0}
+        on_conflicts_click={() =>
+          void action_registry.execute(ACTION_IDS.git_open_history)}
+        color_scheme={stores.ui.active_theme.color_scheme}
+        on_theme_toggle={() =>
+          void action_registry.execute(
+            ACTION_IDS.theme_set_color_scheme_preference,
+            stores.ui.active_theme.color_scheme === "dark" ? "light" : "dark",
+          )}
         is_repairing_links={is_vault_mode &&
           stores.op.is_pending("links.repair")}
         link_repair_message={is_vault_mode

@@ -13,6 +13,9 @@
     Zap,
     Search,
     Bot,
+    Sun,
+    Moon,
+    TriangleAlert,
   } from "@lucide/svelte";
   import * as Tooltip from "$lib/components/ui/tooltip/index.js";
   import { GitStatusWidget } from "$lib/features/git";
@@ -72,6 +75,8 @@
     git_is_fetching: boolean;
     git_ahead: number;
     git_behind: number;
+    git_conflicts: number;
+    on_conflicts_click: () => void;
     is_repairing_links: boolean;
     link_repair_message: string | null;
     editor_mode: import("$lib/shared/types/editor").EditorMode;
@@ -108,6 +113,8 @@
     bottom_panel_open: boolean;
     bottom_panel_tab: BottomPanelTab;
     on_panel_tab_click: (tab: BottomPanelTab) => void;
+    color_scheme: "light" | "dark";
+    on_theme_toggle: () => void;
     // STT removed — archived on archive/stt-main
     // stt_enabled: boolean;
     // stt_recording_state: "idle" | "recording" | "processing";
@@ -136,6 +143,8 @@
     git_is_fetching,
     git_ahead,
     git_behind,
+    git_conflicts,
+    on_conflicts_click,
     is_repairing_links,
     link_repair_message,
     editor_mode,
@@ -172,6 +181,8 @@
     bottom_panel_open,
     bottom_panel_tab,
     on_panel_tab_click,
+    color_scheme,
+    on_theme_toggle,
     // stt_enabled,
     // stt_recording_state,
     // stt_model_loading,
@@ -217,23 +228,34 @@
     tick = Date.now();
     const handle = setInterval(() => {
       tick = Date.now();
-    }, 15_000);
+    }, 30_000);
     return () => clearInterval(handle);
   });
 
   const saved_label = $derived(
     last_saved_at ? `Saved ${format_relative_time(last_saved_at, tick)}` : null,
   );
+
+  let inner_width = $state(1920);
+  const compact = $derived(inner_width <= 1000);
 </script>
 
-<div class="StatusBar">
+<svelte:window bind:innerWidth={inner_width} />
+
+<div
+  class="StatusBar"
+  class:StatusBar--compact={compact}
+  data-testid="status-bar"
+>
   <div class="StatusBar__section">
     <Tooltip.Provider delayDuration={0}>
       <Tooltip.Root>
         <Tooltip.Trigger>
           {#snippet child({ props })}
             <span {...props} class="StatusBar__item">
-              {has_note ? word_count : "--"} words
+              {has_note ? word_count : "--"}<span class="StatusBar__words-label"
+                >&nbsp;words</span
+              >
             </span>
           {/snippet}
         </Tooltip.Trigger>
@@ -248,6 +270,7 @@
     <button
       type="button"
       class="StatusBar__mode-toggle"
+      data-testid="status-mode-toggle"
       onclick={on_mode_toggle}
       aria-label="Toggle editor mode"
     >
@@ -262,6 +285,7 @@
       type="button"
       class="StatusBar__mode-toggle"
       class:StatusBar__mode-toggle--active={split_view}
+      data-testid="status-split-toggle"
       onclick={on_split_toggle}
       aria-label="Toggle split view"
       disabled={editor_mode === "read_only"}
@@ -278,6 +302,7 @@
               type="button"
               class="StatusBar__mode-toggle"
               class:StatusBar__mode-toggle--active={width_mode === "wide"}
+              data-testid="status-width-toggle"
               onclick={on_width_toggle}
               aria-label="Toggle note width"
               disabled={!has_note}
@@ -302,6 +327,7 @@
       type="button"
       class="StatusBar__mode-toggle"
       class:StatusBar__mode-toggle--dimmed={!show_line_numbers}
+      data-testid="status-line-numbers"
       onclick={on_line_numbers_toggle}
       aria-label="Toggle line numbers"
     >
@@ -312,6 +338,8 @@
       <button
         type="button"
         class="StatusBar__mode-toggle"
+        data-testid="status-zoom"
+        title="Click to reset zoom"
         onclick={on_zoom_reset}
         aria-label="Reset zoom to 100%"
       >
@@ -418,6 +446,7 @@
                   type="button"
                   class="StatusBar__action"
                   class:StatusBar__action--active={active}
+                  data-testid="status-panel-tab-{panel_tab.id}"
                   aria-pressed={active}
                   aria-label="{panel_tab.label} panel"
                   onclick={() => on_panel_tab_click(panel_tab.id)}
@@ -437,6 +466,7 @@
     <button
       type="button"
       class="StatusBar__vault-action"
+      data-testid="status-vault"
       onclick={on_vault_click}
       disabled={!vault_name}
       aria-label="Switch vault"
@@ -447,6 +477,7 @@
     <button
       type="button"
       class="StatusBar__action"
+      data-testid="status-note-info"
       onclick={on_info_click}
       disabled={!has_note}
       aria-label="Note details"
@@ -467,6 +498,7 @@
                 'live+net'
                   ? 'live-net'
                   : html_trust_level}"
+                data-testid="status-trust"
                 onclick={on_html_trust_click}
                 aria-label="HTML trust: {html_trust_level}"
               >
@@ -495,10 +527,30 @@
       <item.component {...item.props} />
     {/each}
 
+    {#if git_conflicts > 0}
+      <span class="StatusBar__separator" aria-hidden="true"></span>
+      <button
+        type="button"
+        class="StatusBar__badge StatusBar__badge--conflict"
+        data-testid="status-conflict-count"
+        onclick={on_conflicts_click}
+        aria-label="{git_conflicts} merge {git_conflicts === 1
+          ? 'conflict'
+          : 'conflicts'} — open git history"
+      >
+        <TriangleAlert />
+        <span
+          >{git_conflicts}
+          {git_conflicts === 1 ? "conflict" : "conflicts"}</span
+        >
+      </button>
+    {/if}
+
     {#if git_enabled}
       <span class="StatusBar__separator" aria-hidden="true"></span>
       <GitStatusWidget
         enabled={git_enabled}
+        {compact}
         branch={git_branch}
         is_dirty={git_is_dirty}
         pending_files={git_pending_files}
@@ -515,6 +567,21 @@
         on_add_remote={on_git_add_remote}
       />
     {/if}
+
+    <span class="StatusBar__separator" aria-hidden="true"></span>
+    <button
+      type="button"
+      class="StatusBar__badge"
+      data-testid="status-theme-mode"
+      onclick={on_theme_toggle}
+      aria-label="Switch to {color_scheme === 'dark' ? 'light' : 'dark'} theme"
+    >
+      {#if color_scheme === "dark"}
+        <Sun />
+      {:else}
+        <Moon />
+      {/if}
+    </button>
   </div>
 </div>
 
@@ -526,9 +593,10 @@
     height: var(--size-status-bar);
     padding-inline: var(--space-3);
     font-size: var(--text-xs);
+    font-weight: var(--weight-medium);
     font-feature-settings: "tnum" 1;
     flex-shrink: 0;
-    border-top: 1px solid var(--border);
+    box-shadow: var(--hairline-top);
     background-color: var(--statusbar-bg);
     color: var(--statusbar-fg);
   }
@@ -650,11 +718,14 @@
     height: var(--size-touch-xs);
     border-radius: var(--radius-sm);
     opacity: 0.7;
-    transition: opacity var(--duration-fast) var(--ease-default);
+    transition:
+      opacity var(--duration-fast) var(--ease-default),
+      background-color var(--duration-fast) var(--ease-default);
   }
 
   .StatusBar__action:hover:not(:disabled) {
     opacity: 1;
+    background-color: color-mix(in oklch, var(--statusbar-fg) 10%, transparent);
   }
 
   .StatusBar__action:focus-visible {
@@ -684,15 +755,20 @@
   .StatusBar__mode-toggle {
     display: inline-flex;
     align-items: center;
-    padding: 0 var(--space-1);
+    gap: var(--space-1);
+    height: var(--size-touch-xs);
+    padding-inline: var(--space-2);
     border-radius: var(--radius-sm);
     font-size: var(--text-xs);
     opacity: 0.7;
-    transition: opacity var(--duration-fast) var(--ease-default);
+    transition:
+      opacity var(--duration-fast) var(--ease-default),
+      background-color var(--duration-fast) var(--ease-default);
   }
 
   .StatusBar__mode-toggle:hover {
     opacity: 1;
+    background-color: color-mix(in oklch, var(--statusbar-fg) 10%, transparent);
   }
 
   .StatusBar__mode-toggle--dimmed {
@@ -704,9 +780,46 @@
     opacity: 1;
   }
 
+  .StatusBar__badge {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
+    height: var(--size-touch-xs);
+    padding-inline: var(--space-2);
+    border-radius: var(--radius-sm);
+    transition:
+      background-color var(--duration-fast) var(--ease-default),
+      color var(--duration-fast) var(--ease-default);
+  }
+
+  .StatusBar__badge:hover {
+    background-color: color-mix(in oklch, var(--statusbar-fg) 10%, transparent);
+  }
+
+  .StatusBar__badge:focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 1px;
+  }
+
+  .StatusBar__badge--conflict {
+    color: var(--destructive);
+    background-color: color-mix(in oklch, var(--destructive) 12%, transparent);
+  }
+
+  .StatusBar__badge--conflict:hover {
+    background-color: color-mix(in oklch, var(--destructive) 20%, transparent);
+  }
+
+  .StatusBar--compact .StatusBar__words-label,
+  .StatusBar--compact .StatusBar__item--saved,
+  .StatusBar--compact .StatusBar__vault-action > span {
+    display: none;
+  }
+
   :global(.StatusBar__item svg),
   :global(.StatusBar__action svg),
   :global(.StatusBar__mode-toggle svg),
+  :global(.StatusBar__badge svg),
   :global(.StatusBar__vault-action svg) {
     width: var(--size-icon-xs);
     height: var(--size-icon-xs);
@@ -729,7 +842,7 @@
   :global([data-statusbar-shape="transparent"]) .StatusBar {
     background: transparent;
     color: var(--foreground-secondary);
-    border-top: 1px solid var(--border-subtle);
+    box-shadow: inset 0 1px 0 var(--border-subtle);
   }
 
   :global([data-statusbar-shape="segments"]) .StatusBar {
@@ -774,7 +887,8 @@
     transition: opacity var(--duration-normal) var(--ease-default);
   }
 
-  :global([data-statusbar-shape="floating-pill"]) .StatusBar:hover {
+  :global([data-statusbar-shape="floating-pill"]) .StatusBar:hover,
+  :global([data-statusbar-shape="floating-pill"]) .StatusBar:focus-within {
     opacity: 1;
   }
 
@@ -798,7 +912,8 @@
       var(--chrome-reveal-ease, var(--ease-out));
   }
 
-  :global([data-statusbar-shape="hover-pill"]) .StatusBar:hover {
+  :global([data-statusbar-shape="hover-pill"]) .StatusBar:hover,
+  :global([data-statusbar-shape="hover-pill"]) .StatusBar:focus-within {
     opacity: 1;
   }
 </style>
