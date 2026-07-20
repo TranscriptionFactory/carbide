@@ -553,7 +553,7 @@
 }
 
 .math-block-error {
-  color: var(--color-destructive, #b91c1c);
+  color: var(--destructive);
   font-family: var(--font-mono, monospace);
   font-size: 0.875rem;
 }
