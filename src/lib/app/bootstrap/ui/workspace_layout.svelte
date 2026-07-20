@@ -196,7 +196,9 @@
                   class="flex-1 min-h-0"
                 >
                   <Resizable.Pane
-                    defaultSize={bottom_panel_open ? 70 : 100}
+                    defaultSize={bottom_panel_open
+                      ? 100 - stores.ui.bottom_panel_pane_size
+                      : 100}
                     minSize={20}
                     order={1}
                   >
@@ -305,9 +307,11 @@
                           {#if split_view_active}
                             <Resizable.Handle />
                             <Resizable.Pane
-                              defaultSize={50}
+                              defaultSize={stores.ui.editor_split_pane_size}
                               minSize={20}
                               order={2}
+                              onResize={(size) =>
+                                (stores.ui.editor_split_pane_size = size)}
                             >
                               <div
                                 class="EditorPane"
@@ -326,10 +330,12 @@
                   {#if bottom_panel_open}
                     <Resizable.Handle />
                     <Resizable.Pane
-                      defaultSize={30}
+                      defaultSize={stores.ui.bottom_panel_pane_size}
                       minSize={10}
                       maxSize={80}
                       order={2}
+                      onResize={(size) =>
+                        (stores.ui.bottom_panel_pane_size = size)}
                     >
                       <BottomPanel />
                     </Resizable.Pane>

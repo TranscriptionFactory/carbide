@@ -98,7 +98,7 @@ function create_harness(options: HarnessOptions = {}) {
     },
     settings: {
       load_recent_command_ids: vi.fn().mockResolvedValue(["settings.open"]),
-      load_outline_pane_size: vi.fn().mockResolvedValue(null),
+      load_pane_size: vi.fn().mockResolvedValue(null),
       load_welcome_state: vi.fn().mockResolvedValue({ seen_version: 999 }),
     },
     hotkey: {

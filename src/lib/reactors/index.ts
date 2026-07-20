@@ -12,7 +12,7 @@ import { create_secondary_note_load_reactor } from "$lib/reactors/secondary_note
 import { create_git_autocommit_reactor } from "$lib/reactors/git_autocommit.reactor.svelte";
 import { create_git_auto_fetch_reactor } from "$lib/reactors/git_auto_fetch.reactor.svelte";
 import { create_recent_commands_persist_reactor } from "$lib/reactors/recent_commands_persist.reactor.svelte";
-import { create_outline_pane_persist_reactor } from "$lib/reactors/outline_pane_persist.reactor.svelte";
+import { create_pane_size_persist_reactor } from "$lib/reactors/pane_size_persist.reactor.svelte";
 import { create_find_in_file_reactor } from "$lib/reactors/find_in_file.reactor.svelte";
 import { create_backlinks_sync_reactor } from "$lib/reactors/backlinks_sync.reactor.svelte";
 import { create_local_links_sync_reactor } from "$lib/reactors/local_links_sync.reactor.svelte";
@@ -258,7 +258,7 @@ export function mount_reactors(context: ReactorContext): ReactorHandles {
       context.ui_store,
       context.settings_service,
     ),
-    create_outline_pane_persist_reactor(
+    create_pane_size_persist_reactor(
       context.ui_store,
       context.settings_service,
     ),

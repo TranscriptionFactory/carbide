@@ -21,7 +21,6 @@ const log = create_logger("settings_service");
 
 const RECENT_COMMAND_IDS_KEY = "recent_command_ids";
 const WELCOME_STATE_KEY = "welcome_state_v1";
-const OUTLINE_PANE_SIZE_KEY = "outline_pane_size";
 export const WELCOME_STATE_VERSION = 1;
 
 export type WelcomeState = {
@@ -241,26 +240,26 @@ export class SettingsService {
     }
   }
 
-  async load_outline_pane_size(): Promise<number | null> {
+  async load_pane_size(key: string): Promise<number | null> {
     try {
-      const stored = await this.settings_port.get_setting<unknown>(
-        OUTLINE_PANE_SIZE_KEY,
-      );
+      const stored = await this.settings_port.get_setting<unknown>(key);
       if (typeof stored !== "number" || !Number.isFinite(stored)) return null;
       return stored;
     } catch (error) {
-      log.error("Load outline pane size failed", {
+      log.error("Load pane size failed", {
+        key,
         error: error_message(error),
       });
       return null;
     }
   }
 
-  async save_outline_pane_size(size: number): Promise<void> {
+  async save_pane_size(key: string, size: number): Promise<void> {
     try {
-      await this.settings_port.set_setting(OUTLINE_PANE_SIZE_KEY, size);
+      await this.settings_port.set_setting(key, size);
     } catch (error) {
-      log.error("Save outline pane size failed", {
+      log.error("Save pane size failed", {
+        key,
         error: error_message(error),
       });
     }

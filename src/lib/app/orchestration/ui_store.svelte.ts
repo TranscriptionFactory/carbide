@@ -437,11 +437,12 @@ export class UIStore {
 
   bottom_panel_open = $state(false);
   bottom_panel_tab = $state<BottomPanelTab>("terminal");
+  bottom_panel_pane_size = $state(30);
+  editor_split_pane_size = $state(50);
 
   context_rail_open = $state(false);
   context_rail_tab = $state<ContextRailTab>("links");
   context_rail_side = $state<"left" | "right">("right");
-  // ponytail: session-only; persist across restarts by mirroring outline_pane_size if wanted
   context_rail_pane_size = $state(20);
 
   hotkeys_config = $state<HotkeyConfig>({ bindings: [] });
