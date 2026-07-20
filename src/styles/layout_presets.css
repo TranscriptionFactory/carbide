@@ -7,6 +7,13 @@
   --activitybar-mode: "floating-dock";
   --tabbar-mode: "floating-pill";
   --statusbar-shape: "floating-pill";
+  --tab-active-indicator: "fill";
+  --tab-active-indicator-color: color-mix(
+    in oklch,
+    var(--muted) 60%,
+    transparent
+  );
+  --tab-active-indicator-fg: var(--tab-active-fg);
 }
 
 [data-layout-variant="theater"] {
@@ -17,6 +24,12 @@
   --chrome-reveal-ease: var(--ease-out);
   --statusbar-shape: "hover-pill";
   --tab-active-indicator: "fill";
+  --tab-active-indicator-color: color-mix(
+    in oklch,
+    var(--muted) 50%,
+    transparent
+  );
+  --tab-active-indicator-fg: var(--tab-active-fg);
 }
 
 /* Transitional until Phase 2 settings-driven width presets: the scoped custom
