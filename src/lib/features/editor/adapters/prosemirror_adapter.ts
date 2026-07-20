@@ -35,6 +35,7 @@ import type {
 } from "$lib/shared/types/editor";
 
 import { active_heading_at } from "./outline_plugin";
+import { OutlineBuildScheduler } from "$lib/features/editor/domain/outline_build_scheduler";
 import {
   assemble_extensions,
   editor_context_plugin_key,
@@ -394,7 +395,7 @@ export function create_prosemirror_editor_port(args?: {
       let current_is_dirty = false;
       let suppress_change_echo = false;
       let view: EditorView | null = null;
-      let outline_timer: ReturnType<typeof setTimeout> | undefined;
+      const outline_scheduler = new OutlineBuildScheduler();
       let is_large_note = is_large_markdown(current_markdown);
       let current_note_path = note_path;
       let current_vault_id = vault_id;
@@ -546,10 +547,7 @@ export function create_prosemirror_editor_port(args?: {
           on_markdown_change(new_md);
 
           if (on_outline_change) {
-            clearTimeout(outline_timer);
-            outline_timer = setTimeout(() => {
-              emit_outline_headings();
-            }, 300);
+            outline_scheduler.schedule(emit_outline_headings);
           }
         }),
       );
@@ -741,7 +739,7 @@ export function create_prosemirror_editor_port(args?: {
           if (!view) return;
           const dying_view = view;
           view = null;
-          clearTimeout(outline_timer);
+          outline_scheduler.dispose();
           buffer_map.clear();
           current_xml_fragment = null;
           // A throw in ydoc clear or plugin-view destroy must not leave the
