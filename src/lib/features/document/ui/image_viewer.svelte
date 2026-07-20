@@ -105,7 +105,6 @@
     border: none;
     background: transparent;
     color: var(--foreground);
-    cursor: pointer;
     font-size: var(--text-sm);
     transition: background-color 0.15s ease;
   }

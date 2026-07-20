@@ -233,7 +233,6 @@
     background: transparent;
     border: none;
     border-right: 1px solid var(--border);
-    cursor: pointer;
     transition: all 100ms ease;
   }
 
@@ -312,7 +311,6 @@
     background: transparent;
     border: none;
     border-right: 1px solid var(--border);
-    cursor: pointer;
     transition: all 80ms ease;
   }
 

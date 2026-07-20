@@ -432,7 +432,6 @@
     color: var(--primary);
     text-decoration: underline;
     text-underline-offset: 2px;
-    cursor: pointer;
     white-space: nowrap;
   }
 

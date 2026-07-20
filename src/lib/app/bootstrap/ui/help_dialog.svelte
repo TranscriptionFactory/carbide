@@ -341,7 +341,6 @@
     color: var(--muted-foreground);
     font-size: var(--text-sm);
     font-weight: 500;
-    cursor: pointer;
     transition:
       background-color var(--duration-fast) var(--ease-default),
       color var(--duration-fast) var(--ease-default);
@@ -521,7 +520,6 @@
     color: var(--muted-foreground);
     font-size: var(--text-sm);
     font-weight: 500;
-    cursor: pointer;
     transition:
       background-color var(--duration-fast) var(--ease-default),
       color var(--duration-fast) var(--ease-default);
@@ -556,7 +554,6 @@
     border-radius: var(--radius-md);
     background: transparent;
     text-align: start;
-    cursor: pointer;
     transition: background-color var(--duration-fast) var(--ease-default);
   }
 

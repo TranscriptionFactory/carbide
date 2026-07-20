@@ -238,7 +238,6 @@
     height: 100%;
     background: transparent;
     color: inherit;
-    cursor: pointer;
     border: 0;
     padding: 0;
   }

@@ -159,7 +159,6 @@
     background: transparent;
     border: 1px dashed var(--border);
     border-radius: var(--radius, 0.5rem);
-    cursor: pointer;
     transition: all 100ms ease;
     white-space: nowrap;
   }

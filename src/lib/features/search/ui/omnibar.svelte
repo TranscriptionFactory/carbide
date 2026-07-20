@@ -1083,7 +1083,6 @@
     width: 100%;
     padding: var(--space-1-5) var(--space-3);
     text-align: left;
-    cursor: pointer;
     transition: background-color var(--duration-fast) var(--ease-default);
   }
 

@@ -157,7 +157,6 @@
     font: inherit;
     line-height: 1;
     border-radius: var(--radius-sm);
-    cursor: pointer;
     max-width: 16rem;
     overflow: hidden;
     text-overflow: ellipsis;

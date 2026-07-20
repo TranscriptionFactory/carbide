@@ -400,7 +400,6 @@
     background-color: var(--editor-background);
     color: var(--muted-foreground);
     font-size: var(--text-sm);
-    cursor: pointer;
     opacity: 0;
     transition:
       opacity 0.15s ease,

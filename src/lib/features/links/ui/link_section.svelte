@@ -53,7 +53,6 @@
     padding: var(--space-2) var(--space-3);
     border: none;
     background: none;
-    cursor: pointer;
     user-select: none;
   }
 

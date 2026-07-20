@@ -97,7 +97,6 @@
     gap: 8px;
     border: none;
     background: none;
-    cursor: pointer;
     font-size: var(--text-sm);
     color: var(--foreground);
     text-align: left;

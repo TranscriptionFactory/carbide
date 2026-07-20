@@ -535,7 +535,6 @@
     color: var(--tab-inactive-fg);
     font-size: var(--text-sm);
     white-space: nowrap;
-    cursor: pointer;
     user-select: none;
     position: relative;
     transition:

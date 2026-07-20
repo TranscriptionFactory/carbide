@@ -197,7 +197,6 @@
     background: transparent;
     border: none;
     border-right: 1px solid var(--border);
-    cursor: pointer;
     transition: all 100ms ease;
     white-space: nowrap;
   }

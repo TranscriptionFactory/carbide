@@ -240,7 +240,6 @@
     padding: 0.25rem 0.75rem;
     font-size: 0.75rem;
     border-radius: calc(var(--radius, 0.375rem) * 0.5);
-    cursor: pointer;
     border: 1px solid transparent;
   }
 

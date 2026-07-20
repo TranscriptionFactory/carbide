@@ -116,7 +116,6 @@
     color: var(--muted-foreground);
     background: transparent;
     border: none;
-    cursor: pointer;
     opacity: 0.5;
     transition: all 100ms ease;
   }

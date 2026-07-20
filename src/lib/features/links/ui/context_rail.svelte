@@ -90,7 +90,6 @@
     border: none;
     background: none;
     border-radius: var(--radius-sm);
-    cursor: pointer;
     color: var(--muted-foreground);
     transition:
       color var(--duration-fast) var(--ease-default),

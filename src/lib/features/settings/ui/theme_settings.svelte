@@ -799,7 +799,6 @@
     color: var(--muted-foreground);
     background: transparent;
     border: none;
-    cursor: pointer;
     padding: var(--space-2) 0;
     transition: color 100ms ease;
   }
@@ -833,7 +832,6 @@
     background: transparent;
     border: none;
     border-right: 1px solid var(--border);
-    cursor: pointer;
     color: var(--muted-foreground);
     transition:
       background 100ms ease,

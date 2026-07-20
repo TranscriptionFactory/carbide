@@ -333,7 +333,6 @@
     text-align: left;
     font-weight: 600;
     font-size: var(--text-sm);
-    cursor: pointer;
     background: transparent;
     border: none;
     color: inherit;
@@ -428,7 +427,6 @@
     background: transparent;
     text-align: left;
     color: inherit;
-    cursor: pointer;
     transition:
       background-color var(--duration-fast) var(--ease-default),
       border-color var(--duration-fast) var(--ease-default);
@@ -557,7 +555,6 @@
     background: transparent;
     color: var(--muted-foreground);
     font-size: var(--text-sm);
-    cursor: pointer;
     transition:
       background-color var(--duration-fast) var(--ease-default),
       color var(--duration-fast) var(--ease-default);
