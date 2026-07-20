@@ -12,7 +12,7 @@
   );
 </script>
 
-<div class="ContextRailPanel">
+<div class="ContextRailPanel" data-testid="context-rail-panel">
   {#if stores.ui.context_rail_tab === "links"}
     <LinksPanel />
   {:else if stores.ui.context_rail_tab === "outline" && !outline_docked}
@@ -31,7 +31,7 @@
   .ContextRailPanel {
     height: 100%;
     background-color: var(--background);
-    border-inline-start: 1px solid var(--border);
+    box-shadow: inset 1px 0 0 var(--border);
     overflow: hidden;
     padding-block-start: var(--space-2);
   }
