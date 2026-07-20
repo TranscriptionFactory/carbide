@@ -73,13 +73,16 @@
     --weight-semibold: 600;
     --weight-bold: 700;
 
-    /* Motion */
-    --duration-fast: 100ms;
+    /* Motion budget — micro-interactions (hover, active, open/close)
+     transition 120-200ms only (fast|normal|slow); ambient loops
+     (sync pulse, shimmer) use --duration-ambient (0.8-1.2s band).
+     Documented exceptions: agent-flash/agent-breathing in motion.css. */
+    --duration-fast: 120ms;
     --duration-normal: 150ms;
     --duration-slow: 200ms;
-    --duration-slower: 300ms;
+    --duration-ambient: 1000ms;
 
-    --ease-default: cubic-bezier(0.4, 0, 0.2, 1);
+    --ease-default: cubic-bezier(0.2, 0, 0, 1);
     --ease-in: cubic-bezier(0.4, 0, 1, 1);
     --ease-out: cubic-bezier(0, 0, 0.2, 1);
     --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);

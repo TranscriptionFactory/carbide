@@ -280,8 +280,8 @@
     background-color: var(--interactive);
     pointer-events: none;
     transition:
-      transform var(--duration-slower) var(--ease-default),
-      height var(--duration-slower) var(--ease-default),
+      transform var(--duration-slow) var(--ease-default),
+      height var(--duration-slow) var(--ease-default),
       opacity var(--duration-fast) var(--ease-default);
   }
 
