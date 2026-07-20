@@ -10,7 +10,7 @@
   import ListTreeIcon from "@lucide/svelte/icons/list-tree";
   import { onDestroy } from "svelte";
 
-  const { stores, action_registry } = use_app_context();
+  const { stores, action_registry, services } = use_app_context();
 
   const headings = $derived(stores.outline.headings);
   const active_heading_id = $derived(stores.outline.active_heading_id);
@@ -48,7 +48,7 @@
   });
 
   function find_editor_scroll_container(): HTMLElement | null {
-    return document.querySelector(".NoteEditor");
+    return services.editor.get_scroll_container();
   }
 
   function compute_heading_tops() {

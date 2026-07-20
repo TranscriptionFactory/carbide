@@ -7,6 +7,7 @@ import type {
   WikiQueryEvent,
 } from "$lib/features/editor/ports";
 import type { FindOptions } from "$lib/features/editor/domain/find_types";
+import { find_scroll_container } from "$lib/features/editor/domain/scroll_container";
 import type { CiteSuggestionItem } from "$lib/features/editor/adapters/cite_suggest_plugin";
 import type { AtPaletteItem } from "$lib/features/editor/adapters/at_palette_types";
 import { rank_note_suggestions } from "./rank_note_suggestions";
@@ -461,13 +462,11 @@ export class EditorService {
   // (.NoteEditor owns overflow-y there; .NoteEditor__split-pane in split mode),
   // so walk up to the first scrollable ancestor.
   private resolve_scroll_container(): HTMLElement | null {
-    let el: HTMLElement | null = this.host_root?.parentElement ?? null;
-    while (el) {
-      const overflow_y = getComputedStyle(el).overflowY;
-      if (overflow_y === "auto" || overflow_y === "scroll") return el;
-      el = el.parentElement;
-    }
-    return null;
+    return find_scroll_container(this.host_root?.parentElement ?? null);
+  }
+
+  get_scroll_container(): HTMLElement | null {
+    return this.resolve_scroll_container();
   }
 
   get_scroll_fraction(): number {

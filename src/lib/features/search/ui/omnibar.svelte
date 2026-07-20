@@ -42,6 +42,10 @@
     dedupe_commands_by_id,
   } from "$lib/features/search/domain/omnibar_view";
   import { build_omnibar_rows } from "$lib/features/search/domain/omnibar_rows";
+  import {
+    detect_intentional_mouse_movement,
+    type MouseMovementSnapshot,
+  } from "$lib/shared/utils/mouse_movement";
   import type {
     OmnibarRow,
     OmnibarVaultGroup,
@@ -232,17 +236,28 @@
   let input_ref: HTMLInputElement | null = $state(null);
   let collapsed_vaults = $state(new SvelteSet<string>());
   let prev_items_ref: OmnibarItem[] = $state([]);
-  let mouse_moved = $state(false);
+  let last_mouse_snapshot: MouseMovementSnapshot | null = null;
   let filter_mode = $state(false);
   let was_open = $state(false);
 
   $effect(() => {
     if (open) {
-      mouse_moved = false;
+      last_mouse_snapshot = null;
     } else {
       filter_mode = false;
     }
   });
+
+  function handle_hover(index: number, event: MouseEvent) {
+    const decision = detect_intentional_mouse_movement(
+      event,
+      last_mouse_snapshot,
+    );
+    last_mouse_snapshot = decision.snapshot;
+    if (decision.moved && index !== selected_index) {
+      on_selected_index_change(index);
+    }
+  }
 
   const is_command_mode = $derived(query.startsWith(">"));
   const has_query = $derived(
@@ -692,9 +707,6 @@
         ? get_row_id(visible_items[selected_index])
         : undefined}
       class="Omnibar__list"
-      onmousemove={() => {
-        mouse_moved = true;
-      }}
     >
       {#if is_all_vaults && has_query}
         {#if vault_groups.length > 0}
@@ -710,10 +722,7 @@
                 class:Omnibar__vault-facet--bordered={row_idx > 0}
                 class:Omnibar__vault-facet--unavailable={!group.vault_is_available}
                 class:Omnibar__item--selected={row_idx === selected_index}
-                onmouseenter={() => {
-                  if (!mouse_moved) return;
-                  on_selected_index_change(row_idx);
-                }}
+                onmousemove={(e) => handle_hover(row_idx, e)}
                 onclick={() => toggle_vault_group(group.vault_id)}
               >
                 <div class="Omnibar__vault-facet-header">
@@ -758,10 +767,7 @@
                 aria-selected={row_idx === selected_index}
                 class="Omnibar__item"
                 class:Omnibar__item--selected={row_idx === selected_index}
-                onmouseenter={() => {
-                  if (!mouse_moved) return;
-                  on_selected_index_change(row_idx);
-                }}
+                onmousemove={(e) => handle_hover(row_idx, e)}
                 onclick={() => {
                   on_confirm(item);
                 }}
@@ -826,10 +832,7 @@
             aria-selected={index === selected_index}
             class="Omnibar__item"
             class:Omnibar__item--selected={index === selected_index}
-            onmouseenter={() => {
-              if (!mouse_moved) return;
-              on_selected_index_change(index);
-            }}
+            onmousemove={(e) => handle_hover(index, e)}
             onclick={() => {
               on_confirm(item);
             }}
