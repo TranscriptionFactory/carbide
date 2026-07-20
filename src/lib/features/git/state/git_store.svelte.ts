@@ -46,6 +46,10 @@ export class GitStore {
     return this.changed_files.filter((f) => !this.staged_paths.has(f.path));
   }
 
+  get conflict_count() {
+    return this.changed_files.filter((f) => f.status === "conflicted").length;
+  }
+
   set_working_diff(diff: GitDiff | null) {
     this.working_diff = diff;
     this.is_loading_working_diff = false;
