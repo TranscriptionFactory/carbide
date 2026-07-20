@@ -57,6 +57,19 @@ describe("GitStore", () => {
     expect(store.sync_status).toBe("committing");
   });
 
+  it("counts only conflicted files in conflict_count", () => {
+    const store = new GitStore();
+    expect(store.conflict_count).toBe(0);
+    store.changed_files = [
+      { path: "a.md", status: "modified" },
+      { path: "b.md", status: "conflicted" },
+      { path: "c.md", status: "untracked" },
+      { path: "d.md", status: "conflicted" },
+      { path: "e.md", status: "deleted" },
+    ];
+    expect(store.conflict_count).toBe(2);
+  });
+
   it("sets last commit time", () => {
     const store = new GitStore();
     store.set_last_commit_time(1234567890);

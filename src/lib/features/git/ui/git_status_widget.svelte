@@ -5,6 +5,7 @@
 
   interface Props {
     enabled: boolean;
+    compact?: boolean;
     branch: string;
     is_dirty: boolean;
     pending_files: number;
@@ -23,6 +24,7 @@
 
   let {
     enabled,
+    compact = false,
     branch,
     is_dirty,
     pending_files,
@@ -62,11 +64,14 @@
       class="GitStatusWidget"
       class:GitStatusWidget--syncing={is_syncing}
       class:GitStatusWidget--error={sync_status === "error"}
+      data-testid="status-git-branch"
       onclick={on_click}
       aria-label="Git status: {branch}{is_dirty ? ' (modified)' : ''}"
     >
       <GitBranch class="GitStatusWidget__icon" />
-      <span class="GitStatusWidget__branch">{branch}</span>
+      {#if !compact}
+        <span class="GitStatusWidget__branch">{branch}</span>
+      {/if}
       <span
         class="GitStatusWidget__indicator"
         class:GitStatusWidget__indicator--dirty={is_dirty}
@@ -96,7 +101,9 @@
                 <ArrowUpDown class="GitStatusGroup__btn-icon" />
                 {#if ahead > 0 || behind > 0}
                   <span class="GitStatusGroup__count">
-                    {#if behind > 0}↓{behind}{/if}{#if ahead > 0}↑{ahead}{/if}
+                    {#if behind > 0}<span class="GitStatusGroup__count-behind"
+                        >↓{behind}</span
+                      >{/if}{#if ahead > 0}↑{ahead}{/if}
                   </span>
                 {/if}
               </button>
@@ -261,6 +268,10 @@
     font-size: var(--text-xs);
     line-height: 1;
     font-feature-settings: "tnum" 1;
+  }
+
+  .GitStatusGroup__count-behind {
+    color: var(--accent-orange);
   }
 
   .GitStatusGroup__btn--add-remote {
