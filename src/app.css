@@ -67,9 +67,7 @@
 
   body {
     @apply h-full bg-background text-foreground;
-    /* --font-sans, not --font-ui: the design_tokens.css body rule was the
-       runtime winner on main. --font-ui is theme-overridden in themes.css
-       (paper→serif, cockpit→mono) and must stay consumer-less until Phase 1. */
+    /* body font: --font-sans (runtime value is written by apply_theme) */
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
@@ -78,6 +76,61 @@
 
   body.macos-drag-strip .WorkspaceLayout {
     padding-block-start: var(--macos-drag-strip-height);
+  }
+
+  /* user-select discipline: chrome default-deny, content allowlist at zero
+     specificity (:where()), re-deny inside controls. */
+  html,
+  body {
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  /* Content allowlist — anything a user may legitimately copy */
+  :where(
+    input,
+    textarea,
+    select,
+    option,
+    [contenteditable]:not([contenteditable="false"]),
+    [contenteditable]:not([contenteditable="false"]) *,
+    .rag-markdown,
+    .rag-markdown *,
+    .CodeViewer__editor,
+    .CodeViewer__editor *,
+    .textLayer,
+    .textLayer *,
+    pre,
+    pre *,
+    code,
+    code *
+  ) {
+    -webkit-user-select: text;
+    user-select: text;
+  }
+
+  /* Controls inside content stay non-selectable */
+  :where(
+    button,
+    [role="button"],
+    [role="menuitem"],
+    [role="menuitemcheckbox"],
+    [role="menuitemradio"],
+    [role="option"],
+    [role="tab"]
+  ),
+  :where(
+      button,
+      [role="button"],
+      [role="menuitem"],
+      [role="menuitemcheckbox"],
+      [role="menuitemradio"],
+      [role="option"],
+      [role="tab"]
+    )
+    * {
+    -webkit-user-select: none;
+    user-select: none;
   }
 
   *:focus-visible {
