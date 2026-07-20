@@ -114,7 +114,7 @@ const SHARED_DEFAULTS: Omit<
   surface_chroma: 0.008,
   surface_style: "solid",
   font_family_sans: "Inter",
-  font_family_mono: "JetBrains Mono",
+  font_family_mono: "IBM Plex Mono",
   font_size: 1.0,
   line_height: 1.75,
   spacing: "normal",
