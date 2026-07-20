@@ -159,11 +159,18 @@
 </script>
 
 {#if tabs.length > 0}
-  <div class="TabBar" role="tablist" tabindex="0" aria-label="Open tabs">
+  <div
+    class="TabBar"
+    role="tablist"
+    tabindex="0"
+    aria-label="Open tabs"
+    data-testid="tab-bar"
+  >
     {#if can_scroll_left}
       <button
         type="button"
         class="TabBar__scroll-btn TabBar__scroll-btn--left"
+        data-testid="tab-bar-scroll-left"
         onclick={scroll_left}
         aria-label="Scroll tabs left"
       >
@@ -202,6 +209,7 @@
                       class:TabBar__tab--pinned={tab.is_pinned}
                       class:TabBar__tab--secondary={is_secondary}
                       data-tab-id={tab.id}
+                      data-testid="tab-bar-tab"
                       aria-selected={is_active}
                       tabindex="0"
                       onclick={() => activate(tab.id)}
@@ -243,6 +251,7 @@
                         class="TabBar__close-btn"
                         class:TabBar__close-btn--dirty={tab.is_dirty}
                         class:TabBar__close-btn--visible={is_active}
+                        data-testid="tab-bar-close"
                         onclick={(e: MouseEvent) => close(e, tab.id)}
                         aria-label="Close tab"
                       >
@@ -264,12 +273,14 @@
           <ContextMenu.Portal>
             <ContextMenu.Content>
               <ContextMenu.Item
+                data-testid="tab-menu-close"
                 onSelect={() =>
                   void action_registry.execute(ACTION_IDS.tab_close, tab.id)}
               >
                 Close Tab
               </ContextMenu.Item>
               <ContextMenu.Item
+                data-testid="tab-menu-close-others"
                 disabled={tabs.length <= 1}
                 onSelect={() =>
                   void action_registry.execute(
@@ -280,6 +291,7 @@
                 Close Other Tabs
               </ContextMenu.Item>
               <ContextMenu.Item
+                data-testid="tab-menu-close-right"
                 disabled={tabs.indexOf(tab) >= tabs.length - 1}
                 onSelect={() =>
                   void action_registry.execute(
@@ -290,6 +302,7 @@
                 Close Tabs to the Right
               </ContextMenu.Item>
               <ContextMenu.Item
+                data-testid="tab-menu-close-all"
                 onSelect={() =>
                   void action_registry.execute(ACTION_IDS.tab_close_all)}
               >
@@ -298,6 +311,7 @@
               <ContextMenu.Separator />
               {#if tab.is_pinned}
                 <ContextMenu.Item
+                  data-testid="tab-menu-pin"
                   onSelect={() =>
                     void action_registry.execute(ACTION_IDS.tab_unpin, tab.id)}
                 >
@@ -305,6 +319,7 @@
                 </ContextMenu.Item>
               {:else}
                 <ContextMenu.Item
+                  data-testid="tab-menu-pin"
                   onSelect={() =>
                     void action_registry.execute(ACTION_IDS.tab_pin, tab.id)}
                 >
@@ -313,6 +328,7 @@
               {/if}
               <ContextMenu.Separator />
               <ContextMenu.Item
+                data-testid="tab-menu-copy-path"
                 onSelect={() =>
                   void action_registry.execute(
                     ACTION_IDS.tab_copy_path,
@@ -322,6 +338,7 @@
                 Copy File Path
               </ContextMenu.Item>
               <ContextMenu.Item
+                data-testid="tab-menu-reveal"
                 onSelect={() =>
                   void action_registry.execute(
                     ACTION_IDS.tab_reveal_in_tree,
@@ -332,6 +349,7 @@
               </ContextMenu.Item>
               {#if is_secondary}
                 <ContextMenu.Item
+                  data-testid="tab-menu-split"
                   onSelect={() =>
                     void action_registry.execute(ACTION_IDS.tab_toggle_split)}
                 >
@@ -340,6 +358,7 @@
                 </ContextMenu.Item>
               {:else}
                 <ContextMenu.Item
+                  data-testid="tab-menu-split"
                   disabled={tab.kind !== "note"}
                   onSelect={() => {
                     if (tab.kind === "note") {
@@ -356,6 +375,7 @@
               {/if}
               {#if stores.tab.is_split}
                 <ContextMenu.Item
+                  data-testid="tab-menu-split-direction"
                   onSelect={() =>
                     void action_registry.execute(
                       ACTION_IDS.tab_toggle_split_direction,
@@ -366,6 +386,7 @@
               {/if}
               {#if tab.kind === "document" || tab.kind === "note"}
                 <ContextMenu.Item
+                  data-testid="tab-menu-detach"
                   onSelect={() => {
                     const path =
                       tab.kind === "document" ? tab.file_path : tab.note_path;
@@ -382,6 +403,7 @@
               <ContextMenu.Separator />
               {@const note_meta = find_note_meta(tab)}
               <ContextMenu.Item
+                data-testid="tab-menu-star"
                 disabled={!note_meta}
                 onSelect={() => {
                   if (note_meta && tab.kind === "note") {
@@ -395,6 +417,7 @@
                 {is_starred(tab) ? "Unstar" : "Star"}
               </ContextMenu.Item>
               <ContextMenu.Item
+                data-testid="tab-menu-rename"
                 disabled={!note_meta}
                 onSelect={() => {
                   if (note_meta) {
@@ -408,6 +431,7 @@
                 Rename
               </ContextMenu.Item>
               <ContextMenu.Item
+                data-testid="tab-menu-delete"
                 disabled={!note_meta}
                 onSelect={() => {
                   if (note_meta) {
@@ -421,6 +445,7 @@
                 Delete
               </ContextMenu.Item>
               <ContextMenu.Item
+                data-testid="tab-menu-copy-markdown"
                 disabled={!is_active}
                 onSelect={() => {
                   if (is_active) {
@@ -440,6 +465,7 @@
       <button
         type="button"
         class="TabBar__scroll-btn TabBar__scroll-btn--right"
+        data-testid="tab-bar-scroll-right"
         onclick={scroll_right}
         aria-label="Scroll tabs right"
       >
@@ -452,6 +478,7 @@
         type="button"
         class="TabBar__action-btn"
         class:TabBar__action-btn--active={stores.ui.context_rail_open}
+        data-testid="tab-bar-context-rail-toggle"
         onclick={() =>
           void action_registry.execute(ACTION_IDS.ui_toggle_context_rail)}
         aria-pressed={stores.ui.context_rail_open}
@@ -467,10 +494,10 @@
   .TabBar {
     display: flex;
     align-items: stretch;
-    height: var(--size-touch-lg);
+    height: var(--size-tabbar);
     min-width: 0;
     background-color: var(--tabbar-bg);
-    border-block-end: 1px solid var(--tab-border);
+    box-shadow: inset 0 -1px 0 var(--tab-border);
     position: relative;
     flex-shrink: 0;
   }
@@ -533,7 +560,7 @@
     height: 100%;
     border-inline-end: 1px solid var(--tab-border);
     color: var(--tab-inactive-fg);
-    font-size: var(--text-sm);
+    font-size: var(--text-chrome);
     white-space: nowrap;
     user-select: none;
     position: relative;
@@ -550,15 +577,6 @@
   .TabBar__tab--active {
     color: var(--tab-active-fg);
     font-weight: 500;
-  }
-
-  .TabBar__tab--active::after {
-    content: "";
-    position: absolute;
-    inset-inline: 0;
-    bottom: 0;
-    height: var(--tab-active-indicator-thickness);
-    background-color: var(--tab-active-indicator-color);
   }
 
   .TabBar__tab--active:hover {
@@ -710,7 +728,7 @@
     content: "";
     position: absolute;
     inset-inline: 0;
-    bottom: -1px;
+    inset-block-start: 0;
     height: var(--tab-active-indicator-thickness);
     background: var(--tab-active-indicator-color);
   }
@@ -728,7 +746,7 @@
   }
   :global([data-tab-indicator="fill"]) .TabBar__tab--active {
     background: var(--tab-active-indicator-color);
-    color: var(--background);
+    color: var(--tab-active-indicator-fg);
   }
 
   :global([data-tab-indicator="none"]) .TabBar__tab--active::after {
@@ -742,7 +760,7 @@
     top: var(--space-3);
     left: 50%;
     transform: translateX(-50%);
-    height: var(--size-touch-lg);
+    height: var(--size-tabbar);
     width: max-content;
     max-width: var(--tabbar-max-width, 36rem);
     border: 1px solid var(--border);
@@ -759,14 +777,6 @@
     height: calc(100% - var(--space-2));
     border-radius: var(--radius-full);
     border-inline-end: none;
-  }
-
-  :global([data-tabbar-mode="floating-pill"]) .TabBar__tab--active {
-    background-color: color-mix(in oklch, var(--muted) 60%, transparent);
-  }
-
-  :global([data-tabbar-mode="floating-pill"]) .TabBar__tab--active::after {
-    inset-inline: var(--space-2);
   }
 
   :global([data-tabbar-mode="floating-pill"]) .TabBar__actions {
@@ -794,8 +804,9 @@
       box-shadow var(--chrome-reveal-speed) var(--chrome-reveal-ease);
   }
 
-  :global([data-chrome-mode="edge-reveal"]) .TabBar:hover {
-    height: var(--size-touch-lg);
+  :global([data-chrome-mode="edge-reveal"]) .TabBar:hover,
+  :global([data-chrome-mode="edge-reveal"]) .TabBar:focus-within {
+    height: var(--size-tabbar);
     opacity: 1;
     background-color: color-mix(in oklch, var(--card) 95%, transparent);
     backdrop-filter: blur(20px);

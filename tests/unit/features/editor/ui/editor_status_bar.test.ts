@@ -22,6 +22,14 @@ function render_editor_status_bar(props?: {
   has_note?: boolean;
   width_mode?: "normal" | "wide";
   on_width_toggle?: () => void;
+  vault_name?: string | null;
+  last_saved_at?: number | null;
+  zoom_percent?: number;
+  on_zoom_reset?: () => void;
+  git_conflicts?: number;
+  on_conflicts_click?: () => void;
+  color_scheme?: "light" | "dark";
+  on_theme_toggle?: () => void;
 }) {
   const target = document.createElement("div");
   document.body.appendChild(target);
@@ -33,7 +41,7 @@ function render_editor_status_bar(props?: {
       word_count: 0,
       line_count: 0,
       has_note: props?.has_note ?? false,
-      last_saved_at: null,
+      last_saved_at: props?.last_saved_at ?? null,
       index_progress: { status: "idle", indexed: 0, total: 0, error: null },
       is_reindex_pending: false,
       embedding_progress: {
@@ -42,7 +50,7 @@ function render_editor_status_bar(props?: {
         total: 0,
         error: null,
       },
-      vault_name: null,
+      vault_name: props?.vault_name ?? null,
       git_enabled: false,
       git_branch: "",
       git_is_dirty: false,
@@ -52,6 +60,8 @@ function render_editor_status_bar(props?: {
       git_is_fetching: false,
       git_ahead: 0,
       git_behind: 0,
+      git_conflicts: props?.git_conflicts ?? 0,
+      on_conflicts_click: props?.on_conflicts_click ?? vi.fn(),
       is_repairing_links: false,
       link_repair_message: null,
       editor_mode: "visual",
@@ -77,8 +87,8 @@ function render_editor_status_bar(props?: {
       on_width_toggle: props?.on_width_toggle ?? vi.fn(),
       show_line_numbers: true,
       on_line_numbers_toggle: vi.fn(),
-      zoom_percent: 100,
-      on_zoom_reset: vi.fn(),
+      zoom_percent: props?.zoom_percent ?? 100,
+      on_zoom_reset: props?.on_zoom_reset ?? vi.fn(),
       vim_nav_enabled: false,
       vim_nav_context: "none",
       vim_nav_pending_keys: "",
@@ -88,6 +98,8 @@ function render_editor_status_bar(props?: {
       bottom_panel_open: false,
       bottom_panel_tab: "terminal",
       on_panel_tab_click: vi.fn(),
+      color_scheme: props?.color_scheme ?? "dark",
+      on_theme_toggle: props?.on_theme_toggle ?? vi.fn(),
     },
   });
 
@@ -110,6 +122,19 @@ function get_button_by_title(title: string): HTMLButtonElement | null {
 function get_button_by_aria_label(label: string): HTMLButtonElement | null {
   const element = document.body.querySelector(`button[aria-label="${label}"]`);
   return element instanceof HTMLButtonElement ? element : null;
+}
+
+function get_by_testid(testid: string): HTMLElement | null {
+  const element = document.body.querySelector(`[data-testid="${testid}"]`);
+  return element instanceof HTMLElement ? element : null;
+}
+
+function set_window_width(width: number) {
+  Object.defineProperty(window, "innerWidth", {
+    value: width,
+    configurable: true,
+    writable: true,
+  });
 }
 
 afterEach(() => {
@@ -196,5 +221,117 @@ describe("editor_status_bar.svelte", () => {
     expect(on_width_toggle).toHaveBeenCalledTimes(1);
 
     view.cleanup();
+  });
+
+  it("hides the conflict badge when there are no conflicts", () => {
+    const view = render_editor_status_bar({ git_conflicts: 0 });
+
+    expect(get_by_testid("status-conflict-count")).toBeNull();
+
+    view.cleanup();
+  });
+
+  it("shows the conflict count and dispatches on_conflicts_click", () => {
+    const on_conflicts_click = vi.fn();
+    const view = render_editor_status_bar({
+      git_conflicts: 3,
+      on_conflicts_click,
+    });
+
+    const badge = get_by_testid("status-conflict-count");
+    expect(badge?.textContent?.replace(/\s+/g, " ").trim()).toContain(
+      "3 conflicts",
+    );
+
+    badge?.click();
+    expect(on_conflicts_click).toHaveBeenCalledTimes(1);
+
+    view.cleanup();
+  });
+
+  it("offers the opposite scheme on the theme toggle", () => {
+    const dark_view = render_editor_status_bar({ color_scheme: "dark" });
+    expect(get_by_testid("status-theme-mode")?.getAttribute("aria-label")).toBe(
+      "Switch to light theme",
+    );
+    dark_view.cleanup();
+
+    const light_view = render_editor_status_bar({ color_scheme: "light" });
+    expect(get_by_testid("status-theme-mode")?.getAttribute("aria-label")).toBe(
+      "Switch to dark theme",
+    );
+    light_view.cleanup();
+  });
+
+  it("dispatches on_theme_toggle when the theme toggle is clicked", () => {
+    const on_theme_toggle = vi.fn();
+    const view = render_editor_status_bar({ on_theme_toggle });
+
+    get_by_testid("status-theme-mode")?.click();
+    expect(on_theme_toggle).toHaveBeenCalledTimes(1);
+
+    view.cleanup();
+  });
+
+  it("hides the zoom badge at 100%", () => {
+    const view = render_editor_status_bar({ zoom_percent: 100 });
+
+    expect(get_by_testid("status-zoom")).toBeNull();
+
+    view.cleanup();
+  });
+
+  it("shows the zoom badge off 100% and resets on click", () => {
+    const on_zoom_reset = vi.fn();
+    const view = render_editor_status_bar({
+      zoom_percent: 120,
+      on_zoom_reset,
+    });
+
+    const zoom = get_by_testid("status-zoom");
+    expect(zoom?.textContent).toContain("120%");
+
+    zoom?.click();
+    expect(on_zoom_reset).toHaveBeenCalledTimes(1);
+
+    view.cleanup();
+  });
+
+  it("enters compact mode at or below 1000px window width", () => {
+    set_window_width(800);
+    const view = render_editor_status_bar({ vault_name: "MyVault" });
+
+    expect(
+      get_by_testid("status-bar")?.classList.contains("StatusBar--compact"),
+    ).toBe(true);
+
+    set_window_width(1400);
+    window.dispatchEvent(new Event("resize"));
+    flushSync();
+
+    expect(
+      get_by_testid("status-bar")?.classList.contains("StatusBar--compact"),
+    ).toBe(false);
+
+    view.cleanup();
+  });
+
+  it("refreshes the saved label on a 30s ticker", () => {
+    vi.useFakeTimers();
+    const now = Date.now();
+    const view = render_editor_status_bar({ last_saved_at: now - 45_000 });
+
+    expect(document.body.textContent).toContain("Saved just now");
+
+    vi.advanceTimersByTime(29_999);
+    flushSync();
+    expect(document.body.textContent).toContain("Saved just now");
+
+    vi.advanceTimersByTime(1);
+    flushSync();
+    expect(document.body.textContent).toContain("Saved 1m ago");
+
+    view.cleanup();
+    vi.useRealTimers();
   });
 });
