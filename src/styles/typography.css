@@ -41,3 +41,570 @@
   --editor-headings-h6-margin-top: calc(var(--editor-spacing) * 0.55);
   --editor-headings-h6-margin-bottom: calc(var(--editor-spacing) * 0.25);
 }
+
+/* ==== Element rules (moved from editor.css, Phase 2 step 4) ==== */
+
+/* ============================================
+   TYPOGRAPHY — HEADINGS
+   ============================================
+   Sans-serif headings with restrained weight.
+   Hierarchy through size and space, not boldness.
+   ============================================ */
+
+/* Outline clicks scroll headings with block: "start". This offset keeps the
+   landed heading inside the scroll-spy active band (scroll_top + 80 in
+   outline_view.ts), so the outline marker follows the clicked heading, and
+   gives the heading breathing room below the top edge. Keep < that threshold. */
+.ProseMirror :is(h1, h2, h3, h4, h5, h6) {
+  scroll-margin-top: 72px;
+}
+
+.ProseMirror h1 {
+  font-size: var(--editor-heading-1);
+  font-weight: var(--editor-headings-h1-font-weight);
+  line-height: var(--editor-headings-h1-line-height);
+  margin-top: var(--editor-h1-mt, var(--editor-headings-h1-margin-top));
+  margin-bottom: var(--editor-h1-mb, var(--editor-headings-h1-margin-bottom));
+  color: var(--editor-heading-color);
+  letter-spacing: var(--editor-headings-h1-letter-spacing);
+}
+
+.ProseMirror h1::before {
+  content: var(--heading-prefix-h1);
+  color: var(--heading-prefix-color);
+}
+
+.ProseMirror h1:first-child {
+  margin-top: 0;
+}
+
+.ProseMirror h2 {
+  font-size: var(--editor-heading-2);
+  font-weight: var(--editor-headings-h2-font-weight);
+  line-height: var(--editor-headings-h2-line-height);
+  margin-top: var(--editor-h2-mt, var(--editor-headings-h2-margin-top));
+  margin-bottom: var(--editor-h2-mb, var(--editor-headings-h2-margin-bottom));
+  color: var(--editor-heading-color);
+  letter-spacing: var(--editor-headings-h2-letter-spacing);
+}
+
+.ProseMirror h2::before {
+  content: var(--heading-prefix-h2);
+  color: var(--heading-prefix-color);
+}
+
+.ProseMirror h3 {
+  font-size: var(--editor-heading-3);
+  font-weight: var(--editor-headings-h3-font-weight);
+  line-height: var(--editor-headings-h3-line-height);
+  margin-top: var(--editor-h3-mt, var(--editor-headings-h3-margin-top));
+  margin-bottom: var(--editor-h3-mb, var(--editor-headings-h3-margin-bottom));
+  color: var(--editor-heading-color);
+  letter-spacing: var(--editor-headings-h3-letter-spacing);
+}
+
+.ProseMirror h3::before {
+  content: var(--heading-prefix-h3);
+  color: var(--heading-prefix-color);
+}
+
+.ProseMirror h4 {
+  font-size: var(--editor-heading-4);
+  font-weight: var(--editor-headings-h4-font-weight);
+  line-height: var(--editor-headings-h4-line-height);
+  margin-top: var(--editor-h4-mt, var(--editor-headings-h4-margin-top));
+  margin-bottom: var(--editor-h4-mb, var(--editor-headings-h4-margin-bottom));
+  color: var(--editor-heading-color);
+  letter-spacing: var(--editor-headings-h4-letter-spacing);
+}
+
+.ProseMirror h5 {
+  font-size: var(--editor-heading-5);
+  font-weight: var(--editor-headings-h5-font-weight);
+  line-height: var(--editor-headings-h5-line-height);
+  margin-top: var(--editor-h5-mt, var(--editor-headings-h5-margin-top));
+  margin-bottom: var(--editor-h5-mb, var(--editor-headings-h5-margin-bottom));
+  color: var(--editor-heading-color);
+  text-transform: uppercase;
+  letter-spacing: var(--editor-headings-h5-letter-spacing);
+}
+
+.ProseMirror h6 {
+  font-size: var(--editor-heading-6);
+  font-weight: var(--editor-headings-h6-font-weight);
+  line-height: var(--editor-headings-h6-line-height);
+  margin-top: var(--editor-h6-mt, var(--editor-headings-h6-margin-top));
+  margin-bottom: var(--editor-h6-mb, var(--editor-headings-h6-margin-bottom));
+  color: var(--editor-text-muted);
+  text-transform: uppercase;
+  letter-spacing: var(--editor-headings-h6-letter-spacing);
+}
+
+/* ============================================
+   HEADING MARKERS (pseudo-source mode)
+   ============================================
+   Shows markdown-style level markers before headings
+   when .show-heading-markers is active on the wrapper.
+   ============================================ */
+
+.show-heading-markers .ProseMirror h1::before,
+.show-heading-markers .ProseMirror h2::before,
+.show-heading-markers .ProseMirror h3::before,
+.show-heading-markers .ProseMirror h4::before,
+.show-heading-markers .ProseMirror h5::before,
+.show-heading-markers .ProseMirror h6::before {
+  color: var(--muted-foreground);
+  font-weight: 400;
+  font-size: 0.55em;
+  letter-spacing: 0;
+  text-transform: none;
+  opacity: 0.6;
+  margin-right: 0.5em;
+  vertical-align: baseline;
+  user-select: none;
+}
+
+.show-heading-markers .ProseMirror h1::before {
+  content: "#";
+}
+.show-heading-markers .ProseMirror h2::before {
+  content: "##";
+}
+.show-heading-markers .ProseMirror h3::before {
+  content: "###";
+}
+.show-heading-markers .ProseMirror h4::before {
+  content: "####";
+}
+.show-heading-markers .ProseMirror h5::before {
+  content: "#####";
+}
+.show-heading-markers .ProseMirror h6::before {
+  content: "######";
+}
+
+/* ============================================
+   TYPOGRAPHY — PARAGRAPHS & INLINE
+   ============================================ */
+
+.ProseMirror p {
+  margin-top: 0;
+  margin-bottom: var(--editor-paragraph-spacing);
+}
+
+.ProseMirror strong {
+  font-weight: var(--editor-bold-weight);
+  color: var(--editor-bold-color);
+  letter-spacing: -0.01em;
+}
+
+.ProseMirror em {
+  font-style: italic;
+  color: var(--editor-italic-color);
+  letter-spacing: 0.005em;
+}
+
+.ProseMirror code {
+  background: var(--editor-code-inline-bg);
+  color: var(--editor-code-inline-text);
+  padding: 0.15rem 0.45rem;
+  border-radius: calc(var(--radius) * 0.4);
+  font-size: 0.88em;
+  font-family: var(--font-mono);
+  border: 1px solid var(--editor-code-inline-border);
+  font-weight: 450;
+  letter-spacing: -0.01em;
+}
+
+.ProseMirror mark {
+  background: var(--editor-mark-bg);
+  color: var(--editor-mark-text);
+  padding: 0.05em 0.15em;
+  border-radius: 2px;
+}
+
+.ProseMirror a {
+  color: var(--editor-link);
+  text-decoration-line: underline;
+  text-decoration-color: var(--editor-link-underline);
+  text-decoration-style: var(--editor-link-underline-style);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.15em;
+  transition: text-decoration-color var(--duration-normal) var(--ease-default);
+}
+
+.ProseMirror a:hover {
+  text-decoration-color: var(--editor-link-underline-hover);
+}
+
+.ProseMirror a[href$=".md"]::before {
+  content: "[[";
+  opacity: 0.6;
+}
+
+.ProseMirror a[href$=".md"]::after {
+  content: "]]";
+  opacity: 0.6;
+}
+
+/* ============================================
+   LISTS
+   ============================================ */
+
+.ProseMirror ul,
+.ProseMirror ol {
+  margin-top: 0;
+  margin-bottom: var(--editor-list-spacing);
+  padding-left: 1.625rem;
+}
+
+.ProseMirror ul {
+  list-style-type: disc;
+}
+
+.ProseMirror ol {
+  list-style-type: decimal;
+}
+
+.ProseMirror ul ul {
+  list-style-type: circle;
+}
+
+.ProseMirror ul ul ul {
+  list-style-type: square;
+}
+
+.ProseMirror li::marker {
+  color: var(--editor-text-muted);
+}
+
+.ProseMirror ol > li::marker {
+  font-feature-settings: "tnum" 1;
+  font-size: 0.88em;
+  font-weight: 500;
+}
+
+.ProseMirror li {
+  margin-bottom: var(--editor-list-item-spacing);
+  line-height: 1.75;
+}
+
+.ProseMirror li > p {
+  margin-bottom: var(--editor-list-item-spacing);
+}
+
+.ProseMirror li:last-child > p:last-child {
+  margin-bottom: 0;
+}
+
+.ProseMirror ul ul,
+.ProseMirror ol ul,
+.ProseMirror ul ol,
+.ProseMirror ol ol {
+  margin-top: calc(var(--editor-spacing) * 0.35);
+  margin-bottom: calc(var(--editor-spacing) * 0.35);
+}
+
+/* ============================================
+   TASK LIST / CHECKBOXES
+   ============================================ */
+
+.ProseMirror li[data-item-type="task"] {
+  list-style: none;
+  position: relative;
+  padding-left: calc(var(--editor-checkbox-size) + 0.5rem);
+}
+
+.ProseMirror li[data-item-type="task"]::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: calc((1.75em - var(--editor-checkbox-size)) / 2);
+  width: var(--editor-checkbox-size);
+  height: var(--editor-checkbox-size);
+  border-radius: 3px;
+  background-color: transparent;
+  border: 1.5px solid var(--border-strong);
+  transition: all 0.15s ease;
+  cursor: pointer;
+}
+
+.ProseMirror li[data-item-type="task"]:hover::before {
+  border-color: var(--primary);
+  background-color: color-mix(in oklch, var(--primary) 10%, transparent);
+}
+
+.ProseMirror li[data-item-type="task"][data-checked="true"]::before {
+  background-color: var(--primary);
+  border-color: var(--primary);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 10'%3E%3Cpath d='M1.5 5l2.5 2.5 4.5-4.5' stroke='white' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 70%;
+}
+
+.ProseMirror li[data-item-type="task"][data-checked="true"] > p,
+.ProseMirror li[data-item-type="task"][data-checked="true"] {
+  color: var(--editor-text-muted);
+  text-decoration: line-through;
+  text-decoration-color: color-mix(
+    in oklch,
+    var(--editor-text-muted) 50%,
+    transparent
+  );
+}
+
+.ProseMirror li[data-item-type="task"][data-checked="false"]::before {
+  background-color: transparent;
+  border-color: var(--border-strong);
+}
+
+/* ============================================
+   BLOCKQUOTES
+   ============================================ */
+
+.ProseMirror blockquote {
+  margin-top: 0;
+  margin-bottom: calc(var(--editor-spacing) * 1.25);
+  margin-left: calc(var(--editor-spacing) * 0.5);
+  padding: var(--editor-blockquote-padding-y) var(--editor-blockquote-padding-x);
+  border-left: var(--editor-blockquote-border-width) solid
+    var(--editor-blockquote-border);
+  background: var(--editor-blockquote-bg);
+  border-radius: 0 calc(var(--radius) * 0.5) calc(var(--radius) * 0.5) 0;
+  color: var(--editor-blockquote-text);
+  font-style: italic;
+  letter-spacing: 0.01em;
+}
+
+.ProseMirror blockquote > p:last-child {
+  margin-bottom: 0;
+}
+
+.ProseMirror blockquote > p:first-child {
+  margin-top: 0;
+}
+
+/* ============================================
+   HORIZONTAL RULES
+   ============================================ */
+
+.ProseMirror hr {
+  border: none;
+  height: var(--editor-hr-thickness, 2px);
+  background: var(
+    --editor-hr-background,
+    linear-gradient(
+      90deg,
+      var(--editor-hr-gradient-start),
+      var(--editor-hr-gradient-mid) 50%,
+      var(--editor-hr-gradient-end)
+    )
+  );
+  border-top: var(--editor-hr-border-top, none);
+  margin-top: var(--editor-hr-spacing, calc(var(--editor-spacing) * 2.5));
+  margin-bottom: var(--editor-hr-spacing, calc(var(--editor-spacing) * 2.5));
+  opacity: var(--editor-hr-opacity, 0.75);
+}
+
+/* ============================================
+   TABLES
+   ============================================ */
+
+.ProseMirror table {
+  table-layout: auto;
+  border-collapse: collapse;
+  border-spacing: 0;
+  font-size: 0.95em;
+  display: table;
+}
+
+.ProseMirror table.table-fixed-layout {
+  width: 100%;
+  table-layout: fixed;
+}
+
+.ProseMirror .tableWrapper {
+  /* No max-height: a cap turns overflow-x's computed overflow-y:auto into
+     a nested vertical scroller that fights the page scroller. */
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  margin-top: calc(var(--editor-spacing) * 0.75);
+  margin-bottom: calc(var(--editor-spacing) * 1.25);
+}
+
+.ProseMirror th,
+.ProseMirror td {
+  position: relative;
+  padding: var(
+      --editor-table-cell-padding-y,
+      calc(var(--editor-spacing) * 0.25)
+    )
+    var(--editor-table-cell-padding-x, calc(var(--editor-spacing) * 0.45));
+  border: 1px solid var(--editor-table-border);
+  text-align: left;
+  line-height: 1.5;
+}
+
+.ProseMirror th {
+  background: var(--muted);
+  font-weight: 600;
+  color: var(--editor-text);
+  font-size: 0.875em;
+  font-feature-settings: "tnum" 1;
+}
+
+.ProseMirror .selectedCell::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--accent);
+  opacity: 0.35;
+  pointer-events: none;
+}
+
+/* ============================================
+   IMAGES
+   ============================================ */
+
+.ProseMirror img {
+  max-width: 100%;
+  height: auto;
+  border-radius: calc(var(--radius) * 0.75);
+  border: 1px solid var(--border);
+}
+
+/* ============================================
+   SELECTION
+   ============================================ */
+
+.ProseMirror ::selection {
+  background: var(--editor-selection-bg);
+  color: var(--editor-foreground);
+}
+
+/* ============================================
+   PLACEHOLDER
+   ============================================ */
+
+.ProseMirror p.is-empty {
+  position: relative;
+}
+
+.ProseMirror p.is-empty::before {
+  content: attr(data-placeholder);
+  color: var(--editor-text-muted);
+  opacity: 0.4;
+  pointer-events: none;
+  position: absolute;
+  font-style: italic;
+  letter-spacing: 0.01em;
+}
+
+/* ============================================
+   INLINE TAG PILLS
+   ============================================ */
+
+/* Inline decoration over literal `#tag` text; pills are presentation only,
+   so the underlying markdown stays untouched. `--tag-pill-color` is set
+   per-tag by the vault-wide stylesheet in apply_tag_pill_colors. Text color
+   mixes the chosen color with the editor foreground so low-contrast picks
+   (yellow, white) stay readable in both themes. Inline display plus
+   overflow-wrap keeps very long unbroken tags inside the content column. */
+.ProseMirror .tag-pill {
+  padding: 0.05em 0.4em;
+  border-radius: 0.625rem;
+  font-size: 0.85em;
+  font-weight: 500;
+  color: color-mix(
+    in oklab,
+    var(--tag-pill-color, var(--primary)) 55%,
+    var(--editor-foreground)
+  );
+  background-color: color-mix(
+    in oklab,
+    var(--tag-pill-color, var(--primary)) 12%,
+    transparent
+  );
+  overflow-wrap: anywhere;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+  cursor: pointer;
+  transition: background-color var(--duration-fast) var(--ease-default);
+}
+
+.ProseMirror .tag-pill:hover {
+  background-color: color-mix(
+    in oklab,
+    var(--tag-pill-color, var(--primary)) 22%,
+    transparent
+  );
+}
+
+/* ============================================
+   MATH (KaTeX)
+   ============================================ */
+
+.math-inline {
+  display: inline-block;
+  cursor: default;
+  vertical-align: middle;
+  user-select: none;
+}
+
+.math-block-error {
+  color: var(--destructive);
+  font-family: var(--font-mono, monospace);
+  font-size: 0.875rem;
+}
+
+/* ── Visual mode line numbers ── */
+
+.show-line-numbers .ProseMirror {
+  counter-reset: line-number;
+  padding-left: 3.5em;
+}
+
+/* :not(.block-drag-handle): handle widgets are top-level children too;
+   counting them skews numbering and position:relative would cancel the
+   absolute margin placement they rely on */
+.show-line-numbers .ProseMirror > *:not(.block-drag-handle) {
+  counter-increment: line-number;
+  position: relative;
+}
+
+.show-line-numbers .ProseMirror > *:not(.block-drag-handle)::before {
+  content: counter(line-number);
+  position: absolute;
+  left: -3.5em;
+  width: 2.5em;
+  text-align: right;
+  font-size: var(--text-xs);
+  color: var(--muted-foreground);
+  opacity: 0.5;
+  font-feature-settings: "tnum" 1;
+  user-select: none;
+  pointer-events: none;
+}
+
+/* Heading markers own the gutter slot on heading rows. The :not() above
+   raised the line-number rule's specificity past the base marker rules,
+   so restate the marker content at higher specificity. */
+.show-line-numbers.show-heading-markers .ProseMirror > h1::before {
+  content: "#";
+}
+.show-line-numbers.show-heading-markers .ProseMirror > h2::before {
+  content: "##";
+}
+.show-line-numbers.show-heading-markers .ProseMirror > h3::before {
+  content: "###";
+}
+.show-line-numbers.show-heading-markers .ProseMirror > h4::before {
+  content: "####";
+}
+.show-line-numbers.show-heading-markers .ProseMirror > h5::before {
+  content: "#####";
+}
+.show-line-numbers.show-heading-markers .ProseMirror > h6::before {
+  content: "######";
+}
