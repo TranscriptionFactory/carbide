@@ -190,6 +190,35 @@ describe("TabStore", () => {
 
       expect(store.get_cached_note("a.md")).toBeNull();
     });
+
+    it("prefers the most recent tab in the same pane when closing the active primary tab of a split", () => {
+      const store = new TabStore();
+      store.open_tab(np("a.md"), "a");
+      store.open_tab(np("c.md"), "c");
+      store.open_tab(np("b.md"), "b");
+      store.open_to_side("b.md");
+      store.activate_tab("a.md");
+      store.set_active_pane("primary");
+
+      store.close_tab("a.md");
+
+      expect(store.active_tab_id).toBe("c.md");
+      expect(store.active_pane).toBe("primary");
+    });
+
+    it("hands activation and pane focus to the secondary tab when the last primary tab closes", () => {
+      const store = new TabStore();
+      store.open_tab(np("a.md"), "a");
+      store.open_tab(np("b.md"), "b");
+      store.open_to_side("b.md");
+      store.activate_tab("a.md");
+      store.set_active_pane("primary");
+
+      store.close_tab("a.md");
+
+      expect(store.active_tab_id).toBe("b.md");
+      expect(store.active_pane).toBe("secondary");
+    });
   });
 
   describe("close_other_tabs", () => {
