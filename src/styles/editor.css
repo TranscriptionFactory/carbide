@@ -829,7 +829,7 @@ body.block-handle-dragging .prosemirror-dropcursor-inline {
   border-radius: calc(var(--radius) * 0.5);
   border: 1px solid var(--border);
   background: var(--popover);
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--shadow-2);
   overflow: hidden;
 }
 
@@ -895,7 +895,7 @@ body.block-handle-dragging .prosemirror-dropcursor-inline {
   border-radius: calc(var(--radius) * 0.5);
   border: 1px solid var(--border);
   background: var(--popover);
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--shadow-2);
   padding: var(--space-1) 0;
 }
 
@@ -981,7 +981,7 @@ body.block-handle-dragging .prosemirror-dropcursor-inline {
   background: var(--popover);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  box-shadow: var(--shadow-md, 0 4px 6px -1px rgb(0 0 0 / 0.1));
+  box-shadow: var(--shadow-2);
   z-index: 51;
 }
 
@@ -2126,7 +2126,7 @@ body.block-handle-dragging .prosemirror-dropcursor-inline {
   z-index: 50;
   overflow: hidden;
   border-radius: calc(var(--radius) * 0.5);
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--shadow-2);
   border: 1px solid var(--border);
   background: var(--popover);
 }
@@ -2268,7 +2268,7 @@ body.block-handle-dragging .prosemirror-dropcursor-inline {
   border-radius: calc(var(--radius) * 0.5);
   border: 1px solid var(--border);
   background: var(--popover);
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--shadow-2);
   padding: var(--space-1) 0;
 }
 
@@ -2379,7 +2379,7 @@ body.block-handle-dragging .prosemirror-dropcursor-inline {
   border-radius: calc(var(--radius) * 0.5);
   border: 1px solid var(--border);
   background: var(--popover);
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--shadow-2);
   padding: var(--space-1) 0;
 }
 
@@ -2494,7 +2494,7 @@ body.block-handle-dragging .prosemirror-dropcursor-inline {
   border-radius: calc(var(--radius) * 0.5);
   border: 1px solid var(--border);
   background: var(--popover);
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--shadow-2);
   padding: var(--space-1) 0;
 }
 
@@ -2585,7 +2585,7 @@ body.block-handle-dragging .prosemirror-dropcursor-inline {
   border-radius: calc(var(--radius) * 0.5);
   border: 1px solid var(--border);
   background: var(--popover);
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--shadow-2);
   padding: var(--space-1) 0;
 }
 
@@ -2656,7 +2656,7 @@ body.block-handle-dragging .prosemirror-dropcursor-inline {
   border-radius: calc(var(--radius) * 0.5);
   border: 1px solid var(--border);
   background: var(--popover);
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--shadow-2);
   padding: var(--space-1) 0;
 }
 
@@ -2783,7 +2783,7 @@ body.block-handle-dragging .prosemirror-dropcursor-inline {
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   background: var(--popover);
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--shadow-2);
   padding: var(--space-1) 0;
   overflow: hidden;
 }
@@ -2835,7 +2835,7 @@ body.block-handle-dragging .prosemirror-dropcursor-inline {
   border-radius: calc(var(--radius) * 0.5);
   border: 1px solid var(--border);
   background: var(--popover);
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--shadow-2);
   overflow: hidden;
 }
 
@@ -3083,7 +3083,7 @@ body.block-handle-dragging .prosemirror-dropcursor-inline {
   border-radius: calc(var(--radius) * 0.5);
   border: 1px solid var(--border);
   background: var(--popover);
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--shadow-2);
   padding: var(--space-1) 0;
 }
 
@@ -3202,7 +3202,7 @@ body.block-handle-dragging .prosemirror-dropcursor-inline {
   border-radius: calc(var(--radius) * 0.5);
   border: 1px solid var(--border);
   background: var(--popover);
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--shadow-2);
   white-space: nowrap;
 }
 
@@ -3257,7 +3257,7 @@ body.block-handle-dragging .prosemirror-dropcursor-inline {
   border-radius: calc(var(--radius) * 0.5);
   border: 1px solid var(--border);
   background: var(--popover);
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--shadow-2);
 }
 
 .size-btn {
@@ -3754,7 +3754,7 @@ body.block-handle-dragging .prosemirror-dropcursor-inline {
   color: var(--popover-foreground);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  box-shadow: var(--shadow-lg);
+  box-shadow: var(--shadow-3);
   min-width: 280px;
   max-width: 380px;
   overflow: hidden;

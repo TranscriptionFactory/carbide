@@ -165,7 +165,7 @@
     color: var(--popover-foreground);
     border: 1px solid var(--border);
     border-radius: var(--radius-sm);
-    box-shadow: var(--shadow-md);
+    box-shadow: var(--shadow-2);
   }
 
   .PropertyCombobox__item {

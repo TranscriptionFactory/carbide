@@ -283,7 +283,7 @@
     background-color: var(--popover);
     border: 1px solid var(--border);
     border-radius: var(--radius-md);
-    box-shadow: var(--shadow-md);
+    box-shadow: var(--shadow-2);
   }
 
   .FormattingToolbar__link-popover {
@@ -299,7 +299,7 @@
     color: var(--popover-foreground);
     border: 1px solid var(--border);
     border-radius: var(--radius-md);
-    box-shadow: var(--shadow-md);
+    box-shadow: var(--shadow-2);
   }
 
   .FormattingToolbar__link-input {

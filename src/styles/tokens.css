@@ -138,22 +138,22 @@
     /* Scrollbar */
     --scrollbar-width: 5px;
 
-    /* Shadows */
-    --shadow-1: 0 1px 2px oklch(0 0 0 / 0.04), 0 1px 1px oklch(0 0 0 / 0.03);
-    --shadow-2: 0 4px 12px oklch(0 0 0 / 0.06), 0 1px 3px oklch(0 0 0 / 0.04);
-    --shadow-3: 0 12px 32px oklch(0 0 0 / 0.1), 0 2px 6px oklch(0 0 0 / 0.05);
-    /* Warm-tinted depth system (via --shadow-color, scheme blocks below) */
-    --shadow-xs: 0 1px 2px
-      color-mix(in oklch, var(--shadow-color) 5%, transparent);
-    --shadow-sm:
-      0 1px 3px color-mix(in oklch, var(--shadow-color) 7%, transparent),
-      0 1px 2px color-mix(in oklch, var(--shadow-color) 5%, transparent);
-    --shadow-md:
-      0 4px 6px -1px color-mix(in oklch, var(--shadow-color) 7%, transparent),
-      0 2px 4px -2px color-mix(in oklch, var(--shadow-color) 5%, transparent);
-    --shadow-lg:
-      0 10px 15px -3px color-mix(in oklch, var(--shadow-color) 7%, transparent),
-      0 4px 6px -4px color-mix(in oklch, var(--shadow-color) 5%, transparent);
+    /* Elevation scale — 1: rows/inputs, 2: floating bars/popovers, 3: dialogs/menus.
+     Warm-tinted via --shadow-color (scheme blocks below); dark overrides there. */
+    --shadow-1: 0 1px 2px color-mix(in oklch, var(--shadow-color) 6%, transparent);
+    --shadow-2:
+      0 3px 8px color-mix(in oklch, var(--shadow-color) 10%, transparent),
+      0 1px 2px color-mix(in oklch, var(--shadow-color) 6%, transparent);
+    --shadow-3:
+      0 9px 24px color-mix(in oklch, var(--shadow-color) 14%, transparent),
+      0 3px 8px color-mix(in oklch, var(--shadow-color) 8%, transparent);
+
+    /* App-shell seams — replace 1px borders on chrome panels (no layout impact) */
+    --hairline-top: inset 0 1px 0 var(--border);
+    --hairline-bottom: inset 0 -1px 0 var(--border);
+    --hairline-left: inset 1px 0 0 var(--border);
+    --hairline-right: inset -1px 0 0 var(--border);
+    --hairline-ring: inset 0 0 0 1px var(--border); /* inputs, cards, code blocks */
   }
 
   /* ----------- Tier 2: Semantic (LIGHT default) ----------- */
@@ -493,8 +493,15 @@
     --scrollbar-thumb: oklch(0.265 0.008 68);
     --scrollbar-thumb-hover: oklch(0.32 0.008 68);
 
-    /* Shadows more subtle in dark mode */
+    /* Shadows heavier in dark mode */
     --shadow-color: oklch(0.05 0 0);
+    --shadow-1: 0 1px 2px color-mix(in oklch, var(--shadow-color) 30%, transparent);
+    --shadow-2:
+      0 3px 8px color-mix(in oklch, var(--shadow-color) 40%, transparent),
+      0 1px 2px color-mix(in oklch, var(--shadow-color) 30%, transparent);
+    --shadow-3:
+      0 9px 24px color-mix(in oklch, var(--shadow-color) 50%, transparent),
+      0 3px 8px color-mix(in oklch, var(--shadow-color) 35%, transparent);
 
     /* --- Tokens carried from app.css (not in handoff) --- */
     --chart-1: oklch(0.488 0.243 264.376);

@@ -293,7 +293,7 @@ const BP_GLASS: ThemeBlueprint = {
     "--interactive-bg-hover": "oklch(0.93 0 0 / 60%)",
     "--focus-ring": "oklch(0.55 0.12 250)",
     "--selection-bg": "oklch(0.85 0.05 250 / 40%)",
-    "--shadow-lg": "0 10px 30px -5px oklch(0 0 0 / 10%)",
+    "--shadow-3": "0 10px 30px -5px oklch(0 0 0 / 10%)",
   },
   color_overrides_dark: {
     "--background": "oklch(0.13 0 0)",
@@ -323,7 +323,7 @@ const BP_GLASS: ThemeBlueprint = {
     "--interactive-bg-hover": "oklch(0.25 0 0 / 60%)",
     "--focus-ring": "oklch(0.7 0.1 250)",
     "--selection-bg": "oklch(0.33 0.06 250 / 40%)",
-    "--shadow-lg": "0 10px 30px -5px oklch(0 0 0 / 25%)",
+    "--shadow-3": "0 10px 30px -5px oklch(0 0 0 / 25%)",
   },
 };
 
@@ -344,7 +344,7 @@ const BP_SPOTLIGHT: ThemeBlueprint = {
     "--card": "oklch(1 0 0)",
     "--border": "oklch(0 0 0 / 8%)",
     "--primary": "oklch(0.45 0.06 210)",
-    "--shadow-md":
+    "--shadow-2":
       "0 8px 24px -4px oklch(0 0 0 / 8%), 0 2px 8px -2px oklch(0 0 0 / 4%)",
   },
   color_overrides_dark: {
@@ -352,7 +352,7 @@ const BP_SPOTLIGHT: ThemeBlueprint = {
     "--card": "oklch(0.15 0 0)",
     "--border": "oklch(1 0 0 / 8%)",
     "--primary": "oklch(0.7 0.06 210)",
-    "--shadow-md":
+    "--shadow-2":
       "0 8px 24px -4px oklch(0 0 0 / 30%), 0 2px 8px -2px oklch(0 0 0 / 20%)",
   },
 };
@@ -437,8 +437,8 @@ const BP_OBSIDIAN: ThemeBlueprint = {
   schemes: "both",
   structural_overrides: {
     "--radius": "0.875rem",
-    "--shadow-md": "0 4px 12px -2px oklch(0 0 0 / 0.4)",
-    "--shadow-lg": "0 20px 40px -10px oklch(0 0 0 / 0.6)",
+    "--shadow-2": "0 4px 12px -2px oklch(0 0 0 / 0.4)",
+    "--shadow-3": "0 20px 40px -10px oklch(0 0 0 / 0.6)",
   },
   color_overrides_light: OBSIDIAN_LIGHT_COLORS,
   color_overrides_dark: OBSIDIAN_DARK_COLORS,

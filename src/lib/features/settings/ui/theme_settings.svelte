@@ -863,6 +863,6 @@
     background: var(--card);
     border: 1px solid var(--border);
     border-radius: var(--radius, 0.5rem);
-    box-shadow: var(--shadow-lg, 0 10px 30px oklch(0 0 0 / 15%));
+    box-shadow: var(--shadow-3);
   }
 </style>
