@@ -126,7 +126,7 @@
     background: var(--graph-node, var(--card));
     color: var(--graph-label, var(--card-foreground));
     text-align: left;
-    box-shadow: var(--shadow-sm, none);
+    box-shadow: var(--shadow-1);
   }
 
   .GraphCanvas__node:hover,

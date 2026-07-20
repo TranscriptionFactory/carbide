@@ -261,7 +261,7 @@
     transition:
       color 0.15s,
       box-shadow 0.15s;
-    box-shadow: var(--shadow-xs, 0 1px 2px 0 rgb(0 0 0 / 0.05));
+    box-shadow: var(--shadow-1);
   }
 
   .ScopeBar__input::placeholder {
@@ -272,7 +272,7 @@
     border-color: var(--ring);
     box-shadow:
       0 0 0 3px color-mix(in srgb, var(--ring) 50%, transparent),
-      var(--shadow-xs, 0 1px 2px 0 rgb(0 0 0 / 0.05));
+      var(--shadow-1);
   }
 
   .ScopeBar__dropdown {

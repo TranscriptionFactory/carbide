@@ -510,7 +510,7 @@
     color: var(--popover-foreground);
     font-size: var(--text-xs);
     border: 1px solid var(--border);
-    box-shadow: var(--shadow-sm, none);
+    box-shadow: var(--shadow-1);
     pointer-events: none;
     white-space: nowrap;
   }
@@ -525,7 +525,7 @@
     background: var(--popover);
     color: var(--popover-foreground);
     border: 1px solid var(--border);
-    box-shadow: var(--shadow-sm, none);
+    box-shadow: var(--shadow-1);
     overflow: hidden;
   }
 

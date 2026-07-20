@@ -27,7 +27,7 @@
 [data-sonner-toast] {
   font-size: var(--text-sm);
   border-radius: var(--radius-md);
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--shadow-2);
   user-select: text !important;
 }
 

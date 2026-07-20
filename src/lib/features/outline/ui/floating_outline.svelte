@@ -43,7 +43,7 @@
     border-radius: var(--radius-lg);
     border: 1px solid var(--border);
     background-color: var(--popover);
-    box-shadow: var(--shadow-lg);
+    box-shadow: var(--shadow-3);
     overflow: hidden;
   }
 </style>

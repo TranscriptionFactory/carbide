@@ -30,7 +30,7 @@
     border: 1px solid var(--border);
     border-radius: var(--radius-full);
     background-color: var(--chrome-glass);
-    box-shadow: var(--shadow-md);
+    box-shadow: var(--shadow-2);
     z-index: 100;
     opacity: var(--chrome-idle-opacity, 1);
     transition: opacity var(--duration-normal) var(--ease-default);
@@ -83,7 +83,7 @@
     border: 1px solid var(--border);
     border-radius: var(--radius-full);
     background-color: var(--chrome-glass);
-    box-shadow: var(--shadow-md);
+    box-shadow: var(--shadow-2);
     z-index: 100;
     overflow: hidden;
   }
@@ -118,7 +118,7 @@
     border-radius: var(--radius-full);
     background-color: var(--chrome-glass);
     color: var(--foreground);
-    box-shadow: var(--shadow-xs);
+    box-shadow: var(--shadow-1);
     z-index: 100;
     overflow: hidden;
     opacity: var(--statusbar-idle-opacity, 1);
@@ -230,7 +230,7 @@
       background-color: color-mix(in oklch, var(--card) 95%, transparent);
       backdrop-filter: blur(20px);
       border-radius: 0 var(--radius-lg) var(--radius-lg) 0;
-      box-shadow: var(--shadow-lg);
+      box-shadow: var(--shadow-3);
     }
   }
 
@@ -277,7 +277,7 @@
       background-color: color-mix(in oklch, var(--card) 95%, transparent);
       backdrop-filter: blur(20px);
       border-radius: 0 0 var(--radius-lg) var(--radius-lg);
-      box-shadow: var(--shadow-lg);
+      box-shadow: var(--shadow-3);
     }
   }
 
@@ -337,7 +337,7 @@
     background-color: color-mix(in oklch, var(--card) 95%, transparent);
     backdrop-filter: blur(24px);
     border-inline-end: 1px solid var(--border);
-    box-shadow: var(--shadow-lg);
+    box-shadow: var(--shadow-3);
     flex: none !important;
   }
 
@@ -365,7 +365,7 @@
     background-color: color-mix(in oklch, var(--card) 95%, transparent);
     backdrop-filter: blur(24px);
     border-inline-start: 1px solid var(--border);
-    box-shadow: var(--shadow-lg);
+    box-shadow: var(--shadow-3);
     flex: none !important;
   }
 
