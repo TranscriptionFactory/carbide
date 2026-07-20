@@ -33,11 +33,12 @@
   const is_vault_mode = $derived(stores.vault.is_vault_mode);
 
   const zen_mode = $derived(stores.ui.zen_mode);
+  const show_chrome = $derived(!stores.ui.zen_mode);
   const outline_docked = $derived(
     stores.ui.editor_settings.outline_mode === "docked" &&
       stores.ui.outline_docked_open &&
       stores.outline.headings.length > 0 &&
-      !stores.ui.zen_mode,
+      show_chrome,
   );
 
   const word_count = $derived(stores.editor.cursor?.total_words ?? 0);
@@ -134,7 +135,7 @@
     }}
   >
     <div class="flex min-h-0 min-w-0 flex-1 overflow-hidden">
-      {#if !zen_mode}
+      {#if show_chrome}
         <ActivityBar
           sidebar_open={stores.ui.sidebar_open}
           active_view={stores.ui.sidebar_view}
@@ -147,11 +148,11 @@
         />
       {/if}
       <Sidebar.Provider
-        open={stores.ui.sidebar_open && !zen_mode}
+        open={stores.ui.sidebar_open && show_chrome}
         class="flex-1 min-h-0"
       >
         <Resizable.PaneGroup direction="horizontal" class="flex-1 min-w-0">
-          {#if stores.ui.sidebar_open && !zen_mode}
+          {#if stores.ui.sidebar_open && show_chrome}
             <Resizable.Pane
               defaultSize={stores.ui.sidebar_pane_size}
               minSize={15}
@@ -172,13 +173,13 @@
                   order={1}
                 >
                   <div class="flex h-full min-h-0 min-w-0 flex-col">
-                    {#if !zen_mode}
+                    {#if show_chrome}
                       <!-- svelte-ignore a11y_no_static_element_interactions -->
                       <div data-vim-nav-region="tab_bar" tabindex="-1">
                         <TabBar />
                       </div>
                     {/if}
-                    {#if !zen_mode && stores.editor.open_note}
+                    {#if show_chrome && stores.editor.open_note}
                       <PathBreadcrumb
                         note_path={stores.editor.open_note.meta.path}
                         note_title={stores.editor.open_note.meta.title}
@@ -320,7 +321,7 @@
               <DockedOutline />
             </Resizable.Pane>
           {/if}
-          {#if !zen_mode && stores.ui.context_rail_open}
+          {#if show_chrome && stores.ui.context_rail_open}
             <Resizable.Handle />
             <Resizable.Pane
               defaultSize={stores.ui.context_rail_pane_size}
@@ -332,7 +333,7 @@
               <ContextRailPanel />
             </Resizable.Pane>
           {/if}
-          {#if !zen_mode}
+          {#if show_chrome}
             <div class="WorkspaceLayout__context-rail">
               <ContextRail />
             </div>
@@ -340,7 +341,7 @@
         </Resizable.PaneGroup>
       </Sidebar.Provider>
     </div>
-    {#if !zen_mode}
+    {#if show_chrome}
       <EditorStatusBar
         cursor_info={stores.editor.cursor}
         {word_count}
