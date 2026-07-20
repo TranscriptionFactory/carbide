@@ -4,6 +4,7 @@
   import { OutlinePanel } from "$lib/features/outline";
   import { MetadataPanel } from "$lib/features/metadata";
   import { use_app_context } from "$lib/app/context/app_context.svelte";
+  import EmptyMessage from "$lib/components/ui/empty_message.svelte";
 
   const { stores } = use_app_context();
 
@@ -13,7 +14,9 @@
 </script>
 
 <div class="ContextRailPanel" data-testid="context-rail-panel">
-  {#if stores.ui.context_rail_tab === "links"}
+  {#if !stores.editor.open_note}
+    <EmptyMessage text="Open a note to see its context" />
+  {:else if stores.ui.context_rail_tab === "links"}
     <LinksPanel />
   {:else if stores.ui.context_rail_tab === "outline" && !outline_docked}
     <!-- svelte-ignore a11y_no_static_element_interactions -->
