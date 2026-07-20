@@ -126,14 +126,8 @@ export function register_ui_actions(input: ActionRegistrationInput) {
     id: ACTION_IDS.ui_toggle_outline_panel,
     label: "Toggle Outline Panel",
     execute: async () => {
-      if (stores.ui.editor_settings.outline_mode === "floating") {
-        stores.ui.floating_outline_collapsed =
-          !stores.ui.floating_outline_collapsed;
-        return;
-      }
-
       if (stores.ui.editor_settings.outline_mode === "docked") {
-        stores.ui.outline_docked_open = !stores.ui.outline_docked_open;
+        stores.ui.toggle_docked_outline();
         return;
       }
 
