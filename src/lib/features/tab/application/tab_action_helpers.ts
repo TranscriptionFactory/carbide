@@ -275,6 +275,10 @@ export async function save_dirty_tab(
   return "failed";
 }
 
+export async function confirm_window_close(): Promise<void> {
+  await tauri_invoke("confirm_window_close");
+}
+
 export async function execute_batch_close(
   input: ActionRegistrationInput,
 ): Promise<void> {
@@ -285,7 +289,7 @@ export async function execute_batch_close(
   }
   if (close_mode === "quit") {
     reset_close_confirm(stores);
-    await tauri_invoke("confirm_window_close");
+    await confirm_window_close();
     return;
   }
   const tabs_to_close = list_tabs_for_batch_close(
