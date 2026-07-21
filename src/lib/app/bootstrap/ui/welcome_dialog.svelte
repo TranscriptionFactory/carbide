@@ -12,7 +12,7 @@
   import CircleCheck from "@lucide/svelte/icons/circle-check";
   import X from "@lucide/svelte/icons/x";
   import { HotkeyKey } from "$lib/features/hotkey";
-  import CarbideBlob from "./carbide_blob.svelte";
+  import CarbideFlame from "./carbide_flame.svelte";
 
   const highlighted_shortcuts = [
     { label: "Omnibar (search)", key: "CmdOrCtrl+O" },
@@ -107,7 +107,7 @@
         </div>
         <div class="WelcomeDialog__headline">
           <div class="WelcomeDialog__icon">
-            <CarbideBlob size={40} />
+            <CarbideFlame size={40} />
           </div>
           <div>
             <h2>Welcome to Carbide</h2>
