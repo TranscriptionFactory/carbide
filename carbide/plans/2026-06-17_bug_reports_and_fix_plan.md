@@ -489,11 +489,19 @@ layering clean (no violations in touched files); `pnpm test` **4347/4347 pass**
 remaining errors sit on pre-existing lines outside the changed hunks); prettier
 clean on all touched files.
 
-**Deferred (optional follow-up not taken):** removing the now-redundant
-`detect_file_type` branches in `omnibar_actions.ts:367-377,399-409` and
-`search_graph_tab_view.svelte:65-74`. They are correct and harmless (they
-short-circuit to `document_open` before `note_open` is reached). Collapsing them
-onto the centralized `note_open` route requires confirming that `document_open`
-treats the *resolved* path (`resolve_omnibar_file_path` / `resolve_file_path`)
-and the *raw* `note_path` (what `note_open`'s BUG-4 branch forwards) identically —
-not verified, so left for a dedicated change rather than improvised at merge time.
+**Deferred follow-up — ✅ Done 2026-07-20 (`fcd6e162`, branch `refactor/centralize-open-routing`):**
+removed the now-redundant `detect_file_type` branches in `omnibar_actions.ts`
+(`confirm_item` note/recent_note and cross_vault_note tails) and
+`search_graph_tab_view.svelte` (`open_node`); both now dispatch straight through
+the centralized `note_open` route. The blocking question was verified before
+collapsing: `document_open` uses `file_path` as given (silently no-ops on null
+file type), both `resolve_omnibar_file_path`/`resolve_file_path` are identity
+for non-linked ids, and `note_open`'s linked branch resolves before delegating —
+so raw-vs-resolved paths behave identically. Only behavioral delta is the
+pathological linked-id-with-non-md-extension-resolving-to-md case, which now
+shell-opens instead of silently no-oping (strictly better). `resolve_omnibar_file_path`
+deleted (both callers were the collapse sites); graph `resolve_file_path` kept
+(still used by `resolve_absolute_path`). Coverage: `omnibar_pdf_routing.test.ts`
+reworked to register the real `register_note_actions` so routing assertions
+exercise the full route; new `graph_open_node_routing.test.ts` covers the
+bare-string dispatch shape (md / .pdf / .sh / linked non-md).
