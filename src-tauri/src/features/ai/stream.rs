@@ -126,6 +126,7 @@ fn build_chat_request_body(
     system_prompt: &str,
     messages: &[AiMessage],
     model: &str,
+    stream: bool,
 ) -> serde_json::Value {
     let mut msgs: Vec<serde_json::Value> = Vec::new();
     if !system_prompt.is_empty() {
@@ -137,7 +138,7 @@ fn build_chat_request_body(
     serde_json::json!({
         "model": model,
         "messages": msgs,
-        "stream": true,
+        "stream": stream,
     })
 }
 
@@ -298,11 +299,9 @@ pub async fn ai_stream_start(
         } => {
             let resolved_model = model.or(provider_config.model.clone()).unwrap_or_default();
             let url = chat_completions_url(base_url);
-            let body = build_chat_request_body(&system_prompt, &messages, &resolved_model);
-            let auth_token = api_key_env
-                .as_ref()
-                .and_then(|name| std::env::var(name).ok())
-                .filter(|value| !value.is_empty());
+            let body = build_chat_request_body(&system_prompt, &messages, &resolved_model, true);
+            let auth_token =
+                super::secrets::resolve_api_key(&provider_config.id, api_key_env.as_deref());
 
             let (abort_tx, abort_rx) = tokio::sync::oneshot::channel::<()>();
             state
@@ -539,6 +538,67 @@ pub async fn ai_stream_abort(
     Ok(())
 }
 
+#[tauri::command]
+#[specta::specta]
+pub async fn ai_test_provider(provider_config: AiProviderConfig) -> Result<String, String> {
+    match &provider_config.transport {
+        AiTransport::Cli { command, .. } => {
+            let command = command.clone();
+            let probe = tauri::async_runtime::spawn_blocking(move || pipeline::probe_cli(&command))
+                .await
+                .map_err(|e| e.to_string())?;
+            match probe.status {
+                pipeline::CliProbeStatus::Present => Ok(probe
+                    .version
+                    .map(|v| format!("CLI found · v{v}"))
+                    .unwrap_or_else(|| "CLI found".to_string())),
+                _ => Err(probe
+                    .error
+                    .unwrap_or_else(|| format!("{} CLI not found", provider_config.name))),
+            }
+        }
+        AiTransport::Api {
+            base_url,
+            api_key_env,
+        } => {
+            let model = provider_config.model.clone().unwrap_or_default();
+            let url = chat_completions_url(base_url);
+            let messages = vec![AiMessage {
+                role: "user".to_string(),
+                content: "Reply with exactly OK.".into(),
+            }];
+            let mut body = build_chat_request_body("", &messages, &model, false);
+            body["max_tokens"] = serde_json::json!(8);
+            let auth_token =
+                super::secrets::resolve_api_key(&provider_config.id, api_key_env.as_deref());
+
+            let client = reqwest::Client::builder()
+                .timeout(std::time::Duration::from_secs(15))
+                .build()
+                .map_err(|e| format!("Failed to build HTTP client: {e}"))?;
+            let mut request = client.post(&url).json(&body);
+            if let Some(token) = auth_token {
+                request = request.bearer_auth(token);
+            }
+
+            let response = request
+                .send()
+                .await
+                .map_err(|e| format!("Could not reach AI server: {e}"))?;
+            let status = response.status();
+            if !status.is_success() {
+                let detail = clamp_stderr(&response.text().await.unwrap_or_default());
+                return Err(if detail.is_empty() {
+                    format!("AI server returned {status}")
+                } else {
+                    format!("AI server returned {status}: {detail}")
+                });
+            }
+            Ok("OK".to_string())
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::{
@@ -578,7 +638,7 @@ mod tests {
             role: "user".into(),
             content: "hi".into(),
         }];
-        let body = build_chat_request_body("sys", &msgs, "m");
+        let body = build_chat_request_body("sys", &msgs, "m", true);
         assert_eq!(body["model"], "m");
         assert_eq!(body["stream"], true);
         let arr = body["messages"].as_array().unwrap();
@@ -591,7 +651,7 @@ mod tests {
 
     #[test]
     fn request_body_omits_empty_system() {
-        let body = build_chat_request_body("", &[], "m");
+        let body = build_chat_request_body("", &[], "m", true);
         assert_eq!(body["messages"].as_array().unwrap().len(), 0);
     }
 
@@ -719,6 +779,7 @@ mod tests {
                     content: "hi".into(),
                 }],
                 "m",
+                true,
             ))
             .send()
             .await
@@ -796,7 +857,7 @@ mod tests {
                 },
             ]),
         }];
-        let body = build_chat_request_body("", &messages, "m");
+        let body = build_chat_request_body("", &messages, "m", true);
         let content = &body["messages"][0]["content"];
         assert_eq!(content[0]["type"], "text");
         assert_eq!(content[1]["type"], "image_url");
@@ -812,7 +873,7 @@ mod tests {
             role: "user".to_string(),
             content: AiMessageContent::Text("hi".to_string()),
         }];
-        let body = build_chat_request_body("sys", &messages, "m");
+        let body = build_chat_request_body("sys", &messages, "m", true);
         assert_eq!(body["messages"][0]["content"], "sys");
         assert_eq!(body["messages"][1]["content"], "hi");
     }

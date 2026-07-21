@@ -33,6 +33,10 @@ function create_ai_port() {
       output: "# Updated",
       error: null,
     }),
+    set_api_key: vi.fn().mockResolvedValue(undefined),
+    delete_api_key: vi.fn().mockResolvedValue(undefined),
+    get_api_key_hint: vi.fn().mockResolvedValue(null),
+    test_provider: vi.fn().mockResolvedValue("OK"),
   };
 }
 

@@ -167,6 +167,10 @@ mod specta_export {
                 crate::features::ai::service::ai_execute_cli,
                 crate::features::ai::stream::ai_stream_start,
                 crate::features::ai::stream::ai_stream_abort,
+                crate::features::ai::stream::ai_test_provider,
+                crate::features::ai::secrets::ai_set_api_key,
+                crate::features::ai::secrets::ai_delete_api_key,
+                crate::features::ai::secrets::ai_has_api_key,
                 // Canvas commands (4)
                 crate::features::canvas::extract_canvas_links,
                 crate::features::canvas::extract_canvas_text,
