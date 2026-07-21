@@ -17,6 +17,7 @@ import {
   EditorService,
   type EditorServiceCallbacks,
 } from "$lib/features/editor";
+import { ClipService } from "$lib/features/clip";
 import { ClipboardService } from "$lib/features/clipboard";
 import { ShellService } from "$lib/features/shell";
 import { TabService } from "$lib/features/tab";
@@ -765,6 +766,17 @@ export function create_app_context(input: {
     input.ports.reading_position,
   );
 
+  const clip_service = new ClipService(
+    input.ports.clip,
+    input.ports.assets,
+    note_service,
+    document_service,
+    stores.vault,
+    stores.notes,
+    stores.op,
+    now_ms,
+  );
+
   const terminal_service = new TerminalService(
     input.ports.terminal,
     stores.terminal,
@@ -961,6 +973,7 @@ export function create_app_context(input: {
       smart_links: smart_links_service,
       mcp: mcp_service,
       document: document_service,
+      clip: clip_service,
       rag: rag_service,
       ai: ai_service,
     },

@@ -131,6 +131,7 @@ export class DocumentService {
     folder_path: string,
     html: string,
     now: Date = new Date(this.now_ms()),
+    provenance: ArtifactProvenance = build_clipboard_provenance(now),
   ): Promise<{ html_path: string; meta_path: string } | null> {
     const vault_id = this.vault_store.vault?.id;
     if (!vault_id) return null;
@@ -140,7 +141,6 @@ export class DocumentService {
     );
     const html_path = join_vault_path(folder_path, html_filename);
     const meta_path = join_vault_path(folder_path, meta_filename);
-    const provenance = build_clipboard_provenance(now);
     await this.document_port.write_file(vault_id, html_path, html);
     await this.document_port.write_file(
       vault_id,

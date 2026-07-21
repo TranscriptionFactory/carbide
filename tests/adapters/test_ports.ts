@@ -75,6 +75,17 @@ export function create_test_ports(): Ports {
         assets.resolve_asset_url(vault_id, asset_path),
     }),
     clipboard: create_test_clipboard_adapter(),
+    clip: {
+      fetch_page: () =>
+        Promise.resolve({
+          final_url: "https://example.com/",
+          html: "<html><body></body></html>",
+          content_type: "text/html",
+        }),
+      fetch_asset: () =>
+        Promise.resolve({ bytes: new Uint8Array(), content_type: "image/png" }),
+      write_epub: () => Promise.resolve(),
+    },
     shell: create_test_shell_adapter(),
     git: create_test_git_adapter(),
     document: create_test_document_adapter(),

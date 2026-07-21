@@ -1,5 +1,6 @@
 import type { ActionRegistrationInput } from "$lib/app/action_registry/action_registration_input";
 import { register_app_actions } from "$lib/app/orchestration/app_actions";
+import { register_clip_actions } from "$lib/features/clip";
 import { register_note_actions } from "$lib/features/note";
 import { register_folder_actions } from "$lib/features/folder";
 import { register_vault_actions } from "$lib/features/vault";
@@ -19,6 +20,7 @@ import { register_welcome_actions } from "$lib/app/orchestration/welcome_actions
 export function register_actions(input: ActionRegistrationInput) {
   register_app_actions(input);
   register_note_actions(input);
+  register_clip_actions(input);
   register_folder_actions(input);
   register_vault_actions(input);
   register_settings_actions(input);
