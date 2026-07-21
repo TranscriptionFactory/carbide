@@ -363,4 +363,58 @@ describe("RagStore", () => {
       truncated: 1,
     });
   });
+
+  describe("pending sources", () => {
+    const source = {
+      note_path: "notes/q.md",
+      title: "Q",
+      score: 0.9,
+      truncated: false,
+      pinned: false,
+    };
+
+    it("stays set from receipt through streaming and clears on finish", () => {
+      const store = new RagStore();
+      store.add_user_message("q");
+      store.set_pending_sources([source]);
+      expect(store.pending_sources).toEqual([source]);
+
+      store.start_streaming();
+      expect(store.pending_sources).toEqual([source]);
+
+      store.finish_streaming();
+      expect(store.pending_sources).toBeNull();
+    });
+
+    it("clears when the stream fails", () => {
+      const store = new RagStore();
+      store.add_user_message("q");
+      store.set_pending_sources([source]);
+      store.start_streaming();
+
+      store.fail_streaming("boom");
+      expect(store.pending_sources).toBeNull();
+    });
+
+    it("clears at the start of a new turn", () => {
+      const store = new RagStore();
+      store.set_pending_sources([source]);
+
+      store.begin_turn();
+      expect(store.pending_sources).toBeNull();
+    });
+
+    it("clears when switching sessions or starting a new one", () => {
+      const store = new RagStore();
+      store.hydrate([saved_session({ id: "a" })]);
+
+      store.set_pending_sources([source]);
+      store.switch_session("a");
+      expect(store.pending_sources).toBeNull();
+
+      store.set_pending_sources([source]);
+      store.start_new_session();
+      expect(store.pending_sources).toBeNull();
+    });
+  });
 });

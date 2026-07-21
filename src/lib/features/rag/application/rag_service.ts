@@ -316,6 +316,13 @@ export class RagService {
         used: contexts.length,
         truncated: contexts.filter((c) => c.truncated).length,
       },
+      sources: contexts.map((c) => ({
+        note_path: c.note_path,
+        title: c.title,
+        score: c.score,
+        truncated: c.truncated === true,
+        pinned: pinned_paths.has(c.note_path),
+      })),
     };
     const { system_prompt, user_prompt } = build_rag_prompt({
       question: cleaned_question,

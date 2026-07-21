@@ -22,6 +22,8 @@ export {
 export { build_rag_prompt } from "$lib/features/rag/domain/rag_prompt_builder";
 export {
   parse_mentions,
+  format_mention_token,
+  strip_mention,
   type ParsedMentions,
 } from "$lib/features/rag/domain/rag_mentions";
 export {
@@ -63,5 +65,6 @@ export type {
   RagScope,
   RagSession,
   RagSessionSummary,
+  RagSourceInfo,
   RagStreamEvent,
 } from "$lib/features/rag/domain/rag_types";

@@ -10,6 +10,7 @@ import type {
   RagScope,
   RagSession,
   RagSessionSummary,
+  RagSourceInfo,
   RagTitleSource,
 } from "$lib/features/rag/types/rag_types";
 import type { RagReadiness } from "$lib/features/rag/types/rag_readiness";
@@ -31,6 +32,7 @@ export class RagStore {
   provider_id = $state("");
   scope = $state<RagScope>({});
   streaming_id = $state<string | null>(null);
+  pending_sources = $state<RagSourceInfo[] | null>(null);
   revision = $state(0);
   readiness = $state<RagReadiness>({ state: "checking" });
 
@@ -96,6 +98,10 @@ export class RagStore {
     this.update_streaming((m) => ({ ...m, context_stats: stats }));
   }
 
+  set_pending_sources(sources: RagSourceInfo[]) {
+    this.pending_sources = sources;
+  }
+
   add_streaming_citation(citation: RagCitation) {
     this.update_streaming((m) =>
       m.citations.some((c) => c.index === citation.index)
@@ -107,6 +113,7 @@ export class RagStore {
   finish_streaming() {
     this.streaming_id = null;
     this.is_loading = false;
+    this.pending_sources = null;
     this.patch_active((s) => this.touch(s));
   }
 
@@ -125,6 +132,7 @@ export class RagStore {
       }
       this.streaming_id = null;
     }
+    this.pending_sources = null;
     this.set_error(error);
   }
 
@@ -152,6 +160,7 @@ export class RagStore {
     this.error = null;
     this.is_loading = false;
     this.streaming_id = null;
+    this.pending_sources = null;
     this.revision += 1;
   }
 
@@ -164,6 +173,7 @@ export class RagStore {
     this.error = null;
     this.is_loading = false;
     this.streaming_id = null;
+    this.pending_sources = null;
     this.revision += 1;
   }
 
@@ -236,6 +246,7 @@ export class RagStore {
   }
 
   begin_turn(): number {
+    this.pending_sources = null;
     this.revision += 1;
     return this.revision;
   }
