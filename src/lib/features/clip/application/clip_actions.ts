@@ -73,38 +73,32 @@ export function register_clip_actions(input: ActionRegistrationInput) {
       return;
     }
 
+    const capture_request: ClipRequest = { ...request, source: "capture" };
     let settled = false;
     let pending_toast: string | number = "";
-    const unlisten = await services.clip.on_capture_closed(() => {
-      if (settled) return;
+    const settle = () => {
+      if (settled) return false;
       settled = true;
       unlisten();
       toast.dismiss(pending_toast);
-      void services.clip.capture_cancel();
+      return true;
+    };
+    const unlisten = await services.clip.on_capture_closed(() => {
+      settle();
     });
 
     const capture_page = () => {
-      if (settled) return;
-      settled = true;
-      unlisten();
-      toast.dismiss(pending_toast);
+      if (!settle()) return;
       void (async () => {
         const loading_id = toast.loading("Capturing page...");
-        const result = await services.clip.clip_page({
-          ...request,
-          source: "capture",
-        });
+        const result = await services.clip.clip_page(capture_request);
         toast.dismiss(loading_id);
-        await handle_clip_result(result, { ...request, source: "capture" });
+        await handle_clip_result(result, capture_request);
       })();
     };
 
     const cancel_capture = () => {
-      if (settled) return;
-      settled = true;
-      unlisten();
-      toast.dismiss(pending_toast);
-      void services.clip.capture_cancel();
+      if (settle()) void services.clip.capture_cancel();
     };
 
     pending_toast = toast("Capture window open — solve any challenge first", {

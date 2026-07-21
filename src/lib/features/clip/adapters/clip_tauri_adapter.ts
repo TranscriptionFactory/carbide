@@ -1,4 +1,3 @@
-import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import {
   ClipFetchError,
@@ -10,8 +9,6 @@ import {
 import type { VaultId } from "$lib/shared/types/ids";
 import { tauri_invoke } from "$lib/shared/adapters/tauri_invoke";
 
-// tauri_invoke stringifies non-Error rejections, which would flatten the
-// structured ClipFetchError from Rust; fetch_page uses raw invoke to keep it.
 function to_clip_fetch_error(error: unknown): ClipFetchError {
   if (
     typeof error === "object" &&
@@ -32,7 +29,7 @@ export function create_clip_tauri_adapter(): ClipPort {
   return {
     async fetch_page(url: string): Promise<ClipPage> {
       try {
-        return await invoke<ClipPage>("clip_fetch_page", { url });
+        return await tauri_invoke<ClipPage>("clip_fetch_page", { url });
       } catch (error) {
         throw to_clip_fetch_error(error);
       }
