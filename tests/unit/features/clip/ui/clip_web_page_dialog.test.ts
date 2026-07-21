@@ -22,9 +22,11 @@ let mounted: Array<{ app: MountedApp; target: HTMLElement }> = [];
 function render_dialog(props?: {
   url?: string;
   formats?: ClipFormats;
+  capture?: boolean;
   is_clipping?: boolean;
   on_confirm?: () => void;
   on_update_formats?: (formats: ClipFormats) => void;
+  on_update_capture?: (capture: boolean) => void;
 }) {
   const target = document.createElement("div");
   document.body.appendChild(target);
@@ -37,11 +39,13 @@ function render_dialog(props?: {
       folder_path: "",
       folder_paths: [],
       formats: props?.formats ?? { markdown: true, html: false, epub: false },
+      capture: props?.capture ?? false,
       is_clipping: props?.is_clipping ?? false,
       on_update_url: vi.fn(),
       on_update_name: vi.fn(),
       on_update_folder: vi.fn(),
       on_update_formats: props?.on_update_formats ?? vi.fn(),
+      on_update_capture: props?.on_update_capture ?? vi.fn(),
       on_confirm: props?.on_confirm ?? vi.fn(),
       on_cancel: vi.fn(),
     },
@@ -95,7 +99,7 @@ describe("ClipWebPageDialog", () => {
     const checkboxes = [
       ...target.querySelectorAll<HTMLInputElement>('input[type="checkbox"]'),
     ];
-    expect(checkboxes).toHaveLength(3);
+    expect(checkboxes).toHaveLength(4);
     checkboxes[1]?.click();
     flushSync();
     expect(on_update_formats).toHaveBeenCalledWith({
@@ -103,5 +107,19 @@ describe("ClipWebPageDialog", () => {
       html: true,
       epub: false,
     });
+  });
+
+  it("reports the browser-capture toggle", () => {
+    const on_update_capture = vi.fn();
+    const target = render_dialog({
+      url: "https://example.com/post",
+      on_update_capture,
+    });
+    const checkboxes = [
+      ...target.querySelectorAll<HTMLInputElement>('input[type="checkbox"]'),
+    ];
+    checkboxes[3]?.click();
+    flushSync();
+    expect(on_update_capture).toHaveBeenCalledWith(true);
   });
 });

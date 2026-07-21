@@ -2,6 +2,7 @@ import { ACTION_IDS } from "$lib/app/action_registry/action_ids";
 import type { ActionRegistrationInput } from "$lib/app/action_registry/action_registration_input";
 import type {
   ClipOutput,
+  ClipRequest,
   ClipResult,
 } from "$lib/features/clip/application/clip_service";
 import { is_valid_clip_url } from "$lib/features/clip/domain/clip_note";
@@ -41,6 +42,79 @@ export function register_clip_actions(input: ActionRegistrationInput) {
     });
   }
 
+  async function handle_clip_result(result: ClipResult, request: ClipRequest) {
+    if (result.status === "failed") {
+      if (result.kind === "blocked" && request.source !== "capture") {
+        toast.error(`Clip failed: ${result.error}`, {
+          duration: 15000,
+          action: {
+            label: "Open in capture window",
+            onClick: () => void start_capture_flow(request),
+          },
+        });
+        return;
+      }
+      toast.error(`Clip failed: ${result.error}`);
+      return;
+    }
+    if (result.status === "skipped") {
+      toast.error("No vault open");
+      return;
+    }
+    toast.success(success_message(result));
+    await open_primary(result.primary);
+  }
+
+  async function start_capture_flow(request: ClipRequest) {
+    try {
+      await services.clip.capture_start(request.url);
+    } catch (error) {
+      toast.error(`Capture failed: ${String(error)}`);
+      return;
+    }
+
+    let settled = false;
+    let pending_toast: string | number = "";
+    const unlisten = await services.clip.on_capture_closed(() => {
+      if (settled) return;
+      settled = true;
+      unlisten();
+      toast.dismiss(pending_toast);
+      void services.clip.capture_cancel();
+    });
+
+    const capture_page = () => {
+      if (settled) return;
+      settled = true;
+      unlisten();
+      toast.dismiss(pending_toast);
+      void (async () => {
+        const loading_id = toast.loading("Capturing page...");
+        const result = await services.clip.clip_page({
+          ...request,
+          source: "capture",
+        });
+        toast.dismiss(loading_id);
+        await handle_clip_result(result, { ...request, source: "capture" });
+      })();
+    };
+
+    const cancel_capture = () => {
+      if (settled) return;
+      settled = true;
+      unlisten();
+      toast.dismiss(pending_toast);
+      void services.clip.capture_cancel();
+    };
+
+    pending_toast = toast("Capture window open — solve any challenge first", {
+      classes: { toast: "toast--stacked-actions" },
+      duration: Infinity,
+      action: { label: "Capture page", onClick: capture_page },
+      cancel: { label: "Cancel", onClick: cancel_capture },
+    });
+  }
+
   registry.register({
     id: ACTION_IDS.clip_web_page,
     label: "Clip Web Page",
@@ -52,6 +126,7 @@ export function register_clip_actions(input: ActionRegistrationInput) {
         name: "",
         folder_path: stores.ui.selected_folder_path,
         formats: { markdown: true, html: false, epub: false },
+        capture: false,
       };
     },
   });
@@ -79,28 +154,24 @@ export function register_clip_actions(input: ActionRegistrationInput) {
       }
       close_dialog();
 
-      const attachment_folder =
-        stores.ui.editor_settings.attachment_folder || ".assets";
-      const loading_id = toast.loading("Clipping web page...");
-      const result = await services.clip.clip_page({
+      const request: ClipRequest = {
         url: dialog.url,
         name: dialog.name,
         folder_path: dialog.folder_path,
         formats,
-        attachment_folder,
-      });
-      toast.dismiss(loading_id);
+        attachment_folder:
+          stores.ui.editor_settings.attachment_folder || ".assets",
+      };
 
-      if (result.status === "failed") {
-        toast.error(`Clip failed: ${result.error}`);
+      if (dialog.capture) {
+        await start_capture_flow(request);
         return;
       }
-      if (result.status === "skipped") {
-        toast.error("No vault open");
-        return;
-      }
-      toast.success(success_message(result));
-      await open_primary(result.primary);
+
+      const loading_id = toast.loading("Clipping web page...");
+      const result = await services.clip.clip_page(request);
+      toast.dismiss(loading_id);
+      await handle_clip_result(result, request);
     },
   });
 }

@@ -16,11 +16,13 @@
     folder_path: string;
     folder_paths: string[];
     formats: ClipFormats;
+    capture: boolean;
     is_clipping: boolean;
     on_update_url: (url: string) => void;
     on_update_name: (name: string) => void;
     on_update_folder: (folder: string) => void;
     on_update_formats: (formats: ClipFormats) => void;
+    on_update_capture: (capture: boolean) => void;
     on_confirm: () => void;
     on_cancel: () => void;
   }
@@ -32,11 +34,13 @@
     folder_path,
     folder_paths,
     formats,
+    capture,
     is_clipping,
     on_update_url,
     on_update_name,
     on_update_folder,
     on_update_formats,
+    on_update_capture,
     on_confirm,
     on_cancel,
   }: Props = $props();
@@ -137,6 +141,19 @@
           </label>
         {/each}
       </fieldset>
+      <label class="flex items-center gap-2 text-sm">
+        <input
+          type="checkbox"
+          class="size-4 accent-primary"
+          checked={capture}
+          disabled={is_clipping}
+          onchange={(event: Event) =>
+            on_update_capture(
+              (event.currentTarget as HTMLInputElement).checked,
+            )}
+        />
+        Use browser capture (for sites that block automated access)
+      </label>
     </div>
 
     <Dialog.Footer>
