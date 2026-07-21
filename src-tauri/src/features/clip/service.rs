@@ -9,7 +9,7 @@ use crate::features::plugin::http_fetch::fetch_checked;
 use crate::features::search::html_extractor::sniff_decode;
 use crate::shared::{io_utils, storage};
 
-const MAX_PAGE_BYTES: usize = 10 * 1024 * 1024;
+pub(crate) const MAX_PAGE_BYTES: usize = 10 * 1024 * 1024;
 const MAX_ASSET_BYTES: usize = 5 * 1024 * 1024;
 const FETCH_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(30);
 
@@ -37,6 +37,36 @@ pub struct ClipPage {
     pub content_type: String,
 }
 
+// "blocked" marks bot-protection rejections (403/429) that a webview capture
+// window can likely get past; the frontend offers that fallback only for them.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[serde(rename_all = "snake_case")]
+pub enum ClipFetchErrorKind {
+    Blocked,
+    Other,
+}
+
+#[derive(Debug, Serialize, Deserialize, Type)]
+pub struct ClipFetchError {
+    pub kind: ClipFetchErrorKind,
+    pub message: String,
+}
+
+impl ClipFetchError {
+    fn other(message: impl Into<String>) -> Self {
+        Self {
+            kind: ClipFetchErrorKind::Other,
+            message: message.into(),
+        }
+    }
+}
+
+impl From<String> for ClipFetchError {
+    fn from(message: String) -> Self {
+        Self::other(message)
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize, Type)]
 pub struct ClipAsset {
     pub bytes: Vec<u8>,
@@ -61,8 +91,9 @@ pub struct ClipEpubInput {
 
 #[tauri::command]
 #[specta::specta]
-pub async fn clip_fetch_page(url: String) -> Result<ClipPage, String> {
-    let parsed = url::Url::parse(&url).map_err(|e| format!("Invalid URL: {e}"))?;
+pub async fn clip_fetch_page(url: String) -> Result<ClipPage, ClipFetchError> {
+    let parsed =
+        url::Url::parse(&url).map_err(|e| ClipFetchError::other(format!("Invalid URL: {e}")))?;
     let response = fetch_checked(
         reqwest::Method::GET,
         parsed,
@@ -80,16 +111,20 @@ pub async fn clip_fetch_page(url: String) -> Result<ClipPage, String> {
     let content_type = response_content_type(response.headers());
     let mime = mime_essence(&content_type);
     if !(mime.is_empty() || mime == "text/html" || mime == "application/xhtml+xml") {
-        return Err(format!("Unsupported content type: {mime}"));
+        return Err(ClipFetchError::other(format!(
+            "Unsupported content type: {mime}"
+        )));
     }
 
     check_declared_length(&response, MAX_PAGE_BYTES, "Page")?;
     let bytes = response
         .bytes()
         .await
-        .map_err(|e| format!("Failed to read response body: {e}"))?;
+        .map_err(|e| ClipFetchError::other(format!("Failed to read response body: {e}")))?;
     if bytes.len() > MAX_PAGE_BYTES {
-        return Err(format!("Page exceeds {MAX_PAGE_BYTES} byte limit"));
+        return Err(ClipFetchError::other(format!(
+            "Page exceeds {MAX_PAGE_BYTES} byte limit"
+        )));
     }
 
     Ok(ClipPage {
@@ -113,7 +148,7 @@ pub async fn clip_fetch_asset(url: String) -> Result<ClipAsset, String> {
     .await?;
 
     if !response.status().is_success() {
-        return Err(status_error(response.status()));
+        return Err(status_error(response.status()).message);
     }
 
     let content_type = response_content_type(response.headers());
@@ -168,13 +203,16 @@ pub fn clip_write_epub(
 // Anti-bot CDNs (Cloudflare, archive.ph, ...) answer non-interactive clients
 // with 403/429 CAPTCHA interstitials regardless of headers, so those statuses
 // usually mean "blocked", not "retry later".
-fn status_error(status: reqwest::StatusCode) -> String {
+fn status_error(status: reqwest::StatusCode) -> ClipFetchError {
     match status.as_u16() {
-        403 | 429 => format!(
-            "Site blocked the request ({status}). It likely requires an interactive \
-             browser (CAPTCHA / bot protection), so it cannot be clipped directly."
-        ),
-        _ => format!("Request failed with status {status}"),
+        403 | 429 => ClipFetchError {
+            kind: ClipFetchErrorKind::Blocked,
+            message: format!(
+                "Site blocked the request ({status}). It likely requires an interactive \
+                 browser (CAPTCHA / bot protection), so it cannot be clipped directly."
+            ),
+        },
+        _ => ClipFetchError::other(format!("Request failed with status {status}")),
     }
 }
 
@@ -447,14 +485,21 @@ mod tests {
     #[test]
     fn status_error_explains_bot_blocks() {
         let blocked = status_error(reqwest::StatusCode::TOO_MANY_REQUESTS);
-        assert!(blocked.contains("429"));
-        assert!(blocked.contains("bot protection"));
+        assert_eq!(blocked.kind, ClipFetchErrorKind::Blocked);
+        assert!(blocked.message.contains("429"));
+        assert!(blocked.message.contains("bot protection"));
         let forbidden = status_error(reqwest::StatusCode::FORBIDDEN);
-        assert!(forbidden.contains("bot protection"));
-        assert_eq!(
-            status_error(reqwest::StatusCode::NOT_FOUND),
-            "Request failed with status 404 Not Found"
-        );
+        assert_eq!(forbidden.kind, ClipFetchErrorKind::Blocked);
+        assert!(forbidden.message.contains("bot protection"));
+        let not_found = status_error(reqwest::StatusCode::NOT_FOUND);
+        assert_eq!(not_found.kind, ClipFetchErrorKind::Other);
+        assert_eq!(not_found.message, "Request failed with status 404 Not Found");
+    }
+
+    #[test]
+    fn fetch_error_serializes_snake_case_kind() {
+        let json = serde_json::to_string(&status_error(reqwest::StatusCode::FORBIDDEN)).unwrap();
+        assert!(json.contains("\"kind\":\"blocked\""));
     }
 
     #[test]

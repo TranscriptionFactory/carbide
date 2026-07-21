@@ -246,6 +246,9 @@ mod specta_export {
                 crate::features::clip::service::clip_fetch_page,
                 crate::features::clip::service::clip_fetch_asset,
                 crate::features::clip::service::clip_write_epub,
+crate::features::clip::capture::clip_capture_start,
+crate::features::clip::capture::clip_capture_finish,
+crate::features::clip::capture::clip_capture_cancel,
                 // Note: settings and vault_settings commands are excluded because they use
                 // serde_json::Value which cannot be statically typed in TypeScript
             ])
