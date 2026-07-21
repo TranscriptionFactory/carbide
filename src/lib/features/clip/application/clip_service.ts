@@ -1,4 +1,10 @@
-import type { ClipEpubImage, ClipPort } from "$lib/features/clip/ports";
+import {
+  ClipFetchError,
+  type ClipEpubImage,
+  type ClipFetchErrorKind,
+  type ClipPage,
+  type ClipPort,
+} from "$lib/features/clip/ports";
 import {
   extract_readable_content,
   type ReadableContent,
@@ -29,12 +35,15 @@ import {
 
 export type { ClipFormats };
 
+export type ClipSource = "fetch" | "capture";
+
 export type ClipRequest = {
   url: string;
   folder_path: string;
   formats: ClipFormats;
   attachment_folder: string;
   name?: string;
+  source?: ClipSource;
 };
 
 export type ClipOutputKind = "markdown" | "html" | "epub";
@@ -53,7 +62,7 @@ export type ClipResult =
       images_failed: number;
     }
   | { status: "skipped" }
-  | { status: "failed"; error: string };
+  | { status: "failed"; error: string; kind: ClipFetchErrorKind };
 
 type LocalizedImages = {
   asset_paths: Map<string, AssetPath>;
@@ -91,17 +100,38 @@ export class ClipService {
       this.op_store.succeed("clip.page");
       return result;
     } catch (error) {
-      const message = String(error);
+      const message =
+        error instanceof ClipFetchError ? error.message : String(error);
+      const kind = error instanceof ClipFetchError ? error.kind : "other";
       this.op_store.fail("clip.page", message);
-      return { status: "failed", error: message };
+      return { status: "failed", error: message, kind };
     }
+  }
+
+  async capture_start(url: string): Promise<void> {
+    return this.clip_port.capture_start(url);
+  }
+
+  async capture_cancel(): Promise<void> {
+    return this.clip_port.capture_cancel();
+  }
+
+  async on_capture_closed(handler: () => void): Promise<() => void> {
+    return this.clip_port.on_capture_closed(handler);
+  }
+
+  private async fetch_page(request: ClipRequest): Promise<ClipPage> {
+    if (request.source === "capture") {
+      return this.clip_port.capture_finish();
+    }
+    return this.clip_port.fetch_page(request.url);
   }
 
   private async run_clip(
     request: ClipRequest,
     vault_id: VaultId,
   ): Promise<ClipResult> {
-    const page = await this.clip_port.fetch_page(request.url);
+    const page = await this.fetch_page(request);
     const readable = extract_readable_content(page.html, page.final_url);
     const now = new Date(this.now_ms());
     const custom_name = request.name?.trim() || null;
@@ -167,7 +197,11 @@ export class ClipService {
 
     const primary = outputs[0];
     if (!primary) {
-      return { status: "failed", error: "No output format selected" };
+      return {
+        status: "failed",
+        error: "No output format selected",
+        kind: "other",
+      };
     }
     return {
       status: "clipped",

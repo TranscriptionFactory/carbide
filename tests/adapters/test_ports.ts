@@ -89,6 +89,15 @@ export function create_test_ports(): Ports {
       fetch_asset: () =>
         Promise.resolve({ bytes: new Uint8Array(), content_type: "image/png" }),
       write_epub: () => Promise.resolve(),
+      capture_start: () => Promise.resolve(),
+      capture_finish: () =>
+        Promise.resolve({
+          final_url: "https://example.com/",
+          html: "<html><body></body></html>",
+          content_type: "text/html",
+        }),
+      capture_cancel: () => Promise.resolve(),
+      on_capture_closed: () => Promise.resolve(() => undefined),
     },
     shell: create_test_shell_adapter(),
     git: create_test_git_adapter(),
