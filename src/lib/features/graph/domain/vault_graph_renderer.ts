@@ -135,8 +135,8 @@ export class VaultGraphRenderer {
     const w = container.clientWidth || 300;
     const h = container.clientHeight || 300;
 
-    this.app = new pixi.Application();
-    await this.app.init({
+    const app = new pixi.Application();
+    await app.init({
       preference: "webgl",
       width: w,
       height: h,
@@ -147,10 +147,10 @@ export class VaultGraphRenderer {
     });
 
     if (this.destroyed) {
-      this.app.destroy(true, { children: true });
-      this.app = null;
+      app.destroy(true, { children: true });
       return;
     }
+    this.app = app;
 
     container.appendChild(this.app.canvas);
 
@@ -331,6 +331,7 @@ export class VaultGraphRenderer {
   }
 
   update_positions(positions: Map<string, { x: number; y: number }>): void {
+    if (this.destroyed) return;
     const spatial_nodes: { id: string; x: number; y: number }[] = [];
     for (const [id, pos] of positions) {
       const entry = this.node_map.get(id);
@@ -352,6 +353,7 @@ export class VaultGraphRenderer {
     target: Map<string, { x: number; y: number }>,
     duration = 400,
   ): void {
+    if (this.destroyed) return;
     const id = ++this.animation_id;
     const start_positions = new Map<string, { x: number; y: number }>();
     for (const [node_id, _target] of target) {
@@ -488,7 +490,7 @@ export class VaultGraphRenderer {
   }
 
   fit_to_content(padding = 40): void {
-    if (!this.vp || this.node_map.size === 0) return;
+    if (this.destroyed || !this.vp || this.node_map.size === 0) return;
     const points = [...this.node_map.values()].map((e) => ({
       x: e.x,
       y: e.y,
@@ -505,7 +507,7 @@ export class VaultGraphRenderer {
   }
 
   resize(): void {
-    if (!this.container_el || !this.app || !this.vp) return;
+    if (this.destroyed || !this.container_el || !this.app || !this.vp) return;
     const w = this.container_el.clientWidth;
     const h = this.container_el.clientHeight;
     if (w === 0 || h === 0) return;
@@ -515,16 +517,23 @@ export class VaultGraphRenderer {
   }
 
   destroy(): void {
+    if (this.destroyed) return;
     this.destroyed = true;
     cancelAnimationFrame(this.raf_id);
+    this.animation_id++;
+    this.clear_edge_labels();
     if (this.app) {
       this.app.destroy(true, { children: true });
       this.app = null;
     }
     this.vp = null;
+    this.cluster_gfx = null;
+    this.edges_gfx = null;
+    this.nodes_layer = null;
     this.node_map.clear();
     this.circle_texture = null;
     this.container_el = null;
+    this.pixi = null;
   }
 
   private get zoom(): number {
