@@ -20,7 +20,10 @@ export function extract_readable_content(
   const doc = parse_with_base(html, base_url);
   const doc_title = doc.title.trim() || null;
 
-  let article: { title: string; content: string | null } | null = null;
+  let article: {
+    title?: string | null | undefined;
+    content?: string | null | undefined;
+  } | null = null;
   try {
     article = new Readability(doc).parse();
   } catch {
@@ -28,7 +31,7 @@ export function extract_readable_content(
   }
   if (article?.content) {
     return {
-      title: article.title.trim() || doc_title,
+      title: (article.title ?? "").trim() || doc_title,
       content_html: article.content,
     };
   }

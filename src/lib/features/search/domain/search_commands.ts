@@ -599,6 +599,22 @@ const BASE_COMMANDS: CommandDefinition[] = [
     icon: "file-down",
   },
   {
+    id: "clip_web_page",
+    label: "Clip web page",
+    description: "Save a web page into the vault as note, HTML, or EPUB",
+    keywords: [
+      "clip",
+      "web",
+      "url",
+      "save",
+      "import",
+      "article",
+      "readability",
+    ],
+    icon: "file-down",
+    when: (ctx) => ctx.is_vault_mode,
+  },
+  {
     id: "add_frontmatter",
     label: "Add Frontmatter",
     description: "Add title and date properties to the current note",

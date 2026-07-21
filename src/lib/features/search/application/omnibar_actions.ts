@@ -95,6 +95,7 @@ export const COMMAND_TO_ACTION_ID: Record<CommandId, string> = {
   export_neighborhood_as_canvas:
     ACTION_IDS.canvas_export_neighborhood_as_canvas,
   add_frontmatter: ACTION_IDS.note_add_frontmatter,
+  clip_web_page: ACTION_IDS.clip_web_page,
 };
 function set_omnibar_state(
   input: ActionRegistrationInput,

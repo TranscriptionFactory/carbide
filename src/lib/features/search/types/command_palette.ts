@@ -69,6 +69,7 @@ export type CommandId =
   | "export_vault_graph_as_canvas"
   | "export_neighborhood_as_canvas"
   | "add_frontmatter"
+  | "clip_web_page"
   | (string & {});
 
 export type CommandIcon =
