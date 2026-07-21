@@ -41,6 +41,50 @@ describe("AiStore", () => {
     expect(store.dialog.provider_id).toBe("ollama");
   });
 
+  it("keeps streaming reasoning separate from output and stores it on the turn", () => {
+    const store = new AiStore();
+    store.open_dialog("ollama", {
+      kind: "note",
+      note_path: as_note_path("docs/demo.md"),
+      note_title: "demo",
+      note_markdown: as_markdown_text("# Demo"),
+      selection: null,
+      target: "full_note",
+    });
+
+    store.start_execution();
+    store.set_streaming_reasoning("thinking...");
+    store.set_streaming_text("partial answer");
+    store.finish_execution({ success: true, output: "answer", error: null });
+
+    const turn = store.dialog.turns.at(-1);
+    expect(turn?.reasoning).toBe("thinking...");
+    expect(turn?.result?.output).toBe("answer");
+    expect(store.dialog.streaming_reasoning).toBeNull();
+    expect(store.dialog.streaming_text).toBeNull();
+  });
+
+  it("clears streaming reasoning on the next execution", () => {
+    const store = new AiStore();
+    store.open_dialog("ollama", {
+      kind: "note",
+      note_path: as_note_path("docs/demo.md"),
+      note_title: "demo",
+      note_markdown: as_markdown_text("# Demo"),
+      selection: null,
+      target: "full_note",
+    });
+
+    store.start_execution();
+    store.set_streaming_reasoning("old thoughts");
+    store.finish_execution({ success: true, output: "one", error: null });
+    store.start_execution();
+    store.finish_execution({ success: true, output: "two", error: null });
+
+    const turn = store.dialog.turns.at(-1);
+    expect(turn?.reasoning).toBeUndefined();
+  });
+
   it("updates target and clears stale result", () => {
     const store = new AiStore();
     store.open_dialog("claude", {

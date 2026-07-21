@@ -1,6 +1,7 @@
 <script lang="ts">
   import * as Select from "$lib/components/ui/select/index.js";
   import { Button } from "$lib/components/ui/button";
+  import CollapsibleSection from "$lib/components/ui/collapsible_section.svelte";
   import AiDiffView from "$lib/features/ai/ui/ai_diff_view.svelte";
   import {
     apply_ai_draft_hunk_selection,
@@ -32,6 +33,7 @@
     original_text: string;
     is_executing: boolean;
     streaming_text?: string | null;
+    streaming_reasoning?: string | null;
     turns: AiConversationTurn[];
     result: AiExecutionResult | null;
     vault_context_enabled: boolean;
@@ -66,6 +68,7 @@
     original_text,
     is_executing,
     streaming_text = null,
+    streaming_reasoning = null,
     turns,
     result,
     vault_context_enabled,
@@ -143,6 +146,17 @@
   let last_diff_signature = $state("");
   let context_preview_open = $state(false);
   let copied = $state(false);
+  let reasoning_user_open = $state<boolean | null>(null);
+  const shown_reasoning = $derived(
+    is_executing ? streaming_reasoning : (last_turn?.reasoning ?? null),
+  );
+  const reasoning_auto_open = $derived(
+    is_executing && Boolean(streaming_reasoning) && !streaming_text,
+  );
+  const reasoning_open = $derived(reasoning_user_open ?? reasoning_auto_open);
+  $effect(() => {
+    if (is_executing) reasoning_user_open = null;
+  });
   const context_preview = $derived(
     describe_ai_context_preview({
       note_path,
@@ -229,6 +243,24 @@
     setTimeout(() => (copied = false), 2000);
   }
 </script>
+
+{#snippet reasoning_section()}
+  {#if shown_reasoning}
+    <div class="rounded-md border bg-muted/20">
+      <CollapsibleSection
+        title="Reasoning"
+        open={reasoning_open}
+        on_toggle={() => (reasoning_user_open = !reasoning_open)}
+      >
+        <div
+          class="whitespace-pre-wrap px-3 pb-2 text-xs text-muted-foreground"
+        >
+          {shown_reasoning}
+        </div>
+      </CollapsibleSection>
+    </div>
+  {/if}
+{/snippet}
 
 <div
   class="flex h-full min-h-0 min-w-0 flex-col"
@@ -409,7 +441,7 @@
 
     <!-- Right column: context preview / streaming output / result -->
     <div class="flex min-w-0 flex-1 flex-col overflow-y-auto p-3">
-      {#if is_executing && streaming_text !== null}
+      {#if is_executing && (streaming_text !== null || shown_reasoning)}
         <div class="space-y-3">
           <div
             class="rounded-md border bg-muted/40 p-3 text-sm text-muted-foreground"
@@ -417,6 +449,7 @@
             {last_turn?.mode === "ask" ? "Answering" : "Drafting"} with
             <span class="ml-1 text-foreground">{result_provider_name}</span>
           </div>
+          {@render reasoning_section()}
           <div
             class="whitespace-pre-wrap rounded-md border bg-background px-4 py-3 {last_turn?.mode ===
             'ask'
@@ -441,6 +474,7 @@
                   {result_provider_name}
                 </span>
               </div>
+              {@render reasoning_section()}
               <div
                 class="whitespace-pre-wrap rounded-md border bg-background px-4 py-3 text-sm"
               >

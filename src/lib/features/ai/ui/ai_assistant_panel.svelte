@@ -132,6 +132,7 @@
     original_text={view_data.original_text}
     is_executing={session.is_executing}
     streaming_text={session.streaming_text}
+    streaming_reasoning={session.streaming_reasoning}
     turns={session.turns}
     result={session.result}
     vault_context_enabled={session.vault_context_enabled}

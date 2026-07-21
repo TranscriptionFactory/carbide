@@ -9,6 +9,7 @@
   } from "@lucide/svelte";
   import { use_app_context } from "$lib/app/context/app_context.svelte";
   import { ACTION_IDS } from "$lib/app";
+  import CollapsibleSection from "$lib/components/ui/collapsible_section.svelte";
   import type {
     RagCitation,
     RagMessage,
@@ -73,6 +74,12 @@
 
   let content_el = $state<HTMLElement | null>(null);
 
+  let reasoning_user_open = $state<boolean | null>(null);
+  const reasoning_auto_open = $derived(
+    is_streaming && Boolean(message.reasoning) && message.content === "",
+  );
+  const reasoning_open = $derived(reasoning_user_open ?? reasoning_auto_open);
+
   $effect(() => {
     const el = content_el;
     if (!el) return;
@@ -100,6 +107,21 @@
   </div>
 {:else}
   <div class="group/message flex flex-col gap-2">
+    {#if message.reasoning}
+      <div class="rounded-md border bg-muted/20">
+        <CollapsibleSection
+          title="Reasoning"
+          open={reasoning_open}
+          on_toggle={() => (reasoning_user_open = !reasoning_open)}
+        >
+          <div
+            class="whitespace-pre-wrap px-3 pb-2 text-xs text-muted-foreground"
+          >
+            {message.reasoning}
+          </div>
+        </CollapsibleSection>
+      </div>
+    {/if}
     <div
       bind:this={content_el}
       class="rag-markdown text-sm leading-relaxed text-foreground"

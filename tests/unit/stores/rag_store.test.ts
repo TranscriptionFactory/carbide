@@ -170,6 +170,20 @@ describe("RagStore", () => {
     expect(store.provider_id).toBe("ollama");
   });
 
+  it("append_streaming_reasoning accumulates reasoning without touching content", () => {
+    const store = new RagStore();
+    store.add_user_message("q");
+    store.start_streaming();
+
+    store.append_streaming_reasoning("step one; ");
+    store.append_streaming_reasoning("step two");
+    store.append_streaming_text("the answer");
+
+    const reply = store.messages.at(-1);
+    expect(reply?.reasoning).toBe("step one; step two");
+    expect(reply?.content).toBe("the answer");
+  });
+
   it("fail_streaming keeps a partial reply and surfaces the error beneath it", () => {
     const store = new RagStore();
     store.add_user_message("q");

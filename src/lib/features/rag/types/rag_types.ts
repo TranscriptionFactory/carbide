@@ -30,6 +30,7 @@ export type RagMessage = {
   content: string;
   citations: RagCitation[];
   context_stats?: RagContextStats;
+  reasoning?: string;
 };
 
 export type RagSourceInfo = {
@@ -43,6 +44,7 @@ export type RagSourceInfo = {
 export type RagStreamEvent =
   | { type: "generating" }
   | { type: "text"; text: string }
+  | { type: "reasoning"; text: string }
   | { type: "citation"; citation: RagCitation }
   | { type: "sources"; stats: RagContextStats; sources: RagSourceInfo[] }
   | { type: "done" }

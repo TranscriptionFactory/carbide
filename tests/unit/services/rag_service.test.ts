@@ -164,6 +164,50 @@ describe("RagService.query", () => {
     expect(result.error).toBeNull();
   });
 
+  it("forwards reasoning chunks without feeding them to the citation parser", async () => {
+    const search = {
+      search_blocks: vi.fn().mockResolvedValue([]),
+      hybrid_search: vi
+        .fn()
+        .mockResolvedValue([hit("notes/q.md", "Q", "1", 0.9)]),
+    };
+    const notes = {
+      read_note: vi.fn().mockResolvedValue({ markdown: "The answer is 42." }),
+    };
+    const stream = stream_of(
+      { type: "reasoning", text: "thinking about [1] a lot" },
+      { type: "text", text: "The answer is 42 [1]." },
+      { type: "done" },
+    );
+    const service = new RagService(
+      search as never,
+      notes as never,
+      stream as never,
+      make_vault_store(),
+      persistence,
+      tag as never,
+      bases as never,
+    );
+
+    let reasoning = "";
+    let content = "";
+    const citations: RagCitation[] = [];
+    for await (const event of service.query({
+      question: "what is it?",
+      provider_config: provider,
+    })) {
+      if (event.type === "reasoning") reasoning += event.text;
+      else if (event.type === "text") content += event.text;
+      else if (event.type === "citation") citations.push(event.citation);
+    }
+
+    expect(reasoning).toBe("thinking about [1] a lot");
+    expect(content).not.toContain("thinking");
+    expect(citations).toEqual([
+      { index: 1, note_path: "notes/q.md", title: "Q" },
+    ]);
+  });
+
   it("retrieves the bare topic and a date window for a meta-query", async () => {
     const search = {
       search_blocks: vi.fn().mockResolvedValue([]),
@@ -1289,6 +1333,32 @@ describe("RagService.query", () => {
     );
 
     expect(result.error).toBeTruthy();
+  });
+});
+
+describe("RagService.generate_title", () => {
+  it("ignores reasoning chunks when accumulating the title", async () => {
+    const stream = stream_of(
+      { type: "reasoning", text: "Pondering titles" },
+      { type: "text", text: "Meeting Notes" },
+      { type: "done" },
+    );
+    const service = new RagService(
+      { hybrid_search: vi.fn() } as never,
+      { read_note: vi.fn() } as never,
+      stream as never,
+      make_vault_store(),
+      persistence,
+      tag as never,
+      bases as never,
+    );
+
+    const title = await service.generate_title(provider, [
+      { id: "u", role: "user", content: "hi", citations: [] },
+      { id: "a", role: "assistant", content: "hello", citations: [] },
+    ]);
+
+    expect(title).toBe("Meeting Notes");
   });
 });
 
