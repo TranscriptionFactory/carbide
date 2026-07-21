@@ -1,6 +1,6 @@
 use tauri::menu::{CheckMenuItemBuilder, MenuBuilder, MenuItemBuilder};
 use tauri::tray::TrayIconBuilder;
-use tauri::{AppHandle, Manager, WindowEvent};
+use tauri::{AppHandle, Emitter, Manager, WindowEvent};
 
 use crate::features::mcp::http::DEFAULT_PORT;
 use crate::features::settings::service as settings;
@@ -79,10 +79,18 @@ pub fn register_close_to_tray(app: &tauri::App) {
     let handle = app.handle().clone();
     window.on_window_event(move |event| {
         if let WindowEvent::CloseRequested { api, .. } = event {
+            api.prevent_close();
             if close_to_tray_enabled(&handle) {
-                api.prevent_close();
                 hide_main_window(&handle);
+            } else {
+                let _ = handle.emit("window-close-requested", ());
             }
         }
     });
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn confirm_window_close(window: tauri::WebviewWindow) -> Result<(), String> {
+    window.destroy().map_err(|e| e.to_string())
 }

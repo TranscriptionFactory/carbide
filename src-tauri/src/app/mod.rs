@@ -320,6 +320,7 @@ pub fn run() {
             shared::buffer::read_buffer_window,
             shared::buffer::close_buffer,
             get_pending_file_open,
+            tray::confirm_window_close,
             features::canvas::extract_canvas_links,
             features::canvas::extract_canvas_text,
             features::canvas::rewrite_canvas_file_refs,
