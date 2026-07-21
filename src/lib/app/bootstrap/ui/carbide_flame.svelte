@@ -14,6 +14,10 @@
   }
 
   $effect(() => () => clearTimeout(reset_timer));
+
+  const reduced_motion =
+    typeof window !== "undefined" &&
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 </script>
 
 <svg
@@ -32,13 +36,46 @@
       <stop offset="0.55" stop-color="#5a9cf6" />
       <stop offset="1" stop-color="#27e1f5" />
     </linearGradient>
+    <filter
+      id="carbide-flame-fire"
+      x="-15%"
+      y="-15%"
+      width="130%"
+      height="130%"
+    >
+      <feTurbulence
+        type="fractalNoise"
+        baseFrequency="0.012 0.03"
+        numOctaves="2"
+        seed="3"
+        result="noise"
+      >
+        {#if !reduced_motion}
+          <animate
+            attributeName="baseFrequency"
+            dur="6s"
+            values="0.012 0.03;0.017 0.044;0.01 0.026;0.015 0.038;0.012 0.03"
+            repeatCount="indefinite"
+          />
+        {/if}
+      </feTurbulence>
+      <feDisplacementMap
+        in="SourceGraphic"
+        in2="noise"
+        scale="26"
+        xChannelSelector="R"
+        yChannelSelector="G"
+      />
+    </filter>
   </defs>
   {#key click_seq}
     <g class="CarbideFlame__flame" class:CarbideFlame__flame--flare={clicked}>
-      <path
-        fill="url(#carbide-flame-grad)"
-        d="M 595 146 L 596 205 L 594 227 L 588 259 L 575 303 L 562 334 L 541 374 L 510 422 L 472 474 L 460 498 L 456 498 L 450 483 L 440 433 L 439 399 L 446 343 L 439 347 L 421 365 L 395 396 L 368 435 L 350 466 L 333 500 L 318 536 L 299 598 L 291 639 L 288 668 L 288 725 L 291 751 L 298 784 L 309 819 L 321 848 L 335 875 L 353 903 L 376 932 L 405 961 L 436 986 L 461 1002 L 516 1028 L 547 1038 L 574 1044 L 605 1048 L 643 1049 L 670 1047 L 699 1042 L 740 1030 L 766 1019 L 802 999 L 833 977 L 875 937 L 899 907 L 921 872 L 937 839 L 947 813 L 956 782 L 963 745 L 965 725 L 965 677 L 955 612 L 935 545 L 903 473 L 866 412 L 843 382 L 841 382 L 840 406 L 831 437 L 819 456 L 804 470 L 796 474 L 791 423 L 779 372 L 761 324 L 735 275 L 703 231 L 672 198 L 628 163 L 610 152 Z"
-      />
+      <g filter="url(#carbide-flame-fire)" class="CarbideFlame__body">
+        <path
+          fill="url(#carbide-flame-grad)"
+          d="M 595 146 L 596 205 L 594 227 L 588 259 L 575 303 L 562 334 L 541 374 L 510 422 L 472 474 L 460 498 L 456 498 L 450 483 L 440 433 L 439 399 L 446 343 L 439 347 L 421 365 L 395 396 L 368 435 L 350 466 L 333 500 L 318 536 L 299 598 L 291 639 L 288 668 L 288 725 L 291 751 L 298 784 L 309 819 L 321 848 L 335 875 L 353 903 L 376 932 L 405 961 L 436 986 L 461 1002 L 516 1028 L 547 1038 L 574 1044 L 605 1048 L 643 1049 L 670 1047 L 699 1042 L 740 1030 L 766 1019 L 802 999 L 833 977 L 875 937 L 899 907 L 921 872 L 937 839 L 947 813 L 956 782 L 963 745 L 965 725 L 965 677 L 955 612 L 935 545 L 903 473 L 866 412 L 843 382 L 841 382 L 840 406 L 831 437 L 819 456 L 804 470 L 796 474 L 791 423 L 779 372 L 761 324 L 735 275 L 703 231 L 672 198 L 628 163 L 610 152 Z"
+        />
+      </g>
       <path
         class="CarbideFlame__glyph"
         d="M 478 616 L 486 619 L 692 744 L 694 747 L 694 794 L 480 926 L 477 925 L 478 868 L 636 773 L 637 770 L 478 673 Z"
@@ -65,6 +102,16 @@
     animation: carbide-flame-flicker 2.8s ease-in-out infinite;
   }
 
+  .CarbideFlame {
+    animation: carbide-flame-glow 2.3s ease-in-out infinite;
+  }
+
+  .CarbideFlame__body {
+    transform-box: fill-box;
+    transform-origin: center bottom;
+    animation: carbide-flame-lick 1.1s ease-in-out infinite;
+  }
+
   .CarbideFlame__flame--flare {
     animation: carbide-flame-flare 600ms ease-out;
   }
@@ -82,19 +129,45 @@
   @keyframes carbide-flame-flicker {
     0%,
     100% {
-      transform: scale(1, 1) rotate(0deg);
+      transform: skewX(0deg) rotate(0deg);
     }
     22% {
-      transform: scale(1.015, 0.985) rotate(-0.6deg);
+      transform: skewX(-1.4deg) rotate(-0.8deg);
     }
     41% {
-      transform: scale(0.99, 1.02) rotate(0.5deg);
+      transform: skewX(1deg) rotate(0.7deg);
     }
     58% {
-      transform: scale(1.02, 0.99) rotate(-0.3deg);
+      transform: skewX(-0.8deg) rotate(-0.4deg);
     }
     80% {
-      transform: scale(0.995, 1.01) rotate(0.4deg);
+      transform: skewX(1.2deg) rotate(0.5deg);
+    }
+  }
+
+  @keyframes carbide-flame-lick {
+    0%,
+    100% {
+      transform: scale(1, 1);
+    }
+    30% {
+      transform: scale(0.985, 1.035);
+    }
+    55% {
+      transform: scale(1.015, 0.975);
+    }
+    76% {
+      transform: scale(0.995, 1.02);
+    }
+  }
+
+  @keyframes carbide-flame-glow {
+    0%,
+    100% {
+      filter: drop-shadow(0 0 6px rgba(90, 156, 246, 0.35));
+    }
+    50% {
+      filter: drop-shadow(0 0 14px rgba(39, 225, 245, 0.55));
     }
   }
 
@@ -126,7 +199,9 @@
   }
 
   @media (prefers-reduced-motion: reduce) {
+    .CarbideFlame,
     .CarbideFlame__flame,
+    .CarbideFlame__body,
     .CarbideFlame__star {
       animation: none;
     }
