@@ -8,10 +8,12 @@
     Pencil,
     Trash2,
     Check,
+    FileText,
     X,
   } from "@lucide/svelte";
   import { Button } from "$lib/components/ui/button";
   import { Input } from "$lib/components/ui/input";
+  import CollapsibleSection from "$lib/components/ui/collapsible_section.svelte";
   import EmptyMessage from "$lib/components/ui/empty_message.svelte";
   import { use_app_context } from "$lib/app/context/app_context.svelte";
   import { ACTION_IDS } from "$lib/app";
@@ -95,6 +97,39 @@
     void action_registry.execute(ACTION_IDS.rag_ask, question);
   }
 
+  const MENTION_SUGGEST_LIMIT = 8;
+
+  async function suggest_notes(
+    partial: string,
+  ): Promise<Array<{ path: string; title: string }>> {
+    const result = await services.search.suggest_wiki_links(partial);
+    const notes: Array<{ path: string; title: string }> = [];
+    for (const suggestion of result.results) {
+      if (suggestion.kind !== "existing") continue;
+      notes.push({
+        path: suggestion.note.path,
+        title: suggestion.note.title,
+      });
+      if (notes.length === MENTION_SUGGEST_LIMIT) break;
+    }
+    return notes;
+  }
+
+  let sources_open = $state(false);
+  const show_pending_sources = $derived(
+    rag.loading_stage === "generating" &&
+      rag.pending_sources !== null &&
+      (rag.is_loading || rag.streaming_id !== null),
+  );
+
+  $effect(() => {
+    if (rag.pending_sources === null) sources_open = false;
+  });
+
+  function open_source(note_path: string) {
+    void action_registry.execute(ACTION_IDS.rag_open_citation, note_path);
+  }
+
   function stop() {
     void action_registry.execute(ACTION_IDS.rag_stop);
   }
@@ -163,6 +198,37 @@
     }
   }
 </script>
+
+{#snippet sources_strip()}
+  {#if rag.pending_sources}
+    <CollapsibleSection
+      title="Sources"
+      count={rag.pending_sources.length}
+      open={sources_open}
+      on_toggle={() => (sources_open = !sources_open)}
+    >
+      <div class="flex flex-col gap-0.5 pb-2">
+        {#each rag.pending_sources as source (source.note_path)}
+          <button
+            type="button"
+            class="flex items-center gap-2 rounded px-1 py-1 text-left text-xs hover:bg-accent hover:text-accent-foreground"
+            onclick={() => open_source(source.note_path)}
+          >
+            <FileText class="size-3.5 shrink-0 text-muted-foreground" />
+            <span class="truncate">{source.title}</span>
+            <span class="truncate text-muted-foreground">{source.note_path}</span>
+            {#if source.pinned}
+              <span class="shrink-0 text-muted-foreground">pinned</span>
+            {/if}
+            {#if source.truncated}
+              <span class="shrink-0 text-muted-foreground">truncated</span>
+            {/if}
+          </button>
+        {/each}
+      </div>
+    </CollapsibleSection>
+  {/if}
+{/snippet}
 
 <div class="flex h-full flex-col">
   {#if sessions.length > 0 || rag.messages.length > 0}
@@ -294,11 +360,18 @@
       {:else}
         <div class="flex flex-col gap-4">
           {#each rag.messages as message (message.id)}
+            {#if show_pending_sources && message.id === rag.streaming_id}
+              {@render sources_strip()}
+            {/if}
             <RagMessage
               {message}
               is_streaming={message.id === rag.streaming_id}
             />
           {/each}
+
+          {#if show_pending_sources && rag.streaming_id === null}
+            {@render sources_strip()}
+          {/if}
 
           {#if rag.is_loading}
             <div class="flex items-center gap-2 text-sm text-muted-foreground">
@@ -337,6 +410,7 @@
   <RagInput
     {providers}
     {provider_id}
+    {suggest_notes}
     scope={rag.scope}
     folder_paths={stores.notes.folder_paths}
     tags={stores.tag.tags}

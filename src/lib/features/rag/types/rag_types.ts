@@ -32,11 +32,19 @@ export type RagMessage = {
   context_stats?: RagContextStats;
 };
 
+export type RagSourceInfo = {
+  note_path: string;
+  title: string;
+  score: number;
+  truncated: boolean;
+  pinned: boolean;
+};
+
 export type RagStreamEvent =
   | { type: "generating" }
   | { type: "text"; text: string }
   | { type: "citation"; citation: RagCitation }
-  | { type: "sources"; stats: RagContextStats }
+  | { type: "sources"; stats: RagContextStats; sources: RagSourceInfo[] }
   | { type: "done" }
   | { type: "error"; error: string };
 

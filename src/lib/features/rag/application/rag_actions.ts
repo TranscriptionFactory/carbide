@@ -171,6 +171,7 @@ export function register_rag_actions(
           rag_store.set_loading_stage("generating");
         } else if (event.type === "sources") {
           context_stats = event.stats;
+          rag_store.set_pending_sources(event.sources);
         } else if (event.type === "text") {
           if (!rag_store.streaming_id) {
             rag_store.start_streaming();

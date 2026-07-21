@@ -86,8 +86,8 @@ describe("assemble_context", () => {
     expect(result[0]?.text).toBe("short");
   });
 
-  it("truncates the note that crosses the budget boundary", () => {
-    const long = "x".repeat(1000);
+  it("truncates the note that crosses the budget boundary keeping head and tail", () => {
+    const long = "H".repeat(900) + "T".repeat(100);
     const result = assemble_context([candidate({ text: long })], {
       token_budget: 100,
       reserve_tokens: 0,
@@ -96,8 +96,14 @@ describe("assemble_context", () => {
     });
 
     expect(result).toHaveLength(1);
-    expect(result[0]?.text.length).toBeLessThan(long.length);
-    expect(result[0]?.text).toContain("…[truncated]");
+    const text = result[0]?.text ?? "";
+    expect(text.length).toBeLessThan(long.length);
+    expect(text).toContain("…[middle truncated]");
+    const [head, tail] = text.split("\n…[middle truncated]\n");
+    expect(head).toMatch(/^H+$/);
+    expect(tail).toMatch(/^T+$/);
+    expect((head?.length ?? 0) + (tail?.length ?? 0)).toBeLessThanOrEqual(100);
+    expect(head?.length ?? 0).toBeGreaterThan(tail?.length ?? 0);
     expect(result[0]?.truncated).toBe(true);
   });
 

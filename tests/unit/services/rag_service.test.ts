@@ -1029,7 +1029,72 @@ describe("RagService.query", () => {
     expect(sources).toEqual({
       type: "sources",
       stats: { retrieved: 2, used: 1, truncated: 1 },
+      sources: [
+        {
+          note_path: "notes/long.md",
+          title: "Long",
+          score: 0.9,
+          truncated: true,
+          pinned: false,
+        },
+      ],
     });
+  });
+
+  it("marks pinned mentions in the sources event", async () => {
+    const search = {
+      search_blocks: vi.fn().mockResolvedValue([]),
+      hybrid_search: vi
+        .fn()
+        .mockResolvedValue([hit("notes/other.md", "Other", "2", 0.9)]),
+      suggest_wiki_links: vi.fn().mockResolvedValue([
+        {
+          kind: "existing",
+          note: note_meta("notes/spec.md", "Spec", "1"),
+          score: 1,
+        },
+      ]),
+    };
+    const notes = {
+      read_note: vi.fn().mockResolvedValue({ markdown: "Body." }),
+    };
+    const service = new RagService(
+      search as never,
+      notes as never,
+      text_stream("answer [1].") as never,
+      make_vault_store(),
+      persistence,
+      tag as never,
+      bases as never,
+    );
+
+    const events: RagStreamEvent[] = [];
+    for await (const event of service.query({
+      question: "summarize @spec please",
+      provider_config: provider,
+    })) {
+      events.push(event);
+    }
+
+    const sources = events.find((e) => e.type === "sources");
+    expect(sources?.type).toBe("sources");
+    if (sources?.type !== "sources") return;
+    expect(sources.sources).toEqual([
+      {
+        note_path: "notes/spec.md",
+        title: "Spec",
+        score: Number.MAX_SAFE_INTEGER,
+        truncated: false,
+        pinned: true,
+      },
+      {
+        note_path: "notes/other.md",
+        title: "Other",
+        score: 0.9,
+        truncated: false,
+        pinned: false,
+      },
+    ]);
   });
 
   it("drops citations that do not map to a retrieved source", async () => {
