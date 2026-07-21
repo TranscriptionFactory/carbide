@@ -295,6 +295,11 @@ async function check_for_update_silently() {
   }
 }
 
+async function relaunch_app() {
+  const { relaunch } = await import("@tauri-apps/plugin-process");
+  await relaunch();
+}
+
 async function download_and_install(
   update: NonNullable<Awaited<ReturnType<typeof check_for_update_silently>>>,
 ) {
@@ -302,7 +307,13 @@ async function download_and_install(
   try {
     await update.downloadAndInstall();
     toast.dismiss(loading_id);
-    toast.success("Update installed — restart Carbide to apply");
+    toast.success("Update installed — restart Carbide to apply", {
+      duration: 30_000,
+      action: {
+        label: "Restart",
+        onClick: () => void relaunch_app(),
+      },
+    });
   } catch (error) {
     toast.dismiss(loading_id);
     toast.error("Update failed");
