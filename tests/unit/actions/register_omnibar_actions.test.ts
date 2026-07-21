@@ -383,6 +383,11 @@ describe("register_omnibar_actions", () => {
 
     await registry.execute(ACTION_IDS.omnibar_open_all_vaults);
     expect(stores.ui.omnibar.scope).toBe("all_vaults");
+
+    stores.ui.omnibar = { ...stores.ui.omnibar, open: false };
+
+    await registry.execute(ACTION_IDS.omnibar_open);
+    expect(stores.ui.omnibar.scope).toBe("current_vault");
   });
 
   it("does not prompt switch for vault already marked unavailable", async () => {
@@ -637,6 +642,55 @@ describe("register_omnibar_actions", () => {
       expect(harness.stores.ui.omnibar.kind_filters).toEqual([]);
       expect(harness.stores.ui.omnibar.sort_mode).toBe("relevance");
       expect(harness.stores.search.omnibar_items).toEqual(raw);
+    });
+
+    it("filter toggles keep the current scope and query", async () => {
+      const harness = create_omnibar_actions_harness();
+      seed_results(harness);
+      harness.stores.ui.omnibar = {
+        ...harness.stores.ui.omnibar,
+        open: true,
+        query: "machine learning",
+        scope: "all_vaults",
+      };
+
+      await harness.registry.execute(
+        ACTION_IDS.omnibar_toggle_file_type_filter,
+        "markdown",
+      );
+      await harness.registry.execute(
+        ACTION_IDS.omnibar_toggle_kind_filter,
+        "notes",
+      );
+      await harness.registry.execute(ACTION_IDS.omnibar_set_sort_mode, "name");
+
+      expect(harness.stores.ui.omnibar.scope).toBe("all_vaults");
+      expect(harness.stores.ui.omnibar.query).toBe("machine learning");
+      expect(harness.stores.ui.omnibar.open).toBe(true);
+    });
+
+    it("scope changes keep active filters and sort mode", async () => {
+      const harness = create_omnibar_actions_harness();
+      seed_results(harness);
+      harness.stores.ui.omnibar = {
+        ...harness.stores.ui.omnibar,
+        open: true,
+        query: "machine learning",
+        scope: "current_vault",
+        file_type_filters: ["markdown"],
+        kind_filters: ["notes"],
+        sort_mode: "name",
+      };
+
+      await harness.registry.execute(
+        ACTION_IDS.omnibar_set_scope,
+        "all_vaults",
+      );
+
+      expect(harness.stores.ui.omnibar.scope).toBe("all_vaults");
+      expect(harness.stores.ui.omnibar.file_type_filters).toEqual(["markdown"]);
+      expect(harness.stores.ui.omnibar.kind_filters).toEqual(["notes"]);
+      expect(harness.stores.ui.omnibar.sort_mode).toBe("name");
     });
 
     it("applies pre-set kind filters and sort to fresh query results", async () => {
