@@ -501,7 +501,6 @@
             {result.error ?? `${provider_config?.name ?? "AI"} failed.`}
           </div>
         {/if}
-
       {:else}
         <!-- Context preview (no result yet) -->
         <div

@@ -5,9 +5,8 @@ vi.mock("@tauri-apps/api/core", () => ({
   invoke: (...args: unknown[]) => invoke(...args),
 }));
 
-const { create_ai_history_tauri_adapter, AI_HISTORY_TURN_CAP } = await import(
-  "$lib/features/ai/adapters/ai_history_tauri_adapter"
-);
+const { create_ai_history_tauri_adapter, AI_HISTORY_TURN_CAP } =
+  await import("$lib/features/ai/adapters/ai_history_tauri_adapter");
 import type { AiConversationTurn } from "$lib/features/ai/domain/ai_types";
 
 function turn(id: number): AiConversationTurn {
