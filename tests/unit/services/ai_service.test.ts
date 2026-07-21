@@ -5,6 +5,10 @@ import { create_test_vault } from "../helpers/test_fixtures";
 import { as_markdown_text, as_note_path } from "$lib/shared/types/ids";
 import type { AiProviderConfig } from "$lib/shared/types/ai_provider_config";
 import type { VaultContextSettings } from "$lib/features/ai/domain/ai_types";
+import type {
+  AiStreamChunk,
+  AiStreamRequest,
+} from "$lib/features/ai/domain/ai_stream_types";
 
 const ollama_config: AiProviderConfig = {
   id: "ollama",
@@ -364,6 +368,114 @@ describe("AiService", () => {
       expect(request?.prompt).toContain(
         "Related notes from the vault are provided for additional context.",
       );
+    });
+  });
+
+  describe("execute_streaming", () => {
+    function stream_port_of(...chunks: AiStreamChunk[]) {
+      return {
+        stream_text: vi.fn(async function* (_input: AiStreamRequest) {
+          for (const chunk of chunks) yield chunk;
+        }),
+      };
+    }
+
+    function create_streaming_service(port: { stream_text: unknown }) {
+      const vault_store = new VaultStore();
+      vault_store.set_vault(
+        create_test_vault({ path: "/vault/demo" as never }),
+      );
+      return new AiService(
+        create_ai_port() as never,
+        vault_store,
+        port as never,
+      );
+    }
+
+    it("accumulates text chunks into a successful execution result", async () => {
+      const port = stream_port_of(
+        { type: "text", text: "# Upd" },
+        { type: "text", text: "ated\n" },
+        { type: "done" },
+      );
+      const service = create_streaming_service(port);
+      const partials: string[] = [];
+
+      const result = await service.execute_streaming(
+        base_execute_input,
+        (partial) => partials.push(partial),
+      );
+
+      expect(result).toEqual({
+        success: true,
+        output: "# Updated\n",
+        error: null,
+      });
+      expect(partials.at(-1)).toBe("# Updated\n");
+      expect(partials.length).toBeGreaterThan(0);
+
+      const request = port.stream_text.mock.calls[0]?.[0];
+      expect(request?.system_prompt).toBe("");
+      expect(request?.vault_path).toBe("/vault/demo");
+      expect(request?.messages).toHaveLength(1);
+      expect(request?.messages[0]?.role).toBe("user");
+      expect(request?.messages[0]?.content).toContain("Tighten this note");
+    });
+
+    it("returns a humanized failure and keeps partial output on stream error", async () => {
+      const port = stream_port_of(
+        { type: "text", text: "Partial draft" },
+        { type: "error", error: "connection refused" },
+      );
+      const service = create_streaming_service(port);
+
+      const result = await service.execute_streaming(base_execute_input);
+
+      expect(result.success).toBe(false);
+      expect(result.output).toBe("Partial draft");
+      expect(result.error).toContain("Could not reach");
+    });
+
+    it("treats an aborted stream with partial output as a clean result", async () => {
+      const port = stream_port_of(
+        { type: "text", text: "Kept text" },
+        { type: "error", error: "aborted" },
+      );
+      const service = create_streaming_service(port);
+
+      const result = await service.execute_streaming(base_execute_input);
+
+      expect(result).toEqual({
+        success: true,
+        output: "Kept text",
+        error: null,
+      });
+    });
+
+    it("flushes joiner remainder when the stream ends without a done chunk", async () => {
+      const port = stream_port_of({ type: "text", text: "tail [pending" });
+      const service = create_streaming_service(port);
+
+      const result = await service.execute_streaming(base_execute_input);
+
+      expect(result.success).toBe(true);
+      expect(result.output).toBe("tail [pending");
+    });
+
+    it("fails cleanly when no stream port is wired", async () => {
+      const vault_store = new VaultStore();
+      vault_store.set_vault(
+        create_test_vault({ path: "/vault/demo" as never }),
+      );
+      const service = new AiService(create_ai_port() as never, vault_store);
+
+      const result = await service.execute_streaming(base_execute_input);
+
+      expect(result).toEqual({
+        success: false,
+        output: "",
+        error: "Streaming is not available",
+      });
     });
   });
 });

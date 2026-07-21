@@ -9,7 +9,11 @@ import type {
   AiMode,
 } from "$lib/features/ai/domain/ai_types";
 import { context_key, find_provider } from "$lib/features/ai/domain/ai_types";
-import { resolve_auto_ai_backend } from "$lib/features/ai/domain/ai_backend_selection";
+import {
+  preferred_ai_backend_order,
+  resolve_auto_ai_backend,
+} from "$lib/features/ai/domain/ai_backend_selection";
+import { provider_supports_streaming } from "$lib/features/ai/domain/ai_provider_capabilities";
 import type { AiService } from "$lib/features/ai/application/ai_service";
 import type { AiStore } from "$lib/features/ai/state/ai_store.svelte";
 import { error_message } from "$lib/shared/utils/error_message";
@@ -40,6 +44,7 @@ export function register_ai_actions(
   const { registry, services, ai_service, ai_store } = input;
 
   let dialog_revision = 0;
+  let panel_abort: AbortController | null = null;
   let last_inline_prompts: {
     system_prompt: string;
     user_prompt: string;
@@ -83,6 +88,18 @@ export function register_ai_actions(
     }
     const match = providers.find((p) => p.id === default_id);
     return match ?? null;
+  }
+
+  async function resolve_streaming_provider(): Promise<AiProviderConfig | null> {
+    const resolved = await resolve_provider();
+    if (resolved && provider_supports_streaming(resolved)) {
+      return resolved;
+    }
+    const order = preferred_ai_backend_order(
+      input.stores.ui.editor_settings.ai_default_provider_id,
+      get_providers(),
+    );
+    return order.find(provider_supports_streaming) ?? null;
   }
 
   async function refresh_cli_status(provider_id: string, revision: number) {
@@ -388,9 +405,13 @@ export function register_ai_actions(
       const revision = dialog_revision;
       ai_store.start_execution();
 
+      const use_streaming = provider_supports_streaming(config);
+      const abort = use_streaming ? new AbortController() : null;
+      panel_abort = abort;
+
       try {
         const settings = input.stores.ui.editor_settings;
-        const result = await ai_service.execute({
+        const execute_input = {
           provider_config: config,
           prompt: dialog.prompt,
           context: dialog.context,
@@ -403,13 +424,34 @@ export function register_ai_actions(
             similarity_threshold:
               settings.ai_vault_context_similarity_threshold,
           },
-        });
+        };
+        const result = abort
+          ? await ai_service.execute_streaming(
+              { ...execute_input, signal: abort.signal },
+              (partial) => {
+                if (revision !== dialog_revision) return;
+                ai_store.set_streaming_text(partial);
+              },
+            )
+          : await ai_service.execute(execute_input);
         if (revision !== dialog_revision) return;
         if (
           !ai_store.dialog.open ||
           ai_store.dialog.provider_id !== dialog.provider_id
         )
           return;
+        if (abort?.signal.aborted) {
+          if (result.output.trim() === "") {
+            ai_store.cancel_execution();
+            return;
+          }
+          ai_store.finish_execution({
+            success: true,
+            output: result.output,
+            error: null,
+          });
+          return;
+        }
         ai_store.finish_execution(result);
       } catch (error) {
         if (revision !== dialog_revision) return;
@@ -423,7 +465,19 @@ export function register_ai_actions(
           output: "",
           error: error_message(error),
         });
+      } finally {
+        if (panel_abort === abort) {
+          panel_abort = null;
+        }
       }
+    },
+  });
+
+  registry.register({
+    id: ACTION_IDS.ai_stop_execution,
+    label: "Stop AI Execution",
+    execute: () => {
+      panel_abort?.abort();
     },
   });
 
@@ -536,9 +590,9 @@ export function register_ai_actions(
         | { command_id?: string; prompt?: string; retry?: boolean }
         | undefined;
 
-      const config = await resolve_provider("cli");
+      const config = await resolve_streaming_provider();
       if (!config) {
-        toast.error("No CLI AI provider available");
+        toast.error("No streaming-capable AI provider available");
         return;
       }
 

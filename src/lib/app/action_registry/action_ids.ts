@@ -311,6 +311,7 @@ export const ACTION_IDS = {
   ai_update_context: "ai.update_context",
   ai_update_prompt: "ai.update_prompt",
   ai_execute: "ai.execute",
+  ai_stop_execution: "ai.stop_execution",
   ai_apply_result: "ai.apply_result",
   ai_clear_result: "ai.clear_result",
   ai_generate_description: "ai.generate_description",
