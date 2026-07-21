@@ -193,9 +193,7 @@ describe("app_close_requested", () => {
     stores.tab.set_dirty("b.md", true);
 
     await registry.execute(ACTION_IDS.app_close_requested);
-    expect(stores.ui.tab_close_confirm.pending_dirty_tab_ids).toEqual([
-      "b.md",
-    ]);
+    expect(stores.ui.tab_close_confirm.pending_dirty_tab_ids).toEqual(["b.md"]);
 
     await registry.execute(ACTION_IDS.tab_confirm_close_discard);
     expect(tauri_invoke_mock).not.toHaveBeenCalled();

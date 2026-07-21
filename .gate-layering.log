@@ -1,0 +1,5 @@
+
+> carbide@2.14.1 lint:layering /home/avocado/src/carbide
+> node scripts/lint_layering_rules.mjs
+
+Layering rules passed.

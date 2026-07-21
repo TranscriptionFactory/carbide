@@ -1,0 +1,13 @@
+
+> carbide@2.14.1 test /home/avocado/src/carbide
+> vitest run
+
+
+ RUN  v4.1.8 /home/avocado/src/carbide
+
+
+ Test Files  472 passed (472)
+      Tests  5177 passed (5177)
+   Start at  07:21:39
+   Duration  77.69s (transform 349.58s, setup 0ms, import 1052.08s, tests 8.96s, environment 26.71s)
+
