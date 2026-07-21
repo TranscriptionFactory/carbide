@@ -628,6 +628,22 @@ export class EditorService {
     this.session?.scroll_to_position?.(pos);
   }
 
+  scroll_to_heading_fragment(fragment: string) {
+    const outline = this.outline_store;
+    if (
+      outline &&
+      this.session &&
+      outline.note_path === this.get_active_note_path()
+    ) {
+      const heading = outline.find_heading_by_fragment(fragment);
+      if (heading) {
+        this.scroll_to_position(heading.pos);
+      }
+      return;
+    }
+    this.editor_store.set_pending_heading_fragment(fragment);
+  }
+
   set_editable(editable: boolean) {
     this.session?.set_editable?.(editable);
   }
