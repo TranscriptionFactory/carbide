@@ -3,6 +3,7 @@
  */
 import { describe, expect, it, vi } from "vitest";
 import { ClipService } from "$lib/features/clip";
+import { to_xhtml_document } from "$lib/features/clip/application/clip_service";
 import type { ClipPort } from "$lib/features/clip";
 import type { AssetsPort, NoteService } from "$lib/features/note";
 import { NotesStore } from "$lib/features/note";
@@ -237,5 +238,23 @@ describe("ClipService.clip_page", () => {
     expect(harness.document_service.save_html_artifact).not.toHaveBeenCalled();
     expect(harness.clip_port.write_epub).not.toHaveBeenCalled();
     expect(harness.op_store.is_pending("clip.page")).toBe(false);
+  });
+});
+
+describe("to_xhtml_document", () => {
+  it("produces well-formed XHTML from messy HTML content", () => {
+    const xhtml = to_xhtml_document(
+      "Tricky & <Title>",
+      '<p>Fish & chips <img src="a.png" alt="a"><input disabled></p>',
+    );
+    const reparsed = new DOMParser().parseFromString(
+      xhtml,
+      "application/xhtml+xml",
+    );
+    expect(reparsed.querySelector("parsererror")).toBeNull();
+    expect(reparsed.getElementsByTagName("title")[0]?.textContent).toBe(
+      "Tricky & <Title>",
+    );
+    expect(reparsed.getElementsByTagName("img")).toHaveLength(1);
   });
 });
