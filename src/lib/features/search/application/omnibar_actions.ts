@@ -20,8 +20,6 @@ import {
 } from "$lib/features/search/domain/search_commands";
 import { parse_search_query } from "$lib/features/search/domain/search_query_parser";
 import { as_note_path, type VaultId } from "$lib/shared/types/ids";
-import { detect_file_type } from "$lib/features/document";
-import { is_linked_note_path } from "$lib/shared/types/note";
 
 export const COMMAND_TO_ACTION_ID: Record<CommandId, string> = {
   create_new_note: ACTION_IDS.note_create,
@@ -327,16 +325,6 @@ async function execute_command(
   }
 }
 
-async function resolve_omnibar_file_path(
-  input: ActionRegistrationInput,
-  note_id: string,
-): Promise<string | null> {
-  if (is_linked_note_path(note_id)) {
-    return input.services.reference.resolve_linked_note_file_path(note_id);
-  }
-  return note_id;
-}
-
 async function confirm_item(input: ActionRegistrationInput, item: OmnibarItem) {
   const { registry } = input;
 
@@ -344,17 +332,10 @@ async function confirm_item(input: ActionRegistrationInput, item: OmnibarItem) {
     case "note":
     case "recent_note":
       close_omnibar(input);
-      if (detect_file_type(item.note.id)) {
-        const file_path = await resolve_omnibar_file_path(input, item.note.id);
-        if (file_path) {
-          await registry.execute(ACTION_IDS.document_open, { file_path });
-        }
-      } else {
-        await registry.execute(ACTION_IDS.note_open, {
-          note_path: item.note.id,
-          cleanup_if_missing: true,
-        });
-      }
+      await registry.execute(ACTION_IDS.note_open, {
+        note_path: item.note.id,
+        cleanup_if_missing: true,
+      });
       break;
     case "cross_vault_note":
       if (
@@ -376,17 +357,10 @@ async function confirm_item(input: ActionRegistrationInput, item: OmnibarItem) {
         };
         return;
       }
-      if (detect_file_type(item.note.id)) {
-        const file_path = await resolve_omnibar_file_path(input, item.note.id);
-        if (file_path) {
-          await registry.execute(ACTION_IDS.document_open, { file_path });
-        }
-      } else {
-        await registry.execute(ACTION_IDS.note_open, {
-          note_path: item.note.id,
-          cleanup_if_missing: true,
-        });
-      }
+      await registry.execute(ACTION_IDS.note_open, {
+        note_path: item.note.id,
+        cleanup_if_missing: true,
+      });
       break;
     case "command":
       close_omnibar(input);
