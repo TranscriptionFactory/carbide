@@ -84,6 +84,7 @@ export const COMMAND_TO_ACTION_ID: Record<CommandId, string> = {
   open_in_split_view: ACTION_IDS.editor_toggle_split_view,
   update_embeddings: ACTION_IDS.vault_update_embeddings,
   open_welcome: ACTION_IDS.welcome_open,
+  view_changelog: ACTION_IDS.help_open,
   rebuild_embeddings: ACTION_IDS.vault_rebuild_embeddings,
   open_search_graph: ACTION_IDS.search_graph_open,
   document_toggle_source: ACTION_IDS.document_toggle_source,
@@ -307,6 +308,8 @@ async function execute_command(
       await registry.execute(action_id, "hotkeys");
     } else if (command_id === "configure_sidebar") {
       await registry.execute(action_id, "sidebar");
+    } else if (command_id === "view_changelog") {
+      await registry.execute(action_id, "CHANGELOG");
     } else {
       await registry.execute(action_id);
     }

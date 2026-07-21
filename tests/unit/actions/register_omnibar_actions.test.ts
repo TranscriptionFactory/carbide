@@ -514,6 +514,30 @@ describe("register_omnibar_actions", () => {
     expect(settings_open).toHaveBeenCalledWith("sidebar");
   });
 
+  it("routes view_changelog to help_open with the CHANGELOG guide", async () => {
+    const { registry, stores } = create_omnibar_actions_harness();
+    const help_open = vi.fn().mockResolvedValue(undefined);
+    registry.register({
+      id: ACTION_IDS.help_open,
+      label: "Open Help",
+      execute: help_open,
+    });
+
+    stores.ui.omnibar = { ...stores.ui.omnibar, open: true };
+    const command = COMMANDS_REGISTRY.find(
+      (item) => item.id === "view_changelog",
+    );
+    if (!command) throw new Error("missing view_changelog command");
+
+    await registry.execute(ACTION_IDS.omnibar_confirm_item, {
+      kind: "command",
+      command,
+      score: 1,
+    });
+
+    expect(help_open).toHaveBeenCalledWith("CHANGELOG");
+  });
+
   it("routes open_sidebar_switcher to ui_open_sidebar_switcher", async () => {
     const { registry, stores } = create_omnibar_actions_harness();
     const open_switcher = vi.fn().mockResolvedValue(undefined);

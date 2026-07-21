@@ -246,6 +246,13 @@ const BASE_COMMANDS: CommandDefinition[] = [
     icon: "refresh-cw",
   },
   {
+    id: "view_changelog",
+    label: "View Changelog",
+    description: "Open the changelog in Help guides",
+    keywords: ["changelog", "release", "notes", "version", "whats new", "help"],
+    icon: "history",
+  },
+  {
     id: "check_for_updates",
     label: "Check for Updates",
     description: "Check if a new version of Carbide is available",

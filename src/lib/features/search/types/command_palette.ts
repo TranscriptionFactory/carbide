@@ -65,6 +65,7 @@ export type CommandId =
   | "document_toggle_source"
   | "paste_html_as_markdown"
   | "open_welcome"
+  | "view_changelog"
   | "open_todays_note"
   | "export_vault_graph_as_canvas"
   | "export_neighborhood_as_canvas"

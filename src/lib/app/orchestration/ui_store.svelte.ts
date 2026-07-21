@@ -158,6 +158,7 @@ const INITIAL_CROSS_VAULT_OPEN_CONFIRM = {
 
 const INITIAL_HELP_DIALOG = {
   open: false,
+  guide: null,
 } as const;
 
 const INITIAL_WELCOME_DIALOG = {
@@ -404,7 +405,9 @@ export class UIStore {
     note_path: NotePath | null;
   }>({ ...INITIAL_CROSS_VAULT_OPEN_CONFIRM });
 
-  help_dialog = $state<{ open: boolean }>({ ...INITIAL_HELP_DIALOG });
+  help_dialog = $state<{ open: boolean; guide: string | null }>({
+    ...INITIAL_HELP_DIALOG,
+  });
 
   welcome_dialog = $state<{ open: boolean }>({ ...INITIAL_WELCOME_DIALOG });
 

@@ -4,15 +4,14 @@ import type { ActionRegistrationInput } from "$lib/app/action_registry/action_re
 export function register_help_actions(input: ActionRegistrationInput) {
   const { registry, stores } = input;
 
-  function set_help_open(open: boolean) {
-    stores.ui.help_dialog = { open };
-  }
-
   registry.register({
     id: ACTION_IDS.help_open,
     label: "Open Help",
-    execute: () => {
-      set_help_open(true);
+    execute: (guide?: unknown) => {
+      stores.ui.help_dialog = {
+        open: true,
+        guide: typeof guide === "string" ? guide : null,
+      };
     },
   });
 
@@ -20,7 +19,7 @@ export function register_help_actions(input: ActionRegistrationInput) {
     id: ACTION_IDS.help_close,
     label: "Close Help",
     execute: () => {
-      set_help_open(false);
+      stores.ui.help_dialog = { open: false, guide: null };
     },
   });
 }
