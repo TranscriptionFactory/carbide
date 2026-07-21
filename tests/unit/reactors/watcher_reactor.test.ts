@@ -1,4 +1,8 @@
+/**
+ * @vitest-environment jsdom
+ */
 import { describe, expect, it, vi } from "vitest";
+import { flushSync } from "svelte";
 import {
   create_watcher_reactor,
   resolve_watcher_event_decision,
@@ -45,8 +49,10 @@ function bg_tab(is_dirty: boolean): () => BackgroundTabInfo {
 }
 
 async function flush_effects() {
-  await Promise.resolve();
-  await Promise.resolve();
+  flushSync();
+  for (let i = 0; i < 5; i += 1) {
+    await Promise.resolve();
+  }
 }
 
 describe("watcher_reactor", () => {
