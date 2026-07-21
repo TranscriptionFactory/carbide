@@ -1,0 +1,14 @@
+
+> carbide@2.14.1 test /home/avocado/src/carbide
+> vitest run tests/unit/features/editor/ui/editor_status_bar.test.ts tests/unit/features/editor/ui/editor_status_bar.keyboard.test.ts tests/unit/stores/git_store.test.ts
+
+
+ RUN  v4.1.8 /home/avocado/src/carbide
+
+
+ Test Files  2 passed (2)
+      Tests  17 passed (17)
+   Start at  02:26:00
+   Duration  53.99s (transform 46.96s, setup 0ms, import 53.39s, tests 249ms, environment 770ms)
+
+EXIT=0

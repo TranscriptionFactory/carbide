@@ -1,0 +1,13 @@
+
+> carbide@2.14.1 test /home/avocado/src/carbide
+> vitest run --run tests/unit/stores/ui_right_panel_exclusion.test.ts tests/unit/actions/register_ui_actions.test.ts tests/unit/app/outline_docked_mode.test.ts
+
+
+ RUN  v4.1.8 /home/avocado/src/carbide
+
+
+ Test Files  2 passed (2)
+      Tests  15 passed (15)
+   Start at  07:33:23
+   Duration  30.10s (transform 26.70s, setup 0ms, import 31.10s, tests 16ms, environment 1ms)
+
