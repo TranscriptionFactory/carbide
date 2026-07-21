@@ -27,6 +27,15 @@ describe("build_clip_frontmatter", () => {
     );
     expect(frontmatter).toContain('title: "The \\"Best\\" Post"');
   });
+
+  it("escapes backslashes before quotes in the title", () => {
+    const frontmatter = build_clip_frontmatter(
+      'C:\\notes\\"draft"',
+      "https://example.com",
+      new Date(0),
+    );
+    expect(frontmatter).toContain('title: "C:\\\\notes\\\\\\"draft\\""');
+  });
 });
 
 describe("build_clip_provenance", () => {

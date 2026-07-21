@@ -105,6 +105,20 @@ the first consumer. `clip_fetch_asset` is the matching backend primitive.
 | 14 | Redirect chain > 5 hops | rejected | fetch_checked hop cap |
 | 15 | Extraction failure (trivial page) | falls back to body, still clips | extract_readable_content.test |
 
+## Deferred / known limitations
+
+- **DNS-rebind TOCTOU**: `resolve_and_check` validates DNS separately from
+  reqwest's own resolution, so a rebinding resolver could answer differently
+  between the check and the request. Pre-existing (also affects
+  plugin_http_fetch); proper fix is pinning the checked IP via reqwest
+  `.resolve()`.
+- **Embedded-IPv4 forms**: IPv4-mapped (`::ffff:a.b.c.d`) is unmapped and
+  checked, but NAT64 `64:ff9b::/96` and 6to4 `2002::/16` embedded-v4 forms
+  are not decoded.
+- **Partial outputs on mid-emit failure**: a fetch-stage failure produces no
+  outputs, but if a later emitter fails (e.g. epub write after the note
+  imported), earlier outputs stay on disk; no rollback.
+
 ## Non-goals
 
 Full-page archival/snapshot-on-trust (separate roadmap; primitive shared),

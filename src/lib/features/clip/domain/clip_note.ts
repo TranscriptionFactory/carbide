@@ -21,7 +21,7 @@ export function build_clip_frontmatter(
   source_url: string,
   clipped_at: Date,
 ): string {
-  const safe_title = title.replace(/"/g, '\\"');
+  const safe_title = title.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
   const date = clipped_at.toISOString().slice(0, 10);
   return `---\ntitle: "${safe_title}"\ndate_created: ${date}\nsource: ${source_url}\nclipped_at: ${clipped_at.toISOString()}\n---\n\n`;
 }

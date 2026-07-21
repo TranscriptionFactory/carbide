@@ -263,7 +263,7 @@ export class ClipService {
       this.relative_mapping(artifact_anchor, localized),
     );
     const sanitized = sanitize_html(rewritten);
-    const safe_title = title.replace(/</g, "&lt;");
+    const safe_title = title.replace(/&/g, "&amp;").replace(/</g, "&lt;");
     const html = `<title>${safe_title}</title>\n${sanitized}`;
     const saved = await this.document_service.save_html_artifact(
       folder_path,
@@ -336,7 +336,7 @@ function media_type_for_ext(ext: string): string {
   }
 }
 
-function to_xhtml_document(title: string, body_html: string): string {
+export function to_xhtml_document(title: string, body_html: string): string {
   const doc = new DOMParser().parseFromString(
     `<html><head><meta charset="utf-8"/><title></title></head><body>${body_html}</body></html>`,
     "text/html",

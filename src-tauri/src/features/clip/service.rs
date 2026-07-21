@@ -66,6 +66,7 @@ pub async fn clip_fetch_page(url: String) -> Result<ClipPage, String> {
         return Err(format!("Unsupported content type: {mime}"));
     }
 
+    check_declared_length(&response, MAX_PAGE_BYTES, "Page")?;
     let bytes = response
         .bytes()
         .await
@@ -101,6 +102,7 @@ pub async fn clip_fetch_asset(url: String) -> Result<ClipAsset, String> {
     let content_type = response_content_type(response.headers());
     let mime = mime_essence(&content_type);
 
+    check_declared_length(&response, MAX_ASSET_BYTES, "Asset")?;
     let bytes = response
         .bytes()
         .await
@@ -144,6 +146,17 @@ pub fn clip_write_epub(
 
     let epub = build_epub(&input, &images)?;
     io_utils::atomic_write(&abs, epub)
+}
+
+fn check_declared_length(
+    response: &reqwest::Response,
+    cap: usize,
+    label: &str,
+) -> Result<(), String> {
+    match response.content_length() {
+        Some(length) if length > cap as u64 => Err(format!("{label} exceeds {cap} byte limit")),
+        _ => Ok(()),
+    }
 }
 
 fn response_content_type(headers: &HeaderMap) -> String {

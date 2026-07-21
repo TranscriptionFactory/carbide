@@ -56,6 +56,9 @@ fn is_private_ip(ip: IpAddr) -> bool {
                 || v4.is_broadcast()
         }
         IpAddr::V6(v6) => {
+            if let Some(v4) = v6.to_ipv4_mapped() {
+                return is_private_ip(IpAddr::V4(v4));
+            }
             v6.is_loopback()
                 || v6.is_unspecified()
                 || (v6.segments()[0] & 0xfe00) == 0xfc00
@@ -307,6 +310,24 @@ mod tests {
             let url = url::Url::parse(addr).unwrap();
             assert!(check_ssrf(&url).is_err(), "{addr} should be blocked");
         }
+    }
+
+    #[test]
+    fn blocks_ipv4_mapped_ipv6_private_addresses() {
+        for addr in &[
+            "http://[::ffff:169.254.169.254]/",
+            "http://[::ffff:127.0.0.1]/",
+            "http://[::ffff:10.0.0.1]/",
+        ] {
+            let url = url::Url::parse(addr).unwrap();
+            assert!(check_ssrf(&url).is_err(), "{addr} should be blocked");
+        }
+    }
+
+    #[test]
+    fn allows_ipv4_mapped_ipv6_public_address() {
+        let url = url::Url::parse("http://[::ffff:8.8.8.8]/").unwrap();
+        assert!(check_ssrf(&url).is_ok());
     }
 
     #[test]
