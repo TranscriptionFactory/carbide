@@ -168,13 +168,20 @@ export function create_watcher_reactor(
       return { is_dirty: tab.is_dirty };
     }
 
+    function self_write_path(event: VaultFsEvent): string | null {
+      if (event.type === "note_changed_externally") return event.note_path;
+      if (event.type === "asset_changed") return event.asset_path;
+      return null;
+    }
+
     function handle_event(event: VaultFsEvent) {
+      const written_path = self_write_path(event);
       if (
-        event.type === "note_changed_externally" &&
-        watcher_service.is_suppressed(event.note_path)
+        written_path !== null &&
+        watcher_service.is_suppressed(written_path)
       ) {
         log.info("Suppressed self-triggered event", {
-          path: event.note_path,
+          path: written_path,
         });
         return;
       }

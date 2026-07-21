@@ -92,6 +92,41 @@ describe("WatcherService", () => {
     expect(service.is_suppressed("notes/test.md")).toBe(true);
   });
 
+  it("suppresses the atomic-write .tmp sibling of a suppressed path", () => {
+    const { service } = setup();
+
+    service.suppress_next("notes/test.md");
+
+    expect(service.is_suppressed("notes/test.md.tmp")).toBe(true);
+  });
+
+  it("matches .tmp siblings case-insensitively", () => {
+    const { service } = setup();
+
+    service.suppress_next("Notes/Test.md");
+
+    expect(service.is_suppressed("notes/test.md.TMP")).toBe(true);
+  });
+
+  it("does not suppress .tmp siblings of unsuppressed paths", () => {
+    const { service } = setup();
+
+    service.suppress_next("notes/test.md");
+
+    expect(service.is_suppressed("notes/other.md.tmp")).toBe(false);
+  });
+
+  it(".tmp sibling suppression expires with the window", () => {
+    vi.useFakeTimers();
+    const { service } = setup();
+
+    service.suppress_next("notes/test.md");
+    vi.advanceTimersByTime(10_001);
+
+    expect(service.is_suppressed("notes/test.md.tmp")).toBe(false);
+    vi.useRealTimers();
+  });
+
   it("multiple suppress_next calls extend the suppression window", () => {
     vi.useFakeTimers();
     const { service } = setup();

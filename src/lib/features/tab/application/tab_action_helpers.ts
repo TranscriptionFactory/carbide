@@ -6,6 +6,7 @@ import {
   parent_folder_path,
   paths_equal_ignore_case,
 } from "$lib/shared/utils/path";
+import { tauri_invoke } from "$lib/shared/adapters/tauri_invoke";
 import { toast } from "svelte-sonner";
 
 type BatchCloseMode = "all" | "other" | "right";
@@ -219,7 +220,7 @@ export function reset_close_confirm(stores: ActionRegistrationInput["stores"]) {
 export function start_batch_close_confirm(
   stores: ActionRegistrationInput["stores"],
   dirty_tabs: Tab[],
-  close_mode: "all" | "other" | "right",
+  close_mode: "all" | "other" | "right" | "quit",
   keep_tab_id: string | null,
 ) {
   const first = dirty_tabs[0];
@@ -293,12 +294,21 @@ export async function save_dirty_tab(
   return "failed";
 }
 
+export async function confirm_window_close(): Promise<void> {
+  await tauri_invoke("confirm_window_close");
+}
+
 export async function execute_batch_close(
   input: ActionRegistrationInput,
 ): Promise<void> {
   const { stores } = input;
   const { close_mode, keep_tab_id } = stores.ui.tab_close_confirm;
   if (close_mode === "single") {
+    return;
+  }
+  if (close_mode === "quit") {
+    reset_close_confirm(stores);
+    await confirm_window_close();
     return;
   }
   const tabs_to_close = list_tabs_for_batch_close(

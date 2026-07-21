@@ -805,7 +805,7 @@ export class NoteService {
     session: SaveSession,
     open_note: OpenEditorNote,
   ) {
-    this.on_file_written?.(open_note.meta.id);
+    this.on_file_written?.(open_note.meta.path);
     let new_mtime: number;
     if (this.vault_store.is_vault_mode) {
       const result = await this.notes_port.write_and_index_note(
@@ -830,7 +830,6 @@ export class NoteService {
       );
     }
     session.editor_store.mark_clean(open_note.meta.id, new_mtime);
-    this.on_file_written?.(open_note.meta.id);
     this.propagate_mtime_to_other_pane(session, open_note.meta.id, new_mtime);
     this.sync_split_view_session(session);
   }

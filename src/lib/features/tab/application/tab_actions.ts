@@ -5,6 +5,7 @@ import {
   capture_active_tab_snapshot,
   close_editor_buffers,
   close_tab_immediate,
+  confirm_window_close,
   ensure_tab_capacity,
   execute_batch_close,
   list_tabs_for_batch_close,
@@ -487,6 +488,30 @@ export function register_tab_actions(input: ActionRegistrationInput) {
     label: "Cancel Close Tab",
     execute: () => {
       reset_close_confirm(stores);
+    },
+  });
+
+  registry.register({
+    id: ACTION_IDS.app_close_requested,
+    label: "Close Window",
+    execute: async () => {
+      services.editor.flush();
+      const dirty = stores.tab.get_dirty_tabs();
+      const open_note = stores.editor.open_note;
+      const active_tab = stores.tab.active_tab;
+      if (
+        open_note?.is_dirty &&
+        active_tab?.kind === "note" &&
+        active_tab.note_path === open_note.meta.path &&
+        !dirty.some((tab) => tab.id === active_tab.id)
+      ) {
+        dirty.unshift(active_tab);
+      }
+      if (dirty.length === 0) {
+        await confirm_window_close();
+        return;
+      }
+      start_batch_close_confirm(stores, dirty, "quit", null);
     },
   });
 

@@ -889,6 +889,7 @@ dependencies = [
  "tauri-plugin-dialog",
  "tauri-plugin-log",
  "tauri-plugin-opener",
+ "tauri-plugin-process",
  "tauri-plugin-pty",
  "tauri-plugin-single-instance",
  "tauri-plugin-updater",
@@ -910,7 +911,7 @@ dependencies = [
 
 [[package]]
 name = "carbide-cli"
-version = "2.13.0"
+version = "2.15.0"
 dependencies = [
  "clap",
  "clap_complete",
@@ -7324,6 +7325,16 @@ dependencies = [
  "url",
  "windows 0.61.3",
  "zbus",
+]
+
+[[package]]
+name = "tauri-plugin-process"
+version = "2.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d55511a7bf6cd70c8767b02c97bf8134fa434daf3926cfc1be0a0f94132d165a"
+dependencies = [
+ "tauri",
+ "tauri-plugin",
 ]
 
 [[package]]
