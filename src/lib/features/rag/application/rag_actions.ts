@@ -94,7 +94,8 @@ export function register_rag_actions(
     const title = await rag_service.generate_title(provider, session.messages);
     if (title === null) return;
     if (revision !== rag_store.revision) return;
-    if (!rag_store.sessions.some((s) => s.id === session_id)) return;
+    const live = rag_store.sessions.find((s) => s.id === session_id);
+    if (!live || !should_autotitle(live)) return;
     rag_store.rename_session(session_id, title, "generated");
     persist_session(session_id);
   }
