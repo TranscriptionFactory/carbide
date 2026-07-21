@@ -1,103 +1,55 @@
 import { describe, expect, it, vi } from "vitest";
-import { ActionRegistry } from "$lib/app/action_registry/action_registry";
 import { ACTION_IDS } from "$lib/app/action_registry/action_ids";
 import { register_omnibar_actions } from "$lib/features/search/application/omnibar_actions";
-import { UIStore } from "$lib/app/orchestration/ui_store.svelte";
-import { VaultStore } from "$lib/features/vault/state/vault_store.svelte";
-import { NotesStore } from "$lib/features/note/state/note_store.svelte";
-import { EditorStore } from "$lib/features/editor/state/editor_store.svelte";
-import { OpStore } from "$lib/app/orchestration/op_store.svelte";
-import { SearchStore } from "$lib/features/search/state/search_store.svelte";
-import { TabStore } from "$lib/features/tab/state/tab_store.svelte";
-import { GitStore } from "$lib/features/git/state/git_store.svelte";
-import { BasesStore } from "$lib/features/bases/state/bases_store.svelte";
-import { TaskStore } from "$lib/features/task/state/task_store.svelte";
-import { GraphStore } from "$lib/features/graph";
-import { OutlineStore } from "$lib/features/outline";
+import { create_note_routing_harness } from "../helpers/note_routing_harness";
 import type { OmnibarItem } from "$lib/shared/types/search";
-import { as_note_path } from "$lib/shared/types/ids";
+import { as_note_path, as_vault_id } from "$lib/shared/types/ids";
+
+vi.mock("svelte-sonner", () => ({
+  toast: {
+    success: vi.fn(),
+    error: vi.fn(),
+    info: vi.fn(),
+    warning: vi.fn(),
+    loading: vi.fn().mockReturnValue("toast-id"),
+    dismiss: vi.fn(),
+  },
+}));
 
 function create_harness() {
-  const registry = new ActionRegistry();
-  const stores = {
-    ui: new UIStore(),
-    vault: new VaultStore(),
-    notes: new NotesStore(),
-    editor: new EditorStore(),
-    op: new OpStore(),
-    search: new SearchStore(),
-    tab: new TabStore(),
-    git: new GitStore(),
-    bases: new BasesStore(),
-    task: new TaskStore(),
-    graph: new GraphStore(),
-    outline: new OutlineStore(),
-  };
-
-  const resolve_linked_note_file_path = vi
-    .fn()
-    .mockResolvedValue(null as string | null);
-
-  const services = {
-    search: {
-      search_omnibar: vi.fn().mockResolvedValue({ items: [] }),
-      search_notes_all_vaults: vi.fn().mockResolvedValue({ groups: [] }),
-      reset_search_notes_operation: vi.fn(),
-    },
-    reference: {
-      resolve_linked_note_file_path,
-    },
-  };
+  const harness = create_note_routing_harness();
 
   register_omnibar_actions({
-    registry,
-    stores,
-    services: services as never,
+    registry: harness.registry,
+    stores: harness.stores,
+    services: harness.services as never,
     default_mount_config: {
       reset_app_state: false,
       bootstrap_default_vault_path: null,
     },
   } as never);
 
-  const document_open = vi.fn().mockResolvedValue(undefined);
-  const note_open = vi.fn().mockResolvedValue(undefined);
+  return harness;
+}
 
-  registry.register({
-    id: ACTION_IDS.document_open,
-    label: "Open Document",
-    execute: document_open,
-  });
-
-  registry.register({
-    id: ACTION_IDS.note_open,
-    label: "Open Note",
-    execute: note_open,
-  });
-
+function make_note(path: string) {
   return {
-    registry,
-    stores,
-    services,
-    document_open,
-    note_open,
-    resolve_linked_note_file_path,
+    id: as_note_path(path),
+    path: as_note_path(path),
+    name: path.split("/").at(-1) ?? path,
+    title: path,
+    blurb: "",
+    mtime_ms: 0,
+    ctime_ms: 0,
+    size_bytes: 0,
+    file_type: null,
   };
 }
 
 function make_note_item(path: string): OmnibarItem {
   return {
     kind: "note",
-    note: {
-      id: as_note_path(path),
-      path: as_note_path(path),
-      name: path.split("/").at(-1) ?? path,
-      title: path,
-      blurb: "",
-      mtime_ms: 0,
-      ctime_ms: 0,
-      size_bytes: 0,
-      file_type: null,
-    },
+    note: make_note(path),
     score: 1,
     snippet: undefined,
   };
@@ -106,23 +58,24 @@ function make_note_item(path: string): OmnibarItem {
 function make_recent_note_item(path: string): OmnibarItem {
   return {
     kind: "recent_note",
-    note: {
-      id: as_note_path(path),
-      path: as_note_path(path),
-      name: path.split("/").at(-1) ?? path,
-      title: path,
-      blurb: "",
-      mtime_ms: 0,
-      ctime_ms: 0,
-      size_bytes: 0,
-      file_type: null,
-    },
+    note: make_note(path),
   };
 }
 
-describe("omnibar confirm_item routing", () => {
+function make_cross_vault_item(path: string, vault_id: string): OmnibarItem {
+  return {
+    kind: "cross_vault_note",
+    note: make_note(path),
+    vault_id: as_vault_id(vault_id),
+    vault_name: vault_id,
+    score: 1,
+    snippet: undefined,
+  };
+}
+
+describe("omnibar confirm_item routing through note_open", () => {
   it("routes a note item with a .pdf path to document_open", async () => {
-    const { registry, document_open, note_open } = create_harness();
+    const { registry, document_open, services } = create_harness();
 
     await registry.execute(
       ACTION_IDS.omnibar_confirm_item,
@@ -132,40 +85,67 @@ describe("omnibar confirm_item routing", () => {
     expect(document_open).toHaveBeenCalledWith({
       file_path: as_note_path("docs/report.pdf"),
     });
-    expect(note_open).not.toHaveBeenCalled();
+    expect(services.note.open_note).not.toHaveBeenCalled();
   });
 
-  it("routes a note item with no recognized document extension to note_open", async () => {
-    const { registry, document_open, note_open } = create_harness();
+  it("routes a note item with a .sh path to document_open", async () => {
+    const { registry, document_open, services } = create_harness();
+
+    await registry.execute(
+      ACTION_IDS.omnibar_confirm_item,
+      make_note_item("scripts/setup.sh"),
+    );
+
+    expect(document_open).toHaveBeenCalledWith({
+      file_path: as_note_path("scripts/setup.sh"),
+    });
+    expect(services.note.open_note).not.toHaveBeenCalled();
+  });
+
+  it("opens a note item with a .md path in the editor", async () => {
+    const { registry, document_open, services } = create_harness();
+
+    await registry.execute(
+      ACTION_IDS.omnibar_confirm_item,
+      make_note_item("docs/guide.md"),
+    );
+
+    expect(services.note.open_note).toHaveBeenCalledWith(
+      as_note_path("docs/guide.md"),
+      false,
+      { cleanup_if_missing: true },
+    );
+    expect(document_open).not.toHaveBeenCalled();
+  });
+
+  it("opens a note item with no recognized document extension in the editor", async () => {
+    const { registry, document_open, services } = create_harness();
 
     await registry.execute(
       ACTION_IDS.omnibar_confirm_item,
       make_note_item("docs/readme"),
     );
 
-    expect(note_open).toHaveBeenCalledWith({
-      note_path: as_note_path("docs/readme"),
-      cleanup_if_missing: true,
-    });
+    expect(services.note.open_note).toHaveBeenCalledWith(
+      as_note_path("docs/readme"),
+      false,
+      { cleanup_if_missing: true },
+    );
     expect(document_open).not.toHaveBeenCalled();
   });
 
   it("resolves linked note PDF via reference service and dispatches document_open", async () => {
-    const {
-      registry,
-      document_open,
-      note_open,
-      resolve_linked_note_file_path,
-    } = create_harness();
+    const { registry, document_open, services, resolve_linked_note_file_path } =
+      create_harness();
 
     resolve_linked_note_file_path.mockResolvedValue(
       "/Users/abir/Zotero/storage/paper.pdf",
     );
 
-    const item = make_note_item("@linked/zotero/paper.pdf");
-    if (item.kind === "note") item.note.file_type = "pdf";
-
-    await registry.execute(ACTION_IDS.omnibar_confirm_item, item);
+    await registry.execute(
+      ACTION_IDS.omnibar_confirm_item,
+      make_note_item("@linked/zotero/paper.pdf"),
+    );
 
     expect(resolve_linked_note_file_path).toHaveBeenCalledWith(
       as_note_path("@linked/zotero/paper.pdf"),
@@ -173,11 +153,27 @@ describe("omnibar confirm_item routing", () => {
     expect(document_open).toHaveBeenCalledWith({
       file_path: "/Users/abir/Zotero/storage/paper.pdf",
     });
-    expect(note_open).not.toHaveBeenCalled();
+    expect(services.note.open_note).not.toHaveBeenCalled();
+  });
+
+  it("shell-opens a linked note that resolves to a markdown file", async () => {
+    const { registry, document_open, services, resolve_linked_note_file_path } =
+      create_harness();
+
+    resolve_linked_note_file_path.mockResolvedValue("/external/notes.md");
+
+    await registry.execute(
+      ACTION_IDS.omnibar_confirm_item,
+      make_note_item("@linked/zotero/notes.md"),
+    );
+
+    expect(services.shell.open_path).toHaveBeenCalledWith("/external/notes.md");
+    expect(document_open).not.toHaveBeenCalled();
+    expect(services.note.open_note).not.toHaveBeenCalled();
   });
 
   it("routes a recent_note item with a .pdf path to document_open", async () => {
-    const { registry, document_open, note_open } = create_harness();
+    const { registry, document_open, services } = create_harness();
 
     await registry.execute(
       ACTION_IDS.omnibar_confirm_item,
@@ -187,6 +183,54 @@ describe("omnibar confirm_item routing", () => {
     expect(document_open).toHaveBeenCalledWith({
       file_path: as_note_path("archive/notes.pdf"),
     });
-    expect(note_open).not.toHaveBeenCalled();
+    expect(services.note.open_note).not.toHaveBeenCalled();
+  });
+
+  it("routes a same-vault cross_vault_note .pdf to document_open", async () => {
+    const { registry, document_open, services } = create_harness();
+
+    await registry.execute(
+      ACTION_IDS.omnibar_confirm_item,
+      make_cross_vault_item("docs/report.pdf", "vault-1"),
+    );
+
+    expect(document_open).toHaveBeenCalledWith({
+      file_path: as_note_path("docs/report.pdf"),
+    });
+    expect(services.note.open_note).not.toHaveBeenCalled();
+  });
+
+  it("opens a same-vault cross_vault_note .md in the editor", async () => {
+    const { registry, document_open, services } = create_harness();
+
+    await registry.execute(
+      ACTION_IDS.omnibar_confirm_item,
+      make_cross_vault_item("docs/alpha.md", "vault-1"),
+    );
+
+    expect(services.note.open_note).toHaveBeenCalledWith(
+      as_note_path("docs/alpha.md"),
+      false,
+      { cleanup_if_missing: true },
+    );
+    expect(document_open).not.toHaveBeenCalled();
+  });
+
+  it("shows the cross-vault confirm dialog without opening for another vault", async () => {
+    const { registry, document_open, services, stores } = create_harness();
+
+    await registry.execute(
+      ACTION_IDS.omnibar_confirm_item,
+      make_cross_vault_item("docs/beta.md", "vault-b"),
+    );
+
+    expect(stores.ui.cross_vault_open_confirm).toEqual({
+      open: true,
+      target_vault_id: as_vault_id("vault-b"),
+      target_vault_name: "vault-b",
+      note_path: as_note_path("docs/beta.md"),
+    });
+    expect(services.note.open_note).not.toHaveBeenCalled();
+    expect(document_open).not.toHaveBeenCalled();
   });
 });
