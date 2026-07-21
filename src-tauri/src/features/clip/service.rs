@@ -1,4 +1,4 @@
-use reqwest::header::{HeaderMap, HeaderValue, CONTENT_TYPE, USER_AGENT};
+use reqwest::header::{HeaderMap, HeaderValue, ACCEPT, ACCEPT_LANGUAGE, CONTENT_TYPE, USER_AGENT};
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use std::io::Write;
@@ -20,6 +20,13 @@ const BROWSER_USER_AGENT: &str = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/53
 fn browser_headers() -> HeaderMap {
     let mut headers = HeaderMap::new();
     headers.insert(USER_AGENT, HeaderValue::from_static(BROWSER_USER_AGENT));
+    headers.insert(
+        ACCEPT,
+        HeaderValue::from_static(
+            "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+        ),
+    );
+    headers.insert(ACCEPT_LANGUAGE, HeaderValue::from_static("en-US,en;q=0.9"));
     headers
 }
 
@@ -66,7 +73,7 @@ pub async fn clip_fetch_page(url: String) -> Result<ClipPage, String> {
     .await?;
 
     if !response.status().is_success() {
-        return Err(format!("Request failed with status {}", response.status()));
+        return Err(status_error(response.status()));
     }
 
     let final_url = response.url().to_string();
@@ -106,7 +113,7 @@ pub async fn clip_fetch_asset(url: String) -> Result<ClipAsset, String> {
     .await?;
 
     if !response.status().is_success() {
-        return Err(format!("Request failed with status {}", response.status()));
+        return Err(status_error(response.status()));
     }
 
     let content_type = response_content_type(response.headers());
@@ -156,6 +163,19 @@ pub fn clip_write_epub(
 
     let epub = build_epub(&input, &images)?;
     io_utils::atomic_write(&abs, epub)
+}
+
+// Anti-bot CDNs (Cloudflare, archive.ph, ...) answer non-interactive clients
+// with 403/429 CAPTCHA interstitials regardless of headers, so those statuses
+// usually mean "blocked", not "retry later".
+fn status_error(status: reqwest::StatusCode) -> String {
+    match status.as_u16() {
+        403 | 429 => format!(
+            "Site blocked the request ({status}). It likely requires an interactive \
+             browser (CAPTCHA / bot protection), so it cannot be clipped directly."
+        ),
+        _ => format!("Request failed with status {status}"),
+    }
 }
 
 fn check_declared_length(
@@ -425,14 +445,33 @@ mod tests {
     }
 
     #[test]
+    fn status_error_explains_bot_blocks() {
+        let blocked = status_error(reqwest::StatusCode::TOO_MANY_REQUESTS);
+        assert!(blocked.contains("429"));
+        assert!(blocked.contains("bot protection"));
+        let forbidden = status_error(reqwest::StatusCode::FORBIDDEN);
+        assert!(forbidden.contains("bot protection"));
+        assert_eq!(
+            status_error(reqwest::StatusCode::NOT_FOUND),
+            "Request failed with status 404 Not Found"
+        );
+    }
+
+    #[test]
     fn sniffs_image_magic_bytes() {
         assert_eq!(
             sniff_image_mime(b"\x89PNG\r\n\x1a\nrest"),
             Some("image/png")
         );
-        assert_eq!(sniff_image_mime(&[0xFF, 0xD8, 0xFF, 0xE0]), Some("image/jpeg"));
+        assert_eq!(
+            sniff_image_mime(&[0xFF, 0xD8, 0xFF, 0xE0]),
+            Some("image/jpeg")
+        );
         assert_eq!(sniff_image_mime(b"GIF89a-rest"), Some("image/gif"));
-        assert_eq!(sniff_image_mime(b"RIFF\x00\x00\x00\x00WEBPVP8 "), Some("image/webp"));
+        assert_eq!(
+            sniff_image_mime(b"RIFF\x00\x00\x00\x00WEBPVP8 "),
+            Some("image/webp")
+        );
         assert_eq!(sniff_image_mime(b"<html></html>"), None);
     }
 }
