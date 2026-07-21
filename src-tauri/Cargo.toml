@@ -87,7 +87,8 @@ keyring = { version = "4.1.5", features = ["apple-native-keyring-store"] }
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2 = "0.6"
 objc2-foundation = "0.3"
-objc2-web-kit = { version = "0.3", features = ["WKWebView", "objc2-app-kit"] }
+objc2-web-kit = { version = "0.3", features = ["WKWebView", "objc2-app-kit", "block2"] }
+block2 = "0.6"
 objc2-app-kit = { version = "0.3", features = ["NSPrintInfo", "NSPrintOperation", "NSView", "NSWindow"] }
 candle-core = { version = "0.9", default-features = false, features = ["accelerate", "metal"] }
 candle-nn = { version = "0.9", default-features = false, features = ["accelerate", "metal"] }

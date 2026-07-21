@@ -67,7 +67,7 @@ fn is_private_ip(ip: IpAddr) -> bool {
     }
 }
 
-fn check_ssrf(url: &url::Url) -> Result<(), String> {
+pub(crate) fn check_ssrf(url: &url::Url) -> Result<(), String> {
     let scheme = url.scheme();
     if scheme != "http" && scheme != "https" {
         return Err(format!("Unsupported URL scheme: {scheme}"));
