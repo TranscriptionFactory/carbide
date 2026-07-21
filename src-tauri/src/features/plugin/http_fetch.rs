@@ -33,11 +33,14 @@ pub struct PluginHttpResponse {
     pub ok: bool,
 }
 
-fn http_client() -> &'static reqwest::Client {
+// Redirects are followed manually in fetch_checked so every hop gets SSRF +
+// DNS re-validation; reqwest's Policy::custom is sync and cannot await DNS.
+fn no_redirect_client() -> &'static reqwest::Client {
     static CLIENT: OnceLock<reqwest::Client> = OnceLock::new();
     CLIENT.get_or_init(|| {
         reqwest::Client::builder()
             .user_agent("Carbide-Plugin/1.0")
+            .redirect(reqwest::redirect::Policy::none())
             .build()
             .expect("Failed to build HTTP client")
     })
@@ -52,7 +55,12 @@ fn is_private_ip(ip: IpAddr) -> bool {
                 || v4.is_unspecified()
                 || v4.is_broadcast()
         }
-        IpAddr::V6(v6) => v6.is_loopback() || v6.is_unspecified(),
+        IpAddr::V6(v6) => {
+            v6.is_loopback()
+                || v6.is_unspecified()
+                || (v6.segments()[0] & 0xfe00) == 0xfc00
+                || (v6.segments()[0] & 0xffc0) == 0xfe80
+        }
     }
 }
 
@@ -86,6 +94,69 @@ fn check_ssrf(url: &url::Url) -> Result<(), String> {
     Ok(())
 }
 
+const MAX_REDIRECT_HOPS: usize = 5;
+
+fn next_redirect_url(current: &url::Url, location: &str) -> Result<url::Url, String> {
+    current
+        .join(location)
+        .map_err(|e| format!("Invalid redirect location: {e}"))
+}
+
+async fn check_url_allowed(url: &url::Url) -> Result<(), String> {
+    check_ssrf(url)?;
+    if let Some(url::Host::Domain(domain)) = url.host() {
+        let port = url.port_or_known_default().unwrap_or(443);
+        resolve_and_check(domain, port).await?;
+    }
+    Ok(())
+}
+
+pub(crate) async fn fetch_checked(
+    method: reqwest::Method,
+    url: url::Url,
+    headers: HeaderMap,
+    body: Option<String>,
+    timeout: std::time::Duration,
+) -> Result<reqwest::Response, String> {
+    let mut current = url;
+    let mut method = method;
+    let mut body = body;
+
+    for _ in 0..=MAX_REDIRECT_HOPS {
+        check_url_allowed(&current).await?;
+
+        let mut req_builder = no_redirect_client()
+            .request(method.clone(), current.clone())
+            .headers(headers.clone())
+            .timeout(timeout);
+        if let Some(ref b) = body {
+            req_builder = req_builder.body(b.clone());
+        }
+
+        let response = req_builder
+            .send()
+            .await
+            .map_err(|e| format!("HTTP request failed: {e}"))?;
+
+        if !response.status().is_redirection() {
+            return Ok(response);
+        }
+
+        let location = response
+            .headers()
+            .get(reqwest::header::LOCATION)
+            .and_then(|v| v.to_str().ok())
+            .ok_or_else(|| "Redirect response missing Location header".to_string())?;
+        current = next_redirect_url(&current, location)?;
+        if response.status() == reqwest::StatusCode::SEE_OTHER {
+            method = reqwest::Method::GET;
+            body = None;
+        }
+    }
+
+    Err(format!("Redirect chain exceeded {MAX_REDIRECT_HOPS} hops"))
+}
+
 async fn resolve_and_check(host: &str, port: u16) -> Result<(), String> {
     let addr = format!("{host}:{port}");
     let resolved: Vec<std::net::SocketAddr> = tokio::net::lookup_host(&addr)
@@ -114,13 +185,6 @@ async fn resolve_and_check(host: &str, port: u16) -> Result<(), String> {
 pub async fn plugin_http_fetch(request: PluginHttpRequest) -> Result<PluginHttpResponse, String> {
     let parsed_url = url::Url::parse(&request.url).map_err(|e| format!("Invalid URL: {e}"))?;
 
-    check_ssrf(&parsed_url)?;
-
-    if let Some(url::Host::Domain(domain)) = parsed_url.host() {
-        let port = parsed_url.port_or_known_default().unwrap_or(443);
-        resolve_and_check(&domain, port).await?;
-    }
-
     if let Some(ref body) = request.body {
         if body.len() > MAX_REQUEST_BODY_BYTES {
             return Err(format!(
@@ -145,19 +209,14 @@ pub async fn plugin_http_fetch(request: PluginHttpRequest) -> Result<PluginHttpR
         }
     }
 
-    let mut req_builder = http_client()
-        .request(method, parsed_url)
-        .headers(headers)
-        .timeout(std::time::Duration::from_secs(30));
-
-    if let Some(body) = request.body {
-        req_builder = req_builder.body(body);
-    }
-
-    let response = req_builder
-        .send()
-        .await
-        .map_err(|e| format!("HTTP request failed: {e}"))?;
+    let response = fetch_checked(
+        method,
+        parsed_url,
+        headers,
+        request.body,
+        std::time::Duration::from_secs(30),
+    )
+    .await?;
 
     let status = response.status().as_u16();
     let ok = response.status().is_success();
@@ -240,5 +299,35 @@ mod tests {
     fn blocks_dot_local() {
         let url = url::Url::parse("http://myhost.local/api").unwrap();
         assert!(check_ssrf(&url).is_err());
+    }
+
+    #[test]
+    fn blocks_ipv6_unique_local_and_link_local() {
+        for addr in &["http://[fc00::1]/", "http://[fd12:3456::1]/", "http://[fe80::1]/"] {
+            let url = url::Url::parse(addr).unwrap();
+            assert!(check_ssrf(&url).is_err(), "{addr} should be blocked");
+        }
+    }
+
+    #[test]
+    fn allows_public_ipv6() {
+        let url = url::Url::parse("http://[2606:4700::1111]/").unwrap();
+        assert!(check_ssrf(&url).is_ok());
+    }
+
+    #[test]
+    fn resolves_relative_redirect_location() {
+        let current = url::Url::parse("https://example.com/a/b").unwrap();
+        let next = next_redirect_url(&current, "/c/d").unwrap();
+        assert_eq!(next.as_str(), "https://example.com/c/d");
+        let next = next_redirect_url(&current, "e").unwrap();
+        assert_eq!(next.as_str(), "https://example.com/a/e");
+    }
+
+    #[test]
+    fn redirect_to_private_target_fails_ssrf_check() {
+        let current = url::Url::parse("https://example.com/start").unwrap();
+        let next = next_redirect_url(&current, "http://169.254.169.254/latest").unwrap();
+        assert!(check_ssrf(&next).is_err());
     }
 }
