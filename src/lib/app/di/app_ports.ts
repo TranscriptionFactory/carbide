@@ -1,4 +1,5 @@
 import type { AssetsPort, NotesPort } from "$lib/features/note";
+import type { ClipPort } from "$lib/features/clip";
 import type { ClipboardPort } from "$lib/features/clipboard";
 import type { EditorPort } from "$lib/features/editor";
 import type { SearchPort, WorkspaceIndexPort } from "$lib/features/search";
@@ -53,6 +54,7 @@ export type Ports = {
   storage: StoragePort;
   vault_settings: VaultSettingsPort;
   assets: AssetsPort;
+  clip: ClipPort;
   editor: EditorPort;
   clipboard: ClipboardPort;
   shell: ShellPort;
