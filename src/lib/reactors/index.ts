@@ -29,6 +29,7 @@ import { create_bases_counts_reactor } from "$lib/reactors/bases_counts.reactor.
 import { create_types_refresh_reactor } from "$lib/reactors/types_refresh.reactor.svelte";
 import { create_task_sync_reactor } from "$lib/reactors/task_sync.reactor.svelte";
 import { create_menu_action_reactor } from "$lib/reactors/menu_action.reactor.svelte";
+import { create_window_close_reactor } from "$lib/reactors/window_close.reactor.svelte";
 import { create_embedding_model_loaded_reactor } from "$lib/reactors/embedding_model_loaded.reactor.svelte";
 import { create_related_panel_refresh_reactor } from "$lib/reactors/related_panel_refresh.reactor.svelte";
 import { create_lint_reactor } from "$lib/reactors/lint.reactor.svelte";
@@ -343,6 +344,10 @@ export function mount_reactors(context: ReactorContext): ReactorHandles {
     ),
     create_menu_action_reactor(
       (action_id) => void context.action_registry.execute(action_id),
+    ),
+    create_window_close_reactor(
+      () =>
+        void context.action_registry.execute(ACTION_IDS.app_close_requested),
     ),
     create_embedding_model_loaded_reactor(
       context.vault_store,

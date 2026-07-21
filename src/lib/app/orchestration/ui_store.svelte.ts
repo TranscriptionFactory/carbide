@@ -169,7 +169,7 @@ const INITIAL_TAB_CLOSE_CONFIRM = {
   tab_id: null as string | null,
   tab_title: "",
   pending_dirty_tab_ids: [] as string[],
-  close_mode: "single" as "single" | "all" | "other" | "right",
+  close_mode: "single" as "single" | "all" | "other" | "right" | "quit",
   keep_tab_id: null as string | null,
   apply_to_all: false,
 };
@@ -402,7 +402,7 @@ export class UIStore {
     tab_id: string | null;
     tab_title: string;
     pending_dirty_tab_ids: string[];
-    close_mode: "single" | "all" | "other" | "right";
+    close_mode: "single" | "all" | "other" | "right" | "quit";
     keep_tab_id: string | null;
     apply_to_all: boolean;
   }>({ ...INITIAL_TAB_CLOSE_CONFIRM });
