@@ -34,6 +34,10 @@ function create_test_ai_adapter(): AiPort {
         output: "",
         error: null,
       }),
+    set_api_key: () => Promise.resolve(),
+    delete_api_key: () => Promise.resolve(),
+    get_api_key_hint: () => Promise.resolve(null),
+    test_provider: () => Promise.resolve("OK"),
   };
 }
 
