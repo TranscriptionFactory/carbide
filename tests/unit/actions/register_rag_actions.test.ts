@@ -518,4 +518,23 @@ describe("register_rag_actions", () => {
     expect(session?.title).toBe("what is it?");
     expect(rag_service.save_session).toHaveBeenCalledTimes(1);
   });
+
+  it("autotitle: keeps a manual rename made while generation is in flight", async () => {
+    const { registry, rag_store, rag_service } = create_harness();
+    let resolve_title!: (value: string | null) => void;
+    rag_service.generate_title.mockImplementation(
+      () => new Promise<string | null>((resolve) => (resolve_title = resolve)),
+    );
+
+    await registry.execute(ACTION_IDS.rag_ask, "what is it?");
+    const session_id = rag_store.active_id!;
+    rag_store.rename_session(session_id, "Manual title");
+    resolve_title("Generated title");
+    await flush();
+
+    const session = rag_store.sessions.find((s) => s.id === session_id);
+    expect(session?.title).toBe("Manual title");
+    expect(session?.title_source).toBe("manual");
+    expect(rag_service.save_session).toHaveBeenCalledTimes(1);
+  });
 });
