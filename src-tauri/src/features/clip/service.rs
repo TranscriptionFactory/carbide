@@ -1,4 +1,4 @@
-use reqwest::header::{HeaderMap, CONTENT_TYPE};
+use reqwest::header::{HeaderMap, HeaderValue, CONTENT_TYPE, USER_AGENT};
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use std::io::Write;
@@ -12,6 +12,16 @@ use crate::shared::{io_utils, storage};
 const MAX_PAGE_BYTES: usize = 10 * 1024 * 1024;
 const MAX_ASSET_BYTES: usize = 5 * 1024 * 1024;
 const FETCH_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(30);
+
+// Bot-filtering CDNs (Cloudflare, Reddit, ...) reject non-browser user agents
+// with 429/403, so clip fetches present a browser UA.
+const BROWSER_USER_AGENT: &str = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36";
+
+fn browser_headers() -> HeaderMap {
+    let mut headers = HeaderMap::new();
+    headers.insert(USER_AGENT, HeaderValue::from_static(BROWSER_USER_AGENT));
+    headers
+}
 
 #[derive(Debug, Serialize, Deserialize, Type)]
 pub struct ClipPage {
@@ -49,7 +59,7 @@ pub async fn clip_fetch_page(url: String) -> Result<ClipPage, String> {
     let response = fetch_checked(
         reqwest::Method::GET,
         parsed,
-        HeaderMap::new(),
+        browser_headers(),
         None,
         FETCH_TIMEOUT,
     )
@@ -89,7 +99,7 @@ pub async fn clip_fetch_asset(url: String) -> Result<ClipAsset, String> {
     let response = fetch_checked(
         reqwest::Method::GET,
         parsed,
-        HeaderMap::new(),
+        browser_headers(),
         None,
         FETCH_TIMEOUT,
     )

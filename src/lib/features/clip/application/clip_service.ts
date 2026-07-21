@@ -34,6 +34,7 @@ export type ClipRequest = {
   folder_path: string;
   formats: ClipFormats;
   attachment_folder: string;
+  name?: string;
 };
 
 export type ClipOutputKind = "markdown" | "html" | "epub";
@@ -103,8 +104,10 @@ export class ClipService {
     const page = await this.clip_port.fetch_page(request.url);
     const readable = extract_readable_content(page.html, page.final_url);
     const now = new Date(this.now_ms());
-    const stem = clip_stem(readable.title, page.final_url);
-    const title = readable.title ?? stem;
+    const custom_name = request.name?.trim() || null;
+    const title_source = custom_name ?? readable.title;
+    const stem = clip_stem(title_source, page.final_url);
+    const title = title_source ?? stem;
 
     const existing_paths = this.notes_store.notes.map((note) => note.path);
     const note_path = uniquify_note_path(

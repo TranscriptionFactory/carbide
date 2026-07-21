@@ -12,11 +12,13 @@
   interface Props {
     open: boolean;
     url: string;
+    name: string;
     folder_path: string;
     folder_paths: string[];
     formats: ClipFormats;
     is_clipping: boolean;
     on_update_url: (url: string) => void;
+    on_update_name: (name: string) => void;
     on_update_folder: (folder: string) => void;
     on_update_formats: (formats: ClipFormats) => void;
     on_confirm: () => void;
@@ -26,11 +28,13 @@
   let {
     open,
     url,
+    name,
     folder_path,
     folder_paths,
     formats,
     is_clipping,
     on_update_url,
+    on_update_name,
     on_update_folder,
     on_update_formats,
     on_confirm,
@@ -92,6 +96,16 @@
               on_confirm();
             }
           }}
+        />
+      </div>
+      <div>
+        <span class="text-sm text-muted-foreground">Name</span>
+        <Input
+          value={name}
+          placeholder="Page title (auto)"
+          disabled={is_clipping}
+          oninput={(event: Event) =>
+            on_update_name((event.currentTarget as HTMLInputElement).value)}
         />
       </div>
       <div>

@@ -450,6 +450,7 @@
 <ClipWebPageDialog
   open={stores.ui.clip_web_page_dialog.open}
   url={stores.ui.clip_web_page_dialog.url}
+  name={stores.ui.clip_web_page_dialog.name}
   folder_path={stores.ui.clip_web_page_dialog.folder_path}
   folder_paths={stores.notes.folder_paths}
   formats={stores.ui.clip_web_page_dialog.formats}
@@ -458,6 +459,12 @@
     stores.ui.clip_web_page_dialog = {
       ...stores.ui.clip_web_page_dialog,
       url,
+    };
+  }}
+  on_update_name={(name: string) => {
+    stores.ui.clip_web_page_dialog = {
+      ...stores.ui.clip_web_page_dialog,
+      name,
     };
   }}
   on_update_folder={(folder: string) => {
