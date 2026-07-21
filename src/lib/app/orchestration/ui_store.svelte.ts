@@ -71,6 +71,7 @@ const INITIAL_SAVE_NOTE_DIALOG = {
 const INITIAL_CLIP_WEB_PAGE_DIALOG = {
   open: false,
   url: "",
+  name: "",
   folder_path: "",
   formats: { markdown: true, html: false, epub: false },
 } as const;
@@ -311,6 +312,7 @@ export class UIStore {
   clip_web_page_dialog = $state<{
     open: boolean;
     url: string;
+    name: string;
     folder_path: string;
     formats: { markdown: boolean; html: boolean; epub: boolean };
   }>({

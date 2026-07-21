@@ -46,6 +46,7 @@ export function register_clip_actions(input: ActionRegistrationInput) {
       stores.ui.clip_web_page_dialog = {
         open: true,
         url: "",
+        name: "",
         folder_path: stores.ui.selected_folder_path,
         formats: { markdown: true, html: false, epub: false },
       };
@@ -80,6 +81,7 @@ export function register_clip_actions(input: ActionRegistrationInput) {
       const loading_id = toast.loading("Clipping web page...");
       const result = await services.clip.clip_page({
         url: dialog.url,
+        name: dialog.name,
         folder_path: dialog.folder_path,
         formats,
         attachment_folder,

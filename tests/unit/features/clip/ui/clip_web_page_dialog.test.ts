@@ -33,11 +33,13 @@ function render_dialog(props?: {
     props: {
       open: true,
       url: props?.url ?? "",
+      name: "",
       folder_path: "",
       folder_paths: [],
       formats: props?.formats ?? { markdown: true, html: false, epub: false },
       is_clipping: props?.is_clipping ?? false,
       on_update_url: vi.fn(),
+      on_update_name: vi.fn(),
       on_update_folder: vi.fn(),
       on_update_formats: props?.on_update_formats ?? vi.fn(),
       on_confirm: props?.on_confirm ?? vi.fn(),

@@ -203,6 +203,39 @@ describe("ClipService.clip_page", () => {
     expect(note_path).toBe("clips/test-article-2.md");
   });
 
+  it("uses a custom name for the note filename and title", async () => {
+    const harness = create_harness();
+
+    await harness.service.clip_page({
+      url: FINAL_URL,
+      folder_path: "clips",
+      formats: MARKDOWN_ONLY,
+      attachment_folder: ".assets",
+      name: "  My Custom Name  ",
+    });
+
+    const [note_path, markdown] = harness.note_service.import_markdown_file.mock
+      .calls[0] as [string, string];
+    expect(note_path).toBe("clips/my-custom-name.md");
+    expect(markdown).toContain('title: "My Custom Name"');
+  });
+
+  it("falls back to the page title when the custom name is blank", async () => {
+    const harness = create_harness();
+
+    await harness.service.clip_page({
+      url: FINAL_URL,
+      folder_path: "clips",
+      formats: MARKDOWN_ONLY,
+      attachment_folder: ".assets",
+      name: "   ",
+    });
+
+    const [note_path] = harness.note_service.import_markdown_file.mock
+      .calls[0] as [string];
+    expect(note_path).toBe("clips/test-article.md");
+  });
+
   it("skips when no vault is open", async () => {
     const harness = create_harness();
     harness.vault_store.vault = null;
