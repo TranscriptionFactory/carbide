@@ -188,8 +188,9 @@ mod specta_export {
                 crate::shared::buffer::save_buffer,
                 crate::shared::buffer::read_buffer_window,
                 crate::shared::buffer::close_buffer,
-                // App commands (1)
+                // App commands (2)
                 crate::app::get_pending_file_open,
+                crate::app::tray::confirm_window_close,
                 // Marksman commands (17)
                 crate::features::markdown_lsp::service::markdown_lsp_start,
                 crate::features::markdown_lsp::service::markdown_lsp_stop,
