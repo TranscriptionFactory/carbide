@@ -7,7 +7,10 @@ import { UIStore } from "$lib/app/orchestration/ui_store.svelte";
 import { OpStore } from "$lib/app/orchestration/op_store.svelte";
 import { BUILTIN_PROVIDER_PRESETS } from "$lib/shared/types/ai_provider_config";
 import { DEFAULT_EDITOR_SETTINGS } from "$lib/shared/types/editor_settings";
-import type { RagStreamEvent } from "$lib/features/rag/domain/rag_types";
+import type {
+  RagSourceInfo,
+  RagStreamEvent,
+} from "$lib/features/rag/domain/rag_types";
 import { collect_open_note_image_parts } from "$lib/features/ai";
 import { toast } from "svelte-sonner";
 
@@ -118,6 +121,37 @@ describe("register_rag_actions", () => {
     expect(rag_store.messages[1]?.citations).toHaveLength(1);
     expect(rag_store.is_loading).toBe(false);
     expect(stores.op.get("rag.ask").status).toBe("success");
+  });
+
+  it("asks: applies pending sources at event receipt and clears them on finish", async () => {
+    const { registry, rag_store, rag_service } = create_harness();
+    const source: RagSourceInfo = {
+      note_path: "notes/q.md",
+      title: "Q",
+      score: 0.9,
+      truncated: false,
+      pinned: false,
+    };
+    let pending_before_text: RagSourceInfo[] | null = null;
+    // eslint-disable-next-line @typescript-eslint/require-await
+    rag_service.query = vi.fn(
+      async function* (): AsyncGenerator<RagStreamEvent> {
+        yield { type: "generating" };
+        yield {
+          type: "sources",
+          stats: { retrieved: 1, used: 1, truncated: 0 },
+          sources: [source],
+        };
+        pending_before_text = rag_store.pending_sources;
+        yield { type: "text", text: "42." };
+        yield { type: "done" };
+      },
+    );
+
+    await registry.execute(ACTION_IDS.rag_ask, "what is it?");
+
+    expect(pending_before_text).toEqual([source]);
+    expect(rag_store.pending_sources).toBeNull();
   });
 
   it("asks: passes RAG retrieval settings from editor settings", async () => {
