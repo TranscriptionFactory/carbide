@@ -70,6 +70,22 @@ export class AiService {
     return await this.ai_port.detect_cli({ command });
   }
 
+  async set_api_key(provider_id: string, key: string): Promise<void> {
+    await this.ai_port.set_api_key(provider_id, key);
+  }
+
+  async delete_api_key(provider_id: string): Promise<void> {
+    await this.ai_port.delete_api_key(provider_id);
+  }
+
+  async get_api_key_hint(provider_id: string): Promise<string | null> {
+    return await this.ai_port.get_api_key_hint(provider_id);
+  }
+
+  async test_provider(config: AiProviderConfig): Promise<string> {
+    return await this.ai_port.test_provider(config);
+  }
+
   private async fetch_vault_context(
     note_path: string,
     settings: VaultContextSettings,

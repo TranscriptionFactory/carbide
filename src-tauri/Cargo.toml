@@ -82,6 +82,7 @@ subtle = "2"
 rand = "0.8"
 hex = "0.4"
 hnsw_rs = "0.3"
+keyring = { version = "4.1.5", features = ["apple-native-keyring-store"] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2 = "0.6"

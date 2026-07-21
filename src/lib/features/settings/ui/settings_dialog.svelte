@@ -168,6 +168,10 @@
     on_toolchain_install: (tool_id: string) => void;
     on_toolchain_uninstall: (tool_id: string) => void;
     on_ai_provider_detect: (config: AiProviderConfig) => Promise<AiCliProbe>;
+    on_ai_provider_test: (config: AiProviderConfig) => Promise<string>;
+    on_ai_key_set: (provider_id: string, key: string) => Promise<void>;
+    on_ai_key_clear: (provider_id: string) => Promise<void>;
+    on_ai_key_hint: (provider_id: string) => Promise<string | null>;
     // STT removed — archived on archive/stt-main
     // stt_models: ModelInfo[];
     // stt_active_model_id: string | null;
@@ -236,6 +240,10 @@
     on_toolchain_install,
     on_toolchain_uninstall,
     on_ai_provider_detect,
+    on_ai_provider_test,
+    on_ai_key_set,
+    on_ai_key_clear,
+    on_ai_key_hint,
     // stt_models,
     // stt_active_model_id,
     // stt_model_loading,
@@ -396,11 +404,66 @@
       );
   }
 
+  type AiTestState =
+    | { state: "testing" }
+    | { state: "done"; ok: boolean; message: string };
+
+  const ai_tests = new SvelteMap<string, AiTestState>();
+
+  function test_ai_provider(provider: AiProviderConfig) {
+    ai_tests.set(provider.id, { state: "testing" });
+    if (provider.transport.kind === "cli") probe_ai_provider(provider);
+    const started = performance.now();
+    on_ai_provider_test(provider)
+      .then((message) => {
+        const secs = ((performance.now() - started) / 1000).toFixed(1);
+        ai_tests.set(provider.id, {
+          state: "done",
+          ok: true,
+          message: `${message} (${secs}s)`,
+        });
+      })
+      .catch((e) =>
+        ai_tests.set(provider.id, {
+          state: "done",
+          ok: false,
+          message: String(e),
+        }),
+      );
+  }
+
+  const ai_key_hints = new SvelteMap<string, string | null>();
+  const ai_key_inputs = new SvelteMap<string, string>();
+
+  function load_ai_key_hint(provider_id: string) {
+    on_ai_key_hint(provider_id)
+      .then((hint) => ai_key_hints.set(provider_id, hint))
+      .catch(() => ai_key_hints.set(provider_id, null));
+  }
+
+  function save_ai_key(provider_id: string) {
+    const key = (ai_key_inputs.get(provider_id) ?? "").trim();
+    if (!key) return;
+    on_ai_key_set(provider_id, key)
+      .then(() => {
+        ai_key_inputs.delete(provider_id);
+        ai_key_hints.set(provider_id, key.slice(-4));
+      })
+      .catch((e) => toast.error(`Could not store API key: ${String(e)}`));
+  }
+
+  function clear_ai_key(provider_id: string) {
+    on_ai_key_clear(provider_id)
+      .then(() => ai_key_hints.set(provider_id, null))
+      .catch((e) => toast.error(`Could not clear API key: ${String(e)}`));
+  }
+
   $effect(() => {
     if (open && active_category === "ai" && !ai_probes_started) {
       ai_probes_started = true;
       for (const provider of editor_settings.ai_providers) {
         probe_ai_provider(provider);
+        if (provider.transport.kind === "api") load_ai_key_hint(provider.id);
       }
     }
   });
@@ -837,6 +900,7 @@
               </div>
 
               {#each editor_settings.ai_providers as provider, i (provider.id)}
+                {@const test_entry = ai_tests.get(provider.id)}
                 <div class="rounded-md border p-3 space-y-2">
                   <div class="flex items-center justify-between gap-2">
                     <div class="min-w-0 flex-1">
@@ -894,21 +958,26 @@
                       >
                         {provider_summary(provider)}
                       </div>
+                      {#if test_entry?.state === "done"}
+                        <div
+                          class={test_entry.ok
+                            ? "text-xs text-emerald-600 dark:text-emerald-400"
+                            : "text-xs text-destructive"}
+                        >
+                          {test_entry.message}
+                        </div>
+                      {/if}
                     </div>
                     <div class="flex items-center gap-1">
-                      {#if provider.transport.kind === "cli"}
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onclick={() => probe_ai_provider(provider)}
-                          disabled={ai_settings_disabled ||
-                            ai_probes.get(provider.id)?.state === "probing"}
-                        >
-                          {ai_probes.get(provider.id)?.state === "probing"
-                            ? "Testing…"
-                            : "Test"}
-                        </Button>
-                      {/if}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onclick={() => test_ai_provider(provider)}
+                        disabled={ai_settings_disabled ||
+                          test_entry?.state === "testing"}
+                      >
+                        {test_entry?.state === "testing" ? "Testing…" : "Test"}
+                      </Button>
                       <button
                         type="button"
                         class="SettingsDialog__reset"
@@ -1078,6 +1147,47 @@
                               update_provider(provider.id, { transport: t });
                             }}
                           />
+                        </div>
+                        <div class="flex items-center gap-2">
+                          <span class="w-20 text-xs text-muted-foreground"
+                            >API Key</span
+                          >
+                          <Input
+                            type="password"
+                            value={ai_key_inputs.get(provider.id) ?? ""}
+                            class="flex-1"
+                            autocomplete="off"
+                            placeholder={ai_key_hints.get(provider.id)
+                              ? `••••${ai_key_hints.get(provider.id)} (stored in keychain)`
+                              : "Stored in OS keychain; env var is fallback"}
+                            disabled={ai_settings_disabled}
+                            oninput={(
+                              e: Event & { currentTarget: HTMLInputElement },
+                            ) =>
+                              ai_key_inputs.set(
+                                provider.id,
+                                e.currentTarget.value,
+                              )}
+                          />
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onclick={() => save_ai_key(provider.id)}
+                            disabled={ai_settings_disabled ||
+                              !(ai_key_inputs.get(provider.id) ?? "").trim()}
+                          >
+                            {ai_key_hints.get(provider.id) ? "Replace" : "Set"}
+                          </Button>
+                          {#if ai_key_hints.get(provider.id)}
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onclick={() => clear_ai_key(provider.id)}
+                              disabled={ai_settings_disabled}
+                            >
+                              Clear
+                            </Button>
+                          {/if}
                         </div>
                       {/if}
                       <div class="flex items-center gap-2">

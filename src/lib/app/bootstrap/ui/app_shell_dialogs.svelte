@@ -553,6 +553,14 @@
     void action_registry.execute(ACTION_IDS.toolchain_uninstall, id)}
   on_ai_provider_detect={(config: AiProviderConfig) =>
     services.ai.detect(config)}
+  on_ai_provider_test={(config: AiProviderConfig) =>
+    services.ai.test_provider(config)}
+  on_ai_key_set={(provider_id: string, key: string) =>
+    services.ai.set_api_key(provider_id, key)}
+  on_ai_key_clear={(provider_id: string) =>
+    services.ai.delete_api_key(provider_id)}
+  on_ai_key_hint={(provider_id: string) =>
+    services.ai.get_api_key_hint(provider_id)}
   {iwe_config_status}
   on_iwe_open_config={() =>
     void action_registry.execute(ACTION_IDS.iwe_open_config)}
