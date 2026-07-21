@@ -99,18 +99,23 @@ export function register_rag_actions(
     persist_session(session_id);
   }
 
-  async function run_ask(question: string, reuse_last_user = false) {
+  function resolve_ask_provider(): AiProviderConfig | null {
     if (!stores.ui.editor_settings.ai_enabled) {
       toast.info("AI Assistant is disabled in settings");
-      return;
+      return null;
     }
-    if (stores.op.is_pending(RAG_OP_KEY)) return;
-
     const provider = resolve_provider();
     if (!provider) {
       toast.error("No AI provider configured");
-      return;
+      return null;
     }
+    return provider;
+  }
+
+  async function run_ask(question: string, reuse_last_user = false) {
+    if (stores.op.is_pending(RAG_OP_KEY)) return;
+    const provider = resolve_ask_provider();
+    if (!provider) return;
 
     const revision = rag_store.begin_turn();
     const messages = [...rag_store.messages];
@@ -237,6 +242,7 @@ export function register_rag_actions(
       }
       const question = messages[user_idx]?.content.trim();
       if (!question) return;
+      if (!resolve_ask_provider()) return;
       rag_store.truncate_after(id);
       await run_ask(question, true);
     },

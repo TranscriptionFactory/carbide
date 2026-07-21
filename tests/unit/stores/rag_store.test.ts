@@ -261,6 +261,34 @@ describe("RagStore", () => {
     expect(original?.messages[1]?.citations[0]?.title).toBe("Q");
   });
 
+  it("fork_session resets streaming, loading, and error state", () => {
+    const store = new RagStore();
+    store.hydrate([
+      saved_session({
+        id: "orig",
+        messages: [
+          { id: "u1", role: "user", content: "q", citations: [] },
+          { id: "a1", role: "assistant", content: "a", citations: [] },
+        ],
+      }),
+    ]);
+    store.switch_session("orig");
+    store.add_user_message("q2");
+    store.start_loading();
+    store.start_streaming();
+
+    const fork_id = store.fork_session("a1");
+
+    expect(fork_id).not.toBeNull();
+    expect(store.is_loading).toBe(false);
+    expect(store.streaming_id).toBeNull();
+
+    store.set_error("boom");
+    store.fork_session("u1");
+
+    expect(store.error).toBeNull();
+  });
+
   it("fork_session returns null for an unknown message or no active session", () => {
     const store = new RagStore();
     expect(store.fork_session("nope")).toBeNull();

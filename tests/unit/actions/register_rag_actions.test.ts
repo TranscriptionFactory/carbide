@@ -403,6 +403,21 @@ describe("register_rag_actions", () => {
     expect(rag_store.messages[0]?.content).toBe("what is it?");
   });
 
+  it("regenerate: keeps the reply when AI is disabled", async () => {
+    const { registry, rag_store, rag_service, stores } = create_harness();
+    await registry.execute(ACTION_IDS.rag_ask, "what is it?");
+    const assistant_id = rag_store.messages[1]?.id;
+    stores.ui.editor_settings.ai_enabled = false;
+
+    await registry.execute(ACTION_IDS.rag_regenerate, assistant_id);
+
+    expect(rag_service.query).toHaveBeenCalledTimes(1);
+    expect(rag_store.messages.map((m) => m.role)).toEqual([
+      "user",
+      "assistant",
+    ]);
+  });
+
   it("regenerate: does nothing for an unknown message id", async () => {
     const { registry, rag_service } = create_harness();
     await registry.execute(ACTION_IDS.rag_ask, "what is it?");
