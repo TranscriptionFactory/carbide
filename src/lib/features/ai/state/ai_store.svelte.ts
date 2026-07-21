@@ -56,6 +56,7 @@ export type AiDialogState = {
   cli_status: AiCliStatus;
   cli_error: string | null;
   is_executing: boolean;
+  streaming_text: string | null;
   result: AiExecutionResult | null;
   turns: AiConversationTurn[];
   next_turn_id: number;
@@ -72,6 +73,7 @@ function initial_state(): AiDialogState {
     cli_status: "idle",
     cli_error: null,
     is_executing: false,
+    streaming_text: null,
     result: null,
     turns: [],
     next_turn_id: 1,
@@ -167,6 +169,7 @@ export class AiStore {
       return;
     }
     this.dialog.is_executing = true;
+    this.dialog.streaming_text = null;
     this.dialog.result = null;
     this.dialog.turns = [
       ...this.dialog.turns,
@@ -183,8 +186,25 @@ export class AiStore {
     this.dialog.next_turn_id += 1;
   }
 
+  set_streaming_text(text: string) {
+    if (!this.dialog.is_executing) {
+      return;
+    }
+    this.dialog.streaming_text = text;
+  }
+
+  cancel_execution() {
+    this.dialog.is_executing = false;
+    this.dialog.streaming_text = null;
+    const last = this.dialog.turns.at(-1);
+    if (last?.status === "pending") {
+      this.dialog.turns = this.dialog.turns.slice(0, -1);
+    }
+  }
+
   finish_execution(result: AiExecutionResult) {
     this.dialog.is_executing = false;
+    this.dialog.streaming_text = null;
     this.dialog.result = result;
     const last_index = this.dialog.turns.length - 1;
     if (last_index < 0) {
