@@ -107,11 +107,11 @@ export function register_ai_actions(
     return match ?? null;
   }
 
-  async function fetch_inline_vault_context(
-    can_apply: boolean,
-  ): Promise<AiVaultContext | undefined> {
+  async function fetch_inline_vault_context(): Promise<
+    AiVaultContext | undefined
+  > {
     const settings = input.stores.ui.editor_settings;
-    if (!can_apply || !settings.ai_inline_vault_context) return undefined;
+    if (!settings.ai_inline_vault_context) return undefined;
     const editor_ctx = services.editor.get_ai_context();
     if (!editor_ctx) return undefined;
     return await ai_service.fetch_vault_context(editor_ctx.note_path, {
@@ -447,9 +447,22 @@ export function register_ai_actions(
       const exec_vault_id = input.stores.vault.active_vault_id;
       ai_store.start_execution();
 
-      const use_streaming = provider_supports_streaming(config);
-      const abort = use_streaming ? new AbortController() : null;
+      const abort = provider_supports_streaming(config)
+        ? new AbortController()
+        : null;
       panel_abort = abort;
+
+      const can_settle = () => {
+        if (revision !== dialog_revision) return false;
+        if (input.stores.vault.active_vault_id !== exec_vault_id) {
+          ai_store.cancel_execution();
+          return false;
+        }
+        return (
+          ai_store.dialog.open &&
+          ai_store.dialog.provider_id === dialog.provider_id
+        );
+      };
 
       try {
         const settings = input.stores.ui.editor_settings;
@@ -480,16 +493,7 @@ export function register_ai_actions(
               },
             )
           : await ai_service.execute(execute_input);
-        if (revision !== dialog_revision) return;
-        if (input.stores.vault.active_vault_id !== exec_vault_id) {
-          ai_store.cancel_execution();
-          return;
-        }
-        if (
-          !ai_store.dialog.open ||
-          ai_store.dialog.provider_id !== dialog.provider_id
-        )
-          return;
+        if (!can_settle()) return;
         if (abort?.signal.aborted) {
           if (result.output.trim() === "") {
             ai_store.cancel_execution();
@@ -506,16 +510,7 @@ export function register_ai_actions(
         ai_store.finish_execution(result);
         persist_history();
       } catch (error) {
-        if (revision !== dialog_revision) return;
-        if (input.stores.vault.active_vault_id !== exec_vault_id) {
-          ai_store.cancel_execution();
-          return;
-        }
-        if (
-          !ai_store.dialog.open ||
-          ai_store.dialog.provider_id !== dialog.provider_id
-        )
-          return;
+        if (!can_settle()) return;
         ai_store.finish_execution({
           success: false,
           output: "",
@@ -697,7 +692,7 @@ export function register_ai_actions(
 
       const [images, vault_context] = await Promise.all([
         collect_open_note_image_parts(input),
-        fetch_inline_vault_context(prompt_input !== null),
+        prompt_input ? fetch_inline_vault_context() : undefined,
       ]);
       if (!get_ai_menu_state(view.state).open) return;
       if (prompt_input) {

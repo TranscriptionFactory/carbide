@@ -418,12 +418,16 @@ describe("RagStore", () => {
       expect(store.pending_sources).toBeNull();
     });
 
-    it("clears when switching sessions or starting a new one", () => {
+    it("clears when switching sessions, starting a new one, or forking", () => {
       const store = new RagStore();
       store.hydrate([saved_session({ id: "a" })]);
 
       store.set_pending_sources([source]);
       store.switch_session("a");
+      expect(store.pending_sources).toBeNull();
+
+      store.set_pending_sources([source]);
+      store.fork_session("m1");
       expect(store.pending_sources).toBeNull();
 
       store.set_pending_sources([source]);
