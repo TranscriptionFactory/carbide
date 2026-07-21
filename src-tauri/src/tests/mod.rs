@@ -238,6 +238,10 @@ mod specta_export {
                 // Live HTML scheme
                 crate::shared::live_html::html_live_register,
                 crate::shared::live_html::html_live_release,
+                // Clip commands (3)
+                crate::features::clip::service::clip_fetch_page,
+                crate::features::clip::service::clip_fetch_asset,
+                crate::features::clip::service::clip_write_epub,
                 // Note: settings and vault_settings commands are excluded because they use
                 // serde_json::Value which cannot be statically typed in TypeScript
             ])

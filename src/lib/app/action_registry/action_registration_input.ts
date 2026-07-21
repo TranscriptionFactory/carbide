@@ -5,6 +5,7 @@ import type { FolderService } from "$lib/features/folder";
 import type { SettingsService } from "$lib/features/settings";
 import type { SearchService } from "$lib/features/search";
 import type { EditorService } from "$lib/features/editor";
+import type { ClipService } from "$lib/features/clip";
 import type { ClipboardService } from "$lib/features/clipboard";
 import type { ShellService } from "$lib/features/shell";
 import type { TabService } from "$lib/features/tab";
@@ -66,6 +67,7 @@ export type ActionRegistrationInput = {
     theme: ThemeService;
     reference: ReferenceService;
     document: DocumentService;
+    clip: ClipService;
   };
   default_mount_config: AppMountConfig;
 };

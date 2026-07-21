@@ -17,6 +17,7 @@ export {
   sanitize_note_color,
   sanitize_note_icon,
 } from "$lib/features/folder/domain/note_visuals";
+export { uniquify_note_path } from "$lib/features/folder/domain/external_import";
 export { flatten_filetree } from "$lib/features/folder/domain/flatten_filetree";
 export { resolve_entry_target } from "$lib/features/folder/domain/drilldown";
 export { derive_starred_tree } from "$lib/features/folder/domain/derive_starred_tree";
