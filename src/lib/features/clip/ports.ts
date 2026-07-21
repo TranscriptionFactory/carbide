@@ -25,6 +25,18 @@ export type ClipEpubInput = {
   images: ClipEpubImage[];
 };
 
+export type ClipFetchErrorKind = "blocked" | "other";
+
+export class ClipFetchError extends Error {
+  constructor(
+    message: string,
+    public readonly kind: ClipFetchErrorKind,
+  ) {
+    super(message);
+    this.name = "ClipFetchError";
+  }
+}
+
 export interface ClipPort {
   fetch_page(url: string): Promise<ClipPage>;
   fetch_asset(url: string): Promise<ClipAsset>;
@@ -33,4 +45,8 @@ export interface ClipPort {
     epub_path: string,
     input: ClipEpubInput,
   ): Promise<void>;
+  capture_start(url: string): Promise<void>;
+  capture_finish(): Promise<ClipPage>;
+  capture_cancel(): Promise<void>;
+  on_capture_closed(handler: () => void): Promise<() => void>;
 }

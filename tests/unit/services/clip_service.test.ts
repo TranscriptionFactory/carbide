@@ -2,7 +2,7 @@
  * @vitest-environment jsdom
  */
 import { describe, expect, it, vi } from "vitest";
-import { ClipService } from "$lib/features/clip";
+import { ClipFetchError, ClipService } from "$lib/features/clip";
 import { to_xhtml_document } from "$lib/features/clip/application/clip_service";
 import type { ClipPort } from "$lib/features/clip";
 import type { AssetsPort, NoteService } from "$lib/features/note";
@@ -38,6 +38,14 @@ function create_harness() {
       content_type: "image/png",
     }),
     write_epub: vi.fn().mockResolvedValue(undefined),
+    capture_start: vi.fn().mockResolvedValue(undefined),
+    capture_finish: vi.fn().mockResolvedValue({
+      final_url: FINAL_URL,
+      html: PAGE_HTML,
+      content_type: "text/html",
+    }),
+    capture_cancel: vi.fn().mockResolvedValue(undefined),
+    on_capture_closed: vi.fn().mockResolvedValue(() => undefined),
   };
   const assets_port = {
     write_image_asset: vi.fn().mockResolvedValue(".assets/figure-123.png"),
@@ -267,10 +275,47 @@ describe("ClipService.clip_page", () => {
     expect(result.status).toBe("failed");
     if (result.status !== "failed") return;
     expect(result.error).toContain("private IP");
+    expect(result.kind).toBe("other");
     expect(harness.note_service.import_markdown_file).not.toHaveBeenCalled();
     expect(harness.document_service.save_html_artifact).not.toHaveBeenCalled();
     expect(harness.clip_port.write_epub).not.toHaveBeenCalled();
     expect(harness.op_store.is_pending("clip.page")).toBe(false);
+  });
+
+  it("surfaces the blocked kind when the fetch is bot-blocked", async () => {
+    const harness = create_harness();
+    harness.clip_port.fetch_page.mockRejectedValue(
+      new ClipFetchError("Site blocked the request (429)", "blocked"),
+    );
+
+    const result = await harness.service.clip_page({
+      url: FINAL_URL,
+      folder_path: "",
+      formats: MARKDOWN_ONLY,
+      attachment_folder: ".assets",
+    });
+
+    expect(result.status).toBe("failed");
+    if (result.status !== "failed") return;
+    expect(result.kind).toBe("blocked");
+    expect(result.error).toBe("Site blocked the request (429)");
+  });
+
+  it("uses the capture window as page producer for source: capture", async () => {
+    const harness = create_harness();
+    const result = await harness.service.clip_page({
+      url: FINAL_URL,
+      folder_path: "clips",
+      formats: MARKDOWN_ONLY,
+      attachment_folder: ".assets",
+      source: "capture",
+    });
+
+    expect(result.status).toBe("clipped");
+    if (result.status !== "clipped") return;
+    expect(harness.clip_port.capture_finish).toHaveBeenCalledTimes(1);
+    expect(harness.clip_port.fetch_page).not.toHaveBeenCalled();
+    expect(result.primary.path).toBe("clips/test-article.md");
   });
 });
 

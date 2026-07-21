@@ -1,4 +1,6 @@
 export {
+  ClipFetchError,
+  type ClipFetchErrorKind,
   type ClipPort,
   type ClipPage,
   type ClipAsset,
@@ -11,6 +13,7 @@ export {
   type ClipFormats,
   type ClipRequest,
   type ClipResult,
+  type ClipSource,
   type ClipOutput,
 } from "$lib/features/clip/application/clip_service";
 export { register_clip_actions } from "$lib/features/clip/application/clip_actions";
