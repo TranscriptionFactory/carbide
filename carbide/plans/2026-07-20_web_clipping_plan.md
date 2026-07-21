@@ -112,7 +112,7 @@ the first consumer. `clip_fetch_asset` is the matching backend primitive.
   regardless of headers (verified: archive.ph 429s even with full browser
   header sets). `status_error` surfaces these as "site blocked the request"
   instead of a bare status code. A real fix requires webview/browser-based
-  capture (see non-goals: browser-extension capture).
+  capture — designed in `2026-07-21_webview_clip_capture_plan.md`.
 
 - **DNS-rebind TOCTOU**: `resolve_and_check` validates DNS separately from
   reqwest's own resolution, so a rebinding resolver could answer differently
