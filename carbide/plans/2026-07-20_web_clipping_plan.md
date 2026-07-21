@@ -107,6 +107,13 @@ the first consumer. `clip_fetch_asset` is the matching backend primitive.
 
 ## Deferred / known limitations
 
+- **Anti-bot / CAPTCHA sites**: archive.ph, Cloudflare-challenged pages, etc.
+  serve 403/429 CAPTCHA interstitials to every non-interactive HTTP client,
+  regardless of headers (verified: archive.ph 429s even with full browser
+  header sets). `status_error` surfaces these as "site blocked the request"
+  instead of a bare status code. A real fix requires webview/browser-based
+  capture (see non-goals: browser-extension capture).
+
 - **DNS-rebind TOCTOU**: `resolve_and_check` validates DNS separately from
   reqwest's own resolution, so a rebinding resolver could answer differently
   between the check and the request. Pre-existing (also affects
