@@ -74,6 +74,7 @@ const INITIAL_CLIP_WEB_PAGE_DIALOG = {
   name: "",
   folder_path: "",
   formats: { markdown: true, html: false, epub: false },
+  capture: false,
 } as const;
 
 const INITIAL_CREATE_FOLDER_DIALOG = {
@@ -316,6 +317,7 @@ export class UIStore {
     name: string;
     folder_path: string;
     formats: { markdown: boolean; html: boolean; epub: boolean };
+    capture: boolean;
   }>({
     ...INITIAL_CLIP_WEB_PAGE_DIALOG,
     formats: { ...INITIAL_CLIP_WEB_PAGE_DIALOG.formats },

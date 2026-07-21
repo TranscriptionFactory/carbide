@@ -454,6 +454,7 @@
   folder_path={stores.ui.clip_web_page_dialog.folder_path}
   folder_paths={stores.notes.folder_paths}
   formats={stores.ui.clip_web_page_dialog.formats}
+  capture={stores.ui.clip_web_page_dialog.capture}
   is_clipping={stores.op.is_pending("clip.page")}
   on_update_url={(url: string) => {
     stores.ui.clip_web_page_dialog = {
@@ -477,6 +478,12 @@
     stores.ui.clip_web_page_dialog = {
       ...stores.ui.clip_web_page_dialog,
       formats,
+    };
+  }}
+  on_update_capture={(capture: boolean) => {
+    stores.ui.clip_web_page_dialog = {
+      ...stores.ui.clip_web_page_dialog,
+      capture,
     };
   }}
   on_confirm={() =>
