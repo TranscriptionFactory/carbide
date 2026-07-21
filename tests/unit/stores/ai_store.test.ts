@@ -163,6 +163,63 @@ describe("AiStore", () => {
     expect(store.dialog.turns.at(-1)?.id).toBe(5);
   });
 
+  it("preserves an in-flight pending turn when hydration lands mid-execution", () => {
+    const store = new AiStore();
+    open_demo(store);
+    store.set_prompt("In-flight question");
+    store.start_execution();
+
+    store.hydrate_turns([
+      {
+        id: 1,
+        provider_id: "claude",
+        target: "full_note",
+        mode: "ask",
+        prompt: "old question",
+        status: "completed",
+        result: { success: true, output: "old answer", error: null },
+      },
+    ]);
+
+    expect(store.dialog.turns).toHaveLength(2);
+    expect(store.dialog.turns.at(-1)).toMatchObject({
+      prompt: "In-flight question",
+      status: "pending",
+    });
+    const ids = store.dialog.turns.map((t) => t.id);
+    expect(new Set(ids).size).toBe(ids.length);
+
+    store.finish_execution({ success: true, output: "fresh", error: null });
+    expect(store.dialog.turns.at(-1)).toMatchObject({
+      status: "completed",
+      result: { success: true, output: "fresh", error: null },
+    });
+    expect(store.dialog.turns[0]?.result?.output).toBe("old answer");
+  });
+
+  it("does not overwrite an already-completed turn on finish_execution", () => {
+    const store = new AiStore();
+    store.hydrate_turns([
+      {
+        id: 1,
+        provider_id: "claude",
+        target: "full_note",
+        mode: "ask",
+        prompt: "historical question",
+        status: "completed",
+        result: { success: true, output: "historical answer", error: null },
+      },
+    ]);
+
+    store.finish_execution({ success: false, output: "", error: "boom" });
+
+    expect(store.dialog.is_executing).toBe(false);
+    expect(store.dialog.turns[0]).toMatchObject({
+      status: "completed",
+      result: { success: true, output: "historical answer", error: null },
+    });
+  });
+
   it("clears all turns and resets the id sequence", () => {
     const store = new AiStore();
     open_demo(store);

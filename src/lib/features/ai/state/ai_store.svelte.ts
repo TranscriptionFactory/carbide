@@ -121,8 +121,13 @@ export class AiStore {
   }
 
   hydrate_turns(turns: AiConversationTurn[]) {
-    this.dialog.turns = turns;
-    this.dialog.next_turn_id = Math.max(0, ...turns.map((t) => t.id)) + 1;
+    const pending = this.dialog.turns.filter((t) => t.status === "pending");
+    let next_id = Math.max(0, ...turns.map((t) => t.id)) + 1;
+    this.dialog.turns = [
+      ...turns,
+      ...pending.map((t) => ({ ...t, id: next_id++ })),
+    ];
+    this.dialog.next_turn_id = next_id;
   }
 
   clear_turns() {
@@ -225,11 +230,8 @@ export class AiStore {
     this.dialog.streaming_text = null;
     this.dialog.result = result;
     const last_index = this.dialog.turns.length - 1;
-    if (last_index < 0) {
-      return;
-    }
     const turn = this.dialog.turns[last_index];
-    if (!turn) {
+    if (!turn || turn.status !== "pending") {
       return;
     }
     this.dialog.turns[last_index] = {

@@ -19,6 +19,7 @@ import type { AiService } from "$lib/features/ai/application/ai_service";
 import type { AiHistoryPersistencePort } from "$lib/features/ai/ports";
 import type { AiStore } from "$lib/features/ai/state/ai_store.svelte";
 import { error_message } from "$lib/shared/utils/error_message";
+import { create_logger } from "$lib/shared/utils/logger";
 import type { AiProviderConfig } from "$lib/shared/types/ai_provider_config";
 import { extract_frontmatter } from "$lib/features/reference";
 import {
@@ -36,6 +37,8 @@ import { build_ai_inline_prompt } from "$lib/features/ai/domain/ai_prompt_builde
 import { resolve_inline_commands } from "$lib/features/ai/domain/ai_inline_commands";
 import { collect_open_note_image_parts } from "$lib/features/ai/application/note_image_loader";
 import type { EditorView } from "prosemirror-view";
+
+const log = create_logger("ai_actions");
 
 export function register_ai_actions(
   input: ActionRegistrationInput & {
@@ -75,7 +78,9 @@ export function register_ai_actions(
     const completed = ai_store.dialog.turns.filter(
       (t) => t.status === "completed",
     );
-    void ai_history.save_history(vault_id, completed);
+    void ai_history.save_history(vault_id, completed).catch((err) => {
+      log.warn("AI save_history failed", { error: error_message(err) });
+    });
   }
 
   function get_provider(id: string): AiProviderConfig | undefined {
@@ -439,6 +444,7 @@ export function register_ai_actions(
       }
 
       const revision = dialog_revision;
+      const exec_vault_id = input.stores.vault.active_vault_id;
       ai_store.start_execution();
 
       const use_streaming = provider_supports_streaming(config);
@@ -471,6 +477,10 @@ export function register_ai_actions(
             )
           : await ai_service.execute(execute_input);
         if (revision !== dialog_revision) return;
+        if (input.stores.vault.active_vault_id !== exec_vault_id) {
+          ai_store.cancel_execution();
+          return;
+        }
         if (
           !ai_store.dialog.open ||
           ai_store.dialog.provider_id !== dialog.provider_id
@@ -493,6 +503,10 @@ export function register_ai_actions(
         persist_history();
       } catch (error) {
         if (revision !== dialog_revision) return;
+        if (input.stores.vault.active_vault_id !== exec_vault_id) {
+          ai_store.cancel_execution();
+          return;
+        }
         if (
           !ai_store.dialog.open ||
           ai_store.dialog.provider_id !== dialog.provider_id
