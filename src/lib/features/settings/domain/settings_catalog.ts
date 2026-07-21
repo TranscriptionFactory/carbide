@@ -599,6 +599,14 @@ export const SETTINGS_REGISTRY: SettingDefinition[] = [
     ],
   },
   {
+    key: "ai_inline_vault_context",
+    label: "Inline AI Vault Context",
+    description:
+      "Include related-note context when running inline AI commands in the editor",
+    category: "AI",
+    keywords: ["ai", "inline", "vault", "context", "related", "notes"],
+  },
+  {
     key: "ai_default_provider_id",
     label: "Default Provider",
     description:

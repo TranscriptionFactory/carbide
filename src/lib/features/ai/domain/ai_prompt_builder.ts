@@ -143,19 +143,37 @@ export function build_ai_document_prompt(input: {
   ].join("\n\n");
 }
 
+function with_vault_context(
+  system_prompt: string,
+  ctx: AiVaultContext | undefined,
+): string {
+  if (!ctx) return system_prompt;
+  const sections_str = vault_context_sections(ctx);
+  if (!sections_str) return system_prompt;
+  return [
+    system_prompt,
+    "Related notes from the vault are provided for additional context.",
+    sections_str,
+  ].join("\n\n");
+}
+
 export function build_ai_inline_prompt(input: {
   command_id: string;
   custom_prompt?: string;
   context_text: string;
   selection_text?: string;
   commands?: AiInlineCommand[];
+  vault_context?: AiVaultContext;
 }): { system_prompt: string; user_prompt: string } {
   const { command_id, custom_prompt, context_text, selection_text, commands } =
     input;
 
   if (command_id === "custom") {
     return {
-      system_prompt: custom_prompt ?? "Follow the user's instructions.",
+      system_prompt: with_vault_context(
+        custom_prompt ?? "Follow the user's instructions.",
+        input.vault_context,
+      ),
       user_prompt: selection_text || context_text,
     };
   }
@@ -169,5 +187,8 @@ export function build_ai_inline_prompt(input: {
   const user_prompt =
     matched?.use_selection && selection_text ? selection_text : context_text;
 
-  return { system_prompt, user_prompt };
+  return {
+    system_prompt: with_vault_context(system_prompt, input.vault_context),
+    user_prompt,
+  };
 }

@@ -161,4 +161,64 @@ describe("build_ai_inline_prompt", () => {
     expect(result.system_prompt).toContain("Follow the user's instructions");
     expect(result.user_prompt).toBe("Some text");
   });
+
+  it("appends vault context sections to the system prompt", () => {
+    const result = build_ai_inline_prompt({
+      command_id: "continue",
+      context_text: "The quick brown fox",
+      commands,
+      vault_context: {
+        similar_notes: [
+          { path: "notes/foxes.md", title: "Foxes", blurb: "About foxes" },
+        ],
+        backlinks: [
+          { path: "notes/animals.md", title: "Animals", blurb: "Fauna index" },
+        ],
+        outlinks: [],
+      },
+    });
+    expect(result.system_prompt).toContain("Continue writing naturally");
+    expect(result.system_prompt).toContain(
+      "Related notes from the vault are provided for additional context.",
+    );
+    expect(result.system_prompt).toContain("<similar_notes>");
+    expect(result.system_prompt).toContain(
+      "- Foxes (notes/foxes.md): About foxes",
+    );
+    expect(result.system_prompt).toContain("<backlinks>");
+    expect(result.system_prompt).not.toContain("<outlinks>");
+    expect(result.user_prompt).toBe("The quick brown fox");
+  });
+
+  it("appends vault context to custom command prompts", () => {
+    const result = build_ai_inline_prompt({
+      command_id: "custom",
+      custom_prompt: "Rewrite as a haiku",
+      context_text: "Some text",
+      vault_context: {
+        similar_notes: [
+          { path: "notes/poetry.md", title: "Poetry", blurb: "Haiku forms" },
+        ],
+        backlinks: [],
+        outlinks: [],
+      },
+    });
+    expect(result.system_prompt).toContain("Rewrite as a haiku");
+    expect(result.system_prompt).toContain("<similar_notes>");
+  });
+
+  it("leaves the system prompt unchanged for empty vault context", () => {
+    const with_empty = build_ai_inline_prompt({
+      command_id: "continue",
+      context_text: "Text",
+      commands,
+      vault_context: { similar_notes: [], backlinks: [], outlinks: [] },
+    });
+    const without = build_ai_inline_prompt({
+      command_id: "continue",
+      context_text: "Text",
+      commands,
+    });
+    expect(with_empty.system_prompt).toBe(without.system_prompt);
+  });
 });
