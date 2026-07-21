@@ -153,5 +153,7 @@
     on_close={hide_panel}
     on_vault_context_toggle={() =>
       void action_registry.execute(ACTION_IDS.ai_toggle_vault_context)}
+    on_clear_history={() =>
+      void action_registry.execute(ACTION_IDS.ai_clear_history)}
   />
 {/if}

@@ -314,6 +314,7 @@ export const ACTION_IDS = {
   ai_stop_execution: "ai.stop_execution",
   ai_apply_result: "ai.apply_result",
   ai_clear_result: "ai.clear_result",
+  ai_clear_history: "ai.clear_history",
   ai_generate_description: "ai.generate_description",
   ai_open_inline_menu: "ai.open_inline_menu",
   ai_execute_inline: "ai.execute_inline",

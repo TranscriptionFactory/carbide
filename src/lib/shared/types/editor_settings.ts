@@ -166,6 +166,7 @@ export type EditorSettings = {
   ai_default_provider_id: string;
   ai_execution_timeout_seconds: number;
   ai_vault_context_enabled: boolean;
+  ai_inline_vault_context: boolean;
   ai_vault_context_similar_limit: number;
   ai_vault_context_include_links: boolean;
   ai_vault_context_similarity_threshold: number;
@@ -293,6 +294,7 @@ export const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
   ai_default_provider_id: "auto",
   ai_execution_timeout_seconds: 300,
   ai_vault_context_enabled: true,
+  ai_inline_vault_context: false,
   ai_vault_context_similar_limit: 5,
   ai_vault_context_include_links: true,
   ai_vault_context_similarity_threshold: 0.5,
@@ -507,6 +509,7 @@ export const GLOBAL_ONLY_SETTING_KEYS: readonly (keyof EditorSettings)[] = [
   "ai_default_provider_id",
   "ai_execution_timeout_seconds",
   "ai_vault_context_enabled",
+  "ai_inline_vault_context",
   "ai_vault_context_similar_limit",
   "ai_vault_context_include_links",
   "ai_vault_context_similarity_threshold",
