@@ -45,3 +45,5 @@ src-tauri/binaries/carbide-cli*
 
 # Nested vault/tool state produced by local documentation vaults
 **/.carbide/.rumdl.toml
+devlog/2026-07-21_ai-ux-overhaul/PLAN.md
+.worktrees/
