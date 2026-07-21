@@ -193,6 +193,9 @@ export class RagStore {
     };
     this.sessions = [fork, ...this.sessions];
     this.active_id = fork.id;
+    this.error = null;
+    this.is_loading = false;
+    this.streaming_id = null;
     this.revision += 1;
     return fork.id;
   }
