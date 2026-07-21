@@ -5,6 +5,7 @@ import {
   capture_active_tab_snapshot,
   close_editor_buffers,
   close_tab_immediate,
+  confirm_window_close,
   ensure_tab_capacity,
   execute_batch_close,
   list_tabs_for_batch_close,
@@ -16,7 +17,6 @@ import {
   try_open_tab,
 } from "$lib/features/tab/application/tab_action_helpers";
 import type { Tab } from "$lib/features/tab/types/tab";
-import { tauri_invoke } from "$lib/shared/adapters/tauri_invoke";
 import { toast } from "svelte-sonner";
 
 export { capture_active_tab_snapshot, ensure_tab_capacity, try_open_tab };
@@ -508,7 +508,7 @@ export function register_tab_actions(input: ActionRegistrationInput) {
         dirty.unshift(active_tab);
       }
       if (dirty.length === 0) {
-        await tauri_invoke("confirm_window_close");
+        await confirm_window_close();
         return;
       }
       start_batch_close_confirm(stores, dirty, "quit", null);
