@@ -205,6 +205,20 @@ export class ClipService {
     return { asset_paths, failed };
   }
 
+  private relative_mapping(
+    anchor_path: string,
+    localized: LocalizedImages,
+  ): Map<string, string> {
+    const mapping = new Map<string, string>();
+    for (const [url, asset_path] of localized.asset_paths) {
+      mapping.set(
+        url,
+        to_markdown_asset_target(as_note_path(anchor_path), asset_path),
+      );
+    }
+    return mapping;
+  }
+
   private async emit_markdown(
     readable: ReadableContent,
     base_url: string,
@@ -213,17 +227,10 @@ export class ClipService {
     now: Date,
     localized: LocalizedImages,
   ): Promise<ClipOutput> {
-    const mapping = new Map<string, string>();
-    for (const [url, asset_path] of localized.asset_paths) {
-      mapping.set(
-        url,
-        to_markdown_asset_target(as_note_path(note_path), asset_path),
-      );
-    }
     const rewritten = rewrite_image_srcs(
       readable.content_html,
       base_url,
-      mapping,
+      this.relative_mapping(note_path, localized),
     );
     const markdown = html_to_markdown(rewritten);
     const content = build_clip_frontmatter(title, base_url, now) + markdown;
@@ -247,18 +254,13 @@ export class ClipService {
     now: Date,
     localized: LocalizedImages,
   ): Promise<ClipOutput> {
-    const artifact_anchor = folder_path ? `${folder_path}/artifact.html` : "artifact.html";
-    const mapping = new Map<string, string>();
-    for (const [url, asset_path] of localized.asset_paths) {
-      mapping.set(
-        url,
-        to_markdown_asset_target(as_note_path(artifact_anchor), asset_path),
-      );
-    }
+    const artifact_anchor = folder_path
+      ? `${folder_path}/artifact.html`
+      : "artifact.html";
     const rewritten = rewrite_image_srcs(
       readable.content_html,
       base_url,
-      mapping,
+      this.relative_mapping(artifact_anchor, localized),
     );
     const sanitized = sanitize_html(rewritten);
     const safe_title = title.replace(/</g, "&lt;");
