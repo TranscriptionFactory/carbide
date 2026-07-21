@@ -38,6 +38,7 @@ import type {
   RagSessionSummary,
   RagStreamEvent,
 } from "$lib/features/rag/domain/rag_types";
+import { sanitize_generated_title } from "$lib/features/rag/domain/rag_session";
 import { derive_rag_readiness } from "$lib/features/rag/domain/rag_readiness";
 import type { RagReadiness } from "$lib/features/rag/types/rag_readiness";
 import type { RagPersistencePort } from "$lib/features/rag/ports";
@@ -55,6 +56,9 @@ const DEFAULT_CONTEXT_LIMIT = 8;
 const SCOPE_OVERFETCH = 6;
 const CITED_NOTE_BOOST = 1.25;
 const PINNED_SCORE = Number.MAX_SAFE_INTEGER;
+const TITLE_EXCHANGE_LIMIT = 1000;
+const TITLE_SYSTEM_PROMPT =
+  "Reply with only a 2-4 word noun phrase title for this conversation. Sentence case. No punctuation, no quotes.";
 const NO_RESULTS_MESSAGE =
   "I couldn't find anything in your vault that answers that.";
 const SCOPE_FILTERED_MESSAGE =
@@ -196,6 +200,38 @@ export class RagService {
       await this.persistence_port.delete_session(vault_id, id);
     } catch (err) {
       log.warn("RAG delete_session failed", { error: error_message(err) });
+    }
+  }
+
+  async generate_title(
+    provider_config: AiProviderConfig,
+    messages: RagMessage[],
+  ): Promise<string | null> {
+    const user = messages.find((m) => m.role === "user");
+    const assistant = messages.find((m) => m.role === "assistant");
+    if (!user || !assistant) return null;
+    const exchange =
+      `User: ${user.content}\n\nAssistant: ${assistant.content}`.slice(
+        0,
+        TITLE_EXCHANGE_LIMIT,
+      );
+    try {
+      let text = "";
+      for await (const chunk of this.ai_stream_port.stream_text({
+        provider_config,
+        system_prompt: TITLE_SYSTEM_PROMPT,
+        messages: [{ role: "user", content: exchange }],
+        ...(this.vault_store.vault?.path
+          ? { vault_path: this.vault_store.vault.path }
+          : {}),
+      })) {
+        if (chunk.type === "text") text += chunk.text;
+        else if (chunk.type === "error") return null;
+      }
+      return sanitize_generated_title(text);
+    } catch (err) {
+      log.warn("RAG title generation failed", { error: error_message(err) });
+      return null;
     }
   }
 
