@@ -92,6 +92,7 @@ function create_harness() {
   const ai_service = {
     detect: vi.fn().mockResolvedValue(probe("present")),
     execute: vi.fn(),
+    execute_streaming: vi.fn(),
     stream_inline: vi.fn(),
   };
 
@@ -252,7 +253,7 @@ describe("register_ai_actions", () => {
 
   it("records turns as assistant executions complete", async () => {
     const { registry, ai_store, ai_service } = create_harness();
-    ai_service.execute = vi.fn().mockResolvedValue({
+    ai_service.execute_streaming = vi.fn().mockResolvedValue({
       success: true,
       output: "# Updated",
       error: null,
@@ -272,7 +273,7 @@ describe("register_ai_actions", () => {
 
   it("reopens the bottom panel without resetting the current note session", async () => {
     const { registry, stores, ai_store, ai_service } = create_harness();
-    ai_service.execute = vi.fn().mockResolvedValue({
+    ai_service.execute_streaming = vi.fn().mockResolvedValue({
       success: true,
       output: "# Updated",
       error: null,
@@ -299,7 +300,7 @@ describe("register_ai_actions", () => {
 
   it("preserves result and turns when switching providers", async () => {
     const { registry, ai_store, ai_service } = create_harness();
-    ai_service.execute = vi.fn().mockResolvedValue({
+    ai_service.execute_streaming = vi.fn().mockResolvedValue({
       success: true,
       output: "# Updated",
       error: null,
@@ -340,7 +341,7 @@ describe("register_ai_actions", () => {
 
   it("applies a partial draft when the assistant provides an output override", async () => {
     const { registry, services, ai_service } = create_harness();
-    ai_service.execute = vi.fn().mockResolvedValue({
+    ai_service.execute_streaming = vi.fn().mockResolvedValue({
       success: true,
       output: "# Updated\nLine 2\nLine 3",
       error: null,
@@ -429,7 +430,7 @@ describe("register_ai_actions", () => {
         file_title: "chart",
         content: "<p>x</p>",
       });
-      ai_service.execute = vi.fn().mockResolvedValue({
+      ai_service.execute_streaming = vi.fn().mockResolvedValue({
         success: true,
         output: "<p>y</p>",
         error: null,
@@ -467,6 +468,116 @@ describe("register_ai_actions", () => {
 
     expect(ai_service.execute).toHaveBeenCalled();
     expect(ai_store.dialog.result?.success).toBe(true);
+  });
+
+  describe("panel streaming", () => {
+    it("routes streaming-capable providers through execute_streaming", async () => {
+      const { registry, ai_store, ai_service } = create_harness();
+      ai_service.execute_streaming = vi.fn().mockResolvedValue({
+        success: true,
+        output: "# Streamed",
+        error: null,
+      });
+
+      await registry.execute(ACTION_IDS.ai_open_assistant);
+      await registry.execute(ACTION_IDS.ai_update_prompt, "Tighten this note");
+      await registry.execute(ACTION_IDS.ai_execute);
+
+      expect(ai_service.execute_streaming).toHaveBeenCalledWith(
+        expect.objectContaining({
+          provider_config: expect.objectContaining({ id: "claude" }),
+          signal: expect.any(AbortSignal),
+        }),
+        expect.any(Function),
+      );
+      expect(ai_service.execute).not.toHaveBeenCalled();
+      expect(ai_store.dialog.result).toEqual({
+        success: true,
+        output: "# Streamed",
+        error: null,
+      });
+      expect(ai_store.dialog.streaming_text).toBeNull();
+    });
+
+    it("routes {output_file} providers through the blocking execute path", async () => {
+      const { registry, stores, ai_service } = create_harness();
+      stores.ui.editor_settings.ai_default_provider_id = "codex";
+      ai_service.execute = vi.fn().mockResolvedValue({
+        success: true,
+        output: "# Blocking",
+        error: null,
+      });
+
+      await registry.execute(ACTION_IDS.ai_open_assistant);
+      await registry.execute(ACTION_IDS.ai_update_prompt, "Tighten this note");
+      await registry.execute(ACTION_IDS.ai_execute);
+
+      expect(ai_service.execute).toHaveBeenCalled();
+      expect(ai_service.execute_streaming).not.toHaveBeenCalled();
+    });
+
+    it("surfaces streamed partial text on the dialog while executing", async () => {
+      const { registry, ai_store, ai_service } = create_harness();
+      let seen_streaming_text: string | null = null;
+      ai_service.execute_streaming = vi.fn(
+        async (
+          _input: unknown,
+          on_chunk?: (partial: string) => void,
+        ) => {
+          on_chunk?.("First chunk");
+          seen_streaming_text = ai_store.dialog.streaming_text;
+          return { success: true, output: "First chunk", error: null };
+        },
+      );
+
+      await registry.execute(ACTION_IDS.ai_open_assistant);
+      await registry.execute(ACTION_IDS.ai_update_prompt, "Tighten this note");
+      await registry.execute(ACTION_IDS.ai_execute);
+
+      expect(seen_streaming_text).toBe("First chunk");
+      expect(ai_store.dialog.streaming_text).toBeNull();
+    });
+
+    it("keeps a stopped stream's partial text as a reviewable result", async () => {
+      const { registry, ai_store, ai_service } = create_harness();
+      ai_service.execute_streaming = vi.fn(
+        async (
+          _input: unknown,
+          on_chunk?: (partial: string) => void,
+        ) => {
+          on_chunk?.("Partial answer");
+          await registry.execute(ACTION_IDS.ai_stop_execution);
+          return { success: true, output: "Partial answer", error: null };
+        },
+      );
+
+      await registry.execute(ACTION_IDS.ai_open_assistant);
+      await registry.execute(ACTION_IDS.ai_update_prompt, "Tighten this note");
+      await registry.execute(ACTION_IDS.ai_execute);
+
+      expect(ai_store.dialog.is_executing).toBe(false);
+      expect(ai_store.dialog.result).toEqual({
+        success: true,
+        output: "Partial answer",
+        error: null,
+      });
+    });
+
+    it("dismisses a stopped stream that produced no output", async () => {
+      const { registry, ai_store, ai_service } = create_harness();
+      ai_service.execute_streaming = vi.fn(async () => {
+        await registry.execute(ACTION_IDS.ai_stop_execution);
+        return { success: true, output: "", error: null };
+      });
+
+      await registry.execute(ACTION_IDS.ai_open_assistant);
+      await registry.execute(ACTION_IDS.ai_update_prompt, "Tighten this note");
+      await registry.execute(ACTION_IDS.ai_execute);
+
+      expect(ai_store.dialog.is_executing).toBe(false);
+      expect(ai_store.dialog.result).toBeNull();
+      expect(ai_store.dialog.turns).toHaveLength(0);
+    });
   });
 
   describe("inline AI streaming", () => {
@@ -587,6 +698,40 @@ describe("register_ai_actions", () => {
 
       expect(captured_signal?.aborted).toBe(true);
       expect(view.state.doc.textContent).not.toContain("more");
+    });
+
+    it("uses an API provider for inline AI when it is the default", async () => {
+      const { registry, stores, ai_service } = setup_inline();
+      stores.ui.editor_settings.ai_default_provider_id = "lmstudio";
+      ai_service.stream_inline = vi.fn(function* () {
+        yield { type: "text", text: "hi" };
+      });
+
+      await registry.execute(ACTION_IDS.ai_open_inline_menu);
+      await registry.execute(ACTION_IDS.ai_execute_inline, {
+        command_id: "continue",
+      });
+
+      expect(ai_service.stream_inline).toHaveBeenCalledWith(
+        expect.objectContaining({
+          provider_config: expect.objectContaining({ id: "lmstudio" }),
+        }),
+      );
+    });
+
+    it("rejects inline AI when the only provider cannot stream", async () => {
+      const { registry, stores, ai_service } = setup_inline();
+      stores.ui.editor_settings.ai_default_provider_id = "codex";
+
+      await registry.execute(ACTION_IDS.ai_open_inline_menu);
+      await registry.execute(ACTION_IDS.ai_execute_inline, {
+        command_id: "continue",
+      });
+
+      expect(ai_service.stream_inline).not.toHaveBeenCalled();
+      expect(toast.error).toHaveBeenCalledWith(
+        "No streaming-capable AI provider available",
+      );
     });
   });
 });

@@ -131,6 +131,7 @@
     selection_text={view_data.selection_text}
     original_text={view_data.original_text}
     is_executing={session.is_executing}
+    streaming_text={session.streaming_text}
     turns={session.turns}
     result={session.result}
     vault_context_enabled={session.vault_context_enabled}
@@ -144,6 +145,7 @@
     on_prompt_change={(value) =>
       void action_registry.execute(ACTION_IDS.ai_update_prompt, value)}
     on_execute={() => void action_registry.execute(ACTION_IDS.ai_execute)}
+    on_stop={() => void action_registry.execute(ACTION_IDS.ai_stop_execution)}
     on_apply={(output) =>
       void action_registry.execute(ACTION_IDS.ai_apply_result, output)}
     on_clear_result={() =>
