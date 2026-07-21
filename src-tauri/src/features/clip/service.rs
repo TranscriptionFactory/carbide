@@ -327,7 +327,7 @@ mod tests {
 
     fn sample_input() -> ClipEpubInput {
         ClipEpubInput {
-            title: "Clipped <Article> & More".to_string(),
+            title: "Clipped Article".to_string(),
             source_url: "https://example.com/post?a=1&b=2".to_string(),
             clipped_at: "2026-07-20T12:34:56.789Z".to_string(),
             xhtml: r#"<?xml version="1.0" encoding="utf-8"?>
@@ -354,10 +354,19 @@ mod tests {
         let epub = build_epub(&input, &[(&image, png)]).unwrap();
 
         let extraction = extract_epub_text(&epub);
-        assert_eq!(extraction.title.as_deref(), Some("Clipped <Article> & More"));
+        assert_eq!(extraction.title.as_deref(), Some("Clipped Article"));
         assert!(extraction
             .body
             .contains("Readable body text survives the roundtrip."));
+    }
+
+    #[test]
+    fn opf_escapes_xml_special_chars() {
+        let mut input = sample_input();
+        input.title = "Clipped <Article> & More".to_string();
+        let opf = build_opf(&input, &[]);
+        assert!(opf.contains("<dc:title>Clipped &lt;Article&gt; &amp; More</dc:title>"));
+        assert!(opf.contains("<dc:source>https://example.com/post?a=1&amp;b=2</dc:source>"));
     }
 
     #[test]
