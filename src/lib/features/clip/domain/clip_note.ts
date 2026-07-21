@@ -1,6 +1,21 @@
 import type { ArtifactProvenance } from "$lib/features/document";
 import { slugify_for_filename } from "$lib/features/document";
 
+export type ClipFormats = {
+  markdown: boolean;
+  html: boolean;
+  epub: boolean;
+};
+
+export function is_valid_clip_url(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return url.protocol === "http:" || url.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
 export function build_clip_frontmatter(
   title: string,
   source_url: string,

@@ -68,6 +68,13 @@ const INITIAL_SAVE_NOTE_DIALOG = {
   source: "manual" as "manual" | "tab_close",
 } as const;
 
+const INITIAL_CLIP_WEB_PAGE_DIALOG = {
+  open: false,
+  url: "",
+  folder_path: "",
+  formats: { markdown: true, html: false, epub: false },
+} as const;
+
 const INITIAL_CREATE_FOLDER_DIALOG = {
   open: false,
   parent_path: "",
@@ -300,6 +307,16 @@ export class UIStore {
     is_checking_existence: boolean;
     source: "manual" | "tab_close";
   }>({ ...INITIAL_SAVE_NOTE_DIALOG });
+
+  clip_web_page_dialog = $state<{
+    open: boolean;
+    url: string;
+    folder_path: string;
+    formats: { markdown: boolean; html: boolean; epub: boolean };
+  }>({
+    ...INITIAL_CLIP_WEB_PAGE_DIALOG,
+    formats: { ...INITIAL_CLIP_WEB_PAGE_DIALOG.formats },
+  });
 
   create_folder_dialog = $state<{
     open: boolean;
@@ -624,6 +641,10 @@ export class UIStore {
     this.delete_note_dialog = { ...INITIAL_DELETE_NOTE_DIALOG };
     this.rename_note_dialog = { ...INITIAL_RENAME_NOTE_DIALOG };
     this.save_note_dialog = { ...INITIAL_SAVE_NOTE_DIALOG };
+    this.clip_web_page_dialog = {
+      ...INITIAL_CLIP_WEB_PAGE_DIALOG,
+      formats: { ...INITIAL_CLIP_WEB_PAGE_DIALOG.formats },
+    };
     this.create_folder_dialog = { ...INITIAL_CREATE_FOLDER_DIALOG };
     this.create_canvas_dialog = { ...INITIAL_CREATE_CANVAS_DIALOG };
     this.delete_folder_dialog = { ...INITIAL_DELETE_FOLDER_DIALOG };

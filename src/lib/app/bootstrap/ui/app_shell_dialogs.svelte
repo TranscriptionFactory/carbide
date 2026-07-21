@@ -18,6 +18,8 @@
     FiletreeMoveConflictDialog,
   } from "$lib/features/folder";
   import { SaveCanvasDialog } from "$lib/features/canvas";
+  import { ClipWebPageDialog } from "$lib/features/clip";
+  import type { ClipFormats } from "$lib/features/clip";
   import { SettingsDialog } from "$lib/features/settings";
   import { Omnibar } from "$lib/features/search";
   import { TabCloseConfirmDialog } from "$lib/features/tab";
@@ -443,6 +445,37 @@
     void action_registry.execute(ACTION_IDS.note_confirm_save_overwrite)}
   on_retry={() => void action_registry.execute(ACTION_IDS.note_retry_save)}
   on_cancel={() => void action_registry.execute(ACTION_IDS.note_cancel_save)}
+/>
+
+<ClipWebPageDialog
+  open={stores.ui.clip_web_page_dialog.open}
+  url={stores.ui.clip_web_page_dialog.url}
+  folder_path={stores.ui.clip_web_page_dialog.folder_path}
+  folder_paths={stores.notes.folder_paths}
+  formats={stores.ui.clip_web_page_dialog.formats}
+  is_clipping={stores.op.is_pending("clip.page")}
+  on_update_url={(url: string) => {
+    stores.ui.clip_web_page_dialog = {
+      ...stores.ui.clip_web_page_dialog,
+      url,
+    };
+  }}
+  on_update_folder={(folder: string) => {
+    stores.ui.clip_web_page_dialog = {
+      ...stores.ui.clip_web_page_dialog,
+      folder_path: folder,
+    };
+  }}
+  on_update_formats={(formats: ClipFormats) => {
+    stores.ui.clip_web_page_dialog = {
+      ...stores.ui.clip_web_page_dialog,
+      formats,
+    };
+  }}
+  on_confirm={() =>
+    void action_registry.execute(ACTION_IDS.clip_web_page_confirm)}
+  on_cancel={() =>
+    void action_registry.execute(ACTION_IDS.clip_web_page_cancel)}
 />
 
 <SettingsDialog
