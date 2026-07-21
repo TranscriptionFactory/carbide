@@ -48,6 +48,7 @@ import { create_plugin_note_indexed_reactor } from "$lib/reactors/plugin_note_in
 import { create_plugin_metadata_events_reactor } from "$lib/reactors/plugin_metadata_events.reactor.svelte";
 import { create_mcp_autostart_reactor } from "$lib/reactors/mcp_autostart.reactor.svelte";
 import { create_rag_sessions_load_reactor } from "$lib/reactors/rag_sessions_load.reactor.svelte";
+import { create_ai_history_load_reactor } from "$lib/reactors/ai_history_load.reactor.svelte";
 import { create_rag_mcp_bridge_reactor } from "$lib/reactors/rag_mcp_bridge.reactor.svelte";
 import { create_visual_editor_diagnostics_reactor } from "$lib/reactors/visual_editor_diagnostics.reactor.svelte";
 import { create_tag_pill_colors_reactor } from "$lib/reactors/tag_pill_colors.reactor.svelte";
@@ -101,6 +102,7 @@ import type { ThemeService } from "$lib/features/theme";
 import type { ReferenceService, ReferenceStore } from "$lib/features/reference";
 import type { McpService } from "$lib/features/mcp";
 import type { RagService, RagStore } from "$lib/features/rag";
+import type { AiStore, AiHistoryPersistencePort } from "$lib/features/ai";
 import type { TagService, TagStore } from "$lib/features/tags";
 // import type { SttStore, SttService } from "$lib/features/stt";
 
@@ -153,6 +155,8 @@ export type ReactorContext = {
   mcp_service: McpService;
   rag_store: RagStore;
   rag_service: RagService;
+  ai_store: AiStore;
+  ai_history_port: AiHistoryPersistencePort;
   tag_store: TagStore;
   tag_service: TagService;
   // stt_store: SttStore;
@@ -426,6 +430,11 @@ export function mount_reactors(context: ReactorContext): ReactorHandles {
     create_rag_sessions_load_reactor(
       context.rag_store,
       context.rag_service,
+      context.vault_store,
+    ),
+    create_ai_history_load_reactor(
+      context.ai_store,
+      context.ai_history_port,
       context.vault_store,
     ),
     create_rag_mcp_bridge_reactor(context.rag_service, context.ui_store),

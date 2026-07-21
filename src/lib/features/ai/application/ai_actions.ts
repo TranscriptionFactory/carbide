@@ -7,6 +7,7 @@ import type {
   AiCliProbeStatus,
   AiDialogContext,
   AiMode,
+  AiVaultContext,
 } from "$lib/features/ai/domain/ai_types";
 import { context_key, find_provider } from "$lib/features/ai/domain/ai_types";
 import {
@@ -15,6 +16,7 @@ import {
 } from "$lib/features/ai/domain/ai_backend_selection";
 import { provider_supports_streaming } from "$lib/features/ai/domain/ai_provider_capabilities";
 import type { AiService } from "$lib/features/ai/application/ai_service";
+import type { AiHistoryPersistencePort } from "$lib/features/ai/ports";
 import type { AiStore } from "$lib/features/ai/state/ai_store.svelte";
 import { error_message } from "$lib/shared/utils/error_message";
 import type { AiProviderConfig } from "$lib/shared/types/ai_provider_config";
@@ -39,9 +41,10 @@ export function register_ai_actions(
   input: ActionRegistrationInput & {
     ai_store: AiStore;
     ai_service: AiService;
+    ai_history: AiHistoryPersistencePort;
   },
 ) {
-  const { registry, services, ai_service, ai_store } = input;
+  const { registry, services, ai_service, ai_store, ai_history } = input;
 
   let dialog_revision = 0;
   let panel_abort: AbortController | null = null;
@@ -66,6 +69,15 @@ export function register_ai_actions(
     return input.stores.ui.editor_settings.ai_providers;
   }
 
+  function persist_history() {
+    const vault_id = input.stores.vault.active_vault_id;
+    if (!vault_id) return;
+    const completed = ai_store.dialog.turns.filter(
+      (t) => t.status === "completed",
+    );
+    void ai_history.save_history(vault_id, completed);
+  }
+
   function get_provider(id: string): AiProviderConfig | undefined {
     return find_provider(get_providers(), id);
   }
@@ -88,6 +100,21 @@ export function register_ai_actions(
     }
     const match = providers.find((p) => p.id === default_id);
     return match ?? null;
+  }
+
+  async function fetch_inline_vault_context(
+    can_apply: boolean,
+  ): Promise<AiVaultContext | undefined> {
+    const settings = input.stores.ui.editor_settings;
+    if (!can_apply || !settings.ai_inline_vault_context) return undefined;
+    const editor_ctx = services.editor.get_ai_context();
+    if (!editor_ctx) return undefined;
+    return await ai_service.fetch_vault_context(editor_ctx.note_path, {
+      enabled: true,
+      similar_limit: settings.ai_vault_context_similar_limit,
+      include_links: settings.ai_vault_context_include_links,
+      similarity_threshold: settings.ai_vault_context_similarity_threshold,
+    });
   }
 
   async function resolve_streaming_provider(): Promise<AiProviderConfig | null> {
@@ -367,6 +394,15 @@ export function register_ai_actions(
   });
 
   registry.register({
+    id: ACTION_IDS.ai_clear_history,
+    label: "Clear AI History",
+    execute: () => {
+      ai_store.clear_turns();
+      persist_history();
+    },
+  });
+
+  registry.register({
     id: ACTION_IDS.ai_toggle_vault_context,
     label: "Toggle Vault Context",
     execute: () => {
@@ -450,9 +486,11 @@ export function register_ai_actions(
             output: result.output,
             error: null,
           });
+          persist_history();
           return;
         }
         ai_store.finish_execution(result);
+        persist_history();
       } catch (error) {
         if (revision !== dialog_revision) return;
         if (
@@ -465,6 +503,7 @@ export function register_ai_actions(
           output: "",
           error: error_message(error),
         });
+        persist_history();
       } finally {
         if (panel_abort === abort) {
           panel_abort = null;
@@ -600,7 +639,9 @@ export function register_ai_actions(
       const state = get_ai_menu_state(view.state);
       if (!state.open || state.streaming) return;
 
-      let prompts: { system_prompt: string; user_prompt: string };
+      let prompts: { system_prompt: string; user_prompt: string } | null = null;
+      let prompt_input: Parameters<typeof build_ai_inline_prompt>[0] | null =
+        null;
       if (p?.retry) {
         if (!last_inline_prompts) return;
         prompts = last_inline_prompts;
@@ -616,7 +657,7 @@ export function register_ai_actions(
           input.stores.ui.editor_settings.ai_inline_commands,
         );
         const ctx = extract_inline_context(view);
-        const prompt_input: Parameters<typeof build_ai_inline_prompt>[0] = {
+        prompt_input = {
           command_id: resolved_command,
           context_text: ctx.context_text,
           commands,
@@ -624,8 +665,6 @@ export function register_ai_actions(
         if (prompt) prompt_input.custom_prompt = prompt;
         if (ctx.selection_text)
           prompt_input.selection_text = ctx.selection_text;
-        prompts = build_ai_inline_prompt(prompt_input);
-        last_inline_prompts = prompts;
 
         const { from, to } = view.state.selection;
         const tr = view.state.tr;
@@ -638,8 +677,17 @@ export function register_ai_actions(
         view.dispatch(tr);
       }
 
-      const images = await collect_open_note_image_parts(input);
+      const [images, vault_context] = await Promise.all([
+        collect_open_note_image_parts(input),
+        fetch_inline_vault_context(prompt_input !== null),
+      ]);
       if (!get_ai_menu_state(view.state).open) return;
+      if (prompt_input) {
+        if (vault_context) prompt_input.vault_context = vault_context;
+        prompts = build_ai_inline_prompt(prompt_input);
+        last_inline_prompts = prompts;
+      }
+      if (!prompts) return;
 
       const abort = new AbortController();
       try {

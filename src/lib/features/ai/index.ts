@@ -6,8 +6,10 @@ export {
 } from "$lib/features/ai/state/ai_store.svelte";
 export type { AiPort } from "$lib/features/ai/ports";
 export type { AiStreamPort } from "$lib/features/ai/ports";
+export type { AiHistoryPersistencePort } from "$lib/features/ai/ports";
 export { create_ai_tauri_adapter } from "$lib/features/ai/adapters/ai_tauri_adapter";
 export { create_ai_stream_adapter } from "$lib/features/ai/adapters/ai_stream_adapter";
+export { create_ai_history_tauri_adapter } from "$lib/features/ai/adapters/ai_history_tauri_adapter";
 export type {
   AiStreamChunk,
   AiStreamRequest,
@@ -29,6 +31,7 @@ export {
 export type {
   AiCliProbe,
   AiCliProbeStatus,
+  AiConversationTurn,
 } from "$lib/features/ai/domain/ai_types";
 export {
   humanize_ai_error,

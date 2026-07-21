@@ -37,6 +37,7 @@ import { create_watcher_tauri_adapter } from "$lib/features/watcher";
 import {
   create_ai_tauri_adapter,
   create_ai_stream_adapter,
+  create_ai_history_tauri_adapter,
 } from "$lib/features/ai";
 import { create_graph_remark_adapter } from "$lib/features/graph";
 import { create_bases_tauri_adapter } from "$lib/features/bases";
@@ -272,6 +273,7 @@ export function create_prod_ports(): Ports & {
     watcher,
     ai,
     ai_stream,
+    ai_history: create_ai_history_tauri_adapter(),
     graph,
     bases,
     types,
