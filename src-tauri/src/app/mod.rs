@@ -517,6 +517,18 @@ pub fn run() {
                     }
                 }
             }
+            if let tauri::RunEvent::ExitRequested {
+                code: Some(code),
+                api,
+                ..
+            } = &event
+            {
+                if *code != tauri::RESTART_EXIT_CODE {
+                    api.prevent_exit();
+                    tray::show_main_window(app);
+                    let _ = app.emit("window-close-requested", ());
+                }
+            }
             if let tauri::RunEvent::Exit = &event {
                 log::info!("Carbide exiting — cleaning up child processes");
                 let app = app.clone();
