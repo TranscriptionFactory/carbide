@@ -89,7 +89,11 @@
   let destroyed = false;
 
   onMount(() => {
-    const unlisten_promise = getCurrentWindow().onCloseRequested(() => {
+    const unlisten_promise = getCurrentWindow().onCloseRequested((event) => {
+      if (window_init.kind !== "viewer") {
+        event.preventDefault();
+        return;
+      }
       if (!destroyed) {
         destroyed = true;
         app.destroy();
