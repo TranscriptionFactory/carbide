@@ -84,10 +84,7 @@ export function register_rag_actions(
     },
   });
 
-  async function maybe_autotitle(
-    provider: AiProviderConfig,
-    revision: number,
-  ) {
+  async function maybe_autotitle(provider: AiProviderConfig, revision: number) {
     const session = rag_store.active;
     if (!session || !should_autotitle(session)) return;
     if (session.messages.filter((m) => m.role === "assistant").length !== 1) {
@@ -122,86 +119,86 @@ export function register_rag_actions(
     rag_store.start_loading();
     stores.op.start(RAG_OP_KEY, Date.now());
 
-      const open_note = stores.editor.open_note;
-      let image_parts: AiImagePart[] = [];
-      if (
-        open_note &&
-        should_attach_open_note_images({
-          question,
-          scope: rag_store.scope,
-          note_path: String(open_note.meta.path),
-          note_title: String(open_note.meta.title),
-        })
-      ) {
-        image_parts = await collect_open_note_image_parts(input);
-      }
+    const open_note = stores.editor.open_note;
+    let image_parts: AiImagePart[] = [];
+    if (
+      open_note &&
+      should_attach_open_note_images({
+        question,
+        scope: rag_store.scope,
+        note_path: String(open_note.meta.path),
+        note_title: String(open_note.meta.title),
+      })
+    ) {
+      image_parts = await collect_open_note_image_parts(input);
+    }
 
-      ask_abort = new AbortController();
-      let context_stats: RagContextStats | null = null;
-      try {
-        let errored = false;
-        const settings = stores.ui.editor_settings;
-        for await (const event of rag_service.query({
-          question,
-          provider_config: provider,
-          history,
-          scope: rag_store.scope,
-          retrieve_limit: clamp_setting(
-            settings.ai_rag_retrieve_limit,
-            RETRIEVE_LIMIT_MIN,
-            RETRIEVE_LIMIT_MAX,
-            DEFAULT_EDITOR_SETTINGS.ai_rag_retrieve_limit,
+    ask_abort = new AbortController();
+    let context_stats: RagContextStats | null = null;
+    try {
+      let errored = false;
+      const settings = stores.ui.editor_settings;
+      for await (const event of rag_service.query({
+        question,
+        provider_config: provider,
+        history,
+        scope: rag_store.scope,
+        retrieve_limit: clamp_setting(
+          settings.ai_rag_retrieve_limit,
+          RETRIEVE_LIMIT_MIN,
+          RETRIEVE_LIMIT_MAX,
+          DEFAULT_EDITOR_SETTINGS.ai_rag_retrieve_limit,
+        ),
+        assembler_options: {
+          token_budget: clamp_setting(
+            settings.ai_rag_context_token_budget,
+            TOKEN_BUDGET_MIN,
+            TOKEN_BUDGET_MAX,
+            DEFAULT_EDITOR_SETTINGS.ai_rag_context_token_budget,
           ),
-          assembler_options: {
-            token_budget: clamp_setting(
-              settings.ai_rag_context_token_budget,
-              TOKEN_BUDGET_MIN,
-              TOKEN_BUDGET_MAX,
-              DEFAULT_EDITOR_SETTINGS.ai_rag_context_token_budget,
-            ),
-          },
-          image_parts,
-          signal: ask_abort.signal,
-        })) {
-          if (revision !== rag_store.revision) return;
-          if (event.type === "generating") {
-            rag_store.set_loading_stage("generating");
-          } else if (event.type === "sources") {
-            context_stats = event.stats;
-          } else if (event.type === "text") {
-            if (!rag_store.streaming_id) {
-              rag_store.start_streaming();
-              if (context_stats) {
-                rag_store.set_streaming_context_stats(context_stats);
-              }
+        },
+        image_parts,
+        signal: ask_abort.signal,
+      })) {
+        if (revision !== rag_store.revision) return;
+        if (event.type === "generating") {
+          rag_store.set_loading_stage("generating");
+        } else if (event.type === "sources") {
+          context_stats = event.stats;
+        } else if (event.type === "text") {
+          if (!rag_store.streaming_id) {
+            rag_store.start_streaming();
+            if (context_stats) {
+              rag_store.set_streaming_context_stats(context_stats);
             }
-            rag_store.append_streaming_text(event.text);
-          } else if (event.type === "citation") {
-            rag_store.add_streaming_citation(event.citation);
-          } else if (event.type === "error") {
-            rag_store.fail_streaming(event.error);
-            stores.op.fail(RAG_OP_KEY, event.error);
-            errored = true;
           }
+          rag_store.append_streaming_text(event.text);
+        } else if (event.type === "citation") {
+          rag_store.add_streaming_citation(event.citation);
+        } else if (event.type === "error") {
+          rag_store.fail_streaming(event.error);
+          stores.op.fail(RAG_OP_KEY, event.error);
+          errored = true;
         }
-        if (revision !== rag_store.revision) return;
-        if (!errored) {
-          rag_store.finish_streaming();
-          stores.op.succeed(RAG_OP_KEY);
-          announce("Vault chat reply ready");
-          void maybe_autotitle(provider, revision);
-        }
-        // persist failed turns too, so the exchange survives a reload
-        persist_session(rag_store.active_id);
-      } catch (err) {
-        if (revision !== rag_store.revision) return;
-        const message = error_message(err);
-        rag_store.fail_streaming(message);
-        stores.op.fail(RAG_OP_KEY, message);
-        persist_session(rag_store.active_id);
-      } finally {
-        ask_abort = null;
       }
+      if (revision !== rag_store.revision) return;
+      if (!errored) {
+        rag_store.finish_streaming();
+        stores.op.succeed(RAG_OP_KEY);
+        announce("Vault chat reply ready");
+        void maybe_autotitle(provider, revision);
+      }
+      // persist failed turns too, so the exchange survives a reload
+      persist_session(rag_store.active_id);
+    } catch (err) {
+      if (revision !== rag_store.revision) return;
+      const message = error_message(err);
+      rag_store.fail_streaming(message);
+      stores.op.fail(RAG_OP_KEY, message);
+      persist_session(rag_store.active_id);
+    } finally {
+      ask_abort = null;
+    }
   }
 
   registry.register({

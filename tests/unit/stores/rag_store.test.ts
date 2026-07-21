@@ -209,7 +209,12 @@ describe("RagStore", () => {
         citations: [citation],
       },
       { id: "u2", role: "user" as const, content: "q2", citations: [] },
-      { id: "a2", role: "assistant" as const, content: "answer 2", citations: [] },
+      {
+        id: "a2",
+        role: "assistant" as const,
+        content: "answer 2",
+        citations: [],
+      },
     ];
     store.hydrate([saved_session({ id: "orig", title: "Chat", messages })]);
     store.switch_session("orig");
