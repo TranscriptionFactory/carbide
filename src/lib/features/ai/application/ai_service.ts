@@ -210,7 +210,11 @@ export class AiService {
       throw new Error("No active vault");
     }
     if (!this.ai_stream_port) {
-      return { success: false, output: "", error: "Streaming is not available" };
+      return {
+        success: false,
+        output: "",
+        error: "Streaming is not available",
+      };
     }
 
     const { prompt } = await this.build_execution_prompt(input);

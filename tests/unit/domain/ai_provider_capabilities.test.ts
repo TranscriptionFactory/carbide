@@ -34,12 +34,7 @@ describe("provider_supports_streaming", () => {
   it("rejects streaming for {output_file} CLI providers", () => {
     expect(
       provider_supports_streaming(
-        cli_provider([
-          "exec",
-          "--output-last-message",
-          "{output_file}",
-          "-",
-        ]),
+        cli_provider(["exec", "--output-last-message", "{output_file}", "-"]),
       ),
     ).toBe(false);
   });
