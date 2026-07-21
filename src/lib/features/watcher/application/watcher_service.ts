@@ -2,14 +2,14 @@ import type { WatcherPort } from "$lib/features/watcher/ports";
 import type { VaultFsEvent } from "$lib/features/watcher/types/watcher";
 import type { VaultId } from "$lib/shared/types/ids";
 import { create_logger } from "$lib/shared/utils/logger";
+import { normalize_path_key } from "$lib/shared/utils/path";
 
 const log = create_logger("watcher_service");
 
 const SUPPRESS_WINDOW_MS = 10_000;
 
-function suppressed_path_key(path: string): string {
-  return path.toLowerCase();
-}
+// Rust atomic_write stages "<file>.tmp" beside the target before renaming.
+const ATOMIC_WRITE_TMP_SUFFIX = ".tmp";
 
 export class WatcherService {
   private port_unsubscribe: (() => void) | null = null;
@@ -33,12 +33,20 @@ export class WatcherService {
   }
 
   suppress_next(path: string): void {
-    const key = suppressed_path_key(path);
+    const key = normalize_path_key(path);
     this.suppressed.set(key, Date.now());
   }
 
   is_suppressed(path: string): boolean {
-    const key = suppressed_path_key(path);
+    const key = normalize_path_key(path);
+    if (this.is_key_suppressed(key)) return true;
+    return (
+      key.endsWith(ATOMIC_WRITE_TMP_SUFFIX) &&
+      this.is_key_suppressed(key.slice(0, -ATOMIC_WRITE_TMP_SUFFIX.length))
+    );
+  }
+
+  private is_key_suppressed(key: string): boolean {
     const stamp = this.suppressed.get(key);
     if (stamp === undefined) return false;
     if (Date.now() - stamp > SUPPRESS_WINDOW_MS) {
