@@ -311,7 +311,7 @@ async function download_and_install(
     await update.downloadAndInstall();
     toast.dismiss(loading_id);
     toast.success("Update installed — restart Carbide to apply", {
-      duration: 30_000,
+      duration: Number.POSITIVE_INFINITY,
       action: {
         label: "Restart",
         onClick: () => void relaunch_app(),

@@ -13,7 +13,7 @@ pub fn close_to_tray_enabled(app: &AppHandle) -> bool {
         .unwrap_or(false)
 }
 
-fn show_main_window(app: &AppHandle) {
+pub fn show_main_window(app: &AppHandle) {
     if let Some(w) = app.get_webview_window("main") {
         let _ = w.show();
         let _ = w.unminimize();
