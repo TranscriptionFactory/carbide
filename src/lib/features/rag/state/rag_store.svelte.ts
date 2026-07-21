@@ -162,13 +162,17 @@ export class RagStore {
     this.is_loading = false;
   }
 
-  start_new_session() {
-    this.active_id = null;
+  private reset_turn_state() {
     this.error = null;
     this.is_loading = false;
     this.streaming_id = null;
     this.pending_sources = null;
     this.revision += 1;
+  }
+
+  start_new_session() {
+    this.active_id = null;
+    this.reset_turn_state();
   }
 
   switch_session(id: string) {
@@ -177,11 +181,7 @@ export class RagStore {
     this.active_id = id;
     this.provider_id = session.provider_id;
     this.scope = session.scope;
-    this.error = null;
-    this.is_loading = false;
-    this.streaming_id = null;
-    this.pending_sources = null;
-    this.revision += 1;
+    this.reset_turn_state();
   }
 
   rename_session(id: string, title: string, source: RagTitleSource = "manual") {
@@ -210,10 +210,7 @@ export class RagStore {
     };
     this.sessions = [fork, ...this.sessions];
     this.active_id = fork.id;
-    this.error = null;
-    this.is_loading = false;
-    this.streaming_id = null;
-    this.revision += 1;
+    this.reset_turn_state();
     return fork.id;
   }
 
