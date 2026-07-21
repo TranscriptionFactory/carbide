@@ -31,12 +31,14 @@
     selection_text: string | null;
     original_text: string;
     is_executing: boolean;
+    streaming_text?: string | null;
     turns: AiConversationTurn[];
     result: AiExecutionResult | null;
     vault_context_enabled: boolean;
     title?: string;
     description?: string | null;
     close_label: string;
+    on_stop?: () => void;
     on_provider_change: (provider_id: string) => void;
     on_mode_change: (mode: AiMode) => void;
     on_target_change: (target: AiApplyTarget) => void;
@@ -62,12 +64,14 @@
     selection_text,
     original_text,
     is_executing,
+    streaming_text = null,
     turns,
     result,
     vault_context_enabled,
     title = "AI Assistant",
     description = null,
     close_label,
+    on_stop = undefined,
     on_provider_change,
     on_mode_change,
     on_target_change,
@@ -381,21 +385,45 @@
             {/if}
           </Button>
         {/if}
-        <Button size="sm" onclick={on_execute} disabled={execute_disabled}>
-          {#if is_executing}
-            Running…
-          {:else if result}
-            {is_ask_mode ? "Ask Again" : "Refine Draft"}
-          {:else}
-            {is_ask_mode ? "Ask" : "Generate Draft"}
-          {/if}
-        </Button>
+        {#if is_executing && on_stop}
+          <Button size="sm" variant="outline" onclick={on_stop}>Stop</Button>
+        {:else}
+          <Button size="sm" onclick={on_execute} disabled={execute_disabled}>
+            {#if is_executing}
+              Running…
+            {:else if result}
+              {is_ask_mode ? "Ask Again" : "Refine Draft"}
+            {:else}
+              {is_ask_mode ? "Ask" : "Generate Draft"}
+            {/if}
+          </Button>
+        {/if}
       </div>
     </div>
 
-    <!-- Right column: context preview / result -->
+    <!-- Right column: context preview / streaming output / result -->
     <div class="flex min-w-0 flex-1 flex-col overflow-y-auto p-3">
-      {#if result}
+      {#if is_executing && streaming_text !== null}
+        <div class="space-y-3">
+          <div
+            class="rounded-md border bg-muted/40 p-3 text-sm text-muted-foreground"
+          >
+            {last_turn?.mode === "ask" ? "Answering" : "Drafting"} with
+            <span class="ml-1 text-foreground">{result_provider_name}</span>
+          </div>
+          <div
+            class="whitespace-pre-wrap rounded-md border bg-background px-4 py-3 {last_turn?.mode ===
+            'ask'
+              ? 'text-sm'
+              : 'font-mono text-xs'}"
+          >
+            {streaming_text}<span
+              class="ml-0.5 inline-block w-1.5 animate-pulse select-none align-baseline text-foreground"
+              aria-hidden="true">▍</span
+            >
+          </div>
+        </div>
+      {:else if result}
         {#if result.success}
           {#if result_is_answer}
             <div class="space-y-3">

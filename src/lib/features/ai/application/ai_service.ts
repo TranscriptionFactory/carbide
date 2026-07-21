@@ -28,6 +28,15 @@ import { humanize_ai_error } from "$lib/features/ai/domain/ai_error_messages";
 
 const log = create_logger("ai_service");
 
+type AiExecuteInput = {
+  provider_config: AiProviderConfig;
+  prompt: string;
+  context: AiDialogContext;
+  mode: AiMode;
+  timeout_seconds?: number | null;
+  vault_context_settings?: VaultContextSettings;
+};
+
 function to_vault_context_note(n: {
   path: string;
   title: string;
@@ -119,41 +128,33 @@ export class AiService {
     };
   }
 
-  async execute(input: {
-    provider_config: AiProviderConfig;
-    prompt: string;
-    context: AiDialogContext;
-    mode: AiMode;
-    timeout_seconds?: number | null;
-    vault_context_settings?: VaultContextSettings;
-  }): Promise<AiExecutionResult> {
-    const vault_path = this.vault_store.vault?.path;
-    if (!vault_path) {
-      throw new Error("No active vault");
-    }
-
+  private async build_execution_prompt(
+    input: AiExecuteInput,
+  ): Promise<{ prompt: string; working_path: string }> {
     const { context } = input;
-    let prompt: string;
-    let working_path: string;
 
     if (context.kind === "document") {
-      prompt = build_ai_document_prompt({
-        file_path: context.file_path,
-        file_title: context.file_title,
-        content: context.content,
-        user_prompt: input.prompt,
-        mode: input.mode,
-      });
-      working_path = context.file_path;
-    } else {
-      let vault_context: AiVaultContext | undefined;
-      if (input.vault_context_settings?.enabled) {
-        vault_context = await this.fetch_vault_context(
-          context.note_path,
-          input.vault_context_settings,
-        );
-      }
-      prompt = build_ai_prompt({
+      return {
+        prompt: build_ai_document_prompt({
+          file_path: context.file_path,
+          file_title: context.file_title,
+          content: context.content,
+          user_prompt: input.prompt,
+          mode: input.mode,
+        }),
+        working_path: context.file_path,
+      };
+    }
+
+    let vault_context: AiVaultContext | undefined;
+    if (input.vault_context_settings?.enabled) {
+      vault_context = await this.fetch_vault_context(
+        context.note_path,
+        input.vault_context_settings,
+      );
+    }
+    return {
+      prompt: build_ai_prompt({
         note_path: context.note_path,
         note_markdown: context.note_markdown,
         selection: context.selection,
@@ -161,9 +162,19 @@ export class AiService {
         target: context.target,
         mode: input.mode,
         ...(vault_context ? { vault_context } : {}),
-      });
-      working_path = context.note_path;
+      }),
+      working_path: context.note_path,
+    };
+  }
+
+  async execute(input: AiExecuteInput): Promise<AiExecutionResult> {
+    const vault_path = this.vault_store.vault?.path;
+    if (!vault_path) {
+      throw new Error("No active vault");
     }
+
+    const { context } = input;
+    const { prompt, working_path } = await this.build_execution_prompt(input);
 
     const result = await this.ai_port.execute({
       provider_config: input.provider_config,
@@ -188,6 +199,61 @@ export class AiService {
           ? null
           : `${input.provider_config.name} failed to ${input.mode === "ask" ? "answer the question" : `edit the ${context.kind}`}`,
     };
+  }
+
+  async execute_streaming(
+    input: AiExecuteInput & { signal?: AbortSignal },
+    on_chunk?: (partial: string) => void,
+  ): Promise<AiExecutionResult> {
+    const vault_path = this.vault_store.vault?.path;
+    if (!vault_path) {
+      throw new Error("No active vault");
+    }
+    if (!this.ai_stream_port) {
+      return {
+        success: false,
+        output: "",
+        error: "Streaming is not available",
+      };
+    }
+
+    const { prompt } = await this.build_execution_prompt(input);
+    const joiner = new MarkdownJoiner();
+    let output = "";
+    let error: string | null = null;
+
+    const push = (text: string) => {
+      if (!text) return;
+      output += text;
+      on_chunk?.(output);
+    };
+
+    for await (const chunk of this.ai_stream_port.stream_text({
+      provider_config: input.provider_config,
+      system_prompt: "",
+      messages: [{ role: "user", content: prompt }],
+      vault_path,
+      ...(input.signal ? { signal: input.signal } : {}),
+    })) {
+      if (chunk.type === "text") {
+        push(joiner.process_chunk(chunk.text));
+        continue;
+      }
+      push(joiner.flush());
+      if (chunk.type === "error" && chunk.error !== "aborted") {
+        error = humanize_ai_error(chunk.error, input.provider_config).message;
+        log.warn("AI streaming execution failed", {
+          provider: input.provider_config.id,
+          error: chunk.error,
+        });
+      }
+    }
+    push(joiner.flush());
+
+    if (error) {
+      return { success: false, output, error };
+    }
+    return { success: true, output, error: null };
   }
 
   async *stream_inline(input: {
