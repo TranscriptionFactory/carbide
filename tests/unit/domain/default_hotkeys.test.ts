@@ -77,6 +77,8 @@ describe("DEFAULT_HOTKEYS", () => {
     expect(action_ids.has("git.pull")).toBe(true);
     expect(action_ids.has("git.push")).toBe(true);
     expect(action_ids.has("git.add_remote")).toBe(true);
+    expect(action_ids.has("ai.open_assistant")).toBe(true);
+    expect(action_ids.has("rag.open")).toBe(true);
   });
 
   it("defaults are loaded on first launch (no overrides)", () => {

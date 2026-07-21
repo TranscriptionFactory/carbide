@@ -86,7 +86,7 @@ export class AiService {
     return await this.ai_port.test_provider(config);
   }
 
-  private async fetch_vault_context(
+  async fetch_vault_context(
     note_path: string,
     settings: VaultContextSettings,
   ): Promise<AiVaultContext> {
