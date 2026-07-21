@@ -13,7 +13,8 @@ const DEFAULT_TOKEN_BUDGET = 8000;
 const DEFAULT_RESERVE_TOKENS = 2500;
 const DEFAULT_CHARS_PER_TOKEN = 4;
 const DEFAULT_MIN_CONTEXT_CHARS = 200;
-const TRUNCATION_MARKER = "\n…[truncated]";
+const TRUNCATION_MARKER = "\n…[middle truncated]\n";
+const TRUNCATION_HEAD_RATIO = 0.75;
 
 export function estimate_tokens(
   text: string,
@@ -80,10 +81,15 @@ export function assemble_context(
     } else {
       const keep = remaining - TRUNCATION_MARKER.length;
       if (keep < min_context_chars) break;
+      const head = Math.floor(keep * TRUNCATION_HEAD_RATIO);
+      const tail = keep - head;
       assembled.push({
         ...candidate,
         index,
-        text: candidate.text.slice(0, keep) + TRUNCATION_MARKER,
+        text:
+          candidate.text.slice(0, head) +
+          TRUNCATION_MARKER +
+          candidate.text.slice(-tail),
         truncated: true,
       });
       used_chars = available_chars;
