@@ -14,6 +14,7 @@ export const ACTION_IDS = {
   editor_zoom_reset: "editor.zoom_reset",
   editor_sync_visual_from_store: "editor.sync_visual_from_store",
   app_handle_file_open: "app.handle_file_open",
+  app_close_requested: "app.close_requested",
 
   note_create: "note.create",
   note_open: "note.open",

@@ -16,6 +16,7 @@ import {
   try_open_tab,
 } from "$lib/features/tab/application/tab_action_helpers";
 import type { Tab } from "$lib/features/tab/types/tab";
+import { tauri_invoke } from "$lib/shared/adapters/tauri_invoke";
 import { toast } from "svelte-sonner";
 
 export { capture_active_tab_snapshot, ensure_tab_capacity, try_open_tab };
@@ -487,6 +488,30 @@ export function register_tab_actions(input: ActionRegistrationInput) {
     label: "Cancel Close Tab",
     execute: () => {
       reset_close_confirm(stores);
+    },
+  });
+
+  registry.register({
+    id: ACTION_IDS.app_close_requested,
+    label: "Close Window",
+    execute: async () => {
+      services.editor.flush();
+      const dirty = stores.tab.get_dirty_tabs();
+      const open_note = stores.editor.open_note;
+      const active_tab = stores.tab.active_tab;
+      if (
+        open_note?.is_dirty &&
+        active_tab?.kind === "note" &&
+        active_tab.note_path === open_note.meta.path &&
+        !dirty.some((tab) => tab.id === active_tab.id)
+      ) {
+        dirty.unshift(active_tab);
+      }
+      if (dirty.length === 0) {
+        await tauri_invoke("confirm_window_close");
+        return;
+      }
+      start_batch_close_confirm(stores, dirty, "quit", null);
     },
   });
 
