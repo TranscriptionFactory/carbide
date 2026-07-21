@@ -78,6 +78,26 @@ describe("rag session persistence round-trip", () => {
     expect(store.scope).toEqual({ folders: ["projects"], tags: ["active"] });
   });
 
+  it("round-trips title_source and tolerates legacy sessions without it", async () => {
+    const persistence = create_test_rag_persistence_adapter();
+    const writer = make_service(persistence);
+    await writer.save_session(
+      VAULT_ID,
+      session({ id: "named", title_source: "manual" }),
+    );
+    await writer.save_session(VAULT_ID, session({ id: "legacy" }));
+
+    const store = new RagStore();
+    await load_rag_sessions(store, make_service(persistence), VAULT_ID);
+
+    expect(store.sessions.find((s) => s.id === "named")?.title_source).toBe(
+      "manual",
+    );
+    expect(
+      store.sessions.find((s) => s.id === "legacy")?.title_source,
+    ).toBeUndefined();
+  });
+
   it("save_session fails soft when the vault rejects .carbide/ writes (browse mode)", async () => {
     const failing = {
       list_sessions: () => Promise.resolve([]),
