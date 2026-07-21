@@ -20,11 +20,12 @@
 
   type Props = {
     open: boolean;
+    guide?: string | null;
     hotkeys_config: HotkeyConfig;
     on_close: () => void;
   };
 
-  let { open, hotkeys_config, on_close }: Props = $props();
+  let { open, guide = null, hotkeys_config, on_close }: Props = $props();
 
   let active_category = $state<HelpCategory>("shortcuts");
   let search_query = $state("");
@@ -43,6 +44,13 @@
     active_guide_slug = null;
     guide_html = "";
   }
+
+  $effect(() => {
+    if (open && guide) {
+      active_category = "guides";
+      void open_guide(guide);
+    }
+  });
 
   const categories: {
     id: HelpCategory;
