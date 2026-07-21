@@ -12,6 +12,12 @@ export async function tauri_invoke<T>(
   try {
     return await invoke<T>(command, args);
   } catch (e) {
+    // Structured command errors (plain objects from Rust error types) pass
+    // through untouched so adapters can map them; stringifying would flatten
+    // them to "[object Object]".
+    if (typeof e === "object" && e !== null && !(e instanceof Error)) {
+      throw e;
+    }
     const msg = e instanceof Error ? e.message : String(e);
     throw new Error(`tauri invoke failed: ${command}: ${msg}`);
   }

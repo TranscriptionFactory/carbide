@@ -1,11 +1,10 @@
 use std::time::Duration;
 
 use tauri::{
-    AppHandle, Emitter, Manager, Runtime, WebviewUrl, WebviewWindow, WebviewWindowBuilder,
-    WindowEvent,
+    AppHandle, Emitter, Manager, WebviewUrl, WebviewWindow, WebviewWindowBuilder, WindowEvent,
 };
 
-use crate::features::clip::service::{ClipPage, MAX_PAGE_BYTES};
+use crate::features::clip::service::{check_page_size, ClipPage};
 use crate::features::plugin::http_fetch::check_ssrf;
 
 // SECURITY INVARIANT: this label must never appear in any capabilities file.
@@ -58,10 +57,7 @@ pub async fn clip_capture_finish(app: AppHandle) -> Result<ClipPage, String> {
     let html = evaluate_outer_html(&window).await;
     let _ = window.close();
     let html = html?;
-
-    if html.len() > MAX_PAGE_BYTES {
-        return Err(format!("Page exceeds {MAX_PAGE_BYTES} byte limit"));
-    }
+    check_page_size(html.len())?;
 
     Ok(ClipPage {
         final_url,
@@ -79,7 +75,7 @@ pub async fn clip_capture_cancel(app: AppHandle) -> Result<(), String> {
     Ok(())
 }
 
-async fn evaluate_outer_html<R: Runtime>(window: &WebviewWindow<R>) -> Result<String, String> {
+async fn evaluate_outer_html(window: &WebviewWindow) -> Result<String, String> {
     let (tx, rx) = tokio::sync::oneshot::channel::<Result<String, String>>();
 
     window

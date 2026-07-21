@@ -9,7 +9,7 @@ use crate::features::plugin::http_fetch::fetch_checked;
 use crate::features::search::html_extractor::sniff_decode;
 use crate::shared::{io_utils, storage};
 
-pub(crate) const MAX_PAGE_BYTES: usize = 10 * 1024 * 1024;
+const MAX_PAGE_BYTES: usize = 10 * 1024 * 1024;
 const MAX_ASSET_BYTES: usize = 5 * 1024 * 1024;
 const FETCH_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(30);
 
@@ -121,11 +121,7 @@ pub async fn clip_fetch_page(url: String) -> Result<ClipPage, ClipFetchError> {
         .bytes()
         .await
         .map_err(|e| ClipFetchError::other(format!("Failed to read response body: {e}")))?;
-    if bytes.len() > MAX_PAGE_BYTES {
-        return Err(ClipFetchError::other(format!(
-            "Page exceeds {MAX_PAGE_BYTES} byte limit"
-        )));
-    }
+    check_page_size(bytes.len())?;
 
     Ok(ClipPage {
         final_url,
@@ -214,6 +210,13 @@ fn status_error(status: reqwest::StatusCode) -> ClipFetchError {
         },
         _ => ClipFetchError::other(format!("Request failed with status {status}")),
     }
+}
+
+pub(crate) fn check_page_size(len: usize) -> Result<(), String> {
+    if len > MAX_PAGE_BYTES {
+        return Err(format!("Page exceeds {MAX_PAGE_BYTES} byte limit"));
+    }
+    Ok(())
 }
 
 fn check_declared_length(
