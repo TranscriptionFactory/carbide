@@ -216,7 +216,9 @@
           >
             <FileText class="size-3.5 shrink-0 text-muted-foreground" />
             <span class="truncate">{source.title}</span>
-            <span class="truncate text-muted-foreground">{source.note_path}</span>
+            <span class="truncate text-muted-foreground"
+              >{source.note_path}</span
+            >
             {#if source.pinned}
               <span class="shrink-0 text-muted-foreground">pinned</span>
             {/if}

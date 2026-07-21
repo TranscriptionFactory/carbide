@@ -134,19 +134,19 @@ describe("register_rag_actions", () => {
     };
     let pending_before_text: RagSourceInfo[] | null = null;
     // eslint-disable-next-line @typescript-eslint/require-await
-    rag_service.query = vi.fn(async function* (): AsyncGenerator<
-      RagStreamEvent
-    > {
-      yield { type: "generating" };
-      yield {
-        type: "sources",
-        stats: { retrieved: 1, used: 1, truncated: 0 },
-        sources: [source],
-      };
-      pending_before_text = rag_store.pending_sources;
-      yield { type: "text", text: "42." };
-      yield { type: "done" };
-    });
+    rag_service.query = vi.fn(
+      async function* (): AsyncGenerator<RagStreamEvent> {
+        yield { type: "generating" };
+        yield {
+          type: "sources",
+          stats: { retrieved: 1, used: 1, truncated: 0 },
+          sources: [source],
+        };
+        pending_before_text = rag_store.pending_sources;
+        yield { type: "text", text: "42." };
+        yield { type: "done" };
+      },
+    );
 
     await registry.execute(ACTION_IDS.rag_ask, "what is it?");
 
