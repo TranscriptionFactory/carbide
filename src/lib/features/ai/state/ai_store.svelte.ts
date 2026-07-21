@@ -100,6 +100,8 @@ export class AiStore {
       cli_error: null,
       is_executing: false,
       result: null,
+      turns: this.settled_turns(),
+      next_turn_id: this.dialog.next_turn_id,
       vault_context_enabled:
         options?.vault_context_enabled ?? defaults.vault_context_enabled,
     };
@@ -109,7 +111,28 @@ export class AiStore {
     this.dialog = {
       ...initial_state(),
       provider_id: this.dialog.provider_id,
+      turns: this.settled_turns(),
+      next_turn_id: this.dialog.next_turn_id,
     };
+  }
+
+  private settled_turns() {
+    return this.dialog.turns.filter((t) => t.status === "completed");
+  }
+
+  hydrate_turns(turns: AiConversationTurn[]) {
+    const pending = this.dialog.turns.filter((t) => t.status === "pending");
+    let next_id = Math.max(0, ...turns.map((t) => t.id)) + 1;
+    this.dialog.turns = [
+      ...turns,
+      ...pending.map((t) => ({ ...t, id: next_id++ })),
+    ];
+    this.dialog.next_turn_id = next_id;
+  }
+
+  clear_turns() {
+    this.dialog.turns = [];
+    this.dialog.next_turn_id = 1;
   }
 
   set_provider(provider_id: string) {
@@ -207,11 +230,8 @@ export class AiStore {
     this.dialog.streaming_text = null;
     this.dialog.result = result;
     const last_index = this.dialog.turns.length - 1;
-    if (last_index < 0) {
-      return;
-    }
     const turn = this.dialog.turns[last_index];
-    if (!turn) {
+    if (!turn || turn.status !== "pending") {
       return;
     }
     this.dialog.turns[last_index] = {

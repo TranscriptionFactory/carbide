@@ -28,7 +28,12 @@ import { TaskStore } from "$lib/features/task/state/task_store.svelte";
 import { OutlineStore } from "$lib/features/outline";
 import { ParsedNoteCache } from "$lib/features/note/state/parsed_note_cache.svelte";
 import { ReferenceStore } from "$lib/features/reference/state/reference_store.svelte";
-import { as_markdown_text, as_note_path } from "$lib/shared/types/ids";
+import {
+  as_markdown_text,
+  as_note_path,
+  as_vault_id,
+} from "$lib/shared/types/ids";
+import { create_test_vault } from "../helpers/test_fixtures";
 import { BUILTIN_PROVIDER_PRESETS } from "$lib/shared/types/ai_provider_config";
 import { toast } from "svelte-sonner";
 
@@ -94,6 +99,15 @@ function create_harness() {
     execute: vi.fn(),
     execute_streaming: vi.fn(),
     stream_inline: vi.fn(),
+    fetch_vault_context: vi.fn().mockResolvedValue({
+      similar_notes: [],
+      backlinks: [],
+      outlinks: [],
+    }),
+  };
+  const ai_history = {
+    load_history: vi.fn().mockResolvedValue([]),
+    save_history: vi.fn().mockResolvedValue(undefined),
   };
 
   stores.ui.editor_settings.ai_providers = BUILTIN_PROVIDER_PRESETS;
@@ -109,9 +123,10 @@ function create_harness() {
     },
     ai_store,
     ai_service: ai_service as never,
+    ai_history,
   });
 
-  return { registry, stores, services, ai_store, ai_service };
+  return { registry, stores, services, ai_store, ai_service, ai_history };
 }
 
 function probe(status: "present" | "missing" | "unknown") {
@@ -269,6 +284,73 @@ describe("register_ai_actions", () => {
       status: "completed",
       result: { success: true, output: "# Updated", error: null },
     });
+  });
+
+  it("swallows history persist failures without rejecting", async () => {
+    const { registry, stores, ai_store, ai_service, ai_history } =
+      create_harness();
+    stores.vault.set_vault(create_test_vault());
+    ai_service.execute_streaming = vi.fn().mockResolvedValue({
+      success: true,
+      output: "# Updated",
+      error: null,
+    });
+    ai_history.save_history = vi
+      .fn()
+      .mockRejectedValue(new Error("cannot write to .carbide/ in browse mode"));
+
+    await registry.execute(ACTION_IDS.ai_open_assistant);
+    await registry.execute(ACTION_IDS.ai_update_prompt, "Tighten this note");
+    await registry.execute(ACTION_IDS.ai_execute);
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(ai_history.save_history).toHaveBeenCalledWith("vault-1", [
+      expect.objectContaining({ status: "completed" }),
+    ]);
+    expect(ai_store.dialog.turns[0]?.status).toBe("completed");
+  });
+
+  it("abandons a mid-flight execution when the vault switches", async () => {
+    const { registry, stores, ai_store, ai_service, ai_history } =
+      create_harness();
+    stores.vault.set_vault(create_test_vault());
+    let resolve_exec!: (result: {
+      success: boolean;
+      output: string;
+      error: string | null;
+    }) => void;
+    ai_service.execute_streaming = vi.fn().mockReturnValue(
+      new Promise((resolve) => {
+        resolve_exec = resolve;
+      }),
+    );
+
+    await registry.execute(ACTION_IDS.ai_open_assistant);
+    await registry.execute(ACTION_IDS.ai_update_prompt, "Slow question");
+    const exec = registry.execute(ACTION_IDS.ai_execute);
+
+    stores.vault.set_vault(
+      create_test_vault({ id: as_vault_id("vault-2"), name: "Other Vault" }),
+    );
+    const other_vault_turn = {
+      id: 1,
+      provider_id: "claude",
+      target: "full_note" as const,
+      mode: "ask" as const,
+      prompt: "other vault question",
+      status: "completed" as const,
+      result: { success: true, output: "other vault answer", error: null },
+    };
+    ai_store.hydrate_turns([other_vault_turn]);
+
+    resolve_exec({ success: true, output: "# From vault A", error: null });
+    await exec;
+
+    expect(ai_store.dialog.is_executing).toBe(false);
+    expect(ai_store.dialog.turns).toHaveLength(1);
+    expect(ai_store.dialog.turns[0]).toMatchObject(other_vault_turn);
+    expect(ai_history.save_history).not.toHaveBeenCalled();
   });
 
   it("reopens the bottom panel without resetting the current note session", async () => {

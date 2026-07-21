@@ -1383,6 +1383,25 @@
               {/if}
             </div>
 
+            <div class="SettingsDialog__row">
+              <div class="SettingsDialog__label-group">
+                <span class="SettingsDialog__label"
+                  >Inline AI Vault Context</span
+                >
+                <span class="SettingsDialog__description"
+                  >Include related-note context when running inline AI commands
+                  in the editor</span
+                >
+              </div>
+              <Switch.Root
+                checked={editor_settings.ai_inline_vault_context}
+                onCheckedChange={(v: boolean) => {
+                  update("ai_inline_vault_context", v);
+                }}
+                disabled={ai_settings_disabled}
+              />
+            </div>
+
             <div class="space-y-2">
               <div class="flex items-center justify-between">
                 <div class="SettingsDialog__label-group">

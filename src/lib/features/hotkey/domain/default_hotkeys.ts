@@ -426,6 +426,22 @@ export const DEFAULT_HOTKEYS: HotkeyBinding[] = [
     description: "Navigate to today's daily note",
     category: "general",
   },
+  {
+    action_id: ACTION_IDS.ai_open_assistant,
+    key: "CmdOrCtrl+Shift+A",
+    phase: "capture",
+    label: "AI Assistant",
+    description: "Open the AI assistant panel for the current tab",
+    category: "navigation",
+  },
+  {
+    action_id: ACTION_IDS.rag_open,
+    key: "CmdOrCtrl+Shift+J",
+    phase: "capture",
+    label: "Chat with Vault",
+    description: "Open the vault chat sidebar",
+    category: "navigation",
+  },
   // STT removed — archived on archive/stt-main
   // {
   //   action_id: ACTION_IDS.stt_toggle_recording,
