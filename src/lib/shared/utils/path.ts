@@ -9,6 +9,10 @@ export function note_name_from_path(path: string): string {
   return filename.endsWith(".md") ? filename.slice(0, -3) : filename;
 }
 
+export function normalize_path_key(path: string): string {
+  return path.toLowerCase();
+}
+
 export function paths_equal_ignore_case(a: string, b: string): boolean {
-  return a.toLowerCase() === b.toLowerCase();
+  return normalize_path_key(a) === normalize_path_key(b);
 }

@@ -158,6 +158,7 @@
       log.from_error("Worker error:", event);
     };
     w.onmessage = (event) => {
+      if (worker !== w || renderer !== r) return;
       const msg = event.data;
       if (msg.type === "positions") {
         const ids: string[] = msg.ids;

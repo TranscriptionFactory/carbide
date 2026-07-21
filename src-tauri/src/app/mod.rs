@@ -92,6 +92,7 @@ pub fn run() {
     let mut log_builder = tauri_plugin_log::Builder::new()
         .level(log_level)
         .level_for("hnsw_rs", log::LevelFilter::Warn)
+        .level_for("pdf_extract", log::LevelFilter::Error)
         .targets([
             tauri_plugin_log::Target::new(tauri_plugin_log::TargetKind::Stdout),
             tauri_plugin_log::Target::new(tauri_plugin_log::TargetKind::LogDir { file_name: None }),
@@ -146,6 +147,7 @@ pub fn run() {
         .plugin(tauri_plugin_pty::init())
         .plugin(log_builder.build())
         .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_process::init())
         .plugin(
             tauri_plugin_window_state::Builder::new()
                 .with_state_flags(
@@ -319,6 +321,7 @@ pub fn run() {
             shared::buffer::read_buffer_window,
             shared::buffer::close_buffer,
             get_pending_file_open,
+            tray::confirm_window_close,
             features::canvas::extract_canvas_links,
             features::canvas::extract_canvas_text,
             features::canvas::rewrite_canvas_file_refs,
