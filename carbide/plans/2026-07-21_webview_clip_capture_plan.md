@@ -1,6 +1,8 @@
 # Webview Clip Capture (F1 follow-up) — Design
 
-Status: proposed (2026-07-21).
+Status: phases 1–3 implemented on `feat/clip-webview-capture` (2026-07-21);
+phase 4 (Windows/Linux evaluate-JS) pending — those platforms return an
+explicit "not yet supported" error behind the `evaluate_platform` seam.
 Origin: archive.ph clip failure (429). Anti-bot CDNs (archive.ph,
 Cloudflare challenges) serve CAPTCHA interstitials to every non-interactive
 HTTP client regardless of headers — verified with full browser header sets.
