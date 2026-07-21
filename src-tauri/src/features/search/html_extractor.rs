@@ -12,6 +12,14 @@ pub struct HtmlExtraction {
     pub body: String,
 }
 
+pub(crate) fn sniff_decode(bytes: &[u8]) -> String {
+    let mut detector = chardetng::EncodingDetector::new();
+    detector.feed(bytes, true);
+    let encoding = detector.guess(None, true);
+    let (decoded, _, _) = encoding.decode(bytes);
+    decoded.into_owned()
+}
+
 pub fn extract_html_text(bytes: &[u8]) -> HtmlExtraction {
     if bytes.is_empty() {
         return HtmlExtraction {
@@ -20,10 +28,7 @@ pub fn extract_html_text(bytes: &[u8]) -> HtmlExtraction {
         };
     }
 
-    let mut detector = chardetng::EncodingDetector::new();
-    detector.feed(bytes, true);
-    let encoding = detector.guess(None, true);
-    let (decoded, _, _) = encoding.decode(bytes);
+    let decoded = sniff_decode(bytes);
 
     let doc = Html::parse_document(&decoded);
     let title = extract_title(&doc);

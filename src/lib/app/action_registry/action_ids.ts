@@ -489,6 +489,10 @@ export const ACTION_IDS = {
 
   daily_notes_open_today: "daily_notes.open_today",
   daily_notes_open_date: "daily_notes.open_date",
+
+  clip_web_page: "clip.web_page",
+  clip_web_page_confirm: "clip.web_page_confirm",
+  clip_web_page_cancel: "clip.web_page_cancel",
 } as const;
 
 export type ActionId = (typeof ACTION_IDS)[keyof typeof ACTION_IDS];

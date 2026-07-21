@@ -1,6 +1,7 @@
 pub mod ai;
 pub mod bases;
 pub mod canvas;
+pub mod clip;
 pub mod code_lsp;
 pub mod export;
 pub mod external_mcp;
