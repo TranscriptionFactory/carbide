@@ -10,6 +10,10 @@ export class OutlineStore {
   private current_note_path: string | null = null;
   private cursor_active_until = 0;
 
+  get note_path(): string | null {
+    return this.current_note_path;
+  }
+
   set_headings(headings: OutlineHeading[], note_path?: string) {
     if (
       note_path &&

@@ -533,7 +533,7 @@ export function register_note_actions(input: ActionRegistrationInput) {
           clear_folder_filetree_state(input, result.selected_folder_path);
           cache_open_note_for_tab(tab.id);
           if (suffix.fragment) {
-            stores.editor.set_pending_heading_fragment(suffix.fragment);
+            services.editor.scroll_to_heading_fragment(suffix.fragment);
           }
         }
         if (result.status === "failed") {
