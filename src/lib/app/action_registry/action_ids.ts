@@ -330,6 +330,9 @@ export const ACTION_IDS = {
   rag_switch_session: "rag.switch_session",
   rag_rename_session: "rag.rename_session",
   rag_delete_session: "rag.delete_session",
+  rag_copy_message: "rag.copy_message",
+  rag_regenerate: "rag.regenerate",
+  rag_fork: "rag.fork",
 
   tab_open_to_side: "tab.open_to_side",
   tab_toggle_split: "tab.toggle_split",

@@ -10,6 +10,7 @@ import type {
   RagScope,
   RagSession,
   RagSessionSummary,
+  RagTitleSource,
 } from "$lib/features/rag/types/rag_types";
 import type { RagReadiness } from "$lib/features/rag/types/rag_readiness";
 
@@ -166,11 +167,52 @@ export class RagStore {
     this.revision += 1;
   }
 
-  rename_session(id: string, title: string) {
+  rename_session(id: string, title: string, source: RagTitleSource = "manual") {
     const next = title.trim();
     if (next === "") return;
     this.sessions = this.sessions.map((s) =>
-      s.id === id ? this.touch({ ...s, title: next }) : s,
+      s.id === id ? this.touch({ ...s, title: next, title_source: source }) : s,
+    );
+  }
+
+  fork_session(message_id: string): string | null {
+    const session = this.active;
+    if (!session) return null;
+    const idx = session.messages.findIndex((m) => m.id === message_id);
+    if (idx === -1) return null;
+    const now = Date.now();
+    const fork: RagSession = {
+      ...session,
+      id: crypto.randomUUID(),
+      title: `${session.title} (fork)`,
+      messages: JSON.parse(
+        JSON.stringify(session.messages.slice(0, idx + 1)),
+      ) as RagMessage[],
+      created_at: now,
+      updated_at: now,
+    };
+    this.sessions = [fork, ...this.sessions];
+    this.active_id = fork.id;
+    this.error = null;
+    this.is_loading = false;
+    this.streaming_id = null;
+    this.revision += 1;
+    return fork.id;
+  }
+
+  truncate_after(message_id: string) {
+    const session = this.active;
+    if (!session) return;
+    const idx = session.messages.findIndex((m) => m.id === message_id);
+    if (idx === -1) return;
+    let user_idx = idx;
+    while (user_idx >= 0 && session.messages[user_idx]?.role !== "user") {
+      user_idx -= 1;
+    }
+    if (user_idx < 0) return;
+    const keep = user_idx + 1;
+    this.patch_active((s) =>
+      this.touch({ ...s, messages: s.messages.slice(0, keep) }),
     );
   }
 
@@ -203,6 +245,7 @@ export class RagStore {
     const session: RagSession = {
       id: crypto.randomUUID(),
       title: derive_session_title(first.content),
+      title_source: "derived",
       created_at: now,
       updated_at: now,
       messages: [first],

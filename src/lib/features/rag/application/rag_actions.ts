@@ -9,6 +9,7 @@ import type { AiProviderConfig } from "$lib/shared/types/ai_provider_config";
 import { DEFAULT_EDITOR_SETTINGS } from "$lib/shared/types/editor_settings";
 import type { RagContextStats } from "$lib/features/rag/domain/rag_types";
 import { should_attach_open_note_images } from "$lib/features/rag/domain/rag_open_note_images";
+import { should_autotitle } from "$lib/features/rag/domain/rag_session";
 import type { RagStore } from "$lib/features/rag/state/rag_store.svelte";
 import type { RagService } from "$lib/features/rag/application/rag_service";
 
@@ -83,110 +84,181 @@ export function register_rag_actions(
     },
   });
 
+  async function maybe_autotitle(provider: AiProviderConfig, revision: number) {
+    const session = rag_store.active;
+    if (!session || !should_autotitle(session)) return;
+    if (session.messages.filter((m) => m.role === "assistant").length !== 1) {
+      return;
+    }
+    const session_id = session.id;
+    const title = await rag_service.generate_title(provider, session.messages);
+    if (title === null) return;
+    if (revision !== rag_store.revision) return;
+    const live = rag_store.sessions.find((s) => s.id === session_id);
+    if (!live || !should_autotitle(live)) return;
+    rag_store.rename_session(session_id, title, "generated");
+    persist_session(session_id);
+  }
+
+  function resolve_ask_provider(): AiProviderConfig | null {
+    if (!stores.ui.editor_settings.ai_enabled) {
+      toast.info("AI Assistant is disabled in settings");
+      return null;
+    }
+    const provider = resolve_provider();
+    if (!provider) {
+      toast.error("No AI provider configured");
+      return null;
+    }
+    return provider;
+  }
+
+  async function run_ask(question: string, reuse_last_user = false) {
+    if (stores.op.is_pending(RAG_OP_KEY)) return;
+    const provider = resolve_ask_provider();
+    if (!provider) return;
+
+    const revision = rag_store.begin_turn();
+    const messages = [...rag_store.messages];
+    const history = reuse_last_user ? messages.slice(0, -1) : messages;
+    if (!reuse_last_user) rag_store.add_user_message(question);
+    rag_store.start_loading();
+    stores.op.start(RAG_OP_KEY, Date.now());
+
+    const open_note = stores.editor.open_note;
+    let image_parts: AiImagePart[] = [];
+    if (
+      open_note &&
+      should_attach_open_note_images({
+        question,
+        scope: rag_store.scope,
+        note_path: String(open_note.meta.path),
+        note_title: String(open_note.meta.title),
+      })
+    ) {
+      image_parts = await collect_open_note_image_parts(input);
+    }
+
+    ask_abort = new AbortController();
+    let context_stats: RagContextStats | null = null;
+    try {
+      let errored = false;
+      const settings = stores.ui.editor_settings;
+      for await (const event of rag_service.query({
+        question,
+        provider_config: provider,
+        history,
+        scope: rag_store.scope,
+        retrieve_limit: clamp_setting(
+          settings.ai_rag_retrieve_limit,
+          RETRIEVE_LIMIT_MIN,
+          RETRIEVE_LIMIT_MAX,
+          DEFAULT_EDITOR_SETTINGS.ai_rag_retrieve_limit,
+        ),
+        assembler_options: {
+          token_budget: clamp_setting(
+            settings.ai_rag_context_token_budget,
+            TOKEN_BUDGET_MIN,
+            TOKEN_BUDGET_MAX,
+            DEFAULT_EDITOR_SETTINGS.ai_rag_context_token_budget,
+          ),
+        },
+        image_parts,
+        signal: ask_abort.signal,
+      })) {
+        if (revision !== rag_store.revision) return;
+        if (event.type === "generating") {
+          rag_store.set_loading_stage("generating");
+        } else if (event.type === "sources") {
+          context_stats = event.stats;
+        } else if (event.type === "text") {
+          if (!rag_store.streaming_id) {
+            rag_store.start_streaming();
+            if (context_stats) {
+              rag_store.set_streaming_context_stats(context_stats);
+            }
+          }
+          rag_store.append_streaming_text(event.text);
+        } else if (event.type === "citation") {
+          rag_store.add_streaming_citation(event.citation);
+        } else if (event.type === "error") {
+          rag_store.fail_streaming(event.error);
+          stores.op.fail(RAG_OP_KEY, event.error);
+          errored = true;
+        }
+      }
+      if (revision !== rag_store.revision) return;
+      if (!errored) {
+        rag_store.finish_streaming();
+        stores.op.succeed(RAG_OP_KEY);
+        announce("Vault chat reply ready");
+        void maybe_autotitle(provider, revision);
+      }
+      // persist failed turns too, so the exchange survives a reload
+      persist_session(rag_store.active_id);
+    } catch (err) {
+      if (revision !== rag_store.revision) return;
+      const message = error_message(err);
+      rag_store.fail_streaming(message);
+      stores.op.fail(RAG_OP_KEY, message);
+      persist_session(rag_store.active_id);
+    } finally {
+      ask_abort = null;
+    }
+  }
+
   registry.register({
     id: ACTION_IDS.rag_ask,
     label: "Ask Vault Chat",
     execute: async (payload: unknown) => {
-      if (!stores.ui.editor_settings.ai_enabled) {
-        toast.info("AI Assistant is disabled in settings");
-        return;
-      }
-      if (stores.op.is_pending(RAG_OP_KEY)) return;
-
       const question = payload_field(payload, "question").trim();
       if (!question) return;
+      await run_ask(question);
+    },
+  });
 
-      const provider = resolve_provider();
-      if (!provider) {
-        toast.error("No AI provider configured");
-        return;
+  registry.register({
+    id: ACTION_IDS.rag_copy_message,
+    label: "Copy Vault Chat Message",
+    execute: async (...args: unknown[]) => {
+      const id = typeof args[0] === "string" ? args[0] : "";
+      const message = rag_store.messages.find((m) => m.id === id);
+      if (!message) return;
+      await navigator.clipboard.writeText(message.content);
+    },
+  });
+
+  registry.register({
+    id: ACTION_IDS.rag_regenerate,
+    label: "Regenerate Vault Chat Reply",
+    execute: async (...args: unknown[]) => {
+      const id = typeof args[0] === "string" ? args[0] : "";
+      if (!id || stores.op.is_pending(RAG_OP_KEY)) return;
+      const messages = rag_store.messages;
+      const idx = messages.findIndex((m) => m.id === id);
+      if (idx === -1) return;
+      let user_idx = idx;
+      while (user_idx >= 0 && messages[user_idx]?.role !== "user") {
+        user_idx -= 1;
       }
+      const question = messages[user_idx]?.content.trim();
+      if (!question) return;
+      if (!resolve_ask_provider()) return;
+      rag_store.truncate_after(id);
+      await run_ask(question, true);
+    },
+  });
 
-      const revision = rag_store.begin_turn();
-      const history = [...rag_store.messages];
-      rag_store.add_user_message(question);
-      rag_store.start_loading();
-      stores.op.start(RAG_OP_KEY, Date.now());
-
-      const open_note = stores.editor.open_note;
-      let image_parts: AiImagePart[] = [];
-      if (
-        open_note &&
-        should_attach_open_note_images({
-          question,
-          scope: rag_store.scope,
-          note_path: String(open_note.meta.path),
-          note_title: String(open_note.meta.title),
-        })
-      ) {
-        image_parts = await collect_open_note_image_parts(input);
-      }
-
-      ask_abort = new AbortController();
-      let context_stats: RagContextStats | null = null;
-      try {
-        let errored = false;
-        const settings = stores.ui.editor_settings;
-        for await (const event of rag_service.query({
-          question,
-          provider_config: provider,
-          history,
-          scope: rag_store.scope,
-          retrieve_limit: clamp_setting(
-            settings.ai_rag_retrieve_limit,
-            RETRIEVE_LIMIT_MIN,
-            RETRIEVE_LIMIT_MAX,
-            DEFAULT_EDITOR_SETTINGS.ai_rag_retrieve_limit,
-          ),
-          assembler_options: {
-            token_budget: clamp_setting(
-              settings.ai_rag_context_token_budget,
-              TOKEN_BUDGET_MIN,
-              TOKEN_BUDGET_MAX,
-              DEFAULT_EDITOR_SETTINGS.ai_rag_context_token_budget,
-            ),
-          },
-          image_parts,
-          signal: ask_abort.signal,
-        })) {
-          if (revision !== rag_store.revision) return;
-          if (event.type === "generating") {
-            rag_store.set_loading_stage("generating");
-          } else if (event.type === "sources") {
-            context_stats = event.stats;
-          } else if (event.type === "text") {
-            if (!rag_store.streaming_id) {
-              rag_store.start_streaming();
-              if (context_stats) {
-                rag_store.set_streaming_context_stats(context_stats);
-              }
-            }
-            rag_store.append_streaming_text(event.text);
-          } else if (event.type === "citation") {
-            rag_store.add_streaming_citation(event.citation);
-          } else if (event.type === "error") {
-            rag_store.fail_streaming(event.error);
-            stores.op.fail(RAG_OP_KEY, event.error);
-            errored = true;
-          }
-        }
-        if (revision !== rag_store.revision) return;
-        if (!errored) {
-          rag_store.finish_streaming();
-          stores.op.succeed(RAG_OP_KEY);
-          announce("Vault chat reply ready");
-        }
-        // persist failed turns too, so the exchange survives a reload
-        persist_session(rag_store.active_id);
-      } catch (err) {
-        if (revision !== rag_store.revision) return;
-        const message = error_message(err);
-        rag_store.fail_streaming(message);
-        stores.op.fail(RAG_OP_KEY, message);
-        persist_session(rag_store.active_id);
-      } finally {
-        ask_abort = null;
-      }
+  registry.register({
+    id: ACTION_IDS.rag_fork,
+    label: "Fork Vault Chat",
+    execute: (...args: unknown[]) => {
+      const id = typeof args[0] === "string" ? args[0] : "";
+      if (!id) return;
+      const new_id = rag_store.fork_session(id);
+      if (!new_id) return;
+      stores.op.reset(RAG_OP_KEY);
+      persist_session(new_id);
     },
   });
 
