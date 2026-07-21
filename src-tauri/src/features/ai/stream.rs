@@ -85,6 +85,8 @@ impl AiMessageContent {
 pub enum AiStreamEvent {
     #[serde(rename = "text")]
     Text { text: String },
+    #[serde(rename = "reasoning")]
+    Reasoning { text: String },
     #[serde(rename = "error")]
     Error { error: String },
     #[serde(rename = "done")]
@@ -156,10 +158,12 @@ struct ChatChoice {
 #[derive(Deserialize, Default)]
 struct ChatDelta {
     content: Option<String>,
+    #[serde(alias = "reasoning")]
+    reasoning_content: Option<String>,
 }
 
 enum SseEvent {
-    Delta(String),
+    Delta(ChatDelta),
     Done,
 }
 
@@ -195,8 +199,11 @@ fn parse_sse_line(line: &str) -> Option<SseEvent> {
         return Some(SseEvent::Done);
     }
     let chunk: ChatChunk = serde_json::from_str(data).ok()?;
-    let content = chunk.choices.into_iter().next()?.delta.content?;
-    Some(SseEvent::Delta(content))
+    let delta = chunk.choices.into_iter().next()?.delta;
+    if delta.content.is_none() && delta.reasoning_content.is_none() {
+        return None;
+    }
+    Some(SseEvent::Delta(delta))
 }
 
 #[tauri::command]
@@ -392,8 +399,11 @@ async fn consume_sse_response<F: FnMut(AiStreamEvent)>(
         let bytes = chunk.map_err(|e| format!("Stream error: {e}"))?;
         for event in decoder.push(&bytes) {
             match event {
-                SseEvent::Delta(text) => {
-                    if !text.is_empty() {
+                SseEvent::Delta(delta) => {
+                    if let Some(text) = delta.reasoning_content.filter(|t| !t.is_empty()) {
+                        emit(AiStreamEvent::Reasoning { text });
+                    }
+                    if let Some(text) = delta.content.filter(|t| !t.is_empty()) {
                         emit(AiStreamEvent::Text { text });
                     }
                 }
@@ -407,6 +417,70 @@ async fn consume_sse_response<F: FnMut(AiStreamEvent)>(
 
     emit(AiStreamEvent::Done);
     Ok(())
+}
+
+#[derive(Debug, PartialEq)]
+struct ThinkSegment {
+    reasoning: bool,
+    text: String,
+}
+
+struct ThinkScanner {
+    in_think: bool,
+}
+
+impl ThinkScanner {
+    fn new() -> Self {
+        Self { in_think: false }
+    }
+
+    fn scan_line(&mut self, line: &str) -> Vec<ThinkSegment> {
+        let mut segments: Vec<ThinkSegment> = Vec::new();
+        let mut push = |reasoning: bool, text: &str| {
+            if !text.is_empty() {
+                segments.push(ThinkSegment {
+                    reasoning,
+                    text: text.to_string(),
+                });
+            }
+        };
+        let mut rest = line;
+        loop {
+            if self.in_think {
+                match rest.find("</think>") {
+                    Some(idx) => {
+                        push(true, &rest[..idx]);
+                        rest = &rest[idx + "</think>".len()..];
+                        self.in_think = false;
+                    }
+                    None => {
+                        push(true, rest);
+                        break;
+                    }
+                }
+            } else {
+                match rest.find("<think>") {
+                    Some(idx) => {
+                        push(false, &rest[..idx]);
+                        rest = &rest[idx + "<think>".len()..];
+                        self.in_think = true;
+                    }
+                    None => {
+                        push(false, rest);
+                        break;
+                    }
+                }
+            }
+        }
+        match segments.last_mut() {
+            Some(last) => last.text.push('\n'),
+            None => segments.push(ThinkSegment {
+                reasoning: self.in_think,
+                text: "\n".to_string(),
+            }),
+        }
+        segments
+    }
 }
 
 async fn run_streaming_cli(
@@ -463,11 +537,19 @@ async fn run_streaming_cli(
 
     tokio::select! {
         _ = async {
+            let mut scanner = ThinkScanner::new();
             while let Ok(Some(line)) = reader.next_line().await {
                 let cleaned = pipeline::clean_cli_output(&line);
-                // Re-append the newline next_line() strips so multi-line CLI
-                // replies keep their paragraph structure downstream
-                let _ = app.emit(event_name, AiStreamEvent::Text { text: format!("{cleaned}\n") });
+                // scan_line re-appends the newline next_line() strips so
+                // multi-line CLI replies keep their paragraph structure
+                for segment in scanner.scan_line(&cleaned) {
+                    let event = if segment.reasoning {
+                        AiStreamEvent::Reasoning { text: segment.text }
+                    } else {
+                        AiStreamEvent::Text { text: segment.text }
+                    };
+                    let _ = app.emit(event_name, event);
+                }
             }
 
             let status = child.wait().await;
@@ -603,17 +685,25 @@ pub async fn ai_test_provider(provider_config: AiProviderConfig) -> Result<Strin
 mod tests {
     use super::{
         build_chat_request_body, build_prompt_text, chat_completions_url, clamp_stderr,
-        AiContentPart, AiMessage, AiMessageContent, SseDecoder, SseEvent,
+        AiContentPart, AiMessage, AiMessageContent, SseDecoder, SseEvent, ThinkScanner,
+        ThinkSegment,
     };
 
     fn deltas(events: Vec<SseEvent>) -> Vec<String> {
         events
             .into_iter()
             .filter_map(|e| match e {
-                SseEvent::Delta(t) => Some(t),
+                SseEvent::Delta(d) => d.content,
                 SseEvent::Done => None,
             })
             .collect()
+    }
+
+    fn seg(reasoning: bool, text: &str) -> ThinkSegment {
+        ThinkSegment {
+            reasoning,
+            text: text.to_string(),
+        }
     }
 
     #[test]
@@ -703,6 +793,93 @@ mod tests {
         let mut d = SseDecoder::new();
         let evs = d.push(b"data: {\"choices\":[{\"delta\":{}}]}\n");
         assert!(deltas(evs).is_empty());
+    }
+
+    #[test]
+    fn decoder_extracts_reasoning_content_delta() {
+        let mut d = SseDecoder::new();
+        let evs = d.push(b"data: {\"choices\":[{\"delta\":{\"reasoning_content\":\"hmm\"}}]}\n");
+        match evs.as_slice() {
+            [SseEvent::Delta(delta)] => {
+                assert_eq!(delta.reasoning_content.as_deref(), Some("hmm"));
+                assert_eq!(delta.content, None);
+            }
+            other => panic!("expected one delta, got {} events", other.len()),
+        }
+    }
+
+    #[test]
+    fn decoder_accepts_reasoning_alias() {
+        let mut d = SseDecoder::new();
+        let evs = d.push(b"data: {\"choices\":[{\"delta\":{\"reasoning\":\"hmm\"}}]}\n");
+        match evs.as_slice() {
+            [SseEvent::Delta(delta)] => {
+                assert_eq!(delta.reasoning_content.as_deref(), Some("hmm"));
+            }
+            other => panic!("expected one delta, got {} events", other.len()),
+        }
+    }
+
+    #[test]
+    fn decoder_keeps_content_and_reasoning_in_same_delta() {
+        let mut d = SseDecoder::new();
+        let evs = d.push(
+            b"data: {\"choices\":[{\"delta\":{\"content\":\"a\",\"reasoning_content\":\"b\"}}]}\n",
+        );
+        match evs.as_slice() {
+            [SseEvent::Delta(delta)] => {
+                assert_eq!(delta.content.as_deref(), Some("a"));
+                assert_eq!(delta.reasoning_content.as_deref(), Some("b"));
+            }
+            other => panic!("expected one delta, got {} events", other.len()),
+        }
+    }
+
+    #[test]
+    fn scanner_passes_through_lines_without_tags() {
+        let mut s = ThinkScanner::new();
+        assert_eq!(s.scan_line("hello"), vec![seg(false, "hello\n")]);
+        assert_eq!(s.scan_line(""), vec![seg(false, "\n")]);
+    }
+
+    #[test]
+    fn scanner_marks_lines_between_tags_as_reasoning() {
+        let mut s = ThinkScanner::new();
+        assert_eq!(s.scan_line("<think>"), vec![seg(true, "\n")]);
+        assert_eq!(s.scan_line("step one"), vec![seg(true, "step one\n")]);
+        assert_eq!(s.scan_line("step two"), vec![seg(true, "step two\n")]);
+        assert_eq!(s.scan_line("</think>"), vec![seg(false, "\n")]);
+        assert_eq!(s.scan_line("answer"), vec![seg(false, "answer\n")]);
+    }
+
+    #[test]
+    fn scanner_handles_open_and_close_on_same_line() {
+        let mut s = ThinkScanner::new();
+        assert_eq!(
+            s.scan_line("before <think>hidden</think> after"),
+            vec![seg(false, "before "), seg(true, "hidden"), seg(false, " after\n")]
+        );
+        assert_eq!(s.scan_line("next"), vec![seg(false, "next\n")]);
+    }
+
+    #[test]
+    fn scanner_keeps_reasoning_open_across_lines_until_close() {
+        let mut s = ThinkScanner::new();
+        assert_eq!(
+            s.scan_line("<think>first half"),
+            vec![seg(true, "first half\n")]
+        );
+        assert_eq!(
+            s.scan_line("second half</think>answer"),
+            vec![seg(true, "second half"), seg(false, "answer\n")]
+        );
+    }
+
+    #[test]
+    fn scanner_flushes_unclosed_think_as_reasoning_until_eof() {
+        let mut s = ThinkScanner::new();
+        assert_eq!(s.scan_line("<think>never"), vec![seg(true, "never\n")]);
+        assert_eq!(s.scan_line("closed"), vec![seg(true, "closed\n")]);
     }
 
     #[test]

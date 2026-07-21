@@ -172,14 +172,18 @@ export function register_rag_actions(
         } else if (event.type === "sources") {
           context_stats = event.stats;
           rag_store.set_pending_sources(event.sources);
-        } else if (event.type === "text") {
+        } else if (event.type === "text" || event.type === "reasoning") {
           if (!rag_store.streaming_id) {
             rag_store.start_streaming();
             if (context_stats) {
               rag_store.set_streaming_context_stats(context_stats);
             }
           }
-          rag_store.append_streaming_text(event.text);
+          if (event.type === "text") {
+            rag_store.append_streaming_text(event.text);
+          } else {
+            rag_store.append_streaming_reasoning(event.text);
+          }
         } else if (event.type === "citation") {
           rag_store.add_streaming_citation(event.citation);
         } else if (event.type === "error") {

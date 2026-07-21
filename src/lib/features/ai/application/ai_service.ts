@@ -220,6 +220,7 @@ export class AiService {
   async execute_streaming(
     input: AiExecuteInput & { signal?: AbortSignal },
     on_chunk?: (partial: string) => void,
+    on_reasoning?: (partial: string) => void,
   ): Promise<AiExecutionResult> {
     const vault_path = this.vault_store.vault?.path;
     if (!vault_path) {
@@ -236,6 +237,7 @@ export class AiService {
     const { prompt } = await this.build_execution_prompt(input);
     const joiner = new MarkdownJoiner();
     let output = "";
+    let reasoning = "";
     let error: string | null = null;
 
     const push = (text: string) => {
@@ -253,6 +255,11 @@ export class AiService {
     })) {
       if (chunk.type === "text") {
         push(joiner.process_chunk(chunk.text));
+        continue;
+      }
+      if (chunk.type === "reasoning") {
+        reasoning += chunk.text;
+        on_reasoning?.(reasoning);
         continue;
       }
       push(joiner.flush());
@@ -302,6 +309,9 @@ export class AiService {
         : {}),
       ...(input.signal ? { signal: input.signal } : {}),
     })) {
+      if (chunk.type === "reasoning") {
+        continue;
+      }
       if (chunk.type === "text") {
         const text = joiner.process_chunk(chunk.text);
         if (text) yield { type: "text", text };

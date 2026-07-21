@@ -466,6 +466,33 @@ describe("AiService", () => {
       expect(result.output).toBe("tail [pending");
     });
 
+    it("accumulates reasoning separately and keeps it out of the output", async () => {
+      const port = stream_port_of(
+        { type: "reasoning", text: "Let me think" },
+        { type: "reasoning", text: " harder." },
+        { type: "text", text: "# Answer" },
+        { type: "done" },
+      );
+      const service = create_streaming_service(port);
+      const reasoning_partials: string[] = [];
+
+      const result = await service.execute_streaming(
+        base_execute_input,
+        undefined,
+        (partial) => reasoning_partials.push(partial),
+      );
+
+      expect(result).toEqual({
+        success: true,
+        output: "# Answer",
+        error: null,
+      });
+      expect(reasoning_partials).toEqual([
+        "Let me think",
+        "Let me think harder.",
+      ]);
+    });
+
     it("fails cleanly when no stream port is wired", async () => {
       const vault_store = new VaultStore();
       vault_store.set_vault(
@@ -480,6 +507,41 @@ describe("AiService", () => {
         output: "",
         error: "Streaming is not available",
       });
+    });
+  });
+
+  describe("stream_inline", () => {
+    it("drops reasoning chunks silently", async () => {
+      const port = {
+        stream_text: vi.fn(async function* (_input: AiStreamRequest) {
+          yield { type: "reasoning", text: "<hidden thoughts>" } as const;
+          yield { type: "text", text: "Visible answer" } as const;
+          yield { type: "done" } as const;
+        }),
+      };
+      const vault_store = new VaultStore();
+      vault_store.set_vault(
+        create_test_vault({ path: "/vault/demo" as never }),
+      );
+      const service = new AiService(
+        create_ai_port() as never,
+        vault_store,
+        port as never,
+      );
+
+      const chunks: AiStreamChunk[] = [];
+      for await (const chunk of service.stream_inline({
+        provider_config: ollama_config,
+        system_prompt: "sys",
+        user_prompt: "hi",
+      })) {
+        chunks.push(chunk);
+      }
+
+      expect(chunks).toEqual([
+        { type: "text", text: "Visible answer" },
+        { type: "done" },
+      ]);
     });
   });
 });
