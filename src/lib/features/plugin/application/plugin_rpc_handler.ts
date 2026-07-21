@@ -12,7 +12,7 @@ import { resolve_plugin_icon } from "./plugin_icon_registry";
 import { as_markdown_text, as_note_path } from "$lib/shared/types/ids";
 import PluginStatusBarItem from "../ui/plugin_status_bar_item.svelte";
 import PluginSidebarPanel from "../ui/plugin_sidebar_panel.svelte";
-import { toast } from "svelte-sonner";
+import { toast } from "$lib/shared/ui/toast";
 import type { PluginEventBus } from "./plugin_event_bus";
 import type { PluginSettingsService } from "./plugin_settings_service";
 import type { PluginService } from "./plugin_service";

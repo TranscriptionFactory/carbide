@@ -5,7 +5,7 @@ import { is_unavailable_vault_error } from "$lib/features/vault/domain/vault_err
 import { PAGE_SIZE } from "$lib/shared/constants/pagination";
 import type { EditorSettings } from "$lib/shared/types/editor_settings";
 import type { VaultId } from "$lib/shared/types/ids";
-import { toast } from "svelte-sonner";
+import { toast } from "$lib/shared/ui/toast";
 import { announce } from "$lib/shared/a11y/live_announcer.svelte";
 
 async function apply_opened_vault(

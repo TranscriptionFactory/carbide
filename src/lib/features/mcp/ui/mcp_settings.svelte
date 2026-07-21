@@ -3,7 +3,7 @@
   import * as Switch from "$lib/components/ui/switch/index.js";
   import { use_app_context } from "$lib/app/context/app_context.svelte";
   import type { McpSetupStatus } from "$lib/features/mcp";
-  import { toast } from "svelte-sonner";
+  import { toast } from "$lib/shared/ui/toast";
   import CheckCircle from "@lucide/svelte/icons/check-circle";
   import XCircle from "@lucide/svelte/icons/x-circle";
   import RefreshCw from "@lucide/svelte/icons/refresh-cw";

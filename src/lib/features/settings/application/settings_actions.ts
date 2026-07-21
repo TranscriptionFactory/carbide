@@ -1,4 +1,4 @@
-import { toast } from "svelte-sonner";
+import { toast } from "$lib/shared/ui/toast";
 import { ACTION_IDS } from "$lib/app/action_registry/action_ids";
 import type { ActionRegistrationInput } from "$lib/app/action_registry/action_registration_input";
 import { reconcile_workspace } from "$lib/app/orchestration/workspace_reconcile";

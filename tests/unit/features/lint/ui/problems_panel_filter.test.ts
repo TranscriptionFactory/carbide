@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 import {
   filter_diagnostics,
   filter_logs,
-  build_unified_entries,
+  filter_file_groups,
+  severity_options,
+  line_col_to_offset,
 } from "$lib/features/lint/ui/problems_panel_filter";
 import type { Diagnostic } from "$lib/features/diagnostics";
 import type { LogEntry } from "$lib/features/lint/state/log_store.svelte";
@@ -161,121 +163,102 @@ describe("problems_panel_filter", () => {
     });
   });
 
-  describe("build_unified_entries — severity filter applies to both streams", () => {
-    it("'error' severity filter returns both a diagnostic and a log entry with error level", () => {
-      const diag = make_diagnostic({ severity: "error" });
-      const log = make_log_entry({ level: "error", timestamp: 1000 });
+  describe("severity_options", () => {
+    it("offers diagnostic severities without debug/trace", () => {
+      const values = severity_options("diagnostics").map((o) => o.value);
+      expect(values).toEqual(["all", "error", "warning", "info", "hint"]);
+    });
 
-      const result = build_unified_entries(
+    it("offers log levels without hint", () => {
+      const values = severity_options("logs").map((o) => o.value);
+      expect(values).toEqual([
         "all",
-        [diag],
-        [log],
         "error",
-        "all",
-        "",
-      );
-
-      expect(result).toHaveLength(2);
-      const kinds = result.map((e) => e.kind);
-      expect(kinds).toContain("diagnostic");
-      expect(kinds).toContain("log");
-    });
-
-    it("'error' severity filter excludes warning diagnostics and warn log entries", () => {
-      const diag_warn = make_diagnostic({ severity: "warning" });
-      const log_warn = make_log_entry({ level: "warn" });
-      const diag_err = make_diagnostic({ severity: "error" });
-      const log_err = make_log_entry({ level: "error", timestamp: 1000 });
-
-      const result = build_unified_entries(
-        "all",
-        [diag_warn, diag_err],
-        [log_warn, log_err],
-        "error",
-        "all",
-        "",
-      );
-
-      expect(result).toHaveLength(2);
-      expect(
-        result.every((e) => {
-          if (e.kind === "diagnostic") return e.data.severity === "error";
-          if (e.kind === "log") return e.data.level === "error";
-          return false;
-        }),
-      ).toBe(true);
-    });
-
-    it("'trace' severity only matches log entries with level 'trace'", () => {
-      const diag = make_diagnostic({ severity: "error" });
-      const log_trace = make_log_entry({ level: "trace", timestamp: 1000 });
-      const log_debug = make_log_entry({ level: "debug", timestamp: 2000 });
-
-      const result = build_unified_entries(
-        "all",
-        [diag],
-        [log_trace, log_debug],
+        "warning",
+        "info",
+        "debug",
         "trace",
-        "all",
-        "",
-      );
+      ]);
+    });
+  });
 
+  describe("filter_file_groups", () => {
+    it("drops files with no matching diagnostics", () => {
+      const files = [
+        { path: "a.md", diagnostics: [make_diagnostic({ severity: "error" })] },
+        {
+          path: "b.md",
+          diagnostics: [make_diagnostic({ severity: "warning" })],
+        },
+      ];
+      const result = filter_file_groups(files, "error", "all", "");
       expect(result).toHaveLength(1);
-      expect(result[0]?.kind).toBe("log");
-      expect((result[0]?.data as { level: string } | undefined)?.level).toBe(
-        "trace",
-      );
+      expect(result[0]?.path).toBe("a.md");
     });
 
-    it("stream 'diagnostics' shows only diagnostics regardless of log entries", () => {
-      const diag = make_diagnostic({ severity: "error" });
-      const log = make_log_entry({ level: "error" });
-
-      const result = build_unified_entries(
-        "diagnostics",
-        [diag],
-        [log],
-        "all",
-        "all",
-        "",
+    it("sorts diagnostics by severity then line then column", () => {
+      const files = [
+        {
+          path: "a.md",
+          diagnostics: [
+            make_diagnostic({ severity: "hint", line: 1 }),
+            make_diagnostic({ severity: "error", line: 9 }),
+            make_diagnostic({ severity: "error", line: 2, column: 8 }),
+            make_diagnostic({ severity: "error", line: 2, column: 3 }),
+            make_diagnostic({ severity: "warning", line: 5 }),
+          ],
+        },
+      ];
+      const result = filter_file_groups(files, "all", "all", "");
+      const order = result[0]?.diagnostics.map(
+        (d) => `${d.severity}:${d.line}:${d.column}`,
       );
-
-      expect(result).toHaveLength(1);
-      expect(result[0]?.kind).toBe("diagnostic");
+      expect(order).toEqual([
+        "error:2:3",
+        "error:2:8",
+        "error:9:1",
+        "warning:5:1",
+        "hint:1:1",
+      ]);
     });
 
-    it("stream 'logs' shows only log entries regardless of diagnostics", () => {
-      const diag = make_diagnostic({ severity: "error" });
-      const log = make_log_entry({ level: "error" });
-
-      const result = build_unified_entries(
-        "logs",
-        [diag],
-        [log],
-        "all",
-        "all",
-        "",
-      );
-
+    it("applies source and search filters within each file", () => {
+      const files = [
+        {
+          path: "a.md",
+          diagnostics: [
+            make_diagnostic({ source: "lint", message: "unused variable" }),
+            make_diagnostic({ source: "ast", message: "unused variable" }),
+            make_diagnostic({ source: "lint", message: "missing semicolon" }),
+          ],
+        },
+      ];
+      const result = filter_file_groups(files, "all", "lint", "unused");
       expect(result).toHaveLength(1);
-      expect(result[0]?.kind).toBe("log");
+      expect(result[0]?.diagnostics).toHaveLength(1);
+      expect(result[0]?.diagnostics[0]?.message).toBe("unused variable");
+    });
+  });
+
+  describe("line_col_to_offset", () => {
+    const text = "alpha\nbravo\ncharlie";
+
+    it("maps line 1 col 1 to offset 0", () => {
+      expect(line_col_to_offset(text, 1, 1)).toBe(0);
     });
 
-    it("stream 'all' merges and sorts by timestamp", () => {
-      const log_early = make_log_entry({ level: "info", timestamp: 100 });
-      const log_late = make_log_entry({ level: "debug", timestamp: 300 });
+    it("maps later lines and columns", () => {
+      expect(line_col_to_offset(text, 2, 3)).toBe(8);
+      expect(line_col_to_offset(text, 3, 1)).toBe(12);
+    });
 
-      const result = build_unified_entries(
-        "all",
-        [],
-        [log_late, log_early],
-        "all",
-        "all",
-        "",
-      );
+    it("clamps column to line length", () => {
+      expect(line_col_to_offset(text, 1, 99)).toBe(5);
+    });
 
-      expect(result[0]?.timestamp).toBe(100);
-      expect(result[1]?.timestamp).toBe(300);
+    it("returns null for out-of-range lines", () => {
+      expect(line_col_to_offset(text, 0, 1)).toBeNull();
+      expect(line_col_to_offset(text, 4, 1)).toBeNull();
     });
   });
 });

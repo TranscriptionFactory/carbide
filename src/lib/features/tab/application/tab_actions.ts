@@ -17,7 +17,7 @@ import {
   try_open_tab,
 } from "$lib/features/tab/application/tab_action_helpers";
 import type { Tab } from "$lib/features/tab/types/tab";
-import { toast } from "svelte-sonner";
+import { toast } from "$lib/shared/ui/toast";
 
 export { capture_active_tab_snapshot, ensure_tab_capacity, try_open_tab };
 

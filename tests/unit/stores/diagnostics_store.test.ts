@@ -184,4 +184,32 @@ describe("DiagnosticsStore", () => {
     store.set_active_file("a.md");
     expect(store.active_diagnostics).toHaveLength(1);
   });
+
+  it("removes a source from active_sources when its last file clears", () => {
+    const store = new DiagnosticsStore();
+    store.push("lint", "a.md", [make_diagnostic()]);
+    store.push("markdown_lsp", "b.md", [
+      make_diagnostic({ source: "markdown_lsp" }),
+    ]);
+
+    store.push("lint", "a.md", []);
+    expect(store.active_sources).toEqual(["markdown_lsp"]);
+
+    store.clear_file("markdown_lsp", "b.md");
+    expect(store.active_sources).toEqual([]);
+  });
+
+  it("files_with_diagnostics merges sources per file and sorts by path", () => {
+    const store = new DiagnosticsStore();
+    store.push("lint", "b.md", [make_diagnostic()]);
+    store.push("lint", "a.md", [make_diagnostic()]);
+    store.push("markdown_lsp", "b.md", [
+      make_diagnostic({ source: "markdown_lsp" }),
+    ]);
+
+    const files = store.files_with_diagnostics;
+    expect(files.map((f) => f.path)).toEqual(["a.md", "b.md"]);
+    expect(files[0]!.diagnostics).toHaveLength(1);
+    expect(files[1]!.diagnostics).toHaveLength(2);
+  });
 });

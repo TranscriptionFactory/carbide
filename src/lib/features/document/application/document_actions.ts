@@ -10,7 +10,7 @@ import {
   resolve_relative_asset_path,
 } from "$lib/features/note";
 import { parent_folder_path } from "$lib/shared/utils/path";
-import { toast } from "svelte-sonner";
+import { toast } from "$lib/shared/ui/toast";
 
 type DocumentOpenPayload = {
   file_path: string;

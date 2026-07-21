@@ -14,7 +14,7 @@
   import "../styles/print.css";
   import "katex/dist/katex.min.css";
   import { Toaster } from "$lib/components/ui/sonner";
-  import { toast } from "svelte-sonner";
+  import { toast } from "$lib/shared/ui/toast";
   import { create_logger } from "$lib/shared/utils/logger";
   import { error_message } from "$lib/shared/utils/error_message";
   import { install_drop_guard } from "$lib/shared/utils/drop_guard";

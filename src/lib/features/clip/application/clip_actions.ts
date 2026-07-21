@@ -1,8 +1,11 @@
 import { ACTION_IDS } from "$lib/app/action_registry/action_ids";
 import type { ActionRegistrationInput } from "$lib/app/action_registry/action_registration_input";
-import type { ClipOutput, ClipResult } from "$lib/features/clip/application/clip_service";
+import type {
+  ClipOutput,
+  ClipResult,
+} from "$lib/features/clip/application/clip_service";
 import { is_valid_clip_url } from "$lib/features/clip/domain/clip_note";
-import { toast } from "svelte-sonner";
+import { toast } from "$lib/shared/ui/toast";
 
 function success_message(result: ClipResult & { status: "clipped" }): string {
   const base =

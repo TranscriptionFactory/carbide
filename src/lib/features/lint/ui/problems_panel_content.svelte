@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { tick } from "svelte";
   import {
     CircleAlert,
     TriangleAlert,
@@ -6,7 +7,8 @@
     Lightbulb,
     X,
     Wrench,
-    Filter,
+    FileText,
+    Paintbrush,
     Copy,
   } from "@lucide/svelte";
   import { use_app_context } from "$lib/app/context/app_context.svelte";
@@ -18,17 +20,19 @@
   } from "$lib/features/diagnostics";
   import type { LogEntry } from "$lib/features/lint/state/log_store.svelte";
   import {
-    build_unified_entries,
-    filter_diagnostics,
+    filter_file_groups,
+    filter_logs,
+    severity_options,
+    line_col_to_offset,
   } from "$lib/features/lint/ui/problems_panel_filter";
   import type {
     StreamFilter,
     SeverityFilter,
   } from "$lib/features/lint/ui/problems_panel_filter";
 
-  const { stores, action_registry } = use_app_context();
+  const { stores, services, action_registry } = use_app_context();
 
-  const diagnostics = $derived(stores.diagnostics.active_diagnostics);
+  const files = $derived(stores.diagnostics.files_with_diagnostics);
   const active_path = $derived(stores.diagnostics.active_file_path);
   const error_count = $derived(stores.diagnostics.error_count);
   const warning_count = $derived(stores.diagnostics.warning_count);
@@ -36,56 +40,33 @@
   const log_entries = $derived(stores.log.entries);
   const log_count = $derived(stores.log.entry_count);
 
-  let stream_filter = $state<StreamFilter>("all");
+  let stream_filter = $state<StreamFilter>("diagnostics");
   let severity_filter = $state<SeverityFilter>("all");
   let source_filter = $state<DiagnosticSource | "all">("all");
   let search_query = $state("");
   let log_viewport: HTMLElement | undefined = $state();
 
-  const show_source_filter = $derived(
-    stream_filter === "all" || stream_filter === "diagnostics",
-  );
+  const severity_opts = $derived(severity_options(stream_filter));
 
-  const unified_entries = $derived.by(() =>
-    build_unified_entries(
-      stream_filter,
-      diagnostics,
-      log_entries,
-      severity_filter,
-      source_filter,
-      search_query,
-    ),
-  );
-
-  const diagnostic_entries = $derived(
-    unified_entries.filter((e) => e.kind === "diagnostic"),
-  );
-
-  const log_entry_rows = $derived(
-    unified_entries.filter((e) => e.kind === "log"),
-  );
-
-  const grouped = $derived.by(() => {
-    const groups: Record<DiagnosticSeverity, Diagnostic[]> = {
-      error: [],
-      warning: [],
-      info: [],
-      hint: [],
-    };
-    for (const entry of diagnostic_entries) {
-      if (entry.kind === "diagnostic") {
-        groups[entry.data.severity].push(entry.data);
-      }
+  $effect(() => {
+    if (!severity_opts.some((o) => o.value === severity_filter)) {
+      severity_filter = "all";
     }
-    return groups;
   });
 
-  const severity_order: DiagnosticSeverity[] = [
-    "error",
-    "warning",
-    "info",
-    "hint",
-  ];
+  $effect(() => {
+    if (source_filter !== "all" && !active_sources.includes(source_filter)) {
+      source_filter = "all";
+    }
+  });
+
+  const file_groups = $derived(
+    filter_file_groups(files, severity_filter, source_filter, search_query),
+  );
+
+  const log_rows = $derived(
+    filter_logs(log_entries, severity_filter, search_query),
+  );
 
   function severity_icon(severity: DiagnosticSeverity) {
     switch (severity) {
@@ -100,13 +81,24 @@
     }
   }
 
-  function navigate_to(diagnostic: Diagnostic) {
-    void diagnostic;
-  }
-
-  function fix_diagnostic(diagnostic: Diagnostic) {
-    if (!diagnostic.fixable) return;
-    void action_registry.execute(ACTION_IDS.lint_fix_all);
+  // ponytail: cross-file jump is best-effort — if the editor session hasn't
+  // mounted by the post-open tick, the note opens without the cursor jump;
+  // add a pending-line mechanism (like pending_heading_fragment) if it bites
+  async function navigate_to(path: string, diagnostic: Diagnostic) {
+    if (path !== active_path) {
+      await action_registry.execute(ACTION_IDS.note_open, path);
+      await tick();
+    }
+    const markdown = services.editor.get_markdown();
+    if (!markdown) return;
+    const offset = line_col_to_offset(
+      markdown,
+      diagnostic.line,
+      diagnostic.column,
+    );
+    if (offset === null) return;
+    services.editor.set_cursor_from_markdown_offset(offset);
+    services.editor.scroll_cursor_into_view();
   }
 
   function close() {
@@ -122,11 +114,10 @@
   }
 
   function copy_log() {
-    const text = log_entry_rows
-      .filter((e) => e.kind === "log")
+    const text = log_rows
       .map(
         (e) =>
-          `[${e.data.level.toUpperCase()}] ${format_timestamp(e.data.timestamp)} ${e.data.message}`,
+          `[${e.level.toUpperCase()}] ${format_timestamp(e.timestamp)} ${e.message}`,
       )
       .join("\n");
     void navigator.clipboard.writeText(text);
@@ -135,6 +126,7 @@
   function source_label(source: DiagnosticSource): string {
     if (source === "lint") return "Lint";
     if (source === "markdown_lsp") return "Markdown LSP";
+    if (source === "code_lsp") return "Code LSP";
     if (source === "ast") return "AST";
     if (source.startsWith("plugin:")) return source.slice("plugin:".length);
     return source;
@@ -149,7 +141,7 @@
   }
 
   $effect(() => {
-    if (stream_filter === "logs" && log_viewport && log_entry_rows.length > 0) {
+    if (stream_filter === "logs" && log_viewport && log_rows.length > 0) {
       log_viewport.scrollTop = log_viewport.scrollHeight;
     }
   });
@@ -174,10 +166,7 @@
   <div class="ProblemsPanel__header">
     <div class="ProblemsPanel__title">
       <span class="ProblemsPanel__heading">Problems</span>
-      {#if stream_filter !== "logs"}
-        {#if active_path}
-          <span class="ProblemsPanel__file-path">{active_path}</span>
-        {/if}
+      {#if stream_filter === "diagnostics"}
         <span class="ProblemsPanel__counts">
           {#if error_count > 0}
             <span class="ProblemsPanel__count ProblemsPanel__count--error">
@@ -214,7 +203,6 @@
         bind:value={stream_filter}
         aria-label="Filter by stream"
       >
-        <option value="all">All</option>
         <option value="diagnostics">Diagnostics</option>
         <option value="logs">Logs</option>
       </select>
@@ -223,15 +211,11 @@
         bind:value={severity_filter}
         aria-label="Filter by severity"
       >
-        <option value="all">All Levels</option>
-        <option value="error">Errors</option>
-        <option value="warning">Warnings</option>
-        <option value="info">Info</option>
-        <option value="hint">Hints</option>
-        <option value="debug">Debug</option>
-        <option value="trace">Trace</option>
+        {#each severity_opts as opt (opt.value)}
+          <option value={opt.value}>{opt.label}</option>
+        {/each}
       </select>
-      {#if show_source_filter}
+      {#if stream_filter === "diagnostics"}
         <select
           class="ProblemsPanel__filter"
           bind:value={source_filter}
@@ -242,28 +226,25 @@
             <option value={source}>{source_label(source)}</option>
           {/each}
         </select>
-      {/if}
-      {#if stream_filter !== "logs"}
         <button
           type="button"
           class="ProblemsPanel__action-btn"
           onclick={format_file}
-          title="Format file"
-          aria-label="Format file"
+          title="Format current file"
+          aria-label="Format current file"
         >
-          <Filter />
+          <Paintbrush />
         </button>
         <button
           type="button"
           class="ProblemsPanel__action-btn"
           onclick={fix_all}
-          title="Fix all"
-          aria-label="Fix all"
+          title="Fix all in current file"
+          aria-label="Fix all in current file"
         >
           <Wrench />
         </button>
-      {/if}
-      {#if stream_filter !== "diagnostics"}
+      {:else}
         <button
           type="button"
           class="ProblemsPanel__action-btn"
@@ -300,133 +281,73 @@
     class:ProblemsPanel__log-body={stream_filter === "logs"}
     bind:this={log_viewport}
   >
-    {#if unified_entries.length === 0}
+    {#if stream_filter === "logs"}
+      {#if log_rows.length === 0}
+        <div class="ProblemsPanel__empty">
+          {#if log_count === 0}
+            No log entries yet.
+          {:else}
+            No entries match the current filter.
+          {/if}
+        </div>
+      {:else}
+        {#each log_rows as entry, i (i)}
+          <div class="ProblemsPanel__log-row">
+            <span
+              class="ProblemsPanel__log-level {log_level_class(entry.level)}"
+              >{entry.level}</span
+            >
+            <span class="ProblemsPanel__log-time"
+              >{format_timestamp(entry.timestamp)}</span
+            >
+            <span class="ProblemsPanel__log-message">{entry.message}</span>
+          </div>
+        {/each}
+      {/if}
+    {:else if file_groups.length === 0}
       <div class="ProblemsPanel__empty">
-        {#if stream_filter === "logs" && log_count === 0}
-          No log entries yet.
-        {:else if stream_filter === "diagnostics" && diagnostics.length === 0}
-          No problems detected in this file.
+        {#if files.length === 0}
+          No problems detected.
         {:else}
           No entries match the current filter.
         {/if}
       </div>
-    {:else if stream_filter === "logs"}
-      {#each log_entry_rows as entry, i (i)}
-        {#if entry.kind === "log"}
-          <div class="ProblemsPanel__log-row">
-            <span
-              class="ProblemsPanel__log-level {log_level_class(
-                entry.data.level,
-              )}">{entry.data.level}</span
-            >
-            <span class="ProblemsPanel__log-time"
-              >{format_timestamp(entry.data.timestamp)}</span
-            >
-            <span class="ProblemsPanel__log-message">{entry.data.message}</span>
-          </div>
-        {/if}
-      {/each}
-    {:else if stream_filter === "diagnostics"}
-      {#each severity_order as severity (severity)}
-        {#if grouped[severity].length > 0}
-          <div class="ProblemsPanel__group">
-            {#each grouped[severity] as diagnostic, i (`${severity}-${diagnostic.line}-${diagnostic.column}-${i}`)}
-              {@const Icon = severity_icon(diagnostic.severity)}
-              <!-- svelte-ignore a11y_no_static_element_interactions -->
-              <div
-                class="ProblemsPanel__row"
-                class:ProblemsPanel__row--fixable={diagnostic.fixable}
-                onclick={() => navigate_to(diagnostic)}
-                onkeydown={(e: KeyboardEvent) => {
-                  if (e.key === "Enter" || e.key === " ")
-                    navigate_to(diagnostic);
-                }}
-                role="button"
-                tabindex="0"
-              >
-                <Icon
-                  class="ProblemsPanel__severity-icon ProblemsPanel__severity-icon--{diagnostic.severity}"
-                />
-                <span class="ProblemsPanel__message">{diagnostic.message}</span>
-                {#if diagnostic.rule_id}
-                  <span class="ProblemsPanel__rule">{diagnostic.rule_id}</span>
-                {/if}
-                <span class="ProblemsPanel__location">
-                  Ln {diagnostic.line}, Col {diagnostic.column}
-                </span>
-                {#if diagnostic.fixable}
-                  <button
-                    type="button"
-                    class="ProblemsPanel__fix-btn"
-                    onclick={(e: MouseEvent) => {
-                      e.stopPropagation();
-                      fix_diagnostic(diagnostic);
-                    }}
-                    title="Fix"
-                    aria-label="Fix this issue"
-                  >
-                    <Wrench />
-                  </button>
-                {/if}
-              </div>
-            {/each}
-          </div>
-        {/if}
-      {/each}
     {:else}
-      {#each unified_entries as entry, i (i)}
-        {#if entry.kind === "log"}
-          <div class="ProblemsPanel__log-row">
-            <span
-              class="ProblemsPanel__log-level {log_level_class(
-                entry.data.level,
-              )}">{entry.data.level}</span
-            >
-            <span class="ProblemsPanel__log-time"
-              >{format_timestamp(entry.data.timestamp)}</span
-            >
-            <span class="ProblemsPanel__log-message">{entry.data.message}</span>
-          </div>
-        {:else if entry.kind === "diagnostic"}
-          {@const Icon = severity_icon(entry.data.severity)}
-          <!-- svelte-ignore a11y_no_static_element_interactions -->
-          <div
-            class="ProblemsPanel__row"
-            class:ProblemsPanel__row--fixable={entry.data.fixable}
-            onclick={() => navigate_to(entry.data)}
-            onkeydown={(e: KeyboardEvent) => {
-              if (e.key === "Enter" || e.key === " ") navigate_to(entry.data);
-            }}
-            role="button"
-            tabindex="0"
-          >
-            <Icon
-              class="ProblemsPanel__severity-icon ProblemsPanel__severity-icon--{entry
-                .data.severity}"
-            />
-            <span class="ProblemsPanel__message">{entry.data.message}</span>
-            {#if entry.data.rule_id}
-              <span class="ProblemsPanel__rule">{entry.data.rule_id}</span>
-            {/if}
-            <span class="ProblemsPanel__location">
-              Ln {entry.data.line}, Col {entry.data.column}
+      {#each file_groups as file (file.path)}
+        <div class="ProblemsPanel__group">
+          <div class="ProblemsPanel__file-header">
+            <FileText class="ProblemsPanel__file-icon" />
+            <span class="ProblemsPanel__file-name">{file.path}</span>
+            <span class="ProblemsPanel__file-count">
+              {file.diagnostics.length}
             </span>
-            {#if entry.data.fixable}
-              <button
-                type="button"
-                class="ProblemsPanel__fix-btn"
-                onclick={(e: MouseEvent) => {
-                  e.stopPropagation();
-                  fix_diagnostic(entry.data);
-                }}
-                title="Fix"
-                aria-label="Fix this issue"
-              >
-                <Wrench />
-              </button>
-            {/if}
           </div>
-        {/if}
+          {#each file.diagnostics as diagnostic, i (`${diagnostic.source}-${diagnostic.line}-${diagnostic.column}-${i}`)}
+            {@const Icon = severity_icon(diagnostic.severity)}
+            <!-- svelte-ignore a11y_no_static_element_interactions -->
+            <div
+              class="ProblemsPanel__row"
+              onclick={() => void navigate_to(file.path, diagnostic)}
+              onkeydown={(e: KeyboardEvent) => {
+                if (e.key === "Enter" || e.key === " ")
+                  void navigate_to(file.path, diagnostic);
+              }}
+              role="button"
+              tabindex="0"
+            >
+              <Icon
+                class="ProblemsPanel__severity-icon ProblemsPanel__severity-icon--{diagnostic.severity}"
+              />
+              <span class="ProblemsPanel__message">{diagnostic.message}</span>
+              {#if diagnostic.rule_id}
+                <span class="ProblemsPanel__rule">{diagnostic.rule_id}</span>
+              {/if}
+              <span class="ProblemsPanel__location">
+                Ln {diagnostic.line}, Col {diagnostic.column}
+              </span>
+            </div>
+          {/each}
+        </div>
       {/each}
     {/if}
   </div>
@@ -463,14 +384,6 @@
     font-weight: 600;
     font-size: var(--text-sm);
     flex-shrink: 0;
-  }
-
-  .ProblemsPanel__file-path {
-    color: var(--muted-foreground);
-    font-size: var(--text-xs);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
   }
 
   .ProblemsPanel__counts {
@@ -607,6 +520,38 @@
     flex-direction: column;
   }
 
+  .ProblemsPanel__file-header {
+    display: flex;
+    align-items: center;
+    gap: var(--space-1);
+    padding: var(--space-1) var(--space-3);
+    font-size: var(--text-xs);
+    font-weight: 600;
+    color: var(--muted-foreground);
+    background-color: var(--muted);
+    position: sticky;
+    top: 0;
+  }
+
+  :global(.ProblemsPanel__file-icon) {
+    width: var(--size-icon-xs);
+    height: var(--size-icon-xs);
+    flex-shrink: 0;
+  }
+
+  .ProblemsPanel__file-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .ProblemsPanel__file-count {
+    flex-shrink: 0;
+    font-weight: 400;
+    font-feature-settings: "tnum" 1;
+    opacity: 0.7;
+  }
+
   .ProblemsPanel__row {
     display: flex;
     align-items: center;
@@ -616,6 +561,7 @@
     text-align: left;
     font-size: var(--text-xs);
     color: var(--foreground);
+    cursor: pointer;
     transition: background-color var(--duration-fast) var(--ease-default);
   }
 
@@ -671,33 +617,6 @@
     color: var(--muted-foreground);
     font-feature-settings: "tnum" 1;
     opacity: 0.6;
-  }
-
-  .ProblemsPanel__fix-btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: var(--size-touch-xs);
-    height: var(--size-touch-xs);
-    border-radius: var(--radius-sm);
-    color: var(--muted-foreground);
-    opacity: 0;
-    flex-shrink: 0;
-    transition: opacity var(--duration-fast) var(--ease-default);
-  }
-
-  .ProblemsPanel__row:hover .ProblemsPanel__fix-btn {
-    opacity: 0.7;
-  }
-
-  .ProblemsPanel__fix-btn:hover {
-    opacity: 1;
-    color: var(--interactive);
-  }
-
-  :global(.ProblemsPanel__fix-btn svg) {
-    width: var(--size-icon-xs);
-    height: var(--size-icon-xs);
   }
 
   .ProblemsPanel__log-row {

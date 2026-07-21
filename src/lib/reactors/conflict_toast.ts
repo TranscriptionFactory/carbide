@@ -1,4 +1,4 @@
-import { toast } from "svelte-sonner";
+import { toast } from "$lib/shared/ui/toast";
 
 type ConflictCallbacks = {
   on_reload: () => void;
