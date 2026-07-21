@@ -198,6 +198,156 @@ describe("RagStore", () => {
     expect(store.error).toBe("model crashed");
   });
 
+  it("fork_session clones up to the message, activates the fork, and keeps the original", () => {
+    const store = new RagStore();
+    const messages = [
+      { id: "u1", role: "user" as const, content: "q1", citations: [] },
+      {
+        id: "a1",
+        role: "assistant" as const,
+        content: "answer 1",
+        citations: [citation],
+      },
+      { id: "u2", role: "user" as const, content: "q2", citations: [] },
+      {
+        id: "a2",
+        role: "assistant" as const,
+        content: "answer 2",
+        citations: [],
+      },
+    ];
+    store.hydrate([saved_session({ id: "orig", title: "Chat", messages })]);
+    store.switch_session("orig");
+    const before = store.revision;
+
+    const fork_id = store.fork_session("a1");
+
+    expect(fork_id).not.toBeNull();
+    expect(store.active_id).toBe(fork_id);
+    expect(store.revision).toBe(before + 1);
+    const fork = store.sessions.find((s) => s.id === fork_id);
+    expect(fork?.title).toBe("Chat (fork)");
+    expect(fork?.messages.map((m) => m.id)).toEqual(["u1", "a1"]);
+    const original = store.sessions.find((s) => s.id === "orig");
+    expect(original?.messages).toHaveLength(4);
+    expect(store.sessions[0]?.id).toBe(fork_id);
+  });
+
+  it("fork_session deep-copies messages so edits do not leak into the original", () => {
+    const store = new RagStore();
+    store.hydrate([
+      saved_session({
+        id: "orig",
+        messages: [
+          { id: "u1", role: "user", content: "q", citations: [] },
+          { id: "a1", role: "assistant", content: "a", citations: [citation] },
+        ],
+      }),
+    ]);
+    store.switch_session("orig");
+
+    const fork_id = store.fork_session("a1");
+    const fork = store.sessions.find((s) => s.id === fork_id);
+    const forked_message = fork?.messages[1];
+    const forked_citation = forked_message?.citations[0];
+    if (!forked_message || !forked_citation) {
+      throw new Error("fork missing message");
+    }
+    forked_message.content = "mutated";
+    forked_citation.title = "mutated title";
+
+    const original = store.sessions.find((s) => s.id === "orig");
+    expect(original?.messages[1]?.content).toBe("a");
+    expect(original?.messages[1]?.citations[0]?.title).toBe("Q");
+  });
+
+  it("fork_session resets streaming, loading, and error state", () => {
+    const store = new RagStore();
+    store.hydrate([
+      saved_session({
+        id: "orig",
+        messages: [
+          { id: "u1", role: "user", content: "q", citations: [] },
+          { id: "a1", role: "assistant", content: "a", citations: [] },
+        ],
+      }),
+    ]);
+    store.switch_session("orig");
+    store.add_user_message("q2");
+    store.start_loading();
+    store.start_streaming();
+
+    const fork_id = store.fork_session("a1");
+
+    expect(fork_id).not.toBeNull();
+    expect(store.is_loading).toBe(false);
+    expect(store.streaming_id).toBeNull();
+
+    store.set_error("boom");
+    store.fork_session("u1");
+
+    expect(store.error).toBeNull();
+  });
+
+  it("fork_session returns null for an unknown message or no active session", () => {
+    const store = new RagStore();
+    expect(store.fork_session("nope")).toBeNull();
+
+    store.add_user_message("q");
+    expect(store.fork_session("missing")).toBeNull();
+    expect(store.sessions).toHaveLength(1);
+  });
+
+  it("truncate_after keeps the user question and drops the assistant reply", () => {
+    const store = new RagStore();
+    store.hydrate([
+      saved_session({
+        id: "a",
+        messages: [
+          { id: "u1", role: "user", content: "q1", citations: [] },
+          { id: "a1", role: "assistant", content: "answer 1", citations: [] },
+          { id: "u2", role: "user", content: "q2", citations: [] },
+          { id: "a2", role: "assistant", content: "answer 2", citations: [] },
+        ],
+      }),
+    ]);
+    store.switch_session("a");
+
+    store.truncate_after("a2");
+
+    expect(store.messages.map((m) => m.id)).toEqual(["u1", "a1", "u2"]);
+  });
+
+  it("truncate_after on a user message keeps that message", () => {
+    const store = new RagStore();
+    store.hydrate([
+      saved_session({
+        id: "a",
+        messages: [
+          { id: "u1", role: "user", content: "q1", citations: [] },
+          { id: "a1", role: "assistant", content: "answer 1", citations: [] },
+          { id: "u2", role: "user", content: "q2", citations: [] },
+        ],
+      }),
+    ]);
+    store.switch_session("a");
+
+    store.truncate_after("u2");
+
+    expect(store.messages.map((m) => m.id)).toEqual(["u1", "a1", "u2"]);
+  });
+
+  it("rename_session records the title source and defaults to manual", () => {
+    const store = new RagStore();
+    store.hydrate([saved_session({ id: "a", title: "old" })]);
+
+    store.rename_session("a", "picked by user");
+    expect(store.sessions[0]?.title_source).toBe("manual");
+
+    store.rename_session("a", "Model title", "generated");
+    expect(store.sessions[0]?.title_source).toBe("generated");
+  });
+
   it("set_streaming_context_stats stamps stats onto the streaming message", () => {
     const store = new RagStore();
     store.add_user_message("q");

@@ -53,8 +53,11 @@ export type RagSessionSummary = {
   updated_at: number;
 };
 
+export type RagTitleSource = "derived" | "generated" | "manual";
+
 export type RagSession = RagSessionSummary & {
   messages: RagMessage[];
   provider_id: string;
   scope: RagScope;
+  title_source?: RagTitleSource;
 };
