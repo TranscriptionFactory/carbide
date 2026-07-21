@@ -94,6 +94,15 @@ function create_harness() {
     execute: vi.fn(),
     execute_streaming: vi.fn(),
     stream_inline: vi.fn(),
+    fetch_vault_context: vi.fn().mockResolvedValue({
+      similar_notes: [],
+      backlinks: [],
+      outlinks: [],
+    }),
+  };
+  const ai_history = {
+    load_history: vi.fn().mockResolvedValue([]),
+    save_history: vi.fn().mockResolvedValue(undefined),
   };
 
   stores.ui.editor_settings.ai_providers = BUILTIN_PROVIDER_PRESETS;
@@ -109,9 +118,10 @@ function create_harness() {
     },
     ai_store,
     ai_service: ai_service as never,
+    ai_history,
   });
 
-  return { registry, stores, services, ai_store, ai_service };
+  return { registry, stores, services, ai_store, ai_service, ai_history };
 }
 
 function probe(status: "present" | "missing" | "unknown") {

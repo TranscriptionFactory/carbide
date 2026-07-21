@@ -1263,6 +1263,7 @@ export function create_app_context(input: {
     ...base_action_input,
     ai_store: stores.ai,
     ai_service,
+    ai_history: input.ports.ai_history,
   });
 
   register_rag_actions({
@@ -1508,6 +1509,8 @@ export function create_app_context(input: {
     mcp_service,
     rag_store: stores.rag,
     rag_service,
+    ai_store: stores.ai,
+    ai_history_port: input.ports.ai_history,
     tag_store: stores.tag,
     tag_service,
     // stt_store: stores.stt,

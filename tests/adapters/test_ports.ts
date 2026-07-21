@@ -112,6 +112,10 @@ export function create_test_ports(): Ports {
     watcher: create_test_watcher_adapter(),
     ai: create_test_ai_adapter(),
     ai_stream: create_test_ai_stream_adapter(),
+    ai_history: {
+      load_history: () => Promise.resolve([]),
+      save_history: () => Promise.resolve(),
+    },
     graph: create_test_graph_adapter(),
     bases: {
       list_properties: () => Promise.resolve([]),

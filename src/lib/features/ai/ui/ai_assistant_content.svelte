@@ -48,6 +48,7 @@
     on_clear_result: () => void;
     on_close: () => void;
     on_vault_context_toggle: () => void;
+    on_clear_history?: () => void;
   };
 
   let {
@@ -81,6 +82,7 @@
     on_clear_result,
     on_close,
     on_vault_context_toggle,
+    on_clear_history = undefined,
   }: Props = $props();
 
   const provider_config = $derived(providers.find((p) => p.id === provider_id));
@@ -95,7 +97,11 @@
   const last_turn_was_ask = $derived(last_turn?.mode === "ask");
   const result_is_answer = $derived(result !== null && last_turn_was_ask);
   const history_turns = $derived(
-    result && turns.length > 0 ? turns.slice(0, -1) : turns,
+    is_executing
+      ? turns.filter((turn) => turn.status === "completed")
+      : result && turns.length > 0
+        ? turns.slice(0, -1)
+        : turns,
   );
   const selection_available = $derived(
     Boolean(selection_text && selection_text.trim() !== ""),
@@ -496,43 +502,6 @@
           </div>
         {/if}
 
-        {#if history_turns.length > 0}
-          <div class="mt-4 space-y-3">
-            <div class="text-sm font-medium">Session History</div>
-            <div class="space-y-3">
-              {#each history_turns as turn (turn.id)}
-                <div class="space-y-2 rounded-md border bg-muted/20 p-3">
-                  <div class="text-xs font-medium text-muted-foreground">
-                    You ·
-                    {turn.mode === "ask" ? "Ask" : "Edit"} ·
-                    {turn.target === "selection" ? "Selection" : "Full Note"} ·
-                    {providers.find((p) => p.id === turn.provider_id)?.name ??
-                      turn.provider_id}
-                  </div>
-                  <p class="whitespace-pre-wrap text-sm">{turn.prompt}</p>
-                  <div class="text-xs font-medium text-muted-foreground">
-                    Assistant
-                  </div>
-                  {#if turn.status === "pending"}
-                    <p class="text-sm text-muted-foreground">
-                      {turn.mode === "ask" ? "Thinking…" : "Generating draft…"}
-                    </p>
-                  {:else if turn.result?.success}
-                    <p
-                      class="line-clamp-6 whitespace-pre-wrap font-mono text-xs text-muted-foreground"
-                    >
-                      {turn.result.output}
-                    </p>
-                  {:else}
-                    <p class="whitespace-pre-wrap text-sm text-destructive">
-                      {turn.result?.error ?? "Assistant run failed."}
-                    </p>
-                  {/if}
-                </div>
-              {/each}
-            </div>
-          </div>
-        {/if}
       {:else}
         <!-- Context preview (no result yet) -->
         <div
@@ -598,6 +567,51 @@
               ></textarea>
             </div>
           {/if}
+        </div>
+      {/if}
+
+      {#if history_turns.length > 0}
+        <div class="mt-4 space-y-3">
+          <div class="flex items-center justify-between">
+            <div class="text-sm font-medium">Session History</div>
+            {#if on_clear_history}
+              <Button variant="ghost" size="sm" onclick={on_clear_history}>
+                Clear History
+              </Button>
+            {/if}
+          </div>
+          <div class="space-y-3">
+            {#each history_turns as turn (turn.id)}
+              <div class="space-y-2 rounded-md border bg-muted/20 p-3">
+                <div class="text-xs font-medium text-muted-foreground">
+                  You ·
+                  {turn.mode === "ask" ? "Ask" : "Edit"} ·
+                  {turn.target === "selection" ? "Selection" : "Full Note"} ·
+                  {providers.find((p) => p.id === turn.provider_id)?.name ??
+                    turn.provider_id}
+                </div>
+                <p class="whitespace-pre-wrap text-sm">{turn.prompt}</p>
+                <div class="text-xs font-medium text-muted-foreground">
+                  Assistant
+                </div>
+                {#if turn.status === "pending"}
+                  <p class="text-sm text-muted-foreground">
+                    {turn.mode === "ask" ? "Thinking…" : "Generating draft…"}
+                  </p>
+                {:else if turn.result?.success}
+                  <p
+                    class="line-clamp-6 whitespace-pre-wrap font-mono text-xs text-muted-foreground"
+                  >
+                    {turn.result.output}
+                  </p>
+                {:else}
+                  <p class="whitespace-pre-wrap text-sm text-destructive">
+                    {turn.result?.error ?? "Assistant run failed."}
+                  </p>
+                {/if}
+              </div>
+            {/each}
+          </div>
         </div>
       {/if}
     </div>

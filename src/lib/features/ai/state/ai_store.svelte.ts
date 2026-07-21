@@ -100,6 +100,8 @@ export class AiStore {
       cli_error: null,
       is_executing: false,
       result: null,
+      turns: this.settled_turns(),
+      next_turn_id: this.dialog.next_turn_id,
       vault_context_enabled:
         options?.vault_context_enabled ?? defaults.vault_context_enabled,
     };
@@ -109,7 +111,23 @@ export class AiStore {
     this.dialog = {
       ...initial_state(),
       provider_id: this.dialog.provider_id,
+      turns: this.settled_turns(),
+      next_turn_id: this.dialog.next_turn_id,
     };
+  }
+
+  private settled_turns() {
+    return this.dialog.turns.filter((t) => t.status === "completed");
+  }
+
+  hydrate_turns(turns: AiConversationTurn[]) {
+    this.dialog.turns = turns;
+    this.dialog.next_turn_id = Math.max(0, ...turns.map((t) => t.id)) + 1;
+  }
+
+  clear_turns() {
+    this.dialog.turns = [];
+    this.dialog.next_turn_id = 1;
   }
 
   set_provider(provider_id: string) {
