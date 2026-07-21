@@ -94,6 +94,13 @@ export class RagStore {
     this.update_streaming((m) => ({ ...m, content: m.content + text }));
   }
 
+  append_streaming_reasoning(text: string) {
+    this.update_streaming((m) => ({
+      ...m,
+      reasoning: (m.reasoning ?? "") + text,
+    }));
+  }
+
   set_streaming_context_stats(stats: RagContextStats) {
     this.update_streaming((m) => ({ ...m, context_stats: stats }));
   }

@@ -45,6 +45,7 @@ type AiConversationTurn = {
   prompt: string;
   status: "pending" | "completed";
   result: AiExecutionResult | null;
+  reasoning?: string;
 };
 
 export type AiDialogState = {
@@ -57,6 +58,7 @@ export type AiDialogState = {
   cli_error: string | null;
   is_executing: boolean;
   streaming_text: string | null;
+  streaming_reasoning: string | null;
   result: AiExecutionResult | null;
   turns: AiConversationTurn[];
   next_turn_id: number;
@@ -74,6 +76,7 @@ function initial_state(): AiDialogState {
     cli_error: null,
     is_executing: false,
     streaming_text: null,
+    streaming_reasoning: null,
     result: null,
     turns: [],
     next_turn_id: 1,
@@ -193,6 +196,7 @@ export class AiStore {
     }
     this.dialog.is_executing = true;
     this.dialog.streaming_text = null;
+    this.dialog.streaming_reasoning = null;
     this.dialog.result = null;
     this.dialog.turns = [
       ...this.dialog.turns,
@@ -216,9 +220,17 @@ export class AiStore {
     this.dialog.streaming_text = text;
   }
 
+  set_streaming_reasoning(text: string) {
+    if (!this.dialog.is_executing) {
+      return;
+    }
+    this.dialog.streaming_reasoning = text;
+  }
+
   cancel_execution() {
     this.dialog.is_executing = false;
     this.dialog.streaming_text = null;
+    this.dialog.streaming_reasoning = null;
     const last = this.dialog.turns.at(-1);
     if (last?.status === "pending") {
       this.dialog.turns = this.dialog.turns.slice(0, -1);
@@ -226,8 +238,10 @@ export class AiStore {
   }
 
   finish_execution(result: AiExecutionResult) {
+    const reasoning = this.dialog.streaming_reasoning;
     this.dialog.is_executing = false;
     this.dialog.streaming_text = null;
+    this.dialog.streaming_reasoning = null;
     this.dialog.result = result;
     const last_index = this.dialog.turns.length - 1;
     const turn = this.dialog.turns[last_index];
@@ -238,6 +252,7 @@ export class AiStore {
       ...turn,
       status: "completed",
       result,
+      ...(reasoning ? { reasoning } : {}),
     };
   }
 

@@ -22,5 +22,6 @@ export type AiStreamRequest = {
 
 export type AiStreamChunk =
   | { type: "text"; text: string }
+  | { type: "reasoning"; text: string }
   | { type: "error"; error: string }
   | { type: "done" };

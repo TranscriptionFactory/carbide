@@ -474,6 +474,10 @@ export function register_ai_actions(
                 if (revision !== dialog_revision) return;
                 ai_store.set_streaming_text(partial);
               },
+              (partial) => {
+                if (revision !== dialog_revision) return;
+                ai_store.set_streaming_reasoning(partial);
+              },
             )
           : await ai_service.execute(execute_input);
         if (revision !== dialog_revision) return;

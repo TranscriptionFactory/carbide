@@ -571,6 +571,7 @@ describe("register_ai_actions", () => {
           signal: expect.any(AbortSignal),
         }),
         expect.any(Function),
+        expect.any(Function),
       );
       expect(ai_service.execute).not.toHaveBeenCalled();
       expect(ai_store.dialog.result).toEqual({

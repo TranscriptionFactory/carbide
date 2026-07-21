@@ -44,6 +44,7 @@ export type AiConversationTurn = {
   prompt: string;
   status: "pending" | "completed";
   result: AiExecutionResult | null;
+  reasoning?: string;
 };
 
 export type AiDialogNoteContext = {
