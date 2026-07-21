@@ -15,6 +15,24 @@ export class DiagnosticsStore {
     return Array.from(this.store.keys());
   });
 
+  files_with_diagnostics = $derived.by(() => {
+    const by_path = new Map<string, Diagnostic[]>();
+    for (const source_map of this.store.values()) {
+      for (const [path, diags] of source_map) {
+        const list = by_path.get(path);
+        if (list) {
+          list.push(...diags);
+        } else {
+          by_path.set(path, [...diags]);
+        }
+      }
+    }
+    return Array.from(by_path, ([path, diagnostics]) => ({
+      path,
+      diagnostics,
+    })).sort((a, b) => a.path.localeCompare(b.path));
+  });
+
   active_diagnostics = $derived.by(() => {
     if (!this.active_file_path) return [];
     const result: Diagnostic[] = [];
@@ -59,6 +77,7 @@ export class DiagnosticsStore {
     }
     if (diagnostics.length === 0) {
       source_map.delete(file_path);
+      if (source_map.size === 0) this.store.delete(source);
     } else {
       source_map.set(file_path, diagnostics);
     }
@@ -69,7 +88,10 @@ export class DiagnosticsStore {
   }
 
   clear_file(source: DiagnosticSource, file_path: string) {
-    this.store.get(source)?.delete(file_path);
+    const source_map = this.store.get(source);
+    if (!source_map) return;
+    source_map.delete(file_path);
+    if (source_map.size === 0) this.store.delete(source);
   }
 
   set_active_file(path: string | null) {

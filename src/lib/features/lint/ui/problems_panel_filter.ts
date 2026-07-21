@@ -1,7 +1,7 @@
-import type { Diagnostic, DiagnosticSeverity } from "$lib/features/diagnostics";
+import type { Diagnostic } from "$lib/features/diagnostics";
 import type { LogEntry } from "$lib/features/lint/state/log_store.svelte";
 
-export type StreamFilter = "all" | "diagnostics" | "logs";
+export type StreamFilter = "diagnostics" | "logs";
 
 export type SeverityFilter =
   | "all"
@@ -12,38 +12,31 @@ export type SeverityFilter =
   | "debug"
   | "trace";
 
-export type UnifiedEntry =
-  | { kind: "diagnostic"; data: Diagnostic; timestamp?: undefined }
-  | { kind: "log"; data: LogEntry; timestamp: number };
+export type SeverityOption = { value: SeverityFilter; label: string };
+
+const DIAGNOSTIC_SEVERITY_OPTIONS: SeverityOption[] = [
+  { value: "all", label: "All Levels" },
+  { value: "error", label: "Errors" },
+  { value: "warning", label: "Warnings" },
+  { value: "info", label: "Info" },
+  { value: "hint", label: "Hints" },
+];
+
+const LOG_SEVERITY_OPTIONS: SeverityOption[] = [
+  { value: "all", label: "All Levels" },
+  { value: "error", label: "Errors" },
+  { value: "warning", label: "Warnings" },
+  { value: "info", label: "Info" },
+  { value: "debug", label: "Debug" },
+  { value: "trace", label: "Trace" },
+];
+
+export function severity_options(stream: StreamFilter): SeverityOption[] {
+  return stream === "logs" ? LOG_SEVERITY_OPTIONS : DIAGNOSTIC_SEVERITY_OPTIONS;
+}
 
 function log_level_to_severity(level: LogEntry["level"]): SeverityFilter {
-  switch (level) {
-    case "error":
-      return "error";
-    case "warn":
-      return "warning";
-    case "info":
-      return "info";
-    case "debug":
-      return "debug";
-    case "trace":
-      return "trace";
-  }
-}
-
-function diagnostic_matches_severity(
-  d: Diagnostic,
-  severity: SeverityFilter,
-): boolean {
-  if (severity === "all") return true;
-  if (severity === "debug" || severity === "trace") return false;
-  return (d.severity as string) === (severity as string);
-}
-
-function log_matches_severity(e: LogEntry, severity: SeverityFilter): boolean {
-  if (severity === "all") return true;
-  if (severity === "hint") return false;
-  return log_level_to_severity(e.level) === severity;
+  return level === "warn" ? "warning" : level;
 }
 
 export function filter_diagnostics(
@@ -54,7 +47,7 @@ export function filter_diagnostics(
 ): Diagnostic[] {
   let items = diagnostics;
   if (severity !== "all") {
-    items = items.filter((d) => diagnostic_matches_severity(d, severity));
+    items = items.filter((d) => (d.severity as string) === severity);
   }
   if (source_filter !== "all") {
     items = items.filter((d) => d.source === source_filter);
@@ -77,7 +70,7 @@ export function filter_logs(
 ): LogEntry[] {
   let items = logs;
   if (severity !== "all") {
-    items = items.filter((e) => log_matches_severity(e, severity));
+    items = items.filter((e) => log_level_to_severity(e.level) === severity);
   }
   if (search_query) {
     const q = search_query.toLowerCase();
@@ -86,39 +79,58 @@ export function filter_logs(
   return items;
 }
 
-export function build_unified_entries(
-  stream: StreamFilter,
-  diagnostics: Diagnostic[],
-  logs: LogEntry[],
+export type FileGroup = { path: string; diagnostics: Diagnostic[] };
+
+const SEVERITY_RANK: Record<Diagnostic["severity"], number> = {
+  error: 0,
+  warning: 1,
+  info: 2,
+  hint: 3,
+};
+
+export function filter_file_groups(
+  files: FileGroup[],
   severity: SeverityFilter,
   source_filter: string,
   search_query: string,
-): UnifiedEntry[] {
-  const include_diagnostics = stream === "all" || stream === "diagnostics";
-  const include_logs = stream === "all" || stream === "logs";
-
-  const diagnostic_entries: UnifiedEntry[] = include_diagnostics
-    ? filter_diagnostics(
-        diagnostics,
-        severity,
-        source_filter,
-        search_query,
-      ).map((d) => ({ kind: "diagnostic" as const, data: d }))
-    : [];
-
-  const log_entries: UnifiedEntry[] = include_logs
-    ? filter_logs(logs, severity, search_query).map((e) => ({
-        kind: "log" as const,
-        data: e,
-        timestamp: e.timestamp,
-      }))
-    : [];
-
-  if (stream !== "all") {
-    return stream === "diagnostics" ? diagnostic_entries : log_entries;
+): FileGroup[] {
+  const result: FileGroup[] = [];
+  for (const file of files) {
+    const diagnostics = filter_diagnostics(
+      file.diagnostics,
+      severity,
+      source_filter,
+      search_query,
+    );
+    if (diagnostics.length === 0) continue;
+    result.push({
+      path: file.path,
+      diagnostics: [...diagnostics].sort(
+        (a, b) =>
+          SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity] ||
+          a.line - b.line ||
+          a.column - b.column,
+      ),
+    });
   }
+  return result;
+}
 
-  return [...diagnostic_entries, ...log_entries].sort(
-    (a, b) => (a.timestamp ?? 0) - (b.timestamp ?? 0),
-  );
+export function line_col_to_offset(
+  text: string,
+  line: number,
+  column: number,
+): number | null {
+  if (line < 1) return null;
+  let offset = 0;
+  let current = 1;
+  while (current < line) {
+    const next = text.indexOf("\n", offset);
+    if (next === -1) return null;
+    offset = next + 1;
+    current++;
+  }
+  const line_end = text.indexOf("\n", offset);
+  const line_length = (line_end === -1 ? text.length : line_end) - offset;
+  return offset + Math.min(Math.max(0, column - 1), line_length);
 }

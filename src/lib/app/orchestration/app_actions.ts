@@ -16,7 +16,7 @@ import { set_load_state, set_pagination } from "$lib/features/folder";
 import { PAGE_SIZE } from "$lib/shared/constants/pagination";
 import { is_tauri } from "$lib/shared/utils/detect_platform";
 import { tauri_invoke } from "$lib/shared/adapters/tauri_invoke";
-import { toast } from "svelte-sonner";
+import { toast } from "$lib/shared/ui/toast";
 import { create_logger } from "$lib/shared/utils/logger";
 import { PANE_SIZE_FIELDS } from "$lib/reactors/pane_size_fields";
 

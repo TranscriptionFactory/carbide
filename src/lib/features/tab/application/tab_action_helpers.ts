@@ -7,7 +7,7 @@ import {
   paths_equal_ignore_case,
 } from "$lib/shared/utils/path";
 import { tauri_invoke } from "$lib/shared/adapters/tauri_invoke";
-import { toast } from "svelte-sonner";
+import { toast } from "$lib/shared/ui/toast";
 
 type BatchCloseMode = "all" | "other" | "right";
 type SaveDirtyTabResult = "saved" | "needs_path" | "failed";

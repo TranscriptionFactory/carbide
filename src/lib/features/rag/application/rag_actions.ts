@@ -1,4 +1,4 @@
-import { toast } from "svelte-sonner";
+import { toast } from "$lib/shared/ui/toast";
 import type { ActionRegistrationInput } from "$lib/app";
 import { ACTION_IDS } from "$lib/app";
 import { error_message } from "$lib/shared/utils/error_message";

@@ -44,7 +44,7 @@
   import type { StorageStats } from "$lib/features/settings";
   import type { ToolInfo } from "$lib/features/toolchain";
   import { format_bytes } from "$lib/shared/utils/format_bytes";
-  import { toast } from "svelte-sonner";
+  import { toast } from "$lib/shared/ui/toast";
   import type { OmnibarItem } from "$lib/shared/types/search";
   import type {
     OmnibarScope,

@@ -83,7 +83,7 @@
     Palette,
     Smile,
   } from "@lucide/svelte";
-  import { toast } from "svelte-sonner";
+  import { toast } from "$lib/shared/ui/toast";
 
   type Props = {
     node: FlatTreeNode;

@@ -11,7 +11,7 @@
     Columns2,
     AppWindow,
   } from "@lucide/svelte";
-  import { toast } from "svelte-sonner";
+  import { toast } from "$lib/shared/ui/toast";
 
   let {
     path,

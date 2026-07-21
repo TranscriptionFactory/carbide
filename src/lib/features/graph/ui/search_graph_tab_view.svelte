@@ -15,7 +15,7 @@
   import { Button } from "$lib/components/ui/button";
   import { Input } from "$lib/components/ui/input";
   import * as Resizable from "$lib/components/ui/resizable/index.js";
-  import { toast } from "svelte-sonner";
+  import { toast } from "$lib/shared/ui/toast";
   import SearchGraphCanvas from "$lib/features/graph/ui/search_graph_canvas.svelte";
   import SearchGraphResultList from "$lib/features/graph/ui/search_graph_result_list.svelte";
 

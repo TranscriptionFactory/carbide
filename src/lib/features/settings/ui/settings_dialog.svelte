@@ -35,7 +35,7 @@
     type AiCliProbe,
     type AiProviderProbeState,
   } from "$lib/features/ai";
-  import { toast } from "svelte-sonner";
+  import { toast } from "$lib/shared/ui/toast";
   import type { StorageStats } from "$lib/features/settings/ports";
   import { format_bytes } from "$lib/shared/utils/format_bytes";
   import { HotkeysPanel } from "$lib/features/hotkey";
