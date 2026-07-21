@@ -232,6 +232,7 @@
   let input_ref: HTMLInputElement | null = $state(null);
   let collapsed_vaults = $state(new SvelteSet<string>());
   let prev_items_ref: OmnibarItem[] = $state([]);
+  let collapsed_for_query = $state("");
   let mouse_moved = $state(false);
   let filter_mode = $state(false);
   let was_open = $state(false);
@@ -306,8 +307,11 @@
   $effect(() => {
     if (!is_all_vaults || !has_query) return;
     if (items !== prev_items_ref && items.length > 0) {
-      collapsed_vaults = new SvelteSet(vault_groups.map((g) => g.vault_id));
       prev_items_ref = items;
+      if (query !== collapsed_for_query) {
+        collapsed_for_query = query;
+        collapsed_vaults = new SvelteSet(vault_groups.map((g) => g.vault_id));
+      }
     }
   });
 

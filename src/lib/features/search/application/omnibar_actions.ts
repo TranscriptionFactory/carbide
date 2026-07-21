@@ -180,15 +180,14 @@ function open_omnibar(input: ActionRegistrationInput) {
       query: seed,
       selected_index: 0,
       is_searching: false,
+      scope: "current_vault",
     });
-    void search_omnibar_query(input, seed, input.stores.ui.omnibar.scope).then(
-      () => {
-        set_omnibar_state(input, {
-          is_searching: false,
-          selected_index: clamp_selected_index(input),
-        });
-      },
-    );
+    void search_omnibar_query(input, seed, "current_vault").then(() => {
+      set_omnibar_state(input, {
+        is_searching: false,
+        selected_index: clamp_selected_index(input),
+      });
+    });
     return;
   }
 
@@ -196,11 +195,11 @@ function open_omnibar(input: ActionRegistrationInput) {
     open: true,
     selected_index: 0,
     is_searching: false,
+    scope: "current_vault",
   });
   if (had_query) {
     const query = input.stores.ui.omnibar.query;
-    const scope = input.stores.ui.omnibar.scope;
-    void search_omnibar_query(input, query, scope).then(() => {
+    void search_omnibar_query(input, query, "current_vault").then(() => {
       set_omnibar_state(input, {
         is_searching: false,
         selected_index: clamp_selected_index(input),
@@ -440,6 +439,7 @@ export function register_omnibar_actions(input: ActionRegistrationInput) {
         query: ">",
         selected_index: 0,
         is_searching: false,
+        scope: "current_vault",
       });
       stores.search.clear_omnibar();
     },
