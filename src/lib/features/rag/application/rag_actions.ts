@@ -9,6 +9,7 @@ import type { AiProviderConfig } from "$lib/shared/types/ai_provider_config";
 import { DEFAULT_EDITOR_SETTINGS } from "$lib/shared/types/editor_settings";
 import type { RagContextStats } from "$lib/features/rag/domain/rag_types";
 import { should_attach_open_note_images } from "$lib/features/rag/domain/rag_open_note_images";
+import { should_autotitle } from "$lib/features/rag/domain/rag_session";
 import type { RagStore } from "$lib/features/rag/state/rag_store.svelte";
 import type { RagService } from "$lib/features/rag/application/rag_service";
 
@@ -83,30 +84,43 @@ export function register_rag_actions(
     },
   });
 
-  registry.register({
-    id: ACTION_IDS.rag_ask,
-    label: "Ask Vault Chat",
-    execute: async (payload: unknown) => {
-      if (!stores.ui.editor_settings.ai_enabled) {
-        toast.info("AI Assistant is disabled in settings");
-        return;
-      }
-      if (stores.op.is_pending(RAG_OP_KEY)) return;
+  async function maybe_autotitle(
+    provider: AiProviderConfig,
+    revision: number,
+  ) {
+    const session = rag_store.active;
+    if (!session || !should_autotitle(session)) return;
+    if (session.messages.filter((m) => m.role === "assistant").length !== 1) {
+      return;
+    }
+    const session_id = session.id;
+    const title = await rag_service.generate_title(provider, session.messages);
+    if (title === null) return;
+    if (revision !== rag_store.revision) return;
+    if (!rag_store.sessions.some((s) => s.id === session_id)) return;
+    rag_store.rename_session(session_id, title, "generated");
+    persist_session(session_id);
+  }
 
-      const question = payload_field(payload, "question").trim();
-      if (!question) return;
+  async function run_ask(question: string, reuse_last_user = false) {
+    if (!stores.ui.editor_settings.ai_enabled) {
+      toast.info("AI Assistant is disabled in settings");
+      return;
+    }
+    if (stores.op.is_pending(RAG_OP_KEY)) return;
 
-      const provider = resolve_provider();
-      if (!provider) {
-        toast.error("No AI provider configured");
-        return;
-      }
+    const provider = resolve_provider();
+    if (!provider) {
+      toast.error("No AI provider configured");
+      return;
+    }
 
-      const revision = rag_store.begin_turn();
-      const history = [...rag_store.messages];
-      rag_store.add_user_message(question);
-      rag_store.start_loading();
-      stores.op.start(RAG_OP_KEY, Date.now());
+    const revision = rag_store.begin_turn();
+    const messages = [...rag_store.messages];
+    const history = reuse_last_user ? messages.slice(0, -1) : messages;
+    if (!reuse_last_user) rag_store.add_user_message(question);
+    rag_store.start_loading();
+    stores.op.start(RAG_OP_KEY, Date.now());
 
       const open_note = stores.editor.open_note;
       let image_parts: AiImagePart[] = [];
@@ -175,6 +189,7 @@ export function register_rag_actions(
           rag_store.finish_streaming();
           stores.op.succeed(RAG_OP_KEY);
           announce("Vault chat reply ready");
+          void maybe_autotitle(provider, revision);
         }
         // persist failed turns too, so the exchange survives a reload
         persist_session(rag_store.active_id);
@@ -187,6 +202,59 @@ export function register_rag_actions(
       } finally {
         ask_abort = null;
       }
+  }
+
+  registry.register({
+    id: ACTION_IDS.rag_ask,
+    label: "Ask Vault Chat",
+    execute: async (payload: unknown) => {
+      const question = payload_field(payload, "question").trim();
+      if (!question) return;
+      await run_ask(question);
+    },
+  });
+
+  registry.register({
+    id: ACTION_IDS.rag_copy_message,
+    label: "Copy Vault Chat Message",
+    execute: async (...args: unknown[]) => {
+      const id = typeof args[0] === "string" ? args[0] : "";
+      const message = rag_store.messages.find((m) => m.id === id);
+      if (!message) return;
+      await navigator.clipboard.writeText(message.content);
+    },
+  });
+
+  registry.register({
+    id: ACTION_IDS.rag_regenerate,
+    label: "Regenerate Vault Chat Reply",
+    execute: async (...args: unknown[]) => {
+      const id = typeof args[0] === "string" ? args[0] : "";
+      if (!id || stores.op.is_pending(RAG_OP_KEY)) return;
+      const messages = rag_store.messages;
+      const idx = messages.findIndex((m) => m.id === id);
+      if (idx === -1) return;
+      let user_idx = idx;
+      while (user_idx >= 0 && messages[user_idx]?.role !== "user") {
+        user_idx -= 1;
+      }
+      const question = messages[user_idx]?.content.trim();
+      if (!question) return;
+      rag_store.truncate_after(id);
+      await run_ask(question, true);
+    },
+  });
+
+  registry.register({
+    id: ACTION_IDS.rag_fork,
+    label: "Fork Vault Chat",
+    execute: (...args: unknown[]) => {
+      const id = typeof args[0] === "string" ? args[0] : "";
+      if (!id) return;
+      const new_id = rag_store.fork_session(id);
+      if (!new_id) return;
+      stores.op.reset(RAG_OP_KEY);
+      persist_session(new_id);
     },
   });
 

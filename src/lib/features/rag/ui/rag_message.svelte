@@ -1,5 +1,12 @@
 <script lang="ts">
-  import { FileText, Plus } from "@lucide/svelte";
+  import {
+    Check,
+    Copy,
+    FileText,
+    GitBranch,
+    Plus,
+    RefreshCw,
+  } from "@lucide/svelte";
   import { use_app_context } from "$lib/app/context/app_context.svelte";
   import { ACTION_IDS } from "$lib/app";
   import type {
@@ -48,6 +55,22 @@
     void action_registry.execute(ACTION_IDS.links_insert_suggested_link, title);
   }
 
+  let copied = $state(false);
+
+  async function copy_message() {
+    await action_registry.execute(ACTION_IDS.rag_copy_message, message.id);
+    copied = true;
+    setTimeout(() => (copied = false), 2000);
+  }
+
+  function regenerate() {
+    void action_registry.execute(ACTION_IDS.rag_regenerate, message.id);
+  }
+
+  function fork() {
+    void action_registry.execute(ACTION_IDS.rag_fork, message.id);
+  }
+
   let content_el = $state<HTMLElement | null>(null);
 
   $effect(() => {
@@ -76,7 +99,7 @@
     </div>
   </div>
 {:else}
-  <div class="flex flex-col gap-2">
+  <div class="group/message flex flex-col gap-2">
     <div
       bind:this={content_el}
       class="rag-markdown text-sm leading-relaxed text-foreground"
@@ -86,6 +109,44 @@
           aria-hidden="true">▍</span
         >{/if}
     </div>
+
+    {#if !is_streaming}
+      <div
+        class="flex items-center gap-1 opacity-0 transition-opacity group-hover/message:opacity-100"
+      >
+        <button
+          type="button"
+          class="flex size-6 shrink-0 items-center justify-center rounded text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+          onclick={copy_message}
+          title={copied ? "Copied" : "Copy"}
+          aria-label="Copy message"
+        >
+          {#if copied}
+            <Check class="size-3.5" />
+          {:else}
+            <Copy class="size-3.5" />
+          {/if}
+        </button>
+        <button
+          type="button"
+          class="flex size-6 shrink-0 items-center justify-center rounded text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+          onclick={regenerate}
+          title="Regenerate"
+          aria-label="Regenerate reply"
+        >
+          <RefreshCw class="size-3.5" />
+        </button>
+        <button
+          type="button"
+          class="flex size-6 shrink-0 items-center justify-center rounded text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+          onclick={fork}
+          title="Fork chat from here"
+          aria-label="Fork chat from here"
+        >
+          <GitBranch class="size-3.5" />
+        </button>
+      </div>
+    {/if}
 
     {#if message.citations.length > 0 || show_stats}
       <div class="flex flex-col gap-1 border-t pt-2">
