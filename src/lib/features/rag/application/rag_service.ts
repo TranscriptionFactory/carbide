@@ -358,6 +358,8 @@ export class RagService {
       })) {
         if (chunk.type === "text") {
           yield* parser.push(chunk.text);
+        } else if (chunk.type === "reasoning") {
+          yield { type: "reasoning", text: chunk.text };
         } else if (chunk.type === "error") {
           const friendly = humanize_ai_error(
             chunk.error,
