@@ -520,10 +520,7 @@ describe("register_ai_actions", () => {
       const { registry, ai_store, ai_service } = create_harness();
       let seen_streaming_text: string | null = null;
       ai_service.execute_streaming = vi.fn(
-        async (
-          _input: unknown,
-          on_chunk?: (partial: string) => void,
-        ) => {
+        async (_input: unknown, on_chunk?: (partial: string) => void) => {
           on_chunk?.("First chunk");
           seen_streaming_text = ai_store.dialog.streaming_text;
           return { success: true, output: "First chunk", error: null };
@@ -541,10 +538,7 @@ describe("register_ai_actions", () => {
     it("keeps a stopped stream's partial text as a reviewable result", async () => {
       const { registry, ai_store, ai_service } = create_harness();
       ai_service.execute_streaming = vi.fn(
-        async (
-          _input: unknown,
-          on_chunk?: (partial: string) => void,
-        ) => {
+        async (_input: unknown, on_chunk?: (partial: string) => void) => {
           on_chunk?.("Partial answer");
           await registry.execute(ACTION_IDS.ai_stop_execution);
           return { success: true, output: "Partial answer", error: null };
