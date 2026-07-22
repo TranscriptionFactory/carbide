@@ -188,6 +188,33 @@ pub fn write_claude_code_config(vault_path: &str, token: &str) -> Result<SetupRe
     })
 }
 
+pub fn write_agent_mcp_config(port: u16, token: &str) -> Result<PathBuf, String> {
+    let path = auth::token_path()
+        .parent()
+        .map(|dir| dir.join("agent-mcp-config.json"))
+        .ok_or("Invalid MCP token path")?;
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)
+            .map_err(|e| format!("Failed to create config directory: {}", e))?;
+    }
+    let config = serde_json::json!({
+        "mcpServers": {
+            "carbide": {
+                "type": "http",
+                "url": format!("http://127.0.0.1:{port}/mcp"),
+                "headers": {
+                    "Authorization": format!("Bearer {token}")
+                }
+            }
+        }
+    });
+    let output = serde_json::to_string_pretty(&config)
+        .map_err(|e| format!("Failed to serialize agent MCP config: {}", e))?;
+    std::fs::write(&path, output)
+        .map_err(|e| format!("Failed to write agent MCP config: {}", e))?;
+    Ok(path)
+}
+
 pub fn check_claude_desktop_configured() -> bool {
     let path = claude_desktop_config_path();
     if !path.exists() {

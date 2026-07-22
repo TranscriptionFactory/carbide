@@ -109,3 +109,7 @@ Plugin manifests live under [`plugins/`](plugins/). User-installed plugins live 
 ## Acknowledgments
 
 Carbide began as a fork of [Otterly](https://github.com/ajkdrag/otterly). It also draws file-management ideas from [Ferrite](https://github.com/OlaProeis/Ferrite).
+
+## License
+
+Carbide is licensed under the [GNU General Public License v3.0](LICENSE). It contains code derived from the MIT-licensed [Otterly](https://github.com/ajkdrag/otterly) project, and draws file-management ideas from [Ferrite](https://github.com/OlaProeis/Ferrite) (also MIT). Copyright notices and license texts are reproduced in [NOTICE](NOTICE).

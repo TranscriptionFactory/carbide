@@ -38,7 +38,10 @@ import type {
   RagSessionSummary,
   RagStreamEvent,
 } from "$lib/features/rag/domain/rag_types";
-import { sanitize_generated_title } from "$lib/features/rag/domain/rag_session";
+import {
+  migrate_agent_fields,
+  sanitize_generated_title,
+} from "$lib/features/rag/domain/rag_session";
 import { derive_rag_readiness } from "$lib/features/rag/domain/rag_readiness";
 import type { RagReadiness } from "$lib/features/rag/types/rag_readiness";
 import type { RagPersistencePort } from "$lib/features/rag/ports";
@@ -184,7 +187,12 @@ export class RagService {
     );
     return sessions
       .filter((session): session is RagSession => session !== null)
-      .map((session) => ({ ...session, scope: migrate_scope(session.scope) }));
+      .map((session) =>
+        migrate_agent_fields({
+          ...session,
+          scope: migrate_scope(session.scope),
+        }),
+      );
   }
 
   async save_session(vault_id: string, session: RagSession): Promise<void> {

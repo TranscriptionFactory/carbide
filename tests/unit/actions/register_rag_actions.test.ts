@@ -82,6 +82,15 @@ function create_harness(events: RagStreamEvent[] = ANSWERED_EVENTS) {
     execute: note_open,
   });
 
+  const agent_port = {
+    stream_turn: vi.fn(() =>
+      // eslint-disable-next-line @typescript-eslint/require-await
+      (async function* () {
+        yield { type: "done" as const, stats: {} };
+      })(),
+    ),
+  };
+
   register_rag_actions({
     registry,
     stores: stores as never,
@@ -92,6 +101,7 @@ function create_harness(events: RagStreamEvent[] = ANSWERED_EVENTS) {
     },
     rag_store,
     rag_service: rag_service as never,
+    agent_port,
   });
 
   return { registry, stores, rag_store, rag_service, note_open };
@@ -512,6 +522,9 @@ describe("register_rag_actions", () => {
         messages: [],
         provider_id: PROVIDER_ID,
         scope: {},
+        mode: "ask",
+        permission_mode: "safe",
+        changed_files: [],
       },
     ]);
     rag_store.switch_session("a");

@@ -322,6 +322,7 @@ export const ACTION_IDS = {
   ai_reject_inline: "ai.reject_inline",
   ai_close_inline_menu: "ai.close_inline_menu",
   ai_toggle_vault_context: "ai.toggle_vault_context",
+  ai_open_vault_in_agent: "ai.open_vault_in_agent",
 
   rag_open: "rag.open",
   rag_ask: "rag.ask",
@@ -334,6 +335,9 @@ export const ACTION_IDS = {
   rag_copy_message: "rag.copy_message",
   rag_regenerate: "rag.regenerate",
   rag_fork: "rag.fork",
+  rag_set_mode: "rag.set_mode",
+  rag_agent_abort: "rag.agent_abort",
+  rag_set_permission_mode: "rag.set_permission_mode",
 
   tab_open_to_side: "tab.open_to_side",
   tab_toggle_split: "tab.toggle_split",
