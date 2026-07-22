@@ -24,7 +24,7 @@
   type Props = {
     message: RagMessage;
     is_streaming?: boolean;
-    changed_files?: string[];
+    changed_files?: string[] | undefined;
   };
   let { message, is_streaming = false, changed_files }: Props = $props();
 

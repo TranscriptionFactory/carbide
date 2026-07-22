@@ -30,8 +30,16 @@
     label: string;
     hint: string;
   }> = [
-    { value: "safe", label: "Safe", hint: "Note tools only — no shell or file edits" },
-    { value: "power", label: "Power", hint: "Agent can edit files in your vault" },
+    {
+      value: "safe",
+      label: "Safe",
+      hint: "Note tools only — no shell or file edits",
+    },
+    {
+      value: "power",
+      label: "Power",
+      hint: "Agent can edit files in your vault",
+    },
   ];
 </script>
 

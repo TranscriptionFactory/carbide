@@ -40,7 +40,10 @@ function render_toggle(props?: {
   return target;
 }
 
-function button_labelled(target: HTMLElement, label: string): HTMLButtonElement {
+function button_labelled(
+  target: HTMLElement,
+  label: string,
+): HTMLButtonElement {
   const button = [...target.querySelectorAll("button")].find(
     (el) => el.textContent?.trim() === label,
   );
