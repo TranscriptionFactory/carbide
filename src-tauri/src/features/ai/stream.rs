@@ -138,11 +138,11 @@ fn build_prompt_text(system_prompt: &str, messages: &[AiMessage]) -> String {
     parts.join("\n\n")
 }
 
-fn chat_completions_url(base_url: &str) -> String {
+pub(crate) fn chat_completions_url(base_url: &str) -> String {
     format!("{}/chat/completions", base_url.trim_end_matches('/'))
 }
 
-fn build_chat_request_body(
+pub(crate) fn build_chat_request_body(
     system_prompt: &str,
     messages: &[AiMessage],
     model: &str,
@@ -500,7 +500,7 @@ async fn stream_chat_completions(
     .await
 }
 
-async fn consume_sse_response<F: FnMut(AiStreamEvent)>(
+pub(crate) async fn consume_sse_response<F: FnMut(AiStreamEvent)>(
     response: reqwest::Response,
     emit: &mut F,
 ) -> Result<(), String> {
@@ -1257,6 +1257,7 @@ mod tests {
                 properties: std::collections::HashMap::new(),
                 required: Vec::new(),
             },
+            mutating: false,
         }
     }
 

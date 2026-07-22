@@ -249,10 +249,6 @@ pub async fn run_native_turn<C, D, E>(
     });
 }
 
-// ponytail: placeholder model client. The real OpenAI-compat SSE tool-calling
-// client is wired at integration (Lane T transport); until then this yields an
-// error event so the command surface, event plumbing, abort, and loop are all
-// real and exercisable end-to-end.
 pub struct TransportModelClient {
     provider_config: AiProviderConfig,
 }
@@ -263,19 +259,59 @@ impl TransportModelClient {
     }
 }
 
+async fn request_completion(
+    config: AiProviderConfig,
+    messages: Vec<AiMessage>,
+    tools: Vec<ToolDefinition>,
+    tx: tokio::sync::mpsc::UnboundedSender<AiStreamEvent>,
+) -> Result<(), String> {
+    let AiTransport::Api {
+        base_url,
+        api_key_env,
+    } = &config.transport
+    else {
+        return Err("Native agent mode requires an API transport".into());
+    };
+
+    let url = super::stream::chat_completions_url(base_url);
+    let model = config.model.clone().unwrap_or_default();
+    let body = super::stream::build_chat_request_body("", &messages, &model, true, Some(&tools));
+    let auth_token = super::secrets::resolve_api_key(&config.id, api_key_env.as_deref());
+
+    let client = reqwest::Client::builder()
+        .connect_timeout(std::time::Duration::from_secs(10))
+        .build()
+        .map_err(|e| format!("Failed to build HTTP client: {e}"))?;
+    let mut request = client.post(&url).json(&body);
+    if let Some(token) = auth_token {
+        request = request.bearer_auth(token);
+    }
+    let response = request
+        .send()
+        .await
+        .map_err(|e| format!("Could not reach AI server: {e}"))?;
+
+    super::stream::consume_sse_response(response, &mut |event| {
+        let _ = tx.send(event);
+    })
+    .await
+}
+
 impl ModelClient for TransportModelClient {
     fn stream_turn(
         &self,
-        _messages: Vec<AiMessage>,
-        _tools: Vec<ToolDefinition>,
+        messages: Vec<AiMessage>,
+        tools: Vec<ToolDefinition>,
     ) -> impl Stream<Item = AiStreamEvent> + Send {
-        let model = self.provider_config.model.clone().unwrap_or_default();
-        futures_util::stream::once(async move {
-            AiStreamEvent::Error {
-                error: format!(
-                    "Native agent transport is not yet wired for this build (model '{model}'); integration pending."
-                ),
+        let config = self.provider_config.clone();
+        let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
+        tokio::spawn(async move {
+            if let Err(error) = request_completion(config, messages, tools, tx.clone()).await {
+                let _ = tx.send(AiStreamEvent::Error { error });
             }
+        });
+        futures_util::stream::unfold(rx, |mut rx| async move {
+            rx.recv().await.map(|event| (event, rx))
         })
     }
 }
