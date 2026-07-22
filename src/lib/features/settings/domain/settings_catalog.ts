@@ -615,6 +615,23 @@ export const SETTINGS_REGISTRY: SettingDefinition[] = [
     keywords: ["ai", "assistant", "backend", "provider", "default", "auto"],
   },
   {
+    key: "ai_agent_permission_default",
+    label: "Default Agent Permission",
+    description:
+      "Permission mode new agent sessions start in. Safe limits the agent to note tools; Power lets it edit files in your vault.",
+    category: "AI",
+    keywords: [
+      "ai",
+      "agent",
+      "permission",
+      "safe",
+      "power",
+      "default",
+      "tools",
+      "edit",
+    ],
+  },
+  {
     key: "ai_execution_timeout_seconds",
     label: "AI Timeout",
     description: "Maximum time to wait for an AI CLI response",

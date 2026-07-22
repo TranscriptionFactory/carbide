@@ -25,6 +25,21 @@ export function should_autotitle(session: RagSession): boolean {
   return (session.title_source ?? "derived") === "derived";
 }
 
+export type StoredRagSession = Omit<
+  RagSession,
+  "mode" | "permission_mode" | "changed_files"
+> &
+  Partial<Pick<RagSession, "mode" | "permission_mode" | "changed_files">>;
+
+export function migrate_agent_fields(session: StoredRagSession): RagSession {
+  return {
+    ...session,
+    mode: session.mode ?? "ask",
+    permission_mode: session.permission_mode ?? "safe",
+    changed_files: session.changed_files ?? [],
+  };
+}
+
 export function sanitize_generated_title(raw: string): string | null {
   const stripped = raw
     .trim()

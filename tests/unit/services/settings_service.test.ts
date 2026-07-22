@@ -54,6 +54,7 @@ describe("SettingsService", () => {
         if (key === "editor_link_underline_style") return "wavy";
         if (key === "ai_enabled") return false;
         if (key === "ai_default_provider_id") return "ollama";
+        if (key === "ai_agent_permission_default") return "power";
         if (key === "terminal_font_size_px") return 15;
         if (key === "document_pdf_default_zoom") return "fit_width";
         return null;
@@ -75,6 +76,7 @@ describe("SettingsService", () => {
     expect(result.settings.editor_link_underline_style).toBe("wavy");
     expect(result.settings.ai_enabled).toBe(false);
     expect(result.settings.ai_default_provider_id).toBe("ollama");
+    expect(result.settings.ai_agent_permission_default).toBe("power");
     expect(result.settings.terminal_font_size_px).toBe(15);
     expect(result.settings.document_pdf_default_zoom).toBe("fit_width");
     expect(result.settings.max_open_tabs).toBe(8);

@@ -18,6 +18,9 @@ function session(overrides: Partial<RagSession> = {}): RagSession {
     messages: [{ id: "m1", role: "user", content: "hi", citations: [] }],
     provider_id: "ollama",
     scope: {},
+    mode: "ask",
+    permission_mode: "safe",
+    changed_files: [],
     ...overrides,
   };
 }

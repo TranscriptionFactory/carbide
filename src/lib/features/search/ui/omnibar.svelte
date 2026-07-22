@@ -401,13 +401,13 @@
       !is_all_vaults &&
       visible_recent_count > 0,
   );
-  const show_commands_header = $derived(
-    !has_query &&
-      !is_command_mode &&
-      !is_all_vaults &&
-      mru_commands_visible &&
-      (COMMANDS_REGISTRY.length > 0 || plugin_commands.length > 0),
-  );
+  // statement form: the vite ssr transform drops the parens in
+  // `a && (b || c)`, evaluating `c` even when the guard fails
+  const show_commands_header = $derived.by(() => {
+    if (has_query || is_command_mode || is_all_vaults) return false;
+    if (!mru_commands_visible) return false;
+    return COMMANDS_REGISTRY.length > 0 || plugin_commands.length > 0;
+  });
   const commands_start_index = $derived(
     !has_query && !is_command_mode && !is_all_vaults
       ? visible_recent_count

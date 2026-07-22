@@ -19,7 +19,13 @@
   import { ACTION_IDS } from "$lib/app";
   import RagMessage from "$lib/features/rag/ui/rag_message.svelte";
   import RagInput from "$lib/features/rag/ui/rag_input.svelte";
-  import type { RagScope } from "$lib/features/rag/domain/rag_types";
+  import RagModeToggle from "$lib/features/rag/ui/rag_mode_toggle.svelte";
+  import { provider_supports_agent } from "$lib/features/ai";
+  import type {
+    RagScope,
+    RagSessionMode,
+  } from "$lib/features/rag/domain/rag_types";
+  import type { AgentPermissionMode } from "$lib/features/rag/types/agent_events";
   import { RAG_TEMPLATES } from "$lib/features/rag/domain/rag_prompt_templates";
 
   const { stores, services, action_registry } = use_app_context();
@@ -116,11 +122,13 @@
   }
 
   let sources_open = $state(false);
-  const show_pending_sources = $derived(
-    rag.loading_stage === "generating" &&
-      rag.pending_sources !== null &&
-      (rag.is_loading || rag.streaming_id !== null),
-  );
+  // statement form: the vite ssr transform drops the parens in
+  // `a && (b || c)`, evaluating `c` even when the guard fails
+  const show_pending_sources = $derived.by(() => {
+    if (rag.loading_stage !== "generating") return false;
+    if (rag.pending_sources === null) return false;
+    return rag.is_loading || rag.streaming_id !== null;
+  });
 
   $effect(() => {
     if (rag.pending_sources === null) sources_open = false;
@@ -131,8 +139,28 @@
   }
 
   function stop() {
-    void action_registry.execute(ACTION_IDS.rag_stop);
+    void action_registry.execute(
+      rag.mode === "agent" ? ACTION_IDS.rag_agent_abort : ACTION_IDS.rag_stop,
+    );
   }
+
+  const agent_supported = $derived.by(() => {
+    const config = providers.find((p) => p.id === provider_id);
+    return config !== undefined && provider_supports_agent(config);
+  });
+
+  function set_mode(mode: RagSessionMode) {
+    void action_registry.execute(ACTION_IDS.rag_set_mode, mode);
+  }
+
+  function set_permission_mode(mode: AgentPermissionMode) {
+    void action_registry.execute(ACTION_IDS.rag_set_permission_mode, mode);
+  }
+
+  const last_assistant_id = $derived(
+    rag.messages.findLast((m) => m.role === "assistant")?.id ?? null,
+  );
+  const changed_files = $derived(rag.active?.changed_files ?? []);
 
   const provider_name = $derived(
     providers.find((p) => p.id === provider_id)?.name ?? "the AI provider",
@@ -147,6 +175,10 @@
 
   function change_provider(id: string) {
     rag.set_provider(id);
+    const config = providers.find((p) => p.id === id);
+    if (rag.mode === "agent" && !(config && provider_supports_agent(config))) {
+      set_mode("ask");
+    }
     persist_active_session();
   }
 
@@ -343,7 +375,9 @@
         <div class="flex h-full items-center justify-center">
           <EmptyMessage
             icon={MessagesSquare}
-            text="Ask anything about your vault"
+            text={rag.mode === "agent"
+              ? "Agent edits files in your vault. Safe mode limits it to note tools."
+              : "Ask anything about your vault"}
           >
             <div class="flex flex-wrap justify-center gap-1">
               {#each templates as template (template.id)}
@@ -368,6 +402,10 @@
             <RagMessage
               {message}
               is_streaming={message.id === rag.streaming_id}
+              changed_files={message.id === last_assistant_id &&
+              changed_files.length > 0
+                ? changed_files
+                : undefined}
             />
           {/each}
 
@@ -409,6 +447,14 @@
     </div>
   {/if}
 
+  <RagModeToggle
+    mode={rag.mode}
+    permission_mode={rag.permission_mode}
+    {agent_supported}
+    on_set_mode={set_mode}
+    on_set_permission_mode={set_permission_mode}
+  />
+
   <RagInput
     {providers}
     {provider_id}
@@ -420,6 +466,7 @@
     is_loading={rag.is_loading}
     is_streaming={rag.streaming_id !== null}
     readiness_state={rag.readiness.state}
+    submit_label={rag.mode === "agent" ? "Run" : "Ask"}
     on_submit={ask}
     on_stop={stop}
     on_provider_change={change_provider}
