@@ -861,7 +861,7 @@ mod tests {
             .into_iter()
             .filter_map(|e| match e {
                 SseEvent::Delta(d) => d.content,
-                SseEvent::Done => None,
+                SseEvent::Finish(_) | SseEvent::Done => None,
             })
             .collect()
     }
