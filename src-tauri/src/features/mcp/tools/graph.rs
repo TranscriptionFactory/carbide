@@ -42,6 +42,7 @@ fn get_backlinks_def() -> ToolDefinition {
 
     ToolDefinition {
         name: "get_backlinks".into(),
+        mutating: false,
         description: "Get all notes that link to the specified note (incoming links). Returns tab-separated lines of path and title. Use get_outgoing_links for the reverse direction.".into(),
         input_schema: InputSchema {
             schema_type: "object".into(),
@@ -64,6 +65,7 @@ fn get_outgoing_links_def() -> ToolDefinition {
 
     ToolDefinition {
         name: "get_outgoing_links".into(),
+        mutating: false,
         description:
             "Get all notes that the specified note links to (outgoing links, resolved to existing notes only). Returns tab-separated lines of path and title. Use get_backlinks for the reverse direction."
                 .into(),
@@ -81,6 +83,7 @@ fn list_properties_def() -> ToolDefinition {
 
     ToolDefinition {
         name: "list_properties".into(),
+        mutating: false,
         description: "List all frontmatter property names across the vault with their inferred types, occurrence counts, and sample values. Use this to discover available property names before calling query_notes_by_property.".into(),
         input_schema: InputSchema {
             schema_type: "object".into(),
@@ -133,6 +136,7 @@ fn query_notes_by_property_def() -> ToolDefinition {
 
     ToolDefinition {
         name: "query_notes_by_property".into(),
+        mutating: false,
         description: "Find notes matching a frontmatter property filter. Returns tab-separated lines of path, title, property values, and tags, with a result count header. Use list_properties first to discover available property names. Use search_notes for full-text search instead.".into(),
         input_schema: InputSchema {
             schema_type: "object".into(),
