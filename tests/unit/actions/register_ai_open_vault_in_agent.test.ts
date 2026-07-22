@@ -105,4 +105,17 @@ describe("ai.open_vault_in_agent", () => {
       "Carbide MCP server unavailable: boom",
     );
   });
+
+  it("strips the tauri invoke prefix from the CLI-missing error", async () => {
+    const { registry, ai_service } = create_harness();
+    ai_service.open_vault_in_agent.mockRejectedValueOnce(
+      new Error(
+        "tauri invoke failed: open_vault_in_agent: Claude Code CLI not found — install it or set an absolute command path in AI settings",
+      ),
+    );
+    await registry.execute(ACTION_IDS.ai_open_vault_in_agent);
+    expect(toast.error).toHaveBeenCalledWith(
+      "Claude Code CLI not found — install it or set an absolute command path in AI settings",
+    );
+  });
 });
