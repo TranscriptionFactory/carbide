@@ -14,6 +14,17 @@ use super::service::{AiProviderConfig, AiTransport};
 pub struct AiMessage {
     pub role: String,
     pub content: AiMessageContent,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tool_calls: Option<Vec<AiToolCall>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tool_call_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+pub struct AiToolCall {
+    pub id: String,
+    pub name: String,
+    pub arguments: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
@@ -89,6 +100,12 @@ pub enum AiStreamEvent {
     Reasoning { text: String },
     #[serde(rename = "error")]
     Error { error: String },
+    #[serde(rename = "tool_call")]
+    ToolCall {
+        id: String,
+        name: String,
+        arguments: String,
+    },
     #[serde(rename = "done")]
     Done,
 }
@@ -650,6 +667,8 @@ pub async fn ai_test_provider(provider_config: AiProviderConfig) -> Result<Strin
             let messages = vec![AiMessage {
                 role: "user".to_string(),
                 content: "Reply with exactly OK.".into(),
+                tool_calls: None,
+                tool_call_id: None,
             }];
             let mut body = build_chat_request_body("", &messages, &model, false);
             body["max_tokens"] = serde_json::json!(8);
@@ -729,6 +748,8 @@ mod tests {
         let msgs = vec![AiMessage {
             role: "user".into(),
             content: "hi".into(),
+            tool_calls: None,
+            tool_call_id: None,
         }];
         let body = build_chat_request_body("sys", &msgs, "m", true);
         assert_eq!(body["model"], "m");
@@ -956,6 +977,8 @@ mod tests {
                 &[AiMessage {
                     role: "user".into(),
                     content: "hi".into(),
+                    tool_calls: None,
+                    tool_call_id: None,
                 }],
                 "m",
                 true,
@@ -1035,6 +1058,8 @@ mod tests {
                     data: "abc".to_string(),
                 },
             ]),
+            tool_calls: None,
+            tool_call_id: None,
         }];
         let body = build_chat_request_body("", &messages, "m", true);
         let content = &body["messages"][0]["content"];
@@ -1051,6 +1076,8 @@ mod tests {
         let messages = vec![AiMessage {
             role: "user".to_string(),
             content: AiMessageContent::Text("hi".to_string()),
+            tool_calls: None,
+            tool_call_id: None,
         }];
         let body = build_chat_request_body("sys", &messages, "m", true);
         assert_eq!(body["messages"][0]["content"], "sys");
@@ -1070,6 +1097,8 @@ mod tests {
                     data: "abc".to_string(),
                 },
             ]),
+            tool_calls: None,
+            tool_call_id: None,
         }];
         let prompt = build_prompt_text("", &messages);
         assert!(prompt.contains("describe"));
@@ -1082,6 +1111,8 @@ mod tests {
         let messages = vec![AiMessage {
             role: "user".to_string(),
             content: AiMessageContent::Text("the question".to_string()),
+            tool_calls: None,
+            tool_call_id: None,
         }];
         let prompt = build_prompt_text("You are an assistant.", &messages);
         assert!(prompt.contains("You are an assistant."));
