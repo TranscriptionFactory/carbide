@@ -69,6 +69,7 @@ fn query_tasks_def() -> ToolDefinition {
 
     ToolDefinition {
         name: "query_tasks".into(),
+        mutating: false,
         description: "Query tasks (checkboxes) across vault notes. Filter by status, path, or due date. Returns tab-separated lines of status, path, text, due_date, and section.".into(),
         input_schema: InputSchema {
             schema_type: "object".into(),

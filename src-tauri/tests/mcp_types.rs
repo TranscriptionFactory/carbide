@@ -113,6 +113,7 @@ fn tool_definition_round_trip() {
     let tool = ToolDefinition {
         name: "read_note".into(),
         description: "Read a note".into(),
+        mutating: false,
         input_schema: InputSchema {
             schema_type: "object".into(),
             properties: {

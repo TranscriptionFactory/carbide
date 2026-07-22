@@ -29,6 +29,7 @@ fn git_status_def() -> ToolDefinition {
 
     ToolDefinition {
         name: "git_status".into(),
+        mutating: false,
         description:
             "Get the git working tree status for a vault. Returns branch name, clean/dirty state, ahead/behind counts, and per-file status codes with paths. Only works if the vault is a git repository."
                 .into(),
@@ -55,6 +56,7 @@ fn git_log_def() -> ToolDefinition {
 
     ToolDefinition {
         name: "git_log".into(),
+        mutating: false,
         description: "Get recent git commit history for a vault. Returns one line per commit: short_hash, author, and message. Only works if the vault is a git repository.".into(),
         input_schema: InputSchema {
             schema_type: "object".into(),
@@ -84,6 +86,7 @@ fn rename_note_def() -> ToolDefinition {
 
     ToolDefinition {
         name: "rename_note".into(),
+        mutating: true,
         description: "Rename or move a note within the vault. **Automatically updates all wikilinks** (`[[...]]`) in other notes that reference the old path. Returns the old and new paths plus a count of updated backlinks.".into(),
         input_schema: InputSchema {
             schema_type: "object".into(),
