@@ -24,7 +24,10 @@ export {
   collect_open_note_image_parts,
 } from "$lib/features/ai/application/note_image_loader";
 export { MarkdownJoiner } from "$lib/features/ai/domain/markdown_joiner";
-export { provider_supports_agent } from "$lib/features/ai/domain/ai_provider_capabilities";
+export {
+  agent_backend,
+  type AgentBackend,
+} from "$lib/features/ai/domain/ai_provider_capabilities";
 export {
   describe_default_provider,
   type AiProviderProbeState,

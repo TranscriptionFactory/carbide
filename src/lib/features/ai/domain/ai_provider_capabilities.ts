@@ -5,6 +5,10 @@ export function provider_supports_streaming(config: AiProviderConfig): boolean {
   return !config.transport.args.some((a) => a.includes("{output_file}"));
 }
 
-export function provider_supports_agent(config: AiProviderConfig): boolean {
-  return config.id === "claude";
+export type AgentBackend = "harness" | "native";
+
+export function agent_backend(config: AiProviderConfig): AgentBackend | null {
+  if (config.id === "claude") return "harness";
+  if (config.transport.kind === "api") return "native";
+  return null;
 }
