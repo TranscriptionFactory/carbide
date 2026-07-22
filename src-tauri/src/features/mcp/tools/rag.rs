@@ -1,13 +1,13 @@
 use std::collections::HashMap;
 use std::time::Duration;
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tauri::{AppHandle, Emitter, Manager};
 
 use crate::features::mcp::rag_bridge::{RagBridgeState, RagQueryRequestEvent, RagQueryResponse};
-use crate::features::mcp::shared_ops;
-use crate::features::mcp::tools::{parse_args, prop};
+use crate::features::mcp::shared_ops::{self, VAULT_ID_OPTIONAL_DESC};
+use crate::features::mcp::tools::{op_err_to_tool_result, parse_args, prop};
 use crate::features::mcp::types::{InputSchema, ToolDefinition, ToolResult};
 use crate::features::search::service as search_service;
 
@@ -26,13 +26,21 @@ pub fn dispatch(app: &AppHandle, name: &str, arguments: Option<&Value>) -> Optio
     }
 }
 
-#[derive(Deserialize)]
-struct RagQueryArgs {
-    question: String,
+#[derive(Default, Serialize, Deserialize)]
+pub(crate) struct RagQueryArgs {
+    pub question: String,
     #[serde(default)]
-    folder: Option<String>,
+    pub vault_id: Option<String>,
     #[serde(default)]
-    tag: Option<String>,
+    pub folder: Option<String>,
+    #[serde(default)]
+    pub tag: Option<String>,
+}
+
+#[derive(Default, Serialize, Deserialize)]
+pub(crate) struct RagStatusArgs {
+    #[serde(default)]
+    pub vault_id: Option<String>,
 }
 
 fn rag_query_def() -> ToolDefinition {
@@ -58,11 +66,12 @@ fn rag_query_def() -> ToolDefinition {
             "Optional. Restrict retrieval to notes carrying this tag.",
         ),
     );
+    properties.insert("vault_id".into(), prop("string", VAULT_ID_OPTIONAL_DESC));
 
     ToolDefinition {
         name: "rag_query".into(),
         mutating: false,
-        description: "Ask a question and get a cited answer retrieved across the whole vault, using the same retrieval and citation pipeline as the in-app Vault Chat. Returns the answer with [N] citation markers followed by a Sources list mapping each marker to a note path. Requires the Carbide desktop app to be running.".into(),
+        description: "Ask a question and get a cited answer retrieved across the whole vault, using the same retrieval and citation pipeline as the in-app Vault Chat. Retrieval always targets the vault of the running app's active session; if vault_id is provided it must match that active vault, otherwise the call is rejected. Returns the answer with [N] citation markers followed by a Sources list mapping each marker to a note path. Requires the Carbide desktop app to be running.".into(),
         input_schema: InputSchema {
             schema_type: "object".into(),
             properties,
@@ -73,10 +82,7 @@ fn rag_query_def() -> ToolDefinition {
 
 fn rag_status_def() -> ToolDefinition {
     let mut properties = HashMap::new();
-    properties.insert(
-        "vault_id".into(),
-        prop("string", "Vault identifier (optional if an active vault is set)"),
-    );
+    properties.insert("vault_id".into(), prop("string", VAULT_ID_OPTIONAL_DESC));
 
     ToolDefinition {
         name: "rag_status".into(),
@@ -85,7 +91,7 @@ fn rag_status_def() -> ToolDefinition {
         input_schema: InputSchema {
             schema_type: "object".into(),
             properties,
-            required: vec!["vault_id".into()],
+            required: vec![],
         },
     }
 }
@@ -114,6 +120,19 @@ fn handle_rag_query(app: &AppHandle, arguments: Option<&Value>) -> ToolResult {
         return ToolResult::error(
             "rag_query requires the Carbide desktop app to be running; the retrieval pipeline is not available in headless mode.".into(),
         );
+    }
+
+    if let Some(requested) = args.vault_id.as_deref().filter(|v| !v.trim().is_empty()) {
+        match shared_ops::get_active_vault_id(app) {
+            Ok(Some(active)) if active != requested => {
+                return ToolResult::error(format!(
+                    "vault_id '{}' does not match the active vault '{}'; rag_query only targets the active session.",
+                    requested, active
+                ));
+            }
+            Ok(_) => {}
+            Err(e) => return op_err_to_tool_result(e),
+        }
     }
 
     let bridge = app.state::<RagBridgeState>();
@@ -178,17 +197,22 @@ mod tests {
 }
 
 fn handle_rag_status(app: &AppHandle, arguments: Option<&Value>) -> ToolResult {
-    let args: shared_ops::VaultIdArgs = match parse_args(arguments) {
+    let args: RagStatusArgs = match parse_args(arguments) {
         Ok(a) => a,
         Err(e) => return e,
     };
 
+    let vault_id = match shared_ops::resolve_vault_id(app, args.vault_id) {
+        Ok(v) => v,
+        Err(e) => return op_err_to_tool_result(e),
+    };
+
     let bridge_available = !app.webview_windows().is_empty();
 
-    match search_service::get_embedding_status(app.clone(), args.vault_id.clone()) {
+    match search_service::get_embedding_status(app.clone(), vault_id.clone()) {
         Ok(status) => ToolResult::text(format!(
             "RAG status for vault {}\nEmbedding model: {}\nEmbedded notes: {}/{}\nIndexing in progress: {}\nIn-app query bridge available: {}",
-            args.vault_id,
+            vault_id,
             status.model_version,
             status.embedded_notes,
             status.total_notes,

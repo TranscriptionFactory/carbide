@@ -1,11 +1,23 @@
 use std::collections::HashMap;
 
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tauri::AppHandle;
 
-use crate::features::mcp::shared_ops::{self};
+use crate::features::mcp::shared_ops::{self, VAULT_ID_OPTIONAL_DESC};
 use crate::features::mcp::tools::{op_err_to_tool_result, parse_args, prop};
 use crate::features::mcp::types::{InputSchema, PropertySchema, ToolDefinition, ToolResult};
+
+#[derive(Default, Serialize, Deserialize)]
+pub(crate) struct SearchNotesArgs {
+    #[serde(default)]
+    pub vault_id: Option<String>,
+    pub query: String,
+    #[serde(default)]
+    pub limit: Option<usize>,
+    #[serde(default)]
+    pub mode: Option<String>,
+}
 
 pub fn tool_definitions() -> Vec<ToolDefinition> {
     vec![search_notes_def(), reindex_def()]
@@ -21,8 +33,8 @@ pub fn dispatch(app: &AppHandle, name: &str, arguments: Option<&Value>) -> Optio
 
 fn search_notes_def() -> ToolDefinition {
     let mut properties = HashMap::new();
-    properties.insert("vault_id".into(), prop("string", "Vault identifier (optional if an active vault is set)"));
-    properties.insert("query".into(), prop("string", "Search query text. Searches note titles and body content."));
+    properties.insert("vault_id".into(), prop("string", VAULT_ID_OPTIONAL_DESC));
+    properties.insert("query".into(), prop("string", "Search query text. In text mode, query terms are AND-ed together with prefix matching; phrase quotes and boolean operators (AND/OR/NOT) are not supported and are treated as literal words."));
     properties.insert(
         "limit".into(),
         PropertySchema {
@@ -45,7 +57,7 @@ fn search_notes_def() -> ToolDefinition {
     ToolDefinition {
         name: "search_notes".into(),
         mutating: false,
-        description: "Search across note titles and content. Supports full-text search (default) and semantic/hybrid search for conceptual queries. Returns tab-separated lines of path, title, and relevance score (positive, higher is better; scale differs between modes), with matching text snippets on the next line.".into(),
+        description: "Search across note titles and content. Text mode (default) is full-text search: query terms are AND-ed with prefix matching, and quotes/boolean operators are not supported (treated as literal words). Semantic mode adds hybrid vector + FTS retrieval for conceptual queries. Returns tab-separated lines of path, title, and relevance score (positive, higher is better; scale differs between modes), with matching text snippets on the next line.".into(),
         input_schema: InputSchema {
             schema_type: "object".into(),
             properties,
@@ -83,16 +95,21 @@ fn handle_reindex(app: &AppHandle, arguments: Option<&Value>) -> ToolResult {
 }
 
 fn handle_search_notes(app: &AppHandle, arguments: Option<&Value>) -> ToolResult {
-    let args: shared_ops::SearchArgs = match parse_args(arguments) {
+    let args: SearchNotesArgs = match parse_args(arguments) {
         Ok(a) => a,
         Err(e) => return e,
+    };
+
+    let vault_id = match shared_ops::resolve_vault_id(app, args.vault_id) {
+        Ok(v) => v,
+        Err(e) => return op_err_to_tool_result(e),
     };
 
     let max = args.limit.unwrap_or(20).min(100);
     let is_semantic = args.mode.as_deref() == Some("semantic");
 
     if is_semantic {
-        match shared_ops::search_notes_hybrid(app, &args.vault_id, &args.query, max) {
+        match shared_ops::search_notes_hybrid(app, &vault_id, &args.query, max) {
             Ok((hits, fallback)) => {
                 let body = format_hits(hits.iter().map(|hit| {
                     (
@@ -114,7 +131,7 @@ fn handle_search_notes(app: &AppHandle, arguments: Option<&Value>) -> ToolResult
             Err(e) => op_err_to_tool_result(e),
         }
     } else {
-        match shared_ops::search_notes_index(app, &args.vault_id, &args.query, max) {
+        match shared_ops::search_notes_index(app, &vault_id, &args.query, max) {
             Ok(hits) => ToolResult::text(format_hits(hits.iter().map(|hit| {
                 (
                     hit.note.path.as_str(),
