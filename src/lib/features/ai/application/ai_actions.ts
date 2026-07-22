@@ -14,7 +14,10 @@ import {
   preferred_ai_backend_order,
   resolve_auto_ai_backend,
 } from "$lib/features/ai/domain/ai_backend_selection";
-import { provider_supports_streaming } from "$lib/features/ai/domain/ai_provider_capabilities";
+import {
+  provider_supports_agent,
+  provider_supports_streaming,
+} from "$lib/features/ai/domain/ai_provider_capabilities";
 import type { AiService } from "$lib/features/ai/application/ai_service";
 import type { AiHistoryPersistencePort } from "$lib/features/ai/ports";
 import type { AiStore } from "$lib/features/ai/state/ai_store.svelte";
@@ -764,6 +767,30 @@ export function register_ai_actions(
       const view = get_inline_view();
       if (!view) return;
       dispatch_ai_menu(view, { action: "close" });
+    },
+  });
+
+  registry.register({
+    id: ACTION_IDS.ai_open_vault_in_agent,
+    label: "Open Vault in Agent Terminal",
+    execute: async () => {
+      if (!ensure_ai_enabled()) return;
+      const provider = await resolve_provider("cli");
+      if (!provider) {
+        toast.error("No AI provider configured");
+        return;
+      }
+      if (!provider_supports_agent(provider)) {
+        toast.info(`${provider.name} does not support agent mode`);
+        return;
+      }
+      const vault = input.stores.vault.vault;
+      if (!vault) return;
+      try {
+        await ai_service.open_vault_in_agent(provider, String(vault.path));
+      } catch (e) {
+        toast.error(error_message(e));
+      }
     },
   });
 

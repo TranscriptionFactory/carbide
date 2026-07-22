@@ -45,6 +45,12 @@ export function create_ai_tauri_adapter(): AiPort {
         providerId: provider_id,
       });
     },
+    async open_vault_in_agent(config: AiProviderConfig, vault_path: string) {
+      await tauri_invoke<void>("open_vault_in_agent", {
+        providerConfig: config,
+        vaultPath: vault_path,
+      });
+    },
     async test_provider(config: AiProviderConfig) {
       return await tauri_invoke<string>("ai_test_provider", {
         providerConfig: config,
