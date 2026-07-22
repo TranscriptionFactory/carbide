@@ -124,6 +124,7 @@ pub fn run() {
         .manage(features::markdown_lsp::MarkdownLspState::default())
         .manage(features::toolchain::service::ToolchainState::default())
         .manage(features::ai::stream::AiStreamState::default())
+        .manage(features::ai::agent_stream::AgentStreamState::default())
         .manage(shared::asset_cache::AssetCacheState::new())
         .manage(shared::live_html::LiveHtmlStore::default())
         .manage(features::mcp::http::HttpServerState::default())
@@ -184,6 +185,8 @@ pub fn run() {
             features::ai::stream::ai_stream_start,
             features::ai::stream::ai_stream_abort,
             features::ai::stream::ai_test_provider,
+            features::ai::agent_stream::agent_stream_start,
+            features::ai::agent_stream::agent_stream_abort,
             features::ai::secrets::ai_set_api_key,
             features::ai::secrets::ai_delete_api_key,
             features::ai::secrets::ai_has_api_key,
