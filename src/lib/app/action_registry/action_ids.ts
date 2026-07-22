@@ -322,6 +322,7 @@ export const ACTION_IDS = {
   ai_reject_inline: "ai.reject_inline",
   ai_close_inline_menu: "ai.close_inline_menu",
   ai_toggle_vault_context: "ai.toggle_vault_context",
+  ai_open_vault_in_agent: "ai.open_vault_in_agent",
 
   rag_open: "rag.open",
   rag_ask: "rag.ask",

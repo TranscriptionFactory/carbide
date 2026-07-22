@@ -19,6 +19,10 @@ export interface AiPort {
   delete_api_key(provider_id: string): Promise<void>;
   get_api_key_hint(provider_id: string): Promise<string | null>;
   test_provider(config: AiProviderConfig): Promise<string>;
+  open_vault_in_agent(
+    config: AiProviderConfig,
+    vault_path: string,
+  ): Promise<void>;
 }
 
 export interface AiStreamPort {
