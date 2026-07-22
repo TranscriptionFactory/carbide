@@ -4,8 +4,10 @@
     Copy,
     FileText,
     GitBranch,
+    Loader2,
     Plus,
     RefreshCw,
+    X,
   } from "@lucide/svelte";
   import { use_app_context } from "$lib/app/context/app_context.svelte";
   import { ACTION_IDS } from "$lib/app";
@@ -19,8 +21,12 @@
     CITATION_INDEX_ATTR,
   } from "$lib/features/rag/domain/rag_markdown";
 
-  type Props = { message: RagMessage; is_streaming?: boolean };
-  let { message, is_streaming = false }: Props = $props();
+  type Props = {
+    message: RagMessage;
+    is_streaming?: boolean;
+    changed_files?: string[];
+  };
+  let { message, is_streaming = false, changed_files }: Props = $props();
 
   const { stores, action_registry } = use_app_context();
 
@@ -39,16 +45,15 @@
   );
 
   const stats = $derived(message.context_stats);
-  const show_stats = $derived(
-    stats !== undefined &&
-      (stats.used < stats.retrieved || stats.truncated > 0),
-  );
+  // statement form: the vite ssr transform drops the parens in
+  // `a && (b || c)`, evaluating `c` even when the guard fails
+  const show_stats = $derived.by(() => {
+    if (stats === undefined) return false;
+    return stats.used < stats.retrieved || stats.truncated > 0;
+  });
 
   function open_citation(citation: RagCitation) {
-    void action_registry.execute(
-      ACTION_IDS.rag_open_citation,
-      citation.note_path,
-    );
+    open_note(citation.note_path);
   }
 
   function insert_link(title: string) {
@@ -79,6 +84,14 @@
     is_streaming && Boolean(message.reasoning) && message.content === "",
   );
   const reasoning_open = $derived(reasoning_user_open ?? reasoning_auto_open);
+
+  const tool_events = $derived(message.tool_events ?? []);
+  let tools_user_open = $state<boolean | null>(null);
+  const tools_open = $derived(tools_user_open ?? is_streaming);
+
+  function open_note(note_path: string) {
+    void action_registry.execute(ACTION_IDS.rag_open_citation, note_path);
+  }
 
   $effect(() => {
     const el = content_el;
@@ -118,6 +131,42 @@
             class="whitespace-pre-wrap px-3 pb-2 text-xs text-muted-foreground"
           >
             {message.reasoning}
+          </div>
+        </CollapsibleSection>
+      </div>
+    {/if}
+    {#if tool_events.length > 0}
+      <div class="rounded-md border bg-muted/20">
+        <CollapsibleSection
+          title="Tool calls"
+          count={tool_events.length}
+          open={tools_open}
+          on_toggle={() => (tools_user_open = !tools_open)}
+        >
+          <div class="flex flex-col gap-1 px-3 pb-2">
+            {#each tool_events as event, index (index)}
+              <div
+                class="flex items-center gap-2 text-xs text-muted-foreground"
+              >
+                {#if event.ok === undefined}
+                  <Loader2
+                    class="size-3.5 shrink-0 animate-spin"
+                    aria-label="Running"
+                  />
+                {:else if event.ok}
+                  <Check class="size-3.5 shrink-0" aria-label="Succeeded" />
+                {:else}
+                  <X
+                    class="size-3.5 shrink-0 text-destructive"
+                    aria-label="Failed"
+                  />
+                {/if}
+                <span class="shrink-0 font-medium text-foreground"
+                  >{event.name}</span
+                >
+                <span class="truncate">{event.input_summary}</span>
+              </div>
+            {/each}
           </div>
         </CollapsibleSection>
       </div>
@@ -206,6 +255,24 @@
               <Plus class="size-3.5" />
             </button>
           </div>
+        {/each}
+      </div>
+    {/if}
+
+    {#if changed_files && changed_files.length > 0}
+      <div class="flex flex-col gap-1 border-t pt-2">
+        <span class="text-xs font-medium text-muted-foreground"
+          >Changed files</span
+        >
+        {#each changed_files as path (path)}
+          <button
+            type="button"
+            class="flex items-center gap-2 rounded px-1 py-1 text-left text-xs hover:bg-accent hover:text-accent-foreground"
+            onclick={() => open_note(path)}
+          >
+            <FileText class="size-3.5 shrink-0 text-muted-foreground" />
+            <span class="truncate">{path}</span>
+          </button>
         {/each}
       </div>
     {/if}

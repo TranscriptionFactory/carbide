@@ -19,7 +19,13 @@
   import { ACTION_IDS } from "$lib/app";
   import RagMessage from "$lib/features/rag/ui/rag_message.svelte";
   import RagInput from "$lib/features/rag/ui/rag_input.svelte";
-  import type { RagScope } from "$lib/features/rag/domain/rag_types";
+  import RagModeToggle from "$lib/features/rag/ui/rag_mode_toggle.svelte";
+  import { provider_supports_agent } from "$lib/features/ai";
+  import type {
+    RagScope,
+    RagSessionMode,
+  } from "$lib/features/rag/domain/rag_types";
+  import type { AgentPermissionMode } from "$lib/features/rag/types/agent_events";
   import { RAG_TEMPLATES } from "$lib/features/rag/domain/rag_prompt_templates";
 
   const { stores, services, action_registry } = use_app_context();
@@ -131,8 +137,28 @@
   }
 
   function stop() {
-    void action_registry.execute(ACTION_IDS.rag_stop);
+    void action_registry.execute(
+      rag.mode === "agent" ? ACTION_IDS.rag_agent_abort : ACTION_IDS.rag_stop,
+    );
   }
+
+  const agent_supported = $derived.by(() => {
+    const config = providers.find((p) => p.id === provider_id);
+    return config !== undefined && provider_supports_agent(config);
+  });
+
+  function set_mode(mode: RagSessionMode) {
+    void action_registry.execute(ACTION_IDS.rag_set_mode, mode);
+  }
+
+  function set_permission_mode(mode: AgentPermissionMode) {
+    void action_registry.execute(ACTION_IDS.rag_set_permission_mode, mode);
+  }
+
+  const last_assistant_id = $derived(
+    rag.messages.findLast((m) => m.role === "assistant")?.id ?? null,
+  );
+  const changed_files = $derived(rag.active?.changed_files ?? []);
 
   const provider_name = $derived(
     providers.find((p) => p.id === provider_id)?.name ?? "the AI provider",
@@ -368,6 +394,10 @@
             <RagMessage
               {message}
               is_streaming={message.id === rag.streaming_id}
+              changed_files={message.id === last_assistant_id &&
+              changed_files.length > 0
+                ? changed_files
+                : undefined}
             />
           {/each}
 
@@ -408,6 +438,14 @@
       {/if}
     </div>
   {/if}
+
+  <RagModeToggle
+    mode={rag.mode}
+    permission_mode={rag.permission_mode}
+    {agent_supported}
+    on_set_mode={set_mode}
+    on_set_permission_mode={set_permission_mode}
+  />
 
   <RagInput
     {providers}
