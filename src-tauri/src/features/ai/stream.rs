@@ -585,7 +585,9 @@ async fn run_streaming_cli(
     Ok(())
 }
 
-async fn collect_stderr_tail(handle: Option<tokio::task::JoinHandle<String>>) -> String {
+pub(crate) async fn collect_stderr_tail(
+    handle: Option<tokio::task::JoinHandle<String>>,
+) -> String {
     let Some(handle) = handle else {
         return String::new();
     };
