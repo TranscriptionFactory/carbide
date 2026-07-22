@@ -209,6 +209,7 @@ export class NoteService {
       }
 
       try {
+        this.on_file_written?.(path);
         const meta = await this.notes_port.create_note(
           vault_id,
           path,
