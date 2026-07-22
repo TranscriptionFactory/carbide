@@ -39,7 +39,7 @@ function render_message(props: {
     } as unknown as Partial<AppContext>,
     props,
   });
-  cleanups.push(rendered.cleanup);
+  cleanups.push(() => rendered.cleanup());
   return { target: rendered.target, execute };
 }
 
