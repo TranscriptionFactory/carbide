@@ -1,11 +1,11 @@
 use std::collections::HashMap;
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tauri::AppHandle;
 
 use crate::features::git::service as git_service;
-use crate::features::mcp::shared_ops;
+use crate::features::mcp::shared_ops::{self, VAULT_ID_OPTIONAL_DESC};
 use crate::features::mcp::tools::{op_err_to_tool_result, parse_args, prop};
 use crate::features::mcp::types::{InputSchema, PropertySchema, ToolDefinition, ToolResult};
 use crate::shared::storage;
@@ -68,7 +68,7 @@ fn git_log_def() -> ToolDefinition {
 
 fn rename_note_def() -> ToolDefinition {
     let mut properties = HashMap::new();
-    properties.insert("vault_id".into(), prop("string", "Vault identifier (optional if an active vault is set)"));
+    properties.insert("vault_id".into(), prop("string", VAULT_ID_OPTIONAL_DESC));
     properties.insert(
         "old_path".into(),
         prop(
@@ -91,28 +91,29 @@ fn rename_note_def() -> ToolDefinition {
         input_schema: InputSchema {
             schema_type: "object".into(),
             properties,
-            required: vec!["vault_id".into(), "old_path".into(), "new_path".into()],
+            required: vec!["old_path".into(), "new_path".into()],
         },
     }
 }
 
-#[derive(Deserialize)]
-struct VaultArgs {
-    vault_id: String,
+#[derive(Default, Serialize, Deserialize)]
+pub(crate) struct VaultArgs {
+    pub vault_id: String,
 }
 
-#[derive(Deserialize)]
-struct GitLogArgs {
-    vault_id: String,
+#[derive(Default, Serialize, Deserialize)]
+pub(crate) struct GitLogArgs {
+    pub vault_id: String,
     #[serde(default)]
-    limit: Option<usize>,
+    pub limit: Option<usize>,
 }
 
-#[derive(Deserialize)]
-struct RenameNoteArgs {
-    vault_id: String,
-    old_path: String,
-    new_path: String,
+#[derive(Default, Serialize, Deserialize)]
+pub(crate) struct RenameNoteArgs {
+    #[serde(default)]
+    pub vault_id: Option<String>,
+    pub old_path: String,
+    pub new_path: String,
 }
 
 fn vault_path_string(app: &AppHandle, vault_id: &str) -> Result<String, ToolResult> {
@@ -191,9 +192,14 @@ fn handle_rename_note(app: &AppHandle, arguments: Option<&Value>) -> ToolResult 
         Err(e) => return e,
     };
 
+    let vault_id = match shared_ops::resolve_vault_id(app, args.vault_id) {
+        Ok(v) => v,
+        Err(e) => return op_err_to_tool_result(e),
+    };
+
     match shared_ops::rename_note_and_update_links(
         app,
-        &args.vault_id,
+        &vault_id,
         &args.old_path,
         &args.new_path,
     ) {

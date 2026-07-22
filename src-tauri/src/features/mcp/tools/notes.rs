@@ -1,12 +1,32 @@
 use std::collections::HashMap;
 
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tauri::AppHandle;
 
-use crate::features::mcp::shared_ops::{self, CreateResult};
+use crate::features::mcp::shared_ops::{self, CreateResult, VAULT_ID_OPTIONAL_DESC};
 use crate::features::mcp::tools::{op_err_to_tool_result, parse_args, prop};
 use crate::features::mcp::types::{InputSchema, PropertySchema, ToolDefinition, ToolResult};
 use crate::features::notes::service::file_meta;
+
+#[derive(Default, Serialize, Deserialize)]
+pub(crate) struct NoteContentArgs {
+    #[serde(default)]
+    pub vault_id: Option<String>,
+    pub path: String,
+    pub content: String,
+}
+
+#[derive(Default, Serialize, Deserialize)]
+pub(crate) struct EditNoteArgs {
+    #[serde(default)]
+    pub vault_id: Option<String>,
+    pub path: String,
+    pub old_string: String,
+    pub new_string: String,
+    #[serde(default)]
+    pub replace_all: bool,
+}
 
 pub fn tool_definitions() -> Vec<ToolDefinition> {
     vec![
@@ -14,6 +34,7 @@ pub fn tool_definitions() -> Vec<ToolDefinition> {
         read_note_def(),
         create_note_def(),
         update_note_def(),
+        edit_note_def(),
         delete_note_def(),
         append_note_def(),
         prepend_note_def(),
@@ -27,6 +48,7 @@ pub fn dispatch(app: &AppHandle, name: &str, arguments: Option<&Value>) -> Optio
         "read_note" => Some(handle_read_note(app, arguments)),
         "create_note" => Some(handle_create_note(app, arguments)),
         "update_note" => Some(handle_update_note(app, arguments)),
+        "edit_note" => Some(handle_edit_note(app, arguments)),
         "delete_note" => Some(handle_delete_note(app, arguments)),
         "append_note" => Some(handle_append_note(app, arguments)),
         "prepend_note" => Some(handle_prepend_note(app, arguments)),
@@ -107,11 +129,20 @@ fn create_note_def() -> ToolDefinition {
         ),
     );
     properties.insert("content".into(), prop("string", "Initial markdown content (including any frontmatter)"));
+    properties.insert(
+        "overwrite".into(),
+        PropertySchema {
+            prop_type: "boolean".into(),
+            description: Some("Optional. If true, replace the note when one already exists at the path instead of failing (default: false).".into()),
+            enum_values: None,
+            default: Some(Value::Bool(false)),
+        },
+    );
 
     ToolDefinition {
         name: "create_note".into(),
         mutating: true,
-        description: "Create a new note. Fails with a conflict error if a note already exists at the given path — use update_note to modify existing notes. Returns the created path on success.".into(),
+        description: "Create a new note. Fails with a conflict error if a note already exists at the given path, unless overwrite is true. Use update_note or edit_note to modify existing notes. Returns the created (or overwritten) path on success.".into(),
         input_schema: InputSchema {
             schema_type: "object".into(),
             properties,
@@ -140,6 +171,43 @@ fn update_note_def() -> ToolDefinition {
             schema_type: "object".into(),
             properties,
             required: vec!["vault_id".into(), "path".into(), "content".into()],
+        },
+    }
+}
+
+fn edit_note_def() -> ToolDefinition {
+    let mut properties = HashMap::new();
+    properties.insert("vault_id".into(), prop("string", VAULT_ID_OPTIONAL_DESC));
+    properties.insert(
+        "path".into(),
+        prop("string", "Vault-relative path to the note (e.g. 'folder/note.md')"),
+    );
+    properties.insert(
+        "old_string".into(),
+        prop("string", "The exact text to replace. Must match a unique occurrence in the note unless replace_all is true."),
+    );
+    properties.insert(
+        "new_string".into(),
+        prop("string", "The text to replace old_string with. Must differ from old_string."),
+    );
+    properties.insert(
+        "replace_all".into(),
+        PropertySchema {
+            prop_type: "boolean".into(),
+            description: Some("Optional. Replace every occurrence of old_string instead of requiring a unique match (default: false).".into()),
+            enum_values: None,
+            default: Some(Value::Bool(false)),
+        },
+    );
+
+    ToolDefinition {
+        name: "edit_note".into(),
+        mutating: true,
+        description: "Make a targeted edit to an existing note by replacing old_string with new_string. Fails if old_string is not found, or if it matches more than once and replace_all is not set. Prefer this over update_note when changing part of a note. Returns the path and number of replacements.".into(),
+        input_schema: InputSchema {
+            schema_type: "object".into(),
+            properties,
+            required: vec!["path".into(), "old_string".into(), "new_string".into()],
         },
     }
 }
@@ -244,6 +312,32 @@ fn handle_update_note(app: &AppHandle, arguments: Option<&Value>) -> ToolResult 
     }
 }
 
+fn handle_edit_note(app: &AppHandle, arguments: Option<&Value>) -> ToolResult {
+    let args: EditNoteArgs = match parse_args(arguments) {
+        Ok(a) => a,
+        Err(e) => return e,
+    };
+
+    let vault_id = match shared_ops::resolve_vault_id(app, args.vault_id) {
+        Ok(v) => v,
+        Err(e) => return op_err_to_tool_result(e),
+    };
+
+    match shared_ops::edit_note(
+        app,
+        &vault_id,
+        &args.path,
+        &args.old_string,
+        &args.new_string,
+        args.replace_all,
+    ) {
+        Ok((path, replacements)) => {
+            ToolResult::text(format!("Edited: {} ({} replacement(s))", path, replacements))
+        }
+        Err(e) => op_err_to_tool_result(e),
+    }
+}
+
 fn handle_delete_note(app: &AppHandle, arguments: Option<&Value>) -> ToolResult {
     let args: shared_ops::VaultPathArgs = match parse_args(arguments) {
         Ok(a) => a,
@@ -258,10 +352,7 @@ fn handle_delete_note(app: &AppHandle, arguments: Option<&Value>) -> ToolResult 
 
 fn append_note_def() -> ToolDefinition {
     let mut properties = HashMap::new();
-    properties.insert(
-        "vault_id".into(),
-        prop("string", "Vault identifier (optional if an active vault is set)"),
-    );
+    properties.insert("vault_id".into(), prop("string", VAULT_ID_OPTIONAL_DESC));
     properties.insert(
         "path".into(),
         prop("string", "Vault-relative path of the note to append to"),
@@ -278,17 +369,14 @@ fn append_note_def() -> ToolDefinition {
         input_schema: InputSchema {
             schema_type: "object".into(),
             properties,
-            required: vec!["vault_id".into(), "path".into(), "content".into()],
+            required: vec!["path".into(), "content".into()],
         },
     }
 }
 
 fn prepend_note_def() -> ToolDefinition {
     let mut properties = HashMap::new();
-    properties.insert(
-        "vault_id".into(),
-        prop("string", "Vault identifier (optional if an active vault is set)"),
-    );
+    properties.insert("vault_id".into(), prop("string", VAULT_ID_OPTIONAL_DESC));
     properties.insert(
         "path".into(),
         prop("string", "Vault-relative path of the note to prepend to"),
@@ -305,30 +393,40 @@ fn prepend_note_def() -> ToolDefinition {
         input_schema: InputSchema {
             schema_type: "object".into(),
             properties,
-            required: vec!["vault_id".into(), "path".into(), "content".into()],
+            required: vec!["path".into(), "content".into()],
         },
     }
 }
 
 fn handle_append_note(app: &AppHandle, arguments: Option<&Value>) -> ToolResult {
-    let args: shared_ops::WriteNoteArgs = match parse_args(arguments) {
+    let args: NoteContentArgs = match parse_args(arguments) {
         Ok(a) => a,
         Err(e) => return e,
     };
 
-    match shared_ops::append_to_note(app, &args.vault_id, &args.path, &args.content) {
+    let vault_id = match shared_ops::resolve_vault_id(app, args.vault_id) {
+        Ok(v) => v,
+        Err(e) => return op_err_to_tool_result(e),
+    };
+
+    match shared_ops::append_to_note(app, &vault_id, &args.path, &args.content) {
         Ok(path) => ToolResult::text(format!("Appended to: {}", path)),
         Err(e) => op_err_to_tool_result(e),
     }
 }
 
 fn handle_prepend_note(app: &AppHandle, arguments: Option<&Value>) -> ToolResult {
-    let args: shared_ops::WriteNoteArgs = match parse_args(arguments) {
+    let args: NoteContentArgs = match parse_args(arguments) {
         Ok(a) => a,
         Err(e) => return e,
     };
 
-    match shared_ops::prepend_to_note(app, &args.vault_id, &args.path, &args.content) {
+    let vault_id = match shared_ops::resolve_vault_id(app, args.vault_id) {
+        Ok(v) => v,
+        Err(e) => return op_err_to_tool_result(e),
+    };
+
+    match shared_ops::prepend_to_note(app, &vault_id, &args.path, &args.content) {
         Ok(path) => ToolResult::text(format!("Prepended to: {}", path)),
         Err(e) => op_err_to_tool_result(e),
     }

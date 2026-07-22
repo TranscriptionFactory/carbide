@@ -8,6 +8,7 @@ describe("is_mutating_tool", () => {
   it("detects mutating carbide MCP tools", () => {
     expect(is_mutating_tool("mcp__carbide__create_note")).toBe(true);
     expect(is_mutating_tool("mcp__carbide__update_note")).toBe(true);
+    expect(is_mutating_tool("mcp__carbide__edit_note")).toBe(true);
     expect(is_mutating_tool("mcp__carbide__delete_note")).toBe(true);
     expect(is_mutating_tool("mcp__carbide__append_note")).toBe(true);
     expect(is_mutating_tool("mcp__carbide__prepend_note")).toBe(true);
