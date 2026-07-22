@@ -591,7 +591,12 @@ mod tests {
             .iter()
             .find(|t| t["name"] == "rag_status")
             .expect("rag_status tool is exposed over the MCP protocol");
-        assert_eq!(rag_status["inputSchema"]["required"][0], "vault_id");
+        assert!(rag_status["inputSchema"]["properties"]["vault_id"].is_object());
+        // vault_id resolves from the active vault when omitted, so it is optional.
+        assert!(rag_status["inputSchema"]["required"]
+            .as_array()
+            .map(|r| r.is_empty())
+            .unwrap_or(true));
     }
 
     #[tokio::test]

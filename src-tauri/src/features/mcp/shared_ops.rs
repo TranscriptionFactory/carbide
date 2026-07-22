@@ -38,11 +38,33 @@ use crate::features::search::service::SearchQueryInput;
 use crate::features::vault::service as vault_service;
 use crate::shared::{io_utils, storage};
 
+#[derive(Debug)]
 pub enum OpError {
     NotFound(String),
     BadRequest(String),
     Conflict(String),
     Internal(String),
+}
+
+/// Canonical description for a `vault_id` property that a tool can resolve from
+/// the active vault when omitted. Kept as a single constant so every tool that
+/// promises the fallback uses identical wording (asserted by the schema
+/// consistency test).
+pub const VAULT_ID_OPTIONAL_DESC: &str = "Vault identifier (optional if an active vault is set)";
+
+/// Resolve an optional `vault_id` argument to a concrete vault id, falling back
+/// to the active vault when the argument is absent or empty. Errors with a
+/// clear message when neither is available, instead of a cryptic serde error.
+pub fn resolve_vault_id(app: &AppHandle, vault_id: Option<String>) -> Result<String, OpError> {
+    match vault_id.filter(|v| !v.trim().is_empty()) {
+        Some(id) => Ok(id),
+        None => get_active_vault_id(app)?.ok_or_else(|| {
+            OpError::BadRequest(
+                "No vault_id provided and no active vault is set; pass vault_id or open a vault first."
+                    .into(),
+            )
+        }),
+    }
 }
 
 fn resolve_read_path(
@@ -67,18 +89,18 @@ fn resolve_write_path(
 
 // --- Shared arg structs ---
 
-#[derive(Deserialize)]
+#[derive(Default, Serialize, Deserialize)]
 pub struct VaultPathArgs {
     pub vault_id: String,
     pub path: String,
 }
 
-#[derive(Deserialize)]
+#[derive(Default, Serialize, Deserialize)]
 pub struct VaultIdArgs {
     pub vault_id: String,
 }
 
-#[derive(Deserialize)]
+#[derive(Default, Serialize, Deserialize)]
 pub struct ListNotesArgs {
     pub vault_id: String,
     #[serde(default)]
@@ -107,7 +129,7 @@ pub struct SearchArgs {
     pub mode: Option<String>,
 }
 
-#[derive(Deserialize)]
+#[derive(Default, Serialize, Deserialize)]
 pub struct CreateNoteArgs {
     pub vault_id: String,
     pub path: String,
@@ -117,7 +139,7 @@ pub struct CreateNoteArgs {
     pub overwrite: bool,
 }
 
-#[derive(Deserialize)]
+#[derive(Default, Serialize, Deserialize)]
 pub struct WriteNoteArgs {
     pub vault_id: String,
     pub path: String,
@@ -250,6 +272,68 @@ pub fn create_note(app: &AppHandle, args: &CreateNoteArgs) -> Result<CreateResul
     )
     .map(CreateResult::Created)
     .map_err(OpError::Internal)
+}
+
+/// Apply a unique-match string edit, mirroring the standard Edit contract:
+/// `old_string` must occur exactly once unless `replace_all` is set. Pure and
+/// side-effect free so the match semantics can be unit tested without a vault.
+pub fn apply_edit(
+    content: &str,
+    old_string: &str,
+    new_string: &str,
+    replace_all: bool,
+) -> Result<String, OpError> {
+    if old_string.is_empty() {
+        return Err(OpError::BadRequest("old_string must not be empty".into()));
+    }
+    if old_string == new_string {
+        return Err(OpError::BadRequest(
+            "old_string and new_string are identical; nothing to change".into(),
+        ));
+    }
+
+    let count = content.matches(old_string).count();
+    if count == 0 {
+        return Err(OpError::NotFound(
+            "old_string was not found in the note".into(),
+        ));
+    }
+    if count > 1 && !replace_all {
+        return Err(OpError::BadRequest(format!(
+            "old_string is not unique ({} matches); add surrounding context to disambiguate or set replace_all=true",
+            count
+        )));
+    }
+
+    let updated = if replace_all {
+        content.replace(old_string, new_string)
+    } else {
+        content.replacen(old_string, new_string, 1)
+    };
+    Ok(updated)
+}
+
+pub fn edit_note(
+    app: &AppHandle,
+    vault_id: &str,
+    path: &str,
+    old_string: &str,
+    new_string: &str,
+    replace_all: bool,
+) -> Result<(String, usize), OpError> {
+    let (_, abs) = resolve_read_path(app, vault_id, path)?;
+    let existing = std::fs::read_to_string(&abs)
+        .map_err(|e| OpError::NotFound(format!("Failed to read note: {}", e)))?;
+
+    let replacements = if replace_all {
+        existing.matches(old_string).count().max(1)
+    } else {
+        1
+    };
+    let updated = apply_edit(&existing, old_string, new_string, replace_all)?;
+
+    io_utils::atomic_write(&abs, updated.as_bytes()).map_err(OpError::Internal)?;
+    Ok((path.to_string(), replacements))
 }
 
 pub fn move_note(
@@ -744,6 +828,48 @@ pub fn repair_links_for(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn apply_edit_replaces_unique_match() {
+        let out = apply_edit("hello world", "world", "there", false).unwrap();
+        assert_eq!(out, "hello there");
+    }
+
+    #[test]
+    fn apply_edit_errors_when_not_found() {
+        let err = apply_edit("hello world", "missing", "x", false);
+        assert!(matches!(err, Err(OpError::NotFound(_))));
+    }
+
+    #[test]
+    fn apply_edit_errors_on_ambiguous_match() {
+        let err = apply_edit("a a a", "a", "b", false);
+        assert!(matches!(err, Err(OpError::BadRequest(_))));
+    }
+
+    #[test]
+    fn apply_edit_replace_all_rewrites_every_occurrence() {
+        let out = apply_edit("a a a", "a", "b", true).unwrap();
+        assert_eq!(out, "b b b");
+    }
+
+    #[test]
+    fn apply_edit_replace_all_still_errors_when_absent() {
+        let err = apply_edit("a a a", "z", "b", true);
+        assert!(matches!(err, Err(OpError::NotFound(_))));
+    }
+
+    #[test]
+    fn apply_edit_rejects_empty_old_string() {
+        let err = apply_edit("content", "", "x", false);
+        assert!(matches!(err, Err(OpError::BadRequest(_))));
+    }
+
+    #[test]
+    fn apply_edit_rejects_noop_edit() {
+        let err = apply_edit("content", "same", "same", false);
+        assert!(matches!(err, Err(OpError::BadRequest(_))));
+    }
 
     #[test]
     fn test_find_frontmatter_end_with_frontmatter() {

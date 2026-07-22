@@ -8,6 +8,7 @@ const MCP_TOOL_PREFIX = "mcp__carbide__";
 const MUTATING_MCP_TOOLS = new Set([
   "create_note",
   "update_note",
+  "edit_note",
   "delete_note",
   "append_note",
   "prepend_note",

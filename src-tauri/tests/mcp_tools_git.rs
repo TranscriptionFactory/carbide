@@ -32,13 +32,14 @@ fn git_log_has_optional_limit() {
 }
 
 #[test]
-fn rename_note_requires_vault_id_old_path_new_path() {
+fn rename_note_requires_old_path_new_path_with_optional_vault_id() {
     let defs = git::tool_definitions();
     let def = defs.iter().find(|d| d.name == "rename_note").unwrap();
-    assert!(def.input_schema.required.contains(&"vault_id".to_string()));
+    assert!(def.input_schema.properties.contains_key("vault_id"));
+    assert!(!def.input_schema.required.contains(&"vault_id".to_string()));
     assert!(def.input_schema.required.contains(&"old_path".to_string()));
     assert!(def.input_schema.required.contains(&"new_path".to_string()));
-    assert_eq!(def.input_schema.required.len(), 3);
+    assert_eq!(def.input_schema.required.len(), 2);
 }
 
 #[test]

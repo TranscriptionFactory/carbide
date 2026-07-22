@@ -1,9 +1,10 @@
 use std::collections::HashMap;
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tauri::AppHandle;
 
+use crate::features::mcp::shared_ops::{self, VAULT_ID_OPTIONAL_DESC};
 use crate::features::mcp::tools::{op_err_to_tool_result, parse_args, prop};
 use crate::features::mcp::types::{InputSchema, PropertySchema, ToolDefinition, ToolResult};
 use crate::features::search::db as search_db;
@@ -21,25 +22,23 @@ pub fn dispatch(app: &AppHandle, name: &str, arguments: Option<&Value>) -> Optio
     }
 }
 
-#[derive(Deserialize)]
-struct QueryTasksArgs {
-    vault_id: String,
+#[derive(Default, Serialize, Deserialize)]
+pub(crate) struct QueryTasksArgs {
     #[serde(default)]
-    status: Option<String>,
+    pub vault_id: Option<String>,
     #[serde(default)]
-    path: Option<String>,
+    pub status: Option<String>,
     #[serde(default)]
-    due_before: Option<String>,
+    pub path: Option<String>,
     #[serde(default)]
-    limit: Option<usize>,
+    pub due_before: Option<String>,
+    #[serde(default)]
+    pub limit: Option<usize>,
 }
 
 fn query_tasks_def() -> ToolDefinition {
     let mut properties = HashMap::new();
-    properties.insert(
-        "vault_id".into(),
-        prop("string", "Vault identifier (optional if an active vault is set)"),
-    );
+    properties.insert("vault_id".into(), prop("string", VAULT_ID_OPTIONAL_DESC));
     properties.insert(
         "status".into(),
         PropertySchema {
@@ -55,7 +54,7 @@ fn query_tasks_def() -> ToolDefinition {
     );
     properties.insert(
         "due_before".into(),
-        prop("string", "Optional. Filter tasks due before this date (YYYY-MM-DD)"),
+        prop("string", "Optional. Filter to tasks whose due_date is strictly before this value. Compared as an ISO date string (YYYY-MM-DD) with a strict less-than; a task with no due_date is excluded. Internal relative-date sentinels (e.g. __today__, __today_plus_N__) are passed through to the task engine unchanged."),
     );
     properties.insert(
         "limit".into(),
@@ -74,7 +73,7 @@ fn query_tasks_def() -> ToolDefinition {
         input_schema: InputSchema {
             schema_type: "object".into(),
             properties,
-            required: vec!["vault_id".into()],
+            required: vec![],
         },
     }
 }
@@ -83,6 +82,11 @@ fn handle_query_tasks(app: &AppHandle, arguments: Option<&Value>) -> ToolResult 
     let args: QueryTasksArgs = match parse_args(arguments) {
         Ok(a) => a,
         Err(e) => return e,
+    };
+
+    let vault_id = match shared_ops::resolve_vault_id(app, args.vault_id) {
+        Ok(v) => v,
+        Err(e) => return op_err_to_tool_result(e),
     };
 
     let mut filters = Vec::new();
@@ -137,7 +141,7 @@ fn handle_query_tasks(app: &AppHandle, arguments: Option<&Value>) -> ToolResult 
         offset: 0,
     };
 
-    let conn = match search_db::open_search_db(app, &args.vault_id) {
+    let conn = match search_db::open_search_db(app, &vault_id) {
         Ok(c) => c,
         Err(e) => return ToolResult::error(e),
     };

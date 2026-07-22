@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tauri::AppHandle;
 
@@ -68,17 +68,17 @@ fn search_references_def() -> ToolDefinition {
     }
 }
 
-#[derive(Deserialize)]
-struct ListReferencesArgs {
-    vault_id: String,
+#[derive(Default, Serialize, Deserialize)]
+pub(crate) struct ListReferencesArgs {
+    pub vault_id: String,
     #[serde(default)]
-    limit: Option<usize>,
+    pub limit: Option<usize>,
 }
 
-#[derive(Deserialize)]
-struct SearchReferencesArgs {
-    vault_id: String,
-    query: String,
+#[derive(Default, Serialize, Deserialize)]
+pub(crate) struct SearchReferencesArgs {
+    pub vault_id: String,
+    pub query: String,
 }
 
 fn format_csl_item(item: &Value) -> String {
