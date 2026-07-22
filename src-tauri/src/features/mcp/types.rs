@@ -165,6 +165,7 @@ pub struct InitializeResult {
 pub struct ToolDefinition {
     pub name: String,
     pub description: String,
+    pub mutating: bool,
     pub input_schema: InputSchema,
 }
 

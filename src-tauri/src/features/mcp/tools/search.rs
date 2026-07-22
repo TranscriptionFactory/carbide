@@ -44,6 +44,7 @@ fn search_notes_def() -> ToolDefinition {
 
     ToolDefinition {
         name: "search_notes".into(),
+        mutating: false,
         description: "Search across note titles and content. Supports full-text search (default) and semantic/hybrid search for conceptual queries. Returns tab-separated lines of path, title, and relevance score (positive, higher is better; scale differs between modes), with matching text snippets on the next line.".into(),
         input_schema: InputSchema {
             schema_type: "object".into(),
@@ -59,6 +60,7 @@ fn reindex_def() -> ToolDefinition {
 
     ToolDefinition {
         name: "reindex".into(),
+        mutating: true,
         description: "Rebuild the search index for a vault. Triggers a full re-index of all notes in the background. Use this if search results seem stale or incomplete. Returns immediately; indexing continues asynchronously.".into(),
         input_schema: InputSchema {
             schema_type: "object".into(),

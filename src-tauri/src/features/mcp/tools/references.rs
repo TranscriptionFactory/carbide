@@ -35,6 +35,7 @@ fn list_references_def() -> ToolDefinition {
 
     ToolDefinition {
         name: "list_references".into(),
+        mutating: false,
         description: "List citation references in the vault's CSL-JSON library. Returns a total count header, then tab-separated lines of citekey, title, author(s), and year. Use search_references to find specific entries by keyword.".into(),
         input_schema: InputSchema {
             schema_type: "object".into(),
@@ -57,6 +58,7 @@ fn search_references_def() -> ToolDefinition {
 
     ToolDefinition {
         name: "search_references".into(),
+        mutating: false,
         description: "Search citation references by citekey, title, or author name. Returns a match count header, then tab-separated lines of citekey, title, author(s), and year. Max 50 results. Use list_references to browse the full library.".into(),
         input_schema: InputSchema {
             schema_type: "object".into(),
