@@ -231,12 +231,26 @@ pub fn build_agent_args(
     args
 }
 
-async fn prepare_mcp_config(app: &AppHandle) -> Result<String, String> {
+pub(crate) async fn prepare_mcp_config(app: &AppHandle) -> Result<String, String> {
     let server = app.state::<HttpServerState>();
     let info = server.start(app.clone()).await?;
     let token = auth::read_or_create_token()?;
     let config_path = setup::write_agent_mcp_config(info.port, &token)?;
     Ok(config_path.to_string_lossy().to_string())
+}
+
+pub fn cli_probe_error_message(provider_name: &str, probe: &pipeline::CliProbe) -> String {
+    match (&probe.status, &probe.error) {
+        (_, Some(detail)) if detail.contains("not executable") => {
+            format!("{provider_name}: {detail}")
+        }
+        (pipeline::CliProbeStatus::Unknown, _) => format!(
+            "Could not verify the {provider_name} CLI — set an absolute command path in AI settings"
+        ),
+        _ => format!(
+            "{provider_name} CLI not found — install it or set an absolute command path in AI settings"
+        ),
+    }
 }
 
 #[tauri::command]
@@ -271,16 +285,7 @@ pub async fn agent_stream_start(
     .await
     .map_err(|e| e.to_string())?;
     if probe.status != pipeline::CliProbeStatus::Present {
-        let message = match (&probe.status, &probe.error) {
-            (_, Some(detail)) if detail.contains("not executable") => {
-                format!("{}: {}", provider_config.name, detail)
-            }
-            (pipeline::CliProbeStatus::Unknown, _) => format!(
-                "Could not verify the {} CLI — set an absolute command path in AI settings",
-                provider_config.name
-            ),
-            _ => format!("{} CLI not found", provider_config.name),
-        };
+        let message = cli_probe_error_message(&provider_config.name, &probe);
         let _ = app.emit(&event_name, AgentEvent::Error { message });
         return Ok(());
     }
