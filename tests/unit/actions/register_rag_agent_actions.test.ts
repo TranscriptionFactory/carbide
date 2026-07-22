@@ -54,6 +54,15 @@ function create_harness(events: AgentEvent[] = AGENT_EVENTS) {
     ),
   };
 
+  const native_agent_port = {
+    stream_turn: vi.fn((_input: AgentStreamRequest) =>
+      // eslint-disable-next-line @typescript-eslint/require-await
+      (async function* () {
+        for (const event of events) yield event;
+      })(),
+    ),
+  };
+
   const git_service = {
     create_checkpoint: vi.fn().mockResolvedValue({ status: "created" }),
   };
@@ -69,9 +78,18 @@ function create_harness(events: AgentEvent[] = AGENT_EVENTS) {
     rag_store,
     rag_service: rag_service as never,
     agent_port,
+    native_agent_port,
   });
 
-  return { registry, stores, rag_store, rag_service, agent_port, git_service };
+  return {
+    registry,
+    stores,
+    rag_store,
+    rag_service,
+    agent_port,
+    native_agent_port,
+    git_service,
+  };
 }
 
 beforeEach(() => {
@@ -112,17 +130,20 @@ describe("rag agent actions", () => {
     );
   });
 
-  it("ask in agent mode: refuses non-agent providers", async () => {
-    const { registry, stores, rag_store, agent_port } = create_harness();
+  it("ask in agent mode: refuses text-only CLI providers with a toast", async () => {
+    const { registry, stores, rag_store, agent_port, native_agent_port } =
+      create_harness();
     rag_store.set_mode("agent");
     stores.ui.editor_settings.ai_default_provider_id = "ollama";
 
     await registry.execute(ACTION_IDS.rag_ask, "organize my notes");
 
     expect(agent_port.stream_turn).not.toHaveBeenCalled();
+    expect(native_agent_port.stream_turn).not.toHaveBeenCalled();
     expect(toast.error).toHaveBeenCalledWith(
-      "Agent mode requires the Claude Code provider",
+      "Ollama does not support agent mode",
     );
+    expect(rag_store.messages).toEqual([]);
   });
 
   it("ask in agent mode: runs the agent turn and records the reply", async () => {
@@ -146,6 +167,79 @@ describe("rag agent actions", () => {
     ]);
     expect(rag_store.messages[1]?.content).toBe("All organized.");
     expect(rag_store.active?.agent_session_id).toBe("sess-1");
+    expect(stores.op.get("rag.ask").status).toBe("success");
+  });
+
+  it("ask in agent mode: routes the claude provider to the harness port", async () => {
+    const { registry, rag_store, agent_port, native_agent_port } =
+      create_harness();
+    rag_store.set_mode("agent");
+
+    await registry.execute(ACTION_IDS.rag_ask, "organize my notes");
+
+    expect(agent_port.stream_turn).toHaveBeenCalledTimes(1);
+    expect(native_agent_port.stream_turn).not.toHaveBeenCalled();
+  });
+
+  it("ask in agent mode: routes api providers to the native agent port", async () => {
+    const { registry, stores, rag_store, agent_port, native_agent_port } =
+      create_harness();
+    rag_store.set_mode("agent");
+    stores.ui.editor_settings.ai_default_provider_id = "lmstudio";
+
+    await registry.execute(ACTION_IDS.rag_ask, "organize my notes");
+
+    expect(native_agent_port.stream_turn).toHaveBeenCalledTimes(1);
+    expect(agent_port.stream_turn).not.toHaveBeenCalled();
+    expect(stores.op.get("rag.ask").status).toBe("success");
+  });
+
+  it("native agent run: streams tool events and completes coherently", async () => {
+    const events: AgentEvent[] = [
+      { type: "init", session_id: "native-sess" },
+      {
+        type: "tool_start",
+        name: "mcp__carbide__create_note",
+        input_summary: '{"path":"notes/new.md"}',
+      },
+      { type: "tool_end", name: "mcp__carbide__create_note", ok: true },
+      { type: "text", delta: "Created the note." },
+      { type: "done", stats: { num_turns: 2 } },
+    ];
+    const {
+      registry,
+      stores,
+      rag_store,
+      rag_service,
+      native_agent_port,
+      git_service,
+    } = create_harness(events);
+    registry.register({
+      id: ACTION_IDS.folder_refresh_tree,
+      label: "Refresh Tree",
+      execute: vi.fn(),
+    });
+    rag_store.set_mode("agent");
+    stores.ui.editor_settings.ai_default_provider_id = "lmstudio";
+
+    await registry.execute(ACTION_IDS.rag_ask, "create a note");
+
+    expect(git_service.create_checkpoint).toHaveBeenCalledTimes(1);
+    expect(native_agent_port.stream_turn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        prompt: "create a note",
+        permission_mode: "safe",
+        vault_path: "/vault/demo",
+      }),
+    );
+    expect(rag_store.messages.map((m) => m.role)).toEqual([
+      "user",
+      "assistant",
+    ]);
+    expect(rag_store.messages[1]?.content).toBe("Created the note.");
+    expect(rag_store.active?.agent_session_id).toBe("native-sess");
+    expect(rag_store.active?.changed_files).toEqual(["notes/new.md"]);
+    expect(rag_service.save_session).toHaveBeenCalled();
     expect(stores.op.get("rag.ask").status).toBe("success");
   });
 
