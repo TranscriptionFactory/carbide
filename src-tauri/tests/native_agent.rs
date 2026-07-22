@@ -351,3 +351,83 @@ async fn scenario_8_oversized_tool_result_truncated_with_marker() {
     let small = "short";
     assert_eq!(truncate_tool_result(small), small);
 }
+
+fn spawn_sse_fixture_server(response: String) -> std::net::SocketAddr {
+    use std::io::{Read, Write};
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    let addr = listener.local_addr().unwrap();
+    std::thread::spawn(move || {
+        let (mut conn, _) = listener.accept().unwrap();
+        let mut buf = [0u8; 2048];
+        let _ = conn.read(&mut buf);
+        let _ = conn.write_all(response.as_bytes());
+        let _ = conn.flush();
+    });
+    addr
+}
+
+#[tokio::test]
+async fn wire_format_real_client_assembles_recorded_sse_fixture() {
+    use futures_util::StreamExt;
+
+    use crate::features::ai::native_agent::TransportModelClient;
+    use crate::features::ai::service::{AiProviderConfig, AiTransport};
+
+    let body = concat!(
+        "data: {\"choices\":[{\"delta\":{\"role\":\"assistant\"}}]}\n\n",
+        "data: {\"choices\":[{\"delta\":{\"content\":\"Let me search.\"}}]}\n\n",
+        "data: {\"choices\":[{\"delta\":{\"tool_calls\":[{\"index\":0,\"id\":\"call_1\",\"type\":\"function\",\"function\":{\"name\":\"search_notes\",\"arguments\":\"\"}}]}}]}\n\n",
+        "data: {\"choices\":[{\"delta\":{\"tool_calls\":[{\"index\":0,\"function\":{\"arguments\":\"{\\\"que\"}}]}}]}\n\n",
+        "data: {\"choices\":[{\"delta\":{\"tool_calls\":[{\"index\":0,\"function\":{\"arguments\":\"ry\\\":\\\"foo\\\"}\"}}]}}]}\n\n",
+        "data: {\"choices\":[{\"delta\":{},\"finish_reason\":\"tool_calls\"}]}\n\n",
+        "data: [DONE]\n\n",
+    );
+    let addr = spawn_sse_fixture_server(format!(
+        "HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nConnection: close\r\n\r\n{body}"
+    ));
+
+    let config = AiProviderConfig {
+        id: "native-agent-fixture-test".into(),
+        name: "Fixture".into(),
+        transport: AiTransport::Api {
+            base_url: format!("http://{addr}/v1"),
+            api_key_env: None,
+        },
+        model: Some("m".into()),
+        install_url: None,
+        is_preset: None,
+    };
+
+    let client = TransportModelClient::new(config);
+    let messages = vec![AiMessage {
+        role: "user".into(),
+        content: "find foo".into(),
+        tool_calls: None,
+        tool_call_id: None,
+    }];
+    let mut stream = std::pin::pin!(client.stream_turn(messages, Vec::new()));
+    let mut events = Vec::new();
+    while let Some(event) = stream.next().await {
+        events.push(event);
+    }
+
+    assert!(events
+        .iter()
+        .any(|e| matches!(e, AiStreamEvent::Text { text } if text == "Let me search.")));
+    let tool_call = events
+        .iter()
+        .find_map(|e| match e {
+            AiStreamEvent::ToolCall {
+                id,
+                name,
+                arguments,
+            } => Some((id.clone(), name.clone(), arguments.clone())),
+            _ => None,
+        })
+        .expect("fixture stream must yield an assembled ToolCall");
+    assert_eq!(tool_call.0, "call_1");
+    assert_eq!(tool_call.1, "search_notes");
+    let parsed: Value = serde_json::from_str(&tool_call.2).unwrap();
+    assert_eq!(parsed["query"], "foo");
+    assert!(matches!(events.last(), Some(AiStreamEvent::Done)));
+}
