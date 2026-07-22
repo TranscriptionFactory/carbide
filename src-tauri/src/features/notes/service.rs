@@ -148,26 +148,11 @@ fn ensure_directory(path: &Path, message: &str) -> Result<(), String> {
 }
 
 pub(crate) fn extract_title(path: &Path) -> String {
-    let mut file = match File::open(path) {
-        Ok(f) => f,
-        Err(_) => {
-            return path
-                .file_stem()
-                .unwrap_or_default()
-                .to_string_lossy()
-                .to_string()
-        }
-    };
+    extract_title_from_head(&read_head_text(path), path)
+}
 
-    let mut buf = vec![0u8; 8192];
-    let n = match file.read(&mut buf) {
-        Ok(n) => n,
-        Err(_) => 0,
-    };
-    buf.truncate(n);
-
-    let prefix = String::from_utf8_lossy(&buf);
-    for line in prefix.lines() {
+fn extract_title_from_head(head: &str, path: &Path) -> String {
+    for line in head.lines() {
         let l = line.trim();
         if l.is_empty() {
             continue;
@@ -188,29 +173,6 @@ pub(crate) fn extract_title(path: &Path) -> String {
 }
 
 const BLURB_MAX_CHARS: usize = 80;
-
-pub(crate) fn extract_blurb(path: &Path) -> String {
-    let mut file = match File::open(path) {
-        Ok(f) => f,
-        Err(_) => return String::new(),
-    };
-
-    let mut buf = vec![0u8; 8192];
-    let n = match file.read(&mut buf) {
-        Ok(n) => n,
-        Err(_) => return String::new(),
-    };
-    buf.truncate(n);
-
-    let text = String::from_utf8_lossy(&buf);
-    let body = skip_frontmatter(&text);
-
-    if let Some(desc) = extract_frontmatter_description(&text) {
-        return truncate_blurb(&desc);
-    }
-
-    extract_first_paragraph(body)
-}
 
 pub(crate) fn extract_blurb_from_content(markdown: &str) -> String {
     let body = skip_frontmatter(markdown);
@@ -271,17 +233,16 @@ fn read_head_text(path: &Path) -> String {
     String::from_utf8_lossy(&buf).into_owned()
 }
 
-pub(crate) fn extract_color_icon_type(
-    path: &Path,
+fn extract_color_icon_type_from_head(
+    head: &str,
 ) -> (Option<String>, Option<String>, Option<String>) {
-    let head = read_head_text(path);
     if head.is_empty() {
         return (None, None, None);
     }
     (
-        extract_frontmatter_str_field(&head, "color"),
-        extract_frontmatter_str_field(&head, "icon"),
-        extract_frontmatter_str_field(&head, "type"),
+        extract_frontmatter_str_field(head, "color"),
+        extract_frontmatter_str_field(head, "icon"),
+        extract_frontmatter_str_field(head, "type"),
     )
 }
 
@@ -425,11 +386,12 @@ pub(crate) fn build_note_meta(
     cached_titles: Option<&std::collections::HashMap<String, String>>,
 ) -> Result<NoteMeta, String> {
     let abs = safe_vault_abs(root, rel_path)?;
+    let head = read_head_text(&abs);
     let title = cached_titles
         .and_then(|m| m.get(rel_path).cloned())
-        .unwrap_or_else(|| extract_title(&abs));
-    let blurb = extract_blurb(&abs);
-    let (color, icon, is_a) = extract_color_icon_type(&abs);
+        .unwrap_or_else(|| extract_title_from_head(&head, &abs));
+    let blurb = extract_blurb_from_content(&head);
+    let (color, icon, is_a) = extract_color_icon_type_from_head(&head);
     let (mtime_ms, ctime_ms, size_bytes) = file_meta(&abs)?;
 
     Ok(NoteMeta {
