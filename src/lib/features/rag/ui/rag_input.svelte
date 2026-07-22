@@ -34,6 +34,7 @@
     is_loading: boolean;
     is_streaming: boolean;
     readiness_state: RagReadiness["state"];
+    submit_label: string;
     suggest_notes: (partial: string) => Promise<MentionSuggestion[]>;
     on_submit: (question: string) => void;
     on_stop: () => void;
@@ -51,6 +52,7 @@
     is_loading,
     is_streaming,
     readiness_state,
+    submit_label,
     suggest_notes,
     on_submit,
     on_stop,
@@ -254,7 +256,7 @@
     {:else}
       <Button size="sm" disabled={!can_submit} onclick={submit}>
         <SendHorizontal class="size-4" />
-        Ask
+        {submit_label}
       </Button>
     {/if}
   </div>

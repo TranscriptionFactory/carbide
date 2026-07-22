@@ -122,11 +122,13 @@
   }
 
   let sources_open = $state(false);
-  const show_pending_sources = $derived(
-    rag.loading_stage === "generating" &&
-      rag.pending_sources !== null &&
-      (rag.is_loading || rag.streaming_id !== null),
-  );
+  // statement form: the vite ssr transform drops the parens in
+  // `a && (b || c)`, evaluating `c` even when the guard fails
+  const show_pending_sources = $derived.by(() => {
+    if (rag.loading_stage !== "generating") return false;
+    if (rag.pending_sources === null) return false;
+    return rag.is_loading || rag.streaming_id !== null;
+  });
 
   $effect(() => {
     if (rag.pending_sources === null) sources_open = false;
@@ -173,6 +175,10 @@
 
   function change_provider(id: string) {
     rag.set_provider(id);
+    const config = providers.find((p) => p.id === id);
+    if (rag.mode === "agent" && !(config && provider_supports_agent(config))) {
+      set_mode("ask");
+    }
     persist_active_session();
   }
 
@@ -369,7 +375,9 @@
         <div class="flex h-full items-center justify-center">
           <EmptyMessage
             icon={MessagesSquare}
-            text="Ask anything about your vault"
+            text={rag.mode === "agent"
+              ? "Agent edits files in your vault. Safe mode limits it to note tools."
+              : "Ask anything about your vault"}
           >
             <div class="flex flex-wrap justify-center gap-1">
               {#each templates as template (template.id)}
@@ -458,6 +466,7 @@
     is_loading={rag.is_loading}
     is_streaming={rag.streaming_id !== null}
     readiness_state={rag.readiness.state}
+    submit_label={rag.mode === "agent" ? "Run" : "Ask"}
     on_submit={ask}
     on_stop={stop}
     on_provider_change={change_provider}
