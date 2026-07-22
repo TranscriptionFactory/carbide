@@ -9,11 +9,23 @@ use tokio::process::Command;
 use tokio::sync::Mutex;
 
 use super::service::{AiProviderConfig, AiTransport};
+use crate::features::mcp::types::ToolDefinition;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct AiMessage {
     pub role: String,
     pub content: AiMessageContent,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tool_calls: Option<Vec<AiToolCall>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tool_call_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+pub struct AiToolCall {
+    pub id: String,
+    pub name: String,
+    pub arguments: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
@@ -87,6 +99,12 @@ pub enum AiStreamEvent {
     Text { text: String },
     #[serde(rename = "reasoning")]
     Reasoning { text: String },
+    #[serde(rename = "tool_call")]
+    ToolCall {
+        id: String,
+        name: String,
+        arguments: String,
+    },
     #[serde(rename = "error")]
     Error { error: String },
     #[serde(rename = "done")]
@@ -129,19 +147,53 @@ fn build_chat_request_body(
     messages: &[AiMessage],
     model: &str,
     stream: bool,
+    tools: Option<&[ToolDefinition]>,
 ) -> serde_json::Value {
     let mut msgs: Vec<serde_json::Value> = Vec::new();
     if !system_prompt.is_empty() {
         msgs.push(serde_json::json!({ "role": "system", "content": system_prompt }));
     }
     for msg in messages {
-        msgs.push(serde_json::json!({ "role": msg.role, "content": msg.content.to_chat_content() }));
+        let mut entry =
+            serde_json::json!({ "role": msg.role, "content": msg.content.to_chat_content() });
+        if let Some(calls) = &msg.tool_calls {
+            entry["tool_calls"] = calls
+                .iter()
+                .map(|call| {
+                    serde_json::json!({
+                        "id": call.id,
+                        "type": "function",
+                        "function": { "name": call.name, "arguments": call.arguments },
+                    })
+                })
+                .collect();
+        }
+        if let Some(id) = &msg.tool_call_id {
+            entry["tool_call_id"] = serde_json::json!(id);
+        }
+        msgs.push(entry);
     }
-    serde_json::json!({
+    let mut body = serde_json::json!({
         "model": model,
         "messages": msgs,
         "stream": stream,
-    })
+    });
+    if let Some(tools) = tools.filter(|t| !t.is_empty()) {
+        body["tools"] = tools
+            .iter()
+            .map(|tool| {
+                serde_json::json!({
+                    "type": "function",
+                    "function": {
+                        "name": tool.name,
+                        "description": tool.description,
+                        "parameters": tool.input_schema,
+                    },
+                })
+            })
+            .collect();
+    }
+    body
 }
 
 #[derive(Deserialize)]
@@ -153,6 +205,8 @@ struct ChatChunk {
 struct ChatChoice {
     #[serde(default)]
     delta: ChatDelta,
+    #[serde(default)]
+    finish_reason: Option<String>,
 }
 
 #[derive(Deserialize, Default)]
@@ -160,11 +214,70 @@ struct ChatDelta {
     content: Option<String>,
     #[serde(alias = "reasoning")]
     reasoning_content: Option<String>,
+    tool_calls: Option<Vec<ToolCallDelta>>,
+}
+
+#[derive(Deserialize)]
+struct ToolCallDelta {
+    #[serde(default)]
+    index: u32,
+    id: Option<String>,
+    function: Option<ToolCallFunctionDelta>,
+}
+
+#[derive(Deserialize)]
+struct ToolCallFunctionDelta {
+    name: Option<String>,
+    arguments: Option<String>,
 }
 
 enum SseEvent {
     Delta(ChatDelta),
+    Finish(String),
     Done,
+}
+
+#[derive(Default)]
+struct PartialToolCall {
+    id: String,
+    name: String,
+    arguments: String,
+}
+
+#[derive(Default)]
+struct ToolCallAssembler {
+    calls: std::collections::BTreeMap<u32, PartialToolCall>,
+}
+
+impl ToolCallAssembler {
+    fn push(&mut self, deltas: Vec<ToolCallDelta>) {
+        for delta in deltas {
+            let call = self.calls.entry(delta.index).or_default();
+            if let Some(id) = delta.id {
+                call.id.push_str(&id);
+            }
+            if let Some(function) = delta.function {
+                if let Some(name) = function.name {
+                    call.name.push_str(&name);
+                }
+                if let Some(arguments) = function.arguments {
+                    call.arguments.push_str(&arguments);
+                }
+            }
+        }
+    }
+
+    fn flush(&mut self) -> Vec<AiStreamEvent> {
+        std::mem::take(&mut self.calls)
+            .into_values()
+            .filter(|call| !call.name.is_empty())
+            .map(|call| AiStreamEvent::ToolCall {
+                id: call.id,
+                name: call.name,
+                arguments: call.arguments,
+            })
+            .collect()
+    }
 }
 
 struct SseDecoder {
@@ -182,28 +295,38 @@ impl SseDecoder {
         while let Some(idx) = self.buf.iter().position(|&b| b == b'\n') {
             let line_bytes: Vec<u8> = self.buf.drain(..=idx).collect();
             let line = String::from_utf8_lossy(&line_bytes);
-            if let Some(event) = parse_sse_line(line.trim_end_matches(['\r', '\n'])) {
-                events.push(event);
-            }
+            events.extend(parse_sse_line(line.trim_end_matches(['\r', '\n'])));
         }
         events
     }
 }
 
-fn parse_sse_line(line: &str) -> Option<SseEvent> {
-    let data = line.strip_prefix("data:")?.trim();
+fn parse_sse_line(line: &str) -> Vec<SseEvent> {
+    let Some(data) = line.strip_prefix("data:") else {
+        return Vec::new();
+    };
+    let data = data.trim();
     if data.is_empty() {
-        return None;
+        return Vec::new();
     }
     if data == "[DONE]" {
-        return Some(SseEvent::Done);
+        return vec![SseEvent::Done];
     }
-    let chunk: ChatChunk = serde_json::from_str(data).ok()?;
-    let delta = chunk.choices.into_iter().next()?.delta;
-    if delta.content.is_none() && delta.reasoning_content.is_none() {
-        return None;
+    let Ok(chunk) = serde_json::from_str::<ChatChunk>(data) else {
+        return Vec::new();
+    };
+    let Some(choice) = chunk.choices.into_iter().next() else {
+        return Vec::new();
+    };
+    let mut events = Vec::new();
+    let delta = choice.delta;
+    if delta.content.is_some() || delta.reasoning_content.is_some() || delta.tool_calls.is_some() {
+        events.push(SseEvent::Delta(delta));
     }
-    Some(SseEvent::Delta(delta))
+    if let Some(reason) = choice.finish_reason {
+        events.push(SseEvent::Finish(reason));
+    }
+    events
 }
 
 #[tauri::command]
@@ -306,7 +429,8 @@ pub async fn ai_stream_start(
         } => {
             let resolved_model = model.or(provider_config.model.clone()).unwrap_or_default();
             let url = chat_completions_url(base_url);
-            let body = build_chat_request_body(&system_prompt, &messages, &resolved_model, true);
+            let body =
+                build_chat_request_body(&system_prompt, &messages, &resolved_model, true, None);
             let auth_token =
                 super::secrets::resolve_api_key(&provider_config.id, api_key_env.as_deref());
 
@@ -394,29 +518,58 @@ async fn consume_sse_response<F: FnMut(AiStreamEvent)>(
 
     let mut stream = response.bytes_stream();
     let mut decoder = SseDecoder::new();
+    let mut assembler = ToolCallAssembler::default();
 
     while let Some(chunk) = stream.next().await {
         let bytes = chunk.map_err(|e| format!("Stream error: {e}"))?;
         for event in decoder.push(&bytes) {
-            match event {
-                SseEvent::Delta(delta) => {
-                    if let Some(text) = delta.reasoning_content.filter(|t| !t.is_empty()) {
-                        emit(AiStreamEvent::Reasoning { text });
-                    }
-                    if let Some(text) = delta.content.filter(|t| !t.is_empty()) {
-                        emit(AiStreamEvent::Text { text });
-                    }
-                }
-                SseEvent::Done => {
-                    emit(AiStreamEvent::Done);
-                    return Ok(());
-                }
+            if handle_sse_event(event, &mut assembler, emit) {
+                return Ok(());
             }
         }
     }
 
+    for event in assembler.flush() {
+        emit(event);
+    }
     emit(AiStreamEvent::Done);
     Ok(())
+}
+
+fn handle_sse_event<F: FnMut(AiStreamEvent)>(
+    event: SseEvent,
+    assembler: &mut ToolCallAssembler,
+    emit: &mut F,
+) -> bool {
+    match event {
+        SseEvent::Delta(delta) => {
+            if let Some(calls) = delta.tool_calls {
+                assembler.push(calls);
+            }
+            if let Some(text) = delta.reasoning_content.filter(|t| !t.is_empty()) {
+                emit(AiStreamEvent::Reasoning { text });
+            }
+            if let Some(text) = delta.content.filter(|t| !t.is_empty()) {
+                emit(AiStreamEvent::Text { text });
+            }
+            false
+        }
+        SseEvent::Finish(reason) => {
+            if reason == "tool_calls" {
+                for event in assembler.flush() {
+                    emit(event);
+                }
+            }
+            false
+        }
+        SseEvent::Done => {
+            for event in assembler.flush() {
+                emit(event);
+            }
+            emit(AiStreamEvent::Done);
+            true
+        }
+    }
 }
 
 #[derive(Debug, PartialEq)]
@@ -650,8 +803,10 @@ pub async fn ai_test_provider(provider_config: AiProviderConfig) -> Result<Strin
             let messages = vec![AiMessage {
                 role: "user".to_string(),
                 content: "Reply with exactly OK.".into(),
+                tool_calls: None,
+                tool_call_id: None,
             }];
-            let mut body = build_chat_request_body("", &messages, &model, false);
+            let mut body = build_chat_request_body("", &messages, &model, false, None);
             body["max_tokens"] = serde_json::json!(8);
             let auth_token =
                 super::secrets::resolve_api_key(&provider_config.id, api_key_env.as_deref());
@@ -687,16 +842,26 @@ pub async fn ai_test_provider(provider_config: AiProviderConfig) -> Result<Strin
 mod tests {
     use super::{
         build_chat_request_body, build_prompt_text, chat_completions_url, clamp_stderr,
-        AiContentPart, AiMessage, AiMessageContent, SseDecoder, SseEvent, ThinkScanner,
-        ThinkSegment,
+        handle_sse_event, AiContentPart, AiMessage, AiMessageContent, AiStreamEvent, AiToolCall,
+        SseDecoder, SseEvent, ThinkScanner, ThinkSegment, ToolCallAssembler, ToolDefinition,
     };
+    use crate::features::mcp::types::InputSchema;
+
+    fn msg(role: &str, content: AiMessageContent) -> AiMessage {
+        AiMessage {
+            role: role.to_string(),
+            content,
+            tool_calls: None,
+            tool_call_id: None,
+        }
+    }
 
     fn deltas(events: Vec<SseEvent>) -> Vec<String> {
         events
             .into_iter()
             .filter_map(|e| match e {
                 SseEvent::Delta(d) => d.content,
-                SseEvent::Done => None,
+                SseEvent::Finish(_) | SseEvent::Done => None,
             })
             .collect()
     }
@@ -726,11 +891,8 @@ mod tests {
 
     #[test]
     fn request_body_prepends_system_and_keeps_messages() {
-        let msgs = vec![AiMessage {
-            role: "user".into(),
-            content: "hi".into(),
-        }];
-        let body = build_chat_request_body("sys", &msgs, "m", true);
+        let msgs = vec![msg("user", "hi".into())];
+        let body = build_chat_request_body("sys", &msgs, "m", true, None);
         assert_eq!(body["model"], "m");
         assert_eq!(body["stream"], true);
         let arr = body["messages"].as_array().unwrap();
@@ -743,7 +905,7 @@ mod tests {
 
     #[test]
     fn request_body_omits_empty_system() {
-        let body = build_chat_request_body("", &[], "m", true);
+        let body = build_chat_request_body("", &[], "m", true, None);
         assert_eq!(body["messages"].as_array().unwrap().len(), 0);
     }
 
@@ -953,12 +1115,10 @@ mod tests {
             .post(format!("http://{addr}/v1/chat/completions"))
             .json(&super::build_chat_request_body(
                 "sys",
-                &[AiMessage {
-                    role: "user".into(),
-                    content: "hi".into(),
-                }],
+                &[msg("user", "hi".into())],
                 "m",
                 true,
+                None,
             ))
             .send()
             .await
@@ -978,6 +1138,9 @@ mod tests {
             .collect();
         assert_eq!(texts, vec!["Hello".to_string(), " world".to_string()]);
         assert!(matches!(events.last(), Some(super::AiStreamEvent::Done)));
+        assert!(!events
+            .iter()
+            .any(|e| matches!(e, super::AiStreamEvent::ToolCall { .. })));
     }
 
     #[tokio::test]
@@ -1024,9 +1187,9 @@ mod tests {
 
     #[test]
     fn chat_request_body_encodes_image_parts_as_image_url() {
-        let messages = vec![AiMessage {
-            role: "user".to_string(),
-            content: AiMessageContent::Parts(vec![
+        let messages = vec![msg(
+            "user",
+            AiMessageContent::Parts(vec![
                 AiContentPart::Text {
                     text: "look".to_string(),
                 },
@@ -1035,8 +1198,8 @@ mod tests {
                     data: "abc".to_string(),
                 },
             ]),
-        }];
-        let body = build_chat_request_body("", &messages, "m", true);
+        )];
+        let body = build_chat_request_body("", &messages, "m", true, None);
         let content = &body["messages"][0]["content"];
         assert_eq!(content[0]["type"], "text");
         assert_eq!(content[1]["type"], "image_url");
@@ -1048,20 +1211,17 @@ mod tests {
 
     #[test]
     fn chat_request_body_keeps_plain_string_content() {
-        let messages = vec![AiMessage {
-            role: "user".to_string(),
-            content: AiMessageContent::Text("hi".to_string()),
-        }];
-        let body = build_chat_request_body("sys", &messages, "m", true);
+        let messages = vec![msg("user", AiMessageContent::Text("hi".to_string()))];
+        let body = build_chat_request_body("sys", &messages, "m", true, None);
         assert_eq!(body["messages"][0]["content"], "sys");
         assert_eq!(body["messages"][1]["content"], "hi");
     }
 
     #[test]
     fn cli_prompt_strips_images() {
-        let messages = vec![AiMessage {
-            role: "user".to_string(),
-            content: AiMessageContent::Parts(vec![
+        let messages = vec![msg(
+            "user",
+            AiMessageContent::Parts(vec![
                 AiContentPart::Text {
                     text: "describe".to_string(),
                 },
@@ -1070,7 +1230,7 @@ mod tests {
                     data: "abc".to_string(),
                 },
             ]),
-        }];
+        )];
         let prompt = build_prompt_text("", &messages);
         assert!(prompt.contains("describe"));
         assert!(prompt.contains("[image omitted]"));
@@ -1079,15 +1239,195 @@ mod tests {
 
     #[test]
     fn cli_prompt_never_injects_role_tags() {
-        let messages = vec![AiMessage {
-            role: "user".to_string(),
-            content: AiMessageContent::Text("the question".to_string()),
-        }];
+        let messages = vec![msg("user", AiMessageContent::Text("the question".to_string()))];
         let prompt = build_prompt_text("You are an assistant.", &messages);
         assert!(prompt.contains("You are an assistant."));
         assert!(prompt.contains("the question"));
         for tag in ["<system>", "</system>", "<user>", "</user>"] {
             assert!(!prompt.contains(tag), "prompt must not inject {tag}");
         }
+    }
+
+    fn tool_def(name: &str) -> ToolDefinition {
+        ToolDefinition {
+            name: name.to_string(),
+            description: "desc".to_string(),
+            input_schema: InputSchema {
+                schema_type: "object".to_string(),
+                properties: std::collections::HashMap::new(),
+                required: Vec::new(),
+            },
+        }
+    }
+
+    #[test]
+    fn request_body_serializes_tools_in_function_format() {
+        let tools = vec![tool_def("search_notes")];
+        let body = build_chat_request_body("", &[], "m", true, Some(&tools));
+        let arr = body["tools"].as_array().unwrap();
+        assert_eq!(arr.len(), 1);
+        assert_eq!(arr[0]["type"], "function");
+        assert_eq!(arr[0]["function"]["name"], "search_notes");
+        assert_eq!(arr[0]["function"]["description"], "desc");
+        assert_eq!(arr[0]["function"]["parameters"]["type"], "object");
+    }
+
+    #[test]
+    fn request_body_omits_tools_when_absent_or_empty() {
+        assert!(build_chat_request_body("", &[], "m", true, None)
+            .get("tools")
+            .is_none());
+        assert!(build_chat_request_body("", &[], "m", true, Some(&[]))
+            .get("tools")
+            .is_none());
+    }
+
+    #[test]
+    fn request_body_serializes_assistant_tool_calls_in_wire_shape() {
+        let mut message = msg("assistant", "".into());
+        message.tool_calls = Some(vec![AiToolCall {
+            id: "call_1".to_string(),
+            name: "search_notes".to_string(),
+            arguments: "{\"query\":\"x\"}".to_string(),
+        }]);
+        let body = build_chat_request_body("", &[message], "m", true, None);
+        let call = &body["messages"][0]["tool_calls"][0];
+        assert_eq!(call["id"], "call_1");
+        assert_eq!(call["type"], "function");
+        assert_eq!(call["function"]["name"], "search_notes");
+        assert_eq!(call["function"]["arguments"], "{\"query\":\"x\"}");
+    }
+
+    #[test]
+    fn request_body_serializes_tool_role_message_with_call_id() {
+        let mut message = msg("tool", "result text".into());
+        message.tool_call_id = Some("call_1".to_string());
+        let body = build_chat_request_body("", &[message], "m", true, None);
+        let entry = &body["messages"][0];
+        assert_eq!(entry["role"], "tool");
+        assert_eq!(entry["tool_call_id"], "call_1");
+        assert_eq!(entry["content"], "result text");
+        assert!(entry.get("tool_calls").is_none());
+    }
+
+    #[test]
+    fn decoder_emits_finish_reason_as_separate_event() {
+        let mut d = SseDecoder::new();
+        let evs = d.push(b"data: {\"choices\":[{\"delta\":{},\"finish_reason\":\"stop\"}]}\n");
+        match evs.as_slice() {
+            [SseEvent::Finish(reason)] => assert_eq!(reason, "stop"),
+            other => panic!("expected one finish event, got {} events", other.len()),
+        }
+    }
+
+    fn collect_tool_calls(events: &[AiStreamEvent]) -> Vec<(String, String, String)> {
+        events
+            .iter()
+            .filter_map(|e| match e {
+                AiStreamEvent::ToolCall {
+                    id,
+                    name,
+                    arguments,
+                } => Some((id.clone(), name.clone(), arguments.clone())),
+                _ => None,
+            })
+            .collect()
+    }
+
+    #[test]
+    fn tool_call_line_split_across_byte_chunks_assembles() {
+        let line = "data: {\"choices\":[{\"delta\":{\"tool_calls\":[{\"index\":0,\"id\":\"c1\",\"function\":{\"name\":\"read_note\",\"arguments\":\"{}\"}}]}}]}\n";
+        let mut d = SseDecoder::new();
+        let mut assembler = ToolCallAssembler::default();
+        let mut events = Vec::new();
+        for piece in line.as_bytes().chunks(7) {
+            for event in d.push(piece) {
+                handle_sse_event(event, &mut assembler, &mut |e| events.push(e));
+            }
+        }
+        assert!(events.is_empty());
+        let calls = collect_tool_calls(&assembler.flush());
+        assert_eq!(
+            calls,
+            vec![(
+                "c1".to_string(),
+                "read_note".to_string(),
+                "{}".to_string()
+            )]
+        );
+    }
+
+    #[tokio::test]
+    async fn assembles_tool_call_arguments_fragmented_across_sse_chunks() {
+        let body = concat!(
+            "data: {\"choices\":[{\"delta\":{\"role\":\"assistant\"}}]}\n\n",
+            "data: {\"choices\":[{\"delta\":{\"tool_calls\":[{\"index\":0,\"id\":\"call_1\",\"function\":{\"name\":\"search_notes\",\"arguments\":\"\"}}]}}]}\n\n",
+            "data: {\"choices\":[{\"delta\":{\"tool_calls\":[{\"index\":0,\"function\":{\"arguments\":\"{\\\"qu\"}}]}}]}\n\n",
+            "data: {\"choices\":[{\"delta\":{\"tool_calls\":[{\"index\":0,\"function\":{\"arguments\":\"ery\\\":\"}}]}}]}\n\n",
+            "data: {\"choices\":[{\"delta\":{\"tool_calls\":[{\"index\":0,\"function\":{\"arguments\":\"\\\"hnsw\"}}]}}]}\n\n",
+            "data: {\"choices\":[{\"delta\":{\"tool_calls\":[{\"index\":0,\"function\":{\"arguments\":\" index\\\"}\"}}]}}]}\n\n",
+            "data: {\"choices\":[{\"delta\":{},\"finish_reason\":\"tool_calls\"}]}\n\n",
+            "data: [DONE]\n\n",
+        );
+        let addr = spawn_mock_server(format!(
+            "HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nConnection: close\r\n\r\n{body}"
+        ));
+
+        let response = reqwest::Client::new()
+            .post(format!("http://{addr}/v1/chat/completions"))
+            .send()
+            .await
+            .unwrap();
+
+        let mut events = Vec::new();
+        super::consume_sse_response(response, &mut |e| events.push(e))
+            .await
+            .unwrap();
+
+        let calls = collect_tool_calls(&events);
+        assert_eq!(calls.len(), 1);
+        let (id, name, arguments) = &calls[0];
+        assert_eq!(id, "call_1");
+        assert_eq!(name, "search_notes");
+        let parsed: serde_json::Value = serde_json::from_str(arguments).unwrap();
+        assert_eq!(parsed["query"], "hnsw index");
+        assert!(matches!(events.last(), Some(AiStreamEvent::Done)));
+        assert!(!events
+            .iter()
+            .any(|e| matches!(e, AiStreamEvent::Text { .. })));
+    }
+
+    #[test]
+    fn assembler_tracks_parallel_tool_calls_by_index() {
+        let chunks = [
+            "data: {\"choices\":[{\"delta\":{\"tool_calls\":[{\"index\":0,\"id\":\"a\",\"function\":{\"name\":\"read_note\",\"arguments\":\"{\\\"p\"}},{\"index\":1,\"id\":\"b\",\"function\":{\"name\":\"search_notes\",\"arguments\":\"\"}}]}}]}\n",
+            "data: {\"choices\":[{\"delta\":{\"tool_calls\":[{\"index\":0,\"function\":{\"arguments\":\"ath\\\":\\\"x\\\"}\"}},{\"index\":1,\"function\":{\"arguments\":\"{}\"}}]}}]}\n",
+            "data: {\"choices\":[{\"delta\":{},\"finish_reason\":\"tool_calls\"}]}\n",
+        ];
+        let mut d = SseDecoder::new();
+        let mut assembler = ToolCallAssembler::default();
+        let mut events = Vec::new();
+        for chunk in chunks {
+            for event in d.push(chunk.as_bytes()) {
+                handle_sse_event(event, &mut assembler, &mut |e| events.push(e));
+            }
+        }
+        let calls = collect_tool_calls(&events);
+        assert_eq!(
+            calls,
+            vec![
+                (
+                    "a".to_string(),
+                    "read_note".to_string(),
+                    "{\"path\":\"x\"}".to_string()
+                ),
+                (
+                    "b".to_string(),
+                    "search_notes".to_string(),
+                    "{}".to_string()
+                ),
+            ]
+        );
+        assert!(collect_tool_calls(&assembler.flush()).is_empty());
     }
 }
