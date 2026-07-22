@@ -61,6 +61,7 @@ fn rag_query_def() -> ToolDefinition {
 
     ToolDefinition {
         name: "rag_query".into(),
+        mutating: false,
         description: "Ask a question and get a cited answer retrieved across the whole vault, using the same retrieval and citation pipeline as the in-app Vault Chat. Returns the answer with [N] citation markers followed by a Sources list mapping each marker to a note path. Requires the Carbide desktop app to be running.".into(),
         input_schema: InputSchema {
             schema_type: "object".into(),
@@ -79,6 +80,7 @@ fn rag_status_def() -> ToolDefinition {
 
     ToolDefinition {
         name: "rag_status".into(),
+        mutating: false,
         description: "Report RAG readiness for a vault: embedding model version, how many notes are embedded, whether indexing is in progress, and whether the in-app query bridge is available.".into(),
         input_schema: InputSchema {
             schema_type: "object".into(),

@@ -63,6 +63,7 @@ fn list_notes_def() -> ToolDefinition {
 
     ToolDefinition {
         name: "list_notes".into(),
+        mutating: false,
         description: "List notes in a vault with pagination. Returns tab-separated lines of path and title, plus a count summary. Use folder to filter by directory. Use search_notes for full-text search, or query_notes_by_property to filter by frontmatter fields.".into(),
         input_schema: InputSchema {
             schema_type: "object".into(),
@@ -85,6 +86,7 @@ fn read_note_def() -> ToolDefinition {
 
     ToolDefinition {
         name: "read_note".into(),
+        mutating: false,
         description: "Read the full markdown content of a note, including frontmatter. Returns raw markdown as a single text block. Use get_note_metadata instead if you only need title, tags, properties, or stats.".into(),
         input_schema: InputSchema {
             schema_type: "object".into(),
@@ -108,6 +110,7 @@ fn create_note_def() -> ToolDefinition {
 
     ToolDefinition {
         name: "create_note".into(),
+        mutating: true,
         description: "Create a new note. Fails with a conflict error if a note already exists at the given path — use update_note to modify existing notes. Returns the created path on success.".into(),
         input_schema: InputSchema {
             schema_type: "object".into(),
@@ -131,6 +134,7 @@ fn update_note_def() -> ToolDefinition {
 
     ToolDefinition {
         name: "update_note".into(),
+        mutating: true,
         description: "Replace the full content of an existing note. Fails if the note does not exist — use create_note for new notes. Returns the updated path and modification timestamp.".into(),
         input_schema: InputSchema {
             schema_type: "object".into(),
@@ -150,6 +154,7 @@ fn delete_note_def() -> ToolDefinition {
 
     ToolDefinition {
         name: "delete_note".into(),
+        mutating: true,
         description: "Permanently delete a note from the vault. Fails if the note does not exist. Returns the deleted path on success.".into(),
         input_schema: InputSchema {
             schema_type: "object".into(),
@@ -268,6 +273,7 @@ fn append_note_def() -> ToolDefinition {
 
     ToolDefinition {
         name: "append_note".into(),
+        mutating: true,
         description: "Append content to the end of an existing note. Use this to add new sections, paragraphs, or entries without overwriting existing content.".into(),
         input_schema: InputSchema {
             schema_type: "object".into(),
@@ -294,6 +300,7 @@ fn prepend_note_def() -> ToolDefinition {
 
     ToolDefinition {
         name: "prepend_note".into(),
+        mutating: true,
         description: "Insert content at the beginning of a note, after any YAML frontmatter. Use this to add content to the top of a note without disturbing metadata.".into(),
         input_schema: InputSchema {
             schema_type: "object".into(),
@@ -340,6 +347,7 @@ fn ensure_frontmatter_def() -> ToolDefinition {
 
     ToolDefinition {
         name: "ensure_frontmatter".into(),
+        mutating: true,
         description: "Add title and date_created frontmatter to a note if it doesn't already have any. Idempotent: no-op if frontmatter exists.".into(),
         input_schema: InputSchema {
             schema_type: "object".into(),

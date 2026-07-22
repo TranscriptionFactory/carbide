@@ -20,6 +20,7 @@ pub fn dispatch(app: &AppHandle, name: &str, _arguments: Option<&Value>) -> Opti
 fn list_vaults_def() -> ToolDefinition {
     ToolDefinition {
         name: "list_vaults".into(),
+        mutating: false,
         description: "List all registered vaults. Returns tab-separated lines of vault_id, name, path, and status (available/unavailable with note count). Call this first to discover vault IDs needed by other tools.".into(),
         input_schema: InputSchema {
             schema_type: "object".into(),

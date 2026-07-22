@@ -31,6 +31,7 @@ fn get_note_metadata_def() -> ToolDefinition {
 
     ToolDefinition {
         name: "get_note_metadata".into(),
+        mutating: false,
         description: "Get metadata for a note without reading its full content. Returns path, title, size, mtime, word/char counts, heading/outlink counts, reading time, task progress, tags, and frontmatter properties with types. Use read_note instead if you need the actual markdown content.".into(),
         input_schema: InputSchema {
             schema_type: "object".into(),
