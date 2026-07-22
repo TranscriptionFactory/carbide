@@ -17,6 +17,7 @@ import { create_test_watcher_adapter } from "./test_watcher_adapter";
 import { create_test_graph_adapter } from "./test_graph_adapter";
 import { create_test_rag_persistence_adapter } from "./test_rag_persistence_adapter";
 import type { AiPort, AiStreamPort } from "$lib/features/ai";
+import type { AgentPort } from "$lib/features/rag";
 
 function create_test_ai_adapter(): AiPort {
   return {
@@ -46,6 +47,15 @@ function create_test_ai_stream_adapter(): AiStreamPort {
     stream_text: () =>
       (async function* () {
         yield { type: "done" as const };
+      })(),
+  };
+}
+
+function create_test_agent_adapter(): AgentPort {
+  return {
+    stream_turn: () =>
+      (async function* () {
+        yield { type: "done" as const, stats: {} };
       })(),
   };
 }
@@ -297,6 +307,7 @@ export function create_test_ports(): Ports {
       remove: () => Promise.resolve(),
     },
     rag_persistence: create_test_rag_persistence_adapter(),
+    agent: create_test_agent_adapter(),
     reference_storage: {
       load_library: () => Promise.resolve({ schema_version: 1, items: [] }),
       save_library: () => Promise.resolve(),

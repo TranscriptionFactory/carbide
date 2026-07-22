@@ -4,6 +4,7 @@ import { ACTION_IDS } from "$lib/app";
 import { error_message } from "$lib/shared/utils/error_message";
 import { announce } from "$lib/shared/a11y/live_announcer.svelte";
 import { collect_open_note_image_parts } from "$lib/features/ai";
+import { provider_supports_agent } from "$lib/features/ai";
 import type { AiImagePart } from "$lib/features/ai";
 import type { AiProviderConfig } from "$lib/shared/types/ai_provider_config";
 import { DEFAULT_EDITOR_SETTINGS } from "$lib/shared/types/editor_settings";
@@ -12,6 +13,8 @@ import { should_attach_open_note_images } from "$lib/features/rag/domain/rag_ope
 import { should_autotitle } from "$lib/features/rag/domain/rag_session";
 import type { RagStore } from "$lib/features/rag/state/rag_store.svelte";
 import type { RagService } from "$lib/features/rag/application/rag_service";
+import type { AgentPort } from "$lib/features/rag/ports";
+import { AgentRunner } from "$lib/features/rag/application/agent_runner";
 
 const RAG_OP_KEY = "rag.ask";
 
@@ -39,9 +42,19 @@ export function register_rag_actions(
   input: ActionRegistrationInput & {
     rag_store: RagStore;
     rag_service: RagService;
+    agent_port: AgentPort;
   },
 ) {
-  const { registry, stores, rag_store, rag_service } = input;
+  const { registry, stores, services, rag_store, rag_service, agent_port } =
+    input;
+
+  const agent_runner = new AgentRunner(
+    agent_port,
+    rag_store,
+    stores.vault,
+    services.git,
+    () => registry.execute(ACTION_IDS.folder_refresh_tree),
+  );
 
   function get_providers(): AiProviderConfig[] {
     return stores.ui.editor_settings.ai_providers;
@@ -212,13 +225,84 @@ export function register_rag_actions(
     }
   }
 
+  async function run_agent(prompt: string) {
+    if (stores.op.is_pending(RAG_OP_KEY)) return;
+    const provider = resolve_ask_provider();
+    if (!provider) return;
+    if (!provider_supports_agent(provider)) {
+      toast.error("Agent mode requires the Claude Code provider");
+      return;
+    }
+
+    const revision = rag_store.begin_turn();
+    rag_store.add_user_message(prompt);
+    rag_store.start_loading();
+    rag_store.set_loading_stage("generating");
+    stores.op.start(RAG_OP_KEY, Date.now());
+
+    try {
+      const result = await agent_runner.run_turn(provider, prompt);
+      if (revision !== rag_store.revision) return;
+      if (result.status === "done") {
+        stores.op.succeed(RAG_OP_KEY);
+        announce("Vault chat reply ready");
+        void maybe_autotitle(provider, revision);
+      } else {
+        stores.op.fail(RAG_OP_KEY, result.message);
+      }
+      persist_session(rag_store.active_id);
+    } catch (err) {
+      if (revision !== rag_store.revision) return;
+      const message = error_message(err);
+      rag_store.fail_streaming(message);
+      stores.op.fail(RAG_OP_KEY, message);
+      persist_session(rag_store.active_id);
+    }
+  }
+
   registry.register({
     id: ACTION_IDS.rag_ask,
     label: "Ask Vault Chat",
     execute: async (payload: unknown) => {
       const question = payload_field(payload, "question").trim();
       if (!question) return;
-      await run_ask(question);
+      if (rag_store.mode === "agent") {
+        await run_agent(question);
+      } else {
+        await run_ask(question);
+      }
+    },
+  });
+
+  registry.register({
+    id: ACTION_IDS.rag_set_mode,
+    label: "Set Vault Chat Mode",
+    execute: (...args: unknown[]) => {
+      const mode = args[0];
+      if (mode !== "ask" && mode !== "agent") return;
+      if (mode === "agent" && !stores.ui.editor_settings.ai_enabled) {
+        toast.info("AI Assistant is disabled in settings");
+        return;
+      }
+      rag_store.set_mode(mode);
+    },
+  });
+
+  registry.register({
+    id: ACTION_IDS.rag_agent_abort,
+    label: "Stop Vault Agent Run",
+    execute: () => {
+      agent_runner.abort();
+    },
+  });
+
+  registry.register({
+    id: ACTION_IDS.rag_set_permission_mode,
+    label: "Set Vault Agent Permission Mode",
+    execute: (...args: unknown[]) => {
+      const mode = args[0];
+      if (mode !== "safe" && mode !== "power") return;
+      rag_store.set_permission_mode(mode);
     },
   });
 

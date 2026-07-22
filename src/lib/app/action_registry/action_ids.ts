@@ -334,6 +334,9 @@ export const ACTION_IDS = {
   rag_copy_message: "rag.copy_message",
   rag_regenerate: "rag.regenerate",
   rag_fork: "rag.fork",
+  rag_set_mode: "rag.set_mode",
+  rag_agent_abort: "rag.agent_abort",
+  rag_set_permission_mode: "rag.set_permission_mode",
 
   tab_open_to_side: "tab.open_to_side",
   tab_toggle_split: "tab.toggle_split",
