@@ -8,7 +8,7 @@ import {
   unmount,
 } from "../../../helpers/svelte_client_runtime";
 import RagModeToggle from "$lib/features/rag/ui/rag_mode_toggle.svelte";
-import { provider_supports_agent } from "$lib/features/ai";
+import { agent_backend } from "$lib/features/ai";
 import { BUILTIN_PROVIDER_PRESETS } from "$lib/shared/types/ai_provider_config";
 import type { RagSessionMode } from "$lib/features/rag/domain/rag_types";
 import type { AgentPermissionMode } from "$lib/features/rag/types/agent_events";
@@ -64,7 +64,7 @@ describe("RagModeToggle", () => {
     const codex = BUILTIN_PROVIDER_PRESETS.find((p) => p.id === "codex");
     if (!codex) throw new Error("codex preset missing");
     const target = render_toggle({
-      agent_supported: provider_supports_agent(codex),
+      agent_supported: agent_backend(codex) !== null,
     });
     const agent = button_labelled(target, "Agent");
     expect(agent.disabled).toBe(true);
@@ -78,7 +78,7 @@ describe("RagModeToggle", () => {
     if (!claude) throw new Error("claude preset missing");
     const on_set_mode = vi.fn();
     const target = render_toggle({
-      agent_supported: provider_supports_agent(claude),
+      agent_supported: agent_backend(claude) !== null,
       on_set_mode,
     });
     const agent = button_labelled(target, "Agent");

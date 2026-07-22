@@ -309,6 +309,7 @@ export function create_test_ports(): Ports {
     },
     rag_persistence: create_test_rag_persistence_adapter(),
     agent: create_test_agent_adapter(),
+    native_agent: create_test_agent_adapter(),
     reference_storage: {
       load_library: () => Promise.resolve({ schema_version: 1, items: [] }),
       save_library: () => Promise.resolve(),
