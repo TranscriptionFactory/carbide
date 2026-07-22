@@ -86,6 +86,13 @@ export class AiService {
     return await this.ai_port.test_provider(config);
   }
 
+  async open_vault_in_agent(
+    config: AiProviderConfig,
+    vault_path: string,
+  ): Promise<void> {
+    await this.ai_port.open_vault_in_agent(config, vault_path);
+  }
+
   async fetch_vault_context(
     note_path: string,
     settings: VaultContextSettings,
