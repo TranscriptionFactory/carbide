@@ -888,6 +888,39 @@
               </p>
             {/if}
 
+            <div class="SettingsDialog__row">
+              <div class="SettingsDialog__label-group">
+                <span class="SettingsDialog__label"
+                  >Default Agent Permission</span
+                >
+                <span class="SettingsDialog__description">
+                  Permission mode new agent sessions start in
+                </span>
+              </div>
+              <Select.Root
+                type="single"
+                value={editor_settings.ai_agent_permission_default}
+                onValueChange={(v: string | undefined) => {
+                  if (v === "safe" || v === "power") {
+                    update("ai_agent_permission_default", v);
+                  }
+                }}
+                disabled={ai_settings_disabled}
+              >
+                <Select.Trigger class="w-36">
+                  <span data-slot="select-value">
+                    {editor_settings.ai_agent_permission_default === "power"
+                      ? "Power"
+                      : "Safe"}
+                  </span>
+                </Select.Trigger>
+                <Select.Content>
+                  <Select.Item value="safe">Safe</Select.Item>
+                  <Select.Item value="power">Power</Select.Item>
+                </Select.Content>
+              </Select.Root>
+            </div>
+
             <div class="space-y-2">
               <div class="flex items-center justify-between">
                 <div class="SettingsDialog__label-group">
