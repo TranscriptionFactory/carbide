@@ -83,6 +83,11 @@ export function register_rag_actions(
         const provider = resolve_provider();
         if (provider) rag_store.set_provider(provider.id);
       }
+      if (!rag_store.active) {
+        rag_store.set_permission_mode(
+          stores.ui.editor_settings.ai_agent_permission_default,
+        );
+      }
       stores.ui.set_sidebar_view("rag");
     },
   });
@@ -356,6 +361,9 @@ export function register_rag_actions(
     label: "New Vault Chat",
     execute: () => {
       rag_store.start_new_session();
+      rag_store.set_permission_mode(
+        stores.ui.editor_settings.ai_agent_permission_default,
+      );
       stores.op.reset(RAG_OP_KEY);
     },
   });

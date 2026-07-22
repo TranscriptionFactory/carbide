@@ -172,6 +172,7 @@ export type EditorSettings = {
   ai_vault_context_similarity_threshold: number;
   ai_rag_retrieve_limit: number;
   ai_rag_context_token_budget: number;
+  ai_agent_permission_default: "safe" | "power";
   document_pdf_default_zoom: DocumentPdfZoomMode;
   document_pdf_scroll_mode: DocumentPdfScrollMode;
   document_code_wrap: boolean;
@@ -300,6 +301,7 @@ export const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
   ai_vault_context_similarity_threshold: 0.5,
   ai_rag_retrieve_limit: 15,
   ai_rag_context_token_budget: 8000,
+  ai_agent_permission_default: "safe",
   document_pdf_default_zoom: "fit_width",
   document_pdf_scroll_mode: "continuous",
   document_code_wrap: true,
@@ -515,6 +517,7 @@ export const GLOBAL_ONLY_SETTING_KEYS: readonly (keyof EditorSettings)[] = [
   "ai_vault_context_similarity_threshold",
   "ai_rag_retrieve_limit",
   "ai_rag_context_token_budget",
+  "ai_agent_permission_default",
   "iwe_ai_provider_id",
   "document_pdf_default_zoom",
   "document_pdf_scroll_mode",

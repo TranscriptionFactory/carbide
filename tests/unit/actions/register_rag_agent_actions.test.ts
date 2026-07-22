@@ -160,6 +160,16 @@ describe("rag agent actions", () => {
     expect(rag_store.active?.permission_mode).toBe("power");
   });
 
+  it("new_chat: seeds permission_mode from the configured default", async () => {
+    const { registry, stores, rag_store } = create_harness();
+    stores.ui.editor_settings.ai_agent_permission_default = "power";
+    rag_store.set_permission_mode("safe");
+
+    await registry.execute(ACTION_IDS.rag_new_chat);
+
+    expect(rag_store.permission_mode).toBe("power");
+  });
+
   it("agent_abort: is a no-op when nothing is running", async () => {
     const { registry } = create_harness();
 
