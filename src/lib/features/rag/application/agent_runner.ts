@@ -5,7 +5,6 @@ import type { AiProviderConfig } from "$lib/shared/types/ai_provider_config";
 import type { AgentPort } from "$lib/features/rag/ports";
 import {
   changed_files_from_tools,
-  is_mutating_tool,
   type AgentToolCall,
 } from "$lib/features/rag/domain/agent_file_ops";
 import type { RagStore } from "$lib/features/rag/state/rag_store.svelte";
@@ -51,7 +50,7 @@ export class AgentRunner {
     await this.checkpoint();
 
     this.abort_controller = new AbortController();
-    const mutating_calls: AgentToolCall[] = [];
+    const tool_calls: AgentToolCall[] = [];
     try {
       const events = this.agent_port.stream_turn({
         provider_config,
@@ -71,16 +70,12 @@ export class AgentRunner {
           this.rag_store.append_streaming_text(event.delta);
         } else if (event.type === "tool_start") {
           this.ensure_streaming();
-          this.rag_store.add_streaming_tool_event({
+          const call: AgentToolCall = {
             name: event.name,
             input_summary: event.input_summary,
-          });
-          if (is_mutating_tool(event.name)) {
-            mutating_calls.push({
-              name: event.name,
-              input_summary: event.input_summary,
-            });
-          }
+          };
+          this.rag_store.add_streaming_tool_event(call);
+          tool_calls.push(call);
         } else if (event.type === "tool_end") {
           this.rag_store.finish_streaming_tool_event(event.name, event.ok);
         } else if (event.type === "error") {
@@ -88,7 +83,7 @@ export class AgentRunner {
           return { status: "error", message: event.message };
         }
       }
-      const changed = changed_files_from_tools(mutating_calls);
+      const changed = changed_files_from_tools(tool_calls);
       if (changed.length > 0) {
         this.rag_store.add_changed_files(changed);
         await this.refresh_vault();
