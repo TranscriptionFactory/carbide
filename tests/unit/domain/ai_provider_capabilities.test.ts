@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { provider_supports_streaming } from "$lib/features/ai/domain/ai_provider_capabilities";
+import {
+  agent_backend,
+  provider_supports_streaming,
+} from "$lib/features/ai/domain/ai_provider_capabilities";
 import type { AiProviderConfig } from "$lib/shared/types/ai_provider_config";
 
 function api_provider(): AiProviderConfig {
@@ -43,5 +46,28 @@ describe("provider_supports_streaming", () => {
     expect(
       provider_supports_streaming(cli_provider(["--out={output_file}"])),
     ).toBe(false);
+  });
+});
+
+describe("agent_backend", () => {
+  it("returns harness for the claude provider", () => {
+    const claude: AiProviderConfig = {
+      id: "claude",
+      name: "Claude Code",
+      transport: {
+        kind: "cli",
+        command: "claude",
+        args: ["-p", "--output-format", "text"],
+      },
+    };
+    expect(agent_backend(claude)).toBe("harness");
+  });
+
+  it("returns native for api providers", () => {
+    expect(agent_backend(api_provider())).toBe("native");
+  });
+
+  it("returns null for text-only CLI providers", () => {
+    expect(agent_backend(cli_provider(["run", "{model}"]))).toBe(null);
   });
 });

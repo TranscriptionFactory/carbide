@@ -4,7 +4,7 @@ import { ACTION_IDS } from "$lib/app";
 import { error_message } from "$lib/shared/utils/error_message";
 import { announce } from "$lib/shared/a11y/live_announcer.svelte";
 import { collect_open_note_image_parts } from "$lib/features/ai";
-import { provider_supports_agent } from "$lib/features/ai";
+import { agent_backend } from "$lib/features/ai";
 import type { AiImagePart } from "$lib/features/ai";
 import type { AiProviderConfig } from "$lib/shared/types/ai_provider_config";
 import { DEFAULT_EDITOR_SETTINGS } from "$lib/shared/types/editor_settings";
@@ -43,18 +43,28 @@ export function register_rag_actions(
     rag_store: RagStore;
     rag_service: RagService;
     agent_port: AgentPort;
+    native_agent_port: AgentPort;
   },
 ) {
-  const { registry, stores, services, rag_store, rag_service, agent_port } =
-    input;
-
-  const agent_runner = new AgentRunner(
-    agent_port,
+  const {
+    registry,
+    stores,
+    services,
     rag_store,
-    stores.vault,
-    services.git,
-    () => registry.execute(ACTION_IDS.folder_refresh_tree),
-  );
+    rag_service,
+    agent_port,
+    native_agent_port,
+  } = input;
+
+  const make_agent_runner = (port: AgentPort) =>
+    new AgentRunner(port, rag_store, stores.vault, services.git, () =>
+      registry.execute(ACTION_IDS.folder_refresh_tree),
+    );
+
+  const agent_runners = {
+    harness: make_agent_runner(agent_port),
+    native: make_agent_runner(native_agent_port),
+  };
 
   function get_providers(): AiProviderConfig[] {
     return stores.ui.editor_settings.ai_providers;
@@ -234,8 +244,9 @@ export function register_rag_actions(
     if (stores.op.is_pending(RAG_OP_KEY)) return;
     const provider = resolve_ask_provider();
     if (!provider) return;
-    if (!provider_supports_agent(provider)) {
-      toast.error("Agent mode requires the Claude Code provider");
+    const backend = agent_backend(provider);
+    if (!backend) {
+      toast.error(`${provider.name} does not support agent mode`);
       return;
     }
 
@@ -246,7 +257,7 @@ export function register_rag_actions(
     stores.op.start(RAG_OP_KEY, Date.now());
 
     try {
-      const result = await agent_runner.run_turn(provider, prompt);
+      const result = await agent_runners[backend].run_turn(provider, prompt);
       if (revision !== rag_store.revision) return;
       if (result.status === "done") {
         stores.op.succeed(RAG_OP_KEY);
@@ -297,7 +308,8 @@ export function register_rag_actions(
     id: ACTION_IDS.rag_agent_abort,
     label: "Stop Vault Agent Run",
     execute: () => {
-      agent_runner.abort();
+      agent_runners.harness.abort();
+      agent_runners.native.abort();
     },
   });
 
