@@ -45,6 +45,11 @@
     rag.messages.findLast((m) => m.role === "user")?.content ?? "",
   );
 
+  // tool-call replay messages are persisted for the native agent loop, not shown
+  const visible_messages = $derived(
+    rag.messages.filter((m) => m.role !== "tool"),
+  );
+
   let show_sessions = $state(false);
   let renaming_id = $state<string | null>(null);
   let rename_value = $state("");
@@ -144,10 +149,11 @@
     );
   }
 
-  const agent_supported = $derived.by(() => {
+  const backend = $derived.by(() => {
     const config = providers.find((p) => p.id === provider_id);
-    return config !== undefined && agent_backend(config) !== null;
+    return config ? agent_backend(config) : null;
   });
+  const agent_supported = $derived(backend !== null);
 
   function set_mode(mode: RagSessionMode) {
     void action_registry.execute(ACTION_IDS.rag_set_mode, mode);
@@ -270,6 +276,16 @@
       <div class="flex items-center gap-1">
         <span class="text-xs font-medium text-muted-foreground">Vault Chat</span
         >
+        {#if rag.mode === "agent" && backend !== null}
+          <span
+            class="rounded-full border px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground"
+            title={backend === "native"
+              ? "Agent can only use vault tools"
+              : "Claude Code agent with full system access"}
+          >
+            {backend === "native" ? "vault-scoped" : "full access"}
+          </span>
+        {/if}
         {#if sessions.length > 0}
           <Button
             variant="ghost"
@@ -371,7 +387,7 @@
     </div>
   {:else}
     <div class="flex-1 overflow-y-auto p-3">
-      {#if rag.messages.length === 0 && !rag.is_loading}
+      {#if visible_messages.length === 0 && !rag.is_loading}
         <div class="flex h-full items-center justify-center">
           <EmptyMessage
             icon={MessagesSquare}
@@ -395,7 +411,7 @@
         </div>
       {:else}
         <div class="flex flex-col gap-4">
-          {#each rag.messages as message (message.id)}
+          {#each visible_messages as message (message.id)}
             {#if show_pending_sources && message.id === rag.streaming_id}
               {@render sources_strip()}
             {/if}

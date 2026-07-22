@@ -23,12 +23,18 @@ export type RagContextStats = {
   truncated: number;
 };
 
-export type RagRole = "user" | "assistant";
+export type RagRole = "user" | "assistant" | "tool";
 
 export type RagToolEvent = {
   name: string;
   input_summary: string;
   ok?: boolean;
+};
+
+export type RagToolCall = {
+  id: string;
+  name: string;
+  arguments: string;
 };
 
 export type RagMessage = {
@@ -39,6 +45,8 @@ export type RagMessage = {
   context_stats?: RagContextStats;
   reasoning?: string;
   tool_events?: RagToolEvent[];
+  tool_calls?: RagToolCall[];
+  tool_call_id?: string;
 };
 
 export type RagSourceInfo = {
