@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tauri::AppHandle;
 
@@ -98,13 +98,13 @@ fn query_notes_by_property_def() -> ToolDefinition {
     properties.insert("vault_id".into(), prop("string", "Vault identifier (use list_vaults to discover IDs)"));
     properties.insert(
         "property".into(),
-        prop("string", "Frontmatter property name to filter on (use list_properties to discover available names)"),
+        prop("string", "Property name to filter on. Use list_properties to discover frontmatter names. Also accepts pseudo-properties: 'modified'/'accessed' (note mtime), 'created' (note ctime), 'tag'/'tags' (matches the note's tags), and 'content' (full-text body match)."),
     );
     properties.insert(
         "value".into(),
         prop(
             "string",
-            "Optional. Value to compare against. Omit to check for property existence only.",
+            "Optional. Value to compare against. Omit to check for property existence only. For date properties, supports 'now()' and relative offsets like 'now()-7d' or 'now()+1h' (units: s, m, h, d, w) which resolve against the current time.",
         ),
     );
     properties.insert(
@@ -137,7 +137,7 @@ fn query_notes_by_property_def() -> ToolDefinition {
     ToolDefinition {
         name: "query_notes_by_property".into(),
         mutating: false,
-        description: "Find notes matching a frontmatter property filter. Returns tab-separated lines of path, title, property values, and tags, with a result count header. Use list_properties first to discover available property names. Use search_notes for full-text search instead.".into(),
+        description: "Find notes matching a property filter. Filters on frontmatter properties, or on pseudo-properties: modified/accessed/created (timestamps, comparable with now()-style relative values), tag/tags, and content (full-text body match). Operators gt/gte/lt/lte compare numerically when both sides are numeric. Returns tab-separated lines of path, title, property values, and tags, with a result count header. Use list_properties first to discover available property names.".into(),
         input_schema: InputSchema {
             schema_type: "object".into(),
             properties,
@@ -146,27 +146,27 @@ fn query_notes_by_property_def() -> ToolDefinition {
     }
 }
 
-#[derive(Deserialize)]
-struct PathArgs {
-    vault_id: String,
-    path: String,
+#[derive(Default, Serialize, Deserialize)]
+pub(crate) struct PathArgs {
+    pub vault_id: String,
+    pub path: String,
 }
 
-#[derive(Deserialize)]
-struct VaultArgs {
-    vault_id: String,
+#[derive(Default, Serialize, Deserialize)]
+pub(crate) struct VaultArgs {
+    pub vault_id: String,
 }
 
-#[derive(Deserialize)]
-struct QueryByPropertyArgs {
-    vault_id: String,
-    property: String,
+#[derive(Default, Serialize, Deserialize)]
+pub(crate) struct QueryByPropertyArgs {
+    pub vault_id: String,
+    pub property: String,
     #[serde(default)]
-    value: Option<String>,
+    pub value: Option<String>,
     #[serde(default)]
-    operator: Option<String>,
+    pub operator: Option<String>,
     #[serde(default)]
-    limit: Option<usize>,
+    pub limit: Option<usize>,
 }
 
 fn handle_get_backlinks(app: &AppHandle, arguments: Option<&Value>) -> ToolResult {
