@@ -81,6 +81,46 @@ describe("rag session persistence round-trip", () => {
     expect(store.scope).toEqual({ folders: ["projects"], tags: ["active"] });
   });
 
+  it("round-trips tool-call and tool-result messages", async () => {
+    const persistence = create_test_rag_persistence_adapter();
+    const writer = make_service(persistence);
+    const agent_session = session({
+      id: "agent",
+      mode: "agent",
+      messages: [
+        { id: "m1", role: "user", content: "create a note", citations: [] },
+        {
+          id: "m2",
+          role: "assistant",
+          content: "",
+          citations: [],
+          tool_calls: [
+            {
+              id: "call_1",
+              name: "create_note",
+              arguments: '{"path":"notes/a.md"}',
+            },
+          ],
+        },
+        {
+          id: "m3",
+          role: "tool",
+          content: "Created notes/a.md",
+          citations: [],
+          tool_call_id: "call_1",
+        },
+        { id: "m4", role: "assistant", content: "Done.", citations: [] },
+      ],
+    });
+    await writer.save_session(VAULT_ID, agent_session);
+
+    const store = new RagStore();
+    await load_rag_sessions(store, make_service(persistence), VAULT_ID);
+
+    store.switch_session("agent");
+    expect(store.messages).toEqual(agent_session.messages);
+  });
+
   it("round-trips title_source and tolerates legacy sessions without it", async () => {
     const persistence = create_test_rag_persistence_adapter();
     const writer = make_service(persistence);

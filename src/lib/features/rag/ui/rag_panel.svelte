@@ -45,6 +45,11 @@
     rag.messages.findLast((m) => m.role === "user")?.content ?? "",
   );
 
+  // tool-call replay messages are persisted for the native agent loop, not shown
+  const visible_messages = $derived(
+    rag.messages.filter((m) => m.role !== "tool"),
+  );
+
   let show_sessions = $state(false);
   let renaming_id = $state<string | null>(null);
   let rename_value = $state("");
@@ -371,7 +376,7 @@
     </div>
   {:else}
     <div class="flex-1 overflow-y-auto p-3">
-      {#if rag.messages.length === 0 && !rag.is_loading}
+      {#if visible_messages.length === 0 && !rag.is_loading}
         <div class="flex h-full items-center justify-center">
           <EmptyMessage
             icon={MessagesSquare}
@@ -395,7 +400,7 @@
         </div>
       {:else}
         <div class="flex flex-col gap-4">
-          {#each rag.messages as message (message.id)}
+          {#each visible_messages as message (message.id)}
             {#if show_pending_sources && message.id === rag.streaming_id}
               {@render sources_strip()}
             {/if}
