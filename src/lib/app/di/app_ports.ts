@@ -41,7 +41,7 @@ import type { ToolchainPort } from "$lib/features/toolchain";
 import type { CodeLspPort } from "$lib/features/code_lsp";
 import type { McpPort } from "$lib/features/mcp";
 import type { SavedQueryPort } from "$lib/features/query";
-import type { RagPersistencePort } from "$lib/features/rag";
+import type { AgentPort, RagPersistencePort } from "$lib/features/rag";
 import type {
   ReferenceStoragePort,
   CitationPort,
@@ -89,6 +89,7 @@ export type Ports = {
   code_lsp: CodeLspPort;
   saved_query: SavedQueryPort;
   rag_persistence: RagPersistencePort;
+  agent: AgentPort;
   reference_storage: ReferenceStoragePort;
   citation: CitationPort;
   doi_lookup: DoiLookupPort;

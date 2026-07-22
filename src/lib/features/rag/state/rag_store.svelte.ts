@@ -9,10 +9,13 @@ import type {
   RagRole,
   RagScope,
   RagSession,
+  RagSessionMode,
   RagSessionSummary,
   RagSourceInfo,
   RagTitleSource,
+  RagToolEvent,
 } from "$lib/features/rag/types/rag_types";
+import type { AgentPermissionMode } from "$lib/features/rag/types/agent_events";
 import type { RagReadiness } from "$lib/features/rag/types/rag_readiness";
 
 function new_message(
@@ -33,6 +36,9 @@ export class RagStore {
   scope = $state<RagScope>({});
   streaming_id = $state<string | null>(null);
   pending_sources = $state<RagSourceInfo[] | null>(null);
+  mode = $state<RagSessionMode>("ask");
+  permission_mode = $state<AgentPermissionMode>("safe");
+  agent_running_tool = $state<string | null>(null);
   revision = $state(0);
   readiness = $state<RagReadiness>({ state: "checking" });
 
@@ -58,6 +64,53 @@ export class RagStore {
 
   set_readiness(readiness: RagReadiness) {
     this.readiness = readiness;
+  }
+
+  set_mode(mode: RagSessionMode) {
+    this.mode = mode;
+    this.patch_active((s) => ({ ...s, mode }));
+  }
+
+  set_permission_mode(permission_mode: AgentPermissionMode) {
+    this.permission_mode = permission_mode;
+    this.patch_active((s) => ({ ...s, permission_mode }));
+  }
+
+  set_agent_session_id(agent_session_id: string) {
+    this.patch_active((s) => ({ ...s, agent_session_id }));
+  }
+
+  add_changed_files(paths: string[]) {
+    this.patch_active((s) => ({
+      ...s,
+      changed_files: [
+        ...s.changed_files,
+        ...paths.filter((p) => !s.changed_files.includes(p)),
+      ],
+    }));
+  }
+
+  add_streaming_tool_event(event: RagToolEvent) {
+    this.agent_running_tool = event.name;
+    this.update_streaming((m) => ({
+      ...m,
+      tool_events: [...(m.tool_events ?? []), event],
+    }));
+  }
+
+  finish_streaming_tool_event(name: string, ok: boolean) {
+    this.agent_running_tool = null;
+    this.update_streaming((m) => {
+      const events = [...(m.tool_events ?? [])];
+      for (let i = events.length - 1; i >= 0; i -= 1) {
+        const current = events[i];
+        if (current && current.name === name && current.ok === undefined) {
+          events[i] = { ...current, ok };
+          break;
+        }
+      }
+      return { ...m, tool_events: events };
+    });
   }
 
   add_user_message(content: string): RagMessage {
@@ -121,6 +174,7 @@ export class RagStore {
     this.streaming_id = null;
     this.is_loading = false;
     this.pending_sources = null;
+    this.agent_running_tool = null;
     this.patch_active((s) => this.touch(s));
   }
 
@@ -140,6 +194,7 @@ export class RagStore {
       this.streaming_id = null;
     }
     this.pending_sources = null;
+    this.agent_running_tool = null;
     this.set_error(error);
   }
 
@@ -167,6 +222,7 @@ export class RagStore {
     this.is_loading = false;
     this.streaming_id = null;
     this.pending_sources = null;
+    this.agent_running_tool = null;
     this.revision += 1;
   }
 
@@ -181,6 +237,8 @@ export class RagStore {
     this.active_id = id;
     this.provider_id = session.provider_id;
     this.scope = session.scope;
+    this.mode = session.mode;
+    this.permission_mode = session.permission_mode;
     this.reset_turn_state();
   }
 
@@ -266,6 +324,9 @@ export class RagStore {
       messages: [first],
       provider_id: this.provider_id,
       scope: this.scope,
+      mode: this.mode,
+      permission_mode: this.permission_mode,
+      changed_files: [],
     };
     this.sessions = [session, ...this.sessions];
     this.active_id = session.id;

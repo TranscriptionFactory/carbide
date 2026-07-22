@@ -1270,6 +1270,7 @@ export function create_app_context(input: {
     ...base_action_input,
     rag_store: stores.rag,
     rag_service,
+    agent_port: input.ports.agent,
   });
 
   register_graph_actions({
