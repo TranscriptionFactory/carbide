@@ -60,7 +60,7 @@ afterEach(() => {
 });
 
 describe("RagModeToggle", () => {
-  it("disables the agent segment with a tooltip for a non-agent provider", () => {
+  it("disables the agent segment with a tooltip for a backend-less provider", () => {
     const codex = BUILTIN_PROVIDER_PRESETS.find((p) => p.id === "codex");
     if (!codex) throw new Error("codex preset missing");
     const target = render_toggle({
@@ -69,7 +69,7 @@ describe("RagModeToggle", () => {
     const agent = button_labelled(target, "Agent");
     expect(agent.disabled).toBe(true);
     expect(agent.parentElement?.getAttribute("title")).toBe(
-      "Agent mode requires the Claude Code provider",
+      "Agent mode requires a tool-capable provider",
     );
   });
 
@@ -86,6 +86,16 @@ describe("RagModeToggle", () => {
     expect(agent.parentElement?.hasAttribute("title")).toBe(false);
     agent.click();
     expect(on_set_mode).toHaveBeenCalledWith("agent");
+  });
+
+  it("enables the agent segment for a native API provider", () => {
+    const lmstudio = BUILTIN_PROVIDER_PRESETS.find((p) => p.id === "lmstudio");
+    if (!lmstudio) throw new Error("lmstudio preset missing");
+    const target = render_toggle({
+      agent_supported: agent_backend(lmstudio) !== null,
+    });
+    const agent = button_labelled(target, "Agent");
+    expect(agent.disabled).toBe(false);
   });
 
   it("hides the permission picker in ask mode", () => {
