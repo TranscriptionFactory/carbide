@@ -37,6 +37,7 @@ function create_test_ai_adapter(): AiPort {
       }),
     set_api_key: () => Promise.resolve(),
     delete_api_key: () => Promise.resolve(),
+    open_vault_in_agent: () => Promise.resolve(),
     get_api_key_hint: () => Promise.resolve(null),
     test_provider: () => Promise.resolve("OK"),
   };

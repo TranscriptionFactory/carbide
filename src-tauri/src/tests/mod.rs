@@ -60,6 +60,8 @@ mod toolchain_registry_specs;
 #[path = "../../tests/metadata_events.rs"]
 mod metadata_events;
 
+#[path = "../../tests/agent_handoff.rs"]
+mod agent_handoff;
 #[path = "../../tests/agent_stream.rs"]
 mod agent_stream;
 
@@ -173,6 +175,7 @@ mod specta_export {
                 crate::features::ai::stream::ai_test_provider,
                 crate::features::ai::agent_stream::agent_stream_start,
                 crate::features::ai::agent_stream::agent_stream_abort,
+                crate::features::ai::agent_handoff::open_vault_in_agent,
                 crate::features::ai::secrets::ai_set_api_key,
                 crate::features::ai::secrets::ai_delete_api_key,
                 crate::features::ai::secrets::ai_has_api_key,

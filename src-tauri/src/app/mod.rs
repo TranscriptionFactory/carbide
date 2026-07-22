@@ -187,6 +187,7 @@ pub fn run() {
             features::ai::stream::ai_test_provider,
             features::ai::agent_stream::agent_stream_start,
             features::ai::agent_stream::agent_stream_abort,
+            features::ai::agent_handoff::open_vault_in_agent,
             features::ai::secrets::ai_set_api_key,
             features::ai::secrets::ai_delete_api_key,
             features::ai::secrets::ai_has_api_key,
