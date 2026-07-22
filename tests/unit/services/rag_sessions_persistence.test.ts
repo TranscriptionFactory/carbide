@@ -37,6 +37,9 @@ function session(overrides: Partial<RagSession> = {}): RagSession {
     ],
     provider_id: "ollama",
     scope: { folders: ["projects/"] },
+    mode: "ask",
+    permission_mode: "safe",
+    changed_files: [],
     ...overrides,
   };
 }
