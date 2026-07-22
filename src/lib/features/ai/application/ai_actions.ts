@@ -21,7 +21,10 @@ import {
 import type { AiService } from "$lib/features/ai/application/ai_service";
 import type { AiHistoryPersistencePort } from "$lib/features/ai/ports";
 import type { AiStore } from "$lib/features/ai/state/ai_store.svelte";
-import { error_message } from "$lib/shared/utils/error_message";
+import {
+  error_message,
+  strip_invoke_prefix,
+} from "$lib/shared/utils/error_message";
 import { create_logger } from "$lib/shared/utils/logger";
 import type { AiProviderConfig } from "$lib/shared/types/ai_provider_config";
 import { extract_frontmatter } from "$lib/features/reference";
@@ -789,7 +792,7 @@ export function register_ai_actions(
       try {
         await ai_service.open_vault_in_agent(provider, String(vault.path));
       } catch (e) {
-        toast.error(error_message(e));
+        toast.error(strip_invoke_prefix(error_message(e)));
       }
     },
   });
