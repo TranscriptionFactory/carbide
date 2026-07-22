@@ -12,6 +12,24 @@ export { register_rag_actions } from "$lib/features/rag/application/rag_actions"
 export { default as RagPanel } from "$lib/features/rag/ui/rag_panel.svelte";
 export type { RagPersistencePort } from "$lib/features/rag/ports";
 export { create_rag_persistence_tauri_adapter } from "$lib/features/rag/adapters/rag_persistence_tauri_adapter";
+export type { AgentPort, AgentStreamRequest } from "$lib/features/rag/ports";
+export { create_agent_tauri_adapter } from "$lib/features/rag/adapters/agent_tauri_adapter";
+export {
+  AgentRunner,
+  type AgentCheckpointGit,
+  type AgentTurnResult,
+} from "$lib/features/rag/application/agent_runner";
+export {
+  changed_files_from_tools,
+  is_mutating_tool,
+  type AgentToolCall,
+} from "$lib/features/rag/domain/agent_file_ops";
+export type {
+  AgentDoneStats,
+  AgentEvent,
+  AgentPermissionMode,
+} from "$lib/features/rag/types/agent_events";
+export { migrate_agent_fields } from "$lib/features/rag/types/rag_session";
 export {
   assemble_context,
   estimate_tokens,
@@ -64,7 +82,9 @@ export type {
   RagRole,
   RagScope,
   RagSession,
+  RagSessionMode,
   RagSessionSummary,
   RagSourceInfo,
   RagStreamEvent,
+  RagToolEvent,
 } from "$lib/features/rag/domain/rag_types";

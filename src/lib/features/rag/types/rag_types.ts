@@ -1,4 +1,5 @@
 import type { HitSource } from "$lib/shared/types/search";
+import type { AgentPermissionMode } from "$lib/features/rag/types/agent_events";
 
 export type RagCitation = {
   index: number;
@@ -24,6 +25,12 @@ export type RagContextStats = {
 
 export type RagRole = "user" | "assistant";
 
+export type RagToolEvent = {
+  name: string;
+  input_summary: string;
+  ok?: boolean;
+};
+
 export type RagMessage = {
   id: string;
   role: RagRole;
@@ -31,6 +38,7 @@ export type RagMessage = {
   citations: RagCitation[];
   context_stats?: RagContextStats;
   reasoning?: string;
+  tool_events?: RagToolEvent[];
 };
 
 export type RagSourceInfo = {
@@ -65,9 +73,15 @@ export type RagSessionSummary = {
 
 export type RagTitleSource = "derived" | "generated" | "manual";
 
+export type RagSessionMode = "ask" | "agent";
+
 export type RagSession = RagSessionSummary & {
   messages: RagMessage[];
   provider_id: string;
   scope: RagScope;
   title_source?: RagTitleSource;
+  mode: RagSessionMode;
+  permission_mode: AgentPermissionMode;
+  changed_files: string[];
+  agent_session_id?: string;
 };
