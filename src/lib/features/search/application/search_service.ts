@@ -333,6 +333,13 @@ export class SearchService {
     }
   }
 
+  async list_all_note_names(): Promise<string[]> {
+    const vault_id = this.get_active_vault_id();
+    if (!vault_id || !this.index_port) return [];
+    const paths = await this.index_port.list_note_paths_by_prefix(vault_id, "");
+    return paths.map(note_name_from_path);
+  }
+
   private async search_planned_omnibar_items(
     query: string,
   ): Promise<OmnibarSearchResult> {
