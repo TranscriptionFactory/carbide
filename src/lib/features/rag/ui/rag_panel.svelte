@@ -20,7 +20,7 @@
   import RagMessage from "$lib/features/rag/ui/rag_message.svelte";
   import RagInput from "$lib/features/rag/ui/rag_input.svelte";
   import RagModeToggle from "$lib/features/rag/ui/rag_mode_toggle.svelte";
-  import { provider_supports_agent } from "$lib/features/ai";
+  import { agent_backend } from "$lib/features/ai";
   import type {
     RagScope,
     RagSessionMode,
@@ -149,10 +149,11 @@
     );
   }
 
-  const agent_supported = $derived.by(() => {
+  const backend = $derived.by(() => {
     const config = providers.find((p) => p.id === provider_id);
-    return config !== undefined && provider_supports_agent(config);
+    return config ? agent_backend(config) : null;
   });
+  const agent_supported = $derived(backend !== null);
 
   function set_mode(mode: RagSessionMode) {
     void action_registry.execute(ACTION_IDS.rag_set_mode, mode);
@@ -181,7 +182,7 @@
   function change_provider(id: string) {
     rag.set_provider(id);
     const config = providers.find((p) => p.id === id);
-    if (rag.mode === "agent" && !(config && provider_supports_agent(config))) {
+    if (rag.mode === "agent" && !(config && agent_backend(config) !== null)) {
       set_mode("ask");
     }
     persist_active_session();
@@ -275,6 +276,16 @@
       <div class="flex items-center gap-1">
         <span class="text-xs font-medium text-muted-foreground">Vault Chat</span
         >
+        {#if rag.mode === "agent" && backend !== null}
+          <span
+            class="rounded-full border px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground"
+            title={backend === "native"
+              ? "Agent can only use vault tools"
+              : "Claude Code agent with full system access"}
+          >
+            {backend === "native" ? "vault-scoped" : "full access"}
+          </span>
+        {/if}
         {#if sessions.length > 0}
           <Button
             variant="ghost"

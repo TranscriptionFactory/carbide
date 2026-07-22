@@ -8,7 +8,7 @@ import {
   unmount,
 } from "../../../helpers/svelte_client_runtime";
 import RagModeToggle from "$lib/features/rag/ui/rag_mode_toggle.svelte";
-import { provider_supports_agent } from "$lib/features/ai";
+import { agent_backend } from "$lib/features/ai";
 import { BUILTIN_PROVIDER_PRESETS } from "$lib/shared/types/ai_provider_config";
 import type { RagSessionMode } from "$lib/features/rag/domain/rag_types";
 import type { AgentPermissionMode } from "$lib/features/rag/types/agent_events";
@@ -60,16 +60,16 @@ afterEach(() => {
 });
 
 describe("RagModeToggle", () => {
-  it("disables the agent segment with a tooltip for a non-agent provider", () => {
+  it("disables the agent segment with a tooltip for a backend-less provider", () => {
     const codex = BUILTIN_PROVIDER_PRESETS.find((p) => p.id === "codex");
     if (!codex) throw new Error("codex preset missing");
     const target = render_toggle({
-      agent_supported: provider_supports_agent(codex),
+      agent_supported: agent_backend(codex) !== null,
     });
     const agent = button_labelled(target, "Agent");
     expect(agent.disabled).toBe(true);
     expect(agent.parentElement?.getAttribute("title")).toBe(
-      "Agent mode requires the Claude Code provider",
+      "Agent mode requires a tool-capable provider",
     );
   });
 
@@ -78,7 +78,7 @@ describe("RagModeToggle", () => {
     if (!claude) throw new Error("claude preset missing");
     const on_set_mode = vi.fn();
     const target = render_toggle({
-      agent_supported: provider_supports_agent(claude),
+      agent_supported: agent_backend(claude) !== null,
       on_set_mode,
     });
     const agent = button_labelled(target, "Agent");
@@ -86,6 +86,16 @@ describe("RagModeToggle", () => {
     expect(agent.parentElement?.hasAttribute("title")).toBe(false);
     agent.click();
     expect(on_set_mode).toHaveBeenCalledWith("agent");
+  });
+
+  it("enables the agent segment for a native API provider", () => {
+    const lmstudio = BUILTIN_PROVIDER_PRESETS.find((p) => p.id === "lmstudio");
+    if (!lmstudio) throw new Error("lmstudio preset missing");
+    const target = render_toggle({
+      agent_supported: agent_backend(lmstudio) !== null,
+    });
+    const agent = button_labelled(target, "Agent");
+    expect(agent.disabled).toBe(false);
   });
 
   it("hides the permission picker in ask mode", () => {

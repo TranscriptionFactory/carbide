@@ -18,7 +18,7 @@
     on_set_permission_mode,
   }: Props = $props();
 
-  const AGENT_UNSUPPORTED_HINT = "Agent mode requires the Claude Code provider";
+  const AGENT_UNSUPPORTED_HINT = "Agent mode requires a tool-capable provider";
 
   const MODES: Array<{ value: RagSessionMode; label: string }> = [
     { value: "ask", label: "Ask" },
