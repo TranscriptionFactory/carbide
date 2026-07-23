@@ -29,12 +29,19 @@ type BuildHandle = (
   get_pos: () => number | undefined,
 ) => HTMLElement;
 
-function resolve_top_level_block(
+export function resolve_top_level_block(
   view: EditorView,
   pos: number,
 ): { pos: number; node: ProseNode } | null {
   const $pos = view.state.doc.resolve(pos);
   if ($pos.depth === 0) return null;
+
+  for (let depth = $pos.depth; depth >= 1; depth--) {
+    if ($pos.node(depth).type.name !== "list_item") continue;
+    const item_pos = $pos.before(depth);
+    const item = view.state.doc.nodeAt(item_pos);
+    if (item) return { pos: item_pos, node: item };
+  }
 
   const top_pos = $pos.before(1);
   const node = view.state.doc.nodeAt(top_pos);
