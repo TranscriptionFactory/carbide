@@ -78,7 +78,6 @@ function create_harness(events: AgentEvent[] = AGENT_EVENTS) {
     rag_store,
     rag_service: rag_service as never,
     agent_port,
-    native_agent_port,
   });
 
   return {
@@ -131,7 +130,7 @@ describe("rag agent actions", () => {
   });
 
   it("ask in agent mode: refuses text-only CLI providers with a toast", async () => {
-    const { registry, stores, rag_store, agent_port, native_agent_port } =
+    const { registry, stores, rag_store, agent_port } =
       create_harness();
     rag_store.set_mode("agent");
     stores.ui.editor_settings.ai_default_provider_id = "ollama";
@@ -139,7 +138,6 @@ describe("rag agent actions", () => {
     await registry.execute(ACTION_IDS.rag_ask, "organize my notes");
 
     expect(agent_port.stream_turn).not.toHaveBeenCalled();
-    expect(native_agent_port.stream_turn).not.toHaveBeenCalled();
     expect(toast.error).toHaveBeenCalledWith(
       "Ollama does not support agent mode",
     );
@@ -159,6 +157,7 @@ describe("rag agent actions", () => {
         prompt: "organize my notes",
         permission_mode: "safe",
         vault_path: "/vault/demo",
+        backend: "harness",
       }),
     );
     expect(rag_store.messages.map((m) => m.role)).toEqual([
@@ -171,26 +170,30 @@ describe("rag agent actions", () => {
   });
 
   it("ask in agent mode: routes the claude provider to the harness port", async () => {
-    const { registry, rag_store, agent_port, native_agent_port } =
+    const { registry, rag_store, agent_port } =
       create_harness();
     rag_store.set_mode("agent");
 
     await registry.execute(ACTION_IDS.rag_ask, "organize my notes");
 
     expect(agent_port.stream_turn).toHaveBeenCalledTimes(1);
-    expect(native_agent_port.stream_turn).not.toHaveBeenCalled();
+    expect(agent_port.stream_turn).toHaveBeenCalledWith(
+      expect.objectContaining({ backend: "harness" }),
+    );
   });
 
   it("ask in agent mode: routes api providers to the native agent port", async () => {
-    const { registry, stores, rag_store, agent_port, native_agent_port } =
+    const { registry, stores, rag_store, agent_port } =
       create_harness();
     rag_store.set_mode("agent");
     stores.ui.editor_settings.ai_default_provider_id = "lmstudio";
 
     await registry.execute(ACTION_IDS.rag_ask, "organize my notes");
 
-    expect(native_agent_port.stream_turn).toHaveBeenCalledTimes(1);
-    expect(agent_port.stream_turn).not.toHaveBeenCalled();
+    expect(agent_port.stream_turn).toHaveBeenCalledTimes(1);
+    expect(agent_port.stream_turn).toHaveBeenCalledWith(
+      expect.objectContaining({ backend: "native" }),
+    );
     expect(stores.op.get("rag.ask").status).toBe("success");
   });
 
@@ -211,7 +214,7 @@ describe("rag agent actions", () => {
       stores,
       rag_store,
       rag_service,
-      native_agent_port,
+      agent_port,
       git_service,
     } = create_harness(events);
     registry.register({
@@ -225,11 +228,12 @@ describe("rag agent actions", () => {
     await registry.execute(ACTION_IDS.rag_ask, "create a note");
 
     expect(git_service.create_checkpoint).toHaveBeenCalledTimes(1);
-    expect(native_agent_port.stream_turn).toHaveBeenCalledWith(
+    expect(agent_port.stream_turn).toHaveBeenCalledWith(
       expect.objectContaining({
         prompt: "create a note",
         permission_mode: "safe",
         vault_path: "/vault/demo",
+        backend: "native",
       }),
     );
     expect(rag_store.messages.map((m) => m.role)).toEqual([

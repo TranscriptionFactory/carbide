@@ -41,6 +41,7 @@ export class AgentRunner {
   async run_turn(
     provider_config: AiProviderConfig,
     prompt: string,
+    backend: "harness" | "native",
   ): Promise<AgentTurnResult> {
     const vault = this.vault_store.vault;
     const session = this.rag_store.active;
@@ -57,6 +58,7 @@ export class AgentRunner {
         prompt,
         vault_path: String(vault.path),
         permission_mode: session.permission_mode,
+        backend,
         ...(session.agent_session_id
           ? { resume_session_id: session.agent_session_id }
           : {}),

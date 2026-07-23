@@ -1,10 +1,10 @@
 # TP-002-agent-run-contract: TP-002-agent-run-contract — Status
 
-**Current Step:** Step 1: Rust unified command + registry
+**Current Step:** Step 3: Testing & Verification
 **Status:** 🟡 In Progress
 **Last Updated:** 2026-07-23
 **Review Level:** 2
-**Review Counter:** 1
+**Review Counter:** 2
 **Iteration:** 1
 **Size:** L
 
@@ -19,7 +19,7 @@
 ---
 
 ### Step 1: Rust unified command + registry
-**Status:** 🟨 In Progress
+**Status:** ✅ Complete
 
 - [x] Define `AgentRunBackend` enum (`"harness" | "native"`, snake_case serde) and `AgentRunSpec` struct: `{ provider_config, prompt, vault_path, permission_mode, resume_session_id?, backend }` — specta-typed
 - [x] New commands `agent_run_start(request_id, spec)` / `agent_run_abort(request_id)`; single channel `agent-run-event:{request_id}`; ONE registry struct replacing `AgentStreamState` + `NativeAgentState`; route to the EXISTING harness spawn logic and `run_native_turn` unchanged
@@ -31,13 +31,13 @@
 ---
 
 ### Step 2: TS single adapter + port
-**Status:** ⬜ Not Started
+**Status:** ✅ Complete
 
-- [ ] `agent_events.ts`: add `{ type: "reasoning"; delta: string }`; `result_summary?: string | null` on tool_end
-- [ ] `AgentStreamRequest` gains `backend: "harness" | "native"`
-- [ ] Rewrite `agent_tauri_adapter.ts` as THE adapter (channel `agent-run-event:`), delete `native_agent_tauri_adapter.ts`
-- [ ] `rag_actions.ts`: single `agent_port` + single `AgentRunner`; `agent_backend(provider)` result passed as `request.backend` (keep `agent_backend()` as-is — TP-004 replaces it)
-- [ ] Update affected unit tests
+- [x] `agent_events.ts`: add `{ type: "reasoning"; delta: string }`; `result_summary?: string | null` on tool_end
+- [x] `AgentStreamRequest` gains `backend: "harness" | "native"`
+- [x] Rewrite `agent_tauri_adapter.ts` as THE adapter (channel `agent-run-event:`), delete `native_agent_tauri_adapter.ts`
+- [x] `rag_actions.ts`: single `agent_port` + single `AgentRunner`; `agent_backend(provider)` result passed as `request.backend` (keep `agent_backend()` as-is — TP-004 replaces it)
+- [x] Update affected unit tests
 
 ---
 
