@@ -138,11 +138,18 @@
 [data-width-mode="wide"] {
   --editor-max-width: none;
   --source-editor-max-width: none;
+  --wide-editor-padding-inline: clamp(24px, 4vw, 72px);
 }
 
 [data-width-mode="wide"] .milkdown .ProseMirror {
   max-width: none;
-  padding-inline: clamp(24px, 4vw, 72px);
+  padding-inline: var(--wide-editor-padding-inline);
+}
+
+/* Wide mode removes the outer gutter, so the handle's default negative
+   offset would fall off the pane; anchor it inside the left padding. */
+[data-width-mode="wide"] .block-drag-handle {
+  left: calc(var(--wide-editor-padding-inline) - 1.75rem);
 }
 
 /* ============================================
