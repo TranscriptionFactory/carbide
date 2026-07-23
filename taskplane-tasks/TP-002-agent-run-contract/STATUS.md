@@ -4,7 +4,7 @@
 **Status:** 🟡 In Progress
 **Last Updated:** 2026-07-23
 **Review Level:** 2
-**Review Counter:** 0
+**Review Counter:** 1
 **Iteration:** 1
 **Size:** L
 
@@ -21,12 +21,12 @@
 ### Step 1: Rust unified command + registry
 **Status:** 🟨 In Progress
 
-- [ ] Define `AgentRunBackend` enum (`"harness" | "native"`, snake_case serde) and `AgentRunSpec` struct: `{ provider_config, prompt, vault_path, permission_mode, resume_session_id?, backend }` — specta-typed
-- [ ] New commands `agent_run_start(request_id, spec)` / `agent_run_abort(request_id)`; single channel `agent-run-event:{request_id}`; ONE registry struct replacing `AgentStreamState` + `NativeAgentState`; route to the EXISTING harness spawn logic and `run_native_turn` unchanged
-- [ ] `AgentEvent`: add `#[serde(rename = "reasoning")] Reasoning { delta: String }` and `result_summary: Option<String>` on `ToolEnd` (`#[serde(default, skip_serializing_if = "Option::is_none")]`). NO other variant changes — existing variants byte-stable
-- [ ] Native loop: map `AiStreamEvent::Reasoning { text }` → `AgentEvent::Reasoning { delta: text }`; populate `result_summary: None` everywhere for now
-- [ ] Delete old commands/registries/channels (clean break — repo rule: internal API breaks OK, 0 users)
-- [ ] `cargo test specta_export` to regenerate bindings.ts
+- [x] Define `AgentRunBackend` enum (`"harness" | "native"`, snake_case serde) and `AgentRunSpec` struct: `{ provider_config, prompt, vault_path, permission_mode, resume_session_id?, backend }` — specta-typed
+- [x] New commands `agent_run_start(request_id, spec)` / `agent_run_abort(request_id)`; single channel `agent-run-event:{request_id}`; ONE registry struct replacing `AgentStreamState` + `NativeAgentState`; route to the EXISTING harness spawn logic and `run_native_turn` unchanged
+- [x] `AgentEvent`: add `#[serde(rename = "reasoning")] Reasoning { delta: String }` and `result_summary: Option<String>` on `ToolEnd` (`#[serde(default, skip_serializing_if = "Option::is_none")]`). NO other variant changes — existing variants byte-stable
+- [x] Native loop: map `AiStreamEvent::Reasoning { text }` → `AgentEvent::Reasoning { delta: text }`; populate `result_summary: None` everywhere for now
+- [x] Delete old commands/registries/channels (clean break — repo rule: internal API breaks OK, 0 users)
+- [x] `cargo test specta_export` to regenerate bindings.ts
 
 ---
 
