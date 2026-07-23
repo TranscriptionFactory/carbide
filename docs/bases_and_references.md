@@ -42,10 +42,18 @@ Sort by any property (including Title and Modified) in ascending or descending o
 
 ### Views
 
+The panel offers six view modes for the same query result:
+
 - **Table**: Spreadsheet-like grid with dynamic columns for each property. Tags shown in the last column.
 - **List**: Card layout showing title, path, tags as pills, and a property grid.
+- **Kanban**: Cards grouped into columns by a **group-by** property (e.g. `status`). Column order can be customized.
+- **Gallery**: Grid of cards for scanning notes visually.
+- **Calendar**: Notes placed on a month grid by a **date property** (e.g. `due`).
+- **Tree**: Notes nested into a hierarchy by one or more **group-by** properties.
 
-Toggle between views using the icons in the panel header.
+Toggle between views using the icons in the panel header. Kanban, calendar, and
+tree each expose their grouping/date config in the view; saved views remember
+it.
 
 ### Saved Views
 

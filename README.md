@@ -17,8 +17,9 @@ Miners once dropped calcium carbide into water to produce acetylene flame for th
 - **Plain-folder vaults**: Notes, settings, indexes, attachments, references, and plugins stay on disk in portable formats.
 - **Markdown editing**: ProseMirror and CodeMirror support visual/source editing, wikilinks, transclusions, callouts, tables, code blocks, KaTeX, Mermaid, outlines, and daily notes.
 - **Search and navigation**: Omnibar, inline `@` palette, SQLite FTS5, semantic embeddings, structured note/task queries, saved `.query` files, tags, backlinks, graph views, and Bases over frontmatter.
-- **Documents**: In-app viewers for PDF, EPUB, images, code, HTML, CSV, and Excalidraw. Markdown-to-PDF export includes images, Mermaid diagrams, SVG, and KaTeX math.
+- **Documents**: In-app viewers for PDF, images, code, HTML, CSV, and Excalidraw, plus an EPUB reader with in-book search and reading-position resume, with each book full-text indexed into vault search. Markdown-to-PDF export includes images, Mermaid diagrams, SVG, and KaTeX math.
 - **HTML artifacts**: Search, link, embed, and render `.html` files in Source, Safe, or Live mode with explicit trust grants. See [HTML Artifacts](docs/html_artifacts.md).
+- **Web clipping**: Save any page into the vault — direct fetch or a JS-capable capture window, readability extraction, localized images, and provenance frontmatter — as Markdown, a searchable HTML artifact, or an EPUB you read in-app. See [Web Clipping](docs/web_clipping.md).
 - **Tasks and planning**: Markdown tasks with status cycling, due dates, list/kanban/schedule views, quick capture, and embedded task-query results.
 - **References**: Citation library, BibTeX/CSL/RIS import and export, Zotero Better BibTeX search/import/sync, bibliography export, and linked PDF/HTML source folders.
 - **Git workflow**: Init, status, stage, commit, checkpoint, diff, restore, remotes, sync, and optional auto-commit on save.
@@ -61,11 +62,13 @@ You can also open **System Settings → Privacy & Security** and choose **Open A
 
 - [Getting Started](docs/getting_started.md): first launch, vaults, command palette, search, AI, and documents.
 - [Search & Queries](docs/search_and_queries.md): omnibar, inline `@` palette, query language, graph search, Bases, and task queries.
+- [Language Tools](docs/language_tools.md): Markdown and code LSP servers, linting, and native-vs-LSP toggles.
 - [Bases & References](docs/bases_and_references.md): frontmatter views, citations, linked sources, and Zotero.
 - [AI & Vault Chat](docs/ai_and_chat.md): providers, inline ask/edit, retrieval, citations, and MCP chat tools.
 - [Markdown Syntax Guide](docs/markdown-syntax-guide.md): supported Markdown, embeds, callouts, math, and diagrams.
 - [HTML Artifacts](docs/html_artifacts.md): render modes, trust grants, transclusion, paste-as-artifact, and provenance.
 - [Document Viewers](docs/document_viewers.md): PDF, EPUB, image, HTML, CSV, code, and reading-position support.
+- [Web Clipping](docs/web_clipping.md): clip pages to Markdown, HTML artifacts, or EPUB with image localization and provenance.
 - [Data Storage](docs/data_storage_locations.md): vault data, app settings, caches, indexes, plugins, and logs.
 - [Plugin How-To](docs/plugin_howto.md): manifests, permissions, SDK APIs, marketplace packaging, and sidecars.
 - [Architecture](docs/architecture.md): decision tree, feature anatomy, layering rules, and project structure.
@@ -96,13 +99,13 @@ Project rules live in [Architecture](docs/architecture.md). Add feature code by 
 
 Carbide ships with these example and utility plugins:
 
-- Auto-Tag
-- HTML Strip
-- HTML to Markdown
-- PDF Export
-- Slides Export
-- Smart Templates
-- Wiki Compiler
+- Auto-Tag — auto-prefix configured words with `#`
+- HTML Strip — strip styles, scripts, and metadata from HTML
+- HTML to Markdown — convert HTML to Markdown via Turndown
+- PDF Export — export a note to PDF with Mermaid and LaTeX
+- Slides Export — export a note to a slide-deck PDF, split on `---`
+- Smart Templates — context-aware Handlebars templates with live preview
+- Wiki Compiler — compile vault notes into an interlinked wiki via LLM
 
 Plugin manifests live under [`plugins/`](plugins/). User-installed plugins live in each vault under `.carbide/plugins/`.
 

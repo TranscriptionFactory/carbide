@@ -262,8 +262,9 @@ In addition to any frontmatter keys found in your vault, Bases provides:
 
 ### Views
 
-- **Table**: Spreadsheet-like grid with dynamic columns
-- **List**: Card layout with title, path, tags, and property grid
+Six view modes: **Table**, **List**, **Kanban** (group-by property), **Gallery**,
+**Calendar** (date property), and **Tree** (nested by group-by properties). See
+[Bases & References → Views](./bases_and_references.md#views).
 
 ### Saved Views
 
@@ -274,6 +275,18 @@ For more detail, see [Bases & References](./bases_and_references.md).
 ## Task Queries
 
 A specialized query language for filtering, sorting, and grouping Markdown tasks (`[ ]`, `[-]`, `[x]`). Used in the task panel's list, kanban, and schedule views.
+
+### Task Boards
+
+The task panel renders the tasks matched by your query in one of three board views:
+
+- **List** — a flat or grouped list (see [Grouping Modes](#grouping-modes)).
+- **Kanban** — cards in **Todo / Doing / Done** columns.
+- **Schedule** — tasks bucketed by due date, with undated tasks collected under **No Due Date**.
+
+Tasks carry a three-state status — **todo** (`[ ]`), **doing** (`[-]`), **done**
+(`[x]`). Clicking a task's checkbox cycles it forward: todo → doing → done. Use
+**Quick Capture** to add a task without leaving your current note.
 
 ### Syntax
 

@@ -44,6 +44,11 @@ export const GUIDES: GuideEntry[] = [
     description: "Find notes with full-text and structured queries",
   },
   {
+    slug: "language_tools",
+    title: "Language Tools",
+    description: "Markdown and code LSP servers, linting, and diagnostics",
+  },
+  {
     slug: "bases_and_references",
     title: "Bases & References",
     description: "Organize notes with bases and cross-references",
@@ -59,9 +64,19 @@ export const GUIDES: GuideEntry[] = [
     description: "Supported markdown features and extensions",
   },
   {
+    slug: "html_artifacts",
+    title: "HTML Artifacts",
+    description: "Render, embed, and trust .html files in the vault",
+  },
+  {
     slug: "document_viewers",
     title: "Document Viewers",
     description: "PDF, EPUB, and other in-app document viewers",
+  },
+  {
+    slug: "web_clipping",
+    title: "Web Clipping",
+    description: "Clip web pages to Markdown, HTML artifacts, or EPUB",
   },
   {
     slug: "plugin_howto",
