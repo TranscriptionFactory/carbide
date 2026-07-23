@@ -16,6 +16,20 @@ function find_callout_depth($pos: ResolvedPos): number {
   return -1;
 }
 
+function place_after_section(view: EditorView, after: number): boolean {
+  const { state, dispatch } = view;
+  const sel = TextSelection.findFrom(state.doc.resolve(after), 1);
+  const tr = state.tr;
+  if (sel) {
+    tr.setSelection(sel);
+  } else {
+    tr.insert(after, schema.nodes.paragraph.create());
+    tr.setSelection(TextSelection.create(tr.doc, after + 1));
+  }
+  dispatch(tr.scrollIntoView());
+  return true;
+}
+
 function move_to_callout_body(view: EditorView, $pos: ResolvedPos): boolean {
   const { state, dispatch } = view;
   const callout_depth = find_callout_depth($pos);
@@ -25,15 +39,12 @@ function move_to_callout_body(view: EditorView, $pos: ResolvedPos): boolean {
   if (callout_node.childCount < 2) return false;
 
   const callout_pos = $pos.before(callout_depth);
-  let tr = state.tr;
 
   if (callout_node.attrs["folded"]) {
-    tr = tr.setNodeMarkup(callout_pos, null, {
-      ...callout_node.attrs,
-      folded: false,
-    });
+    return place_after_section(view, callout_pos + callout_node.nodeSize);
   }
 
+  const tr = state.tr;
   const title_node = callout_node.child(0);
   const body_start = callout_pos + 1 + title_node.nodeSize + 1;
   const $target = tr.doc.resolve(body_start);

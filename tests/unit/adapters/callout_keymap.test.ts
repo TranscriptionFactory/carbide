@@ -185,3 +185,74 @@ describe("callout keymap plugin", () => {
     view.destroy();
   });
 });
+
+function make_folded_callout_doc(title_text: string, body_text: string) {
+  const title = schema.nodes.callout_title.create(
+    null,
+    title_text ? schema.text(title_text) : undefined,
+  );
+  const body = schema.nodes.callout_body.create(null, [
+    schema.nodes.paragraph.create(
+      null,
+      body_text ? schema.text(body_text) : undefined,
+    ),
+  ]);
+  const callout = schema.nodes.callout.create(
+    {
+      callout_type: "note",
+      foldable: true,
+      default_folded: true,
+      folded: true,
+    },
+    [title, body],
+  );
+  return schema.nodes.doc.create(null, [callout]);
+}
+
+describe("callout keymap plugin — folded section", () => {
+  function in_callout(view: EditorView): boolean {
+    const $pos = view.state.selection.$from;
+    for (let d = $pos.depth; d >= 0; d--) {
+      if ($pos.node(d).type === schema.nodes.callout) return true;
+    }
+    return false;
+  }
+
+  function callout_folded(view: EditorView): boolean {
+    return view.state.doc.child(0).attrs["folded"] as boolean;
+  }
+
+  it("ArrowDown after folded callout skips past it without unfolding", () => {
+    const view = make_view(make_folded_callout_doc("Title", "Body text"));
+    const title_end = 2 + "Title".length;
+    view.dispatch(
+      view.state.tr.setSelection(
+        TextSelection.create(view.state.doc, title_end),
+      ),
+    );
+
+    const handled = fire_key(view, "ArrowDown");
+    expect(handled).toBe(true);
+    expect(view.state.selection.$from.parent.type.name).toBe("paragraph");
+    expect(in_callout(view)).toBe(false);
+    expect(callout_folded(view)).toBe(true);
+    view.destroy();
+  });
+
+  it("Enter after folded callout skips past it without unfolding", () => {
+    const view = make_view(make_folded_callout_doc("Title", "Body text"));
+    const title_end = 2 + "Title".length;
+    view.dispatch(
+      view.state.tr.setSelection(
+        TextSelection.create(view.state.doc, title_end),
+      ),
+    );
+
+    const handled = fire_key(view, "Enter");
+    expect(handled).toBe(true);
+    expect(view.state.selection.$from.parent.type.name).toBe("paragraph");
+    expect(in_callout(view)).toBe(false);
+    expect(callout_folded(view)).toBe(true);
+    view.destroy();
+  });
+});
