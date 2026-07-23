@@ -2,6 +2,7 @@ import type { Root } from "mdast";
 import type { Node as PmNode, Mark } from "prosemirror-model";
 import { schema } from "./schema";
 import { detect_embed_type, parse_embed_fragment } from "./file_embed_plugin";
+import { meta_has_token, set_meta_token } from "./code_preview";
 
 type AnyMdastNode = Record<string, unknown> & { type: string };
 
@@ -159,10 +160,12 @@ function convert_block(node: AnyMdastNode): PmNode | null {
 
     case "code": {
       const lang = (node.lang as string) || "";
-      const meta = (node.meta as string) || "";
+      const raw_meta = (node.meta as string) || "";
+      const collapsed = meta_has_token(raw_meta, "collapsed");
+      const meta = set_meta_token(raw_meta, "collapsed", false);
       const val = (node.value as string) || "";
       return schema.nodes.code_block.create(
-        { language: lang, meta },
+        { language: lang, meta, collapsed },
         val ? schema.text(val) : undefined,
       );
     }

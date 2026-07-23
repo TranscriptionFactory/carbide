@@ -23,6 +23,19 @@ export function meta_has_token(meta: string, token: string): boolean {
     .includes(token);
 }
 
+export function set_meta_token(
+  meta: string,
+  token: string,
+  present: boolean,
+): string {
+  const tokens = meta
+    .split(/\s+/)
+    .filter(Boolean)
+    .filter((t) => t.split("=")[0] !== token);
+  if (present) tokens.push(token);
+  return tokens.join(" ");
+}
+
 export function should_show_preview(language: string, meta: string): boolean {
   return is_previewable_language(language) && meta_has_token(meta, "preview");
 }

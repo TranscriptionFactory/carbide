@@ -3,6 +3,7 @@ import type { Root, RootContent, PhrasingContent } from "mdast";
 import { serialize_embed_fragment } from "./file_embed_plugin";
 import { serialize_web_embed, serialize_video } from "./html_embed";
 import { format_table_meta_comment } from "./remark_plugins/remark_table_meta";
+import { set_meta_token } from "./code_preview";
 
 type MdastNode = Record<string, unknown> & { type: string };
 
@@ -192,10 +193,15 @@ function convert_block_node(node: PmNode): MdastNode | MdastNode[] | null {
     }
 
     case "code_block": {
+      const meta = set_meta_token(
+        (node.attrs["meta"] as string) || "",
+        "collapsed",
+        Boolean(node.attrs["collapsed"]),
+      );
       return {
         type: "code",
         lang: (node.attrs["language"] as string) || null,
-        meta: (node.attrs["meta"] as string) || null,
+        meta: meta || null,
         value: node.textContent,
       };
     }
