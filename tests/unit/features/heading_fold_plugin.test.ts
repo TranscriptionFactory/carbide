@@ -244,6 +244,59 @@ describe("heading_fold_plugin state", () => {
     expect(plugin_state!.folded.size).toBe(1);
   });
 
+  it("drops a fold when its own heading is deleted, without reattaching to a neighbour", () => {
+    let state = create_state_with_plugin(
+      make_heading(1, "A"),
+      make_paragraph("pA"),
+      make_heading(1, "B"),
+      make_paragraph("pB"),
+    );
+    const ranges = compute_heading_ranges(state.doc);
+    const a_pos = ranges[0]!.heading_pos;
+    const b_pos = ranges[1]!.heading_pos;
+
+    state = state.apply(
+      state.tr.setMeta(heading_fold_plugin_key, {
+        action: "toggle",
+        pos: a_pos,
+      }),
+    );
+
+    const a_node = state.doc.nodeAt(a_pos)!;
+    state = state.apply(state.tr.delete(a_pos, a_pos + a_node.nodeSize));
+
+    const plugin_state = heading_fold_plugin_key.getState(state);
+    const mapped_b = b_pos - a_node.nodeSize;
+    expect(plugin_state!.folded.has(mapped_b)).toBe(false);
+    expect(plugin_state!.folded.size).toBe(0);
+  });
+
+  it("keeps a fold when a block is inserted at its heading position (paste-before-heading)", () => {
+    let state = create_state_with_plugin(
+      make_heading(1, "A"),
+      make_paragraph("pA"),
+      make_heading(1, "B"),
+      make_paragraph("pB"),
+    );
+    const ranges = compute_heading_ranges(state.doc);
+    const b_pos = ranges[1]!.heading_pos;
+
+    state = state.apply(
+      state.tr.setMeta(heading_fold_plugin_key, {
+        action: "toggle",
+        pos: b_pos,
+      }),
+    );
+
+    const inserted = make_paragraph("pasted");
+    state = state.apply(state.tr.insert(b_pos, inserted));
+
+    const plugin_state = heading_fold_plugin_key.getState(state);
+    const mapped_b = b_pos + inserted.nodeSize;
+    expect(plugin_state!.folded.has(mapped_b)).toBe(true);
+    expect(state.doc.nodeAt(mapped_b)?.type.name).toBe("heading");
+  });
+
   it("maps folded positions through document edits", () => {
     let state = create_state_with_plugin(
       make_heading(1, "Title"),

@@ -145,11 +145,10 @@ function map_folded_set(folded: Set<number>, tr: Transaction): Set<number> {
 
   const next = new Set<number>();
   for (const pos of folded) {
-    const mapped = tr.mapping.map(pos, 1);
-    const node = tr.doc.nodeAt(mapped);
-    if (node?.type.name === "heading") {
-      next.add(mapped);
-    }
+    const r = tr.mapping.mapResult(pos, 1);
+    if (r.deleted) continue;
+    const node = tr.doc.nodeAt(r.pos);
+    if (node?.type.name === "heading") next.add(r.pos);
   }
   return next;
 }
