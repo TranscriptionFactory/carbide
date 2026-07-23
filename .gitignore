@@ -15,11 +15,11 @@ opencode.json
 # Environment and dependencies
 .env
 .venv/
-node_modules/
+node_modules
 .pnpm-store/
 
 # Build output and generated files
-.svelte-kit/
+.svelte-kit
 build/
 dist/
 src-tauri/gen/
