@@ -1,5 +1,17 @@
 # carbide
 
+## 2.21.0
+
+### Minor Changes
+
+- e8c3083: Individual list items (including tasks) now have their own drag handles at every nesting depth and can be dragged and dropped to reorder within or across lists using ProseMirror's schema-aware placement, instead of the whole list moving as one block.
+
+### Patch Changes
+
+- 7f783b1: Fix editor block operations: single-block Copy now serializes to the clipboard across notes, and Turn Into → Bullet List on a task list now clears the task attrs instead of no-opping.
+- 05c7bb8: Table toolbar no longer vanishes after clicking an option (the transient focusout from ProseMirror rebuilding cell/table DOM is now ignored while focus stays in the editor), and terminal Option+Arrow again jumps by word (mapped to meta-b/meta-f, with macOptionIsMeta restored).
+- 79bc906: Fix fold/collapse editor bugs: Enter/ArrowDown at a collapsed details/callout boundary now skips past the section instead of force-opening it, and heading fold state survives edits without reattaching to a neighbouring heading.
+
 ## 2.20.1
 
 ### Patch Changes
