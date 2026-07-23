@@ -19,7 +19,7 @@ export function create_agent_tauri_adapter(): AgentPort {
 
       void (async () => {
         const unlisten = await listen<AgentEvent>(
-          `agent-stream-event:${request_id}`,
+          `agent-run-event:${request_id}`,
           (event) => {
             const payload = event.payload;
             queue.push(payload);
@@ -36,7 +36,7 @@ export function create_agent_tauri_adapter(): AgentPort {
         };
 
         const on_abort = () => {
-          void tauri_invoke("agent_stream_abort", { requestId: request_id });
+          void tauri_invoke("agent_run_abort", { requestId: request_id });
           teardown();
         };
 
@@ -47,13 +47,16 @@ export function create_agent_tauri_adapter(): AgentPort {
         signal?.addEventListener("abort", on_abort);
 
         try {
-          await tauri_invoke("agent_stream_start", {
+          await tauri_invoke("agent_run_start", {
             requestId: request_id,
-            providerConfig: input.provider_config,
-            prompt: input.prompt,
-            vaultPath: input.vault_path,
-            permissionMode: input.permission_mode,
-            resumeSessionId: input.resume_session_id ?? null,
+            spec: {
+              provider_config: input.provider_config,
+              prompt: input.prompt,
+              vault_path: input.vault_path,
+              permission_mode: input.permission_mode,
+              resume_session_id: input.resume_session_id ?? null,
+              backend: input.backend,
+            },
           });
         } catch (e) {
           const msg = e instanceof Error ? e.message : String(e);

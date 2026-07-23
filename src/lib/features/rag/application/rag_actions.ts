@@ -43,7 +43,6 @@ export function register_rag_actions(
     rag_store: RagStore;
     rag_service: RagService;
     agent_port: AgentPort;
-    native_agent_port: AgentPort;
   },
 ) {
   const {
@@ -53,18 +52,11 @@ export function register_rag_actions(
     rag_store,
     rag_service,
     agent_port,
-    native_agent_port,
   } = input;
 
-  const make_agent_runner = (port: AgentPort) =>
-    new AgentRunner(port, rag_store, stores.vault, services.git, () =>
-      registry.execute(ACTION_IDS.folder_refresh_tree),
-    );
-
-  const agent_runners = {
-    harness: make_agent_runner(agent_port),
-    native: make_agent_runner(native_agent_port),
-  };
+  const agent_runner = new AgentRunner(agent_port, rag_store, stores.vault, services.git, () =>
+    registry.execute(ACTION_IDS.folder_refresh_tree),
+  );
 
   function get_providers(): AiProviderConfig[] {
     return stores.ui.editor_settings.ai_providers;
@@ -257,7 +249,7 @@ export function register_rag_actions(
     stores.op.start(RAG_OP_KEY, Date.now());
 
     try {
-      const result = await agent_runners[backend].run_turn(provider, prompt);
+      const result = await agent_runner.run_turn(provider, prompt, backend);
       if (revision !== rag_store.revision) return;
       if (result.status === "done") {
         stores.op.succeed(RAG_OP_KEY);
@@ -308,8 +300,7 @@ export function register_rag_actions(
     id: ACTION_IDS.rag_agent_abort,
     label: "Stop Vault Agent Run",
     execute: () => {
-      agent_runners.harness.abort();
-      agent_runners.native.abort();
+      agent_runner.abort();
     },
   });
 

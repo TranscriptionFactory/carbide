@@ -85,7 +85,7 @@ describe("AgentRunner.run_turn", () => {
       { type: "done", stats: {} },
     ]);
 
-    const result = await runner.run_turn(provider, "organize my notes");
+    const result = await runner.run_turn(provider, "organize my notes", "harness");
 
     expect(result).toEqual({ status: "done" });
     const session = rag_store.active;
@@ -107,7 +107,7 @@ describe("AgentRunner.run_turn", () => {
       { type: "done", stats: {} },
     ]);
 
-    await runner.run_turn(provider, "just look around");
+    await runner.run_turn(provider, "just look around", "harness");
 
     expect(refresh_vault).not.toHaveBeenCalled();
     expect(rag_store.active?.changed_files).toEqual([]);
@@ -119,7 +119,7 @@ describe("AgentRunner.run_turn", () => {
       { type: "done", stats: {} },
     ]);
 
-    await runner.run_turn(provider, "organize my notes");
+    await runner.run_turn(provider, "organize my notes", "harness");
 
     expect(git.create_checkpoint).toHaveBeenCalledTimes(1);
     expect(calls).toEqual(["checkpoint", "stream"]);
@@ -131,8 +131,8 @@ describe("AgentRunner.run_turn", () => {
       { type: "done", stats: {} },
     ]);
 
-    await runner.run_turn(provider, "first turn");
-    await runner.run_turn(provider, "second turn");
+    await runner.run_turn(provider, "first turn", "harness");
+    await runner.run_turn(provider, "second turn", "harness");
 
     expect(captured[0]?.resume_session_id).toBeUndefined();
     expect(captured[1]?.resume_session_id).toBe("sess-1");
@@ -177,7 +177,7 @@ describe("AgentRunner.run_turn", () => {
       refresh_vault,
     );
 
-    const running = runner.run_turn(provider, "organize my notes");
+    const running = runner.run_turn(provider, "organize my notes", "harness");
     await tick();
     expect(runner.is_running).toBe(true);
     runner.abort();
@@ -199,7 +199,7 @@ describe("AgentRunner.run_turn", () => {
       { type: "error", message: "CLI crashed" },
     ]);
 
-    const result = await runner.run_turn(provider, "organize my notes");
+    const result = await runner.run_turn(provider, "organize my notes", "harness");
 
     expect(result).toEqual({ status: "error", message: "CLI crashed" });
     expect(rag_store.error).toBe("CLI crashed");

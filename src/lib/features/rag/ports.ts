@@ -21,6 +21,7 @@ export type AgentStreamRequest = {
   vault_path: string;
   permission_mode: AgentPermissionMode;
   resume_session_id?: string;
+  backend: "harness" | "native";
   signal?: AbortSignal;
 };
 

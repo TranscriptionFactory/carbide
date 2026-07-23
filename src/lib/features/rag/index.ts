@@ -14,7 +14,6 @@ export type { RagPersistencePort } from "$lib/features/rag/ports";
 export { create_rag_persistence_tauri_adapter } from "$lib/features/rag/adapters/rag_persistence_tauri_adapter";
 export type { AgentPort, AgentStreamRequest } from "$lib/features/rag/ports";
 export { create_agent_tauri_adapter } from "$lib/features/rag/adapters/agent_tauri_adapter";
-export { create_native_agent_tauri_adapter } from "$lib/features/rag/adapters/native_agent_tauri_adapter";
 export {
   AgentRunner,
   type AgentCheckpointGit,

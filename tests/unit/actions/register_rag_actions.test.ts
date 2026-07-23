@@ -102,7 +102,6 @@ function create_harness(events: RagStreamEvent[] = ANSWERED_EVENTS) {
     rag_store,
     rag_service: rag_service as never,
     agent_port,
-    native_agent_port: agent_port,
   });
 
   return { registry, stores, rag_store, rag_service, note_open };

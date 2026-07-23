@@ -90,7 +90,6 @@ export type Ports = {
   saved_query: SavedQueryPort;
   rag_persistence: RagPersistencePort;
   agent: AgentPort;
-  native_agent: AgentPort;
   reference_storage: ReferenceStoragePort;
   citation: CitationPort;
   doi_lookup: DoiLookupPort;
