@@ -3,6 +3,7 @@ import type { SelectionBookmark } from "prosemirror-state";
 import { Decoration, DecorationSet } from "prosemirror-view";
 import type { EditorView } from "prosemirror-view";
 import type { Node as ProseNode } from "prosemirror-model";
+import { dropPoint } from "prosemirror-transform";
 import { is_draggable_node_type } from "../domain/detect_draggable_blocks";
 import {
   compute_section_drop,
@@ -191,6 +192,7 @@ export function build_drag_handle_decorations(
 
 export function create_block_drag_handle_prose_plugin(): Plugin {
   let dragging_range: { from: number; to: number } | null = null;
+  let source_is_list_item = false;
   let is_dragging = false;
   let insert_menu: BlockInsertMenu | null = null;
   const handles: HandleEntry[] = [];
@@ -224,17 +226,33 @@ export function create_block_drag_handle_prose_plugin(): Plugin {
   function position_drop_indicator(view: EditorView, x: number, y: number) {
     const range = dragging_range;
     const coords = range ? view.posAtCoords({ left: x, top: y }) : null;
-    const result =
-      range && coords
-        ? compute_section_drop(view.state.doc, range.from, range.to, coords.pos)
-        : null;
-    if (!result) {
+
+    let insert_pos: number | null;
+    if (source_is_list_item) {
+      insert_pos =
+        coords && view.dragging
+          ? dropPoint(view.state.doc, coords.pos, view.dragging.slice)
+          : null;
+    } else {
+      const result =
+        range && coords
+          ? compute_section_drop(
+              view.state.doc,
+              range.from,
+              range.to,
+              coords.pos,
+            )
+          : null;
+      insert_pos = result ? result.insert_pos : null;
+    }
+
+    if (insert_pos == null) {
       hide_drop_indicator();
       return;
     }
 
     const el = ensure_drop_indicator();
-    const line = view.coordsAtPos(result.insert_pos);
+    const line = view.coordsAtPos(insert_pos);
     const editor_rect = view.dom.getBoundingClientRect();
     el.style.left = `${String(editor_rect.left)}px`;
     el.style.width = `${String(editor_rect.width)}px`;
@@ -291,6 +309,8 @@ export function create_block_drag_handle_prose_plugin(): Plugin {
     handle.classList.add("block-drag-handle--dragging");
     document.body.classList.add("block-handle-dragging");
     dragging_range = range;
+    source_is_list_item =
+      view.state.doc.nodeAt(block_pos)?.type.name === "list_item";
     drag_prev_selection = view.state.selection.getBookmark();
     drop_succeeded = false;
 
@@ -450,6 +470,13 @@ export function create_block_drag_handle_prose_plugin(): Plugin {
       handleDrop(view, event, _slice, moved) {
         if (dragging_range == null) return false;
         if (!moved) return false;
+
+        if (source_is_list_item) {
+          hide_drop_indicator();
+          drop_succeeded = true;
+          dragging_range = null;
+          return false;
+        }
 
         const range = dragging_range;
         hide_drop_indicator();
