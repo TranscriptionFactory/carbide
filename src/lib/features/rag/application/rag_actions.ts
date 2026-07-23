@@ -45,17 +45,15 @@ export function register_rag_actions(
     agent_port: AgentPort;
   },
 ) {
-  const {
-    registry,
-    stores,
-    services,
-    rag_store,
-    rag_service,
-    agent_port,
-  } = input;
+  const { registry, stores, services, rag_store, rag_service, agent_port } =
+    input;
 
-  const agent_runner = new AgentRunner(agent_port, rag_store, stores.vault, services.git, () =>
-    registry.execute(ACTION_IDS.folder_refresh_tree),
+  const agent_runner = new AgentRunner(
+    agent_port,
+    rag_store,
+    stores.vault,
+    services.git,
+    () => registry.execute(ACTION_IDS.folder_refresh_tree),
   );
 
   function get_providers(): AiProviderConfig[] {
