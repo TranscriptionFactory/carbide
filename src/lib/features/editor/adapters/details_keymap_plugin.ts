@@ -12,6 +12,20 @@ function find_details_depth($pos: ResolvedPos): number {
   return -1;
 }
 
+function place_after_section(view: EditorView, after: number): boolean {
+  const { state, dispatch } = view;
+  const sel = TextSelection.findFrom(state.doc.resolve(after), 1);
+  const tr = state.tr;
+  if (sel) {
+    tr.setSelection(sel);
+  } else {
+    tr.insert(after, schema.nodes.paragraph.create());
+    tr.setSelection(TextSelection.create(tr.doc, after + 1));
+  }
+  dispatch(tr.scrollIntoView());
+  return true;
+}
+
 function move_to_details_content(view: EditorView, $pos: ResolvedPos): boolean {
   const { state, dispatch } = view;
   const details_depth = find_details_depth($pos);
@@ -21,15 +35,12 @@ function move_to_details_content(view: EditorView, $pos: ResolvedPos): boolean {
   if (details_node.childCount < 2) return false;
 
   const details_pos = $pos.before(details_depth);
-  let tr = state.tr;
 
   if (!details_node.attrs["open"]) {
-    tr = tr.setNodeMarkup(details_pos, null, {
-      ...details_node.attrs,
-      open: true,
-    });
+    return place_after_section(view, details_pos + details_node.nodeSize);
   }
 
+  const tr = state.tr;
   const summary_node = details_node.child(0);
   const content_start = details_pos + 1 + summary_node.nodeSize + 1;
   const $target = tr.doc.resolve(content_start);
