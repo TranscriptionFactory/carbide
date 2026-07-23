@@ -1,0 +1,98 @@
+{
+  "runId": "fcfd1391",
+  "agent": "scout",
+  "task": "Map the feature surface of the repo at /home/avocado/src/tolaria (a Tauri+React markdown knowledge-base app). I need a factual capability inventory for a competitive analysis. For EACH dimension below, answer with what exists and cite 1-3 evidence file paths. Do not guess; if something is absent, say absent (check package.json deps, src/, src-tauri/src/, mcp-server/, docs/, site/).\n\n1. Editor: framework (BlockNote? Tiptap?), WYSIWYG vs raw source mode, markdown round-trip fidelity approach\n2. File model: vault layout, frontmatter handling, where app settings/indexes/caches live, note 'types'/collections concept\n3. Search: engine (ripgrep/tantivy/sqlite/JS?), full-text search, embeddings or semantic/vector search (local model? remote?), any query language or saved queries\n4. Links: wikilinks, backlinks panel, graph view, embed/transclusion syntax (Obsidian-style ![[...]]?)\n5. Structured data: properties/Dataview-like database views, tasks/todo management, kanban/calendar views\n6. Documents: PDF viewer, EPUB reader, HTML file rendering (sandboxed? trust model?), CSV viewer, canvas (tldraw/excalidraw), spreadsheets (ironcalc?), code files, images\n7. Web clipping: browser extension, web import, URL-to-note\n8. Citations/references: Zotero, BibTeX, DOI, bibliography features\n9. Git: which git operations exposed in-app (init/status/commit/diff/restore/remotes/sync), auto-commit, LFS handling\n10. Sync/collaboration: CRDT, multiplayer, team sharing, GitHub publish\n11. AI: providers supported (which CLIs/APIs? local models like ollama/lmstudio?), in-app inline AI edit, RAG/chat over vault with citations, MCP server (list the actual MCP tools it exposes), MCP client, agent docs (AGENTS.md generation?)\n12. Extensibility: plugin/extension system, marketplace, public API\n13. Platforms (OS targets), license, telemetry/analytics (posthog? sentry? opt-in?)\n14. Anything notable/unique not covered above (e.g. spreadsheets, slides, publishing).\n\nReturn a compact structured report, one short section per dimension, evidence paths inline.\n\n---\nUpdate progress at: /home/avocado/src/carbide/.pi-subagents/artifacts/progress/fcfd1391/progress.md\n\n---\n**Output:**\nWrite your findings to exactly this path: /home/avocado/src/carbide/.pi-subagents/artifacts/outputs/fcfd1391/.pi-subagents/artifacts/outputs/tolaria-recon.md\nThis path is authoritative for this run.\nIgnore any other output filename or output path mentioned elsewhere, including output destinations in the base agent prompt, system prompt, or task instructions.",
+  "exitCode": 0,
+  "usage": {
+    "input": 26947,
+    "output": 7820,
+    "cacheRead": 306944,
+    "cacheWrite": 0,
+    "cost": 0.29022420000000004,
+    "turns": 22
+  },
+  "model": "opencode-go/kimi-k3:low",
+  "attemptedModels": ["opencode-go/kimi-k3:low"],
+  "modelAttempts": [
+    {
+      "model": "opencode-go/kimi-k3:low",
+      "success": true,
+      "exitCode": 0,
+      "usage": {
+        "input": 26947,
+        "output": 7820,
+        "cacheRead": 306944,
+        "cacheWrite": 0,
+        "cost": 0.29022420000000004,
+        "turns": 22
+      }
+    }
+  ],
+  "durationMs": 266837,
+  "toolCount": 31,
+  "acceptance": {
+    "status": "attested",
+    "explicit": false,
+    "effectiveAcceptance": {
+      "level": "attested",
+      "explicit": false,
+      "inferredReason": ["read-only/reviewer-style agent"],
+      "criteria": [
+        {
+          "id": "criterion-1",
+          "must": "Return concrete findings with file paths and severity when applicable",
+          "evidence": ["review-findings", "residual-risks"],
+          "severity": "required"
+        }
+      ],
+      "evidence": ["review-findings", "residual-risks"],
+      "verify": [],
+      "stopRules": []
+    },
+    "inferredReason": ["read-only/reviewer-style agent"],
+    "criteria": [
+      {
+        "id": "criterion-1",
+        "must": "Return concrete findings with file paths and severity when applicable",
+        "evidence": ["review-findings", "residual-risks"],
+        "severity": "required"
+      }
+    ],
+    "runtimeChecks": [],
+    "verifyRuns": [],
+    "childReport": {
+      "criteriaSatisfied": [
+        {
+          "id": "criterion-1",
+          "status": "satisfied",
+          "evidence": "14-dimension inventory with cited evidence paths (e.g. src-tauri/src/search.rs, mcp-server/index.js, src-tauri/src/git/, src/lib/aiAgents.ts); absences explicitly marked (EPUB, CRDT, graph view, LFS, plugins, citations)"
+        }
+      ],
+      "changedFiles": [
+        ".pi-subagents/artifacts/outputs/fcfd1391/.pi-subagents/artifacts/outputs/tolaria-recon.md",
+        ".pi-subagents/artifacts/progress/fcfd1391/progress.md"
+      ],
+      "testsAddedOrUpdated": [],
+      "commandsRun": [
+        {
+          "command": "grep/ls/read recon over /home/avocado/src/tolaria (package.json, src/, src-tauri/src/, mcp-server/, docs/)",
+          "result": "passed",
+          "summary": "All 14 dimensions verified against source; no guesses"
+        }
+      ],
+      "validationOutput": [
+        "Report written (10486 bytes) with inline evidence paths per dimension"
+      ],
+      "residualRisks": [
+        "Feature claims based on code presence; UI polish/completeness of each feature not evaluated",
+        "Compressed shell output may have hidden a few component filenames, but key absences were verified with targeted greps"
+      ],
+      "noStagedFiles": true,
+      "diffSummary": "Added recon report and progress marker under .pi-subagents artifacts; no repo source files modified",
+      "reviewFindings": ["no blockers"],
+      "manualNotes": "Tolaria differentiators: IronCalc spreadsheets, tldraw whiteboard, PDF export, multi-CLI AI agent integration with bundled MCP server; biggest gaps vs Obsidian: no plugins, no graph, no embeds, no web clipper, no citations."
+    }
+  },
+  "transcriptPath": "/home/avocado/src/carbide/.pi-subagents/artifacts/fcfd1391_scout_0_transcript.jsonl",
+  "timestamp": 1784683549368
+}
