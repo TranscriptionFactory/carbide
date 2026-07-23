@@ -35,10 +35,17 @@ pub enum AgentEvent {
     Init { session_id: String },
     #[serde(rename = "text")]
     Text { delta: String },
+    #[serde(rename = "reasoning")]
+    Reasoning { delta: String },
     #[serde(rename = "tool_start")]
     ToolStart { name: String, input_summary: String },
     #[serde(rename = "tool_end")]
-    ToolEnd { name: String, ok: bool },
+    ToolEnd {
+        name: String,
+        ok: bool,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        result_summary: Option<String>,
+    },
     #[serde(rename = "done")]
     Done { stats: AgentRunStats },
     #[serde(rename = "error")]
@@ -50,8 +57,39 @@ struct AgentHandle {
 }
 
 #[derive(Default)]
-pub struct AgentStreamState {
+pub struct AgentRunState {
     handles: Mutex<HashMap<String, AgentHandle>>,
+}
+
+impl AgentRunState {
+    pub async fn insert_handle(&self, request_id: String, abort_tx: tokio::sync::oneshot::Sender<()>) {
+        self.handles.lock().await.insert(request_id, AgentHandle { abort_tx });
+    }
+
+    pub async fn remove_handle(&self, request_id: &str) {
+        self.handles.lock().await.remove(request_id);
+    }
+
+    pub async fn remove_handle_for_abort(&self, request_id: &str) -> Option<AgentHandle> {
+        self.handles.lock().await.remove(request_id)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Type)]
+#[serde(rename_all = "lowercase")]
+pub enum AgentRunBackend {
+    Harness,
+    Native,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+pub struct AgentRunSpec {
+    pub provider_config: AiProviderConfig,
+    pub prompt: String,
+    pub vault_path: String,
+    pub permission_mode: AgentPermissionMode,
+    pub resume_session_id: Option<String>,
+    pub backend: AgentRunBackend,
 }
 
 const INPUT_SUMMARY_MAX_CHARS: usize = 200;
@@ -142,7 +180,11 @@ impl AgentEventParser {
                     .and_then(|id| self.tool_names.get(id).cloned())
                     .unwrap_or_else(|| "tool".to_string());
                 let ok = !b.get("is_error").and_then(Value::as_bool).unwrap_or(false);
-                AgentEvent::ToolEnd { name, ok }
+                AgentEvent::ToolEnd {
+                    name,
+                    ok,
+                    result_summary: None,
+                }
             })
             .collect()
     }
@@ -255,22 +297,43 @@ pub fn cli_probe_error_message(provider_name: &str, probe: &pipeline::CliProbe) 
 
 #[tauri::command]
 #[specta::specta]
-pub async fn agent_stream_start(
+pub async fn agent_run_start(
     app: AppHandle,
-    state: tauri::State<'_, AgentStreamState>,
+    state: tauri::State<'_, AgentRunState>,
     request_id: String,
-    provider_config: AiProviderConfig,
-    prompt: String,
-    vault_path: String,
-    permission_mode: AgentPermissionMode,
-    resume_session_id: Option<String>,
+    spec: AgentRunSpec,
 ) -> Result<(), String> {
-    let event_name = format!("agent-stream-event:{request_id}");
-    let AiTransport::Cli { command, .. } = &provider_config.transport else {
+    let event_name = format!("agent-run-event:{request_id}");
+
+    match spec.backend {
+        AgentRunBackend::Harness => {
+            spawn_harness_run(app, state, request_id, event_name, spec).await
+        }
+        AgentRunBackend::Native => {
+            super::native_agent::spawn_native_run(
+                app,
+                request_id,
+                event_name,
+                spec,
+            )
+            .await;
+            Ok(())
+        }
+    }
+}
+
+async fn spawn_harness_run(
+    app: AppHandle,
+    state: tauri::State<'_, AgentRunState>,
+    request_id: String,
+    event_name: String,
+    spec: AgentRunSpec,
+) -> Result<(), String> {
+    let AiTransport::Cli { command, .. } = &spec.provider_config.transport else {
         let _ = app.emit(
             &event_name,
             AgentEvent::Error {
-                message: format!("{} does not support agent mode", provider_config.name),
+                message: format!("{} does not support agent mode", spec.provider_config.name),
             },
         );
         return Ok(());
@@ -285,7 +348,7 @@ pub async fn agent_stream_start(
     .await
     .map_err(|e| e.to_string())?;
     if probe.status != pipeline::CliProbeStatus::Present {
-        let message = cli_probe_error_message(&provider_config.name, &probe);
+        let message = cli_probe_error_message(&spec.provider_config.name, &probe);
         let _ = app.emit(&event_name, AgentEvent::Error { message });
         return Ok(());
     }
@@ -304,18 +367,14 @@ pub async fn agent_stream_start(
     };
 
     let args = build_agent_args(
-        &prompt,
+        &spec.prompt,
         &mcp_config_path,
-        &permission_mode,
-        resume_session_id.as_deref(),
+        &spec.permission_mode,
+        spec.resume_session_id.as_deref(),
     );
 
     let (abort_tx, abort_rx) = tokio::sync::oneshot::channel::<()>();
-    state
-        .handles
-        .lock()
-        .await
-        .insert(request_id.clone(), AgentHandle { abort_tx });
+    state.insert_handle(request_id.clone(), abort_tx).await;
 
     let path = probe
         .resolved_path
@@ -325,21 +384,28 @@ pub async fn agent_stream_start(
         .unwrap_or(path);
     let command = probe.resolved_path.unwrap_or_else(|| command.clone());
 
+    let app_clone = app.clone();
+    let event_name_clone = event_name.clone();
+    let request_id_clone = request_id.clone();
     tokio::spawn(async move {
         let result = run_agent_cli(
-            &app,
-            &event_name,
+            &app_clone,
+            &event_name_clone,
             &command,
             &args,
             &path,
-            &vault_path,
+            &spec.vault_path,
             abort_rx,
         )
         .await;
 
         if let Err(e) = result {
-            let _ = app.emit(&event_name, AgentEvent::Error { message: e });
+            let _ = app_clone.emit(&event_name_clone, AgentEvent::Error { message: e });
         }
+        app_clone
+            .state::<AgentRunState>()
+            .remove_handle(&request_id_clone)
+            .await;
     });
 
     Ok(())
@@ -426,11 +492,11 @@ async fn run_agent_cli(
 
 #[tauri::command]
 #[specta::specta]
-pub async fn agent_stream_abort(
-    state: tauri::State<'_, AgentStreamState>,
+pub async fn agent_run_abort(
+    state: tauri::State<'_, AgentRunState>,
     request_id: String,
 ) -> Result<(), String> {
-    if let Some(handle) = state.handles.lock().await.remove(&request_id) {
+    if let Some(handle) = state.remove_handle_for_abort(&request_id).await {
         let _ = handle.abort_tx.send(());
     }
     Ok(())
