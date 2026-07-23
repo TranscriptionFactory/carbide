@@ -146,10 +146,13 @@
   padding-inline: var(--wide-editor-padding-inline);
 }
 
-/* Wide mode removes the outer gutter, so the handle's default negative
-   offset would fall off the pane; anchor it inside the left padding. */
+/* Wide mode removes the outer centering gutter, leaving only padding-inline.
+   Anchor the handle by its RIGHT edge just left of the text (translateX makes
+   it grow leftward into the padding) so it can't overlap the content column
+   regardless of the handle's own width. */
 [data-width-mode="wide"] .block-drag-handle {
-  left: calc(var(--wide-editor-padding-inline) - 1.75rem);
+  left: calc(var(--wide-editor-padding-inline) - 0.5rem);
+  transform: translateX(-100%);
 }
 
 /* ============================================

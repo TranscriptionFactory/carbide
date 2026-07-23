@@ -52,4 +52,25 @@ describe("code-block collapse serialization", () => {
     expect(node.attrs["meta"]).toBe("preview");
     expect(serialize_markdown(parse_markdown(input))).toBe(input);
   });
+
+  it("persists collapse on a language-less code block", () => {
+    const code_block = schema.nodes.code_block.create(
+      { language: "", collapsed: true },
+      schema.text("plain text"),
+    );
+    const doc = schema.nodes.doc.create(null, [code_block]);
+    const md = serialize_markdown(doc);
+    const node = first_code_block(md);
+    expect(node.attrs["collapsed"]).toBe(true);
+    expect(node.attrs["language"]).toBe("");
+  });
+
+  it("emits a bare fence for an expanded language-less block", () => {
+    const code_block = schema.nodes.code_block.create(
+      { language: "", collapsed: false },
+      schema.text("plain text"),
+    );
+    const doc = schema.nodes.doc.create(null, [code_block]);
+    expect(serialize_markdown(doc)).toBe("```\nplain text\n```\n");
+  });
 });
