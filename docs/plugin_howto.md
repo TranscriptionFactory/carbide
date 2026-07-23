@@ -594,6 +594,34 @@ The plugin manager sidebar provides these controls per plugin:
 
 ---
 
+## Bundled Plugins
+
+Carbide ships a set of example and utility plugins you can enable from the plugin
+manager without installing anything:
+
+| Plugin               | What it does                                             |
+| -------------------- | -------------------------------------------------------- |
+| **Auto-Tag**         | Auto-prefix configured words with `#`.                   |
+| **HTML Strip**       | Strip styles, scripts, and metadata from HTML.           |
+| **HTML to Markdown** | Convert HTML to Markdown via Turndown.                   |
+| **PDF Export**       | Export a note to PDF with Mermaid and LaTeX.             |
+| **Slides Export**    | Export a note to a slide-deck PDF, split on `---`.       |
+| **Smart Templates**  | Context-aware Handlebars templates with live preview.    |
+| **Wiki Compiler**    | Compile vault notes into an interlinked wiki via an LLM. |
+
+## Marketplace
+
+The plugin manager includes a **Marketplace** browser for installing third-party
+plugins from a registry:
+
+- Set the registry **URL**, then **Refresh** to fetch its listings.
+- **Install** a listing into the current vault, or **Update** when a newer
+  version than the one you have is available (installed versions are tracked and
+  compared automatically).
+
+Installed plugins land under `<vault>/.carbide/plugins/` just like ones you author
+by hand.
+
 ## File Layout
 
 ```
