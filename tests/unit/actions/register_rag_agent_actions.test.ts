@@ -130,8 +130,7 @@ describe("rag agent actions", () => {
   });
 
   it("ask in agent mode: refuses text-only CLI providers with a toast", async () => {
-    const { registry, stores, rag_store, agent_port } =
-      create_harness();
+    const { registry, stores, rag_store, agent_port } = create_harness();
     rag_store.set_mode("agent");
     stores.ui.editor_settings.ai_default_provider_id = "ollama";
 
@@ -170,8 +169,7 @@ describe("rag agent actions", () => {
   });
 
   it("ask in agent mode: routes the claude provider to the harness port", async () => {
-    const { registry, rag_store, agent_port } =
-      create_harness();
+    const { registry, rag_store, agent_port } = create_harness();
     rag_store.set_mode("agent");
 
     await registry.execute(ACTION_IDS.rag_ask, "organize my notes");
@@ -183,8 +181,7 @@ describe("rag agent actions", () => {
   });
 
   it("ask in agent mode: routes api providers to the native agent port", async () => {
-    const { registry, stores, rag_store, agent_port } =
-      create_harness();
+    const { registry, stores, rag_store, agent_port } = create_harness();
     rag_store.set_mode("agent");
     stores.ui.editor_settings.ai_default_provider_id = "lmstudio";
 
