@@ -145,12 +145,19 @@ export function compute_drag_range(
   return { from: block_pos, to: block_pos + node.nodeSize };
 }
 
-function collect_top_level_starts(doc: ProseNode): number[] {
-  const starts: number[] = [];
-  doc.forEach((node, offset) => {
-    if (is_draggable_node_type(node.type.name)) starts.push(offset);
+export function collect_handle_positions(doc: ProseNode): number[] {
+  const positions: number[] = [];
+  doc.descendants((node, pos, parent) => {
+    const name = node.type.name;
+    if (name === "list_item") {
+      positions.push(pos);
+      return true;
+    }
+    if (name === "bullet_list" || name === "ordered_list") return true;
+    if (parent === doc && is_draggable_node_type(name)) positions.push(pos);
+    return false;
   });
-  return starts;
+  return positions;
 }
 
 function arrays_equal(a: number[], b: number[]): boolean {
@@ -165,17 +172,13 @@ export function build_drag_handle_decorations(
   doc: ProseNode,
   build_handle: BuildHandle,
 ): DecorationSet {
-  const decorations: Decoration[] = [];
-  doc.forEach((node, offset) => {
-    if (!is_draggable_node_type(node.type.name)) return;
-    decorations.push(
-      Decoration.widget(offset, build_handle, {
-        side: -1,
-        ignoreSelection: true,
-        stopEvent: () => true,
-      }),
-    );
-  });
+  const decorations = collect_handle_positions(doc).map((pos) =>
+    Decoration.widget(pos, build_handle, {
+      side: -1,
+      ignoreSelection: true,
+      stopEvent: () => true,
+    }),
+  );
   return DecorationSet.create(doc, decorations);
 }
 
@@ -408,11 +411,11 @@ export function create_block_drag_handle_prose_plugin(): Plugin {
 
     state: {
       init(_config, { doc }) {
-        return { set: build_set(doc), starts: collect_top_level_starts(doc) };
+        return { set: build_set(doc), starts: collect_handle_positions(doc) };
       },
       apply(tr, prev) {
         if (!tr.docChanged) return prev;
-        const curr_starts = collect_top_level_starts(tr.doc);
+        const curr_starts = collect_handle_positions(tr.doc);
         const mapped_starts = prev.starts.map((p) => tr.mapping.map(p, -1));
         if (arrays_equal(curr_starts, mapped_starts)) {
           return { set: prev.set.map(tr.mapping, tr.doc), starts: curr_starts };
