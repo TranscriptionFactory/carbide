@@ -104,4 +104,17 @@ The test FAILS on this divergence by design. Per PROMPT "Do NOT" instructions: "
 
 ## Notes
 
-_Reserved for execution notes_
+### Pattern for future dual-source-of-truth checks
+
+This task establishes a pattern for cross-language consistency tests where Rust is the source of truth for a concept (e.g. `mutating` flag in `ToolDefinition`) and TS mirrors it (e.g. `MUTATING_MCP_TOOLS` set in `agent_file_ops.ts`).
+
+**Key elements of the pattern:**
+1. Test lives Rust-side (in `src-tauri/tests/`) because vitest cannot access Tauri runtime types
+2. Registered as an internal module via `#[path]` in `src-tauri/src/tests/mod.rs` (follows existing convention, gives access to `crate::` paths)
+3. Reads the TS source file at build time using `env!("CARGO_MANIFEST_DIR")` to construct a relative path
+4. Simple line-based parse (no regex crate) — match the TS file's format, assert non-empty result as a sanity check
+5. Computes the Rust set from the API (`McpRouter::new().tool_definitions_public()`)
+6. Asserts `BTreeSet` equality; on failure, prints both diffs (`in_rust_not_ts`, `in_ts_not_rust`) with a developer-facing message pointing to both files
+7. Precedent file: `src-tauri/tests/mcp_schema_consistency.rs` (same pattern: builds `McpRouter`, calls `tool_definitions_public()`, asserts invariants)
+
+**Future applications:** Any time a concept has dual sources of truth across Rust and TS (e.g. tool names, parameter schemas, permission flags), this pattern can be reused to prevent silent drift.
