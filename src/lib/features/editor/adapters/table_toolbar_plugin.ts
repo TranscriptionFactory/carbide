@@ -281,6 +281,7 @@ export function create_table_toolbar_prose_plugin(): Plugin {
   let align_btn_refs: AlignmentButtonRefs | null = null;
   let layout_btn_refs: LayoutButtonRefs | null = null;
   let stop_auto_update: (() => void) | null = null;
+  let anchored_table: HTMLElement | null = null;
 
   function remove_toolbar() {
     stop_auto_update?.();
@@ -289,6 +290,24 @@ export function create_table_toolbar_prose_plugin(): Plugin {
     toolbar_el = null;
     align_btn_refs = null;
     layout_btn_refs = null;
+    anchored_table = null;
+  }
+
+  function bind_position(table_dom: HTMLElement) {
+    const el = toolbar_el;
+    if (!el) return;
+    stop_auto_update?.();
+    anchored_table = table_dom;
+    stop_auto_update = autoUpdate(table_dom, el, () => {
+      void compute_floating_position(table_dom, el, "top").then(({ x, y }) => {
+        if (!toolbar_el) return;
+        Object.assign(toolbar_el.style, {
+          position: "absolute",
+          left: `${String(x)}px`,
+          top: `${String(y)}px`,
+        });
+      });
+    });
   }
 
   return new Plugin({
@@ -343,20 +362,9 @@ export function create_table_toolbar_prose_plugin(): Plugin {
             layout_btn_refs = layout_btns;
             toolbar_el.style.zIndex = String(Z_TABLE_TOOLBAR);
             document.body.appendChild(toolbar_el);
-            stop_auto_update = autoUpdate(table_dom, toolbar_el, () => {
-              void compute_floating_position(
-                table_dom,
-                toolbar_el!,
-                "top",
-              ).then(({ x, y }) => {
-                if (!toolbar_el) return;
-                Object.assign(toolbar_el.style, {
-                  position: "absolute",
-                  left: `${String(x)}px`,
-                  top: `${String(y)}px`,
-                });
-              });
-            });
+            bind_position(table_dom);
+          } else if (anchored_table !== table_dom) {
+            bind_position(table_dom);
           }
 
           if (align_btn_refs) {
