@@ -70,7 +70,8 @@ fn tool_result_line_yields_tool_end_matched_by_id() {
         parser.parse_line(TOOL_RESULT_LINE),
         vec![AgentEvent::ToolEnd {
             name: "Read".to_string(),
-            ok: true
+            ok: true,
+            result_summary: None,
         }]
     );
 }
@@ -83,7 +84,8 @@ fn tool_result_error_yields_tool_end_not_ok() {
         parser.parse_line(TOOL_RESULT_ERROR_LINE),
         vec![AgentEvent::ToolEnd {
             name: "Read".to_string(),
-            ok: false
+            ok: false,
+            result_summary: None,
         }]
     );
 }
