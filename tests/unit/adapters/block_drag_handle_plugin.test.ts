@@ -12,6 +12,7 @@ import {
   build_handle_element,
   count_section_body_blocks,
   compute_drag_range,
+  resolve_top_level_block,
 } from "$lib/features/editor/adapters/block_drag_handle_plugin";
 
 function make_state() {
@@ -152,19 +153,46 @@ describe("build_drag_handle_decorations", () => {
     );
   });
 
-  it("does not descend into nested blocks", () => {
-    const doc = schema.nodes.doc.create(null, [
-      schema.nodes.bullet_list.create(null, [
-        schema.nodes.list_item.create(null, [
-          schema.nodes.paragraph.create(null, schema.text("a")),
-        ]),
-        schema.nodes.list_item.create(null, [
-          schema.nodes.paragraph.create(null, schema.text("b")),
+  it("emits a widget per list_item and none for list containers", () => {
+    const doc = nested_list_doc();
+    expect(widget_positions(doc)).toEqual([1, 6, 11, 19]);
+  });
+});
+
+function nested_list_doc(): ProseNode {
+  return schema.nodes.doc.create(null, [
+    schema.nodes.bullet_list.create(null, [
+      schema.nodes.list_item.create(null, [
+        schema.nodes.paragraph.create(null, schema.text("A")),
+      ]),
+      schema.nodes.list_item.create(null, [
+        schema.nodes.paragraph.create(null, schema.text("B")),
+        schema.nodes.bullet_list.create(null, [
+          schema.nodes.list_item.create(null, [
+            schema.nodes.paragraph.create(null, schema.text("x")),
+          ]),
         ]),
       ]),
-    ]);
-    expect(build_drag_handle_decorations(doc, stub_handle).find()).toHaveLength(
-      1,
-    );
+    ]),
+    schema.nodes.paragraph.create(null, schema.text("tail")),
+  ]);
+}
+
+describe("resolve_top_level_block", () => {
+  it("resolves a position inside a nested list_item to that item", () => {
+    const doc = nested_list_doc();
+    const b1_before = 11;
+    const inside_b1 = b1_before + 2;
+    const resolved = resolve_top_level_block(view_for(doc), inside_b1);
+    expect(resolved?.pos).toBe(b1_before);
+    expect(resolved?.node.type.name).toBe("list_item");
+  });
+
+  it("falls back to the top-level block outside any list", () => {
+    const doc = section_doc();
+    const p_pos = doc.child(0).nodeSize;
+    const resolved = resolve_top_level_block(view_for(doc), p_pos + 1);
+    expect(resolved?.pos).toBe(p_pos);
+    expect(resolved?.node.type.name).toBe("paragraph");
   });
 });
