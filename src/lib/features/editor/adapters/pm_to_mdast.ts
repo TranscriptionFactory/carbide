@@ -193,14 +193,31 @@ function convert_block_node(node: PmNode): MdastNode | MdastNode[] | null {
     }
 
     case "code_block": {
+      const language = (node.attrs["language"] as string) || "";
+      const collapsed = Boolean(node.attrs["collapsed"]);
+      // Remark only emits fence meta when a language is present, and any
+      // info-string on a bare fence re-parses AS the language. So a
+      // language-less collapsed block carries the flag in the lang slot;
+      // mdast_to_pm decodes it back.
+      // ponytail: reserved word "collapsed" as a stand-in lang — a real
+      // language literally named "collapsed" would be misread (upgrade path:
+      // a custom mdast-util-to-markdown code handler if that ever matters).
+      if (!language) {
+        return {
+          type: "code",
+          lang: collapsed ? "collapsed" : null,
+          meta: null,
+          value: node.textContent,
+        };
+      }
       const meta = set_meta_token(
         (node.attrs["meta"] as string) || "",
         "collapsed",
-        Boolean(node.attrs["collapsed"]),
+        collapsed,
       );
       return {
         type: "code",
-        lang: (node.attrs["language"] as string) || null,
+        lang: language,
         meta: meta || null,
         value: node.textContent,
       };

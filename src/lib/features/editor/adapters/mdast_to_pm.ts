@@ -159,9 +159,15 @@ function convert_block(node: AnyMdastNode): PmNode | null {
     }
 
     case "code": {
-      const lang = (node.lang as string) || "";
+      let lang = (node.lang as string) || "";
       const raw_meta = (node.meta as string) || "";
-      const collapsed = meta_has_token(raw_meta, "collapsed");
+      // A language-less collapsed block stores its flag in the lang slot
+      // (remark can't emit fence meta without a language). Decode it back.
+      let collapsed = meta_has_token(raw_meta, "collapsed");
+      if (lang === "collapsed" && !raw_meta) {
+        collapsed = true;
+        lang = "";
+      }
       const meta = set_meta_token(raw_meta, "collapsed", false);
       const val = (node.value as string) || "";
       return schema.nodes.code_block.create(
