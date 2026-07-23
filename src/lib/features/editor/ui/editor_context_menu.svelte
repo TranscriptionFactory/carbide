@@ -105,7 +105,7 @@
   }
 
   async function handle_copy() {
-    if (has_multi_selection) {
+    if (block_selection.size > 0) {
       await services.editor.copy_blocks(block_selection);
     } else {
       document.execCommand("copy");
