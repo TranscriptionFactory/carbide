@@ -18,7 +18,7 @@
 ---
 
 ### Step 1: Parity test
-**Status:** 🟨 In Progress
+**Status:** ✅ Complete
 
 - [x] Test reads `src/lib/features/rag/domain/agent_file_ops.ts` (path relative to `src-tauri/`: `../src/lib/features/rag/domain/agent_file_ops.ts`; use `CARGO_MANIFEST_DIR`)
 - [x] Extract `MUTATING_MCP_TOOLS` string entries (simple line-based parse of the `new Set([...])` block — no regex crate needed if the existing test style avoids it; match existing test-file conventions)
