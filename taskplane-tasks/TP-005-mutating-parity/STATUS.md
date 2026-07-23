@@ -1,7 +1,7 @@
 # TP-005-mutating-parity: TP-005-mutating-parity — Status
 
-**Current Step:** Step 1: Parity test
-**Status:** 🟡 In Progress
+**Current Step:** Step 2: Testing & Verification (BLOCKED — awaiting supervisor guidance on `reindex` divergence)
+**Status:** 🟡 Blocked
 **Last Updated:** 2026-07-23
 **Review Level:** 1
 **Review Counter:** 1
@@ -32,7 +32,7 @@
 
 ### Step 2: Testing & Verification
 
-**Status:** ⬜ Not Started
+**Status:** 🟨 Blocked (awaiting supervisor guidance on `reindex` divergence)
 
 - [ ] `cargo test --manifest-path src-tauri/Cargo.toml mcp_mutating_parity` green
 - [ ] FULL gates (nohup + poll → `.tmpfiles/`): `pnpm check`, `pnpm lint`, `pnpm test`, `cargo test --manifest-path src-tauri/Cargo.toml`; `pnpm format`
