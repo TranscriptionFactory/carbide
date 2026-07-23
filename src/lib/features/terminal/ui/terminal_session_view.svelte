@@ -9,6 +9,7 @@
   import { use_app_context } from "$lib/app/context/app_context.svelte";
   import { Button } from "$lib/components/ui/button";
   import { resolve_terminal_session_target } from "$lib/features/terminal";
+  import { alt_arrow_word_motion } from "$lib/features/terminal/domain/alt_arrow_word_motion";
   import { create_debounced_task_controller } from "$lib/reactors/debounced_task";
   import { create_logger } from "$lib/shared/utils/logger";
   import type { TerminalSessionRequest } from "$lib/features/terminal/application/terminal_service";
@@ -281,11 +282,19 @@
       cursorStyle: stores.ui.editor_settings.terminal_cursor_style,
       scrollback: stores.ui.editor_settings.terminal_scrollback,
       theme: build_xterm_theme(),
+      macOptionIsMeta: true,
     });
 
     fit_addon = new FitAddon();
     terminal.loadAddon(fit_addon);
     terminal.open(container_el);
+
+    terminal.attachCustomKeyEventHandler((e) => {
+      const seq = alt_arrow_word_motion(e);
+      if (!seq) return true;
+      if (active) terminal_runtime.write_session(session_id, seq);
+      return false;
+    });
 
     let webgl_addon: WebglAddon | undefined;
     try {
