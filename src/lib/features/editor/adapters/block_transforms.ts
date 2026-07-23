@@ -133,7 +133,8 @@ export function create_turn_into_command(
     }
 
     if (target === "bullet_list") {
-      if (current_name === "bullet_list") return false;
+      if (current_name === "bullet_list" && !has_checked_items(block.node))
+        return false;
       if (is_wrapped_block(block.node)) {
         const items = unwrap_to_textblocks(block.node).map((tb) =>
           schema.nodes.list_item.create(null, [
@@ -510,7 +511,11 @@ function build_turn_into_replacement(
       target === "bullet_list"
         ? schema.nodes.bullet_list
         : schema.nodes.ordered_list;
-    if (current_name === target) return null;
+    if (
+      current_name === target &&
+      !(target === "bullet_list" && has_checked_items(node))
+    )
+      return null;
     if (is_wrapped_block(node)) {
       const items = unwrap_to_textblocks(node).map((tb) =>
         schema.nodes.list_item.create(null, [

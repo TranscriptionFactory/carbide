@@ -7,6 +7,7 @@ import { EditorView } from "prosemirror-view";
 import { schema } from "$lib/features/editor/adapters/schema";
 import {
   create_turn_into_command,
+  batch_turn_into,
   duplicate_block,
   delete_block,
 } from "$lib/features/editor/adapters/block_transforms";
@@ -182,6 +183,44 @@ describe("turn_into", () => {
     expect(first.type.name).toBe("bullet_list");
     expect(first.firstChild!.type.name).toBe("list_item");
     expect(first.firstChild!.firstChild!.textContent).toBe("list item");
+  });
+
+  it("task_list → bullet_list clears checked/task_status attrs", () => {
+    const doc = make_doc(
+      make_bullet_list(
+        make_list_item("a", { checked: false, task_status: "todo" }),
+      ),
+    );
+    const state = make_state(doc, 3);
+    const cmd = create_turn_into_command("bullet_list");
+    const { result, state: after } = apply_command(state, cmd);
+
+    expect(result).toBe(true);
+    const list = after.doc.firstChild!;
+    expect(list.type.name).toBe("bullet_list");
+    const item = list.firstChild!;
+    expect(item.attrs["checked"]).toBe(null);
+    expect(item.attrs["task_status"]).toBe(null);
+  });
+
+  it("batch task_list → bullet_list clears checked/task_status attrs", () => {
+    const doc = make_doc(
+      make_bullet_list(
+        make_list_item("a", { checked: false, task_status: "todo" }),
+      ),
+    );
+    const state = make_state(doc, 3);
+    const positions = new Set([0]);
+    const { result, state: after } = apply_command(state, (s, d) =>
+      batch_turn_into("bullet_list", undefined, positions, s, d),
+    );
+
+    expect(result).toBe(true);
+    const list = after.doc.firstChild!;
+    expect(list.type.name).toBe("bullet_list");
+    const item = list.firstChild!;
+    expect(item.attrs["checked"]).toBe(null);
+    expect(item.attrs["task_status"]).toBe(null);
   });
 
   it("paragraph → ordered_list creates list structure", () => {
