@@ -294,10 +294,17 @@ export function create_table_toolbar_prose_plugin(): Plugin {
   return new Plugin({
     key: table_toolbar_plugin_key,
     view(view) {
-      function on_blur(e: FocusEvent) {
-        const related = e.relatedTarget as Node | null;
-        if (toolbar_el?.contains(related)) return;
-        remove_toolbar();
+      function on_blur() {
+        queueMicrotask(() => {
+          const active = document.activeElement;
+          if (
+            view.dom.contains(active) ||
+            toolbar_el?.contains(active) ||
+            is_in_table(view.state.selection.$from)
+          )
+            return;
+          remove_toolbar();
+        });
       }
       function on_pointerdown(e: PointerEvent) {
         if (!toolbar_el) return;
