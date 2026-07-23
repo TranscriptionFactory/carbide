@@ -1,6 +1,6 @@
 # TP-002-agent-run-contract: TP-002-agent-run-contract — Status
 
-**Current Step:** Step 0: Preflight
+**Current Step:** Step 1: Rust unified command + registry
 **Status:** 🟡 In Progress
 **Last Updated:** 2026-07-23
 **Review Level:** 2
@@ -19,7 +19,7 @@
 ---
 
 ### Step 1: Rust unified command + registry
-**Status:** ⬜ Not Started
+**Status:** 🟨 In Progress
 
 - [ ] Define `AgentRunBackend` enum (`"harness" | "native"`, snake_case serde) and `AgentRunSpec` struct: `{ provider_config, prompt, vault_path, permission_mode, resume_session_id?, backend }` — specta-typed
 - [ ] New commands `agent_run_start(request_id, spec)` / `agent_run_abort(request_id)`; single channel `agent-run-event:{request_id}`; ONE registry struct replacing `AgentStreamState` + `NativeAgentState`; route to the EXISTING harness spawn logic and `run_native_turn` unchanged
