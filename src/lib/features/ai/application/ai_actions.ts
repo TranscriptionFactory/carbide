@@ -15,7 +15,7 @@ import {
   resolve_auto_ai_backend,
 } from "$lib/features/ai/domain/ai_backend_selection";
 import {
-  agent_backend,
+  agent_capability,
   provider_supports_streaming,
 } from "$lib/features/ai/domain/ai_provider_capabilities";
 import type { AiService } from "$lib/features/ai/application/ai_service";
@@ -783,7 +783,7 @@ export function register_ai_actions(
         toast.error("No AI provider configured");
         return;
       }
-      if (agent_backend(provider) !== "harness") {
+      if (agent_capability(provider)?.backend !== "harness") {
         toast.info(`${provider.name} does not support agent mode`);
         return;
       }

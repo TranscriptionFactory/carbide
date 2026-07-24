@@ -4,7 +4,7 @@ import { ACTION_IDS } from "$lib/app";
 import { error_message } from "$lib/shared/utils/error_message";
 import { announce } from "$lib/shared/a11y/live_announcer.svelte";
 import { collect_open_note_image_parts } from "$lib/features/ai";
-import { agent_backend } from "$lib/features/ai";
+import { agent_capability } from "$lib/features/ai";
 import type { AiImagePart } from "$lib/features/ai";
 import type { AiProviderConfig } from "$lib/shared/types/ai_provider_config";
 import { DEFAULT_EDITOR_SETTINGS } from "$lib/shared/types/editor_settings";
@@ -234,8 +234,8 @@ export function register_rag_actions(
     if (stores.op.is_pending(RAG_OP_KEY)) return;
     const provider = resolve_ask_provider();
     if (!provider) return;
-    const backend = agent_backend(provider);
-    if (!backend) {
+    const capability = agent_capability(provider);
+    if (!capability) {
       toast.error(`${provider.name} does not support agent mode`);
       return;
     }
@@ -247,7 +247,11 @@ export function register_rag_actions(
     stores.op.start(RAG_OP_KEY, Date.now());
 
     try {
-      const result = await agent_runner.run_turn(provider, prompt, backend);
+      const result = await agent_runner.run_turn(
+        provider,
+        prompt,
+        capability.backend,
+      );
       if (revision !== rag_store.revision) return;
       if (result.status === "done") {
         stores.op.succeed(RAG_OP_KEY);
