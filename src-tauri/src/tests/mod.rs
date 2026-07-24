@@ -69,6 +69,8 @@ mod metadata_events;
 mod agent_handoff;
 #[path = "../../tests/agent_stream.rs"]
 mod agent_stream;
+#[path = "../../tests/codex_adapter.rs"]
+mod codex_adapter;
 #[path = "../../tests/native_agent.rs"]
 mod native_agent;
 

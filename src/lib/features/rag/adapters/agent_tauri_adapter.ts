@@ -1,6 +1,7 @@
 import { listen } from "@tauri-apps/api/event";
 import { tauri_invoke } from "$lib/shared/adapters/tauri_invoke";
 import { AsyncQueue } from "$lib/shared/utils/async_queue";
+import { agent_capability } from "$lib/features/ai";
 import type { AgentEvent } from "$lib/features/rag/types/agent_events";
 import type { AgentPort, AgentStreamRequest } from "$lib/features/rag/ports";
 
@@ -57,6 +58,7 @@ export function create_agent_tauri_adapter(): AgentPort {
               history: input.history,
               resume_session_id: input.resume_session_id ?? null,
               backend: input.backend,
+              adapter: agent_capability(input.provider_config)?.adapter ?? null,
             },
           });
         } catch (e) {

@@ -149,3 +149,29 @@ _Items discovered during task execution are logged here by agents._
 - (TP-009) Inline agentic output quality depends on the native loop's default
   agent system prompt combined with the edit user-prompt; not exercised by the
   fake-port tests. Carried to the live-model smoke matrix (agentic-inline smoke).
+- (TP-006) Codex `SUPPORTS_RESUME = false`: `codex exec resume <id>` is a
+  subcommand (different arg shape from claude's `--resume` flag) and can't be
+  live-verified without a model, so `resume_session_id` is ignored and every codex
+  turn starts fresh (no prior-turn memory in the CLI). Implementing the resume
+  subcommand + live smoke is follow-up. The `SUPPORTS_*` consts are set truthfully
+  but are still not read by the driver (dispatch is on `AgentRunSpec.adapter`).
+- (TP-006) `AgentRunSpec.adapter` is `Option<String>` matched on `Some("codex")`
+  (else claude) — stringly-typed dispatch over a 2-value closed set that mirrors the
+  TS `AgentCapability.adapter` string. TS stamps it in `agent_tauri_adapter.ts` via
+  `agent_capability()` (agent_runner.ts was out of scope / untouched).
+- (TP-006) Codex non-MCP tool events (`command_execution`/`file_change`/`web_search`)
+  use the raw codex item-type as the AgentEvent `name`; downstream `changed_files`
+  and TP-008 citations key on claude names (`Write`/`Edit`/`Read`), so codex file
+  changes won't surface as changed-files/citations. Same shared normalization gap
+  the TP-008 notes already track; needs a backend-neutral tool-name mapping.
+- (TP-006) Codex `Done` stats are zeroed except `num_turns = 1`: `turn.completed`
+  gives token `usage`, which doesn't map to `AgentRunStats{duration_ms, num_turns,
+  total_cost_usd}`. Revisit if codex exposes duration/cost or the stats shape grows.
+- (TP-006) `--ignore-user-config` means codex runs with its default model;
+  `provider_config.model` is ignored (claude adapter also ignores model). Add `-m`
+  if per-provider model selection is wanted.
+- (TP-006) LIVE SMOKE REQUIRED (carried into the program's smoke matrix): no
+  successful codex model turn was run (auth/cost/outward-facing). Must verify real
+  `agent_message`/`mcp_tool_call`/`command_execution` item shapes and that safe-mode
+  `enabled_tools` truly blocks a mutating MCP call end-to-end (OS sandbox does NOT
+  cover MCP-over-HTTP calls — the allowlist is the only safe-mode barrier there).
