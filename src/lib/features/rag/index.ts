@@ -22,8 +22,13 @@ export {
 export {
   changed_files_from_tools,
   is_mutating_tool,
+  paths_from_summary,
   type AgentToolCall,
 } from "$lib/features/rag/domain/agent_file_ops";
+export {
+  citations_from_tools,
+  is_citation_source_tool,
+} from "$lib/features/rag/domain/agent_citations";
 export type {
   AgentDoneStats,
   AgentEvent,

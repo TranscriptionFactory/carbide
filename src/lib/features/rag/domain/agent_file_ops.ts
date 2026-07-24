@@ -3,7 +3,7 @@ export type AgentToolCall = {
   input_summary: string;
 };
 
-const MCP_TOOL_PREFIX = "mcp__carbide__";
+export const MCP_TOOL_PREFIX = "mcp__carbide__";
 
 const MUTATING_MCP_TOOLS = new Set([
   "create_note",
@@ -35,7 +35,7 @@ const PATH_KEYS = ["file_path", "path", "old_path", "new_path"];
 
 // input_summary is the tool input serialized as JSON, truncated to ~200 chars
 // (contract with the Rust event normalizer); truncation can break the JSON.
-function paths_from_summary(summary: string): string[] {
+export function paths_from_summary(summary: string): string[] {
   const trimmed = summary.trim();
   if (trimmed === "") return [];
   if (!trimmed.startsWith("{")) return [trimmed];
