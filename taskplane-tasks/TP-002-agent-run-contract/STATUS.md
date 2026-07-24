@@ -5,7 +5,7 @@
 **Last Updated:** 2026-07-23
 **Review Level:** 2
 **Review Counter:** 3
-**Iteration:** 2
+**Iteration:** 3
 **Size:** L
 
 ---
@@ -31,7 +31,7 @@
 ---
 
 ### Step 2: TS single adapter + port
-**Status:** ⬜ Not Started
+**Status:** 🟨 In Progress
 
 - [ ] `agent_events.ts`: add `{ type: "reasoning"; delta: string }`; `result_summary?: string | null` on tool_end
 - [ ] `AgentStreamRequest` gains `backend: "harness" | "native"`
@@ -83,6 +83,8 @@
 | 2026-07-23 19:38 | Task started | Runtime V2 lane-runner execution |
 | 2026-07-23 19:38 | Step 0 started | Preflight |
 | 2026-07-23 19:45 | Worker iter 1 | done in 453s, tools: 70 |
+| 2026-07-23 20:01 | Worker iter 2 | done in 918s, tools: 113 |
+| 2026-07-23 20:01 | Step 2 started | TS single adapter + port |
 
 ---
 

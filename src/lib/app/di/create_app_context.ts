@@ -1271,7 +1271,6 @@ export function create_app_context(input: {
     rag_store: stores.rag,
     rag_service,
     agent_port: input.ports.agent,
-    native_agent_port: input.ports.native_agent,
   });
 
   register_graph_actions({

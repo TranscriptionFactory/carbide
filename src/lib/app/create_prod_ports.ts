@@ -61,7 +61,6 @@ import { create_code_lsp_tauri_adapter } from "$lib/features/code_lsp";
 import { create_saved_query_tauri_adapter } from "$lib/features/query";
 import {
   create_agent_tauri_adapter,
-  create_native_agent_tauri_adapter,
   create_rag_persistence_tauri_adapter,
 } from "$lib/features/rag";
 import { create_mcp_tauri_adapter } from "$lib/features/mcp";
@@ -296,7 +295,6 @@ export function create_prod_ports(): Ports & {
     saved_query: create_saved_query_tauri_adapter(),
     rag_persistence: create_rag_persistence_tauri_adapter(),
     agent: create_agent_tauri_adapter(),
-    native_agent: create_native_agent_tauri_adapter(),
     reference_storage: create_reference_tauri_adapter(),
     citation: create_citationjs_adapter(),
     doi_lookup: create_doi_tauri_adapter(),
