@@ -1,7 +1,7 @@
 use serde_json::Value;
 use std::collections::HashMap;
 
-use super::{HarnessAdapter, HarnessEventParser};
+use super::{selector_allow_list, HarnessAdapter, HarnessEventParser};
 use crate::features::ai::agent_stream::{AgentEvent, AgentRunStats, ToolSelector};
 use crate::features::mcp::types::ToolDefinition;
 
@@ -173,21 +173,13 @@ pub fn build_agent_args(
     ]
     .map(String::from)
     .to_vec();
-    match selector {
-        ToolSelector::ReadOnly | ToolSelector::Only { .. } => {
-            args.extend(
-                [
-                    "--allowedTools",
-                    "mcp__carbide__*",
-                    "--disallowedTools",
-                    "Bash",
-                    "Write",
-                    "Edit",
-                ]
-                .map(String::from),
-            );
+    match selector_allow_list(selector, catalog) {
+        Some(allowed) => {
+            args.push("--allowedTools".to_string());
+            args.extend(allowed);
+            args.extend(["--disallowedTools", "Bash", "Write", "Edit"].map(String::from));
         }
-        ToolSelector::Full => {
+        None => {
             args.extend(["--permission-mode", "acceptEdits"].map(String::from));
         }
     }

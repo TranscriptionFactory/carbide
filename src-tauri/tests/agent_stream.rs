@@ -170,8 +170,13 @@ fn base_args_match_verified_cli_contract() {
     assert_eq!(flag_value(&args, "--mcp-config"), Some("/cfg/mcp.json"));
 }
 
+// TIGHTENING (TP-007): safe mode previously passed the wildcard
+// `--allowedTools mcp__carbide__*`, which granted EVERY MCP tool — including
+// mutating ones like create_note. It now emits an explicit read-only allow-list
+// derived from the catalog's mutating bits, so `safe` ≡ read-only on the harness
+// backend just as it already is on the native backend.
 #[test]
-fn safe_mode_args_allow_carbide_tools_and_disallow_mutating_tools() {
+fn safe_mode_allow_list_is_explicit_read_only_not_wildcard() {
     let args = build_agent_args(
         "go",
         "/cfg/mcp.json",
@@ -179,7 +184,20 @@ fn safe_mode_args_allow_carbide_tools_and_disallow_mutating_tools() {
         &sample_catalog(),
         None,
     );
-    assert_eq!(flag_value(&args, "--allowedTools"), Some("mcp__carbide__*"));
+    // BEFORE: contained the `mcp__carbide__*` wildcard. AFTER: it must not.
+    assert!(
+        !args.contains(&"mcp__carbide__*".to_string()),
+        "safe mode must not grant the wildcard MCP allow-list"
+    );
+    // Read-only tools are named explicitly...
+    assert!(args.contains(&"mcp__carbide__search_notes".to_string()));
+    assert!(args.contains(&"mcp__carbide__read_note".to_string()));
+    // ...and the mutating tool never reaches the allow-list.
+    assert!(
+        !args.contains(&"mcp__carbide__create_note".to_string()),
+        "mutating create_note must be absent from the safe-mode allow-list"
+    );
+    // Built-in write tools stay disallowed, and safe mode never uses acceptEdits.
     let disallow_start = args.iter().position(|a| a == "--disallowedTools").unwrap();
     assert_eq!(&args[disallow_start + 1..disallow_start + 4], ["Bash", "Write", "Edit"]);
     assert!(!args.contains(&"--permission-mode".to_string()));
