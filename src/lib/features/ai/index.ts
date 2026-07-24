@@ -31,6 +31,7 @@ export { MarkdownJoiner } from "$lib/features/ai/domain/markdown_joiner";
 export {
   agent_capability,
   infer_agent_descriptor,
+  with_transport_kind,
   type AgentBackend,
   type AgentCapability,
 } from "$lib/features/ai/domain/ai_provider_capabilities";

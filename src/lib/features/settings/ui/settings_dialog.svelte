@@ -33,6 +33,7 @@
   import {
     describe_default_provider,
     infer_agent_descriptor,
+    with_transport_kind,
     type AiCliProbe,
     type AiProviderProbeState,
   } from "$lib/features/ai";
@@ -345,9 +346,9 @@
 
   const agent_capability_options = [
     { value: "text_cli", label: "None (text only)" },
-    { value: "claude_code", label: "Claude Code (harness)" },
-    { value: "codex_cli", label: "Codex CLI (harness)" },
-    { value: "openai_compat", label: "OpenAI-compatible (native)" },
+    { value: "claude_code", label: "Claude Code" },
+    { value: "codex_cli", label: "Codex CLI" },
+    { value: "openai_compat", label: "OpenAI-compatible" },
   ];
 
   let editing_provider_id = $state<string | null>(null);
@@ -1083,6 +1084,42 @@
                             })}
                         />
                       </div>
+                      {#if !provider.is_preset}
+                        <div class="flex items-center gap-2">
+                          <span class="w-20 text-xs text-muted-foreground"
+                            >Transport</span
+                          >
+                          <Select.Root
+                            type="single"
+                            value={provider.transport.kind}
+                            disabled={ai_settings_disabled}
+                            onValueChange={(v: string | undefined) => {
+                              if (v !== "cli" && v !== "api") return;
+                              if (v === provider.transport.kind) return;
+                              const next = with_transport_kind(provider, v);
+                              update_provider(provider.id, {
+                                transport: next.transport,
+                                agent: next.agent,
+                              });
+                            }}
+                          >
+                            <Select.Trigger class="flex-1">
+                              <span data-slot="select-value"
+                                >{transport_kind_options.find(
+                                  (o) => o.value === provider.transport.kind,
+                                )?.label ?? provider.transport.kind}</span
+                              >
+                            </Select.Trigger>
+                            <Select.Content>
+                              {#each transport_kind_options as opt (opt.value)}
+                                <Select.Item value={opt.value}
+                                  >{opt.label}</Select.Item
+                                >
+                              {/each}
+                            </Select.Content>
+                          </Select.Root>
+                        </div>
+                      {/if}
                       {#if provider.transport.kind === "cli"}
                         <div class="flex items-center gap-2">
                           <span class="w-20 text-xs text-muted-foreground"
@@ -1272,37 +1309,43 @@
                         {@const agent_kind =
                           provider.agent?.kind ??
                           infer_agent_descriptor(provider).kind}
-                        <div class="flex items-center gap-2">
-                          <span class="w-20 text-xs text-muted-foreground"
-                            >Agent</span
+                        <details class="text-xs">
+                          <summary
+                            class="cursor-pointer select-none text-muted-foreground"
+                            >Advanced</summary
                           >
-                          <Select.Root
-                            type="single"
-                            value={agent_kind}
-                            disabled={ai_settings_disabled}
-                            onValueChange={(v: string | undefined) => {
-                              if (v)
-                                update_provider(provider.id, {
-                                  agent: { kind: v as AgentDescriptorKind },
-                                });
-                            }}
-                          >
-                            <Select.Trigger class="flex-1">
-                              <span data-slot="select-value"
-                                >{agent_capability_options.find(
-                                  (o) => o.value === agent_kind,
-                                )?.label ?? agent_kind}</span
-                              >
-                            </Select.Trigger>
-                            <Select.Content>
-                              {#each agent_capability_options as opt (opt.value)}
-                                <Select.Item value={opt.value}
-                                  >{opt.label}</Select.Item
+                          <div class="flex items-center gap-2 pt-2">
+                            <span class="w-20 text-xs text-muted-foreground"
+                              >Agent</span
+                            >
+                            <Select.Root
+                              type="single"
+                              value={agent_kind}
+                              disabled={ai_settings_disabled}
+                              onValueChange={(v: string | undefined) => {
+                                if (v)
+                                  update_provider(provider.id, {
+                                    agent: { kind: v as AgentDescriptorKind },
+                                  });
+                              }}
+                            >
+                              <Select.Trigger class="flex-1">
+                                <span data-slot="select-value"
+                                  >{agent_capability_options.find(
+                                    (o) => o.value === agent_kind,
+                                  )?.label ?? agent_kind}</span
                                 >
-                              {/each}
-                            </Select.Content>
-                          </Select.Root>
-                        </div>
+                              </Select.Trigger>
+                              <Select.Content>
+                                {#each agent_capability_options as opt (opt.value)}
+                                  <Select.Item value={opt.value}
+                                    >{opt.label}</Select.Item
+                                  >
+                                {/each}
+                              </Select.Content>
+                            </Select.Root>
+                          </div>
+                        </details>
                       {/if}
                     </div>
                   {/if}
