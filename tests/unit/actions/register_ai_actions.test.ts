@@ -902,7 +902,7 @@ describe("register_ai_actions", () => {
 
       expect(ai_service.stream_inline).not.toHaveBeenCalled();
       expect(toast.error).toHaveBeenCalledWith(
-        "No streaming-capable AI provider available",
+        "No streaming-capable AI provider — inline edits need a Claude/Ollama CLI or API provider (Codex is agent-only). Add or select one in Settings.",
       );
     });
   });

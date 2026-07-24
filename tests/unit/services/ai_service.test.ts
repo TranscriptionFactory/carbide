@@ -437,7 +437,7 @@ describe("AiService", () => {
 
       expect(result.success).toBe(false);
       expect(result.output).toBe("Partial draft");
-      expect(result.error).toContain("Could not reach");
+      expect(result.error).toContain("could not reach its backend");
     });
 
     it("treats an aborted stream with partial output as a clean result", async () => {

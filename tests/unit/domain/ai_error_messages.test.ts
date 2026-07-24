@@ -81,10 +81,10 @@ describe("humanize_ai_error", () => {
     expect(result.message).toContain("Could not reach LM Studio at");
   });
 
-  it("omits the base URL for non-api transports", () => {
+  it("points CLI providers at local causes, not the network", () => {
     const result = humanize_ai_error("connection refused", cli_provider);
     expect(result.message).toBe(
-      "Could not reach Claude Code — check your connection and try again.",
+      "Claude Code could not reach its backend — check it is signed in (run `claude`) and its model/endpoint are configured.",
     );
   });
 

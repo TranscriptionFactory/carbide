@@ -336,9 +336,11 @@ async fn run_agent_cli(
                     let code = s.code().unwrap_or(-1);
                     let detail = collect_stderr_tail(stderr_handle).await;
                     let message = if detail.is_empty() {
-                        format!("Process exited with code {code}")
+                        format!(
+                            "`{command}` exited with code {code} with no output — check it is installed, authenticated, and the model is available"
+                        )
                     } else {
-                        format!("Process exited with code {code}: {detail}")
+                        format!("`{command}` exited with code {code}: {detail}")
                     };
                     let _ = app.emit(event_name, AgentEvent::Error { message });
                 }
