@@ -85,7 +85,11 @@ describe("AgentRunner.run_turn", () => {
       { type: "done", stats: {} },
     ]);
 
-    const result = await runner.run_turn(provider, "organize my notes", "harness");
+    const result = await runner.run_turn(
+      provider,
+      "organize my notes",
+      "harness",
+    );
 
     expect(result).toEqual({ status: "done" });
     const session = rag_store.active;
@@ -199,7 +203,11 @@ describe("AgentRunner.run_turn", () => {
       { type: "error", message: "CLI crashed" },
     ]);
 
-    const result = await runner.run_turn(provider, "organize my notes", "harness");
+    const result = await runner.run_turn(
+      provider,
+      "organize my notes",
+      "harness",
+    );
 
     expect(result).toEqual({ status: "error", message: "CLI crashed" });
     expect(rag_store.error).toBe("CLI crashed");

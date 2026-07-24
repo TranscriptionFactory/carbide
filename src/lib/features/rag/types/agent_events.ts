@@ -13,6 +13,11 @@ export type AgentEvent =
   | { type: "text"; delta: string }
   | { type: "reasoning"; delta: string }
   | { type: "tool_start"; name: string; input_summary: string }
-  | { type: "tool_end"; name: string; ok: boolean; result_summary?: string | null }
+  | {
+      type: "tool_end";
+      name: string;
+      ok: boolean;
+      result_summary?: string | null;
+    }
   | { type: "done"; stats: AgentDoneStats }
   | { type: "error"; message: string };
