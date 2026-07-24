@@ -130,3 +130,22 @@ _Items discovered during task execution are logged here by agents._
   `harness::selector_allow_list` to inherit the safe-mode parity fix.
 - (TP-007) `HarnessAdapter::SUPPORTS_RESUME`/`SUPPORTS_PARTIAL_TEXT` still
   unread by the driver — deferred to TP-006's multi-adapter dispatch.
+- (TP-009) Agentic inline edit passes `history: []` to the loop — each inline
+  edit is a fresh single-turn transform of the note/selection. The TP-003
+  dependency ("inline dialog turns replay too") is intentionally NOT exercised:
+  replaying prior edit turns would feed stale note snapshots into the loop and
+  muddy the current edit. Revisit only if a user wants multi-turn refinement in
+  the inline dialog (would need `AiConversationTurn[] → AiMessage[]` mapping,
+  cf. rag's `rag_messages_to_history`).
+- (TP-009) `inline_edit_policy()`'s `prompt_mode`/`sink` are TS-only surface
+  descriptors — NOT plumbed to Rust (frozen `AgentStreamRequest` untouched). The
+  sink is realized by returning text to the existing diff/apply UI; the prompt
+  is the reused edit prompt as the loop's user message. If a future surface
+  needs the native loop to intercept `edit_note` as a propose-only (no disk
+  write) mechanism so a WRITE-capable inline agentic edit is possible, that is
+  the point to extend `AgentStreamRequest` additively with prompt_mode/sink and
+  branch in `native_agent.rs`. Deliberately out of scope here — the read-only
+  toolset + human diff-approval already satisfy the inline permission model.
+- (TP-009) Inline agentic output quality depends on the native loop's default
+  agent system prompt combined with the edit user-prompt; not exercised by the
+  fake-port tests. Carried to the live-model smoke matrix (agentic-inline smoke).
