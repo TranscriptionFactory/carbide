@@ -14,6 +14,7 @@ const MUTATING_MCP_TOOLS = new Set([
   "prepend_note",
   "ensure_frontmatter",
   "rename_note",
+  "reindex",
 ]);
 
 const MUTATING_BUILTIN_TOOLS = new Set([

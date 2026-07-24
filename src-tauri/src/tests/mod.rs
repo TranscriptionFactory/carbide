@@ -35,6 +35,8 @@ mod mcp_tools_git;
 
 #[path = "../../tests/mcp_schema_consistency.rs"]
 mod mcp_schema_consistency;
+#[path = "../../tests/mcp_mutating_parity.rs"]
+mod mcp_mutating_parity;
 
 #[path = "../../tests/smart_links_rules.rs"]
 mod smart_links_rules;
