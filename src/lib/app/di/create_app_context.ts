@@ -45,7 +45,11 @@ import {
   register_search_graph_actions,
 } from "$lib/features/graph";
 import { register_window_actions } from "$lib/features/window";
-import { AiService, register_ai_actions } from "$lib/features/ai";
+import {
+  AiService,
+  AgenticEditRunner,
+  register_ai_actions,
+} from "$lib/features/ai";
 import { RagService, RagPanel, register_rag_actions } from "$lib/features/rag";
 import type { AiProviderConfig } from "$lib/shared/types/ai_provider_config";
 import type { AiProviderHint } from "$lib/features/plugin";
@@ -1264,6 +1268,7 @@ export function create_app_context(input: {
     ai_store: stores.ai,
     ai_service,
     ai_history: input.ports.ai_history,
+    agentic_runner: new AgenticEditRunner(input.ports.agent, git_service),
   });
 
   register_rag_actions({

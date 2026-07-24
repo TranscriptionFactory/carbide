@@ -151,7 +151,7 @@ export class AiService {
     };
   }
 
-  private async build_execution_prompt(
+  async build_execution_prompt(
     input: AiExecuteInput,
   ): Promise<{ prompt: string; working_path: string }> {
     const { context } = input;

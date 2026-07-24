@@ -1,6 +1,10 @@
 export { register_ai_actions } from "$lib/features/ai/application/ai_actions";
 export { AiService } from "$lib/features/ai/application/ai_service";
 export {
+  AgenticEditRunner,
+  type AgentCheckpointGit,
+} from "$lib/features/ai/application/agentic_edit_runner";
+export {
   AiStore,
   type AiDialogState,
 } from "$lib/features/ai/state/ai_store.svelte";
@@ -32,6 +36,7 @@ export {
 } from "$lib/features/ai/domain/ai_provider_capabilities";
 export {
   chat_policy,
+  inline_edit_policy,
   type SurfacePolicy,
   type ToolSelector,
 } from "$lib/features/ai/domain/agent_run_policy";
