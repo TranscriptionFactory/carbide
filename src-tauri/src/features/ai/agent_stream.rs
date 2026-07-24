@@ -2,6 +2,7 @@ use crate::features::mcp::auth;
 use crate::features::mcp::http::HttpServerState;
 use crate::features::mcp::router::McpRouter;
 use crate::features::mcp::setup;
+use crate::features::mcp::types::ToolDefinition;
 use crate::features::pipeline::service as pipeline;
 use serde::{Deserialize, Serialize};
 use specta::Type;
@@ -13,7 +14,7 @@ use tokio::sync::{oneshot, Mutex};
 
 use super::harness::claude_adapter::ClaudeAdapter;
 use super::harness::codex_adapter::CodexAdapter;
-use super::harness::{HarnessAdapter, HarnessEventParser, McpEndpoint};
+use super::harness::{AgentInvocation, HarnessAdapter, HarnessEventParser, McpEndpoint};
 use super::service::{AiProviderConfig, AiTransport};
 use super::stream::{collect_stderr_tail, AiMessage};
 
@@ -172,34 +173,9 @@ pub async fn agent_run_start(
             };
 
             let catalog = McpRouter::with_app(app.clone()).tool_definitions_public();
-            let resume = spec.resume_session_id.as_deref();
             let (invocation, parser) = match spec.adapter.as_deref() {
-                Some("codex") => {
-                    let adapter = CodexAdapter;
-                    (
-                        adapter.build_invocation(
-                            &spec.prompt,
-                            &endpoint,
-                            &spec.toolset,
-                            &catalog,
-                            resume,
-                        ),
-                        adapter.new_parser(),
-                    )
-                }
-                _ => {
-                    let adapter = ClaudeAdapter;
-                    (
-                        adapter.build_invocation(
-                            &spec.prompt,
-                            &endpoint,
-                            &spec.toolset,
-                            &catalog,
-                            resume,
-                        ),
-                        adapter.new_parser(),
-                    )
-                }
+                Some("codex") => build_harness_invocation(CodexAdapter, &spec, &endpoint, &catalog),
+                _ => build_harness_invocation(ClaudeAdapter, &spec, &endpoint, &catalog),
             };
             let invocation = match invocation {
                 Ok(invocation) => invocation,
@@ -284,6 +260,22 @@ pub async fn agent_run_start(
     }
 
     Ok(())
+}
+
+fn build_harness_invocation<A: HarnessAdapter>(
+    adapter: A,
+    spec: &AgentRunSpec,
+    endpoint: &McpEndpoint,
+    catalog: &[ToolDefinition],
+) -> (Result<AgentInvocation, String>, Box<dyn HarnessEventParser>) {
+    let invocation = adapter.build_invocation(
+        &spec.prompt,
+        endpoint,
+        &spec.toolset,
+        catalog,
+        spec.resume_session_id.as_deref(),
+    );
+    (invocation, adapter.new_parser())
 }
 
 async fn run_agent_cli(

@@ -5,6 +5,7 @@ import {
 } from "$lib/shared/types/ai_provider_config";
 
 export function provider_supports_streaming(config: AiProviderConfig): boolean {
+  if (!config.transport) return false;
   if (config.transport.kind === "api") return true;
   return !config.transport.args.some((a) => a.includes("{output_file}"));
 }
@@ -18,7 +19,7 @@ export function infer_agent_descriptor(
 ): AgentDescriptor {
   const preset = BUILTIN_PROVIDER_PRESETS.find((p) => p.id === config.id);
   if (preset?.agent) return preset.agent;
-  if (config.transport.kind === "api") return { kind: "openai_compat" };
+  if (config.transport?.kind === "api") return { kind: "openai_compat" };
   return { kind: "text_cli" };
 }
 

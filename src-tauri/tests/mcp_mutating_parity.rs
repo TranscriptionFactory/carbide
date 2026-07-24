@@ -79,3 +79,38 @@ fn mutating_tool_parity_rust_vs_typescript() {
         );
     }
 }
+
+#[test]
+fn safe_mode_read_only_parity_harness_vs_native() {
+    use crate::features::ai::agent_stream::ToolSelector;
+    use crate::features::ai::harness::{selector_allow_list, MCP_TOOL_PREFIX};
+    use crate::features::ai::native_agent::allowed_tools;
+
+    let catalog = McpRouter::new().tool_definitions_public();
+
+    let harness: BTreeSet<String> = selector_allow_list(&ToolSelector::ReadOnly, &catalog)
+        .expect("ReadOnly must yield an explicit allow-list")
+        .into_iter()
+        .map(|name| {
+            name.strip_prefix(MCP_TOOL_PREFIX)
+                .unwrap_or(&name)
+                .to_string()
+        })
+        .collect();
+
+    let native: BTreeSet<String> = allowed_tools(&catalog, &ToolSelector::ReadOnly)
+        .into_iter()
+        .map(|tool| tool.name)
+        .collect();
+
+    assert!(
+        !harness.is_empty(),
+        "read-only set is empty — the real catalog should expose non-mutating tools"
+    );
+    assert_eq!(
+        harness, native,
+        "SAFE-MODE BARRIER DRIFT — the harness read-only allow-list and the native \
+         read-only toolset must expose the SAME tools when built from the real catalog.\n\
+         Both filter on ToolDefinition.mutating; keep the two filters in sync."
+    );
+}

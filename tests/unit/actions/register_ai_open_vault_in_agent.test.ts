@@ -81,11 +81,11 @@ describe("ai.open_vault_in_agent", () => {
 
   it("refuses providers without agent support", async () => {
     const { registry, stores, ai_service } = create_harness();
-    stores.ui.editor_settings.ai_default_provider_id = "codex";
+    stores.ui.editor_settings.ai_default_provider_id = "ollama";
     await registry.execute(ACTION_IDS.ai_open_vault_in_agent);
     expect(ai_service.open_vault_in_agent).not.toHaveBeenCalled();
     expect(toast.info).toHaveBeenCalledWith(
-      "Codex does not support agent mode",
+      "Ollama does not support agent mode",
     );
   });
 
