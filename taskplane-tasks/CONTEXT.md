@@ -1,4 +1,5 @@
 # General — Context
+
 **Last Updated:** 2026-07-23
 **Status:** Active
 **Next Task ID:** TP-011
@@ -6,6 +7,7 @@
 ---
 
 ## Current State
+
 This is the default task area for carbide. Tasks that don't belong
 to a specific domain area are created here.
 
@@ -21,10 +23,11 @@ in `devlog/2026-07-23_generalized-agent-framework/PLAN.md` (gitignored — not
 visible inside worktree lanes; every PROMPT.md is self-contained).
 
 Wave schedule (dependencies encoded in each PROMPT.md):
+
 - W1: TP-002 (contract+plumbing) ∥ TP-005 (parity test)
 - W2: TP-003 (history replay) ∥ TP-004 (capability+harness seam)
 - W3: TP-006 (codex adapter) ∥ TP-007 (surface policy + safe-mode parity)
-      ∥ TP-008 (agent citations)
+  ∥ TP-008 (agent citations)
 - W4: TP-009 (agentic inline edit)
 - W5: TP-010 (simplify pass)
 - Then: manual live-model smoke matrix (claude CLI, codex CLI, ollama native,
@@ -35,13 +38,15 @@ Locked user decisions (2026-07-23): inline "ask" mode stays as-is; citations
 in agent mode IN SCOPE (TP-008); per-tool interactive approval DEFERRED.
 
 ## Key Files
-| Category | Path |
-|----------|------|
-| Tasks | `taskplane-tasks/` |
-| Config | `.pi/taskplane-config.json` |
+
+| Category     | Path                                                                 |
+| ------------ | -------------------------------------------------------------------- |
+| Tasks        | `taskplane-tasks/`                                                   |
+| Config       | `.pi/taskplane-config.json`                                          |
 | Program plan | `devlog/2026-07-23_generalized-agent-framework/PLAN.md` (gitignored) |
 
 ## Lane Environment Notes (worktree lanes)
+
 - Gitignored files missing from worktrees — copy from main checkout before
   building: `src/lib/generated/bindings.ts` (or regenerate:
   `cargo test --manifest-path src-tauri/Cargo.toml specta_export`),
@@ -54,7 +59,9 @@ in agent mode IN SCOPE (TP-008); per-tool interactive approval DEFERRED.
   before merging lanes (delegated agents have rewritten history before).
 
 ## Technical Debt / Future Work
+
 _Items discovered during task execution are logged here by agents._
+
 - (Carried from native-loop plan) Loop-guard constants (16 turns, 4000-char
   truncation) promotion to settings — only if a user asks.
 - Per-tool interactive approval tier ("review") — policy object must not
