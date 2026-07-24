@@ -25,8 +25,10 @@ export {
 } from "$lib/features/ai/application/note_image_loader";
 export { MarkdownJoiner } from "$lib/features/ai/domain/markdown_joiner";
 export {
-  agent_backend,
+  agent_capability,
+  infer_agent_descriptor,
   type AgentBackend,
+  type AgentCapability,
 } from "$lib/features/ai/domain/ai_provider_capabilities";
 export {
   describe_default_provider,

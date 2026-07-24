@@ -32,6 +32,7 @@
   import { SvelteMap } from "svelte/reactivity";
   import {
     describe_default_provider,
+    infer_agent_descriptor,
     type AiCliProbe,
     type AiProviderProbeState,
   } from "$lib/features/ai";
@@ -96,6 +97,7 @@
     LspProviderConfigStatus,
   } from "$lib/features/markdown_lsp";
   import type {
+    AgentDescriptorKind,
     AiProviderConfig,
     AiTransport,
   } from "$lib/shared/types/ai_provider_config";
@@ -339,6 +341,13 @@
   const transport_kind_options = [
     { value: "cli", label: "CLI" },
     { value: "api", label: "API" },
+  ];
+
+  const agent_capability_options = [
+    { value: "text_cli", label: "None (text only)" },
+    { value: "claude_code", label: "Claude Code (harness)" },
+    { value: "codex_cli", label: "Codex CLI (harness)" },
+    { value: "openai_compat", label: "OpenAI-compatible (native)" },
   ];
 
   let editing_provider_id = $state<string | null>(null);
@@ -1259,6 +1268,42 @@
                             })}
                         />
                       </div>
+                      {#if !provider.is_preset}
+                        {@const agent_kind =
+                          provider.agent?.kind ??
+                          infer_agent_descriptor(provider).kind}
+                        <div class="flex items-center gap-2">
+                          <span class="w-20 text-xs text-muted-foreground"
+                            >Agent</span
+                          >
+                          <Select.Root
+                            type="single"
+                            value={agent_kind}
+                            disabled={ai_settings_disabled}
+                            onValueChange={(v: string | undefined) => {
+                              if (v)
+                                update_provider(provider.id, {
+                                  agent: { kind: v as AgentDescriptorKind },
+                                });
+                            }}
+                          >
+                            <Select.Trigger class="flex-1">
+                              <span data-slot="select-value"
+                                >{agent_capability_options.find(
+                                  (o) => o.value === agent_kind,
+                                )?.label ?? agent_kind}</span
+                              >
+                            </Select.Trigger>
+                            <Select.Content>
+                              {#each agent_capability_options as opt (opt.value)}
+                                <Select.Item value={opt.value}
+                                  >{opt.label}</Select.Item
+                                >
+                              {/each}
+                            </Select.Content>
+                          </Select.Root>
+                        </div>
+                      {/if}
                     </div>
                   {/if}
                 </div>

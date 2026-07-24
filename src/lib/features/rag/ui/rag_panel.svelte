@@ -20,7 +20,7 @@
   import RagMessage from "$lib/features/rag/ui/rag_message.svelte";
   import RagInput from "$lib/features/rag/ui/rag_input.svelte";
   import RagModeToggle from "$lib/features/rag/ui/rag_mode_toggle.svelte";
-  import { agent_backend } from "$lib/features/ai";
+  import { agent_capability } from "$lib/features/ai";
   import type {
     RagScope,
     RagSessionMode,
@@ -151,7 +151,7 @@
 
   const backend = $derived.by(() => {
     const config = providers.find((p) => p.id === provider_id);
-    return config ? agent_backend(config) : null;
+    return config ? (agent_capability(config)?.backend ?? null) : null;
   });
   const agent_supported = $derived(backend !== null);
 
@@ -182,7 +182,10 @@
   function change_provider(id: string) {
     rag.set_provider(id);
     const config = providers.find((p) => p.id === id);
-    if (rag.mode === "agent" && !(config && agent_backend(config) !== null)) {
+    if (
+      rag.mode === "agent" &&
+      !(config && agent_capability(config) !== null)
+    ) {
       set_mode("ask");
     }
     persist_active_session();

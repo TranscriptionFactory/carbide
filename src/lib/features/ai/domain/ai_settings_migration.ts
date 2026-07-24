@@ -2,6 +2,7 @@ import {
   BUILTIN_PROVIDER_PRESETS,
   type AiProviderConfig,
 } from "$lib/shared/types/ai_provider_config";
+import { infer_agent_descriptor } from "$lib/features/ai/domain/ai_provider_capabilities";
 
 type LegacyAiSettings = {
   ai_default_backend?: string;
@@ -69,6 +70,11 @@ function has_old_args_template_format(
   );
 }
 
+function stamp_agent_descriptor(config: AiProviderConfig): AiProviderConfig {
+  if (config.agent) return config;
+  return { ...config, agent: infer_agent_descriptor(config) };
+}
+
 export function migrate_ai_settings(
   raw: Record<string, unknown>,
 ): MigratedAiFields | null {
@@ -78,6 +84,14 @@ export function migrate_ai_settings(
         ai_providers: (raw["ai_providers"] as OldArgsTemplateProvider[]).map(
           migrate_old_args_template_provider,
         ),
+        ai_default_provider_id:
+          (raw["ai_default_provider_id"] as string) ?? "auto",
+      };
+    }
+    const providers = raw["ai_providers"] as AiProviderConfig[];
+    if (providers.some((p) => p.agent === undefined)) {
+      return {
+        ai_providers: providers.map(stamp_agent_descriptor),
         ai_default_provider_id:
           (raw["ai_default_provider_id"] as string) ?? "auto",
       };
@@ -97,39 +111,21 @@ export function migrate_ai_settings(
     return null;
   }
 
+  const command_overrides: Record<string, string | undefined> = {
+    claude: legacy.ai_claude_command,
+    codex: legacy.ai_codex_command,
+    ollama: legacy.ai_ollama_command,
+  };
+
   const providers: AiProviderConfig[] = BUILTIN_PROVIDER_PRESETS.map(
     (preset) => {
       const copy = structuredClone(preset);
-      if (
-        preset.id === "claude" &&
-        legacy.ai_claude_command?.trim() &&
-        copy.transport.kind === "cli"
-      ) {
-        copy.transport = {
-          ...copy.transport,
-          command: legacy.ai_claude_command.trim(),
-        };
+      const command = command_overrides[preset.id]?.trim();
+      if (command && copy.transport.kind === "cli") {
+        copy.transport = { ...copy.transport, command };
       }
-      if (
-        preset.id === "codex" &&
-        legacy.ai_codex_command?.trim() &&
-        copy.transport.kind === "cli"
-      ) {
-        copy.transport = {
-          ...copy.transport,
-          command: legacy.ai_codex_command.trim(),
-        };
-      }
-      if (preset.id === "ollama") {
-        if (legacy.ai_ollama_command?.trim() && copy.transport.kind === "cli") {
-          copy.transport = {
-            ...copy.transport,
-            command: legacy.ai_ollama_command.trim(),
-          };
-        }
-        if (legacy.ai_ollama_model?.trim()) {
-          copy.model = legacy.ai_ollama_model.trim();
-        }
+      if (preset.id === "ollama" && legacy.ai_ollama_model?.trim()) {
+        copy.model = legacy.ai_ollama_model.trim();
       }
       return copy;
     },
