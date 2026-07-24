@@ -1,6 +1,7 @@
 pub mod claude_adapter;
 
-use super::agent_stream::{AgentEvent, AgentPermissionMode};
+use super::agent_stream::{AgentEvent, ToolSelector};
+use crate::features::mcp::types::ToolDefinition;
 
 pub trait HarnessEventParser: Send {
     fn parse_line(&mut self, line: &str) -> Vec<AgentEvent>;
@@ -15,7 +16,8 @@ pub trait HarnessAdapter {
         &self,
         prompt: &str,
         mcp_config_path: &str,
-        permission_mode: &AgentPermissionMode,
+        selector: &ToolSelector,
+        catalog: &[ToolDefinition],
         resume_session_id: Option<&str>,
     ) -> Vec<String>;
 
