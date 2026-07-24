@@ -41,6 +41,7 @@ export class AgentRunner {
   async run_turn(
     provider_config: AiProviderConfig,
     prompt: string,
+    backend: "harness" | "native",
   ): Promise<AgentTurnResult> {
     const vault = this.vault_store.vault;
     const session = this.rag_store.active;
@@ -60,6 +61,7 @@ export class AgentRunner {
         ...(session.agent_session_id
           ? { resume_session_id: session.agent_session_id }
           : {}),
+        backend,
         signal: this.abort_controller.signal,
       });
       for await (const event of events) {
