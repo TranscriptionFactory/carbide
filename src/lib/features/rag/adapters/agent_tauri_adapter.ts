@@ -54,6 +54,7 @@ export function create_agent_tauri_adapter(): AgentPort {
               prompt: input.prompt,
               vault_path: input.vault_path,
               permission_mode: input.permission_mode,
+              history: input.history,
               resume_session_id: input.resume_session_id ?? null,
               backend: input.backend,
             },
