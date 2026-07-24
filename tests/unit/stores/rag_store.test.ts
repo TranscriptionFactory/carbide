@@ -28,6 +28,17 @@ function saved_session(overrides: Partial<RagSession> = {}): RagSession {
 }
 
 describe("RagStore", () => {
+  it("exposes a mutable composer draft that is not cleared by switching sessions", () => {
+    const store = new RagStore();
+    expect(store.draft).toBe("");
+
+    store.draft = "half-written question";
+    store.hydrate([saved_session()]);
+    store.switch_session("s1");
+
+    expect(store.draft).toBe("half-written question");
+  });
+
   it("creates a session on the first user message and derives its title", () => {
     const store = new RagStore();
 
