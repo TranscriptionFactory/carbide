@@ -501,6 +501,12 @@
     overflow-x: hidden;
   }
 
+  .ProblemsPanel__body,
+  .ProblemsPanel__body * {
+    -webkit-user-select: text;
+    user-select: text;
+  }
+
   .ProblemsPanel__log-body {
     font-family: var(--font-mono, monospace);
     font-size: var(--text-xs);
