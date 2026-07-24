@@ -1,9 +1,20 @@
 pub mod claude_adapter;
+pub mod codex_adapter;
 
 use super::agent_stream::{AgentEvent, ToolSelector};
 use crate::features::mcp::types::ToolDefinition;
 
 pub const MCP_TOOL_PREFIX: &str = "mcp__carbide__";
+
+pub struct McpEndpoint {
+    pub port: u16,
+    pub token: String,
+}
+
+pub struct AgentInvocation {
+    pub args: Vec<String>,
+    pub env: Vec<(String, String)>,
+}
 
 pub fn mcp_allow_list(catalog: &[ToolDefinition]) -> Vec<String> {
     catalog
@@ -38,14 +49,14 @@ pub trait HarnessAdapter {
     const SUPPORTS_RESUME: bool;
     const SUPPORTS_PARTIAL_TEXT: bool;
 
-    fn spawn_args(
+    fn build_invocation(
         &self,
         prompt: &str,
-        mcp_config_path: &str,
+        endpoint: &McpEndpoint,
         selector: &ToolSelector,
         catalog: &[ToolDefinition],
         resume_session_id: Option<&str>,
-    ) -> Vec<String>;
+    ) -> Result<AgentInvocation, String>;
 
     fn new_parser(&self) -> Box<dyn HarnessEventParser>;
 }

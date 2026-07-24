@@ -71,12 +71,15 @@ describe("agent_capability", () => {
     expect(agent_capability(config)).toEqual({ backend: "native" });
   });
 
-  it("treats a codex_cli descriptor as unsupported until an adapter registers", () => {
+  it("maps a codex_cli descriptor to the codex harness adapter", () => {
     const config: AiProviderConfig = {
       ...cli_provider(["exec", "-"]),
       agent: { kind: "codex_cli" },
     };
-    expect(agent_capability(config)).toBeNull();
+    expect(agent_capability(config)).toEqual({
+      backend: "harness",
+      adapter: "codex",
+    });
   });
 
   it("treats a text_cli descriptor as unsupported", () => {

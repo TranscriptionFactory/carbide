@@ -1,8 +1,9 @@
 use serde_json::Value;
 use std::collections::HashMap;
 
-use super::{selector_allow_list, HarnessAdapter, HarnessEventParser};
+use super::{selector_allow_list, AgentInvocation, HarnessAdapter, HarnessEventParser, McpEndpoint};
 use crate::features::ai::agent_stream::{AgentEvent, AgentRunStats, ToolSelector};
+use crate::features::mcp::setup::write_agent_mcp_config;
 use crate::features::mcp::types::ToolDefinition;
 
 const INPUT_SUMMARY_MAX_CHARS: usize = 200;
@@ -195,15 +196,26 @@ impl HarnessAdapter for ClaudeAdapter {
     const SUPPORTS_RESUME: bool = true;
     const SUPPORTS_PARTIAL_TEXT: bool = true;
 
-    fn spawn_args(
+    fn build_invocation(
         &self,
         prompt: &str,
-        mcp_config_path: &str,
+        endpoint: &McpEndpoint,
         selector: &ToolSelector,
         catalog: &[ToolDefinition],
         resume_session_id: Option<&str>,
-    ) -> Vec<String> {
-        build_agent_args(prompt, mcp_config_path, selector, catalog, resume_session_id)
+    ) -> Result<AgentInvocation, String> {
+        let config_path = write_agent_mcp_config(endpoint.port, &endpoint.token)?;
+        let args = build_agent_args(
+            prompt,
+            &config_path.to_string_lossy(),
+            selector,
+            catalog,
+            resume_session_id,
+        );
+        Ok(AgentInvocation {
+            args,
+            env: Vec::new(),
+        })
     }
 
     fn new_parser(&self) -> Box<dyn HarnessEventParser> {

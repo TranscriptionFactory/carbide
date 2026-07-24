@@ -12,7 +12,8 @@ use tokio::process::Command;
 use tokio::sync::{oneshot, Mutex};
 
 use super::harness::claude_adapter::ClaudeAdapter;
-use super::harness::{HarnessAdapter, HarnessEventParser};
+use super::harness::codex_adapter::CodexAdapter;
+use super::harness::{HarnessAdapter, HarnessEventParser, McpEndpoint};
 use super::service::{AiProviderConfig, AiTransport};
 use super::stream::{collect_stderr_tail, AiMessage};
 
@@ -39,6 +40,8 @@ pub struct AgentRunSpec {
     pub toolset: ToolSelector,
     pub resume_session_id: Option<String>,
     pub backend: AgentRunBackend,
+    #[serde(default)]
+    pub adapter: Option<String>,
     #[serde(default)]
     pub history: Vec<AiMessage>,
 }
@@ -85,11 +88,19 @@ impl AgentRunState {
     }
 }
 
-pub(crate) async fn prepare_mcp_config(app: &AppHandle) -> Result<String, String> {
+pub(crate) async fn prepare_mcp_endpoint(app: &AppHandle) -> Result<McpEndpoint, String> {
     let server = app.state::<HttpServerState>();
     let info = server.start(app.clone()).await?;
     let token = auth::read_or_create_token()?;
-    let config_path = setup::write_agent_mcp_config(info.port, &token)?;
+    Ok(McpEndpoint {
+        port: info.port,
+        token,
+    })
+}
+
+pub(crate) async fn prepare_mcp_config(app: &AppHandle) -> Result<String, String> {
+    let endpoint = prepare_mcp_endpoint(app).await?;
+    let config_path = setup::write_agent_mcp_config(endpoint.port, &endpoint.token)?;
     Ok(config_path.to_string_lossy().to_string())
 }
 
@@ -147,8 +158,8 @@ pub async fn agent_run_start(
                 return Ok(());
             }
 
-            let mcp_config_path = match prepare_mcp_config(&app).await {
-                Ok(path) => path,
+            let endpoint = match prepare_mcp_endpoint(&app).await {
+                Ok(endpoint) => endpoint,
                 Err(e) => {
                     let _ = app.emit(
                         &event_name,
@@ -160,16 +171,45 @@ pub async fn agent_run_start(
                 }
             };
 
-            let adapter = ClaudeAdapter;
             let catalog = McpRouter::with_app(app.clone()).tool_definitions_public();
-            let args = adapter.spawn_args(
-                &spec.prompt,
-                &mcp_config_path,
-                &spec.toolset,
-                &catalog,
-                spec.resume_session_id.as_deref(),
-            );
-            let parser = adapter.new_parser();
+            let resume = spec.resume_session_id.as_deref();
+            let (invocation, parser) = match spec.adapter.as_deref() {
+                Some("codex") => {
+                    let adapter = CodexAdapter;
+                    (
+                        adapter.build_invocation(
+                            &spec.prompt,
+                            &endpoint,
+                            &spec.toolset,
+                            &catalog,
+                            resume,
+                        ),
+                        adapter.new_parser(),
+                    )
+                }
+                _ => {
+                    let adapter = ClaudeAdapter;
+                    (
+                        adapter.build_invocation(
+                            &spec.prompt,
+                            &endpoint,
+                            &spec.toolset,
+                            &catalog,
+                            resume,
+                        ),
+                        adapter.new_parser(),
+                    )
+                }
+            };
+            let invocation = match invocation {
+                Ok(invocation) => invocation,
+                Err(e) => {
+                    let _ = app.emit(&event_name, AgentEvent::Error { message: e });
+                    return Ok(());
+                }
+            };
+            let args = invocation.args;
+            let env = invocation.env;
 
             let (abort_tx, abort_rx) = oneshot::channel::<()>();
             state
@@ -195,6 +235,7 @@ pub async fn agent_run_start(
                     &evt_name,
                     &command,
                     &args,
+                    &env,
                     &resolved_path,
                     &vault_path,
                     parser,
@@ -250,15 +291,18 @@ async fn run_agent_cli(
     event_name: &str,
     command: &str,
     args: &[String],
+    env: &[(String, String)],
     path: &str,
     vault_path: &str,
     mut parser: Box<dyn HarnessEventParser>,
     abort_rx: oneshot::Receiver<()>,
 ) -> Result<(), String> {
     let mut cmd = Command::new(command);
-    cmd.args(args)
-        .env("PATH", path)
-        .current_dir(vault_path)
+    cmd.args(args).env("PATH", path);
+    for (key, value) in env {
+        cmd.env(key, value);
+    }
+    cmd.current_dir(vault_path)
         .stdin(std::process::Stdio::null())
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped())
