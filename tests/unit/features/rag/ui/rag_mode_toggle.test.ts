@@ -8,7 +8,7 @@ import {
   unmount,
 } from "../../../helpers/svelte_client_runtime";
 import RagModeToggle from "$lib/features/rag/ui/rag_mode_toggle.svelte";
-import { agent_backend } from "$lib/features/ai";
+import { agent_capability } from "$lib/features/ai";
 import { BUILTIN_PROVIDER_PRESETS } from "$lib/shared/types/ai_provider_config";
 import type { RagSessionMode } from "$lib/features/rag/domain/rag_types";
 import type { AgentPermissionMode } from "$lib/features/rag/types/agent_events";
@@ -64,7 +64,7 @@ describe("RagModeToggle", () => {
     const codex = BUILTIN_PROVIDER_PRESETS.find((p) => p.id === "codex");
     if (!codex) throw new Error("codex preset missing");
     const target = render_toggle({
-      agent_supported: agent_backend(codex) !== null,
+      agent_supported: agent_capability(codex) !== null,
     });
     const agent = button_labelled(target, "Agent");
     expect(agent.disabled).toBe(true);
@@ -78,7 +78,7 @@ describe("RagModeToggle", () => {
     if (!claude) throw new Error("claude preset missing");
     const on_set_mode = vi.fn();
     const target = render_toggle({
-      agent_supported: agent_backend(claude) !== null,
+      agent_supported: agent_capability(claude) !== null,
       on_set_mode,
     });
     const agent = button_labelled(target, "Agent");
@@ -92,7 +92,7 @@ describe("RagModeToggle", () => {
     const lmstudio = BUILTIN_PROVIDER_PRESETS.find((p) => p.id === "lmstudio");
     if (!lmstudio) throw new Error("lmstudio preset missing");
     const target = render_toggle({
-      agent_supported: agent_backend(lmstudio) !== null,
+      agent_supported: agent_capability(lmstudio) !== null,
     });
     const agent = button_labelled(target, "Agent");
     expect(agent.disabled).toBe(false);

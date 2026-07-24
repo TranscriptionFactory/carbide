@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  agent_backend,
+  agent_capability,
   provider_supports_streaming,
 } from "$lib/features/ai/domain/ai_provider_capabilities";
 import type { AiProviderConfig } from "$lib/shared/types/ai_provider_config";
@@ -49,8 +49,45 @@ describe("provider_supports_streaming", () => {
   });
 });
 
-describe("agent_backend", () => {
-  it("returns harness for the claude provider", () => {
+describe("agent_capability", () => {
+  it("maps a claude_code descriptor to the claude harness adapter", () => {
+    const claude: AiProviderConfig = {
+      id: "custom",
+      name: "Custom Claude",
+      transport: { kind: "cli", command: "claude", args: [] },
+      agent: { kind: "claude_code" },
+    };
+    expect(agent_capability(claude)).toEqual({
+      backend: "harness",
+      adapter: "claude",
+    });
+  });
+
+  it("maps an openai_compat descriptor to the native backend", () => {
+    const config: AiProviderConfig = {
+      ...api_provider(),
+      agent: { kind: "openai_compat" },
+    };
+    expect(agent_capability(config)).toEqual({ backend: "native" });
+  });
+
+  it("treats a codex_cli descriptor as unsupported until an adapter registers", () => {
+    const config: AiProviderConfig = {
+      ...cli_provider(["exec", "-"]),
+      agent: { kind: "codex_cli" },
+    };
+    expect(agent_capability(config)).toBeNull();
+  });
+
+  it("treats a text_cli descriptor as unsupported", () => {
+    const config: AiProviderConfig = {
+      ...cli_provider(["run", "{model}"]),
+      agent: { kind: "text_cli" },
+    };
+    expect(agent_capability(config)).toBeNull();
+  });
+
+  it("infers the harness backend for a descriptor-less claude preset", () => {
     const claude: AiProviderConfig = {
       id: "claude",
       name: "Claude Code",
@@ -60,14 +97,17 @@ describe("agent_backend", () => {
         args: ["-p", "--output-format", "text"],
       },
     };
-    expect(agent_backend(claude)).toBe("harness");
+    expect(agent_capability(claude)).toEqual({
+      backend: "harness",
+      adapter: "claude",
+    });
   });
 
-  it("returns native for api providers", () => {
-    expect(agent_backend(api_provider())).toBe("native");
+  it("infers native for descriptor-less api providers", () => {
+    expect(agent_capability(api_provider())).toEqual({ backend: "native" });
   });
 
-  it("returns null for text-only CLI providers", () => {
-    expect(agent_backend(cli_provider(["run", "{model}"]))).toBe(null);
+  it("infers unsupported for descriptor-less custom CLI providers", () => {
+    expect(agent_capability(cli_provider(["run", "{model}"]))).toBeNull();
   });
 });

@@ -1,6 +1,5 @@
-use crate::features::ai::agent_stream::{
-    build_agent_args, AgentEvent, AgentEventParser, AgentPermissionMode,
-};
+use crate::features::ai::agent_stream::{AgentEvent, AgentPermissionMode};
+use crate::features::ai::harness::claude_adapter::{build_agent_args, AgentEventParser};
 
 // Fixture lines captured from a real `claude -p ... --output-format stream-json
 // --verbose --include-partial-messages` run (claude 2.1.205), trimmed of
