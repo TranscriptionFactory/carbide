@@ -1,15 +1,15 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 use std::time::Instant;
 
 use futures_util::{Stream, StreamExt};
 use serde_json::Value;
 use tauri::{AppHandle, Emitter, Manager};
-use tokio::sync::{oneshot, Mutex};
+use tokio::sync::oneshot;
 
 use crate::features::mcp::router::McpRouter;
 use crate::features::mcp::types::{ContentBlock, ToolDefinition, ToolResult};
 
-use super::agent_stream::{AgentEvent, AgentPermissionMode, AgentRunStats};
+use super::agent_stream::{AgentEvent, AgentPermissionMode, AgentRunSpec, AgentRunState, AgentRunStats};
 use super::service::{AiProviderConfig, AiTransport};
 use super::stream::{AiMessage, AiMessageContent, AiStreamEvent, AiToolCall};
 
@@ -176,7 +176,9 @@ pub async fn run_native_turn<C, D, E>(
                     });
                     assistant_text.push_str(&text);
                 }
-                AiStreamEvent::Reasoning { .. } => {}
+                AiStreamEvent::Reasoning { text } => {
+                    emit(AgentEvent::Reasoning { delta: text });
+                }
                 AiStreamEvent::ToolCall {
                     id,
                     name,
@@ -220,6 +222,7 @@ pub async fn run_native_turn<C, D, E>(
                 emit(AgentEvent::ToolEnd {
                     name: name.clone(),
                     ok: false,
+                    result_summary: None,
                 });
                 let denial = format!(
                     "Tool '{name}' is not available in the current permission mode and was not executed."
@@ -235,6 +238,7 @@ pub async fn run_native_turn<C, D, E>(
             emit(AgentEvent::ToolEnd {
                 name: name.clone(),
                 ok,
+                result_summary: None,
             });
             history.push(tool_result_message(&id, text));
         }
@@ -316,56 +320,30 @@ impl ModelClient for TransportModelClient {
     }
 }
 
-#[derive(Default)]
-pub struct NativeAgentState {
-    handles: Mutex<HashMap<String, oneshot::Sender<()>>>,
-}
-
-#[tauri::command]
-#[specta::specta]
-pub async fn native_agent_stream_start(
+pub fn spawn_native_turn(
     app: AppHandle,
-    state: tauri::State<'_, NativeAgentState>,
+    event_name: String,
     request_id: String,
-    provider_config: AiProviderConfig,
-    prompt: String,
-    vault_path: String,
-    permission_mode: AgentPermissionMode,
-    resume_session_id: Option<String>,
-) -> Result<(), String> {
-    let event_name = format!("native-agent-stream-event:{request_id}");
-
-    let AiTransport::Api { .. } = &provider_config.transport else {
-        let _ = app.emit(
-            &event_name,
-            AgentEvent::Error {
-                message: format!("{} does not support native agent mode", provider_config.name),
-            },
-        );
-        return Ok(());
-    };
-
-    // D5: the native backend is stateless between turns; session resume is a
-    // message-replay concern handled by the caller, not this command.
-    let _ = resume_session_id;
-
-    let (abort_tx, abort_rx) = oneshot::channel::<()>();
-    state.handles.lock().await.insert(request_id.clone(), abort_tx);
-
+    spec: AgentRunSpec,
+    abort_rx: oneshot::Receiver<()>,
+) {
     let router = McpRouter::with_app(app.clone());
     let catalog = router.tool_definitions_public();
     let dispatch = move |name: &str, args: Option<&Value>| router.dispatch_tool_public(name, args);
 
-    let history = vec![user_message(prompt)];
-    let system_prompt = build_system_prompt(&vault_path);
+    let history = vec![user_message(spec.prompt.clone())];
+    let system_prompt = build_system_prompt(&spec.vault_path);
     let session_id = request_id.clone();
-    let client = TransportModelClient::new(provider_config);
+    let client = TransportModelClient::new(spec.provider_config);
+    let permission_mode = spec.permission_mode;
 
     let emit_app = app.clone();
     let emit = move |event: AgentEvent| {
         let _ = emit_app.emit(&event_name, event);
     };
 
+    let app_clone = app.clone();
+    let req_id = request_id.clone();
     tokio::spawn(async move {
         run_native_turn(
             client,
@@ -379,24 +357,9 @@ pub async fn native_agent_stream_start(
             emit,
         )
         .await;
-        app.state::<NativeAgentState>()
-            .handles
-            .lock()
-            .await
-            .remove(&request_id);
+        app_clone
+            .state::<AgentRunState>()
+            .remove_handle(&req_id)
+            .await;
     });
-
-    Ok(())
-}
-
-#[tauri::command]
-#[specta::specta]
-pub async fn native_agent_stream_abort(
-    state: tauri::State<'_, NativeAgentState>,
-    request_id: String,
-) -> Result<(), String> {
-    if let Some(abort_tx) = state.handles.lock().await.remove(&request_id) {
-        let _ = abort_tx.send(());
-    }
-    Ok(())
 }
