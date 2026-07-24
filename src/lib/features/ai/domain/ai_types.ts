@@ -97,7 +97,7 @@ export function find_provider(
 }
 
 export function provider_command(config: AiProviderConfig): string | null {
-  return config.transport.kind === "cli" ? config.transport.command : null;
+  return config.transport?.kind === "cli" ? config.transport.command : null;
 }
 
 export type AiVaultContextNote = {

@@ -170,9 +170,16 @@ pub fn build_codex_args(
     selector: &ToolSelector,
     catalog: &[ToolDefinition],
 ) -> Result<Vec<String>, String> {
-    let mut args: Vec<String> = ["exec", "--json", "--skip-git-repo-check", "--ignore-user-config"]
+    let mut args: Vec<String> = ["exec", "--json", "--skip-git-repo-check"]
         .map(String::from)
         .to_vec();
+
+    // Honor the user's codex config (auth, model, provider/endpoint) but reset
+    // mcp_servers so ONLY the carbide server is exposed — carbide-only MCP
+    // isolation, mirroring the claude adapter's --strict-mcp-config. The reset
+    // must precede the carbide overrides: codex deep-merges later `-c` dotted
+    // paths into the emptied table, yielding exactly {carbide}.
+    push_config(&mut args, "mcp_servers", "{}");
 
     let url = format!("http://127.0.0.1:{port}/mcp");
     push_config(&mut args, &format!("mcp_servers.{MCP_SERVER}.url"), &toml_value(&url));

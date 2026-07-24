@@ -689,7 +689,9 @@ export function register_ai_actions(
 
       const config = await resolve_streaming_provider();
       if (!config) {
-        toast.error("No streaming-capable AI provider available");
+        toast.error(
+          "No streaming-capable AI provider — inline edits need a Claude/Ollama CLI or API provider (Codex is agent-only). Add or select one in Settings.",
+        );
         return;
       }
 

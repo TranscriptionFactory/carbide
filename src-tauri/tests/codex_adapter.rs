@@ -191,11 +191,16 @@ fn sample_catalog() -> Vec<ToolDefinition> {
 fn base_args_match_verified_cli_contract() {
     let args = build_codex_args("do the thing", 3457, &ToolSelector::ReadOnly, &sample_catalog())
         .unwrap();
-    // Non-interactive JSONL exec, outside-git allowed, user config never loaded.
+    // Non-interactive JSONL exec, outside-git allowed. User config IS honored
+    // (auth/model/provider) — isolation is scoped to MCP via the reset, not by
+    // ignoring the whole config.
     assert_eq!(args[0], "exec");
     assert!(args.contains(&"--json".to_string()));
     assert!(args.contains(&"--skip-git-repo-check".to_string()));
-    assert!(args.contains(&"--ignore-user-config".to_string()));
+    assert!(
+        !args.contains(&"--ignore-user-config".to_string()),
+        "user codex config must be honored for auth/model; do not ignore it"
+    );
     // MCP server injected purely via -c overrides (no config file, no user path).
     assert_eq!(
         config_value(&args, "mcp_servers.carbide.url"),
@@ -209,6 +214,29 @@ fn base_args_match_verified_cli_contract() {
     assert_eq!(args.last().map(String::as_str), Some("do the thing"));
     let dashdash = args.iter().position(|a| a == "--").unwrap();
     assert_eq!(dashdash, args.len() - 2);
+}
+
+// Regression for the "codex can't reach its backend / falls back to :5555"
+// bug: --ignore-user-config stripped the user's auth+model+endpoint. We now
+// honor user config but reset mcp_servers to {} BEFORE injecting carbide, so
+// the user's own MCP servers can't reach the agent — only carbide's
+// allow-listed tools (verified against codex-cli 0.144.3 `-c` deep-merge).
+#[test]
+fn honors_user_config_but_isolates_mcp_to_carbide_only() {
+    let args = build_codex_args("go", 3457, &ToolSelector::ReadOnly, &sample_catalog()).unwrap();
+    assert!(!args.contains(&"--ignore-user-config".to_string()));
+    let reset = args
+        .windows(2)
+        .position(|w| w[0] == "-c" && w[1] == "mcp_servers={}")
+        .expect("mcp_servers reset override must be present");
+    let carbide = args
+        .iter()
+        .position(|a| a.starts_with("mcp_servers.carbide.url="))
+        .expect("carbide url override must be present");
+    assert!(
+        reset < carbide,
+        "the mcp_servers reset must precede the carbide overrides so the deep-merge yields carbide-only"
+    );
 }
 
 #[test]

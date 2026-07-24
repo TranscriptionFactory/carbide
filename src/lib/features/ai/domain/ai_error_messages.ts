@@ -27,7 +27,7 @@ export function humanize_ai_error(
   }
   if (AUTH_FAILURE.test(raw)) {
     const command =
-      provider.transport.kind === "cli" ? provider.transport.command : null;
+      provider.transport?.kind === "cli" ? provider.transport.command : null;
     return {
       message: command
         ? `${provider.name} is not signed in — run \`${command}\` in a terminal to log in, then try again.`
@@ -36,12 +36,22 @@ export function humanize_ai_error(
     };
   }
   if (UNREACHABLE.test(raw)) {
-    const base_url =
-      provider.transport.kind === "api" ? provider.transport.base_url : null;
+    if (provider.transport?.kind === "api") {
+      return {
+        message: `Could not reach ${provider.name} at ${provider.transport.base_url} — make sure the server is running, or check the base URL in Settings.`,
+        detail: raw,
+      };
+    }
+    // A CLI provider has no server Carbide connects to: a "connection"/"timeout"
+    // error here is raised by the CLI's own backend (auth, model, endpoint), so
+    // pointing at the network is misleading. Surface the raw output and the
+    // local causes instead.
+    const command =
+      provider.transport?.kind === "cli" ? provider.transport.command : null;
     return {
-      message: base_url
-        ? `Could not reach ${provider.name} at ${base_url} — make sure the server is running, or check the base URL in Settings.`
-        : `Could not reach ${provider.name} — check your connection and try again.`,
+      message: command
+        ? `${provider.name} could not reach its backend — check it is signed in (run \`${command}\`) and its model/endpoint are configured.`
+        : `${provider.name} could not reach its backend — check its configuration.`,
       detail: raw,
     };
   }
