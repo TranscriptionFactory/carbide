@@ -140,7 +140,7 @@ describe("AgentRunner.run_turn", () => {
 
     expect(captured[0]?.resume_session_id).toBeUndefined();
     expect(captured[1]?.resume_session_id).toBe("sess-1");
-    expect(captured[0]?.permission_mode).toBe("safe");
+    expect(captured[0]?.toolset).toEqual({ kind: "read_only" });
     expect(captured[0]?.vault_path).toBe("/test/vault");
   });
 

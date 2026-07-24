@@ -31,6 +31,11 @@ export {
   type AgentCapability,
 } from "$lib/features/ai/domain/ai_provider_capabilities";
 export {
+  chat_policy,
+  type SurfacePolicy,
+  type ToolSelector,
+} from "$lib/features/ai/domain/agent_run_policy";
+export {
   describe_default_provider,
   type AiProviderProbeState,
 } from "$lib/features/ai/domain/ai_provider_status";
