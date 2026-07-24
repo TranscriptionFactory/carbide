@@ -20,6 +20,7 @@
     render_rag_markdown,
     CITATION_INDEX_ATTR,
   } from "$lib/features/rag/domain/rag_markdown";
+  import { citations_from_tools } from "$lib/features/rag/domain/agent_citations";
 
   type Props = {
     message: RagMessage;
@@ -36,8 +37,14 @@
       "",
   );
 
+  const display_citations = $derived(
+    message.citations.length > 0
+      ? message.citations
+      : citations_from_tools(message.tool_events ?? []),
+  );
+
   const citation_map = $derived(
-    new Map(message.citations.map((c) => [c.index, c])),
+    new Map(display_citations.map((c) => [c.index, c])),
   );
 
   const rendered_html = $derived(
@@ -219,7 +226,7 @@
       </div>
     {/if}
 
-    {#if message.citations.length > 0 || show_stats}
+    {#if display_citations.length > 0 || show_stats}
       <div class="flex flex-col gap-1 border-t pt-2">
         <span class="text-xs font-medium text-muted-foreground">Sources</span>
         {#if show_stats && stats}
@@ -230,7 +237,7 @@
               : ""}</span
           >
         {/if}
-        {#each message.citations as citation (citation.index)}
+        {#each display_citations as citation (citation.index)}
           <div class="group flex items-center gap-1">
             <button
               type="button"
