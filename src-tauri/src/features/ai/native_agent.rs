@@ -11,10 +11,12 @@ use crate::features::mcp::types::{ContentBlock, ToolDefinition, ToolResult};
 
 use super::agent_stream::{AgentEvent, AgentPermissionMode, AgentRunSpec, AgentRunState, AgentRunStats};
 use super::service::{AiProviderConfig, AiTransport};
-use super::stream::{AiMessage, AiMessageContent, AiStreamEvent, AiToolCall};
+use super::stream::{AiContentPart, AiMessage, AiMessageContent, AiStreamEvent, AiToolCall};
 
 pub const MAX_ITERATIONS: u32 = 16;
 pub const TOOL_RESULT_MAX_CHARS: usize = 4000;
+pub const HISTORY_MAX_MESSAGES: usize = 40;
+pub const HISTORY_MAX_CHARS: usize = 100_000;
 const INPUT_SUMMARY_MAX_CHARS: usize = 200;
 
 pub trait ModelClient: Send + Sync {
@@ -40,6 +42,44 @@ pub fn truncate_tool_result(text: &str) -> String {
     let head: String = chars[..TOOL_RESULT_MAX_CHARS].iter().collect();
     let dropped = chars.len() - TOOL_RESULT_MAX_CHARS;
     format!("{head}\n…[truncated {dropped} chars]")
+}
+
+fn message_char_len(message: &AiMessage) -> usize {
+    match &message.content {
+        AiMessageContent::Text(text) => text.chars().count(),
+        AiMessageContent::Parts(parts) => parts
+            .iter()
+            .map(|part| match part {
+                AiContentPart::Text { text } => text.chars().count(),
+                AiContentPart::Image { .. } => 0,
+            })
+            .sum(),
+    }
+}
+
+pub fn evict_history(history: Vec<AiMessage>) -> Vec<AiMessage> {
+    let mut kept: Vec<AiMessage> = Vec::new();
+    let mut chars = 0usize;
+    for message in history.into_iter().rev() {
+        let len = message_char_len(&message);
+        if kept.len() + 1 > HISTORY_MAX_MESSAGES || chars + len > HISTORY_MAX_CHARS {
+            break;
+        }
+        chars += len;
+        kept.push(message);
+    }
+    kept.reverse();
+
+    // An assistant `tool_calls` message and its following `tool` results are one
+    // atomic unit: evicting the assistant but keeping a `tool` result leaves an
+    // orphaned tool_call_id, which breaks OpenAI-compatible APIs. Drop the
+    // orphaned leading `tool` messages the cap left behind.
+    let orphan_end = kept
+        .iter()
+        .position(|message| message.role != "tool")
+        .unwrap_or(kept.len());
+    kept.drain(..orphan_end);
+    kept
 }
 
 pub fn build_system_prompt(vault_path: &str) -> String {
@@ -331,7 +371,8 @@ pub fn spawn_native_turn(
     let catalog = router.tool_definitions_public();
     let dispatch = move |name: &str, args: Option<&Value>| router.dispatch_tool_public(name, args);
 
-    let history = vec![user_message(spec.prompt.clone())];
+    let mut history = evict_history(spec.history);
+    history.push(user_message(spec.prompt.clone()));
     let system_prompt = build_system_prompt(&spec.vault_path);
     let session_id = request_id.clone();
     let client = TransportModelClient::new(spec.provider_config);

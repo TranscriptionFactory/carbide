@@ -6,6 +6,7 @@ import type {
   AgentEvent,
   AgentPermissionMode,
 } from "$lib/features/rag/types/agent_events";
+import type { AiMessage } from "$lib/features/rag/domain/agent_history";
 import type { AiProviderConfig } from "$lib/shared/types/ai_provider_config";
 
 export interface RagPersistencePort {
@@ -20,6 +21,7 @@ export type AgentStreamRequest = {
   prompt: string;
   vault_path: string;
   permission_mode: AgentPermissionMode;
+  history: AiMessage[];
   resume_session_id?: string;
   backend: "harness" | "native";
   signal?: AbortSignal;

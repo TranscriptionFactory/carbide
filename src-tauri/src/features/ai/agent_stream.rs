@@ -12,7 +12,7 @@ use tokio::process::Command;
 use tokio::sync::{oneshot, Mutex};
 
 use super::service::{AiProviderConfig, AiTransport};
-use super::stream::collect_stderr_tail;
+use super::stream::{collect_stderr_tail, AiMessage};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Type)]
 #[serde(rename_all = "lowercase")]
@@ -36,6 +36,8 @@ pub struct AgentRunSpec {
     pub permission_mode: AgentPermissionMode,
     pub resume_session_id: Option<String>,
     pub backend: AgentRunBackend,
+    #[serde(default)]
+    pub history: Vec<AiMessage>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Type)]

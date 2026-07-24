@@ -7,6 +7,7 @@ import {
   changed_files_from_tools,
   type AgentToolCall,
 } from "$lib/features/rag/domain/agent_file_ops";
+import { rag_messages_to_history } from "$lib/features/rag/domain/agent_history";
 import type { RagStore } from "$lib/features/rag/state/rag_store.svelte";
 
 const log = create_logger("agent_runner");
@@ -51,6 +52,7 @@ export class AgentRunner {
     await this.checkpoint();
 
     this.abort_controller = new AbortController();
+    const history = rag_messages_to_history(session.messages.slice(0, -1));
     const tool_calls: AgentToolCall[] = [];
     try {
       const events = this.agent_port.stream_turn({
@@ -58,6 +60,7 @@ export class AgentRunner {
         prompt,
         vault_path: String(vault.path),
         permission_mode: session.permission_mode,
+        history,
         ...(session.agent_session_id
           ? { resume_session_id: session.agent_session_id }
           : {}),
