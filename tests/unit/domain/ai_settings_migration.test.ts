@@ -2,7 +2,22 @@ import { describe, expect, it } from "vitest";
 import { migrate_ai_settings } from "$lib/features/ai/domain/ai_settings_migration";
 
 describe("migrate_ai_settings", () => {
-  it("returns null when ai_providers already has transport format", () => {
+  it("returns null when ai_providers already carries agent descriptors", () => {
+    const result = migrate_ai_settings({
+      ai_providers: [
+        {
+          id: "claude",
+          name: "Claude",
+          transport: { kind: "cli", command: "claude", args: [] },
+          agent: { kind: "claude_code" },
+        },
+      ],
+    });
+
+    expect(result).toBeNull();
+  });
+
+  it("stamps agent descriptors onto transport providers lacking them", () => {
     const result = migrate_ai_settings({
       ai_providers: [
         {
@@ -10,10 +25,31 @@ describe("migrate_ai_settings", () => {
           name: "Claude",
           transport: { kind: "cli", command: "claude", args: [] },
         },
+        {
+          id: "lmstudio",
+          name: "LM Studio",
+          transport: { kind: "api", base_url: "http://localhost:1234/v1" },
+        },
+        {
+          id: "my-cli",
+          name: "My CLI",
+          transport: { kind: "cli", command: "mycli", args: [] },
+        },
       ],
+      ai_default_provider_id: "claude",
     });
 
-    expect(result).toBeNull();
+    expect(result).not.toBeNull();
+    expect(result!.ai_default_provider_id).toBe("claude");
+
+    const claude = result!.ai_providers.find((p) => p.id === "claude");
+    expect(claude?.agent).toEqual({ kind: "claude_code" });
+
+    const lmstudio = result!.ai_providers.find((p) => p.id === "lmstudio");
+    expect(lmstudio?.agent).toEqual({ kind: "openai_compat" });
+
+    const custom = result!.ai_providers.find((p) => p.id === "my-cli");
+    expect(custom?.agent).toEqual({ kind: "text_cli" });
   });
 
   it("returns null when no legacy fields exist", () => {
