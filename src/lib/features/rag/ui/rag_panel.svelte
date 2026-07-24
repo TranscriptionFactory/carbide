@@ -475,6 +475,7 @@
   />
 
   <RagInput
+    bind:value={rag.draft}
     {providers}
     {provider_id}
     {suggest_notes}

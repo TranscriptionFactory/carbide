@@ -25,6 +25,7 @@
   type MentionSuggestion = { path: string; title: string };
 
   type Props = {
+    value: string;
     providers: AiProviderConfig[];
     provider_id: string;
     scope: RagScope;
@@ -43,6 +44,7 @@
   };
 
   let {
+    value = $bindable(""),
     providers,
     provider_id,
     scope,
@@ -60,7 +62,6 @@
     on_scope_change,
   }: Props = $props();
 
-  let value = $state("");
   let textarea_el = $state<HTMLTextAreaElement | null>(null);
 
   const MENTION_TRIGGER_RE = /(^|\s)@([^\s@]*)$/;
@@ -174,7 +175,14 @@
 
   function on_keydown(event: KeyboardEvent) {
     if (suggest.keydown(event)) return;
-    if (event.key === "Enter" && !event.shiftKey) {
+    if (
+      event.key === "Enter" &&
+      !event.shiftKey &&
+      !event.altKey &&
+      !event.ctrlKey &&
+      !event.metaKey &&
+      !event.isComposing
+    ) {
       event.preventDefault();
       submit();
     }

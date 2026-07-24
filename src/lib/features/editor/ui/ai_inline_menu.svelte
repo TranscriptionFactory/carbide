@@ -51,7 +51,14 @@
   );
 
   function handle_keydown(e: KeyboardEvent) {
-    if (e.key === "Enter" && !e.shiftKey) {
+    if (
+      e.key === "Enter" &&
+      !e.shiftKey &&
+      !e.altKey &&
+      !e.ctrlKey &&
+      !e.metaKey &&
+      !e.isComposing
+    ) {
       e.preventDefault();
       if (prompt_text.trim()) {
         on_submit(prompt_text.trim());

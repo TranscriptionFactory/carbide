@@ -11,7 +11,7 @@
 </script>
 
 <div class="DslSuggest__dropdown">
-  {#each items as item, i (item.label)}
+  {#each items as item, i (i)}
     <button
       class="DslSuggest__item"
       class:DslSuggest__item--selected={i === selected_index}

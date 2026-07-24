@@ -34,6 +34,7 @@ export class RagStore {
   error = $state<string | null>(null);
   provider_id = $state("");
   scope = $state<RagScope>({});
+  draft = $state("");
   streaming_id = $state<string | null>(null);
   pending_sources = $state<RagSourceInfo[] | null>(null);
   mode = $state<RagSessionMode>("ask");
