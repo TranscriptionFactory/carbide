@@ -106,4 +106,13 @@ _Items discovered during task execution are logged here by agents._
   call site, but post-TP-002 the actual `agent_backend` call sites are in
   `rag_panel.svelte` (derives `agent_supported`, passes it as a prop). Updated
   `rag_panel.svelte` instead; `rag_mode_toggle.svelte` (boolean prop only) untouched.
->>>>>>> wave-b/tp004
+- (TP-008) Agent-mode citations derive only from tools whose INPUT carries a note
+  path (`read_note` / `get_note_metadata` / built-in `Read`). `search_notes` result
+  paths are NOT surfaced: `tool_end`'s `result_summary` is not captured on
+  `RagToolEvent`/the message model, and wiring it would touch `agent_runner.ts`
+  (out of scope, AgentEvent contract frozen). Revisit if search-hit citations are
+  wanted — needs a message-model carrier for tool results.
+- (TP-008) Built-in `Read` citations (and existing `changed_files` from built-in
+  Write/Edit) use the raw path from `input_summary`, which for the native harness
+  can be absolute; click-to-open expects vault-relative. Shared normalization gap,
+  pre-existing on the changed-files path. Out of scope for TP-008.
