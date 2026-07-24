@@ -99,12 +99,16 @@ function create_harness() {
     execute: vi.fn(),
     execute_streaming: vi.fn(),
     stream_inline: vi.fn(),
+    build_execution_prompt: vi
+      .fn()
+      .mockResolvedValue({ prompt: "PROMPT", working_path: "docs/demo.md" }),
     fetch_vault_context: vi.fn().mockResolvedValue({
       similar_notes: [],
       backlinks: [],
       outlinks: [],
     }),
   };
+  const agentic_runner = { run: vi.fn() };
   const ai_history = {
     load_history: vi.fn().mockResolvedValue([]),
     save_history: vi.fn().mockResolvedValue(undefined),
@@ -124,9 +128,18 @@ function create_harness() {
     ai_store,
     ai_service: ai_service as never,
     ai_history,
+    agentic_runner: agentic_runner as never,
   });
 
-  return { registry, stores, services, ai_store, ai_service, ai_history };
+  return {
+    registry,
+    stores,
+    services,
+    ai_store,
+    ai_service,
+    ai_history,
+    agentic_runner,
+  };
 }
 
 function probe(status: "present" | "missing" | "unknown") {
@@ -550,6 +563,88 @@ describe("register_ai_actions", () => {
 
     expect(ai_service.execute).toHaveBeenCalled();
     expect(ai_store.dialog.result?.success).toBe(true);
+  });
+
+  describe("agentic inline edit", () => {
+    it("routes native-capable edit providers through the agentic runner and diff-applies the result", async () => {
+      const {
+        registry,
+        stores,
+        services,
+        ai_store,
+        ai_service,
+        agentic_runner,
+      } = create_harness();
+      stores.vault.set_vault(create_test_vault());
+      stores.ui.editor_settings.ai_default_provider_id = "lmstudio";
+      agentic_runner.run = vi.fn().mockResolvedValue({
+        success: true,
+        output: "# Agentically edited",
+        error: null,
+      });
+
+      await registry.execute(ACTION_IDS.ai_open_assistant);
+      await registry.execute(ACTION_IDS.ai_update_prompt, "Improve the intro");
+      await registry.execute(ACTION_IDS.ai_execute);
+
+      expect(agentic_runner.run).toHaveBeenCalledWith(
+        expect.objectContaining({
+          provider_config: expect.objectContaining({ id: "lmstudio" }),
+          vault_path: "/test/vault",
+        }),
+      );
+      expect(ai_service.execute).not.toHaveBeenCalled();
+      expect(ai_service.execute_streaming).not.toHaveBeenCalled();
+      expect(ai_store.dialog.result).toEqual({
+        success: true,
+        output: "# Agentically edited",
+        error: null,
+      });
+
+      await registry.execute(ACTION_IDS.ai_apply_result);
+      expect(services.editor.apply_ai_output).toHaveBeenCalledWith(
+        "full_note",
+        "# Agentically edited",
+        null,
+      );
+    });
+
+    it("returns to idle without applying partial text when aborted mid-run", async () => {
+      const { registry, stores, ai_store, agentic_runner } = create_harness();
+      stores.vault.set_vault(create_test_vault());
+      stores.ui.editor_settings.ai_default_provider_id = "lmstudio";
+      agentic_runner.run = vi.fn(
+        async (input: { on_text?: (partial: string) => void }) => {
+          input.on_text?.("partial edit");
+          await registry.execute(ACTION_IDS.ai_stop_execution);
+          return { success: true, output: "partial edit", error: null };
+        },
+      );
+
+      await registry.execute(ACTION_IDS.ai_open_assistant);
+      await registry.execute(ACTION_IDS.ai_update_prompt, "Improve");
+      await registry.execute(ACTION_IDS.ai_execute);
+
+      expect(ai_store.dialog.is_executing).toBe(false);
+      expect(ai_store.dialog.result).toBeNull();
+      expect(ai_store.dialog.turns).toHaveLength(0);
+    });
+
+    it("keeps non-native providers on the existing streaming path", async () => {
+      const { registry, ai_service, agentic_runner } = create_harness();
+      ai_service.execute_streaming = vi.fn().mockResolvedValue({
+        success: true,
+        output: "# Updated",
+        error: null,
+      });
+
+      await registry.execute(ACTION_IDS.ai_open_assistant);
+      await registry.execute(ACTION_IDS.ai_update_prompt, "Tighten this note");
+      await registry.execute(ACTION_IDS.ai_execute);
+
+      expect(agentic_runner.run).not.toHaveBeenCalled();
+      expect(ai_service.execute_streaming).toHaveBeenCalled();
+    });
   });
 
   describe("panel streaming", () => {
