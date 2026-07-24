@@ -144,7 +144,7 @@ describe("rag agent actions", () => {
     expect(agent_port.stream_turn).toHaveBeenCalledWith(
       expect.objectContaining({
         prompt: "organize my notes",
-        permission_mode: "safe",
+        toolset: { kind: "read_only" },
         vault_path: "/vault/demo",
       }),
     );
@@ -217,7 +217,7 @@ describe("rag agent actions", () => {
     expect(agent_port.stream_turn).toHaveBeenCalledWith(
       expect.objectContaining({
         prompt: "create a note",
-        permission_mode: "safe",
+        toolset: { kind: "read_only" },
         vault_path: "/vault/demo",
         backend: "native",
       }),
