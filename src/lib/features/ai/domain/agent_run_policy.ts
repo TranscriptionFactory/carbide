@@ -17,3 +17,11 @@ export function chat_policy(permission_mode: "safe" | "power"): SurfacePolicy {
     sink: "session",
   };
 }
+
+export function inline_edit_policy(): SurfacePolicy {
+  return {
+    toolset: { kind: "only", names: ["read_note", "search_notes"] },
+    prompt_mode: "inline_edit",
+    sink: "diff_apply",
+  };
+}

@@ -19,6 +19,7 @@ import {
   provider_supports_streaming,
 } from "$lib/features/ai/domain/ai_provider_capabilities";
 import type { AiService } from "$lib/features/ai/application/ai_service";
+import type { AgenticEditRunner } from "$lib/features/ai/application/agentic_edit_runner";
 import type { AiHistoryPersistencePort } from "$lib/features/ai/ports";
 import type { AiStore } from "$lib/features/ai/state/ai_store.svelte";
 import {
@@ -51,9 +52,17 @@ export function register_ai_actions(
     ai_store: AiStore;
     ai_service: AiService;
     ai_history: AiHistoryPersistencePort;
+    agentic_runner: AgenticEditRunner;
   },
 ) {
-  const { registry, services, ai_service, ai_store, ai_history } = input;
+  const {
+    registry,
+    services,
+    ai_service,
+    ai_store,
+    ai_history,
+    agentic_runner,
+  } = input;
 
   let dialog_revision = 0;
   let panel_abort: AbortController | null = null;
@@ -486,6 +495,36 @@ export function register_ai_actions(
               settings.ai_vault_context_similarity_threshold,
           },
         };
+        const capability = agent_capability(config);
+        const vault = input.stores.vault.vault;
+        if (
+          dialog.mode === "edit" &&
+          dialog.context.kind === "note" &&
+          capability?.backend === "native" &&
+          vault
+        ) {
+          const { prompt } =
+            await ai_service.build_execution_prompt(execute_input);
+          const result = await agentic_runner.run({
+            provider_config: config,
+            prompt,
+            vault_path: String(vault.path),
+            ...(abort ? { signal: abort.signal } : {}),
+            on_text: (partial) => {
+              if (revision !== dialog_revision) return;
+              ai_store.set_streaming_text(partial);
+            },
+          });
+          if (!can_settle()) return;
+          if (abort?.signal.aborted) {
+            ai_store.cancel_execution();
+            return;
+          }
+          ai_store.finish_execution(result);
+          persist_history();
+          return;
+        }
+
         const result = abort
           ? await ai_service.execute_streaming(
               { ...execute_input, signal: abort.signal },
