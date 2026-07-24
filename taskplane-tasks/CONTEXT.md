@@ -80,3 +80,7 @@ _Items discovered during task execution are logged here by agents._
   type-aware oxlint errors (broken imports typed as `any`/`error`). Resolved by
   deleting the archived copy per the explicit DELETE directive — git history
   retains it.
+- (TP-003) History-replay char budget (`HISTORY_MAX_CHARS = 100_000`) counts
+  message CONTENT chars only; assistant `tool_calls.arguments` are excluded. Tool
+  results (the bulk, truncated at 4000 chars each) are counted, so the ceiling is
+  minor. Revisit if arguments payloads grow large enough to matter.
