@@ -80,3 +80,25 @@ _Items discovered during task execution are logged here by agents._
   type-aware oxlint errors (broken imports typed as `any`/`error`). Resolved by
   deleting the archived copy per the explicit DELETE directive — git history
   retains it.
+- (TP-004) The PROMPT's `HarnessAdapter::mcp_config_args(port, token) -> Vec<String>`
+  was NOT added. Claude's MCP args (`--strict-mcp-config --mcp-config <path>`) live
+  inside `build_agent_args`, which had to stay VERBATIM for the zero-deviation gate;
+  and `prepare_mcp_config` is shared with out-of-scope `agent_handoff.rs`. Adding an
+  unused method would be dead code. TP-006 should introduce the per-CLI MCP-config
+  mechanism (likely a fallible `write_mcp_config(port, token) -> Result<String>` on
+  the trait, routing both `agent_stream` and `agent_handoff` through the adapter).
+- (TP-004) `HarnessAdapter` carries associated consts `SUPPORTS_RESUME` /
+  `SUPPORTS_PARTIAL_TEXT` (→ not object-safe, so the driver instantiates the concrete
+  `ClaudeAdapter`; dispatch to a second adapter is TP-006's job). The consts are not
+  yet read by the driver — informational until TP-006/TP-007 consume them.
+- (TP-004) The TS `AgentCapability.adapter` id ("claude") is informational only; the
+  Rust `AgentRunSpec` still carries just `backend: Harness|Native`. TP-006 must plumb
+  the adapter id into `AgentRunSpec` to dispatch claude vs codex within the harness.
+- (TP-004) `ai_settings_migration.test.ts` uses the file's pervasive `result!.` idiom;
+  the new stamping test rows add more `no-non-null-assertion` type-aware-oxlint entries
+  consistent with the existing (never-green) baseline in that file. No layering-gate
+  impact.
+- (TP-004) PROMPT File Scope named `rag_mode_toggle.svelte` as the capability-check
+  call site, but post-TP-002 the actual `agent_backend` call sites are in
+  `rag_panel.svelte` (derives `agent_supported`, passes it as a prop). Updated
+  `rag_panel.svelte` instead; `rag_mode_toggle.svelte` (boolean prop only) untouched.
