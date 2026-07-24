@@ -61,10 +61,10 @@ afterEach(() => {
 
 describe("RagModeToggle", () => {
   it("disables the agent segment with a tooltip for a backend-less provider", () => {
-    const codex = BUILTIN_PROVIDER_PRESETS.find((p) => p.id === "codex");
-    if (!codex) throw new Error("codex preset missing");
+    const ollama = BUILTIN_PROVIDER_PRESETS.find((p) => p.id === "ollama");
+    if (!ollama) throw new Error("ollama preset missing");
     const target = render_toggle({
-      agent_supported: agent_capability(codex) !== null,
+      agent_supported: agent_capability(ollama) !== null,
     });
     const agent = button_labelled(target, "Agent");
     expect(agent.disabled).toBe(true);
