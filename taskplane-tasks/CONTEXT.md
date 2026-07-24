@@ -166,7 +166,7 @@ _Items discovered during task execution are logged here by agents._
   the TP-008 notes already track; needs a backend-neutral tool-name mapping.
 - (TP-006) Codex `Done` stats are zeroed except `num_turns = 1`: `turn.completed`
   gives token `usage`, which doesn't map to `AgentRunStats{duration_ms, num_turns,
-  total_cost_usd}`. Revisit if codex exposes duration/cost or the stats shape grows.
+total_cost_usd}`. Revisit if codex exposes duration/cost or the stats shape grows.
 - (TP-006) `--ignore-user-config` means codex runs with its default model;
   `provider_config.model` is ignored (claude adapter also ignores model). Add `-m`
   if per-provider model selection is wanted.
@@ -175,3 +175,24 @@ _Items discovered during task execution are logged here by agents._
   `agent_message`/`mcp_tool_call`/`command_execution` item shapes and that safe-mode
   `enabled_tools` truly blocks a mutating MCP call end-to-end (OS sandbox does NOT
   cover MCP-over-HTTP calls — the allowlist is the only safe-mode barrier there).
+- (TP-010) DEFERRED candidate cleanups (behavior changes, out of a
+  simplification pass — apply only if a real need arises):
+  - Empty allow-list guard in `claude_adapter::build_agent_args`
+    (`if !allowed.is_empty()`): unreachable with the real catalog and harmless
+    if reached; touches the frozen spawn-arg posture. Skip.
+  - Explicit error on an unknown harness `adapter` id in `agent_stream`
+    dispatch: `adapter` is a closed `claude`/`codex` set mirrored from TS;
+    unknown is unreachable. Kept the silent `_ => claude` default.
+  - Backend-neutral codex tool-name mapping (surface codex `file_change` as
+    `changed_files`/citations): a feature, not a simplification — see the
+    TP-006/TP-008 normalization notes above.
+- (TP-010) NOT extracted: a shared `is_read_only(tool)` predicate across
+  harness `mcp_allow_list` and native `allowed_tools`. Wrapping `!tool.mutating`
+  across two modules adds coupling for a one-liner; the new
+  `safe_mode_read_only_parity_harness_vs_native` test guards the invariant
+  instead.
+- (TP-010) GATE-METHODOLOGY BUG (found at preflight): piped
+  `pnpm test 2>&1 | tee log` exits with tee's code (0), masking vitest
+  failures — 6 real failures reached integration tip `0127f847`. Fixed forward
+  in TP-010; going forward grep the actual pass/fail TALLY, never trust a piped
+  exit code. (Also logged in the orchestration log.)
