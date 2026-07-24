@@ -67,3 +67,16 @@ _Items discovered during task execution are logged here by agents._
 - Per-tool interactive approval tier ("review") — policy object must not
   preclude it; UI deferred.
 - Inline "ask" mode transcript unification with RagSession — deferred.
+- (TP-002) `agent_runner.ts` was minimally touched despite the File Scope
+  "do NOT touch (TP-003)" note: collapsing the two runners into one required
+  `run_turn(provider, prompt, backend)` to accept the backend. Nothing else in
+  that file changed (no history/dispatch work). TP-003 owns the rest.
+- (TP-002) The new `AgentEvent::Reasoning { delta }` variant now crosses the
+  transport (native loop maps `AiStreamEvent::Reasoning`), but `agent_runner.ts`
+  does not yet consume `{type:"reasoning"}` — it is dropped. Additive/byte-stable
+  contract; existing consumers unchanged. Consuming it is TP-003/consumer work.
+- (TP-002) File Scope said DELETE the native adapter; a prior durability step had
+  moved it to `archive/native_agent_tauri_adapter.ts`, which reintroduced ~29 new
+  type-aware oxlint errors (broken imports typed as `any`/`error`). Resolved by
+  deleting the archived copy per the explicit DELETE directive — git history
+  retains it.

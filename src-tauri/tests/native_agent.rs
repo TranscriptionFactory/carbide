@@ -85,6 +85,7 @@ fn tag(event: &AgentEvent) -> &'static str {
         AgentEvent::Init { .. } => "init",
         AgentEvent::Text { .. } => "text",
         AgentEvent::ToolStart { .. } => "tool_start",
+        AgentEvent::Reasoning { .. } => "reasoning",
         AgentEvent::ToolEnd { .. } => "tool_end",
         AgentEvent::Done { .. } => "done",
         AgentEvent::Error { .. } => "error",
@@ -195,7 +196,7 @@ async fn scenario_2_safe_mode_withholds_and_refuses_hallucinated_call() {
     );
     assert!(events
         .iter()
-        .any(|e| matches!(e, AgentEvent::ToolEnd { ok: false, name } if name == "write_note")));
+        .any(|e| matches!(e, AgentEvent::ToolEnd { ok: false, name, .. } if name == "write_note")));
     assert!(matches!(events.last(), Some(AgentEvent::Done { .. })));
 }
 
@@ -223,7 +224,7 @@ async fn scenario_3_power_mode_dispatches_mutating_tool() {
     assert_eq!(dispatched.lock().unwrap().as_slice(), ["write_note"]);
     assert!(events
         .iter()
-        .any(|e| matches!(e, AgentEvent::ToolEnd { ok: true, name } if name == "write_note")));
+        .any(|e| matches!(e, AgentEvent::ToolEnd { ok: true, name, .. } if name == "write_note")));
     assert!(matches!(events.last(), Some(AgentEvent::Done { .. })));
 }
 
