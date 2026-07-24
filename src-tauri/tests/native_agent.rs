@@ -7,9 +7,10 @@ use tokio::sync::oneshot;
 
 use crate::features::ai::agent_stream::{AgentEvent, AgentPermissionMode};
 use crate::features::ai::native_agent::{
-    run_native_turn, truncate_tool_result, ModelClient, MAX_ITERATIONS, TOOL_RESULT_MAX_CHARS,
+    evict_history, run_native_turn, truncate_tool_result, ModelClient, HISTORY_MAX_CHARS,
+    HISTORY_MAX_MESSAGES, MAX_ITERATIONS, TOOL_RESULT_MAX_CHARS,
 };
-use crate::features::ai::stream::{AiMessage, AiStreamEvent};
+use crate::features::ai::stream::{AiMessage, AiMessageContent, AiStreamEvent, AiToolCall};
 use crate::features::mcp::types::{InputSchema, ToolDefinition, ToolResult};
 
 struct FakeClient {
@@ -431,4 +432,172 @@ async fn wire_format_real_client_assembles_recorded_sse_fixture() {
     let parsed: Value = serde_json::from_str(&tool_call.2).unwrap();
     assert_eq!(parsed["query"], "foo");
     assert!(matches!(events.last(), Some(AiStreamEvent::Done)));
+}
+
+struct RecordingClient {
+    seen_messages: Arc<Mutex<Vec<Vec<AiMessage>>>>,
+    turns: Arc<Mutex<VecDeque<Vec<AiStreamEvent>>>>,
+}
+
+impl ModelClient for RecordingClient {
+    fn stream_turn(
+        &self,
+        messages: Vec<AiMessage>,
+        _tools: Vec<ToolDefinition>,
+    ) -> impl Stream<Item = AiStreamEvent> + Send {
+        self.seen_messages.lock().unwrap().push(messages);
+        let events = self.turns.lock().unwrap().pop_front().unwrap_or_default();
+        stream::iter(events)
+    }
+}
+
+fn user_msg(content: &str) -> AiMessage {
+    AiMessage {
+        role: "user".into(),
+        content: content.into(),
+        tool_calls: None,
+        tool_call_id: None,
+    }
+}
+
+fn assistant_call_msg(text: &str, id: &str) -> AiMessage {
+    AiMessage {
+        role: "assistant".into(),
+        content: text.into(),
+        tool_calls: Some(vec![AiToolCall {
+            id: id.into(),
+            name: "search".into(),
+            arguments: "{}".into(),
+        }]),
+        tool_call_id: None,
+    }
+}
+
+fn tool_result_msg(id: &str, content: &str) -> AiMessage {
+    AiMessage {
+        role: "tool".into(),
+        content: content.into(),
+        tool_calls: None,
+        tool_call_id: Some(id.into()),
+    }
+}
+
+fn content_text(message: &AiMessage) -> String {
+    match &message.content {
+        AiMessageContent::Text(text) => text.clone(),
+        AiMessageContent::Parts(_) => String::new(),
+    }
+}
+
+#[test]
+fn evict_history_keeps_newest_and_preserves_order() {
+    let history: Vec<AiMessage> = (0..HISTORY_MAX_MESSAGES + 2)
+        .map(|i| user_msg(&format!("m{i}")))
+        .collect();
+
+    let kept = evict_history(history);
+
+    assert_eq!(kept.len(), HISTORY_MAX_MESSAGES);
+    assert_eq!(content_text(&kept[0]), "m2");
+    assert_eq!(
+        content_text(kept.last().unwrap()),
+        format!("m{}", HISTORY_MAX_MESSAGES + 1)
+    );
+}
+
+#[test]
+fn evict_history_at_exact_count_cap_keeps_all() {
+    let history: Vec<AiMessage> = (0..HISTORY_MAX_MESSAGES)
+        .map(|i| user_msg(&format!("m{i}")))
+        .collect();
+
+    let kept = evict_history(history);
+
+    assert_eq!(kept.len(), HISTORY_MAX_MESSAGES);
+    assert_eq!(content_text(&kept[0]), "m0");
+}
+
+#[test]
+fn evict_history_never_orphans_tool_result() {
+    // Oldest is an assistant tool-call whose result follows; the count cap forces
+    // the assistant out, so its now-orphaned tool result must go too.
+    let mut history = vec![assistant_call_msg("searching", "c1"), tool_result_msg("c1", "hit")];
+    history.extend((0..HISTORY_MAX_MESSAGES - 1).map(|i| user_msg(&format!("u{i}"))));
+
+    let kept = evict_history(history);
+
+    assert_eq!(kept.len(), HISTORY_MAX_MESSAGES - 1);
+    assert!(kept.iter().all(|m| m.role != "tool"));
+    assert_eq!(content_text(&kept[0]), "u0");
+}
+
+#[test]
+fn evict_history_drops_tool_group_exceeding_char_cap() {
+    let oversized = "x".repeat(HISTORY_MAX_CHARS);
+    let history = vec![
+        user_msg("older"),
+        assistant_call_msg("call", "c1"),
+        tool_result_msg("c1", &oversized),
+    ];
+
+    let kept = evict_history(history);
+
+    // The assistant+tool unit is 1 char over the cap, so the whole unit is
+    // dropped; keeping the tool result alone would orphan its tool_call_id.
+    assert!(kept.is_empty());
+}
+
+#[test]
+fn evict_history_at_exact_char_cap_keeps_both() {
+    let half = "y".repeat(HISTORY_MAX_CHARS / 2);
+    let history = vec![user_msg(&half), user_msg(&half)];
+
+    let kept = evict_history(history);
+
+    assert_eq!(kept.len(), 2);
+}
+
+#[tokio::test]
+async fn replay_history_reaches_model_system_first() {
+    let seen_messages = Arc::new(Mutex::new(Vec::new()));
+    let client = RecordingClient {
+        seen_messages: seen_messages.clone(),
+        turns: Arc::new(Mutex::new(vec![text_turn("final answer")].into())),
+    };
+    // Turn-1 transcript followed by the turn-2 prompt, exactly as spawn_native_turn
+    // assembles it (evicted replay + appended user prompt).
+    let history = vec![
+        user_msg("turn one question"),
+        assistant_call_msg("let me search", "c1"),
+        tool_result_msg("c1", "search result"),
+        user_msg("turn two question"),
+    ];
+    let (_tx, rx) = oneshot::channel();
+    let events = Arc::new(Mutex::new(Vec::new()));
+    let sink = events.clone();
+    let emit = move |event: AgentEvent| sink.lock().unwrap().push(event);
+
+    run_native_turn(
+        client,
+        ok_dispatch(),
+        "sess".into(),
+        "sys".into(),
+        history,
+        vec![tool_def("search", false)],
+        AgentPermissionMode::Power,
+        rx,
+        emit,
+    )
+    .await;
+
+    let recorded = seen_messages.lock().unwrap();
+    let first = &recorded[0];
+    let roles: Vec<&str> = first.iter().map(|m| m.role.as_str()).collect();
+    assert_eq!(roles, ["system", "user", "assistant", "tool", "user"]);
+    assert_eq!(content_text(&first[0]), "sys");
+    assert_eq!(content_text(&first[1]), "turn one question");
+    assert_eq!(first[2].tool_calls.as_ref().unwrap()[0].id, "c1");
+    assert_eq!(content_text(&first[3]), "search result");
+    assert_eq!(first[3].tool_call_id.as_deref(), Some("c1"));
+    assert_eq!(content_text(&first[4]), "turn two question");
 }
