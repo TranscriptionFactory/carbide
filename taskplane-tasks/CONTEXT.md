@@ -116,3 +116,17 @@ _Items discovered during task execution are logged here by agents._
   Write/Edit) use the raw path from `input_summary`, which for the native harness
   can be absolute; click-to-open expects vault-relative. Shared normalization gap,
   pre-existing on the changed-files path. Out of scope for TP-008.
+- (TP-007) `ToolSelector::Only { names }` has no runtime producer yet — chat
+  only emits `ReadOnly`/`Full`. Native `allowed_tools` and the harness
+  `selector_allow_list` handle it correctly (unit-tested); TP-009 (agentic
+  inline edit) is its intended first consumer.
+- (TP-007) `AgentStreamRequest` carries `toolset` only, not the full
+  `SurfacePolicy`. `SurfacePolicy.prompt_mode`/`sink` are TS surface concerns
+  with no Rust consumer yet; TP-009 will plumb them to Rust when inline edit
+  needs a different system prompt and a `diff_apply` sink.
+- (TP-007) Rust `AgentPermissionMode` was removed (folded into `ToolSelector`).
+  The safe/power concept now lives only in TS (`agent_events.ts` + session/UI),
+  bridged by `chat_policy()`. TP-006's codex adapter must call the shared
+  `harness::selector_allow_list` to inherit the safe-mode parity fix.
+- (TP-007) `HarnessAdapter::SUPPORTS_RESUME`/`SUPPORTS_PARTIAL_TEXT` still
+  unread by the driver — deferred to TP-006's multi-adapter dispatch.

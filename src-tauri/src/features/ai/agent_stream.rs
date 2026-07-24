@@ -1,5 +1,6 @@
 use crate::features::mcp::auth;
 use crate::features::mcp::http::HttpServerState;
+use crate::features::mcp::router::McpRouter;
 use crate::features::mcp::setup;
 use crate::features::pipeline::service as pipeline;
 use serde::{Deserialize, Serialize};
@@ -16,10 +17,11 @@ use super::service::{AiProviderConfig, AiTransport};
 use super::stream::{collect_stderr_tail, AiMessage};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Type)]
-#[serde(rename_all = "lowercase")]
-pub enum AgentPermissionMode {
-    Safe,
-    Power,
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum ToolSelector {
+    ReadOnly,
+    Full,
+    Only { names: Vec<String> },
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Type)]
@@ -34,7 +36,7 @@ pub struct AgentRunSpec {
     pub provider_config: AiProviderConfig,
     pub prompt: String,
     pub vault_path: String,
-    pub permission_mode: AgentPermissionMode,
+    pub toolset: ToolSelector,
     pub resume_session_id: Option<String>,
     pub backend: AgentRunBackend,
     #[serde(default)]
@@ -159,10 +161,12 @@ pub async fn agent_run_start(
             };
 
             let adapter = ClaudeAdapter;
+            let catalog = McpRouter::with_app(app.clone()).tool_definitions_public();
             let args = adapter.spawn_args(
                 &spec.prompt,
                 &mcp_config_path,
-                &spec.permission_mode,
+                &spec.toolset,
+                &catalog,
                 spec.resume_session_id.as_deref(),
             );
             let parser = adapter.new_parser();

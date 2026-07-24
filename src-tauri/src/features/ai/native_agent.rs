@@ -9,7 +9,7 @@ use tokio::sync::oneshot;
 use crate::features::mcp::router::McpRouter;
 use crate::features::mcp::types::{ContentBlock, ToolDefinition, ToolResult};
 
-use super::agent_stream::{AgentEvent, AgentPermissionMode, AgentRunSpec, AgentRunState, AgentRunStats};
+use super::agent_stream::{AgentEvent, AgentRunSpec, AgentRunState, AgentRunStats, ToolSelector};
 use super::service::{AiProviderConfig, AiTransport};
 use super::stream::{AiContentPart, AiMessage, AiMessageContent, AiStreamEvent, AiToolCall};
 
@@ -27,10 +27,15 @@ pub trait ModelClient: Send + Sync {
     ) -> impl Stream<Item = AiStreamEvent> + Send;
 }
 
-pub fn allowed_tools(catalog: &[ToolDefinition], mode: &AgentPermissionMode) -> Vec<ToolDefinition> {
-    match mode {
-        AgentPermissionMode::Power => catalog.to_vec(),
-        AgentPermissionMode::Safe => catalog.iter().filter(|t| !t.mutating).cloned().collect(),
+pub fn allowed_tools(catalog: &[ToolDefinition], selector: &ToolSelector) -> Vec<ToolDefinition> {
+    match selector {
+        ToolSelector::Full => catalog.to_vec(),
+        ToolSelector::ReadOnly => catalog.iter().filter(|t| !t.mutating).cloned().collect(),
+        ToolSelector::Only { names } => catalog
+            .iter()
+            .filter(|t| names.contains(&t.name))
+            .cloned()
+            .collect(),
     }
 }
 
@@ -171,7 +176,7 @@ pub async fn run_native_turn<C, D, E>(
     system_prompt: String,
     mut history: Vec<AiMessage>,
     catalog: Vec<ToolDefinition>,
-    permission_mode: AgentPermissionMode,
+    toolset: ToolSelector,
     mut abort_rx: oneshot::Receiver<()>,
     mut emit: E,
 ) where
@@ -182,7 +187,7 @@ pub async fn run_native_turn<C, D, E>(
     emit(AgentEvent::Init { session_id });
     let start = Instant::now();
 
-    let allowed = allowed_tools(&catalog, &permission_mode);
+    let allowed = allowed_tools(&catalog, &toolset);
     let allowed_names: HashSet<String> = allowed.iter().map(|t| t.name.clone()).collect();
 
     let mut num_turns: u32 = 0;
@@ -376,7 +381,7 @@ pub fn spawn_native_turn(
     let system_prompt = build_system_prompt(&spec.vault_path);
     let session_id = request_id.clone();
     let client = TransportModelClient::new(spec.provider_config);
-    let permission_mode = spec.permission_mode;
+    let toolset = spec.toolset;
 
     let emit_app = app.clone();
     let emit = move |event: AgentEvent| {
@@ -393,7 +398,7 @@ pub fn spawn_native_turn(
             system_prompt,
             history,
             catalog,
-            permission_mode,
+            toolset,
             abort_rx,
             emit,
         )

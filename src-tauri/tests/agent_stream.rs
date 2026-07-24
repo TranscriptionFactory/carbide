@@ -1,5 +1,6 @@
-use crate::features::ai::agent_stream::{AgentEvent, AgentPermissionMode};
+use crate::features::ai::agent_stream::{AgentEvent, ToolSelector};
 use crate::features::ai::harness::claude_adapter::{build_agent_args, AgentEventParser};
+use crate::features::mcp::types::{InputSchema, ToolDefinition};
 
 // Fixture lines captured from a real `claude -p ... --output-format stream-json
 // --verbose --include-partial-messages` run (claude 2.1.205), trimmed of
@@ -131,9 +132,36 @@ fn flag_value<'a>(args: &'a [String], flag: &str) -> Option<&'a str> {
         .map(String::as_str)
 }
 
+fn tool_def(name: &str, mutating: bool) -> ToolDefinition {
+    ToolDefinition {
+        name: name.to_string(),
+        description: String::new(),
+        input_schema: InputSchema {
+            schema_type: "object".into(),
+            properties: Default::default(),
+            required: Vec::new(),
+        },
+        mutating,
+    }
+}
+
+fn sample_catalog() -> Vec<ToolDefinition> {
+    vec![
+        tool_def("search_notes", false),
+        tool_def("read_note", false),
+        tool_def("create_note", true),
+    ]
+}
+
 #[test]
 fn base_args_match_verified_cli_contract() {
-    let args = build_agent_args("do the thing", "/cfg/mcp.json", &AgentPermissionMode::Safe, None);
+    let args = build_agent_args(
+        "do the thing",
+        "/cfg/mcp.json",
+        &ToolSelector::ReadOnly,
+        &sample_catalog(),
+        None,
+    );
     assert_eq!(flag_value(&args, "-p"), Some("do the thing"));
     assert_eq!(flag_value(&args, "--output-format"), Some("stream-json"));
     assert!(args.contains(&"--verbose".to_string()));
@@ -142,10 +170,34 @@ fn base_args_match_verified_cli_contract() {
     assert_eq!(flag_value(&args, "--mcp-config"), Some("/cfg/mcp.json"));
 }
 
+// TIGHTENING (TP-007): safe mode previously passed the wildcard
+// `--allowedTools mcp__carbide__*`, which granted EVERY MCP tool — including
+// mutating ones like create_note. It now emits an explicit read-only allow-list
+// derived from the catalog's mutating bits, so `safe` ≡ read-only on the harness
+// backend just as it already is on the native backend.
 #[test]
-fn safe_mode_args_allow_carbide_tools_and_disallow_mutating_tools() {
-    let args = build_agent_args("go", "/cfg/mcp.json", &AgentPermissionMode::Safe, None);
-    assert_eq!(flag_value(&args, "--allowedTools"), Some("mcp__carbide__*"));
+fn safe_mode_allow_list_is_explicit_read_only_not_wildcard() {
+    let args = build_agent_args(
+        "go",
+        "/cfg/mcp.json",
+        &ToolSelector::ReadOnly,
+        &sample_catalog(),
+        None,
+    );
+    // BEFORE: contained the `mcp__carbide__*` wildcard. AFTER: it must not.
+    assert!(
+        !args.contains(&"mcp__carbide__*".to_string()),
+        "safe mode must not grant the wildcard MCP allow-list"
+    );
+    // Read-only tools are named explicitly...
+    assert!(args.contains(&"mcp__carbide__search_notes".to_string()));
+    assert!(args.contains(&"mcp__carbide__read_note".to_string()));
+    // ...and the mutating tool never reaches the allow-list.
+    assert!(
+        !args.contains(&"mcp__carbide__create_note".to_string()),
+        "mutating create_note must be absent from the safe-mode allow-list"
+    );
+    // Built-in write tools stay disallowed, and safe mode never uses acceptEdits.
     let disallow_start = args.iter().position(|a| a == "--disallowedTools").unwrap();
     assert_eq!(&args[disallow_start + 1..disallow_start + 4], ["Bash", "Write", "Edit"]);
     assert!(!args.contains(&"--permission-mode".to_string()));
@@ -153,7 +205,13 @@ fn safe_mode_args_allow_carbide_tools_and_disallow_mutating_tools() {
 
 #[test]
 fn power_mode_args_use_accept_edits_permission_mode() {
-    let args = build_agent_args("go", "/cfg/mcp.json", &AgentPermissionMode::Power, None);
+    let args = build_agent_args(
+        "go",
+        "/cfg/mcp.json",
+        &ToolSelector::Full,
+        &sample_catalog(),
+        None,
+    );
     assert_eq!(flag_value(&args, "--permission-mode"), Some("acceptEdits"));
     assert!(!args.contains(&"--allowedTools".to_string()));
     assert!(!args.contains(&"--disallowedTools".to_string()));
@@ -162,9 +220,21 @@ fn power_mode_args_use_accept_edits_permission_mode() {
 #[test]
 fn resume_session_id_appends_resume_flag() {
     let sid = "16c61d1b-fe47-4d2a-a97a-fdea9213ac86";
-    let args = build_agent_args("go", "/cfg/mcp.json", &AgentPermissionMode::Safe, Some(sid));
+    let args = build_agent_args(
+        "go",
+        "/cfg/mcp.json",
+        &ToolSelector::ReadOnly,
+        &sample_catalog(),
+        Some(sid),
+    );
     assert_eq!(flag_value(&args, "--resume"), Some(sid));
 
-    let args = build_agent_args("go", "/cfg/mcp.json", &AgentPermissionMode::Safe, None);
+    let args = build_agent_args(
+        "go",
+        "/cfg/mcp.json",
+        &ToolSelector::ReadOnly,
+        &sample_catalog(),
+        None,
+    );
     assert!(!args.contains(&"--resume".to_string()));
 }

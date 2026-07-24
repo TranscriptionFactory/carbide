@@ -1,5 +1,6 @@
 import { create_logger } from "$lib/shared/utils/logger";
 import { error_message } from "$lib/shared/utils/error_message";
+import { chat_policy } from "$lib/features/ai";
 import type { VaultStore } from "$lib/features/vault";
 import type { AiProviderConfig } from "$lib/shared/types/ai_provider_config";
 import type { AgentPort } from "$lib/features/rag/ports";
@@ -59,7 +60,7 @@ export class AgentRunner {
         provider_config,
         prompt,
         vault_path: String(vault.path),
-        permission_mode: session.permission_mode,
+        toolset: chat_policy(session.permission_mode).toolset,
         history,
         ...(session.agent_session_id
           ? { resume_session_id: session.agent_session_id }
