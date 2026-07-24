@@ -120,7 +120,7 @@
 {#if message.role === "user"}
   <div class="flex justify-end">
     <div
-      class="max-w-[85%] whitespace-pre-wrap rounded-lg bg-primary px-3 py-2 text-sm text-primary-foreground"
+      class="max-w-[85%] select-text whitespace-pre-wrap rounded-lg bg-primary px-3 py-2 text-sm text-primary-foreground"
     >
       {message.content}
     </div>
@@ -135,7 +135,7 @@
           on_toggle={() => (reasoning_user_open = !reasoning_open)}
         >
           <div
-            class="whitespace-pre-wrap px-3 pb-2 text-xs text-muted-foreground"
+            class="select-text whitespace-pre-wrap px-3 pb-2 text-xs text-muted-foreground"
           >
             {message.reasoning}
           </div>
