@@ -32,6 +32,7 @@ export function agent_capability(
     case "openai_compat":
       return { backend: "native" };
     case "codex_cli":
+      return { backend: "harness", adapter: "codex" };
     case "text_cli":
       return null;
   }
