@@ -5,10 +5,10 @@ use futures_util::{stream, Stream};
 use serde_json::Value;
 use tokio::sync::oneshot;
 
-use crate::features::ai::agent_stream::{AgentEvent, AgentPermissionMode};
+use crate::features::ai::agent_stream::{AgentEvent, ToolSelector};
 use crate::features::ai::native_agent::{
-    evict_history, run_native_turn, truncate_tool_result, ModelClient, HISTORY_MAX_CHARS,
-    HISTORY_MAX_MESSAGES, MAX_ITERATIONS, TOOL_RESULT_MAX_CHARS,
+    allowed_tools, evict_history, run_native_turn, truncate_tool_result, ModelClient,
+    HISTORY_MAX_CHARS, HISTORY_MAX_MESSAGES, MAX_ITERATIONS, TOOL_RESULT_MAX_CHARS,
 };
 use crate::features::ai::stream::{AiMessage, AiMessageContent, AiStreamEvent, AiToolCall};
 use crate::features::mcp::types::{InputSchema, ToolDefinition, ToolResult};
@@ -96,7 +96,7 @@ fn tag(event: &AgentEvent) -> &'static str {
 async fn drive<C, D>(
     client: C,
     catalog: Vec<ToolDefinition>,
-    mode: AgentPermissionMode,
+    selector: ToolSelector,
     dispatch: D,
     abort_rx: oneshot::Receiver<()>,
 ) -> Vec<AgentEvent>
@@ -114,7 +114,7 @@ where
         "sys".into(),
         Vec::new(),
         catalog,
-        mode,
+        selector,
         abort_rx,
         emit,
     )
@@ -150,7 +150,7 @@ async fn scenario_1_happy_path_event_order() {
     let events = drive(
         client,
         vec![tool_def("search", false)],
-        AgentPermissionMode::Power,
+        ToolSelector::Full,
         ok_dispatch(),
         rx,
     )
@@ -179,7 +179,7 @@ async fn scenario_2_safe_mode_withholds_and_refuses_hallucinated_call() {
     let events = drive(
         client,
         vec![tool_def("search", false), tool_def("write_note", true)],
-        AgentPermissionMode::Safe,
+        ToolSelector::ReadOnly,
         dispatch,
         rx,
     )
@@ -215,7 +215,7 @@ async fn scenario_3_power_mode_dispatches_mutating_tool() {
     let events = drive(
         client,
         vec![tool_def("search", false), tool_def("write_note", true)],
-        AgentPermissionMode::Power,
+        ToolSelector::Full,
         dispatch,
         rx,
     )
@@ -252,7 +252,7 @@ async fn scenario_4_tool_error_recovery() {
     let events = drive(
         client,
         vec![tool_def("search", false)],
-        AgentPermissionMode::Power,
+        ToolSelector::Full,
         dispatch,
         rx,
     )
@@ -280,7 +280,7 @@ async fn scenario_5_max_iterations_cap() {
     let events = drive(
         client,
         vec![tool_def("search", false)],
-        AgentPermissionMode::Power,
+        ToolSelector::Full,
         ok_dispatch(),
         rx,
     )
@@ -323,7 +323,7 @@ async fn scenario_6_abort_between_tool_calls_stops_dispatch() {
     let events = drive(
         client,
         vec![tool_def("search", false)],
-        AgentPermissionMode::Power,
+        ToolSelector::Full,
         dispatch,
         abort_rx,
     )
@@ -352,6 +352,38 @@ async fn scenario_8_oversized_tool_result_truncated_with_marker() {
 
     let small = "short";
     assert_eq!(truncate_tool_result(small), small);
+}
+
+#[test]
+fn read_only_selector_excludes_mutating_tools() {
+    let catalog = vec![tool_def("search", false), tool_def("create_note", true)];
+    let allowed = allowed_tools(&catalog, &ToolSelector::ReadOnly);
+    let names: Vec<&str> = allowed.iter().map(|t| t.name.as_str()).collect();
+    assert_eq!(names, ["search"], "ReadOnly must drop mutating create_note");
+}
+
+#[test]
+fn full_selector_keeps_entire_catalog() {
+    let catalog = vec![tool_def("search", false), tool_def("create_note", true)];
+    let allowed = allowed_tools(&catalog, &ToolSelector::Full);
+    assert_eq!(allowed.len(), 2, "Full must keep every tool including mutating");
+}
+
+#[test]
+fn only_selector_keeps_named_tools() {
+    let catalog = vec![
+        tool_def("search", false),
+        tool_def("read_note", false),
+        tool_def("create_note", true),
+    ];
+    let allowed = allowed_tools(
+        &catalog,
+        &ToolSelector::Only {
+            names: vec!["read_note".to_string()],
+        },
+    );
+    let names: Vec<&str> = allowed.iter().map(|t| t.name.as_str()).collect();
+    assert_eq!(names, ["read_note"]);
 }
 
 fn spawn_sse_fixture_server(response: String) -> std::net::SocketAddr {
@@ -584,7 +616,7 @@ async fn replay_history_reaches_model_system_first() {
         "sys".into(),
         history,
         vec![tool_def("search", false)],
-        AgentPermissionMode::Power,
+        ToolSelector::Full,
         rx,
         emit,
     )

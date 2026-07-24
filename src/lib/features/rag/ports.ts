@@ -2,10 +2,8 @@ import type {
   RagSession,
   RagSessionSummary,
 } from "$lib/features/rag/domain/rag_types";
-import type {
-  AgentEvent,
-  AgentPermissionMode,
-} from "$lib/features/rag/types/agent_events";
+import type { AgentEvent } from "$lib/features/rag/types/agent_events";
+import type { ToolSelector } from "$lib/features/ai";
 import type { AiMessage } from "$lib/features/rag/domain/agent_history";
 import type { AiProviderConfig } from "$lib/shared/types/ai_provider_config";
 
@@ -20,7 +18,7 @@ export type AgentStreamRequest = {
   provider_config: AiProviderConfig;
   prompt: string;
   vault_path: string;
-  permission_mode: AgentPermissionMode;
+  toolset: ToolSelector;
   history: AiMessage[];
   resume_session_id?: string;
   backend: "harness" | "native";

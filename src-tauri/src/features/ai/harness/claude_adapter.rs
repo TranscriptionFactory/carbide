@@ -2,7 +2,8 @@ use serde_json::Value;
 use std::collections::HashMap;
 
 use super::{HarnessAdapter, HarnessEventParser};
-use crate::features::ai::agent_stream::{AgentEvent, AgentPermissionMode, AgentRunStats};
+use crate::features::ai::agent_stream::{AgentEvent, AgentRunStats, ToolSelector};
+use crate::features::mcp::types::ToolDefinition;
 
 const INPUT_SUMMARY_MAX_CHARS: usize = 200;
 
@@ -155,7 +156,8 @@ fn summarize_input(input: &Value) -> String {
 pub fn build_agent_args(
     prompt: &str,
     mcp_config_path: &str,
-    permission_mode: &AgentPermissionMode,
+    selector: &ToolSelector,
+    catalog: &[ToolDefinition],
     resume_session_id: Option<&str>,
 ) -> Vec<String> {
     let mut args: Vec<String> = [
@@ -171,8 +173,8 @@ pub fn build_agent_args(
     ]
     .map(String::from)
     .to_vec();
-    match permission_mode {
-        AgentPermissionMode::Safe => {
+    match selector {
+        ToolSelector::ReadOnly | ToolSelector::Only { .. } => {
             args.extend(
                 [
                     "--allowedTools",
@@ -185,7 +187,7 @@ pub fn build_agent_args(
                 .map(String::from),
             );
         }
-        AgentPermissionMode::Power => {
+        ToolSelector::Full => {
             args.extend(["--permission-mode", "acceptEdits"].map(String::from));
         }
     }
@@ -205,10 +207,11 @@ impl HarnessAdapter for ClaudeAdapter {
         &self,
         prompt: &str,
         mcp_config_path: &str,
-        permission_mode: &AgentPermissionMode,
+        selector: &ToolSelector,
+        catalog: &[ToolDefinition],
         resume_session_id: Option<&str>,
     ) -> Vec<String> {
-        build_agent_args(prompt, mcp_config_path, permission_mode, resume_session_id)
+        build_agent_args(prompt, mcp_config_path, selector, catalog, resume_session_id)
     }
 
     fn new_parser(&self) -> Box<dyn HarnessEventParser> {
