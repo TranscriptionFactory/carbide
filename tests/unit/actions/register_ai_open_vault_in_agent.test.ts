@@ -50,6 +50,7 @@ function create_harness() {
     ai_store: new AiStore(),
     ai_service: ai_service as never,
     ai_history: ai_history as never,
+    agentic_runner: { run: vi.fn() } as never,
   });
   return { registry, stores, ai_service };
 }
