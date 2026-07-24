@@ -97,3 +97,49 @@ describe("RagMessage changed files", () => {
     expect(target.textContent).not.toContain("Changed files");
   });
 });
+
+describe("RagMessage agent-mode citations", () => {
+  it("derives citation rows from read-tool events and opens the note", () => {
+    const { target, execute } = render_message({
+      message: make_message({
+        tool_events: [
+          {
+            name: "mcp__carbide__read_note",
+            input_summary: '{"path":"notes/a.md"}',
+            ok: true,
+          },
+          {
+            name: "mcp__carbide__search_notes",
+            input_summary: '{"query":"x"}',
+            ok: true,
+          },
+        ],
+      }),
+    });
+    expect(target.textContent).toContain("Sources");
+    const buttons = [...target.querySelectorAll("button")].filter((el) =>
+      el.textContent?.includes("notes/a.md"),
+    );
+    expect(buttons).toHaveLength(1);
+    buttons[0]?.click();
+    expect(execute).toHaveBeenCalledWith(
+      ACTION_IDS.rag_open_citation,
+      "notes/a.md",
+    );
+  });
+
+  it("omits the citation block when no read tools carry a path", () => {
+    const { target } = render_message({
+      message: make_message({
+        tool_events: [
+          {
+            name: "mcp__carbide__update_note",
+            input_summary: '{"path":"notes/a.md"}',
+            ok: true,
+          },
+        ],
+      }),
+    });
+    expect(target.textContent).not.toContain("Sources");
+  });
+});
