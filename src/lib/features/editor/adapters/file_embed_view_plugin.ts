@@ -49,6 +49,7 @@ class FileEmbedView implements NodeView {
   private _destroyed = false;
   private _media_el: HTMLAudioElement | HTMLVideoElement | null = null;
   private _pdf_doc: { loadingTask: { destroy(): void } } | null = null;
+  private _theme_observer: MutationObserver | null = null;
   private node: ProseNode;
   private view: EditorView;
   private get_pos: () => number | undefined;
@@ -199,6 +200,21 @@ class FileEmbedView implements NodeView {
 
       if (callbacks.resolve_asset_url) {
         const result = callbacks.resolve_asset_url(src);
+        const render_embed = async (html_text: string) => {
+          const srcdoc = await build_safe_embed_srcdoc({
+            content: html_text,
+            host_file_path: src,
+            resolve_asset_url: callbacks.resolve_asset_url,
+            theme:
+              document.documentElement.getAttribute("data-color-scheme") ===
+              "dark"
+                ? "dark"
+                : "light",
+            tokens: read_preview_theme_tokens(),
+          });
+          if (this._destroyed) return;
+          iframe.srcdoc = srcdoc;
+        };
         const load_html = (url: string) => {
           void fetch(url)
             .then((r) =>
@@ -206,19 +222,14 @@ class FileEmbedView implements NodeView {
             )
             .then(async (html_text) => {
               if (this._destroyed) return;
-              const srcdoc = await build_safe_embed_srcdoc({
-                content: html_text,
-                host_file_path: src,
-                resolve_asset_url: callbacks.resolve_asset_url,
-                theme:
-                  document.documentElement.getAttribute("data-color-scheme") ===
-                  "dark"
-                    ? "dark"
-                    : "light",
-                tokens: read_preview_theme_tokens(),
+              this._theme_observer = new MutationObserver(() => {
+                void render_embed(html_text);
               });
-              if (this._destroyed) return;
-              iframe.srcdoc = srcdoc;
+              this._theme_observer.observe(document.documentElement, {
+                attributes: true,
+                attributeFilter: ["data-color-scheme"],
+              });
+              await render_embed(html_text);
             })
             .catch((error: unknown) => {
               log.error("Failed to load HTML embed", { error });
@@ -410,6 +421,8 @@ class FileEmbedView implements NodeView {
 
   destroy(): void {
     this._destroyed = true;
+    this._theme_observer?.disconnect();
+    this._theme_observer = null;
     this.collapse_btn.removeEventListener("click", this.on_collapse);
     if (this._media_el) {
       this._media_el.pause();

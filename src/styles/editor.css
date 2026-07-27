@@ -12,7 +12,11 @@
   --source-editor-max-width: 48rem;
   --editor-spacing: 1.5rem;
   --editor-padding-block: var(--space-12);
-  --editor-padding-inline: var(--space-8);
+  /* In-box gutter hosting block handles / fold toggles; must live inside
+     padding because the outer centering gutter collapses to zero at narrow
+     panes and in the 80ch layout presets. */
+  --editor-gutter-inline: var(--space-12);
+  --editor-padding-inline: var(--editor-gutter-inline);
   --editor-source-bg: var(--editor-background);
   --editor-heading-color: var(--editor-heading);
   --editor-heading-weight: 500;
@@ -138,21 +142,11 @@
 [data-width-mode="wide"] {
   --editor-max-width: none;
   --source-editor-max-width: none;
-  --wide-editor-padding-inline: clamp(24px, 4vw, 72px);
+  --editor-gutter-inline: clamp(var(--space-12), 4vw, 72px);
 }
 
 [data-width-mode="wide"] .milkdown .ProseMirror {
   max-width: none;
-  padding-inline: var(--wide-editor-padding-inline);
-}
-
-/* Wide mode removes the outer centering gutter, leaving only padding-inline.
-   Anchor the handle by its RIGHT edge just left of the text (translateX makes
-   it grow leftward into the padding) so it can't overlap the content column
-   regardless of the handle's own width. */
-[data-width-mode="wide"] .block-drag-handle {
-  left: calc(var(--wide-editor-padding-inline) - 0.5rem);
-  transform: translateX(-100%);
 }
 
 /* ============================================

@@ -134,6 +134,47 @@ describe("build_safe_embed_srcdoc", () => {
     expect(srcdoc).not.toContain("transparent");
   });
 
+  it("neutralizes inline source backgrounds in dark theme", async () => {
+    const srcdoc = await build_safe_embed_srcdoc({
+      content: `<div style="background:#ffffff">x</div>`,
+      host_file_path: "n/x.html",
+      theme: "dark",
+    });
+    expect(srcdoc).toContain(
+      "body :where(*) { background: transparent !important; }",
+    );
+  });
+
+  it("keeps the token-driven body backdrop in dark theme", async () => {
+    const srcdoc = await build_safe_embed_srcdoc({
+      content: `<p>hi</p>`,
+      host_file_path: "n/x.html",
+      theme: "dark",
+      tokens: { "--editor-background": "oklch(0.2 0 0)" },
+    });
+    expect(srcdoc).toContain("--editor-background:oklch(0.2 0 0);");
+    expect(srcdoc).toContain(
+      "background: var(--editor-background, var(--background));",
+    );
+  });
+
+  it("omits the dark background reset in light theme", async () => {
+    const srcdoc = await build_safe_embed_srcdoc({
+      content: `<p>hi</p>`,
+      host_file_path: "n/x.html",
+      theme: "light",
+    });
+    expect(srcdoc).not.toContain("background: transparent !important");
+  });
+
+  it("carries no hardcoded color literals in the embed styles", async () => {
+    const srcdoc = await build_safe_embed_srcdoc({
+      content: `<p>hi</p>`,
+      host_file_path: "n/x.html",
+    });
+    expect(srcdoc).not.toMatch(/#(?:18181b|ffffff|2563eb|f4f4f5|e4e4e7)/i);
+  });
+
   it("drops tokens carrying CSS-injection characters", async () => {
     const srcdoc = await build_safe_embed_srcdoc({
       content: `<p>hi</p>`,

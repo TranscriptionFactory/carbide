@@ -71,6 +71,11 @@ export const PREVIEW_THEME_TOKENS = [
   "--chart-3",
   "--chart-4",
   "--chart-5",
+  "--editor-background",
+  "--editor-text",
+  "--editor-link",
+  "--editor-code-bg",
+  "--editor-table-border",
 ];
 
 export function read_preview_theme_tokens(): Record<string, string> {
