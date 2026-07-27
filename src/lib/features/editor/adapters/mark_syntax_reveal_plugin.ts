@@ -1,6 +1,7 @@
 import { Plugin, PluginKey, TextSelection } from "prosemirror-state";
 import type { EditorState, Transaction } from "prosemirror-state";
 import type {
+  Mark,
   MarkType,
   Node as ProseNode,
   ResolvedPos,
@@ -19,6 +20,7 @@ const REVEAL_DELIMITERS: ReadonlyArray<readonly [string, string]> = [
 ];
 
 const REVEAL_MARK_NAMES = new Set(REVEAL_DELIMITERS.map(([name]) => name));
+const REVEAL_DELIMITER_BY_MARK = new Map(REVEAL_DELIMITERS);
 
 export type RevealSpan = {
   from: number;
@@ -190,6 +192,110 @@ function find_ending_run_start(
   return $cursor.start() + (current_run_start ?? cursor_offset);
 }
 
+function find_starting_run_end(
+  $cursor: ResolvedPos,
+  mark_type: MarkType,
+): number {
+  const cursor_offset = $cursor.parentOffset;
+  const parent = $cursor.parent;
+  let run_end = cursor_offset;
+  let offset = 0;
+  for (let i = 0; i < parent.childCount; i++) {
+    const child = parent.child(i);
+    const child_end = offset + child.nodeSize;
+    if (offset >= cursor_offset) {
+      if (!mark_type.isInSet(child.marks)) break;
+      run_end = child_end;
+    }
+    offset = child_end;
+  }
+  return $cursor.start() + run_end;
+}
+
+function reveal_marks_only_on(
+  node: ProseNode | null,
+  opposite: ProseNode | null,
+): readonly Mark[] {
+  if (!node) return [];
+  return node.marks.filter(
+    (m) =>
+      REVEAL_MARK_NAMES.has(m.type.name) &&
+      (!opposite || !m.type.isInSet(opposite.marks)),
+  );
+}
+
+// Marks spanning the insertion point are context the orphaned delimiter sits
+// inside; marks that merely touch it belong to a neighbouring run.
+function boundary_marks(doc: ProseNode, pos: number): Mark[] {
+  const $pos = doc.resolve(pos);
+  const before = $pos.nodeBefore;
+  const after = $pos.nodeAfter;
+  if (!before || !after) return [];
+  return before.marks.filter((m) => m.isInSet(after.marks));
+}
+
+type RevealEdge = {
+  mark: Mark;
+  from: number;
+  to: number;
+  orphan_at: number;
+};
+
+// Of the marks nested at the cursor, the innermost is the one whose opposite
+// run boundary sits closest to it.
+function closest_run_boundary(
+  marks: readonly Mark[],
+  boundary_of: (mark: Mark) => number,
+  cursor: number,
+): { mark: Mark; pos: number } | null {
+  let best: { mark: Mark; pos: number } | null = null;
+  for (const mark of marks) {
+    const pos = boundary_of(mark);
+    if (!best || Math.abs(cursor - pos) < Math.abs(cursor - best.pos)) {
+      best = { mark, pos };
+    }
+  }
+  return best;
+}
+
+function find_reveal_edge($cursor: ResolvedPos): RevealEdge | null {
+  const before = $cursor.nodeBefore;
+  const after = $cursor.nodeAfter;
+  const cursor = $cursor.pos;
+
+  const ending = closest_run_boundary(
+    reveal_marks_only_on(before, after),
+    (m) => find_ending_run_start($cursor, m.type),
+    cursor,
+  );
+  if (ending) {
+    return {
+      mark: ending.mark,
+      from: ending.pos,
+      to: cursor,
+      orphan_at: ending.pos,
+    };
+  }
+
+  const starting = closest_run_boundary(
+    reveal_marks_only_on(after, before),
+    (m) => find_starting_run_end($cursor, m.type),
+    cursor,
+  );
+  if (starting) {
+    return {
+      mark: starting.mark,
+      from: cursor,
+      to: starting.pos,
+      orphan_at: starting.pos,
+    };
+  }
+
+  return null;
+}
+
+// Deleting one delimiter of a pair leaves the other behind as literal text,
+// matching what Obsidian's source-level editing does.
 export function handle_reveal_backspace(
   state: EditorState,
   dispatch?: (tr: Transaction) => void,
@@ -199,32 +305,23 @@ export function handle_reveal_backspace(
   const $cursor = selection.$cursor;
   if (!$cursor || $cursor.parent.type.spec.code) return false;
 
-  const node_before = $cursor.nodeBefore;
-  if (!node_before) return false;
-
-  const node_after = $cursor.nodeAfter;
-  const ending = node_before.marks.filter(
-    (m) =>
-      REVEAL_MARK_NAMES.has(m.type.name) &&
-      (!node_after || !m.type.isInSet(node_after.marks)),
-  );
-  let innermost = ending[0];
-  if (!innermost) return false;
-
-  let innermost_start = find_ending_run_start($cursor, innermost.type);
-  for (const mark of ending.slice(1)) {
-    const start = find_ending_run_start($cursor, mark.type);
-    if (start > innermost_start) {
-      innermost = mark;
-      innermost_start = start;
-    }
-  }
+  const edge = find_reveal_edge($cursor);
+  if (!edge) return false;
 
   if (dispatch) {
+    const delimiter = REVEAL_DELIMITER_BY_MARK.get(edge.mark.type.name) ?? "";
     dispatch(
       state.tr
-        .removeMark(innermost_start, $cursor.pos, innermost.type)
-        .removeStoredMark(innermost.type),
+        .removeMark(edge.from, edge.to, edge.mark.type)
+        .removeStoredMark(edge.mark.type)
+        .replaceWith(
+          edge.orphan_at,
+          edge.orphan_at,
+          state.schema.text(
+            delimiter,
+            boundary_marks(state.doc, edge.orphan_at),
+          ),
+        ),
     );
   }
   return true;
