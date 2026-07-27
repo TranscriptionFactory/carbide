@@ -4,6 +4,10 @@ import type { Transaction } from "prosemirror-state";
 import type { Node as ProseNode } from "prosemirror-model";
 import { schema } from "$lib/features/editor/adapters/schema";
 import {
+  parse_markdown,
+  serialize_markdown,
+} from "$lib/features/editor/adapters/markdown_pipeline";
+import {
   create_mark_syntax_reveal_plugin,
   mark_syntax_reveal_plugin_key,
   handle_reveal_backspace,
@@ -212,30 +216,43 @@ describe("decorations are display-only", () => {
   });
 });
 
+function mark_names_in(doc: ProseNode): Set<string> {
+  const names = new Set<string>();
+  doc.descendants((node) => {
+    for (const mark of node.marks) names.add(mark.type.name);
+  });
+  return names;
+}
+
+function text_marked_with(doc: ProseNode, mark_name: string): string {
+  let text = "";
+  doc.descendants((node) => {
+    if (node.isText && node.marks.some((m) => m.type.name === mark_name))
+      text += node.text ?? "";
+  });
+  return text;
+}
+
 describe("backspace at span end removes the mark", () => {
-  it("removes code_inline from the whole span and keeps the text", () => {
+  it("removes code_inline from the whole span and orphans the leading delimiter", () => {
     const state = make_marked_state(CODE_SEGMENTS, 6);
     const { handled, tr } = run_backspace(state);
     expect(handled).toBe(true);
     const next = state.apply(tr!);
-    expect(next.doc.textContent).toBe("acodeb");
-    let has_code = false;
-    next.doc.descendants((node) => {
-      if (node.marks.some((m) => m.type.name === "code_inline"))
-        has_code = true;
-    });
-    expect(has_code).toBe(false);
+    expect(next.doc.textContent).toBe("a`codeb");
+    expect(mark_names_in(next.doc).has("code_inline")).toBe(false);
+  });
+
+  it("keeps the caret after the text it just unmarked", () => {
+    const state = make_marked_state(CODE_SEGMENTS, 6);
+    const { tr } = run_backspace(state);
+    expect(state.apply(tr!).selection.from).toBe(7);
   });
 
   it("does not handle backspace mid-span", () => {
     const { handled, tr } = run_backspace(make_marked_state(CODE_SEGMENTS, 4));
     expect(handled).toBe(false);
     expect(tr).toBeNull();
-  });
-
-  it("does not handle backspace at the span start", () => {
-    const { handled } = run_backspace(make_marked_state(CODE_SEGMENTS, 2));
-    expect(handled).toBe(false);
   });
 
   it("does not handle backspace with a non-empty selection", () => {
@@ -254,16 +271,9 @@ describe("backspace at span end removes the mark", () => {
     const { handled, tr } = run_backspace(state);
     expect(handled).toBe(true);
     const next = state.apply(tr!);
-    expect(next.doc.textContent).toBe("boinit");
-    let has_em = false;
-    let strong_text = "";
-    next.doc.descendants((node) => {
-      if (node.marks.some((m) => m.type.name === "em")) has_em = true;
-      if (node.isText && node.marks.some((m) => m.type.name === "strong"))
-        strong_text += node.text ?? "";
-    });
-    expect(has_em).toBe(false);
-    expect(strong_text).toBe("boinit");
+    expect(next.doc.textContent).toBe("bo*init");
+    expect(mark_names_in(next.doc).has("em")).toBe(false);
+    expect(text_marked_with(next.doc, "strong")).toBe("bo*init");
   });
 
   it("removes the full run even when the span is split across text nodes", () => {
@@ -278,27 +288,89 @@ describe("backspace at span end removes the mark", () => {
     const { handled, tr } = run_backspace(state);
     expect(handled).toBe(true);
     const next = state.apply(tr!);
-    let strong_text = "";
-    let has_code = false;
-    next.doc.descendants((node) => {
-      if (node.isText && node.marks.some((m) => m.type.name === "strong"))
-        strong_text += node.text ?? "";
-      if (node.marks.some((m) => m.type.name === "code_inline"))
-        has_code = true;
-    });
-    expect(next.doc.textContent).toBe("plainabcd");
-    expect(has_code).toBe(false);
-    expect(strong_text).toBe("ab");
+    expect(next.doc.textContent).toBe("plain`abcd");
+    expect(mark_names_in(next.doc).has("code_inline")).toBe(false);
+    expect(text_marked_with(next.doc, "strong")).toBe("ab");
   });
 
-  it("produces a single undoable step and clears the stored mark", () => {
+  it("produces one undoable transaction and clears the stored mark", () => {
     const state = make_marked_state(CODE_SEGMENTS, 6);
     const { tr } = run_backspace(state);
-    expect(tr!.steps).toHaveLength(1);
+    expect(tr!.steps).toHaveLength(2);
     expect(tr!.getMeta("addToHistory")).toBeUndefined();
     const next = state.apply(tr!);
     expect(
       next.storedMarks?.some((m) => m.type.name === "code_inline") ?? false,
     ).toBe(false);
+  });
+});
+
+describe("backspace at span start removes the mark", () => {
+  it("removes code_inline from the whole span and orphans the trailing delimiter", () => {
+    const state = make_marked_state(CODE_SEGMENTS, 2);
+    const { handled, tr } = run_backspace(state);
+    expect(handled).toBe(true);
+    const next = state.apply(tr!);
+    expect(next.doc.textContent).toBe("acode`b");
+    expect(mark_names_in(next.doc).has("code_inline")).toBe(false);
+  });
+
+  it("leaves the caret where the leading delimiter was", () => {
+    const state = make_marked_state(CODE_SEGMENTS, 2);
+    const { tr } = run_backspace(state);
+    expect(state.apply(tr!).selection.from).toBe(2);
+  });
+
+  it("handles a span that starts the block, before block joining", () => {
+    const state = make_marked_state(
+      [{ text: "bold", marks: ["strong"] }, { text: " tail" }],
+      1,
+    );
+    const { handled, tr } = run_backspace(state);
+    expect(handled).toBe(true);
+    const next = state.apply(tr!);
+    expect(next.doc.textContent).toBe("bold** tail");
+    expect(mark_names_in(next.doc).has("strong")).toBe(false);
+  });
+
+  it("removes only the innermost mark when several start at the cursor", () => {
+    const state = make_marked_state(
+      [
+        { text: "init", marks: ["strong", "em"] },
+        { text: "bo", marks: ["strong"] },
+      ],
+      1,
+    );
+    const { handled, tr } = run_backspace(state);
+    expect(handled).toBe(true);
+    const next = state.apply(tr!);
+    expect(next.doc.textContent).toBe("init*bo");
+    expect(mark_names_in(next.doc).has("em")).toBe(false);
+    expect(text_marked_with(next.doc, "strong")).toBe("init*bo");
+  });
+
+  it("survives a markdown round trip as literal text", () => {
+    const state = make_marked_state(CODE_SEGMENTS, 2);
+    const { tr } = run_backspace(state);
+    const doc = state.apply(tr!).doc;
+    const reparsed = parse_markdown(serialize_markdown(doc));
+    expect(reparsed.textContent).toBe("acode`b");
+    expect(mark_names_in(reparsed).has("code_inline")).toBe(false);
+  });
+
+  it("prefers the ending run when one span ends where another starts", () => {
+    const state = make_marked_state(
+      [
+        { text: "hi", marks: ["strong"] },
+        { text: "there", marks: ["highlight"] },
+      ],
+      3,
+    );
+    const { handled, tr } = run_backspace(state);
+    expect(handled).toBe(true);
+    const next = state.apply(tr!);
+    expect(next.doc.textContent).toBe("**hithere");
+    expect(mark_names_in(next.doc).has("strong")).toBe(false);
+    expect(text_marked_with(next.doc, "highlight")).toBe("there");
   });
 });
