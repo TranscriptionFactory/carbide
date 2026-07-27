@@ -124,6 +124,7 @@ export function create_core_extension(ctx: PluginContext): EditorExtension {
   const strong_mark_type = schema.marks.strong;
   const em_mark_type = schema.marks.em;
   const code_inline_mark_type = schema.marks.code_inline;
+  const highlight_mark_type = schema.marks.highlight;
 
   plugins.push(
     keymap({
@@ -187,6 +188,9 @@ export function create_core_extension(ctx: PluginContext): EditorExtension {
       },
       ...(strikethrough_mark_type
         ? { "Mod-Shift-x": toggleMark(strikethrough_mark_type) }
+        : {}),
+      ...(highlight_mark_type
+        ? { "Mod-Alt-h": toggleMark(highlight_mark_type) }
         : {}),
     }),
   );

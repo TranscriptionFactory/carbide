@@ -8,6 +8,7 @@
     type ScopeKind,
     type ScopeSuggestion,
   } from "$lib/features/rag/domain/rag_scope_suggest";
+  import { is_plain_enter } from "$lib/shared/utils/keyboard";
 
   type Props = {
     scope: RagScope;
@@ -107,7 +108,7 @@
     } else if (event.key === "ArrowUp") {
       event.preventDefault();
       selected_index = Math.max(selected_index - 1, 0);
-    } else if (event.key === "Enter") {
+    } else if (is_plain_enter(event)) {
       if (flat.length > 0) {
         event.preventDefault();
         const item = flat[selected_index];

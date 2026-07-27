@@ -8,6 +8,7 @@ const shortcuts: Partial<Record<FormattingCommand, string>> = {
   italic: "CmdOrCtrl+I",
   strikethrough: "CmdOrCtrl+Shift+X",
   code: "CmdOrCtrl+E",
+  highlight: "CmdOrCtrl+Alt+H",
   code_block: "CmdOrCtrl+Shift+E",
   link: "CmdOrCtrl+K",
   heading1: "CmdOrCtrl+Shift+1",

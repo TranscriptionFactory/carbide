@@ -8,6 +8,7 @@
   import DslSuggestDropdown from "$lib/components/ui/dsl_suggest_dropdown.svelte";
   import QueryBuilder from "./query_builder.svelte";
   import type { DslContext } from "$lib/shared/types/dsl_suggestion";
+  import { is_plain_enter } from "$lib/shared/utils/keyboard";
   import QueryResultList from "./query_result_list.svelte";
   import QueryResultCards from "./query_result_cards.svelte";
   import QueryResultFeed from "./query_result_feed.svelte";
@@ -87,7 +88,7 @@
 
   function handle_keydown(event: KeyboardEvent) {
     if (suggest.keydown(event)) return;
-    if (event.key === "Enter" && !event.shiftKey) {
+    if (is_plain_enter(event)) {
       event.preventDefault();
       void execute();
     }

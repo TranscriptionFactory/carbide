@@ -4,6 +4,7 @@
   import { onMount } from "svelte";
   import { Button } from "$lib/components/ui/button";
   import { Input } from "$lib/components/ui/input";
+  import KbdHint from "$lib/components/ui/kbd_hint.svelte";
   import CheckCircle2 from "@lucide/svelte/icons/check-circle-2";
   import Calendar from "@lucide/svelte/icons/calendar";
   import FileText from "@lucide/svelte/icons/file-text";
@@ -110,7 +111,10 @@
         >
           Cancel
         </Button>
-        <Button type="submit" disabled={!text.trim()}>Add Task</Button>
+        <Button type="submit" disabled={!text.trim()}>
+          Add Task
+          <KbdHint />
+        </Button>
       </Dialog.Footer>
     </form>
   </Dialog.Content>
