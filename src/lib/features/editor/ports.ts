@@ -15,6 +15,7 @@ import type {
 import type { ToolbarVisibility } from "$lib/shared/types/editor_settings";
 import type { Diagnostic } from "$lib/features/diagnostics";
 import type { FindOptions } from "$lib/features/editor/domain/find_types";
+import type { RichClipboardPayload } from "$lib/features/clipboard";
 
 export type FindReplaceResult = {
   match_count: number;
@@ -119,7 +120,7 @@ export type EditorSession = {
     attrs: Record<string, unknown> | undefined,
     positions: Set<number>,
   ) => void;
-  copy_blocks?: (positions: Set<number>) => Promise<void>;
+  copy_blocks_payload?: (positions: Set<number>) => RichClipboardPayload | null;
   batch_duplicate?: (positions: Set<number>) => void;
   batch_delete?: (positions: Set<number>) => void;
   get_block_selection?: () => Set<number>;

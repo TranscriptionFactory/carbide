@@ -104,9 +104,10 @@
     execute(action_id);
   }
 
-  async function handle_copy() {
+  function handle_copy() {
     if (block_selection.size > 0) {
-      await services.editor.copy_blocks(block_selection);
+      const payload = services.editor.copy_blocks_payload(block_selection);
+      if (payload) void services.clipboard.copy_rich(payload);
     } else {
       document.execCommand("copy");
     }
