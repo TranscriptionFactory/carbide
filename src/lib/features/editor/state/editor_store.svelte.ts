@@ -8,6 +8,7 @@ import { note_name_from_path } from "$lib/shared/utils/path";
 import type { EditorMode } from "$lib/shared/types/editor";
 import type { EditorWidthMode } from "$lib/shared/types/editor_settings";
 import type { BlockAnchor } from "$lib/features/editor/adapters/cursor_offset_mapper";
+import type { EditorView as SourceEditorView } from "@codemirror/view";
 
 export type PendingCursorRestore = {
   markdown_cursor_offset: number;
@@ -31,6 +32,7 @@ export class EditorStore {
   scroll_fraction = $state(0);
   selection = $state<EditorSelectionSnapshot | null>(null);
   source_content_getter: (() => string) | null = null;
+  source_view_getter: (() => SourceEditorView | null) | null = null;
   zoom = $state(1.0);
   pending_heading_fragment = $state<string | null>(null);
   pending_cursor_restore = $state<PendingCursorRestore | null>(null);
@@ -69,6 +71,14 @@ export class EditorStore {
 
   clear_source_content_getter() {
     this.source_content_getter = null;
+  }
+
+  set_source_view_getter(fn: () => SourceEditorView | null) {
+    this.source_view_getter = fn;
+  }
+
+  clear_source_view_getter() {
+    this.source_view_getter = null;
   }
 
   set_open_note(open_note: OpenNoteState) {
@@ -246,6 +256,7 @@ export class EditorStore {
     this.scroll_fraction = 0;
     this.selection = null;
     this.source_content_getter = null;
+    this.source_view_getter = null;
     this.pending_cursor_restore = null;
   }
 }

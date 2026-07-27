@@ -360,6 +360,7 @@
       }
 
       stores.editor.set_source_content_getter(get_content);
+      stores.editor.set_source_view_getter(() => view ?? null);
     };
 
     void init();
@@ -392,6 +393,7 @@
     }
 
     stores.editor.clear_source_content_getter();
+    stores.editor.clear_source_view_getter();
 
     const note_changed = stores.editor.open_note?.meta.id !== mounted_note_id;
     if (!note_changed) {
