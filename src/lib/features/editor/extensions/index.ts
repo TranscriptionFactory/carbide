@@ -29,6 +29,7 @@ import { create_ai_inline_extension } from "./ai_inline_extension";
 import type { AiMenuPluginConfig } from "../adapters/ai_menu_plugin";
 import { create_frontmatter_extension } from "./frontmatter_extension";
 import { create_tag_pill_extension } from "./tag_pill_extension";
+import { create_mark_syntax_reveal_plugin } from "../adapters/mark_syntax_reveal_plugin";
 
 export type AssembledExtensions = {
   plugins: Plugin[];
@@ -42,6 +43,9 @@ export function assemble_extensions(
   ai_inline_config?: AiMenuPluginConfig,
 ): AssembledExtensions {
   const extensions: EditorExtension[] = [
+    // Must precede core_extension so its Backspace handling runs before
+    // undoInputRule/baseKeymap.
+    { plugins: [create_mark_syntax_reveal_plugin()] },
     create_heading_extension(),
     create_core_extension(ctx),
     create_frontmatter_extension(ctx),
