@@ -104,6 +104,24 @@ function backspace_in_callout_title(
   return true;
 }
 
+function toggle_callout_fold(view: EditorView, $pos: ResolvedPos): boolean {
+  if ($pos.parent.type === schema.nodes.code_block) return false;
+
+  const callout_depth = find_callout_depth($pos);
+  if (callout_depth === -1) return false;
+
+  const callout_node = $pos.node(callout_depth);
+  if (!callout_node.attrs["foldable"]) return false;
+
+  const callout_pos = $pos.before(callout_depth);
+  const tr = view.state.tr.setNodeMarkup(callout_pos, null, {
+    ...callout_node.attrs,
+    folded: !callout_node.attrs["folded"],
+  });
+  view.dispatch(tr);
+  return true;
+}
+
 function backspace_at_body_start(view: EditorView, $pos: ResolvedPos): boolean {
   if ($pos.parentOffset !== 0) return false;
 
@@ -144,6 +162,15 @@ export function create_callout_keymap_prose_plugin(): Plugin {
         if (!selection.empty) return false;
 
         const $pos = selection.$from;
+
+        if (
+          event.key === "Enter" &&
+          (event.metaKey || event.ctrlKey) &&
+          !event.altKey &&
+          !event.shiftKey
+        ) {
+          return toggle_callout_fold(view, $pos);
+        }
 
         if ($pos.parent.type === schema.nodes.callout_title) {
           if (event.key === "Enter") {

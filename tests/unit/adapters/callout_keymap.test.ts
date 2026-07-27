@@ -35,10 +35,14 @@ function make_view(doc: ReturnType<typeof make_callout_doc>) {
   return new EditorView(el, { state });
 }
 
-function fire_key(view: EditorView, key: string): boolean {
+function fire_key(
+  view: EditorView,
+  key: string,
+  init: KeyboardEventInit = {},
+): boolean {
   const plugin = create_callout_keymap_prose_plugin();
   const handler = plugin.props.handleKeyDown!;
-  const event = new KeyboardEvent("keydown", { key });
+  const event = new KeyboardEvent("keydown", { key, ...init });
   return handler.call(plugin, view, event) as boolean;
 }
 
@@ -253,6 +257,121 @@ describe("callout keymap plugin — folded section", () => {
     expect(view.state.selection.$from.parent.type.name).toBe("paragraph");
     expect(in_callout(view)).toBe(false);
     expect(callout_folded(view)).toBe(true);
+    view.destroy();
+  });
+});
+
+function make_foldable_callout_doc(title_text: string, body_text: string) {
+  const title = schema.nodes.callout_title.create(
+    null,
+    title_text ? schema.text(title_text) : undefined,
+  );
+  const body = schema.nodes.callout_body.create(null, [
+    schema.nodes.paragraph.create(
+      null,
+      body_text ? schema.text(body_text) : undefined,
+    ),
+  ]);
+  const callout = schema.nodes.callout.create(
+    {
+      callout_type: "note",
+      foldable: true,
+      default_folded: false,
+      folded: false,
+    },
+    [title, body],
+  );
+  return schema.nodes.doc.create(null, [callout]);
+}
+
+describe("callout keymap plugin — Mod-Enter fold toggle", () => {
+  function folded(view: EditorView): boolean {
+    return view.state.doc.child(0).attrs["folded"] as boolean;
+  }
+
+  function select(view: EditorView, pos: number) {
+    view.dispatch(
+      view.state.tr.setSelection(TextSelection.create(view.state.doc, pos)),
+    );
+  }
+
+  it("Cmd+Enter in foldable callout body toggles fold on and off", () => {
+    const view = make_view(make_foldable_callout_doc("Title", "Body text"));
+    const body_para_start = 10;
+    select(view, body_para_start);
+
+    expect(fire_key(view, "Enter", { metaKey: true })).toBe(true);
+    expect(folded(view)).toBe(true);
+
+    expect(fire_key(view, "Enter", { metaKey: true })).toBe(true);
+    expect(folded(view)).toBe(false);
+    view.destroy();
+  });
+
+  it("Ctrl+Enter in foldable callout title toggles fold", () => {
+    const view = make_view(make_foldable_callout_doc("Title", "Body text"));
+    select(view, 2);
+
+    expect(fire_key(view, "Enter", { ctrlKey: true })).toBe(true);
+    expect(folded(view)).toBe(true);
+    view.destroy();
+  });
+
+  it("Cmd+Enter in non-foldable callout returns false", () => {
+    const view = make_view(make_callout_doc("Title", "Body text"));
+    select(view, 2);
+
+    expect(fire_key(view, "Enter", { metaKey: true })).toBe(false);
+    expect(folded(view)).toBe(false);
+    view.destroy();
+  });
+
+  it("Cmd+Enter outside a callout returns false", () => {
+    const doc = schema.nodes.doc.create(null, [
+      schema.nodes.paragraph.create(null, schema.text("Plain text")),
+    ]);
+    const view = make_view(doc);
+    select(view, 1);
+
+    expect(fire_key(view, "Enter", { metaKey: true })).toBe(false);
+    view.destroy();
+  });
+
+  it("Cmd+Enter with extra modifiers is not handled", () => {
+    const view = make_view(make_foldable_callout_doc("Title", "Body text"));
+    select(view, 10);
+
+    expect(fire_key(view, "Enter", { metaKey: true, shiftKey: true })).toBe(
+      false,
+    );
+    expect(fire_key(view, "Enter", { metaKey: true, altKey: true })).toBe(
+      false,
+    );
+    expect(folded(view)).toBe(false);
+    view.destroy();
+  });
+
+  it("Cmd+Enter inside a code block nested in a callout defers to the code block", () => {
+    const title = schema.nodes.callout_title.create(null, schema.text("Title"));
+    const body = schema.nodes.callout_body.create(null, [
+      schema.nodes.code_block.create({ language: "" }, schema.text("code")),
+    ]);
+    const callout = schema.nodes.callout.create(
+      {
+        callout_type: "note",
+        foldable: true,
+        default_folded: false,
+        folded: false,
+      },
+      [title, body],
+    );
+    const view = make_view(schema.nodes.doc.create(null, [callout]));
+    const code_text_start = 10;
+    select(view, code_text_start);
+    expect(view.state.selection.$from.parent.type.name).toBe("code_block");
+
+    expect(fire_key(view, "Enter", { metaKey: true })).toBe(false);
+    expect(folded(view)).toBe(false);
     view.destroy();
   });
 });
