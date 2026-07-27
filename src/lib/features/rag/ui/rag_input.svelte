@@ -8,6 +8,7 @@
   import DslSuggestDropdown from "$lib/components/ui/dsl_suggest_dropdown.svelte";
   import RagScopeBar from "$lib/features/rag/ui/rag_scope_bar.svelte";
   import type { AiProviderConfig } from "$lib/shared/types/ai_provider_config";
+  import { is_plain_enter } from "$lib/shared/utils/keyboard";
   import type { TagInfo } from "$lib/features/tags";
   import type { SavedViewInfo } from "$lib/features/bases";
   import type {
@@ -174,7 +175,7 @@
 
   function on_keydown(event: KeyboardEvent) {
     if (suggest.keydown(event)) return;
-    if (event.key === "Enter" && !event.shiftKey) {
+    if (is_plain_enter(event)) {
       event.preventDefault();
       submit();
     }
