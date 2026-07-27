@@ -11,14 +11,22 @@ const SAFE_EMBED_CSP = [
 ].join("; ");
 
 const SAFE_EMBED_STYLES = `
-body { margin: 0; padding: 12px 16px; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 14px; line-height: 1.55; color: var(--foreground, #18181b); background: var(--background, #ffffff); word-wrap: break-word; }
+body { margin: 0; padding: 12px 16px; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 14px; line-height: 1.55; color: var(--editor-text, var(--foreground)); background: var(--editor-background, var(--background)); word-wrap: break-word; }
 img, video, audio, canvas, svg { max-width: 100%; height: auto; }
-a { color: var(--primary, #2563eb); }
-pre { background: var(--muted, #f4f4f5); color: var(--muted-foreground, inherit); padding: 8px 12px; border-radius: 4px; overflow-x: auto; }
-code { background: var(--muted, #f4f4f5); padding: 1px 4px; border-radius: 2px; font-size: 0.92em; }
+a { color: var(--editor-link, var(--primary)); }
+pre { background: var(--editor-code-bg, var(--muted)); color: var(--muted-foreground, inherit); padding: 8px 12px; border-radius: 4px; overflow-x: auto; }
+code { background: var(--editor-code-bg, var(--muted)); padding: 1px 4px; border-radius: 2px; font-size: 0.92em; }
 pre code { background: none; padding: 0; }
 table { border-collapse: collapse; }
-th, td { border: 1px solid var(--border, #e4e4e7); padding: 4px 8px; }
+th, td { border: 1px solid var(--editor-table-border, var(--border)); padding: 4px 8px; }
+`;
+
+/* The sanitizer keeps inline style/bgcolor, so clipped pages carry light
+   backdrops into dark mode while the injected body color is light text.
+   Flatten every descendant background so the token backdrop on body wins;
+   !important is required to beat surviving inline styles. */
+const DARK_EMBED_STYLES = `
+body :where(*) { background: transparent !important; }
 `;
 
 const ABSOLUTE_URL_RE =
@@ -130,7 +138,11 @@ export async function build_safe_embed_srcdoc(
   const theme = options.theme ?? "light";
   const dark_class = theme === "dark" ? ' class="dark"' : "";
   const root_block = render_root_block(theme, options.tokens ?? {});
-  return `<!DOCTYPE html><html${dark_class}><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="${SAFE_EMBED_CSP}"><style>${root_block}${SAFE_EMBED_STYLES}</style></head><body>${sanitized}</body></html>`;
+  const styles =
+    theme === "dark"
+      ? `${SAFE_EMBED_STYLES}${DARK_EMBED_STYLES}`
+      : SAFE_EMBED_STYLES;
+  return `<!DOCTYPE html><html${dark_class}><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="${SAFE_EMBED_CSP}"><style>${root_block}${styles}</style></head><body>${sanitized}</body></html>`;
 }
 
 export const SAFE_EMBED_SANDBOX = "allow-same-origin";
