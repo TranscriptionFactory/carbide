@@ -71,8 +71,17 @@ describe("reveal spans on selection change", () => {
   it("reveals a code span when the cursor is inside it", () => {
     const state = make_marked_state(CODE_SEGMENTS, 4);
     expect(get_spans(state)).toEqual([
-      { from: 2, to: 6, mark_name: "code_inline", delimiter: "`" },
+      { from: 2, to: 6, mark_name: "code_inline", delimiter: "`", order: 4 },
     ]);
+  });
+
+  it("keeps plugin-state identity for caret moves within the same span", () => {
+    const state = make_marked_state(CODE_SEGMENTS, 3);
+    const prev = mark_syntax_reveal_plugin_key.getState(state);
+    const moved = state.apply(
+      state.tr.setSelection(TextSelection.create(state.doc, 4)),
+    );
+    expect(mark_syntax_reveal_plugin_key.getState(moved)).toBe(prev);
   });
 
   it("shows nothing when the cursor does not touch a span", () => {
@@ -122,23 +131,23 @@ describe("reveal spans on selection change", () => {
 });
 
 describe("per-mark delimiters", () => {
-  const cases: Array<[string, string]> = [
-    ["strong", "**"],
-    ["em", "*"],
-    ["strikethrough", "~~"],
-    ["highlight", "=="],
-    ["code_inline", "`"],
+  const cases: Array<[string, string, number]> = [
+    ["strong", "**", 0],
+    ["em", "*", 1],
+    ["strikethrough", "~~", 2],
+    ["highlight", "==", 3],
+    ["code_inline", "`", 4],
   ];
 
-  for (const [mark_name, delimiter] of cases) {
+  for (const [mark_name, delimiter, order] of cases) {
     it(`renders ${delimiter} for ${mark_name}`, () => {
       const state = make_marked_state([{ text: "x", marks: [mark_name] }], 1);
       expect(get_spans(state)).toEqual([
-        { from: 1, to: 2, mark_name, delimiter },
+        { from: 1, to: 2, mark_name, delimiter, order },
       ]);
       expect(get_widget_keys(state)).toEqual([
-        `reveal-end:2:${delimiter}`,
-        `reveal-start:1:${delimiter}`,
+        `reveal-end:${delimiter}`,
+        `reveal-start:${delimiter}`,
       ]);
     });
   }
@@ -151,8 +160,8 @@ describe("nested and combined marks", () => {
       2,
     );
     expect(get_widget_keys(state)).toEqual([
-      "reveal-end:3:***",
-      "reveal-start:1:***",
+      "reveal-end:***",
+      "reveal-start:***",
     ]);
   });
 
@@ -166,14 +175,14 @@ describe("nested and combined marks", () => {
       4,
     );
     expect(get_spans(state)).toEqual([
-      { from: 1, to: 7, mark_name: "strong", delimiter: "**" },
-      { from: 3, to: 5, mark_name: "em", delimiter: "*" },
+      { from: 1, to: 7, mark_name: "strong", delimiter: "**", order: 0 },
+      { from: 3, to: 5, mark_name: "em", delimiter: "*", order: 1 },
     ]);
     expect(get_widget_keys(state)).toEqual([
-      "reveal-end:5:*",
-      "reveal-end:7:**",
-      "reveal-start:1:**",
-      "reveal-start:3:*",
+      "reveal-end:*",
+      "reveal-end:**",
+      "reveal-start:*",
+      "reveal-start:**",
     ]);
   });
 });

@@ -23,13 +23,10 @@
 
   const is_vault_mode = $derived(stores.vault.is_vault_mode);
 
-  const opened_plugin_views = new SvelteSet<string>();
+  const opened_sidebar_views = new SvelteSet<string>();
 
   $effect(() => {
-    const view = stores.ui.sidebar_view;
-    if (stores.plugin.sidebar_views.some((v) => v.id === view)) {
-      opened_plugin_views.add(view);
-    }
+    opened_sidebar_views.add(stores.ui.sidebar_view);
   });
 
   type HeaderAction = {
@@ -202,7 +199,7 @@
     <!-- Plugin panels are lazy-mounted then kept alive (hidden, not unmounted)
          so drafts, scroll, and local state survive view switches. -->
     {#each stores.plugin.sidebar_views as view (view.id)}
-      {#if is_vault_mode && opened_plugin_views.has(view.id)}
+      {#if is_vault_mode && opened_sidebar_views.has(view.id)}
         <Sidebar.Group
           class="h-full"
           hidden={stores.ui.sidebar_view !== view.id}

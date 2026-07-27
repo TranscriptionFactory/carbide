@@ -222,6 +222,7 @@ class FileEmbedView implements NodeView {
             )
             .then(async (html_text) => {
               if (this._destroyed) return;
+              this._theme_observer?.disconnect();
               this._theme_observer = new MutationObserver(() => {
                 void render_embed(html_text);
               });

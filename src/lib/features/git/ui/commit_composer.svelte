@@ -1,5 +1,6 @@
 <script lang="ts">
   import KbdHint from "$lib/components/ui/kbd_hint.svelte";
+  import { is_mod_enter } from "$lib/shared/utils/keyboard";
 
   type Props = {
     staged_count: number;
@@ -19,7 +20,7 @@
   }
 
   function handle_keydown(e: KeyboardEvent) {
-    if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && can_commit) {
+    if (is_mod_enter(e) && can_commit) {
       e.preventDefault();
       handle_commit();
     }

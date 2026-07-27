@@ -5,6 +5,7 @@
   import { Button } from "$lib/components/ui/button";
   import { Input } from "$lib/components/ui/input";
   import KbdHint from "$lib/components/ui/kbd_hint.svelte";
+  import { is_mod_enter } from "$lib/shared/utils/keyboard";
   import CheckCircle2 from "@lucide/svelte/icons/check-circle-2";
   import Calendar from "@lucide/svelte/icons/calendar";
   import FileText from "@lucide/svelte/icons/file-text";
@@ -42,7 +43,7 @@
   }
 
   function handleKeydown(e: KeyboardEvent) {
-    if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+    if (is_mod_enter(e)) {
       void handleSubmit(e);
     }
   }

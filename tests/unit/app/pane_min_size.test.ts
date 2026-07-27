@@ -19,4 +19,9 @@ describe("px_to_min_size", () => {
   it("drops below the fallback on wide groups to honor the px floor exactly", () => {
     expect(px_to_min_size(220, 2200, 12, 30)).toBe(10);
   });
+
+  it("quantizes to 0.1% steps, rounding up so the px floor is never undercut", () => {
+    expect(px_to_min_size(220, 1440, 12, 30)).toBe(15.3);
+    expect(px_to_min_size(220, 1441, 12, 30)).toBe(15.3);
+  });
 });

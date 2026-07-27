@@ -3,6 +3,7 @@
   import { Button } from "$lib/components/ui/button";
   import CollapsibleSection from "$lib/components/ui/collapsible_section.svelte";
   import KbdHint from "$lib/components/ui/kbd_hint.svelte";
+  import { is_mod_enter } from "$lib/shared/utils/keyboard";
   import AiDiffView from "$lib/features/ai/ui/ai_diff_view.svelte";
   import {
     apply_ai_draft_hunk_selection,
@@ -199,7 +200,7 @@
   });
 
   function handle_prompt_keydown(event: KeyboardEvent) {
-    if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
+    if (is_mod_enter(event)) {
       event.preventDefault();
       if (!execute_disabled) {
         on_execute();
@@ -430,11 +431,12 @@
           <Button size="sm" onclick={on_execute} disabled={execute_disabled}>
             {#if is_executing}
               Running…
-            {:else if result}
-              {is_ask_mode ? "Ask Again" : "Refine Draft"}
-              <KbdHint />
             {:else}
-              {is_ask_mode ? "Ask" : "Generate Draft"}
+              {#if result}
+                {is_ask_mode ? "Ask Again" : "Refine Draft"}
+              {:else}
+                {is_ask_mode ? "Ask" : "Generate Draft"}
+              {/if}
               <KbdHint />
             {/if}
           </Button>
