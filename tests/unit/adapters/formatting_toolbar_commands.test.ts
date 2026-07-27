@@ -205,6 +205,19 @@ describe("execute_command via toggle_format", () => {
     view.destroy();
   });
 
+  it("toggles highlight on a selection", () => {
+    const doc = schema.nodes.doc.create(null, [
+      schema.nodes.paragraph.create(null, schema.text("hello world")),
+    ]);
+    const view = mount_view(doc, TextSelection.create(doc, 1, 6));
+    const applied = toggle_format("highlight", view);
+    expect(applied).toBe(true);
+    expect(view.state.doc.rangeHasMark(1, 6, schema.marks.highlight)).toBe(
+      true,
+    );
+    view.destroy();
+  });
+
   it("sets a heading block type", () => {
     const view = create_test_view("hello");
     const applied = toggle_format("heading1", view);
