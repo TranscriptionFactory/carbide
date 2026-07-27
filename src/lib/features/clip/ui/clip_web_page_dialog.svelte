@@ -46,14 +46,19 @@
   }: Props = $props();
 
   let input_el = $state<HTMLInputElement | null>(null);
+  let was_open = $state(false);
 
   $effect(() => {
-    if (open && input_el) {
-      const el = input_el;
-      void tick().then(() => {
-        el.focus();
-      });
+    if (!open) {
+      was_open = false;
+      return;
     }
+    if (!input_el || was_open) return;
+    was_open = true;
+    const el = input_el;
+    void tick().then(() => {
+      el.focus();
+    });
   });
 
   const has_format = $derived(formats.markdown || formats.html || formats.epub);
