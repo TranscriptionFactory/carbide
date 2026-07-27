@@ -1,11 +1,10 @@
 <script lang="ts">
-  const is_mac =
-    typeof navigator !== "undefined" && navigator.platform.includes("Mac");
+  import { is_mac } from "$lib/features/window";
 </script>
 
 <kbd
-  class="pointer-events-none ml-1 rounded border border-current/30 px-1 font-mono text-[10px] opacity-70"
+  class="pointer-events-none ml-1 rounded border px-1 font-mono text-xs opacity-70"
   aria-hidden="true"
 >
-  {is_mac ? "⌘↩" : "Ctrl+↩"}
+  {is_mac() ? "⌘↩" : "Ctrl+↩"}
 </kbd>

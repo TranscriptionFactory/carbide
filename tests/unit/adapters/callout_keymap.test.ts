@@ -7,7 +7,11 @@ import { EditorView } from "prosemirror-view";
 import { schema } from "$lib/features/editor/adapters/schema";
 import { create_callout_keymap_prose_plugin } from "$lib/features/editor/adapters/callout_keymap_plugin";
 
-function make_callout_doc(title_text: string, body_text: string) {
+function make_callout_doc(
+  title_text: string,
+  body_text: string,
+  attrs: Record<string, unknown> = {},
+) {
   const title = schema.nodes.callout_title.create(
     null,
     title_text ? schema.text(title_text) : undefined,
@@ -19,7 +23,7 @@ function make_callout_doc(title_text: string, body_text: string) {
     ),
   ]);
   const callout = schema.nodes.callout.create(
-    { callout_type: "note", foldable: false, default_folded: false },
+    { callout_type: "note", foldable: false, default_folded: false, ...attrs },
     [title, body],
   );
   return schema.nodes.doc.create(null, [callout]);
@@ -262,26 +266,10 @@ describe("callout keymap plugin — folded section", () => {
 });
 
 function make_foldable_callout_doc(title_text: string, body_text: string) {
-  const title = schema.nodes.callout_title.create(
-    null,
-    title_text ? schema.text(title_text) : undefined,
-  );
-  const body = schema.nodes.callout_body.create(null, [
-    schema.nodes.paragraph.create(
-      null,
-      body_text ? schema.text(body_text) : undefined,
-    ),
-  ]);
-  const callout = schema.nodes.callout.create(
-    {
-      callout_type: "note",
-      foldable: true,
-      default_folded: false,
-      folded: false,
-    },
-    [title, body],
-  );
-  return schema.nodes.doc.create(null, [callout]);
+  return make_callout_doc(title_text, body_text, {
+    foldable: true,
+    folded: false,
+  });
 }
 
 describe("callout keymap plugin — Mod-Enter fold toggle", () => {

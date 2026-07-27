@@ -51,25 +51,39 @@ const log = create_logger("ai_actions");
 
 const MAX_INLINE_CONTEXT = 4000;
 
+function inline_context_window(
+  from: number,
+  to: number | null,
+  length: number,
+): { start: number; end: number } {
+  if (to !== null) {
+    return {
+      start: Math.max(0, from - MAX_INLINE_CONTEXT),
+      end: Math.min(length, to + MAX_INLINE_CONTEXT),
+    };
+  }
+  const clamped = Math.min(Math.max(0, from), length);
+  return { start: Math.max(0, clamped - MAX_INLINE_CONTEXT), end: clamped };
+}
+
 function extract_source_inline_context(
   markdown: string,
   selection: EditorSelectionSnapshot | null,
   cursor_offset: number,
 ): { context_text: string; selection_text?: string } {
   if (selection && selection.start !== null && selection.end !== null) {
-    const ctx_start = Math.max(0, selection.start - MAX_INLINE_CONTEXT);
-    const ctx_end = Math.min(
+    const w = inline_context_window(
+      selection.start,
+      selection.end,
       markdown.length,
-      selection.end + MAX_INLINE_CONTEXT,
     );
     return {
-      context_text: markdown.slice(ctx_start, ctx_end),
+      context_text: markdown.slice(w.start, w.end),
       selection_text: selection.text,
     };
   }
-  const clamped_offset = Math.min(Math.max(0, cursor_offset), markdown.length);
-  const before_start = Math.max(0, clamped_offset - MAX_INLINE_CONTEXT);
-  return { context_text: markdown.slice(before_start, clamped_offset) };
+  const w = inline_context_window(cursor_offset, null, markdown.length);
+  return { context_text: markdown.slice(w.start, w.end) };
 }
 
 export function register_ai_actions(
@@ -665,18 +679,16 @@ export function register_ai_actions(
   } {
     const { from, to } = view.state.selection;
     const doc = view.state.doc;
-    const has_selection = from !== to;
-    if (has_selection) {
-      const ctx_start = Math.max(0, from - MAX_INLINE_CONTEXT);
-      const ctx_end = Math.min(doc.content.size, to + MAX_INLINE_CONTEXT);
+    if (from !== to) {
+      const w = inline_context_window(from, to, doc.content.size);
       return {
-        context_text: doc.textBetween(ctx_start, ctx_end, "\n", "\n"),
+        context_text: doc.textBetween(w.start, w.end, "\n", "\n"),
         selection_text: doc.textBetween(from, to, "\n", "\n"),
       };
     }
-    const before_start = Math.max(0, from - MAX_INLINE_CONTEXT);
+    const w = inline_context_window(from, null, doc.content.size);
     return {
-      context_text: doc.textBetween(before_start, from, "\n", "\n"),
+      context_text: doc.textBetween(w.start, w.end, "\n", "\n"),
     };
   }
 
@@ -717,7 +729,7 @@ export function register_ai_actions(
   async function execute_inline_source(
     view: EditorView,
     config: AiProviderConfig,
-    p: { command_id?: string; prompt?: string } | undefined,
+    p: { command_id?: string; prompt?: string; retry?: boolean } | undefined,
   ) {
     const editor_ctx = services.editor.get_ai_context();
     if (!editor_ctx) {
@@ -726,21 +738,28 @@ export function register_ai_actions(
     }
     const selection = editor_ctx.selection;
     const cursor_offset = input.stores.editor.cursor_offset;
-    const ctx = extract_source_inline_context(
-      editor_ctx.markdown,
-      selection,
-      cursor_offset,
-    );
-    const commands = resolve_inline_commands(
-      input.stores.ui.editor_settings.ai_inline_commands,
-    );
-    const prompt_input: Parameters<typeof build_ai_inline_prompt>[0] = {
-      command_id: p?.command_id ?? (p?.prompt ? "custom" : "continue"),
-      context_text: ctx.context_text,
-      commands,
-    };
-    if (p?.prompt) prompt_input.custom_prompt = p.prompt;
-    if (ctx.selection_text) prompt_input.selection_text = ctx.selection_text;
+
+    let prompt_input: Parameters<typeof build_ai_inline_prompt>[0] | null =
+      null;
+    if (p?.retry) {
+      if (!last_inline_prompts) return;
+    } else {
+      const ctx = extract_source_inline_context(
+        editor_ctx.markdown,
+        selection,
+        cursor_offset,
+      );
+      const commands = resolve_inline_commands(
+        input.stores.ui.editor_settings.ai_inline_commands,
+      );
+      prompt_input = {
+        command_id: p?.command_id ?? (p?.prompt ? "custom" : "continue"),
+        context_text: ctx.context_text,
+        commands,
+      };
+      if (p?.prompt) prompt_input.custom_prompt = p.prompt;
+      if (ctx.selection_text) prompt_input.selection_text = ctx.selection_text;
+    }
 
     dispatch_ai_menu(view, {
       action: "start_stream",
@@ -749,12 +768,16 @@ export function register_ai_actions(
 
     const [images, vault_context] = await Promise.all([
       collect_open_note_image_parts(input),
-      fetch_inline_vault_context(),
+      prompt_input ? fetch_inline_vault_context() : undefined,
     ]);
     if (!get_ai_menu_state(view.state).open) return;
-    if (vault_context) prompt_input.vault_context = vault_context;
-    const prompts = build_ai_inline_prompt(prompt_input);
-    last_inline_prompts = prompts;
+    let prompts = last_inline_prompts;
+    if (prompt_input) {
+      if (vault_context) prompt_input.vault_context = vault_context;
+      prompts = build_ai_inline_prompt(prompt_input);
+      last_inline_prompts = prompts;
+    }
+    if (!prompts) return;
 
     const abort = new AbortController();
     let output = "";

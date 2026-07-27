@@ -46,7 +46,7 @@
   }: Props = $props();
 
   let input_el = $state<HTMLInputElement | null>(null);
-  let was_open = $state(false);
+  let was_open = false;
 
   $effect(() => {
     if (!open) {

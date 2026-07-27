@@ -18,13 +18,14 @@ const REVEAL_DELIMITERS: ReadonlyArray<readonly [string, string]> = [
   ["code_inline", "`"],
 ];
 
-const MARK_ORDER = new Map(REVEAL_DELIMITERS.map(([name], i) => [name, i]));
+const REVEAL_MARK_NAMES = new Set(REVEAL_DELIMITERS.map(([name]) => name));
 
 export type RevealSpan = {
   from: number;
   to: number;
   mark_name: string;
   delimiter: string;
+  order: number;
 };
 
 export type MarkSyntaxRevealState = {
@@ -40,7 +41,7 @@ function collect_block_spans(
   schema_marks: EditorState["schema"]["marks"],
   spans: RevealSpan[],
 ): void {
-  for (const [mark_name, delimiter] of REVEAL_DELIMITERS) {
+  for (const [order, [mark_name, delimiter]] of REVEAL_DELIMITERS.entries()) {
     const mark_type = schema_marks[mark_name];
     if (!mark_type) continue;
 
@@ -51,7 +52,7 @@ function collect_block_spans(
       const from = content_start + run_start;
       const to = content_start + run_end;
       if (from <= sel_to && to >= sel_from) {
-        spans.push({ from, to, mark_name, delimiter });
+        spans.push({ from, to, mark_name, delimiter, order });
       }
       run_start = null;
     };
@@ -103,10 +104,6 @@ function make_delimiter_widget(text: string): () => HTMLElement {
   };
 }
 
-function mark_order(name: string): number {
-  return MARK_ORDER.get(name) ?? REVEAL_DELIMITERS.length;
-}
-
 function build_decorations(doc: ProseNode, spans: RevealSpan[]): DecorationSet {
   const starts = new Map<number, RevealSpan[]>();
   const ends = new Map<number, RevealSpan[]>();
@@ -124,30 +121,26 @@ function build_decorations(doc: ProseNode, spans: RevealSpan[]): DecorationSet {
     add(ends, span.to, span);
   }
 
+  // Keys carry only the delimiter text (not the position) so widget DOM is
+  // reused when edits shift positions; the set itself tracks position.
   const decorations: Decoration[] = [];
   for (const [pos, group] of starts) {
-    group.sort(
-      (a, b) =>
-        b.to - a.to || mark_order(a.mark_name) - mark_order(b.mark_name),
-    );
+    group.sort((a, b) => b.to - a.to || a.order - b.order);
     const text = group.map((s) => s.delimiter).join("");
     decorations.push(
       Decoration.widget(pos, make_delimiter_widget(text), {
         side: 1,
-        key: `reveal-start:${String(pos)}:${text}`,
+        key: `reveal-start:${text}`,
       }),
     );
   }
   for (const [pos, group] of ends) {
-    group.sort(
-      (a, b) =>
-        b.from - a.from || mark_order(b.mark_name) - mark_order(a.mark_name),
-    );
+    group.sort((a, b) => b.from - a.from || b.order - a.order);
     const text = group.map((s) => s.delimiter).join("");
     decorations.push(
       Decoration.widget(pos, make_delimiter_widget(text), {
         side: -1,
-        key: `reveal-end:${String(pos)}:${text}`,
+        key: `reveal-end:${text}`,
       }),
     );
   }
@@ -159,20 +152,41 @@ function compute_state(state: EditorState): MarkSyntaxRevealState {
   return { spans, decorations: build_decorations(state.doc, spans) };
 }
 
+function spans_equal(a: RevealSpan[], b: RevealSpan[]): boolean {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    const x = a[i];
+    const y = b[i];
+    if (
+      !x ||
+      !y ||
+      x.from !== y.from ||
+      x.to !== y.to ||
+      x.mark_name !== y.mark_name
+    ) {
+      return false;
+    }
+  }
+  return true;
+}
+
 function find_ending_run_start(
   $cursor: ResolvedPos,
   mark_type: MarkType,
 ): number {
   const cursor_offset = $cursor.parentOffset;
+  const parent = $cursor.parent;
   let current_run_start: number | null = null;
-  $cursor.parent.forEach((child, offset) => {
-    if (offset >= cursor_offset) return;
+  let offset = 0;
+  for (let i = 0; i < parent.childCount && offset < cursor_offset; i++) {
+    const child = parent.child(i);
     if (mark_type.isInSet(child.marks)) {
       if (current_run_start === null) current_run_start = offset;
     } else {
       current_run_start = null;
     }
-  });
+    offset += child.nodeSize;
+  }
   return $cursor.start() + (current_run_start ?? cursor_offset);
 }
 
@@ -188,11 +202,10 @@ export function handle_reveal_backspace(
   const node_before = $cursor.nodeBefore;
   if (!node_before) return false;
 
-  const reveal_names = new Set(REVEAL_DELIMITERS.map(([name]) => name));
   const node_after = $cursor.nodeAfter;
   const ending = node_before.marks.filter(
     (m) =>
-      reveal_names.has(m.type.name) &&
+      REVEAL_MARK_NAMES.has(m.type.name) &&
       (!node_after || !m.type.isInSet(node_after.marks)),
   );
   let innermost = ending[0];
@@ -226,6 +239,16 @@ export function create_mark_syntax_reveal_plugin(): Plugin {
       },
       apply(tr, prev, _old_state, new_state) {
         if (!tr.docChanged && !tr.selectionSet) return prev;
+        if (!tr.docChanged) {
+          // Caret moves within the same runs are the common case; returning
+          // prev preserves DecorationSet identity so the view skips redraw.
+          const spans = collect_reveal_spans(new_state);
+          if (spans_equal(spans, prev.spans)) return prev;
+          return {
+            spans,
+            decorations: build_decorations(new_state.doc, spans),
+          };
+        }
         return compute_state(new_state);
       },
     },

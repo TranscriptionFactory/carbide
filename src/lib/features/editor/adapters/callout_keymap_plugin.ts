@@ -6,6 +6,7 @@ import {
   type ResolvedPos,
 } from "prosemirror-model";
 import { schema } from "./schema";
+import { is_mod_enter } from "$lib/shared/utils/keyboard";
 
 const callout_keymap_plugin_key = new PluginKey("callout-keymap");
 
@@ -163,12 +164,7 @@ export function create_callout_keymap_prose_plugin(): Plugin {
 
         const $pos = selection.$from;
 
-        if (
-          event.key === "Enter" &&
-          (event.metaKey || event.ctrlKey) &&
-          !event.altKey &&
-          !event.shiftKey
-        ) {
+        if (is_mod_enter(event)) {
           return toggle_callout_fold(view, $pos);
         }
 

@@ -30,6 +30,18 @@ describe("normalize_event_to_key — shifted punctuation", () => {
     expect(key).toBe("CmdOrCtrl+Shift+`");
   });
 
+  it("normalizes Cmd+Shift+Digit1 to the digit base key", () => {
+    const key = normalize_event_to_key(
+      mock_event({
+        metaKey: true,
+        shiftKey: true,
+        key: "!",
+        code: "Digit1",
+      }),
+    );
+    expect(key).toBe("CmdOrCtrl+Shift+1");
+  });
+
   it("normalizes plain Cmd+Backquote without shift", () => {
     const key = normalize_event_to_key(
       mock_event({ metaKey: true, key: "`", code: "Backquote" }),

@@ -106,12 +106,17 @@ export function normalize_event_to_key(event: KeyboardEvent): string {
   let key = event.key;
 
   // Alt composes special characters on macOS (Alt+G → "©") and Shift shifts
-  // punctuation (Shift+` → "~"); fall back to event.code for the physical key
-  // so declared strings like "CmdOrCtrl+Shift+`" can match.
+  // punctuation (Shift+` → "~") and digits (Shift+1 → "!"); fall back to
+  // event.code for the physical key so declared strings like
+  // "CmdOrCtrl+Shift+`" or "CmdOrCtrl+Shift+1" can match. Shifted letters
+  // stay on event.key: it is already the layout-correct base letter, while
+  // event.code would misreport non-QWERTY layouts.
   if (event.altKey && key.length === 1 && event.code) {
     key = base_key_from_code(event.code) ?? key;
   } else if (event.shiftKey && key.length === 1 && event.code) {
-    key = KEY_BY_PUNCTUATION_CODE[event.code] ?? key;
+    key = event.code.startsWith("Digit")
+      ? event.code.slice(5)
+      : (KEY_BY_PUNCTUATION_CODE[event.code] ?? key);
   }
 
   if (key === " ") {
