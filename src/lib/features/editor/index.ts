@@ -60,3 +60,4 @@ export {
   get_ai_menu_state,
   reject_ai_inline,
 } from "$lib/features/editor/adapters/ai_menu_plugin";
+export { resolve_inline_ai_anchor_coords } from "$lib/features/editor/adapters/inline_ai_anchor";
