@@ -10,11 +10,13 @@ import {
 } from "$lib/features/ai";
 import AiInlineMenu from "../ui/ai_inline_menu.svelte";
 import {
+  create_coords_anchor,
   create_cursor_anchor,
   position_suggest_dropdown,
   mount_dropdown,
   destroy_dropdown,
   attach_outside_dismiss,
+  type CursorCoords,
 } from "./suggest_dropdown_utils";
 
 export const ai_menu_plugin_key = new PluginKey<AiMenuState>("ai-inline-menu");
@@ -29,6 +31,7 @@ export type AiMenuState = {
   mode: AiMenuMode;
   streaming: boolean;
   anchor_pos: number;
+  anchor_coords: CursorCoords | null;
   original_doc: PmNode | null;
   ai_range_from: number;
   ai_range_to: number;
@@ -39,13 +42,14 @@ const EMPTY_STATE: AiMenuState = {
   mode: "cursor_command",
   streaming: false,
   anchor_pos: 0,
+  anchor_coords: null,
   original_doc: null,
   ai_range_from: 0,
   ai_range_to: 0,
 };
 
 export type AiMenuMeta =
-  | { action: "open" }
+  | { action: "open"; anchor_coords?: CursorCoords }
   | { action: "close" }
   | { action: "start_stream"; anchor_pos: number }
   | { action: "retry" }
@@ -116,6 +120,7 @@ export function create_ai_menu_plugin(
               open: true,
               mode: has_selection ? "selection_command" : "cursor_command",
               anchor_pos: selection.from,
+              anchor_coords: meta.anchor_coords ?? null,
               original_doc: new_state.doc,
             };
           }
@@ -269,7 +274,9 @@ export function create_ai_menu_plugin(
             ensure_menu(state);
             container.style.display = "block";
             if (needs_position) {
-              const anchor = create_cursor_anchor(view);
+              const anchor = state.anchor_coords
+                ? create_coords_anchor(state.anchor_coords)
+                : create_cursor_anchor(view);
               position_suggest_dropdown(container, anchor);
             }
           } else if (prev_open) {

@@ -774,6 +774,12 @@ describe("register_ai_actions", () => {
         dispatch(tr: Transaction) {
           state = state.apply(tr);
         },
+        coordsAtPos: vi.fn(() => ({
+          left: 10,
+          top: 20,
+          right: 10,
+          bottom: 40,
+        })),
       };
       return view as unknown as EditorView;
     }
@@ -904,6 +910,151 @@ describe("register_ai_actions", () => {
       expect(toast.error).toHaveBeenCalledWith(
         "No streaming-capable AI provider — inline edits need a Claude/Ollama CLI or API provider (Codex is agent-only). Add or select one in Settings.",
       );
+    });
+
+    it("bails with a toast instead of opening when the cursor has no coords", async () => {
+      const { registry, view } = setup_inline();
+      (view as unknown as { coordsAtPos: () => never }).coordsAtPos = () => {
+        throw new Error("no DOM at pos");
+      };
+
+      await registry.execute(ACTION_IDS.ai_open_inline_menu);
+
+      expect(get_ai_menu_state(view.state).open).toBe(false);
+      expect(toast.info).toHaveBeenCalledWith(
+        "Place the cursor in the editor to use inline AI",
+      );
+    });
+
+    describe("source view", () => {
+      function make_source_view(
+        coords: {
+          left: number;
+          top: number;
+          bottom: number;
+        } | null = { left: 50, top: 60, bottom: 80 },
+        head = 6,
+      ) {
+        return {
+          state: { selection: { main: { head } } },
+          coordsAtPos: vi.fn(() => coords),
+        } as unknown as import("@codemirror/view").EditorView;
+      }
+
+      function setup_source_inline() {
+        const harness = setup_inline();
+        harness.stores.editor.set_editor_mode("source");
+        const source_view = make_source_view();
+        harness.stores.editor.set_source_view_getter(() => source_view);
+        return { ...harness, source_view };
+      }
+
+      it("anchors the menu from the CodeMirror cursor, not the hidden visual editor", async () => {
+        const { registry, view, source_view } = setup_source_inline();
+
+        await registry.execute(ACTION_IDS.ai_open_inline_menu);
+
+        const ps = get_ai_menu_state(view.state);
+        expect(ps.open).toBe(true);
+        expect(ps.anchor_coords).toEqual({ left: 50, top: 60, bottom: 80 });
+        expect(source_view.coordsAtPos).toHaveBeenCalledWith(6);
+      });
+
+      it("bails with a toast when no source view is registered", async () => {
+        const { registry, stores, view } = setup_inline();
+        stores.editor.set_editor_mode("source");
+
+        await registry.execute(ACTION_IDS.ai_open_inline_menu);
+
+        expect(get_ai_menu_state(view.state).open).toBe(false);
+        expect(toast.info).toHaveBeenCalledWith(
+          "Place the cursor in the editor to use inline AI",
+        );
+      });
+
+      it("bails with a toast when the source cursor has no coords", async () => {
+        const { registry, stores, view } = setup_inline();
+        stores.editor.set_editor_mode("source");
+        const source_view = make_source_view(null);
+        stores.editor.set_source_view_getter(() => source_view);
+
+        await registry.execute(ACTION_IDS.ai_open_inline_menu);
+
+        expect(get_ai_menu_state(view.state).open).toBe(false);
+        expect(toast.info).toHaveBeenCalledWith(
+          "Place the cursor in the editor to use inline AI",
+        );
+      });
+
+      it("applies the completed stream at the source cursor instead of the hidden visual doc", async () => {
+        const { registry, stores, services, view, ai_service } =
+          setup_source_inline();
+        stores.editor.set_cursor_offset(6);
+        services.editor.get_ai_context = vi.fn().mockReturnValue({
+          note_path: as_note_path("docs/demo.md"),
+          note_title: "demo",
+          markdown: as_markdown_text("Hello source note"),
+          selection: null,
+        });
+        ai_service.stream_inline = vi.fn(function* () {
+          yield { type: "text", text: "AI " };
+          yield { type: "text", text: "text" };
+        });
+
+        await registry.execute(ACTION_IDS.ai_open_inline_menu);
+        await registry.execute(ACTION_IDS.ai_execute_inline, {
+          command_id: "continue",
+        });
+
+        expect(services.editor.apply_ai_output).toHaveBeenCalledWith(
+          "selection",
+          "AI text",
+          { text: "", start: 6, end: 6 },
+        );
+        expect(view.state.doc.textContent).toBe("Hello world");
+        expect(get_ai_menu_state(view.state).open).toBe(false);
+      });
+
+      it("replaces the source selection when one exists", async () => {
+        const { registry, services, ai_service } = setup_source_inline();
+        services.editor.get_ai_context = vi.fn().mockReturnValue({
+          note_path: as_note_path("docs/demo.md"),
+          note_title: "demo",
+          markdown: as_markdown_text("Hello source note"),
+          selection: { text: "source", start: 6, end: 12 },
+        });
+        ai_service.stream_inline = vi.fn(function* () {
+          yield { type: "text", text: "better" };
+        });
+
+        await registry.execute(ACTION_IDS.ai_open_inline_menu);
+        await registry.execute(ACTION_IDS.ai_execute_inline, {
+          command_id: "improve",
+        });
+
+        expect(services.editor.apply_ai_output).toHaveBeenCalledWith(
+          "selection",
+          "better",
+          { text: "source", start: 6, end: 12 },
+        );
+      });
+
+      it("discards output and closes the menu when the stream errors", async () => {
+        const { registry, services, view, ai_service } = setup_source_inline();
+        ai_service.stream_inline = vi.fn(function* () {
+          yield { type: "text", text: "partial" };
+          yield { type: "error", error: "boom" };
+        });
+
+        await registry.execute(ACTION_IDS.ai_open_inline_menu);
+        await registry.execute(ACTION_IDS.ai_execute_inline, {
+          command_id: "continue",
+        });
+
+        expect(services.editor.apply_ai_output).not.toHaveBeenCalled();
+        expect(get_ai_menu_state(view.state).open).toBe(false);
+        expect(toast.error).toHaveBeenCalledWith("boom");
+      });
     });
   });
 });
