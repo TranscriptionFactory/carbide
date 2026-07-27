@@ -1,4 +1,6 @@
 <script lang="ts">
+  import KbdHint from "$lib/components/ui/kbd_hint.svelte";
+
   type Props = {
     staged_count: number;
     on_commit: (message: string) => void;
@@ -39,6 +41,7 @@
     onclick={handle_commit}
   >
     Checkpoint {staged_count} file{staged_count !== 1 ? "s" : ""}
+    <KbdHint />
   </button>
 </div>
 

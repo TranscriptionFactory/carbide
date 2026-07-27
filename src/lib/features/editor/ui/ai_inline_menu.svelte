@@ -10,6 +10,7 @@
   import type { AiMenuMode } from "../adapters/ai_menu_plugin";
   import type { AiInlineCommand } from "$lib/features/ai";
   import { contain_focus } from "$lib/components/ui/contain_focus";
+  import { is_plain_enter } from "$lib/shared/utils/keyboard";
 
   interface Props {
     mode: AiMenuMode;
@@ -51,7 +52,7 @@
   );
 
   function handle_keydown(e: KeyboardEvent) {
-    if (e.key === "Enter" && !e.shiftKey) {
+    if (is_plain_enter(e)) {
       e.preventDefault();
       if (prompt_text.trim()) {
         on_submit(prompt_text.trim());

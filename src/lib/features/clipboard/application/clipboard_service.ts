@@ -1,4 +1,7 @@
-import type { ClipboardPort } from "$lib/features/clipboard/ports";
+import type {
+  ClipboardPort,
+  RichClipboardPayload,
+} from "$lib/features/clipboard/ports";
 import type { EditorStore } from "$lib/features/editor";
 import type { OpStore } from "$lib/app";
 import { error_message } from "$lib/shared/utils/error_message";
@@ -35,6 +38,17 @@ export class ClipboardService {
       const message = error_message(error);
       log.error("Copy text failed", { error: message });
       throw error;
+    }
+  }
+
+  async copy_rich(payload: RichClipboardPayload): Promise<void> {
+    this.start_write_operation();
+
+    try {
+      await this.clipboard_port.write_rich(payload);
+      this.succeed_write_operation();
+    } catch (error) {
+      this.fail_write_operation(error);
     }
   }
 

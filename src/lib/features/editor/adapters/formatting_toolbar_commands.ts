@@ -16,6 +16,7 @@ export type FormattingCommand =
   | "italic"
   | "strikethrough"
   | "code"
+  | "highlight"
   | "link"
   | "heading1"
   | "heading2"
@@ -74,6 +75,8 @@ function build_command(command: FormattingCommand): PmCommand | null {
       return toggle_mark_command("strikethrough");
     case "code":
       return toggle_mark_command("code_inline");
+    case "highlight":
+      return toggle_mark_command("highlight");
     case "heading1": {
       const node = get_node_type("heading");
       return node ? setBlockType(node, { level: 1 }) : null;
@@ -124,6 +127,7 @@ function execute_command(
     case "italic":
     case "strikethrough":
     case "code":
+    case "highlight":
     case "heading1":
     case "heading2":
     case "heading3":

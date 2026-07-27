@@ -13,6 +13,7 @@ import type { AtPaletteItem } from "$lib/features/editor/adapters/at_palette_typ
 import { rank_note_suggestions } from "./rank_note_suggestions";
 import type { ToolbarVisibility } from "$lib/shared/types/editor_settings";
 import type { Diagnostic } from "$lib/features/diagnostics";
+import type { RichClipboardPayload } from "$lib/features/clipboard";
 import {
   match_query,
   format_authors,
@@ -703,8 +704,8 @@ export class EditorService {
     this.session?.batch_turn_into?.(target, attrs, positions);
   }
 
-  async copy_blocks(positions: Set<number>) {
-    await this.session?.copy_blocks?.(positions);
+  copy_blocks_payload(positions: Set<number>): RichClipboardPayload | null {
+    return this.session?.copy_blocks_payload?.(positions) ?? null;
   }
 
   batch_duplicate(positions: Set<number>) {

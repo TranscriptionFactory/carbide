@@ -58,7 +58,7 @@ class CalloutBlockView implements NodeView {
   contentDOM: HTMLElement;
   private node: ProseNode;
   private icon_el: HTMLElement;
-  private toggle_el: HTMLElement;
+  private toggle_el: HTMLButtonElement;
   private menu_el: HTMLElement | null = null;
 
   constructor(
@@ -94,9 +94,12 @@ class CalloutBlockView implements NodeView {
 
     header.appendChild(this.icon_el);
 
-    this.toggle_el = document.createElement("span");
+    this.toggle_el = document.createElement("button");
+    this.toggle_el.type = "button";
     this.toggle_el.className = "callout-block__toggle";
     this.toggle_el.contentEditable = "false";
+    this.toggle_el.setAttribute("aria-label", "Toggle callout fold");
+    this.toggle_el.setAttribute("aria-expanded", String(!folded));
     this.toggle_el.innerHTML = CHEVRON_SVG;
     this.toggle_el.style.display = foldable ? "" : "none";
     this.toggle_el.addEventListener("click", this.handle_toggle);
@@ -262,6 +265,10 @@ class CalloutBlockView implements NodeView {
     this.dom.dataset["folded"] = String(updated.attrs["folded"]);
     this.apply_color(updated.attrs["callout_color"] as string | null);
     this.toggle_el.style.display = foldable ? "" : "none";
+    this.toggle_el.setAttribute(
+      "aria-expanded",
+      String(!updated.attrs["folded"]),
+    );
     this.icon_el.innerHTML = icon_svg(get_icon_for_type(callout_type));
     if (this.menu_el) this.render_menu(this.menu_el);
     return true;
