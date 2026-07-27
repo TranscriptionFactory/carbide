@@ -21,8 +21,11 @@ vi.mock(
 
 import EditorContextMenu from "$lib/features/editor/ui/editor_context_menu.svelte";
 
+const payload = { html: '<p data-pm-slice="0 0 []">x</p>', text: "x" };
+
 function build_context(block_selection: Set<number>) {
-  const copy_blocks = vi.fn(async () => {});
+  const copy_blocks_payload = vi.fn(() => payload);
+  const copy_rich = vi.fn(async () => {});
   const execute = vi.fn(async () => {});
   set_mock_app_context({
     stores: {
@@ -33,11 +36,12 @@ function build_context(block_selection: Set<number>) {
     services: {
       editor: {
         get_block_selection: () => block_selection,
-        copy_blocks,
+        copy_blocks_payload,
       },
+      clipboard: { copy_rich },
     },
   } as never);
-  return { copy_blocks };
+  return { copy_blocks_payload, copy_rich };
 }
 
 function render(block_selection: Set<number>) {
@@ -68,15 +72,17 @@ afterEach(() => {
 });
 
 describe("editor_context_menu copy routing", () => {
-  it("routes a single-block selection to copy_blocks, not execCommand", () => {
+  it("routes a single-block selection through the clipboard service, not execCommand", () => {
     const exec = vi.fn(() => true);
     document.execCommand = exec as never;
     const view = render(new Set([0]));
 
     click_copy();
 
-    expect(view.copy_blocks).toHaveBeenCalledTimes(1);
-    expect(view.copy_blocks).toHaveBeenCalledWith(new Set([0]));
+    expect(view.copy_blocks_payload).toHaveBeenCalledTimes(1);
+    expect(view.copy_blocks_payload).toHaveBeenCalledWith(new Set([0]));
+    expect(view.copy_rich).toHaveBeenCalledTimes(1);
+    expect(view.copy_rich).toHaveBeenCalledWith(payload);
     expect(exec).not.toHaveBeenCalled();
 
     view.cleanup();
@@ -89,7 +95,8 @@ describe("editor_context_menu copy routing", () => {
 
     click_copy();
 
-    expect(view.copy_blocks).not.toHaveBeenCalled();
+    expect(view.copy_blocks_payload).not.toHaveBeenCalled();
+    expect(view.copy_rich).not.toHaveBeenCalled();
     expect(exec).toHaveBeenCalledWith("copy");
 
     view.cleanup();
