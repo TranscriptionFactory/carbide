@@ -2,6 +2,7 @@
   import * as Select from "$lib/components/ui/select/index.js";
   import { Button } from "$lib/components/ui/button";
   import CollapsibleSection from "$lib/components/ui/collapsible_section.svelte";
+  import KbdHint from "$lib/components/ui/kbd_hint.svelte";
   import AiDiffView from "$lib/features/ai/ui/ai_diff_view.svelte";
   import {
     apply_ai_draft_hunk_selection,
@@ -431,8 +432,10 @@
               Running…
             {:else if result}
               {is_ask_mode ? "Ask Again" : "Refine Draft"}
+              <KbdHint />
             {:else}
               {is_ask_mode ? "Ask" : "Generate Draft"}
+              <KbdHint />
             {/if}
           </Button>
         {/if}
