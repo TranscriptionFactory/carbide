@@ -31,11 +31,16 @@
 </div>
 
 <style>
+  /* min-width matches RAIL_MIN_PX in workspace_layout.svelte; overflow-x
+     clip (not hidden) so content keeps its layout instead of being
+     squeezed mid-icon when the pane briefly undershoots the floor. */
   .ContextRailPanel {
     height: 100%;
+    min-width: 220px;
     background-color: var(--background);
     box-shadow: inset 1px 0 0 var(--border);
-    overflow: hidden;
+    overflow-x: clip;
+    overflow-y: auto;
     padding-block-start: var(--space-2);
   }
 </style>
