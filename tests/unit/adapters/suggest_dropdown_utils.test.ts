@@ -11,6 +11,7 @@ import {
   type Mock,
 } from "vitest";
 import {
+  create_coords_anchor,
   create_cursor_anchor,
   get_cursor_coords,
   position_suggest_dropdown,
@@ -47,6 +48,17 @@ describe("create_cursor_anchor", () => {
     const rect = anchor.getBoundingClientRect();
     expect(rect.left).toBe(10);
     expect(rect.top).toBe(20);
+    expect(rect.width).toBe(0);
+    expect(rect.height).toBe(20);
+  });
+});
+
+describe("create_coords_anchor", () => {
+  it("wraps explicit coords in an Element-like rect", () => {
+    const anchor = create_coords_anchor({ left: 50, top: 60, bottom: 80 });
+    const rect = anchor.getBoundingClientRect();
+    expect(rect.left).toBe(50);
+    expect(rect.top).toBe(60);
     expect(rect.width).toBe(0);
     expect(rect.height).toBe(20);
   });
