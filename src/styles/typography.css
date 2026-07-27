@@ -560,9 +560,11 @@
 
 /* ── Visual mode line numbers ── */
 
+/* Widen the left padding so the number column sits to the right of the
+   drag-handle gutter (handles anchor against --editor-gutter-inline). */
 .show-line-numbers .ProseMirror {
   counter-reset: line-number;
-  padding-left: 3.5em;
+  padding-left: calc(var(--editor-gutter-inline) + 3.5em);
 }
 
 /* :not(.block-drag-handle): handle widgets are top-level children too;

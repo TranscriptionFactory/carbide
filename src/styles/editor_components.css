@@ -15,12 +15,13 @@
   position: relative;
 }
 
+/* Sits between the drag handle (right edge at -1.125rem) and the text */
 .heading-fold-toggle {
   position: absolute;
-  left: -1.5rem;
+  left: -1rem;
   top: 0;
   bottom: 0;
-  width: 1.25rem;
+  width: 0.875rem;
   cursor: pointer;
   opacity: 0;
   transition: opacity 0.15s ease;
@@ -74,11 +75,15 @@
   position: relative;
 }
 
+/* Anchored by its RIGHT edge inside the reserved --editor-gutter-inline
+   padding (translateX grows it leftward), so it survives narrow panes, the
+   80ch presets, and wide mode alike without overlapping the content column. */
 .block-drag-handle {
   position: absolute;
-  left: -1.75rem;
+  left: calc(var(--editor-gutter-inline) - 1.125rem);
+  transform: translateX(-100%);
   width: auto;
-  height: 1.5rem;
+  height: var(--size-touch-sm);
   cursor: grab;
   opacity: 0;
   transition: opacity 0.15s ease;
@@ -99,7 +104,7 @@
   top: -6px;
   bottom: -6px;
   left: -6px;
-  right: -0.25rem;
+  right: -0.125rem;
 }
 
 .show-block-drag-handle .block-drag-handle {
@@ -143,8 +148,8 @@
 }
 
 .block-drag-handle__insert {
-  width: var(--size-icon);
-  height: var(--size-icon);
+  width: var(--size-icon-md);
+  height: var(--size-icon-md);
   border-radius: var(--radius-sm, 3px);
   cursor: pointer;
   position: relative;
@@ -162,16 +167,16 @@
 }
 
 .block-drag-handle__insert::before {
-  width: var(--space-2);
-  height: 1.5px;
+  width: var(--space-2-5);
+  height: 2px;
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
 }
 
 .block-drag-handle__insert::after {
-  width: 1.5px;
-  height: var(--space-2);
+  width: 2px;
+  height: var(--space-2-5);
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
@@ -184,11 +189,11 @@
 
 .block-drag-handle__grip {
   width: var(--space-2);
-  height: var(--size-icon-sm);
+  height: var(--size-icon);
   background-image: radial-gradient(
     circle,
-    var(--muted-foreground) 1.1px,
-    transparent 1.1px
+    var(--muted-foreground) 1.2px,
+    transparent 1.2px
   );
   background-size: 4px 4px;
   background-position: 0 1px;
