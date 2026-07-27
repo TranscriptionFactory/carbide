@@ -1111,3 +1111,10 @@
     transform: scale(1);
   }
 }
+
+/* ── Inline mark syntax reveal ── */
+
+.mark-syntax-delimiter {
+  color: var(--editor-text-muted);
+  user-select: none;
+}
