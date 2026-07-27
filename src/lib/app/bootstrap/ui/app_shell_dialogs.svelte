@@ -457,34 +457,19 @@
   capture={stores.ui.clip_web_page_dialog.capture}
   is_clipping={stores.op.is_pending("clip.page")}
   on_update_url={(url: string) => {
-    stores.ui.clip_web_page_dialog = {
-      ...stores.ui.clip_web_page_dialog,
-      url,
-    };
+    stores.ui.clip_web_page_dialog.url = url;
   }}
   on_update_name={(name: string) => {
-    stores.ui.clip_web_page_dialog = {
-      ...stores.ui.clip_web_page_dialog,
-      name,
-    };
+    stores.ui.clip_web_page_dialog.name = name;
   }}
   on_update_folder={(folder: string) => {
-    stores.ui.clip_web_page_dialog = {
-      ...stores.ui.clip_web_page_dialog,
-      folder_path: folder,
-    };
+    stores.ui.clip_web_page_dialog.folder_path = folder;
   }}
   on_update_formats={(formats: ClipFormats) => {
-    stores.ui.clip_web_page_dialog = {
-      ...stores.ui.clip_web_page_dialog,
-      formats,
-    };
+    stores.ui.clip_web_page_dialog.formats = formats;
   }}
   on_update_capture={(capture: boolean) => {
-    stores.ui.clip_web_page_dialog = {
-      ...stores.ui.clip_web_page_dialog,
-      capture,
-    };
+    stores.ui.clip_web_page_dialog.capture = capture;
   }}
   on_confirm={() =>
     void action_registry.execute(ACTION_IDS.clip_web_page_confirm)}
@@ -509,10 +494,7 @@
   on_update_settings={(settings: EditorSettings) =>
     void action_registry.execute(ACTION_IDS.settings_update, settings)}
   on_git_remote_url_change={(url: string) => {
-    stores.ui.settings_dialog = {
-      ...stores.ui.settings_dialog,
-      git_remote_url: url,
-    };
+    stores.ui.settings_dialog.git_remote_url = url;
   }}
   on_category_change={(category: SettingsCategory) => {
     stores.ui.settings_dialog.active_category = category;

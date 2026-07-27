@@ -9,6 +9,7 @@
     TITLED_VIEWS,
   } from "$lib/app/bootstrap/ui/workspace_sidebar_views";
   import { use_app_context } from "$lib/app/context/app_context.svelte";
+  import { SvelteSet } from "svelte/reactivity";
   import { ACTION_IDS, SIDEBAR_VIEWS, sidebar_view_meta } from "$lib/app";
   import {
     FilePlus,
@@ -21,6 +22,15 @@
   const { stores, action_registry } = use_app_context();
 
   const is_vault_mode = $derived(stores.vault.is_vault_mode);
+
+  const opened_plugin_views = new SvelteSet<string>();
+
+  $effect(() => {
+    const view = stores.ui.sidebar_view;
+    if (stores.plugin.sidebar_views.some((v) => v.id === view)) {
+      opened_plugin_views.add(view);
+    }
+  });
 
   type HeaderAction = {
     icon: typeof FilePlus;
@@ -189,9 +199,14 @@
       </Sidebar.Group>
     {/if}
 
+    <!-- Plugin panels are lazy-mounted then kept alive (hidden, not unmounted)
+         so drafts, scroll, and local state survive view switches. -->
     {#each stores.plugin.sidebar_views as view (view.id)}
-      {#if is_vault_mode && stores.ui.sidebar_view === view.id}
-        <Sidebar.Group class="h-full">
+      {#if is_vault_mode && opened_plugin_views.has(view.id)}
+        <Sidebar.Group
+          class="h-full"
+          hidden={stores.ui.sidebar_view !== view.id}
+        >
           <Sidebar.GroupContent class="h-full">
             {#if view.panel_props}
               <view.panel {...view.panel_props} />

@@ -11,7 +11,8 @@
 </script>
 
 <div class="DslSuggest__dropdown">
-  {#each items as item, i (item.label)}
+  <!-- Keyed by insert+detail: labels are note titles and can collide across folders. -->
+  {#each items as item, i (item.insert + " " + (item.detail ?? ""))}
     <button
       class="DslSuggest__item"
       class:DslSuggest__item--selected={i === selected_index}
