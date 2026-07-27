@@ -69,6 +69,27 @@ export function is_reserved_key(key: string): boolean {
   return RESERVED_SET.has(key);
 }
 
+const KEY_BY_PUNCTUATION_CODE: Record<string, string> = {
+  Backquote: "`",
+  Minus: "-",
+  Equal: "=",
+  BracketLeft: "[",
+  BracketRight: "]",
+  Backslash: "\\",
+  Semicolon: ";",
+  Quote: "'",
+  Comma: ",",
+  Period: ".",
+  Slash: "/",
+};
+
+function base_key_from_code(code: string): string | null {
+  if (code.startsWith("Key")) return code.slice(3);
+  if (code.startsWith("Digit")) return code.slice(5);
+  if (code === "Space") return "Space";
+  return KEY_BY_PUNCTUATION_CODE[code] ?? null;
+}
+
 export function normalize_event_to_key(event: KeyboardEvent): string {
   const parts: string[] = [];
 
@@ -84,18 +105,13 @@ export function normalize_event_to_key(event: KeyboardEvent): string {
 
   let key = event.key;
 
-  // On macOS, Alt composes special characters (e.g. Alt+G → "©").
-  // Fall back to event.code for the physical key when Alt is held.
+  // Alt composes special characters on macOS (Alt+G → "©") and Shift shifts
+  // punctuation (Shift+` → "~"); fall back to event.code for the physical key
+  // so declared strings like "CmdOrCtrl+Shift+`" can match.
   if (event.altKey && key.length === 1 && event.code) {
-    if (event.code.startsWith("Key")) {
-      key = event.code.slice(3);
-    } else if (event.code.startsWith("Digit")) {
-      key = event.code.slice(5);
-    } else if (event.code === "Space") {
-      key = "Space";
-    } else if (event.code === "BracketLeft" || event.code === "BracketRight") {
-      key = event.code === "BracketLeft" ? "[" : "]";
-    }
+    key = base_key_from_code(event.code) ?? key;
+  } else if (event.shiftKey && key.length === 1 && event.code) {
+    key = KEY_BY_PUNCTUATION_CODE[event.code] ?? key;
   }
 
   if (key === " ") {
