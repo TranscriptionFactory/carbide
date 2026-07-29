@@ -123,6 +123,7 @@
           value={folder_path}
           {folder_paths}
           on_change={on_update_folder}
+          on_shift_enter={() => input_el?.focus()}
           disabled={is_clipping}
           placeholder="(vault root)"
         />
