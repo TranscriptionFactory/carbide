@@ -370,6 +370,7 @@ export function create_mark_syntax_reveal_plugin(): Plugin {
       },
       handleKeyDown(view, event) {
         if (
+          view.composing ||
           event.key !== "Backspace" ||
           event.metaKey ||
           event.ctrlKey ||
@@ -380,6 +381,7 @@ export function create_mark_syntax_reveal_plugin(): Plugin {
         return handle_reveal_backspace(view.state, view.dispatch);
       },
       handleTextInput(view, from, to, text) {
+        if (view.composing) return false;
         return handle_reveal_text_input(
           view.state,
           from,
