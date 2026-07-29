@@ -812,6 +812,9 @@
   gap: 0.25rem;
   flex-shrink: 0;
   align-self: flex-start;
+  position: sticky;
+  top: 0;
+  background: inherit;
 }
 
 .callout-block__toggle {
