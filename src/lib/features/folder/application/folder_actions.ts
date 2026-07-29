@@ -37,6 +37,7 @@ import { parent_folder_path } from "$lib/shared/utils/path";
 import { get_invalid_drop_reason } from "$lib/features/folder/domain/filetree";
 import {
   classify_external_files,
+  format_external_import_summary,
   uniquify_note_path,
 } from "$lib/features/folder/domain/external_import";
 import { as_markdown_text, as_note_path } from "$lib/shared/types/ids";
@@ -117,6 +118,13 @@ function parse_move_items_payload(payload: unknown): MoveItemsPayload | null {
     overwrite: Boolean(record.overwrite),
   };
 }
+
+const EXTERNAL_IMPORT_OP_KEY = "filetree.import_external";
+
+type ExternalImportCounts = {
+  imported: number;
+  skipped: number;
+};
 
 type ImportExternalFilesPayload = {
   files: File[];
@@ -513,15 +521,14 @@ export function register_folder_actions(input: ActionRegistrationInput) {
     });
   }
 
-  async function execute_import_external_files(
+  async function import_dropped_markdown(
     files: File[],
     target_folder: string,
-  ) {
-    const { markdown_files, asset_files } = classify_external_files(files);
-    let imported_markdown = false;
-    let imported_asset = false;
+  ): Promise<ExternalImportCounts> {
+    let imported = 0;
+    let skipped = 0;
 
-    for (const file of markdown_files) {
+    for (const file of files) {
       try {
         const note_path = uniquify_note_path(
           target_folder,
@@ -533,65 +540,118 @@ export function register_folder_actions(input: ActionRegistrationInput) {
           as_markdown_text(await file.text()),
         );
         if (result.status === "created") {
-          imported_markdown = true;
-        } else if (result.status === "failed") {
+          imported += 1;
+          continue;
+        }
+        skipped += 1;
+        if (result.status === "failed") {
           log.warn("Markdown import failed", {
             name: file.name,
             error: result.error,
           });
         }
       } catch (error) {
+        skipped += 1;
         log.warn("Markdown import failed", { name: file.name, error });
       }
     }
 
-    if (asset_files.length > 0) {
-      const attachment_folder =
-        stores.ui.editor_settings.attachment_folder || ".assets";
-      const anchor_note_path = as_note_path(
-        target_folder ? `${target_folder}/import.md` : "import.md",
-      );
-      for (const file of asset_files) {
-        // Dropped OS directories surface as empty File entries with no mime.
-        if (file.size === 0 && file.type === "") {
-          log.warn("Skipping unreadable dropped entry", { name: file.name });
+    return { imported, skipped };
+  }
+
+  async function import_dropped_assets(
+    files: File[],
+    target_folder: string,
+  ): Promise<ExternalImportCounts> {
+    let imported = 0;
+    let skipped = 0;
+    if (files.length === 0) {
+      return { imported, skipped };
+    }
+
+    const attachment_folder =
+      stores.ui.editor_settings.attachment_folder || ".assets";
+    const anchor_note_path = as_note_path(
+      target_folder ? `${target_folder}/import.md` : "import.md",
+    );
+
+    for (const file of files) {
+      // Dropped OS directories surface as empty File entries with no mime.
+      if (file.size === 0 && file.type === "") {
+        skipped += 1;
+        log.warn("Skipping unreadable dropped entry", { name: file.name });
+        continue;
+      }
+      try {
+        const buffer = await file.arrayBuffer();
+        const result = await services.note.save_pasted_image(
+          anchor_note_path,
+          {
+            bytes: new Uint8Array(buffer),
+            mime_type: file.type || "application/octet-stream",
+            file_name: file.name,
+          },
+          { custom_filename: file.name, attachment_folder },
+        );
+        if (result.status === "saved") {
+          imported += 1;
           continue;
         }
-        try {
-          const buffer = await file.arrayBuffer();
-          const result = await services.note.save_pasted_image(
-            anchor_note_path,
-            {
-              bytes: new Uint8Array(buffer),
-              mime_type: file.type || "application/octet-stream",
-              file_name: file.name,
-            },
-            { custom_filename: file.name, attachment_folder },
-          );
-          if (result.status === "saved") {
-            imported_asset = true;
-          } else if (result.status === "failed") {
-            log.warn("Asset import failed", {
-              name: file.name,
-              error: result.error,
-            });
-          }
-        } catch (error) {
-          log.warn("Asset import failed", { name: file.name, error });
+        skipped += 1;
+        if (result.status === "failed") {
+          log.warn("Asset import failed", {
+            name: file.name,
+            error: result.error,
+          });
         }
+      } catch (error) {
+        skipped += 1;
+        log.warn("Asset import failed", { name: file.name, error });
       }
     }
 
+    return { imported, skipped };
+  }
+
+  async function execute_import_external_files(
+    files: File[],
+    target_folder: string,
+  ) {
+    const { markdown_files, asset_files } = classify_external_files(files);
+    stores.op.start(EXTERNAL_IMPORT_OP_KEY, Date.now());
+
+    const markdown = await import_dropped_markdown(
+      markdown_files,
+      target_folder,
+    );
+    const assets = await import_dropped_assets(asset_files, target_folder);
+
     const paths_to_clear = new Set<string>();
-    if (imported_markdown) {
+    if (markdown.imported > 0) {
       paths_to_clear.add(target_folder);
     }
-    if (imported_asset) {
+    if (assets.imported > 0) {
       paths_to_clear.add("");
     }
     if (paths_to_clear.size > 0) {
       batch_clear_folder_filetree_state(input, paths_to_clear);
     }
+
+    const counts: ExternalImportCounts = {
+      imported: markdown.imported + assets.imported,
+      skipped: markdown.skipped + assets.skipped,
+    };
+    if (counts.imported === 0) {
+      stores.op.fail(
+        EXTERNAL_IMPORT_OP_KEY,
+        `${String(counts.skipped)} dropped file(s) could not be imported`,
+      );
+      return;
+    }
+    stores.op.succeed(
+      EXTERNAL_IMPORT_OP_KEY,
+      format_external_import_summary(counts),
+    );
   }
 
   function register_external_import_actions() {

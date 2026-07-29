@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   classify_external_files,
+  format_external_import_summary,
   is_external_file_drag,
   is_markdown_filename,
   resolve_external_drop_folder,
@@ -87,6 +88,26 @@ describe("resolve_external_drop_folder", () => {
       resolve_external_drop_folder({ is_folder: false, path: "note.md" }),
     ).toBe("");
     expect(resolve_external_drop_folder(null)).toBe("");
+  });
+});
+
+describe("format_external_import_summary", () => {
+  it("pluralizes the imported count", () => {
+    expect(format_external_import_summary({ imported: 1, skipped: 0 })).toBe(
+      "Imported 1 file",
+    );
+    expect(format_external_import_summary({ imported: 3, skipped: 0 })).toBe(
+      "Imported 3 files",
+    );
+  });
+
+  it("appends the skipped count only when something was skipped", () => {
+    expect(format_external_import_summary({ imported: 2, skipped: 1 })).toBe(
+      "Imported 2 files, skipped 1",
+    );
+    expect(format_external_import_summary({ imported: 0, skipped: 4 })).toBe(
+      "Imported 0 files, skipped 4",
+    );
   });
 });
 
