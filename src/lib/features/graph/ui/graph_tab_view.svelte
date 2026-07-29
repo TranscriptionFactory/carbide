@@ -13,6 +13,8 @@
   import { is_linked_note_path } from "$lib/shared/types/note";
   import { Button } from "$lib/components/ui/button";
   import { Input } from "$lib/components/ui/input";
+  import * as Select from "$lib/components/ui/select/index.js";
+  import type { GraphGroupMode } from "$lib/features/graph/state/graph_store.svelte";
   import GraphCanvas from "$lib/features/graph/ui/graph_canvas.svelte";
   import VaultGraphCanvas from "$lib/features/graph/ui/vault_graph_canvas.svelte";
   import HierarchyTreeView from "$lib/features/graph/ui/hierarchy_tree_view.svelte";
@@ -37,7 +39,14 @@
 
   const has_vault = $derived(stores.vault.vault !== null);
   const group_mode = $derived(stores.graph.group_mode);
+  const cluster_assignments = $derived(stores.graph.cluster_assignments);
   const focus_mode_active = $derived(stores.graph.focus_mode_active);
+
+  const group_options: { value: GraphGroupMode; label: string }[] = [
+    { value: "folder", label: "Folder" },
+    { value: "cluster", label: "Cluster" },
+    { value: "none", label: "No grouping" },
+  ];
 
   let container_width = $state<number>(960);
   let container_element = $state<HTMLElement | null>(null);
@@ -104,6 +113,33 @@
         )}
     />
     <div class="GraphTabView__actions">
+      {#if is_vault_mode}
+        <Select.Root
+          type="single"
+          value={group_mode}
+          onValueChange={(value: string | undefined) => {
+            if (value)
+              void action_registry.execute(
+                ACTION_IDS.graph_set_group_mode,
+                value,
+              );
+          }}
+        >
+          <Select.Trigger
+            class="GraphTabView__group-trigger"
+            aria-label="Group nodes by"
+          >
+            <span data-slot="select-value">
+              {group_options.find((o) => o.value === group_mode)?.label}
+            </span>
+          </Select.Trigger>
+          <Select.Content>
+            {#each group_options as option (option.value)}
+              <Select.Item value={option.value}>{option.label}</Select.Item>
+            {/each}
+          </Select.Content>
+        </Select.Root>
+      {/if}
       <Button
         variant="ghost"
         size="icon"
@@ -218,6 +254,7 @@
         on_clusters_computed={(assignments) =>
           stores.graph.set_cluster_assignments(assignments)}
         {group_mode}
+        {cluster_assignments}
         focus_node_path={focus_mode_active
           ? stores.graph.focus_node_path
           : null}
@@ -306,6 +343,13 @@
     align-items: center;
     gap: var(--space-1);
     flex-shrink: 0;
+  }
+
+  :global(.GraphTabView__group-trigger) {
+    height: var(--size-control) !important;
+    font-size: var(--text-xs) !important;
+    min-width: 112px;
+    padding: 0 var(--space-2) !important;
   }
 
   .GraphTabView__stats {

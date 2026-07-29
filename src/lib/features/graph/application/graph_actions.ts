@@ -192,6 +192,16 @@ export function register_graph_actions(
   });
 
   registry.register({
+    id: ACTION_IDS.graph_set_group_mode,
+    label: "Set Graph Grouping",
+    execute: (mode: unknown) => {
+      if (mode === "folder" || mode === "cluster" || mode === "none") {
+        graph_store.set_group_mode(mode);
+      }
+    },
+  });
+
+  registry.register({
     id: ACTION_IDS.graph_enter_focus_mode,
     label: "Focus Graph Node",
     execute: (path: unknown) => {

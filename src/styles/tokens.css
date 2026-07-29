@@ -380,6 +380,14 @@
     --chart-4: oklch(0.828 0.189 84.429);
     --chart-5: oklch(0.769 0.188 70.08);
     --semantic-edge: oklch(0.55 0.2 300);
+
+    /* Graph group tints: chart hues re-stepped so every pair stays separable
+       under protan/deutan simulation against this surface. */
+    --graph-group-1: oklch(0.46 0.22 264.376);
+    --graph-group-2: oklch(0.69 0.207 41.116);
+    --graph-group-3: oklch(0.65 0.115 184.704);
+    --graph-group-4: oklch(0.69 0.202 303.9);
+    --graph-group-5: oklch(0.46 0.185 16.439);
   }
 
   /* ----------- Tier 2: Semantic (DARK) ----------- */
@@ -532,6 +540,13 @@
     --chart-4: oklch(0.627 0.265 303.9);
     --chart-5: oklch(0.645 0.246 16.439);
     --semantic-edge: oklch(0.72 0.2 300);
+
+    /* Same hue per slot as light mode, re-stepped for the dark surface. */
+    --graph-group-1: oklch(0.5 0.22 264.376);
+    --graph-group-2: oklch(0.5 0.154 41.116);
+    --graph-group-3: oklch(0.64 0.113 184.704);
+    --graph-group-4: oklch(0.67 0.217 303.9);
+    --graph-group-5: oklch(0.67 0.22 16.439);
   }
 
   /* Native form controls + text caret pick up the theme (inherited properties,
