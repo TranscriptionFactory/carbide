@@ -305,7 +305,7 @@ describe("callout keymap plugin — Mod-Enter fold toggle", () => {
     view.destroy();
   });
 
-  it("Cmd+Enter in non-foldable callout returns false", () => {
+  it("Cmd+Enter does not collapse a non-foldable callout", () => {
     const view = make_view(make_callout_doc("Title", "Body text"));
     select(view, 2);
 
@@ -335,6 +335,34 @@ describe("callout keymap plugin — Mod-Enter fold toggle", () => {
     expect(fire_key(view, "Enter", { metaKey: true, altKey: true })).toBe(
       false,
     );
+    expect(folded(view)).toBe(false);
+    view.destroy();
+  });
+
+  it("Cmd+Enter with a title-range selection opens a collapsed callout", () => {
+    const view = make_view(
+      make_callout_doc("Title", "Body text", { foldable: true, folded: true }),
+    );
+    const title_start = 2;
+    const title_end = title_start + "Title".length;
+    view.dispatch(
+      view.state.tr.setSelection(
+        TextSelection.create(view.state.doc, title_start, title_end),
+      ),
+    );
+
+    expect(fire_key(view, "Enter", { metaKey: true })).toBe(true);
+    expect(folded(view)).toBe(false);
+    view.destroy();
+  });
+
+  it("Cmd+Enter opens a collapsed non-foldable callout", () => {
+    const view = make_view(
+      make_callout_doc("Title", "Body text", { foldable: false, folded: true }),
+    );
+    select(view, 2);
+
+    expect(fire_key(view, "Enter", { metaKey: true })).toBe(true);
     expect(folded(view)).toBe(false);
     view.destroy();
   });
