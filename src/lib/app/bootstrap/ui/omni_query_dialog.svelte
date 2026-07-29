@@ -3,6 +3,7 @@
   import { Button } from "$lib/components/ui/button";
   import { use_app_context } from "$lib/app/context/app_context.svelte";
   import { ACTION_IDS } from "$lib/app/action_registry/action_ids";
+  import { SIDEBAR_VIEWS } from "$lib/app/sidebar_views";
   import { QueryBuilder } from "$lib/features/query";
   import { TaskQueryBuilder } from "$lib/features/task";
 
@@ -21,7 +22,7 @@
   }
 
   function insert_tasks(text: string) {
-    stores.ui.set_context_rail_tab("tasks");
+    stores.ui.set_sidebar_view(SIDEBAR_VIEWS.tasks);
     stores.task.queryMode = true;
     stores.task.queryText = text;
     stores.ui.query_builder_open = false;
