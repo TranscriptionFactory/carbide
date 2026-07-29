@@ -1,5 +1,5 @@
 import Fragment from "./dialog_fragment.svelte";
-import Trigger from "./tooltip_trigger.svelte";
+import Trigger from "./context_menu_trigger.svelte";
 import Item from "./context_menu_item.svelte";
 
 export {

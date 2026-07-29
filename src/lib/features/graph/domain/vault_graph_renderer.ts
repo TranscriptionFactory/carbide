@@ -25,6 +25,10 @@ import {
 } from "$lib/features/graph/domain/graph_degrade";
 import { truncate_label } from "$lib/features/graph/domain/graph_layout_tuning";
 import { compute_fit_transform } from "$lib/features/graph/domain/graph_fit";
+import {
+  GROUP_TINT_COUNT,
+  group_tint,
+} from "$lib/features/graph/domain/graph_grouping";
 
 const LOD_FULL_ZOOM = 0.6;
 const LOD_MEDIUM_ZOOM = 0.3;
@@ -91,7 +95,7 @@ export class VaultGraphRenderer {
     label_fill: 0xffffff,
     hit: 0x6366f1,
     neighbor: 0x888888,
-    cluster_fill: 0x334155,
+    group: [] as number[],
   };
   private destroyed = false;
   private container_el: HTMLElement | null = null;
@@ -465,7 +469,7 @@ export class VaultGraphRenderer {
     this.app.renderer.background.color = this.colors.bg;
 
     for (const entry of this.node_map.values()) {
-      entry.circle.tint = this.colors.node;
+      entry.circle.tint = this.group_color(entry.group);
       entry.label.style.fill = this.colors.label_fill;
     }
 
@@ -647,9 +651,10 @@ export class VaultGraphRenderer {
         NODE_RADIUS
       : 1;
     const scaled = base_scale * degree_scale;
+    const group_tint = this.group_color(entry.group);
 
     if (is_dimmed) {
-      entry.circle.tint = this.colors.node;
+      entry.circle.tint = group_tint;
       entry.circle.alpha = 0.15;
       entry.circle.scale.set(scaled);
     } else if (is_selected) {
@@ -665,7 +670,7 @@ export class VaultGraphRenderer {
       entry.circle.alpha = 1;
       entry.circle.scale.set(scaled);
     } else {
-      entry.circle.tint = this.colors.node;
+      entry.circle.tint = group_tint;
       entry.circle.alpha = 1;
       entry.circle.scale.set(scaled);
     }
@@ -727,11 +732,7 @@ export class VaultGraphRenderer {
   }
 
   private draw_clusters(): void {
-    if (!this.cluster_gfx) return;
-    if (!this.has_search_meta || !this.edges_dirty) {
-      if (!this.has_search_meta) this.cluster_gfx.clear();
-      return;
-    }
+    if (!this.cluster_gfx || !this.edges_dirty) return;
 
     this.cluster_gfx.clear();
 
@@ -746,7 +747,7 @@ export class VaultGraphRenderer {
       arr.push({ x: entry.x, y: entry.y });
     }
 
-    for (const points of groups.values()) {
+    for (const [group, points] of groups) {
       if (points.length < 3) continue;
       const hull = convex_hull(points);
       if (hull.length < 3) continue;
@@ -757,7 +758,7 @@ export class VaultGraphRenderer {
         this.cluster_gfx.lineTo(padded[i]!.x, padded[i]!.y);
       }
       this.cluster_gfx.closePath();
-      this.cluster_gfx.fill({ color: this.colors.cluster_fill, alpha: 0.08 });
+      this.cluster_gfx.fill({ color: this.group_color(group), alpha: 0.08 });
     }
   }
 
@@ -1137,11 +1138,17 @@ export class VaultGraphRenderer {
       "--graph-node-neighbor",
       this.colors.node,
     );
-    this.colors.cluster_fill = resolve_css_color(
-      el,
-      "--graph-cluster-fill",
-      0x334155,
+    this.colors.group = Array.from({ length: GROUP_TINT_COUNT }, (_, i) =>
+      resolve_css_color(
+        el,
+        `--graph-group-${String(i + 1)}`,
+        resolve_css_color(el, `--chart-${String(i + 1)}`, this.colors.node),
+      ),
     );
+  }
+
+  private group_color(group: string | undefined): number {
+    return group_tint(group, this.colors.group, this.colors.node);
   }
 }
 

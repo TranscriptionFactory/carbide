@@ -16,7 +16,6 @@
      padding because the outer centering gutter collapses to zero at narrow
      panes and in the 80ch layout presets. */
   --editor-gutter-inline: var(--space-12);
-  --editor-padding-inline: var(--editor-gutter-inline);
   --editor-source-bg: var(--editor-background);
   --editor-heading-color: var(--editor-heading);
   --editor-heading-weight: 500;
@@ -127,7 +126,7 @@
   outline: none;
   max-width: var(--editor-max-width);
   margin: 0 auto;
-  padding: var(--editor-padding-block) var(--editor-padding-inline);
+  padding: var(--editor-padding-block) var(--editor-gutter-inline);
   font-feature-settings:
     "liga" 1,
     "calt" 1,
@@ -775,7 +774,6 @@
   flex-shrink: 0;
   width: 1.25rem;
   height: 1.25rem;
-  margin-top: 0.125rem;
   color: var(--callout-color, var(--muted-foreground));
   display: flex;
   align-items: center;
@@ -813,6 +811,10 @@
   align-items: center;
   gap: 0.25rem;
   flex-shrink: 0;
+  align-self: flex-start;
+  position: sticky;
+  top: 0;
+  background: inherit;
 }
 
 .callout-block__toggle {

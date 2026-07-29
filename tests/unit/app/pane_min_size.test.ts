@@ -12,8 +12,14 @@ describe("px_to_min_size", () => {
     expect(px_to_min_size(220, -5, 12, 30)).toBe(12);
   });
 
-  it("caps the percentage so it stays below the pane's maxSize", () => {
+  it("caps the percentage so it stays within the pane's maxSize", () => {
     expect(px_to_min_size(220, 400, 12, 30)).toBe(30);
+  });
+
+  it("lets the context rail claim up to 45% before clipping its 220px floor", () => {
+    expect(px_to_min_size(220, 489, 12, 45)).toBe(45);
+    expect(px_to_min_size(220, 400, 12, 45)).toBe(45);
+    expect(px_to_min_size(220, 733, 12, 45)).toBe(30.1);
   });
 
   it("drops below the fallback on wide groups to honor the px floor exactly", () => {

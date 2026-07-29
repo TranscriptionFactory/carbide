@@ -34,13 +34,7 @@ import { SvelteMap, SvelteSet } from "svelte/reactivity";
 import type { SidebarView } from "$lib/app/sidebar_views";
 
 type AsyncStatus = "idle" | "loading" | "error";
-type ContextRailTab =
-  | "links"
-  | "outline"
-  | "graph"
-  | "tasks"
-  | "metadata"
-  | "related";
+type ContextRailTab = "links" | "outline" | "metadata" | "related";
 export type BottomPanelTab =
   | "terminal"
   | "problems"
@@ -465,7 +459,6 @@ export class UIStore {
 
   context_rail_open = $state(false);
   context_rail_tab = $state<ContextRailTab>("links");
-  context_rail_side = $state<"left" | "right">("right");
   context_rail_pane_size = $state(20);
 
   hotkeys_config = $state<HotkeyConfig>({ bindings: [] });

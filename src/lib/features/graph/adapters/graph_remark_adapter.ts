@@ -8,6 +8,7 @@ import type { NotesPort } from "$lib/features/note";
 import type { VaultId, NotePath } from "$lib/shared/types/ids";
 import type { NoteMeta } from "$lib/shared/types/note";
 import { extract_local_links } from "$lib/features/links";
+import { folder_from_path } from "$lib/features/graph/domain/graph_grouping";
 import { create_logger } from "$lib/shared/utils/logger";
 
 const log = create_logger("graph_remark_adapter");
@@ -171,6 +172,7 @@ export function create_graph_remark_adapter(
       const nodes = [...index.notes.values()].map((meta) => ({
         path: meta.path,
         title: meta.title || meta.name,
+        group: folder_from_path(meta.path),
       }));
 
       const edge_set = new Set<string>();

@@ -2,7 +2,10 @@
   import { untrack } from "svelte";
   import { createVirtualizer } from "@tanstack/svelte-virtual";
   import { get_invalid_drop_reason } from "$lib/features/folder/domain/filetree";
-  import { resolve_external_drop_folder } from "$lib/features/folder/domain/external_import";
+  import {
+    is_external_file_drag,
+    resolve_external_drop_folder,
+  } from "$lib/features/folder/domain/external_import";
   import type { FlatTreeNode, MoveItem } from "$lib/shared/types/filetree";
   import type { NoteMeta } from "$lib/shared/types/note";
   import type {
@@ -345,16 +348,16 @@
     }
   }
 
-  function is_external_file_drag(event: DragEvent): boolean {
+  function accepts_external_drop(event: DragEvent): boolean {
     return (
       dragging_items.length === 0 &&
       !!on_import_external_files &&
-      !!event.dataTransfer?.types.includes("Files")
+      is_external_file_drag(event.dataTransfer?.types)
     );
   }
 
   function handle_drag_over_target(target_folder: string, event: DragEvent) {
-    if (is_external_file_drag(event)) {
+    if (accepts_external_drop(event)) {
       event.preventDefault();
       event.stopPropagation();
       drag_over_target = target_folder;
@@ -378,7 +381,7 @@
   }
 
   function handle_drop_target(target_folder: string, event: DragEvent) {
-    if (is_external_file_drag(event)) {
+    if (accepts_external_drop(event)) {
       event.preventDefault();
       event.stopPropagation();
       const files = Array.from(event.dataTransfer?.files ?? []).filter(
@@ -403,7 +406,7 @@
   }
 
   function handle_drag_over_row(node: FlatTreeNode, event: DragEvent) {
-    if (is_external_file_drag(event)) {
+    if (accepts_external_drop(event)) {
       handle_drag_over_target(resolve_external_drop_folder(node), event);
       return;
     }
@@ -427,7 +430,7 @@
   }
 
   function handle_drop_row(node: FlatTreeNode, event: DragEvent) {
-    if (is_external_file_drag(event)) {
+    if (accepts_external_drop(event)) {
       handle_drop_target(resolve_external_drop_folder(node), event);
       return;
     }

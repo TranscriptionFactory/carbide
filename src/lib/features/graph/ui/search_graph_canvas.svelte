@@ -9,6 +9,7 @@
     SmartLinkEdge,
   } from "$lib/features/graph/ports";
   import type { Theme } from "$lib/shared/types/theme";
+  import { folder_from_path } from "$lib/features/graph/domain/graph_grouping";
   import VaultGraphCanvas from "$lib/features/graph/ui/vault_graph_canvas.svelte";
 
   type Props = {
@@ -49,11 +50,6 @@
     collision_radius: 48,
     charge_max_distance: 500,
   };
-
-  function folder_from_path(path: string): string {
-    const idx = path.lastIndexOf("/");
-    return idx >= 0 ? path.slice(0, idx) : "";
-  }
 
   function filter_nodes(
     snap: SearchGraphSnapshot,

@@ -109,6 +109,53 @@ describe("preview srcdoc", () => {
     expect(doc).toContain("--chart-1:oklch(0.7 0.15 40);");
   });
 
+  it("dresses the themed surface with the editor tokens the embed path uses", () => {
+    const doc = build_code_preview_srcdoc("html", "<p>hi</p>", "dark", {
+      "--editor-background": "oklch(0.2 0 0)",
+      "--editor-text": "oklch(0.9 0 0)",
+    });
+    expect(doc).toContain(
+      "body { color: var(--editor-text, var(--foreground)); background: var(--editor-background, var(--background)); }",
+    );
+    expect(doc).not.toMatch(/#(?:18181b|ffffff)/i);
+  });
+
+  it("renders author-styled html on a neutral light surface in dark theme", () => {
+    const doc = build_code_preview_srcdoc(
+      "html",
+      `<div style="background:#ffffff;color:#111111">hi</div>`,
+      "dark",
+      { "--foreground": "oklch(0.95 0 0)" },
+    );
+    expect(doc).toContain("color-scheme:light");
+    expect(doc).not.toContain('<html class="dark">');
+    expect(doc).not.toContain("--foreground:oklch(0.95 0 0);");
+    expect(doc).toContain("body { color: #18181b; background: #ffffff; }");
+  });
+
+  it("treats a css block that sets colors as author-styled", () => {
+    const doc = build_code_preview_srcdoc(
+      "css",
+      "body { color: red; }",
+      "dark",
+    );
+    expect(doc).toContain("color-scheme:light");
+    expect(doc).toContain("body { color: #18181b; background: #ffffff; }");
+  });
+
+  it("keeps theme tokens for html that declares no colors", () => {
+    const doc = build_code_preview_srcdoc(
+      "html",
+      `<div style="padding:4px">hi</div>`,
+      "dark",
+      { "--foreground": "oklch(0.95 0 0)" },
+    );
+    expect(doc).toContain('<html class="dark">');
+    expect(doc).toContain("color-scheme:dark");
+    expect(doc).toContain("--foreground:oklch(0.95 0 0);");
+    expect(doc).not.toContain("body { color: #18181b; background: #ffffff; }");
+  });
+
   it("drops token entries that could break out of the style block", () => {
     const doc = build_code_preview_srcdoc("html", "x", "light", {
       "--evil": "red}</style><script>alert(1)</script>",
