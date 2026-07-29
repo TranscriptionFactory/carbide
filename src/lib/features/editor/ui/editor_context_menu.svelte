@@ -114,13 +114,18 @@
     execute(action_id);
   }
 
+  function resolve_target_blocks(): Set<number> | null {
+    if (block_selection.size > 0) return block_selection;
+    if (target_block_pos != null) return new Set([target_block_pos]);
+    return null;
+  }
+
   function handle_copy() {
-    if (block_selection.size > 0) {
-      const payload = services.editor.copy_blocks_payload(block_selection);
-      if (payload) void services.clipboard.copy_rich(payload);
-    } else {
-      document.execCommand("copy");
-    }
+    const positions = resolve_target_blocks();
+    if (!positions) return;
+    const payload = services.editor.copy_blocks_payload(positions);
+    if (!payload) return;
+    void services.clipboard.copy_rich(payload);
   }
 
   function handle_duplicate() {
