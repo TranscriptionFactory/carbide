@@ -57,12 +57,40 @@ export function resolve_op_toast_commands(input: {
     }
   }
 
+  if (key === "filetree.import_external") {
+    if (current_status === "success") {
+      return [
+        {
+          kind: "success",
+          message: message ?? "Imported dropped files",
+        },
+      ];
+    }
+    if (current_status === "error") {
+      return [
+        {
+          kind: "error",
+          message: "Could not import dropped files",
+          log_label: "External file import failed",
+          error: error ?? "unknown error",
+        },
+      ];
+    }
+  }
+
   return [];
 }
 
+const WATCHED_OP_KEYS = [
+  "clipboard.write",
+  "links.repair",
+  "filetree.import_external",
+];
+
 export function create_op_toast_reactor(op_store: OpStore): () => void {
-  let last_clipboard_status = op_store.get("clipboard.write").status;
-  let last_link_repair_status = op_store.get("links.repair").status;
+  const last_status = new Map(
+    WATCHED_OP_KEYS.map((key) => [key, op_store.get(key).status]),
+  );
 
   const apply_commands = (commands: ToastCommand[]) => {
     for (const command of commands) {
@@ -78,27 +106,18 @@ export function create_op_toast_reactor(op_store: OpStore): () => void {
 
   return $effect.root(() => {
     $effect(() => {
-      const clipboard = op_store.get("clipboard.write");
-      const clipboard_commands = resolve_op_toast_commands({
-        key: "clipboard.write",
-        previous_status: last_clipboard_status,
-        current_status: clipboard.status,
-        error: clipboard.error,
-        message: clipboard.message,
-      });
-      last_clipboard_status = clipboard.status;
-      apply_commands(clipboard_commands);
-
-      const link_repair = op_store.get("links.repair");
-      const link_repair_commands = resolve_op_toast_commands({
-        key: "links.repair",
-        previous_status: last_link_repair_status,
-        current_status: link_repair.status,
-        error: link_repair.error,
-        message: link_repair.message,
-      });
-      last_link_repair_status = link_repair.status;
-      apply_commands(link_repair_commands);
+      for (const key of WATCHED_OP_KEYS) {
+        const op = op_store.get(key);
+        const commands = resolve_op_toast_commands({
+          key,
+          previous_status: last_status.get(key) ?? "idle",
+          current_status: op.status,
+          error: op.error,
+          message: op.message,
+        });
+        last_status.set(key, op.status);
+        apply_commands(commands);
+      }
     });
   });
 }
