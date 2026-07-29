@@ -127,4 +127,51 @@ describe("register_graph_actions", () => {
     expect(vi.mocked(mock_graph_service.close_panel)).toHaveBeenCalled();
     expect((mock_ui_store as any).sidebar_view).toBe("explorer");
   });
+
+  describe("graph_set_group_mode", () => {
+    function set_group_mode_action() {
+      register_graph_actions(input);
+      const call = vi
+        .mocked(mock_registry.register)
+        .mock.calls.find(
+          (c) =>
+            (c[0] as { id: string }).id === ACTION_IDS.graph_set_group_mode,
+        );
+      return call
+        ? (call[0] as { execute: (mode: unknown) => Promise<void> })
+        : null;
+    }
+
+    it("selects each grouping mode directly", async () => {
+      const action = set_group_mode_action();
+
+      await action?.execute("cluster");
+      expect(graph_store.group_mode).toBe("cluster");
+
+      await action?.execute("none");
+      expect(graph_store.group_mode).toBe("none");
+
+      await action?.execute("folder");
+      expect(graph_store.group_mode).toBe("folder");
+    });
+
+    it("selecting the current mode is a no-op", async () => {
+      const action = set_group_mode_action();
+
+      await action?.execute("cluster");
+      await action?.execute("cluster");
+      expect(graph_store.group_mode).toBe("cluster");
+    });
+
+    it("ignores values that are not grouping modes", async () => {
+      const action = set_group_mode_action();
+
+      await action?.execute("cluster");
+      await action?.execute("tags");
+      await action?.execute(undefined);
+      await action?.execute(3);
+
+      expect(graph_store.group_mode).toBe("cluster");
+    });
+  });
 });
