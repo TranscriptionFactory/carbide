@@ -2,11 +2,15 @@ import { describe, it, expect } from "vitest";
 import { EditorState, TextSelection } from "prosemirror-state";
 import type { Transaction } from "prosemirror-state";
 import type { Node as ProseNode } from "prosemirror-model";
+import type { EditorView } from "prosemirror-view";
+import { keymap } from "prosemirror-keymap";
+import { undoInputRule } from "prosemirror-inputrules";
 import { schema } from "$lib/features/editor/adapters/schema";
 import {
   parse_markdown,
   serialize_markdown,
 } from "$lib/features/editor/adapters/markdown_pipeline";
+import { create_inline_mark_input_rules_prose_plugin } from "$lib/features/editor/adapters/inline_mark_input_rules_plugin";
 import {
   create_mark_syntax_reveal_plugin,
   mark_syntax_reveal_plugin_key,
@@ -63,6 +67,77 @@ function run_backspace(state: EditorState): {
     tr = dispatched;
   });
   return { handled, tr };
+}
+
+type TestEditor = {
+  readonly state: EditorState;
+  dispatch: (tr: Transaction) => void;
+  composing: boolean;
+};
+
+// Mirrors the production plugin order: reveal handling precedes the inline
+// input rules and the undoInputRule Backspace binding it used to shadow.
+function make_editor(
+  segments: Segment[],
+  anchor: number,
+  options: { composing?: boolean } = {},
+): TestEditor {
+  const doc = schema.nodes.doc.create(null, [make_paragraph(segments)]);
+  const initial = EditorState.create({
+    doc,
+    plugins: [
+      create_mark_syntax_reveal_plugin(),
+      create_inline_mark_input_rules_prose_plugin(),
+      keymap({ Backspace: undoInputRule }),
+    ],
+  });
+  let state = initial.apply(
+    initial.tr.setSelection(TextSelection.create(initial.doc, anchor)),
+  );
+  return {
+    get state() {
+      return state;
+    },
+    dispatch(tr) {
+      state = state.apply(tr);
+    },
+    composing: options.composing ?? false,
+  };
+}
+
+function as_view(editor: TestEditor): EditorView {
+  return editor as unknown as EditorView;
+}
+
+function type_text(editor: TestEditor, text: string): boolean {
+  const { from, to } = editor.state.selection;
+  for (const plugin of editor.state.plugins) {
+    if (plugin.props.handleTextInput?.(as_view(editor), from, to, text)) {
+      return true;
+    }
+  }
+  editor.dispatch(editor.state.tr.insertText(text));
+  return false;
+}
+
+function press_backspace(editor: TestEditor): boolean {
+  const event = {
+    key: "Backspace",
+    metaKey: false,
+    ctrlKey: false,
+    altKey: false,
+    shiftKey: false,
+  } as KeyboardEvent;
+  for (const plugin of editor.state.plugins) {
+    if (plugin.props.handleKeyDown?.(as_view(editor), event)) return true;
+  }
+  return false;
+}
+
+function caret_mark_names(state: EditorState): string[] {
+  return (state.storedMarks ?? state.selection.$head.marks()).map(
+    (m) => m.type.name,
+  );
 }
 
 const CODE_SEGMENTS: Segment[] = [
@@ -233,20 +308,23 @@ function text_marked_with(doc: ProseNode, mark_name: string): string {
   return text;
 }
 
-describe("backspace at span end removes the mark", () => {
-  it("removes code_inline from the whole span and orphans the leading delimiter", () => {
-    const state = make_marked_state(CODE_SEGMENTS, 6);
+describe("backspace at span end deletes a character", () => {
+  it("leaves the mark and the caret's mark intact while typing inside bold", () => {
+    const state = make_marked_state([{ text: "boldx", marks: ["strong"] }], 6);
     const { handled, tr } = run_backspace(state);
-    expect(handled).toBe(true);
-    const next = state.apply(tr!);
-    expect(next.doc.textContent).toBe("a`codeb");
-    expect(mark_names_in(next.doc).has("code_inline")).toBe(false);
+    expect(handled).toBe(false);
+    expect(tr).toBeNull();
+
+    const next = state.apply(state.tr.delete(5, 6));
+    expect(next.doc.textContent).toBe("bold");
+    expect(text_marked_with(next.doc, "strong")).toBe("bold");
+    expect(caret_mark_names(next)).toContain("strong");
   });
 
-  it("keeps the caret after the text it just unmarked", () => {
-    const state = make_marked_state(CODE_SEGMENTS, 6);
-    const { tr } = run_backspace(state);
-    expect(state.apply(tr!).selection.from).toBe(7);
+  it("does not handle backspace at the span end", () => {
+    const { handled, tr } = run_backspace(make_marked_state(CODE_SEGMENTS, 6));
+    expect(handled).toBe(false);
+    expect(tr).toBeNull();
   });
 
   it("does not handle backspace mid-span", () => {
@@ -260,7 +338,7 @@ describe("backspace at span end removes the mark", () => {
     expect(handled).toBe(false);
   });
 
-  it("removes only the innermost mark when several end at the cursor", () => {
+  it("does not handle backspace where several runs end at the cursor", () => {
     const state = make_marked_state(
       [
         { text: "bo", marks: ["strong"] },
@@ -269,14 +347,11 @@ describe("backspace at span end removes the mark", () => {
       7,
     );
     const { handled, tr } = run_backspace(state);
-    expect(handled).toBe(true);
-    const next = state.apply(tr!);
-    expect(next.doc.textContent).toBe("bo*init");
-    expect(mark_names_in(next.doc).has("em")).toBe(false);
-    expect(text_marked_with(next.doc, "strong")).toBe("bo*init");
+    expect(handled).toBe(false);
+    expect(tr).toBeNull();
   });
 
-  it("removes the full run even when the span is split across text nodes", () => {
+  it("does not handle backspace at the end of a span split across text nodes", () => {
     const state = make_marked_state(
       [
         { text: "plain" },
@@ -286,22 +361,19 @@ describe("backspace at span end removes the mark", () => {
       10,
     );
     const { handled, tr } = run_backspace(state);
-    expect(handled).toBe(true);
-    const next = state.apply(tr!);
-    expect(next.doc.textContent).toBe("plain`abcd");
-    expect(mark_names_in(next.doc).has("code_inline")).toBe(false);
-    expect(text_marked_with(next.doc, "strong")).toBe("ab");
+    expect(handled).toBe(false);
+    expect(tr).toBeNull();
   });
 
-  it("produces one undoable transaction and clears the stored mark", () => {
-    const state = make_marked_state(CODE_SEGMENTS, 6);
-    const { tr } = run_backspace(state);
-    expect(tr!.steps).toHaveLength(2);
-    expect(tr!.getMeta("addToHistory")).toBeUndefined();
-    const next = state.apply(tr!);
-    expect(
-      next.storedMarks?.some((m) => m.type.name === "code_inline") ?? false,
-    ).toBe(false);
+  it("restores the literal text when backspace follows an input rule", () => {
+    const editor = make_editor([{ text: "**bold*" }], 8);
+    expect(type_text(editor, "*")).toBe(true);
+    expect(editor.state.doc.textContent).toBe("bold");
+    expect(text_marked_with(editor.state.doc, "strong")).toBe("bold");
+
+    expect(press_backspace(editor)).toBe(true);
+    expect(editor.state.doc.textContent).toBe("**bold**");
+    expect(mark_names_in(editor.state.doc).has("strong")).toBe(false);
   });
 });
 
@@ -358,7 +430,7 @@ describe("backspace at span start removes the mark", () => {
     expect(mark_names_in(reparsed).has("code_inline")).toBe(false);
   });
 
-  it("prefers the ending run when one span ends where another starts", () => {
+  it("unwraps the starting run when one span ends where another starts", () => {
     const state = make_marked_state(
       [
         { text: "hi", marks: ["strong"] },
@@ -369,8 +441,8 @@ describe("backspace at span start removes the mark", () => {
     const { handled, tr } = run_backspace(state);
     expect(handled).toBe(true);
     const next = state.apply(tr!);
-    expect(next.doc.textContent).toBe("**hithere");
-    expect(mark_names_in(next.doc).has("strong")).toBe(false);
-    expect(text_marked_with(next.doc, "highlight")).toBe("there");
+    expect(next.doc.textContent).toBe("hithere==");
+    expect(mark_names_in(next.doc).has("highlight")).toBe(false);
+    expect(text_marked_with(next.doc, "strong")).toBe("hi");
   });
 });
