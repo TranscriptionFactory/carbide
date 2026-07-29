@@ -413,14 +413,10 @@ describe("delete_block", () => {
   });
 });
 
-function child_positions(doc: ReturnType<typeof make_doc>): number[] {
-  const positions: number[] = [];
+function child_pos(doc: ReturnType<typeof make_doc>, index: number): number {
   let pos = 0;
-  doc.forEach((child) => {
-    positions.push(pos);
-    pos += child.nodeSize;
-  });
-  return positions;
+  for (let i = 0; i < index; i++) pos += doc.child(i).nodeSize;
+  return pos;
 }
 
 describe("delete_block_at", () => {
@@ -431,9 +427,8 @@ describe("delete_block_at", () => {
       make_para("third"),
     );
     const state = make_state(doc);
-    const [, , third] = child_positions(doc);
     const { result, state: after } = apply_command(state, (s, d) =>
-      delete_block_at(third!, s, d),
+      delete_block_at(child_pos(doc, 2), s, d),
     );
 
     expect(result).toBe(true);
@@ -451,8 +446,8 @@ describe("delete_block_at", () => {
 
     expect(result).toBe(true);
     expect(after.doc.childCount).toBe(1);
-    expect(after.doc.firstChild!.type.name).toBe("paragraph");
-    expect(after.doc.firstChild!.textContent).toBe("");
+    expect(after.doc.child(0).type.name).toBe("paragraph");
+    expect(after.doc.child(0).textContent).toBe("");
   });
 
   it("deletes a single list item without collapsing its list", () => {
@@ -463,16 +458,16 @@ describe("delete_block_at", () => {
     );
     const doc = make_doc(list);
     const state = make_state(doc);
-    const second_item = 1 + list.firstChild!.nodeSize;
+    const second_item = 1 + list.child(0).nodeSize;
     const { result, state: after } = apply_command(state, (s, d) =>
       delete_block_at(second_item, s, d),
     );
 
     expect(result).toBe(true);
-    expect(after.doc.firstChild!.type.name).toBe("bullet_list");
-    expect(after.doc.firstChild!.childCount).toBe(2);
-    expect(after.doc.firstChild!.child(0).textContent).toBe("one");
-    expect(after.doc.firstChild!.child(1).textContent).toBe("three");
+    expect(after.doc.child(0).type.name).toBe("bullet_list");
+    expect(after.doc.child(0).childCount).toBe(2);
+    expect(after.doc.child(0).child(0).textContent).toBe("one");
+    expect(after.doc.child(0).child(1).textContent).toBe("three");
   });
 
   it("returns false when no node lives at the position", () => {
@@ -490,9 +485,8 @@ describe("duplicate_block_at", () => {
   it("duplicates the addressed block while the caret sits in another one", () => {
     const doc = make_doc(make_para("first"), make_para("second"));
     const state = make_state(doc);
-    const [, second] = child_positions(doc);
     const { result, state: after } = apply_command(state, (s, d) =>
-      duplicate_block_at(second!, s, d),
+      duplicate_block_at(child_pos(doc, 1), s, d),
     );
 
     expect(result).toBe(true);
@@ -508,9 +502,8 @@ describe("duplicate_block_at", () => {
       make_para("body"),
     );
     const state = make_state(doc);
-    const [, heading] = child_positions(doc);
     const { result, state: after } = apply_command(state, (s, d) =>
-      duplicate_block_at(heading!, s, d),
+      duplicate_block_at(child_pos(doc, 1), s, d),
     );
 
     expect(result).toBe(true);
