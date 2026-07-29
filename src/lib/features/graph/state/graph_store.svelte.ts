@@ -104,6 +104,7 @@ export class GraphStore {
     this.vault_snapshot = snapshot;
     this.status = "ready";
     this.error = null;
+    this.cluster_assignments = null;
   }
 
   set_semantic_edges(edges: SemanticEdge[]) {

@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { ActionRegistry } from "$lib/app/action_registry/action_registry";
 import { ACTION_IDS } from "$lib/app/action_registry/action_ids";
 import { register_ui_actions } from "$lib/app/orchestration/ui_actions";
+import { SIDEBAR_VIEWS } from "$lib/app/sidebar_views";
 import { UIStore } from "$lib/app/orchestration/ui_store.svelte";
 import { VaultStore } from "$lib/features/vault/state/vault_store.svelte";
 import { NotesStore } from "$lib/features/note/state/note_store.svelte";
@@ -133,7 +134,7 @@ describe("register_ui_actions", () => {
     const stores = create_ui_stores();
 
     stores.graph.set_panel_open(true);
-    stores.ui.set_context_rail_tab("graph");
+    stores.ui.set_context_rail_tab("metadata");
 
     const close_graph = vi.fn().mockImplementation(() => {
       stores.graph.clear();
@@ -343,7 +344,7 @@ describe("register_ui_actions", () => {
     });
 
     stores.graph.set_panel_open(true);
-    stores.ui.set_context_rail_tab("graph");
+    stores.ui.set_context_rail_tab("metadata");
 
     const close_graph = vi.fn();
 
@@ -375,5 +376,74 @@ describe("register_ui_actions", () => {
     expect(close_graph).toHaveBeenCalledWith({ preserve_context_rail: true });
     expect(stores.ui.context_rail_open).toBe(true);
     expect(stores.ui.context_rail_tab).toBe("outline");
+  });
+
+  describe("tasks panel", () => {
+    function register(stores: ReturnType<typeof create_ui_stores>) {
+      const registry = new ActionRegistry();
+      register_ui_actions({
+        registry,
+        stores,
+        services: {
+          reference: {},
+          vault: {
+            refresh_dashboard_stats: async () =>
+              await Promise.resolve({ status: "skipped" as const }),
+          },
+          shell: { open_url: async () => {}, open_path: async () => {} },
+        } as never,
+        default_mount_config: {
+          reset_app_state: true,
+          bootstrap_default_vault_path: null,
+        },
+      });
+      return registry;
+    }
+
+    it("opens the tasks sidebar view and leaves the context rail untouched", async () => {
+      const stores = create_ui_stores();
+      const registry = register(stores);
+      stores.ui.set_context_rail_tab("links");
+
+      await registry.execute(ACTION_IDS.ui_toggle_tasks_panel);
+
+      expect(stores.ui.sidebar_view).toBe(SIDEBAR_VIEWS.tasks);
+      expect(stores.ui.sidebar_open).toBe(true);
+      expect(stores.ui.context_rail_open).toBe(true);
+      expect(stores.ui.context_rail_tab).toBe("links");
+    });
+
+    it("closes the sidebar when the tasks view is already showing", async () => {
+      const stores = create_ui_stores();
+      const registry = register(stores);
+
+      await registry.execute(ACTION_IDS.ui_toggle_tasks_panel);
+      await registry.execute(ACTION_IDS.ui_toggle_tasks_panel);
+
+      expect(stores.ui.sidebar_open).toBe(false);
+      expect(stores.ui.sidebar_view).toBe(SIDEBAR_VIEWS.tasks);
+    });
+
+    it("reopens the tasks view when another sidebar view is showing", async () => {
+      const stores = create_ui_stores();
+      const registry = register(stores);
+      stores.ui.set_sidebar_view(SIDEBAR_VIEWS.explorer);
+
+      await registry.execute(ACTION_IDS.ui_toggle_tasks_panel);
+
+      expect(stores.ui.sidebar_view).toBe(SIDEBAR_VIEWS.tasks);
+      expect(stores.ui.sidebar_open).toBe(true);
+    });
+
+    it("routes the task view-mode actions to the sidebar", async () => {
+      const stores = create_ui_stores();
+      const registry = register(stores);
+
+      await registry.execute(ACTION_IDS.ui_show_tasks_kanban);
+
+      expect(stores.task.viewMode).toBe("kanban");
+      expect(stores.ui.sidebar_view).toBe(SIDEBAR_VIEWS.tasks);
+      expect(stores.ui.context_rail_open).toBe(false);
+    });
   });
 });

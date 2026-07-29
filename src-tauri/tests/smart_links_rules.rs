@@ -14,9 +14,19 @@ fn setup_db() -> (TempDir, rusqlite::Connection) {
 }
 
 fn insert_note(conn: &rusqlite::Connection, path: &str, title: &str, mtime_ms: i64) {
+    insert_note_with_times(conn, path, title, mtime_ms, mtime_ms);
+}
+
+fn insert_note_with_times(
+    conn: &rusqlite::Connection,
+    path: &str,
+    title: &str,
+    ctime_ms: i64,
+    mtime_ms: i64,
+) {
     conn.execute(
-        "INSERT OR REPLACE INTO notes (path, title, mtime_ms, ctime_ms, size_bytes, word_count, char_count, heading_count, reading_time_secs, last_indexed_at, file_type) VALUES (?1, ?2, ?3, ?3, 100, 50, 200, 2, 30, 0, 'md')",
-        params![path, title, mtime_ms],
+        "INSERT OR REPLACE INTO notes (path, title, mtime_ms, ctime_ms, size_bytes, word_count, char_count, heading_count, reading_time_secs, last_indexed_at, file_type) VALUES (?1, ?2, ?3, ?4, 100, 50, 200, 2, 30, 0, 'md')",
+        params![path, title, mtime_ms, ctime_ms],
     )
     .expect("insert note");
 }
@@ -92,15 +102,13 @@ fn compute(
     .expect("execute_rules")
 }
 
-#[test]
-fn same_day_finds_notes_modified_same_day() {
-    let (_tmp, conn) = setup_db();
-    let day_base = 1_700_000_000_000i64;
-    insert_note(&conn, "a.md", "Note A", day_base);
-    insert_note(&conn, "b.md", "Note B", day_base + 3600_000);
-    insert_note(&conn, "c.md", "Note C", day_base + 86_400_000);
+const DAY_MS: i64 = 86_400_000;
+/// 2023-11-15T00:00:00Z — the rule buckets by UTC day.
+const DAY_0: i64 = 1_700_006_400_000;
+const HOUR_MS: i64 = 3_600_000;
 
-    let groups = vec![SmartLinkRuleGroup {
+fn same_day_groups() -> Vec<SmartLinkRuleGroup> {
+    vec![SmartLinkRuleGroup {
         id: "metadata".into(),
         name: "Metadata".into(),
         enabled: true,
@@ -110,13 +118,43 @@ fn same_day_finds_notes_modified_same_day() {
             enabled: true,
             weight: 1.0,
         }],
-    }];
+    }]
+}
 
-    let results = compute(&conn, "a.md", &groups);
-    assert_eq!(results.len(), 1);
-    assert_eq!(results[0].target_path, "b.md");
+#[test]
+fn same_day_matches_the_anchor_creation_day_against_either_candidate_timestamp() {
+    let (_tmp, conn) = setup_db();
+    insert_note_with_times(&conn, "a.md", "Note A", DAY_0 + 9 * HOUR_MS, DAY_0 + DAY_MS + HOUR_MS);
+    let evening = DAY_0 + 20 * HOUR_MS;
+    insert_note_with_times(&conn, "created.md", "Created", evening, evening);
+    insert_note_with_times(&conn, "touched.md", "Touched", DAY_0 - DAY_MS, DAY_0 + 2 * HOUR_MS);
+    insert_note_with_times(&conn, "elsewhere.md", "Elsewhere", DAY_0 + DAY_MS, DAY_0 + DAY_MS);
+
+    let results = compute(&conn, "a.md", &same_day_groups());
+
+    let mut paths: Vec<&str> = results.iter().map(|r| r.target_path.as_str()).collect();
+    paths.sort_unstable();
+    assert_eq!(paths, vec!["created.md", "touched.md"]);
     assert_eq!(results[0].rules.len(), 1);
     assert_eq!(results[0].rules[0].rule_id, "same_day");
+}
+
+#[test]
+fn same_day_matches_a_note_created_that_day_but_modified_later() {
+    let (_tmp, conn) = setup_db();
+    insert_note_with_times(&conn, "a.md", "Note A", DAY_0 + 9 * HOUR_MS, DAY_0 + 9 * HOUR_MS);
+    insert_note_with_times(
+        &conn,
+        "drafted.md",
+        "Drafted",
+        DAY_0 + HOUR_MS,
+        DAY_0 + 5 * DAY_MS,
+    );
+
+    let results = compute(&conn, "a.md", &same_day_groups());
+
+    assert_eq!(results.len(), 1);
+    assert_eq!(results[0].target_path, "drafted.md");
 }
 
 #[test]

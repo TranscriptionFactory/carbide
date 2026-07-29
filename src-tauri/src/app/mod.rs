@@ -164,6 +164,10 @@ pub fn run() {
             app.set_menu(menu)?;
             app.on_menu_event(|app, event| {
                 let id = event.id().0.as_str();
+                if id == menu::QUIT_MENU_ID {
+                    app.exit(0);
+                    return;
+                }
                 if let Some(window) = app.get_webview_window("main") {
                     let _ = window.emit("menu-action", id);
                 }
@@ -528,13 +532,8 @@ pub fn run() {
                     }
                 }
             }
-            if let tauri::RunEvent::ExitRequested {
-                code: Some(code),
-                api,
-                ..
-            } = &event
-            {
-                if *code != tauri::RESTART_EXIT_CODE {
+            if let tauri::RunEvent::ExitRequested { code, api, .. } = &event {
+                if *code != Some(tauri::RESTART_EXIT_CODE) {
                     api.prevent_exit();
                     tray::show_main_window(app);
                     let _ = app.emit("window-close-requested", ());

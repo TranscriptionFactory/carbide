@@ -924,7 +924,7 @@ dependencies = [
 
 [[package]]
 name = "carbide-cli"
-version = "2.21.3"
+version = "2.23.1"
 dependencies = [
  "clap",
  "clap_complete",

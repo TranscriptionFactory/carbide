@@ -22,6 +22,7 @@ export type WriteImageAssetInput = {
   image: PastedImagePayload;
   custom_filename?: string;
   attachment_folder?: string;
+  target_folder?: string;
 };
 
 export interface AssetsPort {

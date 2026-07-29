@@ -1,5 +1,7 @@
 use tauri::menu::{Menu, MenuBuilder, MenuItemBuilder, PredefinedMenuItem, SubmenuBuilder};
 
+pub const QUIT_MENU_ID: &str = "app.quit";
+
 pub fn build_menu(app: &tauri::App) -> tauri::Result<Menu<tauri::Wry>> {
     // App menu
     let settings = MenuItemBuilder::new("Settings...")
@@ -8,6 +10,12 @@ pub fn build_menu(app: &tauri::App) -> tauri::Result<Menu<tauri::Wry>> {
         .build(app)?;
     let check_updates = MenuItemBuilder::new("Check for Updates...")
         .id("app.check_for_updates")
+        .build(app)?;
+    // Not PredefinedMenuItem::quit: that terminates natively, skipping the
+    // ExitRequested guard that protects unsaved changes.
+    let quit = MenuItemBuilder::new("Quit Carbide")
+        .id(QUIT_MENU_ID)
+        .accelerator("CmdOrCtrl+Q")
         .build(app)?;
     let app_menu = SubmenuBuilder::new(app, "carbide")
         .item(&PredefinedMenuItem::about(app, None, None)?)
@@ -19,7 +27,7 @@ pub fn build_menu(app: &tauri::App) -> tauri::Result<Menu<tauri::Wry>> {
         .item(&PredefinedMenuItem::hide_others(app, None)?)
         .item(&PredefinedMenuItem::show_all(app, None)?)
         .separator()
-        .item(&PredefinedMenuItem::quit(app, None)?)
+        .item(&quit)
         .build()?;
 
     // File menu

@@ -71,7 +71,9 @@ import type { FindReplaceResult } from "$lib/features/editor/ports";
 import {
   create_turn_into_command,
   duplicate_block as duplicate_block_cmd,
+  duplicate_block_at as duplicate_block_at_cmd,
   delete_block as delete_block_cmd,
+  delete_block_at as delete_block_at_cmd,
   batch_turn_into as batch_turn_into_cmd,
   batch_duplicate as batch_duplicate_cmd,
   batch_delete as batch_delete_cmd,
@@ -81,6 +83,7 @@ import {
   get_block_selection,
   clear_block_selection,
 } from "$lib/features/editor/adapters/block_selection_plugin";
+import { resolve_top_level_block } from "$lib/features/editor/adapters/block_drag_handle_plugin";
 import { SKIP_FRONTMATTER_GUARD } from "$lib/features/editor/adapters/frontmatter_guard_plugin";
 import { build_copy_blocks_payload } from "$lib/features/editor/adapters/copy_blocks_payload";
 import type {
@@ -1365,6 +1368,23 @@ export function create_prosemirror_editor_port(args?: {
           const v = view;
           if (!v) return;
           delete_block_cmd(v.state, v.dispatch);
+        },
+        duplicate_block_at(pos: number) {
+          const v = view;
+          if (!v) return;
+          duplicate_block_at_cmd(pos, v.state, v.dispatch);
+        },
+        delete_block_at(pos: number) {
+          const v = view;
+          if (!v) return;
+          delete_block_at_cmd(pos, v.state, v.dispatch);
+        },
+        block_pos_at_coords(x: number, y: number) {
+          const v = view;
+          if (!v) return null;
+          const coords = v.posAtCoords({ left: x, top: y });
+          if (!coords) return null;
+          return resolve_top_level_block(v, coords.pos)?.pos ?? null;
         },
         batch_turn_into(
           target: string,

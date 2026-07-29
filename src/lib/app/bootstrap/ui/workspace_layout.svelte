@@ -48,8 +48,9 @@
 
   /* paneforge sizes are percentage-only; convert px floors into live
      minSize percentages so side panels aren't crushed at narrow widths.
-     Percent caps stay below the panes' maxSize and keep worst-case
-     minSize sums under 100. */
+     Percent caps stay within the panes' maxSize and keep worst-case
+     minSize sums under 100 — the docked outline and the rail are mutually
+     exclusive, so the rail's 45 only ever adds to sidebar 15 + editor 25. */
   const RAIL_MIN_PX = 220;
   const OUTLINE_MIN_PX = 200;
   let pane_group_el = $state<HTMLElement | null>(null);
@@ -66,7 +67,7 @@
   });
 
   const rail_min_size = $derived(
-    px_to_min_size(RAIL_MIN_PX, pane_group_width, 12, 30),
+    px_to_min_size(RAIL_MIN_PX, pane_group_width, 12, 45),
   );
   const outline_min_size = $derived(
     px_to_min_size(OUTLINE_MIN_PX, pane_group_width, 10, 25),
@@ -426,7 +427,7 @@
                 <Resizable.Pane
                   defaultSize={stores.ui.context_rail_pane_size}
                   minSize={rail_min_size}
-                  maxSize={40}
+                  maxSize={45}
                   order={4}
                   onResize={(size) => (stores.ui.context_rail_pane_size = size)}
                 >
@@ -644,7 +645,7 @@
 
   .WorkspaceLayout__context-rail {
     position: relative;
-    width: 36px;
+    width: var(--context-rail-strip-width);
     flex-shrink: 0;
     overflow: visible;
   }
@@ -692,8 +693,10 @@
     border-inline-end: 1px solid var(--border);
   }
 
+  /* Stops short of the icon strip: the overlay outranks it on z-index, so a
+     flush edge would paint over the rail's own tabs. */
   .WorkspaceLayout__overlay-panel--end {
-    inset-inline-end: 0;
+    inset-inline-end: var(--context-rail-strip-width);
     border-inline-start: 1px solid var(--border);
   }
 
@@ -710,7 +713,7 @@
   }
 
   .WorkspaceLayout__overlay-panel--card.WorkspaceLayout__overlay-panel--end {
-    inset-inline-end: var(--space-3);
+    inset-inline-end: calc(var(--context-rail-strip-width) + var(--space-3));
     border-inline-start-width: 1px;
   }
 </style>

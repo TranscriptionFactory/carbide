@@ -40,7 +40,8 @@ import type { VaultStore } from "$lib/features/vault";
 import type { OpStore } from "$lib/app";
 import type { SearchService } from "$lib/features/search";
 import type { OutlineStore } from "$lib/features/outline";
-import type { AssetsPort, NotesPort } from "$lib/features/note";
+import type { AssetsPort, NotesPort, NotesStore } from "$lib/features/note";
+import { collect_recent_notes } from "$lib/features/editor/domain/collect_recent_notes";
 import type { TagPort } from "$lib/features/tags";
 import { normalize_markdown_line_breaks } from "$lib/features/editor/domain/markdown_line_breaks";
 import { rank_tags } from "$lib/features/tags";
@@ -54,6 +55,8 @@ import { create_logger } from "$lib/shared/utils/logger";
 const log = create_logger("editor_service");
 
 const BLOCK_ID_REGEX = /\s\^([a-zA-Z0-9-]+)\s*$/;
+
+const AT_PALETTE_RECENTS_LIMIT = 10;
 
 function parse_block_ids(
   markdown: string,
@@ -222,6 +225,7 @@ export class EditorService {
     private readonly tag_port?: TagPort,
     private readonly reference_store?: { library_items: CslItem[] },
     private readonly notes_port?: NotesPort,
+    private readonly notes_store?: NotesStore,
   ) {}
 
   is_mounted(): boolean {
@@ -696,6 +700,18 @@ export class EditorService {
     this.session?.delete_block?.();
   }
 
+  duplicate_block_at(pos: number) {
+    this.session?.duplicate_block_at?.(pos);
+  }
+
+  delete_block_at(pos: number) {
+    this.session?.delete_block_at?.(pos);
+  }
+
+  block_pos_at_coords(x: number, y: number): number | null {
+    return this.session?.block_pos_at_coords?.(x, y) ?? null;
+  }
+
   batch_turn_into(
     target: string,
     attrs: Record<string, unknown> | undefined,
@@ -1093,6 +1109,24 @@ export class EditorService {
     });
   }
 
+  private handle_at_palette_recents_query(query: string): void {
+    const notes_store = this.notes_store;
+    if (!notes_store) return;
+
+    const items: AtPaletteItem[] = collect_recent_notes(
+      notes_store.recent_notes,
+      notes_store.notes,
+      query,
+      AT_PALETTE_RECENTS_LIMIT,
+    ).map((note) => ({
+      category: "recents" as const,
+      title: note.title || note.name,
+      path: note.path,
+    }));
+
+    this.session?.set_at_palette_suggestions?.("recents", items);
+  }
+
   private handle_at_palette_heading_query(
     generation: number,
     heading_query: string,
@@ -1276,6 +1310,12 @@ export class EditorService {
       };
       events.on_at_palette_command_execute = (command_id: string) => {
         this.callbacks.on_command_execute?.(command_id);
+      };
+    }
+
+    if (this.notes_store) {
+      events.on_at_palette_recents_query = (query: string) => {
+        this.handle_at_palette_recents_query(query);
       };
     }
 

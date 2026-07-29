@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   classify_external_files,
+  format_external_import_summary,
+  is_external_file_drag,
   is_markdown_filename,
   resolve_external_drop_folder,
   uniquify_note_path,
@@ -44,6 +46,24 @@ describe("classify_external_files", () => {
   });
 });
 
+describe("is_external_file_drag", () => {
+  it("accepts a drag carrying OS files", () => {
+    expect(is_external_file_drag(["Files"])).toBe(true);
+    expect(is_external_file_drag(["text/plain", "Files"])).toBe(true);
+  });
+
+  it("rejects internal drags and absent data transfers", () => {
+    expect(
+      is_external_file_drag([
+        "text/plain",
+        "application/x-carbide-filetree-count",
+      ]),
+    ).toBe(false);
+    expect(is_external_file_drag([])).toBe(false);
+    expect(is_external_file_drag(undefined)).toBe(false);
+  });
+});
+
 describe("resolve_external_drop_folder", () => {
   it("targets the folder when dropping on a folder node", () => {
     expect(
@@ -51,11 +71,43 @@ describe("resolve_external_drop_folder", () => {
     ).toBe("projects/docs");
   });
 
-  it("targets the vault root for file nodes and empty space", () => {
+  it("targets the containing folder when dropping on a file node", () => {
     expect(
       resolve_external_drop_folder({ is_folder: false, path: "a/note.md" }),
+    ).toBe("a");
+    expect(
+      resolve_external_drop_folder({
+        is_folder: false,
+        path: "projects/docs/spec.pdf",
+      }),
+    ).toBe("projects/docs");
+  });
+
+  it("targets the vault root for root-level files and empty space", () => {
+    expect(
+      resolve_external_drop_folder({ is_folder: false, path: "note.md" }),
     ).toBe("");
     expect(resolve_external_drop_folder(null)).toBe("");
+  });
+});
+
+describe("format_external_import_summary", () => {
+  it("pluralizes the imported count", () => {
+    expect(format_external_import_summary({ imported: 1, skipped: 0 })).toBe(
+      "Imported 1 file",
+    );
+    expect(format_external_import_summary({ imported: 3, skipped: 0 })).toBe(
+      "Imported 3 files",
+    );
+  });
+
+  it("appends the skipped count only when something was skipped", () => {
+    expect(format_external_import_summary({ imported: 2, skipped: 1 })).toBe(
+      "Imported 2 files, skipped 1",
+    );
+    expect(format_external_import_summary({ imported: 0, skipped: 4 })).toBe(
+      "Imported 0 files, skipped 4",
+    );
   });
 });
 

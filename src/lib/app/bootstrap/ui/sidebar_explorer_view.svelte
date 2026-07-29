@@ -1,7 +1,11 @@
 <script lang="ts">
   import SidebarFileTree from "$lib/app/bootstrap/ui/sidebar_file_tree.svelte";
   import { DrillDownFileTree, RecentsFileView } from "$lib/features/folder";
-  import { flatten_filetree, resolve_entry_target } from "$lib/features/folder";
+  import {
+    flatten_filetree,
+    is_external_file_drag,
+    resolve_entry_target,
+  } from "$lib/features/folder";
   import { BasesRailSection } from "$lib/features/bases";
   import { TypesRailSection, build_type_sections } from "$lib/features/types";
   import { use_app_context } from "$lib/app/context/app_context.svelte";
@@ -33,6 +37,36 @@
       void action_registry.execute(folder_action_id, target.path);
     } else {
       void action_registry.execute(note_action_id, target.note);
+    }
+  }
+
+  function import_external_files(files: File[], target_folder: string) {
+    void action_registry.execute(ACTION_IDS.filetree_import_external_files, {
+      files,
+      target_folder,
+    });
+  }
+
+  let vault_root_drop_active = $state(false);
+
+  function handle_vault_root_drag_over(event: DragEvent) {
+    if (!is_external_file_drag(event.dataTransfer?.types)) return;
+    event.preventDefault();
+    vault_root_drop_active = true;
+    if (event.dataTransfer) {
+      event.dataTransfer.dropEffect = "copy";
+    }
+  }
+
+  function handle_vault_root_drop(event: DragEvent) {
+    if (!is_external_file_drag(event.dataTransfer?.types)) return;
+    event.preventDefault();
+    vault_root_drop_active = false;
+    const files = Array.from(event.dataTransfer?.files ?? []).filter(
+      (file) => file.name,
+    );
+    if (files.length > 0) {
+      import_external_files(files, "");
     }
   }
 
@@ -75,7 +109,15 @@
   {/each}
 </div>
 {#if stores.ui.editor_settings.file_tree_mode === "bases"}
-  <div class="flex-1 min-h-0 overflow-y-auto">
+  <!-- svelte-ignore a11y_no_static_element_interactions -->
+  <div
+    class="flex-1 min-h-0 overflow-y-auto {vault_root_drop_active
+      ? 'ring-1 ring-ring ring-inset'
+      : ''}"
+    ondragover={handle_vault_root_drag_over}
+    ondragleave={() => (vault_root_drop_active = false)}
+    ondrop={handle_vault_root_drop}
+  >
     <BasesRailSection />
     <TypesRailSection
       sections={build_type_sections(
@@ -117,7 +159,16 @@
   </div>
 {:else if stores.ui.editor_settings.file_tree_mode === "recents"}
   <!-- svelte-ignore a11y_no_static_element_interactions -->
-  <div class="flex-1 min-h-0" data-vim-nav-region="file_tree" tabindex="-1">
+  <div
+    class="flex-1 min-h-0 {vault_root_drop_active
+      ? 'ring-1 ring-ring ring-inset'
+      : ''}"
+    data-vim-nav-region="file_tree"
+    tabindex="-1"
+    ondragover={handle_vault_root_drag_over}
+    ondragleave={() => (vault_root_drop_active = false)}
+    ondrop={handle_vault_root_drop}
+  >
     <RecentsFileView
       results={stores.recents.results}
       error={stores.recents.error}
@@ -221,6 +272,7 @@
           ACTION_IDS.folder_request_delete,
           ACTION_IDS.note_request_delete,
         )}
+      on_import_external_files={import_external_files}
     />
   </div>
 {:else}

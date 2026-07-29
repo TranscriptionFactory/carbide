@@ -5,8 +5,10 @@ import {
   extract_at_trigger,
   detect_prefix,
   dispatch_palette_queries,
+  flatten_items,
 } from "$lib/features/editor/adapters/at_palette_plugin";
 import type { AtPalettePluginConfig } from "$lib/features/editor/adapters/at_palette_plugin";
+import type { AtPaletteItem } from "$lib/features/editor/adapters/at_palette_types";
 
 function create_schema() {
   return new Schema({
@@ -195,6 +197,24 @@ describe("detect_prefix", () => {
     expect(result.stripped_query).toBe("tomorrow");
   });
 
+  it("maps 'r:' to recents", () => {
+    const result = detect_prefix("r:plan");
+    expect(result.category).toBe("recents");
+    expect(result.stripped_query).toBe("plan");
+  });
+
+  it("strips prefix even when nothing follows ('r:')", () => {
+    const result = detect_prefix("r:");
+    expect(result.category).toBe("recents");
+    expect(result.stripped_query).toBe("");
+  });
+
+  it("does not activate recents mode for bare 'r' (collides with words)", () => {
+    const result = detect_prefix("roadmap");
+    expect(result.category).toBe("all");
+    expect(result.stripped_query).toBe("roadmap");
+  });
+
   it("maps 't:' to tags", () => {
     const result = detect_prefix("t:project");
     expect(result.category).toBe("tags");
@@ -253,6 +273,7 @@ describe("detect_prefix", () => {
 function make_config_spies() {
   const config: AtPalettePluginConfig = {
     on_note_query: vi.fn(),
+    on_recents_query: vi.fn(),
     on_heading_query: vi.fn(),
     on_tag_query: vi.fn(),
     on_cite_query: vi.fn(),
@@ -328,8 +349,65 @@ describe("dispatch_palette_queries", () => {
     const config = make_config_spies();
     dispatch_palette_queries("hello", detect_prefix("hello"), config);
     expect(config.on_note_query).toHaveBeenCalledWith("hello", false);
+    expect(config.on_recents_query).toHaveBeenCalledWith("hello");
     expect(config.on_heading_query).toHaveBeenCalledWith("hello");
     expect(config.on_tag_query).toHaveBeenCalledWith("hello");
     expect(config.on_cite_query).toHaveBeenCalledWith("hello");
+  });
+
+  it("bare '@' asks for recents so the palette is never empty", () => {
+    const config = make_config_spies();
+    dispatch_palette_queries("", detect_prefix(""), config);
+    expect(config.on_recents_query).toHaveBeenCalledWith("");
+  });
+
+  it("'r:plan' passes only the stripped query to the recents callback", () => {
+    const config = make_config_spies();
+    dispatch_palette_queries("r:plan", detect_prefix("r:plan"), config);
+    expect(config.on_recents_query).toHaveBeenCalledWith("plan");
+    expect(config.on_note_query).not.toHaveBeenCalled();
+    expect(config.on_heading_query).not.toHaveBeenCalled();
+    expect(config.on_tag_query).not.toHaveBeenCalled();
+    expect(config.on_cite_query).not.toHaveBeenCalled();
+  });
+});
+
+describe("flatten_items", () => {
+  const recent: AtPaletteItem = {
+    category: "recents",
+    title: "Plan",
+    path: "plan.md",
+  };
+  const date: AtPaletteItem = {
+    category: "dates",
+    label: "Today",
+    date_str: "2026-07-29",
+    description: "2026-07-29",
+  };
+  const note: AtPaletteItem = {
+    category: "notes",
+    title: "Roadmap",
+    path: "roadmap.md",
+    kind: "existing",
+  };
+
+  it("orders recents directly after dates and before notes", () => {
+    const flat = flatten_items({
+      notes: [note],
+      recents: [recent],
+      dates: [date],
+    });
+
+    expect(flat.map((item) => item.category)).toEqual([
+      "dates",
+      "recents",
+      "notes",
+    ]);
+  });
+
+  it("omits categories with no items", () => {
+    const flat = flatten_items({ recents: [recent], notes: [] });
+
+    expect(flat).toEqual([recent]);
   });
 });

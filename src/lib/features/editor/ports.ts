@@ -115,6 +115,9 @@ export type EditorSession = {
   turn_into?: (target: string, attrs?: Record<string, unknown>) => void;
   duplicate_block?: () => void;
   delete_block?: () => void;
+  duplicate_block_at?: (pos: number) => void;
+  delete_block_at?: (pos: number) => void;
+  block_pos_at_coords?: (x: number, y: number) => number | null;
   batch_turn_into?: (
     target: string,
     attrs: Record<string, unknown> | undefined,
@@ -152,6 +155,7 @@ export type EditorEventHandlers = {
   on_cite_suggest_query?: (query: string) => void;
   on_cite_accept?: (citekey: string) => void;
   on_at_palette_note_query?: (query: string, markdown_only: boolean) => void;
+  on_at_palette_recents_query?: (query: string) => void;
   on_at_palette_heading_query?: (heading_query: string) => void;
   on_at_palette_tag_query?: (query: string) => void;
   on_at_palette_cite_query?: (query: string) => void;

@@ -1,3 +1,5 @@
+import { parent_folder_path } from "$lib/shared/utils/path";
+
 const MARKDOWN_EXTENSIONS = new Set([".md", ".markdown"]);
 
 export function is_markdown_filename(name: string): boolean {
@@ -21,10 +23,28 @@ export function classify_external_files<T extends { name: string }>(
   return { markdown_files, asset_files };
 }
 
+export function format_external_import_summary(counts: {
+  imported: number;
+  skipped: number;
+}): string {
+  const noun = counts.imported === 1 ? "file" : "files";
+  const imported = `Imported ${String(counts.imported)} ${noun}`;
+  return counts.skipped > 0
+    ? `${imported}, skipped ${String(counts.skipped)}`
+    : imported;
+}
+
+export function is_external_file_drag(
+  data_types: readonly string[] | undefined,
+): boolean {
+  return !!data_types?.includes("Files");
+}
+
 export function resolve_external_drop_folder(
   node: { is_folder: boolean; path: string } | null,
 ): string {
-  return node?.is_folder ? node.path : "";
+  if (!node) return "";
+  return node.is_folder ? node.path : parent_folder_path(node.path);
 }
 
 export function uniquify_note_path(

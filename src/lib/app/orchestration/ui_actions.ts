@@ -151,20 +151,15 @@ export function register_ui_actions(input: ActionRegistrationInput) {
     id: ACTION_IDS.ui_toggle_tasks_panel,
     label: "Toggle Tasks Panel",
     shortcut: "CmdOrCtrl+Alt+T",
-    execute: async () => {
+    execute: () => {
       if (
-        stores.ui.context_rail_open &&
-        stores.ui.context_rail_tab === "tasks"
+        stores.ui.sidebar_open &&
+        stores.ui.sidebar_view === SIDEBAR_VIEWS.tasks
       ) {
-        stores.ui.close_context_rail("tasks");
-      } else {
-        if (stores.graph.panel_open) {
-          await registry.execute(ACTION_IDS.graph_close, {
-            preserve_context_rail: true,
-          });
-        }
-        stores.ui.set_context_rail_tab("tasks");
+        stores.ui.sidebar_open = false;
+        return;
       }
+      stores.ui.set_sidebar_view(SIDEBAR_VIEWS.tasks);
     },
   });
 
@@ -173,7 +168,7 @@ export function register_ui_actions(input: ActionRegistrationInput) {
     label: "Show Task List",
     execute: () => {
       stores.task.setViewMode("list");
-      stores.ui.set_context_rail_tab("tasks");
+      stores.ui.set_sidebar_view(SIDEBAR_VIEWS.tasks);
     },
   });
 
@@ -182,7 +177,7 @@ export function register_ui_actions(input: ActionRegistrationInput) {
     label: "Show Task Kanban",
     execute: () => {
       stores.task.setViewMode("kanban");
-      stores.ui.set_context_rail_tab("tasks");
+      stores.ui.set_sidebar_view(SIDEBAR_VIEWS.tasks);
     },
   });
 
@@ -191,7 +186,7 @@ export function register_ui_actions(input: ActionRegistrationInput) {
     label: "Show Task Schedule",
     execute: () => {
       stores.task.setViewMode("schedule");
-      stores.ui.set_context_rail_tab("tasks");
+      stores.ui.set_sidebar_view(SIDEBAR_VIEWS.tasks);
     },
   });
 

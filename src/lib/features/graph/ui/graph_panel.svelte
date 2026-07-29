@@ -295,6 +295,7 @@
         {show_smart_link_edges}
         theme={stores.ui.active_theme}
         {group_mode}
+        {cluster_assignments}
         on_select_node={(node_id) =>
           void action_registry.execute(ACTION_IDS.graph_select_node, node_id)}
         on_hover_node={(node_id) =>
