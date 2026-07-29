@@ -31,7 +31,9 @@ function flush() {
   return new Promise((resolve) => setTimeout(resolve, 0));
 }
 
-function create_harness() {
+function create_harness({
+  vault = { id: "vault-1" },
+}: { vault?: { id: string } | null } = {}) {
   const actions = new Map<string, AppAction>();
   const registry = {
     register(action: AppAction) {
@@ -58,8 +60,22 @@ function create_harness() {
     }),
   };
 
+  const note_service = {
+    list_all_folders: vi
+      .fn()
+      .mockResolvedValue(["", "clips", "clips/2026", "journal"]),
+  };
+
+  const notes_store = {
+    folder_paths: [] as string[],
+    set_folder_paths: vi.fn((folder_paths: string[]) => {
+      notes_store.folder_paths = folder_paths;
+    }),
+  };
+
   const stores = {
-    vault: { vault: { id: "vault-1" } },
+    vault: { vault },
+    notes: notes_store,
     ui: {
       selected_folder_path: "",
       editor_settings: { attachment_folder: ".assets" },
@@ -77,17 +93,24 @@ function create_harness() {
   register_clip_actions({
     registry,
     stores,
-    services: { clip: clip_service },
+    services: { clip: clip_service, note: note_service },
   } as unknown as ActionRegistrationInput);
 
   return {
     actions,
     registry,
     clip_service,
+    note_service,
     stores,
     unlisten,
     emit_capture_closed: () => closed_handler?.(),
   };
+}
+
+function open_dialog(harness: ReturnType<typeof create_harness>) {
+  const action = harness.actions.get(ACTION_IDS.clip_web_page);
+  if (!action) throw new Error("open action not registered");
+  return action.execute(undefined);
 }
 
 function confirm(harness: ReturnType<typeof create_harness>) {
@@ -104,6 +127,50 @@ function pending_toast_options(): ToastOptions {
 
 beforeEach(() => {
   vi.clearAllMocks();
+});
+
+describe("clip actions dialog open", () => {
+  it("populates folder candidates for the folder suggest input", async () => {
+    const harness = create_harness();
+
+    await open_dialog(harness);
+    await flush();
+
+    expect(harness.note_service.list_all_folders).toHaveBeenCalledWith(
+      "vault-1",
+    );
+    expect(harness.stores.notes.folder_paths).toEqual([
+      "",
+      "clips",
+      "clips/2026",
+      "journal",
+    ]);
+  });
+
+  it("opens the dialog even when the folder listing fails", async () => {
+    const harness = create_harness();
+    harness.note_service.list_all_folders.mockRejectedValueOnce(
+      new Error("vault unreadable"),
+    );
+
+    await open_dialog(harness);
+    await flush();
+
+    expect(harness.stores.ui.clip_web_page_dialog).toMatchObject({
+      open: true,
+      url: "",
+    });
+    expect(harness.stores.notes.set_folder_paths).not.toHaveBeenCalled();
+  });
+
+  it("does not list folders without an open vault", async () => {
+    const harness = create_harness({ vault: null });
+
+    await open_dialog(harness);
+    await flush();
+
+    expect(harness.note_service.list_all_folders).not.toHaveBeenCalled();
+  });
 });
 
 describe("clip actions capture flow", () => {
