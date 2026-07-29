@@ -9,7 +9,9 @@ import {
   create_turn_into_command,
   batch_turn_into,
   duplicate_block,
+  duplicate_block_at,
   delete_block,
+  delete_block_at,
 } from "$lib/features/editor/adapters/block_transforms";
 
 function make_doc(
@@ -408,5 +410,122 @@ describe("delete_block", () => {
     expect(after.doc.childCount).toBe(1);
     expect(after.doc.firstChild!.textContent).toBe("second");
     expect(after.selection.from).toBeGreaterThanOrEqual(1);
+  });
+});
+
+function child_positions(doc: ReturnType<typeof make_doc>): number[] {
+  const positions: number[] = [];
+  let pos = 0;
+  doc.forEach((child) => {
+    positions.push(pos);
+    pos += child.nodeSize;
+  });
+  return positions;
+}
+
+describe("delete_block_at", () => {
+  it("deletes the addressed block while the caret sits in another one", () => {
+    const doc = make_doc(
+      make_para("first"),
+      make_para("second"),
+      make_para("third"),
+    );
+    const state = make_state(doc);
+    const [, , third] = child_positions(doc);
+    const { result, state: after } = apply_command(state, (s, d) =>
+      delete_block_at(third!, s, d),
+    );
+
+    expect(result).toBe(true);
+    expect(after.doc.childCount).toBe(2);
+    expect(after.doc.child(0).textContent).toBe("first");
+    expect(after.doc.child(1).textContent).toBe("second");
+  });
+
+  it("replaces the last top-level block with an empty paragraph", () => {
+    const doc = make_doc(make_para("only"));
+    const state = make_state(doc);
+    const { result, state: after } = apply_command(state, (s, d) =>
+      delete_block_at(0, s, d),
+    );
+
+    expect(result).toBe(true);
+    expect(after.doc.childCount).toBe(1);
+    expect(after.doc.firstChild!.type.name).toBe("paragraph");
+    expect(after.doc.firstChild!.textContent).toBe("");
+  });
+
+  it("deletes a single list item without collapsing its list", () => {
+    const list = make_bullet_list(
+      make_list_item("one"),
+      make_list_item("two"),
+      make_list_item("three"),
+    );
+    const doc = make_doc(list);
+    const state = make_state(doc);
+    const second_item = 1 + list.firstChild!.nodeSize;
+    const { result, state: after } = apply_command(state, (s, d) =>
+      delete_block_at(second_item, s, d),
+    );
+
+    expect(result).toBe(true);
+    expect(after.doc.firstChild!.type.name).toBe("bullet_list");
+    expect(after.doc.firstChild!.childCount).toBe(2);
+    expect(after.doc.firstChild!.child(0).textContent).toBe("one");
+    expect(after.doc.firstChild!.child(1).textContent).toBe("three");
+  });
+
+  it("returns false when no node lives at the position", () => {
+    const doc = make_doc(make_para("only"));
+    const state = make_state(doc);
+    const { result } = apply_command(state, (s, d) =>
+      delete_block_at(doc.content.size, s, d),
+    );
+
+    expect(result).toBe(false);
+  });
+});
+
+describe("duplicate_block_at", () => {
+  it("duplicates the addressed block while the caret sits in another one", () => {
+    const doc = make_doc(make_para("first"), make_para("second"));
+    const state = make_state(doc);
+    const [, second] = child_positions(doc);
+    const { result, state: after } = apply_command(state, (s, d) =>
+      duplicate_block_at(second!, s, d),
+    );
+
+    expect(result).toBe(true);
+    expect(after.doc.childCount).toBe(3);
+    expect(after.doc.child(1).textContent).toBe("second");
+    expect(after.doc.child(2).textContent).toBe("second");
+  });
+
+  it("duplicates a heading together with its section body", () => {
+    const doc = make_doc(
+      make_para("intro"),
+      make_heading(1, "Title"),
+      make_para("body"),
+    );
+    const state = make_state(doc);
+    const [, heading] = child_positions(doc);
+    const { result, state: after } = apply_command(state, (s, d) =>
+      duplicate_block_at(heading!, s, d),
+    );
+
+    expect(result).toBe(true);
+    expect(after.doc.childCount).toBe(5);
+    expect(after.doc.child(3).textContent).toBe("Title");
+    expect(after.doc.child(4).textContent).toBe("body");
+  });
+
+  it("returns false when no node lives at the position", () => {
+    const doc = make_doc(make_para("only"));
+    const state = make_state(doc);
+    const { result } = apply_command(state, (s, d) =>
+      duplicate_block_at(doc.content.size, s, d),
+    );
+
+    expect(result).toBe(false);
   });
 });

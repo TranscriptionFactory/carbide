@@ -32,6 +32,15 @@ function resolve_block_at_cursor(
   return { pos, node, end: pos + node.nodeSize };
 }
 
+function resolve_block_at_pos(
+  state: EditorState,
+  pos: number,
+): { pos: number; node: ProseNode; end: number } | null {
+  const node = state.doc.nodeAt(pos);
+  if (!node) return null;
+  return { pos, node, end: pos + node.nodeSize };
+}
+
 function is_list_node(node: ProseNode): boolean {
   const name = node.type.name;
   return name === "bullet_list" || name === "ordered_list";
@@ -293,6 +302,24 @@ export function duplicate_block(
 ): boolean {
   const block = resolve_block_at_cursor(state);
   if (!block) return false;
+  return duplicate_resolved_block(block, state, dispatch);
+}
+
+export function duplicate_block_at(
+  pos: number,
+  state: EditorState,
+  dispatch?: Dispatch,
+): boolean {
+  const block = resolve_block_at_pos(state, pos);
+  if (!block) return false;
+  return duplicate_resolved_block(block, state, dispatch);
+}
+
+function duplicate_resolved_block(
+  block: { pos: number; node: ProseNode; end: number },
+  state: EditorState,
+  dispatch?: Dispatch,
+): boolean {
   if (!dispatch) return true;
 
   let insert_pos: number;
@@ -327,9 +354,28 @@ export function duplicate_block(
 export function delete_block(state: EditorState, dispatch?: Dispatch): boolean {
   const block = resolve_block_at_cursor(state);
   if (!block) return false;
+  return delete_resolved_block(block, state, dispatch);
+}
+
+export function delete_block_at(
+  pos: number,
+  state: EditorState,
+  dispatch?: Dispatch,
+): boolean {
+  const block = resolve_block_at_pos(state, pos);
+  if (!block) return false;
+  return delete_resolved_block(block, state, dispatch);
+}
+
+function delete_resolved_block(
+  block: { pos: number; node: ProseNode; end: number },
+  state: EditorState,
+  dispatch?: Dispatch,
+): boolean {
   if (!dispatch) return true;
 
-  const is_only_child = state.doc.childCount === 1;
+  const is_only_child =
+    state.doc.childCount === 1 && state.doc.resolve(block.pos).depth === 0;
 
   if (is_only_child) {
     const empty_para = schema.nodes.paragraph.create();
