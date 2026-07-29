@@ -3,9 +3,11 @@
   import { ACTION_IDS } from "$lib/app/action_registry/action_ids";
   import type { NoteMeta } from "$lib/shared/types/note";
   import SuggestedLinksSection from "$lib/features/links/ui/suggested_links_section.svelte";
+  import { collect_same_day_notes } from "$lib/features/links/domain/related_context";
   import FileText from "@lucide/svelte/icons/file-text";
   import Hash from "@lucide/svelte/icons/hash";
   import History from "@lucide/svelte/icons/history";
+  import CalendarDays from "@lucide/svelte/icons/calendar-days";
   import Folder from "@lucide/svelte/icons/folder";
   import Link2Off from "@lucide/svelte/icons/link-2-off";
   import Link2 from "@lucide/svelte/icons/link-2";
@@ -41,6 +43,12 @@
           n.path !== open_note_path && folder_of(n.path) === current_folder,
       )
       .slice(0, 30);
+  });
+
+  const same_day_notes = $derived.by(() => {
+    const anchor = open_note?.meta;
+    if (!anchor) return [];
+    return collect_same_day_notes(anchor, stores.notes.notes, 30);
   });
 
   const recently_edited = $derived.by(() => {
@@ -160,6 +168,20 @@
         </ul>
       {/if}
     </section>
+
+    {#if same_day_notes.length > 0}
+      <section class="RelatedPanel__section">
+        <header class="RelatedPanel__heading">
+          <CalendarDays size={12} />
+          <span>Created this day</span>
+        </header>
+        <ul class="RelatedPanel__list">
+          {#each same_day_notes as note (note.path)}
+            {@render note_row(note)}
+          {/each}
+        </ul>
+      </section>
+    {/if}
 
     {#if recently_edited.length > 0}
       <section class="RelatedPanel__section">
