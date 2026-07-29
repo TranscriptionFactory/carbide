@@ -52,6 +52,39 @@ describe("op_toast.reactor", () => {
     ]);
   });
 
+  it("returns the external import summary as a success toast", () => {
+    const commands = resolve_op_toast_commands({
+      key: "filetree.import_external",
+      previous_status: "pending",
+      current_status: "success",
+      error: null,
+      message: "Imported 2 files, skipped 1",
+    });
+
+    expect(commands).toEqual([
+      { kind: "success", message: "Imported 2 files, skipped 1" },
+    ]);
+  });
+
+  it("returns an external import error toast when nothing could be imported", () => {
+    const commands = resolve_op_toast_commands({
+      key: "filetree.import_external",
+      previous_status: "pending",
+      current_status: "error",
+      error: "3 dropped file(s) could not be imported",
+      message: null,
+    });
+
+    expect(commands).toEqual([
+      {
+        kind: "error",
+        message: "Could not import dropped files",
+        log_label: "External file import failed",
+        error: "3 dropped file(s) could not be imported",
+      },
+    ]);
+  });
+
   it("returns no commands when status is unchanged", () => {
     const commands = resolve_op_toast_commands({
       key: "links.repair",
