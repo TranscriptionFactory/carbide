@@ -32,9 +32,9 @@ describe("right panel exclusion", () => {
     const ui = new UIStore();
     ui.outline_docked_open = true;
 
-    ui.set_context_rail_tab("tasks");
+    ui.set_context_rail_tab("metadata");
 
-    expect(ui.context_rail_tab).toBe("tasks");
+    expect(ui.context_rail_tab).toBe("metadata");
     expect(open_panels(ui)).toEqual({ outline: false, rail: true });
   });
 

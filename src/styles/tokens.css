@@ -103,6 +103,7 @@
     --size-tabbar: calc(36px * var(--density));
     --size-row: calc(28px * var(--density));
     --size-status-bar: calc(30px * var(--density));
+    --context-rail-strip-width: 36px;
 
     /* Sizes — icons */
     --size-icon-xs: 0.75rem; /* 12px */

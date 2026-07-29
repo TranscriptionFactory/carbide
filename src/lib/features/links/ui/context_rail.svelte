@@ -73,7 +73,7 @@
     flex-direction: column;
     align-items: center;
     gap: var(--space-1);
-    width: 36px;
+    width: var(--context-rail-strip-width);
     height: 100%;
     padding-block: var(--space-2);
     background-color: var(--background);

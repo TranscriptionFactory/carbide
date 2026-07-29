@@ -2,6 +2,7 @@ export type AtPaletteCategory =
   | "notes"
   | "headings"
   | "dates"
+  | "recents"
   | "references"
   | "tags"
   | "commands";
@@ -12,6 +13,12 @@ export type AtPaletteNoteItem = {
   path: string;
   kind: "existing" | "planned";
   ref_count?: number | undefined;
+};
+
+export type AtPaletteRecentItem = {
+  category: "recents";
+  title: string;
+  path: string;
 };
 
 export type AtPaletteHeadingItem = {
@@ -52,6 +59,7 @@ export type AtPaletteCommandItem = {
 
 export type AtPaletteItem =
   | AtPaletteNoteItem
+  | AtPaletteRecentItem
   | AtPaletteHeadingItem
   | AtPaletteDateItem
   | AtPaletteReferenceItem

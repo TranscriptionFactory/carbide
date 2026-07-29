@@ -107,13 +107,16 @@ export function detect_prefix(query: string): DetectedPrefix {
     return { category: "commands", stripped_query: query.slice(1) };
   if (query.startsWith("d:"))
     return { category: "dates", stripped_query: query.slice(2) };
+  if (query.startsWith("r:"))
+    return { category: "recents", stripped_query: query.slice(2) };
   if (query.startsWith("t:"))
     return { category: "tags", stripped_query: query.slice(2) };
   return { category: "all", stripped_query: query };
 }
 
-const CATEGORY_ORDER: AtPaletteCategory[] = [
+export const CATEGORY_ORDER: AtPaletteCategory[] = [
   "dates",
+  "recents",
   "notes",
   "headings",
   "tags",
@@ -123,6 +126,7 @@ const CATEGORY_ORDER: AtPaletteCategory[] = [
 
 const CATEGORY_LABELS: Record<AtPaletteCategory, string> = {
   dates: "Dates",
+  recents: "Recently edited",
   notes: "Notes",
   headings: "Headings",
   tags: "Tags",
@@ -143,10 +147,11 @@ const LEGEND_ENTRIES: LegendEntry[] = [
   { prefix: "t:", label: "tag", match: "tags" },
   { prefix: "[", label: "ref", match: "references" },
   { prefix: "d:", label: "date", match: "dates" },
+  { prefix: "r:", label: "recent", match: "recents" },
   { prefix: ">", label: "cmd", match: "commands" },
 ];
 
-function flatten_items(
+export function flatten_items(
   items_by_category: Partial<Record<AtPaletteCategory, AtPaletteItem[]>>,
 ): AtPaletteItem[] {
   const flat: AtPaletteItem[] = [];
@@ -219,6 +224,7 @@ export function dispatch_palette_queries(
   const { category, stripped_query, markdown_only } = prefix;
   if (category === "all") {
     config.on_note_query?.(query, false);
+    config.on_recents_query?.(query);
     config.on_heading_query?.(query);
     config.on_tag_query?.(query);
     config.on_cite_query?.(query);
@@ -226,6 +232,7 @@ export function dispatch_palette_queries(
   }
   if (category === "notes")
     config.on_note_query?.(stripped_query, markdown_only ?? false);
+  else if (category === "recents") config.on_recents_query?.(stripped_query);
   else if (category === "headings") config.on_heading_query?.(stripped_query);
   else if (category === "tags") config.on_tag_query?.(stripped_query);
   else if (category === "references") config.on_cite_query?.(stripped_query);
@@ -233,6 +240,7 @@ export function dispatch_palette_queries(
 
 export type AtPalettePluginConfig = {
   on_note_query?: ((query: string, markdown_only: boolean) => void) | undefined;
+  on_recents_query?: ((query: string) => void) | undefined;
   on_heading_query?: ((heading_query: string) => void) | undefined;
   on_tag_query?: ((query: string) => void) | undefined;
   on_cite_query?: ((query: string) => void) | undefined;
@@ -250,6 +258,7 @@ function create_dropdown_el(): HTMLElement {
 function item_display_text(item: AtPaletteItem): string {
   switch (item.category) {
     case "notes":
+    case "recents":
       return item.title;
     case "headings":
       return item.text;
@@ -267,6 +276,7 @@ function item_display_text(item: AtPaletteItem): string {
 function item_secondary_text(item: AtPaletteItem): string | null {
   switch (item.category) {
     case "notes":
+    case "recents":
       return item.path;
     case "headings":
       return item.note_path;
@@ -370,6 +380,7 @@ function insert_for_item(
   let text: string | null = null;
   switch (item.category) {
     case "notes":
+    case "recents":
       text = `[[${item.path}]]`;
       break;
     case "headings":

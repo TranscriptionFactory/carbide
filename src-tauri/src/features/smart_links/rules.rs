@@ -74,7 +74,10 @@ fn query_same_day(conn: &Connection, note_path: &str) -> Result<Vec<RuleHit>, St
     let sql = "
         SELECT n2.path, n2.title
         FROM notes n1
-        JOIN notes n2 ON date(n1.mtime_ms / 1000, 'unixepoch') = date(n2.mtime_ms / 1000, 'unixepoch')
+        JOIN notes n2 ON date(n1.ctime_ms / 1000, 'unixepoch') IN (
+            date(n2.ctime_ms / 1000, 'unixepoch'),
+            date(n2.mtime_ms / 1000, 'unixepoch')
+        )
         WHERE n1.path = ?1 AND n2.path != ?1
         LIMIT 50
     ";
