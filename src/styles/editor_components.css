@@ -80,7 +80,7 @@
    80ch presets, and wide mode alike without overlapping the content column. */
 .block-drag-handle {
   position: absolute;
-  left: calc(var(--editor-gutter-inline) - 1.125rem);
+  left: calc(var(--editor-gutter-inline) - 0.625rem);
   transform: translateX(-100%);
   width: auto;
   height: var(--size-touch-sm);
@@ -101,10 +101,10 @@
 .block-drag-handle::before {
   content: "";
   position: absolute;
-  top: -6px;
-  bottom: -6px;
-  left: -6px;
-  right: -0.125rem;
+  top: -4px;
+  bottom: -4px;
+  left: -4px;
+  right: -0.375rem;
 }
 
 .show-block-drag-handle .block-drag-handle {
@@ -148,8 +148,8 @@
 }
 
 .block-drag-handle__insert {
-  width: var(--size-icon-md);
-  height: var(--size-icon-md);
+  width: var(--size-icon-lg);
+  height: var(--size-icon-lg);
   border-radius: var(--radius-sm, 3px);
   cursor: pointer;
   position: relative;
@@ -188,8 +188,8 @@
 }
 
 .block-drag-handle__grip {
-  width: var(--space-2);
-  height: var(--size-icon);
+  width: var(--space-3);
+  height: var(--size-icon-lg);
   background-image: radial-gradient(
     circle,
     var(--muted-foreground) 1.2px,
