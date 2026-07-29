@@ -138,7 +138,22 @@ describe("filetree_import_external_files action", () => {
       note_path: as_note_path("projects/active/import.md"),
       custom_filename: "report.pdf",
       attachment_folder: ".assets",
+      target_folder: "projects/active",
     });
+  });
+
+  it("omits the target folder for assets dropped on the vault root", async () => {
+    const { registry, write_image_asset } = build_harness();
+
+    await import_files(
+      registry,
+      [binary_file("report.pdf", "application/pdf")],
+      "",
+    );
+
+    expect(write_image_asset.mock.calls[0]?.[1]).not.toHaveProperty(
+      "target_folder",
+    );
   });
 
   it("reports a success summary when every dropped file imports", async () => {
