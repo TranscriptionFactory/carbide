@@ -305,7 +305,7 @@ describe("callout keymap plugin — Mod-Enter fold toggle", () => {
     view.destroy();
   });
 
-  it("Cmd+Enter in non-foldable callout returns false", () => {
+  it("Cmd+Enter does not collapse a non-foldable callout", () => {
     const view = make_view(make_callout_doc("Title", "Body text"));
     select(view, 2);
 
@@ -335,6 +335,84 @@ describe("callout keymap plugin — Mod-Enter fold toggle", () => {
     expect(fire_key(view, "Enter", { metaKey: true, altKey: true })).toBe(
       false,
     );
+    expect(folded(view)).toBe(false);
+    view.destroy();
+  });
+
+  it("Cmd+Enter with a body-range selection collapses the callout and parks the caret in the title", () => {
+    const view = make_view(make_foldable_callout_doc("Title", "Body text"));
+    const body_text_start = 10;
+    view.dispatch(
+      view.state.tr.setSelection(
+        TextSelection.create(
+          view.state.doc,
+          body_text_start,
+          body_text_start + "Body text".length,
+        ),
+      ),
+    );
+
+    expect(fire_key(view, "Enter", { metaKey: true })).toBe(true);
+    expect(folded(view)).toBe(true);
+
+    const $pos = view.state.selection.$from;
+    expect($pos.parent.type.name).toBe("callout_title");
+    expect($pos.parentOffset).toBe("Title".length);
+    view.destroy();
+  });
+
+  it("Cmd+Enter with a selection spanning out of the callout is not handled", () => {
+    const title = schema.nodes.callout_title.create(null, schema.text("Title"));
+    const body = schema.nodes.callout_body.create(null, [
+      schema.nodes.paragraph.create(null, schema.text("Body text")),
+    ]);
+    const callout = schema.nodes.callout.create(
+      {
+        callout_type: "note",
+        foldable: true,
+        default_folded: false,
+        folded: false,
+      },
+      [title, body],
+    );
+    const doc = schema.nodes.doc.create(null, [
+      callout,
+      schema.nodes.paragraph.create(null, schema.text("After")),
+    ]);
+    const view = make_view(doc);
+    view.dispatch(
+      view.state.tr.setSelection(TextSelection.create(view.state.doc, 10, 24)),
+    );
+
+    expect(fire_key(view, "Enter", { metaKey: true })).toBe(false);
+    expect(folded(view)).toBe(false);
+    view.destroy();
+  });
+
+  it("Cmd+Enter with a title-range selection opens a collapsed callout", () => {
+    const view = make_view(
+      make_callout_doc("Title", "Body text", { foldable: true, folded: true }),
+    );
+    const title_start = 2;
+    const title_end = title_start + "Title".length;
+    view.dispatch(
+      view.state.tr.setSelection(
+        TextSelection.create(view.state.doc, title_start, title_end),
+      ),
+    );
+
+    expect(fire_key(view, "Enter", { metaKey: true })).toBe(true);
+    expect(folded(view)).toBe(false);
+    view.destroy();
+  });
+
+  it("Cmd+Enter opens a collapsed non-foldable callout", () => {
+    const view = make_view(
+      make_callout_doc("Title", "Body text", { foldable: false, folded: true }),
+    );
+    select(view, 2);
+
+    expect(fire_key(view, "Enter", { metaKey: true })).toBe(true);
     expect(folded(view)).toBe(false);
     view.destroy();
   });
