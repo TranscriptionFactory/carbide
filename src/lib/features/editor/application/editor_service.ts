@@ -696,6 +696,18 @@ export class EditorService {
     this.session?.delete_block?.();
   }
 
+  duplicate_block_at(pos: number) {
+    this.session?.duplicate_block_at?.(pos);
+  }
+
+  delete_block_at(pos: number) {
+    this.session?.delete_block_at?.(pos);
+  }
+
+  block_pos_at_coords(x: number, y: number): number | null {
+    return this.session?.block_pos_at_coords?.(x, y) ?? null;
+  }
+
   batch_turn_into(
     target: string,
     attrs: Record<string, unknown> | undefined,
