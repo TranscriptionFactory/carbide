@@ -117,4 +117,19 @@ describe("GraphStore", () => {
     store.set_hovered_node(null);
     expect(store.hovered_node_id).toBeNull();
   });
+
+  it("drops cluster assignments when a new vault snapshot arrives", () => {
+    const store = new GraphStore();
+
+    store.set_cluster_assignments({ "a.md": 0, "b.md": 1 });
+    expect(store.cluster_assignments).not.toBeNull();
+
+    store.set_vault_snapshot({
+      nodes: [{ path: "a.md", title: "A", group: "" }],
+      edges: [],
+      stats: { node_count: 1, edge_count: 0 },
+    });
+
+    expect(store.cluster_assignments).toBeNull();
+  });
 });
