@@ -9,7 +9,7 @@
   import ArrowUp from "@lucide/svelte/icons/arrow-up";
   import Folder from "@lucide/svelte/icons/folder";
   import FileText from "@lucide/svelte/icons/file-text";
-  import File from "@lucide/svelte/icons/file";
+  import FileIcon from "@lucide/svelte/icons/file";
   import PeekTooltip from "./peek_tooltip.svelte";
   import {
     sanitize_note_color,
@@ -17,6 +17,10 @@
   } from "$lib/features/folder/domain/note_visuals";
   import * as ContextMenu from "$lib/components/ui/context-menu";
   import EntryContextMenu from "./entry_context_menu.svelte";
+  import {
+    is_external_file_drag,
+    resolve_external_drop_folder,
+  } from "$lib/features/folder/domain/external_import";
 
   const PEEK_DELAY_MS = 500;
 
@@ -36,6 +40,7 @@
     on_reveal_in_finder,
     on_open_in_default_app,
     is_starred,
+    on_import_external_files,
   }: {
     notes: NoteMeta[];
     folder_paths: string[];
@@ -52,6 +57,9 @@
     on_reveal_in_finder?: ((path: string) => void) | undefined;
     on_open_in_default_app?: ((path: string) => void) | undefined;
     is_starred?: ((path: string) => boolean) | undefined;
+    on_import_external_files?:
+      | ((files: File[], target_folder: string) => void)
+      | undefined;
   } = $props();
 
   const listing = $derived(
@@ -104,6 +112,38 @@
     peek_visible = false;
     peek_note = null;
   }
+
+  let drag_over_target = $state<string | null>(null);
+
+  function accepts_external_drop(event: DragEvent): boolean {
+    return (
+      !!on_import_external_files &&
+      is_external_file_drag(event.dataTransfer?.types)
+    );
+  }
+
+  function handle_external_drag_over(target_folder: string, event: DragEvent) {
+    if (!accepts_external_drop(event)) return;
+    event.preventDefault();
+    event.stopPropagation();
+    drag_over_target = target_folder;
+    if (event.dataTransfer) {
+      event.dataTransfer.dropEffect = "copy";
+    }
+  }
+
+  function handle_external_drop(target_folder: string, event: DragEvent) {
+    if (!accepts_external_drop(event)) return;
+    event.preventDefault();
+    event.stopPropagation();
+    drag_over_target = null;
+    const files = Array.from(event.dataTransfer?.files ?? []).filter(
+      (file) => file.name,
+    );
+    if (files.length > 0) {
+      on_import_external_files?.(files, target_folder);
+    }
+  }
 </script>
 
 <div class="h-full flex flex-col">
@@ -118,7 +158,16 @@
     </button>
   {/if}
 
-  <div class="flex-1 overflow-auto">
+  <!-- svelte-ignore a11y_no_static_element_interactions -->
+  <div
+    class="flex-1 overflow-auto"
+    class:DrillList--drag-over={drag_over_target === current_path}
+    ondragover={(event) => handle_external_drag_over(current_path, event)}
+    ondragleave={() => {
+      if (drag_over_target === current_path) drag_over_target = null;
+    }}
+    ondrop={(event) => handle_external_drop(current_path, event)}
+  >
     {#if sorted_entries.length === 0}
       <p class="text-xs text-zinc-500 px-3 py-4 text-center">
         This folder is empty.
@@ -138,11 +187,25 @@
             <button
               type="button"
               class="DrillRow w-full flex items-center gap-2 px-3 py-1.5 text-sm text-left hover:bg-zinc-100 dark:hover:bg-zinc-900"
+              class:DrillRow--drag-over={drag_over_target === entry.path}
               style={entry_color ? `--note-color: ${entry_color};` : ""}
               ondblclick={() => activate(entry)}
               onclick={() => activate(entry)}
               onmouseenter={(e) => start_peek(entry, e)}
               onmouseleave={clear_peek}
+              ondragover={(event) =>
+                handle_external_drag_over(
+                  resolve_external_drop_folder(entry),
+                  event,
+                )}
+              ondragleave={() => {
+                if (drag_over_target === entry.path) drag_over_target = null;
+              }}
+              ondrop={(event) =>
+                handle_external_drop(
+                  resolve_external_drop_folder(entry),
+                  event,
+                )}
             >
               {#if entry_color}
                 <span class="DrillRow__color-stripe" aria-hidden="true"></span>
@@ -164,7 +227,7 @@
                   <FileText size={14} class="text-zinc-400 shrink-0" />
                 {/if}
               {:else}
-                <File size={14} class="text-zinc-400 shrink-0" />
+                <FileIcon size={14} class="text-zinc-400 shrink-0" />
               {/if}
               <span class="truncate">{entry.name}</span>
             </button>
@@ -190,6 +253,12 @@
 <style>
   .DrillRow {
     position: relative;
+  }
+  .DrillRow--drag-over,
+  .DrillList--drag-over {
+    background-color: var(--sidebar-accent);
+    outline: 1px solid var(--ring);
+    outline-offset: -1px;
   }
   .DrillRow__color-stripe {
     position: absolute;

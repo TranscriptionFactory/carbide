@@ -315,7 +315,11 @@ export class NoteService {
   async save_pasted_image(
     note_path: NotePath,
     image: PastedImagePayload,
-    options?: { custom_filename?: string; attachment_folder?: string },
+    options?: {
+      custom_filename?: string;
+      attachment_folder?: string;
+      target_folder?: string;
+    },
   ): Promise<
     | { status: "saved"; asset_path: AssetPath }
     | { status: "skipped" }
@@ -338,6 +342,9 @@ export class NoteService {
       }
       if (options?.attachment_folder) {
         input.attachment_folder = options.attachment_folder;
+      }
+      if (options?.target_folder) {
+        input.target_folder = options.target_folder;
       }
       const asset_path = await this.assets_port.write_image_asset(
         vault_id,

@@ -733,6 +733,8 @@ pub struct WriteImageAssetArgs {
     pub custom_filename: Option<String>,
     #[serde(default)]
     pub attachment_folder: Option<String>,
+    #[serde(default)]
+    pub target_folder: Option<String>,
 }
 
 fn image_extension(mime_type: &str, file_name: Option<&str>) -> String {
@@ -863,9 +865,19 @@ pub fn write_image_asset(args: WriteImageAssetArgs, app: AppHandle) -> Result<St
         )
     };
 
-    let filename = uniquify_filename(&root.join(attachment_folder), &filename);
+    let asset_dir = match args
+        .target_folder
+        .as_deref()
+        .map(str::trim)
+        .filter(|folder| !folder.is_empty())
+    {
+        Some(target_folder) => PathBuf::from(target_folder).join(attachment_folder),
+        None => PathBuf::from(attachment_folder),
+    };
 
-    let rel_path = PathBuf::from(attachment_folder).join(filename);
+    let filename = uniquify_filename(&root.join(&asset_dir), &filename);
+
+    let rel_path = asset_dir.join(filename);
     let rel = storage::normalize_relative_path(&rel_path);
     let abs = safe_vault_abs_for_write(&root, &rel)?;
 
