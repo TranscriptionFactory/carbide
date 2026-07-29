@@ -48,7 +48,7 @@ img, video, canvas, svg { max-width: 100%; }
 `;
 
 const PREVIEW_THEME_STYLES = `
-body { color: var(--foreground, #18181b); background: var(--background, #ffffff); }
+body { color: var(--editor-text, var(--foreground)); background: var(--editor-background, var(--background)); }
 `;
 
 /* Documents that carry their own colors compose against a neutral light page in

@@ -109,6 +109,17 @@ describe("preview srcdoc", () => {
     expect(doc).toContain("--chart-1:oklch(0.7 0.15 40);");
   });
 
+  it("dresses the themed surface with the editor tokens the embed path uses", () => {
+    const doc = build_code_preview_srcdoc("html", "<p>hi</p>", "dark", {
+      "--editor-background": "oklch(0.2 0 0)",
+      "--editor-text": "oklch(0.9 0 0)",
+    });
+    expect(doc).toContain(
+      "body { color: var(--editor-text, var(--foreground)); background: var(--editor-background, var(--background)); }",
+    );
+    expect(doc).not.toMatch(/#(?:18181b|ffffff)/i);
+  });
+
   it("renders author-styled html on a neutral light surface in dark theme", () => {
     const doc = build_code_preview_srcdoc(
       "html",
@@ -123,7 +134,11 @@ describe("preview srcdoc", () => {
   });
 
   it("treats a css block that sets colors as author-styled", () => {
-    const doc = build_code_preview_srcdoc("css", "body { color: red; }", "dark");
+    const doc = build_code_preview_srcdoc(
+      "css",
+      "body { color: red; }",
+      "dark",
+    );
     expect(doc).toContain("color-scheme:light");
     expect(doc).toContain("body { color: #18181b; background: #ffffff; }");
   });
