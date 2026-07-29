@@ -172,26 +172,6 @@ function spans_equal(a: RevealSpan[], b: RevealSpan[]): boolean {
   return true;
 }
 
-function find_ending_run_start(
-  $cursor: ResolvedPos,
-  mark_type: MarkType,
-): number {
-  const cursor_offset = $cursor.parentOffset;
-  const parent = $cursor.parent;
-  let current_run_start: number | null = null;
-  let offset = 0;
-  for (let i = 0; i < parent.childCount && offset < cursor_offset; i++) {
-    const child = parent.child(i);
-    if (mark_type.isInSet(child.marks)) {
-      if (current_run_start === null) current_run_start = offset;
-    } else {
-      current_run_start = null;
-    }
-    offset += child.nodeSize;
-  }
-  return $cursor.start() + (current_run_start ?? cursor_offset);
-}
-
 function find_starting_run_end(
   $cursor: ResolvedPos,
   mark_type: MarkType,
@@ -259,43 +239,25 @@ function closest_run_boundary(
 }
 
 function find_reveal_edge($cursor: ResolvedPos): RevealEdge | null {
-  const before = $cursor.nodeBefore;
-  const after = $cursor.nodeAfter;
   const cursor = $cursor.pos;
-
-  const ending = closest_run_boundary(
-    reveal_marks_only_on(before, after),
-    (m) => find_ending_run_start($cursor, m.type),
-    cursor,
-  );
-  if (ending) {
-    return {
-      mark: ending.mark,
-      from: ending.pos,
-      to: cursor,
-      orphan_at: ending.pos,
-    };
-  }
-
   const starting = closest_run_boundary(
-    reveal_marks_only_on(after, before),
+    reveal_marks_only_on($cursor.nodeAfter, $cursor.nodeBefore),
     (m) => find_starting_run_end($cursor, m.type),
     cursor,
   );
-  if (starting) {
-    return {
-      mark: starting.mark,
-      from: cursor,
-      to: starting.pos,
-      orphan_at: starting.pos,
-    };
-  }
-
-  return null;
+  if (!starting) return null;
+  return {
+    mark: starting.mark,
+    from: cursor,
+    to: starting.pos,
+    orphan_at: starting.pos,
+  };
 }
 
-// Deleting one delimiter of a pair leaves the other behind as literal text,
-// matching what Obsidian's source-level editing does.
+// Deleting a run's opening delimiter leaves the closing one behind as literal
+// text, matching what Obsidian's source-level editing does. At a run's end the
+// caret sits *before* the closing delimiter, so backspacing there deletes the
+// last character of the run — native behaviour, deliberately not intercepted.
 export function handle_reveal_backspace(
   state: EditorState,
   dispatch?: (tr: Transaction) => void,
@@ -323,6 +285,56 @@ export function handle_reveal_backspace(
           ),
         ),
     );
+  }
+  return true;
+}
+
+type RunClose = {
+  mark: Mark;
+  from: number;
+};
+
+// A multi-character closing delimiter arrives one keystroke at a time, so its
+// leading characters land inside the run as literal text; they are reclaimed
+// here once the final character completes the pair.
+function find_run_close($cursor: ResolvedPos, input: string): RunClose | null {
+  const before = $cursor.nodeBefore;
+  if (!before?.isText) return null;
+
+  for (const mark of reveal_marks_only_on(before, $cursor.nodeAfter)) {
+    const delimiter = REVEAL_DELIMITER_BY_MARK.get(mark.type.name);
+    if (!delimiter || !delimiter.endsWith(input)) continue;
+    const partial = delimiter.slice(0, delimiter.length - input.length);
+    if (partial && !(before.text ?? "").endsWith(partial)) continue;
+    return { mark, from: $cursor.pos - partial.length };
+  }
+  return null;
+}
+
+// Typing a run's closing delimiter at its end exits the run instead of
+// inserting the delimiter as text, the way source-level editing behaves.
+export function handle_reveal_text_input(
+  state: EditorState,
+  from: number,
+  to: number,
+  text: string,
+  dispatch?: (tr: Transaction) => void,
+): boolean {
+  if (!text || from !== to) return false;
+  const { selection } = state;
+  if (!(selection instanceof TextSelection)) return false;
+  const $cursor = selection.$cursor;
+  if (!$cursor || $cursor.pos !== from || $cursor.parent.type.spec.code) {
+    return false;
+  }
+
+  const close = find_run_close($cursor, text);
+  if (!close) return false;
+
+  if (dispatch) {
+    const tr = state.tr;
+    if (close.from < $cursor.pos) tr.delete(close.from, $cursor.pos);
+    dispatch(tr.removeStoredMark(close.mark.type));
   }
   return true;
 }
@@ -358,6 +370,7 @@ export function create_mark_syntax_reveal_plugin(): Plugin {
       },
       handleKeyDown(view, event) {
         if (
+          view.composing ||
           event.key !== "Backspace" ||
           event.metaKey ||
           event.ctrlKey ||
@@ -366,6 +379,16 @@ export function create_mark_syntax_reveal_plugin(): Plugin {
           return false;
         }
         return handle_reveal_backspace(view.state, view.dispatch);
+      },
+      handleTextInput(view, from, to, text) {
+        if (view.composing) return false;
+        return handle_reveal_text_input(
+          view.state,
+          from,
+          to,
+          text,
+          view.dispatch,
+        );
       },
     },
   });
