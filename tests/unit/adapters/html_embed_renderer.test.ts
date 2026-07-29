@@ -134,15 +134,40 @@ describe("build_safe_embed_srcdoc", () => {
     expect(srcdoc).not.toContain("transparent");
   });
 
-  it("neutralizes inline source backgrounds in dark theme", async () => {
+  it("never flattens author backgrounds with an !important reset", async () => {
     const srcdoc = await build_safe_embed_srcdoc({
       content: `<div style="background:#ffffff">x</div>`,
       host_file_path: "n/x.html",
       theme: "dark",
     });
-    expect(srcdoc).toContain(
-      "body :where(*) { background: transparent !important; }",
-    );
+    expect(srcdoc).not.toContain("!important");
+  });
+
+  it("renders author-styled content on a neutral light surface in dark theme", async () => {
+    const srcdoc = await build_safe_embed_srcdoc({
+      content: `<div style="background:#ffffff;color:#111111">x</div>`,
+      host_file_path: "n/x.html",
+      theme: "dark",
+      tokens: { "--editor-background": "oklch(0.2 0 0)" },
+    });
+    expect(srcdoc).toContain("color-scheme:light");
+    expect(srcdoc).not.toContain('<html class="dark">');
+    expect(srcdoc).not.toContain("--editor-background:oklch(0.2 0 0);");
+    expect(srcdoc).toContain("body { color: #18181b; background: #ffffff; }");
+    expect(srcdoc).not.toContain("var(--editor-text");
+    expect(srcdoc).toContain(`<div style="background:#ffffff;color:#111111">`);
+  });
+
+  it("keeps theme tokens for content whose author colors were sanitized away", async () => {
+    const srcdoc = await build_safe_embed_srcdoc({
+      content: `<section style="color:#111111"><p>hi</p></section>`,
+      host_file_path: "n/x.html",
+      theme: "dark",
+      tokens: { "--editor-text": "oklch(0.9 0 0)" },
+    });
+    expect(srcdoc).toContain("--editor-text:oklch(0.9 0 0);");
+    expect(srcdoc).toContain("color: var(--editor-text, var(--foreground));");
+    expect(srcdoc).not.toContain("#18181b");
   });
 
   it("keeps the token-driven body backdrop in dark theme", async () => {
@@ -158,13 +183,14 @@ describe("build_safe_embed_srcdoc", () => {
     );
   });
 
-  it("omits the dark background reset in light theme", async () => {
+  it("treats legacy bgcolor attributes as author colors", async () => {
     const srcdoc = await build_safe_embed_srcdoc({
-      content: `<p>hi</p>`,
+      content: `<table><tr><td bgcolor="#eeeeee">cell</td></tr></table>`,
       host_file_path: "n/x.html",
-      theme: "light",
+      theme: "dark",
     });
-    expect(srcdoc).not.toContain("background: transparent !important");
+    expect(srcdoc).toContain("color-scheme:light");
+    expect(srcdoc).toContain("body { color: #18181b; background: #ffffff; }");
   });
 
   it("carries no hardcoded color literals in the embed styles", async () => {
