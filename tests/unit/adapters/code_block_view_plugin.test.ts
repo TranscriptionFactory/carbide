@@ -2,6 +2,7 @@
  * @vitest-environment jsdom
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { invoke } from "@tauri-apps/api/core";
 import { EditorState, TextSelection } from "prosemirror-state";
 import { EditorView } from "prosemirror-view";
 import type { Node as ProseNode } from "prosemirror-model";
@@ -17,6 +18,12 @@ import {
 import type { QueryResult } from "$lib/features/query";
 import type { SmartBlockContext } from "$lib/features/smart_blocks";
 import type { Task } from "$lib/features/task";
+
+vi.mock("@tauri-apps/api/core", () => ({
+  invoke: vi.fn((cmd: string) =>
+    Promise.resolve(cmd === "html_live_register" ? "carbide-html://p" : null),
+  ),
+}));
 
 function make_task(overrides: Partial<Task> = {}): Task {
   return {
@@ -1019,6 +1026,108 @@ describe("CodeBlockView", () => {
 
       await vi.runAllTimersAsync();
       expect(c.querySelectorAll(".task-query-item").length).toBe(1);
+
+      view.destroy();
+    });
+  });
+
+  describe("html preview theme sync", () => {
+    function create_editor_with_html_preview(): {
+      view: EditorView;
+      container: HTMLElement;
+    } {
+      const container_el = document.createElement("div");
+      document.body.appendChild(container_el);
+      const code_block = schema.nodes.code_block.create(
+        { language: "html", meta: "preview" },
+        schema.text("<p>hi</p>"),
+      );
+      const doc = schema.nodes.doc.create(null, [code_block]);
+      const plugin = create_code_block_view_prose_plugin();
+      const state = EditorState.create({ doc, plugins: [plugin] });
+      const view = new EditorView(container_el, {
+        state,
+        dispatchTransaction: (tr) => {
+          view.updateState(view.state.apply(tr));
+        },
+      });
+      return { view, container: container_el };
+    }
+
+    function rendered_docs(): string[] {
+      return vi
+        .mocked(invoke)
+        .mock.calls.filter(([cmd]) => cmd === "html_live_register")
+        .map(([, args]) => (args as { html: string }).html);
+    }
+
+    async function set_color_scheme(scheme: string): Promise<void> {
+      document.documentElement.setAttribute("data-color-scheme", scheme);
+      await vi.runAllTimersAsync();
+    }
+
+    beforeEach(() => {
+      vi.mocked(invoke).mockClear();
+    });
+
+    afterEach(() => {
+      document.documentElement.removeAttribute("data-color-scheme");
+    });
+
+    it("re-renders the preview when the app theme changes", async () => {
+      const { view, container: c } = create_editor_with_html_preview();
+      container = c;
+
+      await vi.runAllTimersAsync();
+      expect(rendered_docs()).toHaveLength(1);
+      expect(rendered_docs()[0]).toContain("color-scheme:light");
+
+      await set_color_scheme("dark");
+
+      expect(rendered_docs()).toHaveLength(2);
+      expect(rendered_docs()[1]).toContain("color-scheme:dark");
+
+      view.destroy();
+    });
+
+    it("does not re-render for unrelated attribute changes", async () => {
+      const { view, container: c } = create_editor_with_html_preview();
+      container = c;
+
+      await vi.runAllTimersAsync();
+      document.documentElement.setAttribute("data-density", "compact");
+      await vi.runAllTimersAsync();
+
+      expect(rendered_docs()).toHaveLength(1);
+
+      document.documentElement.removeAttribute("data-density");
+      view.destroy();
+    });
+
+    it("stops observing the theme once the view is destroyed", async () => {
+      const { view, container: c } = create_editor_with_html_preview();
+      container = c;
+
+      await vi.runAllTimersAsync();
+      view.destroy();
+
+      await set_color_scheme("dark");
+
+      expect(rendered_docs()).toHaveLength(1);
+    });
+
+    it("stops observing the theme once the language changes away", async () => {
+      const { view, container: c } = create_editor_with_html_preview();
+      container = c;
+
+      await vi.runAllTimersAsync();
+      view.dispatch(
+        view.state.tr.setNodeMarkup(0, undefined, { language: "rust" }),
+      );
+
+      await set_color_scheme("dark");
+
+      expect(rendered_docs()).toHaveLength(1);
 
       view.destroy();
     });

@@ -222,6 +222,7 @@ type HtmlPreviewState = {
   last_rendered_theme: string;
   live_url: string | null;
   render_seq: number;
+  theme_observer: MutationObserver;
 };
 
 function mermaid_cache_key(code: string): string {
@@ -557,6 +558,14 @@ class CodeBlockView implements NodeView {
       "preview",
     );
 
+    const theme_observer = new MutationObserver(() => {
+      if (this.html_preview?.is_preview) this.render_html_preview();
+    });
+    theme_observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["data-color-scheme"],
+    });
+
     this.html_preview = {
       is_preview: show,
       container,
@@ -567,6 +576,7 @@ class CodeBlockView implements NodeView {
       last_rendered_theme: "",
       live_url: null,
       render_seq: 0,
+      theme_observer,
     };
     this.apply_html_preview_state();
     if (show) this.render_html_preview();
@@ -657,6 +667,7 @@ class CodeBlockView implements NodeView {
   private teardown_html_preview() {
     if (!this.html_preview) return;
     clearTimeout(this.preview_timer);
+    this.html_preview.theme_observer.disconnect();
     this.html_preview.render_seq++;
     if (this.html_preview.live_url) {
       void invoke("html_live_release", { url: this.html_preview.live_url });
