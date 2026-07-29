@@ -70,9 +70,21 @@ describe("resolve_external_drop_folder", () => {
     ).toBe("projects/docs");
   });
 
-  it("targets the vault root for file nodes and empty space", () => {
+  it("targets the containing folder when dropping on a file node", () => {
     expect(
       resolve_external_drop_folder({ is_folder: false, path: "a/note.md" }),
+    ).toBe("a");
+    expect(
+      resolve_external_drop_folder({
+        is_folder: false,
+        path: "projects/docs/spec.pdf",
+      }),
+    ).toBe("projects/docs");
+  });
+
+  it("targets the vault root for root-level files and empty space", () => {
+    expect(
+      resolve_external_drop_folder({ is_folder: false, path: "note.md" }),
     ).toBe("");
     expect(resolve_external_drop_folder(null)).toBe("");
   });
