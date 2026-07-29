@@ -127,7 +127,9 @@ export function register_clip_actions(input: ActionRegistrationInput) {
       if (vault_id) {
         void services.note
           .list_all_folders(vault_id)
-          .then((folders) => stores.notes.set_folder_paths(folders))
+          .then((folders) => {
+            stores.notes.set_folder_paths(folders);
+          })
           .catch(() => {});
       }
     },
