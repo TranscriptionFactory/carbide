@@ -591,7 +591,7 @@ export function register_folder_actions(input: ActionRegistrationInput) {
             mime_type: file.type || "application/octet-stream",
             file_name: file.name,
           },
-          { custom_filename: file.name, attachment_folder },
+          { custom_filename: file.name, attachment_folder, target_folder },
         );
         if (result.status === "saved") {
           imported += 1;
@@ -626,15 +626,8 @@ export function register_folder_actions(input: ActionRegistrationInput) {
     );
     const assets = await import_dropped_assets(asset_files, target_folder);
 
-    const paths_to_clear = new Set<string>();
-    if (markdown.imported > 0) {
-      paths_to_clear.add(target_folder);
-    }
-    if (assets.imported > 0) {
-      paths_to_clear.add("");
-    }
-    if (paths_to_clear.size > 0) {
-      batch_clear_folder_filetree_state(input, paths_to_clear);
+    if (markdown.imported > 0 || assets.imported > 0) {
+      batch_clear_folder_filetree_state(input, [target_folder]);
     }
 
     const counts: ExternalImportCounts = {
