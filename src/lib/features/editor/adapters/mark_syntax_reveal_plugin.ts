@@ -172,26 +172,6 @@ function spans_equal(a: RevealSpan[], b: RevealSpan[]): boolean {
   return true;
 }
 
-function find_ending_run_start(
-  $cursor: ResolvedPos,
-  mark_type: MarkType,
-): number {
-  const cursor_offset = $cursor.parentOffset;
-  const parent = $cursor.parent;
-  let current_run_start: number | null = null;
-  let offset = 0;
-  for (let i = 0; i < parent.childCount && offset < cursor_offset; i++) {
-    const child = parent.child(i);
-    if (mark_type.isInSet(child.marks)) {
-      if (current_run_start === null) current_run_start = offset;
-    } else {
-      current_run_start = null;
-    }
-    offset += child.nodeSize;
-  }
-  return $cursor.start() + (current_run_start ?? cursor_offset);
-}
-
 function find_starting_run_end(
   $cursor: ResolvedPos,
   mark_type: MarkType,
@@ -259,43 +239,25 @@ function closest_run_boundary(
 }
 
 function find_reveal_edge($cursor: ResolvedPos): RevealEdge | null {
-  const before = $cursor.nodeBefore;
-  const after = $cursor.nodeAfter;
   const cursor = $cursor.pos;
-
-  const ending = closest_run_boundary(
-    reveal_marks_only_on(before, after),
-    (m) => find_ending_run_start($cursor, m.type),
-    cursor,
-  );
-  if (ending) {
-    return {
-      mark: ending.mark,
-      from: ending.pos,
-      to: cursor,
-      orphan_at: ending.pos,
-    };
-  }
-
   const starting = closest_run_boundary(
-    reveal_marks_only_on(after, before),
+    reveal_marks_only_on($cursor.nodeAfter, $cursor.nodeBefore),
     (m) => find_starting_run_end($cursor, m.type),
     cursor,
   );
-  if (starting) {
-    return {
-      mark: starting.mark,
-      from: cursor,
-      to: starting.pos,
-      orphan_at: starting.pos,
-    };
-  }
-
-  return null;
+  if (!starting) return null;
+  return {
+    mark: starting.mark,
+    from: cursor,
+    to: starting.pos,
+    orphan_at: starting.pos,
+  };
 }
 
-// Deleting one delimiter of a pair leaves the other behind as literal text,
-// matching what Obsidian's source-level editing does.
+// Deleting a run's opening delimiter leaves the closing one behind as literal
+// text, matching what Obsidian's source-level editing does. At a run's end the
+// caret sits *before* the closing delimiter, so backspacing there deletes the
+// last character of the run — native behaviour, deliberately not intercepted.
 export function handle_reveal_backspace(
   state: EditorState,
   dispatch?: (tr: Transaction) => void,
