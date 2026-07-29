@@ -10,6 +10,10 @@
   } from "$lib/features/graph/domain/vault_graph_renderer";
   import { compute_degradation_profile } from "$lib/features/graph/domain/graph_degrade";
   import { matches_filter } from "$lib/features/graph/domain/graph_filter";
+  import {
+    grouping_forces,
+    resolve_group,
+  } from "$lib/features/graph/domain/graph_grouping";
   import { radial_layout } from "$lib/features/graph/domain/radial_layout";
   import GraphWorker from "$lib/features/graph/domain/vault_graph_worker?worker&inline";
   import { rule_chip_label } from "$lib/features/smart_links";
@@ -32,6 +36,7 @@
     show_smart_link_edges: boolean;
     theme?: Theme;
     group_mode?: GraphGroupMode;
+    cluster_assignments?: Record<string, number> | null;
     on_select_node: (node_id: string) => void;
     on_hover_node: (node_id: string | null) => void;
     on_open_node: (path: string) => void;
@@ -70,6 +75,7 @@
     on_export_canvas,
     on_clusters_computed,
     group_mode = "folder",
+    cluster_assignments = null,
     focus_node_path = null,
     on_exit_focus,
     force_params,
@@ -93,6 +99,10 @@
     context_menu = null;
   }
 
+  function node_group(n: VaultGraphSnapshot["nodes"][number]) {
+    return resolve_group(n.path, n.group, group_mode, cluster_assignments);
+  }
+
   function plain_nodes(snap: VaultGraphSnapshot) {
     return snap.nodes.map((n) => {
       const base: {
@@ -107,7 +117,8 @@
       };
       if (n.kind != null) base.kind = n.kind;
       if (n.score != null) base.score = n.score;
-      if (n.group != null) base.group = n.group;
+      const group = node_group(n);
+      if (group != null) base.group = group;
       return base;
     });
   }
@@ -192,19 +203,13 @@
       nodes: snap.nodes.map((n) => ({
         id: n.path,
         kind: n.kind,
-        group: n.group,
+        group: node_group(n),
         label_len: n.title.length,
       })),
       edges,
       force_params,
-      compute_clusters: group_mode === "cluster",
-      grouping: has_search_meta
-        ? {
-            mode: "both" as const,
-            folder_strength: 0.3,
-            hit_center_strength: 0.15,
-          }
-        : undefined,
+      compute_clusters: group_mode === "cluster" && cluster_assignments == null,
+      grouping: grouping_forces(group_mode, has_search_meta),
     });
   }
 
@@ -267,11 +272,13 @@
   // Re-feed graph data when snapshot changes (e.g. new search query)
   let last_snapshot_ref: VaultGraphSnapshot | null = null;
   let last_group_mode: GraphGroupMode | null = null;
+  let last_cluster_assignments: Record<string, number> | null = null;
   $effect(() => {
     if (!renderer_ready || !renderer) return;
     if (snapshot === last_snapshot_ref) return;
     last_snapshot_ref = snapshot;
     last_group_mode = group_mode;
+    last_cluster_assignments = cluster_assignments;
     feed_graph(renderer, snapshot);
   });
 
@@ -279,6 +286,17 @@
     if (!renderer_ready || !renderer || !last_snapshot_ref) return;
     if (group_mode === last_group_mode) return;
     last_group_mode = group_mode;
+    last_cluster_assignments = cluster_assignments;
+    feed_graph(renderer, snapshot);
+  });
+
+  // Clusters arrive from the worker after the first layout; relaying them back
+  // as node groups re-runs the simulation once with cluster forces and tints.
+  $effect(() => {
+    if (!renderer_ready || !renderer || !last_snapshot_ref) return;
+    if (cluster_assignments === last_cluster_assignments) return;
+    last_cluster_assignments = cluster_assignments;
+    if (group_mode !== "cluster") return;
     feed_graph(renderer, snapshot);
   });
 
