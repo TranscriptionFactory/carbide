@@ -201,4 +201,24 @@ describe("create_graph_remark_adapter", () => {
       target: "a.md",
     });
   });
+
+  it("groups vault graph nodes by their containing folder", async () => {
+    const docs = [
+      make_doc("projects/alpha.md", ""),
+      make_doc("projects/beta.md", ""),
+      make_doc("journal/2026/entry.md", ""),
+      make_doc("root.md", ""),
+    ];
+    const port = make_notes_port(docs);
+    const read_raw = make_read_raw(docs);
+
+    const adapter = create_graph_remark_adapter(port, read_raw);
+    const snapshot = await adapter.load_vault_graph(VAULT_ID);
+
+    const groups = new Map(snapshot.nodes.map((n) => [n.path, n.group]));
+    expect(groups.get("projects/alpha.md")).toBe("projects");
+    expect(groups.get("projects/beta.md")).toBe("projects");
+    expect(groups.get("journal/2026/entry.md")).toBe("journal/2026");
+    expect(groups.get("root.md")).toBe("");
+  });
 });
