@@ -19,6 +19,26 @@ function take_distinct(
   return out;
 }
 
+function local_day_start(ms: number): number {
+  const date = new Date(ms);
+  date.setHours(0, 0, 0, 0);
+  return date.getTime();
+}
+
+export function collect_same_day_notes(
+  anchor: NoteMeta,
+  notes: NoteMeta[],
+  limit: number,
+): NoteMeta[] {
+  const anchor_day = local_day_start(anchor.ctime_ms);
+  const same_day = notes.filter(
+    (note) =>
+      local_day_start(note.ctime_ms) === anchor_day ||
+      local_day_start(note.mtime_ms) === anchor_day,
+  );
+  return take_distinct(same_day, [anchor.path], limit);
+}
+
 export function collect_shared_tag_notes(
   tag_note_paths: string[],
   exclude: Iterable<string>,
