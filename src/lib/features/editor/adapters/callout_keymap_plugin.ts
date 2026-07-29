@@ -105,6 +105,13 @@ function backspace_in_callout_title(
   return true;
 }
 
+function selection_in_callout_title(selection: TextSelection): boolean {
+  return (
+    selection.$from.parent.type === schema.nodes.callout_title &&
+    selection.$to.parent.type === schema.nodes.callout_title
+  );
+}
+
 function toggle_callout_fold(view: EditorView, $pos: ResolvedPos): boolean {
   if ($pos.parent.type === schema.nodes.code_block) return false;
 
@@ -112,12 +119,13 @@ function toggle_callout_fold(view: EditorView, $pos: ResolvedPos): boolean {
   if (callout_depth === -1) return false;
 
   const callout_node = $pos.node(callout_depth);
-  if (!callout_node.attrs["foldable"]) return false;
+  const folded = Boolean(callout_node.attrs["folded"]);
+  if (!folded && !callout_node.attrs["foldable"]) return false;
 
   const callout_pos = $pos.before(callout_depth);
   const tr = view.state.tr.setNodeMarkup(callout_pos, null, {
     ...callout_node.attrs,
-    folded: !callout_node.attrs["folded"],
+    folded: !folded,
   });
   view.dispatch(tr);
   return true;
@@ -160,13 +168,17 @@ export function create_callout_keymap_prose_plugin(): Plugin {
       handleKeyDown(view, event) {
         const { selection } = view.state;
         if (!(selection instanceof TextSelection)) return false;
+
+        if (is_mod_enter(event)) {
+          if (!selection.empty && !selection_in_callout_title(selection)) {
+            return false;
+          }
+          return toggle_callout_fold(view, selection.$from);
+        }
+
         if (!selection.empty) return false;
 
         const $pos = selection.$from;
-
-        if (is_mod_enter(event)) {
-          return toggle_callout_fold(view, $pos);
-        }
 
         if ($pos.parent.type === schema.nodes.callout_title) {
           if (event.key === "Enter") {
