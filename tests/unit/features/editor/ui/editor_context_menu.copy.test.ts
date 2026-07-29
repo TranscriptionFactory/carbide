@@ -2,13 +2,6 @@
  * @vitest-environment jsdom
  */
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createRawSnippet } from "svelte";
-import {
-  flushSync,
-  mount,
-  unmount,
-} from "../../../helpers/svelte_client_runtime";
-import { set_mock_app_context } from "../../../helpers/mock_app_context";
 
 vi.mock(
   "$lib/app/context/app_context.svelte",
@@ -19,52 +12,9 @@ vi.mock(
   async () => import("../../../helpers/ui_stubs/context_menu_full"),
 );
 
-import EditorContextMenu from "$lib/features/editor/ui/editor_context_menu.svelte";
+import { render_editor_context_menu } from "../../../helpers/editor_context_menu_harness";
 
 const payload = { html: '<p data-pm-slice="0 0 []">x</p>', text: "x" };
-
-function build_context(block_selection: Set<number>) {
-  const copy_blocks_payload = vi.fn(() => payload);
-  const copy_rich = vi.fn(async () => {});
-  const execute = vi.fn(async () => {});
-  set_mock_app_context({
-    stores: {
-      ui: { editor_settings: { markdown_lsp_provider: "none" } },
-      markdown_lsp: { status: "idle", transform_actions: [] },
-    },
-    action_registry: { execute },
-    services: {
-      editor: {
-        get_block_selection: () => block_selection,
-        copy_blocks_payload,
-      },
-      clipboard: { copy_rich },
-    },
-  } as never);
-  return { copy_blocks_payload, copy_rich };
-}
-
-function render(block_selection: Set<number>) {
-  const target = document.createElement("div");
-  document.body.appendChild(target);
-  const ctx = build_context(block_selection);
-  const app = mount(EditorContextMenu, {
-    target,
-    props: {
-      children: createRawSnippet(() => ({ render: () => "<span></span>" })),
-    },
-  });
-  flushSync();
-  return { ...ctx, cleanup: () => unmount(app) };
-}
-
-function click_copy() {
-  const copy = Array.from(
-    document.querySelectorAll<HTMLButtonElement>("button"),
-  ).find((b) => b.textContent?.trim().startsWith("Copy"));
-  copy?.click();
-  flushSync();
-}
 
 afterEach(() => {
   document.body.innerHTML = "";
@@ -72,33 +22,35 @@ afterEach(() => {
 });
 
 describe("editor_context_menu copy routing", () => {
-  it("routes a single-block selection through the clipboard service, not execCommand", () => {
+  it("copies the selection snapshotted when the menu opened", () => {
     const exec = vi.fn(() => true);
     document.execCommand = exec as never;
-    const view = render(new Set([0]));
+    const menu = render_editor_context_menu({ payload });
 
-    click_copy();
+    menu.state.block_selection = new Set([0]);
+    menu.right_click();
+    menu.click_item("Copy");
 
-    expect(view.copy_blocks_payload).toHaveBeenCalledTimes(1);
-    expect(view.copy_blocks_payload).toHaveBeenCalledWith(new Set([0]));
-    expect(view.copy_rich).toHaveBeenCalledTimes(1);
-    expect(view.copy_rich).toHaveBeenCalledWith(payload);
+    expect(menu.editor.copy_blocks_payload).toHaveBeenCalledTimes(1);
+    expect(menu.editor.copy_blocks_payload).toHaveBeenCalledWith(new Set([0]));
+    expect(menu.clipboard.copy_rich).toHaveBeenCalledWith(payload);
     expect(exec).not.toHaveBeenCalled();
 
-    view.cleanup();
+    menu.cleanup();
   });
 
-  it("falls back to execCommand when no block is selected", () => {
+  it("falls back to execCommand when nothing is selected", () => {
     const exec = vi.fn(() => true);
     document.execCommand = exec as never;
-    const view = render(new Set());
+    const menu = render_editor_context_menu({ payload });
 
-    click_copy();
+    menu.right_click();
+    menu.click_item("Copy");
 
-    expect(view.copy_blocks_payload).not.toHaveBeenCalled();
-    expect(view.copy_rich).not.toHaveBeenCalled();
+    expect(menu.editor.copy_blocks_payload).not.toHaveBeenCalled();
+    expect(menu.clipboard.copy_rich).not.toHaveBeenCalled();
     expect(exec).toHaveBeenCalledWith("copy");
 
-    view.cleanup();
+    menu.cleanup();
   });
 });

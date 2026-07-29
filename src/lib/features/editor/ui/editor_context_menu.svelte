@@ -14,9 +14,19 @@
       stores.markdown_lsp.status === "running",
   );
 
-  const block_selection = $derived(services.editor.get_block_selection());
+  let block_selection = $state(new Set<number>());
+  let target_block_pos = $state<number | null>(null);
+
   const selection_count = $derived(block_selection.size);
   const has_multi_selection = $derived(selection_count > 1);
+
+  function capture_context_target(event: MouseEvent) {
+    target_block_pos = services.editor.block_pos_at_coords(
+      event.clientX,
+      event.clientY,
+    );
+    block_selection = services.editor.get_block_selection();
+  }
 
   const turn_into_items = [
     { id: ACTION_IDS.editor_turn_into_paragraph, label: "Paragraph" },
@@ -117,23 +127,34 @@
     if (has_multi_selection) {
       services.editor.batch_duplicate(block_selection);
       services.editor.clear_block_selection();
-    } else {
-      execute(ACTION_IDS.editor_duplicate_block);
+      return;
     }
+    if (target_block_pos != null) {
+      services.editor.duplicate_block_at(target_block_pos);
+      return;
+    }
+    execute(ACTION_IDS.editor_duplicate_block);
   }
 
   function handle_delete() {
     if (has_multi_selection) {
       services.editor.batch_delete(block_selection);
       services.editor.clear_block_selection();
-    } else {
-      execute(ACTION_IDS.editor_delete_block);
+      return;
     }
+    if (target_block_pos != null) {
+      services.editor.delete_block_at(target_block_pos);
+      return;
+    }
+    execute(ACTION_IDS.editor_delete_block);
   }
 </script>
 
 <ContextMenu.Root>
-  <ContextMenu.Trigger class="w-full h-full">
+  <ContextMenu.Trigger
+    class="w-full h-full"
+    oncontextmenu={capture_context_target}
+  >
     {@render children()}
   </ContextMenu.Trigger>
   <ContextMenu.Portal>
