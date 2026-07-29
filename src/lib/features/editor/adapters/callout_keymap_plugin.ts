@@ -105,11 +105,14 @@ function backspace_in_callout_title(
   return true;
 }
 
-function selection_in_callout_title(selection: TextSelection): boolean {
-  return (
-    selection.$from.parent.type === schema.nodes.callout_title &&
-    selection.$to.parent.type === schema.nodes.callout_title
-  );
+function callout_pos_at($pos: ResolvedPos): number {
+  const depth = find_callout_depth($pos);
+  return depth === -1 ? -1 : $pos.before(depth);
+}
+
+function selection_within_callout(selection: TextSelection): boolean {
+  const start = callout_pos_at(selection.$from);
+  return start !== -1 && start === callout_pos_at(selection.$to);
 }
 
 function toggle_callout_fold(view: EditorView, $pos: ResolvedPos): boolean {
@@ -127,6 +130,13 @@ function toggle_callout_fold(view: EditorView, $pos: ResolvedPos): boolean {
     ...callout_node.attrs,
     folded: !folded,
   });
+
+  if (!folded) {
+    const title_end = callout_pos + 2 + callout_node.child(0).content.size;
+    tr.setSelection(TextSelection.create(tr.doc, title_end));
+    tr.scrollIntoView();
+  }
+
   view.dispatch(tr);
   return true;
 }
@@ -170,7 +180,7 @@ export function create_callout_keymap_prose_plugin(): Plugin {
         if (!(selection instanceof TextSelection)) return false;
 
         if (is_mod_enter(event)) {
-          if (!selection.empty && !selection_in_callout_title(selection)) {
+          if (!selection.empty && !selection_within_callout(selection)) {
             return false;
           }
           return toggle_callout_fold(view, selection.$from);
