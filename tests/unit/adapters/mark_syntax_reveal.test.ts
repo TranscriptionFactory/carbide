@@ -112,12 +112,19 @@ function as_view(editor: TestEditor): EditorView {
 
 function type_text(editor: TestEditor, text: string): boolean {
   const { from, to } = editor.state.selection;
+  const deflt = () => editor.state.tr.insertText(text, from, to);
   for (const plugin of editor.state.plugins) {
-    if (plugin.props.handleTextInput?.(as_view(editor), from, to, text)) {
-      return true;
-    }
+    const handled = plugin.props.handleTextInput?.call(
+      plugin,
+      as_view(editor),
+      from,
+      to,
+      text,
+      deflt,
+    );
+    if (handled) return true;
   }
-  editor.dispatch(editor.state.tr.insertText(text));
+  editor.dispatch(deflt());
   return false;
 }
 
@@ -130,7 +137,9 @@ function press_backspace(editor: TestEditor): boolean {
     shiftKey: false,
   } as KeyboardEvent;
   for (const plugin of editor.state.plugins) {
-    if (plugin.props.handleKeyDown?.(as_view(editor), event)) return true;
+    if (plugin.props.handleKeyDown?.call(plugin, as_view(editor), event)) {
+      return true;
+    }
   }
   return false;
 }
