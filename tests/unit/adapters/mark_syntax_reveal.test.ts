@@ -366,6 +366,16 @@ describe("backspace at span end deletes a character", () => {
     expect(tr).toBeNull();
   });
 
+  it("ignores backspace at a run start during IME composition", () => {
+    const editor = make_editor([{ text: "run", marks: ["code_inline"] }], 1, {
+      composing: true,
+    });
+
+    expect(press_backspace(editor)).toBe(false);
+    expect(editor.state.doc.textContent).toBe("run");
+    expect(text_marked_with(editor.state.doc, "code_inline")).toBe("run");
+  });
+
   it("restores the literal text when backspace follows an input rule", () => {
     const editor = make_editor([{ text: "**bold*" }], 8);
     expect(type_text(editor, "*")).toBe(true);
@@ -493,6 +503,16 @@ describe("typing the closing delimiter exits the run", () => {
     expect(editor.state.doc.textContent).toBe("bo*ld");
     expect(text_marked_with(editor.state.doc, "strong")).toBe("bo*ld");
     expect(caret_mark_names(editor.state)).toContain("strong");
+  });
+
+  it("inserts the delimiter literally during IME composition", () => {
+    const editor = make_editor([{ text: "run", marks: ["code_inline"] }], 4, {
+      composing: true,
+    });
+
+    expect(type_text(editor, "`")).toBe(false);
+    expect(editor.state.doc.textContent).toBe("run`");
+    expect(text_marked_with(editor.state.doc, "code_inline")).toBe("run`");
   });
 
   it("leaves no delimiters behind after a bold hotkey round trip", () => {
