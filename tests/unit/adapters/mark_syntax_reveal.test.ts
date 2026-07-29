@@ -4,6 +4,7 @@ import type { Transaction } from "prosemirror-state";
 import type { Node as ProseNode } from "prosemirror-model";
 import type { EditorView } from "prosemirror-view";
 import { keymap } from "prosemirror-keymap";
+import { toggleMark } from "prosemirror-commands";
 import { undoInputRule } from "prosemirror-inputrules";
 import { schema } from "$lib/features/editor/adapters/schema";
 import {
@@ -444,5 +445,66 @@ describe("backspace at span start removes the mark", () => {
     expect(next.doc.textContent).toBe("hithere==");
     expect(mark_names_in(next.doc).has("highlight")).toBe(false);
     expect(text_marked_with(next.doc, "strong")).toBe("hi");
+  });
+});
+
+describe("typing the closing delimiter exits the run", () => {
+  const single_character: Array<[string, string]> = [
+    ["em", "*"],
+    ["code_inline", "`"],
+  ];
+
+  for (const [mark_name, delimiter] of single_character) {
+    it(`exits ${mark_name} on a single ${delimiter}`, () => {
+      const editor = make_editor([{ text: "run", marks: [mark_name] }], 4);
+
+      expect(type_text(editor, delimiter)).toBe(true);
+      expect(editor.state.doc.textContent).toBe("run");
+      expect(text_marked_with(editor.state.doc, mark_name)).toBe("run");
+      expect(caret_mark_names(editor.state)).not.toContain(mark_name);
+    });
+  }
+
+  const two_character: Array<[string, string]> = [
+    ["strong", "*"],
+    ["strikethrough", "~"],
+    ["highlight", "="],
+  ];
+
+  for (const [mark_name, half] of two_character) {
+    it(`exits ${mark_name} once a second ${half} completes the pair`, () => {
+      const editor = make_editor([{ text: "run", marks: [mark_name] }], 4);
+
+      expect(type_text(editor, half)).toBe(false);
+      expect(editor.state.doc.textContent).toBe(`run${half}`);
+      expect(text_marked_with(editor.state.doc, mark_name)).toBe(`run${half}`);
+
+      expect(type_text(editor, half)).toBe(true);
+      expect(editor.state.doc.textContent).toBe("run");
+      expect(text_marked_with(editor.state.doc, mark_name)).toBe("run");
+      expect(caret_mark_names(editor.state)).not.toContain(mark_name);
+    });
+  }
+
+  it("keeps the run when a literal * is typed mid-run", () => {
+    const editor = make_editor([{ text: "bold", marks: ["strong"] }], 3);
+
+    expect(type_text(editor, "*")).toBe(false);
+    expect(editor.state.doc.textContent).toBe("bo*ld");
+    expect(text_marked_with(editor.state.doc, "strong")).toBe("bo*ld");
+    expect(caret_mark_names(editor.state)).toContain("strong");
+  });
+
+  it("leaves no delimiters behind after a bold hotkey round trip", () => {
+    const editor = make_editor([{ text: "hi" }], 3);
+    const strong = schema.marks.strong;
+
+    toggleMark(strong)(editor.state, editor.dispatch);
+    type_text(editor, "b");
+    toggleMark(strong)(editor.state, editor.dispatch);
+    type_text(editor, "c");
+
+    expect(editor.state.doc.textContent).toBe("hibc");
+    expect(text_marked_with(editor.state.doc, "strong")).toBe("b");
   });
 });

@@ -289,6 +289,56 @@ export function handle_reveal_backspace(
   return true;
 }
 
+type RunClose = {
+  mark: Mark;
+  from: number;
+};
+
+// A multi-character closing delimiter arrives one keystroke at a time, so its
+// leading characters land inside the run as literal text; they are reclaimed
+// here once the final character completes the pair.
+function find_run_close($cursor: ResolvedPos, input: string): RunClose | null {
+  const before = $cursor.nodeBefore;
+  if (!before?.isText) return null;
+
+  for (const mark of reveal_marks_only_on(before, $cursor.nodeAfter)) {
+    const delimiter = REVEAL_DELIMITER_BY_MARK.get(mark.type.name);
+    if (!delimiter || !delimiter.endsWith(input)) continue;
+    const partial = delimiter.slice(0, delimiter.length - input.length);
+    if (partial && !(before.text ?? "").endsWith(partial)) continue;
+    return { mark, from: $cursor.pos - partial.length };
+  }
+  return null;
+}
+
+// Typing a run's closing delimiter at its end exits the run instead of
+// inserting the delimiter as text, the way source-level editing behaves.
+export function handle_reveal_text_input(
+  state: EditorState,
+  from: number,
+  to: number,
+  text: string,
+  dispatch?: (tr: Transaction) => void,
+): boolean {
+  if (!text || from !== to) return false;
+  const { selection } = state;
+  if (!(selection instanceof TextSelection)) return false;
+  const $cursor = selection.$cursor;
+  if (!$cursor || $cursor.pos !== from || $cursor.parent.type.spec.code) {
+    return false;
+  }
+
+  const close = find_run_close($cursor, text);
+  if (!close) return false;
+
+  if (dispatch) {
+    const tr = state.tr;
+    if (close.from < $cursor.pos) tr.delete(close.from, $cursor.pos);
+    dispatch(tr.removeStoredMark(close.mark.type));
+  }
+  return true;
+}
+
 export function create_mark_syntax_reveal_plugin(): Plugin {
   return new Plugin<MarkSyntaxRevealState>({
     key: mark_syntax_reveal_plugin_key,
@@ -328,6 +378,15 @@ export function create_mark_syntax_reveal_plugin(): Plugin {
           return false;
         }
         return handle_reveal_backspace(view.state, view.dispatch);
+      },
+      handleTextInput(view, from, to, text) {
+        return handle_reveal_text_input(
+          view.state,
+          from,
+          to,
+          text,
+          view.dispatch,
+        );
       },
     },
   });
