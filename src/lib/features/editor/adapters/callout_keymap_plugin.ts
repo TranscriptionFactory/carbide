@@ -105,6 +105,16 @@ function backspace_in_callout_title(
   return true;
 }
 
+function callout_pos_at($pos: ResolvedPos): number {
+  const depth = find_callout_depth($pos);
+  return depth === -1 ? -1 : $pos.before(depth);
+}
+
+function selection_within_callout(selection: TextSelection): boolean {
+  const start = callout_pos_at(selection.$from);
+  return start !== -1 && start === callout_pos_at(selection.$to);
+}
+
 function toggle_callout_fold(view: EditorView, $pos: ResolvedPos): boolean {
   if ($pos.parent.type === schema.nodes.code_block) return false;
 
@@ -112,13 +122,21 @@ function toggle_callout_fold(view: EditorView, $pos: ResolvedPos): boolean {
   if (callout_depth === -1) return false;
 
   const callout_node = $pos.node(callout_depth);
-  if (!callout_node.attrs["foldable"]) return false;
+  const folded = Boolean(callout_node.attrs["folded"]);
+  if (!folded && !callout_node.attrs["foldable"]) return false;
 
   const callout_pos = $pos.before(callout_depth);
   const tr = view.state.tr.setNodeMarkup(callout_pos, null, {
     ...callout_node.attrs,
-    folded: !callout_node.attrs["folded"],
+    folded: !folded,
   });
+
+  if (!folded) {
+    const title_end = callout_pos + 2 + callout_node.child(0).content.size;
+    tr.setSelection(TextSelection.create(tr.doc, title_end));
+    tr.scrollIntoView();
+  }
+
   view.dispatch(tr);
   return true;
 }
@@ -160,13 +178,17 @@ export function create_callout_keymap_prose_plugin(): Plugin {
       handleKeyDown(view, event) {
         const { selection } = view.state;
         if (!(selection instanceof TextSelection)) return false;
+
+        if (is_mod_enter(event)) {
+          if (!selection.empty && !selection_within_callout(selection)) {
+            return false;
+          }
+          return toggle_callout_fold(view, selection.$from);
+        }
+
         if (!selection.empty) return false;
 
         const $pos = selection.$from;
-
-        if (is_mod_enter(event)) {
-          return toggle_callout_fold(view, $pos);
-        }
 
         if ($pos.parent.type === schema.nodes.callout_title) {
           if (event.key === "Enter") {
