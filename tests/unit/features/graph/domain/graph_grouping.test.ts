@@ -2,10 +2,14 @@ import { describe, it, expect } from "vitest";
 import {
   GROUP_TINT_COUNT,
   folder_from_path,
+  group_tint,
   group_tint_index,
   grouping_forces,
   resolve_group,
 } from "$lib/features/graph/domain/graph_grouping";
+
+const PALETTE = [0x111111, 0x222222, 0x333333, 0x444444, 0x555555];
+const FALLBACK = 0x888888;
 
 describe("folder_from_path", () => {
   it("returns the parent folder", () => {
@@ -122,5 +126,41 @@ describe("group_tint_index", () => {
       ),
     );
     expect(indices.size).toBeGreaterThan(1);
+  });
+});
+
+describe("group_tint", () => {
+  it("returns the same tint for a group on every lookup", () => {
+    const groups = ["projects", "journal/2026", "cluster:7", ""];
+    const first = groups.map((g) => group_tint(g, PALETTE, FALLBACK));
+    for (let run = 0; run < 50; run++) {
+      expect(groups.map((g) => group_tint(g, PALETTE, FALLBACK))).toEqual(
+        first,
+      );
+    }
+  });
+
+  it("resolves the same palette slot regardless of which palette is applied", () => {
+    const other = [0xaa0000, 0xbb0000, 0xcc0000, 0xdd0000, 0xee0000];
+    for (const group of ["projects", "cluster:7", "a/b/c"]) {
+      const slot = PALETTE.indexOf(group_tint(group, PALETTE, FALLBACK));
+      expect(other.indexOf(group_tint(group, other, FALLBACK))).toBe(slot);
+    }
+  });
+
+  it("only ever returns colours from the palette", () => {
+    for (let i = 0; i < 200; i++) {
+      expect(PALETTE).toContain(
+        group_tint(`cluster:${String(i)}`, PALETTE, FALLBACK),
+      );
+    }
+  });
+
+  it("falls back for ungrouped nodes", () => {
+    expect(group_tint(undefined, PALETTE, FALLBACK)).toBe(FALLBACK);
+  });
+
+  it("falls back when the palette is not populated yet", () => {
+    expect(group_tint("projects", [], FALLBACK)).toBe(FALLBACK);
   });
 });

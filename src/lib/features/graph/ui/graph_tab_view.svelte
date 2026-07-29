@@ -37,6 +37,7 @@
 
   const has_vault = $derived(stores.vault.vault !== null);
   const group_mode = $derived(stores.graph.group_mode);
+  const cluster_assignments = $derived(stores.graph.cluster_assignments);
   const focus_mode_active = $derived(stores.graph.focus_mode_active);
 
   let container_width = $state<number>(960);
@@ -218,6 +219,7 @@
         on_clusters_computed={(assignments) =>
           stores.graph.set_cluster_assignments(assignments)}
         {group_mode}
+        {cluster_assignments}
         focus_node_path={focus_mode_active
           ? stores.graph.focus_node_path
           : null}

@@ -57,3 +57,12 @@ export function group_tint_index(group: string): number {
   }
   return hash % GROUP_TINT_COUNT;
 }
+
+export function group_tint(
+  group: string | undefined,
+  palette: readonly number[],
+  fallback: number,
+): number {
+  if (group == null) return fallback;
+  return palette[group_tint_index(group)] ?? fallback;
+}
