@@ -21,6 +21,12 @@ export function classify_external_files<T extends { name: string }>(
   return { markdown_files, asset_files };
 }
 
+export function is_external_file_drag(
+  data_types: readonly string[] | undefined,
+): boolean {
+  return !!data_types?.includes("Files");
+}
+
 export function resolve_external_drop_folder(
   node: { is_folder: boolean; path: string } | null,
 ): string {

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   classify_external_files,
+  is_external_file_drag,
   is_markdown_filename,
   resolve_external_drop_folder,
   uniquify_note_path,
@@ -41,6 +42,24 @@ describe("classify_external_files", () => {
 
     expect(markdown_files).toEqual([]);
     expect(asset_files).toEqual([]);
+  });
+});
+
+describe("is_external_file_drag", () => {
+  it("accepts a drag carrying OS files", () => {
+    expect(is_external_file_drag(["Files"])).toBe(true);
+    expect(is_external_file_drag(["text/plain", "Files"])).toBe(true);
+  });
+
+  it("rejects internal drags and absent data transfers", () => {
+    expect(
+      is_external_file_drag([
+        "text/plain",
+        "application/x-carbide-filetree-count",
+      ]),
+    ).toBe(false);
+    expect(is_external_file_drag([])).toBe(false);
+    expect(is_external_file_drag(undefined)).toBe(false);
   });
 });
 
