@@ -164,6 +164,10 @@ pub fn run() {
             app.set_menu(menu)?;
             app.on_menu_event(|app, event| {
                 let id = event.id().0.as_str();
+                if id == menu::QUIT_MENU_ID {
+                    app.exit(0);
+                    return;
+                }
                 if let Some(window) = app.get_webview_window("main") {
                     let _ = window.emit("menu-action", id);
                 }
