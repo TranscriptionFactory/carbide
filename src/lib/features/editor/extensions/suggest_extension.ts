@@ -48,6 +48,7 @@ export function create_suggest_extension(
 
   const at_palette_config: AtPalettePluginConfig = {
     on_note_query: ctx.events.on_at_palette_note_query,
+    on_recents_query: ctx.events.on_at_palette_recents_query,
     on_heading_query: ctx.events.on_at_palette_heading_query,
     on_tag_query: ctx.events.on_at_palette_tag_query,
     on_cite_query: ctx.events.on_at_palette_cite_query,
