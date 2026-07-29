@@ -85,6 +85,8 @@ export function render_editor_context_menu(
     execute,
     right_click,
     click_item,
-    cleanup: () => unmount(app),
+    cleanup: () => {
+      void unmount(app);
+    },
   };
 }
