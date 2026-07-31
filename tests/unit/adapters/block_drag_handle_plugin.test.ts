@@ -1,8 +1,9 @@
 /**
  * @vitest-environment jsdom
  */
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { EditorState } from "prosemirror-state";
+import type { Transaction } from "prosemirror-state";
 import type { Node as ProseNode } from "prosemirror-model";
 import type { EditorView } from "prosemirror-view";
 import { schema } from "$lib/features/editor/adapters/markdown_pipeline";
@@ -13,7 +14,12 @@ import {
   count_section_body_blocks,
   compute_drag_range,
   resolve_top_level_block,
+  insert_paragraph_at,
 } from "$lib/features/editor/adapters/block_drag_handle_plugin";
+import {
+  BLOCK_NODE_MATRIX,
+  make_matrix_doc,
+} from "../helpers/block_node_matrix";
 
 function make_state() {
   const doc = schema.nodes.doc.create(null, [
@@ -194,5 +200,68 @@ describe("resolve_top_level_block", () => {
     const resolved = resolve_top_level_block(view_for(doc), p_pos + 1);
     expect(resolved?.pos).toBe(p_pos);
     expect(resolved?.node.type.name).toBe("paragraph");
+  });
+});
+
+function editing_view(doc: ProseNode): {
+  view: EditorView;
+  get_state: () => EditorState;
+  focus: ReturnType<typeof vi.fn>;
+} {
+  let current = EditorState.create({ doc });
+  const focus = vi.fn();
+  const view = {
+    get state() {
+      return current;
+    },
+    dispatch(tr: Transaction) {
+      current = current.apply(tr);
+    },
+    focus,
+    dom: document.createElement("div"),
+  } as unknown as EditorView;
+  return { view, get_state: () => current, focus };
+}
+
+describe("insert_paragraph_at", () => {
+  it.each(BLOCK_NODE_MATRIX)(
+    "inserts and focuses an empty paragraph above $label",
+    ({ build }) => {
+      const { doc, block_pos } = make_matrix_doc(build);
+      const { view, get_state, focus } = editing_view(doc);
+
+      const from = insert_paragraph_at(view, block_pos, "above");
+
+      expect(from).toBe(block_pos + 1);
+      expect(get_state().doc.child(1).type.name).toBe("paragraph");
+      expect(get_state().selection.from).toBe(from);
+      expect(focus).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  it.each(BLOCK_NODE_MATRIX)(
+    "inserts and focuses an empty paragraph below $label",
+    ({ build, node_type }) => {
+      const { doc, block_pos } = make_matrix_doc(build);
+      const block_size = doc.child(1).nodeSize;
+      const { view, get_state, focus } = editing_view(doc);
+
+      const from = insert_paragraph_at(view, block_pos, "below");
+
+      expect(from).toBe(block_pos + block_size + 1);
+      expect(get_state().doc.child(1).type.name).toBe(node_type);
+      expect(get_state().doc.child(2).type.name).toBe("paragraph");
+      expect(get_state().selection.from).toBe(from);
+      expect(focus).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  it("returns null and leaves the document alone when the position is empty", () => {
+    const doc = section_doc();
+    const { view, get_state, focus } = editing_view(doc);
+
+    expect(insert_paragraph_at(view, doc.content.size, "below")).toBeNull();
+    expect(get_state().doc.eq(doc)).toBe(true);
+    expect(focus).not.toHaveBeenCalled();
   });
 });
