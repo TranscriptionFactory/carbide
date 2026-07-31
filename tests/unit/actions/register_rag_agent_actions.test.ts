@@ -68,9 +68,18 @@ function create_harness(
   const git_service = {
     create_checkpoint: vi.fn().mockResolvedValue({ status: "created" }),
   };
-  const note_service = { open_note: vi.fn().mockResolvedValue(undefined) };
+  const note_service = {
+    open_note: vi
+      .fn()
+      .mockResolvedValue({ status: "opened", selected_folder_path: "" }),
+    clear_open_note: vi.fn(),
+  };
   const editor_service = { close_buffer: vi.fn() };
-  const tab_service = { mark_conflict: vi.fn(), invalidate_cache: vi.fn() };
+  const tab_service = {
+    mark_conflict: vi.fn(),
+    invalidate_cache: vi.fn(),
+    remove_tab: vi.fn(),
+  };
 
   register_rag_actions({
     registry,
@@ -125,6 +134,22 @@ function agent_write_events(paths: string[]): AgentEvent[] {
     },
     { type: "tool_end", name: "Write", ok: true },
     { type: "text", delta: "Written." },
+    { type: "done", stats: {} },
+  ];
+}
+
+function agent_delete_events(path: string): AgentEvent[] {
+  return [
+    { type: "init", session_id: "sess-delete" },
+    {
+      type: "tool_start",
+      name: "mcp__carbide__delete_note",
+      input_summary: `{"path":"${path}"}`,
+      paths: [path],
+      mutating: true,
+    },
+    { type: "tool_end", name: "mcp__carbide__delete_note", ok: true },
+    { type: "text", delta: "Deleted." },
     { type: "done", stats: {} },
   ];
 }
@@ -328,7 +353,10 @@ describe("rag agent actions", () => {
     expect(note_service.open_note).toHaveBeenCalledWith(
       "notes/open.md",
       false,
-      { force_reload: true },
+      {
+        force_reload: true,
+        cleanup_if_missing: true,
+      },
     );
   });
 
@@ -361,6 +389,46 @@ describe("rag agent actions", () => {
 
     expect(tab_service.invalidate_cache).toHaveBeenCalledWith("notes/other.md");
     expect(note_service.open_note).not.toHaveBeenCalled();
+  });
+
+  // delete_note and rename_note are mutating, so a "changed" path can be one
+  // that no longer exists — reloading it would fail the open and strand the tab.
+  it("agent delete of the open note clears the buffer and removes the tab", async () => {
+    const { registry, rag_store, note_service, tab_service, editor_service } =
+      create_harness(agent_delete_events("notes/open.md"), {
+        open_note: { meta: { path: "notes/open.md" }, is_dirty: false },
+      });
+    register_refresh_tree(registry);
+    note_service.open_note.mockResolvedValue({ status: "not_found" });
+    rag_store.set_mode("agent");
+
+    await registry.execute(ACTION_IDS.rag_ask, "delete the open note");
+
+    expect(editor_service.close_buffer).toHaveBeenCalledWith("notes/open.md");
+    expect(note_service.open_note).toHaveBeenCalledWith(
+      "notes/open.md",
+      false,
+      {
+        force_reload: true,
+        cleanup_if_missing: true,
+      },
+    );
+    expect(note_service.clear_open_note).toHaveBeenCalledTimes(1);
+    expect(tab_service.remove_tab).toHaveBeenCalledWith("notes/open.md");
+  });
+
+  it("a surviving note is reloaded, not cleared", async () => {
+    const { registry, rag_store, note_service, tab_service } = create_harness(
+      agent_write_events(["/vault/demo/notes/open.md"]),
+      { open_note: { meta: { path: "notes/open.md" }, is_dirty: false } },
+    );
+    register_refresh_tree(registry);
+    rag_store.set_mode("agent");
+
+    await registry.execute(ACTION_IDS.rag_ask, "rewrite the open note");
+
+    expect(note_service.clear_open_note).not.toHaveBeenCalled();
+    expect(tab_service.remove_tab).not.toHaveBeenCalled();
   });
 
   it("agent write to a note nobody has open only refreshes the tree", async () => {
