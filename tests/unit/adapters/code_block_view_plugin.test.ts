@@ -8,6 +8,7 @@ import { EditorView } from "prosemirror-view";
 import type { Node as ProseNode } from "prosemirror-model";
 import { schema } from "$lib/features/editor/adapters/schema";
 import { create_code_block_view_prose_plugin } from "$lib/features/editor/adapters/code_block_view_plugin";
+import { PREVIEW_HEIGHT_MESSAGE } from "$lib/features/editor/adapters/code_preview";
 import type { SmartBlocksConfig } from "$lib/features/editor/adapters/code_block_view_plugin";
 import {
   create_smart_block_registry,
@@ -1031,7 +1032,7 @@ describe("CodeBlockView", () => {
     });
   });
 
-  describe("html preview theme sync", () => {
+  describe("html preview", () => {
     function create_editor_with_html_preview(): {
       view: EditorView;
       container: HTMLElement;
@@ -1066,12 +1067,174 @@ describe("CodeBlockView", () => {
       await vi.runAllTimersAsync();
     }
 
+    function type_source(view: EditorView, source: string): void {
+      const block = view.state.doc.child(0);
+      view.dispatch(
+        view.state.tr.replaceWith(1, block.nodeSize - 1, schema.text(source)),
+      );
+    }
+
+    function get_preview_frame(c: HTMLElement): HTMLIFrameElement {
+      const frame = c.querySelector<HTMLIFrameElement>(
+        ".code-block-preview-frame",
+      );
+      if (!frame) throw new Error("preview frame missing");
+      return frame;
+    }
+
     beforeEach(() => {
       vi.mocked(invoke).mockClear();
     });
 
     afterEach(() => {
       document.documentElement.removeAttribute("data-color-scheme");
+    });
+
+    it("re-renders the preview when the source is edited", async () => {
+      const { view, container: c } = create_editor_with_html_preview();
+      container = c;
+
+      await vi.runAllTimersAsync();
+      expect(rendered_docs()).toHaveLength(1);
+      expect(rendered_docs()[0]).toContain("<p>hi</p>");
+
+      type_source(view, "<p>edited</p>");
+      await vi.advanceTimersByTimeAsync(300);
+
+      expect(rendered_docs()).toHaveLength(2);
+      expect(rendered_docs()[1]).toContain("<p>edited</p>");
+
+      view.destroy();
+    });
+
+    it("keeps re-rendering across consecutive edits", async () => {
+      const { view, container: c } = create_editor_with_html_preview();
+      container = c;
+
+      await vi.runAllTimersAsync();
+
+      for (const source of ["<p>one</p>", "<p>two</p>", "<p>three</p>"]) {
+        type_source(view, source);
+        await vi.advanceTimersByTimeAsync(300);
+      }
+
+      expect(rendered_docs()).toHaveLength(4);
+      expect(rendered_docs()[3]).toContain("<p>three</p>");
+
+      view.destroy();
+    });
+
+    it("coalesces a burst of keystrokes into a single render", async () => {
+      const { view, container: c } = create_editor_with_html_preview();
+      container = c;
+
+      await vi.runAllTimersAsync();
+
+      for (const source of ["<p>a</p>", "<p>ab</p>", "<p>abc</p>"]) {
+        type_source(view, source);
+        await vi.advanceTimersByTimeAsync(50);
+      }
+      expect(rendered_docs()).toHaveLength(1);
+
+      await vi.advanceTimersByTimeAsync(300);
+
+      expect(rendered_docs()).toHaveLength(2);
+      expect(rendered_docs()[1]).toContain("<p>abc</p>");
+
+      view.destroy();
+    });
+
+    it("does not re-render when an edit leaves the source unchanged", async () => {
+      const { view, container: c } = create_editor_with_html_preview();
+      container = c;
+
+      await vi.runAllTimersAsync();
+      type_source(view, "<p>hi</p>");
+      await vi.advanceTimersByTimeAsync(300);
+
+      expect(rendered_docs()).toHaveLength(1);
+
+      view.destroy();
+    });
+
+    it("re-renders the next edit after a failed render", async () => {
+      const { view, container: c } = create_editor_with_html_preview();
+      container = c;
+
+      await vi.runAllTimersAsync();
+      vi.mocked(invoke).mockRejectedValueOnce(new Error("register failed"));
+
+      type_source(view, "<p>broken</p>");
+      await vi.advanceTimersByTimeAsync(300);
+      expect(rendered_docs()).toHaveLength(2);
+
+      type_source(view, "<p>broken</p> ");
+      await vi.advanceTimersByTimeAsync(300);
+
+      expect(rendered_docs()).toHaveLength(3);
+      expect(rendered_docs()[2]).toContain("<p>broken</p> ");
+
+      view.destroy();
+    });
+
+    it("sizes the frame to the height the preview reports", async () => {
+      const { view, container: c } = create_editor_with_html_preview();
+      container = c;
+      await vi.runAllTimersAsync();
+
+      const frame = get_preview_frame(c);
+      window.dispatchEvent(
+        new MessageEvent("message", {
+          source: frame.contentWindow,
+          data: { type: PREVIEW_HEIGHT_MESSAGE, height: 46.4 },
+        }),
+      );
+
+      expect(frame.style.height).toBe("47px");
+
+      view.destroy();
+    });
+
+    it("ignores height messages from other frames", async () => {
+      const { view, container: c } = create_editor_with_html_preview();
+      container = c;
+      await vi.runAllTimersAsync();
+
+      const frame = get_preview_frame(c);
+      window.dispatchEvent(
+        new MessageEvent("message", {
+          data: { type: PREVIEW_HEIGHT_MESSAGE, height: 120 },
+        }),
+      );
+
+      expect(frame.style.height).toBe("");
+
+      view.destroy();
+    });
+
+    it("stops resizing the frame once the view is destroyed", async () => {
+      const { view, container: c } = create_editor_with_html_preview();
+      container = c;
+      await vi.runAllTimersAsync();
+
+      const frame = get_preview_frame(c);
+      const source = frame.contentWindow;
+      const post_height = (height: number) => {
+        window.dispatchEvent(
+          new MessageEvent("message", {
+            source,
+            data: { type: PREVIEW_HEIGHT_MESSAGE, height },
+          }),
+        );
+      };
+
+      post_height(46);
+      expect(frame.style.height).toBe("46px");
+
+      view.destroy();
+      post_height(200);
+
+      expect(frame.style.height).toBe("46px");
     });
 
     it("re-renders the preview when the app theme changes", async () => {
