@@ -15,6 +15,8 @@ import type { RagStore } from "$lib/features/rag/state/rag_store.svelte";
 import type { RagService } from "$lib/features/rag/application/rag_service";
 import type { AgentPort } from "$lib/features/rag/ports";
 import { AgentRunner } from "$lib/features/rag/application/agent_runner";
+import { resolve_agent_note_sync } from "$lib/features/rag/domain/agent_note_sync";
+import { as_note_path } from "$lib/shared/types/ids";
 
 const RAG_OP_KEY = "rag.ask";
 
@@ -48,12 +50,41 @@ export function register_rag_actions(
   const { registry, stores, services, rag_store, rag_service, agent_port } =
     input;
 
+  async function sync_changed_notes(paths: string[]) {
+    for (const path of paths) {
+      const note_path = as_note_path(path);
+      const open_note = stores.editor.open_note;
+      const background = stores.tab.find_tab_by_path(note_path);
+      const decision = resolve_agent_note_sync(
+        path,
+        open_note && {
+          path: open_note.meta.path,
+          is_dirty: open_note.is_dirty,
+        },
+        background && background.id !== stores.tab.active_tab_id
+          ? { is_dirty: background.is_dirty }
+          : null,
+      );
+
+      if (decision === "reload") {
+        stores.tab.invalidate_cache_by_path(note_path);
+        services.editor.close_buffer(note_path);
+        await services.note.open_note(note_path, false, { force_reload: true });
+      } else if (decision === "mark_conflict") {
+        services.tab.mark_conflict(note_path);
+      } else if (decision === "invalidate_tab_cache") {
+        services.tab.invalidate_cache(note_path);
+      }
+    }
+  }
+
   const agent_runner = new AgentRunner(
     agent_port,
     rag_store,
     stores.vault,
     services.git,
     () => registry.execute(ACTION_IDS.folder_refresh_tree),
+    sync_changed_notes,
   );
 
   function get_providers(): AiProviderConfig[] {
