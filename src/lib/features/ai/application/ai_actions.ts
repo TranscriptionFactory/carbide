@@ -43,7 +43,7 @@ import {
 } from "$lib/features/editor";
 import type { EditorSelectionSnapshot } from "$lib/shared/types/editor";
 import { build_ai_inline_prompt } from "$lib/features/ai/domain/ai_prompt_builder";
-import { resolve_inline_commands } from "$lib/features/ai/domain/ai_inline_commands";
+import { resolve_instructions } from "$lib/shared/domain/prompt_recipes";
 import { collect_open_note_image_parts } from "$lib/features/ai/application/note_image_loader";
 import type { EditorView } from "prosemirror-view";
 
@@ -749,7 +749,7 @@ export function register_ai_actions(
         selection,
         cursor_offset,
       );
-      const commands = resolve_inline_commands(
+      const commands = resolve_instructions(
         input.stores.ui.editor_settings.ai_inline_commands,
       );
       prompt_input = {
@@ -867,7 +867,7 @@ export function register_ai_actions(
         const command_id = p?.command_id;
         const prompt = p?.prompt;
         const resolved_command = command_id ?? (prompt ? "custom" : "continue");
-        const commands = resolve_inline_commands(
+        const commands = resolve_instructions(
           input.stores.ui.editor_settings.ai_inline_commands,
         );
         const ctx = extract_inline_context(view);

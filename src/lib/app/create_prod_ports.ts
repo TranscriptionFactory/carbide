@@ -107,11 +107,11 @@ export function create_slash_command_provider(): SlashCommandProvider {
   };
 }
 
-import type { AiInlineCommand } from "$lib/features/ai";
+import type { InstructionRecipe } from "$lib/shared/types/prompt_recipe";
 
 export type AiInlineHandler = {
   execute: ((payload: { command_id?: string; prompt?: string }) => void) | null;
-  get_commands: (() => AiInlineCommand[]) | null;
+  get_commands: (() => InstructionRecipe[]) | null;
   on_open_settings: (() => void) | null;
 };
 
