@@ -57,7 +57,10 @@ describe("split_wiki_target", () => {
   });
 
   it("treats a trailing hash as no fragment", () => {
-    expect(split_wiki_target("note#")).toEqual({ path: "note", fragment: null });
+    expect(split_wiki_target("note#")).toEqual({
+      path: "note",
+      fragment: null,
+    });
   });
 
   it("allows an empty path for same-note anchors", () => {
