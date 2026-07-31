@@ -2,6 +2,10 @@ import { describe, it, expect } from "vitest";
 import {
   format_wiki_display,
   format_markdown_link,
+  split_wiki_target,
+  build_wiki_href,
+  format_wiki_target_display,
+  format_wiki_source,
 } from "$lib/features/editor/domain/wiki_link";
 
 describe("format_wiki_display", () => {
@@ -37,6 +41,96 @@ describe("format_wiki_display", () => {
 
   it("preserves non-.md extensions", () => {
     expect(format_wiki_display("docs/report.pdf")).toBe("docs/report.pdf");
+  });
+});
+
+describe("split_wiki_target", () => {
+  it("splits at the first hash", () => {
+    expect(split_wiki_target("note#Head#ing")).toEqual({
+      path: "note",
+      fragment: "Head#ing",
+    });
+  });
+
+  it("reports no fragment when the hash is absent", () => {
+    expect(split_wiki_target("note")).toEqual({ path: "note", fragment: null });
+  });
+
+  it("treats a trailing hash as no fragment", () => {
+    expect(split_wiki_target("note#")).toEqual({ path: "note", fragment: null });
+  });
+
+  it("allows an empty path for same-note anchors", () => {
+    expect(split_wiki_target("#Heading")).toEqual({
+      path: "",
+      fragment: "Heading",
+    });
+  });
+});
+
+describe("build_wiki_href", () => {
+  it("appends .md before the fragment, not after", () => {
+    expect(build_wiki_href("note#Heading")).toBe("note.md#Heading");
+  });
+
+  it("keeps a block anchor fragment intact", () => {
+    expect(build_wiki_href("note#^abc123")).toBe("note.md#^abc123");
+  });
+
+  it("leaves an existing .md extension alone", () => {
+    expect(build_wiki_href("folder/note.md#Heading")).toBe(
+      "folder/note.md#Heading",
+    );
+  });
+
+  it("does not add an extension to a same-note anchor", () => {
+    expect(build_wiki_href("#Heading")).toBe("#Heading");
+  });
+
+  it("ignores dots that belong to a folder name", () => {
+    expect(build_wiki_href("v1.2/notes")).toBe("v1.2/notes.md");
+  });
+});
+
+describe("format_wiki_target_display", () => {
+  it("joins path and fragment with a chevron", () => {
+    expect(format_wiki_target_display("note#Heading")).toBe("note > Heading");
+  });
+
+  it("drops the .md extension from the path part", () => {
+    expect(format_wiki_target_display("folder/note.md#Heading")).toBe(
+      "folder/note > Heading",
+    );
+  });
+
+  it("shows only the fragment for a same-note anchor", () => {
+    expect(format_wiki_target_display("#Heading")).toBe("Heading");
+  });
+
+  it("falls back to the plain path when there is no fragment", () => {
+    expect(format_wiki_target_display("folder/note.md")).toBe("folder/note");
+  });
+});
+
+describe("format_wiki_source", () => {
+  it("rebuilds a bare wiki link from its href and display", () => {
+    expect(format_wiki_source("note.md", "note")).toBe("[[note]]");
+  });
+
+  it("rebuilds an anchor link without the .md extension", () => {
+    expect(format_wiki_source("note.md#Heading", "note > Heading")).toBe(
+      "[[note#Heading]]",
+    );
+  });
+
+  it("rebuilds a same-note anchor", () => {
+    expect(format_wiki_source("#Heading", "Heading")).toBe("[[#Heading]]");
+  });
+
+  it("keeps a custom label", () => {
+    expect(format_wiki_source("note.md#Heading", "Read this")).toBe(
+      "[[note#Heading|Read this]]",
+    );
   });
 });
 

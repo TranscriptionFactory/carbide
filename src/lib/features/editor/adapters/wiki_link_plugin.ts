@@ -1,6 +1,9 @@
 import { Plugin, PluginKey, TextSelection } from "prosemirror-state";
 import type { MarkType, Node as ProseNode, Mark } from "prosemirror-model";
-import { format_wiki_display } from "$lib/features/editor/domain/wiki_link";
+import {
+  build_wiki_href,
+  format_wiki_target_display,
+} from "$lib/features/editor/domain/wiki_link";
 import type { InternalLinkSource } from "$lib/features/editor/ports";
 import { editor_context_plugin_key } from "./editor_context_plugin";
 
@@ -84,13 +87,6 @@ function contains_protected_mark(
   });
 }
 
-function ensure_md_extension(value: string): string {
-  const dot = value.lastIndexOf(".");
-  const slash = value.lastIndexOf("/");
-  if (dot > slash && dot !== -1) return value;
-  return `${value}.md`;
-}
-
 function build_replacement(input: {
   raw_target: string;
   raw_label: string | null;
@@ -98,9 +94,11 @@ function build_replacement(input: {
   const raw = input.raw_target.trim();
   if (raw === "") return null;
 
-  const href = ensure_md_extension(raw);
+  const href = build_wiki_href(raw);
+  if (href === "") return null;
   const label = (input.raw_label ?? "").trim();
-  const display = label || format_wiki_display(raw);
+  const display = label || format_wiki_target_display(raw);
+  if (display === "") return null;
 
   return { display, href };
 }
