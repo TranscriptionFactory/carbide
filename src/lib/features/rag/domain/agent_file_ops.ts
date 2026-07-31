@@ -37,7 +37,15 @@ export function is_mutating_call(call: AgentToolCall): boolean {
   return call.mutating ?? is_mutating_tool(call.name);
 }
 
-const PATH_KEYS = ["file_path", "path", "old_path", "new_path"];
+// Kept in lockstep with PATH_KEYS in src-tauri/src/features/ai/tool_paths.rs;
+// src-tauri/tests/mcp_mutating_parity.rs fails if the two lists diverge.
+const PATH_KEYS = [
+  "file_path",
+  "path",
+  "old_path",
+  "new_path",
+  "notebook_path",
+];
 
 // input_summary is the tool input serialized as JSON, truncated to ~200 chars
 // (contract with the Rust event normalizer); truncation can break the JSON.
