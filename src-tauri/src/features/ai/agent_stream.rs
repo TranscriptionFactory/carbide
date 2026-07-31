@@ -64,7 +64,12 @@ pub enum AgentEvent {
     #[serde(rename = "reasoning")]
     Reasoning { delta: String },
     #[serde(rename = "tool_start")]
-    ToolStart { name: String, input_summary: String },
+    ToolStart {
+        name: String,
+        input_summary: String,
+        paths: Vec<String>,
+        mutating: bool,
+    },
     #[serde(rename = "tool_end")]
     ToolEnd {
         name: String,
@@ -275,7 +280,7 @@ fn build_harness_invocation<A: HarnessAdapter>(
         catalog,
         spec.resume_session_id.as_deref(),
     );
-    (invocation, adapter.new_parser())
+    (invocation, adapter.new_parser(catalog))
 }
 
 async fn run_agent_cli(

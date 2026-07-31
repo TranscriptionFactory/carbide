@@ -25,7 +25,7 @@ const RESULT_ERROR_LINE: &str = r#"{"type":"result","subtype":"error_during_exec
 
 #[test]
 fn init_line_yields_init_with_session_id() {
-    let mut parser = AgentEventParser::default();
+    let mut parser = AgentEventParser::new(&sample_catalog());
     assert_eq!(
         parser.parse_line(INIT_LINE),
         vec![AgentEvent::Init {
@@ -36,7 +36,7 @@ fn init_line_yields_init_with_session_id() {
 
 #[test]
 fn text_delta_line_yields_text() {
-    let mut parser = AgentEventParser::default();
+    let mut parser = AgentEventParser::new(&sample_catalog());
     assert_eq!(
         parser.parse_line(TEXT_DELTA_LINE),
         vec![AgentEvent::Text {
@@ -47,24 +47,101 @@ fn text_delta_line_yields_text() {
 
 #[test]
 fn tool_use_line_yields_tool_start_with_input_summary() {
-    let mut parser = AgentEventParser::default();
+    let mut parser = AgentEventParser::new(&sample_catalog());
     let events = parser.parse_line(TOOL_USE_LINE);
     assert_eq!(events.len(), 1);
     match &events[0] {
         AgentEvent::ToolStart {
             name,
             input_summary,
+            paths,
+            mutating,
         } => {
             assert_eq!(name, "Read");
             assert!(input_summary.contains("/home/user/vault/hello.txt"));
+            assert_eq!(paths, &["/home/user/vault/hello.txt".to_string()]);
+            assert!(!mutating, "Read does not write to disk");
+        }
+        other => panic!("expected ToolStart, got {other:?}"),
+    }
+}
+
+// The bug: serde emits object keys alphabetically, so `content` precedes
+// `file_path` and the path never survives the 200-char input summary. Paths
+// must come off the untruncated input instead.
+#[test]
+fn write_line_carries_path_even_when_summary_truncates_it_away() {
+    let content = "x".repeat(500);
+    let line = format!(
+        r#"{{"type":"assistant","message":{{"content":[{{"type":"tool_use","id":"t1","name":"Write","input":{{"content":"{content}","file_path":"/home/user/vault/notes/deep.md"}}}}]}}}}"#
+    );
+    let mut parser = AgentEventParser::new(&sample_catalog());
+    let events = parser.parse_line(&line);
+    match &events[0] {
+        AgentEvent::ToolStart {
+            input_summary,
+            paths,
+            mutating,
+            ..
+        } => {
+            assert!(
+                !input_summary.contains("deep.md"),
+                "fixture must reproduce the truncation that hides the path"
+            );
+            assert_eq!(paths, &["/home/user/vault/notes/deep.md".to_string()]);
+            assert!(mutating);
         }
         other => panic!("expected ToolStart, got {other:?}"),
     }
 }
 
 #[test]
+fn multi_edit_line_captures_every_edited_path() {
+    let filler = "y".repeat(300);
+    let line = format!(
+        r#"{{"type":"assistant","message":{{"content":[{{"type":"tool_use","id":"t2","name":"MultiEdit","input":{{"context":"{filler}","edits":[{{"file_path":"a.md","new_string":"1"}},{{"file_path":"b.md","new_string":"2"}},{{"file_path":"a.md","new_string":"3"}}]}}}}]}}}}"#
+    );
+    let mut parser = AgentEventParser::new(&sample_catalog());
+    let events = parser.parse_line(&line);
+    match &events[0] {
+        AgentEvent::ToolStart {
+            paths, mutating, ..
+        } => {
+            assert_eq!(paths, &["a.md".to_string(), "b.md".to_string()]);
+            assert!(mutating);
+        }
+        other => panic!("expected ToolStart, got {other:?}"),
+    }
+}
+
+#[test]
+fn mutating_flag_comes_from_the_mcp_catalog() {
+    let line = |tool: &str| {
+        format!(
+            r#"{{"type":"assistant","message":{{"content":[{{"type":"tool_use","id":"t3","name":"mcp__carbide__{tool}","input":{{"path":"notes/a.md"}}}}]}}}}"#
+        )
+    };
+    let mut parser = AgentEventParser::new(&sample_catalog());
+
+    match &parser.parse_line(&line("create_note"))[0] {
+        AgentEvent::ToolStart {
+            paths, mutating, ..
+        } => {
+            assert!(mutating);
+            assert_eq!(paths, &["notes/a.md".to_string()]);
+        }
+        other => panic!("expected ToolStart, got {other:?}"),
+    }
+
+    match &parser.parse_line(&line("read_note"))[0] {
+        AgentEvent::ToolStart { mutating, .. } => assert!(!mutating),
+        other => panic!("expected ToolStart, got {other:?}"),
+    }
+}
+
+#[test]
 fn tool_result_line_yields_tool_end_matched_by_id() {
-    let mut parser = AgentEventParser::default();
+    let mut parser = AgentEventParser::new(&sample_catalog());
     parser.parse_line(TOOL_USE_LINE);
     assert_eq!(
         parser.parse_line(TOOL_RESULT_LINE),
@@ -78,7 +155,7 @@ fn tool_result_line_yields_tool_end_matched_by_id() {
 
 #[test]
 fn tool_result_error_yields_tool_end_not_ok() {
-    let mut parser = AgentEventParser::default();
+    let mut parser = AgentEventParser::new(&sample_catalog());
     parser.parse_line(TOOL_USE_LINE);
     assert_eq!(
         parser.parse_line(TOOL_RESULT_ERROR_LINE),
@@ -92,7 +169,7 @@ fn tool_result_error_yields_tool_end_not_ok() {
 
 #[test]
 fn result_success_line_yields_done_with_stats() {
-    let mut parser = AgentEventParser::default();
+    let mut parser = AgentEventParser::new(&sample_catalog());
     let events = parser.parse_line(RESULT_SUCCESS_LINE);
     assert_eq!(events.len(), 1);
     match &events[0] {
@@ -107,7 +184,7 @@ fn result_success_line_yields_done_with_stats() {
 
 #[test]
 fn result_error_line_yields_error() {
-    let mut parser = AgentEventParser::default();
+    let mut parser = AgentEventParser::new(&sample_catalog());
     assert_eq!(
         parser.parse_line(RESULT_ERROR_LINE),
         vec![AgentEvent::Error {
@@ -118,7 +195,7 @@ fn result_error_line_yields_error() {
 
 #[test]
 fn noise_lines_yield_no_events() {
-    let mut parser = AgentEventParser::default();
+    let mut parser = AgentEventParser::new(&sample_catalog());
     assert!(parser.parse_line(THINKING_DELTA_LINE).is_empty());
     assert!(parser.parse_line(HOOK_LINE).is_empty());
     assert!(parser.parse_line("not json at all").is_empty());
