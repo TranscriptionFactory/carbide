@@ -69,12 +69,24 @@ describe("WatcherService", () => {
     await expect(service.stop()).resolves.toBeUndefined();
   });
 
-  it("suppress_next marks path as suppressed for the full window duration", () => {
+  // One-shot: an arming covers a single self-write event. Anything after it is
+  // a genuine external write (an agent editing on disk) and must get through.
+  it("suppress_next suppresses exactly one event for the path", () => {
     const { service } = setup();
 
     service.suppress_next("notes/test.md");
 
     expect(service.is_suppressed("notes/test.md")).toBe(true);
+    expect(service.is_suppressed("notes/test.md")).toBe(false);
+  });
+
+  it("re-arming after a consumed hit suppresses the next event again", () => {
+    const { service } = setup();
+
+    service.suppress_next("notes/test.md");
+    service.is_suppressed("notes/test.md");
+    service.suppress_next("notes/test.md");
+
     expect(service.is_suppressed("notes/test.md")).toBe(true);
   });
 
@@ -121,10 +133,21 @@ describe("WatcherService", () => {
     const { service } = setup();
 
     service.suppress_next("notes/test.md");
-    vi.advanceTimersByTime(10_001);
+    vi.advanceTimersByTime(2_001);
 
     expect(service.is_suppressed("notes/test.md.tmp")).toBe(false);
     vi.useRealTimers();
+  });
+
+  // The staging event precedes the real one, so it must not eat the arming.
+  it(".tmp sibling hit leaves the arming intact for the target path", () => {
+    const { service } = setup();
+
+    service.suppress_next("notes/test.md");
+
+    expect(service.is_suppressed("notes/test.md.tmp")).toBe(true);
+    expect(service.is_suppressed("notes/test.md")).toBe(true);
+    expect(service.is_suppressed("notes/test.md")).toBe(false);
   });
 
   it("multiple suppress_next calls extend the suppression window", () => {
@@ -132,14 +155,11 @@ describe("WatcherService", () => {
     const { service } = setup();
 
     service.suppress_next("notes/test.md");
-    vi.advanceTimersByTime(5_000);
+    vi.advanceTimersByTime(1_500);
     service.suppress_next("notes/test.md");
-    vi.advanceTimersByTime(7_000);
+    vi.advanceTimersByTime(1_000);
 
     expect(service.is_suppressed("notes/test.md")).toBe(true);
-
-    vi.advanceTimersByTime(4_000);
-    expect(service.is_suppressed("notes/test.md")).toBe(false);
     vi.useRealTimers();
   });
 
@@ -148,24 +168,22 @@ describe("WatcherService", () => {
     const { service } = setup();
 
     service.suppress_next("notes/test.md");
-    vi.advanceTimersByTime(10_001);
+    vi.advanceTimersByTime(2_001);
 
     expect(service.is_suppressed("notes/test.md")).toBe(false);
     vi.useRealTimers();
   });
 
-  it("multiple events within the window are all suppressed", () => {
+  // Regression: a blanket 10s mute swallowed every agent write that landed
+  // shortly after an autosave, so the editor never learned about the edit.
+  it("an external write after the self-write event is not suppressed", () => {
     vi.useFakeTimers();
     const { service } = setup();
 
     service.suppress_next("notes/test.md");
     expect(service.is_suppressed("notes/test.md")).toBe(true);
-    vi.advanceTimersByTime(100);
-    expect(service.is_suppressed("notes/test.md")).toBe(true);
-    vi.advanceTimersByTime(100);
-    expect(service.is_suppressed("notes/test.md")).toBe(true);
 
-    vi.advanceTimersByTime(10_000);
+    vi.advanceTimersByTime(100);
     expect(service.is_suppressed("notes/test.md")).toBe(false);
     vi.useRealTimers();
   });
