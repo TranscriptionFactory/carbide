@@ -47,6 +47,7 @@ export type RagMessage = {
   tool_events?: RagToolEvent[];
   tool_calls?: RagToolCall[];
   tool_call_id?: string;
+  error?: string;
 };
 
 export type RagSourceInfo = {

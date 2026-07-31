@@ -86,23 +86,32 @@ export class AgentRunner {
           this.rag_store.finish_streaming_tool_event(event.name, event.ok);
         } else if (event.type === "error") {
           this.rag_store.fail_streaming(event.message);
+          await this.record_file_changes(tool_calls);
           return { status: "error", message: event.message };
         }
       }
-      const changed = changed_files_from_tools(tool_calls);
-      if (changed.length > 0) {
-        this.rag_store.add_changed_files(changed);
-        await this.refresh_vault();
-      }
+      await this.record_file_changes(tool_calls);
       this.rag_store.finish_streaming();
       return { status: "done" };
     } catch (err) {
       const message = error_message(err);
       this.rag_store.fail_streaming(message);
+      await this.record_file_changes(tool_calls);
       return { status: "error", message };
     } finally {
       this.abort_controller = null;
     }
+  }
+
+  // Edits a turn made before failing are still on disk; the vault tree and the
+  // session's changed-files record have to reflect them either way.
+  private async record_file_changes(
+    tool_calls: AgentToolCall[],
+  ): Promise<void> {
+    const changed = changed_files_from_tools(tool_calls);
+    if (changed.length === 0) return;
+    this.rag_store.add_changed_files(changed);
+    await this.refresh_vault();
   }
 
   private fail(message: string): AgentTurnResult {

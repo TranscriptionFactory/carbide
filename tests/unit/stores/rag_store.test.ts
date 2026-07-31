@@ -215,6 +215,54 @@ describe("RagStore", () => {
     expect(store.error).toBe("model crashed");
   });
 
+  it("fail_streaming keeps a textless turn that ran tools, with the failure recorded", () => {
+    const store = new RagStore();
+    store.add_user_message("q");
+    store.start_streaming();
+    store.add_streaming_tool_event({
+      name: "read_note",
+      input_summary: '{"path":"clips/scraped.md"}',
+    });
+    store.finish_streaming_tool_event("read_note", true);
+
+    store.fail_streaming("blocked by the provider");
+
+    const reply = store.messages.at(-1);
+    expect(reply?.role).toBe("assistant");
+    expect(reply?.content).toBe("");
+    expect(reply?.tool_events).toEqual([
+      {
+        name: "read_note",
+        input_summary: '{"path":"clips/scraped.md"}',
+        ok: true,
+      },
+    ]);
+    expect(reply?.error).toBe("blocked by the provider");
+  });
+
+  it("fail_streaming keeps a textless turn that only reasoned", () => {
+    const store = new RagStore();
+    store.add_user_message("q");
+    store.start_streaming();
+    store.append_streaming_reasoning("thinking about it");
+
+    store.fail_streaming("blocked by the provider");
+
+    expect(store.messages.at(-1)?.reasoning).toBe("thinking about it");
+    expect(store.messages.at(-1)?.error).toBe("blocked by the provider");
+  });
+
+  it("fail_streaming records the failure on a kept partial reply", () => {
+    const store = new RagStore();
+    store.add_user_message("q");
+    store.start_streaming();
+    store.append_streaming_text("partial answer");
+
+    store.fail_streaming("rate limited");
+
+    expect(store.messages.at(-1)?.error).toBe("rate limited");
+  });
+
   it("fork_session clones up to the message, activates the fork, and keeps the original", () => {
     const store = new RagStore();
     const messages = [
