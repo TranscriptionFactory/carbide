@@ -1,5 +1,59 @@
 # carbide
 
+## 2.24.0
+
+### Minor Changes
+
+- 6c005dd: feat(editor): callout fold UX
+  - **Mod+Enter now works where it was dead**: the fold toggle no longer bails on a non-empty selection, so callouts inserted by the slash command — which arrive collapsed with their title selected — can be toggled immediately. The toggle also accepts a selection anywhere inside the callout body, not just the title.
+  - **Collapsed callouts can always be reopened**: `foldable: false` callouts (markdown-parsed and turn-into) previously could not be opened once collapsed. The `foldable` gate now applies only to _collapsing_, never to opening.
+  - **Collapsing keeps the callout in view**: the caret parks at the end of the title and scrolls into view, so the viewport no longer jumps.
+  - **Chevron and header placement**: the header is top-anchored instead of vertically centred, and sticks to the top of a tall callout while scrolling so the title and chevron stay reachable.
+
+- 7a2f405: feat(editor): recents in the @ palette, same-day related links, and context-rail layout fixes
+  - **@ palette recents**: a bare `@` now opens on a "Recently edited" section instead of showing no notes at all — the MRU list merged with the most recently modified notes, filtered as you type, resolved in-memory with no IPC. The free `r:` prefix scopes the palette to recents.
+  - **Created this day**: the Related tab gains a "Created this day" section listing notes created or modified on the same calendar day as the open note's creation date, derived client-side from note metadata.
+  - **Same-day smart link rule**: the `same_day` rule compared modification times on both sides despite being named for creation. It now anchors on the source note's creation day and matches a candidate's creation _or_ modification day, so a note drafted alongside the anchor but edited later is finally suggested.
+  - **Context rail**: the docked rail no longer clips its right edge on narrow windows (its minimum pane width may now claim up to 45%); the spotlight/theater overlay panel stops short of the icon strip so the rail's tabs stay visible and clickable; and the `tasks` rail tab — which rendered a blank panel because TaskPanel lives in the sidebar — now routes `Cmd+Alt+T` and the task view-mode commands to the sidebar view instead.
+
+- e6c15d3: feat(graph): vault graph folder grouping, cluster tints, and a toolbar grouping control
+  - **Folder grouping is live**: the vault graph adapter now tags every node with its containing folder, and grouping forces are always sent to the layout worker instead of only for search graphs — so folders actually pull apart and get convex hulls.
+  - **Cluster grouping is visible**: computed cluster assignments feed back into the canvas as node groups, re-running the layout with cluster forces and painting nodes and hulls per group. Group tints come from new `--graph-group-1..5` tokens — chart-token hues re-stepped in OKLCH until every pair clears colorblind-separation, chroma, and contrast thresholds against both the light and dark surface.
+  - **Grouping control**: the graph tab toolbar gets a Folder / Cluster / No grouping select (previously grouping could only be cycled blind from the small panel's icon button), backed by a new `graph.set_group_mode` action.
+  - **Cleanup**: the dead `graph_tauri_adapter`, which invoked Tauri commands the backend never registered, is archived out of the feature.
+
+### Patch Changes
+
+- 579f037: fix(editor): block context-menu ops and gutter geometry
+  - **Right-click targets the block under the pointer**: the context menu resolved its target from the caret, which the menu itself had just moved, so Delete and Duplicate silently no-oped. The menu now captures the pointer-resolved block position plus a fresh block-selection snapshot when it opens, and routes single-block ops through position-taking transforms.
+  - **Copy works again**: the block-context copy path no longer falls back to `execCommand("copy")` (which copied nothing once the menu took focus). Selected blocks — or the right-clicked one — are serialized into a rich `data-pm-slice` payload and written through the clipboard service, so failures raise the existing clipboard toast.
+  - **Handles stay in the gutter**: editor padding now reads `--editor-gutter-inline` per element instead of resolving it once at `:root`, so the wide width mode no longer pushes the block handle into the text column. The insert button and grip grew to 24px targets.
+
+- 2ae26df: fix: clip dialog folder candidates + Cmd+Q unsaved-changes guard
+  - **Web clip dialog**: opening the dialog now lists the vault's folders, so the Location field offers the whole folder tree and drill-down works instead of showing only the vault root; Shift+Enter leaves the folder suggestions and returns to the URL field, matching the Save As dialog.
+  - **Quit guard**: Cmd+Q from the app menu used to terminate the process natively, discarding unsaved changes without a prompt. It now routes through the same unsaved-changes confirmation as the window close button and the tray's Quit Carbide.
+
+- cf33d7e: fix(folder): close the gaps in OS drag-and-drop import
+  - **Drilldown mode accepts drops**: external file drops previously worked only in the tree file-tree mode; drilldown now handles them too, and recents/bases accept a container-level drop to the vault root.
+  - **Assets follow the drop target**: non-markdown files no longer all land in the vault-root attachment folder — a PDF dropped on `projects/` is now stored under `projects/`.
+  - **Dropping on a file row targets its parent folder** instead of falling back to the vault root.
+  - **Import results are reported**: imports now surface an "Imported N files, skipped M" toast instead of failing silently to the log.
+
+  Dropped directories continue to be skipped with a toast; recursive folder import is not included.
+
+- aee23c6: fix(editor): readable HTML previews and embeds in both themes
+  - **Author-styled documents render neutral**: fenced ` ```html preview ` blocks and `![[file.html]]` embeds that carry their own colors now render on a neutral light surface (`color-scheme: light`, white page, dark default text) in both app themes, so author colors compose as designed instead of landing light-on-light or dark-on-dark. Content that declares no colors keeps the token-themed surface.
+  - **No more background flattening**: the dark-mode `body :where(*) { background: transparent !important }` reset, which destroyed author backdrops in HTML embeds, is gone.
+  - **Theme toggle**: fenced HTML previews re-render on theme change instead of staying on the previous theme's tokens, matching the embed path.
+  - **Token alignment**: fenced preview styles now use the same `--editor-*` tokens as the embed path.
+
+- 860a39b: fix(editor): typing inside a revealed inline mark no longer eats its syntax
+  - **Backspace at a run's end** deletes a character again instead of unwrapping the whole run and orphaning a delimiter — while typing inside bold the caret is always at the run's end, so every Backspace used to strip the mark without deleting anything. It also stops shadowing `undoInputRule`, so typing `**bold**` and pressing Backspace restores the literal text.
+  - **Type-to-close**: typing a run's closing delimiter at its end exits the run rather than inserting the delimiter as marked text. Two-character delimiters (`**`, `~~`, `==`) exit when the second character completes the pair; a delimiter character that does not complete a pair stays literal, so nested emphasis still works.
+  - **IME safety**: Backspace and text-input handling defer to the composition.
+
+  Backspacing at a run's start still unwraps the mark and leaves the closing delimiter behind as literal text.
+
 ## 2.23.1
 
 ### Patch Changes
