@@ -969,11 +969,23 @@ export class NoteService {
     this.notes_store.add_recent_note(written.meta);
   }
 
-  async write_note_content(note_path: NotePath, markdown: MarkdownText) {
+  // Background-tab saves bypass the editor buffer, so they carry their own
+  // guard: without expected_mtime a stale cached buffer silently overwrites
+  // whatever an agent wrote to the same note on disk.
+  async write_note_content(
+    note_path: NotePath,
+    markdown: MarkdownText,
+    expected_mtime?: number,
+  ): Promise<number | null> {
     const vault = this.vault_store.vault;
-    if (!vault) return;
+    if (!vault) return null;
     this.on_file_written?.(note_path);
-    await this.notes_port.write_note(vault.id, note_path, markdown);
+    return this.notes_port.write_note(
+      vault.id,
+      note_path,
+      markdown,
+      expected_mtime && expected_mtime > 0 ? expected_mtime : undefined,
+    );
   }
 
   private async rename_note_with_overwrite_if_needed(
