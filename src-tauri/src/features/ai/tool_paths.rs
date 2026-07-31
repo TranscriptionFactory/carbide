@@ -1,6 +1,6 @@
 use serde_json::Value;
 
-const PATH_KEYS: [&str; 5] = [
+pub const PATH_KEYS: [&str; 5] = [
     "file_path",
     "path",
     "old_path",

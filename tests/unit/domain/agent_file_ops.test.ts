@@ -88,6 +88,17 @@ describe("paths_from_call", () => {
       }),
     ).toEqual(["summary.md"]);
   });
+
+  // NotebookEdit is mutating on both sides, so the fallback has to know the key
+  // Rust harvests. src-tauri/tests/mcp_mutating_parity.rs pins the two lists.
+  it("reads every path key the harness extracts, including notebook_path", () => {
+    expect(
+      paths_from_call({
+        name: "NotebookEdit",
+        input_summary: '{"notebook_path":"notes/analysis.ipynb"}',
+      }),
+    ).toEqual(["notes/analysis.ipynb"]);
+  });
 });
 
 describe("to_vault_relative_path", () => {
