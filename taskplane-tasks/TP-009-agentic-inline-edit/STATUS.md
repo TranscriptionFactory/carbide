@@ -10,7 +10,7 @@ i.e. `openai_compat`) now get an agentic path for inline **edit** on **note**
 context. Instead of a single-shot completion:
 
 1. `AgenticEditRunner` takes a git checkpoint (`create_checkpoint("before inline
-   edit")`) BEFORE any model call — inline edit previously had no checkpoint;
+edit")`) BEFORE any model call — inline edit previously had no checkpoint;
    this closes that gap.
 2. Runs the in-process native agent loop via the shared `AgentPort.stream_turn`
    with `inline_edit_policy()`: the model reads around the note with
@@ -28,7 +28,7 @@ mode is untouched; document (non-note) context stays on the old path.
 ## Capability gating decision
 
 - Gate: `dialog.mode === "edit" && dialog.context.kind === "note" &&
-  agent_capability(config)?.backend === "native" && vault`.
+agent_capability(config)?.backend === "native" && vault`.
 - Harness (claude) and codex/text-CLI providers are intentionally NOT agentic
   here — the mission scopes agentic inline edit to native API providers, and
   the harness inline path stays byte-stable.
