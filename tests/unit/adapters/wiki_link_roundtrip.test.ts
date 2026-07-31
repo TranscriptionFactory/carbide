@@ -5,10 +5,7 @@ import {
   serialize_markdown,
 } from "$lib/features/editor/adapters/markdown_pipeline";
 
-function serialize_wiki_link(input: {
-  href: string;
-  display: string;
-}): string {
+function serialize_wiki_link(input: { href: string; display: string }): string {
   const paragraph = schema.nodes.paragraph.create(null, [
     schema.text(input.display, [
       schema.marks.link.create({ href: input.href, link_source: "wiki" }),
@@ -35,9 +32,9 @@ describe("wiki link serialization", () => {
   });
 
   it("writes a same-note anchor back as [[#Heading]]", () => {
-    expect(
-      serialize_wiki_link({ href: "#Heading", display: "Heading" }),
-    ).toBe("[[#Heading]]");
+    expect(serialize_wiki_link({ href: "#Heading", display: "Heading" })).toBe(
+      "[[#Heading]]",
+    );
   });
 
   it("writes a block anchor back as [[note#^id]]", () => {
