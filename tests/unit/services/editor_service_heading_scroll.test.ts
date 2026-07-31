@@ -46,9 +46,14 @@ function heading(level: number, text: string, pos: number): OutlineHeading {
   return { id: `h-${String(level)}-${slug}-0`, level, text, pos };
 }
 
+const BLOCK_POSITIONS: Record<string, number> = { abc123: 91 };
+
 function create_session(initial_markdown: string): EditorSession {
   let current_markdown = initial_markdown;
   return {
+    find_block_anchor_position: vi.fn(
+      (block_id: string) => BLOCK_POSITIONS[block_id] ?? null,
+    ),
     destroy: vi.fn(),
     set_markdown: vi.fn((markdown: string) => {
       current_markdown = markdown;
@@ -164,5 +169,46 @@ describe("EditorService heading fragment scroll", () => {
 
     emit_outline([heading(1, "Beta", 0), heading(2, "Overview", 8)]);
     expect(session.scroll_to_position).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("EditorService block anchor scroll", () => {
+  it("scrolls to the block that carries the id", async () => {
+    const { service, session, emit_outline } = await create_setup();
+    emit_outline([heading(1, "Alpha", 0)]);
+
+    service.scroll_to_heading_fragment("^abc123");
+
+    expect(session.find_block_anchor_position).toHaveBeenCalledWith("abc123");
+    expect(session.scroll_to_position).toHaveBeenCalledWith(91);
+  });
+
+  it("does nothing when no block carries the id", async () => {
+    const { service, editor_store, session, emit_outline } =
+      await create_setup();
+    emit_outline([heading(1, "Alpha", 0)]);
+
+    service.scroll_to_heading_fragment("^missing");
+
+    expect(session.scroll_to_position).not.toHaveBeenCalled();
+    expect(editor_store.pending_heading_fragment).toBeNull();
+  });
+
+  it("stashes a block anchor until the target note's outline arrives", async () => {
+    const { service, editor_store, session, emit_outline } =
+      await create_setup();
+    emit_outline([heading(1, "Alpha", 0)]);
+
+    const beta = create_open_note("docs/beta.md", "# Beta\n\ntext ^abc123");
+    editor_store.set_open_note(beta);
+    service.open_buffer(beta);
+
+    service.scroll_to_heading_fragment("^abc123");
+    expect(session.scroll_to_position).not.toHaveBeenCalled();
+    expect(editor_store.pending_heading_fragment).toBe("^abc123");
+
+    emit_outline([heading(1, "Beta", 0)]);
+    expect(session.scroll_to_position).toHaveBeenCalledWith(91);
+    expect(editor_store.pending_heading_fragment).toBeNull();
   });
 });
