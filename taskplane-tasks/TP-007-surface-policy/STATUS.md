@@ -45,7 +45,7 @@ Rationale: AGENTS.md favors clean refactors over back-compat (0 users), and TS
 owning UX permission modes while Rust speaks only concrete tool selection keeps
 each layer's vocabulary minimal.
 
-## SUPPORTS_* consts
+## SUPPORTS\_\* consts
 
 NOT consumed by the driver (out of scope for TP-007). They remain informational
 until TP-006 introduces multi-adapter dispatch.
