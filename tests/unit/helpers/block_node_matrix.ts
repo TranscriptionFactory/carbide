@@ -23,6 +23,12 @@ function callout() {
   );
 }
 
+function image_block() {
+  const type = schema.nodes["image-block"];
+  if (!type) throw new Error("schema is missing the image-block node");
+  return type.create({ src: "shot.png" });
+}
+
 function details_block() {
   return schema.nodes.details_block.create({ open: false }, [
     schema.nodes.details_summary.create(null, schema.text("Summary")),
@@ -64,7 +70,7 @@ export const BLOCK_NODE_MATRIX: BlockNodeCase[] = [
   {
     label: "image-block",
     node_type: "image-block",
-    build: () => schema.nodes["image-block"]!.create({ src: "shot.png" }),
+    build: () => image_block(),
   },
   {
     label: "file_embed",
