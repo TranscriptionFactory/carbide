@@ -2,10 +2,13 @@
   import { use_app_context } from "$lib/app/context/app_context.svelte";
   import { ACTION_IDS } from "$lib/app";
   import { to_transform_action_id } from "$lib/features/markdown_lsp";
+  import { create_logger } from "$lib/shared/utils/logger";
   import * as ContextMenu from "$lib/components/ui/context-menu";
   import type { Snippet } from "svelte";
 
   let { children }: { children: Snippet } = $props();
+
+  const log = create_logger("editor_context_menu");
 
   const { stores, action_registry, services } = use_app_context();
 
@@ -24,6 +27,7 @@
     target_block_pos = services.editor.block_pos_at_coords(
       event.clientX,
       event.clientY,
+      event.target instanceof Element ? event.target : null,
     );
     block_selection = services.editor.get_block_selection();
   }
@@ -114,44 +118,75 @@
     execute(action_id);
   }
 
-  function resolve_target_blocks(): Set<number> | null {
-    if (block_selection.size > 0) return block_selection;
-    if (target_block_pos != null) return new Set([target_block_pos]);
+  function resolve_single_target(): number | null {
+    if (target_block_pos != null) return target_block_pos;
+    if (block_selection.size === 1) return [...block_selection][0] ?? null;
     return null;
+  }
+
+  function resolve_target_blocks(): Set<number> | null {
+    if (has_multi_selection) return block_selection;
+    const single = resolve_single_target();
+    return single == null ? null : new Set([single]);
+  }
+
+  function warn_unresolved(operation: string) {
+    log.warn("no block resolved under the context menu target", { operation });
+  }
+
+  function apply_block_op(op: {
+    batch: (positions: Set<number>) => void;
+    single: (pos: number) => void;
+    name: string;
+  }) {
+    const positions = resolve_target_blocks();
+    if (!positions) {
+      warn_unresolved(op.name);
+      return;
+    }
+    if (positions.size > 1) {
+      op.batch(positions);
+      services.editor.clear_block_selection();
+      return;
+    }
+    const [pos] = positions;
+    if (pos != null) op.single(pos);
   }
 
   function handle_copy() {
     const positions = resolve_target_blocks();
-    if (!positions) return;
+    if (!positions) {
+      warn_unresolved("copy");
+      return;
+    }
     const payload = services.editor.copy_blocks_payload(positions);
     if (!payload) return;
     void services.clipboard.copy_rich(payload);
   }
 
   function handle_duplicate() {
-    if (has_multi_selection) {
-      services.editor.batch_duplicate(block_selection);
-      services.editor.clear_block_selection();
-      return;
-    }
-    if (target_block_pos != null) {
-      services.editor.duplicate_block_at(target_block_pos);
-      return;
-    }
-    execute(ACTION_IDS.editor_duplicate_block);
+    apply_block_op({
+      name: "duplicate",
+      batch: (positions) => services.editor.batch_duplicate(positions),
+      single: (pos) => services.editor.duplicate_block_at(pos),
+    });
   }
 
   function handle_delete() {
-    if (has_multi_selection) {
-      services.editor.batch_delete(block_selection);
-      services.editor.clear_block_selection();
+    apply_block_op({
+      name: "delete",
+      batch: (positions) => services.editor.batch_delete(positions),
+      single: (pos) => services.editor.delete_block_at(pos),
+    });
+  }
+
+  function handle_insert(placement: "above" | "below") {
+    const pos = resolve_single_target();
+    if (pos == null) {
+      warn_unresolved(`insert_${placement}`);
       return;
     }
-    if (target_block_pos != null) {
-      services.editor.delete_block_at(target_block_pos);
-      return;
-    }
-    execute(ACTION_IDS.editor_delete_block);
+    services.editor.insert_block_at(pos, placement);
   }
 </script>
 
@@ -191,6 +226,13 @@
       <ContextMenu.Item onSelect={handle_duplicate}>
         Duplicate
         <span class="ml-auto text-xs text-muted-foreground">⇧⌘D</span>
+      </ContextMenu.Item>
+      <ContextMenu.Separator />
+      <ContextMenu.Item onSelect={() => handle_insert("above")}>
+        Insert Above
+      </ContextMenu.Item>
+      <ContextMenu.Item onSelect={() => handle_insert("below")}>
+        Insert Below
       </ContextMenu.Item>
       <ContextMenu.Separator />
       <ContextMenu.Item onSelect={handle_delete}>Delete</ContextMenu.Item>

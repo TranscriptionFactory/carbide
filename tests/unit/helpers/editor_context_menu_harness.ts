@@ -27,6 +27,7 @@ export function render_editor_context_menu(
     copy_blocks_payload: vi.fn(() => state.payload),
     delete_block_at: vi.fn(),
     duplicate_block_at: vi.fn(),
+    insert_block_at: vi.fn(),
     batch_delete: vi.fn(),
     batch_duplicate: vi.fn(),
     batch_turn_into: vi.fn(),
