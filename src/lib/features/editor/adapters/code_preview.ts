@@ -92,14 +92,31 @@ export const PREVIEW_THEME_TOKENS = [
   "--editor-table-border",
 ];
 
+let cached_theme_key: string | null = null;
+let cached_theme_tokens: Record<string, string> = {};
+
+/* Every token source lives on <html>: theme stylesheets keyed off its data-*
+   attributes, plus the inline custom properties apply_theme writes. Hashing the
+   attribute list therefore invalidates exactly when the tokens can change, and
+   spares every keystroke a forced style recalc. */
+function theme_cache_key(root: Element): string {
+  return Array.from(root.attributes, (a) => `${a.name}=${a.value}`).join("|");
+}
+
 export function read_preview_theme_tokens(): Record<string, string> {
   if (typeof document === "undefined") return {};
-  const computed = getComputedStyle(document.documentElement);
+  const root = document.documentElement;
+  const key = theme_cache_key(root);
+  if (key === cached_theme_key) return cached_theme_tokens;
+
+  const computed = getComputedStyle(root);
   const tokens: Record<string, string> = {};
   for (const name of PREVIEW_THEME_TOKENS) {
     const value = computed.getPropertyValue(name).trim();
     if (value) tokens[name] = value;
   }
+  cached_theme_key = key;
+  cached_theme_tokens = tokens;
   return tokens;
 }
 
@@ -135,6 +152,29 @@ export function resolve_preview_surface(
 
 export const CODE_PREVIEW_SANDBOX = "allow-scripts";
 
+export const PREVIEW_HEIGHT_MESSAGE = "carbide-preview-height";
+export const PREVIEW_MIN_HEIGHT_PX = 32;
+export const PREVIEW_MAX_HEIGHT_PX = 640;
+
+export function clamp_preview_height(height: number): number {
+  if (!Number.isFinite(height)) return PREVIEW_MIN_HEIGHT_PX;
+  return Math.min(
+    Math.max(Math.ceil(height), PREVIEW_MIN_HEIGHT_PX),
+    PREVIEW_MAX_HEIGHT_PX,
+  );
+}
+
+/* Measures <body>, not <html>: the root box stretches to the frame viewport, so
+   reading it would pin the preview to whatever height it already has. The frame
+   is sandboxed without allow-same-origin, so the parent matches on event.source
+   rather than origin. */
+const HEIGHT_SYNC_SCRIPT = `<script>(function(){
+var send=function(){parent.postMessage({type:"${PREVIEW_HEIGHT_MESSAGE}",height:document.body.getBoundingClientRect().height},"*");};
+addEventListener("load",send);
+if(window.ResizeObserver)new ResizeObserver(send).observe(document.body);
+send();
+})();</script>`;
+
 function wrap_preview_body(language: string, source: string): string {
   switch (normalize_preview_language(language)) {
     case "css":
@@ -162,5 +202,5 @@ export function build_code_preview_srcdoc(
   const color_styles = author_styled
     ? NEUTRAL_SURFACE_STYLES
     : PREVIEW_THEME_STYLES;
-  return `<!DOCTYPE html><html${html_attrs}><head><meta charset="utf-8"><style>${root_block}${PREVIEW_LAYOUT_STYLES}${color_styles}</style></head><body>${body}</body></html>`;
+  return `<!DOCTYPE html><html${html_attrs}><head><meta charset="utf-8"><style>${root_block}${PREVIEW_LAYOUT_STYLES}${color_styles}</style></head><body>${body}${HEIGHT_SYNC_SCRIPT}</body></html>`;
 }
