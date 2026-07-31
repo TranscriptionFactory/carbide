@@ -26,7 +26,8 @@
     RagSessionMode,
   } from "$lib/features/rag/domain/rag_types";
   import type { AgentPermissionMode } from "$lib/features/rag/types/agent_events";
-  import { RAG_TEMPLATES } from "$lib/features/rag/domain/rag_prompt_templates";
+  import { scope_phrase } from "$lib/features/rag/domain/rag_scope";
+  import { BUILTIN_QUESTIONS } from "$lib/shared/domain/prompt_recipes";
 
   const { stores, services, action_registry } = use_app_context();
 
@@ -97,10 +98,10 @@
   });
 
   const templates = $derived(
-    RAG_TEMPLATES.map((t) => ({
-      id: t.id,
-      label: t.label,
-      query: t.build(rag.scope),
+    BUILTIN_QUESTIONS.map((recipe) => ({
+      id: recipe.id,
+      label: recipe.label,
+      query: recipe.build(scope_phrase(rag.scope)),
     })),
   );
 

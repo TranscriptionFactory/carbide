@@ -5,6 +5,7 @@ import {
   normalize_base_scope,
   migrate_scope,
   path_in_folder,
+  scope_phrase,
 } from "$lib/features/rag/domain/rag_scope";
 
 describe("normalize_folder_scope", () => {
@@ -95,5 +96,39 @@ describe("path_in_folder", () => {
   it("rejects notes outside the folder prefix", () => {
     expect(path_in_folder("archive/old.md", "projects/")).toBe(false);
     expect(path_in_folder("projectsX/note.md", "projects/")).toBe(false);
+  });
+});
+
+describe("scope_phrase", () => {
+  it("falls back to the whole vault when scope is empty", () => {
+    expect(scope_phrase({})).toBe("my vault");
+  });
+
+  it("names a single folder without trailing slash", () => {
+    expect(scope_phrase({ folders: ["Projects/"] })).toBe(
+      'the folder "Projects"',
+    );
+  });
+
+  it("pluralizes and joins multiple folders", () => {
+    expect(scope_phrase({ folders: ["A", "B"] })).toBe(
+      'the folders "A" and "B"',
+    );
+  });
+
+  it("renders tags with a leading hash, deduping existing hashes", () => {
+    expect(scope_phrase({ tags: ["#work", "ml"] })).toBe(
+      "notes tagged #work and #ml",
+    );
+  });
+
+  it("combines folders, tags, and bases into one phrase", () => {
+    expect(
+      scope_phrase({
+        folders: ["Daily"],
+        tags: ["journal"],
+        bases: ["Reading"],
+      }),
+    ).toBe('the folder "Daily", notes tagged #journal and the "Reading" view');
   });
 });

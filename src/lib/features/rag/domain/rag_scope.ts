@@ -52,3 +52,33 @@ export function migrate_scope(raw: unknown): RagScope {
   if (bases.length) scope.bases = bases;
   return scope;
 }
+
+function join_human(parts: string[]): string {
+  if (parts.length <= 1) return parts[0] ?? "";
+  return `${parts.slice(0, -1).join(", ")} and ${parts[parts.length - 1]}`;
+}
+
+export function scope_phrase(scope: RagScope): string {
+  const parts: string[] = [];
+  const folders = scope.folders ?? [];
+  const tags = scope.tags ?? [];
+  const bases = scope.bases ?? [];
+
+  if (folders.length) {
+    const label = folders.map((f) => `"${f.replace(/\/+$/, "")}"`);
+    parts.push(
+      `the ${folders.length > 1 ? "folders" : "folder"} ${join_human(label)}`,
+    );
+  }
+  if (tags.length) {
+    parts.push(
+      `notes tagged ${join_human(tags.map((t) => `#${t.replace(/^#/, "")}`))}`,
+    );
+  }
+  if (bases.length) {
+    parts.push(`the ${join_human(bases.map((b) => `"${b}"`))} view`);
+  }
+
+  if (parts.length === 0) return "my vault";
+  return join_human(parts);
+}

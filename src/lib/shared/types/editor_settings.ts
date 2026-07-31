@@ -2,7 +2,7 @@ import {
   BUILTIN_PROVIDER_PRESETS,
   type AiProviderConfig,
 } from "$lib/shared/types/ai_provider_config";
-import type { AiInlineCommand } from "$lib/shared/types/ai_inline_command";
+import type { AiInlineCommand } from "$lib/shared/types/prompt_recipe";
 
 // STT removed — archived on archive/stt-main
 // export type SttInsertMode = "cursor" | "new_line" | "new_block";
