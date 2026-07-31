@@ -45,14 +45,38 @@ function make_harness(events: AgentEvent[]) {
     }),
   };
   const refresh_vault = vi.fn();
+  const sync_changed_notes = vi.fn();
   const runner = new AgentRunner(
     port,
     rag_store,
     vault_store,
     git,
     refresh_vault,
+    sync_changed_notes,
   );
-  return { runner, rag_store, calls, captured, git, refresh_vault };
+  return {
+    runner,
+    rag_store,
+    calls,
+    captured,
+    git,
+    refresh_vault,
+    sync_changed_notes,
+  };
+}
+
+function tool_start(
+  name: string,
+  input_summary: string,
+  extra: { paths?: string[]; mutating?: boolean } = {},
+): AgentEvent {
+  return {
+    type: "tool_start",
+    name,
+    input_summary,
+    paths: extra.paths ?? [],
+    mutating: extra.mutating ?? false,
+  };
 }
 
 function tick() {
@@ -61,29 +85,26 @@ function tick() {
 
 describe("AgentRunner.run_turn", () => {
   it("populates changed files from mutating tool events and refreshes the vault", async () => {
-    const { runner, rag_store, refresh_vault } = make_harness([
-      { type: "init", session_id: "sess-1" },
-      {
-        type: "tool_start",
-        name: "mcp__carbide__read_note",
-        input_summary: '{"path":"notes/a.md"}',
-      },
-      { type: "tool_end", name: "mcp__carbide__read_note", ok: true },
-      {
-        type: "tool_start",
-        name: "mcp__carbide__update_note",
-        input_summary: '{"path":"notes/a.md"}',
-      },
-      { type: "tool_end", name: "mcp__carbide__update_note", ok: true },
-      {
-        type: "tool_start",
-        name: "Write",
-        input_summary: '{"file_path":"notes/b.md"}',
-      },
-      { type: "tool_end", name: "Write", ok: true },
-      { type: "text", delta: "Done." },
-      { type: "done", stats: {} },
-    ]);
+    const { runner, rag_store, refresh_vault, sync_changed_notes } =
+      make_harness([
+        { type: "init", session_id: "sess-1" },
+        tool_start("mcp__carbide__read_note", '{"path":"notes/a.md"}', {
+          paths: ["notes/a.md"],
+        }),
+        { type: "tool_end", name: "mcp__carbide__read_note", ok: true },
+        tool_start("mcp__carbide__update_note", '{"path":"notes/a.md"}', {
+          paths: ["notes/a.md"],
+          mutating: true,
+        }),
+        { type: "tool_end", name: "mcp__carbide__update_note", ok: true },
+        tool_start("Write", '{"content":"…truncated', {
+          paths: ["/test/vault/notes/b.md"],
+          mutating: true,
+        }),
+        { type: "tool_end", name: "Write", ok: true },
+        { type: "text", delta: "Done." },
+        { type: "done", stats: {} },
+      ]);
 
     const result = await runner.run_turn(
       provider,
@@ -96,6 +117,10 @@ describe("AgentRunner.run_turn", () => {
     expect(session?.changed_files).toEqual(["notes/a.md", "notes/b.md"]);
     expect(session?.agent_session_id).toBe("sess-1");
     expect(refresh_vault).toHaveBeenCalledTimes(1);
+    expect(sync_changed_notes).toHaveBeenCalledWith([
+      "notes/a.md",
+      "notes/b.md",
+    ]);
     const assistant = session?.messages.at(-1);
     expect(assistant?.role).toBe("assistant");
     expect(assistant?.content).toBe("Done.");
@@ -179,6 +204,7 @@ describe("AgentRunner.run_turn", () => {
       vault_store,
       git,
       refresh_vault,
+      vi.fn(),
     );
 
     const running = runner.run_turn(provider, "organize my notes", "harness");
@@ -217,11 +243,9 @@ describe("AgentRunner.run_turn", () => {
   it("keeps the tool trail when a turn fails before producing any text", async () => {
     const { runner, rag_store } = make_harness([
       { type: "init", session_id: "sess-1" },
-      {
-        type: "tool_start",
-        name: "mcp__carbide__read_note",
-        input_summary: '{"path":"clips/scraped.md"}',
-      },
+      tool_start("mcp__carbide__read_note", '{"path":"clips/scraped.md"}', {
+        paths: ["clips/scraped.md"],
+      }),
       { type: "tool_end", name: "mcp__carbide__read_note", ok: true },
       { type: "error", message: "blocked by the provider" },
     ]);
@@ -247,11 +271,10 @@ describe("AgentRunner.run_turn", () => {
 
   it("records files a failed turn already wrote and refreshes the vault", async () => {
     const { runner, rag_store, refresh_vault } = make_harness([
-      {
-        type: "tool_start",
-        name: "mcp__carbide__update_note",
-        input_summary: '{"path":"notes/a.md"}',
-      },
+      tool_start("mcp__carbide__update_note", '{"path":"notes/a.md"}', {
+        paths: ["notes/a.md"],
+        mutating: true,
+      }),
       { type: "tool_end", name: "mcp__carbide__update_note", ok: true },
       { type: "error", message: "blocked by the provider" },
     ]);
@@ -260,5 +283,37 @@ describe("AgentRunner.run_turn", () => {
 
     expect(rag_store.active?.changed_files).toEqual(["notes/a.md"]);
     expect(refresh_vault).toHaveBeenCalledTimes(1);
+  });
+
+  // A mutating tool whose paths could not be resolved still left the vault
+  // stale; the tree refresh must not be gated on path extraction succeeding.
+  it("refreshes the vault when a mutating tool resolved no path", async () => {
+    const { runner, rag_store, refresh_vault, sync_changed_notes } =
+      make_harness([
+        tool_start("Write", '{"content":"…truncated', { mutating: true }),
+        { type: "tool_end", name: "Write", ok: true },
+        { type: "done", stats: {} },
+      ]);
+
+    await runner.run_turn(provider, "write something", "harness");
+
+    expect(refresh_vault).toHaveBeenCalledTimes(1);
+    expect(sync_changed_notes).toHaveBeenCalledWith([]);
+    expect(rag_store.active?.changed_files).toEqual([]);
+  });
+
+  it("does not sync notes when only read-only tools ran", async () => {
+    const { runner, refresh_vault, sync_changed_notes } = make_harness([
+      tool_start("mcp__carbide__read_note", '{"path":"notes/a.md"}', {
+        paths: ["notes/a.md"],
+      }),
+      { type: "tool_end", name: "mcp__carbide__read_note", ok: true },
+      { type: "done", stats: {} },
+    ]);
+
+    await runner.run_turn(provider, "just look around", "harness");
+
+    expect(refresh_vault).not.toHaveBeenCalled();
+    expect(sync_changed_notes).not.toHaveBeenCalled();
   });
 });
