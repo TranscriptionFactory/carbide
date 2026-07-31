@@ -149,6 +149,7 @@ export const ACTION_IDS = {
   graph_load_hierarchy: "graph.load_hierarchy",
   graph_cycle_group_mode: "graph.cycle_group_mode",
   graph_set_group_mode: "graph.set_group_mode",
+  graph_set_group_order: "graph.set_group_order",
   graph_enter_focus_mode: "graph.enter_focus_mode",
   graph_exit_focus_mode: "graph.exit_focus_mode",
 
