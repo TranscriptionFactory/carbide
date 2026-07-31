@@ -61,17 +61,18 @@ describe("build_rag_prompt", () => {
     expect(user_prompt).toContain("<question>\nHow do I brew?\n</question>");
   });
 
-  it("omits the conversation section when there is no history", () => {
-    const { user_prompt } = build_rag_prompt({
+  it("returns no history turns when there is none", () => {
+    const { history, user_prompt } = build_rag_prompt({
       question: "How do I brew?",
       contexts,
       history: [],
     });
 
-    expect(user_prompt).not.toContain("<conversation>");
+    expect(history).toEqual([]);
+    expect(user_prompt).not.toContain("User:");
   });
 
-  it("injects prior turns as a conversation section, stripping stale citations", () => {
+  it("returns prior turns as real messages, stripping stale citations", () => {
     const history: RagMessage[] = [
       { id: "u1", role: "user", content: "What is pour over?", citations: [] },
       {
@@ -82,19 +83,55 @@ describe("build_rag_prompt", () => {
       },
     ];
 
-    const { user_prompt } = build_rag_prompt({
+    const result = build_rag_prompt({
       question: "What temperature?",
       contexts,
       history,
     });
 
-    expect(user_prompt).toContain("<conversation>");
-    expect(user_prompt).toContain("User: What is pour over?");
-    expect(user_prompt).toContain("Assistant: A manual brew method.");
-    expect(user_prompt).not.toContain("[3]");
-    expect(user_prompt.indexOf("<conversation>")).toBeLessThan(
-      user_prompt.indexOf("<question>"),
-    );
+    expect(result.history).toEqual([
+      { role: "user", content: "What is pour over?" },
+      { role: "assistant", content: "A manual brew method." },
+    ]);
+    expect(result.user_prompt).not.toContain("User:");
+    expect(result.user_prompt).not.toContain("Assistant:");
+  });
+
+  it("skips tool replay messages that no chat provider accepts", () => {
+    const history: RagMessage[] = [
+      { id: "u1", role: "user", content: "organize my notes", citations: [] },
+      {
+        id: "t1",
+        role: "tool",
+        content: '{"path":"notes/a.md"}',
+        citations: [],
+        tool_call_id: "call_1",
+      },
+      { id: "a1", role: "assistant", content: "Done.", citations: [] },
+    ];
+
+    const result = build_rag_prompt({
+      question: "what changed?",
+      contexts,
+      history,
+    });
+
+    expect(result.history.map((m) => m.role)).toEqual(["user", "assistant"]);
+  });
+
+  it("drops leading assistant turns so the conversation opens on a user message", () => {
+    const history: RagMessage[] = [
+      { id: "a0", role: "assistant", content: "Earlier answer", citations: [] },
+      { id: "u1", role: "user", content: "A follow up", citations: [] },
+    ];
+
+    const result = build_rag_prompt({
+      question: "another",
+      contexts,
+      history,
+    });
+
+    expect(result.history).toEqual([{ role: "user", content: "A follow up" }]);
   });
 
   it("drops the oldest turns when history exceeds the token budget", () => {
@@ -113,14 +150,15 @@ describe("build_rag_prompt", () => {
       },
     ];
 
-    const { user_prompt } = build_rag_prompt({
+    const result = build_rag_prompt({
       question: "follow up",
       contexts,
       history,
       history_token_budget: 8,
     });
 
-    expect(user_prompt).toContain("NEWEST");
-    expect(user_prompt).not.toContain("OLDEST");
+    const rendered = result.history.map((m) => m.content).join("\n");
+    expect(rendered).toContain("NEWEST");
+    expect(rendered).not.toContain("OLDEST");
   });
 });
