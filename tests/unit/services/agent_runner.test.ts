@@ -213,4 +213,52 @@ describe("AgentRunner.run_turn", () => {
     expect(rag_store.error).toBe("CLI crashed");
     expect(rag_store.active?.messages.at(-1)?.content).toBe("half");
   });
+
+  it("keeps the tool trail when a turn fails before producing any text", async () => {
+    const { runner, rag_store } = make_harness([
+      { type: "init", session_id: "sess-1" },
+      {
+        type: "tool_start",
+        name: "mcp__carbide__read_note",
+        input_summary: '{"path":"clips/scraped.md"}',
+      },
+      { type: "tool_end", name: "mcp__carbide__read_note", ok: true },
+      { type: "error", message: "blocked by the provider" },
+    ]);
+
+    const result = await runner.run_turn(provider, "summarize", "harness");
+
+    expect(result).toEqual({
+      status: "error",
+      message: "blocked by the provider",
+    });
+    const assistant = rag_store.active?.messages.at(-1);
+    expect(assistant?.role).toBe("assistant");
+    expect(assistant?.content).toBe("");
+    expect(assistant?.tool_events).toEqual([
+      {
+        name: "mcp__carbide__read_note",
+        input_summary: '{"path":"clips/scraped.md"}',
+        ok: true,
+      },
+    ]);
+    expect(assistant?.error).toBe("blocked by the provider");
+  });
+
+  it("records files a failed turn already wrote and refreshes the vault", async () => {
+    const { runner, rag_store, refresh_vault } = make_harness([
+      {
+        type: "tool_start",
+        name: "mcp__carbide__update_note",
+        input_summary: '{"path":"notes/a.md"}',
+      },
+      { type: "tool_end", name: "mcp__carbide__update_note", ok: true },
+      { type: "error", message: "blocked by the provider" },
+    ]);
+
+    await runner.run_turn(provider, "rewrite my notes", "harness");
+
+    expect(rag_store.active?.changed_files).toEqual(["notes/a.md"]);
+    expect(refresh_vault).toHaveBeenCalledTimes(1);
+  });
 });
