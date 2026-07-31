@@ -33,8 +33,17 @@
   let open = $state(false);
   let selected_index = $state(-1);
   let input_el: HTMLInputElement | undefined;
+  let dropdown_element = $state<HTMLElement>();
 
   const show_dropdown = $derived(open && items.length > 0);
+
+  $effect(() => {
+    void selected_index;
+    void items;
+    dropdown_element
+      ?.querySelector(".PropertyCombobox__item--selected")
+      ?.scrollIntoView({ block: "nearest" });
+  });
 
   onMount(() => {
     if (autofocus) input_el?.focus();
@@ -96,7 +105,7 @@
     onblur={() => setTimeout(() => (open = false), 150)}
   />
   {#if show_dropdown}
-    <div class="PropertyCombobox__dropdown">
+    <div bind:this={dropdown_element} class="PropertyCombobox__dropdown">
       {#each items as item, i (item.value)}
         <button
           type="button"

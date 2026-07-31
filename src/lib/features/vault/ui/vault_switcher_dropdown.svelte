@@ -64,6 +64,7 @@
   let vault_query = $state("");
   let selected_vault_index = $state(0);
   let search_input_ref: HTMLInputElement | null = $state(null);
+  let list_element = $state<HTMLElement>();
 
   const filtered_vaults = $derived(search_vaults(recent_vaults, vault_query));
   const pinned_ids_set = $derived(new Set(pinned_vault_ids));
@@ -83,6 +84,14 @@
       selected_vault_index,
       filtered_vaults.length,
     );
+  });
+
+  $effect(() => {
+    void selected_vault_index;
+    void filtered_vaults;
+    list_element
+      ?.querySelector(".VaultSwitcher__item--highlighted")
+      ?.scrollIntoView({ block: "nearest" });
   });
 
   $effect(() => {
@@ -181,7 +190,7 @@
       />
     </div>
 
-    <div class="VaultSwitcher__list">
+    <div bind:this={list_element} class="VaultSwitcher__list">
       {#if pinned_vaults.length > 0}
         <div class="VaultSwitcher__section">
           <div class="VaultSwitcher__section-label">
