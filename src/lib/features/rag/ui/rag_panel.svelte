@@ -390,7 +390,7 @@
       </div>
     </div>
   {:else}
-    <div class="flex-1 overflow-y-auto p-3">
+    <div class="flex-1 select-text overflow-y-auto p-3">
       {#if visible_messages.length === 0 && !rag.is_loading}
         <div class="flex h-full items-center justify-center">
           <EmptyMessage

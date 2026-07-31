@@ -456,7 +456,7 @@
           </div>
           {@render reasoning_section()}
           <div
-            class="whitespace-pre-wrap rounded-md border bg-background px-4 py-3 {last_turn?.mode ===
+            class="select-text whitespace-pre-wrap rounded-md border bg-background px-4 py-3 {last_turn?.mode ===
             'ask'
               ? 'text-sm'
               : 'font-mono text-xs'}"
@@ -481,7 +481,7 @@
               </div>
               {@render reasoning_section()}
               <div
-                class="whitespace-pre-wrap rounded-md border bg-background px-4 py-3 text-sm"
+                class="select-text whitespace-pre-wrap rounded-md border bg-background px-4 py-3 text-sm"
               >
                 {result.output}
               </div>
@@ -512,7 +512,7 @@
               </div>
               {#if draft_diff && draft_diff.hunks.length > 1}
                 <div
-                  class="rounded-md border bg-muted/30 p-3 text-xs text-muted-foreground"
+                  class="select-text rounded-md border bg-muted/30 p-3 text-xs text-muted-foreground"
                 >
                   Select the change groups you want to apply. Unselected hunks
                   keep the original note content.
@@ -535,7 +535,7 @@
           {/if}
         {:else}
           <div
-            class="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive"
+            class="select-text rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive"
           >
             {result.error ?? `${provider_config?.name ?? "AI"} failed.`}
           </div>
@@ -588,7 +588,7 @@
           </div>
           {#if !context_preview_open && target === "selection" && selection_preview}
             <p
-              class="line-clamp-4 whitespace-pre-wrap font-mono text-xs text-muted-foreground"
+              class="line-clamp-4 select-text whitespace-pre-wrap font-mono text-xs text-muted-foreground"
             >
               {selection_preview}
             </p>
@@ -628,7 +628,9 @@
                   {providers.find((p) => p.id === turn.provider_id)?.name ??
                     turn.provider_id}
                 </div>
-                <p class="whitespace-pre-wrap text-sm">{turn.prompt}</p>
+                <p class="select-text whitespace-pre-wrap text-sm">
+                  {turn.prompt}
+                </p>
                 <div class="text-xs font-medium text-muted-foreground">
                   Assistant
                 </div>
@@ -638,12 +640,14 @@
                   </p>
                 {:else if turn.result?.success}
                   <p
-                    class="line-clamp-6 whitespace-pre-wrap font-mono text-xs text-muted-foreground"
+                    class="line-clamp-6 select-text whitespace-pre-wrap font-mono text-xs text-muted-foreground"
                   >
                     {turn.result.output}
                   </p>
                 {:else}
-                  <p class="whitespace-pre-wrap text-sm text-destructive">
+                  <p
+                    class="select-text whitespace-pre-wrap text-sm text-destructive"
+                  >
                     {turn.result?.error ?? "Assistant run failed."}
                   </p>
                 {/if}
