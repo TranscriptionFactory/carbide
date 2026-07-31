@@ -119,7 +119,15 @@ pub fn user_plugins_dir(home_dir: &Path) -> PathBuf {
     home_dir.join(".carbide").join("plugins")
 }
 
-pub const BUNDLED_PLUGIN_IDS: &[&str] = &["smart-templates", "html-to-markdown", "slides"];
+pub const BUNDLED_PLUGIN_IDS: &[&str] = &[
+    "auto-tag",
+    "html-strip",
+    "html-to-markdown",
+    "md-export",
+    "slides",
+    "smart-templates",
+    "wiki-compiler",
+];
 
 // Tauri maps `../plugins/**` resources under a `_up_` prefix in packaged
 // builds, while `tauri dev` exposes them at `plugins/` directly. Probe both.
