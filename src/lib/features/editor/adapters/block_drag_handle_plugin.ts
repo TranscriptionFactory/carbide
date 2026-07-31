@@ -5,6 +5,7 @@ import type { EditorView } from "prosemirror-view";
 import type { Node as ProseNode } from "prosemirror-model";
 import { dropPoint } from "prosemirror-transform";
 import { is_draggable_node_type } from "../domain/detect_draggable_blocks";
+import { insert_block_at, type BlockPlacement } from "./block_transforms";
 import {
   compute_section_drop,
   apply_block_move,
@@ -76,23 +77,26 @@ export function build_handle_element(): HTMLDivElement {
   return handle;
 }
 
+export function insert_paragraph_at(
+  view: EditorView,
+  block_pos: number,
+  placement: BlockPlacement,
+): number | null {
+  let from: number | null = null;
+  const inserted = insert_block_at(block_pos, placement, view.state, (tr) => {
+    from = tr.selection.from;
+    view.dispatch(tr);
+  });
+  if (!inserted) return null;
+  view.focus();
+  return from;
+}
+
 export function insert_paragraph_below(
   view: EditorView,
   block_pos: number,
 ): number | null {
-  const node = view.state.doc.nodeAt(block_pos);
-  if (!node) return null;
-
-  const insert_pos = block_pos + node.nodeSize;
-  const paragraph = view.state.schema.nodes["paragraph"]?.create();
-  if (!paragraph) return null;
-
-  const from = insert_pos + 1;
-  const tr = view.state.tr.insert(insert_pos, paragraph);
-  tr.setSelection(TextSelection.create(tr.doc, from));
-  view.dispatch(tr.scrollIntoView());
-  view.focus();
-  return from;
+  return insert_paragraph_at(view, block_pos, "below");
 }
 
 export function remove_empty_placeholder(

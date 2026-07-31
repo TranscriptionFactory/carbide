@@ -14,6 +14,7 @@ import { rank_note_suggestions } from "./rank_note_suggestions";
 import type { ToolbarVisibility } from "$lib/shared/types/editor_settings";
 import type { Diagnostic } from "$lib/features/diagnostics";
 import type { RichClipboardPayload } from "$lib/features/clipboard";
+import type { BlockPlacement } from "$lib/features/editor/adapters/block_transforms";
 import {
   match_query,
   format_authors,
@@ -717,8 +718,16 @@ export class EditorService {
     this.session?.delete_block_at?.(pos);
   }
 
-  block_pos_at_coords(x: number, y: number): number | null {
-    return this.session?.block_pos_at_coords?.(x, y) ?? null;
+  block_pos_at_coords(
+    x: number,
+    y: number,
+    target?: Element | null,
+  ): number | null {
+    return this.session?.block_pos_at_coords?.(x, y, target) ?? null;
+  }
+
+  insert_block_at(pos: number | null, placement: BlockPlacement) {
+    this.session?.insert_block_at?.(pos, placement);
   }
 
   batch_turn_into(

@@ -113,6 +113,7 @@ export function create_image_context_menu_prose_plugin(): Plugin {
           view.dispatch(tr);
 
           event.preventDefault();
+          event.stopPropagation();
           return true;
         },
         mousedown(view) {
