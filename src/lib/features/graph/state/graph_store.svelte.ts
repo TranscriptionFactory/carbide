@@ -8,7 +8,6 @@ import type {
 
 export type GraphStatus = "idle" | "loading" | "ready" | "error";
 export type GraphViewMode = "neighborhood" | "vault" | "hierarchy";
-export type GraphGroupMode = "folder" | "cluster" | "none";
 
 export class GraphStore {
   panel_open = $state(false);
@@ -28,7 +27,6 @@ export class GraphStore {
   edge_notice = $state<string | null>(null);
   hierarchy_tree = $state<HierarchyTreeNode[] | null>(null);
   hierarchy_root_key = $state<string | null>(null);
-  group_mode = $state<GraphGroupMode>("folder");
   cluster_assignments = $state<Record<string, number> | null>(null);
   focus_node_path = $state<string | null>(null);
   focus_mode_active = $state(false);
@@ -139,10 +137,6 @@ export class GraphStore {
     this.hierarchy_tree = null;
     this.status = "loading";
     this.error = null;
-  }
-
-  set_group_mode(mode: GraphGroupMode) {
-    this.group_mode = mode;
   }
 
   set_cluster_assignments(assignments: Record<string, number> | null) {

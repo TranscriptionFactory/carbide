@@ -8,6 +8,7 @@ import type { NotesPort } from "$lib/features/note";
 import type { VaultId, NotePath } from "$lib/shared/types/ids";
 import type { NoteMeta } from "$lib/shared/types/note";
 import { extract_local_links } from "$lib/features/links";
+import { extract_metadata } from "$lib/features/metadata";
 import { folder_from_path } from "$lib/features/graph/domain/graph_grouping";
 import { create_logger } from "$lib/shared/utils/logger";
 
@@ -20,6 +21,7 @@ type VaultIndex = {
   notes: Map<string, NoteMeta>;
   outlinks: Map<string, string[]>;
   raw_outlinks: Map<string, string[]>;
+  tags: Map<string, string[]>;
   built_at: number;
 };
 
@@ -54,6 +56,7 @@ async function build_vault_index(
 
   const outlinks = new Map<string, string[]>();
   const raw_outlinks = new Map<string, string[]>();
+  const tags = new Map<string, string[]>();
   const unreadable_note_paths: string[] = [];
 
   for (let i = 0; i < all_notes.length; i += BATCH_CONCURRENCY) {
@@ -77,6 +80,10 @@ async function build_vault_index(
       if (!result) continue;
       const { outlink_paths } = extract_local_links(result.markdown);
       raw_outlinks.set(result.path, outlink_paths);
+      tags.set(
+        result.path,
+        extract_metadata(result.markdown).tags.map((t) => t.tag),
+      );
       const resolved = outlink_paths
         .map((p) => resolve_wikilink(p, notes))
         .filter((p): p is string => p !== null);
@@ -90,7 +97,14 @@ async function build_vault_index(
     unreadable_notes: unreadable_note_paths.length,
   });
 
-  return { vault_id, notes, outlinks, raw_outlinks, built_at: Date.now() };
+  return {
+    vault_id,
+    notes,
+    outlinks,
+    raw_outlinks,
+    tags,
+    built_at: Date.now(),
+  };
 }
 
 export function create_graph_remark_adapter(
@@ -173,6 +187,9 @@ export function create_graph_remark_adapter(
         path: meta.path,
         title: meta.title || meta.name,
         group: folder_from_path(meta.path),
+        tags: index.tags.get(meta.path) ?? [],
+        date_created_ms: meta.ctime_ms,
+        date_modified_ms: meta.mtime_ms,
       }));
 
       const edge_set = new Set<string>();
