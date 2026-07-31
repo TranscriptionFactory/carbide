@@ -332,7 +332,7 @@ export class RagService {
         pinned: pinned_paths.has(c.note_path),
       })),
     };
-    const { system_prompt, user_prompt } = build_rag_prompt({
+    const { system_prompt, history, user_prompt } = build_rag_prompt({
       question: cleaned_question,
       contexts,
       history: input.history ?? [],
@@ -352,6 +352,7 @@ export class RagService {
         provider_config: input.provider_config,
         system_prompt,
         messages: [
+          ...history,
           {
             role: "user",
             content: input.image_parts?.length
