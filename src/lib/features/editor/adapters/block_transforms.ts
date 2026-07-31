@@ -1,5 +1,5 @@
 import type { EditorState, Transaction } from "prosemirror-state";
-import { TextSelection } from "prosemirror-state";
+import { Selection, TextSelection } from "prosemirror-state";
 import type { Node as ProseNode, NodeType } from "prosemirror-model";
 import { Fragment } from "prosemirror-model";
 import { wrapIn, setBlockType } from "prosemirror-commands";
@@ -9,6 +9,8 @@ import { compute_heading_ranges } from "./heading_fold_plugin";
 
 type Dispatch = ((tr: Transaction) => void) | undefined;
 type Command = (state: EditorState, dispatch?: Dispatch) => boolean;
+
+export type BlockPlacement = "above" | "below";
 
 export type TurnIntoTarget =
   | "paragraph"
@@ -351,6 +353,23 @@ function duplicate_resolved_block(
   return true;
 }
 
+export function insert_block_at(
+  pos: number,
+  placement: BlockPlacement,
+  state: EditorState,
+  dispatch?: Dispatch,
+): boolean {
+  const block = resolve_block_at_pos(state, pos);
+  if (!block) return false;
+  if (!dispatch) return true;
+
+  const insert_pos = placement === "above" ? block.pos : block.end;
+  const tr = state.tr.insert(insert_pos, schema.nodes.paragraph.create());
+  tr.setSelection(TextSelection.create(tr.doc, insert_pos + 1));
+  dispatch(tr.scrollIntoView());
+  return true;
+}
+
 export function delete_block(state: EditorState, dispatch?: Dispatch): boolean {
   const block = resolve_block_at_cursor(state);
   if (!block) return false;
@@ -367,6 +386,11 @@ export function delete_block_at(
   return delete_resolved_block(block, state, dispatch);
 }
 
+function select_near(tr: Transaction, pos: number): void {
+  const clamped = Math.max(0, Math.min(pos, tr.doc.content.size));
+  tr.setSelection(Selection.near(tr.doc.resolve(clamped), -1));
+}
+
 function delete_resolved_block(
   block: { pos: number; node: ProseNode; end: number },
   state: EditorState,
@@ -380,32 +404,14 @@ function delete_resolved_block(
   if (is_only_child) {
     const empty_para = schema.nodes.paragraph.create();
     const tr = state.tr.replaceWith(block.pos, block.end, empty_para);
-    tr.setSelection(TextSelection.create(tr.doc, 1));
-    dispatch(tr.scrollIntoView());
-    return true;
-  }
-
-  if (block.node.type.name === "heading") {
-    const tr = state.tr.delete(block.pos, block.end);
-    const cursor_pos = Math.min(
-      Math.max(block.pos, 1),
-      tr.doc.content.size - 1,
-    );
-    tr.setSelection(TextSelection.create(tr.doc, cursor_pos));
+    select_near(tr, block.pos + 1);
     dispatch(tr.scrollIntoView());
     return true;
   }
 
   const tr = state.tr.delete(block.pos, block.end);
-  let cursor_pos: number;
-  if (block.pos > 0) {
-    cursor_pos = Math.max(block.pos - 1, 1);
-    cursor_pos = Math.min(cursor_pos, tr.doc.content.size - 1);
-  } else {
-    cursor_pos = Math.min(1, tr.doc.content.size - 1);
-  }
-  cursor_pos = Math.max(cursor_pos, 1);
-  tr.setSelection(TextSelection.create(tr.doc, cursor_pos));
+  const anchor = block.node.type.name === "heading" ? block.pos : block.pos - 1;
+  select_near(tr, anchor);
   dispatch(tr.scrollIntoView());
   return true;
 }
@@ -489,8 +495,7 @@ export function batch_delete(
     }
     tr.delete(pos, pos + node.nodeSize);
   }
-  const cursor = Math.max(1, Math.min(tr.doc.content.size - 1, 1));
-  tr.setSelection(TextSelection.create(tr.doc, cursor));
+  select_near(tr, 1);
   dispatch(tr.scrollIntoView());
   return true;
 }
