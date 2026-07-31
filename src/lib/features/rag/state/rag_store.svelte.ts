@@ -26,6 +26,16 @@ function new_message(
   return { id: crypto.randomUUID(), role, content, citations };
 }
 
+// A turn that ran tools or reasoned before failing is worth keeping even with no
+// text: the trail is the only record of what the agent touched.
+function has_turn_evidence(message: RagMessage): boolean {
+  return (
+    message.content !== "" ||
+    (message.tool_events?.length ?? 0) > 0 ||
+    (message.reasoning ?? "") !== ""
+  );
+}
+
 export class RagStore {
   sessions = $state<RagSession[]>([]);
   active_id = $state<string | null>(null);
@@ -182,8 +192,10 @@ export class RagStore {
     const sid = this.streaming_id;
     if (sid) {
       const partial = this.messages.find((m) => m.id === sid);
-      if (partial && partial.content !== "") {
-        // keep the partial answer; the error renders beneath it
+      if (partial && has_turn_evidence(partial)) {
+        // keep the partial turn and record why it failed, so the trail survives
+        // persistence; the transient error banner renders beneath it
+        this.update_streaming((m) => ({ ...m, error }));
         this.patch_active((s) => this.touch(s));
       } else {
         this.patch_active((s) => ({

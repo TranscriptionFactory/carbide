@@ -1,5 +1,6 @@
 <script lang="ts">
   import {
+    AlertCircle,
     Check,
     Copy,
     FileText,
@@ -187,6 +188,13 @@
           aria-hidden="true">▍</span
         >{/if}
     </div>
+
+    {#if message.error}
+      <div class="flex items-start gap-2 text-xs text-destructive">
+        <AlertCircle class="mt-px size-3.5 shrink-0" aria-hidden="true" />
+        <span>Failed: {message.error}</span>
+      </div>
+    {/if}
 
     {#if !is_streaming}
       <div
