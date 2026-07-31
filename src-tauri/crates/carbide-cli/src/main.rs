@@ -230,6 +230,11 @@ enum Command {
     Mcp,
     #[command(name = "mcp:inspect", about = "Inspect MCP server capabilities")]
     McpInspect,
+    #[command(name = "help:topics", about = "List or read Carbide help topics")]
+    Help {
+        #[arg(help = "Guide slug or carbide:// resource URI. Omit to list topics")]
+        topic: Option<String>,
+    },
     #[command(about = "Configure MCP integration")]
     Setup {
         #[command(subcommand)]
@@ -480,6 +485,10 @@ async fn main() {
         }
         Command::Vaults => commands::vault::vaults(&client, cli.json).await,
         Command::McpInspect => commands::dev::mcp_inspect(&client, cli.json).await,
+        Command::Help { ref topic } => match topic {
+            Some(topic) => commands::help::read(&client, topic, cli.json).await,
+            None => commands::help::list(&client, cli.json).await,
+        },
         Command::Setup { .. } => unreachable!(),
         command => {
             let vault_id = match resolve_vault(&client, cli.vault.as_deref()).await {
@@ -604,6 +613,7 @@ async fn run_command(
         | Command::Vaults
         | Command::Mcp
         | Command::McpInspect
+        | Command::Help { .. }
         | Command::Setup { .. } => {
             unreachable!()
         }
