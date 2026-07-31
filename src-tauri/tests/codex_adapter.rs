@@ -36,7 +36,7 @@ const ERROR_ITEM_LINE: &str = r#"{"type":"item.completed","item":{"id":"item_0",
 
 #[test]
 fn thread_started_yields_init_with_session_id() {
-    let mut parser = CodexEventParser::default();
+    let mut parser = CodexEventParser::new(&sample_catalog());
     assert_eq!(
         parser.parse_line(THREAD_STARTED_LINE),
         vec![AgentEvent::Init {
@@ -47,7 +47,7 @@ fn thread_started_yields_init_with_session_id() {
 
 #[test]
 fn agent_message_yields_text() {
-    let mut parser = CodexEventParser::default();
+    let mut parser = CodexEventParser::new(&sample_catalog());
     assert_eq!(
         parser.parse_line(AGENT_MESSAGE_LINE),
         vec![AgentEvent::Text {
@@ -58,7 +58,7 @@ fn agent_message_yields_text() {
 
 #[test]
 fn reasoning_yields_reasoning() {
-    let mut parser = CodexEventParser::default();
+    let mut parser = CodexEventParser::new(&sample_catalog());
     assert_eq!(
         parser.parse_line(REASONING_LINE),
         vec![AgentEvent::Reasoning {
@@ -69,16 +69,58 @@ fn reasoning_yields_reasoning() {
 
 #[test]
 fn mcp_tool_start_yields_tool_start_with_carbide_prefixed_name() {
-    let mut parser = CodexEventParser::default();
+    let mut parser = CodexEventParser::new(&sample_catalog());
     let events = parser.parse_line(MCP_TOOL_START_LINE);
     assert_eq!(events.len(), 1);
     match &events[0] {
         AgentEvent::ToolStart {
             name,
             input_summary,
+            paths,
+            mutating,
         } => {
             assert_eq!(name, "mcp__carbide__read_note");
             assert!(input_summary.contains("hello.md"));
+            assert_eq!(paths, &["hello.md".to_string()]);
+            assert!(!mutating);
+        }
+        other => panic!("expected ToolStart, got {other:?}"),
+    }
+}
+
+// codex applies edits itself and reports them as a file_change item; no tool
+// name identifies it as mutating, so the adapter has to mark it.
+#[test]
+fn file_change_item_is_mutating_and_carries_its_paths() {
+    const LINE: &str = r#"{"type":"item.started","item":{"id":"item_9","type":"file_change","status":"in_progress","changes":[{"path":"notes/a.md","kind":"update"},{"path":"notes/b.md","kind":"add"}]}}"#;
+    let mut parser = CodexEventParser::new(&sample_catalog());
+    let events = parser.parse_line(LINE);
+    assert_eq!(events.len(), 1);
+    match &events[0] {
+        AgentEvent::ToolStart {
+            name,
+            paths,
+            mutating,
+            ..
+        } => {
+            assert_eq!(name, "file_change");
+            assert_eq!(paths, &["notes/a.md".to_string(), "notes/b.md".to_string()]);
+            assert!(mutating);
+        }
+        other => panic!("expected ToolStart, got {other:?}"),
+    }
+}
+
+#[test]
+fn mutating_mcp_tool_call_is_flagged_from_the_catalog() {
+    const LINE: &str = r#"{"type":"item.started","item":{"id":"item_10","type":"mcp_tool_call","invocation":{"server":"carbide","tool":"create_note","arguments":{"path":"notes/new.md"}}}}"#;
+    let mut parser = CodexEventParser::new(&sample_catalog());
+    match &parser.parse_line(LINE)[0] {
+        AgentEvent::ToolStart {
+            paths, mutating, ..
+        } => {
+            assert!(mutating);
+            assert_eq!(paths, &["notes/new.md".to_string()]);
         }
         other => panic!("expected ToolStart, got {other:?}"),
     }
@@ -86,7 +128,7 @@ fn mcp_tool_start_yields_tool_start_with_carbide_prefixed_name() {
 
 #[test]
 fn mcp_tool_end_yields_tool_end_matched_by_id() {
-    let mut parser = CodexEventParser::default();
+    let mut parser = CodexEventParser::new(&sample_catalog());
     parser.parse_line(MCP_TOOL_START_LINE);
     assert_eq!(
         parser.parse_line(MCP_TOOL_END_LINE),
@@ -100,7 +142,7 @@ fn mcp_tool_end_yields_tool_end_matched_by_id() {
 
 #[test]
 fn failed_command_execution_yields_tool_end_not_ok() {
-    let mut parser = CodexEventParser::default();
+    let mut parser = CodexEventParser::new(&sample_catalog());
     assert_eq!(
         parser.parse_line(SHELL_TOOL_END_FAIL_LINE),
         vec![AgentEvent::ToolEnd {
@@ -113,7 +155,7 @@ fn failed_command_execution_yields_tool_end_not_ok() {
 
 #[test]
 fn turn_completed_yields_done() {
-    let mut parser = CodexEventParser::default();
+    let mut parser = CodexEventParser::new(&sample_catalog());
     let events = parser.parse_line(TURN_COMPLETED_LINE);
     assert_eq!(events.len(), 1);
     assert!(matches!(events[0], AgentEvent::Done { .. }));
@@ -121,7 +163,7 @@ fn turn_completed_yields_done() {
 
 #[test]
 fn turn_failed_yields_error() {
-    let mut parser = CodexEventParser::default();
+    let mut parser = CodexEventParser::new(&sample_catalog());
     assert_eq!(
         parser.parse_line(TURN_FAILED_LINE),
         vec![AgentEvent::Error {
@@ -135,7 +177,7 @@ fn turn_failed_yields_error() {
 // so surfacing these would abort a healthy turn. Only turn.failed is terminal.
 #[test]
 fn transient_noise_yields_no_events() {
-    let mut parser = CodexEventParser::default();
+    let mut parser = CodexEventParser::new(&sample_catalog());
     assert!(parser.parse_line(TURN_STARTED_LINE).is_empty());
     assert!(parser.parse_line(TRANSIENT_ERROR_LINE).is_empty());
     assert!(parser.parse_line(ERROR_ITEM_LINE).is_empty());
@@ -144,7 +186,7 @@ fn transient_noise_yields_no_events() {
 
 #[test]
 fn saw_result_tracks_turn_terminals() {
-    let mut parser = CodexEventParser::default();
+    let mut parser = CodexEventParser::new(&sample_catalog());
     assert!(!parser.saw_result());
     parser.parse_line(AGENT_MESSAGE_LINE);
     assert!(!parser.saw_result());
