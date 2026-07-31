@@ -213,6 +213,7 @@ export const ACTION_IDS = {
   editor_delete_block: "editor.delete_block",
 
   outline_scroll_to_heading: "outline.scroll_to_heading",
+  outline_scroll_to_fragment: "outline.scroll_to_fragment",
 
   find_in_file_toggle: "find_in_file.toggle",
   find_in_file_open: "find_in_file.open",

@@ -274,4 +274,13 @@ export function register_ui_actions(input: ActionRegistrationInput) {
       services.editor.scroll_to_position(pos);
     },
   });
+
+  registry.register({
+    id: ACTION_IDS.outline_scroll_to_fragment,
+    label: "Scroll to Fragment",
+    execute: (fragment: unknown) => {
+      if (typeof fragment !== "string" || fragment === "") return;
+      services.editor.scroll_to_heading_fragment(fragment);
+    },
+  });
 }

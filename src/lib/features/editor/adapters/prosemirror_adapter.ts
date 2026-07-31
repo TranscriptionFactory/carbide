@@ -35,6 +35,7 @@ import type {
 } from "$lib/shared/types/editor";
 
 import { active_heading_at } from "./outline_plugin";
+import { find_block_anchor_position } from "./block_anchor";
 import { OutlineBuildScheduler } from "$lib/features/editor/domain/outline_build_scheduler";
 import {
   assemble_extensions,
@@ -1289,6 +1290,10 @@ export function create_prosemirror_editor_port(args?: {
               });
             }
           });
+        },
+        find_block_anchor_position(block_id: string) {
+          if (!view) return null;
+          return find_block_anchor_position(view.state.doc, block_id);
         },
         get_cursor_markdown_offset() {
           if (!view) return 0;
