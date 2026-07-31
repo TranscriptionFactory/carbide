@@ -8,14 +8,14 @@
     Settings,
   } from "@lucide/svelte";
   import type { AiMenuMode } from "../adapters/ai_menu_plugin";
-  import type { AiInlineCommand } from "$lib/features/ai";
+  import type { InstructionRecipe } from "$lib/shared/types/prompt_recipe";
   import { contain_focus } from "$lib/components/ui/contain_focus";
   import { is_plain_enter } from "$lib/shared/utils/keyboard";
 
   interface Props {
     mode: AiMenuMode;
     streaming: boolean;
-    commands: AiInlineCommand[];
+    commands: InstructionRecipe[];
     on_submit: (prompt: string) => void;
     on_command: (command_id: string) => void;
     on_retry: () => void;

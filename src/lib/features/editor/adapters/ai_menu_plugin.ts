@@ -4,10 +4,8 @@ import { Decoration, DecorationSet } from "prosemirror-view";
 import type { EditorView } from "prosemirror-view";
 import type { Node as PmNode } from "prosemirror-model";
 import { mount, unmount } from "svelte";
-import {
-  BUILTIN_INLINE_COMMANDS,
-  type AiInlineCommand,
-} from "$lib/features/ai";
+import { BUILTIN_INSTRUCTIONS } from "$lib/shared/domain/prompt_recipes";
+import type { InstructionRecipe } from "$lib/shared/types/prompt_recipe";
 import AiInlineMenu from "../ui/ai_inline_menu.svelte";
 import {
   create_coords_anchor,
@@ -64,7 +62,7 @@ export type AiMenuPluginConfig = {
     prompt?: string;
     retry?: boolean;
   }) => void;
-  get_commands?: () => AiInlineCommand[];
+  get_commands?: () => InstructionRecipe[];
   on_open_settings?: () => void;
 };
 
@@ -217,7 +215,7 @@ export function create_ai_menu_plugin(
           return;
         }
         if (svelte_app) unmount(svelte_app);
-        const commands = config?.get_commands?.() ?? BUILTIN_INLINE_COMMANDS;
+        const commands = config?.get_commands?.() ?? BUILTIN_INSTRUCTIONS;
         const open_settings = config?.on_open_settings;
         svelte_app = mount(AiInlineMenu, {
           target: container,

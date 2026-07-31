@@ -6,7 +6,7 @@ import type {
   AiVaultContext,
   AiVaultContextNote,
 } from "$lib/features/ai/domain/ai_types";
-import type { AiInlineCommand } from "$lib/features/ai/domain/ai_inline_commands";
+import type { InstructionRecipe } from "$lib/shared/types/prompt_recipe";
 
 function section(label: string, value: string): string {
   return `<${label}>\n${value}\n</${label}>`;
@@ -162,7 +162,7 @@ export function build_ai_inline_prompt(input: {
   custom_prompt?: string;
   context_text: string;
   selection_text?: string;
-  commands?: AiInlineCommand[];
+  commands?: InstructionRecipe[];
   vault_context?: AiVaultContext;
 }): { system_prompt: string; user_prompt: string } {
   const { command_id, custom_prompt, context_text, selection_text, commands } =

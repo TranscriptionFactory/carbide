@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { build_ai_inline_prompt } from "$lib/features/ai/domain/ai_prompt_builder";
-import { BUILTIN_INLINE_COMMANDS } from "$lib/features/ai/domain/ai_inline_commands";
+import { BUILTIN_INSTRUCTIONS } from "$lib/shared/domain/prompt_recipes";
+import type { InstructionRecipe } from "$lib/shared/types/prompt_recipe";
 
-const commands = BUILTIN_INLINE_COMMANDS;
+const commands = BUILTIN_INSTRUCTIONS;
 
 describe("build_ai_inline_prompt", () => {
   it("returns continue prompt using context_text", () => {
@@ -132,9 +133,10 @@ describe("build_ai_inline_prompt", () => {
   });
 
   it("uses custom command from commands list", () => {
-    const custom_commands = [
+    const custom_commands: InstructionRecipe[] = [
       ...commands,
       {
+        mode: "instruction",
         id: "formal",
         label: "Formal",
         description: "Rewrite formally",
