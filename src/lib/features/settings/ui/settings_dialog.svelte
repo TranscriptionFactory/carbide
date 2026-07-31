@@ -102,10 +102,11 @@
     AiTransport,
   } from "$lib/shared/types/ai_provider_config";
   import {
-    BUILTIN_INLINE_COMMANDS,
-    resolve_inline_commands,
-    type AiInlineCommand,
-  } from "$lib/features/ai";
+    BUILTIN_INSTRUCTIONS,
+    resolve_instructions,
+    to_inline_command,
+  } from "$lib/shared/domain/prompt_recipes";
+  import type { AiInlineCommand } from "$lib/shared/types/prompt_recipe";
   import type { Theme, ColorSchemePreference } from "$lib/shared/types/theme";
   import type { HotkeyConfig, HotkeyBinding } from "$lib/features/hotkey";
   import type { DynamicSidebarView } from "$lib/app";
@@ -546,7 +547,7 @@
   }
 
   let resolved_inline_commands = $derived(
-    resolve_inline_commands(editor_settings.ai_inline_commands),
+    resolve_instructions(editor_settings.ai_inline_commands),
   );
 
   let editing_inline_command_id = $state<string | null>(null);
@@ -568,9 +569,11 @@
     if (idx >= 0) {
       user_commands[idx] = Object.assign({}, user_commands[idx], updates);
     } else {
-      const builtin = BUILTIN_INLINE_COMMANDS.find((c) => c.id === id);
+      const builtin = BUILTIN_INSTRUCTIONS.find((c) => c.id === id);
       if (builtin) {
-        user_commands.push(Object.assign({}, builtin, updates));
+        user_commands.push(
+          Object.assign({}, to_inline_command(builtin), updates),
+        );
       }
     }
     update("ai_inline_commands", user_commands);
