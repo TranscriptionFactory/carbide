@@ -56,6 +56,23 @@ export function register_rag_actions(
     return { is_dirty: tab.is_dirty };
   }
 
+  // Mutating tools include delete_note and rename_note, so a "changed" path may
+  // no longer exist. Disk is the only reliable witness — the tool name does not
+  // say which of its paths survived — so reopen and clean up on not_found the
+  // same way the watcher's note_removed branch does.
+  async function reload_open_note(note_path: NotePath) {
+    stores.tab.invalidate_cache_by_path(note_path);
+    services.editor.close_buffer(note_path);
+    const result = await services.note.open_note(note_path, false, {
+      force_reload: true,
+      cleanup_if_missing: true,
+    });
+    if (result.status === "not_found") {
+      services.note.clear_open_note();
+      services.tab.remove_tab(note_path);
+    }
+  }
+
   async function sync_changed_notes(paths: string[]) {
     for (const path of paths) {
       const note_path = as_note_path(path);
@@ -71,11 +88,7 @@ export function register_rag_actions(
 
       switch (decision) {
         case "reload":
-          stores.tab.invalidate_cache_by_path(note_path);
-          services.editor.close_buffer(note_path);
-          await services.note.open_note(note_path, false, {
-            force_reload: true,
-          });
+          await reload_open_note(note_path);
           break;
         case "mark_conflict":
           services.tab.mark_conflict(note_path);
