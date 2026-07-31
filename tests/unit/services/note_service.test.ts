@@ -1693,3 +1693,82 @@ describe("NoteService rename case-insensitive handling", () => {
   // PHASE 3: AST diagnostics tests removed — Rust parser no longer generates them.
   // Diagnostics will be driven by Marksman LSP in Phase 6.
 });
+
+describe("NoteService.write_note_content", () => {
+  function setup() {
+    const vault_store = new VaultStore();
+    vault_store.set_vault(create_test_vault());
+    const notes_port = create_mock_notes_port();
+    const write_note = vi.fn().mockResolvedValue(1_700_000_000_500);
+    notes_port.write_note = write_note;
+    const service = new NoteService(
+      notes_port,
+      create_mock_index_port(),
+      {
+        resolve_asset_url: vi.fn(),
+        write_image_asset: vi.fn(),
+      } as unknown as AssetsPort,
+      vault_store,
+      new NotesStore(),
+      new EditorStore(),
+      new OpStore(),
+      {
+        flush: vi.fn().mockReturnValue(null),
+        mark_clean: vi.fn(),
+        rename_buffer: vi.fn(),
+      } as unknown as EditorService,
+      () => 1,
+    );
+    return { service, vault_store, write_note };
+  }
+
+  // Background-tab saves used to write unconditionally, so a stale cached
+  // buffer silently overwrote whatever an agent had written to disk.
+  it("forwards the caller's expected mtime as the write guard", async () => {
+    const { service, vault_store, write_note } = setup();
+
+    const new_mtime = await service.write_note_content(
+      as_note_path("docs/alpha.md"),
+      as_markdown_text("# Alpha"),
+      1_700_000_000_000,
+    );
+
+    expect(write_note).toHaveBeenCalledWith(
+      vault_store.vault?.id,
+      as_note_path("docs/alpha.md"),
+      as_markdown_text("# Alpha"),
+      1_700_000_000_000,
+    );
+    expect(new_mtime).toBe(1_700_000_000_500);
+  });
+
+  it("omits the guard when the caller has no known mtime", async () => {
+    const { service, vault_store, write_note } = setup();
+
+    await service.write_note_content(
+      as_note_path("docs/alpha.md"),
+      as_markdown_text("# Alpha"),
+      0,
+    );
+
+    expect(write_note).toHaveBeenCalledWith(
+      vault_store.vault?.id,
+      as_note_path("docs/alpha.md"),
+      as_markdown_text("# Alpha"),
+      undefined,
+    );
+  });
+
+  it("propagates an mtime conflict instead of clobbering", async () => {
+    const { service, write_note } = setup();
+    write_note.mockRejectedValue(new Error("conflict:mtime_mismatch"));
+
+    await expect(
+      service.write_note_content(
+        as_note_path("docs/alpha.md"),
+        as_markdown_text("# Alpha"),
+        1_700_000_000_000,
+      ),
+    ).rejects.toThrow("conflict:mtime_mismatch");
+  });
+});
