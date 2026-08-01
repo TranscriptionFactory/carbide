@@ -1,4 +1,5 @@
 import { SvelteSet } from "svelte/reactivity";
+import { to_wiki_link_slug } from "$lib/shared/utils/wiki_link_slug";
 import type { OutlineHeading } from "../types/outline";
 
 export class OutlineStore {
@@ -75,14 +76,9 @@ export class OutlineStore {
     );
     if (exact) return exact;
 
-    const slug = normalized.replace(/[^\w]+/g, "-").replace(/^-|-$/g, "");
-    return this.headings.find((h) => {
-      const h_slug = h.text
-        .toLowerCase()
-        .replace(/[^\w]+/g, "-")
-        .replace(/^-|-$/g, "");
-      return h_slug === slug;
-    });
+    const slug = to_wiki_link_slug(fragment);
+    if (!slug) return undefined;
+    return this.headings.find((h) => to_wiki_link_slug(h.text) === slug);
   }
 
   clear() {

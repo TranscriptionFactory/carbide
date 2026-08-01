@@ -20,6 +20,7 @@ import {
   format_date,
   generate_date_presets,
 } from "../domain/parse_natural_date";
+import { format_wiki_display } from "../domain/wiki_link";
 
 type AtPaletteState = {
   active: boolean;
@@ -318,7 +319,7 @@ function render_legend(
   return legend;
 }
 
-function render_dropdown(
+export function render_dropdown(
   dropdown: HTMLElement,
   flat_items: AtPaletteItem[],
   selected_index: number,
@@ -326,7 +327,6 @@ function render_dropdown(
   on_select: (index: number) => void,
 ) {
   dropdown.innerHTML = "";
-  if (flat_items.length === 0) return;
 
   let current_category: AtPaletteCategory | null = null;
   for (let i = 0; i < flat_items.length; i++) {
@@ -368,6 +368,24 @@ function render_dropdown(
   dropdown.appendChild(render_legend(active_prefix));
 }
 
+export function at_palette_insert_text(item: AtPaletteItem): string | null {
+  switch (item.category) {
+    case "notes":
+    case "recents":
+      return `[[${format_wiki_display(item.path)}]]`;
+    case "headings":
+      return `[[${format_wiki_display(item.note_path)}#${item.text}]]`;
+    case "dates":
+      return `[[${item.date_str}]]`;
+    case "references":
+      return `[@${item.citekey}]`;
+    case "tags":
+      return `#${item.tag}`;
+    case "commands":
+      return null;
+  }
+}
+
 function insert_for_item(
   view: EditorView,
   from: number,
@@ -377,29 +395,8 @@ function insert_for_item(
   const { state } = view;
   const to = state.selection.from;
 
-  let text: string | null = null;
-  switch (item.category) {
-    case "notes":
-    case "recents":
-      text = `[[${item.path}]]`;
-      break;
-    case "headings":
-      text = `[[${item.note_path}#${item.text}]]`;
-      break;
-    case "dates":
-      text = `[[${item.date_str}]]`;
-      break;
-    case "references":
-      text = `[@${item.citekey}]`;
-      config.on_cite_accept?.(item.citekey);
-      break;
-    case "tags":
-      text = `#${item.tag}`;
-      break;
-    case "commands":
-      text = null;
-      break;
-  }
+  const text = at_palette_insert_text(item);
+  if (item.category === "references") config.on_cite_accept?.(item.citekey);
 
   if (text !== null) {
     const tr = state.tr.replaceWith(from, to, state.schema.text(text));
@@ -472,7 +469,7 @@ export function create_at_palette_prose_plugin(
     if (!dropdown) return;
     const items = get_flat_items();
 
-    if (!palette_state.active || items.length === 0) {
+    if (!palette_state.active) {
       hide_dropdown();
       return;
     }
@@ -641,6 +638,13 @@ export function create_at_palette_prose_plugin(
       handleKeyDown(view, event) {
         if (!palette_state.active) return false;
 
+        if (event.key === "Escape") {
+          event.preventDefault();
+          event.stopPropagation();
+          dismiss();
+          return true;
+        }
+
         const items = get_flat_items();
         if (items.length === 0) return false;
 
@@ -671,13 +675,6 @@ export function create_at_palette_prose_plugin(
           event.preventDefault();
           event.stopPropagation();
           accept(view, palette_state.selected_index);
-          return true;
-        }
-
-        if (event.key === "Escape") {
-          event.preventDefault();
-          event.stopPropagation();
-          dismiss();
           return true;
         }
 

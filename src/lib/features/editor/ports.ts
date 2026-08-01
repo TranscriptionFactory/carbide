@@ -93,6 +93,7 @@ export type EditorSession = {
   ) => FindReplaceResult;
   replace_all_matches?: (replacement: string) => FindReplaceResult;
   scroll_to_position?: (pos: number) => void;
+  find_block_anchor_position?: (block_id: string) => number | null;
   get_cursor_markdown_offset?: () => number;
   set_cursor_from_markdown_offset?: (offset: number) => void;
   get_cursor_block_anchor?: () => import("$lib/features/editor/adapters/cursor_offset_mapper").BlockAnchor;

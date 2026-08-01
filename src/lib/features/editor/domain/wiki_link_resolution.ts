@@ -1,4 +1,4 @@
-import { to_wiki_link_slug } from "./wiki_link_slug";
+import { to_wiki_link_slug } from "$lib/shared/utils/wiki_link_slug";
 
 function slug_lookup(
   target: string,

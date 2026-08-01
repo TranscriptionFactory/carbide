@@ -4,6 +4,7 @@ import { serialize_embed_fragment } from "./file_embed_plugin";
 import { serialize_web_embed, serialize_video } from "./html_embed";
 import { format_table_meta_comment } from "./remark_plugins/remark_table_meta";
 import { set_meta_token } from "./code_preview";
+import { format_wiki_source } from "$lib/features/editor/domain/wiki_link";
 
 type MdastNode = Record<string, unknown> & { type: string };
 
@@ -54,6 +55,18 @@ function convert_inline_pm_node(node: PmNode): PhrasingContent {
   }
 }
 
+function phrasing_text(nodes: PhrasingContent[]): string {
+  return nodes
+    .map((node) => {
+      if ("value" in node && typeof node.value === "string") return node.value;
+      if ("children" in node && Array.isArray(node.children)) {
+        return phrasing_text(node.children as PhrasingContent[]);
+      }
+      return "";
+    })
+    .join("");
+}
+
 function wrap_in_mdast_mark(
   mark: Mark,
   children: PhrasingContent[],
@@ -67,13 +80,21 @@ function wrap_in_mdast_mark(
       return { type: "delete", children } as PhrasingContent;
     case "highlight":
       return { type: "highlight", children } as unknown as PhrasingContent;
-    case "link":
+    case "link": {
+      const href = (mark.attrs["href"] as string) || "";
+      if (mark.attrs["link_source"] === "wiki") {
+        return {
+          type: "wikiLink",
+          value: format_wiki_source(href, phrasing_text(children)),
+        } as unknown as PhrasingContent;
+      }
       return {
         type: "link",
-        url: (mark.attrs["href"] as string) || "",
+        url: href,
         title: (mark.attrs["title"] as string | null) || null,
         children,
       } as PhrasingContent;
+    }
     case "code_inline": {
       const text_value = children
         .filter((c): c is { type: "text"; value: string } => c.type === "text")
