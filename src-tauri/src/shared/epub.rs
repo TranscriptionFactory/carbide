@@ -315,6 +315,57 @@ mod tests {
         assert!(opf.contains("<dc:identifier id=\"pub-id\">urn:uuid:"));
     }
 
+    // A reader resolves container.xml -> OPF -> spine -> content.xhtml; the
+    // extractor walks the same chain, so this is the closest automated stand-in
+    // for "opens in a reader" for a note-shaped (no source URL, styled) book.
+    #[test]
+    fn note_shaped_epub_resolves_through_the_full_reader_chain() {
+        let input = EpubInput {
+            title: "Field Notes".to_string(),
+            source_url: None,
+            created_at: "2026-07-31T00:00:00.000Z".to_string(),
+            xhtml: r#"<?xml version="1.0" encoding="utf-8"?>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head><title>Field Notes</title><link rel="stylesheet" type="text/css" href="style.css"/></head>
+<body><h1>Field Notes</h1><p>Chapter text.</p><img src="images/img-0.png" alt="fig"/></body>
+</html>
+"#
+            .to_string(),
+            css: Some("body { font-family: serif; }".to_string()),
+            images: vec![],
+        };
+        let image = EpubImage {
+            href: "images/img-0.png".to_string(),
+            asset_path: ".assets/fig.png".to_string(),
+            media_type: "image/png".to_string(),
+        };
+        let epub = build_epub(&input, &[(&image, b"\x89PNG\r\n\x1a\nbytes".to_vec())]).unwrap();
+
+        let names = entry_names(&epub);
+        for required in [
+            "mimetype",
+            "META-INF/container.xml",
+            "OEBPS/content.opf",
+            "OEBPS/nav.xhtml",
+            "OEBPS/content.xhtml",
+            "OEBPS/style.css",
+            "OEBPS/images/img-0.png",
+        ] {
+            assert!(names.contains(&required.to_string()), "missing {required}");
+        }
+
+        let extraction = extract_epub_text(&epub);
+        assert_eq!(extraction.title.as_deref(), Some("Field Notes"));
+        assert!(extraction.body.contains("Chapter text."));
+
+        let opf = entry_text(&epub, "OEBPS/content.opf");
+        assert!(opf.contains("<itemref idref=\"content\"/>"));
+        assert!(opf.contains("properties=\"nav\""));
+        assert!(opf.contains(
+            "<item id=\"img-0\" href=\"images/img-0.png\" media-type=\"image/png\"/>"
+        ));
+    }
+
     #[test]
     fn css_is_written_and_manifested_only_when_present() {
         let without = build_epub(&sample_input(), &[]).unwrap();
