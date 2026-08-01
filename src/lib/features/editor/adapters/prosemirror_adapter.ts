@@ -18,6 +18,10 @@ import type { BufferConfig, EditorPort } from "$lib/features/editor/ports";
 import type { YDocManager } from "./ydoc_manager";
 import type { VaultId } from "$lib/shared/types/ids";
 import { normalize_markdown_line_breaks } from "$lib/features/editor/domain/markdown_line_breaks";
+import {
+  block_supports_id,
+  ensure_block_id_at as ensure_block_id_at_cmd,
+} from "$lib/features/editor/domain/block_id";
 import { compute_doc_diff_replacement } from "$lib/features/editor/domain/doc_diff";
 import {
   prose_cursor_to_md_offset,
@@ -1403,6 +1407,19 @@ export function create_prosemirror_editor_port(args?: {
             pos ?? resolve_top_level_block(v, v.state.selection.from)?.pos;
           if (block_pos == null) return;
           insert_paragraph_at(v, block_pos, placement);
+        },
+        ensure_block_id_at(pos: number | null) {
+          const v = view;
+          if (!v) return null;
+          const block_pos =
+            pos ?? resolve_top_level_block(v, v.state.selection.from)?.pos;
+          if (block_pos == null) return null;
+          return ensure_block_id_at_cmd(v.state, block_pos, v.dispatch);
+        },
+        block_supports_id_at(pos: number) {
+          const v = view;
+          if (!v) return false;
+          return block_supports_id(v.state.doc, pos);
         },
         batch_turn_into(
           target: string,
