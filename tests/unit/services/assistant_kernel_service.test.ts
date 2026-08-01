@@ -412,6 +412,27 @@ describe("AssistantKernelService", () => {
       expect(outcome.status).toBe("error");
     });
 
+    it("fires on_end when no provider resolves", async () => {
+      const transport = create_mock_transport();
+      const run_store = new AssistantRunStore();
+      const kernel = new AssistantKernelService({
+        transport,
+        probe: create_mock_probe_port(),
+        run_store,
+        vault_path: () => "/vault",
+        providers: () => [],
+        default_provider_id: () => "none",
+      });
+      const sink = create_recording_sink();
+
+      const handle = await kernel.start(make_run_spec(), sink);
+      const outcome = await handle.outcome;
+
+      expect(transport._requests).toEqual([]);
+      expect(outcome.status).toBe("error");
+      expect(sink.ended).toEqual([{ id: handle.id, outcome }]);
+    });
+
     it("fires on_end on a refusal the transport never saw", async () => {
       const transport = create_mock_transport();
       const { kernel } = create_kernel(transport, null);
