@@ -1,9 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { create_epub_image_collector } from "$lib/features/document/domain/note_epub";
-import {
-  is_remote_image_src,
-  resolve_note_asset_path,
-} from "$lib/features/document/domain/note_export_assets";
+import { resolve_note_asset_path } from "$lib/features/document/domain/note_export_assets";
 
 describe("resolve_note_asset_path", () => {
   it("resolves a canonical src relative to the note", () => {
@@ -42,16 +39,9 @@ describe("resolve_note_asset_path", () => {
     expect(
       resolve_note_asset_path("note.md", "/tmp/a.png", "canonical"),
     ).toBeNull();
-  });
-});
-
-describe("is_remote_image_src", () => {
-  it("matches data and http(s) sources only", () => {
-    expect(is_remote_image_src("data:image/png;base64,AA")).toBe(true);
-    expect(is_remote_image_src("https://x.test/a.png")).toBe(true);
-    expect(is_remote_image_src("HTTP://x.test/a.png")).toBe(true);
-    expect(is_remote_image_src(".assets/a.png")).toBe(false);
-    expect(is_remote_image_src("/abs/a.png")).toBe(false);
+    expect(
+      resolve_note_asset_path("note.md", "HTTP://x.test/a.png", "canonical"),
+    ).toBeNull();
   });
 });
 
