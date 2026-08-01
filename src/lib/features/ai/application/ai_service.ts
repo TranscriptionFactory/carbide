@@ -3,7 +3,7 @@ import { error_message } from "$lib/shared/utils/error_message";
 import type { VaultStore } from "$lib/features/vault";
 import type { AiPort } from "$lib/features/ai/ports";
 import { start_run_stream } from "$lib/features/assistant";
-import type { RunHandle, RunStarter } from "$lib/features/assistant";
+import type { RunHandle, RunKind, RunStarter } from "$lib/features/assistant";
 import type { SearchPort } from "$lib/features/search";
 import type {
   AiCliProbe,
@@ -229,7 +229,12 @@ export class AiService {
   // Covers streaming and blocking providers alike: the kernel's transport picks
   // the wire channel, and both are cancellable through the returned handle.
   async execute_streaming(
-    input: AiExecuteInput & { on_run_started?: (handle: RunHandle) => void },
+    input: AiExecuteInput & {
+      on_run_started?: (handle: RunHandle) => void;
+      // Unattended callers announce themselves as background work with a label
+      // a human wrote, because the runs popover has no user prompt to show.
+      run?: { kind: RunKind; label: string };
+    },
     on_chunk?: (partial: string) => void,
     on_reasoning?: (partial: string) => void,
   ): Promise<AiExecutionResult> {
@@ -246,8 +251,8 @@ export class AiService {
     };
 
     const { handle, events } = await start_run_stream(this.run_starter, {
-      kind: "note",
-      label: input.prompt,
+      kind: input.run?.kind ?? "note",
+      label: input.run?.label ?? input.prompt,
       provider: input.provider_config,
       origin: { note_path: working_path },
       request: {

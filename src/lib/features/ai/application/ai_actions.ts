@@ -1037,7 +1037,8 @@ export function register_ai_actions(
           note_path as NoteId,
         );
 
-        const result = await ai_service.execute({
+        let handle: RunHandle | null = null;
+        const result = await ai_service.execute_streaming({
           provider_config: config,
           prompt:
             "Write a single-sentence summary (under 80 characters) of this note. " +
@@ -1059,7 +1060,20 @@ export function register_ai_actions(
             similarity_threshold:
               settings.ai_vault_context_similarity_threshold,
           },
+          run: { kind: "background", label: "Generate description" },
+          on_run_started: (started) => {
+            handle = started;
+          },
         });
+
+        // A stopped run reports success with whatever text arrived first, so
+        // without this the note gets half a sentence written into it. The cast
+        // restores the type the callback assigns; flow analysis cannot see it.
+        const outcome = await (handle as RunHandle | null)?.outcome;
+        if (outcome?.status === "aborted") {
+          toast.dismiss(generating);
+          return;
+        }
 
         if (!result.success) {
           toast.dismiss(generating);

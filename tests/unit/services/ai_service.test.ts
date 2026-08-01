@@ -474,6 +474,27 @@ describe("AiService", () => {
       expect(stoppable).toBe(true);
     });
 
+    // Unattended work is a background run so it reaches the runs popover under
+    // a label a human wrote, rather than under the internal prompt.
+    it("labels an unattended run as background work", async () => {
+      const starter = starter_of(
+        { type: "text", text: "A tidy summary" },
+        { type: "done" },
+      );
+      const service = create_streaming_service(starter);
+
+      const result = await service.execute_streaming({
+        ...base_execute_input,
+        run: { kind: "background", label: "Generate description" },
+      });
+
+      expect(result.output).toBe("A tidy summary");
+      const spec = starter.specs[0];
+      expect(spec?.kind).toBe("background");
+      expect(spec?.label).toBe("Generate description");
+      expect(spec?.origin).toEqual({ note_path: "docs/demo.md" });
+    });
+
     it("flushes joiner remainder when the stream ends without a done chunk", async () => {
       const starter = starter_of({ type: "text", text: "tail [pending" });
       const service = create_streaming_service(starter);
