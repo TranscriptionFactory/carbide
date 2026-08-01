@@ -1,7 +1,16 @@
 import type { AiProviderConfig } from "$lib/shared/types/ai_provider_config";
 import type { AiMessage, ToolSelector } from "$lib/features/ai";
+// An agent turn replays tool calls and tool results, which the text channel's
+// AiMessage cannot express — it has no "tool" role. Same import direction as
+// the AgentEvent one the transport already carries.
+import type { AgentHistoryMessage } from "$lib/features/rag";
 
 export type RunId = string;
+
+// The one sentinel the Rust side emits for a cancelled run, on both the
+// streaming and the blocking channel (`pipeline::ABORTED_ERROR`). It is a
+// cancellation ack, never an error to show anyone.
+export const ABORTED_ERROR = "aborted";
 
 export type RunKind = "inline" | "note" | "chat" | "agent" | "background";
 
@@ -59,7 +68,7 @@ export type RunRequest =
       mode: "agent";
       prompt: string;
       toolset: ToolSelector;
-      history: AiMessage[];
+      history: AgentHistoryMessage[];
       resume_session_id?: string;
       backend: "harness" | "native";
     };

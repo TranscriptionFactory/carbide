@@ -2,7 +2,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ActionRegistry } from "$lib/app/action_registry/action_registry";
 import { ACTION_IDS } from "$lib/app/action_registry/action_ids";
 import { register_rag_actions, RagStore } from "$lib/features/rag";
-import type { AgentEvent, AgentStreamRequest } from "$lib/features/rag";
+import type { RunEvent, RunSpec } from "$lib/features/assistant";
+import { create_test_run_starter } from "../../adapters/test_run_starter";
 import { UIStore } from "$lib/app/orchestration/ui_store.svelte";
 import { OpStore } from "$lib/app/orchestration/op_store.svelte";
 import { BUILTIN_PROVIDER_PRESETS } from "$lib/shared/types/ai_provider_config";
@@ -18,17 +19,25 @@ vi.mock("svelte-sonner", () => ({
   },
 }));
 
-const AGENT_EVENTS: AgentEvent[] = [
-  { type: "init", session_id: "sess-1" },
-  { type: "text", delta: "All organized." },
+const AGENT_EVENTS: RunEvent[] = [
+  { type: "session", provider_session_id: "sess-1" },
+  { type: "text", text: "All organized." },
   { type: "done", stats: {} },
 ];
+
+function agent_spec(specs: RunSpec[]) {
+  const spec = specs[0];
+  if (!spec || spec.request.mode !== "agent") {
+    throw new Error("expected an agent-mode run");
+  }
+  return { kind: spec.kind, ...spec.request };
+}
 
 type HarnessOpenNote = { meta: { path: string }; is_dirty: boolean } | null;
 type HarnessTab = { id: string; is_dirty: boolean } | null;
 
 function create_harness(
-  events: AgentEvent[] = AGENT_EVENTS,
+  events: RunEvent[] = AGENT_EVENTS,
   workspace: { open_note?: HarnessOpenNote; background_tab?: HarnessTab } = {},
 ) {
   const registry = new ActionRegistry();
@@ -56,12 +65,16 @@ function create_harness(
     generate_title: vi.fn().mockResolvedValue(null),
   };
 
-  const agent_port = {
-    stream_turn: vi.fn((_input: AgentStreamRequest) =>
-      // eslint-disable-next-line @typescript-eslint/require-await
-      (async function* () {
-        for (const event of events) yield event;
-      })(),
+  const run_starter = create_test_run_starter(() => events);
+  const assistant_kernel = {
+    start: run_starter.start,
+    specs: run_starter.specs,
+    resolve_provider: vi.fn((requested_id?: string) =>
+      Promise.resolve(
+        stores.ui.editor_settings.ai_providers.find(
+          (p) => p.id === requested_id,
+        ) ?? null,
+      ),
     ),
   };
 
@@ -96,7 +109,7 @@ function create_harness(
     },
     rag_store,
     rag_service: rag_service as never,
-    agent_port,
+    assistant_kernel: assistant_kernel as never,
   });
 
   return {
@@ -104,7 +117,7 @@ function create_harness(
     stores,
     rag_store,
     rag_service,
-    agent_port,
+    assistant_kernel,
     git_service,
     note_service,
     editor_service,
@@ -122,9 +135,9 @@ function register_refresh_tree(registry: ActionRegistry) {
   return refresh;
 }
 
-function agent_write_events(paths: string[]): AgentEvent[] {
+function agent_write_events(paths: string[]): RunEvent[] {
   return [
-    { type: "init", session_id: "sess-write" },
+    { type: "session", provider_session_id: "sess-write" },
     {
       type: "tool_start",
       name: "Write",
@@ -133,14 +146,14 @@ function agent_write_events(paths: string[]): AgentEvent[] {
       mutating: true,
     },
     { type: "tool_end", name: "Write", ok: true },
-    { type: "text", delta: "Written." },
+    { type: "text", text: "Written." },
     { type: "done", stats: {} },
   ];
 }
 
-function agent_delete_events(path: string): AgentEvent[] {
+function agent_delete_events(path: string): RunEvent[] {
   return [
-    { type: "init", session_id: "sess-delete" },
+    { type: "session", provider_session_id: "sess-delete" },
     {
       type: "tool_start",
       name: "mcp__carbide__delete_note",
@@ -149,7 +162,7 @@ function agent_delete_events(path: string): AgentEvent[] {
       mutating: true,
     },
     { type: "tool_end", name: "mcp__carbide__delete_note", ok: true },
-    { type: "text", delta: "Deleted." },
+    { type: "text", text: "Deleted." },
     { type: "done", stats: {} },
   ];
 }
@@ -180,26 +193,26 @@ describe("rag agent actions", () => {
   });
 
   it("ask in agent mode: does nothing when AI is disabled", async () => {
-    const { registry, stores, rag_store, agent_port } = create_harness();
+    const { registry, stores, rag_store, assistant_kernel } = create_harness();
     rag_store.set_mode("agent");
     stores.ui.editor_settings.ai_enabled = false;
 
     await registry.execute(ACTION_IDS.rag_ask, "organize my notes");
 
-    expect(agent_port.stream_turn).not.toHaveBeenCalled();
+    expect(assistant_kernel.specs).toHaveLength(0);
     expect(toast.info).toHaveBeenCalledWith(
       "AI Assistant is disabled in settings",
     );
   });
 
   it("ask in agent mode: refuses text-only CLI providers with a toast", async () => {
-    const { registry, stores, rag_store, agent_port } = create_harness();
+    const { registry, stores, rag_store, assistant_kernel } = create_harness();
     rag_store.set_mode("agent");
     stores.ui.editor_settings.ai_default_provider_id = "ollama";
 
     await registry.execute(ACTION_IDS.rag_ask, "organize my notes");
 
-    expect(agent_port.stream_turn).not.toHaveBeenCalled();
+    expect(assistant_kernel.specs).toHaveLength(0);
     expect(toast.error).toHaveBeenCalledWith(
       "Ollama does not support agent mode",
     );
@@ -207,20 +220,18 @@ describe("rag agent actions", () => {
   });
 
   it("ask in agent mode: runs the agent turn and records the reply", async () => {
-    const { registry, rag_store, agent_port, git_service, stores } =
+    const { registry, rag_store, assistant_kernel, git_service, stores } =
       create_harness();
     rag_store.set_mode("agent");
 
     await registry.execute(ACTION_IDS.rag_ask, "organize my notes");
 
     expect(git_service.create_checkpoint).toHaveBeenCalledTimes(1);
-    expect(agent_port.stream_turn).toHaveBeenCalledWith(
-      expect.objectContaining({
-        prompt: "organize my notes",
-        toolset: { kind: "read_only" },
-        vault_path: "/vault/demo",
-      }),
-    );
+    expect(agent_spec(assistant_kernel.specs)).toMatchObject({
+      kind: "agent",
+      prompt: "organize my notes",
+      toolset: { kind: "read_only" },
+    });
     expect(rag_store.messages.map((m) => m.role)).toEqual([
       "user",
       "assistant",
@@ -231,34 +242,30 @@ describe("rag agent actions", () => {
   });
 
   it("ask in agent mode: routes the claude provider to the harness backend", async () => {
-    const { registry, rag_store, agent_port } = create_harness();
+    const { registry, rag_store, assistant_kernel } = create_harness();
     rag_store.set_mode("agent");
 
     await registry.execute(ACTION_IDS.rag_ask, "organize my notes");
 
-    expect(agent_port.stream_turn).toHaveBeenCalledTimes(1);
-    expect(agent_port.stream_turn).toHaveBeenCalledWith(
-      expect.objectContaining({ backend: "harness" }),
-    );
+    expect(assistant_kernel.specs).toHaveLength(1);
+    expect(agent_spec(assistant_kernel.specs).backend).toBe("harness");
   });
 
   it("ask in agent mode: routes api providers to the native backend", async () => {
-    const { registry, stores, rag_store, agent_port } = create_harness();
+    const { registry, stores, rag_store, assistant_kernel } = create_harness();
     rag_store.set_mode("agent");
     stores.ui.editor_settings.ai_default_provider_id = "lmstudio";
 
     await registry.execute(ACTION_IDS.rag_ask, "organize my notes");
 
-    expect(agent_port.stream_turn).toHaveBeenCalledTimes(1);
-    expect(agent_port.stream_turn).toHaveBeenCalledWith(
-      expect.objectContaining({ backend: "native" }),
-    );
+    expect(assistant_kernel.specs).toHaveLength(1);
+    expect(agent_spec(assistant_kernel.specs).backend).toBe("native");
     expect(stores.op.get("rag.ask").status).toBe("success");
   });
 
   it("native agent run: streams tool events and completes coherently", async () => {
-    const events: AgentEvent[] = [
-      { type: "init", session_id: "native-sess" },
+    const events: RunEvent[] = [
+      { type: "session", provider_session_id: "native-sess" },
       {
         type: "tool_start",
         name: "mcp__carbide__create_note",
@@ -267,7 +274,7 @@ describe("rag agent actions", () => {
         mutating: true,
       },
       { type: "tool_end", name: "mcp__carbide__create_note", ok: true },
-      { type: "text", delta: "Created the note." },
+      { type: "text", text: "Created the note." },
       { type: "done", stats: { num_turns: 2 } },
     ];
     const {
@@ -275,7 +282,7 @@ describe("rag agent actions", () => {
       stores,
       rag_store,
       rag_service,
-      agent_port,
+      assistant_kernel,
       git_service,
     } = create_harness(events);
     register_refresh_tree(registry);
@@ -285,14 +292,11 @@ describe("rag agent actions", () => {
     await registry.execute(ACTION_IDS.rag_ask, "create a note");
 
     expect(git_service.create_checkpoint).toHaveBeenCalledTimes(1);
-    expect(agent_port.stream_turn).toHaveBeenCalledWith(
-      expect.objectContaining({
-        prompt: "create a note",
-        toolset: { kind: "read_only" },
-        vault_path: "/vault/demo",
-        backend: "native",
-      }),
-    );
+    expect(agent_spec(assistant_kernel.specs)).toMatchObject({
+      prompt: "create a note",
+      toolset: { kind: "read_only" },
+      backend: "native",
+    });
     expect(rag_store.messages.map((m) => m.role)).toEqual([
       "user",
       "assistant",

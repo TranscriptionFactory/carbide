@@ -5,10 +5,11 @@ import { create_test_vault } from "../helpers/test_fixtures";
 import { as_markdown_text, as_note_path } from "$lib/shared/types/ids";
 import type { AiProviderConfig } from "$lib/shared/types/ai_provider_config";
 import type { VaultContextSettings } from "$lib/features/ai/domain/ai_types";
-import type {
-  AiStreamChunk,
-  AiStreamRequest,
-} from "$lib/features/ai/domain/ai_stream_types";
+import type { AiStreamChunk } from "$lib/features/ai/domain/ai_stream_types";
+import type { RunEvent } from "$lib/features/assistant";
+import { create_test_run_starter } from "../../adapters/test_run_starter";
+
+const inert_starter = () => create_test_run_starter(() => []);
 
 const ollama_config: AiProviderConfig = {
   id: "ollama",
@@ -135,7 +136,7 @@ describe("AiService", () => {
   it("forwards CLI checks with command string", async () => {
     const ai_port = create_ai_port();
     const vault_store = new VaultStore();
-    const service = new AiService(ai_port as never, vault_store);
+    const service = new AiService(ai_port as never, vault_store, inert_starter());
 
     await service.check_availability({
       id: "claude",
@@ -155,7 +156,7 @@ describe("AiService", () => {
   it("returns true for API providers without checking CLI", async () => {
     const ai_port = create_ai_port();
     const vault_store = new VaultStore();
-    const service = new AiService(ai_port as never, vault_store);
+    const service = new AiService(ai_port as never, vault_store, inert_starter());
 
     const result = await service.check_availability({
       id: "openai",
@@ -174,7 +175,7 @@ describe("AiService", () => {
     const ai_port = create_ai_port();
     const vault_store = new VaultStore();
     vault_store.set_vault(create_test_vault({ path: "/vault/demo" as never }));
-    const service = new AiService(ai_port as never, vault_store);
+    const service = new AiService(ai_port as never, vault_store, inert_starter());
 
     const result = await service.execute(base_execute_input);
 
@@ -203,7 +204,7 @@ describe("AiService", () => {
       const service = new AiService(
         ai_port as never,
         vault_store,
-        undefined,
+        inert_starter(),
         search_port as never,
       );
 
@@ -234,7 +235,7 @@ describe("AiService", () => {
       const service = new AiService(
         ai_port as never,
         vault_store,
-        undefined,
+        inert_starter(),
         search_port as never,
       );
 
@@ -253,7 +254,7 @@ describe("AiService", () => {
       vault_store.set_vault(
         create_test_vault({ path: "/vault/demo" as never }),
       );
-      const service = new AiService(ai_port as never, vault_store);
+      const service = new AiService(ai_port as never, vault_store, inert_starter());
 
       const result = await service.execute({
         ...base_execute_input,
@@ -279,7 +280,7 @@ describe("AiService", () => {
       const service = new AiService(
         ai_port as never,
         vault_store,
-        undefined,
+        inert_starter(),
         search_port as never,
       );
 
@@ -304,7 +305,7 @@ describe("AiService", () => {
       const service = new AiService(
         ai_port as never,
         vault_store,
-        undefined,
+        inert_starter(),
         search_port as never,
       );
 
@@ -329,7 +330,7 @@ describe("AiService", () => {
       const service = new AiService(
         ai_port as never,
         vault_store,
-        undefined,
+        inert_starter(),
         search_port as never,
       );
 
@@ -355,7 +356,7 @@ describe("AiService", () => {
       const service = new AiService(
         ai_port as never,
         vault_store,
-        undefined,
+        inert_starter(),
         search_port as never,
       );
 
@@ -376,33 +377,27 @@ describe("AiService", () => {
   });
 
   describe("execute_streaming", () => {
-    function stream_port_of(...chunks: AiStreamChunk[]) {
-      return {
-        stream_text: vi.fn(async function* (_input: AiStreamRequest) {
-          for (const chunk of chunks) yield chunk;
-        }),
-      };
+    function starter_of(...events: RunEvent[]) {
+      return create_test_run_starter(() => events);
     }
 
-    function create_streaming_service(port: { stream_text: unknown }) {
+    function create_streaming_service(
+      starter: ReturnType<typeof create_test_run_starter>,
+    ) {
       const vault_store = new VaultStore();
       vault_store.set_vault(
         create_test_vault({ path: "/vault/demo" as never }),
       );
-      return new AiService(
-        create_ai_port() as never,
-        vault_store,
-        port as never,
-      );
+      return new AiService(create_ai_port() as never, vault_store, starter);
     }
 
     it("accumulates text chunks into a successful execution result", async () => {
-      const port = stream_port_of(
+      const starter = starter_of(
         { type: "text", text: "# Upd" },
         { type: "text", text: "ated\n" },
         { type: "done" },
       );
-      const service = create_streaming_service(port);
+      const service = create_streaming_service(starter);
       const partials: string[] = [];
 
       const result = await service.execute_streaming(
@@ -418,20 +413,28 @@ describe("AiService", () => {
       expect(partials.at(-1)).toBe("# Updated\n");
       expect(partials.length).toBeGreaterThan(0);
 
-      const request = port.stream_text.mock.calls[0]?.[0];
-      expect(request?.system_prompt).toBe("");
-      expect(request?.vault_path).toBe("/vault/demo");
-      expect(request?.messages).toHaveLength(1);
-      expect(request?.messages[0]?.role).toBe("user");
-      expect(request?.messages[0]?.content).toContain("Tighten this note");
+      const spec = starter.specs[0];
+      expect(spec?.kind).toBe("note");
+      const request = spec?.request;
+      if (request?.mode !== "text") throw new Error("expected a text run");
+      expect(request.system_prompt).toBe("");
+      expect(request.messages).toHaveLength(1);
+      expect(request.messages[0]?.role).toBe("user");
+      expect(request.messages[0]?.content).toContain("Tighten this note");
     });
 
-    it("returns a humanized failure and keeps partial output on stream error", async () => {
-      const port = stream_port_of(
+    // The kernel humanizes; this asserts the message survives the service
+    // unchanged rather than being re-derived here.
+    it("surfaces the kernel error message and keeps partial output", async () => {
+      const starter = starter_of(
         { type: "text", text: "Partial draft" },
-        { type: "error", error: "connection refused" },
+        {
+          type: "error",
+          message:
+            "Ollama could not reach its backend - check its configuration.",
+        },
       );
-      const service = create_streaming_service(port);
+      const service = create_streaming_service(starter);
 
       const result = await service.execute_streaming(base_execute_input);
 
@@ -440,25 +443,24 @@ describe("AiService", () => {
       expect(result.error).toContain("could not reach its backend");
     });
 
-    it("treats an aborted stream with partial output as a clean result", async () => {
-      const port = stream_port_of(
-        { type: "text", text: "Kept text" },
-        { type: "error", error: "aborted" },
-      );
-      const service = create_streaming_service(port);
+    it("hands the caller a handle so the run stays stoppable", async () => {
+      const starter = starter_of({ type: "text", text: "x" }, { type: "done" });
+      const service = create_streaming_service(starter);
+      let stoppable = false;
 
-      const result = await service.execute_streaming(base_execute_input);
-
-      expect(result).toEqual({
-        success: true,
-        output: "Kept text",
-        error: null,
+      await service.execute_streaming({
+        ...base_execute_input,
+        on_run_started: (handle) => {
+          stoppable = typeof handle.stop === "function";
+        },
       });
+
+      expect(stoppable).toBe(true);
     });
 
     it("flushes joiner remainder when the stream ends without a done chunk", async () => {
-      const port = stream_port_of({ type: "text", text: "tail [pending" });
-      const service = create_streaming_service(port);
+      const starter = starter_of({ type: "text", text: "tail [pending" });
+      const service = create_streaming_service(starter);
 
       const result = await service.execute_streaming(base_execute_input);
 
@@ -467,13 +469,13 @@ describe("AiService", () => {
     });
 
     it("accumulates reasoning separately and keeps it out of the output", async () => {
-      const port = stream_port_of(
+      const starter = starter_of(
         { type: "reasoning", text: "Let me think" },
         { type: "reasoning", text: " harder." },
         { type: "text", text: "# Answer" },
         { type: "done" },
       );
-      const service = create_streaming_service(port);
+      const service = create_streaming_service(starter);
       const reasoning_partials: string[] = [];
 
       const result = await service.execute_streaming(
@@ -492,33 +494,15 @@ describe("AiService", () => {
         "Let me think harder.",
       ]);
     });
-
-    it("fails cleanly when no stream port is wired", async () => {
-      const vault_store = new VaultStore();
-      vault_store.set_vault(
-        create_test_vault({ path: "/vault/demo" as never }),
-      );
-      const service = new AiService(create_ai_port() as never, vault_store);
-
-      const result = await service.execute_streaming(base_execute_input);
-
-      expect(result).toEqual({
-        success: false,
-        output: "",
-        error: "Streaming is not available",
-      });
-    });
   });
 
   describe("stream_inline", () => {
     it("drops reasoning chunks silently", async () => {
-      const port = {
-        stream_text: vi.fn(async function* (_input: AiStreamRequest) {
-          yield { type: "reasoning", text: "<hidden thoughts>" } as const;
-          yield { type: "text", text: "Visible answer" } as const;
-          yield { type: "done" } as const;
-        }),
-      };
+      const starter = create_test_run_starter(() => [
+        { type: "reasoning", text: "<hidden thoughts>" },
+        { type: "text", text: "Visible answer" },
+        { type: "done" },
+      ]);
       const vault_store = new VaultStore();
       vault_store.set_vault(
         create_test_vault({ path: "/vault/demo" as never }),
@@ -526,7 +510,7 @@ describe("AiService", () => {
       const service = new AiService(
         create_ai_port() as never,
         vault_store,
-        port as never,
+        starter,
       );
 
       const chunks: AiStreamChunk[] = [];

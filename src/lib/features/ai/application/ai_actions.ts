@@ -42,6 +42,7 @@ import {
   resolve_inline_ai_anchor_coords,
 } from "$lib/features/editor";
 import type { EditorSelectionSnapshot } from "$lib/shared/types/editor";
+import type { RunHandle } from "$lib/features/assistant";
 import { build_ai_inline_prompt } from "$lib/features/ai/domain/ai_prompt_builder";
 import { resolve_instructions } from "$lib/shared/domain/prompt_recipes";
 import { collect_open_note_image_parts } from "$lib/features/ai/application/note_image_loader";
@@ -104,7 +105,8 @@ export function register_ai_actions(
   } = input;
 
   let dialog_revision = 0;
-  let panel_abort: AbortController | null = null;
+  let panel_handle: RunHandle | null = null;
+  let panel_stopped = false;
   let last_inline_prompts: {
     system_prompt: string;
     user_prompt: string;
@@ -501,10 +503,12 @@ export function register_ai_actions(
       const exec_vault_id = input.stores.vault.active_vault_id;
       ai_store.start_execution();
 
-      const abort = provider_supports_streaming(config)
-        ? new AbortController()
-        : null;
-      panel_abort = abort;
+      panel_stopped = false;
+      let handle: RunHandle | null = null;
+      const on_run_started = (started: RunHandle) => {
+        handle = started;
+        panel_handle = started;
+      };
 
       const can_settle = () => {
         if (revision !== dialog_revision) return false;
@@ -548,14 +552,14 @@ export function register_ai_actions(
             provider_config: config,
             prompt,
             vault_path: String(vault.path),
-            ...(abort ? { signal: abort.signal } : {}),
+            on_run_started,
             on_text: (partial) => {
               if (revision !== dialog_revision) return;
               ai_store.set_streaming_text(partial);
             },
           });
           if (!can_settle()) return;
-          if (abort?.signal.aborted) {
+          if (panel_stopped) {
             ai_store.cancel_execution();
             return;
           }
@@ -564,21 +568,19 @@ export function register_ai_actions(
           return;
         }
 
-        const result = abort
-          ? await ai_service.execute_streaming(
-              { ...execute_input, signal: abort.signal },
-              (partial) => {
-                if (revision !== dialog_revision) return;
-                ai_store.set_streaming_text(partial);
-              },
-              (partial) => {
-                if (revision !== dialog_revision) return;
-                ai_store.set_streaming_reasoning(partial);
-              },
-            )
-          : await ai_service.execute(execute_input);
+        const result = await ai_service.execute_streaming(
+          { ...execute_input, on_run_started },
+          (partial) => {
+            if (revision !== dialog_revision) return;
+            ai_store.set_streaming_text(partial);
+          },
+          (partial) => {
+            if (revision !== dialog_revision) return;
+            ai_store.set_streaming_reasoning(partial);
+          },
+        );
         if (!can_settle()) return;
-        if (abort?.signal.aborted) {
+        if (panel_stopped) {
           if (result.output.trim() === "") {
             ai_store.cancel_execution();
             return;
@@ -602,8 +604,8 @@ export function register_ai_actions(
         });
         persist_history();
       } finally {
-        if (panel_abort === abort) {
-          panel_abort = null;
+        if (panel_handle === handle) {
+          panel_handle = null;
         }
       }
     },
@@ -613,7 +615,8 @@ export function register_ai_actions(
     id: ACTION_IDS.ai_stop_execution,
     label: "Stop AI Execution",
     execute: () => {
-      panel_abort?.abort();
+      panel_stopped = true;
+      panel_handle?.stop();
     },
   });
 
@@ -779,7 +782,6 @@ export function register_ai_actions(
     }
     if (!prompts) return;
 
-    const abort = new AbortController();
     let output = "";
     try {
       for await (const chunk of ai_service.stream_inline({
@@ -787,10 +789,11 @@ export function register_ai_actions(
         system_prompt: prompts.system_prompt,
         user_prompt: prompts.user_prompt,
         images,
-        signal: abort.signal,
+        note_path: String(editor_ctx.note_path),
       })) {
+        // I2: closing the menu detaches this surface. The run keeps going and
+        // stays stoppable from the assistant popover.
         if (!get_ai_menu_state(view.state).open) {
-          abort.abort();
           return;
         }
         if (chunk.type === "text") {
@@ -903,19 +906,18 @@ export function register_ai_actions(
       }
       if (!prompts) return;
 
-      const abort = new AbortController();
       try {
         for await (const chunk of ai_service.stream_inline({
           provider_config: config,
           system_prompt: prompts.system_prompt,
           user_prompt: prompts.user_prompt,
           images,
-          signal: abort.signal,
         })) {
           if (chunk.type === "text") {
             const current_state = get_ai_menu_state(view.state);
+            // I2: the menu going away detaches this surface, it does not
+            // cancel the run — the popover still owns Stop.
             if (!current_state.open) {
-              abort.abort();
               return;
             }
             const insert_pos = current_state.ai_range_to;

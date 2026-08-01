@@ -1,7 +1,9 @@
 import { create_logger } from "$lib/shared/utils/logger";
 import { error_message } from "$lib/shared/utils/error_message";
 import type { VaultStore } from "$lib/features/vault";
-import type { AiPort, AiStreamPort } from "$lib/features/ai/ports";
+import type { AiPort } from "$lib/features/ai/ports";
+import { start_run_stream } from "$lib/features/assistant";
+import type { RunHandle, RunStarter } from "$lib/features/assistant";
 import type { SearchPort } from "$lib/features/search";
 import type {
   AiCliProbe,
@@ -49,7 +51,7 @@ export class AiService {
   constructor(
     private readonly ai_port: AiPort,
     private readonly vault_store: VaultStore,
-    private readonly ai_stream_port?: AiStreamPort,
+    private readonly run_starter: RunStarter,
     private readonly search_port?: SearchPort,
   ) {}
 
@@ -224,24 +226,14 @@ export class AiService {
     };
   }
 
+  // Covers streaming and blocking providers alike: the kernel's transport picks
+  // the wire channel, and both are cancellable through the returned handle.
   async execute_streaming(
-    input: AiExecuteInput & { signal?: AbortSignal },
+    input: AiExecuteInput & { on_run_started?: (handle: RunHandle) => void },
     on_chunk?: (partial: string) => void,
     on_reasoning?: (partial: string) => void,
   ): Promise<AiExecutionResult> {
-    const vault_path = this.vault_store.vault?.path;
-    if (!vault_path) {
-      throw new Error("No active vault");
-    }
-    if (!this.ai_stream_port) {
-      return {
-        success: false,
-        output: "",
-        error: "Streaming is not available",
-      };
-    }
-
-    const { prompt } = await this.build_execution_prompt(input);
+    const { prompt, working_path } = await this.build_execution_prompt(input);
     const joiner = new MarkdownJoiner();
     let output = "";
     let reasoning = "";
@@ -253,28 +245,38 @@ export class AiService {
       on_chunk?.(output);
     };
 
-    for await (const chunk of this.ai_stream_port.stream_text({
-      provider_config: input.provider_config,
-      system_prompt: "",
-      messages: [{ role: "user", content: prompt }],
-      vault_path,
-      ...(input.signal ? { signal: input.signal } : {}),
-    })) {
-      if (chunk.type === "text") {
-        push(joiner.process_chunk(chunk.text));
+    const { handle, events } = await start_run_stream(this.run_starter, {
+      kind: "note",
+      label: input.prompt,
+      provider: input.provider_config,
+      origin: { note_path: working_path },
+      request: {
+        mode: "text",
+        system_prompt: "",
+        messages: [{ role: "user", content: prompt }],
+        note_path: working_path,
+        timeout_seconds: input.timeout_seconds ?? null,
+      },
+    });
+    input.on_run_started?.(handle);
+
+    for await (const event of events) {
+      if (event.type === "text") {
+        push(joiner.process_chunk(event.text));
         continue;
       }
-      if (chunk.type === "reasoning") {
-        reasoning += chunk.text;
+      if (event.type === "reasoning") {
+        reasoning += event.text;
         on_reasoning?.(reasoning);
         continue;
       }
       push(joiner.flush());
-      if (chunk.type === "error" && chunk.error !== "aborted") {
-        error = humanize_ai_error(chunk.error, input.provider_config).message;
+      if (event.type === "error") {
+        // Already humanized by the kernel, the single choke point.
+        error = event.message;
         log.warn("AI streaming execution failed", {
           provider: input.provider_config.id,
-          error: chunk.error,
+          error: event.message,
         });
       }
     }
@@ -291,49 +293,46 @@ export class AiService {
     system_prompt: string;
     user_prompt: string;
     images?: AiImagePart[];
-    signal?: AbortSignal;
+    note_path?: string;
+    on_run_started?: (handle: RunHandle) => void;
   }): AsyncGenerator<AiStreamChunk> {
-    if (!this.ai_stream_port) {
-      yield { type: "error", error: "Streaming is not available" };
-      return;
-    }
-
     const joiner = new MarkdownJoiner();
 
-    for await (const chunk of this.ai_stream_port.stream_text({
-      provider_config: input.provider_config,
-      system_prompt: input.system_prompt,
-      messages: [
-        {
-          role: "user",
-          content: input.images?.length
-            ? [{ type: "text", text: input.user_prompt }, ...input.images]
-            : input.user_prompt,
-        },
-      ],
-      ...(this.vault_store.vault?.path
-        ? { vault_path: this.vault_store.vault.path }
-        : {}),
-      ...(input.signal ? { signal: input.signal } : {}),
-    })) {
-      if (chunk.type === "reasoning") {
+    const { handle, events } = await start_run_stream(this.run_starter, {
+      kind: "inline",
+      label: input.user_prompt,
+      provider: input.provider_config,
+      request: {
+        mode: "text",
+        system_prompt: input.system_prompt,
+        messages: [
+          {
+            role: "user",
+            content: input.images?.length
+              ? [{ type: "text", text: input.user_prompt }, ...input.images]
+              : input.user_prompt,
+          },
+        ],
+        ...(input.note_path ? { note_path: input.note_path } : {}),
+      },
+    });
+    input.on_run_started?.(handle);
+
+    for await (const event of events) {
+      if (event.type === "reasoning") {
         continue;
       }
-      if (chunk.type === "text") {
-        const text = joiner.process_chunk(chunk.text);
+      if (event.type === "text") {
+        const text = joiner.process_chunk(event.text);
         if (text) yield { type: "text", text };
       } else {
         const remaining = joiner.flush();
         if (remaining) yield { type: "text", text: remaining };
-        if (chunk.type === "error") {
-          const friendly = humanize_ai_error(
-            chunk.error,
-            input.provider_config,
-          );
-          log.warn("AI inline stream failed", { error: friendly.detail });
-          yield { type: "error", error: friendly.message };
-        } else {
-          yield chunk;
+        if (event.type === "error") {
+          log.warn("AI inline stream failed", { error: event.message });
+          yield { type: "error", error: event.message };
+        } else if (event.type === "done") {
+          yield { type: "done" };
         }
       }
     }

@@ -1,13 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 import { AgentRunner, RagStore } from "$lib/features/rag";
-import type {
-  AgentEvent,
-  AgentPort,
-  AgentStreamRequest,
-} from "$lib/features/rag";
+import type { RunEvent, RunRequest, RunSpec } from "$lib/features/assistant";
 import { VaultStore } from "$lib/features/vault";
 import type { AiProviderConfig } from "$lib/shared/types/ai_provider_config";
 import { create_test_vault } from "../helpers/test_fixtures";
+import { create_test_run_starter } from "../../adapters/test_run_starter";
 
 const provider: AiProviderConfig = {
   id: "claude",
@@ -24,20 +21,20 @@ function make_stores() {
   return { rag_store, vault_store };
 }
 
-function make_harness(events: AgentEvent[]) {
+function agent_request(spec: RunSpec): Extract<RunRequest, { mode: "agent" }> {
+  if (spec.request.mode !== "agent") {
+    throw new Error("expected an agent-mode run");
+  }
+  return spec.request;
+}
+
+function make_harness(events: RunEvent[]) {
   const { rag_store, vault_store } = make_stores();
   const calls: string[] = [];
-  const captured: AgentStreamRequest[] = [];
-  const port: AgentPort = {
-    stream_turn: (input) => {
-      calls.push("stream");
-      captured.push(input);
-      // eslint-disable-next-line @typescript-eslint/require-await
-      return (async function* () {
-        for (const event of events) yield event;
-      })();
-    },
-  };
+  const starter = create_test_run_starter((_spec) => {
+    calls.push("stream");
+    return events;
+  });
   const git = {
     create_checkpoint: vi.fn((_description: string) => {
       calls.push("checkpoint");
@@ -47,7 +44,7 @@ function make_harness(events: AgentEvent[]) {
   const refresh_vault = vi.fn();
   const sync_changed_notes = vi.fn();
   const runner = new AgentRunner(
-    port,
+    starter,
     rag_store,
     vault_store,
     git,
@@ -58,7 +55,7 @@ function make_harness(events: AgentEvent[]) {
     runner,
     rag_store,
     calls,
-    captured,
+    starter,
     git,
     refresh_vault,
     sync_changed_notes,
@@ -69,7 +66,7 @@ function tool_start(
   name: string,
   input_summary: string,
   extra: { paths?: string[]; mutating?: boolean } = {},
-): AgentEvent {
+): RunEvent {
   return {
     type: "tool_start",
     name,
@@ -87,7 +84,7 @@ describe("AgentRunner.run_turn", () => {
   it("populates changed files from mutating tool events and refreshes the vault", async () => {
     const { runner, rag_store, refresh_vault, sync_changed_notes } =
       make_harness([
-        { type: "init", session_id: "sess-1" },
+        { type: "session", provider_session_id: "sess-1" },
         tool_start("mcp__carbide__read_note", '{"path":"notes/a.md"}', {
           paths: ["notes/a.md"],
         }),
@@ -102,7 +99,7 @@ describe("AgentRunner.run_turn", () => {
           mutating: true,
         }),
         { type: "tool_end", name: "Write", ok: true },
-        { type: "text", delta: "Done." },
+        { type: "text", text: "Done." },
         { type: "done", stats: {} },
       ]);
 
@@ -131,8 +128,8 @@ describe("AgentRunner.run_turn", () => {
 
   it("does not refresh the vault when no mutating tools ran", async () => {
     const { runner, rag_store, refresh_vault } = make_harness([
-      { type: "init", session_id: "sess-1" },
-      { type: "text", delta: "Nothing to change." },
+      { type: "session", provider_session_id: "sess-1" },
+      { type: "text", text: "Nothing to change." },
       { type: "done", stats: {} },
     ]);
 
@@ -144,7 +141,7 @@ describe("AgentRunner.run_turn", () => {
 
   it("creates a git checkpoint before starting the stream", async () => {
     const { runner, calls, git } = make_harness([
-      { type: "text", delta: "ok" },
+      { type: "text", text: "ok" },
       { type: "done", stats: {} },
     ]);
 
@@ -155,43 +152,36 @@ describe("AgentRunner.run_turn", () => {
   });
 
   it("passes the captured agent session id as resume id on the next turn", async () => {
-    const { runner, captured } = make_harness([
-      { type: "init", session_id: "sess-1" },
+    const { runner, starter } = make_harness([
+      { type: "session", provider_session_id: "sess-1" },
       { type: "done", stats: {} },
     ]);
 
     await runner.run_turn(provider, "first turn", "harness");
     await runner.run_turn(provider, "second turn", "harness");
 
-    expect(captured[0]?.resume_session_id).toBeUndefined();
-    expect(captured[1]?.resume_session_id).toBe("sess-1");
-    expect(captured[0]?.toolset).toEqual({ kind: "read_only" });
-    expect(captured[0]?.vault_path).toBe("/test/vault");
+    const first = agent_request(starter.specs[0]!);
+    const second = agent_request(starter.specs[1]!);
+    expect(first.resume_session_id).toBeUndefined();
+    expect(second.resume_session_id).toBe("sess-1");
+    expect(first.toolset).toEqual({ kind: "read_only" });
+    expect(starter.specs[0]?.kind).toBe("agent");
   });
 
   it("abort mid-run keeps the partial transcript and returns to idle", async () => {
     const { rag_store, vault_store } = make_stores();
-    const aborted = { observed: false };
-    const port: AgentPort = {
-      stream_turn: (input) => {
-        const signal = input.signal;
-        return (async function* () {
-          yield { type: "text", delta: "partial " } as AgentEvent;
-          yield { type: "text", delta: "answer" } as AgentEvent;
-          await new Promise<void>((resolve) => {
-            const on_abort = () => {
-              aborted.observed = true;
-              resolve();
-            };
-            if (signal?.aborted) {
-              on_abort();
-              return;
-            }
-            signal?.addEventListener("abort", on_abort, { once: true });
-          });
-        })();
-      },
-    };
+    let release = () => {};
+    const blocked = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const starter = create_test_run_starter(() =>
+      (async function* () {
+        yield { type: "text", text: "partial " } as RunEvent;
+        yield { type: "text", text: "answer" } as RunEvent;
+        await blocked;
+        yield { type: "done" } as RunEvent;
+      })(),
+    );
     const git = {
       create_checkpoint: vi
         .fn()
@@ -199,7 +189,7 @@ describe("AgentRunner.run_turn", () => {
     };
     const refresh_vault = vi.fn();
     const runner = new AgentRunner(
-      port,
+      starter,
       rag_store,
       vault_store,
       git,
@@ -211,10 +201,11 @@ describe("AgentRunner.run_turn", () => {
     await tick();
     expect(runner.is_running).toBe(true);
     runner.abort();
+    release();
     const result = await running;
 
     expect(result).toEqual({ status: "done" });
-    expect(aborted.observed).toBe(true);
+    expect(starter.stop_count).toBe(1);
     expect(runner.is_running).toBe(false);
     expect(rag_store.streaming_id).toBeNull();
     expect(rag_store.is_loading).toBe(false);
@@ -225,7 +216,7 @@ describe("AgentRunner.run_turn", () => {
 
   it("surfaces stream errors and keeps the partial answer", async () => {
     const { runner, rag_store } = make_harness([
-      { type: "text", delta: "half" },
+      { type: "text", text: "half" },
       { type: "error", message: "CLI crashed" },
     ]);
 
@@ -242,7 +233,7 @@ describe("AgentRunner.run_turn", () => {
 
   it("keeps the tool trail when a turn fails before producing any text", async () => {
     const { runner, rag_store } = make_harness([
-      { type: "init", session_id: "sess-1" },
+      { type: "session", provider_session_id: "sess-1" },
       tool_start("mcp__carbide__read_note", '{"path":"clips/scraped.md"}', {
         paths: ["clips/scraped.md"],
       }),
@@ -316,5 +307,49 @@ describe("AgentRunner.run_turn", () => {
 
     expect(refresh_vault).not.toHaveBeenCalled();
     expect(sync_changed_notes).not.toHaveBeenCalled();
+  });
+
+  // R8: Wave 1 retargets where a turn's transcript lands by swapping the sink.
+  // That only stays cheap while the runner writes through one, so this asserts
+  // the mechanism, not just the behaviour.
+  it("writes the transcript through the injected sink, never from the loop", async () => {
+    const { rag_store, vault_store } = make_stores();
+    let sink_seen = 0;
+    const starter = {
+      start: (_spec: RunSpec, sink?: import("$lib/features/assistant").RunSink) => {
+        const events: RunEvent[] = [
+          { type: "session", provider_session_id: "sess-1" },
+          { type: "text", text: "hello" },
+          { type: "done", stats: {} },
+        ];
+        // Deliberately dispatch nothing to the sink: with the writes living in
+        // it, the store must stay untouched.
+        if (sink) sink_seen = events.length;
+        return Promise.resolve({
+          id: "run-1",
+          stop: () => {},
+          outcome: Promise.resolve({
+            status: "done" as const,
+            text: "",
+            stats: null,
+          }),
+        });
+      },
+    };
+    const runner = new AgentRunner(
+      starter,
+      rag_store,
+      vault_store,
+      { create_checkpoint: vi.fn().mockResolvedValue({}) },
+      vi.fn(),
+      vi.fn(),
+    );
+
+    const before = rag_store.active?.messages.length ?? 0;
+    await runner.run_turn(provider, "organize my notes", "harness");
+
+    expect(sink_seen).toBe(3);
+    expect(rag_store.active?.messages.length).toBe(before);
+    expect(rag_store.active?.agent_session_id).toBeUndefined();
   });
 });

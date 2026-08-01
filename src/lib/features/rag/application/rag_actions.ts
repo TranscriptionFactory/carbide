@@ -13,7 +13,10 @@ import { should_attach_open_note_images } from "$lib/features/rag/domain/rag_ope
 import { should_autotitle } from "$lib/features/rag/domain/rag_session";
 import type { RagStore } from "$lib/features/rag/state/rag_store.svelte";
 import type { RagService } from "$lib/features/rag/application/rag_service";
-import type { AgentPort } from "$lib/features/rag/ports";
+import type {
+  AssistantKernelService,
+  RunHandle,
+} from "$lib/features/assistant";
 import { AgentRunner } from "$lib/features/rag/application/agent_runner";
 import { resolve_agent_note_sync } from "$lib/features/rag/domain/agent_note_sync";
 import { as_note_path, type NotePath } from "$lib/shared/types/ids";
@@ -44,11 +47,17 @@ export function register_rag_actions(
   input: ActionRegistrationInput & {
     rag_store: RagStore;
     rag_service: RagService;
-    agent_port: AgentPort;
+    assistant_kernel: AssistantKernelService;
   },
 ) {
-  const { registry, stores, services, rag_store, rag_service, agent_port } =
-    input;
+  const {
+    registry,
+    stores,
+    services,
+    rag_store,
+    rag_service,
+    assistant_kernel,
+  } = input;
 
   function find_background_tab(note_path: NotePath) {
     const tab = stores.tab.find_tab_by_path(note_path);
@@ -103,7 +112,7 @@ export function register_rag_actions(
   }
 
   const agent_runner = new AgentRunner(
-    agent_port,
+    assistant_kernel,
     rag_store,
     stores.vault,
     services.git,
@@ -122,20 +131,22 @@ export function register_rag_actions(
     void rag_service.save_session(vault_id, session);
   }
 
-  function resolve_provider(): AiProviderConfig | null {
-    const providers = get_providers();
+  // I3: one provider rule. The previous local copy resolved `auto` as
+  // providers[0] with no availability probe, so it happily picked a provider
+  // whose CLI was not installed.
+  async function resolve_provider(): Promise<AiProviderConfig | null> {
     const settings = stores.ui.editor_settings;
-    const chosen_id = rag_store.provider_id || settings.ai_default_provider_id;
-    if (chosen_id === "auto") return providers[0] ?? null;
-    return providers.find((p) => p.id === chosen_id) ?? providers[0] ?? null;
+    return await assistant_kernel.resolve_provider(
+      rag_store.provider_id || settings.ai_default_provider_id,
+    );
   }
 
   registry.register({
     id: ACTION_IDS.rag_open,
     label: "Chat with Vault",
-    execute: () => {
+    execute: async () => {
       if (!rag_store.provider_id) {
-        const provider = resolve_provider();
+        const provider = await resolve_provider();
         if (provider) rag_store.set_provider(provider.id);
       }
       if (!rag_store.active) {
@@ -147,13 +158,13 @@ export function register_rag_actions(
     },
   });
 
-  let ask_abort: AbortController | null = null;
+  let ask_handle: RunHandle | null = null;
 
   registry.register({
     id: ACTION_IDS.rag_stop,
     label: "Stop Vault Chat Reply",
     execute: () => {
-      ask_abort?.abort();
+      ask_handle?.stop();
     },
   });
 
@@ -173,12 +184,12 @@ export function register_rag_actions(
     persist_session(session_id);
   }
 
-  function resolve_ask_provider(): AiProviderConfig | null {
+  async function resolve_ask_provider(): Promise<AiProviderConfig | null> {
     if (!stores.ui.editor_settings.ai_enabled) {
       toast.info("AI Assistant is disabled in settings");
       return null;
     }
-    const provider = resolve_provider();
+    const provider = await resolve_provider();
     if (!provider) {
       toast.error("No AI provider configured");
       return null;
@@ -188,7 +199,7 @@ export function register_rag_actions(
 
   async function run_ask(question: string, reuse_last_user = false) {
     if (stores.op.is_pending(RAG_OP_KEY)) return;
-    const provider = resolve_ask_provider();
+    const provider = await resolve_ask_provider();
     if (!provider) return;
 
     const revision = rag_store.begin_turn();
@@ -212,7 +223,6 @@ export function register_rag_actions(
       image_parts = await collect_open_note_image_parts(input);
     }
 
-    ask_abort = new AbortController();
     let context_stats: RagContextStats | null = null;
     try {
       let errored = false;
@@ -237,7 +247,9 @@ export function register_rag_actions(
           ),
         },
         image_parts,
-        signal: ask_abort.signal,
+        on_run_started: (handle) => {
+          ask_handle = handle;
+        },
       })) {
         if (revision !== rag_store.revision) return;
         if (event.type === "generating") {
@@ -281,13 +293,13 @@ export function register_rag_actions(
       stores.op.fail(RAG_OP_KEY, message);
       persist_session(rag_store.active_id);
     } finally {
-      ask_abort = null;
+      ask_handle = null;
     }
   }
 
   async function run_agent(prompt: string) {
     if (stores.op.is_pending(RAG_OP_KEY)) return;
-    const provider = resolve_ask_provider();
+    const provider = await resolve_ask_provider();
     if (!provider) return;
     const capability = agent_capability(provider);
     if (!capability) {
@@ -401,7 +413,7 @@ export function register_rag_actions(
       }
       const question = messages[user_idx]?.content.trim();
       if (!question) return;
-      if (!resolve_ask_provider()) return;
+      if (!(await resolve_ask_provider())) return;
       rag_store.truncate_after(id);
       await run_ask(question, true);
     },

@@ -1,4 +1,7 @@
-import { humanize_ai_error } from "$lib/features/ai";
+import {
+  humanize_ai_error,
+  provider_supports_streaming,
+} from "$lib/features/ai";
 import { resolve_assistant_provider } from "$lib/features/assistant/domain/resolve_assistant_provider";
 import { create_logger } from "$lib/shared/utils/logger";
 import { error_message } from "$lib/shared/utils/error_message";
@@ -8,6 +11,7 @@ import type {
   AssistantProviderProbePort,
   AssistantTransportPort,
 } from "$lib/features/assistant/ports";
+import { ABORTED_ERROR } from "$lib/features/assistant/types/run";
 import type {
   AssistantUserError,
   RunEvent,
@@ -40,6 +44,17 @@ const NO_VAULT: AssistantUserError = {
   detail: "The run was not started: agent mode requires a vault path.",
 };
 
+// A provider that cannot stream runs one-shot against a note file, so it needs
+// somewhere to write. Refused here rather than at the process boundary, because
+// the humanizer only recognises provider text and would launder a synthetic
+// message into its generic fallback.
+const NO_BLOCKING_TARGET: AssistantUserError = {
+  message:
+    "This provider can only answer against a saved note — open a note in a vault, then try again.",
+  detail:
+    "The run was not started: a non-streaming provider runs one-shot against a note file and needs both a vault path and a note path.",
+};
+
 // I1: every AI execution is a kernel run. This is the only place in the app
 // that owns an AbortController for AI work, the only `for await` consumer of
 // the transport, and the only error-humanization choke point.
@@ -69,21 +84,25 @@ export class AssistantKernelService {
     );
 
     if (!provider) {
-      return {
-        id,
-        stop,
-        outcome: Promise.resolve(this.fail(id, NO_PROVIDER, sink)),
-      };
+      return { id, stop, outcome: Promise.resolve(this.refuse(id, NO_PROVIDER, sink)) };
     }
 
     // The transport takes vault_path nullable because a text run legitimately
     // has none. An agent run without one is unrunnable, so it fails here rather
     // than at the process boundary.
     if (spec.request.mode === "agent" && vault_path === null) {
+      return { id, stop, outcome: Promise.resolve(this.refuse(id, NO_VAULT, sink)) };
+    }
+
+    if (
+      spec.request.mode === "text" &&
+      !provider_supports_streaming(provider) &&
+      (vault_path === null || !spec.request.note_path)
+    ) {
       return {
         id,
         stop,
-        outcome: Promise.resolve(this.fail(id, NO_VAULT, sink)),
+        outcome: Promise.resolve(this.refuse(id, NO_BLOCKING_TARGET, sink)),
       };
     }
 
@@ -146,9 +165,24 @@ export class AssistantKernelService {
     return `run-${String(this.next_run_number)}`;
   }
 
+  private async consume(
+    id: RunId,
+    spec: RunSpec,
+    provider: AiProviderConfig,
+    vault_path: string | null,
+    signal: AbortSignal,
+    sink?: RunSink,
+  ): Promise<RunOutcome> {
+    return this.settle(
+      id,
+      await this.drain(id, spec, provider, vault_path, signal, sink),
+      sink,
+    );
+  }
+
   // A transport stream has a single consumer slot, so this loop is its only
   // reader. Everything else is fanned out from here, never by re-iterating.
-  private async consume(
+  private async drain(
     id: RunId,
     spec: RunSpec,
     provider: AiProviderConfig,
@@ -168,6 +202,7 @@ export class AssistantKernelService {
         if (signal.aborted) break;
 
         if (event.type === "error") {
+          if (event.message === ABORTED_ERROR) break;
           return this.fail(
             id,
             humanize_ai_error(event.message, provider),
@@ -208,6 +243,27 @@ export class AssistantKernelService {
     return { status: "error", error, text: this.deps.run_store.text_of(id) };
   }
 
+  // A refusal never reaches `consume`, so it settles its own outcome.
+  private refuse(
+    id: RunId,
+    error: AssistantUserError,
+    sink?: RunSink,
+  ): RunOutcome {
+    return this.settle(id, this.fail(id, error, sink), sink);
+  }
+
+  // The abort path breaks the consumer loop without a terminal event, so a sink
+  // holding transcript state learns the run ended only from here.
+  private settle(
+    id: RunId,
+    outcome: RunOutcome,
+    sink?: RunSink,
+  ): RunOutcome {
+    if (sink) this.close(sink, id, outcome);
+    for (const registered of this.sinks) this.close(registered, id, outcome);
+    return outcome;
+  }
+
   private dispatch(id: RunId, event: RunEvent, sink?: RunSink): void {
     this.deps.run_store.apply_event(id, event);
     this.notify(id, event, sink);
@@ -227,6 +283,19 @@ export class AssistantKernelService {
       log.warn("sink threw while handling a run event", {
         run_id: id,
         event: event.type,
+        error: thrown,
+      });
+    }
+  }
+
+  private close(sink: RunSink, id: RunId, outcome: RunOutcome): void {
+    if (!sink.on_end) return;
+    try {
+      sink.on_end(id, outcome);
+    } catch (thrown) {
+      log.warn("sink threw while closing a run", {
+        run_id: id,
+        status: outcome.status,
         error: thrown,
       });
     }

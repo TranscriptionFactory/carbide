@@ -825,17 +825,14 @@ export function create_app_context(input: {
     stores.search_graph,
   );
 
-  const ai_service = new AiService(
-    input.ports.ai,
-    stores.vault,
-    input.ports.ai_stream,
-    input.ports.search,
-  );
-
   // The probe port is an object literal closing over ai_service on purpose: neither a
   // bare method reference nor a pass-through lambda preserves a class receiver, so a
-  // `this`-using method would break however the resolver forwards it.
-  const assistant_kernel = new AssistantKernelService({
+  // `this`-using method would break however the resolver forwards it. The kernel is
+  // built first because every AI service now runs through it; the lambda defers to
+  // ai_service, so the cycle resolves at call time.
+  // Annotated because the probe lambda closes over ai_service, which in turn
+  // takes this kernel: without it the pair is a circular type inference.
+  const assistant_kernel: AssistantKernelService = new AssistantKernelService({
     transport: create_assistant_transport_tauri_adapter(),
     probe: {
       detect_status: async (config) => (await ai_service.detect(config)).status,
@@ -846,10 +843,17 @@ export function create_app_context(input: {
     default_provider_id: () => stores.ui.editor_settings.ai_default_provider_id,
   });
 
+  const ai_service = new AiService(
+    input.ports.ai,
+    stores.vault,
+    assistant_kernel,
+    input.ports.search,
+  );
+
   const rag_service = new RagService(
     input.ports.search,
     input.ports.notes,
-    input.ports.ai_stream,
+    assistant_kernel,
     stores.vault,
     input.ports.rag_persistence,
     input.ports.tag,
@@ -1188,12 +1192,11 @@ export function create_app_context(input: {
           };
         }
 
-        const providers = settings.ai_providers;
-        const default_id = settings.ai_default_provider_id;
-        let provider =
-          default_id === "auto"
-            ? providers[0]
-            : providers.find((p) => p.id === default_id);
+        // I3: one provider rule. This used to take providers[0] for `auto`
+        // with no availability probe.
+        const provider = await assistant_kernel.resolve_provider(
+          settings.ai_default_provider_id,
+        );
 
         if (!provider) {
           return {
@@ -1240,12 +1243,9 @@ export function create_app_context(input: {
           base_url: null,
         };
         if (!settings.ai_enabled) return unknown_hint;
-        const providers = settings.ai_providers;
-        const default_id = settings.ai_default_provider_id;
-        const provider =
-          default_id === "auto"
-            ? providers[0]
-            : providers.find((p) => p.id === default_id);
+        const provider = await assistant_kernel.resolve_provider(
+          settings.ai_default_provider_id,
+        );
         if (!provider) return unknown_hint;
         return derive_provider_hint(provider);
       },
@@ -1282,7 +1282,7 @@ export function create_app_context(input: {
     ai_store: stores.ai,
     ai_service,
     ai_history: input.ports.ai_history,
-    agentic_runner: new AgenticEditRunner(input.ports.agent, git_service),
+    agentic_runner: new AgenticEditRunner(assistant_kernel, git_service),
   });
 
   register_assistant_actions({
@@ -1294,7 +1294,7 @@ export function create_app_context(input: {
     ...base_action_input,
     rag_store: stores.rag,
     rag_service,
-    agent_port: input.ports.agent,
+    assistant_kernel,
   });
 
   register_graph_actions({
@@ -1534,6 +1534,7 @@ export function create_app_context(input: {
     mcp_service,
     rag_store: stores.rag,
     rag_service,
+    assistant_kernel,
     ai_store: stores.ai,
     ai_history_port: input.ports.ai_history,
     tag_store: stores.tag,

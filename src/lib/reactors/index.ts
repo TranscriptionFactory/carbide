@@ -102,6 +102,7 @@ import type { ThemeService } from "$lib/features/theme";
 import type { ReferenceService, ReferenceStore } from "$lib/features/reference";
 import type { McpService } from "$lib/features/mcp";
 import type { RagService, RagStore } from "$lib/features/rag";
+import type { AssistantKernelService } from "$lib/features/assistant";
 import type { AiStore, AiHistoryPersistencePort } from "$lib/features/ai";
 import type { TagService, TagStore } from "$lib/features/tags";
 // import type { SttStore, SttService } from "$lib/features/stt";
@@ -155,6 +156,7 @@ export type ReactorContext = {
   mcp_service: McpService;
   rag_store: RagStore;
   rag_service: RagService;
+  assistant_kernel: AssistantKernelService;
   ai_store: AiStore;
   ai_history_port: AiHistoryPersistencePort;
   tag_store: TagStore;
@@ -439,7 +441,11 @@ export function mount_reactors(context: ReactorContext): ReactorHandles {
       context.ai_history_port,
       context.vault_store,
     ),
-    create_rag_mcp_bridge_reactor(context.rag_service, context.ui_store),
+    create_rag_mcp_bridge_reactor(
+      context.rag_service,
+      context.ui_store,
+      context.assistant_kernel,
+    ),
     create_tag_pill_colors_reactor(
       context.tag_store,
       context.vault_store,

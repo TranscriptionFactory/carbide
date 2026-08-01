@@ -1,3 +1,5 @@
+export { ABORTED_ERROR } from "$lib/features/assistant/types/run";
+
 export type {
   AssistantUserError,
   RunEvent,
@@ -10,9 +12,15 @@ export type {
   RunRequest,
   RunSink,
   RunSpec,
+  RunStarter,
   RunStats,
   RunStatus,
 } from "$lib/features/assistant/types/run";
+
+export {
+  start_run_stream,
+  type RunStream,
+} from "$lib/features/assistant/application/run_stream";
 
 export type {
   AssistantProviderProbePort,

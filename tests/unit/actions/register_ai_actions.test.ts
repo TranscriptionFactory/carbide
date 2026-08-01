@@ -549,7 +549,7 @@ describe("register_ai_actions", () => {
     const { registry, stores, ai_store, ai_service } = create_harness();
     stores.ui.editor_settings.ai_default_provider_id = "codex";
     ai_service.detect = vi.fn().mockResolvedValue(probe("unknown"));
-    ai_service.execute = vi.fn().mockResolvedValue({
+    ai_service.execute_streaming = vi.fn().mockResolvedValue({
       success: true,
       output: "# Updated",
       error: null,
@@ -561,7 +561,7 @@ describe("register_ai_actions", () => {
     await registry.execute(ACTION_IDS.ai_update_prompt, "Tighten this note");
     await registry.execute(ACTION_IDS.ai_execute);
 
-    expect(ai_service.execute).toHaveBeenCalled();
+    expect(ai_service.execute_streaming).toHaveBeenCalled();
     expect(ai_store.dialog.result?.success).toBe(true);
   });
 
@@ -663,7 +663,7 @@ describe("register_ai_actions", () => {
       expect(ai_service.execute_streaming).toHaveBeenCalledWith(
         expect.objectContaining({
           provider_config: expect.objectContaining({ id: "claude" }),
-          signal: expect.any(AbortSignal),
+          on_run_started: expect.any(Function),
         }),
         expect.any(Function),
         expect.any(Function),
@@ -677,10 +677,13 @@ describe("register_ai_actions", () => {
       expect(ai_store.dialog.streaming_text).toBeNull();
     });
 
-    it("routes {output_file} providers through the blocking execute path", async () => {
+    // A {output_file} provider cannot stream, but it is still a kernel run: the
+    // transport picks the blocking channel and Stop still reaches it. Before the
+    // run kernel this path bypassed the kernel entirely and Stop was a no-op.
+    it("routes {output_file} providers through the kernel too, so Stop works", async () => {
       const { registry, stores, ai_service } = create_harness();
       stores.ui.editor_settings.ai_default_provider_id = "codex";
-      ai_service.execute = vi.fn().mockResolvedValue({
+      ai_service.execute_streaming = vi.fn().mockResolvedValue({
         success: true,
         output: "# Blocking",
         error: null,
@@ -690,8 +693,15 @@ describe("register_ai_actions", () => {
       await registry.execute(ACTION_IDS.ai_update_prompt, "Tighten this note");
       await registry.execute(ACTION_IDS.ai_execute);
 
-      expect(ai_service.execute).toHaveBeenCalled();
-      expect(ai_service.execute_streaming).not.toHaveBeenCalled();
+      expect(ai_service.execute_streaming).toHaveBeenCalledWith(
+        expect.objectContaining({
+          provider_config: expect.objectContaining({ id: "codex" }),
+          on_run_started: expect.any(Function),
+        }),
+        expect.any(Function),
+        expect.any(Function),
+      );
+      expect(ai_service.execute).not.toHaveBeenCalled();
     });
 
     it("surfaces streamed partial text on the dialog while executing", async () => {
@@ -849,15 +859,22 @@ describe("register_ai_actions", () => {
       expect(ai_service.stream_inline).toHaveBeenCalledTimes(1);
     });
 
-    it("aborts the stream when the menu closes midway", async () => {
+    // I2: run lifetime is independent of surface lifetime. Closing the menu
+    // stops this surface consuming, but the run keeps going and stays
+    // stoppable from the assistant popover.
+    it("stops writing into the doc when the menu closes, without cancelling the run", async () => {
       const { registry, view, ai_service } = setup_inline();
       let release!: () => void;
       const gate = new Promise<void>((resolve) => (release = resolve));
-      let captured_signal: AbortSignal | undefined;
+      let stopped = false;
       ai_service.stream_inline = vi.fn(async function* (input: {
-        signal?: AbortSignal;
+        on_run_started?: (handle: { stop: () => void }) => void;
       }) {
-        captured_signal = input.signal;
+        input.on_run_started?.({
+          stop: () => {
+            stopped = true;
+          },
+        });
         yield { type: "text", text: "partial" };
         await gate;
         yield { type: "text", text: "more" };
@@ -874,7 +891,7 @@ describe("register_ai_actions", () => {
       release();
       await exec;
 
-      expect(captured_signal?.aborted).toBe(true);
+      expect(stopped).toBe(false);
       expect(view.state.doc.textContent).not.toContain("more");
     });
 

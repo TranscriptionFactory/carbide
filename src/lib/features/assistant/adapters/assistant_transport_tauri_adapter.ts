@@ -13,7 +13,11 @@ import type {
   AssistantTransportPort,
   TransportRequest,
 } from "$lib/features/assistant/ports";
-import type { RunEvent, RunRequest } from "$lib/features/assistant/types/run";
+import {
+  ABORTED_ERROR,
+  type RunEvent,
+  type RunRequest,
+} from "$lib/features/assistant/types/run";
 
 type TextRequest = Extract<RunRequest, { mode: "text" }>;
 type AgentRequest = Extract<RunRequest, { mode: "agent" }>;
@@ -179,17 +183,19 @@ function blocking_prompt(request: TextRequest): string {
     .join("\n\n");
 }
 
-// A blocking CLI writes its answer to a file and only returns once it is done,
-// so there is nothing to abort at the process boundary. Aborting closes the
-// queue, which abandons the result; the CLI itself runs to completion.
+// A blocking CLI writes its answer to a file rather than streaming, but it is
+// still cancellable: the request id it started under kills its child process.
+// `ai_execute_abort` is a no-op on unknown or finished ids, so Stop may fire
+// without tracking whether the run is still live.
 function drive_blocking(
   input: TransportRequest,
   request: TextRequest,
 ): AsyncIterable<RunEvent> {
+  const request_id = crypto.randomUUID();
   const queue = new AsyncQueue<RunEvent>();
   const signal = input.signal;
   const on_abort = () => {
-    queue.end();
+    void tauri_invoke("ai_execute_abort", { requestId: request_id });
   };
 
   void (async () => {
@@ -206,12 +212,13 @@ function drive_blocking(
         notePath: request.note_path ?? "",
         prompt: blocking_prompt(request),
         timeoutSeconds: request.timeout_seconds ?? null,
+        requestId: request_id,
       });
-      if (!result.success) {
-        queue.push({ type: "error", message: result.error ?? NO_OUTPUT });
-      } else {
+      if (result.success) {
         if (result.output) queue.push({ type: "text", text: result.output });
         queue.push({ type: "done" });
+      } else if (result.error !== ABORTED_ERROR) {
+        queue.push({ type: "error", message: result.error ?? NO_OUTPUT });
       }
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);
