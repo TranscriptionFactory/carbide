@@ -67,7 +67,7 @@ export const COMMAND_TO_ACTION_ID: Record<CommandId, string> = {
   fold_toggle: ACTION_IDS.editor_fold_toggle,
   fold_collapse_all: ACTION_IDS.editor_fold_collapse_all,
   fold_expand_all: ACTION_IDS.editor_fold_expand_all,
-  graph_load_hierarchy: ACTION_IDS.graph_load_hierarchy,
+  graph_open_vault_graph: ACTION_IDS.graph_open_as_tab,
   query_open: ACTION_IDS.query_open,
   query_toggle_panel: ACTION_IDS.query_toggle_panel,
   iwe_extract_section: ACTION_IDS.iwe_extract_section,

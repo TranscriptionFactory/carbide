@@ -46,7 +46,7 @@
     on_select_node: (node_id: string) => void;
     on_hover_node: (node_id: string | null) => void;
     on_open_node: (path: string) => void;
-    on_dblclick_node?: ((path: string) => void) | undefined;
+    on_focus_node?: ((path: string) => void) | undefined;
     on_expand_node?: ((path: string) => void) | undefined;
     on_export_canvas?: (() => void) | undefined;
     on_clusters_computed?:
@@ -76,7 +76,7 @@
     on_select_node,
     on_hover_node,
     on_open_node,
-    on_dblclick_node,
+    on_focus_node,
     on_expand_node,
     on_export_canvas,
     on_clusters_computed,
@@ -273,7 +273,7 @@
       on_select_node(id);
     };
     r.on_node_hover = on_hover_node;
-    r.on_node_dblclick = on_dblclick_node ?? on_open_node;
+    r.on_node_dblclick = on_open_node;
     r.on_node_contextmenu = (id, sx, sy) => {
       context_menu = { node_id: id, x: sx, y: sy };
     };
@@ -383,9 +383,12 @@
     renderer?.set_smart_link_edges(smart_link_edges, show_smart_link_edges);
   });
 
+  let had_focus_layout = false;
+
   $effect(() => {
     if (!renderer_ready || !renderer) return;
     if (focus_node_path) {
+      had_focus_layout = true;
       const result = radial_layout(focus_node_path, plain_edges(snapshot));
       const focus_set = new Set<string>([focus_node_path]);
       for (const id of result.neighbor_ids_1hop) focus_set.add(id);
@@ -413,6 +416,12 @@
       renderer.set_filter(
         filter_override_ids ?? compute_filter_set(filter_query, snapshot),
       );
+      if (had_focus_layout) {
+        // Nodes are frozen in the radial arrangement; re-run the force
+        // layout to restore the vault-wide positions
+        had_focus_layout = false;
+        feed_graph(renderer, snapshot);
+      }
     }
   });
 
@@ -477,11 +486,11 @@
       class="VaultGraph__context_menu"
       style="left:{String(context_menu.x)}px;top:{String(context_menu.y)}px;"
     >
-      {#if on_dblclick_node}
+      {#if on_focus_node}
         <button
           class="VaultGraph__context_menu_item"
           onclick={() => {
-            if (context_menu) on_dblclick_node(context_menu.node_id);
+            if (context_menu) on_focus_node(context_menu.node_id);
             close_context_menu();
           }}
         >

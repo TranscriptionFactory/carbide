@@ -41,7 +41,7 @@ export type CommandId =
   | "fold_toggle"
   | "fold_collapse_all"
   | "fold_expand_all"
-  | "graph_load_hierarchy"
+  | "graph_open_vault_graph"
   | "query_open"
   | "query_toggle_panel"
   | "zoom_in"

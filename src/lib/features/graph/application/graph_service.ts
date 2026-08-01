@@ -162,13 +162,9 @@ export class GraphService {
   }
 
   async toggle_view_mode(): Promise<void> {
-    const current = this.graph_store.view_mode;
-    if (current === "neighborhood") {
+    if (this.graph_store.view_mode === "neighborhood") {
       this.graph_store.set_view_mode("vault");
       await this.load_vault_graph();
-    } else if (current === "vault") {
-      this.graph_store.set_view_mode("hierarchy");
-      await this.load_hierarchy();
     } else {
       this.graph_store.set_view_mode("neighborhood");
       await this.focus_active_note();
