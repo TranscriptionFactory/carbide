@@ -12,7 +12,7 @@ const SENTINEL_RE = /\uE000(\d+)\uE001/g;
 export const CITATION_INDEX_ATTR = "data-citation-index";
 
 const CITATION_BUTTON_CLASS =
-  "mx-0.5 inline-flex items-center rounded bg-muted px-1 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-accent-foreground";
+  "mx-0.5 inline-flex select-text items-center rounded bg-muted px-1 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-accent-foreground";
 
 const md = new MarkdownIt({
   html: false,

@@ -30,9 +30,14 @@
       "resources/iwe-default-config.toml",
       "resources/markdown-oxide-default-config.toml",
       "resources/marksman-default-config.toml",
-      "../plugins/smart-templates/**/*",
+      "../plugins/auto-tag/**/*",
+      "../plugins/html-strip/**/*",
       "../plugins/html-to-markdown/**/*",
-      "../plugins/slides/**/*"
+      "../plugins/md-export/**/*",
+      "../plugins/slides/**/*",
+      "../plugins/smart-templates/**/*",
+      "../plugins/wiki-compiler/**/*",
+      "../docs/**/*"
     ],
     "macOS": {
       "signingIdentity": "-"

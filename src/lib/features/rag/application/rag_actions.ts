@@ -15,6 +15,8 @@ import type { RagStore } from "$lib/features/rag/state/rag_store.svelte";
 import type { RagService } from "$lib/features/rag/application/rag_service";
 import type { AgentPort } from "$lib/features/rag/ports";
 import { AgentRunner } from "$lib/features/rag/application/agent_runner";
+import { resolve_agent_note_sync } from "$lib/features/rag/domain/agent_note_sync";
+import { as_note_path, type NotePath } from "$lib/shared/types/ids";
 
 const RAG_OP_KEY = "rag.ask";
 
@@ -48,12 +50,65 @@ export function register_rag_actions(
   const { registry, stores, services, rag_store, rag_service, agent_port } =
     input;
 
+  function find_background_tab(note_path: NotePath) {
+    const tab = stores.tab.find_tab_by_path(note_path);
+    if (!tab || tab.id === stores.tab.active_tab_id) return null;
+    return { is_dirty: tab.is_dirty };
+  }
+
+  // Mutating tools include delete_note and rename_note, so a "changed" path may
+  // no longer exist. Disk is the only reliable witness — the tool name does not
+  // say which of its paths survived — so reopen and clean up on not_found the
+  // same way the watcher's note_removed branch does.
+  async function reload_open_note(note_path: NotePath) {
+    stores.tab.invalidate_cache_by_path(note_path);
+    services.editor.close_buffer(note_path);
+    const result = await services.note.open_note(note_path, false, {
+      force_reload: true,
+      cleanup_if_missing: true,
+    });
+    if (result.status === "not_found") {
+      services.note.clear_open_note();
+      services.tab.remove_tab(note_path);
+    }
+  }
+
+  async function sync_changed_notes(paths: string[]) {
+    for (const path of paths) {
+      const note_path = as_note_path(path);
+      const open_note = stores.editor.open_note;
+      const decision = resolve_agent_note_sync(
+        path,
+        open_note && {
+          path: open_note.meta.path,
+          is_dirty: open_note.is_dirty,
+        },
+        find_background_tab(note_path),
+      );
+
+      switch (decision) {
+        case "reload":
+          await reload_open_note(note_path);
+          break;
+        case "mark_conflict":
+          services.tab.mark_conflict(note_path);
+          break;
+        case "invalidate_tab_cache":
+          services.tab.invalidate_cache(note_path);
+          break;
+        case "ignore":
+          break;
+      }
+    }
+  }
+
   const agent_runner = new AgentRunner(
     agent_port,
     rag_store,
     stores.vault,
     services.git,
     () => registry.execute(ACTION_IDS.folder_refresh_tree),
+    sync_changed_notes,
   );
 
   function get_providers(): AiProviderConfig[] {
@@ -323,7 +378,11 @@ export function register_rag_actions(
       const id = typeof args[0] === "string" ? args[0] : "";
       const message = rag_store.messages.find((m) => m.id === id);
       if (!message) return;
-      await navigator.clipboard.writeText(message.content);
+      try {
+        await services.clipboard.copy_text(message.content);
+      } catch {
+        toast.error("Failed to copy message");
+      }
     },
   });
 

@@ -501,6 +501,13 @@
     overflow-x: hidden;
   }
 
+  /* unlayered, so it beats the `@layer base` role=button re-deny in app.css */
+  .ProblemsPanel__body,
+  .ProblemsPanel__body * {
+    -webkit-user-select: text;
+    user-select: text;
+  }
+
   .ProblemsPanel__log-body {
     font-family: var(--font-mono, monospace);
     font-size: var(--text-xs);

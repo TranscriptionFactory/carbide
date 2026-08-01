@@ -26,8 +26,6 @@ export type RevealSpan = {
   from: number;
   to: number;
   mark_name: string;
-  delimiter: string;
-  order: number;
 };
 
 export type MarkSyntaxRevealState = {
@@ -38,12 +36,10 @@ export type MarkSyntaxRevealState = {
 function collect_block_spans(
   block: ProseNode,
   content_start: number,
-  sel_from: number,
-  sel_to: number,
   schema_marks: EditorState["schema"]["marks"],
   spans: RevealSpan[],
 ): void {
-  for (const [order, [mark_name, delimiter]] of REVEAL_DELIMITERS.entries()) {
+  for (const [mark_name] of REVEAL_DELIMITERS) {
     const mark_type = schema_marks[mark_name];
     if (!mark_type) continue;
 
@@ -51,11 +47,11 @@ function collect_block_spans(
     let run_end = 0;
     const push_run = () => {
       if (run_start === null) return;
-      const from = content_start + run_start;
-      const to = content_start + run_end;
-      if (from <= sel_to && to >= sel_from) {
-        spans.push({ from, to, mark_name, delimiter, order });
-      }
+      spans.push({
+        from: content_start + run_start,
+        to: content_start + run_end,
+        mark_name,
+      });
       run_start = null;
     };
 
@@ -71,8 +67,10 @@ function collect_block_spans(
   }
 }
 
+// Every run in the caret's block is revealed, not just the one under the
+// caret: line layout then stays put while the caret walks across the block.
 export function collect_reveal_spans(state: EditorState): RevealSpan[] {
-  const { from, to, $from, $to } = state.selection;
+  const { $from, $to } = state.selection;
   const blocks = new Map<number, ProseNode>();
 
   for (const $pos of [$from, $to]) {
@@ -84,69 +82,38 @@ export function collect_reveal_spans(state: EditorState): RevealSpan[] {
 
   const spans: RevealSpan[] = [];
   for (const [content_start, block] of blocks) {
-    collect_block_spans(
-      block,
-      content_start,
-      from,
-      to,
-      state.schema.marks,
-      spans,
-    );
+    collect_block_spans(block, content_start, state.schema.marks, spans);
   }
-  spans.sort((a, b) => a.from - b.from || a.to - b.to);
+  spans.sort((a, b) => a.from - b.from || b.to - a.to);
   return spans;
 }
 
-function make_delimiter_widget(text: string): () => HTMLElement {
-  return () => {
-    const el = document.createElement("span");
-    el.className = "mark-syntax-delimiter";
-    el.textContent = text;
-    return el;
-  };
+// Delimiters are CSS ::before/::after content on the run's first and last
+// character rather than widgets: widget DOM carries text the document does not,
+// so every delimiter character became an extra caret stop the browser walked
+// through. `nodeName` forces one wrapper per decoration so nested runs stack
+// their delimiters (bold inside italic reads as ***) instead of sharing an
+// element; the delimiter itself rides in on a custom property so it stays
+// declared once, here.
+function reveal_decorations(span: RevealSpan): Decoration[] {
+  const delimiter = REVEAL_DELIMITER_BY_MARK.get(span.mark_name);
+  const style = `--mark-reveal-delimiter: "${delimiter}"`;
+  return [
+    Decoration.inline(span.from, span.from + 1, {
+      nodeName: "span",
+      class: "mark-reveal-open",
+      style,
+    }),
+    Decoration.inline(span.to - 1, span.to, {
+      nodeName: "span",
+      class: "mark-reveal-close",
+      style,
+    }),
+  ];
 }
 
 function build_decorations(doc: ProseNode, spans: RevealSpan[]): DecorationSet {
-  const starts = new Map<number, RevealSpan[]>();
-  const ends = new Map<number, RevealSpan[]>();
-  const add = (
-    map: Map<number, RevealSpan[]>,
-    pos: number,
-    span: RevealSpan,
-  ) => {
-    const group = map.get(pos);
-    if (group) group.push(span);
-    else map.set(pos, [span]);
-  };
-  for (const span of spans) {
-    add(starts, span.from, span);
-    add(ends, span.to, span);
-  }
-
-  // Keys carry only the delimiter text (not the position) so widget DOM is
-  // reused when edits shift positions; the set itself tracks position.
-  const decorations: Decoration[] = [];
-  for (const [pos, group] of starts) {
-    group.sort((a, b) => b.to - a.to || a.order - b.order);
-    const text = group.map((s) => s.delimiter).join("");
-    decorations.push(
-      Decoration.widget(pos, make_delimiter_widget(text), {
-        side: 1,
-        key: `reveal-start:${text}`,
-      }),
-    );
-  }
-  for (const [pos, group] of ends) {
-    group.sort((a, b) => b.from - a.from || b.order - a.order);
-    const text = group.map((s) => s.delimiter).join("");
-    decorations.push(
-      Decoration.widget(pos, make_delimiter_widget(text), {
-        side: -1,
-        key: `reveal-end:${text}`,
-      }),
-    );
-  }
-  return DecorationSet.create(doc, decorations);
+  return DecorationSet.create(doc, spans.flatMap(reveal_decorations));
 }
 
 function compute_state(state: EditorState): MarkSyntaxRevealState {

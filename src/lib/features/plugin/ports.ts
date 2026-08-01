@@ -51,6 +51,7 @@ export interface PluginManifest {
   activation_events?: ActivationEvent[];
   contributes?: PluginContributes;
   allowed_origins?: string[];
+  docs?: string;
 }
 
 export interface PluginHttpFetchRequest {

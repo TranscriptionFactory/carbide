@@ -3,7 +3,7 @@ import {
   disambiguate_slug,
   get_heading_slug,
   to_wiki_link_slug,
-} from "$lib/features/editor/domain/wiki_link_slug";
+} from "$lib/shared/utils/wiki_link_slug";
 
 describe("to_wiki_link_slug", () => {
   it("normalizes human-readable page names to doc slugs", () => {

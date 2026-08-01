@@ -283,6 +283,7 @@ export function register_vault_actions(input: ActionRegistrationInput) {
             await services.note.write_note_content(
               cached.meta.path,
               cached.markdown,
+              cached.meta.mtime_ms,
             );
           }
         }

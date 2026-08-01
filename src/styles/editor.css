@@ -187,6 +187,17 @@
   font-weight: inherit;
 }
 
+/* Raw HTML passed through from the source markdown reuses the <pre><code>
+   shape for whitespace fidelity, but it is prose the user wrote inline — not a
+   fenced code block — so it must not wear the code-block chrome. */
+.ProseMirror pre[data-type="raw_block"] {
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  padding: 0;
+  color: var(--muted-foreground);
+}
+
 /* ── Code block toolbar ── */
 
 .code-block-wrapper .code-block-toolbar {
@@ -364,10 +375,13 @@
   overflow: hidden;
 }
 
+/* The frame reports its content height over postMessage and the nodeview writes
+   an inline height; 18rem is only the fallback for a frame whose script never
+   runs, so min-height must not floor the measured value. */
 .code-block-preview-frame {
   display: block;
   width: 100%;
-  min-height: 8rem;
+  min-height: 2rem;
   height: 18rem;
   border: 0;
   background: transparent;
@@ -1111,9 +1125,16 @@
   }
 }
 
-/* ── Inline mark syntax reveal ── */
+/* ── Inline mark syntax reveal ──
+   Delimiters are pseudo-element content on the run's first/last character, so
+   they add no selectable text and no extra caret stops. Mirrors the
+   .show-heading-markers pattern in typography.css. */
 
-.mark-syntax-delimiter {
+.mark-reveal-open::before,
+.mark-reveal-close::after {
+  content: var(--mark-reveal-delimiter, "");
   color: var(--editor-text-muted);
+  font-weight: 400;
+  font-style: normal;
   user-select: none;
 }

@@ -390,16 +390,22 @@ body.block-handle-dragging .prosemirror-dropcursor-inline {
 
 /* ── Code block resize handle ── */
 
+/* Collapsed until the block is hovered: the handle sits between the <pre> and
+   the preview frame, so a permanently reserved strip reads as a gap under every
+   code block. */
 .code-block-resize-handle {
   position: relative;
-  height: 0.5rem;
+  height: 0;
+  overflow: hidden;
   cursor: row-resize;
   display: flex;
   align-items: center;
   justify-content: center;
   user-select: none;
   opacity: 0;
-  transition: opacity var(--duration-normal) var(--ease-default);
+  transition:
+    opacity var(--duration-normal) var(--ease-default),
+    height var(--duration-normal) var(--ease-default);
 }
 
 .code-block-resize-handle::after {
@@ -413,6 +419,7 @@ body.block-handle-dragging .prosemirror-dropcursor-inline {
 
 .code-block-wrapper:hover .code-block-resize-handle,
 .code-block-resize-handle:active {
+  height: 0.5rem;
   opacity: 1;
 }
 

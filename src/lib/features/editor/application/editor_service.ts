@@ -14,6 +14,7 @@ import { rank_note_suggestions } from "./rank_note_suggestions";
 import type { ToolbarVisibility } from "$lib/shared/types/editor_settings";
 import type { Diagnostic } from "$lib/features/diagnostics";
 import type { RichClipboardPayload } from "$lib/features/clipboard";
+import type { BlockPlacement } from "$lib/features/editor/adapters/block_transforms";
 import {
   match_query,
   format_authors,
@@ -636,13 +637,22 @@ export class EditorService {
       this.session &&
       outline.note_path === this.get_active_note_path()
     ) {
-      const heading = outline.find_heading_by_fragment(fragment);
-      if (heading) {
-        this.scroll_to_position(heading.pos);
+      const pos = this.resolve_fragment_position(fragment);
+      if (pos !== null) {
+        this.scroll_to_position(pos);
       }
       return;
     }
     this.editor_store.set_pending_heading_fragment(fragment);
+  }
+
+  private resolve_fragment_position(fragment: string): number | null {
+    if (fragment.startsWith("^")) {
+      return (
+        this.session?.find_block_anchor_position?.(fragment.slice(1)) ?? null
+      );
+    }
+    return this.outline_store?.find_heading_by_fragment(fragment)?.pos ?? null;
   }
 
   set_editable(editable: boolean) {
@@ -708,8 +718,16 @@ export class EditorService {
     this.session?.delete_block_at?.(pos);
   }
 
-  block_pos_at_coords(x: number, y: number): number | null {
-    return this.session?.block_pos_at_coords?.(x, y) ?? null;
+  block_pos_at_coords(
+    x: number,
+    y: number,
+    target?: Element | null,
+  ): number | null {
+    return this.session?.block_pos_at_coords?.(x, y, target) ?? null;
+  }
+
+  insert_block_at(pos: number | null, placement: BlockPlacement) {
+    this.session?.insert_block_at?.(pos, placement);
   }
 
   batch_turn_into(
@@ -1329,9 +1347,9 @@ export class EditorService {
         const fragment = this.editor_store.pending_heading_fragment;
         if (fragment) {
           this.editor_store.set_pending_heading_fragment(null);
-          const heading = outline_store.find_heading_by_fragment(fragment);
-          if (heading) {
-            this.scroll_to_position(heading.pos);
+          const pos = this.resolve_fragment_position(fragment);
+          if (pos !== null) {
+            this.scroll_to_position(pos);
           }
         }
       };

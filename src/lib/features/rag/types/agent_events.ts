@@ -12,7 +12,13 @@ export type AgentEvent =
   | { type: "init"; session_id: string }
   | { type: "text"; delta: string }
   | { type: "reasoning"; delta: string }
-  | { type: "tool_start"; name: string; input_summary: string }
+  | {
+      type: "tool_start";
+      name: string;
+      input_summary: string;
+      paths: string[];
+      mutating: boolean;
+    }
   | {
       type: "tool_end";
       name: string;

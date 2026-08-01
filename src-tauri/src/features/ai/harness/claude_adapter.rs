@@ -1,20 +1,32 @@
 use serde_json::Value;
 use std::collections::HashMap;
 
-use super::{selector_allow_list, AgentInvocation, HarnessAdapter, HarnessEventParser, McpEndpoint};
+use super::{
+    selector_allow_list, AgentInvocation, HarnessAdapter, HarnessEventParser, McpEndpoint,
+    MutatingToolSet,
+};
 use crate::features::ai::agent_stream::{AgentEvent, AgentRunStats, ToolSelector};
+use crate::features::ai::tool_paths::extract_tool_paths;
 use crate::features::mcp::setup::write_agent_mcp_config;
 use crate::features::mcp::types::ToolDefinition;
 
 const INPUT_SUMMARY_MAX_CHARS: usize = 200;
 
-#[derive(Default)]
 pub struct AgentEventParser {
     tool_names: HashMap<String, String>,
+    mutating_tools: MutatingToolSet,
     saw_result: bool,
 }
 
 impl AgentEventParser {
+    pub fn new(catalog: &[ToolDefinition]) -> Self {
+        Self {
+            tool_names: HashMap::new(),
+            mutating_tools: MutatingToolSet::from_catalog(catalog),
+            saw_result: false,
+        }
+    }
+
     pub fn parse_line(&mut self, line: &str) -> Vec<AgentEvent> {
         let Ok(value) = serde_json::from_str::<Value>(line) else {
             return Vec::new();
@@ -68,13 +80,15 @@ impl AgentEventParser {
                 if let Some(id) = b.get("id").and_then(Value::as_str) {
                     self.tool_names.insert(id.to_string(), name.clone());
                 }
-                let input_summary = b
-                    .get("input")
-                    .map(|input| summarize_input(input))
-                    .unwrap_or_default();
+                let input = b.get("input");
+                let input_summary = input.map(summarize_input).unwrap_or_default();
+                let paths = input.map(extract_tool_paths).unwrap_or_default();
+                let mutating = self.mutating_tools.contains(&name);
                 Some(AgentEvent::ToolStart {
                     name,
                     input_summary,
+                    paths,
+                    mutating,
                 })
             })
             .collect()
@@ -218,7 +232,7 @@ impl HarnessAdapter for ClaudeAdapter {
         })
     }
 
-    fn new_parser(&self) -> Box<dyn HarnessEventParser> {
-        Box::new(AgentEventParser::default())
+    fn new_parser(&self, catalog: &[ToolDefinition]) -> Box<dyn HarnessEventParser> {
+        Box::new(AgentEventParser::new(catalog))
     }
 }

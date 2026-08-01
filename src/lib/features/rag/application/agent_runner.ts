@@ -6,6 +6,7 @@ import type { AiProviderConfig } from "$lib/shared/types/ai_provider_config";
 import type { AgentPort } from "$lib/features/rag/ports";
 import {
   changed_files_from_tools,
+  is_mutating_call,
   type AgentToolCall,
 } from "$lib/features/rag/domain/agent_file_ops";
 import { rag_messages_to_history } from "$lib/features/rag/domain/agent_history";
@@ -30,6 +31,9 @@ export class AgentRunner {
     private readonly vault_store: VaultStore,
     private readonly git: AgentCheckpointGit,
     private readonly refresh_vault: () => Promise<void> | void,
+    private readonly sync_changed_notes: (
+      paths: string[],
+    ) => Promise<void> | void,
   ) {}
 
   get is_running(): boolean {
@@ -76,12 +80,16 @@ export class AgentRunner {
           this.rag_store.append_streaming_text(event.delta);
         } else if (event.type === "tool_start") {
           this.ensure_streaming();
-          const call: AgentToolCall = {
+          this.rag_store.add_streaming_tool_event({
             name: event.name,
             input_summary: event.input_summary,
-          };
-          this.rag_store.add_streaming_tool_event(call);
-          tool_calls.push(call);
+          });
+          tool_calls.push({
+            name: event.name,
+            input_summary: event.input_summary,
+            paths: event.paths,
+            mutating: event.mutating,
+          });
         } else if (event.type === "tool_end") {
           this.rag_store.finish_streaming_tool_event(event.name, event.ok);
         } else if (event.type === "error") {
@@ -104,14 +112,18 @@ export class AgentRunner {
   }
 
   // Edits a turn made before failing are still on disk; the vault tree and the
-  // session's changed-files record have to reflect them either way.
+  // session's changed-files record have to reflect them either way. A mutating
+  // tool whose paths could not be resolved still means the vault is stale, so
+  // the refresh is driven by the tool set, not by the resolved paths.
   private async record_file_changes(
     tool_calls: AgentToolCall[],
   ): Promise<void> {
-    const changed = changed_files_from_tools(tool_calls);
-    if (changed.length === 0) return;
-    this.rag_store.add_changed_files(changed);
+    if (!tool_calls.some(is_mutating_call)) return;
+    const vault_path = String(this.vault_store.vault?.path ?? "");
+    const changed = changed_files_from_tools(tool_calls, vault_path);
+    if (changed.length > 0) this.rag_store.add_changed_files(changed);
     await this.refresh_vault();
+    await this.sync_changed_notes(changed);
   }
 
   private fail(message: string): AgentTurnResult {

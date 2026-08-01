@@ -3,22 +3,32 @@ use std::collections::HashMap;
 
 use super::{
     selector_allow_list, AgentInvocation, HarnessAdapter, HarnessEventParser, McpEndpoint,
-    MCP_TOOL_PREFIX,
+    MutatingToolSet, MCP_TOOL_PREFIX,
 };
 use crate::features::ai::agent_stream::{AgentEvent, AgentRunStats, ToolSelector};
+use crate::features::ai::tool_paths::extract_tool_paths;
 use crate::features::mcp::types::ToolDefinition;
 
 const INPUT_SUMMARY_MAX_CHARS: usize = 200;
 const MCP_SERVER: &str = "carbide";
 const MCP_TOKEN_ENV: &str = "CARBIDE_MCP_TOKEN";
+const FILE_CHANGE_KIND: &str = "file_change";
 
-#[derive(Default)]
 pub struct CodexEventParser {
     tool_names: HashMap<String, String>,
+    mutating_tools: MutatingToolSet,
     saw_result: bool,
 }
 
 impl CodexEventParser {
+    pub fn new(catalog: &[ToolDefinition]) -> Self {
+        Self {
+            tool_names: HashMap::new(),
+            mutating_tools: MutatingToolSet::from_catalog(catalog),
+            saw_result: false,
+        }
+    }
+
     pub fn parse_line(&mut self, line: &str) -> Vec<AgentEvent> {
         let Ok(value) = serde_json::from_str::<Value>(line) else {
             return Vec::new();
@@ -60,9 +70,13 @@ impl CodexEventParser {
                     if let Some(id) = id {
                         self.tool_names.insert(id.to_string(), name.clone());
                     }
+                    let mutating =
+                        kind == FILE_CHANGE_KIND || self.mutating_tools.contains(&name);
                     vec![AgentEvent::ToolStart {
-                        name,
                         input_summary: tool_input_summary(kind, item),
+                        paths: tool_paths(kind, item),
+                        name,
+                        mutating,
                     }]
                 }
             }
@@ -142,6 +156,18 @@ fn tool_input_summary(kind: &str, item: &Value) -> String {
     }
     .unwrap_or_default();
     truncate(&raw)
+}
+
+fn tool_paths(kind: &str, item: &Value) -> Vec<String> {
+    match kind {
+        "mcp_tool_call" => item
+            .get("invocation")
+            .and_then(|invocation| invocation.get("arguments"))
+            .map(extract_tool_paths)
+            .unwrap_or_default(),
+        FILE_CHANGE_KIND => extract_tool_paths(item),
+        _ => Vec::new(),
+    }
 }
 
 fn tool_ok(item: &Value) -> bool {
@@ -240,7 +266,7 @@ impl HarnessAdapter for CodexAdapter {
         })
     }
 
-    fn new_parser(&self) -> Box<dyn HarnessEventParser> {
-        Box::new(CodexEventParser::default())
+    fn new_parser(&self, catalog: &[ToolDefinition]) -> Box<dyn HarnessEventParser> {
+        Box::new(CodexEventParser::new(catalog))
     }
 }
