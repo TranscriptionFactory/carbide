@@ -136,7 +136,11 @@ describe("AiService", () => {
   it("forwards CLI checks with command string", async () => {
     const ai_port = create_ai_port();
     const vault_store = new VaultStore();
-    const service = new AiService(ai_port as never, vault_store, inert_starter());
+    const service = new AiService(
+      ai_port as never,
+      vault_store,
+      inert_starter(),
+    );
 
     await service.check_availability({
       id: "claude",
@@ -156,7 +160,11 @@ describe("AiService", () => {
   it("returns true for API providers without checking CLI", async () => {
     const ai_port = create_ai_port();
     const vault_store = new VaultStore();
-    const service = new AiService(ai_port as never, vault_store, inert_starter());
+    const service = new AiService(
+      ai_port as never,
+      vault_store,
+      inert_starter(),
+    );
 
     const result = await service.check_availability({
       id: "openai",
@@ -175,7 +183,11 @@ describe("AiService", () => {
     const ai_port = create_ai_port();
     const vault_store = new VaultStore();
     vault_store.set_vault(create_test_vault({ path: "/vault/demo" as never }));
-    const service = new AiService(ai_port as never, vault_store, inert_starter());
+    const service = new AiService(
+      ai_port as never,
+      vault_store,
+      inert_starter(),
+    );
 
     const result = await service.execute(base_execute_input);
 
@@ -254,7 +266,11 @@ describe("AiService", () => {
       vault_store.set_vault(
         create_test_vault({ path: "/vault/demo" as never }),
       );
-      const service = new AiService(ai_port as never, vault_store, inert_starter());
+      const service = new AiService(
+        ai_port as never,
+        vault_store,
+        inert_starter(),
+      );
 
       const result = await service.execute({
         ...base_execute_input,

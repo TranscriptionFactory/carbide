@@ -49,8 +49,11 @@ function make_service(...chunks: AiStreamChunk[]) {
     read_note: vi.fn().mockResolvedValue({ markdown: "The answer is 42." }),
   };
   const stream = create_test_run_starter(() =>
-    chunks.map((chunk): RunEvent =>
-      chunk.type === "error" ? { type: "error", message: chunk.error } : chunk,
+    chunks.map(
+      (chunk): RunEvent =>
+        chunk.type === "error"
+          ? { type: "error", message: chunk.error }
+          : chunk,
     ),
   );
   const vault_store = new VaultStore();

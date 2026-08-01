@@ -84,14 +84,22 @@ export class AssistantKernelService {
     );
 
     if (!provider) {
-      return { id, stop, outcome: Promise.resolve(this.refuse(id, NO_PROVIDER, sink)) };
+      return {
+        id,
+        stop,
+        outcome: Promise.resolve(this.refuse(id, NO_PROVIDER, sink)),
+      };
     }
 
     // The transport takes vault_path nullable because a text run legitimately
     // has none. An agent run without one is unrunnable, so it fails here rather
     // than at the process boundary.
     if (spec.request.mode === "agent" && vault_path === null) {
-      return { id, stop, outcome: Promise.resolve(this.refuse(id, NO_VAULT, sink)) };
+      return {
+        id,
+        stop,
+        outcome: Promise.resolve(this.refuse(id, NO_VAULT, sink)),
+      };
     }
 
     if (
@@ -254,11 +262,7 @@ export class AssistantKernelService {
 
   // The abort path breaks the consumer loop without a terminal event, so a sink
   // holding transcript state learns the run ended only from here.
-  private settle(
-    id: RunId,
-    outcome: RunOutcome,
-    sink?: RunSink,
-  ): RunOutcome {
+  private settle(id: RunId, outcome: RunOutcome, sink?: RunSink): RunOutcome {
     if (sink) this.close(sink, id, outcome);
     for (const registered of this.sinks) this.close(registered, id, outcome);
     return outcome;
