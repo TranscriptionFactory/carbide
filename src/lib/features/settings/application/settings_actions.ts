@@ -195,9 +195,7 @@ export function register_settings_actions(input: ActionRegistrationInput) {
         settings.semantic_similarity_threshold !==
           persisted_settings.semantic_similarity_threshold ||
         settings.semantic_graph_edges_per_note !==
-          persisted_settings.semantic_graph_edges_per_note ||
-        settings.semantic_graph_max_vault_size !==
-          persisted_settings.semantic_graph_max_vault_size;
+          persisted_settings.semantic_graph_edges_per_note;
       const embedding_model_changed =
         settings.embedding_model_id !== persisted_settings.embedding_model_id;
       const result = await services.settings.save_settings(settings);

@@ -83,6 +83,7 @@ export class AgentRunner {
           this.rag_store.add_streaming_tool_event({
             name: event.name,
             input_summary: event.input_summary,
+            paths: event.paths,
           });
           tool_calls.push({
             name: event.name,

@@ -216,11 +216,46 @@ export function create_graph_remark_adapter(
       };
     },
 
-    async invalidate_cache(
-      _vault_id: VaultId,
-      _note_id?: string,
-    ): Promise<void> {
-      cached_index = null;
+    // A known note refreshes in place (one read + one list); anything else —
+    // no cache, other vault, new/renamed/deleted note — drops the index
+    async invalidate_cache(vault_id: VaultId, note_id?: string): Promise<void> {
+      const index = cached_index;
+      if (
+        !index ||
+        index.vault_id !== vault_id ||
+        !note_id ||
+        !index.notes.has(note_id)
+      ) {
+        cached_index = null;
+        return;
+      }
+      try {
+        const [markdown, all_notes] = await Promise.all([
+          read_raw(vault_id, note_id),
+          notes_port.list_notes(vault_id),
+        ]);
+        const meta = all_notes.find((m) => m.path === note_id);
+        if (!meta) {
+          cached_index = null;
+          return;
+        }
+        index.notes.set(note_id, meta);
+
+        const { outlink_paths } = extract_local_links(markdown);
+        index.raw_outlinks.set(note_id, outlink_paths);
+        index.tags.set(
+          note_id,
+          extract_metadata(markdown).tags.map((t) => t.tag),
+        );
+        index.outlinks.set(
+          note_id,
+          outlink_paths
+            .map((p) => resolve_wikilink(p, index.notes))
+            .filter((p): p is string => p !== null),
+        );
+      } catch {
+        cached_index = null;
+      }
     },
 
     async cache_stats(): Promise<GraphCacheStats> {

@@ -722,14 +722,6 @@ export const SETTINGS_REGISTRY: SettingDefinition[] = [
     keywords: ["graph", "edges", "knn", "neighbors", "semantic"],
   },
   {
-    key: "semantic_graph_max_vault_size",
-    label: "Graph Auto-Edge Threshold",
-    description:
-      "Semantic and smart-link edges are shown automatically for vaults up to this size; larger vaults can still enable them manually",
-    category: "Semantic",
-    keywords: ["graph", "vault", "size", "auto", "edges", "semantic"],
-  },
-  {
     key: "semantic_omnibar_enabled",
     label: "Omnibar Semantic Search",
     description:

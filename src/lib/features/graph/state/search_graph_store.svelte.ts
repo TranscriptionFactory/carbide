@@ -1,4 +1,8 @@
-import type { SearchGraphSnapshot, SearchGraphSortMode } from "../ports";
+import type {
+  SearchGraphSnapshot,
+  SearchGraphSortMode,
+  SemanticEdge,
+} from "../ports";
 
 export type SearchGraphStatus = "idle" | "loading" | "ready" | "error";
 
@@ -7,6 +11,7 @@ export type SearchGraphInstance = {
   status: SearchGraphStatus;
   error: string | null;
   snapshot: SearchGraphSnapshot | null;
+  semantic_edges: SemanticEdge[] | null;
   auto_expanded_ids: Set<string>;
   user_expanded_ids: Set<string>;
   selected_node_id: string | null;
@@ -28,6 +33,7 @@ function create_instance(query: string): SearchGraphInstance {
     status: "idle",
     error: null,
     snapshot: null,
+    semantic_edges: null,
     auto_expanded_ids: new Set(),
     user_expanded_ids: new Set(),
     selected_node_id: null,
@@ -79,9 +85,11 @@ export class SearchGraphStore {
     tab_id: string,
     snapshot: SearchGraphSnapshot,
     auto_expanded_ids: Set<string>,
+    semantic_edges: SemanticEdge[] | null,
   ): void {
     this.update(tab_id, {
       snapshot,
+      semantic_edges,
       auto_expanded_ids,
       status: "ready",
       error: null,

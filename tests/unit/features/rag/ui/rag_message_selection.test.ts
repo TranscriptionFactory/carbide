@@ -18,7 +18,10 @@ let cleanups: Array<() => void> = [];
 function render_message(message: RagMessage): HTMLElement {
   const rendered = render_with_app_context(RagMessageView, {
     app_context: {
-      stores: { editor: { open_note: null } },
+      stores: {
+        editor: { open_note: null },
+        vault: { vault: { path: "/vault/root" } },
+      },
       action_registry: { execute: vi.fn().mockResolvedValue(undefined) },
     } as unknown as Partial<AppContext>,
     props: { message },
