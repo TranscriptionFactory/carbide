@@ -160,6 +160,10 @@ export function create_mock_kernel(): MockKernel {
 export type ManualChannel = {
   emit: (event: RunEvent) => Promise<void>;
   end: () => Promise<void>;
+  // True while the consumer is parked waiting for the next event. Assert it
+  // before emitting to prove a test exercises the awaiting path rather than
+  // being served from the buffer.
+  is_waiting: () => boolean;
 };
 
 export type ManualTransport = AssistantTransportPort & {
@@ -176,7 +180,10 @@ function settle(): Promise<void> {
 // channel the test drives event by event, so mid-stream state (a run still
 // streaming after its sink detached, text accumulated before a stop) is
 // observable rather than raced. `emit`/`end` resolve once the kernel has
-// processed the event.
+// processed the event, on a real macrotask — no fake timers.
+//
+// Like AsyncQueue, a channel has a single wake slot, so it is single-consumer
+// by construction and cannot be teed.
 export function create_manual_transport(): ManualTransport {
   const mock: ManualTransport = {
     _requests: [],
@@ -212,6 +219,9 @@ export function create_manual_transport(): ManualTransport {
           ended = true;
           notify();
           await settle();
+        },
+        is_waiting() {
+          return wake !== null;
         },
       });
 
