@@ -3,7 +3,6 @@ import { RagService } from "$lib/features/rag";
 import { VaultStore } from "$lib/features/vault";
 import { create_test_vault } from "../helpers/test_fixtures";
 import { create_test_rag_persistence_adapter } from "../../adapters/test_rag_persistence_adapter";
-import type { AiStreamChunk } from "$lib/features/ai";
 import type {
   RunEvent,
   RunHandle,
@@ -73,16 +72,8 @@ function block_hit(
   };
 }
 
-// The chunk shape the wire used to speak, mapped onto the kernel's run events
-// so the scenarios below read exactly as they did before the rewire.
-function to_run_event(chunk: AiStreamChunk): RunEvent {
-  return chunk.type === "error"
-    ? { type: "error", message: chunk.error }
-    : chunk;
-}
-
-function stream_of(...chunks: AiStreamChunk[]) {
-  return create_test_run_starter(() => chunks.map(to_run_event));
+function stream_of(...events: RunEvent[]) {
+  return create_test_run_starter(() => events);
 }
 
 function capturing_stream(...texts: string[]) {
@@ -117,10 +108,9 @@ function make_vault_store() {
 }
 
 function text_stream(...texts: string[]) {
-  return stream_of(
-    ...texts.map((text): AiStreamChunk => ({ type: "text", text })),
-    { type: "done" },
-  );
+  return stream_of(...texts.map((text): RunEvent => ({ type: "text", text })), {
+    type: "done",
+  });
 }
 
 type Collected = {
@@ -1248,7 +1238,7 @@ describe("RagService.query", () => {
     // now forwards that message rather than deriving its own.
     const stream = stream_of({
       type: "error",
-      error: "Ollama request failed — see logs for details.",
+      message: "Ollama request failed — see logs for details.",
     });
     const service = new RagService(
       search as never,

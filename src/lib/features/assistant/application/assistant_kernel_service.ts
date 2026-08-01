@@ -76,6 +76,11 @@ export class AssistantKernelService {
     const stop = () => {
       this.stop(id);
     };
+    const refused = (error: AssistantUserError): RunHandle => ({
+      id,
+      stop,
+      outcome: Promise.resolve(this.refuse(id, error, sink)),
+    });
 
     this.deps.run_store.start(
       id,
@@ -83,23 +88,13 @@ export class AssistantKernelService {
       Date.now(),
     );
 
-    if (!provider) {
-      return {
-        id,
-        stop,
-        outcome: Promise.resolve(this.refuse(id, NO_PROVIDER, sink)),
-      };
-    }
+    if (!provider) return refused(NO_PROVIDER);
 
     // The transport takes vault_path nullable because a text run legitimately
     // has none. An agent run without one is unrunnable, so it fails here rather
     // than at the process boundary.
     if (spec.request.mode === "agent" && vault_path === null) {
-      return {
-        id,
-        stop,
-        outcome: Promise.resolve(this.refuse(id, NO_VAULT, sink)),
-      };
+      return refused(NO_VAULT);
     }
 
     if (
@@ -107,11 +102,7 @@ export class AssistantKernelService {
       !provider_supports_streaming(provider) &&
       (vault_path === null || !spec.request.note_path)
     ) {
-      return {
-        id,
-        stop,
-        outcome: Promise.resolve(this.refuse(id, NO_BLOCKING_TARGET, sink)),
-      };
+      return refused(NO_BLOCKING_TARGET);
     }
 
     const controller = new AbortController();

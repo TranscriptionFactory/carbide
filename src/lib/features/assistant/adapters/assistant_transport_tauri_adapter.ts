@@ -117,12 +117,6 @@ function drive<Request extends RunRequest, Payload>(
   const queue = new AsyncQueue<RunEvent>();
   const signal = input.signal;
 
-  const iterable: AsyncIterable<RunEvent> = {
-    [Symbol.asyncIterator]() {
-      return queue[Symbol.asyncIterator]();
-    },
-  };
-
   void (async () => {
     const unlisten = await listen<Payload>(
       descriptor.channel(request_id),
@@ -164,7 +158,7 @@ function drive<Request extends RunRequest, Payload>(
     }
   })();
 
-  return iterable;
+  return queue;
 }
 
 const NO_OUTPUT = "The provider exited without producing output.";
@@ -229,11 +223,7 @@ function drive_blocking(
     }
   })();
 
-  return {
-    [Symbol.asyncIterator]() {
-      return queue[Symbol.asyncIterator]();
-    },
-  };
+  return queue;
 }
 
 export function create_assistant_transport_tauri_adapter(): AssistantTransportPort {
