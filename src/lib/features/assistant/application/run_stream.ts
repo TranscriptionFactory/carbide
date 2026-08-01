@@ -15,6 +15,10 @@ export type RunStream = {
 // is the single bridge between the two, so they do not each hand-roll a queue —
 // and because only `on_end` can close the queue on an aborted run, which
 // dispatches no terminal event.
+//
+// `events` is SINGLE-CONSUMER. AsyncQueue has one wake slot, so a second
+// iterator would silently steal events from the first: iterate it in exactly
+// one place, and fan out from there rather than iterating twice.
 export async function start_run_stream(
   starter: RunStarter,
   spec: RunSpec,
