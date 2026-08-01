@@ -11,9 +11,11 @@
   import { compute_degradation_profile } from "$lib/features/graph/domain/graph_degrade";
   import { matches_filter } from "$lib/features/graph/domain/graph_filter";
   import {
+    compute_degrees,
     grouping_forces,
     resolve_group,
   } from "$lib/features/graph/domain/graph_grouping";
+  import { order_graph_groups } from "$lib/features/graph/domain/order_graph_groups";
   import { radial_layout } from "$lib/features/graph/domain/radial_layout";
   import GraphWorker from "$lib/features/graph/domain/vault_graph_worker?worker&inline";
   import { rule_chip_label } from "$lib/features/smart_links";
@@ -22,7 +24,10 @@
 
   const log = create_logger("vault_graph");
 
-  import type { GraphGroupMode } from "$lib/features/graph/state/graph_store.svelte";
+  import type {
+    GraphGroupMode,
+    GraphOrderMode,
+  } from "$lib/shared/types/editor_settings";
 
   type Props = {
     snapshot: VaultGraphSnapshot;
@@ -36,6 +41,7 @@
     show_smart_link_edges: boolean;
     theme?: Theme;
     group_mode?: GraphGroupMode;
+    order_mode?: GraphOrderMode;
     cluster_assignments?: Record<string, number> | null;
     on_select_node: (node_id: string) => void;
     on_hover_node: (node_id: string | null) => void;
@@ -75,6 +81,7 @@
     on_export_canvas,
     on_clusters_computed,
     group_mode = "folder",
+    order_mode = "name",
     cluster_assignments = null,
     focus_node_path = null,
     on_exit_focus,
@@ -99,11 +106,39 @@
     context_menu = null;
   }
 
-  function node_group(n: VaultGraphSnapshot["nodes"][number]) {
-    return resolve_group(n.path, n.group, group_mode, cluster_assignments);
+  type NodeGroups = Map<string, string | undefined>;
+
+  function resolve_groups(snap: VaultGraphSnapshot): NodeGroups {
+    const degrees = compute_degrees(snap.edges);
+    return new Map(
+      snap.nodes.map((n) => [
+        n.path,
+        resolve_group(
+          {
+            path: n.path,
+            folder_group: n.group,
+            tags: n.tags,
+            degree: degrees.get(n.path) ?? 0,
+          },
+          group_mode,
+          cluster_assignments,
+        ),
+      ]),
+    );
   }
 
-  function plain_nodes(snap: VaultGraphSnapshot) {
+  function ordered_groups(snap: VaultGraphSnapshot, groups: NodeGroups) {
+    return order_graph_groups(
+      snap.nodes.map((n) => ({
+        group: groups.get(n.path),
+        date_created_ms: n.date_created_ms,
+        date_modified_ms: n.date_modified_ms,
+      })),
+      order_mode,
+    );
+  }
+
+  function plain_nodes(snap: VaultGraphSnapshot, groups: NodeGroups) {
     return snap.nodes.map((n) => {
       const base: {
         id: string;
@@ -117,7 +152,7 @@
       };
       if (n.kind != null) base.kind = n.kind;
       if (n.score != null) base.score = n.score;
-      const group = node_group(n);
+      const group = groups.get(n.path);
       if (group != null) base.group = group;
       return base;
     });
@@ -144,7 +179,8 @@
 
   function feed_graph(r: VaultGraphRenderer, snap: VaultGraphSnapshot) {
     const edges = plain_edges(snap);
-    r.set_graph(plain_nodes(snap), edges);
+    const groups = resolve_groups(snap);
+    r.set_graph(plain_nodes(snap, groups), edges);
     pending_fit = true;
     positions_received = false;
 
@@ -203,13 +239,14 @@
       nodes: snap.nodes.map((n) => ({
         id: n.path,
         kind: n.kind,
-        group: node_group(n),
+        group: groups.get(n.path),
         label_len: n.title.length,
       })),
       edges,
       force_params,
       compute_clusters: group_mode === "cluster" && cluster_assignments == null,
       grouping: grouping_forces(group_mode, has_search_meta),
+      group_order: ordered_groups(snap, groups),
     });
   }
 
@@ -272,20 +309,24 @@
   // Re-feed graph data when snapshot changes (e.g. new search query)
   let last_snapshot_ref: VaultGraphSnapshot | null = null;
   let last_group_mode: GraphGroupMode | null = null;
+  let last_order_mode: GraphOrderMode | null = null;
   let last_cluster_assignments: Record<string, number> | null = null;
   $effect(() => {
     if (!renderer_ready || !renderer) return;
     if (snapshot === last_snapshot_ref) return;
     last_snapshot_ref = snapshot;
     last_group_mode = group_mode;
+    last_order_mode = order_mode;
     last_cluster_assignments = cluster_assignments;
     feed_graph(renderer, snapshot);
   });
 
   $effect(() => {
     if (!renderer_ready || !renderer || !last_snapshot_ref) return;
-    if (group_mode === last_group_mode) return;
+    if (group_mode === last_group_mode && order_mode === last_order_mode)
+      return;
     last_group_mode = group_mode;
+    last_order_mode = order_mode;
     last_cluster_assignments = cluster_assignments;
     feed_graph(renderer, snapshot);
   });

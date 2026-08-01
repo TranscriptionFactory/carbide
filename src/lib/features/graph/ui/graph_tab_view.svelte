@@ -14,7 +14,10 @@
   import { Button } from "$lib/components/ui/button";
   import { Input } from "$lib/components/ui/input";
   import * as Select from "$lib/components/ui/select/index.js";
-  import type { GraphGroupMode } from "$lib/features/graph/state/graph_store.svelte";
+  import {
+    GRAPH_GROUP_MODE_OPTIONS,
+    GRAPH_ORDER_MODE_OPTIONS,
+  } from "$lib/shared/types/editor_settings";
   import GraphCanvas from "$lib/features/graph/ui/graph_canvas.svelte";
   import VaultGraphCanvas from "$lib/features/graph/ui/vault_graph_canvas.svelte";
   import HierarchyTreeView from "$lib/features/graph/ui/hierarchy_tree_view.svelte";
@@ -38,15 +41,10 @@
   const has_vault_snapshot = $derived(vault_snapshot !== null);
 
   const has_vault = $derived(stores.vault.vault !== null);
-  const group_mode = $derived(stores.graph.group_mode);
+  const group_mode = $derived(stores.ui.editor_settings.graph_group_mode);
+  const order_mode = $derived(stores.ui.editor_settings.graph_group_order);
   const cluster_assignments = $derived(stores.graph.cluster_assignments);
   const focus_mode_active = $derived(stores.graph.focus_mode_active);
-
-  const group_options: { value: GraphGroupMode; label: string }[] = [
-    { value: "folder", label: "Folder" },
-    { value: "cluster", label: "Cluster" },
-    { value: "none", label: "No grouping" },
-  ];
 
   let container_width = $state<number>(960);
   let container_element = $state<HTMLElement | null>(null);
@@ -130,11 +128,38 @@
             aria-label="Group nodes by"
           >
             <span data-slot="select-value">
-              {group_options.find((o) => o.value === group_mode)?.label}
+              {GRAPH_GROUP_MODE_OPTIONS.find((o) => o.value === group_mode)
+                ?.label}
             </span>
           </Select.Trigger>
           <Select.Content>
-            {#each group_options as option (option.value)}
+            {#each GRAPH_GROUP_MODE_OPTIONS as option (option.value)}
+              <Select.Item value={option.value}>{option.label}</Select.Item>
+            {/each}
+          </Select.Content>
+        </Select.Root>
+        <Select.Root
+          type="single"
+          value={order_mode}
+          onValueChange={(value: string | undefined) => {
+            if (value)
+              void action_registry.execute(
+                ACTION_IDS.graph_set_group_order,
+                value,
+              );
+          }}
+        >
+          <Select.Trigger
+            class="GraphTabView__group-trigger"
+            aria-label="Order groups by"
+          >
+            <span data-slot="select-value">
+              {GRAPH_ORDER_MODE_OPTIONS.find((o) => o.value === order_mode)
+                ?.label}
+            </span>
+          </Select.Trigger>
+          <Select.Content>
+            {#each GRAPH_ORDER_MODE_OPTIONS as option (option.value)}
               <Select.Item value={option.value}>{option.label}</Select.Item>
             {/each}
           </Select.Content>
@@ -254,6 +279,7 @@
         on_clusters_computed={(assignments) =>
           stores.graph.set_cluster_assignments(assignments)}
         {group_mode}
+        {order_mode}
         {cluster_assignments}
         focus_node_path={focus_mode_active
           ? stores.graph.focus_node_path

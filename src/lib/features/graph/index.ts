@@ -16,8 +16,11 @@ export {
   GraphStore,
   type GraphStatus,
   type GraphViewMode,
-  type GraphGroupMode,
 } from "$lib/features/graph/state/graph_store.svelte";
+export {
+  order_graph_groups,
+  type GraphOrderMode,
+} from "$lib/features/graph/domain/order_graph_groups";
 export { GraphService } from "$lib/features/graph/application/graph_service";
 export { register_graph_actions } from "$lib/features/graph/application/graph_actions";
 export { register_search_graph_actions } from "$lib/features/graph/application/search_graph_actions";
