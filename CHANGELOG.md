@@ -1,5 +1,29 @@
 # carbide
 
+## 2.25.1
+
+### Patch Changes
+
+- bc88474: fix(graph): double-click opens notes; focus mode gets an exit everywhere
+
+  Double-click on a vault-graph node had been reassigned to focus mode while every other graph surface opened the note, leaving right-click "Open note" as the only (hidden) opener. Double-click now opens the note on all surfaces and "Focus node" lives in the context menu.
+
+  Focus-mode ergonomics: the graph tab shows the same "Focused / Exit focus" bar the sidebar had, and exiting re-runs the force layout instead of leaving nodes frozen in the radial arrangement. Restored graph tabs land on the vault view instead of an empty neighborhood screen, the view-mode button no longer cycles into the broken hierarchy error screen, the command palette gains "Open Vault Graph" (replacing the dead "Load Hierarchy" entry), and the semantic/smart-link toggles disable outside vault view.
+
+- bc88474: fix(graph): stop semantic edges from freezing the app on graph open
+
+  Opening the vault graph force-enabled semantic and smart-link edges for vaults up to 2000 notes and ran two synchronous O(n²) commands on the main thread, stalling the whole app — and re-enabled them after the user opted out. Inferred edges now compute only when their toggles are on, both commands run on a blocking worker thread (smart-links releases its DB locks between notes so concurrent searches are never starved), and the orphaned "Graph Auto-Edge Threshold" setting is removed.
+
+  Search-graph semantic edges are lazy too: the batch KNN runs only when the per-tab toggle is on, with results cached per tab and computed on demand when toggled later.
+
+  The frontend vault index also stops rebuilding wholesale on every note switch: a saved or externally changed note refreshes in place with a single read (saves are detected via the editor's dirty-to-clean transition; note add/remove still drops the index).
+
+- bc88474: fix(ai): chat sources and markdown links now open their notes
+
+  Agent-mode citations kept the absolute paths harness CLIs report and dropped the structured path list the backend sends precisely because the JSON input summary truncates — so clicking a source toasted "Note no longer exists". Citations are now derived from the structural tool paths and normalized to vault-relative before lookup.
+
+  Plain markdown links in AI responses were rendered as real anchors that nothing intercepted. Clicks are now routed: relative links open the note in the workspace, external URLs open in the system browser, and fragment-only or malformed-URI hrefs are handled safely instead of navigating the webview.
+
 ## 2.25.0
 
 ### Minor Changes
