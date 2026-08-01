@@ -1090,6 +1090,7 @@ describe("register_ai_actions", () => {
       // The toast mock is module-scoped, so earlier tests' calls are still on it.
       vi.mocked(toast.success).mockClear();
       vi.mocked(toast.error).mockClear();
+      vi.mocked(toast.dismiss).mockClear();
 
       const harness = create_harness();
       harness.stores.vault.set_vault(create_test_vault());
@@ -1190,6 +1191,8 @@ describe("register_ai_actions", () => {
       expect(services.note.write_note_indexed).not.toHaveBeenCalled();
       expect(toast.error).not.toHaveBeenCalled();
       expect(toast.success).not.toHaveBeenCalled();
+      // Stopping is not a failure, but the spinner still has to go.
+      expect(toast.dismiss).toHaveBeenCalled();
     });
 
     it("does not start a run when no provider is configured", async () => {
