@@ -4,6 +4,8 @@ import { VaultStore } from "$lib/features/vault";
 import { create_test_vault } from "../helpers/test_fixtures";
 import { create_test_rag_persistence_adapter } from "../../adapters/test_rag_persistence_adapter";
 import type { AiStreamChunk } from "$lib/features/ai";
+import type { RunEvent } from "$lib/features/assistant";
+import { create_test_run_starter } from "../../adapters/test_run_starter";
 import type { AiProviderConfig } from "$lib/shared/types/ai_provider_config";
 import type {
   RagCitation,
@@ -46,13 +48,11 @@ function make_service(...chunks: AiStreamChunk[]) {
   const notes = {
     read_note: vi.fn().mockResolvedValue({ markdown: "The answer is 42." }),
   };
-  const stream = {
-    // eslint-disable-next-line @typescript-eslint/require-await
-    stream_text: vi.fn(async function* () {
-      for (const chunk of chunks) yield chunk;
-    }),
-    abort: vi.fn(),
-  };
+  const stream = create_test_run_starter(() =>
+    chunks.map((chunk): RunEvent =>
+      chunk.type === "error" ? { type: "error", message: chunk.error } : chunk,
+    ),
+  );
   const vault_store = new VaultStore();
   vault_store.set_vault(create_test_vault({ path: "/vault/demo" as never }));
   return new RagService(
@@ -109,7 +109,10 @@ describe("collect_rag_query_response", () => {
 
   it("surfaces a stream error as a normalized response error", async () => {
     const mcp = await collect_rag_query_response(
-      make_service({ type: "error", error: "model crashed" }).query({
+      make_service({
+        type: "error",
+        error: "Ollama request failed — see logs for details.",
+      }).query({
         question: "q",
         provider_config: provider,
       }),

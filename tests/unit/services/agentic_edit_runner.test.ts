@@ -1,11 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 import { AgenticEditRunner } from "$lib/features/ai";
-import type {
-  AgentEvent,
-  AgentPort,
-  AgentStreamRequest,
-} from "$lib/features/rag";
+import type { RunEvent, RunRequest, RunSpec } from "$lib/features/assistant";
 import type { AiProviderConfig } from "$lib/shared/types/ai_provider_config";
+import { create_test_run_starter } from "../../adapters/test_run_starter";
 
 const provider: AiProviderConfig = {
   id: "ollama",
@@ -13,27 +10,27 @@ const provider: AiProviderConfig = {
   transport: { kind: "api", base_url: "http://localhost:11434/v1" },
 };
 
-function make_harness(events: AgentEvent[]) {
+function agent_request(spec: RunSpec): Extract<RunRequest, { mode: "agent" }> {
+  if (spec.request.mode !== "agent") {
+    throw new Error("expected an agent-mode run");
+  }
+  return spec.request;
+}
+
+function make_harness(events: RunEvent[]) {
   const calls: string[] = [];
-  const captured: AgentStreamRequest[] = [];
-  const port: AgentPort = {
-    stream_turn: (input) => {
-      calls.push("stream");
-      captured.push(input);
-      // eslint-disable-next-line @typescript-eslint/require-await
-      return (async function* () {
-        for (const event of events) yield event;
-      })();
-    },
-  };
+  const starter = create_test_run_starter(() => {
+    calls.push("stream");
+    return events;
+  });
   const git = {
     create_checkpoint: vi.fn((_description: string) => {
       calls.push("checkpoint");
       return Promise.resolve({ status: "created" as const });
     }),
   };
-  const runner = new AgenticEditRunner(port, git);
-  return { runner, calls, captured, git };
+  const runner = new AgenticEditRunner(starter, git);
+  return { runner, calls, starter, git };
 }
 
 function tick() {
@@ -42,10 +39,10 @@ function tick() {
 
 describe("AgenticEditRunner.run", () => {
   it("checkpoints before streaming and folds text deltas into a final edit", async () => {
-    const { runner, calls, captured, git } = make_harness([
-      { type: "init", session_id: "sess-1" },
-      { type: "text", delta: "# " },
-      { type: "text", delta: "Edited" },
+    const { runner, calls, git } = make_harness([
+      { type: "session", provider_session_id: "sess-1" },
+      { type: "text", text: "# " },
+      { type: "text", text: "Edited" },
       { type: "done", stats: {} },
     ]);
     const texts: string[] = [];
@@ -64,8 +61,8 @@ describe("AgenticEditRunner.run", () => {
   });
 
   it("carries the read-only inline-edit toolset and a native backend", async () => {
-    const { runner, captured } = make_harness([
-      { type: "text", delta: "ok" },
+    const { runner, starter } = make_harness([
+      { type: "text", text: "ok" },
       { type: "done", stats: {} },
     ]);
 
@@ -75,53 +72,61 @@ describe("AgenticEditRunner.run", () => {
       vault_path: "/vault",
     });
 
-    expect(captured[0]?.toolset).toEqual({
+    const request = agent_request(starter.specs[0]!);
+    expect(request.toolset).toEqual({
       kind: "only",
       names: ["read_note", "search_notes"],
     });
-    expect(captured[0]?.backend).toBe("native");
-    expect(captured[0]?.history).toEqual([]);
-    expect(captured[0]?.vault_path).toBe("/vault");
+    expect(request.backend).toBe("native");
+    expect(request.history).toEqual([]);
+    expect(starter.specs[0]?.kind).toBe("inline");
   });
 
-  it("stops folding events once aborted", async () => {
-    const controller = new AbortController();
+  it("stops folding events once the run is stopped", async () => {
     let release!: () => void;
     const gate = new Promise<void>((resolve) => (release = resolve));
-    const port: AgentPort = {
-      stream_turn: () =>
-        (async function* () {
-          yield { type: "text", delta: "partial " } as AgentEvent;
-          await gate;
-          yield { type: "text", delta: "more" } as AgentEvent;
-        })(),
-    };
+    const starter = create_test_run_starter(() =>
+      (async function* () {
+        yield { type: "text", text: "partial " } as RunEvent;
+        await gate;
+        yield { type: "text", text: "more" } as RunEvent;
+      })(),
+    );
     const git = {
       create_checkpoint: vi.fn().mockResolvedValue({ status: "created" }),
     };
-    const runner = new AgenticEditRunner(port, git);
+    const runner = new AgenticEditRunner(starter, git);
     const texts: string[] = [];
 
     const running = runner.run({
       provider_config: provider,
       prompt: "edit",
       vault_path: "/vault",
-      signal: controller.signal,
+      on_run_started: (handle) => {
+        setTimeout(() => {
+          handle.stop();
+          release();
+        }, 0);
+      },
       on_text: (partial) => texts.push(partial),
     });
     await tick();
-    controller.abort();
-    release();
     const result = await running;
 
     expect(result.output).toBe("partial ");
     expect(texts).toEqual(["partial "]);
+    expect(starter.stop_count).toBe(1);
   });
 
-  it("humanizes stream errors and keeps the partial output", async () => {
+  // Humanization moved to the kernel, the single choke point. The runner's job
+  // is to surface that message unchanged rather than re-derive its own.
+  it("surfaces the kernel's error message and keeps the partial output", async () => {
     const { runner } = make_harness([
-      { type: "text", delta: "half" },
-      { type: "error", message: "invalid api key" },
+      { type: "text", text: "half" },
+      {
+        type: "error",
+        message: "Ollama rejected the request — check your API key in Settings.",
+      },
     ]);
 
     const result = await runner.run({
