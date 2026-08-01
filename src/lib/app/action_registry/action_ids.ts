@@ -26,6 +26,8 @@ export const ACTION_IDS = {
   note_confirm_image_paste: "note.confirm_image_paste",
   note_cancel_image_paste: "note.cancel_image_paste",
   note_copy_markdown: "note.copy_markdown",
+  note_copy_block_link: "note.copy_block_link",
+  note_copy_block_id: "note.copy_block_id",
   note_copy_html: "note.copy_html",
   note_paste_html_as_markdown: "note.paste_html_as_markdown",
   note_duplicate: "note.duplicate",

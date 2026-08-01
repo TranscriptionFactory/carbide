@@ -9,6 +9,7 @@ export type EditorContextMenuState = {
   block_selection: Set<number>;
   block_pos: number | null;
   payload: RichClipboardPayload | null;
+  supports_block_id: boolean;
 };
 
 export function render_editor_context_menu(
@@ -18,6 +19,7 @@ export function render_editor_context_menu(
     block_selection: new Set<number>(),
     block_pos: null,
     payload: null,
+    supports_block_id: true,
     ...initial,
   };
 
@@ -28,6 +30,7 @@ export function render_editor_context_menu(
     delete_block_at: vi.fn(),
     duplicate_block_at: vi.fn(),
     insert_block_at: vi.fn(),
+    block_supports_id_at: vi.fn(() => state.supports_block_id),
     batch_delete: vi.fn(),
     batch_duplicate: vi.fn(),
     batch_turn_into: vi.fn(),
