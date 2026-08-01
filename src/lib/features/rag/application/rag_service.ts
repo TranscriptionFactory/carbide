@@ -3,8 +3,9 @@ import { error_message } from "$lib/shared/utils/error_message";
 import type { VaultStore } from "$lib/features/vault";
 import type { SearchPort } from "$lib/features/search";
 import type { NotesPort } from "$lib/features/note";
-import type { AiStreamPort, AiImagePart } from "$lib/features/ai";
-import { humanize_ai_error } from "$lib/features/ai";
+import type { AiImagePart } from "$lib/features/ai";
+import { start_run_stream } from "$lib/features/assistant";
+import type { RunHandle, RunStarter } from "$lib/features/assistant";
 import type { TagPort } from "$lib/features/tags";
 import type { BasesPort } from "$lib/features/bases";
 import type { AiProviderConfig } from "$lib/shared/types/ai_provider_config";
@@ -135,14 +136,16 @@ export type RagQueryInput = {
   retrieve_limit?: number;
   assembler_options?: AssembleContextOptions;
   image_parts?: AiImagePart[];
-  signal?: AbortSignal;
+  // The kernel owns cancellation, so a caller that needs a Stop takes the
+  // handle rather than pushing a signal down.
+  on_run_started?: (handle: RunHandle) => void;
 };
 
 export class RagService {
   constructor(
     private readonly search_port: SearchPort,
     private readonly notes_port: NotesPort,
-    private readonly ai_stream_port: AiStreamPort,
+    private readonly run_starter: RunStarter,
     private readonly vault_store: VaultStore,
     private readonly persistence_port: RagPersistencePort,
     private readonly tag_port: TagPort,
@@ -224,17 +227,20 @@ export class RagService {
         TITLE_EXCHANGE_LIMIT,
       );
     try {
+      const { events } = await start_run_stream(this.run_starter, {
+        kind: "background",
+        label: "Name this chat",
+        provider: provider_config,
+        request: {
+          mode: "text",
+          system_prompt: TITLE_SYSTEM_PROMPT,
+          messages: [{ role: "user", content: exchange }],
+        },
+      });
       let text = "";
-      for await (const chunk of this.ai_stream_port.stream_text({
-        provider_config,
-        system_prompt: TITLE_SYSTEM_PROMPT,
-        messages: [{ role: "user", content: exchange }],
-        ...(this.vault_store.vault?.path
-          ? { vault_path: this.vault_store.vault.path }
-          : {}),
-      })) {
-        if (chunk.type === "text") text += chunk.text;
-        else if (chunk.type === "error") return null;
+      for await (const event of events) {
+        if (event.type === "text") text += event.text;
+        else if (event.type === "error") return null;
       }
       return sanitize_generated_title(text);
     } catch (err) {
@@ -342,14 +348,12 @@ export class RagService {
       build_citation_map(contexts.map(to_citation)),
     );
 
-    const controller = new AbortController();
-    const forward_abort = () => controller.abort();
-    if (input.signal?.aborted) controller.abort();
-    input.signal?.addEventListener("abort", forward_abort, { once: true });
-    try {
-      yield { type: "generating" };
-      for await (const chunk of this.ai_stream_port.stream_text({
-        provider_config: input.provider_config,
+    const { handle, events } = await start_run_stream(this.run_starter, {
+      kind: "chat",
+      label: cleaned_question,
+      provider: input.provider_config,
+      request: {
+        mode: "text",
         system_prompt,
         messages: [
           ...history,
@@ -360,22 +364,21 @@ export class RagService {
               : user_prompt,
           },
         ],
-        ...(this.vault_store.vault?.path
-          ? { vault_path: this.vault_store.vault.path }
-          : {}),
-        signal: controller.signal,
-      })) {
-        if (chunk.type === "text") {
-          yield* parser.push(chunk.text);
-        } else if (chunk.type === "reasoning") {
-          yield { type: "reasoning", text: chunk.text };
-        } else if (chunk.type === "error") {
-          const friendly = humanize_ai_error(
-            chunk.error,
-            input.provider_config,
-          );
-          log.warn("RAG stream failed", { error: friendly.detail });
-          yield { type: "error", error: friendly.message };
+      },
+    });
+    input.on_run_started?.(handle);
+
+    try {
+      yield { type: "generating" };
+      for await (const event of events) {
+        if (event.type === "text") {
+          yield* parser.push(event.text);
+        } else if (event.type === "reasoning") {
+          yield { type: "reasoning", text: event.text };
+        } else if (event.type === "error") {
+          // The kernel humanized this already; it is the single choke point.
+          log.warn("RAG stream failed", { error: event.message });
+          yield { type: "error", error: event.message };
           return;
         }
       }
@@ -383,8 +386,7 @@ export class RagService {
       yield* parser.flush();
       yield { type: "done" };
     } finally {
-      input.signal?.removeEventListener("abort", forward_abort);
-      controller.abort();
+      handle.stop();
     }
   }
 

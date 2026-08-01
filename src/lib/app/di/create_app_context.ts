@@ -48,6 +48,7 @@ import { register_window_actions } from "$lib/features/window";
 import {
   AiService,
   AgenticEditRunner,
+  create_plugin_ai_host,
   register_ai_actions,
 } from "$lib/features/ai";
 import { RagService, RagPanel, register_rag_actions } from "$lib/features/rag";
@@ -56,8 +57,6 @@ import {
   create_assistant_transport_tauri_adapter,
   register_assistant_actions,
 } from "$lib/features/assistant";
-import type { AiProviderConfig } from "$lib/shared/types/ai_provider_config";
-import type { AiProviderHint } from "$lib/features/plugin";
 import {
   BasesService,
   BasesPanel,
@@ -130,45 +129,6 @@ import type { DiagnosticSource } from "$lib/features/diagnostics";
 import { apply_workspace_edit_result } from "$lib/features/lsp";
 
 export type AppContext = ReturnType<typeof create_app_context>;
-
-function derive_provider_hint(provider: AiProviderConfig): AiProviderHint {
-  const model = provider.model ?? null;
-
-  if (provider.transport.kind === "cli") {
-    const cmd = provider.transport.command;
-    if (cmd === "claude") {
-      return {
-        provider: "anthropic",
-        model,
-        api_key_env: "ANTHROPIC_API_KEY",
-        base_url: null,
-      };
-    }
-    if (cmd === "ollama") {
-      return { provider: "ollama", model, api_key_env: null, base_url: null };
-    }
-    return { provider: "unknown", model, api_key_env: null, base_url: null };
-  }
-
-  const { base_url, api_key_env } = provider.transport;
-  const combined = `${base_url} ${api_key_env ?? ""}`.toLowerCase();
-
-  if (combined.includes("anthropic")) {
-    return {
-      provider: "anthropic",
-      model,
-      api_key_env: api_key_env ?? null,
-      base_url: null,
-    };
-  }
-
-  return {
-    provider: "openai",
-    model,
-    api_key_env: api_key_env ?? null,
-    base_url: base_url || null,
-  };
-}
 
 export function create_app_context(input: {
   ports: Ports;
@@ -825,17 +785,14 @@ export function create_app_context(input: {
     stores.search_graph,
   );
 
-  const ai_service = new AiService(
-    input.ports.ai,
-    stores.vault,
-    input.ports.ai_stream,
-    input.ports.search,
-  );
-
   // The probe port is an object literal closing over ai_service on purpose: neither a
   // bare method reference nor a pass-through lambda preserves a class receiver, so a
-  // `this`-using method would break however the resolver forwards it.
-  const assistant_kernel = new AssistantKernelService({
+  // `this`-using method would break however the resolver forwards it. The kernel is
+  // built first because every AI service now runs through it; the lambda defers to
+  // ai_service, so the cycle resolves at call time.
+  // Annotated because the probe lambda closes over ai_service, which in turn
+  // takes this kernel: without it the pair is a circular type inference.
+  const assistant_kernel: AssistantKernelService = new AssistantKernelService({
     transport: create_assistant_transport_tauri_adapter(),
     probe: {
       detect_status: async (config) => (await ai_service.detect(config)).status,
@@ -846,10 +803,17 @@ export function create_app_context(input: {
     default_provider_id: () => stores.ui.editor_settings.ai_default_provider_id,
   });
 
+  const ai_service = new AiService(
+    input.ports.ai,
+    stores.vault,
+    assistant_kernel,
+    input.ports.search,
+  );
+
   const rag_service = new RagService(
     input.ports.search,
     input.ports.notes,
-    input.ports.ai_stream,
+    assistant_kernel,
     stores.vault,
     input.ports.rag_persistence,
     input.ports.tag,
@@ -1177,79 +1141,26 @@ export function create_app_context(input: {
         return { success: true, path: file_path };
       },
     },
-    ai: {
-      async execute(input) {
-        const settings = stores.ui.editor_settings;
-        if (!settings.ai_enabled) {
-          return {
-            success: false,
-            output: "",
-            error: "AI is disabled in settings",
-          };
-        }
-
-        const providers = settings.ai_providers;
-        const default_id = settings.ai_default_provider_id;
-        let provider =
-          default_id === "auto"
-            ? providers[0]
-            : providers.find((p) => p.id === default_id);
-
-        if (!provider) {
-          return {
-            success: false,
-            output: "",
-            error: "No AI provider configured",
-          };
-        }
-
-        const vault = stores.vault.vault;
-        if (!vault) {
-          return {
-            success: false,
-            output: "",
-            error: "No active vault",
-          };
-        }
-
+    ai: create_plugin_ai_host({
+      ai_enabled: () => stores.ui.editor_settings.ai_enabled,
+      default_provider_id: () =>
+        stores.ui.editor_settings.ai_default_provider_id,
+      execution_timeout_seconds: () =>
+        stores.ui.editor_settings.ai_execution_timeout_seconds,
+      resolve_provider: (requested_id) =>
+        assistant_kernel.resolve_provider(requested_id),
+      vault_path: () => stores.vault.vault?.path ?? null,
+      open_note: () => {
         const open_note = stores.editor.open_note;
-        return ai_service.execute({
-          provider_config: provider,
-          prompt: input.prompt,
-          context: {
-            kind: "note",
-            note_path:
-              open_note?.meta.path ??
-              ("" as import("$lib/shared/types/ids").NotePath),
-            note_title: open_note?.meta.title ?? "",
-            note_markdown: (open_note?.markdown ??
-              "") as import("$lib/shared/types/ids").MarkdownText,
-            selection: null,
-            target: "full_note",
-          },
-          mode: input.mode ?? "ask",
-          timeout_seconds: settings.ai_execution_timeout_seconds,
-        });
-      },
-      async get_provider_hint(): Promise<AiProviderHint> {
-        const settings = stores.ui.editor_settings;
-        const unknown_hint: AiProviderHint = {
-          provider: "unknown",
-          model: null,
-          api_key_env: null,
-          base_url: null,
+        if (!open_note) return null;
+        return {
+          path: open_note.meta.path,
+          title: open_note.meta.title,
+          markdown: open_note.markdown,
         };
-        if (!settings.ai_enabled) return unknown_hint;
-        const providers = settings.ai_providers;
-        const default_id = settings.ai_default_provider_id;
-        const provider =
-          default_id === "auto"
-            ? providers[0]
-            : providers.find((p) => p.id === default_id);
-        if (!provider) return unknown_hint;
-        return derive_provider_hint(provider);
       },
-    },
+      execute: (execute_input) => ai_service.execute(execute_input),
+    }),
     sidecar: external_mcp_tauri_adapter,
   });
 
@@ -1282,7 +1193,7 @@ export function create_app_context(input: {
     ai_store: stores.ai,
     ai_service,
     ai_history: input.ports.ai_history,
-    agentic_runner: new AgenticEditRunner(input.ports.agent, git_service),
+    agentic_runner: new AgenticEditRunner(assistant_kernel, git_service),
   });
 
   register_assistant_actions({
@@ -1294,7 +1205,7 @@ export function create_app_context(input: {
     ...base_action_input,
     rag_store: stores.rag,
     rag_service,
-    agent_port: input.ports.agent,
+    assistant_kernel,
   });
 
   register_graph_actions({
@@ -1534,6 +1445,7 @@ export function create_app_context(input: {
     mcp_service,
     rag_store: stores.rag,
     rag_service,
+    assistant_kernel,
     ai_store: stores.ai,
     ai_history_port: input.ports.ai_history,
     tag_store: stores.tag,

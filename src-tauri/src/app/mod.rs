@@ -123,6 +123,7 @@ pub fn run() {
         .manage(features::code_lsp::CodeLspState::default())
         .manage(features::markdown_lsp::MarkdownLspState::default())
         .manage(features::toolchain::service::ToolchainState::default())
+        .manage(features::ai::service::AiExecState::default())
         .manage(features::ai::stream::AiStreamState::default())
         .manage(features::ai::agent_stream::AgentRunState::default())
         .manage(shared::asset_cache::AssetCacheState::new())
@@ -186,6 +187,7 @@ pub fn run() {
             features::ai::service::ai_check_cli,
             features::ai::service::ai_detect_cli,
             features::ai::service::ai_execute_cli,
+            features::ai::service::ai_execute_abort,
             features::ai::stream::ai_stream_start,
             features::ai::stream::ai_stream_abort,
             features::ai::stream::ai_test_provider,

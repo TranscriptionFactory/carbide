@@ -174,6 +174,30 @@ fn scan_path_dirs(command: &str, path: &str) -> Option<PathBuf> {
     None
 }
 
+// Polls rather than blocking in wait() so the shared child stays lockable by a
+// concurrent kill() from the timeout and abort paths.
+fn wait_shared_child(child: &Arc<Mutex<Option<Child>>>) -> Option<std::process::ExitStatus> {
+    loop {
+        let polled = child
+            .lock()
+            .ok()
+            .and_then(|mut guard| guard.as_mut().map(|process| process.try_wait()))?;
+        match polled {
+            Ok(Some(status)) => return Some(status),
+            Ok(None) => std::thread::sleep(std::time::Duration::from_millis(50)),
+            Err(_) => return None,
+        }
+    }
+}
+
+fn kill_shared_child(child: &Arc<Mutex<Option<Child>>>) {
+    if let Ok(mut guard) = child.lock() {
+        if let Some(process) = guard.as_mut() {
+            let _ = process.kill();
+        }
+    }
+}
+
 fn wait_with_timeout(
     child: &mut Child,
     timeout: std::time::Duration,
@@ -401,6 +425,9 @@ pub fn resolve_cli_output(stdout_clean: &str, output_path: Option<&PathBuf>) -> 
     }
 }
 
+pub const ABORTED_ERROR: &str = "aborted";
+pub const TIMED_OUT_ERROR: &str = "Pipeline timed out";
+
 pub async fn execute_pipeline(
     command: String,
     args: Vec<String>,
@@ -408,6 +435,7 @@ pub async fn execute_pipeline(
     current_dir: String,
     timeout_seconds: Option<u64>,
     output_path: Option<PathBuf>,
+    abort_rx: Option<tokio::sync::oneshot::Receiver<()>>,
 ) -> Result<PipelineResult, String> {
     let timeout_duration = std::time::Duration::from_secs(timeout_seconds.unwrap_or(300));
     let shared_child: Arc<Mutex<Option<Child>>> = Arc::new(Mutex::new(None));
@@ -498,10 +526,7 @@ pub async fn execute_pipeline(
         let stdout_reader = stdout_handle.map(read_stream_to_string);
         let stderr_reader = stderr_handle.map(read_stream_to_string);
 
-        let success = child_for_task
-            .lock()
-            .ok()
-            .and_then(|mut guard| guard.as_mut().and_then(|process| process.wait().ok()))
+        let success = wait_shared_child(&child_for_task)
             .map(|status| status.success())
             .unwrap_or(false);
 
@@ -535,20 +560,34 @@ pub async fn execute_pipeline(
         }
     });
 
-    let result = match tokio::time::timeout(timeout_duration, &mut task).await {
-        Ok(join_result) => {
+    let aborted = async move {
+        match abort_rx {
+            Some(rx) => {
+                let _ = rx.await;
+            }
+            None => std::future::pending::<()>().await,
+        }
+    };
+
+    let result = tokio::select! {
+        biased;
+        join_result = &mut task => {
             join_result.map_err(|e| format!("Failed to join pipeline task: {}", e))?
         }
-        Err(_) => {
-            if let Ok(mut guard) = shared_child.lock() {
-                if let Some(ref mut process) = *guard {
-                    let _ = process.kill();
-                }
-            }
+        _ = tokio::time::sleep(timeout_duration) => {
+            kill_shared_child(&shared_child);
             PipelineResult {
                 success: false,
                 output: String::new(),
-                error: Some("Pipeline timed out".to_string()),
+                error: Some(TIMED_OUT_ERROR.to_string()),
+            }
+        }
+        _ = aborted => {
+            kill_shared_child(&shared_child);
+            PipelineResult {
+                success: false,
+                output: String::new(),
+                error: Some(ABORTED_ERROR.to_string()),
             }
         }
     };
@@ -571,6 +610,7 @@ pub async fn pipeline_execute(
         stdin_input,
         current_dir,
         timeout_seconds,
+        None,
         None,
     )
     .await

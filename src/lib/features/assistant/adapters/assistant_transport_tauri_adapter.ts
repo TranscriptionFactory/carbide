@@ -1,13 +1,23 @@
 import { listen } from "@tauri-apps/api/event";
 import { tauri_invoke } from "$lib/shared/adapters/tauri_invoke";
 import { AsyncQueue } from "$lib/shared/utils/async_queue";
-import { agent_capability, type AiStreamChunk } from "$lib/features/ai";
+import {
+  agent_capability,
+  provider_supports_streaming,
+  type AiExecutionResult,
+  type AiMessage,
+  type AiStreamChunk,
+} from "$lib/features/ai";
 import type { AgentEvent } from "$lib/features/rag";
 import type {
   AssistantTransportPort,
   TransportRequest,
 } from "$lib/features/assistant/ports";
-import type { RunEvent, RunRequest } from "$lib/features/assistant/types/run";
+import {
+  ABORTED_ERROR,
+  type RunEvent,
+  type RunRequest,
+} from "$lib/features/assistant/types/run";
 
 type TextRequest = Extract<RunRequest, { mode: "text" }>;
 type AgentRequest = Extract<RunRequest, { mode: "agent" }>;
@@ -157,13 +167,85 @@ function drive<Request extends RunRequest, Payload>(
   return iterable;
 }
 
+const NO_OUTPUT = "The provider exited without producing output.";
+
+function message_text(message: AiMessage): string {
+  if (typeof message.content === "string") return message.content;
+  return message.content
+    .filter((part) => part.type === "text")
+    .map((part) => part.text)
+    .join("\n");
+}
+
+function blocking_prompt(request: TextRequest): string {
+  return [request.system_prompt, ...request.messages.map(message_text)]
+    .filter((part) => part.trim() !== "")
+    .join("\n\n");
+}
+
+// A blocking CLI writes its answer to a file rather than streaming, but it is
+// still cancellable: the request id it started under kills its child process.
+// `ai_execute_abort` is a no-op on unknown or finished ids, so Stop may fire
+// without tracking whether the run is still live.
+function drive_blocking(
+  input: TransportRequest,
+  request: TextRequest,
+): AsyncIterable<RunEvent> {
+  const request_id = crypto.randomUUID();
+  const queue = new AsyncQueue<RunEvent>();
+  const signal = input.signal;
+  const on_abort = () => {
+    void tauri_invoke("ai_execute_abort", { requestId: request_id });
+  };
+
+  void (async () => {
+    if (signal?.aborted) {
+      queue.end();
+      return;
+    }
+    signal?.addEventListener("abort", on_abort);
+
+    try {
+      const result = await tauri_invoke<AiExecutionResult>("ai_execute_cli", {
+        providerConfig: input.provider_config,
+        vaultPath: input.vault_path,
+        notePath: request.note_path ?? "",
+        prompt: blocking_prompt(request),
+        timeoutSeconds: request.timeout_seconds ?? null,
+        requestId: request_id,
+      });
+      if (result.success) {
+        if (result.output) queue.push({ type: "text", text: result.output });
+        queue.push({ type: "done" });
+      } else if (result.error !== ABORTED_ERROR) {
+        queue.push({ type: "error", message: result.error ?? NO_OUTPUT });
+      }
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e);
+      queue.push({ type: "error", message });
+    } finally {
+      signal?.removeEventListener("abort", on_abort);
+      queue.end();
+    }
+  })();
+
+  return {
+    [Symbol.asyncIterator]() {
+      return queue[Symbol.asyncIterator]();
+    },
+  };
+}
+
 export function create_assistant_transport_tauri_adapter(): AssistantTransportPort {
   return {
     stream(input: TransportRequest): AsyncIterable<RunEvent> {
       const request = input.request;
-      return request.mode === "text"
+      if (request.mode === "agent") {
+        return drive(agent_turn_channel, input, request);
+      }
+      return provider_supports_streaming(input.provider_config)
         ? drive(text_stream_channel, input, request)
-        : drive(agent_turn_channel, input, request);
+        : drive_blocking(input, request);
     },
   };
 }

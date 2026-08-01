@@ -74,11 +74,15 @@ export async function answer_rag_mcp_query(
   }
 }
 
+// I3: the resolver is injected rather than the provider, so the MCP path gets
+// the same availability-probed answer as every other surface. The reactor used
+// to hold a private copy of the rule and could answer with an uninstalled CLI.
 export async function handle_rag_mcp_query(
   rag_service: RagService,
-  provider: AiProviderConfig | null,
+  resolve_provider: () => Promise<AiProviderConfig | null>,
   event: RagMcpQueryEvent,
 ): Promise<void> {
+  const provider = await resolve_provider();
   const response = await answer_rag_mcp_query(rag_service, provider, event);
   try {
     await tauri_invoke("rag_query_respond", { id: event.id, response });

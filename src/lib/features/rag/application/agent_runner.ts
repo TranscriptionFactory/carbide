@@ -3,7 +3,7 @@ import { error_message } from "$lib/shared/utils/error_message";
 import { chat_policy } from "$lib/features/ai";
 import type { VaultStore } from "$lib/features/vault";
 import type { AiProviderConfig } from "$lib/shared/types/ai_provider_config";
-import type { AgentPort } from "$lib/features/rag/ports";
+import type { RunHandle, RunSink, RunStarter } from "$lib/features/assistant";
 import {
   changed_files_from_tools,
   is_mutating_call,
@@ -23,10 +23,10 @@ export type AgentTurnResult =
   | { status: "error"; message: string };
 
 export class AgentRunner {
-  private abort_controller: AbortController | null = null;
+  private handle: RunHandle | null = null;
 
   constructor(
-    private readonly agent_port: AgentPort,
+    private readonly run_starter: RunStarter,
     private readonly rag_store: RagStore,
     private readonly vault_store: VaultStore,
     private readonly git: AgentCheckpointGit,
@@ -37,11 +37,11 @@ export class AgentRunner {
   ) {}
 
   get is_running(): boolean {
-    return this.abort_controller !== null;
+    return this.handle !== null;
   }
 
   abort(): void {
-    this.abort_controller?.abort();
+    this.handle?.stop();
   }
 
   async run_turn(
@@ -56,51 +56,35 @@ export class AgentRunner {
 
     await this.checkpoint();
 
-    this.abort_controller = new AbortController();
     const history = rag_messages_to_history(session.messages.slice(0, -1));
     const tool_calls: AgentToolCall[] = [];
+
     try {
-      const events = this.agent_port.stream_turn({
-        provider_config,
-        prompt,
-        vault_path: String(vault.path),
-        toolset: chat_policy(session.permission_mode).toolset,
-        history,
-        ...(session.agent_session_id
-          ? { resume_session_id: session.agent_session_id }
-          : {}),
-        backend,
-        signal: this.abort_controller.signal,
-      });
-      for await (const event of events) {
-        if (event.type === "init") {
-          this.rag_store.set_agent_session_id(event.session_id);
-        } else if (event.type === "text") {
-          this.ensure_streaming();
-          this.rag_store.append_streaming_text(event.delta);
-        } else if (event.type === "tool_start") {
-          this.ensure_streaming();
-          this.rag_store.add_streaming_tool_event({
-            name: event.name,
-            input_summary: event.input_summary,
-            paths: event.paths,
-          });
-          tool_calls.push({
-            name: event.name,
-            input_summary: event.input_summary,
-            paths: event.paths,
-            mutating: event.mutating,
-          });
-        } else if (event.type === "tool_end") {
-          this.rag_store.finish_streaming_tool_event(event.name, event.ok);
-        } else if (event.type === "error") {
-          this.rag_store.fail_streaming(event.message);
-          await this.record_file_changes(tool_calls);
-          return { status: "error", message: event.message };
-        }
-      }
+      this.handle = await this.run_starter.start(
+        {
+          kind: "agent",
+          label: prompt,
+          provider: provider_config,
+          origin: { session_id: session.id },
+          request: {
+            mode: "agent",
+            prompt,
+            toolset: chat_policy(session.permission_mode).toolset,
+            history,
+            ...(session.agent_session_id
+              ? { resume_session_id: session.agent_session_id }
+              : {}),
+            backend,
+          },
+        },
+        this.transcript_sink(tool_calls),
+      );
+
+      const outcome = await this.handle.outcome;
       await this.record_file_changes(tool_calls);
-      this.rag_store.finish_streaming();
+      if (outcome.status === "error") {
+        return { status: "error", message: outcome.error.message };
+      }
       return { status: "done" };
     } catch (err) {
       const message = error_message(err);
@@ -108,8 +92,55 @@ export class AgentRunner {
       await this.record_file_changes(tool_calls);
       return { status: "error", message };
     } finally {
-      this.abort_controller = null;
+      this.handle = null;
     }
+  }
+
+  // R8: the turn's transcript writes live here, not in the consumer loop, so
+  // retargeting where they land does not mean reopening this runner.
+  private transcript_sink(tool_calls: AgentToolCall[]): RunSink {
+    return {
+      on_event: (_run_id, event) => {
+        switch (event.type) {
+          case "session":
+            this.rag_store.set_agent_session_id(event.provider_session_id);
+            return;
+          case "text":
+            this.ensure_streaming();
+            this.rag_store.append_streaming_text(event.text);
+            return;
+          case "tool_start":
+            this.ensure_streaming();
+            this.rag_store.add_streaming_tool_event({
+              name: event.name,
+              input_summary: event.input_summary,
+              paths: event.paths,
+            });
+            tool_calls.push({
+              name: event.name,
+              input_summary: event.input_summary,
+              paths: event.paths,
+              mutating: event.mutating,
+            });
+            return;
+          case "tool_end":
+            this.rag_store.finish_streaming_tool_event(event.name, event.ok);
+            return;
+          case "error":
+            this.rag_store.fail_streaming(event.message);
+            return;
+          case "reasoning":
+          case "done":
+            return;
+        }
+      },
+      // A stopped turn dispatches no terminal event, so the transcript is
+      // closed out from here rather than from the "done" event.
+      on_end: (_run_id, outcome) => {
+        if (outcome.status === "error") return;
+        this.rag_store.finish_streaming();
+      },
+    };
   }
 
   // Edits a turn made before failing are still on disk; the vault tree and the
