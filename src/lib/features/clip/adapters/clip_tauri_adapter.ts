@@ -2,10 +2,10 @@ import { listen } from "@tauri-apps/api/event";
 import {
   ClipFetchError,
   type ClipAsset,
-  type ClipEpubInput,
   type ClipPage,
   type ClipPort,
 } from "$lib/features/clip/ports";
+import type { EpubInput } from "$lib/shared/types/epub";
 import type { VaultId } from "$lib/shared/types/ids";
 import { tauri_invoke } from "$lib/shared/adapters/tauri_invoke";
 
@@ -47,7 +47,7 @@ export function create_clip_tauri_adapter(): ClipPort {
     async write_epub(
       vault_id: VaultId,
       epub_path: string,
-      input: ClipEpubInput,
+      input: EpubInput,
     ): Promise<void> {
       return tauri_invoke<void>("clip_write_epub", {
         vaultId: vault_id,

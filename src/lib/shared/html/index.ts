@@ -7,3 +7,5 @@ export type {
   HtmlLink,
 } from "./parse_html_metadata";
 export { html_to_markdown } from "./html_to_markdown";
+export { to_xhtml_document } from "./to_xhtml_document";
+export type { XhtmlDocumentOptions } from "./to_xhtml_document";
