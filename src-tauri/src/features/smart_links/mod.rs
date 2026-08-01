@@ -159,7 +159,7 @@ pub fn smart_links_compute_suggestions(
 
 #[tauri::command]
 #[specta::specta]
-pub fn smart_links_compute_vault_edges(
+pub async fn smart_links_compute_vault_edges(
     app: AppHandle,
     vault_id: String,
     min_score: Option<f64>,
@@ -170,12 +170,17 @@ pub fn smart_links_compute_vault_edges(
     let limit = per_note_limit.unwrap_or(5).min(20);
     let threshold = min_score.unwrap_or(0.1);
 
+    // Rule execution walks the whole manifest; as a sync command it would
+    // stall the main thread for the duration
+    let read_conn = search_service::get_read_conn_arc(&app, &vault_id)?;
     let (ni, bi) = search_service::get_index_arcs(&app, &vault_id)?;
-    let ni_guard = ni.read().map_err(|e| e.to_string())?;
-    let bi_guard = bi.read().map_err(|e| e.to_string())?;
 
-    search_service::with_read_conn(&app, &vault_id, |conn| {
-        let manifest = crate::features::search::db::get_manifest(conn)?;
+    tauri::async_runtime::spawn_blocking(move || {
+        let ni_guard = ni.read().map_err(|e| e.to_string())?;
+        let bi_guard = bi.read().map_err(|e| e.to_string())?;
+        let conn = read_conn.lock().map_err(|e| e.to_string())?;
+
+        let manifest = crate::features::search::db::get_manifest(&conn)?;
         let note_paths: Vec<String> = manifest.into_keys().collect();
 
         let mut seen = std::collections::HashSet::new();
@@ -183,7 +188,7 @@ pub fn smart_links_compute_vault_edges(
 
         for source_path in &note_paths {
             let suggestions =
-                execute_rules(conn, source_path, &rule_groups, limit, &ni_guard, &bi_guard)?;
+                execute_rules(&conn, source_path, &rule_groups, limit, &ni_guard, &bi_guard)?;
 
             for s in suggestions {
                 if s.score < threshold {
@@ -214,4 +219,6 @@ pub fn smart_links_compute_vault_edges(
         });
         Ok(edges)
     })
+    .await
+    .map_err(|e| e.to_string())?
 }

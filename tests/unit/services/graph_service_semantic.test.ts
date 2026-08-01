@@ -251,8 +251,8 @@ describe("GraphService.load_semantic_edges", () => {
   });
 });
 
-describe("GraphService.load_vault_graph auto-enables inferred edges", () => {
-  function setup_auto(node_count: number, threshold: number) {
+describe("GraphService.load_vault_graph inferred edges", () => {
+  function setup_load() {
     const graph_store = new GraphStore();
     const vault_store = new VaultStore();
     const editor_store = new EditorStore();
@@ -266,7 +266,7 @@ describe("GraphService.load_vault_graph auto-enables inferred edges", () => {
           { path: "b.md", title: "B" },
         ],
         edges: [],
-        stats: { node_count, edge_count: 0 },
+        stats: { node_count: 2, edge_count: 0 },
       },
     );
     const search_service = {
@@ -279,28 +279,48 @@ describe("GraphService.load_vault_graph auto-enables inferred edges", () => {
       vault_store,
       editor_store,
       graph_store,
-      undefined,
-      () => ({
-        auto_threshold: threshold,
-        knn_limit: 3,
-        distance_threshold: 0.5,
-      }),
     );
     return { service, graph_store, search_port };
   }
 
-  it("shows semantic edges automatically for vaults within the threshold", async () => {
-    const { service, graph_store } = setup_auto(2, 2000);
+  it("never turns inferred edges on by itself", async () => {
+    const { service, graph_store, search_port } = setup_load();
     await service.load_vault_graph();
-    expect(graph_store.show_semantic_edges).toBe(true);
+    expect(graph_store.show_semantic_edges).toBe(false);
+    expect(graph_store.show_smart_link_edges).toBe(false);
+    expect(search_port.semantic_search_batch).not.toHaveBeenCalled();
+    expect(search_port.compute_smart_link_vault_edges).not.toHaveBeenCalled();
+  });
+
+  it("reloads semantic edges when the toggle is on and edges are empty", async () => {
+    const { service, graph_store, search_port } = setup_load();
+    graph_store.set_show_semantic_edges(true);
+    await service.load_vault_graph();
+    expect(search_port.semantic_search_batch).toHaveBeenCalled();
     expect(graph_store.semantic_edges).toHaveLength(1);
   });
 
-  it("leaves inferred edges off for vaults above the threshold", async () => {
-    const { service, graph_store, search_port } = setup_auto(5000, 2000);
+  it("reuses the last explicit semantic settings on reload", async () => {
+    const { service, graph_store, search_port } = setup_load();
+    graph_store.set_vault_snapshot({
+      nodes: [{ path: "a.md", title: "A" }],
+      edges: [],
+      stats: { node_count: 1, edge_count: 0 },
+    });
+    await service.load_semantic_edges({
+      knn_limit: 7,
+      distance_threshold: 0.9,
+    });
+
+    graph_store.set_semantic_edges([]);
+    graph_store.set_show_semantic_edges(true);
     await service.load_vault_graph();
-    expect(graph_store.show_semantic_edges).toBe(false);
-    expect(search_port.semantic_search_batch).not.toHaveBeenCalled();
+
+    const calls = (search_port.semantic_search_batch as ReturnType<typeof vi.fn>)
+      .mock.calls;
+    const last = calls[calls.length - 1];
+    expect(last?.[2]).toBe(7);
+    expect(last?.[3]).toBeCloseTo(1 - 0.9);
   });
 });
 
