@@ -536,12 +536,26 @@ pub fn run() {
                     }
                 }
             }
-            if let tauri::RunEvent::ExitRequested { code, api, .. } = &event {
-                if *code != Some(tauri::RESTART_EXIT_CODE) {
+            // Guard only explicit exits (Cmd+Q, tray quit) so the frontend can run
+            // the unsaved-changes prompt. code: None means the last window was
+            // destroyed after a confirmed close — no window exists to prompt from,
+            // so preventing exit here strands the app windowless (menubar Show and
+            // dock clicks can't recover a destroyed window).
+            if let tauri::RunEvent::ExitRequested {
+                code: Some(code),
+                api,
+                ..
+            } = &event
+            {
+                if *code != tauri::RESTART_EXIT_CODE {
                     api.prevent_exit();
                     tray::show_main_window(app);
                     let _ = app.emit("window-close-requested", ());
                 }
+            }
+            #[cfg(target_os = "macos")]
+            if let tauri::RunEvent::Reopen { .. } = &event {
+                tray::show_main_window(app);
             }
             if let tauri::RunEvent::Exit = &event {
                 log::info!("Carbide exiting — cleaning up child processes");
