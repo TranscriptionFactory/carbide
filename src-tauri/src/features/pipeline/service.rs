@@ -501,15 +501,20 @@ pub async fn execute_pipeline(
                 .and_then(|mut guard| guard.as_mut().and_then(|process| process.stdin.take()));
 
             if let Some(mut stdin) = stdin_handle {
+                // A broken pipe only means the child never read its stdin — it took the
+                // prompt from argv, or it exited early. Its own status and stderr are the
+                // real answer, so let it be judged by those rather than by the plumbing.
                 if let Err(e) = stdin.write_all(stdin_input.as_bytes()) {
-                    let _ = child_for_task
-                        .lock()
-                        .map(|mut g| g.as_mut().map(|p| p.kill()));
-                    return PipelineResult {
-                        success: false,
-                        output: String::new(),
-                        error: Some(format!("Failed to write to stdin: {}", e)),
-                    };
+                    if e.kind() != std::io::ErrorKind::BrokenPipe {
+                        let _ = child_for_task
+                            .lock()
+                            .map(|mut g| g.as_mut().map(|p| p.kill()));
+                        return PipelineResult {
+                            success: false,
+                            output: String::new(),
+                            error: Some(format!("Failed to write to stdin: {}", e)),
+                        };
+                    }
                 }
             }
         }
