@@ -7,8 +7,10 @@
     count?: number;
     open: boolean;
     action_label?: string | undefined;
+    destructive_action_label?: string | undefined;
     on_toggle: () => void;
     on_action?: (() => void) | undefined;
+    on_destructive_action?: (() => void) | undefined;
     children: Snippet;
   };
 
@@ -17,8 +19,10 @@
     count,
     open,
     action_label,
+    destructive_action_label,
     on_toggle,
     on_action,
+    on_destructive_action,
     children,
   }: Props = $props();
 
@@ -46,6 +50,16 @@
         {title}{#if count != null}&nbsp;({count}){/if}
       </span>
     </button>
+    {#if destructive_action_label && on_destructive_action}
+      <button
+        type="button"
+        class="CollapsibleSection__action CollapsibleSection__action--destructive"
+        onclick={on_destructive_action}
+        aria-label={destructive_action_label}
+      >
+        {destructive_action_label}
+      </button>
+    {/if}
     {#if action_label && on_action}
       <button
         type="button"
@@ -109,6 +123,14 @@
     color: var(--interactive);
     opacity: 0;
     transition: opacity var(--duration-fast) var(--ease-default);
+  }
+
+  .CollapsibleSection__action + .CollapsibleSection__action {
+    margin-inline-start: var(--space-2);
+  }
+
+  .CollapsibleSection__action--destructive {
+    color: var(--destructive);
   }
 
   .CollapsibleSection__header:hover .CollapsibleSection__action {

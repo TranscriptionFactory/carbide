@@ -13,6 +13,7 @@ export { default as VersionHistoryDialog } from "$lib/features/git/ui/version_hi
 export { default as CheckpointDialog } from "$lib/features/git/ui/checkpoint_dialog.svelte";
 export { default as AddRemoteDialog } from "$lib/features/git/ui/add_remote_dialog.svelte";
 export { default as DiffViewerDialog } from "$lib/features/git/ui/diff_viewer_dialog.svelte";
+export { default as DiscardChangesDialog } from "$lib/features/git/ui/discard_changes_dialog.svelte";
 export { default as GitDiffView } from "$lib/features/git/ui/git_diff_view.svelte";
 export { default as SourceControlPanel } from "$lib/features/git/ui/source_control_panel.svelte";
 export {

@@ -17,6 +17,7 @@
     diff: GitDiff | null;
     on_close: () => void;
     on_toggle_stage: (path: string) => void;
+    on_discard: (path: string) => void;
   }
 
   let {
@@ -27,6 +28,7 @@
     diff,
     on_close,
     on_toggle_stage,
+    on_discard,
   }: Props = $props();
 
   const filename = $derived(file_path ? note_name_from_path(file_path) : "");
@@ -77,6 +79,9 @@
         {@const path = file_path}
         <Button variant="outline" onclick={() => on_toggle_stage(path)}>
           {is_staged ? "Unstage" : "Stage"}
+        </Button>
+        <Button variant="destructive" onclick={() => on_discard(path)}>
+          Discard Changes
         </Button>
       {/if}
       <Button variant="outline" onclick={on_close}>
