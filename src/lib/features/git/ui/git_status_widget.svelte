@@ -44,12 +44,14 @@
   const is_syncing = $derived(
     is_fetching ||
       sync_status === "committing" ||
+      sync_status === "discarding" ||
       sync_status === "pushing" ||
       sync_status === "pulling",
   );
   const status_label = $derived.by(() => {
     if (is_fetching) return "Fetching...";
     if (sync_status === "committing") return "Committing...";
+    if (sync_status === "discarding") return "Discarding...";
     if (sync_status === "pushing") return "Pushing...";
     if (sync_status === "pulling") return "Pulling...";
     if (sync_status === "error") return "Error";

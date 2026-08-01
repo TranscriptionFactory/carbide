@@ -28,6 +28,7 @@
     CheckpointDialog,
     AddRemoteDialog,
     DiffViewerDialog,
+    DiscardChangesDialog,
   } from "$lib/features/git";
   import { HotkeyRecorderDialog } from "$lib/features/hotkey";
   import HelpDialog from "$lib/app/bootstrap/ui/help_dialog.svelte";
@@ -811,6 +812,19 @@
   on_close={() => void action_registry.execute(ACTION_IDS.git_close_diff)}
   on_toggle_stage={(path) =>
     void action_registry.execute(ACTION_IDS.git_toggle_stage, path)}
+  on_discard={(path) =>
+    void action_registry.execute(ACTION_IDS.git_request_discard, {
+      file_path: path,
+    })}
+/>
+
+<DiscardChangesDialog
+  open={stores.ui.discard_changes_dialog.open}
+  paths={stores.ui.discard_changes_dialog.paths}
+  is_discarding={stores.op.is_pending("git.discard")}
+  on_confirm={() =>
+    void action_registry.execute(ACTION_IDS.git_confirm_discard)}
+  on_cancel={() => void action_registry.execute(ACTION_IDS.git_cancel_discard)}
 />
 
 <QuickCaptureDialog
