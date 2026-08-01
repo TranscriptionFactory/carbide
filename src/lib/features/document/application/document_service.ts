@@ -1,6 +1,6 @@
 import type {
   DocumentPort,
-  PdfExportPort,
+  NoteExportPort,
   ReadingPositionPort,
   TrustEntry,
   TrustLevel,
@@ -15,9 +15,16 @@ import {
 } from "$lib/features/document/types/document";
 import type { VaultStore } from "$lib/features/vault";
 import {
+  note_export_styles,
+  render_note_body_html,
   render_note_to_html,
   type ImageResolver,
 } from "$lib/features/document/domain/note_html";
+import {
+  create_epub_image_collector,
+  type NoteAssetPathResolver,
+} from "$lib/features/document/domain/note_epub";
+import { to_xhtml_document } from "$lib/shared/html";
 import {
   build_clipboard_provenance,
   derive_artifact_filename,
@@ -55,7 +62,7 @@ export class DocumentService {
     private readonly document_store: DocumentStore,
     private readonly now_ms: () => number = () => Date.now(),
     private readonly inactive_content_limit = DEFAULT_INACTIVE_CONTENT_LIMIT,
-    private readonly pdf_export_port?: PdfExportPort,
+    private readonly note_export_port?: NoteExportPort,
     private readonly trusted_html_port?: TrustedHtmlPort,
     private readonly reading_position_port?: ReadingPositionPort,
   ) {
@@ -374,13 +381,73 @@ export class DocumentService {
     markdown: string,
     image_resolver?: ImageResolver,
   ): Promise<void> {
-    if (!this.pdf_export_port) return;
-    const path = await this.pdf_export_port.pick_pdf_save_path(title);
+    if (!this.note_export_port) return;
+    const path = await this.note_export_port.pick_save_path(title, "pdf");
     if (path === null) return;
-    const html = await render_note_to_html(title, markdown, {
+    const html = await this.render_note_document(
+      title,
+      markdown,
+      image_resolver,
+    );
+    await this.note_export_port.export_html_to_pdf(html, path);
+  }
+
+  async export_note_html(
+    title: string,
+    markdown: string,
+    image_resolver?: ImageResolver,
+  ): Promise<void> {
+    if (!this.note_export_port) return;
+    const path = await this.note_export_port.pick_save_path(title, "html");
+    if (path === null) return;
+    const html = await this.render_note_document(
+      title,
+      markdown,
+      image_resolver,
+    );
+    await this.note_export_port.write_html(html, path);
+  }
+
+  async export_note_epub(
+    title: string,
+    markdown: string,
+    resolve_asset_path: NoteAssetPathResolver,
+  ): Promise<void> {
+    const vault_id = this.vault_store.vault?.id;
+    if (!this.note_export_port || !vault_id) return;
+    const path = await this.note_export_port.pick_save_path(title, "epub");
+    if (path === null) return;
+
+    const { image_resolver, images } =
+      create_epub_image_collector(resolve_asset_path);
+    const body_html = await render_note_body_html(title, markdown, {
+      image_resolver,
+    });
+
+    await this.note_export_port.write_epub(
+      vault_id,
+      {
+        title,
+        source_url: null,
+        created_at: new Date(this.now_ms()).toISOString(),
+        xhtml: to_xhtml_document(title, body_html, {
+          stylesheet_href: "style.css",
+        }),
+        css: await note_export_styles(),
+        images,
+      },
+      path,
+    );
+  }
+
+  private render_note_document(
+    title: string,
+    markdown: string,
+    image_resolver?: ImageResolver,
+  ): Promise<string> {
+    return render_note_to_html(title, markdown, {
       ...(image_resolver ? { image_resolver } : {}),
     });
-    await this.pdf_export_port.export_html_to_pdf(html, path);
   }
 
   close_document(tab_id: string): void {

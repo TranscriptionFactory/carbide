@@ -54,9 +54,13 @@ function create_harness() {
         status: "opened",
         selected_folder_path: "notes",
       }),
+      clear_open_note: vi.fn(),
     },
     editor: {
       close_buffer: vi.fn(),
+    },
+    tab: {
+      remove_tab: vi.fn(),
     },
     git: {
       check_repo: vi.fn().mockResolvedValue(undefined),
@@ -70,6 +74,16 @@ function create_harness() {
         .mockResolvedValue({ additions: 1, deletions: 0, hunks: [] }),
       get_file_at_commit: vi.fn().mockResolvedValue("# at commit"),
       restore_version: vi.fn().mockResolvedValue(undefined),
+      discard_file: vi
+        .fn()
+        .mockImplementation((path: string) =>
+          Promise.resolve({ status: "discarded", paths: [path] }),
+        ),
+      discard_all: vi
+        .fn()
+        .mockImplementation((paths: string[]) =>
+          Promise.resolve({ status: "discarded", paths }),
+        ),
       create_checkpoint: vi.fn().mockResolvedValue({ status: "created" }),
       push: vi
         .fn()
@@ -471,5 +485,156 @@ describe("register_git_actions", () => {
     expect(toast.success).toHaveBeenCalledWith("Fetched successfully", {
       id: "toast-id",
     });
+  });
+
+  it("git_request_discard only opens the dialog, never discards", async () => {
+    const { registry, stores, services } = create_harness();
+
+    await registry.execute(ACTION_IDS.git_request_discard, {
+      file_path: "notes/a.md",
+    });
+
+    expect(stores.ui.discard_changes_dialog).toEqual({
+      open: true,
+      paths: ["notes/a.md"],
+    });
+    expect(services.git.discard_file).not.toHaveBeenCalled();
+    expect(services.git.discard_all).not.toHaveBeenCalled();
+  });
+
+  it("git_request_discard_all stages every unstaged path for confirmation", async () => {
+    const { registry, stores, services } = create_harness();
+    stores.git.set_status("main", true, 2, false, false, null, 0, 0, [
+      { path: "a.md", status: "modified" },
+      { path: "b.md", status: "untracked" },
+    ]);
+    stores.git.stage_file("a.md");
+
+    await registry.execute(ACTION_IDS.git_request_discard_all);
+
+    expect(stores.ui.discard_changes_dialog).toEqual({
+      open: true,
+      paths: ["b.md"],
+    });
+    expect(services.git.discard_all).not.toHaveBeenCalled();
+  });
+
+  it("git_request_discard_all does nothing when there is nothing to discard", async () => {
+    const { registry, stores } = create_harness();
+
+    await registry.execute(ACTION_IDS.git_request_discard_all);
+
+    expect(stores.ui.discard_changes_dialog.open).toBe(false);
+  });
+
+  it("git_cancel_discard clears the pending selection without discarding", async () => {
+    const { registry, stores, services } = create_harness();
+    stores.ui.discard_changes_dialog = { open: true, paths: ["notes/a.md"] };
+
+    await registry.execute(ACTION_IDS.git_cancel_discard);
+
+    expect(stores.ui.discard_changes_dialog).toEqual({
+      open: false,
+      paths: [],
+    });
+    expect(services.git.discard_file).not.toHaveBeenCalled();
+  });
+
+  it("git_confirm_discard is a no-op without a pending selection", async () => {
+    const { registry, services } = create_harness();
+
+    await registry.execute(ACTION_IDS.git_confirm_discard);
+
+    expect(services.git.discard_file).not.toHaveBeenCalled();
+    expect(services.git.discard_all).not.toHaveBeenCalled();
+  });
+
+  it("git_confirm_discard reloads the open note from HEAD", async () => {
+    const { registry, stores, services } = create_harness();
+    stores.ui.discard_changes_dialog = { open: true, paths: ["notes/a.md"] };
+    stores.tab.open_tab(as_note_path("notes/a.md"), "a");
+
+    await registry.execute(ACTION_IDS.git_confirm_discard);
+
+    expect(services.git.discard_file).toHaveBeenCalledWith("notes/a.md");
+    expect(services.editor.close_buffer).toHaveBeenCalledWith(
+      as_note_path("notes/a.md"),
+    );
+    expect(services.note.open_note).toHaveBeenCalledWith(
+      as_note_path("notes/a.md"),
+      false,
+      { force_reload: true, cleanup_if_missing: true },
+    );
+    expect(stores.ui.discard_changes_dialog.open).toBe(false);
+  });
+
+  it("git_confirm_discard drops the tab when the discarded file is gone", async () => {
+    const { registry, stores, services } = create_harness();
+    services.note.open_note.mockResolvedValue({ status: "not_found" });
+    stores.ui.discard_changes_dialog = { open: true, paths: ["notes/new.md"] };
+    stores.tab.open_tab(as_note_path("notes/new.md"), "new");
+
+    await registry.execute(ACTION_IDS.git_confirm_discard);
+
+    expect(services.note.clear_open_note).toHaveBeenCalledTimes(1);
+    expect(services.tab.remove_tab).toHaveBeenCalledWith(
+      as_note_path("notes/new.md"),
+    );
+  });
+
+  it("git_confirm_discard leaves unopened files alone", async () => {
+    const { registry, stores, services } = create_harness();
+    stores.ui.discard_changes_dialog = { open: true, paths: ["notes/a.md"] };
+
+    await registry.execute(ACTION_IDS.git_confirm_discard);
+
+    expect(services.git.discard_file).toHaveBeenCalledWith("notes/a.md");
+    expect(services.note.open_note).not.toHaveBeenCalled();
+  });
+
+  it("git_confirm_discard closes the diff viewer showing a discarded file", async () => {
+    const { registry, stores } = create_harness();
+    stores.ui.discard_changes_dialog = { open: true, paths: ["notes/a.md"] };
+    stores.ui.diff_viewer_dialog = { open: true, file_path: "notes/a.md" };
+
+    await registry.execute(ACTION_IDS.git_confirm_discard);
+
+    expect(stores.ui.diff_viewer_dialog).toEqual({
+      open: false,
+      file_path: null,
+    });
+  });
+
+  it("git_confirm_discard routes a multi-file selection through discard_all", async () => {
+    const { registry, stores, services } = create_harness();
+    stores.ui.discard_changes_dialog = {
+      open: true,
+      paths: ["a.md", "b.md"],
+    };
+
+    await registry.execute(ACTION_IDS.git_confirm_discard);
+
+    expect(services.git.discard_all).toHaveBeenCalledWith(["a.md", "b.md"]);
+    expect(toast.success).toHaveBeenCalledWith("Discarded changes to 2 files", {
+      id: "toast-id",
+    });
+  });
+
+  it("git_confirm_discard surfaces a failure and reloads nothing", async () => {
+    const { registry, stores, services } = create_harness();
+    services.git.discard_file.mockResolvedValue({
+      status: "failed",
+      error: "notes/a.md has unresolved merge conflicts.",
+    });
+    stores.ui.discard_changes_dialog = { open: true, paths: ["notes/a.md"] };
+    stores.tab.open_tab(as_note_path("notes/a.md"), "a");
+
+    await registry.execute(ACTION_IDS.git_confirm_discard);
+
+    expect(toast.error).toHaveBeenCalledWith(
+      "notes/a.md has unresolved merge conflicts.",
+      { id: "toast-id" },
+    );
+    expect(services.note.open_note).not.toHaveBeenCalled();
   });
 });

@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { GitFileStatus } from "$lib/features/git/types/git";
-  import { Plus, Minus } from "@lucide/svelte";
+  import { Plus, Minus, Undo2 } from "@lucide/svelte";
   import {
     note_name_from_path,
     parent_folder_path,
@@ -11,9 +11,11 @@
     is_staged: boolean;
     on_toggle_stage: (path: string) => void;
     on_view_diff: (path: string) => void;
+    on_discard: (path: string) => void;
   };
 
-  let { file, is_staged, on_toggle_stage, on_view_diff }: Props = $props();
+  let { file, is_staged, on_toggle_stage, on_view_diff, on_discard }: Props =
+    $props();
 
   const filename = $derived(note_name_from_path(file.path));
   const folder = $derived(parent_folder_path(file.path));
@@ -43,6 +45,14 @@
     {#if folder}
       <span class="ChangeCard__folder">{folder}</span>
     {/if}
+  </button>
+  <button
+    type="button"
+    class="ChangeCard__toggle ChangeCard__toggle--discard"
+    onclick={() => on_discard(file.path)}
+    aria-label="Discard changes to {file.path}"
+  >
+    <Undo2 class="ChangeCard__icon" />
   </button>
   <button
     type="button"
@@ -124,6 +134,22 @@
 
   .ChangeCard:hover .ChangeCard__toggle {
     opacity: 1;
+  }
+
+  .ChangeCard__toggle--discard {
+    opacity: 0;
+    padding-inline-end: 0;
+  }
+
+  .ChangeCard:hover .ChangeCard__toggle--discard,
+  .ChangeCard .ChangeCard__toggle--discard:focus-visible {
+    opacity: 0.7;
+  }
+
+  .ChangeCard .ChangeCard__toggle--discard:hover,
+  .ChangeCard .ChangeCard__toggle--discard:focus-visible:hover {
+    opacity: 1;
+    color: var(--destructive);
   }
 
   :global(.ChangeCard__icon) {

@@ -221,4 +221,36 @@ describe("create_graph_remark_adapter", () => {
     expect(groups.get("journal/2026/entry.md")).toBe("journal/2026");
     expect(groups.get("root.md")).toBe("");
   });
+
+  it("carries frontmatter and inline tags onto vault graph nodes", async () => {
+    const docs = [
+      make_doc("a.md", "---\ntags:\n  - alpha\n  - beta\n---\n\nBody"),
+      make_doc("b.md", "Body with #inline and #another tag"),
+      make_doc("c.md", "No tags here"),
+    ];
+    const port = make_notes_port(docs);
+    const read_raw = make_read_raw(docs);
+
+    const adapter = create_graph_remark_adapter(port, read_raw);
+    const snapshot = await adapter.load_vault_graph(VAULT_ID);
+
+    const tags = new Map(snapshot.nodes.map((n) => [n.path, n.tags]));
+    expect(tags.get("a.md")).toEqual(["alpha", "beta"]);
+    expect(tags.get("b.md")).toEqual(["inline", "another"]);
+    expect(tags.get("c.md")).toEqual([]);
+  });
+
+  it("carries note timestamps onto vault graph nodes", async () => {
+    const doc = make_doc("a.md", "");
+    doc.meta.ctime_ms = 1000;
+    doc.meta.mtime_ms = 2000;
+    const port = make_notes_port([doc]);
+    const read_raw = make_read_raw([doc]);
+
+    const adapter = create_graph_remark_adapter(port, read_raw);
+    const snapshot = await adapter.load_vault_graph(VAULT_ID);
+
+    expect(snapshot.nodes[0]?.date_created_ms).toBe(1000);
+    expect(snapshot.nodes[0]?.date_modified_ms).toBe(2000);
+  });
 });

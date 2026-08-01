@@ -303,6 +303,8 @@ pub fn run() {
             features::git::service::git_diff_working_tree,
             features::git::service::git_show_file_at_commit,
             features::git::service::git_restore_file,
+            features::git::service::git_discard_file,
+            features::git::service::git_discard_all,
             features::git::service::git_create_tag,
             features::git::service::git_push,
             features::git::service::git_fetch,
@@ -446,6 +448,8 @@ pub fn run() {
             features::external_mcp::external_mcp_call_tool,
             features::external_mcp::external_mcp_status,
             features::export::export_html_to_pdf,
+            features::export::export_write_html,
+            features::export::export_write_epub,
             shared::live_html::html_live_register,
             shared::live_html::html_live_release,
         ])

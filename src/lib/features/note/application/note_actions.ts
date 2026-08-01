@@ -34,7 +34,10 @@ import {
   parent_folder_path,
 } from "$lib/shared/utils/path";
 import type { InternalLinkSource } from "$lib/features/editor";
-import { resolve_wiki_link_note_path } from "$lib/features/editor";
+import {
+  format_block_link,
+  resolve_wiki_link_note_path,
+} from "$lib/features/editor";
 import { find_frontmatter_span } from "$lib/shared/domain/frontmatter_parser";
 import { inject_initial_frontmatter } from "$lib/features/metadata";
 import { toast } from "$lib/shared/ui/toast";
@@ -53,6 +56,10 @@ type InternalLinkSuffix = {
 type SaveRequestPayload = {
   source?: "manual" | "tab_close";
 };
+
+function to_block_pos(payload: unknown): number | null {
+  return typeof payload === "number" ? payload : null;
+}
 
 function parse_wiki_link_payload(payload: unknown): WikiLinkPayload | null {
   if (!payload || typeof payload !== "object") {
@@ -547,6 +554,32 @@ export function register_note_actions(input: ActionRegistrationInput) {
       label: "Copy Markdown",
       execute: async () => {
         await services.clipboard.copy_open_note_markdown();
+      },
+    });
+
+    registry.register({
+      id: ACTION_IDS.note_copy_block_link,
+      label: "Copy Block Link",
+      execute: async (pos: unknown) => {
+        const note_path = stores.editor.open_note?.meta.path;
+        if (!note_path) return;
+        const block_id = services.editor.ensure_block_id_at(to_block_pos(pos));
+        if (!block_id) return;
+        await services.clipboard.copy_text(
+          format_block_link(note_path, block_id),
+        );
+        toast.success("Block link copied");
+      },
+    });
+
+    registry.register({
+      id: ACTION_IDS.note_copy_block_id,
+      label: "Copy Block ID",
+      execute: async (pos: unknown) => {
+        const block_id = services.editor.ensure_block_id_at(to_block_pos(pos));
+        if (!block_id) return;
+        await services.clipboard.copy_text(block_id);
+        toast.success("Block ID copied");
       },
     });
 

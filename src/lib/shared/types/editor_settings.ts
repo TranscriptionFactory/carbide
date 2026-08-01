@@ -74,6 +74,8 @@ export type FileTreeMode = "tree" | "drilldown" | "recents" | "bases";
 export type RecentsSort = "modified" | "created" | "title";
 export type SortDirection = "asc" | "desc";
 export type RecentsPeriod = "all" | "week" | "month" | "quarter";
+export type GraphGroupMode = "folder" | "cluster" | "tag" | "degree" | "none";
+export type GraphOrderMode = "name" | "date_created" | "date_modified";
 export type LintFormatter = "prettier" | "rumdl";
 export type MarkdownLspProvider = "iwes" | "markdown_oxide" | "marksman";
 export type EmbeddingModelId =
@@ -192,6 +194,8 @@ export type EditorSettings = {
   graph_force_charge_strength: number;
   graph_force_collision_radius: number;
   graph_force_charge_max_distance: number;
+  graph_group_mode: GraphGroupMode;
+  graph_group_order: GraphOrderMode;
   outline_mode: OutlineMode;
   editor_toolbar_visibility: ToolbarVisibility;
   show_inline_frontmatter: boolean;
@@ -321,6 +325,8 @@ export const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
   graph_force_charge_strength: -200,
   graph_force_collision_radius: 20,
   graph_force_charge_max_distance: 500,
+  graph_group_mode: "folder",
+  graph_group_order: "name",
   outline_mode: "docked",
   editor_toolbar_visibility: "always_show",
   show_inline_frontmatter: true,
@@ -464,6 +470,26 @@ export const EDITOR_BLOCK_DRAG_HANDLE_OPTIONS: {
   { value: "always", label: "Always" },
 ];
 
+export const GRAPH_GROUP_MODE_OPTIONS: {
+  value: GraphGroupMode;
+  label: string;
+}[] = [
+  { value: "folder", label: "Folder" },
+  { value: "cluster", label: "Cluster" },
+  { value: "tag", label: "Tag" },
+  { value: "degree", label: "Connections" },
+  { value: "none", label: "No grouping" },
+];
+
+export const GRAPH_ORDER_MODE_OPTIONS: {
+  value: GraphOrderMode;
+  label: string;
+}[] = [
+  { value: "name", label: "Order by name" },
+  { value: "date_created", label: "Order by created" },
+  { value: "date_modified", label: "Order by modified" },
+];
+
 export const GLOBAL_ONLY_SETTING_KEYS: readonly (keyof EditorSettings)[] = [
   "show_vault_dashboard_on_open",
   "git_autocommit_mode",
@@ -533,6 +559,8 @@ export const GLOBAL_ONLY_SETTING_KEYS: readonly (keyof EditorSettings)[] = [
   "graph_force_charge_strength",
   "graph_force_collision_radius",
   "graph_force_charge_max_distance",
+  "graph_group_mode",
+  "graph_group_order",
   "outline_mode",
   "editor_toolbar_visibility",
   "show_inline_frontmatter",
