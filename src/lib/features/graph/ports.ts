@@ -8,6 +8,9 @@ export type VaultGraphNode = {
   kind?: "hit" | "neighbor";
   score?: number;
   group?: string;
+  tags?: string[];
+  date_created_ms?: number;
+  date_modified_ms?: number;
 };
 
 export type VaultGraphEdge = {

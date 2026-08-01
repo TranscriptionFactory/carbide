@@ -18,6 +18,7 @@ import {
   compute_tick_budget,
   label_collision_radius,
 } from "./graph_layout_tuning";
+import { compute_group_grid } from "./graph_grouping";
 
 type WorkerNode = SimulationNodeDatum & {
   id: string;
@@ -57,6 +58,7 @@ type InboundMessage =
       edges: { source: string; target: string }[];
       force_params?: ForceParams;
       grouping?: GroupingParams;
+      group_order?: string[];
       compute_clusters?: boolean;
     }
   | { type: "tick_budget"; ticks: number }
@@ -97,23 +99,6 @@ function send_positions(): void {
   post({ type: "positions", ids: node_ids, buffer: buffer.buffer }, [
     buffer.buffer,
   ]);
-}
-
-function compute_group_grid(
-  groups: string[],
-): Map<string, { x: number; y: number }> {
-  const unique = [...new Set(groups)].sort();
-  const cols = Math.ceil(Math.sqrt(unique.length));
-  const spacing = 300;
-  const result = new Map<string, { x: number; y: number }>();
-  for (let i = 0; i < unique.length; i++) {
-    const col = i % cols;
-    const row = Math.floor(i / cols);
-    const cx = (col - (cols - 1) / 2) * spacing;
-    const cy = (row - (Math.ceil(unique.length / cols) - 1) / 2) * spacing;
-    result.set(unique[i]!, { x: cx, y: cy });
-  }
-  return result;
 }
 
 function handle_init(msg: Extract<InboundMessage, { type: "init" }>): void {
@@ -188,7 +173,9 @@ function handle_init(msg: Extract<InboundMessage, { type: "init" }>): void {
     if (use_folder) {
       const groups = nodes.filter((n) => n.group != null).map((n) => n.group!);
       if (groups.length > 0) {
-        const grid = compute_group_grid(groups);
+        const grid = compute_group_grid(
+          msg.group_order ?? [...new Set(groups)].sort(),
+        );
         const strength = gp.folder_strength;
         sim.force(
           "folder_x",

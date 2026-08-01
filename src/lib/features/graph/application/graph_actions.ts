@@ -7,6 +7,13 @@ import {
   GRAPH_TAB_ID,
   GRAPH_TAB_TITLE,
 } from "$lib/features/graph/domain/graph_tab";
+import {
+  GRAPH_GROUP_MODE_OPTIONS,
+  GRAPH_ORDER_MODE_OPTIONS,
+  type EditorSettings,
+  type GraphGroupMode,
+  type GraphOrderMode,
+} from "$lib/shared/types/editor_settings";
 
 type GraphCloseOptions = {
   preserve_context_rail?: boolean;
@@ -23,13 +30,29 @@ function parse_close_options(input: unknown): GraphCloseOptions {
   };
 }
 
+function as_group_mode(value: unknown): GraphGroupMode | undefined {
+  return GRAPH_GROUP_MODE_OPTIONS.find((o) => o.value === value)?.value;
+}
+
+function as_order_mode(value: unknown): GraphOrderMode | undefined {
+  return GRAPH_ORDER_MODE_OPTIONS.find((o) => o.value === value)?.value;
+}
+
 export function register_graph_actions(
   input: ActionRegistrationInput & {
     graph_store: GraphStore;
     graph_service: GraphService;
   },
 ) {
-  const { registry, stores, graph_store, graph_service } = input;
+  const { registry, stores, services, graph_store, graph_service } = input;
+
+  async function persist(patch: Partial<EditorSettings>): Promise<void> {
+    const updated: EditorSettings = { ...stores.ui.editor_settings, ...patch };
+    const result = await services.settings.save_settings(updated);
+    if (result.status === "success") {
+      stores.ui.set_editor_settings(updated);
+    }
+  }
 
   function close_graph(options: GraphCloseOptions = {}) {
     graph_service.close_panel();
@@ -179,25 +202,32 @@ export function register_graph_actions(
   registry.register({
     id: ACTION_IDS.graph_cycle_group_mode,
     label: "Cycle Graph Grouping",
-    execute: () => {
-      const current = graph_store.group_mode;
+    execute: async () => {
+      const current = stores.ui.editor_settings.graph_group_mode;
+      const index = GRAPH_GROUP_MODE_OPTIONS.findIndex(
+        (o) => o.value === current,
+      );
       const next =
-        current === "folder"
-          ? "cluster"
-          : current === "cluster"
-            ? "none"
-            : "folder";
-      graph_store.set_group_mode(next);
+        GRAPH_GROUP_MODE_OPTIONS[(index + 1) % GRAPH_GROUP_MODE_OPTIONS.length];
+      if (next) await persist({ graph_group_mode: next.value });
     },
   });
 
   registry.register({
     id: ACTION_IDS.graph_set_group_mode,
     label: "Set Graph Grouping",
-    execute: (mode: unknown) => {
-      if (mode === "folder" || mode === "cluster" || mode === "none") {
-        graph_store.set_group_mode(mode);
-      }
+    execute: async (mode: unknown) => {
+      const value = as_group_mode(mode);
+      if (value) await persist({ graph_group_mode: value });
+    },
+  });
+
+  registry.register({
+    id: ACTION_IDS.graph_set_group_order,
+    label: "Set Graph Group Order",
+    execute: async (order: unknown) => {
+      const value = as_order_mode(order);
+      if (value) await persist({ graph_group_order: value });
     },
   });
 
