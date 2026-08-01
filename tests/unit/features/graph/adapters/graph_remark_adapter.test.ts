@@ -148,6 +148,73 @@ describe("create_graph_remark_adapter", () => {
     expect(list_notes).toHaveBeenCalledTimes(2);
   });
 
+  it("invalidate_cache with a known note refreshes it in place without rebuild", async () => {
+    const docs = [make_doc("a.md", "Link to [[b]]"), make_doc("b.md", "")];
+    const port = make_notes_port(docs);
+    const list_notes = vi.mocked(port.list_notes);
+    const content_map = new Map(
+      docs.map((d) => [d.meta.path as string, d.markdown as string]),
+    );
+    const read_raw = vi
+      .fn()
+      .mockImplementation((_vault_id: VaultId, path: string) => {
+        const markdown = content_map.get(path);
+        return markdown !== undefined
+          ? Promise.resolve(markdown)
+          : Promise.reject(new Error("not found"));
+      });
+
+    const adapter = create_graph_remark_adapter(port, read_raw);
+    await adapter.load_vault_graph(VAULT_ID);
+    expect(list_notes).toHaveBeenCalledTimes(1);
+
+    content_map.set("a.md", "No more links");
+    await adapter.invalidate_cache(VAULT_ID, "a.md");
+    const snapshot = await adapter.load_vault_graph(VAULT_ID);
+
+    expect(list_notes).toHaveBeenCalledTimes(1);
+    expect(snapshot.edges).toEqual([]);
+  });
+
+  it("invalidate_cache with an unknown note drops the whole index", async () => {
+    const docs = [make_doc("a.md", "")];
+    const port = make_notes_port(docs);
+    const list_notes = vi.mocked(port.list_notes);
+    const read_raw = make_read_raw(docs);
+
+    const adapter = create_graph_remark_adapter(port, read_raw);
+    await adapter.load_vault_graph(VAULT_ID);
+
+    await adapter.invalidate_cache(VAULT_ID, "brand-new.md");
+    await adapter.load_vault_graph(VAULT_ID);
+    expect(list_notes).toHaveBeenCalledTimes(2);
+  });
+
+  it("invalidate_cache drops the index when the note can no longer be read", async () => {
+    const docs = [make_doc("a.md", "")];
+    const port = make_notes_port(docs);
+    const list_notes = vi.mocked(port.list_notes);
+    const content_map = new Map(
+      docs.map((d) => [d.meta.path as string, d.markdown as string]),
+    );
+    const read_raw = vi
+      .fn()
+      .mockImplementation((_vault_id: VaultId, path: string) => {
+        const markdown = content_map.get(path);
+        return markdown !== undefined
+          ? Promise.resolve(markdown)
+          : Promise.reject(new Error("not found"));
+      });
+
+    const adapter = create_graph_remark_adapter(port, read_raw);
+    await adapter.load_vault_graph(VAULT_ID);
+
+    content_map.delete("a.md");
+    await adapter.invalidate_cache(VAULT_ID, "a.md");
+    await adapter.load_vault_graph(VAULT_ID);
+    expect(list_notes).toHaveBeenCalledTimes(2);
+  });
+
   it("handles markdown links alongside wikilinks", async () => {
     const docs = [
       make_doc("a.md", "See [link](b.md) and [[c]]"),
