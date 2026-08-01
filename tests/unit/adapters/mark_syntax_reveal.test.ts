@@ -50,13 +50,38 @@ function get_spans(state: EditorState): RevealSpan[] {
   return mark_syntax_reveal_plugin_key.getState(state)!.spans;
 }
 
-function get_widget_keys(state: EditorState): string[] {
-  const decorations =
-    mark_syntax_reveal_plugin_key.getState(state)!.decorations;
-  return decorations
-    .find()
-    .map((deco) => (deco.spec as { key: string }).key)
-    .sort();
+type DecoAttrs = { attrs: { class: string; style: string } };
+type RevealDecoration = {
+  from: number;
+  to: number;
+  class: string;
+  delimiter: string;
+};
+
+function get_decorations(state: EditorState): RevealDecoration[] {
+  return mark_syntax_reveal_plugin_key
+    .getState(state)!
+    .decorations.find()
+    .map((deco) => {
+      const { attrs } = (deco as unknown as { type: DecoAttrs }).type;
+      return {
+        from: deco.from,
+        to: deco.to,
+        class: attrs.class,
+        delimiter: attrs.style.replace(
+          /^--mark-reveal-delimiter: "(.*)"$/,
+          "$1",
+        ),
+      };
+    });
+}
+
+function open_marker(from: number, delimiter: string): RevealDecoration {
+  return { from, to: from + 1, class: "mark-reveal-open", delimiter };
+}
+
+function close_marker(to: number, delimiter: string): RevealDecoration {
+  return { from: to - 1, to, class: "mark-reveal-close", delimiter };
 }
 
 function run_backspace(state: EditorState): {
@@ -160,7 +185,7 @@ describe("reveal spans on selection change", () => {
   it("reveals a code span when the cursor is inside it", () => {
     const state = make_marked_state(CODE_SEGMENTS, 4);
     expect(get_spans(state)).toEqual([
-      { from: 2, to: 6, mark_name: "code_inline", delimiter: "`", order: 4 },
+      { from: 2, to: 6, mark_name: "code_inline" },
     ]);
   });
 
@@ -173,9 +198,25 @@ describe("reveal spans on selection change", () => {
     expect(mark_syntax_reveal_plugin_key.getState(moved)).toBe(prev);
   });
 
-  it("shows nothing when the cursor does not touch a span", () => {
-    expect(get_spans(make_marked_state(CODE_SEGMENTS, 1))).toEqual([]);
-    expect(get_spans(make_marked_state(CODE_SEGMENTS, 7))).toEqual([]);
+  it("reveals every run in the caret's block, not only the one under it", () => {
+    const segments: Segment[] = [
+      { text: "a" },
+      { text: "bo", marks: ["strong"] },
+      { text: "c" },
+      { text: "hi", marks: ["highlight"] },
+    ];
+    for (const caret of [1, 4, 7]) {
+      expect(get_spans(make_marked_state(segments, caret))).toEqual([
+        { from: 2, to: 4, mark_name: "strong" },
+        { from: 5, to: 7, mark_name: "highlight" },
+      ]);
+    }
+  });
+
+  it("shows nothing when the cursor is in a block without runs", () => {
+    const plain = make_paragraph([{ text: "plain" }]);
+    const marked = make_paragraph([{ text: "code", marks: ["code_inline"] }]);
+    expect(get_spans(make_state([plain, marked], 3))).toEqual([]);
   });
 
   it("reveals at the span start boundary", () => {
@@ -188,11 +229,14 @@ describe("reveal spans on selection change", () => {
     expect(get_spans(state)).toHaveLength(1);
   });
 
-  it("clears spans when the cursor leaves the span", () => {
-    const inside = make_marked_state(CODE_SEGMENTS, 4);
+  it("clears spans when the cursor leaves the block", () => {
+    const inside = make_state(
+      [make_paragraph(CODE_SEGMENTS), make_paragraph([{ text: "next" }])],
+      4,
+    );
     expect(get_spans(inside)).toHaveLength(1);
     const outside = inside.apply(
-      inside.tr.setSelection(TextSelection.create(inside.doc, 7)),
+      inside.tr.setSelection(TextSelection.create(inside.doc, 11)),
     );
     expect(get_spans(outside)).toEqual([]);
   });
@@ -220,37 +264,37 @@ describe("reveal spans on selection change", () => {
 });
 
 describe("per-mark delimiters", () => {
-  const cases: Array<[string, string, number]> = [
-    ["strong", "**", 0],
-    ["em", "*", 1],
-    ["strikethrough", "~~", 2],
-    ["highlight", "==", 3],
-    ["code_inline", "`", 4],
+  const cases: Array<[string, string]> = [
+    ["strong", "**"],
+    ["em", "*"],
+    ["strikethrough", "~~"],
+    ["highlight", "=="],
+    ["code_inline", "`"],
   ];
 
-  for (const [mark_name, delimiter, order] of cases) {
+  for (const [mark_name, delimiter] of cases) {
     it(`renders ${delimiter} for ${mark_name}`, () => {
       const state = make_marked_state([{ text: "x", marks: [mark_name] }], 1);
-      expect(get_spans(state)).toEqual([
-        { from: 1, to: 2, mark_name, delimiter, order },
-      ]);
-      expect(get_widget_keys(state)).toEqual([
-        `reveal-end:${delimiter}`,
-        `reveal-start:${delimiter}`,
+      expect(get_spans(state)).toEqual([{ from: 1, to: 2, mark_name }]);
+      expect(get_decorations(state)).toEqual([
+        open_marker(1, delimiter),
+        close_marker(2, delimiter),
       ]);
     });
   }
 });
 
 describe("nested and combined marks", () => {
-  it("composes bold+italic of equal extent as *** on both sides", () => {
+  it("stacks bold and italic of equal extent into *** on both sides", () => {
     const state = make_marked_state(
       [{ text: "hi", marks: ["strong", "em"] }],
       2,
     );
-    expect(get_widget_keys(state)).toEqual([
-      "reveal-end:***",
-      "reveal-start:***",
+    expect(get_decorations(state)).toEqual([
+      open_marker(1, "**"),
+      open_marker(1, "*"),
+      close_marker(3, "**"),
+      close_marker(3, "*"),
     ]);
   });
 
@@ -264,14 +308,14 @@ describe("nested and combined marks", () => {
       4,
     );
     expect(get_spans(state)).toEqual([
-      { from: 1, to: 7, mark_name: "strong", delimiter: "**", order: 0 },
-      { from: 3, to: 5, mark_name: "em", delimiter: "*", order: 1 },
+      { from: 1, to: 7, mark_name: "strong" },
+      { from: 3, to: 5, mark_name: "em" },
     ]);
-    expect(get_widget_keys(state)).toEqual([
-      "reveal-end:*",
-      "reveal-end:**",
-      "reveal-start:*",
-      "reveal-start:**",
+    expect(get_decorations(state)).toEqual([
+      open_marker(1, "**"),
+      open_marker(3, "*"),
+      close_marker(5, "*"),
+      close_marker(7, "**"),
     ]);
   });
 });
@@ -286,18 +330,18 @@ describe("decorations are display-only", () => {
     expect(revealed.doc.textContent).toBe("acodeb");
   });
 
-  it("start and end widgets sit exactly at the span boundaries", () => {
+  it("covers the run's first and last character with inline decorations", () => {
     const state = make_marked_state(CODE_SEGMENTS, 4);
-    const decorations = mark_syntax_reveal_plugin_key
-      .getState(state)!
-      .decorations.find();
-    expect(decorations.map((d) => [d.from, d.to])).toEqual(
-      expect.arrayContaining([
-        [2, 2],
-        [6, 6],
-      ]),
-    );
-    expect(decorations).toHaveLength(2);
+    const decorations = get_decorations(state);
+    expect(decorations.map((d) => [d.from, d.to])).toEqual([
+      [2, 3],
+      [5, 6],
+    ]);
+  });
+
+  it("emits no zero-width widget decorations", () => {
+    const state = make_marked_state(CODE_SEGMENTS, 4);
+    expect(get_decorations(state).every((d) => d.to === d.from + 1)).toBe(true);
   });
 });
 

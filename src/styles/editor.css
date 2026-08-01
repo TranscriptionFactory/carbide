@@ -1125,9 +1125,16 @@
   }
 }
 
-/* ── Inline mark syntax reveal ── */
+/* ── Inline mark syntax reveal ──
+   Delimiters are pseudo-element content on the run's first/last character, so
+   they add no selectable text and no extra caret stops. Mirrors the
+   .show-heading-markers pattern in typography.css. */
 
-.mark-syntax-delimiter {
+.mark-reveal-open::before,
+.mark-reveal-close::after {
+  content: var(--mark-reveal-delimiter, "");
   color: var(--editor-text-muted);
+  font-weight: 400;
+  font-style: normal;
   user-select: none;
 }
