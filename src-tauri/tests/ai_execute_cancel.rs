@@ -281,9 +281,11 @@ async fn timeout_is_still_reported_as_a_timeout_and_kills_the_child() {
 
     assert!(!result.success);
     assert_eq!(result.error.as_deref(), Some(pipeline::TIMED_OUT_ERROR));
+    // Regression guard for the shared-child lock fix: the child sleeps 30 s, so a
+    // timeout that waits on the child instead of killing it would land near 30 s.
     assert!(
-        started.elapsed() < Duration::from_secs(10),
-        "timeout should fire at the deadline, took {:?}",
+        started.elapsed() < Duration::from_secs(3),
+        "timeout should fire at the 1 s deadline, took {:?}",
         started.elapsed()
     );
 
