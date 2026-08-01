@@ -4,6 +4,7 @@ import type { TabStore } from "$lib/features/tab";
 import type { TabService } from "$lib/features/tab";
 import type { NoteService } from "$lib/features/note";
 import type { WatcherService } from "$lib/features/watcher";
+import type { GraphService } from "$lib/features/graph";
 import type { ActionRegistry } from "$lib/app/action_registry/action_registry";
 import type { VaultFsEvent } from "$lib/features/watcher";
 import type { WorkspaceReconcile } from "$lib/app/orchestration/workspace_reconcile";
@@ -103,6 +104,27 @@ export function resolve_watcher_event_decision(
   }
 }
 
+export type GraphInvalidation =
+  | { kind: "note"; note_path: string }
+  | { kind: "all" };
+
+export function resolve_graph_invalidation(
+  event: VaultFsEvent,
+  current_vault_id: string | null,
+): GraphInvalidation | null {
+  if (event.vault_id !== current_vault_id) return null;
+
+  switch (event.type) {
+    case "note_changed_externally":
+      return { kind: "note", note_path: event.note_path };
+    case "note_added":
+    case "note_removed":
+      return { kind: "all" };
+    default:
+      return null;
+  }
+}
+
 export function create_watcher_reactor(
   vault_store: VaultStore,
   editor_store: EditorStore,
@@ -111,6 +133,7 @@ export function create_watcher_reactor(
   note_service: NoteService,
   watcher_service: WatcherService,
   action_registry: ActionRegistry,
+  graph_service: GraphService,
   workspace_reconcile?: WorkspaceReconcile,
 ): () => void {
   return $effect.root(() => {
@@ -186,9 +209,23 @@ export function create_watcher_reactor(
         return;
       }
 
+      const current_vault_id = vault_store.vault?.id ?? null;
+
+      const graph_invalidation = resolve_graph_invalidation(
+        event,
+        current_vault_id,
+      );
+      if (graph_invalidation) {
+        void graph_service.invalidate_cache(
+          graph_invalidation.kind === "note"
+            ? graph_invalidation.note_path
+            : undefined,
+        );
+      }
+
       const decision = resolve_watcher_event_decision(
         event,
-        vault_store.vault?.id ?? null,
+        current_vault_id,
         editor_store.open_note?.meta.path ?? null,
         editor_store.open_note?.is_dirty ?? false,
         find_background_tab,
