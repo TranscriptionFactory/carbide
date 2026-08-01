@@ -40,6 +40,12 @@ describe("render_rag_markdown", () => {
     expect(html).toContain(">[1]</button>");
   });
 
+  it("keeps citation buttons selectable so a drag can span them", () => {
+    const html = render_rag_markdown("The answer is 42 [1].", citations(q));
+
+    expect(html).toMatch(/<button[^>]*class="[^"]*\bselect-text\b/);
+  });
+
   it("escapes citation titles used in the button tooltip", () => {
     const html = render_rag_markdown(
       "See [1].",

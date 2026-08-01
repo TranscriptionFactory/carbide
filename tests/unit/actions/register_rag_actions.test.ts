@@ -91,10 +91,14 @@ function create_harness(events: RagStreamEvent[] = ANSWERED_EVENTS) {
     ),
   };
 
+  const services = {
+    clipboard: { copy_text: vi.fn().mockResolvedValue(undefined) },
+  };
+
   register_rag_actions({
     registry,
     stores: stores as never,
-    services: {} as never,
+    services: services as never,
     default_mount_config: {
       reset_app_state: true,
       bootstrap_default_vault_path: null,
@@ -104,7 +108,7 @@ function create_harness(events: RagStreamEvent[] = ANSWERED_EVENTS) {
     agent_port,
   });
 
-  return { registry, stores, rag_store, rag_service, note_open };
+  return { registry, stores, rag_store, rag_service, note_open, services };
 }
 
 beforeEach(() => {
@@ -416,17 +420,27 @@ describe("register_rag_actions", () => {
     expect(note_open).toHaveBeenCalledWith("notes/q.md");
   });
 
-  it("copy message: writes the message content to the clipboard", async () => {
-    const { registry, rag_store } = create_harness();
-    const write_text = vi.fn().mockResolvedValue(undefined);
-    vi.stubGlobal("navigator", { clipboard: { writeText: write_text } });
+  it("copy message: routes the message content through the clipboard service", async () => {
+    const { registry, rag_store, services } = create_harness();
 
     await registry.execute(ACTION_IDS.rag_ask, "what is it?");
     const assistant = rag_store.messages[1];
     await registry.execute(ACTION_IDS.rag_copy_message, assistant?.id);
 
-    expect(write_text).toHaveBeenCalledWith("42 [1].");
-    vi.unstubAllGlobals();
+    expect(services.clipboard.copy_text).toHaveBeenCalledWith("42 [1].");
+  });
+
+  it("copy message: reports a clipboard failure instead of rejecting", async () => {
+    const { registry, rag_store, services } = create_harness();
+    services.clipboard.copy_text.mockRejectedValueOnce(new Error("denied"));
+
+    await registry.execute(ACTION_IDS.rag_ask, "what is it?");
+    const assistant = rag_store.messages[1];
+
+    await expect(
+      registry.execute(ACTION_IDS.rag_copy_message, assistant?.id),
+    ).resolves.not.toThrow();
+    expect(toast.error).toHaveBeenCalledWith("Failed to copy message");
   });
 
   it("regenerate: cuts the reply and re-asks the same question without duplicating it", async () => {
