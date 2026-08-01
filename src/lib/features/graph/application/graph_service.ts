@@ -31,6 +31,10 @@ export class GraphService {
   private semantic_load_revision = 0;
   private smart_link_load_revision = 0;
   private hierarchy_load_revision = 0;
+  private semantic_edge_settings?: {
+    knn_limit?: number;
+    distance_threshold?: number;
+  };
 
   constructor(
     private readonly graph_port: GraphPort,
@@ -40,11 +44,6 @@ export class GraphService {
     private readonly editor_store: EditorStore,
     private readonly graph_store: GraphStore,
     private readonly search_graph_store?: SearchGraphStore,
-    private readonly get_auto_edge_config?: () => {
-      auto_threshold: number;
-      knn_limit: number;
-      distance_threshold: number;
-    },
   ) {}
 
   private get_active_vault_id() {
@@ -132,7 +131,7 @@ export class GraphService {
         edges: snapshot.stats.edge_count,
       });
       this.graph_store.set_vault_snapshot(snapshot);
-      await this.maybe_auto_load_vault_edges(snapshot.stats.node_count);
+      await this.reload_visible_vault_edges();
     } catch (error) {
       if (revision !== this.vault_load_revision) return;
       const message = error_message(error);
@@ -141,21 +140,19 @@ export class GraphService {
     }
   }
 
-  private async maybe_auto_load_vault_edges(node_count: number): Promise<void> {
-    const cfg = this.get_auto_edge_config?.();
-    if (!cfg || node_count === 0 || node_count > cfg.auto_threshold) return;
-
-    // ponytail: re-enables on every load while edges are empty (e.g. no
-    // embeddings yet); acceptable since the compute is cheap and idempotent.
-    if (this.graph_store.semantic_edges.length === 0) {
-      this.graph_store.set_show_semantic_edges(true);
-      await this.load_semantic_edges({
-        knn_limit: cfg.knn_limit,
-        distance_threshold: cfg.distance_threshold,
-      });
+  // Edges are only computed when the user has toggled them on; a fresh load
+  // never turns them on by itself (the batch KNN is too costly for startup).
+  private async reload_visible_vault_edges(): Promise<void> {
+    if (
+      this.graph_store.show_semantic_edges &&
+      this.graph_store.semantic_edges.length === 0
+    ) {
+      await this.load_semantic_edges();
     }
-    if (this.graph_store.smart_link_edges.length === 0) {
-      this.graph_store.set_show_smart_link_edges(true);
+    if (
+      this.graph_store.show_smart_link_edges &&
+      this.graph_store.smart_link_edges.length === 0
+    ) {
       await this.load_smart_link_edges();
     }
   }
@@ -235,8 +232,10 @@ export class GraphService {
     const snapshot = this.graph_store.vault_snapshot;
     if (!vault_id || !snapshot) return;
 
-    const knn_limit = settings?.knn_limit ?? SEMANTIC_EDGE_KNN_LIMIT;
-    const threshold = settings?.distance_threshold;
+    if (settings) this.semantic_edge_settings = settings;
+    const effective = settings ?? this.semantic_edge_settings;
+    const knn_limit = effective?.knn_limit ?? SEMANTIC_EDGE_KNN_LIMIT;
+    const threshold = effective?.distance_threshold;
 
     try {
       const status = await this.search_port.get_embedding_status(vault_id);
