@@ -5,10 +5,7 @@ import type { SearchPort } from "$lib/features/search";
 import type { NotesPort } from "$lib/features/note";
 import type { AiImagePart } from "$lib/features/ai";
 import { start_run_stream } from "$lib/features/assistant";
-import type {
-  RunHandle,
-  RunStarter,
-} from "$lib/features/assistant";
+import type { RunHandle, RunStarter } from "$lib/features/assistant";
 import type { TagPort } from "$lib/features/tags";
 import type { BasesPort } from "$lib/features/bases";
 import type { AiProviderConfig } from "$lib/shared/types/ai_provider_config";

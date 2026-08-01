@@ -125,7 +125,8 @@ describe("AgenticEditRunner.run", () => {
       { type: "text", text: "half" },
       {
         type: "error",
-        message: "Ollama rejected the request — check your API key in Settings.",
+        message:
+          "Ollama rejected the request — check your API key in Settings.",
       },
     ]);
 

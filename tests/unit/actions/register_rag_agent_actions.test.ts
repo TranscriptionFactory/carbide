@@ -172,6 +172,35 @@ beforeEach(() => {
 });
 
 describe("rag agent actions", () => {
+  // I3: rag_actions used to carry its own `auto` rule that returned
+  // providers[0] with no availability probe. It now asks the one resolver.
+  it("ask: resolves the provider through the kernel, not a local rule", async () => {
+    const { registry, stores, rag_store, assistant_kernel } = create_harness();
+    rag_store.set_mode("agent");
+    stores.ui.editor_settings.ai_default_provider_id = "auto";
+    assistant_kernel.resolve_provider.mockResolvedValue(
+      stores.ui.editor_settings.ai_providers.find((p) => p.id === "claude") ??
+        null,
+    );
+
+    await registry.execute(ACTION_IDS.rag_ask, "organize my notes");
+
+    expect(assistant_kernel.resolve_provider).toHaveBeenCalledWith("auto");
+    expect(assistant_kernel.specs).toHaveLength(1);
+  });
+
+  it("ask: gives up rather than running an unresolvable provider", async () => {
+    const { registry, stores, rag_store, assistant_kernel } = create_harness();
+    rag_store.set_mode("agent");
+    stores.ui.editor_settings.ai_default_provider_id = "auto";
+    assistant_kernel.resolve_provider.mockResolvedValue(null);
+
+    await registry.execute(ACTION_IDS.rag_ask, "organize my notes");
+
+    expect(assistant_kernel.specs).toHaveLength(0);
+    expect(toast.error).toHaveBeenCalledWith("No AI provider configured");
+  });
+
   it("set_mode: switches the session mode to agent", async () => {
     const { registry, rag_store } = create_harness();
 

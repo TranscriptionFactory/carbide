@@ -4,7 +4,12 @@ import { VaultStore } from "$lib/features/vault";
 import { create_test_vault } from "../helpers/test_fixtures";
 import { create_test_rag_persistence_adapter } from "../../adapters/test_rag_persistence_adapter";
 import type { AiStreamChunk } from "$lib/features/ai";
-import type { RunEvent, RunHandle, RunSink, RunSpec } from "$lib/features/assistant";
+import type {
+  RunEvent,
+  RunHandle,
+  RunSink,
+  RunSpec,
+} from "$lib/features/assistant";
 import { create_test_run_starter } from "../../adapters/test_run_starter";
 import type { AiProviderConfig } from "$lib/shared/types/ai_provider_config";
 import type {
@@ -484,7 +489,9 @@ describe("RagService.query", () => {
 
     const request = stream.specs[0]?.request;
     if (request?.mode !== "text") throw new Error("expected a text run");
-    expect(String(request.messages[0]?.content ?? "")).toContain("cutoff is 30 days");
+    expect(String(request.messages[0]?.content ?? "")).toContain(
+      "cutoff is 30 days",
+    );
   });
 
   it("renders a citation split across two stream chunks once", async () => {

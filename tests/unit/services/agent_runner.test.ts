@@ -316,7 +316,10 @@ describe("AgentRunner.run_turn", () => {
     const { rag_store, vault_store } = make_stores();
     let sink_seen = 0;
     const starter = {
-      start: (_spec: RunSpec, sink?: import("$lib/features/assistant").RunSink) => {
+      start: (
+        _spec: RunSpec,
+        sink?: import("$lib/features/assistant").RunSink,
+      ) => {
         const events: RunEvent[] = [
           { type: "session", provider_session_id: "sess-1" },
           { type: "text", text: "hello" },

@@ -48,6 +48,7 @@ import { register_window_actions } from "$lib/features/window";
 import {
   AiService,
   AgenticEditRunner,
+  create_plugin_ai_host,
   register_ai_actions,
 } from "$lib/features/ai";
 import { RagService, RagPanel, register_rag_actions } from "$lib/features/rag";
@@ -56,8 +57,6 @@ import {
   create_assistant_transport_tauri_adapter,
   register_assistant_actions,
 } from "$lib/features/assistant";
-import type { AiProviderConfig } from "$lib/shared/types/ai_provider_config";
-import type { AiProviderHint } from "$lib/features/plugin";
 import {
   BasesService,
   BasesPanel,
@@ -130,45 +129,6 @@ import type { DiagnosticSource } from "$lib/features/diagnostics";
 import { apply_workspace_edit_result } from "$lib/features/lsp";
 
 export type AppContext = ReturnType<typeof create_app_context>;
-
-function derive_provider_hint(provider: AiProviderConfig): AiProviderHint {
-  const model = provider.model ?? null;
-
-  if (provider.transport.kind === "cli") {
-    const cmd = provider.transport.command;
-    if (cmd === "claude") {
-      return {
-        provider: "anthropic",
-        model,
-        api_key_env: "ANTHROPIC_API_KEY",
-        base_url: null,
-      };
-    }
-    if (cmd === "ollama") {
-      return { provider: "ollama", model, api_key_env: null, base_url: null };
-    }
-    return { provider: "unknown", model, api_key_env: null, base_url: null };
-  }
-
-  const { base_url, api_key_env } = provider.transport;
-  const combined = `${base_url} ${api_key_env ?? ""}`.toLowerCase();
-
-  if (combined.includes("anthropic")) {
-    return {
-      provider: "anthropic",
-      model,
-      api_key_env: api_key_env ?? null,
-      base_url: null,
-    };
-  }
-
-  return {
-    provider: "openai",
-    model,
-    api_key_env: api_key_env ?? null,
-    base_url: base_url || null,
-  };
-}
 
 export function create_app_context(input: {
   ports: Ports;
@@ -1181,75 +1141,26 @@ export function create_app_context(input: {
         return { success: true, path: file_path };
       },
     },
-    ai: {
-      async execute(input) {
-        const settings = stores.ui.editor_settings;
-        if (!settings.ai_enabled) {
-          return {
-            success: false,
-            output: "",
-            error: "AI is disabled in settings",
-          };
-        }
-
-        // I3: one provider rule. This used to take providers[0] for `auto`
-        // with no availability probe.
-        const provider = await assistant_kernel.resolve_provider(
-          settings.ai_default_provider_id,
-        );
-
-        if (!provider) {
-          return {
-            success: false,
-            output: "",
-            error: "No AI provider configured",
-          };
-        }
-
-        const vault = stores.vault.vault;
-        if (!vault) {
-          return {
-            success: false,
-            output: "",
-            error: "No active vault",
-          };
-        }
-
+    ai: create_plugin_ai_host({
+      ai_enabled: () => stores.ui.editor_settings.ai_enabled,
+      default_provider_id: () =>
+        stores.ui.editor_settings.ai_default_provider_id,
+      execution_timeout_seconds: () =>
+        stores.ui.editor_settings.ai_execution_timeout_seconds,
+      resolve_provider: (requested_id) =>
+        assistant_kernel.resolve_provider(requested_id),
+      vault_path: () => stores.vault.vault?.path ?? null,
+      open_note: () => {
         const open_note = stores.editor.open_note;
-        return ai_service.execute({
-          provider_config: provider,
-          prompt: input.prompt,
-          context: {
-            kind: "note",
-            note_path:
-              open_note?.meta.path ??
-              ("" as import("$lib/shared/types/ids").NotePath),
-            note_title: open_note?.meta.title ?? "",
-            note_markdown: (open_note?.markdown ??
-              "") as import("$lib/shared/types/ids").MarkdownText,
-            selection: null,
-            target: "full_note",
-          },
-          mode: input.mode ?? "ask",
-          timeout_seconds: settings.ai_execution_timeout_seconds,
-        });
-      },
-      async get_provider_hint(): Promise<AiProviderHint> {
-        const settings = stores.ui.editor_settings;
-        const unknown_hint: AiProviderHint = {
-          provider: "unknown",
-          model: null,
-          api_key_env: null,
-          base_url: null,
+        if (!open_note) return null;
+        return {
+          path: open_note.meta.path,
+          title: open_note.meta.title,
+          markdown: open_note.markdown,
         };
-        if (!settings.ai_enabled) return unknown_hint;
-        const provider = await assistant_kernel.resolve_provider(
-          settings.ai_default_provider_id,
-        );
-        if (!provider) return unknown_hint;
-        return derive_provider_hint(provider);
       },
-    },
+      execute: (execute_input) => ai_service.execute(execute_input),
+    }),
     sidecar: external_mcp_tauri_adapter,
   });
 

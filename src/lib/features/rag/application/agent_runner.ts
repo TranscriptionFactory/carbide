@@ -3,11 +3,7 @@ import { error_message } from "$lib/shared/utils/error_message";
 import { chat_policy } from "$lib/features/ai";
 import type { VaultStore } from "$lib/features/vault";
 import type { AiProviderConfig } from "$lib/shared/types/ai_provider_config";
-import type {
-  RunHandle,
-  RunSink,
-  RunStarter,
-} from "$lib/features/assistant";
+import type { RunHandle, RunSink, RunStarter } from "$lib/features/assistant";
 import {
   changed_files_from_tools,
   is_mutating_call,

@@ -9,6 +9,12 @@ export {
   type AiDialogState,
 } from "$lib/features/ai/state/ai_store.svelte";
 export type { AiPort } from "$lib/features/ai/ports";
+export {
+  create_plugin_ai_host,
+  type PluginAiHost,
+  type PluginAiHostDeps,
+} from "$lib/features/ai/application/plugin_ai_host";
+export { derive_provider_hint } from "$lib/features/ai/domain/ai_provider_hint";
 export type { AiHistoryPersistencePort } from "$lib/features/ai/ports";
 export { create_ai_tauri_adapter } from "$lib/features/ai/adapters/ai_tauri_adapter";
 export { create_ai_history_tauri_adapter } from "$lib/features/ai/adapters/ai_history_tauri_adapter";

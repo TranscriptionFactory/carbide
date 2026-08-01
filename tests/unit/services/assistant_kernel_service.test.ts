@@ -5,6 +5,7 @@ import {
   type AssistantTransportPort,
   type RunEvent,
   type RunId,
+  type RunOutcome,
   type RunSink,
   type RunSpec,
 } from "$lib/features/assistant";
@@ -53,12 +54,20 @@ function agent_spec(): RunSpec {
 
 type Received = { id: RunId; event: RunEvent };
 
-function create_recording_sink(): RunSink & { received: Received[] } {
+function create_recording_sink(): RunSink & {
+  received: Received[];
+  ended: { id: RunId; outcome: RunOutcome }[];
+} {
   const received: Received[] = [];
+  const ended: { id: RunId; outcome: RunOutcome }[] = [];
   return {
     received,
+    ended,
     on_event(id, event) {
       received.push({ id, event });
+    },
+    on_end(id, outcome) {
+      ended.push({ id, outcome });
     },
   };
 }
@@ -351,5 +360,189 @@ describe("AssistantKernelService", () => {
     await handle.outcome;
 
     expect(kernel.is_running(handle.id)).toBe(false);
+  });
+  // on_end is what lets a sink that owns transcript state close it out. The
+  // abort path is the reason it exists: it breaks the loop and dispatches no
+  // terminal event, so without on_end a transcript would hang open forever.
+  describe("sink close-out", () => {
+    it("fires on_end once after the last event when a run completes", async () => {
+      const transport = create_mock_transport([
+        { type: "text", text: "hi" },
+        { type: "done" },
+      ]);
+      const { kernel } = create_kernel(transport);
+      const sink = create_recording_sink();
+
+      const handle = await kernel.start(run_spec(), sink);
+      const outcome = await handle.outcome;
+
+      expect(sink.ended).toEqual([{ id: handle.id, outcome }]);
+      expect(sink.received.at(-1)?.event).toEqual({ type: "done" });
+    });
+
+    it("fires on_end once with the aborted outcome when a run is stopped", async () => {
+      const transport = create_manual_transport();
+      const { kernel } = create_kernel(transport);
+      const sink = create_recording_sink();
+
+      const handle = await kernel.start(run_spec(), sink);
+      await transport.channel().emit({ type: "text", text: "half" });
+      kernel.stop(handle.id);
+      const outcome = await handle.outcome;
+
+      expect(outcome).toEqual({ status: "aborted", text: "half" });
+      expect(sink.ended).toEqual([{ id: handle.id, outcome }]);
+      expect(sink.received.some((entry) => entry.event.type === "done")).toBe(
+        false,
+      );
+    });
+
+    it("fires on_end once with the error outcome when a run fails", async () => {
+      const transport = create_mock_transport([
+        { type: "error", message: "boom" },
+      ]);
+      const { kernel } = create_kernel(transport);
+      const sink = create_recording_sink();
+
+      const handle = await kernel.start(run_spec(), sink);
+      const outcome = await handle.outcome;
+
+      expect(sink.ended).toHaveLength(1);
+      expect(sink.ended[0]?.outcome).toEqual(outcome);
+      expect(outcome.status).toBe("error");
+    });
+
+    it("fires on_end on a refusal the transport never saw", async () => {
+      const transport = create_mock_transport();
+      const { kernel } = create_kernel(transport, null);
+      const sink = create_recording_sink();
+
+      const handle = await kernel.start(agent_spec(), sink);
+      const outcome = await handle.outcome;
+
+      expect(transport._requests).toEqual([]);
+      expect(sink.ended).toEqual([{ id: handle.id, outcome }]);
+    });
+
+    it("keeps the run going when a sink throws from on_end", async () => {
+      const transport = create_mock_transport([{ type: "done" }]);
+      const { kernel, run_store } = create_kernel(transport);
+      const healthy = create_recording_sink();
+      kernel.register_sink({
+        on_event: () => {},
+        on_end: () => {
+          throw new Error("sink exploded");
+        },
+      });
+      kernel.register_sink(healthy);
+
+      const handle = await kernel.start(run_spec());
+      await expect(handle.outcome).resolves.toMatchObject({ status: "done" });
+      expect(healthy.ended).toHaveLength(1);
+      expect(run_store.get(handle.id)?.status).toBe("done");
+    });
+  });
+
+  // A provider whose args carry {output_file} cannot stream, so the transport
+  // runs it one-shot against a note file. Without both paths the Rust side
+  // rejects it at the process boundary with an opaque message, so the kernel
+  // refuses first with one the user can act on.
+  describe("blocking provider pre-flight", () => {
+    const blocking = make_provider({
+      transport: {
+        kind: "cli",
+        command: "codex",
+        args: ["exec", "--output-last-message", "{output_file}"],
+      },
+    });
+
+    function blocking_spec(note_path?: string): RunSpec {
+      return run_spec({
+        provider: blocking,
+        request: {
+          mode: "text",
+          system_prompt: "",
+          messages: [{ role: "user", content: "hello" }],
+          ...(note_path ? { note_path } : {}),
+        },
+      });
+    }
+
+    it("refuses a blocking run with no vault path before touching the transport", async () => {
+      const transport = create_mock_transport();
+      const { kernel, run_store } = create_kernel(transport, null);
+      const sink = create_recording_sink();
+
+      const handle = await kernel.start(blocking_spec("notes/a.md"), sink);
+      const outcome = await handle.outcome;
+
+      expect(transport._requests).toEqual([]);
+      expect(outcome.status).toBe("error");
+      const record = run_store.get(handle.id);
+      expect(record?.status).toBe("error");
+      expect(record?.error?.message).toContain("saved note");
+      expect(record?.error?.message).not.toContain("see logs for details");
+      expect(sink.ended).toHaveLength(1);
+    });
+
+    it("refuses a blocking run with no note path", async () => {
+      const transport = create_mock_transport();
+      const { kernel, run_store } = create_kernel(transport);
+
+      const handle = await kernel.start(blocking_spec());
+      const outcome = await handle.outcome;
+
+      expect(transport._requests).toEqual([]);
+      expect(outcome.status).toBe("error");
+      expect(run_store.get(handle.id)?.error?.message).toContain("saved note");
+    });
+
+    it("runs a blocking provider that has both a vault path and a note path", async () => {
+      const transport = create_mock_transport([
+        { type: "text", text: "answered" },
+        { type: "done" },
+      ]);
+      const { kernel } = create_kernel(transport);
+
+      const handle = await kernel.start(blocking_spec("notes/a.md"));
+
+      await expect(handle.outcome).resolves.toEqual({
+        status: "done",
+        text: "answered",
+        stats: null,
+      });
+      expect(transport._requests).toHaveLength(1);
+    });
+
+    // A streaming provider legitimately has no note to write to.
+    it("leaves a streaming provider with no vault path alone", async () => {
+      const transport = create_mock_transport([{ type: "done" }]);
+      const { kernel } = create_kernel(transport, null);
+
+      const handle = await kernel.start(run_spec());
+
+      await expect(handle.outcome).resolves.toMatchObject({ status: "done" });
+      expect(transport._requests).toHaveLength(1);
+    });
+  });
+
+  // Rust emits the same "aborted" sentinel on both channels. It is a
+  // cancellation ack, so humanizing it would show the user a fake failure.
+  it("treats the aborted sentinel as cancellation rather than an error", async () => {
+    const transport = create_manual_transport();
+    const { kernel, run_store } = create_kernel(transport);
+    const sink = create_recording_sink();
+
+    const handle = await kernel.start(run_spec(), sink);
+    await transport.channel().emit({ type: "text", text: "kept" });
+    kernel.stop(handle.id);
+    await transport.channel().emit({ type: "error", message: "aborted" });
+    const outcome = await handle.outcome;
+
+    expect(outcome).toEqual({ status: "aborted", text: "kept" });
+    expect(run_store.get(handle.id)?.error).toBeNull();
+    expect(sink.received.some((entry) => entry.event.type === "error")).toBe(
+      false,
+    );
   });
 });
