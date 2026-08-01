@@ -208,9 +208,7 @@ export function register_graph_actions(
         (o) => o.value === current,
       );
       const next =
-        GRAPH_GROUP_MODE_OPTIONS[
-          (index + 1) % GRAPH_GROUP_MODE_OPTIONS.length
-        ];
+        GRAPH_GROUP_MODE_OPTIONS[(index + 1) % GRAPH_GROUP_MODE_OPTIONS.length];
       if (next) await persist({ graph_group_mode: next.value });
     },
   });

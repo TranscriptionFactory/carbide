@@ -74,12 +74,7 @@ export type FileTreeMode = "tree" | "drilldown" | "recents" | "bases";
 export type RecentsSort = "modified" | "created" | "title";
 export type SortDirection = "asc" | "desc";
 export type RecentsPeriod = "all" | "week" | "month" | "quarter";
-export type GraphGroupMode =
-  | "folder"
-  | "cluster"
-  | "tag"
-  | "degree"
-  | "none";
+export type GraphGroupMode = "folder" | "cluster" | "tag" | "degree" | "none";
 export type GraphOrderMode = "name" | "date_created" | "date_modified";
 export type LintFormatter = "prettier" | "rumdl";
 export type MarkdownLspProvider = "iwes" | "markdown_oxide" | "marksman";
