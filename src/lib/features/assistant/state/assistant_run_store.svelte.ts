@@ -1,5 +1,6 @@
 import { SvelteMap } from "svelte/reactivity";
 import type {
+  AssistantUserError,
   RunEvent,
   RunId,
   RunRecord,
@@ -79,15 +80,20 @@ export class AssistantRunStore {
       case "tool_end":
         return;
       case "error":
-        this.amend(record, {
-          status: "error",
-          error: { message: event.message, detail: event.message },
-        });
+        this.set_error(id, { message: event.message, detail: event.message });
         return;
       case "done":
         this.amend(record, { status: "done", stats: event.stats ?? null });
         return;
     }
+  }
+
+  // The kernel humanizes once and lands the pair here: `message` is what a
+  // surface shows, `detail` is the raw provider text behind a disclosure.
+  set_error(id: RunId, error: AssistantUserError): void {
+    const record = this.runs.get(id);
+    if (!record) return;
+    this.amend(record, { status: "error", error });
   }
 
   set_status(id: RunId, status: RunStatus): void {

@@ -121,6 +121,31 @@ describe("AssistantRunStore", () => {
     });
   });
 
+  it("keeps the humanized message and the raw detail apart on set_error", () => {
+    const store = new AssistantRunStore();
+    const raw = "spawn claude ENOENT: failed to spawn";
+    start_run(store, "run-1");
+
+    store.set_error("run-1", {
+      message: "Claude Code CLI not found — install it or pick another.",
+      detail: raw,
+    });
+
+    const error = store.get("run-1")?.error;
+    expect(store.get("run-1")?.status).toBe("error");
+    expect(error?.detail).toBe(raw);
+    expect(error?.message).not.toBe(raw);
+  });
+
+  it("ignores set_error for an unknown run", () => {
+    const store = new AssistantRunStore();
+
+    store.set_error("ghost", { message: "boom", detail: "boom" });
+
+    expect(store.get("ghost")).toBeNull();
+    expect(store.has_error).toBe(false);
+  });
+
   it("orders all by start time and excludes terminated runs from active", () => {
     const store = new AssistantRunStore();
     start_run(store, "late", 300);

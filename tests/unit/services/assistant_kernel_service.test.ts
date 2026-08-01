@@ -22,17 +22,33 @@ function run_spec(overrides: Partial<RunSpec> = {}): RunSpec {
   return make_run_spec({ provider: PROVIDER, ...overrides });
 }
 
-function create_kernel(transport: AssistantTransportPort) {
+function create_kernel(
+  transport: AssistantTransportPort,
+  vault_path: string | null = "/vault",
+) {
   const run_store = new AssistantRunStore();
   const kernel = new AssistantKernelService({
     transport,
     probe: create_mock_probe_port(),
     run_store,
-    vault_path: () => "/vault",
+    vault_path: () => vault_path,
     providers: () => [PROVIDER],
     default_provider_id: () => PROVIDER.id,
   });
   return { kernel, run_store };
+}
+
+function agent_spec(): RunSpec {
+  return run_spec({
+    kind: "agent",
+    request: {
+      mode: "agent",
+      prompt: "summarize the vault",
+      toolset: { kind: "read_only" },
+      history: [],
+      backend: "native",
+    },
+  });
 }
 
 type Received = { id: RunId; event: RunEvent };
@@ -123,9 +139,11 @@ describe("AssistantKernelService", () => {
     const unsubscribe = kernel.register_sink(sink);
 
     const handle = await kernel.start(run_spec());
+    expect(transport.channel().is_waiting()).toBe(true);
     await transport.channel().emit({ type: "text", text: "one" });
 
     unsubscribe();
+    expect(transport.channel().is_waiting()).toBe(true);
     await transport.channel().emit({ type: "text", text: "two" });
 
     expect(sink.received).toEqual([
@@ -148,6 +166,7 @@ describe("AssistantKernelService", () => {
     const { kernel, run_store } = create_kernel(transport);
 
     const handle = await kernel.start(run_spec());
+    expect(transport.channel().is_waiting()).toBe(true);
     await transport.channel().emit({ type: "text", text: "half a th" });
 
     kernel.stop(handle.id);
@@ -203,11 +222,82 @@ describe("AssistantKernelService", () => {
     expect(humanized).not.toBe("");
     expect(humanized).not.toBe(raw);
     expect(humanized).toContain(PROVIDER.name);
+    // The record keeps both halves: the humanized line a surface shows, and the
+    // raw provider text behind a disclosure. Equal values would make the
+    // popover's "message not detail" assertion vacuous.
+    expect(record?.error?.detail).toBe(raw);
     expect(outcome).toEqual({
       status: "error",
       error: { message: humanized, detail: raw },
       text: "",
     });
+  });
+
+  it("isolates a sink that throws so the run and the other sinks continue", async () => {
+    const { kernel, run_store } = create_kernel(
+      create_mock_transport([{ type: "text", text: "hi" }, { type: "done" }]),
+    );
+    const healthy_global = create_recording_sink();
+    const per_run = create_recording_sink();
+    kernel.register_sink({
+      on_event() {
+        throw new Error("sink exploded");
+      },
+    });
+    kernel.register_sink(healthy_global);
+
+    const handle = await kernel.start(run_spec(), per_run);
+    const outcome = await handle.outcome;
+
+    const expected: Received[] = [
+      { id: handle.id, event: { type: "text", text: "hi" } },
+      { id: handle.id, event: { type: "done" } },
+    ];
+    expect(healthy_global.received).toEqual(expected);
+    expect(per_run.received).toEqual(expected);
+    expect(run_store.text_of(handle.id)).toBe("hi");
+    expect(outcome).toEqual({ status: "done", text: "hi", stats: null });
+  });
+
+  it("fails an agent run with no vault path before touching the transport", async () => {
+    const transport = create_mock_transport();
+    const { kernel, run_store } = create_kernel(transport, null);
+    const sink = create_recording_sink();
+
+    const handle = await kernel.start(agent_spec(), sink);
+    const outcome = await handle.outcome;
+
+    expect(transport._requests).toEqual([]);
+
+    const record = run_store.get(handle.id);
+    expect(record?.status).toBe("error");
+    expect(record?.error?.message).toContain("vault");
+    expect(outcome).toMatchObject({ status: "error", text: "" });
+    expect(kernel.is_running(handle.id)).toBe(false);
+    expect(sink.received).toEqual([
+      {
+        id: handle.id,
+        event: { type: "error", message: record?.error?.message },
+      },
+    ]);
+  });
+
+  it("runs a text-mode run with no vault path", async () => {
+    const transport = create_mock_transport([
+      { type: "text", text: "no vault needed" },
+      { type: "done" },
+    ]);
+    const { kernel, run_store } = create_kernel(transport, null);
+
+    const handle = await kernel.start(run_spec());
+
+    await expect(handle.outcome).resolves.toEqual({
+      status: "done",
+      text: "no vault needed",
+      stats: null,
+    });
+    expect(transport._requests[0]?.vault_path).toBeNull();
+    expect(run_store.get(handle.id)?.status).toBe("done");
   });
 
   it("catches a transport that throws mid-iteration and terminates the run", async () => {
