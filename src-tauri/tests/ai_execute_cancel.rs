@@ -332,3 +332,28 @@ async fn pipeline_without_abort_channel_still_succeeds() {
     assert!(result.success, "unexpected failure: {:?}", result.error);
     assert_eq!(result.output, "hello");
 }
+
+// A child that never reads stdin closes the read end when it exits, so the
+// prompt write hits EPIPE. The payload is far larger than the pipe buffer, so
+// the write provably cannot finish first — this is the deterministic form of
+// the race that made `echo hello` flaky under load. The child's exit status,
+// not the plumbing, decides the result.
+#[tokio::test]
+async fn child_that_ignores_stdin_is_judged_by_its_exit_status() {
+    let dir = tempfile::tempdir().unwrap();
+
+    let result = pipeline::execute_pipeline(
+        "sh".to_string(),
+        vec!["-c".to_string(), "echo hello".to_string()],
+        Some("x".repeat(512 * 1024)),
+        dir.path().to_string_lossy().to_string(),
+        Some(30),
+        None,
+        None,
+    )
+    .await
+    .unwrap();
+
+    assert!(result.success, "unexpected failure: {:?}", result.error);
+    assert_eq!(result.output, "hello");
+}
