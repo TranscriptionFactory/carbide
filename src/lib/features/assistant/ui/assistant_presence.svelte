@@ -17,10 +17,11 @@
     ).length,
   );
   const errors = $derived(runs.filter((run) => run.status === "error"));
+  const has_errors = $derived(errors.length > 0);
   const first_error_message = $derived(errors[0]?.error?.message ?? null);
 
   const label = $derived.by(() => {
-    if (errors.length > 0)
+    if (has_errors)
       return `${errors.length} error${errors.length > 1 ? "s" : ""}`;
     if (active_count === 0) return "ready";
     return `${active_count} run${active_count > 1 ? "s" : ""}`;
@@ -40,7 +41,7 @@
         {...props}
         type="button"
         class="AssistantPresence"
-        class:AssistantPresence--error={errors.length > 0}
+        class:AssistantPresence--error={has_errors}
         class:AssistantPresence--active={active_count > 0}
         data-testid="status-assistant-presence"
         title={description}
@@ -51,17 +52,13 @@
         <span
           class="AssistantPresence__dot"
           class:AssistantPresence__dot--streaming={active_count > 0 &&
-            errors.length === 0}
-          class:AssistantPresence__dot--error={errors.length > 0}
+            !has_errors}
+          class:AssistantPresence__dot--error={has_errors}
         ></span>
       </button>
     {/snippet}
   </Popover.Trigger>
-  <Popover.Content
-    class="AssistantPresence__content"
-    align="end"
-    sideOffset={8}
-  >
+  <Popover.Content align="end" sideOffset={8}>
     <AssistantRunsPopover {runs} {on_stop} {now} />
   </Popover.Content>
 </Popover.Root>
