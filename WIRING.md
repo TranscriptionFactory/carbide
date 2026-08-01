@@ -52,7 +52,7 @@ interface and pass them down from `workspace_layout.svelte`:
 | `on_stop` | `(id: RunId) => void` | yes      | dispatch to the kernel — see §4                                   |
 | `now`     | `() => number`        | no       | omit in production; defaults to `Date.now`. Tests inject a clock. |
 
-Two props total. There is no detachment prop — see §5.
+Two props total, plus the optional test clock. There is no detachment prop in W0.
 
 Pass `assistant_run_store.all`, **not** `.active`. The component does its own filtering
 and must see errored runs, which `.active` excludes by design.
@@ -78,25 +78,7 @@ Also worth registering while you are in the registry: `ASSISTANT_STOP_ALL_RUNS` 
 global `esc` path that `AssistantStopButton`'s `hint="esc"` advertises. AU-005 renders the
 hint but binds no hotkey; `DEFAULT_HOTKEYS` is yours.
 
-## 5. No detachment concept in W0 (deliberate)
-
-There is no `detached_ids` prop and no "run detached" sub-line. Run↔surface association is
-only knowable in W1 when sessions land, so any such prop would be wired as a permanently
-empty set — speculative future-proofing that AGENTS.md rules out.
-
-I2 is satisfied without it. The popover renders from the run store, not from the surface
-that started the run, so closing the inline menu changes nothing: the run keeps streaming,
-its row stays, and Stop still works. That behaviour is what the tests assert (an
-`inline`-kind run is an ordinary row, with no special casing) — not a label.
-
-W1 follow-ups recorded for the orchestrator, not solved here:
-
-- the "run detached" sub-line, once a real producer for it exists;
-- the mockup's `agent · running write_note` sub-line, which needs live tool state.
-  `RunEvent` carries `tool_start` / `tool_end` so the store sees it, but surfacing it needs
-  a new `RunRecord` field, and contracts are frozen. Rendering `{status} · {kind}` instead.
-
-## 6. Inline-menu Stop
+## 5. Inline-menu Stop
 
 `AssistantStopButton` is the inline-menu control from the mockup header
 (`■ Stop  esc`). Whoever owns the inline menu mounts it as:
@@ -109,7 +91,7 @@ It renders nothing for a terminated run and disables itself while `status === "s
 so the caller needs no guard of its own. Omit `hint` in denser contexts — the popover rows
 already do.
 
-## 7. Test helper added
+## 6. Test helper added
 
 `tests/unit/helpers/ui_stubs/popover.ts` + `popover_root.svelte` — a stub for
 `$lib/components/ui/popover`, following the existing `dialog` / `tooltip` / `select` stub
