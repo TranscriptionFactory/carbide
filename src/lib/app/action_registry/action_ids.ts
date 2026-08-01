@@ -276,6 +276,10 @@ export const ACTION_IDS = {
   git_commit_staged: "git.commit_staged",
   git_open_diff: "git.open_diff",
   git_close_diff: "git.close_diff",
+  git_request_discard: "git.request_discard",
+  git_request_discard_all: "git.request_discard_all",
+  git_confirm_discard: "git.confirm_discard",
+  git_cancel_discard: "git.cancel_discard",
 
   theme_load: "theme.load",
   theme_switch: "theme.switch",

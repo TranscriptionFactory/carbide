@@ -198,6 +198,11 @@ const INITIAL_DIFF_VIEWER_DIALOG = {
   file_path: null as string | null,
 } as const;
 
+const INITIAL_DISCARD_CHANGES_DIALOG = {
+  open: false,
+  paths: [] as string[],
+} as const;
+
 const INITIAL_HOTKEY_RECORDER: HotkeyRecorderState = {
   open: false,
   action_id: null,
@@ -445,6 +450,11 @@ export class UIStore {
     file_path: string | null;
   }>({ ...INITIAL_DIFF_VIEWER_DIALOG });
 
+  discard_changes_dialog = $state<{
+    open: boolean;
+    paths: string[];
+  }>({ ...INITIAL_DISCARD_CHANGES_DIALOG, paths: [] });
+
   vault_switcher_open = $state(false);
 
   tab_drag_active = $state(false);
@@ -669,6 +679,10 @@ export class UIStore {
     this.checkpoint_dialog = { ...INITIAL_CHECKPOINT_DIALOG };
     this.add_remote_dialog = { ...INITIAL_ADD_REMOTE_DIALOG };
     this.diff_viewer_dialog = { ...INITIAL_DIFF_VIEWER_DIALOG };
+    this.discard_changes_dialog = {
+      ...INITIAL_DISCARD_CHANGES_DIALOG,
+      paths: [],
+    };
     this.vault_switcher_open = false;
     this.query_builder_open = false;
     this.zen_mode = false;

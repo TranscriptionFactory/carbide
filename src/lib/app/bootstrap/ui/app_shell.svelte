@@ -52,6 +52,7 @@
       stores.ui.rename_folder_dialog.open ||
       stores.ui.image_paste_dialog.open ||
       stores.ui.tab_close_confirm.open ||
+      stores.ui.discard_changes_dialog.open ||
       stores.ui.help_dialog.open ||
       stores.ui.welcome_dialog.open ||
       stores.ui.create_canvas_dialog.open ||

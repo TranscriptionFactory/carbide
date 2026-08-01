@@ -44,6 +44,16 @@
     void action_registry.execute(ACTION_IDS.git_stage_all);
   }
 
+  function request_discard(path: string) {
+    void action_registry.execute(ACTION_IDS.git_request_discard, {
+      file_path: path,
+    });
+  }
+
+  function request_discard_all() {
+    void action_registry.execute(ACTION_IDS.git_request_discard_all);
+  }
+
   function unstage_all() {
     void action_registry.execute(ACTION_IDS.git_unstage_all);
   }
@@ -149,6 +159,7 @@
               is_staged={true}
               on_toggle_stage={toggle_stage}
               on_view_diff={view_diff}
+              on_discard={request_discard}
             />
           {/each}
         </div>
@@ -160,8 +171,14 @@
       count={unstaged_files.length}
       open={changes_open}
       action_label={unstaged_files.length > 0 ? "Stage All" : undefined}
+      destructive_action_label={unstaged_files.length > 0
+        ? "Discard All"
+        : undefined}
       on_toggle={() => (changes_open = !changes_open)}
       on_action={unstaged_files.length > 0 ? stage_all : undefined}
+      on_destructive_action={unstaged_files.length > 0
+        ? request_discard_all
+        : undefined}
     >
       <div class="SourceControlPanel__file-list">
         {#each unstaged_files as file (file.path)}
@@ -170,6 +187,7 @@
             is_staged={false}
             on_toggle_stage={toggle_stage}
             on_view_diff={view_diff}
+            on_discard={request_discard}
           />
         {/each}
         {#if unstaged_files.length === 0}
