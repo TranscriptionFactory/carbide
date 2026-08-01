@@ -7,10 +7,9 @@
     runs: RunRecord[];
     on_stop: (id: RunId) => void;
     now?: (() => number) | undefined;
-    detached_ids?: ReadonlySet<RunId> | undefined;
   }
 
-  let { runs, on_stop, now, detached_ids }: Props = $props();
+  let { runs, on_stop, now }: Props = $props();
 
   const active_count = $derived(
     runs.filter(
@@ -63,7 +62,7 @@
     align="end"
     sideOffset={8}
   >
-    <AssistantRunsPopover {runs} {on_stop} {now} {detached_ids} />
+    <AssistantRunsPopover {runs} {on_stop} {now} />
   </Popover.Content>
 </Popover.Root>
 
