@@ -35,6 +35,12 @@ export {
   WIDTH_FRONTMATTER_KEY,
 } from "$lib/features/editor/domain/note_width_mode";
 export {
+  format_block_link,
+  generate_block_id,
+  parse_block_ids,
+  type BlockIdMatch,
+} from "$lib/features/editor/domain/block_id";
+export {
   resolve_wiki_link_target,
   resolve_wiki_link_note_path,
   resolve_wiki_file_target,

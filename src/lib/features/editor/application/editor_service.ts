@@ -45,6 +45,7 @@ import type { AssetsPort, NotesPort, NotesStore } from "$lib/features/note";
 import { collect_recent_notes } from "$lib/features/editor/domain/collect_recent_notes";
 import type { TagPort } from "$lib/features/tags";
 import { normalize_markdown_line_breaks } from "$lib/features/editor/domain/markdown_line_breaks";
+import { parse_block_ids } from "$lib/features/editor/domain/block_id";
 import { rank_tags } from "$lib/features/tags";
 import { is_draft_note_path } from "$lib/features/note";
 import { suggest_query } from "$lib/features/query";
@@ -55,25 +56,7 @@ import { create_logger } from "$lib/shared/utils/logger";
 
 const log = create_logger("editor_service");
 
-const BLOCK_ID_REGEX = /\s\^([a-zA-Z0-9-]+)\s*$/;
-
 const AT_PALETTE_RECENTS_LIMIT = 10;
-
-function parse_block_ids(
-  markdown: string,
-): Array<{ text: string; block_id: string; line: number }> {
-  const results: Array<{ text: string; block_id: string; line: number }> = [];
-  const lines = markdown.split("\n");
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i]!;
-    const match = BLOCK_ID_REGEX.exec(line);
-    if (match && match[1]) {
-      const text = line.slice(0, match.index).trim();
-      results.push({ text, block_id: match[1], line: i + 1 });
-    }
-  }
-  return results;
-}
 
 function note_name_from_path(path: string): string {
   const leaf = path.split("/").at(-1) ?? path;
@@ -728,6 +711,14 @@ export class EditorService {
 
   insert_block_at(pos: number | null, placement: BlockPlacement) {
     this.session?.insert_block_at?.(pos, placement);
+  }
+
+  ensure_block_id_at(pos: number | null): string | null {
+    return this.session?.ensure_block_id_at?.(pos) ?? null;
+  }
+
+  block_supports_id_at(pos: number): boolean {
+    return this.session?.block_supports_id_at?.(pos) ?? false;
   }
 
   batch_turn_into(

@@ -118,16 +118,20 @@
     execute(action_id);
   }
 
-  function resolve_single_target(): number | null {
+  const single_target = $derived.by(() => {
     if (target_block_pos != null) return target_block_pos;
     if (block_selection.size === 1) return [...block_selection][0] ?? null;
     return null;
-  }
+  });
+
+  const can_copy_block_link = $derived(
+    single_target != null &&
+      services.editor.block_supports_id_at(single_target),
+  );
 
   function resolve_target_blocks(): Set<number> | null {
     if (has_multi_selection) return block_selection;
-    const single = resolve_single_target();
-    return single == null ? null : new Set([single]);
+    return single_target == null ? null : new Set([single_target]);
   }
 
   function warn_unresolved(operation: string) {
@@ -181,12 +185,19 @@
   }
 
   function handle_insert(placement: "above" | "below") {
-    const pos = resolve_single_target();
-    if (pos == null) {
+    if (single_target == null) {
       warn_unresolved(`insert_${placement}`);
       return;
     }
-    services.editor.insert_block_at(pos, placement);
+    services.editor.insert_block_at(single_target, placement);
+  }
+
+  function handle_copy_block(action_id: string) {
+    if (single_target == null) {
+      warn_unresolved(action_id);
+      return;
+    }
+    void action_registry.execute(action_id, single_target);
   }
 </script>
 
@@ -227,6 +238,18 @@
         Duplicate
         <span class="ml-auto text-xs text-muted-foreground">⇧⌘D</span>
       </ContextMenu.Item>
+      {#if can_copy_block_link}
+        <ContextMenu.Item
+          onSelect={() => handle_copy_block(ACTION_IDS.note_copy_block_link)}
+        >
+          Copy Block Link
+        </ContextMenu.Item>
+        <ContextMenu.Item
+          onSelect={() => handle_copy_block(ACTION_IDS.note_copy_block_id)}
+        >
+          Copy Block ID
+        </ContextMenu.Item>
+      {/if}
       <ContextMenu.Separator />
       <ContextMenu.Item onSelect={() => handle_insert("above")}>
         Insert Above
