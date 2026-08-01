@@ -138,7 +138,7 @@ mod specta_export {
                 crate::features::search::service::search_linked_notes,
                 crate::features::search::service::update_linked_note_metadata,
                 crate::features::search::service::index_note_links_snapshot,
-                // Git commands (15)
+                // Git commands (17)
                 crate::features::git::service::git_has_repo,
                 crate::features::git::service::git_init_repo,
                 crate::features::git::service::git_status,
@@ -147,6 +147,8 @@ mod specta_export {
                 crate::features::git::service::git_diff,
                 crate::features::git::service::git_show_file_at_commit,
                 crate::features::git::service::git_restore_file,
+                crate::features::git::service::git_discard_file,
+                crate::features::git::service::git_discard_all,
                 crate::features::git::service::git_create_tag,
                 crate::features::git::service::git_push,
                 crate::features::git::service::git_fetch,
