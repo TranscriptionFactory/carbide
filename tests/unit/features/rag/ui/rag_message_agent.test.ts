@@ -34,7 +34,10 @@ function render_message(props: {
   const execute = vi.fn().mockResolvedValue(undefined);
   const rendered = render_with_app_context(RagMessageView, {
     app_context: {
-      stores: { editor: { open_note: null } },
+      stores: {
+        editor: { open_note: null },
+        vault: { vault: { path: "/vault/root" } },
+      },
       action_registry: { execute },
     } as unknown as Partial<AppContext>,
     props,
@@ -128,6 +131,30 @@ describe("RagMessage agent-mode citations", () => {
     );
   });
 
+  it("normalizes absolute harness paths to vault-relative citations", () => {
+    const { target, execute } = render_message({
+      message: make_message({
+        tool_events: [
+          {
+            name: "Read",
+            input_summary: "",
+            paths: ["/vault/root/notes/deep/b.md"],
+            ok: true,
+          },
+        ],
+      }),
+    });
+    const buttons = [...target.querySelectorAll("button")].filter((el) =>
+      el.textContent?.includes("notes/deep/b.md"),
+    );
+    expect(buttons).toHaveLength(1);
+    buttons[0]?.click();
+    expect(execute).toHaveBeenCalledWith(
+      ACTION_IDS.rag_open_citation,
+      "notes/deep/b.md",
+    );
+  });
+
   it("omits the citation block when no read tools carry a path", () => {
     const { target } = render_message({
       message: make_message({
@@ -141,5 +168,33 @@ describe("RagMessage agent-mode citations", () => {
       }),
     });
     expect(target.textContent).not.toContain("Sources");
+  });
+});
+
+describe("RagMessage markdown links", () => {
+  it("opens a relative markdown link as a note instead of navigating", () => {
+    const { target, execute } = render_message({
+      message: make_message({ content: "See [A note](notes/a.md)." }),
+    });
+    const anchor = target.querySelector("a");
+    expect(anchor).not.toBeNull();
+    anchor?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    expect(execute).toHaveBeenCalledWith(
+      ACTION_IDS.rag_open_citation,
+      "notes/a.md",
+    );
+  });
+
+  it("routes external links through the shell opener", () => {
+    const { target, execute } = render_message({
+      message: make_message({ content: "See [docs](https://example.com)." }),
+    });
+    const anchor = target.querySelector("a");
+    expect(anchor).not.toBeNull();
+    anchor?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    expect(execute).toHaveBeenCalledWith(
+      ACTION_IDS.shell_open_url,
+      "https://example.com",
+    );
   });
 });

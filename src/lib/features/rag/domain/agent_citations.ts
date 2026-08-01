@@ -1,7 +1,8 @@
 import type { RagCitation } from "$lib/features/rag/domain/rag_types";
 import {
   MCP_TOOL_PREFIX,
-  paths_from_summary,
+  paths_from_call,
+  to_vault_relative_path,
   type AgentToolCall,
 } from "$lib/features/rag/domain/agent_file_ops";
 
@@ -21,13 +22,17 @@ function title_from_path(note_path: string): string {
   return base.replace(/\.md$/i, "");
 }
 
-export function citations_from_tools(calls: AgentToolCall[]): RagCitation[] {
+export function citations_from_tools(
+  calls: AgentToolCall[],
+  vault_path: string,
+): RagCitation[] {
   const seen = new Set<string>();
   const citations: RagCitation[] = [];
   for (const call of calls) {
     if (!is_citation_source_tool(call.name)) continue;
-    for (const note_path of paths_from_summary(call.input_summary)) {
-      if (seen.has(note_path)) continue;
+    for (const path of paths_from_call(call)) {
+      const note_path = to_vault_relative_path(vault_path, path);
+      if (note_path === "" || seen.has(note_path)) continue;
       seen.add(note_path);
       citations.push({
         index: citations.length + 1,
