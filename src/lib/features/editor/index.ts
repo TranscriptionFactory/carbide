@@ -54,6 +54,10 @@ export {
 } from "$lib/features/editor/adapters/shiki_highlighter";
 export { resolve_source_shiki_vars } from "$lib/features/editor/adapters/shiki_source_theme";
 export {
+  parse_html_embed,
+  type ParsedHtmlEmbed,
+} from "$lib/features/editor/adapters/html_embed";
+export {
   MARKDOWN_HARD_BREAK,
   insert_markdown_hard_break,
   normalize_markdown_line_breaks,

@@ -1,12 +1,12 @@
 use reqwest::header::{HeaderMap, HeaderValue, ACCEPT, ACCEPT_LANGUAGE, CONTENT_TYPE, USER_AGENT};
 use serde::{Deserialize, Serialize};
 use specta::Type;
-use std::io::Write;
 use tauri::AppHandle;
 
-use crate::features::notes::service::{safe_vault_abs, safe_vault_abs_for_write};
+use crate::features::notes::service::safe_vault_abs_for_write;
 use crate::features::plugin::http_fetch::fetch_checked;
 use crate::features::search::html_extractor::sniff_decode;
+use crate::shared::epub::{build_epub, read_epub_images, EpubInput};
 use crate::shared::{io_utils, storage};
 
 const MAX_PAGE_BYTES: usize = 10 * 1024 * 1024;
@@ -71,22 +71,6 @@ impl From<String> for ClipFetchError {
 pub struct ClipAsset {
     pub bytes: Vec<u8>,
     pub content_type: String,
-}
-
-#[derive(Debug, Serialize, Deserialize, Type)]
-pub struct ClipEpubImage {
-    pub href: String,
-    pub asset_path: String,
-    pub media_type: String,
-}
-
-#[derive(Debug, Serialize, Deserialize, Type)]
-pub struct ClipEpubInput {
-    pub title: String,
-    pub source_url: String,
-    pub clipped_at: String,
-    pub xhtml: String,
-    pub images: Vec<ClipEpubImage>,
 }
 
 #[tauri::command]
@@ -178,20 +162,12 @@ pub async fn clip_fetch_asset(url: String) -> Result<ClipAsset, String> {
 pub fn clip_write_epub(
     vault_id: String,
     epub_path: String,
-    input: ClipEpubInput,
+    input: EpubInput,
     app: AppHandle,
 ) -> Result<(), String> {
     let root = storage::vault_path(&app, &vault_id)?;
     let abs = safe_vault_abs_for_write(&root, &epub_path)?;
-
-    let mut images: Vec<(&ClipEpubImage, Vec<u8>)> = Vec::new();
-    for image in &input.images {
-        let image_abs = safe_vault_abs(&root, &image.asset_path)?;
-        let bytes = std::fs::read(&image_abs)
-            .map_err(|e| format!("Failed to read asset {}: {e}", image.asset_path))?;
-        images.push((image, bytes));
-    }
-
+    let images = read_epub_images(&root, &input.images)?;
     let epub = build_epub(&input, &images)?;
     io_utils::atomic_write(&abs, epub)
 }
@@ -284,184 +260,9 @@ fn sniff_image_mime(bytes: &[u8]) -> Option<&'static str> {
     }
 }
 
-fn xml_escape(text: &str) -> String {
-    text.replace('&', "&amp;")
-        .replace('<', "&lt;")
-        .replace('>', "&gt;")
-        .replace('"', "&quot;")
-        .replace('\'', "&apos;")
-}
-
-fn epub_timestamp(clipped_at: &str) -> String {
-    match clipped_at.split_once('.') {
-        Some((prefix, _)) => format!("{prefix}Z"),
-        None => clipped_at.to_string(),
-    }
-}
-
-const CONTAINER_XML: &str = r#"<?xml version="1.0" encoding="utf-8"?>
-<container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">
-  <rootfiles>
-    <rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/>
-  </rootfiles>
-</container>
-"#;
-
-fn build_opf(input: &ClipEpubInput, images: &[(&ClipEpubImage, Vec<u8>)]) -> String {
-    let title = xml_escape(&input.title);
-    let source = xml_escape(&input.source_url);
-    let modified = epub_timestamp(&input.clipped_at);
-    let manifest_images: String = images
-        .iter()
-        .enumerate()
-        .map(|(i, (image, _))| {
-            format!(
-                "    <item id=\"img-{i}\" href=\"{}\" media-type=\"{}\"/>\n",
-                xml_escape(&image.href),
-                xml_escape(&image.media_type)
-            )
-        })
-        .collect();
-
-    format!(
-        r#"<?xml version="1.0" encoding="utf-8"?>
-<package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="pub-id">
-  <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
-    <dc:identifier id="pub-id">{source}</dc:identifier>
-    <dc:title>{title}</dc:title>
-    <dc:language>en</dc:language>
-    <dc:source>{source}</dc:source>
-    <dc:date>{modified}</dc:date>
-    <meta property="dcterms:modified">{modified}</meta>
-  </metadata>
-  <manifest>
-    <item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/>
-    <item id="content" href="content.xhtml" media-type="application/xhtml+xml"/>
-{manifest_images}  </manifest>
-  <spine>
-    <itemref idref="content"/>
-  </spine>
-</package>
-"#
-    )
-}
-
-fn build_nav(title: &str) -> String {
-    let title = xml_escape(title);
-    format!(
-        r#"<?xml version="1.0" encoding="utf-8"?>
-<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops">
-<head><title>{title}</title></head>
-<body>
-  <nav epub:type="toc">
-    <ol><li><a href="content.xhtml">{title}</a></li></ol>
-  </nav>
-</body>
-</html>
-"#
-    )
-}
-
-fn build_epub(
-    input: &ClipEpubInput,
-    images: &[(&ClipEpubImage, Vec<u8>)],
-) -> Result<Vec<u8>, String> {
-    use zip::write::SimpleFileOptions;
-
-    let mut zip = zip::ZipWriter::new(std::io::Cursor::new(Vec::new()));
-    let stored = SimpleFileOptions::default().compression_method(zip::CompressionMethod::Stored);
-    let deflated =
-        SimpleFileOptions::default().compression_method(zip::CompressionMethod::Deflated);
-    let err = |e: zip::result::ZipError| format!("Failed to build EPUB: {e}");
-    let io_err = |e: std::io::Error| format!("Failed to build EPUB: {e}");
-
-    zip.start_file("mimetype", stored).map_err(err)?;
-    zip.write_all(b"application/epub+zip").map_err(io_err)?;
-
-    zip.start_file("META-INF/container.xml", deflated)
-        .map_err(err)?;
-    zip.write_all(CONTAINER_XML.as_bytes()).map_err(io_err)?;
-
-    zip.start_file("OEBPS/content.opf", deflated).map_err(err)?;
-    zip.write_all(build_opf(input, images).as_bytes())
-        .map_err(io_err)?;
-
-    zip.start_file("OEBPS/nav.xhtml", deflated).map_err(err)?;
-    zip.write_all(build_nav(&input.title).as_bytes())
-        .map_err(io_err)?;
-
-    zip.start_file("OEBPS/content.xhtml", deflated)
-        .map_err(err)?;
-    zip.write_all(input.xhtml.as_bytes()).map_err(io_err)?;
-
-    for (image, bytes) in images {
-        zip.start_file(format!("OEBPS/{}", image.href), stored)
-            .map_err(err)?;
-        zip.write_all(bytes).map_err(io_err)?;
-    }
-
-    let cursor = zip.finish().map_err(err)?;
-    Ok(cursor.into_inner())
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::features::search::epub_extractor::extract_epub_text;
-
-    fn sample_input() -> ClipEpubInput {
-        ClipEpubInput {
-            title: "Clipped Article".to_string(),
-            source_url: "https://example.com/post?a=1&b=2".to_string(),
-            clipped_at: "2026-07-20T12:34:56.789Z".to_string(),
-            xhtml: r#"<?xml version="1.0" encoding="utf-8"?>
-<html xmlns="http://www.w3.org/1999/xhtml">
-<head><title>Clipped Article</title></head>
-<body><h1>Clipped Article</h1><p>Readable body text survives the roundtrip.</p>
-<img src="images/img-0.png" alt=""/></body>
-</html>
-"#
-            .to_string(),
-            images: vec![],
-        }
-    }
-
-    #[test]
-    fn epub_roundtrips_through_extractor() {
-        let input = sample_input();
-        let png = b"\x89PNG\r\n\x1a\nfakebytes".to_vec();
-        let image = ClipEpubImage {
-            href: "images/img-0.png".to_string(),
-            asset_path: ".assets/img-0.png".to_string(),
-            media_type: "image/png".to_string(),
-        };
-        let epub = build_epub(&input, &[(&image, png)]).unwrap();
-
-        let extraction = extract_epub_text(&epub);
-        assert_eq!(extraction.title.as_deref(), Some("Clipped Article"));
-        assert!(extraction
-            .body
-            .contains("Readable body text survives the roundtrip."));
-    }
-
-    #[test]
-    fn opf_escapes_xml_special_chars() {
-        let mut input = sample_input();
-        input.title = "Clipped <Article> & More".to_string();
-        let opf = build_opf(&input, &[]);
-        assert!(opf.contains("<dc:title>Clipped &lt;Article&gt; &amp; More</dc:title>"));
-        assert!(opf.contains("<dc:source>https://example.com/post?a=1&amp;b=2</dc:source>"));
-    }
-
-    #[test]
-    fn epub_mimetype_is_first_and_stored() {
-        let epub = build_epub(&sample_input(), &[]).unwrap();
-        assert_eq!(&epub[0..4], b"PK\x03\x04");
-        // Local file header: compression method at offset 8, filename at offset 30.
-        assert_eq!(&epub[8..10], &[0u8, 0u8], "mimetype must be Stored");
-        assert_eq!(&epub[30..38], b"mimetype");
-        assert_eq!(&epub[38..58], b"application/epub+zip");
-    }
 
     #[test]
     fn decodes_latin1_page_via_charset_param() {

@@ -4,8 +4,6 @@ export {
   type ClipPort,
   type ClipPage,
   type ClipAsset,
-  type ClipEpubImage,
-  type ClipEpubInput,
 } from "$lib/features/clip/ports";
 export { create_clip_tauri_adapter } from "$lib/features/clip/adapters/clip_tauri_adapter";
 export {

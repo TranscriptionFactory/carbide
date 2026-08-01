@@ -448,6 +448,8 @@ pub fn run() {
             features::external_mcp::external_mcp_call_tool,
             features::external_mcp::external_mcp_status,
             features::export::export_html_to_pdf,
+            features::export::export_write_html,
+            features::export::export_write_epub,
             shared::live_html::html_live_register,
             shared::live_html::html_live_release,
         ])

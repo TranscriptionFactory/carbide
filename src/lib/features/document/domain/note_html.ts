@@ -1,5 +1,6 @@
 import MarkdownIt from "markdown-it";
 import type Token from "markdown-it/lib/token.mjs";
+import type StateCore from "markdown-it/lib/rules_core/state_core.mjs";
 import type StateInline from "markdown-it/lib/rules_inline/state_inline.mjs";
 import type StateBlock from "markdown-it/lib/rules_block/state_block.mjs";
 import type Renderer from "markdown-it/lib/renderer.mjs";
@@ -10,6 +11,8 @@ import {
   get_highlighter_sync,
   resolve_language,
   DEFAULT_LIGHT_THEME,
+  parse_html_embed,
+  type ParsedHtmlEmbed,
 } from "$lib/features/editor";
 import { get_inlined_katex_css } from "$lib/features/document/domain/katex_inline_css";
 import { prerender_mermaid_codes } from "$lib/features/document/domain/mermaid_prerender";
@@ -155,6 +158,27 @@ function register_math(md: MarkdownIt): void {
     `${render_math(tokens[idx]?.content ?? "", true)}\n`;
 }
 
+function escape_html(text: string): string {
+  return MarkdownIt().utils.escapeHtml(text);
+}
+
+function highlight_code(code: string, info: string): string {
+  const lang = resolve_language(info);
+  const highlighter = get_highlighter_sync();
+  if (lang && highlighter) {
+    try {
+      return `${highlighter.codeToHtml(code, {
+        lang,
+        theme: DEFAULT_LIGHT_THEME,
+      })}\n`;
+    } catch {
+      // fall through to plain code block
+    }
+  }
+
+  return `<pre class="code-block"><code>${escape_html(code)}</code></pre>\n`;
+}
+
 function render_fence(
   tokens: Token[],
   idx: number,
@@ -176,21 +200,85 @@ function render_fence(
     return `${render_math(code, true)}\n`;
   }
 
-  const lang = resolve_language(info);
-  const highlighter = get_highlighter_sync();
-  if (lang && highlighter) {
-    try {
-      return `${highlighter.codeToHtml(code, {
-        lang,
-        theme: DEFAULT_LIGHT_THEME,
-      })}\n`;
-    } catch {
-      // fall through to plain code block
-    }
-  }
+  return highlight_code(code, info);
+}
 
-  const escaped = MarkdownIt().utils.escapeHtml(code);
-  return `<pre class="code-block"><code>${escaped}</code></pre>\n`;
+const EMBED_LABELS: Record<ParsedHtmlEmbed["kind"], string> = {
+  web_embed: "Embedded page",
+  video: "Video",
+};
+
+function render_embed_placeholder(parsed: ParsedHtmlEmbed): string {
+  const label = EMBED_LABELS[parsed.kind];
+  return `<figure class="embed-placeholder"><span class="embed-placeholder-kind">${label}</span><span class="embed-placeholder-src">${escape_html(parsed.src)}</span></figure>\n`;
+}
+
+function raw_html_of_inline(inline: Token): string | null {
+  const children = inline.children ?? [];
+  if (!children.some((child) => child.type === "html_inline")) return null;
+  let raw = "";
+  for (const child of children) {
+    if (child.type !== "html_inline" && child.type !== "text") return null;
+    raw += child.content;
+  }
+  return raw;
+}
+
+// `web_embed` / `video` nodes round-trip through markdown as raw <iframe> /
+// <video> tags. Promoting them back to a single token here lets the export
+// renderer show a placeholder instead of dumping the tag source as code.
+function promote_html_embeds(state: StateCore): boolean {
+  const promoted: Token[] = [];
+  for (let i = 0; i < state.tokens.length; i += 1) {
+    const token = state.tokens[i];
+    if (!token) continue;
+
+    if (token.type === "html_block") {
+      const parsed = parse_html_embed(token.content);
+      if (parsed) {
+        promoted.push(embed_token(state, parsed));
+        continue;
+      }
+    }
+
+    const inline = state.tokens[i + 1];
+    if (token.type === "paragraph_open" && inline?.type === "inline") {
+      const raw = raw_html_of_inline(inline);
+      const parsed = raw === null ? null : parse_html_embed(raw);
+      if (parsed) {
+        promoted.push(embed_token(state, parsed));
+        i += 2;
+        continue;
+      }
+    }
+
+    promoted.push(token);
+  }
+  state.tokens = promoted;
+  return true;
+}
+
+function embed_token(state: StateCore, parsed: ParsedHtmlEmbed): Token {
+  const token = new state.Token("html_embed", "", 0);
+  token.block = true;
+  token.meta = parsed;
+  return token;
+}
+
+// Raw HTML is parsed (not passed through) purely so the export can show it:
+// promoted embeds become placeholders, everything else becomes highlighted
+// source. No renderer rule here ever emits unsanitized markup.
+function register_raw_html(md: MarkdownIt): void {
+  md.set({ html: true });
+  md.core.ruler.push("promote_html_embeds", promote_html_embeds);
+  md.renderer.rules.html_embed = (tokens, idx) => {
+    const parsed = tokens[idx]?.meta as ParsedHtmlEmbed | undefined;
+    return parsed ? render_embed_placeholder(parsed) : "";
+  };
+  md.renderer.rules.html_block = (tokens, idx) =>
+    highlight_code((tokens[idx]?.content ?? "").replace(/\n+$/, ""), "html");
+  md.renderer.rules.html_inline = (tokens, idx) =>
+    `<code class="raw-html">${escape_html(tokens[idx]?.content ?? "")}</code>`;
 }
 
 function collect_mermaid_codes(tokens: Token[]): string[] {
@@ -289,6 +377,29 @@ img { max-width: 100%; }
 }
 figure { margin: 1em 0; text-align: center; page-break-inside: avoid; }
 .mermaid-figure svg { max-width: 100%; height: auto; }
+.embed-placeholder {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3em;
+  padding: 0.8em 1em;
+  text-align: left;
+  background: #f6f8fa;
+  border: 1px dashed #d0d7de;
+  border-radius: 6px;
+}
+.embed-placeholder-kind {
+  color: #57606a;
+  font-size: 85%;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.embed-placeholder-src {
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 90%;
+  word-break: break-all;
+}
+code.raw-html { color: #57606a; }
 .katex-display { page-break-inside: avoid; overflow-x: auto; overflow-y: hidden; }
 .math-error { color: #cf222e; }`;
 }
@@ -384,8 +495,7 @@ function install_image_renderer(
   };
 }
 
-export async function render_note_to_html(
-  title: string,
+async function render_markdown_body(
   markdown: string,
   options?: RenderNoteOptions,
 ): Promise<string> {
@@ -394,6 +504,7 @@ export async function render_note_to_html(
   const body = rewrite_wiki_image_embeds(parse_frontmatter(markdown).body);
   const md = create_md();
   register_math(md);
+  register_raw_html(md);
   md.renderer.rules.fence = render_fence;
 
   const tokens = md.parse(body, {});
@@ -409,24 +520,42 @@ export async function render_note_to_html(
     { id_prefix: "pdf-mermaid" },
   );
   const env: RenderEnv = { mermaid_svgs };
-  const body_html = md.renderer.render(tokens, md.options, env);
+  return md.renderer.render(tokens, md.options, env);
+}
 
-  const katex_css = await get_inlined_katex_css();
-  const safe_title = md.utils.escapeHtml(title);
+export async function note_export_styles(): Promise<string> {
+  return document_styles(await get_inlined_katex_css());
+}
+
+export async function render_note_body_html(
+  title: string,
+  markdown: string,
+  options?: RenderNoteOptions,
+): Promise<string> {
+  const body_html = await render_markdown_body(markdown, options);
+  return `<h1 class="doc-title">${escape_html(title)}</h1>\n${body_html}`;
+}
+
+export async function render_note_to_html(
+  title: string,
+  markdown: string,
+  options?: RenderNoteOptions,
+): Promise<string> {
+  const content = await render_note_body_html(title, markdown, options);
+  const styles = await note_export_styles();
 
   return `<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<title>${safe_title}</title>
+<title>${escape_html(title)}</title>
 <style>
-${document_styles(katex_css)}
+${styles}
 </style>
 </head>
 <body>
 <main class="note-document">
-<h1 class="doc-title">${safe_title}</h1>
-${body_html}
+${content}
 </main>
 </body>
 </html>`;
