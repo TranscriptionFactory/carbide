@@ -234,6 +234,7 @@
   ]);
 
   let input_ref: HTMLInputElement | null = $state(null);
+  let list_element = $state<HTMLElement>();
   let collapsed_vaults = $state(new SvelteSet<string>());
   let prev_items_ref: OmnibarItem[] = $state([]);
   let last_mouse_snapshot: MouseMovementSnapshot | null = null;
@@ -378,6 +379,14 @@
     if (!is_all_vaults || !has_query) return display_items;
 
     return build_omnibar_rows(vault_groups, collapsed_vaults);
+  });
+
+  $effect(() => {
+    void selected_index;
+    void visible_items;
+    list_element
+      ?.querySelector(".Omnibar__item--selected")
+      ?.scrollIntoView({ block: "nearest" });
   });
 
   const action_id_to_key = $derived.by(() => {
@@ -705,6 +714,7 @@
     {/if}
 
     <div
+      bind:this={list_element}
       role="listbox"
       tabindex="0"
       aria-activedescendant={visible_items[selected_index]
