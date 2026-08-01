@@ -13,6 +13,7 @@ import type {
 } from "$lib/features/rag/domain/rag_types";
 import { collect_open_note_image_parts } from "$lib/features/ai";
 import { toast } from "svelte-sonner";
+import { create_test_run_starter } from "../../adapters/test_run_starter";
 
 const PROVIDER_ID = BUILTIN_PROVIDER_PRESETS[0]?.id ?? "claude";
 
@@ -82,12 +83,17 @@ function create_harness(events: RagStreamEvent[] = ANSWERED_EVENTS) {
     execute: note_open,
   });
 
-  const agent_port = {
-    stream_turn: vi.fn(() =>
-      // eslint-disable-next-line @typescript-eslint/require-await
-      (async function* () {
-        yield { type: "done" as const, stats: {} };
-      })(),
+  const run_starter = create_test_run_starter(() => [
+    { type: "done", stats: {} },
+  ]);
+  const assistant_kernel = {
+    start: run_starter.start,
+    resolve_provider: vi.fn((requested_id?: string) =>
+      Promise.resolve(
+        stores.ui.editor_settings.ai_providers.find(
+          (p) => p.id === requested_id,
+        ) ?? null,
+      ),
     ),
   };
 
@@ -105,7 +111,7 @@ function create_harness(events: RagStreamEvent[] = ANSWERED_EVENTS) {
     },
     rag_store,
     rag_service: rag_service as never,
-    agent_port,
+    assistant_kernel: assistant_kernel as never,
   });
 
   return { registry, stores, rag_store, rag_service, note_open, services };

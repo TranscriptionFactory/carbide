@@ -6,10 +6,6 @@ import type {
   AiPortExecuteRequest,
   AiProviderConfig,
 } from "$lib/features/ai/domain/ai_types";
-import type {
-  AiStreamChunk,
-  AiStreamRequest,
-} from "$lib/features/ai/domain/ai_stream_types";
 
 export interface AiPort {
   check_cli(input: AiCliCheckRequest): Promise<boolean>;
@@ -23,10 +19,6 @@ export interface AiPort {
     config: AiProviderConfig,
     vault_path: string,
   ): Promise<void>;
-}
-
-export interface AiStreamPort {
-  stream_text(input: AiStreamRequest): AsyncIterable<AiStreamChunk>;
 }
 
 export interface AiHistoryPersistencePort {

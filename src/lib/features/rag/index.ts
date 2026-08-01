@@ -11,9 +11,8 @@ export { load_rag_sessions } from "$lib/features/rag/application/rag_sessions_lo
 export { register_rag_actions } from "$lib/features/rag/application/rag_actions";
 export { default as RagPanel } from "$lib/features/rag/ui/rag_panel.svelte";
 export type { RagPersistencePort } from "$lib/features/rag/ports";
+export type { AiMessage as AgentHistoryMessage } from "$lib/features/rag/domain/agent_history";
 export { create_rag_persistence_tauri_adapter } from "$lib/features/rag/adapters/rag_persistence_tauri_adapter";
-export type { AgentPort, AgentStreamRequest } from "$lib/features/rag/ports";
-export { create_agent_tauri_adapter } from "$lib/features/rag/adapters/agent_tauri_adapter";
 export {
   AgentRunner,
   type AgentCheckpointGit,

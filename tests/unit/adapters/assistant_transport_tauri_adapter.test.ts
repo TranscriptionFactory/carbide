@@ -359,6 +359,107 @@ describe("assistant_transport_tauri_adapter", () => {
     ]);
   });
 
+  // AU-002R made the blocking channel cancellable. These prove the driver
+  // actually wires it: without the request id, ai_execute_abort has nothing to
+  // kill and Stop on a {output_file} provider is a no-op.
+  describe("blocking text mode", () => {
+    const blocking_provider = make_provider({
+      transport: {
+        kind: "cli",
+        command: "codex",
+        args: ["exec", "--output-last-message", "{output_file}"],
+      },
+    });
+
+    const blocking_request: RunRequest = {
+      mode: "text",
+      system_prompt: "be terse",
+      messages: [{ role: "user", content: "hello" }],
+      note_path: "notes/a.md",
+    };
+
+    function stream_blocking(signal?: AbortSignal) {
+      return create_assistant_transport_tauri_adapter().stream({
+        provider_config: blocking_provider,
+        request: blocking_request,
+        vault_path: "/vault",
+        ...(signal ? { signal } : {}),
+      });
+    }
+
+    it("passes a request id to ai_execute_cli so the run can be cancelled", async () => {
+      mock_invoke.mockResolvedValue({
+        success: true,
+        output: "done",
+        error: null,
+      });
+
+      expect(await collect(stream_blocking())).toEqual([
+        { type: "text", text: "done" },
+        { type: "done" },
+      ]);
+
+      const args = start_args_of("ai_execute_cli");
+      expect(args.requestId).toEqual(expect.any(String));
+      expect(args.notePath).toBe("notes/a.md");
+      expect(args.vaultPath).toBe("/vault");
+    });
+
+    it("aborts a blocking run through ai_execute_abort with the same id", async () => {
+      const controller = new AbortController();
+      let resolve_cli!: (value: unknown) => void;
+      mock_invoke.mockImplementation((name) =>
+        name === "ai_execute_cli"
+          ? new Promise((resolve) => {
+              resolve_cli = resolve;
+            })
+          : Promise.resolve(undefined),
+      );
+
+      const collected = collect(stream_blocking(controller.signal));
+      await flush();
+      const request_id = start_args_of("ai_execute_cli").requestId;
+
+      controller.abort();
+      await flush();
+
+      expect(mock_invoke).toHaveBeenCalledWith("ai_execute_abort", {
+        requestId: request_id,
+      });
+
+      resolve_cli({ success: false, output: "", error: "aborted" });
+      expect(await collected).toEqual([]);
+    });
+
+    // One sentinel covers both channels; a cancellation ack must never reach
+    // the kernel as an error to humanize.
+    it("treats an aborted result as cancellation, not an error event", async () => {
+      mock_invoke.mockResolvedValue({
+        success: false,
+        output: "",
+        error: "aborted",
+      });
+
+      expect(await collect(stream_blocking())).toEqual([]);
+    });
+
+    it("still surfaces a real blocking failure as a raw error event", async () => {
+      mock_invoke.mockResolvedValue({
+        success: false,
+        output: "",
+        error: SPAWN_FAILURE,
+      });
+
+      const events = await collect(stream_blocking());
+
+      expect(events).toEqual([{ type: "error", message: SPAWN_FAILURE }]);
+      expect(events[0]).not.toEqual({
+        type: "error",
+        message: humanized(SPAWN_FAILURE),
+      });
+    });
+  });
+
   it("removes the abort listener on normal completion", async () => {
     const controller = new AbortController();
     const remove_spy = vi.spyOn(controller.signal, "removeEventListener");

@@ -1,7 +1,16 @@
 import type { AiProviderConfig } from "$lib/shared/types/ai_provider_config";
 import type { AiMessage, ToolSelector } from "$lib/features/ai";
+// An agent turn replays tool calls and tool results, which the text channel's
+// AiMessage cannot express — it has no "tool" role. Same import direction as
+// the AgentEvent one the transport already carries.
+import type { AgentHistoryMessage } from "$lib/features/rag";
 
 export type RunId = string;
+
+// The one sentinel the Rust side emits for a cancelled run, on both the
+// streaming and the blocking channel (`pipeline::ABORTED_ERROR`). It is a
+// cancellation ack, never an error to show anyone.
+export const ABORTED_ERROR = "aborted";
 
 export type RunKind = "inline" | "note" | "chat" | "agent" | "background";
 
@@ -49,12 +58,17 @@ export type RunRequest =
       system_prompt: string;
       messages: AiMessage[];
       model?: string;
+      // A CLI provider whose args carry {output_file} cannot stream, so the
+      // transport runs it one-shot instead. These are that call's parameters;
+      // a streaming transport ignores them.
+      note_path?: string;
+      timeout_seconds?: number | null;
     }
   | {
       mode: "agent";
       prompt: string;
       toolset: ToolSelector;
-      history: AiMessage[];
+      history: AgentHistoryMessage[];
       resume_session_id?: string;
       backend: "harness" | "native";
     };
@@ -98,4 +112,12 @@ export type RunHandle = {
 
 export type RunSink = {
   on_event: (run_id: RunId, event: RunEvent) => void;
+  // An aborted run produces no terminal event, so a sink that owns transcript
+  // state needs this to close the transcript out. Always fires exactly once,
+  // after the last on_event and before the run's awaiter resumes.
+  on_end?: (run_id: RunId, outcome: RunOutcome) => void;
+};
+
+export type RunStarter = {
+  start: (spec: RunSpec, sink?: RunSink) => Promise<RunHandle>;
 };
