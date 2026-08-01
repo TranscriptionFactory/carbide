@@ -44,6 +44,10 @@ export {
   describe_default_provider,
   type AiProviderProbeState,
 } from "$lib/features/ai/domain/ai_provider_status";
+export {
+  preferred_ai_backend_order,
+  resolve_auto_ai_backend,
+} from "$lib/features/ai/domain/ai_backend_selection";
 export type {
   AiCliProbe,
   AiCliProbeStatus,
