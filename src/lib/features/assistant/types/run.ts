@@ -49,6 +49,11 @@ export type RunRequest =
       system_prompt: string;
       messages: AiMessage[];
       model?: string;
+      // A CLI provider whose args carry {output_file} cannot stream, so the
+      // transport runs it one-shot instead. These are that call's parameters;
+      // a streaming transport ignores them.
+      note_path?: string;
+      timeout_seconds?: number | null;
     }
   | {
       mode: "agent";
@@ -98,4 +103,12 @@ export type RunHandle = {
 
 export type RunSink = {
   on_event: (run_id: RunId, event: RunEvent) => void;
+  // An aborted run produces no terminal event, so a sink that owns transcript
+  // state needs this to close the transcript out. Always fires exactly once,
+  // after the last on_event and before the run's awaiter resumes.
+  on_end?: (run_id: RunId, outcome: RunOutcome) => void;
+};
+
+export type RunStarter = {
+  start: (spec: RunSpec, sink?: RunSink) => Promise<RunHandle>;
 };
