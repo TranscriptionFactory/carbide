@@ -156,3 +156,83 @@ export function create_mock_kernel(): MockKernel {
 
   return mock;
 }
+
+export type ManualChannel = {
+  emit: (event: RunEvent) => Promise<void>;
+  end: () => Promise<void>;
+};
+
+export type ManualTransport = AssistantTransportPort & {
+  _requests: TransportRequest[];
+  _channels: ManualChannel[];
+  channel: (index?: number) => ManualChannel;
+};
+
+function settle(): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, 0));
+}
+
+// Test-driven counterpart to create_mock_transport: each stream() call appends a
+// channel the test drives event by event, so mid-stream state (a run still
+// streaming after its sink detached, text accumulated before a stop) is
+// observable rather than raced. `emit`/`end` resolve once the kernel has
+// processed the event.
+export function create_manual_transport(): ManualTransport {
+  const mock: ManualTransport = {
+    _requests: [],
+    _channels: [],
+    channel(index = 0) {
+      const channel = mock._channels[index];
+      if (!channel) {
+        throw new Error(
+          `manual transport has no channel at index ${String(index)}`,
+        );
+      }
+      return channel;
+    },
+    stream(input: TransportRequest): AsyncIterable<RunEvent> {
+      mock._requests.push(input);
+
+      const queue: RunEvent[] = [];
+      let ended = false;
+      let wake: (() => void) | null = null;
+      const notify = () => {
+        wake?.();
+        wake = null;
+      };
+
+      input.signal?.addEventListener("abort", notify);
+      mock._channels.push({
+        async emit(event) {
+          queue.push(event);
+          notify();
+          await settle();
+        },
+        async end() {
+          ended = true;
+          notify();
+          await settle();
+        },
+      });
+
+      return {
+        async *[Symbol.asyncIterator]() {
+          for (;;) {
+            if (input.signal?.aborted) return;
+            const next = queue.shift();
+            if (next) {
+              yield next;
+              continue;
+            }
+            if (ended) return;
+            await new Promise<void>((resolve) => {
+              wake = resolve;
+            });
+          }
+        },
+      };
+    },
+  };
+
+  return mock;
+}
