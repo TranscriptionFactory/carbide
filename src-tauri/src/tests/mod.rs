@@ -21,6 +21,9 @@ mod mcp_types;
 #[path = "../../tests/mcp_router.rs"]
 mod mcp_router;
 
+#[path = "../../tests/mcp_resources.rs"]
+mod mcp_resources;
+
 #[path = "../../tests/mcp_tools_notes.rs"]
 mod mcp_tools_notes;
 
