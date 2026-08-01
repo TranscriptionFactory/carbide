@@ -121,7 +121,7 @@
 {#if message.role === "user"}
   <div class="flex justify-end">
     <div
-      class="max-w-[85%] whitespace-pre-wrap rounded-lg bg-primary px-3 py-2 text-sm text-primary-foreground"
+      class="max-w-[85%] select-text whitespace-pre-wrap rounded-lg bg-primary px-3 py-2 text-sm text-primary-foreground"
     >
       {message.content}
     </div>
@@ -136,7 +136,7 @@
           on_toggle={() => (reasoning_user_open = !reasoning_open)}
         >
           <div
-            class="whitespace-pre-wrap px-3 pb-2 text-xs text-muted-foreground"
+            class="select-text whitespace-pre-wrap px-3 pb-2 text-xs text-muted-foreground"
           >
             {message.reasoning}
           </div>
@@ -151,7 +151,7 @@
           open={tools_open}
           on_toggle={() => (tools_user_open = !tools_open)}
         >
-          <div class="flex flex-col gap-1 px-3 pb-2">
+          <div class="flex select-text flex-col gap-1 px-3 pb-2">
             {#each tool_events as event, index (index)}
               <div
                 class="flex items-center gap-2 text-xs text-muted-foreground"
@@ -190,7 +190,7 @@
     </div>
 
     {#if message.error}
-      <div class="flex items-start gap-2 text-xs text-destructive">
+      <div class="flex select-text items-start gap-2 text-xs text-destructive">
         <AlertCircle class="mt-px size-3.5 shrink-0" aria-hidden="true" />
         <span>Failed: {message.error}</span>
       </div>

@@ -378,7 +378,11 @@ export function register_rag_actions(
       const id = typeof args[0] === "string" ? args[0] : "";
       const message = rag_store.messages.find((m) => m.id === id);
       if (!message) return;
-      await navigator.clipboard.writeText(message.content);
+      try {
+        await services.clipboard.copy_text(message.content);
+      } catch {
+        toast.error("Failed to copy message");
+      }
     },
   });
 
