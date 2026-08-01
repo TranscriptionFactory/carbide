@@ -1,7 +1,7 @@
 # AI Surface Unification — One Present Assistant, Three Projections
 
 **Date:** 2026-08-01
-**Status:** Revision 2 — review amendments folded in (run-kernel phase, recipe routing, code-verified corrections). Proposal; no code changed.
+**Status:** Revision 3 — all five Appendix A surfaces **adopted** and attached to phases as acceptance UI; open decisions 1–3 closed; implementation plan at `devlog/2026-08-01_assistant-unification/PLAN.md`. No code changed yet.
 **Scope:** Carbide's three AI integration points (inline editor menu, bottom-panel AI tab, chat RAG+agent sidebar). Transports are unified; the run lifecycle, session model, context assembly, and review flow are not.
 **Sources:** `src/lib/features/ai/`, `src/lib/features/rag/`, `src/lib/features/editor/adapters/ai_menu_plugin.ts`, `src/lib/app/bootstrap/ui/bottom_panel.svelte`, `src/lib/shared/domain/prompt_recipes.ts`, `docs/ai_and_chat.md`, `docs/architecture.md`, `devlog/2026-07-23_generalized-agent-framework/PLAN.md`
 **Mockup:** `carbide/designFiles/2026-08-01_ai_surface_mockup.html` — the completed experience, pins keyed to phases below
@@ -136,17 +136,17 @@ An `ai_ambient.reactor.svelte.ts` — the architecture-sanctioned mechanism for 
 
 ## 5. Sequencing
 
-| Phase | Work | Risk | Notes |
-|---|---|---|---|
-| 0 | **Run kernel**: one consumer, cancellation registry, single provider resolver, humanization choke point, adapter dedup, delete dead dialog | Low | Pure refactor; fixes 3 user-visible bugs; makes Phase 1 a store-shape change instead of store-shape-plus-lifecycle |
-| 1 | Session unification: merge models, delete `AiHistoryPersistencePort`, inline promote-to-session | Moderate | Highest value. 0 users → migration trivial; RAG/ai-store tests are coverage anchors |
-| 2 | `ContextSource` + generalized assembler + **recipe-policy routing**; port the three builders one at a time; panel recipe affordances; overridable questions | Low-moderate | Existing prompt-builder, recipe, and RAG domain tests anchor behavior |
-| 3 | `Proposal` model + unified accept/reject actions | Moderate | Touches all three surfaces' apply paths |
-| 4 | Feature restructure: sessions/`AgentPort`/runner → assistant feature, `rag` → retrieval-only behind `RetrievalPort` | Moderate | Do *after* 1–3 so it is a move, not a rewrite |
-| 5 | Bottom-panel decision: scoped-chat projection or cut | Low | Depends on §7; safe only after Phase 3 |
-| 6 | Ambient reactor (proactive suggestions) | Low | Only after 0–4; opt-in; trigger policy first |
+| Phase | Work | Acceptance surface (Appendix A) | Risk | Notes |
+|---|---|---|---|---|
+| 0 | **Run kernel** in a new `assistant/` slice (created here, per plan review — kernel never moves after landing): one consumer with injected event sinks, cancellation registry, single provider resolver, humanization choke point, adapter dedup, delete dead dialog | Presence component + **status-bar runs popover** | Low | Mostly serial (shared files); fixes 3 user-visible bugs; makes Phase 1 a store-shape change instead of store-shape-plus-lifecycle |
+| 1 | Session unification: merge models into the `assistant` slice, delete `AiHistoryPersistencePort` + both legacy hydration reactors, inline promote-to-session | **Session-as-tab** (virtual tab kind, not a document viewer) + kind-filtered session list | Moderate | Highest value. 0 users → no migration code; RAG/ai-store tests are coverage anchors |
+| 2 | `ContextSource` + generalized assembler + **recipe-policy routing**; panel recipe affordances; overridable questions | **Omnibar Ask mode** (explicit submit only; Search stays local) | Low-moderate | Existing prompt-builder, recipe, and RAG domain tests anchor behavior |
+| 3 | `Proposal` model + unified accept/reject actions; proposals carry base note revision, staleness detected at apply; one checkpoint per apply batch | **Proposal review center** tab | Moderate | Touches all three surfaces' apply paths |
+| 4 | Dependency inversion only (slice already exists): `AgentPort`/runner → `assistant`, `rag` → retrieval-only behind `RetrievalPort`; MCP parity | — (parity wave, verified by test) | Moderate | A move, not a rewrite |
+| 5 | Bottom panel → scoped-chat projection (**decided**, no longer open) | Panel as "This note" chat | Low | Safe only after Phase 3 |
+| 6 | Ambient reactor — deterministic producers only in v1 (link rot, orphans); LLM-produced offers are a later decision | **Margin annotation rail** + toasts | Low | Opt-in, default off |
 
-The shared presence component (§4.5) is sequence-independent and may ship alongside any early phase.
+The presence component ships in Phase 0 with the status bar. Per-phase lanes, gates, and orchestration: `devlog/2026-08-01_assistant-unification/PLAN.md`.
 
 ---
 
@@ -160,12 +160,17 @@ The shared presence component (§4.5) is sequence-independent and may ship along
 
 ---
 
-## 7. Open decisions
+## 7. Decisions
 
-1. **Bottom-panel AI tab: first-class or transitional?** If transitional, Phases 1–3 treat the sidebar chat as canonical and the panel as a scoped projection. *Lean (agreed in review): merge into scoped chat, cut the tab.*
-2. **Feature naming:** keep `ai`, or rename to `assistant` now that it subsumes sessions + agent? *Lean (agreed): rename — cheap at 0 users, reads correctly against `rag`-as-retrieval.*
-3. **Inline session visibility:** should `kind: "inline"` sessions appear in the chat session list by default? *Lean (agreed): visible, filterable — presence means one continuous history.*
-4. **Ambient triggers:** which observations earn suggestions (idle time, link rot, note staleness) and at what cadence. Needs a small policy design before Phase 6, plus explicit opt-in.
+Closed 2026-08-01 (Rev 3):
+
+1. **Bottom panel** → scoped-chat projection of the canonical chat component; panel-specific ask machinery removed in Phase 5. ✅ decided
+2. **Feature naming** → rename to `assistant`, slice created in Phase 0 with the kernel so unified code lands in its final home from the first line (avoids any double-move; refined by plan review). ✅ decided
+3. **Inline session visibility** → `⌁` sessions visible in the session list, collapsed into a group by default, auto-pruned after 30 days if never promoted. ✅ decided
+
+Still open:
+
+4. **Ambient triggers beyond deterministic v1** — which LLM-produced observations (contradictions, summary offers, idle suggestions) earn a place, at what cadence. Explicitly out of Phase 6 scope (deterministic producers only); revisit after it ships.
 
 ---
 
@@ -181,9 +186,9 @@ The shared presence component (§4.5) is sequence-independent and may ship along
 
 ---
 
-## Appendix A — Candidate additional surfaces (2026-08-01 brainstorm)
+## Appendix A — Additional surfaces (2026-08-01 brainstorm — **all five adopted in Rev 3**)
 
-Mockups: `carbide/designFiles/2026-08-01_ai_assistant_surface_explorations.html`. Five further *projections* of the same kernel/session/proposal stores — each rides an existing Carbide mechanism, none adds AI machinery. Not scheduled; adopt individually as their gating phase lands.
+Mockups: `carbide/designFiles/2026-08-01_ai_assistant_surface_explorations.html`. Five further *projections* of the same kernel/session/proposal stores — each rides an existing Carbide mechanism, none adds AI machinery. Each is now the acceptance surface of its gating phase (see §5); the "considered, not mocked" ideas below remain rejected.
 
 1. **Omnibar Ask mode** (needs P0–P2) — Ask segment in the omnibar; retrieval-backed cited answers from anywhere; esc dissolves (still logs a `⌁` session), `⌘↵` inserts at cursor, `↵` promotes to chat.
 2. **Status-bar presence + runs popover** (needs P0) — persistent presence cell; popover lists kernel runs with stop controls, including runs whose originating surface closed. Nearly free once the run registry exists.
