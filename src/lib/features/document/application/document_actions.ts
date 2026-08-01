@@ -3,12 +3,13 @@ import type { ActionRegistrationInput } from "$lib/app/action_registry/action_re
 import type { DocumentService } from "$lib/features/document/application/document_service";
 import type { DocumentStore } from "$lib/features/document/state/document_store.svelte";
 import { detect_file_type } from "$lib/features/document/domain/document_types";
-import type { ImageResolver } from "$lib/features/document/domain/note_html";
 import {
-  carbide_asset_url,
-  carbide_file_asset_url,
-  resolve_relative_asset_path,
-} from "$lib/features/note";
+  render_note_body_html,
+  type ImageResolver,
+} from "$lib/features/document/domain/note_html";
+import type { NoteAssetPathResolver } from "$lib/features/document/domain/note_epub";
+import { resolve_note_asset_path } from "$lib/features/document/domain/note_export_assets";
+import { carbide_asset_url, carbide_file_asset_url } from "$lib/features/note";
 import { parent_folder_path } from "$lib/shared/utils/path";
 import { toast } from "$lib/shared/ui/toast";
 
@@ -71,7 +72,7 @@ async function fetch_as_data_uri(url: string): Promise<string | null> {
   }
 }
 
-function build_pdf_image_resolver(
+function build_inline_image_resolver(
   vault_id: string,
   note_path: string,
 ): ImageResolver {
@@ -81,14 +82,28 @@ function build_pdf_image_resolver(
     if (src.startsWith("/")) {
       return fetch_as_data_uri(carbide_file_asset_url(src));
     }
-    const decoded = decodeURIComponent(src);
-    const asset_path =
-      kind === "wiki"
-        ? decoded
-        : resolve_relative_asset_path(note_path, decoded);
+    const asset_path = resolve_note_asset_path(note_path, src, kind);
     if (!asset_path) return null;
     return fetch_as_data_uri(carbide_asset_url(vault_id, asset_path));
   };
+}
+
+type NoteExportTarget = {
+  title: string;
+  markdown: string;
+  note_path: string;
+  image_resolver: ImageResolver | undefined;
+};
+
+async function run_export(
+  label: string,
+  export_note: () => Promise<void>,
+): Promise<void> {
+  try {
+    await export_note();
+  } catch (error) {
+    toast.error(`Failed to export as ${label}: ${String(error)}`);
+  }
 }
 
 export function register_document_actions(
@@ -176,24 +191,86 @@ export function register_document_actions(
     },
   });
 
+  function export_target(): NoteExportTarget | null {
+    const active_tab = stores.tab.active_tab;
+    if (!active_tab || active_tab.kind !== "note") return null;
+    const open_note = stores.editor.open_note;
+    if (!open_note) return null;
+    return {
+      title: open_note.meta.title || open_note.meta.name,
+      markdown: open_note.markdown,
+      note_path: open_note.meta.path,
+      image_resolver: stores.vault.vault?.id
+        ? build_inline_image_resolver(
+            stores.vault.vault.id,
+            open_note.meta.path,
+          )
+        : undefined,
+    };
+  }
+
   registry.register({
     id: ACTION_IDS.document_export_pdf,
     label: "Export as PDF",
     execute: async () => {
-      const active_tab = stores.tab.active_tab;
-      if (!active_tab || active_tab.kind !== "note") return;
-      const open_note = stores.editor.open_note;
-      if (!open_note) return;
-      const title = open_note.meta.title || open_note.meta.name;
-      const vault_id = stores.vault.vault?.id;
-      const image_resolver = vault_id
-        ? build_pdf_image_resolver(vault_id, open_note.meta.path)
-        : undefined;
-      await document_service.export_note_pdf(
-        title,
-        open_note.markdown,
-        image_resolver,
+      const target = export_target();
+      if (!target) return;
+      await run_export("PDF", () =>
+        document_service.export_note_pdf(
+          target.title,
+          target.markdown,
+          target.image_resolver,
+        ),
       );
+    },
+  });
+
+  registry.register({
+    id: ACTION_IDS.document_export_html,
+    label: "Export as HTML",
+    execute: async () => {
+      const target = export_target();
+      if (!target) return;
+      await run_export("HTML", () =>
+        document_service.export_note_html(
+          target.title,
+          target.markdown,
+          target.image_resolver,
+        ),
+      );
+    },
+  });
+
+  registry.register({
+    id: ACTION_IDS.document_export_epub,
+    label: "Export as EPUB",
+    execute: async () => {
+      const target = export_target();
+      if (!target) return;
+      const resolve_asset_path: NoteAssetPathResolver = (src, kind) =>
+        resolve_note_asset_path(target.note_path, src, kind);
+      await run_export("EPUB", () =>
+        document_service.export_note_epub(
+          target.title,
+          target.markdown,
+          resolve_asset_path,
+        ),
+      );
+    },
+  });
+
+  registry.register({
+    id: ACTION_IDS.note_copy_html,
+    label: "Copy as HTML",
+    execute: async () => {
+      const target = export_target();
+      if (!target) return;
+      const html = await render_note_body_html(target.title, target.markdown, {
+        ...(target.image_resolver
+          ? { image_resolver: target.image_resolver }
+          : {}),
+      });
+      await services.clipboard.copy_rich({ html, text: target.markdown });
     },
   });
 

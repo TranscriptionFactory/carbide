@@ -1,10 +1,11 @@
 import {
   ClipFetchError,
-  type ClipEpubImage,
   type ClipFetchErrorKind,
   type ClipPage,
   type ClipPort,
 } from "$lib/features/clip/ports";
+import type { EpubImage } from "$lib/shared/types/epub";
+import { epub_media_type } from "$lib/shared/domain/epub_media_type";
 import {
   extract_readable_content,
   type ReadableContent,
@@ -25,7 +26,11 @@ import type { DocumentService } from "$lib/features/document";
 import { uniquify_note_path } from "$lib/features/folder";
 import type { VaultStore } from "$lib/features/vault";
 import type { OpStore } from "$lib/app/orchestration/op_store.svelte";
-import { html_to_markdown, sanitize_html } from "$lib/shared/html";
+import {
+  html_to_markdown,
+  sanitize_html,
+  to_xhtml_document,
+} from "$lib/shared/html";
 import {
   as_markdown_text,
   as_note_path,
@@ -326,13 +331,13 @@ export class ClipService {
     vault_id: VaultId,
   ): Promise<ClipOutput> {
     const mapping = new Map<string, string>();
-    const images: ClipEpubImage[] = [];
+    const images: EpubImage[] = [];
     let index = 0;
     for (const [url, asset_path] of localized.asset_paths) {
       const ext = asset_path.split(".").pop() || "img";
       const href = `images/img-${String(index)}.${ext}`;
       mapping.set(url, href);
-      images.push({ href, asset_path, media_type: media_type_for_ext(ext) });
+      images.push({ href, asset_path, media_type: epub_media_type(ext) });
       index += 1;
     }
     const rewritten = rewrite_image_srcs(
@@ -349,36 +354,11 @@ export class ClipService {
     await this.clip_port.write_epub(vault_id, epub_path, {
       title,
       source_url: base_url,
-      clipped_at: now.toISOString(),
+      created_at: now.toISOString(),
       xhtml,
+      css: null,
       images,
     });
     return { kind: "epub", path: epub_path };
   }
-}
-
-function media_type_for_ext(ext: string): string {
-  switch (ext.toLowerCase()) {
-    case "png":
-      return "image/png";
-    case "jpg":
-    case "jpeg":
-      return "image/jpeg";
-    case "gif":
-      return "image/gif";
-    case "webp":
-      return "image/webp";
-    default:
-      return "application/octet-stream";
-  }
-}
-
-export function to_xhtml_document(title: string, body_html: string): string {
-  const doc = new DOMParser().parseFromString(
-    `<html><head><meta charset="utf-8"/><title></title></head><body>${body_html}</body></html>`,
-    "text/html",
-  );
-  doc.title = title;
-  const serialized = new XMLSerializer().serializeToString(doc);
-  return `<?xml version="1.0" encoding="utf-8"?>\n${serialized}`;
 }

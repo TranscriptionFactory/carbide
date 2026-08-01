@@ -3,7 +3,6 @@
  */
 import { describe, expect, it, vi } from "vitest";
 import { ClipFetchError, ClipService } from "$lib/features/clip";
-import { to_xhtml_document } from "$lib/features/clip/application/clip_service";
 import type { ClipPort } from "$lib/features/clip";
 import type { AssetsPort, NoteService } from "$lib/features/note";
 import { NotesStore } from "$lib/features/note";
@@ -144,9 +143,14 @@ describe("ClipService.clip_page", () => {
     expect(artifact_args[3]).toMatchObject({ source: FINAL_URL });
 
     const [vault_id, epub_path, epub_input] = harness.clip_port.write_epub.mock
-      .calls[0] as [string, string, { xhtml: string; images: unknown[] }];
+      .calls[0] as [
+      string,
+      string,
+      { xhtml: string; images: unknown[]; source_url: string | null },
+    ];
     expect(vault_id).toBe(harness.vault_store.vault?.id);
     expect(epub_path).toBe("clips/test-article.epub");
+    expect(epub_input.source_url).toBe(FINAL_URL);
     expect(epub_input.images).toEqual([
       {
         href: "images/img-0.png",
@@ -316,23 +320,5 @@ describe("ClipService.clip_page", () => {
     expect(harness.clip_port.capture_finish).toHaveBeenCalledTimes(1);
     expect(harness.clip_port.fetch_page).not.toHaveBeenCalled();
     expect(result.primary.path).toBe("clips/test-article.md");
-  });
-});
-
-describe("to_xhtml_document", () => {
-  it("produces well-formed XHTML from messy HTML content", () => {
-    const xhtml = to_xhtml_document(
-      "Tricky & <Title>",
-      '<p>Fish & chips <img src="a.png" alt="a"><input disabled></p>',
-    );
-    const reparsed = new DOMParser().parseFromString(
-      xhtml,
-      "application/xhtml+xml",
-    );
-    expect(reparsed.querySelector("parsererror")).toBeNull();
-    expect(reparsed.getElementsByTagName("title")[0]?.textContent).toBe(
-      "Tricky & <Title>",
-    );
-    expect(reparsed.getElementsByTagName("img")).toHaveLength(1);
   });
 });

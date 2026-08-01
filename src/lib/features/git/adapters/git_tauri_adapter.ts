@@ -90,6 +90,18 @@ export function create_git_tauri_adapter(): GitPort {
         commitHash: commit_hash,
       });
     },
+    async discard_file(vault_path: VaultPath, file_path: string) {
+      await invoke_git<undefined>("git_discard_file", {
+        vaultPath: vault_path,
+        filePath: file_path,
+      });
+    },
+    async discard_all(vault_path: VaultPath, paths: string[]) {
+      return await invoke_git<string[]>("git_discard_all", {
+        vaultPath: vault_path,
+        paths,
+      });
+    },
     async create_tag(vault_path: VaultPath, name: string, message: string) {
       await invoke_git<undefined>("git_create_tag", {
         vaultPath: vault_path,

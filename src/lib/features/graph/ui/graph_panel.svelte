@@ -15,6 +15,10 @@
   import { use_app_context } from "$lib/app/context/app_context.svelte";
   import { detect_file_type } from "$lib/features/document";
   import { is_linked_note_path } from "$lib/shared/types/note";
+  import {
+    GRAPH_GROUP_MODE_OPTIONS,
+    GRAPH_ORDER_MODE_OPTIONS,
+  } from "$lib/shared/types/editor_settings";
   import { Button } from "$lib/components/ui/button";
   import { Input } from "$lib/components/ui/input";
   import GraphCanvas from "$lib/features/graph/ui/graph_canvas.svelte";
@@ -40,16 +44,16 @@
   const vault_node_count = $derived(vault_snapshot?.stats.node_count ?? 0);
   const edge_notice = $derived(stores.graph.edge_notice);
   const graph_tab_active = $derived(stores.tab.active_tab?.kind === "graph");
-  const group_mode = $derived(stores.graph.group_mode);
+  const group_mode = $derived(stores.ui.editor_settings.graph_group_mode);
+  const order_mode = $derived(stores.ui.editor_settings.graph_group_order);
   const focus_mode_active = $derived(stores.graph.focus_mode_active);
   const cluster_assignments = $derived(stores.graph.cluster_assignments);
 
   const group_mode_label = $derived(
-    group_mode === "folder"
-      ? "Folder"
-      : group_mode === "cluster"
-        ? "Cluster"
-        : "None",
+    GRAPH_GROUP_MODE_OPTIONS.find((o) => o.value === group_mode)?.label ?? "",
+  );
+  const order_mode_label = $derived(
+    GRAPH_ORDER_MODE_OPTIONS.find((o) => o.value === order_mode)?.label ?? "",
   );
 
   let container_element = $state<HTMLElement | null>(null);
@@ -270,6 +274,7 @@
   {#if is_vault_mode && group_mode !== "folder"}
     <div class="GraphPanel__stats">
       <span>Grouping: {group_mode_label}</span>
+      <span>{order_mode_label}</span>
       {#if group_mode === "cluster" && cluster_assignments}
         <span
           >{String(new Set(Object.values(cluster_assignments)).size)} clusters</span
@@ -295,6 +300,7 @@
         {show_smart_link_edges}
         theme={stores.ui.active_theme}
         {group_mode}
+        {order_mode}
         {cluster_assignments}
         on_select_node={(node_id) =>
           void action_registry.execute(ACTION_IDS.graph_select_node, node_id)}

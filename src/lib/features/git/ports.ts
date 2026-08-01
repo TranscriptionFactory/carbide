@@ -41,6 +41,8 @@ export interface GitPort {
     file_path: string,
     commit_hash: string,
   ): Promise<string>;
+  discard_file(vault_path: VaultPath, file_path: string): Promise<void>;
+  discard_all(vault_path: VaultPath, paths: string[]): Promise<string[]>;
   create_tag(
     vault_path: VaultPath,
     name: string,

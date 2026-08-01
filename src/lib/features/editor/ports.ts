@@ -125,6 +125,8 @@ export type EditorSession = {
     target?: Element | null,
   ) => number | null;
   insert_block_at?: (pos: number | null, placement: BlockPlacement) => void;
+  ensure_block_id_at?: (pos: number | null) => string | null;
+  block_supports_id_at?: (pos: number) => boolean;
   batch_turn_into?: (
     target: string,
     attrs: Record<string, unknown> | undefined,

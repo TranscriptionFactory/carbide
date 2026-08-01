@@ -1,3 +1,5 @@
+import type { EpubInput } from "$lib/shared/types/epub";
+
 export interface DocumentPort {
   read_file(
     vault_id: string,
@@ -24,9 +26,20 @@ export interface DocumentPort {
   close_buffer(id: string): Promise<void>;
 }
 
-export interface PdfExportPort {
-  pick_pdf_save_path(default_name: string): Promise<string | null>;
+export type NoteExportFormat = "pdf" | "html" | "epub";
+
+export interface NoteExportPort {
+  pick_save_path(
+    default_name: string,
+    format: NoteExportFormat,
+  ): Promise<string | null>;
   export_html_to_pdf(html: string, save_path: string): Promise<void>;
+  write_html(html: string, save_path: string): Promise<void>;
+  write_epub(
+    vault_id: string,
+    input: EpubInput,
+    save_path: string,
+  ): Promise<void>;
 }
 
 export type TrustLevel = "safe" | "live" | "live+net";

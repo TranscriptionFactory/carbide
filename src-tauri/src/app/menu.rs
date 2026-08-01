@@ -55,6 +55,12 @@ pub fn build_menu(app: &tauri::App) -> tauri::Result<Menu<tauri::Wry>> {
         .id("document.export_pdf")
         .accelerator("CmdOrCtrl+Shift+E")
         .build(app)?;
+    let export_html = MenuItemBuilder::new("Export as HTML")
+        .id("document.export_html")
+        .build(app)?;
+    let export_epub = MenuItemBuilder::new("Export as EPUB")
+        .id("document.export_epub")
+        .build(app)?;
     let close_tab = MenuItemBuilder::new("Close Tab")
         .id("tab.close")
         .accelerator("CmdOrCtrl+W")
@@ -68,6 +74,8 @@ pub fn build_menu(app: &tauri::App) -> tauri::Result<Menu<tauri::Wry>> {
         .separator()
         .item(&save)
         .item(&export_pdf)
+        .item(&export_html)
+        .item(&export_epub)
         .separator()
         .item(&close_tab)
         .build()?;

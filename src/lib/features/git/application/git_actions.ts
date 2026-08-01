@@ -2,6 +2,7 @@ import type { ActionRegistrationInput } from "$lib/app/action_registry/action_re
 import { ACTION_IDS } from "$lib/app/action_registry/action_ids";
 import type { GitDiff } from "$lib/features/git/types/git";
 import { toast } from "$lib/shared/ui/toast";
+import { as_note_path } from "$lib/shared/types/ids";
 
 type CommitSelectionPayload = {
   hash: string;
@@ -29,9 +30,17 @@ function parse_commit_restore_payload(payload: unknown): CommitRestorePayload {
   };
 }
 
-function parse_open_diff_payload(payload: unknown): string | null {
+function parse_file_path_payload(payload: unknown): string | null {
   const record = (payload ?? {}) as Record<string, unknown>;
   return typeof record.file_path === "string" ? record.file_path : null;
+}
+
+function describe_discard(paths: string[]): string {
+  const only = paths[0];
+  if (paths.length === 1 && only !== undefined) {
+    return `Discarded changes to ${only}`;
+  }
+  return `Discarded changes to ${String(paths.length)} files`;
 }
 
 export function register_git_actions(input: ActionRegistrationInput) {
@@ -98,6 +107,43 @@ export function register_git_actions(input: ActionRegistrationInput) {
       open: false,
       url: "",
     };
+  }
+
+  function close_diff_viewer_dialog() {
+    stores.ui.diff_viewer_dialog = {
+      open: false,
+      file_path: null,
+    };
+    stores.git.clear_working_diff();
+  }
+
+  function open_discard_dialog(paths: string[]) {
+    stores.ui.discard_changes_dialog = { open: true, paths };
+  }
+
+  function close_discard_dialog() {
+    stores.ui.discard_changes_dialog = { open: false, paths: [] };
+  }
+
+  // Discard can delete a never-committed file outright, so a path that no longer
+  // exists must lose its tab rather than be reopened.
+  async function resync_open_note(path: string) {
+    const note_path = as_note_path(path);
+    const is_open =
+      stores.editor.open_note?.meta.path === note_path ||
+      stores.tab.find_tab_by_path(note_path) !== null;
+    if (!is_open) return;
+
+    stores.tab.invalidate_cache_by_path(note_path);
+    services.editor.close_buffer(note_path);
+    const result = await services.note.open_note(note_path, false, {
+      force_reload: true,
+      cleanup_if_missing: true,
+    });
+    if (result.status === "not_found") {
+      services.note.clear_open_note();
+      services.tab.remove_tab(note_path);
+    }
   }
 
   async function load_file_content_at_commit(
@@ -526,7 +572,7 @@ export function register_git_actions(input: ActionRegistrationInput) {
     id: ACTION_IDS.git_open_diff,
     label: "View File Diff",
     execute: async (payload: unknown) => {
-      const file_path = parse_open_diff_payload(payload);
+      const file_path = parse_file_path_payload(payload);
       if (!file_path) return;
 
       stores.ui.diff_viewer_dialog = { open: true, file_path };
@@ -547,11 +593,68 @@ export function register_git_actions(input: ActionRegistrationInput) {
     id: ACTION_IDS.git_close_diff,
     label: "Close File Diff",
     execute: () => {
-      stores.ui.diff_viewer_dialog = {
-        open: false,
-        file_path: null,
-      };
-      stores.git.clear_working_diff();
+      close_diff_viewer_dialog();
+    },
+  });
+
+  registry.register({
+    id: ACTION_IDS.git_request_discard,
+    label: "Discard File Changes",
+    execute: (payload: unknown) => {
+      const file_path = parse_file_path_payload(payload);
+      if (!file_path) return;
+      open_discard_dialog([file_path]);
+    },
+  });
+
+  registry.register({
+    id: ACTION_IDS.git_request_discard_all,
+    label: "Discard All Changes",
+    execute: () => {
+      const paths = stores.git.unstaged_files.map((file) => file.path);
+      if (paths.length === 0) return;
+      open_discard_dialog(paths);
+    },
+  });
+
+  registry.register({
+    id: ACTION_IDS.git_cancel_discard,
+    label: "Cancel Discard Changes",
+    execute: () => {
+      close_discard_dialog();
+    },
+  });
+
+  registry.register({
+    id: ACTION_IDS.git_confirm_discard,
+    label: "Confirm Discard Changes",
+    execute: async () => {
+      const paths = [...stores.ui.discard_changes_dialog.paths];
+      if (paths.length === 0) return;
+
+      const only = paths[0];
+      const toast_id = toast.loading("Discarding changes...");
+      const result =
+        paths.length === 1 && only !== undefined
+          ? await services.git.discard_file(only)
+          : await services.git.discard_all(paths);
+      close_discard_dialog();
+
+      if (result.status === "failed") {
+        toast.error(result.error || "Discard failed", { id: toast_id });
+        return;
+      }
+
+      for (const path of result.paths) {
+        await resync_open_note(path);
+      }
+      if (
+        stores.ui.diff_viewer_dialog.file_path !== null &&
+        result.paths.includes(stores.ui.diff_viewer_dialog.file_path)
+      ) {
+        close_diff_viewer_dialog();
+      }
+      toast.success(describe_discard(result.paths), { id: toast_id });
     },
   });
 }

@@ -48,6 +48,16 @@ export function create_test_git_adapter(): GitPort {
     restore_file() {
       return Promise.resolve("");
     },
+    discard_file() {
+      return Promise.reject(
+        new Error("git discard_file not implemented in test adapter"),
+      );
+    },
+    discard_all() {
+      return Promise.reject(
+        new Error("git discard_all not implemented in test adapter"),
+      );
+    },
     create_tag() {
       return Promise.resolve();
     },

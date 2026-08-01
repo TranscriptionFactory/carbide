@@ -37,7 +37,7 @@ import {
 import {
   DocumentService,
   register_document_actions,
-  create_pdf_export_tauri_adapter,
+  create_note_export_tauri_adapter,
 } from "$lib/features/document";
 import {
   GraphService,
@@ -683,6 +683,9 @@ export function create_app_context(input: {
     stores.git,
     stores.op,
     now_ms,
+    (path) => {
+      watcher_service.suppress_next(path);
+    },
   );
 
   const hotkey_service = new HotkeyService(
@@ -763,7 +766,7 @@ export function create_app_context(input: {
     stores.document,
     now_ms,
     undefined,
-    create_pdf_export_tauri_adapter(),
+    create_note_export_tauri_adapter(),
     input.ports.trusted_html,
     input.ports.reading_position,
   );
