@@ -52,7 +52,6 @@ function setup(providers: AiProviderConfig[]) {
     return Promise.resolve(unlisten);
   });
 
-  const queried: (AiProviderConfig | null)[] = [];
   const rag_service = {
     query: vi.fn(() =>
       (async function* () {
@@ -75,9 +74,7 @@ function setup(providers: AiProviderConfig[]) {
     emit: (payload: unknown) => handler?.({ payload }),
     assistant_kernel,
     rag_service,
-    queried,
     cleanup,
-    unlisten,
   };
 }
 

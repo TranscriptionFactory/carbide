@@ -1,6 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 import { AgentRunner, RagStore } from "$lib/features/rag";
-import type { RunEvent, RunRequest, RunSpec } from "$lib/features/assistant";
+import type {
+  RunEvent,
+  RunRequest,
+  RunSink,
+  RunSpec,
+} from "$lib/features/assistant";
 import { VaultStore } from "$lib/features/vault";
 import type { AiProviderConfig } from "$lib/shared/types/ai_provider_config";
 import { create_test_vault } from "../helpers/test_fixtures";
@@ -314,20 +319,12 @@ describe("AgentRunner.run_turn", () => {
   // the mechanism, not just the behaviour.
   it("writes the transcript through the injected sink, never from the loop", async () => {
     const { rag_store, vault_store } = make_stores();
-    let sink_seen = 0;
+    let sink_passed = false;
     const starter = {
-      start: (
-        _spec: RunSpec,
-        sink?: import("$lib/features/assistant").RunSink,
-      ) => {
-        const events: RunEvent[] = [
-          { type: "session", provider_session_id: "sess-1" },
-          { type: "text", text: "hello" },
-          { type: "done", stats: {} },
-        ];
+      start: (_spec: RunSpec, sink?: RunSink) => {
         // Deliberately dispatch nothing to the sink: with the writes living in
         // it, the store must stay untouched.
-        if (sink) sink_seen = events.length;
+        sink_passed = sink !== undefined;
         return Promise.resolve({
           id: "run-1",
           stop: () => {},
@@ -351,7 +348,7 @@ describe("AgentRunner.run_turn", () => {
     const before = rag_store.active?.messages.length ?? 0;
     await runner.run_turn(provider, "organize my notes", "harness");
 
-    expect(sink_seen).toBe(3);
+    expect(sink_passed).toBe(true);
     expect(rag_store.active?.messages.length).toBe(before);
     expect(rag_store.active?.agent_session_id).toBeUndefined();
   });

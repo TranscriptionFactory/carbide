@@ -29,10 +29,5 @@ export async function start_run_stream(
     },
   });
 
-  return {
-    handle,
-    events: {
-      [Symbol.asyncIterator]: () => queue[Symbol.asyncIterator](),
-    },
-  };
+  return { handle, events: queue };
 }

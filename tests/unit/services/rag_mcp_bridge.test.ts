@@ -3,7 +3,6 @@ import { RagService, collect_rag_query_response } from "$lib/features/rag";
 import { VaultStore } from "$lib/features/vault";
 import { create_test_vault } from "../helpers/test_fixtures";
 import { create_test_rag_persistence_adapter } from "../../adapters/test_rag_persistence_adapter";
-import type { AiStreamChunk } from "$lib/features/ai";
 import type { RunEvent } from "$lib/features/assistant";
 import { create_test_run_starter } from "../../adapters/test_run_starter";
 import type { AiProviderConfig } from "$lib/shared/types/ai_provider_config";
@@ -36,7 +35,7 @@ function note_meta(path: string, title: string, id: string) {
   };
 }
 
-function make_service(...chunks: AiStreamChunk[]) {
+function make_service(...events: RunEvent[]) {
   const search = {
     search_blocks: vi.fn().mockResolvedValue([]),
     hybrid_search: vi
@@ -48,14 +47,7 @@ function make_service(...chunks: AiStreamChunk[]) {
   const notes = {
     read_note: vi.fn().mockResolvedValue({ markdown: "The answer is 42." }),
   };
-  const stream = create_test_run_starter(() =>
-    chunks.map(
-      (chunk): RunEvent =>
-        chunk.type === "error"
-          ? { type: "error", message: chunk.error }
-          : chunk,
-    ),
-  );
+  const stream = create_test_run_starter(() => events);
   const vault_store = new VaultStore();
   vault_store.set_vault(create_test_vault({ path: "/vault/demo" as never }));
   return new RagService(
@@ -83,20 +75,20 @@ async function in_app_collect(gen: AsyncGenerator<RagStreamEvent>) {
 
 describe("collect_rag_query_response", () => {
   it("returns the same answer and citations as the in-app path for the same question", async () => {
-    const chunks: AiStreamChunk[] = [
+    const events: RunEvent[] = [
       { type: "text", text: "The answer is 42 [1]." },
       { type: "done" },
     ];
 
     const in_app = await in_app_collect(
-      make_service(...chunks).query({
+      make_service(...events).query({
         question: "what is it?",
         provider_config: provider,
       }),
     );
 
     const mcp = await collect_rag_query_response(
-      make_service(...chunks).query({
+      make_service(...events).query({
         question: "what is it?",
         provider_config: provider,
       }),
@@ -114,7 +106,7 @@ describe("collect_rag_query_response", () => {
     const mcp = await collect_rag_query_response(
       make_service({
         type: "error",
-        error: "Ollama request failed — see logs for details.",
+        message: "Ollama request failed — see logs for details.",
       }).query({
         question: "q",
         provider_config: provider,
