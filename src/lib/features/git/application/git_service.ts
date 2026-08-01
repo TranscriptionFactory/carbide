@@ -34,6 +34,10 @@ export type GitInitResult =
   | { status: "already_repo" }
   | { status: "failed"; error: string };
 
+export type GitDiscardResult =
+  | { status: "discarded"; paths: string[] }
+  | { status: "failed"; error: string };
+
 export type GitCheckpointResult =
   | { status: "created" }
   | { status: "skipped" }
@@ -50,6 +54,7 @@ export class GitService {
     private readonly git_store: GitStore,
     private readonly op_store: OpStore,
     private readonly now_ms: () => number,
+    private readonly suppress_watcher: (path: string) => void,
   ) {}
 
   private serialize<T>(fn: () => Promise<T>): Promise<T> {
@@ -412,6 +417,57 @@ export class GitService {
         this.fail_git_mutation("git.restore", msg);
       }
     });
+  }
+
+  async discard_file(file_path: string): Promise<GitDiscardResult> {
+    return this.serialize(() =>
+      this.run_discard([file_path], async (vault_path) => {
+        await this.git_port.discard_file(vault_path, file_path);
+        return [file_path];
+      }),
+    );
+  }
+
+  async discard_all(paths: string[]): Promise<GitDiscardResult> {
+    if (paths.length === 0) {
+      return { status: "discarded", paths: [] };
+    }
+    return this.serialize(() =>
+      this.run_discard(paths, (vault_path) =>
+        this.git_port.discard_all(vault_path, paths),
+      ),
+    );
+  }
+
+  // Discard rewrites the worktree from HEAD without committing, so the history
+  // cache stays valid. Suppression is armed inside the serialized block, right
+  // before the write, because it is one-shot and short-lived.
+  private async run_discard(
+    paths: string[],
+    discard: (vault_path: VaultPath) => Promise<string[]>,
+  ): Promise<GitDiscardResult> {
+    const vault_path = this.get_vault_path();
+    this.op_store.start("git.discard", this.now_ms());
+    this.git_store.set_sync_status("discarding");
+    this.git_store.set_error(null);
+
+    try {
+      for (const path of paths) {
+        this.suppress_watcher(path);
+      }
+      const discarded = await discard(vault_path);
+      for (const path of discarded) {
+        this.git_store.unstage_file(path);
+      }
+      this.git_store.set_sync_status("idle");
+      this.op_store.succeed("git.discard");
+      await this.refresh_status();
+      return { status: "discarded", paths: discarded };
+    } catch (err) {
+      const msg = error_message(err);
+      this.fail_git_mutation("git.discard", msg);
+      return { status: "failed", error: msg };
+    }
   }
 
   private async inner_push() {

@@ -29,6 +29,12 @@ function create_mock_port() {
     .mockResolvedValue({ additions: 0, deletions: 0, hunks: [] });
   const show_file_at_commit = vi.fn().mockResolvedValue("file content");
   const restore_file = vi.fn().mockResolvedValue("def456");
+  const discard_file = vi.fn().mockResolvedValue(undefined);
+  const discard_all = vi
+    .fn()
+    .mockImplementation((_vault: string, paths: string[]) =>
+      Promise.resolve(paths),
+    );
   const create_tag = vi.fn().mockResolvedValue(undefined);
   const push = vi
     .fn()
@@ -59,6 +65,8 @@ function create_mock_port() {
     diff_working,
     show_file_at_commit,
     restore_file,
+    discard_file,
+    discard_all,
     create_tag,
     push,
     fetch,
@@ -78,6 +86,8 @@ function create_mock_port() {
     diff,
     show_file_at_commit,
     restore_file,
+    discard_file,
+    discard_all,
     create_tag,
     push,
     fetch,
@@ -97,14 +107,25 @@ function create_harness() {
 
   vault_store.set_vault(create_test_vault());
 
+  const suppress_watcher = vi.fn();
+
   const service = new GitService(
     mocks.port,
     vault_store,
     git_store,
     op_store,
     now_ms,
+    suppress_watcher,
   );
-  return { service, ...mocks, vault_store, git_store, op_store, now_ms };
+  return {
+    service,
+    ...mocks,
+    vault_store,
+    git_store,
+    op_store,
+    now_ms,
+    suppress_watcher,
+  };
 }
 
 describe("GitService", () => {
@@ -556,5 +577,113 @@ describe("GitService", () => {
     await service.load_history("notes/test.md", 20);
     expect(git_store.error).toBe("connection refused");
     expect(op_store.get("git.history").status).toBe("error");
+  });
+
+  it("discard_file suppresses the watcher before writing and refreshes status", async () => {
+    const {
+      service,
+      discard_file,
+      status,
+      op_store,
+      git_store,
+      suppress_watcher,
+    } = create_harness();
+
+    const result = await service.discard_file("notes/test.md");
+
+    expect(suppress_watcher).toHaveBeenCalledWith("notes/test.md");
+    expect(discard_file).toHaveBeenCalledWith(
+      expect.anything(),
+      "notes/test.md",
+    );
+    expect(result).toEqual({ status: "discarded", paths: ["notes/test.md"] });
+    expect(op_store.get("git.discard").status).toBe("success");
+    expect(git_store.sync_status).toBe("idle");
+    expect(status).toHaveBeenCalled();
+  });
+
+  it("discard_file records no commit time", async () => {
+    const { service, git_store } = create_harness();
+
+    await service.discard_file("notes/test.md");
+
+    expect(git_store.last_commit_time).toBeNull();
+  });
+
+  it("discard keeps cached history because nothing was committed", async () => {
+    const { service, log, git_store } = create_harness();
+    const commits = [
+      {
+        hash: "abc",
+        short_hash: "ab",
+        author: "test",
+        timestamp_ms: 100,
+        message: "msg",
+      },
+    ];
+    log.mockResolvedValue(commits);
+
+    await service.load_history("notes/test.md", 20);
+    await service.discard_file("notes/test.md");
+
+    expect(git_store.history).toEqual(commits);
+  });
+
+  it("discard_file surfaces a conflicted-file refusal as a failure", async () => {
+    const { service, discard_file, git_store, op_store } = create_harness();
+    discard_file.mockRejectedValue(
+      new Error("notes/test.md has unresolved merge conflicts."),
+    );
+
+    const result = await service.discard_file("notes/test.md");
+
+    expect(result).toEqual({
+      status: "failed",
+      error: "notes/test.md has unresolved merge conflicts.",
+    });
+    expect(op_store.get("git.discard").status).toBe("error");
+    expect(git_store.sync_status).toBe("error");
+  });
+
+  it("discard_all suppresses every path and unstages what it discarded", async () => {
+    const { service, discard_all, status, git_store, suppress_watcher } =
+      create_harness();
+    const files = [
+      { path: "a.md", status: "modified" as const },
+      { path: "b.md", status: "modified" as const },
+    ];
+    status.mockResolvedValue({
+      branch: "main",
+      is_dirty: true,
+      ahead: 0,
+      behind: 0,
+      has_remote: false,
+      has_upstream: false,
+      remote_url: null,
+      files,
+    });
+    git_store.set_status("main", true, 2, false, false, null, 0, 0, files);
+    git_store.stage_all();
+
+    const result = await service.discard_all(["a.md", "b.md"]);
+
+    expect(suppress_watcher).toHaveBeenCalledWith("a.md");
+    expect(suppress_watcher).toHaveBeenCalledWith("b.md");
+    expect(discard_all).toHaveBeenCalledWith(expect.anything(), [
+      "a.md",
+      "b.md",
+    ]);
+    expect(result).toEqual({ status: "discarded", paths: ["a.md", "b.md"] });
+    expect(git_store.staged_paths.size).toBe(0);
+  });
+
+  it("discard_all short-circuits on an empty selection", async () => {
+    const { service, discard_all, op_store } = create_harness();
+
+    const result = await service.discard_all([]);
+
+    expect(result).toEqual({ status: "discarded", paths: [] });
+    expect(discard_all).not.toHaveBeenCalled();
+    expect(op_store.get("git.discard").status).toBe("idle");
   });
 });
