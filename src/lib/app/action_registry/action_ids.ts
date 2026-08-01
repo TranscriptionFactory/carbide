@@ -358,6 +358,8 @@ export const ACTION_IDS = {
   document_close: "document.close",
   document_save: "document.save",
   document_export_pdf: "document.export_pdf",
+  document_export_html: "document.export_html",
+  document_export_epub: "document.export_epub",
   document_toggle_source: "document.toggle_source",
   document_paste_html_artifact: "document.paste_html_artifact",
   document_clear_provenance: "document.clear_provenance",

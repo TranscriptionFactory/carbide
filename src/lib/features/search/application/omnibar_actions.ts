@@ -52,6 +52,8 @@ export const COMMAND_TO_ACTION_ID: Record<CommandId, string> = {
   show_tasks_schedule: ACTION_IDS.ui_show_tasks_schedule,
   check_for_updates: ACTION_IDS.app_check_for_updates,
   export_as_pdf: ACTION_IDS.document_export_pdf,
+  export_as_html: ACTION_IDS.document_export_html,
+  export_as_epub: ACTION_IDS.document_export_epub,
   terminal_toggle: ACTION_IDS.terminal_toggle,
   terminal_new_session: ACTION_IDS.terminal_new_session,
   open_plugins: ACTION_IDS.ui_open_plugins,

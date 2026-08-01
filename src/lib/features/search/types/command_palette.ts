@@ -29,6 +29,8 @@ export type CommandId =
   | "show_tasks_schedule"
   | "check_for_updates"
   | "export_as_pdf"
+  | "export_as_html"
+  | "export_as_epub"
   | "terminal_toggle"
   | "terminal_new_session"
   | "open_plugins"

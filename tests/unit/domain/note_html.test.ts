@@ -1,5 +1,9 @@
 import { describe, it, expect, vi } from "vitest";
-import { render_note_to_html } from "$lib/features/document/domain/note_html";
+import {
+  note_export_styles,
+  render_note_body_html,
+  render_note_to_html,
+} from "$lib/features/document/domain/note_html";
 
 vi.mock("mermaid", () => ({
   default: {
@@ -13,6 +17,17 @@ vi.mock("mermaid", () => ({
 
 function count(haystack: string, needle: string): number {
   return haystack.split(needle).length - 1;
+}
+
+// Highlighted code is wrapped in per-token spans, so the readable source only
+// appears once the markup is stripped and the entities decoded.
+function code_block_text(html: string): string {
+  return (html.match(/<pre[\s\S]*?<\/pre>/)?.[0] ?? "")
+    .replace(/<[^>]+>/g, "")
+    .replace(/&(lt|#x3C);/g, "<")
+    .replace(/&(gt|#x3E);/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&amp;/g, "&");
 }
 
 describe("render_note_to_html", () => {
@@ -150,5 +165,85 @@ describe("render_note_to_html", () => {
       expect(html).toContain('class="image-missing"');
       expect(html).not.toContain('src="pic.png"');
     });
+  });
+
+  describe("raw HTML", () => {
+    it("shows a raw HTML block as escaped source inside a <pre>, not as markup", async () => {
+      const html = await render_note_to_html(
+        "Note",
+        '<div class="danger"><script>alert(1)</script></div>',
+      );
+      expect(html).toContain("<pre");
+      expect(code_block_text(html)).toContain(
+        '<div class="danger"><script>alert(1)</script></div>',
+      );
+      expect(html).not.toContain('<div class="danger">');
+      expect(html).not.toContain("<script>");
+    });
+
+    it("shows inline raw HTML as code rather than dropping it into the document", async () => {
+      const html = await render_note_to_html(
+        "Note",
+        "Press <kbd>Esc</kbd> to close.",
+      );
+      expect(html).toContain('<code class="raw-html">&lt;kbd&gt;</code>');
+      expect(html).not.toContain("<kbd>");
+    });
+
+    it("renders a promoted iframe embed as a placeholder carrying its URL", async () => {
+      const html = await render_note_to_html(
+        "Note",
+        '<iframe src="https://example.com/watch?v=1" title="Demo"></iframe>',
+      );
+      expect(html).toContain('class="embed-placeholder"');
+      expect(html).toContain("Embedded page");
+      expect(html).toContain("https://example.com/watch?v=1");
+      expect(html).not.toContain("<iframe");
+    });
+
+    it("renders a promoted video embed as a placeholder carrying its URL", async () => {
+      const html = await render_note_to_html(
+        "Note",
+        '<video src="clips/demo.mp4" controls></video>',
+      );
+      expect(html).toContain('class="embed-placeholder"');
+      expect(html).toContain("Video");
+      expect(html).toContain("clips/demo.mp4");
+      expect(html).not.toContain("<video");
+    });
+
+    it("keeps surrounding prose intact around a promoted embed", async () => {
+      const html = await render_note_to_html(
+        "Note",
+        'Before.\n\n<iframe src="https://example.com/e"></iframe>\n\nAfter.',
+      );
+      expect(html).toContain("Before.");
+      expect(html).toContain("After.");
+      expect(count(html, 'class="embed-placeholder"')).toBe(1);
+    });
+  });
+});
+
+describe("render_note_body_html", () => {
+  it("emits only the note body, without a document shell", async () => {
+    const body = await render_note_body_html("My Note", "Body text.");
+    expect(body).not.toContain("<!doctype html>");
+    expect(body).not.toContain("<style>");
+    expect(body).toContain('<h1 class="doc-title">My Note</h1>');
+    expect(body).toContain("Body text.");
+  });
+
+  it("escapes the title", async () => {
+    const body = await render_note_body_html("A <b> & C", "x");
+    expect(body).toContain("A &lt;b&gt; &amp; C");
+  });
+});
+
+describe("note_export_styles", () => {
+  it("bundles the KaTeX stylesheet with the print styles", async () => {
+    const styles = await note_export_styles();
+    expect(styles).toContain(".katex");
+    expect(styles).toContain("@page");
+    expect(styles).toContain(".embed-placeholder");
   });
 });

@@ -1,9 +1,13 @@
 use std::borrow::Cow;
+use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use std::time::Duration;
 
 use tauri::webview::PageLoadEvent;
 use tauri::{AppHandle, Manager, Runtime, WebviewUrl, WebviewWindow, WebviewWindowBuilder};
+
+use crate::shared::epub::{build_epub, read_epub_images, EpubInput};
+use crate::shared::{io_utils, storage};
 
 const EXPORT_WINDOW_LABEL: &str = "pdf-export";
 const EXPORT_URL: &str = "pdfexport://localhost/";
@@ -63,6 +67,37 @@ pub async fn export_html_to_pdf(
     let result = run_export(&app, save_path).await;
     cleanup(&app);
     result
+}
+
+// Export destinations come from the native save dialog, so they are absolute
+// paths outside the vault. Rejecting relative paths keeps a malformed frontend
+// call from writing next to the process working directory.
+fn save_destination(save_path: &str) -> Result<PathBuf, String> {
+    let path = Path::new(save_path);
+    if !path.is_absolute() {
+        return Err(format!("Export path must be absolute: {save_path}"));
+    }
+    Ok(path.to_path_buf())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn export_write_html(html: String, save_path: String) -> Result<(), String> {
+    io_utils::atomic_write(save_destination(&save_path)?, html)
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn export_write_epub(
+    app: AppHandle,
+    vault_id: String,
+    save_path: String,
+    input: EpubInput,
+) -> Result<(), String> {
+    let destination = save_destination(&save_path)?;
+    let root = storage::vault_path(&app, &vault_id)?;
+    let images = read_epub_images(&root, &input.images)?;
+    io_utils::atomic_write(destination, build_epub(&input, &images)?)
 }
 
 fn cleanup<R: Runtime>(app: &AppHandle<R>) {
@@ -346,4 +381,36 @@ fn capture_platform(
     });
 
     operation.print();
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn save_destination_rejects_relative_paths() {
+        assert!(save_destination("notes/out.html").is_err());
+        assert!(save_destination("").is_err());
+    }
+
+    #[test]
+    fn save_destination_accepts_absolute_paths() {
+        let path = save_destination("/tmp/carbide/out.epub").unwrap();
+        assert_eq!(path, PathBuf::from("/tmp/carbide/out.epub"));
+    }
+
+    #[test]
+    fn export_write_html_writes_the_document() {
+        let dir = tempfile::tempdir().unwrap();
+        let target = dir.path().join("note.html");
+        export_write_html(
+            "<!doctype html><html><body>hi</body></html>".to_string(),
+            target.to_string_lossy().to_string(),
+        )
+        .unwrap();
+        assert_eq!(
+            std::fs::read_to_string(&target).unwrap(),
+            "<!doctype html><html><body>hi</body></html>"
+        );
+    }
 }

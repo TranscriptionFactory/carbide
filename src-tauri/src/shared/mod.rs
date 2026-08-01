@@ -2,6 +2,7 @@ pub mod asset_cache;
 pub mod buffer;
 pub mod cache;
 pub mod constants;
+pub mod epub;
 pub mod io_utils;
 pub mod live_html;
 pub mod lsp_client;

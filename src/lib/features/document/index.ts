@@ -10,7 +10,8 @@ export {
 } from "$lib/features/document/state/document_store.svelte";
 export {
   type DocumentPort,
-  type PdfExportPort,
+  type NoteExportFormat,
+  type NoteExportPort,
   type TrustedHtmlPort,
   type ReadingPositionPort,
   type TrustLevel,
@@ -18,7 +19,7 @@ export {
   type TrustEntry,
 } from "$lib/features/document/ports";
 export { create_document_tauri_adapter } from "$lib/features/document/adapters/document_tauri_adapter";
-export { create_pdf_export_tauri_adapter } from "$lib/features/document/adapters/pdf_export_tauri_adapter";
+export { create_note_export_tauri_adapter } from "$lib/features/document/adapters/note_export_tauri_adapter";
 export { create_trusted_html_tauri_adapter } from "$lib/features/document/adapters/trusted_html_tauri_adapter";
 export { create_reading_position_tauri_adapter } from "$lib/features/document/adapters/reading_position_tauri_adapter";
 export {
@@ -28,9 +29,16 @@ export {
 } from "$lib/features/document/domain/html_artifact_paste";
 export {
   render_note_to_html,
+  render_note_body_html,
+  note_export_styles,
   type ImageResolver,
   type ImageSourceKind,
 } from "$lib/features/document/domain/note_html";
+export {
+  create_epub_image_collector,
+  type NoteAssetPathResolver,
+} from "$lib/features/document/domain/note_epub";
+export { resolve_note_asset_path } from "$lib/features/document/domain/note_export_assets";
 export {
   DocumentService,
   type DocumentAiContext,
