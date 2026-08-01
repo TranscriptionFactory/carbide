@@ -3,6 +3,7 @@ import {
   parse_markdown,
   serialize_markdown,
 } from "$lib/features/editor/adapters/markdown_pipeline";
+import { schema } from "$lib/features/editor/adapters/schema";
 
 function roundtrip(markdown: string): string {
   return serialize_markdown(parse_markdown(markdown));
@@ -26,6 +27,19 @@ describe("raw block preservation", () => {
     const once = roundtrip(input);
     expect(once.trimEnd()).toBe(input);
     expect(roundtrip(once)).toBe(once);
+  });
+
+  it("tags the rendered element so the style reset can drop the code-block chrome", () => {
+    const node = parse_markdown(`<div class="banner">hi</div>`).child(0);
+    expect(node.type.name).toBe("raw_block");
+
+    const dom = schema.nodes.raw_block.spec.toDOM?.(node) as [
+      string,
+      Record<string, string>,
+      unknown,
+    ];
+    expect(dom[0]).toBe("pre");
+    expect(dom[1]["data-type"]).toBe("raw_block");
   });
 
   it("still converts embeddable HTML followed by a blank line to web_embed", () => {

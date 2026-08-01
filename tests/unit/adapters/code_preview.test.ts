@@ -1,11 +1,19 @@
-import { describe, it, expect } from "vitest";
+/**
+ * @vitest-environment jsdom
+ */
+import { describe, it, expect, vi, afterEach } from "vitest";
 import {
   is_previewable_language,
   normalize_preview_language,
   meta_has_token,
   should_show_preview,
   build_code_preview_srcdoc,
+  clamp_preview_height,
+  read_preview_theme_tokens,
   CODE_PREVIEW_SANDBOX,
+  PREVIEW_HEIGHT_MESSAGE,
+  PREVIEW_MIN_HEIGHT_PX,
+  PREVIEW_MAX_HEIGHT_PX,
 } from "$lib/features/editor/adapters/code_preview";
 
 describe("preview language gating", () => {
@@ -66,19 +74,17 @@ describe("preview srcdoc", () => {
 
   it("embeds raw html source directly", () => {
     const doc = build_code_preview_srcdoc("html", "<h1>Title</h1>");
-    expect(doc).toContain("<body><h1>Title</h1></body>");
+    expect(doc).toContain("<body><h1>Title</h1>");
   });
 
   it("wraps css in a style tag", () => {
     const doc = build_code_preview_srcdoc("css", "body { color: red; }");
-    expect(doc).toContain("<body><style>body { color: red; }</style></body>");
+    expect(doc).toContain("<body><style>body { color: red; }</style>");
   });
 
   it("wraps js in a script tag", () => {
     const doc = build_code_preview_srcdoc("js", "document.title = 'x';");
-    expect(doc).toContain(
-      "<body><script>document.title = 'x';</script></body>",
-    );
+    expect(doc).toContain("<body><script>document.title = 'x';</script>");
   });
 
   it("applies a dark class for the dark theme", () => {
@@ -161,5 +167,64 @@ describe("preview srcdoc", () => {
       "--evil": "red}</style><script>alert(1)</script>",
     });
     expect(doc).not.toContain("alert(1)");
+  });
+
+  it("ships a height reporter that measures the body, not the frame viewport", () => {
+    const doc = build_code_preview_srcdoc("html", "<p>hi</p>");
+    expect(doc).toContain(PREVIEW_HEIGHT_MESSAGE);
+    expect(doc).toContain("document.body.getBoundingClientRect().height");
+    expect(doc).toContain("new ResizeObserver(send).observe(document.body)");
+  });
+
+  it("keeps the height reporter out of author-color detection", () => {
+    const doc = build_code_preview_srcdoc("html", "<p>hi</p>", "dark", {
+      "--foreground": "oklch(0.95 0 0)",
+    });
+    expect(doc).toContain("color-scheme:dark");
+    expect(doc).not.toContain("body { color: #18181b; background: #ffffff; }");
+  });
+});
+
+describe("preview height clamping", () => {
+  it("rounds a fractional content height up to whole pixels", () => {
+    expect(clamp_preview_height(46.2)).toBe(47);
+  });
+
+  it("floors an empty preview at the minimum height", () => {
+    expect(clamp_preview_height(0)).toBe(PREVIEW_MIN_HEIGHT_PX);
+    expect(clamp_preview_height(-40)).toBe(PREVIEW_MIN_HEIGHT_PX);
+  });
+
+  it("caps a runaway document at the maximum height", () => {
+    expect(clamp_preview_height(9000)).toBe(PREVIEW_MAX_HEIGHT_PX);
+  });
+
+  it("falls back to the minimum for a non-finite height", () => {
+    expect(clamp_preview_height(Number.NaN)).toBe(PREVIEW_MIN_HEIGHT_PX);
+    expect(clamp_preview_height(Number.POSITIVE_INFINITY)).toBe(
+      PREVIEW_MIN_HEIGHT_PX,
+    );
+  });
+});
+
+describe("preview theme token reads", () => {
+  afterEach(() => {
+    document.documentElement.removeAttribute("data-color-scheme");
+    vi.restoreAllMocks();
+  });
+
+  it("reuses the computed tokens until a root attribute changes", () => {
+    document.documentElement.setAttribute("data-color-scheme", "light");
+    read_preview_theme_tokens();
+
+    const computed = vi.spyOn(window, "getComputedStyle");
+
+    read_preview_theme_tokens();
+    read_preview_theme_tokens();
+    expect(computed).not.toHaveBeenCalled();
+
+    document.documentElement.setAttribute("data-color-scheme", "dark");
+    read_preview_theme_tokens();
+    expect(computed).toHaveBeenCalledTimes(1);
   });
 });
