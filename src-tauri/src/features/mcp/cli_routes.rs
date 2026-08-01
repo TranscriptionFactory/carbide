@@ -1107,6 +1107,25 @@ mod tests {
     }
 
     #[test]
+    fn test_git_discard_params_default_to_unconfirmed() {
+        let json = r#"{"vault_id":"v1"}"#;
+        let params: GitDiscardParams = serde_json::from_str(json).unwrap();
+        assert!(!params.confirm);
+        assert!(params.paths.is_none());
+    }
+
+    #[test]
+    fn test_git_discard_params_deserialization() {
+        let json = r#"{"vault_id":"v1","paths":["a.md"],"confirm":true}"#;
+        let params: GitDiscardParams = serde_json::from_str(json).unwrap();
+        assert_eq!(
+            params.paths.as_deref(),
+            Some(["a.md".to_string()].as_slice())
+        );
+        assert!(params.confirm);
+    }
+
+    #[test]
     fn test_references_search_params_deserialization() {
         let json = r#"{"vault_id":"v1","query":"machine learning"}"#;
         let params: ReferencesSearchParams = serde_json::from_str(json).unwrap();

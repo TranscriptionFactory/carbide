@@ -694,7 +694,11 @@ fn head_tree_has_path(repo: &Repository, file_path: &str) -> bool {
 // Untracked and never-committed files have no HEAD blob to fall back to, so the
 // only way to discard them is to delete them. This is the one place the project
 // deletes user files outright; every caller must confirm first.
-fn delete_never_committed(repo: &Repository, vault_path: &str, file_path: &str) -> Result<(), String> {
+fn delete_never_committed(
+    repo: &Repository,
+    vault_path: &str,
+    file_path: &str,
+) -> Result<(), String> {
     let abs = Path::new(vault_path).join(file_path);
     if abs.exists() {
         std::fs::remove_file(&abs).map_err(|e| format!("failed to delete {}: {}", file_path, e))?;
@@ -1288,9 +1292,12 @@ mod tests {
         let (dir, root) = init_vault(&[("note.md", "base\n")]);
         conflict_note(&dir, &root, "note.md");
 
+        let before = read(&root, "note.md");
         let err = git_discard_file(root.clone(), "note.md".to_string()).unwrap_err();
+
         assert!(err.contains("merge conflicts"), "unexpected error: {}", err);
-        assert_eq!(read(&root, "note.md"), "ours\n");
+        assert!(before.contains("<<<<<<<"), "merge left no conflict markers");
+        assert_eq!(read(&root, "note.md"), before);
     }
 
     #[test]
