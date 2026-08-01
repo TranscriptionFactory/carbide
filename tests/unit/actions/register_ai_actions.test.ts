@@ -33,6 +33,7 @@ import {
   as_note_path,
   as_vault_id,
 } from "$lib/shared/types/ids";
+import type { RunHandle, RunOutcome } from "$lib/features/assistant";
 import { create_test_vault } from "../helpers/test_fixtures";
 import { BUILTIN_PROVIDER_PRESETS } from "$lib/shared/types/ai_provider_config";
 import { toast } from "svelte-sonner";
@@ -44,6 +45,7 @@ vi.mock("svelte-sonner", () => ({
     info: vi.fn(),
     warning: vi.fn(),
     loading: vi.fn(),
+    dismiss: vi.fn(),
   },
 }));
 
@@ -68,7 +70,13 @@ function create_harness() {
   const ai_store = new AiStore();
   const services = {
     vault: {},
-    note: {},
+    note: {
+      read_note: vi.fn().mockResolvedValue({
+        meta: { title: "Demo" },
+        markdown: as_markdown_text("---\ntags:\n  - notes\n---\nBody text"),
+      }),
+      write_note_indexed: vi.fn().mockResolvedValue(undefined),
+    },
     folder: {},
     settings: {},
     search: {},
@@ -1072,6 +1080,132 @@ describe("register_ai_actions", () => {
         expect(get_ai_menu_state(view.state).open).toBe(false);
         expect(toast.error).toHaveBeenCalledWith("boom");
       });
+    });
+  });
+
+  describe("generate description", () => {
+    type AiStreamingInput = { on_run_started?: (handle: RunHandle) => void };
+
+    function setup_description(outcome: RunOutcome) {
+      // The toast mock is module-scoped, so earlier tests' calls are still on it.
+      vi.mocked(toast.success).mockClear();
+      vi.mocked(toast.error).mockClear();
+
+      const harness = create_harness();
+      harness.stores.vault.set_vault(create_test_vault());
+      const handle: RunHandle = {
+        id: "run-1",
+        stop: vi.fn(),
+        outcome: Promise.resolve(outcome),
+      };
+      harness.ai_service.execute_streaming = vi
+        .fn()
+        .mockImplementation((input: AiStreamingInput) => {
+          input.on_run_started?.(handle);
+          return outcome.status === "error"
+            ? { success: false, output: "", error: outcome.error.message }
+            : { success: true, output: `"${outcome.text}"`, error: null };
+        });
+      return harness;
+    }
+
+    const done = (text: string): RunOutcome => ({
+      status: "done",
+      text,
+      stats: null,
+    });
+
+    it("runs the description as stoppable background work", async () => {
+      const { registry, services, ai_service } = setup_description(
+        done("A note about notes"),
+      );
+
+      await registry.execute(
+        ACTION_IDS.ai_generate_description,
+        "docs/demo.md",
+      );
+
+      expect(ai_service.execute_streaming).toHaveBeenCalledWith(
+        expect.objectContaining({
+          run: { kind: "background", label: "Generate description" },
+          on_run_started: expect.any(Function),
+        }),
+      );
+      expect(services.note.write_note_indexed).toHaveBeenCalledWith(
+        as_vault_id("vault-1"),
+        "docs/demo.md",
+        expect.stringContaining("description: A note about notes"),
+      );
+      expect(toast.success).toHaveBeenCalledWith("Description generated");
+    });
+
+    it("keeps the note's other frontmatter keys", async () => {
+      const { registry, services } = setup_description(done("A summary"));
+
+      await registry.execute(
+        ACTION_IDS.ai_generate_description,
+        "docs/demo.md",
+      );
+
+      const written = services.note.write_note_indexed.mock.calls[0]?.[2];
+      expect(written).toContain("tags:");
+      expect(written).toContain("- notes");
+      expect(written).toContain("Body text");
+    });
+
+    it("surfaces the kernel's error without writing a broken description", async () => {
+      const { registry, services } = setup_description({
+        status: "error",
+        error: {
+          message: "Claude Code is not installed - install it, then try again.",
+          detail: "command not found",
+        },
+        text: "",
+      });
+
+      await registry.execute(
+        ACTION_IDS.ai_generate_description,
+        "docs/demo.md",
+      );
+
+      expect(services.note.write_note_indexed).not.toHaveBeenCalled();
+      expect(toast.error).toHaveBeenCalledWith(
+        "Claude Code is not installed - install it, then try again.",
+      );
+    });
+
+    // A stopped run reports success with whatever text arrived first. Writing
+    // that would leave half a sentence in the note's frontmatter.
+    it("writes nothing when the run is stopped mid-flight", async () => {
+      const { registry, services } = setup_description({
+        status: "aborted",
+        text: "A half-writt",
+      });
+
+      await registry.execute(
+        ACTION_IDS.ai_generate_description,
+        "docs/demo.md",
+      );
+
+      expect(services.note.write_note_indexed).not.toHaveBeenCalled();
+      expect(toast.error).not.toHaveBeenCalled();
+      expect(toast.success).not.toHaveBeenCalled();
+    });
+
+    it("does not start a run when no provider is configured", async () => {
+      const { registry, stores, services, ai_service } = setup_description(
+        done("A summary"),
+      );
+      stores.ui.editor_settings.ai_providers = [];
+
+      await registry.execute(
+        ACTION_IDS.ai_generate_description,
+        "docs/demo.md",
+      );
+
+      expect(ai_service.execute_streaming).not.toHaveBeenCalled();
+      expect(services.note.write_note_indexed).not.toHaveBeenCalled();
+      expect(toast.error).toHaveBeenCalledWith("No AI provider configured");
     });
   });
 });
