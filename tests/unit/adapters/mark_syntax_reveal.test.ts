@@ -63,12 +63,15 @@ function get_decorations(state: EditorState): RevealDecoration[] {
     .getState(state)!
     .decorations.find()
     .map((deco) => {
-      const { attrs } = deco.type as unknown as DecoAttrs;
+      const { attrs } = (deco as unknown as { type: DecoAttrs }).type;
       return {
         from: deco.from,
         to: deco.to,
         class: attrs.class,
-        delimiter: attrs.style.replace(/^--mark-reveal-delimiter: "(.*)"$/, "$1"),
+        delimiter: attrs.style.replace(
+          /^--mark-reveal-delimiter: "(.*)"$/,
+          "$1",
+        ),
       };
     });
 }
