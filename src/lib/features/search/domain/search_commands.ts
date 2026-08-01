@@ -268,6 +268,22 @@ const BASE_COMMANDS: CommandDefinition[] = [
     when: (ctx) => ctx.has_open_note,
   },
   {
+    id: "export_as_html",
+    label: "Export as HTML",
+    description: "Export the current note as a standalone HTML file",
+    keywords: ["export", "html", "save", "web", "download"],
+    icon: "file-down",
+    when: (ctx) => ctx.has_open_note,
+  },
+  {
+    id: "export_as_epub",
+    label: "Export as EPUB",
+    description: "Export the current note as an EPUB book",
+    keywords: ["export", "epub", "ebook", "book", "save", "download"],
+    icon: "file-down",
+    when: (ctx) => ctx.has_open_note,
+  },
+  {
     id: "zoom_in",
     label: "Zoom In",
     description: "Increase editor zoom level",
