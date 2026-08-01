@@ -62,7 +62,7 @@ function table_handler(
   return parts.join("\n");
 }
 
-function wiki_embed_handler(node: { value: string }): string {
+function raw_value_handler(node: { value: string }): string {
   return node.value;
 }
 
@@ -76,7 +76,8 @@ const stringify_options: StringifyOptions = {
     ...details_to_markdown,
     ...callout_to_markdown,
     table: table_handler,
-    wikiEmbed: wiki_embed_handler,
+    wikiEmbed: raw_value_handler,
+    wikiLink: raw_value_handler,
     doingCheckbox: () => "[-] ",
     text: (
       node: { value?: string },

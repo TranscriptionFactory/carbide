@@ -149,6 +149,19 @@ describe("OutlineStore", () => {
       store.set_headings([heading(1, "Title", 0)]);
       expect(store.find_heading_by_fragment("nonexistent")).toBeUndefined();
     });
+
+    it("slugifies non-ascii headings the same way wiki links do", () => {
+      const store = new OutlineStore();
+      const h = heading(2, "Café Notes", 5);
+      store.set_headings([h]);
+      expect(store.find_heading_by_fragment("cafe-notes")).toBe(h);
+    });
+
+    it("returns undefined when the fragment slugifies to nothing", () => {
+      const store = new OutlineStore();
+      store.set_headings([heading(1, "Title", 0)]);
+      expect(store.find_heading_by_fragment("---")).toBeUndefined();
+    });
   });
 
   it("clears current note but saves state for restore", () => {
