@@ -1,6 +1,6 @@
 use git2::{
-    DiffFormat, DiffOptions, IndexAddOption, ObjectType, Repository, Signature, Sort,
-    StatusOptions, StatusShow,
+    build::CheckoutBuilder, DiffFormat, DiffOptions, IndexAddOption, ObjectType, Repository,
+    Signature, Sort, StatusOptions, StatusShow,
 };
 use serde::Serialize;
 use specta::Type;
@@ -83,6 +83,14 @@ fn write_default_gitignore_if_missing(vault_path: &str) -> Result<(), String> {
     .map_err(|e| format!("failed to write .gitignore: {}", e))
 }
 
+fn working_status_options() -> StatusOptions {
+    let mut opts = StatusOptions::new();
+    opts.show(StatusShow::IndexAndWorkdir);
+    opts.include_untracked(true);
+    opts.recurse_untracked_dirs(true);
+    opts
+}
+
 fn status_string(s: git2::Status) -> &'static str {
     if s.is_conflicted() {
         "conflicted"
@@ -131,10 +139,7 @@ pub fn git_status(vault_path: String) -> Result<GitStatus, String> {
         Err(_) => "HEAD".to_string(),
     };
 
-    let mut opts = StatusOptions::new();
-    opts.show(StatusShow::IndexAndWorkdir);
-    opts.include_untracked(true);
-    opts.recurse_untracked_dirs(true);
+    let mut opts = working_status_options();
 
     let statuses = repo
         .statuses(Some(&mut opts))
@@ -667,6 +672,98 @@ pub fn git_restore_file(
     git_stage_and_commit(vault_path, message, Some(vec![file_path]))
 }
 
+fn ensure_not_conflicted(repo: &Repository, file_path: &str) -> Result<(), String> {
+    let status = repo
+        .status_file(Path::new(file_path))
+        .map_err(|e| format!("failed to read status for {}: {}", file_path, e))?;
+    if status.is_conflicted() {
+        return Err(format!(
+            "{} has unresolved merge conflicts. Resolve them before discarding.",
+            file_path
+        ));
+    }
+    Ok(())
+}
+
+fn head_tree_has_path(repo: &Repository, file_path: &str) -> bool {
+    head_parent_commit(repo)
+        .and_then(|commit| commit.tree().ok())
+        .is_some_and(|tree| tree.get_path(Path::new(file_path)).is_ok())
+}
+
+// Untracked and never-committed files have no HEAD blob to fall back to, so the
+// only way to discard them is to delete them. This is the one place the project
+// deletes user files outright; every caller must confirm first.
+fn delete_never_committed(repo: &Repository, vault_path: &str, file_path: &str) -> Result<(), String> {
+    let abs = Path::new(vault_path).join(file_path);
+    if abs.exists() {
+        std::fs::remove_file(&abs).map_err(|e| format!("failed to delete {}: {}", file_path, e))?;
+    }
+
+    let mut index = repo_index(repo)?;
+    if index.get_path(Path::new(file_path), 0).is_some() {
+        index
+            .remove_path(Path::new(file_path))
+            .map_err(|e| format!("failed to unstage {}: {}", file_path, e))?;
+        index
+            .write()
+            .map_err(|e| format!("failed to write index: {}", e))?;
+    }
+    Ok(())
+}
+
+fn discard_one(repo: &Repository, vault_path: &str, file_path: &str) -> Result<(), String> {
+    if !head_tree_has_path(repo, file_path) {
+        return delete_never_committed(repo, vault_path, file_path);
+    }
+
+    let mut opts = CheckoutBuilder::new();
+    opts.force().path(file_path);
+    repo.checkout_head(Some(&mut opts))
+        .map_err(|e| format!("failed to discard {}: {}", file_path, e))
+}
+
+fn changed_paths(repo: &Repository) -> Result<Vec<String>, String> {
+    let mut opts = working_status_options();
+    let statuses = repo
+        .statuses(Some(&mut opts))
+        .map_err(|e| format!("failed to get status: {}", e))?;
+    Ok(statuses
+        .iter()
+        .filter(|entry| !entry.status().is_ignored())
+        .filter_map(|entry| entry.path().map(|p| p.to_string()))
+        .collect())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn git_discard_file(vault_path: String, file_path: String) -> Result<(), String> {
+    let repo = open_repo(&vault_path)?;
+    ensure_not_conflicted(&repo, &file_path)?;
+    discard_one(&repo, &vault_path, &file_path)
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn git_discard_all(
+    vault_path: String,
+    paths: Option<Vec<String>>,
+) -> Result<Vec<String>, String> {
+    let repo = open_repo(&vault_path)?;
+    let targets = match paths {
+        Some(explicit) => explicit,
+        None => changed_paths(&repo)?,
+    };
+
+    for path in &targets {
+        ensure_not_conflicted(&repo, path)?;
+    }
+    for path in &targets {
+        discard_one(&repo, &vault_path, path)?;
+    }
+    Ok(targets)
+}
+
 #[derive(Debug, Clone, Serialize, Type)]
 pub struct GitRemoteResult {
     pub success: bool,
@@ -1075,4 +1172,172 @@ pub async fn git_push_with_upstream(vault_path: String, branch: String) -> GitRe
         message: None,
         error: Some(format!("task join error: {}", e)),
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+    use tempfile::TempDir;
+
+    fn init_vault(files: &[(&str, &str)]) -> (TempDir, String) {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path().to_string_lossy().to_string();
+        for (name, content) in files {
+            fs::write(dir.path().join(name), content).unwrap();
+        }
+        git_init_repo(root.clone()).unwrap();
+        (dir, root)
+    }
+
+    fn head_hash(root: &str) -> String {
+        let repo = open_repo(root).unwrap();
+        let hash = repo.head().unwrap().peel_to_commit().unwrap().id();
+        hash.to_string()
+    }
+
+    fn read(root: &str, name: &str) -> String {
+        fs::read_to_string(Path::new(root).join(name)).unwrap()
+    }
+
+    // Diverge HEAD and a detached commit on the same file, then merge so libgit2
+    // writes real conflict stages into the index.
+    fn conflict_note(dir: &TempDir, root: &str, name: &str) {
+        let repo = open_repo(root).unwrap();
+        let theirs = {
+            let base = repo.head().unwrap().peel_to_commit().unwrap();
+            let blob = repo.blob(b"theirs\n").unwrap();
+            let mut builder = repo.treebuilder(Some(&base.tree().unwrap())).unwrap();
+            builder.insert(name, blob, 0o100644).unwrap();
+            let tree = repo.find_tree(builder.write().unwrap()).unwrap();
+            let sig = default_signature().unwrap();
+            repo.commit(None, &sig, &sig, "theirs", &tree, &[&base])
+                .unwrap()
+        };
+
+        fs::write(dir.path().join(name), "ours\n").unwrap();
+        git_stage_and_commit(
+            root.to_string(),
+            "ours".to_string(),
+            Some(vec![name.to_string()]),
+        )
+        .unwrap();
+
+        let annotated = repo.find_annotated_commit(theirs).unwrap();
+        repo.merge(&[&annotated], None, None).unwrap();
+        assert!(repo.status_file(Path::new(name)).unwrap().is_conflicted());
+    }
+
+    #[test]
+    fn discard_restores_a_modified_file_without_committing() {
+        let (dir, root) = init_vault(&[("note.md", "original\n")]);
+        fs::write(dir.path().join("note.md"), "edited\n").unwrap();
+        let before = head_hash(&root);
+
+        git_discard_file(root.clone(), "note.md".to_string()).unwrap();
+
+        assert_eq!(read(&root, "note.md"), "original\n");
+        assert_eq!(head_hash(&root), before);
+    }
+
+    #[test]
+    fn discard_deletes_an_untracked_file() {
+        let (dir, root) = init_vault(&[("note.md", "original\n")]);
+        fs::write(dir.path().join("scratch.md"), "draft\n").unwrap();
+        let before = head_hash(&root);
+
+        git_discard_file(root.clone(), "scratch.md".to_string()).unwrap();
+
+        assert!(!dir.path().join("scratch.md").exists());
+        assert_eq!(head_hash(&root), before);
+    }
+
+    #[test]
+    fn discard_deletes_a_staged_but_never_committed_file() {
+        let (dir, root) = init_vault(&[("note.md", "original\n")]);
+        fs::write(dir.path().join("scratch.md"), "draft\n").unwrap();
+        let repo = open_repo(&root).unwrap();
+        let mut index = repo_index(&repo).unwrap();
+        index.add_path(Path::new("scratch.md")).unwrap();
+        index.write().unwrap();
+        drop(index);
+        drop(repo);
+
+        git_discard_file(root.clone(), "scratch.md".to_string()).unwrap();
+
+        assert!(!dir.path().join("scratch.md").exists());
+        let repo = open_repo(&root).unwrap();
+        let index = repo_index(&repo).unwrap();
+        assert!(index.get_path(Path::new("scratch.md"), 0).is_none());
+    }
+
+    #[test]
+    fn discard_restores_a_deleted_file() {
+        let (dir, root) = init_vault(&[("note.md", "original\n")]);
+        fs::remove_file(dir.path().join("note.md")).unwrap();
+        let before = head_hash(&root);
+
+        git_discard_file(root.clone(), "note.md".to_string()).unwrap();
+
+        assert_eq!(read(&root, "note.md"), "original\n");
+        assert_eq!(head_hash(&root), before);
+    }
+
+    #[test]
+    fn discard_refuses_a_conflicted_file() {
+        let (dir, root) = init_vault(&[("note.md", "base\n")]);
+        conflict_note(&dir, &root, "note.md");
+
+        let err = git_discard_file(root.clone(), "note.md".to_string()).unwrap_err();
+        assert!(err.contains("merge conflicts"), "unexpected error: {}", err);
+        assert_eq!(read(&root, "note.md"), "ours\n");
+    }
+
+    #[test]
+    fn discard_all_without_paths_discards_every_change() {
+        let (dir, root) = init_vault(&[("a.md", "a\n"), ("b.md", "b\n")]);
+        fs::write(dir.path().join("a.md"), "edited\n").unwrap();
+        fs::remove_file(dir.path().join("b.md")).unwrap();
+        fs::write(dir.path().join("c.md"), "new\n").unwrap();
+        let before = head_hash(&root);
+
+        let mut discarded = git_discard_all(root.clone(), None).unwrap();
+        discarded.sort();
+
+        assert_eq!(discarded, vec!["a.md", "b.md", "c.md"]);
+        assert_eq!(read(&root, "a.md"), "a\n");
+        assert_eq!(read(&root, "b.md"), "b\n");
+        assert!(!dir.path().join("c.md").exists());
+        assert_eq!(head_hash(&root), before);
+    }
+
+    #[test]
+    fn discard_all_with_explicit_paths_leaves_other_changes_alone() {
+        let (dir, root) = init_vault(&[("a.md", "a\n"), ("b.md", "b\n")]);
+        fs::write(dir.path().join("a.md"), "edited a\n").unwrap();
+        fs::write(dir.path().join("b.md"), "edited b\n").unwrap();
+
+        let discarded = git_discard_all(root.clone(), Some(vec!["a.md".to_string()])).unwrap();
+
+        assert_eq!(discarded, vec!["a.md"]);
+        assert_eq!(read(&root, "a.md"), "a\n");
+        assert_eq!(read(&root, "b.md"), "edited b\n");
+    }
+
+    #[test]
+    fn discard_all_rejects_the_batch_when_any_file_is_conflicted() {
+        let (dir, root) = init_vault(&[("note.md", "base\n")]);
+        conflict_note(&dir, &root, "note.md");
+
+        fs::write(dir.path().join("other.md"), "untouched\n").unwrap();
+
+        let err = git_discard_all(
+            root.clone(),
+            Some(vec!["other.md".to_string(), "note.md".to_string()]),
+        )
+        .unwrap_err();
+
+        assert!(err.contains("merge conflicts"), "unexpected error: {}", err);
+        assert!(dir.path().join("other.md").exists());
+    }
 }

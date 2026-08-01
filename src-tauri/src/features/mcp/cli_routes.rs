@@ -93,6 +93,7 @@ pub fn cli_router() -> Router<Arc<HttpAppState>> {
         .route("/git/push", post(cli_git_push))
         .route("/git/pull", post(cli_git_pull))
         .route("/git/restore", post(cli_git_restore))
+        .route("/git/discard", post(cli_git_discard))
         .route("/git/init", post(cli_git_init))
         .route("/references", post(cli_references))
         .route("/references/search", post(cli_references_search))
@@ -397,6 +398,15 @@ struct GitRestoreParams {
     commit: String,
 }
 
+#[derive(Deserialize)]
+struct GitDiscardParams {
+    vault_id: String,
+    #[serde(default)]
+    paths: Option<Vec<String>>,
+    #[serde(default)]
+    confirm: bool,
+}
+
 async fn cli_git_status(
     State(state): State<Arc<HttpAppState>>,
     Json(params): Json<shared_ops::VaultIdArgs>,
@@ -494,6 +504,33 @@ async fn cli_git_restore(
         Ok(hash) => (
             StatusCode::OK,
             Json(serde_json::json!({ "ok": true, "hash": hash })),
+        )
+            .into_response(),
+        Err(e) => internal_err(e),
+    }
+}
+
+// Discard destroys uncommitted work irreversibly. The desktop app gates it behind
+// a confirmation dialog; this surface has no UI, so it demands an explicit
+// `confirm` instead.
+async fn cli_git_discard(
+    State(state): State<Arc<HttpAppState>>,
+    Json(params): Json<GitDiscardParams>,
+) -> axum::response::Response {
+    if !params.confirm {
+        return json_err(
+            StatusCode::BAD_REQUEST,
+            "discard is irreversible; pass \"confirm\": true to proceed",
+        );
+    }
+    let root = match resolve_vault_root(&state, &params.vault_id) {
+        Ok(r) => r,
+        Err(resp) => return resp,
+    };
+    match git_service::git_discard_all(root, params.paths) {
+        Ok(paths) => (
+            StatusCode::OK,
+            Json(serde_json::json!({ "ok": true, "paths": paths })),
         )
             .into_response(),
         Err(e) => internal_err(e),
