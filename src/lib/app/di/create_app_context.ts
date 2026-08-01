@@ -683,6 +683,9 @@ export function create_app_context(input: {
     stores.git,
     stores.op,
     now_ms,
+    (path) => {
+      watcher_service.suppress_next(path);
+    },
   );
 
   const hotkey_service = new HotkeyService(
