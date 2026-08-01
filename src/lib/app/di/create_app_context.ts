@@ -51,6 +51,11 @@ import {
   register_ai_actions,
 } from "$lib/features/ai";
 import { RagService, RagPanel, register_rag_actions } from "$lib/features/rag";
+import {
+  AssistantKernelService,
+  create_assistant_transport_tauri_adapter,
+  register_assistant_actions,
+} from "$lib/features/assistant";
 import type { AiProviderConfig } from "$lib/shared/types/ai_provider_config";
 import type { AiProviderHint } from "$lib/features/plugin";
 import {
@@ -827,6 +832,20 @@ export function create_app_context(input: {
     input.ports.search,
   );
 
+  // The probe port is an object literal closing over ai_service on purpose: neither a
+  // bare method reference nor a pass-through lambda preserves a class receiver, so a
+  // `this`-using method would break however the resolver forwards it.
+  const assistant_kernel = new AssistantKernelService({
+    transport: create_assistant_transport_tauri_adapter(),
+    probe: {
+      detect_status: async (config) => (await ai_service.detect(config)).status,
+    },
+    run_store: stores.assistant_runs,
+    vault_path: () => stores.vault.vault?.path ?? null,
+    providers: () => stores.ui.editor_settings.ai_providers,
+    default_provider_id: () => stores.ui.editor_settings.ai_default_provider_id,
+  });
+
   const rag_service = new RagService(
     input.ports.search,
     input.ports.notes,
@@ -1264,6 +1283,11 @@ export function create_app_context(input: {
     ai_service,
     ai_history: input.ports.ai_history,
     agentic_runner: new AgenticEditRunner(input.ports.agent, git_service),
+  });
+
+  register_assistant_actions({
+    ...base_action_input,
+    assistant_kernel,
   });
 
   register_rag_actions({

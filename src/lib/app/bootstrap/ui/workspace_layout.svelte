@@ -492,6 +492,9 @@
         git_conflicts={is_vault_mode ? stores.git.conflict_count : 0}
         on_conflicts_click={() =>
           void action_registry.execute(ACTION_IDS.git_open_history)}
+        assistant_runs={stores.assistant_runs.all}
+        on_assistant_stop={(run_id) =>
+          void action_registry.execute(ACTION_IDS.assistant_stop_run, run_id)}
         color_scheme={stores.ui.active_theme.color_scheme}
         on_theme_toggle={() =>
           void action_registry.execute(

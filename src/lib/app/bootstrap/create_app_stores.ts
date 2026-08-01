@@ -38,6 +38,7 @@ import { McpStore } from "$lib/features/mcp";
 import { SmartLinksStore } from "$lib/features/smart_links";
 import { SearchGraphStore } from "$lib/features/graph";
 import { RagStore } from "$lib/features/rag";
+import { AssistantRunStore } from "$lib/features/assistant";
 // STT removed — archived on archive/stt-main
 // import { SttStore } from "$lib/features/stt";
 
@@ -82,6 +83,7 @@ export type AppStores = {
   smart_links: SmartLinksStore;
   search_graph: SearchGraphStore;
   rag: RagStore;
+  assistant_runs: AssistantRunStore;
   // stt: SttStore;
 };
 
@@ -127,6 +129,7 @@ export function create_app_stores(): AppStores {
     smart_links: new SmartLinksStore(),
     search_graph: new SearchGraphStore(),
     rag: new RagStore(),
+    assistant_runs: new AssistantRunStore(),
     // stt: new SttStore(),
   };
 }

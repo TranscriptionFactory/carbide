@@ -85,5 +85,4 @@ export {
   build_ai_inline_prompt,
 } from "$lib/features/ai/domain/ai_prompt_builder";
 export { migrate_ai_settings } from "$lib/features/ai/domain/ai_settings_migration";
-export { default as AiEditDialog } from "$lib/features/ai/ui/ai_edit_dialog.svelte";
 export { default as AiAssistantPanel } from "$lib/features/ai/ui/ai_assistant_panel.svelte";
