@@ -1,0 +1,606 @@
+<title>Carbide — Unified Assistant Mockup</title>
+<style>
+  :root {
+    --pg-bg: #eef0f2;
+    --pg-card: #f7f8f9;
+    --pg-ink: #1c1f24;
+    --pg-mut: #5b6270;
+    --pg-line: #d5d9de;
+    --pg-acc: #b0741f;
+    --mono: ui-monospace, "SF Mono", "Cascadia Code", Menlo, Consolas, monospace;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --pg-bg: #101216;
+      --pg-card: #171a1f;
+      --pg-ink: #d8dbe0;
+      --pg-mut: #8a919d;
+      --pg-line: #272b33;
+      --pg-acc: #e2a24a;
+    }
+  }
+  :root[data-theme="light"] {
+    --pg-bg: #eef0f2; --pg-card: #f7f8f9; --pg-ink: #1c1f24;
+    --pg-mut: #5b6270; --pg-line: #d5d9de; --pg-acc: #b0741f;
+  }
+  :root[data-theme="dark"] {
+    --pg-bg: #101216; --pg-card: #171a1f; --pg-ink: #d8dbe0;
+    --pg-mut: #8a919d; --pg-line: #272b33; --pg-acc: #e2a24a;
+  }
+
+  body {
+    background: var(--pg-bg);
+    color: var(--pg-ink);
+    font-family: var(--sans);
+    line-height: 1.55;
+    margin: 0;
+    padding: 0 0 64px;
+  }
+
+  .sheet { max-width: 1480px; margin: 0 auto; padding: 40px 32px 0; }
+
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--pg-acc);
+    margin: 0 0 10px;
+  }
+  h1 {
+    font-family: var(--mono);
+    font-size: clamp(22px, 3vw, 30px);
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    margin: 0 0 8px;
+    text-wrap: balance;
+  }
+  .lede { max-width: 68ch; color: var(--pg-mut); margin: 0 0 6px; font-size: 15px; }
+  .meta {
+    font-family: var(--mono);
+    font-size: 11.5px;
+    color: var(--pg-mut);
+    display: flex; flex-wrap: wrap; gap: 6px 18px;
+    margin: 14px 0 0;
+  }
+  .meta span::before { content: "· "; color: var(--pg-acc); }
+
+  .framewrap {
+    margin: 28px auto 0;
+    overflow-x: auto;
+    border-top: 1px solid var(--pg-line);
+    border-bottom: 1px solid var(--pg-line);
+    padding: 28px 32px;
+  }
+  .stage { position: relative; width: 1360px; margin: 0 auto; }
+
+  /* ————— App window (committed dark: Carbide's canonical theme) ————— */
+  .frame {
+    --a-bg: #15171c; --a-panel: #1b1e24; --a-raise: #22262e; --a-hi: #2a2f38;
+    --a-line: #2c313a; --a-ink: #d7dae0; --a-mut: #878e9a; --a-dim: #5c6270;
+    --a-acc: #e2a24a; --a-acc-dim: rgba(226, 162, 74, 0.14);
+    --a-ok: #6fbf8f; --a-del: #d67373; --a-add: #7fbf95;
+    width: 1360px; height: 812px;
+    background: var(--a-bg);
+    color: var(--a-ink);
+    font-family: var(--mono);
+    font-size: 12px;
+    line-height: 1.5;
+    border: 1px solid #33394455;
+    border-radius: 10px;
+    box-shadow: 0 24px 60px -24px rgba(0, 0, 0, 0.55);
+    display: grid;
+    grid-template-rows: 38px 1fr;
+    overflow: hidden;
+  }
+
+  .titlebar {
+    display: flex; align-items: center; gap: 8px;
+    padding: 0 14px;
+    border-bottom: 1px solid var(--a-line);
+    background: var(--a-panel);
+    color: var(--a-mut);
+    font-size: 11.5px;
+  }
+  .lights { display: flex; gap: 7px; margin-right: 10px; }
+  .lights i { width: 11px; height: 11px; border-radius: 50%; background: #3a404b; }
+  .titlebar .vault { color: var(--a-ink); }
+
+  .body-grid {
+    display: grid;
+    grid-template-columns: 44px 198px 1fr 336px;
+    min-height: 0;
+  }
+
+  .rail {
+    border-right: 1px solid var(--a-line);
+    background: var(--a-panel);
+    display: flex; flex-direction: column; align-items: center;
+    padding: 10px 0; gap: 14px;
+    color: var(--a-dim); font-size: 15px;
+  }
+  .rail .on { color: var(--a-acc); }
+
+  .tree {
+    border-right: 1px solid var(--a-line);
+    background: var(--a-panel);
+    padding: 12px 10px;
+    color: var(--a-mut);
+    font-size: 11.5px;
+    display: flex; flex-direction: column; gap: 5px;
+  }
+  .tree .dir { color: var(--a-dim); letter-spacing: 0.06em; text-transform: uppercase; font-size: 10px; margin-top: 6px; }
+  .tree .cur { color: var(--a-ink); background: var(--a-raise); border-radius: 4px; padding: 2px 6px; margin: 0 -6px; }
+  .tree div { padding-left: 8px; }
+  .tree .dir { padding-left: 0; }
+
+  .center { display: grid; grid-template-rows: 34px 1fr 218px; min-width: 0; }
+
+  .tabs {
+    display: flex; align-items: stretch;
+    border-bottom: 1px solid var(--a-line);
+    background: var(--a-panel);
+    font-size: 11.5px; color: var(--a-mut);
+  }
+  .tabs div { padding: 0 16px; display: flex; align-items: center; gap: 8px; border-right: 1px solid var(--a-line); }
+  .tabs .cur { background: var(--a-bg); color: var(--a-ink); box-shadow: inset 0 -2px 0 var(--a-acc); }
+
+  .editor { position: relative; padding: 26px 40px; overflow: hidden; font-size: 13px; line-height: 1.75; }
+  .editor h2 { font-size: 19px; margin: 0 0 14px; font-weight: 600; letter-spacing: -0.01em; }
+  .editor p { margin: 0 0 12px; max-width: 62ch; color: var(--a-ink); }
+  .editor .wl { color: var(--a-acc); }
+  .editor ul { margin: 0 0 12px; padding-left: 22px; color: var(--a-ink); }
+  .editor li { margin: 2px 0; }
+  .sel { background: var(--a-acc-dim); box-shadow: 0 0 0 1px var(--a-acc-dim); border-radius: 2px; }
+
+  /* Inline AI menu */
+  .inline-menu {
+    position: absolute; left: 96px; top: 258px; width: 400px;
+    background: var(--a-raise);
+    border: 1px solid var(--a-hi);
+    border-radius: 8px;
+    box-shadow: 0 16px 42px -14px rgba(0, 0, 0, 0.6);
+    font-size: 11.5px;
+    display: flex; flex-direction: column;
+  }
+  .presence {
+    display: inline-flex; align-items: center; gap: 7px;
+    color: var(--a-ink);
+  }
+  .presence .spark { color: var(--a-acc); }
+  .presence .prov { color: var(--a-mut); }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--a-ok); flex: none; }
+  .dot.stream { background: var(--a-acc); }
+  @media (prefers-reduced-motion: no-preference) {
+    .dot.stream { animation: pulse 1.2s ease-in-out infinite; }
+    @keyframes pulse { 50% { opacity: 0.35; } }
+  }
+  .im-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 9px 12px; border-bottom: 1px solid var(--a-line);
+  }
+  .stopbtn {
+    display: inline-flex; align-items: center; gap: 6px;
+    color: var(--a-ink); background: var(--a-hi);
+    border: 1px solid #3a4150; border-radius: 5px;
+    padding: 3px 9px; font-size: 10.5px;
+  }
+  .stopbtn b { color: var(--a-del); font-weight: 400; }
+  .im-body { padding: 11px 12px; color: var(--a-mut); }
+  .im-body .chip { margin-bottom: 8px; }
+  .im-body .stream-text { color: var(--a-ink); }
+  .caret { display: inline-block; width: 7px; height: 13px; background: var(--a-acc); vertical-align: -2px; opacity: 0.85; }
+  .im-foot {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 8px 12px; border-top: 1px solid var(--a-line);
+    color: var(--a-dim); font-size: 10.5px;
+  }
+  .im-foot .handoff { color: var(--a-acc); }
+
+  .chip {
+    display: inline-flex; align-items: center; gap: 5px;
+    border: 1px solid var(--a-hi); border-radius: 20px;
+    padding: 2px 9px; font-size: 10.5px; color: var(--a-mut);
+    background: var(--a-panel);
+  }
+  .chip.acc { color: var(--a-acc); border-color: #4a3d26; background: var(--a-acc-dim); }
+  .chip.on { color: var(--a-ink); border-color: #454c58; background: var(--a-raise); }
+
+  /* Bottom panel */
+  .bpanel { border-top: 1px solid var(--a-line); background: var(--a-panel); display: grid; grid-template-rows: 30px 1fr; min-height: 0; }
+  .bp-tabs { display: flex; align-items: stretch; font-size: 11px; color: var(--a-dim); border-bottom: 1px solid var(--a-line); }
+  .bp-tabs div { padding: 0 14px; display: flex; align-items: center; gap: 6px; }
+  .bp-tabs .cur { color: var(--a-ink); box-shadow: inset 0 -2px 0 var(--a-acc); }
+  .bp-content { display: grid; grid-template-columns: 1fr 380px; gap: 0; min-height: 0; }
+  .bp-left { padding: 10px 16px; display: flex; flex-direction: column; gap: 8px; min-width: 0; border-right: 1px solid var(--a-line); }
+  .bp-scope { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .bp-msg { font-size: 11.5px; }
+  .bp-msg .who { color: var(--a-dim); margin-right: 8px; }
+  .bp-msg.user .txt { color: var(--a-mut); }
+  .bp-msg.ai .txt { color: var(--a-ink); }
+
+  .proposal {
+    margin: 8px 16px 10px 10px; align-self: start;
+    background: var(--a-raise); border: 1px solid var(--a-hi); border-radius: 7px;
+    font-size: 11px; overflow: hidden;
+  }
+  .pr-head {
+    display: flex; align-items: center; gap: 8px;
+    padding: 7px 11px; border-bottom: 1px solid var(--a-line); color: var(--a-ink);
+  }
+  .pr-head .tag { color: var(--a-acc); letter-spacing: 0.08em; text-transform: uppercase; font-size: 9.5px; }
+  .pr-head .prov-of { color: var(--a-dim); margin-left: auto; font-size: 10px; }
+  .pr-diff { padding: 7px 11px; display: flex; flex-direction: column; gap: 1px; color: var(--a-mut); font-size: 10.5px; }
+  .pr-diff .del { color: var(--a-del); }
+  .pr-diff .add { color: var(--a-add); }
+  .pr-diff .ctx { color: var(--a-dim); }
+  .pr-actions { display: flex; gap: 8px; padding: 8px 11px; border-top: 1px solid var(--a-line); }
+  .btn {
+    display: inline-flex; align-items: center;
+    border: 1px solid #3a4150; border-radius: 5px;
+    padding: 3px 10px; font-size: 10.5px; color: var(--a-ink); background: var(--a-hi);
+  }
+  .btn.primary { background: var(--a-acc); color: #1d1608; border-color: var(--a-acc); }
+  .btn.ghost { background: none; color: var(--a-mut); }
+
+  /* Chat sidebar */
+  .sidebar {
+    border-left: 1px solid var(--a-line);
+    background: var(--a-panel);
+    display: flex; flex-direction: column; min-height: 0; position: relative;
+  }
+  .sb-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 14px; border-bottom: 1px solid var(--a-line); font-size: 11.5px;
+  }
+  .sb-filters { display: flex; gap: 6px; padding: 10px 14px 8px; flex-wrap: wrap; }
+  .sessions { display: flex; flex-direction: column; padding: 0 8px 8px; gap: 2px; font-size: 11px; }
+  .sess { display: flex; align-items: center; gap: 8px; padding: 5px 8px; border-radius: 5px; color: var(--a-mut); }
+  .sess.cur { background: var(--a-raise); color: var(--a-ink); }
+  .sess .kind { color: var(--a-acc); width: 12px; text-align: center; flex: none; }
+  .sess .when { margin-left: auto; color: var(--a-dim); font-size: 10px; }
+  .sb-divider { border-top: 1px solid var(--a-line); margin: 2px 0 0; }
+
+  .convo { flex: 1; min-height: 0; padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; font-size: 11.5px; overflow: hidden; }
+  .msg .who { color: var(--a-dim); font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 3px; }
+  .msg.user .body { color: var(--a-mut); }
+  .msg.ai .body { color: var(--a-ink); }
+  .cite { color: var(--a-acc); font-size: 10px; vertical-align: super; }
+  .mention { color: var(--a-acc); background: var(--a-acc-dim); border-radius: 3px; padding: 0 4px; }
+  .cites { display: flex; flex-direction: column; gap: 2px; margin-top: 6px; font-size: 10.5px; color: var(--a-mut); }
+  .cites .n { color: var(--a-acc); margin-right: 6px; }
+  .trail {
+    display: flex; align-items: center; gap: 8px;
+    color: var(--a-dim); font-size: 10.5px;
+    border: 1px dashed var(--a-line); border-radius: 5px; padding: 4px 9px;
+  }
+  .changed {
+    display: flex; align-items: center; gap: 8px;
+    background: var(--a-raise); border: 1px solid var(--a-hi); border-radius: 6px;
+    padding: 6px 10px; font-size: 11px; color: var(--a-ink);
+  }
+  .changed .go { margin-left: auto; color: var(--a-acc); }
+  .sb-input {
+    margin: 0 14px 12px; border: 1px solid var(--a-hi); border-radius: 7px;
+    background: var(--a-raise); color: var(--a-dim);
+    padding: 9px 12px; font-size: 11.5px;
+    display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  }
+  .sb-input .send { color: var(--a-acc); }
+
+  .toast {
+    position: absolute; right: 12px; bottom: 64px; width: 296px;
+    background: var(--a-raise); border: 1px solid #4a3d26;
+    border-left: 3px solid var(--a-acc);
+    border-radius: 7px; padding: 10px 12px;
+    font-size: 11px; color: var(--a-ink);
+    box-shadow: 0 14px 34px -12px rgba(0, 0, 0, 0.6);
+  }
+  .toast .t-tag { color: var(--a-acc); font-size: 9.5px; letter-spacing: 0.1em; text-transform: uppercase; }
+  .toast p { margin: 5px 0 8px; color: var(--a-mut); line-height: 1.5; }
+  .toast .t-actions { display: flex; gap: 8px; }
+
+  /* ————— Pins ————— */
+  .pin {
+    position: absolute; z-index: 5;
+    width: 24px; height: 24px; border-radius: 50%;
+    background: var(--pg-acc); color: var(--pg-bg);
+    font-family: var(--mono); font-size: 12px; font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+    border: none; cursor: pointer; padding: 0;
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--pg-acc) 30%, transparent), 0 4px 12px rgba(0,0,0,.35);
+    transition: transform 0.12s ease;
+  }
+  .pin:hover, .pin.hot { transform: scale(1.25); }
+  .pin:focus-visible { outline: 2px solid var(--pg-ink); outline-offset: 3px; }
+
+  /* ————— Legend ————— */
+  .legend { max-width: 1480px; margin: 34px auto 0; padding: 0 32px; }
+  .legend h2 {
+    font-family: var(--mono); font-size: 12px; letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--pg-mut); font-weight: 600; margin: 0 0 16px;
+  }
+  .leg-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 10px 24px; }
+  .leg {
+    display: grid; grid-template-columns: 24px 1fr; gap: 12px;
+    padding: 12px 14px; border: 1px solid var(--pg-line); border-radius: 8px;
+    background: var(--pg-card);
+    transition: border-color 0.12s ease;
+  }
+  .leg.hot { border-color: var(--pg-acc); }
+  .leg .num {
+    width: 24px; height: 24px; border-radius: 50%;
+    background: var(--pg-acc); color: var(--pg-bg);
+    font-family: var(--mono); font-size: 12px; font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .leg h3 { font-family: var(--mono); font-size: 12.5px; margin: 2px 0 4px; font-weight: 600; }
+  .leg p { margin: 0; font-size: 12.5px; color: var(--pg-mut); line-height: 1.5; }
+  .leg code { font-family: var(--mono); font-size: 11px; color: var(--pg-acc); }
+
+  .footnote {
+    max-width: 1480px; margin: 30px auto 0; padding: 0 32px;
+    font-size: 12px; color: var(--pg-mut); font-family: var(--mono);
+  }
+  .footnote a { color: var(--pg-acc); }
+</style>
+
+<div class="sheet">
+  <p class="eyebrow">Carbide · Design Spec — AI Surface Unification</p>
+  <h1>One assistant, three projections</h1>
+  <p class="lede">The completed experience: the same assistant — one identity, one session history, one proposal
+  queue — projected into the inline menu, the note panel, and the chat sidebar. Numbered pins map to the phases in
+  the unification proposal.</p>
+  <div class="meta">
+    <span>2026-08-01 · Rev 2</span>
+    <span>companion to 2026-08-01_ai_surface_unification.md</span>
+    <span>app frame shown in Carbide's canonical dark theme (deliberate)</span>
+  </div>
+</div>
+
+<div class="framewrap">
+<div class="stage">
+
+  <div class="frame" role="img" aria-label="Mockup of the Carbide app window with the unified assistant visible in three surfaces">
+    <div class="titlebar">
+      <div class="lights"><i></i><i></i><i></i></div>
+      <span class="vault">research-vault</span><span>— Carbide</span>
+    </div>
+
+    <div class="body-grid">
+      <div class="rail">
+        <span>▤</span><span>⌕</span><span>⑂</span><span class="on">✦</span><span>◫</span>
+      </div>
+
+      <div class="tree">
+        <div class="dir">retrieval</div>
+        <div class="cur">hybrid-retrieval.md</div>
+        <div>ranking-notes.md</div>
+        <div>embeddings-pipeline.md</div>
+        <div class="dir">experiments</div>
+        <div>rrf-weights.md</div>
+        <div>block-search-eval.md</div>
+        <div class="dir">inbox</div>
+        <div>clipped-papers.md</div>
+      </div>
+
+      <div class="center">
+        <div class="tabs">
+          <div class="cur">hybrid-retrieval.md</div>
+          <div>embeddings-pipeline.md</div>
+        </div>
+
+        <div class="editor">
+          <h2>Hybrid retrieval</h2>
+          <p>Retrieval fans out to two engines in parallel: SQLite FTS5 for exact term matches and the local
+          embedding index for semantic neighbors. Results merge through Reciprocal Rank Fusion before scope
+          filters apply.</p>
+          <p><span class="sel">The fusion weights are still hand-tuned and we have not measured how block-level
+          matches interact with whole-note scores, which probably explains the duplicate-source problem.</span></p>
+          <ul>
+            <li>RRF constant k=60, unvalidated against <span class="wl">[[rrf-weights]]</span></li>
+            <li>Block hits folded in after note-level dedup — see <span class="wl">[[embeddings-pipeline]]</span></li>
+          </ul>
+
+          <div class="inline-menu">
+            <div class="im-head">
+              <span class="presence"><span class="spark">✦</span>Assistant <span class="prov">· claude</span>
+                <span class="dot stream"></span></span>
+              <span class="stopbtn"><b>■</b> Stop <span style="color:var(--a-dim)">esc</span></span>
+            </div>
+            <div class="im-body">
+              <div><span class="chip acc">✎ Tighten prose</span></div>
+              <span class="stream-text">The fusion weights remain hand-tuned, and block-level matches have never
+              been measured against whole-note scores — the likely cause of duplicate sour</span><span class="caret"></span>
+            </div>
+            <div class="im-foot">
+              <span>↵ apply · selection only</span>
+              <span class="handoff">Continue in chat →</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="bpanel">
+          <div class="bp-tabs">
+            <div>Terminal</div>
+            <div>Problems</div>
+            <div class="cur"><span style="color:var(--a-acc)">✦</span> Assistant</div>
+          </div>
+          <div class="bp-content">
+            <div class="bp-left">
+              <div class="bp-scope">
+                <span class="presence" style="font-size:11px"><span class="spark">✦</span>Assistant
+                  <span class="prov">· claude</span><span class="dot"></span></span>
+                <span class="chip on">▤ This note: hybrid-retrieval.md</span>
+                <span class="chip">Summarize</span>
+                <span class="chip">Open questions</span>
+                <span class="chip">Action items</span>
+                <span class="chip">＋</span>
+              </div>
+              <div class="bp-msg user"><span class="who">you</span><span class="txt">Open questions — what's
+                unresolved in this note?</span></div>
+              <div class="bp-msg ai"><span class="who">assistant</span><span class="txt">Two open threads: the RRF
+                constant has never been validated against the sweep in rrf-weights, and block-level matches are
+                merged without dedup against note-level scores. I've drafted an edit that records both as tracked
+                questions.</span></div>
+            </div>
+            <div class="proposal">
+              <div class="pr-head">
+                <span class="tag">Proposal</span>
+                <span>hybrid-retrieval.md · 2 hunks</span>
+                <span class="prov-of">from ▤ this session</span>
+              </div>
+              <div class="pr-diff">
+                <span class="ctx">@@ Open questions @@</span>
+                <span class="del">- weights are still hand-tuned</span>
+                <span class="add">+ weights are hand-tuned — validate k=60 against [[rrf-weights]]</span>
+                <span class="add">+ measure block-vs-note score interaction (duplicate sources)</span>
+              </div>
+              <div class="pr-actions">
+                <span class="btn primary">Accept all</span>
+                <span class="btn">Review hunks</span>
+                <span class="btn ghost">Reject</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="sidebar">
+        <div class="sb-head">
+          <span class="presence"><span class="spark">✦</span>Assistant <span class="prov">· claude</span>
+            <span class="dot"></span> <span style="color:var(--a-dim)">ready</span></span>
+          <span style="color:var(--a-dim)">＋ New</span>
+        </div>
+
+        <div class="sb-filters">
+          <span class="chip on">All</span>
+          <span class="chip">⌁ Inline</span>
+          <span class="chip">▤ Note</span>
+          <span class="chip">◈ Chat</span>
+        </div>
+        <div class="sessions">
+          <div class="sess cur"><span class="kind">◈</span> Ranking experiments <span class="when">2m</span></div>
+          <div class="sess"><span class="kind">▤</span> hybrid-retrieval.md <span class="when">18m</span></div>
+          <div class="sess"><span class="kind">⌁</span> Tighten prose · inline <span class="when">1h</span></div>
+          <div class="sess"><span class="kind">◈</span> Vault gardening <span class="when">Tue</span></div>
+        </div>
+        <div class="sb-divider"></div>
+
+        <div class="convo">
+          <div class="msg user">
+            <div class="who">You</div>
+            <div class="body">How do we merge FTS and embedding scores? <span class="mention">@ranking-notes</span></div>
+          </div>
+          <div class="msg ai">
+            <div class="who">Assistant</div>
+            <div class="body">Both retrievers run in parallel and merge via Reciprocal Rank Fusion<span class="cite">[1]</span>;
+            block-level matches are folded in before the token budget is applied<span class="cite">[2]</span>.
+            The k constant is hand-tuned and flagged as unvalidated.</div>
+            <div class="cites">
+              <span><span class="n">[1]</span>ranking-notes.md</span>
+              <span><span class="n">[2]</span>embeddings-pipeline.md</span>
+            </div>
+          </div>
+          <div class="trail">▸ agent · 3 tool calls · read_note ×2 · search_notes</div>
+          <div class="changed">2 files changed <span class="go">Review proposals →</span></div>
+        </div>
+
+        <div class="sb-input"><span>Message the assistant…</span><span class="send">↵</span></div>
+
+        <div class="toast">
+          <div class="t-tag">Ambient · opt-in</div>
+          <p>3 links in embeddings-pipeline.md point to renamed notes. Fix them?</p>
+          <div class="t-actions"><span class="btn">Review</span><span class="btn ghost">Dismiss</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <button class="pin" data-pin="0" style="left: 665px; top: 318px;" aria-label="Pin 0: run kernel">0</button>
+  <button class="pin" data-pin="1" style="left: 1206px; top: 128px;" aria-label="Pin 1: unified sessions">1</button>
+  <button class="pin" data-pin="2" style="left: 560px; top: 646px;" aria-label="Pin 2: recipes route surfaces">2</button>
+  <button class="pin" data-pin="3" style="left: 968px; top: 650px;" aria-label="Pin 3: proposal queue">3</button>
+  <button class="pin" data-pin="4" style="left: 1290px; top: 372px;" aria-label="Pin 4: retrieval engine">4</button>
+  <button class="pin" data-pin="5" style="left: 448px; top: 598px;" aria-label="Pin 5: panel as projection">5</button>
+  <button class="pin" data-pin="6" style="left: 1044px; top: 700px;" aria-label="Pin 6: ambient reactor">6</button>
+
+</div>
+</div>
+
+<div class="legend">
+  <h2>Pins → proposal phases</h2>
+  <div class="leg-grid">
+    <div class="leg" data-leg="0">
+      <span class="num">0</span>
+      <div><h3>Run kernel</h3>
+      <p>One run registry owns every stream: the inline menu finally gets a <code>Stop</code> control, one provider
+      resolver serves all surfaces, and closing a surface no longer kills the run.</p></div>
+    </div>
+    <div class="leg" data-leg="1">
+      <span class="num">1</span>
+      <div><h3>Unified sessions</h3>
+      <p>One session store, one history. Kind badges (<code>⌁ inline</code> / <code>▤ note</code> / <code>◈ chat</code>)
+      mark provenance; "Continue in chat" promotes an inline run by session id, not by copying context.</p></div>
+    </div>
+    <div class="leg" data-leg="2">
+      <span class="num">2</span>
+      <div><h3>Recipes route, context composes</h3>
+      <p>Recipe chips appear in every surface — including the panel, which has none today. A recipe declares its
+      context sources (<code>selection</code>, <code>retrieval</code>, …); the dock only decides defaults.</p></div>
+    </div>
+    <div class="leg" data-leg="3">
+      <span class="num">3</span>
+      <div><h3>Proposal queue</h3>
+      <p>Every AI edit is a first-class proposal: hunks, target paths, session provenance, accept/reject via the
+      action registry. Inline decorations, panel diffs, and agent changed-files are three renderings of this one queue.</p></div>
+    </div>
+    <div class="leg" data-leg="4">
+      <span class="num">4</span>
+      <div><h3><code>rag</code> → retrieval engine</h3>
+      <p>Citations and hybrid retrieval come from a pure <code>RetrievalPort</code> the assistant consumes — the same
+      pipeline in-app and over MCP, with the agent transport moved out of the retrieval module.</p></div>
+    </div>
+    <div class="leg" data-leg="5">
+      <span class="num">5</span>
+      <div><h3>Panel as projection</h3>
+      <p>The bottom tab is the chat component scoped to the active note (<code>▤ This note</code> chip) — same
+      sessions, same presence, same proposals. No separate history file, no separate store.</p></div>
+    </div>
+    <div class="leg" data-leg="6">
+      <span class="num">6</span>
+      <div><h3>Ambient reactor</h3>
+      <p>Opt-in proactivity: a reactor watches note/editor stores and enqueues suggestions into the same session
+      store — the "daemon feel" with zero new infrastructure.</p></div>
+    </div>
+  </div>
+</div>
+
+<p class="footnote">Presence — the <span style="color:var(--pg-acc)">✦ Assistant · provider · status</span> chip —
+repeats in all three surfaces by design: one identity, projected. Frame content is illustrative; layout and
+components mirror the current app shell.</p>
+
+<script>
+  const pins = document.querySelectorAll(".pin");
+  const legs = document.querySelectorAll(".leg");
+  function mark(id, on) {
+    document.querySelector('.pin[data-pin="' + id + '"]').classList.toggle("hot", on);
+    document.querySelector('.leg[data-leg="' + id + '"]').classList.toggle("hot", on);
+  }
+  pins.forEach((p) => {
+    const id = p.dataset.pin;
+    p.addEventListener("mouseenter", () => mark(id, true));
+    p.addEventListener("mouseleave", () => mark(id, false));
+    p.addEventListener("focus", () => mark(id, true));
+    p.addEventListener("blur", () => mark(id, false));
+    p.addEventListener("click", () =>
+      document.querySelector('.leg[data-leg="' + id + '"]').scrollIntoView({ behavior: "smooth", block: "center" })
+    );
+  });
+  legs.forEach((l) => {
+    const id = l.dataset.leg;
+    l.addEventListener("mouseenter", () => mark(id, true));
+    l.addEventListener("mouseleave", () => mark(id, false));
+  });
+</script>
