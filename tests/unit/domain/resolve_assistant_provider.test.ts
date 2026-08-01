@@ -1,11 +1,26 @@
 import { describe, expect, it } from "vitest";
 import { resolve_assistant_provider } from "$lib/features/assistant";
-import type { ProviderResolution } from "$lib/features/assistant";
+import type {
+  AssistantProviderProbePort,
+  ProviderResolution,
+} from "$lib/features/assistant";
 import type { AiProviderConfig } from "$lib/shared/types/ai_provider_config";
 import {
   create_mock_probe_port,
   make_provider,
 } from "../helpers/assistant_fixtures";
+
+function resolve_with(
+  probe: AssistantProviderProbePort,
+  providers: AiProviderConfig[],
+  requested_id: string,
+) {
+  return resolve_assistant_provider({
+    providers,
+    requested_id,
+    detect_status: (config) => probe.detect_status(config),
+  });
+}
 
 function expect_resolved(result: ProviderResolution) {
   if (result.status !== "resolved") {
@@ -29,11 +44,7 @@ describe("resolve_assistant_provider", () => {
   it("resolves an explicit id to the configured provider without auto", async () => {
     const probe = create_mock_probe_port();
 
-    const result = await resolve_assistant_provider({
-      providers: [claude, codex],
-      requested_id: "codex",
-      detect_status: (config) => probe.detect_status(config),
-    });
+    const result = await resolve_with(probe, [claude, codex], "codex");
 
     const resolved = expect_resolved(result);
     expect(resolved.provider.id).toBe("codex");
@@ -43,11 +54,7 @@ describe("resolve_assistant_provider", () => {
   it("never probes when the requested provider is explicit", async () => {
     const probe = create_mock_probe_port({ claude: "missing" });
 
-    await resolve_assistant_provider({
-      providers: [claude, codex],
-      requested_id: "claude",
-      detect_status: (config) => probe.detect_status(config),
-    });
+    await resolve_with(probe, [claude, codex], "claude");
 
     expect(probe._checked).toEqual([]);
   });
@@ -58,11 +65,7 @@ describe("resolve_assistant_provider", () => {
       codex: "present",
     });
 
-    const result = await resolve_assistant_provider({
-      providers: [claude, codex],
-      requested_id: "auto",
-      detect_status: (config) => probe.detect_status(config),
-    });
+    const result = await resolve_with(probe, [claude, codex], "auto");
 
     const resolved = expect_resolved(result);
     expect(resolved.provider.id).toBe("codex");
@@ -76,11 +79,7 @@ describe("resolve_assistant_provider", () => {
       ollama: "missing",
     });
 
-    const result = await resolve_assistant_provider({
-      providers: [claude, codex, ollama],
-      requested_id: "auto",
-      detect_status: (config) => probe.detect_status(config),
-    });
+    const result = await resolve_with(probe, [claude, codex, ollama], "auto");
 
     const resolved = expect_resolved(result);
     expect(resolved.provider.id).toBe("codex");
@@ -93,11 +92,7 @@ describe("resolve_assistant_provider", () => {
       codex: "missing",
     });
 
-    const result = await resolve_assistant_provider({
-      providers: [claude, codex],
-      requested_id: "auto",
-      detect_status: (config) => probe.detect_status(config),
-    });
+    const result = await resolve_with(probe, [claude, codex], "auto");
 
     expect(expect_unavailable(result).reason).toMatch(/install/i);
   });
@@ -105,11 +100,7 @@ describe("resolve_assistant_provider", () => {
   it("reports unavailable when no providers are configured", async () => {
     const probe = create_mock_probe_port();
 
-    const result = await resolve_assistant_provider({
-      providers: [],
-      requested_id: "auto",
-      detect_status: (config) => probe.detect_status(config),
-    });
+    const result = await resolve_with(probe, [], "auto");
 
     expect(expect_unavailable(result).reason).toMatch(/no ai providers/i);
     expect(probe._checked).toEqual([]);
@@ -121,11 +112,11 @@ describe("resolve_assistant_provider", () => {
       codex: "present",
     });
 
-    const result = await resolve_assistant_provider({
-      providers: [claude, codex],
-      requested_id: "deleted-provider",
-      detect_status: (config) => probe.detect_status(config),
-    });
+    const result = await resolve_with(
+      probe,
+      [claude, codex],
+      "deleted-provider",
+    );
 
     const resolved = expect_resolved(result);
     expect(resolved.provider.id).toBe("codex");
@@ -133,23 +124,17 @@ describe("resolve_assistant_provider", () => {
   });
 
   it("treats a rejecting probe as unknown instead of propagating", async () => {
-    const detect_status = (config: AiProviderConfig) =>
-      config.id === "claude"
-        ? Promise.reject(new Error("probe crashed"))
-        : Promise.resolve("present" as const);
+    const probe = {
+      detect_status: (config: AiProviderConfig) =>
+        config.id === "claude"
+          ? Promise.reject(new Error("probe crashed"))
+          : Promise.resolve("present" as const),
+    };
 
-    const with_fallback = await resolve_assistant_provider({
-      providers: [claude, codex],
-      requested_id: "auto",
-      detect_status,
-    });
+    const with_fallback = await resolve_with(probe, [claude, codex], "auto");
     expect(expect_resolved(with_fallback).provider.id).toBe("codex");
 
-    const alone = await resolve_assistant_provider({
-      providers: [claude],
-      requested_id: "auto",
-      detect_status,
-    });
+    const alone = await resolve_with(probe, [claude], "auto");
     expect(expect_resolved(alone).provider.id).toBe("claude");
   });
 
@@ -160,11 +145,7 @@ describe("resolve_assistant_provider", () => {
       ollama: "missing",
     });
 
-    await resolve_assistant_provider({
-      providers: [ollama, claude, codex],
-      requested_id: "auto",
-      detect_status: (config) => probe.detect_status(config),
-    });
+    await resolve_with(probe, [ollama, claude, codex], "auto");
 
     expect(probe._checked).toEqual(["ollama", "claude", "codex"]);
   });
@@ -180,11 +161,7 @@ describe("resolve_assistant_provider", () => {
       codex: "present",
     });
 
-    const result = await resolve_assistant_provider({
-      providers: [lmstudio, codex],
-      requested_id: "auto",
-      detect_status: (config) => probe.detect_status(config),
-    });
+    const result = await resolve_with(probe, [lmstudio, codex], "auto");
 
     const resolved = expect_resolved(result);
     expect(resolved.provider.id).toBe("codex");

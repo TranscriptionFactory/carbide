@@ -36,7 +36,7 @@ export async function resolve_assistant_provider(
 
   const provider = await resolve_auto_ai_backend({
     providers: input.providers,
-    detect_status: (config) => input.detect_status(config),
+    detect_status: input.detect_status,
   });
 
   if (!provider) {
