@@ -316,8 +316,9 @@ describe("GraphService.load_vault_graph inferred edges", () => {
     graph_store.set_show_semantic_edges(true);
     await service.load_vault_graph();
 
-    const calls = (search_port.semantic_search_batch as ReturnType<typeof vi.fn>)
-      .mock.calls;
+    const calls = (
+      search_port.semantic_search_batch as ReturnType<typeof vi.fn>
+    ).mock.calls;
     const last = calls[calls.length - 1];
     expect(last?.[2]).toBe(7);
     expect(last?.[3]).toBeCloseTo(1 - 0.9);
