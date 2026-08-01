@@ -103,7 +103,11 @@ async fn abort_mid_execute_kills_the_child_and_reports_aborted() {
         "abort should return promptly, took {:?}",
         started.elapsed()
     );
-    assert!(!result.success);
+    assert!(
+        !result.success,
+        "abort should not report success, output: {:?}",
+        result.output
+    );
     assert_eq!(result.error.as_deref(), Some(pipeline::ABORTED_ERROR));
     assert!(
         poll_until(Duration::from_secs(2), || !is_alive(pid)).await,
@@ -160,7 +164,8 @@ async fn normal_completion_releases_the_handle() {
     .await
     .unwrap();
 
-    assert!(result.success);
+    assert!(result.success, "unexpected failure: {:?}", result.error);
+    assert_eq!(result.output, "hello");
     assert_eq!(state.active_count().await, 0);
 }
 
@@ -181,7 +186,11 @@ async fn failing_command_releases_the_handle() {
     .await
     .unwrap();
 
-    assert!(!result.success);
+    assert!(
+        !result.success,
+        "exit 3 should not report success, output: {:?}",
+        result.output
+    );
     assert_eq!(result.error.as_deref(), Some("boom"));
     assert_eq!(state.active_count().await, 0);
 }
@@ -279,7 +288,11 @@ async fn timeout_is_still_reported_as_a_timeout_and_kills_the_child() {
     .await
     .unwrap();
 
-    assert!(!result.success);
+    assert!(
+        !result.success,
+        "timeout should not report success, output: {:?}",
+        result.output
+    );
     assert_eq!(result.error.as_deref(), Some(pipeline::TIMED_OUT_ERROR));
     // Regression guard for the shared-child lock fix: the child sleeps 30 s, so a
     // timeout that waits on the child instead of killing it would land near 30 s.
