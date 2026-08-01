@@ -25,11 +25,7 @@ line 569 and before the theme-toggle separator at line 571:
 
 ```svelte
 <span class="StatusBar__separator" aria-hidden="true"></span>
-<AssistantPresence
-  runs={assistant_runs}
-  on_stop={on_assistant_stop}
-  detached_ids={assistant_detached_ids}
-/>
+<AssistantPresence runs={assistant_runs} on_stop={on_assistant_stop} />
 ```
 
 Import alongside the existing widget imports (lines 21-22):
@@ -50,12 +46,13 @@ context, per `docs/architecture.md` rule 6 ("components do not import services")
 status bar is already a fully props-driven component, so add these to its `Props`
 interface and pass them down from `workspace_layout.svelte`:
 
-| Prop           | Type                  | Required | Source                                                            |
-| -------------- | --------------------- | -------- | ----------------------------------------------------------------- |
-| `runs`         | `RunRecord[]`         | yes      | `assistant_run_store.all`                                         |
-| `on_stop`      | `(id: RunId) => void` | yes      | dispatch to the kernel — see §4                                   |
-| `detached_ids` | `ReadonlySet<RunId>`  | no       | computed at the wiring layer — see §5                             |
-| `now`          | `() => number`        | no       | omit in production; defaults to `Date.now`. Tests inject a clock. |
+| Prop      | Type                  | Required | Source                                                            |
+| --------- | --------------------- | -------- | ----------------------------------------------------------------- |
+| `runs`    | `RunRecord[]`         | yes      | `assistant_run_store.all`                                         |
+| `on_stop` | `(id: RunId) => void` | yes      | dispatch to the kernel — see §4                                   |
+| `now`     | `() => number`        | no       | omit in production; defaults to `Date.now`. Tests inject a clock. |
+
+Two props total. There is no detachment prop — see §5.
 
 Pass `assistant_run_store.all`, **not** `.active`. The component does its own filtering
 and must see errored runs, which `.active` excludes by design.
@@ -81,32 +78,23 @@ Also worth registering while you are in the registry: `ASSISTANT_STOP_ALL_RUNS` 
 global `esc` path that `AssistantStopButton`'s `hint="esc"` advertises. AU-005 renders the
 hint but binds no hotkey; `DEFAULT_HOTKEYS` is yours.
 
-## 5. Computing `detached_ids`
+## 5. No detachment concept in W0 (deliberate)
 
-`RunRecord` / `RunOrigin` carry no "originating surface is closed" flag and Wave 0
-contracts are frozen, so the component cannot derive detachment. It takes the set as a
-prop; the wiring layer knows which surfaces are open:
+There is no `detached_ids` prop and no "run detached" sub-line. Run↔surface association is
+only knowable in W1 when sessions land, so any such prop would be wired as a permanently
+empty set — speculative future-proofing that AGENTS.md rules out.
 
-```ts
-const assistant_detached_ids = $derived(
-  new Set(
-    assistant_run_store.all
-      .filter((run) => {
-        if (run.origin.note_path)
-          return !tab_store.is_open(run.origin.note_path);
-        if (run.origin.session_id)
-          return run.origin.session_id !== rag_store.active_session_id;
-        return false;
-      })
-      .map((run) => run.id),
-  ),
-);
-```
+I2 is satisfied without it. The popover renders from the run store, not from the surface
+that started the run, so closing the inline menu changes nothing: the run keeps streaming,
+its row stays, and Stop still works. That behaviour is what the tests assert (an
+`inline`-kind run is an ordinary row, with no special casing) — not a label.
 
-Adjust the predicates to whatever the open-surface truth actually is at merge time. If you
-omit the prop entirely, every run renders as attached — degrades cleanly, and I2's real
-requirement (the run still appears in the popover after its surface closes) holds either
-way, because the popover renders from the store, not from the surface.
+W1 follow-ups recorded for the orchestrator, not solved here:
+
+- the "run detached" sub-line, once a real producer for it exists;
+- the mockup's `agent · running write_note` sub-line, which needs live tool state.
+  `RunEvent` carries `tool_start` / `tool_end` so the store sees it, but surfacing it needs
+  a new `RunRecord` field, and contracts are frozen. Rendering `{status} · {kind}` instead.
 
 ## 6. Inline-menu Stop
 

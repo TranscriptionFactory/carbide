@@ -11,15 +11,9 @@
     runs: RunRecord[];
     on_stop: (id: RunId) => void;
     now?: (() => number) | undefined;
-    detached_ids?: ReadonlySet<RunId> | undefined;
   }
 
-  let {
-    runs,
-    on_stop,
-    now = () => Date.now(),
-    detached_ids = new Set<RunId>(),
-  }: Props = $props();
+  let { runs, on_stop, now = () => Date.now() }: Props = $props();
 
   const KIND_GLYPHS: Record<RunKind, string> = {
     inline: "⌁",
@@ -72,7 +66,6 @@
 
   function sub_line(run: RunRecord): string {
     if (run.status === "error") return run.error?.message ?? "Run failed";
-    if (detached_ids.has(run.id)) return `${run.status} — run detached`;
     return `${run.status} · ${run.kind}`;
   }
 

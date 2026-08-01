@@ -19,7 +19,6 @@ const NOW_MS = 100_000;
 function render_popover(options: {
   runs: RunRecord[];
   on_stop?: (id: RunId) => void;
-  detached_ids?: ReadonlySet<RunId>;
 }) {
   const target = document.createElement("div");
   document.body.appendChild(target);
@@ -30,7 +29,6 @@ function render_popover(options: {
       runs: options.runs,
       on_stop: options.on_stop ?? vi.fn(),
       now: () => NOW_MS,
-      detached_ids: options.detached_ids,
     },
   });
 
@@ -138,14 +136,48 @@ describe("assistant_runs_popover.svelte", () => {
     view.cleanup();
   });
 
-  it("still renders a run whose originating surface is closed", () => {
+  it("treats an inline run as an ordinary row, with no special casing", () => {
+    const kernel = create_mock_kernel();
     const view = render_popover({
-      runs: [make_run_record({ id: "orphan", status: "streaming" })],
-      detached_ids: new Set(["orphan"]),
+      runs: [
+        make_run_record({
+          id: "inline-run",
+          kind: "inline",
+          label: "Tighten prose",
+          status: "streaming",
+          started_at: NOW_MS - 7_000,
+        }),
+        make_run_record({
+          id: "chat-run",
+          kind: "chat",
+          label: "Ranking experiments",
+          status: "streaming",
+          started_at: NOW_MS - 7_000,
+        }),
+      ],
+      on_stop: (id) => {
+        kernel.stop(id);
+      },
     });
 
-    const row = get_row("orphan");
-    expect(text_of(row, "assistant-run-sub")).toContain("run detached");
+    const inline_row = get_row("inline-run");
+    const chat_row = get_row("chat-run");
+
+    expect(text_of(inline_row, "assistant-run-sub")).toBe("streaming · inline");
+    expect(text_of(chat_row, "assistant-run-sub")).toBe("streaming · chat");
+    expect(text_of(inline_row, "assistant-run-elapsed")).toBe(
+      text_of(chat_row, "assistant-run-elapsed"),
+    );
+
+    const stop = inline_row.querySelector<HTMLButtonElement>(
+      '[data-testid="assistant-stop-inline-run"]',
+    );
+    expect(stop?.disabled).toBe(false);
+
+    stop?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    flushSync();
+
+    expect(kernel._stopped).toEqual(["inline-run"]);
 
     view.cleanup();
   });
@@ -226,7 +258,8 @@ describe("assistant_runs_popover.svelte", () => {
           status: "error",
           error: {
             message: "Claude Code is not installed.",
-            detail: "spawn claude ENOENT",
+            detail:
+              "Error: spawn claude ENOENT\n    at ChildProcess._handle.onexit (node:internal/child_process:285:19)\n    at onErrorNT (node:internal/child_process:483:16)",
           },
         }),
       ],
@@ -237,6 +270,8 @@ describe("assistant_runs_popover.svelte", () => {
       "Claude Code is not installed.",
     );
     expect(row.textContent).not.toContain("ENOENT");
+    expect(row.textContent).not.toContain("node:internal/child_process");
+    expect(row.textContent).not.toContain("at onErrorNT");
 
     view.cleanup();
   });
