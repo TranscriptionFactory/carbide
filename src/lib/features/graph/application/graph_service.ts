@@ -15,11 +15,13 @@ import type { SearchService } from "$lib/features/search";
 import { parse_search_query } from "$lib/features/search";
 import {
   extract_search_subgraph,
+  apply_semantic_edges_to_snapshot,
   compute_auto_expanded_ids,
   merge_expansion_into_snapshot,
   type SearchSubgraphHit,
 } from "$lib/features/graph/domain/search_subgraph";
 import type { VaultStore } from "$lib/features/vault";
+import type { VaultId } from "$lib/shared/types/ids";
 import { error_message } from "$lib/shared/utils/error_message";
 import { create_logger } from "$lib/shared/utils/logger";
 
@@ -396,49 +398,102 @@ export class GraphService {
         return hit;
       });
 
-      let semantic_edges: SemanticEdge[] = [];
-      let semantic_boost_paths: Map<string, number> | undefined;
-      try {
-        const hit_paths = subgraph_hits.map((h) => h.path);
-        semantic_edges = await this.search_port.semantic_search_batch(
-          vault_id,
-          hit_paths,
-          SEMANTIC_EDGE_KNN_LIMIT,
-          SEMANTIC_EDGE_DISTANCE_THRESHOLD,
-        );
+      const show_semantic_edges =
+        this.search_graph_store.get_instance(tab_id)?.show_semantic_edges ??
+        false;
+      const semantic_edges = show_semantic_edges
+        ? await this.compute_search_semantic_edges(
+            vault_id,
+            subgraph_hits.map((h) => h.path),
+          )
+        : null;
 
-        // Embed the same parsed text the hybrid pipeline used so the backend's
-        // single-entry embedding cache hits instead of recomputing the query
-        // vector. (Scope prefixes like `title:` are search directives, not
-        // content, so stripping them is also the right semantic-search input.)
-        const sem_hits = await this.search_port.semantic_search(
-          vault_id,
-          parse_search_query(query).text,
-          20,
-        );
-        semantic_boost_paths = new Map(
-          sem_hits.map((h) => [h.note.path, h.distance]),
-        );
-      } catch {
-        // Embeddings may not be available — proceed without semantic edges
-      }
+      const semantic_boost_paths = await this.compute_semantic_boost_paths(
+        vault_id,
+        query,
+      );
 
       const smart_link_edges = this.graph_store.smart_link_edges;
       const snapshot = extract_search_subgraph(
         subgraph_hits,
         vault_snapshot,
-        semantic_edges,
+        semantic_edges ?? [],
         smart_link_edges,
         semantic_boost_paths ? { semantic_boost_paths } : undefined,
       );
       const auto_expanded = compute_auto_expanded_ids(snapshot);
-      this.search_graph_store.set_snapshot(tab_id, snapshot, auto_expanded);
+      this.search_graph_store.set_snapshot(
+        tab_id,
+        snapshot,
+        auto_expanded,
+        semantic_edges,
+      );
     } catch (error) {
       log.error("Failed to execute search graph", {
         error: error_message(error),
       });
       this.search_graph_store.set_error(tab_id, error_message(error));
     }
+  }
+
+  private async compute_search_semantic_edges(
+    vault_id: VaultId,
+    hit_paths: string[],
+  ): Promise<SemanticEdge[]> {
+    try {
+      return await this.search_port.semantic_search_batch(
+        vault_id,
+        hit_paths,
+        SEMANTIC_EDGE_KNN_LIMIT,
+        SEMANTIC_EDGE_DISTANCE_THRESHOLD,
+      );
+    } catch {
+      return [];
+    }
+  }
+
+  // Embed the same parsed text the hybrid pipeline used so the backend's
+  // single-entry embedding cache hits instead of recomputing the query
+  // vector. (Scope prefixes like `title:` are search directives, not
+  // content, so stripping them is also the right semantic-search input.)
+  private async compute_semantic_boost_paths(
+    vault_id: VaultId,
+    query: string,
+  ): Promise<Map<string, number> | undefined> {
+    try {
+      const hits = await this.search_port.semantic_search(
+        vault_id,
+        parse_search_query(query).text,
+        20,
+      );
+      return new Map(hits.map((h) => [h.note.path, h.distance]));
+    } catch {
+      return undefined;
+    }
+  }
+
+  async toggle_search_graph_semantic_edges(tab_id: string): Promise<void> {
+    if (!this.search_graph_store) return;
+    this.search_graph_store.toggle_semantic_edges(tab_id);
+
+    const instance = this.search_graph_store.get_instance(tab_id);
+    if (!instance?.show_semantic_edges) return;
+    if (instance.semantic_edges || !instance.snapshot) return;
+
+    const vault_id = this.get_active_vault_id();
+    if (!vault_id) return;
+
+    const hit_paths = instance.snapshot.nodes
+      .filter((n) => n.kind === "hit")
+      .map((n) => n.path);
+    const edges = await this.compute_search_semantic_edges(vault_id, hit_paths);
+    const snapshot = apply_semantic_edges_to_snapshot(instance.snapshot, edges);
+    this.search_graph_store.set_snapshot(
+      tab_id,
+      snapshot,
+      instance.auto_expanded_ids,
+      edges,
+    );
   }
 
   select_search_graph_node(tab_id: string, node_id: string | null): void {
@@ -489,7 +544,12 @@ export class GraphService {
         vault_snapshot,
       );
       const auto_expanded = compute_auto_expanded_ids(merged);
-      this.search_graph_store.set_snapshot(tab_id, merged, auto_expanded);
+      this.search_graph_store.set_snapshot(
+        tab_id,
+        merged,
+        auto_expanded,
+        instance.semantic_edges,
+      );
     } catch (error) {
       log.error("Failed to expand search graph node", {
         error: error_message(error),

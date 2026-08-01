@@ -3,6 +3,7 @@ import { GraphService } from "$lib/features/graph/application/graph_service";
 import { GraphStore } from "$lib/features/graph/state/graph_store.svelte";
 import { VaultStore } from "$lib/features/vault/state/vault_store.svelte";
 import { EditorStore } from "$lib/features/editor/state/editor_store.svelte";
+import { SearchGraphStore } from "$lib/features/graph/state/search_graph_store.svelte";
 import type { GraphPort, SemanticEdge } from "$lib/features/graph/ports";
 import type { SearchPort } from "$lib/features/search/ports";
 import type { SearchService } from "$lib/features/search";
@@ -325,27 +326,25 @@ describe("GraphService.load_vault_graph inferred edges", () => {
   });
 });
 
-function make_mock_search_graph_store() {
-  return {
-    set_loading: vi.fn(),
-    update_query: vi.fn(),
-    set_snapshot: vi.fn(),
-    set_error: vi.fn(),
-  };
+function make_pipeline_hit(path: string, title: string) {
+  return { note: { path, title, ctime_ms: 1, mtime_ms: 2 }, score: 1 };
 }
 
-function setup_search_graph() {
+function setup_search_graph(
+  hits: ReturnType<typeof make_pipeline_hit>[] = [],
+  batch_edges: SemanticEdge[] = [],
+) {
   const graph_store = new GraphStore();
   const vault_store = new VaultStore();
   const editor_store = new EditorStore();
   const graph_port = make_mock_graph_port();
-  const search_port = make_mock_search_port([]);
-  const search_graph_store = make_mock_search_graph_store();
+  const search_port = make_mock_search_port(batch_edges);
+  const search_graph_store = new SearchGraphStore();
 
   vault_store.set_vault(create_test_vault({ id: "vault-1" as VaultId }));
 
   const search_service = {
-    run_search_pipeline: vi.fn().mockResolvedValue({ hits: [] }),
+    run_search_pipeline: vi.fn().mockResolvedValue({ hits }),
   } as unknown as SearchService;
 
   const service = new GraphService(
@@ -355,15 +354,71 @@ function setup_search_graph() {
     vault_store,
     editor_store,
     graph_store,
-    search_graph_store as never,
+    search_graph_store,
   );
 
-  return { service, search_port };
+  const batch_call_count = () =>
+    (search_port.semantic_search_batch as ReturnType<typeof vi.fn>).mock.calls
+      .length;
+
+  return { service, search_port, search_graph_store, batch_call_count };
 }
 
+const TWO_HITS = [
+  make_pipeline_hit("a.md", "A"),
+  make_pipeline_hit("b.md", "B"),
+];
+
 describe("GraphService.execute_search_graph", () => {
+  it("skips semantic edge computation while the toggle is off", async () => {
+    const { service, search_port, search_graph_store, batch_call_count } =
+      setup_search_graph(TWO_HITS, [make_edge("a.md", "b.md", 0.2)]);
+    search_graph_store.create_instance("tab-1", "");
+
+    await service.execute_search_graph("tab-1", "foo");
+
+    expect(batch_call_count()).toBe(0);
+    const instance = search_graph_store.get_instance("tab-1");
+    expect(instance?.semantic_edges).toBeNull();
+    expect(instance?.snapshot?.stats.semantic_edge_count).toBe(0);
+    expect(instance?.snapshot?.stats.hit_count).toBe(2);
+    expect(search_port.semantic_search_batch).not.toHaveBeenCalled();
+  });
+
+  it("computes and caches semantic edges while the toggle is on", async () => {
+    const { service, search_graph_store, batch_call_count } =
+      setup_search_graph(TWO_HITS, [make_edge("a.md", "b.md", 0.2)]);
+    search_graph_store.create_instance("tab-1", "");
+    search_graph_store.toggle_semantic_edges("tab-1");
+
+    await service.execute_search_graph("tab-1", "foo");
+
+    expect(batch_call_count()).toBe(1);
+    const instance = search_graph_store.get_instance("tab-1");
+    expect(instance?.semantic_edges).toHaveLength(1);
+    expect(instance?.snapshot?.stats.semantic_edge_count).toBe(1);
+  });
+
+  // The query embed feeds neighbour ranking (a result-set concern), so it runs
+  // regardless of the edge toggle.
+  it("embeds the query for neighbour ranking even with the toggle off", async () => {
+    const { service, search_port, search_graph_store } =
+      setup_search_graph(TWO_HITS);
+    search_graph_store.create_instance("tab-1", "");
+
+    await service.execute_search_graph("tab-1", "foo");
+
+    expect(search_port.semantic_search).toHaveBeenCalledWith(
+      "vault-1",
+      "foo",
+      20,
+    );
+  });
+
   it("embeds the parsed query text in semantic_search so the cache hits", async () => {
-    const { service, search_port } = setup_search_graph();
+    const { service, search_port, search_graph_store } = setup_search_graph();
+    search_graph_store.create_instance("tab-1", "");
+    search_graph_store.toggle_semantic_edges("tab-1");
 
     await service.execute_search_graph("tab-1", "title:foo");
 
@@ -377,7 +432,9 @@ describe("GraphService.execute_search_graph", () => {
   });
 
   it("passes plain queries through unchanged", async () => {
-    const { service, search_port } = setup_search_graph();
+    const { service, search_port, search_graph_store } = setup_search_graph();
+    search_graph_store.create_instance("tab-2", "");
+    search_graph_store.toggle_semantic_edges("tab-2");
 
     await service.execute_search_graph("tab-2", "react components");
 
@@ -385,6 +442,86 @@ describe("GraphService.execute_search_graph", () => {
       "vault-1",
       "react components",
       20,
+    );
+  });
+});
+
+describe("GraphService.toggle_search_graph_semantic_edges", () => {
+  async function setup_executed_tab() {
+    const context = setup_search_graph(TWO_HITS, [
+      make_edge("a.md", "b.md", 0.2),
+    ]);
+    context.search_graph_store.create_instance("tab-1", "");
+    await context.service.execute_search_graph("tab-1", "foo");
+    return context;
+  }
+
+  it("computes edges for the current results on the first toggle on", async () => {
+    const { service, search_graph_store, batch_call_count } =
+      await setup_executed_tab();
+    expect(batch_call_count()).toBe(0);
+
+    await service.toggle_search_graph_semantic_edges("tab-1");
+
+    expect(batch_call_count()).toBe(1);
+    const instance = search_graph_store.get_instance("tab-1");
+    expect(instance?.show_semantic_edges).toBe(true);
+    expect(instance?.semantic_edges).toHaveLength(1);
+    expect(instance?.snapshot?.stats.semantic_edge_count).toBe(1);
+    expect(
+      instance?.snapshot?.edges.filter((e) => e.edge_type === "semantic"),
+    ).toEqual([
+      { source: "a.md", target: "b.md", edge_type: "semantic", score: 0.2 },
+    ]);
+  });
+
+  it("does not recompute when toggling off and back on", async () => {
+    const { service, search_graph_store, batch_call_count } =
+      await setup_executed_tab();
+
+    await service.toggle_search_graph_semantic_edges("tab-1");
+    await service.toggle_search_graph_semantic_edges("tab-1");
+    await service.toggle_search_graph_semantic_edges("tab-1");
+
+    expect(batch_call_count()).toBe(1);
+    const instance = search_graph_store.get_instance("tab-1");
+    expect(instance?.show_semantic_edges).toBe(true);
+    expect(instance?.snapshot?.stats.semantic_edge_count).toBe(1);
+  });
+
+  it("recomputes for the new result set when the search re-executes", async () => {
+    const { service, batch_call_count } = await setup_executed_tab();
+    await service.toggle_search_graph_semantic_edges("tab-1");
+    expect(batch_call_count()).toBe(1);
+
+    await service.execute_search_graph("tab-1", "bar");
+
+    expect(batch_call_count()).toBe(2);
+  });
+
+  it("keeps other tabs untouched", async () => {
+    const { service, search_graph_store } = await setup_executed_tab();
+    search_graph_store.create_instance("tab-2", "");
+    await service.execute_search_graph("tab-2", "foo");
+
+    await service.toggle_search_graph_semantic_edges("tab-1");
+
+    const other = search_graph_store.get_instance("tab-2");
+    expect(other?.show_semantic_edges).toBe(false);
+    expect(other?.semantic_edges).toBeNull();
+    expect(other?.snapshot?.stats.semantic_edge_count).toBe(0);
+  });
+
+  it("does not hit the port when there are no results yet", async () => {
+    const { service, search_graph_store, batch_call_count } =
+      setup_search_graph();
+    search_graph_store.create_instance("tab-1", "");
+
+    await service.toggle_search_graph_semantic_edges("tab-1");
+
+    expect(batch_call_count()).toBe(0);
+    expect(search_graph_store.get_instance("tab-1")?.show_semantic_edges).toBe(
+      true,
     );
   });
 });
