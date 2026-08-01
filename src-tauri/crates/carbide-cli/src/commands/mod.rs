@@ -1,6 +1,7 @@
 pub mod bases;
 pub mod dev;
 pub mod git;
+pub mod help;
 pub mod notes;
 pub mod references;
 pub mod search;

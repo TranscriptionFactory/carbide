@@ -231,6 +231,7 @@ impl ToolResult {
 // --- Resource Definitions ---
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ResourceDefinition {
     pub uri: String,
     pub name: String,
@@ -241,6 +242,12 @@ pub struct ResourceDefinition {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ResourcesReadParams {
+    pub uri: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ResourceContent {
     pub uri: String,
     #[serde(skip_serializing_if = "Option::is_none")]

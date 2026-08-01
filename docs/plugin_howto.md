@@ -75,6 +75,7 @@ Every plugin needs a `manifest.json` in its folder:
 | `activation_events` | `string[]` | When the plugin loads. Default: `["on_startup"]`                                                                                                                                                           |
 | `contributes`       | `object`   | Static contributions (settings schema, ribbon icons)                                                                                                                                                       |
 | `allowed_origins`   | `string[]` | Origins the plugin can fetch via `network.fetch` (e.g. `["https://api.example.com"]`). If omitted, all origins are allowed (with `network:fetch` permission). If present, only listed origins are allowed. |
+| `docs`              | `string`   | Markdown help file, relative to the plugin folder. Default: `README.md`. See [Plugin Help](#plugin-help).                                                                                                  |
 
 ### Activation Events
 
@@ -608,6 +609,26 @@ manager without installing anything:
 | **Slides Export**    | Export a note to a slide-deck PDF, split on `---`.       |
 | **Smart Templates**  | Context-aware Handlebars templates with live preview.    |
 | **Wiki Compiler**    | Compile vault notes into an interlinked wiki via an LLM. |
+
+## Plugin Help
+
+Carbide serves your plugin's documentation to MCP clients as a resource at
+`carbide://plugin/<id>/help`, alongside the app guides at `carbide://help/<slug>`.
+
+Drop a `README.md` in your plugin folder and it is used verbatim. To keep the docs
+elsewhere, point `docs` at the file:
+
+```json
+{
+  "id": "my-plugin",
+  "docs": "docs/help.md"
+}
+```
+
+The path is relative to the plugin folder; absolute paths and `..` segments are
+rejected. When no docs file is found, Carbide synthesises help from the manifest —
+name, description, version, author, permissions, and the `contributes.settings`
+schema — so every plugin has something to serve.
 
 ## Marketplace
 

@@ -1,3 +1,4 @@
+use crate::features::mcp::resources::GUIDES;
 use crate::features::mcp::router::McpRouter;
 use crate::features::mcp::types::*;
 use serde_json::json;
@@ -158,13 +159,74 @@ fn tools_call_without_params_returns_error() {
 }
 
 #[test]
-fn resources_list_returns_empty() {
+fn resources_list_advertises_the_help_guides() {
     let mut router = McpRouter::new();
     let req = make_request("resources/list", None, 1);
     let resp = router.handle_request(&req).unwrap();
     assert!(resp.error.is_none());
+
     let result = resp.result.unwrap();
-    assert_eq!(result["resources"], json!([]));
+    let resources = result["resources"].as_array().unwrap();
+    assert_eq!(resources.len(), GUIDES.len());
+    assert!(resources
+        .iter()
+        .any(|r| r["uri"] == "carbide://help/getting_started"));
+    assert!(resources.iter().all(|r| r["mimeType"] == "text/markdown"));
+}
+
+#[test]
+fn resources_read_without_params_returns_invalid_params() {
+    let mut router = McpRouter::new();
+    let req = make_request("resources/read", None, 1);
+    let resp = router.handle_request(&req).unwrap();
+    assert_eq!(resp.error.as_ref().unwrap().code, INVALID_PARAMS);
+}
+
+#[test]
+fn resources_read_unknown_uri_returns_invalid_params() {
+    let mut router = McpRouter::new();
+    let req = make_request(
+        "resources/read",
+        Some(json!({ "uri": "carbide://help/../etc/passwd" })),
+        1,
+    );
+    let resp = router.handle_request(&req).unwrap();
+    let error = resp.error.as_ref().unwrap();
+    assert_eq!(error.code, INVALID_PARAMS);
+    assert!(error.message.starts_with("Resource not found"));
+}
+
+#[test]
+fn resources_read_without_app_context_returns_internal_error() {
+    let mut router = McpRouter::new();
+    let req = make_request(
+        "resources/read",
+        Some(json!({ "uri": "carbide://help/getting_started" })),
+        1,
+    );
+    let resp = router.handle_request(&req).unwrap();
+    assert_eq!(resp.error.as_ref().unwrap().code, INTERNAL_ERROR);
+}
+
+#[test]
+fn initialize_advertises_the_resources_capability() {
+    let mut router = McpRouter::new();
+    let req = make_request(
+        "initialize",
+        Some(json!({
+            "protocolVersion": "2024-11-05",
+            "capabilities": {},
+            "clientInfo": { "name": "test" }
+        })),
+        1,
+    );
+    let resp = router.handle_request(&req).unwrap();
+    let result = resp.result.unwrap();
+    assert_eq!(result["capabilities"]["resources"]["subscribe"], json!(false));
+    assert_eq!(
+        result["capabilities"]["resources"]["listChanged"],
+        json!(false)
+    );
 }
 
 #[test]
