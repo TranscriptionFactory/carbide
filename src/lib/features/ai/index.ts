@@ -20,7 +20,6 @@ export { create_ai_tauri_adapter } from "$lib/features/ai/adapters/ai_tauri_adap
 export { create_ai_history_tauri_adapter } from "$lib/features/ai/adapters/ai_history_tauri_adapter";
 export type {
   AiStreamChunk,
-  AiStreamRequest,
   AiMessage,
   AiMessageContent,
   AiTextPart,

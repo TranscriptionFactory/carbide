@@ -789,9 +789,8 @@ export function create_app_context(input: {
   // bare method reference nor a pass-through lambda preserves a class receiver, so a
   // `this`-using method would break however the resolver forwards it. The kernel is
   // built first because every AI service now runs through it; the lambda defers to
-  // ai_service, so the cycle resolves at call time.
-  // Annotated because the probe lambda closes over ai_service, which in turn
-  // takes this kernel: without it the pair is a circular type inference.
+  // ai_service, so the cycle resolves at call time — and is annotated because that
+  // same cycle is circular to infer.
   const assistant_kernel: AssistantKernelService = new AssistantKernelService({
     transport: create_assistant_transport_tauri_adapter(),
     probe: {
