@@ -1,5 +1,109 @@
 # carbide
 
+## 2.25.0
+
+### Minor Changes
+
+- 7aac039: feat(editor): correct block context-menu targeting and add insert actions
+  - **Right-click no longer deletes the wrong block**: pointer-to-block resolution ignored the browser's `inside` hint, so atom node views (embeds, images, math, callouts) resolved to nothing and the menu silently fell back to acting on the _caret's_ block instead. Targeting now uses the pointed-at node, with a DOM-based fallback, and an unresolved target is a no-op rather than a destructive guess.
+  - **Copy, Duplicate and Delete agree on their target** for single-block selections.
+  - **Insert Above / Insert Below** are available from the block menu.
+  - **Embeds, videos, note embeds and raw HTML blocks are draggable**, matching the other block types.
+  - The caret stays in a valid position after deleting a block next to an atom, and right-clicking an image no longer opens two menus.
+
+- 7aac039: feat(editor): copy a link to any block
+
+  Block anchors could be parsed, suggested and transcluded, but nothing in the app could create one — you had to type the `^id` by hand.
+  - **Copy Block Link** and **Copy Block ID** are in the block context menu. The first use mints a short id and appends it to the block; later uses reuse the existing id rather than appending a second one.
+  - The copied `[[note#^id]]` navigates to that block, and the ` ^id` survives a save/reload round-trip.
+  - Works on paragraphs, headings, quotes, lists, callouts and collapsible blocks. Hidden on blocks that cannot meaningfully carry an id — code and raw HTML (where the id would land in the content), embeds, images, math, and tables.
+
+  A block whose only content is its own `^id` is now recognised as an anchor, matching Obsidian; previously such a link was silently dead.
+
+- 7aac039: feat(git): discard uncommitted changes
+
+  Source control could stage, unstage, commit and restore a past version, but there was no way to throw away a working-tree change — `git_restore_file` auto-committed, which is the wrong semantics for "undo my edits".
+  - **Discard a single change** from the change card or the diff viewer footer, and **Discard All** from the Changes section.
+  - A modified file is reset to its committed content, an untracked file is deleted, and a deleted file is restored — **without creating a commit**.
+  - Conflicted files are refused with a clear error rather than silently resolved, and a batch discard is rejected up front if any file in it is conflicted.
+  - Every path is behind an explicit confirmation dialog. The headless CLI/MCP route has no dialog, so it rejects the request unless `"confirm": true` is passed.
+
+  Discarding the note you have open updates the editor in place, and discarding an untracked open note closes its tab.
+
+- 7aac039: feat(graph): group the vault graph by tag or connectedness, and order the groups
+  - **Group by tag** clusters notes by their tags, and **group by degree** clusters them by how connected they are, alongside the existing grouping modes. Both render with the usual group hulls.
+  - **Order groups** by name, created date, or modified date, so group placement is predictable instead of incidental.
+  - The chosen grouping and ordering persist across restarts.
+
+  High-cardinality tag groups are hashed into the existing tint palette so colours stay stable.
+
+- 7aac039: feat(mcp): serve app and plugin documentation as MCP resources
+
+  The MCP server advertised no resources and returned an empty list — the handlers were stubs. Connected assistants can now discover and read Carbide's own documentation instead of guessing at its features.
+  - App guides are served at `carbide://help/{slug}` and the bundled docs ship with the app.
+  - Each installed plugin exposes help at `carbide://plugin/{id}/help`, serving its README when it has one and falling back to its manifest description and settings schema when it does not.
+  - The `resources` capability is advertised during initialization, so clients know to ask.
+
+  Plugin authors can point at a docs file from the plugin manifest; this is documented in the plugin guide. Also reconciles four bundled plugins that were missing from the packaged resources.
+
+- 7aac039: feat(export): export a note as HTML or EPUB, and copy it as rich HTML
+  - **Export as HTML** writes a standalone document — math, diagrams and images are inlined, so the file opens correctly on its own.
+  - **Export as EPUB** reuses the EPUB3 writer built for web clipping, generalized to serve notes as well (optional source URL, generated identifier, stylesheet manifest entry). Single-chapter for now.
+  - **Copy as HTML** was a dead command palette entry with no handler behind it; it now renders the note body and writes rich HTML to the clipboard, so it pastes formatted.
+  - **Raw HTML in PDF export** renders as a syntax-highlighted code block, and promoted embeds render as a labelled placeholder with their URL, instead of being dropped. Raw HTML is still not executed.
+
+  No new dependencies. Web-clip EPUB export is unchanged.
+
+### Patch Changes
+
+- 7aac039: fix(agent): make agent-mode file edits visible in the app
+  - **Changed files are recorded again**: tool paths were parsed out of a 200-character-truncated JSON summary whose keys serde sorts alphabetically, so for `Write` the `content` field pushed `file_path` past the cutoff and the path never survived. Paths and a `mutating` flag now ride structurally on the `ToolStart` event from both the Claude and Codex harness adapters, with the summary parse kept only as a fallback.
+  - **The vault refreshes after every mutating turn**, keyed off "a mutating tool ran" rather than off successfully-resolved paths, so a parse failure can no longer swallow the refresh.
+  - **Open notes reload without prompting**: a clean open note picks up an agent's edit immediately; a dirty one surfaces a conflict instead of being clobbered.
+  - **Deleted and renamed notes clean up their tab** rather than attempting to reopen a path that no longer exists.
+  - **Self-write suppression is one-shot** (2s) instead of a blanket 10-second per-path mute, so an agent write landing just after an autosave is no longer swallowed.
+  - **Background-tab saves are mtime-guarded**, closing the last hole where an external write could be overwritten silently.
+
+  Native-backend runs also record changed files for the first time — their tool names are unprefixed, so the previous name-based check never matched.
+
+- 7aac039: fix(editor): unfreeze the HTML preview and drop its phantom padding
+  - **The preview was permanently frozen, not slow**: `update()` recorded the new source as "last rendered" _before_ the 250ms debounce fired, so the render then early-returned forever and only a theme change could refresh it. Bookkeeping now happens after a successful render, so edits re-render as you type.
+  - **Loose HTML no longer renders inside a code-block box**: a bare `<div>` paragraph is styled as plain content instead of inheriting code-block chrome.
+  - **Previews size to their content**: the frame no longer reserves a fixed 18rem for a one-line preview — the iframe reports its measured content height and the parent clamps it to a sane range. The always-mounted resize strip collapses until hover.
+
+  Preview theme tokens are cached per theme change rather than recomputed on every render.
+
+- 7aac039: fix(editor): stop the caret jumping when walking through formatted text
+
+  Arrow-keying across `**bold**`, `==highlight==`, `` `code` `` or `***both***` skipped columns and recoiled at the end of a run. The revealed delimiters were rendered as text-bearing zero-width widgets, so ProseMirror's node-skipping and the browser's native cursor movement compounded into multi-column jumps.
+
+  Delimiters are now inline decorations drawn with CSS pseudo-elements — the same approach the heading markers already use — so they occupy no selectable positions. Every caret position across a formatted run is reachable in exactly one keypress in each direction.
+
+  Reveal is also per-textblock rather than per-run, so line layout stays stable while walking, and mark escaping happens in `appendTransaction` instead of dispatching mid-keydown.
+
+- 7aac039: fix(ui): keep the keyboard selection visible in the omnibar and suggest dropdowns
+
+  Arrowing past the visible fold moved the highlight out of view with no scrolling, in both the file list and `>` command mode. The selected row now scrolls into view as you move through it.
+
+  The same fix is applied to the folder suggest input, the property combobox, and the vault switcher dropdown.
+
+- 7aac039: fix(ui): make chat and problems panel content selectable
+
+  Text in the AI chat panel and the Problems panel could not be selected or copied. A global `user-select: none` default-deny meant content regions that were never allow-listed — the user bubble, reasoning body, tool-call rows, and error rows — simply inherited it, while citation chips and diagnostic rows are `<button>`-like elements that a later, equally-specific re-deny rule re-blocked on source order.
+  - Content regions now declare selectability where it outranks the deny rule by construction, leaving the app-wide "controls stay non-selectable" intent intact.
+  - Drag-selection can start in the panel's padding and gutters, not just directly on text.
+  - The Copy button routes through the clipboard service instead of calling `navigator.clipboard.writeText` directly, so a failed copy raises a toast rather than an unhandled rejection.
+  - The same treatment is applied to the inline AI assistant panel.
+
+- 7aac039: fix(editor): stop corrupting wiki links that carry a heading or block anchor
+  - **`[[note#Heading]]` no longer breaks on save**: the `.md` extension was appended _after_ the fragment (`note#Heading.md`), and no wiki stringify handler existed, so a typed anchor link persisted to disk as a broken markdown link. The extension now extends only the path portion, and wiki links round-trip back to `[[...]]` unchanged.
+  - **Anchor links navigate**: `[[note#Heading]]` and `[[#Heading]]` scroll to the heading, and `[[note#^block-id]]` scrolls to the anchored block.
+  - **Anchor links read as `note > Heading`** instead of exposing the raw target, and the `@` palette no longer inserts a visible `.md`.
+  - **Heading fragment matching uses one slugger** — the outline panel's separate variant disagreed with the wiki slug on non-word characters.
+  - **`@#` with no query shows the legend** rather than an empty dropdown.
+
+  Also fixes the `[[` suggester dropping the embed flag, leaking block results into note tab-completion, and sharing mutable state across editor instances.
+
 ## 2.24.0
 
 ### Minor Changes
