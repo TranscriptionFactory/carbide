@@ -76,23 +76,18 @@ const agent_request: RunRequest = {
   backend: "harness",
 };
 
-function stream_text(signal?: AbortSignal) {
+function open_stream(request: RunRequest, signal?: AbortSignal) {
   return create_assistant_transport_tauri_adapter().stream({
     provider_config: make_provider(),
-    request: text_request,
+    request,
     vault_path: "/vault",
     ...(signal ? { signal } : {}),
   });
 }
 
-function stream_agent(signal?: AbortSignal) {
-  return create_assistant_transport_tauri_adapter().stream({
-    provider_config: make_provider(),
-    request: agent_request,
-    vault_path: "/vault",
-    ...(signal ? { signal } : {}),
-  });
-}
+const stream_text = (signal?: AbortSignal) => open_stream(text_request, signal);
+const stream_agent = (signal?: AbortSignal) =>
+  open_stream(agent_request, signal);
 
 describe("assistant_transport_tauri_adapter", () => {
   beforeEach(() => {
