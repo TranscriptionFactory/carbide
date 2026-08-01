@@ -1,12 +1,5 @@
 <script lang="ts">
-  import {
-    FolderTree,
-    Globe,
-    Link,
-    RefreshCw,
-    Sparkles,
-    Target,
-  } from "@lucide/svelte";
+  import { Globe, Link, RefreshCw, Sparkles, Target } from "@lucide/svelte";
   import { ACTION_IDS } from "$lib/app";
   import { use_app_context } from "$lib/app/context/app_context.svelte";
   import { detect_file_type } from "$lib/features/document";
@@ -48,6 +41,12 @@
 
   let container_width = $state<number>(960);
   let container_element = $state<HTMLElement | null>(null);
+
+  // Restored graph tabs skip graph_open_as_tab, leaving the store on the
+  // default "neighborhood" mode with nothing to show
+  if (stores.graph.view_mode === "neighborhood" && !stores.graph.snapshot) {
+    stores.graph.set_view_mode("vault");
+  }
 
   $effect(() => {
     if (!container_element) return;
@@ -169,18 +168,12 @@
         variant="ghost"
         size="icon"
         title={is_vault_mode
-          ? "Switch to hierarchy (IWE)"
-          : is_hierarchy_mode
-            ? "Switch to neighborhood"
-            : "Switch to full vault"}
+          ? "Switch to neighborhood"
+          : "Switch to full vault"}
         onclick={() =>
           void action_registry.execute(ACTION_IDS.graph_toggle_view_mode)}
       >
-        {#if is_hierarchy_mode}
-          <FolderTree size={14} />
-        {:else}
-          <Globe size={14} />
-        {/if}
+        <Globe size={14} />
       </Button>
       {#if !is_vault_mode && !is_hierarchy_mode}
         <Button
@@ -200,7 +193,7 @@
           ? "Hide semantic connections"
           : "Show semantic connections"}
         aria-pressed={show_semantic_edges}
-        disabled={vault_node_count === 0}
+        disabled={!is_vault_mode || vault_node_count === 0}
         onclick={() =>
           void action_registry.execute(ACTION_IDS.graph_toggle_semantic_edges)}
       >
@@ -213,7 +206,7 @@
           ? "Hide smart link connections"
           : "Show smart link connections"}
         aria-pressed={show_smart_link_edges}
-        disabled={vault_node_count === 0}
+        disabled={!is_vault_mode || vault_node_count === 0}
         onclick={() =>
           void action_registry.execute(
             ACTION_IDS.graph_toggle_smart_link_edges,
@@ -252,6 +245,22 @@
     </div>
   {/if}
 
+  {#if focus_mode_active}
+    <div class="GraphTabView__focus_bar">
+      <span
+        >Focused: {stores.graph.focus_node_path?.split("/").pop() ?? ""}</span
+      >
+      <Button
+        variant="ghost"
+        size="sm"
+        onclick={() =>
+          void action_registry.execute(ACTION_IDS.graph_exit_focus_mode)}
+      >
+        Exit focus
+      </Button>
+    </div>
+  {/if}
+
   <div class="GraphTabView__body" bind:this={container_element}>
     {#if is_hierarchy_mode}
       <HierarchyTreeView />
@@ -274,7 +283,7 @@
             node_id,
           )}
         on_open_node={open_node}
-        on_dblclick_node={(path) =>
+        on_focus_node={(path) =>
           void action_registry.execute(ACTION_IDS.graph_enter_focus_mode, path)}
         on_clusters_computed={(assignments) =>
           stores.graph.set_cluster_assignments(assignments)}
@@ -391,6 +400,18 @@
 
   .GraphTabView__notice {
     color: var(--warning, var(--muted-foreground));
+  }
+
+  .GraphTabView__focus_bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-inline: var(--space-3);
+    padding-block: var(--space-1);
+    font-size: var(--text-xs);
+    color: var(--primary);
+    background: var(--accent);
+    border-block-end: 1px solid var(--border);
   }
 
   .GraphTabView__body {

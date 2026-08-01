@@ -5,10 +5,18 @@ describe("resolve_graph_refresh_decision (vault mode)", () => {
   const initial_state = {
     last_panel_open: false,
     last_vault_id: null,
+    last_open_note_path: null,
+    last_open_note_dirty: false,
+  };
+
+  const base_input = {
+    open_note_path: null,
+    open_note_dirty: false,
   };
 
   it("returns load_vault when panel opens in vault mode", () => {
     const decision = resolve_graph_refresh_decision(initial_state, {
+      ...base_input,
       panel_open: true,
       center_note_path: null,
       vault_id: "vault-1",
@@ -22,11 +30,13 @@ describe("resolve_graph_refresh_decision (vault mode)", () => {
 
   it("returns noop when active note changes in vault mode", () => {
     const state = {
+      ...initial_state,
       last_panel_open: true,
       last_vault_id: "vault-1",
     };
 
     const decision = resolve_graph_refresh_decision(state, {
+      ...base_input,
       panel_open: true,
       center_note_path: "new.md",
       vault_id: "vault-1",
@@ -40,11 +50,13 @@ describe("resolve_graph_refresh_decision (vault mode)", () => {
 
   it("returns clear when vault changes regardless of mode", () => {
     const state = {
+      ...initial_state,
       last_panel_open: true,
       last_vault_id: "vault-1",
     };
 
     const decision = resolve_graph_refresh_decision(state, {
+      ...base_input,
       panel_open: true,
       center_note_path: null,
       vault_id: "vault-2",

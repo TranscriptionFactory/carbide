@@ -2119,6 +2119,17 @@ where
     Ok(f(&idx))
 }
 
+pub(crate) fn get_read_conn_arc(
+    app: &AppHandle,
+    vault_id: &str,
+) -> Result<Arc<Mutex<Connection>>, String> {
+    ensure_worker(app, vault_id)?;
+    let state = app.state::<SearchDbState>();
+    let map = state.workers.lock().map_err(|e| e.to_string())?;
+    let worker = map.get(vault_id).ok_or("vault worker not found")?;
+    Ok(Arc::clone(&worker.read_conn))
+}
+
 pub(crate) fn get_index_arcs(
     app: &AppHandle,
     vault_id: &str,
@@ -2892,29 +2903,41 @@ pub fn search_blocks(
 
 #[tauri::command]
 #[specta::specta]
-pub fn semantic_search_batch(
+pub async fn semantic_search_batch(
     app: AppHandle,
     vault_id: String,
     paths: Vec<String>,
     limit: usize,
     distance_threshold: f32,
 ) -> Result<Vec<BatchSemanticEdge>, String> {
-    let linked_sets = with_read_conn(&app, &vault_id, |conn| {
-        search_db::get_linked_paths_batch(conn, &paths)
-    })?;
+    // The O(paths²) KNN would stall the main thread as a sync command
+    let read_conn = get_read_conn_arc(&app, &vault_id)?;
+    let (ni, _) = get_index_arcs(&app, &vault_id)?;
 
-    let edges = with_note_index(&app, &vault_id, |idx| {
-        vector_db::knn_search_batch_indexed(idx, &paths, limit, distance_threshold, &linked_sets)
-    })?;
-
-    Ok(edges
-        .into_iter()
-        .map(|(source, target, distance)| BatchSemanticEdge {
-            source,
-            target,
-            distance,
-        })
-        .collect())
+    tauri::async_runtime::spawn_blocking(move || {
+        let linked_sets = {
+            let conn = read_conn.lock().map_err(|e| e.to_string())?;
+            search_db::get_linked_paths_batch(&conn, &paths)?
+        };
+        let idx = ni.read().map_err(|e| e.to_string())?;
+        let edges = vector_db::knn_search_batch_indexed(
+            &idx,
+            &paths,
+            limit,
+            distance_threshold,
+            &linked_sets,
+        );
+        Ok(edges
+            .into_iter()
+            .map(|(source, target, distance)| BatchSemanticEdge {
+                source,
+                target,
+                distance,
+            })
+            .collect())
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]

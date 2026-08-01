@@ -83,9 +83,9 @@ export function register_search_graph_actions(
   registry.register({
     id: ACTION_IDS.search_graph_toggle_semantic,
     label: "Toggle Search Graph Semantic Edges",
-    execute: (tab_id: unknown) => {
+    execute: async (tab_id: unknown) => {
       if (typeof tab_id !== "string") return;
-      search_graph_store.toggle_semantic_edges(tab_id);
+      await graph_service.toggle_search_graph_semantic_edges(tab_id);
     },
   });
 

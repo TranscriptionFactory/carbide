@@ -146,6 +146,32 @@ export function extract_search_subgraph(
   };
 }
 
+export function apply_semantic_edges_to_snapshot(
+  snapshot: SearchGraphSnapshot,
+  semantic_edges: SemanticEdge[],
+): SearchGraphSnapshot {
+  const node_set = new Set(snapshot.nodes.map((n) => n.path));
+  const edges = snapshot.edges.filter((e) => e.edge_type !== "semantic");
+
+  let semantic_edge_count = 0;
+  for (const edge of semantic_edges) {
+    if (!node_set.has(edge.source) || !node_set.has(edge.target)) continue;
+    edges.push({
+      source: edge.source,
+      target: edge.target,
+      edge_type: "semantic",
+      score: edge.distance,
+    });
+    semantic_edge_count++;
+  }
+
+  return {
+    ...snapshot,
+    edges,
+    stats: { ...snapshot.stats, semantic_edge_count },
+  };
+}
+
 export function compute_auto_expanded_ids(
   snapshot: SearchGraphSnapshot,
 ): Set<string> {

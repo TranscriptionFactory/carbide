@@ -305,6 +305,7 @@ export function mount_reactors(context: ReactorContext): ReactorHandles {
       context.note_service,
       context.watcher_service,
       context.action_registry,
+      context.graph_service,
       context.workspace_reconcile,
     ),
     create_document_cache_reactor(
@@ -321,6 +322,7 @@ export function mount_reactors(context: ReactorContext): ReactorHandles {
     create_graph_refresh_reactor(
       context.graph_store,
       context.vault_store,
+      context.editor_store,
       context.graph_service,
     ),
     create_bases_refresh_reactor(context.vault_store, context.bases_service),

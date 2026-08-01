@@ -263,6 +263,7 @@ describe("AgentRunner.run_turn", () => {
       {
         name: "mcp__carbide__read_note",
         input_summary: '{"path":"clips/scraped.md"}',
+        paths: ["clips/scraped.md"],
         ok: true,
       },
     ]);

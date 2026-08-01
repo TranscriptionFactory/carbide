@@ -1,7 +1,6 @@
 <script lang="ts">
   import {
     Globe,
-    FolderTree,
     Group,
     LayoutGrid,
     Link,
@@ -118,23 +117,18 @@
         variant="ghost"
         size="icon"
         title={is_vault_mode
-          ? "Switch to hierarchy (IWE)"
-          : is_hierarchy_mode
-            ? "Switch to neighborhood"
-            : "Switch to full vault"}
+          ? "Switch to neighborhood"
+          : "Switch to full vault"}
         onclick={() =>
           void action_registry.execute(ACTION_IDS.graph_toggle_view_mode)}
       >
-        {#if is_hierarchy_mode}
-          <FolderTree size={14} />
-        {:else}
-          <Globe size={14} />
-        {/if}
+        <Globe size={14} />
       </Button>
       {#if !is_vault_mode && !is_hierarchy_mode}
         <Button
           variant="ghost"
           size="icon"
+          title="Focus active note"
           onclick={() =>
             void action_registry.execute(ACTION_IDS.graph_focus_active_note)}
         >
@@ -148,7 +142,7 @@
           ? "Hide semantic connections"
           : "Show semantic connections"}
         aria-pressed={show_semantic_edges}
-        disabled={vault_node_count === 0}
+        disabled={!is_vault_mode || vault_node_count === 0}
         onclick={() =>
           void action_registry.execute(ACTION_IDS.graph_toggle_semantic_edges)}
       >
@@ -161,7 +155,7 @@
           ? "Hide smart link connections"
           : "Show smart link connections"}
         aria-pressed={show_smart_link_edges}
-        disabled={vault_node_count === 0}
+        disabled={!is_vault_mode || vault_node_count === 0}
         onclick={() =>
           void action_registry.execute(
             ACTION_IDS.graph_toggle_smart_link_edges,
@@ -216,6 +210,7 @@
       <Button
         variant="ghost"
         size="icon"
+        title="Refresh graph"
         onclick={() => void action_registry.execute(ACTION_IDS.graph_refresh)}
       >
         <RefreshCw size={14} />
@@ -310,7 +305,7 @@
             node_id,
           )}
         on_open_node={open_existing_node}
-        on_dblclick_node={(path) =>
+        on_focus_node={(path) =>
           void action_registry.execute(ACTION_IDS.graph_enter_focus_mode, path)}
         on_export_canvas={() =>
           void action_registry.execute(

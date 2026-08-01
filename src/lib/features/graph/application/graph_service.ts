@@ -15,11 +15,13 @@ import type { SearchService } from "$lib/features/search";
 import { parse_search_query } from "$lib/features/search";
 import {
   extract_search_subgraph,
+  apply_semantic_edges_to_snapshot,
   compute_auto_expanded_ids,
   merge_expansion_into_snapshot,
   type SearchSubgraphHit,
 } from "$lib/features/graph/domain/search_subgraph";
 import type { VaultStore } from "$lib/features/vault";
+import type { VaultId } from "$lib/shared/types/ids";
 import { error_message } from "$lib/shared/utils/error_message";
 import { create_logger } from "$lib/shared/utils/logger";
 
@@ -31,6 +33,10 @@ export class GraphService {
   private semantic_load_revision = 0;
   private smart_link_load_revision = 0;
   private hierarchy_load_revision = 0;
+  private semantic_edge_settings?: {
+    knn_limit?: number;
+    distance_threshold?: number;
+  };
 
   constructor(
     private readonly graph_port: GraphPort,
@@ -40,11 +46,6 @@ export class GraphService {
     private readonly editor_store: EditorStore,
     private readonly graph_store: GraphStore,
     private readonly search_graph_store?: SearchGraphStore,
-    private readonly get_auto_edge_config?: () => {
-      auto_threshold: number;
-      knn_limit: number;
-      distance_threshold: number;
-    },
   ) {}
 
   private get_active_vault_id() {
@@ -132,7 +133,7 @@ export class GraphService {
         edges: snapshot.stats.edge_count,
       });
       this.graph_store.set_vault_snapshot(snapshot);
-      await this.maybe_auto_load_vault_edges(snapshot.stats.node_count);
+      await this.reload_visible_vault_edges();
     } catch (error) {
       if (revision !== this.vault_load_revision) return;
       const message = error_message(error);
@@ -141,21 +142,19 @@ export class GraphService {
     }
   }
 
-  private async maybe_auto_load_vault_edges(node_count: number): Promise<void> {
-    const cfg = this.get_auto_edge_config?.();
-    if (!cfg || node_count === 0 || node_count > cfg.auto_threshold) return;
-
-    // ponytail: re-enables on every load while edges are empty (e.g. no
-    // embeddings yet); acceptable since the compute is cheap and idempotent.
-    if (this.graph_store.semantic_edges.length === 0) {
-      this.graph_store.set_show_semantic_edges(true);
-      await this.load_semantic_edges({
-        knn_limit: cfg.knn_limit,
-        distance_threshold: cfg.distance_threshold,
-      });
+  // Edges are only computed when the user has toggled them on; a fresh load
+  // never turns them on by itself (the batch KNN is too costly for startup).
+  private async reload_visible_vault_edges(): Promise<void> {
+    if (
+      this.graph_store.show_semantic_edges &&
+      this.graph_store.semantic_edges.length === 0
+    ) {
+      await this.load_semantic_edges();
     }
-    if (this.graph_store.smart_link_edges.length === 0) {
-      this.graph_store.set_show_smart_link_edges(true);
+    if (
+      this.graph_store.show_smart_link_edges &&
+      this.graph_store.smart_link_edges.length === 0
+    ) {
       await this.load_smart_link_edges();
     }
   }
@@ -165,13 +164,9 @@ export class GraphService {
   }
 
   async toggle_view_mode(): Promise<void> {
-    const current = this.graph_store.view_mode;
-    if (current === "neighborhood") {
+    if (this.graph_store.view_mode === "neighborhood") {
       this.graph_store.set_view_mode("vault");
       await this.load_vault_graph();
-    } else if (current === "vault") {
-      this.graph_store.set_view_mode("hierarchy");
-      await this.load_hierarchy();
     } else {
       this.graph_store.set_view_mode("neighborhood");
       await this.focus_active_note();
@@ -235,8 +230,10 @@ export class GraphService {
     const snapshot = this.graph_store.vault_snapshot;
     if (!vault_id || !snapshot) return;
 
-    const knn_limit = settings?.knn_limit ?? SEMANTIC_EDGE_KNN_LIMIT;
-    const threshold = settings?.distance_threshold;
+    if (settings) this.semantic_edge_settings = settings;
+    const effective = settings ?? this.semantic_edge_settings;
+    const knn_limit = effective?.knn_limit ?? SEMANTIC_EDGE_KNN_LIMIT;
+    const threshold = effective?.distance_threshold;
 
     try {
       const status = await this.search_port.get_embedding_status(vault_id);
@@ -401,49 +398,102 @@ export class GraphService {
         return hit;
       });
 
-      let semantic_edges: SemanticEdge[] = [];
-      let semantic_boost_paths: Map<string, number> | undefined;
-      try {
-        const hit_paths = subgraph_hits.map((h) => h.path);
-        semantic_edges = await this.search_port.semantic_search_batch(
-          vault_id,
-          hit_paths,
-          SEMANTIC_EDGE_KNN_LIMIT,
-          SEMANTIC_EDGE_DISTANCE_THRESHOLD,
-        );
+      const show_semantic_edges =
+        this.search_graph_store.get_instance(tab_id)?.show_semantic_edges ??
+        false;
+      const semantic_edges = show_semantic_edges
+        ? await this.compute_search_semantic_edges(
+            vault_id,
+            subgraph_hits.map((h) => h.path),
+          )
+        : null;
 
-        // Embed the same parsed text the hybrid pipeline used so the backend's
-        // single-entry embedding cache hits instead of recomputing the query
-        // vector. (Scope prefixes like `title:` are search directives, not
-        // content, so stripping them is also the right semantic-search input.)
-        const sem_hits = await this.search_port.semantic_search(
-          vault_id,
-          parse_search_query(query).text,
-          20,
-        );
-        semantic_boost_paths = new Map(
-          sem_hits.map((h) => [h.note.path, h.distance]),
-        );
-      } catch {
-        // Embeddings may not be available — proceed without semantic edges
-      }
+      const semantic_boost_paths = await this.compute_semantic_boost_paths(
+        vault_id,
+        query,
+      );
 
       const smart_link_edges = this.graph_store.smart_link_edges;
       const snapshot = extract_search_subgraph(
         subgraph_hits,
         vault_snapshot,
-        semantic_edges,
+        semantic_edges ?? [],
         smart_link_edges,
         semantic_boost_paths ? { semantic_boost_paths } : undefined,
       );
       const auto_expanded = compute_auto_expanded_ids(snapshot);
-      this.search_graph_store.set_snapshot(tab_id, snapshot, auto_expanded);
+      this.search_graph_store.set_snapshot(
+        tab_id,
+        snapshot,
+        auto_expanded,
+        semantic_edges,
+      );
     } catch (error) {
       log.error("Failed to execute search graph", {
         error: error_message(error),
       });
       this.search_graph_store.set_error(tab_id, error_message(error));
     }
+  }
+
+  private async compute_search_semantic_edges(
+    vault_id: VaultId,
+    hit_paths: string[],
+  ): Promise<SemanticEdge[]> {
+    try {
+      return await this.search_port.semantic_search_batch(
+        vault_id,
+        hit_paths,
+        SEMANTIC_EDGE_KNN_LIMIT,
+        SEMANTIC_EDGE_DISTANCE_THRESHOLD,
+      );
+    } catch {
+      return [];
+    }
+  }
+
+  // Embed the same parsed text the hybrid pipeline used so the backend's
+  // single-entry embedding cache hits instead of recomputing the query
+  // vector. (Scope prefixes like `title:` are search directives, not
+  // content, so stripping them is also the right semantic-search input.)
+  private async compute_semantic_boost_paths(
+    vault_id: VaultId,
+    query: string,
+  ): Promise<Map<string, number> | undefined> {
+    try {
+      const hits = await this.search_port.semantic_search(
+        vault_id,
+        parse_search_query(query).text,
+        20,
+      );
+      return new Map(hits.map((h) => [h.note.path, h.distance]));
+    } catch {
+      return undefined;
+    }
+  }
+
+  async toggle_search_graph_semantic_edges(tab_id: string): Promise<void> {
+    if (!this.search_graph_store) return;
+    this.search_graph_store.toggle_semantic_edges(tab_id);
+
+    const instance = this.search_graph_store.get_instance(tab_id);
+    if (!instance?.show_semantic_edges) return;
+    if (instance.semantic_edges || !instance.snapshot) return;
+
+    const vault_id = this.get_active_vault_id();
+    if (!vault_id) return;
+
+    const hit_paths = instance.snapshot.nodes
+      .filter((n) => n.kind === "hit")
+      .map((n) => n.path);
+    const edges = await this.compute_search_semantic_edges(vault_id, hit_paths);
+    const snapshot = apply_semantic_edges_to_snapshot(instance.snapshot, edges);
+    this.search_graph_store.set_snapshot(
+      tab_id,
+      snapshot,
+      instance.auto_expanded_ids,
+      edges,
+    );
   }
 
   select_search_graph_node(tab_id: string, node_id: string | null): void {
@@ -494,7 +544,12 @@ export class GraphService {
         vault_snapshot,
       );
       const auto_expanded = compute_auto_expanded_ids(merged);
-      this.search_graph_store.set_snapshot(tab_id, merged, auto_expanded);
+      this.search_graph_store.set_snapshot(
+        tab_id,
+        merged,
+        auto_expanded,
+        instance.semantic_edges,
+      );
     } catch (error) {
       log.error("Failed to expand search graph node", {
         error: error_message(error),

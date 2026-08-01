@@ -4774,49 +4774,6 @@
             <div class="SettingsDialog__row">
               <div class="SettingsDialog__label-group">
                 <span class="SettingsDialog__label"
-                  >Graph Auto-Edge Threshold</span
-                >
-                <span class="SettingsDialog__description"
-                  >Semantic and smart-link edges show automatically up to this
-                  vault size; larger vaults enable them manually</span
-                >
-              </div>
-              <div class="flex items-center gap-3">
-                <Slider
-                  type="single"
-                  value={editor_settings.semantic_graph_max_vault_size}
-                  onValueChange={(v: number | undefined) => {
-                    if (v !== undefined)
-                      update("semantic_graph_max_vault_size", v);
-                  }}
-                  min={100}
-                  max={10000}
-                  step={100}
-                  class="w-32"
-                />
-                <span class="text-sm tabular-nums w-10"
-                  >{editor_settings.semantic_graph_max_vault_size}</span
-                >
-                <button
-                  type="button"
-                  class="SettingsDialog__reset"
-                  onclick={() =>
-                    update(
-                      "semantic_graph_max_vault_size",
-                      DEFAULT_EDITOR_SETTINGS.semantic_graph_max_vault_size,
-                    )}
-                  disabled={editor_settings.semantic_graph_max_vault_size ===
-                    DEFAULT_EDITOR_SETTINGS.semantic_graph_max_vault_size}
-                  title={`Reset to default (${String(DEFAULT_EDITOR_SETTINGS.semantic_graph_max_vault_size)})`}
-                >
-                  <RotateCcw />
-                </button>
-              </div>
-            </div>
-
-            <div class="SettingsDialog__row">
-              <div class="SettingsDialog__label-group">
-                <span class="SettingsDialog__label"
                   >Omnibar Semantic Search</span
                 >
                 <span class="SettingsDialog__description"

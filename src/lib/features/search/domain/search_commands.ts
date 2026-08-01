@@ -409,10 +409,10 @@ const BASE_COMMANDS: CommandDefinition[] = [
     icon: "list-tree",
   },
   {
-    id: "graph_load_hierarchy",
-    label: "Load Hierarchy",
-    description: "Show the inclusion hierarchy tree in the graph panel",
-    keywords: ["hierarchy", "tree", "graph", "inclusion", "structure"],
+    id: "graph_open_vault_graph",
+    label: "Open Vault Graph",
+    description: "Open the full vault graph in a tab",
+    keywords: ["graph", "vault", "network", "visualization", "map"],
     icon: "list-tree",
   },
   {
