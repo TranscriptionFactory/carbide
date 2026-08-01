@@ -22,6 +22,7 @@
     CITATION_INDEX_ATTR,
   } from "$lib/features/rag/domain/rag_markdown";
   import { citations_from_tools } from "$lib/features/rag/domain/agent_citations";
+  import { to_vault_relative_path } from "$lib/features/rag/domain/agent_file_ops";
 
   type Props = {
     message: RagMessage;
@@ -38,10 +39,12 @@
       "",
   );
 
+  const vault_path = $derived(String(stores.vault.vault?.path ?? ""));
+
   const display_citations = $derived(
     message.citations.length > 0
       ? message.citations
-      : citations_from_tools(message.tool_events ?? []),
+      : citations_from_tools(message.tool_events ?? [], vault_path),
   );
 
   const citation_map = $derived(
@@ -105,13 +108,24 @@
     const el = content_el;
     if (!el) return;
     const on_click = (event: MouseEvent) => {
-      const target = (event.target as HTMLElement | null)?.closest(
-        `[${CITATION_INDEX_ATTR}]`,
-      );
-      if (!target) return;
-      const index = Number(target.getAttribute(CITATION_INDEX_ATTR));
-      const citation = citation_map.get(index);
-      if (citation) open_citation(citation);
+      const source = event.target as HTMLElement | null;
+      const target = source?.closest(`[${CITATION_INDEX_ATTR}]`);
+      if (target) {
+        const index = Number(target.getAttribute(CITATION_INDEX_ATTR));
+        const citation = citation_map.get(index);
+        if (citation) open_citation(citation);
+        return;
+      }
+      const anchor = source?.closest("a");
+      if (!anchor) return;
+      event.preventDefault();
+      const href = anchor.getAttribute("href") ?? "";
+      if (href === "") return;
+      if (/^[a-z][a-z0-9+.-]*:/i.test(href)) {
+        void action_registry.execute(ACTION_IDS.shell_open_url, href);
+      } else {
+        open_note(to_vault_relative_path(vault_path, decodeURI(href)));
+      }
     };
     el.addEventListener("click", on_click);
     return () => el.removeEventListener("click", on_click);

@@ -28,6 +28,7 @@ export type RagRole = "user" | "assistant" | "tool";
 export type RagToolEvent = {
   name: string;
   input_summary: string;
+  paths?: string[];
   ok?: boolean;
 };
 
