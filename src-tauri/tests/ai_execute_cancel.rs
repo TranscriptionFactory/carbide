@@ -103,7 +103,11 @@ async fn abort_mid_execute_kills_the_child_and_reports_aborted() {
         "abort should return promptly, took {:?}",
         started.elapsed()
     );
-    assert!(!result.success);
+    assert!(
+        !result.success,
+        "abort should not report success, output: {:?}",
+        result.output
+    );
     assert_eq!(result.error.as_deref(), Some(pipeline::ABORTED_ERROR));
     assert!(
         poll_until(Duration::from_secs(2), || !is_alive(pid)).await,
@@ -160,7 +164,8 @@ async fn normal_completion_releases_the_handle() {
     .await
     .unwrap();
 
-    assert!(result.success);
+    assert!(result.success, "unexpected failure: {:?}", result.error);
+    assert_eq!(result.output, "hello");
     assert_eq!(state.active_count().await, 0);
 }
 
@@ -181,7 +186,11 @@ async fn failing_command_releases_the_handle() {
     .await
     .unwrap();
 
-    assert!(!result.success);
+    assert!(
+        !result.success,
+        "exit 3 should not report success, output: {:?}",
+        result.output
+    );
     assert_eq!(result.error.as_deref(), Some("boom"));
     assert_eq!(state.active_count().await, 0);
 }
@@ -279,7 +288,11 @@ async fn timeout_is_still_reported_as_a_timeout_and_kills_the_child() {
     .await
     .unwrap();
 
-    assert!(!result.success);
+    assert!(
+        !result.success,
+        "timeout should not report success, output: {:?}",
+        result.output
+    );
     assert_eq!(result.error.as_deref(), Some(pipeline::TIMED_OUT_ERROR));
     // Regression guard for the shared-child lock fix: the child sleeps 30 s, so a
     // timeout that waits on the child instead of killing it would land near 30 s.
@@ -308,6 +321,31 @@ async fn pipeline_without_abort_channel_still_succeeds() {
         "sh".to_string(),
         vec!["-c".to_string(), "echo hello".to_string()],
         None,
+        dir.path().to_string_lossy().to_string(),
+        Some(30),
+        None,
+        None,
+    )
+    .await
+    .unwrap();
+
+    assert!(result.success, "unexpected failure: {:?}", result.error);
+    assert_eq!(result.output, "hello");
+}
+
+// A child that never reads stdin closes the read end when it exits, so the
+// prompt write hits EPIPE. The payload is far larger than the pipe buffer, so
+// the write provably cannot finish first — this is the deterministic form of
+// the race that made `echo hello` flaky under load. The child's exit status,
+// not the plumbing, decides the result.
+#[tokio::test]
+async fn child_that_ignores_stdin_is_judged_by_its_exit_status() {
+    let dir = tempfile::tempdir().unwrap();
+
+    let result = pipeline::execute_pipeline(
+        "sh".to_string(),
+        vec!["-c".to_string(), "echo hello".to_string()],
+        Some("x".repeat(512 * 1024)),
         dir.path().to_string_lossy().to_string(),
         Some(30),
         None,
