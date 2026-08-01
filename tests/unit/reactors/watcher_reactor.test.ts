@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 import { flushSync } from "svelte";
 import {
   create_watcher_reactor,
+  resolve_graph_invalidation,
   resolve_watcher_event_decision,
 } from "$lib/reactors/watcher.reactor.svelte";
 import type { VaultFsEvent } from "$lib/features/watcher";
@@ -348,6 +349,9 @@ describe("watcher_reactor", () => {
       execute: vi.fn(),
     };
     const workspace_reconcile = vi.fn().mockResolvedValue(undefined);
+    const graph_service = {
+      invalidate_cache: vi.fn().mockResolvedValue(undefined),
+    };
 
     vault_store.set_vault(create_test_vault());
     editor_store.set_open_note({
@@ -375,6 +379,7 @@ describe("watcher_reactor", () => {
       note_service as never,
       watcher_service,
       action_registry as never,
+      graph_service as never,
       workspace_reconcile,
     );
 
@@ -395,6 +400,8 @@ describe("watcher_reactor", () => {
     expect(note_service.open_note).toHaveBeenCalledWith("notes/a.md", false, {
       force_reload: true,
     });
+    expect(graph_service.invalidate_cache).toHaveBeenCalledTimes(1);
+    expect(graph_service.invalidate_cache).toHaveBeenCalledWith("notes/a.md");
 
     unmount();
   });
@@ -420,6 +427,9 @@ describe("watcher_reactor", () => {
       execute: vi.fn(),
     };
     const workspace_reconcile = vi.fn().mockResolvedValue(undefined);
+    const graph_service = {
+      invalidate_cache: vi.fn().mockResolvedValue(undefined),
+    };
 
     vault_store.set_vault(create_test_vault());
 
@@ -431,6 +441,7 @@ describe("watcher_reactor", () => {
       note_service as never,
       watcher_service,
       action_registry as never,
+      graph_service as never,
       workspace_reconcile,
     );
 
@@ -521,6 +532,41 @@ describe("watcher_reactor", () => {
         action: "remove_background_tab_and_refresh",
         note_path: as_note_path("notes/b.md"),
       });
+    });
+  });
+
+  describe("graph invalidation", () => {
+    it("invalidates only the changed note", () => {
+      expect(
+        resolve_graph_invalidation(changed_event("notes/a.md"), VAULT_ID),
+      ).toEqual({ kind: "note", note_path: "notes/a.md" });
+    });
+
+    it("drops the whole index when a note is added or removed", () => {
+      expect(
+        resolve_graph_invalidation(added_event("notes/a.md"), VAULT_ID),
+      ).toEqual({ kind: "all" });
+      expect(
+        resolve_graph_invalidation(removed_event("notes/a.md"), VAULT_ID),
+      ).toEqual({ kind: "all" });
+    });
+
+    it("ignores asset and folder events", () => {
+      expect(
+        resolve_graph_invalidation(asset_event("assets/x.png"), VAULT_ID),
+      ).toBeNull();
+      expect(
+        resolve_graph_invalidation(folder_created_event("notes/x"), VAULT_ID),
+      ).toBeNull();
+      expect(
+        resolve_graph_invalidation(folder_removed_event("notes/x"), VAULT_ID),
+      ).toBeNull();
+    });
+
+    it("ignores events from another vault", () => {
+      expect(
+        resolve_graph_invalidation(changed_event("notes/a.md"), "other-vault"),
+      ).toBeNull();
     });
   });
 });
