@@ -120,12 +120,19 @@
       if (!anchor) return;
       event.preventDefault();
       const href = anchor.getAttribute("href") ?? "";
-      if (href === "") return;
-      if (/^[a-z][a-z0-9+.-]*:/i.test(href)) {
+      if (href === "" || href.startsWith("#")) return;
+      // Scheme needs 2+ chars so Windows drive paths (C:/…) read as paths
+      if (/^[a-z][a-z0-9+.-]+:/i.test(href)) {
         void action_registry.execute(ACTION_IDS.shell_open_url, href);
-      } else {
-        open_note(to_vault_relative_path(vault_path, decodeURI(href)));
+        return;
       }
+      let decoded = href;
+      try {
+        decoded = decodeURI(href);
+      } catch {
+        // malformed percent-encoding — fall back to the raw href
+      }
+      open_note(to_vault_relative_path(vault_path, decoded));
     };
     el.addEventListener("click", on_click);
     return () => el.removeEventListener("click", on_click);
