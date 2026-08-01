@@ -176,19 +176,25 @@ pub async fn smart_links_compute_vault_edges(
     let (ni, bi) = search_service::get_index_arcs(&app, &vault_id)?;
 
     tauri::async_runtime::spawn_blocking(move || {
-        let ni_guard = ni.read().map_err(|e| e.to_string())?;
-        let bi_guard = bi.read().map_err(|e| e.to_string())?;
-        let conn = read_conn.lock().map_err(|e| e.to_string())?;
-
-        let manifest = crate::features::search::db::get_manifest(&conn)?;
-        let note_paths: Vec<String> = manifest.into_keys().collect();
+        let note_paths: Vec<String> = {
+            let conn = read_conn.lock().map_err(|e| e.to_string())?;
+            crate::features::search::db::get_manifest(&conn)?
+                .into_keys()
+                .collect()
+        };
 
         let mut seen = std::collections::HashSet::new();
         let mut edges = Vec::new();
 
+        // Re-acquire the conn and index guards per note so concurrent
+        // commands (search, indexing) are not starved for the whole walk
         for source_path in &note_paths {
-            let suggestions =
-                execute_rules(&conn, source_path, &rule_groups, limit, &ni_guard, &bi_guard)?;
+            let suggestions = {
+                let ni_guard = ni.read().map_err(|e| e.to_string())?;
+                let bi_guard = bi.read().map_err(|e| e.to_string())?;
+                let conn = read_conn.lock().map_err(|e| e.to_string())?;
+                execute_rules(&conn, source_path, &rule_groups, limit, &ni_guard, &bi_guard)?
+            };
 
             for s in suggestions {
                 if s.score < threshold {
