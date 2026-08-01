@@ -5,3 +5,4 @@ pub mod native_agent;
 pub mod secrets;
 pub mod service;
 pub mod stream;
+pub mod tool_paths;

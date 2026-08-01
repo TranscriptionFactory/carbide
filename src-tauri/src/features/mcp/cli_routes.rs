@@ -11,7 +11,9 @@ use serde::Deserialize;
 use crate::features::git::service as git_service;
 use crate::features::mcp::auth;
 use crate::features::mcp::http::{HttpAppState, DEFAULT_PORT};
+use crate::features::mcp::resources::{self, ResourceError};
 use crate::features::mcp::router::McpRouter;
+use crate::features::mcp::types::ResourcesReadParams;
 use crate::features::mcp::shared_ops::{
     self, CreateNoteArgs as SharedCreateArgs, CreateResult, OpError,
 };
@@ -102,6 +104,8 @@ pub fn cli_router() -> Router<Arc<HttpAppState>> {
         .route("/bases/properties", post(cli_bases_properties))
         .route("/tasks", post(cli_tasks))
         .route("/tasks/update", post(cli_tasks_update))
+        .route("/help", post(cli_help))
+        .route("/help/read", post(cli_help_read))
         .route("/dev/index/build", post(cli_dev_index_build))
         .route("/dev/index/rebuild", post(cli_dev_index_rebuild))
         .route("/dev/schema", post(cli_dev_schema))
@@ -791,6 +795,26 @@ async fn cli_dev_schema() -> axum::response::Response {
         Json(serde_json::to_value(defs).unwrap_or_default()),
     )
         .into_response()
+}
+
+async fn cli_help(State(state): State<Arc<HttpAppState>>) -> axum::response::Response {
+    let resources = resources::list_resources(Some(state.app()));
+    (
+        StatusCode::OK,
+        Json(serde_json::json!({ "resources": resources })),
+    )
+        .into_response()
+}
+
+async fn cli_help_read(
+    State(state): State<Arc<HttpAppState>>,
+    Json(params): Json<ResourcesReadParams>,
+) -> axum::response::Response {
+    match resources::read_resource(Some(state.app()), &params.uri) {
+        Ok(content) => (StatusCode::OK, Json(content)).into_response(),
+        Err(e @ ResourceError::NotFound(_)) => json_err(StatusCode::NOT_FOUND, e.to_string()),
+        Err(e) => json_err(StatusCode::INTERNAL_SERVER_ERROR, e.to_string()),
+    }
 }
 
 async fn cli_mcp_inspect() -> axum::response::Response {

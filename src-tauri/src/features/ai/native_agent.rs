@@ -10,6 +10,7 @@ use crate::features::mcp::router::McpRouter;
 use crate::features::mcp::types::{ContentBlock, ToolDefinition, ToolResult};
 
 use super::agent_stream::{AgentEvent, AgentRunSpec, AgentRunState, AgentRunStats, ToolSelector};
+use super::tool_paths::extract_tool_paths;
 use super::service::{AiProviderConfig, AiTransport};
 use super::stream::{AiContentPart, AiMessage, AiMessageContent, AiStreamEvent, AiToolCall};
 
@@ -189,6 +190,11 @@ pub async fn run_native_turn<C, D, E>(
 
     let allowed = allowed_tools(&catalog, &toolset);
     let allowed_names: HashSet<String> = allowed.iter().map(|t| t.name.clone()).collect();
+    let mutating_names: HashSet<String> = catalog
+        .iter()
+        .filter(|t| t.mutating)
+        .map(|t| t.name.clone())
+        .collect();
 
     let mut num_turns: u32 = 0;
 
@@ -258,9 +264,15 @@ pub async fn run_native_turn<C, D, E>(
                 return;
             }
 
+            let args_value = parse_arguments(&arguments);
             emit(AgentEvent::ToolStart {
                 name: name.clone(),
                 input_summary: summarize_arguments(&arguments),
+                paths: args_value
+                    .as_ref()
+                    .map(extract_tool_paths)
+                    .unwrap_or_default(),
+                mutating: mutating_names.contains(&name),
             });
 
             if !allowed_names.contains(&name) {
@@ -276,7 +288,6 @@ pub async fn run_native_turn<C, D, E>(
                 continue;
             }
 
-            let args_value = parse_arguments(&arguments);
             let result = dispatch(&name, args_value.as_ref());
             let ok = !result.is_error;
             let text = truncate_tool_result(&tool_result_text(&result));

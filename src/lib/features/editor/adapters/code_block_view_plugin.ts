@@ -23,7 +23,9 @@ import {
   meta_has_token,
   build_code_preview_srcdoc,
   read_preview_theme_tokens,
+  clamp_preview_height,
   CODE_PREVIEW_SANDBOX,
+  PREVIEW_HEIGHT_MESSAGE,
 } from "./code_preview";
 import { LruCache } from "$lib/shared/utils/lru_cache";
 import { schema } from "./schema";
@@ -212,6 +214,8 @@ type SmartBlockState = {
   last_rendered_content: string;
 };
 
+type PreviewTheme = "light" | "dark";
+
 type HtmlPreviewState = {
   is_preview: boolean;
   container: HTMLElement;
@@ -223,7 +227,20 @@ type HtmlPreviewState = {
   live_url: string | null;
   render_seq: number;
   theme_observer: MutationObserver;
+  height_listener: (event: MessageEvent) => void;
 };
+
+type PreviewRender = {
+  doc: string;
+  source: string;
+  theme: PreviewTheme;
+};
+
+function current_preview_theme(): PreviewTheme {
+  return document.documentElement.getAttribute("data-color-scheme") === "dark"
+    ? "dark"
+    : "light";
+}
 
 function mermaid_cache_key(code: string): string {
   const theme =
@@ -566,6 +583,15 @@ class CodeBlockView implements NodeView {
       attributeFilter: ["data-color-scheme"],
     });
 
+    const height_listener = (event: MessageEvent) => {
+      if (event.source !== iframe.contentWindow) return;
+      const data = event.data as { type?: unknown; height?: unknown };
+      if (data?.type !== PREVIEW_HEIGHT_MESSAGE) return;
+      if (typeof data.height !== "number") return;
+      iframe.style.height = `${String(clamp_preview_height(data.height))}px`;
+    };
+    window.addEventListener("message", height_listener);
+
     this.html_preview = {
       is_preview: show,
       container,
@@ -577,6 +603,7 @@ class CodeBlockView implements NodeView {
       live_url: null,
       render_seq: 0,
       theme_observer,
+      height_listener,
     };
     this.apply_html_preview_state();
     if (show) this.render_html_preview();
@@ -610,10 +637,7 @@ class CodeBlockView implements NodeView {
     if (!this.html_preview) return;
     const state = this.html_preview;
     const source = this.node.textContent;
-    const theme =
-      document.documentElement.getAttribute("data-color-scheme") === "dark"
-        ? "dark"
-        : "light";
+    const theme = current_preview_theme();
     if (
       state.live_url &&
       source === state.last_rendered_content &&
@@ -621,8 +645,6 @@ class CodeBlockView implements NodeView {
     ) {
       return;
     }
-    state.last_rendered_content = source;
-    state.last_rendered_theme = theme;
     const doc = build_code_preview_srcdoc(
       this.current_language,
       source,
@@ -631,17 +653,21 @@ class CodeBlockView implements NodeView {
     );
     // Served via the carbide-html: protocol; srcdoc frames are blocked by the
     // host CSP frame-src in WebKit.
-    void this.swap_preview_src(state, doc, ++state.render_seq);
+    void this.swap_preview_src(
+      state,
+      { doc, source, theme },
+      ++state.render_seq,
+    );
   }
 
   private async swap_preview_src(
     state: HtmlPreviewState,
-    doc: string,
+    render: PreviewRender,
     seq: number,
   ) {
     try {
       const url = await invoke<string>("html_live_register", {
-        html: doc,
+        html: render.doc,
         assetRoot: null,
         allowNetwork: false,
       });
@@ -652,6 +678,10 @@ class CodeBlockView implements NodeView {
       if (state.live_url)
         void invoke("html_live_release", { url: state.live_url });
       state.live_url = url;
+      // Bookkeeping lands only once the frame actually points at this render,
+      // so a failed swap cannot make the next edit early-return as a no-op.
+      state.last_rendered_content = render.source;
+      state.last_rendered_theme = render.theme;
       state.iframe.src = url;
       state.error_el.hidden = true;
       state.iframe.hidden = false;
@@ -668,6 +698,7 @@ class CodeBlockView implements NodeView {
     if (!this.html_preview) return;
     clearTimeout(this.preview_timer);
     this.html_preview.theme_observer.disconnect();
+    window.removeEventListener("message", this.html_preview.height_listener);
     this.html_preview.render_seq++;
     if (this.html_preview.live_url) {
       void invoke("html_live_release", { url: this.html_preview.live_url });
@@ -1211,12 +1242,11 @@ class CodeBlockView implements NodeView {
       }
     }
 
-    if (this.html_preview?.is_preview) {
-      const new_content = updated.textContent;
-      if (new_content !== this.html_preview.last_rendered_content) {
-        this.html_preview.last_rendered_content = new_content;
-        this.schedule_preview_render();
-      }
+    if (
+      this.html_preview?.is_preview &&
+      updated.textContent !== this.html_preview.last_rendered_content
+    ) {
+      this.schedule_preview_render();
     }
 
     return true;

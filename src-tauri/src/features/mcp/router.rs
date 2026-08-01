@@ -1,12 +1,13 @@
 use serde_json::Value;
 use tauri::AppHandle;
 
+use crate::features::mcp::resources::{self, ResourceError};
 use crate::features::mcp::shared_ops;
 use crate::features::mcp::tools;
 use crate::features::mcp::types::{
     method, InitializeParams, InitializeResult, JsonRpcError, JsonRpcRequest, JsonRpcResponse,
-    ResourceDefinition, ServerCapabilities, ServerInfo, ToolCallParams, ToolDefinition, ToolResult,
-    ToolsCapability, INTERNAL_ERROR, INVALID_PARAMS, METHOD_NOT_FOUND,
+    ResourcesCapability, ResourcesReadParams, ServerCapabilities, ServerInfo, ToolCallParams,
+    ToolDefinition, ToolResult, ToolsCapability, INTERNAL_ERROR, INVALID_PARAMS, METHOD_NOT_FOUND,
 };
 
 pub struct McpRouter {
@@ -93,7 +94,10 @@ impl McpRouter {
                 tools: Some(ToolsCapability {
                     list_changed: false,
                 }),
-                resources: None,
+                resources: Some(ResourcesCapability {
+                    subscribe: false,
+                    list_changed: false,
+                }),
             },
             server_info: ServerInfo {
                 name: "carbide".into(),
@@ -142,7 +146,7 @@ impl McpRouter {
     }
 
     fn handle_resources_list(&self) -> Result<Value, JsonRpcError> {
-        let resources: Vec<ResourceDefinition> = vec![];
+        let resources = resources::list_resources(self.app.as_ref());
         serde_json::to_value(serde_json::json!({ "resources": resources })).map_err(|e| {
             JsonRpcError {
                 code: INTERNAL_ERROR,
@@ -152,11 +156,30 @@ impl McpRouter {
         })
     }
 
-    fn handle_resources_read(&self, _params: Option<&Value>) -> Result<Value, JsonRpcError> {
-        Err(JsonRpcError {
-            code: METHOD_NOT_FOUND,
-            message: "No resources available".into(),
-            data: None,
+    fn handle_resources_read(&self, params: Option<&Value>) -> Result<Value, JsonRpcError> {
+        let read_params: ResourcesReadParams = params
+            .map(|p| serde_json::from_value(p.clone()))
+            .transpose()
+            .map_err(|e| JsonRpcError {
+                code: INVALID_PARAMS,
+                message: format!("Invalid resources/read params: {}", e),
+                data: None,
+            })?
+            .ok_or_else(|| JsonRpcError {
+                code: INVALID_PARAMS,
+                message: "resources/read requires params with uri".into(),
+                data: None,
+            })?;
+
+        let content = resources::read_resource(self.app.as_ref(), &read_params.uri)
+            .map_err(resource_error_to_jsonrpc)?;
+
+        serde_json::to_value(serde_json::json!({ "contents": [content] })).map_err(|e| {
+            JsonRpcError {
+                code: INTERNAL_ERROR,
+                message: format!("Serialization error: {}", e),
+                data: None,
+            }
         })
     }
 
@@ -249,6 +272,18 @@ impl McpRouter {
 impl Default for McpRouter {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+fn resource_error_to_jsonrpc(error: ResourceError) -> JsonRpcError {
+    let code = match &error {
+        ResourceError::NotFound(_) => INVALID_PARAMS,
+        ResourceError::Internal(_) => INTERNAL_ERROR,
+    };
+    JsonRpcError {
+        code,
+        message: error.to_string(),
+        data: None,
     }
 }
 

@@ -325,7 +325,10 @@ describe("watcher_reactor", () => {
     });
   });
 
-  it("ignores repeated self-write events while suppression is active", async () => {
+  // The Rust watcher already coalesces per-path change events to one per 500ms,
+  // so a second event is a genuine external write (an agent editing on disk)
+  // and must reload rather than be swallowed by the previous arming.
+  it("suppresses only the self-write event and reloads on the next one", async () => {
     const vault_store = new VaultStore();
     const editor_store = new EditorStore();
     const tab_store = new TabStore();
@@ -379,12 +382,19 @@ describe("watcher_reactor", () => {
 
     watcher_service.suppress_next("notes/a.md");
     watcher_port._emit(changed_event("notes/a.md"));
-    watcher_port._emit(changed_event("notes/a.md"));
 
     await flush_effects();
 
     expect(note_service.open_note).not.toHaveBeenCalled();
     expect(tab_service.mark_conflict).not.toHaveBeenCalled();
+
+    watcher_port._emit(changed_event("notes/a.md"));
+
+    await flush_effects();
+
+    expect(note_service.open_note).toHaveBeenCalledWith("notes/a.md", false, {
+      force_reload: true,
+    });
 
     unmount();
   });

@@ -16,6 +16,7 @@ import type { ToolbarVisibility } from "$lib/shared/types/editor_settings";
 import type { Diagnostic } from "$lib/features/diagnostics";
 import type { FindOptions } from "$lib/features/editor/domain/find_types";
 import type { RichClipboardPayload } from "$lib/features/clipboard";
+import type { BlockPlacement } from "$lib/features/editor/adapters/block_transforms";
 
 export type FindReplaceResult = {
   match_count: number;
@@ -93,6 +94,7 @@ export type EditorSession = {
   ) => FindReplaceResult;
   replace_all_matches?: (replacement: string) => FindReplaceResult;
   scroll_to_position?: (pos: number) => void;
+  find_block_anchor_position?: (block_id: string) => number | null;
   get_cursor_markdown_offset?: () => number;
   set_cursor_from_markdown_offset?: (offset: number) => void;
   get_cursor_block_anchor?: () => import("$lib/features/editor/adapters/cursor_offset_mapper").BlockAnchor;
@@ -117,7 +119,12 @@ export type EditorSession = {
   delete_block?: () => void;
   duplicate_block_at?: (pos: number) => void;
   delete_block_at?: (pos: number) => void;
-  block_pos_at_coords?: (x: number, y: number) => number | null;
+  block_pos_at_coords?: (
+    x: number,
+    y: number,
+    target?: Element | null,
+  ) => number | null;
+  insert_block_at?: (pos: number | null, placement: BlockPlacement) => void;
   batch_turn_into?: (
     target: string,
     attrs: Record<string, unknown> | undefined,

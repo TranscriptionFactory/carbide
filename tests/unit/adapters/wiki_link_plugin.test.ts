@@ -369,3 +369,61 @@ describe("create_wiki_link_converter_prose_plugin", () => {
     expect(get_link_info(view.state.doc, schema.marks.link)?.href).toBe("a.md");
   });
 });
+
+describe("wikilink anchors", () => {
+  function convert(inserted: string) {
+    const schema = create_schema();
+    const plugin = create_wiki_link_converter_prose_plugin({
+      link_type: schema.marks.link,
+    });
+    const state = EditorState.create({
+      schema,
+      doc: schema.node("doc", null, [schema.node("paragraph", null, [])]),
+      plugins: [plugin],
+    });
+
+    const tr = state.tr.insertText(inserted, 1);
+    tr.setSelection(TextSelection.create(tr.doc, 1 + inserted.length));
+    const next = state.apply(tr);
+
+    return {
+      display: next.doc.child(0).textContent.replaceAll("​", ""),
+      info: get_link_info(next.doc, schema.marks.link),
+    };
+  }
+
+  it("keeps the heading fragment outside the .md extension", () => {
+    const { info } = convert("[[note#Heading]]");
+    expect(info?.href).toBe("note.md#Heading");
+    expect(info?.link_source).toBe("wiki");
+  });
+
+  it("renders an anchor link as 'note > Heading'", () => {
+    const { display } = convert("[[note#Heading]]");
+    expect(display).toBe("note > Heading");
+  });
+
+  it("leaves a same-note anchor without a path", () => {
+    const { display, info } = convert("[[#Heading]]");
+    expect(info?.href).toBe("#Heading");
+    expect(display).toBe("Heading");
+  });
+
+  it("keeps a block anchor intact", () => {
+    const { display, info } = convert("[[note#^abc123]]");
+    expect(info?.href).toBe("note.md#^abc123");
+    expect(display).toBe("note > ^abc123");
+  });
+
+  it("does not double-extend a path that already carries .md", () => {
+    const { display, info } = convert("[[folder/note.md#Heading]]");
+    expect(info?.href).toBe("folder/note.md#Heading");
+    expect(display).toBe("folder/note > Heading");
+  });
+
+  it("prefers an explicit label over the anchor display", () => {
+    const { display, info } = convert("[[note#Heading|Read this]]");
+    expect(info?.href).toBe("note.md#Heading");
+    expect(display).toBe("Read this");
+  });
+});

@@ -282,11 +282,25 @@ export async function save_dirty_tab(
       return "needs_path";
     }
 
-    await services.note.write_note_content(cached.meta.path, cached.markdown);
+    const forced = stores.tab.has_conflict(cached.meta.path);
+    let new_mtime: number | null;
+    try {
+      new_mtime = await services.note.write_note_content(
+        cached.meta.path,
+        cached.markdown,
+        forced ? undefined : cached.meta.mtime_ms,
+      );
+    } catch {
+      services.tab.mark_conflict(cached.meta.path);
+      return "failed";
+    }
     stores.tab.set_dirty(tab_id, false);
     stores.tab.set_cached_note(tab_id, {
       ...cached,
       is_dirty: false,
+      ...(new_mtime !== null && {
+        meta: { ...cached.meta, mtime_ms: new_mtime },
+      }),
     });
     return "saved";
   }

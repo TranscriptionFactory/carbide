@@ -193,25 +193,18 @@ function render_items(
   }
 }
 
-let current_mode: "note" | "heading" | "block" = "note";
-let current_note_name: string | null = null;
-let current_is_embed = false;
-
 export function create_wiki_suggest_prose_plugin(
   config: WikiSuggestPluginConfig,
 ) {
+  let extracted: ExtractedQuery | null = null;
+
   return create_suggest_prose_plugin<SuggestionItem>({
     key: wiki_suggest_plugin_key,
     class_name: "WikiSuggest",
     extract(text_before) {
       const result = extract_wiki_query(text_before);
       if (!result) return null;
-      current_mode = result.mode;
-      current_is_embed = result.is_embed;
-      current_note_name =
-        result.mode === "heading" || result.mode === "block"
-          ? result.note_name
-          : null;
+      extracted = result;
       return {
         query: result.query,
         from_offset: result.offset,
@@ -220,16 +213,16 @@ export function create_wiki_suggest_prose_plugin(
     },
     render_items,
     accept(view, item, state) {
-      const prefix = current_is_embed ? "!" : "";
+      const prefix = extracted?.is_embed ? "!" : "";
+      const note_prefix =
+        extracted && extracted.mode !== "note"
+          ? (extracted.note_name ?? "")
+          : "";
       let inner: string;
       if (item.kind === "heading") {
-        const note_prefix = current_note_name ?? "";
-        inner = note_prefix ? `${note_prefix}#${item.text}` : `#${item.text}`;
+        inner = `${note_prefix}#${item.text}`;
       } else if (item.kind === "block") {
-        const note_prefix = current_note_name ?? "";
-        inner = note_prefix
-          ? `${note_prefix}#^${item.block_id}`
-          : `#^${item.block_id}`;
+        inner = `${note_prefix}#^${item.block_id}`;
       } else {
         inner = format_wiki_display(item.path);
       }
@@ -258,9 +251,8 @@ export function create_wiki_suggest_prose_plugin(
       view.dispatch(tr);
       view.focus();
     },
-    on_query(query) {
-      const text_before_fake = "[[" + query;
-      const result = extract_wiki_query(text_before_fake);
+    on_query() {
+      const result = extracted;
       if (!result) return;
       if (result.mode === "heading") {
         config.on_query({
@@ -280,7 +272,7 @@ export function create_wiki_suggest_prose_plugin(
     },
     on_dismiss: config.on_dismiss,
     query_changed(prev, result) {
-      const new_mode = current_mode;
+      const new_mode = extracted?.mode ?? "note";
       const old_mode_key = prev.query
         ? prev.query.includes("#^")
           ? "block"
@@ -293,7 +285,7 @@ export function create_wiki_suggest_prose_plugin(
       );
     },
     handle_tab(view, state, accept_fn) {
-      if (current_mode === "heading" || current_mode === "block") {
+      if (extracted?.mode === "heading" || extracted?.mode === "block") {
         if (state.items.length >= 1) {
           accept_fn(view, state.selected_index);
         }
@@ -306,7 +298,8 @@ export function create_wiki_suggest_prose_plugin(
       }
 
       const note_items = state.items.filter(
-        (item): item is NoteSuggestionItem => item.kind !== "heading",
+        (item): item is NoteSuggestionItem =>
+          item.kind === "existing" || item.kind === "planned",
       );
       const paths = note_items.map((item) =>
         format_wiki_display(item.path).toLowerCase(),

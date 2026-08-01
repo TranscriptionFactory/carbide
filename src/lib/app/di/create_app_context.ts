@@ -329,13 +329,10 @@ export function create_app_context(input: {
     on_external_link_click: (url) =>
       void action_registry.execute(ACTION_IDS.shell_open_url, url),
     on_anchor_link_click: (fragment) => {
-      const heading = stores.outline.find_heading_by_fragment(fragment);
-      if (heading) {
-        void action_registry.execute(
-          ACTION_IDS.outline_scroll_to_heading,
-          heading.pos,
-        );
-      }
+      void action_registry.execute(
+        ACTION_IDS.outline_scroll_to_fragment,
+        fragment,
+      );
     },
     on_image_paste_requested: (note_id, note_path, image) =>
       void action_registry.execute(ACTION_IDS.note_request_image_paste, {

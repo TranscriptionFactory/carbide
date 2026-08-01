@@ -28,6 +28,7 @@
   let show_dropdown = $state(false);
   let selected_index = $state(0);
   let skip_next_blur = $state(false);
+  let dropdown_element = $state<HTMLElement>();
 
   $effect(() => {
     // Mirror parent value into query without stomping a trailing slash we just
@@ -42,6 +43,14 @@
   });
 
   const filtered = $derived(filter_folder_paths(query, folder_paths));
+
+  $effect(() => {
+    void selected_index;
+    void filtered;
+    dropdown_element
+      ?.querySelector(".FolderSuggest__item--selected")
+      ?.scrollIntoView({ block: "nearest" });
+  });
 
   function commit(path: string) {
     const clean = path.replace(/\/+$/, "");
@@ -154,7 +163,7 @@
     <span class="FolderSuggest__suffix">/</span>
   </div>
   {#if show_dropdown && filtered.length > 0}
-    <div class="FolderSuggest__dropdown">
+    <div bind:this={dropdown_element} class="FolderSuggest__dropdown">
       {#each filtered as folder, i (folder)}
         <button
           class="FolderSuggest__item"

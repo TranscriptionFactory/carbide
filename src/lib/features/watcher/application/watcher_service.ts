@@ -6,7 +6,9 @@ import { normalize_path_key } from "$lib/shared/utils/path";
 
 const log = create_logger("watcher_service");
 
-const SUPPRESS_WINDOW_MS = 10_000;
+// A self-write's own FS event arrives within milliseconds; anything later is a
+// genuine external write (an agent editing on disk) and must not be swallowed.
+const SUPPRESS_WINDOW_MS = 2_000;
 
 // Rust atomic_write stages "<file>.tmp" beside the target before renaming.
 const ATOMIC_WRITE_TMP_SUFFIX = ".tmp";
@@ -37,9 +39,15 @@ export class WatcherService {
     this.suppressed.set(key, Date.now());
   }
 
+  // One-shot: an armed path swallows exactly the event for its own write. The
+  // staging ".tmp" event does not consume the arming, because the real event
+  // for the target path still follows it.
   is_suppressed(path: string): boolean {
     const key = normalize_path_key(path);
-    if (this.is_key_suppressed(key)) return true;
+    if (this.is_key_suppressed(key)) {
+      this.suppressed.delete(key);
+      return true;
+    }
     return (
       key.endsWith(ATOMIC_WRITE_TMP_SUFFIX) &&
       this.is_key_suppressed(key.slice(0, -ATOMIC_WRITE_TMP_SUFFIX.length))
