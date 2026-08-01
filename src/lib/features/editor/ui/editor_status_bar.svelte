@@ -19,6 +19,8 @@
   } from "@lucide/svelte";
   import * as Tooltip from "$lib/components/ui/tooltip/index.js";
   import { GitStatusWidget } from "$lib/features/git";
+  import { AssistantPresence } from "$lib/features/assistant";
+  import type { RunId, RunRecord } from "$lib/features/assistant";
   import { LintStatusIndicator } from "$lib/features/lint";
   import { format_relative_time } from "$lib/shared/utils/relative_time";
   import type { CursorInfo } from "$lib/shared/types/editor";
@@ -115,6 +117,8 @@
     on_panel_tab_click: (tab: BottomPanelTab) => void;
     color_scheme: "light" | "dark";
     on_theme_toggle: () => void;
+    assistant_runs: RunRecord[];
+    on_assistant_stop: (run_id: RunId) => void;
     // STT removed — archived on archive/stt-main
     // stt_enabled: boolean;
     // stt_recording_state: "idle" | "recording" | "processing";
@@ -183,6 +187,8 @@
     on_panel_tab_click,
     color_scheme,
     on_theme_toggle,
+    assistant_runs,
+    on_assistant_stop,
     // stt_enabled,
     // stt_recording_state,
     // stt_model_loading,
@@ -567,6 +573,9 @@
         on_add_remote={on_git_add_remote}
       />
     {/if}
+
+    <span class="StatusBar__separator" aria-hidden="true"></span>
+    <AssistantPresence runs={assistant_runs} on_stop={on_assistant_stop} />
 
     <span class="StatusBar__separator" aria-hidden="true"></span>
     <button

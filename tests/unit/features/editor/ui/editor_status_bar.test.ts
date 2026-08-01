@@ -100,6 +100,8 @@ function render_editor_status_bar(props?: {
       on_panel_tab_click: vi.fn(),
       color_scheme: props?.color_scheme ?? "dark",
       on_theme_toggle: props?.on_theme_toggle ?? vi.fn(),
+      assistant_runs: [],
+      on_assistant_stop: vi.fn(),
     },
   });
 
