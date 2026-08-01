@@ -8,10 +8,7 @@ import {
   type ImageResolver,
 } from "$lib/features/document/domain/note_html";
 import type { NoteAssetPathResolver } from "$lib/features/document/domain/note_epub";
-import {
-  is_remote_image_src,
-  resolve_note_asset_path,
-} from "$lib/features/document/domain/note_export_assets";
+import { resolve_note_asset_path } from "$lib/features/document/domain/note_export_assets";
 import { carbide_asset_url, carbide_file_asset_url } from "$lib/features/note";
 import { parent_folder_path } from "$lib/shared/utils/path";
 import { toast } from "$lib/shared/ui/toast";
@@ -81,7 +78,7 @@ function build_inline_image_resolver(
 ): ImageResolver {
   return async (src, kind) => {
     if (/^data:/i.test(src)) return src;
-    if (is_remote_image_src(src)) return fetch_as_data_uri(src);
+    if (/^https?:\/\//i.test(src)) return fetch_as_data_uri(src);
     if (src.startsWith("/")) {
       return fetch_as_data_uri(carbide_file_asset_url(src));
     }

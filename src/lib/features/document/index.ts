@@ -38,10 +38,7 @@ export {
   create_epub_image_collector,
   type NoteAssetPathResolver,
 } from "$lib/features/document/domain/note_epub";
-export {
-  resolve_note_asset_path,
-  is_remote_image_src,
-} from "$lib/features/document/domain/note_export_assets";
+export { resolve_note_asset_path } from "$lib/features/document/domain/note_export_assets";
 export {
   DocumentService,
   type DocumentAiContext,
