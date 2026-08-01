@@ -36,7 +36,7 @@ export async function resolve_assistant_provider(
 
   const provider = await resolve_auto_ai_backend({
     providers: input.providers,
-    detect_status: (config) => probe_or_assume_present(config, input),
+    detect_status: (config) => input.detect_status(config),
   });
 
   if (!provider) {
@@ -49,16 +49,4 @@ export async function resolve_assistant_provider(
   }
 
   return { status: "resolved", provider, was_auto: true };
-}
-
-// An api-transport provider has no CLI to find on PATH; reaching the endpoint is
-// the run's job, so it stays a candidate instead of probing to `missing`.
-function probe_or_assume_present(
-  config: AiProviderConfig,
-  input: ProviderResolutionInput,
-): Promise<AiCliProbeStatus> {
-  if (config.transport.kind === "api") {
-    return Promise.resolve("present");
-  }
-  return input.detect_status(config);
 }

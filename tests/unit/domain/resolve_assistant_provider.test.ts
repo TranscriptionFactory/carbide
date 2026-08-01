@@ -169,13 +169,16 @@ describe("resolve_assistant_provider", () => {
     expect(probe._checked).toEqual(["ollama", "claude", "codex"]);
   });
 
-  it("counts an api-transport provider as available without a cli probe", async () => {
+  it("selects on the probe answer alone, never on the provider transport", async () => {
     const lmstudio = make_provider({
       id: "lmstudio",
       name: "LM Studio",
       transport: { kind: "api", base_url: "http://localhost:1234/v1" },
     });
-    const probe = create_mock_probe_port({ codex: "present" });
+    const probe = create_mock_probe_port({
+      lmstudio: "missing",
+      codex: "present",
+    });
 
     const result = await resolve_assistant_provider({
       providers: [lmstudio, codex],
@@ -184,7 +187,7 @@ describe("resolve_assistant_provider", () => {
     });
 
     const resolved = expect_resolved(result);
-    expect(resolved.provider.id).toBe("lmstudio");
-    expect(probe._checked).not.toContain("lmstudio");
+    expect(resolved.provider.id).toBe("codex");
+    expect(probe._checked).toEqual(["lmstudio", "codex"]);
   });
 });
