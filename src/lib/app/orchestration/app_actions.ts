@@ -742,4 +742,14 @@ export function register_app_actions(input: ActionRegistrationInput) {
     label: "Delete Block",
     execute: () => services.editor.delete_block(),
   });
+  registry.register({
+    id: ACTION_IDS.editor_insert_block_above,
+    label: "Insert Block Above",
+    execute: () => services.editor.insert_block_at(null, "above"),
+  });
+  registry.register({
+    id: ACTION_IDS.editor_insert_block_below,
+    label: "Insert Block Below",
+    execute: () => services.editor.insert_block_at(null, "below"),
+  });
 }

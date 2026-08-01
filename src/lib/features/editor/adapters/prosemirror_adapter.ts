@@ -79,12 +79,19 @@ import {
   batch_duplicate as batch_duplicate_cmd,
   batch_delete as batch_delete_cmd,
 } from "$lib/features/editor/adapters/block_transforms";
-import type { TurnIntoTarget } from "$lib/features/editor/adapters/block_transforms";
+import type {
+  BlockPlacement,
+  TurnIntoTarget,
+} from "$lib/features/editor/adapters/block_transforms";
 import {
   get_block_selection,
   clear_block_selection,
 } from "$lib/features/editor/adapters/block_selection_plugin";
-import { resolve_top_level_block } from "$lib/features/editor/adapters/block_drag_handle_plugin";
+import {
+  resolve_top_level_block,
+  insert_paragraph_at,
+} from "$lib/features/editor/adapters/block_drag_handle_plugin";
+import { block_pos_at_coords as block_pos_at_coords_impl } from "$lib/features/editor/adapters/block_pos_at_coords";
 import { SKIP_FRONTMATTER_GUARD } from "$lib/features/editor/adapters/frontmatter_guard_plugin";
 import { build_copy_blocks_payload } from "$lib/features/editor/adapters/copy_blocks_payload";
 import type {
@@ -1384,12 +1391,18 @@ export function create_prosemirror_editor_port(args?: {
           if (!v) return;
           delete_block_at_cmd(pos, v.state, v.dispatch);
         },
-        block_pos_at_coords(x: number, y: number) {
+        block_pos_at_coords(x: number, y: number, target?: Element | null) {
           const v = view;
           if (!v) return null;
-          const coords = v.posAtCoords({ left: x, top: y });
-          if (!coords) return null;
-          return resolve_top_level_block(v, coords.pos)?.pos ?? null;
+          return block_pos_at_coords_impl(v, x, y, target);
+        },
+        insert_block_at(pos: number | null, placement: BlockPlacement) {
+          const v = view;
+          if (!v) return;
+          const block_pos =
+            pos ?? resolve_top_level_block(v, v.state.selection.from)?.pos;
+          if (block_pos == null) return;
+          insert_paragraph_at(v, block_pos, placement);
         },
         batch_turn_into(
           target: string,
