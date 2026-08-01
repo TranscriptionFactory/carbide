@@ -10,9 +10,18 @@ vi.mock("$lib/shared/adapters/tauri_invoke", () => ({
 
 import { listen } from "@tauri-apps/api/event";
 import { tauri_invoke } from "$lib/shared/adapters/tauri_invoke";
+import { humanize_ai_error } from "$lib/features/ai";
 import { create_assistant_transport_tauri_adapter } from "$lib/features/assistant/adapters/assistant_transport_tauri_adapter";
 import type { RunEvent, RunRequest } from "$lib/features/assistant";
 import { make_provider } from "../helpers/assistant_fixtures";
+
+// Both strings match a humanize_ai_error pattern, so an adapter that humanized
+// would visibly rewrite them; `humanized` is what the output must NOT be.
+const SPAWN_FAILURE = "failed to spawn claude: No such file or directory";
+const AUTH_FAILURE = "Claude Code is not logged in — please run /login";
+
+const humanized = (raw: string) =>
+  humanize_ai_error(raw, make_provider()).message;
 
 const mock_listen = vi.mocked(listen);
 const mock_invoke = vi.mocked(tauri_invoke);
@@ -297,30 +306,62 @@ describe("assistant_transport_tauri_adapter", () => {
   });
 
   it("surfaces a rejected start invoke as one raw error event, then ends", async () => {
-    const raw = "spawn claude ENOENT: ANTHROPIC_API_KEY is not set";
-    mock_invoke.mockRejectedValueOnce(new Error(raw));
+    mock_invoke.mockRejectedValueOnce(new Error(SPAWN_FAILURE));
 
     const collected = collect(stream_text());
     await flush();
 
     const events = await collected;
-    expect(events).toEqual([{ type: "error", message: raw }]);
+    expect(events).toEqual([{ type: "error", message: SPAWN_FAILURE }]);
+    expect(events[0]).not.toEqual({
+      type: "error",
+      message: humanized(SPAWN_FAILURE),
+    });
     expect(channel(0).unlisten).toHaveBeenCalledTimes(1);
   });
 
   it("preserves raw provider error text from both wire shapes", async () => {
-    const raw = "Error: spawn claude ENOENT (exit 127)";
-
     const from_text = collect(stream_text());
     await flush();
-    channel(0).emit({ type: "error", error: raw });
+    channel(0).emit({ type: "error", error: AUTH_FAILURE });
 
     const from_agent = collect(stream_agent());
     await flush();
-    channel(1).emit({ type: "error", message: raw });
+    channel(1).emit({ type: "error", message: AUTH_FAILURE });
 
-    expect(await from_text).toEqual([{ type: "error", message: raw }]);
-    expect(await from_agent).toEqual([{ type: "error", message: raw }]);
+    expect(await from_text).toEqual([{ type: "error", message: AUTH_FAILURE }]);
+    expect(await from_agent).toEqual([
+      { type: "error", message: AUTH_FAILURE },
+    ]);
+    expect(humanized(AUTH_FAILURE)).not.toBe(AUTH_FAILURE);
+  });
+
+  it("delivers events pushed after the consumer began iterating", async () => {
+    const stream = stream_text();
+    const collected = collect(stream);
+    await flush();
+
+    channel(0).emit({ type: "text", text: "late" });
+    channel(0).emit({ type: "done" });
+
+    expect(await collected).toEqual([
+      { type: "text", text: "late" },
+      { type: "done" },
+    ]);
+  });
+
+  it("buffers events pushed before the consumer began iterating", async () => {
+    const stream = stream_text();
+    await flush();
+
+    channel(0).emit({ type: "text", text: "early" });
+    channel(0).emit({ type: "done" });
+    await flush();
+
+    expect(await collect(stream)).toEqual([
+      { type: "text", text: "early" },
+      { type: "done" },
+    ]);
   });
 
   it("removes the abort listener on normal completion", async () => {
