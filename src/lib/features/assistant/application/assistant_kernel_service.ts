@@ -1,3 +1,7 @@
+import { humanize_ai_error } from "$lib/features/ai";
+import { resolve_assistant_provider } from "$lib/features/assistant/domain/resolve_assistant_provider";
+import { create_logger } from "$lib/shared/utils/logger";
+import { error_message } from "$lib/shared/utils/error_message";
 import type { AiProviderConfig } from "$lib/shared/types/ai_provider_config";
 import type { AssistantRunStore } from "$lib/features/assistant/state/assistant_run_store.svelte";
 import type {
@@ -5,13 +9,14 @@ import type {
   AssistantTransportPort,
 } from "$lib/features/assistant/ports";
 import type {
+  AssistantUserError,
+  RunEvent,
   RunHandle,
   RunId,
+  RunOutcome,
   RunSink,
   RunSpec,
 } from "$lib/features/assistant/types/run";
-
-const NOT_IMPLEMENTED = "AssistantKernelService: not implemented (AU-001)";
 
 export type AssistantKernelDeps = {
   transport: AssistantTransportPort;
@@ -22,6 +27,19 @@ export type AssistantKernelDeps = {
   default_provider_id: () => string;
 };
 
+const log = create_logger("assistant_kernel");
+
+const NO_PROVIDER: AssistantUserError = {
+  message:
+    "No AI provider is available — configure one in Settings, then try again.",
+  detail: "The run was not started: no provider resolved.",
+};
+
+const NO_VAULT: AssistantUserError = {
+  message: "Agent runs need an open vault — open a vault, then try again.",
+  detail: "The run was not started: agent mode requires a vault path.",
+};
+
 // I1: every AI execution is a kernel run. This is the only place in the app
 // that owns an AbortController for AI work, the only `for await` consumer of
 // the transport, and the only error-humanization choke point.
@@ -30,31 +48,187 @@ export type AssistantKernelDeps = {
 // run events land (RagStore today, the unified session store next) without
 // editing the runners again.
 export class AssistantKernelService {
-  constructor(private readonly deps: AssistantKernelDeps) {
-    void this.deps;
+  private readonly controllers = new Map<RunId, AbortController>();
+  private sinks: RunSink[] = [];
+  private next_run_number = 0;
+
+  constructor(private readonly deps: AssistantKernelDeps) {}
+
+  async start(spec: RunSpec, sink?: RunSink): Promise<RunHandle> {
+    const provider = spec.provider ?? (await this.resolve_provider());
+    const vault_path = this.deps.vault_path();
+    const id = this.mint_id();
+    const stop = () => {
+      this.stop(id);
+    };
+
+    this.deps.run_store.start(
+      id,
+      provider ? { ...spec, provider } : spec,
+      Date.now(),
+    );
+
+    if (!provider) {
+      return {
+        id,
+        stop,
+        outcome: Promise.resolve(this.fail(id, NO_PROVIDER, sink)),
+      };
+    }
+
+    // The transport takes vault_path nullable because a text run legitimately
+    // has none. An agent run without one is unrunnable, so it fails here rather
+    // than at the process boundary.
+    if (spec.request.mode === "agent" && vault_path === null) {
+      return {
+        id,
+        stop,
+        outcome: Promise.resolve(this.fail(id, NO_VAULT, sink)),
+      };
+    }
+
+    const controller = new AbortController();
+    this.controllers.set(id, controller);
+
+    return {
+      id,
+      stop,
+      outcome: this.consume(
+        id,
+        spec,
+        provider,
+        vault_path,
+        controller.signal,
+        sink,
+      ),
+    };
   }
 
-  start(_spec: RunSpec, _sink?: RunSink): Promise<RunHandle> {
-    throw new Error(NOT_IMPLEMENTED);
-  }
-
-  stop(_id: RunId): void {
-    throw new Error(NOT_IMPLEMENTED);
+  stop(id: RunId): void {
+    const controller = this.controllers.get(id);
+    if (!controller) return;
+    this.controllers.delete(id);
+    controller.abort();
+    this.deps.run_store.set_status(id, "aborted");
   }
 
   stop_all(): void {
-    throw new Error(NOT_IMPLEMENTED);
+    for (const id of [...this.controllers.keys()]) this.stop(id);
   }
 
-  is_running(_id: RunId): boolean {
-    throw new Error(NOT_IMPLEMENTED);
+  is_running(id: RunId): boolean {
+    const status = this.deps.run_store.get(id)?.status;
+    return status === "starting" || status === "streaming";
   }
 
-  register_sink(_sink: RunSink): () => void {
-    throw new Error(NOT_IMPLEMENTED);
+  // I2: unsubscribing detaches a listener. It never cancels a run — surfaces
+  // come and go while the work they started keeps streaming.
+  register_sink(sink: RunSink): () => void {
+    this.sinks = [...this.sinks, sink];
+    return () => {
+      this.sinks = this.sinks.filter((registered) => registered !== sink);
+    };
   }
 
-  resolve_provider(_requested_id?: string): Promise<AiProviderConfig | null> {
-    throw new Error(NOT_IMPLEMENTED);
+  async resolve_provider(
+    requested_id?: string,
+  ): Promise<AiProviderConfig | null> {
+    const resolution = await resolve_assistant_provider({
+      providers: this.deps.providers(),
+      requested_id: requested_id ?? this.deps.default_provider_id(),
+      detect_status: (config) => this.deps.probe.detect_status(config),
+    });
+    return resolution.status === "resolved" ? resolution.provider : null;
+  }
+
+  private mint_id(): RunId {
+    this.next_run_number += 1;
+    return `run-${String(this.next_run_number)}`;
+  }
+
+  // A transport stream has a single consumer slot, so this loop is its only
+  // reader. Everything else is fanned out from here, never by re-iterating.
+  private async consume(
+    id: RunId,
+    spec: RunSpec,
+    provider: AiProviderConfig,
+    vault_path: string | null,
+    signal: AbortSignal,
+    sink?: RunSink,
+  ): Promise<RunOutcome> {
+    const runs = this.deps.run_store;
+
+    try {
+      for await (const event of this.deps.transport.stream({
+        provider_config: provider,
+        request: spec.request,
+        vault_path,
+        signal,
+      })) {
+        if (signal.aborted) break;
+
+        if (event.type === "error") {
+          return this.fail(
+            id,
+            humanize_ai_error(event.message, provider),
+            sink,
+          );
+        }
+
+        this.dispatch(id, event, sink);
+
+        if (event.type === "done") {
+          return {
+            status: "done",
+            text: runs.text_of(id),
+            stats: event.stats ?? null,
+          };
+        }
+      }
+    } catch (thrown) {
+      const error = humanize_ai_error(error_message(thrown), provider);
+      return this.fail(id, error, sink);
+    } finally {
+      this.controllers.delete(id);
+    }
+
+    if (signal.aborted) return { status: "aborted", text: runs.text_of(id) };
+
+    runs.set_status(id, "done");
+    return { status: "done", text: runs.text_of(id), stats: null };
+  }
+
+  private fail(
+    id: RunId,
+    error: AssistantUserError,
+    sink?: RunSink,
+  ): RunOutcome {
+    this.deps.run_store.set_error(id, error);
+    this.notify(id, { type: "error", message: error.message }, sink);
+    return { status: "error", error, text: this.deps.run_store.text_of(id) };
+  }
+
+  private dispatch(id: RunId, event: RunEvent, sink?: RunSink): void {
+    this.deps.run_store.apply_event(id, event);
+    this.notify(id, event, sink);
+  }
+
+  private notify(id: RunId, event: RunEvent, sink?: RunSink): void {
+    if (sink) this.deliver(sink, id, event);
+    for (const registered of this.sinks) this.deliver(registered, id, event);
+  }
+
+  // A listener that throws must not break the run's single consumer loop or
+  // starve the sinks queued behind it.
+  private deliver(sink: RunSink, id: RunId, event: RunEvent): void {
+    try {
+      sink.on_event(id, event);
+    } catch (thrown) {
+      log.warn("sink threw while handling a run event", {
+        run_id: id,
+        event: event.type,
+        error: thrown,
+      });
+    }
   }
 }
