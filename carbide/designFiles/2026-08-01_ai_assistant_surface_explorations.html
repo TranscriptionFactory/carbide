@@ -1,0 +1,539 @@
+<title>Carbide — Assistant Surface Explorations</title>
+<style>
+  :root {
+    --pg-bg: #eef0f2;
+    --pg-card: #f7f8f9;
+    --pg-ink: #1c1f24;
+    --pg-mut: #5b6270;
+    --pg-line: #d5d9de;
+    --pg-acc: #b0741f;
+    --mono: ui-monospace, "SF Mono", "Cascadia Code", Menlo, Consolas, monospace;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --pg-bg: #101216; --pg-card: #171a1f; --pg-ink: #d8dbe0;
+      --pg-mut: #8a919d; --pg-line: #272b33; --pg-acc: #e2a24a;
+    }
+  }
+  :root[data-theme="light"] {
+    --pg-bg: #eef0f2; --pg-card: #f7f8f9; --pg-ink: #1c1f24;
+    --pg-mut: #5b6270; --pg-line: #d5d9de; --pg-acc: #b0741f;
+  }
+  :root[data-theme="dark"] {
+    --pg-bg: #101216; --pg-card: #171a1f; --pg-ink: #d8dbe0;
+    --pg-mut: #8a919d; --pg-line: #272b33; --pg-acc: #e2a24a;
+  }
+
+  body {
+    background: var(--pg-bg); color: var(--pg-ink);
+    font-family: var(--sans); line-height: 1.55;
+    margin: 0; padding: 0 0 72px;
+  }
+  .sheet { max-width: 1180px; margin: 0 auto; padding: 40px 32px 0; }
+  .eyebrow {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--pg-acc); margin: 0 0 10px;
+  }
+  h1 {
+    font-family: var(--mono); font-size: clamp(22px, 3vw, 30px);
+    font-weight: 600; letter-spacing: -0.01em; margin: 0 0 8px; text-wrap: balance;
+  }
+  .lede { max-width: 68ch; color: var(--pg-mut); margin: 0; font-size: 15px; }
+  .meta {
+    font-family: var(--mono); font-size: 11.5px; color: var(--pg-mut);
+    display: flex; flex-wrap: wrap; gap: 6px 18px; margin: 14px 0 0;
+  }
+  .meta span::before { content: "· "; color: var(--pg-acc); }
+
+  section { max-width: 1180px; margin: 52px auto 0; padding: 0 32px; }
+  .sec-head { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
+  .sec-head h2 {
+    font-family: var(--mono); font-size: 17px; font-weight: 600;
+    margin: 0; letter-spacing: -0.01em;
+  }
+  .dep {
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--pg-acc);
+    border: 1px solid color-mix(in srgb, var(--pg-acc) 45%, transparent);
+    border-radius: 20px; padding: 2px 9px;
+  }
+  .why { max-width: 72ch; color: var(--pg-mut); font-size: 13.5px; margin: 8px 0 18px; }
+  .why b { color: var(--pg-ink); font-weight: 600; }
+
+  .framewrap { overflow-x: auto; padding: 6px 2px 10px; }
+  .caption {
+    font-family: var(--mono); font-size: 11px; color: var(--pg-mut);
+    margin: 10px 0 0; max-width: 80ch;
+  }
+  .caption b { color: var(--pg-acc); font-weight: 600; }
+
+  /* ————— shared app-chrome tokens (Carbide dark, matches base mockup) ————— */
+  .frame {
+    --a-bg: #15171c; --a-panel: #1b1e24; --a-raise: #22262e; --a-hi: #2a2f38;
+    --a-line: #2c313a; --a-ink: #d7dae0; --a-mut: #878e9a; --a-dim: #5c6270;
+    --a-acc: #e2a24a; --a-acc-dim: rgba(226, 162, 74, 0.14);
+    --a-ok: #6fbf8f; --a-del: #d67373; --a-add: #7fbf95;
+    background: var(--a-bg); color: var(--a-ink);
+    font-family: var(--mono); font-size: 12px; line-height: 1.5;
+    border: 1px solid #33394455; border-radius: 10px;
+    box-shadow: 0 20px 48px -22px rgba(0, 0, 0, 0.5);
+    overflow: hidden;
+  }
+
+  .presence { display: inline-flex; align-items: center; gap: 7px; color: var(--a-ink); }
+  .presence .spark { color: var(--a-acc); }
+  .presence .prov { color: var(--a-mut); }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--a-ok); flex: none; }
+  .dot.stream { background: var(--a-acc); }
+  @media (prefers-reduced-motion: no-preference) {
+    .dot.stream { animation: pulse 1.2s ease-in-out infinite; }
+    @keyframes pulse { 50% { opacity: 0.35; } }
+  }
+  .chip {
+    display: inline-flex; align-items: center; gap: 5px;
+    border: 1px solid var(--a-hi); border-radius: 20px;
+    padding: 2px 9px; font-size: 10.5px; color: var(--a-mut); background: var(--a-panel);
+  }
+  .chip.acc { color: var(--a-acc); border-color: #4a3d26; background: var(--a-acc-dim); }
+  .chip.on { color: var(--a-ink); border-color: #454c58; background: var(--a-raise); }
+  .btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    border: 1px solid #3a4150; border-radius: 5px;
+    padding: 3px 10px; font-size: 10.5px; color: var(--a-ink); background: var(--a-hi);
+  }
+  .btn.primary { background: var(--a-acc); color: #1d1608; border-color: var(--a-acc); }
+  .btn.ghost { background: none; color: var(--a-mut); }
+  .cite { color: var(--a-acc); font-size: 10px; vertical-align: super; }
+  .cites { display: flex; flex-direction: column; gap: 2px; margin-top: 8px; font-size: 10.5px; color: var(--a-mut); }
+  .cites .n { color: var(--a-acc); margin-right: 6px; }
+  .kind { color: var(--a-acc); }
+  .caret { display: inline-block; width: 7px; height: 13px; background: var(--a-acc); vertical-align: -2px; opacity: 0.85; }
+
+  /* ————— 1. Omnibar ask ————— */
+  .omni { width: 720px; margin: 0 auto; }
+  .omni-input {
+    display: flex; align-items: center; gap: 12px;
+    padding: 13px 16px; border-bottom: 1px solid var(--a-line); font-size: 13px;
+  }
+  .omni-input .q { color: var(--a-ink); flex: 1; }
+  .seg { display: flex; border: 1px solid var(--a-hi); border-radius: 6px; overflow: hidden; font-size: 10.5px; }
+  .seg span { padding: 3px 11px; color: var(--a-dim); }
+  .seg .on { background: var(--a-acc-dim); color: var(--a-acc); }
+  .omni-answer { padding: 14px 16px 12px; font-size: 12px; }
+  .omni-answer .body { color: var(--a-ink); max-width: 64ch; }
+  .omni-foot {
+    display: flex; align-items: center; gap: 16px;
+    padding: 9px 16px; border-top: 1px solid var(--a-line);
+    color: var(--a-dim); font-size: 10.5px;
+  }
+  .omni-foot .act { color: var(--a-mut); }
+  .omni-foot .act b { color: var(--a-acc); font-weight: 400; }
+  .omni-foot .right { margin-left: auto; }
+
+  /* ————— 2. Status bar + runs ————— */
+  .statuswrap { width: 900px; margin: 0 auto; position: relative; padding-top: 208px; }
+  .statusbar {
+    display: flex; align-items: center; gap: 18px;
+    background: var(--a-panel); border: 1px solid #33394455; border-radius: 8px;
+    padding: 7px 14px; font-size: 11px; color: var(--a-mut);
+  }
+  .statusbar .grp { display: inline-flex; align-items: center; gap: 6px; }
+  .statusbar .right { margin-left: auto; display: inline-flex; align-items: center; gap: 16px; }
+  .statusbar .runs { color: var(--a-ink); background: var(--a-acc-dim); border-radius: 5px; padding: 2px 9px; display: inline-flex; gap: 7px; align-items: center; }
+  .popover {
+    position: absolute; right: 8px; top: 0; width: 424px;
+    background: var(--a-raise); border: 1px solid var(--a-hi); border-radius: 9px;
+    box-shadow: 0 18px 44px -16px rgba(0, 0, 0, 0.6);
+    font-size: 11.5px; overflow: hidden;
+  }
+  .pop-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 9px 13px; border-bottom: 1px solid var(--a-line);
+    color: var(--a-dim); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase;
+  }
+  .run { display: flex; align-items: center; gap: 10px; padding: 9px 13px; border-bottom: 1px solid var(--a-line); }
+  .run .desc { min-width: 0; }
+  .run .name { color: var(--a-ink); }
+  .run .sub { color: var(--a-dim); font-size: 10.5px; }
+  .run .t { margin-left: auto; color: var(--a-dim); font-size: 10.5px; font-variant-numeric: tabular-nums; }
+  .run .stop { color: var(--a-del); border: 1px solid #4a3038; border-radius: 5px; padding: 1px 8px; font-size: 10px; }
+  .pop-note { padding: 9px 13px; color: var(--a-dim); font-size: 10.5px; }
+  .pop-note b { color: var(--a-acc); font-weight: 400; }
+
+  /* ————— 3. Proposal review center ————— */
+  .review { width: 1000px; margin: 0 auto; }
+  .rv-tabs {
+    display: flex; align-items: stretch; height: 34px;
+    border-bottom: 1px solid var(--a-line); background: var(--a-panel);
+    font-size: 11.5px; color: var(--a-mut);
+  }
+  .rv-tabs div { padding: 0 16px; display: flex; align-items: center; gap: 8px; border-right: 1px solid var(--a-line); }
+  .rv-tabs .cur { background: var(--a-bg); color: var(--a-ink); box-shadow: inset 0 -2px 0 var(--a-acc); }
+  .rv-body { display: grid; grid-template-columns: 330px 1fr; min-height: 348px; }
+  .rv-list { border-right: 1px solid var(--a-line); background: var(--a-panel); padding: 10px 8px; display: flex; flex-direction: column; gap: 3px; font-size: 11px; }
+  .rv-group { color: var(--a-dim); font-size: 9.5px; letter-spacing: 0.1em; text-transform: uppercase; padding: 6px 8px 2px; }
+  .rv-item { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 5px; color: var(--a-mut); }
+  .rv-item.cur { background: var(--a-raise); color: var(--a-ink); }
+  .rv-item .n { margin-left: auto; color: var(--a-dim); font-size: 10px; font-variant-numeric: tabular-nums; }
+  .rv-pane { padding: 14px 18px; display: flex; flex-direction: column; gap: 10px; font-size: 11.5px; }
+  .rv-file { display: flex; align-items: center; gap: 10px; color: var(--a-ink); }
+  .rv-file .of { color: var(--a-dim); font-size: 10.5px; }
+  .hunk { border: 1px solid var(--a-hi); border-radius: 7px; overflow: hidden; }
+  .hunk-head {
+    display: flex; align-items: center; gap: 10px;
+    padding: 5px 11px; background: var(--a-raise);
+    color: var(--a-dim); font-size: 10.5px; border-bottom: 1px solid var(--a-line);
+  }
+  .hunk-head .tgl { margin-left: auto; display: inline-flex; gap: 6px; }
+  .tgl span { border: 1px solid #3a4150; border-radius: 4px; padding: 0 8px; font-size: 10px; color: var(--a-mut); }
+  .tgl .yes { background: var(--a-acc-dim); color: var(--a-acc); border-color: #4a3d26; }
+  .hunk-diff { padding: 7px 11px; display: flex; flex-direction: column; gap: 1px; font-size: 10.5px; color: var(--a-mut); }
+  .hunk-diff .del { color: var(--a-del); }
+  .hunk-diff .add { color: var(--a-add); }
+  .hunk-diff .ctx { color: var(--a-dim); }
+  .rv-foot { display: flex; align-items: center; gap: 10px; margin-top: auto; padding-top: 6px; color: var(--a-dim); font-size: 10.5px; }
+  .rv-foot .spacer { flex: 1; }
+
+  /* ————— 4. Margin annotations ————— */
+  .margin-demo { width: 880px; margin: 0 auto; display: grid; grid-template-columns: 1fr 264px; }
+  .md-editor { padding: 24px 30px; font-size: 13px; line-height: 1.75; }
+  .md-editor h3 { font-size: 17px; margin: 0 0 12px; font-weight: 600; }
+  .md-editor p { margin: 0 0 12px; color: var(--a-ink); max-width: 58ch; }
+  .md-editor ul { margin: 0 0 12px; padding-left: 22px; }
+  .md-editor li { margin: 2px 0; }
+  .wl { color: var(--a-acc); }
+  .anch { border-bottom: 1px dashed var(--a-acc); }
+  .md-margin { border-left: 1px solid var(--a-line); background: var(--a-panel); padding: 20px 14px; display: flex; flex-direction: column; gap: 12px; }
+  .note-card {
+    background: var(--a-raise); border: 1px solid var(--a-hi);
+    border-left: 3px solid var(--a-acc); border-radius: 6px;
+    padding: 9px 11px; font-size: 11px;
+  }
+  .note-card .src { color: var(--a-dim); font-size: 9.5px; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 4px; }
+  .note-card .src b { color: var(--a-acc); font-weight: 400; }
+  .note-card p { margin: 0 0 8px; color: var(--a-mut); line-height: 1.5; }
+  .note-card .acts { display: flex; gap: 8px; }
+
+  /* ————— 5. Session as tab ————— */
+  .sess-tab { width: 1000px; margin: 0 auto; }
+  .st-body { padding: 0; }
+  .st-head {
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+    padding: 13px 26px; border-bottom: 1px solid var(--a-line); font-size: 11.5px;
+  }
+  .st-head .stats { color: var(--a-dim); font-size: 10.5px; margin-left: auto; }
+  .st-convo { padding: 18px 26px 20px; display: flex; flex-direction: column; gap: 13px; font-size: 12px; }
+  .st-msg .who { color: var(--a-dim); font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 3px; }
+  .st-msg .body { max-width: 70ch; }
+  .st-msg.user .body { color: var(--a-mut); }
+  .st-msg.ai .body { color: var(--a-ink); }
+  .trail-open { border: 1px dashed var(--a-line); border-radius: 6px; font-size: 10.5px; color: var(--a-dim); }
+  .trail-open .tr-head { padding: 5px 11px; border-bottom: 1px dashed var(--a-line); color: var(--a-mut); }
+  .trail-open .tr-row { display: flex; gap: 10px; padding: 3px 11px; font-variant-numeric: tabular-nums; }
+  .trail-open .tr-row .tool { color: var(--a-ink); width: 110px; flex: none; }
+  .trail-open .tr-row .ok { color: var(--a-ok); }
+  .st-input {
+    margin: 4px 26px 18px; border: 1px solid var(--a-hi); border-radius: 7px;
+    background: var(--a-raise); color: var(--a-dim);
+    padding: 10px 13px; font-size: 11.5px;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .st-input .send { color: var(--a-acc); }
+
+  /* ————— not-mocked list ————— */
+  .rejects { max-width: 1180px; margin: 56px auto 0; padding: 0 32px; }
+  .rejects h2 {
+    font-family: var(--mono); font-size: 12px; letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--pg-mut); font-weight: 600; margin: 0 0 14px;
+  }
+  .rej-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 10px 24px; }
+  .rej {
+    padding: 11px 14px; border: 1px solid var(--pg-line); border-radius: 8px;
+    background: var(--pg-card); font-size: 12.5px;
+  }
+  .rej b { font-family: var(--mono); font-size: 12px; display: block; margin-bottom: 3px; }
+  .rej span { color: var(--pg-mut); }
+
+  .footnote {
+    max-width: 1180px; margin: 34px auto 0; padding: 0 32px;
+    font-size: 12px; color: var(--pg-mut); font-family: var(--mono);
+  }
+</style>
+
+<div class="sheet">
+  <p class="eyebrow">Carbide · Design Exploration — Assistant Surfaces, Round 2</p>
+  <h1>Where else the one assistant appears</h1>
+  <p class="lede">The base mockup unified the three existing docks. These five explorations are <em>additional</em>
+  projections of the same assistant — each one rides an existing Carbide mechanism (omnibar, status bar, tabs,
+  editor gutter, action registry) and an already-planned phase, so none of them creates new AI machinery.</p>
+  <div class="meta">
+    <span>2026-08-01</span>
+    <span>companion to 2026-08-01_ai_surface_unification.md · rev 2</span>
+    <span>base mockup: 2026-08-01_ai_surface_mockup.html</span>
+  </div>
+</div>
+
+<!-- ————————————————— 1 ————————————————— -->
+<section>
+  <div class="sec-head">
+    <h2>1 · Omnibar — Ask mode</h2>
+    <span class="dep">rides omnibar</span><span class="dep">needs P0–P2</span>
+  </div>
+  <p class="why">The omnibar is already the app's universal entry point. An <b>Ask</b> segment makes the assistant
+  reachable from anywhere without opening a dock: retrieval-backed answers with citations, then either dissolve
+  (esc), insert at cursor, or promote to a full chat session. This is the "assistant at your fingertips" surface —
+  presence without chrome.</p>
+  <div class="framewrap">
+    <div class="frame omni">
+      <div class="omni-input">
+        <span class="presence"><span class="spark">✦</span><span class="dot stream"></span></span>
+        <span class="q">when did we decide k=60 for rrf?</span>
+        <div class="seg"><span>Search</span><span class="on">✦ Ask</span></div>
+      </div>
+      <div class="omni-answer">
+        <div class="body">k=60 was fixed on 2026-07-18 in the fusion sweep — chosen because recall\@10 plateaued
+        past 60 while duplicate citations rose<span class="cite">[1]</span>. The note flags it as provisional
+        pending the block-level interaction measurement<span class="cite">[2]</span>.<span class="caret"></span></div>
+        <div class="cites">
+          <span><span class="n">[1]</span>experiments/rrf-weights.md</span>
+          <span><span class="n">[2]</span>hybrid-retrieval.md</span>
+        </div>
+      </div>
+      <div class="omni-foot">
+        <span class="act"><b>↵</b> Continue in chat</span>
+        <span class="act"><b>⌘↵</b> Insert at cursor</span>
+        <span class="act"><b>esc</b> Dismiss</span>
+        <span class="right act">claude · retrieval scope: vault</span>
+      </div>
+    </div>
+  </div>
+  <p class="caption">Ask defaults to the <b>retrieval</b> context source; a leading <b>/</b> would surface question
+  recipes. Dismissed answers still log a ⌁ session — nothing is lost, per the presence rule.</p>
+</section>
+
+<!-- ————————————————— 2 ————————————————— -->
+<section>
+  <div class="sec-head">
+    <h2>2 · Status bar presence + runs popover</h2>
+    <span class="dep">rides status bar</span><span class="dep">needs P0</span>
+  </div>
+  <p class="why">The run kernel decouples run lifetime from UI lifetime — which means runs need a home that isn't
+  a dock. A persistent presence cell in the status bar shows readiness and live run count; its popover lists every
+  active run with a <b>stop control</b>, including runs whose originating surface is long closed. This is the
+  daemon made visible.</p>
+  <div class="framewrap">
+    <div class="statuswrap">
+      <div class="popover">
+        <div class="pop-head"><span>Active runs</span><span>✦ Assistant · claude</span></div>
+        <div class="run">
+          <span class="kind">◈</span>
+          <div class="desc"><div class="name">Ranking experiments</div>
+          <div class="sub">agent · running write_note</div></div>
+          <span class="t">00:42</span><span class="stop">■ Stop</span>
+        </div>
+        <div class="run">
+          <span class="kind">⌁</span>
+          <div class="desc"><div class="name">Tighten prose · hybrid-retrieval.md</div>
+          <div class="sub">streaming — inline menu closed, run detached</div></div>
+          <span class="t">00:07</span><span class="stop">■ Stop</span>
+        </div>
+        <div class="run">
+          <span class="kind">▤</span>
+          <div class="desc"><div class="name">Session title generation</div>
+          <div class="sub">background · low priority</div></div>
+          <span class="t">00:02</span><span class="stop">■</span>
+        </div>
+        <div class="pop-note">Runs belong to the <b>kernel</b>, not the window that started them. Closing a
+        surface detaches its view; the work continues here.</div>
+      </div>
+      <div class="statusbar">
+        <span class="grp">▤ 214 notes</span>
+        <span class="grp">⑂ main ✓</span>
+        <span class="grp">⌕ index fresh</span>
+        <div class="right">
+          <span class="runs"><span style="color:var(--a-acc)">✦</span> 3 runs <span class="dot stream"></span></span>
+          <span class="grp">UTF-8 · md</span>
+        </div>
+      </div>
+    </div>
+  </div>
+  <p class="caption">Idle state collapses to <b>✦ ready</b> with a green dot — one glyph of chrome when nothing is
+  happening. Errors surface here too (amber → red), replacing per-surface error toasts.</p>
+</section>
+
+<!-- ————————————————— 3 ————————————————— -->
+<section>
+  <div class="sec-head">
+    <h2>3 · Proposal review center</h2>
+    <span class="dep">rides tab system</span><span class="dep">needs P1 + P3</span>
+  </div>
+  <p class="why">The proposal queue's full-size projection: a tab that collects <b>every pending proposal across
+  sessions and surfaces</b> — panel edits, agent file-ops, ambient fixes — grouped by provenance, reviewed
+  hunk-by-hunk, applied against a git checkpoint. The staging-area mental model users already have from git,
+  pointed at AI edits.</p>
+  <div class="framewrap">
+    <div class="frame review">
+      <div class="rv-tabs">
+        <div>hybrid-retrieval.md</div>
+        <div class="cur"><span style="color:var(--a-acc)">✦</span> Proposals <span style="color:var(--a-dim)">4</span></div>
+      </div>
+      <div class="rv-body">
+        <div class="rv-list">
+          <div class="rv-group">Today</div>
+          <div class="rv-item cur"><span class="kind">▤</span> hybrid-retrieval.md <span class="n">2 hunks</span></div>
+          <div class="rv-item"><span class="kind">◈</span> embeddings-pipeline.md <span class="n">1 hunk</span></div>
+          <div class="rv-item"><span class="kind">✦</span> link fixes · 3 notes <span class="n">ambient</span></div>
+          <div class="rv-group">Yesterday</div>
+          <div class="rv-item"><span class="kind">◈</span> rrf-weights.md <span class="n">1 hunk</span></div>
+        </div>
+        <div class="rv-pane">
+          <div class="rv-file">hybrid-retrieval.md <span class="of">from ▤ note session · 18m ago</span></div>
+          <div class="hunk">
+            <div class="hunk-head">@@ Open questions @@
+              <div class="tgl"><span class="yes">Accept</span><span>Reject</span></div>
+            </div>
+            <div class="hunk-diff">
+              <span class="del">- weights are still hand-tuned</span>
+              <span class="add">+ weights are hand-tuned — validate k=60 against [[rrf-weights]]</span>
+            </div>
+          </div>
+          <div class="hunk">
+            <div class="hunk-head">@@ Block matches @@
+              <div class="tgl"><span class="yes">Accept</span><span>Reject</span></div>
+            </div>
+            <div class="hunk-diff">
+              <span class="ctx">  folded in after note-level dedup</span>
+              <span class="add">+ TODO: measure block-vs-note score interaction (duplicate sources)</span>
+            </div>
+          </div>
+          <div class="rv-foot">
+            ⑂ checkpoint created before apply
+            <span class="spacer"></span>
+            <span class="btn primary">Apply 2 accepted</span>
+            <span class="btn ghost">Discard all</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <p class="caption">Opened from any <b>Review proposals →</b> affordance (chat strip, panel, ambient toast, status
+  bar). One queue, one checkpoint discipline — the sidebar and panel render subsets of this same store.</p>
+</section>
+
+<!-- ————————————————— 4 ————————————————— -->
+<section>
+  <div class="sec-head">
+    <h2>4 · Margin annotations</h2>
+    <span class="dep">rides editor gutter</span><span class="dep">needs P3 + P6</span>
+  </div>
+  <p class="why">Ambient findings anchored <b>where they apply</b> instead of interrupting as toasts. The reactor
+  attaches notes to blocks — a stale link, a contradiction with another note — rendered in a quiet margin rail.
+  Each card is provenance-tagged and resolves into the same proposal queue. Nothing here generates text into the
+  note unasked; annotations only ever <em>offer</em>.</p>
+  <div class="framewrap">
+    <div class="frame margin-demo">
+      <div class="md-editor">
+        <h3>Hybrid retrieval</h3>
+        <p>Retrieval fans out to two engines in parallel: FTS5 for exact terms and the embedding index for
+        semantic neighbors, merged through Reciprocal Rank Fusion.</p>
+        <ul>
+          <li><span class="anch">RRF constant k=60, unvalidated against <span class="wl">[[rrf-weights]]</span></span></li>
+          <li>Block hits folded in after note-level dedup</li>
+        </ul>
+        <p><span class="anch">Scope filters apply before fusion, so a folder-scoped query never sees
+        out-of-scope embeddings.</span></p>
+      </div>
+      <div class="md-margin">
+        <div class="note-card">
+          <div class="src"><b>✦ ambient</b> · link check</div>
+          <p>[[rrf-weights]] was renamed to [[rrf-weight-sweep]] on Tuesday. Update 2 links?</p>
+          <div class="acts"><span class="btn">Fix links</span><span class="btn ghost">Dismiss</span></div>
+        </div>
+        <div class="note-card">
+          <div class="src"><b>✦ from ◈ Ranking experiments</b></div>
+          <p>ranking-notes.md §Fusion says scope filters apply <em>after</em> fusion. One of these is wrong.</p>
+          <div class="acts"><span class="btn">Open both</span><span class="btn ghost">Ignore</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <p class="caption">Anchors are dashed-underline, not highlight — readable, ignorable. Cards cap at 2–3 visible;
+  overflow collapses into the margin count. <b>Opt-in per vault</b>, same switch as the ambient reactor.</p>
+</section>
+
+<!-- ————————————————— 5 ————————————————— -->
+<section>
+  <div class="sec-head">
+    <h2>5 · Session as tab</h2>
+    <span class="dep">rides tab system</span><span class="dep">needs P1</span>
+  </div>
+  <p class="why">The sidebar is right for quick asks, cramped for long agent sessions. Once sessions are
+  first-class (P1), any session can open <b>as a tab</b> — full-width transcript, expanded tool trails, room for
+  diffs — via "Open as tab" in the session list. Same store, same session id; the sidebar and the tab are two
+  views of one conversation, never a fork.</p>
+  <div class="framewrap">
+    <div class="frame sess-tab">
+      <div class="rv-tabs">
+        <div>hybrid-retrieval.md</div>
+        <div class="cur"><span class="kind">◈</span> Ranking experiments</div>
+      </div>
+      <div class="st-body">
+        <div class="st-head">
+          <span class="presence"><span class="spark">✦</span>Assistant <span class="prov">· claude</span><span class="dot"></span></span>
+          <span class="chip on">scope: experiments/</span>
+          <span class="chip">agent · safe</span>
+          <span class="stats">14 turns · started 2d ago · 2 proposals applied</span>
+        </div>
+        <div class="st-convo">
+          <div class="st-msg user">
+            <div class="who">You</div>
+            <div class="body">Run the k sweep against the eval set and write the results into rrf-weight-sweep.</div>
+          </div>
+          <div class="trail-open">
+            <div class="tr-head">▾ 4 tool calls</div>
+            <div class="tr-row"><span class="tool">read_note</span><span>experiments/block-search-eval.md</span><span class="ok">✓</span></div>
+            <div class="tr-row"><span class="tool">search_notes</span><span>"recall@10 fusion"</span><span class="ok">✓ 6 hits</span></div>
+            <div class="tr-row"><span class="tool">read_note</span><span>experiments/rrf-weight-sweep.md</span><span class="ok">✓</span></div>
+            <div class="tr-row"><span class="tool">write_note</span><span>experiments/rrf-weight-sweep.md</span><span style="color:var(--a-acc)">→ proposal</span></div>
+          </div>
+          <div class="st-msg ai">
+            <div class="who">Assistant</div>
+            <div class="body">Sweep table written for k ∈ {20, 40, 60, 80, 120}. Recall@10 plateaus at k=60 as the
+            note claimed, but duplicate-citation rate keeps falling through k=80 — worth considering the bump. The
+            write is queued as a proposal.</div>
+          </div>
+        </div>
+        <div class="st-input"><span>Message the assistant…</span><span class="send">↵</span></div>
+      </div>
+    </div>
+  </div>
+  <p class="caption">Natural follow-on (not mocked): sessions addressable like notes — <b>[[◈ Ranking
+  experiments]]</b> from any note links to the conversation that produced a decision. Cheap once sessions are
+  first-class; strong for research vaults.</p>
+</section>
+
+<!-- ————————————————— considered, not mocked ————————————————— -->
+<div class="rejects">
+  <h2>Considered, not mocked</h2>
+  <div class="rej-grid">
+    <div class="rej"><b>Graph overlay lens</b><span>"Explain this cluster" / retrieval-path visualization in the
+    vault graph. Real potential, but the graph UX just went through a stabilization pass — let it settle
+    first.</span></div>
+    <div class="rej"><b>Wikilink hover summaries</b><span>AI summary on link hover. Cheap to build, but fires
+    constantly, competes with the existing preview, and normalizes unrequested generation. Weak
+    consent model.</span></div>
+    <div class="rej"><b>Global hotkey / tray capture</b><span>OS-level "ask from anywhere outside the app."
+    Genuine daemon territory — contradicts the no-background-process non-goal. Revisit only if the app
+    ever gets a tray presence for other reasons.</span></div>
+    <div class="rej"><b>New-note generator wizard</b><span>Template-driven note scaffolding. Already covered
+    compositionally: a question recipe + insert-at-cursor from Omnibar Ask does this without a new
+    surface.</span></div>
+    <div class="rej"><b>Voice input</b><span>Different problem (capture, not assistance), heavy platform surface,
+    no overlap with the unification phases. Out of scope.</span></div>
+  </div>
+</div>
+
+<p class="footnote">All five mocked surfaces are projections of the same kernel/session/proposal stores — no new AI
+machinery, no second assistant. Ordering intuition: 2 falls out of P0 nearly free · 1 and 5 unlock at P1–P2 ·
+3 at P3 · 4 last, gated on ambient opt-in.</p>

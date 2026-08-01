@@ -178,3 +178,17 @@ The shared presence component (§4.5) is sequence-independent and may ship along
 - Inline surface: `src/lib/features/editor/adapters/ai_menu_plugin.ts` (PM plugin state), `src/lib/features/editor/ui/ai_inline_menu.svelte`
 - Bottom panel host: `src/lib/app/bootstrap/ui/bottom_panel.svelte` (AI tab — P5 decision)
 - Docs: `docs/ai_and_chat.md` (update after P5), `docs/architecture.md` (decision tree + reactor rules; **feature table predates `ai`/`rag` — add the slice(s) when P4 settles naming**)
+
+---
+
+## Appendix A — Candidate additional surfaces (2026-08-01 brainstorm)
+
+Mockups: `carbide/designFiles/2026-08-01_ai_assistant_surface_explorations.html`. Five further *projections* of the same kernel/session/proposal stores — each rides an existing Carbide mechanism, none adds AI machinery. Not scheduled; adopt individually as their gating phase lands.
+
+1. **Omnibar Ask mode** (needs P0–P2) — Ask segment in the omnibar; retrieval-backed cited answers from anywhere; esc dissolves (still logs a `⌁` session), `⌘↵` inserts at cursor, `↵` promotes to chat.
+2. **Status-bar presence + runs popover** (needs P0) — persistent presence cell; popover lists kernel runs with stop controls, including runs whose originating surface closed. Nearly free once the run registry exists.
+3. **Proposal review center** (needs P1+P3) — full-tab queue of all pending proposals across sessions/surfaces/ambient, grouped by provenance, hunk toggles, checkpoint-then-apply. The git-staging mental model for AI edits.
+4. **Margin annotations** (needs P3+P6) — ambient findings anchored to the blocks they concern (stale links, contradictions), offer-only, resolving into the proposal queue. Same opt-in as the ambient reactor.
+5. **Session as tab** (needs P1) — open any session as a full-width tab; sidebar and tab are two views of one session id. Follow-on idea: sessions wiki-addressable (`[[◈ session]]`) so notes can link to the conversation behind a decision.
+
+**Considered, not mocked:** graph overlay lens (let graph UX settle), wikilink hover summaries (weak consent model, fires constantly), global hotkey/tray capture (true daemon — violates the non-goal), new-note wizard (recipes + omnibar insert already compose it), voice input (capture problem, out of scope).
