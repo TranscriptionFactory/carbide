@@ -10,6 +10,10 @@ import { to_open_note_state } from "$lib/shared/types/editor";
 import { create_logger } from "$lib/shared/utils/logger";
 import { GRAPH_TAB_ID, GRAPH_TAB_TITLE } from "$lib/features/graph";
 import { BASES_TAB_ID, BASES_TAB_TITLE } from "$lib/features/bases";
+import {
+  assistant_session_tab_id,
+  ASSISTANT_SESSION_TAB_TITLE,
+} from "$lib/features/tab/domain/assistant_session_tab";
 
 const log = create_logger("tab_service");
 const TABS_KEY = "open_tabs";
@@ -55,6 +59,8 @@ export class TabService {
       active_tab_path = active_tab.id;
     } else if (active_tab?.kind === "bases") {
       active_tab_path = active_tab.id;
+    } else if (active_tab?.kind === "assistant_session") {
+      active_tab_path = active_tab.id;
     }
 
     return {
@@ -88,6 +94,14 @@ export class TabService {
           return {
             ...base,
             kind: "bases" as const,
+            cursor: null,
+          };
+        }
+        if (tab.kind === "assistant_session") {
+          return {
+            ...base,
+            kind: "assistant_session" as const,
+            session_id: tab.session_id,
             cursor: null,
           };
         }
@@ -280,6 +294,20 @@ export class TabService {
           },
         ];
       }
+      if (t.kind === "assistant_session") {
+        if (typeof t.session_id !== "string" || t.session_id === "") return [];
+        return [
+          {
+            kind: "assistant_session" as const,
+            id: assistant_session_tab_id(t.session_id),
+            session_id: t.session_id,
+            title: ASSISTANT_SESSION_TAB_TITLE,
+            is_pinned: Boolean(t.is_pinned),
+            is_dirty: false,
+            pane,
+          },
+        ];
+      }
       if (t.kind === "document") {
         if (typeof t.file_path !== "string") return [];
         return [
@@ -333,6 +361,7 @@ export class TabService {
     if (active_tab.kind === "graph") return;
     if (active_tab.kind === "search_graph") return;
     if (active_tab.kind === "bases") return;
+    if (active_tab.kind === "assistant_session") return;
     if (active_tab.kind !== "note") return;
 
     const result = await this.note_service.open_note(

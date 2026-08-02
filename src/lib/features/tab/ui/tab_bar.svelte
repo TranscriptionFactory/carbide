@@ -28,6 +28,13 @@
     return stores.notes.starred_paths.includes(tab.note_path);
   }
 
+  // I4: the session is the single live object, so a rename shows in the tab
+  // without the tab holding its own copy of the title.
+  function display_title(tab: Tab): string {
+    if (tab.kind !== "assistant_session") return tab.title;
+    return stores.assistant_sessions.get(tab.session_id)?.title ?? tab.title;
+  }
+
   const tabs = $derived(stores.tab.tabs);
   const active_tab_id = $derived(stores.tab.active_tab_id);
 
@@ -239,7 +246,8 @@
                           />
                         </span>
                       {/if}
-                      <span class="TabBar__tab-title">{tab.title}</span>
+                      <span class="TabBar__tab-title">{display_title(tab)}</span
+                      >
                       {#if tab.is_dirty}
                         <span
                           class="TabBar__dirty-dot"
@@ -265,7 +273,7 @@
                     ? tab.note_path
                     : tab.kind === "document"
                       ? tab.file_path
-                      : tab.title}
+                      : display_title(tab)}
                 </Tooltip.Content>
               </Tooltip.Root>
             {/snippet}
