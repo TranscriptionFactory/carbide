@@ -77,3 +77,4 @@ export { register_assistant_actions } from "$lib/features/assistant/application/
 export { default as AssistantPresence } from "$lib/features/assistant/ui/assistant_presence.svelte";
 export { default as AssistantRunsPopover } from "$lib/features/assistant/ui/assistant_runs_popover.svelte";
 export { default as AssistantStopButton } from "$lib/features/assistant/ui/assistant_stop_button.svelte";
+export { default as AssistantSessionTabView } from "$lib/features/assistant/ui/assistant_session_tab_view.svelte";
