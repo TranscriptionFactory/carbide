@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { FolderTree, Hash, Layers, X } from "@lucide/svelte";
+  import { FileText, FolderTree, Hash, Layers, X } from "@lucide/svelte";
   import { Button } from "$lib/components/ui/button";
   import type { TagInfo } from "$lib/features/tags";
   import type { SavedViewInfo } from "$lib/features/bases";
@@ -11,7 +11,6 @@
   } from "$lib/features/assistant/domain/scope_suggest";
   import { is_plain_enter } from "$lib/shared/utils/keyboard";
   import { note_name_from_path } from "$lib/shared/utils/path";
-  import { KIND_GLYPHS } from "$lib/features/assistant/domain/kind_glyphs";
 
   type Props = {
     scope: AssistantScope;
@@ -167,7 +166,7 @@
 
 {#snippet kind_icon(kind: ChipKind)}
   {#if kind === "note"}
-    <span class="ScopeBar__glyph" aria-hidden="true">{KIND_GLYPHS.note}</span>
+    <FileText class="size-3" />
   {:else if kind === "folder"}
     <FolderTree class="size-3" />
   {:else if kind === "tag"}
@@ -280,13 +279,6 @@
     color: var(--accent-foreground);
     font-size: 0.75rem;
     max-width: 100%;
-  }
-
-  .ScopeBar__glyph {
-    display: inline-flex;
-    align-items: center;
-    font-size: 0.75rem;
-    line-height: 1;
   }
 
   .ScopeBar__chip-label {
