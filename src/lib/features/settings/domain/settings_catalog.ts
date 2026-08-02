@@ -672,6 +672,23 @@ export const SETTINGS_REGISTRY: SettingDefinition[] = [
     keywords: ["ai", "rag", "chat", "vault", "context", "tokens", "budget"],
   },
   {
+    key: "ambient_notices_enabled",
+    label: "Ambient Notices",
+    description:
+      "Offer link findings for the open note in the context rail. Off by default; findings are suggestions and never edit a note on their own",
+    category: "AI",
+    keywords: [
+      "ambient",
+      "notices",
+      "suggestions",
+      "links",
+      "stale",
+      "orphan",
+      "rail",
+      "assistant",
+    ],
+  },
+  {
     key: "document_pdf_default_zoom",
     label: "PDF Default Zoom",
     description: "Initial zoom mode when opening PDFs",

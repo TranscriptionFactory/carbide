@@ -34,17 +34,20 @@ export class AssistantNoticeStore {
   // A producer replaces its whole finding set for a note rather than diffing:
   // the deterministic producers recompute from scratch, so a merge would leave
   // findings behind that the source no longer reports.
-  replace_for_note(_note_path: string, _notices: AmbientNotice[]): void {
-    throw new Error("NOT_IMPLEMENTED: AU-060");
+  replace_for_note(note_path: string, notices: AmbientNotice[]): void {
+    this.notices = [
+      ...this.notices.filter((notice) => notice.note_path !== note_path),
+      ...notices,
+    ];
   }
 
-  dismiss(_id: AmbientNoticeId): void {
-    throw new Error("NOT_IMPLEMENTED: AU-060");
+  dismiss(id: AmbientNoticeId): void {
+    this.notices = this.notices.filter((notice) => notice.id !== id);
   }
 
   // Vault switch clears everything — notices are scoped to the vault whose
   // links produced them.
   clear(): void {
-    throw new Error("NOT_IMPLEMENTED: AU-060");
+    this.notices = [];
   }
 }
