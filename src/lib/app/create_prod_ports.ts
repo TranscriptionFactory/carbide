@@ -106,6 +106,7 @@ export type AiInlineHandler = {
   execute: ((payload: { command_id?: string; prompt?: string }) => void) | null;
   get_commands: (() => InstructionRecipe[]) | null;
   on_open_settings: (() => void) | null;
+  on_accept: (() => void) | null;
 };
 
 export function create_prod_ports(): Ports & {
@@ -146,6 +147,7 @@ export function create_prod_ports(): Ports & {
     execute: null,
     get_commands: null,
     on_open_settings: null,
+    on_accept: null,
   };
   const query_runner: QueryRunner = { run: null };
   const frontmatter_widget: FrontmatterWidgetConfig = {
@@ -204,6 +206,7 @@ export function create_prod_ports(): Ports & {
         on_execute: (payload) => ai_inline_handler.execute?.(payload),
         get_commands: () => ai_inline_handler.get_commands?.() ?? [],
         on_open_settings: () => ai_inline_handler.on_open_settings?.(),
+        on_accept: () => ai_inline_handler.on_accept?.(),
       },
       frontmatter_widget,
       tag_pill_menu,

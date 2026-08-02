@@ -4,6 +4,7 @@ import { flushSync } from "svelte";
 import { AssistantSessionStore } from "$lib/features/assistant";
 import { RagStore, load_assistant_sessions } from "$lib/features/rag";
 import { VaultStore } from "$lib/features/vault";
+import { UIStore } from "$lib/app/orchestration/ui_store.svelte";
 import { create_assistant_sessions_load_reactor } from "$lib/reactors/assistant_sessions_load.reactor.svelte";
 import { create_test_vault } from "../helpers/test_fixtures";
 import type { RagService } from "$lib/features/rag";
@@ -34,8 +35,10 @@ function fake_service(by_vault: Record<string, AssistantSession[]>) {
     load_all_sessions: vi.fn((vault_id: string) =>
       Promise.resolve(by_vault[vault_id] ?? []),
     ),
+    delete_session: vi.fn(() => Promise.resolve()),
   } as unknown as RagService & {
     load_all_sessions: ReturnType<typeof vi.fn>;
+    delete_session: ReturnType<typeof vi.fn>;
   };
 }
 
@@ -47,6 +50,14 @@ function make_stores() {
 function vault_store_for(id: string): VaultStore {
   const store = new VaultStore();
   store.set_vault(create_test_vault({ id: id as VaultId }));
+  return store;
+}
+
+// Retention off by default here: the fixtures carry epoch-era timestamps, so
+// any real cutoff would prune them and mask what these tests assert.
+function ui_store_with_retention(days = 0): UIStore {
+  const store = new UIStore();
+  store.editor_settings.assistant_session_retention_days = days;
   return store;
 }
 
@@ -136,6 +147,7 @@ describe("assistant_sessions_load reactor", () => {
       rag,
       service,
       vault_store,
+      ui_store_with_retention(),
     );
     flushSync();
     await vi.waitFor(() => {
@@ -156,6 +168,7 @@ describe("assistant_sessions_load reactor", () => {
       rag,
       service,
       vault_store,
+      ui_store_with_retention(),
     );
     flushSync();
     await vi.waitFor(() => {
@@ -179,6 +192,7 @@ describe("assistant_sessions_load reactor", () => {
       rag,
       service,
       vault_store,
+      ui_store_with_retention(),
     );
     flushSync();
     await vi.waitFor(() => {
@@ -202,6 +216,7 @@ describe("assistant_sessions_load reactor", () => {
       rag,
       service,
       new VaultStore(),
+      ui_store_with_retention(),
     );
     flushSync();
 
@@ -223,6 +238,7 @@ describe("assistant_sessions_load reactor", () => {
       rag,
       service,
       vault_store,
+      ui_store_with_retention(),
     );
     flushSync();
     await vi.waitFor(() => {
@@ -235,6 +251,34 @@ describe("assistant_sessions_load reactor", () => {
       expect(sessions.sessions.map((s) => s.id)).toEqual(["z"]);
     });
 
+    cleanup();
+  });
+
+  it("applies the configured retention to the sessions it hydrates", async () => {
+    const now = 1_000 * 24 * 60 * 60 * 1000;
+    const sessions = new AssistantSessionStore(() => now);
+    const rag = new RagStore(sessions);
+    const day = 24 * 60 * 60 * 1000;
+    const service = fake_service({
+      v1: [
+        session({ id: "fresh", updated_at: now - 5 * day }),
+        session({ id: "stale", updated_at: now - 45 * day }),
+      ],
+    });
+
+    const cleanup = create_assistant_sessions_load_reactor(
+      sessions,
+      rag,
+      service,
+      vault_store_for("v1"),
+      ui_store_with_retention(30),
+    );
+    flushSync();
+    await vi.waitFor(() => {
+      expect(sessions.sessions.map((s) => s.id)).toEqual(["fresh"]);
+    });
+
+    expect(service.delete_session).toHaveBeenCalledWith("v1", "stale");
     cleanup();
   });
 });

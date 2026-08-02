@@ -2,12 +2,14 @@ import { load_assistant_sessions } from "$lib/features/rag";
 import type { VaultStore } from "$lib/features/vault";
 import type { AssistantSessionStore } from "$lib/features/assistant";
 import type { RagService, RagStore } from "$lib/features/rag";
+import type { UIStore } from "$lib/app/orchestration/ui_store.svelte";
 
 export function create_assistant_sessions_load_reactor(
   sessions: AssistantSessionStore,
   rag_store: RagStore,
   rag_service: RagService,
   vault_store: VaultStore,
+  ui_store: UIStore,
 ): () => void {
   let loaded_vault_id: string | null = null;
 
@@ -27,6 +29,7 @@ export function create_assistant_sessions_load_reactor(
         rag_service,
         vault_id,
         () => vault_store.active_vault_id === vault_id,
+        ui_store.editor_settings.assistant_session_retention_days,
       );
     });
   });

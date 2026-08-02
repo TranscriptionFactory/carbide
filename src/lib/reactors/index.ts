@@ -438,6 +438,7 @@ export function mount_reactors(context: ReactorContext): ReactorHandles {
       context.rag_store,
       context.rag_service,
       context.vault_store,
+      context.ui_store,
     ),
     create_rag_mcp_bridge_reactor(
       context.rag_service,
