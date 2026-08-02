@@ -18,8 +18,14 @@ import type {
   RunHandle,
 } from "$lib/features/assistant";
 import { AgentRunner } from "$lib/features/rag/application/agent_runner";
+import { AgentProposalService } from "$lib/features/rag/application/agent_proposal_service";
 import { resolve_agent_note_sync } from "$lib/features/rag/domain/agent_note_sync";
-import { as_note_path, type NotePath } from "$lib/shared/types/ids";
+import type { AssistantProposalStore } from "$lib/features/assistant";
+import {
+  as_markdown_text,
+  as_note_path,
+  type NotePath,
+} from "$lib/shared/types/ids";
 
 const RAG_OP_KEY = "rag.ask";
 
@@ -48,6 +54,7 @@ export function register_rag_actions(
     rag_store: RagStore;
     rag_service: RagService;
     assistant_kernel: AssistantKernelService;
+    assistant_proposals: AssistantProposalStore;
   },
 ) {
   const {
@@ -57,6 +64,7 @@ export function register_rag_actions(
     rag_store,
     rag_service,
     assistant_kernel,
+    assistant_proposals,
   } = input;
 
   function find_background_tab(note_path: NotePath) {
@@ -111,6 +119,20 @@ export function register_rag_actions(
     }
   }
 
+  const agent_proposals = new AgentProposalService(
+    services.git,
+    {
+      write_note: async (note_path, content) => {
+        await services.note.write_note_content(
+          as_note_path(note_path),
+          as_markdown_text(content),
+        );
+      },
+    },
+    assistant_proposals,
+    () => Date.now(),
+  );
+
   const agent_runner = new AgentRunner(
     assistant_kernel,
     rag_store,
@@ -118,6 +140,7 @@ export function register_rag_actions(
     services.git,
     () => registry.execute(ACTION_IDS.folder_refresh_tree),
     sync_changed_notes,
+    agent_proposals,
   );
 
   function get_providers(): AiProviderConfig[] {

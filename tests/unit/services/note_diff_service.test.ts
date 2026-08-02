@@ -6,7 +6,11 @@ type LoadDiff = (path: string) => Promise<GitDiff>;
 type LoadDiffAtCommit = (path: string, commit_hash: string) => Promise<GitDiff>;
 
 function make_diff(label: string): GitDiff {
-  return { additions: 1, deletions: 0, hunks: [{ header: label, lines: [] }] };
+  return {
+    additions: 1,
+    deletions: 0,
+    hunks: [{ file_path: "note.md", header: label, lines: [] }],
+  };
 }
 
 const flush = () => new Promise((resolve) => setTimeout(resolve, 0));

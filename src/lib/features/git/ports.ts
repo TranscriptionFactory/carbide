@@ -27,9 +27,13 @@ export interface GitPort {
     commit_b: string,
     file_path: string | null,
   ): Promise<GitDiff>;
+  // `base_ref` pins the diff to a specific commit instead of whatever HEAD
+  // happens to be at read time. Omitting it keeps the HEAD behaviour every
+  // existing caller relies on.
   diff_working(
     vault_path: VaultPath,
     file_path: string | null,
+    base_ref?: string | null,
   ): Promise<GitDiff>;
   show_file_at_commit(
     vault_path: VaultPath,
