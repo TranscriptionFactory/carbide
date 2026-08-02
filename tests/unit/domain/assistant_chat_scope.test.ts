@@ -5,7 +5,9 @@ import {
   normalize_base_scope,
   path_in_folder,
   scope_phrase,
+  to_retrieval_scope,
 } from "$lib/features/assistant/domain/chat_scope";
+import type { RetrievalScope } from "$lib/features/assistant";
 
 describe("normalize_folder_scope", () => {
   it("returns null for empty or whitespace input", () => {
@@ -97,5 +99,61 @@ describe("scope_phrase", () => {
         bases: ["Reading"],
       }),
     ).toBe('the folder "Daily", notes tagged #journal and the "Reading" view');
+  });
+});
+
+// The seam's precondition. Rag inlines a bare startsWith under the port, so an
+// unnormalized folder would silently under-match and quietly narrow the user's
+// scope rather than throwing. RetrievalScope is branded and this is its only
+// constructor, so the compiler — not these tests — is what makes skipping it
+// impossible; a hand-built `{ folders: ["projects"] }` does not typecheck as a
+// RetrievalScope. These cases pin the normalization itself.
+describe("to_retrieval_scope", () => {
+  it("normalizes every category into the shape retrieval matches on", () => {
+    expect(
+      to_retrieval_scope({
+        folders: ["/projects/"],
+        tags: ["#work"],
+        bases: ["  views/active.base  "],
+      }),
+    ).toEqual({
+      folders: ["projects/"],
+      tags: ["work"],
+      bases: ["views/active.base"],
+    });
+  });
+
+  it("gives folders the trailing slash that makes prefix matching correct", () => {
+    const scope = to_retrieval_scope({ folders: ["projects"] });
+
+    expect(scope.folders).toEqual(["projects/"]);
+    expect("projects-archive/a.md".startsWith(scope.folders?.[0] ?? "")).toBe(
+      false,
+    );
+  });
+
+  it("drops empty entries rather than emitting a filter that matches nothing", () => {
+    expect(
+      to_retrieval_scope({ folders: ["", "  "], tags: ["#"], bases: [""] }),
+    ).toEqual({ folders: [], tags: [], bases: [] });
+  });
+
+  // Compile-time half of the precondition, and the reason the runtime cases
+  // above are a formality rather than the guarantee. If the brand is ever
+  // dropped from RetrievalScope this directive becomes unused and `pnpm check`
+  // fails, which is the loud failure the silent under-match would not give us.
+  it("cannot be bypassed by handing the port a raw scope literal", () => {
+    const accepts = (scope: RetrievalScope) => scope;
+
+    // @ts-expect-error a scope that skipped to_retrieval_scope is not a RetrievalScope
+    expect(() => accepts({ folders: ["projects"] })).not.toThrow();
+  });
+
+  it("yields empty categories for an unset scope", () => {
+    expect(to_retrieval_scope({})).toEqual({
+      folders: [],
+      tags: [],
+      bases: [],
+    });
   });
 });
