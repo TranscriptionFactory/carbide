@@ -360,7 +360,8 @@ export function register_tab_actions(input: ActionRegistrationInput) {
         tab.kind === "graph" ||
         tab.kind === "search_graph" ||
         tab.kind === "bases" ||
-        tab.kind === "assistant_session"
+        tab.kind === "assistant_session" ||
+        tab.kind === "assistant_proposals"
       )
         return;
       const path = tab.kind === "note" ? tab.note_path : tab.file_path;

@@ -137,3 +137,5 @@ export type {
   ProposalCheckpointPort,
   ProposalNotePort,
 } from "$lib/features/assistant/ports";
+
+export { default as AssistantProposalsTabView } from "$lib/features/assistant/ui/assistant_proposals_tab_view.svelte";
