@@ -15,11 +15,7 @@ import type {
 import type { TerminalPort } from "$lib/features/terminal";
 import type { WindowPort } from "$lib/features/window";
 import type { WatcherPort } from "$lib/features/watcher";
-import type {
-  AiPort,
-  AiStreamPort,
-  AiHistoryPersistencePort,
-} from "$lib/features/ai";
+import type { AiPort, AiHistoryPersistencePort } from "$lib/features/ai";
 import type { GraphPort } from "$lib/features/graph";
 import type { BasesPort } from "$lib/features/bases";
 import type { TypesPort } from "$lib/features/types";
@@ -41,7 +37,7 @@ import type { ToolchainPort } from "$lib/features/toolchain";
 import type { CodeLspPort } from "$lib/features/code_lsp";
 import type { McpPort } from "$lib/features/mcp";
 import type { SavedQueryPort } from "$lib/features/query";
-import type { AgentPort, RagPersistencePort } from "$lib/features/rag";
+import type { RagPersistencePort } from "$lib/features/rag";
 import type {
   ReferenceStoragePort,
   CitationPort,
@@ -70,7 +66,6 @@ export type Ports = {
   window: WindowPort;
   watcher: WatcherPort;
   ai: AiPort;
-  ai_stream: AiStreamPort;
   ai_history: AiHistoryPersistencePort;
   graph: GraphPort;
   bases: BasesPort;
@@ -89,7 +84,6 @@ export type Ports = {
   code_lsp: CodeLspPort;
   saved_query: SavedQueryPort;
   rag_persistence: RagPersistencePort;
-  agent: AgentPort;
   reference_storage: ReferenceStoragePort;
   citation: CitationPort;
   doi_lookup: DoiLookupPort;

@@ -33,6 +33,7 @@ import {
   as_note_path,
   as_vault_id,
 } from "$lib/shared/types/ids";
+import type { RunHandle, RunOutcome } from "$lib/features/assistant";
 import { create_test_vault } from "../helpers/test_fixtures";
 import { BUILTIN_PROVIDER_PRESETS } from "$lib/shared/types/ai_provider_config";
 import { toast } from "svelte-sonner";
@@ -44,6 +45,7 @@ vi.mock("svelte-sonner", () => ({
     info: vi.fn(),
     warning: vi.fn(),
     loading: vi.fn(),
+    dismiss: vi.fn(),
   },
 }));
 
@@ -68,7 +70,13 @@ function create_harness() {
   const ai_store = new AiStore();
   const services = {
     vault: {},
-    note: {},
+    note: {
+      read_note: vi.fn().mockResolvedValue({
+        meta: { title: "Demo" },
+        markdown: as_markdown_text("---\ntags:\n  - notes\n---\nBody text"),
+      }),
+      write_note_indexed: vi.fn().mockResolvedValue(undefined),
+    },
     folder: {},
     settings: {},
     search: {},
@@ -549,7 +557,7 @@ describe("register_ai_actions", () => {
     const { registry, stores, ai_store, ai_service } = create_harness();
     stores.ui.editor_settings.ai_default_provider_id = "codex";
     ai_service.detect = vi.fn().mockResolvedValue(probe("unknown"));
-    ai_service.execute = vi.fn().mockResolvedValue({
+    ai_service.execute_streaming = vi.fn().mockResolvedValue({
       success: true,
       output: "# Updated",
       error: null,
@@ -561,7 +569,7 @@ describe("register_ai_actions", () => {
     await registry.execute(ACTION_IDS.ai_update_prompt, "Tighten this note");
     await registry.execute(ACTION_IDS.ai_execute);
 
-    expect(ai_service.execute).toHaveBeenCalled();
+    expect(ai_service.execute_streaming).toHaveBeenCalled();
     expect(ai_store.dialog.result?.success).toBe(true);
   });
 
@@ -663,7 +671,7 @@ describe("register_ai_actions", () => {
       expect(ai_service.execute_streaming).toHaveBeenCalledWith(
         expect.objectContaining({
           provider_config: expect.objectContaining({ id: "claude" }),
-          signal: expect.any(AbortSignal),
+          on_run_started: expect.any(Function),
         }),
         expect.any(Function),
         expect.any(Function),
@@ -677,10 +685,13 @@ describe("register_ai_actions", () => {
       expect(ai_store.dialog.streaming_text).toBeNull();
     });
 
-    it("routes {output_file} providers through the blocking execute path", async () => {
+    // A {output_file} provider cannot stream, but it is still a kernel run: the
+    // transport picks the blocking channel and Stop still reaches it. Before the
+    // run kernel this path bypassed the kernel entirely and Stop was a no-op.
+    it("routes {output_file} providers through the kernel too, so Stop works", async () => {
       const { registry, stores, ai_service } = create_harness();
       stores.ui.editor_settings.ai_default_provider_id = "codex";
-      ai_service.execute = vi.fn().mockResolvedValue({
+      ai_service.execute_streaming = vi.fn().mockResolvedValue({
         success: true,
         output: "# Blocking",
         error: null,
@@ -690,8 +701,15 @@ describe("register_ai_actions", () => {
       await registry.execute(ACTION_IDS.ai_update_prompt, "Tighten this note");
       await registry.execute(ACTION_IDS.ai_execute);
 
-      expect(ai_service.execute).toHaveBeenCalled();
-      expect(ai_service.execute_streaming).not.toHaveBeenCalled();
+      expect(ai_service.execute_streaming).toHaveBeenCalledWith(
+        expect.objectContaining({
+          provider_config: expect.objectContaining({ id: "codex" }),
+          on_run_started: expect.any(Function),
+        }),
+        expect.any(Function),
+        expect.any(Function),
+      );
+      expect(ai_service.execute).not.toHaveBeenCalled();
     });
 
     it("surfaces streamed partial text on the dialog while executing", async () => {
@@ -849,15 +867,22 @@ describe("register_ai_actions", () => {
       expect(ai_service.stream_inline).toHaveBeenCalledTimes(1);
     });
 
-    it("aborts the stream when the menu closes midway", async () => {
+    // I2: run lifetime is independent of surface lifetime. Closing the menu
+    // stops this surface consuming, but the run keeps going and stays
+    // stoppable from the assistant popover.
+    it("stops writing into the doc when the menu closes, without cancelling the run", async () => {
       const { registry, view, ai_service } = setup_inline();
       let release!: () => void;
       const gate = new Promise<void>((resolve) => (release = resolve));
-      let captured_signal: AbortSignal | undefined;
+      let stopped = false;
       ai_service.stream_inline = vi.fn(async function* (input: {
-        signal?: AbortSignal;
+        on_run_started?: (handle: { stop: () => void }) => void;
       }) {
-        captured_signal = input.signal;
+        input.on_run_started?.({
+          stop: () => {
+            stopped = true;
+          },
+        });
         yield { type: "text", text: "partial" };
         await gate;
         yield { type: "text", text: "more" };
@@ -874,7 +899,7 @@ describe("register_ai_actions", () => {
       release();
       await exec;
 
-      expect(captured_signal?.aborted).toBe(true);
+      expect(stopped).toBe(false);
       expect(view.state.doc.textContent).not.toContain("more");
     });
 
@@ -1055,6 +1080,135 @@ describe("register_ai_actions", () => {
         expect(get_ai_menu_state(view.state).open).toBe(false);
         expect(toast.error).toHaveBeenCalledWith("boom");
       });
+    });
+  });
+
+  describe("generate description", () => {
+    type AiStreamingInput = { on_run_started?: (handle: RunHandle) => void };
+
+    function setup_description(outcome: RunOutcome) {
+      // The toast mock is module-scoped, so earlier tests' calls are still on it.
+      vi.mocked(toast.success).mockClear();
+      vi.mocked(toast.error).mockClear();
+      vi.mocked(toast.dismiss).mockClear();
+
+      const harness = create_harness();
+      harness.stores.vault.set_vault(create_test_vault());
+      const handle: RunHandle = {
+        id: "run-1",
+        stop: vi.fn(),
+        outcome: Promise.resolve(outcome),
+      };
+      harness.ai_service.execute_streaming = vi
+        .fn()
+        .mockImplementation((input: AiStreamingInput) => {
+          input.on_run_started?.(handle);
+          return outcome.status === "error"
+            ? { success: false, output: "", error: outcome.error.message }
+            : { success: true, output: `"${outcome.text}"`, error: null };
+        });
+      return harness;
+    }
+
+    const done = (text: string): RunOutcome => ({
+      status: "done",
+      text,
+      stats: null,
+    });
+
+    it("runs the description as stoppable background work", async () => {
+      const { registry, services, ai_service } = setup_description(
+        done("A note about notes"),
+      );
+
+      await registry.execute(
+        ACTION_IDS.ai_generate_description,
+        "docs/demo.md",
+      );
+
+      expect(ai_service.execute_streaming).toHaveBeenCalledWith(
+        expect.objectContaining({
+          run: { kind: "background", label: "Generate description" },
+          on_run_started: expect.any(Function),
+        }),
+      );
+      expect(services.note.write_note_indexed).toHaveBeenCalledWith(
+        as_vault_id("vault-1"),
+        "docs/demo.md",
+        expect.stringContaining("description: A note about notes"),
+      );
+      expect(toast.success).toHaveBeenCalledWith("Description generated");
+    });
+
+    it("keeps the note's other frontmatter keys", async () => {
+      const { registry, services } = setup_description(done("A summary"));
+
+      await registry.execute(
+        ACTION_IDS.ai_generate_description,
+        "docs/demo.md",
+      );
+
+      const written = services.note.write_note_indexed.mock.calls[0]?.[2];
+      expect(written).toContain("tags:");
+      expect(written).toContain("- notes");
+      expect(written).toContain("Body text");
+    });
+
+    it("surfaces the kernel's error without writing a broken description", async () => {
+      const { registry, services } = setup_description({
+        status: "error",
+        error: {
+          message: "Claude Code is not installed - install it, then try again.",
+          detail: "command not found",
+        },
+        text: "",
+      });
+
+      await registry.execute(
+        ACTION_IDS.ai_generate_description,
+        "docs/demo.md",
+      );
+
+      expect(services.note.write_note_indexed).not.toHaveBeenCalled();
+      expect(toast.error).toHaveBeenCalledWith(
+        "Claude Code is not installed - install it, then try again.",
+      );
+    });
+
+    // A stopped run reports success with whatever text arrived first. Writing
+    // that would leave half a sentence in the note's frontmatter.
+    it("writes nothing when the run is stopped mid-flight", async () => {
+      const { registry, services } = setup_description({
+        status: "aborted",
+        text: "A half-writt",
+      });
+
+      await registry.execute(
+        ACTION_IDS.ai_generate_description,
+        "docs/demo.md",
+      );
+
+      expect(services.note.write_note_indexed).not.toHaveBeenCalled();
+      expect(toast.error).not.toHaveBeenCalled();
+      expect(toast.success).not.toHaveBeenCalled();
+      // Stopping is not a failure, but the spinner still has to go.
+      expect(toast.dismiss).toHaveBeenCalled();
+    });
+
+    it("does not start a run when no provider is configured", async () => {
+      const { registry, stores, services, ai_service } = setup_description(
+        done("A summary"),
+      );
+      stores.ui.editor_settings.ai_providers = [];
+
+      await registry.execute(
+        ACTION_IDS.ai_generate_description,
+        "docs/demo.md",
+      );
+
+      expect(ai_service.execute_streaming).not.toHaveBeenCalled();
+      expect(services.note.write_note_indexed).not.toHaveBeenCalled();
+      expect(toast.error).toHaveBeenCalledWith("No AI provider configured");
     });
   });
 });

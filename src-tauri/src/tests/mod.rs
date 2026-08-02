@@ -72,6 +72,8 @@ mod metadata_events;
 mod agent_handoff;
 #[path = "../../tests/agent_stream.rs"]
 mod agent_stream;
+#[path = "../../tests/ai_execute_cancel.rs"]
+mod ai_execute_cancel;
 #[path = "../../tests/codex_adapter.rs"]
 mod codex_adapter;
 #[path = "../../tests/native_agent.rs"]
@@ -184,6 +186,7 @@ mod specta_export {
                 crate::features::ai::service::ai_check_cli,
                 crate::features::ai::service::ai_detect_cli,
                 crate::features::ai::service::ai_execute_cli,
+                crate::features::ai::service::ai_execute_abort,
                 crate::features::ai::stream::ai_stream_start,
                 crate::features::ai::stream::ai_stream_abort,
                 crate::features::ai::stream::ai_test_provider,

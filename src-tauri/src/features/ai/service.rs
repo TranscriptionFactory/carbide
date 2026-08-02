@@ -1,8 +1,10 @@
 use crate::features::pipeline::service as pipeline;
 use serde::{Deserialize, Serialize};
 use specta::Type;
+use std::collections::HashMap;
 use std::path::{Component, PathBuf};
 use tempfile::tempdir;
+use tokio::sync::Mutex;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct AiExecutionResult {
@@ -41,6 +43,40 @@ pub struct AiProviderConfig {
     pub model: Option<String>,
     pub install_url: Option<String>,
     pub is_preset: Option<bool>,
+}
+
+struct ExecHandle {
+    abort_tx: tokio::sync::oneshot::Sender<()>,
+}
+
+#[derive(Default)]
+pub struct AiExecState {
+    handles: Mutex<HashMap<String, ExecHandle>>,
+}
+
+impl AiExecState {
+    async fn register(&self, request_id: &str) -> tokio::sync::oneshot::Receiver<()> {
+        let (abort_tx, abort_rx) = tokio::sync::oneshot::channel();
+        self.handles
+            .lock()
+            .await
+            .insert(request_id.to_string(), ExecHandle { abort_tx });
+        abort_rx
+    }
+
+    async fn release(&self, request_id: &str) {
+        self.handles.lock().await.remove(request_id);
+    }
+
+    pub async fn abort(&self, request_id: &str) {
+        if let Some(handle) = self.handles.lock().await.remove(request_id) {
+            let _ = handle.abort_tx.send(());
+        }
+    }
+
+    pub async fn active_count(&self) -> usize {
+        self.handles.lock().await.len()
+    }
 }
 
 fn validate_note_path(vault_path: &str, note_path: &str) -> Result<(), String> {
@@ -127,11 +163,44 @@ pub async fn ai_detect_cli(command: String) -> Result<pipeline::CliProbe, String
 #[tauri::command]
 #[specta::specta]
 pub async fn ai_execute_cli(
+    state: tauri::State<'_, AiExecState>,
     provider_config: AiProviderConfig,
     vault_path: String,
     note_path: String,
     prompt: String,
     timeout_seconds: Option<u64>,
+    request_id: Option<String>,
+) -> Result<AiExecutionResult, String> {
+    execute_cli(
+        state.inner(),
+        provider_config,
+        vault_path,
+        note_path,
+        prompt,
+        timeout_seconds,
+        request_id,
+    )
+    .await
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn ai_execute_abort(
+    state: tauri::State<'_, AiExecState>,
+    request_id: String,
+) -> Result<(), String> {
+    state.abort(&request_id).await;
+    Ok(())
+}
+
+pub async fn execute_cli(
+    state: &AiExecState,
+    provider_config: AiProviderConfig,
+    vault_path: String,
+    note_path: String,
+    prompt: String,
+    timeout_seconds: Option<u64>,
+    request_id: Option<String>,
 ) -> Result<AiExecutionResult, String> {
     validate_note_path(&vault_path, &note_path)?;
 
@@ -161,6 +230,11 @@ pub async fn ai_execute_cli(
                 None
             };
 
+            let abort_rx = match &request_id {
+                Some(id) => Some(state.register(id).await),
+                None => None,
+            };
+
             let res = pipeline::execute_pipeline(
                 command.clone(),
                 final_args,
@@ -168,10 +242,15 @@ pub async fn ai_execute_cli(
                 vault_path,
                 timeout_seconds,
                 output_path,
+                abort_rx,
             )
-            .await?;
+            .await;
 
-            let mut ai_res: AiExecutionResult = res.into();
+            if let Some(id) = &request_id {
+                state.release(id).await;
+            }
+
+            let mut ai_res: AiExecutionResult = res?.into();
             if !ai_res.success {
                 if let Some(ref e) = ai_res.error {
                     if e.contains("Command not found") {
