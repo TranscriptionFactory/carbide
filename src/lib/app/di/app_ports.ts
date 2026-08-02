@@ -15,7 +15,7 @@ import type {
 import type { TerminalPort } from "$lib/features/terminal";
 import type { WindowPort } from "$lib/features/window";
 import type { WatcherPort } from "$lib/features/watcher";
-import type { AiPort, AiHistoryPersistencePort } from "$lib/features/ai";
+import type { AiPort } from "$lib/features/ai";
 import type { GraphPort } from "$lib/features/graph";
 import type { BasesPort } from "$lib/features/bases";
 import type { TypesPort } from "$lib/features/types";
@@ -66,7 +66,6 @@ export type Ports = {
   window: WindowPort;
   watcher: WatcherPort;
   ai: AiPort;
-  ai_history: AiHistoryPersistencePort;
   graph: GraphPort;
   bases: BasesPort;
   types: TypesPort;

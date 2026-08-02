@@ -103,10 +103,16 @@
   } from "$lib/shared/types/ai_provider_config";
   import {
     BUILTIN_INSTRUCTIONS,
+    BUILTIN_QUESTIONS,
     resolve_instructions,
+    resolve_questions,
     to_inline_command,
+    to_question_recipe,
   } from "$lib/shared/domain/prompt_recipes";
-  import type { AiInlineCommand } from "$lib/shared/types/prompt_recipe";
+  import type {
+    AiInlineCommand,
+    AiQuestionRecipe,
+  } from "$lib/shared/types/prompt_recipe";
   import type { Theme, ColorSchemePreference } from "$lib/shared/types/theme";
   import type { HotkeyConfig, HotkeyBinding } from "$lib/features/hotkey";
   import type { DynamicSidebarView } from "$lib/app";
@@ -264,6 +270,13 @@
     value: String(i + 1),
     label: String(i + 1),
   }));
+
+  const session_retention_options = [
+    { value: "7", label: "7 days" },
+    { value: "30", label: "30 days" },
+    { value: "90", label: "90 days" },
+    { value: "0", label: "Never" },
+  ];
 
   const autocommit_mode_options: { value: GitAutocommitMode; label: string }[] =
     [
@@ -585,6 +598,61 @@
     );
     update("ai_inline_commands", user_commands);
     if (editing_inline_command_id === id) editing_inline_command_id = null;
+  }
+
+  let resolved_question_recipes = $derived(
+    resolve_questions(editor_settings.ai_question_recipes),
+  );
+
+  let editing_question_recipe_id = $state<string | null>(null);
+
+  let new_question_recipe = $state<{
+    id: string;
+    label: string;
+    template: string;
+  } | null>(null);
+
+  function update_question_recipe(
+    id: string,
+    updates: Partial<AiQuestionRecipe>,
+  ) {
+    const user_recipes = [...editor_settings.ai_question_recipes];
+    const idx = user_recipes.findIndex((r) => r.id === id);
+    if (idx >= 0) {
+      user_recipes[idx] = Object.assign({}, user_recipes[idx], updates);
+    } else {
+      const builtin = BUILTIN_QUESTIONS.find((r) => r.id === id);
+      if (builtin) {
+        user_recipes.push(
+          Object.assign({}, to_question_recipe(builtin), updates),
+        );
+      }
+    }
+    update("ai_question_recipes", user_recipes);
+  }
+
+  function drop_question_recipe(id: string) {
+    update(
+      "ai_question_recipes",
+      editor_settings.ai_question_recipes.filter((r) => r.id !== id),
+    );
+    if (editing_question_recipe_id === id) editing_question_recipe_id = null;
+  }
+
+  function add_question_recipe() {
+    if (!new_question_recipe) return;
+    const trimmed_id = new_question_recipe.id.trim();
+    if (!trimmed_id || !new_question_recipe.label.trim()) return;
+    if (resolved_question_recipes.some((r) => r.id === trimmed_id)) return;
+    update("ai_question_recipes", [
+      ...editor_settings.ai_question_recipes,
+      {
+        id: trimmed_id,
+        label: new_question_recipe.label.trim(),
+        template: new_question_recipe.template.trim(),
+      },
+    ]);
+    new_question_recipe = null;
   }
 
   function add_inline_command() {
@@ -1726,6 +1794,183 @@
               {/if}
             </div>
 
+            <div class="space-y-2">
+              <div class="flex items-center justify-between">
+                <div class="SettingsDialog__label-group">
+                  <span class="SettingsDialog__label">Question Recipes</span>
+                  <span class="SettingsDialog__description">
+                    Question chips shown above the chat input. Use
+                    {"{scope}"} where the active scope should appear.
+                  </span>
+                </div>
+              </div>
+
+              {#each resolved_question_recipes as recipe (recipe.id)}
+                {@const is_overridden =
+                  editor_settings.ai_question_recipes.some(
+                    (r) => r.id === recipe.id,
+                  )}
+                <div class="rounded-md border p-3 space-y-2">
+                  <div class="flex items-center justify-between gap-2">
+                    <div class="min-w-0 flex-1">
+                      <span class="text-sm font-medium">{recipe.label}</span>
+                      {#if recipe.is_builtin}
+                        <span
+                          class="ml-2 text-[10px] text-muted-foreground uppercase tracking-wider"
+                          >built-in</span
+                        >
+                      {/if}
+                      {#if is_overridden && recipe.is_builtin}
+                        <span
+                          class="ml-1 text-[10px] text-amber-500 uppercase tracking-wider"
+                          >modified</span
+                        >
+                      {/if}
+                      <div class="text-xs text-muted-foreground">
+                        {recipe.template}
+                      </div>
+                    </div>
+                    <div class="flex items-center gap-1">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onclick={() =>
+                          (editing_question_recipe_id =
+                            editing_question_recipe_id === recipe.id
+                              ? null
+                              : recipe.id)}
+                        disabled={ai_settings_disabled}
+                      >
+                        {editing_question_recipe_id === recipe.id
+                          ? "Done"
+                          : "Edit"}
+                      </Button>
+                      {#if is_overridden && recipe.is_builtin}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onclick={() => drop_question_recipe(recipe.id)}
+                          disabled={ai_settings_disabled}
+                        >
+                          Reset
+                        </Button>
+                      {/if}
+                      {#if !recipe.is_builtin}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onclick={() => drop_question_recipe(recipe.id)}
+                          disabled={ai_settings_disabled}
+                        >
+                          Remove
+                        </Button>
+                      {/if}
+                    </div>
+                  </div>
+
+                  {#if editing_question_recipe_id === recipe.id}
+                    <div class="space-y-2 border-t pt-2">
+                      <div class="flex items-center gap-2">
+                        <span class="w-24 text-xs text-muted-foreground"
+                          >Label</span
+                        >
+                        <Input
+                          type="text"
+                          value={recipe.label}
+                          class="flex-1"
+                          disabled={ai_settings_disabled}
+                          oninput={(
+                            e: Event & { currentTarget: HTMLInputElement },
+                          ) =>
+                            update_question_recipe(recipe.id, {
+                              label: e.currentTarget.value,
+                            })}
+                        />
+                      </div>
+                      <div class="flex items-start gap-2">
+                        <span class="w-24 text-xs text-muted-foreground mt-2"
+                          >Question</span
+                        >
+                        <textarea
+                          class="flex-1 rounded-md border bg-transparent px-3 py-2 text-sm min-h-[60px] resize-y"
+                          value={recipe.template}
+                          disabled={ai_settings_disabled}
+                          oninput={(
+                            e: Event & { currentTarget: HTMLTextAreaElement },
+                          ) =>
+                            update_question_recipe(recipe.id, {
+                              template: e.currentTarget.value,
+                            })}
+                        ></textarea>
+                      </div>
+                    </div>
+                  {/if}
+                </div>
+              {/each}
+
+              {#if new_question_recipe}
+                <div class="rounded-md border border-dashed p-3 space-y-2">
+                  <div class="flex items-center gap-2">
+                    <span class="w-24 text-xs text-muted-foreground">ID</span>
+                    <Input
+                      type="text"
+                      bind:value={new_question_recipe.id}
+                      class="flex-1"
+                      placeholder="my_question"
+                      disabled={ai_settings_disabled}
+                    />
+                  </div>
+                  <div class="flex items-center gap-2">
+                    <span class="w-24 text-xs text-muted-foreground">Label</span
+                    >
+                    <Input
+                      type="text"
+                      bind:value={new_question_recipe.label}
+                      class="flex-1"
+                      placeholder="My Question"
+                      disabled={ai_settings_disabled}
+                    />
+                  </div>
+                  <div class="flex items-start gap-2">
+                    <span class="w-24 text-xs text-muted-foreground mt-2"
+                      >Question</span
+                    >
+                    <textarea
+                      class="flex-1 rounded-md border bg-transparent px-3 py-2 text-sm min-h-[60px] resize-y"
+                      bind:value={new_question_recipe.template}
+                      placeholder="What changed in {'{scope}'} this week?"
+                      disabled={ai_settings_disabled}
+                    ></textarea>
+                  </div>
+                  <div class="flex justify-end gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onclick={() => (new_question_recipe = null)}
+                      >Cancel</Button
+                    >
+                    <Button
+                      size="sm"
+                      onclick={add_question_recipe}
+                      disabled={!new_question_recipe.id.trim() ||
+                        !new_question_recipe.label.trim() ||
+                        !new_question_recipe.template.trim()}>Add</Button
+                    >
+                  </div>
+                </div>
+              {:else}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onclick={() =>
+                    (new_question_recipe = { id: "", label: "", template: "" })}
+                  disabled={ai_settings_disabled}
+                >
+                  Add Question
+                </Button>
+              {/if}
+            </div>
+
             <div class="SettingsDialog__row">
               <div class="SettingsDialog__label-group">
                 <span class="SettingsDialog__label">Execution Timeout</span>
@@ -1962,6 +2207,43 @@
                 <Select.Content>
                   {#each [0.3, 0.4, 0.5, 0.6, 0.7] as n (n)}
                     <Select.Item value={String(n)}>{n}</Select.Item>
+                  {/each}
+                </Select.Content>
+              </Select.Root>
+            </div>
+
+            <div class="SettingsDialog__row">
+              <div class="SettingsDialog__label-group">
+                <span class="SettingsDialog__label">Keep Conversations For</span
+                >
+                <span class="SettingsDialog__description"
+                  >Assistant sessions older than this are removed when the vault
+                  opens</span
+                >
+              </div>
+              <Select.Root
+                type="single"
+                value={String(editor_settings.assistant_session_retention_days)}
+                onValueChange={(v: string | undefined) => {
+                  if (v) update("assistant_session_retention_days", Number(v));
+                }}
+                disabled={ai_settings_disabled}
+              >
+                <Select.Trigger class="w-28">
+                  <span data-slot="select-value">
+                    {session_retention_options.find(
+                      (opt) =>
+                        opt.value ===
+                        String(
+                          editor_settings.assistant_session_retention_days,
+                        ),
+                    )?.label ??
+                      `${editor_settings.assistant_session_retention_days} days`}
+                  </span>
+                </Select.Trigger>
+                <Select.Content>
+                  {#each session_retention_options as opt (opt.value)}
+                    <Select.Item value={opt.value}>{opt.label}</Select.Item>
                   {/each}
                 </Select.Content>
               </Select.Root>

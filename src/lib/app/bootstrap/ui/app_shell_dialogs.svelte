@@ -21,7 +21,7 @@
   import { ClipWebPageDialog } from "$lib/features/clip";
   import type { ClipFormats } from "$lib/features/clip";
   import { SettingsDialog } from "$lib/features/settings";
-  import { Omnibar } from "$lib/features/search";
+  import { Omnibar, type OmnibarAskStatus } from "$lib/features/search";
   import { TabCloseConfirmDialog } from "$lib/features/tab";
   import {
     VersionHistoryDialog,
@@ -72,7 +72,39 @@
 
   let { hide_choose_vault_button = false }: Props = $props();
 
-  const { stores, action_registry, ports, services } = use_app_context();
+  const { stores, action_registry, ports, services, omnibar_ask } =
+    use_app_context();
+
+  let ask_draft = $state("");
+  let ask_status = $state<OmnibarAskStatus>("idle");
+  let ask_error = $state<string | null>(null);
+  let ask_session_id = $state<string | null>(null);
+
+  const ask_session = $derived(
+    ask_session_id ? stores.assistant_sessions.get(ask_session_id) : null,
+  );
+
+  async function run_ask() {
+    ask_status = "running";
+    ask_error = null;
+    const result = await omnibar_ask.submit(ask_draft, (id: string) => {
+      ask_session_id = id;
+    });
+    ask_status = result.status === "error" ? "error" : "idle";
+    ask_error = result.status === "error" ? result.message : null;
+  }
+
+  // Reset-on-close is a contract: the controller holds its session_id until
+  // told otherwise, so every close path must reset or reopening Ask renders
+  // the previous answer as current. This is the only close path today.
+  function dismiss_ask() {
+    void action_registry.execute(ACTION_IDS.omnibar_close);
+    omnibar_ask.reset();
+    ask_draft = "";
+    ask_session_id = null;
+    ask_status = "idle";
+    ask_error = null;
+  }
 
   const has_vault = $derived(stores.vault.vault !== null);
   const is_vault_mode = $derived(stores.vault.is_vault_mode);
@@ -669,6 +701,25 @@
   kind_filters={stores.ui.omnibar.kind_filters}
   sort_mode={stores.ui.omnibar.sort_mode}
   items={stores.search.omnibar_items}
+  ask={{
+    draft: ask_draft,
+    session: ask_session,
+    status: ask_status,
+    error: ask_error,
+    can_insert: stores.editor.open_note !== null,
+    provider_label: stores.ui.editor_settings.ai_default_provider_id,
+    on_draft_change: (next: string) => (ask_draft = next),
+    on_submit: () => void run_ask(),
+    on_insert: () => {
+      if (omnibar_ask.insert()) dismiss_ask();
+    },
+    on_promote: () => {
+      omnibar_ask.promote();
+      dismiss_ask();
+    },
+    on_stop: () => omnibar_ask.stop(),
+    on_dismiss: dismiss_ask,
+  }}
   recent_notes={recent_notes_for_display}
   recent_command_ids={stores.ui.recent_command_ids}
   hotkeys_config={stores.ui.hotkeys_config}

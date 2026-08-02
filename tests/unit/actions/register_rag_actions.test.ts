@@ -3,6 +3,7 @@ import { ActionRegistry } from "$lib/app/action_registry/action_registry";
 import { ACTION_IDS } from "$lib/app/action_registry/action_ids";
 import { register_rag_actions } from "$lib/features/rag";
 import { RagStore } from "$lib/features/rag";
+import { AssistantSessionStore } from "$lib/features/assistant";
 import { UIStore } from "$lib/app/orchestration/ui_store.svelte";
 import { OpStore } from "$lib/app/orchestration/op_store.svelte";
 import { BUILTIN_PROVIDER_PRESETS } from "$lib/shared/types/ai_provider_config";
@@ -57,7 +58,8 @@ function stream_query(events: RagStreamEvent[]) {
 
 function create_harness(events: RagStreamEvent[] = ANSWERED_EVENTS) {
   const registry = new ActionRegistry();
-  const rag_store = new RagStore();
+  const assistant_sessions = new AssistantSessionStore();
+  const rag_store = new RagStore(assistant_sessions);
   const stores = {
     ui: new UIStore(),
     op: new OpStore(),
@@ -114,7 +116,15 @@ function create_harness(events: RagStreamEvent[] = ANSWERED_EVENTS) {
     assistant_kernel: assistant_kernel as never,
   });
 
-  return { registry, stores, rag_store, rag_service, note_open, services };
+  return {
+    registry,
+    stores,
+    rag_store,
+    assistant_sessions,
+    rag_service,
+    note_open,
+    services,
+  };
 }
 
 beforeEach(() => {
@@ -530,13 +540,16 @@ describe("register_rag_actions", () => {
   });
 
   it("autotitle: skips sessions the user renamed", async () => {
-    const { registry, rag_store, rag_service } = create_harness();
+    const { registry, rag_store, assistant_sessions, rag_service } =
+      create_harness();
     rag_service.generate_title.mockResolvedValue("Model title");
-    rag_store.hydrate([
+    assistant_sessions.hydrate([
       {
         id: "a",
+        kind: "chat",
         title: "My name",
         title_source: "manual",
+        origin: {},
         created_at: 1,
         updated_at: 2,
         messages: [],
@@ -566,6 +579,20 @@ describe("register_rag_actions", () => {
     expect(rag_store.sessions[0]?.title).toBe("what is it?");
     expect(rag_store.sessions[0]?.title_source).toBe("derived");
     expect(rag_service.save_session).toHaveBeenCalledTimes(1);
+  });
+
+  // A stopped naming run is what generate_title now reports as null, and the
+  // point of that is that nothing downstream writes.
+  it("autotitle: writes nothing to the session when the naming run is stopped", async () => {
+    const { registry, rag_store, rag_service } = create_harness();
+    rag_service.generate_title.mockResolvedValue(null);
+    const rename = vi.spyOn(rag_store, "rename_session");
+
+    await registry.execute(ACTION_IDS.rag_ask, "what is it?");
+    await flush();
+
+    expect(rag_service.generate_title).toHaveBeenCalledTimes(1);
+    expect(rename).not.toHaveBeenCalled();
   });
 
   it("autotitle: drops a stale title when the revision moved on", async () => {

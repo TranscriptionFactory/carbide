@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
+import type { AiCliProbeStatus } from "$lib/features/ai";
 import {
   AssistantKernelService,
   AssistantRunStore,
+  type AssistantProviderProbePort,
   type AssistantTransportPort,
   type RunEvent,
   type RunId,
@@ -565,5 +567,218 @@ describe("AssistantKernelService", () => {
     expect(sink.received.some((entry) => entry.event.type === "error")).toBe(
       false,
     );
+  });
+
+  // Rust also emits the sentinel when the cancellation did not come from us —
+  // a superseded run, a killed process. Reading the outcome off our own signal
+  // reports those as "done", which is the abort-reads-as-success class.
+  it("treats the aborted sentinel as cancellation even when we never stopped the run", async () => {
+    const transport = create_mock_transport([
+      { type: "text", text: "kept" },
+      { type: "error", message: "aborted" },
+    ]);
+    const { kernel, run_store } = create_kernel(transport);
+
+    const handle = await kernel.start(run_spec());
+
+    await expect(handle.outcome).resolves.toEqual({
+      status: "aborted",
+      text: "kept",
+    });
+    expect(run_store.get(handle.id)?.status).toBe("aborted");
+    expect(run_store.get(handle.id)?.error).toBeNull();
+  });
+
+  // Contract item (b). Everything here turns on the run existing before the
+  // provider does; a gated probe is what makes "during resolution" a moment a
+  // test can stand in rather than a race.
+  describe("stoppable from the instant it exists", () => {
+    function create_gated_probe() {
+      let open = () => {};
+      const gate = new Promise<void>((resolve) => {
+        open = resolve;
+      });
+      const port: AssistantProviderProbePort & { calls: number } = {
+        calls: 0,
+        async detect_status(): Promise<AiCliProbeStatus> {
+          port.calls += 1;
+          await gate;
+          return "present";
+        },
+      };
+      return {
+        port,
+        open: () => {
+          open();
+        },
+      };
+    }
+
+    function create_gated_kernel(
+      transport: AssistantTransportPort,
+      probe: AssistantProviderProbePort,
+    ) {
+      const run_store = new AssistantRunStore();
+      const kernel = new AssistantKernelService({
+        transport,
+        probe,
+        run_store,
+        vault_path: () => "/vault",
+        providers: () => [PROVIDER],
+        default_provider_id: () => PROVIDER.id,
+      });
+      return { kernel, run_store };
+    }
+
+    it("hands back a handle while the provider is still resolving", async () => {
+      const transport = create_mock_transport();
+      const probe = create_gated_probe();
+      const { kernel } = create_gated_kernel(transport, probe.port);
+
+      const handle = await kernel.start(make_run_spec());
+
+      expect(handle.id).toBeTruthy();
+      expect(transport._requests).toEqual([]);
+      probe.open();
+      await handle.outcome;
+    });
+
+    it("opens the run record before the provider is known", async () => {
+      const transport = create_mock_transport();
+      const probe = create_gated_probe();
+      const { kernel, run_store } = create_gated_kernel(transport, probe.port);
+
+      const handle = await kernel.start(make_run_spec());
+
+      const record = run_store.get(handle.id);
+      expect(record?.status).toBe("starting");
+      expect(record?.provider_id).toBeNull();
+      probe.open();
+      await handle.outcome;
+    });
+
+    it("aborts a run stopped during resolution without calling the transport", async () => {
+      const transport = create_mock_transport();
+      const probe = create_gated_probe();
+      const { kernel, run_store } = create_gated_kernel(transport, probe.port);
+
+      const handle = await kernel.start(make_run_spec());
+      handle.stop();
+      probe.open();
+
+      await expect(handle.outcome).resolves.toEqual({
+        status: "aborted",
+        text: "",
+      });
+      expect(transport._requests).toEqual([]);
+      expect(run_store.get(handle.id)?.status).toBe("aborted");
+    });
+
+    it("closes the sink out once with the aborted outcome and no error event", async () => {
+      const transport = create_mock_transport();
+      const probe = create_gated_probe();
+      const { kernel } = create_gated_kernel(transport, probe.port);
+      const sink = create_recording_sink();
+
+      const handle = await kernel.start(make_run_spec(), sink);
+      handle.stop();
+      probe.open();
+      await handle.outcome;
+
+      expect(sink.ended).toHaveLength(1);
+      expect(sink.ended[0]?.outcome.status).toBe("aborted");
+      expect(sink.received).toEqual([]);
+    });
+
+    it("records the resolved provider on the run once resolution lands", async () => {
+      const transport = create_mock_transport();
+      const probe = create_gated_probe();
+      const { kernel, run_store } = create_gated_kernel(transport, probe.port);
+
+      const handle = await kernel.start(make_run_spec());
+      probe.open();
+      await handle.outcome;
+
+      expect(run_store.get(handle.id)?.provider_id).toBe(PROVIDER.id);
+    });
+
+    it("skips resolution entirely when the spec carries a provider", async () => {
+      const transport = create_mock_transport();
+      const probe = create_gated_probe();
+      const { kernel, run_store } = create_gated_kernel(transport, probe.port);
+
+      const handle = await kernel.start(run_spec());
+      await handle.outcome;
+
+      expect(probe.port.calls).toBe(0);
+      expect(run_store.get(handle.id)?.provider_id).toBe(PROVIDER.id);
+    });
+
+    it("settles a refusal through the outcome instead of rejecting start", async () => {
+      const transport = create_mock_transport();
+      const run_store = new AssistantRunStore();
+      const kernel = new AssistantKernelService({
+        transport,
+        probe: create_mock_probe_port(),
+        run_store,
+        vault_path: () => "/vault",
+        providers: () => [],
+        default_provider_id: () => "none",
+      });
+
+      const handle = await kernel.start(make_run_spec());
+
+      await expect(handle.outcome).resolves.toMatchObject({ status: "error" });
+      expect(transport._requests).toEqual([]);
+    });
+
+    // A refusal used to settle inside start(); now it settles through the
+    // outcome, which is what lets a caller stop one before it lands.
+    it("leaves the outcome pending at the moment start returns", async () => {
+      const transport = create_mock_transport();
+      const probe = create_gated_probe();
+      const { kernel } = create_gated_kernel(transport, probe.port);
+
+      const handle = await kernel.start(make_run_spec());
+      const winner = await Promise.race([
+        handle.outcome.then(() => "settled"),
+        Promise.resolve("pending"),
+      ]);
+
+      expect(winner).toBe("pending");
+      probe.open();
+      await handle.outcome;
+    });
+
+    it("treats a second stop during resolution as a no-op", async () => {
+      const transport = create_mock_transport();
+      const probe = create_gated_probe();
+      const { kernel, run_store } = create_gated_kernel(transport, probe.port);
+
+      const handle = await kernel.start(make_run_spec());
+      handle.stop();
+      handle.stop();
+      probe.open();
+
+      await expect(handle.outcome).resolves.toMatchObject({
+        status: "aborted",
+      });
+      expect(run_store.get(handle.id)?.status).toBe("aborted");
+    });
+
+    // Ids are minted before the await, so a run blocked in resolution cannot
+    // hand its id to the run started behind it.
+    it("mints distinct ids while the first run is blocked in resolution", async () => {
+      const transport = create_mock_transport();
+      const probe = create_gated_probe();
+      const { kernel } = create_gated_kernel(transport, probe.port);
+
+      const first = await kernel.start(make_run_spec());
+      const second = await kernel.start(make_run_spec());
+
+      expect(first.id).not.toBe(second.id);
+      probe.open();
+      await Promise.all([first.outcome, second.outcome]);
+    });
   });
 });
