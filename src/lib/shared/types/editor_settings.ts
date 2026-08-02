@@ -2,7 +2,10 @@ import {
   BUILTIN_PROVIDER_PRESETS,
   type AiProviderConfig,
 } from "$lib/shared/types/ai_provider_config";
-import type { AiInlineCommand } from "$lib/shared/types/prompt_recipe";
+import type {
+  AiInlineCommand,
+  AiQuestionRecipe,
+} from "$lib/shared/types/prompt_recipe";
 
 // STT removed — archived on archive/stt-main
 // export type SttInsertMode = "cursor" | "new_line" | "new_block";
@@ -165,6 +168,7 @@ export type EditorSettings = {
   ai_enabled: boolean;
   ai_providers: AiProviderConfig[];
   ai_inline_commands: AiInlineCommand[];
+  ai_question_recipes: AiQuestionRecipe[];
   ai_default_provider_id: string;
   ai_execution_timeout_seconds: number;
   ai_vault_context_enabled: boolean;
@@ -297,6 +301,7 @@ export const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
   ai_enabled: true,
   ai_providers: BUILTIN_PROVIDER_PRESETS,
   ai_inline_commands: [],
+  ai_question_recipes: [],
   ai_default_provider_id: "auto",
   ai_execution_timeout_seconds: 300,
   ai_vault_context_enabled: true,
@@ -535,6 +540,7 @@ export const GLOBAL_ONLY_SETTING_KEYS: readonly (keyof EditorSettings)[] = [
   "ai_enabled",
   "ai_providers",
   "ai_inline_commands",
+  "ai_question_recipes",
   "ai_default_provider_id",
   "ai_execution_timeout_seconds",
   "ai_vault_context_enabled",

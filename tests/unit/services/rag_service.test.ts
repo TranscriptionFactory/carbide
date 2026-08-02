@@ -1068,7 +1068,7 @@ describe("RagService.query", () => {
         token_budget: 100,
         reserve_tokens: 0,
         chars_per_token: 1,
-        min_context_chars: 10,
+        min_block_chars: 10,
       },
     })) {
       events.push(event);
@@ -1132,7 +1132,7 @@ describe("RagService.query", () => {
       {
         note_path: "notes/spec.md",
         title: "Spec",
-        score: Number.MAX_SAFE_INTEGER,
+        score: 0,
         truncated: false,
         pinned: true,
       },
@@ -1382,6 +1382,326 @@ describe("RagService.query", () => {
     expect(content).toBe("The answer is 4");
     expect(seen).not.toContain("done");
     expect(seen).not.toContain("error");
+  });
+});
+
+describe("RagService.query context assembly", () => {
+  const tight_budget = {
+    token_budget: 100,
+    reserve_tokens: 0,
+    chars_per_token: 1,
+    min_block_chars: 10,
+  };
+
+  function markdown_by_id(bodies: Record<string, string>) {
+    return vi.fn((_vault: unknown, note_id: string) =>
+      Promise.resolve({ markdown: bodies[note_id] ?? "" }),
+    );
+  }
+
+  function make_service(search: object, notes: object) {
+    return new RagService(
+      search as never,
+      notes as never,
+      text_stream("answer [1].") as never,
+      make_vault_store(),
+      persistence,
+      tag as never,
+      bases as never,
+    );
+  }
+
+  async function sources_of(
+    service: RagService,
+    input: Parameters<RagService["query"]>[0],
+  ) {
+    for await (const event of service.query(input)) {
+      if (event.type === "sources") return event;
+    }
+    throw new Error("expected a sources event");
+  }
+
+  function pinning(path: string, title: string, id: string) {
+    return vi
+      .fn()
+      .mockResolvedValue([
+        { kind: "existing", note: note_meta(path, title, id), score: 1 },
+      ]);
+  }
+
+  const no_mentions = vi.fn().mockResolvedValue([]);
+
+  it("protects a pinned note from being starved by retrieval", async () => {
+    const search = {
+      search_blocks: vi.fn().mockResolvedValue([]),
+      hybrid_search: vi
+        .fn()
+        .mockResolvedValue([
+          hit("notes/a.md", "A", "2", 0.9),
+          hit("notes/b.md", "B", "3", 0.8),
+        ]),
+      suggest_wiki_links: pinning("notes/spec.md", "Spec", "1"),
+    };
+    const notes = {
+      read_note: markdown_by_id({
+        "1": "P".repeat(40),
+        "2": "A".repeat(200),
+        "3": "B".repeat(200),
+      }),
+    };
+
+    const sources = await sources_of(make_service(search, notes), {
+      question: "summarize @spec please",
+      provider_config: provider,
+      assembler_options: tight_budget,
+    });
+
+    const pinned = sources.sources.find((s) => s.note_path === "notes/spec.md");
+    expect(pinned).toEqual({
+      note_path: "notes/spec.md",
+      title: "Spec",
+      score: 0,
+      truncated: false,
+      pinned: true,
+    });
+    expect(sources.sources.map((s) => s.note_path)).not.toContain("notes/b.md");
+  });
+
+  it("truncates rather than drops a pinned note larger than the whole budget", async () => {
+    const search = {
+      search_blocks: vi.fn().mockResolvedValue([]),
+      hybrid_search: vi.fn().mockResolvedValue([]),
+      suggest_wiki_links: pinning("notes/spec.md", "Spec", "1"),
+    };
+    const notes = { read_note: markdown_by_id({ "1": "P".repeat(500) }) };
+
+    const sources = await sources_of(make_service(search, notes), {
+      question: "@spec",
+      provider_config: provider,
+      assembler_options: tight_budget,
+    });
+
+    expect(sources.sources).toEqual([
+      {
+        note_path: "notes/spec.md",
+        title: "Spec",
+        score: 0,
+        truncated: true,
+        pinned: true,
+      },
+    ]);
+    expect(sources.stats.truncated).toBe(1);
+  });
+
+  it("answers no-results rather than throwing when the budget cannot fit a pinned note", async () => {
+    const search = {
+      search_blocks: vi.fn().mockResolvedValue([]),
+      hybrid_search: vi.fn().mockResolvedValue([]),
+      suggest_wiki_links: pinning("notes/spec.md", "Spec", "1"),
+      get_embedding_status: vi.fn().mockResolvedValue({
+        total: 10,
+        embedded: 10,
+        is_embedding: false,
+      }),
+    };
+    const notes = { read_note: markdown_by_id({ "1": "P".repeat(500) }) };
+
+    const sources = await sources_of(make_service(search, notes), {
+      question: "@spec",
+      provider_config: provider,
+      assembler_options: { ...tight_budget, token_budget: 5 },
+    });
+
+    expect(sources.sources).toEqual([]);
+    expect(sources.stats.used).toBe(0);
+    expect(sources.stats.retrieved).toBe(1);
+  });
+
+  it("keeps a note that is both pinned and retrieved to a single context", async () => {
+    const search = {
+      search_blocks: vi.fn().mockResolvedValue([]),
+      hybrid_search: vi
+        .fn()
+        .mockResolvedValue([
+          hit("notes/spec.md", "Spec", "1", 0.95),
+          hit("notes/a.md", "A", "2", 0.9),
+        ]),
+      suggest_wiki_links: pinning("notes/spec.md", "Spec", "1"),
+    };
+    const notes = {
+      read_note: markdown_by_id({ "1": "Spec body.", "2": "A body." }),
+    };
+
+    const sources = await sources_of(make_service(search, notes), {
+      question: "about @spec",
+      provider_config: provider,
+    });
+
+    const spec_entries = sources.sources.filter(
+      (s) => s.note_path === "notes/spec.md",
+    );
+    expect(spec_entries.length).toBe(1);
+    expect(spec_entries[0]?.pinned).toBe(true);
+  });
+
+  it("still fills eight retrieved contexts when one hit duplicates a pinned note", async () => {
+    const hits = [
+      hit("notes/spec.md", "Spec", "1", 0.99),
+      ...Array.from({ length: 9 }, (_, i) =>
+        hit(
+          `notes/n${String(i)}.md`,
+          `N${String(i)}`,
+          `n${String(i)}`,
+          0.9 - i * 0.01,
+        ),
+      ),
+    ];
+    const bodies: Record<string, string> = { "1": "Spec body." };
+    for (let i = 0; i < 9; i += 1)
+      bodies[`n${String(i)}`] = `Body ${String(i)}.`;
+
+    const search = {
+      search_blocks: vi.fn().mockResolvedValue([]),
+      hybrid_search: vi.fn().mockResolvedValue(hits),
+      suggest_wiki_links: pinning("notes/spec.md", "Spec", "1"),
+    };
+
+    const sources = await sources_of(
+      make_service(search, { read_note: markdown_by_id(bodies) }),
+      { question: "about @spec", provider_config: provider },
+    );
+
+    const unpinned = sources.sources.filter((s) => !s.pinned);
+    expect(unpinned.length).toBe(8);
+    expect(sources.sources.length).toBe(9);
+  });
+
+  it("caps retrieved contexts at eight and reads no more notes than that", async () => {
+    const hits = Array.from({ length: 15 }, (_, i) =>
+      hit(
+        `notes/n${String(i)}.md`,
+        `N${String(i)}`,
+        `n${String(i)}`,
+        0.9 - i * 0.01,
+      ),
+    );
+    const bodies: Record<string, string> = {};
+    for (let i = 0; i < 15; i += 1)
+      bodies[`n${String(i)}`] = `Body ${String(i)}.`;
+
+    const read_note = markdown_by_id(bodies);
+    const search = {
+      search_blocks: vi.fn().mockResolvedValue([]),
+      hybrid_search: vi.fn().mockResolvedValue(hits),
+      suggest_wiki_links: no_mentions,
+    };
+
+    const sources = await sources_of(make_service(search, { read_note }), {
+      question: "anything",
+      provider_config: provider,
+    });
+
+    expect(sources.sources.length).toBe(8);
+    expect(read_note.mock.calls.length).toBe(8);
+  });
+
+  it("honours the configured token budget instead of the module default", async () => {
+    const hits = Array.from({ length: 4 }, (_, i) =>
+      hit(
+        `notes/n${String(i)}.md`,
+        `N${String(i)}`,
+        `n${String(i)}`,
+        0.9 - i * 0.01,
+      ),
+    );
+    const bodies: Record<string, string> = {};
+    for (let i = 0; i < 4; i += 1) bodies[`n${String(i)}`] = "X".repeat(60);
+
+    function run(assembler_options: Partial<typeof tight_budget>) {
+      const search = {
+        search_blocks: vi.fn().mockResolvedValue([]),
+        hybrid_search: vi.fn().mockResolvedValue(hits),
+        suggest_wiki_links: no_mentions,
+      };
+      return sources_of(
+        make_service(search, { read_note: markdown_by_id(bodies) }),
+        { question: "anything", provider_config: provider, assembler_options },
+      );
+    }
+
+    const generous = await run({});
+    const stingy = await run(tight_budget);
+
+    expect(generous.sources.length).toBe(4);
+    expect(stingy.sources.length).toBeLessThan(4);
+  });
+
+  it("assembles the same context however retrieval orders equally scored hits", async () => {
+    const hits = [
+      hit("notes/a.md", "A", "a", 0.9),
+      hit("notes/b.md", "B", "b", 0.9),
+      hit("notes/c.md", "C", "c", 0.9),
+      hit("notes/d.md", "D", "d", 0.5),
+    ];
+    const bodies = {
+      a: "A body.",
+      b: "B body.",
+      c: "C body.",
+      d: "D body.",
+    };
+
+    function run(order: number[]) {
+      const search = {
+        search_blocks: vi.fn().mockResolvedValue([]),
+        hybrid_search: vi.fn().mockResolvedValue(order.map((i) => hits[i])),
+        suggest_wiki_links: pinning("notes/spec.md", "Spec", "spec"),
+      };
+      return sources_of(
+        make_service(search, {
+          read_note: markdown_by_id({ ...bodies, spec: "Spec body." }),
+        }),
+        { question: "about @spec", provider_config: provider },
+      );
+    }
+
+    const baseline = await run([0, 1, 2, 3]);
+    for (const order of [
+      [3, 2, 1, 0],
+      [2, 0, 3, 1],
+      [1, 3, 0, 2],
+    ]) {
+      expect(await run(order)).toEqual(baseline);
+    }
+  });
+
+  it("counts every note it read, including ones the budget dropped", async () => {
+    const search = {
+      search_blocks: vi.fn().mockResolvedValue([]),
+      hybrid_search: vi
+        .fn()
+        .mockResolvedValue([
+          hit("notes/a.md", "A", "a", 0.9),
+          hit("notes/b.md", "B", "b", 0.8),
+          hit("notes/c.md", "C", "c", 0.7),
+        ]),
+      suggest_wiki_links: no_mentions,
+    };
+    const notes = {
+      read_note: markdown_by_id({
+        a: "A".repeat(90),
+        b: "B".repeat(200),
+        c: "C".repeat(200),
+      }),
+    };
+
+    const sources = await sources_of(make_service(search, notes), {
+      question: "anything",
+      provider_config: provider,
+      assembler_options: tight_budget,
+    });
+
+    expect(sources.stats.retrieved).toBe(3);
+    expect(sources.stats.used).toBeLessThan(3);
   });
 });
 

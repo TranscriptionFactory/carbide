@@ -320,14 +320,6 @@ export class RagStore {
     this.revision += 1;
   }
 
-  // Chats are the only kind rag persists, so hydrating them must not evict the
-  // inline and note sessions sharing the store.
-  hydrate(sessions: RagSession[]) {
-    const others = this.store.sessions.filter((s) => s.kind !== CHAT_KIND);
-    this.store.hydrate([...sessions, ...others]);
-    this.reset_view_state();
-  }
-
   // Sessions arrive through the assistant store's own hydrate on a vault
   // switch; what the panel must drop is the view state still pointing at the
   // old vault's sessions.

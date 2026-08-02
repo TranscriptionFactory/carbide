@@ -58,7 +58,8 @@ function stream_query(events: RagStreamEvent[]) {
 
 function create_harness(events: RagStreamEvent[] = ANSWERED_EVENTS) {
   const registry = new ActionRegistry();
-  const rag_store = new RagStore(new AssistantSessionStore());
+  const assistant_sessions = new AssistantSessionStore();
+  const rag_store = new RagStore(assistant_sessions);
   const stores = {
     ui: new UIStore(),
     op: new OpStore(),
@@ -115,7 +116,15 @@ function create_harness(events: RagStreamEvent[] = ANSWERED_EVENTS) {
     assistant_kernel: assistant_kernel as never,
   });
 
-  return { registry, stores, rag_store, rag_service, note_open, services };
+  return {
+    registry,
+    stores,
+    rag_store,
+    assistant_sessions,
+    rag_service,
+    note_open,
+    services,
+  };
 }
 
 beforeEach(() => {
@@ -531,9 +540,10 @@ describe("register_rag_actions", () => {
   });
 
   it("autotitle: skips sessions the user renamed", async () => {
-    const { registry, rag_store, rag_service } = create_harness();
+    const { registry, rag_store, assistant_sessions, rag_service } =
+      create_harness();
     rag_service.generate_title.mockResolvedValue("Model title");
-    rag_store.hydrate([
+    assistant_sessions.hydrate([
       {
         id: "a",
         kind: "chat",
