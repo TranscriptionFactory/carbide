@@ -216,6 +216,24 @@ describe("assistant_session_persistence_tauri_adapter", () => {
       });
     });
 
+    // load_session is reachable independently of the index (RagService exposes a
+    // singular load), so it must default `kind` exactly as the index read does
+    // rather than hand back a session missing the field.
+    it("stamps a missing kind on a directly loaded legacy session", async () => {
+      const files = fake_vault();
+      const legacy: Record<string, unknown> = {
+        ...session({ id: "old", title: "Old chat" }),
+      };
+      delete legacy["kind"];
+      files.set(".carbide/rag/sessions/old.json", JSON.stringify(legacy));
+      const adapter = create_assistant_session_persistence_tauri_adapter();
+
+      expect(await adapter.load_session("v1", "old")).toMatchObject({
+        id: "old",
+        kind: "chat",
+      });
+    });
+
     it("carries every legacy entry into the new index, kind-stamped, when one new session is saved", async () => {
       const files = fake_vault();
       seed_legacy(files);
