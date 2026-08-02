@@ -7,12 +7,11 @@ export {
   type RagQueryResponse,
 } from "$lib/features/rag/application/rag_mcp_bridge";
 export { RagStore } from "$lib/features/rag/state/rag_store.svelte";
-export { load_rag_sessions } from "$lib/features/rag/application/rag_sessions_load";
+export { load_assistant_sessions } from "$lib/features/rag/application/assistant_sessions_load";
 export { register_rag_actions } from "$lib/features/rag/application/rag_actions";
 export { default as RagPanel } from "$lib/features/rag/ui/rag_panel.svelte";
 export type { RagPersistencePort } from "$lib/features/rag/ports";
 export type { AiMessage as AgentHistoryMessage } from "$lib/features/rag/domain/agent_history";
-export { create_rag_persistence_tauri_adapter } from "$lib/features/rag/adapters/rag_persistence_tauri_adapter";
 export {
   AgentRunner,
   type AgentCheckpointGit,

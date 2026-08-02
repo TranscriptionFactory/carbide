@@ -1,11 +1,5 @@
-import type {
-  RagSession,
-  RagSessionSummary,
-} from "$lib/features/rag/domain/rag_types";
+import type { AssistantSessionPersistencePort } from "$lib/features/assistant";
 
-export interface RagPersistencePort {
-  list_sessions(vault_id: string): Promise<RagSessionSummary[]>;
-  load_session(vault_id: string, id: string): Promise<RagSession | null>;
-  save_session(vault_id: string, session: RagSession): Promise<void>;
-  delete_session(vault_id: string, id: string): Promise<void>;
-}
+// Chat sessions are assistant sessions (I4), so rag persists through the one
+// assistant contract rather than a parallel port of the same shape.
+export type RagPersistencePort = AssistantSessionPersistencePort;

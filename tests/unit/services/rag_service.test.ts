@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { RagService } from "$lib/features/rag";
 import { VaultStore } from "$lib/features/vault";
 import { create_test_vault } from "../helpers/test_fixtures";
-import { create_test_rag_persistence_adapter } from "../../adapters/test_rag_persistence_adapter";
+import { create_test_assistant_session_persistence_adapter } from "../../adapters/test_assistant_session_persistence_adapter";
 import type {
   RunEvent,
   RunHandle,
@@ -21,7 +21,7 @@ import type {
   RagStreamEvent,
 } from "$lib/features/rag/domain/rag_types";
 
-const persistence = create_test_rag_persistence_adapter();
+const persistence = create_test_assistant_session_persistence_adapter();
 const tag = { get_notes_for_tag: vi.fn().mockResolvedValue([]) };
 const bases = { load_view: vi.fn(), query: vi.fn() };
 

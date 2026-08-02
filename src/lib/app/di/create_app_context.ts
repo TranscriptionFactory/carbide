@@ -1191,7 +1191,6 @@ export function create_app_context(input: {
     ...base_action_input,
     ai_store: stores.ai,
     ai_service,
-    ai_history: input.ports.ai_history,
     agentic_runner: new AgenticEditRunner(assistant_kernel, git_service),
   });
 
@@ -1446,8 +1445,8 @@ export function create_app_context(input: {
     rag_store: stores.rag,
     rag_service,
     assistant_kernel,
+    assistant_sessions: stores.assistant_sessions,
     ai_store: stores.ai,
-    ai_history_port: input.ports.ai_history,
     tag_store: stores.tag,
     tag_service,
     // stt_store: stores.stt,
