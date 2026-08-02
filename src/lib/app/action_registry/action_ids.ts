@@ -338,6 +338,10 @@ export const ACTION_IDS = {
   assistant_stop_run: "assistant.stop_run",
   assistant_stop_all_runs: "assistant.stop_all_runs",
   assistant_open_session: "assistant.open_session",
+  assistant_open_proposals: "assistant.open_proposals",
+  assistant_accept_proposal: "assistant.accept_proposal",
+  assistant_accept_proposals: "assistant.accept_proposals",
+  assistant_reject_proposal: "assistant.reject_proposal",
 
   rag_open: "rag.open",
   rag_ask: "rag.ask",
