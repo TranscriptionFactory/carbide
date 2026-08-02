@@ -37,8 +37,8 @@ import { VimNavStore } from "$lib/features/vim_nav";
 import { McpStore } from "$lib/features/mcp";
 import { SmartLinksStore } from "$lib/features/smart_links";
 import { SearchGraphStore } from "$lib/features/graph";
-import { RagStore } from "$lib/features/rag";
 import {
+  AssistantChatStore,
   AssistantProposalStore,
   AssistantNoticeStore,
   AssistantRunStore,
@@ -87,7 +87,7 @@ export type AppStores = {
   mcp: McpStore;
   smart_links: SmartLinksStore;
   search_graph: SearchGraphStore;
-  rag: RagStore;
+  rag: AssistantChatStore;
   assistant_runs: AssistantRunStore;
   assistant_sessions: AssistantSessionStore;
   assistant_proposals: AssistantProposalStore;
@@ -140,7 +140,7 @@ export function create_app_stores(): AppStores {
     mcp: new McpStore(),
     smart_links: new SmartLinksStore(),
     search_graph: new SearchGraphStore(),
-    rag: new RagStore(assistant_sessions),
+    rag: new AssistantChatStore(assistant_sessions),
     assistant_runs: new AssistantRunStore(),
     assistant_sessions,
     assistant_proposals: new AssistantProposalStore(),

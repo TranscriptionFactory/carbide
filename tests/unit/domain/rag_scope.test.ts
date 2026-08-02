@@ -3,7 +3,6 @@ import {
   normalize_folder_scope,
   normalize_tag_scope,
   normalize_base_scope,
-  migrate_scope,
   path_in_folder,
   scope_phrase,
 } from "$lib/features/rag/domain/rag_scope";
@@ -52,38 +51,6 @@ describe("normalize_base_scope", () => {
     expect(normalize_base_scope("  views/active.base  ")).toBe(
       "views/active.base",
     );
-  });
-});
-
-describe("migrate_scope", () => {
-  it("coerces legacy single-value folder and tag into arrays", () => {
-    expect(migrate_scope({ folder: "projects", tag: "active" })).toEqual({
-      folders: ["projects"],
-      tags: ["active"],
-    });
-  });
-
-  it("drops legacy empty values", () => {
-    expect(migrate_scope({ folder: "", tag: "  " })).toEqual({});
-    expect(migrate_scope({ folder: "projects", tag: "" })).toEqual({
-      folders: ["projects"],
-    });
-  });
-
-  it("passes array shapes through unchanged", () => {
-    expect(
-      migrate_scope({
-        folders: ["a", "b"],
-        tags: ["t"],
-        bases: ["views/x.base"],
-      }),
-    ).toEqual({ folders: ["a", "b"], tags: ["t"], bases: ["views/x.base"] });
-  });
-
-  it("returns an empty scope for empty or invalid input", () => {
-    expect(migrate_scope({})).toEqual({});
-    expect(migrate_scope(null)).toEqual({});
-    expect(migrate_scope(undefined)).toEqual({});
   });
 });
 

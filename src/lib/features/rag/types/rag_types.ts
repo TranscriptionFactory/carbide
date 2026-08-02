@@ -1,6 +1,7 @@
 import type { HitSource } from "$lib/shared/types/search";
 import type {
   AssistantChatMode,
+  AssistantChatSourceInfo,
   AssistantCitation,
   AssistantContextStats,
   AssistantMessage,
@@ -39,13 +40,7 @@ export type RagToolCall = AssistantToolCall;
 
 export type RagMessage = AssistantMessage;
 
-export type RagSourceInfo = {
-  note_path: string;
-  title: string;
-  score: number;
-  truncated: boolean;
-  pinned: boolean;
-};
+export type RagSourceInfo = AssistantChatSourceInfo;
 
 export type RagStreamEvent =
   | { type: "generating" }

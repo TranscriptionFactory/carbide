@@ -2,8 +2,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ActionRegistry } from "$lib/app/action_registry/action_registry";
 import { ACTION_IDS } from "$lib/app/action_registry/action_ids";
 import { register_rag_actions } from "$lib/features/rag";
-import { RagStore } from "$lib/features/rag";
 import {
+  AssistantChatStore,
   AssistantProposalStore,
   AssistantSessionStore,
 } from "$lib/features/assistant";
@@ -62,7 +62,7 @@ function stream_query(events: RagStreamEvent[]) {
 function create_harness(events: RagStreamEvent[] = ANSWERED_EVENTS) {
   const registry = new ActionRegistry();
   const assistant_sessions = new AssistantSessionStore();
-  const rag_store = new RagStore(assistant_sessions);
+  const chat_store = new AssistantChatStore(assistant_sessions);
   const stores = {
     ui: new UIStore(),
     op: new OpStore(),
@@ -76,6 +76,9 @@ function create_harness(events: RagStreamEvent[] = ANSWERED_EVENTS) {
 
   const rag_service = {
     query: stream_query(events),
+  };
+
+  const session_service = {
     save_session: vi.fn().mockResolvedValue(undefined),
     delete_session: vi.fn().mockResolvedValue(undefined),
     generate_title: vi.fn().mockResolvedValue(null),
@@ -114,8 +117,9 @@ function create_harness(events: RagStreamEvent[] = ANSWERED_EVENTS) {
       reset_app_state: true,
       bootstrap_default_vault_path: null,
     },
-    rag_store,
+    chat_store,
     rag_service: rag_service as never,
+    session_service: session_service as never,
     assistant_kernel: assistant_kernel as never,
     assistant_proposals: new AssistantProposalStore(),
   });
@@ -123,9 +127,10 @@ function create_harness(events: RagStreamEvent[] = ANSWERED_EVENTS) {
   return {
     registry,
     stores,
-    rag_store,
+    chat_store,
     assistant_sessions,
     rag_service,
+    session_service,
     note_open,
     services,
   };
@@ -141,24 +146,24 @@ function flush() {
 
 describe("register_rag_actions", () => {
   it("asks: runs the query and records user + assistant messages", async () => {
-    const { registry, rag_store, rag_service, stores } = create_harness();
+    const { registry, chat_store, rag_service, stores } = create_harness();
 
     await registry.execute(ACTION_IDS.rag_ask, "what is it?");
 
     expect(rag_service.query).toHaveBeenCalledWith(
       expect.objectContaining({ question: "what is it?" }),
     );
-    expect(rag_store.messages.map((m) => m.role)).toEqual([
+    expect(chat_store.messages.map((m) => m.role)).toEqual([
       "user",
       "assistant",
     ]);
-    expect(rag_store.messages[1]?.citations).toHaveLength(1);
-    expect(rag_store.is_loading).toBe(false);
+    expect(chat_store.messages[1]?.citations).toHaveLength(1);
+    expect(chat_store.is_loading).toBe(false);
     expect(stores.op.get("rag.ask").status).toBe("success");
   });
 
   it("asks: applies pending sources at event receipt and clears them on finish", async () => {
-    const { registry, rag_store, rag_service } = create_harness();
+    const { registry, chat_store, rag_service } = create_harness();
     const source: RagSourceInfo = {
       note_path: "notes/q.md",
       title: "Q",
@@ -176,7 +181,7 @@ describe("register_rag_actions", () => {
           stats: { retrieved: 1, used: 1, truncated: 0 },
           sources: [source],
         };
-        pending_before_text = rag_store.pending_sources;
+        pending_before_text = chat_store.pending_sources;
         yield { type: "text", text: "42." };
         yield { type: "done" };
       },
@@ -185,7 +190,7 @@ describe("register_rag_actions", () => {
     await registry.execute(ACTION_IDS.rag_ask, "what is it?");
 
     expect(pending_before_text).toEqual([source]);
-    expect(rag_store.pending_sources).toBeNull();
+    expect(chat_store.pending_sources).toBeNull();
   });
 
   it("asks: passes RAG retrieval settings from editor settings", async () => {
@@ -236,12 +241,13 @@ describe("register_rag_actions", () => {
   });
 
   it("asks: persists the active session after a completed turn", async () => {
-    const { registry, rag_service } = create_harness();
+    const { registry, session_service } = create_harness();
 
     await registry.execute(ACTION_IDS.rag_ask, "what is it?");
 
-    expect(rag_service.save_session).toHaveBeenCalledTimes(1);
-    const [vault_id, session] = rag_service.save_session.mock.calls[0] ?? [];
+    expect(session_service.save_session).toHaveBeenCalledTimes(1);
+    const [vault_id, session] =
+      session_service.save_session.mock.calls[0] ?? [];
     expect(vault_id).toBe("v1");
     expect(session.messages.map((m: { role: string }) => m.role)).toEqual([
       "user",
@@ -250,20 +256,20 @@ describe("register_rag_actions", () => {
   });
 
   it("delete session: removes from the store and deletes the persisted file", async () => {
-    const { registry, rag_store, rag_service } = create_harness();
+    const { registry, chat_store, session_service } = create_harness();
     await registry.execute(ACTION_IDS.rag_ask, "what is it?");
-    const id = rag_store.active_id;
+    const id = chat_store.active_id;
 
     await registry.execute(ACTION_IDS.rag_delete_session, id);
 
-    expect(rag_store.sessions).toEqual([]);
-    expect(rag_service.delete_session).toHaveBeenCalledWith("v1", id);
+    expect(chat_store.sessions).toEqual([]);
+    expect(session_service.delete_session).toHaveBeenCalledWith("v1", id);
   });
 
   it("switching sessions mid-stream does not let the old turn write into it", async () => {
-    const { registry, rag_store, rag_service } = create_harness();
+    const { registry, chat_store, rag_service } = create_harness();
     await registry.execute(ACTION_IDS.rag_ask, "first question");
-    const first_id = rag_store.active_id;
+    const first_id = chat_store.active_id;
 
     rag_service.query = vi.fn(
       async function* (): AsyncGenerator<RagStreamEvent> {
@@ -275,53 +281,53 @@ describe("register_rag_actions", () => {
       },
     );
 
-    rag_store.start_new_session();
+    chat_store.start_new_session();
     await registry.execute(ACTION_IDS.rag_ask, "second question");
 
-    const first = rag_store.sessions.find((s) => s.id === first_id);
+    const first = chat_store.sessions.find((s) => s.id === first_id);
     expect(first?.messages.some((m) => m.content.includes("continued"))).toBe(
       false,
     );
   });
 
   it("asks: surfaces a failed query as store error", async () => {
-    const { registry, rag_store, stores } = create_harness([
+    const { registry, chat_store, stores } = create_harness([
       { type: "error", error: "index down" },
     ]);
 
     await registry.execute(ACTION_IDS.rag_ask, "q");
 
-    expect(rag_store.error).toBe("index down");
+    expect(chat_store.error).toBe("index down");
     expect(stores.op.get("rag.ask").status).toBe("error");
   });
 
   it("asks: persists the session even when the turn fails", async () => {
-    const { registry, rag_service } = create_harness([
+    const { registry, session_service } = create_harness([
       { type: "error", error: "index down" },
     ]);
 
     await registry.execute(ACTION_IDS.rag_ask, "doomed question");
 
-    expect(rag_service.save_session).toHaveBeenCalledTimes(1);
-    const [vault_id, session] = (rag_service.save_session.mock.calls[0] ??
+    expect(session_service.save_session).toHaveBeenCalledTimes(1);
+    const [vault_id, session] = (session_service.save_session.mock.calls[0] ??
       []) as [string, { messages: { content: string }[] }];
     expect(vault_id).toBe("v1");
     expect(session.messages.map((m) => m.content)).toEqual(["doomed question"]);
   });
 
   it("asks: keeps the partial reply when the stream errors mid-answer", async () => {
-    const { registry, rag_store } = create_harness([
+    const { registry, chat_store } = create_harness([
       { type: "text", text: "partial answer" },
       { type: "error", error: "rate limited" },
     ]);
 
     await registry.execute(ACTION_IDS.rag_ask, "q");
 
-    expect(rag_store.messages.map((m) => m.content)).toEqual([
+    expect(chat_store.messages.map((m) => m.content)).toEqual([
       "q",
       "partial answer",
     ]);
-    expect(rag_store.error).toBe("rate limited");
+    expect(chat_store.error).toBe("rate limited");
   });
 
   it("asks: skips open-note images for an unrelated vault-wide question", async () => {
@@ -355,11 +361,11 @@ describe("register_rag_actions", () => {
   });
 
   it("asks: attaches open-note images when the note sits inside the folder scope", async () => {
-    const { registry, rag_service, rag_store, stores } = create_harness();
+    const { registry, rag_service, chat_store, stores } = create_harness();
     stores.editor.open_note = {
       meta: { path: "projects/pic.md", title: "Pic" },
     };
-    rag_store.set_scope({ folders: ["projects"] });
+    chat_store.set_scope({ folders: ["projects"] });
 
     await registry.execute(ACTION_IDS.rag_ask, "what is in this folder?");
 
@@ -372,18 +378,18 @@ describe("register_rag_actions", () => {
   });
 
   it("new chat clears the conversation and resets the pending op", async () => {
-    const { registry, rag_store, stores } = create_harness();
+    const { registry, chat_store, stores } = create_harness();
     await registry.execute(ACTION_IDS.rag_ask, "what is it?");
-    expect(rag_store.messages.length).toBeGreaterThan(0);
+    expect(chat_store.messages.length).toBeGreaterThan(0);
 
     await registry.execute(ACTION_IDS.rag_new_chat);
 
-    expect(rag_store.messages).toEqual([]);
+    expect(chat_store.messages).toEqual([]);
     expect(stores.op.get("rag.ask").status).toBe("idle");
   });
 
   it("a turn invalidated mid-stream stops writing to the store", async () => {
-    const { registry, rag_store, rag_service, stores } = create_harness();
+    const { registry, chat_store, rag_service, stores } = create_harness();
     rag_service.query = vi.fn(
       async function* (): AsyncGenerator<RagStreamEvent> {
         yield { type: "text", text: "partial" };
@@ -396,18 +402,18 @@ describe("register_rag_actions", () => {
 
     await registry.execute(ACTION_IDS.rag_ask, "q");
 
-    expect(rag_store.messages).toEqual([]);
-    expect(rag_store.streaming_id).toBeNull();
+    expect(chat_store.messages).toEqual([]);
+    expect(chat_store.streaming_id).toBeNull();
     expect(stores.op.get("rag.ask").status).toBe("idle");
   });
 
   it("asks: ignores blank questions", async () => {
-    const { registry, rag_service, rag_store } = create_harness();
+    const { registry, rag_service, chat_store } = create_harness();
 
     await registry.execute(ACTION_IDS.rag_ask, "   ");
 
     expect(rag_service.query).not.toHaveBeenCalled();
-    expect(rag_store.messages).toEqual([]);
+    expect(chat_store.messages).toEqual([]);
   });
 
   it("asks: does nothing when AI is disabled", async () => {
@@ -423,13 +429,13 @@ describe("register_rag_actions", () => {
   });
 
   it("open: selects the rag sidebar view and seeds the provider", async () => {
-    const { registry, stores, rag_store } = create_harness();
+    const { registry, stores, chat_store } = create_harness();
 
     await registry.execute(ACTION_IDS.rag_open);
 
     expect(stores.ui.sidebar_view).toBe("rag");
     expect(stores.ui.sidebar_open).toBe(true);
-    expect(rag_store.provider_id).toBe(PROVIDER_ID);
+    expect(chat_store.provider_id).toBe(PROVIDER_ID);
   });
 
   it("open_citation: delegates to note.open with the note path", async () => {
@@ -441,21 +447,21 @@ describe("register_rag_actions", () => {
   });
 
   it("copy message: routes the message content through the clipboard service", async () => {
-    const { registry, rag_store, services } = create_harness();
+    const { registry, chat_store, services } = create_harness();
 
     await registry.execute(ACTION_IDS.rag_ask, "what is it?");
-    const assistant = rag_store.messages[1];
+    const assistant = chat_store.messages[1];
     await registry.execute(ACTION_IDS.rag_copy_message, assistant?.id);
 
     expect(services.clipboard.copy_text).toHaveBeenCalledWith("42 [1].");
   });
 
   it("copy message: reports a clipboard failure instead of rejecting", async () => {
-    const { registry, rag_store, services } = create_harness();
+    const { registry, chat_store, services } = create_harness();
     services.clipboard.copy_text.mockRejectedValueOnce(new Error("denied"));
 
     await registry.execute(ACTION_IDS.rag_ask, "what is it?");
-    const assistant = rag_store.messages[1];
+    const assistant = chat_store.messages[1];
 
     await expect(
       registry.execute(ACTION_IDS.rag_copy_message, assistant?.id),
@@ -464,9 +470,9 @@ describe("register_rag_actions", () => {
   });
 
   it("regenerate: cuts the reply and re-asks the same question without duplicating it", async () => {
-    const { registry, rag_store, rag_service } = create_harness();
+    const { registry, chat_store, rag_service } = create_harness();
     await registry.execute(ACTION_IDS.rag_ask, "what is it?");
-    const assistant_id = rag_store.messages[1]?.id;
+    const assistant_id = chat_store.messages[1]?.id;
 
     await registry.execute(ACTION_IDS.rag_regenerate, assistant_id);
 
@@ -474,23 +480,23 @@ describe("register_rag_actions", () => {
     expect(rag_service.query).toHaveBeenLastCalledWith(
       expect.objectContaining({ question: "what is it?", history: [] }),
     );
-    expect(rag_store.messages.map((m) => m.role)).toEqual([
+    expect(chat_store.messages.map((m) => m.role)).toEqual([
       "user",
       "assistant",
     ]);
-    expect(rag_store.messages[0]?.content).toBe("what is it?");
+    expect(chat_store.messages[0]?.content).toBe("what is it?");
   });
 
   it("regenerate: keeps the reply when AI is disabled", async () => {
-    const { registry, rag_store, rag_service, stores } = create_harness();
+    const { registry, chat_store, rag_service, stores } = create_harness();
     await registry.execute(ACTION_IDS.rag_ask, "what is it?");
-    const assistant_id = rag_store.messages[1]?.id;
+    const assistant_id = chat_store.messages[1]?.id;
     stores.ui.editor_settings.ai_enabled = false;
 
     await registry.execute(ACTION_IDS.rag_regenerate, assistant_id);
 
     expect(rag_service.query).toHaveBeenCalledTimes(1);
-    expect(rag_store.messages.map((m) => m.role)).toEqual([
+    expect(chat_store.messages.map((m) => m.role)).toEqual([
       "user",
       "assistant",
     ]);
@@ -506,47 +512,47 @@ describe("register_rag_actions", () => {
   });
 
   it("fork: clones the session, activates it, and persists the fork", async () => {
-    const { registry, rag_store, rag_service } = create_harness();
+    const { registry, chat_store, session_service } = create_harness();
     await registry.execute(ACTION_IDS.rag_ask, "what is it?");
-    const original_id = rag_store.active_id;
-    const assistant_id = rag_store.messages[1]?.id;
-    rag_service.save_session.mockClear();
+    const original_id = chat_store.active_id;
+    const assistant_id = chat_store.messages[1]?.id;
+    session_service.save_session.mockClear();
 
     await registry.execute(ACTION_IDS.rag_fork, assistant_id);
 
-    expect(rag_store.active_id).not.toBe(original_id);
-    expect(rag_store.sessions).toHaveLength(2);
-    expect(rag_service.save_session).toHaveBeenCalledTimes(1);
-    const [, session] = (rag_service.save_session.mock.calls[0] ?? []) as [
+    expect(chat_store.active_id).not.toBe(original_id);
+    expect(chat_store.sessions).toHaveLength(2);
+    expect(session_service.save_session).toHaveBeenCalledTimes(1);
+    const [, session] = (session_service.save_session.mock.calls[0] ?? []) as [
       string,
       { id: string; title: string },
     ];
-    expect(session.id).toBe(rag_store.active_id);
+    expect(session.id).toBe(chat_store.active_id);
     expect(session.title).toMatch(/\(fork\)$/);
   });
 
   it("autotitle: renames the session after the first exchange and only once", async () => {
-    const { registry, rag_store, rag_service } = create_harness();
-    rag_service.generate_title.mockResolvedValue("Model title");
+    const { registry, chat_store, session_service } = create_harness();
+    session_service.generate_title.mockResolvedValue("Model title");
 
     await registry.execute(ACTION_IDS.rag_ask, "what is it about caching?");
     await flush();
 
-    const session = rag_store.sessions[0];
+    const session = chat_store.sessions[0];
     expect(session?.title).toBe("Model title");
     expect(session?.title_source).toBe("generated");
-    expect(rag_service.save_session).toHaveBeenCalledTimes(2);
+    expect(session_service.save_session).toHaveBeenCalledTimes(2);
 
     await registry.execute(ACTION_IDS.rag_ask, "and what else?");
     await flush();
 
-    expect(rag_service.generate_title).toHaveBeenCalledTimes(1);
+    expect(session_service.generate_title).toHaveBeenCalledTimes(1);
   });
 
   it("autotitle: skips sessions the user renamed", async () => {
-    const { registry, rag_store, assistant_sessions, rag_service } =
+    const { registry, chat_store, assistant_sessions, session_service } =
       create_harness();
-    rag_service.generate_title.mockResolvedValue("Model title");
+    session_service.generate_title.mockResolvedValue("Model title");
     assistant_sessions.hydrate([
       {
         id: "a",
@@ -564,75 +570,75 @@ describe("register_rag_actions", () => {
         changed_files: [],
       },
     ]);
-    rag_store.switch_session("a");
+    chat_store.switch_session("a");
 
     await registry.execute(ACTION_IDS.rag_ask, "what is it?");
     await flush();
 
-    expect(rag_service.generate_title).not.toHaveBeenCalled();
-    expect(rag_store.sessions[0]?.title).toBe("My name");
+    expect(session_service.generate_title).not.toHaveBeenCalled();
+    expect(chat_store.sessions[0]?.title).toBe("My name");
   });
 
   it("autotitle: keeps the derived title when generation fails", async () => {
-    const { registry, rag_store, rag_service } = create_harness();
-    rag_service.generate_title.mockResolvedValue(null);
+    const { registry, chat_store, session_service } = create_harness();
+    session_service.generate_title.mockResolvedValue(null);
 
     await registry.execute(ACTION_IDS.rag_ask, "what is it?");
     await flush();
 
-    expect(rag_store.sessions[0]?.title).toBe("what is it?");
-    expect(rag_store.sessions[0]?.title_source).toBe("derived");
-    expect(rag_service.save_session).toHaveBeenCalledTimes(1);
+    expect(chat_store.sessions[0]?.title).toBe("what is it?");
+    expect(chat_store.sessions[0]?.title_source).toBe("derived");
+    expect(session_service.save_session).toHaveBeenCalledTimes(1);
   });
 
   // A stopped naming run is what generate_title now reports as null, and the
   // point of that is that nothing downstream writes.
   it("autotitle: writes nothing to the session when the naming run is stopped", async () => {
-    const { registry, rag_store, rag_service } = create_harness();
-    rag_service.generate_title.mockResolvedValue(null);
-    const rename = vi.spyOn(rag_store, "rename_session");
+    const { registry, chat_store, session_service } = create_harness();
+    session_service.generate_title.mockResolvedValue(null);
+    const rename = vi.spyOn(chat_store, "rename_session");
 
     await registry.execute(ACTION_IDS.rag_ask, "what is it?");
     await flush();
 
-    expect(rag_service.generate_title).toHaveBeenCalledTimes(1);
+    expect(session_service.generate_title).toHaveBeenCalledTimes(1);
     expect(rename).not.toHaveBeenCalled();
   });
 
   it("autotitle: drops a stale title when the revision moved on", async () => {
-    const { registry, rag_store, rag_service } = create_harness();
+    const { registry, chat_store, session_service } = create_harness();
     let resolve_title!: (value: string | null) => void;
-    rag_service.generate_title.mockImplementation(
+    session_service.generate_title.mockImplementation(
       () => new Promise<string | null>((resolve) => (resolve_title = resolve)),
     );
 
     await registry.execute(ACTION_IDS.rag_ask, "what is it?");
-    const session_id = rag_store.active_id;
+    const session_id = chat_store.active_id;
     await registry.execute(ACTION_IDS.rag_new_chat);
     resolve_title("Stale title");
     await flush();
 
-    const session = rag_store.sessions.find((s) => s.id === session_id);
+    const session = chat_store.sessions.find((s) => s.id === session_id);
     expect(session?.title).toBe("what is it?");
-    expect(rag_service.save_session).toHaveBeenCalledTimes(1);
+    expect(session_service.save_session).toHaveBeenCalledTimes(1);
   });
 
   it("autotitle: keeps a manual rename made while generation is in flight", async () => {
-    const { registry, rag_store, rag_service } = create_harness();
+    const { registry, chat_store, session_service } = create_harness();
     let resolve_title!: (value: string | null) => void;
-    rag_service.generate_title.mockImplementation(
+    session_service.generate_title.mockImplementation(
       () => new Promise<string | null>((resolve) => (resolve_title = resolve)),
     );
 
     await registry.execute(ACTION_IDS.rag_ask, "what is it?");
-    const session_id = rag_store.active_id!;
-    rag_store.rename_session(session_id, "Manual title");
+    const session_id = chat_store.active_id!;
+    chat_store.rename_session(session_id, "Manual title");
     resolve_title("Generated title");
     await flush();
 
-    const session = rag_store.sessions.find((s) => s.id === session_id);
+    const session = chat_store.sessions.find((s) => s.id === session_id);
     expect(session?.title).toBe("Manual title");
     expect(session?.title_source).toBe("manual");
-    expect(rag_service.save_session).toHaveBeenCalledTimes(1);
+    expect(session_service.save_session).toHaveBeenCalledTimes(1);
   });
 });

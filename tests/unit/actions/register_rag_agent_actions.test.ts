@@ -1,8 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ActionRegistry } from "$lib/app/action_registry/action_registry";
 import { ACTION_IDS } from "$lib/app/action_registry/action_ids";
-import { register_rag_actions, RagStore } from "$lib/features/rag";
+import { register_rag_actions } from "$lib/features/rag";
 import {
+  AssistantChatStore,
   AssistantProposalStore,
   AssistantSessionStore,
 } from "$lib/features/assistant";
@@ -45,7 +46,7 @@ function create_harness(
   workspace: { open_note?: HarnessOpenNote; background_tab?: HarnessTab } = {},
 ) {
   const registry = new ActionRegistry();
-  const rag_store = new RagStore(new AssistantSessionStore());
+  const chat_store = new AssistantChatStore(new AssistantSessionStore());
   const stores = {
     ui: new UIStore(),
     op: new OpStore(),
@@ -63,7 +64,7 @@ function create_harness(
   stores.ui.editor_settings.ai_providers = BUILTIN_PROVIDER_PRESETS;
   stores.ui.editor_settings.ai_default_provider_id = "claude";
 
-  const rag_service = {
+  const session_service = {
     save_session: vi.fn().mockResolvedValue(undefined),
     delete_session: vi.fn().mockResolvedValue(undefined),
     generate_title: vi.fn().mockResolvedValue(null),
@@ -111,8 +112,9 @@ function create_harness(
       reset_app_state: true,
       bootstrap_default_vault_path: null,
     },
-    rag_store,
-    rag_service: rag_service as never,
+    chat_store,
+    rag_service: {} as never,
+    session_service: session_service as never,
     assistant_kernel: assistant_kernel as never,
     assistant_proposals: new AssistantProposalStore(),
   });
@@ -120,8 +122,8 @@ function create_harness(
   return {
     registry,
     stores,
-    rag_store,
-    rag_service,
+    chat_store,
+    session_service,
     assistant_kernel,
     git_service,
     note_service,
@@ -180,8 +182,8 @@ describe("rag agent actions", () => {
   // I3: rag_actions used to carry its own `auto` rule that returned
   // providers[0] with no availability probe. It now asks the one resolver.
   it("ask: resolves the provider through the kernel, not a local rule", async () => {
-    const { registry, stores, rag_store, assistant_kernel } = create_harness();
-    rag_store.set_mode("agent");
+    const { registry, stores, chat_store, assistant_kernel } = create_harness();
+    chat_store.set_mode("agent");
     stores.ui.editor_settings.ai_default_provider_id = "auto";
     assistant_kernel.resolve_provider.mockResolvedValue(
       stores.ui.editor_settings.ai_providers.find((p) => p.id === "claude") ??
@@ -195,8 +197,8 @@ describe("rag agent actions", () => {
   });
 
   it("ask: gives up rather than running an unresolvable provider", async () => {
-    const { registry, stores, rag_store, assistant_kernel } = create_harness();
-    rag_store.set_mode("agent");
+    const { registry, stores, chat_store, assistant_kernel } = create_harness();
+    chat_store.set_mode("agent");
     stores.ui.editor_settings.ai_default_provider_id = "auto";
     assistant_kernel.resolve_provider.mockResolvedValue(null);
 
@@ -207,28 +209,28 @@ describe("rag agent actions", () => {
   });
 
   it("set_mode: switches the session mode to agent", async () => {
-    const { registry, rag_store } = create_harness();
+    const { registry, chat_store } = create_harness();
 
     await registry.execute(ACTION_IDS.rag_set_mode, "agent");
 
-    expect(rag_store.mode).toBe("agent");
+    expect(chat_store.mode).toBe("agent");
   });
 
   it("set_mode: refuses agent mode when AI is disabled", async () => {
-    const { registry, stores, rag_store } = create_harness();
+    const { registry, stores, chat_store } = create_harness();
     stores.ui.editor_settings.ai_enabled = false;
 
     await registry.execute(ACTION_IDS.rag_set_mode, "agent");
 
-    expect(rag_store.mode).toBe("ask");
+    expect(chat_store.mode).toBe("ask");
     expect(toast.info).toHaveBeenCalledWith(
       "AI Assistant is disabled in settings",
     );
   });
 
   it("ask in agent mode: does nothing when AI is disabled", async () => {
-    const { registry, stores, rag_store, assistant_kernel } = create_harness();
-    rag_store.set_mode("agent");
+    const { registry, stores, chat_store, assistant_kernel } = create_harness();
+    chat_store.set_mode("agent");
     stores.ui.editor_settings.ai_enabled = false;
 
     await registry.execute(ACTION_IDS.rag_ask, "organize my notes");
@@ -240,8 +242,8 @@ describe("rag agent actions", () => {
   });
 
   it("ask in agent mode: refuses text-only CLI providers with a toast", async () => {
-    const { registry, stores, rag_store, assistant_kernel } = create_harness();
-    rag_store.set_mode("agent");
+    const { registry, stores, chat_store, assistant_kernel } = create_harness();
+    chat_store.set_mode("agent");
     stores.ui.editor_settings.ai_default_provider_id = "ollama";
 
     await registry.execute(ACTION_IDS.rag_ask, "organize my notes");
@@ -250,13 +252,13 @@ describe("rag agent actions", () => {
     expect(toast.error).toHaveBeenCalledWith(
       "Ollama does not support agent mode",
     );
-    expect(rag_store.messages).toEqual([]);
+    expect(chat_store.messages).toEqual([]);
   });
 
   it("ask in agent mode: runs the agent turn and records the reply", async () => {
-    const { registry, rag_store, assistant_kernel, git_service, stores } =
+    const { registry, chat_store, assistant_kernel, git_service, stores } =
       create_harness();
-    rag_store.set_mode("agent");
+    chat_store.set_mode("agent");
 
     await registry.execute(ACTION_IDS.rag_ask, "organize my notes");
 
@@ -266,18 +268,18 @@ describe("rag agent actions", () => {
       prompt: "organize my notes",
       toolset: { kind: "read_only" },
     });
-    expect(rag_store.messages.map((m) => m.role)).toEqual([
+    expect(chat_store.messages.map((m) => m.role)).toEqual([
       "user",
       "assistant",
     ]);
-    expect(rag_store.messages[1]?.content).toBe("All organized.");
-    expect(rag_store.active?.agent_session_id).toBe("sess-1");
+    expect(chat_store.messages[1]?.content).toBe("All organized.");
+    expect(chat_store.active?.agent_session_id).toBe("sess-1");
     expect(stores.op.get("rag.ask").status).toBe("success");
   });
 
   it("ask in agent mode: routes the claude provider to the harness backend", async () => {
-    const { registry, rag_store, assistant_kernel } = create_harness();
-    rag_store.set_mode("agent");
+    const { registry, chat_store, assistant_kernel } = create_harness();
+    chat_store.set_mode("agent");
 
     await registry.execute(ACTION_IDS.rag_ask, "organize my notes");
 
@@ -286,8 +288,8 @@ describe("rag agent actions", () => {
   });
 
   it("ask in agent mode: routes api providers to the native backend", async () => {
-    const { registry, stores, rag_store, assistant_kernel } = create_harness();
-    rag_store.set_mode("agent");
+    const { registry, stores, chat_store, assistant_kernel } = create_harness();
+    chat_store.set_mode("agent");
     stores.ui.editor_settings.ai_default_provider_id = "lmstudio";
 
     await registry.execute(ACTION_IDS.rag_ask, "organize my notes");
@@ -314,13 +316,13 @@ describe("rag agent actions", () => {
     const {
       registry,
       stores,
-      rag_store,
-      rag_service,
+      chat_store,
+      session_service,
       assistant_kernel,
       git_service,
     } = create_harness(events);
     register_refresh_tree(registry);
-    rag_store.set_mode("agent");
+    chat_store.set_mode("agent");
     stores.ui.editor_settings.ai_default_provider_id = "lmstudio";
 
     await registry.execute(ACTION_IDS.rag_ask, "create a note");
@@ -331,36 +333,36 @@ describe("rag agent actions", () => {
       toolset: { kind: "read_only" },
       backend: "native",
     });
-    expect(rag_store.messages.map((m) => m.role)).toEqual([
+    expect(chat_store.messages.map((m) => m.role)).toEqual([
       "user",
       "assistant",
     ]);
-    expect(rag_store.messages[1]?.content).toBe("Created the note.");
-    expect(rag_store.active?.agent_session_id).toBe("native-sess");
-    expect(rag_store.active?.changed_files).toEqual(["notes/new.md"]);
-    expect(rag_service.save_session).toHaveBeenCalled();
+    expect(chat_store.messages[1]?.content).toBe("Created the note.");
+    expect(chat_store.active?.agent_session_id).toBe("native-sess");
+    expect(chat_store.active?.changed_files).toEqual(["notes/new.md"]);
+    expect(session_service.save_session).toHaveBeenCalled();
     expect(stores.op.get("rag.ask").status).toBe("success");
   });
 
   it("set_permission_mode: updates the store and active session", async () => {
-    const { registry, rag_store } = create_harness();
-    rag_store.set_mode("agent");
-    rag_store.add_user_message("hi");
+    const { registry, chat_store } = create_harness();
+    chat_store.set_mode("agent");
+    chat_store.add_user_message("hi");
 
     await registry.execute(ACTION_IDS.rag_set_permission_mode, "power");
 
-    expect(rag_store.permission_mode).toBe("power");
-    expect(rag_store.active?.permission_mode).toBe("power");
+    expect(chat_store.permission_mode).toBe("power");
+    expect(chat_store.active?.permission_mode).toBe("power");
   });
 
   it("new_chat: seeds permission_mode from the configured default", async () => {
-    const { registry, stores, rag_store } = create_harness();
+    const { registry, stores, chat_store } = create_harness();
     stores.ui.editor_settings.ai_agent_permission_default = "power";
-    rag_store.set_permission_mode("safe");
+    chat_store.set_permission_mode("safe");
 
     await registry.execute(ACTION_IDS.rag_new_chat);
 
-    expect(rag_store.permission_mode).toBe("power");
+    expect(chat_store.permission_mode).toBe("power");
   });
 
   it("agent_abort: is a no-op when nothing is running", async () => {
@@ -374,16 +376,16 @@ describe("rag agent actions", () => {
   // The harness CLI edits disk directly, so nothing but this sync tells the
   // editor its buffer went stale.
   it("agent write to the open clean note reloads the editor buffer", async () => {
-    const { registry, stores, rag_store, note_service, editor_service } =
+    const { registry, stores, chat_store, note_service, editor_service } =
       create_harness(agent_write_events(["/vault/demo/notes/open.md"]), {
         open_note: { meta: { path: "notes/open.md" }, is_dirty: false },
       });
     register_refresh_tree(registry);
-    rag_store.set_mode("agent");
+    chat_store.set_mode("agent");
 
     await registry.execute(ACTION_IDS.rag_ask, "rewrite the open note");
 
-    expect(rag_store.active?.changed_files).toEqual(["notes/open.md"]);
+    expect(chat_store.active?.changed_files).toEqual(["notes/open.md"]);
     expect(stores.tab.invalidate_cache_by_path).toHaveBeenCalledWith(
       "notes/open.md",
     );
@@ -399,12 +401,12 @@ describe("rag agent actions", () => {
   });
 
   it("agent write to a dirty open note surfaces a conflict instead of reloading", async () => {
-    const { registry, rag_store, note_service, tab_service } = create_harness(
+    const { registry, chat_store, note_service, tab_service } = create_harness(
       agent_write_events(["/vault/demo/notes/open.md"]),
       { open_note: { meta: { path: "notes/open.md" }, is_dirty: true } },
     );
     register_refresh_tree(registry);
-    rag_store.set_mode("agent");
+    chat_store.set_mode("agent");
 
     await registry.execute(ACTION_IDS.rag_ask, "rewrite the open note");
 
@@ -413,7 +415,7 @@ describe("rag agent actions", () => {
   });
 
   it("agent write to a note open in a background tab invalidates its cache", async () => {
-    const { registry, rag_store, note_service, tab_service } = create_harness(
+    const { registry, chat_store, note_service, tab_service } = create_harness(
       agent_write_events(["/vault/demo/notes/other.md"]),
       {
         open_note: { meta: { path: "notes/open.md" }, is_dirty: false },
@@ -421,7 +423,7 @@ describe("rag agent actions", () => {
       },
     );
     register_refresh_tree(registry);
-    rag_store.set_mode("agent");
+    chat_store.set_mode("agent");
 
     await registry.execute(ACTION_IDS.rag_ask, "rewrite another note");
 
@@ -432,13 +434,13 @@ describe("rag agent actions", () => {
   // delete_note and rename_note are mutating, so a "changed" path can be one
   // that no longer exists — reloading it would fail the open and strand the tab.
   it("agent delete of the open note clears the buffer and removes the tab", async () => {
-    const { registry, rag_store, note_service, tab_service, editor_service } =
+    const { registry, chat_store, note_service, tab_service, editor_service } =
       create_harness(agent_delete_events("notes/open.md"), {
         open_note: { meta: { path: "notes/open.md" }, is_dirty: false },
       });
     register_refresh_tree(registry);
     note_service.open_note.mockResolvedValue({ status: "not_found" });
-    rag_store.set_mode("agent");
+    chat_store.set_mode("agent");
 
     await registry.execute(ACTION_IDS.rag_ask, "delete the open note");
 
@@ -456,12 +458,12 @@ describe("rag agent actions", () => {
   });
 
   it("a surviving note is reloaded, not cleared", async () => {
-    const { registry, rag_store, note_service, tab_service } = create_harness(
+    const { registry, chat_store, note_service, tab_service } = create_harness(
       agent_write_events(["/vault/demo/notes/open.md"]),
       { open_note: { meta: { path: "notes/open.md" }, is_dirty: false } },
     );
     register_refresh_tree(registry);
-    rag_store.set_mode("agent");
+    chat_store.set_mode("agent");
 
     await registry.execute(ACTION_IDS.rag_ask, "rewrite the open note");
 
@@ -470,15 +472,15 @@ describe("rag agent actions", () => {
   });
 
   it("agent write to a note nobody has open only refreshes the tree", async () => {
-    const { registry, rag_store, note_service, tab_service } = create_harness(
+    const { registry, chat_store, note_service, tab_service } = create_harness(
       agent_write_events(["/vault/demo/notes/fresh.md"]),
     );
     const refresh = register_refresh_tree(registry);
-    rag_store.set_mode("agent");
+    chat_store.set_mode("agent");
 
     await registry.execute(ACTION_IDS.rag_ask, "make a new note");
 
-    expect(rag_store.active?.changed_files).toEqual(["notes/fresh.md"]);
+    expect(chat_store.active?.changed_files).toEqual(["notes/fresh.md"]);
     expect(refresh).toHaveBeenCalledTimes(1);
     expect(note_service.open_note).not.toHaveBeenCalled();
     expect(tab_service.mark_conflict).not.toHaveBeenCalled();

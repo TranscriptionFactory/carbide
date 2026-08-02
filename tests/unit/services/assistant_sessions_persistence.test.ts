@@ -1,39 +1,29 @@
 import { describe, expect, it } from "vitest";
-import { RagService, RagStore } from "$lib/features/rag";
-import { AssistantSessionStore } from "$lib/features/assistant";
-import { VaultStore } from "$lib/features/vault";
-import { load_assistant_sessions } from "$lib/features/rag";
+import {
+  AssistantChatStore,
+  AssistantSessionService,
+  AssistantSessionStore,
+  load_assistant_sessions,
+} from "$lib/features/assistant";
 import { create_test_assistant_session_persistence_adapter } from "../../adapters/test_assistant_session_persistence_adapter";
-import { create_test_vault } from "../helpers/test_fixtures";
-import type { RagScope, RagSession } from "$lib/features/rag/domain/rag_types";
+import type { AssistantScope, AssistantSession } from "$lib/features/assistant";
 
 const VAULT_ID = "v1";
 
 function make_service(
   persistence = create_test_assistant_session_persistence_adapter(),
 ) {
-  const vault_store = new VaultStore();
-  vault_store.set_vault(create_test_vault({ path: "/vault/demo" as never }));
-  return new RagService(
-    { hybrid_search: () => Promise.resolve([]) } as never,
-    { read_note: () => Promise.resolve({ markdown: "" }) } as never,
-    { stream_text: () => (async function* () {})(), abort: () => {} } as never,
-    vault_store,
-    persistence,
-    { get_notes_for_tag: () => Promise.resolve([]) } as never,
-    {
-      load_view: () => Promise.resolve(),
-      query: () => Promise.resolve(),
-    } as never,
-  );
+  return new AssistantSessionService(persistence, {
+    start: () => Promise.reject(new Error("no run expected")),
+  });
 }
 
 function make_stores() {
   const sessions = new AssistantSessionStore();
-  return { sessions, store: new RagStore(sessions) };
+  return { sessions, store: new AssistantChatStore(sessions) };
 }
 
-function session(overrides: Partial<RagSession> = {}): RagSession {
+function session(overrides: Partial<AssistantSession> = {}): AssistantSession {
   return {
     id: "s1",
     kind: "chat",
@@ -55,7 +45,7 @@ function session(overrides: Partial<RagSession> = {}): RagSession {
   };
 }
 
-describe("rag session persistence round-trip", () => {
+describe("assistant session persistence round-trip", () => {
   it("restores prior sessions and their messages into a fresh store", async () => {
     const persistence = create_test_assistant_session_persistence_adapter();
     const writer = make_service(persistence);
@@ -81,7 +71,10 @@ describe("rag session persistence round-trip", () => {
       VAULT_ID,
       session({
         id: "legacy",
-        scope: { folder: "projects", tag: "active" } as unknown as RagScope,
+        scope: {
+          folder: "projects",
+          tag: "active",
+        } as unknown as AssistantScope,
       }),
     );
 
@@ -154,7 +147,7 @@ describe("rag session persistence round-trip", () => {
 
     const legacy: Record<string, unknown> = { ...session({ id: "legacy" }) };
     delete legacy["title_source"];
-    await writer.save_session(VAULT_ID, legacy as unknown as RagSession);
+    await writer.save_session(VAULT_ID, legacy as unknown as AssistantSession);
 
     const { sessions, store } = make_stores();
     await load_assistant_sessions(

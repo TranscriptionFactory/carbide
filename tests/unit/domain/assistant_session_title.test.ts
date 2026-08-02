@@ -2,10 +2,10 @@ import { describe, expect, it } from "vitest";
 import {
   sanitize_generated_title,
   should_autotitle,
-} from "$lib/features/rag/domain/rag_session";
-import type { RagSession } from "$lib/features/rag/domain/rag_types";
+} from "$lib/features/assistant";
+import type { AssistantSession } from "$lib/features/assistant";
 
-function session(overrides: Partial<RagSession> = {}): RagSession {
+function session(overrides: Partial<AssistantSession> = {}): AssistantSession {
   return {
     id: "s1",
     kind: "chat",

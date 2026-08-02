@@ -1,20 +1,23 @@
 import { describe, expect, it } from "vitest";
-import { RagStore } from "$lib/features/rag";
-import { AssistantSessionStore } from "$lib/features/assistant";
-import type { AssistantMessage } from "$lib/features/assistant";
+import {
+  AssistantChatStore,
+  AssistantSessionStore,
+} from "$lib/features/assistant";
 import type {
-  RagCitation,
-  RagMessage,
-  RagSession,
-} from "$lib/features/rag/domain/rag_types";
+  AssistantCitation,
+  AssistantMessage,
+  AssistantSession,
+} from "$lib/features/assistant";
 
-const citation: RagCitation = {
+const citation: AssistantCitation = {
   index: 1,
   note_path: "notes/q.md",
   title: "Q",
 };
 
-function saved_session(overrides: Partial<RagSession> = {}): RagSession {
+function saved_session(
+  overrides: Partial<AssistantSession> = {},
+): AssistantSession {
   return {
     id: "s1",
     kind: "chat",
@@ -35,15 +38,15 @@ function saved_session(overrides: Partial<RagSession> = {}): RagSession {
 
 function create_store() {
   const sessions = new AssistantSessionStore();
-  return { sessions, store: new RagStore(sessions) };
+  return { sessions, store: new AssistantChatStore(sessions) };
 }
 
 // I4: the chat panel renders sessions it does not own. These pin that the
-// assistant store is the single source rather than a place RagStore copies to.
-describe("RagStore session ownership", () => {
+// assistant store is the single source rather than a place AssistantChatStore copies to.
+describe("AssistantChatStore session ownership", () => {
   function create_shared() {
     const sessions = new AssistantSessionStore();
-    return { sessions, store: new RagStore(sessions) };
+    return { sessions, store: new AssistantChatStore(sessions) };
   }
 
   it("puts a session it creates into the assistant store as a chat", () => {
@@ -104,7 +107,7 @@ describe("RagStore session ownership", () => {
       content: "hi",
       citations: [],
     };
-    const as_rag: RagMessage = assistant;
+    const as_rag: AssistantMessage = assistant;
     const back: AssistantMessage = as_rag;
 
     expect(back).toBe(assistant);
@@ -126,9 +129,9 @@ describe("RagStore session ownership", () => {
   });
 });
 
-describe("RagStore", () => {
+describe("AssistantChatStore", () => {
   it("creates a session on the first user message and derives its title", () => {
-    const store = new RagStore(new AssistantSessionStore());
+    const store = new AssistantChatStore(new AssistantSessionStore());
 
     const user = store.add_user_message("what is it about caching?");
 
@@ -139,7 +142,7 @@ describe("RagStore", () => {
   });
 
   it("appends user and assistant messages into the active session", () => {
-    const store = new RagStore(new AssistantSessionStore());
+    const store = new AssistantChatStore(new AssistantSessionStore());
 
     const user = store.add_user_message("what is it?");
     const assistant = store.add_assistant_message("It is 42 [1].", [citation]);
@@ -151,7 +154,7 @@ describe("RagStore", () => {
   });
 
   it("snapshots the current provider and scope into a new session", () => {
-    const store = new RagStore(new AssistantSessionStore());
+    const store = new AssistantChatStore(new AssistantSessionStore());
     store.set_provider("ollama");
     store.set_scope({ folders: ["projects/"] });
 
@@ -162,7 +165,7 @@ describe("RagStore", () => {
   });
 
   it("start_new_session deactivates and bumps the revision", () => {
-    const store = new RagStore(new AssistantSessionStore());
+    const store = new AssistantChatStore(new AssistantSessionStore());
     store.add_user_message("q");
     const before = store.revision;
 
@@ -238,7 +241,7 @@ describe("RagStore", () => {
   });
 
   it("begin_turn increments and returns the revision", () => {
-    const store = new RagStore(new AssistantSessionStore());
+    const store = new AssistantChatStore(new AssistantSessionStore());
     const r1 = store.begin_turn();
     const r2 = store.begin_turn();
     expect(r2).toBe(r1 + 1);
@@ -246,7 +249,7 @@ describe("RagStore", () => {
   });
 
   it("tracks loading then clears it on success", () => {
-    const store = new RagStore(new AssistantSessionStore());
+    const store = new AssistantChatStore(new AssistantSessionStore());
 
     store.start_loading();
     expect(store.is_loading).toBe(true);
@@ -257,7 +260,7 @@ describe("RagStore", () => {
   });
 
   it("sets error and stops loading", () => {
-    const store = new RagStore(new AssistantSessionStore());
+    const store = new AssistantChatStore(new AssistantSessionStore());
     store.start_loading();
 
     store.set_error("model crashed");
@@ -267,13 +270,13 @@ describe("RagStore", () => {
   });
 
   it("set_provider updates provider_id", () => {
-    const store = new RagStore(new AssistantSessionStore());
+    const store = new AssistantChatStore(new AssistantSessionStore());
     store.set_provider("ollama");
     expect(store.provider_id).toBe("ollama");
   });
 
   it("append_streaming_reasoning accumulates reasoning without touching content", () => {
-    const store = new RagStore(new AssistantSessionStore());
+    const store = new AssistantChatStore(new AssistantSessionStore());
     store.add_user_message("q");
     store.start_streaming();
 
@@ -287,7 +290,7 @@ describe("RagStore", () => {
   });
 
   it("fail_streaming keeps a partial reply and surfaces the error beneath it", () => {
-    const store = new RagStore(new AssistantSessionStore());
+    const store = new AssistantChatStore(new AssistantSessionStore());
     store.add_user_message("q");
     store.start_streaming();
     store.append_streaming_text("partial answer");
@@ -303,7 +306,7 @@ describe("RagStore", () => {
   });
 
   it("fail_streaming drops an empty streaming placeholder", () => {
-    const store = new RagStore(new AssistantSessionStore());
+    const store = new AssistantChatStore(new AssistantSessionStore());
     store.add_user_message("q");
     store.start_streaming();
 
@@ -315,7 +318,7 @@ describe("RagStore", () => {
   });
 
   it("fail_streaming keeps a textless turn that ran tools, with the failure recorded", () => {
-    const store = new RagStore(new AssistantSessionStore());
+    const store = new AssistantChatStore(new AssistantSessionStore());
     store.add_user_message("q");
     store.start_streaming();
     store.add_streaming_tool_event({
@@ -340,7 +343,7 @@ describe("RagStore", () => {
   });
 
   it("fail_streaming keeps a textless turn that only reasoned", () => {
-    const store = new RagStore(new AssistantSessionStore());
+    const store = new AssistantChatStore(new AssistantSessionStore());
     store.add_user_message("q");
     store.start_streaming();
     store.append_streaming_reasoning("thinking about it");
@@ -352,7 +355,7 @@ describe("RagStore", () => {
   });
 
   it("fail_streaming records the failure on a kept partial reply", () => {
-    const store = new RagStore(new AssistantSessionStore());
+    const store = new AssistantChatStore(new AssistantSessionStore());
     store.add_user_message("q");
     store.start_streaming();
     store.append_streaming_text("partial answer");
@@ -454,7 +457,7 @@ describe("RagStore", () => {
   });
 
   it("fork_session returns null for an unknown message or no active session", () => {
-    const store = new RagStore(new AssistantSessionStore());
+    const store = new AssistantChatStore(new AssistantSessionStore());
     expect(store.fork_session("nope")).toBeNull();
 
     store.add_user_message("q");
@@ -513,7 +516,7 @@ describe("RagStore", () => {
   });
 
   it("set_streaming_context_stats stamps stats onto the streaming message", () => {
-    const store = new RagStore(new AssistantSessionStore());
+    const store = new AssistantChatStore(new AssistantSessionStore());
     store.add_user_message("q");
     store.start_streaming();
 

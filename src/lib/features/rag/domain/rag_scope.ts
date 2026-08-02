@@ -28,31 +28,6 @@ export function normalize_base_scope(
   return trimmed === "" ? null : trimmed;
 }
 
-function to_scope_list(values: unknown, legacy: unknown): string[] {
-  const raw = Array.isArray(values)
-    ? values
-    : typeof legacy === "string"
-      ? [legacy]
-      : [];
-  return raw
-    .filter((v): v is string => typeof v === "string")
-    .map((v) => v.trim())
-    .filter((v) => v !== "");
-}
-
-export function migrate_scope(raw: unknown): RagScope {
-  if (!raw || typeof raw !== "object") return {};
-  const record = raw as Record<string, unknown>;
-  const scope: RagScope = {};
-  const folders = to_scope_list(record.folders, record.folder);
-  const tags = to_scope_list(record.tags, record.tag);
-  const bases = to_scope_list(record.bases, undefined);
-  if (folders.length) scope.folders = folders;
-  if (tags.length) scope.tags = tags;
-  if (bases.length) scope.bases = bases;
-  return scope;
-}
-
 function join_human(parts: string[]): string {
   if (parts.length <= 1) return parts[0] ?? "";
   return `${parts.slice(0, -1).join(", ")} and ${parts[parts.length - 1]}`;

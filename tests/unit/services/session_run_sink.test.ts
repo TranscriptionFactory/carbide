@@ -5,8 +5,8 @@ import {
   create_session_run_sink,
   type AssistantMessage,
   type RunSink,
+  AssistantChatStore,
 } from "$lib/features/assistant";
-import { RagStore } from "$lib/features/rag";
 import { make_run_spec } from "../helpers/assistant_fixtures";
 
 function create_harness() {
@@ -363,7 +363,7 @@ describe("create_session_run_sink", () => {
     const runs = new AssistantRunStore();
     const sessions = new AssistantSessionStore(() => 1_000);
     const sink = create_session_run_sink({ runs, sessions });
-    const rag = new RagStore(sessions);
+    const rag = new AssistantChatStore(sessions);
 
     const through_sink = create_chat(sessions);
     runs.start(

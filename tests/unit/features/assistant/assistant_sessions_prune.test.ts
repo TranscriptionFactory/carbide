@@ -1,8 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
-import { AssistantSessionStore } from "$lib/features/assistant";
-import { RagStore, load_assistant_sessions } from "$lib/features/rag";
-import type { RagService } from "$lib/features/rag";
-import type { AssistantSession } from "$lib/features/assistant";
+import {
+  AssistantChatStore,
+  AssistantSessionStore,
+  load_assistant_sessions,
+} from "$lib/features/assistant";
+import type {
+  AssistantSession,
+  AssistantSessionService,
+} from "$lib/features/assistant";
 
 const DAY = 24 * 60 * 60 * 1000;
 const NOW = 1_000 * DAY;
@@ -33,14 +38,14 @@ function fake_service(
   return {
     load_all_sessions: vi.fn(() => Promise.resolve(loaded)),
     delete_session,
-  } as unknown as RagService & {
+  } as unknown as AssistantSessionService & {
     delete_session: ReturnType<typeof vi.fn>;
   };
 }
 
 function make_stores() {
   const sessions = new AssistantSessionStore(() => NOW);
-  return { sessions, rag: new RagStore(sessions) };
+  return { sessions, rag: new AssistantChatStore(sessions) };
 }
 
 describe("assistant session pruning at hydration", () => {
@@ -127,10 +132,10 @@ describe("assistant session pruning at hydration", () => {
     expect(service.delete_session).toHaveBeenCalledTimes(3);
   });
 
-  // Deletes go through RagService, not the port, because the service is the
+  // Deletes go through AssistantSessionService, not the port, because the service is the
   // error boundary that swallows and logs a failed delete — hydration must not
   // be able to die on a bad file.
-  it("deletes through RagService and does not wait on it", async () => {
+  it("deletes through AssistantSessionService and does not wait on it", async () => {
     const { sessions, rag } = make_stores();
     const service = fake_service(
       [session({ id: "old", updated_at: NOW - 90 * DAY })],

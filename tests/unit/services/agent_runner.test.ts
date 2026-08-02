@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import { AgentRunner, RagStore } from "$lib/features/rag";
+import { AgentRunner } from "$lib/features/rag";
+import { AssistantChatStore } from "$lib/features/assistant";
 import type { AgentCheckpointOutcome } from "$lib/features/rag/application/agent_runner";
 import { AssistantSessionStore } from "$lib/features/assistant";
 import type {
@@ -21,7 +22,7 @@ const provider: AiProviderConfig = {
 };
 
 function make_stores() {
-  const rag_store = new RagStore(new AssistantSessionStore());
+  const rag_store = new AssistantChatStore(new AssistantSessionStore());
   rag_store.set_mode("agent");
   rag_store.add_user_message("organize my notes");
   const vault_store = new VaultStore();

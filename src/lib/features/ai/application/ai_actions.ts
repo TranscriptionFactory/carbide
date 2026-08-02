@@ -42,10 +42,10 @@ import {
 import type { EditorSelectionSnapshot } from "$lib/shared/types/editor";
 import type {
   AssistantProposalStore,
+  AssistantSessionService,
   AssistantSessionStore,
   RunHandle,
 } from "$lib/features/assistant";
-import type { RagService } from "$lib/features/rag";
 import { build_ai_inline_prompt } from "$lib/features/ai/domain/ai_prompt_builder";
 import {
   build_inline_messages,
@@ -114,7 +114,7 @@ export function register_ai_actions(
     agentic_runner: AgenticEditRunner;
     assistant_sessions: AssistantSessionStore;
     assistant_proposals: AssistantProposalStore;
-    rag_service: RagService;
+    assistant_sessions_service: AssistantSessionService;
   },
 ) {
   const {
@@ -125,7 +125,7 @@ export function register_ai_actions(
     agentic_runner,
     assistant_sessions,
     assistant_proposals,
-    rag_service,
+    assistant_sessions_service,
   } = input;
 
   let dialog_revision = 0;
@@ -1038,8 +1038,8 @@ export function register_ai_actions(
   });
 
   // Store writes stay in one tick so no observer can ever see a one-message
-  // inline session; only persistence is detached, and RagService already
-  // swallows its own failures.
+  // inline session; only persistence is detached, and AssistantSessionService
+  // already swallows its own failures.
   function log_inline_session(result: string) {
     const request = last_inline_request;
     const vault_id = input.stores.vault.active_vault_id;
@@ -1069,7 +1069,7 @@ export function register_ai_actions(
     });
 
     const stored = assistant_sessions.get(created.id);
-    if (stored) void rag_service.save_session(vault_id, stored);
+    if (stored) void assistant_sessions_service.save_session(vault_id, stored);
   }
 
   registry.register({

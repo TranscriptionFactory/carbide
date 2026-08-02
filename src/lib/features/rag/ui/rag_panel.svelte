@@ -176,7 +176,7 @@
     const vault_id = stores.vault.vault?.id;
     const session = rag.active;
     if (!vault_id || !session) return;
-    void services.rag.save_session(vault_id, session);
+    void services.assistant_sessions.save_session(vault_id, session);
   }
 
   function change_provider(id: string) {

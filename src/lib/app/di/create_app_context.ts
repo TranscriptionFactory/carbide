@@ -55,6 +55,7 @@ import {
 import { RagService, RagPanel, register_rag_actions } from "$lib/features/rag";
 import {
   AssistantKernelService,
+  AssistantSessionService,
   ProposalApplyService,
   create_assistant_transport_tauri_adapter,
   register_assistant_actions,
@@ -813,12 +814,16 @@ export function create_app_context(input: {
     input.ports.search,
   );
 
+  const assistant_sessions_service = new AssistantSessionService(
+    input.ports.assistant_persistence,
+    assistant_kernel,
+  );
+
   const rag_service = new RagService(
     input.ports.search,
     input.ports.notes,
     assistant_kernel,
     stores.vault,
-    input.ports.rag_persistence,
     input.ports.tag,
     input.ports.bases,
   );
@@ -960,6 +965,7 @@ export function create_app_context(input: {
       document: document_service,
       clip: clip_service,
       rag: rag_service,
+      assistant_sessions: assistant_sessions_service,
       ai: ai_service,
     },
     default_mount_config: input.default_mount_config,
@@ -1248,7 +1254,7 @@ export function create_app_context(input: {
     agentic_runner: new AgenticEditRunner(assistant_kernel, git_service),
     assistant_sessions: stores.assistant_sessions,
     assistant_proposals: stores.assistant_proposals,
-    rag_service,
+    assistant_sessions_service,
   });
 
   register_assistant_actions({
@@ -1261,8 +1267,9 @@ export function create_app_context(input: {
 
   register_rag_actions({
     ...base_action_input,
-    rag_store: stores.rag,
+    chat_store: stores.rag,
     rag_service,
+    session_service: assistant_sessions_service,
     assistant_kernel,
     assistant_proposals: stores.assistant_proposals,
   });
@@ -1504,6 +1511,7 @@ export function create_app_context(input: {
     mcp_service,
     rag_store: stores.rag,
     rag_service,
+    assistant_sessions_service,
     assistant_kernel,
     assistant_sessions: stores.assistant_sessions,
     ai_store: stores.ai,
