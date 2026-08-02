@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const invoke = vi.fn();
+const invoke = vi.fn<(cmd: string, args: Record<string, unknown>) => unknown>();
 vi.mock("@tauri-apps/api/core", () => ({
-  invoke: (...args: unknown[]) => invoke(...args),
+  invoke: (cmd: string, args: Record<string, unknown>) => invoke(cmd, args),
 }));
 
 const { create_assistant_session_persistence_tauri_adapter } =
