@@ -1,29 +1,7 @@
+// AU-040a moved AgentEvent into the assistant slice, where its only consumer
+// lives, and dissolved AgentDoneStats into RunStats. What is left is the chat
+// panel's own permission-mode view state; AU-040c retires it in favour of
+// AssistantPermissionMode when that view state leaves this slice. The filename
+// outlives its contents by one commit on purpose — renaming it now would churn
+// four importers that all move in AU-040c anyway.
 export type AgentPermissionMode = "safe" | "power";
-
-export type AgentDoneStats = {
-  duration_ms?: number;
-  num_turns?: number;
-  total_cost_usd?: number;
-};
-
-// Mirrors the Rust AgentEvent enum: internally tagged with `type`,
-// snake_case variants, like AiStreamEvent in src-tauri stream.rs.
-export type AgentEvent =
-  | { type: "init"; session_id: string }
-  | { type: "text"; delta: string }
-  | { type: "reasoning"; delta: string }
-  | {
-      type: "tool_start";
-      name: string;
-      input_summary: string;
-      paths: string[];
-      mutating: boolean;
-    }
-  | {
-      type: "tool_end";
-      name: string;
-      ok: boolean;
-      result_summary?: string | null;
-    }
-  | { type: "done"; stats: AgentDoneStats }
-  | { type: "error"; message: string };
