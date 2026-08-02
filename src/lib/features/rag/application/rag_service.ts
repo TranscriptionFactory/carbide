@@ -13,10 +13,13 @@ import type { NoteId, VaultId } from "$lib/shared/types/ids";
 import { is_linked_note_path } from "$lib/shared/types/note";
 import {
   assemble_context,
-  extract_section,
-  type AssembleContextOptions,
-  type RagContextCandidate,
-} from "$lib/features/rag/domain/rag_context_assembler";
+  extract_line_range,
+  DEFAULT_CONTEXT_BUDGET,
+  type AssembledBlock,
+  type ContextAssembly,
+  type ContextBlock,
+  type ContextBudget,
+} from "$lib/features/assistant";
 import { build_rag_prompt } from "$lib/features/rag/domain/rag_prompt_builder";
 import { migrate_scope } from "$lib/features/rag/domain/rag_scope";
 import { build_citation_map } from "$lib/features/rag/domain/rag_citations";
@@ -59,7 +62,6 @@ const DEFAULT_RETRIEVE_LIMIT = 15;
 const DEFAULT_CONTEXT_LIMIT = 8;
 const SCOPE_OVERFETCH = 6;
 const CITED_NOTE_BOOST = 1.25;
-const PINNED_SCORE = Number.MAX_SAFE_INTEGER;
 const TITLE_EXCHANGE_LIMIT = 1000;
 const TITLE_SYSTEM_PROMPT =
   "Reply with only a 2-4 word noun phrase title for this conversation. Sentence case. No punctuation, no quotes.";
@@ -120,6 +122,71 @@ function boost_cited_notes(
     .sort((a, b) => b.score - a.score);
 }
 
+const PINNED_SOURCE = "pinned";
+const RETRIEVED_SOURCE = "retrieved";
+const VAULT_DEDUP_GROUP = "vault";
+
+function compare_ids(a: string, b: string): number {
+  if (a < b) return -1;
+  return a > b ? 1 : 0;
+}
+
+// Mention order is intrinsic to the question, so pinned ids encode it. Padded,
+// because ids break score ties lexicographically: "pinned:10" must not sort
+// ahead of "pinned:2".
+function pinned_block_id(rank: number): string {
+  return `${PINNED_SOURCE}:${String(rank).padStart(3, "0")}`;
+}
+
+// Retrieval order is not intrinsic — the same vault can return the same hits in
+// any order — so a retrieved id is keyed by what the hit *is*. Ranking by
+// position here would leak search order into the assembled context.
+function retrieved_block_id(hit: RetrievalHit): string {
+  const section = hit.section
+    ? `#${String(hit.section.start_line)}-${String(hit.section.end_line)}`
+    : "";
+  return `${RETRIEVED_SOURCE}:${hit.note_path}${section}`;
+}
+
+// Only this many hits can survive the retrieved source's max_blocks, so only
+// these are read from disk. Sorting by the assembler's own key keeps the read
+// bound from changing the answer.
+function take_top(hits: RetrievalHit[], limit: number): RetrievalHit[] {
+  return [...hits]
+    .sort(
+      (a, b) =>
+        b.score - a.score ||
+        compare_ids(retrieved_block_id(a), retrieved_block_id(b)),
+    )
+    .slice(0, limit);
+}
+
+// source_tag carries the HitSource this block was retrieved by.
+function to_contexts(blocks: AssembledBlock[]): RagRetrievedContext[] {
+  return blocks.map((block) => ({
+    index: block.index,
+    note_path: block.note_path ?? "",
+    title: block.title,
+    text: block.text,
+    score: block.score,
+    source: block.source_tag as HitSource,
+    truncated: block.truncated,
+  }));
+}
+
+// Every note we read, whether or not the budget kept it — the pre-assembly
+// count the sources event has always reported.
+function distinct_note_paths(assembly: ContextAssembly): number {
+  const paths = new Set<string>();
+  for (const block of assembly.blocks) {
+    if (block.note_path !== null) paths.add(block.note_path);
+  }
+  for (const dropped of assembly.dropped) {
+    if (dropped.note_path !== null) paths.add(dropped.note_path);
+  }
+  return paths.size;
+}
+
 function to_citation(context: RagRetrievedContext): RagCitation {
   return {
     index: context.index,
@@ -134,7 +201,7 @@ export type RagQueryInput = {
   history?: RagMessage[];
   scope?: RagScope;
   retrieve_limit?: number;
-  assembler_options?: AssembleContextOptions;
+  assembler_options?: Partial<ContextBudget>;
   image_parts?: AiImagePart[];
   // The kernel owns cancellation, so a caller that needs a Stop takes the
   // handle rather than pushing a signal down.
@@ -316,24 +383,50 @@ export class RagService {
     }
 
     const ranked = boost_cited_notes(hits, rewrite.boost_paths);
-    const top = ranked.slice(0, DEFAULT_CONTEXT_LIMIT);
-    const candidates = await this.build_candidates(vault.id, [
-      ...pinned,
-      ...top,
+    const [pinned_blocks, retrieved_blocks] = await Promise.all([
+      this.build_blocks(
+        vault.id,
+        pinned,
+        (_hit, rank) => pinned_block_id(rank),
+        true,
+      ),
+      this.build_blocks(
+        vault.id,
+        take_top(ranked, DEFAULT_CONTEXT_LIMIT),
+        retrieved_block_id,
+        false,
+      ),
     ]);
 
-    if (candidates.length === 0) {
+    if (pinned_blocks.length + retrieved_blocks.length === 0) {
       yield* this.no_results();
       return;
     }
 
-    const contexts = assemble_context(candidates, input.assembler_options);
+    const assembly = assemble_context(
+      [
+        {
+          id: PINNED_SOURCE,
+          dedup_group: VAULT_DEDUP_GROUP,
+          blocks: pinned_blocks,
+        },
+        {
+          id: RETRIEVED_SOURCE,
+          dedup_group: VAULT_DEDUP_GROUP,
+          max_blocks: DEFAULT_CONTEXT_LIMIT,
+          blocks: retrieved_blocks,
+        },
+      ],
+      { ...DEFAULT_CONTEXT_BUDGET, ...input.assembler_options },
+    );
+    const contexts = to_contexts(assembly.blocks);
+
     yield {
       type: "sources",
       stats: {
-        retrieved: new Set(candidates.map((c) => c.note_path)).size,
+        retrieved: distinct_note_paths(assembly),
         used: contexts.length,
-        truncated: contexts.filter((c) => c.truncated).length,
+        truncated: assembly.stats.truncated,
       },
       sources: contexts.map((c) => ({
         note_path: c.note_path,
@@ -420,7 +513,7 @@ export class RagService {
             note_path: existing.note.path,
             note_id: existing.note.id,
             title: existing.note.title,
-            score: PINNED_SCORE,
+            score: 0,
             source: "both",
           };
         } catch (err) {
@@ -580,17 +673,19 @@ export class RagService {
     return doc.markdown;
   }
 
-  private async build_candidates(
+  private async build_blocks(
     vault_id: VaultId,
     hits: RetrievalHit[],
-  ): Promise<RagContextCandidate[]> {
-    const candidates = await Promise.all(
-      hits.map(async (hit): Promise<RagContextCandidate | null> => {
+    id_for: (hit: RetrievalHit, rank: number) => string,
+    pinned: boolean,
+  ): Promise<ContextBlock[]> {
+    const blocks = await Promise.all(
+      hits.map(async (hit, rank): Promise<ContextBlock | null> => {
         try {
           const markdown = await this.read_hit_markdown(vault_id, hit);
           if (markdown == null) return null;
           const text = hit.section
-            ? extract_section(
+            ? extract_line_range(
                 markdown,
                 hit.section.start_line,
                 hit.section.end_line,
@@ -598,11 +693,13 @@ export class RagService {
             : markdown;
           if (hit.section && text.trim().length === 0) return null;
           return {
+            id: id_for(hit, rank),
             note_path: hit.note_path,
             title: hit.title,
             text,
             score: hit.score,
-            source: hit.source,
+            source_tag: hit.source,
+            pinned,
           };
         } catch (err) {
           log.warn("Failed to read retrieved note", {
@@ -613,7 +710,7 @@ export class RagService {
         }
       }),
     );
-    return candidates.filter((c): c is RagContextCandidate => c !== null);
+    return blocks.filter((b): b is ContextBlock => b !== null);
   }
 
   private async *no_results(): AsyncGenerator<RagStreamEvent> {

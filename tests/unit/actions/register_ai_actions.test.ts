@@ -1048,6 +1048,127 @@ describe("register_ai_actions", () => {
         expect(toast.error).toHaveBeenCalledWith("boom");
       });
     });
+
+    describe("context assembly", () => {
+      const LONG = "abcdefghij".repeat(1000);
+
+      function capture_prompts(ai_service: { stream_inline: unknown }) {
+        const seen: { system_prompt: string; user_prompt: string }[] = [];
+        ai_service.stream_inline = vi.fn(function* (args: {
+          system_prompt: string;
+          user_prompt: string;
+        }) {
+          seen.push({
+            system_prompt: args.system_prompt,
+            user_prompt: args.user_prompt,
+          });
+          yield { type: "text", text: "out" };
+        });
+        return seen;
+      }
+
+      async function run_visual(
+        text: string,
+        select: (doc: EditorState["doc"]) => TextSelection,
+        command_id: string,
+      ) {
+        const { registry, view, ai_service } = setup_inline(text);
+        const seen = capture_prompts(ai_service);
+        view.dispatch(view.state.tr.setSelection(select(view.state.doc)));
+        await registry.execute(ACTION_IDS.ai_open_inline_menu);
+        await registry.execute(ACTION_IDS.ai_execute_inline, { command_id });
+        return { seen, view };
+      }
+
+      async function run_source(
+        markdown: string,
+        cursor_offset: number,
+        command_id: string,
+      ) {
+        const { registry, stores, services, ai_service } = setup_inline();
+        stores.editor.set_editor_mode("source");
+        stores.editor.set_source_view_getter(
+          () =>
+            ({
+              state: { selection: { main: { head: cursor_offset } } },
+              coordsAtPos: vi.fn(() => ({ left: 50, top: 60, bottom: 80 })),
+            }) as unknown as import("@codemirror/view").EditorView,
+        );
+        stores.editor.set_cursor_offset(cursor_offset);
+        services.editor.get_ai_context = vi.fn().mockReturnValue({
+          note_path: as_note_path("docs/demo.md"),
+          note_title: "demo",
+          markdown: as_markdown_text(markdown),
+          selection: null,
+        });
+        const seen = capture_prompts(ai_service);
+        await registry.execute(ACTION_IDS.ai_open_inline_menu);
+        await registry.execute(ACTION_IDS.ai_execute_inline, { command_id });
+        return seen;
+      }
+
+      it("reads only backwards from a bare cursor in the visual editor", async () => {
+        const { seen } = await run_visual(
+          LONG,
+          (doc) => TextSelection.create(doc, 6001),
+          "continue",
+        );
+
+        expect(seen[0]?.user_prompt).toBe(LONG.slice(2000, 6000));
+        expect(seen[0]?.user_prompt.length).toBe(4000);
+      });
+
+      it("reads only backwards from a bare cursor in source mode", async () => {
+        const seen = await run_source(LONG, 6000, "continue");
+
+        expect(seen[0]?.user_prompt).toBe(LONG.slice(2000, 6000));
+      });
+
+      it("assembles the same context for the same recipe in either editor", async () => {
+        const { seen: visual } = await run_visual(
+          LONG,
+          (doc) => TextSelection.create(doc, 6001),
+          "continue",
+        );
+        const source = await run_source(LONG, 6000, "continue");
+
+        expect(source[0]).toEqual(visual[0]);
+      });
+
+      it("widens the window on both sides of a selection", async () => {
+        const { seen } = await run_visual(
+          LONG,
+          (doc) => TextSelection.create(doc, 5001, 5101),
+          "continue",
+        );
+
+        expect(seen[0]?.user_prompt).toBe(LONG.slice(1000, 9100));
+      });
+
+      it("captures the selection before the stream transaction deletes it", async () => {
+        const marker = "UNIQUEMARKER";
+        const text = `head ${marker} tail`;
+        const { seen, view } = await run_visual(
+          text,
+          (doc) => TextSelection.create(doc, 6, 6 + marker.length),
+          "continue",
+        );
+
+        expect(seen[0]?.user_prompt).toContain(marker);
+        expect(view.state.doc.textContent).not.toContain(marker);
+      });
+
+      it("sends the selection as the prompt for a selection recipe", async () => {
+        const text = "head SELECTED tail";
+        const { seen } = await run_visual(
+          text,
+          (doc) => TextSelection.create(doc, 6, 14),
+          "improve",
+        );
+
+        expect(seen[0]?.user_prompt).toBe("SELECTED");
+      });
+    });
   });
 
   describe("generate description", () => {

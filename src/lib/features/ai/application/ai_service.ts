@@ -20,6 +20,9 @@ import {
   build_ai_document_prompt,
   build_ai_prompt,
 } from "$lib/features/ai/domain/ai_prompt_builder";
+import { build_editor_sources } from "$lib/features/ai/domain/ai_context_sources";
+import { resolve_policy } from "$lib/shared/domain/prompt_recipes";
+import { assemble_context } from "$lib/features/assistant";
 import { as_note_path } from "$lib/shared/types/ids";
 import type {
   AiStreamChunk,
@@ -178,15 +181,23 @@ export class AiService {
         input.vault_context_settings,
       );
     }
+    // budget null: the panel has never capped the note it sends, and changing
+    // that is a policy decision this cycle deliberately does not make.
+    const assembly = assemble_context(
+      build_editor_sources(resolve_policy(undefined, "panel").context_sources, {
+        ...(context.selection ? { selection: context.selection.text } : {}),
+        active_document: context.note_markdown,
+        ...(vault_context ? { vault: vault_context } : {}),
+      }),
+      null,
+    );
     return {
       prompt: build_ai_prompt({
         note_path: context.note_path,
-        note_markdown: context.note_markdown,
-        selection: context.selection,
+        assembly,
         user_prompt: input.prompt,
         target: context.target,
         mode: input.mode,
-        ...(vault_context ? { vault_context } : {}),
       }),
       working_path: context.note_path,
     };

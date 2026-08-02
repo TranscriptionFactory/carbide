@@ -1,57 +1,47 @@
-import type { EditorSelectionSnapshot } from "$lib/shared/types/editor";
-import type { MarkdownText, NotePath } from "$lib/shared/types/ids";
-import type {
-  AiApplyTarget,
-  AiMode,
-  AiVaultContext,
-  AiVaultContextNote,
-} from "$lib/features/ai/domain/ai_types";
+import type { NotePath } from "$lib/shared/types/ids";
+import type { AiApplyTarget, AiMode } from "$lib/features/ai/domain/ai_types";
 import type { InstructionRecipe } from "$lib/shared/types/prompt_recipe";
+import type { AssembledBlock, ContextAssembly } from "$lib/features/assistant";
+
+const VAULT_SOURCE_IDS = ["similar_notes", "backlinks", "outlinks"];
 
 function section(label: string, value: string): string {
   return `<${label}>\n${value}\n</${label}>`;
 }
 
-function selection_text(
-  selection: EditorSelectionSnapshot | null,
-): string | null {
-  if (!selection) return null;
-  const trimmed = selection.text.trim();
-  return trimmed === "" ? null : selection.text;
+function source_text(assembly: ContextAssembly, source_id: string): string {
+  return assembly.blocks.find((b) => b.source_id === source_id)?.text ?? "";
 }
 
-function format_note(n: AiVaultContextNote): string {
-  return `- ${n.title} (${n.path}): ${n.blurb}`;
+function assembled_note_line(block: AssembledBlock): string {
+  return `- ${block.title} (${block.note_path ?? ""}): ${block.text}`;
 }
 
-function vault_context_sections(ctx: AiVaultContext): string {
-  const entries: [string, AiVaultContextNote[]][] = [
-    ["similar_notes", ctx.similar_notes],
-    ["backlinks", ctx.backlinks],
-    ["outlinks", ctx.outlinks],
-  ];
-  return entries
-    .filter(([, notes]) => notes.length > 0)
-    .map(([label, notes]) => section(label, notes.map(format_note).join("\n")))
+// Rebuilt from the assembly rather than the raw context: the assembler owns
+// order, dedup and truncation, and each surface renders its own headings.
+function assembled_vault_sections(assembly: ContextAssembly): string {
+  return VAULT_SOURCE_IDS.map((source_id) => {
+    const blocks = assembly.blocks.filter((b) => b.source_id === source_id);
+    if (blocks.length === 0) return "";
+    return section(source_id, blocks.map(assembled_note_line).join("\n"));
+  })
+    .filter((part) => part !== "")
     .join("\n\n");
 }
 
 export function build_ai_prompt(input: {
   note_path: NotePath;
-  note_markdown: MarkdownText;
-  selection: EditorSelectionSnapshot | null;
+  assembly: ContextAssembly;
   user_prompt: string;
   target: AiApplyTarget;
   mode: AiMode;
-  vault_context?: AiVaultContext;
 }): string {
   const user_prompt = input.user_prompt.trim();
-  const selected_text = selection_text(input.selection);
+  const selected_text = source_text(input.assembly, "selection");
+  const note_markdown = source_text(input.assembly, "active_document");
 
   function append_vault_context(parts: string[]) {
-    const ctx = input.vault_context;
-    if (!ctx) return;
-    const sections_str = vault_context_sections(ctx);
+    const sections_str = assembled_vault_sections(input.assembly);
     if (!sections_str) return;
     parts.push(
       "Related notes from the vault are provided for additional context.",
@@ -67,7 +57,7 @@ export function build_ai_prompt(input: {
         "Do not return edited markdown. Do not rewrite the text.",
         `Note path: ${input.note_path}`,
         section("selected_text", selected_text),
-        section("full_note_context", input.note_markdown),
+        section("full_note_context", note_markdown),
       ];
       append_vault_context(parts);
       parts.push(section("user_question", user_prompt));
@@ -79,7 +69,7 @@ export function build_ai_prompt(input: {
       "Answer the user's question clearly and concisely.",
       "Do not return edited markdown. Do not rewrite the text.",
       `Note path: ${input.note_path}`,
-      section("note_markdown", input.note_markdown),
+      section("note_markdown", note_markdown),
     ];
     append_vault_context(parts);
     parts.push(section("user_question", user_prompt));
@@ -94,7 +84,7 @@ export function build_ai_prompt(input: {
       "Do not return the full note.",
       `Note path: ${input.note_path}`,
       section("selected_text", selected_text),
-      section("full_note_context", input.note_markdown),
+      section("full_note_context", note_markdown),
     ];
     append_vault_context(parts);
     parts.push(section("user_instructions", user_prompt));
@@ -106,7 +96,7 @@ export function build_ai_prompt(input: {
     "Return ONLY the complete edited markdown for the document and retain all content that is not meant to be edited.",
     "Do not include commentary, explanations, or enclose the markdown in code fences.",
     `Note path: ${input.note_path}`,
-    section("current_markdown", input.note_markdown),
+    section("current_markdown", note_markdown),
   ];
   append_vault_context(parts);
   parts.push(section("user_instructions", user_prompt));
@@ -145,10 +135,9 @@ export function build_ai_document_prompt(input: {
 
 function with_vault_context(
   system_prompt: string,
-  ctx: AiVaultContext | undefined,
+  assembly: ContextAssembly,
 ): string {
-  if (!ctx) return system_prompt;
-  const sections_str = vault_context_sections(ctx);
+  const sections_str = assembled_vault_sections(assembly);
   if (!sections_str) return system_prompt;
   return [
     system_prompt,
@@ -157,24 +146,32 @@ function with_vault_context(
   ].join("\n\n");
 }
 
+// The selection is a preference, not an alternative: an empty selection still
+// falls back to the cursor window.
+function inline_user_prompt(
+  assembly: ContextAssembly,
+  prefer_selection: boolean,
+): string {
+  const window_text = source_text(assembly, "cursor_window");
+  if (!prefer_selection) return window_text;
+  return source_text(assembly, "selection") || window_text;
+}
+
 export function build_ai_inline_prompt(input: {
   command_id: string;
   custom_prompt?: string;
-  context_text: string;
-  selection_text?: string;
+  assembly: ContextAssembly;
   commands?: InstructionRecipe[];
-  vault_context?: AiVaultContext;
 }): { system_prompt: string; user_prompt: string } {
-  const { command_id, custom_prompt, context_text, selection_text, commands } =
-    input;
+  const { command_id, custom_prompt, assembly, commands } = input;
 
   if (command_id === "custom") {
     return {
       system_prompt: with_vault_context(
         custom_prompt ?? "Follow the user's instructions.",
-        input.vault_context,
+        assembly,
       ),
-      user_prompt: selection_text || context_text,
+      user_prompt: inline_user_prompt(assembly, true),
     };
   }
 
@@ -184,11 +181,8 @@ export function build_ai_inline_prompt(input: {
     matched?.system_prompt ??
     "Follow the user's instructions. Output only the result.";
 
-  const user_prompt =
-    matched?.use_selection && selection_text ? selection_text : context_text;
-
   return {
-    system_prompt: with_vault_context(system_prompt, input.vault_context),
-    user_prompt,
+    system_prompt: with_vault_context(system_prompt, assembly),
+    user_prompt: inline_user_prompt(assembly, matched?.use_selection === true),
   };
 }
