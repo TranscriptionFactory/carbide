@@ -4,6 +4,7 @@
   import AssistantProposalCard from "./assistant_proposal_card.svelte";
   import type {
     Proposal,
+    ProposalHunkId,
     ProposalId,
   } from "$lib/features/assistant/types/proposal";
   import type {
@@ -17,6 +18,11 @@
     on_accept_proposal: (id: ProposalId) => void;
     on_accept_all_pending: (ids: ProposalId[]) => void;
     on_reject_proposal: (id: ProposalId) => void;
+    on_toggle_hunk: (
+      id: ProposalId,
+      hunk_id: ProposalHunkId,
+      selected: boolean,
+    ) => void;
   }
 
   let {
@@ -25,6 +31,7 @@
     on_accept_proposal,
     on_accept_all_pending,
     on_reject_proposal,
+    on_toggle_hunk,
   }: Props = $props();
 
   const KIND_GLYPHS: Record<AssistantSessionKind, string> = {
@@ -98,6 +105,7 @@
             {proposal}
             on_accept_all={on_accept_proposal}
             on_reject={on_reject_proposal}
+            {on_toggle_hunk}
           />
         {/each}
       </div>
