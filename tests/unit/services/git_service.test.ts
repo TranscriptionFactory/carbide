@@ -84,6 +84,7 @@ function create_mock_port() {
     stage_and_commit,
     log,
     diff,
+    diff_working,
     show_file_at_commit,
     restore_file,
     discard_file,
@@ -263,7 +264,31 @@ describe("GitService", () => {
       expect.stringContaining("checkpoint-my-checkpoint-"),
       "Checkpoint: My checkpoint",
     );
-    expect(result).toEqual({ status: "created" });
+    // CC-1: the commit sha is the anchor an agent turn's end-of-turn diff
+    // pins itself to; it used to be discarded one layer below this.
+    expect(result).toEqual({ status: "created", sha: "abc123" });
+  });
+
+  it("create_checkpoint keeps the sha when only tagging fails", async () => {
+    const { service, status, create_tag } = create_harness();
+    status.mockResolvedValue({
+      branch: "main",
+      is_dirty: true,
+      ahead: 0,
+      behind: 0,
+      files: [{ path: "a.md", status: "modified" }],
+    });
+    create_tag.mockRejectedValue(new Error("tag exists"));
+
+    const result = await service.create_checkpoint("My checkpoint");
+
+    // The commit landed; only the tag failed. Anchoring on the tag instead of
+    // the sha would lose the anchor in exactly this case.
+    expect(result).toEqual({
+      status: "created",
+      sha: "abc123",
+      warning: "tag exists",
+    });
   });
 
   it("create_checkpoint returns skipped when there is no diff", async () => {
@@ -280,7 +305,68 @@ describe("GitService", () => {
     const result = await service.create_checkpoint("No-op");
     expect(stage_and_commit).toHaveBeenCalled();
     expect(create_tag).not.toHaveBeenCalled();
-    expect(result).toEqual({ status: "skipped" });
+    // Nothing was committed because the tree already matched HEAD, so HEAD
+    // is the pre-checkpoint state and is still a usable anchor.
+    expect(result).toEqual({ status: "skipped", sha: null });
+  });
+
+  it("create_checkpoint resolves HEAD as the anchor when it skips", async () => {
+    const { service, status, stage_and_commit, log } = create_harness();
+    stage_and_commit.mockRejectedValue(new Error("nothing to commit"));
+    log.mockResolvedValue([{ hash: "head-sha" }]);
+    status.mockResolvedValue({
+      branch: "main",
+      is_dirty: false,
+      ahead: 0,
+      behind: 0,
+      files: [],
+    });
+
+    const result = await service.create_checkpoint("No-op");
+
+    expect(log).toHaveBeenCalledWith(expect.anything(), null, 1);
+    expect(result).toEqual({ status: "skipped", sha: "head-sha" });
+  });
+
+  it("create_checkpoint reports no anchor on an unborn branch", async () => {
+    const { service, status, stage_and_commit, log } = create_harness();
+    stage_and_commit.mockRejectedValue(new Error("nothing to commit"));
+    log.mockResolvedValue([]);
+    status.mockResolvedValue({
+      branch: "main",
+      is_dirty: false,
+      ahead: 0,
+      behind: 0,
+      files: [],
+    });
+
+    const result = await service.create_checkpoint("No-op");
+
+    expect(result).toEqual({ status: "skipped", sha: null });
+  });
+
+  it("get_working_diff forwards a base_ref to the port", async () => {
+    const { service, diff_working } = create_harness();
+
+    await service.get_working_diff("note.md", "anchor-sha");
+
+    expect(diff_working).toHaveBeenCalledWith(
+      expect.anything(),
+      "note.md",
+      "anchor-sha",
+    );
+  });
+
+  it("get_working_diff leaves base_ref undefined when none is given", async () => {
+    const { service, diff_working } = create_harness();
+
+    await service.get_working_diff("note.md");
+
+    expect(diff_working).toHaveBeenCalledWith(
+      expect.anything(),
+      "note.md",
+      undefined,
+    );
   });
 
   it("commit_all stages all changes with manual message", async () => {

@@ -31,6 +31,7 @@ function sample_diff(): GitDiff {
     deletions: 1,
     hunks: [
       {
+        file_path: "note.md",
         header: "@@ -1,3 +1,3 @@",
         lines: [
           {

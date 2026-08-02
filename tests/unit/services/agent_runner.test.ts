@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { AgentRunner, RagStore } from "$lib/features/rag";
+import type { AgentCheckpointOutcome } from "$lib/features/rag/application/agent_runner";
 import { AssistantSessionStore } from "$lib/features/assistant";
 import type {
   RunEvent,
@@ -11,6 +12,7 @@ import { VaultStore } from "$lib/features/vault";
 import type { AiProviderConfig } from "$lib/shared/types/ai_provider_config";
 import { create_test_vault } from "../helpers/test_fixtures";
 import { create_test_run_starter } from "../../adapters/test_run_starter";
+import { create_test_proposal_producer } from "../helpers/test_agent_proposals";
 
 const provider: AiProviderConfig = {
   id: "claude",
@@ -42,13 +44,18 @@ function make_harness(events: RunEvent[]) {
     return events;
   });
   const git = {
-    create_checkpoint: vi.fn((_description: string) => {
-      calls.push("checkpoint");
-      return Promise.resolve({ status: "created" as const });
-    }),
+    create_checkpoint: vi.fn(
+      (_description: string): Promise<AgentCheckpointOutcome> => {
+        calls.push("checkpoint");
+        return Promise.resolve({ status: "created", sha: "anchor-sha" });
+      },
+    ),
   };
-  const refresh_vault = vi.fn();
+  const refresh_vault = vi.fn(() => {
+    calls.push("refresh_vault");
+  });
   const sync_changed_notes = vi.fn();
+  const proposals = create_test_proposal_producer(calls);
   const runner = new AgentRunner(
     starter,
     rag_store,
@@ -56,6 +63,7 @@ function make_harness(events: RunEvent[]) {
     git,
     refresh_vault,
     sync_changed_notes,
+    proposals,
   );
   return {
     runner,
@@ -65,6 +73,7 @@ function make_harness(events: RunEvent[]) {
     git,
     refresh_vault,
     sync_changed_notes,
+    proposals,
   };
 }
 
@@ -191,7 +200,7 @@ describe("AgentRunner.run_turn", () => {
     const git = {
       create_checkpoint: vi
         .fn()
-        .mockResolvedValue({ status: "created" as const }),
+        .mockResolvedValue({ status: "created" as const, sha: "anchor-sha" }),
     };
     const refresh_vault = vi.fn();
     const runner = new AgentRunner(
@@ -201,6 +210,7 @@ describe("AgentRunner.run_turn", () => {
       git,
       refresh_vault,
       vi.fn(),
+      create_test_proposal_producer(),
     );
 
     const running = runner.run_turn(provider, "organize my notes", "harness");
@@ -341,9 +351,14 @@ describe("AgentRunner.run_turn", () => {
       starter,
       rag_store,
       vault_store,
-      { create_checkpoint: vi.fn().mockResolvedValue({}) },
+      {
+        create_checkpoint: vi
+          .fn()
+          .mockResolvedValue({ status: "no_repo" as const }),
+      },
       vi.fn(),
       vi.fn(),
+      create_test_proposal_producer(),
     );
 
     const before = rag_store.active?.messages.length ?? 0;
@@ -352,5 +367,113 @@ describe("AgentRunner.run_turn", () => {
     expect(sink_passed).toBe(true);
     expect(rag_store.active?.messages.length).toBe(before);
     expect(rag_store.active?.agent_session_id).toBeUndefined();
+  });
+});
+
+describe("AgentRunner end-of-turn proposals", () => {
+  const writing_turn: RunEvent[] = [
+    tool_start("mcp__carbide__update_note", '{"path":"notes/a.md"}', {
+      paths: ["notes/a.md"],
+      mutating: true,
+    }),
+    { type: "tool_end", name: "mcp__carbide__update_note", ok: true },
+    { type: "text", text: "Done." },
+    { type: "done", stats: {} },
+  ];
+
+  it("hands the checkpoint sha to the producer as the diff anchor", async () => {
+    const { runner, proposals } = make_harness(writing_turn);
+
+    await runner.run_turn(provider, "organize my notes", "harness");
+
+    expect(proposals.produce).toHaveBeenCalledTimes(1);
+    expect(proposals.produce.mock.calls[0]?.[0]).toMatchObject({
+      anchor: "anchor-sha",
+      touched_paths: ["notes/a.md"],
+    });
+  });
+
+  it("stamps the turn's session and run onto the proposals' origin", async () => {
+    const { runner, rag_store, proposals } = make_harness(writing_turn);
+
+    await runner.run_turn(provider, "organize my notes", "harness");
+
+    const request = proposals.produce.mock.calls[0]?.[0];
+    expect(request?.origin.session_id).toBe(rag_store.active?.id);
+    expect(typeof request?.origin.run_id).toBe("string");
+  });
+
+  // Producing proposals rolls the notes back, so the vault refresh and the
+  // open-note sync must run after it or they land on content that is about
+  // to change underneath them.
+  it("produces proposals before refreshing the vault", async () => {
+    const { runner, calls } = make_harness(writing_turn);
+
+    await runner.run_turn(provider, "organize my notes", "harness");
+
+    expect(calls.indexOf("proposals")).toBeGreaterThan(-1);
+    expect(calls.indexOf("proposals")).toBeLessThan(
+      calls.indexOf("refresh_vault"),
+    );
+  });
+
+  // Named I5 carve-out: a vault without git yields no anchor, and the turn
+  // still completes with its writes on disk.
+  it("passes a null anchor through when no checkpoint was taken", async () => {
+    const { runner, git, proposals } = make_harness(writing_turn);
+    git.create_checkpoint.mockResolvedValue({ status: "no_repo" as const });
+
+    const result = await runner.run_turn(
+      provider,
+      "organize my notes",
+      "harness",
+    );
+
+    expect(result).toEqual({ status: "done" });
+    expect(proposals.produce.mock.calls[0]?.[0].anchor).toBeNull();
+  });
+
+  it("skips production entirely for a turn that wrote nothing", async () => {
+    const { runner, proposals } = make_harness([
+      tool_start("mcp__carbide__read_note", '{"path":"notes/a.md"}', {
+        paths: ["notes/a.md"],
+      }),
+      { type: "tool_end", name: "mcp__carbide__read_note", ok: true },
+      { type: "done", stats: {} },
+    ]);
+
+    await runner.run_turn(provider, "organize my notes", "harness");
+
+    expect(proposals.produce).not.toHaveBeenCalled();
+  });
+
+  // A turn that failed after writing still left edits on disk, so they still
+  // have to reach the review queue.
+  it("still produces proposals when the turn ends in an error", async () => {
+    const { runner, proposals } = make_harness([
+      tool_start("mcp__carbide__update_note", '{"path":"notes/a.md"}', {
+        paths: ["notes/a.md"],
+        mutating: true,
+      }),
+      { type: "tool_end", name: "mcp__carbide__update_note", ok: true },
+      { type: "error", message: "provider exploded" },
+    ]);
+
+    await runner.run_turn(provider, "organize my notes", "harness");
+
+    expect(proposals.produce).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not fail the turn when production throws", async () => {
+    const { runner, proposals } = make_harness(writing_turn);
+    proposals.produce.mockRejectedValue(new Error("diff unavailable"));
+
+    const result = await runner.run_turn(
+      provider,
+      "organize my notes",
+      "harness",
+    );
+
+    expect(result).toEqual({ status: "done" });
   });
 });

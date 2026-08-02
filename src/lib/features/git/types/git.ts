@@ -46,7 +46,11 @@ export type GitDiffLine = {
   new_line: number | null;
 };
 
+// `file_path` mirrors the Rust struct (features/git/service.rs) and the
+// generated bindings; the hand-written type had drifted without it, which made
+// per-file attribution of a multi-file diff invisible from TypeScript.
 export type GitDiffHunk = {
+  file_path: string;
   header: string;
   lines: GitDiffLine[];
 };
