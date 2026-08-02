@@ -47,8 +47,7 @@ import { create_linked_source_tree_reactor } from "$lib/reactors/linked_source_t
 import { create_plugin_note_indexed_reactor } from "$lib/reactors/plugin_note_indexed.reactor.svelte";
 import { create_plugin_metadata_events_reactor } from "$lib/reactors/plugin_metadata_events.reactor.svelte";
 import { create_mcp_autostart_reactor } from "$lib/reactors/mcp_autostart.reactor.svelte";
-import { create_rag_sessions_load_reactor } from "$lib/reactors/rag_sessions_load.reactor.svelte";
-import { create_ai_history_load_reactor } from "$lib/reactors/ai_history_load.reactor.svelte";
+import { create_assistant_sessions_load_reactor } from "$lib/reactors/assistant_sessions_load.reactor.svelte";
 import { create_rag_mcp_bridge_reactor } from "$lib/reactors/rag_mcp_bridge.reactor.svelte";
 import { create_visual_editor_diagnostics_reactor } from "$lib/reactors/visual_editor_diagnostics.reactor.svelte";
 import { create_tag_pill_colors_reactor } from "$lib/reactors/tag_pill_colors.reactor.svelte";
@@ -102,8 +101,11 @@ import type { ThemeService } from "$lib/features/theme";
 import type { ReferenceService, ReferenceStore } from "$lib/features/reference";
 import type { McpService } from "$lib/features/mcp";
 import type { RagService, RagStore } from "$lib/features/rag";
-import type { AssistantKernelService } from "$lib/features/assistant";
-import type { AiStore, AiHistoryPersistencePort } from "$lib/features/ai";
+import type {
+  AssistantKernelService,
+  AssistantSessionStore,
+} from "$lib/features/assistant";
+import type { AiStore } from "$lib/features/ai";
 import type { TagService, TagStore } from "$lib/features/tags";
 // import type { SttStore, SttService } from "$lib/features/stt";
 
@@ -157,8 +159,8 @@ export type ReactorContext = {
   rag_store: RagStore;
   rag_service: RagService;
   assistant_kernel: AssistantKernelService;
+  assistant_sessions: AssistantSessionStore;
   ai_store: AiStore;
-  ai_history_port: AiHistoryPersistencePort;
   tag_store: TagStore;
   tag_service: TagService;
   // stt_store: SttStore;
@@ -431,14 +433,10 @@ export function mount_reactors(context: ReactorContext): ReactorHandles {
       context.ui_store,
       context.mcp_service,
     ),
-    create_rag_sessions_load_reactor(
+    create_assistant_sessions_load_reactor(
+      context.assistant_sessions,
       context.rag_store,
       context.rag_service,
-      context.vault_store,
-    ),
-    create_ai_history_load_reactor(
-      context.ai_store,
-      context.ai_history_port,
       context.vault_store,
     ),
     create_rag_mcp_bridge_reactor(

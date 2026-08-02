@@ -2,14 +2,16 @@ import { describe, expect, it } from "vitest";
 import { RagService, RagStore } from "$lib/features/rag";
 import { AssistantSessionStore } from "$lib/features/assistant";
 import { VaultStore } from "$lib/features/vault";
-import { load_rag_sessions } from "$lib/features/rag";
-import { create_test_rag_persistence_adapter } from "../../adapters/test_rag_persistence_adapter";
+import { load_assistant_sessions } from "$lib/features/rag";
+import { create_test_assistant_session_persistence_adapter } from "../../adapters/test_assistant_session_persistence_adapter";
 import { create_test_vault } from "../helpers/test_fixtures";
 import type { RagScope, RagSession } from "$lib/features/rag/domain/rag_types";
 
 const VAULT_ID = "v1";
 
-function make_service(persistence = create_test_rag_persistence_adapter()) {
+function make_service(
+  persistence = create_test_assistant_session_persistence_adapter(),
+) {
   const vault_store = new VaultStore();
   vault_store.set_vault(create_test_vault({ path: "/vault/demo" as never }));
   return new RagService(
@@ -24,6 +26,11 @@ function make_service(persistence = create_test_rag_persistence_adapter()) {
       query: () => Promise.resolve(),
     } as never,
   );
+}
+
+function make_stores() {
+  const sessions = new AssistantSessionStore();
+  return { sessions, store: new RagStore(sessions) };
 }
 
 function session(overrides: Partial<RagSession> = {}): RagSession {
@@ -50,14 +57,14 @@ function session(overrides: Partial<RagSession> = {}): RagSession {
 
 describe("rag session persistence round-trip", () => {
   it("restores prior sessions and their messages into a fresh store", async () => {
-    const persistence = create_test_rag_persistence_adapter();
+    const persistence = create_test_assistant_session_persistence_adapter();
     const writer = make_service(persistence);
     await writer.save_session(VAULT_ID, session({ id: "a", updated_at: 10 }));
     await writer.save_session(VAULT_ID, session({ id: "b", updated_at: 20 }));
 
     const reader = make_service(persistence);
-    const store = new RagStore(new AssistantSessionStore());
-    await load_rag_sessions(store, reader, VAULT_ID);
+    const { sessions, store } = make_stores();
+    await load_assistant_sessions(sessions, store, reader, VAULT_ID);
 
     expect(store.summaries.map((s) => s.id)).toEqual(["b", "a"]);
 
@@ -68,7 +75,7 @@ describe("rag session persistence round-trip", () => {
   });
 
   it("migrates a legacy single-value scope when loading old sessions", async () => {
-    const persistence = create_test_rag_persistence_adapter();
+    const persistence = create_test_assistant_session_persistence_adapter();
     const writer = make_service(persistence);
     await writer.save_session(
       VAULT_ID,
@@ -78,15 +85,20 @@ describe("rag session persistence round-trip", () => {
       }),
     );
 
-    const store = new RagStore(new AssistantSessionStore());
-    await load_rag_sessions(store, make_service(persistence), VAULT_ID);
+    const { sessions, store } = make_stores();
+    await load_assistant_sessions(
+      sessions,
+      store,
+      make_service(persistence),
+      VAULT_ID,
+    );
 
     store.switch_session("legacy");
     expect(store.scope).toEqual({ folders: ["projects"], tags: ["active"] });
   });
 
   it("round-trips tool-call and tool-result messages", async () => {
-    const persistence = create_test_rag_persistence_adapter();
+    const persistence = create_test_assistant_session_persistence_adapter();
     const writer = make_service(persistence);
     const agent_session = session({
       id: "agent",
@@ -118,8 +130,13 @@ describe("rag session persistence round-trip", () => {
     });
     await writer.save_session(VAULT_ID, agent_session);
 
-    const store = new RagStore(new AssistantSessionStore());
-    await load_rag_sessions(store, make_service(persistence), VAULT_ID);
+    const { sessions, store } = make_stores();
+    await load_assistant_sessions(
+      sessions,
+      store,
+      make_service(persistence),
+      VAULT_ID,
+    );
 
     store.switch_session("agent");
     expect(store.messages).toEqual(agent_session.messages);
@@ -128,7 +145,7 @@ describe("rag session persistence round-trip", () => {
   // title_source used to be optional, so files written back then have no such
   // field. They must arrive complete rather than half-typed.
   it("round-trips title_source and completes legacy sessions without it", async () => {
-    const persistence = create_test_rag_persistence_adapter();
+    const persistence = create_test_assistant_session_persistence_adapter();
     const writer = make_service(persistence);
     await writer.save_session(
       VAULT_ID,
@@ -139,8 +156,13 @@ describe("rag session persistence round-trip", () => {
     delete legacy["title_source"];
     await writer.save_session(VAULT_ID, legacy as unknown as RagSession);
 
-    const store = new RagStore(new AssistantSessionStore());
-    await load_rag_sessions(store, make_service(persistence), VAULT_ID);
+    const { sessions, store } = make_stores();
+    await load_assistant_sessions(
+      sessions,
+      store,
+      make_service(persistence),
+      VAULT_ID,
+    );
 
     expect(store.sessions.find((s) => s.id === "named")?.title_source).toBe(
       "manual",
@@ -166,18 +188,19 @@ describe("rag session persistence round-trip", () => {
   });
 
   it("hydrates an empty list when the vault has no sessions", async () => {
-    const store = new RagStore(new AssistantSessionStore());
-    await load_rag_sessions(store, make_service(), VAULT_ID);
+    const { sessions, store } = make_stores();
+    await load_assistant_sessions(sessions, store, make_service(), VAULT_ID);
     expect(store.sessions).toEqual([]);
   });
 
   it("skips the hydrate when the vault is no longer current (switch race)", async () => {
-    const persistence = create_test_rag_persistence_adapter();
+    const persistence = create_test_assistant_session_persistence_adapter();
     const writer = make_service(persistence);
     await writer.save_session(VAULT_ID, session());
 
-    const store = new RagStore(new AssistantSessionStore());
-    await load_rag_sessions(
+    const { sessions, store } = make_stores();
+    await load_assistant_sessions(
+      sessions,
       store,
       make_service(persistence),
       VAULT_ID,
