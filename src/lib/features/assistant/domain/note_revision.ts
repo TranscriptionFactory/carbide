@@ -12,8 +12,7 @@ import type { NoteRevision } from "$lib/features/assistant/types/proposal";
 // that has actually moved, so a single 32-bit hash's collision odds are not
 // acceptable — two seeded passes give ~64 bits of effective space.
 export function compute_note_revision(content: string): NoteRevision {
-  const a = fnv1a32(content, 0x811c9dc5);
-  const b = fnv1a32(content, 0x9e3779b9);
+  const [a, b] = fnv1a32_pair(content);
   return a.toString(16).padStart(8, "0") + b.toString(16).padStart(8, "0");
 }
 
@@ -28,11 +27,15 @@ export function is_stale(
   return compute_note_revision(current_content) !== base_revision;
 }
 
-function fnv1a32(content: string, seed: number): number {
-  let hash = seed >>> 0;
+// Both seeded hashes in one pass over `content` rather than two — same
+// output, half the character reads.
+function fnv1a32_pair(content: string): [number, number] {
+  let a = 0x811c9dc5;
+  let b = 0x9e3779b9;
   for (let i = 0; i < content.length; i++) {
-    hash ^= content.charCodeAt(i);
-    hash = Math.imul(hash, 0x01000193) >>> 0;
+    const code = content.charCodeAt(i);
+    a = Math.imul(a ^ code, 0x01000193) >>> 0;
+    b = Math.imul(b ^ code, 0x01000193) >>> 0;
   }
-  return hash;
+  return [a, b];
 }
