@@ -12,6 +12,7 @@ import {
   SearchService,
   COMMAND_TO_ACTION_ID,
   build_command_context,
+  OmnibarAskController,
 } from "$lib/features/search";
 import {
   EditorService,
@@ -1192,6 +1193,8 @@ export function create_app_context(input: {
     ai_store: stores.ai,
     ai_service,
     agentic_runner: new AgenticEditRunner(assistant_kernel, git_service),
+    assistant_sessions: stores.assistant_sessions,
+    rag_service,
   });
 
   register_assistant_actions({
@@ -1454,11 +1457,28 @@ export function create_app_context(input: {
   });
   flush_lsp_sync = reactor_handles.flush_lsp_sync;
 
+  const omnibar_ask = new OmnibarAskController({
+    query: (ask_input) => rag_service.query(ask_input),
+    sessions: stores.assistant_sessions,
+    resolve_provider: () => assistant_kernel.resolve_provider(),
+    insert_at_cursor: (text) => {
+      editor_service.insert_text(text);
+    },
+    can_insert: () => stores.editor.open_note !== null,
+    open_session: (session_id) => {
+      void action_registry.execute(
+        ACTION_IDS.assistant_open_session,
+        session_id,
+      );
+    },
+  });
+
   return {
     ports: input.ports,
     stores,
     services: base_action_input.services,
     action_registry,
+    omnibar_ask,
     secondary_editor_manager,
     terminal_runtime: terminal_service,
     destroy: () => {

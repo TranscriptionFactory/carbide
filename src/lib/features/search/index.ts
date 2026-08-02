@@ -30,3 +30,8 @@ export type {
   CommandDefinition,
   SearchCommandDefinition,
 } from "$lib/features/search/types/command_palette";
+export { OmnibarAskController } from "$lib/features/search/application/omnibar_ask_service";
+export type {
+  OmnibarAskStatus,
+  OmnibarAskView,
+} from "$lib/features/search/types/omnibar_ask";
