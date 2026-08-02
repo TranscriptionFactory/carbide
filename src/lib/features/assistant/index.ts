@@ -133,6 +133,7 @@ export {
 } from "$lib/features/assistant/application/proposal_apply_service";
 
 export type {
+  ProposalCheckpointOutcome,
   ProposalCheckpointPort,
   ProposalNotePort,
 } from "$lib/features/assistant/ports";

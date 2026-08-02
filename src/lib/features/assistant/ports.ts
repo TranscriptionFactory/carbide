@@ -40,10 +40,22 @@ export interface AssistantSessionPersistencePort {
 // exit-gate greps never grow, and `agent_runner.ts:18` already sets the
 // precedent of a runner declaring its own narrow checkpoint interface.
 
+// `unavailable` is not an error: git is optional in a Carbide vault, and
+// GitService.create_checkpoint *resolves* with no_repo/skipped/failed rather
+// than throwing — so a Promise<void> port would erase the difference between
+// "undo exists" and "we silently rewrote notes with no way back". I5 says
+// mutations flow BEHIND a checkpoint; the apply service cannot honour that
+// against a port that cannot say whether one happened (D2-2).
+export type ProposalCheckpointOutcome =
+  | "created"
+  | "skipped"
+  | "unavailable"
+  | "failed";
+
 // The checkpoint is the undo unit behind every proposal apply (I5). Backed by
 // GitService.create_checkpoint, which commits and tags.
 export interface ProposalCheckpointPort {
-  create_checkpoint(description: string): Promise<void>;
+  create_checkpoint(description: string): Promise<ProposalCheckpointOutcome>;
 }
 
 // Reading is not a convenience: apply must re-read the note to evaluate
