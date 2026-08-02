@@ -48,7 +48,7 @@ import { create_plugin_note_indexed_reactor } from "$lib/reactors/plugin_note_in
 import { create_plugin_metadata_events_reactor } from "$lib/reactors/plugin_metadata_events.reactor.svelte";
 import { create_mcp_autostart_reactor } from "$lib/reactors/mcp_autostart.reactor.svelte";
 import { create_assistant_sessions_load_reactor } from "$lib/reactors/assistant_sessions_load.reactor.svelte";
-import { create_rag_mcp_bridge_reactor } from "$lib/reactors/rag_mcp_bridge.reactor.svelte";
+import { create_assistant_chat_mcp_bridge_reactor } from "$lib/reactors/assistant_chat_mcp_bridge.reactor.svelte";
 import { create_visual_editor_diagnostics_reactor } from "$lib/reactors/visual_editor_diagnostics.reactor.svelte";
 import { create_tag_pill_colors_reactor } from "$lib/reactors/tag_pill_colors.reactor.svelte";
 // STT removed — archived on archive/stt-main
@@ -69,7 +69,11 @@ import type { TabService } from "$lib/features/tab";
 import type { GitStore } from "$lib/features/git";
 import type { GitService } from "$lib/features/git";
 import type { LinksService } from "$lib/features/links";
-import type { SearchStore, WorkspaceIndexPort } from "$lib/features/search";
+import type {
+  SearchPort,
+  SearchStore,
+  WorkspaceIndexPort,
+} from "$lib/features/search";
 import type { LinksStore } from "$lib/features/links";
 import type { WatcherService } from "$lib/features/watcher";
 import type { ActionRegistry } from "$lib/app/action_registry/action_registry";
@@ -100,11 +104,18 @@ import type { CodeLspService } from "$lib/features/code_lsp";
 import type { ThemeService } from "$lib/features/theme";
 import type { ReferenceService, ReferenceStore } from "$lib/features/reference";
 import type { McpService } from "$lib/features/mcp";
-import type { RagService, RagStore } from "$lib/features/rag";
+
 import type {
+  AssistantChatService,
+  AssistantChatStore,
   AssistantKernelService,
+  AssistantNoticeStore,
+  AssistantProposalStore,
+  AssistantSessionService,
   AssistantSessionStore,
 } from "$lib/features/assistant";
+import { produce_ambient_notices } from "$lib/features/assistant";
+import { create_ambient_reactor } from "$lib/reactors/ambient.reactor.svelte";
 import type { AiStore } from "$lib/features/ai";
 import type { TagService, TagStore } from "$lib/features/tags";
 // import type { SttStore, SttService } from "$lib/features/stt";
@@ -156,13 +167,20 @@ export type ReactorContext = {
   reference_service: ReferenceService;
   reference_store: ReferenceStore;
   mcp_service: McpService;
-  rag_store: RagStore;
-  rag_service: RagService;
+  assistant_chat_store: AssistantChatStore;
+  assistant_chat_service: AssistantChatService;
+  assistant_sessions_service: AssistantSessionService;
   assistant_kernel: AssistantKernelService;
   assistant_sessions: AssistantSessionStore;
   ai_store: AiStore;
   tag_store: TagStore;
   tag_service: TagService;
+  assistant_notices: AssistantNoticeStore;
+  assistant_proposals: AssistantProposalStore;
+  // The first port handed to a reactor positionally alongside
+  // WorkspaceIndexPort; ambient reads one indexed snapshot per note and never
+  // touches the vault graph.
+  search_port: SearchPort;
   // stt_store: SttStore;
   // stt_service: SttService;
 };
@@ -245,6 +263,14 @@ export function mount_reactors(context: ReactorContext): ReactorHandles {
       context.tab_service,
       context.note_service,
       conflict_toast_manager,
+    ),
+    create_ambient_reactor(
+      context.ui_store,
+      context.vault_store,
+      context.editor_store,
+      context.assistant_notices,
+      context.search_port,
+      produce_ambient_notices,
     ),
     create_tab_persist_reactor(
       context.tab_store,
@@ -435,13 +461,13 @@ export function mount_reactors(context: ReactorContext): ReactorHandles {
     ),
     create_assistant_sessions_load_reactor(
       context.assistant_sessions,
-      context.rag_store,
-      context.rag_service,
+      context.assistant_chat_store,
+      context.assistant_sessions_service,
       context.vault_store,
       context.ui_store,
     ),
-    create_rag_mcp_bridge_reactor(
-      context.rag_service,
+    create_assistant_chat_mcp_bridge_reactor(
+      context.assistant_chat_service,
       context.ui_store,
       context.assistant_kernel,
     ),

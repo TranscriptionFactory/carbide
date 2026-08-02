@@ -31,7 +31,7 @@ real files as it works, so it can read back what it just wrote mid-turn. When th
 ends, Carbide diffs the vault against the checkpoint it took before the turn, restores
 the notes the agent edited, and queues those edits as proposals for you to review —
 so an agent turn no longer silently rewrites notes you never looked at. Notes the
-agent *created* are left in place (there is nothing to restore them from, so deleting
+agent _created_ are left in place (there is nothing to restore them from, so deleting
 them would lose content), and a note the agent deleted is restored and reported rather
 than removed on its own authority. The trade-off: a follow-up turn in the same
 conversation reads notes without its own earlier edits until you accept them. If the
@@ -41,7 +41,7 @@ write directly, exactly as before.
 Two user-visible fixes ride along:
 
 - **Multi-file diffs merged unrelated files together.** Hunk boundaries were detected
-  by comparing each new hunk's header against only the *previous* hunk, so two
+  by comparing each new hunk's header against only the _previous_ hunk, so two
   different files whose hunks shared a header — two new single-line files both
   reporting `@@ -0,0 +1 @@`, for example — collapsed into one entry with both files'
   content interleaved. Consecutive binary files hit the same bug through a constant

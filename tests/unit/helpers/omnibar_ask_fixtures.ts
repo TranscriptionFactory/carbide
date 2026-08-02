@@ -6,7 +6,7 @@ import {
   type AssistantCitation,
   type RunHandle,
 } from "$lib/features/assistant";
-import type { RagStreamEvent } from "$lib/features/rag";
+import type { AssistantChatStreamEvent } from "$lib/features/assistant";
 import {
   OmnibarAskController,
   type OmnibarAskQueryInput,
@@ -75,7 +75,7 @@ export function make_ask_harness(options: AskHarnessOptions = {}): AskHarness {
 
   async function* query(
     input: OmnibarAskQueryInput,
-  ): AsyncGenerator<RagStreamEvent> {
+  ): AsyncGenerator<AssistantChatStreamEvent> {
     if (options.query_throws) throw options.query_throws;
     yield {
       type: "sources",

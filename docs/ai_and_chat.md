@@ -1,12 +1,19 @@
 # AI & Vault Chat
 
-Carbide's AI surface has three parts: **provider configuration**, **inline ask/edit** in
-the editor, and **Vault Chat** — a multi-turn, citation-backed conversation over your whole
-vault. The same retrieval pipeline that powers Vault Chat is also exposed to external agents
-over MCP.
+Carbide's AI surface has four parts: **provider configuration**, **inline ask/edit** in the
+editor, the **AI Assistant panel** for drafting against the tab you have open, and the
+**assistant** — sessions, runs, proposals and a multi-turn, citation-backed chat over your
+vault. The same retrieval pipeline that powers chat is also exposed to external agents over
+MCP.
 
 All AI features are local-first: they run through whatever provider you configure (a local
 CLI or a local HTTP server). Nothing is sent anywhere you haven't pointed Carbide at.
+
+**How the code is split.** `rag` owns retrieval and index readiness and nothing else — it is
+session-blind, and the assistant reaches it through a port. `assistant` owns sessions, the
+run kernel, proposals, ambient notices and the chat turn. `ai` owns providers, inline
+edit/ask and its diff, and the AI Assistant panel. Anything a conversation knows lives in
+`assistant`; anything about finding notes lives in `rag`.
 
 ## AI providers
 
@@ -46,13 +53,65 @@ when **vault context** is enabled — semantically similar notes and their links
 commands are customizable under **Settings → AI → Inline AI Commands**, where you can override
 the built-ins or add new ones.
 
-## Vault Chat (RAG)
+An accepted inline edit is recorded as an **inline session** (⌁), so it appears in the same
+session list as your chats and can be reopened.
 
-Vault Chat is a sidebar **Chat** view that answers questions by retrieving across the entire
-vault and citing the notes it used.
+## AI Assistant panel
+
+The **AI Assistant** is a bottom-panel surface for drafting against the tab you have open —
+a whole note, a selection within it, or an editable document. Open it with
+`Cmd/Ctrl+Shift+A`, from the **AI Assistant** command in the omnibar, or by picking the **AI**
+tab in the bottom panel.
+
+It works on the current tab rather than on the vault:
+
+- **Edit** drafts a replacement for the note or the selection; **Ask** answers a question
+  about it without proposing a change.
+- **Target** switches between the selection and the full note. Selecting nothing falls back
+  to the full note.
+- Results arrive as a **draft you review before applying** — apply to the selection, apply
+  the whole draft, or refine it and generate again. Nothing is written until you apply.
+- **Vault context** can be toggled on to include semantically similar notes alongside the
+  tab's own content.
+- Each run is kept as a **turn** in the panel's history, with its mode and target, and the
+  history can be cleared.
+- The panel follows the active tab: switching notes starts a fresh session rather than
+  drafting against a note you have navigated away from.
+
+This is a separate surface from Vault Chat, and deliberately so. The assistant panel edits
+_the thing in front of you_; Vault Chat answers _across your notes_.
+
+## Ambient notices
+
+Carbide can surface **notices** about the note you are editing — a link pointing at a note
+that does not exist, or a note nothing links to.
+
+Notices are **opt-in and offer-only**. Nothing here edits a note. Accepting a notice produces
+a **proposal**, and that proposal still has to be accepted in review before anything reaches
+disk — two explicit acts, never one. Notices are in-memory: restarting clears them.
+
+## Vault Chat
+
+Vault Chat is a sidebar **Chat** view that answers questions by retrieving across your vault
+and citing the notes it used.
 
 **Open it** from the sidebar **Chat** icon, or run the **Chat with Vault** command from the
 omnibar/command palette.
+
+### Ask and agent modes
+
+The composer has two modes:
+
+- **Ask** — retrieval-backed question answering. The model reads; it does not write.
+- **Agent** — the model can use tools to change notes in your vault. Available only for
+  providers with a tool-capable backend; the mode toggle is disabled otherwise.
+
+Agent mode has two permission levels. **Safe** limits the agent to note tools; **power**
+lifts that limit. The panel shows which backend is in play — _vault-scoped_ for the native
+loop, _full access_ for a Claude Code agent with system access.
+
+Agent edits do not land directly. They arrive as **proposals** with per-hunk accept/reject,
+reviewable in the proposals tab as well as in the conversation.
 
 ### How retrieval works
 
@@ -65,7 +124,8 @@ Each question runs through a retrieval pipeline before the model ever sees it:
 3. **Hybrid retrieval** runs two searches in parallel — SQLite FTS5 + local embeddings merged
    via Reciprocal Rank Fusion, plus block-level semantic search for the most relevant
    sections — and merges them.
-4. **Scope filters** (folders / tags / Bases views) restrict the candidate set.
+4. **Scope filters** (notes / folders / tags / Bases views) restrict the candidate set. Every
+   dimension you add narrows further — they intersect, they do not widen.
 5. Notes already cited earlier in the conversation get a small ranking **boost** for
    continuity.
 6. The top results are assembled into a **token-budgeted context** (deduplicated by note,
@@ -76,16 +136,32 @@ source in the citation list; **click a citation to open that note**.
 
 ### Sessions
 
-Conversations are saved as **sessions**, persisted per vault:
+Every conversational AI surface produces **sessions** from one model, persisted per vault
+and distinguished by kind:
+
+| Kind   | Glyph | Comes from                    |
+| ------ | ----- | ----------------------------- |
+| chat   | ◈     | the sidebar Chat panel        |
+| note   | ▤     | a thread anchored to one note |
+| inline | ⌁     | an inline editor ask/edit     |
 
 - **Auto-titled** from your first message (trimmed to ~60 characters).
-- **Rename** or **delete** any session; the list is sorted by most-recently-updated.
+- **Rename** or **delete** any session; the list is sorted by most-recently-updated, and can
+  be filtered by kind.
 - **Start a new chat** at any time; switching sessions restores its full history.
+
+**Runs** are the in-flight half of the same model. A run in progress is listed in the runs
+popover with its elapsed time and a stop button, whatever surface started it.
 
 ### Scope, templates, and provider
 
-- **Scope chips** — narrow a conversation to one or more **folders**, **tags**, or **Bases**
-  saved views. The active scope is stored with the session.
+- **Scope chips** — narrow a conversation to **this note**, one or more **folders**,
+  **tags**, or **Bases** saved views. The active scope is stored with the session.
+- **This note** — scopes the chat to the note you have open. It **snapshots** that note
+  rather than following the active tab: the chip reads _This note_ while they are the same
+  note and switches to the note's own title once you navigate away, so a saved conversation
+  never silently restates what its earlier turns searched. Click it again to retarget, or
+  dismiss the chip to clear it.
 - **Templates** — scope-aware quick-starts: **Summarize**, **Action items**,
   **Open questions**, and **Timeline**. They expand into a prompt phrased against the current
   scope.
@@ -110,8 +186,10 @@ See the MCP setup flows in [Plugin How-To](./plugin_howto.md).
 
 ## Storage
 
-- **Chat sessions** live under `<VAULT>/.carbide/rag/` — an `index.json` summary plus one
-  `sessions/<id>.json` file per conversation.
+- **Assistant sessions** live under `<VAULT>/.carbide/assistant/` — an `index.json` summary
+  plus one `sessions/<id>.json` file per conversation, covering every session kind. Sessions
+  written before the assistant slice existed are read from the legacy
+  `<VAULT>/.carbide/rag/` and rewritten into the new location on the next save.
 - **Embeddings and the search index** live in the per-vault SQLite cache database
   (`~/.carbide/caches/vaults/{VAULT_ID}.db`), shared with omnibar and semantic search.
 

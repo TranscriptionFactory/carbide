@@ -5,6 +5,11 @@ import type {
   AssistantSession,
   AssistantSessionSummary,
 } from "$lib/features/assistant/types/session";
+import type {
+  RetrievalOutcome,
+  RetrievalReadiness,
+  RetrievalRequest,
+} from "$lib/features/assistant/types/retrieval";
 
 export type TransportRequest = {
   provider_config: AiProviderConfig;
@@ -33,6 +38,17 @@ export interface AssistantSessionPersistencePort {
   load_session(vault_id: string, id: string): Promise<AssistantSession | null>;
   save_session(vault_id: string, session: AssistantSession): Promise<void>;
   delete_session(vault_id: string, id: string): Promise<void>;
+}
+
+// C3 contract. Retrieval says what it found and where; generation says how much
+// of it to spend. Declared structurally so `rag` never names this type: the
+// DI root builds an object literal over the retrieval service, the same way it
+// already does for ProposalCheckpointPort. An `implements` clause here would
+// force rag to import from `$lib/features/assistant`, which is the edge this
+// cycle exists to remove.
+export interface RetrievalPort {
+  retrieve(request: RetrievalRequest): Promise<RetrievalOutcome>;
+  check_readiness(): Promise<RetrievalReadiness>;
 }
 
 // C2 contract. Both ports are declared structurally rather than imported from

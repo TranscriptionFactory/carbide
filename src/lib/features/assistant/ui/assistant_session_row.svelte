@@ -2,10 +2,8 @@
   import { Check, Pencil, Trash2, X } from "@lucide/svelte";
   import { Input } from "$lib/components/ui/input";
   import { format_relative_time } from "$lib/shared/utils/relative_time";
-  import type {
-    AssistantSessionKind,
-    AssistantSessionSummary,
-  } from "$lib/features/assistant/types/session";
+  import { KIND_GLYPHS } from "$lib/features/assistant/domain/kind_glyphs";
+  import type { AssistantSessionSummary } from "$lib/features/assistant/types/session";
 
   interface Props {
     session: AssistantSessionSummary;
@@ -34,12 +32,6 @@
     on_commit_rename,
     on_cancel_rename,
   }: Props = $props();
-
-  const KIND_GLYPHS: Record<AssistantSessionKind, string> = {
-    inline: "⌁",
-    note: "▤",
-    chat: "◈",
-  };
 
   function rename_keydown(event: KeyboardEvent) {
     if (event.key === "Enter") {

@@ -8,7 +8,7 @@ import {
   type AiMessage,
   type AiStreamChunk,
 } from "$lib/features/ai";
-import type { AgentEvent } from "$lib/features/rag";
+import type { AgentEvent } from "$lib/features/assistant/types/agent_events";
 import type {
   AssistantTransportPort,
   TransportRequest,

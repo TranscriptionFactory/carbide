@@ -42,10 +42,10 @@ import {
 import type { EditorSelectionSnapshot } from "$lib/shared/types/editor";
 import type {
   AssistantProposalStore,
+  AssistantSessionService,
   AssistantSessionStore,
   RunHandle,
 } from "$lib/features/assistant";
-import type { RagService } from "$lib/features/rag";
 import { build_ai_inline_prompt } from "$lib/features/ai/domain/ai_prompt_builder";
 import {
   build_inline_messages,
@@ -114,7 +114,7 @@ export function register_ai_actions(
     agentic_runner: AgenticEditRunner;
     assistant_sessions: AssistantSessionStore;
     assistant_proposals: AssistantProposalStore;
-    rag_service: RagService;
+    assistant_sessions_service: AssistantSessionService;
   },
 ) {
   const {
@@ -125,7 +125,7 @@ export function register_ai_actions(
     agentic_runner,
     assistant_sessions,
     assistant_proposals,
-    rag_service,
+    assistant_sessions_service,
   } = input;
 
   let dialog_revision = 0;
@@ -749,10 +749,8 @@ export function register_ai_actions(
     surface: AssistantSurface,
     material: EditorContextMaterial,
     p: { command_id?: string; prompt?: string } | undefined,
+    commands: InstructionRecipe[],
   ): PendingInlinePrompt {
-    const commands = resolve_instructions(
-      input.stores.ui.editor_settings.ai_inline_commands,
-    );
     const command_id = p?.command_id ?? (p?.prompt ? "custom" : "continue");
     const policy = resolve_policy(
       commands.find((c) => c.id === command_id),
@@ -822,6 +820,7 @@ export function register_ai_actions(
     view: EditorView,
     config: AiProviderConfig,
     p: { command_id?: string; prompt?: string; retry?: boolean } | undefined,
+    commands: InstructionRecipe[],
   ) {
     const editor_ctx = services.editor.get_ai_context();
     if (!editor_ctx) {
@@ -843,6 +842,7 @@ export function register_ai_actions(
           cursor_offset,
         ),
         p,
+        commands,
       );
     }
 
@@ -929,16 +929,21 @@ export function register_ai_actions(
         return;
       }
 
+      // Resolved once, on the only path that reads it: the log label and the
+      // prompt describe the same instruction set, so resolving twice would
+      // invite them to disagree. Retry reuses the request and the prompts
+      // already recorded and reads no instruction set at all, which is why
+      // this stays inside the guard rather than above it.
+      let commands: InstructionRecipe[] = [];
+
       // Retry reuses the request that is already recorded; overwriting it here
       // would lose the prompt, since a retry payload carries neither.
       if (!p?.retry) {
+        commands = resolve_instructions(
+          input.stores.ui.editor_settings.ai_inline_commands,
+        );
         last_inline_request = {
-          prompt: describe_inline_request(
-            p,
-            resolve_instructions(
-              input.stores.ui.editor_settings.ai_inline_commands,
-            ),
-          ),
+          prompt: describe_inline_request(p, commands),
           provider_id: config.id,
           ...(input.stores.editor.open_note
             ? { note_path: String(input.stores.editor.open_note.meta.path) }
@@ -953,7 +958,7 @@ export function register_ai_actions(
       if (!state.open || state.streaming) return;
 
       if (in_source_mode()) {
-        await execute_inline_source(view, config, p);
+        await execute_inline_source(view, config, p, commands);
         return;
       }
 
@@ -972,6 +977,7 @@ export function register_ai_actions(
           "inline_pm",
           extract_inline_context(view),
           p,
+          commands,
         );
 
         const { from, to } = view.state.selection;
@@ -1038,8 +1044,8 @@ export function register_ai_actions(
   });
 
   // Store writes stay in one tick so no observer can ever see a one-message
-  // inline session; only persistence is detached, and RagService already
-  // swallows its own failures.
+  // inline session; only persistence is detached, and AssistantSessionService
+  // already swallows its own failures.
   function log_inline_session(result: string) {
     const request = last_inline_request;
     const vault_id = input.stores.vault.active_vault_id;
@@ -1069,7 +1075,7 @@ export function register_ai_actions(
     });
 
     const stored = assistant_sessions.get(created.id);
-    if (stored) void rag_service.save_session(vault_id, stored);
+    if (stored) void assistant_sessions_service.save_session(vault_id, stored);
   }
 
   registry.register({

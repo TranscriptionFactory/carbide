@@ -52,14 +52,20 @@ import {
   create_plugin_ai_host,
   register_ai_actions,
 } from "$lib/features/ai";
-import { RagService, RagPanel, register_rag_actions } from "$lib/features/rag";
+import { RetrievalService } from "$lib/features/rag";
 import {
+  AssistantChatService,
   AssistantKernelService,
+  AssistantSessionService,
+  ChatPanel,
   ProposalApplyService,
   create_assistant_transport_tauri_adapter,
   register_assistant_actions,
+  register_assistant_notice_actions,
+  register_chat_actions,
   type ProposalCheckpointPort,
   type ProposalNotePort,
+  type RetrievalPort,
 } from "$lib/features/assistant";
 import {
   BasesService,
@@ -220,7 +226,7 @@ export function create_app_context(input: {
     label: "Chat",
     icon: MessagesSquare,
     keywords: ["chat", "rag", "ai", "assistant", "ask"],
-    panel: RagPanel,
+    panel: ChatPanel,
   });
 
   const search_service = new SearchService(
@@ -813,14 +819,29 @@ export function create_app_context(input: {
     input.ports.search,
   );
 
-  const rag_service = new RagService(
+  const assistant_sessions_service = new AssistantSessionService(
+    input.ports.assistant_persistence,
+    assistant_kernel,
+  );
+
+  const retrieval_service = new RetrievalService(
     input.ports.search,
     input.ports.notes,
-    assistant_kernel,
     stores.vault,
-    input.ports.rag_persistence,
     input.ports.tag,
     input.ports.bases,
+  );
+
+  // C3: rag never names RetrievalPort. The adapter is an object literal here,
+  // the same arrangement as ProposalCheckpointPort below.
+  const retrieval: RetrievalPort = {
+    retrieve: (request) => retrieval_service.retrieve(request),
+    check_readiness: () => retrieval_service.check_readiness(),
+  };
+
+  const assistant_chat_service = new AssistantChatService(
+    retrieval,
+    assistant_kernel,
   );
 
   const bases_service = new BasesService(input.ports.bases, stores.bases);
@@ -959,7 +980,9 @@ export function create_app_context(input: {
       mcp: mcp_service,
       document: document_service,
       clip: clip_service,
-      rag: rag_service,
+      retrieval: retrieval_service,
+      assistant_chat: assistant_chat_service,
+      assistant_sessions: assistant_sessions_service,
       ai: ai_service,
     },
     default_mount_config: input.default_mount_config,
@@ -1248,7 +1271,7 @@ export function create_app_context(input: {
     agentic_runner: new AgenticEditRunner(assistant_kernel, git_service),
     assistant_sessions: stores.assistant_sessions,
     assistant_proposals: stores.assistant_proposals,
-    rag_service,
+    assistant_sessions_service,
   });
 
   register_assistant_actions({
@@ -1259,11 +1282,18 @@ export function create_app_context(input: {
     proposal_apply,
   });
 
-  register_rag_actions({
+  register_chat_actions({
     ...base_action_input,
-    rag_store: stores.rag,
-    rag_service,
+    chat_store: stores.assistant_chat,
+    chat_service: assistant_chat_service,
+    session_service: assistant_sessions_service,
     assistant_kernel,
+    assistant_proposals: stores.assistant_proposals,
+  });
+
+  register_assistant_notice_actions({
+    ...base_action_input,
+    assistant_notices: stores.assistant_notices,
     assistant_proposals: stores.assistant_proposals,
   });
 
@@ -1502,20 +1532,24 @@ export function create_app_context(input: {
     reference_service,
     reference_store: stores.reference,
     mcp_service,
-    rag_store: stores.rag,
-    rag_service,
+    assistant_chat_store: stores.assistant_chat,
+    assistant_chat_service,
+    assistant_sessions_service,
     assistant_kernel,
     assistant_sessions: stores.assistant_sessions,
     ai_store: stores.ai,
     tag_store: stores.tag,
     tag_service,
+    assistant_notices: stores.assistant_notices,
+    assistant_proposals: stores.assistant_proposals,
+    search_port: input.ports.search,
     // stt_store: stores.stt,
     // stt_service,
   });
   flush_lsp_sync = reactor_handles.flush_lsp_sync;
 
   const omnibar_ask = new OmnibarAskController({
-    query: (ask_input) => rag_service.query(ask_input),
+    query: (ask_input) => assistant_chat_service.query(ask_input),
     sessions: stores.assistant_sessions,
     resolve_provider: () => assistant_kernel.resolve_provider(),
     insert_at_cursor: (text) => {

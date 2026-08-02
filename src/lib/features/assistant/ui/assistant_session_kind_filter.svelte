@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { KIND_GLYPHS } from "$lib/features/assistant/domain/kind_glyphs";
   import type { AssistantSessionKind } from "$lib/features/assistant/types/session";
 
   interface Props {
@@ -10,9 +11,9 @@
 
   const CHIPS: { kind: AssistantSessionKind | "all"; label: string }[] = [
     { kind: "all", label: "All" },
-    { kind: "inline", label: "⌁ Inline" },
-    { kind: "note", label: "▤ Note" },
-    { kind: "chat", label: "◈ Chat" },
+    { kind: "inline", label: `${KIND_GLYPHS.inline} Inline` },
+    { kind: "note", label: `${KIND_GLYPHS.note} Note` },
+    { kind: "chat", label: `${KIND_GLYPHS.chat} Chat` },
   ];
 </script>
 

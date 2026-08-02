@@ -4,11 +4,12 @@ import type {
   AssistantContextStats,
   AssistantMessage,
   AssistantSessionStore,
+  AssistantChatStreamEvent,
   RunHandle,
 } from "$lib/features/assistant";
-import type { RagStreamEvent } from "$lib/features/rag";
 
-// Narrower than RagService's own RagQueryInput, which the rag barrel does not
+// Narrower than AssistantChatService's own query input, which the assistant
+// barrel does not
 // export: naming only the fields this surface supplies keeps `query` injectable
 // with a fake in tests and still assignable from the real service.
 export type OmnibarAskQueryInput = {
@@ -19,7 +20,7 @@ export type OmnibarAskQueryInput = {
 
 export type OmnibarAskQuery = (
   input: OmnibarAskQueryInput,
-) => AsyncGenerator<RagStreamEvent>;
+) => AsyncGenerator<AssistantChatStreamEvent>;
 
 export type OmnibarAskDeps = {
   query: OmnibarAskQuery;
@@ -53,7 +54,7 @@ function empty_message(): AssistantMessage {
 }
 
 // R6: nothing here runs until submit(). Retrieval, prompt assembly, the kernel
-// run and citation resolution all live in RagService.query — this owns only the
+// run and citation resolution all live in AssistantChatService.query — this owns only the
 // fold of that stream onto a ⌁ session, because the rag RunSpec carries no
 // origin.session_id for the shared session sink to bind to (C1 follow-up).
 export class OmnibarAskController {

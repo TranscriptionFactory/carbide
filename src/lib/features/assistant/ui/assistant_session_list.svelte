@@ -2,6 +2,7 @@
   import { ChevronDown, ChevronRight } from "@lucide/svelte";
   import AssistantSessionKindFilter from "./assistant_session_kind_filter.svelte";
   import AssistantSessionRow from "./assistant_session_row.svelte";
+  import { KIND_GLYPHS } from "$lib/features/assistant/domain/kind_glyphs";
   import type {
     AssistantSessionKind,
     AssistantSessionSummary,
@@ -132,7 +133,7 @@
           {:else}
             <ChevronRight class="size-3.5 shrink-0" />
           {/if}
-          <span>⌁ Inline · {inline_rows.length}</span>
+          <span>{KIND_GLYPHS.inline} Inline · {inline_rows.length}</span>
         </button>
 
         {#if inline_expanded}
