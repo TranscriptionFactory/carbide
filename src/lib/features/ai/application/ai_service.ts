@@ -243,6 +243,7 @@ export class AiService {
     let output = "";
     let reasoning = "";
     let error: string | null = null;
+    let aborted = false;
 
     const push = (text: string) => {
       if (!text) return;
@@ -283,10 +284,17 @@ export class AiService {
           provider: input.provider_config.id,
           error: event.message,
         });
+      } else if (event.type === "end") {
+        aborted = event.outcome.status === "aborted";
       }
     }
     push(joiner.flush());
 
+    // A stopped run is not a failed one, so `error` stays null — but it is not
+    // a success either, or the caller writes half a sentence into the note.
+    if (aborted) {
+      return { success: false, output, error: null, aborted: true };
+    }
     if (error) {
       return { success: false, output, error };
     }
@@ -338,6 +346,10 @@ export class AiService {
           yield { type: "error", error: event.message };
         } else if (event.type === "done") {
           yield { type: "done" };
+        } else if (event.type === "end") {
+          // The stream's terminal item. A stopped run keeps the text it
+          // produced and simply never reports done.
+          return;
         }
       }
     }

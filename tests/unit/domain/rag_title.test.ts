@@ -8,7 +8,10 @@ import type { RagSession } from "$lib/features/rag/domain/rag_types";
 function session(overrides: Partial<RagSession> = {}): RagSession {
   return {
     id: "s1",
+    kind: "chat",
     title: "First chat",
+    title_source: "derived",
+    origin: {},
     created_at: 1,
     updated_at: 2,
     messages: [],

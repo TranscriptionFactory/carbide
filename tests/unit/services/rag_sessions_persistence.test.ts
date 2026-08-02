@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { RagService, RagStore } from "$lib/features/rag";
+import { AssistantSessionStore } from "$lib/features/assistant";
 import { VaultStore } from "$lib/features/vault";
 import { load_rag_sessions } from "$lib/features/rag";
 import { create_test_rag_persistence_adapter } from "../../adapters/test_rag_persistence_adapter";
@@ -28,7 +29,10 @@ function make_service(persistence = create_test_rag_persistence_adapter()) {
 function session(overrides: Partial<RagSession> = {}): RagSession {
   return {
     id: "s1",
+    kind: "chat",
     title: "First chat",
+    title_source: "derived",
+    origin: {},
     created_at: 1,
     updated_at: 2,
     messages: [
@@ -52,7 +56,7 @@ describe("rag session persistence round-trip", () => {
     await writer.save_session(VAULT_ID, session({ id: "b", updated_at: 20 }));
 
     const reader = make_service(persistence);
-    const store = new RagStore();
+    const store = new RagStore(new AssistantSessionStore());
     await load_rag_sessions(store, reader, VAULT_ID);
 
     expect(store.summaries.map((s) => s.id)).toEqual(["b", "a"]);
@@ -74,7 +78,7 @@ describe("rag session persistence round-trip", () => {
       }),
     );
 
-    const store = new RagStore();
+    const store = new RagStore(new AssistantSessionStore());
     await load_rag_sessions(store, make_service(persistence), VAULT_ID);
 
     store.switch_session("legacy");
@@ -114,31 +118,36 @@ describe("rag session persistence round-trip", () => {
     });
     await writer.save_session(VAULT_ID, agent_session);
 
-    const store = new RagStore();
+    const store = new RagStore(new AssistantSessionStore());
     await load_rag_sessions(store, make_service(persistence), VAULT_ID);
 
     store.switch_session("agent");
     expect(store.messages).toEqual(agent_session.messages);
   });
 
-  it("round-trips title_source and tolerates legacy sessions without it", async () => {
+  // title_source used to be optional, so files written back then have no such
+  // field. They must arrive complete rather than half-typed.
+  it("round-trips title_source and completes legacy sessions without it", async () => {
     const persistence = create_test_rag_persistence_adapter();
     const writer = make_service(persistence);
     await writer.save_session(
       VAULT_ID,
       session({ id: "named", title_source: "manual" }),
     );
-    await writer.save_session(VAULT_ID, session({ id: "legacy" }));
 
-    const store = new RagStore();
+    const legacy: Record<string, unknown> = { ...session({ id: "legacy" }) };
+    delete legacy["title_source"];
+    await writer.save_session(VAULT_ID, legacy as unknown as RagSession);
+
+    const store = new RagStore(new AssistantSessionStore());
     await load_rag_sessions(store, make_service(persistence), VAULT_ID);
 
     expect(store.sessions.find((s) => s.id === "named")?.title_source).toBe(
       "manual",
     );
-    expect(
-      store.sessions.find((s) => s.id === "legacy")?.title_source,
-    ).toBeUndefined();
+    expect(store.sessions.find((s) => s.id === "legacy")?.title_source).toBe(
+      "derived",
+    );
   });
 
   it("save_session fails soft when the vault rejects .carbide/ writes (browse mode)", async () => {
@@ -157,7 +166,7 @@ describe("rag session persistence round-trip", () => {
   });
 
   it("hydrates an empty list when the vault has no sessions", async () => {
-    const store = new RagStore();
+    const store = new RagStore(new AssistantSessionStore());
     await load_rag_sessions(store, make_service(), VAULT_ID);
     expect(store.sessions).toEqual([]);
   });
@@ -167,7 +176,7 @@ describe("rag session persistence round-trip", () => {
     const writer = make_service(persistence);
     await writer.save_session(VAULT_ID, session());
 
-    const store = new RagStore();
+    const store = new RagStore(new AssistantSessionStore());
     await load_rag_sessions(
       store,
       make_service(persistence),

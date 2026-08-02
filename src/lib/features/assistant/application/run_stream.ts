@@ -39,7 +39,8 @@ export async function start_run_stream(
     on_event: (_id, event) => {
       queue.push(event);
     },
-    on_end: () => {
+    on_end: (_id, outcome) => {
+      queue.push({ type: "end", outcome });
       queue.end();
     },
   });

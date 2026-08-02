@@ -3,6 +3,10 @@ import {
   to_session_summary,
 } from "$lib/features/rag/types/rag_session";
 import type {
+  AssistantSessionPatch,
+  AssistantSessionStore,
+} from "$lib/features/assistant";
+import type {
   RagCitation,
   RagContextStats,
   RagMessage,
@@ -17,6 +21,8 @@ import type {
 } from "$lib/features/rag/types/rag_types";
 import type { AgentPermissionMode } from "$lib/features/rag/types/agent_events";
 import type { RagReadiness } from "$lib/features/rag/types/rag_readiness";
+
+const CHAT_KIND = "chat";
 
 function new_message(
   role: RagRole,
@@ -36,8 +42,12 @@ function has_turn_evidence(message: RagMessage): boolean {
   );
 }
 
+// I4: sessions live in the assistant store, which is the single source for
+// every conversational surface. What stays here is the chat panel's own view
+// state — which session is open, what is streaming into it, and the working
+// copies of provider, scope and mode the composer edits before a session
+// exists to hold them.
 export class RagStore {
-  sessions = $state<RagSession[]>([]);
   active_id = $state<string | null>(null);
   is_loading = $state(false);
   loading_stage = $state<"searching" | "generating">("searching");
@@ -52,24 +62,36 @@ export class RagStore {
   revision = $state(0);
   readiness = $state<RagReadiness>({ state: "checking" });
 
-  readonly active = $derived(
-    this.sessions.find((s) => s.id === this.active_id) ?? null,
-  );
-  readonly messages = $derived(this.active?.messages ?? []);
-  readonly summaries: RagSessionSummary[] = $derived(
-    this.sessions
+  constructor(private readonly store: AssistantSessionStore) {}
+
+  // Getters rather than $derived: a class field initializer would run before
+  // the injected store is assigned.
+  get sessions(): RagSession[] {
+    return this.store.of_kind(CHAT_KIND);
+  }
+
+  get active(): RagSession | null {
+    return this.sessions.find((s) => s.id === this.active_id) ?? null;
+  }
+
+  get messages(): RagMessage[] {
+    return this.active?.messages ?? [];
+  }
+
+  get summaries(): RagSessionSummary[] {
+    return this.sessions
       .map(to_session_summary)
-      .sort((a, b) => b.updated_at - a.updated_at),
-  );
+      .sort((a, b) => b.updated_at - a.updated_at);
+  }
 
   set_provider(provider_id: string) {
     this.provider_id = provider_id;
-    this.patch_active((s) => ({ ...s, provider_id }));
+    this.patch_active({ provider_id });
   }
 
   set_scope(scope: RagScope) {
     this.scope = scope;
-    this.patch_active((s) => ({ ...s, scope }));
+    this.patch_active({ scope });
   }
 
   set_readiness(readiness: RagReadiness) {
@@ -78,32 +100,32 @@ export class RagStore {
 
   set_mode(mode: RagSessionMode) {
     this.mode = mode;
-    this.patch_active((s) => ({ ...s, mode }));
+    this.patch_active({ mode });
   }
 
   set_permission_mode(permission_mode: AgentPermissionMode) {
     this.permission_mode = permission_mode;
-    this.patch_active((s) => ({ ...s, permission_mode }));
+    this.patch_active({ permission_mode });
   }
 
   set_agent_session_id(agent_session_id: string) {
-    this.patch_active((s) => ({ ...s, agent_session_id }));
+    this.patch_active({ agent_session_id });
   }
 
   add_changed_files(paths: string[]) {
-    this.patch_active((s) => ({
-      ...s,
+    const session = this.active;
+    if (!session) return;
+    this.patch_active({
       changed_files: [
-        ...s.changed_files,
-        ...paths.filter((p) => !s.changed_files.includes(p)),
+        ...session.changed_files,
+        ...paths.filter((p) => !session.changed_files.includes(p)),
       ],
-    }));
+    });
   }
 
   add_streaming_tool_event(event: RagToolEvent) {
     this.agent_running_tool = event.name;
     this.update_streaming((m) => ({
-      ...m,
       tool_events: [...(m.tool_events ?? []), event],
     }));
   }
@@ -119,53 +141,41 @@ export class RagStore {
           break;
         }
       }
-      return { ...m, tool_events: events };
+      return { tool_events: events };
     });
   }
 
   add_user_message(content: string): RagMessage {
     const message = new_message("user", content);
-    if (this.active_id) {
-      this.patch_active((s) =>
-        this.touch({ ...s, messages: [...s.messages, message] }),
-      );
-    } else {
-      this.create_session(message);
-    }
+    const id = this.active_id ?? this.create_session(content);
+    this.store.append_message(id, message);
     return message;
   }
 
   add_assistant_message(content: string, citations: RagCitation[]): RagMessage {
     const message = new_message("assistant", content, citations);
-    this.patch_active((s) =>
-      this.touch({ ...s, messages: [...s.messages, message] }),
-    );
+    if (this.active_id) this.store.append_message(this.active_id, message);
     return message;
   }
 
   start_streaming(): string {
     const message = new_message("assistant", "");
-    this.patch_active((s) =>
-      this.touch({ ...s, messages: [...s.messages, message] }),
-    );
+    if (this.active_id) this.store.append_message(this.active_id, message);
     this.streaming_id = message.id;
     this.is_loading = false;
     return message.id;
   }
 
   append_streaming_text(text: string) {
-    this.update_streaming((m) => ({ ...m, content: m.content + text }));
+    this.update_streaming((m) => ({ content: m.content + text }));
   }
 
   append_streaming_reasoning(text: string) {
-    this.update_streaming((m) => ({
-      ...m,
-      reasoning: (m.reasoning ?? "") + text,
-    }));
+    this.update_streaming((m) => ({ reasoning: (m.reasoning ?? "") + text }));
   }
 
   set_streaming_context_stats(stats: RagContextStats) {
-    this.update_streaming((m) => ({ ...m, context_stats: stats }));
+    this.update_streaming(() => ({ context_stats: stats }));
   }
 
   set_pending_sources(sources: RagSourceInfo[]) {
@@ -175,8 +185,8 @@ export class RagStore {
   add_streaming_citation(citation: RagCitation) {
     this.update_streaming((m) =>
       m.citations.some((c) => c.index === citation.index)
-        ? m
-        : { ...m, citations: [...m.citations, citation] },
+        ? {}
+        : { citations: [...m.citations, citation] },
     );
   }
 
@@ -185,23 +195,22 @@ export class RagStore {
     this.is_loading = false;
     this.pending_sources = null;
     this.agent_running_tool = null;
-    this.patch_active((s) => this.touch(s));
   }
 
   fail_streaming(error: string) {
+    const session_id = this.active_id;
     const sid = this.streaming_id;
-    if (sid) {
+    if (session_id && sid) {
       const partial = this.messages.find((m) => m.id === sid);
       if (partial && has_turn_evidence(partial)) {
         // keep the partial turn and record why it failed, so the trail survives
         // persistence; the transient error banner renders beneath it
-        this.update_streaming((m) => ({ ...m, error }));
-        this.patch_active((s) => this.touch(s));
+        this.store.update_message(session_id, sid, { error });
       } else {
-        this.patch_active((s) => ({
-          ...s,
-          messages: s.messages.filter((m) => m.id !== sid),
-        }));
+        this.store.replace_messages(
+          session_id,
+          this.messages.filter((m) => m.id !== sid),
+        );
       }
       this.streaming_id = null;
     }
@@ -229,15 +238,6 @@ export class RagStore {
     this.is_loading = false;
   }
 
-  private reset_turn_state() {
-    this.error = null;
-    this.is_loading = false;
-    this.streaming_id = null;
-    this.pending_sources = null;
-    this.agent_running_tool = null;
-    this.revision += 1;
-  }
-
   start_new_session() {
     this.active_id = null;
     this.reset_turn_state();
@@ -255,11 +255,7 @@ export class RagStore {
   }
 
   rename_session(id: string, title: string, source: RagTitleSource = "manual") {
-    const next = title.trim();
-    if (next === "") return;
-    this.sessions = this.sessions.map((s) =>
-      s.id === id ? this.touch({ ...s, title: next, title_source: source }) : s,
-    );
+    this.store.rename(id, title, source);
   }
 
   fork_session(message_id: string): string | null {
@@ -267,18 +263,31 @@ export class RagStore {
     if (!session) return null;
     const idx = session.messages.findIndex((m) => m.id === message_id);
     if (idx === -1) return null;
-    const now = Date.now();
-    const fork: RagSession = {
-      ...session,
-      id: crypto.randomUUID(),
+
+    const fork = this.store.create({
+      kind: CHAT_KIND,
       title: `${session.title} (fork)`,
-      messages: JSON.parse(
+      provider_id: session.provider_id,
+      origin: session.origin,
+      scope: session.scope,
+      mode: session.mode,
+      permission_mode: session.permission_mode,
+    });
+    // A fork of a chat the user named is still named, not up for autotitling.
+    this.store.rename(fork.id, fork.title, session.title_source);
+    this.store.replace_messages(
+      fork.id,
+      JSON.parse(
         JSON.stringify(session.messages.slice(0, idx + 1)),
       ) as RagMessage[],
-      created_at: now,
-      updated_at: now,
-    };
-    this.sessions = [fork, ...this.sessions];
+    );
+    this.store.patch_session(fork.id, {
+      changed_files: session.changed_files,
+      ...(session.agent_session_id
+        ? { agent_session_id: session.agent_session_id }
+        : {}),
+    });
+
     this.active_id = fork.id;
     this.reset_turn_state();
     return fork.id;
@@ -294,14 +303,14 @@ export class RagStore {
       user_idx -= 1;
     }
     if (user_idx < 0) return;
-    const keep = user_idx + 1;
-    this.patch_active((s) =>
-      this.touch({ ...s, messages: s.messages.slice(0, keep) }),
+    this.store.replace_messages(
+      session.id,
+      session.messages.slice(0, user_idx + 1),
     );
   }
 
   delete_session(id: string) {
-    this.sessions = this.sessions.filter((s) => s.id !== id);
+    this.store.delete_session(id);
     if (this.active_id === id) {
       this.active_id = null;
       this.streaming_id = null;
@@ -311,8 +320,11 @@ export class RagStore {
     this.revision += 1;
   }
 
+  // Chats are the only kind rag persists, so hydrating them must not evict the
+  // inline and note sessions sharing the store.
   hydrate(sessions: RagSession[]) {
-    this.sessions = sessions;
+    const others = this.store.sessions.filter((s) => s.kind !== CHAT_KIND);
+    this.store.hydrate([...sessions, ...others]);
     this.active_id = null;
     this.streaming_id = null;
     this.is_loading = false;
@@ -325,41 +337,40 @@ export class RagStore {
     return this.revision;
   }
 
-  private create_session(first: RagMessage) {
-    const now = Date.now();
-    const session: RagSession = {
-      id: crypto.randomUUID(),
-      title: derive_session_title(first.content),
-      title_source: "derived",
-      created_at: now,
-      updated_at: now,
-      messages: [first],
+  private create_session(first_content: string): string {
+    const session = this.store.create({
+      kind: CHAT_KIND,
+      title: derive_session_title(first_content),
       provider_id: this.provider_id,
       scope: this.scope,
       mode: this.mode,
       permission_mode: this.permission_mode,
-      changed_files: [],
-    };
-    this.sessions = [session, ...this.sessions];
+    });
     this.active_id = session.id;
+    return session.id;
   }
 
-  private patch_active(transform: (session: RagSession) => RagSession) {
-    const id = this.active_id;
-    if (!id) return;
-    this.sessions = this.sessions.map((s) => (s.id === id ? transform(s) : s));
+  private reset_turn_state() {
+    this.error = null;
+    this.is_loading = false;
+    this.streaming_id = null;
+    this.pending_sources = null;
+    this.agent_running_tool = null;
+    this.revision += 1;
   }
 
-  private update_streaming(transform: (message: RagMessage) => RagMessage) {
+  private patch_active(changes: AssistantSessionPatch) {
+    if (this.active_id) this.store.patch_session(this.active_id, changes);
+  }
+
+  private update_streaming(
+    transform: (message: RagMessage) => Partial<RagMessage>,
+  ) {
+    const session_id = this.active_id;
     const sid = this.streaming_id;
-    if (!sid) return;
-    this.patch_active((s) => ({
-      ...s,
-      messages: s.messages.map((m) => (m.id === sid ? transform(m) : m)),
-    }));
-  }
-
-  private touch(session: RagSession): RagSession {
-    return { ...session, updated_at: Date.now() };
+    if (!session_id || !sid) return;
+    const message = this.messages.find((m) => m.id === sid);
+    if (!message) return;
+    this.store.update_message(session_id, sid, transform(message));
   }
 }

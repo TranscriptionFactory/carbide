@@ -69,32 +69,52 @@ export class AssistantKernelService {
 
   constructor(private readonly deps: AssistantKernelDeps) {}
 
+  // Contract item (b): the id, the record and the abort controller all exist
+  // before anything is awaited, so a run is stoppable from the instant it
+  // exists. Resolution and every refusal settle through `outcome`.
+  // eslint-disable-next-line @typescript-eslint/require-await
   async start(spec: RunSpec, sink?: RunSink): Promise<RunHandle> {
-    const provider = spec.provider ?? (await this.resolve_provider());
-    const vault_path = this.deps.vault_path();
     const id = this.mint_id();
-    const stop = () => {
-      this.stop(id);
+    const controller = new AbortController();
+    this.controllers.set(id, controller);
+    this.deps.run_store.start(id, spec, Date.now());
+
+    return {
+      id,
+      stop: () => {
+        this.stop(id);
+      },
+      outcome: this.launch(id, spec, controller.signal, sink),
     };
-    const refused = (error: AssistantUserError): RunHandle => ({
-      id,
-      stop,
-      outcome: Promise.resolve(this.refuse(id, error, sink)),
-    });
+  }
 
-    this.deps.run_store.start(
-      id,
-      provider ? { ...spec, provider } : spec,
-      Date.now(),
-    );
+  private async launch(
+    id: RunId,
+    spec: RunSpec,
+    signal: AbortSignal,
+    sink?: RunSink,
+  ): Promise<RunOutcome> {
+    const provider = spec.provider ?? (await this.resolve_provider());
 
-    if (!provider) return refused(NO_PROVIDER);
+    // Stopped while the provider was resolving: the transport is never called.
+    if (signal.aborted) {
+      return this.settle(
+        id,
+        { status: "aborted", text: this.deps.run_store.text_of(id) },
+        sink,
+      );
+    }
+
+    if (!provider) return this.refuse(id, NO_PROVIDER, sink);
+    this.deps.run_store.set_provider(id, provider.id);
+
+    const vault_path = this.deps.vault_path();
 
     // The transport takes vault_path nullable because a text run legitimately
     // has none. An agent run without one is unrunnable, so it fails here rather
     // than at the process boundary.
     if (spec.request.mode === "agent" && vault_path === null) {
-      return refused(NO_VAULT);
+      return this.refuse(id, NO_VAULT, sink);
     }
 
     if (
@@ -102,24 +122,10 @@ export class AssistantKernelService {
       !provider_supports_streaming(provider) &&
       (vault_path === null || !spec.request.note_path)
     ) {
-      return refused(NO_BLOCKING_TARGET);
+      return this.refuse(id, NO_BLOCKING_TARGET, sink);
     }
 
-    const controller = new AbortController();
-    this.controllers.set(id, controller);
-
-    return {
-      id,
-      stop,
-      outcome: this.consume(
-        id,
-        spec,
-        provider,
-        vault_path,
-        controller.signal,
-        sink,
-      ),
-    };
+    return this.consume(id, spec, provider, vault_path, signal, sink);
   }
 
   stop(id: RunId): void {
@@ -201,7 +207,13 @@ export class AssistantKernelService {
         if (signal.aborted) break;
 
         if (event.type === "error") {
-          if (event.message === ABORTED_ERROR) break;
+          // The sentinel is a cancellation ack. It arrives whether or not the
+          // stop came from us, so the outcome cannot be read off our own
+          // signal — reporting "done" here is how an abort reads as success.
+          if (event.message === ABORTED_ERROR) {
+            runs.set_status(id, "aborted");
+            return { status: "aborted", text: runs.text_of(id) };
+          }
           return this.fail(
             id,
             humanize_ai_error(event.message, provider),
@@ -222,8 +234,6 @@ export class AssistantKernelService {
     } catch (thrown) {
       const error = humanize_ai_error(error_message(thrown), provider);
       return this.fail(id, error, sink);
-    } finally {
-      this.controllers.delete(id);
     }
 
     if (signal.aborted) return { status: "aborted", text: runs.text_of(id) };
@@ -252,8 +262,11 @@ export class AssistantKernelService {
   }
 
   // The abort path breaks the consumer loop without a terminal event, so a sink
-  // holding transcript state learns the run ended only from here.
+  // holding transcript state learns the run ended only from here. Every
+  // terminal path runs through this, which makes it the one place the run's
+  // controller can be released.
   private settle(id: RunId, outcome: RunOutcome, sink?: RunSink): RunOutcome {
+    this.controllers.delete(id);
     if (sink) this.close(sink, id, outcome);
     for (const registered of this.sinks) this.close(registered, id, outcome);
     return outcome;

@@ -580,7 +580,11 @@ export function register_ai_actions(
           },
         );
         if (!can_settle()) return;
-        if (panel_stopped) {
+        // `panel_stopped` covers this panel's own stop button; `aborted`
+        // covers a stop from anywhere else. Either way the result carries no
+        // error, so handing it to finish_execution would render an empty
+        // error banner over whatever text did arrive.
+        if (panel_stopped || result.aborted) {
           if (result.output.trim() === "") {
             ai_store.cancel_execution();
             return;
