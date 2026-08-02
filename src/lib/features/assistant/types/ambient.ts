@@ -90,6 +90,16 @@ export type AmbientAnchor =
 //
 // `action_id` is dispatched through the action registry. Its handler performs
 // the IO and enqueues a Proposal; the notice itself stays inert data.
+//
+// AMENDED: the offer is OPTIONAL — `AmbientNotice.offer` may be null. A finding
+// with no deterministic single-note repair (orphan_note) has nothing to propose,
+// and the first draft expressed that by pointing the offer at the dismiss
+// action. That is precisely the third verb this type says cannot exist: it
+// re-expressed the implicit dismiss in the one field reserved for propose, and
+// it rendered two buttons doing the same thing. A null offer is strictly weaker
+// than an offer, so it cannot violate I6 — dismiss stays implicit and universal,
+// propose stays optional, and there is still no third verb. The card renders its
+// primary button only when the offer is non-null.
 export type AmbientNoticeOffer = {
   action_id: string;
   label: string;
@@ -104,7 +114,7 @@ export type AmbientNotice = {
   provenance: string;
   // One sentence. The mockup's cards state the finding and end in an offer.
   body: string;
-  offer: AmbientNoticeOffer;
+  offer: AmbientNoticeOffer | null;
   created_at: number;
 };
 
