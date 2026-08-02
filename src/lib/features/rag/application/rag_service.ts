@@ -241,6 +241,11 @@ export class RagService {
       for await (const event of events) {
         if (event.type === "text") text += event.text;
         else if (event.type === "error") return null;
+        // Half a title is not a title. A stopped run writes nothing rather
+        // than naming the chat after whatever arrived first.
+        else if (event.type === "end" && event.outcome.status === "aborted") {
+          return null;
+        }
       }
       return sanitize_generated_title(text);
     } catch (err) {
@@ -379,6 +384,11 @@ export class RagService {
           // The kernel humanized this already; it is the single choke point.
           log.warn("RAG stream failed", { error: event.message });
           yield { type: "error", error: event.message };
+          return;
+        } else if (event.type === "end" && event.outcome.status === "aborted") {
+          // Keep what the model said, but never report done: a stopped answer
+          // must not render as a complete one.
+          yield* parser.flush();
           return;
         }
       }

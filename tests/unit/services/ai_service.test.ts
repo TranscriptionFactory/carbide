@@ -8,6 +8,7 @@ import type { VaultContextSettings } from "$lib/features/ai/domain/ai_types";
 import type { AiStreamChunk } from "$lib/features/ai/domain/ai_stream_types";
 import type { RunEvent } from "$lib/features/assistant";
 import { create_test_run_starter } from "../../adapters/test_run_starter";
+import { create_aborting_run_starter } from "../helpers/aborting_run_starter";
 
 const inert_starter = () => create_test_run_starter(() => []);
 
@@ -457,6 +458,23 @@ describe("AiService", () => {
       expect(result.success).toBe(false);
       expect(result.output).toBe("Partial draft");
       expect(result.error).toContain("could not reach its backend");
+      expect(result.aborted).toBeUndefined();
+    });
+
+    // The caller writes this output into a note. Reporting a stopped run as a
+    // success is how half a sentence ends up saved.
+    it("reports a stopped run as aborted rather than successful", async () => {
+      const starter = create_aborting_run_starter([
+        { type: "text", text: "Half a sen" },
+      ]);
+      const service = create_streaming_service(starter as never);
+
+      const result = await service.execute_streaming(base_execute_input);
+
+      expect(result.success).toBe(false);
+      expect(result.aborted).toBe(true);
+      expect(result.error).toBeNull();
+      expect(result.output).toBe("Half a sen");
     });
 
     it("hands the caller a handle so the run stays stoppable", async () => {

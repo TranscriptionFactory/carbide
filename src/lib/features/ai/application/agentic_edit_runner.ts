@@ -54,6 +54,10 @@ export class AgenticEditRunner {
         } else if (event.type === "error") {
           // The kernel humanizes once; this is already user-facing text.
           return { success: false, output, error: event.message };
+        } else if (event.type === "end" && event.outcome.status === "aborted") {
+          // The edit the user stopped keeps whatever it wrote, but must not
+          // report success — the checkpoint above is what makes it undoable.
+          return { success: false, output, error: null, aborted: true };
         }
       }
       return { success: true, output, error: null };
