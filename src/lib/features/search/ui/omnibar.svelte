@@ -59,6 +59,9 @@
   import type { HotkeyConfig } from "$lib/features/hotkey";
   import type { CommandDefinition } from "$lib/features/search/types/command_palette";
   import type { Component } from "svelte";
+  import OmnibarAsk from "$lib/features/search/ui/omnibar_ask.svelte";
+  import OmnibarModeSegment from "$lib/features/search/ui/omnibar_mode_segment.svelte";
+  import type { OmnibarAskView } from "$lib/features/search/types/omnibar_ask";
 
   const COMMAND_ICONS: Record<CommandIconType, Component> = {
     "file-plus": FilePlusIcon,
@@ -137,6 +140,7 @@
     on_clear_filters: () => void;
     on_confirm: (item: OmnibarItem) => void;
     on_view_as_graph: (query: string) => void;
+    ask?: OmnibarAskView;
   };
 
   let {
@@ -164,6 +168,7 @@
     on_clear_filters,
     on_confirm,
     on_view_as_graph,
+    ask,
   }: Props = $props();
 
   const TYPE_FILTERS: {
@@ -240,6 +245,7 @@
   let last_mouse_snapshot: MouseMovementSnapshot | null = null;
   let collapsed_for_query = $state("");
   let filter_mode = $state(false);
+  let ask_mode = $state(false);
   let was_open = $state(false);
 
   $effect(() => {
@@ -247,6 +253,7 @@
       last_mouse_snapshot = null;
     } else {
       filter_mode = false;
+      ask_mode = false;
     }
   });
 
@@ -471,6 +478,17 @@
   function handle_keydown(event: KeyboardEvent) {
     if (!open) return;
 
+    if (ask && (event.metaKey || event.ctrlKey) && event.key === "/") {
+      event.preventDefault();
+      event.stopPropagation();
+      ask_mode = !ask_mode;
+      return;
+    }
+
+    // Ask owns its own input and its own esc/↵/⌘↵ handling; the search
+    // keymap must not also fire while it is up.
+    if (ask_mode) return;
+
     if (filter_mode) {
       event.preventDefault();
       event.stopPropagation();
@@ -569,407 +587,421 @@
 
 <Dialog.Root {open} onOpenChange={on_open_change}>
   <Dialog.Content class="Omnibar" showCloseButton={false}>
-    <div class="Omnibar__search">
-      <SearchIcon />
-      <Input
-        bind:ref={input_ref}
-        type="text"
-        placeholder={is_all_vaults
-          ? "Search across all vaults..."
-          : "Search notes, commands, settings..."}
-        value={query}
-        oninput={(e: Event & { currentTarget: HTMLInputElement }) => {
-          on_query_change(e.currentTarget.value);
-        }}
-        spellcheck="false"
-        autocorrect="off"
-        autocapitalize="off"
-        autocomplete="off"
-        class="border-0 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
-      />
-      {#each file_type_filters as f}
-        {@const def = TYPE_FILTERS.find((t) => t.filter === f)}
-        {#if def}
+    {#if ask_mode && ask}
+      <OmnibarAsk {...ask} on_mode_change={(next) => (ask_mode = next)} />
+    {:else}
+      <div class="Omnibar__search">
+        <SearchIcon />
+        <Input
+          bind:ref={input_ref}
+          type="text"
+          placeholder={is_all_vaults
+            ? "Search across all vaults..."
+            : "Search notes, commands, settings..."}
+          value={query}
+          oninput={(e: Event & { currentTarget: HTMLInputElement }) => {
+            on_query_change(e.currentTarget.value);
+          }}
+          spellcheck="false"
+          autocorrect="off"
+          autocapitalize="off"
+          autocomplete="off"
+          class="border-0 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
+        />
+        {#if ask}
+          <OmnibarModeSegment
+            ask_mode={false}
+            on_mode_change={(next) => (ask_mode = next)}
+          />
+        {/if}
+        {#each file_type_filters as f}
+          {@const def = TYPE_FILTERS.find((t) => t.filter === f)}
+          {#if def}
+            <button
+              class="Omnibar__active-chip"
+              onclick={() => on_toggle_file_type_filter(f)}
+            >
+              {def.label}
+              <XIcon />
+            </button>
+          {/if}
+        {/each}
+        {#each kind_filters as kf}
+          {@const def = KIND_FILTERS.find((k) => k.filter === kf)}
+          {#if def}
+            <button
+              class="Omnibar__active-chip"
+              onclick={() => on_toggle_kind_filter(kf)}
+            >
+              {def.label}
+              <XIcon />
+            </button>
+          {/if}
+        {/each}
+        {#if sort_mode !== "relevance"}
+          {@const def = SORT_MODES.find((s) => s.mode === sort_mode)}
           <button
             class="Omnibar__active-chip"
-            onclick={() => on_toggle_file_type_filter(f)}
+            onclick={() => on_sort_mode_change("relevance")}
           >
-            {def.label}
+            Sort: {def?.label}
             <XIcon />
           </button>
         {/if}
-      {/each}
-      {#each kind_filters as kf}
-        {@const def = KIND_FILTERS.find((k) => k.filter === kf)}
-        {#if def}
-          <button
-            class="Omnibar__active-chip"
-            onclick={() => on_toggle_kind_filter(kf)}
-          >
-            {def.label}
-            <XIcon />
-          </button>
+        {#if is_searching}
+          <div class="Omnibar__spinner"></div>
         {/if}
-      {/each}
-      {#if sort_mode !== "relevance"}
-        {@const def = SORT_MODES.find((s) => s.mode === sort_mode)}
-        <button
-          class="Omnibar__active-chip"
-          onclick={() => on_sort_mode_change("relevance")}
-        >
-          Sort: {def?.label}
-          <XIcon />
-        </button>
-      {/if}
-      {#if is_searching}
-        <div class="Omnibar__spinner"></div>
-      {/if}
-    </div>
+      </div>
 
-    {#if filter_mode}
-      <div class="Omnibar__filter-overlay">
-        <div class="Omnibar__filter-row">
-          <span class="Omnibar__filter-label">Type</span>
-          {#each TYPE_FILTERS as tf}
-            <button
-              class="Omnibar__filter-chip"
-              class:Omnibar__filter-chip--active={file_type_filters.includes(
-                tf.filter,
-              )}
-              onclick={() => on_toggle_file_type_filter(tf.filter)}
-            >
-              <kbd>{tf.mnemonic.toUpperCase()}</kbd>
-              {tf.label}
-            </button>
-          {/each}
-        </div>
-        <div class="Omnibar__filter-row">
-          <span class="Omnibar__filter-label">Kind</span>
-          {#each KIND_FILTERS as kf}
-            <button
-              class="Omnibar__filter-chip"
-              class:Omnibar__filter-chip--active={kind_filters.includes(
-                kf.filter,
-              )}
-              onclick={() => on_toggle_kind_filter(kf.filter)}
-            >
-              <kbd>{kf.mnemonic.toUpperCase()}</kbd>
-              {kf.label}
-            </button>
-          {/each}
-        </div>
-        {#if has_multiple_vaults}
+      {#if filter_mode}
+        <div class="Omnibar__filter-overlay">
           <div class="Omnibar__filter-row">
-            <span class="Omnibar__filter-label">Source</span>
-            {#each SOURCE_SCOPES as ss}
+            <span class="Omnibar__filter-label">Type</span>
+            {#each TYPE_FILTERS as tf}
               <button
                 class="Omnibar__filter-chip"
-                class:Omnibar__filter-chip--active={scope === ss.scope}
-                onclick={() => on_scope_change(ss.scope)}
+                class:Omnibar__filter-chip--active={file_type_filters.includes(
+                  tf.filter,
+                )}
+                onclick={() => on_toggle_file_type_filter(tf.filter)}
               >
-                <kbd>{ss.mnemonic.toUpperCase()}</kbd>
-                {ss.label}
+                <kbd>{tf.mnemonic.toUpperCase()}</kbd>
+                {tf.label}
               </button>
             {/each}
           </div>
-        {/if}
-        <div class="Omnibar__filter-row">
-          <span class="Omnibar__filter-label">Sort</span>
-          {#each SORT_MODES as sm}
-            <button
-              class="Omnibar__filter-chip"
-              class:Omnibar__filter-chip--active={sort_mode === sm.mode}
-              onclick={() => on_sort_mode_change(sm.mode)}
-            >
-              <kbd>{sm.mnemonic}</kbd>
-              {sm.label}
-            </button>
-          {/each}
+          <div class="Omnibar__filter-row">
+            <span class="Omnibar__filter-label">Kind</span>
+            {#each KIND_FILTERS as kf}
+              <button
+                class="Omnibar__filter-chip"
+                class:Omnibar__filter-chip--active={kind_filters.includes(
+                  kf.filter,
+                )}
+                onclick={() => on_toggle_kind_filter(kf.filter)}
+              >
+                <kbd>{kf.mnemonic.toUpperCase()}</kbd>
+                {kf.label}
+              </button>
+            {/each}
+          </div>
+          {#if has_multiple_vaults}
+            <div class="Omnibar__filter-row">
+              <span class="Omnibar__filter-label">Source</span>
+              {#each SOURCE_SCOPES as ss}
+                <button
+                  class="Omnibar__filter-chip"
+                  class:Omnibar__filter-chip--active={scope === ss.scope}
+                  onclick={() => on_scope_change(ss.scope)}
+                >
+                  <kbd>{ss.mnemonic.toUpperCase()}</kbd>
+                  {ss.label}
+                </button>
+              {/each}
+            </div>
+          {/if}
+          <div class="Omnibar__filter-row">
+            <span class="Omnibar__filter-label">Sort</span>
+            {#each SORT_MODES as sm}
+              <button
+                class="Omnibar__filter-chip"
+                class:Omnibar__filter-chip--active={sort_mode === sm.mode}
+                onclick={() => on_sort_mode_change(sm.mode)}
+              >
+                <kbd>{sm.mnemonic}</kbd>
+                {sm.label}
+              </button>
+            {/each}
+          </div>
+          <span class="Omnibar__filter-hint"
+            >press letter to toggle · Tab/Esc to close</span
+          >
         </div>
-        <span class="Omnibar__filter-hint"
-          >press letter to toggle · Tab/Esc to close</span
-        >
-      </div>
-    {/if}
+      {/if}
 
-    {#if show_scope_toggle && !filter_mode}
-      <div class="Omnibar__scope">
-        <button
-          class="Omnibar__scope-btn"
-          class:Omnibar__scope-btn--active={!is_all_vaults}
-          onclick={() => on_scope_change("current_vault")}
-        >
-          Current Vault
-        </button>
-        <button
-          class="Omnibar__scope-btn"
-          class:Omnibar__scope-btn--active={is_all_vaults}
-          onclick={() => on_scope_change("all_vaults")}
-        >
-          <LibraryIcon />
-          All Vaults
-        </button>
-        <span class="Omnibar__scope-hint"><kbd>Tab</kbd> to switch</span>
-      </div>
-    {/if}
+      {#if show_scope_toggle && !filter_mode}
+        <div class="Omnibar__scope">
+          <button
+            class="Omnibar__scope-btn"
+            class:Omnibar__scope-btn--active={!is_all_vaults}
+            onclick={() => on_scope_change("current_vault")}
+          >
+            Current Vault
+          </button>
+          <button
+            class="Omnibar__scope-btn"
+            class:Omnibar__scope-btn--active={is_all_vaults}
+            onclick={() => on_scope_change("all_vaults")}
+          >
+            <LibraryIcon />
+            All Vaults
+          </button>
+          <span class="Omnibar__scope-hint"><kbd>Tab</kbd> to switch</span>
+        </div>
+      {/if}
 
-    <div
-      bind:this={list_element}
-      role="listbox"
-      tabindex="0"
-      aria-activedescendant={visible_items[selected_index]
-        ? get_row_id(visible_items[selected_index])
-        : undefined}
-      class="Omnibar__list"
-    >
-      {#if is_all_vaults && has_query}
-        {#if vault_groups.length > 0}
-          {#each visible_items as row, row_idx (get_row_id(row))}
-            {#if row.kind === "vault_group_header"}
-              {@const group = row.group}
-              {@const is_collapsed = collapsed_vaults.has(group.vault_id)}
-              <button
-                id={get_row_id(row)}
-                role="option"
-                aria-selected={row_idx === selected_index}
-                class="Omnibar__vault-facet"
-                class:Omnibar__vault-facet--bordered={row_idx > 0}
-                class:Omnibar__vault-facet--unavailable={!group.vault_is_available}
-                class:Omnibar__item--selected={row_idx === selected_index}
-                onmousemove={(e) => handle_hover(row_idx, e)}
-                onclick={() => toggle_vault_group(group.vault_id)}
-              >
-                <div class="Omnibar__vault-facet-header">
-                  <span
-                    class="Omnibar__vault-facet-chevron"
-                    class:Omnibar__vault-facet-chevron--open={!is_collapsed}
-                  >
-                    <ChevronRightIcon />
-                  </span>
-                  <LibraryIcon />
-                  <span class="Omnibar__vault-facet-name"
-                    >{group.vault_name}</span
-                  >
-                  {#if !group.vault_is_available}
-                    <span class="Omnibar__vault-facet-unavailable"
-                      >Unavailable</span
+      <div
+        bind:this={list_element}
+        role="listbox"
+        tabindex="0"
+        aria-activedescendant={visible_items[selected_index]
+          ? get_row_id(visible_items[selected_index])
+          : undefined}
+        class="Omnibar__list"
+      >
+        {#if is_all_vaults && has_query}
+          {#if vault_groups.length > 0}
+            {#each visible_items as row, row_idx (get_row_id(row))}
+              {#if row.kind === "vault_group_header"}
+                {@const group = row.group}
+                {@const is_collapsed = collapsed_vaults.has(group.vault_id)}
+                <button
+                  id={get_row_id(row)}
+                  role="option"
+                  aria-selected={row_idx === selected_index}
+                  class="Omnibar__vault-facet"
+                  class:Omnibar__vault-facet--bordered={row_idx > 0}
+                  class:Omnibar__vault-facet--unavailable={!group.vault_is_available}
+                  class:Omnibar__item--selected={row_idx === selected_index}
+                  onmousemove={(e) => handle_hover(row_idx, e)}
+                  onclick={() => toggle_vault_group(group.vault_id)}
+                >
+                  <div class="Omnibar__vault-facet-header">
+                    <span
+                      class="Omnibar__vault-facet-chevron"
+                      class:Omnibar__vault-facet-chevron--open={!is_collapsed}
                     >
-                  {/if}
-                  <span class="Omnibar__vault-facet-count"
-                    >{group.items.length}</span
-                  >
-                </div>
-                <div class="Omnibar__vault-facet-meta">
-                  <span class="Omnibar__vault-facet-chip"
-                    >{group.vault_note_count != null
-                      ? `${group.vault_note_count} notes`
-                      : "-- notes"}</span
-                  >
-                  <span class="Omnibar__vault-facet-sep">·</span>
-                  <span class="Omnibar__vault-facet-chip"
-                    >{group.vault_last_opened_at != null
-                      ? `Opened ${format_relative_time(group.vault_last_opened_at)}`
-                      : "Opened --"}</span
-                  >
-                </div>
-              </button>
-            {:else}
-              {@const item = row}
-              <button
-                id={get_item_id(item)}
-                role="option"
-                aria-selected={row_idx === selected_index}
-                class="Omnibar__item"
-                class:Omnibar__item--selected={row_idx === selected_index}
-                onmousemove={(e) => handle_hover(row_idx, e)}
-                onclick={() => {
-                  on_confirm(item);
-                }}
-              >
-                {#if item.kind === "cross_vault_note"}
-                  {@const CrossIcon = note_icon(item.note.file_type)}
-                  {@const cross_badge = file_type_label(item.note.file_type)}
-                  <div class="Omnibar__item-row">
-                    <CrossIcon />
-                    <div class="Omnibar__item-content">
-                      <span class="Omnibar__item-title">{item.note.title}</span>
-                      <span class="Omnibar__item-path">{item.note.path}</span>
-                      {#if item.snippet}
-                        <span class="Omnibar__item-snippet">
-                          {#if item.snippet_page}
-                            <span class="Omnibar__page-ref"
-                              >p.{item.snippet_page}</span
-                            >
-                          {/if}
-                          {item.snippet}
-                        </span>
-                      {/if}
-                    </div>
-                    {#if cross_badge}
-                      <span class="Omnibar__badge">{cross_badge}</span>
+                      <ChevronRightIcon />
+                    </span>
+                    <LibraryIcon />
+                    <span class="Omnibar__vault-facet-name"
+                      >{group.vault_name}</span
+                    >
+                    {#if !group.vault_is_available}
+                      <span class="Omnibar__vault-facet-unavailable"
+                        >Unavailable</span
+                      >
                     {/if}
-                    <span class="Omnibar__vault-badge">{item.vault_name}</span>
+                    <span class="Omnibar__vault-facet-count"
+                      >{group.items.length}</span
+                    >
                   </div>
-                {/if}
-              </button>
-            {/if}
-          {/each}
-        {:else if !is_searching}
-          <div class="Omnibar__empty">No results across vaults</div>
-        {/if}
-      {:else}
-        {#if show_recent_header && recent_notes.length > 0}
-          <div class="Omnibar__header">
-            <ClockIcon />
-            <span>Recent</span>
-          </div>
-        {/if}
+                  <div class="Omnibar__vault-facet-meta">
+                    <span class="Omnibar__vault-facet-chip"
+                      >{group.vault_note_count != null
+                        ? `${group.vault_note_count} notes`
+                        : "-- notes"}</span
+                    >
+                    <span class="Omnibar__vault-facet-sep">·</span>
+                    <span class="Omnibar__vault-facet-chip"
+                      >{group.vault_last_opened_at != null
+                        ? `Opened ${format_relative_time(group.vault_last_opened_at)}`
+                        : "Opened --"}</span
+                    >
+                  </div>
+                </button>
+              {:else}
+                {@const item = row}
+                <button
+                  id={get_item_id(item)}
+                  role="option"
+                  aria-selected={row_idx === selected_index}
+                  class="Omnibar__item"
+                  class:Omnibar__item--selected={row_idx === selected_index}
+                  onmousemove={(e) => handle_hover(row_idx, e)}
+                  onclick={() => {
+                    on_confirm(item);
+                  }}
+                >
+                  {#if item.kind === "cross_vault_note"}
+                    {@const CrossIcon = note_icon(item.note.file_type)}
+                    {@const cross_badge = file_type_label(item.note.file_type)}
+                    <div class="Omnibar__item-row">
+                      <CrossIcon />
+                      <div class="Omnibar__item-content">
+                        <span class="Omnibar__item-title"
+                          >{item.note.title}</span
+                        >
+                        <span class="Omnibar__item-path">{item.note.path}</span>
+                        {#if item.snippet}
+                          <span class="Omnibar__item-snippet">
+                            {#if item.snippet_page}
+                              <span class="Omnibar__page-ref"
+                                >p.{item.snippet_page}</span
+                              >
+                            {/if}
+                            {item.snippet}
+                          </span>
+                        {/if}
+                      </div>
+                      {#if cross_badge}
+                        <span class="Omnibar__badge">{cross_badge}</span>
+                      {/if}
+                      <span class="Omnibar__vault-badge">{item.vault_name}</span
+                      >
+                    </div>
+                  {/if}
+                </button>
+              {/if}
+            {/each}
+          {:else if !is_searching}
+            <div class="Omnibar__empty">No results across vaults</div>
+          {/if}
+        {:else}
+          {#if show_recent_header && recent_notes.length > 0}
+            <div class="Omnibar__header">
+              <ClockIcon />
+              <span>Recent</span>
+            </div>
+          {/if}
 
-        {#if show_commands_header && commands_start_index === 0}
-          <div class="Omnibar__header">
-            <CommandIcon />
-            <span>Commands</span>
-          </div>
-        {/if}
-
-        {#each display_items as item, index (get_item_id(item))}
-          {#if show_commands_header && index === commands_start_index && commands_start_index > 0}
-            <div class="Omnibar__header Omnibar__header--bordered">
+          {#if show_commands_header && commands_start_index === 0}
+            <div class="Omnibar__header">
               <CommandIcon />
               <span>Commands</span>
             </div>
           {/if}
 
-          <button
-            id={get_item_id(item)}
-            role="option"
-            aria-selected={index === selected_index}
-            class="Omnibar__item"
-            class:Omnibar__item--selected={index === selected_index}
-            onmousemove={(e) => handle_hover(index, e)}
-            onclick={() => {
-              on_confirm(item);
-            }}
-          >
-            {#if item.kind === "note"}
-              {@const NoteItemIcon = note_icon(item.note.file_type)}
-              {@const badge = file_type_label(item.note.file_type)}
-              <div class="Omnibar__item-row">
-                <NoteItemIcon />
-                <div class="Omnibar__item-content">
-                  <span class="Omnibar__item-title">{item.note.title}</span>
-                  <span class="Omnibar__item-path">{item.note.path}</span>
-                  {#if item.snippet}
-                    <span class="Omnibar__item-snippet">
-                      {#if item.snippet_page}
-                        <span class="Omnibar__page-ref"
-                          >p.{item.snippet_page}</span
-                        >
-                      {/if}
-                      {item.snippet}
-                    </span>
+          {#each display_items as item, index (get_item_id(item))}
+            {#if show_commands_header && index === commands_start_index && commands_start_index > 0}
+              <div class="Omnibar__header Omnibar__header--bordered">
+                <CommandIcon />
+                <span>Commands</span>
+              </div>
+            {/if}
+
+            <button
+              id={get_item_id(item)}
+              role="option"
+              aria-selected={index === selected_index}
+              class="Omnibar__item"
+              class:Omnibar__item--selected={index === selected_index}
+              onmousemove={(e) => handle_hover(index, e)}
+              onclick={() => {
+                on_confirm(item);
+              }}
+            >
+              {#if item.kind === "note"}
+                {@const NoteItemIcon = note_icon(item.note.file_type)}
+                {@const badge = file_type_label(item.note.file_type)}
+                <div class="Omnibar__item-row">
+                  <NoteItemIcon />
+                  <div class="Omnibar__item-content">
+                    <span class="Omnibar__item-title">{item.note.title}</span>
+                    <span class="Omnibar__item-path">{item.note.path}</span>
+                    {#if item.snippet}
+                      <span class="Omnibar__item-snippet">
+                        {#if item.snippet_page}
+                          <span class="Omnibar__page-ref"
+                            >p.{item.snippet_page}</span
+                          >
+                        {/if}
+                        {item.snippet}
+                      </span>
+                    {/if}
+                  </div>
+                  {#if badge}
+                    <span class="Omnibar__badge">{badge}</span>
+                  {/if}
+                  {#if item.source === "vector" || item.source === "both"}
+                    <span class="Omnibar__badge Omnibar__badge--semantic"
+                      >Semantic</span
+                    >
                   {/if}
                 </div>
-                {#if badge}
-                  <span class="Omnibar__badge">{badge}</span>
-                {/if}
-                {#if item.source === "vector" || item.source === "both"}
-                  <span class="Omnibar__badge Omnibar__badge--semantic"
-                    >Semantic</span
-                  >
-                {/if}
-              </div>
-            {:else if item.kind === "recent_note"}
-              <div class="Omnibar__item-row">
-                <ClockIcon />
-                <div class="Omnibar__item-content">
-                  <span class="Omnibar__item-title">{item.note.name}</span>
-                  <span class="Omnibar__item-path">{item.note.path}</span>
+              {:else if item.kind === "recent_note"}
+                <div class="Omnibar__item-row">
+                  <ClockIcon />
+                  <div class="Omnibar__item-content">
+                    <span class="Omnibar__item-title">{item.note.name}</span>
+                    <span class="Omnibar__item-path">{item.note.path}</span>
+                  </div>
                 </div>
-              </div>
-            {:else if item.kind === "command"}
-              {@const IconComponent =
-                COMMAND_ICONS[item.command.icon] || CommandIcon}
-              {@const action_id = COMMAND_TO_ACTION_ID[item.command.id]}
-              {@const command_key = action_id
-                ? action_id_to_key.get(action_id)
-                : undefined}
-              {@const is_plugin = item.command.id.includes(":")}
-              <div class="Omnibar__item-row">
-                <span class="Omnibar__item-icon"><IconComponent /></span>
-                <span class="Omnibar__item-title">{item.command.label}</span>
-                {#if is_plugin}
-                  <span class="Omnibar__badge">Plugin</span>
-                {/if}
-                {#if command_key}
-                  <span class="Omnibar__item-shortcut"
-                    ><HotkeyKey hotkey={command_key} /></span
-                  >
-                {/if}
-              </div>
-              <div class="Omnibar__item-desc">{item.command.description}</div>
-            {:else if item.kind === "setting"}
-              <div class="Omnibar__item-row">
-                <SettingsIcon />
-                <span class="Omnibar__item-title">{item.setting.label}</span>
-                <span class="Omnibar__badge">{item.setting.category}</span>
-              </div>
-              <div class="Omnibar__item-desc">{item.setting.description}</div>
-            {:else if item.kind === "planned_note"}
-              <div class="Omnibar__item-row">
-                <LinkIcon />
-                <div class="Omnibar__item-content">
-                  <span class="Omnibar__item-title">{item.target_path}</span>
-                  <span class="Omnibar__item-path">{item.ref_count} refs</span>
+              {:else if item.kind === "command"}
+                {@const IconComponent =
+                  COMMAND_ICONS[item.command.icon] || CommandIcon}
+                {@const action_id = COMMAND_TO_ACTION_ID[item.command.id]}
+                {@const command_key = action_id
+                  ? action_id_to_key.get(action_id)
+                  : undefined}
+                {@const is_plugin = item.command.id.includes(":")}
+                <div class="Omnibar__item-row">
+                  <span class="Omnibar__item-icon"><IconComponent /></span>
+                  <span class="Omnibar__item-title">{item.command.label}</span>
+                  {#if is_plugin}
+                    <span class="Omnibar__badge">Plugin</span>
+                  {/if}
+                  {#if command_key}
+                    <span class="Omnibar__item-shortcut"
+                      ><HotkeyKey hotkey={command_key} /></span
+                    >
+                  {/if}
                 </div>
-                <span class="Omnibar__badge">Planned</span>
-              </div>
-            {/if}
-          </button>
-        {/each}
+                <div class="Omnibar__item-desc">{item.command.description}</div>
+              {:else if item.kind === "setting"}
+                <div class="Omnibar__item-row">
+                  <SettingsIcon />
+                  <span class="Omnibar__item-title">{item.setting.label}</span>
+                  <span class="Omnibar__badge">{item.setting.category}</span>
+                </div>
+                <div class="Omnibar__item-desc">{item.setting.description}</div>
+              {:else if item.kind === "planned_note"}
+                <div class="Omnibar__item-row">
+                  <LinkIcon />
+                  <div class="Omnibar__item-content">
+                    <span class="Omnibar__item-title">{item.target_path}</span>
+                    <span class="Omnibar__item-path">{item.ref_count} refs</span
+                    >
+                  </div>
+                  <span class="Omnibar__badge">Planned</span>
+                </div>
+              {/if}
+            </button>
+          {/each}
 
-        {#if display_items.length === 0}
-          <div class="Omnibar__empty">
-            {#if has_query}
-              No results found
-            {:else}
-              No recent notes
-            {/if}
-          </div>
+          {#if display_items.length === 0}
+            <div class="Omnibar__empty">
+              {#if has_query}
+                No results found
+              {:else}
+                No recent notes
+              {/if}
+            </div>
+          {/if}
         {/if}
-      {/if}
 
-      {#if is_all_vaults && !has_query && !is_searching}
-        <div class="Omnibar__empty">Type to search across all vaults</div>
-      {/if}
-    </div>
+        {#if is_all_vaults && !has_query && !is_searching}
+          <div class="Omnibar__empty">Type to search across all vaults</div>
+        {/if}
+      </div>
 
-    <div class="Omnibar__footer">
-      {#if structured_hint}
-        <span class="Omnibar__hint Omnibar__hint--structured"
-          >{structured_hint}</span
-        >
-      {:else if is_all_vaults}
-        <span class="Omnibar__hint"><kbd>↵</kbd> to open vault</span>
-      {:else}
-        <span class="Omnibar__hint"><kbd>&gt;</kbd> for commands</span>
-        <span class="Omnibar__hint-sep">·</span>
-        <span class="Omnibar__hint"><kbd>Tab</kbd> filters</span>
-        <span class="Omnibar__hint-sep">·</span>
-        <span class="Omnibar__hint"
-          ><kbd>title:</kbd> <kbd>path:</kbd> <kbd>content:</kbd></span
-        >
-      {/if}
-      {#if can_view_as_graph}
-        <button
-          class="Omnibar__graph-action"
-          onclick={() => on_view_as_graph(query)}
-        >
-          <NetworkIcon />
-          <span>View as graph</span>
-        </button>
-      {/if}
-    </div>
+      <div class="Omnibar__footer">
+        {#if structured_hint}
+          <span class="Omnibar__hint Omnibar__hint--structured"
+            >{structured_hint}</span
+          >
+        {:else if is_all_vaults}
+          <span class="Omnibar__hint"><kbd>↵</kbd> to open vault</span>
+        {:else}
+          <span class="Omnibar__hint"><kbd>&gt;</kbd> for commands</span>
+          <span class="Omnibar__hint-sep">·</span>
+          <span class="Omnibar__hint"><kbd>Tab</kbd> filters</span>
+          <span class="Omnibar__hint-sep">·</span>
+          <span class="Omnibar__hint"
+            ><kbd>title:</kbd> <kbd>path:</kbd> <kbd>content:</kbd></span
+          >
+        {/if}
+        {#if can_view_as_graph}
+          <button
+            class="Omnibar__graph-action"
+            onclick={() => on_view_as_graph(query)}
+          >
+            <NetworkIcon />
+            <span>View as graph</span>
+          </button>
+        {/if}
+      </div>
+    {/if}
   </Dialog.Content>
 </Dialog.Root>
 

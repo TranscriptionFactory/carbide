@@ -599,6 +599,23 @@ export const SETTINGS_REGISTRY: SettingDefinition[] = [
     ],
   },
   {
+    key: "ai_question_recipes",
+    label: "Chat Question Recipes",
+    description:
+      "Question chips shown above the chat input. Use {scope} where the active scope should appear.",
+    category: "AI",
+    keywords: [
+      "ai",
+      "chat",
+      "question",
+      "recipe",
+      "template",
+      "chip",
+      "scope",
+      "rag",
+    ],
+  },
+  {
     key: "ai_inline_vault_context",
     label: "Inline AI Vault Context",
     description:

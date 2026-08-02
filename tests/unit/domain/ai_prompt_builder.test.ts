@@ -1,7 +1,16 @@
 import { describe, expect, it } from "vitest";
 import { build_ai_prompt } from "$lib/features/ai";
+import { build_editor_sources } from "$lib/features/ai/domain/ai_context_sources";
+import { resolve_policy } from "$lib/shared/domain/prompt_recipes";
+import { assemble_context } from "$lib/features/assistant";
 import { as_markdown_text, as_note_path } from "$lib/shared/types/ids";
-import type { AiVaultContext } from "$lib/features/ai/domain/ai_types";
+import type { MarkdownText, NotePath } from "$lib/shared/types/ids";
+import type { EditorSelectionSnapshot } from "$lib/shared/types/editor";
+import type {
+  AiApplyTarget,
+  AiMode,
+  AiVaultContext,
+} from "$lib/features/ai/domain/ai_types";
 
 const base_input = {
   note_path: as_note_path("docs/demo.md"),
@@ -11,6 +20,34 @@ const base_input = {
   target: "full_note" as const,
   mode: "edit" as const,
 };
+
+// Assembles the panel's declared sources exactly as ai_service does, so these
+// assertions run against the real assembler rather than a hand-built assembly.
+function panel_prompt(input: {
+  note_path: NotePath;
+  note_markdown: MarkdownText;
+  selection: EditorSelectionSnapshot | null;
+  user_prompt: string;
+  target: AiApplyTarget;
+  mode: AiMode;
+  vault_context?: AiVaultContext;
+}): string {
+  const assembly = assemble_context(
+    build_editor_sources(resolve_policy(undefined, "panel").context_sources, {
+      ...(input.selection ? { selection: input.selection.text } : {}),
+      active_document: input.note_markdown,
+      ...(input.vault_context ? { vault: input.vault_context } : {}),
+    }),
+    null,
+  );
+  return build_ai_prompt({
+    note_path: input.note_path,
+    assembly,
+    user_prompt: input.user_prompt,
+    target: input.target,
+    mode: input.mode,
+  });
+}
 
 const sample_vault_context: AiVaultContext = {
   similar_notes: [
@@ -30,7 +67,7 @@ const sample_vault_context: AiVaultContext = {
 
 describe("build_ai_prompt", () => {
   it("builds a full-note rewrite prompt", () => {
-    const prompt = build_ai_prompt(base_input);
+    const prompt = panel_prompt(base_input);
 
     expect(prompt).toContain("Return ONLY the complete edited markdown");
     expect(prompt).toContain("<current_markdown>");
@@ -38,7 +75,7 @@ describe("build_ai_prompt", () => {
   });
 
   it("builds a selection-only replacement prompt", () => {
-    const prompt = build_ai_prompt({
+    const prompt = panel_prompt({
       ...base_input,
       note_markdown: as_markdown_text("# Demo\n\nHello world"),
       selection: { text: "Hello world", start: 8, end: 19 },
@@ -53,7 +90,7 @@ describe("build_ai_prompt", () => {
   });
 
   it("builds an ask prompt for full note", () => {
-    const prompt = build_ai_prompt({
+    const prompt = panel_prompt({
       ...base_input,
       user_prompt: "What tone is this written in?",
       mode: "ask",
@@ -68,7 +105,7 @@ describe("build_ai_prompt", () => {
   });
 
   it("builds an ask prompt for selection", () => {
-    const prompt = build_ai_prompt({
+    const prompt = panel_prompt({
       ...base_input,
       note_markdown: as_markdown_text("# Demo\n\nHello world"),
       selection: { text: "Hello world", start: 8, end: 19 },
@@ -85,7 +122,7 @@ describe("build_ai_prompt", () => {
 
   describe("vault context", () => {
     it("includes similar_notes section when provided", () => {
-      const prompt = build_ai_prompt({
+      const prompt = panel_prompt({
         ...base_input,
         vault_context: sample_vault_context,
       });
@@ -98,7 +135,7 @@ describe("build_ai_prompt", () => {
     });
 
     it("includes backlinks section when provided", () => {
-      const prompt = build_ai_prompt({
+      const prompt = panel_prompt({
         ...base_input,
         vault_context: sample_vault_context,
       });
@@ -109,7 +146,7 @@ describe("build_ai_prompt", () => {
     });
 
     it("includes outlinks section when provided", () => {
-      const prompt = build_ai_prompt({
+      const prompt = panel_prompt({
         ...base_input,
         vault_context: sample_vault_context,
       });
@@ -122,7 +159,7 @@ describe("build_ai_prompt", () => {
     });
 
     it("adds context explanation line when vault context is present", () => {
-      const prompt = build_ai_prompt({
+      const prompt = panel_prompt({
         ...base_input,
         vault_context: sample_vault_context,
       });
@@ -133,7 +170,7 @@ describe("build_ai_prompt", () => {
     });
 
     it("omits sections for empty arrays", () => {
-      const prompt = build_ai_prompt({
+      const prompt = panel_prompt({
         ...base_input,
         vault_context: {
           similar_notes: [{ path: "a.md", title: "A", blurb: "blurb" }],
@@ -148,7 +185,7 @@ describe("build_ai_prompt", () => {
     });
 
     it("omits all vault context when all arrays are empty", () => {
-      const prompt = build_ai_prompt({
+      const prompt = panel_prompt({
         ...base_input,
         vault_context: {
           similar_notes: [],
@@ -164,13 +201,13 @@ describe("build_ai_prompt", () => {
     });
 
     it("produces identical output when vault_context is not provided", () => {
-      const without = build_ai_prompt(base_input);
-      const with_no_ctx = build_ai_prompt({ ...base_input });
+      const without = panel_prompt(base_input);
+      const with_no_ctx = panel_prompt({ ...base_input });
       expect(without).toBe(with_no_ctx);
     });
 
     it("works for ask x selection with vault context", () => {
-      const prompt = build_ai_prompt({
+      const prompt = panel_prompt({
         ...base_input,
         selection: { text: "Hello", start: 0, end: 5 },
         target: "selection",
@@ -185,7 +222,7 @@ describe("build_ai_prompt", () => {
     });
 
     it("works for ask x full note with vault context", () => {
-      const prompt = build_ai_prompt({
+      const prompt = panel_prompt({
         ...base_input,
         mode: "ask",
         user_prompt: "Summarize",
@@ -197,7 +234,7 @@ describe("build_ai_prompt", () => {
     });
 
     it("works for edit x selection with vault context", () => {
-      const prompt = build_ai_prompt({
+      const prompt = panel_prompt({
         ...base_input,
         selection: { text: "Hello", start: 0, end: 5 },
         target: "selection",
@@ -211,7 +248,7 @@ describe("build_ai_prompt", () => {
     });
 
     it("works for edit x full note with vault context", () => {
-      const prompt = build_ai_prompt({
+      const prompt = panel_prompt({
         ...base_input,
         mode: "edit",
         vault_context: sample_vault_context,
@@ -223,7 +260,7 @@ describe("build_ai_prompt", () => {
     });
 
     it("places vault context after note content but before user prompt", () => {
-      const prompt = build_ai_prompt({
+      const prompt = panel_prompt({
         ...base_input,
         vault_context: sample_vault_context,
       });
@@ -277,5 +314,51 @@ describe("build_ai_document_prompt", () => {
     expect(prompt).toContain("<user_question>");
     expect(prompt).toContain("What does this page render?");
     expect(prompt).not.toContain("Return ONLY");
+  });
+});
+
+describe("panel context assembly", () => {
+  it("sends the whole note untruncated, however large", () => {
+    const huge = as_markdown_text("z".repeat(200_000));
+    const prompt = panel_prompt({ ...base_input, note_markdown: huge });
+
+    expect(prompt).toContain("z".repeat(200_000));
+    expect(prompt).not.toContain("[middle truncated]");
+  });
+
+  it("keeps the selection alongside the note it was taken from", () => {
+    const prompt = panel_prompt({
+      ...base_input,
+      note_markdown: as_markdown_text("# Demo\n\nHello world"),
+      selection: { text: "Hello world", start: 8, end: 19 },
+      target: "selection",
+    });
+
+    expect(prompt).toContain("<selected_text>\nHello world\n</selected_text>");
+    expect(prompt).toContain("<full_note_context>");
+    expect(prompt).toContain("# Demo");
+  });
+
+  it("ignores a whitespace-only selection and edits the whole note", () => {
+    const prompt = panel_prompt({
+      ...base_input,
+      selection: { text: "   ", start: 0, end: 3 },
+      target: "selection",
+    });
+
+    expect(prompt).not.toContain("<selected_text>");
+    expect(prompt).toContain("<current_markdown>");
+  });
+
+  it("lists a note that is both a backlink and an outlink under both headings", () => {
+    const both = { path: "docs/hub.md", title: "Hub", blurb: "Index" };
+    const prompt = panel_prompt({
+      ...base_input,
+      vault_context: { similar_notes: [], backlinks: [both], outlinks: [both] },
+    });
+
+    expect(prompt).toContain("<backlinks>");
+    expect(prompt).toContain("<outlinks>");
+    expect(prompt.match(/- Hub \(docs\/hub\.md\): Index/g)?.length).toBe(2);
   });
 });

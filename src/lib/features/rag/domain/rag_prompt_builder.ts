@@ -3,7 +3,7 @@ import type {
   RagRetrievedContext,
 } from "$lib/features/rag/domain/rag_types";
 import type { AiMessage } from "$lib/features/ai";
-import { estimate_tokens } from "$lib/features/rag/domain/rag_context_assembler";
+import { estimate_tokens } from "$lib/features/assistant";
 
 const DEFAULT_HISTORY_TOKEN_BUDGET = 1500;
 const CITATION_MARKER = /\s*\[\d+\]/g;

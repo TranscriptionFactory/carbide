@@ -49,45 +49,57 @@ import {
   describe_inline_request,
   type InlineRequestPayload,
 } from "$lib/features/ai/domain/inline_session_log";
-import { resolve_instructions } from "$lib/shared/domain/prompt_recipes";
+import {
+  build_editor_sources,
+  type EditorContextMaterial,
+} from "$lib/features/ai/domain/ai_context_sources";
+import {
+  resolve_instructions,
+  resolve_policy,
+} from "$lib/shared/domain/prompt_recipes";
+import type {
+  AssistantSurface,
+  ContextSourceId,
+  InstructionRecipe,
+} from "$lib/shared/types/prompt_recipe";
+import { assemble_context, context_window } from "$lib/features/assistant";
 import { collect_open_note_image_parts } from "$lib/features/ai/application/note_image_loader";
 import type { EditorView } from "prosemirror-view";
 
 const MAX_INLINE_CONTEXT = 4000;
 
-function inline_context_window(
-  from: number,
-  to: number | null,
-  length: number,
-): { start: number; end: number } {
-  if (to !== null) {
-    return {
-      start: Math.max(0, from - MAX_INLINE_CONTEXT),
-      end: Math.min(length, to + MAX_INLINE_CONTEXT),
-    };
-  }
-  const clamped = Math.min(Math.max(0, from), length);
-  return { start: Math.max(0, clamped - MAX_INLINE_CONTEXT), end: clamped };
-}
+type PendingInlinePrompt = {
+  command_id: string;
+  commands: InstructionRecipe[];
+  material: EditorContextMaterial;
+  declared: ContextSourceId[];
+  custom_prompt?: string;
+};
 
 function extract_source_inline_context(
   markdown: string,
   selection: EditorSelectionSnapshot | null,
   cursor_offset: number,
-): { context_text: string; selection_text?: string } {
+): EditorContextMaterial {
   if (selection && selection.start !== null && selection.end !== null) {
-    const w = inline_context_window(
+    const w = context_window(
       selection.start,
       selection.end,
       markdown.length,
+      MAX_INLINE_CONTEXT,
     );
     return {
-      context_text: markdown.slice(w.start, w.end),
-      selection_text: selection.text,
+      cursor_window: markdown.slice(w.start, w.end),
+      selection: selection.text,
     };
   }
-  const w = inline_context_window(cursor_offset, null, markdown.length);
-  return { context_text: markdown.slice(w.start, w.end) };
+  const w = context_window(
+    cursor_offset,
+    null,
+    markdown.length,
+    MAX_INLINE_CONTEXT,
+  );
+  return { cursor_window: markdown.slice(w.start, w.end) };
 }
 
 export function register_ai_actions(
@@ -674,27 +686,70 @@ export function register_ai_actions(
     }
   }
 
-  function extract_inline_context(view: EditorView): {
-    context_text: string;
-    selection_text?: string;
-  } {
+  function extract_inline_context(view: EditorView): EditorContextMaterial {
     const { from, to } = view.state.selection;
     const doc = view.state.doc;
     if (from !== to) {
-      const w = inline_context_window(from, to, doc.content.size);
+      const w = context_window(from, to, doc.content.size, MAX_INLINE_CONTEXT);
       return {
-        context_text: doc.textBetween(w.start, w.end, "\n", "\n"),
-        selection_text: doc.textBetween(from, to, "\n", "\n"),
+        cursor_window: doc.textBetween(w.start, w.end, "\n", "\n"),
+        selection: doc.textBetween(from, to, "\n", "\n"),
       };
     }
-    const w = inline_context_window(from, null, doc.content.size);
+    const w = context_window(from, null, doc.content.size, MAX_INLINE_CONTEXT);
     return {
-      context_text: doc.textBetween(w.start, w.end, "\n", "\n"),
+      cursor_window: doc.textBetween(w.start, w.end, "\n", "\n"),
     };
   }
 
   function in_source_mode(): boolean {
     return input.stores.editor.editor_mode === "source";
+  }
+
+  // Split in two because the editor material must be read before the stream
+  // transaction mutates the doc, while vault context only arrives after an
+  // await. Assembly happens once both halves are in hand.
+  function prepare_inline_prompt(
+    surface: AssistantSurface,
+    material: EditorContextMaterial,
+    p: { command_id?: string; prompt?: string } | undefined,
+  ): PendingInlinePrompt {
+    const commands = resolve_instructions(
+      input.stores.ui.editor_settings.ai_inline_commands,
+    );
+    const command_id = p?.command_id ?? (p?.prompt ? "custom" : "continue");
+    const policy = resolve_policy(
+      commands.find((c) => c.id === command_id),
+      surface,
+    );
+    return {
+      command_id,
+      commands,
+      material,
+      declared: policy.context_sources,
+      ...(p?.prompt ? { custom_prompt: p.prompt } : {}),
+    };
+  }
+
+  function finish_inline_prompt(
+    pending: PendingInlinePrompt,
+    vault_context: AiVaultContext | undefined,
+  ): { system_prompt: string; user_prompt: string } {
+    const assembly = assemble_context(
+      build_editor_sources(pending.declared, {
+        ...pending.material,
+        ...(vault_context ? { vault: vault_context } : {}),
+      }),
+      null,
+    );
+    return build_ai_inline_prompt({
+      command_id: pending.command_id,
+      commands: pending.commands,
+      assembly,
+      ...(pending.custom_prompt !== undefined
+        ? { custom_prompt: pending.custom_prompt }
+        : {}),
+    });
   }
 
   registry.register({
@@ -740,26 +795,19 @@ export function register_ai_actions(
     const selection = editor_ctx.selection;
     const cursor_offset = input.stores.editor.cursor_offset;
 
-    let prompt_input: Parameters<typeof build_ai_inline_prompt>[0] | null =
-      null;
+    let pending: PendingInlinePrompt | null = null;
     if (p?.retry) {
       if (!last_inline_prompts) return;
     } else {
-      const ctx = extract_source_inline_context(
-        editor_ctx.markdown,
-        selection,
-        cursor_offset,
+      pending = prepare_inline_prompt(
+        "inline_cm",
+        extract_source_inline_context(
+          editor_ctx.markdown,
+          selection,
+          cursor_offset,
+        ),
+        p,
       );
-      const commands = resolve_instructions(
-        input.stores.ui.editor_settings.ai_inline_commands,
-      );
-      prompt_input = {
-        command_id: p?.command_id ?? (p?.prompt ? "custom" : "continue"),
-        context_text: ctx.context_text,
-        commands,
-      };
-      if (p?.prompt) prompt_input.custom_prompt = p.prompt;
-      if (ctx.selection_text) prompt_input.selection_text = ctx.selection_text;
     }
 
     dispatch_ai_menu(view, {
@@ -769,13 +817,12 @@ export function register_ai_actions(
 
     const [images, vault_context] = await Promise.all([
       collect_open_note_image_parts(input),
-      prompt_input ? fetch_inline_vault_context() : undefined,
+      pending ? fetch_inline_vault_context() : undefined,
     ]);
     if (!get_ai_menu_state(view.state).open) return;
     let prompts = last_inline_prompts;
-    if (prompt_input) {
-      if (vault_context) prompt_input.vault_context = vault_context;
-      prompts = build_ai_inline_prompt(prompt_input);
+    if (pending) {
+      prompts = finish_inline_prompt(pending, vault_context);
       last_inline_prompts = prompts;
     }
     if (!prompts) return;
@@ -870,8 +917,7 @@ export function register_ai_actions(
       }
 
       let prompts: { system_prompt: string; user_prompt: string } | null = null;
-      let prompt_input: Parameters<typeof build_ai_inline_prompt>[0] | null =
-        null;
+      let pending: PendingInlinePrompt | null = null;
       if (p?.retry) {
         if (!last_inline_prompts) return;
         prompts = last_inline_prompts;
@@ -880,21 +926,12 @@ export function register_ai_actions(
         tr.setMeta(ai_menu_plugin_key, { action: "retry" });
         view.dispatch(tr);
       } else {
-        const command_id = p?.command_id;
-        const prompt = p?.prompt;
-        const resolved_command = command_id ?? (prompt ? "custom" : "continue");
-        const commands = resolve_instructions(
-          input.stores.ui.editor_settings.ai_inline_commands,
+        // Read the doc before the transaction below deletes the selection.
+        pending = prepare_inline_prompt(
+          "inline_pm",
+          extract_inline_context(view),
+          p,
         );
-        const ctx = extract_inline_context(view);
-        prompt_input = {
-          command_id: resolved_command,
-          context_text: ctx.context_text,
-          commands,
-        };
-        if (prompt) prompt_input.custom_prompt = prompt;
-        if (ctx.selection_text)
-          prompt_input.selection_text = ctx.selection_text;
 
         const { from, to } = view.state.selection;
         const tr = view.state.tr;
@@ -909,12 +946,11 @@ export function register_ai_actions(
 
       const [images, vault_context] = await Promise.all([
         collect_open_note_image_parts(input),
-        prompt_input ? fetch_inline_vault_context() : undefined,
+        pending ? fetch_inline_vault_context() : undefined,
       ]);
       if (!get_ai_menu_state(view.state).open) return;
-      if (prompt_input) {
-        if (vault_context) prompt_input.vault_context = vault_context;
-        prompts = build_ai_inline_prompt(prompt_input);
+      if (pending) {
+        prompts = finish_inline_prompt(pending, vault_context);
         last_inline_prompts = prompts;
       }
       if (!prompts) return;
