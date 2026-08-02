@@ -40,35 +40,53 @@ fn home_dir() -> PathBuf {
 
 #[cfg(target_os = "windows")]
 fn local_app_data_dir() -> PathBuf {
+    local_app_data_dir_in(&home_dir())
+}
+
+#[cfg(target_os = "windows")]
+fn local_app_data_dir_in(home: &Path) -> PathBuf {
     std::env::var("LOCALAPPDATA")
         .map(PathBuf::from)
-        .unwrap_or_else(|_| home_dir().join("AppData/Local"))
+        .unwrap_or_else(|_| home.join("AppData/Local"))
 }
 
 fn carbide_cli_path() -> PathBuf {
+    carbide_cli_path_in(&home_dir())
+}
+
+/// The home-derived paths are taken as arguments rather than read from the
+/// environment so tests can redirect them without mutating the process-global
+/// `HOME` that every other test in this binary shares.
+fn carbide_cli_path_in(home: &Path) -> PathBuf {
     #[cfg(target_os = "windows")]
     {
-        local_app_data_dir().join("Programs/Carbide/bin/carbide.exe")
+        local_app_data_dir_in(home).join("Programs/Carbide/bin/carbide.exe")
     }
     #[cfg(not(target_os = "windows"))]
     {
-        home_dir().join(".local/bin/carbide")
+        home.join(".local/bin/carbide")
     }
 }
 
 fn claude_desktop_config_path() -> PathBuf {
+    claude_desktop_config_path_in(&home_dir())
+}
+
+fn claude_desktop_config_path_in(home: &Path) -> PathBuf {
     #[cfg(target_os = "macos")]
     {
-        home_dir().join("Library/Application Support/Claude/claude_desktop_config.json")
+        home.join("Library/Application Support/Claude/claude_desktop_config.json")
     }
     #[cfg(target_os = "linux")]
     {
-        home_dir().join(".config/Claude/claude_desktop_config.json")
+        home.join(".config/Claude/claude_desktop_config.json")
     }
     #[cfg(target_os = "windows")]
     {
-        let appdata = std::env::var("APPDATA").unwrap_or_else(|_| ".".into());
-        PathBuf::from(appdata).join("Claude/claude_desktop_config.json")
+        std::env::var("APPDATA")
+            .map(PathBuf::from)
+            .unwrap_or_else(|_| home.join("AppData/Roaming"))
+            .join("Claude/claude_desktop_config.json")
     }
 }
 
@@ -83,18 +101,30 @@ fn build_mcp_server_entry(token: &str) -> serde_json::Value {
 }
 
 fn build_mcp_server_entry_stdio() -> serde_json::Value {
+    build_mcp_server_entry_stdio_in(&home_dir())
+}
+
+fn build_mcp_server_entry_stdio_in(home: &Path) -> serde_json::Value {
     serde_json::json!({
-        "command": carbide_cli_path(),
+        "command": carbide_cli_path_in(home),
         "args": ["mcp"]
     })
 }
 
 fn cli_installed() -> bool {
-    carbide_cli_path().symlink_metadata().is_ok()
+    cli_installed_in(&home_dir())
+}
+
+fn cli_installed_in(home: &Path) -> bool {
+    carbide_cli_path_in(home).symlink_metadata().is_ok()
 }
 
 pub fn write_claude_desktop_config(token: &str) -> Result<SetupResult, String> {
-    let path = claude_desktop_config_path();
+    write_claude_desktop_config_in(&home_dir(), token)
+}
+
+fn write_claude_desktop_config_in(home: &Path, token: &str) -> Result<SetupResult, String> {
+    let path = claude_desktop_config_path_in(home);
 
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent)
@@ -117,8 +147,8 @@ pub fn write_claude_desktop_config(token: &str) -> Result<SetupResult, String> {
         .or_insert_with(|| serde_json::json!({}));
 
     // Use stdio transport if CLI is installed, otherwise fall back to HTTP
-    let entry = if cli_installed() {
-        build_mcp_server_entry_stdio()
+    let entry = if cli_installed_in(home) {
+        build_mcp_server_entry_stdio_in(home)
     } else {
         build_mcp_server_entry(token)
     };
@@ -133,7 +163,7 @@ pub fn write_claude_desktop_config(token: &str) -> Result<SetupResult, String> {
 
     std::fs::write(&path, output).map_err(|e| format!("Failed to write config: {}", e))?;
 
-    let transport = if cli_installed() { "stdio" } else { "http" };
+    let transport = if cli_installed_in(home) { "stdio" } else { "http" };
     Ok(SetupResult {
         success: true,
         path: path.to_string_lossy().to_string(),
@@ -537,33 +567,51 @@ mod tests {
         let _ = cli_installed();
     }
 
+    /// Windows resolves the Claude config location from `APPDATA`, not from the
+    /// home directory, so these two tests would write to the real user profile
+    /// rather than the temporary one they are given.
+    #[cfg(not(target_os = "windows"))]
+    fn written_config(home: &Path) -> serde_json::Value {
+        let content = std::fs::read_to_string(claude_desktop_config_path_in(home)).unwrap();
+        serde_json::from_str(&content).unwrap()
+    }
+
+    #[cfg(not(target_os = "windows"))]
     #[test]
     fn test_write_claude_desktop_config_creates_new() {
         let dir = tempfile::tempdir().unwrap();
-        let config_path = dir.path().join("Claude/claude_desktop_config.json");
 
-        std::env::set_var("HOME", dir.path());
+        let result = write_claude_desktop_config_in(dir.path(), "test_token_123").unwrap();
 
-        let result = write_claude_desktop_config("test_token_123");
+        assert!(result.success);
+        let config = written_config(dir.path());
+        assert!(config["mcpServers"]["carbide"].is_object());
+        // A temporary home holds no carbide CLI, so the HTTP transport is used.
+        assert_eq!(config["mcpServers"]["carbide"]["type"], "http");
+        assert_eq!(
+            config["mcpServers"]["carbide"]["headers"]["Authorization"],
+            "Bearer test_token_123"
+        );
+    }
 
-        #[cfg(target_os = "macos")]
-        {
-            let expected_path = dir
-                .path()
-                .join("Library/Application Support/Claude/claude_desktop_config.json");
-            if result.is_ok() {
-                let content = std::fs::read_to_string(&expected_path).unwrap();
-                let config: serde_json::Value = serde_json::from_str(&content).unwrap();
-                assert!(config["mcpServers"]["carbide"].is_object());
-                assert_eq!(config["mcpServers"]["carbide"]["type"], "http");
-                assert_eq!(
-                    config["mcpServers"]["carbide"]["headers"]["Authorization"],
-                    "Bearer test_token_123"
-                );
-            }
-        }
+    #[cfg(not(target_os = "windows"))]
+    #[test]
+    fn test_write_claude_desktop_config_preserves_other_servers() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = claude_desktop_config_path_in(dir.path());
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        std::fs::write(
+            &path,
+            r#"{"mcpServers":{"other":{"command":"other-server"}},"theme":"dark"}"#,
+        )
+        .unwrap();
 
-        std::env::remove_var("HOME");
+        write_claude_desktop_config_in(dir.path(), "test_token_456").unwrap();
+
+        let config = written_config(dir.path());
+        assert_eq!(config["mcpServers"]["other"]["command"], "other-server");
+        assert!(config["mcpServers"]["carbide"].is_object());
+        assert_eq!(config["theme"], "dark");
     }
 
     #[test]
