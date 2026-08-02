@@ -18,9 +18,15 @@ export function make_ambient_notice(
     note_path: "notes/ranking-experiments.md",
     // Defaults to a text anchor rather than a whole-note one so a rail that
     // only handles the degenerate case fails on the default fixture.
-    anchor: { kind: "text", match: "[[fusion-weights]]", occurrence: 0 },
+    //
+    // `match` is RENDERED document text, not source markdown: the wiki-link
+    // plugin replaces `[[fusion-weights]]` with a link-marked node whose text
+    // is `fusion-weights`. The first draft of this fixture used the bracketed
+    // form and would have resolved to nothing in the visual editor — caught by
+    // AU-061 in phase 1.
+    anchor: { kind: "text", match: "fusion-weights", occurrence: 0 },
     provenance: "ambient · link check",
-    body: "This note links to [[fusion-weights]], which no longer exists. Repair it?",
+    body: "This note links to fusion-weights, which no longer exists. Repair it?",
     offer: { action_id: "assistant.accept_notice", label: "Repair link" },
     created_at: 1_700_000_000_000 + next_notice,
     ...overrides,
