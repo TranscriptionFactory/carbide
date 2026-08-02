@@ -132,8 +132,12 @@ const VAULT_SOURCES: ContextSourceId[] = [
   "outlinks",
 ];
 
+// Both editor sources are declared because the selection is a preference, not
+// an alternative: a use_selection recipe still falls back to the cursor window
+// when the selection is empty. `use_selection` picks which one becomes the user
+// prompt; it does not decide what gets assembled.
 const INLINE_POLICY: RecipePolicy = {
-  context_sources: ["cursor_window", ...VAULT_SOURCES],
+  context_sources: ["selection", "cursor_window", ...VAULT_SOURCES],
   tool_policy: "none",
   apply_behavior: "replace_selection",
 };
@@ -153,35 +157,15 @@ export const SURFACE_POLICY: Record<AssistantSurface, RecipePolicy> = {
   },
 };
 
-function is_inline(surface: AssistantSurface): boolean {
-  return surface === "inline_pm" || surface === "inline_cm";
-}
-
-// Inline surfaces read either the selection or the cursor window, never both —
-// `use_selection` already says which, so the default is derived from it rather
-// than duplicated into a second field the two could disagree on.
-function surface_defaults(
-  recipe: PromptRecipe,
-  surface: AssistantSurface,
-): RecipePolicy {
-  const base = SURFACE_POLICY[surface];
-  if (!is_inline(surface)) return base;
-  if (recipe.mode !== "instruction" || !recipe.use_selection) return base;
-  return {
-    ...base,
-    context_sources: base.context_sources.map((id) =>
-      id === "cursor_window" ? "selection" : id,
-    ),
-  };
-}
-
 // Field-level merge: a recipe that declares `context_sources` gets the same
 // sources at every surface, which is what makes one recipe mean one thing.
+// A recipe is optional: a free-form custom prompt has none and simply takes the
+// surface default.
 export function resolve_policy(
-  recipe: PromptRecipe,
+  recipe: PromptRecipe | undefined,
   surface: AssistantSurface,
 ): RecipePolicy {
-  return { ...surface_defaults(recipe, surface), ...recipe.policy };
+  return { ...SURFACE_POLICY[surface], ...recipe?.policy };
 }
 
 export function to_inline_command(recipe: InstructionRecipe): AiInlineCommand {

@@ -7,6 +7,7 @@ import type {
   AiVaultContextNote,
 } from "$lib/features/ai/domain/ai_types";
 import type { InstructionRecipe } from "$lib/shared/types/prompt_recipe";
+import type { AssembledBlock, ContextAssembly } from "$lib/features/assistant";
 
 function section(label: string, value: string): string {
   return `<${label}>\n${value}\n</${label}>`;
@@ -143,12 +144,33 @@ export function build_ai_document_prompt(input: {
   ].join("\n\n");
 }
 
+const VAULT_SECTION_LABELS: [string, string][] = [
+  ["similar_notes", "similar_notes"],
+  ["backlinks", "backlinks"],
+  ["outlinks", "outlinks"],
+];
+
+function assembled_note_line(block: AssembledBlock): string {
+  return `- ${block.title} (${block.note_path ?? ""}): ${block.text}`;
+}
+
+// Rebuilt from the assembly rather than the raw context: the assembler owns
+// order, dedup and truncation, and each surface renders its own headings.
+function assembled_vault_sections(assembly: ContextAssembly): string {
+  return VAULT_SECTION_LABELS.map(([source_id, label]) => {
+    const blocks = assembly.blocks.filter((b) => b.source_id === source_id);
+    if (blocks.length === 0) return "";
+    return section(label, blocks.map(assembled_note_line).join("\n"));
+  })
+    .filter((part) => part !== "")
+    .join("\n\n");
+}
+
 function with_vault_context(
   system_prompt: string,
-  ctx: AiVaultContext | undefined,
+  assembly: ContextAssembly,
 ): string {
-  if (!ctx) return system_prompt;
-  const sections_str = vault_context_sections(ctx);
+  const sections_str = assembled_vault_sections(assembly);
   if (!sections_str) return system_prompt;
   return [
     system_prompt,
@@ -157,24 +179,36 @@ function with_vault_context(
   ].join("\n\n");
 }
 
+function source_text(assembly: ContextAssembly, source_id: string): string {
+  return assembly.blocks.find((b) => b.source_id === source_id)?.text ?? "";
+}
+
+// The selection is a preference, not an alternative: an empty selection still
+// falls back to the cursor window.
+function inline_user_prompt(
+  assembly: ContextAssembly,
+  prefer_selection: boolean,
+): string {
+  const window_text = source_text(assembly, "cursor_window");
+  if (!prefer_selection) return window_text;
+  return source_text(assembly, "selection") || window_text;
+}
+
 export function build_ai_inline_prompt(input: {
   command_id: string;
   custom_prompt?: string;
-  context_text: string;
-  selection_text?: string;
+  assembly: ContextAssembly;
   commands?: InstructionRecipe[];
-  vault_context?: AiVaultContext;
 }): { system_prompt: string; user_prompt: string } {
-  const { command_id, custom_prompt, context_text, selection_text, commands } =
-    input;
+  const { command_id, custom_prompt, assembly, commands } = input;
 
   if (command_id === "custom") {
     return {
       system_prompt: with_vault_context(
         custom_prompt ?? "Follow the user's instructions.",
-        input.vault_context,
+        assembly,
       ),
-      user_prompt: selection_text || context_text,
+      user_prompt: inline_user_prompt(assembly, true),
     };
   }
 
@@ -184,11 +218,8 @@ export function build_ai_inline_prompt(input: {
     matched?.system_prompt ??
     "Follow the user's instructions. Output only the result.";
 
-  const user_prompt =
-    matched?.use_selection && selection_text ? selection_text : context_text;
-
   return {
-    system_prompt: with_vault_context(system_prompt, input.vault_context),
-    user_prompt,
+    system_prompt: with_vault_context(system_prompt, assembly),
+    user_prompt: inline_user_prompt(assembly, matched?.use_selection === true),
   };
 }
