@@ -60,6 +60,28 @@ export type {
   AssistantToolEvent,
 } from "$lib/features/assistant/types/session";
 
+export type { AssistantChatSourceInfo } from "$lib/features/assistant/types/chat_stream";
+
+export type { RetrievalReadiness } from "$lib/features/assistant/types/retrieval";
+
+// C3 (AU-040b) — the session model and its hydration boundary. migrate_scope
+// and migrate_session_fields travel with the loader that calls them; they are
+// the only thing standing between a pre-C1 session file and an empty chat list.
+export {
+  derive_session_title,
+  migrate_scope,
+  migrate_session_fields,
+  sanitize_generated_title,
+  should_autotitle,
+  type StoredAssistantSession,
+} from "$lib/features/assistant/types/assistant_session_model";
+
+export { AssistantChatStore } from "$lib/features/assistant/state/assistant_chat_store.svelte";
+
+export { AssistantSessionService } from "$lib/features/assistant/application/assistant_session_service";
+
+export { load_assistant_sessions } from "$lib/features/assistant/application/assistant_sessions_load";
+
 export { AssistantRunStore } from "$lib/features/assistant/state/assistant_run_store.svelte";
 
 export {

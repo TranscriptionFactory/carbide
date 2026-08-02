@@ -4,6 +4,7 @@ import { chat_policy } from "$lib/features/ai";
 import type { VaultStore } from "$lib/features/vault";
 import type { AiProviderConfig } from "$lib/shared/types/ai_provider_config";
 import type {
+  AssistantChatStore,
   RunHandle,
   RunId,
   RunSink,
@@ -16,7 +17,6 @@ import {
 } from "$lib/features/rag/domain/agent_file_ops";
 import { session_messages_to_history } from "$lib/features/assistant";
 import type { AgentTurnProposalProducer } from "$lib/features/rag/application/agent_proposal_service";
-import type { RagStore } from "$lib/features/rag/state/rag_store.svelte";
 
 const log = create_logger("agent_runner");
 
@@ -43,7 +43,7 @@ export class AgentRunner {
 
   constructor(
     private readonly run_starter: RunStarter,
-    private readonly rag_store: RagStore,
+    private readonly chat_store: AssistantChatStore,
     private readonly vault_store: VaultStore,
     private readonly git: AgentCheckpointGit,
     private readonly refresh_vault: () => Promise<void> | void,
@@ -67,7 +67,7 @@ export class AgentRunner {
     backend: "harness" | "native",
   ): Promise<AgentTurnResult> {
     const vault = this.vault_store.vault;
-    const session = this.rag_store.active;
+    const session = this.chat_store.active;
     if (!vault) return this.fail("No active vault");
     if (!session) return this.fail("No active chat session");
 
@@ -106,7 +106,7 @@ export class AgentRunner {
       return { status: "done" };
     } catch (err) {
       const message = error_message(err);
-      this.rag_store.fail_streaming(message);
+      this.chat_store.fail_streaming(message);
       await this.finish_turn(
         anchor,
         this.handle?.id ?? null,
@@ -126,15 +126,15 @@ export class AgentRunner {
       on_event: (_run_id, event) => {
         switch (event.type) {
           case "session":
-            this.rag_store.set_agent_session_id(event.provider_session_id);
+            this.chat_store.set_agent_session_id(event.provider_session_id);
             return;
           case "text":
             this.ensure_streaming();
-            this.rag_store.append_streaming_text(event.text);
+            this.chat_store.append_streaming_text(event.text);
             return;
           case "tool_start":
             this.ensure_streaming();
-            this.rag_store.add_streaming_tool_event({
+            this.chat_store.add_streaming_tool_event({
               name: event.name,
               input_summary: event.input_summary,
               paths: event.paths,
@@ -147,10 +147,10 @@ export class AgentRunner {
             });
             return;
           case "tool_end":
-            this.rag_store.finish_streaming_tool_event(event.name, event.ok);
+            this.chat_store.finish_streaming_tool_event(event.name, event.ok);
             return;
           case "error":
-            this.rag_store.fail_streaming(event.message);
+            this.chat_store.fail_streaming(event.message);
             return;
           case "reasoning":
           case "done":
@@ -161,7 +161,7 @@ export class AgentRunner {
       // closed out from here rather than from the "done" event.
       on_end: (_run_id, outcome) => {
         if (outcome.status === "error") return;
-        this.rag_store.finish_streaming();
+        this.chat_store.finish_streaming();
       },
     };
   }
@@ -216,18 +216,18 @@ export class AgentRunner {
     if (!tool_calls.some(is_mutating_call)) return;
     const vault_path = String(this.vault_store.vault?.path ?? "");
     const changed = changed_files_from_tools(tool_calls, vault_path);
-    if (changed.length > 0) this.rag_store.add_changed_files(changed);
+    if (changed.length > 0) this.chat_store.add_changed_files(changed);
     await this.refresh_vault();
     await this.sync_changed_notes(changed);
   }
 
   private fail(message: string): AgentTurnResult {
-    this.rag_store.set_error(message);
+    this.chat_store.set_error(message);
     return { status: "error", message };
   }
 
   private ensure_streaming(): void {
-    if (!this.rag_store.streaming_id) this.rag_store.start_streaming();
+    if (!this.chat_store.streaming_id) this.chat_store.start_streaming();
   }
 
   // The commit the turn's end-of-turn diff anchors to. Anchoring to the

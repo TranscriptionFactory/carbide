@@ -100,9 +100,11 @@ import type { CodeLspService } from "$lib/features/code_lsp";
 import type { ThemeService } from "$lib/features/theme";
 import type { ReferenceService, ReferenceStore } from "$lib/features/reference";
 import type { McpService } from "$lib/features/mcp";
-import type { RagService, RagStore } from "$lib/features/rag";
+import type { RagService } from "$lib/features/rag";
 import type {
+  AssistantChatStore,
   AssistantKernelService,
+  AssistantSessionService,
   AssistantSessionStore,
 } from "$lib/features/assistant";
 import type { AiStore } from "$lib/features/ai";
@@ -156,8 +158,9 @@ export type ReactorContext = {
   reference_service: ReferenceService;
   reference_store: ReferenceStore;
   mcp_service: McpService;
-  rag_store: RagStore;
+  rag_store: AssistantChatStore;
   rag_service: RagService;
+  assistant_sessions_service: AssistantSessionService;
   assistant_kernel: AssistantKernelService;
   assistant_sessions: AssistantSessionStore;
   ai_store: AiStore;
@@ -436,7 +439,7 @@ export function mount_reactors(context: ReactorContext): ReactorHandles {
     create_assistant_sessions_load_reactor(
       context.assistant_sessions,
       context.rag_store,
-      context.rag_service,
+      context.assistant_sessions_service,
       context.vault_store,
       context.ui_store,
     ),

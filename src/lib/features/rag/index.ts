@@ -6,11 +6,8 @@ export {
   type RagMcpQueryEvent,
   type RagQueryResponse,
 } from "$lib/features/rag/application/rag_mcp_bridge";
-export { RagStore } from "$lib/features/rag/state/rag_store.svelte";
-export { load_assistant_sessions } from "$lib/features/rag/application/assistant_sessions_load";
 export { register_rag_actions } from "$lib/features/rag/application/rag_actions";
 export { default as RagPanel } from "$lib/features/rag/ui/rag_panel.svelte";
-export type { RagPersistencePort } from "$lib/features/rag/ports";
 export {
   AgentRunner,
   type AgentCheckpointGit,
@@ -27,7 +24,6 @@ export {
   is_citation_source_tool,
 } from "$lib/features/rag/domain/agent_citations";
 export type { AgentPermissionMode } from "$lib/features/rag/types/agent_events";
-export { migrate_agent_fields } from "$lib/features/rag/types/rag_session";
 export { build_rag_prompt } from "$lib/features/rag/domain/rag_prompt_builder";
 export {
   parse_mentions,
@@ -44,7 +40,6 @@ export {
   normalize_folder_scope,
   normalize_tag_scope,
   normalize_base_scope,
-  migrate_scope,
   path_in_folder,
 } from "$lib/features/rag/domain/rag_scope";
 export {

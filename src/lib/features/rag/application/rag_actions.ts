@@ -10,11 +10,12 @@ import type { AiProviderConfig } from "$lib/shared/types/ai_provider_config";
 import { DEFAULT_EDITOR_SETTINGS } from "$lib/shared/types/editor_settings";
 import type { RagContextStats } from "$lib/features/rag/domain/rag_types";
 import { should_attach_open_note_images } from "$lib/features/rag/domain/rag_open_note_images";
-import { should_autotitle } from "$lib/features/rag/domain/rag_session";
-import type { RagStore } from "$lib/features/rag/state/rag_store.svelte";
+import { should_autotitle } from "$lib/features/assistant";
 import type { RagService } from "$lib/features/rag/application/rag_service";
 import type {
+  AssistantChatStore,
   AssistantKernelService,
+  AssistantSessionService,
   RunHandle,
 } from "$lib/features/assistant";
 import { AgentRunner } from "$lib/features/rag/application/agent_runner";
@@ -51,8 +52,9 @@ function payload_field(payload: unknown, field: string): string {
 
 export function register_rag_actions(
   input: ActionRegistrationInput & {
-    rag_store: RagStore;
+    chat_store: AssistantChatStore;
     rag_service: RagService;
+    session_service: AssistantSessionService;
     assistant_kernel: AssistantKernelService;
     assistant_proposals: AssistantProposalStore;
   },
@@ -61,8 +63,9 @@ export function register_rag_actions(
     registry,
     stores,
     services,
-    rag_store,
+    chat_store,
     rag_service,
+    session_service,
     assistant_kernel,
     assistant_proposals,
   } = input;
@@ -135,7 +138,7 @@ export function register_rag_actions(
 
   const agent_runner = new AgentRunner(
     assistant_kernel,
-    rag_store,
+    chat_store,
     stores.vault,
     services.git,
     () => registry.execute(ACTION_IDS.folder_refresh_tree),
@@ -149,9 +152,9 @@ export function register_rag_actions(
 
   function persist_session(id: string | null) {
     const vault_id = stores.vault.active_vault_id;
-    const session = rag_store.sessions.find((s) => s.id === id);
+    const session = chat_store.sessions.find((s) => s.id === id);
     if (!vault_id || !session) return;
-    void rag_service.save_session(vault_id, session);
+    void session_service.save_session(vault_id, session);
   }
 
   // I3: one provider rule. The previous local copy resolved `auto` as
@@ -160,7 +163,7 @@ export function register_rag_actions(
   async function resolve_provider(): Promise<AiProviderConfig | null> {
     const settings = stores.ui.editor_settings;
     return await assistant_kernel.resolve_provider(
-      rag_store.provider_id || settings.ai_default_provider_id,
+      chat_store.provider_id || settings.ai_default_provider_id,
     );
   }
 
@@ -168,12 +171,12 @@ export function register_rag_actions(
     id: ACTION_IDS.rag_open,
     label: "Chat with Vault",
     execute: async () => {
-      if (!rag_store.provider_id) {
+      if (!chat_store.provider_id) {
         const provider = await resolve_provider();
-        if (provider) rag_store.set_provider(provider.id);
+        if (provider) chat_store.set_provider(provider.id);
       }
-      if (!rag_store.active) {
-        rag_store.set_permission_mode(
+      if (!chat_store.active) {
+        chat_store.set_permission_mode(
           stores.ui.editor_settings.ai_agent_permission_default,
         );
       }
@@ -192,18 +195,21 @@ export function register_rag_actions(
   });
 
   async function maybe_autotitle(provider: AiProviderConfig, revision: number) {
-    const session = rag_store.active;
+    const session = chat_store.active;
     if (!session || !should_autotitle(session)) return;
     if (session.messages.filter((m) => m.role === "assistant").length !== 1) {
       return;
     }
     const session_id = session.id;
-    const title = await rag_service.generate_title(provider, session.messages);
+    const title = await session_service.generate_title(
+      provider,
+      session.messages,
+    );
     if (title === null) return;
-    if (revision !== rag_store.revision) return;
-    const live = rag_store.sessions.find((s) => s.id === session_id);
+    if (revision !== chat_store.revision) return;
+    const live = chat_store.sessions.find((s) => s.id === session_id);
     if (!live || !should_autotitle(live)) return;
-    rag_store.rename_session(session_id, title, "generated");
+    chat_store.rename_session(session_id, title, "generated");
     persist_session(session_id);
   }
 
@@ -225,11 +231,11 @@ export function register_rag_actions(
     const provider = await resolve_ask_provider();
     if (!provider) return;
 
-    const revision = rag_store.begin_turn();
-    const messages = [...rag_store.messages];
+    const revision = chat_store.begin_turn();
+    const messages = [...chat_store.messages];
     const history = reuse_last_user ? messages.slice(0, -1) : messages;
-    if (!reuse_last_user) rag_store.add_user_message(question);
-    rag_store.start_loading();
+    if (!reuse_last_user) chat_store.add_user_message(question);
+    chat_store.start_loading();
     stores.op.start(RAG_OP_KEY, Date.now());
 
     const open_note = stores.editor.open_note;
@@ -238,7 +244,7 @@ export function register_rag_actions(
       open_note &&
       should_attach_open_note_images({
         question,
-        scope: rag_store.scope,
+        scope: chat_store.scope,
         note_path: String(open_note.meta.path),
         note_title: String(open_note.meta.title),
       })
@@ -254,7 +260,7 @@ export function register_rag_actions(
         question,
         provider_config: provider,
         history,
-        scope: rag_store.scope,
+        scope: chat_store.scope,
         retrieve_limit: clamp_setting(
           settings.ai_rag_retrieve_limit,
           RETRIEVE_LIMIT_MIN,
@@ -274,47 +280,47 @@ export function register_rag_actions(
           ask_handle = handle;
         },
       })) {
-        if (revision !== rag_store.revision) return;
+        if (revision !== chat_store.revision) return;
         if (event.type === "generating") {
-          rag_store.set_loading_stage("generating");
+          chat_store.set_loading_stage("generating");
         } else if (event.type === "sources") {
           context_stats = event.stats;
-          rag_store.set_pending_sources(event.sources);
+          chat_store.set_pending_sources(event.sources);
         } else if (event.type === "text" || event.type === "reasoning") {
-          if (!rag_store.streaming_id) {
-            rag_store.start_streaming();
+          if (!chat_store.streaming_id) {
+            chat_store.start_streaming();
             if (context_stats) {
-              rag_store.set_streaming_context_stats(context_stats);
+              chat_store.set_streaming_context_stats(context_stats);
             }
           }
           if (event.type === "text") {
-            rag_store.append_streaming_text(event.text);
+            chat_store.append_streaming_text(event.text);
           } else {
-            rag_store.append_streaming_reasoning(event.text);
+            chat_store.append_streaming_reasoning(event.text);
           }
         } else if (event.type === "citation") {
-          rag_store.add_streaming_citation(event.citation);
+          chat_store.add_streaming_citation(event.citation);
         } else if (event.type === "error") {
-          rag_store.fail_streaming(event.error);
+          chat_store.fail_streaming(event.error);
           stores.op.fail(RAG_OP_KEY, event.error);
           errored = true;
         }
       }
-      if (revision !== rag_store.revision) return;
+      if (revision !== chat_store.revision) return;
       if (!errored) {
-        rag_store.finish_streaming();
+        chat_store.finish_streaming();
         stores.op.succeed(RAG_OP_KEY);
         announce("Vault chat reply ready");
         void maybe_autotitle(provider, revision);
       }
       // persist failed turns too, so the exchange survives a reload
-      persist_session(rag_store.active_id);
+      persist_session(chat_store.active_id);
     } catch (err) {
-      if (revision !== rag_store.revision) return;
+      if (revision !== chat_store.revision) return;
       const message = error_message(err);
-      rag_store.fail_streaming(message);
+      chat_store.fail_streaming(message);
       stores.op.fail(RAG_OP_KEY, message);
-      persist_session(rag_store.active_id);
+      persist_session(chat_store.active_id);
     } finally {
       ask_handle = null;
     }
@@ -330,10 +336,10 @@ export function register_rag_actions(
       return;
     }
 
-    const revision = rag_store.begin_turn();
-    rag_store.add_user_message(prompt);
-    rag_store.start_loading();
-    rag_store.set_loading_stage("generating");
+    const revision = chat_store.begin_turn();
+    chat_store.add_user_message(prompt);
+    chat_store.start_loading();
+    chat_store.set_loading_stage("generating");
     stores.op.start(RAG_OP_KEY, Date.now());
 
     try {
@@ -342,7 +348,7 @@ export function register_rag_actions(
         prompt,
         capability.backend,
       );
-      if (revision !== rag_store.revision) return;
+      if (revision !== chat_store.revision) return;
       if (result.status === "done") {
         stores.op.succeed(RAG_OP_KEY);
         announce("Vault chat reply ready");
@@ -350,13 +356,13 @@ export function register_rag_actions(
       } else {
         stores.op.fail(RAG_OP_KEY, result.message);
       }
-      persist_session(rag_store.active_id);
+      persist_session(chat_store.active_id);
     } catch (err) {
-      if (revision !== rag_store.revision) return;
+      if (revision !== chat_store.revision) return;
       const message = error_message(err);
-      rag_store.fail_streaming(message);
+      chat_store.fail_streaming(message);
       stores.op.fail(RAG_OP_KEY, message);
-      persist_session(rag_store.active_id);
+      persist_session(chat_store.active_id);
     }
   }
 
@@ -366,7 +372,7 @@ export function register_rag_actions(
     execute: async (payload: unknown) => {
       const question = payload_field(payload, "question").trim();
       if (!question) return;
-      if (rag_store.mode === "agent") {
+      if (chat_store.mode === "agent") {
         await run_agent(question);
       } else {
         await run_ask(question);
@@ -384,7 +390,7 @@ export function register_rag_actions(
         toast.info("AI Assistant is disabled in settings");
         return;
       }
-      rag_store.set_mode(mode);
+      chat_store.set_mode(mode);
     },
   });
 
@@ -402,7 +408,7 @@ export function register_rag_actions(
     execute: (...args: unknown[]) => {
       const mode = args[0];
       if (mode !== "safe" && mode !== "power") return;
-      rag_store.set_permission_mode(mode);
+      chat_store.set_permission_mode(mode);
     },
   });
 
@@ -411,7 +417,7 @@ export function register_rag_actions(
     label: "Copy Vault Chat Message",
     execute: async (...args: unknown[]) => {
       const id = typeof args[0] === "string" ? args[0] : "";
-      const message = rag_store.messages.find((m) => m.id === id);
+      const message = chat_store.messages.find((m) => m.id === id);
       if (!message) return;
       try {
         await services.clipboard.copy_text(message.content);
@@ -427,7 +433,7 @@ export function register_rag_actions(
     execute: async (...args: unknown[]) => {
       const id = typeof args[0] === "string" ? args[0] : "";
       if (!id || stores.op.is_pending(RAG_OP_KEY)) return;
-      const messages = rag_store.messages;
+      const messages = chat_store.messages;
       const idx = messages.findIndex((m) => m.id === id);
       if (idx === -1) return;
       let user_idx = idx;
@@ -437,7 +443,7 @@ export function register_rag_actions(
       const question = messages[user_idx]?.content.trim();
       if (!question) return;
       if (!(await resolve_ask_provider())) return;
-      rag_store.truncate_after(id);
+      chat_store.truncate_after(id);
       await run_ask(question, true);
     },
   });
@@ -448,7 +454,7 @@ export function register_rag_actions(
     execute: (...args: unknown[]) => {
       const id = typeof args[0] === "string" ? args[0] : "";
       if (!id) return;
-      const new_id = rag_store.fork_session(id);
+      const new_id = chat_store.fork_session(id);
       if (!new_id) return;
       stores.op.reset(RAG_OP_KEY);
       persist_session(new_id);
@@ -459,8 +465,8 @@ export function register_rag_actions(
     id: ACTION_IDS.rag_new_chat,
     label: "New Vault Chat",
     execute: () => {
-      rag_store.start_new_session();
-      rag_store.set_permission_mode(
+      chat_store.start_new_session();
+      chat_store.set_permission_mode(
         stores.ui.editor_settings.ai_agent_permission_default,
       );
       stores.op.reset(RAG_OP_KEY);
@@ -473,7 +479,7 @@ export function register_rag_actions(
     execute: (...args: unknown[]) => {
       const id = typeof args[0] === "string" ? args[0] : "";
       if (!id) return;
-      rag_store.switch_session(id);
+      chat_store.switch_session(id);
       stores.op.reset(RAG_OP_KEY);
     },
   });
@@ -484,7 +490,7 @@ export function register_rag_actions(
     execute: (...args: unknown[]) => {
       const [id, title] = args as [unknown, unknown];
       if (typeof id !== "string" || typeof title !== "string") return;
-      rag_store.rename_session(id, title);
+      chat_store.rename_session(id, title);
       persist_session(id);
     },
   });
@@ -496,9 +502,9 @@ export function register_rag_actions(
       const id = typeof args[0] === "string" ? args[0] : "";
       if (!id) return;
       const vault_id = stores.vault.active_vault_id;
-      rag_store.delete_session(id);
+      chat_store.delete_session(id);
       stores.op.reset(RAG_OP_KEY);
-      if (vault_id) void rag_service.delete_session(vault_id, id);
+      if (vault_id) void session_service.delete_session(vault_id, id);
     },
   });
 

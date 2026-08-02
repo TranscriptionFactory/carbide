@@ -286,7 +286,7 @@ export function create_prod_ports(): Ports & {
     toolchain: create_toolchain_tauri_adapter(),
     code_lsp: create_code_lsp_tauri_adapter(),
     saved_query: create_saved_query_tauri_adapter(),
-    rag_persistence: create_assistant_session_persistence_tauri_adapter(),
+    assistant_persistence: create_assistant_session_persistence_tauri_adapter(),
     reference_storage: create_reference_tauri_adapter(),
     citation: create_citationjs_adapter(),
     doi_lookup: create_doi_tauri_adapter(),

@@ -283,7 +283,7 @@ export function create_test_ports(): Ports {
       write: () => Promise.resolve(),
       remove: () => Promise.resolve(),
     },
-    rag_persistence: create_test_assistant_session_persistence_adapter(),
+    assistant_persistence: create_test_assistant_session_persistence_adapter(),
     reference_storage: {
       load_library: () => Promise.resolve({ schema_version: 1, items: [] }),
       save_library: () => Promise.resolve(),

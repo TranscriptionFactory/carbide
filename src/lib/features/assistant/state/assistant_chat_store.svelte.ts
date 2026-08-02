@@ -1,40 +1,38 @@
+import { derive_session_title } from "$lib/features/assistant/types/assistant_session_model";
 import {
-  derive_session_title,
-  to_session_summary,
-} from "$lib/features/rag/types/rag_session";
+  to_assistant_session_summary,
+  type AssistantChatMode,
+  type AssistantCitation,
+  type AssistantContextStats,
+  type AssistantMessage,
+  type AssistantPermissionMode,
+  type AssistantRole,
+  type AssistantScope,
+  type AssistantSession,
+  type AssistantSessionSummary,
+  type AssistantTitleSource,
+  type AssistantToolEvent,
+} from "$lib/features/assistant/types/session";
 import type {
   AssistantSessionPatch,
   AssistantSessionStore,
-} from "$lib/features/assistant";
-import type {
-  RagCitation,
-  RagContextStats,
-  RagMessage,
-  RagRole,
-  RagScope,
-  RagSession,
-  RagSessionMode,
-  RagSessionSummary,
-  RagSourceInfo,
-  RagTitleSource,
-  RagToolEvent,
-} from "$lib/features/rag/types/rag_types";
-import type { AgentPermissionMode } from "$lib/features/rag/types/agent_events";
-import type { RagReadiness } from "$lib/features/rag/types/rag_readiness";
+} from "$lib/features/assistant/state/assistant_session_store.svelte";
+import type { AssistantChatSourceInfo } from "$lib/features/assistant/types/chat_stream";
+import type { RetrievalReadiness } from "$lib/features/assistant/types/retrieval";
 
 const CHAT_KIND = "chat";
 
 function new_message(
-  role: RagRole,
+  role: AssistantRole,
   content: string,
-  citations: RagCitation[] = [],
-): RagMessage {
+  citations: AssistantCitation[] = [],
+): AssistantMessage {
   return { id: crypto.randomUUID(), role, content, citations };
 }
 
 // A turn that ran tools or reasoned before failing is worth keeping even with no
 // text: the trail is the only record of what the agent touched.
-function has_turn_evidence(message: RagMessage): boolean {
+function has_turn_evidence(message: AssistantMessage): boolean {
   return (
     message.content !== "" ||
     (message.tool_events?.length ?? 0) > 0 ||
@@ -47,40 +45,40 @@ function has_turn_evidence(message: RagMessage): boolean {
 // state — which session is open, what is streaming into it, and the working
 // copies of provider, scope and mode the composer edits before a session
 // exists to hold them.
-export class RagStore {
+export class AssistantChatStore {
   active_id = $state<string | null>(null);
   is_loading = $state(false);
   loading_stage = $state<"searching" | "generating">("searching");
   error = $state<string | null>(null);
   provider_id = $state("");
-  scope = $state<RagScope>({});
+  scope = $state<AssistantScope>({});
   streaming_id = $state<string | null>(null);
-  pending_sources = $state<RagSourceInfo[] | null>(null);
-  mode = $state<RagSessionMode>("ask");
-  permission_mode = $state<AgentPermissionMode>("safe");
+  pending_sources = $state<AssistantChatSourceInfo[] | null>(null);
+  mode = $state<AssistantChatMode>("ask");
+  permission_mode = $state<AssistantPermissionMode>("safe");
   agent_running_tool = $state<string | null>(null);
   revision = $state(0);
-  readiness = $state<RagReadiness>({ state: "checking" });
+  readiness = $state<RetrievalReadiness>({ state: "checking" });
 
   constructor(private readonly store: AssistantSessionStore) {}
 
   // Getters rather than $derived: a class field initializer would run before
   // the injected store is assigned.
-  get sessions(): RagSession[] {
+  get sessions(): AssistantSession[] {
     return this.store.of_kind(CHAT_KIND);
   }
 
-  get active(): RagSession | null {
+  get active(): AssistantSession | null {
     return this.sessions.find((s) => s.id === this.active_id) ?? null;
   }
 
-  get messages(): RagMessage[] {
+  get messages(): AssistantMessage[] {
     return this.active?.messages ?? [];
   }
 
-  get summaries(): RagSessionSummary[] {
+  get summaries(): AssistantSessionSummary[] {
     return this.sessions
-      .map(to_session_summary)
+      .map(to_assistant_session_summary)
       .sort((a, b) => b.updated_at - a.updated_at);
   }
 
@@ -89,21 +87,21 @@ export class RagStore {
     this.patch_active({ provider_id });
   }
 
-  set_scope(scope: RagScope) {
+  set_scope(scope: AssistantScope) {
     this.scope = scope;
     this.patch_active({ scope });
   }
 
-  set_readiness(readiness: RagReadiness) {
+  set_readiness(readiness: RetrievalReadiness) {
     this.readiness = readiness;
   }
 
-  set_mode(mode: RagSessionMode) {
+  set_mode(mode: AssistantChatMode) {
     this.mode = mode;
     this.patch_active({ mode });
   }
 
-  set_permission_mode(permission_mode: AgentPermissionMode) {
+  set_permission_mode(permission_mode: AssistantPermissionMode) {
     this.permission_mode = permission_mode;
     this.patch_active({ permission_mode });
   }
@@ -123,7 +121,7 @@ export class RagStore {
     });
   }
 
-  add_streaming_tool_event(event: RagToolEvent) {
+  add_streaming_tool_event(event: AssistantToolEvent) {
     this.agent_running_tool = event.name;
     this.update_streaming((m) => ({
       tool_events: [...(m.tool_events ?? []), event],
@@ -145,14 +143,17 @@ export class RagStore {
     });
   }
 
-  add_user_message(content: string): RagMessage {
+  add_user_message(content: string): AssistantMessage {
     const message = new_message("user", content);
     const id = this.active_id ?? this.create_session(content);
     this.store.append_message(id, message);
     return message;
   }
 
-  add_assistant_message(content: string, citations: RagCitation[]): RagMessage {
+  add_assistant_message(
+    content: string,
+    citations: AssistantCitation[],
+  ): AssistantMessage {
     const message = new_message("assistant", content, citations);
     if (this.active_id) this.store.append_message(this.active_id, message);
     return message;
@@ -174,15 +175,15 @@ export class RagStore {
     this.update_streaming((m) => ({ reasoning: (m.reasoning ?? "") + text }));
   }
 
-  set_streaming_context_stats(stats: RagContextStats) {
+  set_streaming_context_stats(stats: AssistantContextStats) {
     this.update_streaming(() => ({ context_stats: stats }));
   }
 
-  set_pending_sources(sources: RagSourceInfo[]) {
+  set_pending_sources(sources: AssistantChatSourceInfo[]) {
     this.pending_sources = sources;
   }
 
-  add_streaming_citation(citation: RagCitation) {
+  add_streaming_citation(citation: AssistantCitation) {
     this.update_streaming((m) =>
       m.citations.some((c) => c.index === citation.index)
         ? {}
@@ -254,7 +255,11 @@ export class RagStore {
     this.reset_turn_state();
   }
 
-  rename_session(id: string, title: string, source: RagTitleSource = "manual") {
+  rename_session(
+    id: string,
+    title: string,
+    source: AssistantTitleSource = "manual",
+  ) {
     this.store.rename(id, title, source);
   }
 
@@ -279,7 +284,7 @@ export class RagStore {
       fork.id,
       JSON.parse(
         JSON.stringify(session.messages.slice(0, idx + 1)),
-      ) as RagMessage[],
+      ) as AssistantMessage[],
     );
     this.store.patch_session(fork.id, {
       changed_files: session.changed_files,
@@ -363,7 +368,7 @@ export class RagStore {
   }
 
   private update_streaming(
-    transform: (message: RagMessage) => Partial<RagMessage>,
+    transform: (message: AssistantMessage) => Partial<AssistantMessage>,
   ) {
     const session_id = this.active_id;
     const sid = this.streaming_id;

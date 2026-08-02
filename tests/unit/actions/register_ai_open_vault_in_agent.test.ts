@@ -52,7 +52,10 @@ function create_harness() {
     agentic_runner: { run: vi.fn() } as never,
     assistant_sessions: new AssistantSessionStore(),
     assistant_proposals: new AssistantProposalStore(),
-    rag_service: { save_session: vi.fn(), delete_session: vi.fn() } as never,
+    assistant_sessions_service: {
+      save_session: vi.fn(),
+      delete_session: vi.fn(),
+    } as never,
   });
   return { registry, stores, ai_service };
 }

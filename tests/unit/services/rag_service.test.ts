@@ -2,7 +2,6 @@ import { describe, expect, it, vi } from "vitest";
 import { RagService } from "$lib/features/rag";
 import { VaultStore } from "$lib/features/vault";
 import { create_test_vault } from "../helpers/test_fixtures";
-import { create_test_assistant_session_persistence_adapter } from "../../adapters/test_assistant_session_persistence_adapter";
 import type {
   RunEvent,
   RunHandle,
@@ -21,7 +20,6 @@ import type {
   RagStreamEvent,
 } from "$lib/features/rag/domain/rag_types";
 
-const persistence = create_test_assistant_session_persistence_adapter();
 const tag = { get_notes_for_tag: vi.fn().mockResolvedValue([]) };
 const bases = { load_view: vi.fn(), query: vi.fn() };
 
@@ -151,7 +149,6 @@ describe("RagService.query", () => {
       notes as never,
       stream as never,
       make_vault_store(),
-      persistence,
       tag as never,
       bases as never,
     );
@@ -193,7 +190,6 @@ describe("RagService.query", () => {
       notes as never,
       stream as never,
       make_vault_store(),
-      persistence,
       tag as never,
       bases as never,
     );
@@ -232,7 +228,6 @@ describe("RagService.query", () => {
       notes as never,
       text_stream("done [1].") as never,
       make_vault_store(),
-      persistence,
       tag as never,
       bases as never,
     );
@@ -269,7 +264,6 @@ describe("RagService.query", () => {
       notes as never,
       text_stream("done [1].") as never,
       make_vault_store(),
-      persistence,
       tag as never,
       bases as never,
     );
@@ -305,7 +299,6 @@ describe("RagService.query", () => {
       notes as never,
       stream as never,
       make_vault_store(),
-      persistence,
       tag as never,
       bases as never,
     );
@@ -355,7 +348,6 @@ describe("RagService.query", () => {
       notes as never,
       stream as never,
       make_vault_store(),
-      persistence,
       tag as never,
       bases as never,
     );
@@ -408,7 +400,6 @@ describe("RagService.query", () => {
       notes as never,
       stream as never,
       make_vault_store(),
-      persistence,
       tag as never,
       bases as never,
     );
@@ -459,7 +450,6 @@ describe("RagService.query", () => {
       notes as never,
       stream as never,
       make_vault_store(),
-      persistence,
       tag as never,
       bases as never,
     );
@@ -501,7 +491,6 @@ describe("RagService.query", () => {
       notes as never,
       stream as never,
       make_vault_store(),
-      persistence,
       tag as never,
       bases as never,
     );
@@ -531,7 +520,6 @@ describe("RagService.query", () => {
       notes as never,
       text_stream("Because [1].") as never,
       make_vault_store(),
-      persistence,
       tag as never,
       bases as never,
     );
@@ -575,7 +563,6 @@ describe("RagService.query", () => {
       notes as never,
       text_stream("Answer [1].") as never,
       make_vault_store(),
-      persistence,
       tag as never,
       bases as never,
     );
@@ -613,7 +600,6 @@ describe("RagService.query", () => {
       notes as never,
       text_stream("Answer [1].") as never,
       make_vault_store(),
-      persistence,
       tag_port as never,
       bases as never,
     );
@@ -661,7 +647,6 @@ describe("RagService.query", () => {
       notes as never,
       text_stream("Answer [1].") as never,
       make_vault_store(),
-      persistence,
       tag as never,
       bases_port as never,
     );
@@ -706,7 +691,6 @@ describe("RagService.query", () => {
       notes as never,
       text_stream("Answer [1].") as never,
       make_vault_store(),
-      persistence,
       tag as never,
       bases_port as never,
     );
@@ -744,7 +728,6 @@ describe("RagService.query", () => {
       notes as never,
       text_stream("Answer [1].") as never,
       make_vault_store(),
-      persistence,
       tag as never,
       bases as never,
     );
@@ -785,7 +768,6 @@ describe("RagService.query", () => {
       notes as never,
       text_stream("Answer [1].") as never,
       make_vault_store(),
-      persistence,
       tag_port as never,
       bases as never,
     );
@@ -824,7 +806,6 @@ describe("RagService.query", () => {
       notes as never,
       text_stream("Answer [1].") as never,
       make_vault_store(),
-      persistence,
       tag as never,
       bases_port as never,
     );
@@ -862,7 +843,6 @@ describe("RagService.query", () => {
       notes as never,
       text_stream("Answer [1].") as never,
       make_vault_store(),
-      persistence,
       tag_port as never,
       bases as never,
     );
@@ -896,7 +876,6 @@ describe("RagService.query", () => {
       notes as never,
       text_stream("Answer [1].") as never,
       make_vault_store(),
-      persistence,
       tag_port as never,
       bases_port as never,
     );
@@ -927,7 +906,6 @@ describe("RagService.query", () => {
       notes as never,
       text_stream("unused") as never,
       make_vault_store(),
-      persistence,
       tag as never,
       bases as never,
     );
@@ -962,7 +940,6 @@ describe("RagService.query", () => {
       { read_note: vi.fn() } as never,
       text_stream("unused") as never,
       make_vault_store(),
-      persistence,
       tag as never,
       bases as never,
     );
@@ -990,7 +967,6 @@ describe("RagService.query", () => {
       notes as never,
       stream as never,
       make_vault_store(),
-      persistence,
       tag as never,
       bases as never,
     );
@@ -1023,7 +999,6 @@ describe("RagService.query", () => {
       notes as never,
       stream as never,
       make_vault_store(),
-      persistence,
       tag as never,
       bases as never,
     );
@@ -1055,7 +1030,6 @@ describe("RagService.query", () => {
       notes as never,
       text_stream("answer [1].") as never,
       make_vault_store(),
-      persistence,
       tag as never,
       bases as never,
     );
@@ -1112,7 +1086,6 @@ describe("RagService.query", () => {
       notes as never,
       text_stream("answer [1].") as never,
       make_vault_store(),
-      persistence,
       tag as never,
       bases as never,
     );
@@ -1162,7 +1135,6 @@ describe("RagService.query", () => {
       notes as never,
       stream as never,
       make_vault_store(),
-      persistence,
       tag as never,
       bases as never,
     );
@@ -1190,7 +1162,6 @@ describe("RagService.query", () => {
       notes as never,
       stream as never,
       make_vault_store(),
-      persistence,
       tag as never,
       bases as never,
     );
@@ -1213,7 +1184,6 @@ describe("RagService.query", () => {
       { read_note: vi.fn() } as never,
       text_stream("x") as never,
       make_vault_store(),
-      persistence,
       tag as never,
       bases as never,
     );
@@ -1246,7 +1216,6 @@ describe("RagService.query", () => {
       notes as never,
       stream as never,
       make_vault_store(),
-      persistence,
       tag as never,
       bases as never,
     );
@@ -1278,7 +1247,6 @@ describe("RagService.query", () => {
       notes as never,
       stream as never,
       make_vault_store(),
-      persistence,
       tag as never,
       bases as never,
     );
@@ -1309,7 +1277,6 @@ describe("RagService.query", () => {
       notes as never,
       stream as never,
       make_vault_store(),
-      persistence,
       tag as never,
       bases as never,
     );
@@ -1333,7 +1300,6 @@ describe("RagService.query", () => {
       { read_note: vi.fn() } as never,
       text_stream("x") as never,
       new VaultStore(),
-      persistence,
       tag as never,
       bases as never,
     );
@@ -1364,7 +1330,6 @@ describe("RagService.query", () => {
         { type: "text", text: "The answer is 4" },
       ]) as never,
       make_vault_store(),
-      persistence,
       tag as never,
       bases as never,
     );
@@ -1405,7 +1370,6 @@ describe("RagService.query context assembly", () => {
       notes as never,
       text_stream("answer [1].") as never,
       make_vault_store(),
-      persistence,
       tag as never,
       bases as never,
     );
@@ -1705,56 +1669,6 @@ describe("RagService.query context assembly", () => {
   });
 });
 
-describe("RagService.generate_title", () => {
-  it("ignores reasoning chunks when accumulating the title", async () => {
-    const stream = stream_of(
-      { type: "reasoning", text: "Pondering titles" },
-      { type: "text", text: "Meeting Notes" },
-      { type: "done" },
-    );
-    const service = new RagService(
-      { hybrid_search: vi.fn() } as never,
-      { read_note: vi.fn() } as never,
-      stream as never,
-      make_vault_store(),
-      persistence,
-      tag as never,
-      bases as never,
-    );
-
-    const title = await service.generate_title(provider, [
-      { id: "u", role: "user", content: "hi", citations: [] },
-      { id: "a", role: "assistant", content: "hello", citations: [] },
-    ]);
-
-    expect(title).toBe("Meeting Notes");
-  });
-
-  // Half a title is still a plausible-looking title, which is why a stopped
-  // run used to rename the chat to whatever arrived first.
-  it("returns nothing when the run is stopped mid-title", async () => {
-    const starter = create_aborting_run_starter([
-      { type: "text", text: "Meeting" },
-    ]);
-    const service = new RagService(
-      { hybrid_search: vi.fn() } as never,
-      { read_note: vi.fn() } as never,
-      starter as never,
-      make_vault_store(),
-      persistence,
-      tag as never,
-      bases as never,
-    );
-
-    const title = await service.generate_title(provider, [
-      { id: "u", role: "user", content: "hi", citations: [] },
-      { id: "a", role: "assistant", content: "hello", citations: [] },
-    ]);
-
-    expect(title).toBeNull();
-  });
-});
-
 describe("RagService.check_readiness", () => {
   it("reports unavailable with the reason when the status check throws", async () => {
     const search = {
@@ -1765,7 +1679,6 @@ describe("RagService.check_readiness", () => {
       { read_note: vi.fn() } as never,
       text_stream("x") as never,
       make_vault_store(),
-      persistence,
       tag as never,
       bases as never,
     );
@@ -1790,7 +1703,6 @@ describe("RagService.check_readiness", () => {
       { read_note: vi.fn() } as never,
       text_stream("x") as never,
       make_vault_store(),
-      persistence,
       tag as never,
       bases as never,
     );

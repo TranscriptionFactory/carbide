@@ -2,7 +2,6 @@ import { describe, expect, it, vi } from "vitest";
 import { RagService, collect_rag_query_response } from "$lib/features/rag";
 import { VaultStore } from "$lib/features/vault";
 import { create_test_vault } from "../helpers/test_fixtures";
-import { create_test_assistant_session_persistence_adapter } from "../../adapters/test_assistant_session_persistence_adapter";
 import type { RunEvent } from "$lib/features/assistant";
 import { create_test_run_starter } from "../../adapters/test_run_starter";
 import type { AiProviderConfig } from "$lib/shared/types/ai_provider_config";
@@ -11,7 +10,6 @@ import type {
   RagStreamEvent,
 } from "$lib/features/rag/domain/rag_types";
 
-const persistence = create_test_assistant_session_persistence_adapter();
 const tag = { get_notes_for_tag: vi.fn().mockResolvedValue([]) };
 
 const provider: AiProviderConfig = {
@@ -55,7 +53,6 @@ function make_service(...events: RunEvent[]) {
     notes as never,
     stream as never,
     vault_store,
-    persistence,
     tag as never,
     { load_view: vi.fn(), query: vi.fn() } as never,
   );
