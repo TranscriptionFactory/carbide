@@ -96,6 +96,14 @@ export class AssistantRunStore {
     this.amend(record, { status: "error", error });
   }
 
+  // The kernel opens a record before it resolves a provider, so the id lands
+  // after the fact rather than at start().
+  set_provider(id: RunId, provider_id: string): void {
+    const record = this.runs.get(id);
+    if (!record) return;
+    this.amend(record, { provider_id });
+  }
+
   set_status(id: RunId, status: RunStatus): void {
     const record = this.runs.get(id);
     if (!record) return;

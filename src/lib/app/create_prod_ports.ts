@@ -34,10 +34,7 @@ import {
 import { create_terminal_tauri_adapter } from "$lib/features/terminal";
 import { create_window_tauri_adapter } from "$lib/features/window";
 import { create_watcher_tauri_adapter } from "$lib/features/watcher";
-import {
-  create_ai_tauri_adapter,
-  create_ai_history_tauri_adapter,
-} from "$lib/features/ai";
+import { create_ai_tauri_adapter } from "$lib/features/ai";
 import { create_graph_remark_adapter } from "$lib/features/graph";
 import { create_bases_tauri_adapter } from "$lib/features/bases";
 import { create_types_tauri_adapter } from "$lib/features/types";
@@ -58,7 +55,7 @@ import { create_markdown_lsp_tauri_adapter } from "$lib/features/markdown_lsp";
 import { create_toolchain_tauri_adapter } from "$lib/features/toolchain";
 import { create_code_lsp_tauri_adapter } from "$lib/features/code_lsp";
 import { create_saved_query_tauri_adapter } from "$lib/features/query";
-import { create_rag_persistence_tauri_adapter } from "$lib/features/rag";
+import { create_assistant_session_persistence_tauri_adapter } from "$lib/features/assistant";
 import { create_mcp_tauri_adapter } from "$lib/features/mcp";
 import {
   create_reference_tauri_adapter,
@@ -109,6 +106,7 @@ export type AiInlineHandler = {
   execute: ((payload: { command_id?: string; prompt?: string }) => void) | null;
   get_commands: (() => InstructionRecipe[]) | null;
   on_open_settings: (() => void) | null;
+  on_accept: (() => void) | null;
 };
 
 export function create_prod_ports(): Ports & {
@@ -149,6 +147,7 @@ export function create_prod_ports(): Ports & {
     execute: null,
     get_commands: null,
     on_open_settings: null,
+    on_accept: null,
   };
   const query_runner: QueryRunner = { run: null };
   const frontmatter_widget: FrontmatterWidgetConfig = {
@@ -207,6 +206,7 @@ export function create_prod_ports(): Ports & {
         on_execute: (payload) => ai_inline_handler.execute?.(payload),
         get_commands: () => ai_inline_handler.get_commands?.() ?? [],
         on_open_settings: () => ai_inline_handler.on_open_settings?.(),
+        on_accept: () => ai_inline_handler.on_accept?.(),
       },
       frontmatter_widget,
       tag_pill_menu,
@@ -270,7 +270,6 @@ export function create_prod_ports(): Ports & {
     window: create_window_tauri_adapter(),
     watcher,
     ai,
-    ai_history: create_ai_history_tauri_adapter(),
     graph,
     bases,
     types,
@@ -287,7 +286,7 @@ export function create_prod_ports(): Ports & {
     toolchain: create_toolchain_tauri_adapter(),
     code_lsp: create_code_lsp_tauri_adapter(),
     saved_query: create_saved_query_tauri_adapter(),
-    rag_persistence: create_rag_persistence_tauri_adapter(),
+    rag_persistence: create_assistant_session_persistence_tauri_adapter(),
     reference_storage: create_reference_tauri_adapter(),
     citation: create_citationjs_adapter(),
     doi_lookup: create_doi_tauri_adapter(),

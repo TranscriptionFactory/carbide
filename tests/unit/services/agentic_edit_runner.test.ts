@@ -3,6 +3,7 @@ import { AgenticEditRunner } from "$lib/features/ai";
 import type { RunEvent, RunRequest, RunSpec } from "$lib/features/assistant";
 import type { AiProviderConfig } from "$lib/shared/types/ai_provider_config";
 import { create_test_run_starter } from "../../adapters/test_run_starter";
+import { create_aborting_run_starter } from "../helpers/aborting_run_starter";
 
 const provider: AiProviderConfig = {
   id: "ollama",
@@ -58,6 +59,28 @@ describe("AgenticEditRunner.run", () => {
     expect(git.create_checkpoint).toHaveBeenCalledTimes(1);
     expect(calls).toEqual(["checkpoint", "stream"]);
     expect(texts).toEqual(["# ", "# Edited"]);
+  });
+
+  // The edit is half applied to the note by the time it is stopped; the
+  // checkpoint is what makes it undoable, and success would hide that.
+  it("reports a stopped edit as aborted while keeping what it wrote", async () => {
+    const starter = create_aborting_run_starter([
+      { type: "text", text: "# Half" },
+    ]);
+    const runner = new AgenticEditRunner(starter, {
+      create_checkpoint: vi.fn().mockResolvedValue({ status: "created" }),
+    });
+
+    const result = await runner.run({
+      provider_config: provider,
+      prompt: "tighten this",
+      vault_path: "/vault",
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.aborted).toBe(true);
+    expect(result.error).toBeNull();
+    expect(result.output).toBe("# Half");
   });
 
   it("carries the read-only inline-edit toolset and a native backend", async () => {

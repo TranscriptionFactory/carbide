@@ -28,9 +28,30 @@ describe("migrate_agent_fields", () => {
     expect(migrated.agent_session_id).toBeUndefined();
   });
 
+  // Chats are the only kind rag ever persisted, so a file written before the
+  // session model was shared has to be named as one on the way in.
+  it("completes the session-model fields a rag-era file never stored", () => {
+    const migrated = migrate_agent_fields(stored_session());
+
+    expect(migrated.kind).toBe("chat");
+    expect(migrated.title_source).toBe("derived");
+    expect(migrated.origin).toEqual({});
+  });
+
+  it("keeps a title the user set rather than reopening it to autotitling", () => {
+    const migrated = migrate_agent_fields(
+      stored_session({ title_source: "manual" }),
+    );
+
+    expect(migrated.title_source).toBe("manual");
+  });
+
   it("preserves agent fields on already-migrated sessions", () => {
     const session: RagSession = {
       ...stored_session(),
+      kind: "chat",
+      title_source: "derived",
+      origin: {},
       mode: "agent",
       permission_mode: "power",
       changed_files: ["notes/a.md"],
@@ -45,6 +66,9 @@ describe("migrate_agent_fields", () => {
   it("preserves tool-call and tool-result messages", () => {
     const session: RagSession = {
       ...stored_session(),
+      kind: "chat",
+      title_source: "derived",
+      origin: {},
       mode: "agent",
       permission_mode: "power",
       changed_files: [],

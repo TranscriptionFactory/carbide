@@ -34,6 +34,9 @@ export type AiExecutionResult = {
   success: boolean;
   output: string;
   error: string | null;
+  // A stopped run is not a failed one: `error` stays null so no caller shows a
+  // fake failure, and this marks why the output is short.
+  aborted?: boolean;
 };
 
 export type AiConversationTurn = {

@@ -3,6 +3,7 @@ import { ActionRegistry } from "$lib/app/action_registry/action_registry";
 import { ACTION_IDS } from "$lib/app/action_registry/action_ids";
 import { register_ai_actions } from "$lib/features/ai/application/ai_actions";
 import { AiStore } from "$lib/features/ai/state/ai_store.svelte";
+import { AssistantSessionStore } from "$lib/features/assistant";
 import { UIStore } from "$lib/app/orchestration/ui_store.svelte";
 import { OpStore } from "$lib/app/orchestration/op_store.svelte";
 import { BUILTIN_PROVIDER_PRESETS } from "$lib/shared/types/ai_provider_config";
@@ -35,10 +36,6 @@ function create_harness() {
   const ai_service = {
     open_vault_in_agent: vi.fn().mockResolvedValue(undefined),
   };
-  const ai_history = {
-    load_history: vi.fn().mockResolvedValue([]),
-    save_history: vi.fn().mockResolvedValue(undefined),
-  };
   register_ai_actions({
     registry,
     stores: stores as never,
@@ -49,8 +46,9 @@ function create_harness() {
     },
     ai_store: new AiStore(),
     ai_service: ai_service as never,
-    ai_history: ai_history as never,
     agentic_runner: { run: vi.fn() } as never,
+    assistant_sessions: new AssistantSessionStore(),
+    rag_service: { save_session: vi.fn(), delete_session: vi.fn() } as never,
   });
   return { registry, stores, ai_service };
 }

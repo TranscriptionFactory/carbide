@@ -20,13 +20,11 @@ import {
 } from "$lib/features/ai/domain/ai_provider_capabilities";
 import type { AiService } from "$lib/features/ai/application/ai_service";
 import type { AgenticEditRunner } from "$lib/features/ai/application/agentic_edit_runner";
-import type { AiHistoryPersistencePort } from "$lib/features/ai/ports";
 import type { AiStore } from "$lib/features/ai/state/ai_store.svelte";
 import {
   error_message,
   strip_invoke_prefix,
 } from "$lib/shared/utils/error_message";
-import { create_logger } from "$lib/shared/utils/logger";
 import type { AiProviderConfig } from "$lib/shared/types/ai_provider_config";
 import { extract_frontmatter } from "$lib/features/reference";
 import {
@@ -42,57 +40,75 @@ import {
   resolve_inline_ai_anchor_coords,
 } from "$lib/features/editor";
 import type { EditorSelectionSnapshot } from "$lib/shared/types/editor";
-import type { RunHandle } from "$lib/features/assistant";
+import type { AssistantSessionStore, RunHandle } from "$lib/features/assistant";
+import type { RagService } from "$lib/features/rag";
 import { build_ai_inline_prompt } from "$lib/features/ai/domain/ai_prompt_builder";
-import { resolve_instructions } from "$lib/shared/domain/prompt_recipes";
+import {
+  build_inline_messages,
+  derive_inline_title,
+  describe_inline_request,
+  type InlineRequestPayload,
+} from "$lib/features/ai/domain/inline_session_log";
+import {
+  build_editor_sources,
+  type EditorContextMaterial,
+} from "$lib/features/ai/domain/ai_context_sources";
+import {
+  resolve_instructions,
+  resolve_policy,
+} from "$lib/shared/domain/prompt_recipes";
+import type {
+  AssistantSurface,
+  ContextSourceId,
+  InstructionRecipe,
+} from "$lib/shared/types/prompt_recipe";
+import { assemble_context, context_window } from "$lib/features/assistant";
 import { collect_open_note_image_parts } from "$lib/features/ai/application/note_image_loader";
 import type { EditorView } from "prosemirror-view";
 
-const log = create_logger("ai_actions");
-
 const MAX_INLINE_CONTEXT = 4000;
 
-function inline_context_window(
-  from: number,
-  to: number | null,
-  length: number,
-): { start: number; end: number } {
-  if (to !== null) {
-    return {
-      start: Math.max(0, from - MAX_INLINE_CONTEXT),
-      end: Math.min(length, to + MAX_INLINE_CONTEXT),
-    };
-  }
-  const clamped = Math.min(Math.max(0, from), length);
-  return { start: Math.max(0, clamped - MAX_INLINE_CONTEXT), end: clamped };
-}
+type PendingInlinePrompt = {
+  command_id: string;
+  commands: InstructionRecipe[];
+  material: EditorContextMaterial;
+  declared: ContextSourceId[];
+  custom_prompt?: string;
+};
 
 function extract_source_inline_context(
   markdown: string,
   selection: EditorSelectionSnapshot | null,
   cursor_offset: number,
-): { context_text: string; selection_text?: string } {
+): EditorContextMaterial {
   if (selection && selection.start !== null && selection.end !== null) {
-    const w = inline_context_window(
+    const w = context_window(
       selection.start,
       selection.end,
       markdown.length,
+      MAX_INLINE_CONTEXT,
     );
     return {
-      context_text: markdown.slice(w.start, w.end),
-      selection_text: selection.text,
+      cursor_window: markdown.slice(w.start, w.end),
+      selection: selection.text,
     };
   }
-  const w = inline_context_window(cursor_offset, null, markdown.length);
-  return { context_text: markdown.slice(w.start, w.end) };
+  const w = context_window(
+    cursor_offset,
+    null,
+    markdown.length,
+    MAX_INLINE_CONTEXT,
+  );
+  return { cursor_window: markdown.slice(w.start, w.end) };
 }
 
 export function register_ai_actions(
   input: ActionRegistrationInput & {
     ai_store: AiStore;
     ai_service: AiService;
-    ai_history: AiHistoryPersistencePort;
     agentic_runner: AgenticEditRunner;
+    assistant_sessions: AssistantSessionStore;
+    rag_service: RagService;
   },
 ) {
   const {
@@ -100,8 +116,9 @@ export function register_ai_actions(
     services,
     ai_service,
     ai_store,
-    ai_history,
     agentic_runner,
+    assistant_sessions,
+    rag_service,
   } = input;
 
   let dialog_revision = 0;
@@ -110,6 +127,11 @@ export function register_ai_actions(
   let last_inline_prompts: {
     system_prompt: string;
     user_prompt: string;
+  } | null = null;
+  let last_inline_request: {
+    prompt: string;
+    provider_id: string;
+    note_path?: string;
   } | null = null;
 
   function ai_enabled() {
@@ -126,17 +148,6 @@ export function register_ai_actions(
 
   function get_providers() {
     return input.stores.ui.editor_settings.ai_providers;
-  }
-
-  function persist_history() {
-    const vault_id = input.stores.vault.active_vault_id;
-    if (!vault_id) return;
-    const completed = ai_store.dialog.turns.filter(
-      (t) => t.status === "completed",
-    );
-    void ai_history.save_history(vault_id, completed).catch((err) => {
-      log.warn("AI save_history failed", { error: error_message(err) });
-    });
   }
 
   function get_provider(id: string): AiProviderConfig | undefined {
@@ -459,7 +470,6 @@ export function register_ai_actions(
     label: "Clear AI History",
     execute: () => {
       ai_store.clear_turns();
-      persist_history();
     },
   });
 
@@ -564,7 +574,6 @@ export function register_ai_actions(
             return;
           }
           ai_store.finish_execution(result);
-          persist_history();
           return;
         }
 
@@ -580,7 +589,11 @@ export function register_ai_actions(
           },
         );
         if (!can_settle()) return;
-        if (panel_stopped) {
+        // `panel_stopped` covers this panel's own stop button; `aborted`
+        // covers a stop from anywhere else. Either way the result carries no
+        // error, so handing it to finish_execution would render an empty
+        // error banner over whatever text did arrive.
+        if (panel_stopped || result.aborted) {
           if (result.output.trim() === "") {
             ai_store.cancel_execution();
             return;
@@ -590,11 +603,9 @@ export function register_ai_actions(
             output: result.output,
             error: null,
           });
-          persist_history();
           return;
         }
         ai_store.finish_execution(result);
-        persist_history();
       } catch (error) {
         if (!can_settle()) return;
         ai_store.finish_execution({
@@ -602,7 +613,6 @@ export function register_ai_actions(
           output: "",
           error: error_message(error),
         });
-        persist_history();
       } finally {
         if (panel_handle === handle) {
           panel_handle = null;
@@ -676,27 +686,70 @@ export function register_ai_actions(
     }
   }
 
-  function extract_inline_context(view: EditorView): {
-    context_text: string;
-    selection_text?: string;
-  } {
+  function extract_inline_context(view: EditorView): EditorContextMaterial {
     const { from, to } = view.state.selection;
     const doc = view.state.doc;
     if (from !== to) {
-      const w = inline_context_window(from, to, doc.content.size);
+      const w = context_window(from, to, doc.content.size, MAX_INLINE_CONTEXT);
       return {
-        context_text: doc.textBetween(w.start, w.end, "\n", "\n"),
-        selection_text: doc.textBetween(from, to, "\n", "\n"),
+        cursor_window: doc.textBetween(w.start, w.end, "\n", "\n"),
+        selection: doc.textBetween(from, to, "\n", "\n"),
       };
     }
-    const w = inline_context_window(from, null, doc.content.size);
+    const w = context_window(from, null, doc.content.size, MAX_INLINE_CONTEXT);
     return {
-      context_text: doc.textBetween(w.start, w.end, "\n", "\n"),
+      cursor_window: doc.textBetween(w.start, w.end, "\n", "\n"),
     };
   }
 
   function in_source_mode(): boolean {
     return input.stores.editor.editor_mode === "source";
+  }
+
+  // Split in two because the editor material must be read before the stream
+  // transaction mutates the doc, while vault context only arrives after an
+  // await. Assembly happens once both halves are in hand.
+  function prepare_inline_prompt(
+    surface: AssistantSurface,
+    material: EditorContextMaterial,
+    p: { command_id?: string; prompt?: string } | undefined,
+  ): PendingInlinePrompt {
+    const commands = resolve_instructions(
+      input.stores.ui.editor_settings.ai_inline_commands,
+    );
+    const command_id = p?.command_id ?? (p?.prompt ? "custom" : "continue");
+    const policy = resolve_policy(
+      commands.find((c) => c.id === command_id),
+      surface,
+    );
+    return {
+      command_id,
+      commands,
+      material,
+      declared: policy.context_sources,
+      ...(p?.prompt ? { custom_prompt: p.prompt } : {}),
+    };
+  }
+
+  function finish_inline_prompt(
+    pending: PendingInlinePrompt,
+    vault_context: AiVaultContext | undefined,
+  ): { system_prompt: string; user_prompt: string } {
+    const assembly = assemble_context(
+      build_editor_sources(pending.declared, {
+        ...pending.material,
+        ...(vault_context ? { vault: vault_context } : {}),
+      }),
+      null,
+    );
+    return build_ai_inline_prompt({
+      command_id: pending.command_id,
+      commands: pending.commands,
+      assembly,
+      ...(pending.custom_prompt !== undefined
+        ? { custom_prompt: pending.custom_prompt }
+        : {}),
+    });
   }
 
   registry.register({
@@ -742,26 +795,19 @@ export function register_ai_actions(
     const selection = editor_ctx.selection;
     const cursor_offset = input.stores.editor.cursor_offset;
 
-    let prompt_input: Parameters<typeof build_ai_inline_prompt>[0] | null =
-      null;
+    let pending: PendingInlinePrompt | null = null;
     if (p?.retry) {
       if (!last_inline_prompts) return;
     } else {
-      const ctx = extract_source_inline_context(
-        editor_ctx.markdown,
-        selection,
-        cursor_offset,
+      pending = prepare_inline_prompt(
+        "inline_cm",
+        extract_source_inline_context(
+          editor_ctx.markdown,
+          selection,
+          cursor_offset,
+        ),
+        p,
       );
-      const commands = resolve_instructions(
-        input.stores.ui.editor_settings.ai_inline_commands,
-      );
-      prompt_input = {
-        command_id: p?.command_id ?? (p?.prompt ? "custom" : "continue"),
-        context_text: ctx.context_text,
-        commands,
-      };
-      if (p?.prompt) prompt_input.custom_prompt = p.prompt;
-      if (ctx.selection_text) prompt_input.selection_text = ctx.selection_text;
     }
 
     dispatch_ai_menu(view, {
@@ -771,13 +817,12 @@ export function register_ai_actions(
 
     const [images, vault_context] = await Promise.all([
       collect_open_note_image_parts(input),
-      prompt_input ? fetch_inline_vault_context() : undefined,
+      pending ? fetch_inline_vault_context() : undefined,
     ]);
     if (!get_ai_menu_state(view.state).open) return;
     let prompts = last_inline_prompts;
-    if (prompt_input) {
-      if (vault_context) prompt_input.vault_context = vault_context;
-      prompts = build_ai_inline_prompt(prompt_input);
+    if (pending) {
+      prompts = finish_inline_prompt(pending, vault_context);
       last_inline_prompts = prompts;
     }
     if (!prompts) return;
@@ -835,9 +880,7 @@ export function register_ai_actions(
       const view = get_inline_view();
       if (!view) return;
 
-      const p = payload as
-        | { command_id?: string; prompt?: string; retry?: boolean }
-        | undefined;
+      const p = payload as InlineRequestPayload | undefined;
 
       const config = await resolve_streaming_provider();
       if (!config) {
@@ -845,6 +888,23 @@ export function register_ai_actions(
           "No streaming-capable AI provider — inline edits need a Claude/Ollama CLI or API provider (Codex is agent-only). Add or select one in Settings.",
         );
         return;
+      }
+
+      // Retry reuses the request that is already recorded; overwriting it here
+      // would lose the prompt, since a retry payload carries neither.
+      if (!p?.retry) {
+        last_inline_request = {
+          prompt: describe_inline_request(
+            p,
+            resolve_instructions(
+              input.stores.ui.editor_settings.ai_inline_commands,
+            ),
+          ),
+          provider_id: config.id,
+          ...(input.stores.editor.open_note
+            ? { note_path: String(input.stores.editor.open_note.meta.path) }
+            : {}),
+        };
       }
 
       // read after the async provider probe: closes the double-trigger window
@@ -857,8 +917,7 @@ export function register_ai_actions(
       }
 
       let prompts: { system_prompt: string; user_prompt: string } | null = null;
-      let prompt_input: Parameters<typeof build_ai_inline_prompt>[0] | null =
-        null;
+      let pending: PendingInlinePrompt | null = null;
       if (p?.retry) {
         if (!last_inline_prompts) return;
         prompts = last_inline_prompts;
@@ -867,21 +926,12 @@ export function register_ai_actions(
         tr.setMeta(ai_menu_plugin_key, { action: "retry" });
         view.dispatch(tr);
       } else {
-        const command_id = p?.command_id;
-        const prompt = p?.prompt;
-        const resolved_command = command_id ?? (prompt ? "custom" : "continue");
-        const commands = resolve_instructions(
-          input.stores.ui.editor_settings.ai_inline_commands,
+        // Read the doc before the transaction below deletes the selection.
+        pending = prepare_inline_prompt(
+          "inline_pm",
+          extract_inline_context(view),
+          p,
         );
-        const ctx = extract_inline_context(view);
-        prompt_input = {
-          command_id: resolved_command,
-          context_text: ctx.context_text,
-          commands,
-        };
-        if (prompt) prompt_input.custom_prompt = prompt;
-        if (ctx.selection_text)
-          prompt_input.selection_text = ctx.selection_text;
 
         const { from, to } = view.state.selection;
         const tr = view.state.tr;
@@ -896,12 +946,11 @@ export function register_ai_actions(
 
       const [images, vault_context] = await Promise.all([
         collect_open_note_image_parts(input),
-        prompt_input ? fetch_inline_vault_context() : undefined,
+        pending ? fetch_inline_vault_context() : undefined,
       ]);
       if (!get_ai_menu_state(view.state).open) return;
-      if (prompt_input) {
-        if (vault_context) prompt_input.vault_context = vault_context;
-        prompts = build_ai_inline_prompt(prompt_input);
+      if (pending) {
+        prompts = finish_inline_prompt(pending, vault_context);
         last_inline_prompts = prompts;
       }
       if (!prompts) return;
@@ -940,13 +989,63 @@ export function register_ai_actions(
     },
   });
 
+  // Store writes stay in one tick so no observer can ever see a one-message
+  // inline session; only persistence is detached, and RagService already
+  // swallows its own failures.
+  function log_inline_session(result: string) {
+    const request = last_inline_request;
+    const vault_id = input.stores.vault.active_vault_id;
+    if (!request || !vault_id) return;
+
+    const created = assistant_sessions.create({
+      kind: "inline",
+      title: derive_inline_title(request.prompt),
+      provider_id: request.provider_id,
+      ...(request.note_path
+        ? { origin: { note_path: request.note_path } }
+        : {}),
+    });
+    assistant_sessions.replace_messages(
+      created.id,
+      build_inline_messages(request.prompt, result),
+    );
+
+    // The toast is the immediate affordance; AU-012's ⌁ list row is the
+    // durable one, so a missed toast loses nothing.
+    toast.success("Inline edit applied", {
+      action: {
+        label: "Continue in chat",
+        onClick: () =>
+          void registry.execute(ACTION_IDS.assistant_open_session, created.id),
+      },
+    });
+
+    const stored = assistant_sessions.get(created.id);
+    if (stored) void rag_service.save_session(vault_id, stored);
+  }
+
   registry.register({
     id: ACTION_IDS.ai_accept_inline,
     label: "Accept Inline AI Result",
     execute: () => {
       const view = get_inline_view();
       if (!view) return;
+
+      // The accept meta resets the plugin to its empty state, so the range has
+      // to be read before dispatching.
+      const state = get_ai_menu_state(view.state);
+      const result =
+        state.open && state.ai_range_to > state.ai_range_from
+          ? view.state.doc.textBetween(
+              state.ai_range_from,
+              state.ai_range_to,
+              "\n",
+              "\n",
+            )
+          : "";
+
       dispatch_ai_menu(view, { action: "accept" });
+      if (result) log_inline_session(result);
     },
   });
 
