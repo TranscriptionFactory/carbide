@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use subtle::ConstantTimeEq;
 
 const TOKEN_BYTES: usize = 32;
@@ -15,7 +15,18 @@ fn dirs_config_path() -> PathBuf {
 }
 
 pub fn read_or_create_token() -> Result<String, String> {
-    let path = token_path();
+    read_or_create_token_in(&dirs_config_path())
+}
+
+pub fn generate_and_save_token() -> Result<String, String> {
+    generate_and_save_token_in(&dirs_config_path())
+}
+
+/// Takes the config directory explicitly so tests can point it at a temporary
+/// directory without mutating the process-global `HOME`, which every other test
+/// in this binary shares.
+fn read_or_create_token_in(config_dir: &Path) -> Result<String, String> {
+    let path = config_dir.join("mcp-token");
 
     if path.exists() {
         let token = std::fs::read_to_string(&path)
@@ -26,16 +37,14 @@ pub fn read_or_create_token() -> Result<String, String> {
         }
     }
 
-    generate_and_save_token()
+    generate_and_save_token_in(config_dir)
 }
 
-pub fn generate_and_save_token() -> Result<String, String> {
-    let path = token_path();
+fn generate_and_save_token_in(config_dir: &Path) -> Result<String, String> {
+    std::fs::create_dir_all(config_dir)
+        .map_err(|e| format!("Failed to create config dir: {}", e))?;
 
-    if let Some(parent) = path.parent() {
-        std::fs::create_dir_all(parent)
-            .map_err(|e| format!("Failed to create config dir: {}", e))?;
-    }
+    let path = config_dir.join("mcp-token");
 
     let mut bytes = [0u8; TOKEN_BYTES];
     rand::RngCore::fill_bytes(&mut rand::rngs::OsRng, &mut bytes);
@@ -92,14 +101,46 @@ mod tests {
     #[test]
     fn test_read_or_create_token_creates_file() {
         let dir = tempfile::tempdir().unwrap();
-        std::env::set_var("HOME", dir.path());
-        let result = read_or_create_token();
-        assert!(result.is_ok());
-        let token = result.unwrap();
-        assert_eq!(token.len(), TOKEN_BYTES * 2);
 
-        let reread = read_or_create_token().unwrap();
+        let token = read_or_create_token_in(dir.path()).unwrap();
+
+        assert_eq!(token.len(), TOKEN_BYTES * 2);
+        assert!(token.chars().all(|c| c.is_ascii_hexdigit()));
+        assert!(dir.path().join("mcp-token").exists());
+    }
+
+    #[test]
+    fn test_read_or_create_token_is_idempotent() {
+        let dir = tempfile::tempdir().unwrap();
+
+        let token = read_or_create_token_in(dir.path()).unwrap();
+        let reread = read_or_create_token_in(dir.path()).unwrap();
+
         assert_eq!(token, reread);
-        std::env::remove_var("HOME");
+    }
+
+    #[test]
+    fn test_read_or_create_token_replaces_blank_file() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("mcp-token"), "   \n").unwrap();
+
+        let token = read_or_create_token_in(dir.path()).unwrap();
+
+        assert_eq!(token.len(), TOKEN_BYTES * 2);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn test_generated_token_is_owner_readable_only() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = tempfile::tempdir().unwrap();
+
+        generate_and_save_token_in(dir.path()).unwrap();
+
+        let mode = std::fs::metadata(dir.path().join("mcp-token"))
+            .unwrap()
+            .permissions()
+            .mode();
+        assert_eq!(mode & 0o777, 0o600);
     }
 }
