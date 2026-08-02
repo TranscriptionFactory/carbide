@@ -79,3 +79,5 @@ export { default as AssistantRunsPopover } from "$lib/features/assistant/ui/assi
 export { default as AssistantStopButton } from "$lib/features/assistant/ui/assistant_stop_button.svelte";
 export { default as AssistantSessionTabView } from "$lib/features/assistant/ui/assistant_session_tab_view.svelte";
 export { default as AssistantSessionList } from "$lib/features/assistant/ui/assistant_session_list.svelte";
+
+export { create_assistant_session_persistence_tauri_adapter } from "$lib/features/assistant/adapters/assistant_session_persistence_tauri_adapter";

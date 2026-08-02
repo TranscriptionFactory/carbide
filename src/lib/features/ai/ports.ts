@@ -1,7 +1,6 @@
 import type {
   AiCliCheckRequest,
   AiCliProbe,
-  AiConversationTurn,
   AiExecutionResult,
   AiPortExecuteRequest,
   AiProviderConfig,
@@ -19,9 +18,4 @@ export interface AiPort {
     config: AiProviderConfig,
     vault_path: string,
   ): Promise<void>;
-}
-
-export interface AiHistoryPersistencePort {
-  load_history(vault_id: string): Promise<AiConversationTurn[]>;
-  save_history(vault_id: string, turns: AiConversationTurn[]): Promise<void>;
 }

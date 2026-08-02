@@ -20,13 +20,11 @@ import {
 } from "$lib/features/ai/domain/ai_provider_capabilities";
 import type { AiService } from "$lib/features/ai/application/ai_service";
 import type { AgenticEditRunner } from "$lib/features/ai/application/agentic_edit_runner";
-import type { AiHistoryPersistencePort } from "$lib/features/ai/ports";
 import type { AiStore } from "$lib/features/ai/state/ai_store.svelte";
 import {
   error_message,
   strip_invoke_prefix,
 } from "$lib/shared/utils/error_message";
-import { create_logger } from "$lib/shared/utils/logger";
 import type { AiProviderConfig } from "$lib/shared/types/ai_provider_config";
 import { extract_frontmatter } from "$lib/features/reference";
 import {
@@ -47,8 +45,6 @@ import { build_ai_inline_prompt } from "$lib/features/ai/domain/ai_prompt_builde
 import { resolve_instructions } from "$lib/shared/domain/prompt_recipes";
 import { collect_open_note_image_parts } from "$lib/features/ai/application/note_image_loader";
 import type { EditorView } from "prosemirror-view";
-
-const log = create_logger("ai_actions");
 
 const MAX_INLINE_CONTEXT = 4000;
 
@@ -91,18 +87,10 @@ export function register_ai_actions(
   input: ActionRegistrationInput & {
     ai_store: AiStore;
     ai_service: AiService;
-    ai_history: AiHistoryPersistencePort;
     agentic_runner: AgenticEditRunner;
   },
 ) {
-  const {
-    registry,
-    services,
-    ai_service,
-    ai_store,
-    ai_history,
-    agentic_runner,
-  } = input;
+  const { registry, services, ai_service, ai_store, agentic_runner } = input;
 
   let dialog_revision = 0;
   let panel_handle: RunHandle | null = null;
@@ -126,17 +114,6 @@ export function register_ai_actions(
 
   function get_providers() {
     return input.stores.ui.editor_settings.ai_providers;
-  }
-
-  function persist_history() {
-    const vault_id = input.stores.vault.active_vault_id;
-    if (!vault_id) return;
-    const completed = ai_store.dialog.turns.filter(
-      (t) => t.status === "completed",
-    );
-    void ai_history.save_history(vault_id, completed).catch((err) => {
-      log.warn("AI save_history failed", { error: error_message(err) });
-    });
   }
 
   function get_provider(id: string): AiProviderConfig | undefined {
@@ -459,7 +436,6 @@ export function register_ai_actions(
     label: "Clear AI History",
     execute: () => {
       ai_store.clear_turns();
-      persist_history();
     },
   });
 
@@ -564,7 +540,6 @@ export function register_ai_actions(
             return;
           }
           ai_store.finish_execution(result);
-          persist_history();
           return;
         }
 
@@ -594,11 +569,9 @@ export function register_ai_actions(
             output: result.output,
             error: null,
           });
-          persist_history();
           return;
         }
         ai_store.finish_execution(result);
-        persist_history();
       } catch (error) {
         if (!can_settle()) return;
         ai_store.finish_execution({
@@ -606,7 +579,6 @@ export function register_ai_actions(
           output: "",
           error: error_message(error),
         });
-        persist_history();
       } finally {
         if (panel_handle === handle) {
           panel_handle = null;

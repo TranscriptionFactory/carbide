@@ -1,14 +1,14 @@
-import type { RagPersistencePort } from "$lib/features/rag/ports";
 import type {
-  RagSession,
-  RagSessionSummary,
-} from "$lib/features/rag/domain/rag_types";
+  AssistantSession,
+  AssistantSessionPersistencePort,
+  AssistantSessionSummary,
+} from "$lib/features/assistant";
 
 function clone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
 }
 
-function to_summary(session: RagSession): RagSessionSummary {
+function to_summary(session: AssistantSession): AssistantSessionSummary {
   return {
     id: session.id,
     kind: session.kind,
@@ -18,10 +18,10 @@ function to_summary(session: RagSession): RagSessionSummary {
   };
 }
 
-export function create_test_rag_persistence_adapter(): RagPersistencePort {
-  const vaults = new Map<string, Map<string, RagSession>>();
+export function create_test_assistant_session_persistence_adapter(): AssistantSessionPersistencePort {
+  const vaults = new Map<string, Map<string, AssistantSession>>();
 
-  function bucket(vault_id: string): Map<string, RagSession> {
+  function bucket(vault_id: string): Map<string, AssistantSession> {
     let sessions = vaults.get(vault_id);
     if (!sessions) {
       sessions = new Map();

@@ -15,7 +15,7 @@ import { create_test_terminal_adapter } from "./test_terminal_adapter";
 import { create_test_window_adapter } from "./test_window_adapter";
 import { create_test_watcher_adapter } from "./test_watcher_adapter";
 import { create_test_graph_adapter } from "./test_graph_adapter";
-import { create_test_rag_persistence_adapter } from "./test_rag_persistence_adapter";
+import { create_test_assistant_session_persistence_adapter } from "./test_assistant_session_persistence_adapter";
 import type { AiPort } from "$lib/features/ai";
 
 function create_test_ai_adapter(): AiPort {
@@ -112,10 +112,6 @@ export function create_test_ports(): Ports {
     window: create_test_window_adapter(),
     watcher: create_test_watcher_adapter(),
     ai: create_test_ai_adapter(),
-    ai_history: {
-      load_history: () => Promise.resolve([]),
-      save_history: () => Promise.resolve(),
-    },
     graph: create_test_graph_adapter(),
     bases: {
       list_properties: () => Promise.resolve([]),
@@ -287,7 +283,7 @@ export function create_test_ports(): Ports {
       write: () => Promise.resolve(),
       remove: () => Promise.resolve(),
     },
-    rag_persistence: create_test_rag_persistence_adapter(),
+    rag_persistence: create_test_assistant_session_persistence_adapter(),
     reference_storage: {
       load_library: () => Promise.resolve({ schema_version: 1, items: [] }),
       save_library: () => Promise.resolve(),
