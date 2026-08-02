@@ -1,13 +1,16 @@
 // @vitest-environment jsdom
 import { describe, expect, it, vi } from "vitest";
 import { flushSync } from "svelte";
-import { AssistantSessionStore } from "$lib/features/assistant";
-import { RagStore, load_assistant_sessions } from "$lib/features/rag";
+import {
+  AssistantChatStore,
+  AssistantSessionStore,
+  load_assistant_sessions,
+} from "$lib/features/assistant";
 import { VaultStore } from "$lib/features/vault";
 import { UIStore } from "$lib/app/orchestration/ui_store.svelte";
 import { create_assistant_sessions_load_reactor } from "$lib/reactors/assistant_sessions_load.reactor.svelte";
 import { create_test_vault } from "../helpers/test_fixtures";
-import type { RagService } from "$lib/features/rag";
+import type { AssistantSessionService } from "$lib/features/assistant";
 import type { AssistantSession } from "$lib/features/assistant";
 import type { VaultId } from "$lib/shared/types/ids";
 
@@ -36,7 +39,7 @@ function fake_service(by_vault: Record<string, AssistantSession[]>) {
       Promise.resolve(by_vault[vault_id] ?? []),
     ),
     delete_session: vi.fn(() => Promise.resolve()),
-  } as unknown as RagService & {
+  } as unknown as AssistantSessionService & {
     load_all_sessions: ReturnType<typeof vi.fn>;
     delete_session: ReturnType<typeof vi.fn>;
   };
@@ -44,7 +47,7 @@ function fake_service(by_vault: Record<string, AssistantSession[]>) {
 
 function make_stores() {
   const sessions = new AssistantSessionStore();
-  return { sessions, rag: new RagStore(sessions) };
+  return { sessions, rag: new AssistantChatStore(sessions) };
 }
 
 function vault_store_for(id: string): VaultStore {
@@ -97,7 +100,7 @@ describe("load_assistant_sessions", () => {
   it("preserves stored timestamps and never calls the clock", async () => {
     const clock = vi.fn(() => 999_999);
     const sessions = new AssistantSessionStore(clock);
-    const rag = new RagStore(sessions);
+    const rag = new AssistantChatStore(sessions);
     const service = fake_service({
       v1: [session({ id: "a", created_at: 100, updated_at: 200 })],
     });
@@ -257,7 +260,7 @@ describe("assistant_sessions_load reactor", () => {
   it("applies the configured retention to the sessions it hydrates", async () => {
     const now = 1_000 * 24 * 60 * 60 * 1000;
     const sessions = new AssistantSessionStore(() => now);
-    const rag = new RagStore(sessions);
+    const rag = new AssistantChatStore(sessions);
     const day = 24 * 60 * 60 * 1000;
     const service = fake_service({
       v1: [

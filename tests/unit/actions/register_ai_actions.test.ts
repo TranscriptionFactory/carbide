@@ -187,7 +187,7 @@ function create_harness() {
     agentic_runner: agentic_runner as never,
     assistant_sessions,
     assistant_proposals,
-    rag_service: rag_service as never,
+    assistant_sessions_service: rag_service as never,
   });
 
   return {

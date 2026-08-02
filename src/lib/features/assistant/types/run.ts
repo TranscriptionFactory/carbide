@@ -1,9 +1,8 @@
 import type { AiProviderConfig } from "$lib/shared/types/ai_provider_config";
 import type { AiMessage, ToolSelector } from "$lib/features/ai";
 // An agent turn replays tool calls and tool results, which the text channel's
-// AiMessage cannot express — it has no "tool" role. Same import direction as
-// the AgentEvent one the transport already carries.
-import type { AgentHistoryMessage } from "$lib/features/rag";
+// AiMessage cannot express — it has no "tool" role.
+import type { AgentHistoryMessage } from "$lib/features/assistant/types/agent_history";
 
 export type RunId = string;
 
