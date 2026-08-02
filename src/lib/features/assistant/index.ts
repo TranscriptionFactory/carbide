@@ -79,3 +79,23 @@ export { default as AssistantRunsPopover } from "$lib/features/assistant/ui/assi
 export { default as AssistantStopButton } from "$lib/features/assistant/ui/assistant_stop_button.svelte";
 export { default as AssistantSessionTabView } from "$lib/features/assistant/ui/assistant_session_tab_view.svelte";
 export { default as AssistantSessionList } from "$lib/features/assistant/ui/assistant_session_list.svelte";
+export {
+  assemble_context,
+  estimate_tokens,
+  DEFAULT_CONTEXT_BUDGET,
+  type ContextBudget,
+  type ContextAssembly,
+  type ContextStats,
+  type AssembledBlock,
+  type DroppedBlock,
+  type DropReason,
+} from "$lib/features/assistant/domain/context_assembler";
+export {
+  type ContextBlock,
+  type ContextSource,
+} from "$lib/features/assistant/domain/context_source";
+export {
+  context_window,
+  extract_line_range,
+  type CharWindow,
+} from "$lib/features/assistant/domain/context_window";
