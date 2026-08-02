@@ -12,13 +12,23 @@ export function apply_proposal_hunks(
   if (selected.length === 0) return content;
 
   const lines = content.split("\n");
-  const ordered = [...selected].sort((a, b) => hunk_anchor(b) - hunk_anchor(a));
+  // Compute each hunk's old-side span once (not on every sort comparison)
+  // and carry it into the loop instead of recomputing it there too. A hunk
+  // with no old-side lines (pure insertion carrying no context/del, so no
+  // old_line anchor at all) sorts last and is appended at end-of-file — the
+  // hunk itself carries no positional information to do otherwise.
+  const ordered = selected
+    .map((hunk) => ({ hunk, span: old_line_span(hunk) }))
+    .sort(
+      (a, b) =>
+        (b.span?.end ?? Number.NEGATIVE_INFINITY) -
+        (a.span?.end ?? Number.NEGATIVE_INFINITY),
+    );
 
-  for (const hunk of ordered) {
+  for (const { hunk, span } of ordered) {
     const new_side = hunk.lines
       .filter((line) => line.kind !== "del")
       .map((line) => line.content);
-    const span = old_line_span(hunk);
 
     if (!span) {
       lines.push(...new_side);
@@ -29,13 +39,6 @@ export function apply_proposal_hunks(
   }
 
   return lines.join("\n");
-}
-
-// A hunk with no old-side lines (pure insertion carrying no context/del, so
-// no old_line anchor at all) sorts last and is appended at end-of-file — the
-// hunk itself carries no positional information to do otherwise.
-function hunk_anchor(hunk: ProposalHunk): number {
-  return old_line_span(hunk)?.end ?? Number.NEGATIVE_INFINITY;
 }
 
 function old_line_span(

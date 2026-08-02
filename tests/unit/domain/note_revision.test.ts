@@ -11,6 +11,12 @@ describe("compute_note_revision", () => {
     expect(() => compute_note_revision("")).not.toThrow();
   });
 
+  it("computes its two seeded halves independently rather than repeating one hash", () => {
+    const revision = compute_note_revision("weights are still hand-tuned");
+    expect(revision).toHaveLength(16);
+    expect(revision.slice(0, 8)).not.toBe(revision.slice(8, 16));
+  });
+
   it("differs for content that differs only by trailing whitespace", () => {
     expect(compute_note_revision("weights are tuned")).not.toBe(
       compute_note_revision("weights are tuned "),
