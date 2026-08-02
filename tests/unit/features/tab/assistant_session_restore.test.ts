@@ -3,7 +3,6 @@ import { TabService } from "$lib/features/tab/application/tab_service";
 import { VaultStore } from "$lib/features/vault/state/vault_store.svelte";
 import { TabStore } from "$lib/features/tab/state/tab_store.svelte";
 import { NotesStore } from "$lib/features/note/state/note_store.svelte";
-import { AssistantSessionStore } from "$lib/features/assistant";
 import {
   assistant_session_tab_id,
   ASSISTANT_SESSION_TAB_TITLE,
@@ -11,7 +10,6 @@ import {
 import { as_note_path, as_vault_id } from "$lib/shared/types/ids";
 import type { PersistedTabState } from "$lib/features/tab";
 import { create_test_vault } from "../../helpers/test_fixtures";
-import { make_session } from "../../helpers/assistant_session_fixtures";
 
 function create_setup() {
   const vault_settings_port = {
@@ -233,10 +231,11 @@ describe("restore_tabs for assistant_session tabs", () => {
     expect(tab_store.tabs).toHaveLength(0);
   });
 
-  it("keeps the tab when the session was pruned from the store", async () => {
+  // Restore rebuilds the tab from the persisted session_id alone and never
+  // consults a session store, so a pruned session still gets its tab — the view
+  // is where the user learns the conversation is gone.
+  it("keeps the tab for a session id that no longer resolves", async () => {
     const { service, tab_store } = create_setup();
-    const session_store = new AssistantSessionStore();
-    session_store.sessions = [make_session({ id: "still-here" })];
 
     await expect(
       service.restore_tabs(
@@ -251,7 +250,6 @@ describe("restore_tabs for assistant_session tabs", () => {
       ),
     ).resolves.toBeUndefined();
 
-    expect(session_store.get("pruned")).toBeNull();
     expect(tab_store.tabs).toHaveLength(1);
     expect(tab_store.tabs[0]).toMatchObject({
       kind: "assistant_session",
