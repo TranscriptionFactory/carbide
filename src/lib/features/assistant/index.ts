@@ -100,3 +100,39 @@ export {
   type CharWindow,
 } from "$lib/features/assistant/domain/context_window";
 export { create_assistant_session_persistence_tauri_adapter } from "$lib/features/assistant/adapters/assistant_session_persistence_tauri_adapter";
+
+// C2 — proposals. Exported at contract time, not at implementation time:
+// AU-020 was merged with zero barrel exposure in C1 and was unreachable from
+// rag/ai under the deep-import rule (D1-11), costing an out-of-band
+// integration commit. Not repeating it.
+export {
+  to_proposal_summary,
+  type NoteRevision,
+  type Proposal,
+  type ProposalHunk,
+  type ProposalHunkId,
+  type ProposalId,
+  type ProposalLine,
+  type ProposalLineKind,
+  type ProposalOrigin,
+  type ProposalStatus,
+  type ProposalSummary,
+} from "$lib/features/assistant/types/proposal";
+
+export {
+  compute_note_revision,
+  is_stale,
+} from "$lib/features/assistant/domain/note_revision";
+
+export { AssistantProposalStore } from "$lib/features/assistant/state/assistant_proposal_store.svelte";
+
+export {
+  ProposalApplyService,
+  type ProposalApplyDeps,
+  type ProposalApplyOutcome,
+} from "$lib/features/assistant/application/proposal_apply_service";
+
+export type {
+  ProposalCheckpointPort,
+  ProposalNotePort,
+} from "$lib/features/assistant/ports";
