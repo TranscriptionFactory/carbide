@@ -30,8 +30,10 @@ export type OmnibarAskDeps = {
   open_session: (session_id: string) => void;
 };
 
-// "skipped" is a refusal that never opened a session; "stopped" and "error"
-// both leave one behind, which is what esc has to preserve.
+// The session is created once the question is accepted, so the refusals that
+// precede that point — "skipped", and the no-provider "error" — leave nothing
+// behind. Every outcome after it (done, stopped, or a failed stream) keeps the
+// exchange, which is what esc preserves.
 export type OmnibarAskResult =
   | { status: "done" }
   | { status: "stopped" }
@@ -99,6 +101,9 @@ export class OmnibarAskController {
 
       return await this.consume(session.id, asked, provider);
     } finally {
+      // Cleared here rather than inside consume(): a late cleanup from one run
+      // must never null out the handle a subsequent run has already installed.
+      this.handle = null;
       this.running = false;
     }
   }
@@ -202,8 +207,6 @@ export class OmnibarAskController {
       // reaching here means it broke rather than refused. Settling as a failed
       // turn keeps the surface out of a permanent "running" state.
       failure = error_message(thrown);
-    } finally {
-      this.handle = null;
     }
 
     return this.settle(session_id, message_id, failure, completed);

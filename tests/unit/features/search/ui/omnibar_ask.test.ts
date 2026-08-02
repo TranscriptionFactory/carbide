@@ -50,6 +50,7 @@ function render(
     on_submit: vi.fn(),
     on_insert: vi.fn(),
     on_promote: vi.fn(),
+    on_stop: vi.fn(),
     on_dismiss: vi.fn(),
   };
 
@@ -81,15 +82,19 @@ function render(
     target,
     input,
     press(key: string, modifiers: { meta?: boolean } = {}) {
-      input.dispatchEvent(
-        new KeyboardEvent("keydown", {
-          key,
-          metaKey: modifiers.meta ?? false,
-          bubbles: true,
-          cancelable: true,
-        }),
-      );
+      const event = new KeyboardEvent("keydown", {
+        key,
+        metaKey: modifiers.meta ?? false,
+        bubbles: true,
+        cancelable: true,
+      });
+      let reached_window = false;
+      const spy = () => (reached_window = true);
+      window.addEventListener("keydown", spy);
+      input.dispatchEvent(event);
+      window.removeEventListener("keydown", spy);
       flushSync();
+      return { reached_window };
     },
     called() {
       return Object.entries(handlers)
@@ -112,13 +117,18 @@ describe("OmnibarAsk — mode segment", () => {
   it("offers a way back to Search and reports the change", () => {
     const view = render();
 
-    const toggles = view.target.querySelectorAll<HTMLButtonElement>(
-      ".OmnibarModeSegment__option",
-    );
-    expect([...toggles].map((button) => button.textContent?.trim())).toEqual([
+    const toggles = [
+      ...view.target.querySelectorAll<HTMLButtonElement>(
+        "button[aria-pressed]",
+      ),
+    ];
+    expect(toggles.map((button) => button.textContent?.trim())).toEqual([
       "Search",
       "Ask",
     ]);
+    expect(
+      toggles.map((button) => button.getAttribute("aria-pressed")),
+    ).toEqual(["false", "true"]);
 
     toggles[0]?.click();
     flushSync();
@@ -170,6 +180,30 @@ describe("OmnibarAsk — keymap", () => {
     view.press("Escape");
 
     expect(view.called()).toEqual(["on_dismiss"]);
+  });
+
+  it("stops the run on esc while streaming and leaves the surface up", () => {
+    const view = render({ session: null, status: "running" });
+
+    view.press("Escape");
+
+    expect(view.called()).toEqual(["on_stop"]);
+  });
+
+  it("keeps esc and enter away from the dialog and the search keymap", () => {
+    const view = render({ session: answered() });
+
+    expect(view.press("Escape").reached_window).toBe(false);
+    expect(view.press("Enter").reached_window).toBe(false);
+  });
+
+  it("ignores a second enter while the first ask is still streaming", () => {
+    const view = render({ session: null, status: "running" });
+
+    view.press("Enter");
+    view.press("Enter");
+
+    expect(view.on_submit).not.toHaveBeenCalled();
   });
 
   it("submits on enter while there is no answer yet", () => {

@@ -20,6 +20,7 @@
     on_submit,
     on_insert,
     on_promote,
+    on_stop,
     on_dismiss,
   }: Props = $props();
 
@@ -32,15 +33,24 @@
   const has_answer = $derived((answer?.content ?? "") !== "");
   const citations = $derived(answer?.citations ?? []);
 
+  // Every branch stops propagation: the dialog closes itself on Escape and the
+  // omnibar's window keymap is still listening, so letting these bubble would
+  // tear the surface down behind whichever handler ran first.
   function handle_keydown(event: KeyboardEvent) {
     if (event.key === "Escape") {
       event.preventDefault();
+      event.stopPropagation();
+      if (status === "running") {
+        on_stop();
+        return;
+      }
       on_dismiss();
       return;
     }
     if (event.key !== "Enter") return;
 
     event.preventDefault();
+    event.stopPropagation();
     if (event.metaKey || event.ctrlKey) {
       if (can_insert && has_answer) on_insert();
       return;
@@ -49,11 +59,13 @@
       on_promote();
       return;
     }
-    on_submit();
+    if (status !== "running") on_submit();
   }
 
   $effect(() => {
-    setTimeout(() => input_ref?.focus(), 0);
+    const ref = input_ref;
+    if (!ref) return;
+    setTimeout(() => ref.focus(), 0);
   });
 </script>
 

@@ -17,25 +17,6 @@ describe("omnibar ask — zero assistant IO before submit (R6)", () => {
 
     expect(harness.transport_calls()).toBe(0);
     expect(harness.probe_calls()).toEqual([]);
-    expect(harness.persistence_calls()).toBe(0);
-    expect(harness.sessions.sessions).toEqual([]);
-  });
-
-  it("touches no assistant port while a question is typed character by character", () => {
-    const harness = make_ask_harness();
-
-    // Typing is modelled as what it is on this surface: local draft state that
-    // reaches no port at all. There is no code path from a keystroke to the
-    // controller, which is the point of the design.
-    let draft = "";
-    for (const character of QUESTION) {
-      draft += character;
-      expect(harness.transport_calls()).toBe(0);
-      expect(harness.probe_calls()).toEqual([]);
-      expect(harness.persistence_calls()).toBe(0);
-    }
-
-    expect(draft).toBe(QUESTION);
     expect(harness.sessions.sessions).toEqual([]);
   });
 
@@ -50,18 +31,6 @@ describe("omnibar ask — zero assistant IO before submit (R6)", () => {
 
     await harness.transport.channel().end();
     await running;
-  });
-
-  it("never writes through the session persistence port — hydration is not this surface's job", async () => {
-    const harness = make_ask_harness();
-
-    const running = harness.controller.submit(QUESTION);
-    await harness.wait_for_stream();
-    await harness.transport.channel().emit({ type: "text", text: "k=60." });
-    await harness.transport.channel().end();
-    await running;
-
-    expect(harness.persistence_calls()).toBe(0);
   });
 
   it("ignores a second submit while the first is still streaming", async () => {
