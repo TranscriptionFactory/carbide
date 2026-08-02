@@ -41,6 +41,10 @@
   );
   const sessions = $derived(rag.summaries);
 
+  const active_note_path = $derived(
+    stores.editor.open_note ? String(stores.editor.open_note.meta.path) : null,
+  );
+
   const last_question = $derived(
     rag.messages.findLast((m) => m.role === "user")?.content ?? "",
   );
@@ -405,6 +409,7 @@
     folder_paths={stores.notes.folder_paths}
     tags={stores.tag.tags}
     saved_views={stores.bases.saved_views}
+    {active_note_path}
     is_loading={rag.is_loading}
     is_streaming={rag.streaming_id !== null}
     readiness_state={rag.readiness.state}

@@ -32,6 +32,7 @@
     folder_paths: string[];
     tags: TagInfo[];
     saved_views: SavedViewInfo[];
+    active_note_path: string | null;
     is_loading: boolean;
     is_streaming: boolean;
     readiness_state: RetrievalReadiness["state"];
@@ -50,6 +51,7 @@
     folder_paths,
     tags,
     saved_views,
+    active_note_path,
     is_loading,
     is_streaming,
     readiness_state,
@@ -229,7 +231,14 @@
       </span>
     {/if}
   </div>
-  <ChatScopeBar {scope} {folder_paths} {tags} {saved_views} {on_scope_change} />
+  <ChatScopeBar
+    {scope}
+    {folder_paths}
+    {tags}
+    {saved_views}
+    {active_note_path}
+    {on_scope_change}
+  />
   <div class="flex items-center justify-between gap-2">
     <Select.Root
       type="single"

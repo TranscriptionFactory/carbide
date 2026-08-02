@@ -9,34 +9,64 @@
     type ScopeSuggestion,
   } from "$lib/features/assistant/domain/scope_suggest";
   import { is_plain_enter } from "$lib/shared/utils/keyboard";
+  import { note_name_from_path } from "$lib/shared/utils/path";
+  import { KIND_GLYPHS } from "$lib/features/assistant/domain/kind_glyphs";
 
   type Props = {
     scope: AssistantScope;
     folder_paths: string[];
     tags: TagInfo[];
     saved_views: SavedViewInfo[];
+    active_note_path: string | null;
     on_scope_change: (scope: AssistantScope) => void;
   };
 
-  let { scope, folder_paths, tags, saved_views, on_scope_change }: Props =
-    $props();
+  let {
+    scope,
+    folder_paths,
+    tags,
+    saved_views,
+    active_note_path,
+    on_scope_change,
+  }: Props = $props();
 
   let query = $state("");
   let show_dropdown = $state(false);
   let selected_index = $state(0);
 
-  const SCOPE_KEY: Record<ScopeKind, "folders" | "tags" | "bases"> = {
+  // Notes are not suggested by typing — the "this note" button is the whole
+  // affordance, and @mentions already cover naming an arbitrary note — so this
+  // kind lives here rather than widening ScopeKind in scope_suggest.
+  type ChipKind = ScopeKind | "note";
+
+  const SCOPE_KEY: Record<ChipKind, "folders" | "tags" | "bases" | "notes"> = {
     folder: "folders",
     tag: "tags",
     base: "bases",
+    note: "notes",
   };
+
+  const scoped_notes = $derived(scope.notes ?? []);
+  const scoped_to_active = $derived(
+    active_note_path !== null && scoped_notes.includes(active_note_path),
+  );
 
   const view_name_by_path = $derived(
     new Map(saved_views.map((view) => [view.path, view.name])),
   );
 
-  type Chip = { kind: ScopeKind; value: string; label: string };
+  type Chip = { kind: ChipKind; value: string; label: string };
   const chips = $derived<Chip[]>([
+    // "This note" only while the scoped note still is the active note. The
+    // scope is a snapshot and does not follow navigation, so once the user
+    // moves on the chip names the note it actually holds rather than claiming
+    // a scope it is not applying.
+    ...scoped_notes.map((value) => ({
+      kind: "note" as const,
+      value,
+      label:
+        value === active_note_path ? "This note" : note_name_from_path(value),
+    })),
     ...(scope.folders ?? []).map((value) => ({
       kind: "folder" as const,
       value,
@@ -88,10 +118,17 @@
     show_dropdown = false;
   }
 
-  function remove(kind: ScopeKind, value: string) {
+  function remove(kind: ChipKind, value: string) {
     const key = SCOPE_KEY[kind];
     const next = (scope[key] ?? []).filter((v) => v !== value);
     on_scope_change({ ...scope, [key]: next });
+  }
+
+  // Replaces rather than accumulates: one "this note" button can only ever
+  // mean one note, and re-arming it after navigating is how the user retargets.
+  function scope_to_active_note() {
+    if (active_note_path === null) return;
+    on_scope_change({ ...scope, notes: [active_note_path] });
   }
 
   function on_input(event: Event) {
@@ -127,8 +164,10 @@
   }
 </script>
 
-{#snippet kind_icon(kind: ScopeKind)}
-  {#if kind === "folder"}
+{#snippet kind_icon(kind: ChipKind)}
+  {#if kind === "note"}
+    <span class="ScopeBar__glyph" aria-hidden="true">{KIND_GLYPHS.note}</span>
+  {:else if kind === "folder"}
     <FolderTree class="size-3" />
   {:else if kind === "tag"}
     <Hash class="size-3" />
@@ -173,6 +212,22 @@
         </span>
       {/each}
     </div>
+  {/if}
+
+  {#if !scoped_to_active}
+    <button
+      type="button"
+      class="ScopeBar__this-note"
+      data-testid="scope-this-note"
+      disabled={active_note_path === null}
+      title={active_note_path === null
+        ? "Open a note to scope the chat to it"
+        : `Scope this chat to "${note_name_from_path(active_note_path)}"`}
+      onclick={scope_to_active_note}
+    >
+      {@render kind_icon("note")}
+      <span>This note</span>
+    </button>
   {/if}
 
   <div class="ScopeBar__field">
@@ -223,6 +278,37 @@
     color: var(--accent-foreground);
     font-size: 0.75rem;
     max-width: 100%;
+  }
+
+  .ScopeBar__glyph {
+    display: inline-flex;
+    align-items: center;
+    font-size: 0.75rem;
+    line-height: 1;
+  }
+
+  .ScopeBar__this-note {
+    all: unset;
+    cursor: pointer; /* all:unset beats the global :where() cursor rule */
+    align-self: flex-start;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.125rem 0.375rem;
+    border-radius: calc(var(--radius) - 4px);
+    border: 1px solid var(--border);
+    color: var(--muted-foreground);
+    font-size: 0.75rem;
+  }
+
+  .ScopeBar__this-note:hover:not(:disabled) {
+    background: var(--accent);
+    color: var(--accent-foreground);
+  }
+
+  .ScopeBar__this-note:disabled {
+    cursor: default;
+    opacity: 0.5;
   }
 
   .ScopeBar__chip-label {

@@ -377,6 +377,59 @@ describe("register_chat_actions", () => {
     );
   });
 
+  it("asks: attaches open-note images when the chat is scoped to that note", async () => {
+    const { registry, chat_service, chat_store, stores } = create_harness();
+    stores.editor.open_note = {
+      meta: { path: "projects/pic.md", title: "Pic" },
+    };
+    chat_store.set_scope({ notes: ["projects/pic.md"] });
+
+    await registry.execute(ACTION_IDS.rag_ask, "what is in this note?");
+
+    expect(collect_open_note_image_parts).toHaveBeenCalledTimes(1);
+    expect(chat_service.query).toHaveBeenCalledWith(
+      expect.objectContaining({
+        image_parts: [{ type: "image", media_type: "image/png", data: "abc" }],
+      }),
+    );
+  });
+
+  it("asks: passes the note scope through to the query", async () => {
+    const { registry, chat_service, chat_store } = create_harness();
+    chat_store.set_scope({ notes: ["projects/a.md"] });
+
+    await registry.execute(ACTION_IDS.rag_ask, "q");
+
+    expect(chat_service.query).toHaveBeenCalledWith(
+      expect.objectContaining({ scope: { notes: ["projects/a.md"] } }),
+    );
+  });
+
+  // The scope is captured when the turn starts. Switching notes mid-run must
+  // not retarget a question the user already asked — the answer would silently
+  // come from somewhere other than what the composer showed at ask time.
+  it("a note switch mid-stream does not retarget the in-flight turn", async () => {
+    const { registry, chat_service, chat_store, stores } = create_harness();
+    stores.editor.open_note = { meta: { path: "a.md", title: "A" } };
+    chat_store.set_scope({ notes: ["a.md"] });
+
+    chat_service.query = vi.fn(
+      async function* (): AsyncGenerator<AssistantChatStreamEvent> {
+        yield { type: "text", text: "partial" };
+        stores.editor.open_note = { meta: { path: "b.md", title: "B" } };
+        chat_store.set_scope({ notes: ["b.md"] });
+        yield { type: "done" };
+      },
+    );
+
+    await registry.execute(ACTION_IDS.rag_ask, "q");
+
+    expect(chat_service.query).toHaveBeenCalledWith(
+      expect.objectContaining({ scope: { notes: ["a.md"] } }),
+    );
+    expect(chat_store.scope).toEqual({ notes: ["b.md"] });
+  });
+
   it("new chat clears the conversation and resets the pending op", async () => {
     const { registry, chat_store, stores } = create_harness();
     await registry.execute(ACTION_IDS.rag_ask, "what is it?");
