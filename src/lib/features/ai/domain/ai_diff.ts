@@ -1,26 +1,28 @@
 import type { AiApplyTarget } from "$lib/features/ai/domain/ai_types";
+import {
+  compute_note_revision,
+  type Proposal,
+  type ProposalHunk,
+  type ProposalLine,
+  type ProposalOrigin,
+} from "$lib/features/assistant";
 
-export type AiDraftDiffLine = {
-  type: "context" | "addition" | "deletion";
-  content: string;
-  old_line: number | null;
-  new_line: number | null;
-  hunk_id: string | null;
-};
+// I5's producer: the panel and inline surfaces both diff a before/after
+// markdown pair and hand the result to the proposal store. This module owns
+// the diff *algorithm*, remapped onto ProposalHunk/ProposalLine — the
+// assistant contract's shape — rather than a parallel local type, so the
+// AI-edit surfaces carry exactly one hunk model.
 
-export type AiDraftDiffHunk = {
-  id: string;
-  header: string;
-  additions: number;
-  deletions: number;
-  lines: AiDraftDiffLine[];
-};
-
+// `lines` is the full, unwindowed diff — kept alongside `hunks` (the ± 2
+// line windows used for display and for the note-path proposal producer)
+// because the document-context apply path (out of scope for the proposal
+// contract this cycle — see ai_actions.ts's ALLOWED_DIRECT_APPLY) still
+// needs to reconstruct a complete output string from a hunk selection.
 export type AiDraftDiff = {
   additions: number;
   deletions: number;
-  lines: AiDraftDiffLine[];
-  hunks: AiDraftDiffHunk[];
+  lines: ProposalLine[];
+  hunks: ProposalHunk[];
 };
 
 const HUNK_CONTEXT_LINES = 2;
@@ -51,9 +53,9 @@ function lcs_table(left: string[], right: string[]): number[][] {
   return table;
 }
 
-function diff_lines(original: string[], revised: string[]): AiDraftDiffLine[] {
+function diff_lines(original: string[], revised: string[]): ProposalLine[] {
   const table = lcs_table(original, revised);
-  const lines: AiDraftDiffLine[] = [];
+  const lines: ProposalLine[] = [];
   let i = 0;
   let j = 0;
   let old_line = 1;
@@ -62,11 +64,10 @@ function diff_lines(original: string[], revised: string[]): AiDraftDiffLine[] {
   while (i < original.length && j < revised.length) {
     if (original[i] === revised[j]) {
       lines.push({
-        type: "context",
+        kind: "context",
         content: original[i] ?? "",
         old_line,
         new_line,
-        hunk_id: null,
       });
       i += 1;
       j += 1;
@@ -82,11 +83,10 @@ function diff_lines(original: string[], revised: string[]): AiDraftDiffLine[] {
 
     if (down >= right_score) {
       lines.push({
-        type: "deletion",
+        kind: "del",
         content: original[i] ?? "",
         old_line,
         new_line: null,
-        hunk_id: null,
       });
       i += 1;
       old_line += 1;
@@ -94,11 +94,10 @@ function diff_lines(original: string[], revised: string[]): AiDraftDiffLine[] {
     }
 
     lines.push({
-      type: "addition",
+      kind: "add",
       content: revised[j] ?? "",
       old_line: null,
       new_line,
-      hunk_id: null,
     });
     j += 1;
     new_line += 1;
@@ -106,11 +105,10 @@ function diff_lines(original: string[], revised: string[]): AiDraftDiffLine[] {
 
   while (i < original.length) {
     lines.push({
-      type: "deletion",
+      kind: "del",
       content: original[i] ?? "",
       old_line,
       new_line: null,
-      hunk_id: null,
     });
     i += 1;
     old_line += 1;
@@ -118,11 +116,10 @@ function diff_lines(original: string[], revised: string[]): AiDraftDiffLine[] {
 
   while (j < revised.length) {
     lines.push({
-      type: "addition",
+      kind: "add",
       content: revised[j] ?? "",
       old_line: null,
       new_line,
-      hunk_id: null,
     });
     j += 1;
     new_line += 1;
@@ -131,12 +128,12 @@ function diff_lines(original: string[], revised: string[]): AiDraftDiffLine[] {
   return lines;
 }
 
-function hunk_ranges(lines: AiDraftDiffLine[]) {
+function hunk_ranges(lines: ProposalLine[]) {
   const ranges: Array<{ start: number; end: number }> = [];
 
   for (let index = 0; index < lines.length; index += 1) {
     const line = lines[index];
-    if (!line || line.type === "context") {
+    if (!line || line.kind === "context") {
       continue;
     }
 
@@ -155,7 +152,7 @@ function hunk_ranges(lines: AiDraftDiffLine[]) {
   return ranges;
 }
 
-function hunk_header(lines: AiDraftDiffLine[]) {
+function hunk_header(lines: ProposalLine[]) {
   const old_start =
     lines.find((line) => line.old_line !== null)?.old_line ??
     lines.find((line) => line.new_line !== null)?.new_line ??
@@ -164,28 +161,22 @@ function hunk_header(lines: AiDraftDiffLine[]) {
     lines.find((line) => line.new_line !== null)?.new_line ??
     lines.find((line) => line.old_line !== null)?.old_line ??
     1;
-  const old_count = lines.filter((line) => line.type !== "addition").length;
-  const new_count = lines.filter((line) => line.type !== "deletion").length;
+  const old_count = lines.filter((line) => line.kind !== "add").length;
+  const new_count = lines.filter((line) => line.kind !== "del").length;
 
   return `@@ -${String(old_start)},${String(old_count)} +${String(new_start)},${String(new_count)} @@`;
 }
 
-function assign_hunks(lines: AiDraftDiffLine[]) {
+function assign_hunks(lines: ProposalLine[]): ProposalHunk[] {
   const ranges = hunk_ranges(lines);
 
   return ranges.map((range, index) => {
-    const id = `hunk-${String(index + 1)}`;
-    const hunk_lines = lines.slice(range.start, range.end).map((line) => {
-      line.hunk_id = id;
-      return { ...line };
-    });
-
+    const hunk_lines = lines.slice(range.start, range.end);
     return {
-      id,
+      id: `hunk-${String(index + 1)}`,
       header: hunk_header(hunk_lines),
-      additions: hunk_lines.filter((line) => line.type === "addition").length,
-      deletions: hunk_lines.filter((line) => line.type === "deletion").length,
       lines: hunk_lines,
+      selected: true,
     };
   });
 }
@@ -198,8 +189,8 @@ export function create_ai_draft_diff(input: {
   const original_lines = split_lines(input.original_text);
   const draft_lines = split_lines(input.draft_text);
   const lines = diff_lines(original_lines, draft_lines);
-  const additions = lines.filter((line) => line.type === "addition").length;
-  const deletions = lines.filter((line) => line.type === "deletion").length;
+  const additions = lines.filter((line) => line.kind === "add").length;
+  const deletions = lines.filter((line) => line.kind === "del").length;
   const hunks = assign_hunks(lines);
 
   return {
@@ -216,38 +207,69 @@ export function create_ai_draft_diff(input: {
                 input.target === "selection"
                   ? "@@ AI selection draft @@"
                   : "@@ AI full note draft @@",
-              additions: 0,
-              deletions: 0,
               lines,
+              selected: true,
             },
           ],
   };
 }
 
+// Document-context apply only (see ai_actions.ts's ALLOWED_DIRECT_APPLY):
+// reconstructs the full output text for a hunk selection. Hunk membership is
+// tracked by line identity rather than a `hunk_id` field, since ProposalLine
+// (the frozen shape) carries none.
 export function apply_ai_draft_hunk_selection(input: {
   diff: AiDraftDiff;
   selected_hunk_ids: string[];
 }): string {
   const selected_hunk_ids = new Set(input.selected_hunk_ids);
-  const output: string[] = [];
+  const hunk_of_line = new Map<ProposalLine, string>();
+  for (const hunk of input.diff.hunks) {
+    for (const line of hunk.lines) hunk_of_line.set(line, hunk.id);
+  }
 
+  const output: string[] = [];
   for (const line of input.diff.lines) {
-    if (line.type === "context") {
+    if (line.kind === "context") {
       output.push(line.content);
       continue;
     }
 
-    if (line.hunk_id && selected_hunk_ids.has(line.hunk_id)) {
-      if (line.type === "addition") {
+    const hunk_id = hunk_of_line.get(line);
+    if (hunk_id && selected_hunk_ids.has(hunk_id)) {
+      if (line.kind === "add") {
         output.push(line.content);
       }
       continue;
     }
 
-    if (line.type === "deletion") {
+    if (line.kind === "del") {
       output.push(line.content);
     }
   }
 
   return output.join("\n");
+}
+
+// I5's producer: turns a before/after markdown pair into a Proposal the
+// store can hold pending. base_revision is computed against `original_text`
+// — the note as it stood before this draft — so the apply service can tell a
+// drifted note from an untouched one (R4) when the batch is later accepted.
+export function build_proposal(input: {
+  note_path: string;
+  original_text: string;
+  draft_text: string;
+  target: AiApplyTarget;
+  origin: ProposalOrigin;
+}): Proposal {
+  const diff = create_ai_draft_diff(input);
+  return {
+    id: crypto.randomUUID(),
+    note_path: input.note_path,
+    base_revision: compute_note_revision(input.original_text),
+    hunks: diff.hunks,
+    origin: input.origin,
+    status: "pending",
+    created_at: Date.now(),
+  };
 }

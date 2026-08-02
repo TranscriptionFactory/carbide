@@ -40,7 +40,11 @@ import {
   resolve_inline_ai_anchor_coords,
 } from "$lib/features/editor";
 import type { EditorSelectionSnapshot } from "$lib/shared/types/editor";
-import type { AssistantSessionStore, RunHandle } from "$lib/features/assistant";
+import type {
+  AssistantProposalStore,
+  AssistantSessionStore,
+  RunHandle,
+} from "$lib/features/assistant";
 import type { RagService } from "$lib/features/rag";
 import { build_ai_inline_prompt } from "$lib/features/ai/domain/ai_prompt_builder";
 import {
@@ -53,6 +57,7 @@ import {
   build_editor_sources,
   type EditorContextMaterial,
 } from "$lib/features/ai/domain/ai_context_sources";
+import { build_proposal } from "$lib/features/ai/domain/ai_diff";
 import {
   resolve_instructions,
   resolve_policy,
@@ -108,6 +113,7 @@ export function register_ai_actions(
     ai_service: AiService;
     agentic_runner: AgenticEditRunner;
     assistant_sessions: AssistantSessionStore;
+    assistant_proposals: AssistantProposalStore;
     rag_service: RagService;
   },
 ) {
@@ -118,6 +124,7 @@ export function register_ai_actions(
     ai_store,
     agentic_runner,
     assistant_sessions,
+    assistant_proposals,
     rag_service,
   } = input;
 
@@ -133,6 +140,10 @@ export function register_ai_actions(
     provider_id: string;
     note_path?: string;
   } | null = null;
+  // Snapshot of the note's full markdown before the current inline attempt
+  // started (captured once per fresh request, not per retry) — I5's
+  // base_revision for the proposal built at accept.
+  let last_inline_before_markdown: string | null = null;
 
   function ai_enabled() {
     return input.stores.ui.editor_settings.ai_enabled;
@@ -633,7 +644,7 @@ export function register_ai_actions(
   registry.register({
     id: ACTION_IDS.ai_apply_result,
     label: "Apply AI Result",
-    execute: (output_override: unknown) => {
+    execute: async (output_override: unknown) => {
       const dialog = ai_store.dialog;
       if (!dialog.open || !dialog.context || !dialog.result?.success) return;
       const output =
@@ -642,25 +653,50 @@ export function register_ai_actions(
           : dialog.result.output;
 
       const ctx = dialog.context;
-      let applied: boolean;
+
+      // ALLOWED_DIRECT_APPLY: a document tab is not a note — ProposalNotePort
+      // is a note-content port, and DocumentService writes through its own
+      // dirty/save flow (apply_document_ai_output only marks edited_content;
+      // the vault file write happens on save()). Routing it through the
+      // proposal contract would bypass that flow, not replace it. Deferred,
+      // not fixed — filed for a later cycle to answer whether documents get
+      // a port of their own.
       if (ctx.kind === "document") {
-        applied = services.document.apply_document_ai_output(
+        const applied = services.document.apply_document_ai_output(
           ctx.tab_id,
           output,
         );
-        if (applied) input.stores.tab.set_dirty(ctx.tab_id, true);
-      } else {
-        applied = services.editor.apply_ai_output(
-          ctx.target,
-          output,
-          ctx.selection,
-        );
-      }
-
-      if (!applied) {
-        toast.error("Failed to apply AI edit");
+        if (!applied) {
+          toast.error("Failed to apply AI edit");
+          return;
+        }
+        input.stores.tab.set_dirty(ctx.tab_id, true);
+        const config = get_provider(dialog.provider_id);
+        toast.success(`${config?.name ?? "AI"} suggestion applied`);
+        close_ai_dialog();
         return;
       }
+
+      const original_text = ctx.note_markdown;
+      const draft_text =
+        ctx.target === "selection" &&
+        ctx.selection?.start !== null &&
+        ctx.selection?.start !== undefined &&
+        ctx.selection.end !== null
+          ? original_text.slice(0, ctx.selection.start) +
+            output +
+            original_text.slice(ctx.selection.end)
+          : output;
+
+      const proposal = build_proposal({
+        note_path: ctx.note_path,
+        original_text,
+        draft_text,
+        target: ctx.target,
+        origin: { session_id: crypto.randomUUID(), run_id: null },
+      });
+      assistant_proposals.add(proposal);
+      await registry.execute(ACTION_IDS.assistant_accept_proposal, proposal.id);
 
       const config = get_provider(dialog.provider_id);
       toast.success(`${config?.name ?? "AI"} suggestion applied`);
@@ -861,6 +897,9 @@ export function register_ai_actions(
       start: cursor_offset,
       end: cursor_offset,
     };
+    // ALLOWED_DIRECT_APPLY: CodeMirror source-mode inline has no accept
+    // affordance at all (filed C1 finding) — there is no review step to route
+    // through a proposal. Do not invent one here; out of scope this cycle.
     const applied = services.editor.apply_ai_output(
       "selection",
       output,
@@ -905,6 +944,8 @@ export function register_ai_actions(
             ? { note_path: String(input.stores.editor.open_note.meta.path) }
             : {}),
         };
+        last_inline_before_markdown =
+          services.editor.get_ai_context()?.markdown ?? null;
       }
 
       // read after the async provider probe: closes the double-trigger window
@@ -969,6 +1010,13 @@ export function register_ai_actions(
             if (!current_state.open) {
               return;
             }
+            // ALLOWED_DIRECT_APPLY: this raw transaction is the ProseMirror
+            // live-insert preview (P3 ruling — unchanged this cycle). It is
+            // not a note write: nothing here calls apply_ai_output or writes
+            // through a note port, and the buffer stays unsaved until the
+            // normal editor save/autosave flow picks it up. The persisted
+            // write is ai_accept_inline's proposal accept, which is
+            // checkpointed; this is the preview that write is taken from.
             const insert_pos = current_state.ai_range_to;
             const tr = view.state.tr.insertText(chunk.text, insert_pos);
             tr.setMeta("addToHistory", false);
@@ -1027,7 +1075,7 @@ export function register_ai_actions(
   registry.register({
     id: ACTION_IDS.ai_accept_inline,
     label: "Accept Inline AI Result",
-    execute: () => {
+    execute: async () => {
       const view = get_inline_view();
       if (!view) return;
 
@@ -1045,7 +1093,32 @@ export function register_ai_actions(
           : "";
 
       dispatch_ai_menu(view, { action: "accept" });
-      if (result) log_inline_session(result);
+      if (!result) return;
+
+      log_inline_session(result);
+
+      // ALLOWED_DIRECT_APPLY: the streamed text is already in the editor
+      // buffer — the ProseMirror menu previews it live as it arrives (P3
+      // ruling, unchanged this cycle). Accept is what takes I5's checkpoint:
+      // it re-diffs the note against its pre-stream snapshot and routes the
+      // write through the proposal store, so the buffer preview and the
+      // persisted write share one apply path even though they happen at
+      // different times.
+      const after = services.editor.get_ai_context();
+      if (last_inline_before_markdown !== null && after) {
+        const proposal = build_proposal({
+          note_path: after.note_path,
+          original_text: last_inline_before_markdown,
+          draft_text: after.markdown,
+          target: "full_note",
+          origin: { session_id: crypto.randomUUID(), run_id: null },
+        });
+        assistant_proposals.add(proposal);
+        await registry.execute(
+          ACTION_IDS.assistant_accept_proposal,
+          proposal.id,
+        );
+      }
     },
   });
 

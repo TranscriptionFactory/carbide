@@ -34,7 +34,9 @@ import {
   as_vault_id,
 } from "$lib/shared/types/ids";
 import {
+  AssistantProposalStore,
   AssistantSessionStore,
+  type Proposal,
   type RunHandle,
   type RunOutcome,
 } from "$lib/features/assistant";
@@ -52,6 +54,19 @@ vi.mock("svelte-sonner", () => ({
     dismiss: vi.fn(),
   },
 }));
+
+// compute_note_revision is AU-030's to implement (NOT_IMPLEMENTED as of the
+// C2 contract) — this lane calls it as contract surface (P1 ruling) but must
+// not depend on its runtime behaviour, so it is faked here rather than left
+// to throw.
+vi.mock("$lib/features/assistant", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("$lib/features/assistant")>();
+  return {
+    ...actual,
+    compute_note_revision: vi.fn((text: string) => `rev-${text.length}`),
+  };
+});
 
 function create_harness() {
   const registry = new ActionRegistry();
@@ -127,6 +142,28 @@ function create_harness() {
     delete_session: vi.fn().mockResolvedValue(undefined),
   };
 
+  // Read paths are real and frozen; add() is AU-030's NOT_IMPLEMENTED
+  // mutator (P1 ruling: contract surface, called for real, faked for tests).
+  const assistant_proposals = new AssistantProposalStore();
+  assistant_proposals.add = vi.fn((proposal: Proposal) => {
+    assistant_proposals.proposals.push(proposal);
+  });
+
+  // assistant_accept_proposal is AU-030's action (assistant_actions.ts,
+  // not mine to touch). This harness stub stands in for its checkpoint+write
+  // behaviour so this file can assert *that* accept was dispatched and *what*
+  // was accepted, without depending on AU-030's implementation.
+  const accept_proposal = vi.fn((...args: unknown[]) => {
+    const id = args[0];
+    const proposal = assistant_proposals.proposals.find((p) => p.id === id);
+    if (proposal) proposal.status = "applied";
+  });
+  registry.register({
+    id: ACTION_IDS.assistant_accept_proposal,
+    label: "Accept Proposal",
+    execute: accept_proposal,
+  });
+
   stores.ui.editor_settings.ai_providers = BUILTIN_PROVIDER_PRESETS;
   stores.ui.editor_settings.ai_default_provider_id = "auto";
 
@@ -142,6 +179,7 @@ function create_harness() {
     ai_service: ai_service as never,
     agentic_runner: agentic_runner as never,
     assistant_sessions,
+    assistant_proposals,
     rag_service: rag_service as never,
   });
 
@@ -153,6 +191,8 @@ function create_harness() {
     ai_service,
     agentic_runner,
     assistant_sessions,
+    assistant_proposals,
+    accept_proposal,
     rag_service,
   };
 }
@@ -422,8 +462,19 @@ describe("register_ai_actions", () => {
     expect(stores.ui.bottom_panel_open).toBe(false);
   });
 
-  it("applies a partial draft when the assistant provides an output override", async () => {
-    const { registry, services, ai_service } = create_harness();
+  // Superseded: this used to assert ai_apply_result wrote the note directly
+  // through services.editor.apply_ai_output. Under I5, a note-context apply
+  // builds a Proposal from the (possibly overridden) draft and accepts it
+  // through the proposal store instead — see "builds and accepts a proposal
+  // from a note-context result" below, which is this scenario's replacement.
+  it("builds and accepts a proposal when the assistant provides an output override", async () => {
+    const {
+      registry,
+      services,
+      ai_service,
+      assistant_proposals,
+      accept_proposal,
+    } = create_harness();
     ai_service.execute_streaming = vi.fn().mockResolvedValue({
       success: true,
       output: "# Updated\nLine 2\nLine 3",
@@ -435,11 +486,36 @@ describe("register_ai_actions", () => {
     await registry.execute(ACTION_IDS.ai_execute);
     await registry.execute(ACTION_IDS.ai_apply_result, "# Updated\nLine 2");
 
-    expect(services.editor.apply_ai_output).toHaveBeenCalledWith(
-      "full_note",
-      "# Updated\nLine 2",
-      null,
-    );
+    expect(services.editor.apply_ai_output).not.toHaveBeenCalled();
+    expect(assistant_proposals.add).toHaveBeenCalledTimes(1);
+    const [proposal] = assistant_proposals.proposals;
+    expect(proposal?.note_path).toBe("docs/demo.md");
+    // accept_proposal (the harness stub for AU-030's action) already ran by
+    // the time ai_apply_result's await resolves, so the proposal is applied.
+    expect(proposal?.status).toBe("applied");
+    expect(
+      proposal?.hunks.flatMap((hunk) => hunk.lines).map((line) => line.kind),
+    ).toContain("add");
+    expect(accept_proposal).toHaveBeenCalledWith(proposal?.id);
+  });
+
+  it("does not create a proposal while a result is only being drafted or dismissed", async () => {
+    const { registry, ai_service, assistant_proposals, accept_proposal } =
+      create_harness();
+    ai_service.execute_streaming = vi.fn().mockResolvedValue({
+      success: true,
+      output: "# Updated",
+      error: null,
+    });
+
+    await registry.execute(ACTION_IDS.ai_open_assistant);
+    await registry.execute(ACTION_IDS.ai_update_prompt, "Refine this note");
+    await registry.execute(ACTION_IDS.ai_execute);
+    expect(assistant_proposals.add).not.toHaveBeenCalled();
+
+    await registry.execute(ACTION_IDS.ai_clear_result);
+    expect(assistant_proposals.add).not.toHaveBeenCalled();
+    expect(accept_proposal).not.toHaveBeenCalled();
   });
 
   describe("document tab", () => {
@@ -554,7 +630,12 @@ describe("register_ai_actions", () => {
   });
 
   describe("agentic inline edit", () => {
-    it("routes native-capable edit providers through the agentic runner and diff-applies the result", async () => {
+    // The apply-time assertion is superseded: ai_apply_result no longer
+    // writes through services.editor.apply_ai_output for a note-context
+    // result (I5) — it builds and accepts a Proposal, same as the streaming
+    // path (see "builds and accepts a proposal..." above). The routing
+    // assertions above the apply step are unchanged and stay in this test.
+    it("routes native-capable edit providers through the agentic runner and accepts a proposal for the result", async () => {
       const {
         registry,
         stores,
@@ -562,6 +643,8 @@ describe("register_ai_actions", () => {
         ai_store,
         ai_service,
         agentic_runner,
+        assistant_proposals,
+        accept_proposal,
       } = create_harness();
       stores.vault.set_vault(create_test_vault());
       stores.ui.editor_settings.ai_default_provider_id = "lmstudio";
@@ -590,11 +673,10 @@ describe("register_ai_actions", () => {
       });
 
       await registry.execute(ACTION_IDS.ai_apply_result);
-      expect(services.editor.apply_ai_output).toHaveBeenCalledWith(
-        "full_note",
-        "# Agentically edited",
-        null,
-      );
+      expect(services.editor.apply_ai_output).not.toHaveBeenCalled();
+      const [proposal] = assistant_proposals.proposals;
+      expect(proposal?.note_path).toBe("docs/demo.md");
+      expect(accept_proposal).toHaveBeenCalledWith(proposal?.id);
     });
 
     it("returns to idle without applying partial text when aborted mid-run", async () => {
@@ -1260,6 +1342,83 @@ describe("register_ai_actions", () => {
 
         expect(view.state.doc.textContent).toContain("Sharper prose");
         expect(get_ai_menu_state(view.state).open).toBe(false);
+      });
+    });
+
+    describe("I5: accept routes through the proposal store", () => {
+      it("builds a proposal from the note's markdown before and after the stream, and accepts it", async () => {
+        const harness = setup_inline();
+        harness.stores.vault.set_vault(create_test_vault());
+        harness.services.editor.get_ai_context = vi
+          .fn()
+          .mockReturnValueOnce({
+            note_path: as_note_path("docs/demo.md"),
+            note_title: "demo",
+            markdown: as_markdown_text("# Demo\nOld line"),
+            selection: null,
+          })
+          .mockReturnValueOnce({
+            note_path: as_note_path("docs/demo.md"),
+            note_title: "demo",
+            markdown: as_markdown_text("# Demo\nNew line"),
+            selection: null,
+          });
+        harness.ai_service.stream_inline = vi.fn(function* () {
+          yield { type: "text", text: "New line" };
+        });
+
+        await harness.registry.execute(ACTION_IDS.ai_open_inline_menu);
+        await harness.registry.execute(ACTION_IDS.ai_execute_inline, {
+          prompt: "go",
+        });
+        await harness.registry.execute(ACTION_IDS.ai_accept_inline);
+
+        expect(harness.assistant_proposals.add).toHaveBeenCalledTimes(1);
+        const [proposal] = harness.assistant_proposals.proposals;
+        expect(proposal?.note_path).toBe("docs/demo.md");
+        expect(
+          proposal?.hunks
+            .flatMap((hunk) => hunk.lines)
+            .some((line) => line.kind === "add" && line.content === "New line"),
+        ).toBe(true);
+        expect(harness.accept_proposal).toHaveBeenCalledExactlyOnceWith(
+          proposal?.id,
+        );
+      });
+
+      it("does not create or accept a proposal while the stream is still in flight", async () => {
+        const harness = setup_inline();
+        harness.stores.vault.set_vault(create_test_vault());
+        harness.ai_service.stream_inline = vi.fn(function* () {
+          yield { type: "text", text: "partial" };
+        });
+
+        await harness.registry.execute(ACTION_IDS.ai_open_inline_menu);
+        const execute_promise = harness.registry.execute(
+          ACTION_IDS.ai_execute_inline,
+          { prompt: "go" },
+        );
+
+        expect(harness.assistant_proposals.add).not.toHaveBeenCalled();
+        expect(harness.accept_proposal).not.toHaveBeenCalled();
+        await execute_promise;
+      });
+
+      it("does not create a proposal when reject discards the streamed result", async () => {
+        const harness = setup_inline();
+        harness.stores.vault.set_vault(create_test_vault());
+        harness.ai_service.stream_inline = vi.fn(function* () {
+          yield { type: "text", text: "unwanted" };
+        });
+
+        await harness.registry.execute(ACTION_IDS.ai_open_inline_menu);
+        await harness.registry.execute(ACTION_IDS.ai_execute_inline, {
+          prompt: "go",
+        });
+        await harness.registry.execute(ACTION_IDS.ai_reject_inline);
+
+        expect(harness.assistant_proposals.add).not.toHaveBeenCalled();
+        expect(harness.accept_proposal).not.toHaveBeenCalled();
       });
     });
 
