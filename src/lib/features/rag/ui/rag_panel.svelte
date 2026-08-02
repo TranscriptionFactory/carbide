@@ -23,7 +23,10 @@
   } from "$lib/features/rag/domain/rag_types";
   import type { AgentPermissionMode } from "$lib/features/rag/types/agent_events";
   import { scope_phrase } from "$lib/features/rag/domain/rag_scope";
-  import { BUILTIN_QUESTIONS } from "$lib/shared/domain/prompt_recipes";
+  import {
+    build_question,
+    resolve_questions,
+  } from "$lib/shared/domain/prompt_recipes";
 
   const { stores, services, action_registry } = use_app_context();
 
@@ -92,11 +95,13 @@
   });
 
   const templates = $derived(
-    BUILTIN_QUESTIONS.map((recipe) => ({
-      id: recipe.id,
-      label: recipe.label,
-      query: recipe.build(scope_phrase(rag.scope)),
-    })),
+    resolve_questions(stores.ui.editor_settings.ai_question_recipes).map(
+      (recipe) => ({
+        id: recipe.id,
+        label: recipe.label,
+        query: build_question(recipe, scope_phrase(rag.scope)),
+      }),
+    ),
   );
 
   function ask(question: string) {
