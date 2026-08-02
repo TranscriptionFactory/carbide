@@ -249,10 +249,11 @@ describe("resolve_questions", () => {
 });
 
 describe("resolve_policy", () => {
-  it("gives a cursor recipe the window at both inline surfaces", () => {
+  it("declares the same sources at both inline surfaces", () => {
     const recipe = instruction({ use_selection: false });
     for (const surface of ["inline_pm", "inline_cm"] as const) {
       expect(resolve_policy(recipe, surface).context_sources).toEqual([
+        "selection",
         "cursor_window",
         "similar_notes",
         "backlinks",
@@ -261,13 +262,22 @@ describe("resolve_policy", () => {
     }
   });
 
-  it("swaps the window for the selection when the recipe reads a selection", () => {
-    const sources = resolve_policy(
-      instruction({ use_selection: true }),
-      "inline_pm",
-    ).context_sources;
-    expect(sources).toContain("selection");
-    expect(sources).not.toContain("cursor_window");
+  it("offers both editor sources whether or not the recipe reads a selection", () => {
+    for (const use_selection of [true, false]) {
+      const sources = resolve_policy(
+        instruction({ use_selection }),
+        "inline_pm",
+      ).context_sources;
+      expect(sources).toContain("selection");
+      expect(sources).toContain("cursor_window");
+    }
+  });
+
+  it("takes the surface default for a free-form prompt with no recipe", () => {
+    expect(resolve_policy(undefined, "chat").context_sources).toEqual([
+      "pinned",
+      "retrieved",
+    ]);
   });
 
   it("resolves declared sources identically inline and in the panel", () => {
@@ -288,12 +298,10 @@ describe("resolve_policy", () => {
   });
 
   it("leaves every builtin instruction on its surface defaults", () => {
+    const expected = resolve_policy(undefined, "inline_pm");
     for (const recipe of BUILTIN_INSTRUCTIONS) {
       expect(recipe.policy).toBeUndefined();
-      const primary = recipe.use_selection ? "selection" : "cursor_window";
-      expect(resolve_policy(recipe, "inline_pm").context_sources[0]).toBe(
-        primary,
-      );
+      expect(resolve_policy(recipe, "inline_pm")).toEqual(expected);
     }
   });
 
