@@ -20,7 +20,11 @@ import type { Tab } from "$lib/features/tab/types/tab";
 import { ASSISTANT_PROPOSALS_TAB_ID } from "$lib/features/tab/domain/assistant_proposals_tab";
 import NoteEditor from "$lib/features/note/ui/note_editor.svelte";
 import { render_with_app_context } from "../../../helpers/render_with_app_context";
-import { make_proposal } from "../../../helpers/assistant_proposal_fixtures";
+import { flushSync } from "../../../helpers/svelte_client_runtime";
+import {
+  make_proposal,
+  make_proposal_hunk,
+} from "../../../helpers/assistant_proposal_fixtures";
 
 function make_proposals_tab(): Tab {
   return {
@@ -155,6 +159,34 @@ describe("note_editor routing for assistant_proposals tabs", () => {
     expect(view.execute).toHaveBeenCalledWith(
       ACTION_IDS.assistant_accept_proposals,
       proposals.map((p) => p.id),
+    );
+
+    view.cleanup();
+  });
+
+  it("dispatches assistant_set_proposal_hunk_selected with proposal id, hunk id, and the new value — not a direct store call", () => {
+    const hunk = make_proposal_hunk({ selected: true });
+    const proposal = make_proposal({ hunks: [hunk] });
+    const view = render({ proposals: [proposal] });
+
+    (
+      view.target.querySelector(
+        '[data-testid="assistant-proposal-review-hunks"]',
+      ) as HTMLButtonElement
+    ).click();
+    flushSync();
+
+    const toggle = view.target.querySelector(
+      '[data-testid="assistant-proposal-diff"] input[type="checkbox"]',
+    ) as HTMLInputElement;
+    toggle.click();
+    flushSync();
+
+    expect(view.execute).toHaveBeenCalledWith(
+      ACTION_IDS.assistant_set_proposal_hunk_selected,
+      proposal.id,
+      hunk.id,
+      false,
     );
 
     view.cleanup();

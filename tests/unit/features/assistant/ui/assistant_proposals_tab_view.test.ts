@@ -28,6 +28,7 @@ function render(options: {
   on_accept_proposal?: (id: string) => void;
   on_accept_all_pending?: (ids: string[]) => void;
   on_reject_proposal?: (id: string) => void;
+  on_toggle_hunk?: (id: string, hunk_id: string, selected: boolean) => void;
 }) {
   const target = document.createElement("div");
   document.body.appendChild(target);
@@ -39,6 +40,7 @@ function render(options: {
       on_accept_proposal: options.on_accept_proposal ?? vi.fn(),
       on_accept_all_pending: options.on_accept_all_pending ?? vi.fn(),
       on_reject_proposal: options.on_reject_proposal ?? vi.fn(),
+      on_toggle_hunk: options.on_toggle_hunk ?? vi.fn(),
     },
   });
   flushSync();
@@ -220,9 +222,41 @@ describe("assistant_proposals_tab_view per-hunk toggles", () => {
     view.cleanup();
   });
 
-  it("toggling a hunk updates the local selected count without calling a store mutator", () => {
+  it("dispatches on_toggle_hunk with the proposal id, hunk id, and new selected value — through the callback prop, not a direct store call", () => {
+    // Toggling used to be local-only (no ACTION_ID existed to carry a hunk
+    // selection back to the store). ACTION_IDS.assistant_set_proposal_hunk_selected
+    // now exists, so the view must forward the toggle through its
+    // on_toggle_hunk prop — the same callback-prop boundary already used for
+    // accept/reject — rather than holding it in local state or reaching past
+    // the action layer into the store.
     const hunk = make_proposal_hunk({ selected: true });
     const proposal = make_proposal({ hunks: [hunk] });
+    const on_toggle_hunk = vi.fn();
+    const view = render({ proposals: [proposal], on_toggle_hunk });
+
+    (
+      view.target.querySelector(
+        '[data-testid="assistant-proposal-review-hunks"]',
+      ) as HTMLButtonElement
+    ).click();
+    flushSync();
+
+    const toggle = view.target.querySelector(
+      '[data-testid="assistant-proposal-diff"] input[type="checkbox"]',
+    ) as HTMLInputElement;
+    toggle.click();
+    flushSync();
+
+    expect(on_toggle_hunk).toHaveBeenCalledWith(proposal.id, hunk.id, false);
+    expect(on_toggle_hunk).toHaveBeenCalledTimes(1);
+
+    view.cleanup();
+  });
+
+  it("reflects the hunk's own selected field on the toggle, since selection now lives in the store", () => {
+    const selected_hunk = make_proposal_hunk({ selected: true });
+    const deselected_hunk = make_proposal_hunk({ selected: false });
+    const proposal = make_proposal({ hunks: [selected_hunk, deselected_hunk] });
     const view = render({ proposals: [proposal] });
 
     (
@@ -232,21 +266,15 @@ describe("assistant_proposals_tab_view per-hunk toggles", () => {
     ).click();
     flushSync();
 
-    expect(
-      view.target.querySelector('[data-testid="assistant-proposal-selected"]')
-        ?.textContent,
-    ).toContain("1 of 1 selected");
-
-    const toggle = view.target.querySelector(
+    const toggles = view.target.querySelectorAll<HTMLInputElement>(
       '[data-testid="assistant-proposal-diff"] input[type="checkbox"]',
-    ) as HTMLInputElement;
-    toggle.click();
-    flushSync();
-
+    );
+    expect(toggles[0]?.checked).toBe(true);
+    expect(toggles[1]?.checked).toBe(false);
     expect(
       view.target.querySelector('[data-testid="assistant-proposal-selected"]')
         ?.textContent,
-    ).toContain("0 of 1 selected");
+    ).toContain("1 of 2 selected");
 
     view.cleanup();
   });

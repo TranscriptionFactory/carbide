@@ -120,6 +120,13 @@
         )}
       on_reject_proposal={(id) =>
         void action_registry.execute(ACTION_IDS.assistant_reject_proposal, id)}
+      on_toggle_hunk={(id, hunk_id, selected) =>
+        void action_registry.execute(
+          ACTION_IDS.assistant_set_proposal_hunk_selected,
+          id,
+          hunk_id,
+          selected,
+        )}
     />
   {:else if active_tab?.kind === "document" && document_viewer_state}
     <DocumentViewer

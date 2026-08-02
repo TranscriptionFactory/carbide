@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { untrack } from "svelte";
   import { ChevronDown, ChevronRight } from "@lucide/svelte";
   import AssistantProposalHunk from "./assistant_proposal_hunk.svelte";
   import type {
@@ -12,33 +11,22 @@
     proposal: Proposal;
     on_accept_all: (id: ProposalId) => void;
     on_reject: (id: ProposalId) => void;
+    on_toggle_hunk: (
+      id: ProposalId,
+      hunk_id: ProposalHunkId,
+      selected: boolean,
+    ) => void;
   }
 
-  let { proposal, on_accept_all, on_reject }: Props = $props();
+  let { proposal, on_accept_all, on_reject, on_toggle_hunk }: Props = $props();
 
   // Collapsed by default: the review center is a list of proposals, unlike
   // the panel's single-card mockup context, so showing every diff at once
   // would bury the provenance groups this tab exists to surface.
   let expanded = $state(false);
 
-  // Local review state only (I5/mockup §3) — no ACTION_ID exists yet to carry
-  // a per-hunk selection back to the store, so this toggle is a review aid,
-  // not an apply input. "Accept all" always applies every hunk regardless of
-  // this local state (see assistant_proposals_tab_view.svelte).
-  let hunk_selection = $state(
-    untrack(() =>
-      Object.fromEntries(
-        proposal.hunks.map((hunk) => [hunk.id, hunk.selected]),
-      ),
-    ),
-  );
-
-  function toggle_hunk(hunk_id: ProposalHunkId, selected: boolean) {
-    hunk_selection = { ...hunk_selection, [hunk_id]: selected };
-  }
-
   const selected_count = $derived(
-    Object.values(hunk_selection).filter(Boolean).length,
+    proposal.hunks.filter((hunk) => hunk.selected).length,
   );
 </script>
 
@@ -86,8 +74,8 @@
       {#each proposal.hunks as hunk (hunk.id)}
         <AssistantProposalHunk
           {hunk}
-          selected={hunk_selection[hunk.id] ?? hunk.selected}
-          on_toggle={(selected) => toggle_hunk(hunk.id, selected)}
+          on_toggle={(selected) =>
+            on_toggle_hunk(proposal.id, hunk.id, selected)}
         />
       {/each}
     </div>

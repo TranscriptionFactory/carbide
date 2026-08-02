@@ -4,11 +4,10 @@
 
   interface Props {
     hunk: ProposalHunk;
-    selected: boolean;
     on_toggle: (selected: boolean) => void;
   }
 
-  let { hunk, selected, on_toggle }: Props = $props();
+  let { hunk, on_toggle }: Props = $props();
 
   const LINE_PREFIX = { context: " ", add: "+", del: "-" } as const;
 
@@ -19,7 +18,7 @@
 
 <div class="flex items-start gap-2 py-1" data-testid="assistant-proposal-hunk">
   <Switch.Root
-    checked={selected}
+    checked={hunk.selected}
     onCheckedChange={on_toggle}
     aria-label="Include hunk {hunk.header}"
     data-testid="assistant-proposal-hunk-toggle"
