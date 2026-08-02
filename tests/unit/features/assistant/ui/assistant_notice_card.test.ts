@@ -137,4 +137,39 @@ describe("assistant notice card", () => {
 
     view.cleanup();
   });
+
+  // A finding with no deterministic repair carries no offer. The dismiss is
+  // implicit on every notice, so rendering a primary here would put two
+  // controls on the card that do the same thing — which is what the first
+  // draft of `orphan_note` shipped by pointing its offer at the dismiss action.
+  it("renders only the dismiss when the notice carries no offer", () => {
+    const view = render(
+      make_ambient_notice({
+        kind: "orphan_note",
+        anchor: { kind: "note" },
+        body: "Nothing links to this note yet.",
+        offer: null,
+      }),
+    );
+
+    const testids = [
+      ...view.target.querySelectorAll<HTMLElement>("button"),
+    ].map((button) => button.dataset.testid);
+
+    expect(testids).toEqual(["assistant-notice-dismiss"]);
+
+    view.cleanup();
+  });
+
+  it("still dismisses a notice that carries no offer", () => {
+    const view = render(make_ambient_notice({ offer: null }));
+
+    query(view.target, "assistant-notice-dismiss").click();
+    flushSync();
+
+    expect(view.on_dismiss).toHaveBeenCalledTimes(1);
+    expect(view.on_offer).not.toHaveBeenCalled();
+
+    view.cleanup();
+  });
 });
