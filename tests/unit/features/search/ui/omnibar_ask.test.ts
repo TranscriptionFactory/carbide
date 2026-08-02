@@ -88,13 +88,21 @@ function render(
         bubbles: true,
         cancelable: true,
       });
+      // bits-ui's escape layer listens on `document` in the bubble phase and
+      // never consults defaultPrevented, so document is the target that
+      // actually matters; window is checked too since the omnibar's own keymap
+      // lives there.
+      let reached_document = false;
       let reached_window = false;
-      const spy = () => (reached_window = true);
-      window.addEventListener("keydown", spy);
+      const document_spy = () => (reached_document = true);
+      const window_spy = () => (reached_window = true);
+      document.addEventListener("keydown", document_spy);
+      window.addEventListener("keydown", window_spy);
       input.dispatchEvent(event);
-      window.removeEventListener("keydown", spy);
+      document.removeEventListener("keydown", document_spy);
+      window.removeEventListener("keydown", window_spy);
       flushSync();
-      return { reached_window };
+      return { reached_document, reached_window };
     },
     called() {
       return Object.entries(handlers)
@@ -193,8 +201,21 @@ describe("OmnibarAsk — keymap", () => {
   it("keeps esc and enter away from the dialog and the search keymap", () => {
     const view = render({ session: answered() });
 
-    expect(view.press("Escape").reached_window).toBe(false);
-    expect(view.press("Enter").reached_window).toBe(false);
+    expect(view.press("Escape")).toEqual({
+      reached_document: false,
+      reached_window: false,
+    });
+    expect(view.press("Enter")).toEqual({
+      reached_document: false,
+      reached_window: false,
+    });
+  });
+
+  it("keeps esc away from the dialog while a run is streaming", () => {
+    const view = render({ session: null, status: "running" });
+
+    expect(view.press("Escape").reached_document).toBe(false);
+    expect(view.called()).toEqual(["on_stop"]);
   });
 
   it("ignores a second enter while the first ask is still streaming", () => {
