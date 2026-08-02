@@ -64,7 +64,9 @@ vi.mock("$lib/features/assistant", async (importOriginal) => {
     await importOriginal<typeof import("$lib/features/assistant")>();
   return {
     ...actual,
-    compute_note_revision: vi.fn((text: string) => `rev-${text.length}`),
+    compute_note_revision: vi.fn(
+      (text: string) => `rev-${String(text.length)}`,
+    ),
   };
 });
 
@@ -144,10 +146,15 @@ function create_harness() {
 
   // Read paths are real and frozen; add() is AU-030's NOT_IMPLEMENTED
   // mutator (P1 ruling: contract surface, called for real, faked for tests).
+  // Held as its own const (not read back off assistant_proposals.add) so
+  // assertions bind to this function, not to a class-typed method slot —
+  // referencing assistant_proposals.add directly triggers unbound-method
+  // even though this override never touches `this`.
   const assistant_proposals = new AssistantProposalStore();
-  assistant_proposals.add = vi.fn((proposal: Proposal) => {
+  const add_proposal = vi.fn((proposal: Proposal) => {
     assistant_proposals.proposals.push(proposal);
   });
+  assistant_proposals.add = add_proposal;
 
   // assistant_accept_proposal is AU-030's action (assistant_actions.ts,
   // not mine to touch). This harness stub stands in for its checkpoint+write
@@ -192,6 +199,7 @@ function create_harness() {
     agentic_runner,
     assistant_sessions,
     assistant_proposals,
+    add_proposal,
     accept_proposal,
     rag_service,
   };
@@ -473,6 +481,7 @@ describe("register_ai_actions", () => {
       services,
       ai_service,
       assistant_proposals,
+      add_proposal,
       accept_proposal,
     } = create_harness();
     ai_service.execute_streaming = vi.fn().mockResolvedValue({
@@ -487,7 +496,7 @@ describe("register_ai_actions", () => {
     await registry.execute(ACTION_IDS.ai_apply_result, "# Updated\nLine 2");
 
     expect(services.editor.apply_ai_output).not.toHaveBeenCalled();
-    expect(assistant_proposals.add).toHaveBeenCalledTimes(1);
+    expect(add_proposal).toHaveBeenCalledTimes(1);
     const [proposal] = assistant_proposals.proposals;
     expect(proposal?.note_path).toBe("docs/demo.md");
     // accept_proposal (the harness stub for AU-030's action) already ran by
@@ -500,7 +509,7 @@ describe("register_ai_actions", () => {
   });
 
   it("does not create a proposal while a result is only being drafted or dismissed", async () => {
-    const { registry, ai_service, assistant_proposals, accept_proposal } =
+    const { registry, ai_service, add_proposal, accept_proposal } =
       create_harness();
     ai_service.execute_streaming = vi.fn().mockResolvedValue({
       success: true,
@@ -511,10 +520,10 @@ describe("register_ai_actions", () => {
     await registry.execute(ACTION_IDS.ai_open_assistant);
     await registry.execute(ACTION_IDS.ai_update_prompt, "Refine this note");
     await registry.execute(ACTION_IDS.ai_execute);
-    expect(assistant_proposals.add).not.toHaveBeenCalled();
+    expect(add_proposal).not.toHaveBeenCalled();
 
     await registry.execute(ACTION_IDS.ai_clear_result);
-    expect(assistant_proposals.add).not.toHaveBeenCalled();
+    expect(add_proposal).not.toHaveBeenCalled();
     expect(accept_proposal).not.toHaveBeenCalled();
   });
 
@@ -1373,7 +1382,7 @@ describe("register_ai_actions", () => {
         });
         await harness.registry.execute(ACTION_IDS.ai_accept_inline);
 
-        expect(harness.assistant_proposals.add).toHaveBeenCalledTimes(1);
+        expect(harness.add_proposal).toHaveBeenCalledTimes(1);
         const [proposal] = harness.assistant_proposals.proposals;
         expect(proposal?.note_path).toBe("docs/demo.md");
         expect(
@@ -1399,7 +1408,7 @@ describe("register_ai_actions", () => {
           { prompt: "go" },
         );
 
-        expect(harness.assistant_proposals.add).not.toHaveBeenCalled();
+        expect(harness.add_proposal).not.toHaveBeenCalled();
         expect(harness.accept_proposal).not.toHaveBeenCalled();
         await execute_promise;
       });
@@ -1417,7 +1426,7 @@ describe("register_ai_actions", () => {
         });
         await harness.registry.execute(ACTION_IDS.ai_reject_inline);
 
-        expect(harness.assistant_proposals.add).not.toHaveBeenCalled();
+        expect(harness.add_proposal).not.toHaveBeenCalled();
         expect(harness.accept_proposal).not.toHaveBeenCalled();
       });
     });
