@@ -24,6 +24,11 @@ function create_harness() {
     },
     assistant_kernel: { stop: vi.fn(), stop_all: vi.fn() } as never,
     assistant_sessions: sessions,
+    assistant_proposals: { set_hunk_selected: vi.fn() } as never,
+    proposal_apply: {
+      apply_batch: vi.fn(),
+      reject_batch: vi.fn(),
+    } as never,
   });
   return { registry, sessions, tab };
 }

@@ -7,8 +7,6 @@ import {
   type ProposalSummary,
 } from "$lib/features/assistant/types/proposal";
 
-const NOT_IMPLEMENTED = "NOT_IMPLEMENTED: AU-030 implements the proposal store";
-
 // I5: the one proposal queue. In-memory by contract (R4/I8) — no persistence
 // port, no hydration reactor, nothing survives a restart. Read paths are real
 // because they are the frozen shape AU-031/AU-032a build against; every
@@ -47,37 +45,78 @@ export class AssistantProposalStore {
     );
   }
 
-  add(_proposal: Proposal): void {
-    throw new Error(NOT_IMPLEMENTED);
+  // No dedup by id — a producer always hands fresh ids, and this store
+  // preserves them verbatim rather than reconciling (hydrate-shaped, not
+  // create-shaped: see the constructor comment).
+  add(proposal: Proposal): void {
+    this.proposals = [...this.proposals, proposal];
   }
 
   // An agent turn produces a whole batch at once (R7); adding them one at a
   // time would let the review center render a half-arrived turn.
-  add_many(_proposals: Proposal[]): void {
-    throw new Error(NOT_IMPLEMENTED);
+  add_many(proposals: Proposal[]): void {
+    if (proposals.length === 0) return;
+    this.proposals = [...this.proposals, ...proposals];
   }
 
-  set_status(_id: ProposalId, _status: ProposalStatus): void {
-    throw new Error(NOT_IMPLEMENTED);
+  // Raw setter, no transition validation — the apply service owns which
+  // transitions are meaningful.
+  set_status(id: ProposalId, status: ProposalStatus): void {
+    this.patch(id, (proposal) => ({ ...proposal, status }));
   }
 
   set_hunk_selected(
-    _id: ProposalId,
-    _hunk_id: ProposalHunkId,
-    _selected: boolean,
+    id: ProposalId,
+    hunk_id: ProposalHunkId,
+    selected: boolean,
   ): void {
-    throw new Error(NOT_IMPLEMENTED);
+    this.patch(id, (proposal) => {
+      if (proposal.status !== "pending") return null;
+      const hunk_index = proposal.hunks.findIndex(
+        (hunk) => hunk.id === hunk_id,
+      );
+      const target = proposal.hunks[hunk_index];
+      if (!target) return null;
+
+      const hunks = [...proposal.hunks];
+      hunks[hunk_index] = { ...target, selected };
+      return { ...proposal, hunks };
+    });
   }
 
-  set_all_hunks_selected(_id: ProposalId, _selected: boolean): void {
-    throw new Error(NOT_IMPLEMENTED);
+  set_all_hunks_selected(id: ProposalId, selected: boolean): void {
+    this.patch(id, (proposal) => {
+      if (proposal.status !== "pending") return null;
+      return {
+        ...proposal,
+        hunks: proposal.hunks.map((hunk) => ({ ...hunk, selected })),
+      };
+    });
   }
 
-  remove(_id: ProposalId): void {
-    throw new Error(NOT_IMPLEMENTED);
+  remove(id: ProposalId): void {
+    this.proposals = this.proposals.filter((proposal) => proposal.id !== id);
   }
 
   clear(): void {
-    throw new Error(NOT_IMPLEMENTED);
+    this.proposals = [];
+  }
+
+  // A transform returning null means "no change" (unknown id, or a
+  // selection edit on a non-pending proposal) and must not touch the array.
+  private patch(
+    id: ProposalId,
+    transform: (proposal: Proposal) => Proposal | null,
+  ): void {
+    const index = this.proposals.findIndex((proposal) => proposal.id === id);
+    const current = this.proposals[index];
+    if (!current) return;
+
+    const next = transform(current);
+    if (!next) return;
+
+    const proposals = [...this.proposals];
+    proposals[index] = next;
+    this.proposals = proposals;
   }
 }
