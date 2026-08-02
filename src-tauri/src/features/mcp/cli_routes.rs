@@ -466,7 +466,7 @@ async fn cli_git_diff(
         Ok(r) => r,
         Err(resp) => return resp,
     };
-    match git_service::git_diff_working(&root, params.path.as_deref()) {
+    match git_service::git_diff_working(&root, params.path.as_deref(), None) {
         Ok(diff) => (StatusCode::OK, Json(diff)).into_response(),
         Err(e) => internal_err(e),
     }
