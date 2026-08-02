@@ -33,6 +33,11 @@ function saved_session(overrides: Partial<RagSession> = {}): RagSession {
   };
 }
 
+function create_store() {
+  const sessions = new AssistantSessionStore();
+  return { sessions, store: new RagStore(sessions) };
+}
+
 // I4: the chat panel renders sessions it does not own. These pin that the
 // assistant store is the single source rather than a place RagStore copies to.
 describe("RagStore session ownership", () => {
@@ -87,22 +92,6 @@ describe("RagStore session ownership", () => {
     const shared = sessions.of_kind("chat")[0];
     expect(shared?.messages.at(-1)?.content).toBe("partial answer");
     expect(store.messages).toEqual(shared?.messages);
-  });
-
-  // Rag persists only chats, so a vault load must not evict the inline and
-  // note sessions living beside them.
-  it("leaves other kinds alone when hydrating chats", () => {
-    const { sessions, store } = create_shared();
-    const inline = sessions.create({
-      kind: "inline",
-      title: "Inline",
-      provider_id: "claude",
-    });
-
-    store.hydrate([saved_session({ id: "a" })]);
-
-    expect(sessions.get(inline.id)).not.toBeNull();
-    expect(store.sessions.map((s) => s.id)).toEqual(["a"]);
   });
 
   // Structural: two structurally-identical declarations would satisfy every
@@ -185,8 +174,8 @@ describe("RagStore", () => {
   });
 
   it("switch_session restores provider/scope and bumps the revision", () => {
-    const store = new RagStore(new AssistantSessionStore());
-    store.hydrate([
+    const { sessions, store } = create_store();
+    sessions.hydrate([
       saved_session({ id: "a", provider_id: "claude", scope: { tags: ["x"] } }),
     ]);
     const before = store.revision;
@@ -200,8 +189,8 @@ describe("RagStore", () => {
   });
 
   it("delete_session removes the session and clears active when it was open", () => {
-    const store = new RagStore(new AssistantSessionStore());
-    store.hydrate([saved_session({ id: "a" }), saved_session({ id: "b" })]);
+    const { sessions, store } = create_store();
+    sessions.hydrate([saved_session({ id: "a" }), saved_session({ id: "b" })]);
     store.switch_session("a");
     const before = store.revision;
 
@@ -213,8 +202,8 @@ describe("RagStore", () => {
   });
 
   it("rename_session updates the title and ignores blank names", () => {
-    const store = new RagStore(new AssistantSessionStore());
-    store.hydrate([saved_session({ id: "a", title: "old" })]);
+    const { sessions, store } = create_store();
+    sessions.hydrate([saved_session({ id: "a", title: "old" })]);
 
     store.rename_session("a", "  new title  ");
     expect(store.sessions[0]?.title).toBe("new title");
@@ -223,14 +212,14 @@ describe("RagStore", () => {
     expect(store.sessions[0]?.title).toBe("new title");
   });
 
-  it("hydrate restores sessions and their messages on switch", () => {
-    const store = new RagStore(new AssistantSessionStore());
+  it("restores hydrated sessions and their messages on switch", () => {
+    const { sessions, store } = create_store();
     const a = saved_session({
       id: "a",
       messages: [{ id: "m1", role: "user", content: "older", citations: [] }],
     });
 
-    store.hydrate([a]);
+    sessions.hydrate([a]);
     expect(store.active_id).toBeNull();
 
     store.switch_session("a");
@@ -238,8 +227,8 @@ describe("RagStore", () => {
   });
 
   it("summaries are sorted newest-first", () => {
-    const store = new RagStore(new AssistantSessionStore());
-    store.hydrate([
+    const { sessions, store } = create_store();
+    sessions.hydrate([
       saved_session({ id: "a", updated_at: 10 }),
       saved_session({ id: "b", updated_at: 30 }),
       saved_session({ id: "c", updated_at: 20 }),
@@ -374,7 +363,7 @@ describe("RagStore", () => {
   });
 
   it("fork_session clones up to the message, activates the fork, and keeps the original", () => {
-    const store = new RagStore(new AssistantSessionStore());
+    const { sessions, store } = create_store();
     const messages = [
       { id: "u1", role: "user" as const, content: "q1", citations: [] },
       {
@@ -391,7 +380,7 @@ describe("RagStore", () => {
         citations: [],
       },
     ];
-    store.hydrate([saved_session({ id: "orig", title: "Chat", messages })]);
+    sessions.hydrate([saved_session({ id: "orig", title: "Chat", messages })]);
     store.switch_session("orig");
     const before = store.revision;
 
@@ -409,8 +398,8 @@ describe("RagStore", () => {
   });
 
   it("fork_session deep-copies messages so edits do not leak into the original", () => {
-    const store = new RagStore(new AssistantSessionStore());
-    store.hydrate([
+    const { sessions, store } = create_store();
+    sessions.hydrate([
       saved_session({
         id: "orig",
         messages: [
@@ -437,8 +426,8 @@ describe("RagStore", () => {
   });
 
   it("fork_session resets streaming, loading, and error state", () => {
-    const store = new RagStore(new AssistantSessionStore());
-    store.hydrate([
+    const { sessions, store } = create_store();
+    sessions.hydrate([
       saved_session({
         id: "orig",
         messages: [
@@ -474,8 +463,8 @@ describe("RagStore", () => {
   });
 
   it("truncate_after keeps the user question and drops the assistant reply", () => {
-    const store = new RagStore(new AssistantSessionStore());
-    store.hydrate([
+    const { sessions, store } = create_store();
+    sessions.hydrate([
       saved_session({
         id: "a",
         messages: [
@@ -494,8 +483,8 @@ describe("RagStore", () => {
   });
 
   it("truncate_after on a user message keeps that message", () => {
-    const store = new RagStore(new AssistantSessionStore());
-    store.hydrate([
+    const { sessions, store } = create_store();
+    sessions.hydrate([
       saved_session({
         id: "a",
         messages: [
@@ -513,8 +502,8 @@ describe("RagStore", () => {
   });
 
   it("rename_session records the title source and defaults to manual", () => {
-    const store = new RagStore(new AssistantSessionStore());
-    store.hydrate([saved_session({ id: "a", title: "old" })]);
+    const { sessions, store } = create_store();
+    sessions.hydrate([saved_session({ id: "a", title: "old" })]);
 
     store.rename_session("a", "picked by user");
     expect(store.sessions[0]?.title_source).toBe("manual");
@@ -549,7 +538,7 @@ describe("RagStore", () => {
     };
 
     it("stays set from receipt through streaming and clears on finish", () => {
-      const store = new RagStore(new AssistantSessionStore());
+      const { store } = create_store();
       store.add_user_message("q");
       store.set_pending_sources([source]);
       expect(store.pending_sources).toEqual([source]);
@@ -562,7 +551,7 @@ describe("RagStore", () => {
     });
 
     it("clears when the stream fails", () => {
-      const store = new RagStore(new AssistantSessionStore());
+      const { store } = create_store();
       store.add_user_message("q");
       store.set_pending_sources([source]);
       store.start_streaming();
@@ -572,7 +561,7 @@ describe("RagStore", () => {
     });
 
     it("clears at the start of a new turn", () => {
-      const store = new RagStore(new AssistantSessionStore());
+      const { store } = create_store();
       store.set_pending_sources([source]);
 
       store.begin_turn();
@@ -580,8 +569,8 @@ describe("RagStore", () => {
     });
 
     it("clears when switching sessions, starting a new one, or forking", () => {
-      const store = new RagStore(new AssistantSessionStore());
-      store.hydrate([saved_session({ id: "a" })]);
+      const { sessions, store } = create_store();
+      sessions.hydrate([saved_session({ id: "a" })]);
 
       store.set_pending_sources([source]);
       store.switch_session("a");
