@@ -749,10 +749,8 @@ export function register_ai_actions(
     surface: AssistantSurface,
     material: EditorContextMaterial,
     p: { command_id?: string; prompt?: string } | undefined,
+    commands: InstructionRecipe[],
   ): PendingInlinePrompt {
-    const commands = resolve_instructions(
-      input.stores.ui.editor_settings.ai_inline_commands,
-    );
     const command_id = p?.command_id ?? (p?.prompt ? "custom" : "continue");
     const policy = resolve_policy(
       commands.find((c) => c.id === command_id),
@@ -822,6 +820,7 @@ export function register_ai_actions(
     view: EditorView,
     config: AiProviderConfig,
     p: { command_id?: string; prompt?: string; retry?: boolean } | undefined,
+    commands: InstructionRecipe[],
   ) {
     const editor_ctx = services.editor.get_ai_context();
     if (!editor_ctx) {
@@ -843,6 +842,7 @@ export function register_ai_actions(
           cursor_offset,
         ),
         p,
+        commands,
       );
     }
 
@@ -929,16 +929,18 @@ export function register_ai_actions(
         return;
       }
 
+      // Resolved once for the whole invocation: the log label and the prompt
+      // both describe the same instruction set, so resolving twice would only
+      // invite them to disagree.
+      const commands = resolve_instructions(
+        input.stores.ui.editor_settings.ai_inline_commands,
+      );
+
       // Retry reuses the request that is already recorded; overwriting it here
       // would lose the prompt, since a retry payload carries neither.
       if (!p?.retry) {
         last_inline_request = {
-          prompt: describe_inline_request(
-            p,
-            resolve_instructions(
-              input.stores.ui.editor_settings.ai_inline_commands,
-            ),
-          ),
+          prompt: describe_inline_request(p, commands),
           provider_id: config.id,
           ...(input.stores.editor.open_note
             ? { note_path: String(input.stores.editor.open_note.meta.path) }
@@ -953,7 +955,7 @@ export function register_ai_actions(
       if (!state.open || state.streaming) return;
 
       if (in_source_mode()) {
-        await execute_inline_source(view, config, p);
+        await execute_inline_source(view, config, p, commands);
         return;
       }
 
@@ -972,6 +974,7 @@ export function register_ai_actions(
           "inline_pm",
           extract_inline_context(view),
           p,
+          commands,
         );
 
         const { from, to } = view.state.selection;
