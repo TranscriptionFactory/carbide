@@ -337,6 +337,7 @@ export const ACTION_IDS = {
 
   assistant_stop_run: "assistant.stop_run",
   assistant_stop_all_runs: "assistant.stop_all_runs",
+  assistant_open_session: "assistant.open_session",
 
   rag_open: "rag.open",
   rag_ask: "rag.ask",

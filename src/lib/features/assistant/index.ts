@@ -20,15 +20,44 @@ export type {
 export {
   start_run_stream,
   type RunStream,
+  type RunStreamEnd,
+  type RunStreamItem,
 } from "$lib/features/assistant/application/run_stream";
 
 export type {
   AssistantProviderProbePort,
+  AssistantSessionPersistencePort,
   AssistantTransportPort,
   TransportRequest,
 } from "$lib/features/assistant/ports";
 
+export { to_assistant_session_summary } from "$lib/features/assistant/types/session";
+
+export type {
+  AssistantChatMode,
+  AssistantCitation,
+  AssistantContextStats,
+  AssistantMessage,
+  AssistantPermissionMode,
+  AssistantRole,
+  AssistantScope,
+  AssistantSession,
+  AssistantSessionKind,
+  AssistantSessionSummary,
+  AssistantTitleSource,
+  AssistantToolCall,
+  AssistantToolEvent,
+} from "$lib/features/assistant/types/session";
+
 export { AssistantRunStore } from "$lib/features/assistant/state/assistant_run_store.svelte";
+
+export {
+  AssistantSessionStore,
+  type AssistantSessionCreate,
+  type AssistantSessionPatch,
+} from "$lib/features/assistant/state/assistant_session_store.svelte";
+
+export { create_session_run_sink } from "$lib/features/assistant/application/session_run_sink";
 
 export {
   AssistantKernelService,
