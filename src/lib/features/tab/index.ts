@@ -20,3 +20,7 @@ export type {
   ClosedTabEntry,
 } from "$lib/features/tab/types/tab";
 export { assistant_session_tab_id } from "$lib/features/tab/domain/assistant_session_tab";
+export {
+  ASSISTANT_PROPOSALS_TAB_ID,
+  ASSISTANT_PROPOSALS_TAB_TITLE,
+} from "$lib/features/tab/domain/assistant_proposals_tab";

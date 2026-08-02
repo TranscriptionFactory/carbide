@@ -11,7 +11,10 @@
   import { SourceEditor, resolve_note_width_mode } from "$lib/features/editor";
   import { GraphTabView, SearchGraphTabView } from "$lib/features/graph";
   import { BasesPanel } from "$lib/features/bases";
-  import { AssistantSessionTabView } from "$lib/features/assistant";
+  import {
+    AssistantSessionTabView,
+    AssistantProposalsTabView,
+  } from "$lib/features/assistant";
   import { EditorContextMenu } from "$lib/features/editor";
   import { as_markdown_text } from "$lib/shared/types/ids";
 
@@ -103,6 +106,20 @@
   {:else if active_tab?.kind === "assistant_session"}
     <AssistantSessionTabView
       session={stores.assistant_sessions.get(active_tab.session_id)}
+    />
+  {:else if active_tab?.kind === "assistant_proposals"}
+    <AssistantProposalsTabView
+      proposals={stores.assistant_proposals.pending}
+      session_summaries={stores.assistant_sessions.summaries}
+      on_accept_proposal={(id) =>
+        void action_registry.execute(ACTION_IDS.assistant_accept_proposal, id)}
+      on_accept_all_pending={(ids) =>
+        void action_registry.execute(
+          ACTION_IDS.assistant_accept_proposals,
+          ids,
+        )}
+      on_reject_proposal={(id) =>
+        void action_registry.execute(ACTION_IDS.assistant_reject_proposal, id)}
     />
   {:else if active_tab?.kind === "document" && document_viewer_state}
     <DocumentViewer
