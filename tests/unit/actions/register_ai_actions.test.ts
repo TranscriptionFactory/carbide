@@ -13,6 +13,7 @@ import {
 import { ActionRegistry } from "$lib/app/action_registry/action_registry";
 import { ACTION_IDS } from "$lib/app/action_registry/action_ids";
 import { register_ai_actions } from "$lib/features/ai/application/ai_actions";
+import { resolve_instructions } from "$lib/shared/domain/prompt_recipes";
 import { AiStore } from "$lib/features/ai/state/ai_store.svelte";
 import { UIStore } from "$lib/app/orchestration/ui_store.svelte";
 import { VaultStore } from "$lib/features/vault/state/vault_store.svelte";
@@ -59,6 +60,17 @@ vi.mock("svelte-sonner", () => ({
 // C2 contract) — this lane calls it as contract surface (P1 ruling) but must
 // not depend on its runtime behaviour, so it is faked here rather than left
 // to throw.
+// Delegates to the real implementation — the spy exists only to count calls,
+// so behaviour is unchanged for every other case in this file.
+vi.mock("$lib/shared/domain/prompt_recipes", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("$lib/shared/domain/prompt_recipes")>();
+  return {
+    ...actual,
+    resolve_instructions: vi.fn(actual.resolve_instructions),
+  };
+});
+
 vi.mock("$lib/features/assistant", async (importOriginal) => {
   const actual =
     await importOriginal<typeof import("$lib/features/assistant")>();
@@ -187,7 +199,7 @@ function create_harness() {
     agentic_runner: agentic_runner as never,
     assistant_sessions,
     assistant_proposals,
-    rag_service: rag_service as never,
+    assistant_sessions_service: rag_service as never,
   });
 
   return {
@@ -1300,6 +1312,32 @@ describe("register_ai_actions", () => {
         expect(logged.title).toBe("try this");
         const [, reply] = logged.messages;
         expect(reply?.content).toBe("second");
+      });
+
+      // The instruction set feeds the log label and the prompt, which are both
+      // non-retry work: retry reuses the request and the prompts already
+      // recorded. Resolving it anyway would scan the builtins and allocate per
+      // entry for a value nothing reads.
+      it("resolves the instruction set once per inline run, and not at all on retry", async () => {
+        const harness = setup_inline();
+        harness.stores.vault.set_vault(create_test_vault());
+        harness.ai_service.stream_inline = vi.fn(function* () {
+          yield { type: "text", text: "out" };
+        });
+
+        await harness.registry.execute(ACTION_IDS.ai_open_inline_menu);
+        vi.mocked(resolve_instructions).mockClear();
+
+        await harness.registry.execute(ACTION_IDS.ai_execute_inline, {
+          prompt: "go",
+        });
+        expect(resolve_instructions).toHaveBeenCalledTimes(1);
+
+        vi.mocked(resolve_instructions).mockClear();
+        await harness.registry.execute(ACTION_IDS.ai_execute_inline, {
+          retry: true,
+        });
+        expect(resolve_instructions).not.toHaveBeenCalled();
       });
 
       it("logs nothing when the result is discarded instead of accepted", async () => {

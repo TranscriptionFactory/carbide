@@ -2,7 +2,7 @@ import { vi } from "vitest";
 import type {
   AgentTurnProposalReport,
   AgentTurnProposalRequest,
-} from "$lib/features/rag/application/agent_proposal_service";
+} from "$lib/features/assistant/application/agent_proposal_service";
 
 export function empty_proposal_report(): AgentTurnProposalReport {
   return {

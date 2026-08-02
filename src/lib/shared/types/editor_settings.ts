@@ -181,6 +181,14 @@ export type EditorSettings = {
   ai_agent_permission_default: "safe" | "power";
   // 0 keeps every session forever.
   assistant_session_retention_days: number;
+  // I6: ambient notices are opt-in. Deliberately NOT listed in
+  // GLOBAL_ONLY_SETTING_KEYS — ambient scans a *vault's* links, so the opt-in
+  // is per-vault, unlike every other ai_*/assistant_* key. Consequence, named
+  // rather than discovered: vault-scoped writes are skipped in browse mode
+  // (settings_service.ts:162, and again in Rust at vault_settings/service.rs:160),
+  // so this toggle does not persist there. Acceptable — ambient needs a vault
+  // to have anything to scan.
+  ambient_notices_enabled: boolean;
   document_pdf_default_zoom: DocumentPdfZoomMode;
   document_pdf_scroll_mode: DocumentPdfScrollMode;
   document_code_wrap: boolean;
@@ -313,6 +321,7 @@ export const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
   ai_rag_context_token_budget: 8000,
   ai_agent_permission_default: "safe",
   assistant_session_retention_days: 30,
+  ambient_notices_enabled: false,
   document_pdf_default_zoom: "fit_width",
   document_pdf_scroll_mode: "continuous",
   document_code_wrap: true,

@@ -15,10 +15,16 @@ export type AssistantChatMode = "ask" | "agent";
 
 export type AssistantPermissionMode = "safe" | "power";
 
+// `notes` (C3 amendment, AU-050) holds whole note paths, not prefixes: it is
+// how the composer's "this note" chip narrows a chat to the note it was armed
+// on. Snapshotted at the moment the chip is turned on rather than tracking the
+// active note, because a session persists this and a live binding would
+// silently restate what every past turn in it searched.
 export type AssistantScope = {
   folders?: string[];
   tags?: string[];
   bases?: string[];
+  notes?: string[];
 };
 
 export type AssistantRole = "user" | "assistant" | "tool";
