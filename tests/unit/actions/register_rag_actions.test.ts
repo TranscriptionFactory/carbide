@@ -568,6 +568,20 @@ describe("register_rag_actions", () => {
     expect(rag_service.save_session).toHaveBeenCalledTimes(1);
   });
 
+  // A stopped naming run is what generate_title now reports as null, and the
+  // point of that is that nothing downstream writes.
+  it("autotitle: writes nothing to the session when the naming run is stopped", async () => {
+    const { registry, rag_store, rag_service } = create_harness();
+    rag_service.generate_title.mockResolvedValue(null);
+    const rename = vi.spyOn(rag_store, "rename_session");
+
+    await registry.execute(ACTION_IDS.rag_ask, "what is it?");
+    await flush();
+
+    expect(rag_service.generate_title).toHaveBeenCalledTimes(1);
+    expect(rename).not.toHaveBeenCalled();
+  });
+
   it("autotitle: drops a stale title when the revision moved on", async () => {
     const { registry, rag_store, rag_service } = create_harness();
     let resolve_title!: (value: string | null) => void;
