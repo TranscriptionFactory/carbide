@@ -1198,6 +1198,7 @@ export function create_app_context(input: {
   register_assistant_actions({
     ...base_action_input,
     assistant_kernel,
+    assistant_sessions: stores.assistant_sessions,
   });
 
   register_rag_actions({
