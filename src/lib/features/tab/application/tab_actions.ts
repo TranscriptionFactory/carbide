@@ -359,7 +359,8 @@ export function register_tab_actions(input: ActionRegistrationInput) {
       if (
         tab.kind === "graph" ||
         tab.kind === "search_graph" ||
-        tab.kind === "bases"
+        tab.kind === "bases" ||
+        tab.kind === "assistant_session"
       )
         return;
       const path = tab.kind === "note" ? tab.note_path : tab.file_path;

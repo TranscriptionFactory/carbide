@@ -11,6 +11,7 @@
   import { SourceEditor, resolve_note_width_mode } from "$lib/features/editor";
   import { GraphTabView, SearchGraphTabView } from "$lib/features/graph";
   import { BasesPanel } from "$lib/features/bases";
+  import { AssistantSessionTabView } from "$lib/features/assistant";
   import { EditorContextMenu } from "$lib/features/editor";
   import { as_markdown_text } from "$lib/shared/types/ids";
 
@@ -99,6 +100,10 @@
     />
   {:else if active_tab?.kind === "bases"}
     <BasesPanel />
+  {:else if active_tab?.kind === "assistant_session"}
+    <AssistantSessionTabView
+      session={stores.assistant_sessions.get(active_tab.session_id)}
+    />
   {:else if active_tab?.kind === "document" && document_viewer_state}
     <DocumentViewer
       viewer_state={document_viewer_state}

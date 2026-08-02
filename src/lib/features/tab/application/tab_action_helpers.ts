@@ -36,7 +36,8 @@ function push_closed_tab_history(
   if (
     tab.kind === "graph" ||
     tab.kind === "search_graph" ||
-    tab.kind === "bases"
+    tab.kind === "bases" ||
+    tab.kind === "assistant_session"
   )
     return;
   const snapshot = stores.tab.get_snapshot(tab.id);

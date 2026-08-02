@@ -17,6 +17,7 @@ export type Tab = {
   | { kind: "graph"; view_mode: "vault" }
   | { kind: "search_graph"; query: string }
   | { kind: "bases" }
+  | { kind: "assistant_session"; session_id: string }
 );
 
 export type TabEditorSnapshot = {
@@ -46,6 +47,7 @@ export type PersistedTab = {
   | { kind: "graph"; view_mode: "vault" }
   | { kind: "search_graph"; query: string }
   | { kind: "bases" }
+  | { kind: "assistant_session"; session_id: string }
 );
 
 export type PersistedTabState = {
