@@ -11,6 +11,7 @@ function clone<T>(value: T): T {
 function to_summary(session: RagSession): RagSessionSummary {
   return {
     id: session.id,
+    kind: session.kind,
     title: session.title,
     created_at: session.created_at,
     updated_at: session.updated_at,

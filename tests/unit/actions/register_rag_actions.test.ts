@@ -3,6 +3,7 @@ import { ActionRegistry } from "$lib/app/action_registry/action_registry";
 import { ACTION_IDS } from "$lib/app/action_registry/action_ids";
 import { register_rag_actions } from "$lib/features/rag";
 import { RagStore } from "$lib/features/rag";
+import { AssistantSessionStore } from "$lib/features/assistant";
 import { UIStore } from "$lib/app/orchestration/ui_store.svelte";
 import { OpStore } from "$lib/app/orchestration/op_store.svelte";
 import { BUILTIN_PROVIDER_PRESETS } from "$lib/shared/types/ai_provider_config";
@@ -57,7 +58,7 @@ function stream_query(events: RagStreamEvent[]) {
 
 function create_harness(events: RagStreamEvent[] = ANSWERED_EVENTS) {
   const registry = new ActionRegistry();
-  const rag_store = new RagStore();
+  const rag_store = new RagStore(new AssistantSessionStore());
   const stores = {
     ui: new UIStore(),
     op: new OpStore(),
@@ -535,8 +536,10 @@ describe("register_rag_actions", () => {
     rag_store.hydrate([
       {
         id: "a",
+        kind: "chat",
         title: "My name",
         title_source: "manual",
+        origin: {},
         created_at: 1,
         updated_at: 2,
         messages: [],
