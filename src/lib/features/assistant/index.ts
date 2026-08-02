@@ -162,3 +162,6 @@ export {
   partition_notices,
   type NoticePartition,
 } from "$lib/features/assistant/domain/partition_notices";
+
+export { default as AssistantNoticeRail } from "$lib/features/assistant/ui/assistant_notice_rail.svelte";
+export { default as AssistantNoticeCard } from "$lib/features/assistant/ui/assistant_notice_card.svelte";
