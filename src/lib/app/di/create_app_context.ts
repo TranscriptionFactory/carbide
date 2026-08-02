@@ -1264,6 +1264,7 @@ export function create_app_context(input: {
     rag_store: stores.rag,
     rag_service,
     assistant_kernel,
+    assistant_proposals: stores.assistant_proposals,
   });
 
   register_graph_actions({
