@@ -173,13 +173,20 @@ describe("note_editor ambient rail routing", () => {
     view.cleanup();
   });
 
-  it("does not render the rail in split view", () => {
+  // v1 scope: split view is out. The rail is absent because the split branch
+  // is a different template, and the underline is suppressed too — otherwise
+  // split view would show anchors with no cards explaining them.
+  it("neither renders the rail nor underlines anything in split view", () => {
     const view = render({
       notices: [make_ambient_notice({ note_path: NOTE_PATH })],
       split_view: true,
     });
 
     expect(rail(view.target)).toBeNull();
+    expect(view.update_visual_editor_ambient_anchors).toHaveBeenCalledWith([]);
+    expect(view.update_visual_editor_ambient_anchors).not.toHaveBeenCalledWith([
+      expect.anything(),
+    ]);
 
     view.cleanup();
   });
