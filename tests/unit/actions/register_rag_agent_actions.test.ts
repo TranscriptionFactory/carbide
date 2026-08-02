@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ActionRegistry } from "$lib/app/action_registry/action_registry";
 import { ACTION_IDS } from "$lib/app/action_registry/action_ids";
 import { register_rag_actions, RagStore } from "$lib/features/rag";
+import { AssistantSessionStore } from "$lib/features/assistant";
 import type { RunEvent, RunSpec } from "$lib/features/assistant";
 import { create_test_run_starter } from "../../adapters/test_run_starter";
 import { UIStore } from "$lib/app/orchestration/ui_store.svelte";
@@ -41,7 +42,7 @@ function create_harness(
   workspace: { open_note?: HarnessOpenNote; background_tab?: HarnessTab } = {},
 ) {
   const registry = new ActionRegistry();
-  const rag_store = new RagStore();
+  const rag_store = new RagStore(new AssistantSessionStore());
   const stores = {
     ui: new UIStore(),
     op: new OpStore(),

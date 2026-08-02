@@ -92,6 +92,10 @@ export type AppStores = {
 };
 
 export function create_app_stores(): AppStores {
+  // I4: one session store behind every conversational surface. RagStore holds
+  // no sessions of its own, so it is handed this rather than owning one.
+  const assistant_sessions = new AssistantSessionStore();
+
   return {
     vault: new VaultStore(),
     notes: new NotesStore(),
@@ -132,7 +136,7 @@ export function create_app_stores(): AppStores {
     mcp: new McpStore(),
     smart_links: new SmartLinksStore(),
     search_graph: new SearchGraphStore(),
-    rag: new RagStore(),
+    rag: new RagStore(assistant_sessions),
     assistant_runs: new AssistantRunStore(),
     assistant_sessions: new AssistantSessionStore(),
     // stt: new SttStore(),

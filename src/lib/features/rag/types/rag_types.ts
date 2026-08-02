@@ -1,11 +1,23 @@
 import type { HitSource } from "$lib/shared/types/search";
-import type { AgentPermissionMode } from "$lib/features/rag/types/agent_events";
+import type {
+  AssistantChatMode,
+  AssistantCitation,
+  AssistantContextStats,
+  AssistantMessage,
+  AssistantRole,
+  AssistantScope,
+  AssistantSession,
+  AssistantSessionSummary,
+  AssistantTitleSource,
+  AssistantToolCall,
+  AssistantToolEvent,
+} from "$lib/features/assistant";
 
-export type RagCitation = {
-  index: number;
-  note_path: string;
-  title: string;
-};
+// I4: chat sessions live in the assistant store, so these are names for the
+// assistant's types rather than a second set of definitions. Only the shapes
+// with no assistant counterpart — retrieval, sources, the stream event — are
+// still declared here.
+export type RagCitation = AssistantCitation;
 
 export type RagRetrievedContext = {
   index: number;
@@ -17,39 +29,15 @@ export type RagRetrievedContext = {
   truncated?: boolean;
 };
 
-export type RagContextStats = {
-  retrieved: number;
-  used: number;
-  truncated: number;
-};
+export type RagContextStats = AssistantContextStats;
 
-export type RagRole = "user" | "assistant" | "tool";
+export type RagRole = AssistantRole;
 
-export type RagToolEvent = {
-  name: string;
-  input_summary: string;
-  paths?: string[];
-  ok?: boolean;
-};
+export type RagToolEvent = AssistantToolEvent;
 
-export type RagToolCall = {
-  id: string;
-  name: string;
-  arguments: string;
-};
+export type RagToolCall = AssistantToolCall;
 
-export type RagMessage = {
-  id: string;
-  role: RagRole;
-  content: string;
-  citations: RagCitation[];
-  context_stats?: RagContextStats;
-  reasoning?: string;
-  tool_events?: RagToolEvent[];
-  tool_calls?: RagToolCall[];
-  tool_call_id?: string;
-  error?: string;
-};
+export type RagMessage = AssistantMessage;
 
 export type RagSourceInfo = {
   note_path: string;
@@ -68,30 +56,12 @@ export type RagStreamEvent =
   | { type: "done" }
   | { type: "error"; error: string };
 
-export type RagScope = {
-  folders?: string[];
-  tags?: string[];
-  bases?: string[];
-};
+export type RagScope = AssistantScope;
 
-export type RagSessionSummary = {
-  id: string;
-  title: string;
-  created_at: number;
-  updated_at: number;
-};
+export type RagSessionSummary = AssistantSessionSummary;
 
-export type RagTitleSource = "derived" | "generated" | "manual";
+export type RagTitleSource = AssistantTitleSource;
 
-export type RagSessionMode = "ask" | "agent";
+export type RagSessionMode = AssistantChatMode;
 
-export type RagSession = RagSessionSummary & {
-  messages: RagMessage[];
-  provider_id: string;
-  scope: RagScope;
-  title_source?: RagTitleSource;
-  mode: RagSessionMode;
-  permission_mode: AgentPermissionMode;
-  changed_files: string[];
-  agent_session_id?: string;
-};
+export type RagSession = AssistantSession;

@@ -10,6 +10,7 @@ import type {
   RunSpec,
 } from "$lib/features/assistant";
 import { create_test_run_starter } from "../../adapters/test_run_starter";
+import { create_aborting_run_starter } from "../helpers/aborting_run_starter";
 import type { AiProviderConfig } from "$lib/shared/types/ai_provider_config";
 import type {
   BlockSectionHit,
@@ -1343,6 +1344,45 @@ describe("RagService.query", () => {
 
     expect(result.error).toBeTruthy();
   });
+
+  // A stopped answer keeps the text it produced but must not render as a
+  // finished one, so `done` is the event it may not emit.
+  it("keeps partial text but never reports done when the run is stopped", async () => {
+    const search = {
+      search_blocks: vi.fn().mockResolvedValue([]),
+      hybrid_search: vi
+        .fn()
+        .mockResolvedValue([hit("notes/q.md", "Q", "1", 0.9)]),
+    };
+    const notes = {
+      read_note: vi.fn().mockResolvedValue({ markdown: "The answer is 42." }),
+    };
+    const service = new RagService(
+      search as never,
+      notes as never,
+      create_aborting_run_starter([
+        { type: "text", text: "The answer is 4" },
+      ]) as never,
+      make_vault_store(),
+      persistence,
+      tag as never,
+      bases as never,
+    );
+
+    const seen: string[] = [];
+    let content = "";
+    for await (const event of service.query({
+      question: "what is it?",
+      provider_config: provider,
+    })) {
+      seen.push(event.type);
+      if (event.type === "text") content += event.text;
+    }
+
+    expect(content).toBe("The answer is 4");
+    expect(seen).not.toContain("done");
+    expect(seen).not.toContain("error");
+  });
 });
 
 describe("RagService.generate_title", () => {
@@ -1368,6 +1408,30 @@ describe("RagService.generate_title", () => {
     ]);
 
     expect(title).toBe("Meeting Notes");
+  });
+
+  // Half a title is still a plausible-looking title, which is why a stopped
+  // run used to rename the chat to whatever arrived first.
+  it("returns nothing when the run is stopped mid-title", async () => {
+    const starter = create_aborting_run_starter([
+      { type: "text", text: "Meeting" },
+    ]);
+    const service = new RagService(
+      { hybrid_search: vi.fn() } as never,
+      { read_note: vi.fn() } as never,
+      starter as never,
+      make_vault_store(),
+      persistence,
+      tag as never,
+      bases as never,
+    );
+
+    const title = await service.generate_title(provider, [
+      { id: "u", role: "user", content: "hi", citations: [] },
+      { id: "a", role: "assistant", content: "hello", citations: [] },
+    ]);
+
+    expect(title).toBeNull();
   });
 });
 

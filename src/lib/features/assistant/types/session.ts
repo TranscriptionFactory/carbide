@@ -59,6 +59,10 @@ export type AssistantMessage = {
   tool_calls?: AssistantToolCall[];
   tool_call_id?: string;
   error?: string;
+  // A turn the user stopped is not a turn that failed. `error` is the only
+  // other status field, and reusing it here would re-merge the two states the
+  // run stream exists to keep apart (C1 amendment D1-4).
+  stopped?: boolean;
 };
 
 export type AssistantSessionSummary = {
