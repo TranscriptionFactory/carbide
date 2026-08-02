@@ -45,6 +45,9 @@ export {
   resolve_wiki_link_note_path,
   resolve_wiki_file_target,
 } from "$lib/features/editor/domain/wiki_link_resolution";
+// Ambient notice anchors carry RENDERED document text, so producers outside
+// this feature need the same target→display rule the wiki-link plugin applies.
+export { format_wiki_target_display } from "$lib/features/editor/domain/wiki_link";
 export {
   load_shiki_theme,
   init_highlighter,

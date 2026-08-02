@@ -87,4 +87,8 @@ export {
   build_ai_inline_prompt,
 } from "$lib/features/ai/domain/ai_prompt_builder";
 export { migrate_ai_settings } from "$lib/features/ai/domain/ai_settings_migration";
+// I5's before/after → Proposal producer. Exported because ambient notices
+// (C3) build proposals from outside this feature; the helper itself is
+// AI-agnostic and only happens to live here.
+export { build_proposal } from "$lib/features/ai/domain/ai_diff";
 export { default as AiAssistantPanel } from "$lib/features/ai/ui/ai_assistant_panel.svelte";

@@ -1551,6 +1551,27 @@
               />
             </div>
 
+            <!-- Deliberately NOT gated on ai_settings_disabled: the ambient
+                 producers are deterministic link queries against the search
+                 index and call no AI provider, so an AI-off vault can still
+                 use them. Vault-scoped, unlike every other key in this
+                 section, so it does not persist in browse mode. -->
+            <div class="SettingsDialog__row">
+              <div class="SettingsDialog__label-group">
+                <span class="SettingsDialog__label">Ambient Notices</span>
+                <span class="SettingsDialog__description"
+                  >Offer link findings for the open note in the context rail.
+                  Findings are suggestions and never edit a note on their own</span
+                >
+              </div>
+              <Switch.Root
+                checked={editor_settings.ambient_notices_enabled}
+                onCheckedChange={(v: boolean) => {
+                  update("ambient_notices_enabled", v);
+                }}
+              />
+            </div>
+
             <div class="space-y-2">
               <div class="flex items-center justify-between">
                 <div class="SettingsDialog__label-group">
