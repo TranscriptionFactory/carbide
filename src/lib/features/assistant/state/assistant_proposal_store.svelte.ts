@@ -16,9 +16,11 @@ const NOT_IMPLEMENTED = "NOT_IMPLEMENTED: AU-030 implements the proposal store";
 export class AssistantProposalStore {
   proposals = $state<Proposal[]>([]);
 
-  // Injectable clock, AU-005/AU-010 precedent — created_at comes from here so
-  // tests never sleep. Public until AU-030's mutators consume it.
-  constructor(readonly now: () => number = () => Date.now()) {}
+  // No injectable clock, deliberately (D2-3). `add`/`add_many` take fully
+  // formed Proposals whose `created_at` the producer supplies, so nothing here
+  // would ever call it — this store is `hydrate`-shaped, not `create`-shaped.
+  // Shipping a constructor param with no consumer is the `detached_ids`
+  // mistake from W0; the producer owns its own clock.
 
   get summaries(): ProposalSummary[] {
     return this.proposals.map(to_proposal_summary);

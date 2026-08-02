@@ -1,5 +1,6 @@
 import type { AssistantProposalStore } from "$lib/features/assistant/state/assistant_proposal_store.svelte";
 import type {
+  ProposalCheckpointOutcome,
   ProposalCheckpointPort,
   ProposalNotePort,
 } from "$lib/features/assistant/ports";
@@ -14,9 +15,15 @@ export type ProposalApplyOutcome = {
   applied: ProposalId[];
   stale: ProposalId[];
   failed: { id: ProposalId; error: string }[];
-  // Null when nothing applied — no checkpoint is taken for a batch that
-  // changes nothing, so the git log does not fill with empty checkpoints.
-  checkpoint_description: string | null;
+  // Null when no checkpoint was ATTEMPTED — a batch that changes nothing takes
+  // none, so the git log does not fill with empty checkpoints. When a
+  // checkpoint was attempted, the outcome rides along: a caller must be able to
+  // tell "applied, undo available" from "applied in a vault with no git", and
+  // only the port can answer that (D2-2).
+  checkpoint: {
+    description: string;
+    outcome: ProposalCheckpointOutcome;
+  } | null;
 };
 
 export type ProposalApplyDeps = {

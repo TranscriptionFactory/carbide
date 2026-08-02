@@ -30,9 +30,13 @@ export type ProposalLine = {
   new_line: number | null;
 };
 
-// Mirrors GitDiffHunk's shape so an agent turn's end-of-turn diff maps across
-// without a translation layer (AU-032b). `selected` is review state, not diff
-// state: the review center toggles it per hunk and apply honours it.
+// Mirrors GitDiffHunk's *shape* so an agent turn's end-of-turn diff maps
+// across structurally (AU-032b). The line-kind values deliberately do NOT
+// match git's ("add"/"del" here vs "addition"/"deletion" there): these types
+// are defined natively so the assistant slice carries no dependency on the git
+// feature's vocabulary, and the producer pays a one-line remap for that.
+// `selected` is review state, not diff state: the review center toggles it per
+// hunk and apply honours it.
 export type ProposalHunk = {
   id: ProposalHunkId;
   header: string;
