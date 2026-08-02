@@ -1,11 +1,10 @@
-import { vi } from "vitest";
 import {
   AssistantKernelService,
   AssistantRunStore,
   AssistantSessionStore,
   start_run_stream,
   type AssistantCitation,
-  type AssistantSessionPersistencePort,
+  type RunHandle,
 } from "$lib/features/assistant";
 import type { RagStreamEvent } from "$lib/features/rag";
 import {
@@ -30,10 +29,8 @@ export type AskHarness = {
   controller: OmnibarAskController;
   sessions: AssistantSessionStore;
   transport: ManualTransport;
-  persistence: AssistantSessionPersistencePort;
   probe_calls: () => string[];
   transport_calls: () => number;
-  persistence_calls: () => number;
   wait_for_stream: () => Promise<void>;
   inserted: string[];
   opened: string[];
@@ -44,6 +41,17 @@ export type AskHarness = {
 // stand-in for it. `query` mirrors RagService.query's contract: a sources
 // event, translated run events, and the three terminal shapes it actually
 // emits (done / error / return-without-done on abort).
+async function park_until(
+  ready: () => boolean,
+  what_failed: string,
+): Promise<void> {
+  for (let tick = 0; tick < 50; tick += 1) {
+    if (ready()) return;
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  }
+  throw new Error(what_failed);
+}
+
 export function make_ask_harness(options: AskHarnessOptions = {}): AskHarness {
   const providers = options.providers ?? [make_provider()];
   const transport = create_manual_transport();
@@ -51,13 +59,7 @@ export function make_ask_harness(options: AskHarnessOptions = {}): AskHarness {
   const run_store = new AssistantRunStore();
   const sessions = new AssistantSessionStore();
 
-  const persistence_spies = {
-    list_sessions: vi.fn().mockResolvedValue([]),
-    load_session: vi.fn().mockResolvedValue(null),
-    save_session: vi.fn().mockResolvedValue(undefined),
-    delete_session: vi.fn().mockResolvedValue(undefined),
-  };
-  const persistence: AssistantSessionPersistencePort = persistence_spies;
+  let started: RunHandle | null = null;
 
   const kernel = new AssistantKernelService({
     transport,
@@ -92,6 +94,7 @@ export function make_ask_harness(options: AskHarnessOptions = {}): AskHarness {
       },
     });
     input.on_run_started?.(handle);
+    started = handle;
 
     let emitted_citations = false;
     try {
@@ -133,23 +136,20 @@ export function make_ask_harness(options: AskHarnessOptions = {}): AskHarness {
     controller,
     sessions,
     transport,
-    persistence,
     probe_calls: () => probe._checked,
     transport_calls: () => transport._requests.length,
-    persistence_calls: () =>
-      Object.values(persistence_spies).reduce(
-        (total, spy) => total + spy.mock.calls.length,
-        0,
-      ),
     // submit() only settles at end of stream, so a test drives the channel
-    // between starting the ask and awaiting it; this parks until the transport
-    // has actually been entered.
+    // between starting the ask and awaiting it. Waits on the run handle first —
+    // that is the actual "the run started" signal — and only then on the
+    // channel, which is the precondition for emitting into it. Keying solely
+    // off the channel array would be reading an ordering coincidence as an
+    // invariant.
     async wait_for_stream() {
-      for (let tick = 0; tick < 50; tick += 1) {
-        if (transport._channels.length > 0) return;
-        await new Promise((resolve) => setTimeout(resolve, 0));
-      }
-      throw new Error("transport stream was never opened");
+      await park_until(() => started !== null, "the run never started");
+      await park_until(
+        () => transport._channels.length > 0,
+        "the transport stream was never opened",
+      );
     },
     inserted,
     opened,

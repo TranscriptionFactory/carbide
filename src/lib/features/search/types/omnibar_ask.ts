@@ -15,5 +15,8 @@ export type OmnibarAskView = {
   on_submit: () => void;
   on_insert: () => void;
   on_promote: () => void;
+  // esc stops a live run and leaves the surface up; it only dismisses once
+  // nothing is streaming, which is what the footer has always advertised.
+  on_stop: () => void;
   on_dismiss: () => void;
 };
