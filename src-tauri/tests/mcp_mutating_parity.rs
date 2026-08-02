@@ -7,7 +7,7 @@ use crate::features::mcp::router::McpRouter;
 fn agent_file_ops_source() -> String {
     let ts_path: PathBuf = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("..")
-        .join("src/lib/features/rag/domain/agent_file_ops.ts");
+        .join("src/lib/features/assistant/domain/agent_file_ops.ts");
     fs::read_to_string(&ts_path)
         .unwrap_or_else(|e| panic!("cannot read TS source at {}: {}", ts_path.display(), e))
 }
