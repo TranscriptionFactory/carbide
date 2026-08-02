@@ -606,7 +606,12 @@ describe("AssistantKernelService", () => {
           return "present";
         },
       };
-      return { port, open: () => { open(); } };
+      return {
+        port,
+        open: () => {
+          open();
+        },
+      };
     }
 
     function create_gated_kernel(

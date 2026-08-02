@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { AgentRunner, RagStore } from "$lib/features/rag";
+import { AssistantSessionStore } from "$lib/features/assistant";
 import type {
   RunEvent,
   RunRequest,
@@ -18,7 +19,7 @@ const provider: AiProviderConfig = {
 };
 
 function make_stores() {
-  const rag_store = new RagStore();
+  const rag_store = new RagStore(new AssistantSessionStore());
   rag_store.set_mode("agent");
   rag_store.add_user_message("organize my notes");
   const vault_store = new VaultStore();

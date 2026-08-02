@@ -12,7 +12,10 @@ import type { RagSession } from "$lib/features/rag/domain/rag_types";
 function session(overrides: Partial<RagSession> = {}): RagSession {
   return {
     id: "s1",
+    kind: "chat",
     title: "First chat",
+    title_source: "derived",
+    origin: {},
     created_at: 1,
     updated_at: 2,
     messages: [{ id: "m1", role: "user", content: "hi", citations: [] }],
@@ -65,7 +68,13 @@ describe("rag_persistence_tauri_adapter", () => {
 
     const summaries = await adapter.list_sessions("v1");
     expect(summaries).toEqual([
-      { id: "s1", title: "First chat", created_at: 1, updated_at: 2 },
+      {
+        id: "s1",
+        kind: "chat",
+        title: "First chat",
+        created_at: 1,
+        updated_at: 2,
+      },
     ]);
   });
 

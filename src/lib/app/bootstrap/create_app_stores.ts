@@ -38,7 +38,10 @@ import { McpStore } from "$lib/features/mcp";
 import { SmartLinksStore } from "$lib/features/smart_links";
 import { SearchGraphStore } from "$lib/features/graph";
 import { RagStore } from "$lib/features/rag";
-import { AssistantRunStore } from "$lib/features/assistant";
+import {
+  AssistantRunStore,
+  AssistantSessionStore,
+} from "$lib/features/assistant";
 // STT removed — archived on archive/stt-main
 // import { SttStore } from "$lib/features/stt";
 
@@ -88,6 +91,10 @@ export type AppStores = {
 };
 
 export function create_app_stores(): AppStores {
+  // I4: one session store behind every conversational surface. RagStore holds
+  // no sessions of its own, so it is handed this rather than owning one.
+  const assistant_sessions = new AssistantSessionStore();
+
   return {
     vault: new VaultStore(),
     notes: new NotesStore(),
@@ -128,7 +135,7 @@ export function create_app_stores(): AppStores {
     mcp: new McpStore(),
     smart_links: new SmartLinksStore(),
     search_graph: new SearchGraphStore(),
-    rag: new RagStore(),
+    rag: new RagStore(assistant_sessions),
     assistant_runs: new AssistantRunStore(),
     // stt: new SttStore(),
   };
