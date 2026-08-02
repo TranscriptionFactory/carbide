@@ -26,6 +26,18 @@ If your vault is not a git repository, proposals still apply — Carbide just re
 that no checkpoint could be taken, rather than refusing to work or quietly promising
 an undo that does not exist.
 
+**Agent turns now go through the same queue.** An agent in power mode still writes
+real files as it works, so it can read back what it just wrote mid-turn. When the turn
+ends, Carbide diffs the vault against the checkpoint it took before the turn, restores
+the notes the agent edited, and queues those edits as proposals for you to review —
+so an agent turn no longer silently rewrites notes you never looked at. Notes the
+agent *created* are left in place (there is nothing to restore them from, so deleting
+them would lose content), and a note the agent deleted is restored and reported rather
+than removed on its own authority. The trade-off: a follow-up turn in the same
+conversation reads notes without its own earlier edits until you accept them. If the
+vault has no git repository there is no checkpoint to diff against, so agent turns
+write directly, exactly as before.
+
 Two user-visible fixes ride along:
 
 - **Multi-file diffs merged unrelated files together.** Hunk boundaries were detected
