@@ -90,6 +90,8 @@ function render_editor_status_bar(overrides?: {
       on_panel_tab_click: vi.fn(),
       color_scheme: "dark",
       on_theme_toggle: overrides?.on_theme_toggle ?? vi.fn(),
+      assistant_runs: [],
+      on_assistant_stop: vi.fn(),
     },
   });
 

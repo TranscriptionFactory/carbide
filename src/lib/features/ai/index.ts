@@ -9,14 +9,17 @@ export {
   type AiDialogState,
 } from "$lib/features/ai/state/ai_store.svelte";
 export type { AiPort } from "$lib/features/ai/ports";
-export type { AiStreamPort } from "$lib/features/ai/ports";
+export {
+  create_plugin_ai_host,
+  type PluginAiHost,
+  type PluginAiHostDeps,
+} from "$lib/features/ai/application/plugin_ai_host";
+export { derive_provider_hint } from "$lib/features/ai/domain/ai_provider_hint";
 export type { AiHistoryPersistencePort } from "$lib/features/ai/ports";
 export { create_ai_tauri_adapter } from "$lib/features/ai/adapters/ai_tauri_adapter";
-export { create_ai_stream_adapter } from "$lib/features/ai/adapters/ai_stream_adapter";
 export { create_ai_history_tauri_adapter } from "$lib/features/ai/adapters/ai_history_tauri_adapter";
 export type {
   AiStreamChunk,
-  AiStreamRequest,
   AiMessage,
   AiMessageContent,
   AiTextPart,
@@ -31,6 +34,7 @@ export { MarkdownJoiner } from "$lib/features/ai/domain/markdown_joiner";
 export {
   agent_capability,
   infer_agent_descriptor,
+  provider_supports_streaming,
   type AgentBackend,
   type AgentCapability,
 } from "$lib/features/ai/domain/ai_provider_capabilities";
@@ -44,6 +48,10 @@ export {
   describe_default_provider,
   type AiProviderProbeState,
 } from "$lib/features/ai/domain/ai_provider_status";
+export {
+  preferred_ai_backend_order,
+  resolve_auto_ai_backend,
+} from "$lib/features/ai/domain/ai_backend_selection";
 export type {
   AiCliProbe,
   AiCliProbeStatus,
@@ -81,5 +89,4 @@ export {
   build_ai_inline_prompt,
 } from "$lib/features/ai/domain/ai_prompt_builder";
 export { migrate_ai_settings } from "$lib/features/ai/domain/ai_settings_migration";
-export { default as AiEditDialog } from "$lib/features/ai/ui/ai_edit_dialog.svelte";
 export { default as AiAssistantPanel } from "$lib/features/ai/ui/ai_assistant_panel.svelte";

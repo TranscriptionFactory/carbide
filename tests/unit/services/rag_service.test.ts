@@ -3,7 +3,13 @@ import { RagService } from "$lib/features/rag";
 import { VaultStore } from "$lib/features/vault";
 import { create_test_vault } from "../helpers/test_fixtures";
 import { create_test_rag_persistence_adapter } from "../../adapters/test_rag_persistence_adapter";
-import type { AiStreamChunk, AiStreamRequest } from "$lib/features/ai";
+import type {
+  RunEvent,
+  RunHandle,
+  RunSink,
+  RunSpec,
+} from "$lib/features/assistant";
+import { create_test_run_starter } from "../../adapters/test_run_starter";
 import type { AiProviderConfig } from "$lib/shared/types/ai_provider_config";
 import type {
   BlockSectionHit,
@@ -66,28 +72,31 @@ function block_hit(
   };
 }
 
-function stream_of(...chunks: AiStreamChunk[]) {
-  return {
-    // eslint-disable-next-line @typescript-eslint/require-await
-    stream_text: vi.fn(async function* () {
-      for (const chunk of chunks) yield chunk;
-    }),
-  };
+function stream_of(...events: RunEvent[]) {
+  return create_test_run_starter(() => events);
 }
 
 function capturing_stream(...texts: string[]) {
-  const captured: { signal: AbortSignal | undefined } = { signal: undefined };
+  const captured = { stopped: false };
+  const starter = create_test_run_starter(() =>
+    (async function* () {
+      for (const text of texts) {
+        yield { type: "text", text } as RunEvent;
+      }
+      yield { type: "done" } as RunEvent;
+    })(),
+  );
   const stream = {
-    stream_text: vi.fn((input: AiStreamRequest) => {
-      captured.signal = input.signal;
-      // eslint-disable-next-line @typescript-eslint/require-await
-      return (async function* () {
-        for (const text of texts) {
-          yield { type: "text", text } as AiStreamChunk;
-        }
-        yield { type: "done" } as AiStreamChunk;
-      })();
-    }),
+    async start(spec: RunSpec, sink?: RunSink): Promise<RunHandle> {
+      const handle = await starter.start(spec, sink);
+      return {
+        ...handle,
+        stop: () => {
+          captured.stopped = true;
+          handle.stop();
+        },
+      };
+    },
   };
   return { stream, captured };
 }
@@ -99,10 +108,9 @@ function make_vault_store() {
 }
 
 function text_stream(...texts: string[]) {
-  return stream_of(
-    ...texts.map((text): AiStreamChunk => ({ type: "text", text })),
-    { type: "done" },
-  );
+  return stream_of(...texts.map((text): RunEvent => ({ type: "text", text })), {
+    type: "done",
+  });
 }
 
 type Collected = {
@@ -358,11 +366,9 @@ describe("RagService.query", () => {
       }),
     );
 
-    const call = stream.stream_text.mock.calls[0] as unknown[] | undefined;
-    const request = call?.[0] as
-      | { messages: { content: string }[] }
-      | undefined;
-    const user_prompt = request?.messages[0]?.content ?? "";
+    const request = stream.specs[0]?.request;
+    if (request?.mode !== "text") throw new Error("expected a text run");
+    const user_prompt = String(request.messages[0]?.content ?? "");
     expect(user_prompt).toContain("deploys to Fly.io every night");
     expect(user_prompt).not.toContain("intro filler line 200");
     expect(result.citations).toEqual([
@@ -417,11 +423,9 @@ describe("RagService.query", () => {
       "notes/metaboloformer.md",
     );
     expect(notes.read_note.mock.calls.map((call) => call[1])).toContain("1");
-    const call = stream.stream_text.mock.calls[0] as unknown[] | undefined;
-    const request = call?.[0] as
-      | { messages: { content: string }[] }
-      | undefined;
-    expect(request?.messages[0]?.content ?? "").toContain(
+    const request = stream.specs[0]?.request;
+    if (request?.mode !== "text") throw new Error("expected a text run");
+    expect(String(request.messages[0]?.content ?? "")).toContain(
       "transformer model for metabolomics",
     );
   });
@@ -473,11 +477,11 @@ describe("RagService.query", () => {
     );
     expect(result.citations.map((c) => c.note_path)).toContain("notes/spec.md");
 
-    const call = stream.stream_text.mock.calls[0] as unknown[] | undefined;
-    const request = call?.[0] as
-      | { messages: { content: string }[] }
-      | undefined;
-    expect(request?.messages[0]?.content ?? "").toContain("cutoff is 30 days");
+    const request = stream.specs[0]?.request;
+    if (request?.mode !== "text") throw new Error("expected a text run");
+    expect(String(request.messages[0]?.content ?? "")).toContain(
+      "cutoff is 30 days",
+    );
   });
 
   it("renders a citation split across two stream chunks once", async () => {
@@ -997,7 +1001,7 @@ describe("RagService.query", () => {
     expect(result.content).toMatch(/couldn't find/i);
     expect(result.citations).toEqual([]);
     expect(notes.read_note).not.toHaveBeenCalled();
-    expect(stream.stream_text).not.toHaveBeenCalled();
+    expect(stream.specs).toHaveLength(0);
   });
 
   it("explains an in-progress index instead of the canned no-results reply", async () => {
@@ -1029,7 +1033,7 @@ describe("RagService.query", () => {
 
     expect(result.content).toContain("still being indexed (3 of 20 notes)");
     expect(result.content).not.toMatch(/couldn't find anything in your vault/i);
-    expect(stream.stream_text).not.toHaveBeenCalled();
+    expect(stream.specs).toHaveLength(0);
   });
 
   it("reports how many retrieved sources were actually used", async () => {
@@ -1195,7 +1199,7 @@ describe("RagService.query", () => {
     );
 
     expect(result.content).toMatch(/couldn't find/i);
-    expect(stream.stream_text).not.toHaveBeenCalled();
+    expect(stream.specs).toHaveLength(0);
   });
 
   it("fails when retrieval throws", async () => {
@@ -1230,7 +1234,12 @@ describe("RagService.query", () => {
     const notes = {
       read_note: vi.fn().mockResolvedValue({ markdown: "Body." }),
     };
-    const stream = stream_of({ type: "error", error: "model crashed" });
+    // Humanization moved to the kernel, the single choke point; the service
+    // now forwards that message rather than deriving its own.
+    const stream = stream_of({
+      type: "error",
+      message: "Ollama request failed — see logs for details.",
+    });
     const service = new RagService(
       search as never,
       notes as never,
@@ -1280,7 +1289,7 @@ describe("RagService.query", () => {
       if (event.type === "text") break;
     }
 
-    expect(captured.signal?.aborted).toBe(true);
+    expect(captured.stopped).toBe(true);
   });
 
   it("does not abort the backend stream on natural completion", async () => {
@@ -1309,7 +1318,7 @@ describe("RagService.query", () => {
       question: "q",
       provider_config: provider,
     })) {
-      if (event.type === "text" && captured.signal?.aborted) {
+      if (event.type === "text" && captured.stopped) {
         aborted_during_stream = true;
       }
     }
