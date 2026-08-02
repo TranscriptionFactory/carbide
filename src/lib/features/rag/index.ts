@@ -34,13 +34,6 @@ export type {
   AgentPermissionMode,
 } from "$lib/features/rag/types/agent_events";
 export { migrate_agent_fields } from "$lib/features/rag/types/rag_session";
-export {
-  assemble_context,
-  estimate_tokens,
-  extract_section,
-  type AssembleContextOptions,
-  type RagContextCandidate,
-} from "$lib/features/rag/domain/rag_context_assembler";
 export { build_rag_prompt } from "$lib/features/rag/domain/rag_prompt_builder";
 export {
   parse_mentions,

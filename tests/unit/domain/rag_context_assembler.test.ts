@@ -4,7 +4,7 @@ import {
   estimate_tokens,
   extract_section,
   type RagContextCandidate,
-} from "$lib/features/rag";
+} from "$lib/features/rag/domain/rag_context_assembler";
 
 function candidate(
   overrides: Partial<RagContextCandidate> = {},
