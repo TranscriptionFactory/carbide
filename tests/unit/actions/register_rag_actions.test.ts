@@ -3,7 +3,10 @@ import { ActionRegistry } from "$lib/app/action_registry/action_registry";
 import { ACTION_IDS } from "$lib/app/action_registry/action_ids";
 import { register_rag_actions } from "$lib/features/rag";
 import { RagStore } from "$lib/features/rag";
-import { AssistantSessionStore } from "$lib/features/assistant";
+import {
+  AssistantProposalStore,
+  AssistantSessionStore,
+} from "$lib/features/assistant";
 import { UIStore } from "$lib/app/orchestration/ui_store.svelte";
 import { OpStore } from "$lib/app/orchestration/op_store.svelte";
 import { BUILTIN_PROVIDER_PRESETS } from "$lib/shared/types/ai_provider_config";
@@ -114,6 +117,7 @@ function create_harness(events: RagStreamEvent[] = ANSWERED_EVENTS) {
     rag_store,
     rag_service: rag_service as never,
     assistant_kernel: assistant_kernel as never,
+    assistant_proposals: new AssistantProposalStore(),
   });
 
   return {
