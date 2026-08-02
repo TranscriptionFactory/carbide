@@ -13,7 +13,9 @@ vi.mock("$lib/features/assistant", async (importOriginal) => {
     await importOriginal<typeof import("$lib/features/assistant")>();
   return {
     ...actual,
-    compute_note_revision: vi.fn((text: string) => `rev-${text.length}`),
+    compute_note_revision: vi.fn(
+      (text: string) => `rev-${String(text.length)}`,
+    ),
   };
 });
 
