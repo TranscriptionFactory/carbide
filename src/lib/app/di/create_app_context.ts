@@ -55,8 +55,11 @@ import {
 import { RagService, RagPanel, register_rag_actions } from "$lib/features/rag";
 import {
   AssistantKernelService,
+  ProposalApplyService,
   create_assistant_transport_tauri_adapter,
   register_assistant_actions,
+  type ProposalCheckpointPort,
+  type ProposalNotePort,
 } from "$lib/features/assistant";
 import {
   BasesService,
@@ -1188,12 +1191,63 @@ export function create_app_context(input: {
     window_port: input.ports.window,
   });
 
+  // I5's checkpoint is the undo behind every proposal apply, so the mapping
+  // matters: only `no_repo` is "unavailable" (a vault without git still
+  // applies, it just cannot promise an undo), and a `created` carrying a
+  // warning is still created — the commit landed, only the tag failed, which
+  // is how git_actions.ts:347-356 already treats it.
+  const proposal_git: ProposalCheckpointPort = {
+    create_checkpoint: async (description) => {
+      const result = await git_service.create_checkpoint(description);
+      switch (result.status) {
+        case "created":
+          return "created";
+        case "skipped":
+          return "skipped";
+        case "no_repo":
+          return "unavailable";
+        case "failed":
+          return "failed";
+      }
+    },
+  };
+
+  const proposal_notes: ProposalNotePort = {
+    read_note: async (note_path) => {
+      const vault_id = stores.vault.vault?.id;
+      if (!vault_id) return null;
+      try {
+        const doc = await note_service.read_note(
+          vault_id,
+          as_note_path(note_path),
+        );
+        return doc.markdown;
+      } catch {
+        // A proposal over a note that cannot be read is stale, not failed.
+        return null;
+      }
+    },
+    write_note: async (note_path, content) => {
+      await note_service.write_note_content(
+        as_note_path(note_path),
+        as_markdown_text(content),
+      );
+    },
+  };
+
+  const proposal_apply = new ProposalApplyService({
+    proposals: stores.assistant_proposals,
+    notes: proposal_notes,
+    git: proposal_git,
+  });
+
   register_ai_actions({
     ...base_action_input,
     ai_store: stores.ai,
     ai_service,
     agentic_runner: new AgenticEditRunner(assistant_kernel, git_service),
     assistant_sessions: stores.assistant_sessions,
+    assistant_proposals: stores.assistant_proposals,
     rag_service,
   });
 
@@ -1201,6 +1255,8 @@ export function create_app_context(input: {
     ...base_action_input,
     assistant_kernel,
     assistant_sessions: stores.assistant_sessions,
+    assistant_proposals: stores.assistant_proposals,
+    proposal_apply,
   });
 
   register_rag_actions({

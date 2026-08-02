@@ -1,6 +1,10 @@
 import { ACTION_IDS } from "$lib/app/action_registry/action_ids";
 import type { ActionRegistrationInput } from "$lib/app/action_registry/action_registration_input";
-import { assistant_session_tab_id } from "$lib/features/tab";
+import {
+  ASSISTANT_PROPOSALS_TAB_ID,
+  ASSISTANT_PROPOSALS_TAB_TITLE,
+  assistant_session_tab_id,
+} from "$lib/features/tab";
 import type { AssistantKernelService } from "$lib/features/assistant/application/assistant_kernel_service";
 import type { ProposalApplyService } from "$lib/features/assistant/application/proposal_apply_service";
 import type { AssistantProposalStore } from "$lib/features/assistant/state/assistant_proposal_store.svelte";
@@ -58,9 +62,16 @@ export function register_assistant_actions(
     },
   });
 
-  // assistant_open_proposals is not registered here — it opens AU-031's
-  // review-center tab and dispatching it needs a tab id this lane does not
-  // own. Filed to WIRING.md.
+  registry.register({
+    id: ACTION_IDS.assistant_open_proposals,
+    label: "Open Proposal Review",
+    execute: () => {
+      stores.tab.open_assistant_proposals_tab(
+        ASSISTANT_PROPOSALS_TAB_ID,
+        ASSISTANT_PROPOSALS_TAB_TITLE,
+      );
+    },
+  });
 
   registry.register({
     id: ACTION_IDS.assistant_accept_proposal,
