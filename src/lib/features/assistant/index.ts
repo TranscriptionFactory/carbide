@@ -72,6 +72,87 @@ export type {
 
 export type { RetrievalPort } from "$lib/features/assistant/ports";
 
+// C3 (AU-040c) — the chat turn itself. Everything below arrived from `rag`:
+// context assembly, prompt building, the run kernel, citation mapping and
+// stream parsing, the agent-turn cluster, the chat actions and all five UI
+// files. Retrieval stayed behind the port.
+export {
+  AssistantChatService,
+  type AssistantChatQueryInput,
+} from "$lib/features/assistant/application/assistant_chat_service";
+
+export type {
+  AssistantChatStreamEvent,
+  AssistantRetrievedContext,
+} from "$lib/features/assistant/types/chat_stream";
+
+export {
+  collect_chat_query_response,
+  handle_chat_mcp_query,
+  type ChatMcpCitation,
+  type ChatMcpQueryEvent,
+  type ChatQueryResponse,
+} from "$lib/features/assistant/application/chat_mcp_bridge";
+
+export { register_chat_actions } from "$lib/features/assistant/application/chat_actions";
+
+export { default as ChatPanel } from "$lib/features/assistant/ui/chat_panel.svelte";
+
+export {
+  AgentRunner,
+  type AgentCheckpointGit,
+  type AgentTurnResult,
+} from "$lib/features/assistant/application/agent_runner";
+
+export {
+  changed_files_from_tools,
+  is_mutating_tool,
+  paths_from_summary,
+  type AgentToolCall,
+} from "$lib/features/assistant/domain/agent_file_ops";
+
+export {
+  citations_from_tools,
+  is_citation_source_tool,
+} from "$lib/features/assistant/domain/agent_citations";
+
+export { build_chat_prompt } from "$lib/features/assistant/domain/chat_prompt_builder";
+
+export {
+  parse_mentions,
+  format_mention_token,
+  strip_mention,
+  type ParsedMentions,
+} from "$lib/features/assistant/domain/mention_tokens";
+
+export {
+  rewrite_query,
+  type QueryRewriteResult,
+} from "$lib/features/assistant/domain/query_rewriter";
+
+export {
+  scope_phrase,
+  to_retrieval_scope,
+  normalize_folder_scope,
+  normalize_tag_scope,
+  normalize_base_scope,
+  path_in_folder,
+} from "$lib/features/assistant/domain/chat_scope";
+
+export {
+  build_scope_suggestions,
+  type ScopeKind,
+  type ScopeSuggestion,
+  type ScopeSources,
+  type ScopeSuggestions,
+} from "$lib/features/assistant/domain/scope_suggest";
+
+export {
+  build_citation_map,
+  match_citation_markers,
+  resolve_citations,
+} from "$lib/features/assistant/domain/chat_citations";
+
 // C3 (AU-040b) — the session model and its hydration boundary. migrate_scope
 // and migrate_session_fields travel with the loader that calls them; they are
 // the only thing standing between a pre-C1 session file and an empty chat list.
