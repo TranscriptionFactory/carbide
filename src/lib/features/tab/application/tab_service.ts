@@ -14,6 +14,10 @@ import {
   assistant_session_tab_id,
   ASSISTANT_SESSION_TAB_TITLE,
 } from "$lib/features/tab/domain/assistant_session_tab";
+import {
+  ASSISTANT_PROPOSALS_TAB_ID,
+  ASSISTANT_PROPOSALS_TAB_TITLE,
+} from "$lib/features/tab/domain/assistant_proposals_tab";
 
 const log = create_logger("tab_service");
 const TABS_KEY = "open_tabs";
@@ -61,6 +65,8 @@ export class TabService {
       active_tab_path = active_tab.id;
     } else if (active_tab?.kind === "assistant_session") {
       active_tab_path = active_tab.id;
+    } else if (active_tab?.kind === "assistant_proposals") {
+      active_tab_path = active_tab.id;
     }
 
     return {
@@ -102,6 +108,13 @@ export class TabService {
             ...base,
             kind: "assistant_session" as const,
             session_id: tab.session_id,
+            cursor: null,
+          };
+        }
+        if (tab.kind === "assistant_proposals") {
+          return {
+            ...base,
+            kind: "assistant_proposals" as const,
             cursor: null,
           };
         }
@@ -308,6 +321,18 @@ export class TabService {
           },
         ];
       }
+      if (t.kind === "assistant_proposals") {
+        return [
+          {
+            kind: "assistant_proposals" as const,
+            id: ASSISTANT_PROPOSALS_TAB_ID,
+            title: ASSISTANT_PROPOSALS_TAB_TITLE,
+            is_pinned: Boolean(t.is_pinned),
+            is_dirty: false,
+            pane,
+          },
+        ];
+      }
       if (t.kind === "document") {
         if (typeof t.file_path !== "string") return [];
         return [
@@ -362,6 +387,7 @@ export class TabService {
     if (active_tab.kind === "search_graph") return;
     if (active_tab.kind === "bases") return;
     if (active_tab.kind === "assistant_session") return;
+    if (active_tab.kind === "assistant_proposals") return;
     if (active_tab.kind !== "note") return;
 
     const result = await this.note_service.open_note(

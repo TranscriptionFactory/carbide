@@ -18,6 +18,7 @@ export type Tab = {
   | { kind: "search_graph"; query: string }
   | { kind: "bases" }
   | { kind: "assistant_session"; session_id: string }
+  | { kind: "assistant_proposals" }
 );
 
 export type TabEditorSnapshot = {
@@ -48,6 +49,7 @@ export type PersistedTab = {
   | { kind: "search_graph"; query: string }
   | { kind: "bases" }
   | { kind: "assistant_session"; session_id: string }
+  | { kind: "assistant_proposals" }
 );
 
 export type PersistedTabState = {
