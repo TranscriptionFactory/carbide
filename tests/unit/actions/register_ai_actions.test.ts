@@ -33,7 +33,11 @@ import {
   as_note_path,
   as_vault_id,
 } from "$lib/shared/types/ids";
-import type { RunHandle, RunOutcome } from "$lib/features/assistant";
+import {
+  AssistantSessionStore,
+  type RunHandle,
+  type RunOutcome,
+} from "$lib/features/assistant";
 import { create_test_vault } from "../helpers/test_fixtures";
 import { BUILTIN_PROVIDER_PRESETS } from "$lib/shared/types/ai_provider_config";
 import { toast } from "svelte-sonner";
@@ -117,6 +121,11 @@ function create_harness() {
     }),
   };
   const agentic_runner = { run: vi.fn() };
+  const assistant_sessions = new AssistantSessionStore();
+  const rag_service = {
+    save_session: vi.fn().mockResolvedValue(undefined),
+    delete_session: vi.fn().mockResolvedValue(undefined),
+  };
 
   stores.ui.editor_settings.ai_providers = BUILTIN_PROVIDER_PRESETS;
   stores.ui.editor_settings.ai_default_provider_id = "auto";
@@ -132,6 +141,8 @@ function create_harness() {
     ai_store,
     ai_service: ai_service as never,
     agentic_runner: agentic_runner as never,
+    assistant_sessions,
+    rag_service: rag_service as never,
   });
 
   return {
@@ -141,6 +152,8 @@ function create_harness() {
     ai_store,
     ai_service,
     agentic_runner,
+    assistant_sessions,
+    rag_service,
   };
 }
 
@@ -1046,6 +1059,207 @@ describe("register_ai_actions", () => {
         expect(services.editor.apply_ai_output).not.toHaveBeenCalled();
         expect(get_ai_menu_state(view.state).open).toBe(false);
         expect(toast.error).toHaveBeenCalledWith("boom");
+      });
+    });
+
+    describe("accepting logs a ⌁ session", () => {
+      function only_session(store: AssistantSessionStore) {
+        const [session, ...rest] = store.sessions;
+        if (!session || rest.length > 0) {
+          throw new Error(
+            `expected exactly one logged session, got ${String(store.sessions.length)}`,
+          );
+        }
+        return session;
+      }
+
+      function click_continue_in_chat() {
+        const [call] = vi.mocked(toast.success).mock.calls;
+        if (!call) throw new Error("no success toast was raised");
+        const [message, options] = call;
+        expect(message).toBe("Inline edit applied");
+        const { action } = options as unknown as {
+          action: { label: string; onClick: () => void };
+        };
+        expect(action.label).toBe("Continue in chat");
+        action.onClick();
+      }
+
+      async function stream_and_accept(
+        payload: { command_id?: string; prompt?: string } = {
+          prompt: "make it sharper",
+        },
+        chunks = ["Sharper ", "prose"],
+      ) {
+        vi.mocked(toast.success).mockClear();
+        const harness = setup_inline();
+        harness.stores.vault.set_vault(create_test_vault());
+        const opened: string[] = [];
+        harness.registry.register({
+          id: ACTION_IDS.assistant_open_session,
+          label: "Open Assistant Session",
+          execute: (...args: unknown[]) => {
+            opened.push(String(args[0]));
+          },
+        });
+        harness.ai_service.stream_inline = vi.fn(function* () {
+          for (const text of chunks) yield { type: "text", text };
+        });
+
+        await harness.registry.execute(ACTION_IDS.ai_open_inline_menu);
+        await harness.registry.execute(ACTION_IDS.ai_execute_inline, payload);
+        await harness.registry.execute(ACTION_IDS.ai_accept_inline);
+
+        return { ...harness, opened };
+      }
+
+      it("records the prompt and the accepted result as one inline session", async () => {
+        const { assistant_sessions } = await stream_and_accept();
+
+        const logged = only_session(assistant_sessions);
+        expect(logged.kind).toBe("inline");
+        expect(logged.title).toBe("make it sharper");
+        expect(logged.title_source).toBe("derived");
+        expect(
+          logged.messages.map((m) => ({ role: m.role, content: m.content })),
+        ).toEqual([
+          { role: "user", content: "make it sharper" },
+          { role: "assistant", content: "Sharper prose" },
+        ]);
+      });
+
+      it("names the session after the command when there is no typed prompt", async () => {
+        const { assistant_sessions } = await stream_and_accept({
+          command_id: "improve",
+        });
+
+        expect(only_session(assistant_sessions).title).toBe("Improve writing");
+      });
+
+      it("persists the session with both messages already attached", async () => {
+        const { rag_service, assistant_sessions } = await stream_and_accept();
+
+        const logged = only_session(assistant_sessions);
+        expect(rag_service.save_session).toHaveBeenCalledTimes(1);
+        expect(rag_service.save_session).toHaveBeenCalledWith(
+          "vault-1",
+          logged,
+        );
+        expect(logged.messages).toHaveLength(2);
+      });
+
+      it("returns from accept without waiting on persistence", async () => {
+        const harness = setup_inline();
+        harness.stores.vault.set_vault(create_test_vault());
+        harness.rag_service.save_session = vi.fn(() => new Promise(() => {}));
+        harness.ai_service.stream_inline = vi.fn(function* () {
+          yield { type: "text", text: "done" };
+        });
+
+        await harness.registry.execute(ACTION_IDS.ai_open_inline_menu);
+        await harness.registry.execute(ACTION_IDS.ai_execute_inline, {
+          prompt: "go",
+        });
+        await expect(
+          harness.registry.execute(ACTION_IDS.ai_accept_inline),
+        ).resolves.toBeUndefined();
+
+        expect(harness.assistant_sessions.sessions).toHaveLength(1);
+      });
+
+      it("offers Continue in chat, which opens the session it just created", async () => {
+        const { assistant_sessions, opened } = await stream_and_accept();
+
+        click_continue_in_chat();
+
+        expect(opened).toEqual([only_session(assistant_sessions).id]);
+      });
+
+      // R3: promoting is opening, not converting — the session keeps its kind
+      // and its full history.
+      it("leaves the promoted session as an inline session with its history", async () => {
+        const { assistant_sessions } = await stream_and_accept();
+
+        click_continue_in_chat();
+
+        const logged = only_session(assistant_sessions);
+        expect(logged.kind).toBe("inline");
+        expect(logged.messages).toHaveLength(2);
+      });
+
+      it("logs one session for the final result when a retry precedes accept", async () => {
+        const harness = setup_inline();
+        harness.stores.vault.set_vault(create_test_vault());
+        let attempt = 0;
+        harness.ai_service.stream_inline = vi.fn(function* () {
+          attempt += 1;
+          yield { type: "text", text: attempt === 1 ? "first" : "second" };
+        });
+
+        await harness.registry.execute(ACTION_IDS.ai_open_inline_menu);
+        await harness.registry.execute(ACTION_IDS.ai_execute_inline, {
+          prompt: "try this",
+        });
+        await harness.registry.execute(ACTION_IDS.ai_execute_inline, {
+          retry: true,
+        });
+        await harness.registry.execute(ACTION_IDS.ai_accept_inline);
+
+        const logged = only_session(harness.assistant_sessions);
+        expect(logged.title).toBe("try this");
+        const [, reply] = logged.messages;
+        expect(reply?.content).toBe("second");
+      });
+
+      it("logs nothing when the result is discarded instead of accepted", async () => {
+        const harness = setup_inline();
+        harness.stores.vault.set_vault(create_test_vault());
+        harness.ai_service.stream_inline = vi.fn(function* () {
+          yield { type: "text", text: "unwanted" };
+        });
+
+        await harness.registry.execute(ACTION_IDS.ai_open_inline_menu);
+        await harness.registry.execute(ACTION_IDS.ai_execute_inline, {
+          prompt: "go",
+        });
+        await harness.registry.execute(ACTION_IDS.ai_reject_inline);
+
+        expect(harness.assistant_sessions.sessions).toEqual([]);
+        expect(harness.rag_service.save_session).not.toHaveBeenCalled();
+      });
+
+      it("logs nothing when accept fires with no streamed result", async () => {
+        const harness = setup_inline();
+        harness.stores.vault.set_vault(create_test_vault());
+
+        await harness.registry.execute(ACTION_IDS.ai_open_inline_menu);
+        await harness.registry.execute(ACTION_IDS.ai_accept_inline);
+
+        expect(harness.assistant_sessions.sessions).toEqual([]);
+        expect(harness.rag_service.save_session).not.toHaveBeenCalled();
+      });
+
+      it("leaves no half-session when there is no active vault", async () => {
+        const harness = setup_inline();
+        harness.ai_service.stream_inline = vi.fn(function* () {
+          yield { type: "text", text: "orphan" };
+        });
+
+        await harness.registry.execute(ACTION_IDS.ai_open_inline_menu);
+        await harness.registry.execute(ACTION_IDS.ai_execute_inline, {
+          prompt: "go",
+        });
+        await harness.registry.execute(ACTION_IDS.ai_accept_inline);
+
+        expect(harness.assistant_sessions.sessions).toEqual([]);
+        expect(harness.rag_service.save_session).not.toHaveBeenCalled();
+      });
+
+      it("still accepts the edit into the document", async () => {
+        const { view } = await stream_and_accept();
+
+        expect(view.state.doc.textContent).toContain("Sharper prose");
+        expect(get_ai_menu_state(view.state).open).toBe(false);
       });
     });
   });

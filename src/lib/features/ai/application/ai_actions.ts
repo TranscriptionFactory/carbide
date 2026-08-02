@@ -40,8 +40,15 @@ import {
   resolve_inline_ai_anchor_coords,
 } from "$lib/features/editor";
 import type { EditorSelectionSnapshot } from "$lib/shared/types/editor";
-import type { RunHandle } from "$lib/features/assistant";
+import type { AssistantSessionStore, RunHandle } from "$lib/features/assistant";
+import type { RagService } from "$lib/features/rag";
 import { build_ai_inline_prompt } from "$lib/features/ai/domain/ai_prompt_builder";
+import {
+  build_inline_messages,
+  derive_inline_title,
+  describe_inline_request,
+  type InlineRequestPayload,
+} from "$lib/features/ai/domain/inline_session_log";
 import { resolve_instructions } from "$lib/shared/domain/prompt_recipes";
 import { collect_open_note_image_parts } from "$lib/features/ai/application/note_image_loader";
 import type { EditorView } from "prosemirror-view";
@@ -88,9 +95,19 @@ export function register_ai_actions(
     ai_store: AiStore;
     ai_service: AiService;
     agentic_runner: AgenticEditRunner;
+    assistant_sessions: AssistantSessionStore;
+    rag_service: RagService;
   },
 ) {
-  const { registry, services, ai_service, ai_store, agentic_runner } = input;
+  const {
+    registry,
+    services,
+    ai_service,
+    ai_store,
+    agentic_runner,
+    assistant_sessions,
+    rag_service,
+  } = input;
 
   let dialog_revision = 0;
   let panel_handle: RunHandle | null = null;
@@ -98,6 +115,11 @@ export function register_ai_actions(
   let last_inline_prompts: {
     system_prompt: string;
     user_prompt: string;
+  } | null = null;
+  let last_inline_request: {
+    prompt: string;
+    provider_id: string;
+    note_path?: string;
   } | null = null;
 
   function ai_enabled() {
@@ -811,9 +833,7 @@ export function register_ai_actions(
       const view = get_inline_view();
       if (!view) return;
 
-      const p = payload as
-        | { command_id?: string; prompt?: string; retry?: boolean }
-        | undefined;
+      const p = payload as InlineRequestPayload | undefined;
 
       const config = await resolve_streaming_provider();
       if (!config) {
@@ -821,6 +841,23 @@ export function register_ai_actions(
           "No streaming-capable AI provider — inline edits need a Claude/Ollama CLI or API provider (Codex is agent-only). Add or select one in Settings.",
         );
         return;
+      }
+
+      // Retry reuses the request that is already recorded; overwriting it here
+      // would lose the prompt, since a retry payload carries neither.
+      if (!p?.retry) {
+        last_inline_request = {
+          prompt: describe_inline_request(
+            p,
+            resolve_instructions(
+              input.stores.ui.editor_settings.ai_inline_commands,
+            ),
+          ),
+          provider_id: config.id,
+          ...(input.stores.editor.open_note
+            ? { note_path: String(input.stores.editor.open_note.meta.path) }
+            : {}),
+        };
       }
 
       // read after the async provider probe: closes the double-trigger window
@@ -916,13 +953,63 @@ export function register_ai_actions(
     },
   });
 
+  // Store writes stay in one tick so no observer can ever see a one-message
+  // inline session; only persistence is detached, and RagService already
+  // swallows its own failures.
+  function log_inline_session(result: string) {
+    const request = last_inline_request;
+    const vault_id = input.stores.vault.active_vault_id;
+    if (!request || !vault_id) return;
+
+    const created = assistant_sessions.create({
+      kind: "inline",
+      title: derive_inline_title(request.prompt),
+      provider_id: request.provider_id,
+      ...(request.note_path
+        ? { origin: { note_path: request.note_path } }
+        : {}),
+    });
+    assistant_sessions.replace_messages(
+      created.id,
+      build_inline_messages(request.prompt, result),
+    );
+
+    // The toast is the immediate affordance; AU-012's ⌁ list row is the
+    // durable one, so a missed toast loses nothing.
+    toast.success("Inline edit applied", {
+      action: {
+        label: "Continue in chat",
+        onClick: () =>
+          void registry.execute(ACTION_IDS.assistant_open_session, created.id),
+      },
+    });
+
+    const stored = assistant_sessions.get(created.id);
+    if (stored) void rag_service.save_session(vault_id, stored);
+  }
+
   registry.register({
     id: ACTION_IDS.ai_accept_inline,
     label: "Accept Inline AI Result",
     execute: () => {
       const view = get_inline_view();
       if (!view) return;
+
+      // The accept meta resets the plugin to its empty state, so the range has
+      // to be read before dispatching.
+      const state = get_ai_menu_state(view.state);
+      const result =
+        state.open && state.ai_range_to > state.ai_range_from
+          ? view.state.doc.textBetween(
+              state.ai_range_from,
+              state.ai_range_to,
+              "\n",
+              "\n",
+            )
+          : "";
+
       dispatch_ai_menu(view, { action: "accept" });
+      if (result) log_inline_session(result);
     },
   });
 

@@ -265,6 +265,13 @@
     label: String(i + 1),
   }));
 
+  const session_retention_options = [
+    { value: "7", label: "7 days" },
+    { value: "30", label: "30 days" },
+    { value: "90", label: "90 days" },
+    { value: "0", label: "Never" },
+  ];
+
   const autocommit_mode_options: { value: GitAutocommitMode; label: string }[] =
     [
       { value: "off", label: "Off" },
@@ -1962,6 +1969,43 @@
                 <Select.Content>
                   {#each [0.3, 0.4, 0.5, 0.6, 0.7] as n (n)}
                     <Select.Item value={String(n)}>{n}</Select.Item>
+                  {/each}
+                </Select.Content>
+              </Select.Root>
+            </div>
+
+            <div class="SettingsDialog__row">
+              <div class="SettingsDialog__label-group">
+                <span class="SettingsDialog__label">Keep Conversations For</span
+                >
+                <span class="SettingsDialog__description"
+                  >Assistant sessions older than this are removed when the vault
+                  opens</span
+                >
+              </div>
+              <Select.Root
+                type="single"
+                value={String(editor_settings.assistant_session_retention_days)}
+                onValueChange={(v: string | undefined) => {
+                  if (v) update("assistant_session_retention_days", Number(v));
+                }}
+                disabled={ai_settings_disabled}
+              >
+                <Select.Trigger class="w-28">
+                  <span data-slot="select-value">
+                    {session_retention_options.find(
+                      (opt) =>
+                        opt.value ===
+                        String(
+                          editor_settings.assistant_session_retention_days,
+                        ),
+                    )?.label ??
+                      `${editor_settings.assistant_session_retention_days} days`}
+                  </span>
+                </Select.Trigger>
+                <Select.Content>
+                  {#each session_retention_options as opt (opt.value)}
+                    <Select.Item value={opt.value}>{opt.label}</Select.Item>
                   {/each}
                 </Select.Content>
               </Select.Root>

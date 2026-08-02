@@ -64,6 +64,9 @@ export type AiMenuPluginConfig = {
   }) => void;
   get_commands?: () => InstructionRecipe[];
   on_open_settings?: () => void;
+  // Accepting has to reach the action so the exchange gets logged; without a
+  // host the plugin still accepts on its own.
+  on_accept?: () => void;
 };
 
 function get_meta(tr: Transaction): AiMenuMeta | undefined {
@@ -227,8 +230,10 @@ export function create_ai_menu_plugin(
             on_command: (id: string) =>
               config?.on_execute?.({ command_id: id }),
             on_retry: () => config?.on_execute?.({ retry: true }),
-            on_accept: () =>
-              dispatch_ai_menu(editor_view, { action: "accept" }),
+            on_accept: () => {
+              if (config?.on_accept) config.on_accept();
+              else dispatch_ai_menu(editor_view, { action: "accept" });
+            },
             on_reject: () => reject_ai_inline(editor_view),
             on_close: () => dispatch_ai_menu(editor_view, { action: "close" }),
             ...(open_settings ? { on_open_settings: open_settings } : {}),
