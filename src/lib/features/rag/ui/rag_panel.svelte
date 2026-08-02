@@ -5,14 +5,9 @@
     AlertCircle,
     SquarePen,
     History,
-    Pencil,
-    Trash2,
-    Check,
     FileText,
-    X,
   } from "@lucide/svelte";
   import { Button } from "$lib/components/ui/button";
-  import { Input } from "$lib/components/ui/input";
   import CollapsibleSection from "$lib/components/ui/collapsible_section.svelte";
   import EmptyMessage from "$lib/components/ui/empty_message.svelte";
   import { use_app_context } from "$lib/app/context/app_context.svelte";
@@ -21,6 +16,7 @@
   import RagInput from "$lib/features/rag/ui/rag_input.svelte";
   import RagModeToggle from "$lib/features/rag/ui/rag_mode_toggle.svelte";
   import { agent_capability } from "$lib/features/ai";
+  import { AssistantSessionList } from "$lib/features/assistant";
   import type {
     RagScope,
     RagSessionMode,
@@ -52,8 +48,6 @@
   );
 
   let show_sessions = $state(false);
-  let renaming_id = $state<string | null>(null);
-  let rename_value = $state("");
 
   let listed_views_for: string | null = null;
   $effect(() => {
@@ -211,33 +205,8 @@
     void action_registry.execute(ACTION_IDS.rag_delete_session, id);
   }
 
-  function begin_rename(id: string, title: string) {
-    renaming_id = id;
-    rename_value = title;
-  }
-
-  function cancel_rename() {
-    renaming_id = null;
-  }
-
-  function commit_rename() {
-    if (!renaming_id) return;
-    void action_registry.execute(
-      ACTION_IDS.rag_rename_session,
-      renaming_id,
-      rename_value,
-    );
-    renaming_id = null;
-  }
-
-  function rename_keydown(event: KeyboardEvent) {
-    if (event.key === "Enter") {
-      event.preventDefault();
-      commit_rename();
-    } else if (event.key === "Escape") {
-      event.preventDefault();
-      cancel_rename();
-    }
+  function rename_session(id: string, title: string) {
+    void action_registry.execute(ACTION_IDS.rag_rename_session, id, title);
   }
 </script>
 
@@ -329,65 +298,13 @@
 
   {#if show_sessions}
     <div class="flex-1 overflow-y-auto p-2">
-      <div class="flex flex-col gap-0.5">
-        {#each sessions as session (session.id)}
-          <div
-            class="group flex items-center gap-1 rounded-md px-2 py-1 text-sm hover:bg-accent {session.id ===
-            rag.active_id
-              ? 'bg-accent'
-              : ''}"
-          >
-            {#if renaming_id === session.id}
-              <Input
-                value={rename_value}
-                oninput={(event) => (rename_value = event.currentTarget.value)}
-                onkeydown={rename_keydown}
-                class="h-7 text-xs"
-              />
-              <Button
-                variant="ghost"
-                size="icon"
-                class="size-6 shrink-0"
-                onclick={commit_rename}
-              >
-                <Check class="size-3.5" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                class="size-6 shrink-0"
-                onclick={cancel_rename}
-              >
-                <X class="size-3.5" />
-              </Button>
-            {:else}
-              <button
-                type="button"
-                class="flex-1 truncate text-left"
-                onclick={() => switch_to(session.id)}
-              >
-                {session.title}
-              </button>
-              <Button
-                variant="ghost"
-                size="icon"
-                class="size-6 shrink-0 opacity-0 group-hover:opacity-100"
-                onclick={() => begin_rename(session.id, session.title)}
-              >
-                <Pencil class="size-3.5" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                class="size-6 shrink-0 opacity-0 group-hover:opacity-100"
-                onclick={() => remove_session(session.id)}
-              >
-                <Trash2 class="size-3.5" />
-              </Button>
-            {/if}
-          </div>
-        {/each}
-      </div>
+      <AssistantSessionList
+        sessions={stores.assistant_sessions.summaries}
+        active_id={rag.active_id}
+        on_open={switch_to}
+        on_rename={rename_session}
+        on_delete={remove_session}
+      />
     </div>
   {:else}
     <div class="flex-1 select-text overflow-y-auto p-3">

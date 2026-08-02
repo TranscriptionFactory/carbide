@@ -138,7 +138,7 @@ export function create_app_stores(): AppStores {
     search_graph: new SearchGraphStore(),
     rag: new RagStore(assistant_sessions),
     assistant_runs: new AssistantRunStore(),
-    assistant_sessions: new AssistantSessionStore(),
+    assistant_sessions,
     // stt: new SttStore(),
   };
 }

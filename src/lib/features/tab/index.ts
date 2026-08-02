@@ -19,3 +19,4 @@ export type {
   PersistedTabState,
   ClosedTabEntry,
 } from "$lib/features/tab/types/tab";
+export { assistant_session_tab_id } from "$lib/features/tab/domain/assistant_session_tab";
