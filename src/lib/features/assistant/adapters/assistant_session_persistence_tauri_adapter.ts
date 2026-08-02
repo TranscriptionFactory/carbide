@@ -4,6 +4,7 @@ import { to_assistant_session_summary } from "$lib/features/assistant/types/sess
 import type { AssistantSessionPersistencePort } from "$lib/features/assistant/ports";
 import type {
   AssistantSession,
+  AssistantSessionKind,
   AssistantSessionSummary,
 } from "$lib/features/assistant/types/session";
 
@@ -18,9 +19,13 @@ const LEGACY_INDEX_PATH = `${LEGACY_DIR}/index.json`;
 
 const SAFE_ID = /^[A-Za-z0-9_-]+$/;
 
-// Index entries written before `kind` existed are missing it.
+// Files written before `kind` existed are missing it, in both the index and
+// the session files themselves.
 type StoredSummary = Omit<AssistantSessionSummary, "kind"> &
   Partial<Pick<AssistantSessionSummary, "kind">>;
+
+type StoredSession = Omit<AssistantSession, "kind"> &
+  Partial<Pick<AssistantSession, "kind">>;
 
 function assert_safe_id(id: string): void {
   if (!SAFE_ID.test(id)) {
@@ -85,11 +90,10 @@ function sort_by_recency(
   return [...summaries].sort((a, b) => b.updated_at - a.updated_at);
 }
 
-function stamp_kind(stored: StoredSummary[]): AssistantSessionSummary[] {
-  return stored.map((summary) => ({
-    ...summary,
-    kind: summary.kind ?? "chat",
-  }));
+function stamp_kind<T extends { kind?: AssistantSessionKind }>(
+  stored: T,
+): T & { kind: AssistantSessionKind } {
+  return { ...stored, kind: stored.kind ?? "chat" };
 }
 
 export function create_assistant_session_persistence_tauri_adapter(): AssistantSessionPersistencePort {
@@ -100,7 +104,7 @@ export function create_assistant_session_persistence_tauri_adapter(): AssistantS
       (await read_json<StoredSummary[]>(vault_id, INDEX_PATH)) ??
       (await read_json<StoredSummary[]>(vault_id, LEGACY_INDEX_PATH)) ??
       [];
-    return stamp_kind(stored);
+    return stored.map(stamp_kind);
   }
 
   return {
@@ -109,10 +113,10 @@ export function create_assistant_session_persistence_tauri_adapter(): AssistantS
     },
 
     async load_session(vault_id, id) {
-      return (
-        (await read_json<AssistantSession>(vault_id, session_path(id))) ??
-        (await read_json<AssistantSession>(vault_id, legacy_session_path(id)))
-      );
+      const stored =
+        (await read_json<StoredSession>(vault_id, session_path(id))) ??
+        (await read_json<StoredSession>(vault_id, legacy_session_path(id)));
+      return stored ? stamp_kind(stored) : null;
     },
 
     async save_session(vault_id, session) {
