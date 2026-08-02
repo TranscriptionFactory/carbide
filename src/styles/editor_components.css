@@ -2247,3 +2247,10 @@ body.block-handle-dragging .prosemirror-dropcursor-inline {
 .AiInlineMenu__action-btn--reject:hover {
   background: oklch(from var(--destructive) l c h / 0.1);
 }
+
+/* Ambient notice anchors — dashed underline, not highlight: readable and
+   ignorable, per the margin-annotation mockup. Applied by the ambient anchor
+   ProseMirror plugin as an inline decoration, never written into the note. */
+.ambient-anchor {
+  border-bottom: 1px dashed var(--interactive);
+}

@@ -52,6 +52,7 @@ function render(options: {
     app_context: {
       stores,
       action_registry: { execute: vi.fn().mockResolvedValue(undefined) },
+      services: { editor: { update_visual_editor_ambient_anchors: vi.fn() } },
     } as unknown as Partial<AppContext>,
     props: {},
   });

@@ -14,6 +14,7 @@ import type {
 } from "$lib/features/editor/adapters/at_palette_types";
 import type { ToolbarVisibility } from "$lib/shared/types/editor_settings";
 import type { Diagnostic } from "$lib/features/diagnostics";
+import type { AmbientNotice } from "$lib/features/assistant";
 import type { FindOptions } from "$lib/features/editor/domain/find_types";
 import type { RichClipboardPayload } from "$lib/features/clipboard";
 import type { BlockPlacement } from "$lib/features/editor/adapters/block_transforms";
@@ -113,6 +114,7 @@ export type EditorSession = {
   set_toolbar_visibility?: (mode: ToolbarVisibility) => void;
   trigger_hover_at_cursor?: () => void;
   update_diagnostics?: (diagnostics: Diagnostic[]) => void;
+  update_ambient_anchors?: (notices: AmbientNotice[]) => void;
   get_view?: () => import("prosemirror-view").EditorView | null;
   turn_into?: (target: string, attrs?: Record<string, unknown>) => void;
   duplicate_block?: () => void;

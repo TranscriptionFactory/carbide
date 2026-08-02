@@ -14,11 +14,12 @@
   import {
     AssistantSessionTabView,
     AssistantProposalsTabView,
+    AssistantNoticeRail,
   } from "$lib/features/assistant";
   import { EditorContextMenu } from "$lib/features/editor";
   import { as_markdown_text } from "$lib/shared/types/ids";
 
-  const { stores, action_registry } = use_app_context();
+  const { stores, action_registry, services } = use_app_context();
 
   const open_note = $derived(stores.editor.open_note);
   const editor_mode = $derived(stores.editor.editor_mode);
@@ -70,6 +71,23 @@
     if (!split_view || !open_note) return;
     open_note.markdown;
     void action_registry.execute(ACTION_IDS.editor_sync_visual_from_store);
+  });
+
+  // Ambient notices are rendered by the rail and underlined in the prose. The
+  // rail is offer-only: the visual-mode gate mirrors the wrapper below because
+  // source mode is a separate implementation (CodeMirror's lint gutter).
+  const ambient_rail_visible = $derived(
+    !split_view && (editor_mode === "visual" || editor_mode === "read_only"),
+  );
+
+  const ambient_notices = $derived(
+    ambient_rail_visible && open_note
+      ? stores.assistant_notices.for_note(open_note.meta.path)
+      : [],
+  );
+
+  $effect(() => {
+    services.editor.update_visual_editor_ambient_anchors(ambient_notices);
   });
 
   function mount_editor(node: HTMLDivElement, note: OpenNoteState) {
@@ -179,24 +197,41 @@
         </div>
       </div>
     {:else}
-      <div
-        class="NoteEditor__visual-wrapper"
-        class:NoteEditor__hidden={editor_mode !== "visual" &&
-          editor_mode !== "read_only"}
-      >
-        <EditorContextMenu>
-          <div
-            use:mount_editor={open_note}
-            class="NoteEditor__content"
-            class:NoteEditor__read-only={editor_mode === "read_only"}
-            class:show-line-numbers={stores.ui.editor_settings
-              .source_editor_line_numbers}
-            class:show-heading-markers={stores.ui.editor_settings
-              .editor_heading_markers}
-            class:show-block-drag-handle={show_drag_handle}
-            class:block-drag-handle-always={drag_handle_always}
-          ></div>
-        </EditorContextMenu>
+      <div class="NoteEditor__visual-row">
+        <div
+          class="NoteEditor__visual-wrapper"
+          class:NoteEditor__hidden={editor_mode !== "visual" &&
+            editor_mode !== "read_only"}
+        >
+          <EditorContextMenu>
+            <div
+              use:mount_editor={open_note}
+              class="NoteEditor__content"
+              class:NoteEditor__read-only={editor_mode === "read_only"}
+              class:show-line-numbers={stores.ui.editor_settings
+                .source_editor_line_numbers}
+              class:show-heading-markers={stores.ui.editor_settings
+                .editor_heading_markers}
+              class:show-block-drag-handle={show_drag_handle}
+              class:block-drag-handle-always={drag_handle_always}
+            ></div>
+          </EditorContextMenu>
+        </div>
+        {#if ambient_rail_visible}
+          <AssistantNoticeRail
+            notices={ambient_notices}
+            on_offer={(notice) =>
+              void action_registry.execute(
+                ACTION_IDS.assistant_accept_notice,
+                notice.id,
+              )}
+            on_dismiss={(id) =>
+              void action_registry.execute(
+                ACTION_IDS.assistant_dismiss_notice,
+                id,
+              )}
+          />
+        {/if}
       </div>
       {#if editor_mode === "source"}
         <SourceEditor
@@ -265,11 +300,21 @@
     height: 100%;
   }
 
+  /* Row so the margin rail is a sibling column of the prose, inside the
+     editor pane rather than a workspace-level pane beside it. */
+  .NoteEditor__visual-row {
+    display: flex;
+    flex-direction: row;
+    flex: 1;
+    min-height: 0;
+  }
+
   .NoteEditor__visual-wrapper {
     display: flex;
     flex-direction: column;
     flex: 1;
     min-height: 0;
+    min-width: 0;
   }
 
   .NoteEditor__content {

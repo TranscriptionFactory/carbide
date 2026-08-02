@@ -13,6 +13,7 @@ import type { AtPaletteItem } from "$lib/features/editor/adapters/at_palette_typ
 import { rank_note_suggestions } from "./rank_note_suggestions";
 import type { ToolbarVisibility } from "$lib/shared/types/editor_settings";
 import type { Diagnostic } from "$lib/features/diagnostics";
+import type { AmbientNotice } from "$lib/features/assistant";
 import type { RichClipboardPayload } from "$lib/features/clipboard";
 import type { BlockPlacement } from "$lib/features/editor/adapters/block_transforms";
 import {
@@ -667,6 +668,10 @@ export class EditorService {
 
   update_visual_editor_diagnostics(diagnostics: Diagnostic[]) {
     this.session?.update_diagnostics?.(diagnostics);
+  }
+
+  update_visual_editor_ambient_anchors(notices: AmbientNotice[]) {
+    this.session?.update_ambient_anchors?.(notices);
   }
 
   toggle_heading_fold(pos?: number) {
