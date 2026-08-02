@@ -1,6 +1,7 @@
 <script lang="ts">
   import { Button } from "$lib/components/ui/button";
   import type { AiDraftDiff } from "$lib/features/ai/domain/ai_diff";
+  import type { ProposalHunk } from "$lib/features/assistant";
 
   type Props = {
     diff: AiDraftDiff | null;
@@ -20,6 +21,14 @@
 
   function is_selected(hunk_id: string) {
     return selected_hunk_ids.includes(hunk_id);
+  }
+
+  function hunk_additions(hunk: ProposalHunk) {
+    return hunk.lines.filter((line) => line.kind === "add").length;
+  }
+
+  function hunk_deletions(hunk: ProposalHunk) {
+    return hunk.lines.filter((line) => line.kind === "del").length;
   }
 </script>
 
@@ -57,18 +66,18 @@
             <span>{hunk.header}</span>
           </div>
           <div class="AiDiffView__summary">
-            {#if hunk.additions > 0}
+            {#if hunk_additions(hunk) > 0}
               <span
                 class="AiDiffView__summary-chip AiDiffView__summary-chip--addition"
               >
-                +{hunk.additions}
+                +{hunk_additions(hunk)}
               </span>
             {/if}
-            {#if hunk.deletions > 0}
+            {#if hunk_deletions(hunk) > 0}
               <span
                 class="AiDiffView__summary-chip AiDiffView__summary-chip--deletion"
               >
-                -{hunk.deletions}
+                -{hunk_deletions(hunk)}
               </span>
             {/if}
           </div>
@@ -76,8 +85,8 @@
         {#each hunk.lines as line}
           <div
             class="AiDiffView__line"
-            class:AiDiffView__line--addition={line.type === "addition"}
-            class:AiDiffView__line--deletion={line.type === "deletion"}
+            class:AiDiffView__line--addition={line.kind === "add"}
+            class:AiDiffView__line--deletion={line.kind === "del"}
           >
             <span class="AiDiffView__gutter AiDiffView__gutter--old">
               {line.old_line ?? ""}
