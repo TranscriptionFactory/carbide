@@ -7,11 +7,11 @@ import { collect_open_note_image_parts } from "$lib/features/ai";
 import { agent_capability } from "$lib/features/ai";
 import type { AiImagePart } from "$lib/features/ai";
 import type { AiProviderConfig } from "$lib/shared/types/ai_provider_config";
-import { DEFAULT_EDITOR_SETTINGS } from "$lib/shared/types/editor_settings";
 import type { AssistantContextStats } from "$lib/features/assistant/types/session";
 import { should_attach_open_note_images } from "$lib/features/assistant/domain/open_note_images";
 import { should_autotitle } from "$lib/features/assistant";
 import type { AssistantChatService } from "$lib/features/assistant/application/assistant_chat_service";
+import { build_chat_query_input } from "$lib/features/assistant/application/chat_query_input";
 import type {
   AssistantChatStore,
   AssistantKernelService,
@@ -29,21 +29,6 @@ import {
 } from "$lib/shared/types/ids";
 
 const CHAT_OP_KEY = "rag.ask";
-
-const RETRIEVE_LIMIT_MIN = 1;
-const RETRIEVE_LIMIT_MAX = 50;
-const TOKEN_BUDGET_MIN = 1000;
-const TOKEN_BUDGET_MAX = 128000;
-
-function clamp_setting(
-  value: number,
-  min: number,
-  max: number,
-  fallback: number,
-): number {
-  if (!Number.isFinite(value)) return fallback;
-  return Math.min(max, Math.max(min, Math.round(value)));
-}
 
 function payload_field(payload: unknown, field: string): string {
   if (typeof payload === "string") return payload;
@@ -255,31 +240,19 @@ export function register_chat_actions(
     let context_stats: AssistantContextStats | null = null;
     try {
       let errored = false;
-      const settings = stores.ui.editor_settings;
-      for await (const event of chat_service.query({
-        question,
-        provider_config: provider,
-        history,
-        scope: chat_store.scope,
-        retrieve_limit: clamp_setting(
-          settings.ai_rag_retrieve_limit,
-          RETRIEVE_LIMIT_MIN,
-          RETRIEVE_LIMIT_MAX,
-          DEFAULT_EDITOR_SETTINGS.ai_rag_retrieve_limit,
-        ),
-        assembler_options: {
-          token_budget: clamp_setting(
-            settings.ai_rag_context_token_budget,
-            TOKEN_BUDGET_MIN,
-            TOKEN_BUDGET_MAX,
-            DEFAULT_EDITOR_SETTINGS.ai_rag_context_token_budget,
-          ),
-        },
-        image_parts,
-        on_run_started: (handle) => {
-          ask_handle = handle;
-        },
-      })) {
+      for await (const event of chat_service.query(
+        build_chat_query_input({
+          question,
+          provider_config: provider,
+          settings: stores.ui.editor_settings,
+          history,
+          scope: chat_store.scope,
+          image_parts,
+          on_run_started: (handle) => {
+            ask_handle = handle;
+          },
+        }),
+      )) {
         if (revision !== chat_store.revision) return;
         if (event.type === "generating") {
           chat_store.set_loading_stage("generating");

@@ -28,6 +28,7 @@ export function create_assistant_chat_mcp_bridge_reactor(
         assistant_kernel.resolve_provider(
           ui_store.editor_settings.ai_default_provider_id,
         ),
+      ui_store.editor_settings,
       event.payload,
     );
   }).then((fn) => {

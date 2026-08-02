@@ -62,6 +62,7 @@ function setup(providers: AiProviderConfig[]) {
   const ui_store = new UIStore();
   ui_store.editor_settings.ai_providers = providers;
   ui_store.editor_settings.ai_default_provider_id = "auto";
+  ui_store.editor_settings.ai_enabled = true;
   const assistant_kernel = make_kernel(providers);
 
   const cleanup = create_assistant_chat_mcp_bridge_reactor(
@@ -74,6 +75,7 @@ function setup(providers: AiProviderConfig[]) {
     emit: (payload: unknown) => handler?.({ payload }),
     assistant_kernel,
     chat_service,
+    ui_store,
     cleanup,
   };
 }
@@ -115,6 +117,21 @@ describe("rag mcp bridge reactor", () => {
     const { emit, chat_service, cleanup } = setup([missing_cli]);
     await flush();
 
+    emit(query_event);
+    await flush();
+
+    expect(chat_service.query).not.toHaveBeenCalled();
+    cleanup();
+  });
+
+  // The settings reach the bridge per event, not once at wiring time, so
+  // toggling the kill switch takes effect on the next query rather than the
+  // next restart.
+  it("reads the settings at event time, so the kill switch applies immediately", async () => {
+    const { emit, chat_service, ui_store, cleanup } = setup([present_cli]);
+    await flush();
+
+    ui_store.editor_settings.ai_enabled = false;
     emit(query_event);
     await flush();
 

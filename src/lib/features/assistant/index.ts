@@ -87,12 +87,18 @@ export type {
 } from "$lib/features/assistant/types/chat_stream";
 
 export {
+  answer_chat_mcp_query,
   collect_chat_query_response,
   handle_chat_mcp_query,
   type ChatMcpCitation,
   type ChatMcpQueryEvent,
   type ChatQueryResponse,
 } from "$lib/features/assistant/application/chat_mcp_bridge";
+
+export {
+  build_chat_query_input,
+  type ChatQueryInputRequest,
+} from "$lib/features/assistant/application/chat_query_input";
 
 export { register_chat_actions } from "$lib/features/assistant/application/chat_actions";
 
