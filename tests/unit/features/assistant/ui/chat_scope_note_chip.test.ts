@@ -72,6 +72,17 @@ describe("chat scope bar — the note chip", () => {
     );
   });
 
+  // Goes through the shadcn Button rather than a hand-rolled `all: unset`
+  // control, which drops the focus ring and leaves keyboard users with no
+  // visible indicator on the affordance.
+  it("carries a visible focus indicator", () => {
+    const target = render_bar();
+
+    expect(this_note_button(target)?.className).toContain(
+      "focus-visible:ring-",
+    );
+  });
+
   it("does not narrow the scope when clicked with no note open", () => {
     const on_scope_change = vi.fn();
     const target = render_bar({ active_note_path: null, on_scope_change });

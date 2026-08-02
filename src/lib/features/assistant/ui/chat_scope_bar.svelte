@@ -1,5 +1,6 @@
 <script lang="ts">
   import { FolderTree, Hash, Layers, X } from "@lucide/svelte";
+  import { Button } from "$lib/components/ui/button";
   import type { TagInfo } from "$lib/features/tags";
   import type { SavedViewInfo } from "$lib/features/bases";
   import type { AssistantScope } from "$lib/features/assistant/types/session";
@@ -215,9 +216,10 @@
   {/if}
 
   {#if !scoped_to_active}
-    <button
-      type="button"
-      class="ScopeBar__this-note"
+    <Button
+      variant="outline"
+      size="sm"
+      class="h-7 self-start px-2 text-xs font-normal text-muted-foreground"
       data-testid="scope-this-note"
       disabled={active_note_path === null}
       title={active_note_path === null
@@ -227,7 +229,7 @@
     >
       {@render kind_icon("note")}
       <span>This note</span>
-    </button>
+    </Button>
   {/if}
 
   <div class="ScopeBar__field">
@@ -285,30 +287,6 @@
     align-items: center;
     font-size: 0.75rem;
     line-height: 1;
-  }
-
-  .ScopeBar__this-note {
-    all: unset;
-    cursor: pointer; /* all:unset beats the global :where() cursor rule */
-    align-self: flex-start;
-    display: inline-flex;
-    align-items: center;
-    gap: 0.25rem;
-    padding: 0.125rem 0.375rem;
-    border-radius: calc(var(--radius) - 4px);
-    border: 1px solid var(--border);
-    color: var(--muted-foreground);
-    font-size: 0.75rem;
-  }
-
-  .ScopeBar__this-note:hover:not(:disabled) {
-    background: var(--accent);
-    color: var(--accent-foreground);
-  }
-
-  .ScopeBar__this-note:disabled {
-    cursor: default;
-    opacity: 0.5;
   }
 
   .ScopeBar__chip-label {

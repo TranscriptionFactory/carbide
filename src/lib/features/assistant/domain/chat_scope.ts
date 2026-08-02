@@ -30,15 +30,11 @@ export function normalize_base_scope(
   return trimmed === "" ? null : trimmed;
 }
 
-// A note path is matched whole, so there is no prefix shape to canonicalize —
-// only the empty case to reject, which keeps a blank chip from narrowing the
-// scope to nothing.
-export function normalize_note_scope(
-  note: string | undefined | null,
-): string | null {
-  const trimmed = (note ?? "").trim();
-  return trimmed === "" ? null : trimmed;
-}
+// A note path, like a base path, is matched whole: no prefix shape to
+// canonicalize, only the empty case to reject so a blank chip cannot narrow
+// the scope to nothing. Same rule, so literally the same function — two
+// identical-by-contract copies would eventually drift.
+export const normalize_note_scope = normalize_base_scope;
 
 function normalize_all(
   values: string[] | undefined,

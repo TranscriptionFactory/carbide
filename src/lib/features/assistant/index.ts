@@ -136,6 +136,7 @@ export {
   normalize_folder_scope,
   normalize_tag_scope,
   normalize_base_scope,
+  normalize_note_scope,
   path_in_folder,
 } from "$lib/features/assistant/domain/chat_scope";
 

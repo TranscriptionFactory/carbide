@@ -929,16 +929,19 @@ export function register_ai_actions(
         return;
       }
 
-      // Resolved once for the whole invocation: the log label and the prompt
-      // both describe the same instruction set, so resolving twice would only
-      // invite them to disagree.
-      const commands = resolve_instructions(
-        input.stores.ui.editor_settings.ai_inline_commands,
-      );
+      // Resolved once, on the only path that reads it: the log label and the
+      // prompt describe the same instruction set, so resolving twice would
+      // invite them to disagree. Retry reuses the request and the prompts
+      // already recorded and reads no instruction set at all, which is why
+      // this stays inside the guard rather than above it.
+      let commands: InstructionRecipe[] = [];
 
       // Retry reuses the request that is already recorded; overwriting it here
       // would lose the prompt, since a retry payload carries neither.
       if (!p?.retry) {
+        commands = resolve_instructions(
+          input.stores.ui.editor_settings.ai_inline_commands,
+        );
         last_inline_request = {
           prompt: describe_inline_request(p, commands),
           provider_id: config.id,
