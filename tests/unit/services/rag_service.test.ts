@@ -1394,9 +1394,9 @@ describe("RagService.query context assembly", () => {
   };
 
   function markdown_by_id(bodies: Record<string, string>) {
-    return vi.fn(async (_vault: unknown, note_id: string) => ({
-      markdown: bodies[note_id] ?? "",
-    }));
+    return vi.fn((_vault: unknown, note_id: string) =>
+      Promise.resolve({ markdown: bodies[note_id] ?? "" }),
+    );
   }
 
   function make_service(search: object, notes: object) {
@@ -1650,7 +1650,7 @@ describe("RagService.query context assembly", () => {
       d: "D body.",
     };
 
-    async function run(order: number[]) {
+    function run(order: number[]) {
       const search = {
         search_blocks: vi.fn().mockResolvedValue([]),
         hybrid_search: vi.fn().mockResolvedValue(order.map((i) => hits[i])),
