@@ -40,6 +40,7 @@ import { SearchGraphStore } from "$lib/features/graph";
 import { RagStore } from "$lib/features/rag";
 import {
   AssistantProposalStore,
+  AssistantNoticeStore,
   AssistantRunStore,
   AssistantSessionStore,
 } from "$lib/features/assistant";
@@ -90,6 +91,7 @@ export type AppStores = {
   assistant_runs: AssistantRunStore;
   assistant_sessions: AssistantSessionStore;
   assistant_proposals: AssistantProposalStore;
+  assistant_notices: AssistantNoticeStore;
   // stt: SttStore;
 };
 
@@ -142,6 +144,7 @@ export function create_app_stores(): AppStores {
     assistant_runs: new AssistantRunStore(),
     assistant_sessions,
     assistant_proposals: new AssistantProposalStore(),
+    assistant_notices: new AssistantNoticeStore(),
     // stt: new SttStore(),
   };
 }

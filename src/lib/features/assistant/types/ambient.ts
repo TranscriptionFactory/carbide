@@ -13,30 +13,36 @@ import type { ProposalOrigin } from "$lib/features/assistant/types/proposal";
 
 export type AmbientNoticeId = string;
 
-// The three deterministic producers of R5. Two were renamed against the plan's
-// wording after C3 recon read the source, and the reasons are load-bearing:
+// R5's deterministic producers. The plan named three; TWO of those three are
+// unbuildable as written, and the reasons are load-bearing.
 //
 // - `stale_link` is the plan's "stale links": an outlink in the note whose
 //   target does not exist. Already computable — SearchPort's note-links
 //   snapshot returns exactly this set from SQLite, per note, with no new Rust.
 //
-// - `unrepaired_link` REPLACES the plan's "renamed links", which as written is
-//   a producer with no input. In-app note rename rewrites every backlinking
-//   file in Rust before any reactor could observe rot, folder rename repairs in
-//   TS, and EXTERNAL renames emit no rename event at all (VaultFsEvent carries
-//   only note_added/note_removed, with no correlation). The real, deterministic
-//   signal is the repair that was attempted and did not land: LinkRepairResult
-//   .failed, plus the links link_repair_service skips because the buffer was
-//   dirty at the time. Same user-facing intent, an input that actually fires.
-//
-// - `orphan_note` means a note with ZERO INBOUND links. Note the collision:
+// - `orphan_note` is a note with ZERO INBOUND links. Note the collision:
 //   everywhere else in this codebase `orphan_links` / `orphan_count` /
 //   graph node kind "orphan" mean a BROKEN OUTLINK — the opposite direction.
-//   This is new detection, not a wrapper over the existing concept.
-export type AmbientNoticeKind =
-  | "stale_link"
-  | "unrepaired_link"
-  | "orphan_note";
+//   Crucially this needs NO vault graph: `backlinks` ships in the very same
+//   `NoteLinksSnapshot` that `stale_link` reads, so both producers come from
+//   ONE per-note indexed query (`index_note_links_snapshot` returns backlinks,
+//   outlinks, orphan_links and attachments together). Fires only when
+//   `backlinks` is empty AND `outlinks` is not — a brand-new or unindexed note
+//   has neither, so the guard suppresses that false-positive class too.
+//
+// - The plan's "renamed links" HAS NO PRODUCER AND IS DROPPED. In-app rename
+//   rewrites every backlinking file in Rust before a reactor could observe rot,
+//   folder rename repairs in TS, and external renames emit no rename event.
+//   A first attempt to re-scope it onto "the repair that did not land" also
+//   failed on inspection: `LinkRepairResult.failed` is folded into a COUNT
+//   before it leaves the stack (`on_failed(build_link_repair_failed_message(
+//   result.failed.length))`, and `OpStore.fail` stores only a string), so the
+//   paths are discarded and no notice can carry a `note_path`. The dirty-buffer
+//   skip is separately not a failure at all — it returns `{status:"rewritten"}`,
+//   i.e. the buffer holds the fix and disk does not. That state is *unpersisted*,
+//   not unrepaired. Reviving this producer requires widening the repair API to
+//   retain paths, which is cross-feature work C3 has not authorised.
+export type AmbientNoticeKind = "stale_link" | "orphan_note";
 
 // Where a notice points inside a note.
 //
@@ -50,9 +56,29 @@ export type AmbientNoticeKind =
 // the block, and the tree's `BlockAnchor` is a cursor-restoration device, not
 // an anchoring mechanism.
 //
-// Instead the anchor is re-resolved at render time from the note's text, the
-// way a Diagnostic is re-resolved from line/column on every rebuild. Notices
-// are in-memory and session-scoped, so nothing has to survive a reopen.
+// Instead the anchor is re-resolved at render time from the note's text.
+// Notices are in-memory and session-scoped, so nothing has to survive a reopen.
+//
+// AMENDED after AU-061's phase 1, which caught two errors in this comment's
+// first draft:
+//
+// (1) `match` is the text AS RENDERED IN THE DOCUMENT, not the source markdown.
+//     The wiki-link plugin REPLACES the literal `[[target]]` with a link-marked
+//     text node whose text is `format_wiki_target_display(target)`, so an anchor
+//     carrying `"[[fusion-weights]]"` matches nothing in the visual editor.
+//     **Producers must convert before emitting.** (Consequence, accepted and
+//     named: in source mode the raw `[[...]]` is the document text, so such an
+//     anchor degrades to note-level there — source mode is out of scope for v1.)
+//
+// (2) The diagnostics plugin is NOT the precedent for re-resolution. It MAPS
+//     its decorations through `tr.mapping` on `docChanged` and only re-resolves
+//     when a new set is pushed from outside. Mapping is wrong here: a text
+//     anchor whose text was edited away must STOP resolving, and a mapped range
+//     would survive as a stale highlight. The correct precedent is
+//     `find_highlight_plugin`, which recomputes on every doc change.
+//
+// An anchor that no longer resolves degrades to note-level. It never throws and
+// never silently drops the notice.
 export type AmbientAnchor =
   | { kind: "note" }
   | { kind: "text"; match: string; occurrence: number };
