@@ -7,10 +7,8 @@
     ProposalHunkId,
     ProposalId,
   } from "$lib/features/assistant/types/proposal";
-  import type {
-    AssistantSessionKind,
-    AssistantSessionSummary,
-  } from "$lib/features/assistant/types/session";
+  import { KIND_GLYPHS } from "$lib/features/assistant/domain/kind_glyphs";
+  import type { AssistantSessionSummary } from "$lib/features/assistant/types/session";
 
   interface Props {
     proposals: Proposal[];
@@ -33,12 +31,6 @@
     on_reject_proposal,
     on_toggle_hunk,
   }: Props = $props();
-
-  const KIND_GLYPHS: Record<AssistantSessionKind, string> = {
-    inline: "⌁",
-    note: "▤",
-    chat: "◈",
-  };
 
   const session_by_id = $derived(
     new Map(session_summaries.map((session) => [session.id, session])),

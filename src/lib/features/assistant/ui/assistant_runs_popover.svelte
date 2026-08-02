@@ -1,11 +1,8 @@
 <script lang="ts">
   import AssistantStopButton from "./assistant_stop_button.svelte";
   import { note_name_from_path } from "$lib/shared/utils/path";
-  import type {
-    RunId,
-    RunKind,
-    RunRecord,
-  } from "$lib/features/assistant/types/run";
+  import { KIND_GLYPHS } from "$lib/features/assistant/domain/kind_glyphs";
+  import type { RunId, RunRecord } from "$lib/features/assistant/types/run";
 
   interface Props {
     runs: RunRecord[];
@@ -14,14 +11,6 @@
   }
 
   let { runs, on_stop, now = () => Date.now() }: Props = $props();
-
-  const KIND_GLYPHS: Record<RunKind, string> = {
-    inline: "⌁",
-    note: "▤",
-    chat: "◈",
-    agent: "◈",
-    background: "▤",
-  };
 
   const TICK_MS = 1000;
 
