@@ -1,3 +1,4 @@
+import { note_name_from_path } from "$lib/shared/utils/path";
 import type { AssistantScope } from "$lib/features/assistant/types/session";
 import type { RetrievalScope } from "$lib/features/assistant/types/retrieval";
 
@@ -29,6 +30,16 @@ export function normalize_base_scope(
   return trimmed === "" ? null : trimmed;
 }
 
+// A note path is matched whole, so there is no prefix shape to canonicalize —
+// only the empty case to reject, which keeps a blank chip from narrowing the
+// scope to nothing.
+export function normalize_note_scope(
+  note: string | undefined | null,
+): string | null {
+  const trimmed = (note ?? "").trim();
+  return trimmed === "" ? null : trimmed;
+}
+
 function normalize_all(
   values: string[] | undefined,
   normalize: (value: string) => string | null,
@@ -46,6 +57,7 @@ export function to_retrieval_scope(scope: AssistantScope): RetrievalScope {
     folders: normalize_all(scope.folders, normalize_folder_scope),
     tags: normalize_all(scope.tags, normalize_tag_scope),
     bases: normalize_all(scope.bases, normalize_base_scope),
+    notes: normalize_all(scope.notes, normalize_note_scope),
   } as RetrievalScope;
 }
 
@@ -56,10 +68,19 @@ function join_human(parts: string[]): string {
 
 export function scope_phrase(scope: AssistantScope): string {
   const parts: string[] = [];
+  const notes = scope.notes ?? [];
   const folders = scope.folders ?? [];
   const tags = scope.tags ?? [];
   const bases = scope.bases ?? [];
 
+  // Notes lead: they are the narrowest dimension, and a prompt reads better
+  // naming the note before the folder it happens to sit in.
+  if (notes.length) {
+    const label = notes.map((n) => `"${note_name_from_path(n)}"`);
+    parts.push(
+      `the ${notes.length > 1 ? "notes" : "note"} ${join_human(label)}`,
+    );
+  }
   if (folders.length) {
     const label = folders.map((f) => `"${f.replace(/\/+$/, "")}"`);
     parts.push(

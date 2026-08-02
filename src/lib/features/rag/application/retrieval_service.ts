@@ -250,7 +250,8 @@ export class RetrievalService {
     return (
       (scope.folders?.length ?? 0) +
         (scope.tags?.length ?? 0) +
-        (scope.bases?.length ?? 0) >
+        (scope.bases?.length ?? 0) +
+        (scope.notes?.length ?? 0) >
       0
     );
   }
@@ -312,6 +313,12 @@ export class RetrievalService {
     hits: RetrievalHit[],
     scope: RetrievalScope | undefined,
   ): Promise<RetrievalHit[]> {
+    const notes = scope?.notes ?? [];
+    if (notes.length > 0) {
+      const allowed = new Set(notes);
+      hits = hits.filter((hit) => allowed.has(hit.note_path));
+    }
+
     const folders = scope?.folders ?? [];
     if (folders.length > 0) {
       hits = hits.filter((hit) =>

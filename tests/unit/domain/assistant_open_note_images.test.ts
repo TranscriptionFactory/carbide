@@ -34,6 +34,28 @@ describe("should_attach_open_note_images", () => {
     ).toBe(true);
   });
 
+  // Scoping the chat to the open note and then asking about a diagram in it
+  // must not silently drop the diagram.
+  it("attaches when the note is the one the chat is scoped to", () => {
+    expect(
+      should_attach_open_note_images({
+        question: "what does this diagram show?",
+        scope: { notes: [note.note_path] },
+        ...note,
+      }),
+    ).toBe(true);
+  });
+
+  it("does not attach for a note scope naming a different note", () => {
+    expect(
+      should_attach_open_note_images({
+        question: "what does this diagram show?",
+        scope: { notes: ["projects/design/other.md"] },
+        ...note,
+      }),
+    ).toBe(false);
+  });
+
   it("attaches when the note sits inside an active folder scope", () => {
     expect(
       should_attach_open_note_images({

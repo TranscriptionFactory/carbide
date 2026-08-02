@@ -100,6 +100,24 @@ describe("scope_phrase", () => {
       }),
     ).toBe('the folder "Daily", notes tagged #journal and the "Reading" view');
   });
+
+  it("names a scoped note by title rather than by path", () => {
+    expect(scope_phrase({ notes: ["projects/Hybrid Retrieval.md"] })).toBe(
+      'the note "Hybrid Retrieval"',
+    );
+  });
+
+  it("pluralizes and joins multiple notes", () => {
+    expect(scope_phrase({ notes: ["a/One.md", "b/Two.md"] })).toBe(
+      'the notes "One" and "Two"',
+    );
+  });
+
+  it("leads with the note when it is combined with a wider dimension", () => {
+    expect(
+      scope_phrase({ notes: ["Daily/Today.md"], folders: ["Daily"] }),
+    ).toBe('the note "Today" and the folder "Daily"');
+  });
 });
 
 // The seam's precondition. Rag inlines a bare startsWith under the port, so an
@@ -115,12 +133,23 @@ describe("to_retrieval_scope", () => {
         folders: ["/projects/"],
         tags: ["#work"],
         bases: ["  views/active.base  "],
+        notes: ["  notes/hybrid-retrieval.md  "],
       }),
     ).toEqual({
       folders: ["projects/"],
       tags: ["work"],
       bases: ["views/active.base"],
+      notes: ["notes/hybrid-retrieval.md"],
     });
+  });
+
+  // Unlike a folder, a note path is matched whole, so there is no prefix shape
+  // to canonicalize — trimming is the entire normalization, and the path must
+  // survive it byte for byte or the exact match silently stops matching.
+  it("carries a note path through unchanged apart from surrounding whitespace", () => {
+    expect(to_retrieval_scope({ notes: ["a/b/Deep Note.md"] }).notes).toEqual([
+      "a/b/Deep Note.md",
+    ]);
   });
 
   it("gives folders the trailing slash that makes prefix matching correct", () => {
@@ -134,8 +163,13 @@ describe("to_retrieval_scope", () => {
 
   it("drops empty entries rather than emitting a filter that matches nothing", () => {
     expect(
-      to_retrieval_scope({ folders: ["", "  "], tags: ["#"], bases: [""] }),
-    ).toEqual({ folders: [], tags: [], bases: [] });
+      to_retrieval_scope({
+        folders: ["", "  "],
+        tags: ["#"],
+        bases: [""],
+        notes: ["", "   "],
+      }),
+    ).toEqual({ folders: [], tags: [], bases: [], notes: [] });
   });
 
   // Compile-time half of the precondition, and the reason the runtime cases
@@ -154,6 +188,7 @@ describe("to_retrieval_scope", () => {
       folders: [],
       tags: [],
       bases: [],
+      notes: [],
     });
   });
 });

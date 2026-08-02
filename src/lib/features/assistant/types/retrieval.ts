@@ -8,10 +8,16 @@
 // it silently under-matches and quietly narrows the user's scope, which is a
 // worse failure than a crash. Only to_retrieval_scope produces this type, so
 // the precondition is enforced by the compiler rather than by convention.
+// `notes` (C3 amendment, AU-050) is matched whole rather than by prefix, so it
+// has no normalization step to skip and cannot under-match the way an
+// unnormalized folder does. The brand is not thereby decorative: folders still
+// carry the precondition it exists to enforce, and to_retrieval_scope remains
+// the only producer of this type.
 export type RetrievalScope = {
   folders?: string[];
   tags?: string[];
   bases?: string[];
+  notes?: string[];
   readonly __brand: "RetrievalScope";
 };
 

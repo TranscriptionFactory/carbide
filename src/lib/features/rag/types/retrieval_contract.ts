@@ -7,10 +7,13 @@
 // to_retrieval_scope, whose branded return type is the compiler-enforced
 // precondition. Folder prefixes therefore already carry their trailing slash,
 // which is why matching here is a bare startsWith.
+// `notes` holds whole note paths and is matched exactly, which is why it needs
+// no counterpart to the folder normalization above.
 export type RetrievalScope = {
   folders?: string[];
   tags?: string[];
   bases?: string[];
+  notes?: string[];
 };
 
 export type RetrievalRequest = {

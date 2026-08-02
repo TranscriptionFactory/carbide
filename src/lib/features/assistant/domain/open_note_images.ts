@@ -28,6 +28,8 @@ export function should_attach_open_note_images(input: {
     return true;
   }
 
+  if ((input.scope.notes ?? []).includes(input.note_path)) return true;
+
   const folders = (input.scope.folders ?? [])
     .map(normalize_folder_scope)
     .filter((f): f is string => f !== null);

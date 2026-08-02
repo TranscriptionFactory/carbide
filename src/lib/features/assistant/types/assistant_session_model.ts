@@ -82,8 +82,10 @@ export function migrate_scope(raw: unknown): AssistantScope {
   const folders = to_scope_list(record.folders, record.folder);
   const tags = to_scope_list(record.tags, record.tag);
   const bases = to_scope_list(record.bases, undefined);
+  const notes = to_scope_list(record.notes, undefined);
   if (folders.length) scope.folders = folders;
   if (tags.length) scope.tags = tags;
   if (bases.length) scope.bases = bases;
+  if (notes.length) scope.notes = notes;
   return scope;
 }

@@ -140,6 +140,27 @@ describe("RetrievalService.retrieve", () => {
     expect(search.hybrid_search.mock.calls[0]?.[2]).toBe(15 * 6);
   });
 
+  // A note scope is the narrowest filter there is, so it is the one most
+  // likely to strip the whole page — it has to count as active for over-fetch.
+  it("counts a note-only scope as active for over-fetch", async () => {
+    const search = {
+      search_blocks: vi.fn().mockResolvedValue([]),
+      hybrid_search: vi
+        .fn()
+        .mockResolvedValue([hit("journal/a.md", "A", "1", 0.9)]),
+    };
+    const service = make_service({
+      search,
+      notes: { read_note: vi.fn().mockResolvedValue({ markdown: "Entry." }) },
+    });
+
+    await service.retrieve(
+      request({ query: "standup notes", scope: { notes: ["journal/a.md"] } }),
+    );
+
+    expect(search.hybrid_search.mock.calls[0]?.[2]).toBe(15 * 6);
+  });
+
   it("reads linked-source hits from the index instead of the filesystem", async () => {
     const linked_path = "@linked/papers/clustering.pdf";
     const search = {
@@ -220,6 +241,87 @@ describe("RetrievalService.retrieve", () => {
       (call: unknown[]) => call[1] as string,
     );
     expect(read_ids).toEqual(["1"]);
+  });
+
+  it("restricts retrieved sources to the exact note in a note scope", async () => {
+    const search = {
+      search_blocks: vi.fn().mockResolvedValue([]),
+      hybrid_search: vi
+        .fn()
+        .mockResolvedValue([
+          hit("projects/a.md", "A", "1", 0.9),
+          hit("projects/ab.md", "AB", "2", 0.8),
+          hit("archive/a.md", "A elsewhere", "3", 0.7),
+        ]),
+    };
+    const notes = {
+      read_note: vi.fn().mockResolvedValue({ markdown: "Body." }),
+    };
+    const service = make_service({ search, notes });
+
+    await service.retrieve(request({ scope: { notes: ["projects/a.md"] } }));
+
+    const read_ids = notes.read_note.mock.calls.map(
+      (call: unknown[]) => call[1] as string,
+    );
+    expect(read_ids).toEqual(["1"]);
+  });
+
+  // The difference between a note scope and a folder scope: a folder is a
+  // prefix, a note is not. "projects/a.md" must not admit "projects/ab.md".
+  it("does not let a note scope match a longer path that starts with it", async () => {
+    const search = {
+      search_blocks: vi.fn().mockResolvedValue([]),
+      hybrid_search: vi
+        .fn()
+        .mockResolvedValue([hit("projects/ab.md", "AB", "2", 0.8)]),
+    };
+    const notes = {
+      read_note: vi.fn().mockResolvedValue({ markdown: "Body." }),
+    };
+    const service = make_service({ search, notes });
+
+    const outcome = await service.retrieve(
+      request({ query: "q", scope: { notes: ["projects/a"] } }),
+    );
+
+    expect(outcome).toEqual({ status: "scope_filtered" });
+    expect(notes.read_note).not.toHaveBeenCalled();
+  });
+
+  it("reports scope_filtered when the scoped note is not among the hits", async () => {
+    const search = {
+      search_blocks: vi.fn().mockResolvedValue([]),
+      hybrid_search: vi
+        .fn()
+        .mockResolvedValue([hit("archive/b.md", "B", "2", 0.8)]),
+    };
+    const service = make_service({ search });
+
+    const outcome = await service.retrieve(
+      request({ query: "q", scope: { notes: ["projects/a.md"] } }),
+    );
+
+    expect(outcome).toEqual({ status: "scope_filtered" });
+  });
+
+  it("intersects a note scope with a folder scope rather than widening", async () => {
+    const search = {
+      search_blocks: vi.fn().mockResolvedValue([]),
+      hybrid_search: vi
+        .fn()
+        .mockResolvedValue([hit("archive/a.md", "A", "1", 0.9)]),
+    };
+    const service = make_service({ search });
+
+    const outcome = await service.retrieve(
+      request({
+        query: "q",
+        scope: { notes: ["archive/a.md"], folders: ["projects"] },
+      }),
+    );
+
+    expect(outcome).toEqual({ status: "scope_filtered" });
   });
 
   it("restricts retrieved sources to notes carrying the tag scope", async () => {
