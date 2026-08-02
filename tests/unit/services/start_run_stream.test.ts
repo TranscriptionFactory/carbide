@@ -6,6 +6,7 @@ import {
   type AssistantTransportPort,
   type RunEvent,
   type RunSpec,
+  type RunStreamItem,
 } from "$lib/features/assistant";
 import {
   create_manual_transport,
@@ -54,8 +55,10 @@ function spec(overrides: Partial<RunSpec> = {}): RunSpec {
   return make_run_spec({ provider: PROVIDER, ...overrides });
 }
 
-async function drain(events: AsyncIterable<RunEvent>): Promise<RunEvent[]> {
-  const collected: RunEvent[] = [];
+async function drain(
+  events: AsyncIterable<RunStreamItem>,
+): Promise<RunStreamItem[]> {
+  const collected: RunStreamItem[] = [];
   for await (const event of events) collected.push(event);
   return collected;
 }

@@ -118,6 +118,12 @@ export type RunSink = {
   on_end?: (run_id: RunId, outcome: RunOutcome) => void;
 };
 
+// C1 contract item (b): start() mints the id, opens the run record, and
+// registers the abort controller BEFORE provider resolution, and the returned
+// promise settles without awaiting resolution — a run is stoppable from the
+// instant it exists. Refusals (no provider, no vault, no blocking target)
+// settle through `outcome`, never by rejecting start(). Closes the
+// AgentRunner.abort() no-op window W0 recorded as Open Item #2.
 export type RunStarter = {
   start: (spec: RunSpec, sink?: RunSink) => Promise<RunHandle>;
 };
