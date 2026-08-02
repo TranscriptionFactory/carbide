@@ -39,6 +39,7 @@ import { SmartLinksStore } from "$lib/features/smart_links";
 import { SearchGraphStore } from "$lib/features/graph";
 import { RagStore } from "$lib/features/rag";
 import {
+  AssistantProposalStore,
   AssistantRunStore,
   AssistantSessionStore,
 } from "$lib/features/assistant";
@@ -88,6 +89,7 @@ export type AppStores = {
   rag: RagStore;
   assistant_runs: AssistantRunStore;
   assistant_sessions: AssistantSessionStore;
+  assistant_proposals: AssistantProposalStore;
   // stt: SttStore;
 };
 
@@ -139,6 +141,7 @@ export function create_app_stores(): AppStores {
     rag: new RagStore(assistant_sessions),
     assistant_runs: new AssistantRunStore(),
     assistant_sessions,
+    assistant_proposals: new AssistantProposalStore(),
     // stt: new SttStore(),
   };
 }
