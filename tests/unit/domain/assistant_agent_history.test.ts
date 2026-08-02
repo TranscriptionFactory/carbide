@@ -1,16 +1,19 @@
 import { describe, expect, it } from "vitest";
-import { rag_messages_to_history } from "$lib/features/rag/domain/agent_history";
-import type { RagMessage, RagRole } from "$lib/features/rag/domain/rag_types";
+import { session_messages_to_history } from "$lib/features/assistant";
+import type { AssistantMessage, AssistantRole } from "$lib/features/assistant";
 
 function msg(
-  partial: Partial<RagMessage> & { role: RagRole; content: string },
-): RagMessage {
+  partial: Partial<AssistantMessage> & {
+    role: AssistantRole;
+    content: string;
+  },
+): AssistantMessage {
   return { id: crypto.randomUUID(), citations: [], ...partial };
 }
 
-describe("rag_messages_to_history", () => {
+describe("session_messages_to_history", () => {
   it("maps roles, tool_calls, and tool_call_id in order", () => {
-    const history = rag_messages_to_history([
+    const history = session_messages_to_history([
       msg({ role: "user", content: "find the note" }),
       msg({
         role: "assistant",
@@ -41,7 +44,7 @@ describe("rag_messages_to_history", () => {
       msg({ role: "user", content: `m${i}` }),
     );
 
-    const history = rag_messages_to_history(messages);
+    const history = session_messages_to_history(messages);
 
     expect(history).toHaveLength(40);
     expect(history[0]?.content).toBe("m5");
@@ -49,7 +52,7 @@ describe("rag_messages_to_history", () => {
   });
 
   it("drops an orphaned tool result when its call was evicted by the cap", () => {
-    const messages: RagMessage[] = [
+    const messages: AssistantMessage[] = [
       msg({
         role: "assistant",
         content: "searching",
@@ -61,7 +64,7 @@ describe("rag_messages_to_history", () => {
       ),
     ];
 
-    const history = rag_messages_to_history(messages);
+    const history = session_messages_to_history(messages);
 
     expect(history).toHaveLength(39);
     expect(history.every((m) => m.role !== "tool")).toBe(true);

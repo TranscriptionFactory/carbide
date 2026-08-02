@@ -14,7 +14,7 @@ import {
   is_mutating_call,
   type AgentToolCall,
 } from "$lib/features/rag/domain/agent_file_ops";
-import { rag_messages_to_history } from "$lib/features/rag/domain/agent_history";
+import { session_messages_to_history } from "$lib/features/assistant";
 import type { AgentTurnProposalProducer } from "$lib/features/rag/application/agent_proposal_service";
 import type { RagStore } from "$lib/features/rag/state/rag_store.svelte";
 
@@ -73,7 +73,7 @@ export class AgentRunner {
 
     const anchor = await this.checkpoint();
 
-    const history = rag_messages_to_history(session.messages.slice(0, -1));
+    const history = session_messages_to_history(session.messages.slice(0, -1));
     const tool_calls: AgentToolCall[] = [];
 
     try {

@@ -24,6 +24,17 @@ export {
   type RunStreamItem,
 } from "$lib/features/assistant/application/run_stream";
 
+// C3 (AU-040a) — the agent turn's wire types. Both were declared in `rag` and
+// consumed only from here; they are transport concerns with no retrieval
+// content, and they were the whole of the assistant → rag edge.
+export type { AgentEvent } from "$lib/features/assistant/types/agent_events";
+
+export {
+  session_messages_to_history,
+  type AgentHistoryMessage,
+  type AgentHistoryToolCall,
+} from "$lib/features/assistant/types/agent_history";
+
 export type {
   AssistantProviderProbePort,
   AssistantSessionPersistencePort,

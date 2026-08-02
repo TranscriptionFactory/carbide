@@ -11,7 +11,6 @@ export { load_assistant_sessions } from "$lib/features/rag/application/assistant
 export { register_rag_actions } from "$lib/features/rag/application/rag_actions";
 export { default as RagPanel } from "$lib/features/rag/ui/rag_panel.svelte";
 export type { RagPersistencePort } from "$lib/features/rag/ports";
-export type { AiMessage as AgentHistoryMessage } from "$lib/features/rag/domain/agent_history";
 export {
   AgentRunner,
   type AgentCheckpointGit,
@@ -27,11 +26,7 @@ export {
   citations_from_tools,
   is_citation_source_tool,
 } from "$lib/features/rag/domain/agent_citations";
-export type {
-  AgentDoneStats,
-  AgentEvent,
-  AgentPermissionMode,
-} from "$lib/features/rag/types/agent_events";
+export type { AgentPermissionMode } from "$lib/features/rag/types/agent_events";
 export { migrate_agent_fields } from "$lib/features/rag/types/rag_session";
 export { build_rag_prompt } from "$lib/features/rag/domain/rag_prompt_builder";
 export {
