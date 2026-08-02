@@ -127,6 +127,8 @@ import type { ToolbarVisibility } from "$lib/shared/types/editor_settings";
 import { trigger_lsp_hover } from "./lsp_hover_plugin";
 import type { Diagnostic } from "$lib/features/diagnostics";
 import { update_prosemirror_diagnostics } from "./diagnostics_decoration_plugin";
+import type { AmbientNotice } from "$lib/features/assistant";
+import { update_prosemirror_ambient_anchors } from "./ambient_anchor_plugin";
 
 const log = create_logger("prosemirror_adapter");
 
@@ -1500,6 +1502,10 @@ export function create_prosemirror_editor_port(args?: {
             diagnostics,
             () => current_markdown,
           );
+        },
+        update_ambient_anchors(notices: AmbientNotice[]) {
+          if (!view) return;
+          update_prosemirror_ambient_anchors(view, notices);
         },
         get_view() {
           return view;
