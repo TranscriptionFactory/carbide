@@ -1,10 +1,54 @@
-// AU-040b lands only the readiness half of C3's retrieval contract; AU-040c
-// adds RetrievalPort itself alongside it.
-//
-// Declared here rather than in ports.ts because the stores layer rule bans
-// importing anything whose basename is `ports.ts`, and the chat store carries
-// readiness as view state. ports.ts imports these the same way it already
-// imports AssistantSession from types/session.ts.
+// C3's retrieval contract. Declared here rather than in ports.ts because the
+// stores layer rule bans importing anything whose basename is `ports.ts`, and
+// the chat store carries readiness as view state. ports.ts imports these the
+// same way it already imports AssistantSession from types/session.ts.
+
+// Branded so the normalization step cannot be skipped. An unnormalized folder
+// ("projects" rather than "projects/") does not throw on the retrieval side —
+// it silently under-matches and quietly narrows the user's scope, which is a
+// worse failure than a crash. Only to_retrieval_scope produces this type, so
+// the precondition is enforced by the compiler rather than by convention.
+export type RetrievalScope = {
+  folders?: string[];
+  tags?: string[];
+  bases?: string[];
+  readonly __brand: "RetrievalScope";
+};
+
+export type RetrievalRequest = {
+  // Already rewritten and mention-stripped by the caller: rag is session-blind,
+  // so no conversation-shaped value crosses this boundary.
+  query: string;
+  pinned_titles: string[];
+  boost_paths: string[];
+  scope?: RetrievalScope;
+  limit?: number;
+};
+
+// `markdown` is the whole note; `section` is the line range that matched, or
+// null for a whole-note hit. Slicing is a budget decision, so it belongs to
+// assembly rather than to retrieval.
+export type RetrievedNote = {
+  id: string;
+  note_path: string;
+  title: string;
+  markdown: string;
+  score: number;
+  source_tag: string;
+  section: { start_line: number; end_line: number } | null;
+};
+
+// Discriminated rather than thrown: RagScopeError is a rag class, and an
+// exception crossing the port would make `assistant` name it. Retrieval reports
+// facts; the assistant owns every user-facing string.
+export type RetrievalOutcome =
+  | { status: "hits"; pinned: RetrievedNote[]; retrieved: RetrievedNote[] }
+  | { status: "empty" }
+  | { status: "scope_filtered" }
+  | { status: "no_vault" }
+  | { status: "search_failed" }
+  | { status: "scope_failed"; scope_label: string };
+
 export type RetrievalReadiness =
   | { state: "checking" }
   | { state: "indexing"; embedded: number; total: number }

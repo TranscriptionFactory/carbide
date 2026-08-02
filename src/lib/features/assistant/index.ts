@@ -62,7 +62,15 @@ export type {
 
 export type { AssistantChatSourceInfo } from "$lib/features/assistant/types/chat_stream";
 
-export type { RetrievalReadiness } from "$lib/features/assistant/types/retrieval";
+export type {
+  RetrievalOutcome,
+  RetrievalReadiness,
+  RetrievalRequest,
+  RetrievalScope,
+  RetrievedNote,
+} from "$lib/features/assistant/types/retrieval";
+
+export type { RetrievalPort } from "$lib/features/assistant/ports";
 
 // C3 (AU-040b) — the session model and its hydration boundary. migrate_scope
 // and migrate_session_fields travel with the loader that calls them; they are
