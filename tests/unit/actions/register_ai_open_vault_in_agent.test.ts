@@ -35,10 +35,6 @@ function create_harness() {
   const ai_service = {
     open_vault_in_agent: vi.fn().mockResolvedValue(undefined),
   };
-  const ai_history = {
-    load_history: vi.fn().mockResolvedValue([]),
-    save_history: vi.fn().mockResolvedValue(undefined),
-  };
   register_ai_actions({
     registry,
     stores: stores as never,
@@ -49,7 +45,6 @@ function create_harness() {
     },
     ai_store: new AiStore(),
     ai_service: ai_service as never,
-    ai_history: ai_history as never,
     agentic_runner: { run: vi.fn() } as never,
   });
   return { registry, stores, ai_service };

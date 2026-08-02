@@ -325,6 +325,13 @@ export class RagStore {
   hydrate(sessions: RagSession[]) {
     const others = this.store.sessions.filter((s) => s.kind !== CHAT_KIND);
     this.store.hydrate([...sessions, ...others]);
+    this.reset_view_state();
+  }
+
+  // Sessions arrive through the assistant store's own hydrate on a vault
+  // switch; what the panel must drop is the view state still pointing at the
+  // old vault's sessions.
+  reset_view_state() {
     this.active_id = null;
     this.streaming_id = null;
     this.is_loading = false;

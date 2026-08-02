@@ -99,3 +99,4 @@ export {
   extract_line_range,
   type CharWindow,
 } from "$lib/features/assistant/domain/context_window";
+export { create_assistant_session_persistence_tauri_adapter } from "$lib/features/assistant/adapters/assistant_session_persistence_tauri_adapter";

@@ -117,10 +117,6 @@ function create_harness() {
     }),
   };
   const agentic_runner = { run: vi.fn() };
-  const ai_history = {
-    load_history: vi.fn().mockResolvedValue([]),
-    save_history: vi.fn().mockResolvedValue(undefined),
-  };
 
   stores.ui.editor_settings.ai_providers = BUILTIN_PROVIDER_PRESETS;
   stores.ui.editor_settings.ai_default_provider_id = "auto";
@@ -135,7 +131,6 @@ function create_harness() {
     },
     ai_store,
     ai_service: ai_service as never,
-    ai_history,
     agentic_runner: agentic_runner as never,
   });
 
@@ -145,7 +140,6 @@ function create_harness() {
     services,
     ai_store,
     ai_service,
-    ai_history,
     agentic_runner,
   };
 }
@@ -307,34 +301,8 @@ describe("register_ai_actions", () => {
     });
   });
 
-  it("swallows history persist failures without rejecting", async () => {
-    const { registry, stores, ai_store, ai_service, ai_history } =
-      create_harness();
-    stores.vault.set_vault(create_test_vault());
-    ai_service.execute_streaming = vi.fn().mockResolvedValue({
-      success: true,
-      output: "# Updated",
-      error: null,
-    });
-    ai_history.save_history = vi
-      .fn()
-      .mockRejectedValue(new Error("cannot write to .carbide/ in browse mode"));
-
-    await registry.execute(ACTION_IDS.ai_open_assistant);
-    await registry.execute(ACTION_IDS.ai_update_prompt, "Tighten this note");
-    await registry.execute(ACTION_IDS.ai_execute);
-    await Promise.resolve();
-    await Promise.resolve();
-
-    expect(ai_history.save_history).toHaveBeenCalledWith("vault-1", [
-      expect.objectContaining({ status: "completed" }),
-    ]);
-    expect(ai_store.dialog.turns[0]?.status).toBe("completed");
-  });
-
   it("abandons a mid-flight execution when the vault switches", async () => {
-    const { registry, stores, ai_store, ai_service, ai_history } =
-      create_harness();
+    const { registry, stores, ai_store, ai_service } = create_harness();
     stores.vault.set_vault(create_test_vault());
     let resolve_exec!: (result: {
       success: boolean;
@@ -371,7 +339,6 @@ describe("register_ai_actions", () => {
     expect(ai_store.dialog.is_executing).toBe(false);
     expect(ai_store.dialog.turns).toHaveLength(1);
     expect(ai_store.dialog.turns[0]).toMatchObject(other_vault_turn);
-    expect(ai_history.save_history).not.toHaveBeenCalled();
   });
 
   it("reopens the bottom panel without resetting the current note session", async () => {
