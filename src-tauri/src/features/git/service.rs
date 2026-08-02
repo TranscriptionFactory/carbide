@@ -45,6 +45,7 @@ pub struct GitDiffLine {
 
 #[derive(Debug, Clone, Serialize, Type)]
 pub struct GitDiffHunk {
+    pub file_path: String,
     pub header: String,
     pub lines: Vec<GitDiffLine>,
 }
@@ -495,18 +496,33 @@ fn abbreviated_hash(hash: &str) -> &str {
     }
 }
 
+// Boundaries between hunks are keyed on (file_path, header), not header alone:
+// two files whose hunks happen to share identical header text (e.g. two
+// single-line new files both printing "@@ -0,0 +1 @@") must not merge, and
+// consecutive binary files must not collapse into one "[Binary file]" entry.
+fn delta_path(delta: &git2::DiffDelta<'_>) -> String {
+    delta
+        .new_file()
+        .path()
+        .or_else(|| delta.old_file().path())
+        .map(|p| p.to_string_lossy().into_owned())
+        .unwrap_or_default()
+}
+
 fn collect_diff_hunks(diff: &git2::Diff<'_>) -> Result<Vec<GitDiffHunk>, String> {
     let mut hunks: Vec<GitDiffHunk> = Vec::new();
 
     diff.print(DiffFormat::Patch, |delta, hunk, line| {
+        let file_path = delta_path(&delta);
+
         if delta.flags().is_binary() {
-            if hunks.is_empty()
-                || hunks
-                    .last()
-                    .map(|h| h.header != "[Binary file]")
-                    .unwrap_or(true)
-            {
+            let starts_new_hunk = hunks
+                .last()
+                .map(|h| h.file_path != file_path || h.header != "[Binary file]")
+                .unwrap_or(true);
+            if starts_new_hunk {
                 hunks.push(GitDiffHunk {
+                    file_path,
                     header: "[Binary file]".to_string(),
                     lines: Vec::new(),
                 });
@@ -516,8 +532,13 @@ fn collect_diff_hunks(diff: &git2::Diff<'_>) -> Result<Vec<GitDiffHunk>, String>
 
         if let Some(hunk_header) = hunk {
             let header = String::from_utf8_lossy(hunk_header.header()).to_string();
-            if hunks.last().map(|h| h.header != header).unwrap_or(true) {
+            let starts_new_hunk = hunks
+                .last()
+                .map(|h| h.file_path != file_path || h.header != header)
+                .unwrap_or(true);
+            if starts_new_hunk {
                 hunks.push(GitDiffHunk {
+                    file_path,
                     header,
                     lines: Vec::new(),
                 });
@@ -569,13 +590,23 @@ pub fn git_diff(
     })
 }
 
+// `base_ref` anchors the diff to a specific commit (e.g. an agent turn's
+// checkpoint sha) instead of whatever HEAD happens to be at read time. Without
+// it, a commit landing between the checkpoint and this call (autocommit,
+// another turn) silently shifts the base and truncates the diff — the base
+// must be pinned by the caller, not inferred from HEAD, to make that failure
+// mode impossible rather than merely unlikely.
 pub(crate) fn git_diff_working(
     vault_path: &str,
     file_path: Option<&str>,
+    base_ref: Option<&str>,
 ) -> Result<GitDiff, String> {
     let repo = open_repo(vault_path)?;
 
-    let head_tree = repo.head().ok().and_then(|h| h.peel_to_tree().ok());
+    let base_tree = match base_ref {
+        Some(reference) => Some(resolve_tree_from_commit(&repo, reference)?),
+        None => repo.head().ok().and_then(|h| h.peel_to_tree().ok()),
+    };
 
     let mut diff_opts = DiffOptions::new();
     if let Some(path) = file_path {
@@ -584,7 +615,7 @@ pub(crate) fn git_diff_working(
     diff_opts.include_untracked(true);
 
     let diff = repo
-        .diff_tree_to_workdir_with_index(head_tree.as_ref(), Some(&mut diff_opts))
+        .diff_tree_to_workdir_with_index(base_tree.as_ref(), Some(&mut diff_opts))
         .map_err(|e| format!("failed to diff working tree: {}", e))?;
 
     let stats = diff
@@ -606,8 +637,9 @@ pub(crate) fn git_diff_working(
 pub fn git_diff_working_tree(
     vault_path: String,
     file_path: Option<String>,
+    base_ref: Option<String>,
 ) -> Result<GitDiff, String> {
-    git_diff_working(&vault_path, file_path.as_deref())
+    git_diff_working(&vault_path, file_path.as_deref(), base_ref.as_deref())
 }
 
 #[tauri::command]
@@ -1346,5 +1378,139 @@ mod tests {
 
         assert!(err.contains("merge conflicts"), "unexpected error: {}", err);
         assert!(dir.path().join("other.md").exists());
+    }
+
+    fn hunks_for<'a>(diff: &'a GitDiff, file_path: &str) -> Vec<&'a GitDiffHunk> {
+        diff.hunks
+            .iter()
+            .filter(|h| h.file_path == file_path)
+            .collect()
+    }
+
+    #[test]
+    fn single_file_diff_still_attributes_every_hunk_to_the_requested_path() {
+        let (dir, root) = init_vault(&[("note.md", "one\ntwo\nthree\n")]);
+        fs::write(dir.path().join("note.md"), "one\nedited\nthree\n").unwrap();
+
+        let diff = git_diff_working(&root, Some("note.md"), None).unwrap();
+
+        assert!(!diff.hunks.is_empty());
+        assert!(diff.hunks.iter().all(|h| h.file_path == "note.md"));
+        assert_eq!(diff.additions, 1);
+        assert_eq!(diff.deletions, 1);
+    }
+
+    #[test]
+    fn two_modified_files_with_identical_hunk_headers_are_not_merged() {
+        // Both files are single-line, changed at line 1 — the unified diff
+        // hunk header ("@@ -1 +1 @@") depends only on line position/count,
+        // not content, so it collides regardless of what the lines say.
+        let (dir, root) = init_vault(&[("a.md", "one\n"), ("b.md", "two\n")]);
+        fs::write(dir.path().join("a.md"), "alpha\n").unwrap();
+        fs::write(dir.path().join("b.md"), "bravo\n").unwrap();
+
+        let diff = git_diff_working(&root, None, None).unwrap();
+
+        let a_hunks = hunks_for(&diff, "a.md");
+        let b_hunks = hunks_for(&diff, "b.md");
+        assert_eq!(a_hunks.len(), 1, "expected exactly one hunk for a.md");
+        assert_eq!(b_hunks.len(), 1, "expected exactly one hunk for b.md");
+        assert_eq!(
+            a_hunks[0].header, b_hunks[0].header,
+            "precondition: the two files' hunk headers must collide for this test to be meaningful"
+        );
+        assert!(a_hunks[0].lines.iter().any(|l| l.content.contains("alpha")));
+        assert!(!a_hunks[0].lines.iter().any(|l| l.content.contains("bravo")));
+        assert!(b_hunks[0].lines.iter().any(|l| l.content.contains("bravo")));
+        assert!(!b_hunks[0].lines.iter().any(|l| l.content.contains("alpha")));
+    }
+
+    #[test]
+    fn deleted_file_hunk_is_attributed_by_its_old_path() {
+        let (dir, root) = init_vault(&[("gone.md", "will be deleted\n")]);
+        fs::remove_file(dir.path().join("gone.md")).unwrap();
+
+        let diff = git_diff_working(&root, None, None).unwrap();
+
+        assert!(!diff.hunks.is_empty());
+        assert!(diff.hunks.iter().all(|h| h.file_path == "gone.md"));
+    }
+
+    #[test]
+    fn consecutive_binary_files_are_not_merged() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path().to_string_lossy().to_string();
+        fs::write(dir.path().join("a.bin"), [0u8, 1, 2, 3, 0, 4]).unwrap();
+        fs::write(dir.path().join("b.bin"), [5u8, 6, 7, 8, 0, 9]).unwrap();
+        git_init_repo(root.clone()).unwrap();
+
+        fs::write(dir.path().join("a.bin"), [9u8, 8, 7, 6, 0, 5]).unwrap();
+        fs::write(dir.path().join("b.bin"), [1u8, 2, 3, 4, 0, 9]).unwrap();
+
+        let diff = git_diff_working(&root, None, None).unwrap();
+
+        let binary_hunks: Vec<&GitDiffHunk> = diff
+            .hunks
+            .iter()
+            .filter(|h| h.header == "[Binary file]")
+            .collect();
+        let mut paths: Vec<&str> = binary_hunks.iter().map(|h| h.file_path.as_str()).collect();
+        paths.sort_unstable();
+        assert_eq!(paths, vec!["a.bin", "b.bin"]);
+    }
+
+    #[test]
+    fn commit_range_diff_attributes_hunks_per_file() {
+        let (dir, root) = init_vault(&[("a.md", "a\n"), ("b.md", "b\n")]);
+        let commit_a = head_hash(&root);
+        fs::write(dir.path().join("a.md"), "a edited\n").unwrap();
+        fs::write(dir.path().join("b.md"), "b edited\n").unwrap();
+        let commit_b_hash =
+            git_stage_and_commit(root.clone(), "edit both".to_string(), None).unwrap();
+
+        let diff = git_diff(root.clone(), commit_a, commit_b_hash, None).unwrap();
+
+        assert_eq!(hunks_for(&diff, "a.md").len(), 1);
+        assert_eq!(hunks_for(&diff, "b.md").len(), 1);
+    }
+
+    // The load-bearing invariant behind D2-1: a checkpoint-anchored diff must
+    // stay correct even when a commit unrelated to the turn (e.g. the
+    // autocommit reactor) lands on HEAD between the checkpoint and the
+    // end-of-turn read. Anchoring to HEAD implicitly would silently truncate
+    // the diff the moment that race fires; anchoring to an explicit base_ref
+    // does not.
+    #[test]
+    fn base_ref_anchors_diff_through_an_intervening_commit() {
+        let (dir, root) = init_vault(&[("note.md", "start\n")]);
+        let checkpoint_sha = head_hash(&root);
+
+        fs::write(dir.path().join("note.md"), "start\nturn edit\n").unwrap();
+
+        // Simulates the autocommit reactor racing the agent turn and
+        // committing the very file the turn just wrote.
+        git_stage_and_commit(
+            root.clone(),
+            "Checkpoint: autocommit note.md".to_string(),
+            Some(vec!["note.md".to_string()]),
+        )
+        .unwrap();
+
+        let default_diff = git_diff_working(&root, None, None).unwrap();
+        assert!(
+            hunks_for(&default_diff, "note.md").is_empty(),
+            "demonstrates the hazard: an unanchored diff loses the turn's \
+             edit once an unrelated commit absorbs it into HEAD"
+        );
+
+        let anchored_diff = git_diff_working(&root, None, Some(&checkpoint_sha)).unwrap();
+        let note_hunks = hunks_for(&anchored_diff, "note.md");
+        assert!(
+            !note_hunks.is_empty(),
+            "anchoring to the checkpoint sha must still see the turn's edit"
+        );
+        assert!(note_hunks
+            .iter()
+            .any(|h| h.lines.iter().any(|l| l.content.contains("turn edit"))));
     }
 }
