@@ -139,3 +139,26 @@ export type {
 } from "$lib/features/assistant/ports";
 
 export { default as AssistantProposalsTabView } from "$lib/features/assistant/ui/assistant_proposals_tab_view.svelte";
+
+// C3 — ambient notices. Exported at contract time, not at implementation time
+// (D1-11), so AU-060 and AU-061 build against a reachable surface from minute
+// one instead of costing an out-of-band integration commit.
+export {
+  AMBIENT_PROPOSAL_ORIGIN,
+  AMBIENT_RAIL_CARD_CAP,
+  AMBIENT_SESSION_ID,
+  AMBIENT_TOAST_DEDUPE_KEY,
+  AMBIENT_TOAST_MAX_CONCURRENT,
+  type AmbientAnchor,
+  type AmbientNotice,
+  type AmbientNoticeId,
+  type AmbientNoticeKind,
+  type AmbientNoticeOffer,
+} from "$lib/features/assistant/types/ambient";
+
+export { AssistantNoticeStore } from "$lib/features/assistant/state/assistant_notice_store.svelte";
+
+export {
+  partition_notices,
+  type NoticePartition,
+} from "$lib/features/assistant/domain/partition_notices";

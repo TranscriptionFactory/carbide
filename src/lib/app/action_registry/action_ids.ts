@@ -343,6 +343,8 @@ export const ACTION_IDS = {
   assistant_accept_proposals: "assistant.accept_proposals",
   assistant_reject_proposal: "assistant.reject_proposal",
   assistant_set_proposal_hunk_selected: "assistant.set_proposal_hunk_selected",
+  assistant_accept_notice: "assistant.accept_notice",
+  assistant_dismiss_notice: "assistant.dismiss_notice",
 
   rag_open: "rag.open",
   rag_ask: "rag.ask",
