@@ -24,7 +24,7 @@ function with_timeout<T>(
 }
 
 type CommitRunResult =
-  | { status: "committed" }
+  | { status: "committed"; sha: string }
   | { status: "skipped" }
   | { status: "no_repo" }
   | { status: "failed"; error: string };
@@ -38,12 +38,19 @@ export type GitDiscardResult =
   | { status: "discarded"; paths: string[] }
   | { status: "failed"; error: string };
 
+// `sha` is the commit an end-of-turn diff anchors to. It is carried here
+// rather than re-derived later because HEAD can move underneath a caller
+// (the autocommit reactor commits on its own schedule), and an anchor read
+// after the fact is not the anchor that was taken. `skipped` still carries
+// one: nothing was committed because the tree already matched HEAD, so HEAD
+// *is* the pre-operation state. It is null only for an unborn branch, where
+// no commit exists to anchor to at all.
 export type GitCheckpointResult =
-  | { status: "created" }
-  | { status: "skipped" }
+  | { status: "created"; sha: string }
+  | { status: "skipped"; sha: string | null }
   | { status: "no_repo" }
   | { status: "failed"; error: string }
-  | { status: "created"; warning: string };
+  | { status: "created"; sha: string; warning: string };
 
 export class GitService {
   private op_chain: Promise<void> = Promise.resolve();
@@ -103,6 +110,16 @@ export class GitService {
     return `checkpoint-${base}-${String(this.now_ms())}`;
   }
 
+  // Null on an unborn branch, where the log is empty because no commit exists.
+  private async head_sha(): Promise<string | null> {
+    try {
+      const [head] = await this.git_port.log(this.get_vault_path(), null, 1);
+      return head?.hash ?? null;
+    } catch {
+      return null;
+    }
+  }
+
   private is_nothing_to_commit_error(error: unknown): boolean {
     const text = error_message(error).toLowerCase();
     return text.includes("nothing to commit");
@@ -158,12 +175,16 @@ export class GitService {
     this.begin_git_mutation(op_key);
 
     try {
-      await this.git_port.stage_and_commit(vault_path, message, files);
+      const sha = await this.git_port.stage_and_commit(
+        vault_path,
+        message,
+        files,
+      );
       await this.finish_git_mutation_success(op_key, {
         track_last_commit: true,
         invalidate_history_cache: true,
       });
-      return { status: "committed" };
+      return { status: "committed", sha };
     } catch (err) {
       if (this.is_nothing_to_commit_error(err)) {
         await this.finish_git_mutation_success(op_key);
@@ -289,7 +310,7 @@ export class GitService {
         return { status: "no_repo" } as const;
       }
       if (result.status === "skipped") {
-        return { status: "skipped" } as const;
+        return { status: "skipped", sha: await this.head_sha() } as const;
       }
       if (result.status === "failed") {
         return { status: "failed", error: result.error } as const;
@@ -299,11 +320,13 @@ export class GitService {
         const vault_path = this.get_vault_path();
         const tag_name = this.format_checkpoint_tag(description);
         await this.git_port.create_tag(vault_path, tag_name, message);
-        return { status: "created" } as const;
+        return { status: "created", sha: result.sha } as const;
       } catch (err) {
         const msg = error_message(err);
         this.git_store.set_error(msg);
-        return { status: "created", warning: msg } as const;
+        // The commit landed and only the tag failed, so the anchor is still
+        // sound. Never anchor on the tag itself for exactly this reason.
+        return { status: "created", sha: result.sha, warning: msg } as const;
       }
     });
   }
@@ -383,9 +406,12 @@ export class GitService {
     return await this.git_port.diff(vault_path, commit_a, commit_b, file_path);
   }
 
-  async get_working_diff(file_path: string | null): Promise<GitDiff> {
+  async get_working_diff(
+    file_path: string | null,
+    base_ref?: string | null,
+  ): Promise<GitDiff> {
     const vault_path = this.get_vault_path();
-    return await this.git_port.diff_working(vault_path, file_path);
+    return await this.git_port.diff_working(vault_path, file_path, base_ref);
   }
 
   async get_file_at_commit(file_path: string, commit_hash: string) {
