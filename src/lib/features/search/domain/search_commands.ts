@@ -153,6 +153,14 @@ const BASE_COMMANDS: CommandDefinition[] = [
       (ctx.has_open_note || ctx.is_editable_document) && ctx.has_ai_cli,
   },
   {
+    id: "assistant_review_proposals",
+    label: "Review AI Proposals",
+    description: "Open the proposal review centre",
+    keywords: ["ai", "proposal", "review", "diff", "pending"],
+    icon: "sparkles",
+    when: (ctx) => ctx.is_vault_mode,
+  },
+  {
     id: "toggle_links_panel",
     label: "Toggle Links Panel",
     description: "Show or hide backlinks and outlinks panel",

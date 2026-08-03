@@ -7,9 +7,17 @@
     runs: RunRecord[];
     on_stop: (id: RunId) => void;
     now?: (() => number) | undefined;
+    pending_proposal_count?: number;
+    on_open_proposals?: (() => void) | undefined;
   }
 
-  let { runs, on_stop, now }: Props = $props();
+  let {
+    runs,
+    on_stop,
+    now,
+    pending_proposal_count = 0,
+    on_open_proposals = undefined,
+  }: Props = $props();
 
   const active_runs = $derived(
     runs.filter(
@@ -69,7 +77,13 @@
     {/snippet}
   </Popover.Trigger>
   <Popover.Content align="end" sideOffset={8}>
-    <AssistantRunsPopover {runs} {on_stop} {now} />
+    <AssistantRunsPopover
+      {runs}
+      {on_stop}
+      {now}
+      {pending_proposal_count}
+      {on_open_proposals}
+    />
   </Popover.Content>
 </Popover.Root>
 

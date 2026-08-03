@@ -310,6 +310,15 @@
             <span class="truncate">{path}</span>
           </button>
         {/each}
+        <button
+          type="button"
+          class="self-start rounded px-1 py-1 text-xs text-primary hover:bg-accent"
+          data-testid="chat-message-review-proposals"
+          onclick={() =>
+            void action_registry.execute(ACTION_IDS.assistant_open_proposals)}
+        >
+          Review proposals →
+        </button>
       </div>
     {/if}
   </div>

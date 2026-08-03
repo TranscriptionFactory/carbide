@@ -495,6 +495,9 @@
         assistant_runs={stores.assistant_runs.all}
         on_assistant_stop={(run_id) =>
           void action_registry.execute(ACTION_IDS.assistant_stop_run, run_id)}
+        assistant_pending_proposals={stores.assistant_proposals.pending.length}
+        on_assistant_open_proposals={() =>
+          void action_registry.execute(ACTION_IDS.assistant_open_proposals)}
         color_scheme={stores.ui.active_theme.color_scheme}
         on_theme_toggle={() =>
           void action_registry.execute(

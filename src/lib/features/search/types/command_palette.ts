@@ -17,6 +17,7 @@ export type CommandId =
   | "git_fetch"
   | "git_add_remote"
   | "ai_assistant"
+  | "assistant_review_proposals"
   | "toggle_links_panel"
   | "toggle_graph_panel"
   | "toggle_outline_panel"

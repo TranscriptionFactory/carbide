@@ -1,5 +1,17 @@
 import { describe, expect, it, vi } from "vitest";
+import { toast } from "svelte-sonner";
 import { ActionRegistry } from "$lib/app/action_registry/action_registry";
+
+vi.mock("svelte-sonner", () => ({
+  toast: {
+    success: vi.fn(),
+    error: vi.fn(),
+    info: vi.fn(),
+    warning: vi.fn(),
+    loading: vi.fn(),
+    dismiss: vi.fn(),
+  },
+}));
 import { ACTION_IDS } from "$lib/app/action_registry/action_ids";
 import { register_assistant_notice_actions } from "$lib/features/assistant/application/assistant_notice_actions";
 import {
@@ -220,6 +232,34 @@ describe("assistant notice actions — I6 offer-only", () => {
     expect(h.assistant_proposals.proposals).toEqual([]);
     expect(h.assistant_notices.get(notice.id)).toBeNull();
     expect(h.write_note_indexed).not.toHaveBeenCalled();
+  });
+
+  // I6 caps the notice card at two verbs; the toast is the third-surface
+  // affordance that makes the queued proposal reachable.
+  it("offers Review → via toast once the proposal is queued", async () => {
+    vi.mocked(toast.success).mockClear();
+    const h = create_harness();
+    const notice = seed(h);
+
+    await h.registry.execute(ACTION_IDS.assistant_accept_notice, notice.id);
+
+    expect(toast.success).toHaveBeenCalledTimes(1);
+    const [message, options] = vi.mocked(toast.success).mock.calls[0] as [
+      string,
+      { action?: { label: string; onClick: () => void } },
+    ];
+    expect(message).toBe("Edit queued for review");
+    expect(options.action?.label).toBe("Review →");
+  });
+
+  it("shows no toast on the no-derivable-edit path — there is nothing to review", async () => {
+    vi.mocked(toast.success).mockClear();
+    const h = create_harness("Nothing links out any more.\n");
+    const notice = seed(h);
+
+    await h.registry.execute(ACTION_IDS.assistant_accept_notice, notice.id);
+
+    expect(toast.success).not.toHaveBeenCalled();
   });
 
   // An orphan_note finding has no deterministic single-note repair, so it

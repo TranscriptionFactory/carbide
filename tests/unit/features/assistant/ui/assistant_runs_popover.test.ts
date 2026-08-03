@@ -19,6 +19,8 @@ const NOW_MS = 100_000;
 function render_popover(options: {
   runs: RunRecord[];
   on_stop?: (id: RunId) => void;
+  pending_proposal_count?: number;
+  on_open_proposals?: () => void;
 }) {
   const target = document.createElement("div");
   document.body.appendChild(target);
@@ -29,6 +31,8 @@ function render_popover(options: {
       runs: options.runs,
       on_stop: options.on_stop ?? vi.fn(),
       now: () => NOW_MS,
+      pending_proposal_count: options.pending_proposal_count ?? 0,
+      on_open_proposals: options.on_open_proposals,
     },
   });
 
@@ -272,6 +276,40 @@ describe("assistant_runs_popover.svelte", () => {
     expect(row.textContent).not.toContain("ENOENT");
     expect(row.textContent).not.toContain("node:internal/child_process");
     expect(row.textContent).not.toContain("at onErrorNT");
+
+    view.cleanup();
+  });
+
+  it("offers Review proposals even when there are zero runs", () => {
+    const on_open_proposals = vi.fn();
+    const view = render_popover({
+      runs: [],
+      pending_proposal_count: 3,
+      on_open_proposals,
+    });
+
+    const button = document.body.querySelector<HTMLButtonElement>(
+      '[data-testid="assistant-runs-review-proposals"]',
+    );
+    expect(button?.textContent).toContain("Review proposals (3)");
+    button?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    expect(on_open_proposals).toHaveBeenCalledTimes(1);
+
+    view.cleanup();
+  });
+
+  it("hides the Review proposals affordance at zero pending", () => {
+    const view = render_popover({
+      runs: [make_run_record({ id: "live", status: "streaming" })],
+      pending_proposal_count: 0,
+      on_open_proposals: vi.fn(),
+    });
+
+    expect(
+      document.body.querySelector(
+        '[data-testid="assistant-runs-review-proposals"]',
+      ),
+    ).toBeNull();
 
     view.cleanup();
   });
