@@ -1,5 +1,4 @@
 import {
-  proposal_path,
   to_proposal_summary,
   type Proposal,
   type ProposalHunkId,
@@ -27,9 +26,11 @@ export class AssistantProposalStore {
     return this.proposals.map(to_proposal_summary);
   }
 
-  get pending(): Proposal[] {
-    return this.proposals.filter((proposal) => proposal.status === "pending");
-  }
+  // Cached: read reactively by the status bar, chat panel and sync reactor,
+  // which would each re-filter per read through a plain getter.
+  readonly pending: Proposal[] = $derived(
+    this.proposals.filter((proposal) => proposal.status === "pending"),
+  );
 
   get(id: ProposalId): Proposal | null {
     return this.proposals.find((proposal) => proposal.id === id) ?? null;
@@ -40,13 +41,6 @@ export class AssistantProposalStore {
       (proposal) =>
         proposal.target.kind === "note" &&
         proposal.target.note_path === note_path,
-    );
-  }
-
-  // Target-agnostic lookup: matches whichever path the target carries.
-  by_path(path: string): Proposal[] {
-    return this.proposals.filter(
-      (proposal) => proposal_path(proposal.target) === path,
     );
   }
 

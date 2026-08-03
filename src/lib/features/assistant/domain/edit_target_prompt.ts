@@ -3,9 +3,7 @@
 // build_ai_document_prompt (edit branch); the note variant reuses the
 // full-note wording of build_ai_note_prompt without the vault-context block.
 
-function section(label: string, value: string): string {
-  return `<${label}>\n${value}\n</${label}>`;
-}
+import { section } from "$lib/features/assistant/domain/chat_prompt_builder";
 
 export function build_document_edit_prompt(input: {
   file_path: string;

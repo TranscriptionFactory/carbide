@@ -276,7 +276,6 @@ export type {
 export type { DocumentAttachment } from "$lib/features/assistant/types/attachment";
 export {
   ATTACHMENT_MAX_CHARS,
-  ATTACHED_DOCUMENT_SOURCE_ID,
   attachment_label,
   build_document_attachment,
   type AttachmentResult,

@@ -8,7 +8,7 @@ import type {
 } from "$lib/features/assistant";
 import { VaultStore } from "$lib/features/vault";
 import { create_assistant_proposals_sync_reactor } from "$lib/reactors/assistant_proposals_sync.reactor.svelte";
-import { create_test_vault } from "../helpers/test_fixtures";
+import { create_test_vault, vault_store_for } from "../helpers/test_fixtures";
 import { make_proposal } from "../helpers/assistant_proposal_fixtures";
 import type { VaultId } from "$lib/shared/types/ids";
 
@@ -36,12 +36,6 @@ function fake_persistence(
       (vault_id: string, proposals: readonly Proposal[]) => Promise<void>
     >(() => Promise.resolve()),
   } as unknown as FakePersistence;
-}
-
-function vault_store_for(id: string, mode: "vault" | "browse" = "vault") {
-  const store = new VaultStore();
-  store.set_vault(create_test_vault({ id: id as VaultId, mode }));
-  return store;
 }
 
 async function settle() {

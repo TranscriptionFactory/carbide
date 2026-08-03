@@ -185,20 +185,20 @@
     };
   });
 
-  function submit() {
+  function dispatch(handler: (text: string) => void) {
     if (!can_submit) return;
     fetch_token += 1;
     suggest.close();
-    on_submit(value.trim());
+    handler(value.trim());
     value = "";
   }
 
+  function submit() {
+    dispatch(on_submit);
+  }
+
   function edit() {
-    if (!can_submit || !on_edit) return;
-    fetch_token += 1;
-    suggest.close();
-    on_edit(value.trim());
-    value = "";
+    if (on_edit) dispatch(on_edit);
   }
 
   function on_keydown(event: KeyboardEvent) {

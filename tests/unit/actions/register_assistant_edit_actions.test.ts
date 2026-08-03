@@ -18,6 +18,7 @@ import type {
 import { UIStore } from "$lib/app/orchestration/ui_store.svelte";
 import { OpStore } from "$lib/app/orchestration/op_store.svelte";
 import type { AiProviderConfig } from "$lib/shared/types/ai_provider_config";
+import { make_provider } from "../helpers/assistant_fixtures";
 
 vi.mock("svelte-sonner", () => ({
   toast: {
@@ -30,12 +31,7 @@ vi.mock("svelte-sonner", () => ({
   },
 }));
 
-const provider: AiProviderConfig = {
-  id: "ollama",
-  name: "Ollama",
-  transport: { kind: "cli", command: "ollama", args: ["run", "{model}"] },
-  model: "qwen3:8b",
-};
+const provider = make_provider({ model: "qwen3:8b" });
 
 const DOCUMENT = {
   path: "artifacts/report.html",
@@ -59,7 +55,7 @@ function create_harness(options: HarnessOptions = {}) {
 
   const ui = new UIStore();
   ui.editor_settings.ai_enabled = options.ai_enabled ?? true;
-  ui.editor_settings.ai_default_provider_id = "ollama";
+  ui.editor_settings.ai_default_provider_id = provider.id;
 
   const open_note = options.open_note ?? null;
   const stores = {

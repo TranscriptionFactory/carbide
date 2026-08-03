@@ -27,6 +27,15 @@ export type AssistantScope = {
   notes?: string[];
 };
 
+export function scope_is_empty(scope: AssistantScope): boolean {
+  return !(
+    scope.folders?.length ||
+    scope.tags?.length ||
+    scope.bases?.length ||
+    scope.notes?.length
+  );
+}
+
 export type AssistantRole = "user" | "assistant" | "tool";
 
 export type AssistantCitation = {

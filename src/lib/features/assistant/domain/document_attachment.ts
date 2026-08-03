@@ -4,10 +4,6 @@ import type { DocumentAttachment } from "$lib/features/assistant/types/attachmen
 // truncates: a truncated rewrite destroys the truncated tail on apply.
 export const ATTACHMENT_MAX_CHARS = 200_000;
 
-// Context source id for the prompt section. Unnumbered — the attachment is
-// first-party material, not a citable retrieved source.
-export const ATTACHED_DOCUMENT_SOURCE_ID = "attached_document";
-
 export type AttachmentResult =
   | { status: "attached"; attachment: DocumentAttachment }
   | { status: "too_large"; chars: number; max: number };

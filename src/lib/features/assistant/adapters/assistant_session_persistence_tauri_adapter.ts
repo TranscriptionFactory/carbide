@@ -1,5 +1,9 @@
 import { invoke } from "@tauri-apps/api/core";
 import { APP_DIR } from "$lib/shared/constants/special_folders";
+import {
+  read_json,
+  write_json,
+} from "$lib/features/assistant/adapters/vault_json";
 import { to_assistant_session_summary } from "$lib/features/assistant/types/session";
 import type { AssistantSessionPersistencePort } from "$lib/features/assistant/ports";
 import type {
@@ -41,33 +45,6 @@ function session_path(id: string): string {
 function legacy_session_path(id: string): string {
   assert_safe_id(id);
   return `${LEGACY_DIR}/sessions/${id}.json`;
-}
-
-async function read_json<T>(
-  vault_id: string,
-  relative_path: string,
-): Promise<T | null> {
-  try {
-    const content = await invoke<string>("read_vault_file", {
-      vaultId: vault_id,
-      relativePath: relative_path,
-    });
-    return JSON.parse(content) as T;
-  } catch {
-    return null;
-  }
-}
-
-async function write_json(
-  vault_id: string,
-  relative_path: string,
-  value: unknown,
-): Promise<void> {
-  await invoke("write_vault_file", {
-    vaultId: vault_id,
-    relativePath: relative_path,
-    content: JSON.stringify(value, null, 2),
-  });
 }
 
 async function delete_file(

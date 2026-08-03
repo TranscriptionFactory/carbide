@@ -9,7 +9,7 @@ import {
 import { VaultStore } from "$lib/features/vault";
 import { UIStore } from "$lib/app/orchestration/ui_store.svelte";
 import { create_assistant_sessions_load_reactor } from "$lib/reactors/assistant_sessions_load.reactor.svelte";
-import { create_test_vault } from "../helpers/test_fixtures";
+import { create_test_vault, vault_store_for } from "../helpers/test_fixtures";
 import type { AssistantSessionService } from "$lib/features/assistant";
 import type { AssistantSession } from "$lib/features/assistant";
 import type { VaultId } from "$lib/shared/types/ids";
@@ -48,12 +48,6 @@ function fake_service(by_vault: Record<string, AssistantSession[]>) {
 function make_stores() {
   const sessions = new AssistantSessionStore();
   return { sessions, rag: new AssistantChatStore(sessions) };
-}
-
-function vault_store_for(id: string): VaultStore {
-  const store = new VaultStore();
-  store.set_vault(create_test_vault({ id: id as VaultId }));
-  return store;
 }
 
 // Retention off by default here: the fixtures carry epoch-era timestamps, so

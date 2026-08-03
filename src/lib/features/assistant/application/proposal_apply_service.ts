@@ -133,7 +133,6 @@ export class ProposalApplyService {
     for (const id of applied) this.deps.proposals.set_status(id, "applied");
 
     let checkpoint: ProposalApplyOutcome["checkpoint"] = null;
-    let checkpoint_failed = false;
 
     if (to_write.length > 0) {
       const description = `before applying ${String(to_write.length)} proposal${
@@ -145,16 +144,9 @@ export class ProposalApplyService {
       if (outcome === "failed") {
         // Fails the WHOLE batch closed, stagings included — a mixed batch is
         // one undo unit and must not half-apply.
-        checkpoint_failed = true;
-        for (const write of to_write) {
+        for (const entry of [...to_write, ...to_stage]) {
           failed.push({
-            id: write.id,
-            error: "checkpoint failed; nothing applied",
-          });
-        }
-        for (const stage of to_stage) {
-          failed.push({
-            id: stage.id,
+            id: entry.id,
             error: "checkpoint failed; nothing applied",
           });
         }
@@ -171,7 +163,7 @@ export class ProposalApplyService {
       }
     }
 
-    if (!checkpoint_failed) {
+    if (checkpoint?.outcome !== "failed") {
       for (const stage of to_stage) {
         const staged = this.deps.documents.stage_document(
           stage.file_path,

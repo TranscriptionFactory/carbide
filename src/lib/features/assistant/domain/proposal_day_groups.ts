@@ -1,3 +1,4 @@
+import { day_label } from "$lib/shared/utils/day_label";
 import type { Proposal } from "$lib/features/assistant/types/proposal";
 
 export type ProposalProvenanceGroup = {
@@ -6,8 +7,8 @@ export type ProposalProvenanceGroup = {
 };
 
 export type ProposalDayGroup = {
-  // Today / Yesterday / an absolute date, following checkpoint_history's
-  // toDateString precedent.
+  // Today / Yesterday / an absolute date (shared day_label, as in
+  // checkpoint_history).
   label: string;
   // toDateString of the day — stable render key independent of the label.
   key: string;
@@ -23,12 +24,6 @@ export function group_proposals_by_day(
 ): ProposalDayGroup[] {
   const sorted = [...proposals].sort((a, b) => b.created_at - a.created_at);
 
-  const now = new Date(now_ms);
-  const today_str = now.toDateString();
-  const yesterday = new Date(now_ms);
-  yesterday.setDate(yesterday.getDate() - 1);
-  const yesterday_str = yesterday.toDateString();
-
   const days: ProposalDayGroup[] = [];
   for (const proposal of sorted) {
     const date = new Date(proposal.created_at);
@@ -36,17 +31,7 @@ export function group_proposals_by_day(
 
     let day = days.at(-1);
     if (!day || day.key !== key) {
-      const label =
-        key === today_str
-          ? "Today"
-          : key === yesterday_str
-            ? "Yesterday"
-            : date.toLocaleDateString(undefined, {
-                month: "short",
-                day: "numeric",
-                year: "numeric",
-              });
-      day = { label, key, groups: [] };
+      day = { label: day_label(date, now_ms), key, groups: [] };
       days.push(day);
     }
 

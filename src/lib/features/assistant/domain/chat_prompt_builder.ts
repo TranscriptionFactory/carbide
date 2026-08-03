@@ -1,4 +1,5 @@
 import type { AssistantMessage } from "$lib/features/assistant/types/session";
+import type { ResolvedAttachment } from "$lib/features/assistant/types/attachment";
 import type { AssistantRetrievedContext } from "$lib/features/assistant/types/chat_stream";
 import type { AiMessage } from "$lib/features/ai";
 import { estimate_tokens } from "$lib/features/assistant/domain/context_assembler";
@@ -6,7 +7,7 @@ import { estimate_tokens } from "$lib/features/assistant/domain/context_assemble
 const DEFAULT_HISTORY_TOKEN_BUDGET = 1500;
 const CITATION_MARKER = /\s*\[\d+\]/g;
 
-function section(label: string, value: string): string {
+export function section(label: string, value: string): string {
   return `<${label}>\n${value}\n</${label}>`;
 }
 
@@ -61,7 +62,7 @@ export function build_chat_prompt(input: {
   contexts: AssistantRetrievedContext[];
   history?: AssistantMessage[];
   history_token_budget?: number;
-  attachment?: { path: string; title: string; content: string };
+  attachment?: ResolvedAttachment;
 }): { system_prompt: string; history: AiMessage[]; user_prompt: string } {
   const parts: string[] = [];
   if (input.attachment) {

@@ -8,11 +8,6 @@
     ShieldCheck,
     ShieldAlert,
     Shield,
-    Terminal,
-    CircleAlert,
-    Zap,
-    Search,
-    Bot,
     Sun,
     Moon,
     TriangleAlert,
@@ -30,19 +25,18 @@
   import type { TrustLevel } from "$lib/features/document";
   import { VimNavStatusIndicator } from "$lib/features/vim_nav";
   import type { NavContext } from "$lib/features/vim_nav";
-  import type { BottomPanelTab } from "$lib/app/orchestration/ui_store.svelte";
+  import {
+    BOTTOM_PANEL_TABS,
+    type BottomPanelTab,
+  } from "$lib/app/orchestration/ui_store.svelte";
+  import { BOTTOM_PANEL_TAB_META } from "$lib/app/orchestration/bottom_panel_tabs";
   // STT removed — archived on archive/stt-main
   // import { SttStatusIndicator } from "$lib/features/stt";
 
-  const PANEL_TABS: { id: BottomPanelTab; label: string; icon: typeof Info }[] =
-    [
-      { id: "terminal", label: "Terminal", icon: Terminal },
-      { id: "problems", label: "Problems", icon: CircleAlert },
-      { id: "lsp_results", label: "LSP", icon: Zap },
-      { id: "query", label: "Query", icon: Search },
-      { id: "assistant", label: "Assistant", icon: Bot },
-      { id: "trust", label: "Trust", icon: ShieldCheck },
-    ];
+  const PANEL_TABS = BOTTOM_PANEL_TABS.map((id) => ({
+    id,
+    ...BOTTOM_PANEL_TAB_META[id],
+  }));
 
   interface Props {
     cursor_info: CursorInfo | null;

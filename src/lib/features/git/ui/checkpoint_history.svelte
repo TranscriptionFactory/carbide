@@ -3,6 +3,7 @@
     type GitCommit,
     CHECKPOINT_PREFIX,
   } from "$lib/features/git/types/git";
+  import { day_label } from "$lib/shared/utils/day_label";
 
   type Props = {
     commits: GitCommit[];
@@ -20,28 +21,13 @@
 
   const grouped = $derived.by(() => {
     const groups: DayGroup[] = [];
-    const now = new Date();
-    const today_str = now.toDateString();
-    const yesterday = new Date(now);
-    yesterday.setDate(yesterday.getDate() - 1);
-    const yesterday_str = yesterday.toDateString();
+    const now_ms = Date.now();
 
     let current_label = "";
     let current_group: GitCommit[] = [];
 
     for (const commit of commits) {
-      const date = new Date(commit.timestamp_ms);
-      const date_str = date.toDateString();
-      const label =
-        date_str === today_str
-          ? "Today"
-          : date_str === yesterday_str
-            ? "Yesterday"
-            : date.toLocaleDateString(undefined, {
-                month: "short",
-                day: "numeric",
-                year: "numeric",
-              });
+      const label = day_label(new Date(commit.timestamp_ms), now_ms);
 
       if (label !== current_label) {
         if (current_group.length > 0) {

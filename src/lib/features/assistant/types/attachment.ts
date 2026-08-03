@@ -6,3 +6,9 @@ export type DocumentAttachment = {
   path: string;
   title: string;
 };
+
+// The attachment with its content resolved fresh from the buffer at submit
+// time — the shape the retrieval pipeline and prompt builder consume.
+export type ResolvedAttachment = DocumentAttachment & {
+  content: string;
+};

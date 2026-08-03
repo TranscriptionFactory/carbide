@@ -1,17 +1,13 @@
 <script lang="ts">
-  import {
-    Terminal,
-    CircleAlert,
-    Search,
-    Zap,
-    Bot,
-    ShieldCheck,
-  } from "@lucide/svelte";
   import type { Component } from "svelte";
   import * as Tabs from "$lib/components/ui/tabs";
   import { use_app_context } from "$lib/app/context/app_context.svelte";
   import { ACTION_IDS } from "$lib/app";
-  import type { BottomPanelTab } from "$lib/app/orchestration/ui_store.svelte";
+  import {
+    BOTTOM_PANEL_TABS,
+    type BottomPanelTab,
+  } from "$lib/app/orchestration/ui_store.svelte";
+  import { BOTTOM_PANEL_TAB_META } from "$lib/app/orchestration/bottom_panel_tabs";
 
   const { stores, action_registry } = use_app_context();
 
@@ -62,32 +58,20 @@
     id: BottomPanelTab;
     label: string;
     icon: Component;
-    badge?: () => number;
+    badge?: (() => number) | undefined;
   };
 
-  const tab_defs: TabDef[] = [
-    { id: "terminal", label: "Terminal", icon: Terminal },
-    {
-      id: "problems",
-      label: "Problems",
-      icon: CircleAlert,
-      badge: () => error_count + warning_count,
-    },
-    {
-      id: "lsp_results",
-      label: "LSP",
-      icon: Zap,
-      badge: () => lsp_result_count,
-    },
-    {
-      id: "query",
-      label: "Query",
-      icon: Search,
-      badge: () => query_result_count,
-    },
-    { id: "assistant", label: "Assistant", icon: Bot },
-    { id: "trust", label: "Trust", icon: ShieldCheck },
-  ];
+  const badges: Partial<Record<BottomPanelTab, () => number>> = {
+    problems: () => error_count + warning_count,
+    lsp_results: () => lsp_result_count,
+    query: () => query_result_count,
+  };
+
+  const tab_defs: TabDef[] = BOTTOM_PANEL_TABS.map((id) => ({
+    id,
+    ...BOTTOM_PANEL_TAB_META[id],
+    badge: badges[id],
+  }));
 </script>
 
 <Tabs.Root

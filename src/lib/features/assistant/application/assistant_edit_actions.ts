@@ -15,10 +15,9 @@ import type {
   EditOpenTabTarget,
 } from "$lib/features/assistant/application/document_edit_service";
 import type { Proposal } from "$lib/features/assistant/types/proposal";
-
-// Shared with chat_actions: an edit is a turn of the same conversation, so
-// it takes the same in-flight slot.
-const CHAT_OP_KEY = "rag.ask";
+// An edit is a turn of the same conversation, so it takes the same in-flight
+// slot as ask.
+import { CHAT_OP_KEY } from "$lib/features/assistant/application/chat_actions";
 
 function changed_hunk_count(proposal: Proposal): number {
   return proposal.hunks.filter((hunk) =>
@@ -51,14 +50,12 @@ export function register_assistant_edit_actions(
   } = input;
 
   function resolve_target(): EditOpenTabTarget | null {
-    const attached = chat_store.attached_document;
-    if (attached) {
-      const document = documents.read_document(attached.path);
-      if (document) return { kind: "document", ...document };
-    }
-    const active_path = active_document_path();
-    if (active_path) {
-      const document = documents.read_document(active_path);
+    for (const path of [
+      chat_store.attached_document?.path,
+      active_document_path(),
+    ]) {
+      if (!path) continue;
+      const document = documents.read_document(path);
       if (document) return { kind: "document", ...document };
     }
     const note = stores.editor.open_note;

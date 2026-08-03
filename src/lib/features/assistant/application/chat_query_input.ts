@@ -5,6 +5,7 @@ import {
 import type { AiImagePart } from "$lib/features/ai";
 import type { AiProviderConfig } from "$lib/shared/types/ai_provider_config";
 import type { RunHandle } from "$lib/features/assistant/types/run";
+import type { ResolvedAttachment } from "$lib/features/assistant/types/attachment";
 import type {
   AssistantMessage,
   AssistantScope,
@@ -33,7 +34,7 @@ export type ChatQueryInputRequest = {
   scope?: AssistantScope;
   history?: AssistantMessage[];
   image_parts?: AiImagePart[];
-  attachment?: { path: string; title: string; content: string };
+  attachment?: ResolvedAttachment;
   on_run_started?: (handle: RunHandle) => void;
 };
 

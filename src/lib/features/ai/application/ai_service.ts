@@ -7,7 +7,7 @@ import type { RunHandle, RunKind, RunStarter } from "$lib/features/assistant";
 import type { SearchPort } from "$lib/features/search";
 import type {
   AiCliProbe,
-  AiDialogContext,
+  AiDialogNoteContext,
   AiExecutionResult,
   AiMode,
   AiProviderConfig,
@@ -33,7 +33,7 @@ const log = create_logger("ai_service");
 type AiExecuteInput = {
   provider_config: AiProviderConfig;
   prompt: string;
-  context: AiDialogContext;
+  context: AiDialogNoteContext;
   mode: AiMode;
   timeout_seconds?: number | null;
   vault_context_settings?: VaultContextSettings;
