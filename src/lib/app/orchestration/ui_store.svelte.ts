@@ -40,7 +40,7 @@ export const BOTTOM_PANEL_TABS = [
   "problems",
   "lsp_results",
   "query",
-  "ai",
+  "assistant",
   "trust",
 ] as const;
 export type BottomPanelTab = (typeof BOTTOM_PANEL_TABS)[number];

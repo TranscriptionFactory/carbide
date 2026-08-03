@@ -39,7 +39,7 @@ export const COMMAND_TO_ACTION_ID: Record<CommandId, string> = {
   git_pull: ACTION_IDS.git_pull,
   git_fetch: ACTION_IDS.git_fetch,
   git_add_remote: ACTION_IDS.git_add_remote,
-  ai_assistant: ACTION_IDS.ai_open_assistant,
+  ai_assistant: ACTION_IDS.assistant_open_panel,
   assistant_review_proposals: ACTION_IDS.assistant_open_proposals,
   toggle_links_panel: ACTION_IDS.ui_toggle_context_rail,
   toggle_graph_panel: ACTION_IDS.graph_toggle_panel,

@@ -335,6 +335,7 @@ export const ACTION_IDS = {
   ai_toggle_vault_context: "ai.toggle_vault_context",
   ai_open_vault_in_agent: "ai.open_vault_in_agent",
 
+  assistant_open_panel: "assistant.open_panel",
   assistant_stop_run: "assistant.stop_run",
   assistant_stop_all_runs: "assistant.stop_all_runs",
   assistant_open_session: "assistant.open_session",

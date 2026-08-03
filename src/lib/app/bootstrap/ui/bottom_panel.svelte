@@ -21,6 +21,12 @@
   const has_issues = $derived(error_count + warning_count > 0);
 
   function set_tab(tab: BottomPanelTab) {
+    // Mirrors the terminal special case: the assistant tab has open-time
+    // behavior (provider resolve + scope seeding) that lives in its action.
+    if (tab === "assistant") {
+      void action_registry.execute(ACTION_IDS.assistant_open_panel);
+      return;
+    }
     stores.ui.bottom_panel_tab = tab;
     if (tab === "terminal") {
       stores.terminal.open();
@@ -45,7 +51,8 @@
     import("$lib/features/query/ui/query_panel_content.svelte");
   const load_lsp_results = () =>
     import("$lib/features/lsp/ui/lsp_results_panel_content.svelte");
-  const load_ai = () => import("$lib/features/ai/ui/ai_assistant_panel.svelte");
+  const load_assistant = () =>
+    import("$lib/features/assistant/ui/assistant_panel_tab.svelte");
   const load_trust = () =>
     import("$lib/features/document/ui/trust_panel_content.svelte");
 
@@ -78,7 +85,7 @@
       icon: Search,
       badge: () => query_result_count,
     },
-    { id: "ai", label: "AI", icon: Bot },
+    { id: "assistant", label: "Assistant", icon: Bot },
     { id: "trust", label: "Trust", icon: ShieldCheck },
   ];
 </script>
@@ -139,11 +146,11 @@
       <div class="BottomPanel__error">Failed to load panel</div>
     {/await}
   </Tabs.Content>
-  <Tabs.Content value="ai" class="BottomPanel__content">
-    {#await load_ai() then mod}
+  <Tabs.Content value="assistant" class="BottomPanel__content">
+    {#await load_assistant() then mod}
       <mod.default />
     {:catch}
-      <div class="BottomPanel__error">Failed to load AI panel</div>
+      <div class="BottomPanel__error">Failed to load the assistant panel</div>
     {/await}
   </Tabs.Content>
   <Tabs.Content value="trust" class="BottomPanel__content">

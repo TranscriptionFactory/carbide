@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { ActionRegistry } from "$lib/app/action_registry/action_registry";
 import { ACTION_IDS } from "$lib/app/action_registry/action_ids";
 import {
+  AssistantChatStore,
   AssistantSessionStore,
   register_assistant_actions,
 } from "$lib/features/assistant";
@@ -29,6 +30,8 @@ function create_harness() {
       apply_batch: vi.fn(),
       reject_batch: vi.fn(),
     } as never,
+    chat_store: new AssistantChatStore(sessions),
+    active_document_path: () => null,
   });
   return { registry, sessions, tab };
 }

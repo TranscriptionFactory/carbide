@@ -427,11 +427,11 @@ export const DEFAULT_HOTKEYS: HotkeyBinding[] = [
     category: "general",
   },
   {
-    action_id: ACTION_IDS.ai_open_assistant,
+    action_id: ACTION_IDS.assistant_open_panel,
     key: "CmdOrCtrl+Shift+A",
     phase: "capture",
-    label: "AI Assistant",
-    description: "Open the AI assistant panel for the current tab",
+    label: "Assistant",
+    description: "Open the assistant panel for the current tab",
     category: "navigation",
   },
   {

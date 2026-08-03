@@ -5,6 +5,7 @@ import {
   ASSISTANT_PROPOSALS_TAB_TITLE,
   assistant_session_tab_id,
 } from "$lib/features/tab";
+import type { AssistantChatStore } from "$lib/features/assistant/state/assistant_chat_store.svelte";
 import type { AssistantKernelService } from "$lib/features/assistant/application/assistant_kernel_service";
 import type { ProposalApplyService } from "$lib/features/assistant/application/proposal_apply_service";
 import type { AssistantProposalStore } from "$lib/features/assistant/state/assistant_proposal_store.svelte";
@@ -17,6 +18,8 @@ export function register_assistant_actions(
     assistant_sessions: AssistantSessionStore;
     assistant_proposals: AssistantProposalStore;
     proposal_apply: ProposalApplyService;
+    chat_store: AssistantChatStore;
+    active_document_path: () => string | null;
   },
 ) {
   const {
@@ -25,8 +28,63 @@ export function register_assistant_actions(
     assistant_sessions,
     assistant_proposals,
     proposal_apply,
+    chat_store,
+    active_document_path,
     stores,
   } = input;
+
+  registry.register({
+    id: ACTION_IDS.assistant_open_panel,
+    label: "Assistant",
+    execute: async () => {
+      // rag.open mirror: resolve a provider on first open, default the agent
+      // permission mode before any session exists to hold it.
+      if (!chat_store.provider_id) {
+        const provider = await assistant_kernel.resolve_provider(
+          stores.ui.editor_settings.ai_default_provider_id,
+        );
+        if (provider) chat_store.set_provider(provider.id);
+      }
+      if (!chat_store.active) {
+        chat_store.set_permission_mode(
+          stores.ui.editor_settings.ai_agent_permission_default,
+        );
+      }
+
+      stores.ui.bottom_panel_tab = "assistant";
+      stores.ui.bottom_panel_open = true;
+
+      // SEED only an untouched conversation: never re-scope one in progress,
+      // and a user-set scope or attachment always wins.
+      const scope = chat_store.scope;
+      const scope_empty = !(
+        scope.notes?.length ||
+        scope.folders?.length ||
+        scope.tags?.length ||
+        scope.bases?.length
+      );
+      if (
+        chat_store.messages.length > 0 ||
+        !scope_empty ||
+        chat_store.attached_document
+      ) {
+        return;
+      }
+
+      const document_path = active_document_path();
+      if (document_path) {
+        await registry.execute(
+          ACTION_IDS.assistant_attach_document,
+          document_path,
+        );
+        return;
+      }
+      const note = stores.editor.open_note;
+      if (note) {
+        chat_store.set_scope({ ...scope, notes: [String(note.meta.path)] });
+      }
+    },
+  });
 
   registry.register({
     id: ACTION_IDS.assistant_stop_run,

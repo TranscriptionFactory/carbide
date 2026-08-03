@@ -7,6 +7,7 @@ import type {
   HotkeyOverride,
   HotkeyPhase,
 } from "$lib/features/hotkey/types/hotkey_config";
+import { migrate_hotkey_overrides } from "$lib/features/hotkey/domain/hotkey_overrides_migration";
 import { error_message } from "$lib/shared/utils/error_message";
 import { create_logger } from "$lib/shared/utils/logger";
 
@@ -36,7 +37,14 @@ export class HotkeyService {
       const stored =
         await this.settings_port.get_setting<unknown>(HOTKEY_OVERRIDES_KEY);
       if (!stored || !Array.isArray(stored)) return [];
-      return stored.filter(is_hotkey_override);
+      const overrides = stored.filter(is_hotkey_override);
+      // Renamed action ids migrate in place; the re-save makes it one-time
+      // rather than on every load forever.
+      const migration = migrate_hotkey_overrides(overrides);
+      if (migration.changed) {
+        await this.save_hotkey_overrides(migration.overrides);
+      }
+      return migration.overrides;
     } catch (error) {
       log.error("Load hotkey overrides failed", {
         error: error_message(error),

@@ -77,7 +77,9 @@ describe("DEFAULT_HOTKEYS", () => {
     expect(action_ids.has("git.pull")).toBe(true);
     expect(action_ids.has("git.push")).toBe(true);
     expect(action_ids.has("git.add_remote")).toBe(true);
-    expect(action_ids.has("ai.open_assistant")).toBe(true);
+    expect(action_ids.has("assistant.open_panel")).toBe(true);
+    // ai.open_assistant retired to assistant.open_panel (pin 5)
+    expect(action_ids.has("ai.open_assistant")).toBe(false);
     expect(action_ids.has("rag.open")).toBe(true);
   });
 

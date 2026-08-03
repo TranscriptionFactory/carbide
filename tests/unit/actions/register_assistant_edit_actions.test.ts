@@ -199,15 +199,17 @@ describe("assistant.edit_open_tab", () => {
 
   it("stamps the proposal origin with the chat session and the run id", async () => {
     const h = create_harness({ open_document: DOCUMENT });
-    h.edit.mockImplementation(
-      (request: { on_run_started?: (h: { id: string }) => void }) => {
-        request.on_run_started?.({ id: "run-42" });
-        return Promise.resolve({
-          status: "done" as const,
-          output: "<h1>New</h1>\nbody",
-        });
-      },
-    );
+    h.edit.mockImplementation((request) => {
+      request.on_run_started?.({
+        id: "run-42",
+        stop: () => {},
+        outcome: Promise.resolve({ status: "aborted", text: "" }),
+      });
+      return Promise.resolve({
+        status: "done" as const,
+        output: "<h1>New</h1>\nbody",
+      });
+    });
 
     await h.registry.execute(ACTION_IDS.assistant_edit_open_tab, "modernize");
 
