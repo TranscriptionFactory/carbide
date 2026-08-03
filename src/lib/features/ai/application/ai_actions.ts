@@ -689,10 +689,10 @@ export function register_ai_actions(
           : output;
 
       const proposal = build_proposal({
-        note_path: ctx.note_path,
+        target: { kind: "note", note_path: ctx.note_path },
         original_text,
         draft_text,
-        target: ctx.target,
+        span: ctx.target,
         origin: { session_id: crypto.randomUUID(), run_id: null },
       });
       assistant_proposals.add(proposal);
@@ -1113,10 +1113,10 @@ export function register_ai_actions(
       const after = services.editor.get_ai_context();
       if (last_inline_before_markdown !== null && after) {
         const proposal = build_proposal({
-          note_path: after.note_path,
+          target: { kind: "note", note_path: after.note_path },
           original_text: last_inline_before_markdown,
           draft_text: after.markdown,
-          target: "full_note",
+          span: "full_note",
           origin: { session_id: crypto.randomUUID(), run_id: null },
         });
         assistant_proposals.add(proposal);

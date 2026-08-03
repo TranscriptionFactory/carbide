@@ -128,7 +128,10 @@ describe("assistant notice actions — I6 offer-only", () => {
 
     expect(h.assistant_proposals.proposals).toHaveLength(1);
     expect(h.assistant_proposals.proposals[0]?.status).toBe("pending");
-    expect(h.assistant_proposals.proposals[0]?.note_path).toBe(NOTE);
+    expect(h.assistant_proposals.proposals[0]?.target).toEqual({
+      kind: "note",
+      note_path: NOTE,
+    });
     expect(h.write_note_indexed).not.toHaveBeenCalled();
   });
 

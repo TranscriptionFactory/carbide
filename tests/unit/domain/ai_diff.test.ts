@@ -120,14 +120,17 @@ describe("apply_ai_draft_hunk_selection", () => {
 describe("build_proposal", () => {
   it("builds a pending Proposal with a base_revision from the pre-edit text", () => {
     const proposal = build_proposal({
-      note_path: "hybrid-retrieval.md",
+      target: { kind: "note", note_path: "hybrid-retrieval.md" },
       original_text: "A\nB",
       draft_text: "A\nB changed",
-      target: "full_note",
+      span: "full_note",
       origin: { session_id: "session-1", run_id: null },
     });
 
-    expect(proposal.note_path).toBe("hybrid-retrieval.md");
+    expect(proposal.target).toEqual({
+      kind: "note",
+      note_path: "hybrid-retrieval.md",
+    });
     expect(proposal.status).toBe("pending");
     expect(proposal.base_revision).toBe("rev-3");
     expect(proposal.origin).toEqual({ session_id: "session-1", run_id: null });
@@ -138,17 +141,17 @@ describe("build_proposal", () => {
 
   it("mints a distinct id per proposal", () => {
     const one = build_proposal({
-      note_path: "a.md",
+      target: { kind: "note", note_path: "a.md" },
       original_text: "A",
       draft_text: "B",
-      target: "full_note",
+      span: "full_note",
       origin: { session_id: "session-1", run_id: null },
     });
     const two = build_proposal({
-      note_path: "a.md",
+      target: { kind: "note", note_path: "a.md" },
       original_text: "A",
       draft_text: "B",
-      target: "full_note",
+      span: "full_note",
       origin: { session_id: "session-1", run_id: null },
     });
 

@@ -59,9 +59,22 @@ export type ProposalOrigin = {
 // polled — a proposal may sit `pending` over a note that has already drifted.
 export type ProposalStatus = "pending" | "applied" | "rejected" | "stale";
 
+// The discriminated write target. A note proposal applies to a vault note on
+// disk; a document proposal stages into an open document buffer (the tab is
+// the write path, save is the disk write). Discriminated here rather than
+// inferred from the path so the apply service can never route a document
+// through the note port by accident.
+export type ProposalTarget =
+  | { kind: "note"; note_path: string }
+  | { kind: "document"; file_path: string };
+
+export function proposal_path(target: ProposalTarget): string {
+  return target.kind === "note" ? target.note_path : target.file_path;
+}
+
 export type Proposal = {
   id: ProposalId;
-  note_path: string;
+  target: ProposalTarget;
   base_revision: NoteRevision;
   hunks: ProposalHunk[];
   origin: ProposalOrigin;
@@ -71,7 +84,7 @@ export type Proposal = {
 
 export type ProposalSummary = {
   id: ProposalId;
-  note_path: string;
+  target: ProposalTarget;
   hunk_count: number;
   selected_hunk_count: number;
   status: ProposalStatus;
@@ -80,7 +93,7 @@ export type ProposalSummary = {
 export function to_proposal_summary(proposal: Proposal): ProposalSummary {
   return {
     id: proposal.id,
-    note_path: proposal.note_path,
+    target: proposal.target,
     hunk_count: proposal.hunks.length,
     selected_hunk_count: proposal.hunks.filter((hunk) => hunk.selected).length,
     status: proposal.status,

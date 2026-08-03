@@ -5,6 +5,7 @@ import {
   type ProposalHunk,
   type ProposalLine,
   type ProposalOrigin,
+  type ProposalTarget,
 } from "$lib/features/assistant";
 
 // I5's producer: the panel and inline surfaces both diff a before/after
@@ -256,16 +257,20 @@ export function apply_ai_draft_hunk_selection(input: {
 // — the note as it stood before this draft — so the apply service can tell a
 // drifted note from an untouched one (R4) when the batch is later accepted.
 export function build_proposal(input: {
-  note_path: string;
+  target: ProposalTarget;
   original_text: string;
   draft_text: string;
-  target: AiApplyTarget;
+  span: AiApplyTarget;
   origin: ProposalOrigin;
 }): Proposal {
-  const diff = create_ai_draft_diff(input);
+  const diff = create_ai_draft_diff({
+    original_text: input.original_text,
+    draft_text: input.draft_text,
+    target: input.span,
+  });
   return {
     id: crypto.randomUUID(),
-    note_path: input.note_path,
+    target: input.target,
     base_revision: compute_note_revision(input.original_text),
     hunks: diff.hunks,
     origin: input.origin,

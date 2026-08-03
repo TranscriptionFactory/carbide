@@ -104,7 +104,7 @@ export function build_turn_proposals(
     const id = proposal_id(origin, created_at, file.note_path);
     return {
       id,
-      note_path: file.note_path,
+      target: { kind: "note" as const, note_path: file.note_path },
       base_revision: compute_note_revision(base_content),
       hunks: file.hunks.map((hunk, index) => to_proposal_hunk(hunk, id, index)),
       origin,

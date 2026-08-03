@@ -510,7 +510,10 @@ describe("register_ai_actions", () => {
     expect(services.editor.apply_ai_output).not.toHaveBeenCalled();
     expect(add_proposal).toHaveBeenCalledTimes(1);
     const [proposal] = assistant_proposals.proposals;
-    expect(proposal?.note_path).toBe("docs/demo.md");
+    expect(proposal?.target).toEqual({
+      kind: "note",
+      note_path: "docs/demo.md",
+    });
     // accept_proposal (the harness stub for AU-030's action) already ran by
     // the time ai_apply_result's await resolves, so the proposal is applied.
     expect(proposal?.status).toBe("applied");
@@ -696,7 +699,10 @@ describe("register_ai_actions", () => {
       await registry.execute(ACTION_IDS.ai_apply_result);
       expect(services.editor.apply_ai_output).not.toHaveBeenCalled();
       const [proposal] = assistant_proposals.proposals;
-      expect(proposal?.note_path).toBe("docs/demo.md");
+      expect(proposal?.target).toEqual({
+        kind: "note",
+        note_path: "docs/demo.md",
+      });
       expect(accept_proposal).toHaveBeenCalledWith(proposal?.id);
     });
 
@@ -1422,7 +1428,10 @@ describe("register_ai_actions", () => {
 
         expect(harness.add_proposal).toHaveBeenCalledTimes(1);
         const [proposal] = harness.assistant_proposals.proposals;
-        expect(proposal?.note_path).toBe("docs/demo.md");
+        expect(proposal?.target).toEqual({
+          kind: "note",
+          note_path: "docs/demo.md",
+        });
         expect(
           proposal?.hunks
             .flatMap((hunk) => hunk.lines)
