@@ -6,6 +6,7 @@
     SquarePen,
     History,
     FileText,
+    FileDiff,
   } from "@lucide/svelte";
   import { Button } from "$lib/components/ui/button";
   import CollapsibleSection from "$lib/components/ui/collapsible_section.svelte";
@@ -117,6 +118,14 @@
     void action_registry.execute(ACTION_IDS.assistant_stop_run, run_id);
   }
 
+  const pending_proposal_count = $derived(
+    stores.assistant_proposals.pending.length,
+  );
+
+  function open_proposals() {
+    void action_registry.execute(ACTION_IDS.assistant_open_proposals);
+  }
+
   const backend = $derived.by(() => {
     const config = providers.find((p) => p.id === provider_id);
     return config ? (agent_capability(config)?.backend ?? null) : null;
@@ -220,7 +229,12 @@
   <div class="flex items-center justify-between border-b px-3 py-1.5">
     <div class="flex items-center gap-1">
       <span class="text-xs font-medium text-muted-foreground">Vault Chat</span>
-      <AssistantPresence runs={stores.assistant_runs.all} on_stop={stop_run} />
+      <AssistantPresence
+        runs={stores.assistant_runs.all}
+        on_stop={stop_run}
+        {pending_proposal_count}
+        on_open_proposals={open_proposals}
+      />
       {#if rag.mode === "agent" && backend !== null}
         <span
           class="rounded-full border px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground"
@@ -240,6 +254,19 @@
         >
           <History class="size-3.5" />
           {sessions.length}
+        </Button>
+      {/if}
+      {#if pending_proposal_count > 0}
+        <Button
+          variant="ghost"
+          size="sm"
+          class="h-7 gap-1.5"
+          title="Review proposals"
+          data-testid="chat-panel-review-proposals"
+          onclick={open_proposals}
+        >
+          <FileDiff class="size-3.5" />
+          {pending_proposal_count}
         </Button>
       {/if}
     </div>

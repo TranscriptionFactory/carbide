@@ -1,4 +1,5 @@
 import { ACTION_IDS } from "$lib/app/action_registry/action_ids";
+import { toast } from "$lib/shared/ui/toast";
 import { build_proposal } from "$lib/features/ai";
 import { build_notice_draft_text } from "$lib/features/assistant/domain/ambient_notice_edit";
 import { AMBIENT_PROPOSAL_ORIGIN } from "$lib/features/assistant/types/ambient";
@@ -70,6 +71,17 @@ export function register_assistant_notice_actions(
         }),
       );
       assistant_notices.dismiss(notice_id);
+
+      // I6 keeps the notice card to two verbs; the toast is where the queued
+      // proposal becomes reachable without a third one. Skipped on the
+      // no-derivable-edit path above — there is nothing to review there.
+      toast.success("Edit queued for review", {
+        action: {
+          label: "Review →",
+          onClick: () =>
+            void registry.execute(ACTION_IDS.assistant_open_proposals),
+        },
+      });
     },
   });
 

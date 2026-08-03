@@ -8,9 +8,17 @@
     runs: RunRecord[];
     on_stop: (id: RunId) => void;
     now?: (() => number) | undefined;
+    pending_proposal_count?: number;
+    on_open_proposals?: (() => void) | undefined;
   }
 
-  let { runs, on_stop, now = () => Date.now() }: Props = $props();
+  let {
+    runs,
+    on_stop,
+    now = () => Date.now(),
+    pending_proposal_count = 0,
+    on_open_proposals = undefined,
+  }: Props = $props();
 
   const TICK_MS = 1000;
 
@@ -110,6 +118,17 @@
       surface detaches its view; the work continues here.
     </p>
   {/if}
+
+  {#if pending_proposal_count > 0 && on_open_proposals}
+    <button
+      type="button"
+      class="AssistantRuns__proposals"
+      data-testid="assistant-runs-review-proposals"
+      onclick={on_open_proposals}
+    >
+      Review proposals ({pending_proposal_count}) →
+    </button>
+  {/if}
 </div>
 
 <style>
@@ -200,5 +219,16 @@
     opacity: 0.7;
     border-top: 1px solid var(--border);
     padding-top: var(--space-2);
+  }
+
+  .AssistantRuns__proposals {
+    align-self: flex-start;
+    border-radius: var(--radius-sm);
+    padding: var(--space-1);
+    color: var(--interactive);
+  }
+
+  .AssistantRuns__proposals:hover {
+    background-color: var(--muted);
   }
 </style>
