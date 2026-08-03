@@ -5,9 +5,13 @@
 // checkpoint. Inline decorations, panel diffs and the review center are three
 // renderings of this one queue (mockup §3), never three apply paths.
 //
-// I8/R4: proposals are IN-MEMORY ONLY. There is no persistence port here and
-// there must not be one — a restart clears the queue and leaves notes
-// untouched. The program's only persisted-format change was C1's.
+// I8/R4 (amended 2026-08-03): PENDING proposals persist per vault; terminal
+// statuses (applied/rejected/stale) are never written. The original in-memory
+// ruling predated R7's agent-turn rollback, which rolls the notes back to the
+// checkpoint and leaves the pending proposal as the ONLY copy of the turn's
+// work — a restart that clears the queue now loses work, not just review
+// state. Staleness remains checked at apply (R4), so a note edited while the
+// app was closed resolves stale rather than mis-applying.
 
 import type { RunId } from "$lib/features/assistant/types/run";
 

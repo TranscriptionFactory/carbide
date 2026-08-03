@@ -8,10 +8,12 @@ import {
   type ProposalSummary,
 } from "$lib/features/assistant/types/proposal";
 
-// I5: the one proposal queue. In-memory by contract (R4/I8) — no persistence
-// port, no hydration reactor, nothing survives a restart. Read paths are real
-// because they are the frozen shape AU-031/AU-032a build against; every
-// mutator is AU-030's to implement.
+// I5: the one proposal queue. Pending proposals persist per vault (I8 as
+// amended 2026-08-03 — agent-turn rollback makes a pending proposal the only
+// copy of the turn's work); terminal statuses are never written, so
+// applied/rejected/stale entries cannot resurrect across a restart. The store
+// itself stays synchronous and hydrate-shaped; the sync reactor owns both
+// load and save.
 export class AssistantProposalStore {
   proposals = $state<Proposal[]>([]);
 
