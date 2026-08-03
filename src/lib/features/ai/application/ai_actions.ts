@@ -282,7 +282,7 @@ export function register_ai_actions(
     const context = resolve_dialog_context();
     if (!context) {
       if (ai_store.dialog.open && ai_store.dialog.context) {
-        input.stores.ui.bottom_panel_tab = "ai";
+        input.stores.ui.bottom_panel_tab = "assistant";
         input.stores.ui.bottom_panel_open = true;
         return;
       }
@@ -290,7 +290,7 @@ export function register_ai_actions(
       return;
     }
 
-    input.stores.ui.bottom_panel_tab = "ai";
+    input.stores.ui.bottom_panel_tab = "assistant";
     input.stores.ui.bottom_panel_open = true;
 
     const current_ctx = ai_store.dialog.context;
@@ -373,7 +373,7 @@ export function register_ai_actions(
     ai_store.close_dialog();
     if (
       input.stores.ui.bottom_panel_open &&
-      input.stores.ui.bottom_panel_tab === "ai"
+      input.stores.ui.bottom_panel_tab === "assistant"
     ) {
       input.stores.ui.bottom_panel_open = false;
     }

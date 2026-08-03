@@ -211,8 +211,8 @@ pub fn build_menu(app: &tauri::App) -> tauri::Result<Menu<tauri::Wry>> {
         .build()?;
 
     // Tools menu
-    let ai_assistant = MenuItemBuilder::new("AI Assistant")
-        .id("ai.open_assistant")
+    let ai_assistant = MenuItemBuilder::new("Assistant")
+        .id("assistant.open_panel")
         .build(app)?;
     let plugins = MenuItemBuilder::new("Plugins")
         .id("ui.open_plugins")

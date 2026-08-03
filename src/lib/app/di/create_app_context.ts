@@ -260,7 +260,6 @@ export function create_app_context(input: {
         editor: stores.editor,
         tab: stores.tab,
         git: stores.git,
-        ai: stores.ai,
         ui: stores.ui,
         vault: stores.vault,
       }),
@@ -1335,6 +1334,8 @@ export function create_app_context(input: {
     assistant_sessions: stores.assistant_sessions,
     assistant_proposals: stores.assistant_proposals,
     proposal_apply,
+    chat_store: stores.assistant_chat,
+    active_document_path,
   });
 
   register_assistant_edit_actions({

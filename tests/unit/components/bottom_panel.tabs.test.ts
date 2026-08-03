@@ -75,6 +75,30 @@ describe("bottom_panel tabs", () => {
     cleanup();
   });
 
+  it("routes the assistant trigger through assistant.open_panel (pin 5)", () => {
+    const { stores, action_registry, target, cleanup } =
+      render_bottom_panel("problems");
+    click(target, "bottom-panel-tab-assistant");
+    // the action owns the tab flip (provider resolve + seeding live there)
+    expect(action_registry.execute).toHaveBeenCalledWith(
+      ACTION_IDS.assistant_open_panel,
+    );
+    expect(stores.ui.bottom_panel_tab).toBe("problems");
+    cleanup();
+  });
+
+  it("offers Assistant, not the legacy AI tab", () => {
+    const { target, cleanup } = render_bottom_panel("problems");
+    expect(
+      target.querySelector('[data-testid="bottom-panel-tab-assistant"]')
+        ?.textContent,
+    ).toContain("Assistant");
+    expect(target.querySelector('[data-testid="bottom-panel-tab-ai"]')).toBe(
+      null,
+    );
+    cleanup();
+  });
+
   it("closes the panel via the ui store on a non-terminal tab", () => {
     const { stores, action_registry, target, cleanup } =
       render_bottom_panel("problems");

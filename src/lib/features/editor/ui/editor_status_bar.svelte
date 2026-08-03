@@ -40,7 +40,7 @@
       { id: "problems", label: "Problems", icon: CircleAlert },
       { id: "lsp_results", label: "LSP", icon: Zap },
       { id: "query", label: "Query", icon: Search },
-      { id: "ai", label: "AI Assistant", icon: Bot },
+      { id: "assistant", label: "Assistant", icon: Bot },
       { id: "trust", label: "Trust", icon: ShieldCheck },
     ];
 

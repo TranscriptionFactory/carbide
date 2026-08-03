@@ -266,13 +266,13 @@ describe("register_ui_actions", () => {
     expect(stores.ui.bottom_panel_open).toBe(true);
     expect(stores.ui.bottom_panel_tab).toBe("problems");
 
-    await registry.execute(ACTION_IDS.ui_toggle_bottom_panel_tab, "ai");
+    await registry.execute(ACTION_IDS.ui_toggle_bottom_panel_tab, "assistant");
     expect(stores.ui.bottom_panel_open).toBe(true);
-    expect(stores.ui.bottom_panel_tab).toBe("ai");
+    expect(stores.ui.bottom_panel_tab).toBe("assistant");
 
-    await registry.execute(ACTION_IDS.ui_toggle_bottom_panel_tab, "ai");
+    await registry.execute(ACTION_IDS.ui_toggle_bottom_panel_tab, "assistant");
     expect(stores.ui.bottom_panel_open).toBe(false);
-    expect(stores.ui.bottom_panel_tab).toBe("ai");
+    expect(stores.ui.bottom_panel_tab).toBe("assistant");
   });
 
   it("delegates terminal tab toggles to the terminal action", async () => {

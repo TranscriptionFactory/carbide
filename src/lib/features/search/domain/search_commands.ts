@@ -134,9 +134,13 @@ const BASE_COMMANDS: CommandDefinition[] = [
     when: (ctx) => ctx.has_git_repo && !ctx.has_git_remote,
   },
   {
+    // Keeps the persisted command id "ai_assistant" (recent_command_ids) —
+    // only the target action moved. Visibility gates on ai_enabled alone via
+    // the search service; has_ai_cli was a provider probe the panel had to be
+    // opened once to produce, leaving the command invisible until then.
     id: "ai_assistant",
-    label: "AI Assistant",
-    description: "Open the AI assistant for the current note or document",
+    label: "Assistant",
+    description: "Open the assistant panel for the current tab",
     keywords: [
       "ai",
       "assistant",
@@ -149,8 +153,6 @@ const BASE_COMMANDS: CommandDefinition[] = [
       "local",
     ],
     icon: "sparkles",
-    when: (ctx) =>
-      (ctx.has_open_note || ctx.is_editable_document) && ctx.has_ai_cli,
   },
   {
     id: "assistant_review_proposals",

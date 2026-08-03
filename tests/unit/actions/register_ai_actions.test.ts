@@ -244,7 +244,7 @@ describe("register_ai_actions", () => {
     await registry.execute(ACTION_IDS.ai_open_assistant);
 
     expect(stores.ui.bottom_panel_open).toBe(true);
-    expect(stores.ui.bottom_panel_tab).toBe("ai");
+    expect(stores.ui.bottom_panel_tab).toBe("assistant");
     expect(ai_store.dialog.open).toBe(true);
     expect(ai_service.detect).toHaveBeenCalledWith(
       expect.objectContaining({ id: "claude" }),
@@ -430,7 +430,7 @@ describe("register_ai_actions", () => {
     await registry.execute(ACTION_IDS.ai_open_assistant);
 
     expect(stores.ui.bottom_panel_open).toBe(true);
-    expect(stores.ui.bottom_panel_tab).toBe("ai");
+    expect(stores.ui.bottom_panel_tab).toBe("assistant");
     expect(ai_store.dialog.prompt).toBe("Tighten this note");
     expect(ai_store.dialog.turns).toHaveLength(1);
     expect(ai_store.dialog.result).toEqual({

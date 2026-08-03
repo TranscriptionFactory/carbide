@@ -5,7 +5,6 @@ import {
 } from "$lib/features/document";
 import type { EditorStore } from "$lib/features/editor";
 import type { GitStore } from "$lib/features/git";
-import type { AiStore } from "$lib/features/ai";
 import type { UIStore } from "$lib/app/orchestration/ui_store.svelte";
 import type { TabStore } from "$lib/features/tab";
 import type { VaultStore } from "$lib/features/vault";
@@ -14,7 +13,6 @@ type ContextStores = {
   editor: EditorStore;
   tab: TabStore;
   git: GitStore;
-  ai: AiStore;
   ui: UIStore;
   vault: VaultStore;
 };
@@ -28,7 +26,6 @@ export function build_command_context(stores: ContextStores): CommandContext {
     has_open_note: open_note !== null && active_tab?.kind === "note",
     has_git_repo: stores.git.enabled,
     has_git_remote: stores.git.has_remote,
-    has_ai_cli: stores.ai.dialog.cli_status === "available",
     is_split_view: stores.editor.split_view,
     has_selection:
       stores.editor.selection !== null &&

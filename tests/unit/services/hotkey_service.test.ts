@@ -82,6 +82,26 @@ describe("HotkeyService", () => {
       const overrides = await service.load_hotkey_overrides();
       expect(overrides).toEqual([]);
     });
+
+    it("migrates a renamed action id and re-saves exactly once", async () => {
+      await settings_port.set_setting("hotkey_overrides", [
+        { action_id: "ai.open_assistant", key: "CmdOrCtrl+Alt+A" },
+      ]);
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      const { set_setting } = settings_port;
+      vi.mocked(set_setting).mockClear();
+
+      const overrides = await service.load_hotkey_overrides();
+      expect(overrides).toEqual([
+        { action_id: "assistant.open_panel", key: "CmdOrCtrl+Alt+A" },
+      ]);
+      expect(set_setting).toHaveBeenCalledTimes(1);
+
+      // second load reads the migrated set — no further re-save
+      vi.mocked(set_setting).mockClear();
+      await service.load_hotkey_overrides();
+      expect(set_setting).not.toHaveBeenCalled();
+    });
   });
 
   describe("save_hotkey_overrides", () => {

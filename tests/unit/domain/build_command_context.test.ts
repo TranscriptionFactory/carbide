@@ -105,7 +105,6 @@ describe("build_command_context", () => {
     expect(ctx.has_open_note).toBe(false);
     expect(ctx.has_git_repo).toBe(false);
     expect(ctx.has_git_remote).toBe(false);
-    expect(ctx.has_ai_cli).toBe(false);
     expect(ctx.is_split_view).toBe(false);
     expect(ctx.has_selection).toBe(false);
     expect(ctx.is_canvas_file).toBe(false);
@@ -150,22 +149,6 @@ describe("build_command_context", () => {
     const ctx = build_command_context(stores);
     expect(ctx.has_git_repo).toBe(true);
     expect(ctx.has_git_remote).toBe(true);
-  });
-
-  it("detects available AI CLI", () => {
-    const stores = make_stores({
-      ai: { dialog: { cli_status: "available" } as any },
-    });
-    const ctx = build_command_context(stores);
-    expect(ctx.has_ai_cli).toBe(true);
-  });
-
-  it("returns false for unavailable AI CLI", () => {
-    const stores = make_stores({
-      ai: { dialog: { cli_status: "unavailable" } as any },
-    });
-    const ctx = build_command_context(stores);
-    expect(ctx.has_ai_cli).toBe(false);
   });
 
   it("detects split view", () => {
