@@ -166,7 +166,11 @@ fn upsert_vault(store: &mut VaultStore, mut vault: Vault) {
 
 #[tauri::command]
 #[specta::specta]
-pub fn open_vault(app: AppHandle, args: OpenVaultArgs) -> Result<Vault, String> {
+pub async fn open_vault(app: AppHandle, args: OpenVaultArgs) -> Result<Vault, String> {
+    crate::shared::blocking::blocking("open_vault", move || open_vault_inner(app, args)).await
+}
+
+pub fn open_vault_inner(app: AppHandle, args: OpenVaultArgs) -> Result<Vault, String> {
     log::info!("Opening vault path={}", args.vault_path);
     let resolved = resolve_open_path(&args)?;
     finish_open(&app, resolved, VaultMode::Vault, true)
@@ -174,7 +178,14 @@ pub fn open_vault(app: AppHandle, args: OpenVaultArgs) -> Result<Vault, String> 
 
 #[tauri::command]
 #[specta::specta]
-pub fn open_vault_by_id(app: AppHandle, vault_id: String) -> Result<Vault, String> {
+pub async fn open_vault_by_id(app: AppHandle, vault_id: String) -> Result<Vault, String> {
+    crate::shared::blocking::blocking("open_vault_by_id", move || {
+        open_vault_by_id_inner(app, vault_id)
+    })
+    .await
+}
+
+pub fn open_vault_by_id_inner(app: AppHandle, vault_id: String) -> Result<Vault, String> {
     log::info!("Opening vault by id vault_id={}", vault_id);
     let now = storage::now_ms();
 
@@ -205,7 +216,11 @@ pub fn open_vault_by_id(app: AppHandle, vault_id: String) -> Result<Vault, Strin
 
 #[tauri::command]
 #[specta::specta]
-pub fn list_vaults(app: AppHandle) -> Result<Vec<Vault>, String> {
+pub async fn list_vaults(app: AppHandle) -> Result<Vec<Vault>, String> {
+    crate::shared::blocking::blocking("list_vaults", move || list_vaults_inner(app)).await
+}
+
+pub fn list_vaults_inner(app: AppHandle) -> Result<Vec<Vault>, String> {
     log::info!("Listing vaults");
     let mut store = storage::load_store(&app)?;
     store
@@ -240,7 +255,14 @@ pub struct RemoveVaultArgs {
 
 #[tauri::command]
 #[specta::specta]
-pub fn remember_last_vault(app: AppHandle, args: RememberLastArgs) -> Result<(), String> {
+pub async fn remember_last_vault(app: AppHandle, args: RememberLastArgs) -> Result<(), String> {
+    crate::shared::blocking::blocking("remember_last_vault", move || {
+        remember_last_vault_inner(app, args)
+    })
+    .await
+}
+
+pub fn remember_last_vault_inner(app: AppHandle, args: RememberLastArgs) -> Result<(), String> {
     log::info!("Remembering last vault vault_id={}", args.vault_id);
     storage::update_store(&app, |store| {
         store.last_vault_id = Some(args.vault_id);
@@ -250,7 +272,20 @@ pub fn remember_last_vault(app: AppHandle, args: RememberLastArgs) -> Result<(),
 
 #[tauri::command]
 #[specta::specta]
-pub fn remove_vault_from_registry(app: AppHandle, args: RemoveVaultArgs) -> Result<(), String> {
+pub async fn remove_vault_from_registry(
+    app: AppHandle,
+    args: RemoveVaultArgs,
+) -> Result<(), String> {
+    crate::shared::blocking::blocking("remove_vault_from_registry", move || {
+        remove_vault_from_registry_inner(app, args)
+    })
+    .await
+}
+
+pub fn remove_vault_from_registry_inner(
+    app: AppHandle,
+    args: RemoveVaultArgs,
+) -> Result<(), String> {
     log::info!("Removing vault from registry vault_id={}", args.vault_id);
     storage::update_store(&app, |store| {
         store.vaults.retain(|entry| entry.vault.id != args.vault_id);
@@ -271,14 +306,23 @@ pub fn remove_vault_from_registry(app: AppHandle, args: RemoveVaultArgs) -> Resu
 
 #[tauri::command]
 #[specta::specta]
-pub fn get_last_vault_id(app: AppHandle) -> Result<Option<String>, String> {
+pub async fn get_last_vault_id(app: AppHandle) -> Result<Option<String>, String> {
+    crate::shared::blocking::blocking("get_last_vault_id", move || get_last_vault_id_inner(app))
+        .await
+}
+
+pub fn get_last_vault_id_inner(app: AppHandle) -> Result<Option<String>, String> {
     let store = storage::load_store(&app)?;
     Ok(store.last_vault_id)
 }
 
 #[tauri::command]
 #[specta::specta]
-pub fn open_folder(app: AppHandle, args: OpenVaultArgs) -> Result<Vault, String> {
+pub async fn open_folder(app: AppHandle, args: OpenVaultArgs) -> Result<Vault, String> {
+    crate::shared::blocking::blocking("open_folder", move || open_folder_inner(app, args)).await
+}
+
+pub fn open_folder_inner(app: AppHandle, args: OpenVaultArgs) -> Result<Vault, String> {
     log::info!("Opening folder path={}", args.vault_path);
     let resolved = resolve_open_path(&args)?;
 
@@ -301,7 +345,14 @@ pub struct PromoteToVaultArgs {
 
 #[tauri::command]
 #[specta::specta]
-pub fn promote_to_vault(app: AppHandle, args: PromoteToVaultArgs) -> Result<Vault, String> {
+pub async fn promote_to_vault(app: AppHandle, args: PromoteToVaultArgs) -> Result<Vault, String> {
+    crate::shared::blocking::blocking("promote_to_vault", move || {
+        promote_to_vault_inner(app, args)
+    })
+    .await
+}
+
+pub fn promote_to_vault_inner(app: AppHandle, args: PromoteToVaultArgs) -> Result<Vault, String> {
     log::info!("Promoting to vault vault_id={}", args.vault_id);
     storage::update_store(&app, |store| {
         let entry = store
@@ -320,7 +371,14 @@ pub fn promote_to_vault(app: AppHandle, args: PromoteToVaultArgs) -> Result<Vaul
 
 #[tauri::command]
 #[specta::specta]
-pub fn refresh_note_count(app: AppHandle, vault_id: String) -> Result<Option<u64>, String> {
+pub async fn refresh_note_count(app: AppHandle, vault_id: String) -> Result<Option<u64>, String> {
+    crate::shared::blocking::blocking("refresh_note_count", move || {
+        refresh_note_count_inner(app, vault_id)
+    })
+    .await
+}
+
+pub fn refresh_note_count_inner(app: AppHandle, vault_id: String) -> Result<Option<u64>, String> {
     let count = load_note_count(&app, &vault_id);
     if let Some(c) = count {
         storage::update_store(&app, |store| {
@@ -342,7 +400,17 @@ pub struct FileVaultResolution {
 
 #[tauri::command]
 #[specta::specta]
-pub fn resolve_file_to_vault(
+pub async fn resolve_file_to_vault(
+    app: AppHandle,
+    file_path: String,
+) -> Result<Option<FileVaultResolution>, String> {
+    crate::shared::blocking::blocking("resolve_file_to_vault", move || {
+        resolve_file_to_vault_inner(app, file_path)
+    })
+    .await
+}
+
+pub fn resolve_file_to_vault_inner(
     app: AppHandle,
     file_path: String,
 ) -> Result<Option<FileVaultResolution>, String> {

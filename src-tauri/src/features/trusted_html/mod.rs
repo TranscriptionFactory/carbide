@@ -94,7 +94,18 @@ fn resolve(grants: &StoredTrustGrants, file_path: &str) -> TrustLevel {
 
 #[tauri::command]
 #[specta::specta]
-pub fn trusted_html_get_level(
+pub async fn trusted_html_get_level(
+    app: AppHandle,
+    vault_id: String,
+    file_path: String,
+) -> Result<TrustLevel, String> {
+    crate::shared::blocking::blocking("trusted_html_get_level", move || {
+        trusted_html_get_level_inner(app, vault_id, file_path)
+    })
+    .await
+}
+
+pub fn trusted_html_get_level_inner(
     app: AppHandle,
     vault_id: String,
     file_path: String,
@@ -106,7 +117,17 @@ pub fn trusted_html_get_level(
 
 #[tauri::command]
 #[specta::specta]
-pub fn trusted_html_list(
+pub async fn trusted_html_list(
+    app: AppHandle,
+    vault_id: String,
+) -> Result<Vec<TrustEntry>, String> {
+    crate::shared::blocking::blocking("trusted_html_list", move || {
+        trusted_html_list_inner(app, vault_id)
+    })
+    .await
+}
+
+pub fn trusted_html_list_inner(
     app: AppHandle,
     vault_id: String,
 ) -> Result<Vec<TrustEntry>, String> {
@@ -133,7 +154,20 @@ pub fn trusted_html_list(
 
 #[tauri::command]
 #[specta::specta]
-pub fn trusted_html_grant(
+pub async fn trusted_html_grant(
+    app: AppHandle,
+    vault_id: String,
+    path: String,
+    scope: TrustScope,
+    level: TrustLevel,
+) -> Result<(), String> {
+    crate::shared::blocking::blocking("trusted_html_grant", move || {
+        trusted_html_grant_inner(app, vault_id, path, scope, level)
+    })
+    .await
+}
+
+pub fn trusted_html_grant_inner(
     app: AppHandle,
     vault_id: String,
     path: String,
@@ -164,7 +198,19 @@ pub fn trusted_html_grant(
 
 #[tauri::command]
 #[specta::specta]
-pub fn trusted_html_revoke(
+pub async fn trusted_html_revoke(
+    app: AppHandle,
+    vault_id: String,
+    path: String,
+    scope: TrustScope,
+) -> Result<(), String> {
+    crate::shared::blocking::blocking("trusted_html_revoke", move || {
+        trusted_html_revoke_inner(app, vault_id, path, scope)
+    })
+    .await
+}
+
+pub fn trusted_html_revoke_inner(
     app: AppHandle,
     vault_id: String,
     path: String,

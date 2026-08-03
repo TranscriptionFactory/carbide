@@ -209,7 +209,7 @@ fn handle_rag_status(app: &AppHandle, arguments: Option<&Value>) -> ToolResult {
 
     let bridge_available = !app.webview_windows().is_empty();
 
-    match search_service::get_embedding_status(app.clone(), vault_id.clone()) {
+    match search_service::get_embedding_status_inner(app.clone(), vault_id.clone()) {
         Ok(status) => ToolResult::text(format!(
             "RAG status for vault {}\nEmbedding model: {}\nEmbedded notes: {}/{}\nIndexing in progress: {}\nIn-app query bridge available: {}",
             vault_id,

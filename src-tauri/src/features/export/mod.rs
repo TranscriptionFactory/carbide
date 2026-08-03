@@ -82,13 +82,32 @@ fn save_destination(save_path: &str) -> Result<PathBuf, String> {
 
 #[tauri::command]
 #[specta::specta]
-pub fn export_write_html(html: String, save_path: String) -> Result<(), String> {
+pub async fn export_write_html(html: String, save_path: String) -> Result<(), String> {
+    crate::shared::blocking::blocking("export_write_html", move || {
+        export_write_html_inner(html, save_path)
+    })
+    .await
+}
+
+pub fn export_write_html_inner(html: String, save_path: String) -> Result<(), String> {
     io_utils::atomic_write(save_destination(&save_path)?, html)
 }
 
 #[tauri::command]
 #[specta::specta]
-pub fn export_write_epub(
+pub async fn export_write_epub(
+    app: AppHandle,
+    vault_id: String,
+    save_path: String,
+    input: EpubInput,
+) -> Result<(), String> {
+    crate::shared::blocking::blocking("export_write_epub", move || {
+        export_write_epub_inner(app, vault_id, save_path, input)
+    })
+    .await
+}
+
+pub fn export_write_epub_inner(
     app: AppHandle,
     vault_id: String,
     save_path: String,
@@ -403,7 +422,7 @@ mod tests {
     fn export_write_html_writes_the_document() {
         let dir = tempfile::tempdir().unwrap();
         let target = dir.path().join("note.html");
-        export_write_html(
+        export_write_html_inner(
             "<!doctype html><html><body>hi</body></html>".to_string(),
             target.to_string_lossy().to_string(),
         )

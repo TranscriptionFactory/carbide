@@ -163,7 +163,7 @@ fn handle_list_references(app: &AppHandle, arguments: Option<&Value>) -> ToolRes
 
     let limit = args.limit.unwrap_or(50).min(200);
 
-    match reference_service::reference_load_library(app.clone(), args.vault_id) {
+    match reference_service::reference_load_library_inner(app.clone(), args.vault_id) {
         Ok(library) => {
             if library.items.is_empty() {
                 return ToolResult::text("No references in library.".into());
@@ -192,7 +192,7 @@ fn handle_search_references(app: &AppHandle, arguments: Option<&Value>) -> ToolR
         Err(e) => return e,
     };
 
-    match reference_service::reference_load_library(app.clone(), args.vault_id) {
+    match reference_service::reference_load_library_inner(app.clone(), args.vault_id) {
         Ok(library) => {
             let matches: Vec<String> = library
                 .items

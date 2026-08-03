@@ -114,13 +114,22 @@ fn status_string(s: git2::Status) -> &'static str {
 
 #[tauri::command]
 #[specta::specta]
-pub fn git_has_repo(vault_path: String) -> Result<bool, String> {
+pub async fn git_has_repo(vault_path: String) -> Result<bool, String> {
+    crate::shared::blocking::blocking("git_has_repo", move || git_has_repo_inner(vault_path)).await
+}
+
+pub fn git_has_repo_inner(vault_path: String) -> Result<bool, String> {
     Ok(Path::new(&vault_path).join(".git").exists())
 }
 
 #[tauri::command]
 #[specta::specta]
-pub fn git_init_repo(vault_path: String) -> Result<(), String> {
+pub async fn git_init_repo(vault_path: String) -> Result<(), String> {
+    crate::shared::blocking::blocking("git_init_repo", move || git_init_repo_inner(vault_path))
+        .await
+}
+
+pub fn git_init_repo_inner(vault_path: String) -> Result<(), String> {
     let repo = Repository::init(&vault_path).map_err(|e| format!("failed to init repo: {}", e))?;
     write_default_gitignore_if_missing(&vault_path)?;
     let mut index = repo_index(&repo)?;
@@ -132,7 +141,11 @@ pub fn git_init_repo(vault_path: String) -> Result<(), String> {
 
 #[tauri::command]
 #[specta::specta]
-pub fn git_status(vault_path: String) -> Result<GitStatus, String> {
+pub async fn git_status(vault_path: String) -> Result<GitStatus, String> {
+    crate::shared::blocking::blocking("git_status", move || git_status_inner(vault_path)).await
+}
+
+pub fn git_status_inner(vault_path: String) -> Result<GitStatus, String> {
     let repo = open_repo(&vault_path)?;
 
     let branch = match repo.head() {
@@ -301,7 +314,18 @@ fn commit_tree(
 
 #[tauri::command]
 #[specta::specta]
-pub fn git_stage_and_commit(
+pub async fn git_stage_and_commit(
+    vault_path: String,
+    message: String,
+    files: Option<Vec<String>>,
+) -> Result<String, String> {
+    crate::shared::blocking::blocking("git_stage_and_commit", move || {
+        git_stage_and_commit_inner(vault_path, message, files)
+    })
+    .await
+}
+
+pub fn git_stage_and_commit_inner(
     vault_path: String,
     message: String,
     files: Option<Vec<String>>,
@@ -317,7 +341,22 @@ pub fn git_stage_and_commit(
 
 #[tauri::command]
 #[specta::specta]
-pub fn git_create_tag(vault_path: String, name: String, message: String) -> Result<(), String> {
+pub async fn git_create_tag(
+    vault_path: String,
+    name: String,
+    message: String,
+) -> Result<(), String> {
+    crate::shared::blocking::blocking("git_create_tag", move || {
+        git_create_tag_inner(vault_path, name, message)
+    })
+    .await
+}
+
+pub fn git_create_tag_inner(
+    vault_path: String,
+    name: String,
+    message: String,
+) -> Result<(), String> {
     let repo = open_repo(&vault_path)?;
     let head = repo
         .head()
@@ -565,7 +604,19 @@ fn collect_diff_hunks(diff: &git2::Diff<'_>) -> Result<Vec<GitDiffHunk>, String>
 
 #[tauri::command]
 #[specta::specta]
-pub fn git_diff(
+pub async fn git_diff(
+    vault_path: String,
+    commit_a: String,
+    commit_b: String,
+    file_path: Option<String>,
+) -> Result<GitDiff, String> {
+    crate::shared::blocking::blocking("git_diff", move || {
+        git_diff_inner(vault_path, commit_a, commit_b, file_path)
+    })
+    .await
+}
+
+pub fn git_diff_inner(
     vault_path: String,
     commit_a: String,
     commit_b: String,
@@ -634,7 +685,18 @@ pub(crate) fn git_diff_working(
 
 #[tauri::command]
 #[specta::specta]
-pub fn git_diff_working_tree(
+pub async fn git_diff_working_tree(
+    vault_path: String,
+    file_path: Option<String>,
+    base_ref: Option<String>,
+) -> Result<GitDiff, String> {
+    crate::shared::blocking::blocking("git_diff_working_tree", move || {
+        git_diff_working_tree_inner(vault_path, file_path, base_ref)
+    })
+    .await
+}
+
+pub fn git_diff_working_tree_inner(
     vault_path: String,
     file_path: Option<String>,
     base_ref: Option<String>,
@@ -644,7 +706,18 @@ pub fn git_diff_working_tree(
 
 #[tauri::command]
 #[specta::specta]
-pub fn git_show_file_at_commit(
+pub async fn git_show_file_at_commit(
+    vault_path: String,
+    file_path: String,
+    commit_hash: String,
+) -> Result<String, String> {
+    crate::shared::blocking::blocking("git_show_file_at_commit", move || {
+        git_show_file_at_commit_inner(vault_path, file_path, commit_hash)
+    })
+    .await
+}
+
+pub fn git_show_file_at_commit_inner(
     vault_path: String,
     file_path: String,
     commit_hash: String,
@@ -678,13 +751,24 @@ pub fn git_show_file_at_commit(
 
 #[tauri::command]
 #[specta::specta]
-pub fn git_restore_file(
+pub async fn git_restore_file(
+    vault_path: String,
+    file_path: String,
+    commit_hash: String,
+) -> Result<String, String> {
+    crate::shared::blocking::blocking("git_restore_file", move || {
+        git_restore_file_inner(vault_path, file_path, commit_hash)
+    })
+    .await
+}
+
+pub fn git_restore_file_inner(
     vault_path: String,
     file_path: String,
     commit_hash: String,
 ) -> Result<String, String> {
     let content =
-        git_show_file_at_commit(vault_path.clone(), file_path.clone(), commit_hash.clone())?;
+        git_show_file_at_commit_inner(vault_path.clone(), file_path.clone(), commit_hash.clone())?;
     let abs = Path::new(&vault_path).join(&file_path);
 
     if let Some(parent) = abs.parent() {
@@ -701,7 +785,7 @@ pub fn git_restore_file(
         .unwrap_or(&file_path);
     let message = format!("Restore: {} to {}", title, short_hash);
 
-    git_stage_and_commit(vault_path, message, Some(vec![file_path]))
+    git_stage_and_commit_inner(vault_path, message, Some(vec![file_path]))
 }
 
 fn ensure_not_conflicted(repo: &Repository, file_path: &str) -> Result<(), String> {
@@ -773,7 +857,14 @@ fn changed_paths(repo: &Repository) -> Result<Vec<String>, String> {
 
 #[tauri::command]
 #[specta::specta]
-pub fn git_discard_file(vault_path: String, file_path: String) -> Result<(), String> {
+pub async fn git_discard_file(vault_path: String, file_path: String) -> Result<(), String> {
+    crate::shared::blocking::blocking("git_discard_file", move || {
+        git_discard_file_inner(vault_path, file_path)
+    })
+    .await
+}
+
+pub fn git_discard_file_inner(vault_path: String, file_path: String) -> Result<(), String> {
     let repo = open_repo(&vault_path)?;
     ensure_not_conflicted(&repo, &file_path)?;
     discard_one(&repo, &vault_path, &file_path)
@@ -781,7 +872,17 @@ pub fn git_discard_file(vault_path: String, file_path: String) -> Result<(), Str
 
 #[tauri::command]
 #[specta::specta]
-pub fn git_discard_all(
+pub async fn git_discard_all(
+    vault_path: String,
+    paths: Option<Vec<String>>,
+) -> Result<Vec<String>, String> {
+    crate::shared::blocking::blocking("git_discard_all", move || {
+        git_discard_all_inner(vault_path, paths)
+    })
+    .await
+}
+
+pub fn git_discard_all_inner(
     vault_path: String,
     paths: Option<Vec<String>>,
 ) -> Result<Vec<String>, String> {
@@ -1054,7 +1155,14 @@ pub async fn git_pull(vault_path: String, strategy: Option<String>) -> GitRemote
 
 #[tauri::command]
 #[specta::specta]
-pub fn git_add_remote(vault_path: String, url: String) -> GitRemoteResult {
+pub async fn git_add_remote(vault_path: String, url: String) -> Result<GitRemoteResult, String> {
+    crate::shared::blocking::blocking("git_add_remote", move || {
+        Ok(git_add_remote_inner(vault_path, url))
+    })
+    .await
+}
+
+pub fn git_add_remote_inner(vault_path: String, url: String) -> GitRemoteResult {
     if !is_valid_remote_url(&url) {
         return GitRemoteResult {
             success: false,
@@ -1104,7 +1212,17 @@ pub fn git_add_remote(vault_path: String, url: String) -> GitRemoteResult {
 
 #[tauri::command]
 #[specta::specta]
-pub fn git_set_remote_url(vault_path: String, url: String) -> GitRemoteResult {
+pub async fn git_set_remote_url(
+    vault_path: String,
+    url: String,
+) -> Result<GitRemoteResult, String> {
+    crate::shared::blocking::blocking("git_set_remote_url", move || {
+        Ok(git_set_remote_url_inner(vault_path, url))
+    })
+    .await
+}
+
+pub fn git_set_remote_url_inner(vault_path: String, url: String) -> GitRemoteResult {
     if !is_valid_remote_url(&url) {
         return GitRemoteResult {
             success: false,
@@ -1222,7 +1340,7 @@ mod tests {
         for (name, content) in files {
             fs::write(dir.path().join(name), content).unwrap();
         }
-        git_init_repo(root.clone()).unwrap();
+        git_init_repo_inner(root.clone()).unwrap();
         (dir, root)
     }
 
@@ -1252,7 +1370,7 @@ mod tests {
         };
 
         fs::write(dir.path().join(name), "ours\n").unwrap();
-        git_stage_and_commit(
+        git_stage_and_commit_inner(
             root.to_string(),
             "ours".to_string(),
             Some(vec![name.to_string()]),
@@ -1270,7 +1388,7 @@ mod tests {
         fs::write(dir.path().join("note.md"), "edited\n").unwrap();
         let before = head_hash(&root);
 
-        git_discard_file(root.clone(), "note.md".to_string()).unwrap();
+        git_discard_file_inner(root.clone(), "note.md".to_string()).unwrap();
 
         assert_eq!(read(&root, "note.md"), "original\n");
         assert_eq!(head_hash(&root), before);
@@ -1282,7 +1400,7 @@ mod tests {
         fs::write(dir.path().join("scratch.md"), "draft\n").unwrap();
         let before = head_hash(&root);
 
-        git_discard_file(root.clone(), "scratch.md".to_string()).unwrap();
+        git_discard_file_inner(root.clone(), "scratch.md".to_string()).unwrap();
 
         assert!(!dir.path().join("scratch.md").exists());
         assert_eq!(head_hash(&root), before);
@@ -1299,7 +1417,7 @@ mod tests {
         drop(index);
         drop(repo);
 
-        git_discard_file(root.clone(), "scratch.md".to_string()).unwrap();
+        git_discard_file_inner(root.clone(), "scratch.md".to_string()).unwrap();
 
         assert!(!dir.path().join("scratch.md").exists());
         let repo = open_repo(&root).unwrap();
@@ -1313,7 +1431,7 @@ mod tests {
         fs::remove_file(dir.path().join("note.md")).unwrap();
         let before = head_hash(&root);
 
-        git_discard_file(root.clone(), "note.md".to_string()).unwrap();
+        git_discard_file_inner(root.clone(), "note.md".to_string()).unwrap();
 
         assert_eq!(read(&root, "note.md"), "original\n");
         assert_eq!(head_hash(&root), before);
@@ -1325,7 +1443,7 @@ mod tests {
         conflict_note(&dir, &root, "note.md");
 
         let before = read(&root, "note.md");
-        let err = git_discard_file(root.clone(), "note.md".to_string()).unwrap_err();
+        let err = git_discard_file_inner(root.clone(), "note.md".to_string()).unwrap_err();
 
         assert!(err.contains("merge conflicts"), "unexpected error: {}", err);
         assert!(before.contains("<<<<<<<"), "merge left no conflict markers");
@@ -1340,7 +1458,7 @@ mod tests {
         fs::write(dir.path().join("c.md"), "new\n").unwrap();
         let before = head_hash(&root);
 
-        let mut discarded = git_discard_all(root.clone(), None).unwrap();
+        let mut discarded = git_discard_all_inner(root.clone(), None).unwrap();
         discarded.sort();
 
         assert_eq!(discarded, vec!["a.md", "b.md", "c.md"]);
@@ -1356,7 +1474,8 @@ mod tests {
         fs::write(dir.path().join("a.md"), "edited a\n").unwrap();
         fs::write(dir.path().join("b.md"), "edited b\n").unwrap();
 
-        let discarded = git_discard_all(root.clone(), Some(vec!["a.md".to_string()])).unwrap();
+        let discarded =
+            git_discard_all_inner(root.clone(), Some(vec!["a.md".to_string()])).unwrap();
 
         assert_eq!(discarded, vec!["a.md"]);
         assert_eq!(read(&root, "a.md"), "a\n");
@@ -1370,7 +1489,7 @@ mod tests {
 
         fs::write(dir.path().join("other.md"), "untouched\n").unwrap();
 
-        let err = git_discard_all(
+        let err = git_discard_all_inner(
             root.clone(),
             Some(vec!["other.md".to_string(), "note.md".to_string()]),
         )
@@ -1442,7 +1561,7 @@ mod tests {
         let root = dir.path().to_string_lossy().to_string();
         fs::write(dir.path().join("a.bin"), [0u8, 1, 2, 3, 0, 4]).unwrap();
         fs::write(dir.path().join("b.bin"), [5u8, 6, 7, 8, 0, 9]).unwrap();
-        git_init_repo(root.clone()).unwrap();
+        git_init_repo_inner(root.clone()).unwrap();
 
         fs::write(dir.path().join("a.bin"), [9u8, 8, 7, 6, 0, 5]).unwrap();
         fs::write(dir.path().join("b.bin"), [1u8, 2, 3, 4, 0, 9]).unwrap();
@@ -1466,9 +1585,9 @@ mod tests {
         fs::write(dir.path().join("a.md"), "a edited\n").unwrap();
         fs::write(dir.path().join("b.md"), "b edited\n").unwrap();
         let commit_b_hash =
-            git_stage_and_commit(root.clone(), "edit both".to_string(), None).unwrap();
+            git_stage_and_commit_inner(root.clone(), "edit both".to_string(), None).unwrap();
 
-        let diff = git_diff(root.clone(), commit_a, commit_b_hash, None).unwrap();
+        let diff = git_diff_inner(root.clone(), commit_a, commit_b_hash, None).unwrap();
 
         assert_eq!(hunks_for(&diff, "a.md").len(), 1);
         assert_eq!(hunks_for(&diff, "b.md").len(), 1);
@@ -1489,7 +1608,7 @@ mod tests {
 
         // Simulates the autocommit reactor racing the agent turn and
         // committing the very file the turn just wrote.
-        git_stage_and_commit(
+        git_stage_and_commit_inner(
             root.clone(),
             "Checkpoint: autocommit note.md".to_string(),
             Some(vec!["note.md".to_string()]),

@@ -288,14 +288,30 @@ fn resource_error_to_jsonrpc(error: ResourceError) -> JsonRpcError {
 }
 
 #[tauri::command]
-pub fn mcp_list_tool_definitions() -> Result<Value, String> {
+pub async fn mcp_list_tool_definitions() -> Result<Value, String> {
+    crate::shared::blocking::blocking("mcp_list_tool_definitions", mcp_list_tool_definitions_inner)
+        .await
+}
+
+pub fn mcp_list_tool_definitions_inner() -> Result<Value, String> {
     let router = McpRouter::new();
     let defs = router.tool_definitions_public();
     serde_json::to_value(defs).map_err(|e| format!("Serialization error: {}", e))
 }
 
 #[tauri::command]
-pub fn mcp_call_tool(
+pub async fn mcp_call_tool(
+    app: AppHandle,
+    tool_name: String,
+    arguments: Option<Value>,
+) -> Result<Value, String> {
+    crate::shared::blocking::blocking("mcp_call_tool", move || {
+        mcp_call_tool_inner(app, tool_name, arguments)
+    })
+    .await
+}
+
+pub fn mcp_call_tool_inner(
     app: AppHandle,
     tool_name: String,
     arguments: Option<Value>,

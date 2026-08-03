@@ -1770,6 +1770,92 @@ pub fn get_cached_titles(
     Ok(map)
 }
 
+/// Everything a folder listing needs about a note, sourced from the index so the
+/// listing never has to open and read the note file itself.
+#[derive(Debug, Clone)]
+pub struct CachedNoteMeta {
+    pub title: String,
+    pub content_snippet: Option<String>,
+    pub mtime_ms: i64,
+    pub ctime_ms: i64,
+    pub size_bytes: i64,
+    pub color: Option<String>,
+    pub icon: Option<String>,
+    pub is_a: Option<String>,
+}
+
+pub fn get_cached_note_meta(
+    conn: &Connection,
+    paths: &[String],
+) -> Result<HashMap<String, CachedNoteMeta>, String> {
+    if paths.is_empty() {
+        return Ok(HashMap::new());
+    }
+
+    let placeholders: String = paths.iter().map(|_| "?").collect::<Vec<_>>().join(",");
+
+    let sql = format!(
+        "SELECT path, title, content_snippet, mtime_ms, ctime_ms, size_bytes \
+         FROM notes WHERE path IN ({})",
+        placeholders
+    );
+    let mut stmt = conn.prepare(&sql).map_err(|e| e.to_string())?;
+    let rows = stmt
+        .query_map(rusqlite::params_from_iter(paths.iter()), |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                CachedNoteMeta {
+                    title: row.get(1)?,
+                    content_snippet: row.get::<_, Option<String>>(2)?,
+                    mtime_ms: row.get(3)?,
+                    ctime_ms: row.get(4)?,
+                    size_bytes: row.get(5)?,
+                    color: None,
+                    icon: None,
+                    is_a: None,
+                },
+            ))
+        })
+        .map_err(|e| e.to_string())?;
+
+    let mut map = HashMap::with_capacity(paths.len());
+    for row in rows {
+        let (path, meta) = row.map_err(|e| e.to_string())?;
+        map.insert(path, meta);
+    }
+
+    let prop_sql = format!(
+        "SELECT path, key, value FROM note_properties \
+         WHERE path IN ({}) AND key IN ('color','icon','type')",
+        placeholders
+    );
+    let mut prop_stmt = conn.prepare(&prop_sql).map_err(|e| e.to_string())?;
+    let prop_rows = prop_stmt
+        .query_map(rusqlite::params_from_iter(paths.iter()), |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, String>(2)?,
+            ))
+        })
+        .map_err(|e| e.to_string())?;
+
+    for prop_res in prop_rows {
+        let (path, key, value) = prop_res.map_err(|e| e.to_string())?;
+        let Some(meta) = map.get_mut(&path) else {
+            continue;
+        };
+        match key.as_str() {
+            "color" => meta.color = Some(value),
+            "icon" => meta.icon = Some(value),
+            "type" => meta.is_a = Some(value),
+            _ => {}
+        }
+    }
+
+    Ok(map)
+}
+
 pub fn get_manifest(conn: &Connection) -> Result<BTreeMap<String, (i64, i64)>, String> {
     let mut stmt = conn
         .prepare("SELECT path, mtime_ms, size_bytes FROM notes")

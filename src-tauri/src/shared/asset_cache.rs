@@ -2,6 +2,7 @@ use crate::shared::cache::ObservableCache;
 use log::error;
 use std::sync::{Arc, Mutex};
 use tauri::http::{Request, Response};
+use tauri::Manager;
 
 const MAX_CACHEABLE_BYTES: usize = 5 * 1024 * 1024;
 
@@ -179,7 +180,15 @@ pub fn serve_with_cache(
 
 #[tauri::command]
 #[specta::specta]
-pub fn purge_all_asset_caches(state: tauri::State<'_, AssetCacheState>) -> Result<(), String> {
+pub async fn purge_all_asset_caches(app: tauri::AppHandle) -> Result<(), String> {
+    crate::shared::blocking::blocking("purge_all_asset_caches", move || {
+        purge_all_asset_caches_inner(app)
+    })
+    .await
+}
+
+pub fn purge_all_asset_caches_inner(app: tauri::AppHandle) -> Result<(), String> {
+    let state = app.state::<AssetCacheState>();
     let mut vault = state.vault.lock().map_err(|e| e.to_string())?;
     vault.clear();
     let mut plugin = state.plugin.lock().map_err(|e| e.to_string())?;
@@ -191,11 +200,23 @@ pub fn purge_all_asset_caches(state: tauri::State<'_, AssetCacheState>) -> Resul
 
 #[tauri::command]
 #[specta::specta]
-pub fn invalidate_asset_cache(
-    state: tauri::State<'_, AssetCacheState>,
+pub async fn invalidate_asset_cache(
+    app: tauri::AppHandle,
     vault_id: String,
     asset_path: String,
 ) -> Result<(), String> {
+    crate::shared::blocking::blocking("invalidate_asset_cache", move || {
+        invalidate_asset_cache_inner(app, vault_id, asset_path)
+    })
+    .await
+}
+
+pub fn invalidate_asset_cache_inner(
+    app: tauri::AppHandle,
+    vault_id: String,
+    asset_path: String,
+) -> Result<(), String> {
+    let state = app.state::<AssetCacheState>();
     let prefix = format!("{}/{}", vault_id, asset_path);
     let mut cache = poisoned_cache_guard(state.vault.lock(), "invalidate_asset_cache");
     cache.invalidate_matching(|k| k.starts_with(&prefix));

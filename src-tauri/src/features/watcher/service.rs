@@ -9,7 +9,7 @@ use std::path::Path;
 use std::sync::mpsc;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
-use tauri::{AppHandle, Emitter, State};
+use tauri::{AppHandle, Emitter, Manager, State};
 
 #[derive(Default)]
 pub struct WatcherState {
@@ -164,11 +164,12 @@ fn classify_event(
 
 #[tauri::command]
 #[specta::specta]
-pub fn watch_vault(
-    app: AppHandle,
-    state: State<WatcherState>,
-    vault_id: String,
-) -> Result<(), String> {
+pub async fn watch_vault(app: AppHandle, vault_id: String) -> Result<(), String> {
+    crate::shared::blocking::blocking("watch_vault", move || watch_vault_inner(app, vault_id)).await
+}
+
+pub fn watch_vault_inner(app: AppHandle, vault_id: String) -> Result<(), String> {
+    let state = app.state::<WatcherState>();
     {
         let current = state.current_vault_id.lock().map_err(|_| "lock poisoned")?;
         if current.as_deref() == Some(&vault_id) {
@@ -321,7 +322,12 @@ pub fn watch_vault(
 
 #[tauri::command]
 #[specta::specta]
-pub fn unwatch_vault(state: State<WatcherState>) -> Result<(), String> {
+pub async fn unwatch_vault(app: AppHandle) -> Result<(), String> {
+    crate::shared::blocking::blocking("unwatch_vault", move || unwatch_vault_inner(app)).await
+}
+
+pub fn unwatch_vault_inner(app: AppHandle) -> Result<(), String> {
+    let state = app.state::<WatcherState>();
     log::info!("Unwatching vault");
     if let Ok(mut current) = state.current_vault_id.lock() {
         *current = None;

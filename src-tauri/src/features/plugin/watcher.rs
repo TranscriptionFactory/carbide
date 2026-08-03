@@ -71,11 +71,15 @@ fn set_active_runtime(
 
 #[tauri::command]
 #[specta::specta]
-pub fn watch_plugins(
-    app: AppHandle,
-    state: State<PluginWatcherState>,
-    vault_path: String,
-) -> Result<(), String> {
+pub async fn watch_plugins(app: AppHandle, vault_path: String) -> Result<(), String> {
+    crate::shared::blocking::blocking("watch_plugins", move || {
+        watch_plugins_inner(app, vault_path)
+    })
+    .await
+}
+
+pub fn watch_plugins_inner(app: AppHandle, vault_path: String) -> Result<(), String> {
+    let state = app.state::<PluginWatcherState>();
     {
         let current = state
             .current_vault_path
@@ -232,7 +236,12 @@ pub fn watch_plugins(
 
 #[tauri::command]
 #[specta::specta]
-pub fn unwatch_plugins(state: State<PluginWatcherState>) -> Result<(), String> {
+pub async fn unwatch_plugins(app: AppHandle) -> Result<(), String> {
+    crate::shared::blocking::blocking("unwatch_plugins", move || unwatch_plugins_inner(app)).await
+}
+
+pub fn unwatch_plugins_inner(app: AppHandle) -> Result<(), String> {
+    let state = app.state::<PluginWatcherState>();
     log::info!("Unwatching plugins");
     if let Ok(mut current) = state.current_vault_path.lock() {
         *current = None;
