@@ -3,6 +3,7 @@ use crate::shared::io_utils;
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use std::path::{Path, PathBuf};
+use std::sync::Mutex;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tauri::http::{Request, Response};
 use tauri::{AppHandle, Manager};
@@ -90,11 +91,27 @@ pub fn load_store(app: &AppHandle) -> Result<VaultStore, String> {
     })
 }
 
-pub fn save_store(app: &AppHandle, store: &VaultStore) -> Result<(), String> {
+fn save_store(app: &AppHandle, store: &VaultStore) -> Result<(), String> {
     log::debug!("Saving vault store");
     let path = store_path(app)?;
     let bytes = serde_json::to_vec_pretty(store).map_err(|e| e.to_string())?;
     io_utils::atomic_write(&path, bytes)
+}
+
+static STORE_LOCK: Mutex<()> = Mutex::new(());
+
+/// Serializes read-modify-write cycles over `vaults.json`. Commands run off the
+/// main thread and therefore interleave; without this the last writer wins and
+/// silently discards the other's mutation.
+pub fn update_store<F, T>(app: &AppHandle, f: F) -> Result<T, String>
+where
+    F: FnOnce(&mut VaultStore) -> Result<T, String>,
+{
+    let _guard = STORE_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let mut store = load_store(app)?;
+    let value = f(&mut store)?;
+    save_store(app, &store)?;
+    Ok(value)
 }
 
 pub fn vault_path_by_id(store: &VaultStore, vault_id: &str) -> Option<String> {

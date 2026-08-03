@@ -87,13 +87,10 @@ pub struct OpenVaultArgs {
 struct ResolvedPath {
     vault_path: String,
     raw_path: String,
-    store: VaultStore,
     id: String,
-    created_at: i64,
-    existing_note_count: Option<u64>,
 }
 
-fn resolve_open_path(app: &AppHandle, args: &OpenVaultArgs) -> Result<ResolvedPath, String> {
+fn resolve_open_path(args: &OpenVaultArgs) -> Result<ResolvedPath, String> {
     let vault_path = canonicalize_path(&args.vault_path).map_err(|e| {
         log::error!("Failed to canonicalize path {}: {}", args.vault_path, e);
         e
@@ -106,44 +103,45 @@ fn resolve_open_path(app: &AppHandle, args: &OpenVaultArgs) -> Result<ResolvedPa
         return Err("path is not a directory".to_string());
     }
 
-    let store = storage::load_store(app)?;
     let id = storage::vault_id_for_path(&vault_path);
-    let existing = store.vaults.iter().find(|v| v.vault.id == id);
-    let created_at = existing
-        .map(|v| v.vault.created_at)
-        .unwrap_or_else(storage::now_ms);
-    let existing_note_count = existing.and_then(|v| v.vault.note_count);
-
     Ok(ResolvedPath {
         vault_path,
         raw_path: args.vault_path.clone(),
-        store,
         id,
-        created_at,
-        existing_note_count,
     })
 }
 
 fn finish_open(
     app: &AppHandle,
-    mut resolved: ResolvedPath,
+    resolved: ResolvedPath,
     mode: VaultMode,
-    note_count: Option<u64>,
+    reuse_note_count: bool,
 ) -> Result<Vault, String> {
-    let vault = Vault {
-        id: resolved.id.clone(),
-        path: resolved.vault_path,
-        name: vault_name(&resolved.raw_path),
-        created_at: resolved.created_at,
-        last_opened_at: Some(storage::now_ms()),
-        note_count,
-        is_available: true,
-        mode,
-    };
+    storage::update_store(app, |store| {
+        let existing = store.vaults.iter().find(|v| v.vault.id == resolved.id);
+        let created_at = existing
+            .map(|v| v.vault.created_at)
+            .unwrap_or_else(storage::now_ms);
+        let note_count = if reuse_note_count {
+            existing.and_then(|v| v.vault.note_count)
+        } else {
+            None
+        };
 
-    upsert_vault(&mut resolved.store, vault.clone());
-    storage::save_store(app, &resolved.store)?;
-    Ok(vault)
+        let vault = Vault {
+            id: resolved.id.clone(),
+            path: resolved.vault_path.clone(),
+            name: vault_name(&resolved.raw_path),
+            created_at,
+            last_opened_at: Some(storage::now_ms()),
+            note_count,
+            is_available: true,
+            mode,
+        };
+
+        upsert_vault(store, vault.clone());
+        Ok(vault)
+    })
 }
 
 fn upsert_vault(store: &mut VaultStore, mut vault: Vault) {
@@ -170,40 +168,39 @@ fn upsert_vault(store: &mut VaultStore, mut vault: Vault) {
 #[specta::specta]
 pub fn open_vault(app: AppHandle, args: OpenVaultArgs) -> Result<Vault, String> {
     log::info!("Opening vault path={}", args.vault_path);
-    let resolved = resolve_open_path(&app, &args)?;
-    let note_count = resolved.existing_note_count;
-    finish_open(&app, resolved, VaultMode::Vault, note_count)
+    let resolved = resolve_open_path(&args)?;
+    finish_open(&app, resolved, VaultMode::Vault, true)
 }
 
 #[tauri::command]
 #[specta::specta]
 pub fn open_vault_by_id(app: AppHandle, vault_id: String) -> Result<Vault, String> {
     log::info!("Opening vault by id vault_id={}", vault_id);
-    let mut store = storage::load_store(&app)?;
     let now = storage::now_ms();
 
-    let entry = store
-        .vaults
-        .iter_mut()
-        .find(|v| v.vault.id == vault_id)
-        .ok_or_else(|| {
-            log::error!("Vault not found: {}", vault_id);
-            "vault not found".to_string()
-        })?;
+    // The inner `Result` is the command outcome; an unavailable vault must still
+    // persist its refreshed availability, so it cannot short-circuit the write.
+    storage::update_store(&app, |store| {
+        let entry = store
+            .vaults
+            .iter_mut()
+            .find(|v| v.vault.id == vault_id)
+            .ok_or_else(|| {
+                log::error!("Vault not found: {}", vault_id);
+                "vault not found".to_string()
+            })?;
 
-    refresh_vault_availability(&mut entry.vault);
-    if !entry.vault.is_available {
-        let message = format!("vault unavailable at path: {}", entry.vault.path);
-        log::warn!("Open vault by id skipped: {}", message);
-        storage::save_store(&app, &store)?;
-        return Err(message);
-    }
+        refresh_vault_availability(&mut entry.vault);
+        if !entry.vault.is_available {
+            let message = format!("vault unavailable at path: {}", entry.vault.path);
+            log::warn!("Open vault by id skipped: {}", message);
+            return Ok(Err(message));
+        }
 
-    entry.last_opened_at = now;
-    mark_vault_opened(&mut entry.vault, now);
-    let vault = entry.vault.clone();
-    storage::save_store(&app, &store)?;
-    Ok(vault)
+        entry.last_opened_at = now;
+        mark_vault_opened(&mut entry.vault, now);
+        Ok(Ok(entry.vault.clone()))
+    })?
 }
 
 #[tauri::command]
@@ -245,22 +242,23 @@ pub struct RemoveVaultArgs {
 #[specta::specta]
 pub fn remember_last_vault(app: AppHandle, args: RememberLastArgs) -> Result<(), String> {
     log::info!("Remembering last vault vault_id={}", args.vault_id);
-    let mut store = storage::load_store(&app)?;
-    store.last_vault_id = Some(args.vault_id);
-    storage::save_store(&app, &store)?;
-    Ok(())
+    storage::update_store(&app, |store| {
+        store.last_vault_id = Some(args.vault_id);
+        Ok(())
+    })
 }
 
 #[tauri::command]
 #[specta::specta]
 pub fn remove_vault_from_registry(app: AppHandle, args: RemoveVaultArgs) -> Result<(), String> {
     log::info!("Removing vault from registry vault_id={}", args.vault_id);
-    let mut store = storage::load_store(&app)?;
-    store.vaults.retain(|entry| entry.vault.id != args.vault_id);
-    if store.last_vault_id.as_deref() == Some(args.vault_id.as_str()) {
-        store.last_vault_id = None;
-    }
-    storage::save_store(&app, &store)?;
+    storage::update_store(&app, |store| {
+        store.vaults.retain(|entry| entry.vault.id != args.vault_id);
+        if store.last_vault_id.as_deref() == Some(args.vault_id.as_str()) {
+            store.last_vault_id = None;
+        }
+        Ok(())
+    })?;
     if args.delete_data {
         let _ = crate::features::search::service::shutdown_worker_internal(&app, &args.vault_id);
         let db = crate::features::search::db::db_path(&app, &args.vault_id)?;
@@ -282,7 +280,7 @@ pub fn get_last_vault_id(app: AppHandle) -> Result<Option<String>, String> {
 #[specta::specta]
 pub fn open_folder(app: AppHandle, args: OpenVaultArgs) -> Result<Vault, String> {
     log::info!("Opening folder path={}", args.vault_path);
-    let resolved = resolve_open_path(&app, &args)?;
+    let resolved = resolve_open_path(&args)?;
 
     let has_carbide_dir = PathBuf::from(&resolved.vault_path)
         .join(".carbide")
@@ -292,13 +290,8 @@ pub fn open_folder(app: AppHandle, args: OpenVaultArgs) -> Result<Vault, String>
     } else {
         VaultMode::Browse
     };
-    let note_count = if has_carbide_dir {
-        resolved.existing_note_count
-    } else {
-        None
-    };
 
-    finish_open(&app, resolved, mode, note_count)
+    finish_open(&app, resolved, mode, has_carbide_dir)
 }
 
 #[derive(Debug, Deserialize, Type)]
@@ -310,21 +303,19 @@ pub struct PromoteToVaultArgs {
 #[specta::specta]
 pub fn promote_to_vault(app: AppHandle, args: PromoteToVaultArgs) -> Result<Vault, String> {
     log::info!("Promoting to vault vault_id={}", args.vault_id);
-    let mut store = storage::load_store(&app)?;
+    storage::update_store(&app, |store| {
+        let entry = store
+            .vaults
+            .iter_mut()
+            .find(|v| v.vault.id == args.vault_id)
+            .ok_or_else(|| {
+                log::error!("Vault not found for promote: {}", args.vault_id);
+                "vault not found".to_string()
+            })?;
 
-    let entry = store
-        .vaults
-        .iter_mut()
-        .find(|v| v.vault.id == args.vault_id)
-        .ok_or_else(|| {
-            log::error!("Vault not found for promote: {}", args.vault_id);
-            "vault not found".to_string()
-        })?;
-
-    entry.vault.mode = VaultMode::Vault;
-    let vault = entry.vault.clone();
-    storage::save_store(&app, &store)?;
-    Ok(vault)
+        entry.vault.mode = VaultMode::Vault;
+        Ok(entry.vault.clone())
+    })
 }
 
 #[tauri::command]
@@ -332,11 +323,12 @@ pub fn promote_to_vault(app: AppHandle, args: PromoteToVaultArgs) -> Result<Vaul
 pub fn refresh_note_count(app: AppHandle, vault_id: String) -> Result<Option<u64>, String> {
     let count = load_note_count(&app, &vault_id);
     if let Some(c) = count {
-        let mut store = storage::load_store(&app)?;
-        if let Some(entry) = store.vaults.iter_mut().find(|v| v.vault.id == vault_id) {
-            entry.vault.note_count = Some(c);
-            storage::save_store(&app, &store)?;
-        }
+        storage::update_store(&app, |store| {
+            if let Some(entry) = store.vaults.iter_mut().find(|v| v.vault.id == vault_id) {
+                entry.vault.note_count = Some(c);
+            }
+            Ok(())
+        })?;
     }
     Ok(count)
 }
