@@ -409,6 +409,58 @@ pub(crate) fn build_note_meta(
     })
 }
 
+/// Builds listing metadata without ever reading the note file.
+///
+/// `stat` returns placeholder metadata for an online-only (dataless) file, but
+/// `read` parks the caller until the sync daemon materialises it — which is how a
+/// vault on OneDrive froze the app. So this stats each entry and takes everything
+/// else from the index, using (mtime, size) as the freshness check. A stale or
+/// missing row degrades to the filename, never to a read; the listing fills in
+/// once the indexer catches up and emits `index_progress`.
+pub(crate) fn note_meta_from_index(
+    root: &Path,
+    rel_path: &str,
+    cached: Option<&HashMap<String, search_db::CachedNoteMeta>>,
+) -> Result<NoteMeta, String> {
+    let abs = safe_vault_abs(root, rel_path)?;
+    let (mtime_ms, ctime_ms, size_bytes) = file_meta(&abs)?;
+
+    let fresh = cached
+        .and_then(|map| map.get(rel_path))
+        .filter(|meta| meta.mtime_ms == mtime_ms && meta.size_bytes == size_bytes);
+
+    let (title, blurb, color, icon, is_a) = match fresh {
+        Some(meta) => (
+            meta.title.clone(),
+            meta.content_snippet.clone().unwrap_or_default(),
+            meta.color.clone(),
+            meta.icon.clone(),
+            meta.is_a.clone(),
+        ),
+        None => (
+            name_from_rel_path(rel_path),
+            String::new(),
+            None,
+            None,
+            None,
+        ),
+    };
+
+    Ok(NoteMeta {
+        id: rel_path.to_string(),
+        path: rel_path.to_string(),
+        name: name_from_rel_path(rel_path),
+        title,
+        blurb,
+        mtime_ms,
+        ctime_ms,
+        size_bytes,
+        color,
+        icon,
+        is_a,
+    })
+}
+
 pub(crate) fn folder_note_candidate(root: &Path, folder_rel: &str) -> Option<String> {
     let leaf = folder_rel.rsplit('/').next()?;
     let candidate = format!("{}/{}.md", folder_rel, leaf);
@@ -1840,9 +1892,10 @@ pub fn list_folder_contents_inner(
         folder_note_candidate(&root, &rel)
     }));
 
-    let cached_titles = search_db::open_search_db(&app, &vault_id)
-        .and_then(|conn| search_db::get_cached_titles(&conn, &md_paths))
-        .ok();
+    let cached_meta = search_service::with_read_conn(&app, &vault_id, |conn| {
+        search_db::get_cached_note_meta(conn, &md_paths)
+    })
+    .ok();
 
     for entry in &items[start..end] {
         let rel = if folder_path.is_empty() {
@@ -1853,11 +1906,11 @@ pub fn list_folder_contents_inner(
 
         if entry.is_dir {
             if let Some(candidate) = folder_note_candidate(&root, &rel) {
-                folder_notes.push(build_note_meta(&root, &candidate, cached_titles.as_ref())?);
+                folder_notes.push(note_meta_from_index(&root, &candidate, cached_meta.as_ref())?);
             }
             subfolders.push(rel);
         } else if entry.name.ends_with(".md") {
-            notes.push(build_note_meta(&root, &rel, cached_titles.as_ref())?);
+            notes.push(note_meta_from_index(&root, &rel, cached_meta.as_ref())?);
         } else {
             let abs = root.join(&rel);
             let (mtime_ms, _, size_bytes) = file_meta(&abs)?;

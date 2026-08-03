@@ -1,6 +1,9 @@
 #[path = "../../tests/notes_service_safety.rs"]
 mod notes_service_safety;
 
+#[path = "../../tests/notes_listing_index_meta.rs"]
+mod notes_listing_index_meta;
+
 #[path = "../../tests/plugin_protocol.rs"]
 mod plugin_protocol;
 
