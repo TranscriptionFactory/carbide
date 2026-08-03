@@ -1440,6 +1440,13 @@ describe("register_ai_actions", () => {
         expect(harness.accept_proposal).toHaveBeenCalledExactlyOnceWith(
           proposal?.id,
         );
+        // The proposal's provenance is the logged inline session, not a
+        // throwaway UUID — the review centre groups by it.
+        const inline_session = harness.assistant_sessions.sessions.find(
+          (session) => session.kind === "inline",
+        );
+        expect(inline_session).toBeDefined();
+        expect(proposal?.origin.session_id).toBe(inline_session?.id);
       });
 
       it("does not create or accept a proposal while the stream is still in flight", async () => {

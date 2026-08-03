@@ -1046,10 +1046,10 @@ export function register_ai_actions(
   // Store writes stay in one tick so no observer can ever see a one-message
   // inline session; only persistence is detached, and AssistantSessionService
   // already swallows its own failures.
-  function log_inline_session(result: string) {
+  function log_inline_session(result: string): string | null {
     const request = last_inline_request;
     const vault_id = input.stores.vault.active_vault_id;
-    if (!request || !vault_id) return;
+    if (!request || !vault_id) return null;
 
     const created = assistant_sessions.create({
       kind: "inline",
@@ -1076,6 +1076,7 @@ export function register_ai_actions(
 
     const stored = assistant_sessions.get(created.id);
     if (stored) void assistant_sessions_service.save_session(vault_id, stored);
+    return created.id;
   }
 
   registry.register({
@@ -1101,7 +1102,7 @@ export function register_ai_actions(
       dispatch_ai_menu(view, { action: "accept" });
       if (!result) return;
 
-      log_inline_session(result);
+      const logged_session_id = log_inline_session(result);
 
       // ALLOWED_DIRECT_APPLY: the streamed text is already in the editor
       // buffer — the ProseMirror menu previews it live as it arrives (P3
@@ -1112,12 +1113,17 @@ export function register_ai_actions(
       // different times.
       const after = services.editor.get_ai_context();
       if (last_inline_before_markdown !== null && after) {
+        // The review centre groups by origin.session_id; a throwaway UUID
+        // made every inline accept an unresolvable "raw id" group.
         const proposal = build_proposal({
           target: { kind: "note", note_path: after.note_path },
           original_text: last_inline_before_markdown,
           draft_text: after.markdown,
           span: "full_note",
-          origin: { session_id: crypto.randomUUID(), run_id: null },
+          origin: {
+            session_id: logged_session_id ?? crypto.randomUUID(),
+            run_id: null,
+          },
         });
         assistant_proposals.add(proposal);
         await registry.execute(
