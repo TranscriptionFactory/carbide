@@ -109,6 +109,11 @@ function create_harness(events: AssistantChatStreamEvent[] = ANSWERED_EVENTS) {
     clipboard: { copy_text: vi.fn().mockResolvedValue(undefined) },
   };
 
+  const documents = {
+    read_document: vi.fn(() => null),
+    stage_document: vi.fn(() => false),
+  };
+
   register_chat_actions({
     registry,
     stores: stores as never,
@@ -118,6 +123,7 @@ function create_harness(events: AssistantChatStreamEvent[] = ANSWERED_EVENTS) {
       bootstrap_default_vault_path: null,
     },
     chat_store,
+    documents,
     chat_service: chat_service as never,
     session_service: session_service as never,
     assistant_kernel: assistant_kernel as never,

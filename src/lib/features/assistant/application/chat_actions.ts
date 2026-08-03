@@ -14,6 +14,7 @@ import type { AssistantChatService } from "$lib/features/assistant/application/a
 import { build_chat_query_input } from "$lib/features/assistant/application/chat_query_input";
 import type {
   AssistantChatStore,
+  AssistantDocumentPort,
   AssistantKernelService,
   AssistantSessionService,
   RunHandle,
@@ -42,6 +43,7 @@ export function register_chat_actions(
     session_service: AssistantSessionService;
     assistant_kernel: AssistantKernelService;
     assistant_proposals: AssistantProposalStore;
+    documents: AssistantDocumentPort;
   },
 ) {
   const {
@@ -53,6 +55,7 @@ export function register_chat_actions(
     session_service,
     assistant_kernel,
     assistant_proposals,
+    documents,
   } = input;
 
   function find_background_tab(note_path: NotePath) {
@@ -237,6 +240,14 @@ export function register_chat_actions(
       image_parts = await collect_open_note_image_parts(input);
     }
 
+    // The attachment resolves fresh from the open buffer at submit time
+    // (snapshot chip, live content). A closed tab silently drops out of the
+    // turn — the chip renders "(closed)" as the signal.
+    const attached = chat_store.attached_document;
+    const attachment = attached
+      ? (documents.read_document(attached.path) ?? undefined)
+      : undefined;
+
     let context_stats: AssistantContextStats | null = null;
     try {
       let errored = false;
@@ -248,6 +259,7 @@ export function register_chat_actions(
           history,
           scope: chat_store.scope,
           image_parts,
+          ...(attachment ? { attachment } : {}),
           on_run_started: (handle) => {
             ask_handle = handle;
           },

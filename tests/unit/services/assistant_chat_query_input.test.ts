@@ -100,4 +100,21 @@ describe("build_chat_query_input", () => {
     expect(input.image_parts).toEqual([]);
     expect(input.on_run_started).toBe(on_run_started);
   });
+
+  it("passes the attachment through verbatim (pin 5)", () => {
+    const attachment = {
+      path: "artifacts/report.html",
+      title: "report",
+      content: "<h1>Q3</h1>",
+    };
+
+    const input = build_chat_query_input({
+      question: "q",
+      provider_config: provider,
+      settings: settings(),
+      attachment,
+    });
+
+    expect(input.attachment).toBe(attachment);
+  });
 });

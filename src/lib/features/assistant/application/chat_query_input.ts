@@ -33,6 +33,7 @@ export type ChatQueryInputRequest = {
   scope?: AssistantScope;
   history?: AssistantMessage[];
   image_parts?: AiImagePart[];
+  attachment?: { path: string; title: string; content: string };
   on_run_started?: (handle: RunHandle) => void;
 };
 
@@ -66,6 +67,7 @@ export function build_chat_query_input(
     ...(request.scope ? { scope: request.scope } : {}),
     ...(request.history ? { history: request.history } : {}),
     ...(request.image_parts ? { image_parts: request.image_parts } : {}),
+    ...(request.attachment ? { attachment: request.attachment } : {}),
     ...(request.on_run_started
       ? { on_run_started: request.on_run_started }
       : {}),

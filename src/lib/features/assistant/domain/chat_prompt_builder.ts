@@ -20,6 +20,11 @@ const SYSTEM_PROMPT = [
   "Answer in clear, concise markdown.",
 ].join("\n");
 
+// The attachment is first-party material, not a retrieved source: it carries
+// no citation number and must not be cited with brackets.
+const ATTACHMENT_SYSTEM_LINE =
+  "The user has attached a document, provided in <attached_document>. Treat it as first-party evidence alongside any retrieved notes. It has no source number — do not cite it with brackets.";
+
 function format_source(context: AssistantRetrievedContext): string {
   const attrs = `index="${context.index}" path="${context.note_path}" title="${context.title}"`;
   return `<source ${attrs}>\n${context.text}\n</source>`;
@@ -56,19 +61,32 @@ export function build_chat_prompt(input: {
   contexts: AssistantRetrievedContext[];
   history?: AssistantMessage[];
   history_token_budget?: number;
+  attachment?: { path: string; title: string; content: string };
 }): { system_prompt: string; history: AiMessage[]; user_prompt: string } {
-  const retrieved = input.contexts.map(format_source).join("\n\n");
-  const user_prompt = [
-    section("retrieved_context", retrieved),
-    section("question", input.question.trim()),
-  ].join("\n\n");
+  const parts: string[] = [];
+  if (input.attachment) {
+    parts.push(
+      `<attached_document path="${input.attachment.path}" title="${input.attachment.title}">\n${input.attachment.content}\n</attached_document>`,
+    );
+  }
+  if (input.contexts.length > 0) {
+    parts.push(
+      section(
+        "retrieved_context",
+        input.contexts.map(format_source).join("\n\n"),
+      ),
+    );
+  }
+  parts.push(section("question", input.question.trim()));
 
   return {
-    system_prompt: SYSTEM_PROMPT,
+    system_prompt: input.attachment
+      ? `${SYSTEM_PROMPT}\n${ATTACHMENT_SYSTEM_LINE}`
+      : SYSTEM_PROMPT,
     history: build_history(
       input.history ?? [],
       input.history_token_budget ?? DEFAULT_HISTORY_TOKEN_BUDGET,
     ),
-    user_prompt,
+    user_prompt: parts.join("\n\n"),
   };
 }

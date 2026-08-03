@@ -51,8 +51,21 @@ function make_harness(outcome: ProposalCheckpointOutcome = "created") {
       (description: string) => Promise<ProposalCheckpointOutcome>
     >(() => Promise.resolve(outcome)),
   };
-  const service = new ProposalApplyService({ proposals, notes, git });
-  return { proposals, notes, git, service };
+  const documents = {
+    read_document: vi.fn<
+      (path: string) => { path: string; title: string; content: string } | null
+    >(() => null),
+    stage_document: vi.fn<(path: string, content: string) => boolean>(
+      () => true,
+    ),
+  };
+  const service = new ProposalApplyService({
+    proposals,
+    notes,
+    git,
+    documents,
+  });
+  return { proposals, notes, git, documents, service };
 }
 
 function pending(content: string, overrides: Partial<Proposal> = {}) {
@@ -468,5 +481,170 @@ describe("ProposalApplyService.reject_batch", () => {
 
     expect(notes.read_note).not.toHaveBeenCalled();
     expect(git.create_checkpoint).not.toHaveBeenCalled();
+  });
+});
+
+describe("ProposalApplyService.apply_batch — document targets (pin 5)", () => {
+  function doc_pending(content: string, overrides: Partial<Proposal> = {}) {
+    return pending(content, {
+      target: { kind: "document", file_path: "artifact.html" },
+      hunks: [replace_line_hunk("h1", 1, "old line", "new line")],
+      ...overrides,
+    });
+  }
+
+  function open_document(
+    documents: ReturnType<typeof make_harness>["documents"],
+    content: string,
+  ) {
+    documents.read_document.mockReturnValue({
+      path: "artifact.html",
+      title: "artifact",
+      content,
+    });
+  }
+
+  it("stages the buffer through the port and marks the proposal applied", async () => {
+    const { proposals, documents, service } = make_harness();
+    const content = "old line\ntail";
+    const proposal = doc_pending(content);
+    proposals.add(proposal);
+    open_document(documents, content);
+
+    const outcome = await service.apply_batch([proposal.id]);
+
+    expect(outcome.applied).toEqual([proposal.id]);
+    expect(documents.stage_document).toHaveBeenCalledExactlyOnceWith(
+      "artifact.html",
+      "new line\ntail",
+    );
+    expect(proposals.get(proposal.id)?.status).toBe("applied");
+  });
+
+  it("never writes disk and takes no checkpoint for a document-only batch", async () => {
+    const { proposals, notes, git, documents, service } = make_harness();
+    const content = "old line";
+    const proposal = doc_pending(content);
+    proposals.add(proposal);
+    open_document(documents, content);
+
+    const outcome = await service.apply_batch([proposal.id]);
+
+    expect(outcome.checkpoint).toBeNull();
+    expect(notes.write_note).not.toHaveBeenCalled();
+    expect(notes.read_note).not.toHaveBeenCalled();
+    expect(git.create_checkpoint).not.toHaveBeenCalled();
+  });
+
+  it("flags a proposal over a closed tab as stale, not failed", async () => {
+    const { proposals, documents, service } = make_harness();
+    const proposal = doc_pending("old line");
+    proposals.add(proposal);
+    documents.read_document.mockReturnValue(null);
+
+    const outcome = await service.apply_batch([proposal.id]);
+
+    expect(outcome.stale).toEqual([proposal.id]);
+    expect(outcome.failed).toEqual([]);
+    expect(proposals.get(proposal.id)?.status).toBe("stale");
+  });
+
+  it("flags a proposal stale when the buffer drifted from the base revision", async () => {
+    const { proposals, documents, service } = make_harness();
+    const proposal = doc_pending("old line");
+    proposals.add(proposal);
+    open_document(documents, "edited by the user meanwhile");
+
+    const outcome = await service.apply_batch([proposal.id]);
+
+    expect(outcome.stale).toEqual([proposal.id]);
+    expect(documents.stage_document).not.toHaveBeenCalled();
+  });
+
+  it("is a vacuous success when no selected hunk changes the buffer", async () => {
+    const { proposals, documents, service } = make_harness();
+    const content = "old line";
+    const proposal = doc_pending(content, {
+      hunks: [
+        { ...replace_line_hunk("h1", 1, "old line", "NEW"), selected: false },
+      ],
+    });
+    proposals.add(proposal);
+    open_document(documents, content);
+
+    const outcome = await service.apply_batch([proposal.id]);
+
+    expect(outcome.applied).toEqual([proposal.id]);
+    expect(documents.stage_document).not.toHaveBeenCalled();
+  });
+
+  it("fails the proposal when staging is refused (tab closed mid-apply)", async () => {
+    const { proposals, documents, service } = make_harness();
+    const content = "old line";
+    const proposal = doc_pending(content);
+    proposals.add(proposal);
+    open_document(documents, content);
+    documents.stage_document.mockReturnValue(false);
+
+    const outcome = await service.apply_batch([proposal.id]);
+
+    expect(outcome.failed).toEqual([
+      { id: proposal.id, error: "could not stage the document buffer" },
+    ]);
+    expect(proposals.get(proposal.id)?.status).toBe("pending");
+  });
+
+  it("takes exactly one checkpoint for a mixed note+document batch", async () => {
+    const { proposals, notes, git, documents, service } = make_harness();
+    const note_content = "alpha";
+    const note_proposal = pending(note_content, {
+      target: { kind: "note", note_path: "note.md" },
+      hunks: [replace_line_hunk("h1", 1, "alpha", "ALPHA")],
+    });
+    const doc_content = "old line";
+    const doc_proposal = doc_pending(doc_content);
+    proposals.add(note_proposal);
+    proposals.add(doc_proposal);
+    notes.read_note.mockResolvedValue(note_content);
+    open_document(documents, doc_content);
+
+    const outcome = await service.apply_batch([
+      note_proposal.id,
+      doc_proposal.id,
+    ]);
+
+    expect(outcome.applied).toEqual(
+      expect.arrayContaining([note_proposal.id, doc_proposal.id]),
+    );
+    expect(git.create_checkpoint).toHaveBeenCalledTimes(1);
+    expect(notes.write_note).toHaveBeenCalledTimes(1);
+    expect(documents.stage_document).toHaveBeenCalledTimes(1);
+  });
+
+  it("fails a mixed batch closed when the checkpoint fails — nothing staged either", async () => {
+    const { proposals, notes, documents, service } = make_harness("failed");
+    const note_content = "alpha";
+    const note_proposal = pending(note_content, {
+      target: { kind: "note", note_path: "note.md" },
+      hunks: [replace_line_hunk("h1", 1, "alpha", "ALPHA")],
+    });
+    const doc_content = "old line";
+    const doc_proposal = doc_pending(doc_content);
+    proposals.add(note_proposal);
+    proposals.add(doc_proposal);
+    notes.read_note.mockResolvedValue(note_content);
+    open_document(documents, doc_content);
+
+    const outcome = await service.apply_batch([
+      note_proposal.id,
+      doc_proposal.id,
+    ]);
+
+    expect(outcome.applied).toEqual([]);
+    expect(outcome.failed.map((f) => f.id)).toEqual(
+      expect.arrayContaining([note_proposal.id, doc_proposal.id]),
+    );
+    expect(notes.write_note).not.toHaveBeenCalled();
+    expect(documents.stage_document).not.toHaveBeenCalled();
   });
 });
