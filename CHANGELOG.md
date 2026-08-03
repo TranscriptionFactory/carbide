@@ -1,5 +1,264 @@
 # carbide
 
+## 2.26.0
+
+### Minor Changes
+
+- 1f63d7c: feat(assistant): the panel scopes to the note you are reading, and Carbide can offer link fixes in the margin
+
+  The chat panel's scope bar gains a **This note** chip. Turning it on restricts retrieval to the note
+  you are currently reading, alongside the folder, tag and base chips that were already there.
+
+  The chip **snapshots** the note when you turn it on; it does not silently follow you. Navigate
+  somewhere else and the chip re-labels itself from "This note" to that note's title, so the scope bar
+  never claims a scope it is not holding — click it again to re-point it at whatever you are reading
+  now. A question already in flight is unaffected by changing notes mid-answer. If the scoped note is
+  renamed or deleted, the chat tells you the scope matched nothing rather than quietly answering from
+  the whole vault.
+
+  **Ambient link checks — off by default, on per vault.** Enable them in Settings → Editor and Carbide
+  watches the note you are reading for two things it can be certain about: links pointing at notes that
+  no longer exist, and a note nothing links to yet. Findings appear as cards in the editor's right
+  margin, anchored to the text they are about.
+
+  Ambient never edits anything. A card offers one action and a dismiss, and accepting an offer queues a
+  **proposal** you review like any other AI edit — the same queue, the same checkpoint, the same
+  apply. A finding with no reliable repair carries no offer at all: "Nothing links to this note yet"
+  states the fact and leaves, rather than inventing a link into some other note to have something to
+  suggest. The checks read a single indexed lookup per note and never touch the vault graph, so turning
+  them on does not make opening a note slower.
+
+  **Chat over MCP now behaves like chat in the app.** Two fixes, both user-visible:
+  - **Your retrieval settings apply to MCP.** `rag_query` ignored `ai_rag_retrieve_limit` and
+    `ai_rag_context_token_budget` and answered at the built-in defaults instead. Because those defaults
+    happen to equal the shipped setting values, this was invisible until you moved either slider — at
+    which point the app honoured you and MCP did not. If you run off-default settings, MCP answers will
+    change to match what the panel gives you.
+  - **MCP respects the AI kill switch.** Turning the assistant off in settings did not stop `rag_query`
+    from answering. It now declines, and does so before probing for a provider.
+
+  Two smaller changes you may notice:
+  - **Background runs get their own glyph (`◌`) in the runs popover.** They previously shared `▤` with
+    note runs, which made the two indistinguishable in the one surface built to tell runs apart.
+  - The inline AI command set is resolved once per invocation instead of twice, and not at all when you
+    retry — the retry path was recomputing a value it never read.
+
+  Under the hood, the retrieval engine and the conversation have been separated: `rag` now owns
+  retrieval and readiness only, and everything conversation-shaped — prompts, citations, streaming,
+  scope, agent turns, the panel and the MCP bridge — belongs to the assistant. This is why the same
+  question now gets the same treatment whichever surface you ask it from.
+
+- 2b7e918: feat(assistant): one context assembler behind every AI surface, and question chips you can edit
+
+  The four places Carbide builds context for a model — the inline AI menu in the visual
+  editor, the same menu in source mode, the AI panel, and vault chat — each had their own
+  idea of what "context" meant. They ordered it differently, deduplicated it differently
+  (or not at all), and only chat had a budget. All four now declare which context sources
+  they want and hand them to one assembler that orders, deduplicates, budgets and
+  truncates them the same way.
+
+  A recipe now carries a policy — which context sources it reads, what it may do with
+  tools, and how its output is applied — so the same recipe means the same thing whether
+  you run it inline or from the panel. Built-in recipes keep their existing behaviour
+  exactly; they simply inherit each surface's defaults.
+
+  Chat question chips ("Summarize", "Action items", "Open questions", "Timeline") are now
+  editable in Settings → AI, alongside the inline commands. Override a built-in's label or
+  wording, reset it, or add your own; write `{scope}` wherever the active scope should
+  appear.
+
+  Five behaviour changes came with the consolidation, all deliberate:
+  - **Retrieved context is ordered deterministically.** Chat previously broke score ties by
+    whatever order search happened to return results in, so the same question against an
+    unchanged vault could send different context. Ties now break on the note itself.
+  - **A truncated note can no longer come back longer than the original.** The old chat
+    assembler had an off-by-one that, when a note was cut to exactly its head, appended the
+    entire note after the truncation marker and blew the context budget.
+  - **Pinned `@mentions` reserve their budget explicitly** rather than relying on a sentinel
+    score to sort first. Same result, but it no longer depends on an arbitrary large number.
+  - **A whitespace-only selection is ignored.** Selecting a few blank lines and running an
+    inline command or a panel edit used to send that whitespace as the prompt; it now falls
+    back to the surrounding context, as it does when nothing is selected.
+  - **Chat reports a pinned note's score as 0** in the sources list instead of a sentinel.
+
+  The AI panel still sends the whole note uncapped — consolidating the assemblers did not
+  change that, and capping it is a separate decision.
+
+- 60573f5: feat(assistant): the bottom Assistant tab, persistent proposals, and editing the open tab
+
+  The bottom panel's **AI** tab becomes **Assistant** — a projection of the one assistant chat, so a
+  conversation started in the sidebar continues in the panel and vice versa. `Cmd/Ctrl+Shift+A`, the
+  Tools menu and the palette command all open it; a persisted hotkey override for the old action id
+  migrates automatically. Opening it seeds an untouched conversation with what you are looking at: an
+  open note becomes a "This note" scope, an open editable document is attached.
+
+  **Pending proposals now survive a restart.** They persist per vault in
+  `.carbide/assistant/proposals.json`; applied and rejected proposals are never written and cannot
+  resurrect, and a note edited while the app was closed still resolves stale at accept. The review
+  centre groups proposals by day (Today / Yesterday / date) with per-session provenance inside, and
+  is now reachable from the chat strip's "Review proposals →", the chat header count, the presence
+  popover, a toast after accepting a notice, and the **Review AI Proposals** palette command.
+
+  **Editing the open tab** moves into the assistant: the composer's secondary **Edit** button
+  proposes a rewrite of the open note or an editable document (e.g. an `.html` artifact), and **This
+  document** attaches the document so Ask can answer questions about it. Results land as reviewable
+  proposals — accepting a document proposal stages the buffer and marks the tab dirty; saving the tab
+  writes disk. The legacy AI Assistant dialog is retired (archived on `archive/ai-panel-main`);
+  inline ask/edit in the editor is unchanged.
+
+- 19c9b5e: feat(assistant): AI edits become reviewable proposals behind a single checkpoint
+
+  AI used to write to your notes the moment you accepted — each surface with its own
+  apply path, and no way to see everything the assistant wanted to change in one place.
+  Every AI note-mutation now flows through one proposal queue.
+
+  What changes for you: a **Proposal review center** opens as a workspace tab, grouping
+  pending changes by the session that produced them. Each proposal shows its hunks, you
+  toggle the ones you want, and accepting a batch takes **one** git checkpoint before
+  writing — not one per file, and not none. Reject leaves your notes untouched. The
+  inline decorations and the panel's diff view are now two renderings of that same
+  queue rather than two separate ways to write to disk, so what you see in the review
+  center is exactly what will be applied.
+
+  Proposals know what they were computed against. If a note changes after a proposal is
+  generated, that proposal is flagged **stale** at apply time rather than silently
+  patching the wrong lines — a note that moved or was deleted is reported back to you as
+  a decision, not as an error. Proposals are in-memory: restarting clears the queue and
+  leaves your notes exactly as they were.
+
+  If your vault is not a git repository, proposals still apply — Carbide just records
+  that no checkpoint could be taken, rather than refusing to work or quietly promising
+  an undo that does not exist.
+
+  **Agent turns now go through the same queue.** An agent in power mode still writes
+  real files as it works, so it can read back what it just wrote mid-turn. When the turn
+  ends, Carbide diffs the vault against the checkpoint it took before the turn, restores
+  the notes the agent edited, and queues those edits as proposals for you to review —
+  so an agent turn no longer silently rewrites notes you never looked at. Notes the
+  agent _created_ are left in place (there is nothing to restore them from, so deleting
+  them would lose content), and a note the agent deleted is restored and reported rather
+  than removed on its own authority. The trade-off: a follow-up turn in the same
+  conversation reads notes without its own earlier edits until you accept them. If the
+  vault has no git repository there is no checkpoint to diff against, so agent turns
+  write directly, exactly as before.
+
+  Two user-visible fixes ride along:
+  - **Multi-file diffs merged unrelated files together.** Hunk boundaries were detected
+    by comparing each new hunk's header against only the _previous_ hunk, so two
+    different files whose hunks shared a header — two new single-line files both
+    reporting `@@ -0,0 +1 @@`, for example — collapsed into one entry with both files'
+    content interleaved. Consecutive binary files hit the same bug through a constant
+    `[Binary file]` marker. Diff hunks now carry their file path and boundaries are keyed
+    on it, so a multi-file diff shows one entry per file.
+  - **Per-hunk toggles did nothing.** In the review tab, expanding a proposal and
+    deselecting a hunk updated only the view; the selection never reached the store that
+    apply actually reads. Deselected hunks were applied anyway, silently. The toggle now
+    drives the real selection state, so what you deselect is what stays out.
+
+- 6712546: feat(assistant): every AI request is now a tracked run you can see and stop
+
+  AI work used to be owned by whichever surface started it. An inline edit, a panel
+  message, a chat question and an agent turn each had their own cancellation, their own
+  error wording, and their own idea of which provider `auto` meant — and closing the
+  surface could silently strand or kill the work. All of it now runs through one run
+  kernel.
+
+  What changes for you: the status bar shows how many AI runs are in flight, and its
+  popover lists them with a working Stop on each. Runs are no longer tied to the thing
+  that started them — **closing the inline AI menu no longer cancels the run**; it keeps
+  going and stays stoppable from the popover. Errors from every surface are worded the
+  same way, once.
+
+  Stop now works on providers that could never be stopped before. A CLI that writes to a
+  file instead of streaming (the codex preset, for example) had no cancellation at all —
+  pressing Stop did nothing. Those runs are now genuinely cancelled, and the underlying
+  CLI process is killed rather than left running.
+
+  `auto` now checks that a provider is actually installed before choosing it, everywhere.
+  Several paths — retrieval questions, the MCP bridge, and both plugin AI entry points —
+  previously took the first configured provider without probing it, so `auto` could
+  select a provider whose CLI was not installed and fail at the point of use.
+
+  Three fixes to the CLI plumbing underneath, all of which could bite regardless of the
+  above:
+  - A CLI that hit its timeout was never actually killed. The timeout waited on the child
+    process while holding the lock its own kill path needed, so it blocked until the CLI
+    exited on its own and then reported a timeout late.
+  - Provider errors were sometimes replaced by `Failed to write to stdin: Broken pipe`.
+    Any CLI that takes its prompt as an argument, ignores stdin, or exits early could trip
+    this, and it discarded the CLI's own error message — the one explaining what actually
+    went wrong.
+  - Pressing Stop could surface an error toast instead of simply cancelling, because the
+    cancellation acknowledgement was being treated as a provider failure.
+
+- 2b7e918: feat(assistant): one session history for every AI surface — sessions as tabs, omnibar Ask, inline ⌁ logging
+
+  Chat, inline edits and background AI work now share a single session store with one
+  persisted format (`.carbide/assistant/`, per-session files; legacy `rag/` sessions
+  migrate read-through on first save) and one hydration pass per vault switch. The
+  chat panel's session list shows every kind with filters and a collapsed ⌁ group;
+  sessions open as workspace tabs that stay live (renames sync both ways) and restore
+  across restarts, with a friendly empty state when the session is gone. Accepted
+  inline edits are logged as ⌁ sessions with a "Continue in chat" toast action, and
+  sessions older than a configurable retention window (default 30 days) are pruned on
+  vault open. The omnibar gains an Ask mode (click or ⌘/): cited streaming answers
+  from anywhere, on explicit submit only — esc stops a live run and keeps the answer,
+  ⌘↵ inserts at the cursor, ↵ continues in a chat tab. Stopping a run is now
+  distinguishable from success everywhere — a stopped title generation writes
+  nothing, and Stop works from the instant a run exists, including during provider
+  resolution. The old flat inline history (`ai/history.json`) is retired.
+
+### Patch Changes
+
+- e637e4e: feat(assistant): run presence follows you into the inline menu and the chat header
+
+  The run kernel already tracked every AI run, but the only place to see one was the
+  status bar popover. Presence now sits where the work is started: the inline AI menu and
+  the Vault Chat header both show the same indicator, with the same Stop on each listed
+  run.
+
+  The presence label now names the provider of the newest active run, so `claude · 2 runs`
+  tells you what is actually working rather than only how much.
+
+  While an inline edit streams, the menu shows a Stop for that specific run — the newest
+  active run of kind `inline`, never a chat or agent run that happens to be in flight at
+  the same time.
+
+  The Vault Chat header no longer disappears when the chat is empty, so presence and
+  **New chat** stay reachable from a fresh panel.
+
+- 7fd2c96: fix(search): semantic search stops silently dropping notes
+
+  Semantic search could omit a note that clearly matched, with no error and no
+  sign anything was wrong — the same query could return it on one run and not the
+  next. Roughly one note in sixteen was affected at any given time, and which ones
+  changed every time the index was rebuilt.
+
+  The cause is upstream, in the `hnsw_rs` graph library: when a note is placed on
+  an upper layer of the search graph, the library files its reverse link on the
+  wrong layer, so the note ends up with no inbound edge on the bottom layer that
+  every query finishes its traversal in. The note is in the index, and simply
+  cannot be reached by a search. There is no newer release to upgrade to.
+
+  Vaults up to 4096 notes now answer semantic queries by scanning every note
+  directly, using the same distance metric the graph used, so results are exact
+  rather than approximate — measured at 1.39 ms per query at the 4096-note limit,
+  which is well inside what the search feels like at any size. Loading a saved
+  index also rebuilds the vectors it needs instead of coming back half
+  initialised, which is what made a reloaded index disagree with a freshly built
+  one.
+
+  **Vaults larger than 4096 notes still traverse the graph and remain exposed to
+  this bug.** Fixing it there means patching the library itself; a one-line
+  upstream correction was measured and cuts the miss rate from ~6.5% to ~0.2% but
+  does not eliminate it, so it is deliberately not shipped here.
+
+  Also fixed: setting up the MCP connection read and wrote the auth token through
+  process-wide environment variables, which two operations running at once could
+  interleave — one could read a half-written value, and unrelated work reading the
+  same variables could observe them changing underneath it. The token path and the
+  home directory are now passed in directly.
+
 ## 2.25.1
 
 ### Patch Changes
