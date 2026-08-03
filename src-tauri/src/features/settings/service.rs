@@ -72,12 +72,21 @@ pub fn set_setting_value(app: &AppHandle, key: String, value: Value) -> Result<(
 
 #[tauri::command]
 pub async fn get_setting(key: String, app: AppHandle) -> Result<Option<Value>, String> {
+    crate::shared::blocking::blocking("get_setting", move || get_setting_inner(key, app)).await
+}
+
+pub fn get_setting_inner(key: String, app: AppHandle) -> Result<Option<Value>, String> {
     log::trace!("Getting setting key={}", key);
     Ok(get_setting_value(&app, &key))
 }
 
 #[tauri::command]
 pub async fn set_setting(key: String, value: Value, app: AppHandle) -> Result<(), String> {
+    crate::shared::blocking::blocking("set_setting", move || set_setting_inner(key, value, app))
+        .await
+}
+
+pub fn set_setting_inner(key: String, value: Value, app: AppHandle) -> Result<(), String> {
     log::trace!("Setting key={}", key);
     set_setting_value(&app, key, value)
 }

@@ -4,9 +4,13 @@ use crate::shared::storage::{load_store, vault_mode_for_id, vault_path_by_id, Va
 use serde_json::Value;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
+use std::sync::Mutex;
 use tauri::{AppHandle, Manager};
 
 const SETTINGS_FILE: &str = "settings.json";
+
+static VAULT_SETTINGS_LOCK: Mutex<()> = Mutex::new(());
+static LOCAL_SETTINGS_LOCK: Mutex<()> = Mutex::new(());
 
 fn vault_settings_dir(app: &AppHandle, vault_id: &str) -> Result<PathBuf, String> {
     let store = load_store(app)?;
@@ -130,6 +134,29 @@ fn save_local_settings(
     write_settings_file(&path, &bytes)
 }
 
+/// Serializes the load/insert/save cycle over a settings file. These commands run
+/// on the blocking pool and so interleave; without this the last writer silently
+/// discards the other's key. Mirrors `storage::update_store`.
+fn update_vault_settings<F>(app: &AppHandle, vault_id: &str, f: F) -> Result<(), String>
+where
+    F: FnOnce(&mut HashMap<String, Value>),
+{
+    let _guard = VAULT_SETTINGS_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let mut settings = load_vault_settings(app, vault_id)?;
+    f(&mut settings);
+    save_vault_settings(app, vault_id, &settings)
+}
+
+fn update_local_settings<F>(app: &AppHandle, vault_id: &str, f: F) -> Result<(), String>
+where
+    F: FnOnce(&mut HashMap<String, Value>),
+{
+    let _guard = LOCAL_SETTINGS_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let mut settings = load_local_settings(app, vault_id)?;
+    f(&mut settings);
+    save_local_settings(app, vault_id, &settings)
+}
+
 pub(crate) fn get_vault_setting_value(
     app: &AppHandle,
     vault_id: &str,
@@ -145,12 +172,35 @@ pub async fn get_vault_setting(
     key: String,
     app: AppHandle,
 ) -> Result<Option<Value>, String> {
+    crate::shared::blocking::blocking("get_vault_setting", move || {
+        get_vault_setting_inner(vault_id, key, app)
+    })
+    .await
+}
+
+pub fn get_vault_setting_inner(
+    vault_id: String,
+    key: String,
+    app: AppHandle,
+) -> Result<Option<Value>, String> {
     log::trace!("Getting vault setting vault_id={} key={}", vault_id, key);
     get_vault_setting_value(&app, &vault_id, &key)
 }
 
 #[tauri::command]
 pub async fn set_vault_setting(
+    vault_id: String,
+    key: String,
+    value: Value,
+    app: AppHandle,
+) -> Result<(), String> {
+    crate::shared::blocking::blocking("set_vault_setting", move || {
+        set_vault_setting_inner(vault_id, key, value, app)
+    })
+    .await
+}
+
+pub fn set_vault_setting_inner(
     vault_id: String,
     key: String,
     value: Value,
@@ -164,14 +214,24 @@ pub async fn set_vault_setting(
         );
         return Ok(());
     }
-    let mut settings = load_vault_settings(&app, &vault_id)?;
-    settings.insert(key, value);
-    save_vault_settings(&app, &vault_id, &settings)?;
-    Ok(())
+    update_vault_settings(&app, &vault_id, |settings| {
+        settings.insert(key, value);
+    })
 }
 
 #[tauri::command]
 pub async fn get_local_setting(
+    vault_id: String,
+    key: String,
+    app: AppHandle,
+) -> Result<Option<Value>, String> {
+    crate::shared::blocking::blocking("get_local_setting", move || {
+        get_local_setting_inner(vault_id, key, app)
+    })
+    .await
+}
+
+pub fn get_local_setting_inner(
     vault_id: String,
     key: String,
     app: AppHandle,
@@ -188,6 +248,18 @@ pub async fn set_local_setting(
     value: Value,
     app: AppHandle,
 ) -> Result<(), String> {
+    crate::shared::blocking::blocking("set_local_setting", move || {
+        set_local_setting_inner(vault_id, key, value, app)
+    })
+    .await
+}
+
+pub fn set_local_setting_inner(
+    vault_id: String,
+    key: String,
+    value: Value,
+    app: AppHandle,
+) -> Result<(), String> {
     log::trace!("Setting local setting vault_id={} key={}", vault_id, key);
     if vault_mode_for_id(&app, &vault_id)? == VaultMode::Browse {
         log::debug!(
@@ -196,8 +268,7 @@ pub async fn set_local_setting(
         );
         return Ok(());
     }
-    let mut settings = load_local_settings(&app, &vault_id)?;
-    settings.insert(key, value);
-    save_local_settings(&app, &vault_id, &settings)?;
-    Ok(())
+    update_local_settings(&app, &vault_id, |settings| {
+        settings.insert(key, value);
+    })
 }
