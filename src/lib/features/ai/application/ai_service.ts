@@ -16,10 +16,7 @@ import type {
   VaultContextSettings,
 } from "$lib/features/ai/domain/ai_types";
 import { provider_command } from "$lib/features/ai/domain/ai_types";
-import {
-  build_ai_document_prompt,
-  build_ai_prompt,
-} from "$lib/features/ai/domain/ai_prompt_builder";
+import { build_ai_prompt } from "$lib/features/ai/domain/ai_prompt_builder";
 import { build_editor_sources } from "$lib/features/ai/domain/ai_context_sources";
 import { resolve_policy } from "$lib/shared/domain/prompt_recipes";
 import { assemble_context } from "$lib/features/assistant";
@@ -160,19 +157,6 @@ export class AiService {
     input: AiExecuteInput,
   ): Promise<{ prompt: string; working_path: string }> {
     const { context } = input;
-
-    if (context.kind === "document") {
-      return {
-        prompt: build_ai_document_prompt({
-          file_path: context.file_path,
-          file_title: context.file_title,
-          content: context.content,
-          user_prompt: input.prompt,
-          mode: input.mode,
-        }),
-        working_path: context.file_path,
-      };
-    }
 
     let vault_context: AiVaultContext | undefined;
     if (input.vault_context_settings?.enabled) {

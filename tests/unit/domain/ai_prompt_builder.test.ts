@@ -275,47 +275,9 @@ describe("build_ai_prompt", () => {
   });
 });
 
-import { build_ai_document_prompt } from "$lib/features/ai";
-
-describe("build_ai_document_prompt", () => {
-  const base = {
-    file_path: "notes/chart.html",
-    file_title: "chart",
-    content: "<html><body><h1>Hi</h1></body></html>",
-    user_prompt: "Add a footer",
-    mode: "edit" as const,
-  };
-
-  it("builds a document rewrite prompt", () => {
-    const prompt = build_ai_document_prompt(base);
-
-    expect(prompt).toContain("You are editing a document.");
-    expect(prompt).toContain(
-      "Return ONLY the complete edited content for the document",
-    );
-    expect(prompt).toContain("Do not include commentary");
-    expect(prompt).toContain("<current_content>");
-    expect(prompt).toContain(base.content);
-    expect(prompt).toContain("<user_instructions>");
-    expect(prompt).toContain("Add a footer");
-    expect(prompt).toContain("chart (notes/chart.html)");
-  });
-
-  it("builds a document ask prompt without rewrite instructions", () => {
-    const prompt = build_ai_document_prompt({
-      ...base,
-      mode: "ask",
-      user_prompt: "What does this page render?",
-    });
-
-    expect(prompt).toContain(
-      "answering a question about the content of a document",
-    );
-    expect(prompt).toContain("<user_question>");
-    expect(prompt).toContain("What does this page render?");
-    expect(prompt).not.toContain("Return ONLY");
-  });
-});
+// build_ai_document_prompt moved to the assistant as edit_target_prompt
+// (edit branch — covered in assistant_edit_target_prompt.test.ts); the ask
+// branch's successor is the attachment ask flow in assistant_chat_service.
 
 describe("panel context assembly", () => {
   it("sends the whole note untruncated, however large", () => {

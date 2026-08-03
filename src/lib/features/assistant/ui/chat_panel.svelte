@@ -127,8 +127,8 @@
   }
 
   // Editable-type check runs through the document service (a null AI context
-  // means not editable) so the assistant slice never imports
-  // features/document.
+  // means not editable) so the assistant slice never imports the document
+  // feature.
   const active_document = $derived.by(() => {
     const tab = stores.tab.tabs.find((t) => t.id === stores.tab.active_tab_id);
     if (!tab || tab.kind !== "document") return null;

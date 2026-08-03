@@ -4,10 +4,6 @@ export {
   AgenticEditRunner,
   type AgentCheckpointGit,
 } from "$lib/features/ai/application/agentic_edit_runner";
-export {
-  AiStore,
-  type AiDialogState,
-} from "$lib/features/ai/state/ai_store.svelte";
 export type { AiPort } from "$lib/features/ai/ports";
 export {
   create_plugin_ai_host,
@@ -68,7 +64,6 @@ export {
   type AiMode,
   type AiCliStatus,
   type AiDialogContext,
-  type AiDialogDocumentContext,
   type AiDialogNoteContext,
   type AiExecutionResult,
   type AiPortExecuteRequest,
@@ -83,7 +78,6 @@ export {
 } from "$lib/features/ai/domain/ai_types";
 export {
   build_ai_prompt,
-  build_ai_document_prompt,
   build_ai_inline_prompt,
 } from "$lib/features/ai/domain/ai_prompt_builder";
 export { migrate_ai_settings } from "$lib/features/ai/domain/ai_settings_migration";
@@ -91,4 +85,3 @@ export { migrate_ai_settings } from "$lib/features/ai/domain/ai_settings_migrati
 // (C3) build proposals from outside this feature; the helper itself is
 // AI-agnostic and only happens to live here.
 export { build_proposal } from "$lib/features/ai/domain/ai_diff";
-export { default as AiAssistantPanel } from "$lib/features/ai/ui/ai_assistant_panel.svelte";

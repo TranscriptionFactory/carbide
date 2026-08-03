@@ -119,7 +119,6 @@ import type {
 } from "$lib/features/assistant";
 import { produce_ambient_notices } from "$lib/features/assistant";
 import { create_ambient_reactor } from "$lib/reactors/ambient.reactor.svelte";
-import type { AiStore } from "$lib/features/ai";
 import type { TagService, TagStore } from "$lib/features/tags";
 // import type { SttStore, SttService } from "$lib/features/stt";
 
@@ -175,7 +174,6 @@ export type ReactorContext = {
   assistant_sessions_service: AssistantSessionService;
   assistant_kernel: AssistantKernelService;
   assistant_sessions: AssistantSessionStore;
-  ai_store: AiStore;
   tag_store: TagStore;
   tag_service: TagService;
   assistant_notices: AssistantNoticeStore;

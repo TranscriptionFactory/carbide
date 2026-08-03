@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import { build_command_context } from "$lib/features/search/domain/build_command_context";
 import { EditorStore } from "$lib/features/editor/state/editor_store.svelte";
 import { GitStore } from "$lib/features/git/state/git_store.svelte";
-import { AiStore } from "$lib/features/ai/state/ai_store.svelte";
 import { UIStore } from "$lib/app/orchestration/ui_store.svelte";
 import { TabStore } from "$lib/features/tab/state/tab_store.svelte";
 import { VaultStore } from "$lib/features/vault/state/vault_store.svelte";
@@ -37,7 +36,6 @@ function make_stores(
   overrides: {
     editor?: Partial<EditorStore>;
     git?: Partial<GitStore>;
-    ai?: Partial<AiStore>;
     ui?: Partial<UIStore>;
     active_tab?: Tab | null;
     is_vault_mode?: boolean;
@@ -45,7 +43,6 @@ function make_stores(
 ) {
   const editor = new EditorStore();
   const git = new GitStore();
-  const ai = new AiStore();
   const ui = new UIStore();
   const tab = new TabStore();
   const vault = new VaultStore();
@@ -65,9 +62,6 @@ function make_stores(
   if (overrides.git?.has_remote !== undefined) {
     git.has_remote = overrides.git.has_remote;
   }
-  if (overrides.ai?.dialog?.cli_status) {
-    ai.dialog.cli_status = overrides.ai.dialog.cli_status;
-  }
   if (overrides.active_tab) {
     tab.tabs = [overrides.active_tab];
     tab.active_tab_id = overrides.active_tab.id;
@@ -76,7 +70,7 @@ function make_stores(
     vault.vault = { mode: "vault" } as any;
   }
 
-  return { editor, tab, git, ai, ui, vault };
+  return { editor, tab, git, ui, vault };
 }
 
 function make_open_note(path: string) {

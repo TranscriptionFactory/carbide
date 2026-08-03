@@ -103,36 +103,6 @@ export function build_ai_prompt(input: {
   return parts.join("\n\n");
 }
 
-export function build_ai_document_prompt(input: {
-  file_path: string;
-  file_title: string;
-  content: string;
-  user_prompt: string;
-  mode: AiMode;
-}): string {
-  const user_prompt = input.user_prompt.trim();
-
-  if (input.mode === "ask") {
-    return [
-      "You are a helpful assistant answering a question about the content of a document. The document's format is indicated by its file extension.",
-      "Answer the user's question clearly and concisely.",
-      "Do not return edited content. Do not rewrite the document.",
-      `Document: ${input.file_title} (${input.file_path})`,
-      section("current_content", input.content),
-      section("user_question", user_prompt),
-    ].join("\n\n");
-  }
-
-  return [
-    "You are editing a document. The document's format is indicated by its file extension.",
-    "Return ONLY the complete edited content for the document and retain all content that is not meant to be edited.",
-    "Do not include commentary, explanations, or enclose the content in code fences.",
-    `Document: ${input.file_title} (${input.file_path})`,
-    section("current_content", input.content),
-    section("user_instructions", user_prompt),
-  ].join("\n\n");
-}
-
 function with_vault_context(
   system_prompt: string,
   assembly: ContextAssembly,

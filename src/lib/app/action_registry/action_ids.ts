@@ -313,26 +313,14 @@ export const ACTION_IDS = {
   terminal_close_session: "terminal.close_session",
   terminal_respawn_session: "terminal.respawn_session",
 
-  ai_open_assistant: "ai.open_assistant",
-  ai_open_with_provider: "ai.open_with_provider",
-  ai_close_dialog: "ai.close_dialog",
-  ai_update_provider: "ai.update_provider",
-  ai_update_mode: "ai.update_mode",
-  ai_update_target: "ai.update_target",
-  ai_update_context: "ai.update_context",
-  ai_update_prompt: "ai.update_prompt",
-  ai_execute: "ai.execute",
-  ai_stop_execution: "ai.stop_execution",
-  ai_apply_result: "ai.apply_result",
-  ai_clear_result: "ai.clear_result",
-  ai_clear_history: "ai.clear_history",
+  // The AI dialog/panel surface retired to the assistant (pin 5); its 14
+  // action ids left with it — see archive/ai-panel-main.
   ai_generate_description: "ai.generate_description",
   ai_open_inline_menu: "ai.open_inline_menu",
   ai_execute_inline: "ai.execute_inline",
   ai_accept_inline: "ai.accept_inline",
   ai_reject_inline: "ai.reject_inline",
   ai_close_inline_menu: "ai.close_inline_menu",
-  ai_toggle_vault_context: "ai.toggle_vault_context",
   ai_open_vault_in_agent: "ai.open_vault_in_agent",
 
   assistant_open_panel: "assistant.open_panel",

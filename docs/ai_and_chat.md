@@ -1,18 +1,17 @@
 # AI & Vault Chat
 
-Carbide's AI surface has four parts: **provider configuration**, **inline ask/edit** in the
-editor, the **AI Assistant panel** for drafting against the tab you have open, and the
-**assistant** — sessions, runs, proposals and a multi-turn, citation-backed chat over your
-vault. The same retrieval pipeline that powers chat is also exposed to external agents over
-MCP.
+Carbide's AI surface has three parts: **provider configuration**, **inline ask/edit** in
+the editor, and the **assistant** — sessions, runs, proposals, editing the open tab, and a
+multi-turn, citation-backed chat over your vault. The same retrieval pipeline that powers
+chat is also exposed to external agents over MCP.
 
 All AI features are local-first: they run through whatever provider you configure (a local
 CLI or a local HTTP server). Nothing is sent anywhere you haven't pointed Carbide at.
 
 **How the code is split.** `rag` owns retrieval and index readiness and nothing else — it is
 session-blind, and the assistant reaches it through a port. `assistant` owns sessions, the
-run kernel, proposals, ambient notices and the chat turn. `ai` owns providers, inline
-edit/ask and its diff, and the AI Assistant panel. Anything a conversation knows lives in
+run kernel, proposals, ambient notices, the chat turn and editing the open tab. `ai` owns
+providers and inline edit/ask with its diff. Anything a conversation knows lives in
 `assistant`; anything about finding notes lives in `rag`.
 
 ## AI providers
@@ -56,30 +55,31 @@ the built-ins or add new ones.
 An accepted inline edit is recorded as an **inline session** (⌁), so it appears in the same
 session list as your chats and can be reopened.
 
-## AI Assistant panel
+## Assistant panel (bottom tab)
 
-The **AI Assistant** is a bottom-panel surface for drafting against the tab you have open —
-a whole note, a selection within it, or an editable document. Open it with
-`Cmd/Ctrl+Shift+A`, from the **AI Assistant** command in the omnibar, or by picking the **AI**
-tab in the bottom panel.
+The bottom **Assistant** tab is a projection of the one assistant chat — the same
+conversation as the sidebar **Chat** view, mounted where a drafting surface used to live.
+Open it with `Cmd/Ctrl+Shift+A`, from the **Assistant** command in the omnibar, from the
+**Tools** menu, or by picking the **Assistant** tab in the bottom panel.
 
-It works on the current tab rather than on the vault:
+Opening it seeds an untouched conversation with what you are looking at: an open note
+becomes a "This note" scope; an open editable document is attached. A conversation already
+in progress is never re-scoped.
 
-- **Edit** drafts a replacement for the note or the selection; **Ask** answers a question
-  about it without proposing a change.
-- **Target** switches between the selection and the full note. Selecting nothing falls back
-  to the full note.
-- Results arrive as a **draft you review before applying** — apply to the selection, apply
-  the whole draft, or refine it and generate again. Nothing is written until you apply.
-- **Vault context** can be toggled on to include semantically similar notes alongside the
-  tab's own content.
-- Each run is kept as a **turn** in the panel's history, with its mode and target, and the
-  history can be cleared.
-- The panel follows the active tab: switching notes starts a fresh session rather than
-  drafting against a note you have navigated away from.
+### Editing the open tab
 
-This is a separate surface from Vault Chat, and deliberately so. The assistant panel edits
-_the thing in front of you_; Vault Chat answers _across your notes_.
+The composer's secondary **Edit** button proposes a rewrite of the open tab — a whole note,
+or an editable document such as an `.html` artifact. You can also attach the document with
+the **This document** button and ask questions about it.
+
+- The result is never applied directly: it lands as a **proposal** in the review centre,
+  exactly like an agent turn's edits (two explicit acts, never one).
+- Accepting a **document** proposal stages the change into the open tab's buffer and marks
+  the tab dirty; saving the tab is what writes disk. Document-only batches take no
+  checkpoint — the checkpoint is a disk undo unit.
+- A stopped, errored or empty run proposes nothing — a partial stream never becomes a
+  whole-file rewrite.
+- Selection-scoped edits live in the inline menu, not here.
 
 ## Ambient notices
 
