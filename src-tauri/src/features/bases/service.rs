@@ -212,6 +212,7 @@ pub fn bases_list_views_inner(
     app: AppHandle,
     vault_id: String,
 ) -> Result<Vec<SavedViewInfo>, String> {
+    log::info!("bases_list_views phase=begin vault_id={}", vault_id);
     let root = storage::vault_path(&app, &vault_id)?;
     let dir = root.join(".carbide").join("bases");
     if !dir.is_dir() {
@@ -423,6 +424,7 @@ pub async fn bases_seed_default_views(app: AppHandle, vault_id: String) -> Resul
 }
 
 pub fn bases_seed_default_views_inner(app: AppHandle, vault_id: String) -> Result<u32, String> {
+    log::info!("bases_seed_default_views phase=begin vault_id={}", vault_id);
     if storage::vault_mode_for_id(&app, &vault_id)? == storage::VaultMode::Browse {
         return Ok(0);
     }

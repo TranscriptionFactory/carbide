@@ -81,18 +81,20 @@ pub fn run() {
         eprintln!("PANIC at {}: {}", location, payload);
     }));
 
-    log::info!("Carbide starting");
-
     let log_level = if cfg!(debug_assertions) {
         log::LevelFilter::Debug
     } else {
         log::LevelFilter::Info
     };
 
+    // The plugin defaults to 40 KB with KeepOne, which discards the startup
+    // sequence long before a user can report a hang against it.
     let mut log_builder = tauri_plugin_log::Builder::new()
         .level(log_level)
         .level_for("hnsw_rs", log::LevelFilter::Warn)
         .level_for("pdf_extract", log::LevelFilter::Error)
+        .max_file_size(5_000_000)
+        .rotation_strategy(tauri_plugin_log::RotationStrategy::KeepSome(3))
         .targets([
             tauri_plugin_log::Target::new(tauri_plugin_log::TargetKind::Stdout),
             tauri_plugin_log::Target::new(tauri_plugin_log::TargetKind::LogDir { file_name: None }),
@@ -161,6 +163,11 @@ pub fn run() {
                 .build(),
         )
         .setup(|app| {
+            // Logged here, not before the builder: the log plugin is only
+            // installed at .plugin(log_builder.build()) above, so anything
+            // emitted earlier goes nowhere.
+            log::info!("app_startup phase=begin version={}", env!("CARGO_PKG_VERSION"));
+
             let menu = menu::build_menu(app)?;
             app.set_menu(menu)?;
             app.on_menu_event(|app, event| {

@@ -579,6 +579,7 @@ pub fn clear_embedding_model_cache_inner(app: AppHandle) -> Result<u64, String> 
 }
 
 pub(crate) fn ensure_worker(app: &AppHandle, vault_id: &str) -> Result<(), String> {
+    log::info!("ensure_worker phase=begin vault_id={}", vault_id);
     if storage::vault_mode_for_id(app, vault_id)? == VaultMode::Browse {
         return Err("search indexing is not available in browse mode".to_string());
     }
@@ -3427,6 +3428,7 @@ pub async fn embed_sync(app: AppHandle, vault_id: String) -> Result<(), String> 
 }
 
 pub fn embed_sync_inner(app: AppHandle, vault_id: String) -> Result<(), String> {
+    log::info!("embed_sync phase=begin vault_id={}", vault_id);
     ensure_worker(&app, &vault_id)?;
     let embed_queued = {
         let state = app.state::<SearchDbState>();

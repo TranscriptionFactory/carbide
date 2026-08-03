@@ -600,7 +600,7 @@ pub fn read_note_inner(
     note_id: String,
 ) -> Result<NoteDoc, String> {
     let buffer_manager = app.state::<BufferManager>();
-    log::debug!("Reading note vault_id={} note_id={}", vault_id, note_id);
+    log::info!("read_note phase=begin vault_id={} note_id={}", vault_id, note_id);
     let buffer_id = format!("note_{}", note_id);
     buffer_manager.open_buffer(&app, buffer_id.clone(), vault_id.clone(), note_id.clone())?;
 
@@ -1372,7 +1372,7 @@ pub async fn list_folders(app: AppHandle, vault_id: String) -> Result<Vec<String
 }
 
 pub fn list_folders_inner(app: AppHandle, vault_id: String) -> Result<Vec<String>, String> {
-    log::debug!("Listing folders vault_id={}", vault_id);
+    log::info!("list_folders phase=begin vault_id={}", vault_id);
     let root = storage::vault_path(&app, &vault_id)?;
     let ignore_matcher = vault_ignore::load_vault_ignore_matcher(&app, &vault_id, &root)?;
     let mut out = Vec::new();
@@ -1844,8 +1844,8 @@ pub fn list_folder_contents_inner(
     limit: usize,
     show_hidden_files: bool,
 ) -> Result<FolderContents, String> {
-    log::debug!(
-        "Listing folder contents vault_id={} folder_path={}",
+    log::info!(
+        "list_folder_contents phase=begin vault_id={} folder_path={}",
         vault_id,
         folder_path
     );
@@ -1957,8 +1957,8 @@ pub fn get_folder_stats_inner(
     vault_id: String,
     folder_path: String,
 ) -> Result<FolderStats, String> {
-    log::debug!(
-        "Getting folder stats vault_id={} folder_path={}",
+    log::info!(
+        "get_folder_stats phase=begin vault_id={} folder_path={}",
         vault_id,
         folder_path
     );
@@ -2022,6 +2022,11 @@ pub fn read_vault_file_inner(
     relative_path: String,
     force: Option<bool>,
 ) -> Result<String, String> {
+    log::info!(
+        "read_vault_file phase=begin vault_id={} relative_path={}",
+        vault_id,
+        relative_path
+    );
     let root = storage::vault_path(&app, &vault_id)?;
     let abs = safe_vault_abs(&root, &relative_path)?;
 

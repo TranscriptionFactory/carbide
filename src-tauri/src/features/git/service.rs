@@ -119,6 +119,7 @@ pub async fn git_has_repo(vault_path: String) -> Result<bool, String> {
 }
 
 pub fn git_has_repo_inner(vault_path: String) -> Result<bool, String> {
+    log::info!("git_has_repo phase=begin vault_path={}", vault_path);
     Ok(Path::new(&vault_path).join(".git").exists())
 }
 
@@ -146,6 +147,7 @@ pub async fn git_status(vault_path: String) -> Result<GitStatus, String> {
 }
 
 pub fn git_status_inner(vault_path: String) -> Result<GitStatus, String> {
+    log::info!("git_status phase=begin vault_path={}", vault_path);
     let repo = open_repo(&vault_path)?;
 
     let branch = match repo.head() {

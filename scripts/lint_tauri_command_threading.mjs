@@ -89,7 +89,11 @@ function find_decorated_fn(lines, attribute_line_index) {
   ) {
     const line = lines[index];
     const trimmed = line.trim();
-    if (trimmed === "" || trimmed.startsWith("#[") || trimmed.startsWith("//")) {
+    if (
+      trimmed === "" ||
+      trimmed.startsWith("#[") ||
+      trimmed.startsWith("//")
+    ) {
       continue;
     }
     const match = fn_signature.exec(line);
@@ -150,7 +154,7 @@ for (const file_path of collect_rust_files(rust_source_root, [])) {
       message:
         `\`${decorated.name}\` is a sync #[tauri::command], so it runs on the macOS main ` +
         "thread and any slow I/O freezes the app; make it `pub async fn` delegating to " +
-        "`shared::blocking::blocking(\"name\", move || name_inner(..))`, or add it to " +
+        '`shared::blocking::blocking("name", move || name_inner(..))`, or add it to ' +
         "MAIN_THREAD_COMMANDS with a justification",
     });
   }
