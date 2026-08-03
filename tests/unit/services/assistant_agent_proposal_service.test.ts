@@ -140,7 +140,10 @@ describe("AgentProposalService.produce", () => {
     expect(report.proposed).toEqual(["note.md"]);
     expect(h.disk.get("note.md")).toBe("before\ntail\n");
     expect(h.queue.pending).toHaveLength(1);
-    expect(h.queue.pending[0]?.note_path).toBe("note.md");
+    expect(h.queue.pending[0]?.target).toEqual({
+      kind: "note",
+      note_path: "note.md",
+    });
   });
 
   // R-5b's runtime assertion. No grep can state this; only the behaviour can.

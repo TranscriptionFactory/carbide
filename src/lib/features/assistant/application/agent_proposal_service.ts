@@ -1,6 +1,7 @@
 import { create_logger } from "$lib/shared/utils/logger";
 import { error_message } from "$lib/shared/utils/error_message";
 import type { GitDiff } from "$lib/features/git";
+import { proposal_path } from "$lib/features/assistant";
 import type { Proposal, ProposalOrigin } from "$lib/features/assistant";
 import {
   build_turn_proposals,
@@ -146,7 +147,9 @@ export class AgentProposalService implements AgentTurnProposalProducer {
     // One add_many for the whole turn — the store's contract is that a
     // half-arrived turn must never render.
     this.queue.add_many(proposals);
-    report.proposed = proposals.map((proposal) => proposal.note_path);
+    report.proposed = proposals.map((proposal) =>
+      proposal_path(proposal.target),
+    );
 
     return report;
   }

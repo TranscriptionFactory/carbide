@@ -235,6 +235,7 @@ export { create_assistant_session_persistence_tauri_adapter } from "$lib/feature
 // rag/ai under the deep-import rule (D1-11), costing an out-of-band
 // integration commit. Not repeating it.
 export {
+  proposal_path,
   to_proposal_summary,
   type NoteRevision,
   type Proposal,
@@ -246,6 +247,7 @@ export {
   type ProposalOrigin,
   type ProposalStatus,
   type ProposalSummary,
+  type ProposalTarget,
 } from "$lib/features/assistant/types/proposal";
 
 export {

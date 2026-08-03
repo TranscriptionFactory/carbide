@@ -62,10 +62,10 @@ export function register_assistant_notice_actions(
 
       assistant_proposals.add(
         build_proposal({
-          note_path: notice.note_path,
+          target: { kind: "note", note_path: notice.note_path },
           original_text: markdown,
           draft_text,
-          target: "full_note",
+          span: "full_note",
           origin: AMBIENT_PROPOSAL_ORIGIN,
         }),
       );

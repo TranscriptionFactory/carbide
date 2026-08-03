@@ -68,8 +68,18 @@ export class ProposalApplyService {
         continue;
       }
 
+      // Document targets stage into an open buffer, not the note port; the
+      // branch lands with the document-edit capability (pin 5, stage 3).
+      if (proposal.target.kind !== "note") {
+        failed.push({
+          id,
+          error: "document proposals cannot be applied yet",
+        });
+        continue;
+      }
+
       const current_content = await this.deps.notes.read_note(
-        proposal.note_path,
+        proposal.target.note_path,
       );
       if (
         current_content === null ||
@@ -90,7 +100,7 @@ export class ProposalApplyService {
 
       to_write.push({
         id,
-        note_path: proposal.note_path,
+        note_path: proposal.target.note_path,
         content: next_content,
       });
     }

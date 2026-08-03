@@ -83,7 +83,7 @@ describe("ProposalApplyService.apply_batch", () => {
     const { proposals, notes, git, service } = make_harness();
     const content = "alpha\nbeta\ngamma";
     const proposal = pending(content, {
-      note_path: "note.md",
+      target: { kind: "note", note_path: "note.md" },
       hunks: [replace_line_hunk("h1", 2, "beta", "BETA")],
     });
     proposals.add(proposal);
@@ -110,7 +110,7 @@ describe("ProposalApplyService.apply_batch", () => {
     const { proposals, notes, git, service } = make_harness();
     const content = "one\ntwo\nthree\nfour\nfive";
     const proposal = pending(content, {
-      note_path: "note.md",
+      target: { kind: "note", note_path: "note.md" },
       hunks: [
         replace_line_hunk("h1", 1, "one", "ONE"),
         replace_line_hunk("h2", 3, "three", "THREE"),
@@ -140,7 +140,7 @@ describe("ProposalApplyService.apply_batch", () => {
     const ids: string[] = [];
     for (const [note_path, content] of Object.entries(contents)) {
       const proposal = pending(content, {
-        note_path,
+        target: { kind: "note", note_path },
         hunks: [replace_line_hunk("h1", 1, content, content.toUpperCase())],
       });
       proposals.add(proposal);
@@ -163,7 +163,7 @@ describe("ProposalApplyService.apply_batch", () => {
     const { proposals, notes, service } = make_harness();
     const content = "one\ntwo\nthree";
     const proposal = pending(content, {
-      note_path: "note.md",
+      target: { kind: "note", note_path: "note.md" },
       hunks: [
         replace_line_hunk("h1", 1, "one", "ONE"),
         { ...replace_line_hunk("h2", 2, "two", "TWO"), selected: false },
@@ -187,7 +187,7 @@ describe("ProposalApplyService.apply_batch", () => {
     const { proposals, notes, git, service } = make_harness();
     const content = "alpha\nbeta";
     const proposal = pending(content, {
-      note_path: "note.md",
+      target: { kind: "note", note_path: "note.md" },
       hunks: [
         { ...replace_line_hunk("h1", 1, "alpha", "ALPHA"), selected: false },
       ],
@@ -209,7 +209,7 @@ describe("ProposalApplyService.apply_batch", () => {
     const original = "alpha\nbeta";
     const edited = "alpha\nBETA-EDITED-BY-USER";
     const proposal = pending(original, {
-      note_path: "note.md",
+      target: { kind: "note", note_path: "note.md" },
       hunks: [replace_line_hunk("h1", 2, "beta", "BETA-PROPOSED")],
     });
     proposals.add(proposal);
@@ -226,7 +226,9 @@ describe("ProposalApplyService.apply_batch", () => {
 
   it("flags a proposal over a deleted note as stale, not failed", async () => {
     const { proposals, notes, service } = make_harness();
-    const proposal = pending("alpha", { note_path: "gone.md" });
+    const proposal = pending("alpha", {
+      target: { kind: "note", note_path: "gone.md" },
+    });
     proposals.add(proposal);
     notes.read_note.mockResolvedValue(null);
 
@@ -242,11 +244,11 @@ describe("ProposalApplyService.apply_batch", () => {
     const healthy_content = "alpha\nbeta";
     const stale_original = "gamma\ndelta";
     const healthy = pending(healthy_content, {
-      note_path: "healthy.md",
+      target: { kind: "note", note_path: "healthy.md" },
       hunks: [replace_line_hunk("h1", 2, "beta", "BETA")],
     });
     const stale = pending(stale_original, {
-      note_path: "stale.md",
+      target: { kind: "note", note_path: "stale.md" },
       hunks: [replace_line_hunk("h1", 1, "gamma", "GAMMA")],
     });
     proposals.add(healthy);
@@ -292,11 +294,11 @@ describe("ProposalApplyService.apply_batch", () => {
     const { proposals, notes, git, service } = make_harness();
     const content = "alpha";
     const ok = pending(content, {
-      note_path: "ok.md",
+      target: { kind: "note", note_path: "ok.md" },
       hunks: [replace_line_hunk("h1", 1, "alpha", "ALPHA")],
     });
     const breaks = pending(content, {
-      note_path: "breaks.md",
+      target: { kind: "note", note_path: "breaks.md" },
       hunks: [replace_line_hunk("h1", 1, "alpha", "ALPHA")],
     });
     proposals.add(ok);
@@ -320,7 +322,7 @@ describe("ProposalApplyService.apply_batch", () => {
     const { proposals, notes, service } = make_harness("failed");
     const content = "alpha";
     const proposal = pending(content, {
-      note_path: "note.md",
+      target: { kind: "note", note_path: "note.md" },
       hunks: [replace_line_hunk("h1", 1, "alpha", "ALPHA")],
     });
     proposals.add(proposal);
@@ -344,7 +346,7 @@ describe("ProposalApplyService.apply_batch", () => {
     const { proposals, notes, service } = make_harness("unavailable");
     const content = "alpha";
     const proposal = pending(content, {
-      note_path: "note.md",
+      target: { kind: "note", note_path: "note.md" },
       hunks: [replace_line_hunk("h1", 1, "alpha", "ALPHA")],
     });
     proposals.add(proposal);
@@ -365,7 +367,7 @@ describe("ProposalApplyService.apply_batch", () => {
     const { proposals, notes, service } = make_harness("skipped");
     const content = "alpha";
     const proposal = pending(content, {
-      note_path: "note.md",
+      target: { kind: "note", note_path: "note.md" },
       hunks: [replace_line_hunk("h1", 1, "alpha", "ALPHA")],
     });
     proposals.add(proposal);
@@ -391,7 +393,7 @@ describe("ProposalApplyService.apply_batch", () => {
     const { proposals, notes, service } = make_harness();
     const content = "alpha";
     const proposal = pending(content, {
-      note_path: "note.md",
+      target: { kind: "note", note_path: "note.md" },
       created_at: 123,
       origin: { session_id: "s-1", run_id: null },
       hunks: [replace_line_hunk("h1", 1, "alpha", "ALPHA")],

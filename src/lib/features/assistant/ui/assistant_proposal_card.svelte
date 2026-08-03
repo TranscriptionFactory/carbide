@@ -1,10 +1,11 @@
 <script lang="ts">
   import { ChevronDown, ChevronRight } from "@lucide/svelte";
   import AssistantProposalHunk from "./assistant_proposal_hunk.svelte";
-  import type {
-    Proposal,
-    ProposalHunkId,
-    ProposalId,
+  import {
+    proposal_path,
+    type Proposal,
+    type ProposalHunkId,
+    type ProposalId,
   } from "$lib/features/assistant/types/proposal";
 
   interface Props {
@@ -41,7 +42,7 @@
       >Proposal</span
     >
     <span data-testid="assistant-proposal-note-path"
-      >{proposal.note_path} · {proposal.hunks.length}
+      >{proposal_path(proposal.target)} · {proposal.hunks.length}
       {proposal.hunks.length === 1 ? "hunk" : "hunks"}</span
     >
     <span

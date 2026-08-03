@@ -1,4 +1,5 @@
 import {
+  proposal_path,
   to_proposal_summary,
   type Proposal,
   type ProposalHunkId,
@@ -34,7 +35,16 @@ export class AssistantProposalStore {
 
   by_note(note_path: string): Proposal[] {
     return this.proposals.filter(
-      (proposal) => proposal.note_path === note_path,
+      (proposal) =>
+        proposal.target.kind === "note" &&
+        proposal.target.note_path === note_path,
+    );
+  }
+
+  // Target-agnostic lookup: matches whichever path the target carries.
+  by_path(path: string): Proposal[] {
+    return this.proposals.filter(
+      (proposal) => proposal_path(proposal.target) === path,
     );
   }
 

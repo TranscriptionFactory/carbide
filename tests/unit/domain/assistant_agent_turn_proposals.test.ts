@@ -223,7 +223,7 @@ describe("build_turn_proposals", () => {
   it("produces one pending proposal per note with every hunk selected", () => {
     const [proposal] = build();
 
-    expect(proposal?.note_path).toBe("note.md");
+    expect(proposal?.target).toEqual({ kind: "note", note_path: "note.md" });
     expect(proposal?.status).toBe("pending");
     expect(proposal?.created_at).toBe(1700);
     expect(proposal?.origin).toEqual(origin);

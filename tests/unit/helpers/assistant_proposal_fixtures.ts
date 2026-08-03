@@ -60,7 +60,7 @@ export function make_proposal(overrides: Partial<Proposal> = {}): Proposal {
   next_proposal += 1;
   return {
     id: `proposal-${String(next_proposal)}`,
-    note_path: "hybrid-retrieval.md",
+    target: { kind: "note", note_path: "hybrid-retrieval.md" },
     base_revision: "rev-base",
     hunks: [make_proposal_hunk()],
     origin: { session_id: "session-1", run_id: null },

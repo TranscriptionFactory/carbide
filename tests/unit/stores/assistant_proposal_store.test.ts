@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { AssistantProposalStore } from "$lib/features/assistant";
+import { AssistantProposalStore, proposal_path } from "$lib/features/assistant";
 import {
   make_proposal,
   make_proposal_hunk,
@@ -64,7 +64,7 @@ describe("AssistantProposalStore", () => {
 
       const live = store.get(proposal.id);
       expect(live?.status).toBe("applied");
-      expect(live?.note_path).toBe(proposal.note_path);
+      expect(live?.target).toEqual(proposal.target);
     });
 
     it("is a raw setter with no transition validation", () => {
@@ -243,5 +243,28 @@ describe("AssistantProposalStore", () => {
       expect(store.by_note("nope.md")).toEqual([]);
       expect(store.by_session("nope")).toEqual([]);
     });
+
+    it("by_note never returns a document proposal, even on a path match", () => {
+      const store = new AssistantProposalStore();
+      const doc = make_proposal({
+        target: { kind: "document", file_path: "artifact.html" },
+      });
+      store.add(doc);
+
+      expect(store.by_note("artifact.html")).toEqual([]);
+      expect(store.by_path("artifact.html")).toEqual([doc]);
+    });
+  });
+});
+
+describe("proposal_path", () => {
+  it("returns the note path of a note target", () => {
+    expect(proposal_path({ kind: "note", note_path: "a.md" })).toBe("a.md");
+  });
+
+  it("returns the file path of a document target", () => {
+    expect(proposal_path({ kind: "document", file_path: "b.html" })).toBe(
+      "b.html",
+    );
   });
 });
