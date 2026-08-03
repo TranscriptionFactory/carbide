@@ -40,6 +40,15 @@ export interface AssistantSessionPersistencePort {
   delete_session(vault_id: string, id: string): Promise<void>;
 }
 
+// I8 as amended 2026-08-03: pending proposals persist per vault. The port
+// carries raw JSON values in both directions — parsing and validation are
+// domain logic (proposal_storage.ts), so the adapter stays a dumb file pipe
+// like the session adapter beside it.
+export interface ProposalPersistencePort {
+  load_proposals(vault_id: string): Promise<unknown>;
+  save_proposals(vault_id: string, stored: unknown): Promise<void>;
+}
+
 // C3 contract. Retrieval says what it found and where; generation says how much
 // of it to spend. Declared structurally so `rag` never names this type: the
 // DI root builds an object literal over the retrieval service, the same way it
