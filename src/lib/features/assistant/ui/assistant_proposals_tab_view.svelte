@@ -8,6 +8,7 @@
     ProposalId,
   } from "$lib/features/assistant/types/proposal";
   import { KIND_GLYPHS } from "$lib/features/assistant/domain/kind_glyphs";
+  import { group_proposals_by_day } from "$lib/features/assistant/domain/proposal_day_groups";
   import type { AssistantSessionSummary } from "$lib/features/assistant/types/session";
 
   interface Props {
@@ -21,6 +22,7 @@
       hunk_id: ProposalHunkId,
       selected: boolean,
     ) => void;
+    now?: () => number;
   }
 
   let {
@@ -30,34 +32,17 @@
     on_accept_all_pending,
     on_reject_proposal,
     on_toggle_hunk,
+    now = () => Date.now(),
   }: Props = $props();
 
   const session_by_id = $derived(
     new Map(session_summaries.map((session) => [session.id, session])),
   );
 
-  // Provenance groups in first-appearance order — the store exposes no sort,
-  // and this keeps the group a proposal's session produces first at the top
-  // rather than reshuffling as new sessions' proposals arrive.
-  const groups = $derived.by(() => {
-    const order: string[] = [];
-    const by_session = new Map<string, Proposal[]>();
-    for (const proposal of proposals) {
-      const session_id = proposal.origin.session_id;
-      const existing = by_session.get(session_id);
-      if (existing) {
-        existing.push(proposal);
-      } else {
-        by_session.set(session_id, [proposal]);
-        order.push(session_id);
-      }
-    }
-    return order.map((session_id) => ({
-      session_id,
-      session: session_by_id.get(session_id) ?? null,
-      proposals: by_session.get(session_id) ?? [],
-    }));
-  });
+  // Day OUTER (Today/Yesterday/absolute), provenance INNER (mockup §3).
+  // Ordering lives in the domain: hydration makes the store's insertion
+  // order an artifact of file order.
+  const day_groups = $derived(group_proposals_by_day(proposals, now()));
 </script>
 
 <div class="flex flex-col gap-4 p-4" data-testid="assistant-proposals-tab">
@@ -82,23 +67,40 @@
       hint="AI-drafted note edits will appear here for review before they apply."
     />
   {:else}
-    {#each groups as group (group.session_id)}
-      <div class="flex flex-col gap-2" data-testid="assistant-proposal-group">
-        <p
-          class="text-xs text-muted-foreground"
-          data-testid="assistant-proposal-group-provenance"
+    {#each day_groups as day (day.key)}
+      <div
+        class="flex flex-col gap-3"
+        data-testid="assistant-proposal-day-group"
+      >
+        <h2
+          class="text-xs font-medium text-muted-foreground"
+          data-testid="assistant-proposal-day-label"
         >
-          from {group.session
-            ? `${KIND_GLYPHS[group.session.kind]} ${group.session.title}`
-            : group.session_id}
-        </p>
-        {#each group.proposals as proposal (proposal.id)}
-          <AssistantProposalCard
-            {proposal}
-            on_accept_all={on_accept_proposal}
-            on_reject={on_reject_proposal}
-            {on_toggle_hunk}
-          />
+          {day.label}
+        </h2>
+        {#each day.groups as group (group.session_id)}
+          {@const session = session_by_id.get(group.session_id) ?? null}
+          <div
+            class="flex flex-col gap-2"
+            data-testid="assistant-proposal-group"
+          >
+            <p
+              class="text-xs text-muted-foreground"
+              data-testid="assistant-proposal-group-provenance"
+            >
+              from {session
+                ? `${KIND_GLYPHS[session.kind]} ${session.title}`
+                : group.session_id}
+            </p>
+            {#each group.proposals as proposal (proposal.id)}
+              <AssistantProposalCard
+                {proposal}
+                on_accept_all={on_accept_proposal}
+                on_reject={on_reject_proposal}
+                {on_toggle_hunk}
+              />
+            {/each}
+          </div>
         {/each}
       </div>
     {/each}
