@@ -208,7 +208,7 @@ pub async fn smart_links_compute_vault_edges(
     let read_conn = search_service::get_read_conn_arc(&app, &vault_id)?;
     let (ni, bi) = search_service::get_index_arcs(&app, &vault_id)?;
 
-    tauri::async_runtime::spawn_blocking(move || {
+    crate::shared::blocking::blocking("smart_links_compute_vault_edges", move || {
         let note_paths: Vec<String> = {
             let conn = read_conn.lock().map_err(|e| e.to_string())?;
             crate::features::search::db::get_manifest(&conn)?
@@ -259,5 +259,4 @@ pub async fn smart_links_compute_vault_edges(
         Ok(edges)
     })
     .await
-    .map_err(|e| e.to_string())?
 }

@@ -189,9 +189,9 @@ pub fn open_vault_by_id_inner(app: AppHandle, vault_id: String) -> Result<Vault,
     log::info!("Opening vault by id vault_id={}", vault_id);
     let now = storage::now_ms();
 
-    // The inner `Result` is the command outcome; an unavailable vault must still
-    // persist its refreshed availability, so it cannot short-circuit the write.
-    storage::update_store(&app, |store| {
+    // update_store always persists, so the refreshed availability is saved even
+    // when the vault turns out to be unavailable; the outcome is decided after.
+    let vault = storage::update_store(&app, |store| {
         let entry = store
             .vaults
             .iter_mut()
@@ -202,16 +202,19 @@ pub fn open_vault_by_id_inner(app: AppHandle, vault_id: String) -> Result<Vault,
             })?;
 
         refresh_vault_availability(&mut entry.vault);
-        if !entry.vault.is_available {
-            let message = format!("vault unavailable at path: {}", entry.vault.path);
-            log::warn!("Open vault by id skipped: {}", message);
-            return Ok(Err(message));
+        if entry.vault.is_available {
+            entry.last_opened_at = now;
+            mark_vault_opened(&mut entry.vault, now);
         }
+        Ok(entry.vault.clone())
+    })?;
 
-        entry.last_opened_at = now;
-        mark_vault_opened(&mut entry.vault, now);
-        Ok(Ok(entry.vault.clone()))
-    })?
+    if !vault.is_available {
+        let message = format!("vault unavailable at path: {}", vault.path);
+        log::warn!("Open vault by id skipped: {}", message);
+        return Err(message);
+    }
+    Ok(vault)
 }
 
 #[tauri::command]

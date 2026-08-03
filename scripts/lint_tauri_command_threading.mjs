@@ -102,8 +102,21 @@ function find_decorated_fn(lines, attribute_line_index) {
   return null;
 }
 
+// Looks only at the wrapper body, which by convention is the single blocking()
+// call; a false negative here costs an inaccurate count, never a missed violation.
+function body_delegates_to_blocking(lines, attribute_line_index, name) {
+  const window = lines
+    .slice(attribute_line_index, attribute_line_index + 12)
+    .join("\n");
+  return (
+    window.includes(`blocking("${name}"`) ||
+    window.includes("blocking::blocking(")
+  );
+}
+
 const violations = [];
 const seen_commands = new Set();
+const delegating_commands = new Set();
 
 for (const file_path of collect_rust_files(rust_source_root, [])) {
   const content = fs.readFileSync(file_path, "utf8");
@@ -131,6 +144,9 @@ for (const file_path of collect_rust_files(rust_source_root, [])) {
     }
 
     seen_commands.add(decorated.name);
+    if (body_delegates_to_blocking(lines, attribute_line - 1, decorated.name)) {
+      delegating_commands.add(decorated.name);
+    }
     if (attribute_is_async || decorated.is_async) {
       if (MAIN_THREAD_COMMANDS.has(decorated.name)) {
         violations.push({
@@ -184,7 +200,15 @@ if (violations.length > 0) {
   process.exit(1);
 }
 
+// Deliberately reports the delegating count separately: this gate proves a command
+// is `async`, which keeps it off the *main* thread, but an async command can still
+// run blocking I/O inline on a tokio worker. Only the ones routed through
+// shared::blocking are known to reach the blocking pool, so collapsing these into a
+// single "verified" number would overstate what was checked.
 console.log(
-  `Tauri command threading rules passed (${String(seen_commands.size)} commands, ` +
-    `${String(MAIN_THREAD_COMMANDS.size)} allowlisted).`,
+  `Tauri command threading rules passed (${String(seen_commands.size)} commands: ` +
+    `${String(delegating_commands.size)} delegate to shared::blocking, ` +
+    `${String(seen_commands.size - delegating_commands.size - MAIN_THREAD_COMMANDS.size)} ` +
+    `async by other means (not verified to delegate), ` +
+    `${String(MAIN_THREAD_COMMANDS.size)} allowlisted main-thread).`,
 );
