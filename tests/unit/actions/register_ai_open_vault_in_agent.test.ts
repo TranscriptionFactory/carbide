@@ -2,7 +2,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ActionRegistry } from "$lib/app/action_registry/action_registry";
 import { ACTION_IDS } from "$lib/app/action_registry/action_ids";
 import { register_ai_actions } from "$lib/features/ai/application/ai_actions";
-import { AiStore } from "$lib/features/ai/state/ai_store.svelte";
 import {
   AssistantProposalStore,
   AssistantSessionStore,
@@ -47,7 +46,6 @@ function create_harness() {
       reset_app_state: true,
       bootstrap_default_vault_path: null,
     },
-    ai_store: new AiStore(),
     ai_service: ai_service as never,
     agentic_runner: { run: vi.fn() } as never,
     assistant_sessions: new AssistantSessionStore(),

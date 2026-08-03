@@ -71,8 +71,8 @@ Each feature is a vertical slice owning its own stores, services, actions, ports
 | `editor`    | ProseMirror session, buffer management, markdown sync                                                                     |
 | `search`    | Full-text search, semantic search, omnibar, find-in-file, wiki suggestions, embeddings                                    |
 | `rag`       | Retrieval and index readiness only — hybrid search, scope filtering, ranking. Session-blind; reached through a port       |
-| `assistant` | Sessions, the run kernel, proposals, ambient notices, and the chat turn                                                   |
-| `ai`        | Providers, inline edit/ask and its diff, the AI Assistant panel                                                           |
+| `assistant` | Sessions, the run kernel, proposals, ambient notices, the chat turn, and editing the open tab                             |
+| `ai`        | Providers, inline edit/ask and its diff                                                                                   |
 | `reference` | Citation library (`library.json`), linked sources (unified note model), DOI lookup, citation picker, BibTeX/Zotero import |
 | `tab`       | Tab bar, tab lifecycle, tab caching and persistence                                                                       |
 | `git`       | Git init, status, commit, history, checkpoint, restore                                                                    |

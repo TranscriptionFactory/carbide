@@ -51,9 +51,9 @@ The sidecar schema is intentionally minimal — `source` is required, `pasted_at
 
 ## AI editing (Source mode)
 
-The AI assistant works on `.html` files the same way it works on notes — open the file in **Source** mode, then run the **AI Assistant** action (Cmd-K). The assistant opens with the whole document as context and offers:
+The assistant works on `.html` files the same way it works on notes — open the file in **Source** mode, then open the **Assistant** panel (`Cmd/Ctrl+Shift+A`). The document is attached automatically (or via the **This document** button) and the composer offers:
 
-- **Edit** — rewrite the file. The result is staged into the Source editor's edited buffer and the tab is marked dirty; nothing is written to disk until you save the tab.
+- **Edit** — propose a rewrite of the file. The result arrives as a reviewable proposal; accepting it stages the change into the Source editor's edited buffer and marks the tab dirty. Nothing is written to disk until you save the tab.
 - **Ask** — answer a question about the markup without modifying it.
 
 Constraints by design:
@@ -62,7 +62,7 @@ Constraints by design:
 - The operation is always whole-file. Selection-scoped edits aren't supported on HTML in this slice — pick the change you want from the diff view, or refine the prompt.
 - Vault context (similar notes, backlinks) is skipped for HTML targets, since backlinks-from-HTML are not extracted yet (see Current limitations).
 
-The Replace Document button writes the AI output back through the same buffer the Source editor uses, so undo and the standard save flow behave normally.
+Accepting the proposal writes through the same buffer the Source editor uses, so undo and the standard save flow behave normally.
 
 ## Provenance banner
 

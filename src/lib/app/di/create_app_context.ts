@@ -1288,11 +1288,12 @@ export function create_app_context(input: {
     stage_document: (path, content) => {
       const tab = find_document_tab(path);
       if (!tab) return false;
-      // ALLOWED_DIRECT_APPLY: this literal IS the proposal apply path —
+      // PROPOSAL_APPLY: this literal IS the proposal apply path —
       // stage_document is called only by ProposalApplyService after the
       // review queue's accept, and staging touches the buffer, not disk
-      // (save-the-tab writes). The retirement commit strengthens the gate
-      // with a PROPOSAL_APPLY marker once the legacy dialog path is gone.
+      // (save-the-tab writes). With the AI panel retired this is
+      // apply_document_ai_output's ONLY call site; the I5 gate enforces
+      // exactly one.
       const staged = document_service.apply_document_ai_output(tab.id, content);
       if (staged) stores.tab.set_dirty(tab.id, true);
       return staged;
@@ -1320,7 +1321,6 @@ export function create_app_context(input: {
 
   register_ai_actions({
     ...base_action_input,
-    ai_store: stores.ai,
     ai_service,
     agentic_runner: new AgenticEditRunner(assistant_kernel, git_service),
     assistant_sessions: stores.assistant_sessions,
@@ -1604,7 +1604,6 @@ export function create_app_context(input: {
     assistant_sessions_service,
     assistant_kernel,
     assistant_sessions: stores.assistant_sessions,
-    ai_store: stores.ai,
     tag_store: stores.tag,
     tag_service,
     assistant_notices: stores.assistant_notices,

@@ -47,6 +47,13 @@ const MARKER_LOOKBACK = 10;
 
 const MARKER = /ALLOWED_DIRECT_APPLY/;
 
+// Post-retirement strengthening: apply_document_ai_output's ONLY legitimate
+// caller is the proposal apply path itself (the AssistantDocumentPort
+// literal in the DI root), marked PROPOSAL_APPLY. Zero exceptions — a second
+// call site fails even if it carries ALLOWED_DIRECT_APPLY.
+const PROPOSAL_APPLY_MARKER = /PROPOSAL_APPLY/;
+const DOCUMENT_WRITE_CALL = /\bapply_document_ai_output\(/;
+
 function walk(dir, out = []) {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
     const full = path.join(dir, entry.name);
@@ -61,25 +68,56 @@ function walk(dir, out = []) {
 
 const violations = [];
 const allowed = [];
+const proposal_apply_sites = [];
 
-for (const file of walk(src_root)) {
-  const rel = path.relative(src_root, file);
-  if (DEFINITION_FILES.has(rel)) continue;
-  if (OUT_OF_SCOPE_DIRS.some((dir) => rel.startsWith(dir))) continue;
+// The archive is retired code, not live surface.
+const src_roots = [src_root];
 
-  const lines = fs.readFileSync(file, "utf8").split("\n");
-  lines.forEach((line, index) => {
-    if (!WRITE_CALLS.some((pattern) => pattern.test(line))) return;
+for (const root of src_roots) {
+  for (const file of walk(root)) {
+    const rel = path.relative(src_root, file);
+    if (DEFINITION_FILES.has(rel)) continue;
+    if (OUT_OF_SCOPE_DIRS.some((dir) => rel.startsWith(dir))) continue;
 
-    const window = lines.slice(Math.max(0, index - MARKER_LOOKBACK), index + 1);
-    const marked = window.some((candidate) => MARKER.test(candidate));
-    const entry = { file: rel, line: index + 1, text: line.trim() };
-    if (marked) {
-      allowed.push(entry);
-    } else {
-      violations.push(entry);
-    }
-  });
+    const lines = fs.readFileSync(file, "utf8").split("\n");
+    lines.forEach((line, index) => {
+      if (!WRITE_CALLS.some((pattern) => pattern.test(line))) return;
+
+      const window = lines.slice(
+        Math.max(0, index - MARKER_LOOKBACK),
+        index + 1,
+      );
+      const entry = { file: rel, line: index + 1, text: line.trim() };
+
+      if (DOCUMENT_WRITE_CALL.test(line)) {
+        if (window.some((candidate) => PROPOSAL_APPLY_MARKER.test(candidate))) {
+          proposal_apply_sites.push(entry);
+        } else {
+          violations.push(entry);
+        }
+        return;
+      }
+
+      const marked = window.some((candidate) => MARKER.test(candidate));
+      if (marked) {
+        allowed.push(entry);
+      } else {
+        violations.push(entry);
+      }
+    });
+  }
+}
+
+if (proposal_apply_sites.length !== 1) {
+  console.error(
+    `I5 violation: expected exactly ONE PROPOSAL_APPLY-marked ` +
+      `apply_document_ai_output site (the DI port literal behind ` +
+      `ProposalApplyService); found ${String(proposal_apply_sites.length)}:`,
+  );
+  for (const s of proposal_apply_sites) {
+    console.error(`  ${s.file}:${s.line}`);
+  }
+  process.exit(1);
 }
 
 if (violations.length > 0) {

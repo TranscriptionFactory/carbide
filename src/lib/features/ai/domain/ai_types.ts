@@ -59,23 +59,15 @@ export type AiDialogNoteContext = {
   target: AiApplyTarget;
 };
 
-export type AiDialogDocumentContext = {
-  kind: "document";
-  tab_id: string;
-  file_path: string;
-  file_title: string;
-  content: string;
-  target: "full_note";
-};
-
-export type AiDialogContext = AiDialogNoteContext | AiDialogDocumentContext;
+// The document variant retired with the AI panel (archive/ai-panel-main);
+// its successor is the assistant's edit-open-tab capability.
+export type AiDialogContext = AiDialogNoteContext;
 
 export function context_key(context: AiDialogContext): string {
-  return context.kind === "note" ? context.note_path : context.file_path;
+  return context.note_path;
 }
 
 export function context_original_text(context: AiDialogContext): string {
-  if (context.kind === "document") return context.content;
   if (context.target === "selection") return context.selection?.text ?? "";
   return context.note_markdown;
 }

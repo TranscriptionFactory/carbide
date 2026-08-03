@@ -10,7 +10,6 @@ import { LinksStore } from "$lib/features/links";
 import { OutlineStore } from "$lib/features/outline";
 import { TerminalStore } from "$lib/features/terminal";
 import { DocumentStore } from "$lib/features/document";
-import { AiStore } from "$lib/features/ai";
 import { GraphStore } from "$lib/features/graph";
 import { BasesStore, BaseCountsStore } from "$lib/features/bases";
 import { TypesStore } from "$lib/features/types";
@@ -60,7 +59,6 @@ export type AppStores = {
   outline: OutlineStore;
   terminal: TerminalStore;
   document: DocumentStore;
-  ai: AiStore;
   graph: GraphStore;
   bases: BasesStore;
   bases_counts: BaseCountsStore;
@@ -113,7 +111,6 @@ export function create_app_stores(): AppStores {
     outline: new OutlineStore(),
     terminal: new TerminalStore(),
     document: new DocumentStore(),
-    ai: new AiStore(),
     graph: new GraphStore(),
     bases: new BasesStore(),
     bases_counts: new BaseCountsStore(),

@@ -92,8 +92,8 @@ export interface ProposalNotePort {
   write_note(note_path: string, content: string): Promise<void>;
 }
 
-// Pin 5 (edit the open tab). Structural, NO features/document import — the
-// DI root is where the two features meet. The path resolves an OPEN document
+// Pin 5 (edit the open tab). Structural — no import from the document
+// feature; the DI root is where the two meet. The path resolves an OPEN document
 // tab's buffer, not disk: apply STAGES into the buffer (stage_document sets
 // edited content and marks the tab dirty) and save-the-tab is what writes.
 export type AssistantEditTarget = {

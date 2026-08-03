@@ -215,43 +215,6 @@ export function create_ai_draft_diff(input: {
   };
 }
 
-// Document-context apply only (see ai_actions.ts's ALLOWED_DIRECT_APPLY):
-// reconstructs the full output text for a hunk selection. Hunk membership is
-// tracked by line identity rather than a `hunk_id` field, since ProposalLine
-// (the frozen shape) carries none.
-export function apply_ai_draft_hunk_selection(input: {
-  diff: AiDraftDiff;
-  selected_hunk_ids: string[];
-}): string {
-  const selected_hunk_ids = new Set(input.selected_hunk_ids);
-  const hunk_of_line = new Map<ProposalLine, string>();
-  for (const hunk of input.diff.hunks) {
-    for (const line of hunk.lines) hunk_of_line.set(line, hunk.id);
-  }
-
-  const output: string[] = [];
-  for (const line of input.diff.lines) {
-    if (line.kind === "context") {
-      output.push(line.content);
-      continue;
-    }
-
-    const hunk_id = hunk_of_line.get(line);
-    if (hunk_id && selected_hunk_ids.has(hunk_id)) {
-      if (line.kind === "add") {
-        output.push(line.content);
-      }
-      continue;
-    }
-
-    if (line.kind === "del") {
-      output.push(line.content);
-    }
-  }
-
-  return output.join("\n");
-}
-
 // I5's producer: turns a before/after markdown pair into a Proposal the
 // store can hold pending. base_revision is computed against `original_text`
 // — the note as it stood before this draft — so the apply service can tell a

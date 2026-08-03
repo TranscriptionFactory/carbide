@@ -1,6 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
 import {
-  apply_ai_draft_hunk_selection,
   build_proposal,
   create_ai_draft_diff,
 } from "$lib/features/ai/domain/ai_diff";
@@ -100,22 +99,9 @@ describe("create_ai_draft_diff", () => {
 // Document-context apply only (see ai_actions.ts's ALLOWED_DIRECT_APPLY) —
 // note-context apply no longer reconstructs text locally; the proposal store
 // carries the selected hunks and AU-030's apply service does the write.
-describe("apply_ai_draft_hunk_selection", () => {
-  it("reconstructs a partial draft from selected hunks", () => {
-    const diff = create_ai_draft_diff({
-      original_text: "A\nB\nC\nD\nE\nF\nG\nH\nI\nJ\nK\nL",
-      draft_text: "A\nB changed\nC\nD\nE\nF\nG\nH\nI\nJ changed\nK\nL",
-      target: "full_note",
-    });
-
-    const partial_output = apply_ai_draft_hunk_selection({
-      diff,
-      selected_hunk_ids: [diff.hunks[1]?.id ?? ""],
-    });
-
-    expect(partial_output).toBe("A\nB\nC\nD\nE\nF\nG\nH\nI\nJ changed\nK\nL");
-  });
-});
+// apply_ai_draft_hunk_selection retired with the AI panel; its successor,
+// apply_proposal_hunks, carries the selection semantics under
+// tests/unit/domain + proposal_apply_service.test.ts.
 
 describe("build_proposal", () => {
   it("builds a pending Proposal with a base_revision from the pre-edit text", () => {
