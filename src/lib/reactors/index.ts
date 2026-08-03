@@ -48,6 +48,7 @@ import { create_plugin_note_indexed_reactor } from "$lib/reactors/plugin_note_in
 import { create_plugin_metadata_events_reactor } from "$lib/reactors/plugin_metadata_events.reactor.svelte";
 import { create_mcp_autostart_reactor } from "$lib/reactors/mcp_autostart.reactor.svelte";
 import { create_assistant_sessions_load_reactor } from "$lib/reactors/assistant_sessions_load.reactor.svelte";
+import { create_assistant_readiness_reactor } from "$lib/reactors/assistant_readiness.reactor.svelte";
 import { create_assistant_chat_mcp_bridge_reactor } from "$lib/reactors/assistant_chat_mcp_bridge.reactor.svelte";
 import { create_visual_editor_diagnostics_reactor } from "$lib/reactors/visual_editor_diagnostics.reactor.svelte";
 import { create_tag_pill_colors_reactor } from "$lib/reactors/tag_pill_colors.reactor.svelte";
@@ -470,6 +471,13 @@ export function mount_reactors(context: ReactorContext): ReactorHandles {
       context.assistant_chat_service,
       context.ui_store,
       context.assistant_kernel,
+    ),
+    create_assistant_readiness_reactor(
+      context.assistant_chat_store,
+      context.assistant_chat_service,
+      context.vault_store,
+      context.bases_store,
+      context.action_registry,
     ),
     create_tag_pill_colors_reactor(
       context.tag_store,

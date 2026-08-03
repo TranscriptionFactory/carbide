@@ -2,16 +2,10 @@ import { ACTION_IDS } from "$lib/app/action_registry/action_ids";
 import type { ActionRegistrationInput } from "$lib/app/action_registry/action_registration_input";
 import { SIDEBAR_VIEWS } from "$lib/app/sidebar_views";
 import type { SidebarView } from "$lib/app/sidebar_views";
-import type { BottomPanelTab } from "$lib/app/orchestration/ui_store.svelte";
-
-const BOTTOM_PANEL_TABS: readonly BottomPanelTab[] = [
-  "terminal",
-  "problems",
-  "lsp_results",
-  "query",
-  "ai",
-  "trust",
-];
+import {
+  BOTTOM_PANEL_TABS,
+  type BottomPanelTab,
+} from "$lib/app/orchestration/ui_store.svelte";
 
 export function register_ui_actions(input: ActionRegistrationInput) {
   const { registry, stores, services } = input;

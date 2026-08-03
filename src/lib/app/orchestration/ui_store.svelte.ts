@@ -35,13 +35,15 @@ import type { SidebarView } from "$lib/app/sidebar_views";
 
 type AsyncStatus = "idle" | "loading" | "error";
 type ContextRailTab = "links" | "outline" | "metadata" | "related";
-export type BottomPanelTab =
-  | "terminal"
-  | "problems"
-  | "lsp_results"
-  | "query"
-  | "ai"
-  | "trust";
+export const BOTTOM_PANEL_TABS = [
+  "terminal",
+  "problems",
+  "lsp_results",
+  "query",
+  "ai",
+  "trust",
+] as const;
+export type BottomPanelTab = (typeof BOTTOM_PANEL_TABS)[number];
 
 const INITIAL_DELETE_NOTE_DIALOG = { open: false, note: null } as const;
 

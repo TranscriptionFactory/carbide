@@ -30,16 +30,9 @@
   import type { TrustLevel } from "$lib/features/document";
   import { VimNavStatusIndicator } from "$lib/features/vim_nav";
   import type { NavContext } from "$lib/features/vim_nav";
+  import type { BottomPanelTab } from "$lib/app/orchestration/ui_store.svelte";
   // STT removed — archived on archive/stt-main
   // import { SttStatusIndicator } from "$lib/features/stt";
-
-  type BottomPanelTab =
-    | "terminal"
-    | "problems"
-    | "lsp_results"
-    | "query"
-    | "ai"
-    | "trust";
 
   const PANEL_TABS: { id: BottomPanelTab; label: string; icon: typeof Info }[] =
     [
