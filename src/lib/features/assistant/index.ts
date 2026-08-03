@@ -267,7 +267,19 @@ export type {
   ProposalCheckpointOutcome,
   ProposalCheckpointPort,
   ProposalNotePort,
+  ProposalPersistencePort,
 } from "$lib/features/assistant/ports";
+
+// I8 as amended — pending-proposal persistence.
+export {
+  parse_stored,
+  to_stored,
+  PROPOSAL_STORAGE_CAP,
+  PROPOSAL_STORAGE_VERSION,
+  type StoredProposals,
+} from "$lib/features/assistant/domain/proposal_storage";
+export { ProposalPersistenceService } from "$lib/features/assistant/application/proposal_persistence_service";
+export { create_assistant_proposal_persistence_tauri_adapter } from "$lib/features/assistant/adapters/assistant_proposal_persistence_tauri_adapter";
 
 export { default as AssistantProposalsTabView } from "$lib/features/assistant/ui/assistant_proposals_tab_view.svelte";
 
