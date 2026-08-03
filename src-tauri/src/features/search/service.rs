@@ -579,15 +579,18 @@ pub fn clear_embedding_model_cache_inner(app: AppHandle) -> Result<u64, String> 
 }
 
 pub(crate) fn ensure_worker(app: &AppHandle, vault_id: &str) -> Result<(), String> {
-    log::info!("ensure_worker phase=begin vault_id={}", vault_id);
-    if storage::vault_mode_for_id(app, vault_id)? == VaultMode::Browse {
-        return Err("search indexing is not available in browse mode".to_string());
-    }
     let state = app.state::<SearchDbState>();
     let mut map = state.workers.lock().map_err(|e| e.to_string())?;
     if map.contains_key(vault_id) {
         return Ok(());
     }
+
+    // Below the fast path: every read goes through here, and the mode check costs
+    // a vaults.json read plus parse that only matters when creating the worker.
+    if storage::vault_mode_for_id(app, vault_id)? == VaultMode::Browse {
+        return Err("search indexing is not available in browse mode".to_string());
+    }
+    log::info!("ensure_worker phase=creating vault_id={}", vault_id);
 
     let read_conn = search_db::open_search_db(app, vault_id)?;
     let write_conn = search_db::open_search_db(app, vault_id)?;

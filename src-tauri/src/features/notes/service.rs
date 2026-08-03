@@ -415,16 +415,26 @@ pub(crate) fn build_note_meta(
 /// `read` parks the caller until the sync daemon materialises it — which is how a
 /// vault on OneDrive froze the app. So this stats each entry and takes everything
 /// else from the index, using (mtime, size) as the freshness check. A stale or
-/// missing row degrades to the filename, never to a read; the listing fills in
-/// once the indexer catches up and emits `index_progress`.
+/// missing row degrades to the filename, never to a read.
+///
+/// That degradation persists until something refetches the listing — a folder
+/// navigation or a watcher-driven `refresh_tree`. Nothing currently refetches on
+/// `index_progress`; it only feeds the status bar. So a first-open listing can
+/// show filenames until the user navigates. Browse-mode vaults never index at
+/// all, so they stay filename-only.
+/// `canonical_root` must already be canonicalised. Resolving it per entry would
+/// mean one `realpath` per note on the vault root, and on a File Provider mount
+/// each of those traverses the provider extension — costlier than the `stat` this
+/// function exists to keep cheap.
 pub(crate) fn note_meta_from_index(
-    root: &Path,
+    canonical_root: &Path,
     rel_path: &str,
     cached: Option<&HashMap<String, search_db::CachedNoteMeta>>,
 ) -> Result<NoteMeta, String> {
-    let abs = safe_vault_abs(root, rel_path)?;
+    let abs = canonical_root.join(parse_safe_relative_path(rel_path)?);
     let (mtime_ms, ctime_ms, size_bytes) = file_meta(&abs)?;
 
+    let name = name_from_rel_path(rel_path);
     let fresh = cached
         .and_then(|map| map.get(rel_path))
         .filter(|meta| meta.mtime_ms == mtime_ms && meta.size_bytes == size_bytes);
@@ -437,19 +447,13 @@ pub(crate) fn note_meta_from_index(
             meta.icon.clone(),
             meta.is_a.clone(),
         ),
-        None => (
-            name_from_rel_path(rel_path),
-            String::new(),
-            None,
-            None,
-            None,
-        ),
+        None => (name.clone(), String::new(), None, None, None),
     };
 
     Ok(NoteMeta {
         id: rel_path.to_string(),
         path: rel_path.to_string(),
-        name: name_from_rel_path(rel_path),
+        name,
         title,
         blurb,
         mtime_ms,
@@ -1897,6 +1901,9 @@ pub fn list_folder_contents_inner(
     })
     .ok();
 
+    // Resolved once for the whole page rather than per entry — see note_meta_from_index.
+    let canonical_root = canonical_vault_root(&root)?;
+
     for entry in &items[start..end] {
         let rel = if folder_path.is_empty() {
             entry.name.clone()
@@ -1906,11 +1913,15 @@ pub fn list_folder_contents_inner(
 
         if entry.is_dir {
             if let Some(candidate) = folder_note_candidate(&root, &rel) {
-                folder_notes.push(note_meta_from_index(&root, &candidate, cached_meta.as_ref())?);
+                folder_notes.push(note_meta_from_index(
+                    &canonical_root,
+                    &candidate,
+                    cached_meta.as_ref(),
+                )?);
             }
             subfolders.push(rel);
         } else if entry.name.ends_with(".md") {
-            notes.push(note_meta_from_index(&root, &rel, cached_meta.as_ref())?);
+            notes.push(note_meta_from_index(&canonical_root, &rel, cached_meta.as_ref())?);
         } else {
             let abs = root.join(&rel);
             let (mtime_ms, _, size_bytes) = file_meta(&abs)?;

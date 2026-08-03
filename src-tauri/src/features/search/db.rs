@@ -1777,7 +1777,6 @@ pub struct CachedNoteMeta {
     pub title: String,
     pub content_snippet: Option<String>,
     pub mtime_ms: i64,
-    pub ctime_ms: i64,
     pub size_bytes: i64,
     pub color: Option<String>,
     pub icon: Option<String>,
@@ -1795,7 +1794,7 @@ pub fn get_cached_note_meta(
     let placeholders: String = paths.iter().map(|_| "?").collect::<Vec<_>>().join(",");
 
     let sql = format!(
-        "SELECT path, title, content_snippet, mtime_ms, ctime_ms, size_bytes \
+        "SELECT path, title, content_snippet, mtime_ms, size_bytes \
          FROM notes WHERE path IN ({})",
         placeholders
     );
@@ -1808,8 +1807,7 @@ pub fn get_cached_note_meta(
                     title: row.get(1)?,
                     content_snippet: row.get::<_, Option<String>>(2)?,
                     mtime_ms: row.get(3)?,
-                    ctime_ms: row.get(4)?,
-                    size_bytes: row.get(5)?,
+                    size_bytes: row.get(4)?,
                     color: None,
                     icon: None,
                     is_a: None,
