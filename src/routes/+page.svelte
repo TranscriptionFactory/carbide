@@ -58,6 +58,11 @@
   ports.ai_inline_handler.on_accept = () =>
     void app.action_registry.execute(ACTION_IDS.ai_accept_inline);
 
+  ports.ai_inline_handler.get_runs = () => app.stores.assistant_runs.all;
+
+  ports.ai_inline_handler.on_stop = (run_id) =>
+    void app.action_registry.execute(ACTION_IDS.assistant_stop_run, run_id);
+
   ports.query_runner.run = (text) => app.services.query.run(text);
 
   ports.frontmatter_widget.metadata_store = app.stores.metadata;

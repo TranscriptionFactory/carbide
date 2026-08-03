@@ -2108,6 +2108,14 @@ body.block-handle-dragging .prosemirror-dropcursor-inline {
   font-size: 0.8125rem;
 }
 
+.AiInlineMenu__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.375rem 0.75rem;
+  border-bottom: 1px solid var(--border);
+}
+
 .AiInlineMenu__input-row {
   display: flex;
   align-items: flex-end;

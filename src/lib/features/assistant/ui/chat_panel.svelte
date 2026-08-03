@@ -16,7 +16,11 @@
   import ChatInput from "$lib/features/assistant/ui/chat_input.svelte";
   import ChatModeToggle from "$lib/features/assistant/ui/chat_mode_toggle.svelte";
   import { agent_capability } from "$lib/features/ai";
-  import { AssistantSessionList } from "$lib/features/assistant";
+  import {
+    AssistantPresence,
+    AssistantSessionList,
+    type RunId,
+  } from "$lib/features/assistant";
   import type {
     AssistantScope,
     AssistantChatMode,
@@ -153,6 +157,10 @@
     );
   }
 
+  function stop_run(run_id: RunId) {
+    void action_registry.execute(ACTION_IDS.assistant_stop_run, run_id);
+  }
+
   const backend = $derived.by(() => {
     const config = providers.find((p) => p.id === provider_id);
     return config ? (agent_capability(config)?.backend ?? null) : null;
@@ -253,39 +261,37 @@
 {/snippet}
 
 <div class="flex h-full flex-col">
-  {#if sessions.length > 0 || rag.messages.length > 0}
-    <div class="flex items-center justify-between border-b px-3 py-1.5">
-      <div class="flex items-center gap-1">
-        <span class="text-xs font-medium text-muted-foreground">Vault Chat</span
+  <div class="flex items-center justify-between border-b px-3 py-1.5">
+    <div class="flex items-center gap-1">
+      <span class="text-xs font-medium text-muted-foreground">Vault Chat</span>
+      <AssistantPresence runs={stores.assistant_runs.all} on_stop={stop_run} />
+      {#if rag.mode === "agent" && backend !== null}
+        <span
+          class="rounded-full border px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground"
+          title={backend === "native"
+            ? "Agent can only use vault tools"
+            : "Claude Code agent with full system access"}
         >
-        {#if rag.mode === "agent" && backend !== null}
-          <span
-            class="rounded-full border px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground"
-            title={backend === "native"
-              ? "Agent can only use vault tools"
-              : "Claude Code agent with full system access"}
-          >
-            {backend === "native" ? "vault-scoped" : "full access"}
-          </span>
-        {/if}
-        {#if sessions.length > 0}
-          <Button
-            variant="ghost"
-            size="sm"
-            class="h-7 gap-1.5 {show_sessions ? 'bg-accent' : ''}"
-            onclick={() => (show_sessions = !show_sessions)}
-          >
-            <History class="size-3.5" />
-            {sessions.length}
-          </Button>
-        {/if}
-      </div>
-      <Button variant="ghost" size="sm" class="h-7 gap-1.5" onclick={new_chat}>
-        <SquarePen class="size-3.5" />
-        New chat
-      </Button>
+          {backend === "native" ? "vault-scoped" : "full access"}
+        </span>
+      {/if}
+      {#if sessions.length > 0}
+        <Button
+          variant="ghost"
+          size="sm"
+          class="h-7 gap-1.5 {show_sessions ? 'bg-accent' : ''}"
+          onclick={() => (show_sessions = !show_sessions)}
+        >
+          <History class="size-3.5" />
+          {sessions.length}
+        </Button>
+      {/if}
     </div>
-  {/if}
+    <Button variant="ghost" size="sm" class="h-7 gap-1.5" onclick={new_chat}>
+      <SquarePen class="size-3.5" />
+      New chat
+    </Button>
+  </div>
 
   {#if rag.readiness.state === "indexing"}
     <div

@@ -1,12 +1,18 @@
-import { describe, it, expect } from "vitest";
+/**
+ * @vitest-environment jsdom
+ */
+import { afterEach, describe, it, expect, vi } from "vitest";
 import { Schema } from "prosemirror-model";
 import { EditorState, TextSelection } from "prosemirror-state";
+import { EditorView } from "prosemirror-view";
 import {
   create_ai_menu_plugin,
   ai_menu_plugin_key,
+  dispatch_ai_menu,
   get_ai_menu_state,
   type AiMenuMeta,
 } from "$lib/features/editor/adapters/ai_menu_plugin";
+import { make_run_record } from "../helpers/assistant_fixtures";
 
 function create_test_schema() {
   return new Schema({
@@ -256,5 +262,78 @@ describe("ai_menu_plugin — selection replace & retry flow", () => {
 
     next = reject_stream(next);
     expect(next.doc.textContent).toBe("Hello world");
+  });
+});
+
+describe("ai_menu_plugin — presence wiring", () => {
+  afterEach(() => {
+    document.body.innerHTML = "";
+  });
+
+  function mount_view() {
+    const run = make_run_record({
+      id: "run-1",
+      kind: "inline",
+      status: "streaming",
+      provider_id: "claude",
+    });
+    const on_stop = vi.fn();
+    const mount_point = document.createElement("div");
+    document.body.appendChild(mount_point);
+    const schema = create_test_schema();
+    const view = new EditorView(mount_point, {
+      state: EditorState.create({
+        doc: schema.node("doc", null, [
+          schema.node("paragraph", null, [schema.text("Hello world")]),
+        ]),
+        plugins: [
+          create_ai_menu_plugin({
+            on_execute: vi.fn(),
+            get_runs: () => [run],
+            on_stop,
+          }),
+        ],
+      }),
+    });
+    return { view, on_stop };
+  }
+
+  function presence_chip(): HTMLElement {
+    const chip = document.querySelector<HTMLElement>(
+      '[data-testid="status-assistant-presence"]',
+    );
+    if (!chip) throw new Error("presence chip not rendered");
+    return chip;
+  }
+
+  it("hands get_runs to the mounted menu and keeps it across the streaming remount", () => {
+    const { view } = mount_view();
+
+    dispatch_ai_menu(view, { action: "open" });
+    expect(presence_chip().textContent).toContain("claude · 1 run");
+
+    // streaming flips force an unmount/remount with fresh props; the getter
+    // must be threaded through the second mount too.
+    dispatch_ai_menu(view, { action: "start_stream", anchor_pos: 1 });
+    expect(presence_chip().textContent).toContain("claude · 1 run");
+
+    view.destroy();
+  });
+
+  it("routes the remounted menu's stop button to on_stop", () => {
+    const { view, on_stop } = mount_view();
+
+    dispatch_ai_menu(view, { action: "open" });
+    dispatch_ai_menu(view, { action: "start_stream", anchor_pos: 1 });
+
+    const stop = document.querySelector<HTMLButtonElement>(
+      '[data-testid="assistant-stop-run-1"]',
+    );
+    if (!stop) throw new Error("stop button not rendered");
+    stop.click();
+
+    expect(on_stop).toHaveBeenCalledWith("run-1");
+
+    view.destroy();
   });
 });

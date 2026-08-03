@@ -11,10 +11,18 @@
 
   let { runs, on_stop, now }: Props = $props();
 
-  const active_count = $derived(
+  const active_runs = $derived(
     runs.filter(
       (run) => run.status === "starting" || run.status === "streaming",
-    ).length,
+    ),
+  );
+  const active_count = $derived(active_runs.length);
+  const newest_active = $derived(
+    active_runs.reduce<RunRecord | null>(
+      (newest, run) =>
+        newest !== null && newest.started_at >= run.started_at ? newest : run,
+      null,
+    ),
   );
   const errors = $derived(runs.filter((run) => run.status === "error"));
   const has_errors = $derived(errors.length > 0);
@@ -24,7 +32,9 @@
     if (has_errors)
       return `${errors.length} error${errors.length > 1 ? "s" : ""}`;
     if (active_count === 0) return "ready";
-    return `${active_count} run${active_count > 1 ? "s" : ""}`;
+    const count_label = `${active_count} run${active_count > 1 ? "s" : ""}`;
+    const provider_id = newest_active?.provider_id;
+    return provider_id ? `${provider_id} · ${count_label}` : count_label;
   });
 
   const description = $derived(

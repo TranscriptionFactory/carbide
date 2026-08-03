@@ -11,6 +11,12 @@
   import type { InstructionRecipe } from "$lib/shared/types/prompt_recipe";
   import { contain_focus } from "$lib/components/ui/contain_focus";
   import { is_plain_enter } from "$lib/shared/utils/keyboard";
+  import {
+    AssistantPresence,
+    AssistantStopButton,
+    type RunId,
+    type RunRecord,
+  } from "$lib/features/assistant";
 
   interface Props {
     mode: AiMenuMode;
@@ -23,6 +29,11 @@
     on_reject: () => void;
     on_close: () => void;
     on_open_settings?: () => void;
+    // The menu is imperatively mounted with static props, so runs arrive as a
+    // getter: the read happens inside this component's reactive scope, which
+    // keeps it live against the run store's SvelteMap.
+    get_runs?: () => RunRecord[];
+    on_stop?: (id: RunId) => void;
   }
 
   let {
@@ -36,6 +47,8 @@
     on_reject,
     on_close,
     on_open_settings,
+    get_runs,
+    on_stop,
   }: Props = $props();
 
   let prompt_text = $state("");
@@ -50,6 +63,24 @@
       ? commands.filter((c) => c.use_selection)
       : commands.filter((c) => !c.use_selection),
   );
+
+  const runs = $derived(get_runs?.() ?? []);
+  // statement form: the vite ssr transform drops the parens in
+  // `a && (b || c)`, which would let any streaming run pass the kind filter
+  const inline_active_run = $derived.by(() => {
+    let newest: RunRecord | null = null;
+    for (const run of runs) {
+      if (run.kind !== "inline") continue;
+      if (run.status !== "starting" && run.status !== "streaming") continue;
+      if (newest !== null && newest.started_at >= run.started_at) continue;
+      newest = run;
+    }
+    return newest;
+  });
+
+  function handle_stop(id: RunId) {
+    on_stop?.(id);
+  }
 
   function handle_keydown(e: KeyboardEvent) {
     if (is_plain_enter(e)) {
@@ -73,10 +104,16 @@
   data-testid="ai-inline-menu"
   use:contain_focus
 >
+  <div class="AiInlineMenu__header">
+    <AssistantPresence {runs} on_stop={handle_stop} />
+  </div>
   {#if streaming}
     <div class="AiInlineMenu__streaming">
       <Loader2 size={14} class="AiInlineMenu__spinner" />
       <span class="AiInlineMenu__streaming-text">Writing…</span>
+      {#if inline_active_run && on_stop}
+        <AssistantStopButton run={inline_active_run} {on_stop} />
+      {/if}
     </div>
   {:else if mode === "cursor_suggestion"}
     <div class="AiInlineMenu__suggestion">
