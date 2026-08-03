@@ -16,9 +16,14 @@ folder listing opened and read _every_ note in the folder, which made a stalled 
 Two things change. Filesystem work now runs on a background thread, so a slow or unavailable
 filesystem makes Carbide slow rather than frozen — the window keeps painting and the app stays
 responsive. And the file tree is built from the search index instead of by reading each note, so a
-folder opens without touching note contents at all: names appear immediately, and titles, summaries,
-colours and icons fill in as indexing catches up. Vaults on ordinary local disks will also notice
+folder opens without touching note contents at all. Vaults on ordinary local disks will also notice
 folders opening faster.
+
+There is a visible trade-off in that second change. A note's title, summary, colour and icon now come
+from the index, so a note the index has not caught up with yet lists under its filename with no
+summary — most often on the first listing after opening a vault, since that runs before indexing
+starts. Reopening the folder once indexing has progressed shows the full metadata. Folders opened in
+browse mode are never indexed, so they always list by filename.
 
 Startup is now self-diagnosing too. The vault-open path logs each step it reaches, any command taking
 longer than 250ms reports itself with a duration, and the log file keeps 5 MB across three files
