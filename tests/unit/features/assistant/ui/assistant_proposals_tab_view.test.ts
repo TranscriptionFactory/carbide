@@ -173,6 +173,99 @@ describe("assistant_proposals_tab_view provenance grouping", () => {
   });
 });
 
+describe("assistant_proposals_tab_view day grouping", () => {
+  const NOON = new Date(2026, 7, 3, 12, 0, 0).getTime();
+  const DAY = 24 * 60 * 60 * 1000;
+
+  function render_with_now(proposals: Proposal[]) {
+    const target = document.createElement("div");
+    document.body.appendChild(target);
+    const app = mount(AssistantProposalsTabView, {
+      target,
+      props: {
+        proposals,
+        session_summaries: [make_session({ id: "s1", title: "Ranking" })],
+        on_accept_proposal: vi.fn(),
+        on_accept_all_pending: vi.fn(),
+        on_reject_proposal: vi.fn(),
+        on_toggle_hunk: vi.fn(),
+        now: () => NOON,
+      },
+    });
+    flushSync();
+    return {
+      target,
+      cleanup() {
+        void unmount(app);
+        target.remove();
+        flushSync();
+      },
+    };
+  }
+
+  it("renders Today and Yesterday day headings over provenance groups", () => {
+    const view = render_with_now([
+      make_proposal({
+        created_at: NOON - 1000,
+        origin: { session_id: "s1", run_id: null },
+      }),
+      make_proposal({
+        created_at: NOON - DAY,
+        origin: { session_id: "s1", run_id: null },
+      }),
+    ]);
+
+    const labels = [
+      ...view.target.querySelectorAll(
+        '[data-testid="assistant-proposal-day-label"]',
+      ),
+    ].map((el) => el.textContent?.trim());
+    expect(labels).toEqual(["Today", "Yesterday"]);
+
+    const day_groups = view.target.querySelectorAll(
+      '[data-testid="assistant-proposal-day-group"]',
+    );
+    expect(day_groups).toHaveLength(2);
+    // provenance stays INSIDE the day group
+    expect(
+      day_groups[0]?.querySelectorAll(
+        '[data-testid="assistant-proposal-group-provenance"]',
+      ),
+    ).toHaveLength(1);
+    expect(
+      day_groups[0]?.querySelector(
+        '[data-testid="assistant-proposal-group-provenance"]',
+      )?.textContent,
+    ).toContain("Ranking");
+
+    view.cleanup();
+  });
+
+  it("orders newest day first even when the prop array arrives oldest-first", () => {
+    const view = render_with_now([
+      make_proposal({
+        id: "old",
+        created_at: NOON - DAY,
+        origin: { session_id: "s1", run_id: null },
+      }),
+      make_proposal({
+        id: "new",
+        created_at: NOON - 1000,
+        origin: { session_id: "s1", run_id: null },
+      }),
+    ]);
+
+    const cards = [
+      ...view.target.querySelectorAll(
+        '[data-testid="assistant-proposal-card"]',
+      ),
+    ].map((el) => el.getAttribute("data-proposal-id"));
+    expect(cards).toEqual(["new", "old"]);
+
+    view.cleanup();
+  });
+});
+
 describe("assistant_proposals_tab_view per-hunk toggles", () => {
   it("renders a toggle per hunk reflecting the fixture's default selection", () => {
     const view = render({ proposals: [make_proposal()] });
