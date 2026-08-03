@@ -1,4 +1,5 @@
 pub mod asset_cache;
+pub mod blocking;
 pub mod buffer;
 pub mod cache;
 pub mod constants;
