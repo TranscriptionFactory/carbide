@@ -279,6 +279,7 @@ export {
   type StoredProposals,
 } from "$lib/features/assistant/domain/proposal_storage";
 export { ProposalPersistenceService } from "$lib/features/assistant/application/proposal_persistence_service";
+export { load_assistant_proposals } from "$lib/features/assistant/application/assistant_proposals_load";
 export { create_assistant_proposal_persistence_tauri_adapter } from "$lib/features/assistant/adapters/assistant_proposal_persistence_tauri_adapter";
 
 export { default as AssistantProposalsTabView } from "$lib/features/assistant/ui/assistant_proposals_tab_view.svelte";

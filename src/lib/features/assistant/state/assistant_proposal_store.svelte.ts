@@ -57,6 +57,12 @@ export class AssistantProposalStore {
     );
   }
 
+  // Wholesale replacement on vault open/switch. created_at survives verbatim
+  // — re-stamping on load would collapse the review centre's day grouping.
+  hydrate(proposals: Proposal[]): void {
+    this.proposals = proposals;
+  }
+
   // No dedup by id — a producer always hands fresh ids, and this store
   // preserves them verbatim rather than reconciling (hydrate-shaped, not
   // create-shaped: see the constructor comment).

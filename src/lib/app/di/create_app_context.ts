@@ -59,6 +59,7 @@ import {
   AssistantSessionService,
   ChatPanel,
   ProposalApplyService,
+  ProposalPersistenceService,
   create_assistant_transport_tauri_adapter,
   register_assistant_actions,
   register_assistant_notice_actions,
@@ -824,6 +825,10 @@ export function create_app_context(input: {
     assistant_kernel,
   );
 
+  const assistant_proposal_persistence = new ProposalPersistenceService(
+    input.ports.assistant_proposal_persistence,
+  );
+
   const retrieval_service = new RetrievalService(
     input.ports.search,
     input.ports.notes,
@@ -1542,6 +1547,7 @@ export function create_app_context(input: {
     tag_service,
     assistant_notices: stores.assistant_notices,
     assistant_proposals: stores.assistant_proposals,
+    assistant_proposal_persistence,
     search_port: input.ports.search,
     // stt_store: stores.stt,
     // stt_service,

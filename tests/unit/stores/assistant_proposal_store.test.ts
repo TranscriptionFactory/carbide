@@ -54,6 +54,28 @@ describe("AssistantProposalStore", () => {
     });
   });
 
+  describe("hydrate", () => {
+    it("replaces the queue wholesale, preserving created_at verbatim", () => {
+      const store = new AssistantProposalStore();
+      store.add(make_proposal({ id: "pre-existing" }));
+      const loaded = [make_proposal({ id: "loaded", created_at: 42 })];
+
+      store.hydrate(loaded);
+
+      expect(store.proposals).toEqual(loaded);
+      expect(store.proposals[0]?.created_at).toBe(42);
+    });
+
+    it("clears the queue when hydrated with an empty list", () => {
+      const store = new AssistantProposalStore();
+      store.add(make_proposal());
+
+      store.hydrate([]);
+
+      expect(store.proposals).toEqual([]);
+    });
+  });
+
   describe("set_status", () => {
     it("transitions a known id and leaves the rest of the proposal untouched", () => {
       const store = new AssistantProposalStore();
