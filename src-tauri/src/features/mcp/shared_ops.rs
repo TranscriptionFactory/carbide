@@ -262,7 +262,7 @@ pub fn create_note(app: &AppHandle, args: &CreateNoteArgs) -> Result<CreateResul
         return Ok(CreateResult::Overwritten(args.path.clone()));
     }
 
-    notes_service::create_note(
+    notes_service::create_note_inner(
         NoteCreateArgs {
             vault_id: args.vault_id.clone(),
             note_path: args.path.clone(),
@@ -349,7 +349,7 @@ pub fn move_note(
         .map_err(|e| OpError::NotFound(format!("source not found: {}", e)))?
         .is_dir();
 
-    let results = notes_service::move_items(
+    let results = notes_service::move_items_inner(
         MoveItemsArgs {
             vault_id: vault_id.to_string(),
             items: vec![MoveItem {
@@ -424,7 +424,7 @@ fn build_folder_move_path_map(
 }
 
 pub fn delete_note(app: &AppHandle, vault_id: &str, path: &str) -> Result<(), OpError> {
-    notes_service::delete_note(
+    notes_service::delete_note_inner(
         NoteDeleteArgs {
             vault_id: vault_id.to_string(),
             note_id: path.to_string(),
@@ -442,7 +442,7 @@ pub fn list_notes(
     offset: usize,
 ) -> Result<PaginatedResponse<NoteMeta>, OpError> {
     let mut notes =
-        notes_service::list_notes(app.clone(), vault_id.to_string()).map_err(OpError::Internal)?;
+        notes_service::list_notes_inner(app.clone(), vault_id.to_string()).map_err(OpError::Internal)?;
 
     if let Some(folder) = folder {
         let prefix = if folder.ends_with('/') {
@@ -488,7 +488,7 @@ pub fn search_notes_index(
         scope: SearchScope::All,
     };
 
-    search_service::index_search(app.clone(), vault_id.to_string(), query_input, Some(limit))
+    search_service::index_search_inner(app.clone(), vault_id.to_string(), query_input, Some(limit))
         .map(|hits| {
             hits.into_iter()
                 .take(limit)
@@ -533,14 +533,14 @@ pub fn search_notes_hybrid(
 }
 
 pub fn list_vaults(app: &AppHandle) -> Result<Vec<crate::shared::storage::Vault>, OpError> {
-    vault_service::list_vaults(app.clone()).map_err(OpError::Internal)
+    vault_service::list_vaults_inner(app.clone()).map_err(OpError::Internal)
 }
 
 pub fn get_vault(
     app: &AppHandle,
     vault_id: &str,
 ) -> Result<crate::shared::storage::Vault, OpError> {
-    let vaults = vault_service::list_vaults(app.clone()).map_err(OpError::Internal)?;
+    let vaults = vault_service::list_vaults_inner(app.clone()).map_err(OpError::Internal)?;
     vaults
         .into_iter()
         .find(|v| v.id == vault_id)
@@ -548,11 +548,11 @@ pub fn get_vault(
 }
 
 pub fn get_active_vault_id(app: &AppHandle) -> Result<Option<String>, OpError> {
-    vault_service::get_last_vault_id(app.clone()).map_err(OpError::Internal)
+    vault_service::get_last_vault_id_inner(app.clone()).map_err(OpError::Internal)
 }
 
 pub fn reindex(app: &AppHandle, vault_id: &str) -> Result<(), OpError> {
-    search_service::index_rebuild(app.clone(), vault_id.to_string()).map_err(OpError::Internal)
+    search_service::index_rebuild_inner(app.clone(), vault_id.to_string()).map_err(OpError::Internal)
 }
 
 pub fn note_tags(
@@ -598,7 +598,7 @@ pub fn note_metadata(
     let meta = notes_service::build_note_meta(&root, path, None).map_err(OpError::Internal)?;
 
     let stats =
-        search_service::get_note_stats(app.clone(), vault_id.to_string(), path.to_string()).ok();
+        search_service::get_note_stats_inner(app.clone(), vault_id.to_string(), path.to_string()).ok();
 
     let tags_and_props = search_service::with_read_conn(app, vault_id, |conn| {
         let tags = search_db::get_note_tags(conn, path)?;
@@ -716,7 +716,7 @@ pub fn rename_note_and_update_links(
     old_path: &str,
     new_path: &str,
 ) -> Result<(String, usize), OpError> {
-    notes_service::rename_note(
+    notes_service::rename_note_inner(
         NoteRenameArgs {
             vault_id: vault_id.to_string(),
             from: old_path.to_string(),
@@ -756,7 +756,7 @@ pub fn repair_links_for(
     let vault_root = storage::vault_path(app, vault_id).map_err(OpError::Internal)?;
 
     for new_path in path_map.values() {
-        let _ = search_service::index_upsert_note(
+        let _ = search_service::index_upsert_note_inner(
             app.clone(),
             vault_id.to_string(),
             new_path.clone(),

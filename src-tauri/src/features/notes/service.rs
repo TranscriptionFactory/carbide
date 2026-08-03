@@ -14,7 +14,7 @@ use std::path::Component;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::Instant;
-use tauri::{AppHandle, Emitter, State};
+use tauri::{AppHandle, Emitter, Manager};
 use walkdir::WalkDir;
 
 #[derive(Debug, Clone, Serialize, Type)]
@@ -417,7 +417,11 @@ pub(crate) fn folder_note_candidate(root: &Path, folder_rel: &str) -> Option<Str
 
 #[tauri::command]
 #[specta::specta]
-pub fn list_notes(app: AppHandle, vault_id: String) -> Result<Vec<NoteMeta>, String> {
+pub async fn list_notes(app: AppHandle, vault_id: String) -> Result<Vec<NoteMeta>, String> {
+    crate::shared::blocking::blocking("list_notes", move || list_notes_inner(app, vault_id)).await
+}
+
+pub fn list_notes_inner(app: AppHandle, vault_id: String) -> Result<Vec<NoteMeta>, String> {
     log::info!("Listing notes vault_id={}", vault_id);
     let root = storage::vault_path(&app, &vault_id).map_err(|e| {
         log::error!("Failed to resolve vault path for {}: {}", vault_id, e);
@@ -456,7 +460,19 @@ pub fn list_notes(app: AppHandle, vault_id: String) -> Result<Vec<NoteMeta>, Str
 
 #[tauri::command]
 #[specta::specta]
-pub fn find_notes_by_name(
+pub async fn find_notes_by_name(
+    app: AppHandle,
+    vault_id: String,
+    query: String,
+    limit: Option<usize>,
+) -> Result<Vec<String>, String> {
+    crate::shared::blocking::blocking("find_notes_by_name", move || {
+        find_notes_by_name_inner(app, vault_id, query, limit)
+    })
+    .await
+}
+
+pub fn find_notes_by_name_inner(
     app: AppHandle,
     vault_id: String,
     query: String,
@@ -517,12 +533,21 @@ pub fn find_notes_by_name(
 
 #[tauri::command]
 #[specta::specta]
-pub fn read_note(
+pub async fn read_note(
     app: AppHandle,
     vault_id: String,
     note_id: String,
-    buffer_manager: State<'_, BufferManager>,
 ) -> Result<NoteDoc, String> {
+    crate::shared::blocking::blocking("read_note", move || read_note_inner(app, vault_id, note_id))
+        .await
+}
+
+pub fn read_note_inner(
+    app: AppHandle,
+    vault_id: String,
+    note_id: String,
+) -> Result<NoteDoc, String> {
+    let buffer_manager = app.state::<BufferManager>();
     log::debug!("Reading note vault_id={} note_id={}", vault_id, note_id);
     let buffer_id = format!("note_{}", note_id);
     buffer_manager.open_buffer(&app, buffer_id.clone(), vault_id.clone(), note_id.clone())?;
@@ -541,11 +566,12 @@ pub fn read_note(
 
 #[tauri::command]
 #[specta::specta]
-pub fn write_note(
-    args: NoteWriteArgs,
-    app: AppHandle,
-    buffer_manager: State<'_, BufferManager>,
-) -> Result<i64, String> {
+pub async fn write_note(args: NoteWriteArgs, app: AppHandle) -> Result<i64, String> {
+    crate::shared::blocking::blocking("write_note", move || write_note_inner(args, app)).await
+}
+
+pub fn write_note_inner(args: NoteWriteArgs, app: AppHandle) -> Result<i64, String> {
+    let buffer_manager = app.state::<BufferManager>();
     log::debug!(
         "Writing note vault_id={} note_id={}",
         args.vault_id,
@@ -600,11 +626,21 @@ pub struct WriteAndIndexResult {
 
 #[tauri::command]
 #[specta::specta]
-pub fn write_and_index_note(
+pub async fn write_and_index_note(
     args: NoteWriteArgs,
     app: AppHandle,
-    buffer_manager: State<'_, BufferManager>,
 ) -> Result<WriteAndIndexResult, String> {
+    crate::shared::blocking::blocking("write_and_index_note", move || {
+        write_and_index_note_inner(args, app)
+    })
+    .await
+}
+
+pub fn write_and_index_note_inner(
+    args: NoteWriteArgs,
+    app: AppHandle,
+) -> Result<WriteAndIndexResult, String> {
+    let buffer_manager = app.state::<BufferManager>();
     log::debug!(
         "Write+index note vault_id={} note_id={}",
         args.vault_id,
@@ -677,7 +713,11 @@ pub struct NoteCreateArgs {
 
 #[tauri::command]
 #[specta::specta]
-pub fn create_note(args: NoteCreateArgs, app: AppHandle) -> Result<NoteMeta, String> {
+pub async fn create_note(args: NoteCreateArgs, app: AppHandle) -> Result<NoteMeta, String> {
+    crate::shared::blocking::blocking("create_note", move || create_note_inner(args, app)).await
+}
+
+pub fn create_note_inner(args: NoteCreateArgs, app: AppHandle) -> Result<NoteMeta, String> {
     log::info!(
         "Creating note vault_id={} note_path={}",
         args.vault_id,
@@ -810,7 +850,20 @@ pub(crate) fn uniquify_filename(dir: &Path, filename: &str) -> String {
 
 #[tauri::command]
 #[specta::specta]
-pub fn write_image_asset(args: WriteImageAssetArgs, app: AppHandle) -> Result<String, String> {
+pub async fn write_image_asset(
+    args: WriteImageAssetArgs,
+    app: AppHandle,
+) -> Result<String, String> {
+    crate::shared::blocking::blocking("write_image_asset", move || {
+        write_image_asset_inner(args, app)
+    })
+    .await
+}
+
+pub fn write_image_asset_inner(
+    args: WriteImageAssetArgs,
+    app: AppHandle,
+) -> Result<String, String> {
     log::debug!(
         "Writing image asset vault_id={} note_path={}",
         args.vault_id,
@@ -934,7 +987,11 @@ pub(crate) fn rename_with_temp_path(from_abs: &Path, to_abs: &Path) -> Result<()
 
 #[tauri::command]
 #[specta::specta]
-pub fn rename_note(args: NoteRenameArgs, app: AppHandle) -> Result<(), String> {
+pub async fn rename_note(args: NoteRenameArgs, app: AppHandle) -> Result<(), String> {
+    crate::shared::blocking::blocking("rename_note", move || rename_note_inner(args, app)).await
+}
+
+pub fn rename_note_inner(args: NoteRenameArgs, app: AppHandle) -> Result<(), String> {
     log::info!(
         "Renaming note vault_id={} from={} to={}",
         args.vault_id,
@@ -1093,7 +1150,14 @@ fn clear_folder_cache_for_vault(vault_id: &str) {
 
 #[tauri::command]
 #[specta::specta]
-pub fn clear_folder_cache(vault_id: String) -> Result<(), String> {
+pub async fn clear_folder_cache(vault_id: String) -> Result<(), String> {
+    crate::shared::blocking::blocking("clear_folder_cache", move || {
+        clear_folder_cache_inner(vault_id)
+    })
+    .await
+}
+
+pub fn clear_folder_cache_inner(vault_id: String) -> Result<(), String> {
     log::debug!("Clearing folder cache vault_id={}", vault_id);
     clear_folder_cache_for_vault(&vault_id);
     Ok(())
@@ -1224,7 +1288,11 @@ pub struct FolderStats {
 
 #[tauri::command]
 #[specta::specta]
-pub fn delete_note(args: NoteDeleteArgs, app: AppHandle) -> Result<(), String> {
+pub async fn delete_note(args: NoteDeleteArgs, app: AppHandle) -> Result<(), String> {
+    crate::shared::blocking::blocking("delete_note", move || delete_note_inner(args, app)).await
+}
+
+pub fn delete_note_inner(args: NoteDeleteArgs, app: AppHandle) -> Result<(), String> {
     log::info!(
         "Deleting note vault_id={} note_id={}",
         args.vault_id,
@@ -1246,7 +1314,12 @@ pub fn delete_note(args: NoteDeleteArgs, app: AppHandle) -> Result<(), String> {
 
 #[tauri::command]
 #[specta::specta]
-pub fn list_folders(app: AppHandle, vault_id: String) -> Result<Vec<String>, String> {
+pub async fn list_folders(app: AppHandle, vault_id: String) -> Result<Vec<String>, String> {
+    crate::shared::blocking::blocking("list_folders", move || list_folders_inner(app, vault_id))
+        .await
+}
+
+pub fn list_folders_inner(app: AppHandle, vault_id: String) -> Result<Vec<String>, String> {
     log::debug!("Listing folders vault_id={}", vault_id);
     let root = storage::vault_path(&app, &vault_id)?;
     let ignore_matcher = vault_ignore::load_vault_ignore_matcher(&app, &vault_id, &root)?;
@@ -1286,7 +1359,11 @@ pub struct FolderCreateArgs {
 
 #[tauri::command]
 #[specta::specta]
-pub fn create_folder(args: FolderCreateArgs, app: AppHandle) -> Result<(), String> {
+pub async fn create_folder(args: FolderCreateArgs, app: AppHandle) -> Result<(), String> {
+    crate::shared::blocking::blocking("create_folder", move || create_folder_inner(args, app)).await
+}
+
+pub fn create_folder_inner(args: FolderCreateArgs, app: AppHandle) -> Result<(), String> {
     log::debug!(
         "Creating folder vault_id={} parent_path={} folder_name={}",
         args.vault_id,
@@ -1591,7 +1668,17 @@ fn execute_pending_moves(
 
 #[tauri::command]
 #[specta::specta]
-pub fn move_items(args: MoveItemsArgs, app: AppHandle) -> Result<Vec<MoveItemResult>, String> {
+pub async fn move_items(
+    args: MoveItemsArgs,
+    app: AppHandle,
+) -> Result<Vec<MoveItemResult>, String> {
+    crate::shared::blocking::blocking("move_items", move || move_items_inner(args, app)).await
+}
+
+pub fn move_items_inner(
+    args: MoveItemsArgs,
+    app: AppHandle,
+) -> Result<Vec<MoveItemResult>, String> {
     log::info!(
         "Moving items vault_id={} target_folder={} item_count={}",
         args.vault_id,
@@ -1616,7 +1703,11 @@ pub fn move_items(args: MoveItemsArgs, app: AppHandle) -> Result<Vec<MoveItemRes
 
 #[tauri::command]
 #[specta::specta]
-pub fn rename_folder(args: FolderRenameArgs, app: AppHandle) -> Result<(), String> {
+pub async fn rename_folder(args: FolderRenameArgs, app: AppHandle) -> Result<(), String> {
+    crate::shared::blocking::blocking("rename_folder", move || rename_folder_inner(args, app)).await
+}
+
+pub fn rename_folder_inner(args: FolderRenameArgs, app: AppHandle) -> Result<(), String> {
     log::debug!(
         "Renaming folder vault_id={} from_path={} to_path={}",
         args.vault_id,
@@ -1653,7 +1744,11 @@ pub struct FolderDeleteArgs {
 
 #[tauri::command]
 #[specta::specta]
-pub fn delete_folder(args: FolderDeleteArgs, app: AppHandle) -> Result<(), String> {
+pub async fn delete_folder(args: FolderDeleteArgs, app: AppHandle) -> Result<(), String> {
+    crate::shared::blocking::blocking("delete_folder", move || delete_folder_inner(args, app)).await
+}
+
+pub fn delete_folder_inner(args: FolderDeleteArgs, app: AppHandle) -> Result<(), String> {
     log::debug!(
         "Deleting folder vault_id={} folder_path={}",
         args.vault_id,
@@ -1675,7 +1770,21 @@ pub fn delete_folder(args: FolderDeleteArgs, app: AppHandle) -> Result<(), Strin
 
 #[tauri::command]
 #[specta::specta]
-pub fn list_folder_contents(
+pub async fn list_folder_contents(
+    app: AppHandle,
+    vault_id: String,
+    folder_path: String,
+    offset: usize,
+    limit: usize,
+    show_hidden_files: bool,
+) -> Result<FolderContents, String> {
+    crate::shared::blocking::blocking("list_folder_contents", move || {
+        list_folder_contents_inner(app, vault_id, folder_path, offset, limit, show_hidden_files)
+    })
+    .await
+}
+
+pub fn list_folder_contents_inner(
     app: AppHandle,
     vault_id: String,
     folder_path: String,
@@ -1779,7 +1888,18 @@ pub fn list_folder_contents(
 
 #[tauri::command]
 #[specta::specta]
-pub fn get_folder_stats(
+pub async fn get_folder_stats(
+    app: AppHandle,
+    vault_id: String,
+    folder_path: String,
+) -> Result<FolderStats, String> {
+    crate::shared::blocking::blocking("get_folder_stats", move || {
+        get_folder_stats_inner(app, vault_id, folder_path)
+    })
+    .await
+}
+
+pub fn get_folder_stats_inner(
     app: AppHandle,
     vault_id: String,
     folder_path: String,
@@ -1831,7 +1951,19 @@ pub fn get_folder_stats(
 
 #[tauri::command]
 #[specta::specta]
-pub fn read_vault_file(
+pub async fn read_vault_file(
+    app: AppHandle,
+    vault_id: String,
+    relative_path: String,
+    force: Option<bool>,
+) -> Result<String, String> {
+    crate::shared::blocking::blocking("read_vault_file", move || {
+        read_vault_file_inner(app, vault_id, relative_path, force)
+    })
+    .await
+}
+
+pub fn read_vault_file_inner(
     app: AppHandle,
     vault_id: String,
     relative_path: String,
@@ -1850,7 +1982,14 @@ pub fn read_vault_file(
 
 #[tauri::command]
 #[specta::specta]
-pub fn read_absolute_text_file(path: String, force: Option<bool>) -> Result<String, String> {
+pub async fn read_absolute_text_file(path: String, force: Option<bool>) -> Result<String, String> {
+    crate::shared::blocking::blocking("read_absolute_text_file", move || {
+        read_absolute_text_file_inner(path, force)
+    })
+    .await
+}
+
+pub fn read_absolute_text_file_inner(path: String, force: Option<bool>) -> Result<String, String> {
     let abs = std::path::Path::new(&path);
     if !abs.is_absolute() {
         return Err("path must be absolute".to_string());
@@ -1864,7 +2003,19 @@ pub fn read_absolute_text_file(path: String, force: Option<bool>) -> Result<Stri
 
 #[tauri::command]
 #[specta::specta]
-pub fn write_vault_file(
+pub async fn write_vault_file(
+    app: AppHandle,
+    vault_id: String,
+    relative_path: String,
+    content: String,
+) -> Result<(), String> {
+    crate::shared::blocking::blocking("write_vault_file", move || {
+        write_vault_file_inner(app, vault_id, relative_path, content)
+    })
+    .await
+}
+
+pub fn write_vault_file_inner(
     app: AppHandle,
     vault_id: String,
     relative_path: String,
@@ -1882,13 +2033,31 @@ pub fn write_vault_file(
 
 #[tauri::command]
 #[specta::specta]
-pub fn write_bytes_to_path(path: String, data: Vec<u8>) -> Result<(), String> {
+pub async fn write_bytes_to_path(path: String, data: Vec<u8>) -> Result<(), String> {
+    crate::shared::blocking::blocking("write_bytes_to_path", move || {
+        write_bytes_to_path_inner(path, data)
+    })
+    .await
+}
+
+pub fn write_bytes_to_path_inner(path: String, data: Vec<u8>) -> Result<(), String> {
     io_utils::atomic_write(&path, &data)
 }
 
 #[tauri::command]
 #[specta::specta]
-pub fn delete_vault_file(
+pub async fn delete_vault_file(
+    app: AppHandle,
+    vault_id: String,
+    relative_path: String,
+) -> Result<(), String> {
+    crate::shared::blocking::blocking("delete_vault_file", move || {
+        delete_vault_file_inner(app, vault_id, relative_path)
+    })
+    .await
+}
+
+pub fn delete_vault_file_inner(
     app: AppHandle,
     vault_id: String,
     relative_path: String,
@@ -1900,7 +2069,18 @@ pub fn delete_vault_file(
 
 #[tauri::command]
 #[specta::specta]
-pub fn list_vault_files_by_extension(
+pub async fn list_vault_files_by_extension(
+    app: AppHandle,
+    vault_id: String,
+    extension: String,
+) -> Result<Vec<FileMeta>, String> {
+    crate::shared::blocking::blocking("list_vault_files_by_extension", move || {
+        list_vault_files_by_extension_inner(app, vault_id, extension)
+    })
+    .await
+}
+
+pub fn list_vault_files_by_extension_inner(
     app: AppHandle,
     vault_id: String,
     extension: String,
@@ -1970,7 +2150,19 @@ const ASSET_IMAGE_EXTENSIONS: &[&str] = &[
 
 #[tauri::command]
 #[specta::specta]
-pub fn search_vault_assets(
+pub async fn search_vault_assets(
+    app: AppHandle,
+    vault_id: String,
+    query: String,
+    limit: usize,
+) -> Result<Vec<String>, String> {
+    crate::shared::blocking::blocking("search_vault_assets", move || {
+        search_vault_assets_inner(app, vault_id, query, limit)
+    })
+    .await
+}
+
+pub fn search_vault_assets_inner(
     app: AppHandle,
     vault_id: String,
     query: String,

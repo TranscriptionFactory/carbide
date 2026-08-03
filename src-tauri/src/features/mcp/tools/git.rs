@@ -133,7 +133,7 @@ fn handle_git_status(app: &AppHandle, arguments: Option<&Value>) -> ToolResult {
         Err(e) => return e,
     };
 
-    match git_service::git_status(vault_path) {
+    match git_service::git_status_inner(vault_path) {
         Ok(status) => {
             let mut lines = vec![format!("Branch: {}", status.branch)];
             if status.is_dirty {

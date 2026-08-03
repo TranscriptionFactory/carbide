@@ -159,7 +159,19 @@ pub async fn clip_fetch_asset(url: String) -> Result<ClipAsset, String> {
 
 #[tauri::command]
 #[specta::specta]
-pub fn clip_write_epub(
+pub async fn clip_write_epub(
+    vault_id: String,
+    epub_path: String,
+    input: EpubInput,
+    app: AppHandle,
+) -> Result<(), String> {
+    crate::shared::blocking::blocking("clip_write_epub", move || {
+        clip_write_epub_inner(vault_id, epub_path, input, app)
+    })
+    .await
+}
+
+pub fn clip_write_epub_inner(
     vault_id: String,
     epub_path: String,
     input: EpubInput,

@@ -3,7 +3,7 @@ use crate::shared::storage;
 use ropey::Rope;
 use std::collections::{HashMap, VecDeque};
 use std::sync::{Arc, Mutex};
-use tauri::State;
+use tauri::Manager;
 
 const MAX_BUFFER_COUNT: usize = 20;
 
@@ -101,40 +101,82 @@ impl BufferManager {
 
 #[tauri::command]
 #[specta::specta]
-pub fn open_buffer(
+pub async fn open_buffer(
     app: tauri::AppHandle,
     id: String,
     vault_id: String,
     relative_path: String,
-    manager: State<'_, BufferManager>,
 ) -> Result<usize, String> {
+    crate::shared::blocking::blocking("open_buffer", move || {
+        open_buffer_inner(app, id, vault_id, relative_path)
+    })
+    .await
+}
+
+pub fn open_buffer_inner(
+    app: tauri::AppHandle,
+    id: String,
+    vault_id: String,
+    relative_path: String,
+) -> Result<usize, String> {
+    let manager = app.state::<BufferManager>();
     manager.open_buffer(&app, id, vault_id, relative_path)
 }
 
 #[tauri::command]
 #[specta::specta]
-pub fn update_buffer(
+pub async fn update_buffer(
     id: String,
     content: String,
-    manager: State<'_, BufferManager>,
+    app: tauri::AppHandle,
 ) -> Result<(), String> {
+    crate::shared::blocking::blocking("update_buffer", move || {
+        update_buffer_inner(id, content, app)
+    })
+    .await
+}
+
+pub fn update_buffer_inner(
+    id: String,
+    content: String,
+    app: tauri::AppHandle,
+) -> Result<(), String> {
+    let manager = app.state::<BufferManager>();
     manager.update_buffer(id, &content)
 }
 
 #[tauri::command]
 #[specta::specta]
-pub fn save_buffer(id: String, manager: State<'_, BufferManager>) -> Result<(), String> {
+pub async fn save_buffer(id: String, app: tauri::AppHandle) -> Result<(), String> {
+    crate::shared::blocking::blocking("save_buffer", move || save_buffer_inner(id, app)).await
+}
+
+pub fn save_buffer_inner(id: String, app: tauri::AppHandle) -> Result<(), String> {
+    let manager = app.state::<BufferManager>();
     manager.save_buffer(id)
 }
 
 #[tauri::command]
 #[specta::specta]
-pub fn read_buffer_window(
+pub async fn read_buffer_window(
     id: String,
     start_line: usize,
     end_line: usize,
-    manager: State<'_, BufferManager>,
+    app: tauri::AppHandle,
 ) -> Result<String, String> {
+    crate::shared::blocking::blocking("read_buffer_window", move || {
+        read_buffer_window_inner(id, start_line, end_line, app)
+    })
+    .await
+}
+
+pub fn read_buffer_window_inner(
+    id: String,
+    start_line: usize,
+    end_line: usize,
+    app: tauri::AppHandle,
+) -> Result<String, String> {
+    let manager = app.state::<BufferManager>();
     let buffer = manager.get_buffer(&id).ok_or("Buffer not found")?;
     let rope = &buffer.rope;
 
@@ -160,7 +202,12 @@ pub fn read_buffer_window(
 
 #[tauri::command]
 #[specta::specta]
-pub fn close_buffer(id: String, manager: State<'_, BufferManager>) -> Result<(), String> {
+pub async fn close_buffer(id: String, app: tauri::AppHandle) -> Result<(), String> {
+    crate::shared::blocking::blocking("close_buffer", move || close_buffer_inner(id, app)).await
+}
+
+pub fn close_buffer_inner(id: String, app: tauri::AppHandle) -> Result<(), String> {
+    let manager = app.state::<BufferManager>();
     manager.close_buffer(&id);
     Ok(())
 }

@@ -5,7 +5,18 @@ use tauri::AppHandle;
 
 #[tauri::command]
 #[specta::specta]
-pub fn extract_canvas_links(
+pub async fn extract_canvas_links(
+    app: AppHandle,
+    vault_id: String,
+    relative_path: String,
+) -> Result<Vec<String>, String> {
+    crate::shared::blocking::blocking("extract_canvas_links", move || {
+        extract_canvas_links_inner(app, vault_id, relative_path)
+    })
+    .await
+}
+
+pub fn extract_canvas_links_inner(
     app: AppHandle,
     vault_id: String,
     relative_path: String,
@@ -18,7 +29,18 @@ pub fn extract_canvas_links(
 
 #[tauri::command]
 #[specta::specta]
-pub fn extract_canvas_text(
+pub async fn extract_canvas_text(
+    app: AppHandle,
+    vault_id: String,
+    relative_path: String,
+) -> Result<String, String> {
+    crate::shared::blocking::blocking("extract_canvas_text", move || {
+        extract_canvas_text_inner(app, vault_id, relative_path)
+    })
+    .await
+}
+
+pub fn extract_canvas_text_inner(
     app: AppHandle,
     vault_id: String,
     relative_path: String,
@@ -32,7 +54,20 @@ pub fn extract_canvas_text(
 
 #[tauri::command]
 #[specta::specta]
-pub fn rewrite_canvas_file_refs(
+pub async fn rewrite_canvas_file_refs(
+    app: AppHandle,
+    vault_id: String,
+    canvas_path: String,
+    old_path: String,
+    new_path: String,
+) -> Result<bool, String> {
+    crate::shared::blocking::blocking("rewrite_canvas_file_refs", move || {
+        rewrite_canvas_file_refs_inner(app, vault_id, canvas_path, old_path, new_path)
+    })
+    .await
+}
+
+pub fn rewrite_canvas_file_refs_inner(
     app: AppHandle,
     vault_id: String,
     canvas_path: String,
@@ -91,7 +126,19 @@ pub fn rewrite_canvas_file_refs(
 
 #[tauri::command]
 #[specta::specta]
-pub fn rewrite_canvas_refs_for_rename(
+pub async fn rewrite_canvas_refs_for_rename(
+    app: AppHandle,
+    vault_id: String,
+    old_path: String,
+    new_path: String,
+) -> Result<u32, String> {
+    crate::shared::blocking::blocking("rewrite_canvas_refs_for_rename", move || {
+        rewrite_canvas_refs_for_rename_inner(app, vault_id, old_path, new_path)
+    })
+    .await
+}
+
+pub fn rewrite_canvas_refs_for_rename_inner(
     app: AppHandle,
     vault_id: String,
     old_path: String,

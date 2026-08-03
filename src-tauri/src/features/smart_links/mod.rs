@@ -114,7 +114,17 @@ pub(crate) fn default_rules() -> Vec<SmartLinkRuleGroup> {
 
 #[tauri::command]
 #[specta::specta]
-pub fn smart_links_load_rules(
+pub async fn smart_links_load_rules(
+    app: AppHandle,
+    vault_id: String,
+) -> Result<Vec<SmartLinkRuleGroup>, String> {
+    crate::shared::blocking::blocking("smart_links_load_rules", move || {
+        smart_links_load_rules_inner(app, vault_id)
+    })
+    .await
+}
+
+pub fn smart_links_load_rules_inner(
     app: AppHandle,
     vault_id: String,
 ) -> Result<Vec<SmartLinkRuleGroup>, String> {
@@ -124,7 +134,18 @@ pub fn smart_links_load_rules(
 
 #[tauri::command]
 #[specta::specta]
-pub fn smart_links_save_rules(
+pub async fn smart_links_save_rules(
+    app: AppHandle,
+    vault_id: String,
+    rules: Vec<SmartLinkRuleGroup>,
+) -> Result<(), String> {
+    crate::shared::blocking::blocking("smart_links_save_rules", move || {
+        smart_links_save_rules_inner(app, vault_id, rules)
+    })
+    .await
+}
+
+pub fn smart_links_save_rules_inner(
     app: AppHandle,
     vault_id: String,
     rules: Vec<SmartLinkRuleGroup>,
@@ -138,7 +159,19 @@ pub fn smart_links_save_rules(
 
 #[tauri::command]
 #[specta::specta]
-pub fn smart_links_compute_suggestions(
+pub async fn smart_links_compute_suggestions(
+    app: AppHandle,
+    vault_id: String,
+    note_path: String,
+    limit: Option<usize>,
+) -> Result<Vec<SmartLinkSuggestion>, String> {
+    crate::shared::blocking::blocking("smart_links_compute_suggestions", move || {
+        smart_links_compute_suggestions_inner(app, vault_id, note_path, limit)
+    })
+    .await
+}
+
+pub fn smart_links_compute_suggestions_inner(
     app: AppHandle,
     vault_id: String,
     note_path: String,

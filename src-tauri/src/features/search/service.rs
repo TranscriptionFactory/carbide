@@ -289,7 +289,15 @@ fn shutdown_worker(worker: &mut VaultWorker) {
 
 #[tauri::command]
 #[specta::specta]
-pub fn tags_list_all(
+pub async fn tags_list_all(
+    app: AppHandle,
+    vault_id: String,
+) -> Result<Vec<crate::features::search::model::TagInfo>, String> {
+    crate::shared::blocking::blocking("tags_list_all", move || tags_list_all_inner(app, vault_id))
+        .await
+}
+
+pub fn tags_list_all_inner(
     app: AppHandle,
     vault_id: String,
 ) -> Result<Vec<crate::features::search::model::TagInfo>, String> {
@@ -298,7 +306,19 @@ pub fn tags_list_all(
 
 #[tauri::command]
 #[specta::specta]
-pub fn search_headings(
+pub async fn search_headings(
+    app: AppHandle,
+    vault_id: String,
+    query: String,
+    limit: Option<usize>,
+) -> Result<Vec<crate::features::search::model::HeadingMatch>, String> {
+    crate::shared::blocking::blocking("search_headings", move || {
+        search_headings_inner(app, vault_id, query, limit)
+    })
+    .await
+}
+
+pub fn search_headings_inner(
     app: AppHandle,
     vault_id: String,
     query: String,
@@ -312,7 +332,18 @@ pub fn search_headings(
 
 #[tauri::command]
 #[specta::specta]
-pub fn tags_get_notes_for_tag(
+pub async fn tags_get_notes_for_tag(
+    app: AppHandle,
+    vault_id: String,
+    tag: String,
+) -> Result<Vec<String>, String> {
+    crate::shared::blocking::blocking("tags_get_notes_for_tag", move || {
+        tags_get_notes_for_tag_inner(app, vault_id, tag)
+    })
+    .await
+}
+
+pub fn tags_get_notes_for_tag_inner(
     app: AppHandle,
     vault_id: String,
     tag: String,
@@ -324,7 +355,18 @@ pub fn tags_get_notes_for_tag(
 
 #[tauri::command]
 #[specta::specta]
-pub fn tags_get_notes_for_tag_prefix(
+pub async fn tags_get_notes_for_tag_prefix(
+    app: AppHandle,
+    vault_id: String,
+    tag: String,
+) -> Result<Vec<String>, String> {
+    crate::shared::blocking::blocking("tags_get_notes_for_tag_prefix", move || {
+        tags_get_notes_for_tag_prefix_inner(app, vault_id, tag)
+    })
+    .await
+}
+
+pub fn tags_get_notes_for_tag_prefix_inner(
     app: AppHandle,
     vault_id: String,
     tag: String,
@@ -336,7 +378,18 @@ pub fn tags_get_notes_for_tag_prefix(
 
 #[tauri::command]
 #[specta::specta]
-pub fn get_indexed_body(
+pub async fn get_indexed_body(
+    app: AppHandle,
+    vault_id: String,
+    note_path: String,
+) -> Result<Option<String>, String> {
+    crate::shared::blocking::blocking("get_indexed_body", move || {
+        get_indexed_body_inner(app, vault_id, note_path)
+    })
+    .await
+}
+
+pub fn get_indexed_body_inner(
     app: AppHandle,
     vault_id: String,
     note_path: String,
@@ -357,7 +410,14 @@ pub(crate) fn shutdown_worker_internal(app: &AppHandle, vault_id: &str) -> Resul
 
 #[tauri::command]
 #[specta::specta]
-pub fn shutdown_search_worker(vault_id: String, app: AppHandle) -> Result<(), String> {
+pub async fn shutdown_search_worker(vault_id: String, app: AppHandle) -> Result<(), String> {
+    crate::shared::blocking::blocking("shutdown_search_worker", move || {
+        shutdown_search_worker_inner(vault_id, app)
+    })
+    .await
+}
+
+pub fn shutdown_search_worker_inner(vault_id: String, app: AppHandle) -> Result<(), String> {
     shutdown_worker_internal(&app, &vault_id)
 }
 
@@ -390,7 +450,12 @@ fn dir_size(path: &std::path::Path) -> u64 {
 
 #[tauri::command]
 #[specta::specta]
-pub fn get_storage_stats(app: AppHandle) -> Result<StorageStats, String> {
+pub async fn get_storage_stats(app: AppHandle) -> Result<StorageStats, String> {
+    crate::shared::blocking::blocking("get_storage_stats", move || get_storage_stats_inner(app))
+        .await
+}
+
+pub fn get_storage_stats_inner(app: AppHandle) -> Result<StorageStats, String> {
     let cache_dir = search_db::db_cache_dir(&app)?;
     let store = storage::load_store(&app)?;
     let registered_ids: std::collections::HashSet<String> =
@@ -451,7 +516,14 @@ pub fn get_storage_stats(app: AppHandle) -> Result<StorageStats, String> {
 
 #[tauri::command]
 #[specta::specta]
-pub fn cleanup_orphaned_dbs(app: AppHandle) -> Result<u64, String> {
+pub async fn cleanup_orphaned_dbs(app: AppHandle) -> Result<u64, String> {
+    crate::shared::blocking::blocking("cleanup_orphaned_dbs", move || {
+        cleanup_orphaned_dbs_inner(app)
+    })
+    .await
+}
+
+pub fn cleanup_orphaned_dbs_inner(app: AppHandle) -> Result<u64, String> {
     let cache_dir = search_db::db_cache_dir(&app)?;
     let store = storage::load_store(&app)?;
     let registered_ids: std::collections::HashSet<String> =
@@ -489,7 +561,14 @@ pub fn cleanup_orphaned_dbs(app: AppHandle) -> Result<u64, String> {
 
 #[tauri::command]
 #[specta::specta]
-pub fn clear_embedding_model_cache(app: AppHandle) -> Result<u64, String> {
+pub async fn clear_embedding_model_cache(app: AppHandle) -> Result<u64, String> {
+    crate::shared::blocking::blocking("clear_embedding_model_cache", move || {
+        clear_embedding_model_cache_inner(app)
+    })
+    .await
+}
+
+pub fn clear_embedding_model_cache_inner(app: AppHandle) -> Result<u64, String> {
     let model_dir = resolve_embedding_cache_dir(&app);
     let freed = dir_size(&model_dir);
     if model_dir.exists() {
@@ -2229,7 +2308,11 @@ fn enqueue_index_command(
 
 #[tauri::command]
 #[specta::specta]
-pub fn index_build(app: AppHandle, vault_id: String) -> Result<(), String> {
+pub async fn index_build(app: AppHandle, vault_id: String) -> Result<(), String> {
+    crate::shared::blocking::blocking("index_build", move || index_build_inner(app, vault_id)).await
+}
+
+pub fn index_build_inner(app: AppHandle, vault_id: String) -> Result<(), String> {
     log::info!("Building index vault_id={}", vault_id);
     enqueue_index_command(
         &app,
@@ -2245,7 +2328,19 @@ pub fn index_build(app: AppHandle, vault_id: String) -> Result<(), String> {
 
 #[tauri::command]
 #[specta::specta]
-pub fn index_sync_paths(
+pub async fn index_sync_paths(
+    app: AppHandle,
+    vault_id: String,
+    changed_paths: Vec<String>,
+    removed_paths: Vec<String>,
+) -> Result<(), String> {
+    crate::shared::blocking::blocking("index_sync_paths", move || {
+        index_sync_paths_inner(app, vault_id, changed_paths, removed_paths)
+    })
+    .await
+}
+
+pub fn index_sync_paths_inner(
     app: AppHandle,
     vault_id: String,
     changed_paths: Vec<String>,
@@ -2272,7 +2367,12 @@ pub fn index_sync_paths(
 
 #[tauri::command]
 #[specta::specta]
-pub fn index_cancel(app: AppHandle, vault_id: String) -> Result<(), String> {
+pub async fn index_cancel(app: AppHandle, vault_id: String) -> Result<(), String> {
+    crate::shared::blocking::blocking("index_cancel", move || index_cancel_inner(app, vault_id))
+        .await
+}
+
+pub fn index_cancel_inner(app: AppHandle, vault_id: String) -> Result<(), String> {
     let cancel = {
         ensure_worker(&app, &vault_id)?;
         let state = app.state::<SearchDbState>();
@@ -2286,7 +2386,12 @@ pub fn index_cancel(app: AppHandle, vault_id: String) -> Result<(), String> {
 
 #[tauri::command]
 #[specta::specta]
-pub fn index_rebuild(app: AppHandle, vault_id: String) -> Result<(), String> {
+pub async fn index_rebuild(app: AppHandle, vault_id: String) -> Result<(), String> {
+    crate::shared::blocking::blocking("index_rebuild", move || index_rebuild_inner(app, vault_id))
+        .await
+}
+
+pub fn index_rebuild_inner(app: AppHandle, vault_id: String) -> Result<(), String> {
     log::info!("Rebuilding index vault_id={}", vault_id);
     enqueue_index_command(
         &app,
@@ -2302,7 +2407,19 @@ pub fn index_rebuild(app: AppHandle, vault_id: String) -> Result<(), String> {
 
 #[tauri::command]
 #[specta::specta]
-pub fn index_search(
+pub async fn index_search(
+    app: AppHandle,
+    vault_id: String,
+    query: SearchQueryInput,
+    limit: Option<usize>,
+) -> Result<Vec<SearchHit>, String> {
+    crate::shared::blocking::blocking("index_search", move || {
+        index_search_inner(app, vault_id, query, limit)
+    })
+    .await
+}
+
+pub fn index_search_inner(
     app: AppHandle,
     vault_id: String,
     query: SearchQueryInput,
@@ -2355,7 +2472,19 @@ fn finalize_suggestions(
 
 #[tauri::command]
 #[specta::specta]
-pub fn index_suggest(
+pub async fn index_suggest(
+    app: AppHandle,
+    vault_id: String,
+    query: String,
+    limit: Option<usize>,
+) -> Result<Vec<search_db::SuggestionHit>, String> {
+    crate::shared::blocking::blocking("index_suggest", move || {
+        index_suggest_inner(app, vault_id, query, limit)
+    })
+    .await
+}
+
+pub fn index_suggest_inner(
     app: AppHandle,
     vault_id: String,
     query: String,
@@ -2378,7 +2507,19 @@ pub fn index_suggest(
 
 #[tauri::command]
 #[specta::specta]
-pub fn index_suggest_planned(
+pub async fn index_suggest_planned(
+    app: AppHandle,
+    vault_id: String,
+    query: String,
+    limit: Option<usize>,
+) -> Result<Vec<search_db::PlannedSuggestionHit>, String> {
+    crate::shared::blocking::blocking("index_suggest_planned", move || {
+        index_suggest_planned_inner(app, vault_id, query, limit)
+    })
+    .await
+}
+
+pub fn index_suggest_planned_inner(
     app: AppHandle,
     vault_id: String,
     query: String,
@@ -2396,7 +2537,18 @@ pub fn index_suggest_planned(
 
 #[tauri::command]
 #[specta::specta]
-pub fn index_list_note_paths_by_prefix(
+pub async fn index_list_note_paths_by_prefix(
+    app: AppHandle,
+    vault_id: String,
+    prefix: String,
+) -> Result<Vec<String>, String> {
+    crate::shared::blocking::blocking("index_list_note_paths_by_prefix", move || {
+        index_list_note_paths_by_prefix_inner(app, vault_id, prefix)
+    })
+    .await
+}
+
+pub fn index_list_note_paths_by_prefix_inner(
     app: AppHandle,
     vault_id: String,
     prefix: String,
@@ -2408,7 +2560,22 @@ pub fn index_list_note_paths_by_prefix(
 
 #[tauri::command]
 #[specta::specta]
-pub fn index_upsert_note(app: AppHandle, vault_id: String, note_id: String) -> Result<(), String> {
+pub async fn index_upsert_note(
+    app: AppHandle,
+    vault_id: String,
+    note_id: String,
+) -> Result<(), String> {
+    crate::shared::blocking::blocking("index_upsert_note", move || {
+        index_upsert_note_inner(app, vault_id, note_id)
+    })
+    .await
+}
+
+pub fn index_upsert_note_inner(
+    app: AppHandle,
+    vault_id: String,
+    note_id: String,
+) -> Result<(), String> {
     let vault_root = storage::vault_path(&app, &vault_id)?;
     send_write_blocking(&app, &vault_id, |reply| DbCommand::UpsertNote {
         vault_root,
@@ -2436,7 +2603,22 @@ pub fn index_upsert_note_with_content(
 
 #[tauri::command]
 #[specta::specta]
-pub fn index_remove_note(app: AppHandle, vault_id: String, note_id: String) -> Result<(), String> {
+pub async fn index_remove_note(
+    app: AppHandle,
+    vault_id: String,
+    note_id: String,
+) -> Result<(), String> {
+    crate::shared::blocking::blocking("index_remove_note", move || {
+        index_remove_note_inner(app, vault_id, note_id)
+    })
+    .await
+}
+
+pub fn index_remove_note_inner(
+    app: AppHandle,
+    vault_id: String,
+    note_id: String,
+) -> Result<(), String> {
     send_write_blocking(&app, &vault_id, |reply| DbCommand::RemoveNote {
         note_id,
         reply,
@@ -2445,7 +2627,18 @@ pub fn index_remove_note(app: AppHandle, vault_id: String, note_id: String) -> R
 
 #[tauri::command]
 #[specta::specta]
-pub fn index_remove_notes(
+pub async fn index_remove_notes(
+    app: AppHandle,
+    vault_id: String,
+    note_ids: Vec<String>,
+) -> Result<(), String> {
+    crate::shared::blocking::blocking("index_remove_notes", move || {
+        index_remove_notes_inner(app, vault_id, note_ids)
+    })
+    .await
+}
+
+pub fn index_remove_notes_inner(
     app: AppHandle,
     vault_id: String,
     note_ids: Vec<String>,
@@ -2458,7 +2651,18 @@ pub fn index_remove_notes(
 
 #[tauri::command]
 #[specta::specta]
-pub fn index_remove_notes_by_prefix(
+pub async fn index_remove_notes_by_prefix(
+    app: AppHandle,
+    vault_id: String,
+    prefix: String,
+) -> Result<(), String> {
+    crate::shared::blocking::blocking("index_remove_notes_by_prefix", move || {
+        index_remove_notes_by_prefix_inner(app, vault_id, prefix)
+    })
+    .await
+}
+
+pub fn index_remove_notes_by_prefix_inner(
     app: AppHandle,
     vault_id: String,
     prefix: String,
@@ -2525,7 +2729,18 @@ pub fn linked_source_clear(
 
 #[tauri::command]
 #[specta::specta]
-pub fn query_linked_notes_by_source(
+pub async fn query_linked_notes_by_source(
+    app: AppHandle,
+    vault_id: String,
+    source_name: String,
+) -> Result<Vec<crate::features::search::model::LinkedNoteInfo>, String> {
+    crate::shared::blocking::blocking("query_linked_notes_by_source", move || {
+        query_linked_notes_by_source_inner(app, vault_id, source_name)
+    })
+    .await
+}
+
+pub fn query_linked_notes_by_source_inner(
     app: AppHandle,
     vault_id: String,
     source_name: String,
@@ -2537,7 +2752,18 @@ pub fn query_linked_notes_by_source(
 
 #[tauri::command]
 #[specta::specta]
-pub fn count_linked_notes_by_source(
+pub async fn count_linked_notes_by_source(
+    app: AppHandle,
+    vault_id: String,
+    source_name: String,
+) -> Result<usize, String> {
+    crate::shared::blocking::blocking("count_linked_notes_by_source", move || {
+        count_linked_notes_by_source_inner(app, vault_id, source_name)
+    })
+    .await
+}
+
+pub fn count_linked_notes_by_source_inner(
     app: AppHandle,
     vault_id: String,
     source_name: String,
@@ -2549,7 +2775,18 @@ pub fn count_linked_notes_by_source(
 
 #[tauri::command]
 #[specta::specta]
-pub fn find_note_by_citekey(
+pub async fn find_note_by_citekey(
+    app: AppHandle,
+    vault_id: String,
+    citekey: String,
+) -> Result<Option<crate::features::search::model::LinkedNoteInfo>, String> {
+    crate::shared::blocking::blocking("find_note_by_citekey", move || {
+        find_note_by_citekey_inner(app, vault_id, citekey)
+    })
+    .await
+}
+
+pub fn find_note_by_citekey_inner(
     app: AppHandle,
     vault_id: String,
     citekey: String,
@@ -2561,7 +2798,19 @@ pub fn find_note_by_citekey(
 
 #[tauri::command]
 #[specta::specta]
-pub fn search_linked_notes(
+pub async fn search_linked_notes(
+    app: AppHandle,
+    vault_id: String,
+    query: String,
+    limit: Option<usize>,
+) -> Result<Vec<crate::features::search::model::LinkedNoteInfo>, String> {
+    crate::shared::blocking::blocking("search_linked_notes", move || {
+        search_linked_notes_inner(app, vault_id, query, limit)
+    })
+    .await
+}
+
+pub fn search_linked_notes_inner(
     app: AppHandle,
     vault_id: String,
     query: String,
@@ -2575,7 +2824,18 @@ pub fn search_linked_notes(
 
 #[tauri::command]
 #[specta::specta]
-pub fn resolve_linked_note_file_path(
+pub async fn resolve_linked_note_file_path(
+    app: AppHandle,
+    vault_id: String,
+    note_path: String,
+) -> Result<Option<String>, String> {
+    crate::shared::blocking::blocking("resolve_linked_note_file_path", move || {
+        resolve_linked_note_file_path_inner(app, vault_id, note_path)
+    })
+    .await
+}
+
+pub fn resolve_linked_note_file_path_inner(
     app: AppHandle,
     vault_id: String,
     note_path: String,
@@ -2668,7 +2928,26 @@ fn lexically_normalize(path: PathBuf) -> String {
 
 #[tauri::command]
 #[specta::specta]
-pub fn update_linked_note_metadata(
+pub async fn update_linked_note_metadata(
+    app: AppHandle,
+    vault_id: String,
+    source_name: String,
+    external_file_path: String,
+    linked_meta: crate::features::search::model::LinkedSourceMeta,
+) -> Result<bool, String> {
+    crate::shared::blocking::blocking("update_linked_note_metadata", move || {
+        update_linked_note_metadata_inner(
+            app,
+            vault_id,
+            source_name,
+            external_file_path,
+            linked_meta,
+        )
+    })
+    .await
+}
+
+pub fn update_linked_note_metadata_inner(
     app: AppHandle,
     vault_id: String,
     source_name: String,
@@ -2685,7 +2964,19 @@ pub fn update_linked_note_metadata(
 
 #[tauri::command]
 #[specta::specta]
-pub fn index_rename_folder(
+pub async fn index_rename_folder(
+    app: AppHandle,
+    vault_id: String,
+    old_prefix: String,
+    new_prefix: String,
+) -> Result<usize, String> {
+    crate::shared::blocking::blocking("index_rename_folder", move || {
+        index_rename_folder_inner(app, vault_id, old_prefix, new_prefix)
+    })
+    .await
+}
+
+pub fn index_rename_folder_inner(
     app: AppHandle,
     vault_id: String,
     old_prefix: String,
@@ -2700,7 +2991,19 @@ pub fn index_rename_folder(
 
 #[tauri::command]
 #[specta::specta]
-pub fn index_rename_note(
+pub async fn index_rename_note(
+    app: AppHandle,
+    vault_id: String,
+    old_path: String,
+    new_path: String,
+) -> Result<(), String> {
+    crate::shared::blocking::blocking("index_rename_note", move || {
+        index_rename_note_inner(app, vault_id, old_path, new_path)
+    })
+    .await
+}
+
+pub fn index_rename_note_inner(
     app: AppHandle,
     vault_id: String,
     old_path: String,
@@ -2715,7 +3018,19 @@ pub fn index_rename_note(
 
 #[tauri::command]
 #[specta::specta]
-pub fn semantic_search(
+pub async fn semantic_search(
+    app: AppHandle,
+    vault_id: String,
+    query: String,
+    limit: Option<usize>,
+) -> Result<Vec<SemanticSearchHit>, String> {
+    crate::shared::blocking::blocking("semantic_search", move || {
+        semantic_search_inner(app, vault_id, query, limit)
+    })
+    .await
+}
+
+pub fn semantic_search_inner(
     app: AppHandle,
     vault_id: String,
     query: String,
@@ -2743,7 +3058,20 @@ pub fn semantic_search(
 
 #[tauri::command]
 #[specta::specta]
-pub fn find_similar_notes(
+pub async fn find_similar_notes(
+    app: AppHandle,
+    vault_id: String,
+    note_path: String,
+    limit: Option<usize>,
+    exclude_linked: Option<bool>,
+) -> Result<Vec<SemanticSearchHit>, String> {
+    crate::shared::blocking::blocking("find_similar_notes", move || {
+        find_similar_notes_inner(app, vault_id, note_path, limit, exclude_linked)
+    })
+    .await
+}
+
+pub fn find_similar_notes_inner(
     app: AppHandle,
     vault_id: String,
     note_path: String,
@@ -2804,7 +3132,20 @@ pub fn find_similar_notes(
 
 #[tauri::command]
 #[specta::specta]
-pub fn find_similar_blocks(
+pub async fn find_similar_blocks(
+    app: AppHandle,
+    vault_id: String,
+    note_path: String,
+    heading_id: String,
+    limit: Option<usize>,
+) -> Result<Vec<BlockSearchHit>, String> {
+    crate::shared::blocking::blocking("find_similar_blocks", move || {
+        find_similar_blocks_inner(app, vault_id, note_path, heading_id, limit)
+    })
+    .await
+}
+
+pub fn find_similar_blocks_inner(
     app: AppHandle,
     vault_id: String,
     note_path: String,
@@ -2845,7 +3186,20 @@ pub fn find_similar_blocks(
 
 #[tauri::command]
 #[specta::specta]
-pub fn search_blocks(
+pub async fn search_blocks(
+    app: AppHandle,
+    vault_id: String,
+    query: String,
+    limit: Option<usize>,
+    date_range: Option<DateRange>,
+) -> Result<Vec<BlockSectionHit>, String> {
+    crate::shared::blocking::blocking("search_blocks", move || {
+        search_blocks_inner(app, vault_id, query, limit, date_range)
+    })
+    .await
+}
+
+pub fn search_blocks_inner(
     app: AppHandle,
     vault_id: String,
     query: String,
@@ -3003,7 +3357,20 @@ pub(crate) fn hybrid_search_sync(
 
 #[tauri::command]
 #[specta::specta]
-pub fn get_embedding_status(app: AppHandle, vault_id: String) -> Result<EmbeddingStatus, String> {
+pub async fn get_embedding_status(
+    app: AppHandle,
+    vault_id: String,
+) -> Result<EmbeddingStatus, String> {
+    crate::shared::blocking::blocking("get_embedding_status", move || {
+        get_embedding_status_inner(app, vault_id)
+    })
+    .await
+}
+
+pub fn get_embedding_status_inner(
+    app: AppHandle,
+    vault_id: String,
+) -> Result<EmbeddingStatus, String> {
     let is_embedding = {
         let state = app.state::<SearchDbState>();
         let map = state.workers.lock().map_err(|e| e.to_string())?;
@@ -3028,7 +3395,14 @@ pub fn get_embedding_status(app: AppHandle, vault_id: String) -> Result<Embeddin
 
 #[tauri::command]
 #[specta::specta]
-pub fn rebuild_embeddings(app: AppHandle, vault_id: String) -> Result<(), String> {
+pub async fn rebuild_embeddings(app: AppHandle, vault_id: String) -> Result<(), String> {
+    crate::shared::blocking::blocking("rebuild_embeddings", move || {
+        rebuild_embeddings_inner(app, vault_id)
+    })
+    .await
+}
+
+pub fn rebuild_embeddings_inner(app: AppHandle, vault_id: String) -> Result<(), String> {
     let vault_root = storage::vault_path(&app, &vault_id)?;
     let cancel = replace_worker_cancel_token(&app, &vault_id)?;
     let is_embedding = get_worker_is_embedding(&app, &vault_id)?;
@@ -3048,7 +3422,11 @@ pub fn rebuild_embeddings(app: AppHandle, vault_id: String) -> Result<(), String
 
 #[tauri::command]
 #[specta::specta]
-pub fn embed_sync(app: AppHandle, vault_id: String) -> Result<(), String> {
+pub async fn embed_sync(app: AppHandle, vault_id: String) -> Result<(), String> {
+    crate::shared::blocking::blocking("embed_sync", move || embed_sync_inner(app, vault_id)).await
+}
+
+pub fn embed_sync_inner(app: AppHandle, vault_id: String) -> Result<(), String> {
     ensure_worker(&app, &vault_id)?;
     let embed_queued = {
         let state = app.state::<SearchDbState>();
@@ -3092,7 +3470,18 @@ pub fn embed_sync(app: AppHandle, vault_id: String) -> Result<(), String> {
 
 #[tauri::command]
 #[specta::specta]
-pub fn get_note_stats(
+pub async fn get_note_stats(
+    app: AppHandle,
+    vault_id: String,
+    note_path: String,
+) -> Result<crate::features::search::model::NoteStats, String> {
+    crate::shared::blocking::blocking("get_note_stats", move || {
+        get_note_stats_inner(app, vault_id, note_path)
+    })
+    .await
+}
+
+pub fn get_note_stats_inner(
     app: AppHandle,
     vault_id: String,
     note_path: String,
@@ -3104,7 +3493,18 @@ pub fn get_note_stats(
 
 #[tauri::command]
 #[specta::specta]
-pub fn get_note_headings(
+pub async fn get_note_headings(
+    app: AppHandle,
+    vault_id: String,
+    note_path: String,
+) -> Result<Vec<crate::features::search::model::NoteHeading>, String> {
+    crate::shared::blocking::blocking("get_note_headings", move || {
+        get_note_headings_inner(app, vault_id, note_path)
+    })
+    .await
+}
+
+pub fn get_note_headings_inner(
     app: AppHandle,
     vault_id: String,
     note_path: String,
@@ -3116,7 +3516,18 @@ pub fn get_note_headings(
 
 #[tauri::command]
 #[specta::specta]
-pub fn get_note_links(
+pub async fn get_note_links(
+    app: AppHandle,
+    vault_id: String,
+    note_path: String,
+) -> Result<Vec<crate::features::search::model::NoteLink>, String> {
+    crate::shared::blocking::blocking("get_note_links", move || {
+        get_note_links_inner(app, vault_id, note_path)
+    })
+    .await
+}
+
+pub fn get_note_links_inner(
     app: AppHandle,
     vault_id: String,
     note_path: String,
@@ -3128,7 +3539,18 @@ pub fn get_note_links(
 
 #[tauri::command]
 #[specta::specta]
-pub fn note_get_file_cache(
+pub async fn note_get_file_cache(
+    app: AppHandle,
+    vault_id: String,
+    note_path: String,
+) -> Result<crate::features::search::model::FileCache, String> {
+    crate::shared::blocking::blocking("note_get_file_cache", move || {
+        note_get_file_cache_inner(app, vault_id, note_path)
+    })
+    .await
+}
+
+pub fn note_get_file_cache_inner(
     app: AppHandle,
     vault_id: String,
     note_path: String,
@@ -3384,7 +3806,18 @@ pub struct LinksSnapshot {
 
 #[tauri::command]
 #[specta::specta]
-pub fn index_note_links_snapshot(
+pub async fn index_note_links_snapshot(
+    app: AppHandle,
+    vault_id: String,
+    note_id: String,
+) -> Result<LinksSnapshot, String> {
+    crate::shared::blocking::blocking("index_note_links_snapshot", move || {
+        index_note_links_snapshot_inner(app, vault_id, note_id)
+    })
+    .await
+}
+
+pub fn index_note_links_snapshot_inner(
     app: AppHandle,
     vault_id: String,
     note_id: String,

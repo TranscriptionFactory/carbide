@@ -37,7 +37,18 @@ fn normalize(path: &str) -> String {
 
 #[tauri::command]
 #[specta::specta]
-pub fn reading_position_get(
+pub async fn reading_position_get(
+    app: AppHandle,
+    vault_id: String,
+    path: String,
+) -> Result<Option<String>, String> {
+    crate::shared::blocking::blocking("reading_position_get", move || {
+        reading_position_get_inner(app, vault_id, path)
+    })
+    .await
+}
+
+pub fn reading_position_get_inner(
     app: AppHandle,
     vault_id: String,
     path: String,
@@ -49,7 +60,19 @@ pub fn reading_position_get(
 
 #[tauri::command]
 #[specta::specta]
-pub fn reading_position_set(
+pub async fn reading_position_set(
+    app: AppHandle,
+    vault_id: String,
+    path: String,
+    cfi: String,
+) -> Result<(), String> {
+    crate::shared::blocking::blocking("reading_position_set", move || {
+        reading_position_set_inner(app, vault_id, path, cfi)
+    })
+    .await
+}
+
+pub fn reading_position_set_inner(
     app: AppHandle,
     vault_id: String,
     path: String,

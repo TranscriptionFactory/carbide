@@ -59,7 +59,17 @@ pub struct SavedViewInfo {
 
 #[tauri::command]
 #[specta::specta]
-pub fn bases_list_properties(
+pub async fn bases_list_properties(
+    app: AppHandle,
+    vault_id: String,
+) -> Result<Vec<PropertyInfo>, String> {
+    crate::shared::blocking::blocking("bases_list_properties", move || {
+        bases_list_properties_inner(app, vault_id)
+    })
+    .await
+}
+
+pub fn bases_list_properties_inner(
     app: AppHandle,
     vault_id: String,
 ) -> Result<Vec<PropertyInfo>, String> {
@@ -68,7 +78,18 @@ pub fn bases_list_properties(
 
 #[tauri::command]
 #[specta::specta]
-pub fn bases_query(
+pub async fn bases_query(
+    app: AppHandle,
+    vault_id: String,
+    query: BaseQuery,
+) -> Result<BaseQueryResults, String> {
+    crate::shared::blocking::blocking("bases_query", move || {
+        bases_query_inner(app, vault_id, query)
+    })
+    .await
+}
+
+pub fn bases_query_inner(
     app: AppHandle,
     vault_id: String,
     query: BaseQuery,
@@ -78,7 +99,18 @@ pub fn bases_query(
 
 #[tauri::command]
 #[specta::specta]
-pub fn bases_count_many(
+pub async fn bases_count_many(
+    app: AppHandle,
+    vault_id: String,
+    queries: Vec<BaseQuery>,
+) -> Result<Vec<u32>, String> {
+    crate::shared::blocking::blocking("bases_count_many", move || {
+        bases_count_many_inner(app, vault_id, queries)
+    })
+    .await
+}
+
+pub fn bases_count_many_inner(
     app: AppHandle,
     vault_id: String,
     queries: Vec<BaseQuery>,
@@ -90,7 +122,14 @@ pub fn bases_count_many(
 
 #[tauri::command]
 #[specta::specta]
-pub fn list_types(
+pub async fn list_types(
+    app: AppHandle,
+    vault_id: String,
+) -> Result<Vec<search_db::TypeCount>, String> {
+    crate::shared::blocking::blocking("list_types", move || list_types_inner(app, vault_id)).await
+}
+
+pub fn list_types_inner(
     app: AppHandle,
     vault_id: String,
 ) -> Result<Vec<search_db::TypeCount>, String> {
@@ -99,7 +138,19 @@ pub fn list_types(
 
 #[tauri::command]
 #[specta::specta]
-pub fn bases_save_view(
+pub async fn bases_save_view(
+    app: AppHandle,
+    vault_id: String,
+    path: String,
+    view: BaseViewDefinition,
+) -> Result<(), String> {
+    crate::shared::blocking::blocking("bases_save_view", move || {
+        bases_save_view_inner(app, vault_id, path, view)
+    })
+    .await
+}
+
+pub fn bases_save_view_inner(
     app: AppHandle,
     vault_id: String,
     path: String,
@@ -120,7 +171,18 @@ pub fn bases_save_view(
 
 #[tauri::command]
 #[specta::specta]
-pub fn bases_load_view(
+pub async fn bases_load_view(
+    app: AppHandle,
+    vault_id: String,
+    path: String,
+) -> Result<BaseViewDefinition, String> {
+    crate::shared::blocking::blocking("bases_load_view", move || {
+        bases_load_view_inner(app, vault_id, path)
+    })
+    .await
+}
+
+pub fn bases_load_view_inner(
     app: AppHandle,
     vault_id: String,
     path: String,
@@ -136,7 +198,20 @@ pub fn bases_load_view(
 
 #[tauri::command]
 #[specta::specta]
-pub fn bases_list_views(app: AppHandle, vault_id: String) -> Result<Vec<SavedViewInfo>, String> {
+pub async fn bases_list_views(
+    app: AppHandle,
+    vault_id: String,
+) -> Result<Vec<SavedViewInfo>, String> {
+    crate::shared::blocking::blocking("bases_list_views", move || {
+        bases_list_views_inner(app, vault_id)
+    })
+    .await
+}
+
+pub fn bases_list_views_inner(
+    app: AppHandle,
+    vault_id: String,
+) -> Result<Vec<SavedViewInfo>, String> {
     let root = storage::vault_path(&app, &vault_id)?;
     let dir = root.join(".carbide").join("bases");
     if !dir.is_dir() {
@@ -170,7 +245,22 @@ pub fn bases_list_views(app: AppHandle, vault_id: String) -> Result<Vec<SavedVie
 
 #[tauri::command]
 #[specta::specta]
-pub fn bases_delete_view(app: AppHandle, vault_id: String, path: String) -> Result<(), String> {
+pub async fn bases_delete_view(
+    app: AppHandle,
+    vault_id: String,
+    path: String,
+) -> Result<(), String> {
+    crate::shared::blocking::blocking("bases_delete_view", move || {
+        bases_delete_view_inner(app, vault_id, path)
+    })
+    .await
+}
+
+pub fn bases_delete_view_inner(
+    app: AppHandle,
+    vault_id: String,
+    path: String,
+) -> Result<(), String> {
     let root = storage::vault_path(&app, &vault_id)?;
     let abs = notes_service::safe_vault_abs(&root, &path)?;
 
@@ -325,7 +415,14 @@ fn default_seed_views() -> Vec<(BaseViewDefinition, Option<&'static str>)> {
 
 #[tauri::command]
 #[specta::specta]
-pub fn bases_seed_default_views(app: AppHandle, vault_id: String) -> Result<u32, String> {
+pub async fn bases_seed_default_views(app: AppHandle, vault_id: String) -> Result<u32, String> {
+    crate::shared::blocking::blocking("bases_seed_default_views", move || {
+        bases_seed_default_views_inner(app, vault_id)
+    })
+    .await
+}
+
+pub fn bases_seed_default_views_inner(app: AppHandle, vault_id: String) -> Result<u32, String> {
     if storage::vault_mode_for_id(&app, &vault_id)? == storage::VaultMode::Browse {
         return Ok(0);
     }
@@ -368,7 +465,20 @@ pub fn bases_seed_default_views(app: AppHandle, vault_id: String) -> Result<u32,
 
 #[tauri::command]
 #[specta::specta]
-pub fn bases_update_property(
+pub async fn bases_update_property(
+    app: AppHandle,
+    vault_id: String,
+    note_path: String,
+    key: String,
+    value: String,
+) -> Result<(), String> {
+    crate::shared::blocking::blocking("bases_update_property", move || {
+        bases_update_property_inner(app, vault_id, note_path, key, value)
+    })
+    .await
+}
+
+pub fn bases_update_property_inner(
     app: AppHandle,
     vault_id: String,
     note_path: String,

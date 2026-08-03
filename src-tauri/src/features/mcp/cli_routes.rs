@@ -419,7 +419,7 @@ async fn cli_git_status(
         Ok(r) => r,
         Err(resp) => return resp,
     };
-    match git_service::git_status(root) {
+    match git_service::git_status_inner(root) {
         Ok(status) => (StatusCode::OK, Json(status)).into_response(),
         Err(e) => internal_err(e),
     }
@@ -433,7 +433,7 @@ async fn cli_git_commit(
         Ok(r) => r,
         Err(resp) => return resp,
     };
-    match git_service::git_stage_and_commit(root, params.message, params.files) {
+    match git_service::git_stage_and_commit_inner(root, params.message, params.files) {
         Ok(hash) => (
             StatusCode::OK,
             Json(serde_json::json!({ "ok": true, "hash": hash })),
@@ -504,7 +504,7 @@ async fn cli_git_restore(
         Ok(r) => r,
         Err(resp) => return resp,
     };
-    match git_service::git_restore_file(root, params.path, params.commit) {
+    match git_service::git_restore_file_inner(root, params.path, params.commit) {
         Ok(hash) => (
             StatusCode::OK,
             Json(serde_json::json!({ "ok": true, "hash": hash })),
@@ -531,7 +531,7 @@ async fn cli_git_discard(
         Ok(r) => r,
         Err(resp) => return resp,
     };
-    match git_service::git_discard_all(root, params.paths) {
+    match git_service::git_discard_all_inner(root, params.paths) {
         Ok(paths) => (
             StatusCode::OK,
             Json(serde_json::json!({ "ok": true, "paths": paths })),
@@ -549,7 +549,7 @@ async fn cli_git_init(
         Ok(r) => r,
         Err(resp) => return resp,
     };
-    match git_service::git_init_repo(root) {
+    match git_service::git_init_repo_inner(root) {
         Ok(()) => (StatusCode::OK, Json(serde_json::json!({ "ok": true }))).into_response(),
         Err(e) => internal_err(e),
     }
@@ -583,7 +583,7 @@ async fn cli_references(
     State(state): State<Arc<HttpAppState>>,
     Json(params): Json<shared_ops::VaultIdArgs>,
 ) -> axum::response::Response {
-    match reference_service::reference_load_library(state.app().clone(), params.vault_id) {
+    match reference_service::reference_load_library_inner(state.app().clone(), params.vault_id) {
         Ok(library) => (StatusCode::OK, Json(library.items)).into_response(),
         Err(e) => internal_err(e),
     }
@@ -594,7 +594,7 @@ async fn cli_references_search(
     Json(params): Json<ReferencesSearchParams>,
 ) -> axum::response::Response {
     let library =
-        match reference_service::reference_load_library(state.app().clone(), params.vault_id) {
+        match reference_service::reference_load_library_inner(state.app().clone(), params.vault_id) {
             Ok(lib) => lib,
             Err(e) => return internal_err(e),
         };
@@ -624,7 +624,7 @@ async fn cli_references_add(
         Err(e) => return internal_err(e),
     };
 
-    match reference_service::reference_add_item(state.app().clone(), params.vault_id, item.clone())
+    match reference_service::reference_add_item_inner(state.app().clone(), params.vault_id, item.clone())
     {
         Ok(_library) => (StatusCode::CREATED, Json(item)).into_response(),
         Err(e) => internal_err(e),
@@ -808,7 +808,7 @@ async fn cli_dev_index_build(
     State(state): State<Arc<HttpAppState>>,
     Json(params): Json<shared_ops::VaultIdArgs>,
 ) -> axum::response::Response {
-    match search_service::index_build(state.app().clone(), params.vault_id) {
+    match search_service::index_build_inner(state.app().clone(), params.vault_id) {
         Ok(()) => (StatusCode::OK, Json(serde_json::json!({ "ok": true }))).into_response(),
         Err(e) => internal_err(e),
     }
@@ -818,7 +818,7 @@ async fn cli_dev_index_rebuild(
     State(state): State<Arc<HttpAppState>>,
     Json(params): Json<shared_ops::VaultIdArgs>,
 ) -> axum::response::Response {
-    match search_service::index_rebuild(state.app().clone(), params.vault_id) {
+    match search_service::index_rebuild_inner(state.app().clone(), params.vault_id) {
         Ok(()) => (StatusCode::OK, Json(serde_json::json!({ "ok": true }))).into_response(),
         Err(e) => internal_err(e),
     }

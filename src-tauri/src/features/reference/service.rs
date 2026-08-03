@@ -59,7 +59,17 @@ fn item_citekey(item: &serde_json::Value) -> Option<&str> {
 
 #[tauri::command]
 #[specta::specta]
-pub fn reference_load_library(
+pub async fn reference_load_library(
+    app: AppHandle,
+    vault_id: String,
+) -> Result<ReferenceLibrary, String> {
+    crate::shared::blocking::blocking("reference_load_library", move || {
+        reference_load_library_inner(app, vault_id)
+    })
+    .await
+}
+
+pub fn reference_load_library_inner(
     app: AppHandle,
     vault_id: String,
 ) -> Result<ReferenceLibrary, String> {
@@ -68,7 +78,18 @@ pub fn reference_load_library(
 
 #[tauri::command]
 #[specta::specta]
-pub fn reference_save_library(
+pub async fn reference_save_library(
+    app: AppHandle,
+    vault_id: String,
+    library: ReferenceLibrary,
+) -> Result<(), String> {
+    crate::shared::blocking::blocking("reference_save_library", move || {
+        reference_save_library_inner(app, vault_id, library)
+    })
+    .await
+}
+
+pub fn reference_save_library_inner(
     app: AppHandle,
     vault_id: String,
     library: ReferenceLibrary,
@@ -81,7 +102,18 @@ pub fn reference_save_library(
 
 #[tauri::command]
 #[specta::specta]
-pub fn reference_add_item(
+pub async fn reference_add_item(
+    app: AppHandle,
+    vault_id: String,
+    item: serde_json::Value,
+) -> Result<ReferenceLibrary, String> {
+    crate::shared::blocking::blocking("reference_add_item", move || {
+        reference_add_item_inner(app, vault_id, item)
+    })
+    .await
+}
+
+pub fn reference_add_item_inner(
     app: AppHandle,
     vault_id: String,
     item: serde_json::Value,
@@ -111,7 +143,18 @@ pub fn reference_add_item(
 
 #[tauri::command]
 #[specta::specta]
-pub fn reference_remove_item(
+pub async fn reference_remove_item(
+    app: AppHandle,
+    vault_id: String,
+    citekey: String,
+) -> Result<ReferenceLibrary, String> {
+    crate::shared::blocking::blocking("reference_remove_item", move || {
+        reference_remove_item_inner(app, vault_id, citekey)
+    })
+    .await
+}
+
+pub fn reference_remove_item_inner(
     app: AppHandle,
     vault_id: String,
     citekey: String,
@@ -324,7 +367,19 @@ fn annotation_path(app: &AppHandle, vault_id: &str, citekey: &str) -> Result<Pat
 
 #[tauri::command]
 #[specta::specta]
-pub fn reference_save_annotation_note(
+pub async fn reference_save_annotation_note(
+    app: AppHandle,
+    vault_id: String,
+    citekey: String,
+    markdown: String,
+) -> Result<(), String> {
+    crate::shared::blocking::blocking("reference_save_annotation_note", move || {
+        reference_save_annotation_note_inner(app, vault_id, citekey, markdown)
+    })
+    .await
+}
+
+pub fn reference_save_annotation_note_inner(
     app: AppHandle,
     vault_id: String,
     citekey: String,
@@ -339,7 +394,18 @@ pub fn reference_save_annotation_note(
 
 #[tauri::command]
 #[specta::specta]
-pub fn reference_read_annotation_note(
+pub async fn reference_read_annotation_note(
+    app: AppHandle,
+    vault_id: String,
+    citekey: String,
+) -> Result<Option<String>, String> {
+    crate::shared::blocking::blocking("reference_read_annotation_note", move || {
+        reference_read_annotation_note_inner(app, vault_id, citekey)
+    })
+    .await
+}
+
+pub fn reference_read_annotation_note_inner(
     app: AppHandle,
     vault_id: String,
     citekey: String,

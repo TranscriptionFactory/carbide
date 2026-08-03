@@ -1,5 +1,10 @@
 import { invoke } from "@tauri-apps/api/core";
 import { is_tauri } from "$lib/shared/utils/detect_platform";
+import { create_logger } from "$lib/shared/utils/logger";
+
+const log = create_logger("tauri_invoke");
+
+const SLOW_COMMAND_MS = 250;
 
 export async function tauri_invoke<T>(
   command: string,
@@ -9,6 +14,7 @@ export async function tauri_invoke<T>(
     throw new Error(`tauri_invoke called in non-Tauri environment: ${command}`);
   }
 
+  const started_at = performance.now();
   try {
     return await invoke<T>(command, args);
   } catch (e) {
@@ -20,5 +26,10 @@ export async function tauri_invoke<T>(
     }
     const msg = e instanceof Error ? e.message : String(e);
     throw new Error(`tauri invoke failed: ${command}: ${msg}`);
+  } finally {
+    const duration_ms = Math.round(performance.now() - started_at);
+    if (duration_ms >= SLOW_COMMAND_MS) {
+      log.info("command_invoke phase=slow", { command, duration_ms });
+    }
   }
 }
