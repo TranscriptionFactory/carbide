@@ -91,3 +91,21 @@ export interface ProposalNotePort {
   read_note(note_path: string): Promise<string | null>;
   write_note(note_path: string, content: string): Promise<void>;
 }
+
+// Pin 5 (edit the open tab). Structural, NO features/document import — the
+// DI root is where the two features meet. The path resolves an OPEN document
+// tab's buffer, not disk: apply STAGES into the buffer (stage_document sets
+// edited content and marks the tab dirty) and save-the-tab is what writes.
+export type AssistantEditTarget = {
+  path: string;
+  title: string;
+  content: string;
+};
+
+export interface AssistantDocumentPort {
+  // null when the tab is gone or the type is not editable — the caller
+  // treats that as stale, mirroring the deleted-note rule.
+  read_document(path: string): AssistantEditTarget | null;
+  // false when staging failed (tab closed between read and stage).
+  stage_document(path: string, content: string): boolean;
+}

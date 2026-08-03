@@ -9,6 +9,8 @@
     type ScopeKind,
     type ScopeSuggestion,
   } from "$lib/features/assistant/domain/scope_suggest";
+  import { attachment_label } from "$lib/features/assistant/domain/document_attachment";
+  import type { DocumentAttachment } from "$lib/features/assistant/types/attachment";
   import { is_plain_enter } from "$lib/shared/utils/keyboard";
   import { note_name_from_path } from "$lib/shared/utils/path";
 
@@ -19,6 +21,11 @@
     saved_views: SavedViewInfo[];
     active_note_path: string | null;
     on_scope_change: (scope: AssistantScope) => void;
+    active_document?: { path: string; title: string } | null;
+    attached_document?: DocumentAttachment | null;
+    attached_open?: boolean;
+    on_attach_document?: (() => void) | undefined;
+    on_detach_document?: (() => void) | undefined;
   };
 
   let {
@@ -28,6 +35,11 @@
     saved_views,
     active_note_path,
     on_scope_change,
+    active_document = null,
+    attached_document = null,
+    attached_open = true,
+    on_attach_document = undefined,
+    on_detach_document = undefined,
   }: Props = $props();
 
   let query = $state("");
@@ -195,8 +207,24 @@
 {/snippet}
 
 <div class="ScopeBar">
-  {#if chips.length > 0}
+  {#if chips.length > 0 || attached_document}
     <div class="ScopeBar__chips">
+      {#if attached_document}
+        <span class="ScopeBar__chip" data-testid="scope-attached-document">
+          <FileText class="size-3" />
+          <span class="ScopeBar__chip-label"
+            >{attachment_label(attached_document, attached_open)}</span
+          >
+          <button
+            type="button"
+            class="ScopeBar__chip-remove"
+            aria-label="Detach document"
+            onclick={() => on_detach_document?.()}
+          >
+            <X class="size-3" />
+          </button>
+        </span>
+      {/if}
       {#each chips as chip (chip.kind + chip.value)}
         <span class="ScopeBar__chip">
           {@render kind_icon(chip.kind)}
@@ -214,7 +242,21 @@
     </div>
   {/if}
 
-  {#if !scoped_to_active}
+  <!-- Mutually exclusive affordances: a document tab offers This document,
+       a note offers This note — never both. -->
+  {#if active_document && attached_document?.path !== active_document.path}
+    <Button
+      variant="outline"
+      size="sm"
+      class="h-7 self-start px-2 text-xs font-normal text-muted-foreground"
+      data-testid="scope-this-document"
+      title={`Attach "${active_document.title}" to this chat`}
+      onclick={() => on_attach_document?.()}
+    >
+      <FileText class="size-3" />
+      <span>This document</span>
+    </Button>
+  {:else if !active_document && !scoped_to_active}
     <Button
       variant="outline"
       size="sm"

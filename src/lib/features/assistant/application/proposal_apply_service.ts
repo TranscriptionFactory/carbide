@@ -3,6 +3,7 @@ import { apply_proposal_hunks } from "$lib/features/assistant/domain/apply_propo
 import { is_stale } from "$lib/features/assistant/domain/note_revision";
 import type { AssistantProposalStore } from "$lib/features/assistant/state/assistant_proposal_store.svelte";
 import type {
+  AssistantDocumentPort,
   ProposalCheckpointOutcome,
   ProposalCheckpointPort,
   ProposalNotePort,
@@ -31,6 +32,7 @@ export type ProposalApplyDeps = {
   proposals: AssistantProposalStore;
   notes: ProposalNotePort;
   git: ProposalCheckpointPort;
+  documents: AssistantDocumentPort;
 };
 
 export class ProposalApplyService {
@@ -55,6 +57,12 @@ export class ProposalApplyService {
     const failed: { id: ProposalId; error: string }[] = [];
     const to_write: { id: ProposalId; note_path: string; content: string }[] =
       [];
+    // Document targets STAGE into the open buffer (edited content + dirty
+    // tab) — save-the-tab is what writes disk. The checkpoint is a DISK undo
+    // unit, so it gates on pending note writes alone: a document-only batch
+    // takes none, a mixed batch takes exactly one.
+    const to_stage: { id: ProposalId; file_path: string; content: string }[] =
+      [];
 
     for (const id of ids) {
       const proposal = this.deps.proposals.get(id);
@@ -68,12 +76,28 @@ export class ProposalApplyService {
         continue;
       }
 
-      // Document targets stage into an open buffer, not the note port; the
-      // branch lands with the document-edit capability (pin 5, stage 3).
-      if (proposal.target.kind !== "note") {
-        failed.push({
+      if (proposal.target.kind === "document") {
+        // A closed tab is stale, not failed — mirroring the deleted-note
+        // rule: the buffer the proposal was computed against is gone.
+        const document = this.deps.documents.read_document(
+          proposal.target.file_path,
+        );
+        if (
+          document === null ||
+          is_stale(proposal.base_revision, document.content)
+        ) {
+          stale.push(id);
+          continue;
+        }
+        const next = apply_proposal_hunks(document.content, proposal.hunks);
+        if (next === document.content) {
+          applied.push(id);
+          continue;
+        }
+        to_stage.push({
           id,
-          error: "document proposals cannot be applied yet",
+          file_path: proposal.target.file_path,
+          content: next,
         });
         continue;
       }
@@ -109,6 +133,7 @@ export class ProposalApplyService {
     for (const id of applied) this.deps.proposals.set_status(id, "applied");
 
     let checkpoint: ProposalApplyOutcome["checkpoint"] = null;
+    let checkpoint_failed = false;
 
     if (to_write.length > 0) {
       const description = `before applying ${String(to_write.length)} proposal${
@@ -118,9 +143,18 @@ export class ProposalApplyService {
       checkpoint = { description, outcome };
 
       if (outcome === "failed") {
+        // Fails the WHOLE batch closed, stagings included — a mixed batch is
+        // one undo unit and must not half-apply.
+        checkpoint_failed = true;
         for (const write of to_write) {
           failed.push({
             id: write.id,
+            error: "checkpoint failed; nothing applied",
+          });
+        }
+        for (const stage of to_stage) {
+          failed.push({
+            id: stage.id,
             error: "checkpoint failed; nothing applied",
           });
         }
@@ -133,6 +167,24 @@ export class ProposalApplyService {
           } catch (err) {
             failed.push({ id: write.id, error: error_message(err) });
           }
+        }
+      }
+    }
+
+    if (!checkpoint_failed) {
+      for (const stage of to_stage) {
+        const staged = this.deps.documents.stage_document(
+          stage.file_path,
+          stage.content,
+        );
+        if (staged) {
+          this.deps.proposals.set_status(stage.id, "applied");
+          applied.push(stage.id);
+        } else {
+          failed.push({
+            id: stage.id,
+            error: "could not stage the document buffer",
+          });
         }
       }
     }

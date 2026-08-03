@@ -185,3 +185,116 @@ describe("chat scope bar — the note chip", () => {
     expect(chip_labels(target)).toEqual(["This note", "projects/", "#ml"]);
   });
 });
+
+describe("chat_scope_bar document attachment (pin 5)", () => {
+  function render_doc_bar(props?: {
+    active_document?: { path: string; title: string } | null;
+    attached_document?: { path: string; title: string } | null;
+    attached_open?: boolean;
+    on_attach_document?: () => void;
+    on_detach_document?: () => void;
+    active_note_path?: string | null;
+  }) {
+    const target = document.createElement("div");
+    document.body.appendChild(target);
+    const app = mount(ChatScopeBar, {
+      target,
+      props: {
+        scope: {},
+        folder_paths: [],
+        tags: [],
+        saved_views: [],
+        active_note_path:
+          props?.active_note_path === undefined ? null : props.active_note_path,
+        on_scope_change: vi.fn(),
+        active_document: props?.active_document ?? null,
+        attached_document: props?.attached_document ?? null,
+        attached_open: props?.attached_open ?? true,
+        on_attach_document: props?.on_attach_document ?? vi.fn(),
+        on_detach_document: props?.on_detach_document ?? vi.fn(),
+      },
+    });
+    mounted.push({ app, target });
+    flushSync();
+    return target;
+  }
+
+  const DOC = { path: "artifacts/report.html", title: "report" };
+
+  it("offers This document instead of This note over a document tab", () => {
+    const target = render_doc_bar({ active_document: DOC });
+
+    expect(
+      target.querySelector('[data-testid="scope-this-document"]'),
+    ).not.toBeNull();
+    expect(this_note_button(target)).toBeNull();
+  });
+
+  it("clicking This document fires the attach handler", () => {
+    const on_attach_document = vi.fn();
+    const target = render_doc_bar({
+      active_document: DOC,
+      on_attach_document,
+    });
+
+    target
+      .querySelector<HTMLButtonElement>('[data-testid="scope-this-document"]')
+      ?.click();
+    flushSync();
+
+    expect(on_attach_document).toHaveBeenCalledTimes(1);
+  });
+
+  it("renders the attached chip and hides the button once attached", () => {
+    const target = render_doc_bar({
+      active_document: DOC,
+      attached_document: DOC,
+    });
+
+    const chip = target.querySelector(
+      '[data-testid="scope-attached-document"]',
+    );
+    expect(chip?.textContent).toContain("report");
+    expect(
+      target.querySelector('[data-testid="scope-this-document"]'),
+    ).toBeNull();
+  });
+
+  it("marks the chip (closed) when the attached tab is gone", () => {
+    const target = render_doc_bar({
+      attached_document: DOC,
+      attached_open: false,
+    });
+
+    expect(
+      target.querySelector('[data-testid="scope-attached-document"]')
+        ?.textContent,
+    ).toContain("report (closed)");
+  });
+
+  it("detaches through the chip's remove button", () => {
+    const on_detach_document = vi.fn();
+    const target = render_doc_bar({
+      attached_document: DOC,
+      on_detach_document,
+    });
+
+    target
+      .querySelector<HTMLButtonElement>(
+        '[data-testid="scope-attached-document"] .ScopeBar__chip-remove',
+      )
+      ?.click();
+    flushSync();
+
+    expect(on_detach_document).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps This note behavior untouched when no document is active", () => {
+    const target = render_doc_bar({ active_note_path: NOTE });
+
+    expect(this_note_button(target)).not.toBeNull();
+    expect(
+      target.querySelector('[data-testid="scope-this-document"]'),
+    ).toBeNull();
+  });
+});

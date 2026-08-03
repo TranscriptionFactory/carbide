@@ -99,6 +99,11 @@ function create_harness(
     remove_tab: vi.fn(),
   };
 
+  const documents = {
+    read_document: vi.fn(() => null),
+    stage_document: vi.fn(() => false),
+  };
+
   register_chat_actions({
     registry,
     stores: stores as never,
@@ -113,6 +118,7 @@ function create_harness(
       bootstrap_default_vault_path: null,
     },
     chat_store,
+    documents,
     chat_service: {} as never,
     session_service: session_service as never,
     assistant_kernel: assistant_kernel as never,

@@ -161,4 +161,34 @@ describe("build_chat_prompt", () => {
     expect(rendered).toContain("NEWEST");
     expect(rendered).not.toContain("OLDEST");
   });
+
+  it("renders an attachment as an unnumbered first-party section (pin 5)", () => {
+    const result = build_chat_prompt({
+      question: "what is this?",
+      contexts: [],
+      attachment: {
+        path: "artifacts/report.html",
+        title: "report",
+        content: "<h1>Q3</h1>",
+      },
+    });
+
+    expect(result.user_prompt).toContain(
+      '<attached_document path="artifacts/report.html" title="report">',
+    );
+    expect(result.user_prompt).toContain("<h1>Q3</h1>");
+    expect(result.user_prompt).not.toContain("<retrieved_context>");
+    expect(result.system_prompt).toContain("do not cite it with brackets");
+  });
+
+  it("keeps the retrieved context alongside the attachment when both exist", () => {
+    const result = build_chat_prompt({
+      question: "q",
+      contexts,
+      attachment: { path: "a.html", title: "a", content: "body" },
+    });
+
+    expect(result.user_prompt).toContain("<retrieved_context>");
+    expect(result.user_prompt).toContain("<attached_document");
+  });
 });

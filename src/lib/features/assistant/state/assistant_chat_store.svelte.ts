@@ -19,6 +19,7 @@ import type {
 } from "$lib/features/assistant/state/assistant_session_store.svelte";
 import type { AssistantChatSourceInfo } from "$lib/features/assistant/types/chat_stream";
 import type { RetrievalReadiness } from "$lib/features/assistant/types/retrieval";
+import type { DocumentAttachment } from "$lib/features/assistant/types/attachment";
 
 const CHAT_KIND = "chat";
 
@@ -59,6 +60,8 @@ export class AssistantChatStore {
   agent_running_tool = $state<string | null>(null);
   revision = $state(0);
   readiness = $state<RetrievalReadiness>({ state: "checking" });
+  // Composer state (pin 5): never enters the persisted session format.
+  attached_document = $state<DocumentAttachment | null>(null);
 
   constructor(private readonly store: AssistantSessionStore) {}
 
@@ -94,6 +97,14 @@ export class AssistantChatStore {
 
   set_readiness(readiness: RetrievalReadiness) {
     this.readiness = readiness;
+  }
+
+  attach_document(attachment: DocumentAttachment) {
+    this.attached_document = attachment;
+  }
+
+  detach_document() {
+    this.attached_document = null;
   }
 
   set_mode(mode: AssistantChatMode) {
@@ -333,6 +344,7 @@ export class AssistantChatStore {
     this.streaming_id = null;
     this.is_loading = false;
     this.error = null;
+    this.attached_document = null;
   }
 
   begin_turn(): number {

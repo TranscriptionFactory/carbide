@@ -119,6 +119,10 @@ export type AssistantChatQueryInput = {
   retrieve_limit?: number;
   assembler_options?: Partial<ContextBudget>;
   image_parts?: AiImagePart[];
+  // Attached open-tab document (pin 5). Outside the retrieval budget — the
+  // legacy panel sent the whole document, and budgeting it here would
+  // silently drop the exact content the user pointed at.
+  attachment?: { path: string; title: string; content: string };
   // The kernel owns cancellation, so a caller that needs a Stop takes the
   // handle rather than pushing a signal down.
   on_run_started?: (handle: RunHandle) => void;
@@ -169,63 +173,74 @@ export class AssistantChatService {
       };
       return;
     }
-    if (outcome.status === "scope_filtered") {
+    // With an attachment, a retrieval non-result no longer ends the turn:
+    // the question runs on the attachment alone.
+    if (outcome.status === "scope_filtered" && !input.attachment) {
       yield { type: "text", text: SCOPE_FILTERED_MESSAGE };
       yield { type: "done" };
       return;
     }
-    if (outcome.status === "empty") {
+    if (outcome.status === "empty" && !input.attachment) {
       yield* this.no_results();
       return;
     }
 
-    const pinned_blocks = to_blocks(outcome.pinned, true);
-    const retrieved_blocks = to_blocks(outcome.retrieved, false);
-    if (pinned_blocks.length + retrieved_blocks.length === 0) {
-      yield* this.no_results();
-      return;
+    let contexts: AssistantRetrievedContext[] = [];
+    if (outcome.status === "hits") {
+      const pinned_blocks = to_blocks(outcome.pinned, true);
+      const retrieved_blocks = to_blocks(outcome.retrieved, false);
+      if (
+        pinned_blocks.length + retrieved_blocks.length === 0 &&
+        !input.attachment
+      ) {
+        yield* this.no_results();
+        return;
+      }
+
+      const pinned_paths = new Set(
+        outcome.pinned.map((note) => note.note_path),
+      );
+
+      const assembly = assemble_context(
+        [
+          {
+            id: PINNED_SOURCE,
+            dedup_group: VAULT_DEDUP_GROUP,
+            blocks: pinned_blocks,
+          },
+          {
+            id: RETRIEVED_SOURCE,
+            dedup_group: VAULT_DEDUP_GROUP,
+            max_blocks: DEFAULT_CONTEXT_LIMIT,
+            blocks: retrieved_blocks,
+          },
+        ],
+        { ...DEFAULT_CONTEXT_BUDGET, ...input.assembler_options },
+      );
+      contexts = to_contexts(assembly.blocks);
+
+      yield {
+        type: "sources",
+        stats: {
+          retrieved: distinct_note_paths(assembly),
+          used: contexts.length,
+          truncated: assembly.stats.truncated,
+        },
+        sources: contexts.map((c) => ({
+          note_path: c.note_path,
+          title: c.title,
+          score: c.score,
+          truncated: c.truncated === true,
+          pinned: pinned_paths.has(c.note_path),
+        })),
+      };
     }
-
-    const pinned_paths = new Set(outcome.pinned.map((note) => note.note_path));
-
-    const assembly = assemble_context(
-      [
-        {
-          id: PINNED_SOURCE,
-          dedup_group: VAULT_DEDUP_GROUP,
-          blocks: pinned_blocks,
-        },
-        {
-          id: RETRIEVED_SOURCE,
-          dedup_group: VAULT_DEDUP_GROUP,
-          max_blocks: DEFAULT_CONTEXT_LIMIT,
-          blocks: retrieved_blocks,
-        },
-      ],
-      { ...DEFAULT_CONTEXT_BUDGET, ...input.assembler_options },
-    );
-    const contexts = to_contexts(assembly.blocks);
-
-    yield {
-      type: "sources",
-      stats: {
-        retrieved: distinct_note_paths(assembly),
-        used: contexts.length,
-        truncated: assembly.stats.truncated,
-      },
-      sources: contexts.map((c) => ({
-        note_path: c.note_path,
-        title: c.title,
-        score: c.score,
-        truncated: c.truncated === true,
-        pinned: pinned_paths.has(c.note_path),
-      })),
-    };
 
     const { system_prompt, history, user_prompt } = build_chat_prompt({
       question: cleaned_question,
       contexts,
       history: input.history ?? [],
+      ...(input.attachment ? { attachment: input.attachment } : {}),
     });
 
     const parser = new ChatStreamParser(

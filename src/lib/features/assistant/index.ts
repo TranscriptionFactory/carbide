@@ -264,11 +264,34 @@ export {
 } from "$lib/features/assistant/application/proposal_apply_service";
 
 export type {
+  AssistantDocumentPort,
+  AssistantEditTarget,
   ProposalCheckpointOutcome,
   ProposalCheckpointPort,
   ProposalNotePort,
   ProposalPersistencePort,
 } from "$lib/features/assistant/ports";
+
+// Pin 5 — edit the open tab.
+export type { DocumentAttachment } from "$lib/features/assistant/types/attachment";
+export {
+  ATTACHMENT_MAX_CHARS,
+  ATTACHED_DOCUMENT_SOURCE_ID,
+  attachment_label,
+  build_document_attachment,
+  type AttachmentResult,
+} from "$lib/features/assistant/domain/document_attachment";
+export {
+  build_document_edit_prompt,
+  build_note_edit_prompt,
+} from "$lib/features/assistant/domain/edit_target_prompt";
+export {
+  DocumentEditService,
+  type EditOpenTabRequest,
+  type EditOpenTabResult,
+  type EditOpenTabTarget,
+} from "$lib/features/assistant/application/document_edit_service";
+export { register_assistant_edit_actions } from "$lib/features/assistant/application/assistant_edit_actions";
 
 // I8 as amended — pending-proposal persistence.
 export {

@@ -58,12 +58,15 @@ import {
   AssistantKernelService,
   AssistantSessionService,
   ChatPanel,
+  DocumentEditService,
   ProposalApplyService,
   ProposalPersistenceService,
   create_assistant_transport_tauri_adapter,
   register_assistant_actions,
+  register_assistant_edit_actions,
   register_assistant_notice_actions,
   register_chat_actions,
+  type AssistantDocumentPort,
   type ProposalCheckpointPort,
   type ProposalNotePort,
   type RetrievalPort,
@@ -1263,11 +1266,58 @@ export function create_app_context(input: {
     },
   };
 
+  // Pin 5: where assistant and document meet. The port resolves OPEN
+  // document tabs by kind + file_path (tab.id happens to equal file_path
+  // today, but that is an implementation detail of open_document_tab).
+  const find_document_tab = (path: string) =>
+    stores.tab.tabs.find(
+      (tab) => tab.kind === "document" && tab.file_path === path,
+    );
+
+  const assistant_documents: AssistantDocumentPort = {
+    read_document: (path) => {
+      const tab = find_document_tab(path);
+      if (!tab) return null;
+      const context = document_service.get_document_ai_context(tab.id);
+      if (!context) return null;
+      return {
+        path: context.file_path,
+        title: context.file_title,
+        content: context.content,
+      };
+    },
+    stage_document: (path, content) => {
+      const tab = find_document_tab(path);
+      if (!tab) return false;
+      // ALLOWED_DIRECT_APPLY: this literal IS the proposal apply path —
+      // stage_document is called only by ProposalApplyService after the
+      // review queue's accept, and staging touches the buffer, not disk
+      // (save-the-tab writes). The retirement commit strengthens the gate
+      // with a PROPOSAL_APPLY marker once the legacy dialog path is gone.
+      const staged = document_service.apply_document_ai_output(tab.id, content);
+      if (staged) stores.tab.set_dirty(tab.id, true);
+      return staged;
+    },
+  };
+
+  const active_document_path = () => {
+    const active = stores.tab.tabs.find(
+      (tab) => tab.id === stores.tab.active_tab_id,
+    );
+    if (!active || active.kind !== "document") return null;
+    return document_service.get_document_ai_context(active.id)
+      ? active.file_path
+      : null;
+  };
+
   const proposal_apply = new ProposalApplyService({
     proposals: stores.assistant_proposals,
     notes: proposal_notes,
     git: proposal_git,
+    documents: assistant_documents,
   });
+
+  const document_edit_service = new DocumentEditService(assistant_kernel);
 
   register_ai_actions({
     ...base_action_input,
@@ -1287,11 +1337,22 @@ export function create_app_context(input: {
     proposal_apply,
   });
 
+  register_assistant_edit_actions({
+    ...base_action_input,
+    chat_store: stores.assistant_chat,
+    assistant_proposals: stores.assistant_proposals,
+    assistant_kernel,
+    document_edit: document_edit_service,
+    documents: assistant_documents,
+    active_document_path,
+  });
+
   register_chat_actions({
     ...base_action_input,
     chat_store: stores.assistant_chat,
     chat_service: assistant_chat_service,
     session_service: assistant_sessions_service,
+    documents: assistant_documents,
     assistant_kernel,
     assistant_proposals: stores.assistant_proposals,
   });

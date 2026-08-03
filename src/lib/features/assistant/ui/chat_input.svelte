@@ -1,6 +1,6 @@
 <script lang="ts">
   import { tick } from "svelte";
-  import { FileText, SendHorizontal, Square, X } from "@lucide/svelte";
+  import { FileText, PenLine, SendHorizontal, Square, X } from "@lucide/svelte";
   import * as Select from "$lib/components/ui/select/index.js";
   import { Button } from "$lib/components/ui/button";
   import { Textarea } from "$lib/components/ui/textarea";
@@ -42,6 +42,17 @@
     on_stop: () => void;
     on_provider_change: (provider_id: string) => void;
     on_scope_change: (scope: AssistantScope) => void;
+    active_document?: { path: string; title: string } | null;
+    attached_document?:
+      | import("$lib/features/assistant/types/attachment").DocumentAttachment
+      | null;
+    attached_open?: boolean;
+    on_attach_document?: (() => void) | undefined;
+    on_detach_document?: (() => void) | undefined;
+    // Secondary submit (pin 5): present only where the panel can edit the
+    // open tab.
+    can_edit?: boolean;
+    on_edit?: ((instructions: string) => void) | undefined;
   };
 
   let {
@@ -61,6 +72,13 @@
     on_stop,
     on_provider_change,
     on_scope_change,
+    active_document = null,
+    attached_document = null,
+    attached_open = true,
+    on_attach_document = undefined,
+    on_detach_document = undefined,
+    can_edit = false,
+    on_edit = undefined,
   }: Props = $props();
 
   let value = $state("");
@@ -175,6 +193,14 @@
     value = "";
   }
 
+  function edit() {
+    if (!can_submit || !on_edit) return;
+    fetch_token += 1;
+    suggest.close();
+    on_edit(value.trim());
+    value = "";
+  }
+
   function on_keydown(event: KeyboardEvent) {
     if (suggest.keydown(event)) return;
     if (is_plain_enter(event)) {
@@ -238,6 +264,11 @@
     {saved_views}
     {active_note_path}
     {on_scope_change}
+    {active_document}
+    {attached_document}
+    {attached_open}
+    {on_attach_document}
+    {on_detach_document}
   />
   <div class="flex items-center justify-between gap-2">
     <Select.Root
@@ -264,10 +295,25 @@
         <Square class="size-4" />
       </Button>
     {:else}
-      <Button size="sm" disabled={!can_submit} onclick={submit}>
-        <SendHorizontal class="size-4" />
-        {submit_label}
-      </Button>
+      <div class="flex items-center gap-1">
+        {#if can_edit && on_edit}
+          <Button
+            size="sm"
+            variant="secondary"
+            disabled={!can_submit}
+            data-testid="chat-input-edit"
+            title="Propose an edit to the open tab"
+            onclick={edit}
+          >
+            <PenLine class="size-4" />
+            Edit
+          </Button>
+        {/if}
+        <Button size="sm" disabled={!can_submit} onclick={submit}>
+          <SendHorizontal class="size-4" />
+          {submit_label}
+        </Button>
+      </div>
     {/if}
   </div>
 </div>

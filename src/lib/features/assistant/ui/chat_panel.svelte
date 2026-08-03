@@ -126,6 +126,47 @@
     void action_registry.execute(ACTION_IDS.assistant_open_proposals);
   }
 
+  // Editable-type check runs through the document service (a null AI context
+  // means not editable) so the assistant slice never imports
+  // features/document.
+  const active_document = $derived.by(() => {
+    const tab = stores.tab.tabs.find((t) => t.id === stores.tab.active_tab_id);
+    if (!tab || tab.kind !== "document") return null;
+    const context = services.document.get_document_ai_context(tab.id);
+    return context
+      ? { path: context.file_path, title: context.file_title }
+      : null;
+  });
+
+  const attached_document = $derived(rag.attached_document);
+  const attached_open = $derived(
+    attached_document !== null &&
+      stores.tab.tabs.some(
+        (t) => t.kind === "document" && t.file_path === attached_document.path,
+      ),
+  );
+
+  const can_edit = $derived(
+    (attached_document !== null && attached_open) ||
+      active_document !== null ||
+      active_note_path !== null,
+  );
+
+  function attach_document() {
+    void action_registry.execute(ACTION_IDS.assistant_attach_document);
+  }
+
+  function detach_document() {
+    void action_registry.execute(ACTION_IDS.assistant_detach_document);
+  }
+
+  function edit_open_tab(instructions: string) {
+    void action_registry.execute(
+      ACTION_IDS.assistant_edit_open_tab,
+      instructions,
+    );
+  }
+
   const backend = $derived.by(() => {
     const config = providers.find((p) => p.id === provider_id);
     return config ? (agent_capability(config)?.backend ?? null) : null;
@@ -407,5 +448,12 @@
     on_stop={stop}
     on_provider_change={change_provider}
     on_scope_change={change_scope}
+    {active_document}
+    {attached_document}
+    {attached_open}
+    on_attach_document={attach_document}
+    on_detach_document={detach_document}
+    can_edit={rag.mode !== "agent" && can_edit}
+    on_edit={edit_open_tab}
   />
 </div>

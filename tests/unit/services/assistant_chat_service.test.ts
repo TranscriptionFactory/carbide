@@ -623,6 +623,49 @@ describe("AssistantChatService.query", () => {
     expect(stream.specs).toHaveLength(0);
   });
 
+  it("answers on the attachment alone when retrieval is empty (pin 5)", async () => {
+    const search = {
+      search_blocks: vi.fn().mockResolvedValue([]),
+      hybrid_search: vi.fn().mockResolvedValue([]),
+    };
+    const notes = { read_note: vi.fn() };
+    const stream = text_stream("It is a report.");
+    const service = create_chat_seam({
+      search: search,
+      notes: notes,
+      run_starter: stream as never,
+      tag: tag,
+      bases: bases,
+    }).chat;
+
+    const result = await collect(
+      service.query({
+        question: "what is this?",
+        provider_config: provider,
+        attachment: {
+          path: "artifacts/report.html",
+          title: "report",
+          content: "<h1>Q3 report</h1>",
+        },
+      }),
+    );
+
+    expect(result.content).toBe("It is a report.");
+    expect(stream.specs).toHaveLength(1);
+    const request = stream.specs[0]?.request;
+    const first_message =
+      request?.mode === "text" ? request.messages[0] : undefined;
+    expect(first_message?.content).toContain(
+      '<attached_document path="artifacts/report.html" title="report">',
+    );
+    expect(first_message?.content).toContain("<h1>Q3 report</h1>");
+    // the attachment is unnumbered, not a citable retrieved source
+    expect(first_message?.content).not.toContain("<retrieved_context>");
+    expect(request?.mode === "text" ? request.system_prompt : "").toContain(
+      "attached a document",
+    );
+  });
+
   it("explains an in-progress index instead of the canned no-results reply", async () => {
     const search = {
       search_blocks: vi.fn().mockResolvedValue([]),
