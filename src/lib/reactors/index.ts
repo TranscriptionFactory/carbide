@@ -49,6 +49,7 @@ import { create_plugin_metadata_events_reactor } from "$lib/reactors/plugin_meta
 import { create_mcp_autostart_reactor } from "$lib/reactors/mcp_autostart.reactor.svelte";
 import { create_assistant_sessions_load_reactor } from "$lib/reactors/assistant_sessions_load.reactor.svelte";
 import { create_assistant_readiness_reactor } from "$lib/reactors/assistant_readiness.reactor.svelte";
+import { create_assistant_proposals_sync_reactor } from "$lib/reactors/assistant_proposals_sync.reactor.svelte";
 import { create_assistant_chat_mcp_bridge_reactor } from "$lib/reactors/assistant_chat_mcp_bridge.reactor.svelte";
 import { create_visual_editor_diagnostics_reactor } from "$lib/reactors/visual_editor_diagnostics.reactor.svelte";
 import { create_tag_pill_colors_reactor } from "$lib/reactors/tag_pill_colors.reactor.svelte";
@@ -114,6 +115,7 @@ import type {
   AssistantProposalStore,
   AssistantSessionService,
   AssistantSessionStore,
+  ProposalPersistenceService,
 } from "$lib/features/assistant";
 import { produce_ambient_notices } from "$lib/features/assistant";
 import { create_ambient_reactor } from "$lib/reactors/ambient.reactor.svelte";
@@ -178,6 +180,7 @@ export type ReactorContext = {
   tag_service: TagService;
   assistant_notices: AssistantNoticeStore;
   assistant_proposals: AssistantProposalStore;
+  assistant_proposal_persistence: ProposalPersistenceService;
   // The first port handed to a reactor positionally alongside
   // WorkspaceIndexPort; ambient reads one indexed snapshot per note and never
   // touches the vault graph.
@@ -478,6 +481,11 @@ export function mount_reactors(context: ReactorContext): ReactorHandles {
       context.vault_store,
       context.bases_store,
       context.action_registry,
+    ),
+    create_assistant_proposals_sync_reactor(
+      context.assistant_proposals,
+      context.assistant_proposal_persistence,
+      context.vault_store,
     ),
     create_tag_pill_colors_reactor(
       context.tag_store,
