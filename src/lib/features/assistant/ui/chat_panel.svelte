@@ -34,8 +34,6 @@
 
   const { stores, services, action_registry } = use_app_context();
 
-  const READINESS_POLL_MS = 5000;
-
   const rag = stores.assistant_chat;
   const providers = $derived(stores.ui.editor_settings.ai_providers);
   const provider_id = $derived(
@@ -59,48 +57,6 @@
   );
 
   let show_sessions = $state(false);
-
-  let listed_views_for: string | null = null;
-  $effect(() => {
-    const vault_id = stores.vault.vault?.id;
-    if (!vault_id || vault_id === listed_views_for) return;
-    listed_views_for = vault_id;
-    if (stores.bases.saved_views.length === 0) {
-      void action_registry.execute(ACTION_IDS.bases_list_views);
-    }
-  });
-
-  $effect(() => {
-    const vault_id = stores.vault.vault?.id;
-    // provider changes re-arm the poll alongside vault switches
-    void rag.provider_id;
-    rag.set_readiness({ state: "checking" });
-    if (!vault_id) return;
-    let cancelled = false;
-    let interval: ReturnType<typeof setInterval> | null = null;
-    const stop_polling = () => {
-      if (interval !== null) {
-        clearInterval(interval);
-        interval = null;
-      }
-    };
-    // poll only while not ready; ready is stable until vault/provider change
-    const refresh = async () => {
-      const readiness = await services.assistant_chat.check_readiness();
-      if (cancelled) return;
-      rag.set_readiness(readiness);
-      if (readiness.state === "ready") {
-        stop_polling();
-      } else if (interval === null) {
-        interval = setInterval(() => void refresh(), READINESS_POLL_MS);
-      }
-    };
-    void refresh();
-    return () => {
-      cancelled = true;
-      stop_polling();
-    };
-  });
 
   const templates = $derived(
     resolve_questions(stores.ui.editor_settings.ai_question_recipes).map(
