@@ -2,7 +2,7 @@
 "carbide": minor
 ---
 
-feat(assistant): the bottom Assistant tab, persistent proposals, editing the open tab, and question recipes
+feat(assistant): the bottom Assistant tab, persistent proposals, and editing the open tab
 
 The bottom panel's **AI** tab becomes **Assistant** — a projection of the one assistant chat, so a
 conversation started in the sidebar continues in the panel and vice versa. `Cmd/Ctrl+Shift+A`, the
@@ -23,6 +23,3 @@ document** attaches the document so Ask can answer questions about it. Results l
 proposals — accepting a document proposal stages the buffer and marks the tab dirty; saving the tab
 writes disk. The legacy AI Assistant dialog is retired (archived on `archive/ai-panel-main`);
 inline ask/edit in the editor is unchanged.
-
-In the omnibar's Ask mode, a leading `/` now lists your question recipes — Enter fills the draft so
-you can edit before spending a provider call, Enter again submits.
