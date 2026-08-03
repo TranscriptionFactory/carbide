@@ -1,16 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { DocumentEditService } from "$lib/features/assistant";
 import type { EditOpenTabTarget } from "$lib/features/assistant";
-import type { AiProviderConfig } from "$lib/shared/types/ai_provider_config";
 import { create_test_run_starter } from "../../adapters/test_run_starter";
 import { create_aborting_run_starter } from "../helpers/aborting_run_starter";
+import { make_provider } from "../helpers/assistant_fixtures";
 
-const provider: AiProviderConfig = {
-  id: "ollama",
-  name: "Ollama",
-  transport: { kind: "cli", command: "ollama", args: ["run", "{model}"] },
-  model: "qwen3:8b",
-};
+const provider = make_provider({ model: "qwen3:8b" });
 
 const DOCUMENT_TARGET: EditOpenTabTarget = {
   kind: "document",

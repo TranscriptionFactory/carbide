@@ -8,6 +8,16 @@ import type {
   NotePath,
 } from "$lib/shared/types/ids";
 import { as_markdown_text } from "$lib/shared/types/ids";
+import { VaultStore } from "$lib/features/vault";
+
+export function vault_store_for(
+  id: string,
+  mode: "vault" | "browse" = "vault",
+): VaultStore {
+  const store = new VaultStore();
+  store.set_vault(create_test_vault({ id: id as VaultId, mode }));
+  return store;
+}
 
 export function create_test_vault(overrides?: Partial<Vault>): Vault {
   return {

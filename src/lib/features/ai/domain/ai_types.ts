@@ -13,14 +13,6 @@ export { BUILTIN_PROVIDER_PRESETS } from "$lib/shared/types/ai_provider_config";
 export type AiProviderId = string;
 export type AiApplyTarget = "selection" | "full_note";
 export type AiMode = "edit" | "ask";
-export type AiCliStatus =
-  | "idle"
-  | "checking"
-  | "available"
-  | "unavailable"
-  | "unknown"
-  | "error";
-
 export type AiCliProbeStatus = "present" | "missing" | "unknown";
 
 export type AiCliProbe = {
@@ -39,17 +31,6 @@ export type AiExecutionResult = {
   aborted?: boolean;
 };
 
-export type AiConversationTurn = {
-  id: number;
-  provider_id: AiProviderId;
-  target: AiApplyTarget;
-  mode: AiMode;
-  prompt: string;
-  status: "pending" | "completed";
-  result: AiExecutionResult | null;
-  reasoning?: string;
-};
-
 export type AiDialogNoteContext = {
   kind: "note";
   note_path: NotePath;
@@ -58,19 +39,6 @@ export type AiDialogNoteContext = {
   selection: EditorSelectionSnapshot | null;
   target: AiApplyTarget;
 };
-
-// The document variant retired with the AI panel (archive/ai-panel-main);
-// its successor is the assistant's edit-open-tab capability.
-export type AiDialogContext = AiDialogNoteContext;
-
-export function context_key(context: AiDialogContext): string {
-  return context.note_path;
-}
-
-export function context_original_text(context: AiDialogContext): string {
-  if (context.target === "selection") return context.selection?.text ?? "";
-  return context.note_markdown;
-}
 
 export type AiCliCheckRequest = {
   command: string;

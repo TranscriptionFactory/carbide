@@ -1,7 +1,5 @@
 import type {
   Proposal,
-  ProposalHunk,
-  ProposalLine,
   ProposalTarget,
 } from "$lib/features/assistant/types/proposal";
 
@@ -41,7 +39,7 @@ export function to_stored(
 // single invalid entry drops alone rather than taking the file with it.
 // version > 1 is still read — refusing would let a downgrade destroy the
 // queue — and unknown fields written by a newer version survive the
-// round-trip via the entry spread.
+// round-trip because entries are validated in place, never rebuilt.
 export function parse_stored(raw: unknown): Proposal[] {
   if (!is_record(raw)) return [];
   if (typeof raw.version !== "number" || raw.version < 1) return [];
@@ -69,11 +67,9 @@ function parse_entry(raw: unknown): Proposal | null {
   if (typeof raw.origin.session_id !== "string") return null;
   const run_id = raw.origin.run_id ?? null;
   if (run_id !== null && typeof run_id !== "string") return null;
+  if (!valid_hunks(raw.hunks)) return null;
 
-  const hunks = parse_hunks(raw.hunks);
-  if (!hunks) return null;
-
-  return { ...raw, hunks, status: "pending" } as Proposal;
+  return raw as Proposal;
 }
 
 function parse_target(raw: unknown): ProposalTarget | null {
@@ -87,39 +83,36 @@ function parse_target(raw: unknown): ProposalTarget | null {
   return null;
 }
 
-function parse_hunks(raw: unknown): ProposalHunk[] | null {
-  if (!Array.isArray(raw)) return null;
-  const hunks: ProposalHunk[] = [];
+function valid_hunks(raw: unknown): boolean {
+  if (!Array.isArray(raw)) return false;
   for (const hunk of raw) {
-    if (!is_record(hunk)) return null;
-    if (typeof hunk.id !== "string") return null;
-    if (typeof hunk.header !== "string") return null;
-    if (typeof hunk.selected !== "boolean") return null;
-    const lines = parse_lines(hunk.lines);
-    if (!lines) return null;
-    hunks.push({ ...hunk, lines } as ProposalHunk);
+    if (!is_record(hunk)) return false;
+    if (typeof hunk.id !== "string") return false;
+    if (typeof hunk.header !== "string") return false;
+    if (typeof hunk.selected !== "boolean") return false;
+    if (!valid_lines(hunk.lines)) return false;
   }
-  return hunks;
+  return true;
 }
 
 const LINE_KINDS = new Set(["context", "add", "del"]);
 
-function parse_lines(raw: unknown): ProposalLine[] | null {
-  if (!Array.isArray(raw)) return null;
+function valid_lines(raw: unknown): boolean {
+  if (!Array.isArray(raw)) return false;
   for (const line of raw) {
-    if (!is_record(line)) return null;
+    if (!is_record(line)) return false;
     if (typeof line.kind !== "string" || !LINE_KINDS.has(line.kind)) {
-      return null;
+      return false;
     }
-    if (typeof line.content !== "string") return null;
+    if (typeof line.content !== "string") return false;
     if (line.old_line !== null && typeof line.old_line !== "number") {
-      return null;
+      return false;
     }
     if (line.new_line !== null && typeof line.new_line !== "number") {
-      return null;
+      return false;
     }
   }
-  return raw as ProposalLine[];
+  return true;
 }
 
 function is_record(value: unknown): value is Record<string, unknown> {

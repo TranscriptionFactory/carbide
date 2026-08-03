@@ -338,6 +338,20 @@ export class DocumentService {
     return this.document_port.resolve_asset_url(vault_id, file_path);
   }
 
+  // Viewer-only probe: same editability rule as get_document_ai_context but
+  // without touching document content, so reactive callers (the composer's
+  // attach chip) don't recompute on every keystroke in the document.
+  get_document_edit_target(
+    tab_id: string,
+  ): { file_path: string; file_title: string } | null {
+    const viewer = this.document_store.get_viewer_state(tab_id);
+    if (!viewer || !is_editable_type(viewer.file_type)) return null;
+    return {
+      file_path: viewer.file_path,
+      file_title: derive_document_title(viewer.file_path),
+    };
+  }
+
   get_document_ai_context(tab_id: string): DocumentAiContext | null {
     const viewer = this.document_store.get_viewer_state(tab_id);
     if (!viewer || !is_editable_type(viewer.file_type)) return null;

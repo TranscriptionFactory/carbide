@@ -14,7 +14,7 @@ import { BasesStore } from "$lib/features/bases";
 import { ACTION_IDS } from "$lib/app/action_registry/action_ids";
 import type { ActionRegistry } from "$lib/app/action_registry/action_registry";
 import { create_assistant_readiness_reactor } from "$lib/reactors/assistant_readiness.reactor.svelte";
-import { create_test_vault } from "../helpers/test_fixtures";
+import { create_test_vault, vault_store_for } from "../helpers/test_fixtures";
 import type { VaultId } from "$lib/shared/types/ids";
 
 const POLL_MS = 5000;
@@ -35,12 +35,6 @@ function fake_registry() {
   return {
     execute: vi.fn(() => Promise.resolve()),
   } as unknown as ActionRegistry & { execute: ReturnType<typeof vi.fn> };
-}
-
-function vault_store_for(id: string): VaultStore {
-  const store = new VaultStore();
-  store.set_vault(create_test_vault({ id: id as VaultId }));
-  return store;
 }
 
 function mount(overrides: {

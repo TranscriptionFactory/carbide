@@ -1,5 +1,8 @@
-import { invoke } from "@tauri-apps/api/core";
 import { APP_DIR } from "$lib/shared/constants/special_folders";
+import {
+  read_json,
+  write_json,
+} from "$lib/features/assistant/adapters/vault_json";
 import type { ProposalPersistencePort } from "$lib/features/assistant/ports";
 
 // One file per vault — proposal ids contain `:`/`/`/`#`, so the session
@@ -9,24 +12,12 @@ const PROPOSALS_PATH = `${APP_DIR}/assistant/proposals.json`;
 
 export function create_assistant_proposal_persistence_tauri_adapter(): ProposalPersistencePort {
   return {
-    async load_proposals(vault_id: string): Promise<unknown> {
-      try {
-        const content = await invoke<string>("read_vault_file", {
-          vaultId: vault_id,
-          relativePath: PROPOSALS_PATH,
-        });
-        return JSON.parse(content) as unknown;
-      } catch {
-        return null;
-      }
+    load_proposals(vault_id: string): Promise<unknown> {
+      return read_json(vault_id, PROPOSALS_PATH);
     },
 
-    async save_proposals(vault_id: string, stored: unknown): Promise<void> {
-      await invoke("write_vault_file", {
-        vaultId: vault_id,
-        relativePath: PROPOSALS_PATH,
-        content: JSON.stringify(stored, null, 2),
-      });
+    save_proposals(vault_id: string, stored: unknown): Promise<void> {
+      return write_json(vault_id, PROPOSALS_PATH, stored);
     },
   };
 }

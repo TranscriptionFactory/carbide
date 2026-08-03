@@ -16,6 +16,7 @@ import type {
   AssistantRetrievedContext,
 } from "$lib/features/assistant/types/chat_stream";
 import type { RunHandle, RunStarter } from "$lib/features/assistant/types/run";
+import type { ResolvedAttachment } from "$lib/features/assistant/types/attachment";
 import { start_run_stream } from "$lib/features/assistant/application/run_stream";
 import {
   assemble_context,
@@ -122,7 +123,7 @@ export type AssistantChatQueryInput = {
   // Attached open-tab document (pin 5). Outside the retrieval budget — the
   // legacy panel sent the whole document, and budgeting it here would
   // silently drop the exact content the user pointed at.
-  attachment?: { path: string; title: string; content: string };
+  attachment?: ResolvedAttachment;
   // The kernel owns cancellation, so a caller that needs a Stop takes the
   // handle rather than pushing a signal down.
   on_run_started?: (handle: RunHandle) => void;

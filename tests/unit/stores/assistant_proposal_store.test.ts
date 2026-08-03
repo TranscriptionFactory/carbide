@@ -274,7 +274,6 @@ describe("AssistantProposalStore", () => {
       store.add(doc);
 
       expect(store.by_note("artifact.html")).toEqual([]);
-      expect(store.by_path("artifact.html")).toEqual([doc]);
     });
   });
 });

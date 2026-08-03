@@ -2,14 +2,8 @@ import { toast } from "$lib/shared/ui/toast";
 import YAML from "yaml";
 import type { ActionRegistrationInput } from "$lib/app";
 import { ACTION_IDS } from "$lib/app";
-import type {
-  AiApplyTarget,
-  AiCliProbeStatus,
-  AiDialogContext,
-  AiMode,
-  AiVaultContext,
-} from "$lib/features/ai/domain/ai_types";
-import { context_key, find_provider } from "$lib/features/ai/domain/ai_types";
+import type { AiVaultContext } from "$lib/features/ai/domain/ai_types";
+import { find_provider } from "$lib/features/ai/domain/ai_types";
 import {
   preferred_ai_backend_order,
   resolve_auto_ai_backend,

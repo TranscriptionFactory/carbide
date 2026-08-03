@@ -126,16 +126,15 @@
     void action_registry.execute(ACTION_IDS.assistant_open_proposals);
   }
 
-  // Editable-type check runs through the document service (a null AI context
-  // means not editable) so the assistant slice never imports the document
-  // feature.
+  // Editable-type check runs through the document service so the assistant
+  // slice never imports the document feature. Viewer-only probe (no content
+  // read): the chip's visibility must not recompute per keystroke; content is
+  // resolved fresh at attach/submit anyway.
   const active_document = $derived.by(() => {
-    const tab = stores.tab.tabs.find((t) => t.id === stores.tab.active_tab_id);
+    const tab = stores.tab.active_tab;
     if (!tab || tab.kind !== "document") return null;
-    const context = services.document.get_document_ai_context(tab.id);
-    return context
-      ? { path: context.file_path, title: context.file_title }
-      : null;
+    const target = services.document.get_document_edit_target(tab.id);
+    return target ? { path: target.file_path, title: target.file_title } : null;
   });
 
   const attached_document = $derived(rag.attached_document);

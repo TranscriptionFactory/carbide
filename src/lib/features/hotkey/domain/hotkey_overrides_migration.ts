@@ -1,10 +1,13 @@
+import { ACTION_IDS } from "$lib/app/action_registry/action_ids";
 import type { HotkeyOverride } from "$lib/features/hotkey/types/hotkey_config";
 
 // merge_config silently ignores overrides for action ids that no longer
 // exist, so renaming an action orphans any persisted override for it — the
 // user's binding (or deliberate unbind) would vanish without this rename.
+// Keys are the retired ids (literal by necessity); successors reference
+// ACTION_IDS so a future rename cannot leave the map pointing at a dead id.
 export const RENAMED_ACTION_IDS: Record<string, string> = {
-  "ai.open_assistant": "assistant.open_panel",
+  "ai.open_assistant": ACTION_IDS.assistant_open_panel,
 };
 
 export type HotkeyOverridesMigration = {

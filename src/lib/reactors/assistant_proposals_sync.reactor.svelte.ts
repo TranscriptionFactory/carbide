@@ -11,7 +11,7 @@ const PROPOSALS_PERSIST_DELAY_MS = 400;
 
 type ProposalsSnapshot = {
   vault_id: string;
-  proposals: Proposal[];
+  pending: Proposal[];
 };
 
 // ONE reactor owns both load and save: the save effect is gated on
@@ -34,10 +34,16 @@ export function create_assistant_proposals_sync_reactor(
 
   const persist = create_persisted_snapshot_controller<ProposalsSnapshot>({
     delay_ms: PROPOSALS_PERSIST_DELAY_MS,
-    serialize: ({ proposals: list }) =>
-      JSON.stringify(list.filter((p) => p.status === "pending")),
-    save: ({ vault_id, proposals: list }) =>
-      persistence.save_pending(vault_id, list),
+    // Dedup key, not the payload: everything on a proposal except status and
+    // hunk selection is immutable per id (the store only ever flips those),
+    // so ids + selection bits identify the persisted content without
+    // serializing every diff line on each store change.
+    serialize: ({ pending }) =>
+      JSON.stringify(
+        pending.map((p) => [p.id, p.hunks.map((h) => h.selected)]),
+      ),
+    save: ({ vault_id, pending }) =>
+      persistence.save_pending(vault_id, pending),
   });
 
   return $effect.root(() => {
@@ -79,7 +85,7 @@ export function create_assistant_proposals_sync_reactor(
       const has_new_pending = pending.some((p) => !known_pending_ids.has(p.id));
       known_pending_ids = new Set(pending.map((p) => p.id));
 
-      const snapshot: ProposalsSnapshot = { vault_id, proposals: list };
+      const snapshot: ProposalsSnapshot = { vault_id, pending };
       if (has_new_pending) {
         persist.persist_now(snapshot);
       } else {

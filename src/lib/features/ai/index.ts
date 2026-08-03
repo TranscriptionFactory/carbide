@@ -49,7 +49,6 @@ export {
 export type {
   AiCliProbe,
   AiCliProbeStatus,
-  AiConversationTurn,
 } from "$lib/features/ai/domain/ai_types";
 export {
   humanize_ai_error,
@@ -62,8 +61,6 @@ export {
   type AiCliTransport,
   type AiApiTransport,
   type AiMode,
-  type AiCliStatus,
-  type AiDialogContext,
   type AiDialogNoteContext,
   type AiExecutionResult,
   type AiPortExecuteRequest,
@@ -72,8 +69,6 @@ export {
   type AiVaultContext,
   type AiVaultContextNote,
   type VaultContextSettings,
-  context_key,
-  context_original_text,
   provider_command,
 } from "$lib/features/ai/domain/ai_types";
 export {

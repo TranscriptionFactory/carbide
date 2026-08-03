@@ -1301,9 +1301,7 @@ export function create_app_context(input: {
   };
 
   const active_document_path = () => {
-    const active = stores.tab.tabs.find(
-      (tab) => tab.id === stores.tab.active_tab_id,
-    );
+    const active = stores.tab.active_tab;
     if (!active || active.kind !== "document") return null;
     return document_service.get_document_ai_context(active.id)
       ? active.file_path

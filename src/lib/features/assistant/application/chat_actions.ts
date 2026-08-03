@@ -29,7 +29,33 @@ import {
   type NotePath,
 } from "$lib/shared/types/ids";
 
-const CHAT_OP_KEY = "rag.ask";
+// An edit is a turn of the same conversation, so register_assistant_edit_actions
+// shares this in-flight slot.
+export const CHAT_OP_KEY = "rag.ask";
+
+// Both open surfaces (sidebar rag.open, panel assistant.open_panel) prime the
+// same store the same way: resolve a provider on first open, and default the
+// agent permission mode before any session exists to hold it.
+export async function prime_chat_store(
+  chat_store: AssistantChatStore,
+  assistant_kernel: AssistantKernelService,
+  settings: {
+    ai_default_provider_id: string;
+    ai_agent_permission_default: Parameters<
+      AssistantChatStore["set_permission_mode"]
+    >[0];
+  },
+): Promise<void> {
+  if (!chat_store.provider_id) {
+    const provider = await assistant_kernel.resolve_provider(
+      settings.ai_default_provider_id,
+    );
+    if (provider) chat_store.set_provider(provider.id);
+  }
+  if (!chat_store.active) {
+    chat_store.set_permission_mode(settings.ai_agent_permission_default);
+  }
+}
 
 function payload_field(payload: unknown, field: string): string {
   if (typeof payload === "string") return payload;
@@ -159,15 +185,11 @@ export function register_chat_actions(
     id: ACTION_IDS.rag_open,
     label: "Chat with Vault",
     execute: async () => {
-      if (!chat_store.provider_id) {
-        const provider = await resolve_provider();
-        if (provider) chat_store.set_provider(provider.id);
-      }
-      if (!chat_store.active) {
-        chat_store.set_permission_mode(
-          stores.ui.editor_settings.ai_agent_permission_default,
-        );
-      }
+      await prime_chat_store(
+        chat_store,
+        assistant_kernel,
+        stores.ui.editor_settings,
+      );
       stores.ui.set_sidebar_view("rag");
     },
   });
