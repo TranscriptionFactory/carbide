@@ -68,7 +68,7 @@ describe("assistant_presence.svelte", () => {
     view.cleanup();
   });
 
-  it("shows the active run count with a streaming dot", () => {
+  it("prefixes the active count with the newest active run's provider", () => {
     const view = render_presence([
       make_run_record({ id: "a", status: "streaming" }),
       make_run_record({ id: "b", status: "starting" }),
@@ -76,10 +76,55 @@ describe("assistant_presence.svelte", () => {
     ]);
 
     const cell = get_cell();
-    expect(cell.textContent).toContain("3 runs");
+    expect(cell.textContent).toContain("claude · 3 runs");
     expect(
       cell.querySelector(".AssistantPresence__dot--streaming"),
     ).toBeInstanceOf(HTMLElement);
+
+    view.cleanup();
+  });
+
+  it("reads the provider from the newest active run, not the oldest", () => {
+    const view = render_presence([
+      make_run_record({ id: "a", status: "streaming", started_at: 1 }),
+      make_run_record({
+        id: "b",
+        status: "streaming",
+        started_at: 2,
+        provider_id: "gemini",
+      }),
+    ]);
+
+    expect(get_cell().textContent).toContain("gemini · 2 runs");
+
+    view.cleanup();
+  });
+
+  it("falls back to a bare count while the provider is unresolved", () => {
+    const view = render_presence([
+      make_run_record({ id: "a", status: "starting", provider_id: null }),
+    ]);
+
+    const cell = get_cell();
+    expect(cell.textContent).toContain("1 run");
+    expect(cell.textContent).not.toContain("·");
+
+    view.cleanup();
+  });
+
+  it("keeps errors ahead of any provider prefix", () => {
+    const view = render_presence([
+      make_run_record({ id: "a", status: "streaming" }),
+      make_run_record({
+        id: "b",
+        status: "error",
+        error: { message: "boom", detail: "boom" },
+      }),
+    ]);
+
+    const cell = get_cell();
+    expect(cell.textContent).toContain("1 error");
+    expect(cell.textContent).not.toContain("·");
 
     view.cleanup();
   });
@@ -129,7 +174,7 @@ describe("assistant_presence.svelte", () => {
     const one = render_presence([
       make_run_record({ id: "a", status: "streaming" }),
     ]);
-    expect(get_cell().textContent).toContain("1 run");
+    expect(get_cell().textContent).toContain("claude · 1 run");
     expect(get_cell().textContent).not.toContain("1 runs");
     one.cleanup();
 

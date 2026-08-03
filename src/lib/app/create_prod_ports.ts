@@ -56,6 +56,7 @@ import { create_toolchain_tauri_adapter } from "$lib/features/toolchain";
 import { create_code_lsp_tauri_adapter } from "$lib/features/code_lsp";
 import { create_saved_query_tauri_adapter } from "$lib/features/query";
 import { create_assistant_session_persistence_tauri_adapter } from "$lib/features/assistant";
+import type { RunId, RunRecord } from "$lib/features/assistant";
 import { create_mcp_tauri_adapter } from "$lib/features/mcp";
 import {
   create_reference_tauri_adapter,
@@ -107,6 +108,8 @@ export type AiInlineHandler = {
   get_commands: (() => InstructionRecipe[]) | null;
   on_open_settings: (() => void) | null;
   on_accept: (() => void) | null;
+  get_runs: (() => RunRecord[]) | null;
+  on_stop: ((id: RunId) => void) | null;
 };
 
 export function create_prod_ports(): Ports & {
@@ -148,6 +151,8 @@ export function create_prod_ports(): Ports & {
     get_commands: null,
     on_open_settings: null,
     on_accept: null,
+    get_runs: null,
+    on_stop: null,
   };
   const query_runner: QueryRunner = { run: null };
   const frontmatter_widget: FrontmatterWidgetConfig = {
@@ -207,6 +212,8 @@ export function create_prod_ports(): Ports & {
         get_commands: () => ai_inline_handler.get_commands?.() ?? [],
         on_open_settings: () => ai_inline_handler.on_open_settings?.(),
         on_accept: () => ai_inline_handler.on_accept?.(),
+        get_runs: () => ai_inline_handler.get_runs?.() ?? [],
+        on_stop: (id) => ai_inline_handler.on_stop?.(id),
       },
       frontmatter_widget,
       tag_pill_menu,

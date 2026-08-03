@@ -6,6 +6,7 @@ import type { Node as PmNode } from "prosemirror-model";
 import { mount, unmount } from "svelte";
 import { BUILTIN_INSTRUCTIONS } from "$lib/shared/domain/prompt_recipes";
 import type { InstructionRecipe } from "$lib/shared/types/prompt_recipe";
+import type { RunId, RunRecord } from "$lib/features/assistant";
 import AiInlineMenu from "../ui/ai_inline_menu.svelte";
 import {
   create_coords_anchor,
@@ -67,6 +68,11 @@ export type AiMenuPluginConfig = {
   // Accepting has to reach the action so the exchange gets logged; without a
   // host the plugin still accepts on its own.
   on_accept?: () => void;
+  // Passed to the menu as functions, never resolved here: a resolved runs
+  // array would freeze at mount time, while a getter stays live inside the
+  // component's own reactive scope.
+  get_runs?: () => RunRecord[];
+  on_stop?: (id: RunId) => void;
 };
 
 function get_meta(tr: Transaction): AiMenuMeta | undefined {
@@ -236,6 +242,8 @@ export function create_ai_menu_plugin(
             },
             on_reject: () => reject_ai_inline(editor_view),
             on_close: () => dispatch_ai_menu(editor_view, { action: "close" }),
+            ...(config?.get_runs ? { get_runs: config.get_runs } : {}),
+            ...(config?.on_stop ? { on_stop: config.on_stop } : {}),
             ...(open_settings ? { on_open_settings: open_settings } : {}),
           },
         });
