@@ -3,7 +3,10 @@ import {
   agent_capability,
   provider_supports_streaming,
 } from "$lib/features/ai/domain/ai_provider_capabilities";
-import type { AiProviderConfig } from "$lib/shared/types/ai_provider_config";
+import {
+  BUILTIN_PROVIDER_PRESETS,
+  type AiProviderConfig,
+} from "$lib/shared/types/ai_provider_config";
 
 function api_provider(): AiProviderConfig {
   return {
@@ -50,31 +53,32 @@ describe("provider_supports_streaming", () => {
 });
 
 describe("agent_capability", () => {
-  it("maps a claude_code descriptor to the claude harness adapter", () => {
-    const claude: AiProviderConfig = {
+  it("derives the native backend for any api transport", () => {
+    expect(agent_capability(api_provider())).toEqual({ backend: "native" });
+  });
+
+  it("derives the claude harness from a cli transport naming it", () => {
+    const config: AiProviderConfig = {
       id: "custom",
       name: "Custom Claude",
-      transport: { kind: "cli", command: "claude", args: [] },
-      agent: { kind: "claude_code" },
+      transport: {
+        kind: "cli",
+        command: "claude",
+        args: [],
+        harness: "claude",
+      },
     };
-    expect(agent_capability(claude)).toEqual({
+    expect(agent_capability(config)).toEqual({
       backend: "harness",
       adapter: "claude",
     });
   });
 
-  it("maps an openai_compat descriptor to the native backend", () => {
+  it("derives the codex harness from a cli transport naming it", () => {
     const config: AiProviderConfig = {
-      ...api_provider(),
-      agent: { kind: "openai_compat" },
-    };
-    expect(agent_capability(config)).toEqual({ backend: "native" });
-  });
-
-  it("maps a codex_cli descriptor to the codex harness adapter", () => {
-    const config: AiProviderConfig = {
-      ...cli_provider(["exec", "-"]),
-      agent: { kind: "codex_cli" },
+      id: "custom",
+      name: "Custom Codex",
+      transport: { kind: "cli", command: "codex", args: [], harness: "codex" },
     };
     expect(agent_capability(config)).toEqual({
       backend: "harness",
@@ -82,35 +86,29 @@ describe("agent_capability", () => {
     });
   });
 
-  it("treats a text_cli descriptor as unsupported", () => {
-    const config: AiProviderConfig = {
-      ...cli_provider(["run", "{model}"]),
-      agent: { kind: "text_cli" },
-    };
-    expect(agent_capability(config)).toBeNull();
-  });
-
-  it("infers the harness backend for a descriptor-less claude preset", () => {
-    const claude: AiProviderConfig = {
-      id: "claude",
-      name: "Claude Code",
-      transport: {
-        kind: "cli",
-        command: "claude",
-        args: ["-p", "--output-format", "text"],
-      },
-    };
-    expect(agent_capability(claude)).toEqual({
-      backend: "harness",
-      adapter: "claude",
-    });
-  });
-
-  it("infers native for descriptor-less api providers", () => {
-    expect(agent_capability(api_provider())).toEqual({ backend: "native" });
-  });
-
-  it("infers unsupported for descriptor-less custom CLI providers", () => {
+  it("treats a harness-less cli transport as unsupported", () => {
     expect(agent_capability(cli_provider(["run", "{model}"]))).toBeNull();
+  });
+
+  it("does not infer capability from a preset id", () => {
+    const clone: AiProviderConfig = {
+      id: "claude",
+      name: "Claude clone",
+      transport: { kind: "cli", command: "claude", args: ["-p"] },
+    };
+    expect(agent_capability(clone)).toBeNull();
+  });
+
+  it("derives the expected capability for every builtin preset", () => {
+    const expected: Record<string, ReturnType<typeof agent_capability>> = {
+      claude: { backend: "harness", adapter: "claude" },
+      codex: { backend: "harness", adapter: "codex" },
+      ollama: null,
+      lmstudio: { backend: "native" },
+      "llama-server": { backend: "native" },
+    };
+    for (const preset of BUILTIN_PROVIDER_PRESETS) {
+      expect(agent_capability(preset)).toEqual(expected[preset.id]);
+    }
   });
 });

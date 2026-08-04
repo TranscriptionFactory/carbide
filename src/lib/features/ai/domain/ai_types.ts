@@ -3,6 +3,7 @@ import type { MarkdownText, NotePath } from "$lib/shared/types/ids";
 import type { AiProviderConfig } from "$lib/shared/types/ai_provider_config";
 
 export type {
+  AgentHarness,
   AiTransport,
   AiCliTransport,
   AiApiTransport,

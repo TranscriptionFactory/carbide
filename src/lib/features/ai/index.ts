@@ -27,8 +27,8 @@ export {
 export { MarkdownJoiner } from "$lib/features/ai/domain/markdown_joiner";
 export {
   agent_capability,
-  infer_agent_descriptor,
   provider_supports_streaming,
+  HARNESS_LABELS,
   type AgentBackend,
   type AgentCapability,
 } from "$lib/features/ai/domain/ai_provider_capabilities";
@@ -56,6 +56,7 @@ export {
 } from "$lib/features/ai/domain/ai_error_messages";
 export {
   BUILTIN_PROVIDER_PRESETS,
+  type AgentHarness,
   type AiApplyTarget,
   type AiTransport,
   type AiCliTransport,

@@ -27,13 +27,19 @@ Two transport kinds are supported:
 
 Built-in presets:
 
-| Preset                     | ID             | Transport | Endpoint / command                |
-| -------------------------- | -------------- | --------- | --------------------------------- |
-| Claude Code                | `claude`       | CLI       | `claude`                          |
-| Codex                      | `codex`        | CLI       | `codex`                           |
-| Ollama                     | `ollama`       | CLI       | `ollama run <model>` (`qwen3:8b`) |
-| LM Studio (server)         | `lmstudio`     | API       | `http://localhost:1234/v1`        |
-| llama.cpp (`llama-server`) | `llama-server` | API       | `http://localhost:8080/v1`        |
+| Preset                     | ID             | Transport | Endpoint / command                | Agent capability    |
+| -------------------------- | -------------- | --------- | --------------------------------- | ------------------- |
+| Claude Code                | `claude`       | CLI       | `claude`                          | Claude Code harness |
+| Codex                      | `codex`        | CLI       | `codex`                           | Codex harness       |
+| Ollama                     | `ollama`       | CLI       | `ollama run <model>` (`qwen3:8b`) | none (text only)    |
+| LM Studio (server)         | `lmstudio`     | API       | `http://localhost:1234/v1`        | native loop         |
+| llama.cpp (`llama-server`) | `llama-server` | API       | `http://localhost:8080/v1`        | native loop         |
+
+**Agent capability is derived from the transport, not chosen.** API providers always get the
+native OpenAI-compatible agent loop. CLI providers are agent-capable only when their transport
+names the harness protocol the CLI speaks (Claude Code or Codex); a plain CLI — e.g.
+`lms chat <model> -p <prompt>` — is text-only. The settings UI shows the computed capability
+under each provider, and custom CLI providers get a **Harness** select.
 
 **Auto-resolution.** When the default provider is set to `auto`, Carbide resolves to the
 first available provider in the list. CLI presets are probed for the command on `PATH`; API
@@ -108,7 +114,8 @@ The composer has two modes:
 
 Agent mode has two permission levels. **Safe** limits the agent to note tools; **power**
 lifts that limit. The panel shows which backend is in play — _vault-scoped_ for the native
-loop, _full access_ for a Claude Code agent with system access.
+loop, _full access_ for a harness agent (Claude Code or Codex) with system access. Opening
+the vault in an agent terminal (vault handoff) is Claude Code-only.
 
 Agent edits do not land directly. They arrive as **proposals** with per-hunk accept/reject,
 reviewable in the proposals tab as well as in the conversation.

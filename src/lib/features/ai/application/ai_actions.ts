@@ -660,8 +660,10 @@ export function register_ai_actions(
         toast.error("No AI provider configured");
         return;
       }
-      if (agent_capability(provider)?.backend !== "harness") {
-        toast.info(`${provider.name} does not support agent mode`);
+      if (agent_capability(provider)?.adapter !== "claude") {
+        toast.info(
+          `${provider.name} does not support vault handoff — requires Claude Code`,
+        );
         return;
       }
       const vault = input.stores.vault.vault;

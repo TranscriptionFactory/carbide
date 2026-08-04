@@ -83,6 +83,21 @@ pub enum AgentEvent {
     Error { message: String },
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HarnessKind {
+    Claude,
+    Codex,
+}
+
+pub fn resolve_harness_adapter(adapter: Option<&str>) -> Result<HarnessKind, String> {
+    match adapter {
+        Some("claude") => Ok(HarnessKind::Claude),
+        Some("codex") => Ok(HarnessKind::Codex),
+        Some(other) => Err(format!("unknown agent adapter `{other}`")),
+        None => Err("missing agent adapter for harness backend".to_string()),
+    }
+}
+
 #[derive(Default)]
 pub struct AgentRunState {
     handles: Mutex<HashMap<String, oneshot::Sender<()>>>,
@@ -136,6 +151,14 @@ pub async fn agent_run_start(
 
     match &spec.backend {
         AgentRunBackend::Harness => {
+            let harness = match resolve_harness_adapter(spec.adapter.as_deref()) {
+                Ok(harness) => harness,
+                Err(e) => {
+                    let _ = app.emit(&event_name, AgentEvent::Error { message: e });
+                    return Ok(());
+                }
+            };
+
             let AiTransport::Cli { command, .. } = &spec.provider_config.transport else {
                 let _ = app.emit(
                     &event_name,
@@ -178,9 +201,13 @@ pub async fn agent_run_start(
             };
 
             let catalog = McpRouter::with_app(app.clone()).tool_definitions_public();
-            let (invocation, parser) = match spec.adapter.as_deref() {
-                Some("codex") => build_harness_invocation(CodexAdapter, &spec, &endpoint, &catalog),
-                _ => build_harness_invocation(ClaudeAdapter, &spec, &endpoint, &catalog),
+            let (invocation, parser) = match harness {
+                HarnessKind::Claude => {
+                    build_harness_invocation(ClaudeAdapter, &spec, &endpoint, &catalog)
+                }
+                HarnessKind::Codex => {
+                    build_harness_invocation(CodexAdapter, &spec, &endpoint, &catalog)
+                }
             };
             let invocation = match invocation {
                 Ok(invocation) => invocation,

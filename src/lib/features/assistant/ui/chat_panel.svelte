@@ -16,7 +16,7 @@
   import AssistantMessage from "$lib/features/assistant/ui/chat_message.svelte";
   import ChatInput from "$lib/features/assistant/ui/chat_input.svelte";
   import ChatModeToggle from "$lib/features/assistant/ui/chat_mode_toggle.svelte";
-  import { agent_capability } from "$lib/features/ai";
+  import { agent_capability, HARNESS_LABELS } from "$lib/features/ai";
   import {
     AssistantPresence,
     AssistantSessionList,
@@ -170,11 +170,11 @@
     );
   }
 
-  const backend = $derived.by(() => {
+  const capability = $derived.by(() => {
     const config = providers.find((p) => p.id === provider_id);
-    return config ? (agent_capability(config)?.backend ?? null) : null;
+    return config ? agent_capability(config) : null;
   });
-  const agent_supported = $derived(backend !== null);
+  const agent_supported = $derived(capability !== null);
 
   function set_mode(mode: AssistantChatMode) {
     void action_registry.execute(ACTION_IDS.rag_set_mode, mode);
@@ -280,14 +280,14 @@
         on_open_proposals={open_proposals}
         on_clear={clear_runs}
       />
-      {#if rag.mode === "agent" && backend !== null}
+      {#if rag.mode === "agent" && capability !== null}
         <span
           class="rounded-full border px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground"
-          title={backend === "native"
+          title={capability.backend === "native"
             ? "Agent can only use vault tools"
-            : "Claude Code agent with full system access"}
+            : `${HARNESS_LABELS[capability.adapter]} agent with full system access`}
         >
-          {backend === "native" ? "vault-scoped" : "full access"}
+          {capability.backend === "native" ? "vault-scoped" : "full access"}
         </span>
       {/if}
       {#if sessions.length > 0}

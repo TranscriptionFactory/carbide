@@ -1,5 +1,8 @@
-use crate::features::ai::agent_stream::{AgentEvent, ToolSelector};
+use crate::features::ai::agent_stream::{
+    resolve_harness_adapter, AgentEvent, HarnessKind, ToolSelector,
+};
 use crate::features::ai::harness::claude_adapter::{build_agent_args, AgentEventParser};
+use crate::features::ai::service::AiProviderConfig;
 use crate::features::mcp::types::{InputSchema, ToolDefinition};
 
 // Fixture lines captured from a real `claude -p ... --output-format stream-json
@@ -228,6 +231,43 @@ fn sample_catalog() -> Vec<ToolDefinition> {
         tool_def("read_note", false),
         tool_def("create_note", true),
     ]
+}
+
+#[test]
+fn resolve_harness_adapter_accepts_known_adapters() {
+    assert_eq!(resolve_harness_adapter(Some("claude")), Ok(HarnessKind::Claude));
+    assert_eq!(resolve_harness_adapter(Some("codex")), Ok(HarnessKind::Codex));
+}
+
+#[test]
+fn resolve_harness_adapter_rejects_unknown_and_missing() {
+    assert!(resolve_harness_adapter(Some("gpt5"))
+        .unwrap_err()
+        .contains("unknown agent adapter"));
+    assert!(resolve_harness_adapter(None)
+        .unwrap_err()
+        .contains("missing agent adapter"));
+}
+
+// The frontend now persists `harness` inside the cli transport; Rust's
+// AiTransport doesn't model the field and must keep tolerating it on the wire.
+#[test]
+fn provider_config_with_transport_harness_still_deserializes() {
+    let json = r#"{
+        "id": "claude",
+        "name": "Claude Code",
+        "transport": {
+            "kind": "cli",
+            "command": "claude",
+            "args": ["-p"],
+            "harness": "claude"
+        },
+        "model": null,
+        "install_url": null,
+        "is_preset": true
+    }"#;
+    let config: AiProviderConfig = serde_json::from_str(json).expect("must deserialize");
+    assert_eq!(config.id, "claude");
 }
 
 #[test]

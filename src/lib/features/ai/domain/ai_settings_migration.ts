@@ -1,8 +1,8 @@
 import {
   BUILTIN_PROVIDER_PRESETS,
+  type AgentHarness,
   type AiProviderConfig,
 } from "$lib/shared/types/ai_provider_config";
-import { infer_agent_descriptor } from "$lib/features/ai/domain/ai_provider_capabilities";
 
 type LegacyAiSettings = {
   ai_default_backend?: string;
@@ -70,9 +70,32 @@ function has_old_args_template_format(
   );
 }
 
-function stamp_agent_descriptor(config: AiProviderConfig): AiProviderConfig {
-  if (config.agent) return config;
-  return { ...config, agent: infer_agent_descriptor(config) };
+type WithLegacyAgent = AiProviderConfig & { agent?: { kind?: string } };
+
+// Returns the input by reference when nothing changes, so the caller's
+// identity check doubles as the idempotency gate.
+function convert_agent_descriptor(provider: WithLegacyAgent): AiProviderConfig {
+  const { agent, ...config } = provider;
+  const stripped = agent === undefined ? provider : config;
+  if (
+    config.transport?.kind !== "cli" ||
+    config.transport.harness !== undefined
+  ) {
+    return stripped;
+  }
+  // Descriptor-less claude/codex preset ids used to inherit harness capability
+  // via id-keyed inference; preserve that once here, then it's gone.
+  const harness: AgentHarness | undefined =
+    agent?.kind === "claude_code"
+      ? "claude"
+      : agent?.kind === "codex_cli"
+        ? "codex"
+        : agent === undefined &&
+            (config.id === "claude" || config.id === "codex")
+          ? config.id
+          : undefined;
+  if (harness === undefined) return stripped;
+  return { ...config, transport: { ...config.transport, harness } };
 }
 
 export function migrate_ai_settings(
@@ -88,10 +111,11 @@ export function migrate_ai_settings(
           (raw["ai_default_provider_id"] as string) ?? "auto",
       };
     }
-    const providers = raw["ai_providers"] as AiProviderConfig[];
-    if (providers.some((p) => p.agent === undefined)) {
+    const providers = raw["ai_providers"] as WithLegacyAgent[];
+    const converted = providers.map(convert_agent_descriptor);
+    if (converted.some((p, i) => p !== providers[i])) {
       return {
-        ai_providers: providers.map(stamp_agent_descriptor),
+        ai_providers: converted,
         ai_default_provider_id:
           (raw["ai_default_provider_id"] as string) ?? "auto",
       };
