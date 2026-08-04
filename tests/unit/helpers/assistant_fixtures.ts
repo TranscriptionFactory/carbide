@@ -19,7 +19,12 @@ export function make_provider(
   return {
     id: "claude",
     name: "Claude Code",
-    transport: { kind: "cli", command: "claude", args: ["-p"] },
+    transport: {
+      kind: "cli",
+      command: "claude",
+      args: ["-p"],
+      harness: "claude",
+    },
     ...overrides,
   };
 }

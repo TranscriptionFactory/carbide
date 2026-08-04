@@ -31,8 +31,9 @@
   import type { ToolInfo } from "$lib/features/toolchain";
   import { SvelteMap } from "svelte/reactivity";
   import {
+    agent_capability,
     describe_default_provider,
-    infer_agent_descriptor,
+    HARNESS_LABELS,
     type AiCliProbe,
     type AiProviderProbeState,
   } from "$lib/features/ai";
@@ -97,7 +98,7 @@
     LspProviderConfigStatus,
   } from "$lib/features/markdown_lsp";
   import type {
-    AgentDescriptorKind,
+    AgentHarness,
     AiProviderConfig,
     AiTransport,
   } from "$lib/shared/types/ai_provider_config";
@@ -357,12 +358,19 @@
     { value: "api", label: "API" },
   ];
 
-  const agent_capability_options = [
-    { value: "text_cli", label: "None (text only)" },
-    { value: "claude_code", label: "Claude Code (harness)" },
-    { value: "codex_cli", label: "Codex CLI (harness)" },
-    { value: "openai_compat", label: "OpenAI-compatible (native)" },
+  const agent_harness_options = [
+    { value: "none", label: "None (plain text CLI)" },
+    { value: "claude", label: HARNESS_LABELS.claude },
+    { value: "codex", label: HARNESS_LABELS.codex },
   ];
+
+  function agent_capability_label(provider: AiProviderConfig): string {
+    const capability = agent_capability(provider);
+    if (!capability) return "Agent: not supported — plain text CLI";
+    if (capability.backend === "native")
+      return "Agent: native loop (OpenAI-compatible)";
+    return `Agent: ${HARNESS_LABELS[capability.adapter]} harness`;
+  }
 
   let editing_provider_id = $state<string | null>(null);
   let new_provider = $state<{
@@ -1166,17 +1174,15 @@
                             disabled={ai_settings_disabled}
                             oninput={(
                               e: Event & { currentTarget: HTMLInputElement },
-                            ) =>
+                            ) => {
+                              if (provider.transport.kind !== "cli") return;
                               update_provider(provider.id, {
                                 transport: {
-                                  kind: "cli",
+                                  ...provider.transport,
                                   command: e.currentTarget.value,
-                                  args:
-                                    provider.transport.kind === "cli"
-                                      ? provider.transport.args
-                                      : [],
                                 },
-                              })}
+                              });
+                            }}
                           />
                         </div>
                         <div class="flex items-center gap-2">
@@ -1193,18 +1199,12 @@
                             oninput={(
                               e: Event & { currentTarget: HTMLInputElement },
                             ) => {
+                              if (provider.transport.kind !== "cli") return;
                               const args = e.currentTarget.value
                                 .split(/\s+/)
                                 .filter((a) => a.length > 0);
                               update_provider(provider.id, {
-                                transport: {
-                                  kind: "cli",
-                                  command:
-                                    provider.transport.kind === "cli"
-                                      ? provider.transport.command
-                                      : "",
-                                  args,
-                                },
+                                transport: { ...provider.transport, args },
                               });
                             }}
                           />
@@ -1339,34 +1339,39 @@
                             })}
                         />
                       </div>
-                      {#if !provider.is_preset}
-                        {@const agent_kind =
-                          provider.agent?.kind ??
-                          infer_agent_descriptor(provider).kind}
+                      {#if !provider.is_preset && provider.transport.kind === "cli"}
+                        {@const harness_value =
+                          provider.transport.harness ?? "none"}
                         <div class="flex items-center gap-2">
                           <span class="w-20 text-xs text-muted-foreground"
-                            >Agent</span
+                            >Harness</span
                           >
                           <Select.Root
                             type="single"
-                            value={agent_kind}
+                            value={harness_value}
                             disabled={ai_settings_disabled}
                             onValueChange={(v: string | undefined) => {
-                              if (v)
-                                update_provider(provider.id, {
-                                  agent: { kind: v as AgentDescriptorKind },
-                                });
+                              if (!v || provider.transport.kind !== "cli")
+                                return;
+                              const { harness: _, ...rest } =
+                                provider.transport;
+                              update_provider(provider.id, {
+                                transport:
+                                  v === "none"
+                                    ? rest
+                                    : { ...rest, harness: v as AgentHarness },
+                              });
                             }}
                           >
                             <Select.Trigger class="flex-1">
                               <span data-slot="select-value"
-                                >{agent_capability_options.find(
-                                  (o) => o.value === agent_kind,
-                                )?.label ?? agent_kind}</span
+                                >{agent_harness_options.find(
+                                  (o) => o.value === harness_value,
+                                )?.label ?? harness_value}</span
                               >
                             </Select.Trigger>
                             <Select.Content>
-                              {#each agent_capability_options as opt (opt.value)}
+                              {#each agent_harness_options as opt (opt.value)}
                                 <Select.Item value={opt.value}
                                   >{opt.label}</Select.Item
                                 >
@@ -1375,6 +1380,9 @@
                           </Select.Root>
                         </div>
                       {/if}
+                      <p class="text-xs text-muted-foreground">
+                        {agent_capability_label(provider)}
+                      </p>
                     </div>
                   {/if}
                 </div>

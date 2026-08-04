@@ -1,7 +1,10 @@
+export type AgentHarness = "claude" | "codex";
+
 export type AiCliTransport = {
   kind: "cli";
   command: string;
   args: string[];
+  harness?: AgentHarness;
 };
 
 export type AiApiTransport = {
@@ -12,14 +15,6 @@ export type AiApiTransport = {
 
 export type AiTransport = AiCliTransport | AiApiTransport;
 
-export type AgentDescriptorKind =
-  | "claude_code"
-  | "codex_cli"
-  | "openai_compat"
-  | "text_cli";
-
-export type AgentDescriptor = { kind: AgentDescriptorKind };
-
 export type AiProviderConfig = {
   id: string;
   name: string;
@@ -27,7 +22,6 @@ export type AiProviderConfig = {
   model?: string;
   install_url?: string;
   is_preset?: boolean;
-  agent?: AgentDescriptor;
 };
 
 export const BUILTIN_PROVIDER_PRESETS: AiProviderConfig[] = [
@@ -38,10 +32,10 @@ export const BUILTIN_PROVIDER_PRESETS: AiProviderConfig[] = [
       kind: "cli",
       command: "claude",
       args: ["-p", "--output-format", "text"],
+      harness: "claude",
     },
     install_url: "https://code.claude.com/docs/en/quickstart",
     is_preset: true,
-    agent: { kind: "claude_code" },
   },
   {
     id: "codex",
@@ -56,10 +50,10 @@ export const BUILTIN_PROVIDER_PRESETS: AiProviderConfig[] = [
         "{output_file}",
         "-",
       ],
+      harness: "codex",
     },
     install_url: "https://github.com/openai/codex",
     is_preset: true,
-    agent: { kind: "codex_cli" },
   },
   {
     id: "ollama",
@@ -72,7 +66,6 @@ export const BUILTIN_PROVIDER_PRESETS: AiProviderConfig[] = [
     model: "qwen3:8b",
     install_url: "https://ollama.com",
     is_preset: true,
-    agent: { kind: "text_cli" },
   },
   {
     id: "lmstudio",
@@ -83,7 +76,6 @@ export const BUILTIN_PROVIDER_PRESETS: AiProviderConfig[] = [
     },
     install_url: "https://lmstudio.ai/docs/app/api",
     is_preset: true,
-    agent: { kind: "openai_compat" },
   },
   {
     id: "llama-server",
@@ -95,6 +87,5 @@ export const BUILTIN_PROVIDER_PRESETS: AiProviderConfig[] = [
     install_url:
       "https://github.com/ggml-org/llama.cpp/blob/master/tools/server/README.md",
     is_preset: true,
-    agent: { kind: "openai_compat" },
   },
 ];

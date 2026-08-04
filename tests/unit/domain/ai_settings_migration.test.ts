@@ -2,54 +2,187 @@ import { describe, expect, it } from "vitest";
 import { migrate_ai_settings } from "$lib/features/ai/domain/ai_settings_migration";
 
 describe("migrate_ai_settings", () => {
-  it("returns null when ai_providers already carries agent descriptors", () => {
+  it("converts harness descriptors on cli providers and drops the agent key", () => {
     const result = migrate_ai_settings({
       ai_providers: [
         {
-          id: "claude",
-          name: "Claude",
+          id: "my-claude",
+          name: "My Claude",
           transport: { kind: "cli", command: "claude", args: [] },
+          agent: { kind: "claude_code" },
+        },
+        {
+          id: "my-codex",
+          name: "My Codex",
+          transport: { kind: "cli", command: "codex", args: [] },
+          agent: { kind: "codex_cli" },
+        },
+      ],
+      ai_default_provider_id: "my-claude",
+    });
+
+    expect(result).not.toBeNull();
+    expect(result!.ai_default_provider_id).toBe("my-claude");
+
+    const claude = result!.ai_providers.find((p) => p.id === "my-claude");
+    expect(claude?.transport).toEqual({
+      kind: "cli",
+      command: "claude",
+      args: [],
+      harness: "claude",
+    });
+    expect("agent" in claude!).toBe(false);
+
+    const codex = result!.ai_providers.find((p) => p.id === "my-codex");
+    expect(codex?.transport).toEqual({
+      kind: "cli",
+      command: "codex",
+      args: [],
+      harness: "codex",
+    });
+    expect("agent" in codex!).toBe(false);
+  });
+
+  it("strips text_cli descriptors without adding a harness", () => {
+    const result = migrate_ai_settings({
+      ai_providers: [
+        {
+          id: "ollama",
+          name: "Ollama",
+          transport: { kind: "cli", command: "ollama", args: ["run"] },
+          agent: { kind: "text_cli" },
+        },
+      ],
+    });
+
+    expect(result).not.toBeNull();
+    const ollama = result!.ai_providers[0]!;
+    expect(ollama.transport).toEqual({
+      kind: "cli",
+      command: "ollama",
+      args: ["run"],
+    });
+    expect("agent" in ollama).toBe(false);
+  });
+
+  it("strips openai_compat descriptors on api providers, transport unchanged", () => {
+    const result = migrate_ai_settings({
+      ai_providers: [
+        {
+          id: "lmstudio",
+          name: "LM Studio",
+          transport: { kind: "api", base_url: "http://localhost:1234/v1" },
+          agent: { kind: "openai_compat" },
+        },
+      ],
+    });
+
+    expect(result).not.toBeNull();
+    const lmstudio = result!.ai_providers[0]!;
+    expect(lmstudio.transport).toEqual({
+      kind: "api",
+      base_url: "http://localhost:1234/v1",
+    });
+    expect("agent" in lmstudio).toBe(false);
+  });
+
+  it("strips incoherent descriptors without inventing a harness", () => {
+    const result = migrate_ai_settings({
+      ai_providers: [
+        {
+          id: "compat-on-cli",
+          name: "Compat on CLI",
+          transport: { kind: "cli", command: "lms", args: [] },
+          agent: { kind: "openai_compat" },
+        },
+        {
+          id: "claude-on-api",
+          name: "Claude on API",
+          transport: { kind: "api", base_url: "http://localhost:9999/v1" },
           agent: { kind: "claude_code" },
         },
       ],
     });
 
-    expect(result).toBeNull();
+    expect(result).not.toBeNull();
+    const compat = result!.ai_providers.find((p) => p.id === "compat-on-cli");
+    expect(compat?.transport).toEqual({
+      kind: "cli",
+      command: "lms",
+      args: [],
+    });
+
+    const api = result!.ai_providers.find((p) => p.id === "claude-on-api");
+    expect(api?.transport).toEqual({
+      kind: "api",
+      base_url: "http://localhost:9999/v1",
+    });
+    for (const provider of result!.ai_providers) {
+      expect("agent" in provider).toBe(false);
+    }
   });
 
-  it("stamps agent descriptors onto transport providers lacking them", () => {
+  it("stamps the harness onto descriptor-less claude/codex preset ids", () => {
     const result = migrate_ai_settings({
       ai_providers: [
         {
           id: "claude",
-          name: "Claude",
-          transport: { kind: "cli", command: "claude", args: [] },
+          name: "Claude Code",
+          transport: { kind: "cli", command: "claude", args: ["-p"] },
         },
         {
-          id: "lmstudio",
-          name: "LM Studio",
-          transport: { kind: "api", base_url: "http://localhost:1234/v1" },
+          id: "codex",
+          name: "Codex",
+          transport: { kind: "cli", command: "codex", args: ["exec"] },
+        },
+      ],
+    });
+
+    expect(result).not.toBeNull();
+    const claude = result!.ai_providers.find((p) => p.id === "claude");
+    expect(claude?.transport).toEqual({
+      kind: "cli",
+      command: "claude",
+      args: ["-p"],
+      harness: "claude",
+    });
+
+    const codex = result!.ai_providers.find((p) => p.id === "codex");
+    expect(codex?.transport).toEqual({
+      kind: "cli",
+      command: "codex",
+      args: ["exec"],
+      harness: "codex",
+    });
+  });
+
+  it("returns null for providers already in the harness shape", () => {
+    const result = migrate_ai_settings({
+      ai_providers: [
+        {
+          id: "claude",
+          name: "Claude Code",
+          transport: {
+            kind: "cli",
+            command: "claude",
+            args: ["-p"],
+            harness: "claude",
+          },
         },
         {
           id: "my-cli",
           name: "My CLI",
           transport: { kind: "cli", command: "mycli", args: [] },
         },
+        {
+          id: "lmstudio",
+          name: "LM Studio",
+          transport: { kind: "api", base_url: "http://localhost:1234/v1" },
+        },
       ],
-      ai_default_provider_id: "claude",
     });
 
-    expect(result).not.toBeNull();
-    expect(result!.ai_default_provider_id).toBe("claude");
-
-    const claude = result!.ai_providers.find((p) => p.id === "claude");
-    expect(claude?.agent).toEqual({ kind: "claude_code" });
-
-    const lmstudio = result!.ai_providers.find((p) => p.id === "lmstudio");
-    expect(lmstudio?.agent).toEqual({ kind: "openai_compat" });
-
-    const custom = result!.ai_providers.find((p) => p.id === "my-cli");
-    expect(custom?.agent).toEqual({ kind: "text_cli" });
+    expect(result).toBeNull();
   });
 
   it("returns null when no legacy fields exist", () => {
@@ -76,6 +209,7 @@ describe("migrate_ai_settings", () => {
       kind: "cli",
       command: "/custom/claude",
       args: ["-p", "--output-format", "text"],
+      harness: "claude",
     });
 
     const ollama = result!.ai_providers.find((p) => p.id === "ollama");
@@ -100,6 +234,7 @@ describe("migrate_ai_settings", () => {
       kind: "cli",
       command: "claude",
       args: ["-p", "--output-format", "text"],
+      harness: "claude",
     });
 
     const ollama = result!.ai_providers.find((p) => p.id === "ollama");
@@ -155,7 +290,12 @@ describe("migrate_ai_settings", () => {
     expect(result!.ai_providers).toHaveLength(3);
 
     const claude = result!.ai_providers.find((p) => p.id === "claude");
-    expect(claude?.transport.kind).toBe("cli");
+    expect(claude?.transport).toEqual({
+      kind: "cli",
+      command: "claude",
+      args: ["-p", "--output-format", "text"],
+      harness: "claude",
+    });
 
     const ollama = result!.ai_providers.find((p) => p.id === "ollama");
     expect(ollama?.transport).toEqual({
