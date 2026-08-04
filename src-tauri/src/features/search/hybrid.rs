@@ -154,6 +154,7 @@ mod tests {
                 mtime_ms: 0,
                 ctime_ms: 0,
                 size_bytes: 0,
+                blurb: String::new(),
                 file_type: None,
                 source: None,
             },

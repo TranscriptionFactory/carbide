@@ -33,8 +33,9 @@ type TauriNoteMeta = {
   path: string;
   title: string;
   name: string;
-  // The index carries no blurb: IndexNoteMeta has no such column, so every
-  // search-sourced note arrives without one.
+  // Optional because IndexNoteMeta defaults it: the bulk sync diff does not
+  // select the column, and a row indexed before content_snippet existed has
+  // none. Absent means unknown, never blank.
   blurb?: string;
   mtime_ms: number;
   ctime_ms: number;

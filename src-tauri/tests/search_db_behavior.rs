@@ -83,6 +83,7 @@ fn remove_notes_by_prefix_deletes_matching_and_keeps_others() {
             mtime_ms: 100,
             ctime_ms: 50,
             size_bytes: 10,
+            blurb: String::new(),
             file_type: None,
             source: None,
         };
@@ -118,6 +119,7 @@ fn rename_note_path_moves_note_and_outgoing_source_links() {
         mtime_ms: 100,
         ctime_ms: 50,
         size_bytes: 10,
+        blurb: String::new(),
         file_type: None,
         source: None,
     };
@@ -129,6 +131,7 @@ fn rename_note_path_moves_note_and_outgoing_source_links() {
         mtime_ms: 100,
         ctime_ms: 50,
         size_bytes: 10,
+        blurb: String::new(),
         file_type: None,
         source: None,
     };
@@ -167,6 +170,7 @@ fn suggest_planned_returns_missing_targets_ranked_by_ref_count() {
         mtime_ms: 100,
         ctime_ms: 50,
         size_bytes: 10,
+        blurb: String::new(),
         file_type: None,
         source: None,
     };
@@ -178,6 +182,7 @@ fn suggest_planned_returns_missing_targets_ranked_by_ref_count() {
         mtime_ms: 100,
         ctime_ms: 50,
         size_bytes: 10,
+        blurb: String::new(),
         file_type: None,
         source: None,
     };
@@ -189,6 +194,7 @@ fn suggest_planned_returns_missing_targets_ranked_by_ref_count() {
         mtime_ms: 100,
         ctime_ms: 50,
         size_bytes: 10,
+        blurb: String::new(),
         file_type: None,
         source: None,
     };
@@ -300,6 +306,7 @@ fn rename_folder_paths_escapes_like_wildcards() {
         mtime_ms: 100,
         ctime_ms: 50,
         size_bytes: 10,
+        blurb: String::new(),
         file_type: None,
         source: None,
     };
@@ -311,6 +318,7 @@ fn rename_folder_paths_escapes_like_wildcards() {
         mtime_ms: 100,
         ctime_ms: 50,
         size_bytes: 10,
+        blurb: String::new(),
         file_type: None,
         source: None,
     };
@@ -345,6 +353,7 @@ fn list_note_paths_by_prefix_respects_folder_boundary() {
             mtime_ms: 100,
             ctime_ms: 50,
             size_bytes: 10,
+            blurb: String::new(),
             file_type: None,
             source: None,
         };
@@ -372,6 +381,7 @@ fn upsert_note_indexes_basic_metadata() {
         mtime_ms: 100,
         ctime_ms: 50,
         size_bytes: 50,
+        blurb: String::new(),
         file_type: None,
         source: None,
     };
@@ -401,6 +411,7 @@ fn remove_note_clears_note_record() {
         mtime_ms: 100,
         ctime_ms: 50,
         size_bytes: 50,
+        blurb: String::new(),
         file_type: None,
         source: None,
     };
@@ -432,6 +443,7 @@ fn search_returns_file_type_from_db() {
         mtime_ms: 100,
         ctime_ms: 50,
         size_bytes: 1000,
+        blurb: String::new(),
         file_type: Some("pdf".to_string()),
         source: None,
     };
@@ -456,6 +468,7 @@ fn search_ranks_verbatim_phrase_above_scattered_terms() {
             mtime_ms: 100,
             ctime_ms: 50,
             size_bytes: body.len() as i64,
+            blurb: String::new(),
             file_type: None,
             source: None,
         };
@@ -516,6 +529,7 @@ fn suggest_multiword_does_not_leak_body_only_matches() {
             mtime_ms: 100,
             ctime_ms: 50,
             size_bytes: body.len() as i64,
+            blurb: String::new(),
             file_type: None,
             source: None,
         };
@@ -555,6 +569,7 @@ fn rename_note_path_moves_note_record() {
         mtime_ms: 100,
         ctime_ms: 50,
         size_bytes: 50,
+        blurb: String::new(),
         file_type: None,
         source: None,
     };
@@ -709,6 +724,7 @@ fn upsert_note_persists_ctime_ms() {
         mtime_ms: 2000,
         ctime_ms: 1000,
         size_bytes: 20,
+        blurb: String::new(),
         file_type: None,
         source: None,
     };
@@ -742,6 +758,7 @@ fn ctime_ms_defaults_to_zero_for_legacy_notes() {
         mtime_ms: 500,
         ctime_ms: 0,
         size_bytes: 10,
+        blurb: String::new(),
         file_type: None,
         source: None,
     };
@@ -873,6 +890,7 @@ fn search_date_range_filters_by_mtime() {
             mtime_ms: mtime,
             ctime_ms: mtime,
             size_bytes: 10,
+            blurb: String::new(),
             file_type: None,
             source: None,
         };
@@ -910,6 +928,7 @@ fn paths_in_mtime_range_returns_only_in_window() {
             mtime_ms: mtime,
             ctime_ms: mtime,
             size_bytes: 10,
+            blurb: String::new(),
             file_type: None,
             source: None,
         };
@@ -937,6 +956,7 @@ fn rename_folder_paths_uses_char_offset_for_multibyte_prefix() {
         mtime_ms: 100,
         ctime_ms: 50,
         size_bytes: 10,
+        blurb: String::new(),
         file_type: None,
         source: None,
     };
@@ -1008,4 +1028,63 @@ fn upsert_linked_content_invalidates_embedding_when_body_changes() {
     )
     .expect("changed upsert should succeed");
     assert!(vector_db::get_embedding(&conn, &meta.path).is_none());
+}
+
+// The AI vault context renders one line per related note, and the line body is
+// the blurb. IndexNoteMeta had no such field, so every backlink, outlink and
+// similar-note reference reached the frontend without one.
+#[test]
+fn index_sourced_notes_carry_the_blurb() {
+    let tmp = TempDir::new().expect("temp dir should be created");
+    let conn = open_search_db_at_path(&tmp.path().join("test.db")).expect("db should open");
+
+    let meta = |path: &str| IndexNoteMeta {
+        id: path.to_string(),
+        path: path.to_string(),
+        title: "Hybrid retrieval".to_string(),
+        name: "hybrid".to_string(),
+        mtime_ms: 100,
+        ctime_ms: 50,
+        size_bytes: 10,
+        blurb: String::new(),
+        file_type: None,
+        source: None,
+    };
+
+    let target = meta("docs/target.md");
+    let source = meta("docs/source.md");
+    upsert_note(&conn, &target, "Combining BM25 with dense vectors improves recall.")
+        .expect("upsert should succeed");
+    upsert_note(&conn, &source, "Cites the retrieval note.").expect("upsert should succeed");
+    set_outlinks(&conn, "docs/source.md", &["docs/target.md".to_string()])
+        .expect("set outlinks should succeed");
+
+    let looked_up = get_note_meta(&conn, "docs/target.md")
+        .expect("meta should load")
+        .expect("note should exist");
+    assert_eq!(
+        looked_up.blurb,
+        "Combining BM25 with dense vectors improves recall."
+    );
+
+    let backlinks = get_backlinks(&conn, "docs/target.md").expect("backlinks should load");
+    assert_eq!(backlinks.len(), 1);
+    assert_eq!(backlinks[0].blurb, "Cites the retrieval note.");
+
+    let outlinks = get_outlinks(&conn, "docs/source.md").expect("outlinks should load");
+    assert_eq!(outlinks.len(), 1);
+    assert_eq!(
+        outlinks[0].blurb,
+        "Combining BM25 with dense vectors improves recall."
+    );
+
+    let hits = search(&conn, "recall", SearchScope::All, 10, None).expect("search should run");
+    let hit = hits
+        .iter()
+        .find(|h| h.note.path == "docs/target.md")
+        .expect("target should match");
+    assert_eq!(
+        hit.note.blurb,
+        "Combining BM25 with dense vectors improves recall."
+    );
 }
