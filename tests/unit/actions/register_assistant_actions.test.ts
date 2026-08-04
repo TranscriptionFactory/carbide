@@ -4,6 +4,7 @@ import { ACTION_IDS } from "$lib/app/action_registry/action_ids";
 import {
   AssistantChatStore,
   AssistantProposalStore,
+  AssistantRunStore,
   AssistantSessionStore,
   register_assistant_actions,
 } from "$lib/features/assistant";
@@ -18,6 +19,7 @@ function create_harness() {
   const registry = new ActionRegistry();
   const sessions = new AssistantSessionStore();
   const proposals = new AssistantProposalStore();
+  const runs = new AssistantRunStore();
   const tab = new TabStore();
   const proposal_apply = {
     apply_batch: vi.fn().mockResolvedValue(undefined),
@@ -33,6 +35,7 @@ function create_harness() {
       bootstrap_default_vault_path: null,
     },
     assistant_kernel: { stop: vi.fn(), stop_all: vi.fn() } as never,
+    assistant_runs: runs,
     assistant_sessions: sessions,
     assistant_proposals: proposals,
     proposal_apply: proposal_apply as never,
@@ -40,8 +43,31 @@ function create_harness() {
     active_document_path: () => null,
   });
 
-  return { registry, proposals, proposal_apply };
+  return { registry, proposals, proposal_apply, runs };
 }
+
+describe("register_assistant_actions — assistant_clear_runs", () => {
+  const spec = {
+    kind: "chat",
+    label: "q",
+    request: { mode: "text", system_prompt: "", messages: [] },
+  } as never;
+
+  it("discards terminated records and keeps live ones", async () => {
+    const { registry, runs } = create_harness();
+    runs.start("done-run", spec, 1);
+    runs.set_status("done-run", "done");
+    runs.start("failed-run", spec, 2);
+    runs.set_error("failed-run", { message: "boom", detail: "boom" });
+    runs.start("live-run", spec, 3);
+    runs.set_status("live-run", "streaming");
+
+    await registry.execute(ACTION_IDS.assistant_clear_runs);
+
+    expect(runs.all.map((run) => run.id)).toEqual(["live-run"]);
+    expect(runs.has_error).toBe(false);
+  });
+});
 
 describe("register_assistant_actions — proposal actions", () => {
   describe("assistant_accept_proposal", () => {
@@ -208,6 +234,7 @@ describe("assistant.open_panel (pin 5)", () => {
         stop_all: vi.fn(),
         resolve_provider,
       } as never,
+      assistant_runs: new AssistantRunStore(),
       assistant_sessions: sessions,
       assistant_proposals: new AssistantProposalStore(),
       proposal_apply: {

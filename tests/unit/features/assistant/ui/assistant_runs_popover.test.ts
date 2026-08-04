@@ -21,6 +21,7 @@ function render_popover(options: {
   on_stop?: (id: RunId) => void;
   pending_proposal_count?: number;
   on_open_proposals?: () => void;
+  on_clear?: () => void;
 }) {
   const target = document.createElement("div");
   document.body.appendChild(target);
@@ -33,6 +34,7 @@ function render_popover(options: {
       now: () => NOW_MS,
       pending_proposal_count: options.pending_proposal_count ?? 0,
       on_open_proposals: options.on_open_proposals,
+      on_clear: options.on_clear,
     },
   });
 
@@ -309,6 +311,39 @@ describe("assistant_runs_popover.svelte", () => {
       document.body.querySelector(
         '[data-testid="assistant-runs-review-proposals"]',
       ),
+    ).toBeNull();
+
+    view.cleanup();
+  });
+
+  it("offers Clear finished once a run has terminated", () => {
+    const on_clear = vi.fn();
+    const view = render_popover({
+      runs: [
+        make_run_record({ id: "live", status: "streaming" }),
+        make_run_record({ id: "failed", status: "error" }),
+      ],
+      on_clear,
+    });
+
+    const button = document.body.querySelector<HTMLButtonElement>(
+      '[data-testid="assistant-runs-clear"]',
+    );
+    button?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+
+    expect(on_clear).toHaveBeenCalledTimes(1);
+
+    view.cleanup();
+  });
+
+  it("hides Clear finished while every run is still live", () => {
+    const view = render_popover({
+      runs: [make_run_record({ id: "live", status: "streaming" })],
+      on_clear: vi.fn(),
+    });
+
+    expect(
+      document.body.querySelector('[data-testid="assistant-runs-clear"]'),
     ).toBeNull();
 
     view.cleanup();

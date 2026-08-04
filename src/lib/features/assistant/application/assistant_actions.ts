@@ -11,12 +11,14 @@ import type { AssistantChatStore } from "$lib/features/assistant/state/assistant
 import type { AssistantKernelService } from "$lib/features/assistant/application/assistant_kernel_service";
 import type { ProposalApplyService } from "$lib/features/assistant/application/proposal_apply_service";
 import type { AssistantProposalStore } from "$lib/features/assistant/state/assistant_proposal_store.svelte";
+import type { AssistantRunStore } from "$lib/features/assistant/state/assistant_run_store.svelte";
 import type { AssistantSessionStore } from "$lib/features/assistant/state/assistant_session_store.svelte";
 import type { RunId } from "$lib/features/assistant/types/run";
 
 export function register_assistant_actions(
   input: ActionRegistrationInput & {
     assistant_kernel: AssistantKernelService;
+    assistant_runs: AssistantRunStore;
     assistant_sessions: AssistantSessionStore;
     assistant_proposals: AssistantProposalStore;
     proposal_apply: ProposalApplyService;
@@ -27,6 +29,7 @@ export function register_assistant_actions(
   const {
     registry,
     assistant_kernel,
+    assistant_runs,
     assistant_sessions,
     assistant_proposals,
     proposal_apply,
@@ -89,6 +92,17 @@ export function register_assistant_actions(
     label: "Stop All Assistant Runs",
     execute: () => {
       assistant_kernel.stop_all();
+    },
+  });
+
+  // A terminated record is inert bookkeeping — the kernel released its
+  // controller when the run settled — so discarding one frees a row, not a
+  // process. Live runs are left alone; stopping is a separate intention.
+  registry.register({
+    id: ACTION_IDS.assistant_clear_runs,
+    label: "Clear Finished Assistant Runs",
+    execute: () => {
+      assistant_runs.clear_terminated();
     },
   });
 

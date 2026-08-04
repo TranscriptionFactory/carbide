@@ -1,5 +1,6 @@
 <script lang="ts">
   import SparklesIcon from "@lucide/svelte/icons/sparkles";
+  import { is_mac } from "$lib/features/window";
 
   type Props = {
     ask_mode: boolean;
@@ -7,9 +8,16 @@
   };
 
   let { ask_mode, on_mode_change }: Props = $props();
+
+  const MOD_LABEL = is_mac() ? "⌘" : "Ctrl+";
 </script>
 
-<div class="OmnibarModeSegment" role="group" aria-label="Omnibar mode">
+<div
+  class="OmnibarModeSegment"
+  role="group"
+  aria-label="Omnibar mode"
+  title="Switch Search / Ask ({MOD_LABEL}/)"
+>
   <button
     type="button"
     class="OmnibarModeSegment__option"
@@ -30,6 +38,7 @@
     <SparklesIcon />
     Ask
   </button>
+  <span class="OmnibarModeSegment__hint" aria-hidden="true">{MOD_LABEL}/</span>
 </div>
 
 <style>
@@ -58,6 +67,15 @@
   .OmnibarModeSegment__option--on {
     background-color: var(--accent);
     color: var(--accent-foreground);
+  }
+
+  .OmnibarModeSegment__hint {
+    display: inline-flex;
+    align-items: center;
+    padding: var(--space-0-5) var(--space-1-5);
+    border-left: 1px solid var(--border);
+    font-size: var(--text-xs);
+    color: var(--muted-foreground);
   }
 
   :global(.OmnibarModeSegment__option svg) {

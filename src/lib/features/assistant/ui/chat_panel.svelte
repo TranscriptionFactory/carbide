@@ -118,6 +118,10 @@
     void action_registry.execute(ACTION_IDS.assistant_stop_run, run_id);
   }
 
+  function clear_runs() {
+    void action_registry.execute(ACTION_IDS.assistant_clear_runs);
+  }
+
   const pending_proposal_count = $derived(
     stores.assistant_proposals.pending.length,
   );
@@ -274,6 +278,7 @@
         on_stop={stop_run}
         {pending_proposal_count}
         on_open_proposals={open_proposals}
+        on_clear={clear_runs}
       />
       {#if rag.mode === "agent" && backend !== null}
         <span

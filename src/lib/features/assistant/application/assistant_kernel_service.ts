@@ -44,15 +44,15 @@ const NO_VAULT: AssistantUserError = {
   detail: "The run was not started: agent mode requires a vault path.",
 };
 
-// A provider that cannot stream runs one-shot against a note file, so it needs
-// somewhere to write. Refused here rather than at the process boundary, because
-// the humanizer only recognises provider text and would launder a synthetic
-// message into its generic fallback.
-const NO_BLOCKING_TARGET: AssistantUserError = {
+// A provider that cannot stream runs one-shot in the vault directory, so it
+// needs a vault to run in. Refused here rather than at the process boundary,
+// because the humanizer only recognises provider text and would launder a
+// synthetic message into its generic fallback.
+const NO_BLOCKING_VAULT: AssistantUserError = {
   message:
-    "This provider can only answer against a saved note — open a note in a vault, then try again.",
+    "This provider needs an open vault to run in — open a vault, then try again.",
   detail:
-    "The run was not started: a non-streaming provider runs one-shot against a note file and needs both a vault path and a note path.",
+    "The run was not started: a non-streaming provider runs one-shot in the vault directory and needs a vault path.",
 };
 
 // I1: every AI execution is a kernel run. This is the only place in the app
@@ -120,9 +120,9 @@ export class AssistantKernelService {
     if (
       spec.request.mode === "text" &&
       !provider_supports_streaming(provider) &&
-      (vault_path === null || !spec.request.note_path)
+      vault_path === null
     ) {
-      return this.refuse(id, NO_BLOCKING_TARGET, sink);
+      return this.refuse(id, NO_BLOCKING_VAULT, sink);
     }
 
     return this.consume(id, spec, provider, vault_path, signal, sink);

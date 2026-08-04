@@ -9,6 +9,7 @@
     now?: (() => number) | undefined;
     pending_proposal_count?: number;
     on_open_proposals?: (() => void) | undefined;
+    on_clear?: (() => void) | undefined;
   }
 
   let {
@@ -17,6 +18,7 @@
     now,
     pending_proposal_count = 0,
     on_open_proposals = undefined,
+    on_clear = undefined,
   }: Props = $props();
 
   const active_runs = $derived(
@@ -39,7 +41,7 @@
   const label = $derived.by(() => {
     if (has_errors)
       return `${errors.length} error${errors.length > 1 ? "s" : ""}`;
-    if (active_count === 0) return "ready";
+    if (active_count === 0) return "Ready";
     const count_label = `${active_count} run${active_count > 1 ? "s" : ""}`;
     const provider_id = newest_active?.provider_id;
     return provider_id ? `${provider_id} · ${count_label}` : count_label;
@@ -83,6 +85,7 @@
       {now}
       {pending_proposal_count}
       {on_open_proposals}
+      {on_clear}
     />
   </Popover.Content>
 </Popover.Root>
@@ -96,8 +99,11 @@
     border-radius: var(--radius-sm);
     font-size: var(--text-xs);
     font-feature-settings: "tnum" 1;
-    color: var(--muted-foreground);
-    opacity: 0.7;
+    /* The status bar is already a recessive surface; muting again on top of it
+       left the idle label unreadable. Inherit its foreground and dim only
+       slightly, so "Ready" reads without competing with live runs. */
+    color: inherit;
+    opacity: 0.9;
     transition:
       opacity var(--duration-fast) var(--ease-default),
       color var(--duration-fast) var(--ease-default);

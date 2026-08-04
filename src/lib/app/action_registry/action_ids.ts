@@ -326,6 +326,7 @@ export const ACTION_IDS = {
   assistant_open_panel: "assistant.open_panel",
   assistant_stop_run: "assistant.stop_run",
   assistant_stop_all_runs: "assistant.stop_all_runs",
+  assistant_clear_runs: "assistant.clear_runs",
   assistant_open_session: "assistant.open_session",
   assistant_open_proposals: "assistant.open_proposals",
   assistant_accept_proposal: "assistant.accept_proposal",

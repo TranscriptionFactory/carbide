@@ -108,6 +108,7 @@
     on_assistant_stop: (run_id: RunId) => void;
     assistant_pending_proposals?: number;
     on_assistant_open_proposals?: (() => void) | undefined;
+    on_assistant_clear_runs?: (() => void) | undefined;
     // STT removed — archived on archive/stt-main
     // stt_enabled: boolean;
     // stt_recording_state: "idle" | "recording" | "processing";
@@ -180,6 +181,7 @@
     on_assistant_stop,
     assistant_pending_proposals = 0,
     on_assistant_open_proposals = undefined,
+    on_assistant_clear_runs = undefined,
     // stt_enabled,
     // stt_recording_state,
     // stt_model_loading,
@@ -571,6 +573,7 @@
       on_stop={on_assistant_stop}
       pending_proposal_count={assistant_pending_proposals}
       on_open_proposals={on_assistant_open_proposals}
+      on_clear={on_assistant_clear_runs}
     />
 
     <span class="StatusBar__separator" aria-hidden="true"></span>
