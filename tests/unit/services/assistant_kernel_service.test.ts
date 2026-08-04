@@ -503,21 +503,28 @@ describe("AssistantKernelService", () => {
       expect(outcome.status).toBe("error");
       const record = run_store.get(handle.id);
       expect(record?.status).toBe("error");
-      expect(record?.error?.message).toContain("saved note");
+      expect(record?.error?.message).toContain("open vault");
       expect(record?.error?.message).not.toContain("see logs for details");
       expect(sink.ended).toHaveLength(1);
     });
 
-    it("refuses a blocking run with no note path", async () => {
-      const transport = create_mock_transport();
-      const { kernel, run_store } = create_kernel(transport);
+    // The one-shot call writes to a temp file and runs in the vault directory;
+    // the note path is not a target, so Ask (which has none) must still run.
+    it("runs a blocking provider with a vault but no note path", async () => {
+      const transport = create_mock_transport([
+        { type: "text", text: "answered" },
+        { type: "done" },
+      ]);
+      const { kernel } = create_kernel(transport);
 
       const handle = await kernel.start(blocking_spec());
-      const outcome = await handle.outcome;
 
-      expect(transport._requests).toEqual([]);
-      expect(outcome.status).toBe("error");
-      expect(run_store.get(handle.id)?.error?.message).toContain("saved note");
+      await expect(handle.outcome).resolves.toEqual({
+        status: "done",
+        text: "answered",
+        stats: null,
+      });
+      expect(transport._requests).toHaveLength(1);
     });
 
     it("runs a blocking provider that has both a vault path and a note path", async () => {

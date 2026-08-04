@@ -60,7 +60,7 @@ describe("assistant_presence.svelte", () => {
     const view = render_presence([]);
 
     const cell = get_cell();
-    expect(cell.textContent).toContain("ready");
+    expect(cell.textContent).toContain("Ready");
     expect(cell.textContent).not.toMatch(/\d/);
     expect(cell.querySelector(".AssistantPresence__dot--streaming")).toBeNull();
     expect(cell.querySelector(".AssistantPresence__dot--error")).toBeNull();

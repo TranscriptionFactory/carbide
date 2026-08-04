@@ -498,6 +498,8 @@
         assistant_pending_proposals={stores.assistant_proposals.pending.length}
         on_assistant_open_proposals={() =>
           void action_registry.execute(ACTION_IDS.assistant_open_proposals)}
+        on_assistant_clear_runs={() =>
+          void action_registry.execute(ACTION_IDS.assistant_clear_runs)}
         color_scheme={stores.ui.active_theme.color_scheme}
         on_theme_toggle={() =>
           void action_registry.execute(

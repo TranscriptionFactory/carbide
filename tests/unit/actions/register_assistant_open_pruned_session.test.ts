@@ -3,6 +3,7 @@ import { ActionRegistry } from "$lib/app/action_registry/action_registry";
 import { ACTION_IDS } from "$lib/app/action_registry/action_ids";
 import {
   AssistantChatStore,
+  AssistantRunStore,
   AssistantSessionStore,
   register_assistant_actions,
 } from "$lib/features/assistant";
@@ -24,6 +25,7 @@ function create_harness() {
       bootstrap_default_vault_path: null,
     },
     assistant_kernel: { stop: vi.fn(), stop_all: vi.fn() } as never,
+    assistant_runs: new AssistantRunStore(),
     assistant_sessions: sessions,
     assistant_proposals: { set_hunk_selected: vi.fn() } as never,
     proposal_apply: {

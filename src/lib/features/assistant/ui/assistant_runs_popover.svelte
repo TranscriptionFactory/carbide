@@ -10,6 +10,7 @@
     now?: (() => number) | undefined;
     pending_proposal_count?: number;
     on_open_proposals?: (() => void) | undefined;
+    on_clear?: (() => void) | undefined;
   }
 
   let {
@@ -18,6 +19,7 @@
     now = () => Date.now(),
     pending_proposal_count = 0,
     on_open_proposals = undefined,
+    on_clear = undefined,
   }: Props = $props();
 
   const TICK_MS = 1000;
@@ -71,6 +73,13 @@
       .filter((run) => is_live(run) || run.status === "error")
       .sort((a, b) => a.started_at - b.started_at),
   );
+
+  const can_clear = $derived(
+    on_clear !== undefined && runs.some((run) => !is_live(run)),
+  );
+  const show_proposals = $derived(
+    pending_proposal_count > 0 && on_open_proposals !== undefined,
+  );
 </script>
 
 <div class="AssistantRuns" data-testid="assistant-runs-popover">
@@ -119,15 +128,30 @@
     </p>
   {/if}
 
-  {#if pending_proposal_count > 0 && on_open_proposals}
-    <button
-      type="button"
-      class="AssistantRuns__proposals"
-      data-testid="assistant-runs-review-proposals"
-      onclick={on_open_proposals}
-    >
-      Review proposals ({pending_proposal_count}) →
-    </button>
+  {#if show_proposals || can_clear}
+    <div class="AssistantRuns__actions">
+      {#if show_proposals}
+        <button
+          type="button"
+          class="AssistantRuns__action"
+          data-testid="assistant-runs-review-proposals"
+          onclick={on_open_proposals}
+        >
+          Review proposals ({pending_proposal_count}) →
+        </button>
+      {/if}
+      {#if can_clear}
+        <button
+          type="button"
+          class="AssistantRuns__action AssistantRuns__action--clear"
+          data-testid="assistant-runs-clear"
+          title="Discard finished and failed runs. Live runs keep going."
+          onclick={on_clear}
+        >
+          Clear finished
+        </button>
+      {/if}
+    </div>
   {/if}
 </div>
 
@@ -221,14 +245,24 @@
     padding-top: var(--space-2);
   }
 
-  .AssistantRuns__proposals {
-    align-self: flex-start;
+  .AssistantRuns__actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-2);
+  }
+
+  .AssistantRuns__action {
     border-radius: var(--radius-sm);
     padding: var(--space-1);
     color: var(--interactive);
   }
 
-  .AssistantRuns__proposals:hover {
+  .AssistantRuns__action--clear {
+    color: var(--muted-foreground);
+  }
+
+  .AssistantRuns__action:hover {
     background-color: var(--muted);
   }
 </style>

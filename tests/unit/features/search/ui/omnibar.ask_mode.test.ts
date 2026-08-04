@@ -140,4 +140,53 @@ describe("omnibar Ask mode", () => {
       view.target.querySelector('[data-testid="omnibar-ask-toggle"]'),
     ).toBeNull();
   });
+
+  it("carries the search query into the Ask draft", () => {
+    const ask = ask_view();
+    const view = render_omnibar({ ask, query: "hybrid retrieval" });
+
+    view.press_toggle();
+
+    expect(view.in_ask_mode()).toBe(true);
+    expect(ask.on_draft_change).toHaveBeenCalledWith("hybrid retrieval");
+  });
+
+  it("carries the Ask draft back into the search query", () => {
+    const on_query_change = vi.fn();
+    const view = render_omnibar({
+      ask: { ...ask_view(), draft: "what links here" },
+      on_query_change,
+    });
+
+    view.press_toggle();
+    view.press_toggle();
+
+    expect(view.in_ask_mode()).toBe(false);
+    expect(on_query_change).toHaveBeenCalledWith("what links here");
+  });
+
+  // A `>` query is a command invocation, not a question.
+  it("leaves a command query behind rather than asking it", () => {
+    const ask = ask_view();
+    const view = render_omnibar({ ask, query: ">toggle theme" });
+
+    view.press_toggle();
+
+    expect(view.in_ask_mode()).toBe(true);
+    expect(ask.on_draft_change).not.toHaveBeenCalled();
+  });
+
+  it("never clobbers a non-empty destination with an empty source", () => {
+    const on_query_change = vi.fn();
+    const view = render_omnibar({
+      ask: ask_view(),
+      query: "kept",
+      on_query_change,
+    });
+
+    view.press_toggle();
+    view.press_toggle();
+
+    expect(on_query_change).not.toHaveBeenCalled();
+  });
 });

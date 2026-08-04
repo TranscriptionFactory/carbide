@@ -475,13 +475,27 @@
     setTimeout(() => input_ref?.focus(), 0);
   }
 
+  // Search and Ask are two readings of the same thing the user typed, so the
+  // text moves with the mode in either direction. A command query (`>…`) has
+  // no meaning as a question and is left behind. An empty source never
+  // clobbers a non-empty destination.
+  function set_ask_mode(next: boolean) {
+    if (next === ask_mode) return;
+    if (next) {
+      if (!is_command_mode && query.trim() !== "") ask?.on_draft_change(query);
+    } else if ((ask?.draft ?? "").trim() !== "") {
+      on_query_change(ask?.draft ?? "");
+    }
+    ask_mode = next;
+  }
+
   function handle_keydown(event: KeyboardEvent) {
     if (!open) return;
 
     if (ask && (event.metaKey || event.ctrlKey) && event.key === "/") {
       event.preventDefault();
       event.stopPropagation();
-      ask_mode = !ask_mode;
+      set_ask_mode(!ask_mode);
       return;
     }
 
@@ -588,7 +602,7 @@
 <Dialog.Root {open} onOpenChange={on_open_change}>
   <Dialog.Content class="Omnibar" showCloseButton={false}>
     {#if ask_mode && ask}
-      <OmnibarAsk {...ask} on_mode_change={(next) => (ask_mode = next)} />
+      <OmnibarAsk {...ask} on_mode_change={set_ask_mode} />
     {:else}
       <div class="Omnibar__search">
         <SearchIcon />
@@ -609,10 +623,7 @@
           class="border-0 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
         />
         {#if ask}
-          <OmnibarModeSegment
-            ask_mode={false}
-            on_mode_change={(next) => (ask_mode = next)}
-          />
+          <OmnibarModeSegment ask_mode={false} on_mode_change={set_ask_mode} />
         {/if}
         {#each file_type_filters as f}
           {@const def = TYPE_FILTERS.find((t) => t.filter === f)}

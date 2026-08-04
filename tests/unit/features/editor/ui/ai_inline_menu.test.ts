@@ -100,7 +100,7 @@ describe("ai_inline_menu.svelte — presence", () => {
     });
     flushSync();
 
-    expect(presence_chip().textContent).toContain("ready");
+    expect(presence_chip().textContent).toContain("Ready");
 
     void unmount(app);
     target.remove();
@@ -128,7 +128,7 @@ describe("ai_inline_menu.svelte — presence", () => {
     });
     flushSync();
 
-    expect(presence_chip().textContent).toContain("ready");
+    expect(presence_chip().textContent).toContain("Ready");
 
     runs.set("run-1", make_run_record({ id: "run-1" }));
     flushSync();

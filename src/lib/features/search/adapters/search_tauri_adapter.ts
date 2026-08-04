@@ -33,7 +33,9 @@ type TauriNoteMeta = {
   path: string;
   title: string;
   name: string;
-  blurb: string;
+  // The index carries no blurb: IndexNoteMeta has no such column, so every
+  // search-sourced note arrives without one.
+  blurb?: string;
   mtime_ms: number;
   ctime_ms: number;
   size_bytes: number;
@@ -119,7 +121,7 @@ function to_note_meta(hit: TauriNoteMeta) {
     path: hit.path as NoteId,
     title: hit.title,
     name: hit.name,
-    blurb: hit.blurb,
+    blurb: hit.blurb ?? "",
     mtime_ms: hit.mtime_ms,
     ctime_ms: hit.ctime_ms,
     size_bytes: hit.size_bytes,
