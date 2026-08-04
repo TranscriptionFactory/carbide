@@ -49,9 +49,9 @@ describe("search_tauri_adapter.search_notes", () => {
   });
 });
 
-// IndexNoteMeta carries no blurb column, so every index-sourced note arrives
-// without one. Passing that `undefined` on made the context assembler throw on
-// `block.text.trim()` the moment vault context was enabled.
+// The blurb is what the AI vault context renders for a related note. It used to
+// be absent from every index-sourced note, and passing that `undefined` on made
+// the context assembler throw on `block.text.trim()`.
 describe("search_tauri_adapter note metadata", () => {
   const INDEX_META = {
     id: "notes/a.md",
@@ -96,5 +96,23 @@ describe("search_tauri_adapter note metadata", () => {
     );
 
     expect(hits[0]?.note.blurb).toBe("");
+  });
+
+  it("forwards the indexed blurb when the row has one", async () => {
+    const gist = "Combining BM25 with dense vectors improves recall.";
+    tauri_invoke_mock.mockResolvedValue({
+      backlinks: [{ ...INDEX_META, blurb: gist }],
+      outlinks: [],
+      orphan_links: [],
+      attachments: [],
+    });
+    const adapter = create_search_tauri_adapter();
+
+    const snapshot = await adapter.get_note_links_snapshot(
+      as_vault_id("vault-1"),
+      "notes/b.md",
+    );
+
+    expect(snapshot.backlinks[0]?.blurb).toBe(gist);
   });
 });

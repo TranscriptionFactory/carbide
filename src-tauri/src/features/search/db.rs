@@ -178,6 +178,7 @@ pub(crate) fn extract_file_meta(abs: &Path, vault_root: &Path) -> Result<IndexNo
         mtime_ms,
         ctime_ms,
         size_bytes,
+        blurb: String::new(),
         file_type: None,
         source: None,
     })
@@ -1243,6 +1244,7 @@ pub fn upsert_linked_content(
         mtime_ms: modified_at as i64,
         ctime_ms: modified_at as i64,
         size_bytes: body.len() as i64,
+        blurb: String::new(),
         file_type: Some(file_type.to_string()),
         source: Some("linked".to_string()),
     };
@@ -2532,7 +2534,15 @@ pub fn get_all_notes_from_db(conn: &Connection) -> Result<BTreeMap<String, Index
         .prepare("SELECT path, title, mtime_ms, size_bytes, file_type FROM notes")
         .map_err(|e| e.to_string())?;
     let rows = stmt
-        .query_map([], |row| note_meta_from_row_cols(row, Some(4)))
+        .query_map([], |row| {
+            note_meta_from_row_cols(
+                row,
+                MetaCols {
+                    file_type: Some(4),
+                    blurb: None,
+                },
+            )
+        })
         .map_err(|e| e.to_string())?;
     let mut map = BTreeMap::new();
     for row in rows {
@@ -2572,7 +2582,15 @@ pub fn get_all_notes_chunked(
         .prepare("SELECT path, title, mtime_ms, size_bytes, file_type FROM notes")
         .map_err(|e| e.to_string())?;
     let rows = stmt
-        .query_map([], |row| note_meta_from_row_cols(row, Some(4)))
+        .query_map([], |row| {
+            note_meta_from_row_cols(
+                row,
+                MetaCols {
+                    file_type: Some(4),
+                    blurb: None,
+                },
+            )
+        })
         .map_err(|e| e.to_string())?;
 
     let mut chunk = Vec::with_capacity(chunk_size);
@@ -2709,14 +2727,27 @@ fn like_contains_pattern(query: &str) -> String {
     format!("%{escaped}%")
 }
 
+/// Where the optional columns sit in a given query. Every caller selects path,
+/// title, mtime_ms and size_bytes first; these two move, so they are named
+/// rather than positional at the call site.
+#[derive(Clone, Copy)]
+struct MetaCols {
+    file_type: Option<usize>,
+    blurb: Option<usize>,
+}
+
 fn note_meta_from_row_cols(
     row: &rusqlite::Row,
-    file_type_col: Option<usize>,
+    cols: MetaCols,
 ) -> rusqlite::Result<IndexNoteMeta> {
     let path: String = row.get(0)?;
     let title: String = row.get(1)?;
     let name = file_stem_string(Path::new(&path));
-    let file_type: Option<String> = file_type_col.and_then(|col| row.get(col).ok());
+    let file_type: Option<String> = cols.file_type.and_then(|col| row.get(col).ok());
+    let blurb: String = cols
+        .blurb
+        .and_then(|col| row.get::<_, Option<String>>(col).ok().flatten())
+        .unwrap_or_default();
     Ok(IndexNoteMeta {
         id: path.clone(),
         path,
@@ -2725,6 +2756,7 @@ fn note_meta_from_row_cols(
         mtime_ms: row.get(2)?,
         ctime_ms: 0,
         size_bytes: row.get(3)?,
+        blurb,
         file_type,
         source: None,
     })
@@ -2744,6 +2776,11 @@ fn note_meta_with_stats_from_row(
         mtime_ms: row.get(2)?,
         ctime_ms: row.get::<_, i64>(3).unwrap_or(0),
         size_bytes: row.get(4)?,
+        blurb: row
+            .get::<_, Option<String>>(16)
+            .ok()
+            .flatten()
+            .unwrap_or_default(),
         file_type: row.get(11).ok(),
         source: None,
     };
@@ -2789,7 +2826,13 @@ pub fn search(
             body.as_deref(),
             offsets_json.as_deref(),
         );
-        let mut note = note_meta_from_row_cols(row, Some(6))?;
+        let mut note = note_meta_from_row_cols(
+            row,
+            MetaCols {
+                file_type: Some(6),
+                blurb: Some(10),
+            },
+        )?;
         note.source = source;
         Ok(SearchHit {
             note,
@@ -2812,7 +2855,8 @@ pub fn search(
                 n.file_type,
                 n.page_offsets,
                 notes_fts.body,
-                n.source
+                n.source,
+                n.content_snippet
          FROM notes_fts
          JOIN notes n ON n.path = notes_fts.path
          WHERE notes_fts MATCH ?1{date_clause}
@@ -2867,7 +2911,8 @@ pub fn suggest(conn: &Connection, query: &str, limit: usize) -> Result<Vec<Sugge
 
     let sql = "SELECT n.path, n.title, n.mtime_ms, n.size_bytes,
                       bm25(notes_fts, 15.0, 20.0, 5.0, 0.0) as rank,
-                      n.file_type
+                      n.file_type,
+                      n.content_snippet
                FROM notes_fts
                JOIN notes n ON n.path = notes_fts.path
                WHERE notes_fts MATCH ?1
@@ -2878,7 +2923,13 @@ pub fn suggest(conn: &Connection, query: &str, limit: usize) -> Result<Vec<Sugge
     let rows = stmt
         .query_map(params![match_expr, limit], |row| {
             Ok(SuggestionHit {
-                note: note_meta_from_row_cols(row, Some(5))?,
+                note: note_meta_from_row_cols(
+                    row,
+                    MetaCols {
+                        file_type: Some(5),
+                        blurb: Some(6),
+                    },
+                )?,
                 score: row.get(4)?,
             })
         })
@@ -2903,7 +2954,7 @@ pub fn fuzzy_suggest(
     // in the target, so this is safe to filter on.
     let first_char = trimmed.chars().next().unwrap().to_lowercase().to_string();
     let like_pattern = format!("%{}%", first_char.replace('%', r"\%").replace('_', r"\_"));
-    let sql = "SELECT path, title, mtime_ms, size_bytes, file_type FROM notes
+    let sql = "SELECT path, title, mtime_ms, size_bytes, file_type, content_snippet FROM notes
                WHERE LOWER(title) LIKE ?1 ESCAPE '\\' OR LOWER(path) LIKE ?1 ESCAPE '\\'";
     let mut stmt = conn.prepare(sql).map_err(|e| e.to_string())?;
 
@@ -2918,12 +2969,13 @@ pub fn fuzzy_suggest(
             let mtime_ms: i64 = row.get(2)?;
             let size_bytes: i64 = row.get(3)?;
             let file_type: Option<String> = row.get(4).ok();
-            Ok((path, title, name, mtime_ms, size_bytes, file_type))
+            let blurb: String = row.get::<_, Option<String>>(5).ok().flatten().unwrap_or_default();
+            Ok((path, title, name, mtime_ms, size_bytes, file_type, blurb))
         })
         .map_err(|e| e.to_string())?;
 
     for row in rows {
-        let (path, title, name, mtime_ms, size_bytes, file_type) =
+        let (path, title, name, mtime_ms, size_bytes, file_type, blurb) =
             row.map_err(|e| e.to_string())?;
 
         let best_score = [&title, &name, &path]
@@ -2942,6 +2994,7 @@ pub fn fuzzy_suggest(
                     mtime_ms,
                     ctime_ms: 0,
                     size_bytes,
+                    blurb,
                     file_type,
                     source: None,
                 },
@@ -3352,12 +3405,20 @@ pub fn get_note_count(conn: &Connection) -> Result<usize, String> {
 }
 
 pub fn get_note_meta(conn: &Connection, path: &str) -> Result<Option<IndexNoteMeta>, String> {
-    let sql = "SELECT path, title, mtime_ms, size_bytes, file_type
+    let sql = "SELECT path, title, mtime_ms, size_bytes, file_type, content_snippet
                FROM notes
                WHERE path = ?1";
 
     let mut stmt = conn.prepare(sql).map_err(|e| e.to_string())?;
-    match stmt.query_row(params![path], |row| note_meta_from_row_cols(row, Some(4))) {
+    match stmt.query_row(params![path], |row| {
+        note_meta_from_row_cols(
+            row,
+            MetaCols {
+                file_type: Some(4),
+                blurb: Some(5),
+            },
+        )
+    }) {
         Ok(note) => Ok(Some(note)),
         Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
         Err(error) => Err(error.to_string()),
@@ -3385,7 +3446,8 @@ pub fn get_section(
 }
 
 pub fn get_outlinks(conn: &Connection, path: &str) -> Result<Vec<IndexNoteMeta>, String> {
-    let sql = "SELECT n.path, n.title, n.mtime_ms, n.size_bytes, n.file_type
+    let sql = "SELECT n.path, n.title, n.mtime_ms, n.size_bytes, n.file_type,
+                      n.content_snippet
                FROM outlinks o
                JOIN notes n ON n.path = o.target_path
                WHERE o.source_path = ?1
@@ -3393,7 +3455,15 @@ pub fn get_outlinks(conn: &Connection, path: &str) -> Result<Vec<IndexNoteMeta>,
 
     let mut stmt = conn.prepare(sql).map_err(|e| e.to_string())?;
     let rows = stmt
-        .query_map(params![path], |row| note_meta_from_row_cols(row, Some(4)))
+        .query_map(params![path], |row| {
+            note_meta_from_row_cols(
+                row,
+                MetaCols {
+                    file_type: Some(4),
+                    blurb: Some(5),
+                },
+            )
+        })
         .map_err(|e| e.to_string())?;
 
     rows.collect::<Result<Vec<_>, _>>()
@@ -3413,6 +3483,7 @@ mod tests {
             mtime_ms: 100,
             ctime_ms: 50,
             size_bytes: 10,
+            blurb: String::new(),
             file_type: None,
             source: None,
         }
@@ -5562,7 +5633,8 @@ pub fn get_linked_paths_batch(
 }
 
 pub fn get_backlinks(conn: &Connection, path: &str) -> Result<Vec<IndexNoteMeta>, String> {
-    let sql = "SELECT n.path, n.title, n.mtime_ms, n.size_bytes, n.file_type
+    let sql = "SELECT n.path, n.title, n.mtime_ms, n.size_bytes, n.file_type,
+                      n.content_snippet
                FROM outlinks o
                JOIN notes n ON n.path = o.source_path
                WHERE o.target_path = ?1
@@ -5570,7 +5642,15 @@ pub fn get_backlinks(conn: &Connection, path: &str) -> Result<Vec<IndexNoteMeta>
 
     let mut stmt = conn.prepare(sql).map_err(|e| e.to_string())?;
     let rows = stmt
-        .query_map(params![path], |row| note_meta_from_row_cols(row, Some(4)))
+        .query_map(params![path], |row| {
+            note_meta_from_row_cols(
+                row,
+                MetaCols {
+                    file_type: Some(4),
+                    blurb: Some(5),
+                },
+            )
+        })
         .map_err(|e| e.to_string())?;
 
     rows.collect::<Result<Vec<_>, _>>()

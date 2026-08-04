@@ -74,6 +74,11 @@ pub struct IndexNoteMeta {
     pub mtime_ms: i64,
     pub ctime_ms: i64,
     pub size_bytes: i64,
+    // The one-line gist, read from notes.content_snippet. Empty on the queries
+    // that do not select it (the bulk sync diff) and on metas built before a
+    // note is indexed, so a consumer must treat "" as "unknown", not "blank".
+    #[serde(default)]
+    pub blurb: String,
     #[serde(default)]
     pub file_type: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

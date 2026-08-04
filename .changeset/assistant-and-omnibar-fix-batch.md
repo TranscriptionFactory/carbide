@@ -5,9 +5,9 @@
 Fixed four assistant and omnibar defects, and made the status-bar assistant chip legible.
 
 Inline AI edits no longer fail with "undefined is not an object" when vault context is
-enabled. The search index carries no note summary, so every backlink, outlink and
-similar-note reference reached the prompt assembler without one; the adapter now
-supplies an empty summary instead of passing `undefined` through.
+enabled. Every backlink, outlink and similar-note reference reached the prompt assembler
+with no note summary at all; the adapter now supplies an empty summary instead of
+passing `undefined` through.
 
 Non-streaming CLI providers such as Codex work in Ask again. They were refused unless a
 note was open, but the one-shot call writes to a temporary file and runs in the vault
