@@ -733,9 +733,11 @@ export class NoteService {
     try {
       formatted = await Promise.race([
         this.format_for_save(path, snapshot),
-        new Promise<null>((resolve) =>
-          setTimeout(() => resolve(null), FORMAT_ON_SAVE_TIMEOUT_MS),
-        ),
+        new Promise<null>((resolve) => {
+          setTimeout(() => {
+            resolve(null);
+          }, FORMAT_ON_SAVE_TIMEOUT_MS);
+        }),
       ]);
     } catch (error) {
       log.warn("Format-on-save failed; saving unformatted", {
