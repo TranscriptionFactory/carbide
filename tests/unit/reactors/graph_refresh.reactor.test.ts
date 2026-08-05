@@ -5,18 +5,10 @@ describe("resolve_graph_refresh_decision", () => {
   const initial_state = {
     last_panel_open: false,
     last_vault_id: null,
-    last_open_note_path: null,
-    last_open_note_dirty: false,
-  };
-
-  const base_input = {
-    open_note_path: null,
-    open_note_dirty: false,
   };
 
   it("returns noop when panel is closed", () => {
     const decision = resolve_graph_refresh_decision(initial_state, {
-      ...base_input,
       panel_open: false,
       center_note_path: "note.md",
       vault_id: "vault-1",
@@ -30,7 +22,6 @@ describe("resolve_graph_refresh_decision", () => {
 
   it("returns load when panel opens for the first time", () => {
     const decision = resolve_graph_refresh_decision(initial_state, {
-      ...base_input,
       panel_open: true,
       center_note_path: "note.md",
       vault_id: "vault-1",
@@ -51,7 +42,6 @@ describe("resolve_graph_refresh_decision", () => {
     };
 
     const decision = resolve_graph_refresh_decision(state, {
-      ...base_input,
       panel_open: true,
       center_note_path: "note.md",
       vault_id: "vault-2",
@@ -71,7 +61,6 @@ describe("resolve_graph_refresh_decision", () => {
     };
 
     const decision = resolve_graph_refresh_decision(state, {
-      ...base_input,
       panel_open: true,
       center_note_path: "new.md",
       vault_id: "vault-1",
@@ -82,116 +71,5 @@ describe("resolve_graph_refresh_decision", () => {
 
     expect(decision.action).toBe("load");
     expect(decision.note_path).toBe("new.md");
-  });
-
-  describe("save-completed invalidation", () => {
-    const dirty_state = {
-      ...initial_state,
-      last_panel_open: true,
-      last_vault_id: "vault-1",
-      last_open_note_path: "a.md",
-      last_open_note_dirty: true,
-    };
-
-    it("invalidates the edited note when a save clears the dirty flag", () => {
-      const decision = resolve_graph_refresh_decision(dirty_state, {
-        panel_open: true,
-        center_note_path: "a.md",
-        vault_id: "vault-1",
-        snapshot_note_path: "a.md",
-        status: "ready",
-        view_mode: "neighborhood",
-        open_note_path: "a.md",
-        open_note_dirty: false,
-      });
-
-      expect(decision.action).toBe("noop");
-      expect(decision.invalidate_note_path).toBe("a.md");
-    });
-
-    it("invalidates the edited note even while the panel is closed", () => {
-      const decision = resolve_graph_refresh_decision(
-        { ...dirty_state, last_panel_open: false },
-        {
-          panel_open: false,
-          center_note_path: null,
-          vault_id: "vault-1",
-          snapshot_note_path: null,
-          status: "idle",
-          view_mode: "neighborhood",
-          open_note_path: "a.md",
-          open_note_dirty: false,
-        },
-      );
-
-      expect(decision.invalidate_note_path).toBe("a.md");
-    });
-
-    it("invalidates the edited note before loading a different center note", () => {
-      const decision = resolve_graph_refresh_decision(dirty_state, {
-        panel_open: true,
-        center_note_path: "b.md",
-        vault_id: "vault-1",
-        snapshot_note_path: "a.md",
-        status: "ready",
-        view_mode: "neighborhood",
-        open_note_path: "a.md",
-        open_note_dirty: false,
-      });
-
-      expect(decision.action).toBe("load");
-      expect(decision.note_path).toBe("b.md");
-      expect(decision.invalidate_note_path).toBe("a.md");
-    });
-
-    it("does not double-invalidate when the saved note is the one being loaded", () => {
-      const decision = resolve_graph_refresh_decision(
-        { ...dirty_state, last_panel_open: false },
-        {
-          panel_open: true,
-          center_note_path: "a.md",
-          vault_id: "vault-1",
-          snapshot_note_path: null,
-          status: "idle",
-          view_mode: "neighborhood",
-          open_note_path: "a.md",
-          open_note_dirty: false,
-        },
-      );
-
-      expect(decision.action).toBe("load");
-      expect(decision.note_path).toBe("a.md");
-      expect(decision.invalidate_note_path).toBeNull();
-    });
-
-    it("does not invalidate while the note is still dirty", () => {
-      const decision = resolve_graph_refresh_decision(dirty_state, {
-        panel_open: true,
-        center_note_path: "a.md",
-        vault_id: "vault-1",
-        snapshot_note_path: "a.md",
-        status: "ready",
-        view_mode: "neighborhood",
-        open_note_path: "a.md",
-        open_note_dirty: true,
-      });
-
-      expect(decision.invalidate_note_path).toBeNull();
-    });
-
-    it("does not treat switching to a clean note as a save", () => {
-      const decision = resolve_graph_refresh_decision(dirty_state, {
-        panel_open: true,
-        center_note_path: "b.md",
-        vault_id: "vault-1",
-        snapshot_note_path: "a.md",
-        status: "ready",
-        view_mode: "neighborhood",
-        open_note_path: "b.md",
-        open_note_dirty: false,
-      });
-
-      expect(decision.invalidate_note_path).toBeNull();
-    });
   });
 });

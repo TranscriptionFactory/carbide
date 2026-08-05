@@ -6,12 +6,12 @@ import type {
   MarkdownLspStore,
   MarkdownLspStatus,
 } from "$lib/features/markdown_lsp";
+import { listen } from "@tauri-apps/api/event";
 
 type BacklinksSyncState = {
   last_note_path: string | null;
   last_panel_open: boolean;
   last_markdown_lsp_status: MarkdownLspStatus;
-  last_is_dirty: boolean;
   loaded_note_path: string | null;
 };
 
@@ -19,7 +19,6 @@ type BacklinksSyncInput = {
   open_note_path: string | null;
   panel_open: boolean;
   markdown_lsp_status: MarkdownLspStatus;
-  is_dirty: boolean;
   snapshot_note_path: string | null;
   global_status: LinksStore["global_status"];
 };
@@ -38,7 +37,6 @@ export function resolve_backlinks_sync_decision(
     last_note_path: input.open_note_path,
     last_panel_open: input.panel_open,
     last_markdown_lsp_status: input.markdown_lsp_status,
-    last_is_dirty: input.is_dirty,
     loaded_note_path: state.loaded_note_path,
   };
 
@@ -56,10 +54,6 @@ export function resolve_backlinks_sync_decision(
   const markdown_lsp_became_ready =
     input.markdown_lsp_status === "running" &&
     state.last_markdown_lsp_status !== "running";
-  const save_completed =
-    !input.is_dirty &&
-    state.last_is_dirty &&
-    input.open_note_path === state.last_note_path;
   const not_loaded = state.loaded_note_path !== input.open_note_path;
   const has_ready_snapshot =
     input.snapshot_note_path === input.open_note_path &&
@@ -70,8 +64,7 @@ export function resolve_backlinks_sync_decision(
   const should_load =
     path_changed ||
     (panel_opened && stale_or_unloaded) ||
-    (markdown_lsp_became_ready && stale_or_unloaded) ||
-    (save_completed && stale_or_unloaded);
+    (markdown_lsp_became_ready && stale_or_unloaded);
 
   if (should_load) {
     next_state.loaded_note_path = input.open_note_path;
@@ -84,6 +77,11 @@ export function resolve_backlinks_sync_decision(
   };
 }
 
+// Index-driven refresh replaces the old dirty→clean save-edge trigger: the
+// index upsert is async relative to the save reply, so "metadata-changed"
+// (emitted post-commit by the DB writer) is the earliest moment a re-read
+// can see the new links. It also covers external and bases-driven writes
+// the save edge never saw.
 export function create_backlinks_sync_reactor(
   editor_store: EditorStore,
   ui_store: UIStore,
@@ -95,18 +93,39 @@ export function create_backlinks_sync_reactor(
     last_note_path: null,
     last_panel_open: false,
     last_markdown_lsp_status: "stopped",
-    last_is_dirty: false,
     loaded_note_path: null,
   };
 
-  return $effect.root(() => {
+  let unlisten_fn: (() => void) | null = null;
+  let is_disposed = false;
+
+  void listen("metadata-changed", () => {
+    if (is_disposed) return;
+    const open_note_path = editor_store.open_note?.meta.path ?? null;
+    if (!open_note_path) return;
+    const panel_open =
+      ui_store.context_rail_open && ui_store.context_rail_tab === "links";
+    if (!panel_open) {
+      state = { ...state, loaded_note_path: null };
+      return;
+    }
+    state = { ...state, loaded_note_path: open_note_path };
+    void links_service.load_note_links(open_note_path);
+  }).then((fn) => {
+    if (is_disposed) {
+      fn();
+    } else {
+      unlisten_fn = fn;
+    }
+  });
+
+  const stop_effect = $effect.root(() => {
     $effect(() => {
       const decision = resolve_backlinks_sync_decision(state, {
         open_note_path: editor_store.open_note?.meta.path ?? null,
         panel_open:
           ui_store.context_rail_open && ui_store.context_rail_tab === "links",
         markdown_lsp_status: markdown_lsp_store.status,
-        is_dirty: editor_store.open_note?.is_dirty ?? false,
         snapshot_note_path: links_store.active_note_path,
         global_status: links_store.global_status,
       });
@@ -121,4 +140,13 @@ export function create_backlinks_sync_reactor(
       }
     });
   });
+
+  return () => {
+    is_disposed = true;
+    if (unlisten_fn) {
+      unlisten_fn();
+      unlisten_fn = null;
+    }
+    stop_effect();
+  };
 }

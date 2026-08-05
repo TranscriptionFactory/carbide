@@ -89,6 +89,7 @@ export function create_notes_tauri_adapter(): NotesPort {
         note_id,
         markdown,
         expected_mtime_ms: expected_mtime_ms ?? null,
+        wait_for_index: null,
       });
       return unwrap_result(result);
     },
@@ -97,6 +98,7 @@ export function create_notes_tauri_adapter(): NotesPort {
       note_id: NoteId,
       markdown: MarkdownText,
       expected_mtime_ms?: number,
+      wait_for_index?: boolean,
     ) {
       assert_tauri();
       const result = await commands.writeAndIndexNote({
@@ -104,6 +106,7 @@ export function create_notes_tauri_adapter(): NotesPort {
         note_id,
         markdown,
         expected_mtime_ms: expected_mtime_ms ?? null,
+        wait_for_index: wait_for_index ?? null,
       });
       return unwrap_result(result);
     },

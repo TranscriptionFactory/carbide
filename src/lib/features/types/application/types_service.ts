@@ -101,6 +101,7 @@ export class TypesService {
         note_id,
         next as MarkdownText,
         doc.meta.mtime_ms,
+        true,
       );
       await this.refresh(vault_id);
     } catch (e) {

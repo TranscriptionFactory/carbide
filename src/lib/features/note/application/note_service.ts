@@ -62,6 +62,10 @@ type SaveSession = {
   editor_service: EditorService;
 };
 
+// A formatter slower than this shouldn't hold a save; the save proceeds
+// unformatted and formatting retries on the next save.
+const FORMAT_ON_SAVE_TIMEOUT_MS = 2_000;
+
 type SavePlan =
   | { kind: "save_existing"; open_note: OpenEditorNote }
   | {
@@ -97,6 +101,10 @@ export class NoteService {
     private readonly secondary_editor_manager?: SecondaryEditorManager,
     private readonly parsed_note_cache?: ParsedNoteCache,
     private readonly diagnostics_store?: DiagnosticsStore,
+    private readonly format_for_save?: (
+      path: NotePath,
+      markdown: MarkdownText,
+    ) => Promise<MarkdownText | null>,
   ) {}
 
   async read_note(vault_id: VaultId, note_id: NoteId): Promise<NoteDoc> {
@@ -534,6 +542,7 @@ export class NoteService {
     this.begin_save_operation();
 
     try {
+      await this.apply_format_on_save(save_context.session, plan_decision.plan);
       await this.run_save_plan(
         save_context.vault_id,
         save_context.session,
@@ -704,6 +713,56 @@ export class NoteService {
       return;
     }
     session.editor_store.set_markdown(flushed.note_id, flushed.markdown);
+    this.sync_split_view_session(session);
+  }
+
+  // Runs the formatter on the snapshot about to be written and pushes the
+  // result into the editor, so the save writes formatted bytes in one pass
+  // (replacing the old dirty→clean reactor that re-saved after formatting).
+  private async apply_format_on_save(session: SaveSession, plan: SavePlan) {
+    if (!this.format_for_save) {
+      return;
+    }
+    const open_note = plan.open_note;
+    const path = as_note_path(
+      plan.kind === "save_untitled" ? plan.target_path : open_note.meta.path,
+    );
+    const snapshot = open_note.markdown;
+
+    let formatted: MarkdownText | null;
+    try {
+      formatted = await Promise.race([
+        this.format_for_save(path, snapshot),
+        new Promise<null>((resolve) =>
+          setTimeout(() => resolve(null), FORMAT_ON_SAVE_TIMEOUT_MS),
+        ),
+      ]);
+    } catch (error) {
+      log.warn("Format-on-save failed; saving unformatted", {
+        path: String(path),
+        error: error_message(error),
+      });
+      return;
+    }
+    if (formatted === null || formatted === snapshot) {
+      return;
+    }
+
+    // Keystrokes typed during the async format must never be lost: re-read
+    // through a forced serialize flush (the store value can lag the live
+    // document) and keep the user's newer content unformatted if the
+    // snapshot went stale. No await between this check and set_markdown.
+    this.sync_flushed_markdown(session, open_note.meta.id);
+    const current = session.editor_store.open_note;
+    if (!current || current.meta.id !== open_note.meta.id) {
+      return;
+    }
+    if (current.markdown !== snapshot) {
+      return;
+    }
+
+    session.editor_store.set_markdown(open_note.meta.id, formatted);
+    session.editor_service.sync_visual_from_markdown(formatted);
     this.sync_split_view_session(session);
   }
 
