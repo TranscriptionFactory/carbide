@@ -93,7 +93,11 @@ import {
   register_graph_canvas_actions,
 } from "$lib/features/canvas";
 import { TagService, register_tag_actions } from "$lib/features/tags";
-import { LintService, register_lint_actions } from "$lib/features/lint";
+import {
+  LintService,
+  apply_lint_text_edits,
+  register_lint_actions,
+} from "$lib/features/lint";
 import { CodeLspService } from "$lib/features/code_lsp";
 import { MarkdownLspService } from "$lib/features/markdown_lsp";
 import { register_lsp_actions } from "$lib/features/lsp";
@@ -717,6 +721,23 @@ export function create_app_context(input: {
     secondary_editor_manager,
     stores.parsed_note_cache,
     stores.diagnostics,
+    // Format-on-save policy lives here so NoteService stays UIStore-free;
+    // lint_service is constructed later in this scope but exists long
+    // before the first save runs.
+    async (path, markdown) => {
+      if (!stores.ui.editor_settings.lint_format_on_save) return null;
+      if (!stores.lint.is_running) return null;
+      const edits = await lint_service.format_file(
+        String(path),
+        markdown,
+        stores.ui.editor_settings.lint_formatter,
+      );
+      if (edits.length === 0) return null;
+      const formatted = apply_lint_text_edits(markdown, edits);
+      if (formatted === markdown) return null;
+      void lint_service.notify_file_changed(String(path), formatted);
+      return as_markdown_text(formatted);
+    },
   );
 
   const links_service = new LinksService(
@@ -1022,10 +1043,14 @@ export function create_app_context(input: {
         async write_note(note_path, markdown) {
           const vault = stores.vault.vault;
           if (!vault) throw new Error("No active vault");
+          // Plugins may query the index right after this resolves, so the
+          // RPC keeps read-your-writes and waits for the upsert to commit.
           return input.ports.notes.write_and_index_note(
             vault.id,
             as_note_path(note_path),
             as_markdown_text(markdown),
+            undefined,
+            true,
           );
         },
         async delete_note(note_path) {

@@ -354,7 +354,6 @@ export function mount_reactors(context: ReactorContext): ReactorHandles {
     create_graph_refresh_reactor(
       context.graph_store,
       context.vault_store,
-      context.editor_store,
       context.graph_service,
     ),
     create_bases_refresh_reactor(context.vault_store, context.bases_service),
@@ -399,12 +398,8 @@ export function mount_reactors(context: ReactorContext): ReactorHandles {
     ),
     create_lint_reactor(
       context.vault_store,
-      context.editor_store,
-      context.lint_store,
       context.lint_service,
       context.ui_store,
-      context.note_service,
-      context.editor_service,
     ),
     create_update_check_reactor(),
     create_metadata_sync_reactor(
