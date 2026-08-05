@@ -316,6 +316,7 @@ export function mount_reactors(context: ReactorContext): ReactorHandles {
       context.markdown_lsp_store,
       context.links_store,
       context.links_service,
+      context.vault_store,
     ),
     create_window_title_reactor(
       context.vault_store,

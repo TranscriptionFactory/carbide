@@ -66,6 +66,16 @@ type SaveSession = {
 // unformatted and formatting retries on the next save.
 const FORMAT_ON_SAVE_TIMEOUT_MS = 2_000;
 
+// on_applied fires only when the formatted text was actually adopted by the
+// editor — a timed-out or superseded format result must leave no trace.
+export type FormatOnSaveHook = {
+  format: (
+    path: NotePath,
+    markdown: MarkdownText,
+  ) => Promise<MarkdownText | null>;
+  on_applied?: (path: NotePath, markdown: MarkdownText) => void;
+};
+
 type SavePlan =
   | { kind: "save_existing"; open_note: OpenEditorNote }
   | {
@@ -101,10 +111,7 @@ export class NoteService {
     private readonly secondary_editor_manager?: SecondaryEditorManager,
     private readonly parsed_note_cache?: ParsedNoteCache,
     private readonly diagnostics_store?: DiagnosticsStore,
-    private readonly format_for_save?: (
-      path: NotePath,
-      markdown: MarkdownText,
-    ) => Promise<MarkdownText | null>,
+    private readonly format_on_save?: FormatOnSaveHook,
   ) {}
 
   async read_note(vault_id: VaultId, note_id: NoteId): Promise<NoteDoc> {
@@ -720,7 +727,7 @@ export class NoteService {
   // result into the editor, so the save writes formatted bytes in one pass
   // (replacing the old dirty→clean reactor that re-saved after formatting).
   private async apply_format_on_save(session: SaveSession, plan: SavePlan) {
-    if (!this.format_for_save) {
+    if (!this.format_on_save) {
       return;
     }
     const open_note = plan.open_note;
@@ -730,11 +737,12 @@ export class NoteService {
     const snapshot = open_note.markdown;
 
     let formatted: MarkdownText | null;
+    let timeout: ReturnType<typeof setTimeout> | undefined;
     try {
       formatted = await Promise.race([
-        this.format_for_save(path, snapshot),
+        this.format_on_save.format(path, snapshot),
         new Promise<null>((resolve) => {
-          setTimeout(() => {
+          timeout = setTimeout(() => {
             resolve(null);
           }, FORMAT_ON_SAVE_TIMEOUT_MS);
         }),
@@ -745,6 +753,8 @@ export class NoteService {
         error: error_message(error),
       });
       return;
+    } finally {
+      clearTimeout(timeout);
     }
     if (formatted === null || formatted === snapshot) {
       return;
@@ -766,6 +776,7 @@ export class NoteService {
     session.editor_store.set_markdown(open_note.meta.id, formatted);
     session.editor_service.sync_visual_from_markdown(formatted);
     this.sync_split_view_session(session);
+    this.format_on_save.on_applied?.(path, formatted);
   }
 
   private resolve_save_plan(

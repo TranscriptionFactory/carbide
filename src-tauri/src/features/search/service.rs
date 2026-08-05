@@ -2613,49 +2613,33 @@ pub fn index_upsert_note_inner(
     })
 }
 
+/// With `wait_for_index: false` the upsert (FTS row, embeddings, HNSW
+/// inserts, possible compaction) drains on the writer thread after the caller
+/// has moved on; failures are logged by the writer and repaired by the next
+/// mtime-diff sync. Either way `metadata-changed` fires post-commit.
 pub fn index_upsert_note_with_content(
     app: &AppHandle,
     vault_id: &str,
     note_id: &str,
     markdown: String,
+    mtime_ms: Option<i64>,
+    wait_for_index: bool,
 ) -> Result<(), String> {
     let vault_root = storage::vault_path(app, vault_id)?;
-    send_write_blocking(app, vault_id, |reply| DbCommand::UpsertNoteWithContent {
+    let make_cmd = |reply| DbCommand::UpsertNoteWithContent {
         vault_root,
         vault_id: vault_id.to_string(),
         note_id: note_id.to_string(),
         markdown,
-        mtime_ms: None,
+        mtime_ms,
         app_handle: app.clone(),
-        reply: Some(reply),
-    })
-}
-
-/// Fire-and-forget variant for the note-save path: the upsert (FTS row,
-/// embeddings, HNSW inserts, possible compaction) drains on the writer thread
-/// after the save has already replied. Failures are logged by the writer and
-/// repaired by the next mtime-diff sync; `metadata-changed` fires post-commit.
-pub fn index_upsert_note_with_content_async(
-    app: &AppHandle,
-    vault_id: &str,
-    note_id: &str,
-    markdown: String,
-    mtime_ms: i64,
-) -> Result<(), String> {
-    let vault_root = storage::vault_path(app, vault_id)?;
-    send_write(
-        app,
-        vault_id,
-        DbCommand::UpsertNoteWithContent {
-            vault_root,
-            vault_id: vault_id.to_string(),
-            note_id: note_id.to_string(),
-            markdown,
-            mtime_ms: Some(mtime_ms),
-            app_handle: app.clone(),
-            reply: None,
-        },
-    )
+        reply,
+    };
+    if wait_for_index {
+        send_write_blocking(app, vault_id, |reply| make_cmd(Some(reply)))
+    } else {
+        send_write(app, vault_id, make_cmd(None))
+    }
 }
 
 #[tauri::command]
