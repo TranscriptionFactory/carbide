@@ -152,10 +152,15 @@ enum DbCommand {
     },
     UpsertNoteWithContent {
         vault_root: PathBuf,
+        vault_id: String,
         note_id: String,
         markdown: String,
+        // Save-path writes carry the post-write stat so the indexed
+        // (content, mtime) pair is exactly what the save wrote, even if the
+        // file changed on disk before this command drains.
+        mtime_ms: Option<i64>,
         app_handle: AppHandle,
-        reply: SyncSender<Result<(), String>>,
+        reply: Option<SyncSender<Result<(), String>>>,
     },
     RemoveNote {
         note_id: String,
@@ -788,8 +793,10 @@ fn dispatch_command(
         }
         DbCommand::UpsertNoteWithContent {
             vault_root,
+            vault_id,
             note_id,
             markdown,
+            mtime_ms,
             app_handle,
             reply,
         } => {
@@ -798,15 +805,27 @@ fn dispatch_command(
                 &vault_root,
                 &note_id,
                 &markdown,
+                mtime_ms,
                 notes_cache,
                 note_index,
                 block_index,
                 &app_handle,
             );
-            if let Err(ref e) = result {
-                log::warn!("writer: upsert_with_content failed for {note_id}: {e}");
+            // Emitted post-commit so a listener that queries metadata on the
+            // event is guaranteed to see this save's content.
+            match &result {
+                Ok(()) => notes_service::emit_metadata_changed(
+                    &app_handle,
+                    notes_service::MetadataChangedEvent::Upsert {
+                        vault_id,
+                        path: note_id,
+                    },
+                ),
+                Err(e) => log::warn!("writer: upsert_with_content failed for {note_id}: {e}"),
             }
-            let _ = reply.send(result);
+            if let Some(reply) = reply {
+                let _ = reply.send(result);
+            }
         }
         DbCommand::RemoveNote { note_id, reply } => {
             let result = search_db::remove_note(conn, &note_id);
@@ -1128,11 +1147,13 @@ fn handle_upsert(
     Ok(())
 }
 
+#[allow(clippy::too_many_arguments)]
 fn handle_upsert_with_content(
     conn: &Connection,
     vault_root: &Path,
     note_id: &str,
     markdown: &str,
+    mtime_ms: Option<i64>,
     notes_cache: &mut BTreeMap<String, IndexNoteMeta>,
     note_index: &SharedVectorIndex,
     block_index: &SharedVectorIndex,
@@ -1140,6 +1161,9 @@ fn handle_upsert_with_content(
 ) -> Result<(), String> {
     let abs = notes_service::safe_vault_abs(vault_root, note_id)?;
     let mut meta = search_db::extract_file_meta(&abs, vault_root)?;
+    if let Some(mtime_ms) = mtime_ms {
+        meta.mtime_ms = mtime_ms;
+    }
     meta.title = extract_title(markdown).unwrap_or_else(|| meta.name.clone());
     let targets = search_db::upsert_note_simple(conn, &meta, markdown)?;
     search_db::resolve_batch_outlinks(conn, &[(meta.path.clone(), targets)])?;
@@ -2598,11 +2622,40 @@ pub fn index_upsert_note_with_content(
     let vault_root = storage::vault_path(app, vault_id)?;
     send_write_blocking(app, vault_id, |reply| DbCommand::UpsertNoteWithContent {
         vault_root,
+        vault_id: vault_id.to_string(),
         note_id: note_id.to_string(),
         markdown,
+        mtime_ms: None,
         app_handle: app.clone(),
-        reply,
+        reply: Some(reply),
     })
+}
+
+/// Fire-and-forget variant for the note-save path: the upsert (FTS row,
+/// embeddings, HNSW inserts, possible compaction) drains on the writer thread
+/// after the save has already replied. Failures are logged by the writer and
+/// repaired by the next mtime-diff sync; `metadata-changed` fires post-commit.
+pub fn index_upsert_note_with_content_async(
+    app: &AppHandle,
+    vault_id: &str,
+    note_id: &str,
+    markdown: String,
+    mtime_ms: i64,
+) -> Result<(), String> {
+    let vault_root = storage::vault_path(app, vault_id)?;
+    send_write(
+        app,
+        vault_id,
+        DbCommand::UpsertNoteWithContent {
+            vault_root,
+            vault_id: vault_id.to_string(),
+            note_id: note_id.to_string(),
+            markdown,
+            mtime_ms: Some(mtime_ms),
+            app_handle: app.clone(),
+            reply: None,
+        },
+    )
 }
 
 #[tauri::command]

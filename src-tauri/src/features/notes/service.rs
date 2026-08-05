@@ -56,6 +56,10 @@ pub struct NoteWriteArgs {
     pub note_id: String,
     pub markdown: String,
     pub expected_mtime_ms: Option<i64>,
+    // Callers that read the search index right after saving (types UI, plugin
+    // RPC) opt into waiting for the upsert to commit; the editor save path
+    // defaults to fire-and-forget.
+    pub wait_for_index: Option<bool>,
 }
 
 fn parse_safe_relative_path(path: &str) -> Result<PathBuf, String> {
@@ -737,20 +741,24 @@ pub fn write_and_index_note_inner(
     let color = extract_frontmatter_str_field(&args.markdown, "color");
     let icon = extract_frontmatter_str_field(&args.markdown, "icon");
 
-    crate::features::search::service::index_upsert_note_with_content(
-        &app,
-        &args.vault_id,
-        &args.note_id,
-        args.markdown,
-    )?;
-
-    emit_metadata_changed(
-        &app,
-        MetadataChangedEvent::Upsert {
-            vault_id: args.vault_id,
-            path: args.note_id,
-        },
-    );
+    // The writer emits metadata-changed post-commit for this upsert; the save
+    // reply depends only on the file write above.
+    if args.wait_for_index.unwrap_or(false) {
+        crate::features::search::service::index_upsert_note_with_content(
+            &app,
+            &args.vault_id,
+            &args.note_id,
+            args.markdown,
+        )?;
+    } else {
+        crate::features::search::service::index_upsert_note_with_content_async(
+            &app,
+            &args.vault_id,
+            &args.note_id,
+            args.markdown,
+            new_mtime,
+        )?;
+    }
 
     Ok(WriteAndIndexResult {
         new_mtime,
@@ -1146,7 +1154,7 @@ pub enum MetadataChangedEvent {
     },
 }
 
-fn emit_metadata_changed(app: &AppHandle, event: MetadataChangedEvent) {
+pub(crate) fn emit_metadata_changed(app: &AppHandle, event: MetadataChangedEvent) {
     let _ = app.emit("metadata-changed", event);
 }
 
