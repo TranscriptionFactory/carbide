@@ -7,7 +7,6 @@ function state(
     last_note_path: string | null;
     last_panel_open: boolean;
     last_markdown_lsp_status: MarkdownLspStatus;
-    last_is_dirty: boolean;
     loaded_note_path: string | null;
   }>,
 ) {
@@ -15,7 +14,6 @@ function state(
     last_note_path: null,
     last_panel_open: false,
     last_markdown_lsp_status: "stopped" as MarkdownLspStatus,
-    last_is_dirty: false,
     loaded_note_path: null,
     ...input,
   };
@@ -26,7 +24,6 @@ function input(
     open_note_path: string | null;
     panel_open: boolean;
     markdown_lsp_status: MarkdownLspStatus;
-    is_dirty: boolean;
     snapshot_note_path: string | null;
     global_status: "idle" | "loading" | "ready" | "error";
   }>,
@@ -35,7 +32,6 @@ function input(
     open_note_path: null,
     panel_open: false,
     markdown_lsp_status: "running" as MarkdownLspStatus,
-    is_dirty: false,
     snapshot_note_path: null,
     global_status: "idle" as const,
     ...value,
@@ -125,46 +121,6 @@ describe("backlinks_sync.reactor", () => {
       input({
         open_note_path: "docs/a.md",
         panel_open: false,
-        snapshot_note_path: "docs/a.md",
-        global_status: "ready",
-      }),
-    );
-
-    expect(result.action).toBe("noop");
-  });
-
-  it("loads when save completes while panel is open and stale", () => {
-    const result = resolve_backlinks_sync_decision(
-      state({
-        last_note_path: "docs/a.md",
-        last_panel_open: true,
-        last_is_dirty: true,
-      }),
-      input({
-        open_note_path: "docs/a.md",
-        panel_open: true,
-        is_dirty: false,
-        snapshot_note_path: null,
-        global_status: "idle",
-      }),
-    );
-
-    expect(result.action).toBe("load");
-    expect(result.note_path).toBe("docs/a.md");
-  });
-
-  it("does not load on save when panel is closed", () => {
-    const result = resolve_backlinks_sync_decision(
-      state({
-        last_note_path: "docs/a.md",
-        last_panel_open: false,
-        last_is_dirty: true,
-        loaded_note_path: "docs/a.md",
-      }),
-      input({
-        open_note_path: "docs/a.md",
-        panel_open: false,
-        is_dirty: false,
         snapshot_note_path: "docs/a.md",
         global_status: "ready",
       }),
