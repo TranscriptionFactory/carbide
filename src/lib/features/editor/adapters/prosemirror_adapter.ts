@@ -40,7 +40,7 @@ import type {
 
 import { active_heading_at } from "./outline_plugin";
 import { find_block_anchor_position } from "./block_anchor";
-import { OutlineBuildScheduler } from "$lib/features/editor/domain/outline_build_scheduler";
+import { IdleTaskScheduler } from "$lib/features/editor/domain/idle_task_scheduler";
 import {
   assemble_extensions,
   editor_context_plugin_key,
@@ -413,7 +413,7 @@ export function create_prosemirror_editor_port(args?: {
       let current_is_dirty = false;
       let suppress_change_echo = false;
       let view: EditorView | null = null;
-      const outline_scheduler = new OutlineBuildScheduler();
+      const outline_scheduler = new IdleTaskScheduler();
       let is_large_note = is_large_markdown(current_markdown);
       let current_note_path = note_path;
       let current_vault_id = vault_id;

@@ -3,7 +3,7 @@ export type IdleScheduler = {
   cancel: (handle: number) => void;
 };
 
-export type OutlineBuildSchedulerOptions = {
+export type IdleTaskSchedulerOptions = {
   debounce_ms?: number;
   idle?: IdleScheduler;
 };
@@ -27,17 +27,17 @@ function default_idle_scheduler(): IdleScheduler {
   };
 }
 
-// Coalesces rapid outline rebuilds: debounces bursts of edits, then runs the
-// build during idle time so the traversal never blocks a keystroke. Latest
-// build wins; earlier pending builds are discarded.
-export class OutlineBuildScheduler {
+// Coalesces rapid rebuilds (outline traversal, markdown serialization):
+// debounces bursts of edits, then runs the task during idle time so it never
+// blocks a keystroke. Latest task wins; earlier pending tasks are discarded.
+export class IdleTaskScheduler {
   private readonly debounce_ms: number;
   private readonly idle: IdleScheduler;
   private debounce_timer: ReturnType<typeof setTimeout> | null = null;
   private idle_handle: number | null = null;
   private pending: (() => void) | null = null;
 
-  constructor(options: OutlineBuildSchedulerOptions = {}) {
+  constructor(options: IdleTaskSchedulerOptions = {}) {
     this.debounce_ms = options.debounce_ms ?? DEFAULT_DEBOUNCE_MS;
     this.idle = options.idle ?? default_idle_scheduler();
   }
@@ -61,13 +61,19 @@ export class OutlineBuildScheduler {
     this.run_pending();
   }
 
-  dispose(): void {
+  // Drops the pending task without running it; timers are cleared so the
+  // scheduler is idle afterwards. The instance stays usable.
+  cancel(): void {
     if (this.debounce_timer !== null) {
       clearTimeout(this.debounce_timer);
       this.debounce_timer = null;
     }
     this.clear_idle();
     this.pending = null;
+  }
+
+  dispose(): void {
+    this.cancel();
   }
 
   private run_when_idle(): void {
