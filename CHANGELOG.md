@@ -1,5 +1,13 @@
 # carbide
 
+## 2.27.1
+
+### Patch Changes
+
+- a1adaaa: Saving a note no longer waits for search indexing: the save replies as soon as the file is written, while the FTS/embedding/HNSW upsert drains asynchronously on the vault's writer thread (with `metadata-changed` now emitted after the index commit, and the types UI and plugin `write_note` RPC explicitly opting into waiting since they read the index right after). Format-on-save now runs before the write inside the save pipeline — one disk write per save instead of the old format-then-resave double save — with a guard that keeps keystrokes typed during formatting. Backlinks and graph refresh key off the index-commit event instead of the editor's dirty-flag edge, so they also pick up external and frontmatter-driven changes.
+- 152b016: Editor and save-path fixes: source mode no longer renders in the bottom half of the pane (the hidden visual row kept its flex slot); saving no longer triggers a spurious vault tree refresh + index sync from the watcher echo of our own atomic writes; and markdown serialization moved off the keystroke path onto a debounced idle task with a forced flush on every save read, removing the per-keystroke O(document) main-thread cost on large notes.
+- 3c6fd34: Omnibar Search/Ask mode toggle moved from ⌘/ to Shift+Tab: the global editor-mode hotkey (CmdOrCtrl+/, capture phase) always won the chord, so the palette toggle flipped the note's source/visual mode instead. Clearing all filters, previously on Shift+Tab, is now the X mnemonic inside the Tab filter layer.
+
 ## 2.27.0
 
 ### Minor Changes
