@@ -197,12 +197,12 @@
         </div>
       </div>
     {:else}
-      <div class="NoteEditor__visual-row">
-        <div
-          class="NoteEditor__visual-wrapper"
-          class:NoteEditor__hidden={editor_mode !== "visual" &&
-            editor_mode !== "read_only"}
-        >
+      <div
+        class="NoteEditor__visual-row"
+        class:NoteEditor__hidden={editor_mode !== "visual" &&
+          editor_mode !== "read_only"}
+      >
+        <div class="NoteEditor__visual-wrapper">
           <EditorContextMenu>
             <div
               use:mount_editor={open_note}
