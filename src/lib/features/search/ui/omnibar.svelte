@@ -492,7 +492,10 @@
   function handle_keydown(event: KeyboardEvent) {
     if (!open) return;
 
-    if (ask && (event.metaKey || event.ctrlKey) && event.key === "/") {
+    // Shift+Tab rather than a ⌘ chord: capture-phase global hotkeys (e.g.
+    // editor_toggle_mode on CmdOrCtrl+/) win any modifier combo before this
+    // bubble-phase listener ever sees it.
+    if (ask && !filter_mode && event.key === "Tab" && event.shiftKey) {
       event.preventDefault();
       event.stopPropagation();
       set_ask_mode(!ask_mode);
@@ -508,6 +511,12 @@
       event.stopPropagation();
       const key = event.key.toLowerCase();
       if (key === "tab" || key === "escape") {
+        filter_mode = false;
+        setTimeout(() => input_ref?.focus(), 0);
+        return;
+      }
+      if (key === "x") {
+        on_clear_filters();
         filter_mode = false;
         setTimeout(() => input_ref?.focus(), 0);
         return;
@@ -534,13 +543,6 @@
       event.preventDefault();
       event.stopPropagation();
       filter_mode = true;
-      return;
-    }
-
-    if (event.key === "Tab" && event.shiftKey) {
-      event.preventDefault();
-      event.stopPropagation();
-      on_clear_filters();
       return;
     }
 
@@ -725,7 +727,7 @@
             {/each}
           </div>
           <span class="Omnibar__filter-hint"
-            >press letter to toggle · Tab/Esc to close</span
+            >press letter to toggle · X clear all · Tab/Esc to close</span
           >
         </div>
       {/if}
