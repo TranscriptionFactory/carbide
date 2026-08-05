@@ -78,10 +78,20 @@ function render_omnibar(overrides: Partial<OmnibarProps> = {}) {
     press_toggle() {
       window.dispatchEvent(
         new KeyboardEvent("keydown", {
-          key: "/",
-          metaKey: true,
+          key: "Tab",
+          shiftKey: true,
           bubbles: true,
           cancelable: true,
+        }),
+      );
+      flushSync();
+    },
+    press(init: KeyboardEventInit) {
+      window.dispatchEvent(
+        new KeyboardEvent("keydown", {
+          bubbles: true,
+          cancelable: true,
+          ...init,
         }),
       );
       flushSync();
@@ -110,7 +120,7 @@ afterEach(() => {
 });
 
 describe("omnibar Ask mode", () => {
-  it("toggles into and back out of Ask on the mode shortcut", () => {
+  it("toggles into and back out of Ask on Shift+Tab", () => {
     const view = render_omnibar({ ask: ask_view() });
 
     expect(view.in_ask_mode()).toBe(false);
@@ -119,6 +129,33 @@ describe("omnibar Ask mode", () => {
     expect(view.in_ask_mode()).toBe(true);
 
     view.press_toggle();
+    expect(view.in_ask_mode()).toBe(false);
+  });
+
+  // The toggle must never live on a ⌘ chord: capture-phase global hotkeys
+  // (editor_toggle_mode on CmdOrCtrl+/) win those before the omnibar's
+  // bubble-phase listener runs.
+  it("ignores the retired ⌘/ chord", () => {
+    const view = render_omnibar({ ask: ask_view() });
+
+    view.press({ key: "/", metaKey: true });
+
+    expect(view.in_ask_mode()).toBe(false);
+  });
+
+  it("keeps Shift+Tab for the filter layer while it is open", () => {
+    const on_clear_filters = vi.fn();
+    const view = render_omnibar({ ask: ask_view(), on_clear_filters });
+
+    view.press({ key: "Tab" });
+    view.press({ key: "Tab", shiftKey: true });
+
+    expect(view.in_ask_mode()).toBe(false);
+
+    view.press({ key: "Tab" });
+    view.press({ key: "x" });
+
+    expect(on_clear_filters).toHaveBeenCalledOnce();
     expect(view.in_ask_mode()).toBe(false);
   });
 
