@@ -150,6 +150,32 @@ describe("WatcherService", () => {
     expect(service.is_suppressed("notes/test.md")).toBe(false);
   });
 
+  // The Create for a rename-into-place precedes the Modify, so it must not
+  // eat the arming either.
+  it("peek_suppressed reports the arming without consuming it", () => {
+    const { service } = setup();
+
+    service.suppress_next("notes/test.md");
+
+    expect(service.peek_suppressed("notes/test.md")).toBe(true);
+    expect(service.peek_suppressed("notes/test.md")).toBe(true);
+    expect(service.is_suppressed("notes/test.md")).toBe(true);
+    expect(service.peek_suppressed("notes/test.md")).toBe(false);
+  });
+
+  it("peek_suppressed is false for unknown paths and expired windows", () => {
+    vi.useFakeTimers();
+    const { service } = setup();
+
+    expect(service.peek_suppressed("notes/test.md")).toBe(false);
+
+    service.suppress_next("notes/test.md");
+    vi.advanceTimersByTime(2_001);
+
+    expect(service.peek_suppressed("notes/test.md")).toBe(false);
+    vi.useRealTimers();
+  });
+
   it("multiple suppress_next calls extend the suppression window", () => {
     vi.useFakeTimers();
     const { service } = setup();
