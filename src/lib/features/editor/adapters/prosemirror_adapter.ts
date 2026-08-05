@@ -414,6 +414,9 @@ export function create_prosemirror_editor_port(args?: {
       let suppress_change_echo = false;
       let view: EditorView | null = null;
       const outline_scheduler = new IdleTaskScheduler();
+      const serialize_scheduler = new IdleTaskScheduler();
+      let pending_doc: ProseNode | null = null;
+      let doc_at_save: ProseNode | null = null;
       let is_large_note = is_large_markdown(current_markdown);
       let current_note_path = note_path;
       let current_vault_id = vault_id;
@@ -436,6 +439,42 @@ export function create_prosemirror_editor_port(args?: {
         return normalize_markdown_line_breaks(raw);
       }
 
+      // Serialization is O(document), so doc changes only schedule it; the
+      // debounced idle run (or a forced flush on read) does the real work.
+      function run_serialize() {
+        const doc = pending_doc;
+        pending_doc = null;
+        if (!doc) return;
+        const new_md = normalize_markdown(serialize_markdown(doc));
+        if (new_md === current_markdown) {
+          reconcile_dirty();
+          return;
+        }
+        current_markdown = new_md;
+        reconcile_dirty();
+        on_markdown_change(new_md);
+      }
+
+      function reconcile_dirty() {
+        const now_dirty = current_markdown !== saved_markdown;
+        if (now_dirty !== current_is_dirty) {
+          current_is_dirty = now_dirty;
+          on_dirty_state_change(now_dirty);
+        }
+      }
+
+      // Single choke point for readers that need the markdown to match the
+      // live doc: a pending doc change is serialized before returning.
+      function get_current_markdown(): string {
+        if (pending_doc !== null) serialize_scheduler.flush();
+        return current_markdown;
+      }
+
+      function cancel_pending_serialize() {
+        pending_doc = null;
+        serialize_scheduler.cancel();
+      }
+
       // --- Assemble plugins via extensions ---
 
       const toolbar_config: ToolbarConfig = {
@@ -447,7 +486,7 @@ export function create_prosemirror_editor_port(args?: {
           events,
           get_note_path: () => current_note_path,
           get_vault_id: () => current_vault_id,
-          get_markdown: () => current_markdown,
+          get_markdown: get_current_markdown,
           resolve_asset_url_for_vault,
           resolve_vault_file_path,
           load_svg_preview: load_svg_preview_fn,
@@ -552,17 +591,15 @@ export function create_prosemirror_editor_port(args?: {
       base_plugins.push(
         create_markdown_change_plugin((doc) => {
           if (suppress_change_echo) return;
-          const new_md = normalize_markdown(serialize_markdown(doc));
-          if (new_md === current_markdown) return;
-          current_markdown = new_md;
-
-          const now_dirty = current_markdown !== saved_markdown;
-          if (now_dirty !== current_is_dirty) {
-            current_is_dirty = now_dirty;
-            on_dirty_state_change(current_is_dirty);
+          pending_doc = doc;
+          // Optimistic flip: the string compare happens at serialize time,
+          // but autosave scheduling and the tab dot must not lag a keystroke.
+          // reconcile_dirty clears a wrong flip (e.g. undo back to saved).
+          if (!current_is_dirty && doc !== doc_at_save) {
+            current_is_dirty = true;
+            on_dirty_state_change(true);
           }
-
-          on_markdown_change(new_md);
+          serialize_scheduler.schedule(run_serialize);
 
           if (on_outline_change) {
             outline_scheduler.schedule(emit_outline_headings);
@@ -609,6 +646,9 @@ export function create_prosemirror_editor_port(args?: {
         doc: parsed_doc,
         plugins: build_plugins(current_xml_fragment),
       });
+      // Seed before the first update fires the change plugin (init meta
+      // transactions reuse this doc), or every open would flip dirty.
+      doc_at_save = state.doc;
 
       let is_editable = true;
 
@@ -685,6 +725,7 @@ export function create_prosemirror_editor_port(args?: {
 
       function save_current_buffer() {
         if (!current_note_path || !view) return;
+        get_current_markdown();
         buffer_map.set(
           current_note_path,
           get_buffer_entry_from_view_state(view.state),
@@ -719,6 +760,7 @@ export function create_prosemirror_editor_port(args?: {
         v.dispatch(clean_tr);
         saved_markdown = current_markdown;
         current_is_dirty = false;
+        doc_at_save = v.state.doc;
       }
 
       if (!is_large_note) {
@@ -729,6 +771,7 @@ export function create_prosemirror_editor_port(args?: {
 
       saved_markdown = current_markdown;
       current_is_dirty = false;
+      doc_at_save = view?.state.doc ?? null;
 
       save_current_buffer();
       emit_outline_headings();
@@ -742,8 +785,9 @@ export function create_prosemirror_editor_port(args?: {
         if (saved_content !== undefined) {
           saved_markdown = normalize_markdown(saved_content);
         } else {
-          saved_markdown = current_markdown;
+          saved_markdown = get_current_markdown();
         }
+        doc_at_save = view?.state.doc ?? null;
         if (current_is_dirty) {
           current_is_dirty = false;
           on_dirty_state_change(false);
@@ -755,8 +799,10 @@ export function create_prosemirror_editor_port(args?: {
       const handle = {
         destroy() {
           if (!view) return;
+          if (pending_doc !== null) serialize_scheduler.flush();
           const dying_view = view;
           view = null;
+          serialize_scheduler.dispose();
           outline_scheduler.dispose();
           buffer_map.clear();
           current_xml_fragment = null;
@@ -785,29 +831,40 @@ export function create_prosemirror_editor_port(args?: {
             return;
           }
 
-          if (ydoc_manager && current_xml_fragment) {
-            current_xml_fragment = hydrate_ydoc(current_note_path, new_doc);
-            const new_state = EditorState.create({
-              schema,
-              doc: new_doc,
-              plugins: build_plugins(current_xml_fragment),
-            });
-            view.updateState(new_state);
-          } else {
-            const tr = view.state.tr.replaceWith(
-              0,
-              view.state.doc.content.size,
-              new_doc.content,
-            );
-            tr.setMeta("addToHistory", false);
-            view.dispatch(tr);
+          suppress_change_echo = true;
+          try {
+            if (ydoc_manager && current_xml_fragment) {
+              current_xml_fragment = hydrate_ydoc(current_note_path, new_doc);
+              const new_state = EditorState.create({
+                schema,
+                doc: new_doc,
+                plugins: build_plugins(current_xml_fragment),
+              });
+              view.updateState(new_state);
+            } else {
+              const tr = view.state.tr.replaceWith(
+                0,
+                view.state.doc.content.size,
+                new_doc.content,
+              );
+              tr.setMeta("addToHistory", false);
+              view.dispatch(tr);
+            }
+          } finally {
+            suppress_change_echo = false;
           }
+          cancel_pending_serialize();
 
           const now_dirty = current_markdown !== saved_markdown;
           if (now_dirty !== current_is_dirty) {
             current_is_dirty = now_dirty;
             on_dirty_state_change(now_dirty);
           }
+
+          // Converge a non-canonical input the way the inline serialize used
+          // to: doc and cache must agree before the next edit diffs them.
+          pending_doc = view.state.doc;
+          run_serialize();
 
           if (!is_large_note) {
             run_view_action((v) => {
@@ -819,7 +876,7 @@ export function create_prosemirror_editor_port(args?: {
         apply_markdown_diff(new_markdown: string): boolean {
           if (!view) return false;
           const normalized = normalize_markdown(new_markdown);
-          if (normalized === current_markdown) return false;
+          if (normalized === get_current_markdown()) return false;
 
           let new_doc: ProseNode;
           try {
@@ -847,6 +904,9 @@ export function create_prosemirror_editor_port(args?: {
             suppress_change_echo = false;
           }
 
+          // The suppressed dispatch left any pending serialize pointing at
+          // the pre-diff doc; it must not overwrite the replacement later.
+          cancel_pending_serialize();
           is_large_note = is_large_markdown(normalized);
           current_markdown = normalized;
 
@@ -881,6 +941,7 @@ export function create_prosemirror_editor_port(args?: {
             suppress_change_echo = false;
           }
 
+          cancel_pending_serialize();
           is_large_note = is_large_markdown(normalized);
           current_markdown = normalized;
 
@@ -892,7 +953,7 @@ export function create_prosemirror_editor_port(args?: {
           save_current_buffer();
         },
         get_markdown() {
-          return current_markdown;
+          return get_current_markdown();
         },
         insert_text_at_cursor(text: string) {
           run_view_action((v) => {
@@ -952,138 +1013,160 @@ export function create_prosemirror_editor_port(args?: {
             save_current_buffer();
           }
 
-          current_vault_id = next_config.vault_id;
-          current_note_path = next_config.note_path;
-          assembled.on_note_path_change(current_note_path);
-
+          // Everything below is programmatic and the tail emits the
+          // authoritative markdown + dirty state itself. The updateState
+          // calls recreate plugin views, whose first update fires the change
+          // plugin against a doc that did not really change — without the
+          // echo guard that would flip dirty optimistically and corrupt the
+          // restored state.
           const v = view;
+          suppress_change_echo = true;
+          try {
+            current_vault_id = next_config.vault_id;
+            current_note_path = next_config.note_path;
+            assembled.on_note_path_change(current_note_path);
 
-          const previous_selection =
-            is_same_path && restore_policy === "fresh"
-              ? v.state.selection
+            const previous_selection =
+              is_same_path && restore_policy === "fresh"
+                ? v.state.selection
+                : null;
+
+            const raw_saved_entry = should_reuse_cache
+              ? buffer_map.get(next_config.note_path)
               : null;
+            const saved_entry =
+              raw_saved_entry &&
+              raw_saved_entry.markdown ===
+                normalize_markdown(next_config.initial_markdown)
+                ? raw_saved_entry
+                : null;
+            if (saved_entry && !ydoc_manager) {
+              v.updateState(saved_entry.state);
+              current_markdown = saved_entry.markdown;
+              sync_runtime_dirty_from_buffer(saved_entry);
+              is_large_note = is_large_markdown(current_markdown);
+            } else if (saved_entry && ydoc_manager) {
+              current_markdown = saved_entry.markdown;
+              sync_runtime_dirty_from_buffer(saved_entry);
+              is_large_note = is_large_markdown(current_markdown);
 
-          const raw_saved_entry = should_reuse_cache
-            ? buffer_map.get(next_config.note_path)
-            : null;
-          const saved_entry =
-            raw_saved_entry &&
-            raw_saved_entry.markdown ===
-              normalize_markdown(next_config.initial_markdown)
-              ? raw_saved_entry
-              : null;
-          if (saved_entry && !ydoc_manager) {
-            v.updateState(saved_entry.state);
-            current_markdown = saved_entry.markdown;
-            sync_runtime_dirty_from_buffer(saved_entry);
-            is_large_note = is_large_markdown(current_markdown);
-          } else if (saved_entry && ydoc_manager) {
-            current_markdown = saved_entry.markdown;
-            sync_runtime_dirty_from_buffer(saved_entry);
-            is_large_note = is_large_markdown(current_markdown);
+              const saved_fold_state = heading_fold_plugin_key.getState(
+                saved_entry.state,
+              );
 
-            const saved_fold_state = heading_fold_plugin_key.getState(
-              saved_entry.state,
-            );
+              const cached_ydoc = ydoc_manager.get(next_config.note_path);
+              if (cached_ydoc) {
+                current_xml_fragment = cached_ydoc.xml_fragment;
+              } else {
+                let pm_doc: ProseNode;
+                try {
+                  pm_doc = parse_markdown(
+                    prepare_markdown_for_editor(current_markdown),
+                  );
+                } catch {
+                  pm_doc =
+                    v.state.schema.topNodeType.createAndFill() ?? v.state.doc;
+                }
+                current_xml_fragment = get_or_create_ydoc(
+                  next_config.note_path,
+                  pm_doc,
+                );
+              }
 
-            const cached_ydoc = ydoc_manager.get(next_config.note_path);
-            if (cached_ydoc) {
-              current_xml_fragment = cached_ydoc.xml_fragment;
+              const new_state = EditorState.create({
+                schema: v.state.schema,
+                doc: saved_entry.state.doc,
+                plugins: build_plugins(current_xml_fragment),
+              });
+              v.updateState(new_state);
+
+              if (saved_fold_state && saved_fold_state.folded.size > 0) {
+                restore_heading_folds(v, saved_fold_state.folded);
+              }
             } else {
-              let pm_doc: ProseNode;
+              const normalized_initial_markdown = normalize_markdown(
+                next_config.initial_markdown,
+              );
+              let new_parsed_doc: ProseNode;
               try {
-                pm_doc = parse_markdown(
-                  prepare_markdown_for_editor(current_markdown),
+                new_parsed_doc = parse_markdown(
+                  prepare_markdown_for_editor(normalized_initial_markdown),
                 );
               } catch {
-                pm_doc =
+                new_parsed_doc =
                   v.state.schema.topNodeType.createAndFill() ?? v.state.doc;
               }
-              current_xml_fragment = get_or_create_ydoc(
-                next_config.note_path,
-                pm_doc,
-              );
-            }
 
-            const new_state = EditorState.create({
-              schema: v.state.schema,
-              doc: saved_entry.state.doc,
-              plugins: build_plugins(current_xml_fragment),
-            });
-            v.updateState(new_state);
-
-            if (saved_fold_state && saved_fold_state.folded.size > 0) {
-              restore_heading_folds(v, saved_fold_state.folded);
-            }
-          } else {
-            const normalized_initial_markdown = normalize_markdown(
-              next_config.initial_markdown,
-            );
-            let new_parsed_doc: ProseNode;
-            try {
-              new_parsed_doc = parse_markdown(
-                prepare_markdown_for_editor(normalized_initial_markdown),
-              );
-            } catch {
-              new_parsed_doc =
-                v.state.schema.topNodeType.createAndFill() ?? v.state.doc;
-            }
-
-            if (ydoc_manager) {
-              current_xml_fragment =
-                restore_policy === "fresh"
-                  ? hydrate_ydoc(next_config.note_path, new_parsed_doc)
-                  : get_or_create_ydoc(next_config.note_path, new_parsed_doc);
-            }
-
-            let selection: TextSelection | undefined;
-            if (previous_selection) {
-              try {
-                const max_pos = new_parsed_doc.content.size;
-                const anchor = Math.min(previous_selection.anchor, max_pos);
-                const head = Math.min(previous_selection.head, max_pos);
-                selection = TextSelection.create(new_parsed_doc, anchor, head);
-              } catch {
-                // positions invalid for new doc
+              if (ydoc_manager) {
+                current_xml_fragment =
+                  restore_policy === "fresh"
+                    ? hydrate_ydoc(next_config.note_path, new_parsed_doc)
+                    : get_or_create_ydoc(next_config.note_path, new_parsed_doc);
               }
-            } else if (next_config.restore_cursor_offset !== undefined) {
-              try {
-                const pos = md_offset_to_prose_pos(
-                  new_parsed_doc,
-                  next_config.restore_cursor_offset,
-                  normalized_initial_markdown,
-                );
-                const clamped = Math.min(pos, new_parsed_doc.content.size);
-                selection = TextSelection.create(new_parsed_doc, clamped);
-              } catch {
-                // offset invalid for new doc
+
+              let selection: TextSelection | undefined;
+              if (previous_selection) {
+                try {
+                  const max_pos = new_parsed_doc.content.size;
+                  const anchor = Math.min(previous_selection.anchor, max_pos);
+                  const head = Math.min(previous_selection.head, max_pos);
+                  selection = TextSelection.create(
+                    new_parsed_doc,
+                    anchor,
+                    head,
+                  );
+                } catch {
+                  // positions invalid for new doc
+                }
+              } else if (next_config.restore_cursor_offset !== undefined) {
+                try {
+                  const pos = md_offset_to_prose_pos(
+                    new_parsed_doc,
+                    next_config.restore_cursor_offset,
+                    normalized_initial_markdown,
+                  );
+                  const clamped = Math.min(pos, new_parsed_doc.content.size);
+                  selection = TextSelection.create(new_parsed_doc, clamped);
+                } catch {
+                  // offset invalid for new doc
+                }
               }
+
+              const state_config: Parameters<typeof EditorState.create>[0] = {
+                schema: v.state.schema,
+                doc: new_parsed_doc,
+                plugins: build_plugins(current_xml_fragment),
+              };
+              if (selection) {
+                state_config.selection = selection;
+              }
+              const new_state = EditorState.create(state_config);
+
+              v.updateState(new_state);
+              current_markdown = normalized_initial_markdown;
+              is_large_note = is_large_markdown(current_markdown);
             }
 
-            const state_config: Parameters<typeof EditorState.create>[0] = {
-              schema: v.state.schema,
-              doc: new_parsed_doc,
-              plugins: build_plugins(current_xml_fragment),
-            };
-            if (selection) {
-              state_config.selection = selection;
-            }
-            const new_state = EditorState.create(state_config);
+            dispatch_editor_context_update(v);
 
-            v.updateState(new_state);
-            current_markdown = normalized_initial_markdown;
-            is_large_note = is_large_markdown(current_markdown);
+            if (
+              (restore_policy === "fresh" || !saved_entry) &&
+              !is_large_note
+            ) {
+              dispatch_full_scan(v);
+              dispatch_mark_clean(v);
+            } else if (!saved_entry) {
+              saved_markdown = current_markdown;
+              current_is_dirty = false;
+            }
+          } finally {
+            suppress_change_echo = false;
           }
 
-          dispatch_editor_context_update(v);
-
-          if ((restore_policy === "fresh" || !saved_entry) && !is_large_note) {
-            dispatch_full_scan(v);
-            dispatch_mark_clean(v);
-          } else if (!saved_entry) {
-            saved_markdown = current_markdown;
-            current_is_dirty = false;
-          }
+          // A pending serialize from before the switch points at the old
+          // doc; current_markdown was just set explicitly, so drop it.
+          cancel_pending_serialize();
+          doc_at_save = current_is_dirty ? null : v.state.doc;
 
           buffer_map.set(
             current_note_path,
@@ -1314,7 +1397,7 @@ export function create_prosemirror_editor_port(args?: {
           return prose_cursor_to_md_offset(
             view.state.doc,
             from,
-            current_markdown,
+            get_current_markdown(),
           );
         },
         set_cursor_from_markdown_offset(offset: number) {
@@ -1322,7 +1405,7 @@ export function create_prosemirror_editor_port(args?: {
           const pos = md_offset_to_prose_pos(
             view.state.doc,
             offset,
-            current_markdown,
+            get_current_markdown(),
           );
           const clamped = Math.min(pos, view.state.doc.content.size);
           try {
@@ -1500,7 +1583,7 @@ export function create_prosemirror_editor_port(args?: {
           update_prosemirror_diagnostics(
             view,
             diagnostics,
-            () => current_markdown,
+            get_current_markdown,
           );
         },
         update_ambient_anchors(notices: AmbientNotice[]) {

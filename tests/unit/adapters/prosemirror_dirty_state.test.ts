@@ -178,8 +178,9 @@ describe("prosemirror dirty state with ephemeral attrs", () => {
     session.insert_text_at_cursor("edited ");
     expect(on_dirty).toHaveBeenCalledWith(true);
 
-    // Capture A's markdown before switching away (the store would do this)
-    const note_a_markdown = on_markdown.mock.calls.at(-1)?.[0] as string;
+    // Capture A's markdown before switching away (the store reads through
+    // the flush path, so serialization is forced here)
+    const note_a_markdown = session.get_markdown();
 
     // Switch to note B (save A's buffer, open B fresh)
     session.open_buffer({
@@ -231,7 +232,7 @@ describe("prosemirror dirty state with ephemeral attrs", () => {
     session.mark_clean();
 
     // Capture A's markdown before switching away
-    const note_a_markdown = on_markdown.mock.calls.at(-1)?.[0] as string;
+    const note_a_markdown = session.get_markdown();
 
     // Switch to B
     session.open_buffer({
