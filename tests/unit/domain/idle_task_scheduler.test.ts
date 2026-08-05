@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
-  OutlineBuildScheduler,
+  IdleTaskScheduler,
   type IdleScheduler,
-} from "$lib/features/editor/domain/outline_build_scheduler";
+} from "$lib/features/editor/domain/idle_task_scheduler";
 
 function synchronous_idle(): IdleScheduler {
   return {
@@ -14,7 +14,7 @@ function synchronous_idle(): IdleScheduler {
   };
 }
 
-describe("OutlineBuildScheduler", () => {
+describe("IdleTaskScheduler", () => {
   beforeEach(() => {
     vi.useFakeTimers();
   });
@@ -25,7 +25,7 @@ describe("OutlineBuildScheduler", () => {
 
   it("coalesces a burst of builds into a single run after the debounce window", () => {
     const run = vi.fn();
-    const scheduler = new OutlineBuildScheduler({
+    const scheduler = new IdleTaskScheduler({
       debounce_ms: 180,
       idle: synchronous_idle(),
     });
@@ -42,7 +42,7 @@ describe("OutlineBuildScheduler", () => {
   it("runs only the latest build scheduled within one window", () => {
     const first = vi.fn();
     const second = vi.fn();
-    const scheduler = new OutlineBuildScheduler({
+    const scheduler = new IdleTaskScheduler({
       debounce_ms: 180,
       idle: synchronous_idle(),
     });
@@ -57,7 +57,7 @@ describe("OutlineBuildScheduler", () => {
 
   it("does not run before the debounce window elapses", () => {
     const run = vi.fn();
-    const scheduler = new OutlineBuildScheduler({
+    const scheduler = new IdleTaskScheduler({
       debounce_ms: 180,
       idle: synchronous_idle(),
     });
@@ -69,7 +69,7 @@ describe("OutlineBuildScheduler", () => {
 
   it("flush runs the pending build immediately and cancels the debounce", () => {
     const run = vi.fn();
-    const scheduler = new OutlineBuildScheduler({
+    const scheduler = new IdleTaskScheduler({
       debounce_ms: 180,
       idle: synchronous_idle(),
     });
@@ -82,9 +82,38 @@ describe("OutlineBuildScheduler", () => {
     expect(run).toHaveBeenCalledTimes(1);
   });
 
+  it("cancel drops the pending build and the scheduler stays usable", () => {
+    const first = vi.fn();
+    const second = vi.fn();
+    const scheduler = new IdleTaskScheduler({
+      debounce_ms: 180,
+      idle: synchronous_idle(),
+    });
+
+    scheduler.schedule(first);
+    scheduler.cancel();
+    vi.advanceTimersByTime(180);
+    expect(first).not.toHaveBeenCalled();
+
+    scheduler.schedule(second);
+    vi.advanceTimersByTime(180);
+    expect(second).toHaveBeenCalledTimes(1);
+  });
+
+  it("flush with nothing pending is a no-op", () => {
+    const scheduler = new IdleTaskScheduler({
+      debounce_ms: 180,
+      idle: synchronous_idle(),
+    });
+
+    expect(() => {
+      scheduler.flush();
+    }).not.toThrow();
+  });
+
   it("dispose cancels a pending build", () => {
     const run = vi.fn();
-    const scheduler = new OutlineBuildScheduler({
+    const scheduler = new IdleTaskScheduler({
       debounce_ms: 180,
       idle: synchronous_idle(),
     });
@@ -101,7 +130,7 @@ describe("OutlineBuildScheduler", () => {
       callback();
       return 7;
     });
-    const scheduler = new OutlineBuildScheduler({
+    const scheduler = new IdleTaskScheduler({
       debounce_ms: 180,
       idle: { schedule: idle_schedule, cancel: vi.fn() },
     });
