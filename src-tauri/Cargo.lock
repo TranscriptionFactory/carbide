@@ -856,7 +856,7 @@ dependencies = [
 
 [[package]]
 name = "carbide"
-version = "2.26.3"
+version = "2.27.0"
 dependencies = [
  "anyhow",
  "async-trait",
