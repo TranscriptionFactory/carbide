@@ -406,6 +406,87 @@ describe("watcher_reactor", () => {
     unmount();
   });
 
+  // atomic_write finishes with a tmp→target rename that FSEvents can classify
+  // as a Create. The resulting note_added must be swallowed (no tree refresh /
+  // index sync per save) without consuming the arming, which still has to
+  // catch the Modify event for the same write.
+  it("suppresses a self-write note_added and keeps the arming for the Modify", async () => {
+    const vault_store = new VaultStore();
+    const editor_store = new EditorStore();
+    const tab_store = new TabStore();
+    const watcher_port = create_mock_watcher_port();
+    const watcher_service = new WatcherService(watcher_port);
+    const note_service = {
+      open_note: vi.fn(),
+      clear_open_note: vi.fn(),
+    };
+    const tab_service = {
+      invalidate_cache: vi.fn(),
+      mark_conflict: vi.fn(),
+      remove_tab: vi.fn(),
+      sync_dirty_state: vi.fn(),
+    };
+    const action_registry = {
+      execute: vi.fn(),
+    };
+    const workspace_reconcile = vi.fn().mockResolvedValue(undefined);
+    const graph_service = {
+      invalidate_cache: vi.fn().mockResolvedValue(undefined),
+    };
+
+    vault_store.set_vault(create_test_vault());
+    editor_store.set_open_note({
+      meta: {
+        id: as_note_path("notes/a.md"),
+        path: as_note_path("notes/a.md"),
+        name: "a",
+        title: "A",
+        blurb: "",
+        mtime_ms: 0,
+        ctime_ms: 0,
+        size_bytes: 0,
+        file_type: null,
+      },
+      markdown: as_markdown_text("# A"),
+      buffer_id: "notes/a.md",
+      is_dirty: false,
+    });
+
+    const unmount = create_watcher_reactor(
+      vault_store,
+      editor_store,
+      tab_store,
+      tab_service as never,
+      note_service as never,
+      watcher_service,
+      action_registry as never,
+      graph_service as never,
+      workspace_reconcile,
+    );
+
+    await flush_effects();
+
+    watcher_service.suppress_next("notes/a.md");
+    watcher_port._emit(added_event("notes/a.md"));
+    watcher_port._emit(changed_event("notes/a.md"));
+
+    await flush_effects();
+
+    expect(graph_service.invalidate_cache).not.toHaveBeenCalled();
+    expect(note_service.open_note).not.toHaveBeenCalled();
+    expect(workspace_reconcile).not.toHaveBeenCalled();
+
+    watcher_port._emit(changed_event("notes/a.md"));
+
+    await flush_effects();
+
+    expect(note_service.open_note).toHaveBeenCalledWith("notes/a.md", false, {
+      force_reload: true,
+    });
+
+    unmount();
+  });
+
   it("ignores .tmp sibling asset events from atomic self-writes", async () => {
     const vault_store = new VaultStore();
     const editor_store = new EditorStore();

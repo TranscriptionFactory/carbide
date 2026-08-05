@@ -54,6 +54,13 @@ export class WatcherService {
     );
   }
 
+  // Non-consuming variant for events that can precede the write's own change
+  // event: atomic_write's tmp→target rename may surface as a Create, with the
+  // Modify for the same path still to come.
+  peek_suppressed(path: string): boolean {
+    return this.is_key_suppressed(normalize_path_key(path));
+  }
+
   private is_key_suppressed(key: string): boolean {
     const stamp = this.suppressed.get(key);
     if (stamp === undefined) return false;
