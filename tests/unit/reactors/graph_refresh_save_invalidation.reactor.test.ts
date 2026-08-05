@@ -1,19 +1,20 @@
 /**
  * @vitest-environment jsdom
  */
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@tauri-apps/api/event", () => ({ listen: vi.fn() }));
 
 import { listen } from "@tauri-apps/api/event";
 import { create_graph_refresh_reactor } from "$lib/reactors/graph_refresh.reactor.svelte";
+import { METADATA_REFRESH_DEBOUNCE_MS } from "$lib/reactors/metadata_changed";
 import { GraphStore } from "$lib/features/graph/state/graph_store.svelte";
 import { VaultStore } from "$lib/features/vault/state/vault_store.svelte";
 import { create_test_vault } from "../helpers/test_fixtures";
-
-const mock_listen = vi.mocked(listen);
-
-type MetadataHandler = (event: { payload: unknown }) => void;
+import {
+  capture_tauri_listen,
+  flush_effects,
+} from "../helpers/tauri_event_mock";
 
 function make_graph_service() {
   return {
@@ -24,16 +25,13 @@ function make_graph_service() {
   };
 }
 
-const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
+async function drain_debounce() {
+  await vi.advanceTimersByTimeAsync(METADATA_REFRESH_DEBOUNCE_MS);
+  await flush_effects();
+}
 
 function setup() {
-  let handler: MetadataHandler | undefined;
-  const unlisten = vi.fn();
-  mock_listen.mockImplementation((_name, fn) => {
-    handler = fn as MetadataHandler;
-    return Promise.resolve(unlisten);
-  });
-
+  const captured = capture_tauri_listen(vi.mocked(listen));
   const graph_store = new GraphStore();
   const vault_store = new VaultStore();
   const graph_service = make_graph_service();
@@ -45,19 +43,20 @@ function setup() {
     graph_service as never,
   );
 
-  return {
-    vault_store,
-    graph_service,
-    unmount,
-    unlisten,
-    emit: (payload: Record<string, unknown>) => handler?.({ payload }),
-  };
+  return { vault_store, graph_service, unmount, ...captured };
 }
 
 describe("graph_refresh reactor index-commit invalidation", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it("invalidates the upserted note even while the graph panel is closed", async () => {
     const { vault_store, graph_service, unmount, emit } = setup();
-    await flush();
+    await flush_effects();
     graph_service.invalidate_cache.mockClear();
 
     emit({
@@ -65,7 +64,7 @@ describe("graph_refresh reactor index-commit invalidation", () => {
       vault_id: vault_store.vault?.id,
       path: "a.md",
     });
-    await flush();
+    await drain_debounce();
 
     expect(graph_service.invalidate_cache).toHaveBeenCalledWith("a.md");
     expect(graph_service.load_note_neighborhood).not.toHaveBeenCalled();
@@ -73,9 +72,35 @@ describe("graph_refresh reactor index-commit invalidation", () => {
     unmount();
   });
 
+  it("coalesces a burst into one invalidation per path", async () => {
+    const { vault_store, graph_service, unmount, emit } = setup();
+    await flush_effects();
+    graph_service.invalidate_cache.mockClear();
+
+    for (let i = 0; i < 3; i += 1) {
+      emit({
+        event_type: "upsert",
+        vault_id: vault_store.vault?.id,
+        path: "a.md",
+      });
+    }
+    emit({
+      event_type: "upsert",
+      vault_id: vault_store.vault?.id,
+      path: "b.md",
+    });
+    await drain_debounce();
+
+    expect(graph_service.invalidate_cache).toHaveBeenCalledTimes(2);
+    expect(graph_service.invalidate_cache).toHaveBeenCalledWith("a.md");
+    expect(graph_service.invalidate_cache).toHaveBeenCalledWith("b.md");
+
+    unmount();
+  });
+
   it("invalidates both paths of a rename", async () => {
     const { vault_store, graph_service, unmount, emit } = setup();
-    await flush();
+    await flush_effects();
     graph_service.invalidate_cache.mockClear();
 
     emit({
@@ -84,7 +109,7 @@ describe("graph_refresh reactor index-commit invalidation", () => {
       path: "new.md",
       old_path: "old.md",
     });
-    await flush();
+    await drain_debounce();
 
     expect(graph_service.invalidate_cache).toHaveBeenCalledWith("new.md");
     expect(graph_service.invalidate_cache).toHaveBeenCalledWith("old.md");
@@ -94,7 +119,7 @@ describe("graph_refresh reactor index-commit invalidation", () => {
 
   it("ignores events from another vault", async () => {
     const { graph_service, unmount, emit } = setup();
-    await flush();
+    await flush_effects();
     graph_service.invalidate_cache.mockClear();
 
     emit({
@@ -102,7 +127,7 @@ describe("graph_refresh reactor index-commit invalidation", () => {
       vault_id: "some-other-vault",
       path: "a.md",
     });
-    await flush();
+    await drain_debounce();
 
     expect(graph_service.invalidate_cache).not.toHaveBeenCalled();
 
@@ -111,7 +136,7 @@ describe("graph_refresh reactor index-commit invalidation", () => {
 
   it("stops invalidating after unmount", async () => {
     const { vault_store, graph_service, unmount, unlisten, emit } = setup();
-    await flush();
+    await flush_effects();
     graph_service.invalidate_cache.mockClear();
 
     unmount();
@@ -122,7 +147,7 @@ describe("graph_refresh reactor index-commit invalidation", () => {
       vault_id: vault_store.vault?.id,
       path: "a.md",
     });
-    await flush();
+    await drain_debounce();
 
     expect(graph_service.invalidate_cache).not.toHaveBeenCalled();
   });

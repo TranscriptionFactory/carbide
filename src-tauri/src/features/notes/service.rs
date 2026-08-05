@@ -743,22 +743,14 @@ pub fn write_and_index_note_inner(
 
     // The writer emits metadata-changed post-commit for this upsert; the save
     // reply depends only on the file write above.
-    if args.wait_for_index.unwrap_or(false) {
-        crate::features::search::service::index_upsert_note_with_content(
-            &app,
-            &args.vault_id,
-            &args.note_id,
-            args.markdown,
-        )?;
-    } else {
-        crate::features::search::service::index_upsert_note_with_content_async(
-            &app,
-            &args.vault_id,
-            &args.note_id,
-            args.markdown,
-            new_mtime,
-        )?;
-    }
+    crate::features::search::service::index_upsert_note_with_content(
+        &app,
+        &args.vault_id,
+        &args.note_id,
+        args.markdown,
+        Some(new_mtime),
+        args.wait_for_index.unwrap_or(false),
+    )?;
 
     Ok(WriteAndIndexResult {
         new_mtime,

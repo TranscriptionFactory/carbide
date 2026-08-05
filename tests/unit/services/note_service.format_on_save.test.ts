@@ -1,12 +1,17 @@
 import { describe, expect, it, vi } from "vitest";
 import { NoteService } from "$lib/features/note/application/note_service";
+import type { FormatOnSaveHook } from "$lib/features/note/application/note_service";
 import { VaultStore } from "$lib/features/vault/state/vault_store.svelte";
 import { NotesStore } from "$lib/features/note/state/note_store.svelte";
 import { EditorStore } from "$lib/features/editor/state/editor_store.svelte";
 import { OpStore } from "$lib/app/orchestration/op_store.svelte";
 import { as_markdown_text, as_note_path } from "$lib/shared/types/ids";
-import type { MarkdownText, NotePath } from "$lib/shared/types/ids";
-import { create_test_vault } from "../helpers/test_fixtures";
+import type { MarkdownText } from "$lib/shared/types/ids";
+import {
+  create_open_note_state,
+  create_test_note,
+  create_test_vault,
+} from "../helpers/test_fixtures";
 import {
   create_mock_index_port,
   create_mock_notes_port,
@@ -14,31 +19,16 @@ import {
 import type { EditorService } from "$lib/features/editor/application/editor_service";
 import type { AssetsPort } from "$lib/features/note/ports";
 
-function open_note_state(path: string, markdown: string) {
+const note = create_test_note("docs/a", "a");
+
+function dirty_open_note(markdown: string) {
   return {
-    meta: {
-      id: as_note_path(path),
-      path: as_note_path(path),
-      name: path,
-      title: path,
-      blurb: "",
-      mtime_ms: 0,
-      ctime_ms: 0,
-      size_bytes: 0,
-      file_type: null,
-    },
-    markdown: as_markdown_text(markdown),
-    buffer_id: path,
+    ...create_open_note_state(note, markdown),
     is_dirty: true,
   };
 }
 
-type FormatHook = (
-  path: NotePath,
-  markdown: MarkdownText,
-) => Promise<MarkdownText | null>;
-
-function setup(format_for_save?: FormatHook) {
+function setup(format_on_save?: FormatOnSaveHook) {
   const vault_store = new VaultStore();
   const notes_store = new NotesStore();
   const editor_store = new EditorStore();
@@ -75,7 +65,7 @@ function setup(format_for_save?: FormatHook) {
     undefined,
     undefined,
     undefined,
-    format_for_save,
+    format_on_save,
   );
 
   return { service, editor_store, notes_port, editor_service };
@@ -83,15 +73,18 @@ function setup(format_for_save?: FormatHook) {
 
 describe("NoteService format-on-save", () => {
   it("formats the snapshot and writes formatted bytes in a single write", async () => {
-    const hook = vi.fn().mockResolvedValue(as_markdown_text("# formatted"));
+    const hook = {
+      format: vi.fn().mockResolvedValue(as_markdown_text("# formatted")),
+      on_applied: vi.fn(),
+    };
     const { service, editor_store, notes_port, editor_service } = setup(hook);
-    editor_store.set_open_note(open_note_state("docs/a.md", "# raw"));
+    editor_store.set_open_note(dirty_open_note("# raw"));
 
     const result = await service.save_note(null, true);
 
     expect(result.status).toBe("saved");
-    expect(hook).toHaveBeenCalledWith(
-      as_note_path("docs/a.md"),
+    expect(hook.format).toHaveBeenCalledWith(
+      as_note_path(note.path),
       as_markdown_text("# raw"),
     );
     expect(notes_port._calls.write_note).toHaveLength(1);
@@ -104,12 +97,19 @@ describe("NoteService format-on-save", () => {
     expect(editor_service.sync_visual_from_markdown).toHaveBeenCalledWith(
       as_markdown_text("# formatted"),
     );
+    expect(hook.on_applied).toHaveBeenCalledWith(
+      as_note_path(note.path),
+      as_markdown_text("# formatted"),
+    );
   });
 
   it("writes the snapshot unchanged when the formatter has no edits", async () => {
-    const hook = vi.fn().mockResolvedValue(null);
+    const hook = {
+      format: vi.fn().mockResolvedValue(null),
+      on_applied: vi.fn(),
+    };
     const { service, editor_store, notes_port, editor_service } = setup(hook);
-    editor_store.set_open_note(open_note_state("docs/a.md", "# raw"));
+    editor_store.set_open_note(dirty_open_note("# raw"));
 
     const result = await service.save_note(null, true);
 
@@ -119,11 +119,12 @@ describe("NoteService format-on-save", () => {
       as_markdown_text("# raw"),
     );
     expect(editor_service.sync_visual_from_markdown).not.toHaveBeenCalled();
+    expect(hook.on_applied).not.toHaveBeenCalled();
   });
 
   it("saves normally when no format hook is wired", async () => {
     const { service, editor_store, notes_port } = setup(undefined);
-    editor_store.set_open_note(open_note_state("docs/a.md", "# raw"));
+    editor_store.set_open_note(dirty_open_note("# raw"));
 
     const result = await service.save_note(null, true);
 
@@ -135,9 +136,12 @@ describe("NoteService format-on-save", () => {
   });
 
   it("saves unformatted when the formatter rejects", async () => {
-    const hook = vi.fn().mockRejectedValue(new Error("formatter exploded"));
+    const hook = {
+      format: vi.fn().mockRejectedValue(new Error("formatter exploded")),
+      on_applied: vi.fn(),
+    };
     const { service, editor_store, notes_port, editor_service } = setup(hook);
-    editor_store.set_open_note(open_note_state("docs/a.md", "# raw"));
+    editor_store.set_open_note(dirty_open_note("# raw"));
 
     const result = await service.save_note(null, true);
 
@@ -147,14 +151,18 @@ describe("NoteService format-on-save", () => {
       as_markdown_text("# raw"),
     );
     expect(editor_service.sync_visual_from_markdown).not.toHaveBeenCalled();
+    expect(hook.on_applied).not.toHaveBeenCalled();
   });
 
   it("saves unformatted when the formatter times out", async () => {
     vi.useFakeTimers();
     try {
-      const hook = vi.fn().mockReturnValue(new Promise<never>(() => {}));
+      const hook = {
+        format: vi.fn().mockReturnValue(new Promise<never>(() => {})),
+        on_applied: vi.fn(),
+      };
       const { service, editor_store, notes_port } = setup(hook);
-      editor_store.set_open_note(open_note_state("docs/a.md", "# raw"));
+      editor_store.set_open_note(dirty_open_note("# raw"));
 
       const pending = service.save_note(null, true);
       await vi.advanceTimersByTimeAsync(2_000);
@@ -165,6 +173,7 @@ describe("NoteService format-on-save", () => {
       expect(notes_port._calls.write_note[0]?.markdown).toBe(
         as_markdown_text("# raw"),
       );
+      expect(hook.on_applied).not.toHaveBeenCalled();
     } finally {
       vi.useRealTimers();
     }
@@ -172,21 +181,24 @@ describe("NoteService format-on-save", () => {
 
   it("never loses keystrokes typed during the format await", async () => {
     let resolve_format: (value: MarkdownText) => void = () => {};
-    const hook = vi.fn().mockReturnValue(
-      new Promise<MarkdownText>((resolve) => {
-        resolve_format = resolve;
-      }),
-    );
+    const hook = {
+      format: vi.fn().mockReturnValue(
+        new Promise<MarkdownText>((resolve) => {
+          resolve_format = resolve;
+        }),
+      ),
+      on_applied: vi.fn(),
+    };
     const { service, editor_store, notes_port, editor_service } = setup(hook);
-    editor_store.set_open_note(open_note_state("docs/a.md", "# raw"));
+    editor_store.set_open_note(dirty_open_note("# raw"));
 
     const pending = service.save_note(null, true);
-    expect(hook).toHaveBeenCalled();
+    expect(hook.format).toHaveBeenCalled();
 
     // Keystrokes land while the formatter is running: the live document is
     // now newer than the snapshot, visible only through a forced flush.
     editor_service.flush.mockReturnValue({
-      note_id: as_note_path("docs/a.md"),
+      note_id: note.id,
       markdown: as_markdown_text("# raw plus keystrokes"),
     });
     resolve_format(as_markdown_text("# formatted"));
@@ -198,20 +210,32 @@ describe("NoteService format-on-save", () => {
       as_markdown_text("# raw plus keystrokes"),
     );
     expect(editor_service.sync_visual_from_markdown).not.toHaveBeenCalled();
+    expect(hook.on_applied).not.toHaveBeenCalled();
     expect(editor_store.open_note?.markdown).toBe(
       as_markdown_text("# raw plus keystrokes"),
     );
   });
 
   it("formats an untitled note against its target path before the first write", async () => {
-    const hook = vi.fn().mockResolvedValue(as_markdown_text("# formatted"));
+    const hook = {
+      format: vi.fn().mockResolvedValue(as_markdown_text("# formatted")),
+      on_applied: vi.fn(),
+    };
     const { service, editor_store, notes_port } = setup(hook);
-    editor_store.set_open_note(open_note_state("draft:1:Untitled", "# raw"));
+    const draft_meta = {
+      ...create_test_note("untitled", "Untitled"),
+      id: as_note_path("draft:1:Untitled"),
+      path: as_note_path("draft:1:Untitled"),
+    };
+    editor_store.set_open_note({
+      ...create_open_note_state(draft_meta, "# raw"),
+      is_dirty: true,
+    });
 
     const result = await service.save_note(as_note_path("docs/new.md"), false);
 
     expect(result.status).toBe("saved");
-    expect(hook).toHaveBeenCalledWith(
+    expect(hook.format).toHaveBeenCalledWith(
       as_note_path("docs/new.md"),
       as_markdown_text("# raw"),
     );

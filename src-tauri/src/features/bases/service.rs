@@ -494,7 +494,7 @@ pub fn bases_update_property_inner(
     let updated = update_frontmatter_key(&content, &key, &value)?;
     crate::shared::io_utils::atomic_write(&abs, updated.as_bytes())?;
 
-    search_service::index_upsert_note_with_content(&app, &vault_id, &note_path, updated)?;
+    search_service::index_upsert_note_with_content(&app, &vault_id, &note_path, updated, None, true)?;
 
     Ok(())
 }

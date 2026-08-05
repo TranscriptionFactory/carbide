@@ -4,7 +4,11 @@ import type {
   GraphViewMode,
 } from "$lib/features/graph";
 import type { VaultStore } from "$lib/features/vault";
-import { listen } from "@tauri-apps/api/event";
+import { create_debounced_task_controller } from "$lib/reactors/debounced_task";
+import {
+  METADATA_REFRESH_DEBOUNCE_MS,
+  subscribe_metadata_changed,
+} from "$lib/reactors/metadata_changed";
 
 type GraphRefreshState = {
   last_panel_open: boolean;
@@ -15,13 +19,6 @@ type GraphRefreshDecision = {
   action: "clear" | "load" | "load_vault" | "noop";
   note_path: string | null;
   next_state: GraphRefreshState;
-};
-
-type MetadataChangedPayload = {
-  event_type: "upsert" | "rename" | "delete";
-  vault_id: string;
-  path: string;
-  old_path?: string;
 };
 
 export function resolve_graph_refresh_decision(
@@ -92,23 +89,27 @@ export function create_graph_refresh_reactor(
     last_vault_id: null,
   };
 
-  let unlisten_fn: (() => void) | null = null;
-  let is_disposed = false;
+  // Invalidation is not a map-delete — cached entries refresh in place with
+  // file IO — so a burst of commits (bases bulk edit, autosave cadence)
+  // coalesces into one pass with each path invalidated once.
+  const pending_invalidations = new Set<string>();
+  const flush_invalidations = create_debounced_task_controller<void>({
+    run: () => {
+      const paths = [...pending_invalidations];
+      pending_invalidations.clear();
+      for (const path of paths) {
+        void graph_service.invalidate_cache(path);
+      }
+    },
+  });
 
-  void listen<MetadataChangedPayload>("metadata-changed", (event) => {
-    if (is_disposed) return;
-    const payload = event.payload;
+  const unsubscribe = subscribe_metadata_changed((payload) => {
     if (payload.vault_id !== vault_store.vault?.id) return;
-    void graph_service.invalidate_cache(payload.path);
+    pending_invalidations.add(payload.path);
     if (payload.old_path) {
-      void graph_service.invalidate_cache(payload.old_path);
+      pending_invalidations.add(payload.old_path);
     }
-  }).then((fn) => {
-    if (is_disposed) {
-      fn();
-    } else {
-      unlisten_fn = fn;
-    }
+    flush_invalidations.schedule(undefined, METADATA_REFRESH_DEBOUNCE_MS);
   });
 
   const stop_effect = $effect.root(() => {
@@ -143,11 +144,8 @@ export function create_graph_refresh_reactor(
   });
 
   return () => {
-    is_disposed = true;
-    if (unlisten_fn) {
-      unlisten_fn();
-      unlisten_fn = null;
-    }
+    unsubscribe();
+    flush_invalidations.cancel();
     stop_effect();
   };
 }

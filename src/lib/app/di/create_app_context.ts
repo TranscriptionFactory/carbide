@@ -724,19 +724,23 @@ export function create_app_context(input: {
     // Format-on-save policy lives here so NoteService stays UIStore-free;
     // lint_service is constructed later in this scope but exists long
     // before the first save runs.
-    async (path, markdown) => {
-      if (!stores.ui.editor_settings.lint_format_on_save) return null;
-      if (!stores.lint.is_running) return null;
-      const edits = await lint_service.format_file(
-        String(path),
-        markdown,
-        stores.ui.editor_settings.lint_formatter,
-      );
-      if (edits.length === 0) return null;
-      const formatted = apply_lint_text_edits(markdown, edits);
-      if (formatted === markdown) return null;
-      void lint_service.notify_file_changed(String(path), formatted);
-      return as_markdown_text(formatted);
+    {
+      format: async (path, markdown) => {
+        if (!stores.ui.editor_settings.lint_format_on_save) return null;
+        if (!stores.lint.is_running) return null;
+        const edits = await lint_service.format_file(
+          String(path),
+          markdown,
+          stores.ui.editor_settings.lint_formatter,
+        );
+        if (edits.length === 0) return null;
+        const formatted = apply_lint_text_edits(markdown, edits);
+        if (formatted === markdown) return null;
+        return as_markdown_text(formatted);
+      },
+      on_applied: (path, markdown) => {
+        void lint_service.notify_file_changed(String(path), markdown);
+      },
     },
   );
 
