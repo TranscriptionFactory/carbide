@@ -2,8 +2,12 @@ import { describe, expect, it } from "vitest";
 import {
   clamp_vault_selection,
   duplicate_vault_names,
+  format_last_opened,
+  format_note_count,
   format_vault_path,
+  is_vault_available,
   move_vault_selection,
+  vault_initial,
 } from "$lib/features/vault/domain/vault_switcher";
 import { as_vault_id, as_vault_path } from "$lib/shared/types/ids";
 import { create_test_vault } from "../helpers/test_fixtures";
@@ -69,5 +73,45 @@ describe("vault_switcher", () => {
       const dupes = new Set<string>();
       expect(format_vault_path("/docs/Work", "Work", dupes)).toBe("/docs/Work");
     });
+  });
+});
+
+describe("vault display helpers", () => {
+  it("formats last opened relative to now with a placeholder fallback", () => {
+    const vault = create_test_vault({ last_opened_at: 1000 });
+    expect(format_last_opened(vault, 1000)).not.toBe("--");
+    expect(format_last_opened(create_test_vault(), 1000)).toBe("--");
+  });
+
+  it("formats note counts with pluralization and placeholder", () => {
+    expect(format_note_count(create_test_vault({ note_count: 0 }))).toBe(
+      "0 notes",
+    );
+    expect(format_note_count(create_test_vault({ note_count: 1 }))).toBe(
+      "1 note",
+    );
+    expect(format_note_count(create_test_vault({ note_count: 42 }))).toBe(
+      "42 notes",
+    );
+    expect(format_note_count(create_test_vault())).toBe("-- notes");
+    expect(format_note_count(create_test_vault({ note_count: null }))).toBe(
+      "-- notes",
+    );
+  });
+
+  it("treats only an explicit false as unavailable", () => {
+    expect(is_vault_available(create_test_vault())).toBe(true);
+    expect(is_vault_available(create_test_vault({ is_available: true }))).toBe(
+      true,
+    );
+    expect(is_vault_available(create_test_vault({ is_available: false }))).toBe(
+      false,
+    );
+  });
+
+  it("derives an uppercase initial with a fallback for empty names", () => {
+    expect(vault_initial("research")).toBe("R");
+    expect(vault_initial("Personal")).toBe("P");
+    expect(vault_initial("")).toBe("?");
   });
 });

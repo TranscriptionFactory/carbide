@@ -1,7 +1,12 @@
+import { readFileSync } from "node:fs";
 import { sveltekit } from "@sveltejs/kit/vite";
 import { defineConfig, type Plugin } from "vitest/config";
 import tailwindcss from "@tailwindcss/vite";
 import { nodePolyfills } from "vite-plugin-node-polyfills";
+
+const pkg = JSON.parse(
+  readFileSync(new URL("./package.json", import.meta.url), "utf8"),
+) as { version: string };
 
 const KATEX_FALLBACK_SRC =
   /,url\([^)]*KaTeX_[^)]*\.(?:woff|ttf)\)\s*format\((["']?)(?:woff|truetype)\1\)/g;
@@ -39,6 +44,9 @@ export default defineConfig({
     }),
     katex_woff2_only(),
   ],
+  define: {
+    __APP_VERSION__: JSON.stringify(pkg.version),
+  },
   build: {
     chunkSizeWarningLimit: 3500,
     rollupOptions: {

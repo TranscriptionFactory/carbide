@@ -1,4 +1,5 @@
 import type { Vault } from "$lib/shared/types/vault";
+import { format_relative_time } from "$lib/shared/utils/relative_time";
 
 export function clamp_vault_selection(index: number, total: number): number {
   if (total <= 0) {
@@ -57,4 +58,27 @@ export function format_vault_path(
     return `.../${parts.slice(-2).join("/")}`;
   }
   return path;
+}
+
+export function format_last_opened(vault: Vault, now: number): string {
+  if (!vault.last_opened_at) {
+    return "--";
+  }
+  return format_relative_time(vault.last_opened_at, now);
+}
+
+export function format_note_count(vault: Vault): string {
+  if (typeof vault.note_count !== "number") {
+    return "-- notes";
+  }
+  const suffix = vault.note_count === 1 ? "note" : "notes";
+  return `${String(vault.note_count)} ${suffix}`;
+}
+
+export function is_vault_available(vault: Vault): boolean {
+  return vault.is_available !== false;
+}
+
+export function vault_initial(name: string): string {
+  return name.charAt(0).toUpperCase() || "?";
 }

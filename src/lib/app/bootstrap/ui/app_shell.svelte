@@ -8,7 +8,7 @@
     is_mac,
     is_tauri,
   } from "$lib/features/window";
-  import { VaultSelectionPanel } from "$lib/features/vault";
+  import { VaultLauncher } from "$lib/features/vault";
   import { use_keyboard_shortcuts } from "$lib/hooks/use_keyboard_shortcuts.svelte";
   import { use_external_links } from "$lib/hooks/use_external_links.svelte";
   import { use_app_context } from "$lib/app/context/app_context.svelte";
@@ -105,27 +105,30 @@
 {/if}
 
 {#if !has_vault}
-  <div class="mx-auto max-w-[65ch] p-8">
-    <VaultSelectionPanel
-      recent_vaults={stores.vault.recent_vaults}
-      pinned_vault_ids={stores.vault.pinned_vault_ids}
-      current_vault_id={null}
-      is_loading={vault_selection_loading}
-      error={stores.ui.startup.error ?? stores.ui.change_vault.error}
-      on_choose_vault_dir={handle_choose_vault_dir}
-      on_select_vault={handle_select_vault}
-      on_toggle_pin_vault={(vault_id) => {
-        void action_registry.execute(ACTION_IDS.vault_toggle_pin, vault_id);
-      }}
-      on_remove_vault={(vault_id) => {
-        void action_registry.execute(
-          ACTION_IDS.vault_remove_from_registry,
-          vault_id,
-        );
-      }}
-      {hide_choose_vault_button}
-    />
-  </div>
+  <VaultLauncher
+    recent_vaults={stores.vault.recent_vaults}
+    pinned_vault_ids={stores.vault.pinned_vault_ids}
+    is_loading={vault_selection_loading}
+    error={stores.ui.startup.error ?? stores.ui.change_vault.error}
+    app_version={__APP_VERSION__}
+    on_choose_vault_dir={handle_choose_vault_dir}
+    on_select_vault={handle_select_vault}
+    on_toggle_pin_vault={(vault_id) => {
+      void action_registry.execute(ACTION_IDS.vault_toggle_pin, vault_id);
+    }}
+    on_remove_vault={(vault_id) => {
+      void action_registry.execute(
+        ACTION_IDS.vault_remove_from_registry,
+        vault_id,
+      );
+    }}
+    on_open_settings={() => {
+      void action_registry.execute(ACTION_IDS.settings_open);
+    }}
+    on_open_help={() => {
+      void action_registry.execute(ACTION_IDS.help_open);
+    }}
+  />
 {:else}
   <main>
     <WorkspaceLayout />
