@@ -74,7 +74,7 @@
     --macos-drag-strip-height: 36px;
   }
 
-  body.macos-drag-strip .WorkspaceLayout {
+  body.macos-drag-strip :is(.WorkspaceLayout, .VaultLauncher) {
     padding-block-start: var(--macos-drag-strip-height);
   }
 

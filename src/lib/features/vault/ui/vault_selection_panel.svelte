@@ -1,15 +1,16 @@
 <script lang="ts">
   import type { Vault } from "$lib/shared/types/vault";
   import type { VaultId } from "$lib/shared/types/ids";
-  import * as Card from "$lib/components/ui/card";
   import { Button } from "$lib/components/ui/button";
   import { Input } from "$lib/components/ui/input";
   import { search_vaults } from "$lib/features/vault/domain/search_vaults";
-  import { format_relative_time } from "$lib/shared/utils/relative_time";
   import {
     clamp_vault_selection,
     duplicate_vault_names,
+    format_last_opened,
+    format_note_count,
     format_vault_path,
+    is_vault_available,
     move_vault_selection,
   } from "$lib/features/vault/domain/vault_switcher";
   import { onMount } from "svelte";
@@ -26,7 +27,6 @@
     on_toggle_pin_vault: (vault_id: VaultId) => void;
     on_remove_vault: (vault_id: VaultId) => void;
     on_close?: () => void;
-    is_dialog?: boolean;
     hide_choose_vault_button?: boolean;
   }
 
@@ -41,7 +41,6 @@
     on_toggle_pin_vault,
     on_remove_vault,
     on_close,
-    is_dialog = false,
     hide_choose_vault_button = false,
   }: Props = $props();
   let vault_query = $state("");
@@ -76,9 +75,7 @@
   });
 
   onMount(() => {
-    if (is_dialog && search_input_ref) {
-      setTimeout(() => search_input_ref?.focus(), 0);
-    }
+    setTimeout(() => search_input_ref?.focus(), 0);
   });
 
   function handle_choose_vault(event?: MouseEvent) {
@@ -167,71 +164,34 @@
   function format_path(path: string, vault_name: string): string {
     return format_vault_path(path, vault_name, duplicate_names);
   }
-
-  function format_last_opened(vault: Vault): string {
-    if (!vault.last_opened_at) {
-      return "--";
-    }
-    return format_relative_time(vault.last_opened_at, Date.now());
-  }
-
-  function format_note_count(vault: Vault): string {
-    if (typeof vault.note_count !== "number") {
-      return "-- notes";
-    }
-    const suffix = vault.note_count === 1 ? "note" : "notes";
-    return `${vault.note_count} ${suffix}`;
-  }
-
-  function is_vault_available(vault: Vault): boolean {
-    return vault.is_available !== false;
-  }
 </script>
 
-{#if is_dialog}
-  <div class="VaultPanel">
-    <div class="VaultPanel__dialog-header">
-      {#if on_close}
-        <button
-          type="button"
-          onclick={on_close}
-          disabled={is_loading}
-          class="ring-offset-background focus:ring-ring absolute end-0 top-0 rounded-xs opacity-70 transition-opacity hover:opacity-100 focus:ring-2 focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none"
-        >
-          <X class="h-4 w-4" />
-          <span class="sr-only">Close</span>
-        </button>
-      {/if}
-      <div class="space-y-1.5 pr-8">
-        <h2 class="text-lg font-semibold leading-none tracking-tight">
-          Select Vault
-        </h2>
-        <p class="text-sm text-muted-foreground">
-          Open a vault, browse a folder, or select from recent locations
-        </p>
-      </div>
-    </div>
-    <div class="VaultPanel__body">
-      {@render content()}
+<div class="VaultPanel">
+  <div class="VaultPanel__dialog-header">
+    {#if on_close}
+      <button
+        type="button"
+        onclick={on_close}
+        disabled={is_loading}
+        class="ring-offset-background focus:ring-ring absolute end-0 top-0 rounded-xs opacity-70 transition-opacity hover:opacity-100 focus:ring-2 focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none"
+      >
+        <X class="h-4 w-4" />
+        <span class="sr-only">Close</span>
+      </button>
+    {/if}
+    <div class="space-y-1.5 pr-8">
+      <h2 class="text-lg font-semibold leading-none tracking-tight">
+        Select Vault
+      </h2>
+      <p class="text-sm text-muted-foreground">
+        Open a vault, browse a folder, or select from recent locations
+      </p>
     </div>
   </div>
-{:else}
-  <div class="p-0">
-    <Card.Root>
-      <Card.Header>
-        <Card.Title>Select Vault</Card.Title>
-        <Card.Description
-          >Open a vault, browse a folder, or select from recent locations</Card.Description
-        >
-      </Card.Header>
-      <Card.Content>
-        <div class="VaultPanel__body">
-          {@render content()}
-        </div>
-      </Card.Content>
-    </Card.Root>
+  <div class="VaultPanel__body">
+    {@render content()}
   </div>
-{/if}
+</div>
 
 {#snippet vault_row(vault: Vault)}
   {@const index = flat_index_of(vault)}
@@ -283,7 +243,7 @@
           class="VaultPanel__vault-meta"
           class:VaultPanel__vault-meta--dimmed={!is_vault_available(vault)}
         >
-          <span>Opened {format_last_opened(vault)}</span>
+          <span>Opened {format_last_opened(vault, Date.now())}</span>
           <span class="VaultPanel__meta-sep" aria-hidden="true">·</span>
           <span>{format_note_count(vault)}</span>
         </div>

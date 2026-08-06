@@ -38,7 +38,6 @@
 <Dialog.Root {open} onOpenChange={on_open_change}>
   <Dialog.Content class="VaultDialog" showCloseButton={false}>
     <VaultSelectionPanel
-      is_dialog={true}
       {recent_vaults}
       {pinned_vault_ids}
       {current_vault_id}
