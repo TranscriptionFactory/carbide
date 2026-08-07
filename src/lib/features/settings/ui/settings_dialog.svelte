@@ -31,9 +31,10 @@
   import type { ToolInfo } from "$lib/features/toolchain";
   import { SvelteMap } from "svelte/reactivity";
   import {
+    acp_agent_label,
     agent_capability,
     describe_default_provider,
-    HARNESS_LABELS,
+    ACP_PRESET_LABELS,
     type AiCliProbe,
     type AiProviderProbeState,
   } from "$lib/features/ai";
@@ -98,7 +99,7 @@
     LspProviderConfigStatus,
   } from "$lib/features/markdown_lsp";
   import type {
-    AgentHarness,
+    AcpAgentSpec,
     AiProviderConfig,
     AiTransport,
   } from "$lib/shared/types/ai_provider_config";
@@ -358,18 +359,24 @@
     { value: "api", label: "API" },
   ];
 
-  const agent_harness_options = [
+  const acp_agent_options = [
     { value: "none", label: "None (plain text CLI)" },
-    { value: "claude", label: HARNESS_LABELS.claude },
-    { value: "codex", label: HARNESS_LABELS.codex },
+    { value: "claude", label: ACP_PRESET_LABELS.claude },
+    { value: "codex", label: ACP_PRESET_LABELS.codex },
+    { value: "custom", label: "Custom ACP command" },
   ];
+
+  function acp_option_value(spec: AcpAgentSpec | undefined): string {
+    if (!spec) return "none";
+    return spec.kind === "preset" ? spec.id : "custom";
+  }
 
   function agent_capability_label(provider: AiProviderConfig): string {
     const capability = agent_capability(provider);
     if (!capability) return "Agent: not supported — plain text CLI";
     if (capability.backend === "native")
       return "Agent: native loop (OpenAI-compatible)";
-    return `Agent: ${HARNESS_LABELS[capability.adapter]} harness`;
+    return `Agent: ${acp_agent_label(capability.acp)} via ACP`;
   }
 
   let editing_provider_id = $state<string | null>(null);
@@ -1340,38 +1347,41 @@
                         />
                       </div>
                       {#if !provider.is_preset && provider.transport.kind === "cli"}
-                        {@const harness_value =
-                          provider.transport.harness ?? "none"}
+                        {@const acp_value = acp_option_value(
+                          provider.transport.acp,
+                        )}
                         <div class="flex items-center gap-2">
                           <span class="w-20 text-xs text-muted-foreground"
-                            >Harness</span
+                            >ACP agent</span
                           >
                           <Select.Root
                             type="single"
-                            value={harness_value}
+                            value={acp_value}
                             disabled={ai_settings_disabled}
                             onValueChange={(v: string | undefined) => {
                               if (!v || provider.transport.kind !== "cli")
                                 return;
-                              const { harness: _, ...rest } =
-                                provider.transport;
+                              const { acp: _, ...rest } = provider.transport;
+                              const acp: AcpAgentSpec | null =
+                                v === "claude" || v === "codex"
+                                  ? { kind: "preset", id: v }
+                                  : v === "custom"
+                                    ? { kind: "custom", command: "", args: [] }
+                                    : null;
                               update_provider(provider.id, {
-                                transport:
-                                  v === "none"
-                                    ? rest
-                                    : { ...rest, harness: v as AgentHarness },
+                                transport: acp ? { ...rest, acp } : rest,
                               });
                             }}
                           >
                             <Select.Trigger class="flex-1">
                               <span data-slot="select-value"
-                                >{agent_harness_options.find(
-                                  (o) => o.value === harness_value,
-                                )?.label ?? harness_value}</span
+                                >{acp_agent_options.find(
+                                  (o) => o.value === acp_value,
+                                )?.label ?? acp_value}</span
                               >
                             </Select.Trigger>
                             <Select.Content>
-                              {#each agent_harness_options as opt (opt.value)}
+                              {#each acp_agent_options as opt (opt.value)}
                                 <Select.Item value={opt.value}
                                   >{opt.label}</Select.Item
                                 >
@@ -1379,6 +1389,61 @@
                             </Select.Content>
                           </Select.Root>
                         </div>
+                        {#if provider.transport.acp?.kind === "custom"}
+                          {@const custom = provider.transport.acp}
+                          <div class="flex items-center gap-2">
+                            <span class="w-20 text-xs text-muted-foreground"
+                              >ACP cmd</span
+                            >
+                            <Input
+                              value={custom.command}
+                              class="flex-1"
+                              placeholder="my-acp-agent"
+                              disabled={ai_settings_disabled}
+                              oninput={(
+                                e: Event & { currentTarget: HTMLInputElement },
+                              ) => {
+                                if (provider.transport.kind !== "cli") return;
+                                update_provider(provider.id, {
+                                  transport: {
+                                    ...provider.transport,
+                                    acp: {
+                                      ...custom,
+                                      command: e.currentTarget.value,
+                                    },
+                                  },
+                                });
+                              }}
+                            />
+                          </div>
+                          <div class="flex items-center gap-2">
+                            <span class="w-20 text-xs text-muted-foreground"
+                              >ACP args</span
+                            >
+                            <Input
+                              value={custom.args.join(" ")}
+                              class="flex-1"
+                              placeholder="--stdio"
+                              disabled={ai_settings_disabled}
+                              oninput={(
+                                e: Event & { currentTarget: HTMLInputElement },
+                              ) => {
+                                if (provider.transport.kind !== "cli") return;
+                                update_provider(provider.id, {
+                                  transport: {
+                                    ...provider.transport,
+                                    acp: {
+                                      ...custom,
+                                      args: e.currentTarget.value
+                                        .split(/\s+/)
+                                        .filter((a) => a !== ""),
+                                    },
+                                  },
+                                });
+                              }}
+                            />
+                          </div>
+                        {/if}
                       {/if}
                       <p class="text-xs text-muted-foreground">
                         {agent_capability_label(provider)}

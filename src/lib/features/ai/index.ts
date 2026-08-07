@@ -26,11 +26,11 @@ export {
 } from "$lib/features/ai/application/note_image_loader";
 export { MarkdownJoiner } from "$lib/features/ai/domain/markdown_joiner";
 export {
+  acp_agent_label,
   agent_capability,
   agent_scope_copy,
   provider_supports_streaming,
-  HARNESS_LABELS,
-  type AgentBackend,
+  ACP_PRESET_LABELS,
   type AgentCapability,
   type AgentScopeCopy,
 } from "$lib/features/ai/domain/ai_provider_capabilities";
@@ -58,7 +58,7 @@ export {
 } from "$lib/features/ai/domain/ai_error_messages";
 export {
   BUILTIN_PROVIDER_PRESETS,
-  type AgentHarness,
+  type AcpAgentSpec,
   type AiApplyTarget,
   type AiTransport,
   type AiCliTransport,
@@ -82,4 +82,8 @@ export { migrate_ai_settings } from "$lib/features/ai/domain/ai_settings_migrati
 // I5's before/after → Proposal producer. Exported because ambient notices
 // (C3) build proposals from outside this feature; the helper itself is
 // AI-agnostic and only happens to live here.
-export { build_proposal } from "$lib/features/ai/domain/ai_diff";
+export {
+  build_proposal,
+  diff_lines,
+  split_lines,
+} from "$lib/features/ai/domain/ai_diff";

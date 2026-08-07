@@ -8,15 +8,11 @@ use serde::{Deserialize, Serialize};
 use specta::Type;
 use std::collections::HashMap;
 use tauri::{AppHandle, Emitter, Manager};
-use tokio::io::{AsyncBufReadExt, BufReader};
-use tokio::process::Command;
 use tokio::sync::{oneshot, Mutex};
 
-use super::harness::claude_adapter::ClaudeAdapter;
-use super::harness::codex_adapter::CodexAdapter;
-use super::harness::{AgentInvocation, HarnessAdapter, HarnessEventParser, McpEndpoint};
+use super::harness::McpEndpoint;
 use super::service::{AiProviderConfig, AiTransport};
-use super::stream::{collect_stderr_tail, AiMessage};
+use super::stream::AiMessage;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Type)]
 #[serde(tag = "kind", rename_all = "snake_case")]
@@ -29,7 +25,7 @@ pub enum ToolSelector {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Type)]
 #[serde(rename_all = "lowercase")]
 pub enum AgentRunBackend {
-    Harness,
+    Acp,
     Native,
 }
 
@@ -42,7 +38,7 @@ pub struct AgentRunSpec {
     pub resume_session_id: Option<String>,
     pub backend: AgentRunBackend,
     #[serde(default)]
-    pub adapter: Option<String>,
+    pub acp_agent: Option<super::acp::AcpAgentSpec>,
     #[serde(default)]
     pub history: Vec<AiMessage>,
 }
@@ -200,21 +196,6 @@ pub enum AgentEvent {
     Error { message: String },
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum HarnessKind {
-    Claude,
-    Codex,
-}
-
-pub fn resolve_harness_adapter(adapter: Option<&str>) -> Result<HarnessKind, String> {
-    match adapter {
-        Some("claude") => Ok(HarnessKind::Claude),
-        Some("codex") => Ok(HarnessKind::Codex),
-        Some(other) => Err(format!("unknown agent adapter `{other}`")),
-        None => Err("missing agent adapter for harness backend".to_string()),
-    }
-}
-
 #[derive(Default)]
 pub struct AgentRunState {
     handles: Mutex<HashMap<String, oneshot::Sender<()>>>,
@@ -267,115 +248,16 @@ pub async fn agent_run_start(
     let event_name = format!("agent-run-event:{request_id}");
 
     match &spec.backend {
-        AgentRunBackend::Harness => {
-            let harness = match resolve_harness_adapter(spec.adapter.as_deref()) {
-                Ok(harness) => harness,
-                Err(e) => {
-                    let _ = app.emit(&event_name, AgentEvent::Error { message: e });
-                    return Ok(());
-                }
-            };
-
-            let AiTransport::Cli { command, .. } = &spec.provider_config.transport else {
-                let _ = app.emit(
-                    &event_name,
-                    AgentEvent::Error {
-                        message: format!(
-                            "{} does not support agent mode",
-                            spec.provider_config.name
-                        ),
-                    },
-                );
-                return Ok(());
-            };
-
-            let path = pipeline::get_expanded_path();
-            let probe = tauri::async_runtime::spawn_blocking({
-                let command = command.clone();
-                let path = path.clone();
-                move || pipeline::resolve_cli_with_path(&command, &path)
-            })
-            .await
-            .map_err(|e| e.to_string())?;
-            if probe.status != pipeline::CliProbeStatus::Present {
-                let message =
-                    cli_probe_error_message(&spec.provider_config.name, &probe);
-                let _ = app.emit(&event_name, AgentEvent::Error { message });
-                return Ok(());
-            }
-
-            let endpoint = match prepare_mcp_endpoint(&app).await {
-                Ok(endpoint) => endpoint,
-                Err(e) => {
-                    let _ = app.emit(
-                        &event_name,
-                        AgentEvent::Error {
-                            message: format!("Carbide MCP server unavailable: {e}"),
-                        },
-                    );
-                    return Ok(());
-                }
-            };
-
-            let catalog = McpRouter::with_app(app.clone()).tool_definitions_public();
-            let (invocation, parser) = match harness {
-                HarnessKind::Claude => {
-                    build_harness_invocation(ClaudeAdapter, &spec, &endpoint, &catalog)
-                }
-                HarnessKind::Codex => {
-                    build_harness_invocation(CodexAdapter, &spec, &endpoint, &catalog)
-                }
-            };
-            let invocation = match invocation {
-                Ok(invocation) => invocation,
-                Err(e) => {
-                    let _ = app.emit(&event_name, AgentEvent::Error { message: e });
-                    return Ok(());
-                }
-            };
-            let args = invocation.args;
-            let env = invocation.env;
-
-            let (abort_tx, abort_rx) = oneshot::channel::<()>();
-            state
-                .handles
-                .lock()
-                .await
-                .insert(request_id.clone(), abort_tx);
-
-            let resolved_path = probe
-                .resolved_path
-                .as_deref()
-                .and_then(|p| std::path::Path::new(p).parent())
-                .map(|parent| pipeline::path_with_dir_prepended(parent, &path))
-                .unwrap_or(path);
-            let command = probe.resolved_path.unwrap_or_else(|| command.clone());
-            let vault_path = spec.vault_path.clone();
-            let req_id = request_id.clone();
-            let evt_name = event_name.clone();
-
-            tokio::spawn(async move {
-                let result = run_agent_cli(
-                    &app,
-                    &evt_name,
-                    &command,
-                    &args,
-                    &env,
-                    &resolved_path,
-                    &vault_path,
-                    parser,
-                    abort_rx,
-                )
-                .await;
-
-                app.state::<AgentRunState>()
-                    .remove_handle(&req_id)
-                    .await;
-
-                if let Err(e) = result {
-                    let _ = app.emit(&evt_name, AgentEvent::Error { message: e });
-                }
-            });
+        AgentRunBackend::Acp => {
+            // Interim stub while the ACP session layer lands; replaced by the
+            // AcpSessionManager wiring in this same change series.
+            let _ = app.emit(
+                &event_name,
+                AgentEvent::Error {
+                    message: "ACP backend not yet wired".to_string(),
+                },
+            );
+            return Ok(());
         }
         AgentRunBackend::Native => {
             let AiTransport::Api { .. } = &spec.provider_config.transport else {
@@ -405,106 +287,6 @@ pub async fn agent_run_start(
                 spec,
                 abort_rx,
             );
-        }
-    }
-
-    Ok(())
-}
-
-fn build_harness_invocation<A: HarnessAdapter>(
-    adapter: A,
-    spec: &AgentRunSpec,
-    endpoint: &McpEndpoint,
-    catalog: &[ToolDefinition],
-) -> (Result<AgentInvocation, String>, Box<dyn HarnessEventParser>) {
-    let invocation = adapter.build_invocation(
-        &spec.prompt,
-        endpoint,
-        &spec.toolset,
-        catalog,
-        spec.resume_session_id.as_deref(),
-    );
-    (invocation, adapter.new_parser(catalog))
-}
-
-async fn run_agent_cli(
-    app: &AppHandle,
-    event_name: &str,
-    command: &str,
-    args: &[String],
-    env: &[(String, String)],
-    path: &str,
-    vault_path: &str,
-    mut parser: Box<dyn HarnessEventParser>,
-    abort_rx: oneshot::Receiver<()>,
-) -> Result<(), String> {
-    let mut cmd = Command::new(command);
-    cmd.args(args).env("PATH", path);
-    for (key, value) in env {
-        cmd.env(key, value);
-    }
-    cmd.current_dir(vault_path)
-        .stdin(std::process::Stdio::null())
-        .stdout(std::process::Stdio::piped())
-        .stderr(std::process::Stdio::piped())
-        .kill_on_drop(true);
-
-    let mut child = cmd
-        .spawn()
-        .map_err(|e| format!("Failed to spawn {command}: {e}"))?;
-
-    let stdout = child.stdout.take().ok_or("Failed to capture stdout")?;
-    let stderr_handle = child.stderr.take().map(|stderr| {
-        tokio::spawn(async move {
-            use tokio::io::AsyncReadExt;
-            let mut buf = String::new();
-            let _ = BufReader::new(stderr).read_to_string(&mut buf).await;
-            buf
-        })
-    });
-
-    let mut reader = BufReader::new(stdout).lines();
-
-    tokio::select! {
-        _ = async {
-            while let Ok(Some(line)) = reader.next_line().await {
-                for event in parser.parse_line(&line) {
-                    let _ = app.emit(event_name, event);
-                }
-            }
-
-            match child.wait().await {
-                Ok(s) if s.success() => {
-                    if !parser.saw_result() {
-                        let _ = app.emit(event_name, AgentEvent::Error {
-                            message: "agent exited without a result".to_string(),
-                        });
-                    }
-                }
-                Ok(s) => {
-                    let code = s.code().unwrap_or(-1);
-                    let detail = collect_stderr_tail(stderr_handle).await;
-                    let message = if detail.is_empty() {
-                        format!(
-                            "`{command}` exited with code {code} with no output — check it is installed, authenticated, and the model is available"
-                        )
-                    } else {
-                        format!("`{command}` exited with code {code}: {detail}")
-                    };
-                    let _ = app.emit(event_name, AgentEvent::Error { message });
-                }
-                Err(e) => {
-                    let _ = app.emit(event_name, AgentEvent::Error {
-                        message: format!("Process error: {e}"),
-                    });
-                }
-            }
-        } => {}
-        _ = abort_rx => {
-            let _ = child.kill().await;
-            let _ = app.emit(event_name, AgentEvent::Error {
-                message: "aborted".to_string(),
-            });
         }
     }
 

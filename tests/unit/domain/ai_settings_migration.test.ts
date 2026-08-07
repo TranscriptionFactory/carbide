@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { migrate_ai_settings } from "$lib/features/ai/domain/ai_settings_migration";
 
 describe("migrate_ai_settings", () => {
-  it("converts harness descriptors on cli providers and drops the agent key", () => {
+  it("converts agent descriptors on cli providers to acp specs and drops the agent key", () => {
     const result = migrate_ai_settings({
       ai_providers: [
         {
@@ -29,7 +29,7 @@ describe("migrate_ai_settings", () => {
       kind: "cli",
       command: "claude",
       args: [],
-      harness: "claude",
+      acp: { kind: "preset", id: "claude" },
     });
     expect("agent" in claude!).toBe(false);
 
@@ -38,12 +38,12 @@ describe("migrate_ai_settings", () => {
       kind: "cli",
       command: "codex",
       args: [],
-      harness: "codex",
+      acp: { kind: "preset", id: "codex" },
     });
     expect("agent" in codex!).toBe(false);
   });
 
-  it("strips text_cli descriptors without adding a harness", () => {
+  it("strips text_cli descriptors without adding an acp spec", () => {
     const result = migrate_ai_settings({
       ai_providers: [
         {
@@ -86,7 +86,7 @@ describe("migrate_ai_settings", () => {
     expect("agent" in lmstudio).toBe(false);
   });
 
-  it("strips incoherent descriptors without inventing a harness", () => {
+  it("strips incoherent descriptors without inventing an acp spec", () => {
     const result = migrate_ai_settings({
       ai_providers: [
         {
@@ -122,7 +122,7 @@ describe("migrate_ai_settings", () => {
     }
   });
 
-  it("stamps the harness onto descriptor-less claude/codex preset ids", () => {
+  it("stamps the acp preset onto descriptor-less claude/codex preset ids", () => {
     const result = migrate_ai_settings({
       ai_providers: [
         {
@@ -144,7 +144,7 @@ describe("migrate_ai_settings", () => {
       kind: "cli",
       command: "claude",
       args: ["-p"],
-      harness: "claude",
+      acp: { kind: "preset", id: "claude" },
     });
 
     const codex = result!.ai_providers.find((p) => p.id === "codex");
@@ -152,11 +152,11 @@ describe("migrate_ai_settings", () => {
       kind: "cli",
       command: "codex",
       args: ["exec"],
-      harness: "codex",
+      acp: { kind: "preset", id: "codex" },
     });
   });
 
-  it("returns null for providers already in the harness shape", () => {
+  it("converts a persisted harness field to the acp preset spec", () => {
     const result = migrate_ai_settings({
       ai_providers: [
         {
@@ -167,6 +167,31 @@ describe("migrate_ai_settings", () => {
             command: "claude",
             args: ["-p"],
             harness: "claude",
+          },
+        },
+      ],
+    });
+
+    expect(result).not.toBeNull();
+    expect(result!.ai_providers[0]?.transport).toEqual({
+      kind: "cli",
+      command: "claude",
+      args: ["-p"],
+      acp: { kind: "preset", id: "claude" },
+    });
+  });
+
+  it("returns null for providers already in the acp shape", () => {
+    const result = migrate_ai_settings({
+      ai_providers: [
+        {
+          id: "claude",
+          name: "Claude Code",
+          transport: {
+            kind: "cli",
+            command: "claude",
+            args: ["-p"],
+            acp: { kind: "preset", id: "claude" },
           },
         },
         {
@@ -209,7 +234,7 @@ describe("migrate_ai_settings", () => {
       kind: "cli",
       command: "/custom/claude",
       args: ["-p", "--output-format", "text"],
-      harness: "claude",
+      acp: { kind: "preset", id: "claude" },
     });
 
     const ollama = result!.ai_providers.find((p) => p.id === "ollama");
@@ -234,7 +259,7 @@ describe("migrate_ai_settings", () => {
       kind: "cli",
       command: "claude",
       args: ["-p", "--output-format", "text"],
-      harness: "claude",
+      acp: { kind: "preset", id: "claude" },
     });
 
     const ollama = result!.ai_providers.find((p) => p.id === "ollama");
@@ -294,7 +319,7 @@ describe("migrate_ai_settings", () => {
       kind: "cli",
       command: "claude",
       args: ["-p", "--output-format", "text"],
-      harness: "claude",
+      acp: { kind: "preset", id: "claude" },
     });
 
     const ollama = result!.ai_providers.find((p) => p.id === "ollama");

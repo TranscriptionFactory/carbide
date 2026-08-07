@@ -344,7 +344,7 @@ pub async fn ai_stream_start(
     let event_name = format!("ai:chunk:{}", request_id);
 
     match &provider_config.transport {
-        AiTransport::Cli { command, args } => {
+        AiTransport::Cli { command, args, .. } => {
             let resolved_model = model.or(provider_config.model.clone()).unwrap_or_default();
             let prompt_text = build_prompt_text(&system_prompt, &messages);
             let prompt_via_stdin = !args.iter().any(|a| a.contains("{prompt}"));

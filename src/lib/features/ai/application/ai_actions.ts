@@ -660,7 +660,12 @@ export function register_ai_actions(
         toast.error("No AI provider configured");
         return;
       }
-      if (agent_capability(provider)?.adapter !== "claude") {
+      const capability = agent_capability(provider);
+      const is_claude_acp =
+        capability?.backend === "acp" &&
+        capability.acp.kind === "preset" &&
+        capability.acp.id === "claude";
+      if (!is_claude_acp) {
         toast.info(
           `${provider.name} does not support vault handoff — requires Claude Code`,
         );

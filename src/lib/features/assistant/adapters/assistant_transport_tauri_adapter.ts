@@ -74,7 +74,7 @@ const agent_turn_channel: ChannelDescriptor<AgentRequest, AgentEvent> = {
       history: request.history,
       resume_session_id: request.resume_session_id ?? null,
       backend: request.backend,
-      adapter: agent_capability(input.provider_config)?.adapter ?? null,
+      acp_agent: agent_capability(input.provider_config)?.acp ?? null,
     },
   }),
   to_run_event: (event) => {

@@ -1,6 +1,6 @@
 import {
   BUILTIN_PROVIDER_PRESETS,
-  type AgentHarness,
+  type AcpAgentSpec,
   type AiProviderConfig,
 } from "$lib/shared/types/ai_provider_config";
 
@@ -70,32 +70,45 @@ function has_old_args_template_format(
   );
 }
 
-type WithLegacyAgent = AiProviderConfig & { agent?: { kind?: string } };
+type WithLegacyAgent = AiProviderConfig & {
+  agent?: { kind?: string };
+  transport?: AiProviderConfig["transport"] & { harness?: string };
+};
+
+function preset_spec(id: string): AcpAgentSpec | undefined {
+  return id === "claude" || id === "codex"
+    ? { kind: "preset", id }
+    : undefined;
+}
 
 // Returns the input by reference when nothing changes, so the caller's
-// identity check doubles as the idempotency gate.
+// identity check doubles as the idempotency gate. Both legacy shapes — the
+// agent descriptor and the harness field — convert straight to the ACP spec.
 function convert_agent_descriptor(provider: WithLegacyAgent): AiProviderConfig {
   const { agent, ...config } = provider;
-  const stripped = agent === undefined ? provider : config;
-  if (
-    config.transport?.kind !== "cli" ||
-    config.transport.harness !== undefined
-  ) {
-    return stripped;
+  const stripped = agent === undefined ? provider : (config as AiProviderConfig);
+  if (config.transport?.kind !== "cli") return stripped;
+
+  const { harness, ...transport } = config.transport;
+  if (config.transport.acp !== undefined) {
+    if (harness === undefined) return stripped;
+    return { ...config, transport } as AiProviderConfig;
   }
-  // Descriptor-less claude/codex preset ids used to inherit harness capability
-  // via id-keyed inference; preserve that once here, then it's gone.
-  const harness: AgentHarness | undefined =
-    agent?.kind === "claude_code"
-      ? "claude"
+
+  const acp: AcpAgentSpec | undefined =
+    (harness !== undefined ? preset_spec(harness) : undefined) ??
+    (agent?.kind === "claude_code"
+      ? { kind: "preset", id: "claude" }
       : agent?.kind === "codex_cli"
-        ? "codex"
-        : agent === undefined &&
-            (config.id === "claude" || config.id === "codex")
-          ? config.id
-          : undefined;
-  if (harness === undefined) return stripped;
-  return { ...config, transport: { ...config.transport, harness } };
+        ? { kind: "preset", id: "codex" }
+        : agent === undefined && harness === undefined
+          ? preset_spec(config.id)
+          : undefined);
+  if (acp === undefined) {
+    if (harness === undefined) return stripped;
+    return { ...config, transport } as AiProviderConfig;
+  }
+  return { ...config, transport: { ...transport, acp } } as AiProviderConfig;
 }
 
 export function migrate_ai_settings(

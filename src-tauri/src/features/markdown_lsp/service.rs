@@ -1642,7 +1642,7 @@ pub async fn iwe_config_rewrite_provider(
     }
 
     let (command, args) = match &provider_config.transport {
-        crate::features::ai::service::AiTransport::Cli { command, args } => {
+        crate::features::ai::service::AiTransport::Cli { command, args, .. } => {
             (command.clone(), args.clone())
         }
         crate::features::ai::service::AiTransport::Api { .. } => {

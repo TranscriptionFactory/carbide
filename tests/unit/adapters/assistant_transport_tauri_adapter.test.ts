@@ -73,7 +73,7 @@ const agent_request: RunRequest = {
   toolset: { kind: "read_only" },
   history: [{ role: "user", content: "earlier" }],
   resume_session_id: "sess-7",
-  backend: "harness",
+  backend: "acp",
 };
 
 function open_stream(request: RunRequest, signal?: AbortSignal) {
@@ -154,8 +154,8 @@ describe("assistant_transport_tauri_adapter", () => {
         toolset: { kind: "read_only" },
         history: [{ role: "user", content: "earlier" }],
         resume_session_id: "sess-7",
-        backend: "harness",
-        adapter: "claude",
+        backend: "acp",
+        acp_agent: { kind: "preset", id: "claude" },
       });
       expect(channel(0).name).toBe(`agent-run-event:${String(args.requestId)}`);
     });
