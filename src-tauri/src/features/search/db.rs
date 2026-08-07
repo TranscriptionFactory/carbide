@@ -1729,6 +1729,9 @@ pub struct IndexResult {
     pub total: usize,
     pub indexed: usize,
     pub vault_stats: Option<VaultScanStats>,
+    /// The op stopped on its cancel token. `indexed` is a partial count and the
+    /// caller must not report the index as finished.
+    pub cancelled: bool,
 }
 
 pub struct SyncPlan {
@@ -1930,6 +1933,10 @@ pub fn compute_sync_plan(
 // a bulk, fully-rebuildable dataset.
 const BATCH_SIZE: usize = 100;
 const REBUILD_BATCH_SIZE: usize = 500;
+
+/// Bound on how many values go into one `IN (?,?,…)` list. Bundled SQLite caps
+/// bound parameters at 32766; this leaves ample room for other params.
+pub(crate) const SQL_IN_CHUNK: usize = 900;
 
 /// Refreshes SQLite's query-planner statistics after a bulk index operation.
 /// Cheap (a near no-op when little changed) and keeps planner choices sound as
@@ -2161,8 +2168,10 @@ pub fn rebuild_index(
     on_progress(0, total);
 
     let mut indexed: usize = 0;
+    let mut cancelled = false;
     for batch in paths.chunks(REBUILD_BATCH_SIZE) {
         if cancel.load(Ordering::Relaxed) {
+            cancelled = true;
             break;
         }
         let mut pending_links: Vec<(String, Vec<String>)> = Vec::new();
@@ -2202,6 +2211,7 @@ pub fn rebuild_index(
         total,
         indexed,
         vault_stats: None,
+        cancelled,
     })
 }
 
@@ -2343,6 +2353,7 @@ pub fn sync_index(
             total: plan.unchanged,
             indexed: 0,
             vault_stats,
+            cancelled: false,
         });
     }
 
@@ -2357,32 +2368,29 @@ pub fn sync_index(
     let total = plan.added.len() + plan.modified.len() + plan.removed.len();
     on_progress(0, total);
     let mut indexed: usize = 0;
+    let mut cancelled = false;
 
-    if !plan.removed.is_empty() {
-        for batch in plan.removed.chunks(BATCH_SIZE) {
-            if cancel.load(Ordering::Relaxed) {
-                return Ok(IndexResult {
-                    total: total + plan.unchanged,
-                    indexed,
-                    vault_stats,
-                });
-            }
-            conn.execute_batch("BEGIN IMMEDIATE")
-                .map_err(|e| e.to_string())?;
-            for path in batch {
-                remove_note(conn, path)?;
-                indexed += 1;
-            }
-            conn.execute_batch("COMMIT").map_err(|e| e.to_string())?;
-            on_progress(indexed, total);
-            yield_fn();
+    for batch in plan.removed.chunks(BATCH_SIZE) {
+        if cancel.load(Ordering::Relaxed) {
+            cancelled = true;
+            break;
         }
+        conn.execute_batch("BEGIN IMMEDIATE")
+            .map_err(|e| e.to_string())?;
+        for path in batch {
+            remove_note(conn, path)?;
+            indexed += 1;
+        }
+        conn.execute_batch("COMMIT").map_err(|e| e.to_string())?;
+        on_progress(indexed, total);
+        yield_fn();
     }
 
     let upsert_files: Vec<&PathBuf> = plan.added.iter().chain(plan.modified.iter()).collect();
 
     for batch in upsert_files.chunks(BATCH_SIZE) {
-        if cancel.load(Ordering::Relaxed) {
+        if cancelled || cancel.load(Ordering::Relaxed) {
+            cancelled = true;
             break;
         }
         let mut pending_links: Vec<(String, Vec<String>)> = Vec::new();
@@ -2409,8 +2417,12 @@ pub fn sync_index(
         yield_fn();
     }
 
-    if let Ok(head) = resolve_git_head(vault_root) {
-        let _ = set_index_meta(conn, "last_indexed_commit", &head);
+    // A cancelled sync left files unvisited, so recording the commit would mark
+    // an incomplete index as up to date with that revision.
+    if !cancelled {
+        if let Ok(head) = resolve_git_head(vault_root) {
+            let _ = set_index_meta(conn, "last_indexed_commit", &head);
+        }
     }
 
     if let Err(e) = run_pragma_optimize(conn) {
@@ -2421,6 +2433,7 @@ pub fn sync_index(
         total: total + plan.unchanged,
         indexed,
         vault_stats,
+        cancelled,
     })
 }
 
@@ -2442,39 +2455,46 @@ pub fn sync_index_paths(
             total: 0,
             indexed: 0,
             vault_stats: None,
+            cancelled: false,
         });
     }
 
     on_progress(0, total);
     let mut indexed: usize = 0;
+    let mut cancelled = false;
 
+    // Both phases roll back as a unit on cancel, so `indexed` is rewound to the
+    // last committed value rather than counting work SQLite threw away.
     if !removed_paths.is_empty() {
+        let committed = indexed;
         conn.execute_batch("BEGIN IMMEDIATE")
             .map_err(|e| e.to_string())?;
         for path in removed_paths {
             if cancel.load(Ordering::Relaxed) {
-                conn.execute_batch("ROLLBACK").ok();
-                return Ok(IndexResult {
-                    total,
-                    indexed,
-                    vault_stats: None,
-                });
+                cancelled = true;
+                break;
             }
             remove_note(conn, path)?;
             indexed += 1;
         }
-        conn.execute_batch("COMMIT").map_err(|e| e.to_string())?;
-        on_progress(indexed, total);
+        if cancelled {
+            conn.execute_batch("ROLLBACK").ok();
+            indexed = committed;
+        } else {
+            conn.execute_batch("COMMIT").map_err(|e| e.to_string())?;
+            on_progress(indexed, total);
+        }
     }
 
-    if !changed_paths.is_empty() {
+    if !cancelled && !changed_paths.is_empty() {
+        let committed = indexed;
         let mut pending_links: Vec<(String, Vec<String>)> = Vec::new();
         conn.execute_batch("BEGIN IMMEDIATE")
             .map_err(|e| e.to_string())?;
 
         for rel_path in changed_paths {
             if cancel.load(Ordering::Relaxed) {
-                conn.execute_batch("ROLLBACK").ok();
+                cancelled = true;
                 break;
             }
             let abs = vault_root.join(rel_path);
@@ -2495,15 +2515,24 @@ pub fn sync_index_paths(
             indexed += 1;
         }
 
-        resolve_batch_outlinks(conn, &pending_links)?;
-        conn.execute_batch("COMMIT").map_err(|e| e.to_string())?;
-        on_progress(indexed, total);
+        // resolve_batch_outlinks and COMMIT only run inside a live transaction:
+        // the old code rolled back and fell through to both, so the COMMIT
+        // failed and a cancel surfaced as an index failure.
+        if cancelled {
+            conn.execute_batch("ROLLBACK").ok();
+            indexed = committed;
+        } else {
+            resolve_batch_outlinks(conn, &pending_links)?;
+            conn.execute_batch("COMMIT").map_err(|e| e.to_string())?;
+            on_progress(indexed, total);
+        }
     }
 
     Ok(IndexResult {
         total,
         indexed,
         vault_stats: None,
+        cancelled,
     })
 }
 
@@ -2553,7 +2582,9 @@ pub fn get_all_notes_from_db(conn: &Connection) -> Result<BTreeMap<String, Index
 }
 
 pub fn get_all_graph_edges(conn: &Connection) -> Result<Vec<(String, String)>, String> {
-    let sql = "SELECT DISTINCT source_path, target_path
+    // No DISTINCT: outlinks has PRIMARY KEY(source_path, target_path), so the
+    // pairs are already unique and DISTINCT only buys a temp b-tree.
+    let sql = "SELECT source_path, target_path
                FROM outlinks
                WHERE source_path IN (SELECT path FROM notes)
                  AND target_path IN (SELECT path FROM notes)
@@ -2616,7 +2647,9 @@ pub fn get_all_graph_edges_chunked(
     chunk_size: usize,
     callback: &dyn Fn(Vec<(String, String)>, usize),
 ) -> Result<usize, String> {
-    let sql = "SELECT DISTINCT source_path, target_path
+    // No DISTINCT: outlinks has PRIMARY KEY(source_path, target_path), so the
+    // pairs are already unique and DISTINCT only buys a temp b-tree.
+    let sql = "SELECT source_path, target_path
                FROM outlinks
                WHERE source_path IN (SELECT path FROM notes)
                  AND target_path IN (SELECT path FROM notes)
@@ -3105,7 +3138,7 @@ pub fn search_headings(
     limit: usize,
 ) -> Result<Vec<crate::features::search::model::HeadingMatch>, String> {
     let trimmed = query.trim();
-    if trimmed.is_empty() {
+    if trimmed.is_empty() || limit == 0 {
         return Ok(Vec::new());
     }
 
@@ -3130,9 +3163,25 @@ pub fn search_headings(
     let mut current_note: Option<String> = None;
     let mut stack: Vec<(i32, String)> = Vec::new();
     let matcher = SkimMatcherV2::default();
-    let mut out: Vec<crate::features::search::model::HeadingMatch> = Vec::new();
+
+    // The score table has three values and rows already arrive ordered by
+    // (note_path, line) — the exact tiebreak the ranking uses. So bucketing by
+    // score preserves the final order without sorting every heading in the
+    // vault, and each bucket can stop at `limit`.
+    let mut exact: Vec<crate::features::search::model::HeadingMatch> = Vec::new();
+    let mut substring: Vec<crate::features::search::model::HeadingMatch> = Vec::new();
+    let mut fuzzy: Vec<crate::features::search::model::HeadingMatch> = Vec::new();
+
+    // Reused across rows: these are inputs to the match decision, so they are
+    // built for every heading and only escape into a result on a hit.
+    let mut heading_path = String::new();
+    let mut text_lower = String::new();
+    let mut path_lower = String::new();
 
     for row in rows {
+        if exact.len() >= limit {
+            break;
+        }
         let (note_path, level, text, line) = row.map_err(|e| e.to_string())?;
         if current_note.as_deref() != Some(note_path.as_str()) {
             current_note = Some(note_path.clone());
@@ -3141,55 +3190,55 @@ pub fn search_headings(
         while stack.last().map(|(lv, _)| *lv >= level).unwrap_or(false) {
             stack.pop();
         }
-        stack.push((level, text.clone()));
+        stack.push((level, text));
+        let text = stack.last().map(|(_, t)| t.as_str()).unwrap_or_default();
 
-        let heading_path = stack
-            .iter()
-            .map(|(_, t)| t.as_str())
-            .collect::<Vec<_>>()
-            .join("/");
-
-        let text_lower = text.to_lowercase();
-        let path_lower = heading_path.to_lowercase();
+        heading_path.clear();
+        for (i, (_, t)) in stack.iter().enumerate() {
+            if i > 0 {
+                heading_path.push('/');
+            }
+            heading_path.push_str(t);
+        }
+        text_lower.clear();
+        text_lower.extend(text.chars().flat_map(char::to_lowercase));
+        path_lower.clear();
+        path_lower.extend(heading_path.chars().flat_map(char::to_lowercase));
 
         // Apply the P4.1 score table to either the leaf text or the
         // hierarchical path — whichever ranks higher.
-        let score = if text_lower == q_lower
+        let (score, bucket) = if text_lower == q_lower
             || text_lower.starts_with(&q_lower)
             || path_lower.starts_with(&q_lower)
         {
-            1.0
+            (1.0, &mut exact)
         } else if text_lower.contains(&q_lower) || path_lower.contains(&q_lower) {
-            0.6
+            (0.6, &mut substring)
+        } else if matcher
+            .fuzzy_match(&heading_path, trimmed)
+            .or_else(|| matcher.fuzzy_match(text, trimmed))
+            .is_some()
+        {
+            (0.3, &mut fuzzy)
         } else {
-            let fuzzy = matcher
-                .fuzzy_match(&heading_path, trimmed)
-                .or_else(|| matcher.fuzzy_match(&text, trimmed));
-            match fuzzy {
-                Some(_) => 0.3,
-                None => 0.0,
-            }
+            continue;
         };
 
-        if score > 0.0 {
-            out.push(crate::features::search::model::HeadingMatch {
+        if bucket.len() < limit {
+            bucket.push(crate::features::search::model::HeadingMatch {
                 note_path: note_path.clone(),
                 level,
-                text: text.clone(),
+                text: text.to_string(),
                 line,
-                heading_path,
+                heading_path: heading_path.clone(),
                 score,
             });
         }
     }
 
-    out.sort_by(|a, b| {
-        b.score
-            .partial_cmp(&a.score)
-            .unwrap_or(std::cmp::Ordering::Equal)
-            .then_with(|| a.note_path.cmp(&b.note_path))
-            .then_with(|| a.line.cmp(&b.line))
-    });
+    let mut out = exact;
+    out.extend(substring);
+    out.extend(fuzzy);
     out.truncate(limit);
     Ok(out)
 }
@@ -5587,44 +5636,34 @@ pub fn get_linked_paths_batch(
         .map(|p| (p.clone(), std::collections::HashSet::new()))
         .collect();
 
-    if paths.is_empty() {
-        return Ok(result);
-    }
+    // The caller passes every node in the graph snapshot, uncapped, so a large
+    // vault would blow past SQLITE_MAX_VARIABLE_NUMBER on a single IN list.
+    for chunk in paths.chunks(SQL_IN_CHUNK) {
+        let placeholders: String = chunk.iter().map(|_| "?").collect::<Vec<_>>().join(",");
 
-    let placeholders: String = paths.iter().map(|_| "?").collect::<Vec<_>>().join(",");
-
-    let outlinks_sql = format!(
-        "SELECT source_path, target_path FROM outlinks WHERE source_path IN ({})",
-        placeholders
-    );
-    let mut stmt = conn.prepare(&outlinks_sql).map_err(|e| e.to_string())?;
-    let rows = stmt
-        .query_map(rusqlite::params_from_iter(paths.iter()), |row| {
-            Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
-        })
-        .map_err(|e| e.to_string())?;
-    for row in rows {
-        if let Ok((source, target)) = row {
-            if let Some(set) = result.get_mut(&source) {
-                set.insert(target);
-            }
-        }
-    }
-
-    let backlinks_sql = format!(
-        "SELECT target_path, source_path FROM outlinks WHERE target_path IN ({})",
-        placeholders
-    );
-    let mut stmt = conn.prepare(&backlinks_sql).map_err(|e| e.to_string())?;
-    let rows = stmt
-        .query_map(rusqlite::params_from_iter(paths.iter()), |row| {
-            Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
-        })
-        .map_err(|e| e.to_string())?;
-    for row in rows {
-        if let Ok((target, source)) = row {
-            if let Some(set) = result.get_mut(&target) {
-                set.insert(source);
+        // Both statements yield (key, linked): outlinks keyed by source, then
+        // backlinks keyed by target.
+        for sql in [
+            format!(
+                "SELECT source_path, target_path FROM outlinks WHERE source_path IN ({})",
+                placeholders
+            ),
+            format!(
+                "SELECT target_path, source_path FROM outlinks WHERE target_path IN ({})",
+                placeholders
+            ),
+        ] {
+            let mut stmt = conn.prepare(&sql).map_err(|e| e.to_string())?;
+            let rows = stmt
+                .query_map(rusqlite::params_from_iter(chunk.iter()), |row| {
+                    Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+                })
+                .map_err(|e| e.to_string())?;
+            for row in rows.flatten() {
+                let (key, linked) = row;
+                if let Some(set) = result.get_mut(&key) {
+                    set.insert(linked);
+                }
             }
         }
     }
@@ -5854,6 +5893,18 @@ fn resolve_bases_now_value(value: &str, now_ms: i64) -> Option<i64> {
     Some(now_ms + sign * count * unit_ms)
 }
 
+// `build_bases_where` emits `task_agg.*` predicates for the task columns, so
+// every statement built from it — rows, count, and count_bases_many — has to
+// carry the same join. One copy, so they cannot drift apart again.
+const BASES_FROM: &str = "FROM notes \
+     LEFT JOIN ( \
+       SELECT path, COUNT(*) as task_count, \
+         SUM(CASE WHEN status = 'done' THEN 1 ELSE 0 END) as tasks_done, \
+         SUM(CASE WHEN status = 'todo' THEN 1 ELSE 0 END) as tasks_todo, \
+         MIN(CASE WHEN status != 'done' AND due_date IS NOT NULL THEN due_date END) as next_due_date \
+       FROM tasks GROUP BY path \
+     ) task_agg ON task_agg.path = notes.path";
+
 pub fn query_bases(
     conn: &Connection,
     query: crate::features::search::model::BaseQuery,
@@ -5916,16 +5967,8 @@ pub fn query_bases(
         "SELECT notes.path, title, mtime_ms, ctime_ms, size_bytes, word_count, char_count, heading_count, outlink_count, reading_time_secs, last_indexed_at, file_type, \
          COALESCE(task_agg.task_count, 0), COALESCE(task_agg.tasks_done, 0), COALESCE(task_agg.tasks_todo, 0), task_agg.next_due_date, \
          notes.content_snippet, notes.first_image_path \
-         FROM notes \
-         LEFT JOIN ( \
-           SELECT path, COUNT(*) as task_count, \
-             SUM(CASE WHEN status = 'done' THEN 1 ELSE 0 END) as tasks_done, \
-             SUM(CASE WHEN status = 'todo' THEN 1 ELSE 0 END) as tasks_todo, \
-             MIN(CASE WHEN status != 'done' AND due_date IS NOT NULL THEN due_date END) as next_due_date \
-           FROM tasks GROUP BY path \
-         ) task_agg ON task_agg.path = notes.path \
-         {} {} LIMIT {} OFFSET {}",
-        where_sql, order_sql, query.limit, query.offset
+         {} {} {} LIMIT {} OFFSET {}",
+        BASES_FROM, where_sql, order_sql, query.limit, query.offset
     );
 
     let mut stmt = conn.prepare(&sql).map_err(|e| e.to_string())?;
@@ -6020,7 +6063,7 @@ pub fn query_bases(
         });
     }
 
-    let count_sql = format!("SELECT COUNT(*) FROM notes {}", where_sql);
+    let count_sql = format!("SELECT COUNT(*) {} {}", BASES_FROM, where_sql);
     let mut count_stmt = conn.prepare(&count_sql).map_err(|e| e.to_string())?;
     let count_param_refs = if final_params.len() > params_len {
         &param_refs[..params_len]
@@ -6099,8 +6142,26 @@ fn build_bases_where(
                 "lte" => "<=",
                 _ => "=",
             };
-            let col = format!("COALESCE(task_agg.{}, 0)", prop);
-            where_clauses.push(format!("{} {} ?{}", col, op, params.len() + 1));
+            // Filter values arrive as strings and a COALESCE expression has no
+            // column affinity, so SQLite would compare an integer against text
+            // and rank every integer below it. The counts need an explicit
+            // cast; next_due_date is an ISO date compared as text, and must
+            // keep its NULL rather than COALESCE to 0 — a note with no due date
+            // is not "due before X".
+            if prop == "next_due_date" {
+                where_clauses.push(format!(
+                    "task_agg.next_due_date {} ?{}",
+                    op,
+                    params.len() + 1
+                ));
+            } else {
+                where_clauses.push(format!(
+                    "COALESCE(task_agg.{}, 0) {} CAST(?{} AS INTEGER)",
+                    prop,
+                    op,
+                    params.len() + 1
+                ));
+            }
             params.push(Box::new(value.clone()));
         } else if is_direct_col(prop) {
             let op = match filter.operator.as_str() {
@@ -6188,18 +6249,7 @@ pub fn count_bases_many(
     let mut counts = Vec::with_capacity(queries.len());
     for query in queries {
         let (where_sql, params) = build_bases_where(query, now_ms);
-        let sql = format!(
-            "SELECT COUNT(*) FROM notes \
-             LEFT JOIN ( \
-               SELECT path, COUNT(*) as task_count, \
-                 SUM(CASE WHEN status = 'done' THEN 1 ELSE 0 END) as tasks_done, \
-                 SUM(CASE WHEN status = 'todo' THEN 1 ELSE 0 END) as tasks_todo, \
-                 MIN(CASE WHEN status != 'done' AND due_date IS NOT NULL THEN due_date END) as next_due_date \
-               FROM tasks GROUP BY path \
-             ) task_agg ON task_agg.path = notes.path \
-             {}",
-            where_sql
-        );
+        let sql = format!("SELECT COUNT(*) {} {}", BASES_FROM, where_sql);
         let mut stmt = conn.prepare(&sql).map_err(|e| e.to_string())?;
         let param_refs: Vec<&dyn rusqlite::ToSql> = params.iter().map(|b| b.as_ref()).collect();
         let count: i64 = stmt

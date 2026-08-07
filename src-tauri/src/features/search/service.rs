@@ -1531,14 +1531,21 @@ fn run_index_op(
                 );
             }
             let elapsed_ms = start.elapsed().as_millis() as u64;
-            let _ = app_handle.emit(
-                "index_progress",
-                IndexProgressEvent::Completed {
-                    vault_id: vid.clone(),
-                    indexed: res.indexed,
-                    elapsed_ms,
-                },
-            );
+            if res.cancelled {
+                // A cancel means a superseding index op is already queued and
+                // will emit its own Started/Completed. Reporting this partial
+                // run as finished is what masks an interrupted index.
+                log::info!("{label} cancelled after {} files in {elapsed_ms}ms", res.indexed);
+            } else {
+                let _ = app_handle.emit(
+                    "index_progress",
+                    IndexProgressEvent::Completed {
+                        vault_id: vid.clone(),
+                        indexed: res.indexed,
+                        elapsed_ms,
+                    },
+                );
+            }
         }
         Err(e) => {
             log::error!("{label} failed: {e}");
@@ -1675,7 +1682,11 @@ fn handle_sync_paths(
                 }
             }
             let elapsed_ms = start.elapsed().as_millis() as u64;
-            log::info!("sync_paths: indexed {} in {}ms", res.indexed, elapsed_ms);
+            if res.cancelled {
+                log::info!("sync_paths: cancelled after {} in {}ms", res.indexed, elapsed_ms);
+            } else {
+                log::info!("sync_paths: indexed {} in {}ms", res.indexed, elapsed_ms);
+            }
         }
         Err(e) => {
             log::error!("sync_paths failed: {e}");
