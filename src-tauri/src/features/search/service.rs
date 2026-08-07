@@ -2349,6 +2349,10 @@ impl BlockEmbedPass<'_> {
         ) {
             Ok(embeddings) => {
                 let mut stored = 0usize;
+                // Counted, not logged per section: a systematically bad batch
+                // refuses every row, and one line per section buries the fact
+                // that the whole batch failed under thousands of identical ones.
+                let mut refused: Option<(String, String)> = None;
                 for (((path, heading_id), embedding), hash) in batch
                     .keys
                     .iter()
@@ -2358,13 +2362,20 @@ impl BlockEmbedPass<'_> {
                     if let Err(e) = vector_db::upsert_block_embedding(
                         self.conn, path, heading_id, embedding, hash,
                     ) {
-                        log::warn!("block_embed: upsert failed for {path}#{heading_id}: {e}");
+                        refused = Some((format!("{path}#{heading_id}"), e));
                         continue;
                     }
                     if let Ok(mut bi) = self.block_index.write() {
                         bi.insert(&format!("{path}\0{heading_id}"), embedding.clone());
                     }
                     stored += 1;
+                }
+                if let Some((key, error)) = refused {
+                    log::warn!(
+                        "block_embed: stored {stored}/{} sections, {} refused (e.g. {key}: {error})",
+                        batch.keys.len(),
+                        batch.keys.len() - stored,
+                    );
                 }
                 // Counts rows actually written, not vectors returned: the ingest
                 // guard can refuse a degenerate one, and a section counted but

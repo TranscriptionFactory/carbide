@@ -22,6 +22,8 @@ mod search_db_behavior;
 mod search_embed_gating;
 #[path = "../../tests/embedding_pooling.rs"]
 mod embedding_pooling;
+#[path = "../../tests/embedding_device_probe.rs"]
+mod embedding_device_probe;
 #[path = "../../tests/embedding_init_queue.rs"]
 mod embedding_init_queue;
 #[path = "../../tests/embedding_batch_fallback.rs"]
