@@ -90,10 +90,16 @@ pub fn evict_history(history: Vec<AiMessage>) -> Vec<AiMessage> {
     kept
 }
 
-pub fn build_system_prompt(vault_path: &str) -> String {
+// Toolset-aware so safe mode never advertises an "edit" capability the
+// selector will refuse at dispatch.
+pub fn build_system_prompt(vault_path: &str, toolset: &ToolSelector) -> String {
+    let actions = match toolset {
+        ToolSelector::Full => "read, search, and edit notes",
+        ToolSelector::ReadOnly | ToolSelector::Only { .. } => "read and search notes",
+    };
     format!(
         "You are Carbide's vault-scoped assistant operating on the vault at {vault_path}. \
-Use the provided tools to read, search, and edit notes before answering. \
+Use the provided tools to {actions} before answering. \
 Only act within this vault; do not assume access to anything outside the tool catalog."
     )
 }
@@ -414,7 +420,7 @@ pub fn spawn_native_turn(
 
     let mut history = evict_history(spec.history);
     history.push(user_message(spec.prompt.clone()));
-    let system_prompt = build_system_prompt(&spec.vault_path);
+    let system_prompt = build_system_prompt(&spec.vault_path, &spec.toolset);
     let session_id = request_id.clone();
     let client = TransportModelClient::new(spec.provider_config);
     let toolset = spec.toolset;

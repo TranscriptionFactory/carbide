@@ -170,12 +170,27 @@ pub async fn open_vault_in_agent(
     provider_config: AiProviderConfig,
     vault_path: String,
 ) -> Result<(), String> {
-    let AiTransport::Cli { command, .. } = &provider_config.transport else {
+    let AiTransport::Cli { command, acp, .. } = &provider_config.transport else {
         return Err(format!(
             "{} does not support agent mode",
             provider_config.name
         ));
     };
+    // Handoff builds a `claude --mcp-config` invocation; only the claude ACP
+    // preset guarantees a CLI that understands it. A bare CLI transport
+    // (ollama) or another agent must not be handed that command line.
+    let is_claude_preset = matches!(
+        acp,
+        Some(super::acp::AcpAgentSpec::Preset {
+            id: super::acp::AcpPresetId::Claude
+        })
+    );
+    if !is_claude_preset {
+        return Err(format!(
+            "{} does not support vault handoff — requires the Claude Code agent",
+            provider_config.name
+        ));
+    }
 
     let path_env = pipeline::get_expanded_path();
     let probe = tauri::async_runtime::spawn_blocking({

@@ -28,7 +28,7 @@ export type AiDraftDiff = {
 
 const HUNK_CONTEXT_LINES = 2;
 
-function split_lines(input: string): string[] {
+export function split_lines(input: string): string[] {
   return input.split("\n");
 }
 
@@ -54,7 +54,10 @@ function lcs_table(left: string[], right: string[]): number[][] {
   return table;
 }
 
-function diff_lines(original: string[], revised: string[]): ProposalLine[] {
+export function diff_lines(
+  original: string[],
+  revised: string[],
+): ProposalLine[] {
   const table = lcs_table(original, revised);
   const lines: ProposalLine[] = [];
   let i = 0;

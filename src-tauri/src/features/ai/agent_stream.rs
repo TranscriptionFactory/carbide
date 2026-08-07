@@ -2,7 +2,6 @@ use crate::features::mcp::auth;
 use crate::features::mcp::http::HttpServerState;
 use crate::features::mcp::router::McpRouter;
 use crate::features::mcp::setup;
-use crate::features::mcp::types::ToolDefinition;
 use crate::features::pipeline::service as pipeline;
 use serde::{Deserialize, Serialize};
 use specta::Type;
@@ -207,19 +206,29 @@ impl AgentRunState {
     }
 }
 
-pub(crate) async fn prepare_mcp_endpoint(app: &AppHandle) -> Result<McpEndpoint, String> {
+// Scoped by toolset: the minted token is the server-side half of safe mode —
+// an agent that ignores its client-side restrictions still cannot call a tool
+// outside the selector.
+pub(crate) async fn prepare_mcp_endpoint(
+    app: &AppHandle,
+    toolset: &ToolSelector,
+) -> Result<McpEndpoint, String> {
     let server = app.state::<HttpServerState>();
     let info = server.start(app.clone()).await?;
-    let token = auth::read_or_create_token()?;
+    let token = server.mint_scoped_token(toolset.clone());
     Ok(McpEndpoint {
         port: info.port,
         token,
     })
 }
 
+// Terminal handoff runs under the user's own hands; it keeps the legacy
+// global token, which resolves to Full.
 pub(crate) async fn prepare_mcp_config(app: &AppHandle) -> Result<String, String> {
-    let endpoint = prepare_mcp_endpoint(app).await?;
-    let config_path = setup::write_agent_mcp_config(endpoint.port, &endpoint.token)?;
+    let server = app.state::<HttpServerState>();
+    let info = server.start(app.clone()).await?;
+    let token = auth::read_or_create_token()?;
+    let config_path = setup::write_agent_mcp_config(info.port, &token)?;
     Ok(config_path.to_string_lossy().to_string())
 }
 
@@ -249,15 +258,138 @@ pub async fn agent_run_start(
 
     match &spec.backend {
         AgentRunBackend::Acp => {
-            // Interim stub while the ACP session layer lands; replaced by the
-            // AcpSessionManager wiring in this same change series.
-            let _ = app.emit(
-                &event_name,
-                AgentEvent::Error {
-                    message: "ACP backend not yet wired".to_string(),
-                },
-            );
-            return Ok(());
+            let Some(acp_spec) = spec.acp_agent.clone() else {
+                let _ = app.emit(
+                    &event_name,
+                    AgentEvent::Error {
+                        message: format!(
+                            "{} has no ACP agent configured — pick one in AI settings",
+                            spec.provider_config.name
+                        ),
+                    },
+                );
+                return Ok(());
+            };
+
+            let path_env = pipeline::get_expanded_path();
+            let launch = {
+                let acp_spec = acp_spec.clone();
+                let path_env = path_env.clone();
+                match tauri::async_runtime::spawn_blocking(move || {
+                    super::acp::resolve_acp_launch(&acp_spec, &path_env)
+                })
+                .await
+                .map_err(|e| e.to_string())?
+                {
+                    Ok(launch) => launch,
+                    Err(e) => {
+                        let _ = app.emit(&event_name, AgentEvent::Error { message: e });
+                        return Ok(());
+                    }
+                }
+            };
+
+            let endpoint = match prepare_mcp_endpoint(&app, &spec.toolset).await {
+                Ok(endpoint) => endpoint,
+                Err(e) => {
+                    let _ = app.emit(
+                        &event_name,
+                        AgentEvent::Error {
+                            message: format!("Carbide MCP server unavailable: {e}"),
+                        },
+                    );
+                    return Ok(());
+                }
+            };
+
+            let catalog = McpRouter::with_app(app.clone()).tool_definitions_public();
+            let mutating = super::harness::MutatingToolSet::from_catalog(&catalog);
+
+            // The provider session id round-trips through the frontend: the
+            // Init the frontend stores is this key, so a later turn's
+            // resume_session_id finds the same live process.
+            let session_key = spec
+                .resume_session_id
+                .clone()
+                .unwrap_or_else(|| request_id.clone());
+            let fingerprint = format!("{} {}", launch.command, launch.args.join(" "));
+
+            let config = super::acp::AcpSessionConfig {
+                launch,
+                cwd: spec.vault_path.clone(),
+                path_env,
+                mcp_servers: vec![super::acp::AcpMcpServer {
+                    name: "carbide".to_string(),
+                    url: format!("http://127.0.0.1:{}/mcp", endpoint.port),
+                    headers: vec![(
+                        "Authorization".to_string(),
+                        format!("Bearer {}", endpoint.token),
+                    )],
+                }],
+                toolset: spec.toolset.clone(),
+                mutating,
+                power_intent: matches!(spec.toolset, ToolSelector::Full),
+            };
+
+            let manager = app.state::<super::acp::AcpSessionManager>();
+            let handle = match manager.get_or_spawn(&session_key, &fingerprint, config) {
+                Ok(handle) => handle,
+                Err(e) => {
+                    let _ = app.emit(&event_name, AgentEvent::Error { message: e });
+                    return Ok(());
+                }
+            };
+
+            let (abort_tx, abort_rx) = oneshot::channel::<()>();
+            state
+                .handles
+                .lock()
+                .await
+                .insert(request_id.clone(), abort_tx);
+            {
+                let handle = handle.clone();
+                tokio::spawn(async move {
+                    if abort_rx.await.is_ok() {
+                        let _ = handle.cancel();
+                    }
+                });
+            }
+
+            let emit_app = app.clone();
+            let evt_name = event_name.clone();
+            let key = session_key.clone();
+            let req_id = request_id.clone();
+            let sink: super::acp::EventSink = std::sync::Arc::new(move |event| {
+                let event = match event {
+                    // The actor announces its own ACP session id; the frontend
+                    // must get the manager key back or resume misses the cache.
+                    AgentEvent::Init { .. } => AgentEvent::Init {
+                        session_id: key.clone(),
+                    },
+                    other => other,
+                };
+                let terminal = matches!(
+                    event,
+                    AgentEvent::Done { .. } | AgentEvent::Error { .. }
+                );
+                let _ = emit_app.emit(&evt_name, event);
+                if terminal {
+                    let emit_app = emit_app.clone();
+                    let req_id = req_id.clone();
+                    tauri::async_runtime::spawn(async move {
+                        emit_app
+                            .state::<AgentRunState>()
+                            .remove_handle(&req_id)
+                            .await;
+                    });
+                }
+            });
+
+            if let Err(e) = handle.prompt(spec.prompt.clone(), sink) {
+                manager.remove(&session_key);
+                state.handles.lock().await.remove(&request_id);
+                let _ = app.emit(&event_name, AgentEvent::Error { message: e });
+            }
         }
         AgentRunBackend::Native => {
             let AiTransport::Api { .. } = &spec.provider_config.transport else {

@@ -42,6 +42,8 @@ fn handle_file_open(app: &tauri::AppHandle, path: String) {
 }
 
 async fn shutdown_managed_processes(app: &tauri::AppHandle) {
+    app.state::<features::ai::acp::AcpSessionManager>()
+        .shutdown_all();
     app.state::<features::mcp::http::HttpServerState>()
         .shutdown()
         .await;
@@ -128,6 +130,7 @@ pub fn run() {
         .manage(features::ai::service::AiExecState::default())
         .manage(features::ai::stream::AiStreamState::default())
         .manage(features::ai::agent_stream::AgentRunState::default())
+        .manage(features::ai::acp::AcpSessionManager::default())
         .manage(shared::asset_cache::AssetCacheState::new())
         .manage(shared::live_html::LiveHtmlStore::default())
         .manage(features::mcp::http::HttpServerState::default())
@@ -184,6 +187,21 @@ pub fn run() {
             // STT init removed — archived on archive/stt-main
 
             features::mcp::http::http_server_auto_start(app.handle());
+
+            {
+                let handle = app.handle().clone();
+                tauri::async_runtime::spawn(async move {
+                    let mut tick =
+                        tokio::time::interval(std::time::Duration::from_secs(120));
+                    loop {
+                        tick.tick().await;
+                        use tauri::Manager;
+                        handle
+                            .state::<features::ai::acp::AcpSessionManager>()
+                            .reap_idle(features::ai::acp::DEFAULT_MAX_IDLE);
+                    }
+                });
+            }
 
             tray::build_tray(app)?;
             tray::register_close_to_tray(app);

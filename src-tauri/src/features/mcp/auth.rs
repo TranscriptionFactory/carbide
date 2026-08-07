@@ -1,5 +1,9 @@
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
+use std::sync::Mutex;
 use subtle::ConstantTimeEq;
+
+use crate::features::ai::agent_stream::ToolSelector;
 
 const TOKEN_BYTES: usize = 32;
 
@@ -46,9 +50,7 @@ fn generate_and_save_token_in(config_dir: &Path) -> Result<String, String> {
 
     let path = config_dir.join("mcp-token");
 
-    let mut bytes = [0u8; TOKEN_BYTES];
-    rand::RngCore::fill_bytes(&mut rand::rngs::OsRng, &mut bytes);
-    let token = hex::encode(bytes);
+    let token = random_token();
 
     std::fs::write(&path, &token).map_err(|e| format!("Failed to write MCP token: {}", e))?;
 
@@ -61,6 +63,50 @@ fn generate_and_save_token_in(config_dir: &Path) -> Result<String, String> {
     }
 
     Ok(token)
+}
+
+fn random_token() -> String {
+    let mut bytes = [0u8; TOKEN_BYTES];
+    rand::RngCore::fill_bytes(&mut rand::rngs::OsRng, &mut bytes);
+    hex::encode(bytes)
+}
+
+/// Per-session bearer tokens carrying the tool scope an agent run was granted.
+/// The table is the server-side half of safe mode: a harness that ignores its
+/// own `--allowedTools` flags still cannot reach a tool outside its selector.
+#[derive(Default)]
+pub struct ScopedTokenTable {
+    tokens: Mutex<HashMap<String, ToolSelector>>,
+}
+
+impl ScopedTokenTable {
+    pub fn mint_scoped_token(&self, selector: ToolSelector) -> String {
+        let token = random_token();
+        self.lock().insert(token.clone(), selector);
+        token
+    }
+
+    pub fn revoke(&self, token: &str) {
+        self.lock().remove(token);
+    }
+
+    pub fn lookup(&self, token: &str) -> Option<ToolSelector> {
+        self.lock().get(token).cloned()
+    }
+
+    /// A poisoned lock would disable authentication for every later request, so
+    /// the guard is recovered rather than propagated.
+    fn lock(&self) -> std::sync::MutexGuard<'_, HashMap<String, ToolSelector>> {
+        self.tokens.lock().unwrap_or_else(|e| e.into_inner())
+    }
+}
+
+pub fn selector_allows(selector: &ToolSelector, name: &str, mutating: bool) -> bool {
+    match selector {
+        ToolSelector::Full => true,
+        ToolSelector::ReadOnly => !mutating,
+        ToolSelector::Only { names } => names.iter().any(|n| n == name),
+    }
 }
 
 pub fn verify_token(provided: &str, expected: &str) -> bool {

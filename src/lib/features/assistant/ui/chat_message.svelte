@@ -176,7 +176,7 @@
           on_toggle={() => (tools_user_open = !tools_open)}
         >
           <div class="flex select-text flex-col gap-1 px-3 pb-2">
-            {#each tool_events as event, index (index)}
+            {#each tool_events as event, index (event.id ?? index)}
               <ToolCallCard {event} on_open_path={open_tool_path} />
             {/each}
           </div>

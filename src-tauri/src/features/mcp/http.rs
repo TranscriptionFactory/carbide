@@ -4,7 +4,7 @@ use axum::middleware::{self, Next};
 use axum::response::sse::{Event, KeepAlive, Sse};
 use axum::response::IntoResponse;
 use axum::routing::get;
-use axum::{Json, Router};
+use axum::{Extension, Json, Router};
 use futures_util::stream;
 use rand::RngCore;
 use serde::Serialize;
@@ -16,10 +16,13 @@ use tokio::net::TcpListener;
 use tokio::sync::watch;
 use tower_http::cors::{AllowOrigin, CorsLayer};
 
-use crate::features::mcp::auth;
+use crate::features::ai::agent_stream::ToolSelector;
+use crate::features::mcp::auth::{self, ScopedTokenTable};
 use crate::features::mcp::cli_routes;
 use crate::features::mcp::router::McpRouter;
-use crate::features::mcp::types::{JsonRpcError, JsonRpcRequest, JsonRpcResponse, PARSE_ERROR};
+use crate::features::mcp::types::{
+    method, JsonRpcError, JsonRpcRequest, JsonRpcResponse, ToolResult, PARSE_ERROR,
+};
 
 pub const DEFAULT_PORT: u16 = 3457;
 
@@ -35,11 +38,16 @@ pub struct HttpServerInfo {
 pub struct HttpAppState {
     app: AppHandle,
     token: String,
+    scoped_tokens: Arc<ScopedTokenTable>,
 }
 
 impl HttpAppState {
-    pub fn new(app: AppHandle, token: String) -> Self {
-        Self { app, token }
+    pub fn new(app: AppHandle, token: String, scoped_tokens: Arc<ScopedTokenTable>) -> Self {
+        Self {
+            app,
+            token,
+            scoped_tokens,
+        }
     }
 
     pub fn app(&self) -> &AppHandle {
@@ -48,6 +56,10 @@ impl HttpAppState {
 
     pub(crate) fn token(&self) -> &str {
         &self.token
+    }
+
+    pub(crate) fn scoped_tokens(&self) -> &ScopedTokenTable {
+        &self.scoped_tokens
     }
 }
 
@@ -76,20 +88,39 @@ fn cors_layer() -> CorsLayer {
         ])
 }
 
+/// The global token from `~/.carbide/mcp-token` grants everything — terminal
+/// handoff and the CLI depend on it — while a scoped token resolves to whatever
+/// selector its agent run was minted with.
+pub(crate) fn resolve_request_selector(
+    provided: Option<&str>,
+    global_token: &str,
+    scoped_tokens: &ScopedTokenTable,
+) -> Option<ToolSelector> {
+    let provided = provided?;
+    if auth::verify_token(provided, global_token) {
+        return Some(ToolSelector::Full);
+    }
+    scoped_tokens.lookup(provided)
+}
+
 async fn auth_middleware(
     State(state): State<Arc<HttpAppState>>,
-    request: Request,
+    mut request: Request,
     next: Next,
 ) -> axum::response::Response {
     let token = request
         .headers()
         .get(axum::http::header::AUTHORIZATION)
         .and_then(|v| v.to_str().ok())
-        .and_then(|v| v.strip_prefix("Bearer "));
+        .and_then(|v| v.strip_prefix("Bearer "))
+        .map(str::to_owned);
 
-    match token {
-        Some(provided) if auth::verify_token(provided, state.token()) => next.run(request).await,
-        _ => (
+    match resolve_request_selector(token.as_deref(), state.token(), state.scoped_tokens()) {
+        Some(selector) => {
+            request.extensions_mut().insert(selector);
+            next.run(request).await
+        }
+        None => (
             StatusCode::UNAUTHORIZED,
             Json(serde_json::json!({"error": "Unauthorized"})),
         )
@@ -151,8 +182,78 @@ fn sse_response(response: JsonRpcResponse) -> impl IntoResponse {
     .keep_alive(KeepAlive::default())
 }
 
+fn filter_tools_response(mut response: JsonRpcResponse, selector: &ToolSelector) -> JsonRpcResponse {
+    if let Some(tools) = response
+        .result
+        .as_mut()
+        .and_then(|result| result.get_mut("tools"))
+        .and_then(|tools| tools.as_array_mut())
+    {
+        tools.retain(|tool| {
+            let name = tool.get("name").and_then(|n| n.as_str()).unwrap_or_default();
+            let mutating = tool
+                .get("mutating")
+                .and_then(|m| m.as_bool())
+                .unwrap_or(true);
+            auth::selector_allows(selector, name, mutating)
+        });
+    }
+    response
+}
+
+/// `None` when the call may proceed. Tools the router does not know fall
+/// through so it can report them as unknown rather than as blocked.
+fn refuse_out_of_scope_call(
+    router: &McpRouter,
+    request: &JsonRpcRequest,
+    selector: &ToolSelector,
+) -> Option<JsonRpcResponse> {
+    if matches!(selector, ToolSelector::Full) {
+        return None;
+    }
+
+    let name = request.params.as_ref()?.get("name")?.as_str()?;
+    let definition = router
+        .tool_definitions_public()
+        .into_iter()
+        .find(|def| def.name == name)?;
+
+    if auth::selector_allows(selector, &definition.name, definition.mutating) {
+        return None;
+    }
+
+    let result = ToolResult::error(format!(
+        "Tool `{}` is blocked by safe mode for this session",
+        name
+    ));
+    Some(JsonRpcResponse::success(
+        request.id.clone(),
+        serde_json::to_value(result).ok()?,
+    ))
+}
+
+pub(crate) fn handle_scoped_request(
+    router: &mut McpRouter,
+    request: &JsonRpcRequest,
+    selector: &ToolSelector,
+) -> Option<JsonRpcResponse> {
+    if request.method == method::TOOLS_CALL {
+        if let Some(refusal) = refuse_out_of_scope_call(router, request, selector) {
+            return Some(refusal);
+        }
+    }
+
+    let response = router.handle_request(request)?;
+
+    if request.method == method::TOOLS_LIST {
+        return Some(filter_tools_response(response, selector));
+    }
+    Some(response)
+}
+
 async fn mcp_post_handler(
     State(state): State<Arc<HttpAppState>>,
+    Extension(selector): Extension<ToolSelector>,
     headers: HeaderMap,
     body: String,
 ) -> impl IntoResponse {
@@ -177,7 +278,7 @@ async fn mcp_post_handler(
     let is_initialize = request.method == "initialize";
     let mut router = McpRouter::with_app(state.app().clone());
 
-    match router.handle_request(&request) {
+    match handle_scoped_request(&mut router, &request, &selector) {
         None => StatusCode::NO_CONTENT.into_response(),
         Some(resp) if wants_sse(&headers) => {
             let mut response = sse_response(resp).into_response();
@@ -270,6 +371,7 @@ struct ServerInner {
 pub struct HttpServerState {
     inner: Arc<tokio::sync::Mutex<ServerInner>>,
     port: u16,
+    scoped_tokens: Arc<ScopedTokenTable>,
 }
 
 impl Default for HttpServerState {
@@ -281,11 +383,23 @@ impl Default for HttpServerState {
                 running: false,
             })),
             port: DEFAULT_PORT,
+            scoped_tokens: Arc::new(ScopedTokenTable::default()),
         }
     }
 }
 
 impl HttpServerState {
+    /// The table is held here rather than in `HttpAppState` so scoped tokens
+    /// survive a server restart and stay reachable from the `AppHandle` that
+    /// agent runs mint against.
+    pub fn mint_scoped_token(&self, selector: ToolSelector) -> String {
+        self.scoped_tokens.mint_scoped_token(selector)
+    }
+
+    pub fn revoke_scoped_token(&self, token: &str) {
+        self.scoped_tokens.revoke(token);
+    }
+
     pub async fn start(&self, app: AppHandle) -> Result<HttpServerInfo, String> {
         let mut inner = self.inner.lock().await;
         if inner.running {
@@ -298,7 +412,7 @@ impl HttpServerState {
         super::setup::ensure_cli_current(&app);
 
         let token = auth::read_or_create_token()?;
-        let state = HttpAppState::new(app, token);
+        let state = HttpAppState::new(app, token, self.scoped_tokens.clone());
         let port = self.port;
 
         let (shutdown_tx, shutdown_rx) = watch::channel(false);

@@ -145,11 +145,7 @@ describe("AgentRunner.run_turn", () => {
         { type: "done", stats: {} },
       ]);
 
-    const result = await runner.run_turn(
-      provider,
-      "organize my notes",
-      "acp",
-    );
+    const result = await runner.run_turn(provider, "organize my notes", "acp");
 
     expect(result).toEqual({ status: "done" });
     const session = rag_store.active;
@@ -293,11 +289,7 @@ describe("AgentRunner.run_turn", () => {
       { type: "error", message: "CLI crashed" },
     ]);
 
-    const result = await runner.run_turn(
-      provider,
-      "organize my notes",
-      "acp",
-    );
+    const result = await runner.run_turn(provider, "organize my notes", "acp");
 
     expect(result).toEqual({ status: "error", message: "CLI crashed" });
     expect(rag_store.error).toBe("CLI crashed");
@@ -482,11 +474,7 @@ describe("AgentRunner end-of-turn proposals", () => {
     const { runner, git, proposals } = make_harness(writing_turn);
     git.create_checkpoint.mockResolvedValue({ status: "no_repo" as const });
 
-    const result = await runner.run_turn(
-      provider,
-      "organize my notes",
-      "acp",
-    );
+    const result = await runner.run_turn(provider, "organize my notes", "acp");
 
     expect(result).toEqual({ status: "done" });
     expect(proposals.produce.mock.calls[0]?.[0].anchor).toBeNull();
@@ -527,11 +515,7 @@ describe("AgentRunner end-of-turn proposals", () => {
     const { runner, proposals } = make_harness(writing_turn);
     proposals.produce.mockRejectedValue(new Error("diff unavailable"));
 
-    const result = await runner.run_turn(
-      provider,
-      "organize my notes",
-      "acp",
-    );
+    const result = await runner.run_turn(provider, "organize my notes", "acp");
 
     expect(result).toEqual({ status: "done" });
   });
