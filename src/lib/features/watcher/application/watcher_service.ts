@@ -8,6 +8,10 @@ const log = create_logger("watcher_service");
 
 // A self-write's own FS event arrives within milliseconds; anything later is a
 // genuine external write (an agent editing on disk) and must not be swallowed.
+// Paired with MAX_DELAY in src-tauri/src/features/watcher/service.rs, which
+// debounces change events before emitting them. Invariant: this window must
+// outlast that debounce, or a self-write's own event arrives after its
+// suppression entry expired and Carbide reads its own save as an external edit.
 const SUPPRESS_WINDOW_MS = 2_000;
 
 // Rust atomic_write stages "<file>.tmp" beside the target before renaming.
