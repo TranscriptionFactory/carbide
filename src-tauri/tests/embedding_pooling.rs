@@ -263,6 +263,18 @@ fn unknown_model_ids_fall_back_to_the_default() {
     assert_eq!(fallback.dims, 384);
 }
 
+// Settings are user-editable JSON, so an id outside the registry is reachable.
+// It embeds with the default model, and the stored token has to say so: naming
+// the requested id would let a build that later adds that id see a matching
+// token and keep serving vectors the default model produced.
+#[test]
+fn unknown_model_ids_record_the_model_that_actually_embedded() {
+    assert_eq!(
+        embedding_model::model_version_token("not-a-real-model"),
+        embedding_model::model_version_token(DEFAULT_MODEL_SHORT_ID),
+    );
+}
+
 #[test]
 fn seeded_default_matches_the_composite_version_token() {
     assert_eq!(
