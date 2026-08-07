@@ -1,0 +1,5 @@
+---
+"carbide": minor
+---
+
+Semantic search now uses each embedding model the way it was trained, which makes results measurably better. Four of the five offered models — including the default, Arctic Embed XS — take their sentence vector from the first token rather than an average over all of them, and expect search queries to carry a short retrieval instruction; Carbide previously averaged for every model and never added the instruction. Long sections are no longer silently cut off at the token limit but split, embedded in full, and combined, and the content above a note's first heading now gets a vector of its own, so notes without headings are searchable for the first time. Because the stored vectors change meaning, **existing embeddings are discarded and rebuilt in the background on first launch** — search stays available throughout, and the status bar now distinguishes the section pass from the note pass, reports a real completion instead of finishing twice, and finally shows embedding failures rather than hiding them.

@@ -30,6 +30,13 @@ function render_editor_status_bar(props?: {
   on_conflicts_click?: () => void;
   color_scheme?: "light" | "dark";
   on_theme_toggle?: () => void;
+  embedding_progress?: {
+    status: "idle" | "embedding" | "completed" | "failed";
+    phase: "blocks" | "notes" | null;
+    embedded: number;
+    total: number;
+    error: string | null;
+  };
 }) {
   const target = document.createElement("div");
   document.body.appendChild(target);
@@ -44,8 +51,9 @@ function render_editor_status_bar(props?: {
       last_saved_at: props?.last_saved_at ?? null,
       index_progress: { status: "idle", indexed: 0, total: 0, error: null },
       is_reindex_pending: false,
-      embedding_progress: {
+      embedding_progress: props?.embedding_progress ?? {
         status: "idle",
+        phase: null,
         embedded: 0,
         total: 0,
         error: null,
@@ -335,5 +343,54 @@ describe("editor_status_bar.svelte", () => {
 
     view.cleanup();
     vi.useRealTimers();
+  });
+
+  function normalized_body_text(): string {
+    return (document.body.textContent ?? "").replace(/\s+/g, " ");
+  }
+
+  it("names the section pass and the note pass separately", () => {
+    const blocks = render_editor_status_bar({
+      embedding_progress: {
+        status: "embedding",
+        phase: "blocks",
+        embedded: 3,
+        total: 9,
+        error: null,
+      },
+    });
+    expect(normalized_body_text()).toContain("Embedding sections 3/9");
+    blocks.cleanup();
+
+    const notes = render_editor_status_bar({
+      embedding_progress: {
+        status: "embedding",
+        phase: "notes",
+        embedded: 4,
+        total: 5,
+        error: null,
+      },
+    });
+    expect(normalized_body_text()).toContain("Embedding notes 4/5");
+    notes.cleanup();
+  });
+
+  it("surfaces an embedding failure", () => {
+    const view = render_editor_status_bar({
+      embedding_progress: {
+        status: "failed",
+        phase: null,
+        embedded: 0,
+        total: 0,
+        error: "Embedding model unavailable: offline",
+      },
+    });
+
+    expect(document.body.textContent).toContain("Embedding failed");
+    expect(
+      document.querySelector('[title="Embedding model unavailable: offline"]'),
+    ).not.toBeNull();
+
+    view.cleanup();
   });
 });

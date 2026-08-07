@@ -50,6 +50,7 @@
     // deep import and the barrel does not export it yet
     embedding_progress: {
       status: "idle" | "embedding" | "completed" | "failed";
+      phase: "blocks" | "notes" | null;
       embedded: number;
       total: number;
       error: string | null;
@@ -202,6 +203,10 @@
       return "Last index failed — click to retry";
     return "Sync index";
   });
+
+  const embedding_phase_label = $derived(
+    embedding_progress.phase === "blocks" ? "sections" : "notes",
+  );
 
   let show_completed = $state(false);
   let completed_timer: ReturnType<typeof setTimeout> | null = null;
@@ -424,11 +429,20 @@
         <RefreshCw class="StatusBar__spinner" />
         {#if embedding_progress.total > 0}
           <span>
-            Embedding {embedding_progress.embedded}/{embedding_progress.total}
+            Embedding {embedding_phase_label}
+            {embedding_progress.embedded}/{embedding_progress.total}
           </span>
         {:else}
           <span>Embedding...</span>
         {/if}
+      </span>
+      <span class="StatusBar__separator" aria-hidden="true"></span>
+    {:else if embedding_progress.status === "failed"}
+      <span
+        class="StatusBar__item StatusBar__item--failed"
+        title={embedding_progress.error ?? undefined}
+      >
+        <span>Embedding failed</span>
       </span>
       <span class="StatusBar__separator" aria-hidden="true"></span>
     {/if}

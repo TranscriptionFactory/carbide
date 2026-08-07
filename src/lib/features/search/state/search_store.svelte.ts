@@ -13,6 +13,9 @@ export type IndexProgress = {
 
 export type EmbeddingProgress = {
   status: "idle" | "embedding" | "completed" | "failed";
+  // Which of the two ordered passes is running. The section pass finishing is
+  // not the run finishing, so the label must distinguish them.
+  phase: "blocks" | "notes" | null;
   embedded: number;
   total: number;
   error: string | null;
@@ -31,6 +34,7 @@ export class SearchStore {
   });
   embedding_progress = $state<EmbeddingProgress>({
     status: "idle",
+    phase: null,
     embedded: 0,
     total: 0,
     error: null,
@@ -76,27 +80,56 @@ export class SearchStore {
   set_embedding_progress(event: EmbeddingProgressEvent) {
     switch (event.status) {
       case "started":
+        this.embedding_progress = {
+          status: "embedding",
+          phase: "notes",
+          embedded: 0,
+          total: event.total,
+          error: null,
+        };
+        break;
       case "block_started":
         this.embedding_progress = {
           status: "embedding",
+          phase: "blocks",
           embedded: 0,
           total: event.total,
           error: null,
         };
         break;
       case "progress":
-      case "block_progress":
         this.embedding_progress = {
           status: "embedding",
+          phase: "notes",
           embedded: event.embedded,
           total: event.total,
           error: null,
         };
         break;
-      case "completed":
+      case "block_progress":
+        this.embedding_progress = {
+          status: "embedding",
+          phase: "blocks",
+          embedded: event.embedded,
+          total: event.total,
+          error: null,
+        };
+        break;
+      // The section pass completing only hands off to the note pass; claiming
+      // "completed" here makes the status bar finish and then resume.
       case "block_completed":
         this.embedding_progress = {
+          status: "embedding",
+          phase: "blocks",
+          embedded: event.embedded,
+          total: event.embedded,
+          error: null,
+        };
+        break;
+      case "completed":
+        this.embedding_progress = {
           status: "completed",
+          phase: null,
           embedded: event.embedded,
           total: event.embedded,
           error: null,
@@ -105,6 +138,7 @@ export class SearchStore {
       case "failed":
         this.embedding_progress = {
           status: "failed",
+          phase: null,
           embedded: 0,
           total: 0,
           error: event.error,
@@ -147,6 +181,7 @@ export class SearchStore {
     this.index_progress = { status: "idle", indexed: 0, total: 0, error: null };
     this.embedding_progress = {
       status: "idle",
+      phase: null,
       embedded: 0,
       total: 0,
       error: null,

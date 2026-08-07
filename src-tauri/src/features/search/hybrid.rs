@@ -14,7 +14,7 @@ pub fn hybrid_search(
     limit: usize,
     date_range: Option<(i64, i64)>,
 ) -> Result<Vec<HybridSearchHit>, String> {
-    let query_vec = model.embed_one(&query.text)?;
+    let query_vec = model.embed_query(&query.text)?;
 
     let over_fetch = limit * 3;
     // FTS pushes the date filter into SQL, but the vector index has no filter

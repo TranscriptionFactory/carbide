@@ -1,4 +1,5 @@
 pub mod db;
+pub mod embedding_model;
 pub mod embeddings;
 pub mod epub_extractor;
 pub mod hnsw_index;
