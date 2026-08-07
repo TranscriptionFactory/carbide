@@ -3,9 +3,10 @@ use candle_core::{DType, Device, Tensor};
 use candle_nn::VarBuilder;
 use candle_transformers::models::bert::{BertModel, Config};
 use hf_hub::api::sync::ApiBuilder;
+use std::collections::HashSet;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, PoisonError};
 use std::time::{Duration, Instant};
 use tauri::{AppHandle, Emitter, Manager};
 use tokenizers::{PaddingParams, PaddingStrategy, Tokenizer, TruncationParams, TruncationStrategy};
@@ -20,6 +21,19 @@ const MAX_CONTENT_TOKENS: usize = MAX_SEQUENCE_TOKENS - 2;
 /// Below this the vector carries no direction and dividing by it would produce
 /// inf/NaN, which one bad row propagates through an entire cosine graph.
 const MIN_NORM: f32 = 1e-12;
+
+/// Byte ceiling applied to whole-note text before it reaches the tokenizer.
+/// `tokenizers` truncates in post-processing, so without this a 50 KB note is
+/// WordPiece-tokenized in full just to keep [`MAX_CONTENT_TOKENS`] of it. The
+/// budget leaves ~32 bytes of headroom per kept token: a token can be a single
+/// CJK character (3 bytes), so a naive `budget * k` char slice could drop text
+/// the tokenizer would have kept, and only a ceiling this far past any
+/// plausible boundary is safe to cut blind.
+const PRETRUNCATE_BYTES: usize = MAX_CONTENT_TOKENS * 32;
+
+/// Bytes of text that typically fill one encoder chunk. Used only to size
+/// batches, never to cut text.
+const BYTES_PER_CHUNK: usize = MAX_CONTENT_TOKENS * 4;
 
 pub struct EmbeddingService {
     model: BertModel,
@@ -236,6 +250,78 @@ impl EmbeddingService {
     }
 }
 
+/// Caps whole-note text at [`PRETRUNCATE_BYTES`], cutting on a char boundary.
+/// The encoder truncates this text to [`MAX_CONTENT_TOKENS`] anyway, so the only
+/// content this can lose is text past a point the tokenizer would have discarded
+/// — and only if the note averaged over 32 bytes per token up to that point,
+/// which no natural language does.
+pub(crate) fn pretruncate(text: &str) -> &str {
+    if text.len() <= PRETRUNCATE_BYTES {
+        return text;
+    }
+    let mut end = PRETRUNCATE_BYTES;
+    while end > 0 && !text.is_char_boundary(end) {
+        end -= 1;
+    }
+    &text[..end]
+}
+
+/// How many encoder passes `text` will cost once [`EmbeddingService::split_to_token_budget`]
+/// has cut it. Estimated from bytes rather than a second tokenizer pass, which
+/// would cost more than the batching it sizes ever saves. Callers use it to keep
+/// one flush from ballooning into many encoder passes, so an over- or
+/// under-estimate costs responsiveness, never correctness.
+pub(crate) fn estimated_chunk_count(text: &str) -> usize {
+    text.len().div_ceil(BYTES_PER_CHUNK).max(1)
+}
+
+/// Whether an embedding error reports cancellation rather than a real failure.
+/// Callers must stop their loop instead of logging it as a per-item failure.
+pub(crate) fn is_cancellation(error: &str) -> bool {
+    error.contains("cancelled")
+}
+
+/// Embeds `texts` in one pass, retrying one at a time if the batch fails, so a
+/// single unembeddable input costs only itself rather than its whole batch.
+/// Entries that fail alone come back as `None`. `Err` means cancelled — the
+/// caller must break, not retry.
+pub(crate) fn embed_with_singles_fallback<F>(
+    texts: &[&str],
+    mut embed: F,
+) -> Result<Vec<Option<Vec<f32>>>, String>
+where
+    F: FnMut(&[&str]) -> Result<Vec<Vec<f32>>, String>,
+{
+    match embed(texts) {
+        Ok(vectors) if vectors.len() == texts.len() => {
+            return Ok(vectors.into_iter().map(Some).collect())
+        }
+        Ok(vectors) => log::warn!(
+            "embed: batch returned {} vectors for {} texts; retrying one at a time",
+            vectors.len(),
+            texts.len()
+        ),
+        Err(e) if is_cancellation(&e) => return Err(e),
+        Err(e) => log::warn!(
+            "embed: batch of {} failed ({e}); retrying one at a time",
+            texts.len()
+        ),
+    }
+
+    let mut vectors = Vec::with_capacity(texts.len());
+    for text in texts {
+        match embed(std::slice::from_ref(text)) {
+            Ok(mut single) => vectors.push(single.pop()),
+            Err(e) if is_cancellation(&e) => return Err(e),
+            Err(e) => {
+                log::warn!("embed: single text failed: {e}");
+                vectors.push(None);
+            }
+        }
+    }
+    Ok(vectors)
+}
+
 /// Cuts `text` into pieces of at most `budget` tokens, using each token's byte
 /// span. Offsets are snapped outward to char boundaries: a normalizer can map a
 /// token onto the interior of a multi-byte codepoint, and slicing there would
@@ -356,24 +442,64 @@ pub(crate) fn pool_and_normalize(
 // long so every note save doesn't re-run HF network round-trips.
 const LOAD_FAILURE_COOLDOWN: Duration = Duration::from_secs(60);
 
+fn cooldown_error(short_id: &str) -> String {
+    format!("embedding model {short_id} failed to load recently; retry deferred")
+}
+
+/// Tracks which models have a background load in flight, so a second request
+/// for the *same* model is dropped while a request for a *different* one still
+/// starts. A bare flag would swallow a mid-flight model switch entirely.
+///
+/// Claims are released by [`InitClaim`]'s `Drop`, which also covers an unwind:
+/// the release profile deliberately does not set `panic = "abort"` (the HNSW
+/// `catch_unwind` needs unwind), so a panicking load thread would otherwise
+/// leak its claim and make [`EmbeddingServiceState::init_in_background`] a
+/// permanent no-op for that model — with no retry path anywhere.
+#[derive(Clone, Default)]
+pub(crate) struct InitQueue(Arc<Mutex<HashSet<String>>>);
+
+impl InitQueue {
+    /// Claims `model_id` unless a load for it is already running.
+    pub(crate) fn claim(&self, model_id: &str) -> Option<InitClaim> {
+        let mut in_flight = self.0.lock().unwrap_or_else(PoisonError::into_inner);
+        in_flight.insert(model_id.to_string()).then(|| InitClaim {
+            queue: self.clone(),
+            model_id: model_id.to_string(),
+        })
+    }
+
+    #[cfg(test)]
+    pub(crate) fn is_in_flight(&self, model_id: &str) -> bool {
+        self.0
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .contains(model_id)
+    }
+}
+
+pub(crate) struct InitClaim {
+    queue: InitQueue,
+    model_id: String,
+}
+
+impl Drop for InitClaim {
+    fn drop(&mut self) {
+        self.queue
+            .0
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .remove(&self.model_id);
+    }
+}
+
+#[derive(Default)]
 pub struct EmbeddingServiceState {
     inner: Mutex<Option<(String, Arc<EmbeddingService>)>>,
     // Serializes model loads so `inner` is never held across an HF download;
     // try_get stays non-blocking while a load is in flight.
     init_lock: Mutex<()>,
     last_failure: Mutex<Option<(String, Instant)>>,
-    init_queued: AtomicBool,
-}
-
-impl Default for EmbeddingServiceState {
-    fn default() -> Self {
-        Self {
-            inner: Mutex::new(None),
-            init_lock: Mutex::new(()),
-            last_failure: Mutex::new(None),
-            init_queued: AtomicBool::new(false),
-        }
-    }
+    init_queue: InitQueue,
 }
 
 impl EmbeddingServiceState {
@@ -386,20 +512,20 @@ impl EmbeddingServiceState {
         if let Some(service) = self.try_get(short_id) {
             return Ok(service);
         }
-        {
-            let failure = self.last_failure.lock().map_err(|e| e.to_string())?;
-            if let Some((failed_id, at)) = failure.as_ref() {
-                if failed_id == short_id && at.elapsed() < LOAD_FAILURE_COOLDOWN {
-                    return Err(format!(
-                        "embedding model {short_id} failed to load recently; retry deferred"
-                    ));
-                }
-            }
+        if self.in_cooldown(short_id)? {
+            return Err(cooldown_error(short_id));
         }
 
         let _init_guard = self.init_lock.lock().map_err(|e| e.to_string())?;
         if let Some(service) = self.try_get(short_id) {
             return Ok(service);
+        }
+        // Re-read the cooldown now that we hold the lock: the thread that just
+        // released it may have been the failing load. Without this, N threads
+        // that all passed the pre-lock check each run a full failing network
+        // round-trip, serially.
+        if self.in_cooldown(short_id)? {
+            return Err(cooldown_error(short_id));
         }
         if let Ok(guard) = self.inner.lock() {
             if let Some((loaded_id, _)) = guard.as_ref() {
@@ -424,6 +550,13 @@ impl EmbeddingServiceState {
         }
     }
 
+    fn in_cooldown(&self, short_id: &str) -> Result<bool, String> {
+        let failure = self.last_failure.lock().map_err(|e| e.to_string())?;
+        Ok(failure.as_ref().is_some_and(|(failed_id, at)| {
+            failed_id == short_id && at.elapsed() < LOAD_FAILURE_COOLDOWN
+        }))
+    }
+
     pub fn try_get(&self, short_id: &str) -> Option<Arc<EmbeddingService>> {
         self.inner.lock().ok().and_then(|g| {
             g.as_ref()
@@ -431,17 +564,17 @@ impl EmbeddingServiceState {
         })
     }
 
-    /// Kicks off a model load off the calling thread. Query paths use this so a
-    /// cold cache never blocks a search on a synchronous HF download.
+    /// Kicks off a model load off the calling thread. Query and save paths use
+    /// this so a cold cache never blocks on a synchronous HF download.
     pub fn init_in_background(&self, cache_dir: PathBuf, short_id: String, app_handle: &AppHandle) {
-        if self.init_queued.swap(true, Ordering::SeqCst) {
+        let Some(claim) = self.init_queue.claim(&short_id) else {
             return;
-        }
+        };
         let app = app_handle.clone();
         std::thread::spawn(move || {
+            let _claim = claim;
             let state = app.state::<EmbeddingServiceState>();
             let _ = state.get_or_init(cache_dir, &short_id, &app);
-            state.init_queued.store(false, Ordering::SeqCst);
         });
     }
 }
