@@ -387,7 +387,7 @@ pub async fn agent_run_start(
                         mutating,
                         agent_id: acp_spec.agent_id(),
                         permissions: app
-                            .state::<std::sync::Arc<super::acp::PermissionEngine>>()
+                            .state::<std::sync::Arc<super::permissions::PermissionEngine>>()
                             .inner()
                             .clone(),
                     };

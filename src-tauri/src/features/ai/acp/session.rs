@@ -17,13 +17,13 @@ use tokio::sync::mpsc;
 
 use crate::features::ai::agent_stream::{AgentEvent, AgentRunStats, ToolSelector};
 use crate::features::ai::harness::MutatingToolSet;
-use crate::features::ai::stream::clamp_stderr;
-
-use super::agent_def::{pick_session_mode, AcpLaunch};
-use super::permissions::{
+use crate::features::ai::permissions::{
     mint_request_id, option_kind_name, Evaluation, ParkOutcome, PermissionEngine,
     PermissionRequestSpec,
 };
+use crate::features::ai::stream::clamp_stderr;
+
+use super::agent_def::{pick_session_mode, AcpLaunch};
 use super::policy::{build_request_spec, select_allow};
 use super::translate::TurnTranslator;
 

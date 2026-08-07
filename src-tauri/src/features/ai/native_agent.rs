@@ -10,7 +10,7 @@ use crate::features::mcp::auth;
 use crate::features::mcp::router::McpRouter;
 use crate::features::mcp::types::{ContentBlock, ToolDefinition, ToolResult};
 
-use super::acp::permissions::{
+use super::permissions::{
     mint_request_id, option_kind_name, Evaluation, ParkOutcome, PermissionEngine,
     PermissionRequestSpec,
 };
