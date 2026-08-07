@@ -189,6 +189,20 @@ describe("WatcherService", () => {
     vi.useRealTimers();
   });
 
+  // The Rust watcher debounces change events by up to MAX_DELAY (750ms) plus
+  // one 200ms loop tick, so a self-write's own event can arrive that late. If
+  // this ever fails, Carbide reads its own save as an external edit.
+  it("still suppresses a self-write delayed by the backend debounce", () => {
+    vi.useFakeTimers();
+    const { service } = setup();
+
+    service.suppress_next("notes/test.md");
+    vi.advanceTimersByTime(950);
+
+    expect(service.is_suppressed("notes/test.md")).toBe(true);
+    vi.useRealTimers();
+  });
+
   it("suppression expires after the window elapses", () => {
     vi.useFakeTimers();
     const { service } = setup();

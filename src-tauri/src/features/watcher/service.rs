@@ -1,6 +1,7 @@
 use crate::shared::constants;
 use crate::shared::storage;
 use crate::shared::vault_ignore;
+use notify::event::{CreateKind, ModifyKind, RemoveKind, RenameMode};
 use notify::{Config, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 use serde::Serialize;
 use specta::Type;
@@ -125,6 +126,72 @@ fn set_active_runtime(
     })
 }
 
+const QUIET_PERIOD: Duration = Duration::from_millis(500);
+
+// Paired with SUPPRESS_WINDOW_MS in
+// src/lib/features/watcher/application/watcher_service.ts. Invariant: a
+// debounced event must reach the frontend while the suppression entry for the
+// app's own save is still alive, otherwise Carbide reads its own write as an
+// external edit (reload on a clean buffer, conflict on a dirty one). Worst-case
+// delivery is MAX_DELAY plus one 200ms loop tick, so both constants here must
+// stay well under that window.
+const MAX_DELAY: Duration = Duration::from_millis(750);
+
+type PendingEvents = HashMap<String, (VaultFsEvent, Instant, Instant)>;
+
+fn drain_ready(pending: &mut PendingEvents, now: Instant) -> Vec<VaultFsEvent> {
+    let ready: Vec<String> = pending
+        .iter()
+        .filter(|(_, (_, first_seen, last_seen))| {
+            now.duration_since(*last_seen) >= QUIET_PERIOD
+                || now.duration_since(*first_seen) >= MAX_DELAY
+        })
+        .map(|(path, _)| path.clone())
+        .collect();
+
+    ready
+        .into_iter()
+        .filter_map(|path| pending.remove(&path).map(|(event, _, _)| event))
+        .collect()
+}
+
+fn remember_pending(pending: &mut PendingEvents, rel: String, event: VaultFsEvent, now: Instant) {
+    let first_seen = pending
+        .get(&rel)
+        .map(|(_, first_seen, _)| *first_seen)
+        .unwrap_or(now);
+    pending.insert(rel, (event, first_seen, now));
+}
+
+// A rename carries two paths in one notify event, so the from/to split cannot
+// live in classify_event, which sees one path at a time. Each side is mapped to
+// the equivalent create/remove kind and classified through the normal path.
+fn rename_kind(mode: &RenameMode, path_index: usize, path_exists: bool) -> Option<EventKind> {
+    let added = EventKind::Create(CreateKind::Any);
+    let removed = EventKind::Remove(RemoveKind::Any);
+    match mode {
+        RenameMode::From => Some(removed),
+        RenameMode::To => Some(added),
+        RenameMode::Both => match path_index {
+            0 => Some(removed),
+            1 => Some(added),
+            _ => None,
+        },
+        RenameMode::Any | RenameMode::Other => Some(if path_exists { added } else { removed }),
+    }
+}
+
+// A removed or renamed-away directory no longer exists on disk, so the only
+// signal left is the missing extension.
+fn is_directory_path(kind: &EventKind, abs: &Path) -> bool {
+    abs.is_dir()
+        || (matches!(
+            kind,
+            EventKind::Remove(_) | EventKind::Modify(ModifyKind::Name(_))
+        ) && !abs.exists()
+            && abs.extension().is_none())
+}
+
 fn classify_event(
     kind: &EventKind,
     vault_id: &str,
@@ -219,25 +286,26 @@ pub fn watch_vault_inner(app: AppHandle, vault_id: String) -> Result<(), String>
             return;
         }
 
-        let mut last_emitted: HashMap<String, Instant> = HashMap::new();
-        let debounce_ttl = Duration::from_secs(60);
-        let mut last_cleanup = Instant::now();
+        let mut pending: PendingEvents = HashMap::new();
 
         loop {
             if stop_rx.try_recv().is_ok() {
                 break;
             }
 
-            if last_cleanup.elapsed() > debounce_ttl {
-                let cutoff = Instant::now() - debounce_ttl;
-                last_emitted.retain(|_, v| *v > cutoff);
-                last_cleanup = Instant::now();
+            for ready in drain_ready(&mut pending, Instant::now()) {
+                emit(&app_handle, ready);
             }
 
             let res = match rx.recv_timeout(Duration::from_millis(200)) {
                 Ok(r) => r,
                 Err(mpsc::RecvTimeoutError::Timeout) => continue,
-                Err(_) => break,
+                Err(_) => {
+                    for (event, _, _) in std::mem::take(&mut pending).into_values() {
+                        emit(&app_handle, event);
+                    }
+                    break;
+                }
             };
 
             let event = match res {
@@ -246,7 +314,12 @@ pub fn watch_vault_inner(app: AppHandle, vault_id: String) -> Result<(), String>
             };
 
             let kind = &event.kind;
-            for p in event.paths.iter() {
+            let rename_mode = match kind {
+                EventKind::Modify(ModifyKind::Name(mode)) => Some(mode),
+                _ => None,
+            };
+
+            for (path_index, p) in event.paths.iter().enumerate() {
                 let abs = match p.canonicalize() {
                     Ok(p) => p,
                     Err(_) => p.to_path_buf(),
@@ -262,10 +335,7 @@ pub fn watch_vault_inner(app: AppHandle, vault_id: String) -> Result<(), String>
                 if rel.is_empty() {
                     continue;
                 }
-                let is_dir = abs.is_dir()
-                    || (matches!(kind, EventKind::Remove(_))
-                        && !abs.exists()
-                        && abs.extension().is_none());
+                let is_dir = is_directory_path(kind, &abs);
 
                 if is_ignore_config_path(&rel) {
                     if let Ok(next_matcher) = vault_ignore::load_vault_ignore_matcher(
@@ -284,25 +354,39 @@ pub fn watch_vault_inner(app: AppHandle, vault_id: String) -> Result<(), String>
                 let ext = abs.extension().and_then(|e| e.to_str()).unwrap_or_default();
                 let is_md = ext == "md";
 
-                if let Some(vault_event) =
-                    classify_event(kind, &vault_id_clone, rel.clone(), is_md, is_dir)
-                {
-                    let should_debounce = matches!(
-                        vault_event,
-                        VaultFsEvent::AssetChanged { .. }
-                            | VaultFsEvent::NoteChangedExternally { .. }
-                    );
-                    if should_debounce {
-                        let now = Instant::now();
-                        if let Some(&last) = last_emitted.get(&rel) {
-                            if now.duration_since(last) < Duration::from_millis(500) {
-                                continue;
-                            }
-                        }
-                        last_emitted.insert(rel, now);
-                    }
-                    emit(&app_handle, vault_event);
+                // Only notes and folders have add/remove events; an asset
+                // rename keeps falling through to AssetChanged.
+                let structural_rename = if is_md || is_dir { rename_mode } else { None };
+                let effective_kind = match structural_rename {
+                    Some(mode) => match rename_kind(mode, path_index, abs.exists()) {
+                        Some(kind) => kind,
+                        None => continue,
+                    },
+                    None => *kind,
+                };
+
+                let Some(vault_event) =
+                    classify_event(&effective_kind, &vault_id_clone, rel.clone(), is_md, is_dir)
+                else {
+                    continue;
+                };
+
+                let should_debounce = matches!(
+                    vault_event,
+                    VaultFsEvent::AssetChanged { .. } | VaultFsEvent::NoteChangedExternally { .. }
+                );
+
+                if should_debounce {
+                    remember_pending(&mut pending, rel, vault_event, Instant::now());
+                    continue;
                 }
+
+                // A structural event must not overtake a debounced one for the
+                // same path, or the reactor applies them out of order.
+                if let Some((held, _, _)) = pending.remove(&rel) {
+                    emit(&app_handle, held);
+                }
+                emit(&app_handle, vault_event);
             }
         }
     });
@@ -338,7 +422,20 @@ pub fn unwatch_vault_inner(app: AppHandle) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use notify::event::{CreateKind, ModifyKind, RemoveKind};
+
+    fn note_changed(path: &str) -> VaultFsEvent {
+        VaultFsEvent::NoteChangedExternally {
+            vault_id: "v1".to_string(),
+            note_path: path.to_string(),
+        }
+    }
+
+    fn classify_renamed(mode: RenameMode, path_index: usize, path_exists: bool) -> VaultFsEvent {
+        let kind =
+            rename_kind(&mode, path_index, path_exists).expect("rename mode should map to a kind");
+        classify_event(&kind, "v1", "notes/a.md".to_string(), true, false)
+            .expect("markdown rename should classify")
+    }
 
     #[test]
     fn classify_modify_on_directory_returns_none() {
@@ -404,5 +501,155 @@ mod tests {
             true,
         );
         assert!(matches!(result, Some(VaultFsEvent::FolderRemoved { .. })));
+    }
+
+    #[test]
+    fn rename_from_classifies_as_note_removed() {
+        assert!(matches!(
+            classify_renamed(RenameMode::From, 0, false),
+            VaultFsEvent::NoteRemoved { .. }
+        ));
+    }
+
+    #[test]
+    fn rename_to_classifies_as_note_added() {
+        assert!(matches!(
+            classify_renamed(RenameMode::To, 0, true),
+            VaultFsEvent::NoteAdded { .. }
+        ));
+    }
+
+    #[test]
+    fn rename_both_removes_first_path_and_adds_second() {
+        assert!(matches!(
+            classify_renamed(RenameMode::Both, 0, false),
+            VaultFsEvent::NoteRemoved { .. }
+        ));
+        assert!(matches!(
+            classify_renamed(RenameMode::Both, 1, true),
+            VaultFsEvent::NoteAdded { .. }
+        ));
+    }
+
+    #[test]
+    fn rename_both_ignores_paths_beyond_the_pair() {
+        assert!(rename_kind(&RenameMode::Both, 2, true).is_none());
+    }
+
+    #[test]
+    fn rename_any_probes_existence_both_ways() {
+        assert!(matches!(
+            classify_renamed(RenameMode::Any, 0, true),
+            VaultFsEvent::NoteAdded { .. }
+        ));
+        assert!(matches!(
+            classify_renamed(RenameMode::Any, 0, false),
+            VaultFsEvent::NoteRemoved { .. }
+        ));
+    }
+
+    #[test]
+    fn renamed_away_directory_classifies_as_folder_removed() {
+        let vanished = Path::new("/nonexistent-vault-root/old_folder");
+        let kind = EventKind::Modify(ModifyKind::Name(RenameMode::From));
+
+        assert!(is_directory_path(&kind, vanished));
+
+        let result = classify_event(
+            &rename_kind(&RenameMode::From, 0, false).unwrap(),
+            "v1",
+            "old_folder".to_string(),
+            false,
+            true,
+        );
+        assert!(matches!(result, Some(VaultFsEvent::FolderRemoved { .. })));
+    }
+
+    #[test]
+    fn vanished_path_with_extension_is_not_a_directory() {
+        let vanished = Path::new("/nonexistent-vault-root/old.md");
+        let kind = EventKind::Modify(ModifyKind::Name(RenameMode::From));
+
+        assert!(!is_directory_path(&kind, vanished));
+    }
+
+    #[test]
+    fn drain_ready_emits_after_the_quiet_period() {
+        let now = Instant::now();
+        let mut pending = PendingEvents::new();
+        remember_pending(
+            &mut pending,
+            "notes/a.md".to_string(),
+            note_changed("notes/a.md"),
+            now - QUIET_PERIOD,
+        );
+
+        let drained = drain_ready(&mut pending, now);
+
+        assert_eq!(drained.len(), 1);
+        assert!(pending.is_empty());
+    }
+
+    #[test]
+    fn drain_ready_holds_entries_still_inside_the_quiet_period() {
+        let now = Instant::now();
+        let mut pending = PendingEvents::new();
+        remember_pending(
+            &mut pending,
+            "notes/a.md".to_string(),
+            note_changed("notes/a.md"),
+            now - Duration::from_millis(100),
+        );
+
+        assert!(drain_ready(&mut pending, now).is_empty());
+        assert_eq!(pending.len(), 1);
+    }
+
+    #[test]
+    fn drain_ready_flushes_a_continuously_updated_entry_at_max_delay() {
+        let now = Instant::now();
+        let mut pending = PendingEvents::new();
+        let path = "notes/a.md".to_string();
+        remember_pending(
+            &mut pending,
+            path.clone(),
+            note_changed("notes/a.md"),
+            now - MAX_DELAY,
+        );
+        remember_pending(&mut pending, path, note_changed("notes/a.md"), now);
+
+        let drained = drain_ready(&mut pending, now);
+
+        assert_eq!(drained.len(), 1, "starvation cap should force a flush");
+        assert!(pending.is_empty());
+    }
+
+    #[test]
+    fn remember_pending_keeps_first_seen_and_replaces_the_event() {
+        let now = Instant::now();
+        let first_seen = now - Duration::from_millis(300);
+        let mut pending = PendingEvents::new();
+        let path = "notes/a.md".to_string();
+
+        remember_pending(
+            &mut pending,
+            path.clone(),
+            note_changed("notes/a.md"),
+            first_seen,
+        );
+        remember_pending(
+            &mut pending,
+            path.clone(),
+            VaultFsEvent::AssetChanged {
+                vault_id: "v1".to_string(),
+                asset_path: "notes/a.md".to_string(),
+            },
+            now,
+        );
+
+        let (event, stored_first_seen, last_seen) = pending.remove(&path).unwrap();
+        assert!(matches!(event, VaultFsEvent::AssetChanged { .. }));
+        assert_eq!(stored_first_seen, first_seen);
+        assert_eq!(last_seen, now);
     }
 }
