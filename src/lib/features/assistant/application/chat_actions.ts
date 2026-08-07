@@ -472,11 +472,7 @@ export function register_chat_actions(
     id: ACTION_IDS.rag_new_chat,
     label: "New Vault Chat",
     execute: () => {
-      chat_store.start_new_session();
-      // A new chat starts in Ask: without this it silently inherits the
-      // previous session's agent mode alongside the reset permission mode.
-      chat_store.set_mode("ask");
-      chat_store.set_permission_mode(
+      chat_store.start_new_session(
         stores.ui.editor_settings.ai_agent_permission_default,
       );
       stores.op.reset(CHAT_OP_KEY);

@@ -1,26 +1,28 @@
 <script lang="ts">
   import { Check, Loader2, Wrench, X } from "@lucide/svelte";
   import type { AssistantToolEvent } from "$lib/features/assistant/types/session";
+  import {
+    tool_event_has_body,
+    tool_event_status,
+    type ToolEventStatus,
+  } from "$lib/features/assistant/types/tool_event_fold";
 
   type Props = {
     event: AssistantToolEvent;
-    on_open_path?: ((path: string) => void) | undefined;
+    on_open_path: (path: string) => void;
   };
-  let { event, on_open_path = undefined }: Props = $props();
+  let { event, on_open_path }: Props = $props();
 
   const COMPLETION_CHECK_MS = 1400;
 
-  type ToolStatus = "running" | "completed" | "failed";
-  const status = $derived<ToolStatus>(
-    event.ok === undefined ? "running" : event.ok ? "completed" : "failed",
-  );
+  const status = $derived(tool_event_status(event));
 
   // Collapsed by default, failures excepted: the spinner already says a call
   // is live, and an error is the one body worth showing unasked.
   let open = $state(false);
   let user_toggled = false;
   let check_visible = $state(false);
-  let prev_status: ToolStatus | null = null;
+  let prev_status: ToolEventStatus | null = null;
 
   // Keyed on the live transition, never mount state: a replayed transcript
   // mounts every call already settled, and would otherwise flash a run of
@@ -46,9 +48,7 @@
   }
 
   const paths = $derived(event.paths ?? []);
-  const has_body = $derived(
-    (event.result_summary ?? "") !== "" || paths.length > 0,
-  );
+  const has_body = $derived(tool_event_has_body(event));
   const expanded = $derived(open && has_body);
 </script>
 
@@ -62,7 +62,11 @@
     {:else if status === "failed"}
       <X class="size-3.5 text-destructive" aria-label="Failed" />
     {:else if check_visible}
-      <span class="completion-check" aria-label="Succeeded">
+      <span
+        class="completion-check"
+        style="animation-duration: {COMPLETION_CHECK_MS}ms"
+        aria-label="Succeeded"
+      >
         <Check class="size-3.5" />
       </span>
     {/if}
@@ -102,7 +106,7 @@
             <button
               type="button"
               class="rounded bg-muted/50 px-1 py-0.5 font-mono text-[11px] text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-              onclick={() => on_open_path?.(path)}
+              onclick={() => on_open_path(path)}
             >
               {path}
             </button>
@@ -114,8 +118,10 @@
 </div>
 
 <style>
+  /* Duration comes from the inline animation-duration, which shares
+     COMPLETION_CHECK_MS with the unmount timer — one source for both. */
   .completion-check {
-    animation: completion-fade 1.4s ease-out forwards;
+    animation: completion-fade ease-out forwards;
   }
   @keyframes completion-fade {
     0%,

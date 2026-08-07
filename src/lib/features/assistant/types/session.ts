@@ -81,6 +81,17 @@ export type AssistantMessage = {
   stopped?: boolean;
 };
 
+// A turn that ran tools or reasoned before it stopped is worth keeping even
+// with no text: the trail is the only record of what the agent touched. One
+// with nothing in it is an empty bubble.
+export function has_turn_evidence(message: AssistantMessage): boolean {
+  return (
+    message.content !== "" ||
+    (message.tool_events?.length ?? 0) > 0 ||
+    (message.reasoning ?? "") !== ""
+  );
+}
+
 export type AssistantSessionSummary = {
   id: string;
   kind: AssistantSessionKind;

@@ -20,6 +20,37 @@ export const HARNESS_LABELS: Record<AgentHarness, string> = {
   codex: "Codex",
 };
 
+// The one statement of what each backend's agent may actually touch. Every
+// surface that describes the grant (header badge, Power hint, empty state)
+// reads from here, so the copy cannot drift into understating a harness's
+// unrestricted shell access.
+export type AgentScopeCopy = {
+  badge: string;
+  badge_title: string;
+  power_hint: string;
+  empty_state: string;
+};
+
+export function agent_scope_copy(capability: AgentCapability): AgentScopeCopy {
+  if (capability.backend === "native") {
+    return {
+      badge: "vault-scoped",
+      badge_title: "Agent can only use vault tools",
+      power_hint: "Agent can edit files in your vault",
+      empty_state:
+        "Agent edits files in your vault. Safe mode limits it to note tools.",
+    };
+  }
+  return {
+    badge: "full access",
+    badge_title: `${HARNESS_LABELS[capability.adapter]} agent with full system access`,
+    power_hint:
+      "Full system access — agent can run shell commands outside the vault",
+    empty_state:
+      "Agent has full system access. Safe mode limits it to note tools.",
+  };
+}
+
 export function agent_capability(
   config: AiProviderConfig,
 ): AgentCapability | null {

@@ -176,6 +176,17 @@ describe("AssistantChatStore", () => {
     expect(store.revision).toBe(before + 1);
   });
 
+  it("start_new_session lands in ask mode and seeds the permission default", () => {
+    const store = new AssistantChatStore(new AssistantSessionStore());
+    store.set_mode("agent");
+    store.set_permission_mode("safe");
+
+    store.start_new_session("power");
+
+    expect(store.mode).toBe("ask");
+    expect(store.permission_mode).toBe("power");
+  });
+
   it("switch_session restores provider/scope and bumps the revision", () => {
     const { sessions, store } = create_store();
     sessions.hydrate([
