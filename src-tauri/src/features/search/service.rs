@@ -90,10 +90,10 @@ pub(crate) fn reconcile_model_version(
 }
 
 /// Encoder batch width. `BatchLongest` padding means one long text pads all the
-/// others; with f16 Metal weights 32 keeps the worst-case `[32,12,256,256]`
-/// attention tensor at the same byte budget as the previous f32
-/// `[16,12,256,256]`. (ref: DL-002)
-const EMBED_BATCH_SIZE: usize = if cfg!(debug_assertions) { 5 } else { 32 };
+/// others, so the worst-case attention tensor is `[B,12,256,256]`; 16 is what
+/// that budget allows in f32, which is the only dtype the model can run in.
+/// (ref: DL-002)
+const EMBED_BATCH_SIZE: usize = if cfg!(debug_assertions) { 5 } else { 16 };
 
 /// Embeds `texts` in forward passes of at most `width`, bounding the peak
 /// attention tensor no matter how many texts the caller hands over. Callers
@@ -2201,9 +2201,6 @@ fn handle_embed_batch(
             }
         } else {
             // block embed disabled: fall back to direct batch embed on FTS bodies. (ref: DL-002)
-            // BatchLongest padding means one long section pads all others. With f16
-            // Metal weights, batch_size=32 keeps the worst-case [32,12,256,256] attention
-            // tensor at the same byte budget as the previous f32 [16,12,256,256].
             for chunk in notes_needing_embedding.chunks(EMBED_BATCH_SIZE) {
                 if cancel.load(Ordering::Relaxed) {
                     break;
@@ -2462,9 +2459,6 @@ fn handle_block_embed_batch(
         },
     );
 
-    // BatchLongest padding means one long section pads all others. With f16
-    // Metal weights, batch_size=32 keeps the worst-case [32,12,256,256] attention
-    // tensor at the same byte budget as the previous f32 [16,12,256,256]. (ref: DL-002)
     let mut pass = BlockEmbedPass {
         conn,
         cancel,
