@@ -195,12 +195,6 @@ impl VectorIndex {
     }
 
     pub fn insert(&mut self, str_key: &str, vector: Vec<f32>) {
-        // The active model's output dimension is not known when the index is
-        // constructed (the model loads lazily and is user-configurable), so an
-        // empty index conforms to whatever the first inserted vector provides.
-        // If the dimension actually changes (embedding model switched), rebuild
-        // the empty graph so no stale points of the old dimension remain — a
-        // cosine distance across mismatched lengths would otherwise be invalid.
         if !is_usable_vector(&vector) {
             log::warn!(
                 "VectorIndex::insert: dropping {str_key} — vector is empty, non-finite, or all-zero"
@@ -208,6 +202,12 @@ impl VectorIndex {
             return;
         }
 
+        // The active model's output dimension is not known when the index is
+        // constructed (the model loads lazily and is user-configurable), so an
+        // empty index conforms to whatever the first inserted vector provides.
+        // If the dimension actually changes (embedding model switched), rebuild
+        // the empty graph so no stale points of the old dimension remain — a
+        // cosine distance across mismatched lengths would otherwise be invalid.
         if self.key_to_id.is_empty() && vector.len() != self.dims {
             self.dims = vector.len();
             self.hnsw = new_graph(0);
