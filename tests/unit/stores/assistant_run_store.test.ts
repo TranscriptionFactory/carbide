@@ -72,6 +72,33 @@ describe("AssistantRunStore", () => {
     expect(store.get("run-1")?.status).toBe("starting");
   });
 
+  it("parks on permission_request and resumes on resolution", () => {
+    const store = new AssistantRunStore();
+    start_run(store, "run-1");
+    store.apply_event("run-1", { type: "text", text: "hi" });
+
+    store.apply_event("run-1", {
+      type: "permission_request",
+      request_id: "perm-1",
+      tool_call_id: null,
+      name: "bash",
+      kind: "execute",
+      input_summary: "ls",
+      paths: [],
+      mutating: true,
+      options: [],
+    });
+    expect(store.get("run-1")?.status).toBe("awaiting_permission");
+
+    store.apply_event("run-1", {
+      type: "permission_resolved",
+      request_id: "perm-1",
+      outcome: "selected:allow_once",
+      auto: false,
+    });
+    expect(store.get("run-1")?.status).toBe("streaming");
+  });
+
   it("leaves status and text untouched for tool events", () => {
     const store = new AssistantRunStore();
     start_run(store, "run-1");

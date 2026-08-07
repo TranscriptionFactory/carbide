@@ -28,7 +28,13 @@
     aria-label="Stop {run.label}"
   >
     <Square class="AssistantStopButton__icon" />
-    <span>{is_stopping ? "Stopping" : "Stop"}</span>
+    <span
+      >{is_stopping
+        ? "Stopping"
+        : run.status === "awaiting_permission"
+          ? "Waiting for approval — Stop"
+          : "Stop"}</span
+    >
     {#if hint}
       <kbd class="AssistantStopButton__hint">{hint}</kbd>
     {/if}

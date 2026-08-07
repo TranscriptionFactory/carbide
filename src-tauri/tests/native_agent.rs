@@ -6,9 +6,12 @@ use serde_json::Value;
 use tokio::sync::oneshot;
 
 use crate::features::ai::agent_stream::{AgentEvent, ToolSelector};
+use crate::features::ai::acp::permissions::PermissionRequestSpec;
+use crate::features::ai::agent_stream::PermissionOptionKind;
 use crate::features::ai::native_agent::{
-    allowed_tools, evict_history, run_native_turn, truncate_tool_result, ModelClient,
-    HISTORY_MAX_CHARS, HISTORY_MAX_MESSAGES, MAX_ITERATIONS, TOOL_RESULT_MAX_CHARS,
+    allowed_tools, evict_history, run_native_turn, truncate_tool_result, ModelClient, NativeGate,
+    NativePromptOutcome, HISTORY_MAX_CHARS, HISTORY_MAX_MESSAGES, MAX_ITERATIONS,
+    TOOL_RESULT_MAX_CHARS,
 };
 use crate::features::ai::stream::{AiMessage, AiMessageContent, AiStreamEvent, AiToolCall};
 use crate::features::mcp::types::{InputSchema, ToolDefinition, ToolResult};
@@ -96,6 +99,10 @@ fn tag(event: &AgentEvent) -> &'static str {
     }
 }
 
+fn allow_all(_: &PermissionRequestSpec) -> NativeGate {
+    NativeGate::Allow
+}
+
 async fn drive<C, D>(
     client: C,
     catalog: Vec<ToolDefinition>,
@@ -106,6 +113,22 @@ async fn drive<C, D>(
 where
     C: ModelClient,
     D: FnMut(&str, Option<&Value>) -> ToolResult,
+{
+    drive_gated(client, catalog, selector, dispatch, abort_rx, allow_all).await
+}
+
+async fn drive_gated<C, D, A>(
+    client: C,
+    catalog: Vec<ToolDefinition>,
+    selector: ToolSelector,
+    dispatch: D,
+    abort_rx: oneshot::Receiver<()>,
+    approval: A,
+) -> Vec<AgentEvent>
+where
+    C: ModelClient,
+    D: FnMut(&str, Option<&Value>) -> ToolResult,
+    A: Fn(&PermissionRequestSpec) -> NativeGate,
 {
     let events = Arc::new(Mutex::new(Vec::new()));
     let sink = events.clone();
@@ -120,6 +143,7 @@ where
         selector,
         abort_rx,
         emit,
+        approval,
     )
     .await;
     let out = events.lock().unwrap().clone();
@@ -169,7 +193,7 @@ async fn scenario_1_happy_path_event_order() {
 }
 
 #[tokio::test]
-async fn scenario_2_safe_mode_withholds_and_refuses_hallucinated_call() {
+async fn scenario_2_safe_mode_offers_the_catalog_and_gates_the_write_on_approval() {
     let (client, seen) = scripted(vec![call_turn("c1", "write_note", "{}"), text_turn("ok")]);
     let dispatched = Arc::new(Mutex::new(Vec::<String>::new()));
     let log = dispatched.clone();
@@ -179,29 +203,93 @@ async fn scenario_2_safe_mode_withholds_and_refuses_hallucinated_call() {
     };
     let (_tx, rx) = oneshot::channel();
 
-    let events = drive(
+    let events = drive_gated(
         client,
         vec![tool_def("search", false), tool_def("write_note", true)],
         ToolSelector::ReadOnly,
         dispatch,
         rx,
+        |spec| {
+            if spec.mutating {
+                NativeGate::Deny
+            } else {
+                NativeGate::Allow
+            }
+        },
     )
     .await;
 
     let first_call_tools = &seen.lock().unwrap()[0];
     assert!(
-        !first_call_tools.contains(&"write_note".to_string()),
-        "mutating tool must be withheld in safe mode"
+        first_call_tools.contains(&"write_note".to_string()),
+        "safe mode offers the catalog and gates on approval instead of hiding tools"
     );
-    assert!(first_call_tools.contains(&"search".to_string()));
     assert!(
         dispatched.lock().unwrap().is_empty(),
-        "hallucinated call must not be dispatched"
+        "a denied call must not be dispatched"
     );
     assert!(events
         .iter()
         .any(|e| matches!(e, AgentEvent::ToolEnd { ok: false, name, .. } if name == "write_note")));
+    assert!(events.iter().any(|e| matches!(
+        e,
+        AgentEvent::PermissionResolved { auto: true, outcome, .. } if outcome.starts_with("selected:reject")
+    )));
     assert!(matches!(events.last(), Some(AgentEvent::Done { .. })));
+}
+
+#[tokio::test]
+async fn prompt_approval_resumes_the_dispatch() {
+    let (client, _seen) = scripted(vec![call_turn("c1", "write_note", "{}"), text_turn("ok")]);
+    let dispatched = Arc::new(Mutex::new(Vec::<String>::new()));
+    let log = dispatched.clone();
+    let dispatch = move |name: &str, _args: Option<&Value>| {
+        log.lock().unwrap().push(name.to_string());
+        ToolResult::text("result".into())
+    };
+    let (_tx, rx) = oneshot::channel();
+
+    let events = drive_gated(
+        client,
+        vec![tool_def("write_note", true)],
+        ToolSelector::ReadOnly,
+        dispatch,
+        rx,
+        |spec| {
+            if !spec.mutating {
+                return NativeGate::Allow;
+            }
+            NativeGate::Prompt {
+                request_id: "perm-test".to_string(),
+                wait: Box::pin(async {
+                    NativePromptOutcome::Selected {
+                        option_id: "allow-once".to_string(),
+                        kind: PermissionOptionKind::AllowOnce,
+                    }
+                }),
+            }
+        },
+    )
+    .await;
+
+    assert_eq!(dispatched.lock().unwrap().as_slice(), ["write_note"]);
+    let tags: Vec<&str> = events.iter().map(tag).collect();
+    assert_eq!(
+        tags,
+        [
+            "init",
+            "tool_start",
+            "permission_request",
+            "permission_resolved",
+            "tool_end",
+            "text",
+            "done"
+        ]
+    );
+    assert!(events.iter().any(|e| matches!(
+        e,
+        AgentEvent::PermissionResolved { auto: false, outcome, .. } if outcome == "selected:allow_once"
+    )));
 }
 
 #[tokio::test]
@@ -622,6 +710,7 @@ async fn replay_history_reaches_model_system_first() {
         ToolSelector::Full,
         rx,
         emit,
+        allow_all,
     )
     .await;
 

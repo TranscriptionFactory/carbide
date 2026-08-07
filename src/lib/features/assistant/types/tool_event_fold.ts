@@ -1,5 +1,9 @@
-import type { AssistantToolEvent } from "$lib/features/assistant/types/session";
 import type {
+  AssistantToolEvent,
+  AssistantToolPermission,
+} from "$lib/features/assistant/types/session";
+import type {
+  PermissionOptionSpec,
   ToolContent,
   ToolKind,
 } from "$lib/features/assistant/types/agent_events";
@@ -123,6 +127,109 @@ function find_open_event(
       return index;
   }
   return -1;
+}
+
+export type PermissionRequestPatch = {
+  request_id: string;
+  tool_call_id?: string | null | undefined;
+  name: string;
+  kind: ToolKind;
+  input_summary: string;
+  paths: string[];
+  options: PermissionOptionSpec[];
+};
+
+// Attaches a prompt to the tool event it gates. A request can outrun its
+// tool_start, so a miss inserts a placeholder event the later tool_start
+// hydrates in place — either arrival order works.
+export function apply_permission_request(
+  events: AssistantToolEvent[],
+  request: PermissionRequestPatch,
+): AssistantToolEvent[] {
+  const permission: AssistantToolPermission = {
+    request_id: request.request_id,
+    options: request.options,
+  };
+  if (request.tool_call_id) {
+    for (let index = events.length - 1; index >= 0; index -= 1) {
+      const event = events[index];
+      if (event && event.id === request.tool_call_id) {
+        const next = [...events];
+        next[index] = { ...event, permission };
+        return next;
+      }
+    }
+  }
+  return [
+    ...events,
+    {
+      ...(request.tool_call_id ? { id: request.tool_call_id } : {}),
+      name: request.name,
+      kind: request.kind,
+      input_summary: request.input_summary,
+      paths: request.paths,
+      permission,
+    },
+  ];
+}
+
+// A tool_start whose id matches a permission placeholder fills it in rather
+// than appending a duplicate row.
+export function hydrate_placeholder(
+  events: AssistantToolEvent[],
+  start: AssistantToolEvent,
+): AssistantToolEvent[] | null {
+  if (!start.id) return null;
+  for (let index = events.length - 1; index >= 0; index -= 1) {
+    const event = events[index];
+    if (event && event.id === start.id && event.permission) {
+      const next = [...events];
+      next[index] = { ...start, permission: event.permission };
+      return next;
+    }
+  }
+  return null;
+}
+
+export function apply_permission_resolved(
+  events: AssistantToolEvent[],
+  request_id: string,
+  outcome: string,
+  auto: boolean,
+): AssistantToolEvent[] {
+  for (let index = events.length - 1; index >= 0; index -= 1) {
+    const event = events[index];
+    if (event?.permission?.request_id === request_id) {
+      const next = [...events];
+      next[index] = {
+        ...event,
+        permission: { ...event.permission, resolved: { outcome, auto } },
+      };
+      return next;
+    }
+  }
+  return events;
+}
+
+// A stopped run must not leave a live prompt: every unresolved permission is
+// marked dismissed when the run closes out, on both sinks.
+export function dismiss_open_permissions(
+  events: AssistantToolEvent[],
+): AssistantToolEvent[] {
+  if (!events.some((event) => event.permission && !event.permission.resolved)) {
+    return events;
+  }
+  return events.map((event) =>
+    event.permission && !event.permission.resolved
+      ? {
+          ...event,
+          permission: {
+            ...event.permission,
+            resolved: { outcome: "cancelled", auto: true },
+          },
+        }
+      : event,
+  );
 }
 
 // Settles the open event the ref points at, merging whatever fields the

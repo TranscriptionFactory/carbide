@@ -199,7 +199,10 @@ export {
   type ProviderResolutionInput,
 } from "$lib/features/assistant/domain/resolve_assistant_provider";
 
-export { create_assistant_transport_tauri_adapter } from "$lib/features/assistant/adapters/assistant_transport_tauri_adapter";
+export {
+  create_assistant_permission_tauri_adapter,
+  create_assistant_transport_tauri_adapter,
+} from "$lib/features/assistant/adapters/assistant_transport_tauri_adapter";
 
 export { register_assistant_actions } from "$lib/features/assistant/application/assistant_actions";
 

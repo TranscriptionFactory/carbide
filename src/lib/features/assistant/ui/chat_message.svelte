@@ -107,6 +107,14 @@
     open_note(to_vault_relative_path(vault_path, path));
   }
 
+  function respond_permission(request_id: string, response: unknown) {
+    void action_registry.execute(
+      ACTION_IDS.assistant_permission_respond,
+      request_id,
+      response,
+    );
+  }
+
   $effect(() => {
     const el = content_el;
     if (!el) return;
@@ -177,7 +185,12 @@
         >
           <div class="flex select-text flex-col gap-1 px-3 pb-2">
             {#each tool_events as event, index (event.id ?? index)}
-              <ToolCallCard {event} on_open_path={open_tool_path} />
+              <ToolCallCard
+                {event}
+                on_open_path={open_tool_path}
+                live={is_streaming}
+                on_permission_respond={respond_permission}
+              />
             {/each}
           </div>
         </CollapsibleSection>

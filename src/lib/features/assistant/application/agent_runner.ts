@@ -188,7 +188,24 @@ export class AgentRunner {
             this.chat_store.append_streaming_reasoning(event.text);
             return;
           case "permission_request":
+            this.ensure_streaming();
+            this.chat_store.apply_streaming_permission_request({
+              request_id: event.request_id,
+              tool_call_id: event.tool_call_id,
+              name: event.name,
+              kind: event.kind,
+              input_summary: event.input_summary,
+              paths: event.paths,
+              options: event.options,
+            });
+            return;
           case "permission_resolved":
+            this.chat_store.apply_streaming_permission_resolved(
+              event.request_id,
+              event.outcome,
+              event.auto,
+            );
+            return;
           case "done":
             return;
         }

@@ -39,6 +39,10 @@
     type AiProviderProbeState,
   } from "$lib/features/ai";
   import { toast } from "$lib/shared/ui/toast";
+  import {
+    commands as generated_commands,
+    type Grant,
+  } from "$lib/generated/bindings";
   import type { StorageStats } from "$lib/features/settings/ports";
   import { format_bytes } from "$lib/shared/utils/format_bytes";
   import { HotkeysPanel } from "$lib/features/hotkey";
@@ -384,6 +388,28 @@
     if (capability.backend === "native")
       return "Agent: native loop (OpenAI-compatible)";
     return `Agent: ${acp_agent_label(capability.acp)} via ACP`;
+  }
+
+  let permission_grants = $state<Grant[]>([]);
+  let permission_grants_loaded = $state(false);
+
+  async function load_permission_grants() {
+    const result = await generated_commands.agentPermissionGrants();
+    if (result.status === "ok") permission_grants = result.data;
+    permission_grants_loaded = true;
+  }
+
+  async function revoke_permission_grant(grant: Grant) {
+    const result = await generated_commands.agentPermissionRevoke(
+      grant.agent_id,
+      grant.tool_name,
+      grant.kind,
+    );
+    if (result.status === "error") {
+      toast.error(result.error);
+      return;
+    }
+    await load_permission_grants();
   }
 
   let editing_provider_id = $state<string | null>(null);
@@ -1014,10 +1040,65 @@
                   </span>
                 </Select.Trigger>
                 <Select.Content>
-                  <Select.Item value="safe">Safe</Select.Item>
-                  <Select.Item value="power">Power</Select.Item>
+                  <Select.Item value="safe"
+                    >Safe — ask before edits and shell</Select.Item
+                  >
+                  <Select.Item value="power"
+                    >Power — auto-allow edits, ask for shell</Select.Item
+                  >
                 </Select.Content>
               </Select.Root>
+            </div>
+
+            <div class="space-y-2">
+              <div class="flex items-center justify-between">
+                <div class="SettingsDialog__label-group">
+                  <span class="SettingsDialog__label"
+                    >Agent permission grants</span
+                  >
+                  <span class="SettingsDialog__description">
+                    Tools you allowed with "Always allow" — revoking makes the
+                    prompt reappear
+                  </span>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onclick={() => void load_permission_grants()}
+                >
+                  {permission_grants_loaded ? "Refresh" : "Load"}
+                </Button>
+              </div>
+              {#if permission_grants_loaded}
+                {#if permission_grants.length === 0}
+                  <p class="text-xs text-muted-foreground">
+                    No standing grants.
+                  </p>
+                {:else}
+                  <div class="flex flex-col gap-1">
+                    {#each permission_grants as grant (grant.agent_id + grant.tool_name + grant.kind)}
+                      <div
+                        class="flex items-center justify-between gap-2 rounded-md border px-2 py-1 text-xs"
+                      >
+                        <span class="truncate">
+                          <span class="font-medium">{grant.agent_id}</span>
+                          · {grant.tool_name} ({grant.kind}){grant.path_prefix
+                            ? ` under ${grant.path_prefix}`
+                            : ""}
+                        </span>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          class="h-6 text-destructive"
+                          onclick={() => void revoke_permission_grant(grant)}
+                        >
+                          Revoke
+                        </Button>
+                      </div>
+                    {/each}
+                  </div>
+                {/if}
+              {/if}
             </div>
 
             <div class="space-y-2">

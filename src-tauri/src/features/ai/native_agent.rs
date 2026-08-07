@@ -10,9 +10,13 @@ use crate::features::mcp::auth;
 use crate::features::mcp::router::McpRouter;
 use crate::features::mcp::types::{ContentBlock, ToolDefinition, ToolResult};
 
+use super::acp::permissions::{
+    mint_request_id, Evaluation, ParkedDecision, PermissionEngine, PermissionRequestSpec,
+    PERMISSION_TIMEOUT,
+};
 use super::agent_stream::{
     infer_tool_kind, summarize_chars, AgentEvent, AgentRunSpec, AgentRunState, AgentRunStats,
-    ToolSelector,
+    PermissionOptionKind, PermissionOptionSpec, ToolSelector,
 };
 use super::tool_paths::extract_tool_paths;
 use super::service::{AiProviderConfig, AiTransport};
@@ -166,7 +170,60 @@ fn tool_result_message(id: &str, text: String) -> AiMessage {
     }
 }
 
-pub async fn run_native_turn<C, D, E>(
+/// What the approval hook decided for one dispatch, before any prompt.
+pub enum NativeGate {
+    Allow,
+    Deny,
+    Prompt {
+        request_id: String,
+        wait: futures_util::future::BoxFuture<'static, NativePromptOutcome>,
+    },
+}
+
+pub enum NativePromptOutcome {
+    Selected {
+        option_id: String,
+        kind: PermissionOptionKind,
+    },
+    Cancelled,
+    Timeout,
+}
+
+/// The prompt options the native loop offers — it mints its own, having no
+/// agent on the wire to propose any.
+pub fn native_permission_options() -> Vec<PermissionOptionSpec> {
+    vec![
+        PermissionOptionSpec {
+            option_id: "allow-once".to_string(),
+            label: "Allow".to_string(),
+            kind: PermissionOptionKind::AllowOnce,
+        },
+        PermissionOptionSpec {
+            option_id: "allow-always".to_string(),
+            label: "Always allow".to_string(),
+            kind: PermissionOptionKind::AllowAlways,
+        },
+        PermissionOptionSpec {
+            option_id: "reject-once".to_string(),
+            label: "Deny".to_string(),
+            kind: PermissionOptionKind::RejectOnce,
+        },
+    ]
+}
+
+pub const NATIVE_AGENT_ID: &str = "native";
+
+fn option_kind_label(kind: PermissionOptionKind) -> &'static str {
+    match kind {
+        PermissionOptionKind::AllowOnce => "allow_once",
+        PermissionOptionKind::AllowAlways => "allow_always",
+        PermissionOptionKind::RejectOnce => "reject_once",
+        PermissionOptionKind::RejectAlways => "reject_always",
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+pub async fn run_native_turn<C, D, E, A>(
     client: C,
     mut dispatch: D,
     session_id: String,
@@ -176,15 +233,23 @@ pub async fn run_native_turn<C, D, E>(
     toolset: ToolSelector,
     mut abort_rx: oneshot::Receiver<()>,
     mut emit: E,
+    approval: A,
 ) where
     C: ModelClient,
     D: FnMut(&str, Option<&Value>) -> ToolResult,
     E: FnMut(AgentEvent),
+    A: Fn(&PermissionRequestSpec) -> NativeGate,
 {
     emit(AgentEvent::Init { session_id });
     let start = Instant::now();
 
-    let allowed = allowed_tools(&catalog, &toolset);
+    // Safe mode offers the full catalog and gates mutating dispatches on
+    // approval instead of hiding tools; the Only selector keeps its runtime
+    // refusal — it is a surface contract, not a permission mode.
+    let allowed = match &toolset {
+        ToolSelector::Only { .. } => allowed_tools(&catalog, &toolset),
+        ToolSelector::ReadOnly | ToolSelector::Full => catalog.clone(),
+    };
     let allowed_names: HashSet<String> = allowed.iter().map(|t| t.name.clone()).collect();
     let mutating_names: HashSet<String> = catalog
         .iter()
@@ -280,6 +345,77 @@ pub async fn run_native_turn<C, D, E>(
                 let denial = format!(
                     "Tool '{name}' is not available in the current permission mode and was not executed."
                 );
+                emit(AgentEvent::ToolEnd {
+                    id: id.clone(),
+                    name: name.clone(),
+                    ok: false,
+                    result_summary: Some(summarize_chars(&denial, SUMMARY_MAX_CHARS)),
+                    paths,
+                    mutating,
+                });
+                history.push(tool_result_message(&id, denial));
+                continue;
+            }
+
+            let spec = PermissionRequestSpec {
+                agent_id: NATIVE_AGENT_ID.to_string(),
+                tool_call_id: Some(id.clone()),
+                name: name.clone(),
+                kind: infer_tool_kind(&name),
+                input_summary: summarize_chars(&arguments, SUMMARY_MAX_CHARS),
+                paths: paths.clone(),
+                mutating,
+                options: native_permission_options(),
+            };
+            let approved = match approval(&spec) {
+                NativeGate::Allow => true,
+                NativeGate::Deny => {
+                    emit(AgentEvent::PermissionResolved {
+                        request_id: mint_request_id(),
+                        outcome: "selected:reject_once".to_string(),
+                        auto: true,
+                    });
+                    false
+                }
+                NativeGate::Prompt { request_id, wait } => {
+                    emit(AgentEvent::PermissionRequest {
+                        request_id: request_id.clone(),
+                        tool_call_id: Some(id.clone()),
+                        name: spec.name.clone(),
+                        kind: spec.kind,
+                        input_summary: spec.input_summary.clone(),
+                        paths: spec.paths.clone(),
+                        mutating: spec.mutating,
+                        options: spec.options.clone(),
+                    });
+                    let (outcome, auto, approved) = match wait.await {
+                        NativePromptOutcome::Selected { kind, .. } => (
+                            format!("selected:{}", option_kind_label(kind)),
+                            false,
+                            matches!(
+                                kind,
+                                PermissionOptionKind::AllowOnce
+                                    | PermissionOptionKind::AllowAlways
+                            ),
+                        ),
+                        NativePromptOutcome::Cancelled => {
+                            ("cancelled".to_string(), true, false)
+                        }
+                        NativePromptOutcome::Timeout => {
+                            ("timeout".to_string(), true, false)
+                        }
+                    };
+                    emit(AgentEvent::PermissionResolved {
+                        request_id,
+                        outcome,
+                        auto,
+                    });
+                    approved
+                }
+            };
+            if !approved {
+                let denial =
+                    format!("Tool '{name}' was denied by the user and was not executed.");
                 emit(AgentEvent::ToolEnd {
                     id: id.clone(),
                     name: name.clone(),
@@ -406,6 +542,41 @@ pub fn spawn_native_turn(
         let _ = emit_app.emit(&event_name, event);
     };
 
+    let engine = app
+        .state::<std::sync::Arc<PermissionEngine>>()
+        .inner()
+        .clone();
+    let gate_toolset = toolset.clone();
+    let approval = move |spec: &PermissionRequestSpec| -> NativeGate {
+        match engine.evaluate(&gate_toolset, spec) {
+            Evaluation::Allow => NativeGate::Allow,
+            Evaluation::Deny => NativeGate::Deny,
+            Evaluation::Prompt => {
+                let request_id = mint_request_id();
+                let wait = engine.park(request_id.clone(), spec.clone());
+                let engine = engine.clone();
+                let rid = request_id.clone();
+                NativeGate::Prompt {
+                    request_id,
+                    wait: Box::pin(async move {
+                        match tokio::time::timeout(PERMISSION_TIMEOUT, wait).await {
+                            Ok(Ok(ParkedDecision::Selected { option_id, kind }))
+                                if !option_id.is_empty() =>
+                            {
+                                NativePromptOutcome::Selected { option_id, kind }
+                            }
+                            Ok(Ok(_)) | Ok(Err(_)) => NativePromptOutcome::Cancelled,
+                            Err(_) => {
+                                engine.cancel(&rid);
+                                NativePromptOutcome::Timeout
+                            }
+                        }
+                    }),
+                }
+            }
+        }
+    };
+
     let app_clone = app.clone();
     let req_id = request_id.clone();
     tokio::spawn(async move {
@@ -419,6 +590,7 @@ pub fn spawn_native_turn(
             toolset,
             abort_rx,
             emit,
+            approval,
         )
         .await;
         app_clone

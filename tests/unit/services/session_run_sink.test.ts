@@ -226,6 +226,59 @@ describe("create_session_run_sink", () => {
       expect(events[0]?.result_summary).toBe("3 matches");
     });
 
+    it("attaches a permission prompt and settles it on resolution", () => {
+      const { sessions, sink, open_run, messages_of } = create_harness();
+      const session = create_chat(sessions);
+      open_run("run-1", session.id);
+
+      sink.on_event("run-1", tool_start_event("bash"));
+      sink.on_event("run-1", {
+        type: "permission_request",
+        request_id: "perm-1",
+        tool_call_id: "bash",
+        name: "bash",
+        kind: "execute",
+        input_summary: "ls",
+        paths: [],
+        mutating: true,
+        options: [{ option_id: "a", label: "Allow", kind: "allow_once" }],
+      });
+      sink.on_event("run-1", {
+        type: "permission_resolved",
+        request_id: "perm-1",
+        outcome: "selected:allow_once",
+        auto: false,
+      });
+
+      const events = messages_of(session.id)[0]?.tool_events ?? [];
+      expect(events).toHaveLength(1);
+      expect(events[0]?.permission?.resolved?.outcome).toBe(
+        "selected:allow_once",
+      );
+    });
+
+    it("dismisses an unresolved prompt when the run ends", () => {
+      const { sessions, sink, open_run, messages_of } = create_harness();
+      const session = create_chat(sessions);
+      open_run("run-1", session.id);
+
+      sink.on_event("run-1", {
+        type: "permission_request",
+        request_id: "perm-1",
+        tool_call_id: "call-1",
+        name: "bash",
+        kind: "execute",
+        input_summary: "ls",
+        paths: [],
+        mutating: true,
+        options: [],
+      });
+      sink.on_end?.("run-1", { status: "aborted", text: "" });
+
+      const events = messages_of(session.id)[0]?.tool_events ?? [];
+      expect(events[0]?.permission?.resolved?.outcome).toBe("cancelled");
+    });
+
     it("does not conjure a message for a tool_end with no open turn", () => {
       const { sessions, sink, open_run, messages_of } = create_harness();
       const session = create_chat(sessions);

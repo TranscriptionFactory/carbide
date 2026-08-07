@@ -20,6 +20,10 @@ import type {
   RunHandle,
 } from "$lib/features/assistant";
 import { AgentRunner } from "$lib/features/assistant/application/agent_runner";
+import type {
+  AssistantPermissionPort,
+  PermissionResponse,
+} from "$lib/features/assistant/ports";
 import { AgentProposalService } from "$lib/features/assistant/application/agent_proposal_service";
 import { resolve_agent_note_sync } from "$lib/features/assistant/domain/agent_note_sync";
 import type { AssistantProposalStore } from "$lib/features/assistant";
@@ -68,6 +72,7 @@ export function register_chat_actions(
     chat_service: AssistantChatService;
     session_service: AssistantSessionService;
     assistant_kernel: AssistantKernelService;
+    permissions: AssistantPermissionPort;
     assistant_proposals: AssistantProposalStore;
     documents: AssistantDocumentPort;
   },
@@ -80,6 +85,7 @@ export function register_chat_actions(
     chat_service,
     session_service,
     assistant_kernel,
+    permissions,
     assistant_proposals,
     documents,
   } = input;
@@ -398,6 +404,21 @@ export function register_chat_actions(
       if (mode !== "ask" && mode !== "agent") return;
       if (mode === "agent" && !ensure_ai_enabled()) return;
       chat_store.set_mode(mode);
+    },
+  });
+
+  registry.register({
+    id: ACTION_IDS.assistant_permission_respond,
+    label: "Respond to Agent Permission Request",
+    execute: async (...args: unknown[]) => {
+      const [request_id, response] = args as [unknown, unknown];
+      if (typeof request_id !== "string" || request_id === "") return;
+      if (typeof response !== "object" || response === null) return;
+      try {
+        await permissions.respond(request_id, response as PermissionResponse);
+      } catch (e) {
+        toast.error(error_message(e));
+      }
     },
   });
 

@@ -22,8 +22,13 @@ import type { AssistantChatSourceInfo } from "$lib/features/assistant/types/chat
 import type { RetrievalReadiness } from "$lib/features/assistant/types/retrieval";
 import type { DocumentAttachment } from "$lib/features/assistant/types/attachment";
 import {
+  apply_permission_request,
+  apply_permission_resolved,
   apply_tool_update,
+  dismiss_open_permissions,
   finish_tool_event,
+  hydrate_placeholder,
+  type PermissionRequestPatch,
   type ToolEventPatch,
   type ToolEventRef,
   type ToolUpdatePatch,
@@ -130,8 +135,32 @@ export class AssistantChatStore {
   }
 
   add_streaming_tool_event(event: AssistantToolEvent) {
+    this.update_streaming((m) => {
+      const events = m.tool_events ?? [];
+      return {
+        tool_events: hydrate_placeholder(events, event) ?? [...events, event],
+      };
+    });
+  }
+
+  apply_streaming_permission_request(request: PermissionRequestPatch) {
     this.update_streaming((m) => ({
-      tool_events: [...(m.tool_events ?? []), event],
+      tool_events: apply_permission_request(m.tool_events ?? [], request),
+    }));
+  }
+
+  apply_streaming_permission_resolved(
+    request_id: string,
+    outcome: string,
+    auto: boolean,
+  ) {
+    this.update_streaming((m) => ({
+      tool_events: apply_permission_resolved(
+        m.tool_events ?? [],
+        request_id,
+        outcome,
+        auto,
+      ),
     }));
   }
 
@@ -196,6 +225,9 @@ export class AssistantChatStore {
   }
 
   finish_streaming() {
+    this.update_streaming((m) => ({
+      tool_events: dismiss_open_permissions(m.tool_events ?? []),
+    }));
     this.streaming_id = null;
     this.is_loading = false;
     this.pending_sources = null;
