@@ -81,10 +81,15 @@ export function resolve_watcher_event_decision(
         open_note_path &&
         paths_equal_ignore_case(event.note_path, open_note_path)
       ) {
-        return { action: "clear_and_refresh", note_path: rp };
+        return is_dirty
+          ? { action: "mark_conflict", note_path: rp }
+          : { action: "clear_and_refresh", note_path: rp };
       }
-      if (find_background_tab(event.note_path)) {
-        return { action: "remove_background_tab_and_refresh", note_path: rp };
+      const removed_bg = find_background_tab(event.note_path);
+      if (removed_bg) {
+        return removed_bg.is_dirty
+          ? { action: "mark_conflict", note_path: rp }
+          : { action: "remove_background_tab_and_refresh", note_path: rp };
       }
       return {
         action: "refresh_tree",

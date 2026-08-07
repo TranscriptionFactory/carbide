@@ -238,6 +238,34 @@ describe("watcher_reactor", () => {
         note_path: "notes/bg.md",
       });
     });
+
+    it("marks conflict instead of clearing a dirty open note", () => {
+      const decision = resolve_watcher_event_decision(
+        removed_event("notes/a.md"),
+        VAULT_ID,
+        "notes/a.md",
+        true,
+        NO_BG_TAB,
+      );
+      expect(decision).toEqual({
+        action: "mark_conflict",
+        note_path: "notes/a.md",
+      });
+    });
+
+    it("marks conflict instead of removing a dirty background tab", () => {
+      const decision = resolve_watcher_event_decision(
+        removed_event("notes/bg.md"),
+        VAULT_ID,
+        "notes/active.md",
+        false,
+        bg_tab(true),
+      );
+      expect(decision).toEqual({
+        action: "mark_conflict",
+        note_path: "notes/bg.md",
+      });
+    });
   });
 
   describe("asset_changed", () => {
