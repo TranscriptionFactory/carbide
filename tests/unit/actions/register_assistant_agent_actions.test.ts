@@ -122,6 +122,7 @@ function create_harness(
     chat_service: {} as never,
     session_service: session_service as never,
     assistant_kernel: assistant_kernel as never,
+    permissions: { respond: async () => {} },
     assistant_proposals: new AssistantProposalStore(),
   });
 

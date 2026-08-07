@@ -1,4 +1,6 @@
 pub mod agent_def;
+pub mod permission_store;
+pub mod permissions;
 pub mod policy;
 pub mod session;
 pub mod translate;
@@ -8,7 +10,11 @@ use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
 pub use agent_def::{pick_session_mode, resolve_acp_launch, AcpAgentSpec, AcpLaunch, AcpPresetId};
-pub use policy::{auto_decide, AutoDecision};
+pub use permission_store::{default_store_dir, Grant, GrantStore};
+pub use permissions::{
+    kind_name, mint_request_id, Evaluation, ParkedDecision, PermissionEngine,
+    PermissionRequestSpec, PERMISSION_TIMEOUT,
+};
 pub use session::{spawn_acp_session, AcpSessionConfig, EventSink, SessionCommand, SessionHandle};
 pub use translate::TurnTranslator;
 

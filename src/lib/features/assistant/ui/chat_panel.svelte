@@ -272,7 +272,7 @@
   {/if}
 {/snippet}
 
-<div class="flex h-full flex-col">
+<div class="flex h-full flex-col" data-assistant-panel-root>
   <div class="flex items-center justify-between border-b px-3 py-1.5">
     <div class="flex items-center gap-1">
       <span class="text-xs font-medium text-muted-foreground">Vault Chat</span>

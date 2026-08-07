@@ -61,17 +61,16 @@ export function agent_scope_copy(capability: AgentCapability): AgentScopeCopy {
     return {
       badge: "vault-scoped",
       badge_title: "Agent can only use vault tools",
-      power_hint: "Agent can edit files in your vault",
+      power_hint: "Auto-allow edits — asks for shell commands and deletions",
       empty_state:
-        "Agent edits files in your vault. Safe mode limits it to note tools.",
+        "Agent edits files in your vault. Safe mode asks before edits.",
     };
   }
   return {
     badge: "full access",
     badge_title: `${acp_agent_label(capability.acp)} agent with full system access`,
-    power_hint:
-      "Full system access — agent can run shell commands outside the vault",
+    power_hint: "Auto-allow edits — asks for shell commands and deletions",
     empty_state:
-      "Agent has full system access. Safe mode limits it to note tools.",
+      "Agent has full system access; risky calls ask for approval. Safe mode asks before edits.",
   };
 }

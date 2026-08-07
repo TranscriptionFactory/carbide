@@ -23,7 +23,10 @@
 
   const active_runs = $derived(
     runs.filter(
-      (run) => run.status === "starting" || run.status === "streaming",
+      (run) =>
+        run.status === "starting" ||
+        run.status === "streaming" ||
+        run.status === "awaiting_permission",
     ),
   );
   const active_count = $derived(active_runs.length);
@@ -42,6 +45,9 @@
     if (has_errors)
       return `${errors.length} error${errors.length > 1 ? "s" : ""}`;
     if (active_count === 0) return "Ready";
+    if (newest_active?.status === "awaiting_permission") {
+      return "Waiting for approval";
+    }
     const count_label = `${active_count} run${active_count > 1 ? "s" : ""}`;
     const provider_id = newest_active?.provider_id;
     return provider_id ? `${provider_id} · ${count_label}` : count_label;

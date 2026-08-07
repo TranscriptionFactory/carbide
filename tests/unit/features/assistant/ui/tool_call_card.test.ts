@@ -17,6 +17,8 @@ let mounted: Array<{ app: MountedApp; target: HTMLElement }> = [];
 function render_card(initial: {
   event: AssistantToolEvent;
   on_open_path?: (path: string) => void;
+  live?: boolean;
+  on_permission_respond?: (request_id: string, response: unknown) => void;
 }) {
   const { props, replace } = create_replaceable_props({
     on_open_path: initial.on_open_path ?? (() => {}),
@@ -254,6 +256,78 @@ describe("ToolCallCard", () => {
     expect(chip).toBeDefined();
     chip?.click();
     expect(on_open_path).toHaveBeenCalledWith("notes/a.md");
+  });
+
+  it("auto-expands a live pending permission prompt and fires the response", () => {
+    const on_permission_respond = vi.fn();
+    const { target } = render_card({
+      event: {
+        id: "call-1",
+        name: "bash",
+        kind: "execute",
+        input_summary: "ls",
+        permission: {
+          request_id: "perm-1",
+          options: [
+            { option_id: "a", label: "Allow", kind: "allow_once" },
+            { option_id: "r", label: "Deny", kind: "reject_once" },
+          ],
+        },
+      },
+      live: true,
+      on_permission_respond,
+    });
+
+    // pending prompt overrides the collapsed default
+    expect(target.textContent).toContain("Agent wants to run this tool");
+    const allow = [...target.querySelectorAll("button")].find(
+      (el) => el.textContent?.trim() === "Allow",
+    );
+    expect(allow).toBeDefined();
+    allow?.click();
+    expect(on_permission_respond).toHaveBeenCalledWith("perm-1", {
+      option_id: "a",
+      kind: "allow_once",
+    });
+  });
+
+  it("renders an orphaned prompt as no longer active on replay", () => {
+    const { target } = render_card({
+      event: {
+        id: "call-1",
+        name: "bash",
+        kind: "execute",
+        input_summary: "ls",
+        permission: {
+          request_id: "perm-1",
+          options: [{ option_id: "a", label: "Allow", kind: "allow_once" }],
+        },
+      },
+      live: false,
+    });
+    expect(target.textContent).toContain("no longer active");
+    expect(target.textContent).not.toContain("Agent wants to run this tool");
+  });
+
+  it("marks a denied call and shows the settled line", () => {
+    const { target } = render_card({
+      event: {
+        id: "call-1",
+        name: "bash",
+        kind: "execute",
+        input_summary: "ls",
+        ok: false,
+        permission: {
+          request_id: "perm-1",
+          options: [],
+          resolved: { outcome: "selected:reject_once", auto: false },
+        },
+      },
+    });
+    expect(target.textContent).toContain("denied");
+    header_button(target)?.click();
+    flushSync();
+    expect(target.textContent).toContain("Denied");
   });
 
   it("shows no check for a completion that mounted settled", () => {

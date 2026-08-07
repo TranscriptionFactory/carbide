@@ -79,8 +79,14 @@ export class AssistantRunStore {
       case "tool_start":
       case "tool_update":
       case "tool_end":
+        return;
       case "permission_request":
+        this.amend(record, { status: "awaiting_permission" });
+        return;
       case "permission_resolved":
+        if (record.status === "awaiting_permission") {
+          this.amend(record, { status: "streaming" });
+        }
         return;
       case "error":
         this.set_error(id, { message: event.message, detail: event.message });

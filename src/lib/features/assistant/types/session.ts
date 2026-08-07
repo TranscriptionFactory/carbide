@@ -8,10 +8,19 @@
 // leaves them living here.
 
 import type {
+  PermissionOptionSpec,
   ToolContent,
   ToolKind,
   ToolLocation,
 } from "$lib/features/assistant/types/agent_events";
+
+// The prompt that gated a tool call, persisted with the transcript so reloads
+// show settled outcomes and an orphaned prompt can render "no longer active".
+export type AssistantToolPermission = {
+  request_id: string;
+  options: PermissionOptionSpec[];
+  resolved?: { outcome: string; auto: boolean };
+};
 
 export type AssistantSessionKind = "inline" | "note" | "chat";
 
@@ -69,6 +78,7 @@ export type AssistantToolEvent = {
   kind?: ToolKind;
   locations?: ToolLocation[];
   content?: ToolContent[];
+  permission?: AssistantToolPermission;
 };
 
 export type AssistantToolCall = {

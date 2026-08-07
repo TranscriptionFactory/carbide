@@ -40,6 +40,18 @@ pub enum AcpAgentSpec {
     },
 }
 
+impl AcpAgentSpec {
+    /// Stable identity for permission grants: the preset name, or the custom
+    /// command verbatim.
+    pub fn agent_id(&self) -> String {
+        match self {
+            AcpAgentSpec::Preset { id: AcpPresetId::Claude } => "claude".to_string(),
+            AcpAgentSpec::Preset { id: AcpPresetId::Codex } => "codex".to_string(),
+            AcpAgentSpec::Custom { command, .. } => command.clone(),
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AcpLaunch {
     pub command: String,

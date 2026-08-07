@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+  apply_permission_request,
+  apply_permission_resolved,
   apply_tool_update,
+  dismiss_open_permissions,
+  hydrate_placeholder,
   cap_tool_content,
   finish_tool_event,
   tool_event_has_body,
@@ -245,6 +249,106 @@ describe("cap_tool_content", () => {
 
     expect(capped[0]).toBe(content[0]);
     expect(capped[1]).toBe(content[1]);
+  });
+});
+
+describe("permission folding", () => {
+  const options = [
+    { option_id: "a", label: "Allow", kind: "allow_once" as const },
+  ];
+
+  it("attaches a request to the tool event it gates by id", () => {
+    const events: AssistantToolEvent[] = [
+      { id: "call-1", name: "bash", input_summary: "ls" },
+    ];
+
+    const next = apply_permission_request(events, {
+      request_id: "perm-1",
+      tool_call_id: "call-1",
+      name: "bash",
+      kind: "execute",
+      input_summary: "ls",
+      paths: [],
+      options,
+    });
+
+    expect(next).toHaveLength(1);
+    expect(next[0]?.permission?.request_id).toBe("perm-1");
+  });
+
+  it("inserts a placeholder when the request outruns tool_start", () => {
+    const next = apply_permission_request([], {
+      request_id: "perm-1",
+      tool_call_id: "call-1",
+      name: "bash",
+      kind: "execute",
+      input_summary: "ls",
+      paths: [],
+      options,
+    });
+
+    expect(next).toHaveLength(1);
+    expect(next[0]?.id).toBe("call-1");
+    expect(next[0]?.ok).toBeUndefined();
+
+    const hydrated = hydrate_placeholder(next, {
+      id: "call-1",
+      name: "bash",
+      kind: "execute",
+      input_summary: '{"command":"ls"}',
+      paths: ["notes"],
+    });
+    expect(hydrated).not.toBeNull();
+    expect(hydrated).toHaveLength(1);
+    expect(hydrated?.[0]?.input_summary).toBe('{"command":"ls"}');
+    expect(hydrated?.[0]?.permission?.request_id).toBe("perm-1");
+  });
+
+  it("returns null from hydrate when no placeholder matches", () => {
+    expect(
+      hydrate_placeholder([], { id: "x", name: "bash", input_summary: "" }),
+    ).toBeNull();
+  });
+
+  it("marks the prompt resolved by request id", () => {
+    const events = apply_permission_request([], {
+      request_id: "perm-1",
+      tool_call_id: null,
+      name: "bash",
+      kind: "execute",
+      input_summary: "ls",
+      paths: [],
+      options,
+    });
+
+    const next = apply_permission_resolved(
+      events,
+      "perm-1",
+      "selected:allow_once",
+      false,
+    );
+    expect(next[0]?.permission?.resolved).toEqual({
+      outcome: "selected:allow_once",
+      auto: false,
+    });
+  });
+
+  it("dismisses unresolved prompts when a run closes out", () => {
+    const events = apply_permission_request([], {
+      request_id: "perm-1",
+      tool_call_id: null,
+      name: "bash",
+      kind: "execute",
+      input_summary: "ls",
+      paths: [],
+      options,
+    });
+
+    const settled = dismiss_open_permissions(events);
+    expect(settled[0]?.permission?.resolved?.outcome).toBe("cancelled");
+
+    // already-settled prompts return the same reference (no store churn)
+    expect(dismiss_open_permissions(settled)).toBe(settled);
   });
 });
 

@@ -131,6 +131,7 @@ pub fn run() {
         .manage(features::ai::stream::AiStreamState::default())
         .manage(features::ai::agent_stream::AgentRunState::default())
         .manage(features::ai::acp::AcpSessionManager::default())
+        .manage(std::sync::Arc::new(features::ai::acp::PermissionEngine::default()))
         .manage(shared::asset_cache::AssetCacheState::new())
         .manage(shared::live_html::LiveHtmlStore::default())
         .manage(features::mcp::http::HttpServerState::default())
@@ -218,6 +219,9 @@ pub fn run() {
             features::ai::stream::ai_test_provider,
             features::ai::agent_stream::agent_run_start,
             features::ai::agent_stream::agent_run_abort,
+            features::ai::acp::permissions::agent_permission_decide,
+            features::ai::acp::permissions::agent_permission_grants,
+            features::ai::acp::permissions::agent_permission_revoke,
             features::ai::agent_handoff::open_vault_in_agent,
             features::ai::secrets::ai_set_api_key,
             features::ai::secrets::ai_delete_api_key,

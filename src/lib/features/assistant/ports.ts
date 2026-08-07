@@ -1,6 +1,7 @@
 import type { AiProviderConfig } from "$lib/shared/types/ai_provider_config";
 import type { AiCliProbeStatus } from "$lib/features/ai";
 import type { RunEvent, RunRequest } from "$lib/features/assistant/types/run";
+import type { PermissionOptionKind } from "$lib/features/assistant/types/agent_events";
 import type {
   AssistantSession,
   AssistantSessionSummary,
@@ -17,6 +18,15 @@ export type TransportRequest = {
   vault_path: string | null;
   signal?: AbortSignal;
 };
+
+export type PermissionResponse =
+  | { option_id: string; kind: PermissionOptionKind }
+  | { kind: "cancelled" };
+
+// Answers a parked per-tool-call permission prompt on the backend engine.
+export interface AssistantPermissionPort {
+  respond(request_id: string, response: PermissionResponse): Promise<void>;
+}
 
 // One transport for every assistant execution. Both wire channels the app used
 // to have (`ai:chunk:*` text streaming and `agent-run-event:*` agent turns) are

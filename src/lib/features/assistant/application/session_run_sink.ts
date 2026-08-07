@@ -6,8 +6,12 @@ import {
 } from "$lib/features/assistant/types/session";
 import type { RunId, RunSink } from "$lib/features/assistant/types/run";
 import {
+  apply_permission_request,
+  apply_permission_resolved,
   apply_tool_update,
+  dismiss_open_permissions,
   finish_tool_event,
+  hydrate_placeholder,
 } from "$lib/features/assistant/types/tool_event_fold";
 
 // R8 retarget: one kernel-registered sink lands run events on the run's origin
@@ -101,21 +105,25 @@ export function create_session_run_sink(deps: {
           }));
           return;
         case "tool_start":
-          on_open(run_id, session_id, (message) => ({
-            tool_events: [
-              ...(message.tool_events ?? []),
-              {
-                id: event.id,
-                name: event.name,
-                kind: event.kind,
-                input_summary: event.input_summary,
-                paths: event.paths,
-                ...(event.locations.length > 0
-                  ? { locations: event.locations }
-                  : {}),
-              },
-            ],
-          }));
+          on_open(run_id, session_id, (message) => {
+            const started = {
+              id: event.id,
+              name: event.name,
+              kind: event.kind,
+              input_summary: event.input_summary,
+              paths: event.paths,
+              ...(event.locations.length > 0
+                ? { locations: event.locations }
+                : {}),
+            };
+            const events = message.tool_events ?? [];
+            return {
+              tool_events: hydrate_placeholder(events, started) ?? [
+                ...events,
+                started,
+              ],
+            };
+          });
           return;
         case "tool_update":
           on_existing(run_id, session_id, (message) => ({
@@ -140,9 +148,27 @@ export function create_session_run_sink(deps: {
           }));
           return;
         case "permission_request":
+          on_open(run_id, session_id, (message) => ({
+            tool_events: apply_permission_request(message.tool_events ?? [], {
+              request_id: event.request_id,
+              tool_call_id: event.tool_call_id,
+              name: event.name,
+              kind: event.kind,
+              input_summary: event.input_summary,
+              paths: event.paths,
+              options: event.options,
+            }),
+          }));
+          return;
         case "permission_resolved":
-          // Interactive approval lands in Phase 3; auto-answered requests
-          // need no transcript row yet.
+          on_existing(run_id, session_id, (message) => ({
+            tool_events: apply_permission_resolved(
+              message.tool_events ?? [],
+              event.request_id,
+              event.outcome,
+              event.auto,
+            ),
+          }));
           return;
         case "error":
           on_existing(run_id, session_id, () => ({ error: event.message }));
@@ -162,7 +188,16 @@ export function create_session_run_sink(deps: {
       if (!session_id || !message_id) return;
 
       const message = message_in(session_id, message_id);
-      if (!message || outcome.status === "done") return;
+      if (!message) return;
+
+      const settled = dismiss_open_permissions(message.tool_events ?? []);
+      if (settled !== message.tool_events && settled.length > 0) {
+        deps.sessions.update_message(session_id, message_id, {
+          tool_events: settled,
+        });
+      }
+
+      if (outcome.status === "done") return;
 
       if (!has_turn_evidence(message)) {
         const session = deps.sessions.get(session_id);

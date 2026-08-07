@@ -41,14 +41,32 @@
     tool_event_status,
     type ToolEventStatus,
   } from "$lib/features/assistant/types/tool_event_fold";
+  import {
+    classify_outcome,
+    outcome_line,
+  } from "$lib/features/assistant/domain/permission_outcome";
   import InlineDiff from "$lib/features/assistant/ui/inline_diff.svelte";
+  import PermissionPrompt from "$lib/features/assistant/ui/permission_prompt.svelte";
   import TerminalBlock from "$lib/features/assistant/ui/terminal_block.svelte";
+  import type { PermissionResponse } from "$lib/features/assistant/ports";
 
   type Props = {
     event: AssistantToolEvent;
     on_open_path: (path: string) => void;
+    on_permission_respond?:
+      | ((request_id: string, response: PermissionResponse) => void)
+      | undefined;
+    // A prompt on a freshly loaded transcript is an orphan — nothing is
+    // parked behind it — and renders as "no longer active" instead of live
+    // buttons.
+    live?: boolean;
   };
-  let { event, on_open_path }: Props = $props();
+  let {
+    event,
+    on_open_path,
+    on_permission_respond = undefined,
+    live = false,
+  }: Props = $props();
 
   const status = $derived(tool_event_status(event));
   const Icon = $derived(KIND_ICONS[event.kind ?? "other"]);
@@ -91,8 +109,19 @@
       ? event.locations
       : (event.paths ?? []).map((path) => ({ path })),
   );
-  const has_body = $derived(tool_event_has_body(event));
-  const expanded = $derived(open && has_body);
+  const permission = $derived(event.permission);
+  const pending_permission = $derived(
+    permission !== undefined && permission.resolved === undefined,
+  );
+  const denied = $derived(
+    permission?.resolved !== undefined &&
+      classify_outcome(permission.resolved.outcome) === "denied",
+  );
+  const has_body = $derived(
+    tool_event_has_body(event) || permission !== undefined,
+  );
+  // A pending prompt must be visible and answerable; it overrides collapse.
+  const expanded = $derived((open || pending_permission) && has_body);
 </script>
 
 {#snippet row()}
@@ -100,6 +129,9 @@
   <span class="shrink-0 font-medium text-foreground">{event.name}</span>
   <span class="truncate text-muted-foreground">{event.input_summary}</span>
   <span class="ml-auto flex shrink-0 items-center gap-1.5">
+    {#if denied}
+      <span class="text-[10px] font-medium text-destructive">denied</span>
+    {/if}
     {#if status === "running"}
       <Loader2 class="size-3.5 animate-spin" aria-label="Running" />
     {:else if status === "failed"}
@@ -139,6 +171,36 @@
   {#if expanded}
     <div class="flex select-text flex-col gap-1.5 border-t px-2 py-1.5">
       <div class="break-words text-muted-foreground">{event.input_summary}</div>
+      {#if permission && pending_permission}
+        {#if live && on_permission_respond}
+          <div class="flex flex-col gap-1">
+            <span class="text-muted-foreground"
+              >Agent wants to run this tool</span
+            >
+            <PermissionPrompt
+              options={permission.options}
+              on_respond={(choice) =>
+                on_permission_respond?.(
+                  permission.request_id,
+                  "option_id" in choice
+                    ? { option_id: choice.option_id, kind: choice.kind }
+                    : { kind: "cancelled" },
+                )}
+            />
+          </div>
+        {:else}
+          <span class="text-muted-foreground italic"
+            >Permission prompt no longer active</span
+          >
+        {/if}
+      {:else if permission?.resolved}
+        <span class="text-muted-foreground"
+          >{outcome_line(
+            permission.resolved.outcome,
+            permission.resolved.auto,
+          )}</span
+        >
+      {/if}
       {#each content as block, index (index)}
         {#if block.kind === "diff"}
           <InlineDiff

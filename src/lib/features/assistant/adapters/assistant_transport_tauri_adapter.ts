@@ -10,6 +10,7 @@ import {
 } from "$lib/features/ai";
 import type { AgentEvent } from "$lib/features/assistant/types/agent_events";
 import type {
+  AssistantPermissionPort,
   AssistantTransportPort,
   TransportRequest,
 } from "$lib/features/assistant/ports";
@@ -246,6 +247,22 @@ function drive_blocking(
   })();
 
   return queue;
+}
+
+// A cancelled response (synthetic Deny with no reject option on offer) is
+// wired as an empty option_id; the session actor answers the agent with the
+// protocol-level Cancelled outcome for that case.
+export function create_assistant_permission_tauri_adapter(): AssistantPermissionPort {
+  return {
+    async respond(request_id, response) {
+      await tauri_invoke("agent_permission_decide", {
+        requestId: request_id,
+        optionId: "option_id" in response ? response.option_id : "",
+        optionKind:
+          response.kind === "cancelled" ? "reject_once" : response.kind,
+      });
+    },
+  };
 }
 
 export function create_assistant_transport_tauri_adapter(): AssistantTransportPort {

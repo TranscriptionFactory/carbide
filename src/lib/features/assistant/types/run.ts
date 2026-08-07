@@ -23,6 +23,7 @@ export type RunKind = "inline" | "note" | "chat" | "agent" | "background";
 export type RunStatus =
   | "starting"
   | "streaming"
+  | "awaiting_permission"
   | "stopping"
   | "done"
   | "error"

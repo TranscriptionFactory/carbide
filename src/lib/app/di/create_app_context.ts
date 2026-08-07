@@ -61,6 +61,7 @@ import {
   DocumentEditService,
   ProposalApplyService,
   ProposalPersistenceService,
+  create_assistant_permission_tauri_adapter,
   create_assistant_transport_tauri_adapter,
   register_assistant_actions,
   register_assistant_edit_actions,
@@ -1383,6 +1384,7 @@ export function create_app_context(input: {
     session_service: assistant_sessions_service,
     documents: assistant_documents,
     assistant_kernel,
+    permissions: create_assistant_permission_tauri_adapter(),
     assistant_proposals: stores.assistant_proposals,
   });
 

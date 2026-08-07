@@ -344,6 +344,11 @@ pub async fn agent_run_start(
                         mcp_token: endpoint.token.clone(),
                         toolset: spec.toolset.clone(),
                         mutating,
+                        agent_id: acp_spec.agent_id(),
+                        permissions: app
+                            .state::<std::sync::Arc<super::acp::PermissionEngine>>()
+                            .inner()
+                            .clone(),
                     };
 
                     // Token lifetime is owned by session lifetime: whatever

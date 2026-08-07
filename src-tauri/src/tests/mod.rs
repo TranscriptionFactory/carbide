@@ -4,6 +4,8 @@ mod acp_translate;
 mod acp_policy;
 #[path = "../../tests/acp_agent_def.rs"]
 mod acp_agent_def;
+#[path = "../../tests/acp_permissions.rs"]
+mod acp_permissions;
 
 #[path = "../../tests/notes_service_safety.rs"]
 mod notes_service_safety;
@@ -200,6 +202,9 @@ mod specta_export {
                 crate::features::ai::stream::ai_test_provider,
                 crate::features::ai::agent_stream::agent_run_start,
                 crate::features::ai::agent_stream::agent_run_abort,
+                crate::features::ai::acp::permissions::agent_permission_decide,
+                crate::features::ai::acp::permissions::agent_permission_grants,
+                crate::features::ai::acp::permissions::agent_permission_revoke,
                 crate::features::ai::agent_handoff::open_vault_in_agent,
                 crate::features::ai::secrets::ai_set_api_key,
                 crate::features::ai::secrets::ai_delete_api_key,

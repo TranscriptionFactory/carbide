@@ -37,7 +37,7 @@
     { value: "power", label: "Power" },
   ];
 
-  const SAFE_HINT = "Note tools only — no shell or file edits";
+  const SAFE_HINT = "Ask before file edits and shell commands";
 </script>
 
 <div class="flex items-center justify-between gap-2 border-t px-2 pt-2">

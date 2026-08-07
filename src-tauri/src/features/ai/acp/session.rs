@@ -20,7 +20,10 @@ use crate::features::ai::harness::MutatingToolSet;
 use crate::features::ai::stream::clamp_stderr;
 
 use super::agent_def::{pick_session_mode, AcpLaunch};
-use super::policy::auto_decide;
+use super::permissions::{
+    mint_request_id, Evaluation, ParkedDecision, PermissionEngine, PERMISSION_TIMEOUT,
+};
+use super::policy::{build_request_spec, option_kind_name, select_option};
 use super::translate::TurnTranslator;
 
 const STDERR_RING_LINES: usize = 50;
@@ -39,6 +42,10 @@ pub struct AcpSessionConfig {
     pub mcp_token: String,
     pub toolset: ToolSelector,
     pub mutating: MutatingToolSet,
+    /// Stable identity grants are keyed by ("claude", "codex", or the custom
+    /// command); the permission engine scopes stored grants to it.
+    pub agent_id: String,
+    pub permissions: std::sync::Arc<PermissionEngine>,
 }
 
 pub enum SessionCommand {
@@ -120,6 +127,8 @@ async fn run_session(
         mcp_token,
         toolset,
         mutating,
+        agent_id,
+        permissions,
     } = config;
 
     let agent = AcpAgent::new(
@@ -148,6 +157,12 @@ async fn run_session(
     let notification_sink = sink.clone();
     let permission_sink = sink.clone();
     let handler_toolset = toolset.clone();
+    let handler_engine = permissions.clone();
+    let handler_agent_id = agent_id.clone();
+    // Request ids this session has parked, so aborting the turn can cancel
+    // exactly its own prompts and no other session's.
+    let parked: Arc<Mutex<Vec<String>>> = Arc::new(Mutex::new(Vec::new()));
+    let handler_parked = parked.clone();
 
     let result = Client
         .builder()
@@ -167,9 +182,48 @@ async fn run_session(
         )
         .on_receive_request(
             async move |request: RequestPermissionRequest, responder, _cx| {
-                let decision = auto_decide(&handler_toolset, &request);
-                emit(&permission_sink, decision.resolved);
-                match decision.selected_option_id {
+                let spec = build_request_spec(&handler_agent_id, &request);
+                let request_id = mint_request_id();
+
+                let answer = match handler_engine.evaluate(&handler_toolset, &spec) {
+                    Evaluation::Allow => {
+                        auto_answer(&permission_sink, &request_id, &spec, true)
+                    }
+                    Evaluation::Deny => {
+                        auto_answer(&permission_sink, &request_id, &spec, false)
+                    }
+                    Evaluation::Prompt => {
+                        emit(
+                            &permission_sink,
+                            AgentEvent::PermissionRequest {
+                                request_id: request_id.clone(),
+                                tool_call_id: spec.tool_call_id.clone(),
+                                name: spec.name.clone(),
+                                kind: spec.kind,
+                                input_summary: spec.input_summary.clone(),
+                                paths: spec.paths.clone(),
+                                mutating: spec.mutating,
+                                options: spec.options.clone(),
+                            },
+                        );
+                        let wait = handler_engine.park(request_id.clone(), spec.clone());
+                        handler_parked.lock().unwrap().push(request_id.clone());
+                        let outcome =
+                            tokio::time::timeout(PERMISSION_TIMEOUT, wait).await;
+                        handler_parked
+                            .lock()
+                            .unwrap()
+                            .retain(|id| id != &request_id);
+                        settle_prompt(
+                            &permission_sink,
+                            &handler_engine,
+                            &request_id,
+                            outcome,
+                        )
+                    }
+                };
+
+                match answer {
                     Some(option_id) => responder.respond(RequestPermissionResponse::new(
                         RequestPermissionOutcome::Selected(SelectedPermissionOutcome::new(
                             option_id,
@@ -192,6 +246,8 @@ async fn run_session(
                 cmd_rx,
                 &sink,
                 &translator,
+                &parked,
+                &permissions,
             )
             .await
         })
@@ -217,6 +273,8 @@ async fn run_commands(
     mut cmd_rx: mpsc::UnboundedReceiver<SessionCommand>,
     sink: &Arc<Mutex<Option<EventSink>>>,
     translator: &Arc<Mutex<TurnTranslator>>,
+    parked: &Arc<Mutex<Vec<String>>>,
+    permissions: &std::sync::Arc<PermissionEngine>,
 ) -> Result<(), agent_client_protocol::Error> {
     cx.send_request(
         InitializeRequest::new(ProtocolVersion::V1)
@@ -272,6 +330,11 @@ async fn run_commands(
                 translator.lock().unwrap().clear_open_calls();
             }
             SessionCommand::Cancel => {
+                // A stopped run must not leave a live prompt: unblock this
+                // session's parked requests before the agent is told to stop.
+                for request_id in parked.lock().unwrap().drain(..) {
+                    permissions.cancel(&request_id);
+                }
                 cx.send_notification(CancelNotification::new(session_id.clone()))?;
             }
             SessionCommand::Shutdown => break,
@@ -323,6 +386,70 @@ fn emit(sink: &Arc<Mutex<Option<EventSink>>>, event: AgentEvent) {
     if let Some(sink) = sink.lock().unwrap().as_ref() {
         sink(event);
     }
+}
+
+// Answers an auto decision: picks the mildest matching option, records the
+// honest resolution in the transcript, returns the option to respond with
+// (None ⇒ protocol-level Cancelled).
+fn auto_answer(
+    sink: &Arc<Mutex<Option<EventSink>>>,
+    request_id: &str,
+    spec: &super::permissions::PermissionRequestSpec,
+    allow: bool,
+) -> Option<String> {
+    let selected = select_option(&spec.options, allow);
+    let outcome = match selected {
+        Some(option) => format!("selected:{}", option_kind_name(option.kind)),
+        None => "cancelled".to_string(),
+    };
+    emit(
+        sink,
+        AgentEvent::PermissionResolved {
+            request_id: request_id.to_string(),
+            outcome,
+            auto: true,
+        },
+    );
+    selected.map(|option| option.option_id.clone())
+}
+
+fn settle_prompt(
+    sink: &Arc<Mutex<Option<EventSink>>>,
+    engine: &std::sync::Arc<PermissionEngine>,
+    request_id: &str,
+    outcome: Result<
+        Result<ParkedDecision, tokio::sync::oneshot::error::RecvError>,
+        tokio::time::error::Elapsed,
+    >,
+) -> Option<String> {
+    let (outcome_text, auto, option_id) = match outcome {
+        // An empty option_id is the synthetic Deny for a prompt the agent
+        // offered no reject option for; the protocol answer is Cancelled.
+        Ok(Ok(ParkedDecision::Selected { option_id, kind })) if !option_id.is_empty() => (
+            format!("selected:{}", option_kind_name(kind)),
+            false,
+            Some(option_id),
+        ),
+        Ok(Ok(ParkedDecision::Selected { .. })) => ("cancelled".to_string(), false, None),
+        Ok(Ok(ParkedDecision::Cancelled)) | Ok(Err(_)) => {
+            ("cancelled".to_string(), true, None)
+        }
+        Err(_) => {
+            // Nothing arrived in time; the receiver is gone, so a later click
+            // resolves to nobody and the engine entry is dropped here.
+            engine.cancel(request_id);
+            ("timeout".to_string(), true, None)
+        }
+    };
+    emit(
+        sink,
+        AgentEvent::PermissionResolved {
+            request_id: request_id.to_string(),
+            outcome: outcome_text,
+            auto,
+        },
+    );
+    option_id
 }
 
 fn describe(error: &agent_client_protocol::Error) -> String {

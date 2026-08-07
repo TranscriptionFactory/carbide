@@ -32,7 +32,9 @@ function render_toggle(props?: {
       mode: props?.mode ?? "ask",
       permission_mode: props?.permission_mode ?? "safe",
       agent_supported: props?.agent_supported ?? true,
-      power_hint: props?.power_hint ?? "Agent can edit files in your vault",
+      power_hint:
+        props?.power_hint ??
+        "Auto-allow edits — asks for shell commands and deletions",
       on_set_mode: props?.on_set_mode ?? vi.fn(),
       on_set_permission_mode: props?.on_set_permission_mode ?? vi.fn(),
     },
@@ -131,10 +133,10 @@ describe("RagModeToggle", () => {
       power_hint: agent_scope_copy(capability).power_hint,
     });
     expect(button_labelled(target, "Power").getAttribute("title")).toBe(
-      "Full system access — agent can run shell commands outside the vault",
+      "Auto-allow edits — asks for shell commands and deletions",
     );
     expect(button_labelled(target, "Safe").getAttribute("title")).toBe(
-      "Note tools only — no shell or file edits",
+      "Ask before file edits and shell commands",
     );
   });
 });
@@ -143,7 +145,7 @@ describe("agent_scope_copy", () => {
   it("keeps the native grant vault-scoped and the ACP grant honest", () => {
     const native = agent_scope_copy({ backend: "native" });
     expect(native.badge).toBe("vault-scoped");
-    expect(native.power_hint).toBe("Agent can edit files in your vault");
+    expect(native.power_hint).toContain("Auto-allow edits");
 
     const acp = agent_scope_copy({
       backend: "acp",
@@ -151,7 +153,7 @@ describe("agent_scope_copy", () => {
     });
     expect(acp.badge).toBe("full access");
     expect(acp.badge_title).toContain("Claude Code");
-    expect(acp.power_hint).toContain("Full system access");
+    expect(acp.power_hint).toContain("Auto-allow edits");
     expect(acp.empty_state).toContain("full system access");
   });
 });
