@@ -25,7 +25,11 @@ pub const DEFAULT_MODEL_SHORT_ID: &str = "snowflake-arctic-embed-xs";
 /// Bumped whenever the vectors this app produces change meaning for an
 /// unchanged model — pooling strategy, query prefix, chunking. It rides in the
 /// stored `model_version` token so a change forces a wipe and re-embed.
-pub const ENCODING_VERSION: u32 = 2;
+///
+/// v3 is a correctness wipe, not an encoding change: builds between the f16
+/// Metal switch and the ingest guard could store NaN vectors, and a NaN row in
+/// a `DistCosine` graph degrades every query, not just its own.
+pub const ENCODING_VERSION: u32 = 3;
 
 pub const EMBEDDING_MODELS: &[EmbeddingModel] = &[
     EmbeddingModel {

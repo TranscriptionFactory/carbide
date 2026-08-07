@@ -76,13 +76,14 @@ impl EmbeddingService {
             }
         };
 
-        // f16 on Metal halves attention-tensor memory and ~2x the GPU matmul
-        // throughput on M2 (M4 hides the f32 cost). CPU keeps f32 because
-        // Accelerate's BLAS is f32-tuned and its f16 path is slower.
-        let model_dtype = match device {
-            Device::Metal(_) => DType::F16,
-            _ => DType::F32,
-        };
+        // f32 on every device. candle's BERT builds its additive attention mask
+        // as `(1 - mask) * f32::MIN` cast to the model dtype
+        // (candle-transformers bert.rs `get_extended_attention_mask`); in f16
+        // `f32::MIN` saturates to -inf, so every *unmasked* position evaluates
+        // `0 * -inf` = NaN and poisons the whole forward pass. There is no
+        // f16-safe path through that function, so the dtype is not ours to
+        // choose. (ref: DL-002)
+        let model_dtype = DType::F32;
 
         let api = ApiBuilder::new()
             .with_cache_dir(cache_dir)
@@ -129,7 +130,7 @@ impl EmbeddingService {
             ..Default::default()
         }));
 
-        Ok(Self {
+        let service = Self {
             model,
             tokenizer,
             splitter,
@@ -137,7 +138,24 @@ impl EmbeddingService {
             pooling: spec.pooling,
             query_prefix: spec.query_prefix,
             last_query: Mutex::new(None),
-        })
+        };
+        service.check_encoder()?;
+        Ok(service)
+    }
+
+    /// One forward pass at load. A dtype or kernel fault is uniform — it ruins
+    /// one sentence exactly as thoroughly as it ruins a vault — so proving the
+    /// encoder here turns what was a silent vault-wide corruption into a model
+    /// that refuses to load and says so.
+    fn check_encoder(&self) -> Result<(), String> {
+        let probe = self.embed_documents(&["carbide encoder self-check"], None)?;
+        match probe.first() {
+            Some(vector) if is_usable_vector(vector) => Ok(()),
+            _ => Err(format!(
+                "encoder produced an unusable vector on {:?}",
+                self.device
+            )),
+        }
     }
 
     /// Embeds a search query: applies the model's asymmetric query prefix and
@@ -403,8 +421,8 @@ pub(crate) fn chunk_by_offsets(
 }
 
 /// Reduces `[B, S, D]` token states to `[B, D]` without leaving the device.
-/// Mean pooling casts to f32 first: on Metal the model runs f16, where a
-/// masked sum over 256 positions can overflow to inf.
+/// Both branches settle on f32 so the contract holds for any dtype the model
+/// is loaded at, not just the f32 it currently uses.
 pub(crate) fn pool_on_device(
     hidden: &Tensor,
     mask: &Tensor,

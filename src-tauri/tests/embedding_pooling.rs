@@ -7,7 +7,7 @@ use crate::features::search::embeddings::{
 use crate::features::search::hnsw_index::{SharedVectorIndex, VectorIndex};
 use crate::features::search::service::reconcile_model_version;
 use crate::features::search::vector_db;
-use candle_core::{Device, Tensor};
+use candle_core::{DType, Device, Tensor};
 use rusqlite::Connection;
 use std::collections::BTreeSet;
 use std::fs;
@@ -369,5 +369,45 @@ fn version_reconcile_precedes_both_early_returns() {
         reconcile < model_init,
         "reconcile_model_version must run before the model load, which fails \
          (and returns) on any offline or cold-cache machine"
+    );
+}
+
+/// The encoder is loaded in f32 on every device because candle's BERT builds
+/// its additive attention mask as `(1 - mask) * f32::MIN` cast to the model
+/// dtype (candle-transformers `bert.rs::get_extended_attention_mask`). In f16
+/// that constant saturates to -inf, so every *unmasked* position evaluates
+/// `0 * -inf` = NaN and the whole forward pass comes back NaN — silently, since
+/// a normalized NaN row is just an unusable vector.
+///
+/// This pins the dependency behaviour, not ours: if a candle upgrade clamps
+/// that constant to the dtype's own finite minimum, f16 becomes safe and the
+/// memory it saves is worth revisiting.
+#[test]
+fn f16_attention_mask_is_why_the_encoder_runs_f32() {
+    let device = Device::Cpu;
+    let mask = Tensor::new(&[[1u32, 1u32]], &device)
+        .expect("mask")
+        .to_dtype(DType::F16)
+        .expect("mask to f16");
+    let min = Tensor::try_from(f32::MIN)
+        .expect("f32::MIN")
+        .to_device(&device)
+        .expect("device")
+        .to_dtype(DType::F16)
+        .expect("min to f16");
+
+    let extended = (mask.ones_like().expect("ones") - &mask)
+        .expect("1 - mask")
+        .broadcast_mul(&min)
+        .expect("scale");
+    let values = extended
+        .to_dtype(DType::F32)
+        .expect("back to f32")
+        .to_vec2::<f32>()
+        .expect("read");
+
+    assert!(
+        values[0].iter().all(|x| x.is_nan()),
+        "f16 mask no longer poisons unmasked positions, got {values:?}"
     );
 }
