@@ -1,5 +1,6 @@
 use crate::features::notes::service as notes_service;
 use crate::features::search::db::{self as search_db, AttachmentLink, OrphanLink};
+use crate::features::search::embedding_model;
 use crate::features::search::embeddings::{EmbeddingService, EmbeddingServiceState};
 use crate::features::search::hnsw_index::{SharedVectorIndex, VectorIndex};
 use crate::features::search::model::{
@@ -50,15 +51,87 @@ fn resolve_embedding_flags(app: &AppHandle) -> (bool, bool) {
     embedding_flags(&settings_service::load_settings(app).unwrap_or_default())
 }
 
-pub(crate) fn short_id_to_hf_repo(short_id: &str) -> &str {
-    match short_id {
-        "snowflake-arctic-embed-xs" => "Snowflake/snowflake-arctic-embed-xs",
-        "snowflake-arctic-embed-s" => "Snowflake/snowflake-arctic-embed-s",
-        "snowflake-arctic-embed-m" => "Snowflake/snowflake-arctic-embed-m",
-        "bge-small-en-v1.5" => "BAAI/bge-small-en-v1.5",
-        "all-MiniLM-L6-v2" => "sentence-transformers/all-MiniLM-L6-v2",
-        _ => "Snowflake/snowflake-arctic-embed-xs",
+/// Vector width the indices must be built at for the configured model.
+fn resolve_embedding_dims(app: &AppHandle) -> usize {
+    embedding_model::lookup(&resolve_embedding_model_id(app)).dims
+}
+
+/// Wipes every stored vector when the model or the encoding that produced them
+/// changed, and records the new token. Runs before the enable-flag and
+/// model-load early returns: an offline or fully-disabled machine must not keep
+/// serving vectors from an encoding this build no longer produces.
+pub(crate) fn reconcile_model_version(
+    conn: &Connection,
+    short_id: &str,
+    note_index: &SharedVectorIndex,
+    block_index: &SharedVectorIndex,
+) {
+    let expected = embedding_model::model_version_token(short_id);
+    let stored = vector_db::get_model_version(conn);
+    if stored.as_deref() == Some(expected.as_str()) {
+        return;
     }
+    log::info!("embedding encoding changed ({stored:?} -> {expected}), re-embedding all");
+    if let Err(e) = vector_db::clear_all_embeddings(conn) {
+        log::warn!("embed_batch: clear for model upgrade failed: {e}");
+    }
+    if let Err(e) = vector_db::set_model_version(conn, &expected) {
+        log::warn!("embed_batch: failed to update model version: {e}");
+    }
+    if let Ok(mut ni) = note_index.write() {
+        ni.clear();
+    }
+    if let Ok(mut bi) = block_index.write() {
+        bi.clear();
+    }
+}
+
+/// Embeds section texts, splitting any section past the encoder's token budget
+/// and mean-pooling its chunk vectors back into one. Keeps the stored row
+/// per-section — the `(path, heading_id)` key and section content hash are
+/// unchanged — while no longer dropping the tail of a long section.
+fn embed_section_texts(
+    model: &EmbeddingService,
+    texts: &[&str],
+    cancel: Option<&AtomicBool>,
+) -> Result<Vec<Vec<f32>>, String> {
+    let chunked: Vec<Vec<String>> = texts
+        .iter()
+        .map(|text| model.split_to_token_budget(text))
+        .collect();
+    if chunked.iter().all(|chunks| chunks.len() == 1) {
+        return model.embed_documents(texts, cancel);
+    }
+
+    let flat: Vec<&str> = chunked.iter().flatten().map(String::as_str).collect();
+
+    // Sub-batch at the caller's chosen width so chunk expansion never inflates
+    // the peak attention tensor beyond what the un-chunked path would use.
+    let width = texts.len().max(1);
+    let mut vectors: Vec<Vec<f32>> = Vec::with_capacity(flat.len());
+    for window in flat.chunks(width) {
+        vectors.extend(model.embed_documents(window, cancel)?);
+    }
+    if vectors.len() != flat.len() {
+        return Err(format!(
+            "chunked embed returned {} vectors for {} chunks",
+            vectors.len(),
+            flat.len()
+        ));
+    }
+
+    let mut pooled = Vec::with_capacity(texts.len());
+    let mut cursor = 0usize;
+    for chunks in &chunked {
+        let slice = &vectors[cursor..cursor + chunks.len()];
+        cursor += chunks.len();
+        pooled.push(if slice.len() == 1 {
+            slice[0].clone()
+        } else {
+            vector_db::mean_pool_normalize(slice)
+        });
+    }
+    Ok(pooled)
 }
 
 fn set_current_thread_to_background_qos() {
@@ -601,8 +674,9 @@ pub(crate) fn ensure_worker(app: &AppHandle, vault_id: &str) -> Result<(), Strin
     let write_conn = search_db::open_search_db(app, vault_id)?;
     let dump_dir = search_db::db_cache_dir(app)?;
 
-    let note_index = Arc::new(RwLock::new(VectorIndex::new(384)));
-    let block_index = Arc::new(RwLock::new(VectorIndex::new(384)));
+    let dims = resolve_embedding_dims(app);
+    let note_index = Arc::new(RwLock::new(VectorIndex::new(dims)));
+    let block_index = Arc::new(RwLock::new(VectorIndex::new(dims)));
 
     let (tx, rx) = mpsc::channel::<DbCommand>();
     let _ = tx.send(DbCommand::RebuildIndex);
@@ -612,7 +686,7 @@ pub(crate) fn ensure_worker(app: &AppHandle, vault_id: &str) -> Result<(), Strin
     let vid_for_writer = vault_id.to_string();
     let handle = std::thread::spawn(move || {
         set_current_thread_to_background_qos();
-        writer_thread_loop(vid_for_writer, dump_dir, rx, write_conn, ni, bi);
+        writer_thread_loop(vid_for_writer, dump_dir, dims, rx, write_conn, ni, bi);
     });
 
     let worker = VaultWorker {
@@ -632,6 +706,7 @@ pub(crate) fn ensure_worker(app: &AppHandle, vault_id: &str) -> Result<(), Strin
 fn writer_thread_loop(
     vault_id: String,
     dump_dir: PathBuf,
+    dims: usize,
     rx: Receiver<DbCommand>,
     conn: Connection,
     note_index: SharedVectorIndex,
@@ -640,6 +715,7 @@ fn writer_thread_loop(
     let ctx = PersistCtx {
         dir: dump_dir,
         vault_id,
+        dims,
     };
     let mut notes_cache: BTreeMap<String, IndexNoteMeta> =
         match search_db::get_all_notes_from_db(&conn) {
@@ -688,6 +764,9 @@ fn writer_thread_loop(
 struct PersistCtx {
     dir: PathBuf,
     vault_id: String,
+    // Width to build a fresh index at. Only used when SQLite holds no vectors
+    // to infer it from.
+    dims: usize,
 }
 
 impl PersistCtx {
@@ -706,7 +785,7 @@ fn load_or_rebuild_indices(
     let new_note_index = VectorIndex::load_or_rebuild(
         conn,
         "notes",
-        384,
+        ctx.dims,
         &ctx.dir,
         &ctx.basename("notes"),
         &model_version,
@@ -714,7 +793,7 @@ fn load_or_rebuild_indices(
     let new_block_index = VectorIndex::load_or_rebuild(
         conn,
         "blocks",
-        384,
+        ctx.dims,
         &ctx.dir,
         &ctx.basename("blocks"),
         &model_version,
@@ -1189,9 +1268,8 @@ fn embed_note_on_save(
         let embedding_state = app_handle.state::<EmbeddingServiceState>();
         let cache_dir = resolve_embedding_cache_dir(app_handle);
         let short_id = resolve_embedding_model_id(app_handle);
-        let hf_repo = short_id_to_hf_repo(&short_id);
         embedding_state
-            .get_or_init(cache_dir, hf_repo, app_handle)
+            .get_or_init(cache_dir, &short_id, app_handle)
             .ok()
     } else {
         None
@@ -1219,7 +1297,7 @@ pub(crate) fn apply_note_embedding_on_save(
     block_embed_enabled: bool,
     model: Option<&EmbeddingService>,
 ) {
-    let (_, _, sections) = search_db::extract_markdown_structure(markdown);
+    let (_, _, sections) = search_db::extract_markdown_structure(markdown, "");
     let lines: Vec<&str> = markdown.lines().collect();
     let old_hashes = vector_db::get_block_hashes(conn, note_id);
 
@@ -1278,7 +1356,7 @@ pub(crate) fn apply_note_embedding_on_save(
 
         if !to_embed.is_empty() {
             let texts: Vec<&str> = to_embed.iter().map(|(_, text, _)| text.as_str()).collect();
-            match model.embed_batch(&texts, None) {
+            match embed_section_texts(model, &texts, None) {
                 Ok(embeddings) => {
                     for ((heading_id, _, hash), embedding) in
                         to_embed.iter().zip(embeddings.iter())
@@ -1303,7 +1381,10 @@ pub(crate) fn apply_note_embedding_on_save(
     if note_embed_enabled {
         let block_vecs = vector_db::get_block_embeddings_for_note(conn, note_id);
         let note_vec = if block_vecs.is_empty() {
-            model.embed_one(&embed_text_for_note(conn, note_id)).ok()
+            model
+                .embed_documents(&[&embed_text_for_note(conn, note_id)], None)
+                .ok()
+                .and_then(|mut v| v.pop())
         } else {
             let vecs: Vec<Vec<f32>> = block_vecs.into_iter().map(|(_, v)| v).collect();
             Some(vector_db::mean_pool_normalize(&vecs))
@@ -1746,22 +1827,24 @@ fn handle_embed_batch(
     // 2. Note composition: derives note_embeddings by mean-pooling block vectors for
     //    each note, then L2-normalizing. No separate full-body embed pass; composition
     //    from blocks covers all sections without truncation. Notes with zero block
-    //    embeddings fall back to embed_one on FTS body or filename. (ref: DL-003, DL-005)
+    //    embeddings fall back to a direct embed of FTS body or filename. (ref: DL-003, DL-005)
     //
     // Both phases are gated by global feature flags (embedding_block_enabled,
     // embedding_note_enabled), checked before get_or_init so a disabled
     // setting never loads (or downloads) the model.
+    let embedding_state = app_handle.state::<EmbeddingServiceState>();
+    let cache_dir = resolve_embedding_cache_dir(app_handle);
+    let short_id = resolve_embedding_model_id(app_handle);
+
+    reconcile_model_version(conn, &short_id, note_index, block_index);
+
     let (note_embed_enabled, block_embed_enabled) = resolve_embedding_flags(app_handle);
     if !note_embed_enabled && !block_embed_enabled {
         log::info!("embed_batch: both note and block embedding disabled for {vault_id}");
         return;
     }
 
-    let embedding_state = app_handle.state::<EmbeddingServiceState>();
-    let cache_dir = resolve_embedding_cache_dir(app_handle);
-    let short_id = resolve_embedding_model_id(app_handle);
-    let hf_repo = short_id_to_hf_repo(&short_id);
-    let model = match embedding_state.get_or_init(cache_dir, hf_repo, app_handle) {
+    let model = match embedding_state.get_or_init(cache_dir, &short_id, app_handle) {
         Ok(m) => m,
         Err(e) => {
             log::warn!("embed_batch: model unavailable: {e}");
@@ -1779,27 +1862,6 @@ fn handle_embed_batch(
     if clear_first {
         if let Err(e) = vector_db::clear_all_embeddings(conn) {
             log::warn!("embed_batch: clear failed: {e}");
-        }
-        if let Ok(mut ni) = note_index.write() {
-            ni.clear();
-        }
-        if let Ok(mut bi) = block_index.write() {
-            bi.clear();
-        }
-    }
-
-    let model_version = vector_db::get_model_version(conn);
-    if model_version.as_deref() != Some(&short_id) {
-        log::info!(
-            "embedding model version changed ({:?} -> {}), re-embedding all",
-            model_version,
-            short_id
-        );
-        if let Err(e) = vector_db::clear_all_embeddings(conn) {
-            log::warn!("embed_batch: clear for model upgrade failed: {e}");
-        }
-        if let Err(e) = vector_db::set_model_version(conn, &short_id) {
-            log::warn!("embed_batch: failed to update model version: {e}");
         }
         if let Ok(mut ni) = note_index.write() {
             ni.clear();
@@ -1889,10 +1951,14 @@ fn handle_embed_batch(
                             Some(vector_db::mean_pool_normalize(&vecs))
                         }
                         _ => {
-                            // No qualifying block sections: fall back to embed_one on FTS
-                            // body or filename to ensure note_embeddings is always populated. (ref: DL-005)
+                            // No qualifying block sections: fall back to a direct
+                            // embed of FTS body or filename so note_embeddings is
+                            // always populated. (ref: DL-005)
                             let text = embed_text_for_note(conn, path);
-                            model.embed_one(&text).ok()
+                            model
+                                .embed_documents(&[text.as_str()], None)
+                                .ok()
+                                .and_then(|mut v| v.pop())
                         }
                     };
                     if let Some(embedding) = note_vec {
@@ -1948,7 +2014,7 @@ fn handle_embed_batch(
                 }
                 let text_refs: Vec<&str> = texts.iter().map(|s| s.as_str()).collect();
                 let batch_start = Instant::now();
-                match model.embed_batch(&text_refs, Some(cancel.as_ref())) {
+                match model.embed_documents(&text_refs, Some(cancel.as_ref())) {
                     Ok(embeddings) => {
                         for (path, embedding) in paths.iter().zip(embeddings.iter()) {
                             if let Err(e) = vector_db::upsert_embedding(conn, path, embedding) {
@@ -2107,7 +2173,7 @@ fn handle_block_embed_batch(
 
         let text_refs: Vec<&str> = texts.iter().map(|s| s.as_str()).collect();
         let batch_start = Instant::now();
-        match model.embed_batch(&text_refs, Some(cancel.as_ref())) {
+        match embed_section_texts(model, &text_refs, Some(cancel.as_ref())) {
             Ok(embeddings) => {
                 for (((path, heading_id), embedding), hash) in
                     keys.iter().zip(embeddings.iter()).zip(hashes.iter())
@@ -2288,11 +2354,10 @@ fn query_model(app: &AppHandle) -> Result<Arc<EmbeddingService>, String> {
     let embedding_state = app.state::<EmbeddingServiceState>();
     let cache_dir = resolve_embedding_cache_dir(app);
     let short_id = resolve_embedding_model_id(app);
-    let hf_repo = short_id_to_hf_repo(&short_id);
-    if let Some(model) = embedding_state.try_get(hf_repo) {
+    if let Some(model) = embedding_state.try_get(&short_id) {
         return Ok(model);
     }
-    embedding_state.init_in_background(cache_dir, hf_repo.to_string(), app);
+    embedding_state.init_in_background(cache_dir, short_id, app);
     Err("embedding model not ready; initializing in background".to_string())
 }
 
@@ -3078,7 +3143,7 @@ pub fn semantic_search_inner(
     limit: Option<usize>,
 ) -> Result<Vec<SemanticSearchHit>, String> {
     let model = query_model(&app)?;
-    let query_vec = model.embed_one(&query)?;
+    let query_vec = model.embed_query(&query)?;
     let limit = limit.unwrap_or(20);
 
     let hits = with_note_index(&app, &vault_id, |idx| idx.search(&query_vec, limit))?;
@@ -3248,7 +3313,7 @@ pub fn search_blocks_inner(
     date_range: Option<DateRange>,
 ) -> Result<Vec<BlockSectionHit>, String> {
     let model = query_model(&app)?;
-    let query_vec = model.embed_one(&query)?;
+    let query_vec = model.embed_query(&query)?;
     let limit = limit.unwrap_or(15);
     let fetch = if date_range.is_some() {
         (limit * 20).max(500)
