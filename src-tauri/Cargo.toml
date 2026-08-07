@@ -81,7 +81,10 @@ tower-http = { version = "0.6", features = ["cors"] }
 subtle = "2"
 rand = "0.8"
 hex = "0.4"
-hnsw_rs = "0.3"
+# Pinned: `VectorIndex::exact_search` exists to work around 0.3.4's misfiled
+# reverse neighbour links, and a caret range could pull in a build whose
+# behaviour that workaround was never measured against.
+hnsw_rs = "=0.3.4"
 keyring = { version = "4.1.5", features = ["apple-native-keyring-store"] }
 agent-client-protocol = "=2.0.0"
 

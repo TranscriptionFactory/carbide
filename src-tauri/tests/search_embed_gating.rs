@@ -147,6 +147,84 @@ fn model_unavailable_still_invalidates_changed_sections() {
     assert!(vector_db::get_embedded_paths(&conn).is_empty());
 }
 
+/// The save path skips embedding when the model is still loading, rather than
+/// blocking the DB writer thread on a ~90 MB download. The skip is only safe
+/// because the note's rows are invalidated regardless — but the note *key* used
+/// to survive in `note_index`, so semantic and hybrid search kept returning the
+/// pre-edit vector until a restart reconciled it.
+#[test]
+fn skip_path_save_drops_the_stale_note_key() {
+    let conn = conn_with_vector_schema();
+    let v1 = note_markdown("a", "b");
+    seed_embeddings(&conn, &v1);
+
+    let note_index = shared_index();
+    {
+        let mut ni = note_index.write().expect("index lock");
+        ni.insert(NOTE, vec![0.1_f32; 4]);
+        ni.insert("other.md", vec![0.2_f32; 4]);
+    }
+
+    let v2 = note_markdown("a2", "b");
+    apply_note_embedding_on_save(
+        &conn,
+        NOTE,
+        &v2,
+        &note_index,
+        &shared_index(),
+        true,
+        true,
+        // No model: the load is in flight, so this save embeds nothing.
+        None,
+    );
+
+    let ni = note_index.read().expect("index lock");
+    assert!(
+        ni.get_vector(NOTE).is_none(),
+        "the pre-edit note vector must not stay live in the index"
+    );
+    assert!(
+        ni.get_vector("other.md").is_some(),
+        "unrelated notes are untouched"
+    );
+    assert!(
+        vector_db::get_embedded_paths(&conn).is_empty(),
+        "the DB row is gone too — index and DB agree"
+    );
+}
+
+/// The counterpart: a save that changes nothing must not evict a live vector.
+#[test]
+fn unchanged_save_keeps_the_note_key() {
+    let conn = conn_with_vector_schema();
+    let markdown = note_markdown("a", "b");
+    seed_embeddings(&conn, &markdown);
+
+    let note_index = shared_index();
+    note_index
+        .write()
+        .expect("index lock")
+        .insert(NOTE, vec![0.1_f32; 4]);
+
+    apply_note_embedding_on_save(
+        &conn,
+        NOTE,
+        &markdown,
+        &note_index,
+        &shared_index(),
+        true,
+        true,
+        None,
+    );
+
+    assert!(note_index
+        .read()
+        .expect("index lock")
+        .get_vector(NOTE)
+        .is_some());
+    assert_eq!(vector_db::get_embedded_paths(&conn).len(), 1);
+}
+
 #[test]
 fn save_prunes_stale_block_index_keys() {
     let conn = conn_with_vector_schema();
