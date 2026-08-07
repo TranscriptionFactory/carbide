@@ -1,12 +1,12 @@
 use crate::features::notes::service as notes_service;
 use crate::features::search::db::{
-    compute_sync_plan, extract_frontmatter_properties, get_backlinks, get_manifest, get_note_meta,
-    get_orphan_outlinks, get_outlinks, list_note_paths_by_prefix, open_search_db_at_path,
-    query_bases, re_resolve_orphan_outlinks, rebuild_index, remove_notes_by_prefix,
-    rename_folder_paths, rename_note_path, search, set_outlinks, suggest, suggest_planned,
-    sync_index, upsert_note, upsert_note_simple,
+    compute_sync_plan, count_bases_many, extract_frontmatter_properties, get_backlinks,
+    get_manifest, get_note_meta, get_orphan_outlinks, get_outlinks, list_note_paths_by_prefix,
+    open_search_db_at_path, query_bases, re_resolve_orphan_outlinks, rebuild_index,
+    remove_notes_by_prefix, rename_folder_paths, rename_note_path, search, search_headings,
+    set_outlinks, suggest, suggest_planned, sync_index, upsert_note, upsert_note_simple,
 };
-use crate::features::search::model::{BaseQuery, IndexNoteMeta, SearchScope};
+use crate::features::search::model::{BaseFilter, BaseQuery, IndexNoteMeta, SearchScope};
 use std::cell::RefCell;
 use std::collections::BTreeMap;
 use std::fs;
@@ -777,6 +777,161 @@ fn ctime_ms_defaults_to_zero_for_legacy_notes() {
     assert_eq!(results.rows[0].note.ctime_ms, 0);
 }
 
+// The count query and the row query are built from the same WHERE clause, so a
+// filter on a task_agg column has to resolve in both. It did not: the count
+// query had no join and every such view errored at prepare time.
+#[test]
+fn query_bases_filters_on_task_count() {
+    let tmp = TempDir::new().expect("temp dir");
+    let db_dir = TempDir::new().expect("db dir");
+    let root = tmp.path();
+
+    write_md(root, "busy.md", "# Busy\n\n- [ ] one\n- [ ] two\n- [x] three\n");
+    write_md(root, "quiet.md", "# Quiet\n\nNo tasks here.\n");
+
+    let conn = open_search_db_at_path(&db_dir.path().join("test.db")).expect("db");
+    let cancel = AtomicBool::new(false);
+    rebuild_index(None, "v", &conn, root, &cancel, &|_, _| {}, &mut || {}).expect("rebuild");
+
+    let results = query_bases(
+        &conn,
+        BaseQuery {
+            filters: vec![BaseFilter {
+                property: "task_count".into(),
+                operator: "gt".into(),
+                value: "0".into(),
+            }],
+            sort: vec![],
+            limit: 100,
+            offset: 0,
+        },
+    )
+    .expect("query_bases with a task_count filter");
+
+    assert_eq!(results.rows.len(), 1);
+    assert_eq!(results.rows[0].note.path, "busy.md");
+    assert_eq!(results.total, 1);
+}
+
+#[test]
+fn query_bases_total_matches_filtered_rows_for_task_columns() {
+    let tmp = TempDir::new().expect("temp dir");
+    let db_dir = TempDir::new().expect("db dir");
+    let root = tmp.path();
+
+    write_md(root, "a.md", "- [ ] pending\n");
+    write_md(root, "b.md", "- [x] finished\n");
+    write_md(root, "c.md", "plain\n");
+
+    let conn = open_search_db_at_path(&db_dir.path().join("test.db")).expect("db");
+    let cancel = AtomicBool::new(false);
+    rebuild_index(None, "v", &conn, root, &cancel, &|_, _| {}, &mut || {}).expect("rebuild");
+
+    let results = query_bases(
+        &conn,
+        BaseQuery {
+            filters: vec![BaseFilter {
+                property: "tasks_done".into(),
+                operator: "gte".into(),
+                value: "1".into(),
+            }],
+            sort: vec![],
+            limit: 100,
+            offset: 0,
+        },
+    )
+    .expect("query_bases with a tasks_done filter");
+
+    assert_eq!(results.rows.len(), 1);
+    assert_eq!(results.rows[0].note.path, "b.md");
+    assert_eq!(results.total, results.rows.len());
+}
+
+#[test]
+fn count_bases_many_agrees_with_query_bases_on_task_columns() {
+    let tmp = TempDir::new().expect("temp dir");
+    let db_dir = TempDir::new().expect("db dir");
+    let root = tmp.path();
+
+    write_md(root, "a.md", "- [ ] one\n- [ ] two\n");
+    write_md(root, "b.md", "nothing\n");
+
+    let conn = open_search_db_at_path(&db_dir.path().join("test.db")).expect("db");
+    let cancel = AtomicBool::new(false);
+    rebuild_index(None, "v", &conn, root, &cancel, &|_, _| {}, &mut || {}).expect("rebuild");
+
+    let query = BaseQuery {
+        filters: vec![BaseFilter {
+            property: "tasks_todo".into(),
+            operator: "gte".into(),
+            value: "2".into(),
+        }],
+        sort: vec![],
+        limit: 100,
+        offset: 0,
+    };
+
+    let counts = count_bases_many(&conn, std::slice::from_ref(&query)).expect("count_bases_many");
+    let results = query_bases(&conn, query).expect("query_bases");
+
+    assert_eq!(counts, vec![1]);
+    assert_eq!(results.total, 1);
+}
+
+#[test]
+fn search_headings_respects_limit_and_orders_by_note_then_line() {
+    let tmp = TempDir::new().expect("temp dir");
+    let db_dir = TempDir::new().expect("db dir");
+    let root = tmp.path();
+
+    write_md(root, "b.md", "# Alpha one\n\ntext\n\n# Alpha two\n\ntext\n");
+    write_md(root, "a.md", "# Alpha three\n\ntext\n\n# Alpha four\n\ntext\n");
+
+    let conn = open_search_db_at_path(&db_dir.path().join("test.db")).expect("db");
+    let cancel = AtomicBool::new(false);
+    rebuild_index(None, "v", &conn, root, &cancel, &|_, _| {}, &mut || {}).expect("rebuild");
+
+    let all = search_headings(&conn, "Alpha", 10).expect("search_headings");
+    assert_eq!(all.len(), 4);
+    // Every heading starts with the query, so all four score 1.0 and the
+    // tiebreak is (note_path, line).
+    assert_eq!(
+        all.iter()
+            .map(|h| (h.note_path.as_str(), h.line))
+            .collect::<Vec<_>>(),
+        vec![("a.md", 0), ("a.md", 4), ("b.md", 0), ("b.md", 4)]
+    );
+
+    let capped = search_headings(&conn, "Alpha", 2).expect("search_headings");
+    assert_eq!(capped.len(), 2);
+    assert_eq!(
+        capped.iter().map(|h| h.line).collect::<Vec<_>>(),
+        all.iter().take(2).map(|h| h.line).collect::<Vec<_>>()
+    );
+}
+
+#[test]
+fn search_headings_ranks_exact_above_substring_above_fuzzy() {
+    let tmp = TempDir::new().expect("temp dir");
+    let db_dir = TempDir::new().expect("db dir");
+    let root = tmp.path();
+
+    write_md(root, "z_fuzzy.md", "# R e l e a s e notes\n\ntext\n");
+    write_md(root, "y_substring.md", "# Draft release plan\n\ntext\n");
+    write_md(root, "x_exact.md", "# Release\n\ntext\n");
+
+    let conn = open_search_db_at_path(&db_dir.path().join("test.db")).expect("db");
+    let cancel = AtomicBool::new(false);
+    rebuild_index(None, "v", &conn, root, &cancel, &|_, _| {}, &mut || {}).expect("rebuild");
+
+    let hits = search_headings(&conn, "release", 10).expect("search_headings");
+    let paths: Vec<&str> = hits.iter().map(|h| h.note_path.as_str()).collect();
+
+    assert_eq!(paths, vec!["x_exact.md", "y_substring.md", "z_fuzzy.md"]);
+    assert!(hits[0].score > hits[1].score);
+    assert!(hits[1].score > hits[2].score);
+}
+
 #[test]
 fn resolve_batch_outlinks_resolves_bare_stem() {
     let tmp = TempDir::new().expect("temp dir");
@@ -1088,3 +1243,4 @@ fn index_sourced_notes_carry_the_blurb() {
         "Combining BM25 with dense vectors improves recall."
     );
 }
+
