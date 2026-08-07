@@ -1,5 +1,4 @@
 use hnsw_rs::anndists::dist::distances::DistCosine;
-use hnsw_rs::anndists::dist::Distance;
 use hnsw_rs::api::AnnT;
 use hnsw_rs::hnsw::Hnsw;
 use hnsw_rs::hnswio::HnswIo;
@@ -12,10 +11,23 @@ const MAX_NB_CONNECTION: usize = 16;
 const NB_LAYER: usize = 16;
 const EF_CONSTRUCTION: usize = 200;
 
+/// Floor for `Hnsw::new`'s capacity hint, which pre-sizes the layer tables.
+/// Every construction site derives its hint from the population it is about to
+/// hold and clamps to this, so a rebuild of a large vault is not sized for a
+/// small one — `clear()` in particular runs on every model-version change, when
+/// the index is about to be refilled to roughly its previous size.
+const MIN_CAPACITY_HINT: usize = 1_000;
+
 /// Live-key count up to which [`VectorIndex::search`] answers by exhaustive scan
-/// instead of by graph traversal. Measured at ~1.4ms per query for 4096 points
-/// of 384 dimensions, the size at which the graph stops being worth its recall
-/// cost (see [`VectorIndex::exact_search`]).
+/// instead of by graph traversal, trading the graph's ~6.7% recall loss (see
+/// [`VectorIndex::exact_search`]) for a linear scan.
+///
+/// Held at 4096 deliberately. Raising it to cover a realistic block index
+/// (~50k keys) was measured and rejected: `exact_search_scan_cost` puts a
+/// 50k x 384 scan at ~19ms per query even after the cheaper distance function,
+/// which is far too slow to sit in front of every search. At 4096 the same scan
+/// is ~1ms. Block search above this size therefore still rides the lossy graph
+/// — a known gap, not an oversight.
 const EXACT_SEARCH_MAX_POINTS: usize = 4096;
 
 /// Bump when the persisted companion layout changes so old dumps are rejected.
@@ -46,18 +58,33 @@ pub struct VectorIndex {
     dirty: bool,
 }
 
+/// A vector is usable only if every component is finite *and* at least one is
+/// non-zero. Non-finite components poison neighbour selection for every query,
+/// not just their own; an all-zero row is worse, because `DistCosine` scores it
+/// 0.0 — nearest — against every query, so it would rank first everywhere.
+/// `normalize_rows` zeroes a degenerate row rather than emitting NaN, which is
+/// right for the graph but makes this check the one that has to catch it.
+pub(crate) fn is_usable_vector(vector: &[f32]) -> bool {
+    !vector.is_empty()
+        && vector.iter().all(|x| x.is_finite())
+        && vector.iter().any(|x| *x != 0.0)
+}
+
+fn new_graph(capacity_hint: usize) -> Hnsw<'static, f32, DistCosine> {
+    Hnsw::new(
+        MAX_NB_CONNECTION,
+        capacity_hint.max(MIN_CAPACITY_HINT),
+        NB_LAYER,
+        EF_CONSTRUCTION,
+        DistCosine,
+    )
+}
+
 impl VectorIndex {
     pub fn new(dims: usize) -> Self {
-        let hnsw = Hnsw::new(
-            MAX_NB_CONNECTION,
-            10_000,
-            NB_LAYER,
-            EF_CONSTRUCTION,
-            DistCosine,
-        );
         Self {
             dims,
-            hnsw,
+            hnsw: new_graph(0),
             key_to_id: HashMap::new(),
             id_to_key: HashMap::new(),
             vectors: HashMap::new(),
@@ -96,7 +123,7 @@ impl VectorIndex {
                 };
                 for row in rows.flatten() {
                     let vec = super::vector_db::bytes_to_floats(&row.1);
-                    if !vec.is_empty() {
+                    if is_usable_vector(&vec) {
                         f(row.0, vec);
                     }
                 }
@@ -126,7 +153,7 @@ impl VectorIndex {
                 for row in rows.flatten() {
                     let key = format!("{}\0{}", row.0, row.1);
                     let vec = super::vector_db::bytes_to_floats(&row.2);
-                    if !vec.is_empty() {
+                    if is_usable_vector(&vec) {
                         f(key, vec);
                     }
                 }
@@ -174,20 +201,21 @@ impl VectorIndex {
         // If the dimension actually changes (embedding model switched), rebuild
         // the empty graph so no stale points of the old dimension remain — a
         // cosine distance across mismatched lengths would otherwise be invalid.
+        if !is_usable_vector(&vector) {
+            log::warn!(
+                "VectorIndex::insert: dropping {str_key} — vector is empty, non-finite, or all-zero"
+            );
+            return;
+        }
+
         if self.key_to_id.is_empty() && vector.len() != self.dims {
             self.dims = vector.len();
-            self.hnsw = Hnsw::new(
-                MAX_NB_CONNECTION,
-                10_000,
-                NB_LAYER,
-                EF_CONSTRUCTION,
-                DistCosine,
-            );
+            self.hnsw = new_graph(0);
             self.id_to_key.clear();
             self.next_id = 0;
         }
 
-        if vector.is_empty() || vector.len() != self.dims {
+        if vector.len() != self.dims {
             log::warn!(
                 "VectorIndex::insert: dropping {} — vector has {} dims, index has {}",
                 str_key,
@@ -261,13 +289,10 @@ impl VectorIndex {
     }
 
     pub fn clear(&mut self) {
-        self.hnsw = Hnsw::new(
-            MAX_NB_CONNECTION,
-            10_000,
-            NB_LAYER,
-            EF_CONSTRUCTION,
-            DistCosine,
-        );
+        // A clear is almost always followed by a refill of comparable size (it
+        // runs on every model-version change), so the pre-clear population is
+        // the best capacity hint available.
+        self.hnsw = new_graph(self.key_to_id.len());
         self.key_to_id.clear();
         self.id_to_key.clear();
         self.vectors.clear();
@@ -288,12 +313,26 @@ impl VectorIndex {
             return vec![];
         }
 
-        if self.key_to_id.len() <= EXACT_SEARCH_MAX_POINTS
-            && self.vectors.len() == self.key_to_id.len()
-        {
-            return self.exact_search(query, limit);
+        if self.key_to_id.len() <= EXACT_SEARCH_MAX_POINTS {
+            if self.vectors.len() == self.key_to_id.len() {
+                return self.exact_search(query, limit);
+            }
+            // Silently reverting here is the difference between an exact answer
+            // and a ~6.7%-lossy one, so it must be visible when it happens.
+            log::debug!(
+                "VectorIndex::search: {} vectors for {} keys — falling back to the graph path",
+                self.vectors.len(),
+                self.key_to_id.len()
+            );
         }
 
+        self.graph_search(query, limit)
+    }
+
+    /// Approximate nearest neighbours by graph traversal. Used above
+    /// [`EXACT_SEARCH_MAX_POINTS`], where an exhaustive scan is too slow —
+    /// at the cost of the recall loss [`Self::exact_search`] documents.
+    fn graph_search(&self, query: &[f32], limit: usize) -> Vec<(String, f32)> {
         // Over-fetch to account for stale entries
         let fetch = (limit + self.stale_count()).max(limit * 2);
         // HNSW requires ef >= the number of neighbours requested; clamping ef to
@@ -326,22 +365,41 @@ impl VectorIndex {
     /// [`EXACT_SEARCH_MAX_POINTS`] and the answer is exact rather than
     /// approximate.
     ///
-    /// Distances come from `DistCosine`, the graph's own metric, so results stay
-    /// on the same scale as the traversal path they replace.
+    /// Every ingested vector is L2-normalized (`normalize_rows` and
+    /// `mean_pool_normalize` are the only producers, and `is_usable_vector`
+    /// rejects the degenerate rows they can emit), so `1 - dot` equals
+    /// `DistCosine` on this data and results stay on the same scale as the
+    /// traversal path they replace. It is several times cheaper: `DistCosine`'s
+    /// f32 path runs three f64 accumulators and a `sqrt` per vector, two of
+    /// which are pure waste once the norms are known to be 1.
     fn exact_search(&self, query: &[f32], limit: usize) -> Vec<(String, f32)> {
-        let mut scored: Vec<(String, f32)> = self
+        // Keys stay borrowed through scoring and selection; only the `limit`
+        // that survive are ever cloned. The old version allocated a `String`
+        // per vector per query.
+        let mut scored: Vec<(f32, &str)> = self
             .vectors
             .iter()
-            .map(|(key, vector)| (key.clone(), DistCosine.eval(query, vector)))
+            .map(|(key, vector)| (super::vector_db::dot_distance(query, vector), key.as_str()))
             .collect();
-        // `total_cmp` orders the degenerate distances `DistCosine` can produce
-        // (a zero vector scores 0.0 against everything) without a NaN-capable
-        // comparison, and the key tie-break keeps the answer independent of
-        // `HashMap` iteration order — without it two indexes holding identical
-        // vectors could rank tied entries differently.
-        scored.sort_by(|a, b| a.1.total_cmp(&b.1).then_with(|| a.0.cmp(&b.0)));
-        scored.truncate(limit);
+
+        // `total_cmp` gives a total order without a NaN-capable comparison, and
+        // the key tie-break keeps the answer independent of `HashMap` iteration
+        // order — without it two indexes holding identical vectors could rank
+        // tied entries differently. Because the order is total, selecting the
+        // `limit` smallest and sorting only those yields exactly what sorting
+        // everything would have.
+        let rank =
+            |a: &(f32, &str), b: &(f32, &str)| a.0.total_cmp(&b.0).then_with(|| a.1.cmp(b.1));
+        let limit = limit.min(scored.len());
+        if limit < scored.len() {
+            scored.select_nth_unstable_by(limit, rank);
+            scored.truncate(limit);
+        }
+        scored.sort_unstable_by(rank);
         scored
+            .into_iter()
+            .map(|(distance, key)| (key.to_string(), distance))
+            .collect()
     }
 
     pub fn get_vector(&self, str_key: &str) -> Option<&Vec<f32>> {
@@ -378,13 +436,7 @@ impl VectorIndex {
     pub fn compact_from_vectors(&mut self) {
         let old_vectors: Vec<(String, Vec<f32>)> = self.vectors.drain().collect();
 
-        self.hnsw = Hnsw::new(
-            MAX_NB_CONNECTION,
-            old_vectors.len().max(1000),
-            NB_LAYER,
-            EF_CONSTRUCTION,
-            DistCosine,
-        );
+        self.hnsw = new_graph(old_vectors.len());
         self.key_to_id.clear();
         self.id_to_key.clear();
         self.next_id = 0;
@@ -530,23 +582,40 @@ impl VectorIndex {
             }
         };
 
-        let id_to_key: HashMap<usize, String> = meta.id_to_key.into_iter().collect();
-        let key_to_id: HashMap<String, usize> =
-            id_to_key.iter().map(|(id, key)| (key.clone(), *id)).collect();
+        let mut id_to_key: HashMap<usize, String> = meta.id_to_key.into_iter().collect();
 
         // Recover `vectors` from the graph points rather than leaving the index
         // half-initialised until `reconcile_from_sqlite` runs: `search` selects
         // its exact path on `vectors` being complete, so a bare load would
         // otherwise answer differently from the index that produced the dump.
         // Points whose id no longer maps to a key are stale and stay dropped.
-        let mut vectors: HashMap<String, Vec<f32>> = HashMap::with_capacity(key_to_id.len());
+        // A dump persists whatever was in the graph, so a vector that predates
+        // the ingest guard — or was corrupted on disk — arrives here unchecked
+        // and would otherwise feed `exact_search` directly. Unusable points are
+        // unmapped as well as skipped, so the graph path filters them out too.
+        let mut vectors: HashMap<String, Vec<f32>> = HashMap::with_capacity(id_to_key.len());
+        let mut rejected: Vec<usize> = Vec::new();
         if hnsw.get_point_indexation().get_nb_point() > 0 {
             for point in hnsw.get_point_indexation().into_iter() {
-                if let Some(key) = id_to_key.get(&point.get_origin_id()) {
-                    vectors.insert(key.clone(), point.get_v().to_vec());
+                let id = point.get_origin_id();
+                let Some(key) = id_to_key.get(&id) else {
+                    continue;
+                };
+                let vector = point.get_v();
+                if is_usable_vector(vector) {
+                    vectors.insert(key.clone(), vector.to_vec());
+                } else {
+                    log::warn!("VectorIndex::load_from_dump({basename}): dropping unusable {key}");
+                    rejected.push(id);
                 }
             }
         }
+        for id in rejected {
+            id_to_key.remove(&id);
+        }
+
+        let key_to_id: HashMap<String, usize> =
+            id_to_key.iter().map(|(id, key)| (key.clone(), *id)).collect();
 
         Some(Self {
             dims: meta.dims,
@@ -574,12 +643,18 @@ impl VectorIndex {
         // updated on every save while the graph is only dumped on settle. A key
         // whose SQLite vector no longer matches its graph point (crash between
         // save and dump) must be re-inserted, not just refreshed in `vectors`.
+        // `hnsw_rs` panics on an `Option::unwrap` when its point indexation is
+        // iterated while empty, so an index reconciled before anything was ever
+        // inserted (an empty dump reloaded, or a first-run rebuild) must not
+        // enter the loop. `load_from_dump` already guards its own iteration.
         let mut changed: HashSet<String> = HashSet::new();
-        for point in self.hnsw.get_point_indexation().into_iter() {
-            if let Some(key) = self.id_to_key.get(&point.get_origin_id()) {
-                if let Some(vec) = sqlite_vecs.get(key) {
-                    if point.get_v() != vec.as_slice() {
-                        changed.insert(key.clone());
+        if self.hnsw.get_point_indexation().get_nb_point() > 0 {
+            for point in self.hnsw.get_point_indexation().into_iter() {
+                if let Some(key) = self.id_to_key.get(&point.get_origin_id()) {
+                    if let Some(vec) = sqlite_vecs.get(key) {
+                        if point.get_v() != vec.as_slice() {
+                            changed.insert(key.clone());
+                        }
                     }
                 }
             }
@@ -641,6 +716,10 @@ mod tests {
         if norm > 0.0 {
             v.iter_mut().for_each(|x| *x /= norm);
         }
+        // An integral seed maps every component to zero, which `insert` now
+        // rejects. Fail loudly here rather than let a caller silently index one
+        // vector fewer than it thinks.
+        assert!(is_usable_vector(&v), "degenerate seed {seed}");
         v
     }
 
@@ -723,7 +802,12 @@ mod tests {
         let mut expected: Vec<(String, f32)> = vectors
             .iter()
             .enumerate()
-            .map(|(i, vector)| (format!("k{i}"), DistCosine.eval(&query, vector)))
+            .map(|(i, vector)| {
+                (
+                    format!("k{i}"),
+                    super::super::vector_db::dot_distance(&query, vector),
+                )
+            })
             .collect();
         expected.sort_by(|a, b| a.1.total_cmp(&b.1).then_with(|| a.0.cmp(&b.0)));
         expected.truncate(5);
@@ -731,9 +815,58 @@ mod tests {
         assert_eq!(idx.search(&query, 5), expected);
     }
 
+    /// An index crossing [`EXACT_SEARCH_MAX_POINTS`] silently switches which
+    /// path answers it, so the two must rank the same vectors the same way and
+    /// score them on the same scale. The exact path uses `1 - dot` rather than
+    /// the graph's `DistCosine`; that substitution is only sound because every
+    /// resident vector is L2-normalized, and this is the test that holds it.
+    #[test]
+    fn exact_and_graph_paths_agree() {
+        let mut idx = VectorIndex::new(8);
+        // The seed must be large enough that `% 1.0` wraps within the 8
+        // components; a small one yields a scalar multiple of the same ramp for
+        // every i, which normalizes to one direction and makes the whole index
+        // a single tie.
+        let vectors: Vec<Vec<f32>> = (0..48)
+            .map(|i| unit_vec(0.37 * (i as f32 + 1.0), 8))
+            .collect();
+        for (i, vector) in vectors.iter().enumerate() {
+            idx.insert(&format!("k{i}"), vector.clone());
+        }
+
+        for probe in [0usize, 17, 47] {
+            let query = &vectors[probe];
+            let exact = idx.exact_search(query, 5);
+            let graph = idx.graph_search(query, 5);
+
+            assert_eq!(exact.len(), 5);
+            assert_eq!(graph.len(), 5);
+            // Only the exact path is guaranteed to find the query's own vector:
+            // a point stranded by the misfiled reverse links is unreachable from
+            // the layer-0 traversal, which is the whole reason this path exists.
+            assert_eq!(exact[0].0, format!("k{probe}"));
+            // Both paths must be ordered by ascending distance.
+            for hits in [&exact, &graph] {
+                assert!(hits.windows(2).all(|w| w[0].1 <= w[1].1));
+            }
+
+            // Same pair, same distance, whichever path produced it.
+            let exact_by_key: HashMap<&str, f32> =
+                exact.iter().map(|(k, d)| (k.as_str(), *d)).collect();
+            for (key, graph_distance) in &graph {
+                if let Some(exact_distance) = exact_by_key.get(key.as_str()) {
+                    assert!(
+                        (exact_distance - graph_distance).abs() < 1e-5,
+                        "{key}: exact {exact_distance} vs graph {graph_distance}"
+                    );
+                }
+            }
+        }
+    }
+
     #[test]
     fn tied_distances_order_deterministically() {
-        // Two keys holding the same vector tie exactly. Without the key
+        // Three keys holding the same vector tie exactly. Without the key
         // tie-break their order would follow `HashMap` iteration order, so two
         // indexes with identical contents could answer differently — which is
         // what `dump_load_roundtrip_preserves_graph_and_mapping` compares.
@@ -742,25 +875,166 @@ mod tests {
         let build = |order: [&str; 3]| {
             let mut idx = VectorIndex::new(8);
             for key in order {
-                let vector = if key == "zero" {
-                    vec![0.0; 8]
-                } else {
-                    twin.clone()
-                };
-                idx.insert(key, vector);
+                idx.insert(key, twin.clone());
             }
             idx.search(&query, 3)
         };
 
-        let first = build(["a_twin", "b_twin", "zero"]);
-        let second = build(["zero", "b_twin", "a_twin"]);
+        let first = build(["a_twin", "b_twin", "c_twin"]);
+        let second = build(["c_twin", "b_twin", "a_twin"]);
 
         assert_eq!(first, second);
-        // The zero vector is `DistCosine`'s degenerate case: distance 0.0 to
-        // everything, so it sorts first without producing a NaN comparison.
-        assert_eq!(first[0].0, "zero");
-        assert_eq!(first[1].0, "a_twin");
-        assert_eq!(first[2].0, "b_twin");
+        assert_eq!(first[0].0, "a_twin");
+        assert_eq!(first[1].0, "b_twin");
+        assert_eq!(first[2].0, "c_twin");
+    }
+
+    /// The tie-break must survive the bounded-top-k selection, which only sorts
+    /// the retained prefix: a `limit` shorter than the tied run is exactly where
+    /// a partial selection could return a different member of the tie.
+    #[test]
+    fn tie_break_survives_truncation_to_limit() {
+        let query = unit_vec(0.37, 8);
+        let twin = unit_vec(0.61, 8);
+        let build = |order: [&str; 4]| {
+            let mut idx = VectorIndex::new(8);
+            for key in order {
+                idx.insert(key, twin.clone());
+            }
+            idx.search(&query, 2)
+        };
+
+        let first = build(["a", "b", "c", "d"]);
+        assert_eq!(first, build(["d", "c", "b", "a"]));
+        assert_eq!(first.len(), 2);
+        assert_eq!(first[0].0, "a");
+        assert_eq!(first[1].0, "b");
+    }
+
+    /// Not a gate — a measurement, and the evidence for where
+    /// [`EXACT_SEARCH_MAX_POINTS`] is set. Run with:
+    /// `cargo test --release exact_search_scan_cost -- --ignored --nocapture`
+    /// Compares the shipped scan against the shape it replaced (`DistCosine`
+    /// plus a full sort) at a realistic block-index size.
+    #[test]
+    #[ignore]
+    fn exact_search_scan_cost() {
+        use hnsw_rs::anndists::dist::Distance;
+
+        const DIMS: usize = 384;
+        const POINTS: usize = 50_000;
+        const QUERIES: usize = 20;
+
+        // Spread over the whole sphere rather than the positive orthant, so the
+        // scan sees the distance distribution real embeddings produce.
+        let spread = |i: usize| -> Vec<f32> {
+            let mut v: Vec<f32> = (0..DIMS)
+                .map(|d| (((i * 7919 + d * 104729) % 1000) as f32 / 1000.0) - 0.5)
+                .collect();
+            let norm: f32 = v.iter().map(|x| x * x).sum::<f32>().sqrt();
+            v.iter_mut().for_each(|x| *x /= norm);
+            assert!(is_usable_vector(&v));
+            v
+        };
+
+        let mut idx = VectorIndex::new(DIMS);
+        for i in 0..POINTS {
+            idx.insert(&format!("note{i}.md\0h{i}"), spread(i));
+        }
+        let queries: Vec<Vec<f32>> = (0..QUERIES).map(|i| spread(POINTS + i * 31)).collect();
+
+        let baseline = |query: &[f32], limit: usize| -> Vec<(String, f32)> {
+            let mut scored: Vec<(String, f32)> = idx
+                .vectors
+                .iter()
+                .map(|(key, vector)| (key.clone(), DistCosine.eval(query, vector)))
+                .collect();
+            scored.sort_by(|a, b| a.1.total_cmp(&b.1).then_with(|| a.0.cmp(&b.0)));
+            scored.truncate(limit);
+            scored
+        };
+
+        for query in &queries {
+            std::hint::black_box(baseline(query, 20));
+            std::hint::black_box(idx.exact_search(query, 20));
+        }
+
+        let start = std::time::Instant::now();
+        for query in &queries {
+            std::hint::black_box(baseline(query, 20));
+        }
+        let before = start.elapsed().as_secs_f64() * 1000.0 / QUERIES as f64;
+
+        let start = std::time::Instant::now();
+        for query in &queries {
+            std::hint::black_box(idx.exact_search(query, 20));
+        }
+        let after = start.elapsed().as_secs_f64() * 1000.0 / QUERIES as f64;
+
+        println!(
+            "exact_search over {POINTS} x {DIMS}: before {before:.2}ms/query, after {after:.2}ms/query"
+        );
+
+        // Rankings must agree: the cheaper distance is only valid because every
+        // resident vector is L2-normalized.
+        let keys = |hits: Vec<(String, f32)>| -> Vec<String> {
+            hits.into_iter().map(|(k, _)| k).collect()
+        };
+        for query in &queries {
+            assert_eq!(keys(baseline(query, 20)), keys(idx.exact_search(query, 20)));
+        }
+    }
+
+    #[test]
+    fn non_finite_and_all_zero_vectors_are_rejected() {
+        let mut idx = VectorIndex::new(8);
+        idx.insert("live", unit_vec(0.3, 8));
+
+        idx.insert("nan", vec![f32::NAN; 8]);
+        idx.insert("inf", vec![f32::INFINITY; 8]);
+        // `normalize_rows` zeroes a degenerate row rather than emitting NaN, and
+        // `DistCosine` scores a zero vector 0.0 — nearest — against every query,
+        // so an accepted zero row would rank first for every search.
+        idx.insert("zero", vec![0.0; 8]);
+
+        assert_eq!(idx.len(), 1);
+        for key in ["nan", "inf", "zero"] {
+            assert!(idx.get_vector(key).is_none(), "{key} must not be resident");
+        }
+        let hits = idx.search(&unit_vec(0.9, 8), 10);
+        assert_eq!(hits.len(), 1);
+        assert_eq!(hits[0].0, "live");
+    }
+
+    #[test]
+    fn load_from_dump_drops_unusable_vectors() {
+        // A dump made before the ingest guard (or corrupted on disk) must not
+        // reintroduce a vector that `insert` would reject today.
+        let dir = scratch_dir("unusable-dump");
+        let mut idx = VectorIndex::new(8);
+        idx.insert("good", unit_vec(0.2, 8));
+
+        // Bypass `insert`'s guard the way a graph built before it would have:
+        // a NaN point in the graph with a live key mapping, which the dump then
+        // persists verbatim.
+        let bad = vec![f32::NAN; 8];
+        let bad_id = idx.next_id;
+        idx.next_id += 1;
+        idx.hnsw.insert((&bad, bad_id));
+        idx.key_to_id.insert("bad".to_string(), bad_id);
+        idx.id_to_key.insert(bad_id, "bad".to_string());
+        idx.vectors.insert("bad".to_string(), bad);
+        idx.dump(&dir, "notes-test", "m1").unwrap();
+
+        let loaded = VectorIndex::load_from_dump(&dir, "notes-test", "m1", 8).unwrap();
+
+        assert!(loaded.get_vector("good").is_some());
+        assert!(loaded.get_vector("bad").is_none());
+        assert_eq!(loaded.len(), 1, "the unusable key is unmapped, not just skipped");
+        assert!(loaded
+            .search(&unit_vec(0.2, 8), 10)
+            .iter()
+            .all(|(key, d)| key == "good" && d.is_finite()));
     }
 
     #[test]
@@ -922,7 +1196,7 @@ mod tests {
     fn needs_rebuild_after_many_deletes() {
         let mut idx = VectorIndex::new(8);
         for i in 0..200 {
-            idx.insert(&format!("k{i}"), unit_vec(i as f32 * 0.01, 8));
+            idx.insert(&format!("k{i}"), unit_vec(0.003 * (i as f32 + 1.0), 8));
         }
         for i in 0..100 {
             idx.remove(&format!("k{i}"));
@@ -935,7 +1209,7 @@ mod tests {
     fn compact_preserves_data() {
         let mut idx = VectorIndex::new(8);
         for i in 0..50 {
-            idx.insert(&format!("k{i}"), unit_vec(i as f32 * 0.01, 8));
+            idx.insert(&format!("k{i}"), unit_vec(0.003 * (i as f32 + 1.0), 8));
         }
         for i in 0..25 {
             idx.remove(&format!("k{i}"));
@@ -945,7 +1219,7 @@ mod tests {
         assert_eq!(idx.len(), 25);
         assert_eq!(idx.stale_count(), 0);
         // Verify we can still search
-        let v = unit_vec(25.0 * 0.01, 8);
+        let v = unit_vec(0.003 * 26.0, 8);
         let results = idx.search(&v, 5);
         assert!(!results.is_empty());
     }
@@ -954,7 +1228,7 @@ mod tests {
     fn compact_if_stale_compacts_only_past_threshold() {
         let mut idx = VectorIndex::new(8);
         for i in 0..200 {
-            idx.insert(&format!("k{i}"), unit_vec(i as f32 * 0.01, 8));
+            idx.insert(&format!("k{i}"), unit_vec(0.003 * (i as f32 + 1.0), 8));
         }
 
         // Below threshold: no compaction, stale nodes retained.
@@ -973,7 +1247,7 @@ mod tests {
         assert!(idx.compact_if_stale());
         assert_eq!(idx.stale_count(), 0);
         assert_eq!(idx.len(), 80);
-        let v = unit_vec(150.0 * 0.01, 8);
+        let v = unit_vec(0.003 * 151.0, 8);
         assert!(!idx.search(&v, 5).is_empty());
     }
 
@@ -1025,9 +1299,9 @@ mod tests {
         let dir = scratch_dir("roundtrip");
         let mut idx = VectorIndex::new(8);
         for i in 0..12 {
-            idx.insert(&format!("k{i}"), unit_vec(i as f32 * 0.07, 8));
+            idx.insert(&format!("k{i}"), unit_vec(0.07 * (i as f32 + 1.0), 8));
         }
-        let query = unit_vec(3.0 * 0.07, 8);
+        let query = unit_vec(0.07 * 4.0, 8);
         let before = idx.search(&query, 5);
 
         idx.dump(&dir, "notes-test", "m1").unwrap();
@@ -1045,7 +1319,7 @@ mod tests {
         let dir = scratch_dir("loaded-vectors");
         let mut idx = VectorIndex::new(8);
         for i in 0..12 {
-            idx.insert(&format!("k{i}"), unit_vec(i as f32 * 0.07, 8));
+            idx.insert(&format!("k{i}"), unit_vec(0.07 * (i as f32 + 1.0), 8));
         }
         idx.dump(&dir, "notes-test", "m1").unwrap();
 
