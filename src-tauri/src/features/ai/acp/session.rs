@@ -17,6 +17,7 @@ use tokio::sync::mpsc;
 
 use crate::features::ai::agent_stream::{AgentEvent, AgentRunStats, ToolSelector};
 use crate::features::ai::harness::MutatingToolSet;
+use crate::features::ai::stream::clamp_stderr;
 
 use super::agent_def::{pick_session_mode, AcpLaunch};
 use super::policy::auto_decide;
@@ -28,24 +29,16 @@ const STDERR_RING_LINES: usize = 50;
 /// serve successive agent runs, each with its own Tauri event channel.
 pub type EventSink = Arc<dyn Fn(AgentEvent) + Send + Sync>;
 
-/// An MCP server for the agent to connect to, in Carbide's own terms so that
-/// callers outside this module never touch the ACP schema crate.
-#[derive(Debug, Clone)]
-pub struct AcpMcpServer {
-    pub name: String,
-    pub url: String,
-    pub headers: Vec<(String, String)>,
-}
-
 pub struct AcpSessionConfig {
     pub launch: AcpLaunch,
     pub cwd: String,
     pub path_env: String,
-    pub mcp_servers: Vec<AcpMcpServer>,
+    /// Carbide's MCP endpoint, in scalars so callers never touch the ACP
+    /// schema crate; the single `McpServerHttp` is assembled here.
+    pub mcp_port: u16,
+    pub mcp_token: String,
     pub toolset: ToolSelector,
     pub mutating: MutatingToolSet,
-    /// Ask the agent for an accept-edits style session mode when it offers one.
-    pub power_intent: bool,
 }
 
 pub enum SessionCommand {
@@ -119,10 +112,20 @@ async fn run_session(
         STDERR_RING_LINES,
     )));
 
+    let AcpSessionConfig {
+        launch,
+        cwd,
+        path_env,
+        mcp_port,
+        mcp_token,
+        toolset,
+        mutating,
+    } = config;
+
     let agent = AcpAgent::new(
-        AcpAgentConfig::new(&config.launch.command)
-            .args(config.launch.args.clone())
-            .env("PATH", config.path_env.clone()),
+        AcpAgentConfig::new(&launch.command)
+            .args(launch.args.clone())
+            .env("PATH", path_env),
     )
     .with_debug({
         let stderr = stderr.clone();
@@ -138,17 +141,24 @@ async fn run_session(
         }
     });
 
-    let mut translator = TurnTranslator::new(config.mutating);
+    // Shared with the command loop so turn boundaries can clear per-call
+    // bookkeeping a cancelled turn would otherwise strand forever.
+    let translator = Arc::new(Mutex::new(TurnTranslator::new(mutating)));
+    let notification_translator = translator.clone();
     let notification_sink = sink.clone();
     let permission_sink = sink.clone();
-    let toolset = config.toolset.clone();
+    let handler_toolset = toolset.clone();
 
     let result = Client
         .builder()
         .name("carbide")
         .on_receive_notification(
             async move |notification: SessionNotification, _cx| {
-                for event in translator.on_update(&notification.update) {
+                let events = notification_translator
+                    .lock()
+                    .unwrap()
+                    .on_update(&notification.update);
+                for event in events {
                     emit(&notification_sink, event);
                 }
                 Ok(())
@@ -157,7 +167,7 @@ async fn run_session(
         )
         .on_receive_request(
             async move |request: RequestPermissionRequest, responder, _cx| {
-                let decision = auto_decide(&toolset, &request);
+                let decision = auto_decide(&handler_toolset, &request);
                 emit(&permission_sink, decision.resolved);
                 match decision.selected_option_id {
                     Some(option_id) => responder.respond(RequestPermissionResponse::new(
@@ -175,11 +185,13 @@ async fn run_session(
         .connect_with(agent, async |cx| {
             run_commands(
                 cx,
-                &config.cwd,
-                &config.mcp_servers,
-                config.power_intent,
+                &cwd,
+                mcp_port,
+                &mcp_token,
+                &toolset,
                 cmd_rx,
                 &sink,
+                &translator,
             )
             .await
         })
@@ -195,13 +207,16 @@ async fn run_session(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn run_commands(
     cx: ConnectionTo<Agent>,
     cwd: &str,
-    mcp_servers: &[AcpMcpServer],
-    power_intent: bool,
+    mcp_port: u16,
+    mcp_token: &str,
+    toolset: &ToolSelector,
     mut cmd_rx: mpsc::UnboundedReceiver<SessionCommand>,
     sink: &Arc<Mutex<Option<EventSink>>>,
+    translator: &Arc<Mutex<TurnTranslator>>,
 ) -> Result<(), agent_client_protocol::Error> {
     cx.send_request(
         InitializeRequest::new(ProtocolVersion::V1)
@@ -217,13 +232,18 @@ async fn run_commands(
     .block_task()
     .await?;
 
+    let carbide_mcp = McpServer::Http(
+        McpServerHttp::new("carbide", format!("http://127.0.0.1:{mcp_port}/mcp")).headers(vec![
+            HttpHeader::new("Authorization", format!("Bearer {mcp_token}")),
+        ]),
+    );
     let session = cx
-        .send_request(NewSessionRequest::new(cwd).mcp_servers(to_acp_servers(mcp_servers)))
+        .send_request(NewSessionRequest::new(cwd).mcp_servers(vec![carbide_mcp]))
         .block_task()
         .await?;
     let session_id = session.session_id;
 
-    if power_intent {
+    if matches!(toolset, ToolSelector::Full) {
         if let Some(mode_id) = session
             .modes
             .as_ref()
@@ -247,6 +267,9 @@ async fn run_commands(
                     announced = true;
                 }
                 run_turn(&cx, &session_id, text, &turn).await;
+                // A cancelled or crashed turn leaves open tool-call state the
+                // agent will never settle; the turn boundary is where it dies.
+                translator.lock().unwrap().clear_open_calls();
             }
             SessionCommand::Cancel => {
                 cx.send_notification(CancelNotification::new(session_id.clone()))?;
@@ -294,26 +317,10 @@ async fn run_turn(
     }
 }
 
-fn to_acp_servers(servers: &[AcpMcpServer]) -> Vec<McpServer> {
-    servers
-        .iter()
-        .map(|server| {
-            McpServer::Http(
-                McpServerHttp::new(server.name.clone(), server.url.clone()).headers(
-                    server
-                        .headers
-                        .iter()
-                        .map(|(name, value)| HttpHeader::new(name.clone(), value.clone()))
-                        .collect(),
-                ),
-            )
-        })
-        .collect()
-}
-
 fn emit(sink: &Arc<Mutex<Option<EventSink>>>, event: AgentEvent) {
-    let current = sink.lock().unwrap().clone();
-    if let Some(sink) = current {
+    // Held across the call: the sink never re-enters emit, and dropping the
+    // Arc clone saves two atomics per streaming token.
+    if let Some(sink) = sink.lock().unwrap().as_ref() {
         sink(event);
     }
 }
@@ -326,7 +333,7 @@ fn describe(error: &agent_client_protocol::Error) -> String {
 }
 
 fn with_stderr_tail(message: &str, stderr: &Arc<Mutex<VecDeque<String>>>) -> String {
-    let tail = stderr
+    let joined = stderr
         .lock()
         .unwrap()
         .iter()
@@ -334,6 +341,9 @@ fn with_stderr_tail(message: &str, stderr: &Arc<Mutex<VecDeque<String>>>) -> Str
         .cloned()
         .collect::<Vec<_>>()
         .join("\n");
+    // The ring holds whole lines, which a crashing agent can make arbitrarily
+    // long; the clamp keeps the last of it, where the actual failure is.
+    let tail = clamp_stderr(&joined);
     if tail.is_empty() {
         message.to_string()
     } else {

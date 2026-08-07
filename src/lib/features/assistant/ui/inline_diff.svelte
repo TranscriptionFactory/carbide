@@ -1,3 +1,7 @@
+<script lang="ts" module>
+  const GUTTER = { add: "+", del: "-", ctx: " " } as const;
+</script>
+
 <script lang="ts">
   import { compute_diff_rows } from "$lib/features/assistant/domain/tool_diff";
 
@@ -8,8 +12,6 @@
   };
 
   let { path, old_text, new_text }: Props = $props();
-
-  const GUTTER = { add: "+", del: "-", ctx: " " } as const;
 
   const rows = $derived(compute_diff_rows(old_text, new_text));
 

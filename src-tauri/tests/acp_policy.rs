@@ -30,9 +30,22 @@ fn assert_resolved(event: &AgentEvent, outcome: &str) {
     else {
         panic!("expected a permission_resolved event, got {event:?}");
     };
-    assert_eq!(request_id, "call-1");
+    // Minted per request, never borrowed from the tool call: a re-ask for the
+    // same call must be a distinct request Phase 3 can route independently.
+    assert!(request_id.starts_with("perm-"), "got {request_id}");
     assert_eq!(actual, outcome);
     assert!(auto);
+}
+
+#[test]
+fn each_request_gets_a_distinct_id() {
+    let first = auto_decide(&ToolSelector::Full, &request("read", "Read", all_options()));
+    let second = auto_decide(&ToolSelector::Full, &request("read", "Read", all_options()));
+    let id = |event: &AgentEvent| match event {
+        AgentEvent::PermissionResolved { request_id, .. } => request_id.clone(),
+        other => panic!("expected permission_resolved, got {other:?}"),
+    };
+    assert_ne!(id(&first.resolved), id(&second.resolved));
 }
 
 #[test]

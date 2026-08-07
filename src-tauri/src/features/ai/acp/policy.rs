@@ -16,14 +16,23 @@ pub struct AutoDecision {
     pub resolved: AgentEvent,
 }
 
+// Request identity is minted here, not borrowed from the tool call: an agent
+// that re-asks for the same call must produce a distinct request, or Phase 3
+// cannot route an answer back to the right parked responder.
+fn mint_request_id() -> String {
+    let mut bytes = [0u8; 8];
+    rand::RngCore::fill_bytes(&mut rand::rngs::OsRng, &mut bytes);
+    format!("perm-{}", hex::encode(bytes))
+}
+
 pub fn auto_decide(toolset: &ToolSelector, request: &RequestPermissionRequest) -> AutoDecision {
-    let request_id = request.tool_call.tool_call_id.to_string();
+    let tool_call_id = request.tool_call.tool_call_id.to_string();
     let name = request
         .tool_call
         .fields
         .title
         .clone()
-        .unwrap_or_else(|| request_id.clone());
+        .unwrap_or_else(|| tool_call_id.clone());
     let kind = resolve_kind(request.tool_call.fields.kind, &name);
 
     let selected = if permits(toolset, kind, &name) {
@@ -41,34 +50,26 @@ pub fn auto_decide(toolset: &ToolSelector, request: &RequestPermissionRequest) -
     AutoDecision {
         selected_option_id: selected.map(|option| option.option_id.to_string()),
         resolved: AgentEvent::PermissionResolved {
-            request_id,
+            request_id: mint_request_id(),
             outcome,
             auto: true,
         },
     }
 }
 
+// `ReadOnly` has no name gate here: its allow-list is derived from the tool
+// catalog's `mutating` flags, which this pure decision does not carry, so the
+// kind check is the only gate it can honour.
 fn permits(toolset: &ToolSelector, kind: ToolKind, name: &str) -> bool {
     match toolset {
         ToolSelector::Full => true,
-        ToolSelector::ReadOnly | ToolSelector::Only { .. } => {
-            is_read_only_kind(kind) || permits_mcp_tool(toolset, name)
+        ToolSelector::ReadOnly => is_read_only_kind(kind),
+        ToolSelector::Only { names } => {
+            is_read_only_kind(kind)
+                || name
+                    .strip_prefix(MCP_TOOL_PREFIX)
+                    .is_some_and(|base| names.iter().any(|allowed| allowed == base))
         }
-    }
-}
-
-/// Whether the selector names this carbide MCP tool explicitly. `ReadOnly`
-/// answers `false`: its allow-list is derived from the tool catalog's `mutating`
-/// flags, which this pure decision does not carry, so the kind check above is
-/// the only gate it can honour.
-fn permits_mcp_tool(toolset: &ToolSelector, name: &str) -> bool {
-    let Some(base) = name.strip_prefix(MCP_TOOL_PREFIX) else {
-        return false;
-    };
-    match toolset {
-        ToolSelector::Full => true,
-        ToolSelector::ReadOnly => false,
-        ToolSelector::Only { names } => names.iter().any(|allowed| allowed == base),
     }
 }
 

@@ -66,8 +66,7 @@ pub enum ToolKind {
 
 /// Best-effort kind for tools that don't declare one (native loop, MCP names).
 pub fn infer_tool_kind(name: &str) -> ToolKind {
-    let base = name.strip_prefix(super::harness::MCP_TOOL_PREFIX).unwrap_or(name);
-    let lower = base.to_ascii_lowercase();
+    let lower = super::harness::strip_mcp_prefix(name).to_ascii_lowercase();
     if lower.contains("delete") || lower.contains("remove") {
         ToolKind::Delete
     } else if lower.contains("move") || lower.contains("rename") {
@@ -232,6 +231,16 @@ pub(crate) async fn prepare_mcp_config(app: &AppHandle) -> Result<String, String
     Ok(config_path.to_string_lossy().to_string())
 }
 
+/// Character-bounded summary for anything shown in a tool card: cuts on a char
+/// boundary and marks the cut so a capped summary is never mistaken for the
+/// whole value.
+pub fn summarize_chars(text: &str, limit: usize) -> String {
+    match text.char_indices().nth(limit) {
+        Some((cut, _)) => format!("{}…", &text[..cut]),
+        None => text.to_string(),
+    }
+}
+
 pub fn cli_probe_error_message(provider_name: &str, probe: &pipeline::CliProbe) -> String {
     match (&probe.status, &probe.error) {
         (_, Some(detail)) if detail.contains("not executable") => {
@@ -271,40 +280,6 @@ pub async fn agent_run_start(
                 return Ok(());
             };
 
-            let path_env = pipeline::get_expanded_path();
-            let launch = {
-                let acp_spec = acp_spec.clone();
-                let path_env = path_env.clone();
-                match tauri::async_runtime::spawn_blocking(move || {
-                    super::acp::resolve_acp_launch(&acp_spec, &path_env)
-                })
-                .await
-                .map_err(|e| e.to_string())?
-                {
-                    Ok(launch) => launch,
-                    Err(e) => {
-                        let _ = app.emit(&event_name, AgentEvent::Error { message: e });
-                        return Ok(());
-                    }
-                }
-            };
-
-            let endpoint = match prepare_mcp_endpoint(&app, &spec.toolset).await {
-                Ok(endpoint) => endpoint,
-                Err(e) => {
-                    let _ = app.emit(
-                        &event_name,
-                        AgentEvent::Error {
-                            message: format!("Carbide MCP server unavailable: {e}"),
-                        },
-                    );
-                    return Ok(());
-                }
-            };
-
-            let catalog = McpRouter::with_app(app.clone()).tool_definitions_public();
-            let mutating = super::harness::MutatingToolSet::from_catalog(&catalog);
-
             // The provider session id round-trips through the frontend: the
             // Init the frontend stores is this key, so a later turn's
             // resume_session_id finds the same live process.
@@ -312,31 +287,82 @@ pub async fn agent_run_start(
                 .resume_session_id
                 .clone()
                 .unwrap_or_else(|| request_id.clone());
-            let fingerprint = format!("{} {}", launch.command, launch.args.join(" "));
-
-            let config = super::acp::AcpSessionConfig {
-                launch,
-                cwd: spec.vault_path.clone(),
-                path_env,
-                mcp_servers: vec![super::acp::AcpMcpServer {
-                    name: "carbide".to_string(),
-                    url: format!("http://127.0.0.1:{}/mcp", endpoint.port),
-                    headers: vec![(
-                        "Authorization".to_string(),
-                        format!("Bearer {}", endpoint.token),
-                    )],
-                }],
-                toolset: spec.toolset.clone(),
-                mutating,
-                power_intent: matches!(spec.toolset, ToolSelector::Full),
-            };
+            // The grant is part of session identity: a safe↔power flip must
+            // retire the old process and its scoped token, never reuse them.
+            let fingerprint = format!(
+                "{}|{}",
+                serde_json::to_string(&acp_spec).unwrap_or_default(),
+                serde_json::to_string(&spec.toolset).unwrap_or_default(),
+            );
 
             let manager = app.state::<super::acp::AcpSessionManager>();
-            let handle = match manager.get_or_spawn(&session_key, &fingerprint, config) {
-                Ok(handle) => handle,
-                Err(e) => {
-                    let _ = app.emit(&event_name, AgentEvent::Error { message: e });
-                    return Ok(());
+            let handle = match manager.get_matching(&session_key, &fingerprint, &spec.vault_path)
+            {
+                // Follow-up turn on a live session: no launch resolution, no
+                // token mint, no catalog rebuild — straight to the prompt.
+                Some(handle) => handle,
+                None => {
+                    let path_env = pipeline::get_expanded_path();
+                    let launch = {
+                        let acp_spec = acp_spec.clone();
+                        let path_env = path_env.clone();
+                        match tauri::async_runtime::spawn_blocking(move || {
+                            super::acp::resolve_acp_launch(&acp_spec, &path_env)
+                        })
+                        .await
+                        .map_err(|e| e.to_string())?
+                        {
+                            Ok(launch) => launch,
+                            Err(e) => {
+                                let _ = app.emit(&event_name, AgentEvent::Error { message: e });
+                                return Ok(());
+                            }
+                        }
+                    };
+
+                    let endpoint = match prepare_mcp_endpoint(&app, &spec.toolset).await {
+                        Ok(endpoint) => endpoint,
+                        Err(e) => {
+                            let _ = app.emit(
+                                &event_name,
+                                AgentEvent::Error {
+                                    message: format!("Carbide MCP server unavailable: {e}"),
+                                },
+                            );
+                            return Ok(());
+                        }
+                    };
+
+                    let catalog = McpRouter::with_app(app.clone()).tool_definitions_public();
+                    let mutating = super::harness::MutatingToolSet::from_catalog(&catalog);
+
+                    let config = super::acp::AcpSessionConfig {
+                        launch,
+                        cwd: spec.vault_path.clone(),
+                        path_env,
+                        mcp_port: endpoint.port,
+                        mcp_token: endpoint.token.clone(),
+                        toolset: spec.toolset.clone(),
+                        mutating,
+                    };
+
+                    // Token lifetime is owned by session lifetime: whatever
+                    // retires the process revokes its credential.
+                    let revoke_app = app.clone();
+                    let token = endpoint.token;
+                    let on_retire = Box::new(move || {
+                        revoke_app
+                            .state::<HttpServerState>()
+                            .revoke_scoped_token(&token);
+                    });
+
+                    match manager.get_or_spawn(&session_key, &fingerprint, config, on_retire) {
+                        Ok(handle) => handle,
+                        Err(e) => {
+                            let _ = app.emit(&event_name, AgentEvent::Error { message: e });
+                            return Ok(());
+                        }
+                    }
                 }
             };
 

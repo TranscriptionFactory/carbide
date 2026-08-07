@@ -1,4 +1,4 @@
-<script lang="ts">
+<script lang="ts" module>
   import {
     Brain,
     Check,
@@ -14,21 +14,7 @@
     Wrench,
     X,
   } from "@lucide/svelte";
-  import type { AssistantToolEvent } from "$lib/features/assistant/types/session";
   import type { ToolKind } from "$lib/features/assistant/types/agent_events";
-  import {
-    tool_event_has_body,
-    tool_event_status,
-    type ToolEventStatus,
-  } from "$lib/features/assistant/types/tool_event_fold";
-  import InlineDiff from "$lib/features/assistant/ui/inline_diff.svelte";
-  import TerminalBlock from "$lib/features/assistant/ui/terminal_block.svelte";
-
-  type Props = {
-    event: AssistantToolEvent;
-    on_open_path: (path: string) => void;
-  };
-  let { event, on_open_path }: Props = $props();
 
   const COMPLETION_CHECK_MS = 1400;
 
@@ -45,10 +31,28 @@
     other: Wrench,
   };
 
+  type PathChip = { path: string; line?: number | null };
+</script>
+
+<script lang="ts">
+  import type { AssistantToolEvent } from "$lib/features/assistant/types/session";
+  import {
+    tool_event_has_body,
+    tool_event_status,
+    type ToolEventStatus,
+  } from "$lib/features/assistant/types/tool_event_fold";
+  import InlineDiff from "$lib/features/assistant/ui/inline_diff.svelte";
+  import TerminalBlock from "$lib/features/assistant/ui/terminal_block.svelte";
+
+  type Props = {
+    event: AssistantToolEvent;
+    on_open_path: (path: string) => void;
+  };
+  let { event, on_open_path }: Props = $props();
+
   const status = $derived(tool_event_status(event));
-  const Icon = $derived(KIND_ICONS[event.kind ?? "other"] ?? Wrench);
+  const Icon = $derived(KIND_ICONS[event.kind ?? "other"]);
   const content = $derived(event.content ?? []);
-  const locations = $derived(event.locations ?? []);
 
   // Collapsed by default, failures excepted: the spinner already says a call
   // is live, and an error is the one body worth showing unasked.
@@ -80,7 +84,13 @@
     open = !open;
   }
 
-  const paths = $derived(event.paths ?? []);
+  // Locations carry the same path plus a line; when the agent sent only
+  // paths they render as the same chip without the suffix.
+  const chips = $derived<PathChip[]>(
+    event.locations?.length
+      ? event.locations
+      : (event.paths ?? []).map((path) => ({ path })),
+  );
   const has_body = $derived(tool_event_has_body(event));
   const expanded = $derived(open && has_body);
 </script>
@@ -149,29 +159,15 @@
         <pre
           class="overflow-x-auto whitespace-pre-wrap break-words rounded bg-muted/50 px-2 py-1 font-mono text-[11px]">{event.result_summary}</pre>
       {/if}
-      {#if locations.length > 0}
+      {#if chips.length > 0}
         <div class="flex flex-wrap gap-1">
-          {#each locations as location, index (index)}
+          {#each chips as chip, index (index)}
             <button
               type="button"
               class="rounded bg-muted/50 px-1 py-0.5 font-mono text-[11px] text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-              onclick={() => on_open_path(location.path)}
+              onclick={() => on_open_path(chip.path)}
             >
-              {location.path}{location.line !== undefined
-                ? `:${String(location.line)}`
-                : ""}
-            </button>
-          {/each}
-        </div>
-      {:else if paths.length > 0}
-        <div class="flex flex-wrap gap-1">
-          {#each paths as path (path)}
-            <button
-              type="button"
-              class="rounded bg-muted/50 px-1 py-0.5 font-mono text-[11px] text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-              onclick={() => on_open_path(path)}
-            >
-              {path}
+              {chip.path}{chip.line != null ? `:${String(chip.line)}` : ""}
             </button>
           {/each}
         </div>

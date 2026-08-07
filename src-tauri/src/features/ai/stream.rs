@@ -749,7 +749,7 @@ pub(crate) async fn collect_stderr_tail(
     clamp_stderr(&handle.await.unwrap_or_default())
 }
 
-fn clamp_stderr(raw: &str) -> String {
+pub(crate) fn clamp_stderr(raw: &str) -> String {
     const MAX_CHARS: usize = 800;
     let trimmed = raw.trim();
     if trimmed.is_empty() {

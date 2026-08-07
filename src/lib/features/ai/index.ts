@@ -30,6 +30,7 @@ export {
   agent_capability,
   agent_scope_copy,
   provider_supports_streaming,
+  supports_vault_handoff,
   ACP_PRESET_LABELS,
   type AgentCapability,
   type AgentScopeCopy,

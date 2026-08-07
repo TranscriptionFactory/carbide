@@ -11,6 +11,7 @@ import {
 import {
   agent_capability,
   provider_supports_streaming,
+  supports_vault_handoff,
 } from "$lib/features/ai/domain/ai_provider_capabilities";
 import type { AiService } from "$lib/features/ai/application/ai_service";
 import type { AgenticEditRunner } from "$lib/features/ai/application/agentic_edit_runner";
@@ -660,12 +661,7 @@ export function register_ai_actions(
         toast.error("No AI provider configured");
         return;
       }
-      const capability = agent_capability(provider);
-      const is_claude_acp =
-        capability?.backend === "acp" &&
-        capability.acp.kind === "preset" &&
-        capability.acp.id === "claude";
-      if (!is_claude_acp) {
+      if (!supports_vault_handoff(agent_capability(provider))) {
         toast.info(
           `${provider.name} does not support vault handoff — requires Claude Code`,
         );

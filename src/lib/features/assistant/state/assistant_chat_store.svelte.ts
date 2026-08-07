@@ -55,7 +55,6 @@ export class AssistantChatStore {
   pending_sources = $state<AssistantChatSourceInfo[] | null>(null);
   mode = $state<AssistantChatMode>("ask");
   permission_mode = $state<AssistantPermissionMode>("safe");
-  agent_running_tool = $state<string | null>(null);
   revision = $state(0);
   readiness = $state<RetrievalReadiness>({ state: "checking" });
   // Composer state (pin 5): never enters the persisted session format.
@@ -131,7 +130,6 @@ export class AssistantChatStore {
   }
 
   add_streaming_tool_event(event: AssistantToolEvent) {
-    this.agent_running_tool = event.name;
     this.update_streaming((m) => ({
       tool_events: [...(m.tool_events ?? []), event],
     }));
@@ -144,7 +142,6 @@ export class AssistantChatStore {
   }
 
   finish_streaming_tool_event(ref: ToolEventRef, patch: ToolEventPatch) {
-    this.agent_running_tool = null;
     this.update_streaming((m) => ({
       tool_events: finish_tool_event(m.tool_events ?? [], ref, patch),
     }));
@@ -202,7 +199,6 @@ export class AssistantChatStore {
     this.streaming_id = null;
     this.is_loading = false;
     this.pending_sources = null;
-    this.agent_running_tool = null;
   }
 
   fail_streaming(error: string) {
@@ -223,7 +219,6 @@ export class AssistantChatStore {
       this.streaming_id = null;
     }
     this.pending_sources = null;
-    this.agent_running_tool = null;
     this.set_error(error);
   }
 
@@ -372,7 +367,6 @@ export class AssistantChatStore {
     this.is_loading = false;
     this.streaming_id = null;
     this.pending_sources = null;
-    this.agent_running_tool = null;
     this.revision += 1;
   }
 

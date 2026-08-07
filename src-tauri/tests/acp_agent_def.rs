@@ -112,6 +112,27 @@ fn a_missing_npx_points_at_node() {
 
     assert!(error.contains("npx"));
     assert!(error.contains("Node.js"));
+    assert!(error.contains("install"));
+}
+
+#[test]
+fn an_unverifiable_command_is_reported_as_unverified_not_missing() {
+    let error = preflight_error(
+        &AcpAgentSpec::Custom {
+            command: "my-agent".to_string(),
+            args: Vec::new(),
+        },
+        "my-agent",
+        &pipeline::CliProbe {
+            status: pipeline::CliProbeStatus::Unknown,
+            resolved_path: None,
+            version: None,
+            error: None,
+        },
+    );
+
+    assert!(error.contains("my-agent"));
+    assert!(error.contains("Could not verify"));
 }
 
 #[test]
