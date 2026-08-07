@@ -188,6 +188,12 @@ impl VectorIndex {
         }
 
         if vector.is_empty() || vector.len() != self.dims {
+            log::warn!(
+                "VectorIndex::insert: dropping {} — vector has {} dims, index has {}",
+                str_key,
+                vector.len(),
+                self.dims
+            );
             return;
         }
 
@@ -270,7 +276,15 @@ impl VectorIndex {
     }
 
     pub fn search(&self, query: &[f32], limit: usize) -> Vec<(String, f32)> {
-        if self.key_to_id.is_empty() || query.len() != self.dims {
+        if self.key_to_id.is_empty() {
+            return vec![];
+        }
+        if query.len() != self.dims {
+            log::warn!(
+                "VectorIndex::search: query has {} dims, index has {} — returning no hits",
+                query.len(),
+                self.dims
+            );
             return vec![];
         }
 
@@ -612,7 +626,7 @@ impl VectorIndex {
                 );
                 idx
             }
-            None => Self::rebuild_from_sqlite(conn, index_name, dims),
+            None => Self::rebuild_from_sqlite(conn, index_name, expected_dims),
         }
     }
 }

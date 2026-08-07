@@ -69,6 +69,7 @@ describe("SearchStore", () => {
     });
     expect(store.embedding_progress).toEqual({
       status: "embedding",
+      phase: "notes",
       embedded: 0,
       total: 4,
       error: null,
@@ -82,6 +83,7 @@ describe("SearchStore", () => {
     });
     expect(store.embedding_progress).toEqual({
       status: "embedding",
+      phase: "notes",
       embedded: 2,
       total: 4,
       error: null,
@@ -95,6 +97,7 @@ describe("SearchStore", () => {
     });
     expect(store.embedding_progress).toEqual({
       status: "completed",
+      phase: null,
       embedded: 4,
       total: 4,
       error: null,
@@ -119,6 +122,7 @@ describe("SearchStore", () => {
     });
     expect(store.embedding_progress).toEqual({
       status: "embedding",
+      phase: "blocks",
       embedded: 1,
       total: 2,
       error: null,
@@ -129,7 +133,46 @@ describe("SearchStore", () => {
       vault_id: "vault-a",
       embedded: 2,
     });
-    expect(store.embedding_progress.status).toBe("completed");
+    expect(store.embedding_progress).toEqual({
+      status: "embedding",
+      phase: "blocks",
+      embedded: 2,
+      total: 2,
+      error: null,
+    });
+  });
+
+  it("stays embedding when the section pass hands off to the note pass", () => {
+    const store = new SearchStore();
+
+    store.set_embedding_progress({
+      status: "block_completed",
+      vault_id: "vault-a",
+      embedded: 12,
+    });
+    expect(store.embedding_progress.status).toBe("embedding");
+
+    store.set_embedding_progress({
+      status: "started",
+      vault_id: "vault-a",
+      total: 30,
+    });
+    expect(store.embedding_progress.phase).toBe("notes");
+    expect(store.embedding_progress.status).toBe("embedding");
+
+    store.set_embedding_progress({
+      status: "completed",
+      vault_id: "vault-a",
+      embedded: 30,
+      elapsed_ms: 5,
+    });
+    expect(store.embedding_progress).toEqual({
+      status: "completed",
+      phase: null,
+      embedded: 30,
+      total: 30,
+      error: null,
+    });
   });
 
   it("records embedding failure and clears it on reset", () => {
@@ -142,6 +185,7 @@ describe("SearchStore", () => {
     });
     expect(store.embedding_progress).toEqual({
       status: "failed",
+      phase: null,
       embedded: 0,
       total: 0,
       error: "model unavailable",
@@ -150,6 +194,7 @@ describe("SearchStore", () => {
     store.reset();
     expect(store.embedding_progress).toEqual({
       status: "idle",
+      phase: null,
       embedded: 0,
       total: 0,
       error: null,
