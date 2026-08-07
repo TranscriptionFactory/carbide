@@ -7,6 +7,12 @@
 // rag to these so there is a single source, and C3's inversion (AU-040/050)
 // leaves them living here.
 
+import type {
+  ToolContent,
+  ToolKind,
+  ToolLocation,
+} from "$lib/features/assistant/types/agent_events";
+
 export type AssistantSessionKind = "inline" | "note" | "chat";
 
 export type AssistantTitleSource = "derived" | "generated" | "manual";
@@ -50,12 +56,19 @@ export type AssistantContextStats = {
   truncated: number;
 };
 
+// id/kind/locations/content are optional so sessions persisted before the
+// ACP vocabulary landed load untouched. Persisted as folded — content is
+// capped at fold time, which is what bounds the session file.
 export type AssistantToolEvent = {
   name: string;
   input_summary: string;
   paths?: string[];
   ok?: boolean;
   result_summary?: string | null;
+  id?: string;
+  kind?: ToolKind;
+  locations?: ToolLocation[];
+  content?: ToolContent[];
 };
 
 export type AssistantToolCall = {

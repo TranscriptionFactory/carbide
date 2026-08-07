@@ -21,7 +21,13 @@ import type {
 import type { AssistantChatSourceInfo } from "$lib/features/assistant/types/chat_stream";
 import type { RetrievalReadiness } from "$lib/features/assistant/types/retrieval";
 import type { DocumentAttachment } from "$lib/features/assistant/types/attachment";
-import { finish_tool_event } from "$lib/features/assistant/types/tool_event_fold";
+import {
+  apply_tool_update,
+  finish_tool_event,
+  type ToolEventPatch,
+  type ToolEventRef,
+  type ToolUpdatePatch,
+} from "$lib/features/assistant/types/tool_event_fold";
 
 const CHAT_KIND = "chat";
 
@@ -131,17 +137,16 @@ export class AssistantChatStore {
     }));
   }
 
-  finish_streaming_tool_event(
-    name: string,
-    ok: boolean,
-    result_summary?: string | null,
-  ) {
+  apply_streaming_tool_update(update: ToolUpdatePatch) {
+    this.update_streaming((m) => ({
+      tool_events: apply_tool_update(m.tool_events ?? [], update),
+    }));
+  }
+
+  finish_streaming_tool_event(ref: ToolEventRef, patch: ToolEventPatch) {
     this.agent_running_tool = null;
     this.update_streaming((m) => ({
-      tool_events: finish_tool_event(m.tool_events ?? [], name, {
-        ok,
-        result_summary,
-      }),
+      tool_events: finish_tool_event(m.tool_events ?? [], ref, patch),
     }));
   }
 

@@ -5,7 +5,10 @@ import {
   type AssistantMessage,
 } from "$lib/features/assistant/types/session";
 import type { RunId, RunSink } from "$lib/features/assistant/types/run";
-import { finish_tool_event } from "$lib/features/assistant/types/tool_event_fold";
+import {
+  apply_tool_update,
+  finish_tool_event,
+} from "$lib/features/assistant/types/tool_event_fold";
 
 // R8 retarget: one kernel-registered sink lands run events on the run's origin
 // session. Association comes from RunRecord.origin.session_id, never from a
@@ -102,24 +105,44 @@ export function create_session_run_sink(deps: {
             tool_events: [
               ...(message.tool_events ?? []),
               {
+                id: event.id,
                 name: event.name,
+                kind: event.kind,
                 input_summary: event.input_summary,
                 paths: event.paths,
+                ...(event.locations.length > 0
+                  ? { locations: event.locations }
+                  : {}),
               },
             ],
+          }));
+          return;
+        case "tool_update":
+          on_existing(run_id, session_id, (message) => ({
+            tool_events: apply_tool_update(message.tool_events ?? [], {
+              id: event.id,
+              content: event.content,
+              paths: event.paths,
+            }),
           }));
           return;
         case "tool_end":
           on_existing(run_id, session_id, (message) => ({
             tool_events: finish_tool_event(
               message.tool_events ?? [],
-              event.name,
+              { id: event.id, name: event.name },
               {
                 ok: event.ok,
                 result_summary: event.result_summary,
+                paths: event.paths,
               },
             ),
           }));
+          return;
+        case "permission_request":
+        case "permission_resolved":
+          // Interactive approval lands in Phase 3; auto-answered requests
+          // need no transcript row yet.
           return;
         case "error":
           on_existing(run_id, session_id, () => ({ error: event.message }));

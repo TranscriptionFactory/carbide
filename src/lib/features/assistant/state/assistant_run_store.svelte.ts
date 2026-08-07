@@ -77,7 +77,10 @@ export class AssistantRunStore {
         this.amend(record, { status: "streaming" });
         return;
       case "tool_start":
+      case "tool_update":
       case "tool_end":
+      case "permission_request":
+      case "permission_resolved":
         return;
       case "error":
         this.set_error(id, { message: event.message, detail: event.message });

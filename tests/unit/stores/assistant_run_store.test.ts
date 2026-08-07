@@ -79,16 +79,22 @@ describe("AssistantRunStore", () => {
 
     store.apply_event("run-1", {
       type: "tool_start",
+      id: "call-1",
       name: "read_file",
+      kind: "read",
       input_summary: "docs/demo.md",
       paths: ["docs/demo.md"],
       mutating: false,
+      locations: [],
     });
     store.apply_event("run-1", {
       type: "tool_end",
+      id: "call-1",
       name: "read_file",
       ok: true,
       result_summary: "12 lines",
+      paths: [],
+      mutating: false,
     });
 
     expect(store.get("run-1")?.status).toBe("streaming");

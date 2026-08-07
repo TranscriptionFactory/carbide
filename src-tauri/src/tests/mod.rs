@@ -43,6 +43,8 @@ mod mcp_tools_git;
 mod mcp_schema_consistency;
 #[path = "../../tests/mcp_mutating_parity.rs"]
 mod mcp_mutating_parity;
+#[path = "../../tests/mcp_scoped_tokens.rs"]
+mod mcp_scoped_tokens;
 
 #[path = "../../tests/smart_links_rules.rs"]
 mod smart_links_rules;
@@ -282,6 +284,10 @@ crate::features::clip::capture::clip_capture_cancel,
                 // Note: settings and vault_settings commands are excluded because they use
                 // serde_json::Value which cannot be statically typed in TypeScript
             ])
+            // Event payloads that cross the wire via emit rather than a
+            // command signature; exported so the TS mirror can be checked
+            // against the generated shape.
+            .typ::<crate::features::ai::agent_stream::AgentEvent>()
             .export(typescript, "../src/lib/generated/bindings.ts")
             .expect("Failed to export typescript bindings");
     }

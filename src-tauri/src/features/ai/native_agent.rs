@@ -9,7 +9,9 @@ use tokio::sync::oneshot;
 use crate::features::mcp::router::McpRouter;
 use crate::features::mcp::types::{ContentBlock, ToolDefinition, ToolResult};
 
-use super::agent_stream::{AgentEvent, AgentRunSpec, AgentRunState, AgentRunStats, ToolSelector};
+use super::agent_stream::{
+    infer_tool_kind, AgentEvent, AgentRunSpec, AgentRunState, AgentRunStats, ToolSelector,
+};
 use super::tool_paths::extract_tool_paths;
 use super::service::{AiProviderConfig, AiTransport};
 use super::stream::{AiContentPart, AiMessage, AiMessageContent, AiStreamEvent, AiToolCall};
@@ -102,6 +104,18 @@ fn summarize_arguments(arguments: &str) -> String {
         arguments.to_string()
     } else {
         let head: String = chars[..INPUT_SUMMARY_MAX_CHARS].iter().collect();
+        format!("{head}…")
+    }
+}
+
+pub const RESULT_SUMMARY_MAX_CHARS: usize = 200;
+
+pub fn summarize_result(text: &str) -> String {
+    let chars: Vec<char> = text.chars().collect();
+    if chars.len() <= RESULT_SUMMARY_MAX_CHARS {
+        text.to_string()
+    } else {
+        let head: String = chars[..RESULT_SUMMARY_MAX_CHARS].iter().collect();
         format!("{head}…")
     }
 }
@@ -265,25 +279,33 @@ pub async fn run_native_turn<C, D, E>(
             }
 
             let args_value = parse_arguments(&arguments);
+            let paths = args_value
+                .as_ref()
+                .map(extract_tool_paths)
+                .unwrap_or_default();
+            let mutating = mutating_names.contains(&name);
             emit(AgentEvent::ToolStart {
+                id: id.clone(),
                 name: name.clone(),
+                kind: infer_tool_kind(&name),
                 input_summary: summarize_arguments(&arguments),
-                paths: args_value
-                    .as_ref()
-                    .map(extract_tool_paths)
-                    .unwrap_or_default(),
-                mutating: mutating_names.contains(&name),
+                paths: paths.clone(),
+                mutating,
+                locations: Vec::new(),
             });
 
             if !allowed_names.contains(&name) {
-                emit(AgentEvent::ToolEnd {
-                    name: name.clone(),
-                    ok: false,
-                    result_summary: None,
-                });
                 let denial = format!(
                     "Tool '{name}' is not available in the current permission mode and was not executed."
                 );
+                emit(AgentEvent::ToolEnd {
+                    id: id.clone(),
+                    name: name.clone(),
+                    ok: false,
+                    result_summary: Some(summarize_result(&denial)),
+                    paths,
+                    mutating,
+                });
                 history.push(tool_result_message(&id, denial));
                 continue;
             }
@@ -292,9 +314,12 @@ pub async fn run_native_turn<C, D, E>(
             let ok = !result.is_error;
             let text = truncate_tool_result(&tool_result_text(&result));
             emit(AgentEvent::ToolEnd {
+                id: id.clone(),
                 name: name.clone(),
                 ok,
-                result_summary: None,
+                result_summary: Some(summarize_result(&text)),
+                paths,
+                mutating,
             });
             history.push(tool_result_message(&id, text));
         }
