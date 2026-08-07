@@ -1,47 +1,28 @@
-<script lang="ts" module>
-  import type {
-    PermissionOptionKind,
-    PermissionOptionSpec,
-  } from "$lib/features/assistant/types/agent_events";
-
-  export type PermissionResponse =
-    | { option_id: string; kind: PermissionOptionKind }
-    | { kind: "cancelled" };
-</script>
-
 <script lang="ts">
   import { ChevronDown } from "@lucide/svelte";
   import { Button } from "$lib/components/ui/button";
   import * as Popover from "$lib/components/ui/popover";
-  import { dedupe_options } from "$lib/features/assistant/domain/permission_outcome";
+  import type { PermissionOptionSpec } from "$lib/features/assistant/types/agent_events";
+  import {
+    select_permission_options,
+    type PermissionResponse,
+  } from "$lib/features/assistant/domain/permission_outcome";
 
   type Props = {
     options: PermissionOptionSpec[];
-    busy?: boolean;
     on_respond: (choice: PermissionResponse) => void;
   };
 
-  let { options, busy = false, on_respond }: Props = $props();
+  let { options, on_respond }: Props = $props();
 
-  const unique = $derived(dedupe_options(options));
+  const choices = $derived(select_permission_options(options));
+  const primary = $derived(choices.primary);
+  const escalation = $derived(choices.escalation);
+  const refusal = $derived(choices.refusal);
 
-  function of_kind(
-    specs: PermissionOptionSpec[],
-    kind: PermissionOptionKind,
-  ): PermissionOptionSpec | null {
-    return specs.find((spec) => spec.kind === kind) ?? null;
-  }
-
-  const primary = $derived(
-    of_kind(unique, "allow_once") ?? of_kind(unique, "allow_always"),
-  );
-  const escalation = $derived.by(() => {
-    const always = of_kind(unique, "allow_always");
-    return always !== null && always !== primary ? always : null;
-  });
-  const refusal = $derived(
-    of_kind(unique, "reject_once") ?? of_kind(unique, "reject_always"),
-  );
+  // One prompt, one answer: the parked request is gone after the first click,
+  // so a second would resolve to nobody.
+  let responded = $state(false);
 
   let primary_ref = $state<HTMLElement | null>(null);
   let focus_settled = false;
@@ -59,8 +40,14 @@
     button.focus();
   });
 
-  function respond(option: PermissionOptionSpec): void {
-    on_respond({ option_id: option.option_id, kind: option.kind });
+  function respond(choice: PermissionResponse): void {
+    if (responded) return;
+    responded = true;
+    on_respond(choice);
+  }
+
+  function respond_with(option: PermissionOptionSpec): void {
+    respond({ option_id: option.option_id, kind: option.kind });
   }
 </script>
 
@@ -69,11 +56,11 @@
     variant="ghost"
     size="sm"
     class="text-muted-foreground"
-    disabled={busy}
+    disabled={responded}
     data-testid="permission-refuse"
     onclick={() => {
-      if (refusal) respond(refusal);
-      else on_respond({ kind: "cancelled" });
+      if (refusal) respond_with(refusal);
+      else respond({ kind: "cancelled" });
     }}
   >
     {refusal?.label ?? "Deny"}
@@ -85,9 +72,9 @@
         bind:ref={primary_ref}
         variant="default"
         size="sm"
-        disabled={busy}
+        disabled={responded}
         data-testid="permission-primary"
-        onclick={() => respond(primary)}
+        onclick={() => respond_with(primary)}
       >
         {primary.label}
       </Button>
@@ -101,7 +88,7 @@
               {...props}
               variant="outline"
               size="icon-sm"
-              disabled={busy}
+              disabled={responded}
               aria-label="More permission options"
               data-testid="permission-escalate-trigger"
             >
@@ -114,9 +101,9 @@
             variant="ghost"
             size="sm"
             class="w-full justify-start"
-            disabled={busy}
+            disabled={responded}
             data-testid="permission-escalate-option"
-            onclick={() => respond(escalation)}
+            onclick={() => respond_with(escalation)}
           >
             {escalation.label}
           </Button>

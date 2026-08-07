@@ -39,10 +39,8 @@
     type AiProviderProbeState,
   } from "$lib/features/ai";
   import { toast } from "$lib/shared/ui/toast";
-  import {
-    commands as generated_commands,
-    type Grant,
-  } from "$lib/generated/bindings";
+  import type { Grant } from "$lib/generated/bindings";
+  import type { AssistantPermissionPort } from "$lib/features/assistant";
   import type { StorageStats } from "$lib/features/settings/ports";
   import { format_bytes } from "$lib/shared/utils/format_bytes";
   import { HotkeysPanel } from "$lib/features/hotkey";
@@ -169,6 +167,7 @@
     lsp_config_status: LspProviderConfigStatus | null;
     on_lsp_open_config: () => void;
     on_lsp_reset_config: () => void;
+    permissions: AssistantPermissionPort;
     storage_stats: StorageStats | null;
     storage_loading: boolean;
     on_refresh_storage_stats: () => void;
@@ -241,6 +240,7 @@
     lsp_config_status,
     on_lsp_open_config,
     on_lsp_reset_config,
+    permissions,
     storage_stats,
     storage_loading,
     on_refresh_storage_stats,
@@ -394,19 +394,19 @@
   let permission_grants_loaded = $state(false);
 
   async function load_permission_grants() {
-    const result = await generated_commands.agentPermissionGrants();
-    if (result.status === "ok") permission_grants = result.data;
+    try {
+      permission_grants = await permissions.grants();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : String(e));
+    }
     permission_grants_loaded = true;
   }
 
   async function revoke_permission_grant(grant: Grant) {
-    const result = await generated_commands.agentPermissionRevoke(
-      grant.agent_id,
-      grant.tool_name,
-      grant.kind,
-    );
-    if (result.status === "error") {
-      toast.error(result.error);
+    try {
+      await permissions.revoke(grant.id);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : String(e));
       return;
     }
     await load_permission_grants();
@@ -1076,7 +1076,7 @@
                   </p>
                 {:else}
                   <div class="flex flex-col gap-1">
-                    {#each permission_grants as grant (grant.agent_id + grant.tool_name + grant.kind)}
+                    {#each permission_grants as grant (grant.id)}
                       <div
                         class="flex items-center justify-between gap-2 rounded-md border px-2 py-1 text-xs"
                       >

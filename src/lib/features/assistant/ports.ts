@@ -1,7 +1,8 @@
 import type { AiProviderConfig } from "$lib/shared/types/ai_provider_config";
 import type { AiCliProbeStatus } from "$lib/features/ai";
 import type { RunEvent, RunRequest } from "$lib/features/assistant/types/run";
-import type { PermissionOptionKind } from "$lib/features/assistant/types/agent_events";
+import type { Grant } from "$lib/generated/bindings";
+import type { PermissionResponse } from "$lib/features/assistant/domain/permission_outcome";
 import type {
   AssistantSession,
   AssistantSessionSummary,
@@ -19,13 +20,14 @@ export type TransportRequest = {
   signal?: AbortSignal;
 };
 
-export type PermissionResponse =
-  | { option_id: string; kind: PermissionOptionKind }
-  | { kind: "cancelled" };
+export type { PermissionResponse };
 
-// Answers a parked per-tool-call permission prompt on the backend engine.
+// Answers a parked per-tool-call permission prompt on the backend engine, and
+// administers the standing grants those answers leave behind.
 export interface AssistantPermissionPort {
   respond(request_id: string, response: PermissionResponse): Promise<void>;
+  grants(): Promise<Grant[]>;
+  revoke(id: string): Promise<void>;
 }
 
 // One transport for every assistant execution. Both wire channels the app used

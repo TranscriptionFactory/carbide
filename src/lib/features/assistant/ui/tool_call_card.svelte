@@ -44,11 +44,11 @@
   import {
     classify_outcome,
     outcome_line,
+    type PermissionResponse,
   } from "$lib/features/assistant/domain/permission_outcome";
   import InlineDiff from "$lib/features/assistant/ui/inline_diff.svelte";
   import PermissionPrompt from "$lib/features/assistant/ui/permission_prompt.svelte";
   import TerminalBlock from "$lib/features/assistant/ui/terminal_block.svelte";
-  import type { PermissionResponse } from "$lib/features/assistant/ports";
 
   type Props = {
     event: AssistantToolEvent;
@@ -180,12 +180,7 @@
             <PermissionPrompt
               options={permission.options}
               on_respond={(choice) =>
-                on_permission_respond?.(
-                  permission.request_id,
-                  "option_id" in choice
-                    ? { option_id: choice.option_id, kind: choice.kind }
-                    : { kind: "cancelled" },
-                )}
+                on_permission_respond?.(permission.request_id, choice)}
             />
           </div>
         {:else}

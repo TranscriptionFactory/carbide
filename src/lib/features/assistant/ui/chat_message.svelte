@@ -20,6 +20,7 @@
     render_rag_markdown,
     CITATION_INDEX_ATTR,
   } from "$lib/features/assistant/domain/chat_markdown";
+  import type { PermissionResponse } from "$lib/features/assistant/domain/permission_outcome";
   import { citations_from_tools } from "$lib/features/assistant/domain/agent_citations";
   import { to_vault_relative_path } from "$lib/features/assistant/domain/agent_file_ops";
 
@@ -107,7 +108,10 @@
     open_note(to_vault_relative_path(vault_path, path));
   }
 
-  function respond_permission(request_id: string, response: unknown) {
+  function respond_permission(
+    request_id: string,
+    response: PermissionResponse,
+  ) {
     void action_registry.execute(
       ACTION_IDS.assistant_permission_respond,
       request_id,

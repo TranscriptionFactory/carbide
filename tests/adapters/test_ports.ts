@@ -284,6 +284,11 @@ export function create_test_ports(): Ports {
       write: () => Promise.resolve(),
       remove: () => Promise.resolve(),
     },
+    assistant_permissions: {
+      respond: () => Promise.resolve(),
+      grants: () => Promise.resolve([]),
+      revoke: () => Promise.resolve(),
+    },
     assistant_persistence: create_test_assistant_session_persistence_adapter(),
     assistant_proposal_persistence:
       create_test_assistant_proposal_persistence_adapter(),

@@ -21,9 +21,10 @@ use crate::features::ai::stream::clamp_stderr;
 
 use super::agent_def::{pick_session_mode, AcpLaunch};
 use super::permissions::{
-    mint_request_id, Evaluation, ParkedDecision, PermissionEngine, PERMISSION_TIMEOUT,
+    mint_request_id, option_kind_name, Evaluation, ParkOutcome, PermissionEngine,
+    PermissionRequestSpec,
 };
-use super::policy::{build_request_spec, option_kind_name, select_option};
+use super::policy::{build_request_spec, select_allow};
 use super::translate::TurnTranslator;
 
 const STDERR_RING_LINES: usize = 50;
@@ -186,40 +187,18 @@ async fn run_session(
                 let request_id = mint_request_id();
 
                 let answer = match handler_engine.evaluate(&handler_toolset, &spec) {
-                    Evaluation::Allow => {
-                        auto_answer(&permission_sink, &request_id, &spec, true)
-                    }
-                    Evaluation::Deny => {
-                        auto_answer(&permission_sink, &request_id, &spec, false)
-                    }
+                    Evaluation::Allow => auto_answer(&permission_sink, &request_id, &spec),
                     Evaluation::Prompt => {
-                        emit(
-                            &permission_sink,
-                            AgentEvent::PermissionRequest {
-                                request_id: request_id.clone(),
-                                tool_call_id: spec.tool_call_id.clone(),
-                                name: spec.name.clone(),
-                                kind: spec.kind,
-                                input_summary: spec.input_summary.clone(),
-                                paths: spec.paths.clone(),
-                                mutating: spec.mutating,
-                                options: spec.options.clone(),
-                            },
-                        );
-                        let wait = handler_engine.park(request_id.clone(), spec.clone());
+                        emit(&permission_sink, spec.to_event(request_id.clone()));
                         handler_parked.lock().unwrap().push(request_id.clone());
-                        let outcome =
-                            tokio::time::timeout(PERMISSION_TIMEOUT, wait).await;
+                        let outcome = handler_engine
+                            .await_decision(request_id.clone(), spec.clone())
+                            .await;
                         handler_parked
                             .lock()
                             .unwrap()
                             .retain(|id| id != &request_id);
-                        settle_prompt(
-                            &permission_sink,
-                            &handler_engine,
-                            &request_id,
-                            outcome,
-                        )
+                        settle_prompt(&permission_sink, &request_id, outcome)
                     }
                 };
 
@@ -332,7 +311,8 @@ async fn run_commands(
             SessionCommand::Cancel => {
                 // A stopped run must not leave a live prompt: unblock this
                 // session's parked requests before the agent is told to stop.
-                for request_id in parked.lock().unwrap().drain(..) {
+                let stranded: Vec<String> = parked.lock().unwrap().drain(..).collect();
+                for request_id in stranded {
                     permissions.cancel(&request_id);
                 }
                 cx.send_notification(CancelNotification::new(session_id.clone()))?;
@@ -388,16 +368,15 @@ fn emit(sink: &Arc<Mutex<Option<EventSink>>>, event: AgentEvent) {
     }
 }
 
-// Answers an auto decision: picks the mildest matching option, records the
-// honest resolution in the transcript, returns the option to respond with
+// Answers an auto allow: picks the mildest grant on offer, records the honest
+// resolution in the transcript, returns the option to respond with
 // (None ⇒ protocol-level Cancelled).
 fn auto_answer(
     sink: &Arc<Mutex<Option<EventSink>>>,
     request_id: &str,
-    spec: &super::permissions::PermissionRequestSpec,
-    allow: bool,
+    spec: &PermissionRequestSpec,
 ) -> Option<String> {
-    let selected = select_option(&spec.options, allow);
+    let selected = select_allow(&spec.options);
     let outcome = match selected {
         Some(option) => format!("selected:{}", option_kind_name(option.kind)),
         None => "cancelled".to_string(),
@@ -415,31 +394,17 @@ fn auto_answer(
 
 fn settle_prompt(
     sink: &Arc<Mutex<Option<EventSink>>>,
-    engine: &std::sync::Arc<PermissionEngine>,
     request_id: &str,
-    outcome: Result<
-        Result<ParkedDecision, tokio::sync::oneshot::error::RecvError>,
-        tokio::time::error::Elapsed,
-    >,
+    outcome: ParkOutcome,
 ) -> Option<String> {
     let (outcome_text, auto, option_id) = match outcome {
-        // An empty option_id is the synthetic Deny for a prompt the agent
-        // offered no reject option for; the protocol answer is Cancelled.
-        Ok(Ok(ParkedDecision::Selected { option_id, kind })) if !option_id.is_empty() => (
+        ParkOutcome::Selected { option_id, kind } => (
             format!("selected:{}", option_kind_name(kind)),
             false,
             Some(option_id),
         ),
-        Ok(Ok(ParkedDecision::Selected { .. })) => ("cancelled".to_string(), false, None),
-        Ok(Ok(ParkedDecision::Cancelled)) | Ok(Err(_)) => {
-            ("cancelled".to_string(), true, None)
-        }
-        Err(_) => {
-            // Nothing arrived in time; the receiver is gone, so a later click
-            // resolves to nobody and the engine entry is dropped here.
-            engine.cancel(request_id);
-            ("timeout".to_string(), true, None)
-        }
+        ParkOutcome::Cancelled => ("cancelled".to_string(), true, None),
+        ParkOutcome::Timeout => ("timeout".to_string(), true, None),
     };
     emit(
         sink,

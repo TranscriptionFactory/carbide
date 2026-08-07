@@ -36,7 +36,6 @@ type Choice = { option_id: string; kind: string } | { kind: "cancelled" };
 
 function render_prompt(options: {
   options: PermissionOptionSpec[];
-  busy?: boolean;
   on_respond?: (choice: Choice) => void;
   host?: HTMLElement;
 }) {
@@ -47,7 +46,6 @@ function render_prompt(options: {
     target,
     props: {
       options: options.options,
-      busy: options.busy ?? false,
       on_respond: options.on_respond ?? vi.fn(),
     },
   });
@@ -237,15 +235,23 @@ describe("permission_prompt.svelte", () => {
     view.cleanup();
   });
 
-  it("disables every button while busy", () => {
+  it("answers once and disables every button after the first click", () => {
+    const on_respond = vi.fn();
     const view = render_prompt({
       options: [ALLOW_ONCE, ALLOW_ALWAYS, REJECT_ONCE],
-      busy: true,
+      on_respond,
     });
 
-    const all = buttons(view.target);
-    expect(all.length).toBeGreaterThan(2);
-    for (const button of all) expect(button.disabled).toBe(true);
+    click(by_testid(view.target, "permission-primary"));
+    click(by_testid(view.target, "permission-refuse"));
+
+    expect(on_respond).toHaveBeenCalledTimes(1);
+    expect(on_respond).toHaveBeenCalledWith({
+      option_id: "opt-allow-once",
+      kind: "allow_once",
+    });
+    for (const button of buttons(view.target))
+      expect(button.disabled).toBe(true);
 
     view.cleanup();
   });

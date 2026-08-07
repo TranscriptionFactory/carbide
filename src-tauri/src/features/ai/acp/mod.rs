@@ -9,14 +9,12 @@ use std::collections::HashMap;
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
-pub use agent_def::{pick_session_mode, resolve_acp_launch, AcpAgentSpec, AcpLaunch, AcpPresetId};
-pub use permission_store::{default_store_dir, Grant, GrantStore};
-pub use permissions::{
-    kind_name, mint_request_id, Evaluation, ParkedDecision, PermissionEngine,
-    PermissionRequestSpec, PERMISSION_TIMEOUT,
-};
-pub use session::{spawn_acp_session, AcpSessionConfig, EventSink, SessionCommand, SessionHandle};
+pub use agent_def::{pick_session_mode, resolve_acp_launch, AcpAgentSpec, AcpPresetId};
+pub use permissions::PermissionEngine;
+pub use session::{AcpSessionConfig, EventSink, SessionHandle};
 pub use translate::TurnTranslator;
+
+use session::spawn_acp_session;
 
 /// Sessions idle for longer than this are torn down by [`AcpSessionManager::reap_idle`]'s
 /// usual caller; the duration is passed in so tests can drive it directly.

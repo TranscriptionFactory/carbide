@@ -56,6 +56,7 @@ import { create_toolchain_tauri_adapter } from "$lib/features/toolchain";
 import { create_code_lsp_tauri_adapter } from "$lib/features/code_lsp";
 import { create_saved_query_tauri_adapter } from "$lib/features/query";
 import {
+  create_assistant_permission_tauri_adapter,
   create_assistant_proposal_persistence_tauri_adapter,
   create_assistant_session_persistence_tauri_adapter,
 } from "$lib/features/assistant";
@@ -296,6 +297,7 @@ export function create_prod_ports(): Ports & {
     toolchain: create_toolchain_tauri_adapter(),
     code_lsp: create_code_lsp_tauri_adapter(),
     saved_query: create_saved_query_tauri_adapter(),
+    assistant_permissions: create_assistant_permission_tauri_adapter(),
     assistant_persistence: create_assistant_session_persistence_tauri_adapter(),
     assistant_proposal_persistence:
       create_assistant_proposal_persistence_tauri_adapter(),

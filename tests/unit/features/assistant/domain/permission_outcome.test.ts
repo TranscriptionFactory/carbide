@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   classify_outcome,
-  dedupe_options,
   outcome_line,
+  select_permission_options,
   type PermissionOutcomeClass,
 } from "$lib/features/assistant/domain/permission_outcome";
 import type { PermissionOptionSpec } from "$lib/features/assistant/types/agent_events";
@@ -72,41 +72,55 @@ describe("outcome_line", () => {
   }
 });
 
-describe("dedupe_options", () => {
-  it("keeps the first option of each kind", () => {
-    const deduped = dedupe_options([
+describe("select_permission_options", () => {
+  it("makes the mildest allow primary and keeps allow_always as escalation", () => {
+    const choices = select_permission_options([
+      option("aa", "allow_always"),
+      option("ao", "allow_once"),
+      option("ro", "reject_once"),
+    ]);
+
+    expect(choices.primary?.option_id).toBe("ao");
+    expect(choices.escalation?.option_id).toBe("aa");
+    expect(choices.refusal?.option_id).toBe("ro");
+  });
+
+  it("promotes allow_always to primary and offers no escalation beside it", () => {
+    const choices = select_permission_options([
+      option("aa", "allow_always"),
+      option("ro", "reject_once"),
+    ]);
+
+    expect(choices.primary?.option_id).toBe("aa");
+    expect(choices.escalation).toBeNull();
+  });
+
+  it("picks the first option of each kind when the agent sends synonyms", () => {
+    const choices = select_permission_options([
       option("a", "allow_once", "Yes"),
       option("b", "allow_once", "Allow"),
       option("c", "reject_once", "No"),
       option("d", "reject_once", "Deny"),
     ]);
 
-    expect(deduped.map((o) => o.option_id)).toEqual(["a", "c"]);
-    expect(deduped.map((o) => o.label)).toEqual(["Yes", "No"]);
+    expect(choices.primary?.label).toBe("Yes");
+    expect(choices.refusal?.label).toBe("No");
   });
 
-  it("preserves one option per kind in arrival order", () => {
-    const deduped = dedupe_options([
-      option("r1", "reject_always"),
-      option("a1", "allow_always"),
-      option("a2", "allow_once"),
-      option("r2", "reject_once"),
+  it("falls back to reject_always when no reject_once is offered", () => {
+    const choices = select_permission_options([
+      option("ao", "allow_once"),
+      option("ra", "reject_always"),
     ]);
 
-    expect(deduped.map((o) => o.kind)).toEqual([
-      "reject_always",
-      "allow_always",
-      "allow_once",
-      "reject_once",
-    ]);
+    expect(choices.refusal?.option_id).toBe("ra");
   });
 
-  it("returns an empty list unchanged", () => {
-    expect(dedupe_options([])).toEqual([]);
-  });
-
-  it("leaves an already-unique list intact", () => {
-    const options = [option("a", "allow_once"), option("r", "reject_once")];
-    expect(dedupe_options(options)).toEqual(options);
+  it("reports nothing on offer for an empty list", () => {
+    expect(select_permission_options([])).toEqual({
+      primary: null,
+      escalation: null,
+      refusal: null,
+    });
   });
 });
