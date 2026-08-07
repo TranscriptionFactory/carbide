@@ -20,6 +20,7 @@ function render_toggle(props?: {
   mode?: AssistantChatMode;
   permission_mode?: AssistantPermissionMode;
   agent_supported?: boolean;
+  backend?: "native" | "harness" | null;
   on_set_mode?: (mode: AssistantChatMode) => void;
   on_set_permission_mode?: (mode: AssistantPermissionMode) => void;
 }) {
@@ -31,6 +32,7 @@ function render_toggle(props?: {
       mode: props?.mode ?? "ask",
       permission_mode: props?.permission_mode ?? "safe",
       agent_supported: props?.agent_supported ?? true,
+      backend: props?.backend ?? null,
       on_set_mode: props?.on_set_mode ?? vi.fn(),
       on_set_permission_mode: props?.on_set_permission_mode ?? vi.fn(),
     },
@@ -117,5 +119,19 @@ describe("RagModeToggle", () => {
     expect(power.getAttribute("aria-pressed")).toBe("false");
     power.click();
     expect(on_set_permission_mode).toHaveBeenCalledWith("power");
+  });
+
+  it("describes power as vault-scoped on the native backend", () => {
+    const target = render_toggle({ mode: "agent", backend: "native" });
+    expect(button_labelled(target, "Power").getAttribute("title")).toBe(
+      "Agent can edit files in your vault",
+    );
+  });
+
+  it("describes power as full system access on a harness backend", () => {
+    const target = render_toggle({ mode: "agent", backend: "harness" });
+    expect(button_labelled(target, "Power").getAttribute("title")).toBe(
+      "Full system access — agent can run shell commands outside the vault",
+    );
   });
 });

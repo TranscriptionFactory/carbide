@@ -431,6 +431,7 @@
     mode={rag.mode}
     permission_mode={rag.permission_mode}
     {agent_supported}
+    backend={capability?.backend ?? null}
     on_set_mode={set_mode}
     on_set_permission_mode={set_permission_mode}
   />
@@ -447,6 +448,7 @@
     is_loading={rag.is_loading}
     is_streaming={rag.streaming_id !== null}
     readiness_state={rag.readiness.state}
+    show_scope_bar={rag.mode !== "agent"}
     submit_label={rag.mode === "agent" ? "Run" : "Ask"}
     on_submit={ask}
     on_stop={stop}

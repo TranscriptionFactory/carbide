@@ -142,6 +142,41 @@ describe("AgentRunner.run_turn", () => {
     expect(rag_store.streaming_id).toBeNull();
   });
 
+  it("forwards reasoning into the streaming transcript", async () => {
+    const { runner, rag_store } = make_harness([
+      { type: "reasoning", text: "Let me " },
+      { type: "reasoning", text: "look." },
+      { type: "text", text: "Done." },
+      { type: "done", stats: {} },
+    ]);
+
+    await runner.run_turn(provider, "organize my notes", "harness");
+
+    const assistant = rag_store.active?.messages.at(-1);
+    expect(assistant?.reasoning).toBe("Let me look.");
+    expect(assistant?.content).toBe("Done.");
+  });
+
+  it("records the tool_end result summary on the folded event", async () => {
+    const { runner, rag_store } = make_harness([
+      tool_start("mcp__carbide__search_notes", '{"query":"projects"}'),
+      {
+        type: "tool_end",
+        name: "mcp__carbide__search_notes",
+        ok: true,
+        result_summary: "3 matches",
+      },
+      { type: "text", text: "Found them." },
+      { type: "done", stats: {} },
+    ]);
+
+    await runner.run_turn(provider, "organize my notes", "harness");
+
+    const events = rag_store.active?.messages.at(-1)?.tool_events ?? [];
+    expect(events[0]?.ok).toBe(true);
+    expect(events[0]?.result_summary).toBe("3 matches");
+  });
+
   it("does not refresh the vault when no mutating tools ran", async () => {
     const { runner, rag_store, refresh_vault } = make_harness([
       { type: "session", provider_session_id: "sess-1" },

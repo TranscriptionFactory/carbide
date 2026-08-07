@@ -147,12 +147,19 @@ export class AgentRunner {
             });
             return;
           case "tool_end":
-            this.chat_store.finish_streaming_tool_event(event.name, event.ok);
+            this.chat_store.finish_streaming_tool_event(
+              event.name,
+              event.ok,
+              event.result_summary,
+            );
             return;
           case "error":
             this.chat_store.fail_streaming(event.message);
             return;
           case "reasoning":
+            this.ensure_streaming();
+            this.chat_store.append_streaming_reasoning(event.text);
+            return;
           case "done":
             return;
         }

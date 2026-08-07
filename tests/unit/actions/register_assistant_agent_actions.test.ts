@@ -371,6 +371,15 @@ describe("rag agent actions", () => {
     expect(chat_store.permission_mode).toBe("power");
   });
 
+  it("new_chat: lands in ask mode instead of inheriting agent mode", async () => {
+    const { registry, chat_store } = create_harness();
+    chat_store.set_mode("agent");
+
+    await registry.execute(ACTION_IDS.rag_new_chat);
+
+    expect(chat_store.mode).toBe("ask");
+  });
+
   it("agent_abort: is a no-op when nothing is running", async () => {
     const { registry } = create_harness();
 

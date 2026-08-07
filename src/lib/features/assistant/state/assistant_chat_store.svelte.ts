@@ -20,6 +20,7 @@ import type {
 import type { AssistantChatSourceInfo } from "$lib/features/assistant/types/chat_stream";
 import type { RetrievalReadiness } from "$lib/features/assistant/types/retrieval";
 import type { DocumentAttachment } from "$lib/features/assistant/types/attachment";
+import { finish_tool_event } from "$lib/features/assistant/types/tool_event_fold";
 
 const CHAT_KIND = "chat";
 
@@ -139,19 +140,19 @@ export class AssistantChatStore {
     }));
   }
 
-  finish_streaming_tool_event(name: string, ok: boolean) {
+  finish_streaming_tool_event(
+    name: string,
+    ok: boolean,
+    result_summary?: string | null,
+  ) {
     this.agent_running_tool = null;
-    this.update_streaming((m) => {
-      const events = [...(m.tool_events ?? [])];
-      for (let i = events.length - 1; i >= 0; i -= 1) {
-        const current = events[i];
-        if (current && current.name === name && current.ok === undefined) {
-          events[i] = { ...current, ok };
-          break;
-        }
-      }
-      return { tool_events: events };
-    });
+    this.update_streaming((m) => ({
+      tool_events: finish_tool_event(m.tool_events ?? [], {
+        name,
+        ok,
+        result_summary,
+      }),
+    }));
   }
 
   add_user_message(content: string): AssistantMessage {

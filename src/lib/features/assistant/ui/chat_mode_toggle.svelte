@@ -6,6 +6,7 @@
     mode: AssistantChatMode;
     permission_mode: AssistantPermissionMode;
     agent_supported: boolean;
+    backend?: "native" | "harness" | null;
     on_set_mode: (mode: AssistantChatMode) => void;
     on_set_permission_mode: (mode: AssistantPermissionMode) => void;
   };
@@ -14,6 +15,7 @@
     mode,
     permission_mode,
     agent_supported,
+    backend = null,
     on_set_mode,
     on_set_permission_mode,
   }: Props = $props();
@@ -25,11 +27,17 @@
     { value: "agent", label: "Agent" },
   ];
 
-  const PERMISSIONS: Array<{
-    value: AssistantPermissionMode;
-    label: string;
-    hint: string;
-  }> = [
+  // Power on a CLI harness is not "edit files in your vault" — the harness
+  // runs unrestricted shell. The hint must say what the grant actually is.
+  const power_hint = $derived(
+    backend === "native"
+      ? "Agent can edit files in your vault"
+      : "Full system access — agent can run shell commands outside the vault",
+  );
+
+  const permissions = $derived<
+    Array<{ value: AssistantPermissionMode; label: string; hint: string }>
+  >([
     {
       value: "safe",
       label: "Safe",
@@ -38,9 +46,9 @@
     {
       value: "power",
       label: "Power",
-      hint: "Agent can edit files in your vault",
+      hint: power_hint,
     },
-  ];
+  ]);
 </script>
 
 <div class="flex items-center justify-between gap-2 border-t px-2 pt-2">
@@ -65,7 +73,7 @@
   </div>
   {#if mode === "agent"}
     <div class="flex overflow-hidden rounded-md border">
-      {#each PERMISSIONS as p (p.value)}
+      {#each permissions as p (p.value)}
         <button
           type="button"
           class="px-2 py-1 text-xs font-medium {permission_mode === p.value
