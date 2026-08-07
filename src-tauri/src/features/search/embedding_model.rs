@@ -83,5 +83,9 @@ pub fn lookup(short_id: &str) -> &'static EmbeddingModel {
 /// what triggers wipe-and-re-embed, so it must change whenever either the model
 /// or the encoding changes.
 pub fn model_version_token(short_id: &str) -> String {
-    format!("{short_id}@v{ENCODING_VERSION}")
+    // Resolved through the registry, not formatted from the raw settings value:
+    // an id this build does not know embeds with the default model, and
+    // recording the *requested* id would let a later build that adds that id
+    // find a matching token and keep serving vectors another model produced.
+    format!("{}@v{ENCODING_VERSION}", lookup(short_id).short_id)
 }
