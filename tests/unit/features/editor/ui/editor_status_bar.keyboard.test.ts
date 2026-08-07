@@ -36,6 +36,7 @@ function render_editor_status_bar(overrides?: {
       is_reindex_pending: false,
       embedding_progress: {
         status: "idle",
+        phase: null,
         embedded: 0,
         total: 0,
         error: null,
