@@ -54,6 +54,89 @@ pub struct AgentRunStats {
     pub total_cost_usd: f64,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[serde(rename_all = "snake_case")]
+pub enum ToolKind {
+    Read,
+    Edit,
+    Delete,
+    Move,
+    Search,
+    Execute,
+    Think,
+    Fetch,
+    SwitchMode,
+    Other,
+}
+
+/// Best-effort kind for tools that don't declare one (native loop, MCP names).
+pub fn infer_tool_kind(name: &str) -> ToolKind {
+    let base = name.strip_prefix(super::harness::MCP_TOOL_PREFIX).unwrap_or(name);
+    let lower = base.to_ascii_lowercase();
+    if lower.contains("delete") || lower.contains("remove") {
+        ToolKind::Delete
+    } else if lower.contains("move") || lower.contains("rename") {
+        ToolKind::Move
+    } else if lower.contains("search") || lower.contains("list") || lower.contains("glob") {
+        ToolKind::Search
+    } else if lower.contains("write") || lower.contains("edit") || lower.contains("update") || lower.contains("create") {
+        ToolKind::Edit
+    } else if lower.contains("read") || lower.contains("get") || lower.contains("cat") {
+        ToolKind::Read
+    } else if lower.contains("bash") || lower.contains("exec") || lower.contains("shell") || lower.contains("terminal") {
+        ToolKind::Execute
+    } else if lower.contains("fetch") || lower.contains("web") {
+        ToolKind::Fetch
+    } else {
+        ToolKind::Other
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Type)]
+pub struct ToolLocation {
+    pub path: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub line: Option<u32>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Type)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum ToolContent {
+    Diff {
+        path: String,
+        old_text: Option<String>,
+        new_text: String,
+    },
+    Text {
+        text: String,
+    },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[serde(rename_all = "snake_case")]
+pub enum ToolCallStatus {
+    Pending,
+    InProgress,
+    Completed,
+    Failed,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[serde(rename_all = "snake_case")]
+pub enum PermissionOptionKind {
+    AllowOnce,
+    AllowAlways,
+    RejectOnce,
+    RejectAlways,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Type)]
+pub struct PermissionOptionSpec {
+    pub option_id: String,
+    pub label: String,
+    pub kind: PermissionOptionKind,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Type)]
 #[serde(tag = "type")]
 pub enum AgentEvent {
@@ -65,17 +148,51 @@ pub enum AgentEvent {
     Reasoning { delta: String },
     #[serde(rename = "tool_start")]
     ToolStart {
+        id: String,
         name: String,
+        kind: ToolKind,
         input_summary: String,
         paths: Vec<String>,
         mutating: bool,
+        locations: Vec<ToolLocation>,
     },
+    #[serde(rename = "tool_update")]
+    ToolUpdate {
+        id: String,
+        status: ToolCallStatus,
+        content: Vec<ToolContent>,
+        paths: Vec<String>,
+    },
+    // `paths`/`mutating` re-state the union accumulated across the call's
+    // updates: proposal production reads them off the terminal event, so a
+    // diff surfaced only mid-call must still be visible here.
     #[serde(rename = "tool_end")]
     ToolEnd {
+        id: String,
         name: String,
         ok: bool,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         result_summary: Option<String>,
+        paths: Vec<String>,
+        mutating: bool,
+    },
+    #[serde(rename = "permission_request")]
+    PermissionRequest {
+        request_id: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        tool_call_id: Option<String>,
+        name: String,
+        kind: ToolKind,
+        input_summary: String,
+        paths: Vec<String>,
+        mutating: bool,
+        options: Vec<PermissionOptionSpec>,
+    },
+    #[serde(rename = "permission_resolved")]
+    PermissionResolved {
+        request_id: String,
+        outcome: String,
+        auto: bool,
     },
     #[serde(rename = "done")]
     Done { stats: AgentRunStats },

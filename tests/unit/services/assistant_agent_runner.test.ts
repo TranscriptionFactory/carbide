@@ -81,12 +81,38 @@ function make_harness(events: RunEvent[]) {
 function tool_start(
   name: string,
   input_summary: string,
-  extra: { paths?: string[]; mutating?: boolean } = {},
+  extra: { paths?: string[]; mutating?: boolean; id?: string } = {},
 ): RunEvent {
   return {
     type: "tool_start",
+    id: extra.id ?? name,
     name,
+    kind: "other",
     input_summary,
+    paths: extra.paths ?? [],
+    mutating: extra.mutating ?? false,
+    locations: [],
+  };
+}
+
+function tool_end(
+  name: string,
+  extra: {
+    ok?: boolean;
+    result_summary?: string;
+    paths?: string[];
+    mutating?: boolean;
+    id?: string;
+  } = {},
+): RunEvent {
+  return {
+    type: "tool_end",
+    id: extra.id ?? name,
+    name,
+    ok: extra.ok ?? true,
+    ...(extra.result_summary !== undefined
+      ? { result_summary: extra.result_summary }
+      : {}),
     paths: extra.paths ?? [],
     mutating: extra.mutating ?? false,
   };
@@ -104,17 +130,17 @@ describe("AgentRunner.run_turn", () => {
         tool_start("mcp__carbide__read_note", '{"path":"notes/a.md"}', {
           paths: ["notes/a.md"],
         }),
-        { type: "tool_end", name: "mcp__carbide__read_note", ok: true },
+        tool_end("mcp__carbide__read_note"),
         tool_start("mcp__carbide__update_note", '{"path":"notes/a.md"}', {
           paths: ["notes/a.md"],
           mutating: true,
         }),
-        { type: "tool_end", name: "mcp__carbide__update_note", ok: true },
+        tool_end("mcp__carbide__update_note"),
         tool_start("Write", '{"content":"…truncated', {
           paths: ["/test/vault/notes/b.md"],
           mutating: true,
         }),
-        { type: "tool_end", name: "Write", ok: true },
+        tool_end("Write"),
         { type: "text", text: "Done." },
         { type: "done", stats: {} },
       ]);
@@ -160,12 +186,7 @@ describe("AgentRunner.run_turn", () => {
   it("records the tool_end result summary on the folded event", async () => {
     const { runner, rag_store } = make_harness([
       tool_start("mcp__carbide__search_notes", '{"query":"projects"}'),
-      {
-        type: "tool_end",
-        name: "mcp__carbide__search_notes",
-        ok: true,
-        result_summary: "3 matches",
-      },
+      tool_end("mcp__carbide__search_notes", { result_summary: "3 matches" }),
       { type: "text", text: "Found them." },
       { type: "done", stats: {} },
     ]);
@@ -289,7 +310,7 @@ describe("AgentRunner.run_turn", () => {
       tool_start("mcp__carbide__read_note", '{"path":"clips/scraped.md"}', {
         paths: ["clips/scraped.md"],
       }),
-      { type: "tool_end", name: "mcp__carbide__read_note", ok: true },
+      tool_end("mcp__carbide__read_note"),
       { type: "error", message: "blocked by the provider" },
     ]);
 
@@ -304,7 +325,9 @@ describe("AgentRunner.run_turn", () => {
     expect(assistant?.content).toBe("");
     expect(assistant?.tool_events).toEqual([
       {
+        id: "mcp__carbide__read_note",
         name: "mcp__carbide__read_note",
+        kind: "other",
         input_summary: '{"path":"clips/scraped.md"}',
         paths: ["clips/scraped.md"],
         ok: true,
@@ -319,7 +342,7 @@ describe("AgentRunner.run_turn", () => {
         paths: ["notes/a.md"],
         mutating: true,
       }),
-      { type: "tool_end", name: "mcp__carbide__update_note", ok: true },
+      tool_end("mcp__carbide__update_note"),
       { type: "error", message: "blocked by the provider" },
     ]);
 
@@ -335,7 +358,7 @@ describe("AgentRunner.run_turn", () => {
     const { runner, rag_store, refresh_vault, sync_changed_notes } =
       make_harness([
         tool_start("Write", '{"content":"…truncated', { mutating: true }),
-        { type: "tool_end", name: "Write", ok: true },
+        tool_end("Write"),
         { type: "done", stats: {} },
       ]);
 
@@ -351,7 +374,7 @@ describe("AgentRunner.run_turn", () => {
       tool_start("mcp__carbide__read_note", '{"path":"notes/a.md"}', {
         paths: ["notes/a.md"],
       }),
-      { type: "tool_end", name: "mcp__carbide__read_note", ok: true },
+      tool_end("mcp__carbide__read_note"),
       { type: "done", stats: {} },
     ]);
 
@@ -412,7 +435,7 @@ describe("AgentRunner end-of-turn proposals", () => {
       paths: ["notes/a.md"],
       mutating: true,
     }),
-    { type: "tool_end", name: "mcp__carbide__update_note", ok: true },
+    tool_end("mcp__carbide__update_note"),
     { type: "text", text: "Done." },
     { type: "done", stats: {} },
   ];
@@ -474,7 +497,7 @@ describe("AgentRunner end-of-turn proposals", () => {
       tool_start("mcp__carbide__read_note", '{"path":"notes/a.md"}', {
         paths: ["notes/a.md"],
       }),
-      { type: "tool_end", name: "mcp__carbide__read_note", ok: true },
+      tool_end("mcp__carbide__read_note"),
       { type: "done", stats: {} },
     ]);
 
@@ -491,7 +514,7 @@ describe("AgentRunner end-of-turn proposals", () => {
         paths: ["notes/a.md"],
         mutating: true,
       }),
-      { type: "tool_end", name: "mcp__carbide__update_note", ok: true },
+      tool_end("mcp__carbide__update_note"),
       { type: "error", message: "provider exploded" },
     ]);
 

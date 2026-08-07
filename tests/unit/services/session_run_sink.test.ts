@@ -43,6 +43,39 @@ function stream_text(sink: RunSink, run_id: string, ...texts: string[]) {
   for (const text of texts) sink.on_event(run_id, { type: "text", text });
 }
 
+function tool_start_event(
+  name: string,
+  extra: { input_summary?: string; paths?: string[]; mutating?: boolean } = {},
+) {
+  return {
+    type: "tool_start" as const,
+    id: name,
+    name,
+    kind: "other" as const,
+    input_summary: extra.input_summary ?? "",
+    paths: extra.paths ?? [],
+    mutating: extra.mutating ?? false,
+    locations: [],
+  };
+}
+
+function tool_end_event(
+  name: string,
+  extra: { ok?: boolean; result_summary?: string; paths?: string[] } = {},
+) {
+  return {
+    type: "tool_end" as const,
+    id: name,
+    name,
+    ok: extra.ok ?? true,
+    ...(extra.result_summary !== undefined
+      ? { result_summary: extra.result_summary }
+      : {}),
+    paths: extra.paths ?? [],
+    mutating: false,
+  };
+}
+
 describe("create_session_run_sink", () => {
   describe("association", () => {
     it("ignores a run whose origin names no session", () => {
@@ -136,22 +169,20 @@ describe("create_session_run_sink", () => {
       const session = create_chat(sessions);
       open_run("run-1", session.id);
 
-      sink.on_event("run-1", {
-        type: "tool_start",
-        name: "read_note",
-        input_summary: "notes/a.md",
-        paths: ["notes/a.md"],
-        mutating: false,
-      });
-      sink.on_event("run-1", {
-        type: "tool_end",
-        name: "read_note",
-        ok: true,
-      });
+      sink.on_event(
+        "run-1",
+        tool_start_event("read_note", {
+          input_summary: "notes/a.md",
+          paths: ["notes/a.md"],
+        }),
+      );
+      sink.on_event("run-1", tool_end_event("read_note"));
 
       expect(messages_of(session.id)[0]?.tool_events).toEqual([
         {
+          id: "read_note",
           name: "read_note",
+          kind: "other",
           input_summary: "notes/a.md",
           paths: ["notes/a.md"],
           ok: true,
@@ -165,19 +196,12 @@ describe("create_session_run_sink", () => {
       open_run("run-1", session.id);
 
       for (const summary of ["first", "second"]) {
-        sink.on_event("run-1", {
-          type: "tool_start",
-          name: "read_note",
-          input_summary: summary,
-          paths: [],
-          mutating: false,
-        });
+        sink.on_event(
+          "run-1",
+          tool_start_event("read_note", { input_summary: summary }),
+        );
       }
-      sink.on_event("run-1", {
-        type: "tool_end",
-        name: "read_note",
-        ok: false,
-      });
+      sink.on_event("run-1", tool_end_event("read_note", { ok: false }));
 
       const events = messages_of(session.id)[0]?.tool_events ?? [];
       expect(events[0]?.ok).toBeUndefined();
@@ -189,19 +213,14 @@ describe("create_session_run_sink", () => {
       const session = create_chat(sessions);
       open_run("run-1", session.id);
 
-      sink.on_event("run-1", {
-        type: "tool_start",
-        name: "search_notes",
-        input_summary: "projects",
-        paths: [],
-        mutating: false,
-      });
-      sink.on_event("run-1", {
-        type: "tool_end",
-        name: "search_notes",
-        ok: true,
-        result_summary: "3 matches",
-      });
+      sink.on_event(
+        "run-1",
+        tool_start_event("search_notes", { input_summary: "projects" }),
+      );
+      sink.on_event(
+        "run-1",
+        tool_end_event("search_notes", { result_summary: "3 matches" }),
+      );
 
       const events = messages_of(session.id)[0]?.tool_events ?? [];
       expect(events[0]?.result_summary).toBe("3 matches");
@@ -212,7 +231,7 @@ describe("create_session_run_sink", () => {
       const session = create_chat(sessions);
       open_run("run-1", session.id);
 
-      sink.on_event("run-1", { type: "tool_end", name: "read_note", ok: true });
+      sink.on_event("run-1", tool_end_event("read_note"));
 
       expect(messages_of(session.id)).toEqual([]);
     });
@@ -272,13 +291,14 @@ describe("create_session_run_sink", () => {
       const { sessions, sink, open_run, messages_of } = create_harness();
       const session = create_chat(sessions);
       open_run("run-1", session.id);
-      sink.on_event("run-1", {
-        type: "tool_start",
-        name: "write_note",
-        input_summary: "notes/a.md",
-        paths: ["notes/a.md"],
-        mutating: true,
-      });
+      sink.on_event(
+        "run-1",
+        tool_start_event("write_note", {
+          input_summary: "notes/a.md",
+          paths: ["notes/a.md"],
+          mutating: true,
+        }),
+      );
 
       sink.on_end?.("run-1", { status: "aborted", text: "" });
 
@@ -412,11 +432,18 @@ describe("create_session_run_sink", () => {
       input_summary: "notes/a.md",
       paths: ["notes/a.md"],
     };
-    sink.on_event("run-1", { type: "tool_start", ...tool, mutating: false });
-    rag.add_streaming_tool_event(tool);
+    sink.on_event("run-1", {
+      type: "tool_start",
+      ...tool,
+      id: tool.name,
+      kind: "read",
+      mutating: false,
+      locations: [],
+    });
+    rag.add_streaming_tool_event({ ...tool, id: tool.name, kind: "read" });
 
-    sink.on_event("run-1", { type: "tool_end", name: tool.name, ok: true });
-    rag.finish_streaming_tool_event(tool.name, true);
+    sink.on_event("run-1", tool_end_event(tool.name));
+    rag.finish_streaming_tool_event({ id: tool.name, name: tool.name }, { ok: true });
 
     sink.on_event("run-1", { type: "text", text: " — done." });
     rag.append_streaming_text(" — done.");

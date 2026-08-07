@@ -61,9 +61,12 @@ impl CodexEventParser {
                         .and_then(|id| self.tool_names.get(id).cloned())
                         .unwrap_or_else(|| tool_name(kind, item));
                     vec![AgentEvent::ToolEnd {
+                        id: id.unwrap_or_default().to_string(),
                         name,
                         ok: tool_ok(item),
                         result_summary: None,
+                        paths: Vec::new(),
+                        mutating: false,
                     }]
                 } else {
                     let name = tool_name(kind, item);
@@ -73,10 +76,13 @@ impl CodexEventParser {
                     let mutating =
                         kind == FILE_CHANGE_KIND || self.mutating_tools.contains(&name);
                     vec![AgentEvent::ToolStart {
+                        id: id.unwrap_or(&name).to_string(),
+                        kind: crate::features::ai::agent_stream::infer_tool_kind(&name),
                         input_summary: tool_input_summary(kind, item),
                         paths: tool_paths(kind, item),
                         name,
                         mutating,
+                        locations: Vec::new(),
                     }]
                 }
             }

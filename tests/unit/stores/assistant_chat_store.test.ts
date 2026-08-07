@@ -336,7 +336,7 @@ describe("AssistantChatStore", () => {
       name: "read_note",
       input_summary: '{"path":"clips/scraped.md"}',
     });
-    store.finish_streaming_tool_event("read_note", true);
+    store.finish_streaming_tool_event({ name: "read_note" }, { ok: true });
 
     store.fail_streaming("blocked by the provider");
 

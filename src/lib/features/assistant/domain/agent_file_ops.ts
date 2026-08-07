@@ -1,4 +1,5 @@
 export type AgentToolCall = {
+  id?: string;
   name: string;
   input_summary: string;
   paths?: string[];

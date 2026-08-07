@@ -15,6 +15,7 @@ import {
   is_mutating_call,
   type AgentToolCall,
 } from "$lib/features/assistant/domain/agent_file_ops";
+import { merge_paths as merge_tool_paths } from "$lib/features/assistant/types/tool_event_fold";
 import { session_messages_to_history } from "$lib/features/assistant";
 import type { AgentTurnProposalProducer } from "$lib/features/assistant/application/agent_proposal_service";
 
@@ -135,24 +136,50 @@ export class AgentRunner {
           case "tool_start":
             this.ensure_streaming();
             this.chat_store.add_streaming_tool_event({
+              id: event.id,
               name: event.name,
+              kind: event.kind,
               input_summary: event.input_summary,
               paths: event.paths,
+              ...(event.locations.length > 0
+                ? { locations: event.locations }
+                : {}),
             });
             tool_calls.push({
+              id: event.id,
               name: event.name,
               input_summary: event.input_summary,
               paths: event.paths,
               mutating: event.mutating,
             });
             return;
-          case "tool_end":
-            this.chat_store.finish_streaming_tool_event(
-              event.name,
-              event.ok,
-              event.result_summary,
-            );
+          case "tool_update":
+            this.chat_store.apply_streaming_tool_update({
+              id: event.id,
+              content: event.content,
+              paths: event.paths,
+            });
             return;
+          case "tool_end": {
+            this.chat_store.finish_streaming_tool_event(
+              { id: event.id, name: event.name },
+              {
+                ok: event.ok,
+                result_summary: event.result_summary,
+                paths: event.paths,
+              },
+            );
+            // Proposal production reads the accumulated calls, so the union
+            // the terminal event restates must land there too.
+            const call =
+              tool_calls.findLast((c) => c.id === event.id) ??
+              tool_calls.findLast((c) => c.name === event.name);
+            if (call) {
+              call.paths = merge_tool_paths(call.paths, event.paths);
+              call.mutating = (call.mutating ?? false) || event.mutating;
+            }
+            return;
+          }
           case "error":
             this.chat_store.fail_streaming(event.message);
             return;
@@ -160,6 +187,8 @@ export class AgentRunner {
             this.ensure_streaming();
             this.chat_store.append_streaming_reasoning(event.text);
             return;
+          case "permission_request":
+          case "permission_resolved":
           case "done":
             return;
         }

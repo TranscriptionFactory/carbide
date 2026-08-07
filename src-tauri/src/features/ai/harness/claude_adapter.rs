@@ -77,18 +77,24 @@ impl AgentEventParser {
             .filter(|b| b.get("type").and_then(Value::as_str) == Some("tool_use"))
             .filter_map(|b| {
                 let name = b.get("name").and_then(Value::as_str)?.to_string();
-                if let Some(id) = b.get("id").and_then(Value::as_str) {
-                    self.tool_names.insert(id.to_string(), name.clone());
-                }
+                let id = b
+                    .get("id")
+                    .and_then(Value::as_str)
+                    .unwrap_or(&name)
+                    .to_string();
+                self.tool_names.insert(id.clone(), name.clone());
                 let input = b.get("input");
                 let input_summary = input.map(summarize_input).unwrap_or_default();
                 let paths = input.map(extract_tool_paths).unwrap_or_default();
                 let mutating = self.mutating_tools.contains(&name);
                 Some(AgentEvent::ToolStart {
+                    kind: crate::features::ai::agent_stream::infer_tool_kind(&name),
+                    id,
                     name,
                     input_summary,
                     paths,
                     mutating,
+                    locations: Vec::new(),
                 })
             })
             .collect()
@@ -102,16 +108,24 @@ impl AgentEventParser {
             .iter()
             .filter(|b| b.get("type").and_then(Value::as_str) == Some("tool_result"))
             .map(|b| {
-                let name = b
+                let id = b
                     .get("tool_use_id")
                     .and_then(Value::as_str)
-                    .and_then(|id| self.tool_names.get(id).cloned())
+                    .unwrap_or_default()
+                    .to_string();
+                let name = self
+                    .tool_names
+                    .get(&id)
+                    .cloned()
                     .unwrap_or_else(|| "tool".to_string());
                 let ok = !b.get("is_error").and_then(Value::as_bool).unwrap_or(false);
                 AgentEvent::ToolEnd {
+                    id,
                     name,
                     ok,
                     result_summary: None,
+                    paths: Vec::new(),
+                    mutating: false,
                 }
             })
             .collect()

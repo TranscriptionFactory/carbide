@@ -3,6 +3,13 @@ import type { AiMessage, ToolSelector } from "$lib/features/ai";
 // An agent turn replays tool calls and tool results, which the text channel's
 // AiMessage cannot express — it has no "tool" role.
 import type { AgentHistoryMessage } from "$lib/features/assistant/types/agent_history";
+import type {
+  PermissionOptionSpec,
+  ToolCallStatus,
+  ToolContent,
+  ToolKind,
+  ToolLocation,
+} from "$lib/features/assistant/types/agent_events";
 
 export type RunId = string;
 
@@ -35,16 +42,48 @@ export type RunEvent =
   | { type: "reasoning"; text: string }
   | {
       type: "tool_start";
+      id: string;
       name: string;
+      kind: ToolKind;
       input_summary: string;
+      paths: string[];
+      mutating: boolean;
+      locations: ToolLocation[];
+    }
+  | {
+      type: "tool_update";
+      id: string;
+      status: ToolCallStatus;
+      content: ToolContent[];
+      paths: string[];
+    }
+  // tool_end's paths/mutating restate the union accumulated across the
+  // call's updates — proposal production reads the terminal event.
+  | {
+      type: "tool_end";
+      id: string;
+      name: string;
+      ok: boolean;
+      result_summary?: string | null;
       paths: string[];
       mutating: boolean;
     }
   | {
-      type: "tool_end";
+      type: "permission_request";
+      request_id: string;
+      tool_call_id?: string | null;
       name: string;
-      ok: boolean;
-      result_summary?: string | null;
+      kind: ToolKind;
+      input_summary: string;
+      paths: string[];
+      mutating: boolean;
+      options: PermissionOptionSpec[];
+    }
+  | {
+      type: "permission_resolved";
+      request_id: string;
+      outcome: string;
+      auto: boolean;
     }
   // Raw provider text. The kernel is the only humanization choke point (I1),
   // because it is the only layer that knows which provider produced this.
