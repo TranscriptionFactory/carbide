@@ -1,7 +1,8 @@
 use agent_client_protocol::schema::v1::RequestPermissionRequest;
 use serde_json::{json, Value};
 
-use crate::features::ai::acp::policy::{build_request_spec, option_kind_name, select_option};
+use crate::features::ai::acp::permissions::option_kind_name;
+use crate::features::ai::acp::policy::{build_request_spec, select_allow};
 use crate::features::ai::agent_stream::{PermissionOptionKind, PermissionOptionSpec, ToolKind};
 
 // The decision matrix itself lives in PermissionEngine (tests/acp_permissions.rs);
@@ -75,30 +76,36 @@ fn read_kinds_are_not_mutating() {
 }
 
 #[test]
-fn select_option_prefers_the_mildest_allow() {
+fn a_carbide_mcp_tool_arrives_pre_authorized() {
+    let mcp = build_request_spec(
+        "claude",
+        &request("delete", "mcp__carbide__delete_note", all_options()),
+    );
+    let plain = build_request_spec("claude", &request("delete", "Delete note", all_options()));
+
+    assert!(mcp.pre_authorized);
+    assert!(!plain.pre_authorized);
+}
+
+#[test]
+fn select_allow_prefers_the_mildest_grant() {
     let options = vec![
         spec_option(PermissionOptionKind::AllowAlways),
         spec_option(PermissionOptionKind::AllowOnce),
         spec_option(PermissionOptionKind::RejectOnce),
     ];
     assert_eq!(
-        select_option(&options, true).map(|o| o.kind),
+        select_allow(&options).map(|o| o.kind),
         Some(PermissionOptionKind::AllowOnce)
-    );
-    assert_eq!(
-        select_option(&options, false).map(|o| o.kind),
-        Some(PermissionOptionKind::RejectOnce)
     );
 }
 
 #[test]
-fn select_option_falls_back_within_its_side_only() {
+fn select_allow_never_answers_with_a_refusal() {
     let allow_always_only = vec![spec_option(PermissionOptionKind::AllowAlways)];
     assert_eq!(
-        select_option(&allow_always_only, true).map(|o| o.kind),
+        select_allow(&allow_always_only).map(|o| o.kind),
         Some(PermissionOptionKind::AllowAlways)
     );
-    // Refusal with nothing to refuse with: the caller must cancel, never
-    // answer with an allow.
-    assert!(select_option(&allow_always_only, false).is_none());
+    assert!(select_allow(&[spec_option(PermissionOptionKind::RejectOnce)]).is_none());
 }

@@ -38,6 +38,7 @@ import type { CodeLspPort } from "$lib/features/code_lsp";
 import type { McpPort } from "$lib/features/mcp";
 import type { SavedQueryPort } from "$lib/features/query";
 import type {
+  AssistantPermissionPort,
   AssistantSessionPersistencePort,
   ProposalPersistencePort,
 } from "$lib/features/assistant";
@@ -85,6 +86,7 @@ export type Ports = {
   toolchain: ToolchainPort;
   code_lsp: CodeLspPort;
   saved_query: SavedQueryPort;
+  assistant_permissions: AssistantPermissionPort;
   assistant_persistence: AssistantSessionPersistencePort;
   assistant_proposal_persistence: ProposalPersistencePort;
   reference_storage: ReferenceStoragePort;

@@ -59,6 +59,24 @@ export function cap_tool_content(
   });
 }
 
+// Every fold that patches one event walks backwards to the newest match and
+// copies only on a hit — a miss returns null so callers never patch stores for
+// a no-op.
+function replace_last_where(
+  events: AssistantToolEvent[],
+  predicate: (event: AssistantToolEvent) => boolean,
+  replace: (event: AssistantToolEvent) => AssistantToolEvent,
+): AssistantToolEvent[] | null {
+  for (let index = events.length - 1; index >= 0; index -= 1) {
+    const event = events[index];
+    if (!event || !predicate(event)) continue;
+    const next = [...events];
+    next[index] = replace(event);
+    return next;
+  }
+  return null;
+}
+
 export type ToolUpdatePatch = {
   id: string;
   content?: ToolContent[];
@@ -71,11 +89,11 @@ export function apply_tool_update(
   events: AssistantToolEvent[],
   update: ToolUpdatePatch,
 ): AssistantToolEvent[] {
-  for (let index = events.length - 1; index >= 0; index -= 1) {
-    const event = events[index];
-    if (event && event.id === update.id) {
-      const next = [...events];
-      next[index] = {
+  return (
+    replace_last_where(
+      events,
+      (event) => event.id === update.id,
+      (event) => ({
         ...event,
         ...(update.content && update.content.length > 0
           ? { content: cap_tool_content(update.content, event.kind) }
@@ -83,11 +101,9 @@ export function apply_tool_update(
         ...(update.paths && update.paths.length > 0
           ? { paths: merge_paths(event.paths, update.paths) }
           : {}),
-      };
-      return next;
-    }
-  }
-  return events;
+      }),
+    ) ?? events
+  );
 }
 
 export function merge_paths(
@@ -151,14 +167,12 @@ export function apply_permission_request(
     options: request.options,
   };
   if (request.tool_call_id) {
-    for (let index = events.length - 1; index >= 0; index -= 1) {
-      const event = events[index];
-      if (event && event.id === request.tool_call_id) {
-        const next = [...events];
-        next[index] = { ...event, permission };
-        return next;
-      }
-    }
+    const attached = replace_last_where(
+      events,
+      (event) => event.id === request.tool_call_id,
+      (event) => ({ ...event, permission }),
+    );
+    if (attached) return attached;
   }
   return [
     ...events,
@@ -180,15 +194,14 @@ export function hydrate_placeholder(
   start: AssistantToolEvent,
 ): AssistantToolEvent[] | null {
   if (!start.id) return null;
-  for (let index = events.length - 1; index >= 0; index -= 1) {
-    const event = events[index];
-    if (event && event.id === start.id && event.permission) {
-      const next = [...events];
-      next[index] = { ...start, permission: event.permission };
-      return next;
-    }
-  }
-  return null;
+  return replace_last_where(
+    events,
+    (event) => event.id === start.id && event.permission !== undefined,
+    (event) => ({
+      ...start,
+      ...(event.permission ? { permission: event.permission } : {}),
+    }),
+  );
 }
 
 export function apply_permission_resolved(
@@ -197,18 +210,18 @@ export function apply_permission_resolved(
   outcome: string,
   auto: boolean,
 ): AssistantToolEvent[] {
-  for (let index = events.length - 1; index >= 0; index -= 1) {
-    const event = events[index];
-    if (event?.permission?.request_id === request_id) {
-      const next = [...events];
-      next[index] = {
+  return (
+    replace_last_where(
+      events,
+      (event) => event.permission?.request_id === request_id,
+      (event) => ({
         ...event,
-        permission: { ...event.permission, resolved: { outcome, auto } },
-      };
-      return next;
-    }
-  }
-  return events;
+        ...(event.permission
+          ? { permission: { ...event.permission, resolved: { outcome, auto } } }
+          : {}),
+      }),
+    ) ?? events
+  );
 }
 
 // A stopped run must not leave a live prompt: every unresolved permission is

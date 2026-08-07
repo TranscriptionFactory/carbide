@@ -11,8 +11,8 @@ use crate::features::mcp::router::McpRouter;
 use crate::features::mcp::types::{ContentBlock, ToolDefinition, ToolResult};
 
 use super::acp::permissions::{
-    mint_request_id, Evaluation, ParkedDecision, PermissionEngine, PermissionRequestSpec,
-    PERMISSION_TIMEOUT,
+    mint_request_id, option_kind_name, Evaluation, ParkOutcome, PermissionEngine,
+    PermissionRequestSpec,
 };
 use super::agent_stream::{
     infer_tool_kind, summarize_chars, AgentEvent, AgentRunSpec, AgentRunState, AgentRunStats,
@@ -173,20 +173,10 @@ fn tool_result_message(id: &str, text: String) -> AiMessage {
 /// What the approval hook decided for one dispatch, before any prompt.
 pub enum NativeGate {
     Allow,
-    Deny,
     Prompt {
         request_id: String,
-        wait: futures_util::future::BoxFuture<'static, NativePromptOutcome>,
+        wait: futures_util::future::BoxFuture<'static, ParkOutcome>,
     },
-}
-
-pub enum NativePromptOutcome {
-    Selected {
-        option_id: String,
-        kind: PermissionOptionKind,
-    },
-    Cancelled,
-    Timeout,
 }
 
 /// The prompt options the native loop offers — it mints its own, having no
@@ -212,15 +202,6 @@ pub fn native_permission_options() -> Vec<PermissionOptionSpec> {
 }
 
 pub const NATIVE_AGENT_ID: &str = "native";
-
-fn option_kind_label(kind: PermissionOptionKind) -> &'static str {
-    match kind {
-        PermissionOptionKind::AllowOnce => "allow_once",
-        PermissionOptionKind::AllowAlways => "allow_always",
-        PermissionOptionKind::RejectOnce => "reject_once",
-        PermissionOptionKind::RejectAlways => "reject_always",
-    }
-}
 
 #[allow(clippy::too_many_arguments)]
 pub async fn run_native_turn<C, D, E, A>(
@@ -365,32 +346,25 @@ pub async fn run_native_turn<C, D, E, A>(
                 input_summary: summarize_chars(&arguments, SUMMARY_MAX_CHARS),
                 paths: paths.clone(),
                 mutating,
+                pre_authorized: false,
                 options: native_permission_options(),
             };
             let approved = match approval(&spec) {
                 NativeGate::Allow => true,
-                NativeGate::Deny => {
-                    emit(AgentEvent::PermissionResolved {
-                        request_id: mint_request_id(),
-                        outcome: "selected:reject_once".to_string(),
-                        auto: true,
-                    });
-                    false
-                }
                 NativeGate::Prompt { request_id, wait } => {
-                    emit(AgentEvent::PermissionRequest {
-                        request_id: request_id.clone(),
-                        tool_call_id: Some(id.clone()),
-                        name: spec.name.clone(),
-                        kind: spec.kind,
-                        input_summary: spec.input_summary.clone(),
-                        paths: spec.paths.clone(),
-                        mutating: spec.mutating,
-                        options: spec.options.clone(),
-                    });
-                    let (outcome, auto, approved) = match wait.await {
-                        NativePromptOutcome::Selected { kind, .. } => (
-                            format!("selected:{}", option_kind_label(kind)),
+                    emit(spec.to_event(request_id.clone()));
+                    // Stop must land while the user is still deciding: dropping
+                    // the wait future is what releases the engine's parked entry.
+                    let decision = tokio::select! {
+                        decision = wait => decision,
+                        Ok(()) = &mut abort_rx => {
+                            emit(AgentEvent::Error { message: "aborted".into() });
+                            return;
+                        }
+                    };
+                    let (outcome, auto, approved) = match decision {
+                        ParkOutcome::Selected { kind, .. } => (
+                            format!("selected:{}", option_kind_name(kind)),
                             false,
                             matches!(
                                 kind,
@@ -398,12 +372,8 @@ pub async fn run_native_turn<C, D, E, A>(
                                     | PermissionOptionKind::AllowAlways
                             ),
                         ),
-                        NativePromptOutcome::Cancelled => {
-                            ("cancelled".to_string(), true, false)
-                        }
-                        NativePromptOutcome::Timeout => {
-                            ("timeout".to_string(), true, false)
-                        }
+                        ParkOutcome::Cancelled => ("cancelled".to_string(), true, false),
+                        ParkOutcome::Timeout => ("timeout".to_string(), true, false),
                     };
                     emit(AgentEvent::PermissionResolved {
                         request_id,
@@ -550,28 +520,14 @@ pub fn spawn_native_turn(
     let approval = move |spec: &PermissionRequestSpec| -> NativeGate {
         match engine.evaluate(&gate_toolset, spec) {
             Evaluation::Allow => NativeGate::Allow,
-            Evaluation::Deny => NativeGate::Deny,
             Evaluation::Prompt => {
                 let request_id = mint_request_id();
-                let wait = engine.park(request_id.clone(), spec.clone());
                 let engine = engine.clone();
-                let rid = request_id.clone();
+                let parked_id = request_id.clone();
+                let spec = spec.clone();
                 NativeGate::Prompt {
                     request_id,
-                    wait: Box::pin(async move {
-                        match tokio::time::timeout(PERMISSION_TIMEOUT, wait).await {
-                            Ok(Ok(ParkedDecision::Selected { option_id, kind }))
-                                if !option_id.is_empty() =>
-                            {
-                                NativePromptOutcome::Selected { option_id, kind }
-                            }
-                            Ok(Ok(_)) | Ok(Err(_)) => NativePromptOutcome::Cancelled,
-                            Err(_) => {
-                                engine.cancel(&rid);
-                                NativePromptOutcome::Timeout
-                            }
-                        }
-                    }),
+                    wait: Box::pin(async move { engine.await_decision(parked_id, spec).await }),
                 }
             }
         }

@@ -241,6 +241,47 @@ pub fn summarize_chars(text: &str, limit: usize) -> String {
     }
 }
 
+/// Serializes only as far as the cap: raw tool input can carry a whole file,
+/// and rendering it in full just to slice 200 chars off the front is the
+/// expensive part.
+pub fn summarize_json(value: &serde_json::Value, limit: usize) -> String {
+    let mut writer = CappedWriter {
+        buf: Vec::with_capacity(limit.min(1024)),
+        limit,
+    };
+    let truncated = serde_json::to_writer(&mut writer, value).is_err();
+    let text = String::from_utf8_lossy(&writer.buf).into_owned();
+    if truncated {
+        format!("{text}…")
+    } else {
+        text
+    }
+}
+
+struct CappedWriter {
+    buf: Vec<u8>,
+    limit: usize,
+}
+
+impl std::io::Write for CappedWriter {
+    fn write(&mut self, data: &[u8]) -> std::io::Result<usize> {
+        let room = self.limit.saturating_sub(self.buf.len());
+        if room == 0 {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::WriteZero,
+                "summary limit reached",
+            ));
+        }
+        let take = room.min(data.len());
+        self.buf.extend_from_slice(&data[..take]);
+        Ok(take)
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
+    }
+}
+
 pub fn cli_probe_error_message(provider_name: &str, probe: &pipeline::CliProbe) -> String {
     match (&probe.status, &probe.error) {
         (_, Some(detail)) if detail.contains("not executable") => {

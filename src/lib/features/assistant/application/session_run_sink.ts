@@ -191,7 +191,7 @@ export function create_session_run_sink(deps: {
       if (!message) return;
 
       const settled = dismiss_open_permissions(message.tool_events ?? []);
-      if (settled !== message.tool_events && settled.length > 0) {
+      if (settled !== message.tool_events) {
         deps.sessions.update_message(session_id, message_id, {
           tool_events: settled,
         });

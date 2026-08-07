@@ -11,7 +11,7 @@ pub fn token_path() -> PathBuf {
     dirs_config_path().join("mcp-token")
 }
 
-fn dirs_config_path() -> PathBuf {
+pub fn dirs_config_path() -> PathBuf {
     let home = std::env::var("HOME")
         .or_else(|_| std::env::var("USERPROFILE"))
         .unwrap_or_else(|_| ".".into());

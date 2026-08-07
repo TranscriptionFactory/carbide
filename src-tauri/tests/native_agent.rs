@@ -6,12 +6,11 @@ use serde_json::Value;
 use tokio::sync::oneshot;
 
 use crate::features::ai::agent_stream::{AgentEvent, ToolSelector};
-use crate::features::ai::acp::permissions::PermissionRequestSpec;
+use crate::features::ai::acp::permissions::{ParkOutcome, PermissionRequestSpec};
 use crate::features::ai::agent_stream::PermissionOptionKind;
 use crate::features::ai::native_agent::{
     allowed_tools, evict_history, run_native_turn, truncate_tool_result, ModelClient, NativeGate,
-    NativePromptOutcome, HISTORY_MAX_CHARS, HISTORY_MAX_MESSAGES, MAX_ITERATIONS,
-    TOOL_RESULT_MAX_CHARS,
+    HISTORY_MAX_CHARS, HISTORY_MAX_MESSAGES, MAX_ITERATIONS, TOOL_RESULT_MAX_CHARS,
 };
 use crate::features::ai::stream::{AiMessage, AiMessageContent, AiStreamEvent, AiToolCall};
 use crate::features::mcp::types::{InputSchema, ToolDefinition, ToolResult};
@@ -210,10 +209,17 @@ async fn scenario_2_safe_mode_offers_the_catalog_and_gates_the_write_on_approval
         dispatch,
         rx,
         |spec| {
-            if spec.mutating {
-                NativeGate::Deny
-            } else {
-                NativeGate::Allow
+            if !spec.mutating {
+                return NativeGate::Allow;
+            }
+            NativeGate::Prompt {
+                request_id: "perm-test".to_string(),
+                wait: Box::pin(async {
+                    ParkOutcome::Selected {
+                        option_id: "reject-once".to_string(),
+                        kind: PermissionOptionKind::RejectOnce,
+                    }
+                }),
             }
         },
     )
@@ -233,7 +239,7 @@ async fn scenario_2_safe_mode_offers_the_catalog_and_gates_the_write_on_approval
         .any(|e| matches!(e, AgentEvent::ToolEnd { ok: false, name, .. } if name == "write_note")));
     assert!(events.iter().any(|e| matches!(
         e,
-        AgentEvent::PermissionResolved { auto: true, outcome, .. } if outcome.starts_with("selected:reject")
+        AgentEvent::PermissionResolved { auto: false, outcome, .. } if outcome.starts_with("selected:reject")
     )));
     assert!(matches!(events.last(), Some(AgentEvent::Done { .. })));
 }
@@ -262,7 +268,7 @@ async fn prompt_approval_resumes_the_dispatch() {
             NativeGate::Prompt {
                 request_id: "perm-test".to_string(),
                 wait: Box::pin(async {
-                    NativePromptOutcome::Selected {
+                    ParkOutcome::Selected {
                         option_id: "allow-once".to_string(),
                         kind: PermissionOptionKind::AllowOnce,
                     }
@@ -290,6 +296,42 @@ async fn prompt_approval_resumes_the_dispatch() {
         e,
         AgentEvent::PermissionResolved { auto: false, outcome, .. } if outcome == "selected:allow_once"
     )));
+}
+
+#[tokio::test]
+async fn stopping_the_run_ends_a_turn_parked_on_a_prompt() {
+    let (client, _seen) = scripted(vec![call_turn("c1", "write_note", "{}"), text_turn("ok")]);
+    let (abort_tx, abort_rx) = oneshot::channel();
+
+    let turn = drive_gated(
+        client,
+        vec![tool_def("write_note", true)],
+        ToolSelector::ReadOnly,
+        ok_dispatch(),
+        abort_rx,
+        |_spec| NativeGate::Prompt {
+            request_id: "perm-test".to_string(),
+            // Nobody ever answers: only the stop signal can end this turn.
+            wait: Box::pin(std::future::pending()),
+        },
+    );
+
+    let stop = async {
+        tokio::task::yield_now().await;
+        abort_tx.send(()).unwrap();
+    };
+    let (events, ()) = tokio::time::timeout(std::time::Duration::from_secs(5), async {
+        tokio::join!(turn, stop)
+    })
+    .await
+    .expect("a stopped run must not wait out the permission timeout");
+
+    let tags: Vec<&str> = events.iter().map(tag).collect();
+    assert_eq!(tags, ["init", "tool_start", "permission_request", "error"]);
+    assert!(matches!(
+        events.last(),
+        Some(AgentEvent::Error { message }) if message == "aborted"
+    ));
 }
 
 #[tokio::test]

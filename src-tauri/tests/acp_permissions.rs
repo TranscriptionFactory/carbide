@@ -20,6 +20,7 @@ fn spec(name: &str, kind: ToolKind, paths: &[&str]) -> PermissionRequestSpec {
             kind,
             ToolKind::Edit | ToolKind::Delete | ToolKind::Move | ToolKind::Execute
         ),
+        pre_authorized: false,
         options: Vec::new(),
     }
 }
@@ -100,8 +101,26 @@ fn mutating_switch_mode_prompts_in_both_modes() {
 }
 
 #[test]
-fn carbide_mcp_tools_are_allowed_even_for_destructive_kinds_in_safe_mode() {
+fn a_pre_authorized_call_is_allowed_even_for_destructive_kinds_in_safe_mode() {
     let (_dir, engine) = temp_engine();
+    let mut request = spec(
+        "mcp__carbide__delete_note",
+        ToolKind::Delete,
+        &["/vault/note.md"],
+    );
+    request.pre_authorized = true;
+
+    assert_eq!(
+        engine.evaluate(&ToolSelector::ReadOnly, &request),
+        Evaluation::Allow
+    );
+}
+
+#[test]
+fn an_mcp_shaped_name_alone_does_not_bypass_the_preset() {
+    let (_dir, engine) = temp_engine();
+    // The prefix is a wire convention the request builder reads; a name that
+    // merely looks like one must not buy a decision on its own.
     let request = spec(
         "mcp__carbide__delete_note",
         ToolKind::Delete,
@@ -110,7 +129,7 @@ fn carbide_mcp_tools_are_allowed_even_for_destructive_kinds_in_safe_mode() {
 
     assert_eq!(
         engine.evaluate(&ToolSelector::ReadOnly, &request),
-        Evaluation::Allow
+        Evaluation::Prompt
     );
 }
 
@@ -258,7 +277,7 @@ async fn resolving_twice_only_answers_once() {
 }
 
 #[tokio::test]
-async fn drain_all_cancels_every_pending_request() {
+async fn cancel_unblocks_only_the_named_request() {
     let (_dir, engine) = temp_engine();
     let first = engine.park(
         "perm-1".to_string(),
@@ -269,11 +288,39 @@ async fn drain_all_cancels_every_pending_request() {
         spec("Edit", ToolKind::Edit, &["/vault/b.md"]),
     );
 
-    engine.drain_all();
+    assert!(engine.cancel("perm-1"));
 
     assert_eq!(first.await.unwrap(), ParkedDecision::Cancelled);
-    assert_eq!(second.await.unwrap(), ParkedDecision::Cancelled);
     assert!(!engine.resolve("perm-1", "allow-once", PermissionOptionKind::AllowOnce));
+    // Cancelling one session's prompt leaves every other session's alone.
+    assert!(engine.resolve("perm-2", "allow-once", PermissionOptionKind::AllowOnce));
+    assert_eq!(
+        second.await.unwrap(),
+        ParkedDecision::Selected {
+            option_id: "allow-once".to_string(),
+            kind: PermissionOptionKind::AllowOnce,
+        }
+    );
+}
+
+#[tokio::test]
+async fn dropping_the_wait_releases_the_parked_entry() {
+    let dir = tempfile::tempdir().unwrap();
+    let engine = std::sync::Arc::new(engine(dir.path()));
+
+    {
+        let waiting =
+            engine.await_decision("perm-1".to_string(), spec("Bash", ToolKind::Execute, &[]));
+        futures_util::pin_mut!(waiting);
+        // One poll parks the request; the drop below stands in for a session
+        // teardown abandoning the prompt mid-flight.
+        assert!(futures_util::poll!(waiting.as_mut()).is_pending());
+    }
+
+    assert!(
+        !engine.resolve("perm-1", "allow-once", PermissionOptionKind::AllowOnce),
+        "an abandoned wait must not strand its entry in the pending map"
+    );
 }
 
 // --- recording choices ---------------------------------------------------
@@ -351,7 +398,8 @@ fn engine_revoke_removes_a_grant_and_restores_prompting() {
         PermissionOptionKind::AllowAlways,
     );
 
-    engine.revoke(AGENT, "Bash", "execute").unwrap();
+    let id = engine.grants()[0].id.clone();
+    engine.revoke(&id).unwrap();
 
     assert!(engine.grants().is_empty());
     assert_eq!(
@@ -457,7 +505,13 @@ fn store_revoke_removes_the_matching_grant_on_disk() {
         store
             .add_grant(AGENT.to_string(), "Bash".to_string(), "execute".to_string(), None)
             .unwrap();
-        store.revoke(AGENT, "Edit", "edit").unwrap();
+        let edit_id = store
+            .grants()
+            .into_iter()
+            .find(|grant| grant.tool_name == "Edit")
+            .expect("the Edit grant was just written")
+            .id;
+        store.revoke(&edit_id).unwrap();
     }
 
     let store = GrantStore::load(dir.path());
@@ -471,7 +525,7 @@ fn revoking_something_unknown_is_a_no_op() {
     let dir = tempfile::tempdir().unwrap();
     let mut store = GrantStore::load(dir.path());
 
-    store.revoke(AGENT, "Edit", "edit").unwrap();
+    store.revoke("no-such-grant").unwrap();
 
     assert!(!store_path(dir.path()).exists());
 }

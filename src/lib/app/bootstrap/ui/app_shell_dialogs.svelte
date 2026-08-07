@@ -612,6 +612,7 @@
     }
     void fetch_lsp_config_status();
   }}
+  permissions={ports.assistant_permissions}
   {storage_stats}
   {storage_loading}
   on_refresh_storage_stats={fetch_storage_stats}

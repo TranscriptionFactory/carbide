@@ -36,6 +36,7 @@ export {
 } from "$lib/features/assistant/types/agent_history";
 
 export type {
+  AssistantPermissionPort,
   AssistantProviderProbePort,
   AssistantSessionPersistencePort,
   AssistantTransportPort,

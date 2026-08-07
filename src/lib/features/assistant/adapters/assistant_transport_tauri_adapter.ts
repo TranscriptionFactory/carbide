@@ -1,4 +1,5 @@
 import { listen } from "@tauri-apps/api/event";
+import { commands } from "$lib/generated/bindings";
 import { tauri_invoke } from "$lib/shared/adapters/tauri_invoke";
 import { AsyncQueue } from "$lib/shared/utils/async_queue";
 import {
@@ -261,6 +262,17 @@ export function create_assistant_permission_tauri_adapter(): AssistantPermission
         optionKind:
           response.kind === "cancelled" ? "reject_once" : response.kind,
       });
+    },
+
+    async grants() {
+      const result = await commands.agentPermissionGrants();
+      if (result.status === "error") throw new Error(result.error);
+      return result.data;
+    },
+
+    async revoke(id) {
+      const result = await commands.agentPermissionRevoke(id);
+      if (result.status === "error") throw new Error(result.error);
     },
   };
 }
