@@ -43,7 +43,8 @@ export function cap_tool_content(
 ): ToolContent[] {
   return content.map((block) => {
     if (block.kind === "text") {
-      return { ...block, text: cap_text(block.text, kind) };
+      const text = cap_text(block.text, kind);
+      return text === block.text ? block : { ...block, text };
     }
     const size = (block.old_text?.length ?? 0) + block.new_text.length;
     if (size <= DIFF_CHAR_CAP) return block;

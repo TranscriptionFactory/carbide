@@ -43,8 +43,15 @@ fn push_path(value: Option<&Value>, out: &mut Vec<String>) {
     let Some(path) = value.and_then(Value::as_str) else {
         return;
     };
-    if path.is_empty() || out.iter().any(|seen| seen == path) {
+    push_unique(out, path.to_string());
+}
+
+/// Path lists are order-sensitive (the frontend shows the first one) and reach
+/// the same accumulator from locations, diffs and raw input, so every producer
+/// has to skip blanks and repeats the same way.
+pub fn push_unique(out: &mut Vec<String>, path: String) {
+    if path.is_empty() || out.iter().any(|seen| seen == &path) {
         return;
     }
-    out.push(path.to_string());
+    out.push(path);
 }

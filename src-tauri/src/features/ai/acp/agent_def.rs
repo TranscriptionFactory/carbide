@@ -2,11 +2,16 @@ use agent_client_protocol::schema::v1::SessionMode;
 use serde::{Deserialize, Serialize};
 use specta::Type;
 
+use crate::features::ai::agent_stream::cli_probe_error_message;
 use crate::features::pipeline::service as pipeline;
 
 const CLAUDE_ACP_PACKAGE: &str = "@agentclientprotocol/claude-agent-acp";
 const CODEX_ACP_PACKAGE: &str = "@agentclientprotocol/codex-acp";
 const NPX: &str = "npx";
+
+/// Presets never run the user's own command, so the error has to name what they
+/// are actually missing rather than the `npx` shim they never configured.
+const NPX_DISPLAY_NAME: &str = "npx (Node.js)";
 
 /// Session modes whose id or name matches any of these are never selected, even
 /// when the agent advertises nothing else: they disable the agent's own
@@ -84,19 +89,11 @@ pub(crate) fn preflight_error(
     command: &str,
     probe: &pipeline::CliProbe,
 ) -> String {
-    if let Some(detail) = probe.error.as_deref() {
-        if detail.contains("not executable") {
-            return format!("{command}: {detail}");
-        }
-    }
-    match spec {
-        AcpAgentSpec::Preset { .. } => {
-            "`npx` not found — install Node.js (npm) to run the bundled ACP agents".to_string()
-        }
-        AcpAgentSpec::Custom { .. } => format!(
-            "`{command}` not found — install it or set an absolute command path in AI settings"
-        ),
-    }
+    let provider_name = match spec {
+        AcpAgentSpec::Preset { .. } => NPX_DISPLAY_NAME,
+        AcpAgentSpec::Custom { .. } => command,
+    };
+    cli_probe_error_message(provider_name, probe)
 }
 
 /// The mode to request after `session/new` when the user asked for the power

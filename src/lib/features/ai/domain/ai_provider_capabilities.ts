@@ -1,3 +1,4 @@
+import type { AcpPresetId } from "$lib/generated/bindings";
 import type {
   AcpAgentSpec,
   AiProviderConfig,
@@ -13,7 +14,7 @@ export type AgentCapability =
   | { backend: "native"; acp?: undefined }
   | { backend: "acp"; acp: AcpAgentSpec };
 
-export const ACP_PRESET_LABELS: Record<"claude" | "codex", string> = {
+export const ACP_PRESET_LABELS: Record<AcpPresetId, string> = {
   claude: "Claude Code",
   codex: "Codex",
 };
@@ -30,6 +31,18 @@ export function agent_capability(
   if (config.transport.acp)
     return { backend: "acp", acp: config.transport.acp };
   return null;
+}
+
+// Handing the vault to a terminal agent needs a CLI that takes a directory
+// argument and speaks the same session; only the Claude preset does.
+export function supports_vault_handoff(
+  capability: AgentCapability | null,
+): boolean {
+  return (
+    capability?.backend === "acp" &&
+    capability.acp.kind === "preset" &&
+    capability.acp.id === "claude"
+  );
 }
 
 // The one statement of what each backend's agent may actually touch. Every

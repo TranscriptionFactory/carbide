@@ -9,20 +9,31 @@ use std::time::{Duration, Instant};
 
 pub use agent_def::{pick_session_mode, resolve_acp_launch, AcpAgentSpec, AcpLaunch, AcpPresetId};
 pub use policy::{auto_decide, AutoDecision};
-pub use session::{
-    spawn_acp_session, AcpMcpServer, AcpSessionConfig, EventSink, SessionCommand, SessionHandle,
-};
+pub use session::{spawn_acp_session, AcpSessionConfig, EventSink, SessionCommand, SessionHandle};
 pub use translate::TurnTranslator;
 
 /// Sessions idle for longer than this are torn down by [`AcpSessionManager::reap_idle`]'s
 /// usual caller; the duration is passed in so tests can drive it directly.
 pub const DEFAULT_MAX_IDLE: Duration = Duration::from_secs(600);
 
+/// Runs when a session is retired on any path — this is where the scoped MCP
+/// token minted for the process gets revoked, so token lifetime is owned by
+/// the same thing that owns process lifetime.
+type RetireHook = Box<dyn FnOnce() + Send>;
+
 struct ManagedSession {
     handle: SessionHandle,
     agent_fingerprint: String,
     vault_path: String,
     last_used: Instant,
+    on_retire: Option<RetireHook>,
+}
+
+fn retire(mut session: ManagedSession) {
+    session.handle.shutdown();
+    if let Some(hook) = session.on_retire.take() {
+        hook();
+    }
 }
 
 /// Live ACP agent processes, one per Carbide chat session.
@@ -32,18 +43,39 @@ pub struct AcpSessionManager {
 }
 
 impl AcpSessionManager {
-    pub fn new() -> Self {
-        Self::default()
+    /// The cheap path for follow-up turns: returns the live handle only when
+    /// it is the same agent under the same grant against the same vault, so
+    /// callers can skip launch resolution, token minting and catalog work
+    /// entirely. The fingerprint must include the toolset — a safe↔power flip
+    /// is a different grant and must retire the old process and its token.
+    pub fn get_matching(
+        &self,
+        chat_session_id: &str,
+        agent_fingerprint: &str,
+        vault_path: &str,
+    ) -> Option<SessionHandle> {
+        let mut sessions = self.sessions.lock().unwrap();
+        let existing = sessions.get_mut(chat_session_id)?;
+        if existing.agent_fingerprint == agent_fingerprint
+            && existing.vault_path == vault_path
+            && existing.handle.is_alive()
+        {
+            existing.last_used = Instant::now();
+            return Some(existing.handle.clone());
+        }
+        None
     }
 
     /// Reuses the running agent for this chat only when it is the same agent
-    /// against the same vault; anything else is a different conversation as far
-    /// as the agent is concerned, so the old process is retired first.
+    /// against the same vault under the same grant; anything else is a
+    /// different conversation as far as the agent is concerned, so the old
+    /// process is retired first.
     pub fn get_or_spawn(
         &self,
         chat_session_id: &str,
         agent_fingerprint: &str,
         config: AcpSessionConfig,
+        on_retire: RetireHook,
     ) -> Result<SessionHandle, String> {
         let mut sessions = self.sessions.lock().unwrap();
 
@@ -53,10 +85,11 @@ impl AcpSessionManager {
                 && existing.handle.is_alive()
             {
                 existing.last_used = Instant::now();
+                on_retire();
                 return Ok(existing.handle.clone());
             }
             if let Some(stale) = sessions.remove(chat_session_id) {
-                stale.handle.shutdown();
+                retire(stale);
             }
         }
 
@@ -69,28 +102,21 @@ impl AcpSessionManager {
                 agent_fingerprint: agent_fingerprint.to_string(),
                 vault_path,
                 last_used: Instant::now(),
+                on_retire: Some(on_retire),
             },
         );
         Ok(handle)
     }
 
-    pub fn get(&self, chat_session_id: &str) -> Option<SessionHandle> {
-        self.sessions
-            .lock()
-            .unwrap()
-            .get(chat_session_id)
-            .map(|session| session.handle.clone())
-    }
-
     pub fn remove(&self, chat_session_id: &str) {
         if let Some(session) = self.sessions.lock().unwrap().remove(chat_session_id) {
-            session.handle.shutdown();
+            retire(session);
         }
     }
 
     pub fn shutdown_all(&self) {
         for (_, session) in self.sessions.lock().unwrap().drain() {
-            session.handle.shutdown();
+            retire(session);
         }
     }
 
@@ -107,7 +133,7 @@ impl AcpSessionManager {
 
         for id in &expired {
             if let Some(session) = sessions.remove(id) {
-                session.handle.shutdown();
+                retire(session);
             }
         }
         expired.len()

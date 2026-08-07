@@ -6,11 +6,13 @@ use serde_json::Value;
 use tauri::{AppHandle, Emitter, Manager};
 use tokio::sync::oneshot;
 
+use crate::features::mcp::auth;
 use crate::features::mcp::router::McpRouter;
 use crate::features::mcp::types::{ContentBlock, ToolDefinition, ToolResult};
 
 use super::agent_stream::{
-    infer_tool_kind, AgentEvent, AgentRunSpec, AgentRunState, AgentRunStats, ToolSelector,
+    infer_tool_kind, summarize_chars, AgentEvent, AgentRunSpec, AgentRunState, AgentRunStats,
+    ToolSelector,
 };
 use super::tool_paths::extract_tool_paths;
 use super::service::{AiProviderConfig, AiTransport};
@@ -20,7 +22,7 @@ pub const MAX_ITERATIONS: u32 = 16;
 pub const TOOL_RESULT_MAX_CHARS: usize = 4000;
 pub const HISTORY_MAX_MESSAGES: usize = 40;
 pub const HISTORY_MAX_CHARS: usize = 100_000;
-const INPUT_SUMMARY_MAX_CHARS: usize = 200;
+pub const SUMMARY_MAX_CHARS: usize = 200;
 
 pub trait ModelClient: Send + Sync {
     fn stream_turn(
@@ -31,15 +33,11 @@ pub trait ModelClient: Send + Sync {
 }
 
 pub fn allowed_tools(catalog: &[ToolDefinition], selector: &ToolSelector) -> Vec<ToolDefinition> {
-    match selector {
-        ToolSelector::Full => catalog.to_vec(),
-        ToolSelector::ReadOnly => catalog.iter().filter(|t| !t.mutating).cloned().collect(),
-        ToolSelector::Only { names } => catalog
-            .iter()
-            .filter(|t| names.contains(&t.name))
-            .cloned()
-            .collect(),
-    }
+    catalog
+        .iter()
+        .filter(|t| auth::selector_allows(selector, &t.name, t.mutating))
+        .cloned()
+        .collect()
 }
 
 pub fn truncate_tool_result(text: &str) -> String {
@@ -102,28 +100,6 @@ pub fn build_system_prompt(vault_path: &str, toolset: &ToolSelector) -> String {
 Use the provided tools to {actions} before answering. \
 Only act within this vault; do not assume access to anything outside the tool catalog."
     )
-}
-
-fn summarize_arguments(arguments: &str) -> String {
-    let chars: Vec<char> = arguments.chars().collect();
-    if chars.len() <= INPUT_SUMMARY_MAX_CHARS {
-        arguments.to_string()
-    } else {
-        let head: String = chars[..INPUT_SUMMARY_MAX_CHARS].iter().collect();
-        format!("{head}…")
-    }
-}
-
-pub const RESULT_SUMMARY_MAX_CHARS: usize = 200;
-
-pub fn summarize_result(text: &str) -> String {
-    let chars: Vec<char> = text.chars().collect();
-    if chars.len() <= RESULT_SUMMARY_MAX_CHARS {
-        text.to_string()
-    } else {
-        let head: String = chars[..RESULT_SUMMARY_MAX_CHARS].iter().collect();
-        format!("{head}…")
-    }
 }
 
 fn parse_arguments(arguments: &str) -> Option<Value> {
@@ -294,7 +270,7 @@ pub async fn run_native_turn<C, D, E>(
                 id: id.clone(),
                 name: name.clone(),
                 kind: infer_tool_kind(&name),
-                input_summary: summarize_arguments(&arguments),
+                input_summary: summarize_chars(&arguments, SUMMARY_MAX_CHARS),
                 paths: paths.clone(),
                 mutating,
                 locations: Vec::new(),
@@ -308,7 +284,7 @@ pub async fn run_native_turn<C, D, E>(
                     id: id.clone(),
                     name: name.clone(),
                     ok: false,
-                    result_summary: Some(summarize_result(&denial)),
+                    result_summary: Some(summarize_chars(&denial, SUMMARY_MAX_CHARS)),
                     paths,
                     mutating,
                 });
@@ -323,7 +299,7 @@ pub async fn run_native_turn<C, D, E>(
                 id: id.clone(),
                 name: name.clone(),
                 ok,
-                result_summary: Some(summarize_result(&text)),
+                result_summary: Some(summarize_chars(&text, SUMMARY_MAX_CHARS)),
                 paths,
                 mutating,
             });

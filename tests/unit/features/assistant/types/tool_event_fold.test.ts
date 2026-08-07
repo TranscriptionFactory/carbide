@@ -235,6 +235,17 @@ describe("cap_tool_content", () => {
     ];
     expect(cap_tool_content(content, "edit")).toEqual(content);
   });
+
+  it("keeps block identity when nothing is capped", () => {
+    const content = [
+      { kind: "diff" as const, path: "a.md", old_text: "a", new_text: "b" },
+      { kind: "text" as const, text: "short" },
+    ];
+    const capped = cap_tool_content(content, "edit");
+
+    expect(capped[0]).toBe(content[0]);
+    expect(capped[1]).toBe(content[1]);
+  });
 });
 
 describe("tool_event_status", () => {

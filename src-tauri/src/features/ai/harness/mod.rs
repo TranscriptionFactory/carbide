@@ -4,6 +4,12 @@ use crate::features::mcp::types::ToolDefinition;
 
 pub const MCP_TOOL_PREFIX: &str = "mcp__carbide__";
 
+/// The bare tool name behind an MCP wire name. Both the ACP translator and the
+/// native loop key off the unprefixed name.
+pub fn strip_mcp_prefix(name: &str) -> &str {
+    name.strip_prefix(MCP_TOOL_PREFIX).unwrap_or(name)
+}
+
 const MUTATING_BUILTIN_TOOLS: [&str; 4] = ["Write", "Edit", "MultiEdit", "NotebookEdit"];
 
 /// Which tool names write to disk, so the frontend can refresh the vault even

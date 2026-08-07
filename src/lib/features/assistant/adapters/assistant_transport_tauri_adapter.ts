@@ -97,13 +97,7 @@ const agent_turn_channel: ChannelDescriptor<AgentRequest, AgentEvent> = {
           locations: event.locations,
         };
       case "tool_update":
-        return {
-          type: "tool_update",
-          id: event.id,
-          status: event.status,
-          content: event.content,
-          paths: event.paths,
-        };
+        return event;
       case "tool_end":
         return {
           type: "tool_end",
@@ -127,12 +121,7 @@ const agent_turn_channel: ChannelDescriptor<AgentRequest, AgentEvent> = {
           options: event.options,
         };
       case "permission_resolved":
-        return {
-          type: "permission_resolved",
-          request_id: event.request_id,
-          outcome: event.outcome,
-          auto: event.auto,
-        };
+        return event;
       case "error":
         return { type: "error", message: event.message };
       case "done":

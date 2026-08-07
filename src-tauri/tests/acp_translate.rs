@@ -291,7 +291,9 @@ fn result_summary_is_capped() {
         panic!("expected a tool_end event");
     };
 
-    assert_eq!(result_summary.expect("a summary").chars().count(), 200);
+    let summary = result_summary.expect("a summary");
+    assert_eq!(summary.chars().count(), 201);
+    assert!(summary.ends_with('…'), "a capped summary marks the cut");
 }
 
 #[test]

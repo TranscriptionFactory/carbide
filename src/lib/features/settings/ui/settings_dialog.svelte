@@ -366,6 +366,13 @@
     { value: "custom", label: "Custom ACP command" },
   ];
 
+  function parse_args_input(value: string): string[] {
+    return value
+      .trim()
+      .split(/\s+/)
+      .filter((a) => a.length > 0);
+  }
+
   function acp_option_value(spec: AcpAgentSpec | undefined): string {
     if (!spec) return "none";
     return spec.kind === "preset" ? spec.id : "custom";
@@ -543,10 +550,7 @@
       };
     } else {
       if (!new_provider.command.trim()) return;
-      const args = new_provider.args
-        .trim()
-        .split(/\s+/)
-        .filter((a) => a.length > 0);
+      const args = parse_args_input(new_provider.args);
       provider = {
         id: new_provider.id.trim(),
         name: new_provider.name.trim(),
@@ -1207,9 +1211,9 @@
                               e: Event & { currentTarget: HTMLInputElement },
                             ) => {
                               if (provider.transport.kind !== "cli") return;
-                              const args = e.currentTarget.value
-                                .split(/\s+/)
-                                .filter((a) => a.length > 0);
+                              const args = parse_args_input(
+                                e.currentTarget.value,
+                              );
                               update_provider(provider.id, {
                                 transport: { ...provider.transport, args },
                               });
@@ -1434,9 +1438,9 @@
                                     ...provider.transport,
                                     acp: {
                                       ...custom,
-                                      args: e.currentTarget.value
-                                        .split(/\s+/)
-                                        .filter((a) => a !== ""),
+                                      args: parse_args_input(
+                                        e.currentTarget.value,
+                                      ),
                                     },
                                   },
                                 });

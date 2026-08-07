@@ -9,8 +9,9 @@ use futures_util::stream;
 use rand::RngCore;
 use serde::Serialize;
 use specta::Type;
+use std::collections::HashMap;
 use std::net::SocketAddr;
-use std::sync::Arc;
+use std::sync::{Arc, LazyLock};
 use tauri::{AppHandle, Manager};
 use tokio::net::TcpListener;
 use tokio::sync::watch;
@@ -201,10 +202,20 @@ fn filter_tools_response(mut response: JsonRpcResponse, selector: &ToolSelector)
     response
 }
 
+/// The tool catalog is a pure function of the compiled-in tool modules, so the
+/// mutability every scoped call has to check is resolved once rather than
+/// rebuilt per request.
+static TOOL_MUTABILITY: LazyLock<HashMap<String, bool>> = LazyLock::new(|| {
+    McpRouter::new()
+        .tool_definitions_public()
+        .into_iter()
+        .map(|def| (def.name, def.mutating))
+        .collect()
+});
+
 /// `None` when the call may proceed. Tools the router does not know fall
 /// through so it can report them as unknown rather than as blocked.
 fn refuse_out_of_scope_call(
-    router: &McpRouter,
     request: &JsonRpcRequest,
     selector: &ToolSelector,
 ) -> Option<JsonRpcResponse> {
@@ -213,12 +224,9 @@ fn refuse_out_of_scope_call(
     }
 
     let name = request.params.as_ref()?.get("name")?.as_str()?;
-    let definition = router
-        .tool_definitions_public()
-        .into_iter()
-        .find(|def| def.name == name)?;
+    let mutating = *TOOL_MUTABILITY.get(name)?;
 
-    if auth::selector_allows(selector, &definition.name, definition.mutating) {
+    if auth::selector_allows(selector, name, mutating) {
         return None;
     }
 
@@ -238,7 +246,7 @@ pub(crate) fn handle_scoped_request(
     selector: &ToolSelector,
 ) -> Option<JsonRpcResponse> {
     if request.method == method::TOOLS_CALL {
-        if let Some(refusal) = refuse_out_of_scope_call(router, request, selector) {
+        if let Some(refusal) = refuse_out_of_scope_call(request, selector) {
             return Some(refusal);
         }
     }

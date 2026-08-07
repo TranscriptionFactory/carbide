@@ -6,10 +6,11 @@ use agent_client_protocol::schema::v1::{
 };
 
 use crate::features::ai::agent_stream::{
-    infer_tool_kind, AgentEvent, ToolCallStatus, ToolContent, ToolKind, ToolLocation,
+    infer_tool_kind, summarize_chars, AgentEvent, ToolCallStatus, ToolContent, ToolKind,
+    ToolLocation,
 };
-use crate::features::ai::harness::{MutatingToolSet, MCP_TOOL_PREFIX};
-use crate::features::ai::tool_paths::extract_tool_paths;
+use crate::features::ai::harness::{strip_mcp_prefix, MutatingToolSet};
+use crate::features::ai::tool_paths::{extract_tool_paths, push_unique};
 
 const SUMMARY_LIMIT: usize = 200;
 
@@ -35,6 +36,12 @@ impl TurnTranslator {
         }
     }
 
+    /// A cancelled or crashed turn strands per-call state no update will ever
+    /// settle; the session actor calls this at every turn boundary.
+    pub fn clear_open_calls(&mut self) {
+        self.calls.clear();
+    }
+
     pub fn on_update(&mut self, update: &SessionUpdate) -> Vec<AgentEvent> {
         match update {
             SessionUpdate::AgentMessageChunk(chunk) => block_text(&chunk.content)
@@ -56,14 +63,11 @@ impl TurnTranslator {
         let name = call.title.clone();
         let kind = resolve_kind(Some(call.kind), &name);
 
-        let mut paths = Vec::new();
-        collect_location_paths(&call.locations, &mut paths);
-        collect_content_paths(&call.content, &mut paths);
-        if let Some(input) = &call.raw_input {
-            for path in extract_tool_paths(input) {
-                push_unique(&mut paths, path);
-            }
-        }
+        let paths = collect_paths(
+            Some(&call.locations),
+            Some(&call.content),
+            call.raw_input.as_ref(),
+        );
 
         let mutating = is_mutating_kind(kind)
             || matches_mutating(&self.mutating, &name)
@@ -87,7 +91,7 @@ impl TurnTranslator {
             input_summary: call
                 .raw_input
                 .as_ref()
-                .map(|input| truncate(&input.to_string(), SUMMARY_LIMIT))
+                .map(|input| summarize_chars(&input.to_string(), SUMMARY_LIMIT))
                 .unwrap_or_default(),
             paths,
             mutating,
@@ -99,24 +103,13 @@ impl TurnTranslator {
         let id = update.tool_call_id.to_string();
         let fields = &update.fields;
 
-        let mut paths = Vec::new();
-        if let Some(locations) = &fields.locations {
-            collect_location_paths(locations, &mut paths);
-        }
-        if let Some(content) = &fields.content {
-            collect_content_paths(content, &mut paths);
-        }
-        if let Some(input) = &fields.raw_input {
-            for path in extract_tool_paths(input) {
-                push_unique(&mut paths, path);
-            }
-        }
+        let paths = collect_paths(
+            fields.locations.as_deref(),
+            fields.content.as_deref(),
+            fields.raw_input.as_ref(),
+        );
 
-        let content = fields
-            .content
-            .as_ref()
-            .map(|blocks| map_content(blocks))
-            .unwrap_or_default();
+        let content = fields.content.as_deref().map(map_content).unwrap_or_default();
 
         let state = self.calls.entry(id.clone()).or_insert_with(|| CallState {
             name: fields.title.clone().unwrap_or_else(|| id.clone()),
@@ -142,10 +135,17 @@ impl TurnTranslator {
         let status = fields.status.map(map_status).unwrap_or(state.status);
         state.status = status;
 
+        // Summary taken by reference before `content` moves into the update
+        // event — a long-running execute tool re-sends its whole accumulated
+        // output per update, and cloning it per event is quadratic.
+        let result_summary = matches!(status, ToolCallStatus::Completed | ToolCallStatus::Failed)
+            .then(|| first_text(&content).map(|text| summarize_chars(text, SUMMARY_LIMIT)))
+            .flatten();
+
         let mut events = vec![AgentEvent::ToolUpdate {
             id: id.clone(),
             status,
-            content: content.clone(),
+            content,
             paths,
         }];
 
@@ -155,7 +155,7 @@ impl TurnTranslator {
                 id,
                 name: state.name,
                 ok: status == ToolCallStatus::Completed,
-                result_summary: first_text(&content).map(|text| truncate(&text, SUMMARY_LIMIT)),
+                result_summary,
                 paths: state.paths,
                 mutating: state.mutating,
             });
@@ -223,9 +223,9 @@ fn block_text(block: &ContentBlock) -> Option<String> {
     }
 }
 
-fn first_text(content: &[ToolContent]) -> Option<String> {
+fn first_text(content: &[ToolContent]) -> Option<&str> {
     content.iter().find_map(|item| match item {
-        ToolContent::Text { text } => Some(text.clone()),
+        ToolContent::Text { text } => Some(text.as_str()),
         ToolContent::Diff { .. } => None,
     })
 }
@@ -246,33 +246,24 @@ fn is_mutating_kind(kind: ToolKind) -> bool {
     matches!(kind, ToolKind::Edit | ToolKind::Delete | ToolKind::Move)
 }
 
-fn collect_location_paths(locations: &[ToolCallLocation], out: &mut Vec<String>) {
-    for location in locations {
-        push_unique(out, location.path.to_string_lossy().into_owned());
+fn collect_paths(
+    locations: Option<&[ToolCallLocation]>,
+    blocks: Option<&[ToolCallContent]>,
+    raw_input: Option<&serde_json::Value>,
+) -> Vec<String> {
+    let mut out = Vec::new();
+    for location in locations.unwrap_or_default() {
+        push_unique(&mut out, location.path.to_string_lossy().into_owned());
     }
-}
-
-fn collect_content_paths(blocks: &[ToolCallContent], out: &mut Vec<String>) {
-    for block in blocks {
+    for block in blocks.unwrap_or_default() {
         if let ToolCallContent::Diff(diff) = block {
-            push_unique(out, diff.path.to_string_lossy().into_owned());
+            push_unique(&mut out, diff.path.to_string_lossy().into_owned());
         }
     }
-}
-
-fn push_unique(out: &mut Vec<String>, path: String) {
-    if !path.is_empty() && !out.iter().any(|seen| seen == &path) {
-        out.push(path);
+    if let Some(input) = raw_input {
+        for path in extract_tool_paths(input) {
+            push_unique(&mut out, path);
+        }
     }
-}
-
-pub(crate) fn strip_mcp_prefix(name: &str) -> &str {
-    name.strip_prefix(MCP_TOOL_PREFIX).unwrap_or(name)
-}
-
-pub(crate) fn truncate(text: &str, limit: usize) -> String {
-    match text.char_indices().nth(limit) {
-        Some((cut, _)) => text[..cut].to_string(),
-        None => text.to_string(),
-    }
+    out
 }
