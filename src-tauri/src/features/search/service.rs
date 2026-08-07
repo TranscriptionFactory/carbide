@@ -93,9 +93,16 @@ pub(crate) fn reconcile_model_version(
 /// and mean-pooling its chunk vectors back into one. Keeps the stored row
 /// per-section — the `(path, heading_id)` key and section content hash are
 /// unchanged — while no longer dropping the tail of a long section.
+/// Encoder batch width. `BatchLongest` padding means one long text pads all the
+/// others; with f16 Metal weights 32 keeps the worst-case `[32,12,256,256]`
+/// attention tensor at the same byte budget as the previous f32
+/// `[16,12,256,256]`. (ref: DL-002)
+const EMBED_BATCH_SIZE: usize = if cfg!(debug_assertions) { 5 } else { 32 };
+
 fn embed_section_texts(
     model: &EmbeddingService,
     texts: &[&str],
+    width: usize,
     cancel: Option<&AtomicBool>,
 ) -> Result<Vec<Vec<f32>>, String> {
     let chunked: Vec<Vec<String>> = texts
@@ -108,9 +115,13 @@ fn embed_section_texts(
 
     let flat: Vec<&str> = chunked.iter().flatten().map(String::as_str).collect();
 
-    // Sub-batch at the caller's chosen width so chunk expansion never inflates
-    // the peak attention tensor beyond what the un-chunked path would use.
-    let width = texts.len().max(1);
+    // Sub-batch at the encoder's batch width, not at `texts.len()`. Callers
+    // buffer on *chunks*, so a batch of long sections arrives as few texts that
+    // expand to many chunks; taking the width from the text count would then
+    // run many narrow forward passes instead of a few full ones — the exact
+    // batch-of-one pathology this pass exists to remove. The width still caps
+    // the peak attention tensor, which is what it was there for.
+    let width = width.max(1);
     let mut vectors: Vec<Vec<f32>> = Vec::with_capacity(flat.len());
     for window in flat.chunks(width) {
         vectors.extend(model.embed_documents(window, cancel)?);
@@ -1365,6 +1376,25 @@ pub(crate) fn apply_note_embedding_on_save(
     }
 
     let Some(model) = model else {
+        // No model: this save cannot recompose the note vector, so anything
+        // stale has to be cleared for the bulk pass to pick the note back up —
+        // it skips whatever is already in `note_embeddings`.
+        //
+        // Invalidation alone is not enough. It compares block hashes, so it
+        // says nothing about a note with no embeddable sections: `{} == {}`
+        // leaves the row in place, and that note's vector is derived from the
+        // body, which just changed. Those are exactly the short, headingless
+        // notes, and every save of one during the model download would keep its
+        // pre-edit vector indefinitely. A note whose sections are unchanged
+        // keeps its vector, which is composed from those blocks and still valid.
+        if note_embed_enabled && (invalidated || current_hashes.is_empty()) {
+            if let Err(e) = vector_db::remove_embedding(conn, note_id) {
+                log::warn!("embed_on_save: clearing {note_id} failed: {e}");
+            }
+            if let Ok(mut ni) = note_index.write() {
+                ni.remove(note_id);
+            }
+        }
         return;
     };
 
@@ -1379,7 +1409,7 @@ pub(crate) fn apply_note_embedding_on_save(
 
         if !to_embed.is_empty() {
             let texts: Vec<&str> = to_embed.iter().map(|(_, text, _)| text.as_str()).collect();
-            match embed_section_texts(model, &texts, None) {
+            match embed_section_texts(model, &texts, EMBED_BATCH_SIZE, None) {
                 Ok(embeddings) => {
                     for ((heading_id, _, hash), embedding) in
                         to_embed.iter().zip(embeddings.iter())
@@ -1864,19 +1894,24 @@ fn drain_pending_commands(
 }
 
 /// Writes a composed or directly-embedded note vector to both SQLite and the
-/// resident index.
+/// resident index. Returns whether it was actually stored: the ingest guard
+/// refuses degenerate vectors, and counting one of those as progress would let
+/// the pass report completion for a note that has no vector anywhere — which
+/// then keeps it out of `get_embedded_paths` and re-tried by every later pass.
 fn store_note_embedding(
     conn: &Connection,
     note_index: &SharedVectorIndex,
     path: &str,
     embedding: Vec<f32>,
-) {
+) -> bool {
     if let Err(e) = vector_db::upsert_embedding(conn, path, &embedding) {
         log::warn!("embed_batch: upsert failed for {path}: {e}");
+        return false;
     }
     if let Ok(mut ni) = note_index.write() {
         ni.insert(path, embedding);
     }
+    true
 }
 
 fn handle_embed_batch(
@@ -2027,13 +2062,14 @@ fn handle_embed_batch(
                     match all_block_vecs.get(path) {
                         Some(bvs) if !bvs.is_empty() => {
                             let vecs: Vec<Vec<f32>> = bvs.iter().map(|(_, v)| v.clone()).collect();
-                            store_note_embedding(
+                            if store_note_embedding(
                                 conn,
                                 note_index,
                                 path,
                                 vector_db::mean_pool_normalize(&vecs),
-                            );
-                            embedded += 1;
+                            ) {
+                                embedded += 1;
+                            }
                         }
                         _ => fallback.push(path.as_str()),
                     }
@@ -2059,24 +2095,35 @@ fn handle_embed_batch(
             // Pass 2: embed the fallback population in batches instead of one
             // note at a time. Progress cadence over these notes is the batch
             // width rather than `progress_batch`.
-            let batch_size: usize = if cfg!(debug_assertions) { 5 } else { 32 };
-            for chunk in fallback.chunks(batch_size) {
+            for chunk in fallback.chunks(EMBED_BATCH_SIZE) {
                 if cancel.load(Ordering::Relaxed) {
                     break;
                 }
-                // A command drained during pass 1 can have embedded a note that
-                // pass 1 classified as a fallback, writing both its block
-                // vectors and a freshly composed note vector. Pass 1 read
-                // `all_block_vecs` once for the whole vault, so without this
-                // re-check pass 2 would overwrite that fresh vector from
-                // pre-loop state.
-                let refreshed = vector_db::get_block_embeddings_for_notes(conn, chunk);
+                // `fallback` is a snapshot taken across the whole of pass 1, and
+                // commands drained during it can have moved on underneath us in
+                // two ways. A save may have embedded the note already — tested
+                // against the note table itself, since block rows only prove a
+                // *composition input* exists, not a vector. Or a delete may have
+                // removed it, in which case re-embedding would resurrect it:
+                // `embed_text_for_note` falls back to the filename when the body
+                // is gone, so the note would come back as a ghost hit until the
+                // next restart reconciled it away.
+                let mut already = 0usize;
                 let pending: Vec<&str> = chunk
                     .iter()
                     .copied()
-                    .filter(|path| !refreshed.contains_key(*path))
+                    .filter(|path| {
+                        if !notes_cache.contains_key(*path) {
+                            return false;
+                        }
+                        if vector_db::has_embedding(conn, path) {
+                            already += 1;
+                            return false;
+                        }
+                        true
+                    })
                     .collect();
-                embedded += chunk.len() - pending.len();
+                embedded += already;
 
                 let batch_start = Instant::now();
                 if !pending.is_empty() {
@@ -2095,8 +2142,9 @@ fn handle_embed_batch(
                         Ok(vectors) => {
                             for (path, vector) in pending.iter().zip(vectors) {
                                 if let Some(vector) = vector {
-                                    store_note_embedding(conn, note_index, path, vector);
-                                    embedded += 1;
+                                    if store_note_embedding(conn, note_index, path, vector) {
+                                        embedded += 1;
+                                    }
                                 }
                             }
                         }
@@ -2131,8 +2179,7 @@ fn handle_embed_batch(
             // BatchLongest padding means one long section pads all others. With f16
             // Metal weights, batch_size=32 keeps the worst-case [32,12,256,256] attention
             // tensor at the same byte budget as the previous f32 [16,12,256,256].
-            let batch_size: usize = if cfg!(debug_assertions) { 5 } else { 32 };
-            for chunk in notes_needing_embedding.chunks(batch_size) {
+            for chunk in notes_needing_embedding.chunks(EMBED_BATCH_SIZE) {
                 if cancel.load(Ordering::Relaxed) {
                     break;
                 }
@@ -2151,8 +2198,9 @@ fn handle_embed_batch(
                     Ok(vectors) => {
                         for (path, vector) in paths.iter().zip(vectors) {
                             if let Some(vector) = vector {
-                                store_note_embedding(conn, note_index, path, vector);
-                                embedded += 1;
+                                if store_note_embedding(conn, note_index, path, vector) {
+                                    embedded += 1;
+                                }
                             }
                         }
                     }
@@ -2268,8 +2316,14 @@ impl BlockEmbedPass<'_> {
 
         let text_refs: Vec<&str> = batch.texts.iter().map(String::as_str).collect();
         let batch_start = Instant::now();
-        match embed_section_texts(self.model, &text_refs, Some(self.cancel.as_ref())) {
+        match embed_section_texts(
+            self.model,
+            &text_refs,
+            EMBED_BATCH_SIZE,
+            Some(self.cancel.as_ref()),
+        ) {
             Ok(embeddings) => {
+                let mut stored = 0usize;
                 for (((path, heading_id), embedding), hash) in batch
                     .keys
                     .iter()
@@ -2285,8 +2339,12 @@ impl BlockEmbedPass<'_> {
                     if let Ok(mut bi) = self.block_index.write() {
                         bi.insert(&format!("{path}\0{heading_id}"), embedding.clone());
                     }
+                    stored += 1;
                 }
-                self.embedded += embeddings.len();
+                // Counts rows actually written, not vectors returned: the ingest
+                // guard can refuse a degenerate one, and a section counted but
+                // not stored is retried by every later pass.
+                self.embedded += stored;
                 let _ = self.app_handle.emit(
                     "embedding_progress",
                     EmbeddingProgressEvent::BlockProgress {
@@ -2371,7 +2429,6 @@ fn handle_block_embed_batch(
     // BatchLongest padding means one long section pads all others. With f16
     // Metal weights, batch_size=32 keeps the worst-case [32,12,256,256] attention
     // tensor at the same byte budget as the previous f32 [16,12,256,256]. (ref: DL-002)
-    let batch_size: usize = if cfg!(debug_assertions) { 5 } else { 32 };
     let mut pass = BlockEmbedPass {
         conn,
         cancel,
@@ -2423,12 +2480,16 @@ fn handle_block_embed_batch(
                 continue;
             };
             pending.push(path, heading_id, section_text);
-            if pending.chunks >= batch_size && !pass.flush(&mut pending) {
+            if pending.chunks >= EMBED_BATCH_SIZE && !pass.flush(&mut pending) {
                 break 'sections;
             }
         }
     }
-    pass.flush(&mut pending);
+    // Skip the trailing flush when cancelled: tokenizing the leftover buffer
+    // only for `embed_batch`'s own cancel check to discard it is pure waste.
+    if !cancel.load(Ordering::Relaxed) {
+        pass.flush(&mut pending);
+    }
 
     if pass.embedded > 0 {
         log::info!(

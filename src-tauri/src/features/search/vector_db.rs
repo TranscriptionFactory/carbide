@@ -354,9 +354,14 @@ pub fn get_block_embeddings_for_note(conn: &Connection, path: &str) -> Vec<(Stri
         Ok(r) => r,
         Err(_) => return vec![],
     };
+    // Same guard as the batch sibling below: a legacy non-finite row would
+    // otherwise reach `mean_pool_normalize`, whose norm is then NaN — so the
+    // `norm > 0.0` branch does not zero it — and the composed note vector is
+    // refused at ingest, leaving the save path with no vector at all while the
+    // batch path composes a clean one from the surviving blocks.
     rows.filter_map(|r| r.ok())
         .map(|(heading_id, blob)| (heading_id, bytes_to_floats(&blob)))
-        .filter(|(_, vec)| !vec.is_empty())
+        .filter(|(_, vec)| is_usable_vector(vec))
         .collect()
 }
 
@@ -475,11 +480,7 @@ pub fn get_embedding(conn: &Connection, path: &str) -> Option<Vec<f32>> {
         )
         .ok()?;
     let floats = bytes_to_floats(&bytes);
-    if floats.is_empty() {
-        None
-    } else {
-        Some(floats)
-    }
+    is_usable_vector(&floats).then_some(floats)
 }
 
 pub fn has_embedding(conn: &Connection, path: &str) -> bool {
