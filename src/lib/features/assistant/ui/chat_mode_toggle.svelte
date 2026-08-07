@@ -6,7 +6,9 @@
     mode: AssistantChatMode;
     permission_mode: AssistantPermissionMode;
     agent_supported: boolean;
-    backend?: "native" | "harness" | null;
+    // Copy, not a backend discriminant: the provider's agent_scope_copy owns
+    // what Power actually grants, so this toggle cannot understate a harness.
+    power_hint: string;
     on_set_mode: (mode: AssistantChatMode) => void;
     on_set_permission_mode: (mode: AssistantPermissionMode) => void;
   };
@@ -15,7 +17,7 @@
     mode,
     permission_mode,
     agent_supported,
-    backend = null,
+    power_hint,
     on_set_mode,
     on_set_permission_mode,
   }: Props = $props();
@@ -27,28 +29,15 @@
     { value: "agent", label: "Agent" },
   ];
 
-  // Power on a CLI harness is not "edit files in your vault" — the harness
-  // runs unrestricted shell. The hint must say what the grant actually is.
-  const power_hint = $derived(
-    backend === "native"
-      ? "Agent can edit files in your vault"
-      : "Full system access — agent can run shell commands outside the vault",
-  );
+  const PERMISSIONS: Array<{
+    value: AssistantPermissionMode;
+    label: string;
+  }> = [
+    { value: "safe", label: "Safe" },
+    { value: "power", label: "Power" },
+  ];
 
-  const permissions = $derived<
-    Array<{ value: AssistantPermissionMode; label: string; hint: string }>
-  >([
-    {
-      value: "safe",
-      label: "Safe",
-      hint: "Note tools only — no shell or file edits",
-    },
-    {
-      value: "power",
-      label: "Power",
-      hint: power_hint,
-    },
-  ]);
+  const SAFE_HINT = "Note tools only — no shell or file edits";
 </script>
 
 <div class="flex items-center justify-between gap-2 border-t px-2 pt-2">
@@ -73,14 +62,14 @@
   </div>
   {#if mode === "agent"}
     <div class="flex overflow-hidden rounded-md border">
-      {#each permissions as p (p.value)}
+      {#each PERMISSIONS as p (p.value)}
         <button
           type="button"
           class="px-2 py-1 text-xs font-medium {permission_mode === p.value
             ? 'bg-accent text-accent-foreground'
             : 'text-muted-foreground hover:bg-accent/50 hover:text-accent-foreground'}"
           aria-pressed={permission_mode === p.value}
-          title={p.hint}
+          title={p.value === "power" ? power_hint : SAFE_HINT}
           onclick={() => on_set_permission_mode(p.value)}
         >
           {p.label}

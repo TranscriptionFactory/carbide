@@ -18,7 +18,10 @@ function render_card(initial: {
   event: AssistantToolEvent;
   on_open_path?: (path: string) => void;
 }) {
-  const { props, replace } = create_replaceable_props(initial);
+  const { props, replace } = create_replaceable_props({
+    on_open_path: initial.on_open_path ?? (() => {}),
+    ...initial,
+  });
   const target = document.createElement("div");
   document.body.appendChild(target);
   const app = mount(ToolCallCard, { target, props });

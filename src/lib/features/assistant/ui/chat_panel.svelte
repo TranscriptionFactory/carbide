@@ -16,7 +16,7 @@
   import AssistantMessage from "$lib/features/assistant/ui/chat_message.svelte";
   import ChatInput from "$lib/features/assistant/ui/chat_input.svelte";
   import ChatModeToggle from "$lib/features/assistant/ui/chat_mode_toggle.svelte";
-  import { agent_capability, HARNESS_LABELS } from "$lib/features/ai";
+  import { agent_capability, agent_scope_copy } from "$lib/features/ai";
   import {
     AssistantPresence,
     AssistantSessionList,
@@ -175,6 +175,9 @@
     return config ? agent_capability(config) : null;
   });
   const agent_supported = $derived(capability !== null);
+  const scope_copy = $derived(
+    capability !== null ? agent_scope_copy(capability) : null,
+  );
 
   function set_mode(mode: AssistantChatMode) {
     void action_registry.execute(ACTION_IDS.rag_set_mode, mode);
@@ -280,14 +283,12 @@
         on_open_proposals={open_proposals}
         on_clear={clear_runs}
       />
-      {#if rag.mode === "agent" && capability !== null}
+      {#if rag.mode === "agent" && scope_copy !== null}
         <span
           class="rounded-full border px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground"
-          title={capability.backend === "native"
-            ? "Agent can only use vault tools"
-            : `${HARNESS_LABELS[capability.adapter]} agent with full system access`}
+          title={scope_copy.badge_title}
         >
-          {capability.backend === "native" ? "vault-scoped" : "full access"}
+          {scope_copy.badge}
         </span>
       {/if}
       {#if sessions.length > 0}
@@ -356,7 +357,8 @@
           <EmptyMessage
             icon={MessagesSquare}
             text={rag.mode === "agent"
-              ? "Agent edits files in your vault. Safe mode limits it to note tools."
+              ? (scope_copy?.empty_state ??
+                "Agent edits files in your vault. Safe mode limits it to note tools.")
               : "Ask anything about your vault"}
           >
             <div class="flex flex-wrap justify-center gap-1">
@@ -431,7 +433,7 @@
     mode={rag.mode}
     permission_mode={rag.permission_mode}
     {agent_supported}
-    backend={capability?.backend ?? null}
+    power_hint={scope_copy?.power_hint ?? ""}
     on_set_mode={set_mode}
     on_set_permission_mode={set_permission_mode}
   />
@@ -448,8 +450,7 @@
     is_loading={rag.is_loading}
     is_streaming={rag.streaming_id !== null}
     readiness_state={rag.readiness.state}
-    show_scope_bar={rag.mode !== "agent"}
-    submit_label={rag.mode === "agent" ? "Run" : "Ask"}
+    mode={rag.mode}
     on_submit={ask}
     on_stop={stop}
     on_provider_change={change_provider}

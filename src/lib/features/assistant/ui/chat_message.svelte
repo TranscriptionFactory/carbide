@@ -103,6 +103,10 @@
     void action_registry.execute(ACTION_IDS.rag_open_citation, note_path);
   }
 
+  function open_tool_path(path: string) {
+    open_note(to_vault_relative_path(vault_path, path));
+  }
+
   $effect(() => {
     const el = content_el;
     if (!el) return;
@@ -173,11 +177,7 @@
         >
           <div class="flex select-text flex-col gap-1 px-3 pb-2">
             {#each tool_events as event, index (index)}
-              <ToolCallCard
-                {event}
-                on_open_path={(path) =>
-                  open_note(to_vault_relative_path(vault_path, path))}
-              />
+              <ToolCallCard {event} on_open_path={open_tool_path} />
             {/each}
           </div>
         </CollapsibleSection>

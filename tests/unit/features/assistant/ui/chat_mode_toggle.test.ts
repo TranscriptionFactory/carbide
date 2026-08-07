@@ -8,7 +8,7 @@ import {
   unmount,
 } from "../../../helpers/svelte_client_runtime";
 import RagModeToggle from "$lib/features/assistant/ui/chat_mode_toggle.svelte";
-import { agent_capability } from "$lib/features/ai";
+import { agent_capability, agent_scope_copy } from "$lib/features/ai";
 import { BUILTIN_PROVIDER_PRESETS } from "$lib/shared/types/ai_provider_config";
 import type { AssistantChatMode } from "$lib/features/assistant";
 import type { AssistantPermissionMode } from "$lib/features/assistant";
@@ -20,7 +20,7 @@ function render_toggle(props?: {
   mode?: AssistantChatMode;
   permission_mode?: AssistantPermissionMode;
   agent_supported?: boolean;
-  backend?: "native" | "harness" | null;
+  power_hint?: string;
   on_set_mode?: (mode: AssistantChatMode) => void;
   on_set_permission_mode?: (mode: AssistantPermissionMode) => void;
 }) {
@@ -32,7 +32,7 @@ function render_toggle(props?: {
       mode: props?.mode ?? "ask",
       permission_mode: props?.permission_mode ?? "safe",
       agent_supported: props?.agent_supported ?? true,
-      backend: props?.backend ?? null,
+      power_hint: props?.power_hint ?? "Agent can edit files in your vault",
       on_set_mode: props?.on_set_mode ?? vi.fn(),
       on_set_permission_mode: props?.on_set_permission_mode ?? vi.fn(),
     },
@@ -121,17 +121,34 @@ describe("RagModeToggle", () => {
     expect(on_set_permission_mode).toHaveBeenCalledWith("power");
   });
 
-  it("describes power as vault-scoped on the native backend", () => {
-    const target = render_toggle({ mode: "agent", backend: "native" });
-    expect(button_labelled(target, "Power").getAttribute("title")).toBe(
-      "Agent can edit files in your vault",
-    );
-  });
-
-  it("describes power as full system access on a harness backend", () => {
-    const target = render_toggle({ mode: "agent", backend: "harness" });
+  it("shows the provider's power hint on the Power segment only", () => {
+    const claude = BUILTIN_PROVIDER_PRESETS.find((p) => p.id === "claude");
+    if (!claude) throw new Error("claude preset missing");
+    const capability = agent_capability(claude);
+    if (!capability) throw new Error("claude preset lost agent capability");
+    const target = render_toggle({
+      mode: "agent",
+      power_hint: agent_scope_copy(capability).power_hint,
+    });
     expect(button_labelled(target, "Power").getAttribute("title")).toBe(
       "Full system access — agent can run shell commands outside the vault",
     );
+    expect(button_labelled(target, "Safe").getAttribute("title")).toBe(
+      "Note tools only — no shell or file edits",
+    );
+  });
+});
+
+describe("agent_scope_copy", () => {
+  it("keeps the native grant vault-scoped and the harness grant honest", () => {
+    const native = agent_scope_copy({ backend: "native" });
+    expect(native.badge).toBe("vault-scoped");
+    expect(native.power_hint).toBe("Agent can edit files in your vault");
+
+    const harness = agent_scope_copy({ backend: "harness", adapter: "claude" });
+    expect(harness.badge).toBe("full access");
+    expect(harness.badge_title).toContain("Claude Code");
+    expect(harness.power_hint).toContain("Full system access");
+    expect(harness.empty_state).toContain("full system access");
   });
 });

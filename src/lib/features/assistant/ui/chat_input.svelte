@@ -15,7 +15,10 @@
     DslSuggestion,
     DslSuggestResult,
   } from "$lib/shared/types/dsl_suggestion";
-  import type { AssistantScope } from "$lib/features/assistant/types/session";
+  import type {
+    AssistantChatMode,
+    AssistantScope,
+  } from "$lib/features/assistant/types/session";
   import {
     format_mention_token,
     parse_mentions,
@@ -36,10 +39,7 @@
     is_loading: boolean;
     is_streaming: boolean;
     readiness_state: RetrievalReadiness["state"];
-    // Scope narrows retrieval, which agent turns don't run — the bar is inert
-    // there and hidden rather than misleading.
-    show_scope_bar?: boolean;
-    submit_label: string;
+    mode: AssistantChatMode;
     suggest_notes: (partial: string) => Promise<MentionSuggestion[]>;
     on_submit: (question: string) => void;
     on_stop: () => void;
@@ -69,8 +69,7 @@
     is_loading,
     is_streaming,
     readiness_state,
-    show_scope_bar = true,
-    submit_label,
+    mode,
     suggest_notes,
     on_submit,
     on_stop,
@@ -261,7 +260,9 @@
       </span>
     {/if}
   </div>
-  {#if show_scope_bar}
+  <!-- Scope narrows retrieval, which agent turns don't run — the bar is inert
+       there and hidden rather than misleading. -->
+  {#if mode !== "agent"}
     <ChatScopeBar
       {scope}
       {folder_paths}
@@ -317,7 +318,7 @@
         {/if}
         <Button size="sm" disabled={!can_submit} onclick={submit}>
           <SendHorizontal class="size-4" />
-          {submit_label}
+          {mode === "agent" ? "Run" : "Ask"}
         </Button>
       </div>
     {/if}

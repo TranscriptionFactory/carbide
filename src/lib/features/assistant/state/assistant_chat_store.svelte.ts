@@ -1,5 +1,6 @@
 import { derive_session_title } from "$lib/features/assistant/types/assistant_session_model";
 import {
+  has_turn_evidence,
   to_assistant_session_summary,
   type AssistantChatMode,
   type AssistantCitation,
@@ -30,16 +31,6 @@ function new_message(
   citations: AssistantCitation[] = [],
 ): AssistantMessage {
   return { id: crypto.randomUUID(), role, content, citations };
-}
-
-// A turn that ran tools or reasoned before failing is worth keeping even with no
-// text: the trail is the only record of what the agent touched.
-function has_turn_evidence(message: AssistantMessage): boolean {
-  return (
-    message.content !== "" ||
-    (message.tool_events?.length ?? 0) > 0 ||
-    (message.reasoning ?? "") !== ""
-  );
 }
 
 // I4: sessions live in the assistant store, which is the single source for
@@ -147,8 +138,7 @@ export class AssistantChatStore {
   ) {
     this.agent_running_tool = null;
     this.update_streaming((m) => ({
-      tool_events: finish_tool_event(m.tool_events ?? [], {
-        name,
+      tool_events: finish_tool_event(m.tool_events ?? [], name, {
         ok,
         result_summary,
       }),
@@ -251,8 +241,13 @@ export class AssistantChatStore {
     this.is_loading = false;
   }
 
-  start_new_session() {
+  // A fresh chat starts in Ask regardless of what the previous session ran
+  // as; the invariant lives here so every entry point gets it, not just the
+  // new-chat action.
+  start_new_session(permission_mode?: AssistantPermissionMode) {
     this.active_id = null;
+    this.mode = "ask";
+    if (permission_mode) this.permission_mode = permission_mode;
     this.reset_turn_state();
   }
 

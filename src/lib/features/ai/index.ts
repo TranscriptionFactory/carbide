@@ -27,10 +27,12 @@ export {
 export { MarkdownJoiner } from "$lib/features/ai/domain/markdown_joiner";
 export {
   agent_capability,
+  agent_scope_copy,
   provider_supports_streaming,
   HARNESS_LABELS,
   type AgentBackend,
   type AgentCapability,
+  type AgentScopeCopy,
 } from "$lib/features/ai/domain/ai_provider_capabilities";
 export {
   chat_policy,
