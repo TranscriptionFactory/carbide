@@ -89,16 +89,37 @@ pub(crate) fn reconcile_model_version(
     }
 }
 
-/// Embeds section texts, splitting any section past the encoder's token budget
-/// and mean-pooling its chunk vectors back into one. Keeps the stored row
-/// per-section — the `(path, heading_id)` key and section content hash are
-/// unchanged — while no longer dropping the tail of a long section.
 /// Encoder batch width. `BatchLongest` padding means one long text pads all the
 /// others; with f16 Metal weights 32 keeps the worst-case `[32,12,256,256]`
 /// attention tensor at the same byte budget as the previous f32
 /// `[16,12,256,256]`. (ref: DL-002)
 const EMBED_BATCH_SIZE: usize = if cfg!(debug_assertions) { 5 } else { 32 };
 
+/// Embeds `texts` in forward passes of at most `width`, bounding the peak
+/// attention tensor no matter how many texts the caller hands over. Callers
+/// buffer on *chunks*, so a batch of long sections arrives as few texts that
+/// expand to many; taking the width from the text count instead would run many
+/// narrow passes where the caller asked for a few full ones.
+fn embed_in_windows(
+    model: &EmbeddingService,
+    texts: &[&str],
+    width: usize,
+    cancel: Option<&AtomicBool>,
+) -> Result<Vec<Vec<f32>>, String> {
+    let mut vectors: Vec<Vec<f32>> = Vec::with_capacity(texts.len());
+    for window in texts.chunks(width.max(1)) {
+        vectors.extend(model.embed_documents(window, cancel)?);
+    }
+    Ok(vectors)
+}
+
+/// Embeds section texts, splitting any section past the encoder's token budget
+/// and mean-pooling its chunk vectors back into one. Keeps the stored row
+/// per-section — the `(path, heading_id)` key and section content hash are
+/// unchanged — while no longer dropping the tail of a long section.
+///
+/// `width` caps how many texts reach the encoder in one forward pass, and
+/// therefore the peak attention tensor.
 fn embed_section_texts(
     model: &EmbeddingService,
     texts: &[&str],
@@ -109,23 +130,16 @@ fn embed_section_texts(
         .iter()
         .map(|text| model.split_to_token_budget(text))
         .collect();
+    // Nothing was split, so the inputs are already the encoder's and the
+    // per-text pooling below would be an identity — but the width cap still
+    // applies: `apply_note_embedding_on_save` passes every changed section of a
+    // note, which is unbounded.
     if chunked.iter().all(|chunks| chunks.len() == 1) {
-        return model.embed_documents(texts, cancel);
+        return embed_in_windows(model, texts, width, cancel);
     }
 
     let flat: Vec<&str> = chunked.iter().flatten().map(String::as_str).collect();
-
-    // Sub-batch at the encoder's batch width, not at `texts.len()`. Callers
-    // buffer on *chunks*, so a batch of long sections arrives as few texts that
-    // expand to many chunks; taking the width from the text count would then
-    // run many narrow forward passes instead of a few full ones — the exact
-    // batch-of-one pathology this pass exists to remove. The width still caps
-    // the peak attention tensor, which is what it was there for.
-    let width = width.max(1);
-    let mut vectors: Vec<Vec<f32>> = Vec::with_capacity(flat.len());
-    for window in flat.chunks(width) {
-        vectors.extend(model.embed_documents(window, cancel)?);
-    }
+    let vectors = embed_in_windows(model, &flat, width, cancel)?;
     if vectors.len() != flat.len() {
         return Err(format!(
             "chunked embed returned {} vectors for {} chunks",
