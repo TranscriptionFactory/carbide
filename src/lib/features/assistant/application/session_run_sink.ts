@@ -1,10 +1,8 @@
 import type { AssistantRunStore } from "$lib/features/assistant/state/assistant_run_store.svelte";
 import type { AssistantSessionStore } from "$lib/features/assistant/state/assistant_session_store.svelte";
-import type {
-  AssistantMessage,
-  AssistantToolEvent,
-} from "$lib/features/assistant/types/session";
+import type { AssistantMessage } from "$lib/features/assistant/types/session";
 import type { RunId, RunSink } from "$lib/features/assistant/types/run";
+import { finish_tool_event } from "$lib/features/assistant/types/tool_event_fold";
 
 // A turn that ran tools or reasoned before it stopped is worth keeping even
 // with no text: the trail is the only record of what the agent touched. One
@@ -15,22 +13,6 @@ function has_turn_evidence(message: AssistantMessage): boolean {
     (message.tool_events?.length ?? 0) > 0 ||
     (message.reasoning ?? "") !== ""
   );
-}
-
-function mark_tool_finished(
-  events: AssistantToolEvent[],
-  name: string,
-  ok: boolean,
-): AssistantToolEvent[] {
-  const next = [...events];
-  for (let index = next.length - 1; index >= 0; index -= 1) {
-    const event = next[index];
-    if (event && event.name === name && event.ok === undefined) {
-      next[index] = { ...event, ok };
-      break;
-    }
-  }
-  return next;
 }
 
 // R8 retarget: one kernel-registered sink lands run events on the run's origin
@@ -137,11 +119,11 @@ export function create_session_run_sink(deps: {
           return;
         case "tool_end":
           on_existing(run_id, session_id, (message) => ({
-            tool_events: mark_tool_finished(
-              message.tool_events ?? [],
-              event.name,
-              event.ok,
-            ),
+            tool_events: finish_tool_event(message.tool_events ?? [], {
+              name: event.name,
+              ok: event.ok,
+              result_summary: event.result_summary,
+            }),
           }));
           return;
         case "error":

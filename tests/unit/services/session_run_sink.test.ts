@@ -184,6 +184,29 @@ describe("create_session_run_sink", () => {
       expect(events[1]?.ok).toBe(false);
     });
 
+    it("records the tool_end's result summary on the folded event", () => {
+      const { sessions, sink, open_run, messages_of } = create_harness();
+      const session = create_chat(sessions);
+      open_run("run-1", session.id);
+
+      sink.on_event("run-1", {
+        type: "tool_start",
+        name: "search_notes",
+        input_summary: "projects",
+        paths: [],
+        mutating: false,
+      });
+      sink.on_event("run-1", {
+        type: "tool_end",
+        name: "search_notes",
+        ok: true,
+        result_summary: "3 matches",
+      });
+
+      const events = messages_of(session.id)[0]?.tool_events ?? [];
+      expect(events[0]?.result_summary).toBe("3 matches");
+    });
+
     it("does not conjure a message for a tool_end with no open turn", () => {
       const { sessions, sink, open_run, messages_of } = create_harness();
       const session = create_chat(sessions);

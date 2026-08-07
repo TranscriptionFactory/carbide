@@ -5,14 +5,13 @@
     Copy,
     FileText,
     GitBranch,
-    Loader2,
     Plus,
     RefreshCw,
-    X,
   } from "@lucide/svelte";
   import { use_app_context } from "$lib/app/context/app_context.svelte";
   import { ACTION_IDS } from "$lib/app";
   import CollapsibleSection from "$lib/components/ui/collapsible_section.svelte";
+  import ToolCallCard from "$lib/features/assistant/ui/tool_call_card.svelte";
   import type {
     AssistantCitation,
     AssistantMessage,
@@ -174,27 +173,11 @@
         >
           <div class="flex select-text flex-col gap-1 px-3 pb-2">
             {#each tool_events as event, index (index)}
-              <div
-                class="flex items-center gap-2 text-xs text-muted-foreground"
-              >
-                {#if event.ok === undefined}
-                  <Loader2
-                    class="size-3.5 shrink-0 animate-spin"
-                    aria-label="Running"
-                  />
-                {:else if event.ok}
-                  <Check class="size-3.5 shrink-0" aria-label="Succeeded" />
-                {:else}
-                  <X
-                    class="size-3.5 shrink-0 text-destructive"
-                    aria-label="Failed"
-                  />
-                {/if}
-                <span class="shrink-0 font-medium text-foreground"
-                  >{event.name}</span
-                >
-                <span class="truncate">{event.input_summary}</span>
-              </div>
+              <ToolCallCard
+                {event}
+                on_open_path={(path) =>
+                  open_note(to_vault_relative_path(vault_path, path))}
+              />
             {/each}
           </div>
         </CollapsibleSection>

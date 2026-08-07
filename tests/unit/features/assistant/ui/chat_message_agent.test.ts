@@ -52,7 +52,7 @@ afterEach(() => {
 });
 
 describe("AssistantMessage tool events", () => {
-  it("shows a spinner for a running tool and settles into check or cross", () => {
+  it("shows a spinner for a running tool and a cross for a failed one", () => {
     const { target } = render_message({
       message: make_message({
         tool_events: [
@@ -67,8 +67,10 @@ describe("AssistantMessage tool events", () => {
     expect(target.textContent).toContain("write_note");
     expect(target.textContent).toContain("inbox/a.md");
     expect(target.querySelectorAll(".animate-spin")).toHaveLength(1);
-    expect(target.querySelectorAll('[aria-label="Succeeded"]')).toHaveLength(1);
     expect(target.querySelectorAll('[aria-label="Failed"]')).toHaveLength(1);
+    // Checks are keyed on the live completion transition; a card that mounts
+    // already settled shows none.
+    expect(target.querySelectorAll('[aria-label="Succeeded"]')).toHaveLength(0);
   });
 
   it("renders no tool block for a plain message", () => {

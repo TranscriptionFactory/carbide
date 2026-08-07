@@ -223,11 +223,14 @@ export function register_chat_actions(
     persist_session(session_id);
   }
 
+  function ensure_ai_enabled(): boolean {
+    if (stores.ui.editor_settings.ai_enabled) return true;
+    toast.info("AI Assistant is disabled in settings");
+    return false;
+  }
+
   async function resolve_ask_provider(): Promise<AiProviderConfig | null> {
-    if (!stores.ui.editor_settings.ai_enabled) {
-      toast.info("AI Assistant is disabled in settings");
-      return null;
-    }
+    if (!ensure_ai_enabled()) return null;
     const provider = await resolve_provider();
     if (!provider) {
       toast.error("No AI provider configured");
@@ -393,10 +396,7 @@ export function register_chat_actions(
     execute: (...args: unknown[]) => {
       const mode = args[0];
       if (mode !== "ask" && mode !== "agent") return;
-      if (mode === "agent" && !stores.ui.editor_settings.ai_enabled) {
-        toast.info("AI Assistant is disabled in settings");
-        return;
-      }
+      if (mode === "agent" && !ensure_ai_enabled()) return;
       chat_store.set_mode(mode);
     },
   });
@@ -473,6 +473,9 @@ export function register_chat_actions(
     label: "New Vault Chat",
     execute: () => {
       chat_store.start_new_session();
+      // A new chat starts in Ask: without this it silently inherits the
+      // previous session's agent mode alongside the reset permission mode.
+      chat_store.set_mode("ask");
       chat_store.set_permission_mode(
         stores.ui.editor_settings.ai_agent_permission_default,
       );

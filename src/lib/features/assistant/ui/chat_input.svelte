@@ -36,6 +36,9 @@
     is_loading: boolean;
     is_streaming: boolean;
     readiness_state: RetrievalReadiness["state"];
+    // Scope narrows retrieval, which agent turns don't run — the bar is inert
+    // there and hidden rather than misleading.
+    show_scope_bar?: boolean;
     submit_label: string;
     suggest_notes: (partial: string) => Promise<MentionSuggestion[]>;
     on_submit: (question: string) => void;
@@ -66,6 +69,7 @@
     is_loading,
     is_streaming,
     readiness_state,
+    show_scope_bar = true,
     submit_label,
     suggest_notes,
     on_submit,
@@ -257,19 +261,21 @@
       </span>
     {/if}
   </div>
-  <ChatScopeBar
-    {scope}
-    {folder_paths}
-    {tags}
-    {saved_views}
-    {active_note_path}
-    {on_scope_change}
-    {active_document}
-    {attached_document}
-    {attached_open}
-    {on_attach_document}
-    {on_detach_document}
-  />
+  {#if show_scope_bar}
+    <ChatScopeBar
+      {scope}
+      {folder_paths}
+      {tags}
+      {saved_views}
+      {active_note_path}
+      {on_scope_change}
+      {active_document}
+      {attached_document}
+      {attached_open}
+      {on_attach_document}
+      {on_detach_document}
+    />
+  {/if}
   <div class="flex items-center justify-between gap-2">
     <Select.Root
       type="single"

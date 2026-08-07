@@ -55,6 +55,7 @@ export type AssistantToolEvent = {
   input_summary: string;
   paths?: string[];
   ok?: boolean;
+  result_summary?: string | null;
 };
 
 export type AssistantToolCall = {
