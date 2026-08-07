@@ -1,4 +1,5 @@
 use crate::features::search::embedding_model::{self, Pooling};
+use crate::features::search::hnsw_index::is_usable_vector;
 use candle_core::{DType, Device, Tensor};
 use candle_nn::VarBuilder;
 use candle_transformers::models::bert::{BertModel, Config};
@@ -195,6 +196,20 @@ impl EmbeddingService {
         texts: &[&str],
         cancel: Option<&AtomicBool>,
     ) -> Result<Vec<Vec<f32>>, String> {
+        let pooled = self.encode_pooled(texts, cancel)?;
+        self.warn_unusable_rows(&pooled);
+        Ok(normalize_rows(pooled))
+    }
+
+    /// The forward pass and pooling, before normalization. Split out so the
+    /// pooled rows can be inspected as the encoder produced them: once
+    /// `normalize_rows` has zeroed a degenerate row, a non-finite forward pass
+    /// and an all-zero one are indistinguishable.
+    pub(crate) fn encode_pooled(
+        &self,
+        texts: &[&str],
+        cancel: Option<&AtomicBool>,
+    ) -> Result<Vec<Vec<f32>>, String> {
         if texts.is_empty() {
             return Ok(vec![]);
         }
@@ -246,7 +261,30 @@ impl EmbeddingService {
             return Err("embedding cancelled".to_string());
         }
 
-        Ok(normalize_rows(pooled))
+        Ok(pooled)
+    }
+
+    /// Reports rows the ingest guard will refuse, naming the encoder that
+    /// produced them and how they are degenerate. A batch that pools to
+    /// nothing is otherwise silent: `normalize_rows` zeroes it, the guard
+    /// declines to store it, and the only symptom is a progress counter that
+    /// never leaves zero.
+    fn warn_unusable_rows(&self, pooled: &[Vec<f32>]) {
+        let Some(sample) = pooled.iter().find(|row| !is_usable_vector(row)) else {
+            return;
+        };
+        let unusable = pooled.iter().filter(|row| !is_usable_vector(row)).count();
+        let nan = sample.iter().filter(|x| x.is_nan()).count();
+        let infinite = sample.iter().filter(|x| x.is_infinite()).count();
+        let zero = sample.iter().filter(|x| **x == 0.0).count();
+        log::warn!(
+            "embed: {unusable}/{} pooled rows unusable — device={:?} pooling={:?} dims={} \
+             sample row: nan={nan} inf={infinite} zero={zero}",
+            pooled.len(),
+            self.device,
+            self.pooling,
+            sample.len(),
+        );
     }
 }
 
