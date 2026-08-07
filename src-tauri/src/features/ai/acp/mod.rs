@@ -1,6 +1,4 @@
 pub mod agent_def;
-pub mod permission_store;
-pub mod permissions;
 pub mod policy;
 pub mod session;
 pub mod translate;
@@ -10,7 +8,6 @@ use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
 pub use agent_def::{pick_session_mode, resolve_acp_launch, AcpAgentSpec, AcpPresetId};
-pub use permissions::PermissionEngine;
 pub use session::{AcpSessionConfig, EventSink, SessionHandle};
 pub use translate::TurnTranslator;
 

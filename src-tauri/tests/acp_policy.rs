@@ -1,11 +1,11 @@
 use agent_client_protocol::schema::v1::RequestPermissionRequest;
 use serde_json::{json, Value};
 
-use crate::features::ai::acp::permissions::option_kind_name;
+use crate::features::ai::permissions::option_kind_name;
 use crate::features::ai::acp::policy::{build_request_spec, select_allow};
 use crate::features::ai::agent_stream::{PermissionOptionKind, PermissionOptionSpec, ToolKind};
 
-// The decision matrix itself lives in PermissionEngine (tests/acp_permissions.rs);
+// The decision matrix itself lives in PermissionEngine (tests/agent_permissions.rs);
 // this file covers the pure wire-shape mapping the session handler feeds it.
 
 fn request(kind: &str, title: &str, options: Value) -> RequestPermissionRequest {

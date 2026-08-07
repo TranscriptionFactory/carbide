@@ -6,9 +6,9 @@ use crate::features::ai::agent_stream::{
     summarize_json, PermissionOptionKind, PermissionOptionSpec, ToolKind,
 };
 use crate::features::ai::harness::MCP_TOOL_PREFIX;
+use crate::features::ai::permissions::PermissionRequestSpec;
 use crate::features::ai::tool_paths::extract_tool_paths;
 
-use super::permissions::PermissionRequestSpec;
 use super::translate::resolve_kind;
 
 // Pure ACP-request → engine-spec mapping. The decision itself lives in

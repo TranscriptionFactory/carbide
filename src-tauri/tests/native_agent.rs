@@ -6,7 +6,7 @@ use serde_json::Value;
 use tokio::sync::oneshot;
 
 use crate::features::ai::agent_stream::{AgentEvent, ToolSelector};
-use crate::features::ai::acp::permissions::{ParkOutcome, PermissionRequestSpec};
+use crate::features::ai::permissions::{ParkOutcome, PermissionRequestSpec};
 use crate::features::ai::agent_stream::PermissionOptionKind;
 use crate::features::ai::native_agent::{
     allowed_tools, evict_history, run_native_turn, truncate_tool_result, ModelClient, NativeGate,

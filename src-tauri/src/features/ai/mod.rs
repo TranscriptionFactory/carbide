@@ -3,6 +3,8 @@ pub mod agent_handoff;
 pub mod agent_stream;
 pub mod harness;
 pub mod native_agent;
+pub mod permission_store;
+pub mod permissions;
 pub mod secrets;
 pub mod service;
 pub mod stream;

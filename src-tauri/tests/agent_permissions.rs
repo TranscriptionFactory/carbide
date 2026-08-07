@@ -1,7 +1,7 @@
 use std::path::Path;
 
-use crate::features::ai::acp::permission_store::GrantStore;
-use crate::features::ai::acp::permissions::{
+use crate::features::ai::permission_store::GrantStore;
+use crate::features::ai::permissions::{
     kind_name, Evaluation, ParkedDecision, PermissionEngine, PermissionRequestSpec,
 };
 use crate::features::ai::agent_stream::{PermissionOptionKind, ToolKind, ToolSelector};
