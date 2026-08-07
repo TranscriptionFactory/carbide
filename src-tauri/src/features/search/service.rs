@@ -1,7 +1,10 @@
 use crate::features::notes::service as notes_service;
 use crate::features::search::db::{self as search_db, AttachmentLink, OrphanLink};
 use crate::features::search::embedding_model;
-use crate::features::search::embeddings::{EmbeddingService, EmbeddingServiceState};
+use crate::features::search::embeddings::{
+    self, embed_with_singles_fallback, estimated_chunk_count, is_cancellation, EmbeddingService,
+    EmbeddingServiceState,
+};
 use crate::features::search::hnsw_index::{SharedVectorIndex, VectorIndex};
 use crate::features::search::model::{
     BatchSemanticEdge, BlockSearchHit, BlockSectionHit, DateRange, EmbeddingStatus,
@@ -86,32 +89,57 @@ pub(crate) fn reconcile_model_version(
     }
 }
 
+/// Encoder batch width. `BatchLongest` padding means one long text pads all the
+/// others; with f16 Metal weights 32 keeps the worst-case `[32,12,256,256]`
+/// attention tensor at the same byte budget as the previous f32
+/// `[16,12,256,256]`. (ref: DL-002)
+const EMBED_BATCH_SIZE: usize = if cfg!(debug_assertions) { 5 } else { 32 };
+
+/// Embeds `texts` in forward passes of at most `width`, bounding the peak
+/// attention tensor no matter how many texts the caller hands over. Callers
+/// buffer on *chunks*, so a batch of long sections arrives as few texts that
+/// expand to many; taking the width from the text count instead would run many
+/// narrow passes where the caller asked for a few full ones.
+fn embed_in_windows(
+    model: &EmbeddingService,
+    texts: &[&str],
+    width: usize,
+    cancel: Option<&AtomicBool>,
+) -> Result<Vec<Vec<f32>>, String> {
+    let mut vectors: Vec<Vec<f32>> = Vec::with_capacity(texts.len());
+    for window in texts.chunks(width.max(1)) {
+        vectors.extend(model.embed_documents(window, cancel)?);
+    }
+    Ok(vectors)
+}
+
 /// Embeds section texts, splitting any section past the encoder's token budget
 /// and mean-pooling its chunk vectors back into one. Keeps the stored row
 /// per-section — the `(path, heading_id)` key and section content hash are
 /// unchanged — while no longer dropping the tail of a long section.
+///
+/// `width` caps how many texts reach the encoder in one forward pass, and
+/// therefore the peak attention tensor.
 fn embed_section_texts(
     model: &EmbeddingService,
     texts: &[&str],
+    width: usize,
     cancel: Option<&AtomicBool>,
 ) -> Result<Vec<Vec<f32>>, String> {
     let chunked: Vec<Vec<String>> = texts
         .iter()
         .map(|text| model.split_to_token_budget(text))
         .collect();
+    // Nothing was split, so the inputs are already the encoder's and the
+    // per-text pooling below would be an identity — but the width cap still
+    // applies: `apply_note_embedding_on_save` passes every changed section of a
+    // note, which is unbounded.
     if chunked.iter().all(|chunks| chunks.len() == 1) {
-        return model.embed_documents(texts, cancel);
+        return embed_in_windows(model, texts, width, cancel);
     }
 
     let flat: Vec<&str> = chunked.iter().flatten().map(String::as_str).collect();
-
-    // Sub-batch at the caller's chosen width so chunk expansion never inflates
-    // the peak attention tensor beyond what the un-chunked path would use.
-    let width = texts.len().max(1);
-    let mut vectors: Vec<Vec<f32>> = Vec::with_capacity(flat.len());
-    for window in flat.chunks(width) {
-        vectors.extend(model.embed_documents(window, cancel)?);
-    }
+    let vectors = embed_in_windows(model, &flat, width, cancel)?;
     if vectors.len() != flat.len() {
         return Err(format!(
             "chunked embed returned {} vectors for {} chunks",
@@ -1266,11 +1294,18 @@ fn embed_note_on_save(
     let (note_embed_enabled, block_embed_enabled) = resolve_embedding_flags(app_handle);
     let model = if note_embed_enabled || block_embed_enabled {
         let embedding_state = app_handle.state::<EmbeddingServiceState>();
-        let cache_dir = resolve_embedding_cache_dir(app_handle);
         let short_id = resolve_embedding_model_id(app_handle);
-        embedding_state
-            .get_or_init(cache_dir, &short_id, app_handle)
-            .ok()
+        embedding_state.try_get(&short_id).or_else(|| {
+            // This runs on the DB writer thread, and `EmbeddingService::new`
+            // does a synchronous ~90 MB download under `init_lock` — every
+            // queued command would stall behind it. Start the load elsewhere
+            // and skip embedding this save: the note's rows are invalidated
+            // unconditionally below, so the bulk pass that the
+            // `embedding_model_loaded` event triggers re-embeds it.
+            let cache_dir = resolve_embedding_cache_dir(app_handle);
+            embedding_state.init_in_background(cache_dir, short_id, app_handle);
+            None
+        })
     } else {
         None
     };
@@ -1328,7 +1363,20 @@ pub(crate) fn apply_note_embedding_on_save(
     // or removed sections (plus the composed note vector) never survive a
     // content change. The presence-based bulk passes would otherwise treat
     // them as already embedded.
-    let _ = vector_db::invalidate_changed_block_embeddings(conn, note_id, &current_hashes);
+    let invalidated =
+        vector_db::invalidate_changed_block_embeddings(conn, note_id, &current_hashes)
+            .unwrap_or(false);
+    // The note *row* is gone the moment the section set changes, but nothing
+    // was dropping the note *key*. On any path that does not go on to recompose
+    // — embedding disabled, model still loading — the pre-edit vector stayed
+    // live in `note_index` and kept being returned by semantic and hybrid
+    // search, self-healing only on the next restart's `reconcile_from_sqlite`.
+    // Dropping it here pairs the two deletions; the recompose below re-inserts.
+    if invalidated {
+        if let Ok(mut ni) = note_index.write() {
+            ni.remove(note_id);
+        }
+    }
     if let Ok(mut bi) = block_index.write() {
         let prefix = format!("{note_id}\0");
         let orphaned_keys: Vec<String> = bi
@@ -1342,6 +1390,25 @@ pub(crate) fn apply_note_embedding_on_save(
     }
 
     let Some(model) = model else {
+        // No model: this save cannot recompose the note vector, so anything
+        // stale has to be cleared for the bulk pass to pick the note back up —
+        // it skips whatever is already in `note_embeddings`.
+        //
+        // Invalidation alone is not enough. It compares block hashes, so it
+        // says nothing about a note with no embeddable sections: `{} == {}`
+        // leaves the row in place, and that note's vector is derived from the
+        // body, which just changed. Those are exactly the short, headingless
+        // notes, and every save of one during the model download would keep its
+        // pre-edit vector indefinitely. A note whose sections are unchanged
+        // keeps its vector, which is composed from those blocks and still valid.
+        if note_embed_enabled && (invalidated || current_hashes.is_empty()) {
+            if let Err(e) = vector_db::remove_embedding(conn, note_id) {
+                log::warn!("embed_on_save: clearing {note_id} failed: {e}");
+            }
+            if let Ok(mut ni) = note_index.write() {
+                ni.remove(note_id);
+            }
+        }
         return;
     };
 
@@ -1356,7 +1423,7 @@ pub(crate) fn apply_note_embedding_on_save(
 
         if !to_embed.is_empty() {
             let texts: Vec<&str> = to_embed.iter().map(|(_, text, _)| text.as_str()).collect();
-            match embed_section_texts(model, &texts, None) {
+            match embed_section_texts(model, &texts, EMBED_BATCH_SIZE, None) {
                 Ok(embeddings) => {
                     for ((heading_id, _, hash), embedding) in
                         to_embed.iter().zip(embeddings.iter())
@@ -1805,9 +1872,15 @@ fn handle_sync_paths(
     }
 }
 
+/// Text for the whole-note fallback embed. Pre-truncated: this is the only
+/// embed path fed an unbounded body, and the encoder discards everything past
+/// its token budget anyway — without the cut, a 50 KB note is WordPiece-
+/// tokenized in full to keep 256 tokens of it, which at batch width 32 is the
+/// dominant cost of the fallback pass.
 fn embed_text_for_note(conn: &Connection, path: &str) -> String {
     search_db::get_fts_body(conn, path)
         .filter(|b| !b.trim().is_empty())
+        .map(|body| embeddings::pretruncate(&body).to_string())
         .unwrap_or_else(|| {
             Path::new(path)
                 .file_name()
@@ -1815,6 +1888,55 @@ fn embed_text_for_note(conn: &Connection, path: &str) -> String {
                 .unwrap_or(path)
                 .to_string()
         })
+}
+
+/// Drains commands that queued up while an embedding pass held the writer
+/// thread. Anything that would re-enter the pass is deferred to the end of it;
+/// everything else is applied now, so a save made mid-pass is not delayed by
+/// the rest of the vault.
+fn drain_pending_commands(
+    conn: &Connection,
+    rx: &Receiver<DbCommand>,
+    notes_cache: &mut BTreeMap<String, IndexNoteMeta>,
+    note_index: &SharedVectorIndex,
+    block_index: &SharedVectorIndex,
+    deferred: &mut Vec<DbCommand>,
+) {
+    while let Ok(cmd) = rx.try_recv() {
+        match cmd {
+            DbCommand::Rebuild { .. }
+            | DbCommand::Sync { .. }
+            | DbCommand::SyncPaths { .. }
+            | DbCommand::EmbedBatch { .. }
+            | DbCommand::RebuildEmbeddings { .. }
+            | DbCommand::RebuildIndex
+            | DbCommand::Shutdown => deferred.push(cmd),
+            _ => {
+                dispatch_command(conn, cmd, notes_cache, rx, note_index, block_index);
+            }
+        }
+    }
+}
+
+/// Writes a composed or directly-embedded note vector to both SQLite and the
+/// resident index. Returns whether it was actually stored: the ingest guard
+/// refuses degenerate vectors, and counting one of those as progress would let
+/// the pass report completion for a note that has no vector anywhere — which
+/// then keeps it out of `get_embedded_paths` and re-tried by every later pass.
+fn store_note_embedding(
+    conn: &Connection,
+    note_index: &SharedVectorIndex,
+    path: &str,
+    embedding: Vec<f32>,
+) -> bool {
+    if let Err(e) = vector_db::upsert_embedding(conn, path, &embedding) {
+        log::warn!("embed_batch: upsert failed for {path}: {e}");
+        return false;
+    }
+    if let Ok(mut ni) = note_index.write() {
+        ni.insert(path, embedding);
+    }
+    true
 }
 
 fn handle_embed_batch(
@@ -1951,35 +2073,30 @@ fn handle_embed_batch(
             let path_refs: Vec<&str> = notes_needing_embedding.iter().map(|s| s.as_str()).collect();
             let all_block_vecs = vector_db::get_block_embeddings_for_notes(conn, &path_refs);
 
+            // Pass 1: compose from block vectors, which is pure arithmetic.
+            // Notes with none are only *collected* here — embedding them one at
+            // a time is what made this loop slow, and holding their bodies would
+            // materialise the whole fallback population in memory, so pass 2
+            // re-reads each body from its own chunk. (ref: DL-005)
+            let mut fallback: Vec<&str> = Vec::new();
             for chunk in notes_needing_embedding.chunks(progress_batch) {
                 if cancel.load(Ordering::Relaxed) {
                     break;
                 }
                 for path in chunk {
-                    let note_vec = match all_block_vecs.get(path) {
+                    match all_block_vecs.get(path) {
                         Some(bvs) if !bvs.is_empty() => {
                             let vecs: Vec<Vec<f32>> = bvs.iter().map(|(_, v)| v.clone()).collect();
-                            Some(vector_db::mean_pool_normalize(&vecs))
+                            if store_note_embedding(
+                                conn,
+                                note_index,
+                                path,
+                                vector_db::mean_pool_normalize(&vecs),
+                            ) {
+                                embedded += 1;
+                            }
                         }
-                        _ => {
-                            // No qualifying block sections: fall back to a direct
-                            // embed of FTS body or filename so note_embeddings is
-                            // always populated. (ref: DL-005)
-                            let text = embed_text_for_note(conn, path);
-                            model
-                                .embed_documents(&[text.as_str()], None)
-                                .ok()
-                                .and_then(|mut v| v.pop())
-                        }
-                    };
-                    if let Some(embedding) = note_vec {
-                        if let Err(e) = vector_db::upsert_embedding(conn, path, &embedding) {
-                            log::warn!("embed_batch: upsert failed for {path}: {e}");
-                        }
-                        if let Ok(mut ni) = note_index.write() {
-                            ni.insert(path, embedding);
-                        }
-                        embedded += 1;
+                        _ => fallback.push(path.as_str()),
                     }
                 }
                 let _ = app_handle.emit(
@@ -1990,30 +2107,104 @@ fn handle_embed_batch(
                         total,
                     },
                 );
-                while let Ok(cmd) = rx.try_recv() {
-                    match cmd {
-                        DbCommand::Rebuild { .. }
-                        | DbCommand::Sync { .. }
-                        | DbCommand::SyncPaths { .. }
-                        | DbCommand::EmbedBatch { .. }
-                        | DbCommand::RebuildEmbeddings { .. }
-                        | DbCommand::RebuildIndex
-                        | DbCommand::Shutdown => {
-                            deferred.push(cmd);
+                drain_pending_commands(
+                    conn,
+                    rx,
+                    notes_cache,
+                    note_index,
+                    block_index,
+                    &mut deferred,
+                );
+            }
+
+            // Pass 2: embed the fallback population in batches instead of one
+            // note at a time. Progress cadence over these notes is the batch
+            // width rather than `progress_batch`.
+            for chunk in fallback.chunks(EMBED_BATCH_SIZE) {
+                if cancel.load(Ordering::Relaxed) {
+                    break;
+                }
+                // `fallback` is a snapshot taken across the whole of pass 1, and
+                // commands drained during it can have moved on underneath us in
+                // two ways. A save may have embedded the note already — tested
+                // against the note table itself, since block rows only prove a
+                // *composition input* exists, not a vector. Or a delete may have
+                // removed it, in which case re-embedding would resurrect it:
+                // `embed_text_for_note` falls back to the filename when the body
+                // is gone, so the note would come back as a ghost hit until the
+                // next restart reconciled it away.
+                let mut already = 0usize;
+                let pending: Vec<&str> = chunk
+                    .iter()
+                    .copied()
+                    .filter(|path| {
+                        if !notes_cache.contains_key(*path) {
+                            return false;
                         }
-                        _ => {
-                            dispatch_command(conn, cmd, notes_cache, rx, note_index, block_index);
+                        if vector_db::has_embedding(conn, path) {
+                            already += 1;
+                            return false;
+                        }
+                        true
+                    })
+                    .collect();
+                embedded += already;
+
+                let batch_start = Instant::now();
+                if !pending.is_empty() {
+                    let texts: Vec<String> = pending
+                        .iter()
+                        .map(|path| embed_text_for_note(conn, path))
+                        .collect();
+                    let text_refs: Vec<&str> = texts.iter().map(String::as_str).collect();
+                    // Per-note error semantics have to survive batching: these
+                    // notes' rows were already invalidated, so a whole batch
+                    // lost to one bad text would stay unembedded.
+                    let embedded_texts = embed_with_singles_fallback(&text_refs, |window| {
+                        model.embed_documents(window, Some(cancel.as_ref()))
+                    });
+                    match embedded_texts {
+                        Ok(vectors) => {
+                            for (path, vector) in pending.iter().zip(vectors) {
+                                if let Some(vector) = vector {
+                                    if store_note_embedding(conn, note_index, path, vector) {
+                                        embedded += 1;
+                                    }
+                                }
+                            }
+                        }
+                        Err(e) => {
+                            log::info!("embed_batch: {e}");
+                            break;
                         }
                     }
                 }
+
+                let _ = app_handle.emit(
+                    "embedding_progress",
+                    EmbeddingProgressEvent::Progress {
+                        vault_id: vault_id.to_string(),
+                        embedded,
+                        total,
+                    },
+                );
+                let sleep_ms = yield_sleep_ms(batch_start.elapsed());
+                std::thread::sleep(std::time::Duration::from_millis(sleep_ms));
+                drain_pending_commands(
+                    conn,
+                    rx,
+                    notes_cache,
+                    note_index,
+                    block_index,
+                    &mut deferred,
+                );
             }
         } else {
             // block embed disabled: fall back to direct batch embed on FTS bodies. (ref: DL-002)
             // BatchLongest padding means one long section pads all others. With f16
             // Metal weights, batch_size=32 keeps the worst-case [32,12,256,256] attention
             // tensor at the same byte budget as the previous f32 [16,12,256,256].
-            let batch_size: usize = if cfg!(debug_assertions) { 5 } else { 32 };
-            for chunk in notes_needing_embedding.chunks(batch_size) {
+            for chunk in notes_needing_embedding.chunks(EMBED_BATCH_SIZE) {
                 if cancel.load(Ordering::Relaxed) {
                     break;
                 }
@@ -2025,24 +2216,22 @@ fn handle_embed_batch(
                 }
                 let text_refs: Vec<&str> = texts.iter().map(|s| s.as_str()).collect();
                 let batch_start = Instant::now();
-                match model.embed_documents(&text_refs, Some(cancel.as_ref())) {
-                    Ok(embeddings) => {
-                        for (path, embedding) in paths.iter().zip(embeddings.iter()) {
-                            if let Err(e) = vector_db::upsert_embedding(conn, path, embedding) {
-                                log::warn!("embed_batch: upsert failed for {path}: {e}");
-                            }
-                            if let Ok(mut ni) = note_index.write() {
-                                ni.insert(path, embedding.clone());
+                let embedded_texts = embed_with_singles_fallback(&text_refs, |window| {
+                    model.embed_documents(window, Some(cancel.as_ref()))
+                });
+                match embedded_texts {
+                    Ok(vectors) => {
+                        for (path, vector) in paths.iter().zip(vectors) {
+                            if let Some(vector) = vector {
+                                if store_note_embedding(conn, note_index, path, vector) {
+                                    embedded += 1;
+                                }
                             }
                         }
-                        embedded += embeddings.len();
-                    }
-                    Err(e) if e.contains("cancelled") => {
-                        log::info!("embed_batch: cancelled");
-                        break;
                     }
                     Err(e) => {
-                        log::warn!("embed_batch: batch embedding failed: {e}");
+                        log::info!("embed_batch: {e}");
+                        break;
                     }
                 }
                 let _ = app_handle.emit(
@@ -2058,22 +2247,14 @@ fn handle_embed_batch(
                 // the batch time is enough to stay responsive. (was: full batch time)
                 let sleep_ms = yield_sleep_ms(batch_start.elapsed());
                 std::thread::sleep(std::time::Duration::from_millis(sleep_ms));
-                while let Ok(cmd) = rx.try_recv() {
-                    match cmd {
-                        DbCommand::Rebuild { .. }
-                        | DbCommand::Sync { .. }
-                        | DbCommand::SyncPaths { .. }
-                        | DbCommand::EmbedBatch { .. }
-                        | DbCommand::RebuildEmbeddings { .. }
-                        | DbCommand::RebuildIndex
-                        | DbCommand::Shutdown => {
-                            deferred.push(cmd);
-                        }
-                        _ => {
-                            dispatch_command(conn, cmd, notes_cache, rx, note_index, block_index);
-                        }
-                    }
-                }
+                drain_pending_commands(
+                    conn,
+                    rx,
+                    notes_cache,
+                    note_index,
+                    block_index,
+                    &mut deferred,
+                );
             }
         }
         let elapsed_ms = comp_start.elapsed().as_millis() as u64;
@@ -2093,6 +2274,133 @@ fn handle_embed_batch(
 
     for cmd in deferred {
         dispatch_command(conn, cmd, notes_cache, rx, note_index, block_index);
+    }
+}
+
+/// Sections buffered for the next encoder batch. Texts are owned so the body
+/// they were sliced out of can be dropped as soon as its group is consumed.
+#[derive(Default)]
+struct PendingSections<'a> {
+    keys: Vec<(&'a str, &'a str)>,
+    texts: Vec<String>,
+    hashes: Vec<String>,
+    /// Encoder passes the buffer will cost, not sections it holds. Sub-chunking
+    /// expands a long section into several passes, so counting sections would
+    /// let one flush cost many times a nominal batch and starve the drain
+    /// between flushes.
+    chunks: usize,
+}
+
+impl<'a> PendingSections<'a> {
+    fn push(&mut self, path: &'a str, heading_id: &'a str, text: String) {
+        self.chunks += estimated_chunk_count(&text);
+        self.keys.push((path, heading_id));
+        self.hashes
+            .push(blake3::hash(text.as_bytes()).to_hex().to_string());
+        self.texts.push(text);
+    }
+
+    fn take(&mut self) -> Self {
+        self.chunks = 0;
+        Self {
+            keys: std::mem::take(&mut self.keys),
+            texts: std::mem::take(&mut self.texts),
+            hashes: std::mem::take(&mut self.hashes),
+            chunks: 0,
+        }
+    }
+}
+
+/// Everything the block pass needs to turn a buffered batch into stored
+/// vectors. Bundled so the flush point stays a single call inside the streaming
+/// loop rather than a dozen threaded arguments.
+struct BlockEmbedPass<'a> {
+    conn: &'a Connection,
+    cancel: &'a Arc<AtomicBool>,
+    model: &'a EmbeddingService,
+    vault_id: &'a str,
+    app_handle: &'a AppHandle,
+    note_index: &'a SharedVectorIndex,
+    block_index: &'a SharedVectorIndex,
+    notes_cache: &'a mut BTreeMap<String, IndexNoteMeta>,
+    rx: &'a Receiver<DbCommand>,
+    deferred: &'a mut Vec<DbCommand>,
+    total: usize,
+    embedded: usize,
+}
+
+impl BlockEmbedPass<'_> {
+    /// Embeds and stores the buffer, then yields the CPU and applies commands
+    /// that queued during the batch. Returns false when the pass was cancelled
+    /// and the caller must stop.
+    fn flush(&mut self, pending: &mut PendingSections<'_>) -> bool {
+        let batch = pending.take();
+        if batch.texts.is_empty() {
+            return true;
+        }
+
+        let text_refs: Vec<&str> = batch.texts.iter().map(String::as_str).collect();
+        let batch_start = Instant::now();
+        match embed_section_texts(
+            self.model,
+            &text_refs,
+            EMBED_BATCH_SIZE,
+            Some(self.cancel.as_ref()),
+        ) {
+            Ok(embeddings) => {
+                let mut stored = 0usize;
+                for (((path, heading_id), embedding), hash) in batch
+                    .keys
+                    .iter()
+                    .zip(embeddings.iter())
+                    .zip(batch.hashes.iter())
+                {
+                    if let Err(e) = vector_db::upsert_block_embedding(
+                        self.conn, path, heading_id, embedding, hash,
+                    ) {
+                        log::warn!("block_embed: upsert failed for {path}#{heading_id}: {e}");
+                        continue;
+                    }
+                    if let Ok(mut bi) = self.block_index.write() {
+                        bi.insert(&format!("{path}\0{heading_id}"), embedding.clone());
+                    }
+                    stored += 1;
+                }
+                // Counts rows actually written, not vectors returned: the ingest
+                // guard can refuse a degenerate one, and a section counted but
+                // not stored is retried by every later pass.
+                self.embedded += stored;
+                let _ = self.app_handle.emit(
+                    "embedding_progress",
+                    EmbeddingProgressEvent::BlockProgress {
+                        vault_id: self.vault_id.to_string(),
+                        embedded: self.embedded,
+                        total: self.total,
+                    },
+                );
+            }
+            Err(e) if is_cancellation(&e) => {
+                log::info!("block_embed: cancelled");
+                return false;
+            }
+            Err(e) => log::warn!("block_embed: batch embedding failed: {e}"),
+        }
+
+        // Yield CPU to the foreground without halving indexing throughput:
+        // the worker already runs at background QoS, so a short fraction of
+        // the batch time is enough to stay responsive.
+        let sleep_ms = yield_sleep_ms(batch_start.elapsed());
+        std::thread::sleep(std::time::Duration::from_millis(sleep_ms));
+
+        drain_pending_commands(
+            self.conn,
+            self.rx,
+            self.notes_cache,
+            self.note_index,
+            self.block_index,
+            self.deferred,
+        );
+        true
     }
 }
 
@@ -2146,110 +2454,79 @@ fn handle_block_embed_batch(
     // BatchLongest padding means one long section pads all others. With f16
     // Metal weights, batch_size=32 keeps the worst-case [32,12,256,256] attention
     // tensor at the same byte budget as the previous f32 [16,12,256,256]. (ref: DL-002)
-    let batch_size: usize = if cfg!(debug_assertions) { 5 } else { 32 };
-    let mut block_embedded = 0usize;
-    let mut fts_cache: HashMap<String, Option<String>> = HashMap::new();
+    let mut pass = BlockEmbedPass {
+        conn,
+        cancel,
+        model,
+        vault_id,
+        app_handle,
+        note_index,
+        block_index,
+        notes_cache,
+        rx,
+        deferred,
+        total: block_total,
+        embedded: 0,
+    };
 
-    for chunk in needing.chunks(batch_size) {
+    // Sections arrive grouped by path (`ORDER BY path, start_line`), so each
+    // body is fetched, split into lines once, and dropped as soon as its last
+    // section is consumed — where the old loop cloned the whole body and
+    // re-split it once *per section*, and kept every body it ever touched
+    // resident for the whole pass.
+    //
+    // Sections stream into `pending` and flush at the batch width rather than
+    // being embedded a path at a time: a path contributes only one to three
+    // sections, so flushing per path would multiply the yield sleep and the
+    // command drain by an order of magnitude and cost more than the copying
+    // saves.
+    let mut pending = PendingSections::default();
+    let mut group_start = 0usize;
+    'sections: while group_start < needing.len() {
         if cancel.load(Ordering::Relaxed) {
             break;
         }
+        let path = needing[group_start].0.as_str();
+        let group_end = needing[group_start..]
+            .iter()
+            .position(|section| section.0 != path)
+            .map_or(needing.len(), |offset| group_start + offset);
+        let group = &needing[group_start..group_end];
+        group_start = group_end;
 
-        let mut texts = Vec::with_capacity(chunk.len());
-        let mut keys = Vec::with_capacity(chunk.len());
-        let mut hashes = Vec::with_capacity(chunk.len());
+        let Some(body) = search_db::get_fts_body(conn, path) else {
+            continue;
+        };
+        let lines: Vec<&str> = body.lines().collect();
 
-        for (path, heading_id, start_line, end_line) in chunk.iter().copied() {
-            let body = match fts_cache
-                .entry(path.to_string())
-                .or_insert_with(|| search_db::get_fts_body(conn, path))
-            {
-                Some(b) => b.clone(),
-                None => continue,
-            };
-            let lines: Vec<&str> = body.lines().collect();
+        for (_, heading_id, start_line, end_line) in group.iter().copied() {
             let Some(section_text) = search_db::slice_section_text(&lines, *start_line, *end_line)
             else {
                 continue;
             };
-            let hash = blake3::hash(section_text.as_bytes()).to_hex().to_string();
-            keys.push((path.as_str(), heading_id.as_str()));
-            texts.push(section_text);
-            hashes.push(hash);
-        }
-
-        if texts.is_empty() {
-            continue;
-        }
-
-        let text_refs: Vec<&str> = texts.iter().map(|s| s.as_str()).collect();
-        let batch_start = Instant::now();
-        match embed_section_texts(model, &text_refs, Some(cancel.as_ref())) {
-            Ok(embeddings) => {
-                for (((path, heading_id), embedding), hash) in
-                    keys.iter().zip(embeddings.iter()).zip(hashes.iter())
-                {
-                    if let Err(e) =
-                        vector_db::upsert_block_embedding(conn, path, heading_id, embedding, hash)
-                    {
-                        log::warn!("block_embed: upsert failed for {path}#{heading_id}: {e}");
-                    }
-                    if let Ok(mut bi) = block_index.write() {
-                        let composite_key = format!("{path}\0{heading_id}");
-                        bi.insert(&composite_key, embedding.clone());
-                    }
-                }
-                block_embedded += embeddings.len();
-                let _ = app_handle.emit(
-                    "embedding_progress",
-                    EmbeddingProgressEvent::BlockProgress {
-                        vault_id: vault_id.to_string(),
-                        embedded: block_embedded,
-                        total: block_total,
-                    },
-                );
-            }
-            Err(e) if e.contains("cancelled") => {
-                log::info!("block_embed: cancelled");
-                break;
-            }
-            Err(e) => {
-                log::warn!("block_embed: batch embedding failed: {e}");
-            }
-        }
-
-        // Yield CPU to the foreground without halving indexing throughput:
-        // the worker already runs at background QoS, so a short fraction of
-        // the batch time is enough to stay responsive. (was: full batch time)
-        let sleep_ms = yield_sleep_ms(batch_start.elapsed());
-        std::thread::sleep(std::time::Duration::from_millis(sleep_ms));
-
-        while let Ok(cmd) = rx.try_recv() {
-            match cmd {
-                DbCommand::Rebuild { .. }
-                | DbCommand::Sync { .. }
-                | DbCommand::SyncPaths { .. }
-                | DbCommand::EmbedBatch { .. }
-                | DbCommand::RebuildEmbeddings { .. }
-                | DbCommand::RebuildIndex
-                | DbCommand::Shutdown => {
-                    deferred.push(cmd);
-                }
-                _ => {
-                    dispatch_command(conn, cmd, notes_cache, rx, note_index, block_index);
-                }
+            pending.push(path, heading_id, section_text);
+            if pending.chunks >= EMBED_BATCH_SIZE && !pass.flush(&mut pending) {
+                break 'sections;
             }
         }
     }
+    // Skip the trailing flush when cancelled: tokenizing the leftover buffer
+    // only for `embed_batch`'s own cancel check to discard it is pure waste.
+    if !cancel.load(Ordering::Relaxed) {
+        pass.flush(&mut pending);
+    }
 
-    if block_embedded > 0 {
-        log::info!("block_embed: embedded {block_embedded} sections for {vault_id}");
+    if pass.embedded > 0 {
+        log::info!(
+            "block_embed: embedded {} sections for {vault_id}",
+            pass.embedded
+        );
     }
     let _ = app_handle.emit(
         "embedding_progress",
         EmbeddingProgressEvent::BlockCompleted {
             vault_id: vault_id.to_string(),
-            embedded: block_embedded,
+            embedded: pass.embedded,
         },
     );
 }
@@ -2279,28 +2556,42 @@ where
     f(&conn)
 }
 
+/// Runs `f` against a vault's index with the worker *map* lock released, the way
+/// [`with_read_conn`] already does. Holding it across the search serialized
+/// every query against every `ensure_worker`, `send_write` and connection
+/// handout — for every vault, not just this one.
+fn with_index<F, T>(
+    app: &AppHandle,
+    vault_id: &str,
+    pick: impl FnOnce(&VaultWorker) -> SharedVectorIndex,
+    f: F,
+) -> Result<T, String>
+where
+    F: FnOnce(&VectorIndex) -> T,
+{
+    let index = {
+        ensure_worker(app, vault_id)?;
+        let state = app.state::<SearchDbState>();
+        let map = state.workers.lock().map_err(|e| e.to_string())?;
+        let worker = map.get(vault_id).ok_or("vault worker not found")?;
+        pick(worker)
+    };
+    let idx = index.read().map_err(|e| e.to_string())?;
+    Ok(f(&idx))
+}
+
 fn with_note_index<F, T>(app: &AppHandle, vault_id: &str, f: F) -> Result<T, String>
 where
     F: FnOnce(&VectorIndex) -> T,
 {
-    ensure_worker(app, vault_id)?;
-    let state = app.state::<SearchDbState>();
-    let map = state.workers.lock().map_err(|e| e.to_string())?;
-    let worker = map.get(vault_id).ok_or("vault worker not found")?;
-    let idx = worker.note_index.read().map_err(|e| e.to_string())?;
-    Ok(f(&idx))
+    with_index(app, vault_id, |w| Arc::clone(&w.note_index), f)
 }
 
 fn with_block_index<F, T>(app: &AppHandle, vault_id: &str, f: F) -> Result<T, String>
 where
     F: FnOnce(&VectorIndex) -> T,
 {
-    ensure_worker(app, vault_id)?;
-    let state = app.state::<SearchDbState>();
-    let map = state.workers.lock().map_err(|e| e.to_string())?;
-    let worker = map.get(vault_id).ok_or("vault worker not found")?;
-    let idx = worker.block_index.read().map_err(|e| e.to_string())?;
-    Ok(f(&idx))
+    with_index(app, vault_id, |w| Arc::clone(&w.block_index), f)
 }
 
 pub(crate) fn get_read_conn_arc(

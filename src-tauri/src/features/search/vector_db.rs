@@ -1,4 +1,4 @@
-use super::hnsw_index::VectorIndex;
+use super::hnsw_index::{is_usable_vector, VectorIndex};
 use rusqlite::{params, Connection};
 use std::collections::{HashMap, HashSet};
 
@@ -46,7 +46,14 @@ pub fn init_vector_schema(conn: &Connection) -> Result<(), String> {
     Ok(())
 }
 
+/// SQLite's default `SQLITE_MAX_VARIABLE_NUMBER` is 32766; an unchunked
+/// `IN (?,?,…)` over a whole vault silently fails to prepare above it.
+const SQL_IN_CHUNK: usize = 900;
+
 pub fn upsert_embedding(conn: &Connection, path: &str, embedding: &[f32]) -> Result<(), String> {
+    if !is_usable_vector(embedding) {
+        return Err(format!("refusing to store unusable embedding for {path}"));
+    }
     let bytes = floats_to_bytes(embedding);
     conn.execute(
         "INSERT OR REPLACE INTO note_embeddings (path, embedding) VALUES (?1, ?2)",
@@ -213,6 +220,11 @@ pub fn upsert_block_embedding(
     embedding: &[f32],
     content_hash: &str,
 ) -> Result<(), String> {
+    if !is_usable_vector(embedding) {
+        return Err(format!(
+            "refusing to store unusable embedding for {path}#{heading_id}"
+        ));
+    }
     let bytes = floats_to_bytes(embedding);
     conn.execute(
         "INSERT OR REPLACE INTO block_embeddings (path, heading_id, embedding, content_hash) VALUES (?1, ?2, ?3, ?4)",
@@ -342,9 +354,14 @@ pub fn get_block_embeddings_for_note(conn: &Connection, path: &str) -> Vec<(Stri
         Ok(r) => r,
         Err(_) => return vec![],
     };
+    // Same guard as the batch sibling below: a legacy non-finite row would
+    // otherwise reach `mean_pool_normalize`, whose norm is then NaN — so the
+    // `norm > 0.0` branch does not zero it — and the composed note vector is
+    // refused at ingest, leaving the save path with no vector at all while the
+    // batch path composes a clean one from the surviving blocks.
     rows.filter_map(|r| r.ok())
         .map(|(heading_id, blob)| (heading_id, bytes_to_floats(&blob)))
-        .filter(|(_, vec)| !vec.is_empty())
+        .filter(|(_, vec)| is_usable_vector(vec))
         .collect()
 }
 
@@ -352,36 +369,45 @@ pub fn get_block_embeddings_for_notes(
     conn: &Connection,
     paths: &[&str],
 ) -> HashMap<String, Vec<(String, Vec<f32>)>> {
-    if paths.is_empty() {
-        return HashMap::new();
-    }
-    let placeholders: Vec<&str> = paths.iter().map(|_| "?").collect();
-    let sql = format!(
-        "SELECT path, heading_id, embedding FROM block_embeddings WHERE path IN ({})",
-        placeholders.join(",")
-    );
-    let mut stmt = match conn.prepare(&sql) {
-        Ok(s) => s,
-        Err(_) => return HashMap::new(),
-    };
-    let params: Vec<&dyn rusqlite::types::ToSql> = paths
-        .iter()
-        .map(|p| p as &dyn rusqlite::types::ToSql)
-        .collect();
-    let rows = match stmt.query_map(params.as_slice(), |row| {
-        let path: String = row.get(0)?;
-        let heading_id: String = row.get(1)?;
-        let blob: Vec<u8> = row.get(2)?;
-        Ok((path, heading_id, blob))
-    }) {
-        Ok(r) => r,
-        Err(_) => return HashMap::new(),
-    };
     let mut map: HashMap<String, Vec<(String, Vec<f32>)>> = HashMap::new();
-    for row in rows.flatten() {
-        let vec = bytes_to_floats(&row.2);
-        if !vec.is_empty() {
-            map.entry(row.0).or_default().push((row.1, vec));
+    // Chunked because an unchunked `IN` list fails to prepare past SQLite's
+    // variable limit — and the old code answered that failure with an empty
+    // map, so every note in a large vault fell through to the single-note
+    // fallback embed, silently and with no log.
+    for chunk in paths.chunks(SQL_IN_CHUNK) {
+        let placeholders: Vec<&str> = chunk.iter().map(|_| "?").collect();
+        let sql = format!(
+            "SELECT path, heading_id, embedding FROM block_embeddings WHERE path IN ({})",
+            placeholders.join(",")
+        );
+        let mut stmt = match conn.prepare(&sql) {
+            Ok(s) => s,
+            Err(e) => {
+                log::warn!("get_block_embeddings_for_notes: prepare failed: {e}");
+                continue;
+            }
+        };
+        let params: Vec<&dyn rusqlite::types::ToSql> = chunk
+            .iter()
+            .map(|p| p as &dyn rusqlite::types::ToSql)
+            .collect();
+        let rows = match stmt.query_map(params.as_slice(), |row| {
+            let path: String = row.get(0)?;
+            let heading_id: String = row.get(1)?;
+            let blob: Vec<u8> = row.get(2)?;
+            Ok((path, heading_id, blob))
+        }) {
+            Ok(r) => r,
+            Err(e) => {
+                log::warn!("get_block_embeddings_for_notes: query failed: {e}");
+                continue;
+            }
+        };
+        for row in rows.flatten() {
+            let vec = bytes_to_floats(&row.2);
+            if is_usable_vector(&vec) {
+                map.entry(row.0).or_default().push((row.1, vec));
+            }
         }
     }
     map
@@ -454,11 +480,7 @@ pub fn get_embedding(conn: &Connection, path: &str) -> Option<Vec<f32>> {
         )
         .ok()?;
     let floats = bytes_to_floats(&bytes);
-    if floats.is_empty() {
-        None
-    } else {
-        Some(floats)
-    }
+    is_usable_vector(&floats).then_some(floats)
 }
 
 pub fn has_embedding(conn: &Connection, path: &str) -> bool {
@@ -562,6 +584,27 @@ mod tests {
             v.iter_mut().for_each(|x| *x /= norm);
         }
         v
+    }
+
+    /// The `IN (?,?,…)` list used to be built unchunked, so past SQLite's
+    /// variable limit the statement failed to prepare and the function answered
+    /// with an empty map — sending every note in a large vault down the
+    /// single-note fallback embed, silently and with no log.
+    #[test]
+    fn block_embeddings_lookup_survives_more_paths_than_sqlite_allows() {
+        let conn = setup();
+        let paths: Vec<String> = (0..40_000).map(|i| format!("n{i}.md")).collect();
+        for path in paths.iter().take(3) {
+            upsert_block_embedding(&conn, path, "h1", &fake_embedding(0.3), "hash").unwrap();
+        }
+        let refs: Vec<&str> = paths.iter().map(String::as_str).collect();
+
+        let found = get_block_embeddings_for_notes(&conn, &refs);
+
+        assert_eq!(found.len(), 3, "every seeded note is found");
+        for path in paths.iter().take(3) {
+            assert_eq!(found[path].len(), 1);
+        }
     }
 
     #[test]
