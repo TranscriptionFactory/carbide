@@ -361,8 +361,17 @@ struct ExtractedLink {
     section_heading: Option<String>,
 }
 
+/// `heading_id` of the implicit section covering everything before the first
+/// heading. `HEADING_RE` only matches `#{1,6}`, so no real slug is ever level 0
+/// and this cannot collide.
+pub(crate) const PREAMBLE_HEADING_ID: &str = "h-0-preamble-0";
+
+/// Structure extraction, plus the implicit leading section. `preamble_title`
+/// only names that section — it never affects slugs, line bounds, or hashes, so
+/// callers that discard titles may pass anything.
 pub(crate) fn extract_markdown_structure(
     markdown: &str,
+    preamble_title: &str,
 ) -> (
     Vec<ExtractedHeading>,
     Vec<ExtractedCodeBlock>,
@@ -381,6 +390,7 @@ pub(crate) fn extract_markdown_structure(
     let mut occurrence_counts: HashMap<String, usize> = HashMap::new();
 
     let mut in_frontmatter = false;
+    let mut body_start_line: i64 = 0;
     let mut in_code_block = false;
     let mut code_block_start: i64 = 0;
     let mut code_block_lang: Option<String> = None;
@@ -398,6 +408,7 @@ pub(crate) fn extract_markdown_structure(
         if in_frontmatter {
             if trimmed == "---" {
                 in_frontmatter = false;
+                body_start_line = line_idx as i64 + 1;
             }
             continue;
         }
@@ -460,6 +471,33 @@ pub(crate) fn extract_markdown_structure(
                 slug,
             });
         }
+    }
+
+    // Implicit leading section. Content before the first heading — usually a
+    // note's most descriptive paragraph, and the *only* content in a
+    // heading-less note — otherwise reaches no vector at all. Starts after
+    // frontmatter so raw YAML is never embedded as prose.
+    let preamble_end = headings
+        .first()
+        .map(|h| h.line - 1)
+        .unwrap_or_else(|| (total_lines as i64).saturating_sub(1));
+    if total_lines > 0 && preamble_end >= body_start_line {
+        let word_count: i64 = (body_start_line..=preamble_end)
+            .filter_map(|l| lines.get(l as usize))
+            .map(|l| l.split_whitespace().count() as i64)
+            .sum();
+        sections.push(ExtractedSection {
+            heading_id: PREAMBLE_HEADING_ID.to_string(),
+            level: 0,
+            title: if preamble_title.trim().is_empty() {
+                "Preamble".to_string()
+            } else {
+                preamble_title.to_string()
+            },
+            start_line: body_start_line,
+            end_line: preamble_end,
+            word_count,
+        });
     }
 
     // Build sections from headings
@@ -1120,7 +1158,7 @@ pub fn upsert_note_simple(
     let word_count = raw_markdown.split_whitespace().count() as i64;
     let char_count = raw_markdown.len() as i64;
 
-    let (headings, code_blocks, sections) = extract_markdown_structure(raw_markdown);
+    let (headings, code_blocks, sections) = extract_markdown_structure(raw_markdown, &meta.title);
     let heading_count = headings.len() as i64;
     let reading_time_secs = word_count * 60 / 200;
 
@@ -3246,7 +3284,7 @@ pub(crate) fn slice_section_text(lines: &[&str], start_line: i64, end_line: i64)
 /// sections, computed the same way the embed passes hash section text. This is
 /// the ground truth the stored block hashes are compared against.
 pub(crate) fn embeddable_section_hashes(raw: &str) -> HashMap<String, String> {
-    let (_, _, sections) = extract_markdown_structure(raw);
+    let (_, _, sections) = extract_markdown_structure(raw, "");
     let lines: Vec<&str> = raw.lines().collect();
     let mut current: HashMap<String, String> = HashMap::new();
     for s in &sections {
