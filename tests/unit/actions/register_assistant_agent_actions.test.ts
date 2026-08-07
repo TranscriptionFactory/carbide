@@ -303,14 +303,14 @@ describe("rag agent actions", () => {
     expect(stores.op.get("rag.ask").status).toBe("success");
   });
 
-  it("ask in agent mode: routes the claude provider to the harness backend", async () => {
+  it("ask in agent mode: routes the claude provider to the acp backend", async () => {
     const { registry, chat_store, assistant_kernel } = create_harness();
     chat_store.set_mode("agent");
 
     await registry.execute(ACTION_IDS.rag_ask, "organize my notes");
 
     expect(assistant_kernel.specs).toHaveLength(1);
-    expect(agent_spec(assistant_kernel.specs).backend).toBe("harness");
+    expect(agent_spec(assistant_kernel.specs).backend).toBe("acp");
   });
 
   it("ask in agent mode: routes api providers to the native backend", async () => {

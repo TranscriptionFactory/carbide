@@ -443,7 +443,10 @@ describe("create_session_run_sink", () => {
     rag.add_streaming_tool_event({ ...tool, id: tool.name, kind: "read" });
 
     sink.on_event("run-1", tool_end_event(tool.name));
-    rag.finish_streaming_tool_event({ id: tool.name, name: tool.name }, { ok: true });
+    rag.finish_streaming_tool_event(
+      { id: tool.name, name: tool.name },
+      { ok: true },
+    );
 
     sink.on_event("run-1", { type: "text", text: " — done." });
     rag.append_streaming_text(" — done.");

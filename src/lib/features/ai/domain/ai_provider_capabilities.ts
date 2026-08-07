@@ -27,7 +27,8 @@ export function agent_capability(
 ): AgentCapability | null {
   if (!config.transport) return null;
   if (config.transport.kind === "api") return { backend: "native" };
-  if (config.transport.acp) return { backend: "acp", acp: config.transport.acp };
+  if (config.transport.acp)
+    return { backend: "acp", acp: config.transport.acp };
   return null;
 }
 

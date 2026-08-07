@@ -76,9 +76,7 @@ type WithLegacyAgent = AiProviderConfig & {
 };
 
 function preset_spec(id: string): AcpAgentSpec | undefined {
-  return id === "claude" || id === "codex"
-    ? { kind: "preset", id }
-    : undefined;
+  return id === "claude" || id === "codex" ? { kind: "preset", id } : undefined;
 }
 
 // Returns the input by reference when nothing changes, so the caller's
@@ -86,7 +84,8 @@ function preset_spec(id: string): AcpAgentSpec | undefined {
 // agent descriptor and the harness field — convert straight to the ACP spec.
 function convert_agent_descriptor(provider: WithLegacyAgent): AiProviderConfig {
   const { agent, ...config } = provider;
-  const stripped = agent === undefined ? provider : (config as AiProviderConfig);
+  const stripped =
+    agent === undefined ? provider : (config as AiProviderConfig);
   if (config.transport?.kind !== "cli") return stripped;
 
   const { harness, ...transport } = config.transport;

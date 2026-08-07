@@ -1,3 +1,10 @@
+#[path = "../../tests/acp_translate.rs"]
+mod acp_translate;
+#[path = "../../tests/acp_policy.rs"]
+mod acp_policy;
+#[path = "../../tests/acp_agent_def.rs"]
+mod acp_agent_def;
+
 #[path = "../../tests/notes_service_safety.rs"]
 mod notes_service_safety;
 
@@ -75,12 +82,8 @@ mod metadata_events;
 
 #[path = "../../tests/agent_handoff.rs"]
 mod agent_handoff;
-#[path = "../../tests/agent_stream.rs"]
-mod agent_stream;
 #[path = "../../tests/ai_execute_cancel.rs"]
 mod ai_execute_cancel;
-#[path = "../../tests/codex_adapter.rs"]
-mod codex_adapter;
 #[path = "../../tests/native_agent.rs"]
 mod native_agent;
 

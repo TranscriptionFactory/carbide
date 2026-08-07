@@ -1,3 +1,4 @@
+pub mod acp;
 pub mod agent_handoff;
 pub mod agent_stream;
 pub mod harness;

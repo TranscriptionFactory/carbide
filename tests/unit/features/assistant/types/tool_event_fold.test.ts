@@ -20,7 +20,11 @@ describe("finish_tool_event", () => {
       open_event("read_note", "second"),
     ];
 
-    const next = finish_tool_event(events, { name: "read_note" }, { ok: false });
+    const next = finish_tool_event(
+      events,
+      { name: "read_note" },
+      { ok: false },
+    );
 
     expect(next[0]?.ok).toBeUndefined();
     expect(next[1]?.ok).toBe(false);
@@ -82,7 +86,11 @@ describe("finish_tool_event", () => {
   it("returns the input untouched when nothing matches", () => {
     const events = [open_event("read_note")];
 
-    const next = finish_tool_event(events, { name: "write_note" }, { ok: true });
+    const next = finish_tool_event(
+      events,
+      { name: "write_note" },
+      { ok: true },
+    );
 
     expect(next).toBe(events);
     expect(events[0]?.ok).toBeUndefined();

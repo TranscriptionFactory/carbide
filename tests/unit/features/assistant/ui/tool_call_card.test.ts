@@ -188,6 +188,74 @@ describe("ToolCallCard", () => {
     expect(target.querySelector('[aria-label="Succeeded"]')).toBeNull();
   });
 
+  it("renders diff content as an inline diff when expanded", () => {
+    const { target } = render_card({
+      event: {
+        id: "call-1",
+        name: "edit_note",
+        kind: "edit",
+        input_summary: "notes/a.md",
+        ok: true,
+        content: [
+          {
+            kind: "diff",
+            path: "notes/a.md",
+            old_text: "old line",
+            new_text: "new line",
+          },
+        ],
+      },
+    });
+    header_button(target)?.click();
+    flushSync();
+    expect(target.textContent).toContain("old line");
+    expect(target.textContent).toContain("new line");
+  });
+
+  it("renders execute text content as a terminal block", () => {
+    const { target } = render_card({
+      event: {
+        id: "call-2",
+        name: "bash",
+        kind: "execute",
+        input_summary: "ls",
+        ok: true,
+        content: [{ kind: "text", text: "[32mfile.md[0m" }],
+        result_summary: "file.md",
+      },
+    });
+    header_button(target)?.click();
+    flushSync();
+    // ANSI stripped by the terminal block; result_summary not duplicated
+    expect(target.textContent).toContain("file.md");
+    expect(target.textContent).not.toContain("[32m");
+    expect(target.querySelectorAll("pre")).toHaveLength(1);
+  });
+
+  it("prefers location chips with line numbers over plain paths", () => {
+    const on_open_path = vi.fn();
+    const { target } = render_card({
+      event: {
+        id: "call-3",
+        name: "read_note",
+        kind: "read",
+        input_summary: "notes/a.md",
+        paths: ["notes/a.md"],
+        locations: [{ path: "notes/a.md", line: 12 }],
+        ok: true,
+      },
+      on_open_path,
+    });
+    header_button(target)?.click();
+    flushSync();
+    const chip = [...target.querySelectorAll("button")].find(
+      (el) => el.textContent?.trim() === "notes/a.md:12",
+    );
+    expect(chip).toBeDefined();
+    chip?.click();
+    expect(on_open_path).toHaveBeenCalledWith("notes/a.md");
+  });
+
   it("shows no check for a completion that mounted settled", () => {
     const { target } = render_card({
       event: { name: "read_note", input_summary: "notes/a.md", ok: true },

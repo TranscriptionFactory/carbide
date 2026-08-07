@@ -86,8 +86,11 @@ fn tag(event: &AgentEvent) -> &'static str {
         AgentEvent::Init { .. } => "init",
         AgentEvent::Text { .. } => "text",
         AgentEvent::ToolStart { .. } => "tool_start",
+        AgentEvent::ToolUpdate { .. } => "tool_update",
         AgentEvent::Reasoning { .. } => "reasoning",
         AgentEvent::ToolEnd { .. } => "tool_end",
+        AgentEvent::PermissionRequest { .. } => "permission_request",
+        AgentEvent::PermissionResolved { .. } => "permission_resolved",
         AgentEvent::Done { .. } => "done",
         AgentEvent::Error { .. } => "error",
     }

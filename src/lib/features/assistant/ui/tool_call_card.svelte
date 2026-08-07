@@ -1,11 +1,28 @@
 <script lang="ts">
-  import { Check, Loader2, Wrench, X } from "@lucide/svelte";
+  import {
+    Brain,
+    Check,
+    FileText,
+    Globe,
+    Loader2,
+    MoveRight,
+    Pencil,
+    Repeat,
+    Search,
+    SquareTerminal,
+    Trash2,
+    Wrench,
+    X,
+  } from "@lucide/svelte";
   import type { AssistantToolEvent } from "$lib/features/assistant/types/session";
+  import type { ToolKind } from "$lib/features/assistant/types/agent_events";
   import {
     tool_event_has_body,
     tool_event_status,
     type ToolEventStatus,
   } from "$lib/features/assistant/types/tool_event_fold";
+  import InlineDiff from "$lib/features/assistant/ui/inline_diff.svelte";
+  import TerminalBlock from "$lib/features/assistant/ui/terminal_block.svelte";
 
   type Props = {
     event: AssistantToolEvent;
@@ -15,7 +32,23 @@
 
   const COMPLETION_CHECK_MS = 1400;
 
+  const KIND_ICONS: Record<ToolKind, typeof Wrench> = {
+    read: FileText,
+    edit: Pencil,
+    delete: Trash2,
+    move: MoveRight,
+    search: Search,
+    execute: SquareTerminal,
+    think: Brain,
+    fetch: Globe,
+    switch_mode: Repeat,
+    other: Wrench,
+  };
+
   const status = $derived(tool_event_status(event));
+  const Icon = $derived(KIND_ICONS[event.kind ?? "other"] ?? Wrench);
+  const content = $derived(event.content ?? []);
+  const locations = $derived(event.locations ?? []);
 
   // Collapsed by default, failures excepted: the spinner already says a call
   // is live, and an error is the one body worth showing unasked.
@@ -53,7 +86,7 @@
 </script>
 
 {#snippet row()}
-  <Wrench class="size-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
+  <Icon class="size-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
   <span class="shrink-0 font-medium text-foreground">{event.name}</span>
   <span class="truncate text-muted-foreground">{event.input_summary}</span>
   <span class="ml-auto flex shrink-0 items-center gap-1.5">
@@ -96,11 +129,41 @@
   {#if expanded}
     <div class="flex select-text flex-col gap-1.5 border-t px-2 py-1.5">
       <div class="break-words text-muted-foreground">{event.input_summary}</div>
-      {#if event.result_summary}
+      {#each content as block, index (index)}
+        {#if block.kind === "diff"}
+          <InlineDiff
+            path={block.path}
+            old_text={block.old_text}
+            new_text={block.new_text}
+          />
+        {:else if event.kind === "execute"}
+          <TerminalBlock text={block.text} />
+        {:else}
+          <pre
+            class="overflow-x-auto whitespace-pre-wrap break-words rounded bg-muted/50 px-2 py-1 font-mono text-[11px]">{block.text}</pre>
+        {/if}
+      {/each}
+      <!-- result_summary is the first text block's head; showing it beside
+           full content would say the same thing twice. -->
+      {#if content.length === 0 && event.result_summary}
         <pre
           class="overflow-x-auto whitespace-pre-wrap break-words rounded bg-muted/50 px-2 py-1 font-mono text-[11px]">{event.result_summary}</pre>
       {/if}
-      {#if paths.length > 0}
+      {#if locations.length > 0}
+        <div class="flex flex-wrap gap-1">
+          {#each locations as location, index (index)}
+            <button
+              type="button"
+              class="rounded bg-muted/50 px-1 py-0.5 font-mono text-[11px] text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+              onclick={() => on_open_path(location.path)}
+            >
+              {location.path}{location.line !== undefined
+                ? `:${String(location.line)}`
+                : ""}
+            </button>
+          {/each}
+        </div>
+      {:else if paths.length > 0}
         <div class="flex flex-wrap gap-1">
           {#each paths as path (path)}
             <button
