@@ -23,7 +23,7 @@ export function make_provider(
       kind: "cli",
       command: "claude",
       args: ["-p"],
-      harness: "claude",
+      acp: { kind: "preset", id: "claude" },
     },
     ...overrides,
   };

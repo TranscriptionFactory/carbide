@@ -57,7 +57,7 @@ describe("agent_capability", () => {
     expect(agent_capability(api_provider())).toEqual({ backend: "native" });
   });
 
-  it("derives the claude harness from a cli transport naming it", () => {
+  it("derives the acp backend from a cli transport naming a preset agent", () => {
     const config: AiProviderConfig = {
       id: "custom",
       name: "Custom Claude",
@@ -65,28 +65,33 @@ describe("agent_capability", () => {
         kind: "cli",
         command: "claude",
         args: [],
-        harness: "claude",
+        acp: { kind: "preset", id: "claude" },
       },
     };
     expect(agent_capability(config)).toEqual({
-      backend: "harness",
-      adapter: "claude",
+      backend: "acp",
+      acp: { kind: "preset", id: "claude" },
     });
   });
 
-  it("derives the codex harness from a cli transport naming it", () => {
+  it("derives the acp backend from a custom agent command", () => {
     const config: AiProviderConfig = {
       id: "custom",
-      name: "Custom Codex",
-      transport: { kind: "cli", command: "codex", args: [], harness: "codex" },
+      name: "Custom ACP",
+      transport: {
+        kind: "cli",
+        command: "codex",
+        args: [],
+        acp: { kind: "custom", command: "my-agent", args: ["--stdio"] },
+      },
     };
     expect(agent_capability(config)).toEqual({
-      backend: "harness",
-      adapter: "codex",
+      backend: "acp",
+      acp: { kind: "custom", command: "my-agent", args: ["--stdio"] },
     });
   });
 
-  it("treats a harness-less cli transport as unsupported", () => {
+  it("treats an acp-less cli transport as unsupported", () => {
     expect(agent_capability(cli_provider(["run", "{model}"]))).toBeNull();
   });
 
@@ -101,8 +106,8 @@ describe("agent_capability", () => {
 
   it("derives the expected capability for every builtin preset", () => {
     const expected: Record<string, ReturnType<typeof agent_capability>> = {
-      claude: { backend: "harness", adapter: "claude" },
-      codex: { backend: "harness", adapter: "codex" },
+      claude: { backend: "acp", acp: { kind: "preset", id: "claude" } },
+      codex: { backend: "acp", acp: { kind: "preset", id: "codex" } },
       ollama: null,
       lmstudio: { backend: "native" },
       "llama-server": { backend: "native" },

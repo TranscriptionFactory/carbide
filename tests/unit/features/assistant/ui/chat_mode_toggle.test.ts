@@ -140,15 +140,18 @@ describe("RagModeToggle", () => {
 });
 
 describe("agent_scope_copy", () => {
-  it("keeps the native grant vault-scoped and the harness grant honest", () => {
+  it("keeps the native grant vault-scoped and the ACP grant honest", () => {
     const native = agent_scope_copy({ backend: "native" });
     expect(native.badge).toBe("vault-scoped");
     expect(native.power_hint).toBe("Agent can edit files in your vault");
 
-    const harness = agent_scope_copy({ backend: "harness", adapter: "claude" });
-    expect(harness.badge).toBe("full access");
-    expect(harness.badge_title).toContain("Claude Code");
-    expect(harness.power_hint).toContain("Full system access");
-    expect(harness.empty_state).toContain("full system access");
+    const acp = agent_scope_copy({
+      backend: "acp",
+      acp: { kind: "preset", id: "claude" },
+    });
+    expect(acp.badge).toBe("full access");
+    expect(acp.badge_title).toContain("Claude Code");
+    expect(acp.power_hint).toContain("Full system access");
+    expect(acp.empty_state).toContain("full system access");
   });
 });

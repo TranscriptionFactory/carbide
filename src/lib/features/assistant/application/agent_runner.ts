@@ -65,7 +65,7 @@ export class AgentRunner {
   async run_turn(
     provider_config: AiProviderConfig,
     prompt: string,
-    backend: "harness" | "native",
+    backend: "acp" | "native",
   ): Promise<AgentTurnResult> {
     const vault = this.vault_store.vault;
     const session = this.chat_store.active;

@@ -27,7 +27,12 @@ impl From<pipeline::PipelineResult> for AiExecutionResult {
 #[serde(tag = "kind")]
 pub enum AiTransport {
     #[serde(rename = "cli")]
-    Cli { command: String, args: Vec<String> },
+    Cli {
+        command: String,
+        args: Vec<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        acp: Option<super::acp::AcpAgentSpec>,
+    },
     #[serde(rename = "api")]
     Api {
         base_url: String,
@@ -205,7 +210,7 @@ pub async fn execute_cli(
     validate_note_path(&vault_path, &note_path)?;
 
     match &provider_config.transport {
-        AiTransport::Cli { command, args } => {
+        AiTransport::Cli { command, args, .. } => {
             let model = provider_config.model.as_deref().unwrap_or("");
             let not_found = not_found_message(&provider_config, command);
 

@@ -148,7 +148,7 @@ describe("AgentRunner.run_turn", () => {
     const result = await runner.run_turn(
       provider,
       "organize my notes",
-      "harness",
+      "acp",
     );
 
     expect(result).toEqual({ status: "done" });
@@ -176,7 +176,7 @@ describe("AgentRunner.run_turn", () => {
       { type: "done", stats: {} },
     ]);
 
-    await runner.run_turn(provider, "organize my notes", "harness");
+    await runner.run_turn(provider, "organize my notes", "acp");
 
     const assistant = rag_store.active?.messages.at(-1);
     expect(assistant?.reasoning).toBe("Let me look.");
@@ -191,7 +191,7 @@ describe("AgentRunner.run_turn", () => {
       { type: "done", stats: {} },
     ]);
 
-    await runner.run_turn(provider, "organize my notes", "harness");
+    await runner.run_turn(provider, "organize my notes", "acp");
 
     const events = rag_store.active?.messages.at(-1)?.tool_events ?? [];
     expect(events[0]?.ok).toBe(true);
@@ -205,7 +205,7 @@ describe("AgentRunner.run_turn", () => {
       { type: "done", stats: {} },
     ]);
 
-    await runner.run_turn(provider, "just look around", "harness");
+    await runner.run_turn(provider, "just look around", "acp");
 
     expect(refresh_vault).not.toHaveBeenCalled();
     expect(rag_store.active?.changed_files).toEqual([]);
@@ -217,7 +217,7 @@ describe("AgentRunner.run_turn", () => {
       { type: "done", stats: {} },
     ]);
 
-    await runner.run_turn(provider, "organize my notes", "harness");
+    await runner.run_turn(provider, "organize my notes", "acp");
 
     expect(git.create_checkpoint).toHaveBeenCalledTimes(1);
     expect(calls).toEqual(["checkpoint", "stream"]);
@@ -229,8 +229,8 @@ describe("AgentRunner.run_turn", () => {
       { type: "done", stats: {} },
     ]);
 
-    await runner.run_turn(provider, "first turn", "harness");
-    await runner.run_turn(provider, "second turn", "harness");
+    await runner.run_turn(provider, "first turn", "acp");
+    await runner.run_turn(provider, "second turn", "acp");
 
     const first = agent_request(starter.specs[0]!);
     const second = agent_request(starter.specs[1]!);
@@ -270,7 +270,7 @@ describe("AgentRunner.run_turn", () => {
       create_test_proposal_producer(),
     );
 
-    const running = runner.run_turn(provider, "organize my notes", "harness");
+    const running = runner.run_turn(provider, "organize my notes", "acp");
     await tick();
     expect(runner.is_running).toBe(true);
     runner.abort();
@@ -296,7 +296,7 @@ describe("AgentRunner.run_turn", () => {
     const result = await runner.run_turn(
       provider,
       "organize my notes",
-      "harness",
+      "acp",
     );
 
     expect(result).toEqual({ status: "error", message: "CLI crashed" });
@@ -314,7 +314,7 @@ describe("AgentRunner.run_turn", () => {
       { type: "error", message: "blocked by the provider" },
     ]);
 
-    const result = await runner.run_turn(provider, "summarize", "harness");
+    const result = await runner.run_turn(provider, "summarize", "acp");
 
     expect(result).toEqual({
       status: "error",
@@ -346,7 +346,7 @@ describe("AgentRunner.run_turn", () => {
       { type: "error", message: "blocked by the provider" },
     ]);
 
-    await runner.run_turn(provider, "rewrite my notes", "harness");
+    await runner.run_turn(provider, "rewrite my notes", "acp");
 
     expect(rag_store.active?.changed_files).toEqual(["notes/a.md"]);
     expect(refresh_vault).toHaveBeenCalledTimes(1);
@@ -362,7 +362,7 @@ describe("AgentRunner.run_turn", () => {
         { type: "done", stats: {} },
       ]);
 
-    await runner.run_turn(provider, "write something", "harness");
+    await runner.run_turn(provider, "write something", "acp");
 
     expect(refresh_vault).toHaveBeenCalledTimes(1);
     expect(sync_changed_notes).toHaveBeenCalledWith([]);
@@ -378,7 +378,7 @@ describe("AgentRunner.run_turn", () => {
       { type: "done", stats: {} },
     ]);
 
-    await runner.run_turn(provider, "just look around", "harness");
+    await runner.run_turn(provider, "just look around", "acp");
 
     expect(refresh_vault).not.toHaveBeenCalled();
     expect(sync_changed_notes).not.toHaveBeenCalled();
@@ -421,7 +421,7 @@ describe("AgentRunner.run_turn", () => {
     );
 
     const before = rag_store.active?.messages.length ?? 0;
-    await runner.run_turn(provider, "organize my notes", "harness");
+    await runner.run_turn(provider, "organize my notes", "acp");
 
     expect(sink_passed).toBe(true);
     expect(rag_store.active?.messages.length).toBe(before);
@@ -443,7 +443,7 @@ describe("AgentRunner end-of-turn proposals", () => {
   it("hands the checkpoint sha to the producer as the diff anchor", async () => {
     const { runner, proposals } = make_harness(writing_turn);
 
-    await runner.run_turn(provider, "organize my notes", "harness");
+    await runner.run_turn(provider, "organize my notes", "acp");
 
     expect(proposals.produce).toHaveBeenCalledTimes(1);
     expect(proposals.produce.mock.calls[0]?.[0]).toMatchObject({
@@ -455,7 +455,7 @@ describe("AgentRunner end-of-turn proposals", () => {
   it("stamps the turn's session and run onto the proposals' origin", async () => {
     const { runner, rag_store, proposals } = make_harness(writing_turn);
 
-    await runner.run_turn(provider, "organize my notes", "harness");
+    await runner.run_turn(provider, "organize my notes", "acp");
 
     const request = proposals.produce.mock.calls[0]?.[0];
     expect(request?.origin.session_id).toBe(rag_store.active?.id);
@@ -468,7 +468,7 @@ describe("AgentRunner end-of-turn proposals", () => {
   it("produces proposals before refreshing the vault", async () => {
     const { runner, calls } = make_harness(writing_turn);
 
-    await runner.run_turn(provider, "organize my notes", "harness");
+    await runner.run_turn(provider, "organize my notes", "acp");
 
     expect(calls.indexOf("proposals")).toBeGreaterThan(-1);
     expect(calls.indexOf("proposals")).toBeLessThan(
@@ -485,7 +485,7 @@ describe("AgentRunner end-of-turn proposals", () => {
     const result = await runner.run_turn(
       provider,
       "organize my notes",
-      "harness",
+      "acp",
     );
 
     expect(result).toEqual({ status: "done" });
@@ -501,7 +501,7 @@ describe("AgentRunner end-of-turn proposals", () => {
       { type: "done", stats: {} },
     ]);
 
-    await runner.run_turn(provider, "organize my notes", "harness");
+    await runner.run_turn(provider, "organize my notes", "acp");
 
     expect(proposals.produce).not.toHaveBeenCalled();
   });
@@ -518,7 +518,7 @@ describe("AgentRunner end-of-turn proposals", () => {
       { type: "error", message: "provider exploded" },
     ]);
 
-    await runner.run_turn(provider, "organize my notes", "harness");
+    await runner.run_turn(provider, "organize my notes", "acp");
 
     expect(proposals.produce).toHaveBeenCalledTimes(1);
   });
@@ -530,7 +530,7 @@ describe("AgentRunner end-of-turn proposals", () => {
     const result = await runner.run_turn(
       provider,
       "organize my notes",
-      "harness",
+      "acp",
     );
 
     expect(result).toEqual({ status: "done" });

@@ -108,7 +108,7 @@ export type RunRequest =
       toolset: ToolSelector;
       history: AgentHistoryMessage[];
       resume_session_id?: string;
-      backend: "harness" | "native";
+      backend: "acp" | "native";
     };
 
 export type RunOrigin = {

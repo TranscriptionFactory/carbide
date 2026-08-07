@@ -1,10 +1,16 @@
-export type AgentHarness = "claude" | "codex";
+// Which ACP agent drives agent mode for this provider. Presets resolve to
+// the official npx adapters; custom is any command speaking ACP on stdio.
+// The preset keeps the plain CLI command/args too — text mode and terminal
+// handoff still run the bare CLI.
+export type AcpAgentSpec =
+  | { kind: "preset"; id: "claude" | "codex" }
+  | { kind: "custom"; command: string; args: string[] };
 
 export type AiCliTransport = {
   kind: "cli";
   command: string;
   args: string[];
-  harness?: AgentHarness;
+  acp?: AcpAgentSpec;
 };
 
 export type AiApiTransport = {
@@ -32,7 +38,7 @@ export const BUILTIN_PROVIDER_PRESETS: AiProviderConfig[] = [
       kind: "cli",
       command: "claude",
       args: ["-p", "--output-format", "text"],
-      harness: "claude",
+      acp: { kind: "preset", id: "claude" },
     },
     install_url: "https://code.claude.com/docs/en/quickstart",
     is_preset: true,
@@ -50,7 +56,7 @@ export const BUILTIN_PROVIDER_PRESETS: AiProviderConfig[] = [
         "{output_file}",
         "-",
       ],
-      harness: "codex",
+      acp: { kind: "preset", id: "codex" },
     },
     install_url: "https://github.com/openai/codex",
     is_preset: true,

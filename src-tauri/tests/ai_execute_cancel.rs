@@ -16,6 +16,7 @@ fn cli_provider(args: &[&str]) -> AiProviderConfig {
         transport: AiTransport::Cli {
             command: "sh".to_string(),
             args: args.iter().map(|a| a.to_string()).collect(),
+            acp: None,
         },
         model: None,
         install_url: None,
