@@ -955,6 +955,7 @@ dependencies = [
  "sha2",
  "specta",
  "specta-typescript",
+ "strsim",
  "subtle",
  "tar",
  "tauri",
