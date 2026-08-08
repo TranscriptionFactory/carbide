@@ -2,7 +2,7 @@ use agent_client_protocol::schema::v1::SessionMode;
 use serde_json::json;
 
 use crate::features::ai::acp::agent_def::{
-    node_for_npx, node_version_rejection, preflight_error, preset_requires_node,
+    node_version_rejection, preflight_error, preset_requires_node,
 };
 use crate::features::ai::acp::{
     pick_session_mode, resolve_acp_launch, AcpAgentSpec, AcpPresetId,
@@ -261,41 +261,6 @@ fn a_supported_node_is_not_rejected() {
 fn an_unparseable_node_version_is_never_a_launch_blocker() {
     assert_eq!(node_version_rejection("", "/usr/bin/node"), None);
     assert_eq!(node_version_rejection("nightly", "/usr/bin/node"), None);
-}
-
-/// The whole point of the npx-relative lookup: `get_expanded_path` prepends
-/// every installed nvm/fnm/mise node bin, so PATH can answer for a different
-/// install than the `npx` we are about to run.
-#[test]
-fn node_is_resolved_from_the_npx_directory_before_path() {
-    let temp = tempfile::tempdir().expect("tempdir");
-    let bin = temp.path().join("bin");
-    std::fs::create_dir_all(&bin).expect("mkdir bin");
-    std::fs::write(bin.join("npx"), "").expect("npx");
-    std::fs::write(bin.join("node"), "").expect("node");
-
-    let resolved = node_for_npx(&bin.join("npx").to_string_lossy(), "/nonexistent")
-        .expect("the sibling node should win");
-
-    assert_eq!(resolved, bin.join("node").to_string_lossy());
-}
-
-/// With no sibling, the lookup falls back to PATH rather than inventing a
-/// neighbour that is not there.
-#[test]
-fn a_node_less_npx_directory_never_invents_a_sibling() {
-    let temp = tempfile::tempdir().expect("tempdir");
-    let npx = temp.path().join("npx");
-    std::fs::write(&npx, "").expect("npx");
-
-    let resolved = node_for_npx(&npx.to_string_lossy(), &pipeline::get_expanded_path());
-
-    assert!(
-        !resolved
-            .as_deref()
-            .is_some_and(|path| path.starts_with(&*temp.path().to_string_lossy())),
-        "resolved {resolved:?} from a directory with no node"
-    );
 }
 
 #[test]

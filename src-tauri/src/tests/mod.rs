@@ -7,6 +7,9 @@ mod acp_agent_def;
 #[path = "../../tests/agent_permissions.rs"]
 mod agent_permissions;
 
+#[path = "../../tests/pipeline_node_runtime.rs"]
+mod pipeline_node_runtime;
+
 #[path = "../../tests/notes_service_safety.rs"]
 mod notes_service_safety;
 

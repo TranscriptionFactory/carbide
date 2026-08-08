@@ -24,9 +24,6 @@ const NPX: &str = "npx";
 /// else. Checking the version here turns that silent hang into a sentence.
 const MIN_NODE_MAJOR: u32 = 20;
 
-/// Both spellings, because the sibling of a Windows `npx.cmd` is `node.exe`.
-const NODE_BINARIES: [&str; 2] = ["node", "node.exe"];
-
 /// An npx-shimmed preset never runs the user's own command, so the error has to
 /// name what they are actually missing rather than the shim they never
 /// configured. An agent that speaks ACP itself names the agent instead.
@@ -176,32 +173,8 @@ pub fn resolve_acp_launch(spec: &AcpAgentSpec, path_env: &str) -> Result<AcpLaun
 /// exists, and refusing to start on a failed `node --version` would trade a
 /// rare hang for a common false negative.
 fn node_runtime_error(resolved_npx: &str, path_env: &str) -> Option<String> {
-    let node = node_for_npx(resolved_npx, path_env)?;
-    let version = pipeline::read_cli_version(&node)?;
-    node_version_rejection(&version, &node)
-}
-
-/// Derived from the resolved `npx`'s own directory rather than looked up on
-/// PATH: `get_expanded_path` prepends every installed nvm / fnm / mise node
-/// `bin` in nondeterministic `read_dir` order, so a bare `node` lookup can
-/// answer for a different install than the `npx` we are about to run — wrong in
-/// both directions. PATH is the fallback, not the first choice.
-pub(crate) fn node_for_npx(resolved_npx: &str, path_env: &str) -> Option<String> {
-    let sibling = std::path::Path::new(resolved_npx).parent().and_then(|dir| {
-        NODE_BINARIES
-            .iter()
-            .map(|name| dir.join(name))
-            .find(|candidate| candidate.is_file())
-    });
-    if let Some(sibling) = sibling {
-        return Some(sibling.to_string_lossy().to_string());
-    }
-
-    let probe = pipeline::resolve_cli_with_path(NODE_BINARIES[0], path_env);
-    match probe.status {
-        pipeline::CliProbeStatus::Present => probe.resolved_path,
-        _ => None,
-    }
+    let node = pipeline::node_runtime_for_shim(resolved_npx, path_env)?;
+    node_version_rejection(&node.version, &node.path)
 }
 
 /// Split from the probe so the rule is testable without a Node install. The
