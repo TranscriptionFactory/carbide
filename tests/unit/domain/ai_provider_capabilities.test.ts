@@ -109,6 +109,7 @@ describe("agent_capability", () => {
       claude: { backend: "acp", acp: { kind: "preset", id: "claude" } },
       codex: { backend: "acp", acp: { kind: "preset", id: "codex" } },
       opencode: { backend: "acp", acp: { kind: "preset", id: "opencode" } },
+      pi: { backend: "acp", acp: { kind: "preset", id: "pi" } },
       ollama: null,
       lmstudio: { backend: "native" },
       "llama-server": { backend: "native" },

@@ -4,7 +4,7 @@
 // The preset keeps the plain CLI command/args too — text mode and terminal
 // handoff still run the bare CLI.
 export type AcpAgentSpec =
-  | { kind: "preset"; id: "claude" | "codex" | "opencode" }
+  | { kind: "preset"; id: "claude" | "codex" | "opencode" | "pi" }
   | { kind: "custom"; command: string; args: string[] };
 
 export type AiCliTransport = {
@@ -72,6 +72,18 @@ export const BUILTIN_PROVIDER_PRESETS: AiProviderConfig[] = [
       acp: { kind: "preset", id: "opencode" },
     },
     install_url: "https://opencode.ai/docs",
+    is_preset: true,
+  },
+  {
+    id: "pi",
+    name: "pi",
+    transport: {
+      kind: "cli",
+      command: "pi",
+      args: ["-p"],
+      acp: { kind: "preset", id: "pi" },
+    },
+    install_url: "https://pi.dev",
     is_preset: true,
   },
   {

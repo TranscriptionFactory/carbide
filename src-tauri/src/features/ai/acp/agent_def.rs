@@ -7,6 +7,8 @@ use crate::features::pipeline::service as pipeline;
 
 const CLAUDE_ACP_PACKAGE: &str = "@agentclientprotocol/claude-agent-acp";
 const CODEX_ACP_PACKAGE: &str = "@agentclientprotocol/codex-acp";
+/// Community adapter — pi speaks its own `--mode rpc` dialect, not ACP.
+const PI_ACP_PACKAGE: &str = "pi-acp";
 const NPX: &str = "npx";
 
 /// An npx-shimmed preset never runs the user's own command, so the error has to
@@ -27,6 +29,7 @@ pub enum AcpPresetId {
     Claude,
     Codex,
     Opencode,
+    Pi,
 }
 
 impl AcpPresetId {
@@ -35,6 +38,7 @@ impl AcpPresetId {
             AcpPresetId::Claude => "claude",
             AcpPresetId::Codex => "codex",
             AcpPresetId::Opencode => "opencode",
+            AcpPresetId::Pi => "pi",
         }
     }
 }
@@ -65,6 +69,7 @@ fn preset_launch(id: AcpPresetId) -> PresetLaunch {
             args: vec!["acp".to_string()],
             display_name: "opencode",
         },
+        AcpPresetId::Pi => npx_adapter(PI_ACP_PACKAGE),
     }
 }
 
