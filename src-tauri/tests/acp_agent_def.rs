@@ -47,7 +47,10 @@ fn preset_claude_resolves_to_an_npx_invocation() {
     .expect("npx is present");
 
     assert!(launch.command.ends_with("npx"));
-    assert_eq!(launch.args, ["-y", "@agentclientprotocol/claude-agent-acp"]);
+    assert_eq!(
+        launch.args,
+        ["-y", "@agentclientprotocol/claude-agent-acp@0.66.0"]
+    );
 }
 
 #[test]
@@ -64,7 +67,7 @@ fn preset_codex_resolves_to_an_npx_invocation() {
     .expect("npx is present");
 
     assert!(launch.command.ends_with("npx"));
-    assert_eq!(launch.args, ["-y", "@agentclientprotocol/codex-acp"]);
+    assert_eq!(launch.args, ["-y", "@agentclientprotocol/codex-acp@1.1.14"]);
 }
 
 /// opencode implements ACP itself, so the preset must not route through the npx
@@ -114,7 +117,7 @@ fn preset_pi_resolves_to_the_adapter_package() {
     .expect("npx is present");
 
     assert!(launch.command.ends_with("npx"));
-    assert_eq!(launch.args, ["-y", "pi-acp"]);
+    assert_eq!(launch.args, ["-y", "pi-acp@0.0.33"]);
 }
 
 #[test]
