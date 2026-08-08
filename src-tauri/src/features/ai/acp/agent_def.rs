@@ -62,13 +62,13 @@ impl AcpPresetId {
 /// What a preset actually spawns. Not every agent needs the npx adapter — one
 /// that implements ACP itself is launched directly, and then the preflight has
 /// to report the agent as missing rather than Node.
-pub(crate) struct PresetLaunch {
-    pub(crate) command: &'static str,
-    pub(crate) args: Vec<String>,
-    pub(crate) display_name: &'static str,
+struct PresetLaunch {
+    command: &'static str,
+    args: Vec<String>,
+    display_name: &'static str,
     /// Only the npx-shimmed presets run on Node. An agent that speaks ACP
     /// itself must never be blocked by a Node it does not use.
-    pub(crate) requires_node: bool,
+    requires_node: bool,
 }
 
 fn npx_adapter(package: &'static str, version: &'static str) -> PresetLaunch {
@@ -80,7 +80,14 @@ fn npx_adapter(package: &'static str, version: &'static str) -> PresetLaunch {
     }
 }
 
-pub(crate) fn preset_launch(id: AcpPresetId) -> PresetLaunch {
+/// The launch shape itself stays private — this exposes only the one bit the
+/// Node-gating test needs to pin.
+#[cfg(test)]
+pub(crate) fn preset_requires_node(id: AcpPresetId) -> bool {
+    preset_launch(id).requires_node
+}
+
+fn preset_launch(id: AcpPresetId) -> PresetLaunch {
     match id {
         AcpPresetId::Claude => npx_adapter(CLAUDE_ACP_PACKAGE, CLAUDE_ACP_VERSION),
         AcpPresetId::Codex => npx_adapter(CODEX_ACP_PACKAGE, CODEX_ACP_VERSION),
