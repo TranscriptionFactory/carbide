@@ -308,7 +308,7 @@ pub fn probe_cli(command: &str) -> CliProbe {
     probe
 }
 
-pub(crate) fn read_cli_version(program: &str) -> Option<String> {
+fn read_cli_version(program: &str) -> Option<String> {
     let mut cmd = no_window_cmd(program);
     cmd.arg("--version")
         .env("PATH", get_expanded_path())
@@ -341,6 +341,50 @@ fn extract_version_token(text: &str) -> Option<String> {
             _ => None,
         }
     })
+}
+
+/// Both spellings, because the sibling of a Windows `npx.cmd` is `node.exe`.
+const NODE_BINARIES: [&str; 2] = ["node", "node.exe"];
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct NodeRuntime {
+    pub path: String,
+    pub version: String,
+}
+
+/// The Node behind an already-resolved npx-style shim. Lives here rather than
+/// in a caller because this module already owns shim-aware binary resolution —
+/// `get_expanded_path` hardcodes the nvm / fnm / mise layouts, and that is
+/// exactly what makes a bare `node` lookup untrustworthy: it prepends *every*
+/// installed Node `bin` in nondeterministic `read_dir` order, so it can answer
+/// for a different install than the shim came from. Resolve the sibling first;
+/// PATH is the fallback, not the first choice.
+///
+/// `None` whenever the runtime cannot be identified or its version cannot be
+/// read — callers use this to gate, and an unverifiable runtime must not be
+/// reported as a bad one.
+pub fn node_runtime_for_shim(shim_path: &str, path_env: &str) -> Option<NodeRuntime> {
+    let path = resolve_node_for_shim(shim_path, path_env)?;
+    let version = read_cli_version(&path)?;
+    Some(NodeRuntime { path, version })
+}
+
+pub fn resolve_node_for_shim(shim_path: &str, path_env: &str) -> Option<String> {
+    let sibling = std::path::Path::new(shim_path).parent().and_then(|dir| {
+        NODE_BINARIES
+            .iter()
+            .map(|name| dir.join(name))
+            .find(|candidate| candidate.is_file())
+    });
+    if let Some(sibling) = sibling {
+        return Some(sibling.to_string_lossy().to_string());
+    }
+
+    let probe = resolve_cli_with_path(NODE_BINARIES[0], path_env);
+    match probe.status {
+        CliProbeStatus::Present => probe.resolved_path,
+        _ => None,
+    }
 }
 
 pub fn path_with_dir_prepended(dir: &std::path::Path, path: &str) -> String {
