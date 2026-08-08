@@ -5,10 +5,17 @@ use specta::Type;
 use crate::features::ai::agent_stream::cli_probe_error_message;
 use crate::features::pipeline::service as pipeline;
 
+/// Adapter versions are pinned rather than left to resolve `latest` on every
+/// cold launch: these packages execute with the ACP agent's full system access,
+/// so an upstream release must not reach users untested, and a bug report needs
+/// a version to cite. See `docs/ai_and_chat.md` for the bump procedure.
 const CLAUDE_ACP_PACKAGE: &str = "@agentclientprotocol/claude-agent-acp";
+const CLAUDE_ACP_VERSION: &str = "0.66.0";
 const CODEX_ACP_PACKAGE: &str = "@agentclientprotocol/codex-acp";
+const CODEX_ACP_VERSION: &str = "1.1.14";
 /// Community adapter — pi speaks its own `--mode rpc` dialect, not ACP.
 const PI_ACP_PACKAGE: &str = "pi-acp";
+const PI_ACP_VERSION: &str = "0.0.33";
 const NPX: &str = "npx";
 
 /// An npx-shimmed preset never runs the user's own command, so the error has to
@@ -52,24 +59,24 @@ struct PresetLaunch {
     display_name: &'static str,
 }
 
-fn npx_adapter(package: &'static str) -> PresetLaunch {
+fn npx_adapter(package: &'static str, version: &'static str) -> PresetLaunch {
     PresetLaunch {
         command: NPX,
-        args: vec!["-y".to_string(), package.to_string()],
+        args: vec!["-y".to_string(), format!("{package}@{version}")],
         display_name: NPX_DISPLAY_NAME,
     }
 }
 
 fn preset_launch(id: AcpPresetId) -> PresetLaunch {
     match id {
-        AcpPresetId::Claude => npx_adapter(CLAUDE_ACP_PACKAGE),
-        AcpPresetId::Codex => npx_adapter(CODEX_ACP_PACKAGE),
+        AcpPresetId::Claude => npx_adapter(CLAUDE_ACP_PACKAGE, CLAUDE_ACP_VERSION),
+        AcpPresetId::Codex => npx_adapter(CODEX_ACP_PACKAGE, CODEX_ACP_VERSION),
         AcpPresetId::Opencode => PresetLaunch {
             command: "opencode",
             args: vec!["acp".to_string()],
             display_name: "opencode",
         },
-        AcpPresetId::Pi => npx_adapter(PI_ACP_PACKAGE),
+        AcpPresetId::Pi => npx_adapter(PI_ACP_PACKAGE, PI_ACP_VERSION),
     }
 }
 

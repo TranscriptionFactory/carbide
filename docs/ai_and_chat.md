@@ -49,6 +49,30 @@ presets (LM Studio, llama.cpp) are treated as always-available, since reachabili
 confirmed by an actual request. You can also add custom providers with your own command/args
 or base URL.
 
+### ACP adapters and the Node runtime
+
+Three of the four ACP presets — `claude`, `codex`, `pi` — do not speak ACP themselves. Carbide
+launches them through an adapter package fetched with `npx`, so **agent mode for those presets
+requires Node.js on `PATH`**. `opencode` implements ACP directly and needs no Node.
+
+Adapter versions are **pinned** in `src-tauri/src/features/ai/acp/agent_def.rs`:
+
+| Preset   | Package                                 | Pinned version |
+| -------- | --------------------------------------- | -------------- |
+| `claude` | `@agentclientprotocol/claude-agent-acp` | `0.66.0`       |
+| `codex`  | `@agentclientprotocol/codex-acp`        | `1.1.14`       |
+| `pi`     | `pi-acp`                                | `0.0.33`       |
+
+Pinning is deliberate. An unpinned `npx -y <pkg>` resolves `latest` on every cold launch, which
+makes first-run latency network-dependent and — more importantly — lets a third-party release
+we have never run execute with the ACP agent's full system access, breaking agent mode for
+every user at once with no rollback.
+
+**To bump an adapter:** check the new version (`npm view <package> version`), update the
+matching `*_ACP_VERSION` constant, update the asserted arg vector in
+`src-tauri/tests/acp_agent_def.rs`, update the table above, and launch an agent session against
+the preset to confirm the `initialize` round-trip still succeeds.
+
 ## Inline ask / edit
 
 From the editor, open the inline AI menu (`Cmd/Ctrl+Shift+I`) to **ask** a question or
