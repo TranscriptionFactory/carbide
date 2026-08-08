@@ -416,7 +416,75 @@ fn describe_missing_old_string(content: &str, old_string: &str) -> String {
             return near_miss_message(rung, count);
         }
     }
-    "old_string was not found in the note".to_string()
+
+    match find_similar_section(content, old_string) {
+        Some(section) => similar_section_message(&section),
+        None => "old_string was not found in the note, and nothing in it is close. \
+                 The note may have changed — re-read it with read_note before editing again."
+            .to_string(),
+    }
+}
+
+/// Above this, the text is close enough that pointing at it is more useful than
+/// declaring the note unrecognizable; below it, naming a region would send the
+/// model to edit the wrong place.
+const SECTION_MATCH_THRESHOLD: f64 = 0.9;
+const MAX_EXCERPT_LINES: usize = 6;
+
+struct SimilarSection {
+    start_line: usize,
+    end_line: usize,
+    similarity: f64,
+    text: String,
+}
+
+/// No normalization rung matched, so the text genuinely differs — the useful
+/// answer is no longer *what* changed but *where*. Slide `old_string`'s own line
+/// count as a window over the note and keep the best-scoring region.
+fn find_similar_section(content: &str, old_string: &str) -> Option<SimilarSection> {
+    let lines: Vec<&str> = content.lines().collect();
+    let window = old_string.lines().count();
+    if window == 0 || window > lines.len() {
+        return None;
+    }
+
+    lines
+        .windows(window)
+        .enumerate()
+        .map(|(index, region)| {
+            let text = region.join("\n");
+            SimilarSection {
+                start_line: index + 1,
+                end_line: index + window,
+                similarity: strsim::jaro_winkler(old_string, &text),
+                text,
+            }
+        })
+        .filter(|section| section.similarity >= SECTION_MATCH_THRESHOLD)
+        .max_by(|a, b| a.similarity.total_cmp(&b.similarity))
+}
+
+/// The directive comes before the excerpt: tool results are truncated head-only,
+/// so anything the model must act on has to survive a long quote being cut.
+fn similar_section_message(section: &SimilarSection) -> String {
+    format!(
+        "old_string was not found in the note. The closest text is lines {}-{} ({:.0}% similar) — \
+         copy old_string from those lines exactly, or re-read the note with read_note if it has \
+         changed since. Those lines are:\n{}",
+        section.start_line,
+        section.end_line,
+        section.similarity * 100.0,
+        excerpt(&section.text)
+    )
+}
+
+fn excerpt(text: &str) -> String {
+    let lines: Vec<&str> = text.lines().collect();
+    let mut out = lines[..lines.len().min(MAX_EXCERPT_LINES)].join("\n");
+    if lines.len() > MAX_EXCERPT_LINES {
+        out.push_str("\n…");
+    }
+    out
 }
 
 fn near_miss_message(rung: EditDrift, count: usize) -> String {
@@ -1040,11 +1108,58 @@ mod tests {
         assert!(error.contains("surrounding context"), "{error}");
     }
 
+    /// Nothing in the note resembles the text, so pointing at a region would
+    /// only send the model to edit the wrong place.
     #[test]
-    fn apply_edit_falls_back_to_a_plain_message_with_no_near_match() {
+    fn apply_edit_below_the_similarity_threshold_directs_a_re_read() {
         let error = edit_error("hello world", "nothing like this at all");
 
-        assert_eq!(error, "old_string was not found in the note");
+        assert!(error.contains("nothing in it is close"), "{error}");
+        assert!(error.contains("read_note"), "{error}");
+        assert!(!error.contains("similar"), "{error}");
+    }
+
+    /// Genuinely different text — no normalization rung can match it — so the
+    /// useful answer is where the closest region is.
+    #[test]
+    fn apply_edit_locates_the_closest_region_by_similarity() {
+        let content = "# Notes\n\nThe quick brown fox jumps over the lazy dog.\n\n## End\n";
+        let error = edit_error(content, "The quick brown fox jumps over the lazy cat.");
+
+        assert!(error.contains("lines 3-3"), "{error}");
+        assert!(error.contains("% similar"), "{error}");
+        assert!(error.contains("The quick brown fox"), "{error}");
+    }
+
+    /// Truncation is head-only, so the instruction has to precede the quote.
+    #[test]
+    fn apply_edit_puts_the_directive_before_the_excerpt() {
+        let content = "# Notes\n\nThe quick brown fox jumps over the lazy dog.\n";
+        let error = edit_error(content, "The quick brown fox jumps over the lazy cat.");
+
+        let directive = error.find("copy old_string").expect("directive");
+        let quote = error.find("The quick brown fox jumps over the lazy dog").expect("quote");
+        assert!(directive < quote, "{error}");
+    }
+
+    #[test]
+    fn apply_edit_bounds_the_reported_excerpt() {
+        let body = (0..40)
+            .map(|n| format!("line {n} of the note body"))
+            .collect::<Vec<_>>()
+            .join("\n");
+        let old_string = (0..40)
+            .map(|n| format!("line {n} of the note bodyy"))
+            .collect::<Vec<_>>()
+            .join("\n");
+
+        let error = edit_error(&body, &old_string);
+
+        assert!(error.contains('…'), "{error}");
+        assert!(
+            error.lines().count() <= MAX_EXCERPT_LINES + 3,
+            "excerpt was not bounded: {error}"
+        );
     }
 
     #[test]

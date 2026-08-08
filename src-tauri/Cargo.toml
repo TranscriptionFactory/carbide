@@ -59,6 +59,7 @@ candle-transformers = { version = "0.9", default-features = false }
 hf-hub = { version = "0.5", default-features = false, features = ["tokio", "ureq", "rustls-tls"] }
 tokenizers = { version = "0.22", default-features = false, features = ["onig"] }
 fuzzy-matcher = "0.3"
+strsim = "0.11.1"
 specta = { version = "=2.0.0-rc.22" }
 specta-typescript = "0.0.9"
 tauri-specta = { version = "=2.0.0-rc.21", features = ["derive", "typescript"] }

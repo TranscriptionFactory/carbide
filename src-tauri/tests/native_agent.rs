@@ -13,6 +13,7 @@ use crate::features::ai::native_agent::{
     HISTORY_MAX_CHARS, HISTORY_MAX_MESSAGES, MAX_ITERATIONS, TOOL_RESULT_MAX_CHARS,
 };
 use crate::features::ai::stream::{AiMessage, AiMessageContent, AiStreamEvent, AiToolCall};
+use crate::features::mcp::shared_ops::{apply_edit, OpError};
 use crate::features::mcp::types::{InputSchema, ToolDefinition, ToolResult};
 
 struct FakeClient {
@@ -720,6 +721,68 @@ fn evict_history_at_exact_char_cap_keeps_both() {
     let kept = evict_history(history);
 
     assert_eq!(kept.len(), 2);
+}
+
+/// `is_error` only drives a UI flag — the model receives the error *text* as an
+/// ordinary tool result. That makes a self-describing near-miss report the whole
+/// retry signal, so it has to survive the trip into the next turn's messages.
+#[tokio::test]
+async fn a_near_miss_edit_error_reaches_the_model_and_it_corrects_itself() {
+    let seen_messages = Arc::new(Mutex::new(Vec::new()));
+    let client = RecordingClient {
+        seen_messages: seen_messages.clone(),
+        turns: Arc::new(Mutex::new(
+            vec![
+                call_turn("c1", "edit_note", r#"{"old_string":"alpha\nbeta"}"#),
+                call_turn("c2", "edit_note", r#"{"old_string":"  alpha\n  beta"}"#),
+                text_turn("edited"),
+            ]
+            .into(),
+        )),
+    };
+
+    let note = "  alpha\n  beta\n";
+    let dispatch = move |_name: &str, args: Option<&Value>| {
+        let old = args
+            .and_then(|a| a.get("old_string"))
+            .and_then(Value::as_str)
+            .unwrap_or_default();
+        match apply_edit(note, old, "gamma", false) {
+            Ok(_) => ToolResult::text("edited the note".into()),
+            Err(OpError::NotFound(message)) | Err(OpError::BadRequest(message)) => {
+                ToolResult::error(message)
+            }
+            Err(other) => panic!("unexpected error: {other:?}"),
+        }
+    };
+
+    let (_tx, rx) = oneshot::channel();
+    let events = drive(
+        client,
+        vec![tool_def("edit_note", true)],
+        ToolSelector::Full,
+        dispatch,
+        rx,
+    )
+    .await;
+
+    let recorded = seen_messages.lock().unwrap();
+    let retry_prompt = recorded
+        .get(1)
+        .expect("the model should be asked for a second turn");
+    let near_miss = retry_prompt
+        .iter()
+        .find(|m| m.tool_call_id.as_deref() == Some("c1"))
+        .map(content_text)
+        .expect("the failed call's result should be in history");
+
+    assert!(near_miss.contains("leading indentation"), "{near_miss}");
+    assert!(near_miss.contains("read_note"), "{near_miss}");
+
+    // The corrected retry is the point: the report told the model what differed
+    // and its next call succeeded.
+    assert!(matches!(events[2], AgentEvent::ToolEnd { ok: false, .. }));
+    assert!(matches!(events[4], AgentEvent::ToolEnd { ok: true, .. }));
 }
 
 #[tokio::test]
