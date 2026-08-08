@@ -336,23 +336,25 @@ const DRIFT_LADDER: [EditDrift; 4] = [
 const MAX_REPORTED_LINES: usize = 10;
 
 impl EditDrift {
-    fn label(self) -> &'static str {
+    /// Label and guidance are always reported together, so they stay one match.
+    fn describe(self) -> (&'static str, &'static str) {
         match self {
-            EditDrift::LineEndings => "line endings",
-            EditDrift::TrailingWhitespace => "trailing whitespace",
-            EditDrift::Indentation => "leading indentation",
-            EditDrift::Punctuation => "typographic punctuation",
-        }
-    }
-
-    fn guidance(self) -> &'static str {
-        match self {
-            EditDrift::LineEndings => "the note's lines end differently from the ones you sent",
-            EditDrift::TrailingWhitespace => "keep the spaces at the end of each line",
-            EditDrift::Indentation => "keep the note's leading indentation exactly",
-            EditDrift::Punctuation => {
-                "the note uses curly quotes or dashes where old_string uses ASCII, or the reverse"
-            }
+            EditDrift::LineEndings => (
+                "line endings",
+                "the note's lines end differently from the ones you sent",
+            ),
+            EditDrift::TrailingWhitespace => (
+                "trailing whitespace",
+                "keep the spaces at the end of each line",
+            ),
+            EditDrift::Indentation => (
+                "leading indentation",
+                "keep the note's leading indentation exactly",
+            ),
+            EditDrift::Punctuation => (
+                "typographic punctuation",
+                "the note uses curly quotes or dashes where old_string uses ASCII, or the reverse",
+            ),
         }
     }
 
@@ -387,17 +389,6 @@ fn to_ascii_punctuation(text: &str) -> String {
     out
 }
 
-fn normalize_through(text: &str, rung: EditDrift) -> String {
-    let mut out = text.to_string();
-    for step in DRIFT_LADDER {
-        out = step.apply(&out);
-        if step == rung {
-            break;
-        }
-    }
-    out
-}
-
 /// A local model's near-miss is almost never arbitrary — it is trailing-space
 /// drift, CRLF, re-indentation or a smart quote. Retrying the exact search under
 /// progressively looser normalizations identifies *which*, so the report names
@@ -405,9 +396,14 @@ fn normalize_through(text: &str, rung: EditDrift) -> String {
 /// iterations. The near-match is only ever described, never applied: silently
 /// fuzzy-editing someone's notes is worse than failing.
 fn describe_missing_old_string(content: &str, old_string: &str) -> String {
+    // Each rung builds on the previous one's output, so drift on two axes at
+    // once still lands somewhere and the note is walked once per rung, not once
+    // per rung *per prefix*.
+    let mut haystack = content.to_string();
+    let mut needle = old_string.to_string();
     for rung in DRIFT_LADDER {
-        let haystack = normalize_through(content, rung);
-        let needle = normalize_through(old_string, rung);
+        haystack = rung.apply(&haystack);
+        needle = rung.apply(&needle);
         if needle.is_empty() {
             continue;
         }
@@ -443,25 +439,37 @@ struct SimilarSection {
 /// count as a window over the note and keep the best-scoring region.
 fn find_similar_section(content: &str, old_string: &str) -> Option<SimilarSection> {
     let lines: Vec<&str> = content.lines().collect();
-    let window = old_string.lines().count();
-    if window == 0 || window > lines.len() {
+    let old_lines: Vec<&str> = old_string.lines().collect();
+    if old_lines.is_empty() || old_lines.len() > lines.len() {
         return None;
     }
 
-    lines
-        .windows(window)
+    let (start, similarity) = lines
+        .windows(old_lines.len())
         .enumerate()
-        .map(|(index, region)| {
-            let text = region.join("\n");
-            SimilarSection {
-                start_line: index + 1,
-                end_line: index + window,
-                similarity: strsim::jaro_winkler(old_string, &text),
-                text,
-            }
-        })
-        .filter(|section| section.similarity >= SECTION_MATCH_THRESHOLD)
-        .max_by(|a, b| a.similarity.total_cmp(&b.similarity))
+        .map(|(start, region)| (start, section_similarity(&old_lines, region)))
+        .max_by(|a, b| a.1.total_cmp(&b.1))?;
+
+    (similarity >= SECTION_MATCH_THRESHOLD).then(|| SimilarSection {
+        start_line: start + 1,
+        end_line: start + old_lines.len(),
+        similarity,
+        text: lines[start..start + old_lines.len()].join("\n"),
+    })
+}
+
+/// Scored line against corresponding line rather than as one flat block. The
+/// window already assumes line-for-line correspondence, and Jaro is quadratic in
+/// the compared length — flattening makes the cost quadratic in the whole
+/// window instead of in one line, which measured ~10x slower for no better
+/// answer. Only the winning region is ever materialized as a string.
+fn section_similarity(old_lines: &[&str], region: &[&str]) -> f64 {
+    let total: f64 = old_lines
+        .iter()
+        .zip(region)
+        .map(|(old, candidate)| strsim::jaro_winkler(old, candidate))
+        .sum();
+    total / old_lines.len() as f64
 }
 
 /// The directive comes before the excerpt: tool results are truncated head-only,
@@ -488,11 +496,10 @@ fn excerpt(text: &str) -> String {
 }
 
 fn near_miss_message(rung: EditDrift, count: usize) -> String {
+    let (label, guidance) = rung.describe();
     let mut message = format!(
-        "old_string was not found in the note. The same text is present but differs in {} — {}. \
-         Re-read the note with read_note and copy old_string out of it exactly.",
-        rung.label(),
-        rung.guidance()
+        "old_string was not found in the note. The same text is present but differs in {label} — \
+         {guidance}. Re-read the note with read_note and copy old_string out of it exactly."
     );
     if count > 1 {
         message.push_str(&format!(
@@ -1035,6 +1042,7 @@ pub fn repair_links_for(
 #[cfg(test)]
 mod tests {
     use super::*;
+
 
     #[test]
     fn apply_edit_replaces_unique_match() {

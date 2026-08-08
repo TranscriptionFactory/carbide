@@ -2,7 +2,7 @@ use agent_client_protocol::schema::v1::SessionMode;
 use serde_json::json;
 
 use crate::features::ai::acp::agent_def::{
-    node_for_npx, node_version_rejection, preflight_error, preset_launch,
+    node_for_npx, node_version_rejection, preflight_error, preset_requires_node,
 };
 use crate::features::ai::acp::{
     pick_session_mode, resolve_acp_launch, AcpAgentSpec, AcpPresetId,
@@ -233,9 +233,9 @@ fn an_empty_custom_command_is_rejected() {
 #[test]
 fn only_the_npx_shimmed_presets_are_node_gated() {
     for preset in [AcpPresetId::Claude, AcpPresetId::Codex, AcpPresetId::Pi] {
-        assert!(preset_launch(preset).requires_node, "{preset:?}");
+        assert!(preset_requires_node(preset), "{preset:?}");
     }
-    assert!(!preset_launch(AcpPresetId::Opencode).requires_node);
+    assert!(!preset_requires_node(AcpPresetId::Opencode));
 }
 
 #[test]
