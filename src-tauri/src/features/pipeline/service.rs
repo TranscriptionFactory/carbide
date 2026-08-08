@@ -308,7 +308,7 @@ pub fn probe_cli(command: &str) -> CliProbe {
     probe
 }
 
-fn read_cli_version(program: &str) -> Option<String> {
+pub(crate) fn read_cli_version(program: &str) -> Option<String> {
     let mut cmd = no_window_cmd(program);
     cmd.arg("--version")
         .env("PATH", get_expanded_path())

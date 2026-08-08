@@ -53,7 +53,15 @@ or base URL.
 
 Three of the four ACP presets — `claude`, `codex`, `pi` — do not speak ACP themselves. Carbide
 launches them through an adapter package fetched with `npx`, so **agent mode for those presets
-requires Node.js on `PATH`**. `opencode` implements ACP directly and needs no Node.
+requires Node.js 20 or newer on `PATH`**. `opencode` implements ACP directly and needs no Node.
+
+Carbide does not install Node — it checks for it. Starting one of those presets probes `npx`,
+then reads the version of the `node` sitting **beside the resolved `npx`** (a bare PATH lookup
+would be unreliable, since Carbide prepends every installed nvm/fnm/mise Node to `PATH` and
+could answer for a different install than the one `npx` came from). Too old, and the session
+fails immediately with the found version and the minimum; without the check, `npx` resolves
+fine and the adapter instead dies mid-`initialize`, surfacing as nothing but a closed channel.
+A Node that cannot be found or whose version cannot be read never blocks a launch.
 
 Adapter versions are **pinned** in `src-tauri/src/features/ai/acp/agent_def.rs`:
 
