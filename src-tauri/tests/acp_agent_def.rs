@@ -67,6 +67,48 @@ fn preset_codex_resolves_to_an_npx_invocation() {
     assert_eq!(launch.args, ["-y", "@agentclientprotocol/codex-acp"]);
 }
 
+/// opencode implements ACP itself, so the preset must not route through the npx
+/// adapter shim the other two need.
+#[test]
+fn preset_opencode_launches_the_agents_own_acp_subcommand() {
+    if !present("opencode") {
+        return;
+    }
+    let launch = resolve_acp_launch(
+        &AcpAgentSpec::Preset {
+            id: AcpPresetId::Opencode,
+        },
+        &pipeline::get_expanded_path(),
+    )
+    .expect("opencode is present");
+
+    assert!(launch.command.ends_with("opencode"));
+    assert_eq!(launch.args, ["acp"]);
+}
+
+#[test]
+fn a_missing_opencode_names_the_agent_not_node() {
+    let error = preflight_error(
+        &AcpAgentSpec::Preset {
+            id: AcpPresetId::Opencode,
+        },
+        "opencode",
+        &missing_probe(None),
+    );
+
+    assert!(error.contains("opencode"));
+    assert!(!error.contains("Node.js"));
+}
+
+#[test]
+fn preset_agent_ids_are_distinct_per_preset() {
+    let id = |preset| AcpAgentSpec::Preset { id: preset }.agent_id();
+
+    assert_eq!(id(AcpPresetId::Claude), "claude");
+    assert_eq!(id(AcpPresetId::Codex), "codex");
+    assert_eq!(id(AcpPresetId::Opencode), "opencode");
+}
+
 #[test]
 fn custom_args_pass_through_verbatim() {
     if !present("sh") {
@@ -234,6 +276,15 @@ fn agent_spec_round_trips_through_json() {
         codex,
         AcpAgentSpec::Preset {
             id: AcpPresetId::Codex
+        }
+    );
+
+    let opencode: AcpAgentSpec =
+        serde_json::from_value(json!({ "kind": "preset", "id": "opencode" })).expect("opencode");
+    assert_eq!(
+        opencode,
+        AcpAgentSpec::Preset {
+            id: AcpPresetId::Opencode
         }
     );
 }

@@ -17,6 +17,7 @@ export type AgentCapability =
 export const ACP_PRESET_LABELS: Record<AcpPresetId, string> = {
   claude: "Claude Code",
   codex: "Codex",
+  opencode: "opencode",
 };
 
 export function acp_agent_label(spec: AcpAgentSpec): string {

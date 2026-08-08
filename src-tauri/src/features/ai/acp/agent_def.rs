@@ -9,8 +9,9 @@ const CLAUDE_ACP_PACKAGE: &str = "@agentclientprotocol/claude-agent-acp";
 const CODEX_ACP_PACKAGE: &str = "@agentclientprotocol/codex-acp";
 const NPX: &str = "npx";
 
-/// Presets never run the user's own command, so the error has to name what they
-/// are actually missing rather than the `npx` shim they never configured.
+/// An npx-shimmed preset never runs the user's own command, so the error has to
+/// name what they are actually missing rather than the shim they never
+/// configured. An agent that speaks ACP itself names the agent instead.
 const NPX_DISPLAY_NAME: &str = "npx (Node.js)";
 
 /// Session modes whose id or name matches any of these are never selected, even
@@ -25,6 +26,46 @@ const PREFERRED_MODE_MARKERS: [&str; 2] = ["accept", "auto"];
 pub enum AcpPresetId {
     Claude,
     Codex,
+    Opencode,
+}
+
+impl AcpPresetId {
+    fn as_str(self) -> &'static str {
+        match self {
+            AcpPresetId::Claude => "claude",
+            AcpPresetId::Codex => "codex",
+            AcpPresetId::Opencode => "opencode",
+        }
+    }
+}
+
+/// What a preset actually spawns. Not every agent needs the npx adapter — one
+/// that implements ACP itself is launched directly, and then the preflight has
+/// to report the agent as missing rather than Node.
+struct PresetLaunch {
+    command: &'static str,
+    args: Vec<String>,
+    display_name: &'static str,
+}
+
+fn npx_adapter(package: &'static str) -> PresetLaunch {
+    PresetLaunch {
+        command: NPX,
+        args: vec!["-y".to_string(), package.to_string()],
+        display_name: NPX_DISPLAY_NAME,
+    }
+}
+
+fn preset_launch(id: AcpPresetId) -> PresetLaunch {
+    match id {
+        AcpPresetId::Claude => npx_adapter(CLAUDE_ACP_PACKAGE),
+        AcpPresetId::Codex => npx_adapter(CODEX_ACP_PACKAGE),
+        AcpPresetId::Opencode => PresetLaunch {
+            command: "opencode",
+            args: vec!["acp".to_string()],
+            display_name: "opencode",
+        },
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Type)]
@@ -45,8 +86,7 @@ impl AcpAgentSpec {
     /// command verbatim.
     pub fn agent_id(&self) -> String {
         match self {
-            AcpAgentSpec::Preset { id: AcpPresetId::Claude } => "claude".to_string(),
-            AcpAgentSpec::Preset { id: AcpPresetId::Codex } => "codex".to_string(),
+            AcpAgentSpec::Preset { id } => id.as_str().to_string(),
             AcpAgentSpec::Custom { command, .. } => command.clone(),
         }
     }
@@ -61,14 +101,8 @@ pub struct AcpLaunch {
 pub fn resolve_acp_launch(spec: &AcpAgentSpec, path_env: &str) -> Result<AcpLaunch, String> {
     let (command, args) = match spec {
         AcpAgentSpec::Preset { id } => {
-            let package = match id {
-                AcpPresetId::Claude => CLAUDE_ACP_PACKAGE,
-                AcpPresetId::Codex => CODEX_ACP_PACKAGE,
-            };
-            (
-                NPX.to_string(),
-                vec!["-y".to_string(), package.to_string()],
-            )
+            let launch = preset_launch(*id);
+            (launch.command.to_string(), launch.args)
         }
         AcpAgentSpec::Custom { command, args } => {
             let command = command.trim().to_string();
@@ -102,7 +136,7 @@ pub(crate) fn preflight_error(
     probe: &pipeline::CliProbe,
 ) -> String {
     let provider_name = match spec {
-        AcpAgentSpec::Preset { .. } => NPX_DISPLAY_NAME,
+        AcpAgentSpec::Preset { id } => preset_launch(*id).display_name,
         AcpAgentSpec::Custom { .. } => command,
     };
     cli_probe_error_message(provider_name, probe)
