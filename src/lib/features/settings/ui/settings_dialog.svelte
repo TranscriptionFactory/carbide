@@ -39,7 +39,7 @@
     type AiProviderProbeState,
   } from "$lib/features/ai";
   import { toast } from "$lib/shared/ui/toast";
-  import type { Grant } from "$lib/generated/bindings";
+  import type { AcpPresetId, Grant } from "$lib/generated/bindings";
   import type { AssistantPermissionPort } from "$lib/features/assistant";
   import type { StorageStats } from "$lib/features/settings/ports";
   import { format_bytes } from "$lib/shared/utils/format_bytes";
@@ -365,10 +365,16 @@
 
   const acp_agent_options = [
     { value: "none", label: "None (plain text CLI)" },
-    { value: "claude", label: ACP_PRESET_LABELS.claude },
-    { value: "codex", label: ACP_PRESET_LABELS.codex },
+    ...Object.entries(ACP_PRESET_LABELS).map(([value, label]) => ({
+      value,
+      label,
+    })),
     { value: "custom", label: "Custom ACP command" },
   ];
+
+  function acp_preset_id(value: string): AcpPresetId | null {
+    return value in ACP_PRESET_LABELS ? (value as AcpPresetId) : null;
+  }
 
   function parse_args_input(value: string): string[] {
     return value
@@ -1447,12 +1453,12 @@
                               if (!v || provider.transport.kind !== "cli")
                                 return;
                               const { acp: _, ...rest } = provider.transport;
-                              const acp: AcpAgentSpec | null =
-                                v === "claude" || v === "codex"
-                                  ? { kind: "preset", id: v }
-                                  : v === "custom"
-                                    ? { kind: "custom", command: "", args: [] }
-                                    : null;
+                              const preset = acp_preset_id(v);
+                              const acp: AcpAgentSpec | null = preset
+                                ? { kind: "preset", id: preset }
+                                : v === "custom"
+                                  ? { kind: "custom", command: "", args: [] }
+                                  : null;
                               update_provider(provider.id, {
                                 transport: acp ? { ...rest, acp } : rest,
                               });

@@ -12,6 +12,7 @@ describe("preferred_ai_backend_order", () => {
     expect(result.map((p) => p.id)).toEqual([
       "claude",
       "codex",
+      "opencode",
       "ollama",
       "lmstudio",
       "llama-server",
@@ -35,6 +36,7 @@ describe("preferred_ai_backend_order", () => {
     expect(result.map((p) => p.id)).toEqual([
       "claude",
       "codex",
+      "opencode",
       "ollama",
       "lmstudio",
       "llama-server",

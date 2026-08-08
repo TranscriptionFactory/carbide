@@ -31,13 +31,14 @@ Built-in presets:
 | -------------------------- | -------------- | --------- | --------------------------------- | ------------------- |
 | Claude Code                | `claude`       | CLI       | `claude`                          | Claude Code harness |
 | Codex                      | `codex`        | CLI       | `codex`                           | Codex harness       |
+| opencode                   | `opencode`     | CLI       | `opencode`                        | opencode harness    |
 | Ollama                     | `ollama`       | CLI       | `ollama run <model>` (`qwen3:8b`) | none (text only)    |
 | LM Studio (server)         | `lmstudio`     | API       | `http://localhost:1234/v1`        | native loop         |
 | llama.cpp (`llama-server`) | `llama-server` | API       | `http://localhost:8080/v1`        | native loop         |
 
 **Agent capability is derived from the transport, not chosen.** API providers always get the
 native OpenAI-compatible agent loop. CLI providers are agent-capable only when their transport
-names the harness protocol the CLI speaks (Claude Code or Codex); a plain CLI — e.g.
+names the harness protocol the CLI speaks (Claude Code, Codex, or opencode); a plain CLI — e.g.
 `lms chat <model> -p <prompt>` — is text-only. The settings UI shows the computed capability
 under each provider, and custom CLI providers get a **Harness** select.
 
@@ -114,7 +115,7 @@ The composer has two modes:
 
 Agent mode has two permission levels. **Safe** limits the agent to note tools; **power**
 lifts that limit. The panel shows which backend is in play — _vault-scoped_ for the native
-loop, _full access_ for a harness agent (Claude Code or Codex) with system access. Opening
+loop, _full access_ for a harness agent (Claude Code, Codex, or opencode) with system access. Opening
 the vault in an agent terminal (vault handoff) is Claude Code-only.
 
 Agent edits do not land directly. They arrive as **proposals** with per-hunk accept/reject,

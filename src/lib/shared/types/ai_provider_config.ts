@@ -1,9 +1,10 @@
-// Which ACP agent drives agent mode for this provider. Presets resolve to
-// the official npx adapters; custom is any command speaking ACP on stdio.
+// Which ACP agent drives agent mode for this provider. A preset resolves to a
+// known launch — an npx adapter, or the agent's own ACP subcommand when it
+// speaks the protocol itself; custom is any command speaking ACP on stdio.
 // The preset keeps the plain CLI command/args too — text mode and terminal
 // handoff still run the bare CLI.
 export type AcpAgentSpec =
-  | { kind: "preset"; id: "claude" | "codex" }
+  | { kind: "preset"; id: "claude" | "codex" | "opencode" }
   | { kind: "custom"; command: string; args: string[] };
 
 export type AiCliTransport = {
@@ -59,6 +60,18 @@ export const BUILTIN_PROVIDER_PRESETS: AiProviderConfig[] = [
       acp: { kind: "preset", id: "codex" },
     },
     install_url: "https://github.com/openai/codex",
+    is_preset: true,
+  },
+  {
+    id: "opencode",
+    name: "opencode",
+    transport: {
+      kind: "cli",
+      command: "opencode",
+      args: ["run"],
+      acp: { kind: "preset", id: "opencode" },
+    },
+    install_url: "https://opencode.ai/docs",
     is_preset: true,
   },
   {
