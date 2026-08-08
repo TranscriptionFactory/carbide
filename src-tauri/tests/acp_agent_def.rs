@@ -100,6 +100,23 @@ fn a_missing_opencode_names_the_agent_not_node() {
     assert!(!error.contains("Node.js"));
 }
 
+/// pi has no ACP mode of its own, so the preset goes through the community
+/// adapter rather than the `pi` binary.
+#[test]
+fn preset_pi_resolves_to_the_adapter_package() {
+    if !present("npx") {
+        return;
+    }
+    let launch = resolve_acp_launch(
+        &AcpAgentSpec::Preset { id: AcpPresetId::Pi },
+        &pipeline::get_expanded_path(),
+    )
+    .expect("npx is present");
+
+    assert!(launch.command.ends_with("npx"));
+    assert_eq!(launch.args, ["-y", "pi-acp"]);
+}
+
 #[test]
 fn preset_agent_ids_are_distinct_per_preset() {
     let id = |preset| AcpAgentSpec::Preset { id: preset }.agent_id();
@@ -107,6 +124,7 @@ fn preset_agent_ids_are_distinct_per_preset() {
     assert_eq!(id(AcpPresetId::Claude), "claude");
     assert_eq!(id(AcpPresetId::Codex), "codex");
     assert_eq!(id(AcpPresetId::Opencode), "opencode");
+    assert_eq!(id(AcpPresetId::Pi), "pi");
 }
 
 #[test]
@@ -287,4 +305,8 @@ fn agent_spec_round_trips_through_json() {
             id: AcpPresetId::Opencode
         }
     );
+
+    let pi: AcpAgentSpec =
+        serde_json::from_value(json!({ "kind": "preset", "id": "pi" })).expect("pi");
+    assert_eq!(pi, AcpAgentSpec::Preset { id: AcpPresetId::Pi });
 }
