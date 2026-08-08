@@ -18,6 +18,15 @@ const PI_ACP_PACKAGE: &str = "pi-acp";
 const PI_ACP_VERSION: &str = "0.0.33";
 const NPX: &str = "npx";
 
+/// The adapters are published as ESM against a modern Node. On an older runtime
+/// `npx` still resolves — so the preflight passes — and the adapter then dies
+/// mid-`initialize`, which reaches the user as a closed channel and nothing
+/// else. Checking the version here turns that silent hang into a sentence.
+const MIN_NODE_MAJOR: u32 = 20;
+
+/// Both spellings, because the sibling of a Windows `npx.cmd` is `node.exe`.
+const NODE_BINARIES: [&str; 2] = ["node", "node.exe"];
+
 /// An npx-shimmed preset never runs the user's own command, so the error has to
 /// name what they are actually missing rather than the shim they never
 /// configured. An agent that speaks ACP itself names the agent instead.
@@ -53,10 +62,13 @@ impl AcpPresetId {
 /// What a preset actually spawns. Not every agent needs the npx adapter — one
 /// that implements ACP itself is launched directly, and then the preflight has
 /// to report the agent as missing rather than Node.
-struct PresetLaunch {
-    command: &'static str,
-    args: Vec<String>,
-    display_name: &'static str,
+pub(crate) struct PresetLaunch {
+    pub(crate) command: &'static str,
+    pub(crate) args: Vec<String>,
+    pub(crate) display_name: &'static str,
+    /// Only the npx-shimmed presets run on Node. An agent that speaks ACP
+    /// itself must never be blocked by a Node it does not use.
+    pub(crate) requires_node: bool,
 }
 
 fn npx_adapter(package: &'static str, version: &'static str) -> PresetLaunch {
@@ -64,10 +76,11 @@ fn npx_adapter(package: &'static str, version: &'static str) -> PresetLaunch {
         command: NPX,
         args: vec!["-y".to_string(), format!("{package}@{version}")],
         display_name: NPX_DISPLAY_NAME,
+        requires_node: true,
     }
 }
 
-fn preset_launch(id: AcpPresetId) -> PresetLaunch {
+pub(crate) fn preset_launch(id: AcpPresetId) -> PresetLaunch {
     match id {
         AcpPresetId::Claude => npx_adapter(CLAUDE_ACP_PACKAGE, CLAUDE_ACP_VERSION),
         AcpPresetId::Codex => npx_adapter(CODEX_ACP_PACKAGE, CODEX_ACP_VERSION),
@@ -75,6 +88,7 @@ fn preset_launch(id: AcpPresetId) -> PresetLaunch {
             command: "opencode",
             args: vec!["acp".to_string()],
             display_name: "opencode",
+            requires_node: false,
         },
         AcpPresetId::Pi => npx_adapter(PI_ACP_PACKAGE, PI_ACP_VERSION),
     }
@@ -111,17 +125,23 @@ pub struct AcpLaunch {
 }
 
 pub fn resolve_acp_launch(spec: &AcpAgentSpec, path_env: &str) -> Result<AcpLaunch, String> {
-    let (command, args) = match spec {
+    // A custom spec is the user's own command; only the presets we shim through
+    // npx are ours to gate on a runtime.
+    let (command, args, requires_node) = match spec {
         AcpAgentSpec::Preset { id } => {
             let launch = preset_launch(*id);
-            (launch.command.to_string(), launch.args)
+            (
+                launch.command.to_string(),
+                launch.args,
+                launch.requires_node,
+            )
         }
         AcpAgentSpec::Custom { command, args } => {
             let command = command.trim().to_string();
             if command.is_empty() {
                 return Err("No command configured for the custom ACP agent".to_string());
             }
-            (command, args.clone())
+            (command, args.clone(), false)
         }
     };
 
@@ -130,13 +150,64 @@ pub fn resolve_acp_launch(spec: &AcpAgentSpec, path_env: &str) -> Result<AcpLaun
         return Err(preflight_error(spec, &command, &probe));
     }
 
-    Ok(AcpLaunch {
-        // An absolute path removes the dependency on how the child process
-        // inherits PATH, which differs between the launcher shims (nvm, fnm,
-        // mise) that usually provide `npx`.
-        command: probe.resolved_path.unwrap_or(command),
-        args,
-    })
+    // An absolute path removes the dependency on how the child process inherits
+    // PATH, which differs between the launcher shims (nvm, fnm, mise) that
+    // usually provide `npx`.
+    let command = probe.resolved_path.unwrap_or(command);
+
+    if requires_node {
+        if let Some(error) = node_runtime_error(&command, path_env) {
+            return Err(error);
+        }
+    }
+
+    Ok(AcpLaunch { command, args })
+}
+
+/// `Some` only when Node was found *and* read *and* is too old. An unreadable
+/// version is never a launch blocker: `npx` already resolved, so a runtime
+/// exists, and refusing to start on a failed `node --version` would trade a
+/// rare hang for a common false negative.
+fn node_runtime_error(resolved_npx: &str, path_env: &str) -> Option<String> {
+    let node = node_for_npx(resolved_npx, path_env)?;
+    let version = pipeline::read_cli_version(&node)?;
+    node_version_rejection(&version, &node)
+}
+
+/// Derived from the resolved `npx`'s own directory rather than looked up on
+/// PATH: `get_expanded_path` prepends every installed nvm / fnm / mise node
+/// `bin` in nondeterministic `read_dir` order, so a bare `node` lookup can
+/// answer for a different install than the `npx` we are about to run — wrong in
+/// both directions. PATH is the fallback, not the first choice.
+pub(crate) fn node_for_npx(resolved_npx: &str, path_env: &str) -> Option<String> {
+    let sibling = std::path::Path::new(resolved_npx).parent().and_then(|dir| {
+        NODE_BINARIES
+            .iter()
+            .map(|name| dir.join(name))
+            .find(|candidate| candidate.is_file())
+    });
+    if let Some(sibling) = sibling {
+        return Some(sibling.to_string_lossy().to_string());
+    }
+
+    let probe = pipeline::resolve_cli_with_path(NODE_BINARIES[0], path_env);
+    match probe.status {
+        pipeline::CliProbeStatus::Present => probe.resolved_path,
+        _ => None,
+    }
+}
+
+/// Split from the probe so the rule is testable without a Node install. The
+/// minimum is a major-version floor, so comparing majors is a complete check —
+/// no semver parser earns its keep here.
+pub(crate) fn node_version_rejection(version: &str, node_path: &str) -> Option<String> {
+    let major: u32 = version.split('.').next()?.parse().ok()?;
+    if major >= MIN_NODE_MAJOR {
+        return None;
+    }
+    Some(format!(
+        "Node.js {version} is too old to run the ACP adapter — Carbide needs Node.js {MIN_NODE_MAJOR} or newer (found {node_path}). Upgrade Node.js, or pick the opencode preset, which needs no Node."
+    ))
 }
 
 /// Separate from the preflight itself because a bare command name falls back to
