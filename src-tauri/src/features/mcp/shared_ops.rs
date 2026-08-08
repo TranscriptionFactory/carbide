@@ -294,14 +294,14 @@ pub fn apply_edit(
 
     let count = content.matches(old_string).count();
     if count == 0 {
-        return Err(OpError::NotFound(
-            "old_string was not found in the note".into(),
-        ));
+        return Err(OpError::NotFound(describe_missing_old_string(
+            content, old_string,
+        )));
     }
     if count > 1 && !replace_all {
         return Err(OpError::BadRequest(format!(
-            "old_string is not unique ({} matches); add surrounding context to disambiguate or set replace_all=true",
-            count
+            "old_string is not unique ({count} matches, at {}); add surrounding context to disambiguate or set replace_all=true",
+            describe_match_lines(content, old_string)
         )));
     }
 
@@ -311,6 +311,145 @@ pub fn apply_edit(
         content.replacen(old_string, new_string, 1)
     };
     Ok(updated)
+}
+
+/// Ordered so that each rung includes the ones above it, and so that line
+/// endings are normalized before anything line-wise — otherwise a CRLF note
+/// masks a trailing-space difference and gets misdiagnosed.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum EditDrift {
+    LineEndings,
+    TrailingWhitespace,
+    Indentation,
+    Punctuation,
+}
+
+const DRIFT_LADDER: [EditDrift; 4] = [
+    EditDrift::LineEndings,
+    EditDrift::TrailingWhitespace,
+    EditDrift::Indentation,
+    EditDrift::Punctuation,
+];
+
+/// Cap on the occurrence list, so an ambiguous match in a long note cannot push
+/// the directive sentence past the tool-result truncation limit.
+const MAX_REPORTED_LINES: usize = 10;
+
+impl EditDrift {
+    fn label(self) -> &'static str {
+        match self {
+            EditDrift::LineEndings => "line endings",
+            EditDrift::TrailingWhitespace => "trailing whitespace",
+            EditDrift::Indentation => "leading indentation",
+            EditDrift::Punctuation => "typographic punctuation",
+        }
+    }
+
+    fn guidance(self) -> &'static str {
+        match self {
+            EditDrift::LineEndings => "the note's lines end differently from the ones you sent",
+            EditDrift::TrailingWhitespace => "keep the spaces at the end of each line",
+            EditDrift::Indentation => "keep the note's leading indentation exactly",
+            EditDrift::Punctuation => {
+                "the note uses curly quotes or dashes where old_string uses ASCII, or the reverse"
+            }
+        }
+    }
+
+    fn apply(self, text: &str) -> String {
+        match self {
+            EditDrift::LineEndings => text.replace("\r\n", "\n"),
+            EditDrift::TrailingWhitespace => {
+                map_lines(text, |line| line.trim_end_matches([' ', '\t']))
+            }
+            EditDrift::Indentation => map_lines(text, |line| line.trim_start_matches([' ', '\t'])),
+            EditDrift::Punctuation => to_ascii_punctuation(text),
+        }
+    }
+}
+
+fn map_lines(text: &str, transform: impl Fn(&str) -> &str) -> String {
+    text.split('\n').map(transform).collect::<Vec<_>>().join("\n")
+}
+
+fn to_ascii_punctuation(text: &str) -> String {
+    let mut out = String::with_capacity(text.len());
+    for ch in text.chars() {
+        match ch {
+            '\u{2018}' | '\u{2019}' | '\u{201b}' | '\u{2032}' => out.push('\''),
+            '\u{201c}' | '\u{201d}' | '\u{201f}' | '\u{2033}' => out.push('"'),
+            '\u{2010}'..='\u{2015}' => out.push('-'),
+            '\u{2026}' => out.push_str("..."),
+            '\u{00a0}' | '\u{2007}' | '\u{202f}' => out.push(' '),
+            other => out.push(other),
+        }
+    }
+    out
+}
+
+fn normalize_through(text: &str, rung: EditDrift) -> String {
+    let mut out = text.to_string();
+    for step in DRIFT_LADDER {
+        out = step.apply(&out);
+        if step == rung {
+            break;
+        }
+    }
+    out
+}
+
+/// A local model's near-miss is almost never arbitrary — it is trailing-space
+/// drift, CRLF, re-indentation or a smart quote. Retrying the exact search under
+/// progressively looser normalizations identifies *which*, so the report names
+/// the difference instead of leaving the model to guess across its remaining
+/// iterations. The near-match is only ever described, never applied: silently
+/// fuzzy-editing someone's notes is worse than failing.
+fn describe_missing_old_string(content: &str, old_string: &str) -> String {
+    for rung in DRIFT_LADDER {
+        let haystack = normalize_through(content, rung);
+        let needle = normalize_through(old_string, rung);
+        if needle.is_empty() {
+            continue;
+        }
+        let count = haystack.matches(&needle).count();
+        if count > 0 {
+            return near_miss_message(rung, count);
+        }
+    }
+    "old_string was not found in the note".to_string()
+}
+
+fn near_miss_message(rung: EditDrift, count: usize) -> String {
+    let mut message = format!(
+        "old_string was not found in the note. The same text is present but differs in {} — {}. \
+         Re-read the note with read_note and copy old_string out of it exactly.",
+        rung.label(),
+        rung.guidance()
+    );
+    if count > 1 {
+        message.push_str(&format!(
+            " It appears that way in {count} places, so include enough surrounding context to make the match unique."
+        ));
+    }
+    message
+}
+
+/// Start line of each occurrence, 1-based. A bare count tells the model only
+/// that it failed; line numbers tell it where to look for disambiguating
+/// context.
+fn describe_match_lines(content: &str, needle: &str) -> String {
+    let lines: Vec<String> = content
+        .match_indices(needle)
+        .map(|(offset, _)| (content[..offset].matches('\n').count() + 1).to_string())
+        .collect();
+    let shown = lines.len().min(MAX_REPORTED_LINES);
+    let rest = lines.len() - shown;
+    let list = lines[..shown].join(", ");
+    if rest == 0 {
+        format!("lines {list}")
+    } else {
+        format!("lines {list} and {rest} more")
+    }
 }
 
 pub fn edit_note(
@@ -845,6 +984,82 @@ mod tests {
     fn apply_edit_errors_on_ambiguous_match() {
         let err = apply_edit("a a a", "a", "b", false);
         assert!(matches!(err, Err(OpError::BadRequest(_))));
+    }
+
+    fn edit_error(content: &str, old_string: &str) -> String {
+        match apply_edit(content, old_string, "REPLACED", false) {
+            Err(OpError::NotFound(message)) | Err(OpError::BadRequest(message)) => message,
+            other => panic!("expected a near-miss report, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn apply_edit_names_trailing_whitespace_drift() {
+        let error = edit_error("- alpha  \n- beta\n", "- alpha\n- beta");
+
+        assert!(error.contains("trailing whitespace"), "{error}");
+        assert!(error.contains("read_note"), "{error}");
+    }
+
+    #[test]
+    fn apply_edit_names_line_ending_drift() {
+        let error = edit_error("alpha\r\nbeta\r\n", "alpha\nbeta");
+
+        assert!(error.contains("line endings"), "{error}");
+    }
+
+    #[test]
+    fn apply_edit_names_indentation_drift() {
+        let error = edit_error("    let x = 1;\n    let y = 2;\n", "let x = 1;\nlet y = 2;");
+
+        assert!(error.contains("leading indentation"), "{error}");
+    }
+
+    #[test]
+    fn apply_edit_names_typographic_punctuation_drift() {
+        let error = edit_error("the model\u{2019}s \u{201c}answer\u{201d}", "the model's \"answer\"");
+
+        assert!(error.contains("typographic punctuation"), "{error}");
+    }
+
+    /// A near-miss is diagnosed, never applied — a fuzzy edit to someone's notes
+    /// is worse than a failed one.
+    #[test]
+    fn apply_edit_never_applies_a_near_miss() {
+        let content = "    let x = 1;\n    let y = 2;\n";
+        let result = apply_edit(content, "let x = 1;\nlet y = 2;", "gone", false);
+
+        assert!(matches!(result, Err(OpError::NotFound(_))));
+    }
+
+    #[test]
+    fn apply_edit_reports_a_repeated_near_miss_as_ambiguous() {
+        let error = edit_error("  foo\n  bar\n\n  foo\n  bar\n", "foo\nbar");
+
+        assert!(error.contains("leading indentation"), "{error}");
+        assert!(error.contains("surrounding context"), "{error}");
+    }
+
+    #[test]
+    fn apply_edit_falls_back_to_a_plain_message_with_no_near_match() {
+        let error = edit_error("hello world", "nothing like this at all");
+
+        assert_eq!(error, "old_string was not found in the note");
+    }
+
+    #[test]
+    fn apply_edit_names_the_line_of_each_ambiguous_occurrence() {
+        let error = edit_error("intro\nfoo\nbar\nfoo\n", "foo");
+
+        assert!(error.contains("lines 2, 4"), "{error}");
+    }
+
+    #[test]
+    fn apply_edit_caps_the_reported_occurrence_lines() {
+        let content = "dup\n".repeat(15);
+        let error = edit_error(&content, "dup");
+
+        assert!(error.contains("and 5 more"), "{error}");
     }
 
     #[test]
