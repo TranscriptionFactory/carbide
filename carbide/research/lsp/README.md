@@ -29,7 +29,7 @@ Scoped as a separate PR; not yet done.
 
 ## Grammar / prose checking — Harper (2026-04-14)
 
-Folded in from `plans/2026-04-14_lsp_harper.md`, which was a 6-line fragment.
+Folded in from `carbide/archive/research/lsp/2026-04-14_lsp_harper.md`, which was a 6-line fragment.
 Candidates evaluated for a second concurrent LSP:
 
 | Candidate | What it is | Assessment |
@@ -43,8 +43,8 @@ Candidates evaluated for a second concurrent LSP:
 
 ## Corrupted artifacts
 
-`archive/research/lsp/lsp_manager_implementation_analysis.md` and
-`lsp_manager_implementation_plan.md` are **not markdown** — they are Python dict
+`carbide/archive/research/lsp/lsp_manager_implementation_analysis.md`
+and `carbide/archive/research/lsp/lsp_manager_implementation_plan.md` are **not markdown** — they are Python dict
 reprs with escaped Rust fragments embedded, produced by a broken export. They
 are retained for history only; do not read them as documents. Their intended
 content is covered by `lsp_manager_analysis.md`.
