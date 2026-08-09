@@ -1,7 +1,7 @@
 <!-- Key Documentation -->
 
 For adding/updating any feature, always refer to decision tree in `docs/architecture.md` FIRST and adhere to it RELIGIOUSLY.
-This repo is implementation base for Carbide project. For Carbide-facing product work, also consult `carbide/carbide-project-guide.md` `carbide/TODO.md` `carbide/plugin_system.md` when they apply.
+This repo is implementation base for Carbide project. For Carbide-facing product work, also consult `carbide/README.md` (index of product/design docs) `carbide/TODO.md` (live backlog) `docs/plugin_howto.md` (plugin authoring) when they apply.
 
 ## Persona
 
