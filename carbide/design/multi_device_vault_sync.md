@@ -5,7 +5,7 @@
 **Question:** How should a single Carbide vault be edited from multiple machines
 without file-organization drift, given git-as-dropbox is causing pain?
 
-> Distinct from `remote_markdown_sync_brainstorm.md`, which covers the *inverse*
+> Distinct from `remote_markdown_sync.md`, which covers the *inverse*
 > problem (aggregating markdown from *many* external repos *into* one vault). This
 > doc is about **one vault, edited from many machines**.
 
@@ -152,7 +152,7 @@ new backend command required.
 - **Build real-time/CRDT sync into Carbide (Yjs + relay server).** Large build;
   only justified by *concurrent same-file* editing, which is ruled out. Premature
   for a 0-user, sequential-editing workflow.
-- **Federated multi-repo index** (`remote_markdown_sync_brainstorm.md`). Solves a
+- **Federated multi-repo index** (`remote_markdown_sync.md`). Solves a
   *different* problem — aggregating external repos *into* a vault. Not applicable.
 
 ---
