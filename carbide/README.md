@@ -28,8 +28,9 @@ Reorganized 2026-08-09: finished work moved to `archive/`, live work foregrounde
 
 ## What's live
 
-**`plans/` — 14 plans with remaining work.** Notable open state:
+**`plans/` — 15 plans with remaining work.** Notable open state:
 
+- `2026-08-09_action_sequences_plan.md` — proposed, not started; revives the deferred Phase 4 of `design/programmable_actions_system.md` as a user-facing macro runner
 - `2026-07-03_inbox-view-left-rail-plan.md` — planning complete, awaiting go-ahead
 - `2026-07-21_webview_clip_capture_plan.md` — phases 1–3 shipped, phase 4 (Windows/Linux evaluate-JS) pending
 - `task_query_and_embedding_improvements.md` — phases 1–3 done, phase 4 (saved views & polish) pending
