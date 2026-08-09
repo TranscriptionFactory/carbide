@@ -10,7 +10,7 @@
 ### Bulk Property Rename
 
 **Session type:** Rust + TypeScript
-**Design ref:** `carbide/mcp_native_gaps_plan.md` Phase 7 + `carbide/2026-04-05_plan_metadata_api_surface.md` 3d
+**Design ref:** `carbide/implementation/2026-04-11_mcp_native_gaps_plan.md` Phase 7 + `carbide/archive/implementation/2026-04/2026-04-05_plan_metadata_api_surface.md` 3d
 
 - Tauri command + frontmatter writer integration
 - UI confirmation dialog
@@ -27,7 +27,7 @@
 ### Nested Property Flattening
 
 **Session type:** TypeScript
-**Design ref:** `carbide/2026-04-05_plan_metadata_api_surface.md` 3e
+**Design ref:** `carbide/archive/implementation/2026-04/2026-04-05_plan_metadata_api_surface.md` 3e
 
 - `extract_metadata.ts`: dot notation (`author.name`)
 - Write-back preserves original YAML structure

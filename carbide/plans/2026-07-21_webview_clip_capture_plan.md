@@ -8,7 +8,7 @@ Cloudflare challenges) serve CAPTCHA interstitials to every non-interactive
 HTTP client regardless of headers — verified with full browser header sets.
 `clip_fetch_page` can never satisfy them; only a real browser engine can.
 This is the "known limitation" escape hatch documented in
-`2026-07-20_web_clipping_plan.md`.
+`../archive/completed_plans/2026-07-20_web_clipping_plan.md`.
 
 ## Prior art (what clippers do)
 

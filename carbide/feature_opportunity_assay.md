@@ -57,7 +57,7 @@ Each candidate feature is evaluated on:
 
 ### 1. Vault RAG Chat — Conversational AI Over Your Knowledge Base
 
-> **Plan:** Detailed phased implementation plan at `carbide/plans/2026-06-14_vault_rag_chat_implementation_plan.md`. That plan supersedes the rougher sketch in Appendix A on three points: the embedding model is `snowflake-arctic-embed-xs` (not BGE-small), retrieval should be block- not whole-note-granular (D3), and follow-up turns need query rewriting before retrieval (D4). It also records the decision **not** to adopt an external RAG framework (LEANN / HGMem) — both duplicate the existing, proven backend.
+> **Plan:** Detailed phased implementation plan at `carbide/archive/completed_plans/2026-06-14_vault_rag_chat_implementation_plan.md`. That plan supersedes the rougher sketch in Appendix A on three points: the embedding model is `snowflake-arctic-embed-xs` (not BGE-small), retrieval should be block- not whole-note-granular (D3), and follow-up turns need query rewriting before retrieval (D4). It also records the decision **not** to adopt an external RAG framework (LEANN / HGMem) — both duplicate the existing, proven backend.
 
 **What:** A full chat interface that answers questions by retrieving relevant notes, embedding them as context, and generating cited, sourced responses — all local-first with streaming.
 

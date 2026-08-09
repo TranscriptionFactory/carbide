@@ -95,7 +95,7 @@ These are architectural bets that survived review on technical merit but warrant
 
 | # | What | Tradeoff |
 |---|---|---|
-| E1 | **Yjs + y-prosemirror** | No provider wired anywhere (`y-websocket`/`y-webrtc`/awareness = 0 hits). `multi_device_vault_sync_brainstorm.md:152` explicitly defers CRDT sync as a "large build" not pursued. Today it's an in-memory CRDT mirror of the ProseMirror doc with no transport — scaffolding, ~80KB. Remove or gate behind a flag. |
+| E1 | **Yjs + y-prosemirror** | No provider wired anywhere (`y-websocket`/`y-webrtc`/awareness = 0 hits). `design/multi_device_vault_sync.md:152` explicitly defers CRDT sync as a "large build" not pursued. Today it's an in-memory CRDT mirror of the ProseMirror doc with no transport — scaffolding, ~80KB. Remove or gate behind a flag. |
 | E2 | **Excalidraw + React** | Already iframe-isolated (not in Svelte bundle) — justified by isolation. But it's a second UI runtime + `build:excalidraw` pipeline + `carbide-excalidraw://` protocol + 6 editor/canvas files. Highest-leverage architectural cut if canvas isn't on the critical path. |
 | E3 | **citation-js suite** (4 deps, ~300KB) | Single seam (`citationjs_adapter.ts`) — strong plugin-ize candidate. Niche academic feature. |
 | E4 | **`reference/` (3765 LOC)** | Two domains crammed in: citations library + linked-sources/PDF-indexing. Split into `reference_library_service` + `linked_sources_service` regardless; decide separately whether academic-citation is core or a power-user niche. |
