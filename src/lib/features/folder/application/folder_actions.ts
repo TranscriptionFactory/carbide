@@ -930,11 +930,17 @@ export function register_folder_actions(input: ActionRegistrationInput) {
         await map_with_concurrency(non_root, 5, (path) =>
           load_folder(input, path),
         );
-        const linked_folders = Array.from(loaded_paths).filter(
-          (path) =>
-            is_linked_note_path(path) && path !== "@linked" && path !== "",
+        // One reload per source: it loads the source's whole subtree, so an
+        // expanded subfolder would otherwise re-query the same documents.
+        const linked_sources = new Set(
+          Array.from(loaded_paths)
+            .filter(
+              (path) =>
+                is_linked_note_path(path) && path !== "@linked" && path !== "",
+            )
+            .map((path) => path.split("/").slice(0, 2).join("/")),
         );
-        await map_with_concurrency(linked_folders, 5, (path) =>
+        await map_with_concurrency(Array.from(linked_sources), 5, (path) =>
           load_linked_source_folder(input, path),
         );
 

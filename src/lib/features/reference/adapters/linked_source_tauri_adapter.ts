@@ -29,12 +29,14 @@ export function create_linked_source_tauri_adapter(): LinkedSourcePort {
     async index_content(
       vault_id: VaultId,
       source_name: string,
+      source_root: string,
       entry: ScanEntry,
       linked_meta: LinkedSourceMeta,
     ): Promise<void> {
       await tauri_invoke<void>("linked_source_index_content", {
         vaultId: vault_id,
         sourceName: source_name,
+        sourceRoot: source_root,
         filePath: entry.file_path,
         title: entry.title ?? entry.file_name,
         body: entry.body_text,

@@ -63,6 +63,7 @@ export interface LinkedSourcePort {
   index_content(
     vault_id: string,
     source_name: string,
+    source_root: string,
     entry: ScanEntry,
     linked_meta: LinkedSourceMeta,
   ): Promise<void>;

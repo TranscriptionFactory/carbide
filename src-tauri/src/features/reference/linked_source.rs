@@ -41,6 +41,11 @@ pub struct LinkedSourceFileInfo {
 // File classification
 // ---------------------------------------------------------------------------
 
+// Reference libraries nest arbitrarily (Zotero storage keys, per-project or
+// per-year folders), so the walk has to go deeper than the immediate children.
+// The cap only exists to bound pathological trees.
+const MAX_SCAN_DEPTH: usize = 16;
+
 fn classify_linked_file(path: &Path) -> Option<&'static str> {
     let ext = path
         .extension()
@@ -632,7 +637,7 @@ fn scan_folder_sync(
 
     let paths: Vec<PathBuf> = WalkDir::new(&root)
         .follow_links(true)
-        .max_depth(3)
+        .max_depth(MAX_SCAN_DEPTH)
         .into_iter()
         .filter_map(|e| e.ok())
         .filter(|e| e.path().is_file() && is_supported_extension(e.path()))
@@ -712,7 +717,7 @@ pub async fn linked_source_list_files(
 
         let entries: Vec<LinkedSourceFileInfo> = WalkDir::new(&root)
             .follow_links(true)
-            .max_depth(3)
+            .max_depth(MAX_SCAN_DEPTH)
             .into_iter()
             .filter_map(|e| e.ok())
             .filter(|e| e.path().is_file() && is_supported_extension(e.path()))
@@ -752,6 +757,7 @@ pub async fn linked_source_index_content(
     app: tauri::AppHandle,
     vault_id: String,
     source_name: String,
+    source_root: String,
     file_path: String,
     title: String,
     body: String,
@@ -766,6 +772,7 @@ pub async fn linked_source_index_content(
             &app_clone,
             &vault_id,
             &source_name,
+            &source_root,
             &file_path,
             &title,
             &body,

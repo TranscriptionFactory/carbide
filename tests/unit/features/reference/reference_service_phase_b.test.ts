@@ -156,6 +156,51 @@ describe("Phase B: Library.json Migration & Reference Store Cleanup", () => {
       expect(storage.save_library).not.toHaveBeenCalled();
       expect(storage.add_item).not.toHaveBeenCalled();
     });
+
+    // The note path is derived from where a file sits inside its source folder,
+    // so indexing needs the root that was actually located on this machine.
+    it("passes the located source root alongside each indexed file", async () => {
+      storage = make_mock_storage([]);
+      store = new ReferenceStore();
+      op_store = new OpStore();
+      ls_port = make_mock_linked_source_port();
+      (ls_port.list_files as ReturnType<typeof vi.fn>).mockResolvedValue([
+        { file_path: "/papers/2024/ml/new.pdf", modified_at: 2000 },
+      ]);
+
+      const service = new ReferenceService(
+        storage,
+        store,
+        make_vault_store(),
+        op_store,
+        now_ms,
+        null,
+        null,
+        ls_port,
+        {
+          get_vault_setting: vi.fn(() => Promise.resolve(null)),
+          set_vault_setting: vi.fn(() => Promise.resolve()),
+        } as never,
+      );
+
+      store.add_linked_source({
+        id: "source-1",
+        path: "/papers",
+        name: "Papers",
+        enabled: true,
+        last_scan_at: null,
+      });
+
+      await service.scan_linked_source("source-1");
+
+      expect(ls_port.index_content).toHaveBeenCalledWith(
+        expect.anything(),
+        "Papers",
+        "/papers",
+        expect.objectContaining({ file_path: "/papers/2024/ml/new.pdf" }),
+        expect.anything(),
+      );
+    });
   });
 
   describe("index_linked_pdf skips library.json", () => {

@@ -1260,9 +1260,13 @@ fn upsert_plain_content(
     Ok(())
 }
 
+/// Upserts one linked file. Returns the note meta plus the note path of a stale
+/// row for the same external file (e.g. one written under the old flat scheme),
+/// which the caller must evict from its in-memory indices.
 pub fn upsert_linked_content(
     conn: &Connection,
     source_name: &str,
+    source_root: &str,
     file_path: &str,
     title: &str,
     body: &str,
@@ -1270,9 +1274,15 @@ pub fn upsert_linked_content(
     file_type: &str,
     modified_at: u64,
     linked_meta: &crate::features::search::model::LinkedSourceMeta,
-) -> Result<IndexNoteMeta, String> {
-    let fname = file_name_from_path(file_path);
-    let note_path = linked_note_path(source_name, fname);
+) -> Result<(IndexNoteMeta, Option<String>), String> {
+    let note_path = linked_note_path(source_name, &linked_relative_path(source_root, file_path));
+    let stale_path = match find_linked_note_path(conn, source_name, file_path)? {
+        Some(prior) if prior != note_path => {
+            remove_note(conn, &prior)?;
+            Some(prior)
+        }
+        _ => None,
+    };
     let name = file_stem_string(Path::new(file_path));
     let meta = IndexNoteMeta {
         id: note_path.clone(),
@@ -1305,7 +1315,7 @@ pub fn upsert_linked_content(
     }
     upsert_plain_content(conn, &meta, body, page_offsets)?;
     update_linked_metadata(conn, &meta.path, linked_meta)?;
-    Ok(meta)
+    Ok((meta, stale_path))
 }
 
 pub fn update_linked_metadata(
@@ -1384,14 +1394,19 @@ fn save_linked_properties(
     save_properties(conn, path, &props)
 }
 
+/// Removes one linked file and returns the note path that was removed, so the
+/// caller can evict it from its in-memory indices. The row is located by its
+/// external file path because the note path encodes the location relative to
+/// the source root, which the caller does not always know.
 pub fn remove_linked_content(
     conn: &Connection,
     source_name: &str,
     file_path: &str,
-) -> Result<(), String> {
-    let fname = file_name_from_path(file_path);
-    let note_path = linked_note_path(source_name, fname);
-    remove_note(conn, &note_path)
+) -> Result<String, String> {
+    let note_path = find_linked_note_path(conn, source_name, file_path)?
+        .unwrap_or_else(|| linked_note_path(source_name, file_name_from_path(file_path)));
+    remove_note(conn, &note_path)?;
+    Ok(note_path)
 }
 
 pub fn clear_linked_source(conn: &Connection, source_name: &str) -> Result<(), String> {
@@ -1399,8 +1414,26 @@ pub fn clear_linked_source(conn: &Connection, source_name: &str) -> Result<(), S
     remove_notes_by_prefix(conn, &prefix)
 }
 
-pub fn linked_note_path(source_name: &str, file_name: &str) -> String {
-    format!("@linked/{source_name}/{file_name}")
+pub fn linked_note_path(source_name: &str, relative_path: &str) -> String {
+    format!("@linked/{source_name}/{relative_path}")
+}
+
+/// Path of `file_path` relative to its linked source root, with forward slashes.
+/// Files outside the root (or a root that no longer prefixes them) collapse to
+/// the bare file name so they still land directly under the source folder.
+pub fn linked_relative_path(source_root: &str, file_path: &str) -> String {
+    let normalized = file_path.replace('\\', "/");
+    let root = source_root.replace('\\', "/");
+    let root = root.trim_end_matches('/');
+    if !root.is_empty() {
+        if let Some(rest) = normalized.strip_prefix(root) {
+            let rest = rest.trim_start_matches('/');
+            if !rest.is_empty() {
+                return rest.to_string();
+            }
+        }
+    }
+    file_name_from_path(file_path).to_string()
 }
 
 pub fn query_linked_notes_by_source(
@@ -5273,6 +5306,7 @@ mod tests {
         upsert_linked_content(
             &conn,
             "zotero",
+            "/Users/old/Zotero",
             "/Users/old/Zotero/paper.pdf",
             "paper",
             "body text",
