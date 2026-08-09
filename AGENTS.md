@@ -38,7 +38,6 @@ This repo is implementation base for Carbide project. For Carbide-facing product
 ## Implementation Guidelines
 
 - Prefer snake case for file names
-- **[coding_guidelines.md](./devlog/coding_guidelines.md)**: Coding guidelines, best practices, code hygiene
 - Use strict, consistent naming conventions
 - Write small functions, avoid "fat" ones
 - Don't assume library usage; review before using
@@ -49,6 +48,7 @@ This repo is implementation base for Carbide project. For Carbide-facing product
 - Code should be readable like prose, w/ clear flow
 - Use `gh` CLI for GitHub interaction
 - Do not version control `devlog/` or refer to it in PRs/issues
+- When a plan's work ships, move it to `carbide/archive/completed_plans/`; `carbide/plans/` holds only plans with remaining work
 - Keep code testable: non-trivial functions/classes must be easy to test
 - For UI, always use shadcn semantic utilities. Use custom utilities only when shadcn lacks specific token
 - Store tests in top-level `tests/` dir, separate from logic
