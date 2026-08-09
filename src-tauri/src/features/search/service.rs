@@ -312,6 +312,7 @@ enum DbCommand {
     },
     UpsertLinkedContent {
         source_name: String,
+        source_root: String,
         file_path: String,
         title: String,
         body: String,
@@ -319,6 +320,11 @@ enum DbCommand {
         file_type: String,
         modified_at: u64,
         linked_meta: crate::features::search::model::LinkedSourceMeta,
+        reply: SyncSender<Result<(), String>>,
+    },
+    RemoveLinkedContent {
+        source_name: String,
+        file_path: String,
         reply: SyncSender<Result<(), String>>,
     },
     UpdateLinkedMetadata {
@@ -869,6 +875,21 @@ enum LoopAction {
     Break,
 }
 
+fn forget_note(
+    note_path: &str,
+    notes_cache: &mut BTreeMap<String, IndexNoteMeta>,
+    note_index: &SharedVectorIndex,
+    block_index: &SharedVectorIndex,
+) {
+    notes_cache.remove(note_path);
+    if let Ok(mut ni) = note_index.write() {
+        ni.remove(note_path);
+    }
+    if let Ok(mut bi) = block_index.write() {
+        bi.remove_by_prefix(&format!("{note_path}\0"));
+    }
+}
+
 fn dispatch_command(
     conn: &Connection,
     cmd: DbCommand,
@@ -939,13 +960,7 @@ fn dispatch_command(
             if let Err(ref e) = result {
                 log::warn!("writer: remove failed for {note_id}: {e}");
             } else {
-                notes_cache.remove(&note_id);
-                if let Ok(mut ni) = note_index.write() {
-                    ni.remove(&note_id);
-                }
-                if let Ok(mut bi) = block_index.write() {
-                    bi.remove_by_prefix(&format!("{note_id}\0"));
-                }
+                forget_note(&note_id, notes_cache, note_index, block_index);
             }
             let _ = reply.send(result);
         }
@@ -994,6 +1009,7 @@ fn dispatch_command(
         }
         DbCommand::UpsertLinkedContent {
             source_name,
+            source_root,
             file_path,
             title,
             body,
@@ -1006,6 +1022,7 @@ fn dispatch_command(
             let result = search_db::upsert_linked_content(
                 conn,
                 &source_name,
+                &source_root,
                 &file_path,
                 &title,
                 &body,
@@ -1015,12 +1032,27 @@ fn dispatch_command(
                 &linked_meta,
             );
             match &result {
-                Ok(meta) => {
+                Ok((meta, stale_path)) => {
+                    if let Some(stale) = stale_path {
+                        forget_note(stale, notes_cache, note_index, block_index);
+                    }
                     notes_cache.insert(meta.path.clone(), meta.clone());
                 }
                 Err(e) => {
                     log::warn!("writer: upsert_linked_content failed: {e}");
                 }
+            }
+            let _ = reply.send(result.map(|_| ()));
+        }
+        DbCommand::RemoveLinkedContent {
+            source_name,
+            file_path,
+            reply,
+        } => {
+            let result = search_db::remove_linked_content(conn, &source_name, &file_path);
+            match &result {
+                Ok(note_path) => forget_note(note_path, notes_cache, note_index, block_index),
+                Err(e) => log::warn!("writer: remove_linked_content failed for {file_path}: {e}"),
             }
             let _ = reply.send(result.map(|_| ()));
         }
@@ -1599,6 +1631,7 @@ fn run_index_op(
                     | DbCommand::RemoveNotes { .. }
                     | DbCommand::RemoveNotesByPrefix { .. }
                     | DbCommand::UpsertLinkedContent { .. }
+                    | DbCommand::RemoveLinkedContent { .. }
                     | DbCommand::UpdateLinkedMetadata { .. }
                     | DbCommand::RenamePaths { .. }
                     | DbCommand::RenamePath { .. } => {
@@ -3090,6 +3123,7 @@ pub fn linked_source_index(
     app: &AppHandle,
     vault_id: &str,
     source_name: &str,
+    source_root: &str,
     file_path: &str,
     title: &str,
     body: &str,
@@ -3100,6 +3134,7 @@ pub fn linked_source_index(
 ) -> Result<(), String> {
     send_write_blocking(app, vault_id, |reply| DbCommand::UpsertLinkedContent {
         source_name: source_name.to_string(),
+        source_root: source_root.to_string(),
         file_path: file_path.to_string(),
         title: title.to_string(),
         body: body.to_string(),
@@ -3117,13 +3152,9 @@ pub fn linked_source_remove(
     source_name: &str,
     file_path: &str,
 ) -> Result<(), String> {
-    let fname = std::path::Path::new(file_path)
-        .file_name()
-        .and_then(|s| s.to_str())
-        .unwrap_or(file_path);
-    let note_path = search_db::linked_note_path(source_name, fname);
-    send_write_blocking(app, vault_id, |reply| DbCommand::RemoveNote {
-        note_id: note_path,
+    send_write_blocking(app, vault_id, |reply| DbCommand::RemoveLinkedContent {
+        source_name: source_name.to_string(),
+        file_path: file_path.to_string(),
         reply,
     })
 }

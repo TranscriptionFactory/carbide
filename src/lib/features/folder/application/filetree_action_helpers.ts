@@ -211,11 +211,31 @@ export function remap_ui_paths_after_move(
   }
 }
 
+function linked_source_name_of(folder_path: string): string {
+  return folder_path.replace(/^@linked\/?/, "").split("/")[0] ?? "";
+}
+
+function subfolder_paths_of(
+  source_root: string,
+  note_paths: string[],
+): string[] {
+  const folders = new Set<string>();
+  for (const note_path of note_paths) {
+    const segments = note_path.slice(source_root.length + 1).split("/");
+    for (let i = 1; i < segments.length; i++) {
+      folders.add(`${source_root}/${segments.slice(0, i).join("/")}`);
+    }
+  }
+  return [...folders];
+}
+
+// A linked source's documents keep their location inside the source folder, so
+// the whole source is loaded as one set no matter which subfolder was expanded.
 export async function load_linked_source_folder(
   input: ActionRegistrationInput,
   folder_path: string,
 ): Promise<void> {
-  const source_name = folder_path.replace(/^@linked\/?/, "");
+  const source_name = linked_source_name_of(folder_path);
   if (!source_name) return;
 
   const vault_id = input.stores.vault.vault?.id;
@@ -235,10 +255,18 @@ export async function load_linked_source_folder(
       .filter((n) => n.linked_source_id === source.id)
       .map(linked_note_to_meta);
 
+    const source_root = `@linked/${source_name}`;
     const existing = input.stores.notes.notes.filter(
-      (n) => !n.path.startsWith(`${folder_path}/`),
+      (n) => !n.path.startsWith(`${source_root}/`),
     );
     input.stores.notes.set_notes([...existing, ...source_notes]);
+    const subfolders = subfolder_paths_of(
+      source_root,
+      source_notes.map((n) => n.path),
+    );
+    for (const path of subfolders) {
+      input.stores.notes.add_folder_path(path);
+    }
     set_load_state(input, folder_path, "loaded", null);
     set_pagination(input, folder_path, {
       loaded_count: source_notes.length,

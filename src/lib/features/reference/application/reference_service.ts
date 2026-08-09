@@ -803,6 +803,7 @@ export class ReferenceService {
             await ls_port.index_content(
               vault_id,
               source.name,
+              effective_path,
               entry,
               scan_entry_to_linked_meta(entry, source_id, vault_root, home_dir),
             );
@@ -906,6 +907,29 @@ export class ReferenceService {
     }
   }
 
+  // The note path encodes where the file sits inside its source folder, so
+  // indexing a single file needs the root that currently prefixes it — the
+  // recorded absolute path may be a stale anchor from another machine.
+  private async resolve_source_root(
+    source: LinkedSource,
+    file_path: string,
+  ): Promise<string> {
+    let home_dir = "";
+    try {
+      home_dir = await this.require_linked_source_port().resolve_home_dir();
+    } catch {
+      // non-critical — absolute anchor still applies
+    }
+    const candidates = linked_source_root_candidates(
+      source,
+      home_dir,
+      this.vault_store.vault?.path ?? "",
+    );
+    return (
+      candidates.find((root) => file_path.startsWith(`${root}/`)) ?? source.path
+    );
+  }
+
   async index_linked_pdf(source_id: string, file_path: string): Promise<void> {
     const source = this.store.linked_sources.find((s) => s.id === source_id);
     if (!source) return;
@@ -916,6 +940,7 @@ export class ReferenceService {
       await ls_port.index_content(
         vault_id,
         source.name,
+        await this.resolve_source_root(source, file_path),
         entry,
         scan_entry_to_linked_meta(entry, source_id),
       );

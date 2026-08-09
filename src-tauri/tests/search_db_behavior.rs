@@ -1140,9 +1140,10 @@ fn upsert_linked_content_invalidates_embedding_when_body_changes() {
     vector_db::init_vector_schema(&conn).expect("vector schema should init");
     let linked_meta = LinkedSourceMeta::default();
 
-    let meta = upsert_linked_content(
+    let (meta, _) = upsert_linked_content(
         &conn,
         "papers",
+        "/refs",
         "/refs/paper.pdf",
         "Paper",
         "extracted text v1",
@@ -1158,6 +1159,7 @@ fn upsert_linked_content_invalidates_embedding_when_body_changes() {
     upsert_linked_content(
         &conn,
         "papers",
+        "/refs",
         "/refs/paper.pdf",
         "Paper",
         "extracted text v1",
@@ -1173,6 +1175,7 @@ fn upsert_linked_content_invalidates_embedding_when_body_changes() {
     upsert_linked_content(
         &conn,
         "papers",
+        "/refs",
         "/refs/paper.pdf",
         "Paper",
         "extracted text v2",
@@ -1183,6 +1186,106 @@ fn upsert_linked_content_invalidates_embedding_when_body_changes() {
     )
     .expect("changed upsert should succeed");
     assert!(vector_db::get_embedding(&conn, &meta.path).is_none());
+}
+
+// A linked source folder is a tree, not a flat list: files under subfolders must
+// keep their location in the note path so the explorer can render the subfolders
+// and same-named files in different subfolders stop overwriting each other.
+#[test]
+fn upsert_linked_content_keeps_the_subfolder_in_the_note_path() {
+    use crate::features::search::db::upsert_linked_content;
+    use crate::features::search::model::LinkedSourceMeta;
+
+    let tmp = TempDir::new().expect("temp dir should be created");
+    let conn = open_search_db_at_path(&tmp.path().join("test.db")).expect("db should open");
+
+    let upsert = |file_path: &str, body: &str| {
+        let meta = LinkedSourceMeta {
+            external_file_path: Some(file_path.to_string()),
+            ..Default::default()
+        };
+        upsert_linked_content(
+            &conn, "papers", "/refs", file_path, "Paper", body, &[], "pdf", 1_000, &meta,
+        )
+        .expect("upsert should succeed")
+        .0
+    };
+
+    let top = upsert("/refs/paper.pdf", "top level");
+    let nested = upsert("/refs/2024/ml/paper.pdf", "nested");
+
+    assert_eq!(top.path, "@linked/papers/paper.pdf");
+    assert_eq!(nested.path, "@linked/papers/2024/ml/paper.pdf");
+}
+
+// Rows written under the old flat scheme must not linger next to the nested row
+// for the same file, or the explorer shows the document twice.
+#[test]
+fn upsert_linked_content_replaces_a_row_whose_path_scheme_changed() {
+    use crate::features::search::db::{find_linked_note_path, upsert_linked_content};
+    use crate::features::search::model::LinkedSourceMeta;
+
+    let tmp = TempDir::new().expect("temp dir should be created");
+    let conn = open_search_db_at_path(&tmp.path().join("test.db")).expect("db should open");
+    let file_path = "/refs/2024/paper.pdf";
+    let meta = LinkedSourceMeta {
+        external_file_path: Some(file_path.to_string()),
+        ..Default::default()
+    };
+
+    // Simulates the pre-existing flat row: the root the file is scanned under
+    // does not prefix it, so the path collapses to the bare file name.
+    let (flat, _) = upsert_linked_content(
+        &conn, "papers", "/elsewhere", file_path, "Paper", "body", &[], "pdf", 1_000, &meta,
+    )
+    .expect("flat upsert should succeed");
+    assert_eq!(flat.path, "@linked/papers/paper.pdf");
+
+    let (nested, stale) = upsert_linked_content(
+        &conn, "papers", "/refs", file_path, "Paper", "body", &[], "pdf", 2_000, &meta,
+    )
+    .expect("nested upsert should succeed");
+
+    assert_eq!(nested.path, "@linked/papers/2024/paper.pdf");
+    assert_eq!(stale.as_deref(), Some("@linked/papers/paper.pdf"));
+    assert_eq!(
+        find_linked_note_path(&conn, "papers", file_path).expect("lookup should succeed"),
+        Some("@linked/papers/2024/paper.pdf".to_string())
+    );
+}
+
+// Removal only knows the file's absolute path, so it has to find the row by that
+// rather than recompute a note path it cannot derive without the source root.
+#[test]
+fn remove_linked_content_finds_the_nested_row_by_external_path() {
+    use crate::features::search::db::{remove_linked_content, upsert_linked_content};
+    use crate::features::search::model::LinkedSourceMeta;
+
+    let tmp = TempDir::new().expect("temp dir should be created");
+    let conn = open_search_db_at_path(&tmp.path().join("test.db")).expect("db should open");
+    let file_path = "/refs/2024/ml/paper.pdf";
+    let meta = LinkedSourceMeta {
+        external_file_path: Some(file_path.to_string()),
+        ..Default::default()
+    };
+
+    upsert_linked_content(
+        &conn, "papers", "/refs", file_path, "Paper", "body", &[], "pdf", 1_000, &meta,
+    )
+    .expect("upsert should succeed");
+
+    let removed =
+        remove_linked_content(&conn, "papers", file_path).expect("remove should succeed");
+
+    assert_eq!(removed, "@linked/papers/2024/ml/paper.pdf");
+    let remaining: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM notes WHERE path LIKE '@linked/papers/%'",
+            [],
+            |row| row.get(0),
+        )
+        .expect("count should query");
+    assert_eq!(remaining, 0);
 }
 
 // The AI vault context renders one line per related note, and the line body is
