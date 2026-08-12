@@ -63,6 +63,21 @@
     return stats.used < stats.retrieved || stats.truncated > 0;
   });
 
+  // Ask-mode only: agent turns carry no assembled context, so they get no
+  // meter rather than a token figure the transport never reports.
+  const retrieval_budget = $derived.by(() => {
+    const used = stats?.chars_used;
+    const available = stats?.chars_available;
+    if (used === undefined || available === undefined || available <= 0) {
+      return null;
+    }
+    return {
+      used,
+      available,
+      percent: Math.min(100, Math.round((used / available) * 100)),
+    };
+  });
+
   function open_citation(citation: AssistantCitation) {
     open_note(citation.note_path);
   }
@@ -255,7 +270,7 @@
       </div>
     {/if}
 
-    {#if display_citations.length > 0 || show_stats}
+    {#if display_citations.length > 0 || show_stats || retrieval_budget}
       <div class="flex flex-col gap-1 border-t pt-2">
         <span class="text-xs font-medium text-muted-foreground">Sources</span>
         {#if show_stats && stats}
@@ -265,6 +280,30 @@
               ? ` (${stats.truncated} truncated to fit)`
               : ""}</span
           >
+        {/if}
+        {#if retrieval_budget}
+          <div
+            class="flex flex-col gap-1"
+            title="Characters of retrieved vault notes sent this turn, against the Ask retrieval budget. Not the model's token window."
+          >
+            <span class="text-xs text-muted-foreground"
+              >Retrieval budget {retrieval_budget.percent}% used ({retrieval_budget.used}
+              of {retrieval_budget.available} characters)</span
+            >
+            <div
+              class="h-1 w-full overflow-hidden rounded-full bg-muted"
+              role="progressbar"
+              aria-label="Ask retrieval budget used"
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={retrieval_budget.percent}
+            >
+              <div
+                class="h-full rounded-full bg-primary"
+                style:width="{retrieval_budget.percent}%"
+              ></div>
+            </div>
+          </div>
         {/if}
         {#each display_citations as citation (citation.index)}
           <div class="group flex items-center gap-1">

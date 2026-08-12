@@ -226,6 +226,10 @@ export class AssistantChatService {
           retrieved: distinct_note_paths(assembly),
           used: contexts.length,
           truncated: assembly.stats.truncated,
+          chars_used: assembly.stats.chars_used,
+          ...(assembly.stats.chars_available === null
+            ? {}
+            : { chars_available: assembly.stats.chars_available }),
         },
         sources: contexts.map((c) => ({
           note_path: c.note_path,
