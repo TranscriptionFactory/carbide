@@ -10,6 +10,7 @@ import {
   execute_batch_close,
   list_tabs_for_batch_close,
   open_active_tab_note,
+  point_dialog_at_conflict,
   record_closed_tabs,
   reset_close_confirm,
   save_dirty_tab,
@@ -55,6 +56,7 @@ export function register_tab_actions(input: ActionRegistrationInput) {
       close_mode: "single",
       keep_tab_id: null,
       apply_to_all: false,
+      has_conflict: false,
     };
   }
 
@@ -401,6 +403,10 @@ export function register_tab_actions(input: ActionRegistrationInput) {
       if (active_saved === "failed") {
         return;
       }
+      if (active_saved === "conflict") {
+        point_dialog_at_conflict(stores, tab_id, find_tab(tab_id)?.title ?? "");
+        return;
+      }
       if (active_saved === "needs_path") {
         stores.ui.tab_close_confirm = {
           ...stores.ui.tab_close_confirm,
@@ -421,6 +427,19 @@ export function register_tab_actions(input: ActionRegistrationInput) {
       if (apply_to_all) {
         for (const pending_id of pending_dirty_tab_ids) {
           const saved = await save_dirty_tab(input, pending_id);
+          if (saved === "conflict") {
+            stores.ui.tab_close_confirm = {
+              ...stores.ui.tab_close_confirm,
+              tab_id: pending_id,
+              tab_title: find_tab(pending_id)?.title ?? "",
+              pending_dirty_tab_ids: pending_dirty_tab_ids.filter(
+                (id) => id !== pending_id,
+              ),
+              apply_to_all: false,
+              has_conflict: true,
+            };
+            return;
+          }
           if (saved === "failed") {
             stores.ui.tab_close_confirm = {
               ...stores.ui.tab_close_confirm,
@@ -450,6 +469,35 @@ export function register_tab_actions(input: ActionRegistrationInput) {
           }
         }
         await execute_batch_close(input);
+        return;
+      }
+
+      await advance_or_finish_batch(input);
+    },
+  });
+
+  // The only path allowed to bypass the mtime guard, and it is reachable only
+  // from the user clicking "Overwrite disk" on a conflicted tab.
+  registry.register({
+    id: ACTION_IDS.tab_confirm_close_overwrite,
+    label: "Overwrite Disk and Close Tab",
+    execute: async () => {
+      const { tab_id } = stores.ui.tab_close_confirm;
+      if (!tab_id) return;
+
+      const overwritten = await save_dirty_tab(input, tab_id, true);
+      if (overwritten !== "saved") {
+        return;
+      }
+
+      stores.ui.tab_close_confirm = {
+        ...stores.ui.tab_close_confirm,
+        has_conflict: false,
+      };
+
+      if (stores.ui.tab_close_confirm.close_mode === "single") {
+        reset_close_confirm(stores);
+        await close_tab_immediate(input, tab_id);
         return;
       }
 

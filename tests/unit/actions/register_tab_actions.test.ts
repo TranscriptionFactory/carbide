@@ -122,7 +122,14 @@ function create_tab_actions_harness() {
       copy_text: vi.fn().mockResolvedValue(undefined),
     },
     shell: {},
-    tab: {},
+    tab: {
+      mark_conflict: vi.fn((note_path: NotePath) =>
+        stores.tab.mark_conflict(note_path),
+      ),
+      clear_conflict: vi.fn((note_path: NotePath) =>
+        stores.tab.clear_conflict(note_path),
+      ),
+    },
   };
 
   register_tab_actions({
@@ -601,6 +608,7 @@ describe("register_tab_actions", () => {
         close_mode: "single",
         keep_tab_id: null,
         apply_to_all: false,
+        has_conflict: false,
       };
 
       await registry.execute(ACTION_IDS.tab_confirm_close_save);
@@ -614,7 +622,37 @@ describe("register_tab_actions", () => {
       expect(stores.tab.tabs).toHaveLength(0);
     });
 
-    it("skips the mtime guard before saving a conflicted active tab", async () => {
+    it("keeps the mtime guard on when saving a conflicted active tab", async () => {
+      const { registry, stores, services } = create_tab_actions_harness();
+      stores.tab.open_tab(np("a.md"), "a");
+      stores.tab.set_dirty("a.md", true);
+      stores.tab.mark_conflict(np("a.md"));
+      stores.editor.set_open_note({
+        ...mock_open_note("a.md"),
+        is_dirty: true,
+      });
+      services.note.save_note.mockResolvedValueOnce({ status: "conflict" });
+
+      stores.ui.tab_close_confirm = {
+        open: true,
+        tab_id: "a.md",
+        tab_title: "a",
+        pending_dirty_tab_ids: [],
+        close_mode: "single",
+        keep_tab_id: null,
+        apply_to_all: false,
+        has_conflict: false,
+      };
+
+      await registry.execute(ACTION_IDS.tab_confirm_close_save);
+
+      expect(services.note.skip_mtime_guard).not.toHaveBeenCalled();
+      expect(stores.ui.tab_close_confirm.has_conflict).toBe(true);
+      expect(stores.ui.tab_close_confirm.open).toBe(true);
+      expect(stores.tab.tabs).toHaveLength(1);
+    });
+
+    it("bypasses the guard only when the user picks Overwrite disk", async () => {
       const { registry, stores, services } = create_tab_actions_harness();
       stores.tab.open_tab(np("a.md"), "a");
       stores.tab.set_dirty("a.md", true);
@@ -632,9 +670,10 @@ describe("register_tab_actions", () => {
         close_mode: "single",
         keep_tab_id: null,
         apply_to_all: false,
+        has_conflict: true,
       };
 
-      await registry.execute(ACTION_IDS.tab_confirm_close_save);
+      await registry.execute(ACTION_IDS.tab_confirm_close_overwrite);
 
       expect(services.note.skip_mtime_guard).toHaveBeenCalledWith("a.md");
       expect(services.note.save_note).toHaveBeenCalledWith(
@@ -643,6 +682,42 @@ describe("register_tab_actions", () => {
         "primary",
       );
       expect(stores.tab.tabs).toHaveLength(0);
+    });
+
+    it("halts a save-all batch at the first conflicted tab", async () => {
+      const { registry, stores, services } = create_tab_actions_harness();
+      stores.tab.open_tab(np("a.md"), "a");
+      stores.tab.open_tab(np("b.md"), "b");
+      stores.tab.open_tab(np("c.md"), "c");
+      stores.tab.set_dirty("a.md", true);
+      stores.tab.set_dirty("b.md", true);
+      stores.tab.set_dirty("c.md", true);
+      stores.tab.activate_tab("a.md");
+      stores.tab.set_cached_note("b.md", mock_open_note("b.md"));
+      stores.tab.set_cached_note("c.md", mock_open_note("c.md"));
+      services.note.write_note_content.mockRejectedValueOnce(
+        new Error("conflict:mtime_mismatch"),
+      );
+
+      stores.ui.tab_close_confirm = {
+        open: true,
+        tab_id: "a.md",
+        tab_title: "a",
+        pending_dirty_tab_ids: ["b.md", "c.md"],
+        close_mode: "all",
+        keep_tab_id: null,
+        apply_to_all: true,
+        has_conflict: false,
+      };
+
+      await registry.execute(ACTION_IDS.tab_confirm_close_save);
+
+      expect(stores.ui.tab_close_confirm.tab_id).toBe("b.md");
+      expect(stores.ui.tab_close_confirm.has_conflict).toBe(true);
+      expect(stores.ui.tab_close_confirm.pending_dirty_tab_ids).toEqual([
+        "c.md",
+      ]);
+      expect(stores.tab.tabs).toHaveLength(3);
     });
 
     it("does not close the tab when save fails", async () => {
@@ -661,6 +736,7 @@ describe("register_tab_actions", () => {
         close_mode: "single",
         keep_tab_id: null,
         apply_to_all: false,
+        has_conflict: false,
       };
 
       await registry.execute(ACTION_IDS.tab_confirm_close_save);
@@ -688,6 +764,7 @@ describe("register_tab_actions", () => {
         close_mode: "single",
         keep_tab_id: null,
         apply_to_all: false,
+        has_conflict: false,
       };
 
       await registry.execute(ACTION_IDS.tab_confirm_close_save);
@@ -732,6 +809,7 @@ describe("register_tab_actions", () => {
         close_mode: "single",
         keep_tab_id: null,
         apply_to_all: false,
+        has_conflict: false,
       };
 
       await registry.execute(ACTION_IDS.tab_confirm_close_save);
@@ -756,6 +834,7 @@ describe("register_tab_actions", () => {
         close_mode: "single",
         keep_tab_id: null,
         apply_to_all: false,
+        has_conflict: false,
       };
 
       await registry.execute(ACTION_IDS.tab_confirm_close_discard);
@@ -779,6 +858,7 @@ describe("register_tab_actions", () => {
         close_mode: "single",
         keep_tab_id: null,
         apply_to_all: false,
+        has_conflict: false,
       };
 
       await registry.execute(ACTION_IDS.tab_cancel_close);

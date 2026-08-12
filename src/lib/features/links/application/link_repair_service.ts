@@ -103,8 +103,55 @@ export class LinkRepairService {
     }
 
     this.on_file_written(String(note_path));
-    await this.notes_port.write_note(vault_id, note_path, rewritten_markdown);
+    if (
+      !(await this.write_guarded(
+        vault_id,
+        note_path,
+        rewritten_markdown,
+        matched_open_note.meta.mtime_ms,
+      ))
+    ) {
+      return;
+    }
     await this.index_port.upsert_note(vault_id, note_path);
+  }
+
+  // Link repair has no user to prompt, so a note that moved under the rewrite
+  // is skipped rather than clobbered: the rewrite was computed from bytes that
+  // are no longer on disk.
+  private async write_guarded(
+    vault_id: VaultId,
+    note_path: NotePath,
+    markdown: ReturnType<typeof as_markdown_text>,
+    expected_mtime: number,
+  ): Promise<boolean> {
+    try {
+      await this.notes_port.write_note(
+        vault_id,
+        note_path,
+        markdown,
+        expected_mtime > 0 ? expected_mtime : undefined,
+      );
+      return true;
+    } catch (error) {
+      this.tab_store.mark_conflict(note_path);
+      log.warn("Link rewrite skipped: note changed on disk", {
+        note_path,
+        error: error_message(error),
+      });
+      return false;
+    }
+  }
+
+  private async read_note_source(
+    vault_id: VaultId,
+    note_path: NotePath,
+  ): Promise<{
+    markdown: ReturnType<typeof as_markdown_text>;
+    mtime_ms: number;
+  }> {
+    const doc = await this.notes_port.read_note(vault_id, note_path);
+    return { markdown: doc.markdown, mtime_ms: doc.meta.mtime_ms };
   }
 
   private async persist_closed_note_rewrite(input: {
@@ -113,6 +160,7 @@ export class LinkRepairService {
     old_source_path: string;
     new_source_path: string;
     rewritten_markdown: ReturnType<typeof as_markdown_text>;
+    expected_mtime: number;
   }): Promise<void> {
     const {
       vault_id,
@@ -120,10 +168,20 @@ export class LinkRepairService {
       old_source_path,
       new_source_path,
       rewritten_markdown,
+      expected_mtime,
     } = input;
 
     this.on_file_written(String(note_path));
-    await this.notes_port.write_note(vault_id, note_path, rewritten_markdown);
+    if (
+      !(await this.write_guarded(
+        vault_id,
+        note_path,
+        rewritten_markdown,
+        expected_mtime,
+      ))
+    ) {
+      return;
+    }
     await this.index_port.upsert_note(vault_id, note_path);
     this.tab_store.invalidate_cache_by_path(note_path);
 
@@ -213,12 +271,15 @@ export class LinkRepairService {
         new_source_path,
       );
 
-      const markdown = matched_open_note
-        ? matched_open_note.markdown
-        : (await this.notes_port.read_note(vault_id, note_path)).markdown;
+      const source = matched_open_note
+        ? {
+            markdown: matched_open_note.markdown,
+            mtime_ms: matched_open_note.meta.mtime_ms,
+          }
+        : await this.read_note_source(vault_id, note_path);
 
       const result = await this.search_port.rewrite_note_links(
-        markdown,
+        source.markdown,
         old_source_path,
         new_source_path,
         target_map,
@@ -246,6 +307,7 @@ export class LinkRepairService {
         old_source_path,
         new_source_path,
         rewritten_markdown: rewritten,
+        expected_mtime: source.mtime_ms,
       });
       return { status: "rewritten" };
     } catch (error) {
