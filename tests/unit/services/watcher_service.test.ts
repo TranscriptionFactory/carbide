@@ -71,7 +71,9 @@ describe("WatcherService", () => {
 
   // One-shot: an arming covers a single self-write event. Anything after it is
   // a genuine external write (an agent editing on disk) and must get through.
-  it("suppress_next suppresses exactly one event for the path", () => {
+  // This is the fallback for events with no mtime; events carrying one are
+  // matched by content identity, which is not one-shot. See record_self_write.
+  it("suppress_next suppresses exactly one mtime-less event for the path", () => {
     const { service } = setup();
 
     service.suppress_next("notes/test.md");
@@ -225,6 +227,215 @@ describe("WatcherService", () => {
 
     vi.advanceTimersByTime(100);
     expect(service.is_suppressed("notes/test.md")).toBe(false);
+    vi.useRealTimers();
+  });
+
+  // Content identity. One write can surface as several Modify deliveries, and
+  // every one of them reports the mtime Carbide wrote, so the match must hold
+  // for all of them rather than being spent on the first.
+  it("record_self_write suppresses every event reporting that mtime", () => {
+    const { service } = setup();
+
+    service.record_self_write("notes/test.md", 5_000);
+
+    for (let i = 0; i < 5; i += 1) {
+      expect(
+        service.is_suppressed("notes/test.md", {
+          kind: "change",
+          mtime_ms: 5_000,
+        }),
+      ).toBe(true);
+    }
+  });
+
+  // Over-suppression is the worse bug: a genuine external edit must get through
+  // immediately, however recently Carbide wrote the same path.
+  it("record_self_write lets an event with a different mtime through", () => {
+    const { service } = setup();
+
+    service.record_self_write("notes/test.md", 5_000);
+
+    expect(
+      service.is_suppressed("notes/test.md", {
+        kind: "change",
+        mtime_ms: 6_000,
+      }),
+    ).toBe(false);
+  });
+
+  it("a spent mtime record does not match again after the file moves on", () => {
+    const { service } = setup();
+
+    service.record_self_write("notes/test.md", 5_000);
+    service.is_suppressed("notes/test.md", { kind: "change", mtime_ms: 6_000 });
+
+    expect(
+      service.is_suppressed("notes/test.md", {
+        kind: "change",
+        mtime_ms: 5_000,
+      }),
+    ).toBe(false);
+  });
+
+  it("mtime identity outlives the suppression window", () => {
+    vi.useFakeTimers();
+    const { service } = setup();
+
+    service.record_self_write("notes/test.md", 5_000);
+    vi.advanceTimersByTime(10_000);
+
+    expect(
+      service.is_suppressed("notes/test.md", {
+        kind: "change",
+        mtime_ms: 5_000,
+      }),
+    ).toBe(true);
+    vi.useRealTimers();
+  });
+
+  it("a null mtime falls back to the one-shot path arming", () => {
+    const { service } = setup();
+
+    service.record_self_write("notes/test.md", 5_000);
+    service.suppress_next("notes/test.md");
+
+    expect(
+      service.is_suppressed("notes/test.md", {
+        kind: "change",
+        mtime_ms: null,
+      }),
+    ).toBe(true);
+    expect(
+      service.is_suppressed("notes/test.md", {
+        kind: "change",
+        mtime_ms: null,
+      }),
+    ).toBe(false);
+  });
+
+  it("matches recorded writes case-insensitively", () => {
+    const { service } = setup();
+
+    service.record_self_write("Notes/Test.md", 5_000);
+
+    expect(
+      service.is_suppressed("notes/test.md", {
+        kind: "change",
+        mtime_ms: 5_000,
+      }),
+    ).toBe(true);
+  });
+
+  // Armings are not interchangeable. A caller that rewrites a file must not
+  // silence the note_removed of a file somebody deleted - git discard arms the
+  // paths it discards, and discard genuinely deletes untracked files.
+  it("a change arming does not suppress a removal", () => {
+    const { service } = setup();
+
+    service.suppress_next("notes/test.md");
+
+    expect(service.is_suppressed("notes/test.md", { kind: "removal" })).toBe(
+      false,
+    );
+  });
+
+  it("a removal arming suppresses a removal", () => {
+    const { service } = setup();
+
+    service.suppress_next("notes/test.md", ["removal"]);
+
+    expect(service.is_suppressed("notes/test.md", { kind: "removal" })).toBe(
+      true,
+    );
+  });
+
+  it("a removal arming does not suppress a change", () => {
+    const { service } = setup();
+
+    service.suppress_next("notes/test.md", ["removal"]);
+
+    expect(service.is_suppressed("notes/test.md")).toBe(false);
+  });
+
+  // A rename arms one path twice, once per side.
+  it("re-arming a live path merges kinds instead of replacing them", () => {
+    const { service } = setup();
+
+    service.suppress_next("notes/test.md", ["removal"]);
+    service.suppress_next("notes/test.md", ["change"]);
+
+    expect(service.is_suppressed("notes/test.md", { kind: "removal" })).toBe(
+      true,
+    );
+    expect(service.is_suppressed("notes/test.md")).toBe(true);
+  });
+
+  // Diagnostics for the external-modification card. is_suppressed consumes the
+  // entry it matches, so without a separate record the second event of one
+  // write is indistinguishable from a genuine external edit in the log.
+  it("arming_age_ms is null for a path that was never armed", () => {
+    const { service } = setup();
+
+    expect(service.arming_age_ms("notes/test.md")).toBeNull();
+  });
+
+  it("arming_age_ms reports the age of the most recent arming", () => {
+    vi.useFakeTimers();
+    const { service } = setup();
+
+    service.suppress_next("notes/test.md");
+    vi.advanceTimersByTime(400);
+
+    expect(service.arming_age_ms("notes/test.md")).toBe(400);
+    vi.useRealTimers();
+  });
+
+  it("arming_age_ms survives the arming being consumed", () => {
+    vi.useFakeTimers();
+    const { service } = setup();
+
+    service.suppress_next("notes/test.md");
+    expect(service.is_suppressed("notes/test.md")).toBe(true);
+    vi.advanceTimersByTime(50);
+
+    expect(service.is_suppressed("notes/test.md")).toBe(false);
+    expect(service.arming_age_ms("notes/test.md")).toBe(50);
+    vi.useRealTimers();
+  });
+
+  // The diagnostically interesting case: an event that missed the suppression
+  // window entirely still has to be traceable back to Carbide's own save.
+  it("arming_age_ms outlives the suppression window", () => {
+    vi.useFakeTimers();
+    const { service } = setup();
+
+    service.suppress_next("notes/test.md");
+    vi.advanceTimersByTime(2_500);
+
+    expect(service.is_suppressed("notes/test.md")).toBe(false);
+    expect(service.arming_age_ms("notes/test.md")).toBe(2_500);
+    vi.useRealTimers();
+  });
+
+  it("arming_age_ms is null once the diagnostic horizon has passed", () => {
+    vi.useFakeTimers();
+    const { service } = setup();
+
+    service.suppress_next("notes/test.md");
+    vi.advanceTimersByTime(30_001);
+
+    expect(service.arming_age_ms("notes/test.md")).toBeNull();
+    vi.useRealTimers();
+  });
+
+  it("arming_age_ms matches paths case-insensitively", () => {
+    vi.useFakeTimers();
+    const { service } = setup();
+
+    service.suppress_next("Notes/Test.md");
+    vi.advanceTimersByTime(10);
+
+    expect(service.arming_age_ms("notes/test.md")).toBe(10);
     vi.useRealTimers();
   });
 
