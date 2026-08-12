@@ -734,7 +734,13 @@ describe("AssistantChatService.query", () => {
     const sources = events.find((e) => e.type === "sources");
     expect(sources).toEqual({
       type: "sources",
-      stats: { retrieved: 2, used: 1, truncated: 1 },
+      stats: {
+        retrieved: 2,
+        used: 1,
+        truncated: 1,
+        chars_used: 100,
+        chars_available: 100,
+      },
       sources: [
         {
           note_path: "notes/long.md",
@@ -1129,6 +1135,25 @@ describe("AssistantChatService.query context assembly", () => {
       },
     ]);
     expect(sources.stats.truncated).toBe(1);
+  });
+
+  it("reports the retrieval budget spent and available in characters", async () => {
+    const search = {
+      search_blocks: vi.fn().mockResolvedValue([]),
+      hybrid_search: vi
+        .fn()
+        .mockResolvedValue([hit("notes/a.md", "A", "1", 0.9)]),
+    };
+    const notes = { read_note: markdown_by_id({ "1": "A".repeat(40) }) };
+
+    const sources = await sources_of(make_service(search, notes), {
+      question: "q",
+      provider_config: provider,
+      assembler_options: tight_budget,
+    });
+
+    expect(sources.stats.chars_used).toBe(40);
+    expect(sources.stats.chars_available).toBe(100);
   });
 
   it("answers no-results rather than throwing when the budget cannot fit a pinned note", async () => {
