@@ -4,6 +4,11 @@ export type AgentToolCall = {
   input_summary: string;
   paths?: string[];
   mutating?: boolean;
+  // Set from the terminal event. A tool that was denied, was unavailable, or
+  // never reported an outcome still carries the paths its start announced, so
+  // "the agent touched this file" and "the agent wrote this file" are not the
+  // same set.
+  ok?: boolean;
 };
 
 export const MCP_TOOL_PREFIX = "mcp__carbide__";
@@ -36,6 +41,14 @@ export function is_mutating_tool(name: string): boolean {
 
 export function is_mutating_call(call: AgentToolCall): boolean {
   return call.mutating ?? is_mutating_tool(call.name);
+}
+
+// Rollback scope. Only a call that reported success actually wrote, and only
+// for such a call was a pre-rollback mtime captured — so this is exactly the
+// set the staleness guard can defend. Anything weaker rolls a note back on the
+// strength of a write that never happened.
+export function is_successful_mutating_call(call: AgentToolCall): boolean {
+  return call.ok === true && is_mutating_call(call);
 }
 
 // Kept in lockstep with PATH_KEYS in src-tauri/src/features/ai/tool_paths.rs;
@@ -85,17 +98,35 @@ export function to_vault_relative_path(
     : normalized;
 }
 
-export function changed_files_from_tools(
+function files_from_tools(
   calls: AgentToolCall[],
   vault_path: string,
+  include: (call: AgentToolCall) => boolean,
 ): string[] {
   const paths: string[] = [];
   for (const call of calls) {
-    if (!is_mutating_call(call)) continue;
+    if (!include(call)) continue;
     for (const path of paths_from_call(call)) {
       const relative = to_vault_relative_path(vault_path, path);
       if (relative !== "" && !paths.includes(relative)) paths.push(relative);
     }
   }
   return paths;
+}
+
+// Refresh scope, deliberately permissive: a mutating tool that failed halfway
+// still left the vault stale, so the tree refresh and the session's
+// changed-files record must see it.
+export function changed_files_from_tools(
+  calls: AgentToolCall[],
+  vault_path: string,
+): string[] {
+  return files_from_tools(calls, vault_path, is_mutating_call);
+}
+
+export function rollback_files_from_tools(
+  calls: AgentToolCall[],
+  vault_path: string,
+): string[] {
+  return files_from_tools(calls, vault_path, is_successful_mutating_call);
 }

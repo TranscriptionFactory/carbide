@@ -57,6 +57,14 @@ function make_harness(events: RunEvent[]) {
   });
   const sync_changed_notes = vi.fn();
   const proposals = create_test_proposal_producer(calls);
+  // Each read returns a fresh, larger value, so a capture taken at the tool
+  // call and a capture taken at the end of the turn are distinguishable.
+  let next_mtime = 1_000;
+  const read_note_mtime = vi.fn((note_path: string) => {
+    calls.push(`mtime:${note_path}`);
+    next_mtime += 1;
+    return Promise.resolve(next_mtime);
+  });
   const runner = new AgentRunner(
     starter,
     rag_store,
@@ -65,6 +73,7 @@ function make_harness(events: RunEvent[]) {
     refresh_vault,
     sync_changed_notes,
     proposals,
+    read_note_mtime,
   );
   return {
     runner,
@@ -75,6 +84,7 @@ function make_harness(events: RunEvent[]) {
     refresh_vault,
     sync_changed_notes,
     proposals,
+    read_note_mtime,
   };
 }
 
@@ -264,6 +274,7 @@ describe("AgentRunner.run_turn", () => {
       refresh_vault,
       vi.fn(),
       create_test_proposal_producer(),
+      () => Promise.resolve(1_000),
     );
 
     const running = runner.run_turn(provider, "organize my notes", "acp");
@@ -410,6 +421,7 @@ describe("AgentRunner.run_turn", () => {
       vi.fn(),
       vi.fn(),
       create_test_proposal_producer(),
+      () => Promise.resolve(1_000),
     );
 
     const before = rag_store.active?.messages.length ?? 0;
@@ -509,6 +521,181 @@ describe("AgentRunner end-of-turn proposals", () => {
     await runner.run_turn(provider, "organize my notes", "acp");
 
     expect(proposals.produce).toHaveBeenCalledTimes(1);
+  });
+
+  // Chain B. The harness announces a mutating tool's paths BEFORE the
+  // permission gate and restates them on the terminal event even when the tool
+  // never ran, so a permissive path set reverts a file the user said no to.
+  it("keeps a denied tool's path out of the rollback scope", async () => {
+    const { runner, proposals } = make_harness([
+      tool_start("mcp__carbide__update_note", '{"path":"notes/denied.md"}', {
+        paths: ["notes/denied.md"],
+        mutating: true,
+        id: "denied",
+      }),
+      tool_end("mcp__carbide__update_note", { ok: false, id: "denied" }),
+      tool_start("mcp__carbide__update_note", '{"path":"notes/allowed.md"}', {
+        paths: ["notes/allowed.md"],
+        mutating: true,
+        id: "allowed",
+      }),
+      tool_end("mcp__carbide__update_note", { id: "allowed" }),
+      { type: "done", stats: {} },
+    ]);
+
+    await runner.run_turn(provider, "organize my notes", "acp");
+
+    expect(proposals.produce.mock.calls[0]?.[0].touched_paths).toEqual([
+      "notes/allowed.md",
+    ]);
+  });
+
+  it("produces nothing at all for a turn whose only write was denied", async () => {
+    const { runner, proposals } = make_harness([
+      tool_start("mcp__carbide__update_note", '{"path":"notes/a.md"}', {
+        paths: ["notes/a.md"],
+        mutating: true,
+      }),
+      tool_end("mcp__carbide__update_note", { ok: false }),
+      { type: "done", stats: {} },
+    ]);
+
+    await runner.run_turn(provider, "organize my notes", "acp");
+
+    expect(proposals.produce).not.toHaveBeenCalled();
+  });
+
+  // The two sets must not collapse into one: a denied tool may still have left
+  // the vault stale, so the refresh stays permissive while the rollback does not.
+  it("still refreshes a denied tool's path even though it is not rolled back", async () => {
+    const { runner, rag_store, refresh_vault, sync_changed_notes } =
+      make_harness([
+        tool_start("mcp__carbide__update_note", '{"path":"notes/a.md"}', {
+          paths: ["notes/a.md"],
+          mutating: true,
+        }),
+        tool_end("mcp__carbide__update_note", { ok: false }),
+        { type: "done", stats: {} },
+      ]);
+
+    await runner.run_turn(provider, "organize my notes", "acp");
+
+    expect(refresh_vault).toHaveBeenCalledTimes(1);
+    expect(sync_changed_notes).toHaveBeenCalledWith(["notes/a.md"]);
+    expect(rag_store.active?.changed_files).toEqual(["notes/a.md"]);
+  });
+
+  it("reads the guard mtime at the writing tool call, before the turn ends", async () => {
+    const { runner, calls, proposals, read_note_mtime } =
+      make_harness(writing_turn);
+
+    await runner.run_turn(provider, "organize my notes", "acp");
+
+    expect(read_note_mtime).toHaveBeenCalledWith("notes/a.md");
+    expect(calls.indexOf("mtime:notes/a.md")).toBeGreaterThan(-1);
+    expect(calls.indexOf("mtime:notes/a.md")).toBeLessThan(
+      calls.indexOf("proposals"),
+    );
+    // The first value the reader handed out, not one taken after the turn.
+    expect(proposals.produce.mock.calls[0]?.[0].expected_mtimes).toEqual({
+      "notes/a.md": 1_001,
+    });
+  });
+
+  // The reported scenario, end to end: the user's save lands DURING the turn,
+  // after the agent's write. An mtime captured once the turn is over already
+  // contains that save, so the guard would compare equal, pass, and let the
+  // rollback destroy the very bytes it exists to protect. Moving the capture to
+  // the end of the turn must fail this test.
+  it("captures the mtime the agent's write left, not one a later user save bumped", async () => {
+    const { rag_store, vault_store } = make_stores();
+    let disk_mtime = 1_000;
+    const starter = create_test_run_starter(() =>
+      (async function* () {
+        yield tool_start("mcp__carbide__update_note", '{"path":"notes/a.md"}', {
+          paths: ["notes/a.md"],
+          mutating: true,
+        });
+        yield tool_end("mcp__carbide__update_note");
+        // The user saves the same note while the turn is still running.
+        disk_mtime = 9_999;
+        yield { type: "text", text: "Done." } as RunEvent;
+        yield { type: "done", stats: {} } as RunEvent;
+      })(),
+    );
+    const proposals = create_test_proposal_producer();
+    const runner = new AgentRunner(
+      starter,
+      rag_store,
+      vault_store,
+      {
+        create_checkpoint: vi
+          .fn()
+          .mockResolvedValue({ status: "created" as const, sha: "anchor-sha" }),
+      },
+      vi.fn(),
+      vi.fn(),
+      proposals,
+      () => Promise.resolve(disk_mtime),
+    );
+
+    await runner.run_turn(provider, "organize my notes", "acp");
+
+    expect(proposals.produce.mock.calls[0]?.[0].expected_mtimes).toEqual({
+      "notes/a.md": 1_000,
+    });
+  });
+
+  it("captures no mtime for a denied tool's path", async () => {
+    const { runner, proposals, read_note_mtime } = make_harness([
+      tool_start("mcp__carbide__update_note", '{"path":"notes/denied.md"}', {
+        paths: ["notes/denied.md"],
+        mutating: true,
+        id: "denied",
+      }),
+      tool_end("mcp__carbide__update_note", { ok: false, id: "denied" }),
+      tool_start("mcp__carbide__update_note", '{"path":"notes/allowed.md"}', {
+        paths: ["notes/allowed.md"],
+        mutating: true,
+        id: "allowed",
+      }),
+      tool_end("mcp__carbide__update_note", { id: "allowed" }),
+      { type: "done", stats: {} },
+    ]);
+
+    await runner.run_turn(provider, "organize my notes", "acp");
+
+    expect(read_note_mtime).toHaveBeenCalledTimes(1);
+    expect(proposals.produce.mock.calls[0]?.[0].expected_mtimes).toEqual({
+      "notes/allowed.md": 1_001,
+    });
+  });
+
+  // A read that fails leaves the note unguarded rather than failing the turn;
+  // the rollback then behaves as it did before this guard existed.
+  it("omits a path whose mtime could not be read instead of throwing", async () => {
+    const { rag_store, vault_store } = make_stores();
+    const starter = create_test_run_starter(() => writing_turn);
+    const proposals = create_test_proposal_producer();
+    const runner = new AgentRunner(
+      starter,
+      rag_store,
+      vault_store,
+      {
+        create_checkpoint: vi
+          .fn()
+          .mockResolvedValue({ status: "created" as const, sha: "anchor-sha" }),
+      },
+      vi.fn(),
+      vi.fn(),
+      proposals,
+      () => Promise.reject(new Error("note vanished")),
+    );
+
+    const result = await runner.run_turn(provider, "organize my notes", "acp");
+
+    expect(result).toEqual({ status: "done" });
+    expect(proposals.produce.mock.calls[0]?.[0].expected_mtimes).toEqual({});
   });
 
   it("does not fail the turn when production throws", async () => {
