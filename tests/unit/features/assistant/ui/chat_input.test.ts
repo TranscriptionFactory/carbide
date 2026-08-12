@@ -137,7 +137,8 @@ describe("chat_input.svelte", () => {
 
     expect(el.style.height).toBe("140px");
     expect(el.className).toContain("max-h-48");
-    expect(el.className).not.toContain("resize-none");
+    // D1 declined a drag handle, so auto-grow is the only sizing control.
+    expect(el.className).toContain("resize-none");
 
     view.cleanup();
   });
