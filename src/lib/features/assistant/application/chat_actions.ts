@@ -252,7 +252,12 @@ export function register_chat_actions(
       return;
     }
     const provider = await resolve_ask_provider();
-    if (!provider) return;
+    if (!provider) {
+      // A regenerated question never came from the composer, so it has nothing
+      // to go back to.
+      if (!reuse_last_user) chat_store.restore_to_composer(question);
+      return;
+    }
 
     const revision = chat_store.begin_turn();
     const messages = [...chat_store.messages];
@@ -361,10 +366,14 @@ export function register_chat_actions(
       return;
     }
     const provider = await resolve_ask_provider();
-    if (!provider) return;
+    if (!provider) {
+      chat_store.restore_to_composer(prompt);
+      return;
+    }
     const capability = agent_capability(provider);
     if (!capability) {
       toast.error(`${provider.name} does not support agent mode`);
+      chat_store.restore_to_composer(prompt);
       return;
     }
 

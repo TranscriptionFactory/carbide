@@ -836,3 +836,58 @@ describe("register_chat_actions — queued prompts", () => {
     expect(chat_store.composer_restore).toBe("second question");
   });
 });
+
+// Same loss class as 1e: these runners bail after the composer has already
+// cleared itself, so the text needs the restore channel too.
+describe("register_chat_actions — submissions the runner refuses", () => {
+  it("hands the question back when AI is disabled", async () => {
+    const { registry, chat_store, chat_service, stores } = create_harness();
+    stores.ui.editor_settings.ai_enabled = false;
+
+    await registry.execute(ACTION_IDS.rag_ask, "what is it?");
+
+    expect(chat_service.query).not.toHaveBeenCalled();
+    expect(chat_store.messages).toEqual([]);
+    expect(chat_store.composer_restore).toBe("what is it?");
+  });
+
+  it("hands the question back when no provider resolves", async () => {
+    const { registry, chat_store, chat_service, stores } = create_harness();
+    stores.ui.editor_settings.ai_providers = [];
+
+    await registry.execute(ACTION_IDS.rag_ask, "what is it?");
+
+    expect(chat_service.query).not.toHaveBeenCalled();
+    expect(chat_store.composer_restore).toBe("what is it?");
+  });
+
+  it("hands the prompt back when the provider has no agent mode", async () => {
+    const { registry, chat_store, stores } = create_harness();
+    // A CLI transport with no ACP spec has no agent backend to run on.
+    stores.ui.editor_settings.ai_providers = [
+      {
+        id: PROVIDER_ID,
+        name: "Text only",
+        transport: { kind: "cli", command: "text-only", args: [] },
+      },
+    ];
+    chat_store.set_mode("agent");
+
+    await registry.execute(ACTION_IDS.rag_ask, "run the thing");
+
+    expect(chat_store.messages).toEqual([]);
+    expect(chat_store.composer_restore).toBe("run the thing");
+  });
+
+  it("keeps a regenerated question out of the composer", async () => {
+    const { registry, chat_store, stores } = create_harness();
+
+    await registry.execute(ACTION_IDS.rag_ask, "what is it?");
+    const reply_id = chat_store.messages[1]!.id;
+    stores.ui.editor_settings.ai_providers = [];
+
+    await registry.execute(ACTION_IDS.rag_regenerate, reply_id);
+
+    expect(chat_store.composer_restore).toBeNull();
+  });
+});

@@ -269,7 +269,7 @@
       onkeydown={on_keydown}
       oninput={() => void refresh_mentions()}
       onblur={() => suggest.close()}
-      class="max-h-48 min-h-16 resize-y text-sm"
+      class="max-h-48 min-h-16 resize-none text-sm"
     />
     {#if suggest.open}
       <DslSuggestDropdown

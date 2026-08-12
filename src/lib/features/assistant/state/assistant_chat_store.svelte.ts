@@ -405,7 +405,11 @@ export class AssistantChatStore {
   restore_queued_prompt() {
     const queued = this.queued_prompt;
     this.queued_prompt = null;
-    if (queued) this.composer_restore = queued.text;
+    if (queued) this.restore_to_composer(queued.text);
+  }
+
+  restore_to_composer(text: string) {
+    this.composer_restore = text;
   }
 
   clear_composer_restore() {
