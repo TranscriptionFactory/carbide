@@ -64,6 +64,13 @@ export class AssistantChatStore {
   readiness = $state<RetrievalReadiness>({ state: "checking" });
   // Composer state (pin 5): never enters the persisted session format.
   attached_document = $state<DocumentAttachment | null>(null);
+  // A submission made while a turn is in flight waits in this single slot. It
+  // carries the revision it was queued at so it can never drain into a
+  // conversation other than the one it was typed for.
+  queued_prompt = $state<{ text: string; revision: number } | null>(null);
+  // One-shot channel back to the composer: a stopped or failed turn hands the
+  // queued text back as editable input instead of sending or dropping it.
+  composer_restore = $state<string | null>(null);
 
   constructor(private readonly store: AssistantSessionStore) {}
 
@@ -360,6 +367,7 @@ export class AssistantChatStore {
       this.streaming_id = null;
       this.is_loading = false;
       this.error = null;
+      this.queued_prompt = null;
     }
     this.revision += 1;
   }
@@ -373,12 +381,35 @@ export class AssistantChatStore {
     this.is_loading = false;
     this.error = null;
     this.attached_document = null;
+    this.queued_prompt = null;
+    this.composer_restore = null;
   }
 
   begin_turn(): number {
     this.pending_sources = null;
     this.revision += 1;
     return this.revision;
+  }
+
+  queue_prompt(text: string) {
+    this.queued_prompt = { text, revision: this.revision };
+  }
+
+  take_queued_prompt(): string | null {
+    const queued = this.queued_prompt;
+    this.queued_prompt = null;
+    if (!queued || queued.revision !== this.revision) return null;
+    return queued.text;
+  }
+
+  restore_queued_prompt() {
+    const queued = this.queued_prompt;
+    this.queued_prompt = null;
+    if (queued) this.composer_restore = queued.text;
+  }
+
+  clear_composer_restore() {
+    this.composer_restore = null;
   }
 
   private create_session(first_content: string): string {
@@ -399,6 +430,7 @@ export class AssistantChatStore {
     this.is_loading = false;
     this.streaming_id = null;
     this.pending_sources = null;
+    this.queued_prompt = null;
     this.revision += 1;
   }
 

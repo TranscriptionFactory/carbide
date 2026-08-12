@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { tick } from "svelte";
+  import { tick, untrack } from "svelte";
   import { FileText, PenLine, SendHorizontal, Square, X } from "@lucide/svelte";
   import * as Select from "$lib/components/ui/select/index.js";
   import { Button } from "$lib/components/ui/button";
@@ -56,6 +56,9 @@
     // open tab.
     can_edit?: boolean;
     on_edit?: ((instructions: string) => void) | undefined;
+    // A queued prompt handed back by a stopped or failed turn, consumed once.
+    restore_text?: string | null;
+    on_restore_consumed?: (() => void) | undefined;
   };
 
   let {
@@ -82,6 +85,8 @@
     on_detach_document = undefined,
     can_edit = false,
     on_edit = undefined,
+    restore_text = null,
+    on_restore_consumed = undefined,
   }: Props = $props();
 
   let value = $state("");
@@ -149,7 +154,10 @@
   }
 
   const provider_config = $derived(providers.find((p) => p.id === provider_id));
-  const can_submit = $derived(value.trim() !== "" && !is_loading);
+  // Submission stays open during a turn: the action queues it rather than
+  // dropping it, so gating here would remove the capability instead of fixing
+  // the loss.
+  const can_submit = $derived(value.trim() !== "");
   const placeholder = $derived(
     readiness_state === "indexing"
       ? "Ask anything — vault is still indexing, answers may be incomplete…"
@@ -186,6 +194,27 @@
       if (fade_timer) clearTimeout(fade_timer);
       example_visible = true;
     };
+  });
+
+  // Restored text is merged above whatever the user has typed since queueing,
+  // so getting a prompt back never costs them the one they are writing.
+  $effect(() => {
+    const restored = restore_text;
+    if (restored === null) return;
+    untrack(() => {
+      value = value.trim() === "" ? restored : `${restored}\n${value}`;
+    });
+    on_restore_consumed?.();
+  });
+
+  // Auto-grow: the textarea has no intrinsic content sizing, so height is
+  // measured from the content and capped by the element's max-height.
+  $effect(() => {
+    void value;
+    const el = textarea_el;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight}px`;
   });
 
   function dispatch(handler: (text: string) => void) {
@@ -236,12 +265,11 @@
     <Textarea
       bind:value
       bind:ref={textarea_el}
-      rows={2}
       {placeholder}
       onkeydown={on_keydown}
       oninput={() => void refresh_mentions()}
       onblur={() => suggest.close()}
-      class="resize-none text-sm"
+      class="max-h-48 min-h-16 resize-y text-sm"
     />
     {#if suggest.open}
       <DslSuggestDropdown
