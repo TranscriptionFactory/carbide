@@ -22,6 +22,7 @@ import {
 import { merge_paths as merge_tool_paths } from "$lib/features/assistant/types/tool_event_fold";
 import { session_messages_to_history } from "$lib/features/assistant";
 import type { AgentTurnProposalProducer } from "$lib/features/assistant/application/agent_proposal_service";
+import { build_turn_report_notice } from "$lib/features/assistant/application/agent_turn_report_notice";
 
 const log = create_logger("agent_runner");
 
@@ -323,6 +324,8 @@ export class AgentRunner {
         expected_mtimes: await this.resolve_mtimes(mtimes),
       });
       log.info("Agent turn proposals", report);
+      const notice = build_turn_report_notice(report);
+      if (notice) this.chat_store.add_assistant_message(notice, []);
     } catch (err) {
       log.warn("Agent turn proposal production failed", {
         error: error_message(err),
