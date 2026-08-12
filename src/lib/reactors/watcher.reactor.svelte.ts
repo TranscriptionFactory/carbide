@@ -199,6 +199,7 @@ export function create_watcher_reactor(
     function self_write_path(event: VaultFsEvent): string | null {
       if (event.type === "note_changed_externally") return event.note_path;
       if (event.type === "note_added") return event.note_path;
+      if (event.type === "note_removed") return event.note_path;
       if (event.type === "asset_changed") return event.asset_path;
       return null;
     }
@@ -207,9 +208,19 @@ export function create_watcher_reactor(
     // self-write can surface as a Create, and the arming must survive it to
     // also swallow the Modify that follows for the same path.
     function is_self_write(event: VaultFsEvent, path: string): boolean {
-      return event.type === "note_added"
-        ? watcher_service.peek_suppressed(path)
-        : watcher_service.is_suppressed(path);
+      if (event.type === "note_added") {
+        return watcher_service.peek_suppressed(path);
+      }
+      if (event.type === "note_removed") {
+        return watcher_service.is_suppressed(path, { kind: "removal" });
+      }
+      if (event.type === "note_changed_externally") {
+        return watcher_service.is_suppressed(path, {
+          kind: "change",
+          mtime_ms: event.mtime_ms,
+        });
+      }
+      return watcher_service.is_suppressed(path);
     }
 
     function handle_event(event: VaultFsEvent) {

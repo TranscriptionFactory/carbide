@@ -107,7 +107,10 @@ export class NoteService {
     private readonly editor_service: EditorService,
     private readonly now_ms: () => number,
     private readonly link_repair: LinkRepairService | null = null,
-    private readonly on_file_written?: (path: string) => void,
+    private readonly on_file_written?: (
+      path: string,
+      detail?: { mtime_ms?: number; kind?: "change" | "removal" },
+    ) => void,
     private readonly secondary_editor_manager?: SecondaryEditorManager,
     private readonly parsed_note_cache?: ParsedNoteCache,
     private readonly diagnostics_store?: DiagnosticsStore,
@@ -429,6 +432,7 @@ export class NoteService {
     this.start_operation("note.delete");
 
     try {
+      this.on_file_written?.(note.path, { kind: "removal" });
       await this.notes_port.delete_note(vault_id, note.id);
       await this.run_index_update(() =>
         this.index_port.remove_note(vault_id, note.id),
@@ -909,6 +913,10 @@ export class NoteService {
         this.resolve_expected_mtime(open_note),
       );
     }
+    // Second arm, now that the mtime exists: the pre-write arm above covers the
+    // events that land while the write is in flight, this one covers every
+    // later echo of the same bytes by identity rather than by count.
+    this.on_file_written?.(open_note.meta.path, { mtime_ms: new_mtime });
     session.editor_store.mark_clean(open_note.meta.id, new_mtime);
     this.propagate_mtime_to_other_pane(session, open_note.meta.id, new_mtime);
     this.sync_split_view_session(session);
@@ -1066,6 +1074,11 @@ export class NoteService {
     to_path: NotePath,
     overwrite: boolean,
   ) {
+    // A rename is a removal at one path and a creation at the other, and both
+    // sides reach the watcher as self-writes that nothing armed before now.
+    this.on_file_written?.(from_path, { kind: "removal" });
+    this.on_file_written?.(to_path);
+
     try {
       await this.notes_port.rename_note(vault_id, from_path, to_path);
       return;
@@ -1082,6 +1095,7 @@ export class NoteService {
       throw new Error("cannot overwrite note that is currently open");
     }
 
+    this.on_file_written?.(to_path, { kind: "removal" });
     await this.notes_port.delete_note(vault_id, to_path);
     await this.run_index_update(() =>
       this.index_port.remove_note(vault_id, to_path),

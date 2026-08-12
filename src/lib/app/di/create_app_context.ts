@@ -715,8 +715,15 @@ export function create_app_context(input: {
     editor_service,
     now_ms,
     link_repair_service,
-    (path) => {
-      watcher_service.suppress_next(path);
+    (path, detail) => {
+      if (detail?.mtime_ms !== undefined) {
+        watcher_service.record_self_write(path, detail.mtime_ms);
+        return;
+      }
+      watcher_service.suppress_next(
+        path,
+        detail?.kind === "removal" ? ["removal"] : ["change"],
+      );
     },
     secondary_editor_manager,
     stores.parsed_note_cache,
