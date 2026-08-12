@@ -376,9 +376,22 @@ export class EditorService {
     return true;
   }
 
-  mark_clean() {
-    const markdown = this.editor_store.open_note?.markdown;
-    this.session?.mark_clean(markdown);
+  // saved_content is the bytes a write put on disk. The session takes it as its
+  // baseline but is not the dirty authority for it: in source and split modes
+  // the ProseMirror doc is deliberately stale, so only flush() knows which
+  // surface owns the live document. Re-dirty from that surface rather than let
+  // the buffer go clean over content that was never written.
+  mark_clean(saved_content?: string) {
+    this.session?.mark_clean(
+      saved_content ?? this.editor_store.open_note?.markdown,
+    );
+    if (saved_content === undefined) return;
+
+    const written = normalize_markdown_line_breaks(saved_content);
+    const live = this.flush();
+    if (live && live.markdown !== written) {
+      this.editor_store.set_dirty(live.note_id, true);
+    }
   }
 
   mark_clean_from_editor() {

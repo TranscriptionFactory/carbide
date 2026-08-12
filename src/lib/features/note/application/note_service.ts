@@ -550,13 +550,15 @@ export class NoteService {
 
     try {
       await this.apply_format_on_save(save_context.session, plan_decision.plan);
-      await this.run_save_plan(
+      const written_markdown = await this.run_save_plan(
         save_context.vault_id,
         save_context.session,
         plan_decision.plan,
       );
 
-      save_context.session.editor_service.mark_clean();
+      save_context.session.editor_service.mark_clean(
+        written_markdown ?? undefined,
+      );
       this.finish_save_operation(null);
 
       const saved_path = this.resolve_saved_path(
@@ -814,15 +816,21 @@ export class NoteService {
     };
   }
 
+  // Returns the bytes the write actually put on disk, which the caller uses as
+  // the clean baseline: the store can move past them while the write is in
+  // flight, and baselining that newer value marks the buffer clean over
+  // content no writer ever saw.
   private async run_save_plan(
     vault_id: VaultId,
     session: SaveSession,
     plan: SavePlan,
-  ) {
+  ): Promise<MarkdownText | null> {
+    const written: { markdown: MarkdownText | null } = { markdown: null };
     await this.enqueue_write(
       `note.save:${plan.open_note.meta.id}`,
       async () => {
         const refreshed_plan = this.refresh_save_plan(session, plan);
+        written.markdown = refreshed_plan.open_note.markdown;
         if (refreshed_plan.kind === "save_untitled") {
           await this.save_untitled_note(
             vault_id,
@@ -840,6 +848,7 @@ export class NoteService {
         );
       },
     );
+    return written.markdown;
   }
 
   private refresh_save_plan(session: SaveSession, plan: SavePlan): SavePlan {
