@@ -1,6 +1,6 @@
 use crate::features::search::db as search_db;
 use crate::features::search::hnsw_index::{SharedVectorIndex, VectorIndex};
-use crate::features::search::service::{apply_note_embedding_on_save, embedding_flags};
+use crate::features::search::service::{apply_note_embedding_on_save, embedding_flags, SaveEncoder};
 use crate::features::search::vector_db;
 use crate::features::settings::service::SettingsStore;
 use rusqlite::Connection;
@@ -8,6 +8,20 @@ use serde_json::json;
 use std::sync::{Arc, RwLock};
 
 const NOTE: &str = "n.md";
+
+/// Encodes notes but never sections, so a save has to decide what to do with a
+/// note whose changed blocks have no vectors.
+struct SectionEncodeFails;
+
+impl SaveEncoder for SectionEncodeFails {
+    fn encode_sections(&self, _texts: &[&str]) -> Result<Vec<Vec<f32>>, String> {
+        Err("encoder unavailable".to_string())
+    }
+
+    fn encode_note(&self, _text: &str) -> Result<Vec<f32>, String> {
+        Ok(vec![0.5_f32; 4])
+    }
+}
 
 fn conn_with_vector_schema() -> Connection {
     let conn = Connection::open_in_memory().expect("in-memory db");
@@ -268,6 +282,86 @@ fn unchanged_save_keeps_the_note_key() {
         .expect("index lock")
         .get_vector(NOTE)
         .is_some());
+    assert_eq!(vector_db::get_embedded_paths(&conn).len(), 1);
+}
+
+/// Block rows for the changed sections are deleted before the encode runs, so a
+/// failed encode leaves the note with a *subset* of its blocks. Composing the
+/// note vector from those survivors stored a partial vector and — because the
+/// bulk pass is presence-based — marked the note embedded permanently.
+#[test]
+fn failed_block_encode_leaves_the_note_unembedded() {
+    let conn = conn_with_vector_schema();
+    let v1 = note_markdown("a", "b");
+    seed_embeddings(&conn, &v1);
+
+    let note_index = shared_index();
+    note_index
+        .write()
+        .expect("index lock")
+        .insert(NOTE, vec![0.1_f32; 4]);
+
+    let v2 = note_markdown("a2", "b");
+    apply_note_embedding_on_save(
+        &conn,
+        NOTE,
+        &v2,
+        &note_index,
+        &shared_index(),
+        true,
+        true,
+        Some(&SectionEncodeFails),
+    );
+
+    assert_eq!(
+        vector_db::get_block_hashes(&conn, NOTE).len(),
+        1,
+        "the changed section's row is gone and was not re-encoded"
+    );
+    assert!(
+        vector_db::get_embedded_paths(&conn).is_empty(),
+        "no note vector composed from the surviving block, so the bulk pass re-picks the note"
+    );
+    assert!(
+        note_index
+            .read()
+            .expect("index lock")
+            .get_vector(NOTE)
+            .is_none(),
+        "the resident index agrees with the DB"
+    );
+}
+
+/// The counterpart: nothing failed, so the note is composed and marked embedded.
+#[test]
+fn successful_block_encode_recomposes_the_note_vector() {
+    struct Encoder;
+    impl SaveEncoder for Encoder {
+        fn encode_sections(&self, texts: &[&str]) -> Result<Vec<Vec<f32>>, String> {
+            Ok(texts.iter().map(|_| vec![0.5_f32; 4]).collect())
+        }
+        fn encode_note(&self, _text: &str) -> Result<Vec<f32>, String> {
+            Err("the note has blocks to compose from".to_string())
+        }
+    }
+
+    let conn = conn_with_vector_schema();
+    let v1 = note_markdown("a", "b");
+    seed_embeddings(&conn, &v1);
+
+    let v2 = note_markdown("a2", "b");
+    apply_note_embedding_on_save(
+        &conn,
+        NOTE,
+        &v2,
+        &shared_index(),
+        &shared_index(),
+        true,
+        true,
+        Some(&Encoder),
+    );
+
+    assert_eq!(vector_db::get_block_hashes(&conn, NOTE).len(), 2);
     assert_eq!(vector_db::get_embedded_paths(&conn).len(), 1);
 }
 

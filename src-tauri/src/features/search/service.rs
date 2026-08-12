@@ -350,12 +350,20 @@ enum DbCommand {
 struct VaultWorker {
     write_tx: mpsc::Sender<DbCommand>,
     read_conn: Arc<Mutex<Connection>>,
+    // Index (FTS) ops only. Embedding passes carry `embed_cancel` instead: one
+    // token for both job families meant every index enqueue killed an in-flight
+    // embedding pass, whose remaining sections were then never re-scheduled.
     cancel: Arc<AtomicBool>,
+    embed_cancel: Arc<AtomicBool>,
     is_embedding: Arc<AtomicBool>,
     // Set when an EmbedBatch is enqueued, cleared when the worker dequeues it.
     // Closes the window between enqueue and dequeue where is_embedding is still
     // false, so concurrent embed_sync calls don't queue duplicate passes.
     embed_queued: Arc<AtomicBool>,
+    // Set when a request arrives while a pass is *running*: that pass already
+    // took its work snapshot, so it re-enqueues exactly one more batch when it
+    // finishes rather than dropping the request.
+    embed_rearm: Arc<AtomicBool>,
     join_handle: Option<JoinHandle<()>>,
     note_index: SharedVectorIndex,
     block_index: SharedVectorIndex,
@@ -383,6 +391,7 @@ impl Drop for SearchDbState {
 
 fn shutdown_worker(worker: &mut VaultWorker) {
     worker.cancel.store(true, Ordering::Relaxed);
+    worker.embed_cancel.store(true, Ordering::Relaxed);
     let _ = worker.write_tx.send(DbCommand::Shutdown);
     if let Some(handle) = worker.join_handle.take() {
         let (done_tx, done_rx) = mpsc::sync_channel::<()>(1);
@@ -727,8 +736,10 @@ pub(crate) fn ensure_worker(app: &AppHandle, vault_id: &str) -> Result<(), Strin
         write_tx: tx,
         read_conn: Arc::new(Mutex::new(read_conn)),
         cancel: Arc::new(AtomicBool::new(false)),
+        embed_cancel: Arc::new(AtomicBool::new(false)),
         is_embedding: Arc::new(AtomicBool::new(false)),
         embed_queued: Arc::new(AtomicBool::new(false)),
+        embed_rearm: Arc::new(AtomicBool::new(false)),
         join_handle: Some(handle),
         note_index,
         block_index,
@@ -1191,8 +1202,11 @@ fn dispatch_command(
             is_embedding,
             embed_queued,
         } => {
-            embed_queued.store(false, Ordering::Relaxed);
+            // is_embedding first: clearing embed_queued before it would leave a
+            // window where a concurrent request sees neither flag and queues a
+            // duplicate pass.
             is_embedding.store(true, Ordering::Relaxed);
+            embed_queued.store(false, Ordering::Relaxed);
             handle_embed_batch(
                 conn,
                 &vault_root,
@@ -1206,6 +1220,7 @@ fn dispatch_command(
                 rx,
             );
             is_embedding.store(false, Ordering::Relaxed);
+            rearm_embed_pass(&app_handle, &vault_id);
         }
         DbCommand::RebuildEmbeddings {
             vault_root,
@@ -1228,6 +1243,7 @@ fn dispatch_command(
                 rx,
             );
             is_embedding.store(false, Ordering::Relaxed);
+            rearm_embed_pass(&app_handle, &vault_id);
         }
         DbCommand::RebuildIndex => {
             // Only ever enqueued once at worker spawn and intercepted by
@@ -1349,8 +1365,29 @@ fn embed_note_on_save(
         block_index,
         note_embed_enabled,
         block_embed_enabled,
-        model.as_deref(),
+        model.as_deref().map(|m| m as &dyn SaveEncoder),
     );
+}
+
+/// The two encode calls the save path makes. A seam, not an abstraction for its
+/// own sake: an `EmbeddingService` needs a real BERT model behind it, so a
+/// failing encoder — the case the composition ordering below gets wrong — is
+/// otherwise impossible to exercise.
+pub(crate) trait SaveEncoder {
+    fn encode_sections(&self, texts: &[&str]) -> Result<Vec<Vec<f32>>, String>;
+    fn encode_note(&self, text: &str) -> Result<Vec<f32>, String>;
+}
+
+impl SaveEncoder for EmbeddingService {
+    fn encode_sections(&self, texts: &[&str]) -> Result<Vec<Vec<f32>>, String> {
+        embed_section_texts(self, texts, EMBED_BATCH_SIZE, None)
+    }
+
+    fn encode_note(&self, text: &str) -> Result<Vec<f32>, String> {
+        self.embed_documents(&[text], None)?
+            .pop()
+            .ok_or_else(|| "encoder returned no vector".to_string())
+    }
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -1362,7 +1399,7 @@ pub(crate) fn apply_note_embedding_on_save(
     block_index: &SharedVectorIndex,
     note_embed_enabled: bool,
     block_embed_enabled: bool,
-    model: Option<&EmbeddingService>,
+    model: Option<&dyn SaveEncoder>,
 ) {
     let (_, _, sections) = search_db::extract_markdown_structure(markdown, "");
     let lines: Vec<&str> = markdown.lines().collect();
@@ -1445,6 +1482,7 @@ pub(crate) fn apply_note_embedding_on_save(
     };
 
     // Block embeddings first; the note-level vector is composed from them below. (ref: DL-003)
+    let mut blocks_encoded = true;
     if block_embed_enabled {
         let to_embed: Vec<&(&str, String, String)> = candidates
             .iter()
@@ -1455,7 +1493,7 @@ pub(crate) fn apply_note_embedding_on_save(
 
         if !to_embed.is_empty() {
             let texts: Vec<&str> = to_embed.iter().map(|(_, text, _)| text.as_str()).collect();
-            match embed_section_texts(model, &texts, EMBED_BATCH_SIZE, None) {
+            match model.encode_sections(&texts) {
                 Ok(embeddings) => {
                     for ((heading_id, _, hash), embedding) in
                         to_embed.iter().zip(embeddings.iter())
@@ -1469,7 +1507,10 @@ pub(crate) fn apply_note_embedding_on_save(
                         }
                     }
                 }
-                Err(e) => log::warn!("embed_on_save: block embed failed for {note_id}: {e}"),
+                Err(e) => {
+                    blocks_encoded = false;
+                    log::warn!("embed_on_save: block embed failed for {note_id}: {e}");
+                }
             }
         }
     }
@@ -1477,13 +1518,16 @@ pub(crate) fn apply_note_embedding_on_save(
     // Compose the note-level vector from its block vectors, matching the batch
     // composition path; fall back to a direct embed when the note has no
     // qualifying sections. (ref: DL-003, DL-005)
-    if note_embed_enabled {
+    //
+    // Skipped entirely when the block encode failed: the changed sections' rows
+    // were already deleted, so composing from the survivors would store a
+    // partial vector *and* mark the note embedded — which the presence-based
+    // bulk pass then skips forever. Leaving the row absent is what gets the note
+    // re-picked.
+    if note_embed_enabled && blocks_encoded {
         let block_vecs = vector_db::get_block_embeddings_for_note(conn, note_id);
         let note_vec = if block_vecs.is_empty() {
-            model
-                .embed_documents(&[&embed_text_for_note(conn, note_id)], None)
-                .ok()
-                .and_then(|mut v| v.pop())
+            model.encode_note(&embed_text_for_note(conn, note_id)).ok()
         } else {
             let vecs: Vec<Vec<f32>> = block_vecs.into_iter().map(|(_, v)| v).collect();
             Some(vector_db::mean_pool_normalize(&vecs))
@@ -1589,6 +1633,63 @@ type IndexFn = fn(
     &mut dyn FnMut(),
 ) -> Result<search_db::IndexResult, String>;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum DbCommandKind {
+    /// Re-enters the index or embed pipeline, so it cannot run inside one.
+    Reentrant,
+    Shutdown,
+    /// A save. It writes the authoritative row for its own note.
+    ContentUpsert,
+    /// Adds, removes or renames paths, so the running scan's plan is stale.
+    StructuralMutation,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum DrainAction {
+    Defer,
+    Apply,
+    ApplyAndResync,
+}
+
+/// What a command drained mid-scan does to the scan.
+///
+/// A save used to cancel the in-flight sync and requeue a full one, `scan_vault`
+/// included — so autosave every 2 s meant the index restarted at 0 forever and
+/// never finished. It does not need the restart: the save already wrote its own
+/// authoritative row, and the scan's plan does not cover a file that appeared
+/// after it was computed. A structural mutation still restarts the scan, because
+/// that plan is now wrong about which paths exist.
+pub(crate) fn drain_action(kind: DbCommandKind) -> DrainAction {
+    match kind {
+        DbCommandKind::Reentrant | DbCommandKind::Shutdown => DrainAction::Defer,
+        DbCommandKind::ContentUpsert => DrainAction::Apply,
+        DbCommandKind::StructuralMutation => DrainAction::ApplyAndResync,
+    }
+}
+
+fn command_kind(cmd: &DbCommand) -> DbCommandKind {
+    match cmd {
+        DbCommand::Rebuild { .. }
+        | DbCommand::Sync { .. }
+        | DbCommand::SyncPaths { .. }
+        | DbCommand::EmbedBatch { .. }
+        | DbCommand::RebuildEmbeddings { .. }
+        | DbCommand::RebuildIndex => DbCommandKind::Reentrant,
+        DbCommand::Shutdown => DbCommandKind::Shutdown,
+        DbCommand::UpsertNote { .. } | DbCommand::UpsertNoteWithContent { .. } => {
+            DbCommandKind::ContentUpsert
+        }
+        DbCommand::RemoveNote { .. }
+        | DbCommand::RemoveNotes { .. }
+        | DbCommand::RemoveNotesByPrefix { .. }
+        | DbCommand::UpsertLinkedContent { .. }
+        | DbCommand::RemoveLinkedContent { .. }
+        | DbCommand::UpdateLinkedMetadata { .. }
+        | DbCommand::RenamePaths { .. }
+        | DbCommand::RenamePath { .. } => DbCommandKind::StructuralMutation,
+    }
+}
+
 fn run_index_op(
     conn: &Connection,
     vault_root: &Path,
@@ -1612,29 +1713,17 @@ fn run_index_op(
     let result = {
         let mut drain_pending = || {
             while let Ok(cmd) = rx.try_recv() {
-                match cmd {
-                    DbCommand::Rebuild { .. }
-                    | DbCommand::Sync { .. }
-                    | DbCommand::SyncPaths { .. }
-                    | DbCommand::EmbedBatch { .. }
-                    | DbCommand::RebuildEmbeddings { .. }
-                    | DbCommand::RebuildIndex => {
+                match drain_action(command_kind(&cmd)) {
+                    DrainAction::Defer => {
+                        if matches!(cmd, DbCommand::Shutdown) {
+                            log::warn!("writer: deferring shutdown during {label}");
+                        }
                         deferred.borrow_mut().push(cmd);
                     }
-                    DbCommand::Shutdown => {
-                        log::warn!("writer: deferring shutdown during {label}");
-                        deferred.borrow_mut().push(cmd);
+                    DrainAction::Apply => {
+                        dispatch_command(conn, cmd, notes_cache, rx, note_index, block_index);
                     }
-                    DbCommand::UpsertNote { .. }
-                    | DbCommand::UpsertNoteWithContent { .. }
-                    | DbCommand::RemoveNote { .. }
-                    | DbCommand::RemoveNotes { .. }
-                    | DbCommand::RemoveNotesByPrefix { .. }
-                    | DbCommand::UpsertLinkedContent { .. }
-                    | DbCommand::RemoveLinkedContent { .. }
-                    | DbCommand::UpdateLinkedMetadata { .. }
-                    | DbCommand::RenamePaths { .. }
-                    | DbCommand::RenamePath { .. } => {
+                    DrainAction::ApplyAndResync => {
                         cancel.store(true, Ordering::Relaxed);
                         dispatch_command(conn, cmd, notes_cache, rx, note_index, block_index);
 
@@ -1972,6 +2061,27 @@ fn store_note_embedding(
     true
 }
 
+/// The terminal event an embedding pass owes its listeners, or `None` when it
+/// was cancelled. A cancelled pass reporting `Completed` is what let a partial
+/// run look like a finished one — the FTS path already refuses to do that, and
+/// the count it would carry is not the vault's.
+pub(crate) fn terminal_embed_event(
+    cancelled: bool,
+    vault_id: &str,
+    embedded: usize,
+    elapsed_ms: u64,
+) -> Option<EmbeddingProgressEvent> {
+    if cancelled {
+        log::info!("embed_batch: cancelled after {embedded} notes in {elapsed_ms}ms");
+        return None;
+    }
+    Some(EmbeddingProgressEvent::Completed {
+        vault_id: vault_id.to_string(),
+        embedded,
+        elapsed_ms,
+    })
+}
+
 fn handle_embed_batch(
     conn: &Connection,
     _vault_root: &Path,
@@ -2051,35 +2161,17 @@ fn handle_embed_batch(
     };
 
     let total = notes_needing_embedding.len();
+    let pass_start = Instant::now();
 
-    if total == 0 {
-        if block_embed_enabled {
-            handle_block_embed_batch(
-                conn,
-                cancel,
-                &model,
-                vault_id,
-                app_handle,
-                block_index,
-                notes_cache,
-                rx,
-                note_index,
-                &mut deferred,
-            );
-        }
-        for cmd in deferred {
-            dispatch_command(conn, cmd, notes_cache, rx, note_index, block_index);
-        }
-        return;
+    if total > 0 {
+        let _ = app_handle.emit(
+            "embedding_progress",
+            EmbeddingProgressEvent::Started {
+                vault_id: vault_id.to_string(),
+                total,
+            },
+        );
     }
-
-    let _ = app_handle.emit(
-        "embedding_progress",
-        EmbeddingProgressEvent::Started {
-            vault_id: vault_id.to_string(),
-            total,
-        },
-    );
 
     if block_embed_enabled {
         handle_block_embed_batch(
@@ -2096,9 +2188,8 @@ fn handle_embed_batch(
         );
     }
 
+    let mut embedded = 0usize;
     if note_embed_enabled {
-        let comp_start = Instant::now();
-        let mut embedded = 0usize;
         // Batch size for progress emission and deferred-command draining.
         let progress_batch: usize = if cfg!(debug_assertions) { 5 } else { 16 };
         if block_embed_enabled {
@@ -2287,17 +2378,20 @@ fn handle_embed_batch(
                 );
             }
         }
-        let elapsed_ms = comp_start.elapsed().as_millis() as u64;
-        // Completed event emitted after composition pass; embedded count reflects
-        // notes written to note_embeddings, not raw model invocations. (ref: DL-003)
-        let _ = app_handle.emit(
-            "embedding_progress",
-            EmbeddingProgressEvent::Completed {
-                vault_id: vault_id.to_string(),
-                embedded,
-                elapsed_ms,
-            },
-        );
+    }
+
+    // One exit for every path, including the one where no note needs embedding:
+    // that path used to return early without a terminal event, leaving the
+    // "Embedding sections" indicator spinning and `wait_for_embedding_run`
+    // unresolved for the rest of the session. The embedded count reflects notes
+    // written to note_embeddings, not raw model invocations. (ref: DL-003)
+    if let Some(event) = terminal_embed_event(
+        cancel.load(Ordering::Relaxed),
+        vault_id,
+        embedded,
+        pass_start.elapsed().as_millis() as u64,
+    ) {
+        let _ = app_handle.emit("embedding_progress", event);
     }
 
     compact_indices_if_stale(note_index, block_index);
@@ -2728,6 +2822,29 @@ fn replace_worker_cancel_token(app: &AppHandle, vault_id: &str) -> Result<Arc<At
     fresh_worker_cancel_token(app, vault_id)
 }
 
+fn fresh_embed_cancel_token(app: &AppHandle, vault_id: &str) -> Result<Arc<AtomicBool>, String> {
+    let next_cancel = Arc::new(AtomicBool::new(false));
+    ensure_worker(app, vault_id)?;
+    let state = app.state::<SearchDbState>();
+    let mut map = state.workers.lock().map_err(|e| e.to_string())?;
+    let worker = map.get_mut(vault_id).ok_or("vault worker not found")?;
+    worker.embed_cancel = Arc::clone(&next_cancel);
+    Ok(next_cancel)
+}
+
+/// Supersedes a running embedding pass: only `rebuild_embeddings` does this,
+/// because it recomputes everything the running pass was working on.
+fn replace_embed_cancel_token(app: &AppHandle, vault_id: &str) -> Result<Arc<AtomicBool>, String> {
+    ensure_worker(app, vault_id)?;
+    {
+        let state = app.state::<SearchDbState>();
+        let map = state.workers.lock().map_err(|e| e.to_string())?;
+        let worker = map.get(vault_id).ok_or("vault worker not found")?;
+        worker.embed_cancel.store(true, Ordering::Relaxed);
+    }
+    fresh_embed_cancel_token(app, vault_id)
+}
+
 fn enqueue_index_command(
     app: &AppHandle,
     vault_id: &str,
@@ -2805,15 +2922,20 @@ pub async fn index_cancel(app: AppHandle, vault_id: String) -> Result<(), String
         .await
 }
 
+/// Stops *all* background work for a vault. Its one caller is the vault-switch
+/// path, which is leaving this vault behind, so it cancels the embedding pass
+/// too — the one place that still wants the breadth the shared token used to
+/// give every index enqueue.
 pub fn index_cancel_inner(app: AppHandle, vault_id: String) -> Result<(), String> {
-    let cancel = {
+    let (cancel, embed_cancel) = {
         ensure_worker(&app, &vault_id)?;
         let state = app.state::<SearchDbState>();
         let map = state.workers.lock().map_err(|e| e.to_string())?;
         let worker = map.get(&vault_id).ok_or("vault worker not found")?;
-        Arc::clone(&worker.cancel)
+        (Arc::clone(&worker.cancel), Arc::clone(&worker.embed_cancel))
     };
     cancel.store(true, Ordering::Relaxed);
+    embed_cancel.store(true, Ordering::Relaxed);
     Ok(())
 }
 
@@ -3848,7 +3970,7 @@ pub async fn rebuild_embeddings(app: AppHandle, vault_id: String) -> Result<(), 
 
 pub fn rebuild_embeddings_inner(app: AppHandle, vault_id: String) -> Result<(), String> {
     let vault_root = storage::vault_path(&app, &vault_id)?;
-    let cancel = replace_worker_cancel_token(&app, &vault_id)?;
+    let cancel = replace_embed_cancel_token(&app, &vault_id)?;
     let is_embedding = get_worker_is_embedding(&app, &vault_id)?;
     let vid = vault_id.clone();
     send_write(
@@ -3864,6 +3986,50 @@ pub fn rebuild_embeddings_inner(app: AppHandle, vault_id: String) -> Result<(), 
     )
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum EmbedRequest {
+    /// Nothing running or queued: enqueue a pass.
+    Enqueue,
+    /// A pass is queued but has not started, so it will discover this work
+    /// itself when it runs.
+    Skip,
+    /// A pass is *running* and took its work snapshot before this request
+    /// existed. Dropping the request here is what left sections unembedded
+    /// until the vault was reopened.
+    Rearm,
+}
+
+pub(crate) fn classify_embed_request(is_embedding: bool, embed_queued: bool) -> EmbedRequest {
+    if embed_queued {
+        EmbedRequest::Skip
+    } else if is_embedding {
+        EmbedRequest::Rearm
+    } else {
+        EmbedRequest::Enqueue
+    }
+}
+
+/// Consumes a pending re-arm at the end of a pass, enqueueing exactly one more.
+/// Bounded by construction: only an incoming request sets the flag, never the
+/// pass itself, so a vault with no further requests stops.
+fn rearm_embed_pass(app: &AppHandle, vault_id: &str) {
+    let rearmed = {
+        let state = app.state::<SearchDbState>();
+        let Ok(map) = state.workers.lock() else {
+            log::warn!("embed re-arm: worker map lock poisoned for {vault_id}");
+            return;
+        };
+        map.get(vault_id)
+            .is_some_and(|worker| worker.embed_rearm.swap(false, Ordering::Relaxed))
+    };
+    if !rearmed {
+        return;
+    }
+    if let Err(e) = embed_sync_inner(app.clone(), vault_id.to_string()) {
+        log::warn!("embed re-arm: enqueue failed for {vault_id}: {e}");
+    }
+}
+
 #[tauri::command]
 #[specta::specta]
 pub async fn embed_sync(app: AppHandle, vault_id: String) -> Result<(), String> {
@@ -3877,21 +4043,31 @@ pub fn embed_sync_inner(app: AppHandle, vault_id: String) -> Result<(), String> 
         let state = app.state::<SearchDbState>();
         let map = state.workers.lock().map_err(|e| e.to_string())?;
         let worker = map.get(&vault_id).ok_or("vault worker not found")?;
-        if worker.is_embedding.load(Ordering::Relaxed)
-            || worker.embed_queued.load(Ordering::Relaxed)
-        {
-            log::info!("embed_sync: skipped, embedding already in progress or queued");
-            return Ok(());
+        match classify_embed_request(
+            worker.is_embedding.load(Ordering::Relaxed),
+            worker.embed_queued.load(Ordering::Relaxed),
+        ) {
+            EmbedRequest::Skip => {
+                log::info!("embed_sync: skipped, a pass is already queued for this work");
+                return Ok(());
+            }
+            EmbedRequest::Rearm => {
+                log::info!("embed_sync: re-armed, the running pass will enqueue one more");
+                worker.embed_rearm.store(true, Ordering::Relaxed);
+                return Ok(());
+            }
+            EmbedRequest::Enqueue => {
+                worker.embed_queued.store(true, Ordering::Relaxed);
+                Arc::clone(&worker.embed_queued)
+            }
         }
-        worker.embed_queued.store(true, Ordering::Relaxed);
-        Arc::clone(&worker.embed_queued)
     };
 
     // Past this point embed_queued is set; reset it on any failure so a skipped
     // enqueue never wedges future syncs.
     let send = (|| {
         let vault_root = storage::vault_path(&app, &vault_id)?;
-        let cancel = fresh_worker_cancel_token(&app, &vault_id)?;
+        let cancel = fresh_embed_cancel_token(&app, &vault_id)?;
         let is_embedding = get_worker_is_embedding(&app, &vault_id)?;
         send_write(
             &app,
