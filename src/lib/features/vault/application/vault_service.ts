@@ -468,9 +468,11 @@ export class VaultService {
   }
 
   // Chase a completed index sync with an embedding pass so externally edited
-  // notes re-embed promptly. Fire-and-forget: the backend embed_sync coalesces
-  // concurrent/queued passes (embed_queued) and only re-embeds changed content,
-  // so a failed enqueue must never fail or delay the index sync itself.
+  // notes re-embed promptly. Fire-and-forget is safe because the backend never
+  // drops the request: it folds into a pass that is queued but not started, and
+  // re-arms one that is already running (whose work snapshot predates this
+  // call). Only changed content is re-embedded, so the enqueue can neither fail
+  // nor delay the index sync itself.
   private trigger_embed_sync(vault_id: VaultId): void {
     void this.index_port.embed_sync(vault_id).catch((error: unknown) => {
       log.warn("Embedding sync after index update failed", { error });
