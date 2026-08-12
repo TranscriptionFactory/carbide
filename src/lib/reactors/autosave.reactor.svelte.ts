@@ -4,7 +4,10 @@ import type { NoteService } from "$lib/features/note";
 import type { TabService } from "$lib/features/tab";
 import { is_draft_note_path } from "$lib/features/note";
 import { create_debounced_task_controller } from "$lib/reactors/debounced_task";
+import { create_logger } from "$lib/shared/utils/logger";
 import type { NotePath } from "$lib/shared/types/ids";
+
+const log = create_logger("autosave_reactor");
 
 function create_note_autosave_reactor(
   get_editor_store: () => EditorStore | null,
@@ -54,6 +57,10 @@ export function create_autosave_reactor(
     (note_path) => {
       void note_service.save_note(null, true, save_target).then((result) => {
         if (result.status === "conflict" && save_target === "primary") {
+          log.info("Autosave raised the external-modification card", {
+            path: note_path,
+            cause: "disk_mtime_guard_rejected_the_write",
+          });
           tab_service.mark_conflict(note_path);
         }
       });
