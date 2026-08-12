@@ -404,6 +404,22 @@
             </div>
           {/if}
 
+          {#if rag.queued_prompt}
+            <div class="flex justify-end">
+              <div
+                class="flex max-w-[85%] flex-col gap-1 rounded-lg border border-dashed px-3 py-2 text-sm text-muted-foreground"
+                data-testid="chat-queued-prompt"
+              >
+                <span class="select-text whitespace-pre-wrap"
+                  >{rag.queued_prompt.text}</span
+                >
+                <span class="text-xs"
+                  >Queued — sends when this run finishes</span
+                >
+              </div>
+            </div>
+          {/if}
+
           {#if rag.error}
             <div
               class="flex flex-col gap-2 rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm"
@@ -462,5 +478,7 @@
     on_detach_document={detach_document}
     can_edit={rag.mode !== "agent" && can_edit}
     on_edit={edit_open_tab}
+    restore_text={rag.composer_restore}
+    on_restore_consumed={() => rag.clear_composer_restore()}
   />
 </div>

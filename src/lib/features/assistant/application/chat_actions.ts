@@ -220,6 +220,7 @@ export function register_chat_actions(
     id: ACTION_IDS.rag_stop,
     label: "Stop Vault Chat Reply",
     execute: () => {
+      chat_store.restore_queued_prompt();
       ask_handle?.stop();
     },
   });
@@ -260,9 +261,17 @@ export function register_chat_actions(
   }
 
   async function run_ask(question: string, reuse_last_user = false) {
-    if (stores.op.is_pending(CHAT_OP_KEY)) return;
+    if (stores.op.is_pending(CHAT_OP_KEY)) {
+      chat_store.queue_prompt(question);
+      return;
+    }
     const provider = await resolve_ask_provider();
-    if (!provider) return;
+    if (!provider) {
+      // A regenerated question never came from the composer, so it has nothing
+      // to go back to.
+      if (!reuse_last_user) chat_store.restore_to_composer(question);
+      return;
+    }
 
     const revision = chat_store.begin_turn();
     const messages = [...chat_store.messages];
@@ -296,6 +305,9 @@ export function register_chat_actions(
     let context_stats: AssistantContextStats | null = null;
     try {
       let errored = false;
+      // The service yields `done` only on a natural finish: a stopped run ends
+      // the stream without it, and an errored one yields `error` instead.
+      let completed = false;
       for await (const event of chat_service.query(
         build_chat_query_input({
           question,
@@ -334,6 +346,8 @@ export function register_chat_actions(
           chat_store.fail_streaming(event.error);
           stores.op.fail(CHAT_OP_KEY, event.error);
           errored = true;
+        } else if (event.type === "done") {
+          completed = true;
         }
       }
       if (revision !== chat_store.revision) return;
@@ -343,6 +357,9 @@ export function register_chat_actions(
         announce("Vault chat reply ready");
         void maybe_autotitle(provider, revision);
       }
+      // D4: a turn that never completed was stopped or failed, and neither is
+      // consent to send. The queued prompt goes back to the composer.
+      if (!completed) chat_store.restore_queued_prompt();
       // persist failed turns too, so the exchange survives a reload
       persist_session(chat_store.active_id);
     } catch (err) {
@@ -350,6 +367,7 @@ export function register_chat_actions(
       const message = error_message(err);
       chat_store.fail_streaming(message);
       stores.op.fail(CHAT_OP_KEY, message);
+      chat_store.restore_queued_prompt();
       persist_session(chat_store.active_id);
     } finally {
       ask_handle = null;
@@ -357,12 +375,19 @@ export function register_chat_actions(
   }
 
   async function run_agent(prompt: string) {
-    if (stores.op.is_pending(CHAT_OP_KEY)) return;
+    if (stores.op.is_pending(CHAT_OP_KEY)) {
+      chat_store.queue_prompt(prompt);
+      return;
+    }
     const provider = await resolve_ask_provider();
-    if (!provider) return;
+    if (!provider) {
+      chat_store.restore_to_composer(prompt);
+      return;
+    }
     const capability = agent_capability(provider);
     if (!capability) {
       toast.error(`${provider.name} does not support agent mode`);
+      chat_store.restore_to_composer(prompt);
       return;
     }
 
@@ -385,6 +410,7 @@ export function register_chat_actions(
         void maybe_autotitle(provider, revision);
       } else {
         stores.op.fail(CHAT_OP_KEY, result.message);
+        chat_store.restore_queued_prompt();
       }
       persist_session(chat_store.active_id);
     } catch (err) {
@@ -392,7 +418,27 @@ export function register_chat_actions(
       const message = error_message(err);
       chat_store.fail_streaming(message);
       stores.op.fail(CHAT_OP_KEY, message);
+      chat_store.restore_queued_prompt();
       persist_session(chat_store.active_id);
+    }
+  }
+
+  async function run_chat_turn(question: string) {
+    if (chat_store.mode === "agent") {
+      await run_agent(question);
+    } else {
+      await run_ask(question);
+    }
+  }
+
+  // Drained from the callers rather than from inside the runners: run_ask only
+  // releases its run handle in its own `finally`, so a turn started from within
+  // it would have the Stop button's handle cleared out from under it.
+  async function drain_queued_prompts() {
+    while (!stores.op.is_pending(CHAT_OP_KEY)) {
+      const queued = chat_store.take_queued_prompt();
+      if (queued === null) return;
+      await run_chat_turn(queued);
     }
   }
 
@@ -402,11 +448,8 @@ export function register_chat_actions(
     execute: async (payload: unknown) => {
       const question = payload_field(payload, "question").trim();
       if (!question) return;
-      if (chat_store.mode === "agent") {
-        await run_agent(question);
-      } else {
-        await run_ask(question);
-      }
+      await run_chat_turn(question);
+      await drain_queued_prompts();
     },
   });
 
@@ -440,6 +483,9 @@ export function register_chat_actions(
     id: ACTION_IDS.rag_agent_abort,
     label: "Stop Vault Agent Run",
     execute: () => {
+      // An aborted agent turn still resolves as `done`, so the stop itself is
+      // the only signal that the queued prompt must not send.
+      chat_store.restore_queued_prompt();
       agent_runner.abort();
     },
   });
@@ -487,6 +533,7 @@ export function register_chat_actions(
       if (!(await resolve_ask_provider())) return;
       chat_store.truncate_after(id);
       await run_ask(question, true);
+      await drain_queued_prompts();
     },
   });
 
