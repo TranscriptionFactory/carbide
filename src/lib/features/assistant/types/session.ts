@@ -59,10 +59,16 @@ export type AssistantCitation = {
   title: string;
 };
 
+// chars_used/chars_available are the Ask-mode retrieval budget in characters —
+// how much retrieved vault text was assembled, not the model's token window.
+// Optional: sessions persisted before the meter landed carry neither, and a
+// turn assembled without a budget has no denominator.
 export type AssistantContextStats = {
   retrieved: number;
   used: number;
   truncated: number;
+  chars_used?: number;
+  chars_available?: number;
 };
 
 // id/kind/locations/content are optional so sessions persisted before the
