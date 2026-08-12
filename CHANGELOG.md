@@ -1,5 +1,87 @@
 # carbide
 
+## 2.29.4
+
+### Patch Changes
+
+- 3c6adac: An agent turn can no longer revert your own edits, or edits you refused.
+
+  Every agent turn ended by restoring each file the agent had touched back to a checkpoint taken before the turn. That restore was unconditional, and it had two ways of destroying work. If you edited one of those notes while the turn was still running, the restore wrote the pre-turn content over your edit — the end-of-turn comparison could not tell your bytes from the agent's, so it reverted both. And a tool you _denied_ still had its file reverted: the agent announces which files a tool intends to touch before asking your permission, and it repeats that list when the tool finishes, including when the tool never ran because you said no. Carbide was not checking whether the tool succeeded, so refusing an edit could still lose the version you were protecting.
+
+  Both are closed. Carbide now records each file's modification time at the moment the agent last successfully wrote to it, and the restore refuses any file that changed on disk afterwards — your edit stays, and the turn reports the note as kept rather than proposed. Files belonging to tools that failed or that you denied are excluded from the restore entirely, while the vault refresh still accounts for them, so a partially completed write does not leave the file tree stale.
+
+  Two smaller hardening changes ride along: the CLI's `git restore` route now requires an explicit confirmation flag, matching the discard route it sits beside, and restoring a file refuses when the working copy differs from the last commit rather than overwriting it. That second change also applies to restoring a version from the history panel.
+
+- 3c6adac: Messages typed while the assistant is replying are no longer swallowed, and the composer grows with what you write.
+
+  Pressing Enter during a reply appeared to send — the composer cleared — but nothing was sent and nothing was queued. The text was gone. Because the Send button is replaced by Stop while a reply streams, Enter was the only way to reach this, which is why it read as a message vanishing at random rather than as a disabled control.
+
+  A message sent mid-reply is now held, shown in the transcript as a pending bubble so you can see it is waiting, and sent when the reply finishes. If you **stop** the reply instead, the held message is returned to the composer as editable text rather than being sent or discarded — stopping says something about whether to send, not about whether you wanted the words. A reply that errors does the same. Switching conversations discards a held message rather than carrying it across, so it can never be sent into the wrong conversation.
+
+  Three other places that quietly ate a message now hand it back the same way: AI turned off, no provider configured, and a provider that does not support agent mode.
+
+  The composer also grows as you type, up to a maximum height, instead of staying two lines tall.
+
+- 3c6adac: Semantic indexing no longer stalls partway through, and the progress indicator no longer restarts or hangs.
+
+  Embedding and text indexing shared a single cancellation signal, so any work that touched the text index — opening a vault, rebuilding, indexing a batch of paths — aborted an embedding pass that happened to be running. The follow-up request that would have restarted it was then dropped, because the system still believed a pass was in flight. The practical result was sections of your vault left unembedded, and staying that way until you reopened the vault.
+
+  Embedding now has its own cancellation signal, and a pass interrupted or requested while another is running is re-queued exactly once rather than discarded. Cancelled passes no longer report themselves as completed.
+
+  Two visible fixes come with it. A vault where every note is already embedded but sections are still pending now finishes and clears the "Embedding sections" indicator instead of showing it indefinitely. And saving while a vault-wide sync is running no longer restarts that sync from the beginning — with autosave on, a long sync could be reset every couple of seconds and visibly count back up from zero without ever finishing.
+
+  Also fixed: when part of a note failed to encode, the note was recorded as embedded anyway using only the parts that succeeded, permanently. Those notes are now left for the next pass to retry.
+
+- 3c6adac: Renaming a note shortly after saving it no longer risks losing the file.
+
+  Carbide commits your work automatically a few seconds after a save, and it queued the _paths_ it was going to commit rather than resolving them at commit time. Renaming a note inside that window left a queued path pointing at a file that no longer existed, and the commit stage treated "no file here" as "the user deleted this" — so an automatic commit labelled `Update:` could stage a deletion of the note you had just renamed. The renamed file was never queued at all, because a rename produces no save, so it stayed untracked and a later "Discard All" would delete it outright.
+
+  Automatic commits can no longer stage a deletion under any circumstances; that is now reserved for the explicit delete path. Queued paths are re-checked against the vault at commit time, and a rename inside the window moves the queued entry onto the new name, so the file that actually exists is the one that gets committed and tracked.
+
+  Two related fixes. In interval mode, a commit now lands on schedule instead of being pushed further out by every save — previously, continuous work could postpone an automatic commit indefinitely. And concurrent commits no longer overwrite each other: a commit verifies the branch is where it expected before moving it.
+
+  Finally, saving a note whose file changed on disk behind Carbide's back no longer silently overwrites those changes. Closing or quitting with such a note open now stops and asks, offering to overwrite the disk copy, discard your version, or cancel — and quitting waits for that answer rather than writing over the file on its way out. The two places that save without a user present, link repair and window restore, now skip the write and log it instead of forcing it through.
+
+- 3c6adac: Ask replies now show how much of the retrieval budget the answer used.
+
+  When Carbide answers a question from your vault, it gathers as much of the matching material as fits a configurable budget and silently drops the rest. There was no way to tell whether an answer had been given the whole picture or a fraction of it. The Sources section of a reply now reports the share of that budget the turn consumed, with the underlying figures alongside it.
+
+  This is deliberately labelled as the Ask retrieval budget and measured in characters, because that is the quantity Carbide actually knows. It is not the model's context window, and no token figure is shown: the agent backends do not report token usage at all today, so any such number would have been invented. Agent-mode turns therefore show no meter rather than a misleading one.
+
+- 3c6adac: An agent turn now tells you when its edits could not be offered for review.
+
+  Carbide reviews an agent's work by comparing the vault against a checkpoint taken before the turn and offering each change as a proposal you accept or reject. Several kinds of edit fall outside that mechanism, and until now they fell out of it silently: files the agent created (so a rename, which is a create plus a delete, was invisible in both halves), anything that is not a Markdown note, and every edit in a vault with no git repository or no commits yet. In each case the work was written to disk and simply never appeared for review, with no indication that anything had been skipped.
+
+  The turn now reports what happened in the transcript: which files were edited outside review, which were kept on disk rather than proposed, and — where there was no checkpoint to compare against — why, along with an offer to initialise git so future turns are reviewable. Carbide never initialises git on its own; the notice names the command and leaves it to you.
+
+  A turn where everything became a proposal adds nothing to the transcript, so this is silent in the ordinary case.
+
+  Note that a note you edited yourself during a turn is reported distinctly from a failure: it tells you your version was kept and nothing was proposed for that file.
+
+- 3c6adac: Typing while a note saves no longer risks losing those keystrokes.
+
+  When a save finished, Carbide marked the buffer clean against whatever text the editor had most recently handed to it — not against the bytes it had actually written to disk. Those two can differ. Serialising the editor's document is deferred slightly, so a save that takes longer than that delay writes one version and then baselines a newer one. The buffer went clean over content that had never been written, autosave stops re-firing once a buffer is clean, and the next automatic commit captured the older file.
+
+  A save now baselines exactly the bytes it wrote, and then re-checks the live document. If you kept typing during the write, the buffer stays dirty — correctly, because what you see genuinely differs from what is on disk — and the next autosave picks it up.
+
+  The check reads from whichever surface is actually live, so this behaves correctly in source mode and split view, where the rich-text document is intentionally not the authority.
+
+- d015442: Agent tool calls now show what they actually ran, instead of `Terminal {}`.
+
+  A tool call is announced the moment the model starts emitting it, before its arguments have finished streaming — so the first frame carries an empty input, and for tools whose display name is derived from that input, an empty name too. Carbide took its summary and its title from that first frame and never revisited them. The corrected values arrived a moment later and were decoded, used internally to work out which files the call touched, and then thrown away. A shell command therefore showed as `Terminal {}` for the entire life of the call, however long it ran.
+
+  Tool cards now pick up the refined command and name when they arrive. A later update that carries nothing cannot overwrite a summary that already arrived, so a call does not lose its detail partway through. Where a permission prompt already had the complete arguments, that text is now used to repair a placeholder rather than being discarded.
+
+  Calls that genuinely never report arguments now render no summary at all, instead of an empty `{}`.
+
+- d56fe48: Saving a note no longer raises a spurious "modified externally" card. Carbide watches the vault so it can react to edits made outside the app, and it muted the filesystem event caused by its own save — but only one such event. A single save rarely produces exactly one: the watcher flushes a pending change event as soon as a structural event for the same path arrives, so one save could be delivered as two, and on macOS a save surfaces as several separate notifications. The extra delivery arrived unmuted, Carbide read its own save as somebody else's edit, and if the note had unsaved changes it raised a conflict card that offered to discard them. Typing while autosave ran made this the ordinary case rather than a rare one.
+
+  Carbide now recognises its own writes by what it wrote rather than by counting events: a save records the modification time it produced, and every echo of that save reports the same time and is ignored, however many arrive. An edit from anywhere else carries a different time and still raises the card immediately — that path is unchanged, and deliberately so, since silently swallowing a real external edit would be the worse failure.
+
+  Renaming or deleting a note from inside Carbide also no longer produces a spurious card or closes a tab unexpectedly; those operations previously muted nothing at all. Muting is now specific to the operation that armed it, so an internal rewrite of a file cannot hide somebody else's deletion of it.
+
+  The two places that raise the card now log distinctly, with the event type and how long ago Carbide last wrote the path, so a future report of this symptom can be read from the log rather than reconstructed.
+
 ## 2.29.3
 
 ### Patch Changes
