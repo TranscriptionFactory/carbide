@@ -377,8 +377,19 @@ describe("rag agent actions", () => {
     expect(chat_store.messages.map((m) => m.role)).toEqual([
       "user",
       "assistant",
+      "assistant",
     ]);
     expect(chat_store.messages[1]?.content).toBe("Created the note.");
+    // The turn's writes produced no proposal, and the transcript now says so
+    // instead of leaving it to a log line. This harness stubs create_checkpoint
+    // as `{ status: "created" }` with no sha, so the anchor is null and the
+    // report comes back `no_anchor` — the notice must state where the bytes
+    // ended up and offer git init rather than running it.
+    const notice = chat_store.messages[2]?.content ?? "";
+    expect(notice).toContain("no git checkpoint");
+    expect(notice).toContain("saved to disk");
+    expect(notice).toContain("not reviewable");
+    expect(notice).toContain("Initialize Git Repository");
     expect(chat_store.active?.agent_session_id).toBe("native-sess");
     expect(chat_store.active?.changed_files).toEqual(["notes/new.md"]);
     expect(session_service.save_session).toHaveBeenCalled();
