@@ -208,6 +208,61 @@ describe("create_session_run_sink", () => {
       expect(events[1]?.ok).toBe(false);
     });
 
+    it("folds the refined input and title a tool_update carries", () => {
+      const { sessions, sink, open_run, messages_of } = create_harness();
+      const session = create_chat(sessions);
+      open_run("run-1", session.id);
+
+      // The call's first frame comes from content_block_start, where the
+      // arguments have not streamed yet.
+      sink.on_event(
+        "run-1",
+        tool_start_event("Terminal", { input_summary: "{}" }),
+      );
+      sink.on_event("run-1", {
+        type: "tool_update",
+        id: "Terminal",
+        status: "in_progress",
+        content: [],
+        paths: [],
+        input_summary: '{"command":"ls -la"}',
+        name: "bash: ls -la",
+      });
+
+      const events = messages_of(session.id)[0]?.tool_events ?? [];
+      expect(events[0]?.input_summary).toBe('{"command":"ls -la"}');
+      expect(events[0]?.name).toBe("bash: ls -la");
+    });
+
+    it("keeps a folded summary when a later update carries no input", () => {
+      const { sessions, sink, open_run, messages_of } = create_harness();
+      const session = create_chat(sessions);
+      open_run("run-1", session.id);
+
+      sink.on_event(
+        "run-1",
+        tool_start_event("Terminal", { input_summary: "{}" }),
+      );
+      for (const patch of [
+        { input_summary: '{"command":"ls -la"}', name: "bash: ls -la" },
+        { input_summary: "{}" },
+        {},
+      ]) {
+        sink.on_event("run-1", {
+          type: "tool_update",
+          id: "Terminal",
+          status: "in_progress",
+          content: [],
+          paths: [],
+          ...patch,
+        });
+      }
+
+      const events = messages_of(session.id)[0]?.tool_events ?? [];
+      expect(events[0]?.input_summary).toBe('{"command":"ls -la"}');
+      expect(events[0]?.name).toBe("bash: ls -la");
+    });
+
     it("records the tool_end's result summary on the folded event", () => {
       const { sessions, sink, open_run, messages_of } = create_harness();
       const session = create_chat(sessions);

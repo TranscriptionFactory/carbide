@@ -77,14 +77,28 @@ function replace_last_where(
   return null;
 }
 
+// A call's first wire frame is emitted from `content_block_start`, where the
+// streaming API carries `input: {}`. So an empty object is "no arguments yet",
+// not "a tool called with no arguments", and it must never win over a summary
+// that already says something.
+export function is_placeholder_summary(
+  summary: string | null | undefined,
+): boolean {
+  const trimmed = summary?.trim() ?? "";
+  return trimmed === "" || trimmed === "{}";
+}
+
 export type ToolUpdatePatch = {
   id: string;
   content?: ToolContent[];
   paths?: string[];
+  input_summary?: string | null;
+  name?: string | null;
 };
 
 // Mid-call update: replace content with the latest capped snapshot (ACP
-// updates carry the full content list, not deltas) and merge paths as a union.
+// updates carry the full content list, not deltas), merge paths as a union,
+// and adopt the refined input summary and title the update carries.
 export function apply_tool_update(
   events: AssistantToolEvent[],
   update: ToolUpdatePatch,
@@ -101,6 +115,11 @@ export function apply_tool_update(
         ...(update.paths && update.paths.length > 0
           ? { paths: merge_paths(event.paths, update.paths) }
           : {}),
+        ...(update.input_summary &&
+        !is_placeholder_summary(update.input_summary)
+          ? { input_summary: update.input_summary }
+          : {}),
+        ...(update.name ? { name: update.name } : {}),
       }),
     ) ?? events
   );
@@ -157,7 +176,9 @@ export type PermissionRequestPatch = {
 
 // Attaches a prompt to the tool event it gates. A request can outrun its
 // tool_start, so a miss inserts a placeholder event the later tool_start
-// hydrates in place — either arrival order works.
+// hydrates in place — either arrival order works. The request is built from the
+// complete tool input, so its summary repairs a stored placeholder even when no
+// update ever refines the call.
 export function apply_permission_request(
   events: AssistantToolEvent[],
   request: PermissionRequestPatch,
@@ -170,7 +191,14 @@ export function apply_permission_request(
     const attached = replace_last_where(
       events,
       (event) => event.id === request.tool_call_id,
-      (event) => ({ ...event, permission }),
+      (event) => ({
+        ...event,
+        permission,
+        ...(is_placeholder_summary(event.input_summary) &&
+        !is_placeholder_summary(request.input_summary)
+          ? { input_summary: request.input_summary }
+          : {}),
+      }),
     );
     if (attached) return attached;
   }

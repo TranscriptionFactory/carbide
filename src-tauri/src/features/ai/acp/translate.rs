@@ -6,8 +6,8 @@ use agent_client_protocol::schema::v1::{
 };
 
 use crate::features::ai::agent_stream::{
-    infer_tool_kind, summarize_chars, AgentEvent, ToolCallStatus, ToolContent, ToolKind,
-    ToolLocation,
+    infer_tool_kind, summarize_chars, summarize_json, AgentEvent, ToolCallStatus, ToolContent,
+    ToolKind, ToolLocation,
 };
 use crate::features::ai::harness::{strip_mcp_prefix, MutatingToolSet};
 use crate::features::ai::tool_paths::{extract_tool_paths, push_unique};
@@ -142,11 +142,20 @@ impl TurnTranslator {
             .then(|| first_text(&content).map(|text| summarize_chars(text, SUMMARY_LIMIT)))
             .flatten();
 
+        // summarize_json serializes only as far as the cap, so a refined input
+        // carrying a whole file body is not rendered in full once per update.
+        let input_summary = fields
+            .raw_input
+            .as_ref()
+            .map(|input| summarize_json(input, SUMMARY_LIMIT));
+
         let mut events = vec![AgentEvent::ToolUpdate {
             id: id.clone(),
             status,
             content,
             paths,
+            input_summary,
+            name: fields.title.clone(),
         }];
 
         if matches!(status, ToolCallStatus::Completed | ToolCallStatus::Failed) {

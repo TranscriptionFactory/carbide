@@ -182,8 +182,85 @@ fn tool_call_update_reports_diff_content() {
                 new_text: "body".to_string(),
             }],
             paths: vec!["/vault/mid.md".to_string()],
+            // An update that refines neither the input nor the title carries
+            // neither, so nothing overwrites what the call's start reported.
+            input_summary: None,
+            name: None,
         }]
     );
+}
+
+#[test]
+fn tool_call_update_carries_the_refined_input_and_title() {
+    let mut translator = translator();
+    // The first frame comes from content_block_start: the arguments are still
+    // streaming, so the input is empty and Bash's input-derived title has
+    // collapsed to "Terminal".
+    let started = translator.on_update(&update(json!({
+        "sessionUpdate": "tool_call",
+        "toolCallId": "call-8",
+        "title": "Terminal",
+        "kind": "execute",
+        "status": "pending",
+        "rawInput": {}
+    })));
+
+    let AgentEvent::ToolStart { input_summary, .. } =
+        started.into_iter().next().expect("a tool_start event")
+    else {
+        panic!("expected a tool_start event");
+    };
+    assert_eq!(input_summary, "{}", "the start really does carry no input");
+
+    let events = translator.on_update(&update(json!({
+        "sessionUpdate": "tool_call_update",
+        "toolCallId": "call-8",
+        "status": "in_progress",
+        "title": "bash: ls -la",
+        "rawInput": { "command": "ls -la" }
+    })));
+
+    let AgentEvent::ToolUpdate {
+        input_summary,
+        name,
+        ..
+    } = events.into_iter().next().expect("a tool_update event")
+    else {
+        panic!("expected a tool_update event");
+    };
+
+    assert_eq!(input_summary.as_deref(), Some(r#"{"command":"ls -la"}"#));
+    assert_eq!(name.as_deref(), Some("bash: ls -la"));
+}
+
+#[test]
+fn a_refined_input_summary_is_capped() {
+    let mut translator = translator();
+    translator.on_update(&update(json!({
+        "sessionUpdate": "tool_call",
+        "toolCallId": "call-9",
+        "title": "Terminal",
+        "kind": "execute"
+    })));
+
+    let events = translator.on_update(&update(json!({
+        "sessionUpdate": "tool_call_update",
+        "toolCallId": "call-9",
+        "status": "in_progress",
+        "rawInput": { "content": "x".repeat(500) }
+    })));
+
+    let AgentEvent::ToolUpdate { input_summary, .. } =
+        events.into_iter().next().expect("a tool_update event")
+    else {
+        panic!("expected a tool_update event");
+    };
+
+    // Serialized only as far as the cap: a tool input carrying a whole file
+    // body is never rendered in full, once per update.
+    let summary = input_summary.expect("a summary");
+    assert_eq!(summary.chars().count(), 201);
+    assert!(summary.ends_with('…'), "a capped summary marks the cut");
 }
 
 #[test]
