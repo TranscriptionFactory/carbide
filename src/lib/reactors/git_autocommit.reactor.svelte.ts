@@ -43,6 +43,10 @@ export function create_git_autocommit_reactor(
       commit.schedule(undefined, delay_ms);
     };
 
+    const schedule_interval_commit = (delay_ms: number) => {
+      commit.schedule_if_idle(undefined, delay_ms);
+    };
+
     $effect(() => {
       if (git_store.enabled) return;
       commit.cancel();
@@ -71,11 +75,13 @@ export function create_git_autocommit_reactor(
       dirty_paths.delete(path);
       pending_paths.add(path);
 
-      const delay_ms =
-        mode === "on_save"
-          ? ON_SAVE_DELAY_MS
-          : ui_store.editor_settings.git_autocommit_interval_minutes * 60_000;
-      schedule_commit(delay_ms);
+      if (mode === "on_save") {
+        schedule_commit(ON_SAVE_DELAY_MS);
+        return;
+      }
+      schedule_interval_commit(
+        ui_store.editor_settings.git_autocommit_interval_minutes * 60_000,
+      );
     });
 
     return () => {

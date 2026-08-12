@@ -171,6 +171,7 @@ mod specta_export {
                 crate::features::git::service::git_init_repo,
                 crate::features::git::service::git_status,
                 crate::features::git::service::git_stage_and_commit,
+                crate::features::git::service::git_auto_commit,
                 crate::features::git::service::git_log,
                 crate::features::git::service::git_diff,
                 crate::features::git::service::git_show_file_at_commit,

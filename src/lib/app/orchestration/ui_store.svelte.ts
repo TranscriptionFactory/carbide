@@ -178,6 +178,7 @@ const INITIAL_TAB_CLOSE_CONFIRM = {
   close_mode: "single" as "single" | "all" | "other" | "right" | "quit",
   keep_tab_id: null as string | null,
   apply_to_all: false,
+  has_conflict: false,
 };
 
 const INITIAL_VERSION_HISTORY_DIALOG = {
@@ -430,6 +431,7 @@ export class UIStore {
     close_mode: "single" | "all" | "other" | "right" | "quit";
     keep_tab_id: string | null;
     apply_to_all: boolean;
+    has_conflict: boolean;
   }>({ ...INITIAL_TAB_CLOSE_CONFIRM });
 
   version_history_dialog = $state<{
