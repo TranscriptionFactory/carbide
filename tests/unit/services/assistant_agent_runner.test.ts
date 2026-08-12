@@ -602,6 +602,50 @@ describe("AgentRunner end-of-turn proposals", () => {
     });
   });
 
+  // The reported scenario, end to end: the user's save lands DURING the turn,
+  // after the agent's write. An mtime captured once the turn is over already
+  // contains that save, so the guard would compare equal, pass, and let the
+  // rollback destroy the very bytes it exists to protect. Moving the capture to
+  // the end of the turn must fail this test.
+  it("captures the mtime the agent's write left, not one a later user save bumped", async () => {
+    const { rag_store, vault_store } = make_stores();
+    let disk_mtime = 1_000;
+    const starter = create_test_run_starter(() =>
+      (async function* () {
+        yield tool_start("mcp__carbide__update_note", '{"path":"notes/a.md"}', {
+          paths: ["notes/a.md"],
+          mutating: true,
+        });
+        yield tool_end("mcp__carbide__update_note");
+        // The user saves the same note while the turn is still running.
+        disk_mtime = 9_999;
+        yield { type: "text", text: "Done." } as RunEvent;
+        yield { type: "done", stats: {} } as RunEvent;
+      })(),
+    );
+    const proposals = create_test_proposal_producer();
+    const runner = new AgentRunner(
+      starter,
+      rag_store,
+      vault_store,
+      {
+        create_checkpoint: vi
+          .fn()
+          .mockResolvedValue({ status: "created" as const, sha: "anchor-sha" }),
+      },
+      vi.fn(),
+      vi.fn(),
+      proposals,
+      () => Promise.resolve(disk_mtime),
+    );
+
+    await runner.run_turn(provider, "organize my notes", "acp");
+
+    expect(proposals.produce.mock.calls[0]?.[0].expected_mtimes).toEqual({
+      "notes/a.md": 1_000,
+    });
+  });
+
   it("captures no mtime for a denied tool's path", async () => {
     const { runner, proposals, read_note_mtime } = make_harness([
       tool_start("mcp__carbide__update_note", '{"path":"notes/denied.md"}', {
