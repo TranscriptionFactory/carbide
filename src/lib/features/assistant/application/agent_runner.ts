@@ -180,6 +180,10 @@ export class AgentRunner {
               id: event.id,
               content: event.content,
               paths: event.paths,
+              ...(event.input_summary != null
+                ? { input_summary: event.input_summary }
+                : {}),
+              ...(event.name != null ? { name: event.name } : {}),
             });
             return;
           case "tool_end": {

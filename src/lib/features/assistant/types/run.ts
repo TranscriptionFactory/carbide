@@ -51,12 +51,17 @@ export type RunEvent =
       mutating: boolean;
       locations: ToolLocation[];
     }
+  // input_summary/name are the values refined after the call's first frame,
+  // which the streaming API emits with an empty input. Absent on an update that
+  // refines neither.
   | {
       type: "tool_update";
       id: string;
       status: ToolCallStatus;
       content: ToolContent[];
       paths: string[];
+      input_summary?: string | null;
+      name?: string | null;
     }
   // tool_end's paths/mutating restate the union accumulated across the
   // call's updates — proposal production reads the terminal event.
