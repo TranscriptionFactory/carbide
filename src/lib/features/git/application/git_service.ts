@@ -165,6 +165,7 @@ export class GitService {
     op_key: string,
     message: string,
     files: string[] | null,
+    allow_delete = true,
   ): Promise<CommitRunResult> {
     const vault_path = this.get_vault_path();
     const has_repo = await this.git_port.has_repo(vault_path);
@@ -175,11 +176,9 @@ export class GitService {
     this.begin_git_mutation(op_key);
 
     try {
-      const sha = await this.git_port.stage_and_commit(
-        vault_path,
-        message,
-        files,
-      );
+      const sha = allow_delete
+        ? await this.git_port.stage_and_commit(vault_path, message, files)
+        : await this.git_port.auto_commit(vault_path, message, files);
       await this.finish_git_mutation_success(op_key, {
         track_last_commit: true,
         invalidate_history_cache: true,
@@ -275,7 +274,7 @@ export class GitService {
     return this.serialize(async () => {
       const message = this.format_auto_commit_message(paths);
       const commit_paths = paths.length > 0 ? paths : null;
-      await this.run_commit("git.commit", message, commit_paths);
+      await this.run_commit("git.commit", message, commit_paths, false);
     });
   }
 

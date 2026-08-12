@@ -16,6 +16,13 @@ export interface GitPort {
     message: string,
     files: string[] | null,
   ): Promise<string>;
+  // Same commit, minus the authority to stage a deletion for a path that is
+  // merely absent. Autocommit's path list is captured seconds before it runs.
+  auto_commit(
+    vault_path: VaultPath,
+    message: string,
+    files: string[] | null,
+  ): Promise<string>;
   log(
     vault_path: VaultPath,
     file_path: string | null,

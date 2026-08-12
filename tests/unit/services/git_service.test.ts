@@ -20,6 +20,7 @@ function create_mock_port() {
     files: [],
   });
   const stage_and_commit = vi.fn().mockResolvedValue("abc123");
+  const auto_commit = vi.fn().mockResolvedValue("abc123");
   const log = vi.fn().mockResolvedValue([]);
   const diff = vi
     .fn()
@@ -60,6 +61,7 @@ function create_mock_port() {
     init_repo,
     status,
     stage_and_commit,
+    auto_commit,
     log,
     diff,
     diff_working,
@@ -82,6 +84,7 @@ function create_mock_port() {
     init_repo,
     status,
     stage_and_commit,
+    auto_commit,
     log,
     diff,
     diff_working,
@@ -190,7 +193,8 @@ describe("GitService", () => {
   });
 
   it("auto_commit single file uses note title in message", async () => {
-    const { service, stage_and_commit, status, git_store } = create_harness();
+    const { service, auto_commit, stage_and_commit, status, git_store } =
+      create_harness();
     status.mockResolvedValue({
       branch: "main",
       is_dirty: true,
@@ -199,7 +203,9 @@ describe("GitService", () => {
       files: [{ path: "notes/my_note.md", status: "modified" }],
     });
     await service.auto_commit(["notes/my_note.md"]);
-    expect(stage_and_commit).toHaveBeenCalledWith(
+    // Autocommit must never reach the command that may stage a deletion.
+    expect(stage_and_commit).not.toHaveBeenCalled();
+    expect(auto_commit).toHaveBeenCalledWith(
       expect.anything(),
       "Update: my_note (1970-01-01T00:00:01.000Z)",
       ["notes/my_note.md"],
@@ -210,7 +216,7 @@ describe("GitService", () => {
   });
 
   it("auto_commit multiple files uses count in message", async () => {
-    const { service, stage_and_commit, status } = create_harness();
+    const { service, auto_commit, status } = create_harness();
     status.mockResolvedValue({
       branch: "main",
       is_dirty: true,
@@ -219,7 +225,7 @@ describe("GitService", () => {
       files: [{ path: "a.md", status: "modified" }],
     });
     await service.auto_commit(["a.md", "b.md"]);
-    expect(stage_and_commit).toHaveBeenCalledWith(
+    expect(auto_commit).toHaveBeenCalledWith(
       expect.anything(),
       "Update: a, b (1970-01-01T00:00:01.000Z)",
       ["a.md", "b.md"],
@@ -227,7 +233,7 @@ describe("GitService", () => {
   });
 
   it("auto_commit handles errors", async () => {
-    const { service, stage_and_commit, status, git_store, op_store } =
+    const { service, auto_commit, status, git_store, op_store } =
       create_harness();
     status.mockResolvedValue({
       branch: "main",
@@ -236,7 +242,7 @@ describe("GitService", () => {
       behind: 0,
       files: [{ path: "a.md", status: "modified" }],
     });
-    stage_and_commit.mockRejectedValue(new Error("commit failed"));
+    auto_commit.mockRejectedValue(new Error("commit failed"));
     await service.auto_commit(["a.md"]);
     expect(git_store.sync_status).toBe("error");
     expect(git_store.error).toBe("commit failed");
@@ -387,8 +393,8 @@ describe("GitService", () => {
   });
 
   it("skips commit when there is nothing to commit", async () => {
-    const { service, stage_and_commit, status, op_store } = create_harness();
-    stage_and_commit.mockRejectedValue(new Error("nothing to commit"));
+    const { service, auto_commit, status, op_store } = create_harness();
+    auto_commit.mockRejectedValue(new Error("nothing to commit"));
     status.mockResolvedValue({
       branch: "main",
       is_dirty: false,
@@ -397,7 +403,7 @@ describe("GitService", () => {
       files: [],
     });
     await service.auto_commit(["a.md"]);
-    expect(stage_and_commit).toHaveBeenCalled();
+    expect(auto_commit).toHaveBeenCalled();
     expect(op_store.get("git.commit").status).toBe("success");
   });
 
