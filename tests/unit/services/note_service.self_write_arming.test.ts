@@ -108,6 +108,41 @@ describe("NoteService self-write arming", () => {
     expect(on_file_written).toHaveBeenCalledWith(NOTE_PATH);
   });
 
+  it("records the created mtime when an untitled note is first saved", async () => {
+    const { service, notes_port, editor_store, on_file_written } = setup();
+    const target = as_note_path("docs/beta.md");
+    const draft = as_note_path("draft:1:Beta");
+    editor_store.set_open_note({
+      meta: { ...note_meta(), id: draft, path: draft, mtime_ms: 0 },
+      markdown: as_markdown_text("# Beta"),
+      buffer_id: "beta-buffer",
+      is_dirty: true,
+    });
+    notes_port.create_note = vi
+      .fn()
+      .mockResolvedValue({ ...note_meta(target), mtime_ms: 700 });
+
+    await service.save_note(target, true);
+
+    expect(on_file_written).toHaveBeenCalledWith(target, { mtime_ms: 700 });
+  });
+
+  it("records the written mtime for a background-tab save", async () => {
+    const { service, notes_port, on_file_written } = setup();
+    notes_port.write_note = vi.fn().mockResolvedValue(800);
+
+    const result = await service.write_note_content(
+      NOTE_PATH,
+      as_markdown_text("# Alpha"),
+    );
+
+    expect(result).toBe(800);
+    expect(on_file_written).toHaveBeenNthCalledWith(1, NOTE_PATH);
+    expect(on_file_written).toHaveBeenNthCalledWith(2, NOTE_PATH, {
+      mtime_ms: 800,
+    });
+  });
+
   it("arms a removal before deleting a note", async () => {
     const { service, on_file_written } = setup();
 
