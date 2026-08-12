@@ -11,6 +11,18 @@ import {
 
 const log = create_logger("agent_proposal_service");
 
+// The write layer reports a losing mtime comparison as `conflict:mtime_mismatch`
+// and a vanished file as `conflict:file_missing`; both mean the same thing here.
+const CONFLICT_PREFIX = "conflict:";
+
+const STALE_ERROR =
+  "the note changed on disk after the checkpoint; left as it is";
+
+type RestoreOutcome =
+  | { status: "restored"; content: string }
+  | { status: "stale" }
+  | { status: "failed" };
+
 // Narrow structural dependencies rather than the concrete services, following
 // AgentCheckpointGit's precedent in agent_runner.ts.
 export type AgentProposalGit = {
@@ -22,7 +34,13 @@ export type AgentProposalGit = {
 };
 
 export type AgentProposalNotes = {
-  write_note(note_path: string, content: string): Promise<void>;
+  // expected_mtime is the whole staleness guard: the write is refused, and
+  // throws, when the note on disk is no longer the one the mtime was read from.
+  write_note(
+    note_path: string,
+    content: string,
+    expected_mtime?: number,
+  ): Promise<void>;
 };
 
 export type AgentProposalQueue = {
@@ -33,6 +51,11 @@ export type AgentTurnProposalRequest = {
   anchor: string | null;
   origin: ProposalOrigin;
   touched_paths: readonly string[];
+  // Read from disk at the agent's last successful write to each path, keyed by
+  // vault-relative path. A path with no entry rolls back unguarded, so this is
+  // required rather than optional — omitting it is the defect this exists to
+  // close, and an optional field invites omitting it again.
+  expected_mtimes: Readonly<Record<string, number>>;
 };
 
 export type AgentTurnProposalReport = {
@@ -104,11 +127,18 @@ export class AgentProposalService implements AgentTurnProposalProducer {
     // loss-free direction — a restored note is trivially re-deleted, whereas a
     // deletion the user never approved is git archaeology.
     for (const note_path of triage.deleted_paths) {
-      const restored = await this.restore_to_anchor(note_path, request.anchor);
-      if (restored === null) {
+      const restored = await this.restore_to_anchor(
+        note_path,
+        request.anchor,
+        request.expected_mtimes[note_path],
+      );
+      if (restored.status !== "restored") {
         report.failed.push({
           note_path,
-          error: "could not restore deleted note from the checkpoint",
+          error:
+            restored.status === "stale"
+              ? STALE_ERROR
+              : "could not restore deleted note from the checkpoint",
         });
         continue;
       }
@@ -123,20 +153,24 @@ export class AgentProposalService implements AgentTurnProposalProducer {
 
     const inputs: AgentTurnProposalInput[] = [];
     for (const file of triage.modified) {
-      const base_content = await this.restore_to_anchor(
+      const restored = await this.restore_to_anchor(
         file.note_path,
         request.anchor,
+        request.expected_mtimes[file.note_path],
       );
       // Fail closed per note: proposing a note we could not roll back would
       // reintroduce exactly the corruption this design exists to prevent.
-      if (base_content === null) {
+      if (restored.status !== "restored") {
         report.failed.push({
           note_path: file.note_path,
-          error: "could not roll the note back to the checkpoint",
+          error:
+            restored.status === "stale"
+              ? STALE_ERROR
+              : "could not roll the note back to the checkpoint",
         });
         continue;
       }
-      inputs.push({ file, base_content });
+      inputs.push({ file, base_content: restored.content });
     }
 
     const proposals = build_turn_proposals(
@@ -154,22 +188,43 @@ export class AgentProposalService implements AgentTurnProposalProducer {
     return report;
   }
 
-  // Returns the content written back, which is also the content the caller
+  // Carries back the content written, which is also the content the caller
   // hashes into base_revision — one read, no second read to disagree with.
+  // "stale" is separated from "failed" because it is not an error: the note
+  // moved under us and leaving it alone is the correct outcome, not a
+  // degradation of one.
   private async restore_to_anchor(
     note_path: string,
     anchor: string,
-  ): Promise<string | null> {
+    expected_mtime: number | undefined,
+  ): Promise<RestoreOutcome> {
+    let content: string;
     try {
-      const content = await this.git.get_file_at_commit(note_path, anchor);
-      await this.notes.write_note(note_path, content);
-      return content;
+      content = await this.git.get_file_at_commit(note_path, anchor);
     } catch (err) {
-      log.warn("Could not restore note to the turn checkpoint", {
+      log.warn("Could not read the note at the turn checkpoint", {
         note_path,
         error: error_message(err),
       });
-      return null;
+      return { status: "failed" };
     }
+
+    try {
+      await this.notes.write_note(note_path, content, expected_mtime);
+    } catch (err) {
+      const message = error_message(err);
+      if (message.startsWith(CONFLICT_PREFIX)) {
+        log.info("Left a note that changed during the turn as it is on disk", {
+          note_path,
+        });
+        return { status: "stale" };
+      }
+      log.warn("Could not restore note to the turn checkpoint", {
+        note_path,
+        error: message,
+      });
+      return { status: "failed" };
+    }
+    return { status: "restored", content };
   }
 }

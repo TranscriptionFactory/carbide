@@ -60,6 +60,7 @@ function create_harness(options?: {
   commits?: Record<string, Record<string, string>>;
   disk?: Record<string, string>;
   diffs?: Record<string, GitDiff>;
+  mtimes?: Record<string, number>;
 }) {
   const commits = new Map<string, Map<string, string>>(
     Object.entries(options?.commits ?? {}).map(([sha, files]) => [
@@ -69,6 +70,7 @@ function create_harness(options?: {
   );
   const disk = new Map(Object.entries(options?.disk ?? {}));
   const diffs: Record<string, GitDiff> = { ...options?.diffs };
+  const mtimes = new Map(Object.entries(options?.mtimes ?? {}));
   const writes: string[] = [];
 
   const get_working_diff = vi.fn(
@@ -87,12 +89,20 @@ function create_harness(options?: {
     }),
   };
 
+  // Mirrors the real write path: the guard lives in Rust and surfaces as a
+  // thrown `conflict:` error, never as a quiet no-op.
   const notes = {
-    write_note: vi.fn((note_path: string, content: string) => {
-      writes.push(note_path);
-      disk.set(note_path, content);
-      return Promise.resolve();
-    }),
+    write_note: vi.fn(
+      (note_path: string, content: string, expected_mtime?: number) => {
+        const current = mtimes.get(note_path);
+        if (expected_mtime !== undefined && current !== expected_mtime) {
+          return Promise.reject(new Error("conflict:mtime_mismatch"));
+        }
+        writes.push(note_path);
+        disk.set(note_path, content);
+        return Promise.resolve();
+      },
+    ),
   };
 
   const queue = new AssistantProposalStore();
@@ -108,6 +118,7 @@ function create_harness(options?: {
     disk,
     commits,
     diffs,
+    mtimes,
     writes,
   };
 }
@@ -134,6 +145,7 @@ describe("AgentProposalService.produce", () => {
       anchor,
       origin,
       touched_paths: ["note.md"],
+      expected_mtimes: {},
     });
 
     expect(report.status).toBe("produced");
@@ -160,6 +172,7 @@ describe("AgentProposalService.produce", () => {
       anchor,
       origin,
       touched_paths: ["a.md", "b.md"],
+      expected_mtimes: {},
     });
 
     expect(report.proposed).toEqual(["a.md", "b.md"]);
@@ -171,7 +184,12 @@ describe("AgentProposalService.produce", () => {
   it("derives base_revision from the restored content", async () => {
     const h = modified_harness();
 
-    await h.service.produce({ anchor, origin, touched_paths: ["note.md"] });
+    await h.service.produce({
+      anchor,
+      origin,
+      touched_paths: ["note.md"],
+      expected_mtimes: {},
+    });
 
     expect(h.queue.pending[0]?.base_revision).toBe(
       compute_note_revision("before\ntail\n"),
@@ -195,6 +213,7 @@ describe("AgentProposalService.produce", () => {
       anchor,
       origin,
       touched_paths: ["note.md"],
+      expected_mtimes: {},
     });
 
     expect(h.git.get_working_diff).toHaveBeenCalledWith(null, anchor);
@@ -214,6 +233,7 @@ describe("AgentProposalService.produce", () => {
       anchor,
       origin,
       touched_paths: ["a.md", "b.md"],
+      expected_mtimes: {},
     });
 
     expect(h.add_many).toHaveBeenCalledTimes(1);
@@ -231,6 +251,7 @@ describe("AgentProposalService.produce", () => {
         anchor: null,
         origin,
         touched_paths: ["note.md"],
+        expected_mtimes: {},
       });
 
       expect(report.status).toBe("no_anchor");
@@ -250,6 +271,7 @@ describe("AgentProposalService.produce", () => {
         anchor: null,
         origin,
         touched_paths: ["note.md"],
+        expected_mtimes: {},
       });
 
       expect(report.status).toBe("no_anchor");
@@ -269,6 +291,7 @@ describe("AgentProposalService.produce", () => {
         anchor,
         origin,
         touched_paths: ["gone.md"],
+        expected_mtimes: {},
       });
 
       expect(report.reverted_deletions).toEqual(["gone.md"]);
@@ -290,6 +313,7 @@ describe("AgentProposalService.produce", () => {
         anchor,
         origin,
         touched_paths: ["new.md"],
+        expected_mtimes: {},
       });
 
       expect(report.kept_creations).toEqual(["new.md"]);
@@ -313,6 +337,7 @@ describe("AgentProposalService.produce", () => {
         anchor,
         origin,
         touched_paths: ["old.md", "new.md"],
+        expected_mtimes: {},
       });
 
       expect(report.reverted_deletions).toEqual(["old.md"]);
@@ -332,6 +357,7 @@ describe("AgentProposalService.produce", () => {
         anchor,
         origin,
         touched_paths: ["data.json"],
+        expected_mtimes: {},
       });
 
       expect(report.skipped_non_note).toEqual(["data.json"]);
@@ -350,6 +376,7 @@ describe("AgentProposalService.produce", () => {
         anchor,
         origin,
         touched_paths: ["opaque.md"],
+        expected_mtimes: {},
       });
 
       expect(report.skipped_binary).toEqual(["opaque.md"]);
@@ -382,6 +409,7 @@ describe("AgentProposalService.produce", () => {
         anchor,
         origin,
         touched_paths: ["agent.md"],
+        expected_mtimes: {},
       });
 
       expect(report.proposed).toEqual(["agent.md"]);
@@ -405,11 +433,88 @@ describe("AgentProposalService.produce", () => {
         anchor,
         origin,
         touched_paths: ["ok.md", "lost.md"],
+        expected_mtimes: {},
       });
 
       expect(report.proposed).toEqual(["ok.md"]);
       expect(report.failed.map((f) => f.note_path)).toEqual(["lost.md"]);
       expect(h.queue.proposals).toHaveLength(1);
+    });
+
+    // The touched-paths filter covers notes the agent never touched. This is
+    // the other half: the agent DID write this note, and the user edited it
+    // during the turn, so the end-of-turn diff cannot tell the two authors
+    // apart. The mtime read at the agent's write is the only witness left.
+    it("refuses to roll back a note that changed on disk after the agent wrote it", async () => {
+      const h = create_harness({
+        commits: { [anchor]: { "note.md": "before\ntail\n" } },
+        disk: { "note.md": "agent wrote this, then the user typed\n" },
+        diffs: { [anchor]: diff([edit_hunk("note.md")]) },
+        mtimes: { "note.md": 2_000 },
+      });
+
+      const report = await h.service.produce({
+        anchor,
+        origin,
+        touched_paths: ["note.md"],
+        expected_mtimes: { "note.md": 1_000 },
+      });
+
+      expect(h.disk.get("note.md")).toBe(
+        "agent wrote this, then the user typed\n",
+      );
+      expect(report.proposed).toEqual([]);
+      expect(report.failed.map((f) => f.note_path)).toEqual(["note.md"]);
+      expect(report.failed[0]?.error).toContain("changed on disk");
+      expect(h.queue.proposals).toHaveLength(0);
+    });
+
+    it("rolls back and proposes a note that is still the one the agent wrote", async () => {
+      const h = create_harness({
+        commits: { [anchor]: { "note.md": "before\ntail\n" } },
+        disk: { "note.md": "after\ntail\n" },
+        diffs: { [anchor]: diff([edit_hunk("note.md")]) },
+        mtimes: { "note.md": 1_000 },
+      });
+
+      const report = await h.service.produce({
+        anchor,
+        origin,
+        touched_paths: ["note.md"],
+        expected_mtimes: { "note.md": 1_000 },
+      });
+
+      expect(report.proposed).toEqual(["note.md"]);
+      expect(report.failed).toEqual([]);
+      expect(h.disk.get("note.md")).toBe("before\ntail\n");
+    });
+
+    it("guards each note independently rather than abandoning the turn", async () => {
+      const h = create_harness({
+        commits: {
+          [anchor]: {
+            "stale.md": "before\ntail\n",
+            "clean.md": "before\ntail\n",
+          },
+        },
+        disk: { "stale.md": "user typed\n", "clean.md": "after\ntail\n" },
+        diffs: {
+          [anchor]: diff([edit_hunk("stale.md"), edit_hunk("clean.md")]),
+        },
+        mtimes: { "stale.md": 2_000, "clean.md": 1_000 },
+      });
+
+      const report = await h.service.produce({
+        anchor,
+        origin,
+        touched_paths: ["stale.md", "clean.md"],
+        expected_mtimes: { "stale.md": 1_000, "clean.md": 1_000 },
+      });
+
+      expect(report.proposed).toEqual(["clean.md"]);
+      expect(report.failed.map((f) => f.note_path)).toEqual(["stale.md"]);
+      expect(h.disk.get("stale.md")).toBe("user typed\n");
+      expect(h.disk.get("clean.md")).toBe("before\ntail\n");
     });
 
     it("reports a deletion it could not restore instead of dropping it", async () => {
@@ -423,6 +528,7 @@ describe("AgentProposalService.produce", () => {
         anchor,
         origin,
         touched_paths: ["gone.md"],
+        expected_mtimes: {},
       });
 
       expect(report.reverted_deletions).toEqual([]);
@@ -440,6 +546,7 @@ describe("AgentProposalService.produce", () => {
         anchor,
         origin,
         touched_paths: ["note.md"],
+        expected_mtimes: {},
       });
 
       expect(report.proposed).toEqual([]);
@@ -464,6 +571,7 @@ describe("AgentProposalService.produce", () => {
         anchor: first,
         origin,
         touched_paths: ["note.md"],
+        expected_mtimes: {},
       });
 
       // The agent's own edit is gone from disk; a second turn reads this.
@@ -478,6 +586,7 @@ describe("AgentProposalService.produce", () => {
         anchor: second,
         origin: { session_id: "session-1", run_id: "run-2" },
         touched_paths: ["note.md"],
+        expected_mtimes: {},
       });
 
       expect(report.proposed).toEqual(["note.md"]);

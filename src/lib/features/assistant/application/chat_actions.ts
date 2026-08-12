@@ -145,16 +145,29 @@ export function register_chat_actions(
   const agent_proposals = new AgentProposalService(
     services.git,
     {
-      write_note: async (note_path, content) => {
+      write_note: async (note_path, content, expected_mtime) => {
         await services.note.write_note_content(
           as_note_path(note_path),
           as_markdown_text(content),
+          expected_mtime,
         );
       },
     },
     assistant_proposals,
     () => Date.now(),
   );
+
+  // Disk, not the editor store: a note that has been through "Keep my changes"
+  // carries a stored mtime of 0, which resolves to no guard at all.
+  async function read_note_mtime(note_path: string): Promise<number | null> {
+    const vault_id = stores.vault.active_vault_id;
+    if (!vault_id) return null;
+    const doc = await services.note.read_note(
+      vault_id,
+      as_note_path(note_path),
+    );
+    return doc.meta.mtime_ms;
+  }
 
   const agent_runner = new AgentRunner(
     assistant_kernel,
@@ -164,6 +177,7 @@ export function register_chat_actions(
     () => registry.execute(ACTION_IDS.folder_refresh_tree),
     sync_changed_notes,
     agent_proposals,
+    read_note_mtime,
   );
 
   function get_providers(): AiProviderConfig[] {

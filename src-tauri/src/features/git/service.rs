@@ -769,6 +769,7 @@ pub fn git_restore_file_inner(
     file_path: String,
     commit_hash: String,
 ) -> Result<String, String> {
+    ensure_matches_head(&open_repo(&vault_path)?, &vault_path, &file_path)?;
     let content =
         git_show_file_at_commit_inner(vault_path.clone(), file_path.clone(), commit_hash.clone())?;
     let abs = Path::new(&vault_path).join(&file_path);
@@ -788,6 +789,32 @@ pub fn git_restore_file_inner(
     let message = format!("Restore: {} to {}", title, short_hash);
 
     git_stage_and_commit_inner(vault_path, message, Some(vec![file_path]))
+}
+
+// Restore rewrites the working file and then commits, so uncommitted work at
+// that path is destroyed by the same call that records the destruction as
+// deliberate. Anything on disk that HEAD does not already contain is work
+// nobody agreed to lose; discard is the explicit way to throw it away. A path
+// with no file on disk has nothing to protect, so restoring a deleted note
+// still works.
+fn ensure_matches_head(
+    repo: &Repository,
+    vault_path: &str,
+    file_path: &str,
+) -> Result<(), String> {
+    if !Path::new(vault_path).join(file_path).exists() {
+        return Ok(());
+    }
+    let status = repo
+        .status_file(Path::new(file_path))
+        .map_err(|e| format!("failed to read status for {}: {}", file_path, e))?;
+    if !status.is_empty() {
+        return Err(format!(
+            "{} has uncommitted changes. Commit or discard them before restoring.",
+            file_path
+        ));
+    }
+    Ok(())
 }
 
 fn ensure_not_conflicted(repo: &Repository, file_path: &str) -> Result<(), String> {
@@ -1382,6 +1409,57 @@ mod tests {
         let annotated = repo.find_annotated_commit(theirs).unwrap();
         repo.merge(&[&annotated], None, None).unwrap();
         assert!(repo.status_file(Path::new(name)).unwrap().is_conflicted());
+    }
+
+    // Restore writes the working file and commits the result, so refusing is
+    // the only way uncommitted work survives the call.
+    #[test]
+    fn restore_refuses_when_the_working_file_differs_from_head() {
+        let (dir, root) = init_vault(&[("note.md", "v1\n")]);
+        let first = head_hash(&root);
+        fs::write(dir.path().join("note.md"), "unsaved work\n").unwrap();
+
+        let err = git_restore_file_inner(root.clone(), "note.md".to_string(), first).unwrap_err();
+
+        assert!(err.contains("uncommitted changes"), "{err}");
+        assert_eq!(read(&root, "note.md"), "unsaved work\n");
+    }
+
+    #[test]
+    fn restore_rewrites_a_clean_working_file_from_an_older_commit() {
+        let (dir, root) = init_vault(&[("note.md", "v1\n")]);
+        let first = head_hash(&root);
+        fs::write(dir.path().join("note.md"), "v2\n").unwrap();
+        git_stage_and_commit_inner(
+            root.clone(),
+            "v2".to_string(),
+            Some(vec!["note.md".to_string()]),
+        )
+        .unwrap();
+
+        git_restore_file_inner(root.clone(), "note.md".to_string(), first).unwrap();
+
+        assert_eq!(read(&root, "note.md"), "v1\n");
+    }
+
+    // Nothing on disk is nothing to lose, so recovering a deleted note still
+    // works.
+    #[test]
+    fn restore_brings_back_a_note_deleted_from_the_working_tree() {
+        let (dir, root) = init_vault(&[("note.md", "v1\n")]);
+        let first = head_hash(&root);
+        fs::write(dir.path().join("note.md"), "v2\n").unwrap();
+        git_stage_and_commit_inner(
+            root.clone(),
+            "v2".to_string(),
+            Some(vec!["note.md".to_string()]),
+        )
+        .unwrap();
+        fs::remove_file(dir.path().join("note.md")).unwrap();
+
+        git_restore_file_inner(root.clone(), "note.md".to_string(), first).unwrap();
+
+        assert_eq!(read(&root, "note.md"), "v1\n");
     }
 
     #[test]

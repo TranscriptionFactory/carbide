@@ -400,6 +400,8 @@ struct GitRestoreParams {
     vault_id: String,
     path: String,
     commit: String,
+    #[serde(default)]
+    confirm: bool,
 }
 
 #[derive(Deserialize)]
@@ -496,10 +498,19 @@ async fn cli_git_pull(
     (StatusCode::OK, Json(result)).into_response()
 }
 
+// Restore overwrites the working file and commits the result, so it is as
+// destructive as discard and gets the same treatment: the desktop app asks
+// first, this surface has no UI, so it demands an explicit `confirm`.
 async fn cli_git_restore(
     State(state): State<Arc<HttpAppState>>,
     Json(params): Json<GitRestoreParams>,
 ) -> axum::response::Response {
+    if !params.confirm {
+        return json_err(
+            StatusCode::BAD_REQUEST,
+            "restore overwrites the working file and commits the result; pass \"confirm\": true to proceed",
+        );
+    }
     let root = match resolve_vault_root(&state, &params.vault_id) {
         Ok(r) => r,
         Err(resp) => return resp,
@@ -1128,6 +1139,22 @@ mod tests {
         let params: GitRestoreParams = serde_json::from_str(json).unwrap();
         assert_eq!(params.path, "note.md");
         assert_eq!(params.commit, "abc123");
+    }
+
+    // Restore is as destructive as discard and has no UI either, so an
+    // unconfirmed request must not deserialize into a permitted one.
+    #[test]
+    fn test_git_restore_params_default_to_unconfirmed() {
+        let json = r#"{"vault_id":"v1","path":"note.md","commit":"abc123"}"#;
+        let params: GitRestoreParams = serde_json::from_str(json).unwrap();
+        assert!(!params.confirm);
+    }
+
+    #[test]
+    fn test_git_restore_params_accept_confirm() {
+        let json = r#"{"vault_id":"v1","path":"note.md","commit":"abc123","confirm":true}"#;
+        let params: GitRestoreParams = serde_json::from_str(json).unwrap();
+        assert!(params.confirm);
     }
 
     #[test]

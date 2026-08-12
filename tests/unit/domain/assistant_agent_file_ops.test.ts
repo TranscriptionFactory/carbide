@@ -3,7 +3,9 @@ import {
   changed_files_from_tools,
   is_mutating_call,
   is_mutating_tool,
+  is_successful_mutating_call,
   paths_from_call,
+  rollback_files_from_tools,
   to_vault_relative_path,
 } from "$lib/features/assistant/domain/agent_file_ops";
 
@@ -255,5 +257,72 @@ describe("changed_files_from_tools", () => {
       "/vault/demo",
     );
     expect(changed).toEqual([]);
+  });
+});
+
+describe("is_successful_mutating_call", () => {
+  const denied = {
+    name: "mcp__carbide__update_note",
+    input_summary: '{"path":"notes/a.md"}',
+    paths: ["notes/a.md"],
+    mutating: true,
+    ok: false,
+  };
+
+  it("rejects a mutating call that reported failure", () => {
+    expect(is_mutating_call(denied)).toBe(true);
+    expect(is_successful_mutating_call(denied)).toBe(false);
+  });
+
+  // A call with no terminal event may or may not have written, and no mtime was
+  // ever captured for it, so there is nothing to guard a rollback with.
+  it("rejects a mutating call that never reported an outcome", () => {
+    expect(
+      is_successful_mutating_call({
+        name: denied.name,
+        input_summary: denied.input_summary,
+        paths: denied.paths,
+        mutating: true,
+      }),
+    ).toBe(false);
+  });
+
+  it("accepts a mutating call that reported success", () => {
+    expect(is_successful_mutating_call({ ...denied, ok: true })).toBe(true);
+  });
+});
+
+// The two sets are deliberately different: refresh is permissive because a
+// half-finished write still leaves the vault stale, rollback is not because
+// reverting an unwritten file destroys work nobody agreed to lose.
+describe("rollback_files_from_tools", () => {
+  const calls = [
+    {
+      name: "mcp__carbide__update_note",
+      input_summary: '{"path":"notes/denied.md"}',
+      paths: ["notes/denied.md"],
+      mutating: true,
+      ok: false,
+    },
+    {
+      name: "mcp__carbide__update_note",
+      input_summary: '{"path":"notes/written.md"}',
+      paths: ["notes/written.md"],
+      mutating: true,
+      ok: true,
+    },
+  ];
+
+  it("drops the paths of calls that did not succeed", () => {
+    expect(rollback_files_from_tools(calls, "/vault/demo")).toEqual([
+      "notes/written.md",
+    ]);
+  });
+
+  it("leaves the permissive refresh set unchanged", () => {
+    expect(changed_files_from_tools(calls, "/vault/demo")).toEqual([
+      "notes/denied.md",
+      "notes/written.md",
+    ]);
   });
 });
