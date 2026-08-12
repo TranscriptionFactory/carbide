@@ -1015,6 +1015,9 @@ export class NoteService {
       await this.run_index_update(() =>
         this.index_port.upsert_note(vault_id, created_meta.id),
       );
+      this.on_file_written?.(target_path, {
+        mtime_ms: created_meta.mtime_ms,
+      });
       this.notes_store.add_note(created_meta);
       session.editor_service.rename_buffer(old_path, target_path);
       session.editor_store.update_open_note_path(target_path);
@@ -1037,6 +1040,7 @@ export class NoteService {
       target_path,
       open_note.markdown,
     );
+    this.on_file_written?.(target_path, { mtime_ms: new_mtime });
     await this.run_index_update(() =>
       this.index_port.upsert_note(vault_id, target_path),
     );
@@ -1060,12 +1064,14 @@ export class NoteService {
     const vault = this.vault_store.vault;
     if (!vault) return null;
     this.on_file_written?.(note_path);
-    return this.notes_port.write_note(
+    const new_mtime = await this.notes_port.write_note(
       vault.id,
       note_path,
       markdown,
       expected_mtime && expected_mtime > 0 ? expected_mtime : undefined,
     );
+    this.on_file_written?.(note_path, { mtime_ms: new_mtime });
+    return new_mtime;
   }
 
   private async rename_note_with_overwrite_if_needed(
