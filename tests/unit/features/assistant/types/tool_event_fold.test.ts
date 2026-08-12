@@ -7,6 +7,7 @@ import {
   hydrate_placeholder,
   cap_tool_content,
   finish_tool_event,
+  is_placeholder_summary,
   tool_event_has_body,
   tool_event_status,
   TRUNCATED_MARKER,
@@ -190,6 +191,61 @@ describe("apply_tool_update", () => {
 
     expect(next[0]?.content).toEqual([{ kind: "text", text: "kept" }]);
   });
+
+  it("adopts the refined input summary and title the update carries", () => {
+    const events: AssistantToolEvent[] = [
+      { id: "a", name: "Terminal", input_summary: "{}" },
+    ];
+
+    const next = apply_tool_update(events, {
+      id: "a",
+      input_summary: '{"command":"ls -la"}',
+      name: "bash: ls -la",
+    });
+
+    expect(next[0]?.input_summary).toBe('{"command":"ls -la"}');
+    expect(next[0]?.name).toBe("bash: ls -la");
+  });
+
+  it("keeps a good summary when a later update carries an empty input", () => {
+    const events: AssistantToolEvent[] = [
+      { id: "a", name: "bash: ls -la", input_summary: '{"command":"ls -la"}' },
+    ];
+
+    for (const patch of [
+      { input_summary: "{}" },
+      { input_summary: "" },
+      { input_summary: null },
+      {},
+    ]) {
+      const next = apply_tool_update(events, { id: "a", ...patch });
+      expect(next[0]?.input_summary).toBe('{"command":"ls -la"}');
+    }
+  });
+
+  it("keeps the existing name when the update carries none", () => {
+    const events: AssistantToolEvent[] = [
+      { id: "a", name: "bash: ls -la", input_summary: "" },
+    ];
+
+    const next = apply_tool_update(events, { id: "a", name: null });
+
+    expect(next[0]?.name).toBe("bash: ls -la");
+  });
+});
+
+describe("is_placeholder_summary", () => {
+  it("treats an absent, empty, or empty-object summary as no summary yet", () => {
+    for (const summary of [undefined, null, "", "  ", "{}", " {} "]) {
+      expect(is_placeholder_summary(summary)).toBe(true);
+    }
+  });
+
+  it("treats any real input as a summary", () => {
+    for (const summary of ['{"command":"ls"}', "projects", "{}{}"]) {
+      expect(is_placeholder_summary(summary)).toBe(false);
+    }
+  });
 });
 
 describe("cap_tool_content", () => {
@@ -274,6 +330,42 @@ describe("permission folding", () => {
 
     expect(next).toHaveLength(1);
     expect(next[0]?.permission?.request_id).toBe("perm-1");
+  });
+
+  it("repairs a placeholder summary from the request's complete input", () => {
+    const events: AssistantToolEvent[] = [
+      { id: "call-1", name: "Terminal", input_summary: "{}" },
+    ];
+
+    const next = apply_permission_request(events, {
+      request_id: "perm-1",
+      tool_call_id: "call-1",
+      name: "bash",
+      kind: "execute",
+      input_summary: '{"command":"ls -la"}',
+      paths: [],
+      options,
+    });
+
+    expect(next[0]?.input_summary).toBe('{"command":"ls -la"}');
+  });
+
+  it("keeps a stored summary the request cannot improve on", () => {
+    const events: AssistantToolEvent[] = [
+      { id: "call-1", name: "bash", input_summary: '{"command":"ls -la"}' },
+    ];
+
+    const next = apply_permission_request(events, {
+      request_id: "perm-1",
+      tool_call_id: "call-1",
+      name: "bash",
+      kind: "execute",
+      input_summary: "{}",
+      paths: [],
+      options,
+    });
+
+    expect(next[0]?.input_summary).toBe('{"command":"ls -la"}');
   });
 
   it("inserts a placeholder when the request outruns tool_start", () => {
