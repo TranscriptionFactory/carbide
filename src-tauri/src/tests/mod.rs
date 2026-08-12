@@ -23,6 +23,8 @@ mod plugin_protocol;
 mod search_db_behavior;
 #[path = "../../tests/search_embed_gating.rs"]
 mod search_embed_gating;
+#[path = "../../tests/search_worker_scheduling.rs"]
+mod search_worker_scheduling;
 #[path = "../../tests/embedding_pooling.rs"]
 mod embedding_pooling;
 #[path = "../../tests/embedding_device_probe.rs"]
