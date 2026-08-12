@@ -15,6 +15,13 @@ export function create_editor_store(initial_path: string) {
   return store;
 }
 
+export function create_notes_store(paths: string[]) {
+  const store = $state({
+    notes: paths.map((path) => ({ path })) as { path: string }[],
+  });
+  return store;
+}
+
 export function create_git_store(enabled: boolean) {
   const store = $state({ enabled, sync_status: "idle" as string });
   return store;

@@ -7,6 +7,7 @@ import { create_git_autocommit_reactor } from "$lib/reactors/git_autocommit.reac
 import {
   create_editor_store,
   create_git_store,
+  create_notes_store,
   create_ui_store,
   type AutocommitMode,
 } from "./fixtures/git_autocommit_stores.svelte";
@@ -18,6 +19,7 @@ type HarnessOptions = {
   mode?: AutocommitMode;
   interval_minutes?: number;
   initial_path?: string;
+  vault_paths?: string[];
 };
 
 function create_harness(options: HarnessOptions = {}) {
@@ -26,15 +28,18 @@ function create_harness(options: HarnessOptions = {}) {
     mode = "on_save",
     interval_minutes = 5,
     initial_path = "notes/a.md",
+    vault_paths = [initial_path],
   } = options;
 
   const editor_store = create_editor_store(initial_path);
+  const notes_store = create_notes_store(vault_paths);
   const git_store = create_git_store(enabled);
   const ui_store = create_ui_store(mode, interval_minutes);
   const auto_commit = vi.fn().mockResolvedValue(undefined);
 
   const unmount = create_git_autocommit_reactor(
     editor_store as never,
+    notes_store as never,
     git_store as never,
     ui_store as never,
     { auto_commit } as never,
@@ -48,7 +53,24 @@ function create_harness(options: HarnessOptions = {}) {
     flushSync();
   };
 
-  return { editor_store, git_store, ui_store, auto_commit, unmount, save };
+  const rename = (from: string, to: string) => {
+    notes_store.notes = notes_store.notes.map((note) =>
+      note.path === from ? { path: to } : note,
+    );
+    editor_store.open_note = { is_dirty: false, meta: { path: to } };
+    flushSync();
+  };
+
+  return {
+    editor_store,
+    notes_store,
+    git_store,
+    ui_store,
+    auto_commit,
+    unmount,
+    save,
+    rename,
+  };
 }
 
 describe("git_autocommit.reactor", () => {
@@ -74,7 +96,9 @@ describe("git_autocommit.reactor", () => {
   });
 
   it("coalesces saves inside one debounce window into a single commit", () => {
-    const { auto_commit, save, unmount } = create_harness();
+    const { auto_commit, save, unmount } = create_harness({
+      vault_paths: ["notes/a.md", "notes/b.md"],
+    });
 
     save("notes/a.md");
     vi.advanceTimersByTime(ON_SAVE_DELAY_MS - 1);
@@ -97,17 +121,43 @@ describe("git_autocommit.reactor", () => {
     unmount();
   });
 
-  it("queues the path captured at save time, not the path at flush time", () => {
-    const { editor_store, auto_commit, save, unmount } = create_harness();
+  it("commits the new path when a rename lands inside the debounce window", () => {
+    const { auto_commit, save, rename, unmount } = create_harness();
 
     save("notes/a.md");
-    // The rename that W-A describes: the note moves inside the debounce window,
-    // so the queued string no longer names a file on disk.
-    editor_store.open_note = { is_dirty: false, meta: { path: "notes/b.md" } };
+    rename("notes/a.md", "notes/b.md");
+    vi.advanceTimersByTime(ON_SAVE_DELAY_MS);
+
+    // W-A: the old path would have been staged as a deletion, and the new path
+    // was never queued at all — leaving it untracked for "Discard All" to delete.
+    expect(auto_commit).toHaveBeenCalledWith(["notes/b.md"]);
+    unmount();
+  });
+
+  it("drops a queued path the vault no longer knows about", () => {
+    const { notes_store, auto_commit, save, unmount } = create_harness();
+
+    save("notes/a.md");
+    notes_store.notes = [];
     flushSync();
     vi.advanceTimersByTime(ON_SAVE_DELAY_MS);
 
-    expect(auto_commit).toHaveBeenCalledWith(["notes/a.md"]);
+    expect(auto_commit).not.toHaveBeenCalled();
+    unmount();
+  });
+
+  it("commits only the surviving paths when one goes stale", () => {
+    const { notes_store, auto_commit, save, unmount } = create_harness({
+      vault_paths: ["notes/a.md", "notes/b.md"],
+    });
+
+    save("notes/a.md");
+    save("notes/b.md");
+    notes_store.notes = [{ path: "notes/b.md" }];
+    flushSync();
+    vi.advanceTimersByTime(ON_SAVE_DELAY_MS);
+
+    expect(auto_commit).toHaveBeenCalledWith(["notes/b.md"]);
     unmount();
   });
 
