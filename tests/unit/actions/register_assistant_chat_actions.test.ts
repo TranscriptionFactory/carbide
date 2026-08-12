@@ -706,3 +706,133 @@ describe("register_chat_actions", () => {
     expect(session_service.save_session).toHaveBeenCalledTimes(1);
   });
 });
+
+// 1e: a submission made while a turn is in flight used to hit a silent
+// `return` in the runner after the composer had already cleared itself.
+describe("register_chat_actions — queued prompts", () => {
+  function gate_query(
+    chat_service: { query: unknown },
+    tail: AssistantChatStreamEvent[],
+  ) {
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    chat_service.query = vi.fn(
+      async function* (): AsyncGenerator<AssistantChatStreamEvent> {
+        yield { type: "text", text: "partial" };
+        await gate;
+        for (const event of tail) yield event;
+      },
+    );
+    return { release };
+  }
+
+  function user_messages(chat_store: {
+    messages: { role: string; content: string }[];
+  }) {
+    return chat_store.messages
+      .filter((m) => m.role === "user")
+      .map((m) => m.content);
+  }
+
+  it("holds a submission made mid-turn and sends it once the turn completes", async () => {
+    const { registry, chat_store, chat_service } = create_harness();
+    const gate = gate_query(chat_service, [{ type: "done" }]);
+
+    const first = registry.execute(ACTION_IDS.rag_ask, "first question");
+    await flush();
+    void registry.execute(ACTION_IDS.rag_ask, "second question");
+    await flush();
+
+    expect(chat_store.queued_prompt?.text).toBe("second question");
+    expect(chat_service.query).toHaveBeenCalledTimes(1);
+
+    gate.release();
+    await first;
+    await flush();
+
+    expect(chat_service.query).toHaveBeenCalledTimes(2);
+    expect(user_messages(chat_store)).toEqual([
+      "first question",
+      "second question",
+    ]);
+    expect(chat_store.queued_prompt).toBeNull();
+    expect(chat_store.composer_restore).toBeNull();
+  });
+
+  it("stopping the run returns the queued prompt to the composer unsent", async () => {
+    const { registry, chat_store, chat_service } = create_harness();
+    const gate = gate_query(chat_service, []);
+
+    const first = registry.execute(ACTION_IDS.rag_ask, "first question");
+    await flush();
+    void registry.execute(ACTION_IDS.rag_ask, "second question");
+    await flush();
+    await registry.execute(ACTION_IDS.rag_stop);
+
+    gate.release();
+    await first;
+    await flush();
+
+    expect(chat_service.query).toHaveBeenCalledTimes(1);
+    expect(user_messages(chat_store)).toEqual(["first question"]);
+    expect(chat_store.queued_prompt).toBeNull();
+    expect(chat_store.composer_restore).toBe("second question");
+  });
+
+  it("an errored turn returns the queued prompt rather than sending it", async () => {
+    const { registry, chat_store, chat_service } = create_harness();
+    const gate = gate_query(chat_service, [{ type: "error", error: "boom" }]);
+
+    const first = registry.execute(ACTION_IDS.rag_ask, "first question");
+    await flush();
+    void registry.execute(ACTION_IDS.rag_ask, "second question");
+    await flush();
+
+    gate.release();
+    await first;
+    await flush();
+
+    expect(chat_service.query).toHaveBeenCalledTimes(1);
+    expect(user_messages(chat_store)).toEqual(["first question"]);
+    expect(chat_store.error).toBe("boom");
+    expect(chat_store.composer_restore).toBe("second question");
+  });
+
+  it("a session switch drops the queued prompt instead of firing it into the new session", async () => {
+    const { registry, chat_store, chat_service, assistant_sessions } =
+      create_harness();
+    const gate = gate_query(chat_service, [{ type: "done" }]);
+
+    const first = registry.execute(ACTION_IDS.rag_ask, "first question");
+    await flush();
+    void registry.execute(ACTION_IDS.rag_ask, "second question");
+    await flush();
+
+    const other = assistant_sessions.create({
+      kind: "chat",
+      title: "Elsewhere",
+      provider_id: PROVIDER_ID,
+    });
+    await registry.execute(ACTION_IDS.rag_switch_session, other.id);
+
+    gate.release();
+    await first;
+    await flush();
+
+    expect(chat_service.query).toHaveBeenCalledTimes(1);
+    expect(chat_store.active_id).toBe(other.id);
+    expect(chat_store.messages).toEqual([]);
+    expect(chat_store.queued_prompt).toBeNull();
+    expect(chat_store.composer_restore).toBeNull();
+  });
+
+  it("stopping an agent run returns the queued prompt to the composer", async () => {
+    const { registry, chat_store } = create_harness();
+    chat_store.queue_prompt("second question");
+
+    await registry.execute(ACTION_IDS.rag_agent_abort);
+
+    expect(chat_store.queued_prompt).toBeNull();
+    expect(chat_store.composer_restore).toBe("second question");
+  });
+});
