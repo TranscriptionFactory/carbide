@@ -250,6 +250,11 @@ export function create_watcher_reactor(
           });
           break;
         case "mark_conflict":
+          log.info("Watcher raised the external-modification card", {
+            event: event.type,
+            path: decision.note_path,
+            arming_age_ms: watcher_service.arming_age_ms(decision.note_path),
+          });
           tab_service.mark_conflict(decision.note_path);
           break;
         case "invalidate_tab_cache":

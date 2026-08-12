@@ -228,6 +228,75 @@ describe("WatcherService", () => {
     vi.useRealTimers();
   });
 
+  // Diagnostics for the external-modification card. is_suppressed consumes the
+  // entry it matches, so without a separate record the second event of one
+  // write is indistinguishable from a genuine external edit in the log.
+  it("arming_age_ms is null for a path that was never armed", () => {
+    const { service } = setup();
+
+    expect(service.arming_age_ms("notes/test.md")).toBeNull();
+  });
+
+  it("arming_age_ms reports the age of the most recent arming", () => {
+    vi.useFakeTimers();
+    const { service } = setup();
+
+    service.suppress_next("notes/test.md");
+    vi.advanceTimersByTime(400);
+
+    expect(service.arming_age_ms("notes/test.md")).toBe(400);
+    vi.useRealTimers();
+  });
+
+  it("arming_age_ms survives the arming being consumed", () => {
+    vi.useFakeTimers();
+    const { service } = setup();
+
+    service.suppress_next("notes/test.md");
+    expect(service.is_suppressed("notes/test.md")).toBe(true);
+    vi.advanceTimersByTime(50);
+
+    expect(service.is_suppressed("notes/test.md")).toBe(false);
+    expect(service.arming_age_ms("notes/test.md")).toBe(50);
+    vi.useRealTimers();
+  });
+
+  // The diagnostically interesting case: an event that missed the suppression
+  // window entirely still has to be traceable back to Carbide's own save.
+  it("arming_age_ms outlives the suppression window", () => {
+    vi.useFakeTimers();
+    const { service } = setup();
+
+    service.suppress_next("notes/test.md");
+    vi.advanceTimersByTime(2_500);
+
+    expect(service.is_suppressed("notes/test.md")).toBe(false);
+    expect(service.arming_age_ms("notes/test.md")).toBe(2_500);
+    vi.useRealTimers();
+  });
+
+  it("arming_age_ms is null once the diagnostic horizon has passed", () => {
+    vi.useFakeTimers();
+    const { service } = setup();
+
+    service.suppress_next("notes/test.md");
+    vi.advanceTimersByTime(30_001);
+
+    expect(service.arming_age_ms("notes/test.md")).toBeNull();
+    vi.useRealTimers();
+  });
+
+  it("arming_age_ms matches paths case-insensitively", () => {
+    vi.useFakeTimers();
+    const { service } = setup();
+
+    service.suppress_next("Notes/Test.md");
+    vi.advanceTimersByTime(10);
+
+    expect(service.arming_age_ms("notes/test.md")).toBe(10);
+    vi.useRealTimers();
+  });
+
   it("supports multiple concurrent subscribers", async () => {
     const { port, service } = setup();
     const handler_1 = vi.fn();

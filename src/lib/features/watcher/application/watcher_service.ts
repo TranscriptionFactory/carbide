@@ -17,10 +17,20 @@ const SUPPRESS_WINDOW_MS = 2_000;
 // Rust atomic_write stages "<file>.tmp" beside the target before renaming.
 const ATOMIC_WRITE_TMP_SUFFIX = ".tmp";
 
+// How long an arming stays interesting for diagnostics. Longer than
+// SUPPRESS_WINDOW_MS on purpose: the question a conflict log has to answer is
+// "did Carbide write this path recently?", and the interesting answers are the
+// ones just outside the suppression window.
+const ARMING_DIAGNOSTIC_HORIZON_MS = 30_000;
+
 export class WatcherService {
   private port_unsubscribe: (() => void) | null = null;
   private handlers = new Set<(event: VaultFsEvent) => void>();
   private suppressed = new Map<string, number>();
+  // Parallel to `suppressed` but never consumed, because is_suppressed deletes
+  // the entry it matches. Without this a conflict raised by the *second* event
+  // of one write looks identical to a genuine external edit.
+  private last_armed = new Map<string, number>();
   private lifecycle = Promise.resolve();
   private _tree_refresh_suppressed = false;
 
@@ -41,6 +51,19 @@ export class WatcherService {
   suppress_next(path: string): void {
     const key = normalize_path_key(path);
     this.suppressed.set(key, Date.now());
+    this.last_armed.set(key, Date.now());
+  }
+
+  arming_age_ms(path: string): number | null {
+    const key = normalize_path_key(path);
+    const stamp = this.last_armed.get(key);
+    if (stamp === undefined) return null;
+    const age = Date.now() - stamp;
+    if (age > ARMING_DIAGNOSTIC_HORIZON_MS) {
+      this.last_armed.delete(key);
+      return null;
+    }
+    return age;
   }
 
   // One-shot: an armed path swallows exactly the event for its own write. The
