@@ -136,7 +136,7 @@ pub fn git_init_repo_inner(vault_path: String) -> Result<(), String> {
     let mut index = repo_index(&repo)?;
     stage_all_files(&repo, &mut index)?;
     let (_, tree) = write_index_tree(&repo, &mut index)?;
-    commit_tree(&repo, "Initial commit", &tree, None)?;
+    commit_tree(&repo, "Initial commit", &tree, None, None)?;
     Ok(())
 }
 
@@ -218,10 +218,15 @@ fn compute_ahead_behind(repo: &Repository) -> Result<(usize, usize), git2::Error
     repo.graph_ahead_behind(local_oid, upstream_oid)
 }
 
+// An absent path is ambiguous: the user deleted the note, or the path list went
+// stale (a rename inside the autocommit debounce window). Only a caller that
+// asked to commit a deletion may resolve it as one; autocommit skips instead,
+// or it stages a deletion under an "Update:" message.
 fn stage_selected_files(
     index: &mut git2::Index,
     vault_path: &str,
     paths: &[String],
+    allow_delete: bool,
 ) -> Result<(), String> {
     for path in paths {
         let full = Path::new(vault_path).join(path);
@@ -229,6 +234,9 @@ fn stage_selected_files(
             index
                 .add_path(Path::new(path))
                 .map_err(|e| format!("failed to stage {}: {}", path, e))?;
+            continue;
+        }
+        if !allow_delete {
             continue;
         }
         index
@@ -261,9 +269,10 @@ fn stage_commit_files(
     index: &mut git2::Index,
     vault_path: &str,
     files: Option<Vec<String>>,
+    allow_delete: bool,
 ) -> Result<(), String> {
     match files {
-        Some(paths) => stage_selected_files(index, vault_path, &paths),
+        Some(paths) => stage_selected_files(index, vault_path, &paths, allow_delete),
         None => stage_all_files(repo, index),
     }
 }
@@ -300,17 +309,45 @@ fn ensure_tree_has_changes(
     Ok(())
 }
 
+// Two windows on one vault each run their own GitService, and serialization is
+// per-instance. Committing with `Some("HEAD")` force-updates the ref, so the
+// second writer orphans the first one's commit. Build the commit detached and
+// move the ref with a compare-and-swap instead.
+const CONCURRENT_COMMIT_ERROR: &str = "conflict:head_moved";
+const COMMIT_RETRY_ATTEMPTS: usize = 3;
+
+fn commit_ref_name(repo: &Repository) -> Result<String, String> {
+    let head = repo
+        .find_reference("HEAD")
+        .map_err(|e| format!("failed to read HEAD: {}", e))?;
+    Ok(head
+        .symbolic_target()
+        .map(str::to_string)
+        .unwrap_or_else(|| "HEAD".to_string()))
+}
+
 fn commit_tree(
     repo: &Repository,
     message: &str,
     tree: &git2::Tree<'_>,
     parent: Option<&git2::Commit<'_>>,
+    expected_head: Option<git2::Oid>,
 ) -> Result<String, String> {
     let sig = default_signature()?;
     let parents: Vec<&git2::Commit<'_>> = parent.into_iter().collect();
     let oid = repo
-        .commit(Some("HEAD"), &sig, &sig, message, tree, &parents)
+        .commit(None, &sig, &sig, message, tree, &parents)
         .map_err(|e| format!("failed to commit: {}", e))?;
+
+    let ref_name = commit_ref_name(repo)?;
+    let reflog = format!("commit: {}", message.lines().next().unwrap_or(message));
+    let moved = match expected_head {
+        Some(current) => repo
+            .reference_matching(&ref_name, oid, true, current, &reflog)
+            .map(|_| ()),
+        None => repo.reference(&ref_name, oid, false, &reflog).map(|_| ()),
+    };
+    moved.map_err(|_| CONCURRENT_COMMIT_ERROR.to_string())?;
     Ok(oid.to_string())
 }
 
@@ -332,13 +369,66 @@ pub fn git_stage_and_commit_inner(
     message: String,
     files: Option<Vec<String>>,
 ) -> Result<String, String> {
+    stage_and_commit_with_intent(vault_path, message, files, true)
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn git_auto_commit(
+    vault_path: String,
+    message: String,
+    files: Option<Vec<String>>,
+) -> Result<String, String> {
+    crate::shared::blocking::blocking("git_auto_commit", move || {
+        git_auto_commit_inner(vault_path, message, files)
+    })
+    .await
+}
+
+// Autocommit's path list is captured up to 5 s before the commit runs, so a path
+// that has since vanished is stale far more often than it is a real deletion.
+pub fn git_auto_commit_inner(
+    vault_path: String,
+    message: String,
+    files: Option<Vec<String>>,
+) -> Result<String, String> {
+    stage_and_commit_with_intent(vault_path, message, files, false)
+}
+
+fn stage_and_commit_with_intent(
+    vault_path: String,
+    message: String,
+    files: Option<Vec<String>>,
+    allow_delete: bool,
+) -> Result<String, String> {
     let repo = open_repo(&vault_path)?;
-    let mut index = repo_index(&repo)?;
-    stage_commit_files(&repo, &mut index, &vault_path, files)?;
-    let (tree_oid, tree) = write_index_tree(&repo, &mut index)?;
-    let parent = head_parent_commit(&repo);
+    for _ in 0..COMMIT_RETRY_ATTEMPTS {
+        match try_stage_and_commit(&repo, &vault_path, &message, files.clone(), allow_delete) {
+            Err(err) if err == CONCURRENT_COMMIT_ERROR => continue,
+            outcome => return outcome,
+        }
+    }
+    Err(CONCURRENT_COMMIT_ERROR.to_string())
+}
+
+fn try_stage_and_commit(
+    repo: &Repository,
+    vault_path: &str,
+    message: &str,
+    files: Option<Vec<String>>,
+    allow_delete: bool,
+) -> Result<String, String> {
+    let expected_head = head_parent_commit(repo).map(|commit| commit.id());
+    let mut index = repo_index(repo)?;
+    stage_commit_files(repo, &mut index, vault_path, files, allow_delete)?;
+    let (tree_oid, tree) = write_index_tree(repo, &mut index)?;
+
+    let parent = head_parent_commit(repo);
+    if parent.as_ref().map(|commit| commit.id()) != expected_head {
+        return Err(CONCURRENT_COMMIT_ERROR.to_string());
+    }
     ensure_tree_has_changes(parent.as_ref(), tree_oid)?;
-    commit_tree(&repo, &message, &tree, parent.as_ref())
+    commit_tree(repo, message, &tree, parent.as_ref(), expected_head)
 }
 
 #[tauri::command]
@@ -1711,5 +1801,131 @@ mod tests {
         assert!(note_hunks
             .iter()
             .any(|h| h.lines.iter().any(|l| l.content.contains("turn edit"))));
+    }
+
+    fn head_tree_paths(root: &str) -> Vec<String> {
+        let repo = open_repo(root).unwrap();
+        let tree = repo.head().unwrap().peel_to_commit().unwrap().tree().unwrap();
+        let mut paths = Vec::new();
+        tree.walk(git2::TreeWalkMode::PreOrder, |_, entry| {
+            if let Some(name) = entry.name() {
+                paths.push(name.to_string());
+            }
+            git2::TreeWalkResult::Ok
+        })
+        .unwrap();
+        paths
+    }
+
+    // W-A: the reactor queues "a.md", the user renames it inside the 5 s debounce
+    // window, and the queued path now points at nothing. Resolving that as a
+    // deletion is what staged a removal under an "Update:" message.
+    #[test]
+    fn auto_commit_skips_a_queued_path_whose_file_was_renamed_away() {
+        let (dir, root) = init_vault(&[("a.md", "one\n")]);
+        let before = head_hash(&root);
+
+        fs::rename(dir.path().join("a.md"), dir.path().join("b.md")).unwrap();
+
+        let err = git_auto_commit_inner(
+            root.clone(),
+            "Update: a (ts)".to_string(),
+            Some(vec!["a.md".to_string()]),
+        )
+        .unwrap_err();
+
+        assert_eq!(err, "nothing to commit");
+        assert_eq!(head_hash(&root), before);
+        assert!(
+            head_tree_paths(&root).contains(&"a.md".to_string()),
+            "autocommit must not stage a deletion for a path that merely went stale"
+        );
+    }
+
+    #[test]
+    fn stage_and_commit_removes_an_absent_path_when_deletion_is_intended() {
+        let (dir, root) = init_vault(&[("a.md", "one\n"), ("keep.md", "keep\n")]);
+
+        fs::remove_file(dir.path().join("a.md")).unwrap();
+
+        git_stage_and_commit_inner(
+            root.clone(),
+            "Delete: a".to_string(),
+            Some(vec!["a.md".to_string()]),
+        )
+        .unwrap();
+
+        let paths = head_tree_paths(&root);
+        assert!(!paths.contains(&"a.md".to_string()));
+        assert!(paths.contains(&"keep.md".to_string()));
+    }
+
+    // W-D: `repo.commit(Some("HEAD"), ..)` force-updates the ref, so a second
+    // window's commit silently orphans the first. The CAS must refuse instead.
+    #[test]
+    fn commit_refuses_to_move_head_from_an_unexpected_oid() {
+        let (dir, root) = init_vault(&[("a.md", "one\n")]);
+        let stale_head = head_hash(&root);
+
+        fs::write(dir.path().join("a.md"), "two\n").unwrap();
+        git_stage_and_commit_inner(
+            root.clone(),
+            "other window".to_string(),
+            Some(vec!["a.md".to_string()]),
+        )
+        .unwrap();
+        let other_window_head = head_hash(&root);
+        assert_ne!(other_window_head, stale_head);
+
+        let repo = open_repo(&root).unwrap();
+        let mut index = repo_index(&repo).unwrap();
+        fs::write(dir.path().join("a.md"), "three\n").unwrap();
+        stage_selected_files(&mut index, &root, &["a.md".to_string()], false).unwrap();
+        let (_, tree) = write_index_tree(&repo, &mut index).unwrap();
+        let stale_parent = repo
+            .find_commit(git2::Oid::from_str(&stale_head).unwrap())
+            .unwrap();
+
+        let err = commit_tree(
+            &repo,
+            "racing commit",
+            &tree,
+            Some(&stale_parent),
+            Some(stale_parent.id()),
+        )
+        .unwrap_err();
+
+        assert_eq!(err, CONCURRENT_COMMIT_ERROR);
+        assert_eq!(
+            head_hash(&root),
+            other_window_head,
+            "the other window's commit must still be HEAD"
+        );
+    }
+
+    #[test]
+    fn concurrent_commits_chain_instead_of_orphaning() {
+        let (dir, root) = init_vault(&[("a.md", "one\n"), ("b.md", "one\n")]);
+
+        fs::write(dir.path().join("a.md"), "two\n").unwrap();
+        let first = git_auto_commit_inner(
+            root.clone(),
+            "Update: a".to_string(),
+            Some(vec!["a.md".to_string()]),
+        )
+        .unwrap();
+
+        fs::write(dir.path().join("b.md"), "two\n").unwrap();
+        let second = git_auto_commit_inner(
+            root.clone(),
+            "Update: b".to_string(),
+            Some(vec!["b.md".to_string()]),
+        )
+        .unwrap();
+
+        let repo = open_repo(&root).unwrap();
+        let second_commit = repo.find_commit(git2::Oid::from_str(&second).unwrap()).unwrap();
+        assert_eq!(second_commit.parent(0).unwrap().id().to_string(), first);
+        assert_eq!(head_hash(&root), second);
     }
 }

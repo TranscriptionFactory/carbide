@@ -319,6 +319,7 @@ export function register_note_actions(input: ActionRegistrationInput) {
       close_mode: "single",
       keep_tab_id: null,
       apply_to_all: false,
+      has_conflict: false,
     };
   }
 

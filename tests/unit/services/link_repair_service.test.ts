@@ -536,4 +536,73 @@ describe("LinkRepairService", () => {
       failed: [SOURCE_PATH, "docs/new.md"],
     });
   });
+
+  it("guards the rewrite with the mtime it read the note at", async () => {
+    const editor_store = new EditorStore();
+    const tab_store = new TabStore();
+    const notes_port = create_mock_notes_port();
+    const index_port = create_mock_index_port();
+
+    notes_port.read_note = vi.fn().mockResolvedValue({
+      meta: { ...SOURCE_NOTE, mtime_ms: 4242 },
+      markdown: as_markdown_text("See [Old](old.md)"),
+    });
+
+    const search_port = create_mock_search_port({
+      get_note_links_snapshot: vi.fn().mockResolvedValue(BACKLINKS_SNAPSHOT),
+      rewrite_note_links: rewrite_always_changed(),
+    });
+
+    const service = new LinkRepairService(
+      notes_port,
+      search_port,
+      index_port,
+      editor_store,
+      tab_store,
+      () => 1,
+    );
+
+    await service.repair_links(VAULT_ID, RENAME_MAP);
+
+    expect(
+      notes_port._calls.write_note.every(
+        (call) => call.expected_mtime_ms === 4242,
+      ),
+    ).toBe(true);
+  });
+
+  it("skips the write and marks a conflict when the note moved on disk", async () => {
+    const editor_store = new EditorStore();
+    const tab_store = new TabStore();
+    const notes_port = create_mock_notes_port();
+    const index_port = create_mock_index_port();
+
+    notes_port.read_note = vi.fn().mockResolvedValue({
+      meta: { ...SOURCE_NOTE, mtime_ms: 4242 },
+      markdown: as_markdown_text("See [Old](old.md)"),
+    });
+    notes_port.write_note = vi
+      .fn()
+      .mockRejectedValue(new Error("conflict:mtime_mismatch"));
+
+    const search_port = create_mock_search_port({
+      get_note_links_snapshot: vi.fn().mockResolvedValue(BACKLINKS_SNAPSHOT),
+      rewrite_note_links: rewrite_always_changed(),
+    });
+
+    const service = new LinkRepairService(
+      notes_port,
+      search_port,
+      index_port,
+      editor_store,
+      tab_store,
+      () => 1,
+    );
+
+    const result = await service.repair_links(VAULT_ID, RENAME_MAP);
+
+    expect(tab_store.has_conflict(as_note_path(SOURCE_PATH))).toBe(true);
+    expect(index_port._calls.upsert_note).toEqual([]);
+    expect(result.failed).toEqual([]);
+  });
 });

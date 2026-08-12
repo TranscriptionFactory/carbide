@@ -25,6 +25,11 @@ export function create_test_git_adapter(): GitPort {
         new Error("git stage_and_commit not implemented in test adapter"),
       );
     },
+    auto_commit() {
+      return Promise.reject(
+        new Error("git auto_commit not implemented in test adapter"),
+      );
+    },
     log() {
       return Promise.resolve([]);
     },

@@ -23,8 +23,18 @@ export function create_debounced_task_controller<T>(
     }, delay_ms);
   }
 
+  // Latest-wins is wrong for a fixed interval: re-scheduling on every edge means
+  // a 5-minute timer never fires while the user keeps working.
+  function schedule_if_idle(value: T, delay_ms: number) {
+    if (timer) {
+      return;
+    }
+    schedule(value, delay_ms);
+  }
+
   return {
     cancel,
     schedule,
+    schedule_if_idle,
   };
 }
