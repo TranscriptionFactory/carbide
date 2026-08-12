@@ -88,6 +88,14 @@ function create_harness() {
       get_cursor_markdown_offset: vi.fn().mockReturnValue(0),
       close_buffer: vi.fn(),
     },
+    tab: {
+      mark_conflict: vi.fn((note_path: NotePath) =>
+        stores.tab.mark_conflict(note_path),
+      ),
+      clear_conflict: vi.fn((note_path: NotePath) =>
+        stores.tab.clear_conflict(note_path),
+      ),
+    },
   };
 
   register_tab_actions({
