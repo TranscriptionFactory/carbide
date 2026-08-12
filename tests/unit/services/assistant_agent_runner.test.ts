@@ -204,6 +204,39 @@ describe("AgentRunner.run_turn", () => {
     expect(events[0]?.result_summary).toBe("3 matches");
   });
 
+  it("shows the command a tool_update refined, not the empty first frame", async () => {
+    const { runner, rag_store } = make_harness([
+      // Bash's title is derived from its input, so the frame that precedes the
+      // streamed arguments collapses to "Terminal {}".
+      tool_start("Terminal", "{}"),
+      {
+        type: "tool_update",
+        id: "Terminal",
+        status: "in_progress",
+        content: [],
+        paths: [],
+        input_summary: '{"command":"ls -la"}',
+        name: "bash: ls -la",
+      },
+      {
+        type: "tool_update",
+        id: "Terminal",
+        status: "in_progress",
+        content: [],
+        paths: [],
+      },
+      tool_end("bash: ls -la", { id: "Terminal", result_summary: "3 files" }),
+      { type: "text", text: "Listed them." },
+      { type: "done", stats: {} },
+    ]);
+
+    await runner.run_turn(provider, "organize my notes", "acp");
+
+    const events = rag_store.active?.messages.at(-1)?.tool_events ?? [];
+    expect(events[0]?.input_summary).toBe('{"command":"ls -la"}');
+    expect(events[0]?.name).toBe("bash: ls -la");
+  });
+
   it("does not refresh the vault when no mutating tools ran", async () => {
     const { runner, rag_store, refresh_vault } = make_harness([
       { type: "session", provider_session_id: "sess-1" },

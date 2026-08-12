@@ -150,12 +150,21 @@ pub enum AgentEvent {
         mutating: bool,
         locations: Vec<ToolLocation>,
     },
+    // The first `tool_call` frame comes from `content_block_start`, where the
+    // streaming API carries `input: {}` — so its `input_summary` and its
+    // input-derived `name` are both placeholders. The corrected values arrive
+    // here and must be carried forward, or the card renders that first snapshot
+    // for the call's whole life. Absent on updates that refine neither.
     #[serde(rename = "tool_update")]
     ToolUpdate {
         id: String,
         status: ToolCallStatus,
         content: Vec<ToolContent>,
         paths: Vec<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        input_summary: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        name: Option<String>,
     },
     // `paths`/`mutating` re-state the union accumulated across the call's
     // updates: proposal production reads them off the terminal event, so a

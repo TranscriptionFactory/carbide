@@ -80,6 +80,29 @@ describe("ToolCallCard", () => {
     expect(target.querySelector("pre")?.textContent).toBe("3 matches");
   });
 
+  it("renders no summary for a call whose arguments never arrived", () => {
+    const { target } = render_card({
+      event: {
+        name: "Terminal",
+        input_summary: "{}",
+        ok: true,
+        result_summary: "done",
+      },
+    });
+    expect(target.textContent).toContain("Terminal");
+    expect(target.textContent).not.toContain("{}");
+    header_button(target)?.click();
+    flushSync();
+    expect(target.textContent).not.toContain("{}");
+  });
+
+  it("renders the refined input a later update supplied", () => {
+    const { target } = render_card({
+      event: { name: "bash: ls -la", input_summary: '{"command":"ls -la"}' },
+    });
+    expect(target.textContent).toContain('{"command":"ls -la"}');
+  });
+
   it("renders a bodiless event as plain text, not a button", () => {
     const { target } = render_card({
       event: { name: "think", input_summary: "planning" },

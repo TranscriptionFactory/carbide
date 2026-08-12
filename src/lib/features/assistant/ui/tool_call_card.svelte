@@ -37,6 +37,7 @@
 <script lang="ts">
   import type { AssistantToolEvent } from "$lib/features/assistant/types/session";
   import {
+    is_placeholder_summary,
     tool_event_has_body,
     tool_event_status,
     type ToolEventStatus,
@@ -120,6 +121,11 @@
   const has_body = $derived(
     tool_event_has_body(event) || permission !== undefined,
   );
+  // A call whose arguments never arrived has nothing to say about them; `{}` is
+  // the placeholder the first wire frame carried, not the tool's input.
+  const summary = $derived(
+    is_placeholder_summary(event.input_summary) ? "" : event.input_summary,
+  );
   // A pending prompt must be visible and answerable; it overrides collapse.
   const expanded = $derived((open || pending_permission) && has_body);
 </script>
@@ -127,7 +133,9 @@
 {#snippet row()}
   <Icon class="size-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
   <span class="shrink-0 font-medium text-foreground">{event.name}</span>
-  <span class="truncate text-muted-foreground">{event.input_summary}</span>
+  {#if summary}
+    <span class="truncate text-muted-foreground">{summary}</span>
+  {/if}
   <span class="ml-auto flex shrink-0 items-center gap-1.5">
     {#if denied}
       <span class="text-[10px] font-medium text-destructive">denied</span>
@@ -170,7 +178,9 @@
   {/if}
   {#if expanded}
     <div class="flex select-text flex-col gap-1.5 border-t px-2 py-1.5">
-      <div class="break-words text-muted-foreground">{event.input_summary}</div>
+      {#if summary}
+        <div class="break-words text-muted-foreground">{summary}</div>
+      {/if}
       {#if permission && pending_permission}
         {#if live && on_permission_respond}
           <div class="flex flex-col gap-1">
