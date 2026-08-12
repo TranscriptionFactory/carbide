@@ -179,6 +179,63 @@ describe("app_close_requested", () => {
     expect(stores.tab.tabs).toHaveLength(1);
   });
 
+  // D7: a conflicted tab blocks the quit rather than letting a stale buffer
+  // overwrite whatever changed on disk on the way out.
+  it("a conflicted active tab blocks the quit instead of overwriting disk", async () => {
+    const { registry, stores, services } = create_harness();
+    stores.tab.open_tab(np("a.md"), "a");
+    stores.tab.set_dirty("a.md", true);
+    stores.editor.set_open_note(mock_open_note("a.md", true));
+    services.note.save_note.mockResolvedValueOnce({ status: "conflict" });
+
+    await registry.execute(ACTION_IDS.app_close_requested);
+    await registry.execute(ACTION_IDS.tab_confirm_close_save);
+
+    expect(services.note.skip_mtime_guard).not.toHaveBeenCalled();
+    expect(tauri_invoke_mock).not.toHaveBeenCalledWith("confirm_window_close");
+    expect(stores.ui.tab_close_confirm.open).toBe(true);
+    expect(stores.ui.tab_close_confirm.has_conflict).toBe(true);
+    expect(stores.tab.tabs).toHaveLength(1);
+  });
+
+  it("overwrite disk resolves the conflict and lets the quit finish", async () => {
+    const { registry, stores, services } = create_harness();
+    stores.tab.open_tab(np("a.md"), "a");
+    stores.tab.set_dirty("a.md", true);
+    stores.editor.set_open_note(mock_open_note("a.md", true));
+    services.note.save_note.mockResolvedValueOnce({ status: "conflict" });
+
+    await registry.execute(ACTION_IDS.app_close_requested);
+    await registry.execute(ACTION_IDS.tab_confirm_close_save);
+    await registry.execute(ACTION_IDS.tab_confirm_close_overwrite);
+
+    expect(services.note.skip_mtime_guard).toHaveBeenCalledWith("a.md");
+    expect(tauri_invoke_mock).toHaveBeenCalledWith("confirm_window_close");
+  });
+
+  it("a conflicted background tab halts the quit batch", async () => {
+    const { registry, stores, services } = create_harness();
+    stores.tab.open_tab(np("a.md"), "a");
+    stores.tab.open_tab(np("b.md"), "b");
+    stores.tab.set_dirty("a.md", true);
+    stores.tab.set_dirty("b.md", true);
+    stores.tab.activate_tab("a.md");
+    stores.editor.set_open_note(mock_open_note("a.md", true));
+    stores.tab.set_cached_note("b.md", mock_open_note("b.md", true));
+    services.note.write_note_content.mockRejectedValueOnce(
+      new Error("conflict:mtime_mismatch"),
+    );
+
+    await registry.execute(ACTION_IDS.app_close_requested);
+    stores.ui.tab_close_confirm.apply_to_all = true;
+    await registry.execute(ACTION_IDS.tab_confirm_close_save);
+
+    expect(tauri_invoke_mock).not.toHaveBeenCalledWith("confirm_window_close");
+    expect(stores.ui.tab_close_confirm.tab_id).toBe("b.md");
+    expect(stores.ui.tab_close_confirm.has_conflict).toBe(true);
+    expect(stores.tab.has_conflict(np("b.md"))).toBe(true);
+  });
+
   it("cancel keeps the window open", async () => {
     const { registry, stores } = create_harness();
     stores.tab.open_tab(np("a.md"), "a");
