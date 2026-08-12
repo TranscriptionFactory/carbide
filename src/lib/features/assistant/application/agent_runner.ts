@@ -13,6 +13,10 @@ import type {
 import {
   changed_files_from_tools,
   is_mutating_call,
+  is_successful_mutating_call,
+  paths_from_call,
+  rollback_files_from_tools,
+  to_vault_relative_path,
   type AgentToolCall,
 } from "$lib/features/assistant/domain/agent_file_ops";
 import { merge_paths as merge_tool_paths } from "$lib/features/assistant/types/tool_event_fold";
@@ -39,6 +43,17 @@ export type AgentTurnResult =
   | { status: "done" }
   | { status: "error"; message: string };
 
+// Reads the note's mtime from disk, null when it cannot be read. Disk, never
+// the editor store: skip_mtime_guard parks a note's stored mtime at 0, which
+// resolves to "no guard" and would reintroduce the unguarded rollback through
+// the back door.
+export type AgentNoteMtimeReader = (
+  note_path: string,
+) => Promise<number | null>;
+
+// Captured per turn, keyed by vault-relative path.
+type PendingMtimes = Map<string, Promise<number | null>>;
+
 export class AgentRunner {
   private handle: RunHandle | null = null;
 
@@ -52,6 +67,7 @@ export class AgentRunner {
       paths: string[],
     ) => Promise<void> | void,
     private readonly proposals: AgentTurnProposalProducer,
+    private readonly read_note_mtime: AgentNoteMtimeReader,
   ) {}
 
   get is_running(): boolean {
@@ -76,6 +92,7 @@ export class AgentRunner {
 
     const history = session_messages_to_history(session.messages.slice(0, -1));
     const tool_calls: AgentToolCall[] = [];
+    const mtimes: PendingMtimes = new Map();
 
     try {
       this.handle = await this.run_starter.start(
@@ -95,12 +112,12 @@ export class AgentRunner {
             backend,
           },
         },
-        this.transcript_sink(tool_calls),
+        this.transcript_sink(tool_calls, mtimes),
       );
 
       const run_id = this.handle.id;
       const outcome = await this.handle.outcome;
-      await this.finish_turn(anchor, run_id, session.id, tool_calls);
+      await this.finish_turn(anchor, run_id, session.id, tool_calls, mtimes);
       if (outcome.status === "error") {
         return { status: "error", message: outcome.error.message };
       }
@@ -113,6 +130,7 @@ export class AgentRunner {
         this.handle?.id ?? null,
         session.id,
         tool_calls,
+        mtimes,
       );
       return { status: "error", message };
     } finally {
@@ -122,7 +140,10 @@ export class AgentRunner {
 
   // R8: the turn's transcript writes live here, not in the consumer loop, so
   // retargeting where they land does not mean reopening this runner.
-  private transcript_sink(tool_calls: AgentToolCall[]): RunSink {
+  private transcript_sink(
+    tool_calls: AgentToolCall[],
+    mtimes: PendingMtimes,
+  ): RunSink {
     return {
       on_event: (_run_id, event) => {
         switch (event.type) {
@@ -177,6 +198,8 @@ export class AgentRunner {
             if (call) {
               call.paths = merge_tool_paths(call.paths, event.paths);
               call.mutating = (call.mutating ?? false) || event.mutating;
+              call.ok = event.ok;
+              this.capture_mtimes(call, mtimes);
             }
             return;
           }
@@ -228,9 +251,51 @@ export class AgentRunner {
     run_id: RunId | null,
     session_id: string,
     tool_calls: AgentToolCall[],
+    mtimes: PendingMtimes,
   ): Promise<void> {
-    await this.produce_proposals(anchor, run_id, session_id, tool_calls);
+    await this.produce_proposals(
+      anchor,
+      run_id,
+      session_id,
+      tool_calls,
+      mtimes,
+    );
     await this.record_file_changes(tool_calls);
+  }
+
+  // The staleness guard is only worth anything if the mtime it compares against
+  // was read while the agent's write was still the newest thing on disk. A
+  // capture taken at the end of the turn would already contain a user edit made
+  // during it: the values would match, the guard would pass, and the rollback
+  // would destroy exactly the bytes it exists to protect. So the read is issued
+  // here, on the terminal event of the write that produced it, and the last one
+  // per path wins.
+  private capture_mtimes(call: AgentToolCall, mtimes: PendingMtimes): void {
+    if (!is_successful_mutating_call(call)) return;
+    const vault_path = String(this.vault_store.vault?.path ?? "");
+    for (const path of paths_from_call(call)) {
+      const relative = to_vault_relative_path(vault_path, path);
+      if (relative === "") continue;
+      mtimes.set(
+        relative,
+        this.read_note_mtime(relative).catch(() => null),
+      );
+    }
+  }
+
+  private async resolve_mtimes(
+    mtimes: PendingMtimes,
+  ): Promise<Record<string, number>> {
+    const settled = await Promise.all(
+      [...mtimes].map(
+        async ([note_path, pending]) => [note_path, await pending] as const,
+      ),
+    );
+    const resolved: Record<string, number> = {};
+    for (const [note_path, mtime] of settled) {
+      if (mtime !== null && mtime > 0) resolved[note_path] = mtime;
+    }
+    return resolved;
   }
 
   // A failure here must not fail the turn: the writes are on disk either way,
@@ -240,9 +305,14 @@ export class AgentRunner {
     run_id: RunId | null,
     session_id: string,
     tool_calls: AgentToolCall[],
+    mtimes: PendingMtimes,
   ): Promise<void> {
     const vault_path = String(this.vault_store.vault?.path ?? "");
-    const touched_paths = changed_files_from_tools(tool_calls, vault_path);
+    // Rollback scope, not refresh scope. A denied tool announces its paths
+    // before the permission gate and restates them on the terminal event, so
+    // the permissive set contains files the agent was never allowed to write —
+    // rolling those back reverts a change the user said no to.
+    const touched_paths = rollback_files_from_tools(tool_calls, vault_path);
     if (touched_paths.length === 0) return;
 
     try {
@@ -250,6 +320,7 @@ export class AgentRunner {
         anchor,
         origin: { session_id, run_id },
         touched_paths,
+        expected_mtimes: await this.resolve_mtimes(mtimes),
       });
       log.info("Agent turn proposals", report);
     } catch (err) {
