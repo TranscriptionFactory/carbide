@@ -40,9 +40,14 @@ struct WatcherRuntime {
 #[derive(Debug, Serialize, Clone, Type)]
 #[serde(tag = "type", rename_all = "snake_case")]
 enum VaultFsEvent {
+    // mtime_ms lets the frontend recognise the echo of Carbide's own write by
+    // content identity instead of by counting events: one write can surface as
+    // several Modify deliveries, but they all report the mtime Carbide wrote.
+    // None whenever the file could not be stat'd (already deleted, races).
     NoteChangedExternally {
         vault_id: String,
         note_path: String,
+        mtime_ms: Option<i64>,
     },
     NoteAdded {
         vault_id: String,
@@ -192,12 +197,21 @@ fn is_directory_path(kind: &EventKind, abs: &Path) -> bool {
             && abs.extension().is_none())
 }
 
+// Stat'd by the caller rather than here, so classification stays pure and
+// testable and the syscall happens only for the events that carry an mtime.
+fn file_mtime_ms(path: &Path) -> Option<i64> {
+    crate::features::notes::service::file_meta(path)
+        .ok()
+        .map(|(mtime_ms, _, _)| mtime_ms)
+}
+
 fn classify_event(
     kind: &EventKind,
     vault_id: &str,
     rel_path: String,
     is_markdown: bool,
     is_dir: bool,
+    mtime_ms: Option<i64>,
 ) -> Option<VaultFsEvent> {
     match kind {
         EventKind::Create(_) if is_dir => Some(VaultFsEvent::FolderCreated {
@@ -220,6 +234,7 @@ fn classify_event(
         EventKind::Modify(_) if is_markdown => Some(VaultFsEvent::NoteChangedExternally {
             vault_id: vault_id.to_string(),
             note_path: rel_path,
+            mtime_ms,
         }),
         EventKind::Modify(_) => Some(VaultFsEvent::AssetChanged {
             vault_id: vault_id.to_string(),
@@ -365,9 +380,19 @@ pub fn watch_vault_inner(app: AppHandle, vault_id: String) -> Result<(), String>
                     None => *kind,
                 };
 
-                let Some(vault_event) =
-                    classify_event(&effective_kind, &vault_id_clone, rel.clone(), is_md, is_dir)
-                else {
+                let mtime_ms = match (&effective_kind, is_md) {
+                    (EventKind::Modify(_), true) => file_mtime_ms(&abs),
+                    _ => None,
+                };
+
+                let Some(vault_event) = classify_event(
+                    &effective_kind,
+                    &vault_id_clone,
+                    rel.clone(),
+                    is_md,
+                    is_dir,
+                    mtime_ms,
+                ) else {
                     continue;
                 };
 
@@ -427,13 +452,14 @@ mod tests {
         VaultFsEvent::NoteChangedExternally {
             vault_id: "v1".to_string(),
             note_path: path.to_string(),
+            mtime_ms: None,
         }
     }
 
     fn classify_renamed(mode: RenameMode, path_index: usize, path_exists: bool) -> VaultFsEvent {
         let kind =
             rename_kind(&mode, path_index, path_exists).expect("rename mode should map to a kind");
-        classify_event(&kind, "v1", "notes/a.md".to_string(), true, false)
+        classify_event(&kind, "v1", "notes/a.md".to_string(), true, false, None)
             .expect("markdown rename should classify")
     }
 
@@ -445,6 +471,7 @@ mod tests {
             "assets".to_string(),
             false,
             true,
+            None,
         );
         assert!(
             result.is_none(),
@@ -460,6 +487,7 @@ mod tests {
             "image.png".to_string(),
             false,
             false,
+            None,
         );
         assert!(matches!(result, Some(VaultFsEvent::AssetChanged { .. })));
     }
@@ -472,11 +500,53 @@ mod tests {
             "note.md".to_string(),
             true,
             false,
+            None,
         );
         assert!(matches!(
             result,
             Some(VaultFsEvent::NoteChangedExternally { .. })
         ));
+    }
+
+    #[test]
+    fn classify_modify_on_markdown_carries_the_mtime() {
+        let result = classify_event(
+            &EventKind::Modify(ModifyKind::Any),
+            "v1",
+            "note.md".to_string(),
+            true,
+            false,
+            Some(1_234),
+        );
+        assert!(matches!(
+            result,
+            Some(VaultFsEvent::NoteChangedExternally {
+                mtime_ms: Some(1_234),
+                ..
+            })
+        ));
+    }
+
+    // The whole echo guard rests on these two numbers being the same number.
+    // If the watcher ever computes mtime differently from the writer, every
+    // comparison silently misses and the guard degrades to doing nothing.
+    #[test]
+    fn file_mtime_ms_matches_the_writers_mtime_exactly() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("note.md");
+        std::fs::write(&path, "# A").unwrap();
+
+        let (writer_mtime, _, _) =
+            crate::features::notes::service::file_meta(&path).expect("file_meta should succeed");
+
+        assert_eq!(file_mtime_ms(&path), Some(writer_mtime));
+    }
+
+    #[test]
+    fn file_mtime_ms_is_none_for_a_missing_file() {
+        let dir = tempfile::tempdir().unwrap();
+
+        assert_eq!(file_mtime_ms(&dir.path().join("gone.md")), None);
     }
 
     #[test]
@@ -487,6 +557,7 @@ mod tests {
             "new_folder".to_string(),
             false,
             true,
+            None,
         );
         assert!(matches!(result, Some(VaultFsEvent::FolderCreated { .. })));
     }
@@ -499,6 +570,7 @@ mod tests {
             "old_folder".to_string(),
             false,
             true,
+            None,
         );
         assert!(matches!(result, Some(VaultFsEvent::FolderRemoved { .. })));
     }
@@ -561,6 +633,7 @@ mod tests {
             "old_folder".to_string(),
             false,
             true,
+            None,
         );
         assert!(matches!(result, Some(VaultFsEvent::FolderRemoved { .. })));
     }

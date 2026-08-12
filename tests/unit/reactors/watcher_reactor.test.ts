@@ -21,8 +21,16 @@ import { create_test_vault } from "../helpers/test_fixtures";
 const VAULT_ID = "vault-1";
 const NO_BG_TAB = () => null;
 
-function changed_event(note_path: string): VaultFsEvent {
-  return { type: "note_changed_externally", vault_id: VAULT_ID, note_path };
+function changed_event(
+  note_path: string,
+  mtime_ms: number | null = null,
+): VaultFsEvent {
+  return {
+    type: "note_changed_externally",
+    vault_id: VAULT_ID,
+    note_path,
+    mtime_ms,
+  };
 }
 
 function added_event(note_path: string): VaultFsEvent {
@@ -54,6 +62,75 @@ async function flush_effects() {
   for (let i = 0; i < 5; i += 1) {
     await Promise.resolve();
   }
+}
+
+// is_dirty is set explicitly rather than derived from a simulated save: after
+// the save-baseline change a buffer the user typed through is legitimately
+// dirty the instant the write completes, so deriving it would assert a state
+// nothing guarantees.
+function mount_reactor(options: { is_dirty: boolean; note_path?: string }) {
+  const note_path = options.note_path ?? "notes/a.md";
+  const vault_store = new VaultStore();
+  const editor_store = new EditorStore();
+  const tab_store = new TabStore();
+  const watcher_port = create_mock_watcher_port();
+  const watcher_service = new WatcherService(watcher_port);
+  const note_service = {
+    open_note: vi.fn(),
+    clear_open_note: vi.fn(),
+  };
+  const tab_service = {
+    invalidate_cache: vi.fn(),
+    mark_conflict: vi.fn(),
+    remove_tab: vi.fn(),
+    sync_dirty_state: vi.fn(),
+  };
+  const action_registry = { execute: vi.fn() };
+  const workspace_reconcile = vi.fn().mockResolvedValue(undefined);
+  const graph_service = {
+    invalidate_cache: vi.fn().mockResolvedValue(undefined),
+  };
+
+  vault_store.set_vault(create_test_vault());
+  editor_store.set_open_note({
+    meta: {
+      id: as_note_path(note_path),
+      path: as_note_path(note_path),
+      name: "a",
+      title: "A",
+      blurb: "",
+      mtime_ms: 0,
+      ctime_ms: 0,
+      size_bytes: 0,
+      file_type: null,
+    },
+    markdown: as_markdown_text("# A"),
+    buffer_id: note_path,
+    is_dirty: options.is_dirty,
+  });
+
+  const unmount = create_watcher_reactor(
+    vault_store,
+    editor_store,
+    tab_store,
+    tab_service as never,
+    note_service as never,
+    watcher_service,
+    action_registry as never,
+    graph_service as never,
+    workspace_reconcile,
+  );
+
+  return {
+    note_path,
+    watcher_port,
+    watcher_service,
+    note_service,
+    tab_service,
+    workspace_reconcile,
+    graph_service,
+    unmount,
+  };
 }
 
 describe("watcher_reactor", () => {
@@ -357,7 +434,10 @@ describe("watcher_reactor", () => {
   // The Rust watcher already coalesces per-path change events to one per 500ms,
   // so a second event is a genuine external write (an agent editing on disk)
   // and must reload rather than be swallowed by the previous arming.
-  it("suppresses only the self-write event and reloads on the next one", async () => {
+  // This is the FALLBACK contract, for events that carry no mtime. Events that
+  // do carry one are matched by identity instead - see the mtime tests below,
+  // which are what actually closes the several-events-per-write case.
+  it("suppresses only the mtime-less self-write event and reloads on the next one", async () => {
     const vault_store = new VaultStore();
     const editor_store = new EditorStore();
     const tab_store = new TabStore();
@@ -432,6 +512,120 @@ describe("watcher_reactor", () => {
     expect(graph_service.invalidate_cache).toHaveBeenCalledWith("notes/a.md");
 
     unmount();
+  });
+
+  // The arity bug, and the contract that replaces counting. One write can
+  // surface as several Modify deliveries; every one of them reports the mtime
+  // Carbide wrote, so identity swallows all of them where a single token
+  // swallowed only the first.
+  it("swallows every event of one write that reports the mtime Carbide wrote", async () => {
+    const t = mount_reactor({ is_dirty: true });
+    await flush_effects();
+
+    t.watcher_service.record_self_write(t.note_path, 5_000);
+    t.watcher_port._emit(changed_event(t.note_path, 5_000));
+    t.watcher_port._emit(changed_event(t.note_path, 5_000));
+    t.watcher_port._emit(changed_event(t.note_path, 5_000));
+
+    await flush_effects();
+
+    expect(t.tab_service.mark_conflict).not.toHaveBeenCalled();
+    expect(t.note_service.open_note).not.toHaveBeenCalled();
+    t.unmount();
+  });
+
+  // The force-drain in the Rust debouncer emits a held Modify ahead of the
+  // structural event, so a real save arrives as changed → added → changed.
+  // Consecutive Modifys coalesce, so this split is what actually produces a
+  // second delivery - and it is the shape the card was appearing on.
+  it("swallows a write delivered as changed, added, changed around a force-drain", async () => {
+    const t = mount_reactor({ is_dirty: true });
+    await flush_effects();
+
+    t.watcher_service.suppress_next(t.note_path);
+    t.watcher_service.record_self_write(t.note_path, 7_000);
+    t.watcher_port._emit(changed_event(t.note_path, 7_000));
+    t.watcher_port._emit(added_event(t.note_path));
+    t.watcher_port._emit(changed_event(t.note_path, 7_000));
+
+    await flush_effects();
+
+    expect(t.tab_service.mark_conflict).not.toHaveBeenCalled();
+    expect(t.note_service.open_note).not.toHaveBeenCalled();
+    expect(t.workspace_reconcile).not.toHaveBeenCalled();
+    t.unmount();
+  });
+
+  // Over-suppression is the worse bug, so this gets its own test rather than a
+  // negative assertion bolted onto the one above.
+  it("still raises the card for an external edit landing right after a save", async () => {
+    const t = mount_reactor({ is_dirty: true });
+    await flush_effects();
+
+    t.watcher_service.record_self_write(t.note_path, 5_000);
+    t.watcher_port._emit(changed_event(t.note_path, 5_000));
+
+    await flush_effects();
+    expect(t.tab_service.mark_conflict).not.toHaveBeenCalled();
+
+    t.watcher_port._emit(changed_event(t.note_path, 6_000));
+
+    await flush_effects();
+
+    expect(t.tab_service.mark_conflict).toHaveBeenCalledWith(
+      as_note_path(t.note_path),
+    );
+    t.unmount();
+  });
+
+  it("reloads a clean buffer on an external edit after a save", async () => {
+    const t = mount_reactor({ is_dirty: false });
+    await flush_effects();
+
+    t.watcher_service.record_self_write(t.note_path, 5_000);
+    t.watcher_port._emit(changed_event(t.note_path, 6_000));
+
+    await flush_effects();
+
+    expect(t.note_service.open_note).toHaveBeenCalledWith(t.note_path, false, {
+      force_reload: true,
+    });
+    t.unmount();
+  });
+
+  it("suppresses the note_removed of a Carbide-initiated delete", async () => {
+    const t = mount_reactor({ is_dirty: true });
+    await flush_effects();
+
+    t.watcher_service.suppress_next(t.note_path, ["removal"]);
+    t.watcher_port._emit(removed_event(t.note_path));
+
+    await flush_effects();
+
+    expect(t.tab_service.mark_conflict).not.toHaveBeenCalled();
+    expect(t.note_service.clear_open_note).not.toHaveBeenCalled();
+    expect(t.tab_service.remove_tab).not.toHaveBeenCalled();
+    t.unmount();
+  });
+
+  // Regression guard for the armings that rewrite a file rather than delete it
+  // (git discard, link repair, save). If a change arming also silenced
+  // removals, a discarded note would keep an open tab pointing at a path that
+  // no longer exists.
+  it("does not let a change arming swallow a note_removed", async () => {
+    const t = mount_reactor({ is_dirty: false });
+    await flush_effects();
+
+    t.watcher_service.suppress_next(t.note_path);
+    t.watcher_port._emit(removed_event(t.note_path));
+
+    await flush_effects();
+
+    expect(t.note_service.clear_open_note).toHaveBeenCalled();
+    expect(t.tab_service.remove_tab).toHaveBeenCalledWith(
+      as_note_path(t.note_path),
+    );
+    t.unmount();
   });
 
   // atomic_write finishes with a tmp→target rename that FSEvents can classify
