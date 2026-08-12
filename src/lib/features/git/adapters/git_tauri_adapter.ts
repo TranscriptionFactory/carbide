@@ -42,6 +42,17 @@ export function create_git_tauri_adapter(): GitPort {
         files,
       });
     },
+    async auto_commit(
+      vault_path: VaultPath,
+      message: string,
+      files: string[] | null,
+    ) {
+      return await invoke_git<string>("git_auto_commit", {
+        vaultPath: vault_path,
+        message,
+        files,
+      });
+    },
     async log(vault_path: VaultPath, file_path: string | null, limit: number) {
       return await invoke_git<GitCommit[]>("git_log", {
         vaultPath: vault_path,
