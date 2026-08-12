@@ -112,7 +112,11 @@ import {
   DailyNotesService,
   register_daily_notes_actions,
 } from "$lib/features/daily_notes";
-import { set_log_entry_callback } from "$lib/shared/utils/logger";
+import {
+  create_logger,
+  set_log_entry_callback,
+} from "$lib/shared/utils/logger";
+import { error_message } from "$lib/shared/utils/error_message";
 import {
   MetadataService,
   register_metadata_actions,
@@ -145,6 +149,8 @@ import { as_markdown_text, as_note_path } from "$lib/shared/types/ids";
 import { is_linked_note_path } from "$lib/shared/types/note";
 import type { DiagnosticSource } from "$lib/features/diagnostics";
 import { apply_workspace_edit_result } from "$lib/features/lsp";
+
+const log = create_logger("create_app_context");
 
 export type AppContext = ReturnType<typeof create_app_context>;
 
@@ -1271,6 +1277,12 @@ export function create_app_context(input: {
     },
   };
 
+  // The proposal port is a read-modify-write with no user to prompt in between,
+  // so it carries its own baseline: a write lands only if disk still holds the
+  // mtime the proposal was read against. Otherwise the note moved underneath it
+  // and the write is dropped rather than forced.
+  const proposal_read_mtimes = new Map<string, number>();
+
   const proposal_notes: ProposalNotePort = {
     read_note: async (note_path) => {
       const vault_id = stores.vault.vault?.id;
@@ -1280,6 +1292,7 @@ export function create_app_context(input: {
           vault_id,
           as_note_path(note_path),
         );
+        proposal_read_mtimes.set(note_path, doc.meta.mtime_ms);
         return doc.markdown;
       } catch {
         // A proposal over a note that cannot be read is stale, not failed.
@@ -1287,10 +1300,23 @@ export function create_app_context(input: {
       }
     },
     write_note: async (note_path, content) => {
-      await note_service.write_note_content(
-        as_note_path(note_path),
-        as_markdown_text(content),
-      );
+      const path = as_note_path(note_path);
+      const expected_mtime = proposal_read_mtimes.get(note_path);
+      try {
+        await note_service.write_note_content(
+          path,
+          as_markdown_text(content),
+          expected_mtime,
+        );
+      } catch (error) {
+        tab_service.mark_conflict(path);
+        log.warn("Proposal write skipped: note changed on disk", {
+          note_path,
+          error: error_message(error),
+        });
+        return;
+      }
+      proposal_read_mtimes.delete(note_path);
     },
   };
 

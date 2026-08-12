@@ -251,6 +251,7 @@ export const ACTION_IDS = {
   tab_reveal_in_tree: "tab.reveal_in_tree",
   tab_confirm_close_save: "tab.confirm_close_save",
   tab_confirm_close_discard: "tab.confirm_close_discard",
+  tab_confirm_close_overwrite: "tab.confirm_close_overwrite",
   tab_cancel_close: "tab.cancel_close",
 
   git_check_repo: "git.check_repo",

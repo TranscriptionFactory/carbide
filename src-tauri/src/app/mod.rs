@@ -329,6 +329,7 @@ pub fn run() {
             features::git::service::git_init_repo,
             features::git::service::git_status,
             features::git::service::git_stage_and_commit,
+            features::git::service::git_auto_commit,
             features::git::service::git_log,
             features::git::service::git_diff,
             features::git::service::git_diff_working_tree,

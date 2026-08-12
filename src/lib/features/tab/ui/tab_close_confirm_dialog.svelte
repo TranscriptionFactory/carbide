@@ -7,8 +7,10 @@
     tab_title: string;
     remaining_count: number;
     apply_to_all: boolean;
+    has_conflict: boolean;
     on_save: () => void;
     on_discard: () => void;
+    on_overwrite: () => void;
     on_cancel: () => void;
     on_toggle_apply_to_all: (checked: boolean) => void;
   }
@@ -18,8 +20,10 @@
     tab_title,
     remaining_count,
     apply_to_all,
+    has_conflict,
     on_save,
     on_discard,
+    on_overwrite,
     on_cancel,
     on_toggle_apply_to_all,
   }: Props = $props();
@@ -35,12 +39,19 @@
 >
   <Dialog.Content class="max-w-md">
     <Dialog.Header>
-      <Dialog.Title>Unsaved Changes</Dialog.Title>
+      <Dialog.Title>
+        {has_conflict ? "Changed on Disk" : "Unsaved Changes"}
+      </Dialog.Title>
       <Dialog.Description>
-        {display_name} has unsaved changes. Do you want to save before closing?
+        {#if has_conflict}
+          {display_name} changed on disk after you last edited it, so saving would
+          overwrite those changes. Choose which version to keep.
+        {:else}
+          {display_name} has unsaved changes. Do you want to save before closing?
+        {/if}
       </Dialog.Description>
     </Dialog.Header>
-    {#if remaining_count > 0}
+    {#if remaining_count > 0 && !has_conflict}
       <label class="TabCloseConfirmDialog__apply-all">
         <input
           type="checkbox"
@@ -58,8 +69,15 @@
     {/if}
     <Dialog.Footer>
       <Button variant="outline" onclick={on_cancel}>Cancel</Button>
-      <Button variant="destructive" onclick={on_discard}>Don't Save</Button>
-      <Button onclick={on_save}>Save</Button>
+      {#if has_conflict}
+        <Button variant="destructive" onclick={on_discard}>
+          Discard my changes
+        </Button>
+        <Button onclick={on_overwrite}>Overwrite disk</Button>
+      {:else}
+        <Button variant="destructive" onclick={on_discard}>Don't Save</Button>
+        <Button onclick={on_save}>Save</Button>
+      {/if}
     </Dialog.Footer>
   </Dialog.Content>
 </Dialog.Root>

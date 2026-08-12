@@ -8,9 +8,16 @@ import {
 } from "$lib/shared/utils/path";
 import { tauri_invoke } from "$lib/shared/adapters/tauri_invoke";
 import { toast } from "$lib/shared/ui/toast";
+import { error_message } from "$lib/shared/utils/error_message";
 
 type BatchCloseMode = "all" | "other" | "right";
-type SaveDirtyTabResult = "saved" | "needs_path" | "failed";
+export type SaveDirtyTabResult = "saved" | "needs_path" | "failed" | "conflict";
+
+// "failed" means the write threw; "conflict" means disk moved under a stale
+// buffer and only the user can choose which side wins.
+function is_mtime_conflict(error: unknown): boolean {
+  return error_message(error).startsWith("conflict:");
+}
 
 function resolve_closed_tab_draft(
   stores: ActionRegistrationInput["stores"],
@@ -216,6 +223,7 @@ export function reset_close_confirm(stores: ActionRegistrationInput["stores"]) {
     close_mode: "single",
     keep_tab_id: null,
     apply_to_all: false,
+    has_conflict: false,
   };
 }
 
@@ -235,12 +243,14 @@ export function start_batch_close_confirm(
     close_mode,
     keep_tab_id,
     apply_to_all: false,
+    has_conflict: false,
   };
 }
 
 export async function save_dirty_tab(
   input: ActionRegistrationInput,
   tab_id: string,
+  overwrite_disk = false,
 ): Promise<SaveDirtyTabResult> {
   const { stores, services } = input;
   const tab = stores.tab.tabs.find((entry) => entry.id === tab_id);
@@ -269,11 +279,21 @@ export async function save_dirty_tab(
   }
 
   if (stores.tab.active_tab_id === tab_id) {
-    if (tab.kind === "note" && stores.tab.has_conflict(tab.note_path)) {
+    if (overwrite_disk && tab.kind === "note") {
       services.note.skip_mtime_guard(tab.note_path);
     }
     const result = await services.note.save_note(null, true, "primary");
-    return result.status === "saved" ? "saved" : "failed";
+    if (result.status === "saved") {
+      if (tab.kind === "note") {
+        services.tab.clear_conflict(tab.note_path);
+      }
+      return "saved";
+    }
+    if (result.status === "conflict" && tab.kind === "note") {
+      services.tab.mark_conflict(tab.note_path);
+      return "conflict";
+    }
+    return "failed";
   }
 
   const cached = stores.tab.get_cached_note(tab_id);
@@ -284,18 +304,18 @@ export async function save_dirty_tab(
       return "needs_path";
     }
 
-    const forced = stores.tab.has_conflict(cached.meta.path);
     let new_mtime: number | null;
     try {
       new_mtime = await services.note.write_note_content(
         cached.meta.path,
         cached.markdown,
-        forced ? undefined : cached.meta.mtime_ms,
+        overwrite_disk ? undefined : cached.meta.mtime_ms,
       );
-    } catch {
+    } catch (error) {
       services.tab.mark_conflict(cached.meta.path);
-      return "failed";
+      return is_mtime_conflict(error) ? "conflict" : "failed";
     }
+    services.tab.clear_conflict(cached.meta.path);
     stores.tab.set_dirty(tab_id, false);
     stores.tab.set_cached_note(tab_id, {
       ...cached,
@@ -366,6 +386,21 @@ export async function execute_batch_close(
   );
 }
 
+export function point_dialog_at_conflict(
+  stores: ActionRegistrationInput["stores"],
+  tab_id: string,
+  tab_title: string,
+): void {
+  stores.ui.tab_close_confirm = {
+    ...stores.ui.tab_close_confirm,
+    open: true,
+    tab_id,
+    tab_title,
+    apply_to_all: false,
+    has_conflict: true,
+  };
+}
+
 export async function advance_or_finish_batch(
   input: ActionRegistrationInput,
 ): Promise<void> {
@@ -381,6 +416,7 @@ export async function advance_or_finish_batch(
       tab_title: next_tab?.title ?? "",
       pending_dirty_tab_ids: pending_dirty_tab_ids.slice(1),
       apply_to_all: false,
+      has_conflict: false,
     };
     return;
   }
