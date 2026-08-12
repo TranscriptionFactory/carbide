@@ -163,6 +163,30 @@ describe("EditorService.mark_clean() with written bytes", () => {
     expect(editor_store.open_note?.is_dirty).toBe(false);
   });
 
+  // Split view keeps the visual mode but hands document authority to the source
+  // pane, so a ProseMirror doc that agrees with the write must not be the one
+  // answering: only the source pane knows the buffer moved on.
+  it("re-dirties from the source pane in split view, where the visual doc agrees with the write", async () => {
+    const session = create_session("# written");
+    const { service, editor_store } = create_setup(() =>
+      Promise.resolve(session),
+    );
+    const note = create_open_note("docs/note.md", "# written");
+
+    editor_store.set_open_note(note);
+    await service.mount({ root: {} as HTMLDivElement, note });
+    editor_store.set_split_view(true);
+    editor_store.set_source_content_getter(() => "# written and typed");
+
+    service.mark_clean("# written");
+
+    expect(editor_store.editor_mode).toBe("visual");
+    expect(editor_store.open_note?.is_dirty).toBe(true);
+    expect(editor_store.open_note?.markdown).toBe(
+      as_markdown_text("# written and typed"),
+    );
+  });
+
   it("leaves the dirty decision to the session when called without bytes", async () => {
     const session = create_session("# written");
     const { service, editor_store } = create_setup(() =>
