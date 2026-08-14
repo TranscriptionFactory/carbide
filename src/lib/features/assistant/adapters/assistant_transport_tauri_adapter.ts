@@ -73,6 +73,7 @@ const agent_turn_channel: ChannelDescriptor<AgentRequest, AgentEvent> = {
       prompt: request.prompt,
       vault_path: input.vault_path,
       toolset: request.toolset,
+      auto_approve: request.auto_approve,
       history: request.history,
       resume_session_id: request.resume_session_id ?? null,
       backend: request.backend,
@@ -262,6 +263,12 @@ export function create_assistant_permission_tauri_adapter(): AssistantPermission
         optionKind:
           response.kind === "cancelled" ? "reject_once" : response.kind,
       });
+    },
+
+    async set_auto_approve(session_id, enabled) {
+      const result = await commands.agentRunSetAutoApprove(session_id, enabled);
+      if (result.status === "error") throw new Error(result.error);
+      return result.data;
     },
 
     async grants() {

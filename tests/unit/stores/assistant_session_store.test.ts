@@ -61,12 +61,12 @@ describe("AssistantSessionStore", () => {
       expect(session.origin).toEqual({});
       expect(session.scope).toEqual({});
       expect(session.mode).toBe("ask");
-      expect(session.permission_mode).toBe("safe");
+      expect(session.auto_approve).toBe(false);
       expect(session.changed_files).toEqual([]);
       expect(clock.now()).toBe(5_000);
     });
 
-    it("carries the caller's origin, scope, mode and permission mode through", () => {
+    it("carries the caller's origin, scope, mode and consent through", () => {
       const { store } = create_store();
 
       const session = store.create(
@@ -75,7 +75,7 @@ describe("AssistantSessionStore", () => {
           origin: { note_path: "notes/a.md" },
           scope: { folders: ["projects/"] },
           mode: "agent",
-          permission_mode: "power",
+          auto_approve: true,
         }),
       );
 
@@ -83,7 +83,7 @@ describe("AssistantSessionStore", () => {
       expect(session.origin).toEqual({ note_path: "notes/a.md" });
       expect(session.scope).toEqual({ folders: ["projects/"] });
       expect(session.mode).toBe("agent");
-      expect(session.permission_mode).toBe("power");
+      expect(session.auto_approve).toBe(true);
     });
 
     it("makes the session readable through get, summaries and of_kind", () => {

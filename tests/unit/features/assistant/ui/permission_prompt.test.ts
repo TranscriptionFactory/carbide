@@ -37,6 +37,7 @@ type Choice = { option_id: string; kind: string } | { kind: "cancelled" };
 function render_prompt(options: {
   options: PermissionOptionSpec[];
   on_respond?: (choice: Choice) => void;
+  on_allow_everything?: () => void;
   host?: HTMLElement;
 }) {
   const target = document.createElement("div");
@@ -47,6 +48,7 @@ function render_prompt(options: {
     props: {
       options: options.options,
       on_respond: options.on_respond ?? vi.fn(),
+      on_allow_everything: options.on_allow_everything ?? vi.fn(),
     },
   });
 
@@ -64,6 +66,17 @@ function render_prompt(options: {
 
 function buttons(target: HTMLElement): HTMLButtonElement[] {
   return [...target.querySelectorAll<HTMLButtonElement>("button")];
+}
+
+const SESSION_CONTROLS = [
+  "permission-escalate-trigger",
+  "permission-allow-everything",
+];
+
+function response_buttons(target: HTMLElement): HTMLButtonElement[] {
+  return buttons(target).filter(
+    (el) => !SESSION_CONTROLS.includes(el.getAttribute("data-testid") ?? ""),
+  );
 }
 
 function by_testid(target: HTMLElement, testid: string): HTMLButtonElement {
@@ -203,13 +216,60 @@ describe("permission_prompt.svelte", () => {
     view.cleanup();
   });
 
-  it("omits the escalation cluster when no allow_always is offered", () => {
+  // "Allow everything" is the session-wide escape hatch and lives in the same
+  // cluster, so the cluster survives an agent that offers no allow_always.
+  it("keeps the escalation cluster when no allow_always is offered", () => {
     const view = render_prompt({ options: [ALLOW_ONCE, REJECT_ONCE] });
 
     expect(
       view.target.querySelector('[data-testid="permission-escalate-trigger"]'),
+    ).not.toBeNull();
+    expect(
+      view.target.querySelector('[data-testid="permission-escalate-option"]'),
     ).toBeNull();
-    expect(buttons(view.target)).toHaveLength(2);
+    expect(
+      view.target.querySelector('[data-testid="permission-allow-everything"]'),
+    ).not.toBeNull();
+
+    view.cleanup();
+  });
+
+  // S5: the reactive entry point. It does not answer this request itself —
+  // flipping session consent decides every prompt the session has parked.
+  it("offers allow-everything without responding to this request", () => {
+    const on_respond = vi.fn();
+    const on_allow_everything = vi.fn();
+    const view = render_prompt({
+      options: [ALLOW_ONCE, ALLOW_ALWAYS, REJECT_ONCE],
+      on_respond,
+      on_allow_everything,
+    });
+
+    click(by_testid(view.target, "permission-allow-everything"));
+
+    expect(on_allow_everything).toHaveBeenCalledTimes(1);
+    expect(on_respond).not.toHaveBeenCalled();
+
+    view.cleanup();
+  });
+
+  // One prompt, one answer: the request is gone after the first click either
+  // way, so the two entry points must not both fire.
+  it("disables the other controls once allow-everything is chosen", () => {
+    const on_respond = vi.fn();
+    const on_allow_everything = vi.fn();
+    const view = render_prompt({
+      options: [ALLOW_ONCE, REJECT_ONCE],
+      on_respond,
+      on_allow_everything,
+    });
+
+    click(by_testid(view.target, "permission-allow-everything"));
+    click(by_testid(view.target, "permission-allow-everything"));
+    click(by_testid(view.target, "permission-primary"));
+
+    expect(on_allow_everything).toHaveBeenCalledTimes(1);
+    expect(on_respond).not.toHaveBeenCalled();
 
     view.cleanup();
   });
@@ -224,7 +284,9 @@ describe("permission_prompt.svelte", () => {
       ],
     });
 
-    expect(buttons(view.target)).toHaveLength(2);
+    // One button per kind, counting only the controls that answer this
+    // request — the escalation cluster is session state, not an option.
+    expect(response_buttons(view.target)).toHaveLength(2);
     expect(
       by_testid(view.target, "permission-primary").textContent?.trim(),
     ).toBe("Allow");

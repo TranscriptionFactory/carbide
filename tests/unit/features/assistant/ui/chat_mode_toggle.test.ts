@@ -11,18 +11,17 @@ import RagModeToggle from "$lib/features/assistant/ui/chat_mode_toggle.svelte";
 import { agent_capability, agent_scope_copy } from "$lib/features/ai";
 import { BUILTIN_PROVIDER_PRESETS } from "$lib/shared/types/ai_provider_config";
 import type { AssistantChatMode } from "$lib/features/assistant";
-import type { AssistantPermissionMode } from "$lib/features/assistant";
 
 type MountedApp = ReturnType<typeof mount>;
 let mounted: Array<{ app: MountedApp; target: HTMLElement }> = [];
 
 function render_toggle(props?: {
   mode?: AssistantChatMode;
-  permission_mode?: AssistantPermissionMode;
+  auto_approve?: boolean;
   agent_supported?: boolean;
-  power_hint?: string;
+  auto_approve_hint?: string;
   on_set_mode?: (mode: AssistantChatMode) => void;
-  on_set_permission_mode?: (mode: AssistantPermissionMode) => void;
+  on_set_auto_approve?: (enabled: boolean) => void;
 }) {
   const target = document.createElement("div");
   document.body.appendChild(target);
@@ -30,18 +29,24 @@ function render_toggle(props?: {
     target,
     props: {
       mode: props?.mode ?? "ask",
-      permission_mode: props?.permission_mode ?? "safe",
+      auto_approve: props?.auto_approve ?? false,
       agent_supported: props?.agent_supported ?? true,
-      power_hint:
-        props?.power_hint ??
-        "Auto-allow edits — asks for shell commands and deletions",
+      auto_approve_hint:
+        props?.auto_approve_hint ??
+        "Run edits and commands without asking. Change it any time.",
       on_set_mode: props?.on_set_mode ?? vi.fn(),
-      on_set_permission_mode: props?.on_set_permission_mode ?? vi.fn(),
+      on_set_auto_approve: props?.on_set_auto_approve ?? vi.fn(),
     },
   });
   mounted.push({ app, target });
   flushSync();
   return target;
+}
+
+function auto_approve_switch(target: HTMLElement): HTMLElement | null {
+  return target.querySelector<HTMLElement>(
+    '[data-testid="auto-approve-switch"]',
+  );
 }
 
 function button_labelled(
@@ -102,42 +107,60 @@ describe("RagModeToggle", () => {
     expect(agent.disabled).toBe(false);
   });
 
-  it("hides the permission picker in ask mode", () => {
+  // S6: the switch is an agent-mode control; Ask runs Carbide's own retrieval
+  // and has no tool call to consent to.
+  it("hides the auto-approve switch in ask mode", () => {
     const target = render_toggle({ mode: "ask" });
-    expect(target.textContent).not.toContain("Safe");
-    expect(target.textContent).not.toContain("Power");
+    expect(target.textContent).not.toContain("Auto-approve");
+    expect(auto_approve_switch(target)).toBeNull();
   });
 
-  it("shows the permission picker in agent mode and reports changes", () => {
-    const on_set_permission_mode = vi.fn();
+  it("shows the auto-approve switch in agent mode and reports both directions", () => {
+    const on_set_auto_approve = vi.fn();
     const target = render_toggle({
       mode: "agent",
-      permission_mode: "safe",
-      on_set_permission_mode,
+      auto_approve: false,
+      on_set_auto_approve,
     });
-    const safe = button_labelled(target, "Safe");
-    const power = button_labelled(target, "Power");
-    expect(safe.getAttribute("aria-pressed")).toBe("true");
-    expect(power.getAttribute("aria-pressed")).toBe("false");
-    power.click();
-    expect(on_set_permission_mode).toHaveBeenCalledWith("power");
+
+    const toggle = auto_approve_switch(target);
+    expect(toggle).not.toBeNull();
+    expect(toggle?.getAttribute("aria-checked")).toBe("false");
+
+    toggle?.click();
+    flushSync();
+    expect(on_set_auto_approve).toHaveBeenCalledWith(true);
   });
 
-  it("shows the provider's power hint on the Power segment only", () => {
+  // S5: the switch renders the session's state, so flipping it from inside a
+  // permission prompt shows up here immediately.
+  it("reflects consent granted elsewhere in the session", () => {
+    const target = render_toggle({ mode: "agent", auto_approve: true });
+
+    expect(auto_approve_switch(target)?.getAttribute("aria-checked")).toBe(
+      "true",
+    );
+  });
+
+  it("labels the switch with the provider's own account of the grant", () => {
     const claude = BUILTIN_PROVIDER_PRESETS.find((p) => p.id === "claude");
     if (!claude) throw new Error("claude preset missing");
     const capability = agent_capability(claude);
     if (!capability) throw new Error("claude preset lost agent capability");
+    const hint = agent_scope_copy(capability).auto_approve_hint;
     const target = render_toggle({
       mode: "agent",
-      power_hint: agent_scope_copy(capability).power_hint,
+      auto_approve_hint: hint,
     });
-    expect(button_labelled(target, "Power").getAttribute("title")).toBe(
-      "Auto-allow edits — asks for shell commands and deletions",
-    );
-    expect(button_labelled(target, "Safe").getAttribute("title")).toBe(
-      "Ask before file edits and shell commands",
-    );
+
+    // An ACP agent's reach is the whole system, and the hint must say so
+    // rather than describe a vault-scoped grant.
+    expect(hint).toContain("system");
+    expect(
+      [...target.querySelectorAll("[title]")].some(
+        (el) => el.getAttribute("title") === hint,
+      ),
+    ).toBe(true);
   });
 });
 
@@ -145,7 +168,7 @@ describe("agent_scope_copy", () => {
   it("keeps the native grant vault-scoped and the ACP grant honest", () => {
     const native = agent_scope_copy({ backend: "native" });
     expect(native.badge).toBe("vault-scoped");
-    expect(native.power_hint).toContain("Auto-allow edits");
+    expect(native.auto_approve_hint).toContain("without asking");
 
     const acp = agent_scope_copy({
       backend: "acp",
@@ -153,7 +176,8 @@ describe("agent_scope_copy", () => {
     });
     expect(acp.badge).toBe("full access");
     expect(acp.badge_title).toContain("Claude Code");
-    expect(acp.power_hint).toContain("Auto-allow edits");
+    // D2: the hint may not understate what the harness can reach.
+    expect(acp.auto_approve_hint).toContain("system");
     expect(acp.empty_state).toContain("full system access");
   });
 });

@@ -50,7 +50,6 @@ export type {
   AssistantCitation,
   AssistantContextStats,
   AssistantMessage,
-  AssistantPermissionMode,
   AssistantRole,
   AssistantScope,
   AssistantSession,

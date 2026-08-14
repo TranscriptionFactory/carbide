@@ -218,6 +218,7 @@ mod specta_export {
                 crate::features::ai::stream::ai_test_provider,
                 crate::features::ai::agent_stream::agent_run_start,
                 crate::features::ai::agent_stream::agent_run_abort,
+                crate::features::ai::agent_stream::agent_run_set_auto_approve,
                 crate::features::ai::permissions::agent_permission_decide,
                 crate::features::ai::permissions::agent_permission_grants,
                 crate::features::ai::permissions::agent_permission_revoke,

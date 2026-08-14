@@ -47,7 +47,8 @@ function agent_spec(): RunSpec {
     request: {
       mode: "agent",
       prompt: "summarize the vault",
-      toolset: { kind: "read_only" },
+      toolset: { kind: "full" },
+      auto_approve: false,
       history: [],
       backend: "native",
     },

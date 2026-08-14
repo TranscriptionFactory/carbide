@@ -134,6 +134,13 @@
     );
   }
 
+  // The same action the composer switch dispatches, so both entry points are
+  // one state. It also answers this prompt: the backend decides everything
+  // the session has parked when consent is switched on.
+  function allow_everything() {
+    void action_registry.execute(ACTION_IDS.assistant_set_auto_approve, true);
+  }
+
   $effect(() => {
     const el = content_el;
     if (!el) return;
@@ -209,6 +216,7 @@
                 on_open_path={open_tool_path}
                 live={is_streaming}
                 on_permission_respond={respond_permission}
+                on_allow_everything={allow_everything}
               />
             {/each}
           </div>

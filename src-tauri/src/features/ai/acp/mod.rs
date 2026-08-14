@@ -4,8 +4,10 @@ pub mod session;
 pub mod translate;
 
 use std::collections::HashMap;
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
+
+use crate::features::ai::permissions::SessionPolicy;
 
 pub use agent_def::{resolve_acp_launch, AcpAgentSpec, AcpPresetId};
 pub use session::{AcpSessionConfig, EventSink, SessionHandle};
@@ -26,6 +28,10 @@ struct ManagedSession {
     handle: SessionHandle,
     agent_fingerprint: String,
     vault_path: String,
+    /// The live consent cell the running process reads. Held here so its
+    /// lifetime IS the session's — retiring the session drops it, and no
+    /// separate table can fall out of step with which policy is live.
+    policy: Arc<SessionPolicy>,
     last_used: Instant,
     on_retire: Option<RetireHook>,
 }
@@ -49,13 +55,14 @@ impl AcpSessionManager {
     /// callers can skip launch resolution, token minting and catalog work
     /// entirely. The fingerprint covers the surface's tool scope, which the
     /// scoped token is minted against; consent is not in it, because it lives
-    /// in a shared cell the running session already reads.
+    /// in the cell returned alongside the handle — which is exactly what lets
+    /// it be flipped without retiring the process.
     pub fn get_matching(
         &self,
         chat_session_id: &str,
         agent_fingerprint: &str,
         vault_path: &str,
-    ) -> Option<SessionHandle> {
+    ) -> Option<(SessionHandle, Arc<SessionPolicy>)> {
         let mut sessions = self.sessions.lock().unwrap();
         let existing = sessions.get_mut(chat_session_id)?;
         if existing.agent_fingerprint == agent_fingerprint
@@ -63,22 +70,31 @@ impl AcpSessionManager {
             && existing.handle.is_alive()
         {
             existing.last_used = Instant::now();
-            return Some(existing.handle.clone());
+            return Some((existing.handle.clone(), existing.policy.clone()));
         }
         None
+    }
+
+    /// The cell a mid-conversation flip is addressed to.
+    pub fn policy(&self, chat_session_id: &str) -> Option<Arc<SessionPolicy>> {
+        Some(self.sessions.lock().unwrap().get(chat_session_id)?.policy.clone())
     }
 
     /// Reuses the running agent for this chat only when it is the same agent
     /// against the same vault under the same grant; anything else is a
     /// different conversation as far as the agent is concerned, so the old
     /// process is retired first.
+    /// Returns the policy alongside the handle so the caller always ends up
+    /// holding the cell the *returned* session actually reads — on the reuse
+    /// branch that is the existing session's, not the one just built for a
+    /// spawn that did not happen.
     pub fn get_or_spawn(
         &self,
         chat_session_id: &str,
         agent_fingerprint: &str,
         config: AcpSessionConfig,
         on_retire: RetireHook,
-    ) -> Result<SessionHandle, String> {
+    ) -> Result<(SessionHandle, Arc<SessionPolicy>), String> {
         let mut sessions = self.sessions.lock().unwrap();
 
         if let Some(existing) = sessions.get_mut(chat_session_id) {
@@ -88,7 +104,7 @@ impl AcpSessionManager {
             {
                 existing.last_used = Instant::now();
                 on_retire();
-                return Ok(existing.handle.clone());
+                return Ok((existing.handle.clone(), existing.policy.clone()));
             }
             if let Some(stale) = sessions.remove(chat_session_id) {
                 retire(stale);
@@ -96,6 +112,7 @@ impl AcpSessionManager {
         }
 
         let vault_path = config.cwd.clone();
+        let policy = config.policy.clone();
         let handle = spawn_acp_session(config)?;
         sessions.insert(
             chat_session_id.to_string(),
@@ -103,11 +120,12 @@ impl AcpSessionManager {
                 handle: handle.clone(),
                 agent_fingerprint: agent_fingerprint.to_string(),
                 vault_path,
+                policy: policy.clone(),
                 last_used: Instant::now(),
                 on_retire: Some(on_retire),
             },
         );
-        Ok(handle)
+        Ok((handle, policy))
     }
 
     pub fn remove(&self, chat_session_id: &str) {

@@ -57,6 +57,21 @@ impl SessionPolicy {
         self.auto_approve.store(enabled, Ordering::Relaxed);
     }
 
+    /// Records that an approval was produced for `spec`, so the HTTP dispatch
+    /// layer can spend it instead of asking again. Only Carbide's own mutating
+    /// MCP tools are asked for over one channel and called over another, so
+    /// they are the only ones that need a ticket — and with consent already
+    /// granted the HTTP gate short-circuits ahead of the ticket check, so a
+    /// ticket minted then could never be read.
+    pub fn grant_for(&self, spec: &PermissionRequestSpec) {
+        if !spec.mutating || self.auto_approve() {
+            return;
+        }
+        if let Some(name) = spec.name.strip_prefix(crate::features::ai::harness::MCP_TOOL_PREFIX) {
+            self.grant_ticket(name);
+        }
+    }
+
     pub fn grant_ticket(&self, name: &str) {
         let mut tickets = self.lock_tickets();
         if tickets.len() == MAX_TICKETS {
@@ -186,6 +201,13 @@ impl PermissionEngine {
 
     pub fn evaluate(&self, policy: &SessionPolicy, spec: &PermissionRequestSpec) -> Evaluation {
         if spec.pre_authorized {
+            return Evaluation::Allow;
+        }
+
+        // Above the grant store deliberately: a standing grant can only widen
+        // an answer that is already Allow, so consulting it would be a lock
+        // and a scan whose result is thrown away on every call of the session.
+        if policy.auto_approve() {
             return Evaluation::Allow;
         }
 

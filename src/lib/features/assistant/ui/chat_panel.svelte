@@ -26,7 +26,6 @@
     AssistantScope,
     AssistantChatMode,
   } from "$lib/features/assistant/types/session";
-  import type { AssistantPermissionMode } from "$lib/features/assistant/types/session";
   import { scope_phrase } from "$lib/features/assistant/domain/chat_scope";
   import {
     build_question,
@@ -183,8 +182,11 @@
     void action_registry.execute(ACTION_IDS.rag_set_mode, mode);
   }
 
-  function set_permission_mode(mode: AssistantPermissionMode) {
-    void action_registry.execute(ACTION_IDS.rag_set_permission_mode, mode);
+  function set_auto_approve(enabled: boolean) {
+    void action_registry.execute(
+      ACTION_IDS.assistant_set_auto_approve,
+      enabled,
+    );
   }
 
   const last_assistant_id = $derived(
@@ -447,11 +449,11 @@
 
   <ChatModeToggle
     mode={rag.mode}
-    permission_mode={rag.permission_mode}
+    auto_approve={rag.auto_approve}
     {agent_supported}
-    power_hint={scope_copy?.power_hint ?? ""}
+    auto_approve_hint={scope_copy?.auto_approve_hint ?? ""}
     on_set_mode={set_mode}
-    on_set_permission_mode={set_permission_mode}
+    on_set_auto_approve={set_auto_approve}
   />
 
   <ChatInput

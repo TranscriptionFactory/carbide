@@ -10,15 +10,9 @@ describe("inline_edit_policy", () => {
 });
 
 describe("chat_policy", () => {
-  it("maps safe permission mode to a read-only toolset", () => {
-    expect(chat_policy("safe")).toEqual({
-      toolset: { kind: "read_only" },
-    });
-  });
-
-  it("maps power permission mode to the full toolset", () => {
-    expect(chat_policy("power")).toEqual({
-      toolset: { kind: "full" },
-    });
+  // I1: the selector is surface scope, so it no longer varies with consent —
+  // there is nothing to pass it and nothing it could narrow.
+  it("advertises the whole catalog", () => {
+    expect(chat_policy()).toEqual({ toolset: { kind: "full" } });
   });
 });

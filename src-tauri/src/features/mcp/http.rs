@@ -103,11 +103,16 @@ pub(crate) fn resolve_request_scope(
     if auth::verify_token(provided, global_token) {
         return Some(TokenScope {
             selector: ToolSelector::Full,
-            policy: Arc::new(SessionPolicy::always_on()),
+            policy: GLOBAL_TOKEN_POLICY.clone(),
         });
     }
     scoped_tokens.lookup(provided)
 }
+
+/// One policy for the global token, not one per request: there is no session
+/// behind it to flip, so its answer is the same every time.
+static GLOBAL_TOKEN_POLICY: LazyLock<Arc<SessionPolicy>> =
+    LazyLock::new(|| Arc::new(SessionPolicy::always_on()));
 
 async fn auth_middleware(
     State(state): State<Arc<HttpAppState>>,
@@ -196,9 +201,6 @@ fn sse_response(response: JsonRpcResponse) -> impl IntoResponse {
 /// toggle live, and it lets the model report a blocked call instead of
 /// silently lacking the capability.
 fn filter_tools_response(mut response: JsonRpcResponse, selector: &ToolSelector) -> JsonRpcResponse {
-    if matches!(selector, ToolSelector::Full) {
-        return response;
-    }
     if let Some(tools) = response
         .result
         .as_mut()

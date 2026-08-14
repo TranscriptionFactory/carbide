@@ -26,6 +26,11 @@ export type { PermissionResponse };
 // administers the standing grants those answers leave behind.
 export interface AssistantPermissionPort {
   respond(request_id: string, response: PermissionResponse): Promise<void>;
+  // Pushes a mid-conversation consent flip to the session's live cell. The
+  // session id is the one the backend announced on `session`; a session with
+  // nothing in flight is simply unknown there, and the store is what the next
+  // run reads. Resolves false when nothing was live to update.
+  set_auto_approve(session_id: string, enabled: boolean): Promise<boolean>;
   grants(): Promise<Grant[]>;
   revoke(id: string): Promise<void>;
 }

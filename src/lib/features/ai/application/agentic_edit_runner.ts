@@ -41,6 +41,9 @@ export class AgenticEditRunner {
           mode: "agent",
           prompt: input.prompt,
           toolset: inline_edit_policy().toolset,
+          // S11: inline edit's two tools are non-mutating, so nothing it can
+          // call would ever reach a prompt. Consent is the chat's axis.
+          auto_approve: false,
           history: [],
           backend: "native",
         },

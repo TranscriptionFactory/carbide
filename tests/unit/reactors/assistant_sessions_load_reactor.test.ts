@@ -27,7 +27,7 @@ function session(overrides: Partial<AssistantSession> = {}): AssistantSession {
     provider_id: "ollama",
     scope: {},
     mode: "ask",
-    permission_mode: "safe",
+    auto_approve: false,
     changed_files: [],
     ...overrides,
   };

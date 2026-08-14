@@ -21,11 +21,46 @@ function stored_session(
 }
 
 describe("migrate_session_fields", () => {
+  // S13: sessions written under the Safe|Power control carry permission_mode.
+  // Power was the only value that meant "do not ask", so it is the only one
+  // that hydrates as consent.
+  it("hydrates a legacy power session as auto-approved", () => {
+    const migrated = migrate_session_fields({
+      ...stored_session(),
+      permission_mode: "power",
+    } as never);
+
+    expect(migrated.auto_approve).toBe(true);
+  });
+
+  it("hydrates legacy safe and absent permission modes as withheld", () => {
+    for (const permission_mode of ["safe", undefined]) {
+      const migrated = migrate_session_fields({
+        ...stored_session(),
+        ...(permission_mode ? { permission_mode } : {}),
+      } as never);
+
+      expect(migrated.auto_approve).toBe(false);
+    }
+  });
+
+  // A session saved after this change carries auto_approve directly; the
+  // legacy field must not be able to override it.
+  it("prefers a stored auto_approve over a stale permission_mode", () => {
+    const migrated = migrate_session_fields({
+      ...stored_session(),
+      auto_approve: false,
+      permission_mode: "power",
+    } as never);
+
+    expect(migrated.auto_approve).toBe(false);
+  });
+
   it("defaults agent fields for sessions persisted before agent mode", () => {
     const migrated = migrate_session_fields(stored_session());
 
     expect(migrated.mode).toBe("ask");
-    expect(migrated.permission_mode).toBe("safe");
+    expect(migrated.auto_approve).toBe(false);
     expect(migrated.changed_files).toEqual([]);
     expect(migrated.agent_session_id).toBeUndefined();
   });
@@ -55,7 +90,7 @@ describe("migrate_session_fields", () => {
       title_source: "derived",
       origin: {},
       mode: "agent",
-      permission_mode: "power",
+      auto_approve: true,
       changed_files: ["notes/a.md"],
       agent_session_id: "sess-1",
     };
@@ -72,7 +107,7 @@ describe("migrate_session_fields", () => {
       title_source: "derived",
       origin: {},
       mode: "agent",
-      permission_mode: "power",
+      auto_approve: true,
       changed_files: [],
       messages: [
         { id: "m1", role: "user", content: "create a note", citations: [] },
@@ -181,7 +216,7 @@ describe("the hydration boundary is load-bearing", () => {
     expect(migrated.title_source).toBe("derived");
     expect(migrated.origin).toEqual({});
     expect(migrated.mode).toBe("ask");
-    expect(migrated.permission_mode).toBe("safe");
+    expect(migrated.auto_approve).toBe(false);
     expect(migrated.changed_files).toEqual([]);
   });
 
@@ -204,7 +239,7 @@ describe("the hydration boundary is load-bearing", () => {
       title_source: "manual",
       origin: { note_path: "notes/a.md" },
       mode: "agent",
-      permission_mode: "power",
+      auto_approve: true,
       changed_files: ["notes/a.md"],
       agent_session_id: "sess-1",
       scope: { folders: ["projects/"], tags: ["active"] },

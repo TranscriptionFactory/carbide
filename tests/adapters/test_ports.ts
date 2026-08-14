@@ -286,6 +286,7 @@ export function create_test_ports(): Ports {
     },
     assistant_permissions: {
       respond: () => Promise.resolve(),
+      set_auto_approve: () => Promise.resolve(true),
       grants: () => Promise.resolve([]),
       revoke: () => Promise.resolve(),
     },

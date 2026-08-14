@@ -289,7 +289,8 @@ describe("start_run_stream", () => {
             request: {
               mode: "agent",
               prompt: "summarize",
-              toolset: { kind: "read_only" },
+              toolset: { kind: "full" },
+              auto_approve: false,
               history: [],
               backend: "native",
             },

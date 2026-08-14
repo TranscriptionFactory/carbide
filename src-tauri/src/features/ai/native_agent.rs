@@ -228,10 +228,7 @@ pub async fn run_native_turn<C, D, E, A>(
 
     // The catalog is never narrowed by consent — mutating dispatches are
     // gated on approval instead. Only the surface's own scope narrows it.
-    let allowed = match &toolset {
-        ToolSelector::Only { .. } => allowed_tools(&catalog, &toolset),
-        ToolSelector::Full => catalog.clone(),
-    };
+    let allowed = allowed_tools(&catalog, &toolset);
     let allowed_names: HashSet<String> = allowed.iter().map(|t| t.name.clone()).collect();
     let mutating_names: HashSet<String> = catalog
         .iter()
@@ -563,6 +560,6 @@ pub fn spawn_native_turn(
         state.remove_handle(&req_id).await;
         // A native turn IS its session; nothing outlives it that a flip could
         // still be addressed to.
-        state.remove_policy(&req_id).await;
+        state.remove_native_policy(&req_id);
     });
 }

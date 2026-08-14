@@ -6,7 +6,6 @@ import {
   type AssistantCitation,
   type AssistantContextStats,
   type AssistantMessage,
-  type AssistantPermissionMode,
   type AssistantRole,
   type AssistantScope,
   type AssistantSession,
@@ -59,7 +58,7 @@ export class AssistantChatStore {
   streaming_id = $state<string | null>(null);
   pending_sources = $state<AssistantChatSourceInfo[] | null>(null);
   mode = $state<AssistantChatMode>("ask");
-  permission_mode = $state<AssistantPermissionMode>("safe");
+  auto_approve = $state(false);
   revision = $state(0);
   readiness = $state<RetrievalReadiness>({ state: "checking" });
   // Composer state (pin 5): never enters the persisted session format.
@@ -121,9 +120,9 @@ export class AssistantChatStore {
     this.patch_active({ mode });
   }
 
-  set_permission_mode(permission_mode: AssistantPermissionMode) {
-    this.permission_mode = permission_mode;
-    this.patch_active({ permission_mode });
+  set_auto_approve(auto_approve: boolean) {
+    this.auto_approve = auto_approve;
+    this.patch_active({ auto_approve });
   }
 
   set_agent_session_id(agent_session_id: string) {
@@ -280,13 +279,13 @@ export class AssistantChatStore {
     this.is_loading = false;
   }
 
-  // A fresh chat starts in Ask regardless of what the previous session ran
-  // as; the invariant lives here so every entry point gets it, not just the
-  // new-chat action.
-  start_new_session(permission_mode?: AssistantPermissionMode) {
+  // A fresh chat starts in Ask with consent withheld, regardless of what the
+  // previous session ran as; the invariant lives here so every entry point
+  // gets it, not just the new-chat action.
+  start_new_session() {
     this.active_id = null;
     this.mode = "ask";
-    if (permission_mode) this.permission_mode = permission_mode;
+    this.auto_approve = false;
     this.reset_turn_state();
   }
 
@@ -297,7 +296,7 @@ export class AssistantChatStore {
     this.provider_id = session.provider_id;
     this.scope = session.scope;
     this.mode = session.mode;
-    this.permission_mode = session.permission_mode;
+    this.auto_approve = session.auto_approve;
     this.reset_turn_state();
   }
 
@@ -322,7 +321,7 @@ export class AssistantChatStore {
       origin: session.origin,
       scope: session.scope,
       mode: session.mode,
-      permission_mode: session.permission_mode,
+      auto_approve: session.auto_approve,
     });
     // A fork of a chat the user named is still named, not up for autotitling.
     this.store.rename(fork.id, fork.title, session.title_source);
@@ -423,7 +422,7 @@ export class AssistantChatStore {
       provider_id: this.provider_id,
       scope: this.scope,
       mode: this.mode,
-      permission_mode: this.permission_mode,
+      auto_approve: this.auto_approve,
     });
     this.active_id = session.id;
     return session.id;

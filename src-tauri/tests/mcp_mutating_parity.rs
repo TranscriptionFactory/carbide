@@ -95,40 +95,30 @@ fn tool_path_key_parity_rust_vs_typescript() {
     );
 }
 
-/// The surface-scope barrier, which is all `ToolSelector` decides now that
-/// consent lives on `SessionPolicy`. Inline edit is the only surface that
-/// narrows, and it must narrow identically on both dispatch paths.
+/// `inline_edit_policy()` in agent_run_policy.ts names two tools as strings;
+/// nothing else checks that they exist. Both dispatch paths now narrow through
+/// the same `selector_allows`, so the old scoped-vs-native parity assertion
+/// could no longer fail — this is the half of it that still can.
 #[test]
-fn surface_scope_parity_scoped_tokens_vs_native() {
+fn inline_edit_surface_scope_resolves_against_the_real_catalog() {
     use crate::features::ai::agent_stream::ToolSelector;
     use crate::features::ai::native_agent::allowed_tools;
-    use crate::features::mcp::auth::selector_allows;
 
     let catalog = McpRouter::new().tool_definitions_public();
     let inline_edit = ToolSelector::Only {
         names: vec!["read_note".to_string(), "search_notes".to_string()],
     };
 
-    let scoped: BTreeSet<String> = catalog
-        .iter()
-        .filter(|tool| selector_allows(&inline_edit, &tool.name))
-        .map(|tool| tool.name.clone())
-        .collect();
-
-    let native: BTreeSet<String> = allowed_tools(&catalog, &inline_edit)
+    let allowed: BTreeSet<String> = allowed_tools(&catalog, &inline_edit)
         .into_iter()
         .map(|tool| tool.name)
         .collect();
 
     assert_eq!(
-        scoped,
+        allowed,
         BTreeSet::from(["read_note".to_string(), "search_notes".to_string()]),
-        "inline edit's two tools must exist in the real catalog under these names"
-    );
-    assert_eq!(
-        scoped, native,
-        "SURFACE SCOPE DRIFT — the scoped-token enforcement and the native \
-         toolset must expose the SAME tools for a narrowed surface when built \
-         from the real catalog.\nBoth run selector_allows; keep them in sync."
+        "INLINE EDIT SCOPE DRIFT — agent_run_policy.ts names these two tools \
+         verbatim; a rename in the Rust catalog silently narrows inline edit \
+         to nothing."
     );
 }

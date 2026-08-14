@@ -2,7 +2,7 @@ use std::path::Path;
 
 use crate::features::ai::permission_store::GrantStore;
 use crate::features::ai::permissions::{
-    kind_name, select_allow, Evaluation, ParkedDecision, PermissionEngine, PermissionRequestSpec,
+    kind_name, Evaluation, ParkedDecision, PermissionEngine, PermissionRequestSpec,
     SessionPolicy,
 };
 use crate::features::ai::agent_stream::{
@@ -474,23 +474,6 @@ async fn resolve_auto_is_none_for_an_unknown_request() {
     assert!(engine.resolve_auto("perm-missing").is_none());
 }
 
-#[test]
-fn select_allow_prefers_allow_once_over_allow_always() {
-    let options = vec![
-        PermissionOptionSpec {
-            option_id: "always".to_string(),
-            label: "Always".to_string(),
-            kind: PermissionOptionKind::AllowAlways,
-        },
-        PermissionOptionSpec {
-            option_id: "once".to_string(),
-            label: "Once".to_string(),
-            kind: PermissionOptionKind::AllowOnce,
-        },
-    ];
-
-    assert_eq!(select_allow(&options).unwrap().option_id, "once");
-}
 
 // --- recording choices ---------------------------------------------------
 

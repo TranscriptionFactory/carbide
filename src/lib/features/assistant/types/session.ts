@@ -28,8 +28,6 @@ export type AssistantTitleSource = "derived" | "generated" | "manual";
 
 export type AssistantChatMode = "ask" | "agent";
 
-export type AssistantPermissionMode = "safe" | "power";
-
 // `notes` (C3 amendment, AU-050) holds whole note paths, not prefixes: it is
 // how the composer's "this note" chip narrows a chat to the note it was armed
 // on. Snapshotted at the moment the chip is turned on rather than tracking the
@@ -139,7 +137,10 @@ export type AssistantSession = AssistantSessionSummary & {
   origin: { note_path?: string };
   scope: AssistantScope;
   mode: AssistantChatMode;
-  permission_mode: AssistantPermissionMode;
+  // Live consent for agent turns. Persists with the session (so reopening a
+  // long conversation does not silently revoke it) but is never seeded from a
+  // global default — a new session always starts off.
+  auto_approve: boolean;
   changed_files: string[];
   agent_session_id?: string;
 };

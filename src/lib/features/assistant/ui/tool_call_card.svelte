@@ -57,6 +57,7 @@
     on_permission_respond?:
       | ((request_id: string, response: PermissionResponse) => void)
       | undefined;
+    on_allow_everything?: (() => void) | undefined;
     // A prompt on a freshly loaded transcript is an orphan — nothing is
     // parked behind it — and renders as "no longer active" instead of live
     // buttons.
@@ -66,6 +67,7 @@
     event,
     on_open_path,
     on_permission_respond = undefined,
+    on_allow_everything = undefined,
     live = false,
   }: Props = $props();
 
@@ -191,6 +193,7 @@
               options={permission.options}
               on_respond={(choice) =>
                 on_permission_respond?.(permission.request_id, choice)}
+              {on_allow_everything}
             />
           </div>
         {:else}

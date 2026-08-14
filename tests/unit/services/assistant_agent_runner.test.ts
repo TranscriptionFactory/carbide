@@ -275,7 +275,7 @@ describe("AgentRunner.run_turn", () => {
     const second = agent_request(starter.specs[1]!);
     expect(first.resume_session_id).toBeUndefined();
     expect(second.resume_session_id).toBe("sess-1");
-    expect(first.toolset).toEqual({ kind: "read_only" });
+    expect(first.toolset).toEqual({ kind: "full" });
     expect(starter.specs[0]?.kind).toBe("agent");
   });
 

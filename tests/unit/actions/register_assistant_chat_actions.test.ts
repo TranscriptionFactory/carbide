@@ -129,6 +129,7 @@ function create_harness(events: AssistantChatStreamEvent[] = ANSWERED_EVENTS) {
     assistant_kernel: assistant_kernel as never,
     permissions: {
       respond: async () => {},
+      set_auto_approve: () => Promise.resolve(true),
       grants: async () => [],
       revoke: async () => {},
     },
@@ -630,7 +631,7 @@ describe("register_chat_actions", () => {
         provider_id: PROVIDER_ID,
         scope: {},
         mode: "ask",
-        permission_mode: "safe",
+        auto_approve: false,
         changed_files: [],
       },
     ]);

@@ -112,6 +112,7 @@ export type RunRequest =
       mode: "agent";
       prompt: string;
       toolset: ToolSelector;
+      auto_approve: boolean;
       history: AgentHistoryMessage[];
       resume_session_id?: string;
       backend: "acp" | "native";

@@ -2,7 +2,6 @@ import {
   to_assistant_session_summary,
   type AssistantChatMode,
   type AssistantMessage,
-  type AssistantPermissionMode,
   type AssistantScope,
   type AssistantSession,
   type AssistantSessionKind,
@@ -17,7 +16,7 @@ export type AssistantSessionCreate = {
   origin?: { note_path?: string };
   scope?: AssistantScope;
   mode?: AssistantChatMode;
-  permission_mode?: AssistantPermissionMode;
+  auto_approve?: boolean;
 };
 
 // Title changes go through rename() so title_source stays honest; everything
@@ -29,7 +28,7 @@ export type AssistantSessionPatch = Partial<
     | "origin"
     | "scope"
     | "mode"
-    | "permission_mode"
+    | "auto_approve"
     | "changed_files"
     | "agent_session_id"
   >
@@ -71,7 +70,7 @@ export class AssistantSessionStore {
       origin: input.origin ?? {},
       scope: input.scope ?? {},
       mode: input.mode ?? "ask",
-      permission_mode: input.permission_mode ?? "safe",
+      auto_approve: input.auto_approve ?? false,
       changed_files: [],
     };
     this.sessions = [session, ...this.sessions];

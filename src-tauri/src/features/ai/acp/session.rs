@@ -16,7 +16,6 @@ use tokio::sync::mpsc;
 
 use crate::features::ai::agent_stream::{AgentEvent, AgentRunStats, PermissionOptionKind};
 use crate::features::ai::harness::MutatingToolSet;
-use crate::features::ai::agent_stream::grant_mcp_ticket;
 use crate::features::ai::permissions::{
     mint_request_id, option_kind_name, select_allow, Evaluation, ParkOutcome, PermissionEngine,
     PermissionRequestSpec, SessionPolicy,
@@ -191,7 +190,7 @@ async fn run_session(
 
                 let answer = match handler_engine.evaluate(&handler_policy, &spec) {
                     Evaluation::Allow => {
-                        grant_mcp_ticket(&handler_policy, &spec);
+                        handler_policy.grant_for(&spec);
                         auto_answer(&permission_sink, &request_id, &spec)
                     }
                     Evaluation::Prompt => {
@@ -213,7 +212,7 @@ async fn run_session(
                                 ..
                             }
                         ) {
-                            grant_mcp_ticket(&handler_policy, &spec);
+                            handler_policy.grant_for(&spec);
                         }
                         settle_prompt(&permission_sink, &request_id, outcome)
                     }

@@ -178,7 +178,6 @@ export type EditorSettings = {
   ai_vault_context_similarity_threshold: number;
   ai_rag_retrieve_limit: number;
   ai_rag_context_token_budget: number;
-  ai_agent_permission_default: "safe" | "power";
   // 0 keeps every session forever.
   assistant_session_retention_days: number;
   // I6: ambient notices are opt-in. Deliberately NOT listed in
@@ -319,7 +318,6 @@ export const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
   ai_vault_context_similarity_threshold: 0.5,
   ai_rag_retrieve_limit: 15,
   ai_rag_context_token_budget: 8000,
-  ai_agent_permission_default: "safe",
   assistant_session_retention_days: 30,
   ambient_notices_enabled: false,
   document_pdf_default_zoom: "fit_width",
@@ -559,7 +557,6 @@ export const GLOBAL_ONLY_SETTING_KEYS: readonly (keyof EditorSettings)[] = [
   "ai_vault_context_similarity_threshold",
   "ai_rag_retrieve_limit",
   "ai_rag_context_token_budget",
-  "ai_agent_permission_default",
   "assistant_session_retention_days",
   "iwe_ai_provider_id",
   "document_pdf_default_zoom",

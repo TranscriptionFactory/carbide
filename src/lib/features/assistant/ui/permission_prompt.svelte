@@ -11,9 +11,17 @@
   type Props = {
     options: PermissionOptionSpec[];
     on_respond: (choice: PermissionResponse) => void;
+    // The same session state the composer switch writes. Turning it on from
+    // here is what answers this request: the backend decides every prompt the
+    // session has parked, so there is nothing left for this button to resolve.
+    on_allow_everything?: (() => void) | undefined;
   };
 
-  let { options, on_respond }: Props = $props();
+  let {
+    options,
+    on_respond,
+    on_allow_everything = undefined,
+  }: Props = $props();
 
   const choices = $derived(select_permission_options(options));
   const primary = $derived(choices.primary);
@@ -49,6 +57,12 @@
   function respond_with(option: PermissionOptionSpec): void {
     respond({ option_id: option.option_id, kind: option.kind });
   }
+
+  function allow_everything(): void {
+    if (responded || !on_allow_everything) return;
+    responded = true;
+    on_allow_everything();
+  }
 </script>
 
 <div class="PermissionPrompt" data-testid="permission-prompt">
@@ -80,7 +94,9 @@
       </Button>
     {/if}
 
-    {#if escalation}
+    <!-- "Allow everything" is the session-wide escape hatch, so the cluster
+         must survive an agent that offers no escalation of its own. -->
+    {#if escalation || on_allow_everything}
       <Popover.Root>
         <Popover.Trigger>
           {#snippet child({ props })}
@@ -97,16 +113,30 @@
           {/snippet}
         </Popover.Trigger>
         <Popover.Content align="end" sideOffset={4} class="w-auto p-1">
-          <Button
-            variant="ghost"
-            size="sm"
-            class="w-full justify-start"
-            disabled={responded}
-            data-testid="permission-escalate-option"
-            onclick={() => respond_with(escalation)}
-          >
-            {escalation.label}
-          </Button>
+          {#if escalation}
+            <Button
+              variant="ghost"
+              size="sm"
+              class="w-full justify-start"
+              disabled={responded}
+              data-testid="permission-escalate-option"
+              onclick={() => respond_with(escalation)}
+            >
+              {escalation.label}
+            </Button>
+          {/if}
+          {#if on_allow_everything}
+            <Button
+              variant="ghost"
+              size="sm"
+              class="w-full justify-start"
+              disabled={responded}
+              data-testid="permission-allow-everything"
+              onclick={allow_everything}
+            >
+              Allow everything for this session
+            </Button>
+          {/if}
         </Popover.Content>
       </Popover.Root>
     {/if}

@@ -105,7 +105,8 @@ export class AgentRunner {
           request: {
             mode: "agent",
             prompt,
-            toolset: chat_policy(session.permission_mode).toolset,
+            toolset: chat_policy().toolset,
+            auto_approve: session.auto_approve,
             history,
             ...(session.agent_session_id
               ? { resume_session_id: session.agent_session_id }

@@ -104,6 +104,13 @@ function create_harness(
     stage_document: vi.fn(() => false),
   };
 
+  const permissions = {
+    respond: vi.fn(() => Promise.resolve()),
+    set_auto_approve: vi.fn(() => Promise.resolve(true)),
+    grants: vi.fn(() => Promise.resolve([])),
+    revoke: vi.fn(() => Promise.resolve()),
+  };
+
   register_chat_actions({
     registry,
     stores: stores as never,
@@ -122,11 +129,7 @@ function create_harness(
     chat_service: {} as never,
     session_service: session_service as never,
     assistant_kernel: assistant_kernel as never,
-    permissions: {
-      respond: async () => {},
-      grants: async () => [],
-      revoke: async () => {},
-    },
+    permissions,
     assistant_proposals: new AssistantProposalStore(),
   });
 
@@ -134,6 +137,7 @@ function create_harness(
     registry,
     stores,
     chat_store,
+    permissions,
     session_service,
     assistant_kernel,
     git_service,
@@ -297,7 +301,7 @@ describe("rag agent actions", () => {
     expect(agent_spec(assistant_kernel.specs)).toMatchObject({
       kind: "agent",
       prompt: "organize my notes",
-      toolset: { kind: "read_only" },
+      toolset: { kind: "full" },
     });
     expect(chat_store.messages.map((m) => m.role)).toEqual([
       "user",
@@ -371,7 +375,7 @@ describe("rag agent actions", () => {
     expect(git_service.create_checkpoint).toHaveBeenCalledTimes(1);
     expect(agent_spec(assistant_kernel.specs)).toMatchObject({
       prompt: "create a note",
-      toolset: { kind: "read_only" },
+      toolset: { kind: "full" },
       backend: "native",
     });
     expect(chat_store.messages.map((m) => m.role)).toEqual([
@@ -396,25 +400,69 @@ describe("rag agent actions", () => {
     expect(stores.op.get("rag.ask").status).toBe("success");
   });
 
-  it("set_permission_mode: updates the store and active session", async () => {
+  it("set_auto_approve: updates the store and active session", async () => {
     const { registry, chat_store } = create_harness();
     chat_store.set_mode("agent");
     chat_store.add_user_message("hi");
 
-    await registry.execute(ACTION_IDS.rag_set_permission_mode, "power");
+    await registry.execute(ACTION_IDS.assistant_set_auto_approve, true);
 
-    expect(chat_store.permission_mode).toBe("power");
-    expect(chat_store.active?.permission_mode).toBe("power");
+    expect(chat_store.auto_approve).toBe(true);
+    expect(chat_store.active?.auto_approve).toBe(true);
   });
 
-  it("new_chat: seeds permission_mode from the configured default", async () => {
-    const { registry, stores, chat_store } = create_harness();
-    stores.ui.editor_settings.ai_agent_permission_default = "power";
-    chat_store.set_permission_mode("safe");
+  // S4/S5: the flip has to reach the live run, or a prompt the user just
+  // answered by turning the switch on stays parked.
+  it("set_auto_approve: pushes the flip to the live agent session", async () => {
+    const { registry, chat_store, permissions } = create_harness();
+    chat_store.set_mode("agent");
+    chat_store.add_user_message("hi");
+    chat_store.set_agent_session_id("sess-1");
+
+    await registry.execute(ACTION_IDS.assistant_set_auto_approve, true);
+
+    expect(permissions.set_auto_approve).toHaveBeenCalledWith("sess-1", true);
+  });
+
+  // S3: turning it off is pushed too, and applies from the next tool call.
+  it("set_auto_approve: pushes a flip back off to the live agent session", async () => {
+    const { registry, chat_store, permissions } = create_harness();
+    chat_store.set_mode("agent");
+    chat_store.add_user_message("hi");
+    chat_store.set_agent_session_id("sess-1");
+    await registry.execute(ACTION_IDS.assistant_set_auto_approve, true);
+
+    await registry.execute(ACTION_IDS.assistant_set_auto_approve, false);
+
+    expect(chat_store.auto_approve).toBe(false);
+    expect(permissions.set_auto_approve).toHaveBeenLastCalledWith(
+      "sess-1",
+      false,
+    );
+  });
+
+  // S15: with nothing in flight there is no cell to address; the store is
+  // what the next run carries in.
+  it("set_auto_approve: skips the push when no agent session is live", async () => {
+    const { registry, chat_store, permissions } = create_harness();
+    chat_store.set_mode("agent");
+    chat_store.add_user_message("hi");
+
+    await registry.execute(ACTION_IDS.assistant_set_auto_approve, true);
+
+    expect(chat_store.auto_approve).toBe(true);
+    expect(permissions.set_auto_approve).not.toHaveBeenCalled();
+  });
+
+  // I6: consent is never seeded from anywhere but the conversation it applies
+  // to — that pre-emptive blanket grant is what this control replaced.
+  it("new_chat: starts with auto-approve off however the last session ended", async () => {
+    const { registry, chat_store } = create_harness();
+    chat_store.set_auto_approve(true);
 
     await registry.execute(ACTION_IDS.rag_new_chat);
 
-    expect(chat_store.permission_mode).toBe("power");
+    expect(chat_store.auto_approve).toBe(false);
   });
 
   it("new_chat: lands in ask mode instead of inheriting agent mode", async () => {

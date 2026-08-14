@@ -1,25 +1,26 @@
 <script lang="ts">
+  import { Switch } from "$lib/components/ui/switch";
   import type { AssistantChatMode } from "$lib/features/assistant/types/session";
-  import type { AssistantPermissionMode } from "$lib/features/assistant/types/session";
 
   type Props = {
     mode: AssistantChatMode;
-    permission_mode: AssistantPermissionMode;
+    auto_approve: boolean;
     agent_supported: boolean;
     // Copy, not a backend discriminant: the provider's agent_scope_copy owns
-    // what Power actually grants, so this toggle cannot understate a harness.
-    power_hint: string;
+    // what auto-approve actually grants, so this toggle cannot understate a
+    // harness with unrestricted shell access.
+    auto_approve_hint: string;
     on_set_mode: (mode: AssistantChatMode) => void;
-    on_set_permission_mode: (mode: AssistantPermissionMode) => void;
+    on_set_auto_approve: (enabled: boolean) => void;
   };
 
   let {
     mode,
-    permission_mode,
+    auto_approve,
     agent_supported,
-    power_hint,
+    auto_approve_hint,
     on_set_mode,
-    on_set_permission_mode,
+    on_set_auto_approve,
   }: Props = $props();
 
   const AGENT_UNSUPPORTED_HINT = "Agent mode requires a tool-capable provider";
@@ -28,16 +29,6 @@
     { value: "ask", label: "Ask" },
     { value: "agent", label: "Agent" },
   ];
-
-  const PERMISSIONS: Array<{
-    value: AssistantPermissionMode;
-    label: string;
-  }> = [
-    { value: "safe", label: "Safe" },
-    { value: "power", label: "Power" },
-  ];
-
-  const SAFE_HINT = "Ask before file edits and shell commands";
 </script>
 
 <div class="flex items-center justify-between gap-2 border-t px-2 pt-2">
@@ -61,20 +52,19 @@
     {/each}
   </div>
   {#if mode === "agent"}
-    <div class="flex overflow-hidden rounded-md border">
-      {#each PERMISSIONS as p (p.value)}
-        <button
-          type="button"
-          class="px-2 py-1 text-xs font-medium {permission_mode === p.value
-            ? 'bg-accent text-accent-foreground'
-            : 'text-muted-foreground hover:bg-accent/50 hover:text-accent-foreground'}"
-          aria-pressed={permission_mode === p.value}
-          title={p.value === "power" ? power_hint : SAFE_HINT}
-          onclick={() => on_set_permission_mode(p.value)}
-        >
-          {p.label}
-        </button>
-      {/each}
+    <div class="flex items-center gap-2" title={auto_approve_hint}>
+      <label
+        for="assistant-auto-approve"
+        class="text-xs font-medium text-muted-foreground"
+      >
+        Auto-approve
+      </label>
+      <Switch
+        id="assistant-auto-approve"
+        checked={auto_approve}
+        onCheckedChange={on_set_auto_approve}
+        data-testid="auto-approve-switch"
+      />
     </div>
   {/if}
 </div>

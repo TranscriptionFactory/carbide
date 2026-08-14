@@ -32,11 +32,18 @@ type MigratedField =
   | "title_source"
   | "origin"
   | "mode"
-  | "permission_mode"
+  | "auto_approve"
   | "changed_files";
 
+// `permission_mode` is not a live field — it is what the Safe | Power control
+// wrote before consent became `auto_approve`. Declared here because this type
+// is the description of what is on disk, and a cast at the read site would let
+// a drifted value silently hydrate as "no consent".
+type LegacyField = { permission_mode?: "safe" | "power" };
+
 export type StoredAssistantSession = Omit<AssistantSession, MigratedField> &
-  Partial<Pick<AssistantSession, MigratedField>>;
+  Partial<Pick<AssistantSession, MigratedField>> &
+  LegacyField;
 
 // The one hydration boundary. Files written before a field existed are missing
 // it, so every session reaches the store complete — `kind` is "chat" because
@@ -48,13 +55,18 @@ export type StoredAssistantSession = Omit<AssistantSession, MigratedField> &
 export function migrate_session_fields(
   session: StoredAssistantSession,
 ): AssistantSession {
+  const { permission_mode, ...rest } = session;
   return {
-    ...session,
+    ...rest,
     kind: session.kind ?? "chat",
     title_source: session.title_source ?? "derived",
     origin: session.origin ?? {},
     mode: session.mode ?? "ask",
-    permission_mode: session.permission_mode ?? "safe",
+    // S13: sessions written under the Safe | Power control carry
+    // permission_mode. Power was the only value that meant "do not ask", so
+    // it is the only one that hydrates as consent. Destructured out above so
+    // the dead key stops being rewritten into every later save.
+    auto_approve: session.auto_approve ?? permission_mode === "power",
     changed_files: session.changed_files ?? [],
   };
 }

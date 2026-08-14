@@ -38,27 +38,19 @@ import {
 export const CHAT_OP_KEY = "rag.ask";
 
 // Both open surfaces (sidebar rag.open, panel assistant.open_panel) prime the
-// same store the same way: resolve a provider on first open, and default the
-// agent permission mode before any session exists to hold it.
+// same store the same way: resolve a provider on first open. Consent is not
+// primed — it starts off for every session and is only ever granted in the
+// conversation it applies to.
 export async function prime_chat_store(
   chat_store: AssistantChatStore,
   assistant_kernel: AssistantKernelService,
-  settings: {
-    ai_default_provider_id: string;
-    ai_agent_permission_default: Parameters<
-      AssistantChatStore["set_permission_mode"]
-    >[0];
-  },
+  settings: { ai_default_provider_id: string },
 ): Promise<void> {
-  if (!chat_store.provider_id) {
-    const provider = await assistant_kernel.resolve_provider(
-      settings.ai_default_provider_id,
-    );
-    if (provider) chat_store.set_provider(provider.id);
-  }
-  if (!chat_store.active) {
-    chat_store.set_permission_mode(settings.ai_agent_permission_default);
-  }
+  if (chat_store.provider_id) return;
+  const provider = await assistant_kernel.resolve_provider(
+    settings.ai_default_provider_id,
+  );
+  if (provider) chat_store.set_provider(provider.id);
 }
 
 function payload_field(payload: unknown, field: string): string {
@@ -491,12 +483,31 @@ export function register_chat_actions(
   });
 
   registry.register({
-    id: ACTION_IDS.rag_set_permission_mode,
-    label: "Set Vault Agent Permission Mode",
-    execute: (...args: unknown[]) => {
-      const mode = args[0];
-      if (mode !== "safe" && mode !== "power") return;
-      chat_store.set_permission_mode(mode);
+    id: ACTION_IDS.assistant_set_auto_approve,
+    label: "Set Agent Auto-approve",
+    execute: async (...args: unknown[]) => {
+      const enabled = args[0];
+      if (typeof enabled !== "boolean") return;
+
+      // The store first, unconditionally: it is what the next run reads, and
+      // it must reflect the switch even when nothing is in flight to push to.
+      chat_store.set_auto_approve(enabled);
+
+      const session_id = chat_store.active?.agent_session_id;
+      if (!session_id) return;
+      try {
+        // Turning it on here is also the answer to any prompt this session
+        // has parked — the backend decides those rather than leaving the run
+        // blocked on a question the user just answered globally. A false
+        // reply means there was no live run to tell, which matters when the
+        // flip was made from inside a prompt that is now waiting on it.
+        const reached = await permissions.set_auto_approve(session_id, enabled);
+        if (!reached && enabled) {
+          toast.error("This agent run has ended — answer it from a new turn");
+        }
+      } catch (e) {
+        toast.error(error_message(e));
+      }
     },
   });
 
@@ -554,9 +565,7 @@ export function register_chat_actions(
     id: ACTION_IDS.rag_new_chat,
     label: "New Vault Chat",
     execute: () => {
-      chat_store.start_new_session(
-        stores.ui.editor_settings.ai_agent_permission_default,
-      );
+      chat_store.start_new_session();
       stores.op.reset(CHAT_OP_KEY);
     },
   });

@@ -30,7 +30,7 @@ function saved_session(
     provider_id: "ollama",
     scope: {},
     mode: "ask",
-    permission_mode: "safe",
+    auto_approve: false,
     changed_files: [],
     ...overrides,
   };
@@ -176,15 +176,17 @@ describe("AssistantChatStore", () => {
     expect(store.revision).toBe(before + 1);
   });
 
-  it("start_new_session lands in ask mode and seeds the permission default", () => {
+  // S1: consent is per conversation. A session that granted it must not hand
+  // that grant to the next one.
+  it("start_new_session lands in ask mode with auto-approve off", () => {
     const store = new AssistantChatStore(new AssistantSessionStore());
     store.set_mode("agent");
-    store.set_permission_mode("safe");
+    store.set_auto_approve(true);
 
-    store.start_new_session("power");
+    store.start_new_session();
 
     expect(store.mode).toBe("ask");
-    expect(store.permission_mode).toBe("power");
+    expect(store.auto_approve).toBe(false);
   });
 
   it("switch_session restores provider/scope and bumps the revision", () => {

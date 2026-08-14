@@ -6,7 +6,7 @@ use crate::features::pipeline::service as pipeline;
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use std::collections::HashMap;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex as SyncMutex};
 use tauri::{AppHandle, Emitter, Manager};
 use tokio::sync::{oneshot, Mutex};
 
@@ -215,11 +215,12 @@ pub enum AgentEvent {
 #[derive(Default)]
 pub struct AgentRunState {
     handles: Mutex<HashMap<String, oneshot::Sender<()>>>,
-    /// One live policy per assistant session, keyed by the session id the
+    /// Live consent cells for NATIVE turns only, keyed by the session id the
     /// frontend learns from `Init` — which is what a flip arrives addressed
-    /// to. Held here rather than cloned into each run: the cell is the whole
-    /// point, and a per-run copy could not be flipped.
-    policies: Mutex<HashMap<String, Arc<SessionPolicy>>>,
+    /// to. A native turn is its own session, so the entry lives exactly as
+    /// long as the turn. An ACP session's cell hangs off its `ManagedSession`
+    /// instead, where the session's own lifetime already governs it.
+    native_policies: SyncMutex<HashMap<String, Arc<SessionPolicy>>>,
 }
 
 impl AgentRunState {
@@ -227,30 +228,22 @@ impl AgentRunState {
         self.handles.lock().await.remove(request_id);
     }
 
-    /// Reuses the session's existing cell across turns, restating the
-    /// frontend's value each time so the store stays authoritative.
-    pub(crate) async fn policy_for(
-        &self,
-        session_key: &str,
-        auto_approve: bool,
-    ) -> Arc<SessionPolicy> {
-        let policy = self
-            .policies
-            .lock()
-            .await
-            .entry(session_key.to_string())
-            .or_default()
-            .clone();
-        policy.set_auto_approve(auto_approve);
-        policy
+    pub(crate) fn insert_native_policy(&self, session_key: &str, policy: Arc<SessionPolicy>) {
+        self.lock_policies().insert(session_key.to_string(), policy);
     }
 
-    pub(crate) async fn remove_policy(&self, session_key: &str) {
-        self.policies.lock().await.remove(session_key);
+    pub(crate) fn remove_native_policy(&self, session_key: &str) {
+        self.lock_policies().remove(session_key);
     }
 
-    pub(crate) async fn policy(&self, session_key: &str) -> Option<Arc<SessionPolicy>> {
-        self.policies.lock().await.get(session_key).cloned()
+    pub(crate) fn native_policy(&self, session_key: &str) -> Option<Arc<SessionPolicy>> {
+        self.lock_policies().get(session_key).cloned()
+    }
+
+    /// Recovered rather than propagated: a panic while holding this would
+    /// otherwise wedge every later flip and every later run start.
+    fn lock_policies(&self) -> std::sync::MutexGuard<'_, HashMap<String, Arc<SessionPolicy>>> {
+        self.native_policies.lock().unwrap_or_else(|e| e.into_inner())
     }
 }
 
@@ -388,14 +381,19 @@ pub async fn agent_run_start(
                 serde_json::to_string(&spec.toolset).unwrap_or_default(),
             );
 
-            let policy = state.policy_for(&session_key, spec.auto_approve).await;
             let manager = app.state::<super::acp::AcpSessionManager>();
-            let handle = match manager.get_matching(&session_key, &fingerprint, &spec.vault_path)
-            {
+            let (handle, policy) = match manager.get_matching(
+                &session_key,
+                &fingerprint,
+                &spec.vault_path,
+            ) {
                 // Follow-up turn on a live session: no launch resolution, no
-                // token mint, no catalog rebuild — straight to the prompt.
-                Some(handle) => handle,
+                // token mint, no catalog rebuild — straight to the prompt. The
+                // cell comes back with the handle, so the turn always addresses
+                // the one this process actually reads.
+                Some(found) => found,
                 None => {
+                    let policy: Arc<SessionPolicy> = Arc::default();
                     let path_env = pipeline::get_expanded_path();
                     let launch = {
                         let acp_spec = acp_spec.clone();
@@ -451,27 +449,19 @@ pub async fn agent_run_start(
                             .clone(),
                     };
 
-                    // Token and policy lifetimes are owned by session
-                    // lifetime: whatever retires the process revokes its
-                    // credential and drops the cell a flip would address.
+                    // Token lifetime is owned by session lifetime: whatever
+                    // retires the process revokes its credential. The policy
+                    // needs no hook — it hangs off the session itself.
                     let revoke_app = app.clone();
                     let token = endpoint.token;
-                    let retired_key = session_key.clone();
                     let on_retire = Box::new(move || {
                         revoke_app
                             .state::<HttpServerState>()
                             .revoke_scoped_token(&token);
-                        let revoke_app = revoke_app.clone();
-                        tauri::async_runtime::spawn(async move {
-                            revoke_app
-                                .state::<AgentRunState>()
-                                .remove_policy(&retired_key)
-                                .await;
-                        });
                     });
 
                     match manager.get_or_spawn(&session_key, &fingerprint, config, on_retire) {
-                        Ok(handle) => handle,
+                        Ok(found) => found,
                         Err(e) => {
                             let _ = app.emit(&event_name, AgentEvent::Error { message: e });
                             return Ok(());
@@ -479,6 +469,10 @@ pub async fn agent_run_start(
                     }
                 }
             };
+
+            // After acquiring, never before: the store is authoritative, and
+            // this is the one place both paths agree on which cell is live.
+            policy.set_auto_approve(spec.auto_approve);
 
             let (abort_tx, abort_rx) = oneshot::channel::<()>();
             state
@@ -554,7 +548,9 @@ pub async fn agent_run_start(
 
             // A native turn is its own session: it announces `request_id` as
             // the session id, so that is the key a flip arrives addressed to.
-            let policy = state.policy_for(&request_id, spec.auto_approve).await;
+            let policy: Arc<SessionPolicy> = Arc::default();
+            policy.set_auto_approve(spec.auto_approve);
+            state.insert_native_policy(&request_id, policy.clone());
 
             super::native_agent::spawn_native_turn(
                 app,
@@ -593,11 +589,15 @@ pub async fn agent_run_abort(
 #[specta::specta]
 pub async fn agent_run_set_auto_approve(
     state: tauri::State<'_, AgentRunState>,
+    sessions: tauri::State<'_, super::acp::AcpSessionManager>,
     engine: tauri::State<'_, Arc<super::permissions::PermissionEngine>>,
     session_id: String,
     enabled: bool,
 ) -> Result<bool, String> {
-    let Some(policy) = state.policy(&session_id).await else {
+    let found = sessions
+        .policy(&session_id)
+        .or_else(|| state.native_policy(&session_id));
+    let Some(policy) = found else {
         return Ok(false);
     };
     policy.set_auto_approve(enabled);
@@ -607,23 +607,9 @@ pub async fn agent_run_set_auto_approve(
 
     for request_id in policy.take_parked() {
         if let Some(spec) = engine.resolve_auto(&request_id) {
-            grant_mcp_ticket(&policy, &spec);
+            policy.grant_for(&spec);
         }
     }
     Ok(true)
 }
 
-/// A Carbide MCP tool is asked for over ACP and called over HTTP. When the
-/// engine says yes to the first, this is what lets the second through without
-/// asking again.
-pub(crate) fn grant_mcp_ticket(
-    policy: &SessionPolicy,
-    spec: &super::permissions::PermissionRequestSpec,
-) {
-    if !spec.mutating {
-        return;
-    }
-    if let Some(name) = spec.name.strip_prefix(super::harness::MCP_TOOL_PREFIX) {
-        policy.grant_ticket(name);
-    }
-}

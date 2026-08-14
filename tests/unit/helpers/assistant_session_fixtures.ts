@@ -37,7 +37,7 @@ export function make_session(
     origin: {},
     scope: {},
     mode: "ask",
-    permission_mode: "safe",
+    auto_approve: false,
     changed_files: [],
     ...overrides,
   };

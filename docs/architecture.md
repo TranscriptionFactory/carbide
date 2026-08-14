@@ -329,7 +329,7 @@ Backend invariants:
 2. Managed state structs live in the feature's `service.rs` — no global statics
 3. Cross-feature shared code goes in `shared/`, not inside a feature module
 4. `app/mod.rs` is the only place that registers plugins, state, and command handlers
-5. Backend holds no domain state between calls (exceptions: `WatcherState`, `SearchDbState`, and `ExternalMcpState` which are explicit lifecycle-managed state)
+5. Backend holds no domain state between calls (exceptions: `WatcherState`, `SearchDbState`, `ExternalMcpState`, `AgentRunState` and `AcpSessionManager`, which are explicit lifecycle-managed state). The last two hold live agent sessions — an OS process, its abort handle, and the `SessionPolicy` cell a mid-conversation consent flip writes to. The frontend still owns the durable truth (`AssistantSession.auto_approve`); what lives here is only what a running process needs to read, and it dies with that process.
 
 ### External MCP client
 
