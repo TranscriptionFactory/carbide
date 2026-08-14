@@ -62,3 +62,6 @@ src-tauri/binaries/carbide-cli*
 
 # Pi project-local packages (if using pi install -l)
 .pi/npm/
+
+# Git bundles are backup artifacts and exceed GitHub's 100MB blob limit
+*.bundle
