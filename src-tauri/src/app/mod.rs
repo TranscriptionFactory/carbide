@@ -219,6 +219,7 @@ pub fn run() {
             features::ai::stream::ai_test_provider,
             features::ai::agent_stream::agent_run_start,
             features::ai::agent_stream::agent_run_abort,
+            features::ai::agent_stream::agent_run_set_auto_approve,
             features::ai::permissions::agent_permission_decide,
             features::ai::permissions::agent_permission_grants,
             features::ai::permissions::agent_permission_revoke,

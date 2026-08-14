@@ -1,4 +1,5 @@
 use std::collections::HashSet;
+use std::sync::Arc;
 use std::time::Instant;
 
 use futures_util::{Stream, StreamExt};
@@ -12,7 +13,7 @@ use crate::features::mcp::types::{ContentBlock, ToolDefinition, ToolResult};
 
 use super::permissions::{
     mint_request_id, option_kind_name, Evaluation, ParkOutcome, PermissionEngine,
-    PermissionRequestSpec,
+    PermissionRequestSpec, SessionPolicy,
 };
 use super::agent_stream::{
     infer_tool_kind, summarize_chars, AgentEvent, AgentRunSpec, AgentRunState, AgentRunStats,
@@ -39,7 +40,7 @@ pub trait ModelClient: Send + Sync {
 pub fn allowed_tools(catalog: &[ToolDefinition], selector: &ToolSelector) -> Vec<ToolDefinition> {
     catalog
         .iter()
-        .filter(|t| auth::selector_allows(selector, &t.name, t.mutating))
+        .filter(|t| auth::selector_allows(selector, &t.name))
         .cloned()
         .collect()
 }
@@ -92,12 +93,13 @@ pub fn evict_history(history: Vec<AiMessage>) -> Vec<AiMessage> {
     kept
 }
 
-// Toolset-aware so safe mode never advertises an "edit" capability the
-// selector will refuse at dispatch.
+// Scope-aware so a narrowed surface never advertises an "edit" capability the
+// selector will refuse at dispatch. Consent is not described here: it can
+// change mid-run, and a system prompt cannot.
 pub fn build_system_prompt(vault_path: &str, toolset: &ToolSelector) -> String {
     let actions = match toolset {
         ToolSelector::Full => "read, search, and edit notes",
-        ToolSelector::ReadOnly | ToolSelector::Only { .. } => "read and search notes",
+        ToolSelector::Only { .. } => "read and search notes",
     };
     format!(
         "You are Carbide's vault-scoped assistant operating on the vault at {vault_path}. \
@@ -224,12 +226,11 @@ pub async fn run_native_turn<C, D, E, A>(
     emit(AgentEvent::Init { session_id });
     let start = Instant::now();
 
-    // Safe mode offers the full catalog and gates mutating dispatches on
-    // approval instead of hiding tools; the Only selector keeps its runtime
-    // refusal — it is a surface contract, not a permission mode.
+    // The catalog is never narrowed by consent — mutating dispatches are
+    // gated on approval instead. Only the surface's own scope narrows it.
     let allowed = match &toolset {
         ToolSelector::Only { .. } => allowed_tools(&catalog, &toolset),
-        ToolSelector::ReadOnly | ToolSelector::Full => catalog.clone(),
+        ToolSelector::Full => catalog.clone(),
     };
     let allowed_names: HashSet<String> = allowed.iter().map(|t| t.name.clone()).collect();
     let mutating_names: HashSet<String> = catalog
@@ -324,7 +325,7 @@ pub async fn run_native_turn<C, D, E, A>(
 
             if !allowed_names.contains(&name) {
                 let denial = format!(
-                    "Tool '{name}' is not available in the current permission mode and was not executed."
+                    "Tool '{name}' is not available on this surface and was not executed."
                 );
                 emit(AgentEvent::ToolEnd {
                     id: id.clone(),
@@ -494,6 +495,7 @@ pub fn spawn_native_turn(
     event_name: String,
     request_id: String,
     spec: AgentRunSpec,
+    policy: Arc<SessionPolicy>,
     abort_rx: oneshot::Receiver<()>,
 ) {
     let router = McpRouter::with_app(app.clone());
@@ -516,18 +518,26 @@ pub fn spawn_native_turn(
         .state::<std::sync::Arc<PermissionEngine>>()
         .inner()
         .clone();
-    let gate_toolset = toolset.clone();
+    let gate_policy = policy.clone();
     let approval = move |spec: &PermissionRequestSpec| -> NativeGate {
-        match engine.evaluate(&gate_toolset, spec) {
+        match engine.evaluate(&gate_policy, spec) {
             Evaluation::Allow => NativeGate::Allow,
             Evaluation::Prompt => {
                 let request_id = mint_request_id();
                 let engine = engine.clone();
+                let policy = gate_policy.clone();
                 let parked_id = request_id.clone();
                 let spec = spec.clone();
+                // Listed on the policy so switching auto-approve on decides
+                // this prompt instead of leaving the turn blocked on it.
+                policy.park(parked_id.clone());
                 NativeGate::Prompt {
                     request_id,
-                    wait: Box::pin(async move { engine.await_decision(parked_id, spec).await }),
+                    wait: Box::pin(async move {
+                        let outcome = engine.await_decision(parked_id.clone(), spec).await;
+                        policy.unpark(&parked_id);
+                        outcome
+                    }),
                 }
             }
         }
@@ -549,9 +559,10 @@ pub fn spawn_native_turn(
             approval,
         )
         .await;
-        app_clone
-            .state::<AgentRunState>()
-            .remove_handle(&req_id)
-            .await;
+        let state = app_clone.state::<AgentRunState>();
+        state.remove_handle(&req_id).await;
+        // A native turn IS its session; nothing outlives it that a flip could
+        // still be addressed to.
+        state.remove_policy(&req_id).await;
     });
 }

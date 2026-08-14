@@ -206,7 +206,7 @@ async fn scenario_2_safe_mode_offers_the_catalog_and_gates_the_write_on_approval
     let events = drive_gated(
         client,
         vec![tool_def("search", false), tool_def("write_note", true)],
-        ToolSelector::ReadOnly,
+        ToolSelector::Full,
         dispatch,
         rx,
         |spec| {
@@ -219,6 +219,7 @@ async fn scenario_2_safe_mode_offers_the_catalog_and_gates_the_write_on_approval
                     ParkOutcome::Selected {
                         option_id: "reject-once".to_string(),
                         kind: PermissionOptionKind::RejectOnce,
+                        auto: false,
                     }
                 }),
             }
@@ -259,7 +260,7 @@ async fn prompt_approval_resumes_the_dispatch() {
     let events = drive_gated(
         client,
         vec![tool_def("write_note", true)],
-        ToolSelector::ReadOnly,
+        ToolSelector::Full,
         dispatch,
         rx,
         |spec| {
@@ -272,6 +273,7 @@ async fn prompt_approval_resumes_the_dispatch() {
                     ParkOutcome::Selected {
                         option_id: "allow-once".to_string(),
                         kind: PermissionOptionKind::AllowOnce,
+                        auto: false,
                     }
                 }),
             }
@@ -307,7 +309,7 @@ async fn stopping_the_run_ends_a_turn_parked_on_a_prompt() {
     let turn = drive_gated(
         client,
         vec![tool_def("write_note", true)],
-        ToolSelector::ReadOnly,
+        ToolSelector::Full,
         ok_dispatch(),
         abort_rx,
         |_spec| NativeGate::Prompt {
@@ -486,14 +488,6 @@ async fn scenario_8_oversized_tool_result_truncated_with_marker() {
 
     let small = "short";
     assert_eq!(truncate_tool_result(small), small);
-}
-
-#[test]
-fn read_only_selector_excludes_mutating_tools() {
-    let catalog = vec![tool_def("search", false), tool_def("create_note", true)];
-    let allowed = allowed_tools(&catalog, &ToolSelector::ReadOnly);
-    let names: Vec<&str> = allowed.iter().map(|t| t.name.as_str()).collect();
-    assert_eq!(names, ["search"], "ReadOnly must drop mutating create_note");
 }
 
 #[test]

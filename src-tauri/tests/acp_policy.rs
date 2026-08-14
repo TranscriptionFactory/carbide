@@ -2,7 +2,8 @@ use agent_client_protocol::schema::v1::RequestPermissionRequest;
 use serde_json::{json, Value};
 
 use crate::features::ai::permissions::option_kind_name;
-use crate::features::ai::acp::policy::{build_request_spec, select_allow};
+use crate::features::ai::acp::policy::build_request_spec;
+use crate::features::ai::permissions::select_allow;
 use crate::features::ai::agent_stream::{PermissionOptionKind, PermissionOptionSpec, ToolKind};
 
 // The decision matrix itself lives in PermissionEngine (tests/agent_permissions.rs);
@@ -75,15 +76,18 @@ fn read_kinds_are_not_mutating() {
     assert!(!spec.mutating);
 }
 
+/// Carbide's own MCP tools used to arrive pre-authorized, because the scoped
+/// token hid the mutating ones outright. They are advertised in full now, so
+/// nothing may skip the engine on the strength of its name.
 #[test]
-fn a_carbide_mcp_tool_arrives_pre_authorized() {
+fn no_request_arrives_pre_authorized_including_carbide_mcp_tools() {
     let mcp = build_request_spec(
         "claude",
         &request("delete", "mcp__carbide__delete_note", all_options()),
     );
     let plain = build_request_spec("claude", &request("delete", "Delete note", all_options()));
 
-    assert!(mcp.pre_authorized);
+    assert!(!mcp.pre_authorized);
     assert!(!plain.pre_authorized);
 }
 

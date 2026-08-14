@@ -7,7 +7,7 @@ use std::collections::HashMap;
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
-pub use agent_def::{pick_session_mode, resolve_acp_launch, AcpAgentSpec, AcpPresetId};
+pub use agent_def::{resolve_acp_launch, AcpAgentSpec, AcpPresetId};
 pub use session::{AcpSessionConfig, EventSink, SessionHandle};
 pub use translate::TurnTranslator;
 
@@ -47,8 +47,9 @@ impl AcpSessionManager {
     /// The cheap path for follow-up turns: returns the live handle only when
     /// it is the same agent under the same grant against the same vault, so
     /// callers can skip launch resolution, token minting and catalog work
-    /// entirely. The fingerprint must include the toolset — a safe↔power flip
-    /// is a different grant and must retire the old process and its token.
+    /// entirely. The fingerprint covers the surface's tool scope, which the
+    /// scoped token is minted against; consent is not in it, because it lives
+    /// in a shared cell the running session already reads.
     pub fn get_matching(
         &self,
         chat_session_id: &str,

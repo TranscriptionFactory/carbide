@@ -2,11 +2,39 @@ use std::path::Path;
 
 use crate::features::ai::permission_store::GrantStore;
 use crate::features::ai::permissions::{
-    kind_name, Evaluation, ParkedDecision, PermissionEngine, PermissionRequestSpec,
+    kind_name, select_allow, Evaluation, ParkedDecision, PermissionEngine, PermissionRequestSpec,
+    SessionPolicy,
 };
-use crate::features::ai::agent_stream::{PermissionOptionKind, ToolKind, ToolSelector};
+use crate::features::ai::agent_stream::{
+    PermissionOptionKind, PermissionOptionSpec, ToolKind,
+};
 
 const AGENT: &str = "claude-code";
+
+fn off() -> SessionPolicy {
+    SessionPolicy::default()
+}
+
+fn on() -> SessionPolicy {
+    let policy = SessionPolicy::default();
+    policy.set_auto_approve(true);
+    policy
+}
+
+fn allow_options() -> Vec<PermissionOptionSpec> {
+    vec![
+        PermissionOptionSpec {
+            option_id: "reject".to_string(),
+            label: "Deny".to_string(),
+            kind: PermissionOptionKind::RejectOnce,
+        },
+        PermissionOptionSpec {
+            option_id: "allow-once".to_string(),
+            label: "Allow".to_string(),
+            kind: PermissionOptionKind::AllowOnce,
+        },
+    ]
+}
 
 fn spec(name: &str, kind: ToolKind, paths: &[&str]) -> PermissionRequestSpec {
     PermissionRequestSpec {
@@ -37,11 +65,12 @@ fn temp_engine() -> (tempfile::TempDir, PermissionEngine) {
 
 // --- preset matrix -------------------------------------------------------
 
+// S8 / S9 / S18: the whole decision surface, both ways round.
 #[test]
-fn preset_matrix_covers_every_kind_in_safe_and_power() {
+fn preset_matrix_covers_every_kind_with_auto_approve_off_and_on() {
     let (_dir, engine) = temp_engine();
 
-    // (kind, safe, power)
+    // (kind, auto_approve off, auto_approve on)
     let matrix = [
         (ToolKind::Read, Evaluation::Allow, Evaluation::Allow),
         (ToolKind::Search, Evaluation::Allow, Evaluation::Allow),
@@ -49,59 +78,56 @@ fn preset_matrix_covers_every_kind_in_safe_and_power() {
         (ToolKind::Fetch, Evaluation::Allow, Evaluation::Allow),
         (ToolKind::Edit, Evaluation::Prompt, Evaluation::Allow),
         (ToolKind::Move, Evaluation::Prompt, Evaluation::Allow),
-        (ToolKind::Delete, Evaluation::Prompt, Evaluation::Prompt),
-        (ToolKind::Execute, Evaluation::Prompt, Evaluation::Prompt),
-        (ToolKind::Other, Evaluation::Prompt, Evaluation::Prompt),
+        // O2: auto-approve covers the destructive kinds too. Carving Delete
+        // out would not be a floor while Execute is allowed.
+        (ToolKind::Delete, Evaluation::Prompt, Evaluation::Allow),
+        (ToolKind::Execute, Evaluation::Prompt, Evaluation::Allow),
+        (ToolKind::Other, Evaluation::Prompt, Evaluation::Allow),
         (ToolKind::SwitchMode, Evaluation::Allow, Evaluation::Allow),
     ];
 
-    for (kind, safe, power) in matrix {
+    for (kind, closed, open) in matrix {
         let request = spec("SomeTool", kind, &["/vault/note.md"]);
         assert_eq!(
-            engine.evaluate(&ToolSelector::ReadOnly, &request),
-            safe,
-            "safe mode decision for {kind:?}"
+            engine.evaluate(&off(), &request),
+            closed,
+            "auto_approve off decision for {kind:?}"
         );
         assert_eq!(
-            engine.evaluate(&ToolSelector::Full, &request),
-            power,
-            "power mode decision for {kind:?}"
+            engine.evaluate(&on(), &request),
+            open,
+            "auto_approve on decision for {kind:?}"
         );
     }
 }
 
+// S12: the cell is read per call, not snapshotted, so one engine and one
+// policy answer differently either side of a flip.
 #[test]
-fn only_selector_decides_like_safe_mode() {
+fn a_flip_changes_the_answer_for_the_very_next_call() {
     let (_dir, engine) = temp_engine();
-    let only = ToolSelector::Only {
-        names: vec!["read_note".to_string()],
-    };
-
+    let policy = off();
     let edit = spec("Edit", ToolKind::Edit, &["/vault/note.md"]);
-    let read = spec("Read", ToolKind::Read, &["/vault/note.md"]);
 
-    assert_eq!(engine.evaluate(&only, &edit), Evaluation::Prompt);
-    assert_eq!(engine.evaluate(&only, &read), Evaluation::Allow);
+    assert_eq!(engine.evaluate(&policy, &edit), Evaluation::Prompt);
+    policy.set_auto_approve(true);
+    assert_eq!(engine.evaluate(&policy, &edit), Evaluation::Allow);
+    policy.set_auto_approve(false);
+    assert_eq!(engine.evaluate(&policy, &edit), Evaluation::Prompt);
 }
 
 #[test]
-fn mutating_switch_mode_prompts_in_both_modes() {
+fn mutating_switch_mode_prompts_only_while_auto_approve_is_off() {
     let (_dir, engine) = temp_engine();
     let mut request = spec("switch", ToolKind::SwitchMode, &[]);
     request.mutating = true;
 
-    assert_eq!(
-        engine.evaluate(&ToolSelector::ReadOnly, &request),
-        Evaluation::Prompt
-    );
-    assert_eq!(
-        engine.evaluate(&ToolSelector::Full, &request),
-        Evaluation::Prompt
-    );
+    assert_eq!(engine.evaluate(&off(), &request), Evaluation::Prompt);
+    assert_eq!(engine.evaluate(&on(), &request), Evaluation::Allow);
 }
 
 #[test]
-fn a_pre_authorized_call_is_allowed_even_for_destructive_kinds_in_safe_mode() {
+fn a_pre_authorized_call_is_allowed_even_for_destructive_kinds() {
     let (_dir, engine) = temp_engine();
     let mut request = spec(
         "mcp__carbide__delete_note",
@@ -110,26 +136,85 @@ fn a_pre_authorized_call_is_allowed_even_for_destructive_kinds_in_safe_mode() {
     );
     request.pre_authorized = true;
 
-    assert_eq!(
-        engine.evaluate(&ToolSelector::ReadOnly, &request),
-        Evaluation::Allow
-    );
+    assert_eq!(engine.evaluate(&off(), &request), Evaluation::Allow);
 }
 
 #[test]
 fn an_mcp_shaped_name_alone_does_not_bypass_the_preset() {
     let (_dir, engine) = temp_engine();
-    // The prefix is a wire convention the request builder reads; a name that
-    // merely looks like one must not buy a decision on its own.
+    // Carbide's own MCP tools are no longer exempt: they are advertised in
+    // full and gated here like anything else.
     let request = spec(
         "mcp__carbide__delete_note",
         ToolKind::Delete,
         &["/vault/note.md"],
     );
 
+    assert_eq!(engine.evaluate(&off(), &request), Evaluation::Prompt);
+}
+
+// --- session policy ------------------------------------------------------
+
+#[test]
+fn a_ticket_is_single_use() {
+    let policy = off();
+    policy.grant_ticket("note_write");
+
+    assert!(policy.consume_ticket("note_write"));
+    assert!(!policy.consume_ticket("note_write"));
+}
+
+#[test]
+fn a_ticket_does_not_answer_for_a_different_tool() {
+    let policy = off();
+    policy.grant_ticket("note_write");
+
+    assert!(!policy.consume_ticket("delete_note"));
+    assert!(policy.consume_ticket("note_write"));
+}
+
+#[test]
+fn unconsumed_tickets_do_not_grow_without_bound() {
+    let policy = off();
+    for index in 0..100 {
+        policy.grant_ticket(&format!("tool_{index}"));
+    }
+
+    // The oldest are dropped, so an agent that asks and never calls cannot
+    // accumulate approvals forever.
+    assert!(!policy.consume_ticket("tool_0"));
+    assert!(policy.consume_ticket("tool_99"));
+}
+
+#[test]
+fn taking_the_parked_list_empties_it_so_a_second_flip_answers_nothing() {
+    let policy = off();
+    policy.park("perm-1".to_string());
+    policy.park("perm-2".to_string());
+
+    assert_eq!(policy.take_parked().len(), 2);
+    assert!(policy.take_parked().is_empty());
+}
+
+#[test]
+fn unparking_removes_only_the_named_request() {
+    let policy = off();
+    policy.park("perm-1".to_string());
+    policy.park("perm-2".to_string());
+
+    policy.unpark("perm-1");
+
+    assert_eq!(policy.take_parked(), vec!["perm-2".to_string()]);
+}
+
+#[test]
+fn the_always_on_policy_allows_what_a_default_one_prompts_for() {
+    let (_dir, engine) = temp_engine();
+    let request = spec("Bash", ToolKind::Execute, &[]);
+
     assert_eq!(
-        engine.evaluate(&ToolSelector::ReadOnly, &request),
-        Evaluation::Prompt
+        engine.evaluate(&SessionPolicy::always_on(), &request),
+        Evaluation::Allow
     );
 }
 
@@ -154,7 +239,7 @@ fn exact_tool_grant_allows_a_prompting_kind() {
     let request = spec("Bash", ToolKind::Execute, &["/vault/note.md"]);
 
     assert_eq!(
-        engine.evaluate(&ToolSelector::ReadOnly, &request),
+        engine.evaluate(&off(), &request),
         Evaluation::Allow
     );
 }
@@ -178,7 +263,7 @@ fn kind_grant_allows_a_different_tool_under_its_path_prefix() {
     let inside = spec("Edit", ToolKind::Edit, &["/vault/notes/daily.md"]);
 
     assert_eq!(
-        engine.evaluate(&ToolSelector::ReadOnly, &inside),
+        engine.evaluate(&off(), &inside),
         Evaluation::Allow
     );
 }
@@ -204,11 +289,11 @@ fn kind_grant_does_not_leak_outside_its_path_prefix() {
     let sibling = spec("Edit", ToolKind::Edit, &["/vault/notes-backup/old.md"]);
 
     assert_eq!(
-        engine.evaluate(&ToolSelector::ReadOnly, &outside),
+        engine.evaluate(&off(), &outside),
         Evaluation::Prompt
     );
     assert_eq!(
-        engine.evaluate(&ToolSelector::ReadOnly, &sibling),
+        engine.evaluate(&off(), &sibling),
         Evaluation::Prompt
     );
 }
@@ -233,7 +318,7 @@ fn grants_are_scoped_to_the_agent_that_earned_them() {
     request.agent_id = "gemini".to_string();
 
     assert_eq!(
-        engine.evaluate(&ToolSelector::Full, &request),
+        engine.evaluate(&off(), &request),
         Evaluation::Prompt
     );
 }
@@ -253,6 +338,7 @@ async fn park_and_resolve_round_trip() {
         ParkedDecision::Selected {
             option_id: "allow-once".to_string(),
             kind: PermissionOptionKind::AllowOnce,
+            auto: false,
         }
     );
 }
@@ -299,6 +385,7 @@ async fn cancel_unblocks_only_the_named_request() {
         ParkedDecision::Selected {
             option_id: "allow-once".to_string(),
             kind: PermissionOptionKind::AllowOnce,
+            auto: false,
         }
     );
 }
@@ -321,6 +408,88 @@ async fn dropping_the_wait_releases_the_parked_entry() {
         !engine.resolve("perm-1", "allow-once", PermissionOptionKind::AllowOnce),
         "an abandoned wait must not strand its entry in the pending map"
     );
+}
+
+// --- flipping auto-approve onto a parked prompt (S4) ----------------------
+
+#[tokio::test]
+async fn resolve_auto_answers_a_parked_prompt_with_the_mildest_allow() {
+    let (_dir, engine) = temp_engine();
+    let mut request = spec("Edit", ToolKind::Edit, &["/vault/note.md"]);
+    request.options = allow_options();
+
+    let receiver = engine.park("perm-1".to_string(), request);
+    let resolved = engine.resolve_auto("perm-1").expect("the request was parked");
+
+    assert_eq!(resolved.name, "Edit");
+    assert_eq!(
+        receiver.await.unwrap(),
+        ParkedDecision::Selected {
+            option_id: "allow-once".to_string(),
+            kind: PermissionOptionKind::AllowOnce,
+            // The transcript must say the flip answered this, not the user.
+            auto: true,
+        }
+    );
+}
+
+#[tokio::test]
+async fn resolve_auto_persists_no_grant() {
+    let (_dir, engine) = temp_engine();
+    let mut request = spec("Edit", ToolKind::Edit, &["/vault/notes/a.md"]);
+    request.options = vec![PermissionOptionSpec {
+        option_id: "allow-always".to_string(),
+        label: "Always allow".to_string(),
+        kind: PermissionOptionKind::AllowAlways,
+    }];
+
+    let receiver = engine.park("perm-1".to_string(), request);
+    assert!(engine.resolve_auto("perm-1").is_some());
+    let _ = receiver.await;
+
+    // A session-scoped flip must not leave a grant that outlives the session.
+    assert!(engine.grants().is_empty());
+}
+
+#[tokio::test]
+async fn resolve_auto_cancels_a_prompt_with_no_allow_on_offer() {
+    let (_dir, engine) = temp_engine();
+    let mut request = spec("Edit", ToolKind::Edit, &["/vault/note.md"]);
+    request.options = vec![PermissionOptionSpec {
+        option_id: "reject".to_string(),
+        label: "Deny".to_string(),
+        kind: PermissionOptionKind::RejectOnce,
+    }];
+
+    let receiver = engine.park("perm-1".to_string(), request);
+    assert!(engine.resolve_auto("perm-1").is_some());
+
+    assert_eq!(receiver.await.unwrap(), ParkedDecision::Cancelled);
+}
+
+#[tokio::test]
+async fn resolve_auto_is_none_for_an_unknown_request() {
+    let (_dir, engine) = temp_engine();
+
+    assert!(engine.resolve_auto("perm-missing").is_none());
+}
+
+#[test]
+fn select_allow_prefers_allow_once_over_allow_always() {
+    let options = vec![
+        PermissionOptionSpec {
+            option_id: "always".to_string(),
+            label: "Always".to_string(),
+            kind: PermissionOptionKind::AllowAlways,
+        },
+        PermissionOptionSpec {
+            option_id: "once".to_string(),
+            label: "Once".to_string(),
+            kind: PermissionOptionKind::AllowOnce,
+        },
+    ];
+
+    assert_eq!(select_allow(&options).unwrap().option_id, "once");
 }
 
 // --- recording choices ---------------------------------------------------
@@ -348,10 +517,11 @@ async fn allow_always_persists_a_grant_scoped_to_the_common_directory() {
     assert_eq!(grants[0].path_prefix.as_deref(), Some("/vault/notes"));
     assert!(grants[0].granted_at > 0);
 
-    // The grant is what makes the next identical call auto-allow in safe mode.
+    // S10: the grant is what makes the next identical call auto-allow even
+    // with auto-approve off.
     let next = spec("Edit", ToolKind::Edit, &["/vault/notes/a.md"]);
     assert_eq!(
-        engine.evaluate(&ToolSelector::ReadOnly, &next),
+        engine.evaluate(&off(), &next),
         Evaluation::Allow
     );
 }
@@ -403,7 +573,7 @@ fn engine_revoke_removes_a_grant_and_restores_prompting() {
 
     assert!(engine.grants().is_empty());
     assert_eq!(
-        engine.evaluate(&ToolSelector::Full, &spec("Bash", ToolKind::Execute, &[])),
+        engine.evaluate(&off(), &spec("Bash", ToolKind::Execute, &[])),
         Evaluation::Prompt
     );
 }

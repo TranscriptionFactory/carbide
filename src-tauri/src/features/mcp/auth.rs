@@ -1,9 +1,10 @@
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 use subtle::ConstantTimeEq;
 
 use crate::features::ai::agent_stream::ToolSelector;
+use crate::features::ai::permissions::SessionPolicy;
 
 const TOKEN_BYTES: usize = 32;
 
@@ -71,18 +72,30 @@ fn random_token() -> String {
     hex::encode(bytes)
 }
 
-/// Per-session bearer tokens carrying the tool scope an agent run was granted.
-/// The table is the server-side half of safe mode: a harness that ignores its
-/// own `--allowedTools` flags still cannot reach a tool outside its selector.
+/// What a bearer token resolves to: the surface's tool scope, plus the live
+/// consent cell of the session it was minted for. The policy is shared, not
+/// copied, so a mid-session flip is visible to the very next request on this
+/// token.
+#[derive(Clone)]
+pub struct TokenScope {
+    pub selector: ToolSelector,
+    pub policy: Arc<SessionPolicy>,
+}
+
+/// Per-session bearer tokens carrying the scope an agent run was granted. The
+/// table is the server-side half of the gate: a harness that ignores its own
+/// `--allowedTools` flags still cannot reach a tool outside its selector, nor
+/// mutate the vault without the session's consent.
 #[derive(Default)]
 pub struct ScopedTokenTable {
-    tokens: Mutex<HashMap<String, ToolSelector>>,
+    tokens: Mutex<HashMap<String, TokenScope>>,
 }
 
 impl ScopedTokenTable {
-    pub fn mint_scoped_token(&self, selector: ToolSelector) -> String {
+    pub fn mint_scoped_token(&self, selector: ToolSelector, policy: Arc<SessionPolicy>) -> String {
         let token = random_token();
-        self.lock().insert(token.clone(), selector);
+        self.lock()
+            .insert(token.clone(), TokenScope { selector, policy });
         token
     }
 
@@ -90,21 +103,22 @@ impl ScopedTokenTable {
         self.lock().remove(token);
     }
 
-    pub fn lookup(&self, token: &str) -> Option<ToolSelector> {
+    pub fn lookup(&self, token: &str) -> Option<TokenScope> {
         self.lock().get(token).cloned()
     }
 
     /// A poisoned lock would disable authentication for every later request, so
     /// the guard is recovered rather than propagated.
-    fn lock(&self) -> std::sync::MutexGuard<'_, HashMap<String, ToolSelector>> {
+    fn lock(&self) -> std::sync::MutexGuard<'_, HashMap<String, TokenScope>> {
         self.tokens.lock().unwrap_or_else(|e| e.into_inner())
     }
 }
 
-pub fn selector_allows(selector: &ToolSelector, name: &str, mutating: bool) -> bool {
+/// Surface scope only — whether this surface advertises the tool at all.
+/// Consent is a separate question, answered by `SessionPolicy`.
+pub fn selector_allows(selector: &ToolSelector, name: &str) -> bool {
     match selector {
         ToolSelector::Full => true,
-        ToolSelector::ReadOnly => !mutating,
         ToolSelector::Only { names } => names.iter().any(|n| n == name),
     }
 }

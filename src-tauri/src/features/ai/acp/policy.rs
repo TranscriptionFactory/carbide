@@ -5,7 +5,6 @@ use agent_client_protocol::schema::v1::{
 use crate::features::ai::agent_stream::{
     summarize_json, PermissionOptionKind, PermissionOptionSpec, ToolKind,
 };
-use crate::features::ai::harness::MCP_TOOL_PREFIX;
 use crate::features::ai::permissions::PermissionRequestSpec;
 use crate::features::ai::tool_paths::extract_tool_paths;
 
@@ -45,10 +44,11 @@ pub fn build_request_spec(
             .map(|input| summarize_json(input, INPUT_SUMMARY_CHARS))
             .unwrap_or_default(),
         paths,
-        // Carbide's own MCP tools are already gated by the scoped token the
-        // dispatch layer checks — the naming convention is a wire fact, so it
-        // is read here rather than inside the engine.
-        pre_authorized: name.starts_with(MCP_TOOL_PREFIX),
+        // Nothing arrives here already gated. Carbide's own MCP tools used to
+        // be exempt because the scoped token hid the mutating ones outright;
+        // now they are advertised and the engine is their gate too, with the
+        // ticket it mints carrying the answer to the HTTP dispatch layer.
+        pre_authorized: false,
         mutating,
         options: request.options.iter().filter_map(map_option).collect(),
     }
@@ -72,14 +72,4 @@ fn map_option(option: &PermissionOption) -> Option<PermissionOptionSpec> {
         label: option.name.clone(),
         kind: map_option_kind(option.kind)?,
     })
-}
-
-/// The option to answer an auto-allow with: the mildest grant on offer.
-pub fn select_allow(options: &[PermissionOptionSpec]) -> Option<&PermissionOptionSpec> {
-    [
-        PermissionOptionKind::AllowOnce,
-        PermissionOptionKind::AllowAlways,
-    ]
-    .iter()
-    .find_map(|kind| options.iter().find(|option| option.kind == *kind))
 }

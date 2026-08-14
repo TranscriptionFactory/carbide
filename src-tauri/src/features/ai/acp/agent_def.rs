@@ -1,4 +1,3 @@
-use agent_client_protocol::schema::v1::SessionMode;
 use serde::{Deserialize, Serialize};
 use specta::Type;
 
@@ -28,13 +27,6 @@ const MIN_NODE_MAJOR: u32 = 20;
 /// name what they are actually missing rather than the shim they never
 /// configured. An agent that speaks ACP itself names the agent instead.
 const NPX_DISPLAY_NAME: &str = "npx (Node.js)";
-
-/// Session modes whose id or name matches any of these are never selected, even
-/// when the agent advertises nothing else: they disable the agent's own
-/// confirmation prompts, which is the one guarantee Carbide cannot give back.
-const FORBIDDEN_MODE_MARKERS: [&str; 3] = ["bypass", "yolo", "danger"];
-
-const PREFERRED_MODE_MARKERS: [&str; 2] = ["accept", "auto"];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type)]
 #[serde(rename_all = "snake_case")]
@@ -203,30 +195,4 @@ pub(crate) fn preflight_error(
         AcpAgentSpec::Custom { .. } => command,
     };
     cli_probe_error_message(provider_name, probe)
-}
-
-/// The mode to request after `session/new` when the user asked for the power
-/// intent. Returns `None` when nothing acceptable is on offer, which leaves the
-/// agent in whatever mode it started in.
-pub fn pick_session_mode(available_modes: &[SessionMode]) -> Option<String> {
-    available_modes
-        .iter()
-        .filter(|mode| !is_forbidden_mode(mode))
-        .find(|mode| {
-            PREFERRED_MODE_MARKERS
-                .iter()
-                .any(|marker| mode_matches(mode, marker))
-        })
-        .map(|mode| mode.id.to_string())
-}
-
-fn is_forbidden_mode(mode: &SessionMode) -> bool {
-    FORBIDDEN_MODE_MARKERS
-        .iter()
-        .any(|marker| mode_matches(mode, marker))
-}
-
-fn mode_matches(mode: &SessionMode, marker: &str) -> bool {
-    mode.id.to_string().to_ascii_lowercase().contains(marker)
-        || mode.name.to_ascii_lowercase().contains(marker)
 }

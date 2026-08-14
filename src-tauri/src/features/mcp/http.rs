@@ -18,7 +18,8 @@ use tokio::sync::watch;
 use tower_http::cors::{AllowOrigin, CorsLayer};
 
 use crate::features::ai::agent_stream::ToolSelector;
-use crate::features::mcp::auth::{self, ScopedTokenTable};
+use crate::features::ai::permissions::SessionPolicy;
+use crate::features::mcp::auth::{self, ScopedTokenTable, TokenScope};
 use crate::features::mcp::cli_routes;
 use crate::features::mcp::router::McpRouter;
 use crate::features::mcp::types::{
@@ -90,16 +91,20 @@ fn cors_layer() -> CorsLayer {
 }
 
 /// The global token from `~/.carbide/mcp-token` grants everything — terminal
-/// handoff and the CLI depend on it — while a scoped token resolves to whatever
-/// selector its agent run was minted with.
-pub(crate) fn resolve_request_selector(
+/// handoff and the CLI depend on it, and both run under the user's own hands
+/// with no session to flip — while a scoped token resolves to whatever scope
+/// and live policy its agent run was minted with.
+pub(crate) fn resolve_request_scope(
     provided: Option<&str>,
     global_token: &str,
     scoped_tokens: &ScopedTokenTable,
-) -> Option<ToolSelector> {
+) -> Option<TokenScope> {
     let provided = provided?;
     if auth::verify_token(provided, global_token) {
-        return Some(ToolSelector::Full);
+        return Some(TokenScope {
+            selector: ToolSelector::Full,
+            policy: Arc::new(SessionPolicy::always_on()),
+        });
     }
     scoped_tokens.lookup(provided)
 }
@@ -116,9 +121,9 @@ async fn auth_middleware(
         .and_then(|v| v.strip_prefix("Bearer "))
         .map(str::to_owned);
 
-    match resolve_request_selector(token.as_deref(), state.token(), state.scoped_tokens()) {
-        Some(selector) => {
-            request.extensions_mut().insert(selector);
+    match resolve_request_scope(token.as_deref(), state.token(), state.scoped_tokens()) {
+        Some(scope) => {
+            request.extensions_mut().insert(scope);
             next.run(request).await
         }
         None => (
@@ -183,7 +188,17 @@ fn sse_response(response: JsonRpcResponse) -> impl IntoResponse {
     .keep_alive(KeepAlive::default())
 }
 
+/// A surface that narrows its catalog gets a narrowed `tools/list`; consent
+/// never narrows it. A harness reads the catalog once at session start, so
+/// filtering on consent could not widen when the user turns auto-approve on
+/// mid-conversation — the tool would stay invisible for the rest of the
+/// session. Advertising it and refusing the call at dispatch is what makes the
+/// toggle live, and it lets the model report a blocked call instead of
+/// silently lacking the capability.
 fn filter_tools_response(mut response: JsonRpcResponse, selector: &ToolSelector) -> JsonRpcResponse {
+    if matches!(selector, ToolSelector::Full) {
+        return response;
+    }
     if let Some(tools) = response
         .result
         .as_mut()
@@ -192,11 +207,7 @@ fn filter_tools_response(mut response: JsonRpcResponse, selector: &ToolSelector)
     {
         tools.retain(|tool| {
             let name = tool.get("name").and_then(|n| n.as_str()).unwrap_or_default();
-            let mutating = tool
-                .get("mutating")
-                .and_then(|m| m.as_bool())
-                .unwrap_or(true);
-            auth::selector_allows(selector, name, mutating)
+            auth::selector_allows(selector, name)
         });
     }
     response
@@ -215,38 +226,52 @@ static TOOL_MUTABILITY: LazyLock<HashMap<String, bool>> = LazyLock::new(|| {
 
 /// `None` when the call may proceed. Tools the router does not know fall
 /// through so it can report them as unknown rather than as blocked.
+///
+/// Two independent questions, in order: does this surface offer the tool at
+/// all, and did the session consent to a mutation. A ticket answers the second
+/// for a call the user already approved through the harness's permission
+/// prompt, so approving there and being refused here cannot happen.
 fn refuse_out_of_scope_call(
     request: &JsonRpcRequest,
-    selector: &ToolSelector,
+    scope: &TokenScope,
 ) -> Option<JsonRpcResponse> {
-    if matches!(selector, ToolSelector::Full) {
-        return None;
-    }
-
     let name = request.params.as_ref()?.get("name")?.as_str()?;
     let mutating = *TOOL_MUTABILITY.get(name)?;
 
-    if auth::selector_allows(selector, name, mutating) {
+    if !auth::selector_allows(&scope.selector, name) {
+        return Some(refusal(
+            request,
+            format!("Tool `{name}` is not available on this surface"),
+        ));
+    }
+
+    if !mutating || scope.policy.auto_approve() || scope.policy.consume_ticket(name) {
         return None;
     }
 
-    let result = ToolResult::error(format!(
-        "Tool `{}` is blocked by safe mode for this session",
-        name
-    ));
-    Some(JsonRpcResponse::success(
-        request.id.clone(),
-        serde_json::to_value(result).ok()?,
+    Some(refusal(
+        request,
+        format!(
+            "Tool `{name}` writes to the vault and auto-approve is off for this session. \
+Ask the user to turn on Auto-approve, or use a read-only tool."
+        ),
     ))
+}
+
+fn refusal(request: &JsonRpcRequest, message: String) -> JsonRpcResponse {
+    JsonRpcResponse::success(
+        request.id.clone(),
+        serde_json::to_value(ToolResult::error(message)).unwrap_or_default(),
+    )
 }
 
 pub(crate) fn handle_scoped_request(
     router: &mut McpRouter,
     request: &JsonRpcRequest,
-    selector: &ToolSelector,
+    scope: &TokenScope,
 ) -> Option<JsonRpcResponse> {
     if request.method == method::TOOLS_CALL {
-        if let Some(refusal) = refuse_out_of_scope_call(request, selector) {
+        if let Some(refusal) = refuse_out_of_scope_call(request, scope) {
             return Some(refusal);
         }
     }
@@ -254,14 +279,14 @@ pub(crate) fn handle_scoped_request(
     let response = router.handle_request(request)?;
 
     if request.method == method::TOOLS_LIST {
-        return Some(filter_tools_response(response, selector));
+        return Some(filter_tools_response(response, &scope.selector));
     }
     Some(response)
 }
 
 async fn mcp_post_handler(
     State(state): State<Arc<HttpAppState>>,
-    Extension(selector): Extension<ToolSelector>,
+    Extension(scope): Extension<TokenScope>,
     headers: HeaderMap,
     body: String,
 ) -> impl IntoResponse {
@@ -286,7 +311,7 @@ async fn mcp_post_handler(
     let is_initialize = request.method == "initialize";
     let mut router = McpRouter::with_app(state.app().clone());
 
-    match handle_scoped_request(&mut router, &request, &selector) {
+    match handle_scoped_request(&mut router, &request, &scope) {
         None => StatusCode::NO_CONTENT.into_response(),
         Some(resp) if wants_sse(&headers) => {
             let mut response = sse_response(resp).into_response();
@@ -400,8 +425,12 @@ impl HttpServerState {
     /// The table is held here rather than in `HttpAppState` so scoped tokens
     /// survive a server restart and stay reachable from the `AppHandle` that
     /// agent runs mint against.
-    pub fn mint_scoped_token(&self, selector: ToolSelector) -> String {
-        self.scoped_tokens.mint_scoped_token(selector)
+    pub fn mint_scoped_token(
+        &self,
+        selector: ToolSelector,
+        policy: Arc<SessionPolicy>,
+    ) -> String {
+        self.scoped_tokens.mint_scoped_token(selector, policy)
     }
 
     pub fn revoke_scoped_token(&self, token: &str) {

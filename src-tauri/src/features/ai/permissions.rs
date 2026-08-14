@@ -1,5 +1,6 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::Duration;
 
@@ -7,7 +8,7 @@ use tauri::State;
 use tokio::sync::oneshot;
 
 use crate::features::ai::agent_stream::{
-    AgentEvent, PermissionOptionKind, PermissionOptionSpec, ToolKind, ToolSelector,
+    AgentEvent, PermissionOptionKind, PermissionOptionSpec, ToolKind,
 };
 
 use super::permission_store::{default_store_dir, random_hex_id, Grant, GrantStore};
@@ -15,6 +16,88 @@ use super::permission_store::{default_store_dir, random_hex_id, Grant, GrantStor
 /// How long a parked request may wait for the user before the engine gives up
 /// on it and answers Timeout.
 pub const PERMISSION_TIMEOUT: Duration = Duration::from_secs(600);
+
+/// An unconsumed ticket is one the harness asked for and never called; the cap
+/// bounds that leak without needing to expire them on a timer.
+const MAX_TICKETS: usize = 16;
+
+/// The live permission axis for one assistant session. Shared rather than
+/// cloned into a run, so flipping `auto_approve` mid-run is observed by the
+/// next tool call on every path that gates one.
+#[derive(Default)]
+pub struct SessionPolicy {
+    auto_approve: AtomicBool,
+    /// Single-use approvals for Carbide's own MCP tools. A harness asks over
+    /// ACP and then calls over HTTP — two gates on one intention — and the
+    /// ticket is what carries the first gate's answer to the second, so the
+    /// user is never asked twice and never approves a call that is then
+    /// refused. Keyed by bare tool name: the window between the two is one
+    /// round trip, and a name is the most the HTTP layer can match on.
+    tickets: Mutex<VecDeque<String>>,
+    /// Request ids this session has parked, so turning auto-approve on answers
+    /// exactly its own prompts and no other session's.
+    parked: Mutex<Vec<String>>,
+}
+
+impl SessionPolicy {
+    /// Terminal handoff and the CLI run under the user's own hands, with no
+    /// session to flip; they carry a policy that is on and stays on.
+    pub fn always_on() -> Self {
+        Self {
+            auto_approve: AtomicBool::new(true),
+            ..Self::default()
+        }
+    }
+
+    pub fn auto_approve(&self) -> bool {
+        self.auto_approve.load(Ordering::Relaxed)
+    }
+
+    pub fn set_auto_approve(&self, enabled: bool) {
+        self.auto_approve.store(enabled, Ordering::Relaxed);
+    }
+
+    pub fn grant_ticket(&self, name: &str) {
+        let mut tickets = self.lock_tickets();
+        if tickets.len() == MAX_TICKETS {
+            tickets.pop_front();
+        }
+        tickets.push_back(name.to_string());
+    }
+
+    pub fn consume_ticket(&self, name: &str) -> bool {
+        let mut tickets = self.lock_tickets();
+        match tickets.iter().position(|t| t == name) {
+            Some(index) => {
+                tickets.remove(index);
+                true
+            }
+            None => false,
+        }
+    }
+
+    pub fn park(&self, request_id: String) {
+        self.lock_parked().push(request_id);
+    }
+
+    pub fn unpark(&self, request_id: &str) {
+        self.lock_parked().retain(|id| id != request_id);
+    }
+
+    /// Empties the list: every caller here is answering the prompts, so
+    /// leaving them listed would let a second flip answer them again.
+    pub fn take_parked(&self) -> Vec<String> {
+        self.lock_parked().drain(..).collect()
+    }
+
+    fn lock_tickets(&self) -> MutexGuard<'_, VecDeque<String>> {
+        self.tickets.lock().unwrap_or_else(|e| e.into_inner())
+    }
+
+    fn lock_parked(&self) -> MutexGuard<'_, Vec<String>> {
+        self.parked.lock().unwrap_or_else(|e| e.into_inner())
+    }
+}
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct PermissionRequestSpec {
@@ -57,6 +140,10 @@ pub enum ParkedDecision {
     Selected {
         option_id: String,
         kind: PermissionOptionKind,
+        /// True when the answer came from auto-approve being switched on
+        /// rather than from the user picking this option. The transcript
+        /// reports the two differently.
+        auto: bool,
     },
     Cancelled,
 }
@@ -67,6 +154,7 @@ pub enum ParkOutcome {
     Selected {
         option_id: String,
         kind: PermissionOptionKind,
+        auto: bool,
     },
     Cancelled,
     Timeout,
@@ -96,7 +184,7 @@ impl PermissionEngine {
         }
     }
 
-    pub fn evaluate(&self, toolset: &ToolSelector, spec: &PermissionRequestSpec) -> Evaluation {
+    pub fn evaluate(&self, policy: &SessionPolicy, spec: &PermissionRequestSpec) -> Evaluation {
         if spec.pre_authorized {
             return Evaluation::Allow;
         }
@@ -110,7 +198,7 @@ impl PermissionEngine {
             return Evaluation::Allow;
         }
 
-        preset_decision(toolset, spec)
+        preset_decision(policy, spec)
     }
 
     /// Parks the request and owns the whole wait: the timer, the empty-option
@@ -130,9 +218,15 @@ impl PermissionEngine {
         match tokio::time::timeout(PERMISSION_TIMEOUT, receiver).await {
             // An empty option_id is the synthetic Deny for a prompt the agent
             // offered no reject option for; there is nothing to answer with.
-            Ok(Ok(ParkedDecision::Selected { option_id, kind })) if !option_id.is_empty() => {
-                ParkOutcome::Selected { option_id, kind }
-            }
+            Ok(Ok(ParkedDecision::Selected {
+                option_id,
+                kind,
+                auto,
+            })) if !option_id.is_empty() => ParkOutcome::Selected {
+                option_id,
+                kind,
+                auto,
+            },
             Ok(Ok(_)) | Ok(Err(_)) => ParkOutcome::Cancelled,
             Err(_) => ParkOutcome::Timeout,
         }
@@ -166,6 +260,7 @@ impl PermissionEngine {
             .send(ParkedDecision::Selected {
                 option_id: option_id.to_string(),
                 kind: option_kind,
+                auto: false,
             })
             .is_ok();
 
@@ -173,6 +268,30 @@ impl PermissionEngine {
             self.record_choice(&pending.spec, option_kind);
         }
         delivered
+    }
+
+    /// Answers a parked request with the mildest allow it was offered — this
+    /// is auto-approve being switched on while the user left a prompt
+    /// standing. No grant is recorded: the session-wide flip is the consent,
+    /// and persisting it as a standing grant would outlive the session.
+    ///
+    /// Returns the spec so the caller can settle its own bookkeeping (an ACP
+    /// session mints a ticket for a Carbide MCP call here).
+    pub fn resolve_auto(&self, request_id: &str) -> Option<PermissionRequestSpec> {
+        let pending = self.pending().remove(request_id)?;
+        // No allow on offer is the same dead end `auto_answer` hits: there is
+        // nothing to say yes with, so the call is cancelled rather than
+        // silently left parked.
+        let decision = match select_allow(&pending.spec.options) {
+            Some(option) => ParkedDecision::Selected {
+                option_id: option.option_id.clone(),
+                kind: option.kind,
+                auto: true,
+            },
+            None => ParkedDecision::Cancelled,
+        };
+        pending.responder.send(decision).ok()?;
+        Some(pending.spec)
     }
 
     /// Unblocks one parked prompt as Cancelled — the session that owns the
@@ -237,18 +356,33 @@ impl Drop for PendingGuard {
     }
 }
 
-/// `Only { .. }` is a narrowed grant, so it decides like safe mode. Every kind
-/// is spelled out: a new one must fail to compile rather than default to a
-/// permission.
-fn preset_decision(toolset: &ToolSelector, spec: &PermissionRequestSpec) -> Evaluation {
-    let power = matches!(toolset, ToolSelector::Full);
+/// Auto-approve covers every kind, `Delete` and `Execute` included. Carving
+/// those out would not be a safety floor — an approved `Execute` can delete
+/// anything — and a switch labelled "auto-approve" that still interrupts is
+/// the mislabelling this control exists to remove.
+///
+/// Below the flip, every kind is spelled out: a new one must fail to compile
+/// rather than default to a permission.
+fn preset_decision(policy: &SessionPolicy, spec: &PermissionRequestSpec) -> Evaluation {
+    if policy.auto_approve() {
+        return Evaluation::Allow;
+    }
     match spec.kind {
         ToolKind::Read | ToolKind::Search | ToolKind::Think | ToolKind::Fetch => Evaluation::Allow,
-        ToolKind::Edit | ToolKind::Move if power => Evaluation::Allow,
         ToolKind::SwitchMode if !spec.mutating => Evaluation::Allow,
         ToolKind::Edit | ToolKind::Move | ToolKind::SwitchMode => Evaluation::Prompt,
         ToolKind::Delete | ToolKind::Execute | ToolKind::Other => Evaluation::Prompt,
     }
+}
+
+/// The option to answer an auto-allow with: the mildest grant on offer.
+pub fn select_allow(options: &[PermissionOptionSpec]) -> Option<&PermissionOptionSpec> {
+    [
+        PermissionOptionKind::AllowOnce,
+        PermissionOptionKind::AllowAlways,
+    ]
+    .iter()
+    .find_map(|kind| options.iter().find(|option| option.kind == *kind))
 }
 
 pub fn kind_name(kind: ToolKind) -> &'static str {

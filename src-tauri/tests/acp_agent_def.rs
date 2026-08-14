@@ -1,11 +1,10 @@
-use agent_client_protocol::schema::v1::SessionMode;
 use serde_json::json;
 
 use crate::features::ai::acp::agent_def::{
     node_version_rejection, preflight_error, preset_requires_node,
 };
 use crate::features::ai::acp::{
-    pick_session_mode, resolve_acp_launch, AcpAgentSpec, AcpPresetId,
+    resolve_acp_launch, AcpAgentSpec, AcpPresetId,
 };
 use crate::features::pipeline::service as pipeline;
 
@@ -23,16 +22,6 @@ fn missing_probe(error: Option<&str>) -> pipeline::CliProbe {
 fn present(command: &str) -> bool {
     pipeline::resolve_cli_with_path(command, &pipeline::get_expanded_path()).status
         == pipeline::CliProbeStatus::Present
-}
-
-fn modes(entries: &[(&str, &str)]) -> Vec<SessionMode> {
-    entries
-        .iter()
-        .map(|(id, name)| {
-            serde_json::from_value(json!({ "id": id, "name": name }))
-                .expect("fixture should deserialize as a SessionMode")
-        })
-        .collect()
 }
 
 #[test]
@@ -261,40 +250,6 @@ fn a_supported_node_is_not_rejected() {
 fn an_unparseable_node_version_is_never_a_launch_blocker() {
     assert_eq!(node_version_rejection("", "/usr/bin/node"), None);
     assert_eq!(node_version_rejection("nightly", "/usr/bin/node"), None);
-}
-
-#[test]
-fn accept_edits_style_modes_are_preferred() {
-    let picked = pick_session_mode(&modes(&[
-        ("default", "Ask every time"),
-        ("acceptEdits", "Accept edits"),
-    ]));
-
-    assert_eq!(picked.as_deref(), Some("acceptEdits"));
-}
-
-#[test]
-fn auto_named_modes_are_preferred() {
-    let picked = pick_session_mode(&modes(&[("normal", "Normal"), ("auto", "Auto approve")]));
-
-    assert_eq!(picked.as_deref(), Some("auto"));
-}
-
-#[test]
-fn a_bypass_mode_is_never_picked_even_when_it_is_the_only_candidate() {
-    for entry in [
-        ("bypassPermissions", "Accept edits"),
-        ("full-auto", "YOLO mode"),
-        ("auto-danger", "Auto accept everything"),
-    ] {
-        assert_eq!(pick_session_mode(&modes(&[entry])), None, "picked {entry:?}");
-    }
-}
-
-#[test]
-fn no_acceptable_mode_yields_none() {
-    assert_eq!(pick_session_mode(&modes(&[("default", "Ask")])), None);
-    assert_eq!(pick_session_mode(&[]), None);
 }
 
 #[test]

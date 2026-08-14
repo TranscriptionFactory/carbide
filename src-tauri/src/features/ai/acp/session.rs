@@ -6,8 +6,7 @@ use agent_client_protocol::schema::v1::{
     CancelNotification, ClientCapabilities, ContentBlock, FileSystemCapabilities, HttpHeader,
     Implementation, InitializeRequest, McpServer, McpServerHttp, NewSessionRequest, PromptRequest,
     RequestPermissionOutcome, RequestPermissionRequest, RequestPermissionResponse,
-    SelectedPermissionOutcome, SessionId, SessionNotification, SetSessionModeRequest, StopReason,
-    TextContent,
+    SelectedPermissionOutcome, SessionId, SessionNotification, StopReason, TextContent,
 };
 use agent_client_protocol::schema::ProtocolVersion;
 use agent_client_protocol::{
@@ -15,16 +14,17 @@ use agent_client_protocol::{
 };
 use tokio::sync::mpsc;
 
-use crate::features::ai::agent_stream::{AgentEvent, AgentRunStats, ToolSelector};
+use crate::features::ai::agent_stream::{AgentEvent, AgentRunStats, PermissionOptionKind};
 use crate::features::ai::harness::MutatingToolSet;
+use crate::features::ai::agent_stream::grant_mcp_ticket;
 use crate::features::ai::permissions::{
-    mint_request_id, option_kind_name, Evaluation, ParkOutcome, PermissionEngine,
-    PermissionRequestSpec,
+    mint_request_id, option_kind_name, select_allow, Evaluation, ParkOutcome, PermissionEngine,
+    PermissionRequestSpec, SessionPolicy,
 };
 use crate::features::ai::stream::clamp_stderr;
 
-use super::agent_def::{pick_session_mode, AcpLaunch};
-use super::policy::{build_request_spec, select_allow};
+use super::agent_def::AcpLaunch;
+use super::policy::build_request_spec;
 use super::translate::TurnTranslator;
 
 const STDERR_RING_LINES: usize = 50;
@@ -41,7 +41,11 @@ pub struct AcpSessionConfig {
     /// schema crate; the single `McpServerHttp` is assembled here.
     pub mcp_port: u16,
     pub mcp_token: String,
-    pub toolset: ToolSelector,
+    /// Shared with the MCP token table and the flip command, never cloned:
+    /// this is what makes consent live for the session's whole life. The
+    /// surface's tool scope is not carried here — it is spent minting the
+    /// token, which is the only thing that enforces it.
+    pub policy: Arc<SessionPolicy>,
     pub mutating: MutatingToolSet,
     /// Stable identity grants are keyed by ("claude", "codex", or the custom
     /// command); the permission engine scopes stored grants to it.
@@ -126,7 +130,7 @@ async fn run_session(
         path_env,
         mcp_port,
         mcp_token,
-        toolset,
+        policy,
         mutating,
         agent_id,
         permissions,
@@ -157,13 +161,12 @@ async fn run_session(
     let notification_translator = translator.clone();
     let notification_sink = sink.clone();
     let permission_sink = sink.clone();
-    let handler_toolset = toolset.clone();
     let handler_engine = permissions.clone();
     let handler_agent_id = agent_id.clone();
-    // Request ids this session has parked, so aborting the turn can cancel
-    // exactly its own prompts and no other session's.
-    let parked: Arc<Mutex<Vec<String>>> = Arc::new(Mutex::new(Vec::new()));
-    let handler_parked = parked.clone();
+    // The policy owns this session's parked request ids, so both the things
+    // that answer them in bulk — aborting the turn, and switching auto-approve
+    // on — reach exactly its own prompts and no other session's.
+    let handler_policy = policy.clone();
 
     let result = Client
         .builder()
@@ -186,18 +189,32 @@ async fn run_session(
                 let spec = build_request_spec(&handler_agent_id, &request);
                 let request_id = mint_request_id();
 
-                let answer = match handler_engine.evaluate(&handler_toolset, &spec) {
-                    Evaluation::Allow => auto_answer(&permission_sink, &request_id, &spec),
+                let answer = match handler_engine.evaluate(&handler_policy, &spec) {
+                    Evaluation::Allow => {
+                        grant_mcp_ticket(&handler_policy, &spec);
+                        auto_answer(&permission_sink, &request_id, &spec)
+                    }
                     Evaluation::Prompt => {
                         emit(&permission_sink, spec.to_event(request_id.clone()));
-                        handler_parked.lock().unwrap().push(request_id.clone());
+                        handler_policy.park(request_id.clone());
                         let outcome = handler_engine
                             .await_decision(request_id.clone(), spec.clone())
                             .await;
-                        handler_parked
-                            .lock()
-                            .unwrap()
-                            .retain(|id| id != &request_id);
+                        handler_policy.unpark(&request_id);
+                        // The user said yes to this exact call; the HTTP layer
+                        // must not ask again when the harness makes it. A
+                        // reject is still a Selected outcome, so the kind is
+                        // what decides, not the variant.
+                        if matches!(
+                            outcome,
+                            ParkOutcome::Selected {
+                                kind: PermissionOptionKind::AllowOnce
+                                    | PermissionOptionKind::AllowAlways,
+                                ..
+                            }
+                        ) {
+                            grant_mcp_ticket(&handler_policy, &spec);
+                        }
                         settle_prompt(&permission_sink, &request_id, outcome)
                     }
                 };
@@ -221,11 +238,10 @@ async fn run_session(
                 &cwd,
                 mcp_port,
                 &mcp_token,
-                &toolset,
                 cmd_rx,
                 &sink,
                 &translator,
-                &parked,
+                &policy,
                 &permissions,
             )
             .await
@@ -248,11 +264,10 @@ async fn run_commands(
     cwd: &str,
     mcp_port: u16,
     mcp_token: &str,
-    toolset: &ToolSelector,
     mut cmd_rx: mpsc::UnboundedReceiver<SessionCommand>,
     sink: &Arc<Mutex<Option<EventSink>>>,
     translator: &Arc<Mutex<TurnTranslator>>,
-    parked: &Arc<Mutex<Vec<String>>>,
+    policy: &Arc<SessionPolicy>,
     permissions: &std::sync::Arc<PermissionEngine>,
 ) -> Result<(), agent_client_protocol::Error> {
     cx.send_request(
@@ -278,19 +293,13 @@ async fn run_commands(
         .send_request(NewSessionRequest::new(cwd).mcp_servers(vec![carbide_mcp]))
         .block_task()
         .await?;
+    // The agent is deliberately left in whatever mode it started in. Its
+    // "accept edits" modes suppress the very RequestPermission calls that
+    // Carbide's own gate reads, so selecting one would hand consent to the
+    // harness — permanently, since a mode chosen at session start cannot
+    // follow a mid-conversation flip. Carbide asks, every time, and answers
+    // itself when auto-approve is on.
     let session_id = session.session_id;
-
-    if matches!(toolset, ToolSelector::Full) {
-        if let Some(mode_id) = session
-            .modes
-            .as_ref()
-            .and_then(|modes| pick_session_mode(&modes.available_modes))
-        {
-            cx.send_request(SetSessionModeRequest::new(session_id.clone(), mode_id))
-                .block_task()
-                .await?;
-        }
-    }
 
     let mut announced = false;
     while let Some(command) = cmd_rx.recv().await {
@@ -311,8 +320,7 @@ async fn run_commands(
             SessionCommand::Cancel => {
                 // A stopped run must not leave a live prompt: unblock this
                 // session's parked requests before the agent is told to stop.
-                let stranded: Vec<String> = parked.lock().unwrap().drain(..).collect();
-                for request_id in stranded {
+                for request_id in policy.take_parked() {
                     permissions.cancel(&request_id);
                 }
                 cx.send_notification(CancelNotification::new(session_id.clone()))?;
@@ -398,9 +406,13 @@ fn settle_prompt(
     outcome: ParkOutcome,
 ) -> Option<String> {
     let (outcome_text, auto, option_id) = match outcome {
-        ParkOutcome::Selected { option_id, kind } => (
+        ParkOutcome::Selected {
+            option_id,
+            kind,
+            auto,
+        } => (
             format!("selected:{}", option_kind_name(kind)),
-            false,
+            auto,
             Some(option_id),
         ),
         ParkOutcome::Cancelled => ("cancelled".to_string(), true, None),
