@@ -34,6 +34,7 @@
     acp_agent_label,
     agent_capability,
     describe_default_provider,
+    with_transport_kind,
     ACP_PRESET_LABELS,
     type AiCliProbe,
     type AiProviderProbeState,
@@ -1223,6 +1224,42 @@
                             })}
                         />
                       </div>
+                      {#if !provider.is_preset}
+                        <div class="flex items-center gap-2">
+                          <span class="w-20 text-xs text-muted-foreground"
+                            >Transport</span
+                          >
+                          <Select.Root
+                            type="single"
+                            value={provider.transport.kind}
+                            disabled={ai_settings_disabled}
+                            onValueChange={(v: string | undefined) => {
+                              if (!v) return;
+                              update_provider(provider.id, {
+                                transport: with_transport_kind(
+                                  provider,
+                                  v as AiTransport["kind"],
+                                ).transport,
+                              });
+                            }}
+                          >
+                            <Select.Trigger class="flex-1">
+                              <span data-slot="select-value"
+                                >{transport_kind_options.find(
+                                  (o) => o.value === provider.transport.kind,
+                                )?.label ?? provider.transport.kind}</span
+                              >
+                            </Select.Trigger>
+                            <Select.Content>
+                              {#each transport_kind_options as opt (opt.value)}
+                                <Select.Item value={opt.value}
+                                  >{opt.label}</Select.Item
+                                >
+                              {/each}
+                            </Select.Content>
+                          </Select.Root>
+                        </div>
+                      {/if}
                       {#if provider.transport.kind === "cli"}
                         <div class="flex items-center gap-2">
                           <span class="w-20 text-xs text-muted-foreground"
