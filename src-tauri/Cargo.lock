@@ -906,7 +906,7 @@ dependencies = [
 
 [[package]]
 name = "carbide"
-version = "2.29.4"
+version = "2.30.0"
 dependencies = [
  "agent-client-protocol",
  "anyhow",
