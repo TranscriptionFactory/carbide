@@ -13,7 +13,7 @@
     ".svelte-kit/**",
     "archive/**",
     "build/**",
-    "carbide/designFiles/**",
+    "private/**",
     "dist/**",
     "node_modules/**",
     "src-tauri/target/**",

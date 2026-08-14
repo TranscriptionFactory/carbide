@@ -1,7 +1,7 @@
 // Shared asset-localization seam: also the designated primitive for
-// snapshot-on-trust (carbide/plans/2026-06-24_live_html_remote_scripts_plan.md)
+// snapshot-on-trust (private/carbide/plans/2026-06-24_live_html_remote_scripts_plan.md)
 // and Tier-3 self-contained export
-// (carbide/plans/2026-05-29_html_doc_parity_plan.md).
+// (private/carbide/plans/2026-05-29_html_doc_parity_plan.md).
 
 export const DEFAULT_MAX_IMAGES = 20;
 

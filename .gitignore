@@ -33,9 +33,10 @@ src-tauri/excalidraw-dist/
 .ignore
 .shiftlog/
 
-# Development-only docs
-# Do not version control devlog/ or refer to it in PRs/issues.
-devlog/
+# Private planning workspace — symlink to the carbide-private repo.
+# This repo is public: never version control it or refer to it in PRs/issues.
+# No trailing slash: git sees the symlink as a blob, so "private/" would not match.
+private
 
 # Sidecar binaries built or downloaded at build time
 src-tauri/binaries/rumdl*
@@ -45,7 +46,6 @@ src-tauri/binaries/carbide-cli*
 
 # Nested vault/tool state produced by local documentation vaults
 **/.carbide/.rumdl.toml
-devlog/2026-07-21_ai-ux-overhaul/PLAN.md
 .worktrees/
 
 # Taskplane runtime artifacts (machine-specific, do not commit)

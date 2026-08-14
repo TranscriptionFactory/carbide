@@ -19,7 +19,7 @@ three AI surfaces (inline AI panel, ChatRAG ask, agent mode) behind one run
 abstraction, one AgentEvent contract, and a capability-described backend model
 (API providers → native in-process loop; CLI agents → harness adapters:
 claude + codex). Full rationale + BDD scenarios + locked user decisions live
-in `devlog/2026-07-23_generalized-agent-framework/PLAN.md` (gitignored — not
+in `private/devlog/2026-07-23_generalized-agent-framework/PLAN.md` (gitignored — not
 visible inside worktree lanes; every PROMPT.md is self-contained).
 
 Wave schedule (dependencies encoded in each PROMPT.md):
@@ -39,11 +39,11 @@ in agent mode IN SCOPE (TP-008); per-tool interactive approval DEFERRED.
 
 ## Key Files
 
-| Category     | Path                                                                 |
-| ------------ | -------------------------------------------------------------------- |
-| Tasks        | `taskplane-tasks/`                                                   |
-| Config       | `.pi/taskplane-config.json`                                          |
-| Program plan | `devlog/2026-07-23_generalized-agent-framework/PLAN.md` (gitignored) |
+| Category     | Path                                                                         |
+| ------------ | ---------------------------------------------------------------------------- |
+| Tasks        | `taskplane-tasks/`                                                           |
+| Config       | `.pi/taskplane-config.json`                                                  |
+| Program plan | `private/devlog/2026-07-23_generalized-agent-framework/PLAN.md` (gitignored) |
 
 ## Lane Environment Notes (worktree lanes)
 

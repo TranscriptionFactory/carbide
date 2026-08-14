@@ -137,7 +137,7 @@ fn evict_oldest(docs: &mut HashMap<String, Entry>) {
 
 // Canonical CSP policy — the single source for everything served via carbide-html:
 // (no meta CSP is injected on the TS side). The directive table is pinned by the
-// tests below (carbide/plans/2026-06-24_live_html_remote_scripts_plan.md).
+// tests below (private/carbide/plans/2026-06-24_live_html_remote_scripts_plan.md).
 // `https:` in script-src/style-src and `connect-src *` are gated on the live+net tier.
 pub fn live_html_csp(allow_network: bool) -> String {
     let script_src = if allow_network {
