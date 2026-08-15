@@ -12,6 +12,10 @@ const rust_source_root = path.join(project_root, "src-tauri/src");
 // Every #[tauri::command] must be `async fn` or carry #[tauri::command(async)],
 // unless it is listed here with a justification. Additions need a real reason:
 // "it is fast" is not one, because a network filesystem makes anything slow.
+//
+// Both spellings count: the bare `#[command]` shorthand a `use tauri::command`
+// import enables is the same attribute, and a gate that only saw the qualified
+// form let five sync commands through for months.
 const MAIN_THREAD_COMMANDS = new Map([
   [
     "confirm_window_close",
@@ -56,7 +60,7 @@ const MAIN_THREAD_COMMANDS = new Map([
   ],
 ]);
 
-const command_attribute = /#\[tauri::command(\s*\(\s*async\s*\)\s*)?\]/g;
+const command_attribute = /#\[(?:tauri::)?command(\s*\(\s*async\s*\)\s*)?\]/g;
 const fn_signature = /^\s*(?:pub(?:\s*\([^)]*\))?\s+)?(async\s+)?fn\s+(\w+)/;
 
 function collect_rust_files(dir_path, accumulator) {
@@ -120,7 +124,7 @@ const delegating_commands = new Set();
 
 for (const file_path of collect_rust_files(rust_source_root, [])) {
   const content = fs.readFileSync(file_path, "utf8");
-  if (!content.includes("#[tauri::command")) {
+  if (!content.includes("#[tauri::command") && !content.includes("#[command")) {
     continue;
   }
   const lines = content.split("\n");
