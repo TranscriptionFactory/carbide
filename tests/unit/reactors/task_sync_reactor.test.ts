@@ -26,8 +26,11 @@ function changed_event(
   };
 }
 
-function added_event(note_path: string): VaultFsEvent {
-  return { type: "note_added", vault_id: VAULT_ID, note_path };
+function added_event(
+  note_path: string,
+  mtime_ms: number | null = null,
+): VaultFsEvent {
+  return { type: "note_added", vault_id: VAULT_ID, note_path, mtime_ms };
 }
 
 function removed_event(note_path: string): VaultFsEvent {
@@ -142,6 +145,46 @@ describe("task_sync_reactor", () => {
     t.watcher_service.suppress_next(NOTE_PATH);
     t.watcher_service.is_suppressed(NOTE_PATH, { kind: "change" });
     t.watcher_port._emit(changed_event(NOTE_PATH));
+    settle_debounce();
+
+    expect(t.task_service.refreshTasks).toHaveBeenCalledTimes(1);
+    t.unmount();
+  });
+
+  // The shape an ordinary save actually delivers: note_service arms before the
+  // write and records the mtime after it, and watcher.reactor - which
+  // subscribes first - spends the arming on whichever event reaches it before
+  // that record exists. Without the mtime this peek has nothing left to read
+  // and every save costs a task refresh.
+  it("does not refresh tasks for a save whose arming was spent before it peeked", async () => {
+    const t = await mount_reactor();
+
+    t.watcher_service.suppress_next(NOTE_PATH);
+    t.watcher_service.is_suppressed(NOTE_PATH, { kind: "change" });
+    t.watcher_service.record_self_write(NOTE_PATH, 5_000);
+    t.watcher_port._emit(changed_event(NOTE_PATH, 5_000));
+    settle_debounce();
+
+    expect(t.task_service.refreshTasks).not.toHaveBeenCalled();
+    t.unmount();
+  });
+
+  it("does not refresh tasks for the note_added trailing a save", async () => {
+    const t = await mount_reactor();
+
+    t.watcher_service.record_self_write(NOTE_PATH, 5_000);
+    t.watcher_port._emit(added_event(NOTE_PATH, 5_000));
+    settle_debounce();
+
+    expect(t.task_service.refreshTasks).not.toHaveBeenCalled();
+    t.unmount();
+  });
+
+  it("refreshes tasks for an external edit that lands after a save", async () => {
+    const t = await mount_reactor();
+
+    t.watcher_service.record_self_write(NOTE_PATH, 5_000);
+    t.watcher_port._emit(changed_event(NOTE_PATH, 6_000));
     settle_debounce();
 
     expect(t.task_service.refreshTasks).toHaveBeenCalledTimes(1);

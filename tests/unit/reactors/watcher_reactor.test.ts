@@ -33,8 +33,11 @@ function changed_event(
   };
 }
 
-function added_event(note_path: string): VaultFsEvent {
-  return { type: "note_added", vault_id: VAULT_ID, note_path };
+function added_event(
+  note_path: string,
+  mtime_ms: number | null = null,
+): VaultFsEvent {
+  return { type: "note_added", vault_id: VAULT_ID, note_path, mtime_ms };
 }
 
 function removed_event(note_path: string): VaultFsEvent {
@@ -985,6 +988,37 @@ describe("watcher_reactor", () => {
         sync_index: false,
         sync_index_paths: { changed: [t.note_path], removed: [] },
       });
+    });
+
+    // The same pair when the changed beats note_service's post-write record,
+    // which is the case the arming exists for. It spends the arming, so the
+    // trailing added has nothing but its own mtime left to be recognised by -
+    // and that mtime is the bytes Carbide just wrote. One save, no reconcile.
+    it("costs nothing when the changed spends the arming before the added lands", async () => {
+      const t = mount_reactor({ is_dirty: false });
+      await flush_effects();
+
+      t.watcher_service.suppress_next(t.note_path);
+      t.watcher_port._emit(changed_event(t.note_path));
+      t.watcher_service.record_self_write(t.note_path, 9_000);
+      t.watcher_port._emit(added_event(t.note_path, 9_000));
+      await settle();
+
+      expect(t.note_service.open_note).not.toHaveBeenCalled();
+      expect(t.workspace_reconcile).not.toHaveBeenCalled();
+    });
+
+    // The bound on the above: recognising a Create by mtime must not swallow
+    // one somebody else made to a path Carbide happens to have written.
+    it("still reconciles a note recreated on disk with different bytes", async () => {
+      const t = mount_reactor({ is_dirty: false });
+      await flush_effects();
+
+      t.watcher_service.record_self_write(t.note_path, 9_000);
+      t.watcher_port._emit(added_event(t.note_path, 12_000));
+      await settle();
+
+      expect(t.workspace_reconcile).toHaveBeenCalledTimes(1);
     });
   });
 

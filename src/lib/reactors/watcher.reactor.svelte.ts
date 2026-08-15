@@ -238,7 +238,10 @@ export function create_watcher_reactor(
     // also swallow the Modify that follows for the same path.
     function is_self_write(event: VaultFsEvent, path: string): boolean {
       if (event.type === "note_added") {
-        return watcher_service.peek_suppressed(path);
+        return watcher_service.peek_suppressed(path, {
+          kind: "change",
+          mtime_ms: event.mtime_ms,
+        });
       }
       if (event.type === "note_removed") {
         return watcher_service.is_suppressed(path, { kind: "removal" });

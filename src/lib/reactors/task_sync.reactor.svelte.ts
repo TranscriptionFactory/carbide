@@ -35,8 +35,16 @@ export function create_task_sync_reactor(
       // Peek, never consume. watcher.reactor subscribes first and its own
       // suppression check spends the one-shot arming, so a consuming check
       // here would either find nothing left or spend what that reactor still
-      // needs.
-      if (watcher_service.peek_suppressed(event.note_path)) return;
+      // needs. The mtime is what survives that: it is the only evidence left
+      // once the arming has been spent by the event that arrived first.
+      if (
+        watcher_service.peek_suppressed(event.note_path, {
+          kind: event.type === "note_removed" ? "removal" : "change",
+          mtime_ms: event.type === "note_removed" ? null : event.mtime_ms,
+        })
+      ) {
+        return;
+      }
 
       task_refresh.schedule(undefined, TASK_REFRESH_DEBOUNCE_MS);
     }

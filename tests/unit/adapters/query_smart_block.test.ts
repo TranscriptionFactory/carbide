@@ -60,6 +60,7 @@ function make_ctx() {
       type: "note_added",
       vault_id: "v",
       note_path: "new.md",
+      mtime_ms: null,
     });
   return { ctx, unsubscribe, fire_change };
 }

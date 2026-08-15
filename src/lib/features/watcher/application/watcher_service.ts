@@ -132,9 +132,15 @@ export class WatcherService {
 
   // Non-consuming variant for events that can precede the write's own change
   // event: atomic_write's tmp→target rename may surface as a Create, with the
-  // Modify for the same path still to come.
-  peek_suppressed(path: string): boolean {
-    return this.is_key_suppressed(normalize_path_key(path), "change");
+  // Modify for the same path still to come. It reads both mechanisms for the
+  // same reason is_suppressed does — an arming is spent by whichever event
+  // reaches it first, and content identity is what still holds afterwards.
+  peek_suppressed(path: string, observed: ObservedEvent = {}): boolean {
+    const key = normalize_path_key(path);
+    return (
+      this.matches_own_write(key, observed.mtime_ms) ||
+      this.is_key_suppressed(key, observed.kind ?? "change")
+    );
   }
 
   // A path whose disk mtime has moved past the value Carbide wrote has been

@@ -13,6 +13,10 @@ export type VaultFsEvent =
       type: "note_added";
       vault_id: string;
       note_path: string;
+      // Carried for the same reason as note_changed_externally's: the Create
+      // ending an atomic self-write is only distinguishable from an external
+      // one by the mtime it reports. null when the file could not be stat'd.
+      mtime_ms: number | null;
     }
   | {
       type: "note_removed";

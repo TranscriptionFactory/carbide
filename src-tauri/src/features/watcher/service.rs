@@ -52,6 +52,7 @@ enum VaultFsEvent {
     NoteAdded {
         vault_id: String,
         note_path: String,
+        mtime_ms: Option<i64>,
     },
     NoteRemoved {
         vault_id: String,
@@ -226,6 +227,7 @@ fn classify_event(
         EventKind::Create(_) if is_markdown => Some(VaultFsEvent::NoteAdded {
             vault_id: vault_id.to_string(),
             note_path: rel_path,
+            mtime_ms,
         }),
         EventKind::Remove(_) if is_markdown => Some(VaultFsEvent::NoteRemoved {
             vault_id: vault_id.to_string(),
@@ -380,8 +382,12 @@ pub fn watch_vault_inner(app: AppHandle, vault_id: String) -> Result<(), String>
                     None => *kind,
                 };
 
+                // Create is stat'd too: the tmp->target rename ending an atomic
+                // self-write surfaces as a Create, and without its mtime the
+                // frontend cannot tell that trailing event from an external one
+                // by content identity - only by a timing guess.
                 let mtime_ms = match (&effective_kind, is_md) {
-                    (EventKind::Modify(_), true) => file_mtime_ms(&abs),
+                    (EventKind::Modify(_) | EventKind::Create(_), true) => file_mtime_ms(&abs),
                     _ => None,
                 };
 

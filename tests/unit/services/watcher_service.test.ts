@@ -36,12 +36,14 @@ describe("WatcherService", () => {
       type: "note_added",
       vault_id: "v1",
       note_path: "test.md",
+      mtime_ms: null,
     });
 
     expect(handler).toHaveBeenCalledWith({
       type: "note_added",
       vault_id: "v1",
       note_path: "test.md",
+      mtime_ms: null,
     });
   });
 
@@ -175,6 +177,44 @@ describe("WatcherService", () => {
     vi.advanceTimersByTime(2_001);
 
     expect(service.peek_suppressed("notes/test.md")).toBe(false);
+    vi.useRealTimers();
+  });
+
+  // Content identity is the half that outlives the arming, and it is the only
+  // half a save populates for every echo of the write.
+  it("peek_suppressed matches a recorded self-write once the arming is spent", () => {
+    const { service } = setup();
+
+    service.suppress_next("notes/test.md");
+    service.record_self_write("notes/test.md", 5_000);
+    service.is_suppressed("notes/test.md", { kind: "change", mtime_ms: null });
+
+    expect(service.peek_suppressed("notes/test.md")).toBe(false);
+    expect(service.peek_suppressed("notes/test.md", { mtime_ms: 5_000 })).toBe(
+      true,
+    );
+  });
+
+  it("peek_suppressed lets an event reporting a different mtime through", () => {
+    const { service } = setup();
+
+    service.record_self_write("notes/test.md", 5_000);
+
+    expect(service.peek_suppressed("notes/test.md", { mtime_ms: 6_000 })).toBe(
+      false,
+    );
+  });
+
+  it("peek_suppressed matches a recorded self-write past the arming window", () => {
+    vi.useFakeTimers();
+    const { service } = setup();
+
+    service.record_self_write("notes/test.md", 5_000);
+    vi.advanceTimersByTime(2_001);
+
+    expect(service.peek_suppressed("notes/test.md", { mtime_ms: 5_000 })).toBe(
+      true,
+    );
     vi.useRealTimers();
   });
 
@@ -451,6 +491,7 @@ describe("WatcherService", () => {
       type: "note_added",
       vault_id: "v1",
       note_path: "test.md",
+      mtime_ms: null,
     });
 
     expect(handler_1).toHaveBeenCalledOnce();
@@ -491,6 +532,7 @@ describe("WatcherService", () => {
       type: "note_added",
       vault_id: "v1",
       note_path: "test.md",
+      mtime_ms: null,
     });
 
     expect(handler).not.toHaveBeenCalled();
