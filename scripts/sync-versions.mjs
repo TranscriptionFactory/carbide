@@ -44,11 +44,15 @@ fs.writeFileSync(
   cliCargoToml.replace(/^version\s*=\s*"[^"]*"/m, `version = "${pkg.version}"`),
 );
 
+// Both workspace crates carry the app version and Cargo.lock lists them as
+// separate packages, so the rewrite has to reach both. Anchored on `carbide`
+// alone it left carbide-cli two releases behind, and cargo regenerated the line
+// on sight — which is what made every worktree open on a dirty tree.
 const cargoLock = fs.readFileSync("src-tauri/Cargo.lock", "utf8");
 fs.writeFileSync(
   "src-tauri/Cargo.lock",
   cargoLock.replace(
-    /^(name = "carbide"\nversion = )"[^"]*"/m,
+    /^(name = "carbide(?:-cli)?"\nversion = )"[^"]*"/gm,
     `$1"${pkg.version}"`,
   ),
 );
