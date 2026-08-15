@@ -151,7 +151,7 @@ export function register_find_in_file_actions(input: ActionRegistrationInput) {
     execute: () => {
       const currently_showing = stores.ui.find_in_file.show_replace;
       if (!stores.ui.find_in_file.open) open_find();
-      update_find_state({ open: true, show_replace: !currently_showing });
+      update_find_state({ show_replace: !currently_showing });
     },
   });
 

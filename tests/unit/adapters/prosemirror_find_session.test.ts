@@ -111,4 +111,48 @@ describe("prosemirror find session", () => {
     expect(markdown).toContain("foo one");
     expect(markdown).toContain("bar two");
   });
+
+  it("reports the scoped count after a replace that shrinks the range", async () => {
+    const session = await create_session(
+      "needle one\n\nneedle two needle three\n\nneedle four",
+    );
+    const view = session.get_view?.();
+    if (!view) throw new Error("expected a view");
+
+    const from = view.state.doc.child(0).nodeSize + 1;
+    const to = from + view.state.doc.child(1).content.size;
+
+    session.update_find_state?.("needle", 0, {
+      ...DEFAULT_FIND_OPTIONS,
+      range: { from, to },
+    });
+    // "x" is shorter than "needle", so the scoped paragraph shrinks and the
+    // unmapped end position now reaches past it into the paragraph below —
+    // which still contains a match. Counting against it reports a phantom.
+    const result = session.replace_all_matches?.("x");
+
+    expect(result?.match_count).toBe(0);
+    const markdown = session.get_markdown();
+    expect(markdown).toContain("needle one");
+    expect(markdown).toContain("needle four");
+    expect(markdown).toContain("x two x three");
+  });
+
+  it("advances to a match inside the scope after a single replace", async () => {
+    const session = await create_session("foo one\n\nfoo two foo three");
+    const view = session.get_view?.();
+    if (!view) throw new Error("expected a view");
+
+    const from = view.state.doc.child(0).nodeSize + 1;
+    const to = from + view.state.doc.child(1).content.size;
+
+    session.update_find_state?.("foo", 0, {
+      ...DEFAULT_FIND_OPTIONS,
+      range: { from, to },
+    });
+    const result = session.replace_at_match?.(0, "much-longer");
+
+    expect(result?.match_count).toBe(1);
+    expect(session.get_markdown()).toContain("foo one");
+  });
 });

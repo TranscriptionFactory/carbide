@@ -70,7 +70,7 @@ export function find_literal_matches_in_doc(
     }
   };
 
-  const { range } = options;
+  const range = options.scope === "document" ? undefined : options.range;
   if (!range) {
     doc.descendants(collect);
     return matches;

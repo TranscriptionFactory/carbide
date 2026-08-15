@@ -148,16 +148,6 @@ describe("find_in_file reactor", () => {
     expect(calls.at(-1)?.options.range).toEqual({ from: 10, to: 40 });
   });
 
-  it("omits the range while the scope is the whole document", () => {
-    const { ui_store, calls, dispose } = mount_reactor(3);
-    dispose_reactor = dispose;
-
-    ui_store.find_in_file.scope_range = { from: 10, to: 40 };
-    open_find(ui_store, "foo");
-
-    expect(calls.at(-1)?.options.range).toBeUndefined();
-  });
-
   it("mirrors the mapped range without re-running the effect", () => {
     const { ui_store, calls, dispose } = mount_reactor(3);
     dispose_reactor = dispose;
@@ -176,6 +166,49 @@ describe("find_in_file reactor", () => {
 
     expect(ui_store.find_in_file.scope_range).toEqual({ from: 12, to: 42 });
     expect(calls.length).toBe(call_count_before);
+  });
+
+  it("sends the range down even while the scope is off, so it keeps mapping", () => {
+    const { ui_store, calls, dispose } = mount_reactor(3);
+    dispose_reactor = dispose;
+
+    ui_store.find_in_file.scope_range = { from: 10, to: 40 };
+    open_find(ui_store, "foo");
+
+    expect(calls.at(-1)?.options.range).toEqual({ from: 10, to: 40 });
+    expect(calls.at(-1)?.options.scope).toBe("document");
+  });
+
+  it("mirrors the mapped range while the scope is off", () => {
+    const { ui_store, calls, dispose } = mount_reactor(3);
+    dispose_reactor = dispose;
+
+    ui_store.find_in_file.scope_range = { from: 10, to: 40 };
+    open_find(ui_store, "foo");
+
+    calls.at(-1)?.on_matches_change?.({
+      match_count: 3,
+      selected_index: 0,
+      range: { from: 14, to: 44 },
+    });
+    flushSync();
+
+    expect(ui_store.find_in_file.scope_range).toEqual({ from: 14, to: 44 });
+  });
+
+  it("drops a range reported gone while the scope is off", () => {
+    const { ui_store, calls, dispose } = mount_reactor(3);
+    dispose_reactor = dispose;
+
+    ui_store.find_in_file.scope_range = { from: 10, to: 40 };
+    open_find(ui_store, "foo");
+
+    calls
+      .at(-1)
+      ?.on_matches_change?.({ match_count: 3, selected_index: 0, range: null });
+    flushSync();
+
+    expect(ui_store.find_in_file.scope_range).toBeNull();
   });
 
   it("falls back to document scope when the scoped range is reported gone", () => {

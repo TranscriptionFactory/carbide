@@ -74,6 +74,7 @@ import {
   next_active_index_after_replacement,
   normalize_active_index,
 } from "$lib/features/editor/domain/find_active_index";
+import { map_find_options } from "$lib/features/editor/domain/find_scope";
 import type {
   FindMatchesListener,
   FindOptions,
@@ -1368,10 +1369,14 @@ export function create_prosemirror_editor_port(args?: {
             if (!match) return;
 
             const tr = v.state.tr.insertText(replacement, match.from, match.to);
+            // `next_index` has to be in the meta before dispatch, so this scan
+            // cannot wait for the plugin. It reads tr.doc, so the range has to
+            // be mapped to match — but the meta below must still carry the
+            // UNMAPPED options, because the plugin maps them on arrival.
             const next_matches = find_literal_matches_in_doc(
               tr.doc,
               plugin_state.query,
-              plugin_state.options,
+              map_find_options(plugin_state.options, tr.mapping),
             );
             const next_index = next_active_index_after_replacement(
               next_matches,
@@ -1413,18 +1418,19 @@ export function create_prosemirror_editor_port(args?: {
             for (const match of sorted) {
               tr = tr.insertText(replacement, match.from, match.to);
             }
-            const next_matches = find_literal_matches_in_doc(
-              tr.doc,
-              plugin_state.query,
-              plugin_state.options,
-            );
             tr.setMeta(find_highlight_plugin_key, {
               query: plugin_state.query,
               selected_index: 0,
               options: plugin_state.options,
             });
             v.dispatch(tr);
-            result = { match_count: next_matches.length, selected_index: 0 };
+            // Read the count the plugin just computed rather than re-scanning:
+            // it has already mapped the range through this transaction.
+            const next_state = find_highlight_plugin_key.getState(v.state);
+            result = {
+              match_count: next_state?.match_positions.length ?? 0,
+              selected_index: 0,
+            };
           });
           return result;
         },

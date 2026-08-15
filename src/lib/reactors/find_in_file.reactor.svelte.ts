@@ -25,10 +25,11 @@ export function create_find_in_file_reactor(
       // reports the result back here; reading the mirror untracked keeps that
       // write from re-running this effect and re-scrolling on every keystroke.
       const scope_range = untrack(() => ui_store.find_in_file.scope_range);
-      const options =
-        scope === "selection" && scope_range
-          ? { case_sensitive, whole_word, range: scope_range }
-          : { case_sensitive, whole_word };
+      // The range goes down even when the scope is off, so the plugin keeps
+      // mapping it. `scope` alone decides whether it constrains matching.
+      const options = scope_range
+        ? { case_sensitive, whole_word, scope, range: scope_range }
+        : { case_sensitive, whole_word, scope };
 
       if (!open || !query) {
         editor_service.update_find_state("", 0, options);
@@ -51,11 +52,12 @@ export function create_find_in_file_reactor(
           }
           if (update.range) {
             ui_store.find_in_file.scope_range = update.range;
-          } else if (ui_store.find_in_file.scope === "selection") {
-            // The scoped selection was edited away; fall back to the whole
-            // document rather than leave a zero-width scope matching nothing.
-            ui_store.find_in_file.scope = "document";
+          } else if (ui_store.find_in_file.scope_range) {
+            // The captured passage was edited away. Drop it whichever scope is
+            // active: leaving it would let a later toggle re-arm a range whose
+            // positions now point at text the user never selected.
             ui_store.find_in_file.scope_range = null;
+            ui_store.find_in_file.scope = "document";
           }
         },
       );
