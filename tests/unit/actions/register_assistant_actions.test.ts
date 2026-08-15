@@ -1,4 +1,5 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { toast } from "svelte-sonner";
 import { ActionRegistry } from "$lib/app/action_registry/action_registry";
 import { ACTION_IDS } from "$lib/app/action_registry/action_ids";
 import {
@@ -10,26 +11,74 @@ import {
 } from "$lib/features/assistant";
 import { TabStore } from "$lib/features/tab/state/tab_store.svelte";
 import { UIStore } from "$lib/app/orchestration/ui_store.svelte";
+import type { ProposalApplyOutcome } from "$lib/features/assistant";
 import {
   make_proposal,
   make_proposal_hunk,
 } from "../helpers/assistant_proposal_fixtures";
 
-function create_harness() {
+vi.mock("svelte-sonner", () => ({
+  toast: {
+    info: vi.fn(),
+    error: vi.fn(),
+    warning: vi.fn(),
+    success: vi.fn(),
+  },
+}));
+
+function make_outcome(
+  overrides: Partial<ProposalApplyOutcome> = {},
+): ProposalApplyOutcome {
+  return {
+    applied: [],
+    stale: [],
+    failed: [],
+    checkpoint: null,
+    written_note_paths: [],
+    ...overrides,
+  };
+}
+
+type HarnessOptions = {
+  outcome?: ProposalApplyOutcome;
+  open_note?: { path: string; is_dirty: boolean } | null;
+};
+
+function create_harness(options: HarnessOptions = {}) {
   const registry = new ActionRegistry();
   const sessions = new AssistantSessionStore();
   const proposals = new AssistantProposalStore();
   const runs = new AssistantRunStore();
   const tab = new TabStore();
   const proposal_apply = {
-    apply_batch: vi.fn().mockResolvedValue(undefined),
+    apply_batch: vi.fn().mockResolvedValue(options.outcome ?? make_outcome()),
     reject_batch: vi.fn().mockResolvedValue(undefined),
+  };
+  const editor = {
+    open_note: options.open_note
+      ? {
+          meta: { path: options.open_note.path },
+          is_dirty: options.open_note.is_dirty,
+        }
+      : null,
+  };
+  const services = {
+    editor: { close_buffer: vi.fn() },
+    note: {
+      open_note: vi.fn().mockResolvedValue({ status: "ok" }),
+      clear_open_note: vi.fn(),
+    },
+    tab: {
+      mark_conflict: vi.fn(),
+      invalidate_cache: vi.fn(),
+      remove_tab: vi.fn(),
+    },
   };
 
   register_assistant_actions({
     registry,
-    stores: { tab } as never,
-    services: {} as never,
+    stores: { tab, editor } as never,
+    services: services as never,
     default_mount_config: {
       reset_app_state: true,
       bootstrap_default_vault_path: null,
@@ -43,7 +92,7 @@ function create_harness() {
     active_document_path: () => null,
   });
 
-  return { registry, proposals, proposal_apply, runs };
+  return { registry, proposals, proposal_apply, runs, services };
 }
 
 describe("register_assistant_actions — assistant_clear_runs", () => {
@@ -66,6 +115,143 @@ describe("register_assistant_actions — assistant_clear_runs", () => {
 
     expect(runs.all.map((run) => run.id)).toEqual(["live-run"]);
     expect(runs.has_error).toBe(false);
+  });
+});
+
+// A note proposal writes disk with the watcher suppressed, so accept is the
+// only thing that can reconcile the open buffer. Before this, the editor kept
+// showing the pre-apply text until the tab was closed and reopened.
+describe("register_assistant_actions — apply reconciles the open editor", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("reloads the open note when the applied proposal wrote it", async () => {
+    const { registry, services } = create_harness({
+      open_note: { path: "note.md", is_dirty: false },
+      outcome: make_outcome({
+        applied: ["p1"] as never,
+        written_note_paths: ["note.md"],
+      }),
+    });
+
+    await registry.execute(ACTION_IDS.assistant_accept_proposal, "p1");
+
+    expect(services.editor.close_buffer).toHaveBeenCalledWith("note.md");
+    expect(services.note.open_note).toHaveBeenCalledWith("note.md", false, {
+      force_reload: true,
+      cleanup_if_missing: true,
+    });
+    expect(services.tab.mark_conflict).not.toHaveBeenCalled();
+  });
+
+  // Y3: reloading over a dirty buffer would throw away the user's unsaved
+  // edits, and leaving it alone lets autosave write them back over the applied
+  // content. The agent path raises a conflict here; so does this one now.
+  it("raises a conflict instead of reloading when the open buffer is dirty", async () => {
+    const { registry, services } = create_harness({
+      open_note: { path: "note.md", is_dirty: true },
+      outcome: make_outcome({
+        applied: ["p1"] as never,
+        written_note_paths: ["note.md"],
+      }),
+    });
+
+    await registry.execute(ACTION_IDS.assistant_accept_proposal, "p1");
+
+    expect(services.tab.mark_conflict).toHaveBeenCalledWith("note.md");
+    expect(services.editor.close_buffer).not.toHaveBeenCalled();
+    expect(services.note.open_note).not.toHaveBeenCalled();
+  });
+
+  it("leaves the editor alone when the applied proposal wrote no note", async () => {
+    const { registry, services } = create_harness({
+      open_note: { path: "note.md", is_dirty: false },
+      outcome: make_outcome({ applied: ["p1"] as never }),
+    });
+
+    await registry.execute(ACTION_IDS.assistant_accept_proposal, "p1");
+
+    expect(services.editor.close_buffer).not.toHaveBeenCalled();
+    expect(services.tab.mark_conflict).not.toHaveBeenCalled();
+  });
+
+  it("reconciles every note a batch accept wrote", async () => {
+    const { registry, services } = create_harness({
+      open_note: { path: "second.md", is_dirty: false },
+      outcome: make_outcome({
+        applied: ["p1", "p2"] as never,
+        written_note_paths: ["first.md", "second.md"],
+      }),
+    });
+
+    await registry.execute(ACTION_IDS.assistant_accept_proposals, ["p1", "p2"]);
+
+    expect(services.editor.close_buffer).toHaveBeenCalledExactlyOnceWith(
+      "second.md",
+    );
+  });
+});
+
+// S6: the outcome used to be discarded, so an accept that applied nothing at
+// all looked exactly like one that worked.
+describe("register_assistant_actions — accept surfaces its outcome", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("warns that a stale proposal applied nothing", async () => {
+    const { registry } = create_harness({
+      outcome: make_outcome({ stale: ["p1"] as never }),
+    });
+
+    await registry.execute(ACTION_IDS.assistant_accept_proposal, "p1");
+
+    expect(toast.warning).toHaveBeenCalledWith("Proposal is out of date", {
+      description:
+        "The note changed after the draft was made, so nothing was applied.",
+    });
+  });
+
+  it("reports a failed apply with the underlying reason", async () => {
+    const { registry } = create_harness({
+      outcome: make_outcome({
+        failed: [{ id: "p1", error: "conflict:mtime_mismatch" }] as never,
+      }),
+    });
+
+    await registry.execute(ACTION_IDS.assistant_accept_proposal, "p1");
+
+    expect(toast.error).toHaveBeenCalledWith("Could not apply the proposal", {
+      description: "conflict:mtime_mismatch",
+    });
+  });
+
+  it("counts a batch that went stale", async () => {
+    const { registry } = create_harness({
+      outcome: make_outcome({ stale: ["p1", "p2"] as never }),
+    });
+
+    await registry.execute(ACTION_IDS.assistant_accept_proposals, ["p1", "p2"]);
+
+    expect(toast.warning).toHaveBeenCalledWith(
+      "2 proposals are out of date",
+      expect.anything(),
+    );
+  });
+
+  it("says nothing when everything applied", async () => {
+    const { registry } = create_harness({
+      outcome: make_outcome({
+        applied: ["p1"] as never,
+        written_note_paths: ["note.md"],
+      }),
+    });
+
+    await registry.execute(ACTION_IDS.assistant_accept_proposal, "p1");
+
+    expect(toast.warning).not.toHaveBeenCalled();
+    expect(toast.error).not.toHaveBeenCalled();
   });
 });
 

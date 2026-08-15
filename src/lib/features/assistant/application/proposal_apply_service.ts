@@ -17,6 +17,12 @@ export type ProposalApplyOutcome = {
   applied: ProposalId[];
   stale: ProposalId[];
   failed: { id: ProposalId; error: string }[];
+  // The notes whose bytes on disk actually changed. `applied` is a wider set:
+  // it includes document targets, which stage into a buffer, and vacuous
+  // applies, which write nothing. A caller reconciling the editor with disk
+  // needs the narrow set — reloading a buffer that did not change costs the
+  // user their cursor for no reason.
+  written_note_paths: string[];
   // Null when no checkpoint was ATTEMPTED — a batch that changes nothing takes
   // none, so the git log does not fill with empty checkpoints. When a
   // checkpoint was attempted, the outcome rides along: a caller must be able to
@@ -55,6 +61,7 @@ export class ProposalApplyService {
     const applied: ProposalId[] = [];
     const stale: ProposalId[] = [];
     const failed: { id: ProposalId; error: string }[] = [];
+    const written_note_paths: string[] = [];
     const to_write: { id: ProposalId; note_path: string; content: string }[] =
       [];
     // Document targets STAGE into the open buffer (edited content + dirty
@@ -156,6 +163,7 @@ export class ProposalApplyService {
             await this.deps.notes.write_note(write.note_path, write.content);
             this.deps.proposals.set_status(write.id, "applied");
             applied.push(write.id);
+            written_note_paths.push(write.note_path);
           } catch (err) {
             failed.push({ id: write.id, error: error_message(err) });
           }
@@ -181,7 +189,7 @@ export class ProposalApplyService {
       }
     }
 
-    return { applied, stale, failed, checkpoint };
+    return { applied, stale, failed, checkpoint, written_note_paths };
   }
 
   // Rejection touches no note and takes no checkpoint — a rejected proposal

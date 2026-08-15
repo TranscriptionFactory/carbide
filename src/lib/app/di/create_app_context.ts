@@ -1321,7 +1321,10 @@ export function create_app_context(input: {
           note_path,
           error: error_message(error),
         });
-        return;
+        // Rethrow: a swallowed failure here made apply_batch bucket the
+        // proposal as `applied`, so the review centre — and now the accept
+        // toast — told the user a write had happened that never did.
+        throw error;
       }
       proposal_read_mtimes.delete(note_path);
     },

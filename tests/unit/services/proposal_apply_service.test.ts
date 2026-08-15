@@ -87,6 +87,7 @@ describe("ProposalApplyService.apply_batch", () => {
       stale: [],
       failed: [],
       checkpoint: null,
+      written_note_paths: [],
     });
     expect(notes.read_note).not.toHaveBeenCalled();
     expect(git.create_checkpoint).not.toHaveBeenCalled();
@@ -117,6 +118,7 @@ describe("ProposalApplyService.apply_batch", () => {
       description: "before applying 1 proposal",
       outcome: "created",
     });
+    expect(outcome.written_note_paths).toEqual(["note.md"]);
   });
 
   it("takes exactly one checkpoint for a single proposal with 3 selected hunks", async () => {
@@ -646,5 +648,83 @@ describe("ProposalApplyService.apply_batch — document targets (pin 5)", () => 
     );
     expect(notes.write_note).not.toHaveBeenCalled();
     expect(documents.stage_document).not.toHaveBeenCalled();
+  });
+
+  // written_note_paths is what the accept action reconciles the open editor
+  // against, so it must name every note whose bytes changed and nothing else.
+  describe("written_note_paths", () => {
+    it("is empty for a vacuous apply that wrote nothing", async () => {
+      const { proposals, notes, service } = make_harness();
+      const content = "alpha\nbeta";
+      const proposal = pending(content, {
+        target: { kind: "note", note_path: "note.md" },
+        hunks: [
+          { ...replace_line_hunk("h1", 1, "alpha", "ALPHA"), selected: false },
+        ],
+      });
+      proposals.add(proposal);
+      notes.read_note.mockResolvedValue(content);
+
+      const outcome = await service.apply_batch([proposal.id]);
+
+      expect(outcome.applied).toEqual([proposal.id]);
+      expect(outcome.written_note_paths).toEqual([]);
+    });
+
+    it("is empty for a stale proposal", async () => {
+      const { proposals, notes, service } = make_harness();
+      const proposal = pending("alpha\nbeta", {
+        target: { kind: "note", note_path: "note.md" },
+        hunks: [replace_line_hunk("h1", 2, "beta", "BETA")],
+      });
+      proposals.add(proposal);
+      notes.read_note.mockResolvedValue("alpha\nedited-by-user");
+
+      const outcome = await service.apply_batch([proposal.id]);
+
+      expect(outcome.stale).toEqual([proposal.id]);
+      expect(outcome.written_note_paths).toEqual([]);
+    });
+
+    it("is empty when the write itself throws", async () => {
+      const { proposals, notes, service } = make_harness();
+      const content = "alpha";
+      const proposal = pending(content, {
+        target: { kind: "note", note_path: "note.md" },
+        hunks: [replace_line_hunk("h1", 1, "alpha", "ALPHA")],
+      });
+      proposals.add(proposal);
+      notes.read_note.mockResolvedValue(content);
+      notes.write_note.mockRejectedValue(new Error("conflict:mtime_mismatch"));
+
+      const outcome = await service.apply_batch([proposal.id]);
+
+      expect(outcome.applied).toEqual([]);
+      expect(outcome.failed[0]?.id).toBe(proposal.id);
+      expect(outcome.written_note_paths).toEqual([]);
+      expect(proposals.get(proposal.id)?.status).toBe("pending");
+    });
+
+    it("names only the note of a mixed note + document batch", async () => {
+      const { proposals, notes, documents, service } = make_harness();
+      const note_content = "alpha";
+      const note_proposal = pending(note_content, {
+        target: { kind: "note", note_path: "note.md" },
+        hunks: [replace_line_hunk("h1", 1, "alpha", "ALPHA")],
+      });
+      const doc_content = "old line";
+      const doc_proposal = doc_pending(doc_content);
+      proposals.add(note_proposal);
+      proposals.add(doc_proposal);
+      notes.read_note.mockResolvedValue(note_content);
+      open_document(documents, doc_content);
+
+      const outcome = await service.apply_batch([
+        note_proposal.id,
+        doc_proposal.id,
+      ]);
+
+      expect(outcome.written_note_paths).toEqual(["note.md"]);
+    });
   });
 });
