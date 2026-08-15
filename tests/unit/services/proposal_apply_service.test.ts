@@ -330,6 +330,7 @@ describe("ProposalApplyService.apply_batch", () => {
     expect(outcome.applied).toEqual([ok.id]);
     expect(outcome.failed).toHaveLength(1);
     expect(outcome.failed[0]?.id).toBe(breaks.id);
+    expect(outcome.written_note_paths).toEqual(["ok.md"]);
     expect(git.create_checkpoint).toHaveBeenCalledTimes(1);
   });
 

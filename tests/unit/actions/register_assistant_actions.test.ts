@@ -130,7 +130,7 @@ describe("register_assistant_actions — apply reconciles the open editor", () =
     const { registry, services } = create_harness({
       open_note: { path: "note.md", is_dirty: false },
       outcome: make_outcome({
-        applied: ["p1"] as never,
+        applied: ["p1"],
         written_note_paths: ["note.md"],
       }),
     });
@@ -152,7 +152,7 @@ describe("register_assistant_actions — apply reconciles the open editor", () =
     const { registry, services } = create_harness({
       open_note: { path: "note.md", is_dirty: true },
       outcome: make_outcome({
-        applied: ["p1"] as never,
+        applied: ["p1"],
         written_note_paths: ["note.md"],
       }),
     });
@@ -167,7 +167,7 @@ describe("register_assistant_actions — apply reconciles the open editor", () =
   it("leaves the editor alone when the applied proposal wrote no note", async () => {
     const { registry, services } = create_harness({
       open_note: { path: "note.md", is_dirty: false },
-      outcome: make_outcome({ applied: ["p1"] as never }),
+      outcome: make_outcome({ applied: ["p1"] }),
     });
 
     await registry.execute(ACTION_IDS.assistant_accept_proposal, "p1");
@@ -180,7 +180,7 @@ describe("register_assistant_actions — apply reconciles the open editor", () =
     const { registry, services } = create_harness({
       open_note: { path: "second.md", is_dirty: false },
       outcome: make_outcome({
-        applied: ["p1", "p2"] as never,
+        applied: ["p1", "p2"],
         written_note_paths: ["first.md", "second.md"],
       }),
     });
@@ -202,7 +202,7 @@ describe("register_assistant_actions — accept surfaces its outcome", () => {
 
   it("warns that a stale proposal applied nothing", async () => {
     const { registry } = create_harness({
-      outcome: make_outcome({ stale: ["p1"] as never }),
+      outcome: make_outcome({ stale: ["p1"] }),
     });
 
     await registry.execute(ACTION_IDS.assistant_accept_proposal, "p1");
@@ -216,7 +216,7 @@ describe("register_assistant_actions — accept surfaces its outcome", () => {
   it("reports a failed apply with the underlying reason", async () => {
     const { registry } = create_harness({
       outcome: make_outcome({
-        failed: [{ id: "p1", error: "conflict:mtime_mismatch" }] as never,
+        failed: [{ id: "p1", error: "conflict:mtime_mismatch" }],
       }),
     });
 
@@ -229,7 +229,7 @@ describe("register_assistant_actions — accept surfaces its outcome", () => {
 
   it("counts a batch that went stale", async () => {
     const { registry } = create_harness({
-      outcome: make_outcome({ stale: ["p1", "p2"] as never }),
+      outcome: make_outcome({ stale: ["p1", "p2"] }),
     });
 
     await registry.execute(ACTION_IDS.assistant_accept_proposals, ["p1", "p2"]);
@@ -243,7 +243,7 @@ describe("register_assistant_actions — accept surfaces its outcome", () => {
   it("says nothing when everything applied", async () => {
     const { registry } = create_harness({
       outcome: make_outcome({
-        applied: ["p1"] as never,
+        applied: ["p1"],
         written_note_paths: ["note.md"],
       }),
     });

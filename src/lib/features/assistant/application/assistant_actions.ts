@@ -18,7 +18,6 @@ import type {
 import type { AssistantProposalStore } from "$lib/features/assistant/state/assistant_proposal_store.svelte";
 import type { AssistantRunStore } from "$lib/features/assistant/state/assistant_run_store.svelte";
 import type { AssistantSessionStore } from "$lib/features/assistant/state/assistant_session_store.svelte";
-import type { ProposalId } from "$lib/features/assistant/types/proposal";
 import type { RunId } from "$lib/features/assistant/types/run";
 
 // Accept used to discard its outcome entirely, so a stale or failed apply was
@@ -171,7 +170,7 @@ export function register_assistant_actions(
   // and reopened the tab. The agent path already solved this; both now run the
   // same policy through sync_changed_notes.
   async function apply_and_report(ids: string[]) {
-    const outcome = await proposal_apply.apply_batch(ids as ProposalId[]);
+    const outcome = await proposal_apply.apply_batch(ids);
     await sync_changed_notes(input, outcome.written_note_paths);
     report_apply_outcome(outcome);
   }
