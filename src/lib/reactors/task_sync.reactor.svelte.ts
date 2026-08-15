@@ -25,12 +25,20 @@ export function create_task_sync_reactor(
 
       // We refresh tasks when any markdown file changes, is added or removed
       if (
-        event.type === "note_changed_externally" ||
-        event.type === "note_added" ||
-        event.type === "note_removed"
+        event.type !== "note_changed_externally" &&
+        event.type !== "note_added" &&
+        event.type !== "note_removed"
       ) {
-        task_refresh.schedule(undefined, TASK_REFRESH_DEBOUNCE_MS);
+        return;
       }
+
+      // Peek, never consume. watcher.reactor subscribes first and its own
+      // suppression check spends the one-shot arming, so a consuming check
+      // here would either find nothing left or spend what that reactor still
+      // needs.
+      if (watcher_service.peek_suppressed(event.note_path)) return;
+
+      task_refresh.schedule(undefined, TASK_REFRESH_DEBOUNCE_MS);
     }
 
     $effect(() => {
