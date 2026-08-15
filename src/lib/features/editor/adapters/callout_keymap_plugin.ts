@@ -1,11 +1,8 @@
 import { Plugin, PluginKey, TextSelection } from "prosemirror-state";
 import type { EditorView } from "prosemirror-view";
-import {
-  Fragment,
-  type Node as ProseNode,
-  type ResolvedPos,
-} from "prosemirror-model";
+import { type ResolvedPos } from "prosemirror-model";
 import { schema } from "./schema";
+import { unwrap_callout_at } from "./block_transforms";
 import { is_mod_enter } from "$lib/shared/utils/keyboard";
 
 const callout_keymap_plugin_key = new PluginKey("callout-keymap");
@@ -64,45 +61,13 @@ function backspace_in_callout_title(
   view: EditorView,
   $pos: ResolvedPos,
 ): boolean {
-  const { state, dispatch } = view;
   const callout_depth = find_callout_depth($pos);
   if (callout_depth === -1) return false;
-
-  const callout_node = $pos.node(callout_depth);
-  const callout_pos = $pos.before(callout_depth);
-  const title_node = callout_node.child(0);
-  const body_node = callout_node.child(1);
-
-  const body_is_single_empty_para =
-    body_node.childCount === 1 &&
-    body_node.child(0).type === schema.nodes.paragraph &&
-    body_node.child(0).content.size === 0;
-
-  const tr = state.tr;
-
-  if (title_node.content.size === 0 && body_is_single_empty_para) {
-    const replacement = schema.nodes.paragraph.create();
-    tr.replaceWith(
-      callout_pos,
-      callout_pos + callout_node.nodeSize,
-      replacement,
-    );
-    tr.setSelection(TextSelection.create(tr.doc, callout_pos + 1));
-    dispatch(tr.scrollIntoView());
-    return true;
-  }
-
-  const nodes: ProseNode[] = [];
-  const title_para = schema.nodes.paragraph.create(null, title_node.content);
-  nodes.push(title_para);
-  for (let i = 0; i < body_node.childCount; i++) {
-    nodes.push(body_node.child(i));
-  }
-  const fragment = Fragment.from(nodes);
-  tr.replaceWith(callout_pos, callout_pos + callout_node.nodeSize, fragment);
-  tr.setSelection(TextSelection.create(tr.doc, callout_pos + 1));
-  dispatch(tr.scrollIntoView());
-  return true;
+  return unwrap_callout_at(
+    $pos.before(callout_depth),
+    view.state,
+    view.dispatch,
+  );
 }
 
 function callout_pos_at($pos: ResolvedPos): number {

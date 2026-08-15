@@ -103,19 +103,22 @@
   }
 
   function handle_turn_into(action_id: string) {
-    if (has_multi_selection) {
-      const mapping = turn_into_target_map[action_id];
-      if (mapping) {
+    const mapping = turn_into_target_map[action_id];
+    if (!mapping) {
+      execute(action_id);
+      return;
+    }
+    apply_block_op({
+      name: "turn_into",
+      batch: (positions) =>
         services.editor.batch_turn_into(
           mapping.target,
           mapping.attrs,
-          block_selection,
-        );
-        services.editor.clear_block_selection();
-        return;
-      }
-    }
-    execute(action_id);
+          positions,
+        ),
+      single: (pos) =>
+        services.editor.turn_into_at(mapping.target, mapping.attrs, pos),
+    });
   }
 
   const single_target = $derived.by(() => {

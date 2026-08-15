@@ -216,6 +216,7 @@ export const ACTION_IDS = {
   editor_delete_block: "editor.delete_block",
   editor_insert_block_above: "editor.insert_block_above",
   editor_insert_block_below: "editor.insert_block_below",
+  editor_unwrap_callout: "editor.unwrap_callout",
 
   outline_scroll_to_heading: "outline.scroll_to_heading",
   outline_scroll_to_fragment: "outline.scroll_to_fragment",

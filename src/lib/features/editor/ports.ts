@@ -123,6 +123,12 @@ export type EditorSession = {
   update_ambient_anchors?: (notices: AmbientNotice[]) => void;
   get_view?: () => import("prosemirror-view").EditorView | null;
   turn_into?: (target: string, attrs?: Record<string, unknown>) => void;
+  turn_into_at?: (
+    target: string,
+    attrs: Record<string, unknown> | undefined,
+    pos: number,
+  ) => void;
+  unwrap_callout?: () => void;
   duplicate_block?: () => void;
   delete_block?: () => void;
   duplicate_block_at?: (pos: number) => void;
