@@ -1,6 +1,19 @@
 import { describe, expect, it } from "vitest";
 import { migrate_ai_settings } from "$lib/features/ai/domain/ai_settings_migration";
 
+// A migrated preset carries the preset's whole transport, streaming
+// invocation included — spelled out here so the pin stays a real one.
+const CLAUDE_STREAM_ARGS = [
+  "-p",
+  "--output-format",
+  "stream-json",
+  "--include-partial-messages",
+  "--verbose",
+  "--strict-mcp-config",
+  "--tools",
+  "",
+];
+
 describe("migrate_ai_settings", () => {
   it("converts agent descriptors on cli providers to acp specs and drops the agent key", () => {
     const result = migrate_ai_settings({
@@ -234,6 +247,7 @@ describe("migrate_ai_settings", () => {
       kind: "cli",
       command: "/custom/claude",
       args: ["-p", "--output-format", "text"],
+      stream_args: CLAUDE_STREAM_ARGS,
       acp: { kind: "preset", id: "claude" },
     });
 
@@ -242,6 +256,7 @@ describe("migrate_ai_settings", () => {
       kind: "cli",
       command: "/opt/ollama",
       args: ["run", "{model}"],
+      stream_args: ["run", "{model}"],
     });
     expect(ollama?.model).toBe("llama3:8b");
   });
@@ -259,6 +274,7 @@ describe("migrate_ai_settings", () => {
       kind: "cli",
       command: "claude",
       args: ["-p", "--output-format", "text"],
+      stream_args: CLAUDE_STREAM_ARGS,
       acp: { kind: "preset", id: "claude" },
     });
 
@@ -267,6 +283,7 @@ describe("migrate_ai_settings", () => {
       kind: "cli",
       command: "ollama",
       args: ["run", "{model}"],
+      stream_args: ["run", "{model}"],
     });
     expect(ollama?.model).toBe("qwen3:8b");
   });
@@ -319,6 +336,7 @@ describe("migrate_ai_settings", () => {
       kind: "cli",
       command: "claude",
       args: ["-p", "--output-format", "text"],
+      stream_args: CLAUDE_STREAM_ARGS,
       acp: { kind: "preset", id: "claude" },
     });
 
@@ -327,6 +345,7 @@ describe("migrate_ai_settings", () => {
       kind: "cli",
       command: "/custom/ollama",
       args: ["run", "{model}"],
+      stream_args: ["run", "{model}"],
     });
     expect(ollama?.model).toBe("llama3:70b");
 

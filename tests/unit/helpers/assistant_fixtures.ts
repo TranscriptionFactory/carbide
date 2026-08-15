@@ -23,6 +23,7 @@ export function make_provider(
       kind: "cli",
       command: "claude",
       args: ["-p"],
+      stream_args: ["-p", "--output-format", "stream-json"],
       acp: { kind: "preset", id: "claude" },
     },
     ...overrides,

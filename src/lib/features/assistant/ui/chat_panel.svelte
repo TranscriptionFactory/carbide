@@ -16,6 +16,7 @@
   import AssistantMessage from "$lib/features/assistant/ui/chat_message.svelte";
   import ChatInput from "$lib/features/assistant/ui/chat_input.svelte";
   import ChatModeToggle from "$lib/features/assistant/ui/chat_mode_toggle.svelte";
+  import ChatWaitIndicator from "$lib/features/assistant/ui/chat_wait_indicator.svelte";
   import { agent_capability, agent_scope_copy } from "$lib/features/ai";
   import {
     AssistantPresence,
@@ -398,12 +399,7 @@
           {/if}
 
           {#if rag.is_loading}
-            <div class="flex items-center gap-2 text-sm text-muted-foreground">
-              <Loader2 class="size-4 animate-spin" />
-              {rag.loading_stage === "generating"
-                ? `Waiting for ${provider_name}…`
-                : "Searching your vault…"}
-            </div>
+            <ChatWaitIndicator stage={rag.loading_stage} {provider_name} />
           {/if}
 
           {#if rag.queued_prompt}

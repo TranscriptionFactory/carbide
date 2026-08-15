@@ -47,6 +47,7 @@ const text_stream_channel: ChannelDescriptor<TextRequest, AiStreamChunk> = {
     messages: request.messages,
     model: request.model ?? null,
     vaultPath: input.vault_path,
+    timeoutSeconds: request.timeout_seconds ?? null,
   }),
   to_run_event: (chunk) => {
     switch (chunk.type) {

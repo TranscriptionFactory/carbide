@@ -102,9 +102,9 @@ export type RunRequest =
       system_prompt: string;
       messages: AiMessage[];
       model?: string;
-      // A CLI provider whose args carry {output_file} cannot stream, so the
-      // transport runs it one-shot instead. These are that call's parameters;
-      // a streaming transport ignores them.
+      // A CLI provider that declares no streaming args runs one-shot instead;
+      // note_path is that call's working file. Both transports honour
+      // timeout_seconds — the run is killed when it elapses.
       note_path?: string;
       timeout_seconds?: number | null;
     }

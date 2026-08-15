@@ -30,6 +30,10 @@ pub enum AiTransport {
     Cli {
         command: String,
         args: Vec<String>,
+        // The streaming invocation, when the CLI has one. Only the streaming
+        // path reads it; a one-shot run always uses `args`.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        stream_args: Option<Vec<String>>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         acp: Option<super::acp::AcpAgentSpec>,
     },

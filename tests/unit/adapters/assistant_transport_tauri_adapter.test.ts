@@ -122,8 +122,40 @@ describe("assistant_transport_tauri_adapter", () => {
         messages: [{ role: "user", content: "hello" }],
         model: "sonnet",
         vaultPath: "/vault",
+        timeoutSeconds: null,
       });
       expect(channel(0).name).toBe(`ai:chunk:${String(args.requestId)}`);
+    });
+
+    // The streaming path used to have no bound at all: the Rust command took no
+    // timeout, so a request that set one shipped a no-op. This asserts the
+    // value crosses the command boundary, not that it was set on the request.
+    it("passes the request timeout through to ai_stream_start", async () => {
+      open_stream({ ...text_request, timeout_seconds: 90 });
+      await flush();
+
+      expect(start_args_of("ai_stream_start").timeoutSeconds).toBe(90);
+    });
+
+    it("routes a provider that declares no streaming args to the blocking command", async () => {
+      const no_stream_args = make_provider({
+        transport: { kind: "cli", command: "claude", args: ["-p"] },
+      });
+      mock_invoke.mockResolvedValue({ success: true, output: "done" });
+
+      create_assistant_transport_tauri_adapter().stream({
+        provider_config: no_stream_args,
+        request: text_request,
+        vault_path: "/vault",
+      });
+      await flush();
+
+      expect(
+        mock_invoke.mock.calls.map(([name]) => name as string),
+      ).not.toContain("ai_stream_start");
+      expect(start_args_of("ai_execute_cli").providerConfig).toEqual(
+        no_stream_args,
+      );
     });
 
     it("normalizes text, reasoning and done chunks", async () => {
@@ -363,7 +395,7 @@ describe("assistant_transport_tauri_adapter", () => {
 
   // AU-002R made the blocking channel cancellable. These prove the driver
   // actually wires it: without the request id, ai_execute_abort has nothing to
-  // kill and Stop on a {output_file} provider is a no-op.
+  // kill and Stop on a non-streaming provider is a no-op.
   describe("blocking text mode", () => {
     const blocking_provider = make_provider({
       transport: {

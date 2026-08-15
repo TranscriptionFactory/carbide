@@ -133,6 +133,7 @@ export class AssistantChatService {
   constructor(
     private readonly retrieval: RetrievalPort,
     private readonly run_starter: RunStarter,
+    private readonly execution_timeout_seconds: () => number,
   ) {}
 
   check_readiness(): Promise<RetrievalReadiness> {
@@ -268,6 +269,7 @@ export class AssistantChatService {
               : user_prompt,
           },
         ],
+        timeout_seconds: this.execution_timeout_seconds(),
       },
     });
     input.on_run_started?.(handle);

@@ -887,6 +887,7 @@ export function create_app_context(input: {
   const assistant_chat_service = new AssistantChatService(
     retrieval,
     assistant_kernel,
+    () => stores.ui.editor_settings.ai_execution_timeout_seconds,
   );
 
   const bases_service = new BasesService(input.ports.bases, stores.bases);
