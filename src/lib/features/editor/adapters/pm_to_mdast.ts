@@ -186,6 +186,20 @@ function trim_trailing_phrasing_whitespace(children: PhrasingContent[]): void {
   }
 }
 
+// A callout/details wrapper reaches this file bare whenever a partial copy has
+// been lifted out of its container. Emitting nothing there loses the selected
+// text outright, so every wrapper degrades to its content instead.
+function convert_bare_block_section(node: PmNode): MdastNode[] | null {
+  const blocks = convert_children(node);
+  return blocks.length > 0 ? blocks : null;
+}
+
+function convert_bare_inline_section(node: PmNode): MdastNode | null {
+  const children = convert_pm_inline(node);
+  trim_trailing_phrasing_whitespace(children);
+  return children.length > 0 ? { type: "paragraph", children } : null;
+}
+
 function convert_block_node(node: PmNode): MdastNode | MdastNode[] | null {
   switch (node.type.name) {
     case "paragraph": {
@@ -293,16 +307,7 @@ function convert_block_node(node: PmNode): MdastNode | MdastNode[] | null {
       };
 
     case "details_block": {
-      if (node.childCount < 2) {
-        const blocks: MdastNode[] = [];
-        node.forEach((child) => {
-          child.forEach((grandchild) => {
-            const c = convert_block_node(grandchild);
-            if (c) blocks.push(...(Array.isArray(c) ? c : [c]));
-          });
-        });
-        return blocks.length > 0 ? blocks : null;
-      }
+      if (node.childCount < 2) return convert_bare_block_section(node);
       const open = (node.attrs["open"] as boolean) || false;
       const summary = node.child(0);
       const content = node.child(1);
@@ -319,20 +324,15 @@ function convert_block_node(node: PmNode): MdastNode | MdastNode[] | null {
     }
 
     case "details_summary":
+    case "callout_title":
+      return convert_bare_inline_section(node);
+
     case "details_content":
-      return null;
+    case "callout_body":
+      return convert_bare_block_section(node);
 
     case "callout": {
-      if (node.childCount < 2) {
-        const blocks: MdastNode[] = [];
-        node.forEach((child) => {
-          child.forEach((grandchild) => {
-            const c = convert_block_node(grandchild);
-            if (c) blocks.push(...(Array.isArray(c) ? c : [c]));
-          });
-        });
-        return blocks.length > 0 ? blocks : null;
-      }
+      if (node.childCount < 2) return convert_bare_block_section(node);
       const callout_type = (node.attrs["callout_type"] as string) || "note";
       const color = (node.attrs["callout_color"] as string | null) ?? null;
       const foldable = (node.attrs["foldable"] as boolean) || false;
@@ -357,10 +357,6 @@ function convert_block_node(node: PmNode): MdastNode | MdastNode[] | null {
         ],
       };
     }
-
-    case "callout_title":
-    case "callout_body":
-      return null;
 
     case "excalidraw_embed": {
       const src = (node.attrs["src"] as string) || "";

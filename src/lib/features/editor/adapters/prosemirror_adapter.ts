@@ -5,7 +5,7 @@ import {
   TextSelection,
 } from "prosemirror-state";
 import { EditorView } from "prosemirror-view";
-import { Slice } from "prosemirror-model";
+import { Slice, Fragment } from "prosemirror-model";
 import type { Node as ProseNode } from "prosemirror-model";
 import {
   parse_markdown,
@@ -354,6 +354,51 @@ function build_smart_blocks_config(deps: {
   };
 }
 
+const PARTIAL_UNWRAP_CONTAINERS = new Set(["callout", "details_block"]);
+
+// A partial selection inside a callout/collapsible is cut from the document
+// root, so the container node travels with it and the serializer would re-emit
+// `> [!note]` / `<details>` markup the user never selected. A whole-node copy
+// arrives with both boundaries closed and keeps its markup.
+function normalize_clipboard_fragment(slice: Slice): Fragment {
+  if (slice.openStart === 0 && slice.openEnd === 0) return slice.content;
+  const last_index = slice.content.childCount - 1;
+  const nodes: ProseNode[] = [];
+  slice.content.forEach((node, _offset, index) => {
+    const cut_open =
+      (index === 0 && slice.openStart > 0) ||
+      (index === last_index && slice.openEnd > 0);
+    if (cut_open && PARTIAL_UNWRAP_CONTAINERS.has(node.type.name)) {
+      node.forEach((section) => nodes.push(section));
+    } else {
+      nodes.push(node);
+    }
+  });
+  return Fragment.from(nodes);
+}
+
+export function serialize_clipboard_text(slice: Slice): string {
+  let all_code = true;
+  slice.content.forEach((node) => {
+    if (node.type.name !== "code_block") all_code = false;
+  });
+  if (all_code && slice.content.childCount > 0) {
+    const parts: string[] = [];
+    slice.content.forEach((node) => {
+      parts.push(node.textContent);
+    });
+    return parts.join("\n");
+  }
+  const wrap = schema.topNodeType.create(
+    null,
+    normalize_clipboard_fragment(slice),
+  );
+  const md = serialize_markdown(wrap);
+  return md.replace(/&#x([0-9A-Fa-f]+);/g, (_match, hex) =>
+    String.fromCharCode(parseInt(hex, 16)),
+  );
+}
+
 export function create_prosemirror_editor_port(args?: {
   resolve_asset_url_for_vault?: ResolveAssetUrlForVault;
   resolve_vault_file_path?: ResolveVaultFilePath;
@@ -667,24 +712,7 @@ export function create_prosemirror_editor_port(args?: {
             log.error("Transaction dispatch failed", { error });
           }
         },
-        clipboardTextSerializer: (slice) => {
-          let all_code = true;
-          slice.content.forEach((node) => {
-            if (node.type.name !== "code_block") all_code = false;
-          });
-          if (all_code && slice.content.childCount > 0) {
-            const parts: string[] = [];
-            slice.content.forEach((node) => {
-              parts.push(node.textContent);
-            });
-            return parts.join("\n");
-          }
-          const wrap = schema.topNodeType.create(null, slice.content);
-          const md = serialize_markdown(wrap);
-          return md.replace(/&#x([0-9A-Fa-f]+);/g, (_match, hex) =>
-            String.fromCharCode(parseInt(hex, 16)),
-          );
-        },
+        clipboardTextSerializer: serialize_clipboard_text,
       });
 
       // --- Session helpers ---
