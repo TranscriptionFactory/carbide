@@ -96,6 +96,90 @@ describe("editor_context_menu block ops routing", () => {
   });
 });
 
+describe("editor_context_menu turn into routing", () => {
+  it("converts the block under the pointer instead of the caret's block", () => {
+    const menu = render_editor_context_menu({ block_pos: 42 });
+
+    menu.right_click();
+    menu.click_item("Heading 2");
+
+    expect(menu.editor.turn_into_at).toHaveBeenCalledWith(
+      "heading",
+      { level: 2 },
+      42,
+    );
+    expect(menu.execute).not.toHaveBeenCalled();
+    expect(menu.editor.batch_turn_into).not.toHaveBeenCalled();
+
+    menu.cleanup();
+  });
+
+  it("converts a single selected block when the pointer misses", () => {
+    const menu = render_editor_context_menu({ block_pos: null });
+
+    menu.state.block_selection = new Set([7]);
+    menu.right_click();
+    menu.click_item("Bullet List");
+
+    expect(menu.editor.turn_into_at).toHaveBeenCalledWith(
+      "bullet_list",
+      undefined,
+      7,
+    );
+
+    menu.cleanup();
+  });
+
+  it("still batches a multi-block selection", () => {
+    const menu = render_editor_context_menu({ block_pos: 42 });
+
+    menu.state.block_selection = new Set([4, 9]);
+    menu.right_click();
+    menu.click_item("Paragraph");
+
+    expect(menu.editor.batch_turn_into).toHaveBeenCalledWith(
+      "paragraph",
+      undefined,
+      new Set([4, 9]),
+    );
+    expect(menu.editor.turn_into_at).not.toHaveBeenCalled();
+    expect(menu.editor.clear_block_selection).toHaveBeenCalledTimes(1);
+
+    menu.cleanup();
+  });
+
+  it("does nothing when no block resolves", () => {
+    const menu = render_editor_context_menu({ block_pos: null });
+
+    menu.right_click();
+    menu.click_item("Heading 1");
+
+    expect(menu.editor.turn_into_at).not.toHaveBeenCalled();
+    expect(menu.editor.batch_turn_into).not.toHaveBeenCalled();
+    expect(menu.execute).not.toHaveBeenCalled();
+
+    menu.cleanup();
+  });
+
+  it("gives turn into and delete the same single target", () => {
+    const menu = render_editor_context_menu({ block_pos: 42 });
+
+    menu.state.block_selection = new Set([7]);
+    menu.right_click();
+    menu.click_item("Heading 3");
+    menu.click_item("Delete");
+
+    expect(menu.editor.turn_into_at).toHaveBeenCalledWith(
+      "heading",
+      { level: 3 },
+      42,
+    );
+    expect(menu.editor.delete_block_at).toHaveBeenCalledWith(42);
+
+    menu.cleanup();
+  });
+});
+
 describe("editor_context_menu insert routing", () => {
   it("inserts above the block under the pointer", () => {
     const menu = render_editor_context_menu({ block_pos: 42 });

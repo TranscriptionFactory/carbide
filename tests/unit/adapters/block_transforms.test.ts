@@ -8,6 +8,7 @@ import { schema } from "$lib/features/editor/adapters/schema";
 import {
   create_turn_into_command,
   batch_turn_into,
+  turn_into_at,
   duplicate_block,
   duplicate_block_at,
   delete_block,
@@ -634,4 +635,237 @@ describe("insert_block_at across the block node matrix", () => {
 
     expect(result).toBe(false);
   });
+});
+
+function make_callout_blocks(title_text: string, ...body_texts: string[]) {
+  const title = schema.nodes.callout_title.create(
+    null,
+    title_text ? schema.text(title_text) : undefined,
+  );
+  const body = schema.nodes.callout_body.create(
+    null,
+    body_texts.map((text) => make_para(text)),
+  );
+  return schema.nodes.callout.create(
+    { callout_type: "note", foldable: false, default_folded: false },
+    [title, body],
+  );
+}
+
+function make_details_blocks(summary_text: string, ...body_texts: string[]) {
+  const summary = schema.nodes.details_summary.create(
+    null,
+    summary_text ? schema.text(summary_text) : undefined,
+  );
+  const content = schema.nodes.details_content.create(
+    null,
+    body_texts.map((text) => make_para(text)),
+  );
+  return schema.nodes.details_block.create({ open: true }, [summary, content]);
+}
+
+const CONTAINER_TITLE_CURSOR = 2;
+
+function block_texts(doc: ReturnType<typeof make_doc>): string[] {
+  const texts: string[] = [];
+  doc.forEach((child) => texts.push(child.textContent));
+  return texts;
+}
+
+describe("turn_into on containers", () => {
+  it("callout → heading keeps the title as the heading and the body as paragraphs", () => {
+    const doc = make_doc(make_callout_blocks("Alpha", "Bravo", "Charlie"));
+    const state = make_state(doc, CONTAINER_TITLE_CURSOR);
+    const cmd = create_turn_into_command("heading", { level: 2 });
+    const { result, state: after } = apply_command(state, cmd);
+
+    expect(result).toBe(true);
+    expect(after.doc.childCount).toBe(3);
+    expect(after.doc.child(0).type.name).toBe("heading");
+    expect(after.doc.child(0).attrs["level"]).toBe(2);
+    expect(block_texts(after.doc)).toEqual(["Alpha", "Bravo", "Charlie"]);
+    expect(after.doc.child(1).type.name).toBe("paragraph");
+    expect(after.doc.child(2).type.name).toBe("paragraph");
+  });
+
+  it("callout → paragraph lifts the title and every body block", () => {
+    const doc = make_doc(make_callout_blocks("Alpha", "Bravo", "Charlie"));
+    const state = make_state(doc, CONTAINER_TITLE_CURSOR);
+    const cmd = create_turn_into_command("paragraph");
+    const { result, state: after } = apply_command(state, cmd);
+
+    expect(result).toBe(true);
+    expect(after.doc.childCount).toBe(3);
+    expect(block_texts(after.doc)).toEqual(["Alpha", "Bravo", "Charlie"]);
+    for (let i = 0; i < after.doc.childCount; i++) {
+      expect(after.doc.child(i).type.name).toBe("paragraph");
+    }
+  });
+
+  it("callout → bullet_list makes one item per inner block", () => {
+    const doc = make_doc(make_callout_blocks("Alpha", "Bravo", "Charlie"));
+    const state = make_state(doc, CONTAINER_TITLE_CURSOR);
+    const cmd = create_turn_into_command("bullet_list");
+    const { state: after } = apply_command(state, cmd);
+
+    const list = after.doc.child(0);
+    expect(list.type.name).toBe("bullet_list");
+    expect(list.childCount).toBe(3);
+    expect(list.child(0).textContent).toBe("Alpha");
+    expect(list.child(2).textContent).toBe("Charlie");
+  });
+
+  it("callout → todo_list makes one unchecked item per inner block", () => {
+    const doc = make_doc(make_callout_blocks("Alpha", "Bravo"));
+    const state = make_state(doc, CONTAINER_TITLE_CURSOR);
+    const cmd = create_turn_into_command("todo_list");
+    const { state: after } = apply_command(state, cmd);
+
+    const list = after.doc.child(0);
+    expect(list.type.name).toBe("bullet_list");
+    expect(list.childCount).toBe(2);
+    expect(list.child(0).attrs["checked"]).toBe(false);
+    expect(list.child(0).attrs["task_status"]).toBe("todo");
+    expect(list.child(1).textContent).toBe("Bravo");
+  });
+
+  it("details_block → heading behaves the same as a callout", () => {
+    const doc = make_doc(make_details_blocks("Alpha", "Bravo", "Charlie"));
+    const state = make_state(doc, CONTAINER_TITLE_CURSOR);
+    const cmd = create_turn_into_command("heading", { level: 2 });
+    const { state: after } = apply_command(state, cmd);
+
+    expect(after.doc.childCount).toBe(3);
+    expect(after.doc.child(0).type.name).toBe("heading");
+    expect(block_texts(after.doc)).toEqual(["Alpha", "Bravo", "Charlie"]);
+  });
+
+  it("details_block → paragraph lifts the summary and every content block", () => {
+    const doc = make_doc(make_details_blocks("Alpha", "Bravo"));
+    const state = make_state(doc, CONTAINER_TITLE_CURSOR);
+    const cmd = create_turn_into_command("paragraph");
+    const { state: after } = apply_command(state, cmd);
+
+    expect(after.doc.childCount).toBe(2);
+    expect(block_texts(after.doc)).toEqual(["Alpha", "Bravo"]);
+  });
+
+  it("leaves a blockquote unwrapping exactly as before", () => {
+    const doc = make_doc(
+      make_blockquote(make_para("Alpha"), make_para("Bravo")),
+    );
+    const state = make_state(doc, 2);
+    const cmd = create_turn_into_command("heading", { level: 1 });
+    const { state: after } = apply_command(state, cmd);
+
+    expect(after.doc.child(0).type.name).toBe("heading");
+    expect(block_texts(after.doc)).toEqual(["Alpha", "Bravo"]);
+  });
+});
+
+describe("turn_into_at", () => {
+  it("converts the container at the given position, not the one at the caret", () => {
+    const first = make_callout_blocks("Alpha", "Bravo");
+    const doc = make_doc(first, make_callout_blocks("Delta", "Echo"));
+    const state = make_state(doc, CONTAINER_TITLE_CURSOR);
+    const { result, state: after } = apply_command(state, (s, d) =>
+      turn_into_at("heading", { level: 2 }, first.nodeSize, s, d),
+    );
+
+    expect(result).toBe(true);
+    expect(after.doc.child(0).type.name).toBe("callout");
+    expect(after.doc.child(1).type.name).toBe("heading");
+    expect(after.doc.child(1).textContent).toBe("Delta");
+    expect(after.doc.child(2).textContent).toBe("Echo");
+  });
+
+  it("returns false when the target already matches", () => {
+    const doc = make_doc(make_para("Alpha"));
+    const state = make_state(doc);
+    const { result } = apply_command(state, (s, d) =>
+      turn_into_at("paragraph", undefined, 0, s, d),
+    );
+
+    expect(result).toBe(false);
+  });
+
+  it("returns false when no node lives at the position", () => {
+    const doc = make_doc(make_para("Alpha"));
+    const state = make_state(doc);
+    const { result } = apply_command(state, (s, d) =>
+      turn_into_at("heading", { level: 1 }, doc.content.size, s, d),
+    );
+
+    expect(result).toBe(false);
+  });
+
+  it("parks the caret inside the replacement for a list target", () => {
+    const doc = make_doc(make_para("Alpha"));
+    const state = make_state(doc);
+    const { state: after } = apply_command(state, (s, d) =>
+      turn_into_at("bullet_list", undefined, 0, s, d),
+    );
+
+    expect(after.selection.$from.parent.type.name).toBe("paragraph");
+    expect(after.selection.$from.node(1).type.name).toBe("bullet_list");
+  });
+});
+
+describe("turn_into single/multi parity", () => {
+  const parity_targets = [
+    { target: "heading" as const, attrs: { level: 2 } },
+    { target: "paragraph" as const, attrs: undefined },
+    { target: "bullet_list" as const, attrs: undefined },
+    { target: "ordered_list" as const, attrs: undefined },
+    { target: "todo_list" as const, attrs: undefined },
+  ];
+
+  const inputs = [
+    {
+      name: "callout",
+      cursor: 2,
+      make: () => make_callout_blocks("Alpha", "Bravo", "Charlie"),
+    },
+    {
+      name: "details_block",
+      cursor: 2,
+      make: () => make_details_blocks("Alpha", "Bravo"),
+    },
+    {
+      name: "blockquote",
+      cursor: 2,
+      make: () => make_blockquote(make_para("Alpha"), make_para("Bravo")),
+    },
+    {
+      name: "bullet_list",
+      cursor: 3,
+      make: () =>
+        make_bullet_list(make_list_item("Alpha"), make_list_item("Bravo")),
+    },
+  ];
+
+  for (const input of inputs) {
+    for (const { target, attrs } of parity_targets) {
+      it(`${input.name} → ${target} agrees across the cursor, position and batch paths`, () => {
+        const cursor_state = make_state(make_doc(input.make()), input.cursor);
+        const { state: cursor_after } = apply_command(
+          cursor_state,
+          create_turn_into_command(target, attrs),
+        );
+
+        const single_state = make_state(make_doc(input.make()), input.cursor);
+        const { state: single_after } = apply_command(single_state, (s, d) =>
+          turn_into_at(target, attrs, 0, s, d),
+        );
+
+        const batch_state = make_state(make_doc(input.make()), input.cursor);
+        const { state: batch_after } = apply_command(batch_state, (s, d) =>
+          batch_turn_into(target, attrs, new Set([0]), s, d),
+        );
+
+        expect(cursor_after.doc.toJSON()).toEqual(batch_after.doc.toJSON());
+        expect(single_after.doc.toJSON()).toEqual(batch_after.doc.toJSON());
+      });
+    }
+  }
 });
