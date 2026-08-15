@@ -32,3 +32,8 @@ the limit, rather than waiting silently forever.
 
 The waiting indicator also counts elapsed time now, so a slow answer looks slow
 rather than stuck.
+
+Existing provider settings pick all of this up on upgrade, keeping any command
+path you had set. A provider whose arguments you edited by hand is left exactly
+as you wrote it, and goes on behaving as before; reset it to the preset if you
+want the new behaviour.

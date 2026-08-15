@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { migrate_ai_settings } from "$lib/features/ai/domain/ai_settings_migration";
+import { provider_supports_streaming } from "$lib/features/ai/domain/ai_provider_capabilities";
 
 // A migrated preset carries the preset's whole transport, streaming
 // invocation included — spelled out here so the pin stays a real one.
@@ -13,6 +14,114 @@ const CLAUDE_STREAM_ARGS = [
   "--tools",
   "",
 ];
+
+// A provider list exactly as it was persisted before presets declared a
+// streaming invocation: current transport shape, no stream_args.
+function stored_before_stream_args(
+  transport: Record<string, unknown> = {},
+): Record<string, unknown> {
+  return {
+    ai_providers: [
+      {
+        id: "claude",
+        name: "Claude Code",
+        transport: {
+          kind: "cli",
+          command: "claude",
+          args: ["-p", "--output-format", "text"],
+          acp: { kind: "preset", id: "claude" },
+          ...transport,
+        },
+        is_preset: true,
+      },
+    ],
+    ai_default_provider_id: "claude",
+  };
+}
+
+describe("upgrading a config stored before stream_args existed", () => {
+  it("grants streaming to a stored preset that was never customised", () => {
+    const result = migrate_ai_settings(stored_before_stream_args());
+
+    expect(result).not.toBeNull();
+    const claude = result!.ai_providers[0]!;
+    expect(provider_supports_streaming(claude)).toBe(true);
+    expect(
+      claude.transport.kind === "cli" ? claude.transport.stream_args : null,
+    ).toEqual(CLAUDE_STREAM_ARGS);
+  });
+
+  it("keeps a customised command and still grants streaming", () => {
+    const result = migrate_ai_settings(
+      stored_before_stream_args({ command: "/opt/homebrew/bin/claude" }),
+    );
+
+    const claude = result!.ai_providers[0]!;
+    if (claude.transport.kind !== "cli") throw new Error("expected cli");
+    expect(claude.transport.command).toBe("/opt/homebrew/bin/claude");
+    expect(claude.transport.stream_args).toEqual(CLAUDE_STREAM_ARGS);
+    expect(claude.transport.acp).toEqual({ kind: "preset", id: "claude" });
+  });
+
+  // Streaming is declared here, never inferred. Grafting the preset's list onto
+  // an invocation the user rewrote would run arguments they never wrote.
+  it("leaves a provider whose args were customised alone", () => {
+    const result = migrate_ai_settings(
+      stored_before_stream_args({ args: ["-p", "--model", "opus"] }),
+    );
+
+    expect(result).toBeNull();
+  });
+
+  it("leaves a provider that is not a builtin preset alone", () => {
+    const result = migrate_ai_settings({
+      ai_providers: [
+        {
+          id: "my-own-cli",
+          name: "Mine",
+          transport: { kind: "cli", command: "mine", args: ["-p"] },
+        },
+      ],
+      ai_default_provider_id: "my-own-cli",
+    });
+
+    expect(result).toBeNull();
+  });
+
+  it("leaves codex alone, because it declares no streaming invocation", () => {
+    const result = migrate_ai_settings({
+      ai_providers: [
+        {
+          id: "codex",
+          name: "Codex",
+          transport: {
+            kind: "cli",
+            command: "codex",
+            args: [
+              "exec",
+              "--skip-git-repo-check",
+              "--output-last-message",
+              "{output_file}",
+              "-",
+            ],
+            acp: { kind: "preset", id: "codex" },
+          },
+        },
+      ],
+      ai_default_provider_id: "codex",
+    });
+
+    expect(result).toBeNull();
+  });
+
+  it("is idempotent — a config already carrying stream_args is not rewritten", () => {
+    const already = stored_before_stream_args({
+      stream_args: ["-p", "--output-format", "stream-json"],
+    });
+
+    expect(migrate_ai_settings(already)).toBeNull();
+  });
+});
 
 describe("migrate_ai_settings", () => {
   it("converts agent descriptors on cli providers to acp specs and drops the agent key", () => {
