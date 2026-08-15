@@ -79,3 +79,48 @@ describe("inline accept routing", () => {
     cleanup();
   });
 });
+
+// The autosave hold is only as good as this signal: the plugin is the one
+// place that sees every way a preview ends, and every one of them has to
+// release the hold or the note stops saving for the rest of the session.
+describe("inline preview signal", () => {
+  it("reports the preview opening and closing exactly once each", () => {
+    const on_preview_change = vi.fn();
+    const { view, cleanup } = mount_menu({
+      on_execute: vi.fn(),
+      on_preview_change,
+    });
+
+    expect(on_preview_change.mock.calls).toEqual([[true]]);
+
+    dispatch_ai_menu(view, { action: "accept" });
+
+    expect(on_preview_change.mock.calls).toEqual([[true], [false]]);
+    cleanup();
+  });
+
+  it("releases the preview when it is rejected", () => {
+    const on_preview_change = vi.fn();
+    const { view, cleanup } = mount_menu({
+      on_execute: vi.fn(),
+      on_preview_change,
+    });
+
+    dispatch_ai_menu(view, { action: "reject" });
+
+    expect(on_preview_change).toHaveBeenLastCalledWith(false);
+    cleanup();
+  });
+
+  it("releases the preview when the session is destroyed mid-stream", () => {
+    const on_preview_change = vi.fn();
+    const { cleanup } = mount_menu({
+      on_execute: vi.fn(),
+      on_preview_change,
+    });
+
+    cleanup();
+
+    expect(on_preview_change).toHaveBeenLastCalledWith(false);
+  });
+});

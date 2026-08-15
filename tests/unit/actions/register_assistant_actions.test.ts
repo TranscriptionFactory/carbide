@@ -41,7 +41,8 @@ function make_outcome(
 
 type HarnessOptions = {
   outcome?: ProposalApplyOutcome;
-  open_note?: { path: string; is_dirty: boolean } | null;
+  open_note?: { path: string; is_dirty: boolean; markdown?: string } | null;
+  disk_markdown?: string;
 };
 
 function create_harness(options: HarnessOptions = {}) {
@@ -57,16 +58,23 @@ function create_harness(options: HarnessOptions = {}) {
   const editor = {
     open_note: options.open_note
       ? {
-          meta: { path: options.open_note.path },
+          meta: { id: options.open_note.path, path: options.open_note.path },
           is_dirty: options.open_note.is_dirty,
+          markdown: options.open_note.markdown ?? "buffer",
         }
       : null,
+    mark_clean: vi.fn(),
   };
+  const vault = { active_vault_id: "v1" };
   const services = {
     editor: { close_buffer: vi.fn() },
     note: {
       open_note: vi.fn().mockResolvedValue({ status: "ok" }),
       clear_open_note: vi.fn(),
+      read_note: vi.fn().mockResolvedValue({
+        markdown: options.disk_markdown ?? "disk",
+        meta: { mtime_ms: 4_000 },
+      }),
     },
     tab: {
       mark_conflict: vi.fn(),
@@ -77,7 +85,7 @@ function create_harness(options: HarnessOptions = {}) {
 
   register_assistant_actions({
     registry,
-    stores: { tab, editor } as never,
+    stores: { tab, editor, vault } as never,
     services: services as never,
     default_mount_config: {
       reset_app_state: true,
@@ -92,7 +100,7 @@ function create_harness(options: HarnessOptions = {}) {
     active_document_path: () => null,
   });
 
-  return { registry, proposals, proposal_apply, runs, services };
+  return { registry, proposals, proposal_apply, runs, services, editor };
 }
 
 describe("register_assistant_actions — assistant_clear_runs", () => {
@@ -162,6 +170,43 @@ describe("register_assistant_actions — apply reconciles the open editor", () =
     expect(services.tab.mark_conflict).toHaveBeenCalledWith("note.md");
     expect(services.editor.close_buffer).not.toHaveBeenCalled();
     expect(services.note.open_note).not.toHaveBeenCalled();
+  });
+
+  // The inline AI accept, which reaches this action with the accepted text
+  // already in the buffer. Dirty by the editor's bookkeeping, identical on
+  // disk: warning about a divergence that does not exist is its own defect.
+  it("marks the buffer saved when the write was the buffer's own text", async () => {
+    const { registry, services, editor } = create_harness({
+      open_note: { path: "note.md", is_dirty: true, markdown: "accepted" },
+      disk_markdown: "accepted",
+      outcome: make_outcome({
+        applied: ["p1"],
+        written_note_paths: ["note.md"],
+      }),
+    });
+
+    await registry.execute(ACTION_IDS.assistant_accept_proposal, "p1");
+
+    expect(editor.mark_clean).toHaveBeenCalledWith("note.md", 4_000);
+    expect(services.tab.mark_conflict).not.toHaveBeenCalled();
+    expect(services.editor.close_buffer).not.toHaveBeenCalled();
+  });
+
+  it("leaves a clean buffer that disk already agrees with untouched", async () => {
+    const { registry, services, editor } = create_harness({
+      open_note: { path: "note.md", is_dirty: false, markdown: "same" },
+      disk_markdown: "same",
+      outcome: make_outcome({
+        applied: ["p1"],
+        written_note_paths: ["note.md"],
+      }),
+    });
+
+    await registry.execute(ACTION_IDS.assistant_accept_proposal, "p1");
+
+    expect(services.editor.close_buffer).not.toHaveBeenCalled();
+    expect(services.tab.mark_conflict).not.toHaveBeenCalled();
+    expect(editor.mark_clean).not.toHaveBeenCalled();
   });
 
   it("leaves the editor alone when the applied proposal wrote no note", async () => {

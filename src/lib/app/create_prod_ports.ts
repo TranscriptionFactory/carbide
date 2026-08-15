@@ -112,6 +112,7 @@ export type AiInlineHandler = {
   get_commands: (() => InstructionRecipe[]) | null;
   on_open_settings: (() => void) | null;
   on_accept: (() => void) | null;
+  on_preview_change: ((active: boolean) => void) | null;
   get_runs: (() => RunRecord[]) | null;
   on_stop: ((id: RunId) => void) | null;
 };
@@ -155,6 +156,7 @@ export function create_prod_ports(): Ports & {
     get_commands: null,
     on_open_settings: null,
     on_accept: null,
+    on_preview_change: null,
     get_runs: null,
     on_stop: null,
   };
@@ -216,6 +218,8 @@ export function create_prod_ports(): Ports & {
         get_commands: () => ai_inline_handler.get_commands?.() ?? [],
         on_open_settings: () => ai_inline_handler.on_open_settings?.(),
         on_accept: () => ai_inline_handler.on_accept?.(),
+        on_preview_change: (active) =>
+          ai_inline_handler.on_preview_change?.(active),
         get_runs: () => ai_inline_handler.get_runs?.() ?? [],
         on_stop: (id) => ai_inline_handler.on_stop?.(id),
       },

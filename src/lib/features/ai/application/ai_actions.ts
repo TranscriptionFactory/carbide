@@ -1,4 +1,5 @@
 import { toast } from "$lib/shared/ui/toast";
+import { create_logger } from "$lib/shared/utils/logger";
 import YAML from "yaml";
 import type { ActionRegistrationInput } from "$lib/app";
 import { ACTION_IDS } from "$lib/app";
@@ -23,6 +24,7 @@ import type { AiProviderConfig } from "$lib/shared/types/ai_provider_config";
 import { extract_frontmatter } from "$lib/features/reference";
 import {
   as_markdown_text,
+  type MarkdownText,
   type NoteId,
   type NotePath,
 } from "$lib/shared/types/ids";
@@ -65,6 +67,8 @@ import type {
 import { assemble_context, context_window } from "$lib/features/assistant";
 import { collect_open_note_image_parts } from "$lib/features/ai/application/note_image_loader";
 import type { EditorView } from "prosemirror-view";
+
+const log = create_logger("ai_actions");
 
 const MAX_INLINE_CONTEXT = 4000;
 
@@ -444,6 +448,24 @@ export function register_ai_actions(
     }
   }
 
+  // The base the accept proposal is diffed against, and the one the apply
+  // service checks its base_revision against, have to be the same bytes. Disk
+  // is that shared reference; the buffer is not, because it runs ahead of disk
+  // whenever the note was dirty when the run started. Reading it here is safe
+  // because the preview hold has already stopped autosave from moving it.
+  async function read_note_from_disk(): Promise<MarkdownText | null> {
+    const vault_id = input.stores.vault.active_vault_id;
+    const note_path = services.editor.get_ai_context()?.note_path;
+    if (!vault_id || !note_path) return null;
+    try {
+      const doc = await services.note.read_note(vault_id, note_path);
+      return doc.markdown;
+    } catch (error) {
+      log.from_error("Inline AI could not read the note it started in", error);
+      return null;
+    }
+  }
+
   registry.register({
     id: ACTION_IDS.ai_execute_inline,
     label: "Execute Inline AI",
@@ -483,7 +505,7 @@ export function register_ai_actions(
               ? { note_path: String(input.stores.editor.open_note.meta.path) }
               : {}),
           },
-          before_markdown: services.editor.get_ai_context()?.markdown ?? null,
+          before_markdown: await read_note_from_disk(),
           prompts: null,
         };
       }
@@ -703,6 +725,14 @@ export function register_ai_actions(
       const view = get_inline_view();
       if (!view) return;
       reject_ai_inline(view);
+    },
+  });
+
+  registry.register({
+    id: ACTION_IDS.ai_set_inline_preview,
+    label: "Set Inline AI Preview State",
+    execute: (...args: unknown[]) => {
+      input.stores.editor.set_ai_preview_active(args[0] === true);
     },
   });
 

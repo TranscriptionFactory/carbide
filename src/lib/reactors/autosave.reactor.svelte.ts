@@ -26,6 +26,13 @@ function create_note_autosave_reactor(
       if (!ui_store.editor_settings.autosave_enabled) {
         return;
       }
+      // Held, not skipped: re-reading this flag re-runs the effect, and the
+      // previous run's cleanup cancels a save already queued before the
+      // preview opened. Without that, a buffer dirty at run start still gets
+      // written mid-stream and the accept diffs against a note that moved.
+      if (editor_store?.ai_preview_active) {
+        return;
+      }
       if (!open_note?.is_dirty) {
         return;
       }

@@ -797,23 +797,19 @@ describe("register_ai_actions", () => {
     });
 
     describe("I5: accept routes through the proposal store", () => {
-      it("builds a proposal from the note's markdown before and after the stream, and accepts it", async () => {
+      it("builds a proposal from the note on disk and the buffer after the stream, and accepts it", async () => {
         const harness = setup_inline();
         harness.stores.vault.set_vault(create_test_vault());
-        harness.services.editor.get_ai_context = vi
-          .fn()
-          .mockReturnValueOnce({
-            note_path: as_note_path("docs/demo.md"),
-            note_title: "demo",
-            markdown: as_markdown_text("# Demo\nOld line"),
-            selection: null,
-          })
-          .mockReturnValueOnce({
-            note_path: as_note_path("docs/demo.md"),
-            note_title: "demo",
-            markdown: as_markdown_text("# Demo\nNew line"),
-            selection: null,
-          });
+        harness.services.note.read_note = vi.fn().mockResolvedValue({
+          meta: { title: "demo" },
+          markdown: as_markdown_text("# Demo\nOld line"),
+        });
+        harness.services.editor.get_ai_context = vi.fn().mockReturnValue({
+          note_path: as_note_path("docs/demo.md"),
+          note_title: "demo",
+          markdown: as_markdown_text("# Demo\nNew line"),
+          selection: null,
+        });
         harness.ai_service.stream_inline = vi.fn(function* () {
           yield { type: "text", text: "New line" };
         });
@@ -845,6 +841,46 @@ describe("register_ai_actions", () => {
         );
         expect(inline_session).toBeDefined();
         expect(proposal?.origin.session_id).toBe(inline_session?.id);
+      });
+
+      // 1.3-B. base_revision is what ProposalApplyService checks against the
+      // note on disk, so it has to describe those bytes. Taking it from the
+      // buffer made every accept stale whenever the buffer ran ahead of disk —
+      // silently before the batch, as a "Proposal is out of date" toast after.
+      it("bases the proposal on disk, not on a buffer that ran ahead of it", async () => {
+        const harness = setup_inline();
+        harness.stores.vault.set_vault(create_test_vault());
+        const on_disk = "# Demo\nSaved line";
+        harness.services.note.read_note = vi.fn().mockResolvedValue({
+          meta: { title: "demo" },
+          markdown: as_markdown_text(on_disk),
+        });
+        harness.services.editor.get_ai_context = vi.fn().mockReturnValue({
+          note_path: as_note_path("docs/demo.md"),
+          note_title: "demo",
+          markdown: as_markdown_text("# Demo\nSaved line\nUnsaved edit\nNew"),
+          selection: null,
+        });
+        harness.ai_service.stream_inline = vi.fn(function* () {
+          yield { type: "text", text: "New" };
+        });
+
+        await harness.registry.execute(ACTION_IDS.ai_open_inline_menu);
+        await harness.registry.execute(ACTION_IDS.ai_execute_inline, {
+          prompt: "go",
+        });
+        await harness.registry.execute(ACTION_IDS.ai_accept_inline);
+
+        // The unsaved line is on screen but not on disk, so a disk-based
+        // proposal has to carry it. A buffer-based one diffs the buffer
+        // against itself and produces nothing at all.
+        const [proposal] = harness.assistant_proposals.proposals;
+        expect(
+          proposal?.hunks
+            .flatMap((hunk) => hunk.lines)
+            .filter((line) => line.kind === "add")
+            .map((line) => line.content),
+        ).toContain("Unsaved edit");
       });
 
       it("does not create or accept a proposal while the stream is still in flight", async () => {

@@ -37,6 +37,10 @@ export class EditorStore {
   pending_heading_fragment = $state<string | null>(null);
   pending_cursor_restore = $state<PendingCursorRestore | null>(null);
   width_mode_overrides = $state<Record<string, EditorWidthMode>>({});
+  // The buffer is showing streamed AI text the user has not accepted yet.
+  // Persisting that is wrong twice over: rejecting would leave it on disk, and
+  // saving moves disk out from under the proposal accept diffs against.
+  ai_preview_active = $state(false);
 
   set_width_mode_override(note_path: string, mode: EditorWidthMode) {
     this.width_mode_overrides = {
@@ -49,6 +53,10 @@ export class EditorStore {
     if (!(note_path in this.width_mode_overrides)) return;
     const { [note_path]: _removed, ...rest } = this.width_mode_overrides;
     this.width_mode_overrides = rest;
+  }
+
+  set_ai_preview_active(active: boolean) {
+    this.ai_preview_active = active;
   }
 
   set_pending_heading_fragment(fragment: string | null) {
@@ -98,6 +106,7 @@ export class EditorStore {
     this.last_saved_at = null;
     this.selection = null;
     this.pending_cursor_restore = null;
+    this.ai_preview_active = false;
   }
 
   set_markdown(note_id: NoteId, markdown: OpenNoteState["markdown"]) {
@@ -258,5 +267,6 @@ export class EditorStore {
     this.source_content_getter = null;
     this.source_view_getter = null;
     this.pending_cursor_restore = null;
+    this.ai_preview_active = false;
   }
 }

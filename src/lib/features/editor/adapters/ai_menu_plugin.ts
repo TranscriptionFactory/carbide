@@ -68,6 +68,10 @@ export type AiMenuPluginConfig = {
   // Accepting has to reach the action so the exchange gets logged; without a
   // host the plugin still accepts on its own.
   on_accept?: () => void;
+  // The plugin is the only place that sees every way a preview ends - accept,
+  // reject, Escape, an outside click, the session being torn down - so it is
+  // the only honest source for "the buffer is showing unaccepted AI text".
+  on_preview_change?: (active: boolean) => void;
   // Passed to the menu as functions, never resolved here: a resolved runs
   // array would freeze at mount time, while a getter stays live inside the
   // component's own reactive scope.
@@ -299,9 +303,15 @@ export function create_ai_menu_plugin(
             prev_mode = null;
             prev_streaming = null;
           }
+          if (state.open !== prev_open) {
+            config?.on_preview_change?.(state.open);
+          }
           prev_open = state.open;
         },
         destroy() {
+          // A session torn down mid-preview must not leave the hold on: the
+          // note it belonged to is gone, and nothing else would release it.
+          if (prev_open) config?.on_preview_change?.(false);
           document.removeEventListener("keydown", on_keydown, true);
           if (svelte_app) unmount(svelte_app);
           destroy_dropdown(container, detach_dismiss);

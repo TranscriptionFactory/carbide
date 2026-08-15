@@ -6,7 +6,11 @@ describe("resolve_agent_note_sync", () => {
     expect(
       resolve_agent_note_sync(
         "notes/a.md",
-        { path: "notes/a.md", is_dirty: false },
+        {
+          path: "notes/a.md",
+          is_dirty: false,
+          matches_disk: false,
+        },
         null,
       ),
     ).toBe("reload");
@@ -16,7 +20,11 @@ describe("resolve_agent_note_sync", () => {
     expect(
       resolve_agent_note_sync(
         "notes/a.md",
-        { path: "notes/a.md", is_dirty: true },
+        {
+          path: "notes/a.md",
+          is_dirty: true,
+          matches_disk: false,
+        },
         null,
       ),
     ).toBe("mark_conflict");
@@ -26,7 +34,11 @@ describe("resolve_agent_note_sync", () => {
     expect(
       resolve_agent_note_sync(
         "Notes/A.md",
-        { path: "notes/a.md", is_dirty: false },
+        {
+          path: "notes/a.md",
+          is_dirty: false,
+          matches_disk: false,
+        },
         null,
       ),
     ).toBe("reload");
@@ -36,7 +48,11 @@ describe("resolve_agent_note_sync", () => {
     expect(
       resolve_agent_note_sync(
         "notes/b.md",
-        { path: "notes/a.md", is_dirty: false },
+        {
+          path: "notes/a.md",
+          is_dirty: false,
+          matches_disk: false,
+        },
         { is_dirty: false },
       ),
     ).toBe("invalidate_tab_cache");
@@ -52,7 +68,34 @@ describe("resolve_agent_note_sync", () => {
     expect(
       resolve_agent_note_sync(
         "notes/c.md",
-        { path: "notes/a.md", is_dirty: false },
+        {
+          path: "notes/a.md",
+          is_dirty: false,
+          matches_disk: false,
+        },
+        null,
+      ),
+    ).toBe("ignore");
+  });
+
+  // The inline AI accept: the buffer is dirty by the editor's bookkeeping, but
+  // the write that just landed is the buffer's own text. Neither a conflict
+  // nor a reload — the note is simply saved.
+  it("marks a dirty open note saved when disk already holds its text", () => {
+    expect(
+      resolve_agent_note_sync(
+        "notes/a.md",
+        { path: "notes/a.md", is_dirty: true, matches_disk: true },
+        null,
+      ),
+    ).toBe("mark_saved");
+  });
+
+  it("ignores a clean open note that disk already agrees with", () => {
+    expect(
+      resolve_agent_note_sync(
+        "notes/a.md",
+        { path: "notes/a.md", is_dirty: false, matches_disk: true },
         null,
       ),
     ).toBe("ignore");
