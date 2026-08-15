@@ -41,6 +41,7 @@ import type {
   RunHandle,
 } from "$lib/features/assistant";
 import { build_ai_inline_prompt } from "$lib/features/ai/domain/ai_prompt_builder";
+import { sanitize_ai_output } from "$lib/features/ai/domain/ai_output_sanitizer";
 import {
   build_inline_messages,
   derive_inline_title,
@@ -66,6 +67,15 @@ import { collect_open_note_image_parts } from "$lib/features/ai/application/note
 import type { EditorView } from "prosemirror-view";
 
 const MAX_INLINE_CONTEXT = 4000;
+
+// One object per inline request, captured by the handler that created it. A
+// module-level snapshot shared by every run let an accept in note B diff
+// against note A's markdown, which builds a "delete all of B" proposal.
+type InlineRun = {
+  request: { prompt: string; provider_id: string; note_path?: string };
+  before_markdown: string | null;
+  prompts: { system_prompt: string; user_prompt: string } | null;
+};
 
 type PendingInlinePrompt = {
   command_id: string;
@@ -120,19 +130,10 @@ export function register_ai_actions(
     assistant_sessions_service,
   } = input;
 
-  let last_inline_prompts: {
-    system_prompt: string;
-    user_prompt: string;
-  } | null = null;
-  let last_inline_request: {
-    prompt: string;
-    provider_id: string;
-    note_path?: string;
-  } | null = null;
-  // Snapshot of the note's full markdown before the current inline attempt
-  // started (captured once per fresh request, not per retry) — I5's
-  // base_revision for the proposal built at accept.
-  let last_inline_before_markdown: string | null = null;
+  // The most recent inline request. `before_markdown` is the note's full
+  // markdown before that attempt started (captured once per fresh request, not
+  // per retry) — I5's base_revision for the proposal built at accept.
+  let inline_run: InlineRun | null = null;
 
   function ai_enabled() {
     return input.stores.ui.editor_settings.ai_enabled;
@@ -217,6 +218,39 @@ export function register_ai_actions(
     } else {
       reject_ai_inline(view);
     }
+  }
+
+  // The plugin tracks the streamed range by accumulating inserted lengths, so a
+  // rewrite has to replay through the same retry/stream_text metas rather than
+  // editing the doc behind its back.
+  function rewrite_streamed_text(
+    view: EditorView,
+    streamed: string,
+    next_text: string,
+  ) {
+    if (next_text === streamed) return;
+    const state = get_ai_menu_state(view.state);
+    if (!state.open) return;
+
+    const cleared = view.state.tr.delete(
+      state.ai_range_from,
+      state.ai_range_to,
+    );
+    cleared.setMeta("addToHistory", false);
+    cleared.setMeta(ai_menu_plugin_key, { action: "retry" });
+    view.dispatch(cleared);
+    if (!next_text) return;
+
+    const inserted = view.state.tr.insertText(
+      next_text,
+      get_ai_menu_state(view.state).ai_range_to,
+    );
+    inserted.setMeta("addToHistory", false);
+    inserted.setMeta(ai_menu_plugin_key, {
+      action: "stream_text",
+      text: next_text,
+    });
+    view.dispatch(inserted);
   }
 
   function extract_inline_context(view: EditorView): EditorContextMaterial {
@@ -318,6 +352,7 @@ export function register_ai_actions(
     config: AiProviderConfig,
     p: { command_id?: string; prompt?: string; retry?: boolean } | undefined,
     commands: InstructionRecipe[],
+    run: InlineRun,
   ) {
     const editor_ctx = services.editor.get_ai_context();
     if (!editor_ctx) {
@@ -329,7 +364,7 @@ export function register_ai_actions(
 
     let pending: PendingInlinePrompt | null = null;
     if (p?.retry) {
-      if (!last_inline_prompts) return;
+      if (!run.prompts) return;
     } else {
       pending = prepare_inline_prompt(
         "inline_cm",
@@ -353,10 +388,10 @@ export function register_ai_actions(
       pending ? fetch_inline_vault_context() : undefined,
     ]);
     if (!get_ai_menu_state(view.state).open) return;
-    let prompts = last_inline_prompts;
+    let prompts = run.prompts;
     if (pending) {
       prompts = finish_inline_prompt(pending, vault_context);
-      last_inline_prompts = prompts;
+      run.prompts = prompts;
     }
     if (!prompts) return;
 
@@ -397,9 +432,10 @@ export function register_ai_actions(
     // ALLOWED_DIRECT_APPLY: CodeMirror source-mode inline has no accept
     // affordance at all (filed C1 finding) — there is no review step to route
     // through a proposal. Do not invent one here; out of scope this cycle.
+    // Sanitizing the accumulated stream is the only filter this path gets.
     const applied = services.editor.apply_ai_output(
       "selection",
-      output,
+      sanitize_ai_output(output),
       apply_selection,
     );
     dispatch_ai_menu(view, { action: "close" });
@@ -439,31 +475,36 @@ export function register_ai_actions(
         commands = resolve_instructions(
           input.stores.ui.editor_settings.ai_inline_commands,
         );
-        last_inline_request = {
-          prompt: describe_inline_request(p, commands),
-          provider_id: config.id,
-          ...(input.stores.editor.open_note
-            ? { note_path: String(input.stores.editor.open_note.meta.path) }
-            : {}),
+        inline_run = {
+          request: {
+            prompt: describe_inline_request(p, commands),
+            provider_id: config.id,
+            ...(input.stores.editor.open_note
+              ? { note_path: String(input.stores.editor.open_note.meta.path) }
+              : {}),
+          },
+          before_markdown: services.editor.get_ai_context()?.markdown ?? null,
+          prompts: null,
         };
-        last_inline_before_markdown =
-          services.editor.get_ai_context()?.markdown ?? null;
       }
+      // Held for the rest of this handler: a run detached mid-stream must keep
+      // writing to its own state, never to whatever request came after it.
+      const run = inline_run;
+      if (!run) return;
 
       // read after the async provider probe: closes the double-trigger window
       const state = get_ai_menu_state(view.state);
       if (!state.open || state.streaming) return;
 
       if (in_source_mode()) {
-        await execute_inline_source(view, config, p, commands);
+        await execute_inline_source(view, config, p, commands, run);
         return;
       }
 
-      let prompts: { system_prompt: string; user_prompt: string } | null = null;
+      let prompts = run.prompts;
       let pending: PendingInlinePrompt | null = null;
       if (p?.retry) {
-        if (!last_inline_prompts) return;
-        prompts = last_inline_prompts;
+        if (!prompts) return;
         const tr = view.state.tr.delete(state.ai_range_from, state.ai_range_to);
         tr.setMeta("addToHistory", false);
         tr.setMeta(ai_menu_plugin_key, { action: "retry" });
@@ -495,10 +536,11 @@ export function register_ai_actions(
       if (!get_ai_menu_state(view.state).open) return;
       if (pending) {
         prompts = finish_inline_prompt(pending, vault_context);
-        last_inline_prompts = prompts;
+        run.prompts = prompts;
       }
       if (!prompts) return;
 
+      let streamed = "";
       try {
         for await (const chunk of ai_service.stream_inline({
           provider_config: config,
@@ -528,11 +570,15 @@ export function register_ai_actions(
               text: chunk.text,
             });
             view.dispatch(tr);
+            streamed += chunk.text;
           } else if (chunk.type === "error") {
             fail_inline_stream(view, chunk.error);
             return;
           }
         }
+        // Sanitizing per chunk cannot work: a preamble spans chunk boundaries.
+        // The completed stream is the first point the whole reply is in hand.
+        rewrite_streamed_text(view, streamed, sanitize_ai_output(streamed));
         dispatch_ai_menu(view, { action: "stream_done" });
       } catch (err) {
         fail_inline_stream(view, error_message(err));
@@ -544,7 +590,7 @@ export function register_ai_actions(
   // inline session; only persistence is detached, and AssistantSessionService
   // already swallows its own failures.
   function log_inline_session(result: string): string | null {
-    const request = last_inline_request;
+    const request = inline_run?.request ?? null;
     const vault_id = input.stores.vault.active_vault_id;
     if (!request || !vault_id) return null;
 
@@ -596,6 +642,26 @@ export function register_ai_actions(
             )
           : "";
 
+      const run = inline_run;
+      const after = services.editor.get_ai_context();
+
+      // The snapshot accept diffs against belongs to the note the run started
+      // in. Accepting into a different note would propose "delete all of this
+      // note, insert all of that one"; only the base-revision staleness check
+      // stands between that proposal and the disk.
+      const origin_path = run?.request.note_path;
+      if (
+        result &&
+        after &&
+        origin_path &&
+        origin_path !== String(after.note_path)
+      ) {
+        toast.error(
+          `This inline edit was started in ${origin_path} — open that note to accept it.`,
+        );
+        return;
+      }
+
       dispatch_ai_menu(view, { action: "accept" });
       if (!result) return;
 
@@ -608,13 +674,12 @@ export function register_ai_actions(
       // write through the proposal store, so the buffer preview and the
       // persisted write share one apply path even though they happen at
       // different times.
-      const after = services.editor.get_ai_context();
-      if (last_inline_before_markdown !== null && after) {
+      if (run?.before_markdown != null && after) {
         // The review centre groups by origin.session_id; a throwaway UUID
         // made every inline accept an unresolvable "raw id" group.
         const proposal = build_proposal({
           target: { kind: "note", note_path: after.note_path },
-          original_text: last_inline_before_markdown,
+          original_text: run.before_markdown,
           draft_text: after.markdown,
           span: "full_note",
           origin: {

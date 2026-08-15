@@ -103,6 +103,18 @@ export function build_ai_prompt(input: {
   return parts.join("\n\n");
 }
 
+// A custom prompt is the whole system prompt, so unlike every other branch it
+// carries no output discipline of its own and the model answers conversationally
+// straight into the note.
+const INLINE_OUTPUT_CONTRACT =
+  "Output only the result. Do not include commentary, explanations, or enclose the markdown in code fences.";
+
+function with_output_contract(system_prompt: string): string {
+  const trimmed = system_prompt.trim();
+  if (!trimmed) return INLINE_OUTPUT_CONTRACT;
+  return `${trimmed}\n\n${INLINE_OUTPUT_CONTRACT}`;
+}
+
 function with_vault_context(
   system_prompt: string,
   assembly: ContextAssembly,
@@ -138,7 +150,9 @@ export function build_ai_inline_prompt(input: {
   if (command_id === "custom") {
     return {
       system_prompt: with_vault_context(
-        custom_prompt ?? "Follow the user's instructions.",
+        with_output_contract(
+          custom_prompt ?? "Follow the user's instructions.",
+        ),
         assembly,
       ),
       user_prompt: inline_user_prompt(assembly, true),

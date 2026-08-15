@@ -137,7 +137,10 @@ describe("build_ai_inline_prompt", () => {
     expect(result.user_prompt).toBe("Bonjour le monde");
   });
 
-  it("handles custom command with custom_prompt", () => {
+  // A custom prompt replaces the whole system prompt, so the output contract
+  // every other branch carries has to be appended back or the model answers
+  // conversationally straight into the note.
+  it("keeps the custom prompt and appends the output contract", () => {
     const result = prompt({
       command_id: "custom",
       custom_prompt: "Rewrite as a haiku",
@@ -145,7 +148,9 @@ describe("build_ai_inline_prompt", () => {
       selection_text: "Selected text",
       commands,
     });
-    expect(result.system_prompt).toBe("Rewrite as a haiku");
+    expect(result.system_prompt).toBe(
+      "Rewrite as a haiku\n\nOutput only the result. Do not include commentary, explanations, or enclose the markdown in code fences.",
+    );
     expect(result.user_prompt).toBe("Selected text");
   });
 
@@ -156,7 +161,8 @@ describe("build_ai_inline_prompt", () => {
       context_text: "Some text",
       commands,
     });
-    expect(result.system_prompt).toBe("Make it shorter");
+    expect(result.system_prompt).toContain("Make it shorter");
+    expect(result.system_prompt).toContain("Output only the result.");
     expect(result.user_prompt).toBe("Some text");
   });
 
@@ -166,8 +172,21 @@ describe("build_ai_inline_prompt", () => {
       context_text: "Some text",
       commands,
     });
-    expect(result.system_prompt).toBe("Follow the user's instructions.");
+    expect(result.system_prompt).toContain("Follow the user's instructions.");
+    expect(result.system_prompt).toContain("Output only the result.");
     expect(result.user_prompt).toBe("Some text");
+  });
+
+  it("forbids commentary and code fences on every inline system prompt", () => {
+    const custom = prompt({
+      command_id: "custom",
+      custom_prompt: "Rewrite as a haiku",
+      context_text: "Some text",
+      commands,
+    });
+    expect(custom.system_prompt).toContain(
+      "Do not include commentary, explanations, or enclose the markdown in code fences.",
+    );
   });
 
   it("handles unknown command with fallback prompt", () => {
