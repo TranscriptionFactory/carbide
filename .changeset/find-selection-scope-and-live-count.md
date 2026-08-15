@@ -13,8 +13,14 @@ of the note you deliberately left out. Previously the selection vanished the
 moment the bar took focus and the search silently covered the whole document.
 The scope follows the text as you edit — replacing inside it keeps it aligned —
 and if you delete the scoped passage outright, find falls back to the whole
-note rather than searching an empty range. Opening find with a short single-line
-selection seeds the query from it instead of scoping, the way you would expect.
+note rather than searching an empty range.
+
+A third toggle beside Match case and Whole word shows and controls this. It
+appears whenever you had text selected as the bar opened, lit when find is
+scoped to that selection, and turning it off searches the whole note again
+without losing the range — so you can flip between the two. A short single-line
+selection seeds the query from it instead of scoping, and leaves the toggle
+available but off.
 
 The match count no longer goes stale. Typing new matching text into the note
 used to leave the counter reading its old value while the new matches were

@@ -295,6 +295,9 @@
                             case_sensitive={stores.ui.find_in_file
                               .case_sensitive}
                             whole_word={stores.ui.find_in_file.whole_word}
+                            scope={stores.ui.find_in_file.scope}
+                            scope_available={stores.ui.find_in_file
+                              .scope_range !== null}
                             on_query_change={(query: string) =>
                               void action_registry.execute(
                                 ACTION_IDS.find_in_file_set_query,
@@ -323,6 +326,10 @@
                             on_toggle_whole_word={() =>
                               void action_registry.execute(
                                 ACTION_IDS.find_in_file_toggle_whole_word,
+                              )}
+                            on_toggle_scope={() =>
+                              void action_registry.execute(
+                                ACTION_IDS.find_in_file_toggle_scope,
                               )}
                             on_replace_text_change={(text: string) =>
                               void action_registry.execute(

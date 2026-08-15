@@ -15,6 +15,8 @@ function render_find_bar(
     replace_text: string;
     case_sensitive: boolean;
     whole_word: boolean;
+    scope: "document" | "selection";
+    scope_available: boolean;
   }> = {},
 ) {
   const callbacks = {
@@ -25,6 +27,7 @@ function render_find_bar(
     on_toggle_replace: vi.fn(),
     on_toggle_case: vi.fn(),
     on_toggle_whole_word: vi.fn(),
+    on_toggle_scope: vi.fn(),
     on_replace_text_change: vi.fn(),
     on_replace_one: vi.fn(),
     on_replace_all: vi.fn(),
@@ -38,6 +41,8 @@ function render_find_bar(
     replace_text: "",
     case_sensitive: false,
     whole_word: false,
+    scope: "document" as const,
+    scope_available: false,
     ...callbacks,
     ...overrides,
   };
@@ -136,5 +141,43 @@ describe("find_in_file_bar keyboard", () => {
       empty.target.querySelector('[data-testid="find-count"]')?.textContent,
     ).toBe("No results");
     empty.cleanup();
+  });
+
+  it("hides the scope toggle when no selection was captured", () => {
+    const { target, cleanup } = render_find_bar({ scope_available: false });
+    expect(target.querySelector('[data-testid="find-scope"]')).toBeNull();
+    cleanup();
+  });
+
+  it("shows the scope toggle unpressed while searching the whole document", () => {
+    const { target, cleanup } = render_find_bar({
+      scope_available: true,
+      scope: "document",
+    });
+    const toggle = target.querySelector('[data-testid="find-scope"]');
+    expect(toggle?.getAttribute("aria-pressed")).toBe("false");
+    cleanup();
+  });
+
+  it("marks the scope toggle pressed while scoped to the selection", () => {
+    const { target, cleanup } = render_find_bar({
+      scope_available: true,
+      scope: "selection",
+    });
+    const toggle = target.querySelector('[data-testid="find-scope"]');
+    expect(toggle?.getAttribute("aria-pressed")).toBe("true");
+    cleanup();
+  });
+
+  it("reports a scope toggle click", () => {
+    const { target, callbacks, cleanup } = render_find_bar({
+      scope_available: true,
+    });
+    target
+      .querySelector<HTMLButtonElement>('[data-testid="find-scope"]')
+      ?.click();
+    flushSync();
+    expect(callbacks.on_toggle_scope).toHaveBeenCalledOnce();
+    cleanup();
   });
 });

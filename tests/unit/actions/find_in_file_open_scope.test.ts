@@ -56,13 +56,14 @@ describe("find in file open capture", () => {
     expect(harness.ui.find_in_file.scope_range).toEqual({ from: 4, to: 40 });
   });
 
-  it("seeds the query from a short selection", () => {
+  it("seeds the query from a short selection without scoping to it", () => {
     const harness = create_harness(SHORT);
 
     harness.run(ACTION_IDS.find_in_file_open);
 
     expect(harness.ui.find_in_file.query).toBe("haystack");
     expect(harness.ui.find_in_file.scope).toBe("document");
+    expect(harness.ui.find_in_file.scope_range).toEqual({ from: 4, to: 12 });
   });
 
   it("leaves an existing query alone when nothing is selected", () => {
@@ -104,6 +105,38 @@ describe("find in file open capture", () => {
     expect(harness.ui.find_in_file.open).toBe(true);
     expect(harness.ui.find_in_file.show_replace).toBe(true);
     expect(harness.ui.find_in_file.scope).toBe("selection");
+  });
+
+  it("turns the scope off and back on without losing the range", () => {
+    const harness = create_harness(MULTILINE);
+    harness.run(ACTION_IDS.find_in_file_open);
+
+    harness.run(ACTION_IDS.find_in_file_toggle_scope);
+    expect(harness.ui.find_in_file.scope).toBe("document");
+    expect(harness.ui.find_in_file.scope_range).toEqual({ from: 4, to: 40 });
+
+    harness.run(ACTION_IDS.find_in_file_toggle_scope);
+    expect(harness.ui.find_in_file.scope).toBe("selection");
+  });
+
+  it("scopes a single-line selection only when asked", () => {
+    const harness = create_harness(SHORT);
+    harness.run(ACTION_IDS.find_in_file_open);
+    expect(harness.ui.find_in_file.scope).toBe("document");
+
+    harness.run(ACTION_IDS.find_in_file_toggle_scope);
+
+    expect(harness.ui.find_in_file.scope).toBe("selection");
+  });
+
+  it("ignores the scope toggle when nothing was selected", () => {
+    const harness = create_harness(null);
+    harness.run(ACTION_IDS.find_in_file_open);
+
+    harness.run(ACTION_IDS.find_in_file_toggle_scope);
+
+    expect(harness.ui.find_in_file.scope).toBe("document");
+    expect(harness.ui.find_in_file.scope_range).toBeNull();
   });
 
   it("does not recapture the scope when replace only collapses", () => {

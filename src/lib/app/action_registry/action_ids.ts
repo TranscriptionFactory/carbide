@@ -232,6 +232,7 @@ export const ACTION_IDS = {
   find_in_file_replace_all: "find_in_file.replace_all",
   find_in_file_toggle_case: "find_in_file.toggle_case",
   find_in_file_toggle_whole_word: "find_in_file.toggle_whole_word",
+  find_in_file_toggle_scope: "find_in_file.toggle_scope",
 
   tab_close: "tab.close",
   tab_close_other: "tab.close_other",

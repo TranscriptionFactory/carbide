@@ -46,7 +46,7 @@ describe("resolve_find_open_state", () => {
     ).toEqual({
       query: "haystack",
       scope: "document",
-      scope_range: null,
+      scope_range: { from: 4, to: 11 },
     });
   });
 
@@ -67,8 +67,18 @@ describe("resolve_find_open_state", () => {
     ).toEqual({
       query: null,
       scope: "document",
-      scope_range: null,
+      scope_range: { from: 1, to: 102 },
     });
+  });
+
+  it("offers a single-line selection as a scope without turning it on", () => {
+    const state = resolve_find_open_state({
+      from: 4,
+      to: 11,
+      text: "haystack",
+    });
+    expect(state.scope).toBe("document");
+    expect(state.scope_range).not.toBeNull();
   });
 
   it("treats an empty selection as no selection", () => {

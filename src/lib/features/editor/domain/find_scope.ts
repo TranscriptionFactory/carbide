@@ -25,17 +25,17 @@ export function resolve_find_open_state(
     return { query: null, scope: "document", scope_range: null };
   }
 
+  // Any selection is offerable as a scope; only a multi-line one is worth
+  // turning on unasked, because that is where a whole-document replace does
+  // damage the user did not ask for.
+  const scope_range = { from: selection.from, to: selection.to };
   if (spans_multiple_lines(selection.text)) {
-    return {
-      query: null,
-      scope: "selection",
-      scope_range: { from: selection.from, to: selection.to },
-    };
+    return { query: null, scope: "selection", scope_range };
   }
 
   const query =
     selection.text.length <= MAX_SEEDED_QUERY_LENGTH ? selection.text : null;
-  return { query, scope: "document", scope_range: null };
+  return { query, scope: "document", scope_range };
 }
 
 // Both ends bias away from inserted text, so a character typed against either

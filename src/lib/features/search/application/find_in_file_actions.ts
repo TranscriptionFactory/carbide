@@ -211,4 +211,21 @@ export function register_find_in_file_actions(input: ActionRegistrationInput) {
       });
     },
   });
+
+  registry.register({
+    id: ACTION_IDS.find_in_file_toggle_scope,
+    label: "Toggle Find in Selection",
+    execute: () => {
+      // The range is captured on open and only cleared when it is edited away,
+      // so toggling back on reuses the selection the user started from.
+      if (!stores.ui.find_in_file.scope_range) return;
+      update_find_state({
+        scope:
+          stores.ui.find_in_file.scope === "selection"
+            ? "document"
+            : "selection",
+        selected_match_index: 0,
+      });
+    },
+  });
 }
