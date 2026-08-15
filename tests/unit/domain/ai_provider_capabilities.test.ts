@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   agent_capability,
   provider_supports_streaming,
+  with_transport_kind,
 } from "$lib/features/ai/domain/ai_provider_capabilities";
 import {
   BUILTIN_PROVIDER_PRESETS,
@@ -117,5 +118,123 @@ describe("agent_capability", () => {
     for (const preset of BUILTIN_PROVIDER_PRESETS) {
       expect(agent_capability(preset)).toEqual(expected[preset.id]);
     }
+  });
+});
+
+describe("with_transport_kind", () => {
+  it("converts an API provider to CLI with blank command and args", () => {
+    expect(with_transport_kind(api_provider(), "cli").transport).toEqual({
+      kind: "cli",
+      command: "",
+      args: [],
+    });
+  });
+
+  it("converts a CLI provider to API with a blank base_url", () => {
+    expect(with_transport_kind(cli_provider([]), "api").transport).toEqual({
+      kind: "api",
+      base_url: "",
+    });
+  });
+
+  it("drops the api_key_env when leaving the API transport", () => {
+    const config: AiProviderConfig = {
+      id: "lmstudio",
+      name: "LM Studio",
+      transport: {
+        kind: "api",
+        base_url: "http://localhost:1234/v1",
+        api_key_env: "OPENAI_API_KEY",
+      },
+    };
+    expect(with_transport_kind(config, "cli").transport).not.toHaveProperty(
+      "api_key_env",
+    );
+  });
+
+  // agent_capability() only reads transport.acp for the cli transport, so an acp
+  // spec carried onto an api provider would be unreachable state.
+  it("drops the acp spec when converting CLI to API", () => {
+    const config: AiProviderConfig = {
+      id: "custom",
+      name: "Custom",
+      transport: {
+        kind: "cli",
+        command: "claude",
+        args: [],
+        acp: { kind: "preset", id: "claude" },
+      },
+    };
+    expect(with_transport_kind(config, "api").transport).not.toHaveProperty(
+      "acp",
+    );
+  });
+
+  it("is identity when the kind is unchanged, keeping the acp spec", () => {
+    const config: AiProviderConfig = {
+      id: "custom",
+      name: "Custom",
+      transport: {
+        kind: "cli",
+        command: "claude",
+        args: ["--flag"],
+        acp: { kind: "preset", id: "claude" },
+      },
+    };
+    expect(with_transport_kind(config, "cli")).toBe(config);
+  });
+
+  it("preserves fields outside the transport", () => {
+    const config: AiProviderConfig = {
+      ...api_provider(),
+      model: "qwen3",
+      install_url: "https://example.test",
+    };
+    const next = with_transport_kind(config, "cli");
+    expect(next.id).toBe("lmstudio");
+    expect(next.name).toBe("LM Studio");
+    expect(next.model).toBe("qwen3");
+    expect(next.install_url).toBe("https://example.test");
+  });
+
+  it("does not mutate the input config", () => {
+    const config = api_provider();
+    with_transport_kind(config, "cli");
+    expect(config.transport).toEqual({
+      kind: "api",
+      base_url: "http://localhost:1234/v1",
+    });
+  });
+
+  it("round-trips back to a usable transport of the original kind", () => {
+    const there = with_transport_kind(api_provider(), "cli");
+    const back = with_transport_kind(there, "api");
+    expect(back.transport).toEqual({ kind: "api", base_url: "" });
+  });
+
+  // The reason this helper exists: agent_capability() gates acp on the cli
+  // transport, so a provider created as api had no route to acp capability at
+  // all short of delete-and-recreate.
+  it("unblocks acp capability for a provider created as api", () => {
+    const created_as_api = api_provider();
+    expect(agent_capability(created_as_api)).toEqual({ backend: "native" });
+
+    const converted = with_transport_kind(created_as_api, "cli");
+    expect(agent_capability(converted)).toBeNull();
+
+    expect(converted.transport.kind).toBe("cli");
+    const with_acp: AiProviderConfig = {
+      ...converted,
+      transport: {
+        kind: "cli",
+        command: "",
+        args: [],
+        acp: { kind: "preset", id: "claude" },
+      },
+    };
+    expect(agent_capability(with_acp)).toEqual({
+      backend: "acp",
+      acp: { kind: "preset", id: "claude" },
+    });
   });
 });

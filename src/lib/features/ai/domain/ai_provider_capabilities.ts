@@ -2,7 +2,24 @@ import type { AcpPresetId } from "$lib/generated/bindings";
 import type {
   AcpAgentSpec,
   AiProviderConfig,
+  AiTransport,
 } from "$lib/shared/types/ai_provider_config";
+
+// The two transports are disjoint — cli carries command/args/acp, api carries
+// base_url/api_key_env — so a kind change cannot preserve the other shape's
+// fields and starts them blank. Re-selecting the current kind is identity,
+// which is what keeps an existing acp spec from being dropped on a no-op edit.
+export function with_transport_kind(
+  config: AiProviderConfig,
+  kind: AiTransport["kind"],
+): AiProviderConfig {
+  if (config.transport?.kind === kind) return config;
+  const transport: AiTransport =
+    kind === "api"
+      ? { kind: "api", base_url: "" }
+      : { kind: "cli", command: "", args: [] };
+  return { ...config, transport };
+}
 
 export function provider_supports_streaming(config: AiProviderConfig): boolean {
   if (!config.transport) return false;
