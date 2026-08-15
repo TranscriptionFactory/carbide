@@ -5,7 +5,7 @@ import remarkParse from "remark-parse";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import { remark_highlight } from "./remark_highlight";
-import { remark_callout } from "./remark_callout";
+import { descend_block_container, remark_callout } from "./remark_callout";
 
 const DETAILS_OPEN_RE = /^<details(\s[^>]*)?>$/i;
 const DETAILS_OPEN_WITH_SUMMARY_RE =
@@ -201,7 +201,7 @@ function transform_children(nodes: MdastNode[]): MdastNode[] {
         build_details_node(open_value, collected as unknown as RootContent[]),
       );
     } else {
-      result.push(node);
+      result.push(descend_block_container(node, transform_children));
       i++;
     }
   }
