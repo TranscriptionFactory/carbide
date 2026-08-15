@@ -309,8 +309,8 @@ describe("find_highlight_plugin", () => {
     });
   });
 
-  describe("regex special characters", () => {
-    it("escapes regex special characters in query", () => {
+  describe("literal matching of punctuation", () => {
+    it("matches a dollar sign and digits literally", () => {
       const schema = create_simple_schema();
       const plugin = create_find_highlight_prose_plugin();
       const doc = create_doc_with_paragraphs(schema, ["Price: $10.00"]);

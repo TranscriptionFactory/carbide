@@ -55,7 +55,7 @@ export function find_literal_matches_in_doc(
   if (query.length === 0) return [];
 
   const matches: FindMatchRange[] = [];
-  doc.descendants((node, pos) => {
+  const collect = (node: ProseNode, pos: number) => {
     if (!node.isText || typeof node.text !== "string") return;
     for (const match of find_literal_matches_in_text(
       node.text,
@@ -68,6 +68,18 @@ export function find_literal_matches_in_doc(
         text: match.text,
       });
     }
-  });
-  return matches;
+  };
+
+  const { range } = options;
+  if (!range) {
+    doc.descendants(collect);
+    return matches;
+  }
+
+  // nodesBetween visits every node that overlaps the range, so a text node
+  // straddling an edge still yields matches outside it.
+  doc.nodesBetween(range.from, range.to, collect);
+  return matches.filter(
+    (match) => match.from >= range.from && match.to <= range.to,
+  );
 }

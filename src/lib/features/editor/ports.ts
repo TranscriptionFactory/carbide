@@ -18,6 +18,7 @@ import type { AmbientNotice } from "$lib/features/assistant";
 import type {
   FindMatchesListener,
   FindOptions,
+  FindSelection,
 } from "$lib/features/editor/domain/find_types";
 import type { RichClipboardPayload } from "$lib/features/clipboard";
 import type { BlockPlacement } from "$lib/features/editor/adapters/block_transforms";
@@ -87,6 +88,7 @@ export type EditorSession = {
   open_buffer: (config: BufferConfig) => void;
   rename_buffer: (old_note_path: string, new_note_path: string) => void;
   close_buffer: (note_path: string) => void;
+  get_selection_range?: () => FindSelection | null;
   update_find_state?: (
     query: string,
     selected_index: number,

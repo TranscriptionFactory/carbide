@@ -111,6 +111,7 @@
         class="FindInFileBar__input"
         type="text"
         placeholder="Find in file..."
+        title="Searches the rendered text, not the Markdown source. Block markers such as > and [!note] are not part of the text."
         value={query}
         oninput={(e) => {
           on_query_change(e.currentTarget.value);

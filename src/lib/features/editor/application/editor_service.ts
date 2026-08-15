@@ -9,6 +9,7 @@ import type {
 import type {
   FindMatchesListener,
   FindOptions,
+  FindSelection,
 } from "$lib/features/editor/domain/find_types";
 import { find_scroll_container } from "$lib/features/editor/domain/scroll_container";
 import type { CiteSuggestionItem } from "$lib/features/editor/adapters/cite_suggest_plugin";
@@ -566,6 +567,10 @@ export class EditorService {
 
   close_buffer(note_path: NotePath) {
     this.session?.close_buffer(note_path);
+  }
+
+  get_selection_range(): FindSelection | null {
+    return this.session?.get_selection_range?.() ?? null;
   }
 
   update_find_state(

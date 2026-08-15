@@ -77,6 +77,7 @@ import {
 import type {
   FindMatchesListener,
   FindOptions,
+  FindSelection,
 } from "$lib/features/editor/domain/find_types";
 import type { FindReplaceResult } from "$lib/features/editor/ports";
 import {
@@ -1300,6 +1301,19 @@ export function create_prosemirror_editor_port(args?: {
         ) {
           if (!view) return;
           set_at_palette_suggestions(view, category, items);
+        },
+        get_selection_range(): FindSelection | null {
+          let selection: FindSelection | null = null;
+          run_view_action((v) => {
+            const { from, to } = v.state.selection;
+            if (from === to) return;
+            selection = {
+              from,
+              to,
+              text: v.state.doc.textBetween(from, to, "\n", "\n"),
+            };
+          });
+          return selection;
         },
         update_find_state(
           query: string,

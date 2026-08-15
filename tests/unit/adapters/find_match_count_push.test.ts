@@ -93,6 +93,7 @@ describe("find match count push", () => {
     expect(on_matches_change).toHaveBeenCalledWith({
       match_count: 2,
       selected_index: 0,
+      range: null,
     });
   });
 
@@ -107,6 +108,7 @@ describe("find match count push", () => {
     expect(on_matches_change).toHaveBeenCalledWith({
       match_count: 1,
       selected_index: 0,
+      range: null,
     });
   });
 
@@ -123,6 +125,7 @@ describe("find match count push", () => {
     expect(on_matches_change).toHaveBeenCalledWith({
       match_count: 1,
       selected_index: 0,
+      range: null,
     });
   });
 
@@ -160,6 +163,7 @@ describe("find match count push", () => {
     expect(on_matches_change).toHaveBeenCalledWith({
       match_count: 2,
       selected_index: 0,
+      range: null,
     });
   });
 

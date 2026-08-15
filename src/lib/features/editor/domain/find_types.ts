@@ -1,6 +1,18 @@
+export type FindScope = "document" | "selection";
+
+export interface FindRange {
+  from: number;
+  to: number;
+}
+
+export interface FindSelection extends FindRange {
+  text: string;
+}
+
 export interface FindOptions {
   case_sensitive: boolean;
   whole_word: boolean;
+  range?: FindRange;
 }
 
 export interface FindMatchRange {
@@ -12,6 +24,7 @@ export interface FindMatchRange {
 export interface FindMatchesUpdate {
   match_count: number;
   selected_index: number;
+  range: FindRange | null;
 }
 
 export type FindMatchesListener = (update: FindMatchesUpdate) => void;

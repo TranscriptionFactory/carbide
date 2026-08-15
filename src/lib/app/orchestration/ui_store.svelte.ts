@@ -134,6 +134,8 @@ const INITIAL_FIND_IN_FILE = {
   show_replace: false,
   case_sensitive: false,
   whole_word: false,
+  scope: "document",
+  scope_range: null,
 } as const;
 
 const INITIAL_IMAGE_PASTE_DIALOG = {
@@ -383,6 +385,8 @@ export class UIStore {
     show_replace: boolean;
     case_sensitive: boolean;
     whole_word: boolean;
+    scope: "document" | "selection";
+    scope_range: { from: number; to: number } | null;
   }>({ ...INITIAL_FIND_IN_FILE });
 
   filetree = $state<{

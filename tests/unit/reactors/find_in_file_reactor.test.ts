@@ -12,11 +12,15 @@ import { UIStore } from "$lib/app/orchestration/ui_store.svelte";
 import { EditorStore } from "$lib/features/editor/state/editor_store.svelte";
 import { SearchStore } from "$lib/features/search/state/search_store.svelte";
 import type { EditorService } from "$lib/features/editor";
-import type { FindMatchesListener } from "$lib/features/editor/domain/find_types";
+import type {
+  FindMatchesListener,
+  FindOptions,
+} from "$lib/features/editor/domain/find_types";
 
 type FindCall = {
   query: string;
   selected_index: number;
+  options: FindOptions;
   on_matches_change: FindMatchesListener | undefined;
 };
 
@@ -31,10 +35,10 @@ function create_editor_service_stub(match_count: number) {
       (
         query: string,
         selected_index: number,
-        _options: unknown,
+        options: FindOptions,
         on_matches_change?: FindMatchesListener,
       ) => {
-        calls.push({ query, selected_index, on_matches_change });
+        calls.push({ query, selected_index, options, on_matches_change });
         return query ? doc.match_count : 0;
       },
     ),
@@ -91,7 +95,7 @@ describe("find_in_file reactor", () => {
     const listener = calls.at(-1)?.on_matches_change;
     expect(listener).toBeTypeOf("function");
 
-    listener?.({ match_count: 5, selected_index: 0 });
+    listener?.({ match_count: 5, selected_index: 0, range: null });
     flushSync();
 
     expect(search_store.find_match_count).toBe(5);
@@ -106,7 +110,9 @@ describe("find_in_file reactor", () => {
     flushSync();
 
     doc.match_count = 1;
-    calls.at(-1)?.on_matches_change?.({ match_count: 1, selected_index: 0 });
+    calls
+      .at(-1)
+      ?.on_matches_change?.({ match_count: 1, selected_index: 0, range: null });
     flushSync();
 
     expect(ui_store.find_in_file.selected_match_index).toBe(0);
@@ -122,11 +128,72 @@ describe("find_in_file reactor", () => {
     flushSync();
     const call_count_before = calls.length;
 
-    calls.at(-1)?.on_matches_change?.({ match_count: 4, selected_index: 1 });
+    calls
+      .at(-1)
+      ?.on_matches_change?.({ match_count: 4, selected_index: 1, range: null });
     flushSync();
 
     expect(ui_store.find_in_file.selected_match_index).toBe(1);
     expect(calls.length).toBe(call_count_before);
+  });
+
+  it("passes the captured range down when the scope is the selection", () => {
+    const { ui_store, calls, dispose } = mount_reactor(3);
+    dispose_reactor = dispose;
+
+    ui_store.find_in_file.scope = "selection";
+    ui_store.find_in_file.scope_range = { from: 10, to: 40 };
+    open_find(ui_store, "foo");
+
+    expect(calls.at(-1)?.options.range).toEqual({ from: 10, to: 40 });
+  });
+
+  it("omits the range while the scope is the whole document", () => {
+    const { ui_store, calls, dispose } = mount_reactor(3);
+    dispose_reactor = dispose;
+
+    ui_store.find_in_file.scope_range = { from: 10, to: 40 };
+    open_find(ui_store, "foo");
+
+    expect(calls.at(-1)?.options.range).toBeUndefined();
+  });
+
+  it("mirrors the mapped range without re-running the effect", () => {
+    const { ui_store, calls, dispose } = mount_reactor(3);
+    dispose_reactor = dispose;
+
+    ui_store.find_in_file.scope = "selection";
+    ui_store.find_in_file.scope_range = { from: 10, to: 40 };
+    open_find(ui_store, "foo");
+    const call_count_before = calls.length;
+
+    calls.at(-1)?.on_matches_change?.({
+      match_count: 3,
+      selected_index: 0,
+      range: { from: 12, to: 42 },
+    });
+    flushSync();
+
+    expect(ui_store.find_in_file.scope_range).toEqual({ from: 12, to: 42 });
+    expect(calls.length).toBe(call_count_before);
+  });
+
+  it("falls back to document scope when the scoped range is reported gone", () => {
+    const { ui_store, calls, dispose } = mount_reactor(3);
+    dispose_reactor = dispose;
+
+    ui_store.find_in_file.scope = "selection";
+    ui_store.find_in_file.scope_range = { from: 10, to: 40 };
+    open_find(ui_store, "foo");
+
+    calls
+      .at(-1)
+      ?.on_matches_change?.({ match_count: 3, selected_index: 0, range: null });
+    flushSync();
+
+    expect(ui_store.find_in_file.scope).toBe("document");
+    expect(ui_store.find_in_file.scope_range).toBeNull();
+    expect(calls.at(-1)?.options.range).toBeUndefined();
   });
 
   it("clears the count when find closes", () => {
