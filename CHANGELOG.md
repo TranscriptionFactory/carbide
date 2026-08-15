@@ -1,5 +1,177 @@
 # carbide
 
+## 2.30.2
+
+### Patch Changes
+
+- 67c2c83: Stream CLI provider output as it arrives, run it without tools, and bound how long ask mode can take
+
+  Asking a question with the Claude Code provider could sit on a spinner reading
+  "Waiting for Claude Code…" for minutes, while the same question in agent mode
+  came back in under one. Three separate things were wrong.
+
+  The answer was never streamed. Carbide decided a command-line provider could
+  stream by checking that its arguments did not name an output file — true of the
+  Claude preset, whose output format nevertheless holds everything back until the
+  process exits. So the panel waited for the entire answer and then printed it at
+  once. A provider now states its streaming invocation outright instead of having
+  it guessed, and the Claude preset asks for real streaming output, so text
+  appears as it is generated.
+
+  The question was answered by a full agent, not a reader. Ask mode launched the
+  provider inside your vault with every tool enabled, so a question phrased like
+  an instruction — "use a regex to edit this note" — became a filesystem session
+  that searched, read and tried to edit its way through your notes, even though
+  the notes it needed had already been retrieved and handed to it. Ask runs now
+  launch with no tools at all. Ask answers from the retrieved notes; agent mode is
+  still where editing happens, and is unchanged.
+
+  **Inline edits change too, and deliberately.** A provider has one streaming
+  invocation, not one per surface, so inline generation — Cmd-K and the rest —
+  now shares it. Two consequences worth knowing. Inline output streams as it is
+  written, where before it was pinned to the same buffered format and arrived in
+  one lump at the end. And inline prompts now run with no tools and no MCP servers:
+  if you have been relying on an MCP server answering an inline prompt, that will
+  stop working. A rewrite-this-paragraph instruction has no business searching your
+  vault, but the trade is a real one and you should not have to discover it.
+
+  Nothing stopped a long run. The AI execution timeout in settings was never
+  applied to a streamed run, which is why cancelling by hand was the only way out.
+  It now applies to ask mode, which stops when the limit elapses and says so,
+  naming the limit, rather than waiting silently forever. Inline edits stay
+  unbounded on purpose: they are interactive and the popover's Stop is a better
+  answer there than a timer cutting off a rewrite mid-sentence.
+
+  The waiting indicator also counts elapsed time now, so a slow answer looks slow
+  rather than stuck.
+
+  Existing provider settings pick all of this up on upgrade, keeping any command
+  path you had set. A provider whose arguments you edited by hand is left exactly
+  as you wrote it, and goes on behaving as before; reset it to the preset if you
+  want the new behaviour.
+
+- 4bb112a: Parse nested callouts and collapsible sections instead of showing raw HTML
+
+  A callout written inside another callout, or inside a plain blockquote, stayed a
+  quoted block: the inner `[!warning]` line was rendered as literal text rather
+  than becoming a callout. A `<details>` block written inside a callout was worse
+  — it showed the raw `<details>`, `<summary>` and `</details>` tags as visible
+  text in the callout body, because the collapsible was never recognised there at
+  all. The reverse nesting failed too: a callout written inside a `<details>`
+  block came out as an ordinary quote.
+
+  Markdown conversion only ever looked at the top level of a note, so anything
+  written one level in was left as-is. It now descends through blockquotes,
+  callout bodies and collapsible content, so callouts and collapsibles are
+  recognised wherever they are nested and in either order. Existing notes pick
+  this up on open, and the nested forms round-trip back to the same markdown they
+  were written as.
+
+  Inline HTML in ordinary prose is untouched — writing about the `<details>` tag
+  mid-sentence still stays plain text.
+
+  Embeds written inside a callout or a collapsible now work too. An image or note
+  embed such as `![[diagram.png]]` inside a callout was previously left as plain
+  text, and saving the note rewrote it to `\![[diagram.png]]` — an escaped form
+  that no longer means an embed, so the picture never came back. An `<iframe>` or
+  `<video>` in the same position stayed visible as raw HTML markup instead of
+  becoming a player. Both are now recognised inside callouts and collapsibles, at
+  any nesting depth, and saving no longer rewrites the embed syntax. Embeds in
+  blockquotes and list items behave as they did before.
+
+- 36e49e0: Remove a callout from its own menu, and turn a whole callout into something else
+
+  Getting rid of a callout used to require knowing an undocumented gesture: put
+  the caret at the very start of the title and press Backspace. Nothing in the
+  interface said so, and there was no menu item, command or shortcut for it.
+  Callouts now carry a "Remove callout" button in the menu behind the callout
+  icon, next to the Collapsible toggle. It lifts the callout's content out in
+  place — the title becomes an ordinary paragraph and every block in the body
+  stays exactly as it was. The Backspace gesture still works and now produces an
+  identical result, because both go through the same operation.
+
+  Turn Into on a callout was also wrong, in two different directions depending on
+  how you had selected it. With a single callout selected, only the one paragraph
+  holding the caret converted and the callout itself survived — so "Turn Into →
+  Heading 2" on a callout appeared to do almost nothing. With two or more blocks
+  selected, the opposite happened: the entire callout, title and body together,
+  was flattened into a single heading and the internal structure was lost.
+
+  Both now do the same, sensible thing. A callout turned into Heading 2 becomes
+  that heading from its title, followed by its body blocks as paragraphs:
+
+  ```
+  > [!note] Alpha              ## Alpha
+  > Bravo          becomes
+  > Charlie                    Bravo
+
+                               Charlie
+  ```
+
+  Paragraph, Bullet List, Ordered List and Todo List follow the same rule, one
+  target block per block inside the callout, and single-block and multi-block
+  selections now agree for all of them. Collapsible sections behave the same way
+  as callouts. This matches what Turn Into already did for blockquotes and lists,
+  whose behaviour is unchanged.
+
+  Turn Into in the right-click menu now also targets the block you right-clicked,
+  the way Copy, Duplicate, Insert and Delete already did, instead of whichever
+  block happened to hold the text cursor.
+
+- 7c8ac76: Scope find and replace to the selected text, and keep the match count live
+
+  Two find-in-file problems, both of which showed up as "replace doesn't work".
+
+  Find now honours a selection. Opening the find bar with several lines selected
+  scopes the search to exactly that range: the count, the highlights, Replace and
+  Replace All all stop at its edges, so Replace All no longer rewrites the parts
+  of the note you deliberately left out. Previously the selection vanished the
+  moment the bar took focus and the search silently covered the whole document.
+  The scope follows the text as you edit — replacing inside it keeps it aligned —
+  and if you delete the scoped passage outright, find falls back to the whole
+  note rather than searching an empty range.
+
+  A third toggle beside Match case and Whole word shows and controls this. It
+  appears whenever you had text selected as the bar opened, lit when find is
+  scoped to that selection, and turning it off searches the whole note again
+  without losing the range — so you can flip between the two. A short single-line
+  selection seeds the query from it instead of scoping, and leaves the toggle
+  available but off.
+
+  The match count no longer goes stale. Typing new matching text into the note
+  used to leave the counter reading its old value while the new matches were
+  already highlighted on screen, and if the stale position pointed past the end of
+  the match list, both Replace buttons greyed out even though matches were plainly
+  visible. The count and the selected match now update as the document changes.
+
+  One thing worth knowing, now noted on the find field itself: find searches the
+  rendered text, not the Markdown source. Block markers that Carbide renders as
+  structure rather than text — the `>` of a blockquote, a callout's `[!note]` —
+  are not part of that text and cannot be found.
+
+- 38d43d5: Make inline AI runs show up in history and open when you click them
+
+  Inline AI edits were recorded only when you accepted one, and even then the row
+  in the assistant panel's history did nothing when clicked. Everything else
+  vanished: a suggestion you rejected, a run that errored partway, one whose menu
+  you closed while it was still streaming, and every inline edit made in source
+  mode left no trace at all.
+
+  An inline run now opens its ⌁ history entry the moment it starts, and fills in
+  the reply when it settles — accepted, rejected, failed, or cut short. Clicking
+  any entry in the history opens its transcript, where before only chat sessions
+  responded and everything else was a dead click. The ⌁ group in the history list
+  also starts open rather than collapsed, so inline runs are visible without
+  finding the disclosure first.
+
+  Live runs in the assistant status popover now carry the note they belong to and
+  the transcript they produced, so the run you are watching can be traced back to
+  what asked for it.
+
+  The toast that follows an accepted inline edit now says "View transcript",
+  which is what its button has always done. It was labelled "Continue in chat"
+  and never opened the chat.
+
 ## 2.30.1
 
 ### Patch Changes
