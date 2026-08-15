@@ -232,7 +232,7 @@ class CalloutBlockView implements NodeView {
 
     const fold_btn = document.createElement("button");
     fold_btn.type = "button";
-    fold_btn.className = "callout-block__menu-fold";
+    fold_btn.className = "callout-block__menu-action callout-block__menu-fold";
     fold_btn.setAttribute("aria-pressed", String(foldable));
     const fold_label = document.createElement("span");
     fold_label.textContent = "Collapsible";
@@ -251,7 +251,7 @@ class CalloutBlockView implements NodeView {
     const remove_btn = document.createElement("button");
     remove_btn.type = "button";
     remove_btn.className =
-      "callout-block__menu-fold callout-block__menu-remove";
+      "callout-block__menu-action callout-block__menu-remove";
     remove_btn.textContent = "Remove callout";
     remove_btn.addEventListener("click", () => this.unwrap());
     menu.appendChild(remove_btn);
