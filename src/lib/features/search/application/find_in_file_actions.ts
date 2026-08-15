@@ -1,5 +1,6 @@
 import { ACTION_IDS } from "$lib/app/action_registry/action_ids";
 import type { ActionRegistrationInput } from "$lib/app/action_registry/action_registration_input";
+import { resolve_find_open_state } from "$lib/features/editor";
 
 const FIND_DEBOUNCE_MS = 100;
 
@@ -11,6 +12,8 @@ export function register_find_in_file_actions(input: ActionRegistrationInput) {
     selected_match_index: 0,
     replace_text: "",
     show_replace: false,
+    scope: "document",
+    scope_range: null,
   } as const;
 
   let find_debounce_timer: ReturnType<typeof setTimeout> | null = null;
@@ -65,16 +68,37 @@ export function register_find_in_file_actions(input: ActionRegistrationInput) {
     }, FIND_DEBOUNCE_MS);
   }
 
+  // Read before the bar steals focus: the selection is gone by the time the
+  // input is focused, so scope and seed query have to be captured on open.
+  function open_find() {
+    const open_state = resolve_find_open_state(
+      services.editor.get_selection_range(),
+    );
+    update_find_state({
+      open: true,
+      selected_match_index: 0,
+      scope: open_state.scope,
+      scope_range: open_state.scope_range,
+      ...(open_state.query === null ? {} : { query: open_state.query }),
+    });
+  }
+
   registry.register({
     id: ACTION_IDS.find_in_file_toggle,
     label: "Toggle Find in File",
     shortcut: "CmdOrCtrl+F",
     execute: () => {
-      update_find_state({ open: !stores.ui.find_in_file.open });
-      if (!stores.ui.find_in_file.open) {
+      if (stores.ui.find_in_file.open) {
+        update_find_state({
+          open: false,
+          scope: "document",
+          scope_range: null,
+        });
         cancel_find_debounce();
         stores.search.set_find_match_count(0);
+        return;
       }
+      open_find();
     },
   });
 
@@ -82,7 +106,7 @@ export function register_find_in_file_actions(input: ActionRegistrationInput) {
     id: ACTION_IDS.find_in_file_open,
     label: "Open Find in File",
     execute: () => {
-      update_find_state({ open: true });
+      open_find();
     },
   });
 
@@ -126,7 +150,8 @@ export function register_find_in_file_actions(input: ActionRegistrationInput) {
     shortcut: "CmdOrCtrl+H",
     execute: () => {
       const currently_showing = stores.ui.find_in_file.show_replace;
-      update_find_state({ open: true, show_replace: !currently_showing });
+      if (!stores.ui.find_in_file.open) open_find();
+      update_find_state({ show_replace: !currently_showing });
     },
   });
 
@@ -182,6 +207,23 @@ export function register_find_in_file_actions(input: ActionRegistrationInput) {
     execute: () => {
       update_find_state({
         whole_word: !stores.ui.find_in_file.whole_word,
+        selected_match_index: 0,
+      });
+    },
+  });
+
+  registry.register({
+    id: ACTION_IDS.find_in_file_toggle_scope,
+    label: "Toggle Find in Selection",
+    execute: () => {
+      // The range is captured on open and only cleared when it is edited away,
+      // so toggling back on reuses the selection the user started from.
+      if (!stores.ui.find_in_file.scope_range) return;
+      update_find_state({
+        scope:
+          stores.ui.find_in_file.scope === "selection"
+            ? "document"
+            : "selection",
         selected_match_index: 0,
       });
     },

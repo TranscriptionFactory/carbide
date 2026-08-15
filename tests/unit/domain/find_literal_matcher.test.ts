@@ -107,3 +107,52 @@ describe("find_literal_matches_in_doc", () => {
     ).toEqual([]);
   });
 });
+
+describe("find_literal_matches_in_doc with a range", () => {
+  function two_paragraph_doc(first: string, second: string) {
+    return schema.node("doc", null, [
+      schema.node("paragraph", null, schema.text(first)),
+      schema.node("paragraph", null, schema.text(second)),
+    ]);
+  }
+
+  const options = { case_sensitive: false, whole_word: false };
+
+  it("ignores matches outside the range", () => {
+    const doc = two_paragraph_doc("foo one", "foo two");
+    const second_paragraph_start = doc.child(0).nodeSize + 1;
+
+    expect(
+      find_literal_matches_in_doc(doc, "foo", {
+        ...options,
+        range: { from: second_paragraph_start, to: doc.content.size },
+      }),
+    ).toEqual([
+      {
+        from: second_paragraph_start,
+        to: second_paragraph_start + 3,
+        text: "foo",
+      },
+    ]);
+  });
+
+  it("excludes a match that straddles the range edge", () => {
+    const doc = paragraph_doc([{ text: "foofoo" }]);
+    expect(find_literal_matches_in_doc(doc, "foo", options)).toEqual([
+      { from: 1, to: 4, text: "foo" },
+      { from: 4, to: 7, text: "foo" },
+    ]);
+
+    expect(
+      find_literal_matches_in_doc(doc, "foo", {
+        ...options,
+        range: { from: 3, to: 7 },
+      }),
+    ).toEqual([{ from: 4, to: 7, text: "foo" }]);
+  });
+
+  it("matches the whole document when no range is given", () => {
+    const doc = two_paragraph_doc("foo one", "foo two");
+    expect(find_literal_matches_in_doc(doc, "foo", options)).toHaveLength(2);
+  });
+});

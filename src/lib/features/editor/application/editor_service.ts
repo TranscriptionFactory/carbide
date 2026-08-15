@@ -6,7 +6,11 @@ import type {
   FindReplaceResult,
   WikiQueryEvent,
 } from "$lib/features/editor/ports";
-import type { FindOptions } from "$lib/features/editor/domain/find_types";
+import type {
+  FindMatchesListener,
+  FindOptions,
+  FindSelection,
+} from "$lib/features/editor/domain/find_types";
 import { find_scroll_container } from "$lib/features/editor/domain/scroll_container";
 import type { CiteSuggestionItem } from "$lib/features/editor/adapters/cite_suggest_plugin";
 import type { AtPaletteItem } from "$lib/features/editor/adapters/at_palette_types";
@@ -565,13 +569,23 @@ export class EditorService {
     this.session?.close_buffer(note_path);
   }
 
+  get_selection_range(): FindSelection | null {
+    return this.session?.get_selection_range?.() ?? null;
+  }
+
   update_find_state(
     query: string,
     selected_index: number,
     options: FindOptions,
+    on_matches_change?: FindMatchesListener,
   ): number {
     return (
-      this.session?.update_find_state?.(query, selected_index, options) ?? 0
+      this.session?.update_find_state?.(
+        query,
+        selected_index,
+        options,
+        on_matches_change,
+      ) ?? 0
     );
   }
 

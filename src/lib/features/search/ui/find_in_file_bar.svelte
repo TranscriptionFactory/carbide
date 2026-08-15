@@ -3,6 +3,7 @@
   import ChevronUpIcon from "@lucide/svelte/icons/chevron-up";
   import ChevronDownIcon from "@lucide/svelte/icons/chevron-down";
   import ChevronRightIcon from "@lucide/svelte/icons/chevron-right";
+  import TextSelectIcon from "@lucide/svelte/icons/text-select";
   import XIcon from "@lucide/svelte/icons/x";
 
   type Props = {
@@ -14,6 +15,8 @@
     replace_text: string;
     case_sensitive: boolean;
     whole_word: boolean;
+    scope: "document" | "selection";
+    scope_available: boolean;
     on_query_change: (query: string) => void;
     on_next: () => void;
     on_prev: () => void;
@@ -21,6 +24,7 @@
     on_toggle_replace: () => void;
     on_toggle_case: () => void;
     on_toggle_whole_word: () => void;
+    on_toggle_scope: () => void;
     on_replace_text_change: (text: string) => void;
     on_replace_one: () => void;
     on_replace_all: () => void;
@@ -35,6 +39,8 @@
     replace_text,
     case_sensitive,
     whole_word,
+    scope,
+    scope_available,
     on_query_change,
     on_next,
     on_prev,
@@ -42,6 +48,7 @@
     on_toggle_replace,
     on_toggle_case,
     on_toggle_whole_word,
+    on_toggle_scope,
     on_replace_text_change,
     on_replace_one,
     on_replace_all,
@@ -111,6 +118,7 @@
         class="FindInFileBar__input"
         type="text"
         placeholder="Find in file..."
+        title="Searches the rendered text, not the Markdown source. Block markers such as > and [!note] are not part of the text."
         value={query}
         oninput={(e) => {
           on_query_change(e.currentTarget.value);
@@ -147,6 +155,18 @@
       >
         Ab|
       </button>
+      {#if scope_available}
+        <button
+          class="FindInFileBar__option FindInFileBar__option--icon"
+          class:FindInFileBar__option--active={scope === "selection"}
+          onclick={on_toggle_scope}
+          aria-pressed={scope === "selection"}
+          title="Find in selection"
+          data-testid="find-scope"
+        >
+          <TextSelectIcon />
+        </button>
+      {/if}
       <button
         class="FindInFileBar__nav"
         onclick={on_prev}
@@ -321,6 +341,11 @@
     background-color: var(--accent);
   }
 
+  .FindInFileBar__option--icon {
+    min-height: var(--size-touch-xs);
+    justify-content: center;
+  }
+
   .FindInFileBar__action {
     padding: var(--space-1) var(--space-2);
     font-size: var(--text-xs);
@@ -343,6 +368,7 @@
 
   :global(.FindInFileBar__toggle svg),
   :global(.FindInFileBar__nav svg),
+  :global(.FindInFileBar__option--icon svg),
   :global(.FindInFileBar__close svg) {
     width: var(--size-icon-sm);
     height: var(--size-icon-sm);

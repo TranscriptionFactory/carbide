@@ -70,8 +70,16 @@ import {
 } from "$lib/features/editor/adapters/dsl_suggest_plugin";
 import type { DslSuggestion } from "$lib/shared/types/dsl_suggestion";
 import { find_literal_matches_in_doc } from "$lib/features/editor/domain/find_literal_matcher";
-import { next_active_index_after_replacement } from "$lib/features/editor/domain/find_active_index";
-import type { FindOptions } from "$lib/features/editor/domain/find_types";
+import {
+  next_active_index_after_replacement,
+  normalize_active_index,
+} from "$lib/features/editor/domain/find_active_index";
+import { map_find_options } from "$lib/features/editor/domain/find_scope";
+import type {
+  FindMatchesListener,
+  FindOptions,
+  FindSelection,
+} from "$lib/features/editor/domain/find_types";
 import type { FindReplaceResult } from "$lib/features/editor/ports";
 import {
   create_turn_into_command,
@@ -1295,10 +1303,24 @@ export function create_prosemirror_editor_port(args?: {
           if (!view) return;
           set_at_palette_suggestions(view, category, items);
         },
+        get_selection_range(): FindSelection | null {
+          let selection: FindSelection | null = null;
+          run_view_action((v) => {
+            const { from, to } = v.state.selection;
+            if (from === to) return;
+            selection = {
+              from,
+              to,
+              text: v.state.doc.textBetween(from, to, "\n", "\n"),
+            };
+          });
+          return selection;
+        },
         update_find_state(
           query: string,
           selected_index: number,
           options: FindOptions,
+          on_matches_change?: FindMatchesListener,
         ): number {
           let match_count = 0;
           run_view_action((v) => {
@@ -1306,6 +1328,7 @@ export function create_prosemirror_editor_port(args?: {
               query,
               selected_index,
               options,
+              on_matches_change,
             });
             v.dispatch(tr);
 
@@ -1338,14 +1361,22 @@ export function create_prosemirror_editor_port(args?: {
           run_view_action((v) => {
             const plugin_state = find_highlight_plugin_key.getState(v.state);
             if (!plugin_state?.match_positions.length) return;
-            const match = plugin_state.match_positions[match_index];
+            const active_index = normalize_active_index(
+              match_index,
+              plugin_state.match_positions.length,
+            );
+            const match = plugin_state.match_positions[active_index];
             if (!match) return;
 
             const tr = v.state.tr.insertText(replacement, match.from, match.to);
+            // `next_index` has to be in the meta before dispatch, so this scan
+            // cannot wait for the plugin. It reads tr.doc, so the range has to
+            // be mapped to match — but the meta below must still carry the
+            // UNMAPPED options, because the plugin maps them on arrival.
             const next_matches = find_literal_matches_in_doc(
               tr.doc,
               plugin_state.query,
-              plugin_state.options,
+              map_find_options(plugin_state.options, tr.mapping),
             );
             const next_index = next_active_index_after_replacement(
               next_matches,
@@ -1387,18 +1418,19 @@ export function create_prosemirror_editor_port(args?: {
             for (const match of sorted) {
               tr = tr.insertText(replacement, match.from, match.to);
             }
-            const next_matches = find_literal_matches_in_doc(
-              tr.doc,
-              plugin_state.query,
-              plugin_state.options,
-            );
             tr.setMeta(find_highlight_plugin_key, {
               query: plugin_state.query,
               selected_index: 0,
               options: plugin_state.options,
             });
             v.dispatch(tr);
-            result = { match_count: next_matches.length, selected_index: 0 };
+            // Read the count the plugin just computed rather than re-scanning:
+            // it has already mapped the range through this transaction.
+            const next_state = find_highlight_plugin_key.getState(v.state);
+            result = {
+              match_count: next_state?.match_positions.length ?? 0,
+              selected_index: 0,
+            };
           });
           return result;
         },

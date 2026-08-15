@@ -83,6 +83,7 @@ describe("EditorService update_find_state", () => {
       "test",
       0,
       DEFAULT_FIND_OPTIONS,
+      undefined,
     );
 
     service.update_find_state("another", 3, DEFAULT_FIND_OPTIONS);
@@ -90,6 +91,7 @@ describe("EditorService update_find_state", () => {
       "another",
       3,
       DEFAULT_FIND_OPTIONS,
+      undefined,
     );
   });
 
@@ -154,6 +156,7 @@ describe("EditorService update_find_state", () => {
       "test",
       0,
       DEFAULT_FIND_OPTIONS,
+      undefined,
     );
 
     service.update_find_state("", 0, DEFAULT_FIND_OPTIONS);
@@ -161,6 +164,52 @@ describe("EditorService update_find_state", () => {
       "",
       0,
       DEFAULT_FIND_OPTIONS,
+      undefined,
+    );
+  });
+
+  it("forwards the match listener to the session", async () => {
+    const session = create_session_with_find("# Test");
+    const editor_store = new EditorStore();
+    const vault_store = new VaultStore();
+    const op_store = new OpStore();
+    vault_store.set_vault(create_test_vault());
+
+    const editor_port: EditorPort = {
+      start_session: vi.fn(() => Promise.resolve(session)),
+    };
+
+    const service = new EditorService(
+      editor_port,
+      vault_store,
+      editor_store,
+      op_store,
+      {
+        on_internal_link_click: vi.fn(),
+        on_external_link_click: vi.fn(),
+        on_image_paste_requested: vi.fn(),
+        on_file_drop_requested: vi.fn(),
+      },
+    );
+
+    await service.mount({
+      root: {} as HTMLDivElement,
+      note: create_open_note("test.md", "# Test"),
+    });
+
+    const on_matches_change = vi.fn();
+    service.update_find_state(
+      "test",
+      0,
+      DEFAULT_FIND_OPTIONS,
+      on_matches_change,
+    );
+
+    expect(session.update_find_state).toHaveBeenCalledWith(
+      "test",
+      0,
+      DEFAULT_FIND_OPTIONS,
+      on_matches_change,
     );
   });
 });

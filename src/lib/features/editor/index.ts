@@ -65,6 +65,8 @@ export {
   insert_markdown_hard_break,
   normalize_markdown_line_breaks,
 } from "$lib/features/editor/domain/markdown_line_breaks";
+export { resolve_find_open_state } from "$lib/features/editor/domain/find_scope";
+export type { FindSelection } from "$lib/features/editor/domain/find_types";
 export { parse_to_mdast } from "$lib/features/editor/adapters/markdown_pipeline";
 export { render_lsp_markdown } from "$lib/features/editor/adapters/lsp_tooltip_renderer";
 export {
