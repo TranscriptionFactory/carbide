@@ -32,10 +32,12 @@ function create_harness(selection: FindSelection | null) {
     ui,
     search,
     get_selection_range,
+    // Every find action registered here is synchronous; discarding the result
+    // keeps callers from having to await a promise that never exists.
     run: (id: string) => {
       const action = actions.get(id);
       if (!action) throw new Error(`action not registered: ${id}`);
-      return action.execute();
+      void action.execute();
     },
   };
 }

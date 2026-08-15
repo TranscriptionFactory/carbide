@@ -38,9 +38,9 @@ export function resolve_find_open_state(
   return { query, scope: "document", scope_range: null };
 }
 
-// Biased outwards-in so text typed against either edge stays outside the
-// scope: a find range that grew with the document would quietly start
-// matching prose the user never selected.
+// Both ends bias away from inserted text, so a character typed against either
+// edge lands outside the scope: a range that grew at its boundaries would
+// quietly start matching prose the user never selected.
 export function map_find_range(
   range: FindRange,
   mapping: Mappable,
