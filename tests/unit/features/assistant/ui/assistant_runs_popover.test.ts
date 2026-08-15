@@ -21,6 +21,7 @@ function render_popover(options: {
   on_stop?: (id: RunId) => void;
   pending_proposal_count?: number;
   on_open_proposals?: () => void;
+  on_open_session?: (session_id: string) => void;
   on_clear?: () => void;
 }) {
   const target = document.createElement("div");
@@ -34,6 +35,7 @@ function render_popover(options: {
       now: () => NOW_MS,
       pending_proposal_count: options.pending_proposal_count ?? 0,
       on_open_proposals: options.on_open_proposals,
+      on_open_session: options.on_open_session,
       on_clear: options.on_clear,
     },
   });
@@ -235,6 +237,70 @@ describe("assistant_runs_popover.svelte", () => {
       "target",
       "keep-b",
     ]);
+
+    view.cleanup();
+  });
+
+  // "How do I get back to the run that is going right now?" — the row is the
+  // only place a live run is named, so it is where reopening belongs. It reads
+  // origin.session_id rather than kind: any run with a transcript can open it.
+  it("opens the transcript of the run whose row was clicked", () => {
+    const on_open_session = vi.fn();
+    const view = render_popover({
+      runs: [
+        make_run_record({
+          id: "inline-run",
+          kind: "inline",
+          status: "streaming",
+          origin: { session_id: "session-9" },
+        }),
+        make_run_record({
+          id: "chat-run",
+          kind: "chat",
+          status: "streaming",
+          origin: { session_id: "session-3" },
+        }),
+      ],
+      on_open_session,
+    });
+
+    get_row("inline-run")
+      .querySelector<HTMLButtonElement>('[data-testid="assistant-run-open"]')
+      ?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    flushSync();
+
+    expect(on_open_session.mock.calls).toEqual([["session-9"]]);
+
+    view.cleanup();
+  });
+
+  it("leaves a run with no transcript inert rather than clickable", () => {
+    const view = render_popover({
+      runs: [make_run_record({ id: "orphan", status: "streaming" })],
+      on_open_session: vi.fn(),
+    });
+
+    const row = get_row("orphan");
+    expect(row.querySelector('[data-testid="assistant-run-open"]')).toBeNull();
+    expect(text_of(row, "assistant-run-sub")).toBe("streaming · inline");
+
+    view.cleanup();
+  });
+
+  it("shows no open affordance at all when the caller cannot handle one", () => {
+    const view = render_popover({
+      runs: [
+        make_run_record({
+          id: "inline-run",
+          status: "streaming",
+          origin: { session_id: "session-9" },
+        }),
+      ],
+    });
+
+    expect(
+      document.body.querySelector('[data-testid="assistant-run-open"]'),
+    ).toBeNull();
 
     view.cleanup();
   });

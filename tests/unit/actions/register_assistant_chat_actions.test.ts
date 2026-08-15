@@ -278,6 +278,80 @@ describe("register_chat_actions", () => {
     expect(session_service.delete_session).toHaveBeenCalledWith("v1", id);
   });
 
+  // The panel's history lists every session kind behind one open handler, so
+  // this action is what decides where an id goes. A chat becomes the active
+  // conversation; anything else opens as the read-only transcript it is.
+  // Before, every id went to the chat store, which silently dropped the ones
+  // it could not resolve — clicking an inline row did nothing at all.
+  describe("switch session: routes an id by the kind of session it names", () => {
+    function harness_with_open_session() {
+      const harness = create_harness();
+      const opened: string[] = [];
+      harness.registry.register({
+        id: ACTION_IDS.assistant_open_session,
+        label: "Open Assistant Session",
+        execute: (...args: unknown[]) => {
+          opened.push(String(args[0]));
+        },
+      });
+      return { ...harness, opened };
+    }
+
+    it("makes a chat session the active conversation", async () => {
+      const { registry, chat_store, assistant_sessions, opened } =
+        harness_with_open_session();
+      const chat = assistant_sessions.create({
+        kind: "chat",
+        title: "Ranking experiments",
+        provider_id: PROVIDER_ID,
+      });
+
+      await registry.execute(ACTION_IDS.rag_switch_session, chat.id);
+
+      expect(chat_store.active_id).toBe(chat.id);
+      expect(opened).toEqual([]);
+    });
+
+    it("opens an inline session as a transcript instead of switching the chat", async () => {
+      const { registry, chat_store, assistant_sessions, opened } =
+        harness_with_open_session();
+      await registry.execute(ACTION_IDS.rag_ask, "what is it?");
+      const active_before = chat_store.active_id;
+      const inline = assistant_sessions.create({
+        kind: "inline",
+        title: "Tighten prose",
+        provider_id: PROVIDER_ID,
+      });
+
+      await registry.execute(ACTION_IDS.rag_switch_session, inline.id);
+
+      expect(opened).toEqual([inline.id]);
+      expect(chat_store.active_id).toBe(active_before);
+    });
+
+    it("opens a note session as a transcript too", async () => {
+      const { registry, assistant_sessions, opened } =
+        harness_with_open_session();
+      const note = assistant_sessions.create({
+        kind: "note",
+        title: "hybrid-retrieval.md",
+        provider_id: PROVIDER_ID,
+      });
+
+      await registry.execute(ACTION_IDS.rag_switch_session, note.id);
+
+      expect(opened).toEqual([note.id]);
+    });
+
+    it("ignores an empty id rather than opening anything", async () => {
+      const { registry, opened } = harness_with_open_session();
+
+      await registry.execute(ACTION_IDS.rag_switch_session, "");
+
+      expect(opened).toEqual([]);
+    });
+  });
+
   it("switching sessions mid-stream does not let the old turn write into it", async () => {
     const { registry, chat_store, chat_service } = create_harness();
     await registry.execute(ACTION_IDS.rag_ask, "first question");

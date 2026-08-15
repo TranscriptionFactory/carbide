@@ -520,9 +520,18 @@ export function register_chat_actions(
   registry.register({
     id: ACTION_IDS.rag_switch_session,
     label: "Switch Vault Chat Session",
-    execute: (...args: unknown[]) => {
+    execute: async (...args: unknown[]) => {
       const id = typeof args[0] === "string" ? args[0] : "";
       if (!id) return;
+      // The panel's history lists every session kind, but only a chat can
+      // become the panel's active conversation — switch_session resolves
+      // against chat sessions alone and drops anything else on the floor.
+      // Inline and note sessions open as the read-only transcript they are.
+      // The branch lives here so the list never has to know a session kind.
+      if (!chat_store.sessions.some((session) => session.id === id)) {
+        await registry.execute(ACTION_IDS.assistant_open_session, id);
+        return;
+      }
       chat_store.switch_session(id);
       stores.op.reset(CHAT_OP_KEY);
     },

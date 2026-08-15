@@ -582,5 +582,58 @@ describe("AiService", () => {
         { type: "done" },
       ]);
     });
+
+    // The run record is where the popover reads a live run's note and its
+    // transcript from. Without an origin on the spec an inline run is a row
+    // with a label and nothing to open.
+    it("records the note and the session the run belongs to on the run", async () => {
+      const starter = create_test_run_starter(() => [{ type: "done" }]);
+      const vault_store = new VaultStore();
+      vault_store.set_vault(
+        create_test_vault({ path: "/vault/demo" as never }),
+      );
+      const service = new AiService(
+        create_ai_port() as never,
+        vault_store,
+        starter,
+      );
+
+      for await (const _ of service.stream_inline({
+        provider_config: ollama_config,
+        system_prompt: "sys",
+        user_prompt: "hi",
+        origin: { note_path: "docs/demo.md", session_id: "session-9" },
+      })) {
+        void _;
+      }
+
+      expect(starter.specs[0]?.origin).toEqual({
+        note_path: "docs/demo.md",
+        session_id: "session-9",
+      });
+    });
+
+    it("leaves the origin off a run that has neither", async () => {
+      const starter = create_test_run_starter(() => [{ type: "done" }]);
+      const vault_store = new VaultStore();
+      vault_store.set_vault(
+        create_test_vault({ path: "/vault/demo" as never }),
+      );
+      const service = new AiService(
+        create_ai_port() as never,
+        vault_store,
+        starter,
+      );
+
+      for await (const _ of service.stream_inline({
+        provider_config: ollama_config,
+        system_prompt: "sys",
+        user_prompt: "hi",
+      })) {
+        void _;
+      }
+
+      expect(starter.specs[0]?.origin).toBeUndefined();
+    });
   });
 });

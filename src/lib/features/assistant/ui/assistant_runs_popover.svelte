@@ -10,6 +10,7 @@
     now?: (() => number) | undefined;
     pending_proposal_count?: number;
     on_open_proposals?: (() => void) | undefined;
+    on_open_session?: ((session_id: string) => void) | undefined;
     on_clear?: (() => void) | undefined;
   }
 
@@ -19,6 +20,7 @@
     now = () => Date.now(),
     pending_proposal_count = 0,
     on_open_proposals = undefined,
+    on_open_session = undefined,
     on_clear = undefined,
   }: Props = $props();
 
@@ -68,6 +70,12 @@
     return `${run.status} · ${run.kind}`;
   }
 
+  // A run is openable once it has a transcript to open — every kind gets the
+  // same treatment, which is why this reads origin rather than kind.
+  function session_of(run: RunRecord): string | null {
+    return on_open_session ? (run.origin.session_id ?? null) : null;
+  }
+
   const rows = $derived(
     runs
       .filter((run) => is_live(run) || run.status === "error")
@@ -81,6 +89,13 @@
     pending_proposal_count > 0 && on_open_proposals !== undefined,
   );
 </script>
+
+{#snippet desc(run: RunRecord)}
+  <span class="AssistantRuns__name">{row_name(run)}</span>
+  <span class="AssistantRuns__sub" data-testid="assistant-run-sub"
+    >{sub_line(run)}</span
+  >
+{/snippet}
 
 <div class="AssistantRuns" data-testid="assistant-runs-popover">
   <div class="AssistantRuns__head">
@@ -97,6 +112,7 @@
   {:else}
     <ul class="AssistantRuns__list">
       {#each rows as run (run.id)}
+        {@const session_id = session_of(run)}
         <li
           class="AssistantRuns__row"
           class:AssistantRuns__row--error={run.status === "error"}
@@ -107,12 +123,19 @@
           <span class="AssistantRuns__kind" aria-hidden="true"
             >{KIND_GLYPHS[run.kind]}</span
           >
-          <span class="AssistantRuns__desc">
-            <span class="AssistantRuns__name">{row_name(run)}</span>
-            <span class="AssistantRuns__sub" data-testid="assistant-run-sub"
-              >{sub_line(run)}</span
+          {#if session_id}
+            <button
+              type="button"
+              class="AssistantRuns__desc AssistantRuns__desc--open"
+              data-testid="assistant-run-open"
+              aria-label={`Open the transcript for ${row_name(run)}`}
+              onclick={() => on_open_session?.(session_id)}
             >
-          </span>
+              {@render desc(run)}
+            </button>
+          {:else}
+            <span class="AssistantRuns__desc">{@render desc(run)}</span>
+          {/if}
           <span
             class="AssistantRuns__elapsed"
             data-testid="assistant-run-elapsed"
@@ -213,6 +236,20 @@
     flex-direction: column;
     min-width: 0;
     flex: 1;
+  }
+
+  .AssistantRuns__desc--open {
+    text-align: left;
+    border-radius: var(--radius-sm);
+  }
+
+  .AssistantRuns__desc--open:hover .AssistantRuns__name {
+    color: var(--interactive);
+  }
+
+  .AssistantRuns__desc--open:focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 1px;
   }
 
   .AssistantRuns__name {

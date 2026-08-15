@@ -569,7 +569,7 @@ describe("register_ai_actions", () => {
       });
     });
 
-    describe("accepting logs a ⌁ session", () => {
+    describe("a run logs a ⌁ session", () => {
       function only_session(store: AssistantSessionStore) {
         const [session, ...rest] = store.sessions;
         if (!session || rest.length > 0) {
@@ -580,7 +580,14 @@ describe("register_ai_actions", () => {
         return session;
       }
 
-      function click_continue_in_chat() {
+      function messages_of(store: AssistantSessionStore) {
+        return only_session(store).messages.map((m) => ({
+          role: m.role,
+          content: m.content,
+        }));
+      }
+
+      function click_view_transcript() {
         const [call] = vi.mocked(toast.success).mock.calls;
         if (!call) throw new Error("no success toast was raised");
         const [message, options] = call;
@@ -588,8 +595,26 @@ describe("register_ai_actions", () => {
         const { action } = options as unknown as {
           action: { label: string; onClick: () => void };
         };
-        expect(action.label).toBe("Continue in chat");
+        // The action opens a read-only transcript tab, which is what it now
+        // says. "Continue in chat" described a surface it never opened.
+        expect(action.label).toBe("View transcript");
         action.onClick();
+      }
+
+      async function stream_without_accepting(
+        payload: { command_id?: string; prompt?: string } = { prompt: "go" },
+        chunks = ["Sharper ", "prose"],
+      ) {
+        const harness = setup_inline();
+        harness.stores.vault.set_vault(create_test_vault());
+        harness.ai_service.stream_inline = vi.fn(function* () {
+          for (const text of chunks) yield { type: "text", text };
+        });
+
+        await harness.registry.execute(ACTION_IDS.ai_open_inline_menu);
+        await harness.registry.execute(ACTION_IDS.ai_execute_inline, payload);
+
+        return harness;
       }
 
       async function stream_and_accept(
@@ -674,10 +699,10 @@ describe("register_ai_actions", () => {
         expect(harness.assistant_sessions.sessions).toHaveLength(1);
       });
 
-      it("offers Continue in chat, which opens the session it just created", async () => {
+      it("offers View transcript, which opens the session it just created", async () => {
         const { assistant_sessions, opened } = await stream_and_accept();
 
-        click_continue_in_chat();
+        click_view_transcript();
 
         expect(opened).toEqual([only_session(assistant_sessions).id]);
       });
@@ -687,7 +712,7 @@ describe("register_ai_actions", () => {
       it("leaves the promoted session as an inline session with its history", async () => {
         const { assistant_sessions } = await stream_and_accept();
 
-        click_continue_in_chat();
+        click_view_transcript();
 
         const logged = only_session(assistant_sessions);
         expect(logged.kind).toBe("inline");
@@ -744,24 +769,179 @@ describe("register_ai_actions", () => {
         expect(resolve_instructions).not.toHaveBeenCalled();
       });
 
-      it("logs nothing when the result is discarded instead of accepted", async () => {
+      // The session opens with the run, so "what did that suggest again?" is
+      // answerable after a discard. The reply is kept and marked stopped: a
+      // discarded draft is still the answer the run produced.
+      it("keeps the discarded result as a stopped reply instead of logging nothing", async () => {
+        const harness = await stream_without_accepting({ prompt: "go" }, [
+          "unwanted",
+        ]);
+
+        await harness.registry.execute(ACTION_IDS.ai_reject_inline);
+
+        expect(messages_of(harness.assistant_sessions)).toEqual([
+          { role: "user", content: "go" },
+          { role: "assistant", content: "unwanted" },
+        ]);
+        expect(
+          only_session(harness.assistant_sessions).messages[1]?.stopped,
+        ).toBe(true);
+        expect(harness.rag_service.save_session).toHaveBeenCalledTimes(1);
+      });
+
+      it("keeps the partial output and the reason when the stream fails", async () => {
         const harness = setup_inline();
         harness.stores.vault.set_vault(create_test_vault());
         harness.ai_service.stream_inline = vi.fn(function* () {
-          yield { type: "text", text: "unwanted" };
+          yield { type: "text", text: "half a th" };
+          yield { type: "error", error: "boom" };
         });
 
         await harness.registry.execute(ACTION_IDS.ai_open_inline_menu);
         await harness.registry.execute(ACTION_IDS.ai_execute_inline, {
           prompt: "go",
         });
-        await harness.registry.execute(ACTION_IDS.ai_reject_inline);
 
-        expect(harness.assistant_sessions.sessions).toEqual([]);
-        expect(harness.rag_service.save_session).not.toHaveBeenCalled();
+        const [, reply] = only_session(harness.assistant_sessions).messages;
+        expect(reply?.content).toBe("half a th");
+        expect(reply?.error).toBe("boom");
+        expect(harness.rag_service.save_session).toHaveBeenCalledTimes(1);
       });
 
-      it("logs nothing when accept fires with no streamed result", async () => {
+      // I2: closing the menu detaches the surface without cancelling the run,
+      // so the transcript is the only place the detached output survives.
+      it("settles the session as stopped when the menu closes mid-stream", async () => {
+        const harness = setup_inline();
+        harness.stores.vault.set_vault(create_test_vault());
+        let release!: () => void;
+        const gate = new Promise<void>((resolve) => (release = resolve));
+        harness.ai_service.stream_inline = vi.fn(async function* () {
+          yield { type: "text", text: "partial" };
+          await gate;
+          yield { type: "text", text: " more" };
+        });
+
+        await harness.registry.execute(ACTION_IDS.ai_open_inline_menu);
+        const exec = harness.registry.execute(ACTION_IDS.ai_execute_inline, {
+          prompt: "go",
+        });
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        await harness.registry.execute(ACTION_IDS.ai_close_inline_menu);
+        release();
+        await exec;
+
+        expect(messages_of(harness.assistant_sessions)).toEqual([
+          { role: "user", content: "go" },
+          { role: "assistant", content: "partial" },
+        ]);
+        expect(
+          only_session(harness.assistant_sessions).messages[1]?.stopped,
+        ).toBe(true);
+      });
+
+      it("holds the request with an empty reply while the run is still live", async () => {
+        const harness = await stream_without_accepting();
+
+        expect(messages_of(harness.assistant_sessions)).toEqual([
+          { role: "user", content: "go" },
+          { role: "assistant", content: "" },
+        ]);
+      });
+
+      it("fills the reply into the session the run opened, not a second one", async () => {
+        const harness = await stream_without_accepting();
+        const opened_id = only_session(harness.assistant_sessions).id;
+
+        await harness.registry.execute(ACTION_IDS.ai_accept_inline);
+
+        const logged = only_session(harness.assistant_sessions);
+        expect(logged.id).toBe(opened_id);
+        expect(logged.messages[1]?.content).toBe("Sharper prose");
+      });
+
+      // Accept settles the session; the detached stream arriving afterwards
+      // must not rewrite the accepted reply as a stopped one.
+      it("does not let a detached stream overwrite an accepted reply", async () => {
+        const harness = setup_inline();
+        harness.stores.vault.set_vault(create_test_vault());
+        let release!: () => void;
+        const gate = new Promise<void>((resolve) => (release = resolve));
+        harness.ai_service.stream_inline = vi.fn(async function* () {
+          yield { type: "text", text: "accepted text" };
+          await gate;
+          yield { type: "text", text: " and more" };
+        });
+
+        await harness.registry.execute(ACTION_IDS.ai_open_inline_menu);
+        const exec = harness.registry.execute(ACTION_IDS.ai_execute_inline, {
+          prompt: "go",
+        });
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        await harness.registry.execute(ACTION_IDS.ai_accept_inline);
+        release();
+        await exec;
+
+        const [, reply] = only_session(harness.assistant_sessions).messages;
+        expect(reply?.content).toBe("accepted text");
+        expect(reply?.stopped).toBeUndefined();
+      });
+
+      it("logs a session for a source-mode run, which never reaches accept", async () => {
+        const harness = setup_inline();
+        harness.stores.vault.set_vault(create_test_vault());
+        harness.stores.editor.set_editor_mode("source");
+        harness.stores.editor.set_source_view_getter(
+          () =>
+            ({
+              state: { selection: { main: { head: 6 } } },
+              coordsAtPos: vi.fn(() => ({ left: 50, top: 60, bottom: 80 })),
+            }) as unknown as import("@codemirror/view").EditorView,
+        );
+        harness.stores.editor.set_cursor_offset(6);
+        harness.ai_service.stream_inline = vi.fn(function* () {
+          yield { type: "text", text: "Sure!\n\nsource prose" };
+        });
+
+        await harness.registry.execute(ACTION_IDS.ai_open_inline_menu);
+        await harness.registry.execute(ACTION_IDS.ai_execute_inline, {
+          prompt: "go",
+        });
+
+        expect(messages_of(harness.assistant_sessions)).toEqual([
+          { role: "user", content: "go" },
+          { role: "assistant", content: "source prose" },
+        ]);
+        expect(harness.rag_service.save_session).toHaveBeenCalledTimes(1);
+      });
+
+      it("carries the session and the note on the run it started", async () => {
+        const harness = setup_inline();
+        harness.stores.vault.set_vault(create_test_vault());
+        harness.stores.editor.set_open_note(
+          create_open_note_state(create_test_note("docs/demo", "Demo")),
+        );
+        harness.ai_service.stream_inline = vi.fn(function* () {
+          yield { type: "text", text: "out" };
+        });
+
+        await harness.registry.execute(ACTION_IDS.ai_open_inline_menu);
+        await harness.registry.execute(ACTION_IDS.ai_execute_inline, {
+          prompt: "go",
+        });
+
+        expect(harness.ai_service.stream_inline).toHaveBeenCalledWith(
+          expect.objectContaining({
+            origin: {
+              note_path: "docs/demo.md",
+              session_id: only_session(harness.assistant_sessions).id,
+            },
+          }),
+        );
+      });
+
+      // Opening the menu is not starting a run. A session belongs to a run, so
+      // accepting an empty menu still has nothing to record.
+      it("logs nothing when accept fires with no run behind it", async () => {
         const harness = setup_inline();
         harness.stores.vault.set_vault(create_test_vault());
 
@@ -772,6 +952,9 @@ describe("register_ai_actions", () => {
         expect(harness.rag_service.save_session).not.toHaveBeenCalled();
       });
 
+      // Sessions are vault-scoped and only a vault has somewhere to persist
+      // one. A row that cannot survive a reload is the half-session this
+      // guards against, so no vault still means no session.
       it("leaves no half-session when there is no active vault", async () => {
         const harness = setup_inline();
         harness.ai_service.stream_inline = vi.fn(function* () {
@@ -1038,7 +1221,14 @@ describe("register_ai_actions", () => {
 
         expect(harness.add_proposal).not.toHaveBeenCalled();
         expect(harness.accept_proposal).not.toHaveBeenCalled();
-        expect(harness.assistant_sessions.sessions).toEqual([]);
+        // The run's own session stays open and unanswered — refusing to accept
+        // is not refusing to have run. Nothing new is logged and nothing is
+        // settled, so re-accepting from the right note still records the reply.
+        const [session, ...rest] = harness.assistant_sessions.sessions;
+        expect(rest).toEqual([]);
+        expect(session?.origin).toEqual({ note_path: "docs/demo.md" });
+        expect(session?.messages[1]?.content).toBe("");
+        expect(harness.rag_service.save_session).not.toHaveBeenCalled();
         expect(toast.error).toHaveBeenCalledWith(
           "This inline edit was started in docs/demo.md — open that note to accept it.",
         );

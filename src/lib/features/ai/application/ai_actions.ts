@@ -77,9 +77,17 @@ const MAX_INLINE_CONTEXT = 4000;
 // against note A's markdown, which builds a "delete all of B" proposal.
 type InlineRun = {
   request: { prompt: string; provider_id: string; note_path?: string };
+  // Minted when the run starts, so a run that is rejected, fails or has its
+  // surface closed is still addressable. `session_settled` records that the
+  // reply has been written: the first terminal state wins, and a detached
+  // stream arriving afterwards must not overwrite it.
+  session_id: string | null;
+  session_settled: boolean;
   before_markdown: string | null;
   prompts: { system_prompt: string; user_prompt: string } | null;
 };
+
+type InlineOutcome = { stopped: true } | { error: string };
 
 type PendingInlinePrompt = {
   command_id: string;
@@ -213,7 +221,13 @@ export function register_ai_actions(
   // On stream failure keep any partial output reviewable (accept/discard);
   // with nothing streamed, reject to restore the doc (a selection may have
   // been deleted when the stream started).
-  function fail_inline_stream(view: EditorView, message: string) {
+  function fail_inline_stream(
+    view: EditorView,
+    run: InlineRun,
+    streamed: string,
+    message: string,
+  ) {
+    finish_inline_session(run, streamed, { error: message });
     toast.error(message);
     const state = get_ai_menu_state(view.state);
     if (!state.open) return;
@@ -407,22 +421,27 @@ export function register_ai_actions(
         user_prompt: prompts.user_prompt,
         images,
         note_path: String(editor_ctx.note_path),
+        origin: inline_run_origin(run),
       })) {
         // I2: closing the menu detaches this surface. The run keeps going and
         // stays stoppable from the assistant popover.
         if (!get_ai_menu_state(view.state).open) {
+          finish_inline_session(run, output, { stopped: true });
           return;
         }
         if (chunk.type === "text") {
           output += chunk.text;
         } else if (chunk.type === "error") {
+          finish_inline_session(run, output, { error: chunk.error });
           toast.error(chunk.error);
           dispatch_ai_menu(view, { action: "close" });
           return;
         }
       }
     } catch (err) {
-      toast.error(error_message(err));
+      const message = error_message(err);
+      finish_inline_session(run, output, { error: message });
+      toast.error(message);
       dispatch_ai_menu(view, { action: "close" });
       return;
     }
@@ -437,13 +456,19 @@ export function register_ai_actions(
     // affordance at all (filed C1 finding) — there is no review step to route
     // through a proposal. Do not invent one here; out of scope this cycle.
     // Sanitizing the accumulated stream is the only filter this path gets.
+    const sanitized = sanitize_ai_output(output);
     const applied = services.editor.apply_ai_output(
       "selection",
-      sanitize_ai_output(output),
+      sanitized,
       apply_selection,
     );
     dispatch_ai_menu(view, { action: "close" });
-    if (!applied) {
+    if (applied) {
+      finish_inline_session(run, sanitized);
+    } else {
+      finish_inline_session(run, sanitized, {
+        error: "Failed to apply AI edit",
+      });
       toast.error("Failed to apply AI edit");
     }
   }
@@ -497,14 +522,21 @@ export function register_ai_actions(
         commands = resolve_instructions(
           input.stores.ui.editor_settings.ai_inline_commands,
         );
+        const request = {
+          prompt: describe_inline_request(p, commands),
+          provider_id: config.id,
+          ...(input.stores.editor.open_note
+            ? { note_path: String(input.stores.editor.open_note.meta.path) }
+            : {}),
+        };
+        // Opened before the disk read rather than after it: a run whose note
+        // cannot be read still happened, and a history that omits it is the
+        // defect this replaces. The retry guard above is also what keeps a
+        // retried run on the one session it opened.
         inline_run = {
-          request: {
-            prompt: describe_inline_request(p, commands),
-            provider_id: config.id,
-            ...(input.stores.editor.open_note
-              ? { note_path: String(input.stores.editor.open_note.meta.path) }
-              : {}),
-          },
+          request,
+          session_id: open_inline_session(request),
+          session_settled: false,
           before_markdown: await read_note_from_disk(),
           prompts: null,
         };
@@ -569,12 +601,14 @@ export function register_ai_actions(
           system_prompt: prompts.system_prompt,
           user_prompt: prompts.user_prompt,
           images,
+          origin: inline_run_origin(run),
         })) {
           if (chunk.type === "text") {
             const current_state = get_ai_menu_state(view.state);
             // I2: the menu going away detaches this surface, it does not
             // cancel the run — the popover still owns Stop.
             if (!current_state.open) {
+              finish_inline_session(run, streamed, { stopped: true });
               return;
             }
             // ALLOWED_DIRECT_APPLY: this raw transaction is the ProseMirror
@@ -594,7 +628,7 @@ export function register_ai_actions(
             view.dispatch(tr);
             streamed += chunk.text;
           } else if (chunk.type === "error") {
-            fail_inline_stream(view, chunk.error);
+            fail_inline_stream(view, run, streamed, chunk.error);
             return;
           }
         }
@@ -603,18 +637,18 @@ export function register_ai_actions(
         rewrite_streamed_text(view, streamed, sanitize_ai_output(streamed));
         dispatch_ai_menu(view, { action: "stream_done" });
       } catch (err) {
-        fail_inline_stream(view, error_message(err));
+        fail_inline_stream(view, run, streamed, error_message(err));
       }
     },
   });
 
-  // Store writes stay in one tick so no observer can ever see a one-message
-  // inline session; only persistence is detached, and AssistantSessionService
-  // already swallows its own failures.
-  function log_inline_session(result: string): string | null {
-    const request = inline_run?.request ?? null;
-    const vault_id = input.stores.vault.active_vault_id;
-    if (!request || !vault_id) return null;
+  // The session opens with the run, not with the accept: a rejected, failed or
+  // detached run is still something the user started and has to be able to
+  // find. It holds the request and an empty reply until the run settles.
+  // Vault-gated because only a vault has a place to persist it — an unwritable
+  // session is the half-session this used to avoid by logging nothing.
+  function open_inline_session(request: InlineRun["request"]): string | null {
+    if (!input.stores.vault.active_vault_id) return null;
 
     const created = assistant_sessions.create({
       kind: "inline",
@@ -626,22 +660,57 @@ export function register_ai_actions(
     });
     assistant_sessions.replace_messages(
       created.id,
-      build_inline_messages(request.prompt, result),
+      build_inline_messages(request.prompt, ""),
     );
-
-    // The toast is the immediate affordance; AU-012's ⌁ list row is the
-    // durable one, so a missed toast loses nothing.
-    toast.success("Inline edit applied", {
-      action: {
-        label: "Continue in chat",
-        onClick: () =>
-          void registry.execute(ACTION_IDS.assistant_open_session, created.id),
-      },
-    });
-
-    const stored = assistant_sessions.get(created.id);
-    if (stored) void assistant_sessions_service.save_session(vault_id, stored);
     return created.id;
+  }
+
+  // Every terminal state routes here, so the transcript records what happened
+  // rather than only what was accepted. Store writes stay in one tick; only
+  // persistence is detached, and AssistantSessionService already swallows its
+  // own failures.
+  function finish_inline_session(
+    run: InlineRun,
+    result: string,
+    outcome?: InlineOutcome,
+  ): string | null {
+    const vault_id = input.stores.vault.active_vault_id;
+    if (!run.session_id || !vault_id || run.session_settled) return null;
+
+    const [request_message, reply] = build_inline_messages(
+      run.request.prompt,
+      result,
+    );
+    if (!request_message || !reply) return null;
+    run.session_settled = true;
+    assistant_sessions.replace_messages(run.session_id, [
+      request_message,
+      { ...reply, ...outcome },
+    ]);
+
+    const stored = assistant_sessions.get(run.session_id);
+    if (stored) void assistant_sessions_service.save_session(vault_id, stored);
+    return run.session_id;
+  }
+
+  function inline_run_origin(run: InlineRun) {
+    return {
+      ...(run.request.note_path ? { note_path: run.request.note_path } : {}),
+      ...(run.session_id ? { session_id: run.session_id } : {}),
+    };
+  }
+
+  // The accept meta resets the plugin to its empty state, so the streamed
+  // range has to be read before anything dispatches.
+  function read_streamed_result(view: EditorView): string {
+    const state = get_ai_menu_state(view.state);
+    if (!state.open || state.ai_range_to <= state.ai_range_from) return "";
+    return view.state.doc.textBetween(
+      state.ai_range_from,
+      state.ai_range_to,
+      "\n",
+      "\n",
+    );
   }
 
   registry.register({
@@ -651,19 +720,7 @@ export function register_ai_actions(
       const view = get_inline_view();
       if (!view) return;
 
-      // The accept meta resets the plugin to its empty state, so the range has
-      // to be read before dispatching.
-      const state = get_ai_menu_state(view.state);
-      const result =
-        state.open && state.ai_range_to > state.ai_range_from
-          ? view.state.doc.textBetween(
-              state.ai_range_from,
-              state.ai_range_to,
-              "\n",
-              "\n",
-            )
-          : "";
-
+      const result = read_streamed_result(view);
       const run = inline_run;
       const after = services.editor.get_ai_context();
 
@@ -685,9 +742,25 @@ export function register_ai_actions(
       }
 
       dispatch_ai_menu(view, { action: "accept" });
-      if (!result) return;
+      if (!result || !run) return;
 
-      const logged_session_id = log_inline_session(result);
+      const logged_session_id = finish_inline_session(run, result);
+
+      // The toast is the immediate affordance; AU-012's ⌁ list row is the
+      // durable one, so a missed toast loses nothing. The action opens the
+      // read-only transcript tab it names — it has never opened the chat.
+      if (logged_session_id) {
+        toast.success("Inline edit applied", {
+          action: {
+            label: "View transcript",
+            onClick: () =>
+              void registry.execute(
+                ACTION_IDS.assistant_open_session,
+                logged_session_id,
+              ),
+          },
+        });
+      }
 
       // ALLOWED_DIRECT_APPLY: the streamed text is already in the editor
       // buffer — the ProseMirror menu previews it live as it arrives (P3
@@ -696,18 +769,16 @@ export function register_ai_actions(
       // write through the proposal store, so the buffer preview and the
       // persisted write share one apply path even though they happen at
       // different times.
-      if (run?.before_markdown != null && after) {
-        // The review centre groups by origin.session_id; a throwaway UUID
-        // made every inline accept an unresolvable "raw id" group.
+      if (run.before_markdown != null && after && logged_session_id) {
+        // The review centre groups by origin.session_id. Both the snapshot and
+        // the session are minted when the run starts, so a run that has one
+        // has the other — the proposal never needs a stand-in id.
         const proposal = build_proposal({
           target: { kind: "note", note_path: after.note_path },
           original_text: run.before_markdown,
           draft_text: after.markdown,
           span: "full_note",
-          origin: {
-            session_id: logged_session_id ?? crypto.randomUUID(),
-            run_id: null,
-          },
+          origin: { session_id: logged_session_id, run_id: null },
         });
         assistant_proposals.add(proposal);
         await registry.execute(
@@ -724,7 +795,13 @@ export function register_ai_actions(
     execute: () => {
       const view = get_inline_view();
       if (!view) return;
+      const run = inline_run;
+      const discarded = read_streamed_result(view);
       reject_ai_inline(view);
+      // A discarded draft is still the answer this run produced. Keeping it in
+      // the transcript is what makes "what did that suggest again?" answerable
+      // after the document has moved on.
+      if (run) finish_inline_session(run, discarded, { stopped: true });
     },
   });
 
