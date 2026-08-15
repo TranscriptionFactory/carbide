@@ -245,6 +245,8 @@ function is_block_container(node: { type: string }): boolean {
   return BLOCK_CONTAINERS.has(node.type);
 }
 
+// The spread must preserve `position`: the setext-divider check above reads it
+// off the blockquote's first child to tell an ATX heading from a fused `---`.
 export function descend_block_container<T extends { type: string }, C>(
   node: T,
   transform: (children: C[]) => C[],
@@ -257,6 +259,8 @@ export function descend_block_container<T extends { type: string }, C>(
 
 function transform_children(nodes: RootContent[]): RootContent[] {
   return nodes.map((node) => {
+    // Descending first is safe: a blockquote's callout-ness depends only on its
+    // first paragraph/heading child, which is never itself a block container.
     const descended = descend_block_container(node, transform_children);
     if (is_blockquote_callout(descended)) {
       return transform_blockquote_to_callout(

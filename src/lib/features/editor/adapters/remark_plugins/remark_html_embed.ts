@@ -40,6 +40,16 @@ function to_mdast_embed(parsed: ParsedHtmlEmbed): MdastNode {
   };
 }
 
+const CONTAINER_TYPES = new Set([
+  "blockquote",
+  "list",
+  "listItem",
+  "callout",
+  "calloutBody",
+  "details",
+  "detailsContent",
+]);
+
 function convert(node: RootContent): RootContent {
   if (node.type === "html") {
     const parsed = parse_html_embed((node as { value: string }).value);
@@ -54,12 +64,8 @@ function convert(node: RootContent): RootContent {
     }
   }
 
-  if (
-    node.type === "blockquote" ||
-    node.type === "listItem" ||
-    node.type === "list"
-  ) {
-    const parent = node as unknown as { children: RootContent[] };
+  const parent = node as unknown as { children?: RootContent[] };
+  if (CONTAINER_TYPES.has(node.type) && Array.isArray(parent.children)) {
     parent.children = parent.children.map(convert);
   }
 

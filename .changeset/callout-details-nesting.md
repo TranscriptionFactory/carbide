@@ -21,3 +21,12 @@ were written as.
 
 Inline HTML in ordinary prose is untouched — writing about the `<details>` tag
 mid-sentence still stays plain text.
+
+Embeds written inside a callout or a collapsible now work too. An image or note
+embed such as `![[diagram.png]]` inside a callout was previously left as plain
+text, and saving the note rewrote it to `\![[diagram.png]]` — an escaped form
+that no longer means an embed, so the picture never came back. An `<iframe>` or
+`<video>` in the same position stayed visible as raw HTML markup instead of
+becoming a player. Both are now recognised inside callouts and collapsibles, at
+any nesting depth, and saving no longer rewrites the embed syntax. Embeds in
+blockquotes and list items behave as they did before.
