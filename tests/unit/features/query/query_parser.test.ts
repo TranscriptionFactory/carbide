@@ -15,10 +15,9 @@ describe("query_parser", () => {
       if (result.ok) expect(result.query.form).toBe("notes");
     });
 
-    it("parses Folders form", () => {
-      const result = parse_query('Folders named "archive"');
-      expect(result.ok).toBe(true);
-      if (result.ok) expect(result.query.form).toBe("folders");
+    it("rejects folders and files as forms", () => {
+      expect(parse_query('Folders named "archive"').ok).toBe(false);
+      expect(parse_query('files named "archive"').ok).toBe(false);
     });
 
     it("is case insensitive for forms", () => {
@@ -178,6 +177,21 @@ describe("query_parser", () => {
         value: { kind: "text", value: "done" },
       });
     });
+
+    it.each(["=", "!=", ">", "<", ">=", "<=", "contains"])(
+      "parses the %s operator without absorbing it into the value",
+      (operator) => {
+        const result = parse_query(`Notes with due ${operator} "now()-7d"`);
+        expect(result.ok).toBe(true);
+        if (!result.ok) return;
+        expect(result.query.root).toMatchObject({
+          type: "with_property",
+          property_name: "due",
+          property_operator: operator,
+          value: { kind: "text", value: "now()-7d" },
+        });
+      },
+    );
   });
 
   describe("grouping", () => {

@@ -8,7 +8,6 @@
     type QueryBuilderClauseEntry,
     type QueryBuilderSpec,
   } from "../domain/query_builder";
-  import type { JoinOp, QueryForm } from "../types";
   import { PROPERTY_OPERATORS } from "../domain/query_parser";
 
   type Props = {
@@ -19,7 +18,6 @@
 
   const { stores } = use_app_context();
 
-  const forms: QueryForm[] = ["notes", "folders", "files"];
   const clause_kinds: QueryBuilderClause["kind"][] = [
     "named",
     "tag",
@@ -32,7 +30,6 @@
   const tag_options = $derived(stores.tag.tags.map((t) => t.tag));
   const folder_paths = $derived(stores.notes.folder_paths);
 
-  let form = $state<QueryForm>("notes");
   let clauses = $state<QueryBuilderClauseEntry[]>([
     { clause: { kind: "named", name: "" } },
   ]);
@@ -57,7 +54,9 @@
   function change_kind(index: number, kind: QueryBuilderClause["kind"]) {
     const entry = clauses[index];
     if (!entry) return;
-    entry.clause = default_clause(kind);
+    const next = default_clause(kind);
+    next.negated = entry.clause.negated ?? false;
+    entry.clause = next;
   }
 
   function add_clause() {
@@ -85,7 +84,7 @@
     }
   }
 
-  const spec = $derived<QueryBuilderSpec>({ form, clauses });
+  const spec = $derived<QueryBuilderSpec>({ form: "notes", clauses });
   const valid = $derived(
     clauses.length > 0 && clauses.every((e) => clause_valid(e.clause)),
   );
@@ -98,15 +97,6 @@
 
 <div class="QueryBuilder">
   <div class="QueryBuilder__body">
-    <label class="QueryBuilder__form">
-      <span>Form</span>
-      <select bind:value={form} class="QueryBuilder__select">
-        {#each forms as f (f)}
-          <option value={f}>{f}</option>
-        {/each}
-      </select>
-    </label>
-
     {#each clauses as entry, i (i)}
       <div class="QueryBuilder__row">
         {#if i > 0}
@@ -234,14 +224,6 @@
     border: 1px solid var(--border);
     border-radius: var(--radius-sm);
     background-color: var(--muted);
-  }
-
-  .QueryBuilder__form {
-    display: flex;
-    align-items: center;
-    gap: var(--space-1);
-    font-size: var(--text-xs);
-    color: var(--muted-foreground);
   }
 
   .QueryBuilder__row {

@@ -47,7 +47,7 @@ describe("build_query_text", () => {
 
   it("negates clauses with a not prefix", () => {
     const spec: QueryBuilderSpec = {
-      form: "files",
+      form: "notes",
       clauses: [
         { clause: { kind: "named", negated: true, name: "draft" } },
         {
@@ -57,7 +57,7 @@ describe("build_query_text", () => {
       ],
     };
     expect(build_query_text(spec)).toBe(
-      'files not named "draft" or not in "archive"',
+      'notes not named "draft" or not in "archive"',
     );
     expect_parses(build_query_text(spec));
   });
@@ -147,7 +147,7 @@ describe("build_query_text", () => {
 
     it("round-trips both connectives across a chain", () => {
       const spec: QueryBuilderSpec = {
-        form: "folders",
+        form: "notes",
         clauses: [
           { clause: { kind: "named", name: "one" } },
           { connective: "or", clause: { kind: "named", name: "two" } },

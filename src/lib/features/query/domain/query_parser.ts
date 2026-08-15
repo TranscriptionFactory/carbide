@@ -13,10 +13,6 @@ import type {
 export const FORMS: Record<string, QueryForm> = {
   notes: "notes",
   note: "notes",
-  folders: "folders",
-  folder: "folders",
-  files: "files",
-  file: "files",
 };
 
 export const CLAUSE_KEYWORDS: Record<string, ClauseType> = {
@@ -26,6 +22,12 @@ export const CLAUSE_KEYWORDS: Record<string, ClauseType> = {
 };
 
 export const PROPERTY_OPERATORS = ["=", "!=", ">", "<", ">=", "<=", "contains"];
+
+// PROPERTY_OPERATORS is display order for the builder dropdown and the suggester;
+// matching must be maximal-munch or ">" shadows ">=".
+const OPERATORS_LONGEST_FIRST = [...PROPERTY_OPERATORS].sort(
+  (a, b) => b.length - a.length,
+);
 
 class Parser {
   private pos = 0;
@@ -210,7 +212,7 @@ class Parser {
     const remaining_after = this.input.slice(after_ws);
 
     let matched_op: string | null = null;
-    for (const op of PROPERTY_OPERATORS) {
+    for (const op of OPERATORS_LONGEST_FIRST) {
       if (remaining_after.startsWith(op)) {
         matched_op = op;
         break;

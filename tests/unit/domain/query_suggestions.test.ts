@@ -19,14 +19,7 @@ function inserts(text: string, c: DslContext = ctx): string[] {
 
 describe("suggest_query positional candidates", () => {
   it("suggests forms on empty input", () => {
-    expect(labels("")).toEqual([
-      "notes",
-      "note",
-      "folders",
-      "folder",
-      "files",
-      "file",
-    ]);
+    expect(labels("")).toEqual(["notes", "note"]);
   });
 
   it("suggests clause starters after a form", () => {
@@ -154,7 +147,8 @@ describe("suggest_query prefix filtering", () => {
   });
 
   it("filters forms by prefix", () => {
-    expect(labels("fo")).toEqual(["folders", "folder"]);
+    expect(labels("not")).toEqual(["notes", "note"]);
+    expect(labels("fo")).toEqual([]);
   });
 });
 
@@ -199,14 +193,7 @@ describe("suggest_query closers", () => {
 describe("suggest_query subquery recursion", () => {
   it("recurses into an unclosed subquery and offers forms", () => {
     const res = suggest_query("notes linked from {", ctx);
-    expect(res.items.map((i) => i.label)).toEqual([
-      "notes",
-      "note",
-      "folders",
-      "folder",
-      "files",
-      "file",
-    ]);
+    expect(res.items.map((i) => i.label)).toEqual(["notes", "note"]);
     expect(res.from).toBe("notes linked from {".length);
   });
 
