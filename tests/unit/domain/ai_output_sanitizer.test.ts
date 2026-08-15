@@ -17,6 +17,16 @@ const strips: [name: string, raw: string, expected: string][] = [
     "The edited passage.",
   ],
   [
+    "a bare conversational opener closed with a period",
+    "Of course.\n\nThe edited passage.",
+    "The edited passage.",
+  ],
+  [
+    "an opener that continues into an announcement ending in a colon",
+    "Sure, here is the rewrite:\n\nThe edited passage.",
+    "The edited passage.",
+  ],
+  [
     "a first-person announcement",
     "I've rewritten the passage:\n\nThe edited passage.",
     "The edited passage.",
@@ -62,6 +72,14 @@ const preserves: [name: string, raw: string][] = [
   [
     "a sentence opening with an announcing phrase mid-note",
     "This is the part that matters.\n\nAnd this is the rest.",
+  ],
+  [
+    "content that carries on past a conversational opener",
+    "Of course, the reason this matters is that the fox is quick.\n\nMore text.",
+  ],
+  [
+    "a conversational opener leading into content without a colon",
+    "Sure, the fox jumps over the lazy dog.\n\nMore text.",
   ],
   ["fenced code that is itself the answer", "```python\nprint(1)\n```"],
   [

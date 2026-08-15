@@ -9,9 +9,15 @@ const MAX_PREAMBLE_LENGTH = 200;
 const ANNOUNCING_LEAD_IN =
   /^(here'?s|here is|here are|below is|below are|the following|this is|i've|i have)\b/i;
 
-// Conversational filler that never introduces content on its own.
-const CONVERSATIONAL_OPENER =
-  /^(sure|certainly|absolutely|of course|got it|no problem|here you go)\b/i;
+// Conversational filler. Stripping is asymmetric — leaving scaffolding behind
+// costs the user a keystroke, deleting their sentence costs them the sentence,
+// and source mode has no accept step to catch it. So a paragraph that is
+// nothing but the opener goes; one that carries content past it needs the same
+// colon an announcement does.
+const OPENERS =
+  "sure|certainly|absolutely|of course|got it|no problem|here you go";
+const CONVERSATIONAL_OPENER = new RegExp(`^(${OPENERS})\\b`, "i");
+const BARE_OPENER = new RegExp(`^(${OPENERS})[.!…]*$`, "i");
 
 const MARKDOWN_STRUCTURE = /^(#|>|[-*+]\s|\d+[.)]\s|\||`{3,}|~{3,})/;
 
@@ -42,8 +48,11 @@ function is_preamble(paragraph: string): boolean {
     return false;
   }
   if (MARKDOWN_STRUCTURE.test(paragraph)) return false;
-  if (CONVERSATIONAL_OPENER.test(paragraph)) return true;
-  return paragraph.endsWith(":") && ANNOUNCING_LEAD_IN.test(paragraph);
+  if (BARE_OPENER.test(paragraph)) return true;
+  if (!paragraph.endsWith(":")) return false;
+  return (
+    ANNOUNCING_LEAD_IN.test(paragraph) || CONVERSATIONAL_OPENER.test(paragraph)
+  );
 }
 
 // Only unwraps when the entire output is one fence carrying a markdown-ish info
