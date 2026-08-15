@@ -23,19 +23,33 @@ function is_ignore_config_path(path: string): boolean {
 
 export type BackgroundTabInfo = { is_dirty: boolean } | null;
 
-export type WatcherEventDecision =
+export type WatcherIndexHint = { changed?: string; removed?: string };
+
+type WatcherEventAction =
   | { action: "reload"; note_path: NotePath }
   | { action: "mark_conflict"; note_path: NotePath }
   | { action: "invalidate_tab_cache"; note_path: NotePath }
-  | {
-      action: "refresh_tree";
-      affects_index?: boolean;
-      index_hint?: { changed?: string; removed?: string };
-    }
+  | { action: "refresh_tree" }
   | { action: "clear_and_refresh"; note_path: NotePath }
   | { action: "remove_background_tab_and_refresh"; note_path: NotePath }
   | { action: "log_only"; path: string }
   | { action: "ignore" };
+
+// Two orthogonal axes. The action says what the editor and the tree do; the
+// index fields say what the search index is told. An external write reaches
+// the index whether its note is open, dirty, in a background tab, or untouched.
+export type WatcherEventDecision = WatcherEventAction & {
+  affects_index?: boolean;
+  index_hint?: WatcherIndexHint;
+};
+
+function refreshes_tree(action: WatcherEventDecision["action"]): boolean {
+  return (
+    action === "refresh_tree" ||
+    action === "clear_and_refresh" ||
+    action === "remove_background_tab_and_refresh"
+  );
+}
 
 export function resolve_watcher_event_decision(
   event: VaultFsEvent,
@@ -51,23 +65,28 @@ export function resolve_watcher_event_decision(
   switch (event.type) {
     case "note_changed_externally": {
       const np = as_note_path(event.note_path);
+      const index = {
+        affects_index: true,
+        index_hint: { changed: event.note_path },
+      } as const;
+
       if (
         open_note_path &&
         paths_equal_ignore_case(event.note_path, open_note_path)
       ) {
         return is_dirty
-          ? { action: "mark_conflict", note_path: np }
-          : { action: "reload", note_path: np };
+          ? { action: "mark_conflict", note_path: np, ...index }
+          : { action: "reload", note_path: np, ...index };
       }
 
       const bg = find_background_tab(event.note_path);
       if (bg) {
         return bg.is_dirty
-          ? { action: "mark_conflict", note_path: np }
-          : { action: "invalidate_tab_cache", note_path: np };
+          ? { action: "mark_conflict", note_path: np, ...index }
+          : { action: "invalidate_tab_cache", note_path: np, ...index };
       }
 
-      return { action: "ignore" };
+      return { action: "ignore", ...index };
     }
     case "note_added":
       return {
@@ -83,13 +102,17 @@ export function resolve_watcher_event_decision(
       ) {
         return is_dirty
           ? { action: "mark_conflict", note_path: rp }
-          : { action: "clear_and_refresh", note_path: rp };
+          : { action: "clear_and_refresh", note_path: rp, affects_index: true };
       }
       const removed_bg = find_background_tab(event.note_path);
       if (removed_bg) {
         return removed_bg.is_dirty
           ? { action: "mark_conflict", note_path: rp }
-          : { action: "remove_background_tab_and_refresh", note_path: rp };
+          : {
+              action: "remove_background_tab_and_refresh",
+              note_path: rp,
+              affects_index: true,
+            };
       }
       return {
         action: "refresh_tree",
@@ -142,15 +165,18 @@ export function create_watcher_reactor(
   workspace_reconcile?: WorkspaceReconcile,
 ): () => void {
   return $effect.root(() => {
+    let pending_tree_refresh = false;
     let pending_full_sync = false;
     let pending_changed_paths: string[] = [];
     let pending_removed_paths: string[] = [];
-    const tree_refresh = create_debounced_task_controller<void>({
+    const reconcile_task = create_debounced_task_controller<void>({
       run: () => {
         const is_vault = vault_store.is_vault_mode;
+        const refresh_tree = pending_tree_refresh;
         const full_sync = pending_full_sync && is_vault;
         const changed = [...new Set(pending_changed_paths)];
         const removed = [...new Set(pending_removed_paths)];
+        pending_tree_refresh = false;
         pending_full_sync = false;
         pending_changed_paths = [];
         pending_removed_paths = [];
@@ -159,7 +185,7 @@ export function create_watcher_reactor(
         void reconcile_workspace(
           action_registry,
           {
-            refresh_tree: true,
+            refresh_tree,
             sync_index: full_sync,
             sync_index_paths:
               !full_sync && has_incremental && is_vault
@@ -174,20 +200,23 @@ export function create_watcher_reactor(
       },
     });
 
-    function debounced_tree_refresh(
-      affects_index: boolean,
-      index_hint?: { changed?: string; removed?: string },
+    function schedule_reconcile(
+      refresh_tree: boolean,
+      index_hint: WatcherIndexHint | null,
     ) {
-      if (affects_index) {
-        if (index_hint?.changed) {
+      if (refresh_tree) {
+        pending_tree_refresh = true;
+      }
+      if (index_hint) {
+        if (index_hint.changed) {
           pending_changed_paths.push(index_hint.changed);
-        } else if (index_hint?.removed) {
+        } else if (index_hint.removed) {
           pending_removed_paths.push(index_hint.removed);
         } else {
           pending_full_sync = true;
         }
       }
-      tree_refresh.schedule(undefined, TREE_REFRESH_DEBOUNCE_MS);
+      reconcile_task.schedule(undefined, TREE_REFRESH_DEBOUNCE_MS);
     }
 
     function find_background_tab(path: string): BackgroundTabInfo {
@@ -271,28 +300,12 @@ export function create_watcher_reactor(
         case "invalidate_tab_cache":
           tab_service.invalidate_cache(decision.note_path);
           break;
-        case "refresh_tree":
-          if (watcher_service.is_tree_refresh_suppressed) {
-            log.info("Tree refresh suppressed during move operation");
-          } else {
-            debounced_tree_refresh(
-              decision.affects_index ?? true,
-              decision.index_hint,
-            );
-          }
-          break;
         case "clear_and_refresh":
           note_service.clear_open_note();
           tab_service.remove_tab(decision.note_path);
-          if (!watcher_service.is_tree_refresh_suppressed) {
-            debounced_tree_refresh(true);
-          }
           break;
         case "remove_background_tab_and_refresh":
           tab_service.remove_tab(decision.note_path);
-          if (!watcher_service.is_tree_refresh_suppressed) {
-            debounced_tree_refresh(true);
-          }
           break;
         case "log_only": {
           log.info("Asset changed externally", { path: decision.path });
@@ -302,9 +315,23 @@ export function create_watcher_reactor(
           }
           break;
         }
+        case "refresh_tree":
         case "ignore":
           break;
       }
+
+      const wants_tree = refreshes_tree(decision.action);
+      const wants_index = decision.affects_index === true;
+      if (!wants_tree && !wants_index) return;
+
+      if (watcher_service.is_tree_refresh_suppressed) {
+        log.info("Workspace reconcile suppressed during move operation");
+        return;
+      }
+      schedule_reconcile(
+        wants_tree,
+        wants_index ? (decision.index_hint ?? {}) : null,
+      );
     }
 
     $effect(() => {
@@ -319,7 +346,7 @@ export function create_watcher_reactor(
 
       return () => {
         unsub();
-        tree_refresh.cancel();
+        reconcile_task.cancel();
         void watcher_service.stop();
       };
     });
