@@ -73,6 +73,14 @@ function row_ids(): (string | undefined)[] {
   return get_rows().map((row) => row.dataset.sessionId);
 }
 
+// Rows outside the ⌁ group. The group is open by default, so "is this a
+// top-level row?" can no longer be answered by "is it in the DOM?".
+function top_level_row_ids(): (string | undefined)[] {
+  return get_rows()
+    .filter((row) => !row.closest('[data-testid="assistant-inline-group"]'))
+    .map((row) => row.dataset.sessionId);
+}
+
 function get_row(session_id: string): HTMLElement {
   const row = document.body.querySelector<HTMLElement>(
     `[data-testid="assistant-session-row"][data-session-id="${session_id}"]`,
@@ -189,15 +197,13 @@ describe("assistant_session_list.svelte — rows and kind badges", () => {
       ],
     });
 
-    expect(row_ids()).toEqual(["chat-new", "note-1", "chat-old"]);
+    expect(top_level_row_ids()).toEqual(["chat-new", "note-1", "chat-old"]);
 
     view.cleanup();
   });
 
   it("2: marks every row with its kind and the matching glyph", () => {
     const view = render_list({ sessions: [CHAT, NOTE, INLINE] });
-
-    click(get_group_toggle());
 
     const chat_row = get_row("chat-1");
     expect(chat_row.dataset.kind).toBe("chat");
@@ -326,7 +332,7 @@ describe("assistant_session_list.svelte — kind filters", () => {
     click(get_chip("chat"));
     click(get_chip("all"));
 
-    expect(row_ids()).toEqual(["chat-1", "note-1"]);
+    expect(top_level_row_ids()).toEqual(["chat-1", "note-1"]);
     expect(get_chip("all").getAttribute("aria-pressed")).toBe("true");
     expect(get_chip("chat").getAttribute("aria-pressed")).toBe("false");
     expect(query_group_toggle()).not.toBeNull();
@@ -366,28 +372,15 @@ describe("assistant_session_list.svelte — kind filters", () => {
 });
 
 describe("assistant_session_list.svelte — inline group", () => {
-  it("12: keeps inline sessions out of the DOM until the group is expanded", () => {
+  // The group starts open. Collapsed-by-default read as "there are no inline
+  // sessions" to anyone who never found the disclosure, which is the complaint
+  // the grouping exists to answer.
+  it("12: mounts the inline rows with the group open from the start", () => {
     const view = render_list({ sessions: [CHAT, INLINE, INLINE_OLDER] });
 
     const toggle = get_group_toggle();
-    expect(toggle.getAttribute("aria-expanded")).toBe("false");
+    expect(toggle.getAttribute("aria-expanded")).toBe("true");
     expect(toggle.textContent).toContain("⌁ Inline · 2");
-    expect(
-      document.body.querySelector(
-        '[data-testid="assistant-session-row"][data-kind="inline"]',
-      ),
-    ).toBeNull();
-    expect(row_ids()).toEqual(["chat-1"]);
-
-    view.cleanup();
-  });
-
-  it("13: mounts the inline rows when the group is expanded", () => {
-    const view = render_list({ sessions: [CHAT, INLINE, INLINE_OLDER] });
-
-    click(get_group_toggle());
-
-    expect(get_group_toggle().getAttribute("aria-expanded")).toBe("true");
     expect(row_ids()).toEqual(["chat-1", "inline-1", "inline-2"]);
     expect(
       get_in_row(
@@ -399,10 +392,21 @@ describe("assistant_session_list.svelte — inline group", () => {
     view.cleanup();
   });
 
-  it("14: removes the inline rows again when the group is collapsed", () => {
-    const view = render_list({ sessions: [CHAT, INLINE] });
+  it("13: mounts the inline rows again when a collapsed group is reopened", () => {
+    const view = render_list({ sessions: [CHAT, INLINE, INLINE_OLDER] });
 
     click(get_group_toggle());
+    click(get_group_toggle());
+
+    expect(get_group_toggle().getAttribute("aria-expanded")).toBe("true");
+    expect(row_ids()).toEqual(["chat-1", "inline-1", "inline-2"]);
+
+    view.cleanup();
+  });
+
+  it("14: removes the inline rows from the DOM when the group is collapsed", () => {
+    const view = render_list({ sessions: [CHAT, INLINE] });
+
     click(get_group_toggle());
 
     expect(get_group_toggle().getAttribute("aria-expanded")).toBe("false");
@@ -411,6 +415,7 @@ describe("assistant_session_list.svelte — inline group", () => {
         '[data-testid="assistant-session-row"][data-kind="inline"]',
       ),
     ).toBeNull();
+    expect(row_ids()).toEqual(["chat-1"]);
 
     view.cleanup();
   });
@@ -427,10 +432,8 @@ describe("assistant_session_list.svelte — inline group", () => {
     view.cleanup();
   });
 
-  it("16: leaves the top-level rows mounted when the group expands", () => {
+  it("16: leaves the top-level rows mounted alongside the group", () => {
     const view = render_list({ sessions: [CHAT, NOTE, INLINE] });
-
-    click(get_group_toggle());
 
     expect(get_row("chat-1").dataset.kind).toBe("chat");
     expect(get_row("note-1").dataset.kind).toBe("note");
@@ -451,10 +454,9 @@ describe("assistant_session_list.svelte — open, rename and delete", () => {
     view.cleanup();
   });
 
-  it("18: opens an inline session from the expanded group", () => {
+  it("18: opens an inline session from the group", () => {
     const view = render_list({ sessions: [CHAT, INLINE] });
 
-    click(get_group_toggle());
     click(get_in_row(get_row("inline-1"), "assistant-session-open"));
 
     expect(view.on_open.mock.calls).toEqual([["inline-1"]]);

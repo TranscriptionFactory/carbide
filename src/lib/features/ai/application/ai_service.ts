@@ -3,7 +3,12 @@ import { error_message } from "$lib/shared/utils/error_message";
 import type { VaultStore } from "$lib/features/vault";
 import type { AiPort } from "$lib/features/ai/ports";
 import { start_run_stream } from "$lib/features/assistant";
-import type { RunHandle, RunKind, RunStarter } from "$lib/features/assistant";
+import type {
+  RunHandle,
+  RunKind,
+  RunOrigin,
+  RunStarter,
+} from "$lib/features/assistant";
 import type { SearchPort } from "$lib/features/search";
 import type {
   AiCliProbe,
@@ -302,6 +307,9 @@ export class AiService {
     user_prompt: string;
     images?: AiImagePart[];
     note_path?: string;
+    // Carries the run back to the note and the transcript it belongs to, so
+    // the runs popover can name a live inline run and open its session.
+    origin?: RunOrigin;
     on_run_started?: (handle: RunHandle) => void;
   }): AsyncGenerator<AiStreamChunk> {
     const joiner = new MarkdownJoiner();
@@ -310,6 +318,7 @@ export class AiService {
       kind: "inline",
       label: input.user_prompt,
       provider: input.provider_config,
+      ...(input.origin ? { origin: input.origin } : {}),
       request: {
         mode: "text",
         system_prompt: input.system_prompt,

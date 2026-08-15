@@ -20,13 +20,14 @@ import {
 function render_presence(
   runs: RunRecord[],
   on_stop: (id: RunId) => void = vi.fn(),
+  on_open_session?: (session_id: string) => void,
 ) {
   const target = document.createElement("div");
   document.body.appendChild(target);
 
   const app = mount(AssistantPresence, {
     target,
-    props: { runs, on_stop, now: () => 0 },
+    props: { runs, on_stop, now: () => 0, on_open_session },
   });
 
   flushSync();
@@ -166,6 +167,49 @@ describe("assistant_presence.svelte", () => {
     ]);
 
     expect(get_cell().textContent).toContain("2 runs");
+
+    view.cleanup();
+  });
+
+  // The presence widget is a pass-through: the popover owns the affordance and
+  // this component only has to hand the handler down. Without this the row's
+  // open button is unreachable from every surface that mounts the widget.
+  it("hands the open handler down to the run rows", () => {
+    const on_open_session = vi.fn();
+    const view = render_presence(
+      [
+        make_run_record({
+          id: "inline-run",
+          status: "streaming",
+          origin: { session_id: "session-9" },
+        }),
+      ],
+      vi.fn(),
+      on_open_session,
+    );
+
+    document.body
+      .querySelector<HTMLButtonElement>('[data-testid="assistant-run-open"]')
+      ?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    flushSync();
+
+    expect(on_open_session.mock.calls).toEqual([["session-9"]]);
+
+    view.cleanup();
+  });
+
+  it("shows no open affordance when no handler is passed down", () => {
+    const view = render_presence([
+      make_run_record({
+        id: "inline-run",
+        status: "streaming",
+        origin: { session_id: "session-9" },
+      }),
+    ]);
+
+    expect(
+      document.body.querySelector('[data-testid="assistant-run-open"]'),
+    ).toBeNull();
 
     view.cleanup();
   });

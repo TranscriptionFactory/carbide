@@ -55,6 +55,20 @@ function click_accept() {
   button.click();
 }
 
+function click_reject() {
+  const button = document.querySelector<HTMLButtonElement>(
+    '[data-testid="ai-inline-reject"]',
+  );
+  if (!button) throw new Error("the discard button was never rendered");
+  button.click();
+}
+
+function press_escape() {
+  document.dispatchEvent(
+    new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+  );
+}
+
 // The accept button used to dispatch straight into the plugin, which left
 // ACTION_IDS.ai_accept_inline unreachable and the inline exchange unlogged.
 describe("inline accept routing", () => {
@@ -74,6 +88,46 @@ describe("inline accept routing", () => {
     const { view, cleanup } = mount_menu({ on_execute: vi.fn() });
 
     click_accept();
+
+    expect(get_ai_menu_state(view.state).open).toBe(false);
+    cleanup();
+  });
+});
+
+// Reject had the same defect accept had above: the plugin discarded on its own
+// and ACTION_IDS.ai_reject_inline was unreachable from the app, so the run's
+// session was left open with an empty reply and never recorded the discard.
+describe("inline reject routing", () => {
+  it("hands Discard to the host so the action runs", () => {
+    const on_reject = vi.fn();
+    const { view, cleanup } = mount_menu({ on_execute: vi.fn(), on_reject });
+
+    click_reject();
+
+    expect(on_reject).toHaveBeenCalledTimes(1);
+    // The host owns the discard now, so the plugin must not have rejected too.
+    expect(get_ai_menu_state(view.state).open).toBe(true);
+    cleanup();
+  });
+
+  // Escape and an outside click are the same decision as Discard to the run
+  // behind the menu, and they reach it through dismiss_menu rather than the
+  // button — so they need routing too, not just the visible control.
+  it("hands an Escape dismissal to the host as well", () => {
+    const on_reject = vi.fn();
+    const { view, cleanup } = mount_menu({ on_execute: vi.fn(), on_reject });
+
+    press_escape();
+
+    expect(on_reject).toHaveBeenCalledTimes(1);
+    expect(get_ai_menu_state(view.state).open).toBe(true);
+    cleanup();
+  });
+
+  it("still discards on its own when no host is listening", () => {
+    const { view, cleanup } = mount_menu({ on_execute: vi.fn() });
+
+    click_reject();
 
     expect(get_ai_menu_state(view.state).open).toBe(false);
     cleanup();

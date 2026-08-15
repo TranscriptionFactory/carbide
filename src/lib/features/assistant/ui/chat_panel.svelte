@@ -283,6 +283,8 @@
         on_stop={stop_run}
         {pending_proposal_count}
         on_open_proposals={open_proposals}
+        on_open_session={(id) =>
+          void action_registry.execute(ACTION_IDS.assistant_open_session, id)}
         on_clear={clear_runs}
       />
       {#if rag.mode === "agent" && scope_copy !== null}

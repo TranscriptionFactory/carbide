@@ -204,6 +204,26 @@ describe("AssistantChatStore", () => {
     expect(store.revision).toBe(before + 1);
   });
 
+  // The panel's history lists every kind, so this store is handed ids it
+  // structurally cannot open. It must leave the live conversation alone rather
+  // than half-switch; routing a non-chat id elsewhere is the action layer's
+  // job, and it can only do that if this stays a no-op.
+  it("switch_session leaves the active chat untouched for a non-chat id", () => {
+    const { sessions, store } = create_store();
+    sessions.hydrate([
+      saved_session({ id: "a", provider_id: "claude" }),
+      saved_session({ id: "inline-1", kind: "inline", provider_id: "ollama" }),
+    ]);
+    store.switch_session("a");
+    const before = store.revision;
+
+    store.switch_session("inline-1");
+
+    expect(store.active_id).toBe("a");
+    expect(store.provider_id).toBe("claude");
+    expect(store.revision).toBe(before);
+  });
+
   it("delete_session removes the session and clears active when it was open", () => {
     const { sessions, store } = create_store();
     sessions.hydrate([saved_session({ id: "a" }), saved_session({ id: "b" })]);

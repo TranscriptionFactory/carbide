@@ -58,6 +58,9 @@
   ports.ai_inline_handler.on_accept = () =>
     void app.action_registry.execute(ACTION_IDS.ai_accept_inline);
 
+  ports.ai_inline_handler.on_reject = () =>
+    void app.action_registry.execute(ACTION_IDS.ai_reject_inline);
+
   ports.ai_inline_handler.on_preview_change = (active) =>
     void app.action_registry.execute(ACTION_IDS.ai_set_inline_preview, active);
 

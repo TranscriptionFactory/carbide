@@ -36,7 +36,10 @@
   };
 
   let filter = $state<KindFilter>("all");
-  let inline_expanded = $state(false);
+  // Expanded by default: a collapsed group reads as "there are no inline
+  // sessions" to anyone who has not found the disclosure, which is the whole
+  // complaint the grouping was meant to answer.
+  let inline_expanded = $state(true);
   let renaming_id = $state<string | null>(null);
   let rename_draft = $state("");
 

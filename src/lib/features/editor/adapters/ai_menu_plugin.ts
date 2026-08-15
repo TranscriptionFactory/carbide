@@ -68,6 +68,11 @@ export type AiMenuPluginConfig = {
   // Accepting has to reach the action so the exchange gets logged; without a
   // host the plugin still accepts on its own.
   on_accept?: () => void;
+  // Rejecting has to reach the action for the same reason: the discarded draft
+  // is the run's outcome, and a reject the host never sees leaves the run's
+  // session open with an empty reply. Every dismissal that restores the
+  // document routes through here, not only the Discard button.
+  on_reject?: () => void;
   // The plugin is the only place that sees every way a preview ends - accept,
   // reject, Escape, an outside click, the session being torn down - so it is
   // the only honest source for "the buffer is showing unaccepted AI text".
@@ -244,7 +249,7 @@ export function create_ai_menu_plugin(
               if (config?.on_accept) config.on_accept();
               else dispatch_ai_menu(editor_view, { action: "accept" });
             },
-            on_reject: () => reject_ai_inline(editor_view),
+            on_reject: () => reject_inline(),
             on_close: () => dispatch_ai_menu(editor_view, { action: "close" }),
             ...(config?.get_runs ? { get_runs: config.get_runs } : {}),
             ...(config?.on_stop ? { on_stop: config.on_stop } : {}),
@@ -255,11 +260,18 @@ export function create_ai_menu_plugin(
         prev_streaming = state.streaming;
       }
 
+      // The Discard button, Escape and an outside click are the same decision
+      // to the run behind the menu, so they share one exit.
+      function reject_inline() {
+        if (config?.on_reject) config.on_reject();
+        else reject_ai_inline(editor_view);
+      }
+
       function dismiss_menu() {
         const s = get_ai_menu_state(editor_view.state);
         if (!s.open) return;
         if (s.original_doc) {
-          reject_ai_inline(editor_view);
+          reject_inline();
         } else {
           dispatch_ai_menu(editor_view, { action: "close" });
         }
