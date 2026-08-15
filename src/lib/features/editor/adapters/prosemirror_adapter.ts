@@ -83,8 +83,6 @@ import type {
 import type { FindReplaceResult } from "$lib/features/editor/ports";
 import {
   create_turn_into_command,
-  turn_into_at as turn_into_at_cmd,
-  unwrap_callout as unwrap_callout_cmd,
   duplicate_block as duplicate_block_cmd,
   duplicate_block_at as duplicate_block_at_cmd,
   delete_block as delete_block_cmd,
@@ -92,6 +90,8 @@ import {
   batch_turn_into as batch_turn_into_cmd,
   batch_duplicate as batch_duplicate_cmd,
   batch_delete as batch_delete_cmd,
+  turn_into_at as turn_into_at_cmd,
+  unwrap_callout as unwrap_callout_cmd,
 } from "$lib/features/editor/adapters/block_transforms";
 import type {
   BlockPlacement,
