@@ -1,7 +1,7 @@
 /**
  * @vitest-environment jsdom
  */
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { flushSync } from "svelte";
 import {
   create_watcher_reactor,
@@ -146,6 +146,8 @@ describe("watcher_reactor", () => {
       expect(decision).toEqual({
         action: "reload",
         note_path: "notes/a.md",
+        affects_index: true,
+        index_hint: { changed: "notes/a.md" },
       });
     });
 
@@ -160,10 +162,12 @@ describe("watcher_reactor", () => {
       expect(decision).toEqual({
         action: "mark_conflict",
         note_path: "notes/a.md",
+        affects_index: true,
+        index_hint: { changed: "notes/a.md" },
       });
     });
 
-    it("ignores when no note is open", () => {
+    it("leaves the editor alone but still indexes when no note is open", () => {
       const decision = resolve_watcher_event_decision(
         changed_event("notes/a.md"),
         VAULT_ID,
@@ -171,10 +175,14 @@ describe("watcher_reactor", () => {
         false,
         NO_BG_TAB,
       );
-      expect(decision).toEqual({ action: "ignore" });
+      expect(decision).toEqual({
+        action: "ignore",
+        affects_index: true,
+        index_hint: { changed: "notes/a.md" },
+      });
     });
 
-    it("ignores when different note is open and no background tab", () => {
+    it("leaves the editor alone but still indexes when a different note is open", () => {
       const decision = resolve_watcher_event_decision(
         changed_event("notes/a.md"),
         VAULT_ID,
@@ -182,7 +190,11 @@ describe("watcher_reactor", () => {
         false,
         NO_BG_TAB,
       );
-      expect(decision).toEqual({ action: "ignore" });
+      expect(decision).toEqual({
+        action: "ignore",
+        affects_index: true,
+        index_hint: { changed: "notes/a.md" },
+      });
     });
 
     it("matches paths case-insensitively", () => {
@@ -196,6 +208,8 @@ describe("watcher_reactor", () => {
       expect(decision).toEqual({
         action: "reload",
         note_path: "Notes/A.md",
+        affects_index: true,
+        index_hint: { changed: "Notes/A.md" },
       });
     });
   });
@@ -212,6 +226,8 @@ describe("watcher_reactor", () => {
       expect(decision).toEqual({
         action: "invalidate_tab_cache",
         note_path: "notes/bg.md",
+        affects_index: true,
+        index_hint: { changed: "notes/bg.md" },
       });
     });
 
@@ -226,6 +242,8 @@ describe("watcher_reactor", () => {
       expect(decision).toEqual({
         action: "mark_conflict",
         note_path: "notes/bg.md",
+        affects_index: true,
+        index_hint: { changed: "notes/bg.md" },
       });
     });
 
@@ -240,10 +258,12 @@ describe("watcher_reactor", () => {
       expect(decision).toEqual({
         action: "reload",
         note_path: "notes/a.md",
+        affects_index: true,
+        index_hint: { changed: "notes/a.md" },
       });
     });
 
-    it("ignores when no note is open and no background tab", () => {
+    it("indexes without touching the editor when no note is open and no background tab", () => {
       const decision = resolve_watcher_event_decision(
         changed_event("notes/x.md"),
         VAULT_ID,
@@ -251,7 +271,11 @@ describe("watcher_reactor", () => {
         false,
         NO_BG_TAB,
       );
-      expect(decision).toEqual({ action: "ignore" });
+      expect(decision).toEqual({
+        action: "ignore",
+        affects_index: true,
+        index_hint: { changed: "notes/x.md" },
+      });
     });
   });
 
@@ -284,6 +308,7 @@ describe("watcher_reactor", () => {
       expect(decision).toEqual({
         action: "clear_and_refresh",
         note_path: "notes/a.md",
+        affects_index: true,
       });
     });
 
@@ -313,6 +338,7 @@ describe("watcher_reactor", () => {
       expect(decision).toEqual({
         action: "remove_background_tab_and_refresh",
         note_path: "notes/bg.md",
+        affects_index: true,
       });
     });
 
@@ -820,6 +846,7 @@ describe("watcher_reactor", () => {
       expect(decision).toEqual({
         action: "clear_and_refresh",
         note_path: as_note_path("notes/a.md"),
+        affects_index: true,
       });
     });
 
@@ -834,6 +861,129 @@ describe("watcher_reactor", () => {
       expect(decision).toEqual({
         action: "remove_background_tab_and_refresh",
         note_path: as_note_path("notes/b.md"),
+        affects_index: true,
+      });
+    });
+  });
+
+  // The two axes only meet in handle_event, so these drive the whole reactor:
+  // an external write has to reach the index whatever the open tab decides to
+  // do about it, and a self-write still has to reach nothing.
+  describe("external content edits reach the index", () => {
+    const DEBOUNCE_MS = 300;
+
+    beforeEach(() => {
+      vi.useFakeTimers();
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    async function settle() {
+      await flush_effects();
+      await vi.advanceTimersByTimeAsync(DEBOUNCE_MS);
+      await flush_effects();
+    }
+
+    function path_sync(changed: string[]) {
+      return {
+        refresh_tree: false,
+        sync_index: false,
+        sync_index_paths: { changed, removed: [] },
+      };
+    }
+
+    it("syncs only the changed path when an unopened note is edited on disk", async () => {
+      const t = mount_reactor({ is_dirty: false, note_path: "notes/open.md" });
+      await flush_effects();
+
+      t.watcher_port._emit(changed_event("notes/other.md", 1_000));
+      await settle();
+
+      expect(t.workspace_reconcile).toHaveBeenCalledTimes(1);
+      expect(t.workspace_reconcile).toHaveBeenCalledWith(
+        path_sync(["notes/other.md"]),
+      );
+    });
+
+    it("reloads a clean open note and indexes the same write", async () => {
+      const t = mount_reactor({ is_dirty: false });
+      await flush_effects();
+
+      t.watcher_port._emit(changed_event(t.note_path, 1_000));
+      await settle();
+
+      expect(t.note_service.open_note).toHaveBeenCalledWith(
+        t.note_path,
+        false,
+        { force_reload: true },
+      );
+      expect(t.workspace_reconcile).toHaveBeenCalledWith(
+        path_sync([t.note_path]),
+      );
+    });
+
+    it("marks a conflict on a dirty open note and indexes the same write", async () => {
+      const t = mount_reactor({ is_dirty: true });
+      await flush_effects();
+
+      t.watcher_port._emit(changed_event(t.note_path, 1_000));
+      await settle();
+
+      expect(t.tab_service.mark_conflict).toHaveBeenCalledWith(
+        as_note_path(t.note_path),
+      );
+      expect(t.workspace_reconcile).toHaveBeenCalledWith(
+        path_sync([t.note_path]),
+      );
+    });
+
+    it("coalesces a burst of external edits into one path-scoped sync", async () => {
+      const t = mount_reactor({ is_dirty: false, note_path: "notes/open.md" });
+      await flush_effects();
+
+      t.watcher_port._emit(changed_event("notes/x.md", 1_000));
+      t.watcher_port._emit(changed_event("notes/y.md", 1_000));
+      t.watcher_port._emit(changed_event("notes/x.md", 2_000));
+      await settle();
+
+      expect(t.workspace_reconcile).toHaveBeenCalledTimes(1);
+      expect(t.workspace_reconcile).toHaveBeenCalledWith(
+        path_sync(["notes/x.md", "notes/y.md"]),
+      );
+    });
+
+    it("does not index a save whose event reports the mtime Carbide wrote", async () => {
+      const t = mount_reactor({ is_dirty: false });
+      await flush_effects();
+
+      t.watcher_service.record_self_write(t.note_path, 9_000);
+      t.watcher_port._emit(changed_event(t.note_path, 9_000));
+      await settle();
+
+      expect(t.workspace_reconcile).not.toHaveBeenCalled();
+    });
+
+    // The pair a save actually delivers: the force-drain in the Rust debouncer
+    // emits the held Modify ahead of the structural event, the mtime-less
+    // arming is spent by the changed, and the trailing added peeks false. One
+    // sync, not two - this measures the interaction rather than assuming it.
+    it("counts one index sync for the changed-then-added pair a save delivers", async () => {
+      const t = mount_reactor({ is_dirty: false });
+      await flush_effects();
+
+      t.watcher_service.suppress_next(t.note_path);
+      t.watcher_port._emit(changed_event(t.note_path));
+      t.watcher_port._emit(added_event(t.note_path));
+      await settle();
+
+      expect(t.note_service.open_note).not.toHaveBeenCalled();
+      expect(t.workspace_reconcile).toHaveBeenCalledTimes(1);
+      expect(t.workspace_reconcile).toHaveBeenCalledWith({
+        refresh_tree: true,
+        sync_index: false,
+        sync_index_paths: { changed: [t.note_path], removed: [] },
       });
     });
   });
