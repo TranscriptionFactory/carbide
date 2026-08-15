@@ -230,12 +230,44 @@ function transform_blockquote_to_callout(bq: Blockquote): MdastNode {
   };
 }
 
+// Only these mdast types hold block children we recurse through. A blanket
+// "anything with children" walk would also reach paragraphs, whose inline
+// `html` nodes are indistinguishable by type from block HTML.
+const BLOCK_CONTAINERS = new Set([
+  "blockquote",
+  "callout",
+  "calloutBody",
+  "details",
+  "detailsContent",
+]);
+
+function is_block_container(node: { type: string }): boolean {
+  return BLOCK_CONTAINERS.has(node.type);
+}
+
+// The spread must preserve `position`: the setext-divider check above reads it
+// off the blockquote's first child to tell an ATX heading from a fused `---`.
+export function descend_block_container<T extends { type: string }, C>(
+  node: T,
+  transform: (children: C[]) => C[],
+): T {
+  if (!is_block_container(node)) return node;
+  const children = (node as { children?: unknown }).children;
+  if (!Array.isArray(children)) return node;
+  return { ...node, children: transform(children as C[]) };
+}
+
 function transform_children(nodes: RootContent[]): RootContent[] {
   return nodes.map((node) => {
-    if (is_blockquote_callout(node)) {
-      return transform_blockquote_to_callout(node) as unknown as RootContent;
+    // Descending first is safe: a blockquote's callout-ness depends only on its
+    // first paragraph/heading child, which is never itself a block container.
+    const descended = descend_block_container(node, transform_children);
+    if (is_blockquote_callout(descended)) {
+      return transform_blockquote_to_callout(
+        descended,
+      ) as unknown as RootContent;
     }
-    return node;
+    return descended;
   });
 }
 

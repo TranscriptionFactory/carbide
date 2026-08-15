@@ -19,18 +19,24 @@ function transform_to_wiki_embed(para: Paragraph): MdastNode {
   return { type: "wikiEmbed", value: text };
 }
 
+const CONTAINER_TYPES = new Set([
+  "blockquote",
+  "list",
+  "listItem",
+  "callout",
+  "calloutBody",
+  "details",
+  "detailsContent",
+]);
+
 function walk_children(nodes: RootContent[]): RootContent[] {
   return nodes.map((node) => {
     if (is_wiki_embed_paragraph(node)) {
       return transform_to_wiki_embed(node) as unknown as RootContent;
     }
-    if (node.type === "blockquote" || node.type === "listItem") {
-      const parent = node as unknown as { children: RootContent[] };
+    const parent = node as unknown as { children?: RootContent[] };
+    if (CONTAINER_TYPES.has(node.type) && Array.isArray(parent.children)) {
       parent.children = walk_children(parent.children);
-    }
-    if (node.type === "list") {
-      const list = node as unknown as { children: RootContent[] };
-      list.children = walk_children(list.children);
     }
     return node;
   });
