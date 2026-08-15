@@ -352,7 +352,7 @@ pub async fn ai_stream_start(
             stream_args,
             ..
         } => {
-            let args = resolve_stream_args(args, stream_args.as_deref());
+            let args = stream_args.as_deref().unwrap_or(args.as_slice());
             let resolved_model = model.or(provider_config.model.clone()).unwrap_or_default();
             let prompt_text = build_prompt_text(&system_prompt, &messages);
             let prompt_via_stdin = !args.iter().any(|a| a.contains("{prompt}"));
@@ -651,10 +651,6 @@ impl ThinkScanner {
     }
 }
 
-fn resolve_stream_args<'a>(args: &'a [String], stream_args: Option<&'a [String]>) -> &'a [String] {
-    stream_args.unwrap_or(args)
-}
-
 fn uses_stream_json(args: &[String]) -> bool {
     args.iter().any(|a| a == "--output-format=stream-json")
         || args
@@ -713,9 +709,14 @@ fn timeout_message(command: &str, timeout: Duration) -> String {
     )
 }
 
-async fn elapse(timeout: Option<Duration>) {
+// Yields the limit it waited out, so the message names a duration that was
+// really configured rather than a fallback for a state that cannot happen.
+async fn elapse(timeout: Option<Duration>) -> Duration {
     match timeout {
-        Some(duration) => tokio::time::sleep(duration).await,
+        Some(duration) => {
+            tokio::time::sleep(duration).await;
+            duration
+        }
         None => std::future::pending().await,
     }
 }
@@ -812,10 +813,10 @@ async fn run_streaming_cli(
                 }
             }
         } => {}
-        _ = elapse(run.timeout) => {
+        limit = elapse(run.timeout) => {
             let _ = child.kill().await;
             let _ = app.emit(event_name, AiStreamEvent::Error {
-                error: timeout_message(command, run.timeout.unwrap_or_default()),
+                error: timeout_message(command, limit),
             });
         }
         _ = abort_rx => {
@@ -933,8 +934,8 @@ pub async fn ai_test_provider(provider_config: AiProviderConfig) -> Result<Strin
 mod tests {
     use super::{
         build_chat_request_body, build_prompt_text, chat_completions_url, clamp_stderr,
-        handle_sse_event, line_events, parse_stream_json_line, resolve_stream_args, timeout_message,
-        uses_stream_json, AiContentPart, AiMessage, AiMessageContent, AiStreamEvent, AiToolCall,
+        handle_sse_event, line_events, parse_stream_json_line, timeout_message, uses_stream_json,
+        AiContentPart, AiMessage, AiMessageContent, AiStreamEvent, AiToolCall,
         SseDecoder, SseEvent, ThinkScanner, ThinkSegment, ToolCallAssembler, ToolDefinition,
     };
     use crate::features::mcp::types::InputSchema;
@@ -1537,24 +1538,6 @@ mod tests {
             ]
         );
         assert!(collect_tool_calls(&assembler.flush()).is_empty());
-    }
-
-    #[test]
-    fn streaming_run_prefers_the_declared_streaming_args() {
-        let one_shot = args(&["-p", "--output-format", "text"]);
-        let streaming = args(&["-p", "--output-format", "stream-json"]);
-
-        assert_eq!(
-            resolve_stream_args(&one_shot, Some(&streaming)),
-            streaming.as_slice()
-        );
-    }
-
-    #[test]
-    fn streaming_run_falls_back_to_the_one_shot_args_when_none_are_declared() {
-        let one_shot = args(&["run", "{model}"]);
-
-        assert_eq!(resolve_stream_args(&one_shot, None), one_shot.as_slice());
     }
 
     #[test]

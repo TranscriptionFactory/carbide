@@ -137,6 +137,9 @@ describe("assistant_transport_tauri_adapter", () => {
       expect(start_args_of("ai_stream_start").timeoutSeconds).toBe(90);
     });
 
+    // Declaring stream_args is what sends a run down the streaming channel, so
+    // this is also the seam that decides which arg list a provider runs:
+    // ai_execute_cli only ever receives one that has none, and it reads `args`.
     it("routes a provider that declares no streaming args to the blocking command", async () => {
       const no_stream_args = make_provider({
         transport: { kind: "cli", command: "claude", args: ["-p"] },
@@ -150,12 +153,28 @@ describe("assistant_transport_tauri_adapter", () => {
       });
       await flush();
 
-      expect(
-        mock_invoke.mock.calls.map(([name]) => name as string),
-      ).not.toContain("ai_stream_start");
-      expect(start_args_of("ai_execute_cli").providerConfig).toEqual(
-        no_stream_args,
+      expect(mock_invoke.mock.calls.map(([name]) => name)).not.toContain(
+        "ai_stream_start",
       );
+
+      // What crosses to the blocking command is the one-shot list.
+      expect(start_args_of("ai_execute_cli").providerConfig).toEqual({
+        id: "claude",
+        name: "Claude Code",
+        transport: { kind: "cli", command: "claude", args: ["-p"] },
+      });
+    });
+
+    // The counterpart, and the one that would have caught the inline-generation
+    // surprise: a provider that declares stream_args never reaches the blocking
+    // command at all, whichever text-mode surface opened the run.
+    it("sends a provider that declares streaming args to the streaming command", async () => {
+      stream_text();
+      await flush();
+
+      const names = mock_invoke.mock.calls.map(([name]) => name);
+      expect(names).toContain("ai_stream_start");
+      expect(names).not.toContain("ai_execute_cli");
     });
 
     it("normalizes text, reasoning and done chunks", async () => {

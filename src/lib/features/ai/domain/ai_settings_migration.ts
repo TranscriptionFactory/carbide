@@ -130,6 +130,11 @@ function same_args(a: string[], b: string[]): boolean {
 // an invocation the user rewrote would run arguments they never wrote while
 // theirs applied only to the one-shot path. They keep today's behaviour and can
 // opt in by resetting the provider.
+//
+// That refusal holds only until the user next edits Args in settings: editing
+// spreads the existing transport, so a provider that already carries
+// stream_args keeps it while the rewritten args drive the one-shot path alone.
+// This function governs the upgrade, not the config's whole life.
 function refresh_preset_stream_args(
   provider: AiProviderConfig,
 ): AiProviderConfig {

@@ -7,11 +7,14 @@ export type AcpAgentSpec =
   | { kind: "preset"; id: "claude" | "codex" | "opencode" | "pi" }
   | { kind: "custom"; command: string; args: string[] };
 
-// Declaring stream_args is what makes a CLI streaming-capable. It is a separate
-// list because the one-shot and streaming invocations of the same binary differ
-// — a CLI that streams needs a different output format, and ask mode needs
-// tighter tool constraints than a one-shot inline edit. `args` stays the
-// one-shot list; nothing here changes what a blocking run sends.
+// Declaring stream_args is what makes a CLI streaming-capable, and it is the
+// invocation every streamed run uses — ask mode and inline generation alike.
+// Both open a text-mode run, and the transport sends any provider declaring
+// stream_args down the streaming channel, so there is no per-surface arg set:
+// a CLI streams one way or not at all.
+//
+// `args` is the one-shot invocation. Only `ai_execute_cli` reads it, serving
+// providers that declare no streaming list.
 export type AiCliTransport = {
   kind: "cli";
   command: string;

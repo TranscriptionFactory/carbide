@@ -2,7 +2,7 @@
 "carbide": patch
 ---
 
-Make ask mode stream its answer, stop it wandering the vault, and bound how long it can run
+Stream CLI provider output as it arrives, run it without tools, and bound how long ask mode can take
 
 Asking a question with the Claude Code provider could sit on a spinner reading
 "Waiting for Claude Code…" for minutes, while the same question in agent mode
@@ -22,13 +22,23 @@ an instruction — "use a regex to edit this note" — became a filesystem sessi
 that searched, read and tried to edit its way through your notes, even though
 the notes it needed had already been retrieved and handed to it. Ask runs now
 launch with no tools at all. Ask answers from the retrieved notes; agent mode is
-still where editing happens, and is unchanged. Inline generation is unchanged
-too — it keeps its own invocation.
+still where editing happens, and is unchanged.
+
+**Inline edits change too, and deliberately.** A provider has one streaming
+invocation, not one per surface, so inline generation — Cmd-K and the rest —
+now shares it. Two consequences worth knowing. Inline output streams as it is
+written, where before it was pinned to the same buffered format and arrived in
+one lump at the end. And inline prompts now run with no tools and no MCP servers:
+if you have been relying on an MCP server answering an inline prompt, that will
+stop working. A rewrite-this-paragraph instruction has no business searching your
+vault, but the trade is a real one and you should not have to discover it.
 
 Nothing stopped a long run. The AI execution timeout in settings was never
 applied to a streamed run, which is why cancelling by hand was the only way out.
-It now applies: the run is stopped when the limit elapses and says so, naming
-the limit, rather than waiting silently forever.
+It now applies to ask mode, which stops when the limit elapses and says so,
+naming the limit, rather than waiting silently forever. Inline edits stay
+unbounded on purpose: they are interactive and the popover's Stop is a better
+answer there than a timer cutting off a rewrite mid-sentence.
 
 The waiting indicator also counts elapsed time now, so a slow answer looks slow
 rather than stuck.

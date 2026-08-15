@@ -86,14 +86,16 @@ describe("builtin preset streaming declarations", () => {
     expect(provider_supports_streaming(preset(id))).toBe(streams);
   });
 
-  // Inline generation and the agentic edit runner read `args`, never
-  // `stream_args`. Changing how ask mode streams must not reach them.
-  it("leaves the Claude preset's one-shot args untouched", () => {
+  // Pins the data only: that the one-shot list still exists, unchanged, and has
+  // not been "tidied" into a copy of the streaming one. Which list a given run
+  // actually sends is asserted at the transport seam, not here —
+  // assistant_transport_tauri_adapter.test.ts.
+  it("keeps the Claude preset's one-shot args distinct from its streaming args", () => {
     const transport = preset("claude").transport;
     if (transport.kind !== "cli") throw new Error("expected a cli transport");
 
     expect(transport.args).toEqual(["-p", "--output-format", "text"]);
-    expect(transport.args).not.toContain("stream-json");
+    expect(transport.args).not.toEqual(transport.stream_args);
   });
 
   // Ask mode answers from the retrieved context it was handed; a full-toolset
