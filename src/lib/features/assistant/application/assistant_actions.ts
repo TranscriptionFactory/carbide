@@ -7,13 +7,44 @@ import {
 } from "$lib/features/tab";
 import { scope_is_empty } from "$lib/features/assistant/types/session";
 import { prime_chat_store } from "$lib/features/assistant/application/chat_actions";
+import { sync_changed_notes } from "$lib/features/assistant/application/note_sync_actions";
+import { toast } from "$lib/shared/ui/toast";
 import type { AssistantChatStore } from "$lib/features/assistant/state/assistant_chat_store.svelte";
 import type { AssistantKernelService } from "$lib/features/assistant/application/assistant_kernel_service";
-import type { ProposalApplyService } from "$lib/features/assistant/application/proposal_apply_service";
+import type {
+  ProposalApplyOutcome,
+  ProposalApplyService,
+} from "$lib/features/assistant/application/proposal_apply_service";
 import type { AssistantProposalStore } from "$lib/features/assistant/state/assistant_proposal_store.svelte";
 import type { AssistantRunStore } from "$lib/features/assistant/state/assistant_run_store.svelte";
 import type { AssistantSessionStore } from "$lib/features/assistant/state/assistant_session_store.svelte";
 import type { RunId } from "$lib/features/assistant/types/run";
+
+// Accept used to discard its outcome entirely, so a stale or failed apply was
+// indistinguishable from a clean one: nothing changed on disk and nothing was
+// said. Silence stays the report for a clean apply — the review centre already
+// shows that — but the two ways an accept can decline to write must be visible.
+function report_apply_outcome(outcome: ProposalApplyOutcome) {
+  if (outcome.failed.length > 0) {
+    toast.error(
+      outcome.failed.length === 1
+        ? "Could not apply the proposal"
+        : `Could not apply ${String(outcome.failed.length)} proposals`,
+      { description: outcome.failed[0]?.error ?? "" },
+    );
+  }
+  if (outcome.stale.length > 0) {
+    toast.warning(
+      outcome.stale.length === 1
+        ? "Proposal is out of date"
+        : `${String(outcome.stale.length)} proposals are out of date`,
+      {
+        description:
+          "The note changed after the draft was made, so nothing was applied.",
+      },
+    );
+  }
+}
 
 export function register_assistant_actions(
   input: ActionRegistrationInput & {
@@ -133,13 +164,24 @@ export function register_assistant_actions(
     },
   });
 
+  // A note proposal writes disk behind the editor's back and the watcher's
+  // event for that write is suppressed as a self-write, so nothing would
+  // reconcile the open buffer — the user saw the old text until they closed
+  // and reopened the tab. The agent path already solved this; both now run the
+  // same policy through sync_changed_notes.
+  async function apply_and_report(ids: string[]) {
+    const outcome = await proposal_apply.apply_batch(ids);
+    await sync_changed_notes(input, outcome.written_note_paths);
+    report_apply_outcome(outcome);
+  }
+
   registry.register({
     id: ACTION_IDS.assistant_accept_proposal,
     label: "Accept Proposal",
     execute: async (...args: unknown[]) => {
       const proposal_id = typeof args[0] === "string" ? args[0] : "";
       if (!proposal_id) return;
-      await proposal_apply.apply_batch([proposal_id]);
+      await apply_and_report([proposal_id]);
     },
   });
 
@@ -151,7 +193,7 @@ export function register_assistant_actions(
         ? args[0].filter((id): id is string => typeof id === "string")
         : [];
       if (proposal_ids.length === 0) return;
-      await proposal_apply.apply_batch(proposal_ids);
+      await apply_and_report(proposal_ids);
     },
   });
 

@@ -25,13 +25,9 @@ import type {
   PermissionResponse,
 } from "$lib/features/assistant/ports";
 import { AgentProposalService } from "$lib/features/assistant/application/agent_proposal_service";
-import { resolve_agent_note_sync } from "$lib/features/assistant/domain/agent_note_sync";
+import { sync_changed_notes as sync_notes } from "$lib/features/assistant/application/note_sync_actions";
 import type { AssistantProposalStore } from "$lib/features/assistant";
-import {
-  as_markdown_text,
-  as_note_path,
-  type NotePath,
-} from "$lib/shared/types/ids";
+import { as_markdown_text, as_note_path } from "$lib/shared/types/ids";
 
 // An edit is a turn of the same conversation, so register_assistant_edit_actions
 // shares this in-flight slot.
@@ -82,57 +78,8 @@ export function register_chat_actions(
     documents,
   } = input;
 
-  function find_background_tab(note_path: NotePath) {
-    const tab = stores.tab.find_tab_by_path(note_path);
-    if (!tab || tab.id === stores.tab.active_tab_id) return null;
-    return { is_dirty: tab.is_dirty };
-  }
-
-  // Mutating tools include delete_note and rename_note, so a "changed" path may
-  // no longer exist. Disk is the only reliable witness — the tool name does not
-  // say which of its paths survived — so reopen and clean up on not_found the
-  // same way the watcher's note_removed branch does.
-  async function reload_open_note(note_path: NotePath) {
-    stores.tab.invalidate_cache_by_path(note_path);
-    services.editor.close_buffer(note_path);
-    const result = await services.note.open_note(note_path, false, {
-      force_reload: true,
-      cleanup_if_missing: true,
-    });
-    if (result.status === "not_found") {
-      services.note.clear_open_note();
-      services.tab.remove_tab(note_path);
-    }
-  }
-
-  async function sync_changed_notes(paths: string[]) {
-    for (const path of paths) {
-      const note_path = as_note_path(path);
-      const open_note = stores.editor.open_note;
-      const decision = resolve_agent_note_sync(
-        path,
-        open_note && {
-          path: open_note.meta.path,
-          is_dirty: open_note.is_dirty,
-        },
-        find_background_tab(note_path),
-      );
-
-      switch (decision) {
-        case "reload":
-          await reload_open_note(note_path);
-          break;
-        case "mark_conflict":
-          services.tab.mark_conflict(note_path);
-          break;
-        case "invalidate_tab_cache":
-          services.tab.invalidate_cache(note_path);
-          break;
-        case "ignore":
-          break;
-      }
-    }
-  }
+  const sync_changed_notes = (paths: string[]) =>
+    sync_notes({ stores, services }, paths);
 
   const agent_proposals = new AgentProposalService(
     services.git,
