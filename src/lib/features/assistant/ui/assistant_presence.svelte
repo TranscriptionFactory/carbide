@@ -9,6 +9,7 @@
     now?: (() => number) | undefined;
     pending_proposal_count?: number;
     on_open_proposals?: (() => void) | undefined;
+    on_open_session?: ((session_id: string) => void) | undefined;
     on_clear?: (() => void) | undefined;
   }
 
@@ -18,6 +19,7 @@
     now,
     pending_proposal_count = 0,
     on_open_proposals = undefined,
+    on_open_session = undefined,
     on_clear = undefined,
   }: Props = $props();
 
@@ -91,6 +93,7 @@
       {now}
       {pending_proposal_count}
       {on_open_proposals}
+      {on_open_session}
       {on_clear}
     />
   </Popover.Content>
