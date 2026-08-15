@@ -7,13 +7,22 @@ use crate::features::tasks::service::{
     get_tasks_for_path, query_tasks, update_task_due_date_in_file, update_task_state_in_file,
 };
 use crate::features::tasks::types::{Task, TaskDueDateUpdate, TaskQuery, TaskUpdate};
+use crate::shared::blocking::blocking;
 use crate::shared::io_utils;
 use crate::shared::storage;
 use tauri::{command, AppHandle};
 
 #[command]
 #[specta::specta]
-pub fn tasks_query(
+pub async fn tasks_query(
+    app: AppHandle,
+    vault_id: String,
+    query: TaskQuery,
+) -> Result<Vec<Task>, String> {
+    blocking("tasks_query", move || tasks_query_inner(app, vault_id, query)).await
+}
+
+pub fn tasks_query_inner(
     app: AppHandle,
     vault_id: String,
     query: TaskQuery,
@@ -24,7 +33,18 @@ pub fn tasks_query(
 
 #[command]
 #[specta::specta]
-pub fn tasks_get_for_note(
+pub async fn tasks_get_for_note(
+    app: AppHandle,
+    vault_id: String,
+    path: String,
+) -> Result<Vec<Task>, String> {
+    blocking("tasks_get_for_note", move || {
+        tasks_get_for_note_inner(app, vault_id, path)
+    })
+    .await
+}
+
+pub fn tasks_get_for_note_inner(
     app: AppHandle,
     vault_id: String,
     path: String,
@@ -35,7 +55,18 @@ pub fn tasks_get_for_note(
 
 #[command]
 #[specta::specta]
-pub fn tasks_update_state(
+pub async fn tasks_update_state(
+    app: AppHandle,
+    vault_id: String,
+    update: TaskUpdate,
+) -> Result<(), String> {
+    blocking("tasks_update_state", move || {
+        tasks_update_state_inner(app, vault_id, update)
+    })
+    .await
+}
+
+pub fn tasks_update_state_inner(
     app: AppHandle,
     vault_id: String,
     update: TaskUpdate,
@@ -62,7 +93,18 @@ pub fn tasks_update_state(
 
 #[command]
 #[specta::specta]
-pub fn tasks_update_due_date(
+pub async fn tasks_update_due_date(
+    app: AppHandle,
+    vault_id: String,
+    update: TaskDueDateUpdate,
+) -> Result<(), String> {
+    blocking("tasks_update_due_date", move || {
+        tasks_update_due_date_inner(app, vault_id, update)
+    })
+    .await
+}
+
+pub fn tasks_update_due_date_inner(
     app: AppHandle,
     vault_id: String,
     update: TaskDueDateUpdate,
@@ -91,7 +133,19 @@ pub fn tasks_update_due_date(
 
 #[command]
 #[specta::specta]
-pub fn tasks_create(
+pub async fn tasks_create(
+    app: AppHandle,
+    vault_id: String,
+    path: String,
+    text: String,
+) -> Result<(), String> {
+    blocking("tasks_create", move || {
+        tasks_create_inner(app, vault_id, path, text)
+    })
+    .await
+}
+
+pub fn tasks_create_inner(
     app: AppHandle,
     vault_id: String,
     path: String,

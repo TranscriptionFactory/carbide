@@ -1667,6 +1667,20 @@ pub(crate) fn drain_action(kind: DbCommandKind) -> DrainAction {
     }
 }
 
+/// The same policy for a path-scoped sync, minus the resync.
+///
+/// SyncPaths works from a caller-supplied path list rather than a scan plan, so
+/// a structural mutation has no stale plan to invalidate — and applying a rename
+/// mid-pass would leave the pass indexing paths that no longer exist. Deferring
+/// it keeps the current ordering; the point of the split is only that a save
+/// (`ContentUpsert`) is applied now rather than waiting for the whole pass.
+pub(crate) fn sync_paths_drain_action(kind: DbCommandKind) -> DrainAction {
+    match drain_action(kind) {
+        DrainAction::ApplyAndResync => DrainAction::Defer,
+        action => action,
+    }
+}
+
 fn command_kind(cmd: &DbCommand) -> DbCommandKind {
     match cmd {
         DbCommand::Rebuild { .. }
@@ -1926,23 +1940,32 @@ fn handle_sync_paths(
     let start = Instant::now();
     let deferred: RefCell<Vec<DbCommand>> = RefCell::new(Vec::new());
 
-    let mut drain_pending = || {
-        while let Ok(cmd) = rx.try_recv() {
-            deferred.borrow_mut().push(cmd);
-        }
-    };
+    // Scoped so the closure's mutable borrow of notes_cache ends before the
+    // cache maintenance below, exactly as run_index_op scopes its own.
+    let result = {
+        let mut drain_pending = || {
+            while let Ok(cmd) = rx.try_recv() {
+                match sync_paths_drain_action(command_kind(&cmd)) {
+                    DrainAction::Apply => {
+                        dispatch_command(conn, cmd, notes_cache, rx, note_index, block_index);
+                    }
+                    _ => deferred.borrow_mut().push(cmd),
+                }
+            }
+        };
 
-    let result = search_db::sync_index_paths(
-        Some(app_handle),
-        vault_id,
-        conn,
-        vault_root,
-        cancel,
-        &|_indexed, _total| {},
-        &mut drain_pending,
-        changed_paths,
-        removed_paths,
-    );
+        search_db::sync_index_paths(
+            Some(app_handle),
+            vault_id,
+            conn,
+            vault_root,
+            cancel,
+            &|_indexed, _total| {},
+            &mut drain_pending,
+            changed_paths,
+            removed_paths,
+        )
+    };
 
     match result {
         Ok(res) => {
