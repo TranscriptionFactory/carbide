@@ -1,5 +1,187 @@
 # carbide
 
+## 2.30.1
+
+### Patch Changes
+
+- 99c4454: Let a custom AI provider change its transport after it is created
+
+  A custom provider's transport — CLI or API — could be chosen once, on the form
+  that created it, and never again. The edit panel exposed everything else about
+  the provider (name, command, base URL, model, ACP agent) but not the one field
+  that decides which of those are even applicable.
+
+  That was more than an inconvenience, because the ACP agent picker only appears
+  for CLI providers. A provider added as API could therefore never be given an ACP
+  agent, and so was permanently shut out of agent mode. The only way across was to
+  delete the provider and add it again, losing its settings.
+
+  The edit panel now carries the same Transport control as the create form, for
+  any provider you added yourself. Presets are unchanged — their transport is part
+  of what makes them that preset.
+
+  Switching transport keeps everything outside the transport (name, model) and
+  starts the new transport's own fields empty, since the two kinds share none:
+  command and arguments belong to CLI, base URL and API key variable to API. An
+  ACP agent is dropped when you switch to API, where it would have no effect.
+
+- 49969d5: Stop copied text from carrying callout and collapsible markup
+
+  Selecting part of a callout and copying it pasted `> [!note] Title` and a `> `
+  prefix on every line, even though the selection was plain prose. The same
+  happened with collapsible sections, which pasted a full `<details>` and
+  `<summary>` block. Whether it happened depended on where the selection started:
+  dragging from the callout's title — the natural gesture — carried the markup,
+  while starting inside the body did not.
+
+  Worse, a selection that covered only the callout title or only the collapsible
+  summary copied **nothing at all**. The clipboard came back empty with no
+  indication anything had gone wrong.
+
+  Copying a partial selection now yields exactly the text that was selected, with
+  no callout or collapsible markup around it. Copying a whole callout or
+  collapsible — by selecting the block or using the block menu's Copy — still
+  produces `> [!note] …` and `<details>…</details>` as before, and a callout that
+  sits untouched inside a wider selection keeps its markup too.
+
+- 52ad03f: Show notes edited outside Carbide in search results
+
+  Notes edited outside Carbide — by git, a sync tool, an agent, or another editor
+  — now show up in search and in query blocks. Previously their old text kept
+  being returned until you reopened the vault or opened the omnibar.
+
+  Carbide watched for those edits and did the right thing in the editor: an open
+  note reloaded, an unsaved one raised the conflict card. But it never told the
+  search index, so the note's previous contents stayed searchable indefinitely. A
+  full-text search, a `with "text"` query, and a `content contains` filter all
+  answered from whatever the body had been at the last index build.
+
+  Only the changed note is re-indexed, so pulling a branch that rewrites many
+  notes no longer costs a full vault rebuild. Query blocks pick the change up on
+  their next refresh.
+
+- b964995: Stop autosave from silently invalidating an inline AI edit you accept
+
+  Accepting an inline AI edit compared the note against the snapshot taken before
+  the stream started, while autosave was free to write the note in the meantime.
+  A slow stream, or any pause before clicking Accept, was enough: by the time you
+  accepted, the file on disk no longer matched the snapshot, so the write was
+  refused. Earlier versions did this silently — the text was on screen and on
+  disk, so it looked fine, while the review centre quietly filled up with edits
+  marked out of date. More recently it surfaced as a "Proposal is out of date"
+  message on an edit that had plainly worked.
+
+  Two things changed. While the editor is showing AI text you have not accepted
+  yet, the note no longer autosaves — which also means rejecting the suggestion
+  leaves nothing behind on disk, where before the text could already have been
+  written. And accepting now compares against the note as it actually stands on
+  disk rather than an editor snapshot, so it no longer matters whether the note
+  had unsaved changes when the run started.
+
+  An edit made outside Carbide while the AI is streaming is still caught and still
+  refuses to apply — that check is unchanged.
+
+  Accepting an inline edit also stopped raising the external-modification banner
+  on the note you had just edited. The editor treats a note whose text is already
+  on disk as saved, not as changed behind your back.
+
+- 3662c49: Keep inline AI edits in the note they started in, and out of the model's chatter
+
+  Two problems with inline AI (Cmd-K in the editor), both of which put text in
+  your note that you never asked for.
+
+  An inline run remembered only one note at a time, app-wide. Start an edit in one
+  note, switch to another, then accept, and the accept was aimed at the note now
+  on screen while still carrying the _other_ note's text — a change that reads as
+  "delete everything here, paste everything from there". Accepting into a
+  different note than the one the run started in is now refused outright, with a
+  message naming the note to go back to.
+
+  Nothing filtered what the model said. If it replied "Here is your response:" or
+  wrapped its answer in a code fence, that went straight into the document —
+  visibly in the visual editor, and irreversibly in source mode, which has no
+  review step. Inline output is now cleaned once the reply is complete: a leading
+  preamble and a fence wrapping the whole answer are removed, while fenced code
+  that is itself the answer, and prose that merely opens like a preamble, are left
+  alone. A free-form inline prompt also carries the same "output only the result,
+  no commentary, no code fences" instruction the built-in commands always had —
+  previously typing your own prompt replaced it.
+
+- 29d29d0: Show an applied AI proposal in the editor without reopening the tab
+
+  Accepting a proposal that targeted a note changed the file on disk, but the open
+  editor kept showing the old text. Closing the tab and reopening it was the only
+  way to see what had been applied — the edit had happened, it just wasn't
+  visible. Proposals targeting an open document already updated in place; notes
+  did not.
+
+  Accepting now reconciles the open note with what was written, using the same
+  rules the assistant's agent mode already followed for the files it edits.
+
+  If the note has unsaved edits of its own, accepting no longer replaces them
+  silently. The tab is marked as changed on disk and you decide which side to
+  keep, exactly as when something outside Carbide edits a note you are working on.
+
+  Accept also tells you when it did not apply anything. A proposal whose note
+  changed after the draft was made is now reported as out of date instead of
+  quietly landing in the review centre as stale, and a write that fails is
+  reported with its reason rather than being recorded as applied.
+
+- 251a97f: Fix `>=` and `<=` in queries returning nothing, and keep "not" when a clause changes kind
+
+  A query written with `>=` or `<=` — from the query builder's operator dropdown,
+  from the inline suggestions, or typed by hand — quietly matched nothing. The
+  parser read only the first character of the operator and then swallowed the
+  leftover `=` into the value, so `with due >= "now()-7d"` was solved as "due is
+  greater than the text `= "now()-7d"`", which nothing can be. No error was shown;
+  the result was simply an empty list. Both two-character operators now parse
+  whole, and every operator the builder offers is covered by a test that runs
+  builder output through the parser and into the query backend.
+
+  In the structured builder, ticking "not" on a clause and then changing that
+  clause's kind silently cleared the negation. The clause keeps its "not" now.
+
+  The form selector at the top of the builder is gone, along with the `folders`
+  and `files` query forms. Nothing ever read them — all three forms returned
+  notes — so the selector only ever suggested a choice that did not exist.
+  Queries starting with `notes`, or with no form word at all, are unaffected.
+
+- b964995: Stop every save from triggering a file-tree refresh and an index sync
+
+  Saving a note produces more than one filesystem event, and Carbide recognised
+  only the first of them as its own. The trailing event — the one the atomic write
+  produces when it moves the finished file into place — looked like somebody else
+  had touched the note, so each save also refreshed the file tree, re-synced the
+  note into the index, and refreshed the task list.
+
+  That event now reports the same modification time as the write that produced it,
+  which is how Carbide already recognises its own saves, so it is matched rather
+  than acted on. A note genuinely created or replaced on disk by something else
+  still reports a different time and is still picked up.
+
+- fa45085: Stop the app freezing when you edit a note while the index is rebuilding
+
+  Rebuilding the index while continuing to type would beachball the whole window
+  for ten seconds at a stretch, over and over, until the rebuild finished. Nothing
+  in the UI responded — not the editor, not the sidebar, not the menus.
+
+  Editing a note is what triggered it. Every markdown change refreshes the task
+  list, and the five commands behind that refresh ran on the thread that draws the
+  app rather than on a background one. Each of them opened its own database
+  connection, and opening one during a rebuild meant waiting on the rebuild's write
+  lock — with the app's own event loop stuck behind that wait.
+
+  Those commands now run in the background, so a rebuild can hold the database for
+  as long as it needs without the window stopping. Two things go with it: your own
+  saves no longer trigger a task-list refresh they never needed, and a save that
+  lands while a folder is being re-indexed is written straight away instead of
+  queueing behind the rest of the pass.
+
+  The lint rule meant to catch exactly this class of mistake could not see those
+  five commands, because it only recognised one of the two ways to write the
+  attribute. It now recognises both, and covers ten further commands it had also
+  been missing.
+
 ## 2.30.0
 
 ### Minor Changes
