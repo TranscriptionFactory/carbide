@@ -52,6 +52,13 @@ function is_wrapped_block(node: ProseNode): boolean {
   return node.type.name === "blockquote" || is_list_node(node);
 }
 
+function is_container_block(node: ProseNode): boolean {
+  const name = node.type.name;
+  return (
+    name === "callout" || name === "details_block" || is_wrapped_block(node)
+  );
+}
+
 function collect_inline_content(node: ProseNode): Fragment {
   if (node.isTextblock) return node.content;
   let content = Fragment.empty;
@@ -101,7 +108,7 @@ export function create_turn_into_command(
 
     if (target === "paragraph") {
       if (current_name === "paragraph") return false;
-      if (is_wrapped_block(block.node)) {
+      if (is_container_block(block.node)) {
         const paras = unwrap_to_textblocks(block.node).map((tb) =>
           schema.nodes.paragraph.create(null, tb.content),
         );
@@ -116,7 +123,7 @@ export function create_turn_into_command(
       if (current_name === "heading" && block.node.attrs["level"] === level) {
         return false;
       }
-      if (is_wrapped_block(block.node)) {
+      if (is_container_block(block.node)) {
         const tbs = unwrap_to_textblocks(block.node);
         const first = tbs[0];
         const heading = schema.nodes.heading.create(
@@ -146,7 +153,7 @@ export function create_turn_into_command(
     if (target === "bullet_list") {
       if (current_name === "bullet_list" && !has_checked_items(block.node))
         return false;
-      if (is_wrapped_block(block.node)) {
+      if (is_container_block(block.node)) {
         const items = unwrap_to_textblocks(block.node).map((tb) =>
           schema.nodes.list_item.create(null, [
             schema.nodes.paragraph.create(null, tb.content),
@@ -160,7 +167,7 @@ export function create_turn_into_command(
 
     if (target === "ordered_list") {
       if (current_name === "ordered_list") return false;
-      if (is_wrapped_block(block.node)) {
+      if (is_container_block(block.node)) {
         const items = unwrap_to_textblocks(block.node).map((tb) =>
           schema.nodes.list_item.create(null, [
             schema.nodes.paragraph.create(null, tb.content),
@@ -176,7 +183,7 @@ export function create_turn_into_command(
       if (current_name === "bullet_list" && has_checked_items(block.node)) {
         return false;
       }
-      if (is_wrapped_block(block.node)) {
+      if (is_container_block(block.node)) {
         const items = unwrap_to_textblocks(block.node).map((tb) =>
           schema.nodes.list_item.create(
             {
@@ -298,6 +305,91 @@ function convert_to_callout(
   return true;
 }
 
+function unwrap_callout_nodes(callout: ProseNode): ProseNode[] {
+  const title = callout.child(0);
+  const body = callout.child(1);
+  const body_is_single_empty_para =
+    body.childCount === 1 &&
+    body.child(0).type === schema.nodes.paragraph &&
+    body.child(0).content.size === 0;
+
+  if (title.content.size === 0 && body_is_single_empty_para) {
+    return [schema.nodes.paragraph.create()];
+  }
+
+  const nodes: ProseNode[] = [
+    schema.nodes.paragraph.create(null, title.content),
+  ];
+  for (let i = 0; i < body.childCount; i++) nodes.push(body.child(i));
+  return nodes;
+}
+
+export function unwrap_callout_at(
+  pos: number,
+  state: EditorState,
+  dispatch?: Dispatch,
+): boolean {
+  const node = state.doc.nodeAt(pos);
+  if (!node || node.type !== schema.nodes.callout) return false;
+  if (!dispatch) return true;
+
+  const tr = state.tr.replaceWith(
+    pos,
+    pos + node.nodeSize,
+    Fragment.from(unwrap_callout_nodes(node)),
+  );
+  tr.setSelection(TextSelection.create(tr.doc, pos + 1));
+  dispatch(tr.scrollIntoView());
+  return true;
+}
+
+export function unwrap_callout(
+  state: EditorState,
+  dispatch?: Dispatch,
+): boolean {
+  const $from = state.selection.$from;
+  for (let d = $from.depth; d >= 0; d--) {
+    if ($from.node(d).type === schema.nodes.callout) {
+      return unwrap_callout_at($from.before(d), state, dispatch);
+    }
+  }
+  return false;
+}
+
+function resolve_turn_into_block(
+  state: EditorState,
+  pos: number,
+): { pos: number; node: ProseNode; end: number } | null {
+  const block = resolve_block_at_pos(state, pos);
+  if (!block || block.node.type.name !== "list_item") return block;
+  const $pos = state.doc.resolve(pos);
+  if ($pos.depth < 1) return block;
+  return resolve_block_at_pos(state, $pos.start(1) - 1);
+}
+
+export function turn_into_at(
+  target: TurnIntoTarget,
+  attrs: Record<string, unknown> | undefined,
+  pos: number,
+  state: EditorState,
+  dispatch?: Dispatch,
+): boolean {
+  const block = resolve_turn_into_block(state, pos);
+  if (!block) return false;
+  const replacement = build_turn_into_replacement(target, attrs, block);
+  if (!replacement) return false;
+  if (!dispatch) return true;
+
+  const tr = state.tr.replaceWith(
+    block.pos,
+    block.end,
+    Fragment.from(replacement),
+  );
+  select_near(tr, block.pos + 1, 1);
+  dispatch(tr.scrollIntoView());
+  return true;
+}
+
 export function duplicate_block(
   state: EditorState,
   dispatch?: Dispatch,
@@ -386,9 +478,9 @@ export function delete_block_at(
   return delete_resolved_block(block, state, dispatch);
 }
 
-function select_near(tr: Transaction, pos: number): void {
+function select_near(tr: Transaction, pos: number, bias: 1 | -1 = -1): void {
   const clamped = Math.max(0, Math.min(pos, tr.doc.content.size));
-  tr.setSelection(Selection.near(tr.doc.resolve(clamped), -1));
+  tr.setSelection(Selection.near(tr.doc.resolve(clamped), bias));
 }
 
 function delete_resolved_block(
@@ -510,7 +602,7 @@ function build_turn_into_replacement(
 
   if (target === "paragraph") {
     if (current_name === "paragraph") return null;
-    if (is_wrapped_block(node)) {
+    if (is_container_block(node)) {
       const paras = unwrap_to_textblocks(node).map((tb) =>
         schema.nodes.paragraph.create(null, tb.content),
       );
@@ -523,7 +615,7 @@ function build_turn_into_replacement(
     const level = (attrs?.level as number) ?? 1;
     if (current_name === "heading" && node.attrs["level"] === level)
       return null;
-    if (is_wrapped_block(node)) {
+    if (is_container_block(node)) {
       const tbs = unwrap_to_textblocks(node);
       const first = tbs[0];
       const heading = schema.nodes.heading.create(
@@ -567,7 +659,7 @@ function build_turn_into_replacement(
       !(target === "bullet_list" && has_checked_items(node))
     )
       return null;
-    if (is_wrapped_block(node)) {
+    if (is_container_block(node)) {
       const items = unwrap_to_textblocks(node).map((tb) =>
         schema.nodes.list_item.create(null, [
           schema.nodes.paragraph.create(null, tb.content),
@@ -583,7 +675,7 @@ function build_turn_into_replacement(
 
   if (target === "todo_list") {
     if (current_name === "bullet_list" && has_checked_items(node)) return null;
-    const tbs = is_wrapped_block(node) ? unwrap_to_textblocks(node) : [node];
+    const tbs = is_container_block(node) ? unwrap_to_textblocks(node) : [node];
     const items = tbs.map((tb) =>
       schema.nodes.list_item.create(
         {

@@ -5,6 +5,7 @@ import {
   CALLOUT_COLORS,
   canonical_callout_type,
 } from "./remark_plugins/remark_callout";
+import { unwrap_callout_at } from "./block_transforms";
 
 const CALLOUT_ICONS: Record<string, string> = {
   note: "pencil",
@@ -231,7 +232,7 @@ class CalloutBlockView implements NodeView {
 
     const fold_btn = document.createElement("button");
     fold_btn.type = "button";
-    fold_btn.className = "callout-block__menu-fold";
+    fold_btn.className = "callout-block__menu-action callout-block__menu-fold";
     fold_btn.setAttribute("aria-pressed", String(foldable));
     const fold_label = document.createElement("span");
     fold_label.textContent = "Collapsible";
@@ -246,6 +247,21 @@ class CalloutBlockView implements NodeView {
       ),
     );
     menu.appendChild(fold_btn);
+
+    const remove_btn = document.createElement("button");
+    remove_btn.type = "button";
+    remove_btn.className =
+      "callout-block__menu-action callout-block__menu-remove";
+    remove_btn.textContent = "Remove callout";
+    remove_btn.addEventListener("click", () => this.unwrap());
+    menu.appendChild(remove_btn);
+  }
+
+  private unwrap() {
+    const pos = this.getPos();
+    if (pos == null) return;
+    this.close_menu();
+    unwrap_callout_at(pos, this.view.state, this.view.dispatch);
   }
 
   update(updated: ProseNode): boolean {

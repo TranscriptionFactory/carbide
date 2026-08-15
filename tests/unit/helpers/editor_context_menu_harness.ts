@@ -34,6 +34,7 @@ export function render_editor_context_menu(
     batch_delete: vi.fn(),
     batch_duplicate: vi.fn(),
     batch_turn_into: vi.fn(),
+    turn_into_at: vi.fn(),
     clear_block_selection: vi.fn(),
   };
   const clipboard = { copy_rich: vi.fn(async () => {}) };

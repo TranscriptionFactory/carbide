@@ -717,6 +717,18 @@ export class EditorService {
     this.session?.turn_into?.(target, attrs);
   }
 
+  turn_into_at(
+    target: string,
+    attrs: Record<string, unknown> | undefined,
+    pos: number,
+  ) {
+    this.session?.turn_into_at?.(target, attrs, pos);
+  }
+
+  unwrap_callout() {
+    this.session?.unwrap_callout?.();
+  }
+
   duplicate_block() {
     this.session?.duplicate_block?.();
   }

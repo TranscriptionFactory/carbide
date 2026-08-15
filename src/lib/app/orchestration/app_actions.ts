@@ -752,4 +752,9 @@ export function register_app_actions(input: ActionRegistrationInput) {
     label: "Insert Block Below",
     execute: () => services.editor.insert_block_at(null, "below"),
   });
+  registry.register({
+    id: ACTION_IDS.editor_unwrap_callout,
+    label: "Remove Callout",
+    execute: () => services.editor.unwrap_callout(),
+  });
 }

@@ -993,7 +993,7 @@
   );
 }
 
-.callout-block__menu-fold {
+.callout-block__menu-action {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1007,11 +1007,11 @@
   cursor: pointer;
 }
 
-.callout-block__menu-fold:hover {
+.callout-block__menu-action:hover {
   background: var(--muted);
 }
 
-.callout-block__menu-fold[aria-pressed="true"] {
+.callout-block__menu-action[aria-pressed="true"] {
   color: var(--foreground);
 }
 

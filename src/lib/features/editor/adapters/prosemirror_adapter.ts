@@ -90,6 +90,8 @@ import {
   batch_turn_into as batch_turn_into_cmd,
   batch_duplicate as batch_duplicate_cmd,
   batch_delete as batch_delete_cmd,
+  turn_into_at as turn_into_at_cmd,
+  unwrap_callout as unwrap_callout_cmd,
 } from "$lib/features/editor/adapters/block_transforms";
 import type {
   BlockPlacement,
@@ -1519,6 +1521,26 @@ export function create_prosemirror_editor_port(args?: {
           if (!v) return;
           const cmd = create_turn_into_command(target as TurnIntoTarget, attrs);
           cmd(v.state, v.dispatch);
+        },
+        turn_into_at(
+          target: string,
+          attrs: Record<string, unknown> | undefined,
+          pos: number,
+        ) {
+          const v = view;
+          if (!v) return;
+          turn_into_at_cmd(
+            target as TurnIntoTarget,
+            attrs,
+            pos,
+            v.state,
+            v.dispatch,
+          );
+        },
+        unwrap_callout() {
+          const v = view;
+          if (!v) return;
+          unwrap_callout_cmd(v.state, v.dispatch);
         },
         duplicate_block() {
           const v = view;
