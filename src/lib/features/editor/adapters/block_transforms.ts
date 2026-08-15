@@ -347,9 +347,24 @@ export function unwrap_callout(
   state: EditorState,
   dispatch?: Dispatch,
 ): boolean {
-  const block = resolve_block_at_cursor(state);
-  if (!block) return false;
-  return unwrap_callout_at(block.pos, state, dispatch);
+  const $from = state.selection.$from;
+  for (let d = $from.depth; d >= 0; d--) {
+    if ($from.node(d).type === schema.nodes.callout) {
+      return unwrap_callout_at($from.before(d), state, dispatch);
+    }
+  }
+  return false;
+}
+
+function resolve_turn_into_block(
+  state: EditorState,
+  pos: number,
+): { pos: number; node: ProseNode; end: number } | null {
+  const block = resolve_block_at_pos(state, pos);
+  if (!block || block.node.type.name !== "list_item") return block;
+  const $pos = state.doc.resolve(pos);
+  if ($pos.depth < 1) return block;
+  return resolve_block_at_pos(state, $pos.start(1) - 1);
 }
 
 export function turn_into_at(
@@ -359,7 +374,7 @@ export function turn_into_at(
   state: EditorState,
   dispatch?: Dispatch,
 ): boolean {
-  const block = resolve_block_at_pos(state, pos);
+  const block = resolve_turn_into_block(state, pos);
   if (!block) return false;
   const replacement = build_turn_into_replacement(target, attrs, block);
   if (!replacement) return false;
@@ -370,7 +385,7 @@ export function turn_into_at(
     block.end,
     Fragment.from(replacement),
   );
-  select_near(tr, block.pos + 1);
+  select_near(tr, block.pos + 1, 1);
   dispatch(tr.scrollIntoView());
   return true;
 }
@@ -463,9 +478,9 @@ export function delete_block_at(
   return delete_resolved_block(block, state, dispatch);
 }
 
-function select_near(tr: Transaction, pos: number): void {
+function select_near(tr: Transaction, pos: number, bias: 1 | -1 = -1): void {
   const clamped = Math.max(0, Math.min(pos, tr.doc.content.size));
-  tr.setSelection(Selection.near(tr.doc.resolve(clamped), -1));
+  tr.setSelection(Selection.near(tr.doc.resolve(clamped), bias));
 }
 
 function delete_resolved_block(

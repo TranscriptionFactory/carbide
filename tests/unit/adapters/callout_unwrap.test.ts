@@ -179,6 +179,40 @@ describe("unwrap_callout (cursor)", () => {
     expect(after.doc.child(0).textContent).toBe("Alpha");
   });
 
+  it("unwraps the innermost callout when callouts are nested", () => {
+    const inner = make_callout("Inner", "Body");
+    const outer = schema.nodes.callout.create(
+      { callout_type: "note", foldable: false, default_folded: false },
+      [
+        schema.nodes.callout_title.create(null, schema.text("Outer")),
+        schema.nodes.callout_body.create(null, [inner]),
+      ],
+    );
+    const doc = schema.nodes.doc.create(null, [outer]);
+    const inner_title_start = 11;
+    const state = make_state(doc).apply(
+      make_state(doc).tr.setSelection(
+        TextSelection.create(doc, inner_title_start),
+      ),
+    );
+    expect(state.selection.$from.parent.type.name).toBe("callout_title");
+    expect(state.selection.$from.parent.textContent).toBe("Inner");
+
+    const { result, state: after } = apply(state, (s, d) =>
+      unwrap_callout(s, d),
+    );
+
+    expect(result).toBe(true);
+    expect(after.doc.childCount).toBe(1);
+    const surviving = after.doc.child(0);
+    expect(surviving.type.name).toBe("callout");
+    expect(surviving.child(0).textContent).toBe("Outer");
+    const body = surviving.child(1);
+    expect(body.childCount).toBe(2);
+    expect(body.child(0).textContent).toBe("Inner");
+    expect(body.child(1).textContent).toBe("Body");
+  });
+
   it("returns false when the caret is not in a callout", () => {
     const doc = schema.nodes.doc.create(null, [
       schema.nodes.paragraph.create(null, schema.text("Alpha")),

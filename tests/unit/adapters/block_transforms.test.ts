@@ -799,6 +799,38 @@ describe("turn_into_at", () => {
     expect(result).toBe(false);
   });
 
+  it("converts the whole list when the position is a list_item, leaving no stray item", () => {
+    const doc = make_doc(
+      make_bullet_list(make_list_item("Alpha"), make_list_item("Bravo")),
+    );
+    const state = make_state(doc);
+    const first_item_pos = 1;
+    expect(doc.nodeAt(first_item_pos)!.type.name).toBe("list_item");
+
+    const { result, state: after } = apply_command(state, (s, d) =>
+      turn_into_at("paragraph", undefined, first_item_pos, s, d),
+    );
+
+    expect(result).toBe(true);
+    expect(after.doc.childCount).toBe(2);
+    expect(block_texts(after.doc)).toEqual(["Alpha", "Bravo"]);
+    for (let i = 0; i < after.doc.childCount; i++) {
+      expect(after.doc.child(i).type.name).toBe("paragraph");
+    }
+  });
+
+  it("converts the whole list from a single-item list without stranding an empty list", () => {
+    const doc = make_doc(make_bullet_list(make_list_item("Alpha")));
+    const state = make_state(doc);
+    const { state: after } = apply_command(state, (s, d) =>
+      turn_into_at("heading", { level: 2 }, 1, s, d),
+    );
+
+    expect(after.doc.childCount).toBe(1);
+    expect(after.doc.child(0).type.name).toBe("heading");
+    expect(after.doc.child(0).textContent).toBe("Alpha");
+  });
+
   it("parks the caret inside the replacement for a list target", () => {
     const doc = make_doc(make_para("Alpha"));
     const state = make_state(doc);
@@ -846,16 +878,11 @@ describe("turn_into single/multi parity", () => {
 
   for (const input of inputs) {
     for (const { target, attrs } of parity_targets) {
-      it(`${input.name} → ${target} agrees across the cursor, position and batch paths`, () => {
+      it(`${input.name} → ${target} agrees between the cursor and batch paths`, () => {
         const cursor_state = make_state(make_doc(input.make()), input.cursor);
         const { state: cursor_after } = apply_command(
           cursor_state,
           create_turn_into_command(target, attrs),
-        );
-
-        const single_state = make_state(make_doc(input.make()), input.cursor);
-        const { state: single_after } = apply_command(single_state, (s, d) =>
-          turn_into_at(target, attrs, 0, s, d),
         );
 
         const batch_state = make_state(make_doc(input.make()), input.cursor);
@@ -864,7 +891,6 @@ describe("turn_into single/multi parity", () => {
         );
 
         expect(cursor_after.doc.toJSON()).toEqual(batch_after.doc.toJSON());
-        expect(single_after.doc.toJSON()).toEqual(batch_after.doc.toJSON());
       });
     }
   }

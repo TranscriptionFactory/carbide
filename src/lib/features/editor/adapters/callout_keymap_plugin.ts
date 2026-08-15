@@ -57,22 +57,18 @@ function move_to_callout_body(view: EditorView, $pos: ResolvedPos): boolean {
   return false;
 }
 
+function callout_pos_at($pos: ResolvedPos): number {
+  const depth = find_callout_depth($pos);
+  return depth === -1 ? -1 : $pos.before(depth);
+}
+
 function backspace_in_callout_title(
   view: EditorView,
   $pos: ResolvedPos,
 ): boolean {
-  const callout_depth = find_callout_depth($pos);
-  if (callout_depth === -1) return false;
-  return unwrap_callout_at(
-    $pos.before(callout_depth),
-    view.state,
-    view.dispatch,
-  );
-}
-
-function callout_pos_at($pos: ResolvedPos): number {
-  const depth = find_callout_depth($pos);
-  return depth === -1 ? -1 : $pos.before(depth);
+  const callout_pos = callout_pos_at($pos);
+  if (callout_pos === -1) return false;
+  return unwrap_callout_at(callout_pos, view.state, view.dispatch);
 }
 
 function selection_within_callout(selection: TextSelection): boolean {
