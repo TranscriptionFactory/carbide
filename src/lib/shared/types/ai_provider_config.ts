@@ -7,10 +7,19 @@ export type AcpAgentSpec =
   | { kind: "preset"; id: "claude" | "codex" | "opencode" | "pi" }
   | { kind: "custom"; command: string; args: string[] };
 
+// Declaring stream_args is what makes a CLI streaming-capable, and it is the
+// invocation every streamed run uses — ask mode and inline generation alike.
+// Both open a text-mode run, and the transport sends any provider declaring
+// stream_args down the streaming channel, so there is no per-surface arg set:
+// a CLI streams one way or not at all.
+//
+// `args` is the one-shot invocation. Only `ai_execute_cli` reads it, serving
+// providers that declare no streaming list.
 export type AiCliTransport = {
   kind: "cli";
   command: string;
   args: string[];
+  stream_args?: string[];
   acp?: AcpAgentSpec;
 };
 
@@ -39,6 +48,23 @@ export const BUILTIN_PROVIDER_PRESETS: AiProviderConfig[] = [
       kind: "cli",
       command: "claude",
       args: ["-p", "--output-format", "text"],
+      // `--output-format text` buffers until the process exits, so the one-shot
+      // list cannot stream. The streaming list also strips every tool: ask mode
+      // answers from the retrieved context it was handed, and a full-toolset
+      // agent rooted in the vault would grep and edit its way through the
+      // question instead of answering it. `--tools ""` clears the built-ins and
+      // `--strict-mcp-config` clears the user's MCP servers; the empty value
+      // must stay last so it cannot swallow a following flag.
+      stream_args: [
+        "-p",
+        "--output-format",
+        "stream-json",
+        "--include-partial-messages",
+        "--verbose",
+        "--strict-mcp-config",
+        "--tools",
+        "",
+      ],
       acp: { kind: "preset", id: "claude" },
     },
     install_url: "https://code.claude.com/docs/en/quickstart",
@@ -69,6 +95,7 @@ export const BUILTIN_PROVIDER_PRESETS: AiProviderConfig[] = [
       kind: "cli",
       command: "opencode",
       args: ["run"],
+      stream_args: ["run"],
       acp: { kind: "preset", id: "opencode" },
     },
     install_url: "https://opencode.ai/docs",
@@ -81,6 +108,7 @@ export const BUILTIN_PROVIDER_PRESETS: AiProviderConfig[] = [
       kind: "cli",
       command: "pi",
       args: ["-p"],
+      stream_args: ["-p"],
       acp: { kind: "preset", id: "pi" },
     },
     install_url: "https://pi.dev",
@@ -93,6 +121,7 @@ export const BUILTIN_PROVIDER_PRESETS: AiProviderConfig[] = [
       kind: "cli",
       command: "ollama",
       args: ["run", "{model}"],
+      stream_args: ["run", "{model}"],
     },
     model: "qwen3:8b",
     install_url: "https://ollama.com",

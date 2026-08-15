@@ -17,12 +17,26 @@ function api_provider(): AiProviderConfig {
   };
 }
 
-function cli_provider(args: string[]): AiProviderConfig {
+function cli_provider(
+  args: string[],
+  stream_args?: string[],
+): AiProviderConfig {
   return {
     id: "cli",
     name: "CLI",
-    transport: { kind: "cli", command: "cli", args },
+    transport: {
+      kind: "cli",
+      command: "cli",
+      args,
+      ...(stream_args ? { stream_args } : {}),
+    },
   };
+}
+
+function preset(id: string): AiProviderConfig {
+  const found = BUILTIN_PROVIDER_PRESETS.find((p) => p.id === id);
+  if (!found) throw new Error(`no builtin preset ${id}`);
+  return found;
 }
 
 describe("provider_supports_streaming", () => {
@@ -30,26 +44,77 @@ describe("provider_supports_streaming", () => {
     expect(provider_supports_streaming(api_provider())).toBe(true);
   });
 
-  it("supports streaming for plain CLI providers", () => {
+  it("streams a CLI that declares streaming args", () => {
     expect(
       provider_supports_streaming(
-        cli_provider(["-p", "--output-format", "text"]),
+        cli_provider(
+          ["-p", "--output-format", "text"],
+          ["-p", "--output-format", "stream-json"],
+        ),
       ),
     ).toBe(true);
   });
 
-  it("rejects streaming for {output_file} CLI providers", () => {
+  // The old rule read the absence of an {output_file} placeholder as proof of
+  // streaming, which classified a buffered-until-exit output format as
+  // streaming and left the panel on a spinner for the whole run.
+  it("does not stream a CLI that declares no streaming args", () => {
+    expect(
+      provider_supports_streaming(
+        cli_provider(["-p", "--output-format", "text"]),
+      ),
+    ).toBe(false);
+  });
+
+  it("does not stream a {output_file} CLI, which declares none", () => {
     expect(
       provider_supports_streaming(
         cli_provider(["exec", "--output-last-message", "{output_file}", "-"]),
       ),
     ).toBe(false);
   });
+});
 
-  it("detects {output_file} embedded inside a larger arg", () => {
-    expect(
-      provider_supports_streaming(cli_provider(["--out={output_file}"])),
-    ).toBe(false);
+describe("builtin preset streaming declarations", () => {
+  it.each([
+    ["claude", true],
+    ["ollama", true],
+    ["opencode", true],
+    ["pi", true],
+    ["codex", false],
+  ])("preset %s streams: %s", (id, streams) => {
+    expect(provider_supports_streaming(preset(id))).toBe(streams);
+  });
+
+  // Pins the data only: that the one-shot list still exists, unchanged, and has
+  // not been "tidied" into a copy of the streaming one. Which list a given run
+  // actually sends is asserted at the transport seam, not here —
+  // assistant_transport_tauri_adapter.test.ts.
+  it("keeps the Claude preset's one-shot args distinct from its streaming args", () => {
+    const transport = preset("claude").transport;
+    if (transport.kind !== "cli") throw new Error("expected a cli transport");
+
+    expect(transport.args).toEqual(["-p", "--output-format", "text"]);
+    expect(transport.args).not.toEqual(transport.stream_args);
+  });
+
+  // Ask mode answers from the retrieved context it was handed; a full-toolset
+  // agent rooted in the vault is what made the turn take minutes.
+  it("strips every tool from the Claude preset's streaming args", () => {
+    const transport = preset("claude").transport;
+    if (transport.kind !== "cli") throw new Error("expected a cli transport");
+
+    expect(transport.stream_args).toEqual([
+      "-p",
+      "--output-format",
+      "stream-json",
+      "--include-partial-messages",
+      "--verbose",
+      "--strict-mcp-config",
+      "--tools",
+      "",
+    ]);
+    expect(transport.stream_args?.at(-1)).toBe("");
   });
 });
 

@@ -1366,4 +1366,35 @@ describe("AssistantChatService.query context assembly", () => {
     expect(sources.stats.retrieved).toBe(3);
     expect(sources.stats.used).toBeLessThan(3);
   });
+
+  // An ask turn used to run unbounded: the request carried no timeout, so
+  // nothing downstream could bound it however the setting was configured.
+  it("bounds the turn with the configured execution timeout", async () => {
+    const search = {
+      search_blocks: vi.fn().mockResolvedValue([]),
+      hybrid_search: vi
+        .fn()
+        .mockResolvedValue([hit("notes/q.md", "Q", "1", 0.9)]),
+      suggest_wiki_links: no_mentions,
+    };
+    const notes = { read_note: markdown_by_id({ "1": "an answer" }) };
+    const starter = text_stream("ok");
+
+    const service = create_chat_seam({
+      search,
+      notes,
+      run_starter: starter as never,
+      tag,
+      bases,
+      timeout_seconds: 45,
+    }).chat;
+
+    await collect(
+      service.query({ question: "what is it?", provider_config: provider }),
+    );
+
+    const request = starter.specs[0]?.request;
+    expect(request?.mode).toBe("text");
+    expect(request?.mode === "text" ? request.timeout_seconds : null).toBe(45);
+  });
 });

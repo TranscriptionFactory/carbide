@@ -115,6 +115,45 @@ function convert_agent_descriptor(provider: WithLegacyAgent): AiProviderConfig {
   } as AiProviderConfig;
 }
 
+function same_args(a: string[], b: string[]): boolean {
+  return a.length === b.length && a.every((arg, i) => arg === b[i]);
+}
+
+// A config stored before presets declared a streaming invocation has no
+// stream_args, which now reads as "cannot stream" — so an existing install
+// would stay one-shot forever. Adding it back is a merge, never a replace: a
+// customised command survives, because the two arg lists are two ways of
+// invoking the same binary.
+//
+// A customised `args` list blocks the graft. Streaming is a declaration in this
+// design, not something inferred, and grafting the preset's streaming list onto
+// an invocation the user rewrote would run arguments they never wrote while
+// theirs applied only to the one-shot path. They keep today's behaviour and can
+// opt in by resetting the provider.
+//
+// That refusal holds only until the user next edits Args in settings: editing
+// spreads the existing transport, so a provider that already carries
+// stream_args keeps it while the rewritten args drive the one-shot path alone.
+// This function governs the upgrade, not the config's whole life.
+function refresh_preset_stream_args(
+  provider: AiProviderConfig,
+): AiProviderConfig {
+  const stored = provider.transport;
+  if (stored?.kind !== "cli" || stored.stream_args !== undefined) {
+    return provider;
+  }
+
+  const preset = BUILTIN_PROVIDER_PRESETS.find((p) => p.id === provider.id);
+  if (preset?.transport.kind !== "cli") return provider;
+
+  const { args, stream_args } = preset.transport;
+  if (stream_args === undefined || !same_args(stored.args, args)) {
+    return provider;
+  }
+
+  return { ...provider, transport: { ...stored, stream_args } };
+}
+
 export function migrate_ai_settings(
   raw: Record<string, unknown>,
 ): MigratedAiFields | null {
@@ -129,7 +168,9 @@ export function migrate_ai_settings(
       };
     }
     const providers = raw["ai_providers"] as WithLegacyAgent[];
-    const converted = providers.map(convert_agent_descriptor);
+    const converted = providers.map((provider) =>
+      refresh_preset_stream_args(convert_agent_descriptor(provider)),
+    );
     if (converted.some((p, i) => p !== providers[i])) {
       return {
         ai_providers: converted,

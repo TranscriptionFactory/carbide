@@ -3,6 +3,7 @@ use futures_util::StreamExt;
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use std::collections::HashMap;
+use std::time::Duration;
 use tauri::{AppHandle, Emitter};
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::Command;
@@ -340,11 +341,18 @@ pub async fn ai_stream_start(
     messages: Vec<AiMessage>,
     model: Option<String>,
     vault_path: Option<String>,
+    timeout_seconds: Option<u64>,
 ) -> Result<(), String> {
     let event_name = format!("ai:chunk:{}", request_id);
 
     match &provider_config.transport {
-        AiTransport::Cli { command, args, .. } => {
+        AiTransport::Cli {
+            command,
+            args,
+            stream_args,
+            ..
+        } => {
+            let args = stream_args.as_deref().unwrap_or(args.as_slice());
             let resolved_model = model.or(provider_config.model.clone()).unwrap_or_default();
             let prompt_text = build_prompt_text(&system_prompt, &messages);
             let prompt_via_stdin = !args.iter().any(|a| a.contains("{prompt}"));
@@ -403,15 +411,22 @@ pub async fn ai_stream_start(
                 None
             };
 
+            let stream_json = uses_stream_json(&final_args);
+            let timeout = timeout_seconds.filter(|s| *s > 0).map(Duration::from_secs);
+
             tokio::spawn(async move {
                 let result = run_streaming_cli(
                     &app,
                     &event_name,
-                    &command,
-                    &final_args,
-                    stdin_input.as_deref(),
-                    &path,
-                    vault_path.as_deref(),
+                    CliStream {
+                        command: &command,
+                        args: &final_args,
+                        stdin_input: stdin_input.as_deref(),
+                        path: &path,
+                        cwd: vault_path.as_deref(),
+                        stream_json,
+                        timeout,
+                    },
                     abort_rx,
                 )
                 .await;
@@ -636,27 +651,104 @@ impl ThinkScanner {
     }
 }
 
+fn uses_stream_json(args: &[String]) -> bool {
+    args.iter().any(|a| a == "--output-format=stream-json")
+        || args
+            .windows(2)
+            .any(|w| w[0] == "--output-format" && w[1] == "stream-json")
+}
+
+// A stream-json line is one JSON object per line. Only the partial-message
+// deltas carry new text; the `assistant` line that follows them repeats the
+// whole message, and emitting both would double every answer.
+fn parse_stream_json_line(line: &str) -> Option<AiStreamEvent> {
+    let value: serde_json::Value = serde_json::from_str(line.trim()).ok()?;
+    if value.get("type")?.as_str()? != "stream_event" {
+        return None;
+    }
+    let event = value.get("event")?;
+    if event.get("type")?.as_str()? != "content_block_delta" {
+        return None;
+    }
+    let delta = event.get("delta")?;
+    match delta.get("type")?.as_str()? {
+        "text_delta" => Some(AiStreamEvent::Text {
+            text: delta.get("text")?.as_str()?.to_string(),
+        }),
+        "thinking_delta" => Some(AiStreamEvent::Reasoning {
+            text: delta.get("thinking")?.as_str()?.to_string(),
+        }),
+        _ => None,
+    }
+}
+
+fn line_events(scanner: &mut ThinkScanner, line: &str, stream_json: bool) -> Vec<AiStreamEvent> {
+    if stream_json {
+        return parse_stream_json_line(line).into_iter().collect();
+    }
+    let cleaned = pipeline::clean_cli_output(line);
+    // scan_line re-appends the newline next_line() strips so multi-line CLI
+    // replies keep their paragraph structure
+    scanner
+        .scan_line(&cleaned)
+        .into_iter()
+        .map(|segment| {
+            if segment.reasoning {
+                AiStreamEvent::Reasoning { text: segment.text }
+            } else {
+                AiStreamEvent::Text { text: segment.text }
+            }
+        })
+        .collect()
+}
+
+fn timeout_message(command: &str, timeout: Duration) -> String {
+    format!(
+        "`{command}` did not finish within {}s — raise the AI execution timeout in settings, or ask a narrower question",
+        timeout.as_secs()
+    )
+}
+
+// Yields the limit it waited out, so the message names a duration that was
+// really configured rather than a fallback for a state that cannot happen.
+async fn elapse(timeout: Option<Duration>) -> Duration {
+    match timeout {
+        Some(duration) => {
+            tokio::time::sleep(duration).await;
+            duration
+        }
+        None => std::future::pending().await,
+    }
+}
+
+struct CliStream<'a> {
+    command: &'a str,
+    args: &'a [String],
+    stdin_input: Option<&'a str>,
+    path: &'a str,
+    cwd: Option<&'a str>,
+    stream_json: bool,
+    timeout: Option<Duration>,
+}
+
 async fn run_streaming_cli(
     app: &AppHandle,
     event_name: &str,
-    command: &str,
-    args: &[String],
-    stdin_input: Option<&str>,
-    path: &str,
-    cwd: Option<&str>,
+    run: CliStream<'_>,
     abort_rx: tokio::sync::oneshot::Receiver<()>,
 ) -> Result<(), String> {
+    let command = run.command;
     let mut cmd = Command::new(command);
-    cmd.args(args)
-        .env("PATH", path)
+    cmd.args(run.args)
+        .env("PATH", run.path)
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped());
 
-    if let Some(dir) = cwd.filter(|d| !d.is_empty()) {
+    if let Some(dir) = run.cwd.filter(|d| !d.is_empty()) {
         cmd.current_dir(dir);
     }
 
-    if stdin_input.is_some() {
+    if run.stdin_input.is_some() {
         cmd.stdin(std::process::Stdio::piped());
     }
 
@@ -664,7 +756,7 @@ async fn run_streaming_cli(
         .spawn()
         .map_err(|e| format!("Failed to spawn {command}: {e}"))?;
 
-    if let Some(input) = stdin_input {
+    if let Some(input) = run.stdin_input {
         if let Some(mut stdin) = child.stdin.take() {
             use tokio::io::AsyncWriteExt;
             stdin
@@ -692,15 +784,7 @@ async fn run_streaming_cli(
         _ = async {
             let mut scanner = ThinkScanner::new();
             while let Ok(Some(line)) = reader.next_line().await {
-                let cleaned = pipeline::clean_cli_output(&line);
-                // scan_line re-appends the newline next_line() strips so
-                // multi-line CLI replies keep their paragraph structure
-                for segment in scanner.scan_line(&cleaned) {
-                    let event = if segment.reasoning {
-                        AiStreamEvent::Reasoning { text: segment.text }
-                    } else {
-                        AiStreamEvent::Text { text: segment.text }
-                    };
+                for event in line_events(&mut scanner, &line, run.stream_json) {
                     let _ = app.emit(event_name, event);
                 }
             }
@@ -729,6 +813,12 @@ async fn run_streaming_cli(
                 }
             }
         } => {}
+        limit = elapse(run.timeout) => {
+            let _ = child.kill().await;
+            let _ = app.emit(event_name, AiStreamEvent::Error {
+                error: timeout_message(command, limit),
+            });
+        }
         _ = abort_rx => {
             let _ = child.kill().await;
             let _ = app.emit(event_name, AiStreamEvent::Error {
@@ -844,10 +934,26 @@ pub async fn ai_test_provider(provider_config: AiProviderConfig) -> Result<Strin
 mod tests {
     use super::{
         build_chat_request_body, build_prompt_text, chat_completions_url, clamp_stderr,
-        handle_sse_event, AiContentPart, AiMessage, AiMessageContent, AiStreamEvent, AiToolCall,
+        handle_sse_event, line_events, parse_stream_json_line, timeout_message, uses_stream_json,
+        AiContentPart, AiMessage, AiMessageContent, AiStreamEvent, AiToolCall,
         SseDecoder, SseEvent, ThinkScanner, ThinkSegment, ToolCallAssembler, ToolDefinition,
     };
     use crate::features::mcp::types::InputSchema;
+    use std::time::Duration;
+
+    fn args(values: &[&str]) -> Vec<String> {
+        values.iter().map(|v| (*v).to_string()).collect()
+    }
+
+    fn text_of(events: Vec<AiStreamEvent>) -> Vec<String> {
+        events
+            .into_iter()
+            .filter_map(|e| match e {
+                AiStreamEvent::Text { text } => Some(text),
+                _ => None,
+            })
+            .collect()
+    }
 
     fn msg(role: &str, content: AiMessageContent) -> AiMessage {
         AiMessage {
@@ -1432,5 +1538,85 @@ mod tests {
             ]
         );
         assert!(collect_tool_calls(&assembler.flush()).is_empty());
+    }
+
+    #[test]
+    fn detects_stream_json_in_either_flag_spelling() {
+        assert!(uses_stream_json(&args(&[
+            "-p",
+            "--output-format",
+            "stream-json"
+        ])));
+        assert!(uses_stream_json(&args(&[
+            "-p",
+            "--output-format=stream-json"
+        ])));
+        assert!(!uses_stream_json(&args(&["-p", "--output-format", "text"])));
+        assert!(!uses_stream_json(&args(&["run", "{model}"])));
+    }
+
+    #[test]
+    fn parses_text_and_thinking_deltas_from_stream_json() {
+        let text = parse_stream_json_line(
+            r#"{"type":"stream_event","event":{"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"hello"}}}"#,
+        );
+        assert!(matches!(text, Some(AiStreamEvent::Text { text }) if text == "hello"));
+
+        let reasoning = parse_stream_json_line(
+            r#"{"type":"stream_event","event":{"type":"content_block_delta","index":0,"delta":{"type":"thinking_delta","thinking":"hmm"}}}"#,
+        );
+        assert!(matches!(reasoning, Some(AiStreamEvent::Reasoning { text }) if text == "hmm"));
+    }
+
+    #[test]
+    fn ignores_stream_json_lines_that_carry_no_new_text() {
+        let non_delta = [
+            r#"{"type":"system","subtype":"init","tools":[]}"#,
+            r#"{"type":"stream_event","event":{"type":"message_start","message":{"role":"assistant"}}}"#,
+            r#"{"type":"stream_event","event":{"type":"content_block_stop","index":0}}"#,
+            r#"{"type":"result","is_error":false,"num_turns":1}"#,
+            "not json at all",
+            "",
+        ];
+
+        for line in non_delta {
+            assert!(
+                parse_stream_json_line(line).is_none(),
+                "expected no event from {line}"
+            );
+        }
+    }
+
+    // The assistant line repeats the whole message the deltas already streamed.
+    #[test]
+    fn ignores_the_assistant_line_that_repeats_streamed_text() {
+        assert!(parse_stream_json_line(
+            r#"{"type":"assistant","message":{"content":[{"type":"text","text":"hello"}]}}"#
+        )
+        .is_none());
+    }
+
+    #[test]
+    fn plain_text_lines_keep_the_think_scanner() {
+        let mut scanner = ThinkScanner::new();
+
+        assert_eq!(
+            text_of(line_events(&mut scanner, "plain answer", false)),
+            vec!["plain answer\n".to_string()]
+        );
+        assert!(text_of(line_events(
+            &mut scanner,
+            r#"{"type":"stream_event","event":{"type":"content_block_delta","delta":{"type":"text_delta","text":"x"}}}"#,
+            true
+        ))
+        .contains(&"x".to_string()));
+    }
+
+    #[test]
+    fn timeout_message_names_the_command_and_the_limit() {
+        let message = timeout_message("claude", Duration::from_secs(300));
+
+        assert!(message.contains("claude"));
+        assert!(message.contains("300s"));
     }
 }

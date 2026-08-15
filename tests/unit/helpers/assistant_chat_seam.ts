@@ -5,6 +5,7 @@ import {
   type RunStarter,
 } from "$lib/features/assistant";
 import { VaultStore } from "$lib/features/vault";
+import { DEFAULT_EDITOR_SETTINGS } from "$lib/shared/types/editor_settings";
 import { create_test_vault } from "./test_fixtures";
 
 // Builds the real C3 seam: the real RetrievalService, wrapped in the same
@@ -21,6 +22,7 @@ export function create_chat_seam(input: {
   tag?: unknown;
   bases?: unknown;
   vault_path?: string;
+  timeout_seconds?: number;
   // Pass a bare VaultStore to exercise the no-vault path.
   vault_store?: VaultStore;
 }): {
@@ -53,7 +55,13 @@ export function create_chat_seam(input: {
   };
 
   return {
-    chat: new AssistantChatService(retrieval, input.run_starter),
+    chat: new AssistantChatService(
+      retrieval,
+      input.run_starter,
+      () =>
+        input.timeout_seconds ??
+        DEFAULT_EDITOR_SETTINGS.ai_execution_timeout_seconds,
+    ),
     retrieval_service,
     retrieval,
     vault_store,

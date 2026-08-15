@@ -21,10 +21,14 @@ export function with_transport_kind(
   return { ...config, transport };
 }
 
+// A CLI streams when it says so. The previous rule inferred it from the absence
+// of an {output_file} placeholder, which answered "does this write to stdout?"
+// — true of every CLI here, including one whose output format buffers until the
+// process exits. Declaring the streaming invocation is the claim that matters.
 export function provider_supports_streaming(config: AiProviderConfig): boolean {
   if (!config.transport) return false;
   if (config.transport.kind === "api") return true;
-  return !config.transport.args.some((a) => a.includes("{output_file}"));
+  return config.transport.stream_args !== undefined;
 }
 
 export type AgentCapability =
