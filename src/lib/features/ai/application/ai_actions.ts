@@ -445,7 +445,13 @@ export function register_ai_actions(
       dispatch_ai_menu(view, { action: "close" });
       return;
     }
-    if (!get_ai_menu_state(view.state).open) return;
+    // Detached after the last chunk: no further chunk will arrive to hit the
+    // in-loop guard, and source mode has no accept or reject to settle it
+    // later, so this is the run's only chance to record what it produced.
+    if (!get_ai_menu_state(view.state).open) {
+      finish_inline_session(run, output, { stopped: true });
+      return;
+    }
 
     const apply_selection = selection ?? {
       text: "",
@@ -632,6 +638,13 @@ export function register_ai_actions(
             return;
           }
         }
+        // Detached on the final chunk: nothing after this reaches the in-loop
+        // guard, and the rewrite and stream_done below both no-op on a closed
+        // menu, so the session would never settle.
+        if (!get_ai_menu_state(view.state).open) {
+          finish_inline_session(run, streamed, { stopped: true });
+          return;
+        }
         // Sanitizing per chunk cannot work: a preamble spans chunk boundaries.
         // The completed stream is the first point the whole reply is in hand.
         rewrite_streamed_text(view, streamed, sanitize_ai_output(streamed));
@@ -675,18 +688,20 @@ export function register_ai_actions(
     outcome?: InlineOutcome,
   ): string | null {
     const vault_id = input.stores.vault.active_vault_id;
-    if (!run.session_id || !vault_id || run.session_settled) return null;
+    if (!run.session_id || !vault_id) return null;
+    // "Already written" and "has no session" are different answers. Returning
+    // null for both let a second terminal state — accept after a failed stream
+    // leaves the menu open — read as "no session" and skip the proposal
+    // entirely, losing the staleness check and the review-centre record.
+    if (run.session_settled) return run.session_id;
 
-    const [request_message, reply] = build_inline_messages(
-      run.request.prompt,
-      result,
-    );
-    if (!request_message || !reply) return null;
     run.session_settled = true;
-    assistant_sessions.replace_messages(run.session_id, [
-      request_message,
-      { ...reply, ...outcome },
-    ]);
+    assistant_sessions.replace_messages(
+      run.session_id,
+      build_inline_messages(run.request.prompt, result).map((message) =>
+        message.role === "assistant" ? { ...message, ...outcome } : message,
+      ),
+    );
 
     const stored = assistant_sessions.get(run.session_id);
     if (stored) void assistant_sessions_service.save_session(vault_id, stored);

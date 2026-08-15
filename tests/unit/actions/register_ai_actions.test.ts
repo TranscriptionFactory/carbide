@@ -886,6 +886,107 @@ describe("register_ai_actions", () => {
         expect(reply?.stopped).toBeUndefined();
       });
 
+      // fail_inline_stream settles the session and deliberately leaves the menu
+      // open so the partial output stays reviewable. Accept then has to work:
+      // treating "already written" as "no session" skipped the proposal and
+      // with it the staleness check and the review-centre record.
+      it("still builds the proposal when accept follows a settled failure", async () => {
+        const harness = setup_inline();
+        harness.stores.vault.set_vault(create_test_vault());
+        harness.services.note.read_note = vi.fn().mockResolvedValue({
+          meta: { title: "demo" },
+          markdown: as_markdown_text("# Demo\nOld line"),
+        });
+        harness.services.editor.get_ai_context = vi.fn().mockReturnValue({
+          note_path: as_note_path("docs/demo.md"),
+          note_title: "demo",
+          markdown: as_markdown_text("# Demo\nNew line"),
+          selection: null,
+        });
+        harness.ai_service.stream_inline = vi.fn(function* () {
+          yield { type: "text", text: "New line" };
+          yield { type: "error", error: "boom" };
+        });
+
+        await harness.registry.execute(ACTION_IDS.ai_open_inline_menu);
+        await harness.registry.execute(ACTION_IDS.ai_execute_inline, {
+          prompt: "go",
+        });
+        await harness.registry.execute(ACTION_IDS.ai_accept_inline);
+
+        expect(harness.add_proposal).toHaveBeenCalledTimes(1);
+        const [proposal] = harness.assistant_proposals.proposals;
+        expect(proposal?.origin.session_id).toBe(
+          only_session(harness.assistant_sessions).id,
+        );
+        expect(harness.accept_proposal).toHaveBeenCalledExactlyOnceWith(
+          proposal?.id,
+        );
+      });
+
+      // No further chunk arrives to hit the in-loop guard, and the rewrite and
+      // stream_done that follow both no-op on a closed menu.
+      it("settles the session when the menu closes on the final chunk", async () => {
+        const harness = setup_inline();
+        harness.stores.vault.set_vault(create_test_vault());
+        let release!: () => void;
+        const gate = new Promise<void>((resolve) => (release = resolve));
+        harness.ai_service.stream_inline = vi.fn(async function* () {
+          yield { type: "text", text: "all of it" };
+          await gate;
+        });
+
+        await harness.registry.execute(ACTION_IDS.ai_open_inline_menu);
+        const exec = harness.registry.execute(ACTION_IDS.ai_execute_inline, {
+          prompt: "go",
+        });
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        await harness.registry.execute(ACTION_IDS.ai_close_inline_menu);
+        release();
+        await exec;
+
+        const [, reply] = only_session(harness.assistant_sessions).messages;
+        expect(reply?.content).toBe("all of it");
+        expect(reply?.stopped).toBe(true);
+        expect(harness.rag_service.save_session).toHaveBeenCalledTimes(1);
+      });
+
+      // Worst of the set: source mode has no accept or reject, so nothing after
+      // this point can ever settle the session.
+      it("settles a source-mode session when the menu closes after the stream", async () => {
+        const harness = setup_inline();
+        harness.stores.vault.set_vault(create_test_vault());
+        harness.stores.editor.set_editor_mode("source");
+        harness.stores.editor.set_source_view_getter(
+          () =>
+            ({
+              state: { selection: { main: { head: 6 } } },
+              coordsAtPos: vi.fn(() => ({ left: 50, top: 60, bottom: 80 })),
+            }) as unknown as import("@codemirror/view").EditorView,
+        );
+        harness.stores.editor.set_cursor_offset(6);
+        let release!: () => void;
+        const gate = new Promise<void>((resolve) => (release = resolve));
+        harness.ai_service.stream_inline = vi.fn(async function* () {
+          yield { type: "text", text: "source output" };
+          await gate;
+        });
+
+        await harness.registry.execute(ACTION_IDS.ai_open_inline_menu);
+        const exec = harness.registry.execute(ACTION_IDS.ai_execute_inline, {
+          prompt: "go",
+        });
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        await harness.registry.execute(ACTION_IDS.ai_close_inline_menu);
+        release();
+        await exec;
+
+        expect(harness.services.editor.apply_ai_output).not.toHaveBeenCalled();
+        const [, reply] = only_session(harness.assistant_sessions).messages;
+        expect(reply?.content).toBe("source output");
+        expect(reply?.stopped).toBe(true);
+      });
+
       it("logs a session for a source-mode run, which never reaches accept", async () => {
         const harness = setup_inline();
         harness.stores.vault.set_vault(create_test_vault());
