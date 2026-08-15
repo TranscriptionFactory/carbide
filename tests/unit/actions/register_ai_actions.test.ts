@@ -40,7 +40,11 @@ import {
   type RunHandle,
   type RunOutcome,
 } from "$lib/features/assistant";
-import { create_test_vault } from "../helpers/test_fixtures";
+import {
+  create_open_note_state,
+  create_test_note,
+  create_test_vault,
+} from "../helpers/test_fixtures";
 import { BUILTIN_PROVIDER_PRESETS } from "$lib/shared/types/ai_provider_config";
 import { toast } from "svelte-sonner";
 
@@ -493,6 +497,36 @@ describe("register_ai_actions", () => {
         expect(get_ai_menu_state(view.state).open).toBe(false);
       });
 
+      // Source mode has no accept affordance (C1), so whatever lands here is
+      // the note. The sanitizer runs on the accumulated stream — a preamble
+      // that spans chunks is invisible to any per-chunk filter.
+      it("strips model scaffolding from the completed source-mode stream", async () => {
+        const { registry, stores, services, ai_service } =
+          setup_source_inline();
+        stores.editor.set_cursor_offset(6);
+        services.editor.get_ai_context = vi.fn().mockReturnValue({
+          note_path: as_note_path("docs/demo.md"),
+          note_title: "demo",
+          markdown: as_markdown_text("Hello source note"),
+          selection: null,
+        });
+        ai_service.stream_inline = vi.fn(function* () {
+          yield { type: "text", text: "Here is your res" };
+          yield { type: "text", text: "ponse:\n\n```markdown\nAI text\n```" };
+        });
+
+        await registry.execute(ACTION_IDS.ai_open_inline_menu);
+        await registry.execute(ACTION_IDS.ai_execute_inline, {
+          command_id: "continue",
+        });
+
+        expect(services.editor.apply_ai_output).toHaveBeenCalledWith(
+          "selection",
+          "AI text",
+          { text: "", start: 6, end: 6 },
+        );
+      });
+
       it("replaces the source selection when one exists", async () => {
         const { registry, services, ai_service } = setup_source_inline();
         services.editor.get_ai_context = vi.fn().mockReturnValue({
@@ -502,7 +536,7 @@ describe("register_ai_actions", () => {
           selection: { text: "source", start: 6, end: 12 },
         });
         ai_service.stream_inline = vi.fn(function* () {
-          yield { type: "text", text: "better" };
+          yield { type: "text", text: "Sure!\n\nbetter" };
         });
 
         await registry.execute(ACTION_IDS.ai_open_inline_menu);
@@ -846,6 +880,181 @@ describe("register_ai_actions", () => {
 
         expect(harness.add_proposal).not.toHaveBeenCalled();
         expect(harness.accept_proposal).not.toHaveBeenCalled();
+      });
+    });
+
+    describe("model scaffolding never reaches the document", () => {
+      it("rewrites the streamed preview to the sanitized text when the stream completes", async () => {
+        const harness = setup_inline();
+        harness.ai_service.stream_inline = vi.fn(function* () {
+          yield { type: "text", text: "Here is your res" };
+          yield { type: "text", text: "ponse:\n\nSharper prose" };
+        });
+
+        await harness.registry.execute(ACTION_IDS.ai_open_inline_menu);
+        await harness.registry.execute(ACTION_IDS.ai_execute_inline, {
+          prompt: "go",
+        });
+
+        const ps = get_ai_menu_state(harness.view.state);
+        expect(
+          harness.view.state.doc.textBetween(
+            ps.ai_range_from,
+            ps.ai_range_to,
+            "\n",
+            "\n",
+          ),
+        ).toBe("Sharper prose");
+        expect(harness.view.state.doc.textContent).not.toContain(
+          "Here is your response",
+        );
+        expect(ps.streaming).toBe(false);
+        expect(ps.mode).toBe("cursor_suggestion");
+      });
+
+      it("leaves an already-clean stream untouched", async () => {
+        const harness = setup_inline();
+        harness.ai_service.stream_inline = vi.fn(function* () {
+          yield { type: "text", text: "Sharper " };
+          yield { type: "text", text: "prose" };
+        });
+
+        await harness.registry.execute(ACTION_IDS.ai_open_inline_menu);
+        await harness.registry.execute(ACTION_IDS.ai_execute_inline, {
+          prompt: "go",
+        });
+
+        const ps = get_ai_menu_state(harness.view.state);
+        expect(
+          harness.view.state.doc.textBetween(
+            ps.ai_range_from,
+            ps.ai_range_to,
+            "\n",
+            "\n",
+          ),
+        ).toBe("Sharper prose");
+      });
+
+      it("logs the sanitized text as the accepted result", async () => {
+        const harness = setup_inline();
+        harness.stores.vault.set_vault(create_test_vault());
+        harness.ai_service.stream_inline = vi.fn(function* () {
+          yield {
+            type: "text",
+            text: "Sure!\n\n```markdown\nSharper prose\n```",
+          };
+        });
+
+        await harness.registry.execute(ACTION_IDS.ai_open_inline_menu);
+        await harness.registry.execute(ACTION_IDS.ai_execute_inline, {
+          prompt: "go",
+        });
+        await harness.registry.execute(ACTION_IDS.ai_accept_inline);
+
+        const [logged] = harness.assistant_sessions.sessions;
+        const [, reply] = logged?.messages ?? [];
+        expect(reply?.content).toBe("Sharper prose");
+      });
+    });
+
+    // Y1: the before-snapshot accept diffs against belongs to one note. Shared
+    // across every run it produced "delete all of B, insert all of A", caught
+    // only by the proposal's base-revision staleness check.
+    describe("an inline run belongs to the note it started in", () => {
+      async function stream_in_note(path: string) {
+        const harness = setup_inline();
+        harness.stores.vault.set_vault(create_test_vault());
+        harness.stores.editor.set_open_note(
+          create_open_note_state(create_test_note(path, "Demo")),
+        );
+        harness.ai_service.stream_inline = vi.fn(function* () {
+          yield { type: "text", text: "Sharper prose" };
+        });
+        vi.mocked(toast.error).mockClear();
+
+        await harness.registry.execute(ACTION_IDS.ai_open_inline_menu);
+        await harness.registry.execute(ACTION_IDS.ai_execute_inline, {
+          prompt: "go",
+        });
+        return harness;
+      }
+
+      it("accepts into the note the run started in", async () => {
+        const harness = await stream_in_note("docs/demo");
+
+        await harness.registry.execute(ACTION_IDS.ai_accept_inline);
+
+        expect(harness.add_proposal).toHaveBeenCalledTimes(1);
+        expect(harness.assistant_sessions.sessions).toHaveLength(1);
+        expect(toast.error).not.toHaveBeenCalled();
+      });
+
+      it("refuses to accept into a note the run did not start in", async () => {
+        const harness = await stream_in_note("docs/demo");
+        harness.services.editor.get_ai_context = vi.fn().mockReturnValue({
+          note_path: as_note_path("docs/other.md"),
+          note_title: "other",
+          markdown: as_markdown_text("# Other"),
+          selection: null,
+        });
+
+        await harness.registry.execute(ACTION_IDS.ai_accept_inline);
+
+        expect(harness.add_proposal).not.toHaveBeenCalled();
+        expect(harness.accept_proposal).not.toHaveBeenCalled();
+        expect(harness.assistant_sessions.sessions).toEqual([]);
+        expect(toast.error).toHaveBeenCalledWith(
+          "This inline edit was started in docs/demo.md — open that note to accept it.",
+        );
+      });
+
+      it("keeps the result reviewable instead of dropping it on refusal", async () => {
+        const harness = await stream_in_note("docs/demo");
+        harness.services.editor.get_ai_context = vi.fn().mockReturnValue({
+          note_path: as_note_path("docs/other.md"),
+          note_title: "other",
+          markdown: as_markdown_text("# Other"),
+          selection: null,
+        });
+
+        await harness.registry.execute(ACTION_IDS.ai_accept_inline);
+
+        const ps = get_ai_menu_state(harness.view.state);
+        expect(ps.open).toBe(true);
+        expect(
+          harness.view.state.doc.textBetween(
+            ps.ai_range_from,
+            ps.ai_range_to,
+            "\n",
+            "\n",
+          ),
+        ).toBe("Sharper prose");
+      });
+
+      it("does not let a later run's snapshot be accepted by an earlier one", async () => {
+        const harness = await stream_in_note("docs/demo");
+        harness.stores.editor.set_open_note(
+          create_open_note_state(create_test_note("docs/other", "Other")),
+        );
+        harness.services.editor.get_ai_context = vi.fn().mockReturnValue({
+          note_path: as_note_path("docs/other.md"),
+          note_title: "other",
+          markdown: as_markdown_text("# Other"),
+          selection: null,
+        });
+        await harness.registry.execute(ACTION_IDS.ai_execute_inline, {
+          prompt: "second run",
+        });
+        await harness.registry.execute(ACTION_IDS.ai_accept_inline);
+
+        const [proposal] = harness.assistant_proposals.proposals;
+        expect(proposal?.target).toEqual({
+          kind: "note",
+          note_path: "docs/other.md",
+        });
+        expect(harness.assistant_sessions.sessions[0]?.origin).toEqual({
+          note_path: "docs/other.md",
+        });
       });
     });
 
