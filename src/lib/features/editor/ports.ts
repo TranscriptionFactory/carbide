@@ -15,7 +15,10 @@ import type {
 import type { ToolbarVisibility } from "$lib/shared/types/editor_settings";
 import type { Diagnostic } from "$lib/features/diagnostics";
 import type { AmbientNotice } from "$lib/features/assistant";
-import type { FindOptions } from "$lib/features/editor/domain/find_types";
+import type {
+  FindMatchesListener,
+  FindOptions,
+} from "$lib/features/editor/domain/find_types";
 import type { RichClipboardPayload } from "$lib/features/clipboard";
 import type { BlockPlacement } from "$lib/features/editor/adapters/block_transforms";
 
@@ -88,6 +91,7 @@ export type EditorSession = {
     query: string,
     selected_index: number,
     options: FindOptions,
+    on_matches_change?: FindMatchesListener,
   ) => number;
   replace_at_match?: (
     match_index: number,

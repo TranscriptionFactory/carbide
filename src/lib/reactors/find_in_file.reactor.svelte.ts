@@ -25,6 +25,16 @@ export function create_find_in_file_reactor(
         query,
         selected_match_index,
         options,
+        // The plugin re-scans on every document change; without this channel
+        // the count would only refresh when the find bar itself changed.
+        (update) => {
+          search_store.set_find_match_count(update.match_count);
+          if (
+            update.selected_index !== ui_store.find_in_file.selected_match_index
+          ) {
+            ui_store.find_in_file.selected_match_index = update.selected_index;
+          }
+        },
       );
       search_store.set_find_match_count(count);
     });

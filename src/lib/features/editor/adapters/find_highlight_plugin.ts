@@ -4,14 +4,17 @@ import type { Node as ProseNode } from "prosemirror-model";
 import {
   DEFAULT_FIND_OPTIONS,
   type FindMatchRange,
+  type FindMatchesListener,
   type FindOptions,
 } from "$lib/features/editor/domain/find_types";
 import { find_literal_matches_in_doc } from "$lib/features/editor/domain/find_literal_matcher";
+import { normalize_active_index } from "$lib/features/editor/domain/find_active_index";
 
 type FindHighlightMeta = {
   query: string;
   selected_index: number;
   options?: FindOptions;
+  on_matches_change?: FindMatchesListener;
 };
 
 type MatchPosition = FindMatchRange;
@@ -22,6 +25,7 @@ type FindHighlightState = {
   selected_index: number;
   options: FindOptions;
   match_positions: MatchPosition[];
+  on_matches_change: FindMatchesListener | null;
 };
 
 function is_find_highlight_meta(value: unknown): value is FindHighlightMeta {
@@ -64,6 +68,7 @@ export function create_find_highlight_prose_plugin(): Plugin<FindHighlightState>
           selected_index: 0,
           options: DEFAULT_FIND_OPTIONS,
           match_positions: [],
+          on_matches_change: null,
         };
       },
       apply(tr, plugin_state, _old_state, new_state) {
@@ -72,6 +77,8 @@ export function create_find_highlight_prose_plugin(): Plugin<FindHighlightState>
         if (is_find_highlight_meta(meta)) {
           const { query, selected_index } = meta;
           const options = meta.options ?? plugin_state.options;
+          const on_matches_change =
+            meta.on_matches_change ?? plugin_state.on_matches_change;
 
           if (!query) {
             return {
@@ -80,6 +87,7 @@ export function create_find_highlight_prose_plugin(): Plugin<FindHighlightState>
               selected_index: 0,
               options,
               match_positions: [],
+              on_matches_change,
             };
           }
 
@@ -100,6 +108,7 @@ export function create_find_highlight_prose_plugin(): Plugin<FindHighlightState>
             selected_index,
             options,
             match_positions,
+            on_matches_change,
           };
         }
 
@@ -111,17 +120,48 @@ export function create_find_highlight_prose_plugin(): Plugin<FindHighlightState>
             plugin_state.query,
             plugin_state.options,
           );
+          const selected_index = normalize_active_index(
+            plugin_state.selected_index,
+            match_positions.length,
+          );
           const decorations = build_decorations(
             new_state.doc,
             match_positions,
-            plugin_state.selected_index,
+            selected_index,
           );
 
-          return { ...plugin_state, decorations, match_positions };
+          return {
+            ...plugin_state,
+            decorations,
+            match_positions,
+            selected_index,
+          };
         }
 
         return plugin_state;
       },
+    },
+    view() {
+      return {
+        update(view, prev_state) {
+          const next = find_highlight_plugin_key.getState(view.state);
+          if (!next?.on_matches_change) return;
+
+          const prev = find_highlight_plugin_key.getState(prev_state);
+          if (
+            prev &&
+            prev.match_positions.length === next.match_positions.length &&
+            prev.selected_index === next.selected_index
+          ) {
+            return;
+          }
+
+          next.on_matches_change({
+            match_count: next.match_positions.length,
+            selected_index: next.selected_index,
+          });
+        },
+      };
     },
     props: {
       decorations(state) {

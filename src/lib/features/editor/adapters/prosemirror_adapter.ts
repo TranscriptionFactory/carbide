@@ -70,8 +70,14 @@ import {
 } from "$lib/features/editor/adapters/dsl_suggest_plugin";
 import type { DslSuggestion } from "$lib/shared/types/dsl_suggestion";
 import { find_literal_matches_in_doc } from "$lib/features/editor/domain/find_literal_matcher";
-import { next_active_index_after_replacement } from "$lib/features/editor/domain/find_active_index";
-import type { FindOptions } from "$lib/features/editor/domain/find_types";
+import {
+  next_active_index_after_replacement,
+  normalize_active_index,
+} from "$lib/features/editor/domain/find_active_index";
+import type {
+  FindMatchesListener,
+  FindOptions,
+} from "$lib/features/editor/domain/find_types";
 import type { FindReplaceResult } from "$lib/features/editor/ports";
 import {
   create_turn_into_command,
@@ -1299,6 +1305,7 @@ export function create_prosemirror_editor_port(args?: {
           query: string,
           selected_index: number,
           options: FindOptions,
+          on_matches_change?: FindMatchesListener,
         ): number {
           let match_count = 0;
           run_view_action((v) => {
@@ -1306,6 +1313,7 @@ export function create_prosemirror_editor_port(args?: {
               query,
               selected_index,
               options,
+              on_matches_change,
             });
             v.dispatch(tr);
 
@@ -1338,7 +1346,11 @@ export function create_prosemirror_editor_port(args?: {
           run_view_action((v) => {
             const plugin_state = find_highlight_plugin_key.getState(v.state);
             if (!plugin_state?.match_positions.length) return;
-            const match = plugin_state.match_positions[match_index];
+            const active_index = normalize_active_index(
+              match_index,
+              plugin_state.match_positions.length,
+            );
+            const match = plugin_state.match_positions[active_index];
             if (!match) return;
 
             const tr = v.state.tr.insertText(replacement, match.from, match.to);
