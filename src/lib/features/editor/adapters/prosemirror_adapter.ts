@@ -360,7 +360,7 @@ const PARTIAL_UNWRAP_CONTAINERS = new Set(["callout", "details_block"]);
 // root, so the container node travels with it and the serializer would re-emit
 // `> [!note]` / `<details>` markup the user never selected. A whole-node copy
 // arrives with both boundaries closed and keeps its markup.
-export function normalize_clipboard_fragment(slice: Slice): Fragment {
+function normalize_clipboard_fragment(slice: Slice): Fragment {
   if (slice.openStart === 0 && slice.openEnd === 0) return slice.content;
   const last_index = slice.content.childCount - 1;
   const nodes: ProseNode[] = [];

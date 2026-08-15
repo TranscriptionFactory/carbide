@@ -89,7 +89,9 @@ describe("clipboardTextSerializer", () => {
   it("uses markdown serializer for mixed content", () => {
     const code = schema.nodes.code_block.create({}, schema.text("code"));
     const slice = new Slice(Fragment.from([paragraph("hello"), code]), 0, 0);
-    expect(serialize_clipboard_text(slice)).toContain("```");
+    const result = serialize_clipboard_text(slice);
+    expect(result).toContain("hello");
+    expect(result).toContain("```");
   });
 
   it("decodes HTML character references in clipboard text", () => {
