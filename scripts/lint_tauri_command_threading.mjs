@@ -60,7 +60,16 @@ const MAIN_THREAD_COMMANDS = new Map([
   ],
 ]);
 
-const command_attribute = /#\[(?:tauri::)?command(\s*\(\s*async\s*\)\s*)?\]/g;
+// The prefix is the single source of truth for which spellings count: the file
+// prefilter and the full attribute pattern are both built from it, so the two
+// cannot drift apart — which is the exact bug that let this gate miss fifteen
+// commands. Kept separate from command_attribute rather than reusing it,
+// because that one carries /g and .test() would advance its lastIndex.
+const command_attribute_prefix = /#\[(?:tauri::)?command/;
+const command_attribute = new RegExp(
+  `${command_attribute_prefix.source}(\\s*\\(\\s*async\\s*\\)\\s*)?\\]`,
+  "g",
+);
 const fn_signature = /^\s*(?:pub(?:\s*\([^)]*\))?\s+)?(async\s+)?fn\s+(\w+)/;
 
 function collect_rust_files(dir_path, accumulator) {
@@ -83,7 +92,7 @@ function relative_path(file_path) {
   return path.relative(project_root, file_path).split(path.sep).join("/");
 }
 
-// Walks forward from a #[tauri::command] attribute past any further attributes
+// Walks forward from a Tauri command attribute past any further attributes
 // (#[specta::specta], #[allow(...)], doc comments) to the function it decorates.
 function find_decorated_fn(lines, attribute_line_index) {
   for (
@@ -124,7 +133,7 @@ const delegating_commands = new Set();
 
 for (const file_path of collect_rust_files(rust_source_root, [])) {
   const content = fs.readFileSync(file_path, "utf8");
-  if (!content.includes("#[tauri::command") && !content.includes("#[command")) {
+  if (!command_attribute_prefix.test(content)) {
     continue;
   }
   const lines = content.split("\n");
@@ -141,7 +150,7 @@ for (const file_path of collect_rust_files(rust_source_root, [])) {
         file: relative_path(file_path),
         line: attribute_line,
         message:
-          "#[tauri::command] does not decorate a recognisable fn signature; " +
+          "a Tauri command attribute does not decorate a recognisable fn signature; " +
           "the threading gate cannot verify it",
       });
       continue;
@@ -172,7 +181,7 @@ for (const file_path of collect_rust_files(rust_source_root, [])) {
       file: relative_path(file_path),
       line: attribute_line,
       message:
-        `\`${decorated.name}\` is a sync #[tauri::command], so it runs on the macOS main ` +
+        `\`${decorated.name}\` is a sync Tauri command, so it runs on the macOS main ` +
         "thread and any slow I/O freezes the app; make it `pub async fn` delegating to " +
         '`shared::blocking::blocking("name", move || name_inner(..))`, or add it to ' +
         "MAIN_THREAD_COMMANDS with a justification",
@@ -187,7 +196,7 @@ for (const command_name of MAIN_THREAD_COMMANDS.keys()) {
       line: 1,
       message:
         `MAIN_THREAD_COMMANDS lists \`${command_name}\`, which is no longer a ` +
-        "#[tauri::command]; remove the stale entry",
+        "Tauri command; remove the stale entry",
     });
   }
 }

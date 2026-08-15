@@ -1,6 +1,6 @@
 use crate::features::search::service::{
-    classify_embed_request, drain_action, terminal_embed_event, DbCommandKind, DrainAction,
-    EmbedRequest, EmbeddingProgressEvent,
+    classify_embed_request, drain_action, sync_paths_drain_action, terminal_embed_event,
+    DbCommandKind, DrainAction, EmbedRequest, EmbeddingProgressEvent,
 };
 
 #[test]
@@ -45,6 +45,46 @@ fn a_structural_mutation_drained_mid_scan_restarts_the_scan() {
 fn pipeline_commands_drained_mid_scan_are_deferred() {
     assert_eq!(drain_action(DbCommandKind::Reentrant), DrainAction::Defer);
     assert_eq!(drain_action(DbCommandKind::Shutdown), DrainAction::Defer);
+}
+
+/// The contract documented on `drain_pending_commands`: a save made mid-pass is
+/// not delayed by the rest of the vault. `handle_sync_paths` used to defer every
+/// drained command, so a save landing during a path sync waited for the whole
+/// pass.
+#[test]
+fn a_save_drained_mid_path_sync_is_applied_immediately() {
+    assert_eq!(
+        sync_paths_drain_action(DbCommandKind::ContentUpsert),
+        DrainAction::Apply
+    );
+}
+
+#[test]
+fn pipeline_commands_drained_mid_path_sync_are_deferred() {
+    assert_eq!(
+        sync_paths_drain_action(DbCommandKind::Reentrant),
+        DrainAction::Defer
+    );
+    assert_eq!(
+        sync_paths_drain_action(DbCommandKind::Shutdown),
+        DrainAction::Defer
+    );
+}
+
+/// A path sync indexes a caller-supplied list, so a rename applied mid-pass
+/// would leave it indexing paths that no longer exist. Unlike `run_index_op`,
+/// which resyncs, this path keeps deferring structural mutations — the
+/// duplicated first assertion is the contrast the name promises.
+#[test]
+fn a_structural_mutation_drained_mid_path_sync_defers_where_a_scan_would_resync() {
+    assert_eq!(
+        drain_action(DbCommandKind::StructuralMutation),
+        DrainAction::ApplyAndResync
+    );
+    assert_eq!(
+        sync_paths_drain_action(DbCommandKind::StructuralMutation),
+        DrainAction::Defer
+    );
 }
 
 #[test]

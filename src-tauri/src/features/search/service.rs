@@ -4509,45 +4509,6 @@ mod tests {
         hits.iter().map(|h| h.note.path.clone()).collect()
     }
 
-    // The contract documented on drain_pending_commands: a save made mid-pass
-    // is not delayed by the rest of the vault. handle_sync_paths used to defer
-    // every drained command, so a save landing during a path sync waited for
-    // the whole pass.
-    #[test]
-    fn sync_paths_applies_content_upserts_mid_pass() {
-        assert_eq!(
-            sync_paths_drain_action(DbCommandKind::ContentUpsert),
-            DrainAction::Apply
-        );
-    }
-
-    #[test]
-    fn sync_paths_defers_reentrant_and_shutdown_commands() {
-        assert_eq!(
-            sync_paths_drain_action(DbCommandKind::Reentrant),
-            DrainAction::Defer
-        );
-        assert_eq!(
-            sync_paths_drain_action(DbCommandKind::Shutdown),
-            DrainAction::Defer
-        );
-    }
-
-    // A path sync indexes a caller-supplied list, so a rename applied mid-pass
-    // would leave it indexing paths that no longer exist. Unlike run_index_op,
-    // which resyncs, this path keeps deferring structural mutations.
-    #[test]
-    fn sync_paths_defers_structural_mutations_where_run_index_op_resyncs() {
-        assert_eq!(
-            drain_action(DbCommandKind::StructuralMutation),
-            DrainAction::ApplyAndResync
-        );
-        assert_eq!(
-            sync_paths_drain_action(DbCommandKind::StructuralMutation),
-            DrainAction::Defer
-        );
-    }
-
     #[test]
     fn finalize_suggestions_normalizes_scores_on_dense_fts_path() {
         // >= threshold: return FTS only, without fetching fuzzy, and flip the

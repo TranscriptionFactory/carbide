@@ -2,13 +2,13 @@
  * @vitest-environment jsdom
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { flushSync } from "svelte";
 import { create_task_sync_reactor } from "$lib/reactors/task_sync.reactor.svelte";
 import type { VaultFsEvent } from "$lib/features/watcher";
 import { WatcherService } from "$lib/features/watcher/application/watcher_service";
 import { VaultStore } from "$lib/features/vault/state/vault_store.svelte";
 import { create_mock_watcher_port } from "../helpers/mock_ports";
 import { create_test_vault } from "../helpers/test_fixtures";
+import { flush_effects } from "../helpers/tauri_event_mock";
 
 const VAULT_ID = "vault-1";
 const NOTE_PATH = "notes/a.md";
@@ -36,13 +36,6 @@ function removed_event(note_path: string): VaultFsEvent {
 
 function asset_event(asset_path: string): VaultFsEvent {
   return { type: "asset_changed", vault_id: VAULT_ID, asset_path };
-}
-
-async function flush_effects() {
-  flushSync();
-  for (let i = 0; i < 5; i += 1) {
-    await Promise.resolve();
-  }
 }
 
 // watcher.reactor is what calls WatcherService.start in production, so the
