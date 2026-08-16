@@ -5,6 +5,10 @@ const SELF_CONTAINED_HIGHLIGHT =
   "<details><summary>S</summary>Some ==marked== text</details>\n";
 const BLANK_LINE_HIGHLIGHT =
   "<details>\n<summary>S</summary>\n\nSome ==marked== text\n\n</details>\n";
+const SELF_CONTAINED_SUMMARY_HIGHLIGHT =
+  "<details><summary>A ==hot== title</summary>body</details>\n";
+const BLANK_LINE_SUMMARY_HIGHLIGHT =
+  "<details>\n<summary>A ==hot== title</summary>\n\nbody\n\n</details>\n";
 const SELF_CONTAINED_CALLOUT =
   "<details><summary>S</summary>\n> [!note]\n> body\n</details>\n";
 const BLANK_LINE_CALLOUT =
@@ -60,6 +64,22 @@ describe("highlight inside a details body", () => {
   it("still highlights ==marked== at top level", () => {
     const tree = parse_to_mdast("Some ==marked== text\n");
     expect(highlighted_values(tree)).toEqual(["marked"]);
+  });
+});
+
+// remark_details builds the summary text node itself, so highlight only reaches
+// it by running afterwards. A summary formats like the body it belongs to.
+describe("highlight inside a details summary", () => {
+  it("highlights ==marked== in a self-contained one-line summary", () => {
+    const tree = parse_to_mdast(SELF_CONTAINED_SUMMARY_HIGHLIGHT);
+    expect(has_nested_type(tree, "detailsSummary", "highlight")).toBe(true);
+    expect(highlighted_values(tree)).toEqual(["hot"]);
+  });
+
+  it("highlights ==marked== in a blank-line-form summary", () => {
+    const tree = parse_to_mdast(BLANK_LINE_SUMMARY_HIGHLIGHT);
+    expect(has_nested_type(tree, "detailsSummary", "highlight")).toBe(true);
+    expect(highlighted_values(tree)).toEqual(["hot"]);
   });
 });
 
