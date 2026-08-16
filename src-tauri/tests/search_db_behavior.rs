@@ -2,7 +2,7 @@ use crate::features::notes::service as notes_service;
 use crate::features::search::db::{
     compute_sync_plan, count_bases_many, extract_frontmatter_properties, get_backlinks,
     get_manifest, get_note_meta, get_orphan_outlinks, get_outlinks, list_note_paths_by_prefix,
-    open_search_db_at_path, query_bases, re_resolve_orphan_outlinks, rebuild_index,
+    open_search_db_at_path, query_bases, re_resolve_orphan_outlinks, rebuild_index, remove_note,
     remove_notes_by_prefix, rename_folder_paths, rename_note_path, search, search_headings,
     set_outlinks, suggest, suggest_planned, sync_index, upsert_note, upsert_note_simple,
 };
@@ -1347,3 +1347,198 @@ fn index_sourced_notes_carry_the_blurb() {
     );
 }
 
+
+fn task_note_meta(path: &str, title: &str, name: &str) -> IndexNoteMeta {
+    IndexNoteMeta {
+        id: path.to_string(),
+        path: path.to_string(),
+        title: title.to_string(),
+        name: name.to_string(),
+        mtime_ms: 100,
+        ctime_ms: 50,
+        size_bytes: 10,
+        blurb: String::new(),
+        file_type: None,
+        source: None,
+    }
+}
+
+fn task_rows(conn: &rusqlite::Connection, path: &str) -> Vec<(String, String, i64)> {
+    let mut stmt = conn
+        .prepare(
+            "SELECT text, status, line_number FROM tasks WHERE path = ?1 ORDER BY line_number",
+        )
+        .expect("statement should prepare");
+    let rows = stmt
+        .query_map([path], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))
+        .expect("query should run")
+        .collect::<Result<Vec<_>, _>>()
+        .expect("rows should decode");
+    rows
+}
+
+fn task_rowids(conn: &rusqlite::Connection, path: &str) -> Vec<i64> {
+    let mut stmt = conn
+        .prepare("SELECT rowid FROM tasks WHERE path = ?1 ORDER BY line_number")
+        .expect("statement should prepare");
+    let rows = stmt
+        .query_map([path], |r| r.get(0))
+        .expect("query should run")
+        .collect::<Result<Vec<_>, _>>()
+        .expect("rows should decode");
+    rows
+}
+
+#[test]
+fn saving_a_note_indexes_its_tasks() {
+    let tmp = TempDir::new().expect("temp dir should be created");
+    let conn = open_search_db_at_path(&tmp.path().join("test.db")).expect("db should open");
+    let meta = task_note_meta("notes/a.md", "A", "a");
+
+    upsert_note_simple(&conn, &meta, "# Plan\n- [ ] alpha\n- [x] beta\n").expect("save should run");
+
+    assert_eq!(
+        task_rows(&conn, "notes/a.md"),
+        vec![
+            ("alpha".to_string(), "todo".to_string(), 2),
+            ("beta".to_string(), "done".to_string(), 3),
+        ]
+    );
+}
+
+#[test]
+fn saving_a_toggled_checkbox_updates_the_task_row() {
+    let tmp = TempDir::new().expect("temp dir should be created");
+    let conn = open_search_db_at_path(&tmp.path().join("test.db")).expect("db should open");
+    let meta = task_note_meta("notes/a.md", "A", "a");
+
+    upsert_note_simple(&conn, &meta, "- [ ] alpha\n").expect("first save should run");
+    assert_eq!(
+        task_rows(&conn, "notes/a.md"),
+        vec![("alpha".to_string(), "todo".to_string(), 1)]
+    );
+
+    upsert_note_simple(&conn, &meta, "- [x] alpha\n").expect("second save should run");
+    assert_eq!(
+        task_rows(&conn, "notes/a.md"),
+        vec![("alpha".to_string(), "done".to_string(), 1)],
+        "the tasks table must follow the tick without a sync or a rebuild"
+    );
+}
+
+#[test]
+fn saving_an_added_task_line_inserts_a_row() {
+    let tmp = TempDir::new().expect("temp dir should be created");
+    let conn = open_search_db_at_path(&tmp.path().join("test.db")).expect("db should open");
+    let meta = task_note_meta("notes/a.md", "A", "a");
+
+    upsert_note_simple(&conn, &meta, "- [ ] alpha\n").expect("first save should run");
+    upsert_note_simple(&conn, &meta, "- [ ] alpha\n- [ ] beta\n").expect("second save should run");
+
+    assert_eq!(
+        task_rows(&conn, "notes/a.md"),
+        vec![
+            ("alpha".to_string(), "todo".to_string(), 1),
+            ("beta".to_string(), "todo".to_string(), 2),
+        ]
+    );
+}
+
+#[test]
+fn saving_a_removed_task_line_deletes_its_row() {
+    let tmp = TempDir::new().expect("temp dir should be created");
+    let conn = open_search_db_at_path(&tmp.path().join("test.db")).expect("db should open");
+    let meta = task_note_meta("notes/a.md", "A", "a");
+
+    upsert_note_simple(&conn, &meta, "- [ ] alpha\n- [ ] beta\n").expect("first save should run");
+    upsert_note_simple(&conn, &meta, "- [ ] alpha\n").expect("second save should run");
+
+    assert_eq!(
+        task_rows(&conn, "notes/a.md"),
+        vec![("alpha".to_string(), "todo".to_string(), 1)]
+    );
+}
+
+// Blocked, not flaky: `upsert_note_simple` opens with `REPLACE INTO notes`,
+// and every child table of `notes` — `tasks` included — carries an ON DELETE
+// CASCADE. The replace therefore deletes the note row and wipes its task rows
+// before `sync_tasks` is reached, so the unchanged-rows guard in
+// `tasks::service::save_tasks` always reads an empty table on this path and can
+// never fire. Un-ignoring this needs the notes upsert to stop deleting its own
+// row, which changes what happens to fifteen columns no lane here owns.
+#[test]
+#[ignore = "blocked on REPLACE INTO notes cascading its child rows away on every save"]
+fn resaving_unchanged_content_does_not_rewrite_task_rows() {
+    let tmp = TempDir::new().expect("temp dir should be created");
+    let conn = open_search_db_at_path(&tmp.path().join("test.db")).expect("db should open");
+    let a = task_note_meta("notes/a.md", "A", "a");
+    let b = task_note_meta("notes/b.md", "B", "b");
+
+    upsert_note_simple(&conn, &a, "- [ ] alpha\n").expect("save a should run");
+    // A second note holds the highest rowid, so any delete-and-reinsert of A's
+    // row lands on a fresh rowid instead of silently reclaiming the old one.
+    upsert_note_simple(&conn, &b, "- [ ] beta\n").expect("save b should run");
+
+    let before = task_rowids(&conn, "notes/a.md");
+    assert_eq!(before.len(), 1);
+
+    upsert_note_simple(&conn, &a, "- [ ] alpha\n").expect("identical resave should run");
+    assert_eq!(
+        task_rowids(&conn, "notes/a.md"),
+        before,
+        "a save that changes no task line must not rewrite the tasks table"
+    );
+
+    upsert_note_simple(&conn, &a, "- [x] alpha\n").expect("changed resave should run");
+    assert_ne!(
+        task_rowids(&conn, "notes/a.md"),
+        before,
+        "rowid stability must be able to see a real rewrite, or the check above proves nothing"
+    );
+}
+
+#[test]
+fn saving_a_canvas_note_indexes_no_tasks() {
+    let tmp = TempDir::new().expect("temp dir should be created");
+    let conn = open_search_db_at_path(&tmp.path().join("test.db")).expect("db should open");
+    let meta = task_note_meta("boards/board.canvas", "Board", "board.canvas");
+
+    upsert_note_simple(&conn, &meta, "- [ ] alpha\n").expect("save should run");
+
+    assert!(
+        task_rows(&conn, "boards/board.canvas").is_empty(),
+        "a task line number is only addressable in a markdown file"
+    );
+}
+
+#[test]
+fn removing_a_note_evicts_its_task_rows() {
+    let tmp = TempDir::new().expect("temp dir should be created");
+    let conn = open_search_db_at_path(&tmp.path().join("test.db")).expect("db should open");
+    let meta = task_note_meta("notes/a.md", "A", "a");
+
+    upsert_note_simple(&conn, &meta, "- [ ] alpha\n").expect("save should run");
+    assert_eq!(task_rows(&conn, "notes/a.md").len(), 1);
+
+    remove_note(&conn, "notes/a.md").expect("remove should run");
+    assert!(task_rows(&conn, "notes/a.md").is_empty());
+}
+
+#[test]
+fn removing_notes_by_prefix_evicts_task_rows() {
+    let tmp = TempDir::new().expect("temp dir should be created");
+    let conn = open_search_db_at_path(&tmp.path().join("test.db")).expect("db should open");
+    let inside = task_note_meta("folder/a.md", "A", "a");
+    let outside = task_note_meta("other/b.md", "B", "b");
+
+    upsert_note_simple(&conn, &inside, "- [ ] alpha\n").expect("save inside should run");
+    upsert_note_simple(&conn, &outside, "- [ ] beta\n").expect("save outside should run");
+
+    remove_notes_by_prefix(&conn, "folder").expect("prefix removal should run");
+    assert!(task_rows(&conn, "folder/a.md").is_empty());
+    assert_eq!(
+        task_rows(&conn, "other/b.md").len(),
+        1,
+        "a sibling folder's tasks must survive"
+    );
+}
