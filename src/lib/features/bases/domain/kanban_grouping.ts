@@ -11,6 +11,7 @@ export function group_rows_by_property(
   rows: BaseNoteRow[],
   property: string,
   column_order?: string[],
+  descending = false,
 ): KanbanColumn[] {
   const groups = new Map<string, BaseNoteRow[]>();
 
@@ -25,6 +26,8 @@ export function group_rows_by_property(
     }
   }
 
+  // An explicit column_order is an absolute statement about layout, so the
+  // sort direction deliberately does not reverse it.
   if (column_order && column_order.length > 0) {
     const result: KanbanColumn[] = [];
     const seen = new Set<string>();
@@ -46,7 +49,8 @@ export function group_rows_by_property(
   const sorted_keys = Array.from(groups.keys()).sort((a, b) => {
     if (a === UNSET_COLUMN) return 1;
     if (b === UNSET_COLUMN) return -1;
-    return a.localeCompare(b);
+    const order = a.localeCompare(b);
+    return descending ? -order : order;
   });
 
   return sorted_keys.map((value) => ({

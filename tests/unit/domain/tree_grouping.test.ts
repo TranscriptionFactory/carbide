@@ -143,3 +143,69 @@ describe("group_rows_by_tree", () => {
     expect(unset!.rows).toHaveLength(2);
   });
 });
+
+describe("group_rows_by_tree sort direction", () => {
+  it("reverses top-level group order when descending", () => {
+    const rows = [
+      make_row("a.md", { status: { value: "done" } }),
+      make_row("b.md", { status: { value: "todo" } }),
+      make_row("c.md", { status: { value: "blocked" } }),
+    ];
+
+    const tree = group_rows_by_tree(rows, ["status"], undefined, true);
+
+    expect(tree.map((n) => n.label)).toEqual(["todo", "done", "blocked"]);
+  });
+
+  it("reverses nested child group order when descending", () => {
+    const rows = [
+      make_row("a.md", { area: { value: "work" }, status: { value: "done" } }),
+      make_row("b.md", { area: { value: "work" }, status: { value: "todo" } }),
+      make_row("c.md", { area: { value: "home" }, status: { value: "done" } }),
+    ];
+
+    const tree = group_rows_by_tree(rows, ["area", "status"], undefined, true);
+
+    expect(tree.map((n) => n.label)).toEqual(["work", "home"]);
+    expect(tree.at(0)?.children.map((c) => c.label)).toEqual(["todo", "done"]);
+  });
+
+  it("keeps (unset) pinned last under descending", () => {
+    const rows = [
+      make_row("a.md", { status: { value: "zebra" } }),
+      make_row("b.md", {}),
+      make_row("c.md", { status: { value: "alpha" } }),
+    ];
+
+    const tree = group_rows_by_tree(rows, ["status"], undefined, true);
+
+    expect(tree.map((n) => n.label)).toEqual(["zebra", "alpha", "(unset)"]);
+  });
+
+  it("leaves row order inside a group to the query, in both directions", () => {
+    const rows = [
+      make_row("second.md", { status: { value: "done" } }),
+      make_row("first.md", { status: { value: "done" } }),
+    ];
+
+    const ascending = group_rows_by_tree(rows, ["status"], undefined, false);
+    const descending = group_rows_by_tree(rows, ["status"], undefined, true);
+
+    const paths = (tree: ReturnType<typeof group_rows_by_tree>) =>
+      tree.at(0)?.rows.map((r) => r.note.path);
+    expect(paths(ascending)).toEqual(["second.md", "first.md"]);
+    expect(paths(descending)).toEqual(["second.md", "first.md"]);
+  });
+
+  it("groups ascending when no direction is given", () => {
+    const rows = [
+      make_row("a.md", { status: { value: "todo" } }),
+      make_row("b.md", { status: { value: "done" } }),
+    ];
+
+    expect(group_rows_by_tree(rows, ["status"]).map((n) => n.label)).toEqual([
+      "done",
+      "todo",
+    ]);
+  });
+});
