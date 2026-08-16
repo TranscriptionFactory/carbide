@@ -29,6 +29,16 @@ const OPERATORS_LONGEST_FIRST = [...PROPERTY_OPERATORS].sort(
   (a, b) => b.length - a.length,
 );
 
+// A hand-typed "due>=x" has no whitespace to delimit the property name, so the
+// name must also end at an operator. Word operators like "contains" are excluded:
+// they are already whitespace-delimited, and stopping mid-word would truncate any
+// property whose name contains one.
+const OPERATOR_HEAD_CHARS = new Set(
+  OPERATORS_LONGEST_FIRST.filter((op) => /^\W/.test(op)).map((op) =>
+    op.charAt(0),
+  ),
+);
+
 class Parser {
   private pos = 0;
   private readonly input: string;
@@ -194,17 +204,13 @@ class Parser {
 
     const value = this.parse_value("with");
 
-    if (value.kind === "tag") {
-      return { kind: "clause", type: "with", negated, value };
-    }
-
     return { kind: "clause", type: "with", negated, value };
   }
 
   private try_parse_property_clause(negated: boolean): QueryClause | null {
     const save = this.pos;
 
-    const prop_name = this.peek_word();
+    const prop_name = this.peek_word_at(save, OPERATOR_HEAD_CHARS);
     if (!prop_name) return null;
 
     const after_prop = save + prop_name.length;
@@ -412,12 +418,14 @@ class Parser {
     return this.peek_word_at(this.pos);
   }
 
-  private peek_word_at(from: number): string {
+  private peek_word_at(from: number, stop_at?: ReadonlySet<string>): string {
     let i = from;
     while (i < this.input.length && /\s/.test(this.input[i]!)) i++;
     let word = "";
-    while (i < this.input.length && /\S/.test(this.input[i]!)) {
-      word += this.input[i]!;
+    while (i < this.input.length) {
+      const ch = this.input[i]!;
+      if (/\s/.test(ch) || stop_at?.has(ch)) break;
+      word += ch;
       i++;
     }
     return word;
