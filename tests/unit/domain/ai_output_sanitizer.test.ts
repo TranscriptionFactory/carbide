@@ -196,8 +196,13 @@ const preserves: [name: string, raw: string][] = [
     "a closer-shaped line quoted in a trailing blockquote",
     "They replied:\n\n> Let me know if you'd like me to adjust anything!",
   ],
+  // Documents sanitize_ai_output's empty-output fallback — NOT a guard on the
+  // trailing rule. Any rule aggressive enough to strip this would leave "",
+  // and the fallback returns the input unchanged regardless, so this case
+  // cannot fail however over-broad the tail rule becomes. Verified by
+  // mutation. Do not read it as evidence the tail rule is narrow.
   [
-    "a lone closer with no document in front of it",
+    "a lone closer, by the empty-output fallback rather than the tail rule",
     "Let me know if you'd like me to adjust anything!",
   ],
 ];

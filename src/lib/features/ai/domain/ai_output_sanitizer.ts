@@ -81,6 +81,12 @@ function is_preamble(paragraph: string): boolean {
 // trailing table, list or fenced block out of reach: those are multi-line, so
 // the split simply does not match and the text comes back untouched. Recurses
 // so that stacked closers are idempotent rather than order-dependent.
+//
+// Composed before unwrap_wrapper_fence, so a closer following a wrapper fence
+// is removed and the fence is then exposed for unwrapping. Known limit: a
+// closer *inside* the fence survives, which would need a second pass on the
+// unwrapped text. Left unhandled deliberately — chatter is a conversational
+// turn and the fence is the artifact, so the closer lands outside it.
 function strip_trailing_closers(text: string): string {
   const split = /^([\s\S]*?)\n[ \t]*\n([^\n]*)$/.exec(text.trimEnd());
   if (!split) return text;
