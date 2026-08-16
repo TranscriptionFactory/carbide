@@ -93,6 +93,8 @@ mod markdown_lsp_status_serde;
 
 #[path = "../../tests/toolchain_registry_specs.rs"]
 mod toolchain_registry_specs;
+#[path = "../../tests/toolchain_paths.rs"]
+mod toolchain_paths;
 
 #[path = "../../tests/metadata_events.rs"]
 mod metadata_events;

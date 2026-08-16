@@ -100,22 +100,9 @@ pub async fn toolchain_uninstall(
     state: State<'_, ToolchainState>,
     tool_id: String,
 ) -> Result<(), String> {
-    let spec = registry::get(&tool_id).ok_or_else(|| format!("Unknown tool: {}", tool_id))?;
+    registry::get(&tool_id).ok_or_else(|| format!("Unknown tool: {}", tool_id))?;
 
-    let path = resolver::downloaded_path(&app, &tool_id, spec.version, spec.binary_name)?;
-
-    if path.exists() {
-        tokio::fs::remove_file(&path)
-            .await
-            .map_err(|e| format!("Failed to remove binary: {}", e))?;
-
-        if let Some(parent) = path.parent() {
-            let _ = tokio::fs::remove_dir(parent).await;
-            if let Some(grandparent) = parent.parent() {
-                let _ = tokio::fs::remove_dir(grandparent).await;
-            }
-        }
-    }
+    resolver::remove_tool_downloads_for(&app, &tool_id).await?;
 
     let mut statuses = state.statuses.lock().await;
     statuses.insert(tool_id, ToolStatus::NotInstalled);

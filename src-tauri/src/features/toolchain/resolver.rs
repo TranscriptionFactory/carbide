@@ -118,26 +118,56 @@ fn sidecar_path(app: &AppHandle, binary_name: &str) -> Option<PathBuf> {
     None
 }
 
+pub fn tool_dir_in(app_data: &Path, tool_id: &str) -> PathBuf {
+    app_data.join("toolchain").join(tool_id)
+}
+
+pub fn downloaded_path_in(
+    app_data: &Path,
+    tool_id: &str,
+    version: &str,
+    binary_name: &str,
+) -> PathBuf {
+    let bin = if cfg!(target_os = "windows") {
+        format!("{}.exe", binary_name)
+    } else {
+        binary_name.to_string()
+    };
+    tool_dir_in(app_data, tool_id).join(version).join(bin)
+}
+
+pub async fn remove_tool_downloads_for(app: &AppHandle, tool_id: &str) -> Result<(), String> {
+    remove_tool_downloads(&app_data_dir(app)?, tool_id).await
+}
+
+pub async fn remove_tool_downloads(app_data: &Path, tool_id: &str) -> Result<(), String> {
+    let dir = tool_dir_in(app_data, tool_id);
+    if !dir.exists() {
+        return Ok(());
+    }
+    tokio::fs::remove_dir_all(&dir)
+        .await
+        .map_err(|e| format!("Failed to remove {}: {}", dir.display(), e))
+}
+
+fn app_data_dir(app: &AppHandle) -> Result<PathBuf, String> {
+    app.path()
+        .app_data_dir()
+        .map_err(|e| format!("Cannot determine app data directory: {}", e))
+}
+
 pub fn downloaded_path(
     app: &AppHandle,
     tool_id: &str,
     version: &str,
     binary_name: &str,
 ) -> Result<PathBuf, String> {
-    let app_data = app
-        .path()
-        .app_data_dir()
-        .map_err(|e| format!("Cannot determine app data directory: {}", e))?;
-    let bin = if cfg!(target_os = "windows") {
-        format!("{}.exe", binary_name)
-    } else {
-        binary_name.to_string()
-    };
-    Ok(app_data
-        .join("toolchain")
-        .join(tool_id)
-        .join(version)
-        .join(bin))
+    Ok(downloaded_path_in(
+        &app_data_dir(app)?,
+        tool_id,
+        version,
+        binary_name,
+    ))
 }
 
 fn which(name: &str) -> Result<PathBuf, String> {
