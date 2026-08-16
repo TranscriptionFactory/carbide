@@ -141,7 +141,7 @@
 
 <div class="flex flex-col h-full min-h-0">
   <div
-    class="flex items-center gap-1 border-b border-zinc-200 dark:border-zinc-800 px-2 py-1.5 shrink-0"
+    class="flex flex-wrap items-center gap-1 border-b border-zinc-200 dark:border-zinc-800 px-2 py-1.5 shrink-0"
   >
     <Select.Root
       type="single"
