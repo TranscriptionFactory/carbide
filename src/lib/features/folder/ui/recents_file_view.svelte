@@ -6,7 +6,7 @@
   import ArrowUp from "@lucide/svelte/icons/arrow-up";
   import ArrowDown from "@lucide/svelte/icons/arrow-down";
   import Files from "@lucide/svelte/icons/files";
-  import { file_icon_for_path } from "$lib/shared/ui/file_icons";
+  import { file_icon_for_path } from "$lib/features/folder/ui/file_icons";
   import type { BaseNoteRow } from "$lib/features/bases";
   import type { NoteMeta } from "$lib/shared/types/note";
   import type {

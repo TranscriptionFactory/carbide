@@ -4,7 +4,7 @@
   import { is_linked_note_path } from "$lib/shared/types/note";
   import type { FileTreeBlurbPosition } from "$lib/shared/types/editor_settings";
   import { detect_file_type } from "$lib/features/document";
-  import { file_icon_component } from "$lib/shared/ui/file_icons";
+  import { file_icon_component } from "$lib/features/folder/ui/file_icons";
   import {
     NAMED_COLOR_OPTIONS,
     sanitize_note_color,

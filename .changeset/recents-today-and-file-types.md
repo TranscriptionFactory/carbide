@@ -10,7 +10,7 @@ yesterday evening does not linger in "Today" just because it was under 24 hours
 ago.
 
 The period window also filtered the wrong column. Whatever you sorted by, the
-window was always applied to *created*, so a note written last month and edited
+window was always applied to _created_, so a note written last month and edited
 this morning fell outside "Today" — invisible at 90 days, wrong at one. The
 window now constrains the same column the list is ordered by. Sorting by title
 has no timestamp to window, so recency falls back to modified rather than

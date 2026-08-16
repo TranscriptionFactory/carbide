@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   file_icon_component,
   file_icon_for_path,
-} from "$lib/shared/ui/file_icons";
+} from "$lib/features/folder/ui/file_icons";
 
 describe("file_icon_component", () => {
   it("gives a pdf its own icon rather than the plain-text one", () => {
