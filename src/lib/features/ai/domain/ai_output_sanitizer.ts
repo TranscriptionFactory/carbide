@@ -21,6 +21,26 @@ const BARE_OPENER = new RegExp(`^(${OPENERS})[.!…]*$`, "i");
 
 const MARKDOWN_STRUCTURE = /^(#|>|[-*+]\s|\d+[.)]\s|\||`{3,}|~{3,})/;
 
+// The tail rule is stricter than the head rule, and deliberately so. The
+// document path prompts for "the complete edited markdown for the document", so
+// the trailing paragraph of a model reply is routinely the *user's* last
+// paragraph, and the inline path applies the result with no accept step. A head
+// false positive costs a preamble; a tail false positive costs the user a line
+// they wrote.
+const MAX_CLOSER_LENGTH = 160;
+
+// Both halves are required. The offer frame alone is ordinary prose — "Let me
+// know if you'd like to grab coffee!" — so it only reads as a closer when it
+// offers to keep working on the text that precedes it. There is no tail
+// equivalent of the head rule's colon, which is why the weaker announcing tier
+// has no counterpart here.
+const CLOSER_OFFER =
+  /^(let me know|just let me know|feel free to|would you like|do you want|want me to|i can|i could|i'?d be happy to|happy to|i hope this helps|hope this helps)\b/i;
+
+const REVISION_STEMS =
+  "adjust|tweak|revis|rewrit|reword|edit|chang|expand|shorten|lengthen|refin|elaborat|clarif|polish|iterat|modif|amend|condens|restructur|reorder";
+const CLOSER_SUBJECT = new RegExp(`\\b(?:${REVISION_STEMS})\\w*`, "i");
+
 const WRAPPER_INFO_STRINGS = new Set([
   "",
   "markdown",
@@ -31,7 +51,9 @@ const WRAPPER_INFO_STRINGS = new Set([
 ]);
 
 export function sanitize_ai_output(raw: string): string {
-  const cleaned = unwrap_wrapper_fence(strip_leading_preamble(raw));
+  const cleaned = unwrap_wrapper_fence(
+    strip_trailing_closers(strip_leading_preamble(raw)),
+  );
   return cleaned.trim() === "" ? raw : cleaned;
 }
 
@@ -53,6 +75,26 @@ function is_preamble(paragraph: string): boolean {
   return (
     ANNOUNCING_LEAD_IN.test(paragraph) || CONVERSATIONAL_OPENER.test(paragraph)
   );
+}
+
+// Requires the last paragraph to be a single line, which is what keeps a
+// trailing table, list or fenced block out of reach: those are multi-line, so
+// the split simply does not match and the text comes back untouched. Recurses
+// so that stacked closers are idempotent rather than order-dependent.
+function strip_trailing_closers(text: string): string {
+  const split = /^([\s\S]*?)\n[ \t]*\n([^\n]*)$/.exec(text.trimEnd());
+  if (!split) return text;
+  const [, head = "", tail = ""] = split;
+  if (head.trim() === "") return text;
+  return is_closer(tail.trim()) ? strip_trailing_closers(head) : text;
+}
+
+function is_closer(paragraph: string): boolean {
+  if (paragraph.length === 0 || paragraph.length > MAX_CLOSER_LENGTH) {
+    return false;
+  }
+  if (MARKDOWN_STRUCTURE.test(paragraph)) return false;
+  return CLOSER_OFFER.test(paragraph) && CLOSER_SUBJECT.test(paragraph);
 }
 
 // Only unwraps when the entire output is one fence carrying a markdown-ish info
