@@ -91,6 +91,8 @@ function strip_trailing_closers(text: string): string {
   const split = /^([\s\S]*?)\n[ \t]*\n([^\n]*)$/.exec(text.trimEnd());
   if (!split) return text;
   const [, head = "", tail = ""] = split;
+  // Keeps this safe without sanitize_ai_output's empty-output fallback — one
+  // caller today, and this guard is what survives a second.
   if (head.trim() === "") return text;
   return is_closer(tail.trim()) ? strip_trailing_closers(head) : text;
 }
