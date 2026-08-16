@@ -1,30 +1,30 @@
 use super::types::{PlatformBinary, ToolCapability, ToolSpec};
 
-const RUMDL_VERSION: &str = "0.1.59";
+const RUMDL_VERSION: &str = "0.2.55";
 const MARKSMAN_VERSION: &str = "2026-02-08";
-const IWES_VERSION: &str = "0.0.67";
-const MARKDOWN_OXIDE_VERSION: &str = "0.25.10";
+const IWES_VERSION: &str = "0.19.1";
+const MARKDOWN_OXIDE_VERSION: &str = "0.25.12";
 
 static RUMDL_BINARIES: &[PlatformBinary] = &[
     PlatformBinary {
         triple: "aarch64-apple-darwin",
         asset_template: "rumdl-v{version}-aarch64-apple-darwin.tar.gz",
-        sha256: "abebb21d20687b2e4716a885a332444dd904eb36b5484c4176783d5850d48576",
+        sha256: "98dd5620e7eb8ba8fd77830fe1f313530ae2a6368ae867149f7de13dbebde6e3",
     },
     PlatformBinary {
         triple: "x86_64-apple-darwin",
         asset_template: "rumdl-v{version}-x86_64-apple-darwin.tar.gz",
-        sha256: "7e3b1f283341f241b3d9e89fc4f30bc2d5c459eedfb95592dd403f5af782f1c4",
+        sha256: "8dadf1b9aeda17f8a41ab4fcdd2a7f7dfb6eda8981ddce3ebf61b72e3d1d3f89",
     },
     PlatformBinary {
         triple: "x86_64-unknown-linux-gnu",
         asset_template: "rumdl-v{version}-x86_64-unknown-linux-gnu.tar.gz",
-        sha256: "44415ba79bfaf089f3e81c1a60dbbec99464b0bfe2169b541337cb62cd829533",
+        sha256: "7bddb23415f94c6503fe77f382d4c2398a2b36a78d936a434a8c71c3711da21b",
     },
     PlatformBinary {
         triple: "x86_64-pc-windows-msvc",
         asset_template: "rumdl-v{version}-x86_64-pc-windows-msvc.zip",
-        sha256: "a584c0683e07e48c8b214d9a71dfbdba79f232081165b7885ea942b8bc278248",
+        sha256: "47c04176f960e2d196b1e465564869363469ec00714c2970e1f441deff7f679d",
     },
 ];
 
@@ -55,22 +55,22 @@ static IWES_BINARIES: &[PlatformBinary] = &[
     PlatformBinary {
         triple: "aarch64-apple-darwin",
         asset_template: "iwe-v{version}-aarch64-apple-darwin.tar.gz",
-        sha256: "TODO",
+        sha256: "c1b131d5998a42b43aad78fa723f86810d29dada340d73cc3db99a8b94a7a00a",
     },
     PlatformBinary {
         triple: "x86_64-apple-darwin",
         asset_template: "iwe-v{version}-x86_64-apple-darwin.tar.gz",
-        sha256: "TODO",
+        sha256: "ce09160256aaf1f35309e86cc36d44e63d57a155ff7b679968dbea2ab0d6bcc6",
     },
     PlatformBinary {
         triple: "x86_64-unknown-linux-gnu",
         asset_template: "iwe-v{version}-x86_64-unknown-linux-gnu.tar.gz",
-        sha256: "TODO",
+        sha256: "b48035a05d58f3fe185056b7b3078d7b6f6bbee8cc44b29eb401f20fec046a97",
     },
     PlatformBinary {
         triple: "x86_64-pc-windows-msvc",
-        asset_template: "iwe-v{version}-x86_64-pc-windows-msvc.tar.gz",
-        sha256: "TODO",
+        asset_template: "iwe-v{version}-x86_64-pc-windows-msvc.zip",
+        sha256: "462bc906edec803b23619b63ffd9d90e9c3bce6edcdea14f0133f354abbab1a1",
     },
 ];
 
@@ -78,22 +78,22 @@ static MARKDOWN_OXIDE_BINARIES: &[PlatformBinary] = &[
     PlatformBinary {
         triple: "aarch64-apple-darwin",
         asset_template: "markdown-oxide-v{version}-aarch64-apple-darwin.tar.gz",
-        sha256: "TODO",
+        sha256: "fd851fbec60dc7cda5b21c682232e5c6ae6671c726e64bce3fe20013223c5774",
     },
     PlatformBinary {
         triple: "x86_64-apple-darwin",
         asset_template: "markdown-oxide-v{version}-x86_64-apple-darwin.tar.gz",
-        sha256: "TODO",
+        sha256: "706faf36ab17de112b9811090ef275e3e27472c2382bccf33880cce48e0a03c7",
     },
     PlatformBinary {
         triple: "x86_64-unknown-linux-gnu",
         asset_template: "markdown-oxide-v{version}-x86_64-unknown-linux-gnu.tar.gz",
-        sha256: "TODO",
+        sha256: "ad4248cf5d3f0e9d9f120b579501c45dad9c46bfcb4ddec36d2cb85d68a58828",
     },
     PlatformBinary {
         triple: "x86_64-pc-windows-msvc",
         asset_template: "markdown-oxide-v{version}-x86_64-pc-windows-gnu.zip",
-        sha256: "TODO",
+        sha256: "876c5d448abd44211f14d8d611e91b2152f6e3aec98702da976489891bab8839",
     },
 ];
 

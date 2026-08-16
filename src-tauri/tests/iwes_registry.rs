@@ -12,7 +12,7 @@ fn iwes_spec_is_downloadable() {
 #[test]
 fn iwes_release_tag_uses_iwe_prefix() {
     let spec = registry::get("iwes").expect("iwes spec exists");
-    assert_eq!(spec.release_tag(), "iwe-v0.0.67");
+    assert_eq!(spec.release_tag(), format!("iwe-v{}", spec.version));
 }
 
 #[test]
@@ -31,9 +31,9 @@ fn iwes_download_url_is_well_formed() {
             "https://github.com/{}/releases/download/{}/{}",
             spec.github_repo, tag, asset
         );
-        assert!(url.starts_with(
-            "https://github.com/iwe-org/iwe/releases/download/iwe-v0.0.67/iwe-v0.0.67-"
-        ));
+        assert!(url.starts_with(&format!(
+            "https://github.com/iwe-org/iwe/releases/download/{tag}/{tag}-"
+        )));
         assert!(url.contains(pb.triple));
     }
 }

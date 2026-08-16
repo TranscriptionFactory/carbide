@@ -20,7 +20,7 @@ fn marksman_release_tag_is_date() {
 #[test]
 fn rumdl_release_tag_has_v_prefix() {
     let spec = registry::get("rumdl").expect("rumdl spec exists");
-    assert_eq!(spec.release_tag(), "v0.1.59");
+    assert_eq!(spec.release_tag(), format!("v{}", spec.version));
 }
 
 #[test]
@@ -37,6 +37,32 @@ fn tool_lookup_by_id() {
     assert!(registry::get("marksman").is_some());
     assert!(registry::get("iwes").is_some());
     assert!(registry::get("nonexistent").is_none());
+}
+
+#[test]
+fn all_platform_binaries_have_a_real_sha256() {
+    for tool in registry::TOOLS {
+        for pb in tool.platform_binaries {
+            assert_eq!(
+                pb.sha256.len(),
+                64,
+                "Tool '{}' target '{}' has a sha256 that is not 64 hex chars: {:?}",
+                tool.id,
+                pb.triple,
+                pb.sha256
+            );
+            assert!(
+                pb.sha256
+                    .chars()
+                    .all(|c| c.is_ascii_digit() || ('a'..='f').contains(&c)),
+                "Tool '{}' target '{}' has a non-hex sha256: {:?} — a placeholder makes \
+                 the downloader skip integrity verification entirely",
+                tool.id,
+                pb.triple,
+                pb.sha256
+            );
+        }
+    }
 }
 
 #[test]
