@@ -9,3 +9,7 @@ src/lib/vendor
 pnpm-lock.yaml
 *.min.js
 carbide
+src-tauri/tauri.conf.json
+
+# Symlink to the separate carbide-private repo. A public-repo formatter must never write there.
+private
