@@ -5993,7 +5993,7 @@ pub fn query_bases(
         "outlink_count",
         "reading_time_secs",
     ];
-    let direct_columns = ["path", "title", "mtime_ms", "ctime_ms", "size_bytes"];
+    let direct_columns = ["path", "title", "mtime_ms", "ctime_ms", "size_bytes", "file_type"];
     let task_agg_columns = ["task_count", "tasks_done", "tasks_todo", "next_due_date"];
 
     let is_direct_col = |prop: &str| direct_columns.contains(&prop) || stat_columns.contains(&prop);
@@ -6161,7 +6161,7 @@ fn build_bases_where(
         "outlink_count",
         "reading_time_secs",
     ];
-    let direct_columns = ["path", "title", "mtime_ms", "ctime_ms", "size_bytes"];
+    let direct_columns = ["path", "title", "mtime_ms", "ctime_ms", "size_bytes", "file_type"];
     let task_agg_columns = ["task_count", "tasks_done", "tasks_todo", "next_due_date"];
 
     let is_direct_col = |prop: &str| direct_columns.contains(&prop) || stat_columns.contains(&prop);
@@ -6235,6 +6235,22 @@ fn build_bases_where(
                 ));
             }
             params.push(Box::new(value.clone()));
+        } else if is_direct_col(prop) && filter.operator == "in" {
+            // The filter wire type carries a single string, so `in` takes its set
+            // comma-separated. SQLite accepts an empty `IN ()` list and matches
+            // nothing, which is what an empty set should mean.
+            let members: Vec<&str> = value
+                .split(',')
+                .map(str::trim)
+                .filter(|v| !v.is_empty())
+                .collect();
+            let placeholders: Vec<String> = (0..members.len())
+                .map(|i| format!("?{}", params.len() + 1 + i))
+                .collect();
+            where_clauses.push(format!("notes.{} IN ({})", prop, placeholders.join(", ")));
+            for member in members {
+                params.push(Box::new(member.to_string()));
+            }
         } else if is_direct_col(prop) {
             let op = match filter.operator.as_str() {
                 "eq" => "=",

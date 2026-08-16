@@ -76,7 +76,7 @@ export type FileTreeBlurbPosition = "caption" | "heading";
 export type FileTreeMode = "tree" | "drilldown" | "recents" | "bases";
 export type RecentsSort = "modified" | "created" | "title";
 export type SortDirection = "asc" | "desc";
-export type RecentsPeriod = "all" | "week" | "month" | "quarter";
+export type RecentsPeriod = "all" | "today" | "week" | "month" | "quarter";
 export type GraphGroupMode = "folder" | "cluster" | "tag" | "degree" | "none";
 export type GraphOrderMode = "name" | "date_created" | "date_modified";
 export type LintFormatter = "prettier" | "rumdl";
@@ -218,6 +218,7 @@ export type EditorSettings = {
   file_tree_mode: FileTreeMode;
   recents_sort: { option: RecentsSort; direction: SortDirection };
   recents_period: RecentsPeriod;
+  recents_show_non_markdown: boolean;
   default_note_name_template: string;
   lint_enabled: boolean;
   lint_format_on_save: boolean;
@@ -350,6 +351,7 @@ export const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
   file_tree_mode: "tree",
   recents_sort: { option: "modified", direction: "desc" },
   recents_period: "all",
+  recents_show_non_markdown: true,
   default_note_name_template: "",
   lint_enabled: true,
   lint_format_on_save: false,
@@ -584,6 +586,7 @@ export const GLOBAL_ONLY_SETTING_KEYS: readonly (keyof EditorSettings)[] = [
   "file_tree_mode",
   "recents_sort",
   "recents_period",
+  "recents_show_non_markdown",
   "editor_block_drag_handle",
   "vim_nav_enabled",
   "mcp_enabled",

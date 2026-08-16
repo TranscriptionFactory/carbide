@@ -1,61 +1,10 @@
-<script module lang="ts">
-  import {
-    File,
-    FileCode,
-    FileImage,
-    FileSpreadsheet,
-    FileText,
-  } from "@lucide/svelte";
-
-  const IMAGE_EXTENSIONS = new Set([
-    "png",
-    "jpg",
-    "jpeg",
-    "gif",
-    "svg",
-    "webp",
-    "avif",
-    "ico",
-  ]);
-  const CODE_EXTENSIONS = new Set([
-    "ts",
-    "js",
-    "tsx",
-    "jsx",
-    "py",
-    "rs",
-    "go",
-    "java",
-    "c",
-    "cpp",
-    "h",
-    "html",
-    "css",
-    "json",
-    "yaml",
-    "yml",
-    "toml",
-    "sh",
-  ]);
-  const SHEET_EXTENSIONS = new Set(["csv", "tsv", "xlsx", "xls"]);
-  const TEXT_EXTENSIONS = new Set(["txt", "pdf", "rtf", "log"]);
-
-  function file_icon_component(ext: string) {
-    const lower = ext.toLowerCase();
-    if (IMAGE_EXTENSIONS.has(lower)) return FileImage;
-    if (CODE_EXTENSIONS.has(lower)) return FileCode;
-    if (SHEET_EXTENSIONS.has(lower)) return FileSpreadsheet;
-    if (TEXT_EXTENSIONS.has(lower)) return FileText;
-    return File;
-  }
-</script>
-
 <script lang="ts">
   import type { FlatTreeNode } from "$lib/shared/types/filetree";
   import type { NoteMeta } from "$lib/shared/types/note";
   import { is_linked_note_path } from "$lib/shared/types/note";
   import type { FileTreeBlurbPosition } from "$lib/shared/types/editor_settings";
   import { detect_file_type } from "$lib/features/document";
+  import { file_icon_component } from "$lib/shared/ui/file_icons";
   import {
     NAMED_COLOR_OPTIONS,
     sanitize_note_color,
@@ -82,6 +31,7 @@
     Sparkles,
     Palette,
     Smile,
+    FileText,
   } from "@lucide/svelte";
   import { toast } from "$lib/shared/ui/toast";
 
