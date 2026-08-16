@@ -1,5 +1,57 @@
 # carbide
 
+## 2.30.3
+
+### Patch Changes
+
+- 04e8934: Refresh the markdown toolchain pins and verify every download
+
+  The four language tools installed from Settings > Tools were pinned to versions
+  that had drifted badly behind upstream, and half of them were being installed
+  without any integrity check.
+
+  Pins now track the current upstream releases:
+  - rumdl `0.1.59` → `0.2.55` (93 releases behind)
+  - IWE `0.0.67` → `0.19.1` (37 releases behind)
+  - Markdown Oxide `0.25.10` → `0.25.12` (2 releases behind)
+  - Marksman stays at `2026-02-08`, already current
+
+  All sixteen tool/platform SHA-256 hashes are now real. Previously the IWE and
+  Markdown Oxide entries carried the literal string `"TODO"`, which
+  `downloader::download_tool` treats as "skip verification" — so eight of the
+  sixteen downloads were being written to disk, marked executable, ad-hoc
+  codesigned on macOS, and spawned as a long-lived LSP child process without their
+  contents ever being checked. Each hash was computed from the released artifact
+  and independently reconfirmed before being recorded.
+
+  Also fixes IWE's Windows asset name, which asked for
+  `iwe-v{version}-x86_64-pc-windows-msvc.tar.gz`. Upstream has only ever published
+  that build as a `.zip`, so installing IWE on Windows had been 404-ing since the
+  entry was first written — this was not upstream drift.
+
+  A new registry test asserts that every SHA-256 is 64 hex characters, so a
+  placeholder can no longer silently disable integrity verification.
+
+- f9ee755: Fix Settings > Tools "Uninstall" leaving the tool on disk after a version bump
+
+  `toolchain_uninstall` built its delete path from the _currently pinned_ version,
+  so it could only ever remove `toolchain/<tool>/<current-pin>/<binary>`. Any copy
+  installed under an earlier pin sat in a sibling directory and was never touched —
+  while the command still reported success and flipped the UI to "Not installed".
+  Uninstalling a tool you had installed before an app update therefore appeared to
+  work and silently did nothing.
+
+  Uninstall now removes the whole `toolchain/<tool>/` directory, clearing every
+  downloaded version. This also fixes the related leak: old version directories
+  were never garbage-collected on a bump, so each new pin left the previous
+  binary behind permanently.
+
+  Two smaller corrections in the same path: directory removal used non-recursive
+  `remove_dir` behind `let _ =`, so a failure was silently discarded and reported
+  as a successful uninstall — errors now propagate. And the cleanup no longer
+  attempts to remove the shared `toolchain/` parent, which raced against other
+  tools installing concurrently.
+
 ## 2.30.2
 
 ### Patch Changes
