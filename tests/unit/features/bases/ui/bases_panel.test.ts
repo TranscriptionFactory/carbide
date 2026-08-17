@@ -225,8 +225,9 @@ describe("bases panel refresh", () => {
         calls.push("refresh_properties");
         await properties_gate;
       }),
-      run_query: vi.fn(async () => {
+      run_query: vi.fn(() => {
         calls.push("run_query");
+        return Promise.resolve();
       }),
     } as unknown as BasesService;
 
