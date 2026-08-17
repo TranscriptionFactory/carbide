@@ -1,5 +1,161 @@
 # carbide
 
+## 2.31.0
+
+### Minor Changes
+
+- 2a16b3d: Add a "Today" period to Recents, and make non-markdown files visible and filterable
+
+  Recents gained a **Today** chip alongside All / Week / Month / Quarter. It cuts
+  off at local midnight rather than a rolling 24 hours, so a file you touched
+  yesterday evening does not linger in "Today" just because it was under 24 hours
+  ago.
+
+  The period window also filtered the wrong column. Whatever you sorted by, the
+  window was always applied to _created_, so a note written last month and edited
+  this morning fell outside "Today" — invisible at 90 days, wrong at one. The
+  window now constrains the same column the list is ordered by. Sorting by title
+  has no timestamp to window, so recency falls back to modified rather than
+  comparing a date against a title.
+
+  Non-markdown files were already being returned by Recents; they were simply
+  indistinguishable, because every row drew the same document icon. Rows now take
+  an icon from their file type, and a new toggle in the Recents header hides
+  everything that is not a note. The setting is global and survives a restart.
+  PDFs, e-books and canvases each read differently at a glance — in the file tree
+  too, where a PDF previously looked identical to a `.txt`.
+
+  Filtering a base on `file_type` used to return nothing at all. The column was
+  never registered as a real column, so the filter fell through to the frontmatter
+  lookup and produced valid SQL that matched zero rows, with no error to show for
+  it. Sorting by it had the same problem. Both work now, and filters gained an
+  `in` operator so a set of values can be matched in one clause.
+
+### Patch Changes
+
+- 9cb6589: Fix Bases tree and kanban views ignoring the ASC/DESC toggle
+
+  Flipping the sort direction in a Bases view left the tree's groups and the
+  kanban's columns in the same order. The query itself was fine — rows inside a
+  group already followed the direction — but both grouping views re-ordered the
+  groups themselves client-side with a hard-coded ascending comparison, so the
+  direction never reached the group headers. The toggle now reverses group
+  ordering in both views.
+
+  Two deliberate rules go with it. `(unset)` stays pinned last in both
+  directions, because it is an absence rather than a value and reads as a footer
+  either way. A kanban view with a saved column order is intentionally left alone
+  by the toggle — an explicit column order is an absolute statement about layout.
+
+  Also in this area:
+  - The sort row no longer renders in calendar view, where row order has no
+    meaning in a month grid. It still renders in table, list, tree and kanban.
+  - The sort-property picker offered only Title and Modified. It now lists every
+    column the query engine can actually sort by — path, timestamps, size, the
+    document statistics and the task rollups — and resolves saved aliases such as
+    `modified` and `created` to the column they run against. A seeded view sorted
+    by `modified` previously displayed "No sort" while its direction button was
+    live.
+  - Embedded Bases tables no longer show a pointer cursor and hover highlight on
+    their column headers, which are not clickable there.
+  - The panel's refresh button now runs the same refresh action as the command
+    palette, so the property list is rebuilt before the query re-runs instead of
+    racing it.
+
+- cdde256: Highlight `==marked==` text inside a one-line `<details>`
+
+  Writing a collapsible section on a single line —
+  `<details><summary>Title</summary>Some ==marked== text</details>` — rendered the
+  highlight as literal `==marked==` instead of highlighted text. The same note
+  written with blank lines around the body highlighted correctly, so the two ways
+  of writing a collapsible disagreed with each other.
+
+  Highlights were being applied before collapsibles and callouts were recognised.
+  On the one-line form the body is still an undivided block of HTML at that point,
+  so there is no text for the highlighter to mark, and it never gets a second
+  look. Highlights are now applied after collapsibles and callouts have been split
+  out, so the body is real text by the time they run.
+
+  A `<summary>` title containing `==marked==` now highlights too, in both the
+  one-line and blank-line forms; previously neither did.
+
+  Callouts inside collapsibles, and highlights in every other container
+  (callouts, blockquotes, lists, table cells), are unchanged.
+
+- 4c1f661: Tick a checkbox and see it in the tasks panel straight away
+
+  Editing a note kept every part of the index up to date except one. Saving
+  refreshed the note's tags, headings, sections, code blocks and links, but never
+  touched the tasks table. So a checkbox you ticked, a task you added, or a task
+  line you deleted stayed at its old state everywhere tasks are read from —
+  the tasks panel, task queries and task smart blocks — until the next vault sync
+  or a full index rebuild happened to pass over the file. Everything else about
+  the same note updated immediately, which made tasks look randomly frozen rather
+  than pending.
+
+  The cause was placement: task extraction ran only inside the vault indexer, on
+  the path that walks files from disk, and not in the shared note-upsert that
+  every editor save goes through. Tasks are now synced alongside the tags,
+  headings, sections and links in that shared upsert, so a save updates them the
+  same way and at the same moment as everything else. The indexer keeps working
+  as before, because it goes through the same upsert.
+
+  Task rows stay limited to markdown files, unchanged from before: a checkbox in
+  a canvas card is not indexed as a task, because its line number would not point
+  anywhere in the file on disk.
+
+  Separately, saving tasks now skips the write entirely when a note's tasks are
+  identical to what is already stored. Ticking one box in a long list previously
+  deleted and reinserted every task row in the note.
+
+- c31fb7c: Accepting several proposals that touch the same note now reloads that note once
+
+  The post-write reconciliation walked its path list as given. A batch that
+  applied two proposals against one file listed that file twice, so the open
+  buffer was closed and force-reloaded twice in a row — duplicate work, not wrong
+  work, but the second round trip re-read disk and reset the editor for a note
+  that was already current.
+
+  The path list is deduplicated before the walk, keeping first-seen order.
+
+- cbd8a1a: Fix hand-typed queries failing when a comparison operator has no spaces around it
+
+  Typing `Notes with due>="now()-7d"` into the omnibar produced a parse error
+  instead of a result. The parser read the property name as a whitespace-delimited
+  word, so `due>=` was taken as the whole property name, no operator was found, and
+  the rest of the line was reported as unexpected text. Adding spaces —
+  `Notes with due >= "now()-7d"` — worked, which is why the query builder never hit
+  this: it always emits the spaced form. Only queries typed by hand were affected.
+
+  A property name now ends at a comparison operator as well as at whitespace, so
+  the tight and spaced forms parse to exactly the same query. This covers `=`,
+  `!=`, `>`, `<`, `>=` and `<=`. The word operator `contains` is unchanged and
+  still needs surrounding spaces, and a property whose name merely contains the
+  word — `contains_count` — is not truncated.
+
+- 276db91: Strip a trailing "Let me know if you'd like me to adjust anything!" from AI output
+
+  The sanitizer that runs between a model reply and your note removed chatty
+  _openers_ ("Sure! Here's the rewrite:") but had no counterpart at the end, so a
+  closing sign-off landed in the document. In source-mode inline runs there is no
+  accept step to catch it, so the sentence simply appeared in the note.
+
+  The trailing rule is deliberately stricter than the leading one, because the two
+  failure modes are not symmetric: over-stripping at the start costs you a preamble
+  you never wanted, while over-stripping at the end deletes the last line _you_
+  wrote — and the whole-document path asks the model to return your entire note, so
+  the final paragraph is usually yours. A trailing paragraph is therefore only
+  removed when it is a single line that both opens with an offer ("Let me know",
+  "Would you like me to", "Feel free to", "Happy to") _and_ offers to revise this
+  text specifically ("adjust", "expand", "tweak", "rewrite", "any changes"). Both
+  halves are required.
+
+  Ordinary writing that happens to end that way is left alone: "So where does that
+  leave the migration?", "Let me know if you'd like to grab coffee!" and "Would you
+  like me to bring anything to the retro?" all survive untouched, as do trailing
+  lists, tables, blockquotes and fenced code blocks. Where the rule is unsure it
+  removes nothing.
+
 ## 2.30.3
 
 ### Patch Changes
