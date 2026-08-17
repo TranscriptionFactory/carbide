@@ -1288,6 +1288,104 @@ fn remove_linked_content_finds_the_nested_row_by_external_path() {
     assert_eq!(remaining, 0);
 }
 
+// DOI enrichment resolves authors, year, journal and abstract against a remote
+// CSL lookup, so those values exist nowhere in the file itself. A later scan
+// re-extracts what it can and supplies None for the rest, which is the case
+// update_linked_metadata's COALESCE(?n, col) is written to handle.
+#[test]
+fn reindexing_a_linked_source_preserves_previously_extracted_metadata() {
+    use crate::features::search::db::upsert_linked_content;
+    use crate::features::search::model::LinkedSourceMeta;
+
+    let tmp = TempDir::new().expect("temp dir should be created");
+    let conn = open_search_db_at_path(&tmp.path().join("test.db")).expect("db should open");
+
+    let full = LinkedSourceMeta {
+        citekey: Some("smith2024".into()),
+        authors: Some("Smith, J.".into()),
+        year: Some(2024),
+        doi: Some("10.1234/test".into()),
+        isbn: Some("978-0-123456-78-9".into()),
+        arxiv_id: Some("2401.00001".into()),
+        journal: Some("Nature".into()),
+        r#abstract: Some("An abstract.".into()),
+        item_type: Some("article".into()),
+        external_file_path: Some("/files/paper.pdf".into()),
+        linked_source_id: Some("zotero-123".into()),
+        vault_relative_path: Some("papers/paper.pdf".into()),
+        home_relative_path: Some("~/papers/paper.pdf".into()),
+    };
+
+    let (meta, _) = upsert_linked_content(
+        &conn,
+        "papers",
+        "/files",
+        "/files/paper.pdf",
+        "Paper",
+        "extracted text",
+        &[],
+        "pdf",
+        1_000,
+        &full,
+    )
+    .expect("first upsert should succeed");
+
+    // Same source name, root and file path, so linked_note_path is unchanged and
+    // the second call updates the first row rather than evicting it. Only the
+    // metadata is sparser.
+    upsert_linked_content(
+        &conn,
+        "papers",
+        "/files",
+        "/files/paper.pdf",
+        "Paper",
+        "extracted text",
+        &[],
+        "pdf",
+        2_000,
+        &LinkedSourceMeta::default(),
+    )
+    .expect("re-index should succeed");
+
+    let row = conn
+        .query_row(
+            "SELECT citekey, authors, doi, journal, abstract FROM notes WHERE path = ?1",
+            rusqlite::params![meta.path],
+            |r| {
+                Ok((
+                    r.get::<_, Option<String>>(0)?,
+                    r.get::<_, Option<String>>(1)?,
+                    r.get::<_, Option<String>>(2)?,
+                    r.get::<_, Option<String>>(3)?,
+                    r.get::<_, Option<String>>(4)?,
+                ))
+            },
+        )
+        .expect("row should still exist");
+
+    assert_eq!(
+        row.0.as_deref(),
+        Some("smith2024"),
+        "citekey survives re-index"
+    );
+    assert_eq!(
+        row.1.as_deref(),
+        Some("Smith, J."),
+        "authors survive re-index"
+    );
+    assert_eq!(
+        row.2.as_deref(),
+        Some("10.1234/test"),
+        "doi survives re-index"
+    );
+    assert_eq!(row.3.as_deref(), Some("Nature"), "journal survives re-index");
+    assert_eq!(
+        row.4.as_deref(),
+        Some("An abstract."),
+        "abstract survives re-index"
+    );
+}
+
 // The AI vault context renders one line per related note, and the line body is
 // the blurb. IndexNoteMeta had no such field, so every backlink, outlink and
 // similar-note reference reached the frontend without one.

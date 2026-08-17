@@ -1255,7 +1255,7 @@ fn upsert_plain_content(
     };
 
     conn.execute(
-        "REPLACE INTO notes (path, title, mtime_ms, ctime_ms, size_bytes, word_count, char_count, heading_count, reading_time_secs, last_indexed_at, file_type, page_offsets, source) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 0, 0, ?8, ?9, ?10, ?11)",
+        "INSERT INTO notes (path, title, mtime_ms, ctime_ms, size_bytes, word_count, char_count, heading_count, reading_time_secs, last_indexed_at, file_type, page_offsets, source) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 0, 0, ?8, ?9, ?10, ?11) ON CONFLICT(path) DO UPDATE SET title = ?2, mtime_ms = ?3, ctime_ms = ?4, size_bytes = ?5, word_count = ?6, char_count = ?7, heading_count = 0, reading_time_secs = 0, last_indexed_at = ?8, file_type = ?9, page_offsets = ?10, source = ?11",
         params![meta.path, meta.title, meta.mtime_ms, meta.ctime_ms, meta.size_bytes, word_count, char_count, now_ms, file_type, offsets_json, source],
     )
     .map_err(|e| e.to_string())?;
