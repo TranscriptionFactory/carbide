@@ -95,9 +95,12 @@ export const parse_processor = unified()
   .use(remarkMath)
   .use(remarkFrontmatter, ["yaml"])
   .use(remarkGemoji)
-  .use(remark_highlight)
   .use(remark_details)
   .use(remark_callout)
+  // After the block transformers: a self-contained `<details>` body is still a
+  // raw `html` node until remark_details splits it, and highlight only rewrites
+  // `text` nodes.
+  .use(remark_highlight)
   .use(remark_table_meta)
   .use(remark_wiki_embed)
   .use(remark_html_embed);
