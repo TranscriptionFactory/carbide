@@ -1144,6 +1144,17 @@ pub fn open_search_db_at_path(path: &Path) -> Result<Connection, String> {
     Ok(conn)
 }
 
+/// Task rows stay scoped to markdown notes: a `.canvas` file reaches this
+/// module as either raw JSON or flattened node text, and a checkbox found in
+/// either would get a `line_number` that no writer could map back to the file.
+fn sync_tasks(conn: &Connection, path: &str, raw_markdown: &str) -> Result<(), String> {
+    if !path.ends_with(".md") {
+        return Ok(());
+    }
+    let tasks = crate::features::tasks::service::extract_tasks(path, raw_markdown);
+    crate::features::tasks::service::save_tasks(conn, path, &tasks)
+}
+
 pub fn upsert_note_simple(
     conn: &Connection,
     meta: &IndexNoteMeta,
@@ -1187,6 +1198,7 @@ pub fn upsert_note_simple(
     sync_headings(conn, &meta.path, &headings)?;
     sync_code_blocks(conn, &meta.path, &code_blocks)?;
     sync_sections(conn, &meta.path, &sections)?;
+    sync_tasks(conn, &meta.path, raw_markdown)?;
 
     sync_links(conn, &meta.path, &links)?;
 
@@ -2379,8 +2391,6 @@ fn index_single_file_text(
         meta.title = extract_title_from_markdown(raw).unwrap_or_else(|| meta.name.clone());
         let targets = upsert_note_inner(conn, meta, raw)?;
         pending_links.push((meta.path.clone(), targets));
-        let tasks = crate::features::tasks::service::extract_tasks(&meta.path, raw);
-        crate::features::tasks::service::save_tasks(conn, &meta.path, &tasks)?;
         let props = extract_frontmatter_properties(raw);
         save_properties(conn, &meta.path, &props)?;
         invalidate_changed_embeddings(conn, &meta.path, raw)?;

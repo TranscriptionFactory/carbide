@@ -99,7 +99,25 @@ fn heading_depth(line: &str) -> Option<usize> {
     }
 }
 
+fn task_row(task: &Task) -> (&str, &str, TaskStatus, Option<&str>, usize, Option<&str>) {
+    (
+        &task.id,
+        &task.text,
+        task.status,
+        task.due_date.as_deref(),
+        task.line_number,
+        task.section.as_deref(),
+    )
+}
+
+/// Every caller re-saves a whole file's tasks to change one of them, so ticking
+/// a single box would otherwise delete and reinsert every other row in the note.
 pub fn save_tasks(conn: &Connection, path: &str, tasks: &[Task]) -> Result<(), String> {
+    let stored = get_tasks_for_path(conn, path)?;
+    if stored.iter().map(task_row).eq(tasks.iter().map(task_row)) {
+        return Ok(());
+    }
+
     conn.execute("DELETE FROM tasks WHERE path = ?1", params![path])
         .map_err(|e| e.to_string())?;
 
@@ -639,5 +657,64 @@ mod tests {
             Some("due_date <= date('now', 'localtime', '+7 days')".to_string())
         );
         assert_eq!(params.len(), 0);
+    }
+
+    // `tasks.path` carries a foreign key onto `notes.path`, so a task row can
+    // only exist for a note the index already knows about.
+    fn conn_with_note(path: &str) -> (tempfile::TempDir, Connection) {
+        let tmp = tempfile::TempDir::new().expect("temp dir should be created");
+        let conn = crate::features::search::db::open_search_db_at_path(&tmp.path().join("t.db"))
+            .expect("db should open");
+        let meta = crate::features::search::model::IndexNoteMeta {
+            id: path.to_string(),
+            path: path.to_string(),
+            title: "A".to_string(),
+            name: "a".to_string(),
+            mtime_ms: 100,
+            ctime_ms: 50,
+            size_bytes: 10,
+            blurb: String::new(),
+            file_type: None,
+            source: None,
+        };
+        crate::features::search::db::upsert_note(&conn, &meta, "seed\n").expect("note should index");
+        (tmp, conn)
+    }
+
+    #[test]
+    fn save_tasks_writes_nothing_when_the_stored_rows_already_match() {
+        let (_tmp, conn) = conn_with_note("a.md");
+        let markdown = "- [ ] alpha\n- [x] beta 📅 2026-01-01\n";
+        let tasks = extract_tasks("a.md", markdown);
+
+        save_tasks(&conn, "a.md", &tasks).expect("first save");
+        let after_first = conn.total_changes();
+
+        save_tasks(&conn, "a.md", &tasks).expect("identical save");
+        assert_eq!(
+            conn.total_changes(),
+            after_first,
+            "an unchanged note must not churn the tasks table"
+        );
+
+        let toggled = extract_tasks("a.md", "- [x] alpha\n- [x] beta 📅 2026-01-01\n");
+        save_tasks(&conn, "a.md", &toggled).expect("changed save");
+        assert!(
+            conn.total_changes() > after_first,
+            "a changed note must still write, or the guard above proves nothing"
+        );
+    }
+
+    #[test]
+    fn save_tasks_replaces_rows_when_only_the_section_changes() {
+        let (_tmp, conn) = conn_with_note("a.md");
+        save_tasks(&conn, "a.md", &extract_tasks("a.md", "# One\n- [ ] alpha\n"))
+            .expect("first save");
+        save_tasks(&conn, "a.md", &extract_tasks("a.md", "# Two\n- [ ] alpha\n"))
+            .expect("second save");
+
+        let stored = get_tasks_for_path(&conn, "a.md").expect("read back");
+        assert_eq!(stored.len(), 1);
+        assert_eq!(stored[0].section.as_deref(), Some("Two"));
     }
 }
