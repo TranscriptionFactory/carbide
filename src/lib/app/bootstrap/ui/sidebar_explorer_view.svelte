@@ -175,6 +175,7 @@
       sort={stores.ui.editor_settings.recents_sort.option}
       direction={stores.ui.editor_settings.recents_sort.direction}
       period={stores.ui.editor_settings.recents_period}
+      show_non_markdown={stores.ui.editor_settings.recents_show_non_markdown}
       on_change_sort={(s) =>
         void action_registry.execute(ACTION_IDS.recents_set_sort, s)}
       on_change_direction={(d) =>
@@ -185,6 +186,11 @@
         )}
       on_change_period={(p) =>
         void action_registry.execute(ACTION_IDS.recents_set_period, p)}
+      on_change_show_non_markdown={(show) =>
+        void action_registry.execute(
+          ACTION_IDS.recents_set_show_non_markdown,
+          show,
+        )}
       on_open_note={(path) =>
         void action_registry.execute(ACTION_IDS.note_open, path)}
       is_starred={(path: string) => stores.notes.is_starred_path(path)}

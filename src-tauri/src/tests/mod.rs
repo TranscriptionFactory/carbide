@@ -21,6 +21,8 @@ mod plugin_protocol;
 
 #[path = "../../tests/search_db_behavior.rs"]
 mod search_db_behavior;
+#[path = "../../tests/bases_filter_in_operator.rs"]
+mod bases_filter_in_operator;
 #[path = "../../tests/search_embed_gating.rs"]
 mod search_embed_gating;
 #[path = "../../tests/search_worker_scheduling.rs"]

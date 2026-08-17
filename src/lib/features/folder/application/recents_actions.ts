@@ -56,6 +56,7 @@ export function register_recents_actions({
       sort: option,
       direction,
       period,
+      show_non_markdown: ui_store.editor_settings.recents_show_non_markdown,
       now_ms: now(),
       limit: RECENTS_LIMIT,
     });
@@ -96,6 +97,20 @@ export function register_recents_actions({
       const updated: EditorSettings = {
         ...ui_store.editor_settings,
         recents_period: period,
+      };
+      await persist_editor_settings(settings_service, ui_store, updated);
+      await reload();
+    },
+  });
+
+  registry.register({
+    id: ACTION_IDS.recents_set_show_non_markdown,
+    label: "Set Recents Show Non-Markdown",
+    execute: async (...args: unknown[]) => {
+      const show_non_markdown = args[0] as boolean;
+      const updated: EditorSettings = {
+        ...ui_store.editor_settings,
+        recents_show_non_markdown: show_non_markdown,
       };
       await persist_editor_settings(settings_service, ui_store, updated);
       await reload();

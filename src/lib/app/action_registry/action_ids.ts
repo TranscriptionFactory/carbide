@@ -111,6 +111,7 @@ export const ACTION_IDS = {
 
   recents_set_sort: "recents.set_sort",
   recents_set_period: "recents.set_period",
+  recents_set_show_non_markdown: "recents.set_show_non_markdown",
   recents_reload: "recents.reload",
 
   shell_open_url: "shell.open_url",
