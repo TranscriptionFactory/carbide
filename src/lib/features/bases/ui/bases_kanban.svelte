@@ -13,6 +13,7 @@
     on_note_click,
     on_config_change,
     on_drop,
+    descending = false,
   }: {
     rows: BaseNoteRow[];
     config: KanbanConfig | null;
@@ -20,6 +21,7 @@
     on_note_click: (path: string) => void;
     on_config_change: (config: KanbanConfig) => void;
     on_drop?: (note_path: string, key: string, value: string) => void;
+    descending?: boolean;
   } = $props();
 
   const groupable_properties = $derived(
@@ -30,7 +32,12 @@
 
   const columns: KanbanColumn[] = $derived.by(() => {
     if (!group_by) return [];
-    return group_rows_by_property(rows, group_by, config?.column_order);
+    return group_rows_by_property(
+      rows,
+      group_by,
+      config?.column_order,
+      descending,
+    );
   });
 
   let drag_over_column: string | null = $state(null);
@@ -136,7 +143,10 @@
             <div
               class="flex items-center justify-between px-3 py-2 border-b border-border"
             >
-              <span class="text-xs font-semibold truncate">{column.value}</span>
+              <span
+                class="text-xs font-semibold truncate"
+                data-testid="bases-kanban-column">{column.value}</span
+              >
               <span
                 class="text-[10px] text-muted-foreground tabular-nums ml-2 shrink-0"
               >

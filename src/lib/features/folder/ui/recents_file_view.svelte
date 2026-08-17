@@ -5,7 +5,8 @@
   import EntryContextMenu from "./entry_context_menu.svelte";
   import ArrowUp from "@lucide/svelte/icons/arrow-up";
   import ArrowDown from "@lucide/svelte/icons/arrow-down";
-  import FileText from "@lucide/svelte/icons/file-text";
+  import Files from "@lucide/svelte/icons/files";
+  import { file_icon_for_path } from "$lib/features/folder/ui/file_icons";
   import type { BaseNoteRow } from "$lib/features/bases";
   import type { NoteMeta } from "$lib/shared/types/note";
   import type {
@@ -19,10 +20,12 @@
     sort: RecentsSort;
     direction: SortDirection;
     period: RecentsPeriod;
+    show_non_markdown: boolean;
     error?: string | null;
     on_change_sort: (sort: RecentsSort) => void;
     on_change_direction: (direction: SortDirection) => void;
     on_change_period: (period: RecentsPeriod) => void;
+    on_change_show_non_markdown: (show_non_markdown: boolean) => void;
     on_open_note: (path: string) => void;
     is_starred?: (path: string) => boolean;
     on_toggle_star?: (note: NoteMeta) => void;
@@ -39,10 +42,12 @@
     sort,
     direction,
     period,
+    show_non_markdown,
     error = null,
     on_change_sort,
     on_change_direction,
     on_change_period,
+    on_change_show_non_markdown,
     on_open_note,
     is_starred,
     on_toggle_star,
@@ -69,6 +74,7 @@
 
   const PERIOD_OPTIONS: { value: RecentsPeriod; label: string }[] = [
     { value: "all", label: "All" },
+    { value: "today", label: "Today" },
     { value: "week", label: "Week" },
     { value: "month", label: "Month" },
     { value: "quarter", label: "Quarter" },
@@ -135,7 +141,7 @@
 
 <div class="flex flex-col h-full min-h-0">
   <div
-    class="flex items-center gap-1 border-b border-zinc-200 dark:border-zinc-800 px-2 py-1.5 shrink-0"
+    class="flex flex-wrap items-center gap-1 border-b border-zinc-200 dark:border-zinc-800 px-2 py-1.5 shrink-0"
   >
     <Select.Root
       type="single"
@@ -170,6 +176,21 @@
       {/if}
     </button>
 
+    <button
+      type="button"
+      class="flex items-center justify-center h-7 w-7 rounded transition-colors {show_non_markdown
+        ? 'bg-zinc-100 text-foreground dark:bg-zinc-900'
+        : 'text-zinc-500 hover:text-foreground hover:bg-zinc-100 dark:hover:bg-zinc-900'}"
+      title={show_non_markdown
+        ? "Showing all file types"
+        : "Showing notes only"}
+      aria-label="Toggle non-markdown files"
+      aria-pressed={show_non_markdown}
+      onclick={() => on_change_show_non_markdown(!show_non_markdown)}
+    >
+      <Files class="size-3.5" />
+    </button>
+
     <div class="ml-auto flex items-center gap-0.5">
       {#each PERIOD_OPTIONS as option (option.value)}
         <button
@@ -195,7 +216,7 @@
     </div>
   {:else if results.length === 0}
     <div class="flex-1 flex items-center justify-center text-xs text-zinc-500">
-      No recent notes
+      No recent files
     </div>
   {:else}
     <div bind:this={scroll_container} class="flex-1 min-h-0 overflow-auto">
@@ -203,6 +224,7 @@
         {#each virtual_items as virtual_row (virtual_row.key)}
           {@const row = results[virtual_row.index]}
           {#if row}
+            {@const RowIcon = file_icon_for_path(row.note.path)}
             <div
               class="absolute left-0 top-0 w-full"
               style="height: {virtual_row.size}px; transform: translateY({virtual_row.start}px)"
@@ -215,7 +237,7 @@
                     onclick={() => on_open_note(row.note.path)}
                   >
                     <div class="flex items-center gap-1.5 w-full min-w-0">
-                      <FileText
+                      <RowIcon
                         class="size-3.5 shrink-0"
                         style={row.note.color
                           ? `color: ${row.note.color}`

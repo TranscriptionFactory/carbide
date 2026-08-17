@@ -236,6 +236,30 @@ describe("register_assistant_actions — apply reconciles the open editor", () =
       "second.md",
     );
   });
+
+  // apply_batch appends one entry per applied write, so two proposals against
+  // one note list it twice. That used to close and force-reload the buffer
+  // twice in a row for a note the first pass had already made current.
+  it("reloads a note two accepted proposals both wrote only once", async () => {
+    const { registry, services } = create_harness({
+      open_note: { path: "note.md", is_dirty: false },
+      outcome: make_outcome({
+        applied: ["p1", "p2"],
+        written_note_paths: ["note.md", "note.md"],
+      }),
+    });
+
+    await registry.execute(ACTION_IDS.assistant_accept_proposals, ["p1", "p2"]);
+
+    expect(services.editor.close_buffer).toHaveBeenCalledExactlyOnceWith(
+      "note.md",
+    );
+    expect(services.note.open_note).toHaveBeenCalledExactlyOnceWith(
+      "note.md",
+      false,
+      { force_reload: true, cleanup_if_missing: true },
+    );
+  });
 });
 
 // S6: the outcome used to be discarded, so an accept that applied nothing at

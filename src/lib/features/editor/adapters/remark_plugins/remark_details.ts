@@ -4,8 +4,7 @@ import { unified } from "unified";
 import remarkParse from "remark-parse";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
-import { remark_highlight } from "./remark_highlight";
-import { descend_block_container, remark_callout } from "./remark_callout";
+import { descend_block_container } from "./remark_callout";
 
 const DETAILS_OPEN_RE = /^<details(\s[^>]*)?>$/i;
 const DETAILS_OPEN_WITH_SUMMARY_RE =
@@ -57,12 +56,7 @@ function is_self_contained_details(
 
 function parse_markdown_body(markdown: string): RootContent[] {
   if (!markdown.trim()) return [];
-  const p = unified()
-    .use(remarkParse)
-    .use(remarkGfm)
-    .use(remarkMath)
-    .use(remark_highlight)
-    .use(remark_callout);
+  const p = unified().use(remarkParse).use(remarkGfm).use(remarkMath);
   const tree = p.parse(markdown.trim());
   return tree.children as RootContent[];
 }

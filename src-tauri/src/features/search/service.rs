@@ -244,7 +244,7 @@ pub enum EmbeddingProgressEvent {
 }
 
 #[allow(dead_code)]
-enum DbCommand {
+pub(crate) enum DbCommand {
     UpsertNote {
         vault_root: PathBuf,
         note_id: String,
@@ -1681,7 +1681,7 @@ pub(crate) fn sync_paths_drain_action(kind: DbCommandKind) -> DrainAction {
     }
 }
 
-fn command_kind(cmd: &DbCommand) -> DbCommandKind {
+pub(crate) fn command_kind(cmd: &DbCommand) -> DbCommandKind {
     match cmd {
         DbCommand::Rebuild { .. }
         | DbCommand::Sync { .. }
@@ -1949,7 +1949,12 @@ fn handle_sync_paths(
                     DrainAction::Apply => {
                         dispatch_command(conn, cmd, notes_cache, rx, note_index, block_index);
                     }
-                    _ => deferred.borrow_mut().push(cmd),
+                    _ => {
+                        if matches!(cmd, DbCommand::Shutdown) {
+                            log::warn!("writer: deferring shutdown during sync_paths");
+                        }
+                        deferred.borrow_mut().push(cmd);
+                    }
                 }
             }
         };

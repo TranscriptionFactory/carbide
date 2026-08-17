@@ -2,7 +2,6 @@
  * @vitest-environment jsdom
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { flushSync } from "svelte";
 import {
   create_watcher_reactor,
   resolve_graph_invalidation,
@@ -17,6 +16,7 @@ import { TabStore } from "$lib/features/tab/state/tab_store.svelte";
 import { as_markdown_text, as_note_path } from "$lib/shared/types/ids";
 import { create_mock_watcher_port } from "../helpers/mock_ports";
 import { create_test_vault } from "../helpers/test_fixtures";
+import { flush_effects } from "../helpers/tauri_event_mock";
 
 const VAULT_ID = "vault-1";
 const NO_BG_TAB = () => null;
@@ -58,13 +58,6 @@ function folder_removed_event(folder_path: string): VaultFsEvent {
 
 function bg_tab(is_dirty: boolean): () => BackgroundTabInfo {
   return () => ({ is_dirty });
-}
-
-async function flush_effects() {
-  flushSync();
-  for (let i = 0; i < 5; i += 1) {
-    await Promise.resolve();
-  }
 }
 
 // is_dirty is set explicitly rather than derived from a simulated save: after

@@ -113,3 +113,58 @@ describe("group_rows_by_property", () => {
     expect(columns).toHaveLength(0);
   });
 });
+
+describe("group_rows_by_property sort direction", () => {
+  it("reverses column order when descending", () => {
+    const rows = [
+      make_row("a.md", { status: "done" }),
+      make_row("b.md", { status: "todo" }),
+      make_row("c.md", { status: "blocked" }),
+    ];
+
+    const columns = group_rows_by_property(rows, "status", undefined, true);
+
+    expect(columns.map((c) => c.value)).toEqual(["todo", "done", "blocked"]);
+  });
+
+  it("keeps (unset) pinned last under descending", () => {
+    const rows = [
+      make_row("a.md", {}),
+      make_row("b.md", { status: "alpha" }),
+      make_row("c.md", { status: "zebra" }),
+    ];
+
+    const columns = group_rows_by_property(rows, "status", undefined, true);
+
+    expect(columns.map((c) => c.value)).toEqual(["zebra", "alpha", "(unset)"]);
+  });
+
+  it("leaves an explicit column_order untouched under descending", () => {
+    const rows = [
+      make_row("a.md", { status: "done" }),
+      make_row("b.md", { status: "todo" }),
+      make_row("c.md", { status: "in-progress" }),
+    ];
+    const order = ["todo", "in-progress", "done"];
+
+    const ascending = group_rows_by_property(rows, "status", order, false);
+    const descending = group_rows_by_property(rows, "status", order, true);
+
+    expect(descending.map((c) => c.value)).toEqual(order);
+    expect(descending.map((c) => c.value)).toEqual(
+      ascending.map((c) => c.value),
+    );
+  });
+
+  it("groups ascending when no direction is given", () => {
+    const rows = [
+      make_row("a.md", { status: "todo" }),
+      make_row("b.md", { status: "done" }),
+    ];
+
+    expect(group_rows_by_property(rows, "status").map((c) => c.value)).toEqual([
+      "done",
+      "todo",
+    ]);
+  });
+});

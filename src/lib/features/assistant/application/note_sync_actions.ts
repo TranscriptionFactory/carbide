@@ -54,12 +54,16 @@ async function read_disk_state(
 // runner's tool calls and the proposal review centre's accept — closes the
 // loop here, on one policy. A second policy would let the two paths disagree
 // about the dirty-buffer case, which is the one that loses work.
+//
+// Two proposals in one batch can name the same note, so the set collapses the
+// repeat to a single round trip — duplicate work, not wrong work — and keeps
+// first-seen order.
 export async function sync_changed_notes(
   input: NoteSyncInput,
   paths: string[],
 ): Promise<void> {
   const { stores, services } = input;
-  for (const path of paths) {
+  for (const path of new Set(paths)) {
     const note_path = as_note_path(path);
     const open_note = stores.editor.open_note;
     const is_open =
