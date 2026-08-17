@@ -48,6 +48,7 @@ export function group_rows_by_tree(
   rows: BaseNoteRow[],
   group_by: string[],
   date_format?: string,
+  descending = false,
 ): TreeNode[] {
   if (group_by.length === 0) return [];
 
@@ -57,7 +58,7 @@ export function group_rows_by_tree(
     insert_row(row, group_by, 0, "", root_map, date_format);
   }
 
-  return sort_nodes(Array.from(root_map.values()));
+  return sort_nodes(Array.from(root_map.values()), descending);
 }
 
 function insert_row(
@@ -104,12 +105,16 @@ function insert_row(
   }
 }
 
-function sort_nodes(nodes: TreeNode[]): TreeNode[] {
+function sort_nodes(nodes: TreeNode[], descending: boolean): TreeNode[] {
   return nodes
-    .map((node) => ({ ...node, children: sort_nodes(node.children) }))
+    .map((node) => ({
+      ...node,
+      children: sort_nodes(node.children, descending),
+    }))
     .sort((a, b) => {
       if (a.key === UNSET_LABEL) return 1;
       if (b.key === UNSET_LABEL) return -1;
-      return a.label.localeCompare(b.label);
+      const order = a.label.localeCompare(b.label);
+      return descending ? -order : order;
     });
 }

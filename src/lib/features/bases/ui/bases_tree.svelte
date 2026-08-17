@@ -13,12 +13,14 @@
     available_properties,
     on_note_click,
     on_config_change,
+    descending = false,
   }: {
     rows: BaseNoteRow[];
     config: TreeConfig | null;
     available_properties: PropertyInfo[];
     on_note_click: (path: string) => void;
     on_config_change: (config: TreeConfig | null) => void;
+    descending?: boolean;
   } = $props();
 
   const groupable_properties = $derived(
@@ -31,7 +33,7 @@
 
   const tree: TreeNode[] = $derived.by(() => {
     if (group_by.length === 0) return [];
-    return group_rows_by_tree(rows, group_by, config?.date_format);
+    return group_rows_by_tree(rows, group_by, config?.date_format, descending);
   });
 
   let expanded = $state(new Set<string>());
@@ -88,7 +90,9 @@
         <ChevronRight size={12} class="text-muted-foreground shrink-0" />
       {/if}
       <Folder size={12} class="text-muted-foreground shrink-0" />
-      <span class="truncate font-medium">{node.label}</span>
+      <span class="truncate font-medium" data-testid="bases-tree-group"
+        >{node.label}</span
+      >
       <span
         class="text-[10px] text-muted-foreground tabular-nums ml-auto shrink-0"
       >

@@ -55,6 +55,39 @@
     { name: "tag", property_type: "string", count: 0, unique_values: null },
   ];
 
+  // Mirrors the sortable columns the query builder recognises in
+  // src-tauri/src/features/search/db.rs — direct, stat and task-agg columns.
+  const SORTABLE_COLUMNS: { value: string; label: string }[] = [
+    { value: "title", label: "Title" },
+    { value: "path", label: "Path" },
+    { value: "mtime_ms", label: "Modified" },
+    { value: "ctime_ms", label: "Created" },
+    { value: "size_bytes", label: "Size" },
+    { value: "word_count", label: "Words" },
+    { value: "char_count", label: "Characters" },
+    { value: "heading_count", label: "Headings" },
+    { value: "outlink_count", label: "Outgoing links" },
+    { value: "reading_time_secs", label: "Reading time" },
+    { value: "task_count", label: "Tasks" },
+    { value: "tasks_done", label: "Tasks done" },
+    { value: "tasks_todo", label: "Tasks to do" },
+    { value: "next_due_date", label: "Next due" },
+  ];
+
+  const SORTABLE_COLUMN_NAMES = new Set(SORTABLE_COLUMNS.map((c) => c.value));
+
+  // Mirrors resolve_bases_property in db.rs: a saved view stores the alias, so
+  // the select has to resolve it to the column its option carries.
+  const SORT_PROPERTY_ALIASES: Record<string, string> = {
+    modified: "mtime_ms",
+    created: "ctime_ms",
+    accessed: "mtime_ms",
+  };
+
+  function resolve_sort_property(property: string): string {
+    return SORT_PROPERTY_ALIASES[property] ?? property;
+  }
+
   const { stores, services, action_registry } = use_app_context();
   const bases_store = stores.bases;
   const vault_store = stores.vault;
@@ -172,14 +205,6 @@
     upsert_managed_filter("path", "contains", clean ? clean + "/" : null);
   }
 
-  function refresh() {
-    const vault_id = vault_store.active_vault_id;
-    if (vault_id) {
-      void services.bases.refresh_properties(vault_id);
-      void services.bases.run_query(vault_id);
-    }
-  }
-
   function toggle_views() {
     views_open = !views_open;
     if (views_open) {
@@ -264,6 +289,11 @@
 
   const active_sort = $derived(bases_store.query.sort[0] ?? null);
   const has_filters = $derived(bases_store.query.filters.length > 0);
+  const extra_sort_properties = $derived(
+    bases_store.available_properties.filter(
+      (p) => !SORTABLE_COLUMN_NAMES.has(p.name),
+    ),
+  );
 </script>
 
 <div class="h-full flex flex-col bg-background">
@@ -316,7 +346,8 @@
         </button>
         <button
           class="p-1 hover:bg-accent rounded-md transition-colors"
-          onclick={refresh}
+          data-testid="bases-refresh"
+          onclick={() => void action_registry.execute(ACTION_IDS.bases_refresh)}
           disabled={bases_store.loading}
         >
           <RefreshCw
@@ -575,49 +606,56 @@
         </button>
       </div>
 
-      <div class="flex items-center gap-2">
-        <ArrowUpDown size={12} class="text-muted-foreground" />
-        <select
-          class="text-xs px-2 py-1 bg-card border border-border rounded-md"
-          value={active_sort?.property ?? ""}
-          onchange={(e) => {
-            const val = (e.target as HTMLSelectElement).value;
-            if (val) {
-              bases_store.set_sort({
-                property: val,
-                descending: active_sort?.descending ?? false,
-              });
-              run_query();
-            } else {
-              bases_store.set_sort(null);
-              run_query();
-            }
-          }}
-        >
-          <option value="">No sort</option>
-          <option value="title">Title</option>
-          <option value="mtime_ms">Modified</option>
-          {#each bases_store.available_properties as prop}
-            <option value={prop.name}>{prop.name}</option>
-          {/each}
-        </select>
-        {#if active_sort}
-          <button
-            class="text-xs px-2 py-1 bg-muted rounded-md hover:bg-accent"
-            onclick={() => {
-              if (active_sort) {
+      {#if bases_store.active_view_mode !== "calendar"}
+        <div class="flex items-center gap-2" data-testid="bases-sort-row">
+          <ArrowUpDown size={12} class="text-muted-foreground" />
+          <select
+            class="text-xs px-2 py-1 bg-card border border-border rounded-md"
+            data-testid="bases-sort-property"
+            value={active_sort
+              ? resolve_sort_property(active_sort.property)
+              : ""}
+            onchange={(e) => {
+              const val = (e.target as HTMLSelectElement).value;
+              if (val) {
                 bases_store.set_sort({
-                  property: active_sort.property,
-                  descending: !active_sort.descending,
+                  property: val,
+                  descending: active_sort?.descending ?? false,
                 });
+                run_query();
+              } else {
+                bases_store.set_sort(null);
                 run_query();
               }
             }}
           >
-            {active_sort.descending ? "DESC" : "ASC"}
-          </button>
-        {/if}
-      </div>
+            <option value="">No sort</option>
+            {#each SORTABLE_COLUMNS as column}
+              <option value={column.value}>{column.label}</option>
+            {/each}
+            {#each extra_sort_properties as prop}
+              <option value={prop.name}>{prop.name}</option>
+            {/each}
+          </select>
+          {#if active_sort}
+            <button
+              class="text-xs px-2 py-1 bg-muted rounded-md hover:bg-accent"
+              data-testid="bases-sort-direction"
+              onclick={() => {
+                if (active_sort) {
+                  bases_store.set_sort({
+                    property: active_sort.property,
+                    descending: !active_sort.descending,
+                  });
+                  run_query();
+                }
+              }}
+            >
+              {active_sort.descending ? "DESC" : "ASC"}
+            </button>
+          {/if}
+        </div>
+      {/if}
     </div>
   {/if}
 
@@ -670,6 +708,7 @@
         available_properties={bases_store.available_properties}
         on_note_click={handle_note_click}
         on_config_change={(c) => (bases_store.kanban_config = c)}
+        descending={active_sort?.descending ?? false}
         on_drop={(note_path, key, value) =>
           void action_registry.execute(
             ACTION_IDS.bases_update_property,
@@ -698,6 +737,7 @@
         available_properties={bases_store.available_properties}
         on_note_click={handle_note_click}
         on_config_change={(c) => (bases_store.tree_config = c)}
+        descending={active_sort?.descending ?? false}
       />
     {:else}
       <div class="p-4 space-y-4">

@@ -27,6 +27,10 @@
 
   const has_tasks = $derived(rows.some((r) => (r.stats?.task_count ?? 0) > 0));
 
+  const sortable_class = $derived(
+    on_sort_toggle ? "cursor-pointer hover:text-foreground select-none" : "",
+  );
+
   function is_overdue(date: string | null): boolean {
     if (!date) return false;
     return date < new Date().toISOString().split("T")[0]!;
@@ -43,7 +47,7 @@
     <thead>
       <tr class="border-b border-border bg-muted/50">
         <th
-          class="px-4 py-2 font-semibold text-muted-foreground uppercase tracking-wider cursor-pointer hover:text-foreground select-none"
+          class="px-4 py-2 font-semibold text-muted-foreground uppercase tracking-wider {sortable_class}"
           onclick={() => on_sort_toggle?.("title")}
         >
           <span class="inline-flex items-center gap-1">
@@ -57,7 +61,7 @@
         </th>
         {#each all_keys as key}
           <th
-            class="px-4 py-2 font-semibold text-muted-foreground uppercase tracking-wider cursor-pointer hover:text-foreground select-none"
+            class="px-4 py-2 font-semibold text-muted-foreground uppercase tracking-wider {sortable_class}"
             onclick={() => on_sort_toggle?.(key)}
           >
             <span class="inline-flex items-center gap-1">
@@ -76,7 +80,7 @@
         >
         {#if has_tasks}
           <th
-            class="px-4 py-2 font-semibold text-muted-foreground uppercase tracking-wider cursor-pointer hover:text-foreground select-none"
+            class="px-4 py-2 font-semibold text-muted-foreground uppercase tracking-wider {sortable_class}"
             onclick={() => on_sort_toggle?.("task_count")}
           >
             <span class="inline-flex items-center gap-1">
