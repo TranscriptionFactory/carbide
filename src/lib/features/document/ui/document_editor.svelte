@@ -2,20 +2,29 @@
   import { onDestroy, onMount } from "svelte";
   import type { EditorView } from "@codemirror/view";
   import { create_logger } from "$lib/shared/utils/logger";
+  import { extract_html_headings } from "$lib/features/document/domain/html_outline";
 
   interface Props {
     content: string;
     filename: string;
     on_change: (content: string) => void;
     wrap_lines?: boolean;
+    on_active_heading_change?: (id: string | null) => void;
   }
 
-  let { content, filename, on_change, wrap_lines = true }: Props = $props();
+  let {
+    content,
+    filename,
+    on_change,
+    wrap_lines = true,
+    on_active_heading_change,
+  }: Props = $props();
 
   const log = create_logger("document_editor");
 
   let editor_root: HTMLDivElement | undefined = $state();
   let view: EditorView | undefined;
+  let scroll_to_position: ((position: number) => void) | undefined;
   let destroyed = false;
 
   onMount(() => {
@@ -61,6 +70,17 @@
           if (update.docChanged) {
             on_change(update.state.doc.toString());
           }
+          if (update.selectionSet && filename.toLowerCase().endsWith(".html")) {
+            const source = update.state.doc.toString();
+            const cursor = update.state.selection.main.head;
+            const matches = [...source.matchAll(/<h[1-6]\b/gi)].filter(
+              (match) => (match.index ?? 0) <= cursor,
+            );
+            const headings = extract_html_headings(source);
+            on_active_heading_change?.(
+              headings[Math.max(0, matches.length - 1)]?.id ?? null,
+            );
+          }
         }),
       ];
 
@@ -96,6 +116,13 @@
         extensions,
         parent: editor_root,
       });
+      scroll_to_position = (position) => {
+        view?.dispatch({
+          selection: { anchor: position },
+          effects: EV.scrollIntoView(position, { y: "start" }),
+        });
+        view?.focus();
+      };
     };
 
     destroyed = false;
@@ -120,6 +147,17 @@
       });
     }
   });
+
+  export function scroll_to_heading(id: string) {
+    if (!view) return;
+    const source = view.state.doc.toString();
+    const headings = extract_html_headings(source);
+    const index = headings.findIndex((heading) => heading.id === id);
+    if (index < 0) return;
+    const match = [...source.matchAll(/<h[1-6]\b/gi)][index];
+    if (match?.index === undefined) return;
+    scroll_to_position?.(match.index);
+  }
 </script>
 
 <div class="DocumentEditor">

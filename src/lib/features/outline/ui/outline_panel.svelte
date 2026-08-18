@@ -15,11 +15,13 @@
   const headings = $derived(stores.outline.headings);
   const active_heading_id = $derived(stores.outline.active_heading_id);
   const collapsed_ids = $derived(stores.outline.collapsed_ids);
+  const document_active = $derived(stores.tab.active_tab?.kind === "document");
   /* In source mode the ProseMirror headings are display:none (zero rects) and
      heading.pos is a markdown line number, so geometry and PM navigation are
      both meaningless. */
   const scroll_spy_enabled = $derived(
-    stores.editor.editor_mode !== "source" || stores.editor.split_view,
+    !document_active &&
+      (stores.editor.editor_mode !== "source" || stores.editor.split_view),
   );
 
   let scroll_raf: number | undefined;
@@ -156,7 +158,7 @@
   }
 
   function handle_click(heading: OutlineHeading) {
-    if (!scroll_spy_enabled) return;
+    if (!scroll_spy_enabled && !document_active) return;
     void action_registry.execute(
       ACTION_IDS.outline_scroll_to_heading,
       heading.pos,
@@ -169,13 +171,16 @@
   ) {
     event.stopPropagation();
     stores.outline.toggle_collapsed(heading.id);
-    if (event.altKey && scroll_spy_enabled) {
+    if (event.altKey && scroll_spy_enabled && !document_active) {
       void action_registry.execute(ACTION_IDS.editor_fold_toggle, heading.pos);
     }
   }
 </script>
 
-<div class="OutlinePanel" class:OutlinePanel--static={!scroll_spy_enabled}>
+<div
+  class="OutlinePanel"
+  class:OutlinePanel--static={!scroll_spy_enabled && !document_active}
+>
   {#if headings.length === 0}
     <div class="OutlinePanel__empty">
       <div class="OutlinePanel__empty-icon">

@@ -49,6 +49,7 @@ export class DocumentStore {
   trust_levels = $state<Map<string, TrustLevel>>(new Map());
   provenance = $state<Map<string, ArtifactProvenance | null>>(new Map());
   pending_trust_request = $state<TrustGrantRequest | null>(null);
+  html_outline_request = $state<{ tab_id: string; id: string; sequence: number } | null>(null);
   inactive_content_limit = $state(3);
 
   get_provenance(file_path: string): ArtifactProvenance | null {
@@ -130,6 +131,14 @@ export class DocumentStore {
     const state = this.viewer_states.get(tab_id);
     if (!state || state.file_type !== "html") return;
     this.#patch(tab_id, { html_view_mode: mode });
+  }
+
+  request_html_outline_heading(tab_id: string, id: string): void {
+    this.html_outline_request = {
+      tab_id,
+      id,
+      sequence: (this.html_outline_request?.sequence ?? 0) + 1,
+    };
   }
 
   cycle_html_view_mode(tab_id: string): void {

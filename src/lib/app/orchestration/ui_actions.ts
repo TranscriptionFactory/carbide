@@ -265,6 +265,14 @@ export function register_ui_actions(input: ActionRegistrationInput) {
     label: "Scroll to Heading",
     execute: (pos: unknown) => {
       if (typeof pos !== "number") return;
+      const active_tab = stores.tab.active_tab;
+      if (active_tab?.kind === "document") {
+        const heading = stores.outline.headings[pos];
+        if (heading) {
+          stores.document.request_html_outline_heading(active_tab.id, heading.id);
+        }
+        return;
+      }
       services.editor.scroll_to_position(pos);
     },
   });

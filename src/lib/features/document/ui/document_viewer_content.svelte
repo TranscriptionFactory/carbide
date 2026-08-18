@@ -24,6 +24,7 @@
   import { classify_html_link } from "$lib/features/document/domain/html_link";
   import { detect_file_type } from "$lib/features/document/domain/document_types";
   import type { HtmlFrameHeading } from "$lib/features/document/domain/html_frame_bridge";
+  import { extract_html_headings } from "$lib/features/document/domain/html_outline";
   import CodeIcon from "@lucide/svelte/icons/code";
   import EyeIcon from "@lucide/svelte/icons/eye";
   import ZapIcon from "@lucide/svelte/icons/zap";
@@ -65,7 +66,7 @@
     );
   });
   let html_renderer:
-    | { scroll_to_heading(id: string): void; scroll_to_fragment(fragment: string): void }
+    | { scroll_to_heading(id: string): void; scroll_to_fragment?(fragment: string): void }
     | undefined;
 
   $effect(() => {
@@ -98,7 +99,7 @@
     if (target.kind === "external") {
       void action_registry.execute(ACTION_IDS.shell_open_url, target.url);
     } else if (target.kind === "fragment") {
-      html_renderer?.scroll_to_fragment(target.fragment);
+      html_renderer?.scroll_to_fragment?.(target.fragment);
     } else {
       const filename = target.path.split("/").pop() ?? target.path;
       const document_type = detect_file_type(filename);
@@ -122,6 +123,20 @@
       html_renderer?.scroll_to_fragment(viewer_state.html_fragment);
     }
   }
+
+  $effect(() => {
+    if (!is_html || html_mode !== "source" || current_content === null) return;
+    stores.outline.set_headings(
+      extract_html_headings(current_content),
+      viewer_state.file_path,
+    );
+  });
+
+  $effect(() => {
+    const request = stores.document.html_outline_request;
+    if (!request || request.tab_id !== viewer_state.tab_id) return;
+    html_renderer?.scroll_to_heading(request.id);
+  });
 
   function handle_epub_position_change(cfi: string): void {
     void action_registry.execute(ACTION_IDS.document_save_reading_position, {
@@ -244,10 +259,12 @@
     {#if html_mode === "source"}
       {#key `${viewer_state.tab_id}:${viewer_state.file_path}:${stores.ui.editor_settings.document_code_wrap ? "wrap" : "nowrap"}`}
         <DocumentEditor
+          bind:this={html_renderer}
           content={current_content}
           filename={viewer_state.file_path.split("/").pop() ?? ""}
           on_change={handle_editor_change}
           wrap_lines={stores.ui.editor_settings.document_code_wrap}
+          on_active_heading_change={(id) => stores.outline.set_active_heading(id)}
         />
       {/key}
     {:else if html_mode === "live" && live_allowed}
