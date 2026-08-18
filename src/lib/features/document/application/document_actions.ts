@@ -17,6 +17,7 @@ type DocumentOpenPayload = {
   file_path: string;
   initial_pdf_page?: number;
   initial_cfi?: string;
+  initial_html_fragment?: string;
 };
 
 function normalize_initial_pdf_page(value: unknown): number | undefined {
@@ -48,6 +49,12 @@ function parse_document_open_payload(
   }
   if (typeof record.initial_cfi === "string" && record.initial_cfi) {
     parsed.initial_cfi = record.initial_cfi;
+  }
+  if (
+    typeof record.initial_html_fragment === "string" &&
+    record.initial_html_fragment
+  ) {
+    parsed.initial_html_fragment = record.initial_html_fragment;
   }
   return parsed;
 }
@@ -121,7 +128,7 @@ export function register_document_actions(
     execute: async (...args: unknown[]) => {
       const parsed = parse_document_open_payload(args[0]);
       if (!parsed) return;
-      const { file_path, initial_pdf_page, initial_cfi } = parsed;
+      const { file_path, initial_pdf_page, initial_cfi, initial_html_fragment } = parsed;
       const vault_id = stores.vault.vault?.id;
       if (!vault_id) return;
 
@@ -143,6 +150,7 @@ export function register_document_actions(
         file_type,
         initial_pdf_page,
         initial_cfi,
+        initial_html_fragment,
       );
     },
   });

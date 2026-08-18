@@ -195,6 +195,7 @@ export class DocumentService {
     file_type: DocumentFileType,
     initial_pdf_page?: number,
     initial_cfi?: string,
+    initial_html_fragment?: string,
   ): Promise<void> {
     const normalized_initial_pdf_page =
       typeof initial_pdf_page === "number" &&
@@ -216,6 +217,7 @@ export class DocumentService {
         pdf_page: normalized_initial_pdf_page ?? 1,
         cfi,
         html_view_mode: "safe",
+        html_fragment: file_type === "html" ? (initial_html_fragment ?? null) : null,
         load_status: "idle",
         error_message: null,
       });

@@ -16,6 +16,7 @@ export type DocumentViewerState = {
   pdf_page: number;
   cfi: string | null;
   html_view_mode: HtmlViewMode;
+  html_fragment?: string | null;
   load_status: "idle" | "loading" | "ready" | "error";
   error_message: string | null;
 };
