@@ -31,21 +31,30 @@ export function classify_html_link(
   href: string,
   base_file: string,
 ): HtmlLinkTarget | null {
-  const trimmed = href.trim();
-  if (!trimmed) return null;
-  if (trimmed.startsWith("#")) {
-    const fragment = decodeURIComponent(trimmed.slice(1));
-    return fragment ? { kind: "fragment", fragment } : null;
-  }
   try {
+    const trimmed = href.trim();
+    if (!trimmed) return null;
+    if (trimmed.startsWith("#")) {
+      const fragment = decodeURIComponent(trimmed.slice(1));
+      return fragment ? { kind: "fragment", fragment } : null;
+    }
     const url = new URL(trimmed);
     return EXTERNAL_PROTOCOLS.has(url.protocol)
       ? { kind: "external", url: trimmed }
       : null;
   } catch {
-    const hash = trimmed.indexOf("#");
-    const raw_path = hash >= 0 ? trimmed.slice(0, hash) : trimmed;
-    const raw_fragment = hash >= 0 ? trimmed.slice(hash + 1) : "";
+    return classify_relative_html_link(href.trim(), base_file);
+  }
+}
+
+function classify_relative_html_link(
+  href: string,
+  base_file: string,
+): HtmlLinkTarget | null {
+  try {
+    const hash = href.indexOf("#");
+    const raw_path = hash >= 0 ? href.slice(0, hash) : href;
+    const raw_fragment = hash >= 0 ? href.slice(hash + 1) : "";
     const query = raw_path.indexOf("?");
     const path = normalize_relative_path(
       base_file,
@@ -58,5 +67,7 @@ export function classify_html_link(
     return fragment
       ? { kind: "vault", path, fragment }
       : { kind: "vault", path };
+  } catch {
+    return null;
   }
 }

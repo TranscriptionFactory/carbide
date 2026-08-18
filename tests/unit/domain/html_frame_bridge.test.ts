@@ -20,7 +20,9 @@ describe("html frame bridge", () => {
   });
 
   it("rejects malformed and oversized messages", () => {
-    expect(parse_html_frame_message({ type: "scroll", scroll_top: 1 })).toBeNull();
+    expect(
+      parse_html_frame_message({ type: "scroll", scroll_top: 1 }),
+    ).toBeNull();
     expect(
       parse_html_frame_message({
         source: "carbide-html",
@@ -35,5 +37,6 @@ describe("html frame bridge", () => {
     expect(script).toContain("event.isTrusted");
     expect(script).toContain("scrollTo(0, 120)");
     expect(script).toContain('type: "headings"');
+    expect(script).toContain('el.id + "--carbide-" + index');
   });
 });

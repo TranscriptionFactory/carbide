@@ -141,14 +141,14 @@ fn evict_oldest(docs: &mut HashMap<String, Entry>) {
 // `https:` in script-src/style-src and `connect-src *` are gated on the live+net tier.
 pub fn live_html_csp(allow_network: bool) -> String {
     let script_src = if allow_network {
-        "script-src 'unsafe-inline' 'unsafe-eval' blob: data: https:"
+        "script-src 'unsafe-inline' 'unsafe-eval' blob: data: carbide-asset: https:"
     } else {
-        "script-src 'unsafe-inline' 'unsafe-eval' blob: data:"
+        "script-src 'unsafe-inline' 'unsafe-eval' blob: data: carbide-asset:"
     };
     let style_src = if allow_network {
-        "style-src 'unsafe-inline' data: https:"
+        "style-src 'unsafe-inline' data: carbide-asset: https:"
     } else {
-        "style-src 'unsafe-inline' data:"
+        "style-src 'unsafe-inline' data: carbide-asset:"
     };
     let connect_src = if allow_network {
         "connect-src *"
@@ -436,10 +436,14 @@ mod tests {
     #[test]
     fn csp_live_omits_https_from_scripts_and_styles() {
         let csp = live_html_csp(false);
-        assert!(csp.contains("script-src 'unsafe-inline' 'unsafe-eval' blob: data:;"));
-        assert!(!csp.contains("script-src 'unsafe-inline' 'unsafe-eval' blob: data: https:"));
-        assert!(csp.contains("style-src 'unsafe-inline' data:;"));
-        assert!(!csp.contains("style-src 'unsafe-inline' data: https:"));
+        assert!(csp.contains(
+            "script-src 'unsafe-inline' 'unsafe-eval' blob: data: carbide-asset:;"
+        ));
+        assert!(!csp.contains(
+            "script-src 'unsafe-inline' 'unsafe-eval' blob: data: carbide-asset: https:"
+        ));
+        assert!(csp.contains("style-src 'unsafe-inline' data: carbide-asset:;"));
+        assert!(!csp.contains("style-src 'unsafe-inline' data: carbide-asset: https:"));
         assert!(csp.contains("connect-src 'none'"));
         for directive in ["img-src", "font-src", "media-src"] {
             let value = csp
@@ -455,8 +459,10 @@ mod tests {
     #[test]
     fn csp_livenet_allows_https_scripts_and_styles() {
         let csp = live_html_csp(true);
-        assert!(csp.contains("script-src 'unsafe-inline' 'unsafe-eval' blob: data: https:"));
-        assert!(csp.contains("style-src 'unsafe-inline' data: https:"));
+        assert!(csp.contains(
+            "script-src 'unsafe-inline' 'unsafe-eval' blob: data: carbide-asset: https:"
+        ));
+        assert!(csp.contains("style-src 'unsafe-inline' data: carbide-asset: https:"));
         assert!(csp.contains("connect-src *"));
     }
 

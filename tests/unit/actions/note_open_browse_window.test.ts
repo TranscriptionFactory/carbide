@@ -137,6 +137,7 @@ function create_harness() {
       close_buffer: vi.fn(),
       get_scroll_fraction: vi.fn().mockReturnValue(0),
       get_cursor_markdown_offset: vi.fn().mockReturnValue(0),
+      scroll_to_heading_fragment: vi.fn(),
     },
     clipboard: {},
     shell: {
@@ -253,6 +254,20 @@ describe("note_open in browse window context", () => {
     expect(tab0?.kind === "note" && tab0.note_path).toBe("cheatsheets/bash.md");
   });
 
+  it("scrolls to an initial fragment after opening a note", async () => {
+    const { registry, stores, services } = create_harness();
+    stores.vault.set_vault(make_vault());
+
+    await registry.execute(ACTION_IDS.note_open, {
+      note_path: "cheatsheets/bash.md",
+      initial_fragment: "Flags",
+    });
+
+    expect(services.editor.scroll_to_heading_fragment).toHaveBeenCalledWith(
+      "Flags",
+    );
+  });
+
   it("opens multiple notes sequentially in browse window", async () => {
     const { registry, stores } = create_harness();
     stores.vault.set_vault(make_vault());
@@ -288,6 +303,7 @@ describe("note_open in browse window context", () => {
       "docs/report.pdf",
       "docs/report.pdf",
       "pdf",
+      undefined,
       undefined,
       undefined,
     );
@@ -337,6 +353,7 @@ describe("note_open in browse window context", () => {
       "pdf",
       3,
       undefined,
+      undefined,
     );
   });
 
@@ -356,6 +373,7 @@ describe("note_open in browse window context", () => {
       "docs/report.pdf",
       "pdf",
       4,
+      undefined,
       undefined,
     );
   });
@@ -377,6 +395,7 @@ describe("note_open extension routing", () => {
       expect.any(String),
       "cheatsheets/setup.sh",
       "text",
+      undefined,
       undefined,
       undefined,
     );
@@ -440,6 +459,7 @@ describe("note_open extension routing", () => {
       expect.any(String),
       "scripts/build.sh",
       "text",
+      undefined,
       undefined,
       undefined,
     );

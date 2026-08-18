@@ -442,6 +442,9 @@ export function register_note_actions(input: ActionRegistrationInput) {
             stores.tab.activate_tab(existing_tab.id);
           }
           await open_note_by_path(note_path, parsed.cleanup_if_missing);
+          if (parsed.initial_fragment) {
+            services.editor.scroll_to_heading_fragment(parsed.initial_fragment);
+          }
           return;
         }
 
@@ -459,6 +462,9 @@ export function register_note_actions(input: ActionRegistrationInput) {
           const title = note_name_from_path(note_path);
           const tab = stores.tab.open_tab(note_path as NotePath, title);
           cache_open_note_for_tab(tab.id);
+          if (parsed.initial_fragment) {
+            services.editor.scroll_to_heading_fragment(parsed.initial_fragment);
+          }
         }
         if (result.status === "not_found") {
           toast.error("Note no longer exists");

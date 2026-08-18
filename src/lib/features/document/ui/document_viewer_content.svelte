@@ -65,13 +65,12 @@
       folder ? `${folder}/` : "",
     );
   });
-  let html_renderer: (
+  let html_renderer:
     | {
         scroll_to_heading(id: string): void;
         scroll_to_fragment?(fragment: string): void;
       }
-    | undefined
-  ) = $state();
+    | undefined = $state();
 
   $effect(() => {
     if (is_html) {
@@ -113,7 +112,10 @@
           initial_html_fragment: target.fragment,
         });
       } else {
-        void action_registry.execute(ACTION_IDS.note_open, target.path);
+        void action_registry.execute(ACTION_IDS.note_open, {
+          note_path: target.path,
+          initial_fragment: target.fragment,
+        });
       }
     }
   }

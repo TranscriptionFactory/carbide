@@ -83,7 +83,7 @@ export function build_html_frame_bridge_script(initial_scroll_top = 0): string {
   return `<script>(() => {
   const send = (message) => parent.postMessage({ source: "carbide-html", ...message }, "*");
   const headings = () => Array.from(document.querySelectorAll("h1,h2,h3,h4,h5,h6")).map((el, index) => {
-    const id = el.id || "carbide-heading-" + index;
+    const id = el.id ? el.id + "--carbide-" + index : "carbide-heading-" + index;
     el.dataset.carbideHeadingId = id;
     return { id, level: Number(el.tagName.slice(1)), text: (el.textContent || "").trim().slice(0, 4096) };
   });

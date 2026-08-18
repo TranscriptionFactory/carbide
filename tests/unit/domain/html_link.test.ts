@@ -7,9 +7,9 @@ describe("classify_html_link", () => {
       kind: "external",
       url: "https://example.com",
     });
-    expect(classify_html_link("mailto:a@example.com", "docs/a.html")?.kind).toBe(
-      "external",
-    );
+    expect(
+      classify_html_link("mailto:a@example.com", "docs/a.html")?.kind,
+    ).toBe("external");
   });
 
   it("resolves fragments and relative vault paths", () => {
@@ -34,5 +34,10 @@ describe("classify_html_link", () => {
     ]) {
       expect(classify_html_link(href, "a.html")).toBeNull();
     }
+  });
+
+  it("rejects malformed percent encoding", () => {
+    expect(classify_html_link("#%", "docs/a.html")).toBeNull();
+    expect(classify_html_link("foo%ZZ.html", "docs/a.html")).toBeNull();
   });
 });

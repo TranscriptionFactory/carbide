@@ -8,6 +8,7 @@ import type { ActionRegistrationInput } from "$lib/app/action_registry/action_re
 import { register_find_in_file_actions } from "$lib/features/search/application/find_in_file_actions";
 import { UIStore } from "$lib/app/orchestration/ui_store.svelte";
 import { SearchStore } from "$lib/features/search/state/search_store.svelte";
+import { TabStore } from "$lib/features/tab/state/tab_store.svelte";
 import type { FindSelection } from "$lib/features/editor";
 
 function create_harness(selection: FindSelection | null) {
@@ -20,11 +21,12 @@ function create_harness(selection: FindSelection | null) {
 
   const ui = new UIStore();
   const search = new SearchStore();
+  const tab = new TabStore();
   const get_selection_range = vi.fn(() => selection);
 
   register_find_in_file_actions({
     registry,
-    stores: { ui, search },
+    stores: { ui, search, tab },
     services: { editor: { get_selection_range } },
   } as unknown as ActionRegistrationInput);
 
