@@ -1,5 +1,11 @@
 # carbide
 
+## 2.32.0
+
+### Minor Changes
+
+- ba8cd44: Improve HTML documents with routed links, local assets, outline navigation, faithful safe previews, and source-mode find and replace.
+
 ## 2.31.1
 
 ### Patch Changes
