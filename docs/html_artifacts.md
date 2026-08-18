@@ -6,15 +6,29 @@ Carbide treats `.html` files as first-class vault citizens — searchable like n
 
 Every `.html` file opens in one of three modes, picked from the toolbar above the viewer.
 
-| Mode       | What runs                                                                    | Network                 | Default |
-| ---------- | ---------------------------------------------------------------------------- | ----------------------- | ------- |
-| **Source** | Nothing — you see the raw markup in the code editor                          | No                      | —       |
-| **Safe**   | Sanitized static preview. Scripts and inline event handlers are stripped     | No                      | ✔       |
-| **Live**   | Sandboxed iframe runs scripts. No DOM access to Carbide. Theme vars injected | No (opt-in: Live + Net) | —       |
+| Mode       | What runs                                                                           | Network                 | Default |
+| ---------- | ----------------------------------------------------------------------------------- | ----------------------- | ------- |
+| **Source** | Nothing — you see the raw markup in the code editor                                 | No                      | —       |
+| **Safe**   | Faithful inert preview. Styles and semantic HTML remain; active content is stripped | No                      | ✔       |
+| **Live**   | Sandboxed iframe runs scripts. No DOM access to Carbide. Theme vars injected        | No (opt-in: Live + Net) | —       |
 
 Live mode is **default-deny**: clicking Live on an untrusted file opens a "Trust this file?" dialog where you grant Live or Live + Network access at file or folder scope. Grants persist to `<vault>/.carbide/trusted_html.json` and you can revoke them from the same file (or by editing that JSON).
 
+Safe mode preserves document styles, semantic layout, details, media controls,
+and presentation SVG while removing scripts, event handlers, active embeds,
+navigation-capable forms, and dangerous URL schemes. Local resources resolve
+against the HTML file's folder. Remote resources load only with a Live + Network
+grant.
+
 Source mode is plain text editing of the underlying file.
+
+All three modes contribute HTML headings to the Outline. Outline selections move
+to the source tag in Source mode and to the rendered heading in Safe or Live.
+Source mode also participates in Carbide's standard find and replace commands.
+
+Links follow the same routing rules as Markdown: web, mail, and telephone links
+open externally; vault-relative links open in Carbide; and fragments navigate
+inside the rendered document.
 
 ## Transclusion: `![[file.html]]`
 

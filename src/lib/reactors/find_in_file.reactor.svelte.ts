@@ -2,12 +2,16 @@ import { untrack } from "svelte";
 import type { UIStore } from "$lib/app";
 import type { EditorStore, EditorService } from "$lib/features/editor";
 import type { SearchStore } from "$lib/features/search";
+import type { TabStore } from "$lib/features/tab";
+import type { DocumentService } from "$lib/features/document";
 
 export function create_find_in_file_reactor(
   ui_store: UIStore,
   editor_store: EditorStore,
   editor_service: EditorService,
   search_store: SearchStore,
+  tab_store?: TabStore,
+  document_service?: DocumentService,
 ): () => void {
   return $effect.root(() => {
     $effect(() => {
@@ -20,6 +24,10 @@ export function create_find_in_file_reactor(
         scope,
       } = ui_store.find_in_file;
       const _session_rev = editor_store.session_revision;
+      const target =
+        tab_store?.active_tab?.kind === "document" && document_service
+          ? document_service
+          : editor_service;
 
       // The plugin re-maps the scope range through every document change and
       // reports the result back here; reading the mirror untracked keeps that
@@ -32,12 +40,12 @@ export function create_find_in_file_reactor(
         : { case_sensitive, whole_word, scope };
 
       if (!open || !query) {
-        editor_service.update_find_state("", 0, options);
+        target.update_find_state("", 0, options);
         search_store.set_find_match_count(0);
         return;
       }
 
-      const count = editor_service.update_find_state(
+      const count = target.update_find_state(
         query,
         selected_match_index,
         options,

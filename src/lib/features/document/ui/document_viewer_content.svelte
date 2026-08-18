@@ -65,9 +65,13 @@
       folder ? `${folder}/` : "",
     );
   });
-  let html_renderer:
-    | { scroll_to_heading(id: string): void; scroll_to_fragment?(fragment: string): void }
-    | undefined;
+  let html_renderer: (
+    | {
+        scroll_to_heading(id: string): void;
+        scroll_to_fragment?(fragment: string): void;
+      }
+    | undefined
+  ) = $state();
 
   $effect(() => {
     if (is_html) {
@@ -120,7 +124,7 @@
       viewer_state.file_path,
     );
     if (viewer_state.html_fragment) {
-      html_renderer?.scroll_to_fragment(viewer_state.html_fragment);
+      html_renderer?.scroll_to_fragment?.(viewer_state.html_fragment);
     }
   }
 
@@ -264,7 +268,11 @@
           filename={viewer_state.file_path.split("/").pop() ?? ""}
           on_change={handle_editor_change}
           wrap_lines={stores.ui.editor_settings.document_code_wrap}
-          on_active_heading_change={(id) => stores.outline.set_active_heading(id)}
+          on_active_heading_change={(id) =>
+            stores.outline.set_active_heading(id)}
+          theme={stores.ui.active_theme.color_scheme}
+          on_controller_change={(controller) =>
+            services.document.register_editor_controller(controller)}
         />
       {/key}
     {:else if html_mode === "live" && live_allowed}
@@ -302,6 +310,9 @@
         filename={viewer_state.file_path.split("/").pop() ?? ""}
         on_change={handle_editor_change}
         wrap_lines={stores.ui.editor_settings.document_code_wrap}
+        theme={stores.ui.active_theme.color_scheme}
+        on_controller_change={(controller) =>
+          services.document.register_editor_controller(controller)}
       />
     {/key}
   {:else if viewer_state.load_status === "error"}

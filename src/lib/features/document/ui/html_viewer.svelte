@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { sanitize_html } from "$lib/shared/html";
+  import { sanitize_html_preview } from "$lib/shared/html";
   import {
     build_html_frame_bridge_script,
     parse_html_frame_message,
@@ -12,7 +12,7 @@
     theme: "light" | "dark";
     initial_scroll_top?: number;
     on_scroll_change?: (scroll_top: number) => void;
-    base_url?: string;
+    base_url?: string | undefined;
     on_link_click?: (href: string) => void;
     on_headings_change?: (headings: HtmlFrameHeading[]) => void;
     on_active_heading_change?: (id: string | null) => void;
@@ -31,7 +31,7 @@
 
   let frame: HTMLIFrameElement | undefined = $state();
 
-  const sanitized = $derived(sanitize_html(content));
+  const sanitized = $derived(sanitize_html_preview(content));
 
   const palettes = {
     dark: {
@@ -58,16 +58,24 @@
     if (!message) return;
     if (message.type === "link_click") on_link_click?.(message.href);
     else if (message.type === "scroll") on_scroll_change?.(message.scroll_top);
-    else if (message.type === "headings") on_headings_change?.(message.headings);
-    else if (message.type === "active_heading") on_active_heading_change?.(message.id);
+    else if (message.type === "headings")
+      on_headings_change?.(message.headings);
+    else if (message.type === "active_heading")
+      on_active_heading_change?.(message.id);
   }
 
   export function scroll_to_heading(id: string) {
-    frame?.contentWindow?.postMessage({ source: "carbide-host", type: "scroll_to_heading", id }, "*");
+    frame?.contentWindow?.postMessage(
+      { source: "carbide-host", type: "scroll_to_heading", id },
+      "*",
+    );
   }
 
   export function scroll_to_fragment(fragment: string) {
-    frame?.contentWindow?.postMessage({ source: "carbide-host", type: "scroll_to_fragment", fragment }, "*");
+    frame?.contentWindow?.postMessage(
+      { source: "carbide-host", type: "scroll_to_fragment", fragment },
+      "*",
+    );
   }
 
   onMount(() => {
@@ -86,6 +94,7 @@
 ${base_url ? `<base href="${base_url}">` : ""}
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline' data: carbide-asset:; img-src data: blob: carbide-asset:; font-src data: carbide-asset:; media-src data: blob: carbide-asset:; connect-src 'none'; form-action 'none'; frame-src 'none';">
 <style>
+  ${sanitized.styles}
   body {
     margin: 0;
     padding: 16px 24px;
@@ -111,7 +120,7 @@ ${base_url ? `<base href="${base_url}">` : ""}
 </style>
 ${build_html_frame_bridge_script(initial_scroll_top)}
 </head>
-<body>${sanitized}</body>
+<body>${sanitized.body}</body>
 </html>`;
   });
 </script>

@@ -18,7 +18,9 @@ function bounded_string(value: unknown): value is string {
   return typeof value === "string" && value.length <= MAX_STRING_LENGTH;
 }
 
-export function parse_html_frame_message(value: unknown): HtmlFrameMessage | null {
+export function parse_html_frame_message(
+  value: unknown,
+): HtmlFrameMessage | null {
   if (!value || typeof value !== "object") return null;
   const record = value as Record<string, unknown>;
   if (record.source !== "carbide-html") return null;
@@ -32,15 +34,31 @@ export function parse_html_frame_message(value: unknown): HtmlFrameMessage | nul
     Number.isFinite(record.scroll_top) &&
     record.scroll_top >= 0
   ) {
-    return { source: "carbide-html", type: "scroll", scroll_top: record.scroll_top };
+    return {
+      source: "carbide-html",
+      type: "scroll",
+      scroll_top: record.scroll_top,
+    };
   }
-  if (record.type === "active_heading" && (record.id === null || bounded_string(record.id))) {
-    return { source: "carbide-html", type: "active_heading", id: record.id as string | null };
+  if (
+    record.type === "active_heading" &&
+    (record.id === null || bounded_string(record.id))
+  ) {
+    return {
+      source: "carbide-html",
+      type: "active_heading",
+      id: record.id,
+    };
   }
   if (record.type === "runtime_error" && bounded_string(record.message)) {
-    return { source: "carbide-html", type: "runtime_error", message: record.message };
+    return {
+      source: "carbide-html",
+      type: "runtime_error",
+      message: record.message,
+    };
   }
-  if (record.type !== "headings" || !Array.isArray(record.headings)) return null;
+  if (record.type !== "headings" || !Array.isArray(record.headings))
+    return null;
   if (record.headings.length > MAX_HEADINGS) return null;
   const headings: HtmlFrameHeading[] = [];
   for (const item of record.headings) {
@@ -53,7 +71,8 @@ export function parse_html_frame_message(value: unknown): HtmlFrameMessage | nul
       !Number.isInteger(heading.level) ||
       heading.level < 1 ||
       heading.level > 6
-    ) return null;
+    )
+      return null;
     headings.push({ id: heading.id, text: heading.text, level: heading.level });
   }
   return { source: "carbide-html", type: "headings", headings };
@@ -81,7 +100,7 @@ export function build_html_frame_bridge_script(initial_scroll_top = 0): string {
   };
   addEventListener("DOMContentLoaded", () => {
     reportHeadings();
-    requestAnimationFrame(() => { scrollTo(0, ${scroll_top}); reportScroll(); });
+    requestAnimationFrame(() => { scrollTo(0, ${String(scroll_top)}); reportScroll(); });
   });
   addEventListener("scroll", reportScroll, { passive: true });
   addEventListener("click", (event) => {
@@ -96,7 +115,7 @@ export function build_html_frame_bridge_script(initial_scroll_top = 0): string {
   addEventListener("message", (event) => {
     if (event.data?.source !== "carbide-host") return;
     if (event.data.type === "scroll_to_heading") {
-      document.querySelector("[data-carbide-heading-id=\"" + CSS.escape(String(event.data.id)) + "\"]")?.scrollIntoView({ block: "start" });
+      document.querySelector('[data-carbide-heading-id="' + CSS.escape(String(event.data.id)) + '"]')?.scrollIntoView({ block: "start" });
     } else if (event.data.type === "scroll_to_fragment") {
       document.getElementById(String(event.data.fragment))?.scrollIntoView({ block: "start" });
     }

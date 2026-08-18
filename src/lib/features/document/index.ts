@@ -10,6 +10,9 @@ export {
 } from "$lib/features/document/state/document_store.svelte";
 export {
   type DocumentPort,
+  type DocumentEditorController,
+  type DocumentFindOptions,
+  type DocumentFindResult,
   type NoteExportFormat,
   type NoteExportPort,
   type TrustedHtmlPort,

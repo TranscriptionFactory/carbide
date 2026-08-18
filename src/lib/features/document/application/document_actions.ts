@@ -128,7 +128,12 @@ export function register_document_actions(
     execute: async (...args: unknown[]) => {
       const parsed = parse_document_open_payload(args[0]);
       if (!parsed) return;
-      const { file_path, initial_pdf_page, initial_cfi, initial_html_fragment } = parsed;
+      const {
+        file_path,
+        initial_pdf_page,
+        initial_cfi,
+        initial_html_fragment,
+      } = parsed;
       const vault_id = stores.vault.vault?.id;
       if (!vault_id) return;
 

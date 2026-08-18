@@ -26,6 +26,37 @@ export interface DocumentPort {
   close_buffer(id: string): Promise<void>;
 }
 
+export type DocumentFindOptions = {
+  case_sensitive: boolean;
+  whole_word: boolean;
+  scope?: "document" | "selection";
+  range?: { from: number; to: number };
+};
+
+export type DocumentFindResult = {
+  match_count: number;
+  selected_index: number;
+};
+
+export interface DocumentEditorController {
+  get_selection_range(): { from: number; to: number; text: string } | null;
+  update_find_state(
+    query: string,
+    selected_index: number,
+    options: DocumentFindOptions,
+    on_matches_change?: (update: {
+      match_count: number;
+      selected_index: number;
+      range: { from: number; to: number } | null;
+    }) => void,
+  ): number;
+  replace_at_match(
+    match_index: number,
+    replacement: string,
+  ): DocumentFindResult;
+  replace_all_matches(replacement: string): DocumentFindResult;
+}
+
 export type NoteExportFormat = "pdf" | "html" | "epub";
 
 export interface NoteExportPort {

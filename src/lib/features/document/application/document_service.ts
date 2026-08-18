@@ -1,5 +1,8 @@
 import type {
   DocumentPort,
+  DocumentEditorController,
+  DocumentFindOptions,
+  DocumentFindResult,
   NoteExportPort,
   ReadingPositionPort,
   TrustEntry,
@@ -56,6 +59,8 @@ function derive_document_title(file_path: string): string {
 }
 
 export class DocumentService {
+  private editor_controller: DocumentEditorController | null = null;
+
   constructor(
     private readonly document_port: DocumentPort,
     private readonly vault_store: VaultStore,
@@ -67,6 +72,59 @@ export class DocumentService {
     private readonly reading_position_port?: ReadingPositionPort,
   ) {
     this.document_store.set_inactive_content_limit(inactive_content_limit);
+  }
+
+  register_editor_controller(
+    controller: DocumentEditorController | null,
+  ): void {
+    this.editor_controller = controller;
+  }
+
+  request_html_outline_heading(tab_id: string, id: string): void {
+    this.document_store.request_html_outline_heading(tab_id, id);
+  }
+
+  get_selection_range() {
+    return this.editor_controller?.get_selection_range() ?? null;
+  }
+
+  update_find_state(
+    query: string,
+    selected_index: number,
+    options: DocumentFindOptions,
+    on_matches_change?: Parameters<
+      DocumentEditorController["update_find_state"]
+    >[3],
+  ): number {
+    return (
+      this.editor_controller?.update_find_state(
+        query,
+        selected_index,
+        options,
+        on_matches_change,
+      ) ?? 0
+    );
+  }
+
+  replace_at_match(
+    match_index: number,
+    replacement: string,
+  ): DocumentFindResult {
+    return (
+      this.editor_controller?.replace_at_match(match_index, replacement) ?? {
+        match_count: 0,
+        selected_index: 0,
+      }
+    );
+  }
+
+  replace_all_matches(replacement: string): DocumentFindResult {
+    return (
+      this.editor_controller?.replace_all_matches(replacement) ?? {
+        match_count: 0,
+        selected_index: 0,
+      }
+    );
   }
 
   async refresh_trust_level(file_path: string): Promise<TrustLevel> {
@@ -217,7 +275,8 @@ export class DocumentService {
         pdf_page: normalized_initial_pdf_page ?? 1,
         cfi,
         html_view_mode: "safe",
-        html_fragment: file_type === "html" ? (initial_html_fragment ?? null) : null,
+        html_fragment:
+          file_type === "html" ? (initial_html_fragment ?? null) : null,
         load_status: "idle",
         error_message: null,
       });

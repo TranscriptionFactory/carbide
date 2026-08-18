@@ -269,7 +269,10 @@ export function register_ui_actions(input: ActionRegistrationInput) {
       if (active_tab?.kind === "document") {
         const heading = stores.outline.headings[pos];
         if (heading) {
-          stores.document.request_html_outline_heading(active_tab.id, heading.id);
+          services.document.request_html_outline_heading(
+            active_tab.id,
+            heading.id,
+          );
         }
         return;
       }

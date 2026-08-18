@@ -2,7 +2,7 @@ interface BuildLiveHtmlDocumentInput {
   content: string;
   theme_style: string;
   bridge_script?: string;
-  base_url?: string;
+  base_url?: string | undefined;
 }
 
 // No meta CSP is injected — the header CSP from `live_html_csp()` in
@@ -19,10 +19,7 @@ export function build_live_html_document({
     return content.replace(/<head([^>]*)>/i, `<head$1>${head}`);
   }
   if (/<html[\s>]/i.test(content)) {
-    return content.replace(
-      /<html([^>]*)>/i,
-      `<html$1><head>${head}</head>`,
-    );
+    return content.replace(/<html([^>]*)>/i, `<html$1><head>${head}</head>`);
   }
   return `<!DOCTYPE html><html><head>${head}</head><body>${content}</body></html>`;
 }

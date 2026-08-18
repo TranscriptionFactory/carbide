@@ -7,7 +7,10 @@ export type HtmlLinkTarget =
 
 const EXTERNAL_PROTOCOLS = new Set(["http:", "https:", "mailto:", "tel:"]);
 
-function normalize_relative_path(base_file: string, target: string): string | null {
+function normalize_relative_path(
+  base_file: string,
+  target: string,
+): string | null {
   const input = target.startsWith("/")
     ? target.slice(1)
     : `${parent_folder_path(base_file)}/${target}`;
@@ -24,7 +27,10 @@ function normalize_relative_path(base_file: string, target: string): string | nu
   return output.join("/") || null;
 }
 
-export function classify_html_link(href: string, base_file: string): HtmlLinkTarget | null {
+export function classify_html_link(
+  href: string,
+  base_file: string,
+): HtmlLinkTarget | null {
   const trimmed = href.trim();
   if (!trimmed) return null;
   if (trimmed.startsWith("#")) {
@@ -46,7 +52,11 @@ export function classify_html_link(href: string, base_file: string): HtmlLinkTar
       decodeURIComponent(query >= 0 ? raw_path.slice(0, query) : raw_path),
     );
     if (!path) return null;
-    const fragment = raw_fragment ? decodeURIComponent(raw_fragment) : undefined;
-    return fragment ? { kind: "vault", path, fragment } : { kind: "vault", path };
+    const fragment = raw_fragment
+      ? decodeURIComponent(raw_fragment)
+      : undefined;
+    return fragment
+      ? { kind: "vault", path, fragment }
+      : { kind: "vault", path };
   }
 }

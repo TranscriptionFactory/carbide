@@ -19,7 +19,7 @@
     content: string;
     theme: Theme;
     allow_network?: boolean;
-    base_url?: string;
+    base_url?: string | undefined;
     initial_scroll_top?: number;
     on_scroll_change?: (scroll_top: number) => void;
     on_link_click?: (href: string) => void;
@@ -42,24 +42,34 @@
   let src = $state<string | null>(null);
   let error_message = $state<string | null>(null);
   let render_generation = $state(0);
-  let iframe: SandboxedIframe;
+  let iframe: SandboxedIframe | undefined = $state();
 
   function handle_message(data: unknown) {
     const message = parse_html_frame_message(data);
     if (!message) return;
     if (message.type === "link_click") on_link_click?.(message.href);
     else if (message.type === "scroll") on_scroll_change?.(message.scroll_top);
-    else if (message.type === "headings") on_headings_change?.(message.headings);
-    else if (message.type === "active_heading") on_active_heading_change?.(message.id);
+    else if (message.type === "headings")
+      on_headings_change?.(message.headings);
+    else if (message.type === "active_heading")
+      on_active_heading_change?.(message.id);
     else if (message.type === "runtime_error") error_message = message.message;
   }
 
   export function scroll_to_heading(id: string) {
-    iframe?.post_message({ source: "carbide-host", type: "scroll_to_heading", id });
+    iframe?.post_message({
+      source: "carbide-host",
+      type: "scroll_to_heading",
+      id,
+    });
   }
 
   export function scroll_to_fragment(fragment: string) {
-    iframe?.post_message({ source: "carbide-host", type: "scroll_to_fragment", fragment });
+    iframe?.post_message({
+      source: "carbide-host",
+      type: "scroll_to_fragment",
+      fragment,
+    });
   }
 
   $effect(() => {
@@ -123,10 +133,17 @@
       visible
       on_message={handle_message}
     />
+    {#if error_message}
+      <div class="HtmlLiveRenderer__runtime-error" role="alert">
+        {error_message}
+      </div>
+    {/if}
   {:else if error_message}
     <div class="HtmlLiveRenderer__state" role="alert">
       <span>Failed to render HTML: {error_message}</span>
-      <button type="button" onclick={() => (render_generation += 1)}>Retry</button>
+      <button type="button" onclick={() => (render_generation += 1)}
+        >Retry</button
+      >
     </div>
   {:else}
     <div class="HtmlLiveRenderer__state" role="status">Loading HTML…</div>
@@ -155,5 +172,12 @@
     justify-content: center;
     gap: var(--space-2);
     color: var(--muted-foreground);
+  }
+
+  .HtmlLiveRenderer__runtime-error {
+    padding: var(--space-1) var(--space-3);
+    color: var(--destructive-foreground);
+    background: var(--destructive);
+    font-size: var(--text-xs);
   }
 </style>
