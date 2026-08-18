@@ -108,6 +108,7 @@ function resolve_attachment_save_options(
 export function parse_note_open_input(input: unknown): {
   note_path: string;
   cleanup_if_missing: boolean;
+  initial_fragment?: string;
 } {
   if (input && typeof input === "object" && "note_path" in input) {
     const record = input as Record<string, unknown>;
@@ -115,6 +116,9 @@ export function parse_note_open_input(input: unknown): {
       return {
         note_path: record.note_path,
         cleanup_if_missing: record.cleanup_if_missing === true,
+        ...(typeof record.initial_fragment === "string"
+          ? { initial_fragment: record.initial_fragment }
+          : {}),
       };
     }
   }

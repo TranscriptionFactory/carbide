@@ -305,6 +305,8 @@ export function mount_reactors(context: ReactorContext): ReactorHandles {
       context.editor_store,
       context.editor_service,
       context.search_store,
+      context.tab_store,
+      context.document_service,
     ),
     create_local_links_sync_reactor(
       context.editor_store,

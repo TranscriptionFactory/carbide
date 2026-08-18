@@ -21,6 +21,10 @@
   } from "$lib/features/document/types/document";
   import { format_bytes } from "$lib/shared/utils/format_bytes";
   import { parent_folder_path } from "$lib/shared/utils/path";
+  import { classify_html_link } from "$lib/features/document/domain/html_link";
+  import { detect_file_type } from "$lib/features/document/domain/document_types";
+  import type { HtmlFrameHeading } from "$lib/features/document/domain/html_frame_bridge";
+  import { extract_html_headings } from "$lib/features/document/domain/html_outline";
   import CodeIcon from "@lucide/svelte/icons/code";
   import EyeIcon from "@lucide/svelte/icons/eye";
   import ZapIcon from "@lucide/svelte/icons/zap";
@@ -52,6 +56,21 @@
   const provenance_banner = $derived(
     provenance ? format_provenance_banner(provenance) : null,
   );
+  const html_asset_base = $derived.by(() => {
+    const vault_id = stores.vault.vault?.id;
+    if (!vault_id || !is_html) return undefined;
+    const folder = parent_folder_path(viewer_state.file_path);
+    return services.document.resolve_asset_url(
+      vault_id,
+      folder ? `${folder}/` : "",
+    );
+  });
+  let html_renderer:
+    | {
+        scroll_to_heading(id: string): void;
+        scroll_to_fragment?(fragment: string): void;
+      }
+    | undefined = $state();
 
   $effect(() => {
     if (is_html) {
@@ -76,6 +95,54 @@
   function handle_scroll_change(scroll_top: number): void {
     stores.document.update_scroll(viewer_state.tab_id, scroll_top);
   }
+
+  function handle_html_link(href: string): void {
+    const target = classify_html_link(href, viewer_state.file_path);
+    if (!target) return;
+    if (target.kind === "external") {
+      void action_registry.execute(ACTION_IDS.shell_open_url, target.url);
+    } else if (target.kind === "fragment") {
+      html_renderer?.scroll_to_fragment?.(target.fragment);
+    } else {
+      const filename = target.path.split("/").pop() ?? target.path;
+      const document_type = detect_file_type(filename);
+      if (document_type) {
+        void action_registry.execute(ACTION_IDS.document_open, {
+          file_path: target.path,
+          initial_html_fragment: target.fragment,
+        });
+      } else {
+        void action_registry.execute(ACTION_IDS.note_open, {
+          note_path: target.path,
+          initial_fragment: target.fragment,
+        });
+      }
+    }
+  }
+
+  function handle_html_headings(headings: HtmlFrameHeading[]): void {
+    stores.outline.set_headings(
+      headings.map((heading, pos) => ({ ...heading, pos })),
+      viewer_state.file_path,
+    );
+    if (viewer_state.html_fragment) {
+      html_renderer?.scroll_to_fragment?.(viewer_state.html_fragment);
+    }
+  }
+
+  $effect(() => {
+    if (!is_html || html_mode !== "source" || current_content === null) return;
+    stores.outline.set_headings(
+      extract_html_headings(current_content),
+      viewer_state.file_path,
+    );
+  });
+
+  $effect(() => {
+    const request = stores.document.html_outline_request;
+    if (!request || request.tab_id !== viewer_state.tab_id) return;
+    html_renderer?.scroll_to_heading(request.id);
+  });
 
   function handle_epub_position_change(cfi: string): void {
     void action_registry.execute(ACTION_IDS.document_save_reading_position, {
@@ -198,27 +265,42 @@
     {#if html_mode === "source"}
       {#key `${viewer_state.tab_id}:${viewer_state.file_path}:${stores.ui.editor_settings.document_code_wrap ? "wrap" : "nowrap"}`}
         <DocumentEditor
+          bind:this={html_renderer}
           content={current_content}
           filename={viewer_state.file_path.split("/").pop() ?? ""}
           on_change={handle_editor_change}
           wrap_lines={stores.ui.editor_settings.document_code_wrap}
+          on_active_heading_change={(id) =>
+            stores.outline.set_active_heading(id)}
+          theme={stores.ui.active_theme.color_scheme}
+          on_controller_change={(controller) =>
+            services.document.register_editor_controller(controller)}
         />
       {/key}
     {:else if html_mode === "live" && live_allowed}
       <HtmlLiveRenderer
+        bind:this={html_renderer}
         content={current_content}
         theme={stores.ui.active_theme}
         {allow_network}
-        asset_root={parent_folder_path(viewer_state.file_path)}
+        base_url={html_asset_base}
         initial_scroll_top={viewer_state.scroll_top}
         on_scroll_change={handle_scroll_change}
+        on_link_click={handle_html_link}
+        on_headings_change={handle_html_headings}
+        on_active_heading_change={(id) => stores.outline.set_active_heading(id)}
       />
     {:else}
       <HtmlViewer
+        bind:this={html_renderer}
         content={current_content}
         theme={stores.ui.active_theme.color_scheme}
         initial_scroll_top={viewer_state.scroll_top}
         on_scroll_change={handle_scroll_change}
+        base_url={html_asset_base}
+        on_link_click={handle_html_link}
+        on_headings_change={handle_html_headings}
+        on_active_heading_change={(id) => stores.outline.set_active_heading(id)}
       />
     {/if}
   {:else if viewer_state.file_type === "csv" && current_content !== null}
@@ -230,6 +312,9 @@
         filename={viewer_state.file_path.split("/").pop() ?? ""}
         on_change={handle_editor_change}
         wrap_lines={stores.ui.editor_settings.document_code_wrap}
+        theme={stores.ui.active_theme.color_scheme}
+        on_controller_change={(controller) =>
+          services.document.register_editor_controller(controller)}
       />
     {/key}
   {:else if viewer_state.load_status === "error"}

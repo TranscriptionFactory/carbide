@@ -141,14 +141,14 @@ fn evict_oldest(docs: &mut HashMap<String, Entry>) {
 // `https:` in script-src/style-src and `connect-src *` are gated on the live+net tier.
 pub fn live_html_csp(allow_network: bool) -> String {
     let script_src = if allow_network {
-        "script-src 'unsafe-inline' 'unsafe-eval' blob: data: https:"
+        "script-src 'unsafe-inline' 'unsafe-eval' blob: data: carbide-asset: https:"
     } else {
-        "script-src 'unsafe-inline' 'unsafe-eval' blob: data:"
+        "script-src 'unsafe-inline' 'unsafe-eval' blob: data: carbide-asset:"
     };
     let style_src = if allow_network {
-        "style-src 'unsafe-inline' data: https:"
+        "style-src 'unsafe-inline' data: carbide-asset: https:"
     } else {
-        "style-src 'unsafe-inline' data:"
+        "style-src 'unsafe-inline' data: carbide-asset:"
     };
     let connect_src = if allow_network {
         "connect-src *"
@@ -159,9 +159,21 @@ pub fn live_html_csp(allow_network: bool) -> String {
         "default-src 'none'",
         script_src,
         style_src,
-        "img-src data: blob: https: http: carbide-html:",
-        "font-src data: https: http: carbide-html:",
-        "media-src data: blob: https: http: carbide-html:",
+        if allow_network {
+            "img-src data: blob: https: http: carbide-html: carbide-asset:"
+        } else {
+            "img-src data: blob: carbide-html: carbide-asset:"
+        },
+        if allow_network {
+            "font-src data: https: http: carbide-html: carbide-asset:"
+        } else {
+            "font-src data: carbide-html: carbide-asset:"
+        },
+        if allow_network {
+            "media-src data: blob: https: http: carbide-html: carbide-asset:"
+        } else {
+            "media-src data: blob: carbide-html: carbide-asset:"
+        },
         "frame-src data: blob:",
         connect_src,
     ]
@@ -272,11 +284,9 @@ pub fn scheme_name() -> &'static str {
 pub fn html_live_register(
     state: tauri::State<LiveHtmlStore>,
     html: String,
-    asset_root: Option<String>,
     allow_network: bool,
 ) -> String {
-    let root = asset_root.filter(|s| !s.is_empty()).map(PathBuf::from);
-    let token = state.register(html, root, allow_network);
+    let token = state.register(html, None, allow_network);
     format!("{}://{}/{}/", SCHEME, HOST, token)
 }
 
@@ -426,18 +436,33 @@ mod tests {
     #[test]
     fn csp_live_omits_https_from_scripts_and_styles() {
         let csp = live_html_csp(false);
-        assert!(csp.contains("script-src 'unsafe-inline' 'unsafe-eval' blob: data:;"));
-        assert!(!csp.contains("script-src 'unsafe-inline' 'unsafe-eval' blob: data: https:"));
-        assert!(csp.contains("style-src 'unsafe-inline' data:;"));
-        assert!(!csp.contains("style-src 'unsafe-inline' data: https:"));
+        assert!(csp.contains(
+            "script-src 'unsafe-inline' 'unsafe-eval' blob: data: carbide-asset:;"
+        ));
+        assert!(!csp.contains(
+            "script-src 'unsafe-inline' 'unsafe-eval' blob: data: carbide-asset: https:"
+        ));
+        assert!(csp.contains("style-src 'unsafe-inline' data: carbide-asset:;"));
+        assert!(!csp.contains("style-src 'unsafe-inline' data: carbide-asset: https:"));
         assert!(csp.contains("connect-src 'none'"));
+        for directive in ["img-src", "font-src", "media-src"] {
+            let value = csp
+                .split("; ")
+                .find(|value| value.starts_with(directive))
+                .unwrap();
+            assert!(!value.contains("https:"));
+            assert!(!value.contains("http:"));
+            assert!(value.contains("carbide-asset:"));
+        }
     }
 
     #[test]
     fn csp_livenet_allows_https_scripts_and_styles() {
         let csp = live_html_csp(true);
-        assert!(csp.contains("script-src 'unsafe-inline' 'unsafe-eval' blob: data: https:"));
-        assert!(csp.contains("style-src 'unsafe-inline' data: https:"));
+        assert!(csp.contains(
+            "script-src 'unsafe-inline' 'unsafe-eval' blob: data: carbide-asset: https:"
+        ));
+        assert!(csp.contains("style-src 'unsafe-inline' data: carbide-asset: https:"));
         assert!(csp.contains("connect-src *"));
     }
 

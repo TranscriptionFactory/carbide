@@ -1,12 +1,21 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { sanitize_html } from "$lib/shared/html";
+  import { sanitize_html_preview } from "$lib/shared/html";
+  import {
+    build_html_frame_bridge_script,
+    parse_html_frame_message,
+    type HtmlFrameHeading,
+  } from "$lib/features/document/domain/html_frame_bridge";
 
   interface Props {
     content: string;
     theme: "light" | "dark";
     initial_scroll_top?: number;
     on_scroll_change?: (scroll_top: number) => void;
+    base_url?: string | undefined;
+    on_link_click?: (href: string) => void;
+    on_headings_change?: (headings: HtmlFrameHeading[]) => void;
+    on_active_heading_change?: (id: string | null) => void;
   }
 
   let {
@@ -14,12 +23,15 @@
     theme,
     initial_scroll_top = 0,
     on_scroll_change,
+    base_url,
+    on_link_click,
+    on_headings_change,
+    on_active_heading_change,
   }: Props = $props();
 
   let frame: HTMLIFrameElement | undefined = $state();
-  let scroll_timer: ReturnType<typeof setTimeout> | undefined;
 
-  const sanitized = $derived(sanitize_html(content));
+  const sanitized = $derived(sanitize_html_preview(content));
 
   const palettes = {
     dark: {
@@ -40,27 +52,36 @@
     },
   } as const;
 
-  function on_frame_load() {
-    const doc = frame?.contentDocument;
-    if (!doc) return;
+  function handle_message(event: MessageEvent) {
+    if (event.source !== frame?.contentWindow) return;
+    const message = parse_html_frame_message(event.data);
+    if (!message) return;
+    if (message.type === "link_click") on_link_click?.(message.href);
+    else if (message.type === "scroll") on_scroll_change?.(message.scroll_top);
+    else if (message.type === "headings")
+      on_headings_change?.(message.headings);
+    else if (message.type === "active_heading")
+      on_active_heading_change?.(message.id);
+  }
 
-    requestAnimationFrame(() => {
-      const scrollable = doc.scrollingElement ?? doc.documentElement;
-      scrollable.scrollTop = initial_scroll_top;
-    });
+  export function scroll_to_heading(id: string) {
+    frame?.contentWindow?.postMessage(
+      { source: "carbide-host", type: "scroll_to_heading", id },
+      "*",
+    );
+  }
 
-    doc.addEventListener("scroll", () => {
-      clearTimeout(scroll_timer);
-      scroll_timer = setTimeout(() => {
-        const scrollable = doc.scrollingElement ?? doc.documentElement;
-        on_scroll_change?.(scrollable.scrollTop);
-      }, 150);
-    });
+  export function scroll_to_fragment(fragment: string) {
+    frame?.contentWindow?.postMessage(
+      { source: "carbide-host", type: "scroll_to_fragment", fragment },
+      "*",
+    );
   }
 
   onMount(() => {
+    window.addEventListener("message", handle_message);
     return () => {
-      clearTimeout(scroll_timer);
+      window.removeEventListener("message", handle_message);
     };
   });
 
@@ -70,8 +91,10 @@
 <html>
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data: blob:;">
+${base_url ? `<base href="${base_url}">` : ""}
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline' data: carbide-asset:; img-src data: blob: carbide-asset:; font-src data: carbide-asset:; media-src data: blob: carbide-asset:; connect-src 'none'; form-action 'none'; frame-src 'none';">
 <style>
+  ${sanitized.styles}
   body {
     margin: 0;
     padding: 16px 24px;
@@ -95,8 +118,9 @@
   hr { border: none; border-top: 1px solid ${p.border}; margin: 16px 0; }
   h1, h2, h3, h4, h5, h6 { margin: 16px 0 8px; }
 </style>
+${build_html_frame_bridge_script(initial_scroll_top)}
 </head>
-<body>${sanitized}</body>
+<body>${sanitized.body}</body>
 </html>`;
   });
 </script>
@@ -105,10 +129,9 @@
   <iframe
     bind:this={frame}
     class="HtmlViewer__frame"
-    sandbox="allow-same-origin"
+    sandbox="allow-scripts"
     title="HTML document preview"
     {srcdoc}
-    onload={on_frame_load}
   ></iframe>
 </div>
 

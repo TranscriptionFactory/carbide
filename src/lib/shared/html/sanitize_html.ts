@@ -10,6 +10,8 @@ const ALWAYS_REMOVE = new Set([
   "object",
   "embed",
   "applet",
+  "iframe",
+  "foreignobject",
 ]);
 
 const GLOBAL_ATTRS = new Set(["id", "class", "style", "title", "dir", "lang"]);
@@ -179,6 +181,78 @@ export function sanitize_html(
   sanitize_node(body, allowed, strip);
 
   return body.innerHTML;
+}
+
+const PREVIEW_ELEMENTS: Record<string, string[]> = {
+  article: [],
+  aside: [],
+  footer: [],
+  header: [],
+  main: [],
+  nav: [],
+  section: [],
+  details: ["open"],
+  summary: [],
+  figure: [],
+  figcaption: [],
+  mark: [],
+  time: ["datetime"],
+  audio: ["src", "controls", "loop", "muted", "preload"],
+  video: [
+    "src",
+    "poster",
+    "controls",
+    "loop",
+    "muted",
+    "preload",
+    "width",
+    "height",
+  ],
+  source: ["src", "type", "media"],
+  track: ["src", "kind", "srclang", "label", "default"],
+  form: [],
+  input: ["type", "value", "placeholder", "checked", "name", "disabled"],
+  button: ["type", "disabled"],
+  select: ["name", "disabled"],
+  option: ["value", "selected"],
+  textarea: ["placeholder", "disabled"],
+  svg: ["viewbox", "width", "height", "fill", "stroke", "role"],
+  g: ["fill", "stroke", "transform"],
+  path: ["d", "fill", "stroke", "stroke-width"],
+  circle: ["cx", "cy", "r", "fill", "stroke"],
+  rect: ["x", "y", "width", "height", "rx", "fill", "stroke"],
+  line: ["x1", "y1", "x2", "y2", "stroke"],
+  polyline: ["points", "fill", "stroke"],
+  polygon: ["points", "fill", "stroke"],
+  text: ["x", "y", "fill", "text-anchor"],
+};
+
+export function sanitize_html_preview(html: string): {
+  body: string;
+  styles: string;
+} {
+  const source = new DOMParser().parseFromString(html, "text/html");
+  const styles = Array.from(source.querySelectorAll("style"))
+    .map((style) => style.textContent ?? "")
+    .join("\n");
+  const allowed = get_default_allowlist();
+  for (const [tag, attrs] of Object.entries(PREVIEW_ELEMENTS)) {
+    allowed.set(tag, new Set(attrs));
+  }
+  const clean = sanitize_html(source.body.innerHTML, {
+    allowed_elements: allowed,
+  });
+  const preview = new DOMParser().parseFromString(clean, "text/html");
+  for (const form of preview.querySelectorAll("form")) {
+    form.removeAttribute("action");
+    form.removeAttribute("method");
+  }
+  for (const control of preview.querySelectorAll(
+    "input,button,select,textarea",
+  )) {
+    control.setAttribute("disabled", "");
+  }
+  return { body: preview.body.innerHTML, styles };
 }
 
 function sanitize_node(

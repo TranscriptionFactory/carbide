@@ -18,6 +18,12 @@ export function register_find_in_file_actions(input: ActionRegistrationInput) {
 
   let find_debounce_timer: ReturnType<typeof setTimeout> | null = null;
 
+  function find_target() {
+    return stores.tab.active_tab?.kind === "document"
+      ? services.document
+      : services.editor;
+  }
+
   function cancel_find_debounce() {
     if (find_debounce_timer !== null) {
       clearTimeout(find_debounce_timer);
@@ -72,7 +78,7 @@ export function register_find_in_file_actions(input: ActionRegistrationInput) {
   // input is focused, so scope and seed query have to be captured on open.
   function open_find() {
     const open_state = resolve_find_open_state(
-      services.editor.get_selection_range(),
+      find_target().get_selection_range(),
     );
     update_find_state({
       open: true,
@@ -169,7 +175,7 @@ export function register_find_in_file_actions(input: ActionRegistrationInput) {
     execute: () => {
       const { selected_match_index, replace_text } = stores.ui.find_in_file;
       if (stores.search.find_match_count === 0) return;
-      const result = services.editor.replace_at_match(
+      const result = find_target().replace_at_match(
         selected_match_index,
         replace_text,
       );
@@ -184,7 +190,7 @@ export function register_find_in_file_actions(input: ActionRegistrationInput) {
     execute: () => {
       const { replace_text } = stores.ui.find_in_file;
       if (stores.search.find_match_count === 0) return;
-      const result = services.editor.replace_all_matches(replace_text);
+      const result = find_target().replace_all_matches(replace_text);
       stores.search.set_find_match_count(result.match_count);
       update_find_state({ selected_match_index: result.selected_index });
     },

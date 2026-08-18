@@ -1,6 +1,10 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from "vitest";
-import { sanitize_html, get_default_allowlist } from "$lib/shared/html";
+import {
+  sanitize_html,
+  sanitize_html_preview,
+  get_default_allowlist,
+} from "$lib/shared/html";
 
 describe("sanitize_html", () => {
   describe("allowed elements pass through", () => {
@@ -129,5 +133,26 @@ describe("sanitize_html", () => {
     it("preserves plain text", () => {
       expect(sanitize_html("just text")).toBe("just text");
     });
+  });
+});
+
+describe("sanitize_html_preview", () => {
+  it("preserves inert styles and modern semantic content", () => {
+    const result = sanitize_html_preview(
+      "<html><head><style>.x{color:red}</style></head><body><details><summary>More</summary><figure><figcaption>Chart</figcaption></figure></details></body></html>",
+    );
+    expect(result.styles).toContain(".x{color:red}");
+    expect(result.body).toContain("<details>");
+    expect(result.body).toContain("<figcaption>Chart</figcaption>");
+  });
+
+  it("removes active content and makes forms inert", () => {
+    const result = sanitize_html_preview(
+      '<script>alert(1)</script><form action="https://evil.test"><input value="x"><button>Go</button></form><svg><foreignObject><p>bad</p></foreignObject></svg>',
+    );
+    expect(result.body).not.toContain("script");
+    expect(result.body).not.toContain("foreignObject");
+    expect(result.body).not.toContain("action=");
+    expect(result.body).toContain("disabled");
   });
 });
