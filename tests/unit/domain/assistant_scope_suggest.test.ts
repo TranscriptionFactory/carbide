@@ -3,7 +3,7 @@ import { build_scope_suggestions } from "$lib/features/assistant/domain/scope_su
 import type { ScopeSources } from "$lib/features/assistant/domain/scope_suggest";
 
 const sources: ScopeSources = {
-  folder_paths: ["projects", "projects/alpha", "archive"],
+  folder_paths: ["projects", "projects/alpha", "archive", "work/2026/meetings"],
   tags: [
     { tag: "active", count: 5 },
     { tag: "project/active", count: 2 },
@@ -20,6 +20,14 @@ describe("build_scope_suggestions", () => {
     const { folders } = build_scope_suggestions("projects", sources, {});
     expect(folders.map((f) => f.value)).toEqual(["projects", "projects/alpha"]);
     expect(folders[0]).toMatchObject({ kind: "folder", label: "projects" });
+  });
+
+  it("matches a fuzzy folder path segment", () => {
+    const { folders } = build_scope_suggestions("mee", sources, {});
+
+    expect(folders.map((folder) => folder.value)).toContain(
+      "work/2026/meetings",
+    );
   });
 
   it("labels folder root suggestion when query is empty", () => {

@@ -9,6 +9,7 @@
   import ChatScopeBar from "$lib/features/assistant/ui/chat_scope_bar.svelte";
   import type { AiProviderConfig } from "$lib/shared/types/ai_provider_config";
   import { is_plain_enter } from "$lib/shared/utils/keyboard";
+  import { filter_folder_paths } from "$lib/shared/utils/filter_folder_paths";
   import type { TagInfo } from "$lib/features/tags";
   import type { SavedViewInfo } from "$lib/features/bases";
   import type {
@@ -95,6 +96,7 @@
   const MENTION_TRIGGER_RE = /(^|\s)@([^\s@]*)$/;
 
   let mention_items: DslSuggestion[] = [];
+  let mention_error = $state<string | null>(null);
   let fetch_token = 0;
 
   function mention_provider(text_before_cursor: string): DslSuggestResult {
@@ -118,8 +120,25 @@
     return value.slice(0, cursor);
   }
 
-  async function apply_suggestion(from: number, insert: string) {
+  async function apply_suggestion(
+    from: number,
+    insert: string,
+    item?: DslSuggestion,
+  ) {
     fetch_token += 1;
+    if (item?.kind === "folder") {
+      const folders = scope.folders ?? [];
+      if (!folders.includes(insert)) {
+        on_scope_change({ ...scope, folders: [...folders, insert] });
+      }
+      value =
+        value.slice(0, from) +
+        value.slice(textarea_el?.selectionStart ?? value.length);
+      mention_error = null;
+      await tick();
+      textarea_el?.focus();
+      return;
+    }
     const el = textarea_el;
     const cursor = el?.selectionStart ?? value.length;
     value = value.slice(0, from) + insert + value.slice(cursor);
@@ -130,6 +149,7 @@
   }
 
   async function refresh_mentions() {
+    mention_error = null;
     const match = MENTION_TRIGGER_RE.exec(before_cursor());
     if (!match) {
       mention_items = [];
@@ -143,7 +163,18 @@
       label: note.title,
       insert: `${format_mention_token(note.path)} `,
       detail: note.path,
+      kind: "note",
     }));
+    if (mode !== "agent") {
+      mention_items.push(
+        ...filter_folder_paths(match[2] ?? "", folder_paths).map((path) => ({
+          label: path || "(vault root)",
+          insert: path,
+          detail: "Folder scope",
+          kind: "folder" as const,
+        })),
+      );
+    }
     suggest.update(before_cursor());
   }
 
@@ -219,10 +250,30 @@
 
   function dispatch(handler: (text: string) => void) {
     if (!can_submit) return;
+    const folder_mentions = parse_mentions(value).mentions.filter((mention) =>
+      mention.endsWith("/"),
+    );
+    const unresolved = folder_mentions.find(
+      (mention) => !folder_paths.includes(mention.replace(/\/$/, "")),
+    );
+    if (unresolved) {
+      mention_error = `Folder not found: ${unresolved}`;
+      return;
+    }
+    if (folder_mentions.length > 0) {
+      const folders = [...(scope.folders ?? [])];
+      for (const mention of folder_mentions) {
+        const folder = mention.replace(/\/$/, "");
+        if (!folders.includes(folder)) folders.push(folder);
+        value = strip_mention(value, mention);
+      }
+      on_scope_change({ ...scope, folders });
+    }
     fetch_token += 1;
     suggest.close();
-    handler(value.trim());
+    if (value.trim()) handler(value.trim());
     value = "";
+    mention_error = null;
   }
 
   function submit() {
@@ -277,6 +328,9 @@
         selected_index={suggest.selected_index}
         on_select={(i) => suggest.accept(i)}
       />
+    {/if}
+    {#if mention_error}
+      <p class="mt-1 text-xs text-destructive" role="alert">{mention_error}</p>
     {/if}
     {#if show_examples}
       <span

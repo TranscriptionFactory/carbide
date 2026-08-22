@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { FileText, FolderTree } from "@lucide/svelte";
   import type { DslSuggestion } from "$lib/shared/types/dsl_suggestion";
 
   type Props = {
@@ -22,6 +23,11 @@
         on_select(i);
       }}
     >
+      {#if item.kind === "folder"}
+        <FolderTree class="size-4 shrink-0" aria-label="Folder" />
+      {:else if item.kind === "note"}
+        <FileText class="size-4 shrink-0" aria-label="Note" />
+      {/if}
       <span class="DslSuggest__label">{item.label}</span>
       {#if item.detail}
         <span class="DslSuggest__detail">{item.detail}</span>
