@@ -16,6 +16,13 @@ const RETRIEVE_LIMIT_MIN = 1;
 const RETRIEVE_LIMIT_MAX = 50;
 const TOKEN_BUDGET_MIN = 1000;
 const TOKEN_BUDGET_MAX = 128000;
+const DERIVED_TOKEN_BUDGET_FLOOR = 8000;
+const DERIVED_TOKEN_BUDGET_CEILING = 48000;
+const CONTEXT_WINDOW_FRACTION = 0.3;
+const RESERVE_TOKEN_FRACTION = 0.25;
+const HISTORY_BUDGET_MIN = 0;
+const HISTORY_BUDGET_MAX = 32000;
+const UNKNOWN_CONTEXT_TOKEN_BUDGET = 8000;
 
 function clamp_setting(
   value: number,
@@ -38,16 +45,42 @@ export type ChatQueryInputRequest = {
   on_run_started?: (handle: RunHandle) => void;
 };
 
+function context_token_budget(
+  provider: AiProviderConfig,
+  configured: number | undefined,
+): number {
+  if (configured !== undefined && Number.isFinite(configured)) {
+    return clamp_setting(
+      configured,
+      TOKEN_BUDGET_MIN,
+      TOKEN_BUDGET_MAX,
+      UNKNOWN_CONTEXT_TOKEN_BUDGET,
+    );
+  }
+  const context_window = provider.context_window_tokens;
+  if (context_window === undefined || !Number.isFinite(context_window)) {
+    return UNKNOWN_CONTEXT_TOKEN_BUDGET;
+  }
+  return clamp_setting(
+    context_window * CONTEXT_WINDOW_FRACTION,
+    DERIVED_TOKEN_BUDGET_FLOOR,
+    DERIVED_TOKEN_BUDGET_CEILING,
+    UNKNOWN_CONTEXT_TOKEN_BUDGET,
+  );
+}
+
 // Every surface that asks the vault a question builds its input here, so the
-// two retrieval settings cannot apply to one surface and not another. The MCP
+// retrieval settings cannot apply to one surface and not another. The MCP
 // bridge used to construct its own input and passed neither, which was
-// invisible only because both settings default to the same values retrieval
-// and the assembler fall back to (15 notes, 8000 tokens) — move either slider
-// and the same question answered differently in-app and over MCP.
+// invisible only because the settings matched the downstream fallbacks.
 export function build_chat_query_input(
   request: ChatQueryInputRequest,
 ): AssistantChatQueryInput {
   const { settings } = request;
+  const token_budget = context_token_budget(
+    request.provider_config,
+    settings.ai_rag_context_token_budget,
+  );
   return {
     question: request.question,
     provider_config: request.provider_config,
@@ -58,13 +91,15 @@ export function build_chat_query_input(
       DEFAULT_EDITOR_SETTINGS.ai_rag_retrieve_limit,
     ),
     assembler_options: {
-      token_budget: clamp_setting(
-        settings.ai_rag_context_token_budget,
-        TOKEN_BUDGET_MIN,
-        TOKEN_BUDGET_MAX,
-        DEFAULT_EDITOR_SETTINGS.ai_rag_context_token_budget,
-      ),
+      token_budget,
+      reserve_tokens: Math.round(token_budget * RESERVE_TOKEN_FRACTION),
     },
+    history_token_budget: clamp_setting(
+      settings.ai_rag_history_token_budget,
+      HISTORY_BUDGET_MIN,
+      HISTORY_BUDGET_MAX,
+      DEFAULT_EDITOR_SETTINGS.ai_rag_history_token_budget,
+    ),
     ...(request.scope ? { scope: request.scope } : {}),
     ...(request.history ? { history: request.history } : {}),
     ...(request.image_parts ? { image_parts: request.image_parts } : {}),

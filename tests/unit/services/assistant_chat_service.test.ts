@@ -541,6 +541,49 @@ describe("AssistantChatService.query", () => {
     expect(query?.text).not.toBe("why?");
   });
 
+  it("uses the configured history budget when building the prompt", async () => {
+    const search = {
+      search_blocks: vi.fn().mockResolvedValue([]),
+      hybrid_search: vi
+        .fn()
+        .mockResolvedValue([hit("notes/q.md", "Q", "1", 0.9)]),
+    };
+    const stream = text_stream("Answer [1].");
+    const service = create_chat_seam({
+      search,
+      notes: { read_note: vi.fn().mockResolvedValue({ markdown: "Body." }) },
+      run_starter: stream as never,
+      tag,
+      bases,
+    }).chat;
+
+    await collect(
+      service.query({
+        question: "why?",
+        provider_config: provider,
+        history: [
+          {
+            id: "u1",
+            role: "user",
+            content: "Earlier question",
+            citations: [],
+          },
+          {
+            id: "a1",
+            role: "assistant",
+            content: "Earlier answer",
+            citations: [],
+          },
+        ],
+        history_token_budget: 0,
+      }),
+    );
+
+    const request = stream.specs[0]?.request;
+    if (request?.mode !== "text") throw new Error("expected text run");
+    expect(request.messages).toHaveLength(1);
+  });
+
   it("surfaces an error and refuses to search outside scope when a base view fails to load", async () => {
     const search = {
       search_blocks: vi.fn().mockResolvedValue([]),

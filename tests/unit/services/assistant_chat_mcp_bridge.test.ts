@@ -42,10 +42,8 @@ import type {
 
 const QUESTION = "what is it?";
 
-// Deliberately OFF DEFAULT. Both settings default to exactly what retrieval and
-// the assembler fall back to (15 notes / 8000 tokens), so a fixture left at the
-// defaults cannot tell "honours the setting" from "ignores the setting" — which
-// is precisely how the MCP path drifted unnoticed.
+// Deliberately explicit and off the derived default so the fixture can tell
+// "honours the setting" from "ignores the setting".
 const RETRIEVE_LIMIT = 7;
 const TOKEN_BUDGET = 3000;
 
@@ -68,10 +66,8 @@ const mcp_event: ChatMcpQueryEvent = {
   tag: null,
 };
 
-// Long enough that TOKEN_BUDGET truncates it and the 8000-token default would
-// not: (3000 - 2500) * 4 = 2000 chars of room against (8000 - 2500) * 4 =
-// 22000. That is what makes a budget divergence visible in the assembled
-// prompt rather than silently identical.
+// Long enough that TOKEN_BUDGET truncates it while the derived preset budget
+// does not. That makes a budget divergence visible in the assembled prompt.
 const LONG_BODY = `The answer is 42.\n${"filler prose. ".repeat(800)}`;
 
 function make_settings(

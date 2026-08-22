@@ -650,9 +650,16 @@ export const SETTINGS_REGISTRY: SettingDefinition[] = [
     key: "ai_rag_context_token_budget",
     label: "Chat Context Token Budget",
     description:
-      "Approximate token budget for note context included in vault chat prompts",
+      "Optional absolute note-context budget; automatic sizing uses the provider context window",
     category: "AI",
     keywords: ["ai", "rag", "chat", "vault", "context", "tokens", "budget"],
+  },
+  {
+    key: "ai_rag_history_token_budget",
+    label: "Chat History Token Budget",
+    description: "Approximate token budget for prior vault chat messages",
+    category: "AI",
+    keywords: ["ai", "rag", "chat", "history", "tokens", "budget"],
   },
   {
     key: "ambient_notices_enabled",

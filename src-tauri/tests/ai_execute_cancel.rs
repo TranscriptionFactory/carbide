@@ -20,6 +20,7 @@ fn cli_provider(args: &[&str]) -> AiProviderConfig {
             acp: None,
         },
         model: None,
+        context_window_tokens: None,
         install_url: None,
         is_preset: None,
     }

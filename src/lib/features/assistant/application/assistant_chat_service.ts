@@ -122,6 +122,7 @@ export type AssistantChatQueryInput = {
   scope?: AssistantScope;
   retrieve_limit?: number;
   assembler_options?: Partial<ContextBudget>;
+  history_token_budget?: number;
   image_parts?: AiImagePart[];
   // Attached open-tab document (pin 5). Outside the retrieval budget — the
   // legacy panel sent the whole document, and budgeting it here would
@@ -250,6 +251,9 @@ export class AssistantChatService {
       question: cleaned_question,
       contexts,
       history: input.history ?? [],
+      ...(input.history_token_budget === undefined
+        ? {}
+        : { history_token_budget: input.history_token_budget }),
       ...(input.attachment ? { attachment: input.attachment } : {}),
     });
 

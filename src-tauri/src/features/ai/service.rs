@@ -50,6 +50,8 @@ pub struct AiProviderConfig {
     pub name: String,
     pub transport: AiTransport,
     pub model: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub context_window_tokens: Option<u32>,
     pub install_url: Option<String>,
     pub is_preset: Option<bool>,
 }
