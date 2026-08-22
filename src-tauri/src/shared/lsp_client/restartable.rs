@@ -57,6 +57,7 @@ pub struct RestartableConfig {
     pub lsp_config: LspClientConfig,
     pub max_restarts: u32,
     pub backoff_ms: Vec<u64>,
+    pub stable_running_ms: u64,
 }
 
 impl RestartableConfig {
@@ -65,6 +66,7 @@ impl RestartableConfig {
             lsp_config,
             max_restarts: DEFAULT_MAX_RESTARTS,
             backoff_ms: DEFAULT_BACKOFF_MS.to_vec(),
+            stable_running_ms: 30_000,
         }
     }
 }
@@ -236,7 +238,13 @@ async fn run_loop(
     loop {
         emit_status(&status_tx, LspSessionStatus::Starting);
 
-        let client_result = LspClient::start(config.lsp_config.clone()).await;
+        let client_result = tokio::select! {
+            _ = &mut stop_rx => {
+                emit_status(&status_tx, LspSessionStatus::Stopped);
+                return;
+            }
+            result = LspClient::start(config.lsp_config.clone()) => result,
+        };
         let mut client = match client_result {
             Ok(c) => c,
             Err(e) => {
@@ -255,7 +263,10 @@ async fn run_loop(
                         delay,
                         restart_count
                     );
-                    tokio::time::sleep(std::time::Duration::from_millis(delay)).await;
+                    if wait_for_backoff_or_stop(delay, &mut stop_rx).await {
+                        emit_status(&status_tx, LspSessionStatus::Stopped);
+                        return;
+                    }
                     continue;
                 }
                 let failed_status = LspSessionStatus::Failed {
@@ -273,7 +284,11 @@ async fn run_loop(
         if let Some(tx) = ready_tx.take() {
             let _ = tx.send(Ok(client.server_capabilities().clone()));
         }
-        restart_count = 0;
+        let stable_timer = tokio::time::sleep(std::time::Duration::from_millis(
+            config.stable_running_ms,
+        ));
+        tokio::pin!(stable_timer);
+        let mut stability_recorded = false;
 
         let mut inner_notification_rx = client
             .take_notification_rx()
@@ -284,6 +299,10 @@ async fn run_loop(
 
         let terminated = loop {
             tokio::select! {
+                _ = &mut stable_timer, if !stability_recorded => {
+                    restart_count = 0;
+                    stability_recorded = true;
+                }
                 _ = &mut stop_rx => {
                     client.stop().await;
                     break true;
@@ -340,7 +359,10 @@ async fn run_loop(
                 delay,
                 restart_count
             );
-            tokio::time::sleep(std::time::Duration::from_millis(delay)).await;
+            if wait_for_backoff_or_stop(delay, &mut stop_rx).await {
+                emit_status(&status_tx, LspSessionStatus::Stopped);
+                return;
+            }
         } else {
             log::error!("RestartableLspClient: exceeded max restart attempts");
             emit_status(
@@ -357,4 +379,40 @@ async fn run_loop(
 fn backoff_delay(backoff_ms: &[u64], attempt: u32) -> u64 {
     let idx = (attempt as usize).min(backoff_ms.len().saturating_sub(1));
     backoff_ms.get(idx).copied().unwrap_or(4000)
+}
+
+async fn wait_for_backoff_or_stop(
+    delay_ms: u64,
+    stop_rx: &mut oneshot::Receiver<()>,
+) -> bool {
+    tokio::select! {
+        _ = stop_rx => true,
+        _ = tokio::time::sleep(std::time::Duration::from_millis(delay_ms)) => false,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn stop_preempts_backoff() {
+        let (stop_tx, mut stop_rx) = oneshot::channel();
+        stop_tx.send(()).unwrap();
+
+        let stopped = tokio::time::timeout(
+            std::time::Duration::from_millis(100),
+            wait_for_backoff_or_stop(30_000, &mut stop_rx),
+        )
+        .await
+        .expect("stop should preempt backoff");
+
+        assert!(stopped);
+    }
+
+    #[test]
+    fn restart_backoff_caps_at_last_delay() {
+        assert_eq!(backoff_delay(&[1, 2, 4], 0), 1);
+        assert_eq!(backoff_delay(&[1, 2, 4], 3), 4);
+    }
 }

@@ -23,9 +23,15 @@ import { create_logger } from "$lib/shared/utils/logger";
 
 const log = create_logger("markdown_lsp_service");
 
-function is_channel_closed_error(e: unknown): boolean {
-  const msg = e instanceof Error ? e.message : String(e);
-  return msg.toLowerCase().includes("channel closed");
+export function is_dead_session_error(e: unknown): boolean {
+  const message = e instanceof Error ? e.message : String(e);
+  const normalized = message.toLowerCase();
+  return (
+    normalized.includes("channel closed") ||
+    normalized.includes("markdown_lsp:not_started") ||
+    normalized.includes("requesttimeout") ||
+    normalized.includes("request timeout")
+  );
 }
 
 function error_message_from(e: unknown): string {
@@ -63,6 +69,7 @@ export class MarkdownLspService {
   private hover_gen = 0;
   private completion_gen = 0;
   private code_actions_gen = 0;
+  private lifecycle_generation = 0;
 
   constructor(
     private readonly port: MarkdownLspPort,
@@ -86,6 +93,7 @@ export class MarkdownLspService {
     this.last_custom_binary_path = custom_binary_path;
     const startup_reason = options?.reason ?? "initial_start";
 
+    const generation = ++this.lifecycle_generation;
     return this.run_lifecycle(async () => {
       this.store.set_status("starting");
       try {
@@ -100,7 +108,7 @@ export class MarkdownLspService {
         }
         this.doc_versions.clear();
         this.subscribe_diagnostics();
-        this.subscribe_status();
+        this.subscribe_status(generation);
         const result = await this.port.start(
           vault_id,
           provider,
@@ -108,6 +116,7 @@ export class MarkdownLspService {
           startup_reason,
           options?.initial_iwe_provider_config,
         );
+        if (generation !== this.lifecycle_generation) return null;
         this.store.set_completion_trigger_characters(
           result.completion_trigger_characters,
         );
@@ -146,6 +155,7 @@ export class MarkdownLspService {
   }
 
   async stop_for_vault(vault_id: string): Promise<void> {
+    ++this.lifecycle_generation;
     await this.run_lifecycle(async () => {
       this.unsubscribe_all();
       try {
@@ -174,15 +184,19 @@ export class MarkdownLspService {
     );
   }
 
-  private subscribe_status(): void {
+  private subscribe_status(generation: number): void {
     this.unsubscribe_status = this.port.subscribe_status(
       (event: MarkdownLspStatusEvent) => {
-        this.handle_status_change(event);
+        this.handle_status_change(event, generation);
       },
     );
   }
 
-  private handle_status_change(event: MarkdownLspStatusEvent): void {
+  private handle_status_change(
+    event: MarkdownLspStatusEvent,
+    generation: number,
+  ): void {
+    if (generation !== this.lifecycle_generation) return;
     if (event.vault_id !== this.vault_store.vault?.id) return;
     this.store.set_status(event.status);
   }
@@ -573,12 +587,12 @@ export class MarkdownLspService {
   }
 
   private handle_channel_closed(e: unknown): boolean {
-    if (!is_channel_closed_error(e)) return false;
+    if (!is_dead_session_error(e)) return false;
     if (this.store.status !== "running") return true;
 
-    log.warn("Markdown LSP process died — backend will handle restart");
+    log.warn("Markdown LSP session is unavailable");
     this.store.set_status({
-      failed: { message: "Markdown LSP process crashed — restarting..." },
+      failed: { message: "Markdown LSP session is unavailable" },
     });
 
     return true;
