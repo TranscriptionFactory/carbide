@@ -4,7 +4,8 @@ import { serialize_markdown } from "$lib/features/editor/adapters/markdown_pipel
 import { schema } from "$lib/features/editor/adapters/schema";
 import { build_embed_edit_transaction } from "$lib/features/editor/adapters/note_embed_view_plugin";
 
-const NOTE_EMBED_REGEX = /^!\[\[([^\]#\n]+?)(?:#([^\]]*))?\]\]$/;
+const NOTE_EMBED_REGEX =
+  /^!\[\[([^\]#|\n]+?)(?:#([^\]|]*))?(\|collapsed)?\]\]$/;
 
 function expect_defined<T>(value: T | undefined, label: string): T {
   expect(value, label).toBeDefined();
@@ -35,6 +36,14 @@ describe("NOTE_EMBED_REGEX", () => {
     expect(match).not.toBeNull();
     expect(match![1]).toBe("My Note");
     expect(match![2]).toBe("^abc123");
+  });
+
+  it("matches collapsed state separately from the target and fragment", () => {
+    const match = NOTE_EMBED_REGEX.exec("![[My Note#Introduction|collapsed]]");
+    expect(match).not.toBeNull();
+    expect(match![1]).toBe("My Note");
+    expect(match![2]).toBe("Introduction");
+    expect(match![3]).toBe("|collapsed");
   });
 
   it("matches note embed with .md extension", () => {
@@ -94,7 +103,7 @@ describe("note_embed schema", () => {
 });
 
 describe("note_embed collapsed attr", () => {
-  it("collapsed attr is not present in serialized markdown", () => {
+  it("serializes collapsed state", () => {
     const doc = schema.node("doc", null, [
       note_embed_type().create({
         src: "note.md",
@@ -103,8 +112,7 @@ describe("note_embed collapsed attr", () => {
       }),
     ]);
     const md = serialize_markdown(doc);
-    expect(md).not.toContain("collapsed");
-    expect(md.trim()).toBe("![[note]]");
+    expect(md.trim()).toBe("![[note|collapsed]]");
   });
 });
 
@@ -175,6 +183,20 @@ describe("note_embed edit-in-place", () => {
     const tr = build_embed_edit_transaction(state, 0, embed)!;
     const next = state.apply(tr);
     expect(next.doc.firstChild!.textContent).toBe("![[folder/note#Heading");
+  });
+
+  it("preserves collapsed state in editable text", () => {
+    const embed = note_embed_type().create({
+      src: "note.md",
+      display_src: "note",
+      collapsed: true,
+    });
+    const doc = schema.node("doc", null, [embed]);
+    const state = EditorState.create({ doc, schema });
+
+    const tr = build_embed_edit_transaction(state, 0, embed)!;
+    const next = state.apply(tr);
+    expect(next.doc.firstChild!.textContent).toBe("![[note|collapsed");
   });
 
   it("places caret at end of editable text so user can immediately type", () => {

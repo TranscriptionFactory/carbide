@@ -72,7 +72,8 @@ export function build_embed_edit_transaction(
   // does not immediately re-render the embed. The user closes the syntax
   // (typing `]]` or accepting a wiki_suggest entry) when their edit is
   // complete; that re-triggers the embed conversion.
-  const edit_text = `![[${display_src}`;
+  const collapsed = node.attrs["collapsed"] ? "|collapsed" : "";
+  const edit_text = `![[${display_src}${collapsed}`;
   const para_type = state.schema.nodes["paragraph"];
   if (!para_type) return null;
   const text_node = state.schema.text(edit_text);
@@ -154,10 +155,12 @@ class NoteEmbedView implements NodeView {
       const pos = this.get_pos();
       if (pos == null) return;
       this.view.dispatch(
-        this.view.state.tr.setNodeMarkup(pos, null, {
-          ...this.node.attrs,
-          collapsed: !this.node.attrs["collapsed"],
-        }),
+        this.view.state.tr
+          .setNodeMarkup(pos, null, {
+            ...this.node.attrs,
+            collapsed: !this.node.attrs["collapsed"],
+          })
+          .setMeta("addToHistory", false),
       );
     };
     this.collapse_btn.addEventListener("click", this.on_collapse);

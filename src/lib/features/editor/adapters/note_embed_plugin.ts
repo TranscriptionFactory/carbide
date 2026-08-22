@@ -7,7 +7,8 @@ import {
   insert_leading_paragraph,
   ensure_leading_paragraph,
 } from "./embed_plugin_utils";
-const NOTE_EMBED_REGEX = /^!\[\[([^\]#\n]+?)(?:#([^\]]*))?\]\]$/;
+const NOTE_EMBED_REGEX =
+  /^!\[\[([^\]#|\n]+?)(?:#([^\]|]*))?(\|collapsed)?\]\]$/;
 
 const FILE_EXTENSION_REGEX = /\.[a-zA-Z0-9]+$/;
 const MD_EXTENSION_REGEX = /\.md$/i;
@@ -26,6 +27,7 @@ function replace_paragraph_with_note_embed(
   para_size: number,
   target: string,
   fragment: string | null,
+  collapsed: boolean,
   embed_type: NodeType,
 ): Transaction {
   const tr = state.tr;
@@ -38,6 +40,7 @@ function replace_paragraph_with_note_embed(
     src,
     fragment,
     display_src,
+    collapsed,
   });
 
   tr.replaceWith(para_pos, para_end, new_node);
@@ -52,9 +55,11 @@ function replace_paragraph_with_note_embed(
   return tr;
 }
 
-function try_convert_paragraph(
-  node: ProseNode,
-): { target: string; fragment: string | null } | null {
+function try_convert_paragraph(node: ProseNode): {
+  target: string;
+  fragment: string | null;
+  collapsed: boolean;
+} | null {
   const text = collect_paragraph_text(node);
   if (!text) return null;
 
@@ -65,7 +70,7 @@ function try_convert_paragraph(
   if (!is_note_target(target)) return null;
 
   const fragment = match[2] ?? null;
-  return { target, fragment };
+  return { target, fragment, collapsed: match[3] !== undefined };
 }
 
 export function create_note_embed_plugin(): Plugin {
@@ -113,6 +118,7 @@ export function create_note_embed_plugin(): Plugin {
             src,
             fragment: result.fragment,
             display_src,
+            collapsed: result.collapsed,
           });
           tr.replaceWith(block.pos, block.pos + block.node.nodeSize, new_node);
         }
@@ -144,6 +150,7 @@ export function create_note_embed_plugin(): Plugin {
         parent.nodeSize,
         result.target,
         result.fragment,
+        result.collapsed,
         embed_type,
       );
     },

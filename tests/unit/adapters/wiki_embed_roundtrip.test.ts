@@ -81,6 +81,24 @@ describe("wiki embed markdown roundtrip", () => {
     const output = serialize_markdown(doc).trim();
     expect(output).toBe(input);
   });
+
+  it("round-trips collapsed note embeds without polluting display_src", () => {
+    const input = "![[My Note#section|collapsed]]";
+    const doc = parse_markdown(input);
+    const node = doc.firstChild;
+    expect(node?.type.name).toBe("note_embed");
+    expect(node?.attrs["fragment"]).toBe("section");
+    expect(node?.attrs["display_src"]).toBe("My Note#section");
+    expect(node?.attrs["collapsed"]).toBe(true);
+    expect(serialize_markdown(doc).trim()).toBe(input);
+  });
+
+  it.each(["![[doc.pdf#page=3&height=500]]", "![[diagram.excalidraw]]"])(
+    "leaves non-note embed parsing unchanged for %s",
+    (input) => {
+      expect(serialize_markdown(parse_markdown(input)).trim()).toBe(input);
+    },
+  );
 });
 
 describe("wiki embed PM-level roundtrip", () => {

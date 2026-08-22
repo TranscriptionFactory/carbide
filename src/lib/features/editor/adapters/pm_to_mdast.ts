@@ -365,7 +365,8 @@ function convert_block_node(node: PmNode): MdastNode | MdastNode[] | null {
 
     case "note_embed": {
       const display_src = (node.attrs["display_src"] as string) || "";
-      return { type: "wikiEmbed", value: `![[${display_src}]]` };
+      const collapsed = node.attrs["collapsed"] ? "|collapsed" : "";
+      return { type: "wikiEmbed", value: `![[${display_src}${collapsed}]]` };
     }
 
     case "file_embed": {

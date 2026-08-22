@@ -859,6 +859,7 @@ export function create_prosemirror_editor_port(args?: {
         set_markdown(markdown: string) {
           if (!view) return;
           const normalized = normalize_markdown(markdown);
+          if (pending_doc === null && normalized === current_markdown) return;
           is_large_note = is_large_markdown(normalized);
           current_markdown = normalized;
 
