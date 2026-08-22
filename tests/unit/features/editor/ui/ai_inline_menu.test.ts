@@ -3,6 +3,7 @@
  */
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { SvelteMap } from "svelte/reactivity";
+import type { EditorView } from "prosemirror-view";
 
 import AiInlineMenu from "$lib/features/editor/ui/ai_inline_menu.svelte";
 import type { RunId, RunRecord } from "$lib/features/assistant";
@@ -22,10 +23,13 @@ function render_menu(
 ) {
   const target = document.createElement("div");
   document.body.appendChild(target);
+  const focus = vi.fn();
+  const editor_view = { focus } as unknown as EditorView;
 
   const app = mount(AiInlineMenu, {
     target,
     props: {
+      view: editor_view,
       mode: "cursor_command",
       streaming: overrides.streaming ?? false,
       commands: [],
@@ -43,6 +47,7 @@ function render_menu(
   flushSync();
 
   return {
+    focus,
     cleanup() {
       void unmount(app);
       target.remove();
@@ -71,6 +76,14 @@ afterEach(() => {
 });
 
 describe("ai_inline_menu.svelte — presence", () => {
+  it("restores focus through the editor view", () => {
+    const rendered = render_menu();
+
+    rendered.cleanup();
+
+    expect(rendered.focus).toHaveBeenCalledOnce();
+  });
+
   it("renders the presence chip from the get_runs getter", () => {
     const view = render_menu({
       runs: [make_run_record({ id: "run-1", provider_id: "claude" })],
@@ -87,6 +100,7 @@ describe("ai_inline_menu.svelte — presence", () => {
     const app = mount(AiInlineMenu, {
       target,
       props: {
+        view: { focus: vi.fn() } as unknown as EditorView,
         mode: "cursor_command",
         streaming: false,
         commands: [],
@@ -114,6 +128,7 @@ describe("ai_inline_menu.svelte — presence", () => {
     const app = mount(AiInlineMenu, {
       target,
       props: {
+        view: { focus: vi.fn() } as unknown as EditorView,
         mode: "cursor_command",
         streaming: false,
         commands: [],

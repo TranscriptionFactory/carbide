@@ -63,7 +63,7 @@
   aria-label="Edit alt text"
   tabindex="-1"
   data-testid="image-alt-editor"
-  use:contain_focus
+  use:contain_focus={() => view.focus()}
   onclick={(e) => e.stopPropagation()}
   onmousedown={(e) => e.stopPropagation()}
 >

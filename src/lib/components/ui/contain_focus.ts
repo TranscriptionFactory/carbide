@@ -4,7 +4,10 @@ const FOCUSABLE =
   'a[href], button:not([disabled]), input:not([disabled]), ' +
   'textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
-export const contain_focus: Action<HTMLElement> = (node) => {
+export const contain_focus: Action<HTMLElement, (() => void) | undefined> = (
+  node,
+  restore_focus,
+) => {
   const prev = document.activeElement as HTMLElement | null;
 
   const focusables = () => [...node.querySelectorAll<HTMLElement>(FOCUSABLE)];
@@ -37,7 +40,8 @@ export const contain_focus: Action<HTMLElement> = (node) => {
         (active === document.body || node.contains(active)) &&
         prev?.isConnected
       ) {
-        prev.focus();
+        if (restore_focus) restore_focus();
+        else prev.focus({ preventScroll: true });
       }
     },
   };

@@ -1,7 +1,7 @@
 /**
  * @vitest-environment jsdom
  */
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { contain_focus } from "$lib/components/ui/contain_focus";
 
 type Rendered = {
@@ -95,5 +95,28 @@ describe("contain_focus keyboard containment", () => {
     await microtasks();
     destroy();
     expect(document.activeElement).toBe(outside);
+  });
+
+  it("restores with preventScroll by default", async () => {
+    const { outside, destroy } = setup();
+    const focus = vi.spyOn(outside, "focus");
+    await microtasks();
+    destroy();
+    expect(focus).toHaveBeenCalledWith({ preventScroll: true });
+  });
+
+  it("uses the provided restore hook", async () => {
+    const outside = document.createElement("button");
+    document.body.appendChild(outside);
+    outside.focus();
+    const node = document.createElement("div");
+    node.appendChild(document.createElement("button"));
+    document.body.appendChild(node);
+    const restore = vi.fn();
+    const action = contain_focus(node, restore) as { destroy: () => void };
+    await microtasks();
+    action.destroy();
+    expect(restore).toHaveBeenCalledOnce();
+    expect(document.activeElement).not.toBe(outside);
   });
 });

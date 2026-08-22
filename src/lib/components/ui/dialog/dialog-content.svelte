@@ -6,6 +6,7 @@
 	import * as Dialog from "./index.js";
 	import { cn, type WithoutChildrenOrChild } from "$lib/shared/utils/component_utils.js";
 	import type { ComponentProps } from "svelte";
+	import { create_prevent_scroll_focus_restore } from "../focus_restore";
 
 	let {
 		ref = $bindable(null),
@@ -22,26 +23,14 @@
 		showCloseButton?: boolean;
 	} = $props();
 
-	// bits-ui restores focus on close with a plain el.focus(), which scrolls the
-	// pre-focused element (e.g. the editor selection) into view and jumps the
-	// page. Capture the pre-focused element ourselves (onOpenAutoFocus fires
-	// before bits moves focus) and restore it with preventScroll.
-	let pre_focused: HTMLElement | null = null;
+	const focus_restore = create_prevent_scroll_focus_restore();
 
 	function handle_open_auto_focus(e: Event) {
-		pre_focused =
-			document.activeElement instanceof HTMLElement ? document.activeElement : null;
-		onOpenAutoFocus?.(e);
+		focus_restore.handle_open(e, onOpenAutoFocus);
 	}
 
 	function handle_close_auto_focus(e: Event) {
-		onCloseAutoFocus?.(e);
-		if (e.defaultPrevented) return;
-		e.preventDefault();
-		if (pre_focused && document.contains(pre_focused)) {
-			pre_focused.focus({ preventScroll: true });
-		}
-		pre_focused = null;
+		focus_restore.handle_close(e, onCloseAutoFocus);
 	}
 </script>
 

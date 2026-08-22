@@ -67,7 +67,7 @@
     role="dialog"
     aria-label="Tag color"
     data-testid="tag-color-menu"
-    use:contain_focus
+    use:contain_focus={() => view.focus()}
   >
     <div
       class="flex w-56 flex-col gap-2 rounded-md border border-border bg-popover p-2 text-popover-foreground shadow-md"
