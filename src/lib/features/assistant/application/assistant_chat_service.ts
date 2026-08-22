@@ -37,9 +37,8 @@ import type { AssistantCitation } from "$lib/features/assistant/types/session";
 
 const log = create_logger("assistant_chat_service");
 
-// The spend bound. Distinct from retrieval's read bound, which limits how many
-// notes come back off disk; this limits how many survive the budget.
-const DEFAULT_CONTEXT_LIMIT = 8;
+const DEFAULT_RETRIEVE_LIMIT = 15;
+const MIN_SECTION_SLICE_CHARS = 20;
 const PINNED_SOURCE = "pinned";
 const RETRIEVED_SOURCE = "retrieved";
 const VAULT_DEDUP_GROUP = "vault";
@@ -84,17 +83,21 @@ function to_citation(context: AssistantRetrievedContext): AssistantCitation {
 }
 
 // Slicing is a budget decision, so it happens here rather than behind the port.
-// A sectioned hit whose slice is whitespace-only is dropped before assembly:
-// spending budget on it would buy nothing.
+// Tiny slices fall back to the whole note so a heading-only match still carries
+// useful context when the assembler has room for it.
 function to_block(note: RetrievedNote, pinned: boolean): ContextBlock | null {
-  const text = note.section
-    ? extract_line_range(
-        note.markdown,
-        note.section.start_line,
-        note.section.end_line,
-      )
-    : note.markdown;
-  if (note.section && text.trim().length === 0) return null;
+  const section_text = note.sections
+    .map((section) =>
+      extract_line_range(note.markdown, section.start_line, section.end_line),
+    )
+    .filter((text) => text.trim().length > 0)
+    .join("\n\n");
+  const text =
+    note.sections.length === 0 ||
+    section_text.trim().length < MIN_SECTION_SLICE_CHARS
+      ? note.markdown
+      : section_text;
+  if (text.trim().length === 0) return null;
   return {
     id: note.id,
     note_path: note.note_path,
@@ -189,6 +192,7 @@ export class AssistantChatService {
 
     let contexts: AssistantRetrievedContext[] = [];
     if (outcome.status === "hits") {
+      const budget = { ...DEFAULT_CONTEXT_BUDGET, ...input.assembler_options };
       const pinned_blocks = to_blocks(outcome.pinned, true);
       const retrieved_blocks = to_blocks(outcome.retrieved, false);
       if (
@@ -213,11 +217,11 @@ export class AssistantChatService {
           {
             id: RETRIEVED_SOURCE,
             dedup_group: VAULT_DEDUP_GROUP,
-            max_blocks: DEFAULT_CONTEXT_LIMIT,
+            max_blocks: input.retrieve_limit ?? DEFAULT_RETRIEVE_LIMIT,
             blocks: retrieved_blocks,
           },
         ],
-        { ...DEFAULT_CONTEXT_BUDGET, ...input.assembler_options },
+        budget,
       );
       contexts = to_contexts(assembly.blocks);
 

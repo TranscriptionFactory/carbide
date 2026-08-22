@@ -623,8 +623,8 @@ describe("RetrievalService.retrieve", () => {
     expect(outcome.retrieved).toEqual([]);
   });
 
-  it("reads no more than eight retrieved notes however many hits come back", async () => {
-    const hits = Array.from({ length: 20 }, (_, i) =>
+  it("reads every requested note when forty or more hits come back", async () => {
+    const hits = Array.from({ length: 45 }, (_, i) =>
       hit(`notes/n${String(i)}.md`, `N${String(i)}`, String(i), 1 - i / 100),
     );
     const search = {
@@ -636,11 +636,59 @@ describe("RetrievalService.retrieve", () => {
     };
     const service = make_service({ search, notes });
 
+    const outcome = await service.retrieve(request({ query: "q", limit: 40 }));
+
+    expect(notes.read_note).toHaveBeenCalledTimes(40);
+    if (outcome.status !== "hits") throw new Error("expected hits");
+    expect(outcome.retrieved).toHaveLength(40);
+  });
+
+  it("reads up to fifteen notes when the request uses the default limit", async () => {
+    const hits = Array.from({ length: 20 }, (_, i) =>
+      hit(`notes/n${String(i)}.md`, `N${String(i)}`, String(i), 1 - i / 100),
+    );
+    const notes = {
+      read_note: vi.fn().mockResolvedValue({ markdown: "Body." }),
+    };
+    const service = make_service({
+      search: {
+        search_blocks: vi.fn().mockResolvedValue([]),
+        hybrid_search: vi.fn().mockResolvedValue(hits),
+      },
+      notes,
+    });
+
     const outcome = await service.retrieve(request({ query: "q" }));
 
-    expect(notes.read_note).toHaveBeenCalledTimes(8);
+    expect(notes.read_note).toHaveBeenCalledTimes(15);
     if (outcome.status !== "hits") throw new Error("expected hits");
-    expect(outcome.retrieved).toHaveLength(8);
+    expect(outcome.retrieved).toHaveLength(15);
+  });
+
+  it("keeps every matching section from the same note", async () => {
+    const service = make_service({
+      search: {
+        hybrid_search: vi
+          .fn()
+          .mockResolvedValue([hit("notes/a.md", "A", "1", 0.9)]),
+        search_blocks: vi
+          .fn()
+          .mockResolvedValue([
+            block_hit("notes/a.md", "A", "1", 2, 4, 0.1),
+            block_hit("notes/a.md", "A", "1", 8, 10, 0.2),
+          ]),
+      },
+      notes: { read_note: vi.fn().mockResolvedValue({ markdown: "Body." }) },
+    });
+
+    const outcome = await service.retrieve(request({ query: "q" }));
+
+    if (outcome.status !== "hits") throw new Error("expected hits");
+    expect(outcome.retrieved).toHaveLength(1);
+    expect(outcome.retrieved[0]?.sections).toEqual([
+      { start_line: 2, end_line: 4 },
+      { start_line: 8, end_line: 10 },
+    ]);
   });
 
   it("assigns the same retrieved ids however search orders equally scored hits", async () => {

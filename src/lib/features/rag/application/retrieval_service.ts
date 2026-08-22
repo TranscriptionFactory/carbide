@@ -26,9 +26,6 @@ import type {
 const log = create_logger("retrieval_service");
 
 const DEFAULT_RETRIEVE_LIMIT = 15;
-// The read bound: only this many hits can survive the assembler's max_blocks,
-// so only these are read from disk. The assistant caps spend separately.
-const MAX_RETRIEVED_NOTES = 8;
 const SCOPE_OVERFETCH = 6;
 const CITED_NOTE_BOOST = 1.25;
 
@@ -45,7 +42,7 @@ type RetrievalHit = {
   title: string;
   score: number;
   source: HitSource;
-  section?: { start_line: number; end_line: number };
+  sections?: { start_line: number; end_line: number }[];
 };
 
 function block_to_hit(block: BlockSectionHit): RetrievalHit {
@@ -55,7 +52,7 @@ function block_to_hit(block: BlockSectionHit): RetrievalHit {
     title: block.note.title,
     score: 1 / (1 + block.distance),
     source: "vector",
-    section: { start_line: block.start_line, end_line: block.end_line },
+    sections: [{ start_line: block.start_line, end_line: block.end_line }],
   };
 }
 
@@ -103,10 +100,12 @@ function pinned_block_id(rank: number): string {
 // any order — so a retrieved id is keyed by what the hit *is*. Ranking by
 // position here would leak search order into the assembled context.
 function retrieved_block_id(hit: RetrievalHit): string {
-  const section = hit.section
-    ? `#${String(hit.section.start_line)}-${String(hit.section.end_line)}`
-    : "";
-  return `${RETRIEVED_SOURCE}:${hit.note_path}${section}`;
+  const sections = (hit.sections ?? [])
+    .map(
+      (section) => `#${String(section.start_line)}-${String(section.end_line)}`,
+    )
+    .join("");
+  return `${RETRIEVED_SOURCE}:${hit.note_path}${sections}`;
 }
 
 // Sorting by the assembler's own key keeps the read bound from changing the
@@ -186,11 +185,12 @@ export class RetrievalService {
     }
 
     const ranked = boost_cited_notes(hits, request.boost_paths);
+    const retrieve_limit = request.limit ?? DEFAULT_RETRIEVE_LIMIT;
     const [pinned_notes, retrieved_notes] = await Promise.all([
       this.read_notes(vault.id, pinned, (_hit, rank) => pinned_block_id(rank)),
       this.read_notes(
         vault.id,
-        take_top(ranked, MAX_RETRIEVED_NOTES),
+        take_top(ranked, retrieve_limit),
         retrieved_block_id,
       ),
     ]);
@@ -288,22 +288,23 @@ export class RetrievalService {
       return blocks.map(block_to_hit);
     }
 
-    const section_by_path = new Map<string, BlockSectionHit>();
+    const sections_by_path = new Map<
+      string,
+      { start_line: number; end_line: number }[]
+    >();
     for (const block of blocks) {
-      if (!section_by_path.has(block.note.path)) {
-        section_by_path.set(block.note.path, block);
-      }
+      const sections = sections_by_path.get(block.note.path) ?? [];
+      sections.push({
+        start_line: block.start_line,
+        end_line: block.end_line,
+      });
+      sections_by_path.set(block.note.path, sections);
     }
 
     return notes.map((hit) => {
       const base = note_to_hit(hit);
-      const block = section_by_path.get(hit.note.path);
-      if (block) {
-        base.section = {
-          start_line: block.start_line,
-          end_line: block.end_line,
-        };
-      }
+      const sections = sections_by_path.get(hit.note.path);
+      if (sections) base.sections = sections;
       return base;
     });
   }
@@ -398,7 +399,7 @@ export class RetrievalService {
             markdown,
             score: hit.score,
             source_tag: hit.source,
-            section: hit.section ?? null,
+            sections: hit.sections ?? [],
           };
         } catch (err) {
           log.warn("Failed to read retrieved note", {
