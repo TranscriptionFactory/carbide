@@ -1,3 +1,5 @@
+import { fuzzy_score_fields } from "$lib/shared/utils/fuzzy_score";
+
 const MAX_RESULTS = 10;
 
 export function normalize_folder_query(query: string): string {
@@ -22,4 +24,3 @@ export function filter_folder_paths(
     .map((candidate) => candidate.path)
     .slice(0, MAX_RESULTS);
 }
-import { fuzzy_score_fields } from "$lib/shared/utils/fuzzy_score";

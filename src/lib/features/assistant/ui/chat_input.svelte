@@ -260,9 +260,18 @@
       mention_error = `Folder not found: ${unresolved}`;
       return;
     }
+    if (folder_mentions.length > 0) {
+      const folders = [...(scope.folders ?? [])];
+      for (const mention of folder_mentions) {
+        const folder = mention.replace(/\/$/, "");
+        if (!folders.includes(folder)) folders.push(folder);
+        value = strip_mention(value, mention);
+      }
+      on_scope_change({ ...scope, folders });
+    }
     fetch_token += 1;
     suggest.close();
-    handler(value.trim());
+    if (value.trim()) handler(value.trim());
     value = "";
     mention_error = null;
   }

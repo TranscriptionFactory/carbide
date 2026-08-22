@@ -193,6 +193,25 @@ describe("chat_input.svelte", () => {
     view.cleanup();
   });
 
+  it("converts an existing hand-typed folder mention into scope before submitting", () => {
+    const on_scope_change = vi.fn();
+    const on_submit = vi.fn();
+    const view = render_chat_input({
+      mode: "ask",
+      folder_paths: ["projects"],
+      on_scope_change,
+      on_submit,
+    });
+
+    type("@[projects/] summarize this");
+    press_enter();
+
+    expect(on_scope_change).toHaveBeenCalledWith({ folders: ["projects"] });
+    expect(on_submit).toHaveBeenCalledWith("summarize this");
+    expect(textarea().value).toBe("");
+    view.cleanup();
+  });
+
   it("shows an inline error for an unresolved hand-typed folder mention", () => {
     const view = render_chat_input({ mode: "ask", folder_paths: ["projects"] });
 
