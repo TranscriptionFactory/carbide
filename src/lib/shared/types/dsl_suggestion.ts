@@ -2,6 +2,7 @@ export interface DslSuggestion {
   label: string;
   insert: string;
   detail?: string;
+  kind?: "note" | "folder";
 }
 
 export interface DslSuggestResult {

@@ -73,6 +73,21 @@ function press_enter() {
   flushSync();
 }
 
+function suggestion(label: string): HTMLButtonElement {
+  const row = [
+    ...document.querySelectorAll<HTMLButtonElement>("button.DslSuggest__item"),
+  ].find((button) => button.textContent?.includes(label));
+  if (!row) throw new Error(`no suggestion: ${label}`);
+  return row;
+}
+
+function accept_suggestion(label: string) {
+  suggestion(label).dispatchEvent(
+    new MouseEvent("mousedown", { bubbles: true, cancelable: true }),
+  );
+  flushSync();
+}
+
 beforeEach(() => {
   window.matchMedia = ((query: string) => ({
     matches: false,
@@ -88,6 +103,109 @@ afterEach(() => {
 });
 
 describe("chat_input.svelte", () => {
+  it("offers distinctly labelled notes and fuzzy-matched folders", async () => {
+    const view = render_chat_input({
+      mode: "ask",
+      folder_paths: ["work/2026/meetings"],
+      suggest_notes: vi
+        .fn()
+        .mockResolvedValue([
+          { path: "notes/meetings.md", title: "Meeting Notes" },
+        ]),
+    });
+
+    type("@mee");
+    await vi.waitFor(() => {
+      expect(suggestion("Meeting Notes")).toBeTruthy();
+      expect(suggestion("work/2026/meetings")).toBeTruthy();
+    });
+
+    expect(
+      suggestion("Meeting Notes").querySelector('[aria-label="Note"]'),
+    ).toBeTruthy();
+    expect(
+      suggestion("work/2026/meetings").querySelector('[aria-label="Folder"]'),
+    ).toBeTruthy();
+    view.cleanup();
+  });
+
+  it("accepts a folder as retrieval scope without inserting a mention", async () => {
+    const on_scope_change = vi.fn();
+    const view = render_chat_input({
+      mode: "ask",
+      folder_paths: ["work/2026/meetings"],
+      on_scope_change,
+    });
+
+    type("@mee");
+    await vi.waitFor(() => {
+      expect(suggestion("work/2026/meetings")).toBeTruthy();
+    });
+    accept_suggestion("work/2026/meetings");
+
+    expect(on_scope_change).toHaveBeenCalledWith({
+      folders: ["work/2026/meetings"],
+    });
+    expect(textarea().value).toBe("");
+    view.cleanup();
+  });
+
+  it("accepts a note with the existing mention-token behavior", async () => {
+    const on_scope_change = vi.fn();
+    const view = render_chat_input({
+      mode: "ask",
+      suggest_notes: vi
+        .fn()
+        .mockResolvedValue([
+          { path: "notes/meetings.md", title: "Meeting Notes" },
+        ]),
+      on_scope_change,
+    });
+
+    type("@mee");
+    await vi.waitFor(() => {
+      expect(suggestion("Meeting Notes")).toBeTruthy();
+    });
+    accept_suggestion("Meeting Notes");
+
+    expect(textarea().value).toBe("@notes/meetings.md ");
+    expect(on_scope_change).not.toHaveBeenCalled();
+    view.cleanup();
+  });
+
+  it("hides folder suggestions in agent mode while retaining notes", async () => {
+    const view = render_chat_input({
+      mode: "agent",
+      folder_paths: ["work/2026/meetings"],
+      suggest_notes: vi
+        .fn()
+        .mockResolvedValue([
+          { path: "notes/meetings.md", title: "Meeting Notes" },
+        ]),
+    });
+
+    type("@mee");
+    await vi.waitFor(() => {
+      expect(suggestion("Meeting Notes")).toBeTruthy();
+    });
+
+    expect(document.body.textContent).not.toContain("work/2026/meetings");
+    view.cleanup();
+  });
+
+  it("shows an inline error for an unresolved hand-typed folder mention", () => {
+    const view = render_chat_input({ mode: "ask", folder_paths: ["projects"] });
+
+    type("@[missing/] summarize this");
+    press_enter();
+
+    expect(document.querySelector('[role="alert"]')?.textContent).toContain(
+      "Folder not found: missing/",
+    );
+    expect(view.props.on_submit).not.toHaveBeenCalled();
+    view.cleanup();
+  });
+
   it("submits while a turn is streaming instead of swallowing the keystroke", () => {
     const view = render_chat_input({ is_streaming: true });
 

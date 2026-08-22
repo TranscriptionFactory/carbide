@@ -10,7 +10,7 @@ const MAX_ITEMS = 20;
 type Options = {
   provider: DslSuggestProvider;
   get_ctx: () => DslContext;
-  apply: (from: number, insert: string) => void;
+  apply: (from: number, insert: string, item?: DslSuggestion) => void;
 };
 
 export class DslSuggestController {
@@ -21,7 +21,11 @@ export class DslSuggestController {
 
   private provider: DslSuggestProvider;
   private get_ctx: () => DslContext;
-  private apply_insert: (from: number, insert: string) => void;
+  private apply_insert: (
+    from: number,
+    insert: string,
+    item?: DslSuggestion,
+  ) => void;
   private partial = "";
 
   constructor({ provider, get_ctx, apply }: Options) {
@@ -90,7 +94,11 @@ export class DslSuggestController {
   accept(i: number) {
     const item = this.items[i];
     if (!item) return;
-    this.apply_insert(this.from, item.insert);
+    if (item.kind === undefined) {
+      this.apply_insert(this.from, item.insert);
+    } else {
+      this.apply_insert(this.from, item.insert, item);
+    }
     this.close();
   }
 

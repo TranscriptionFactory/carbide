@@ -46,9 +46,8 @@
   let show_dropdown = $state(false);
   let selected_index = $state(0);
 
-  // Notes are not suggested by typing — the "this note" button is the whole
-  // affordance, and @mentions already cover naming an arbitrary note — so this
-  // kind lives here rather than widening ScopeKind in scope_suggest.
+  // Notes stay in the @ picker while folders are deliberately available from
+  // both entry points: either path produces this same live retrieval scope.
   type ChipKind = ScopeKind | "note";
 
   const SCOPE_KEY: Record<ChipKind, "folders" | "tags" | "bases" | "notes"> = {
