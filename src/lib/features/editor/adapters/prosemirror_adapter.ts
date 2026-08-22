@@ -14,7 +14,11 @@ import {
 } from "./markdown_pipeline";
 import { ySyncPlugin } from "y-prosemirror";
 import type { XmlFragment as YXmlFragment } from "yjs";
-import type { BufferConfig, EditorPort } from "$lib/features/editor/ports";
+import type {
+  BlockSuggestion,
+  BufferConfig,
+  EditorPort,
+} from "$lib/features/editor/ports";
 import type { YDocManager } from "./ydoc_manager";
 import type { VaultId } from "$lib/shared/types/ids";
 import { normalize_markdown_line_breaks } from "$lib/features/editor/domain/markdown_line_breaks";
@@ -1273,9 +1277,7 @@ export function create_prosemirror_editor_port(args?: {
           if (!view) return;
           set_heading_suggestions(view, items);
         },
-        set_block_suggestions(
-          items: Array<{ block_id: string; text: string }>,
-        ) {
+        set_block_suggestions(items: BlockSuggestion[]) {
           if (!view) return;
           set_block_suggestions(view, items);
         },

@@ -54,14 +54,60 @@ function is_self_contained_details(
   return SELF_CONTAINED_RE.test(val);
 }
 
-function parse_markdown_body(markdown: string): RootContent[] {
+function rebase_node_positions(
+  node: MdastNode,
+  base: { line: number; column: number; offset: number },
+): void {
+  const position = node.position as
+    | {
+        start: { line: number; column: number; offset?: number };
+        end: { line: number; column: number; offset?: number };
+      }
+    | undefined;
+  if (position) {
+    for (const point of [position.start, position.end]) {
+      point.offset = base.offset + (point.offset ?? 0);
+      point.column =
+        point.line === 1 ? base.column + point.column - 1 : point.column;
+      point.line = base.line + point.line - 1;
+    }
+  }
+  const children = node.children;
+  if (Array.isArray(children)) {
+    for (const child of children) {
+      rebase_node_positions(child as MdastNode, base);
+    }
+  }
+}
+
+function parse_markdown_body(
+  markdown: string,
+  base?: { line: number; column: number; offset: number },
+): RootContent[] {
   if (!markdown.trim()) return [];
   const p = unified().use(remarkParse).use(remarkGfm).use(remarkMath);
   const tree = p.parse(markdown.trim());
+  if (base) rebase_node_positions(tree as unknown as MdastNode, base);
   return tree.children as RootContent[];
 }
 
-function build_self_contained_details(value: string): MdastNode {
+function point_after_prefix(
+  start: { line: number; column: number; offset?: number },
+  prefix: string,
+) {
+  const lines = prefix.split("\n");
+  return {
+    line: start.line + lines.length - 1,
+    column:
+      lines.length === 1
+        ? start.column + prefix.length
+        : (lines.at(-1)?.length ?? 0) + 1,
+    offset: (start.offset ?? 0) + prefix.length,
+  };
+}
+
+function build_self_contained_details(node: MdastNode): MdastNode {
+  const value = String(node.value ?? "");
   const m = SELF_CONTAINED_RE.exec(value.trim());
   if (!m) return { type: "html", value };
   const open_tag = m[1] ?? "<details>";
@@ -77,7 +123,21 @@ function build_self_contained_details(value: string): MdastNode {
     body_markdown = (summary_m[2] ?? "").trim();
   }
 
-  const body_nodes = parse_markdown_body(body_markdown);
+  const body_search_start = summary_m
+    ? value.toLowerCase().indexOf("</summary>") + "</summary>".length
+    : value.indexOf(open_tag) + open_tag.length;
+  const body_index = value.indexOf(body_markdown, body_search_start);
+  const start = (
+    node.position as
+      | { start?: { line: number; column: number; offset?: number } }
+      | undefined
+  )?.start;
+  const body_nodes = parse_markdown_body(
+    body_markdown,
+    start && body_index >= 0
+      ? point_after_prefix(start, value.slice(0, body_index))
+      : undefined,
+  );
   const processed = transform_children(body_nodes as MdastNode[]);
 
   const empty_para: MdastNode = {
@@ -156,11 +216,7 @@ function transform_children(nodes: MdastNode[]): MdastNode[] {
     if (!node) break;
 
     if (is_self_contained_details(node as unknown as RootContent)) {
-      result.push(
-        build_self_contained_details(
-          (node as unknown as { value: string }).value,
-        ),
-      );
+      result.push(build_self_contained_details(node));
       i++;
       continue;
     }

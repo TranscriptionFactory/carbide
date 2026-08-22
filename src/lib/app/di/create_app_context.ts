@@ -279,8 +279,18 @@ export function create_app_context(input: {
   );
 
   let flush_lsp_sync: () => void = () => {};
+  let note_service: NoteService | null = null;
 
   const editor_callbacks: EditorServiceCallbacks = {
+    read_note_markdown: (note_path) =>
+      note_service?.read_authoritative_markdown(note_path) ??
+      Promise.resolve(null),
+    commit_note_markdown: (note_path, expected, updated) =>
+      note_service?.commit_authoritative_markdown(
+        note_path,
+        expected,
+        updated,
+      ) ?? Promise.resolve(false),
     on_command_execute: (command_id: string) => {
       const action_id = COMMAND_TO_ACTION_ID[command_id];
       if (action_id) {
@@ -710,7 +720,7 @@ export function create_app_context(input: {
     editor_callbacks,
   );
 
-  const note_service = new NoteService(
+  note_service = new NoteService(
     input.ports.notes,
     input.ports.index,
     input.ports.assets,
@@ -755,6 +765,7 @@ export function create_app_context(input: {
         void lint_service.notify_file_changed(String(path), markdown);
       },
     },
+    stores.tab,
   );
 
   const links_service = new LinksService(

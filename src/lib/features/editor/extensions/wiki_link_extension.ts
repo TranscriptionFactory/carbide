@@ -50,6 +50,9 @@ export function create_wiki_link_extension(
       on_query: ctx.events.on_wiki_suggest_query,
       on_dismiss: () => {},
       base_note_path: ctx.get_note_path(),
+      ...(ctx.events.on_block_suggest_accept
+        ? { on_block_accept: ctx.events.on_block_suggest_accept }
+        : {}),
     };
     plugins.push(
       create_wiki_suggest_prose_plugin(wiki_suggest_config) as Plugin,

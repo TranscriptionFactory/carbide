@@ -5,6 +5,7 @@ import type {
   EditorSession,
   FindReplaceResult,
   WikiQueryEvent,
+  BlockSuggestion,
 } from "$lib/features/editor/ports";
 import type {
   FindMatchesListener,
@@ -50,7 +51,8 @@ import type { AssetsPort, NotesPort, NotesStore } from "$lib/features/note";
 import { collect_recent_notes } from "$lib/features/editor/domain/collect_recent_notes";
 import type { TagPort } from "$lib/features/tags";
 import { normalize_markdown_line_breaks } from "$lib/features/editor/domain/markdown_line_breaks";
-import { parse_block_ids } from "$lib/features/editor/domain/block_id";
+import { generate_block_id } from "$lib/features/editor/domain/block_id";
+import { collect_addressable_blocks as collect_blocks } from "$lib/features/editor/domain/addressable_blocks";
 import { rank_tags } from "$lib/features/tags";
 import { is_draft_note_path } from "$lib/features/note";
 import { suggest_query } from "$lib/features/query";
@@ -63,12 +65,58 @@ const log = create_logger("editor_service");
 
 const AT_PALETTE_RECENTS_LIMIT = 10;
 
+export function collect_addressable_blocks(
+  markdown: string,
+  note_path: string,
+): BlockSuggestion[] {
+  return collect_blocks(markdown).map((block) => ({ ...block, note_path }));
+}
+
+export function mint_block_in_markdown(
+  markdown: string,
+  suggestion: BlockSuggestion,
+  block_id: string,
+): string | null {
+  const current = collect_addressable_blocks(
+    markdown,
+    suggestion.note_path,
+  ).find((block) => block.end_offset === suggestion.end_offset);
+  if (!current || current.text !== suggestion.text) {
+    return null;
+  }
+  if (current.block_id) return null;
+  return `${markdown.slice(0, current.end_offset)} ^${block_id}${markdown.slice(current.end_offset)}`;
+}
+
+function resolve_block_mint(
+  markdown: string,
+  suggestion: BlockSuggestion,
+): { block_id: string; markdown: string; changed: boolean } | null {
+  const current = collect_addressable_blocks(
+    markdown,
+    suggestion.note_path,
+  ).find((block) => block.end_offset === suggestion.end_offset);
+  if (!current || current.text !== suggestion.text) return null;
+  if (current.block_id) {
+    return { block_id: current.block_id, markdown, changed: false };
+  }
+  const block_id = generate_block_id();
+  const updated = mint_block_in_markdown(markdown, suggestion, block_id);
+  return updated ? { block_id, markdown: updated, changed: true } : null;
+}
+
 function note_name_from_path(path: string): string {
   const leaf = path.split("/").at(-1) ?? path;
   return leaf.endsWith(".md") ? leaf.slice(0, -3) : leaf;
 }
 
 export type EditorServiceCallbacks = {
+  read_note_markdown?: (note_path: NotePath) => Promise<MarkdownText | null>;
+  commit_note_markdown?: (
+    note_path: NotePath,
+    expected: MarkdownText,
+    updated: MarkdownText,
+  ) => Promise<boolean>;
   on_command_execute?: (command_id: string) => void;
   on_internal_link_click: (
     raw_path: string,
@@ -216,6 +264,12 @@ export class EditorService {
     private readonly notes_port?: NotesPort,
     private readonly notes_store?: NotesStore,
   ) {}
+
+  get_live_markdown(): MarkdownText | null {
+    const open_note = this.editor_store.open_note;
+    if (!open_note) return null;
+    return as_markdown_text(this.session?.get_markdown() ?? open_note.markdown);
+  }
 
   is_mounted(): boolean {
     return this.host_root !== null && this.session !== null;
@@ -991,17 +1045,18 @@ export class EditorService {
     if (!this.is_generation_current(generation)) return;
 
     try {
-      const doc = await this.notes_port.read_note(
-        vault_id,
-        as_note_path(resolved_path),
-      );
+      const note_path = as_note_path(resolved_path);
+      const markdown = this.callbacks.read_note_markdown
+        ? await this.callbacks.read_note_markdown(note_path)
+        : (await this.notes_port.read_note(vault_id, note_path)).markdown;
       if (!this.is_generation_current(generation)) return;
+      if (markdown === null) return;
 
-      const blocks = parse_block_ids(doc.markdown);
+      const blocks = collect_addressable_blocks(markdown, resolved_path);
       const query_lower = block_query.toLowerCase();
       const filtered = blocks.filter(
         (b) =>
-          b.block_id.toLowerCase().includes(query_lower) ||
+          b.block_id?.toLowerCase().includes(query_lower) ||
           b.text.toLowerCase().includes(query_lower),
       );
 
@@ -1009,6 +1064,32 @@ export class EditorService {
     } catch {
       this.session?.set_block_suggestions?.([]);
     }
+  }
+
+  private async handle_block_suggest_accept(
+    suggestion: BlockSuggestion,
+  ): Promise<string | null> {
+    const notes_port = this.notes_port;
+    const vault_id = this.vault_store.active_vault_id;
+    if (!notes_port || !vault_id) return null;
+
+    const note_path = as_note_path(suggestion.note_path);
+    const markdown = this.callbacks.read_note_markdown
+      ? await this.callbacks.read_note_markdown(note_path)
+      : (await notes_port.read_note(vault_id, note_path)).markdown;
+    if (markdown === null) return null;
+    const mint = resolve_block_mint(markdown, suggestion);
+    if (!mint) return null;
+    if (!mint.changed) return mint.block_id;
+    const committed = this.callbacks.commit_note_markdown
+      ? await this.callbacks.commit_note_markdown(
+          note_path,
+          as_markdown_text(markdown),
+          as_markdown_text(mint.markdown),
+        )
+      : false;
+    if (!committed) return null;
+    return mint.block_id;
   }
 
   private handle_image_suggest_query(generation: number, query: string): void {
@@ -1307,6 +1388,8 @@ export class EditorService {
       events.on_wiki_suggest_query = (event: WikiQueryEvent) => {
         this.handle_wiki_suggest_query(generation, event);
       };
+      events.on_block_suggest_accept = (item) =>
+        this.handle_block_suggest_accept(item);
     }
 
     if (this.assets_port) {
