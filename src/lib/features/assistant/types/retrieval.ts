@@ -31,9 +31,8 @@ export type RetrievalRequest = {
   limit?: number;
 };
 
-// `markdown` is the whole note; `section` is the line range that matched, or
-// null for a whole-note hit. Slicing is a budget decision, so it belongs to
-// assembly rather than to retrieval.
+// `markdown` is the whole note; `sections` are the line ranges that matched.
+// Slicing is a budget decision, so it belongs to assembly rather than retrieval.
 export type RetrievedNote = {
   id: string;
   note_path: string;
@@ -41,7 +40,7 @@ export type RetrievedNote = {
   markdown: string;
   score: number;
   source_tag: string;
-  section: { start_line: number; end_line: number } | null;
+  sections: { start_line: number; end_line: number }[];
 };
 
 // Discriminated rather than thrown: RagScopeError is a rag class, and an

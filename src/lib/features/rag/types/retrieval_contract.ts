@@ -31,7 +31,7 @@ export type RetrievedNote = {
   markdown: string;
   score: number;
   source_tag: string;
-  section: { start_line: number; end_line: number } | null;
+  sections: { start_line: number; end_line: number }[];
 };
 
 export type RetrievalOutcome =

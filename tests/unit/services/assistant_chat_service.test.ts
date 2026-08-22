@@ -285,12 +285,88 @@ describe("AssistantChatService.query", () => {
 
     const request = stream.specs[0]?.request;
     if (request?.mode !== "text") throw new Error("expected a text run");
-    const user_prompt = String(request.messages[0]?.content ?? "");
+    const user_prompt = request.messages[0]?.content;
+    if (typeof user_prompt !== "string") throw new Error("expected text");
     expect(user_prompt).toContain("deploys to Fly.io every night");
     expect(user_prompt).not.toContain("intro filler line 200");
     expect(result.citations).toEqual([
       { index: 1, note_path: "notes/ops.md", title: "Ops" },
     ]);
+  });
+
+  it("offers every matching section from one note to the model", async () => {
+    const markdown = [
+      "# Note",
+      "irrelevant introduction",
+      "## Alpha",
+      "alpha answer",
+      "unrelated middle",
+      "## Beta",
+      "beta answer",
+      "irrelevant ending",
+    ].join("\n");
+    const search = {
+      hybrid_search: vi
+        .fn()
+        .mockResolvedValue([hit("notes/a.md", "A", "1", 0.9)]),
+      search_blocks: vi
+        .fn()
+        .mockResolvedValue([
+          block_hit("notes/a.md", "A", "1", 2, 3, 0.1),
+          block_hit("notes/a.md", "A", "1", 5, 6, 0.2),
+        ]),
+    };
+    const stream = text_stream("Both answers matter [1].");
+    const service = create_chat_seam({
+      search,
+      notes: { read_note: vi.fn().mockResolvedValue({ markdown }) },
+      run_starter: stream as never,
+      tag,
+      bases,
+    }).chat;
+
+    await collect(
+      service.query({ question: "answers?", provider_config: provider }),
+    );
+
+    const request = stream.specs[0]?.request;
+    if (request?.mode !== "text") throw new Error("expected a text run");
+    const user_prompt = String(request.messages[0]?.content ?? "");
+    expect(user_prompt).toContain("alpha answer");
+    expect(user_prompt).toContain("beta answer");
+    expect(user_prompt).not.toContain("irrelevant introduction");
+  });
+
+  it("falls back to the whole note when matching sections are too small", async () => {
+    const markdown = ["# Note", "x", "The whole note carries the answer."].join(
+      "\n",
+    );
+    const search = {
+      hybrid_search: vi
+        .fn()
+        .mockResolvedValue([hit("notes/a.md", "A", "1", 0.9)]),
+      search_blocks: vi
+        .fn()
+        .mockResolvedValue([block_hit("notes/a.md", "A", "1", 1, 1, 0.1)]),
+    };
+    const stream = text_stream("The answer is present [1].");
+    const service = create_chat_seam({
+      search,
+      notes: { read_note: vi.fn().mockResolvedValue({ markdown }) },
+      run_starter: stream as never,
+      tag,
+      bases,
+    }).chat;
+
+    await collect(
+      service.query({ question: "answer?", provider_config: provider }),
+    );
+
+    const request = stream.specs[0]?.request;
+    if (request?.mode !== "text") throw new Error("expected a text run");
+    const user_prompt = request.messages[0]?.content;
+    if (typeof user_prompt !== "string") throw new Error("expected text");
+    expect(user_prompt).toContain("The whole note carries the answer.");
   });
 
   it("keeps hybrid keyword recall even when block search returns only unrelated sections", async () => {
@@ -1207,7 +1283,7 @@ describe("AssistantChatService.query context assembly", () => {
     expect(spec_entries[0]?.pinned).toBe(true);
   });
 
-  it("still fills eight retrieved contexts when one hit duplicates a pinned note", async () => {
+  it("still fills the requested retrieved contexts when one hit duplicates a pinned note", async () => {
     const hits = [
       hit("notes/spec.md", "Spec", "1", 0.99),
       ...Array.from({ length: 9 }, (_, i) =>
@@ -1235,12 +1311,12 @@ describe("AssistantChatService.query context assembly", () => {
     );
 
     const unpinned = sources.sources.filter((s) => !s.pinned);
-    expect(unpinned.length).toBe(8);
-    expect(sources.sources.length).toBe(9);
+    expect(unpinned.length).toBe(9);
+    expect(sources.sources.length).toBe(10);
   });
 
-  it("caps retrieved contexts at eight and reads no more notes than that", async () => {
-    const hits = Array.from({ length: 15 }, (_, i) =>
+  it("offers forty requested notes to the assembler without a hidden cap", async () => {
+    const hits = Array.from({ length: 45 }, (_, i) =>
       hit(
         `notes/n${String(i)}.md`,
         `N${String(i)}`,
@@ -1249,7 +1325,7 @@ describe("AssistantChatService.query context assembly", () => {
       ),
     );
     const bodies: Record<string, string> = {};
-    for (let i = 0; i < 15; i += 1)
+    for (let i = 0; i < 45; i += 1)
       bodies[`n${String(i)}`] = `Body ${String(i)}.`;
 
     const read_note = markdown_by_id(bodies);
@@ -1262,10 +1338,11 @@ describe("AssistantChatService.query context assembly", () => {
     const sources = await sources_of(make_service(search, { read_note }), {
       question: "anything",
       provider_config: provider,
+      retrieve_limit: 40,
     });
 
-    expect(sources.sources.length).toBe(8);
-    expect(read_note.mock.calls.length).toBe(8);
+    expect(sources.sources.length).toBe(40);
+    expect(read_note.mock.calls.length).toBe(40);
   });
 
   it("honours the configured token budget instead of the module default", async () => {
