@@ -93,6 +93,10 @@
     void action_registry.execute(ACTION_IDS.settings_open, "toolchain");
   }
 
+  function restart_markdown_lsp() {
+    void action_registry.execute(ACTION_IDS.markdown_lsp_restart);
+  }
+
   function resolve_code_action(action: LspCodeAction) {
     void action_registry.execute(ACTION_IDS.lsp_code_action_resolve, action);
   }
@@ -224,6 +228,15 @@
         {/if}
         &middot; {status_label(lsp_status)}
       </span>
+      {#if typeof lsp_status === "object" && "failed" in lsp_status}
+        <button
+          type="button"
+          class="LspResults__enable-link"
+          onclick={restart_markdown_lsp}
+        >
+          Restart
+        </button>
+      {/if}
       {#if active_capabilities.length > 0}
         <span class="LspResults__cap-divider"></span>
         {#each active_capabilities as [, label]}

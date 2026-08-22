@@ -106,6 +106,20 @@ impl RestartableLspClient {
     pub async fn start(
         config: RestartableConfig,
     ) -> Result<(Self, serde_json::Value), LspClientError> {
+        Self::start_with_cancel(config, None).await
+    }
+
+    pub async fn start_cancellable(
+        config: RestartableConfig,
+        mut cancel_rx: oneshot::Receiver<()>,
+    ) -> Result<(Self, serde_json::Value), LspClientError> {
+        Self::start_with_cancel(config, Some(&mut cancel_rx)).await
+    }
+
+    async fn start_with_cancel(
+        config: RestartableConfig,
+        cancel_rx: Option<&mut oneshot::Receiver<()>>,
+    ) -> Result<(Self, serde_json::Value), LspClientError> {
         let request_timeout_ms = config.lsp_config.request_timeout_ms;
         let (request_tx, request_rx) = mpsc::channel::<RestartableOutgoing>(64);
         let (stop_tx, stop_rx) = oneshot::channel::<()>();
@@ -125,9 +139,18 @@ impl RestartableLspClient {
             Some(ready_tx),
         ));
 
-        let server_capabilities = ready_rx
-            .await
-            .map_err(|_| LspClientError::ChannelClosed)??;
+        let server_capabilities = if let Some(cancel_rx) = cancel_rx {
+            tokio::select! {
+                ready = ready_rx => ready.map_err(|_| LspClientError::ChannelClosed)??,
+                _ = cancel_rx => {
+                    let _ = stop_tx.send(());
+                    let _ = join_handle.await;
+                    return Err(LspClientError::ChannelClosed);
+                }
+            }
+        } else {
+            ready_rx.await.map_err(|_| LspClientError::ChannelClosed)??
+        };
 
         Ok((Self {
             request_tx,
@@ -414,5 +437,110 @@ mod tests {
     fn restart_backoff_caps_at_last_delay() {
         assert_eq!(backoff_delay(&[1, 2, 4], 0), 1);
         assert_eq!(backoff_delay(&[1, 2, 4], 3), 4);
+    }
+
+    #[cfg(unix)]
+    fn test_config(script: &str) -> RestartableConfig {
+        RestartableConfig {
+            lsp_config: LspClientConfig {
+                binary_path: "python3".to_string(),
+                args: vec!["-u".to_string(), "-c".to_string(), script.to_string()],
+                root_uri: "file:///vault".to_string(),
+                capabilities: serde_json::json!({}),
+                working_dir: None,
+                request_timeout_ms: 100,
+                init_timeout_ms: 30_000,
+            },
+            max_restarts: 2,
+            backoff_ms: vec![5, 10],
+            stable_running_ms: 1_000,
+        }
+    }
+
+    #[cfg(unix)]
+    const INITIALIZE_THEN_EXIT: &str = r#"
+import json, sys, time
+
+def read_message():
+    length = 0
+    while True:
+        line = sys.stdin.buffer.readline()
+        if not line:
+            return None
+        if line in (b'\r\n', b'\n'):
+            break
+        if line.lower().startswith(b'content-length:'):
+            length = int(line.split(b':', 1)[1])
+    return json.loads(sys.stdin.buffer.read(length))
+
+request = read_message()
+response = json.dumps({'jsonrpc': '2.0', 'id': request['id'], 'result': {'capabilities': {}}}).encode()
+sys.stdout.buffer.write(b'Content-Length: ' + str(len(response)).encode() + b'\r\n\r\n' + response)
+sys.stdout.buffer.flush()
+read_message()
+time.sleep(0.01)
+"#;
+
+    #[cfg(unix)]
+    const HANG_DURING_INITIALIZE: &str = r#"
+import sys, time
+while True:
+    line = sys.stdin.buffer.readline()
+    if not line or line in (b'\r\n', b'\n'):
+        break
+time.sleep(60)
+"#;
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn repeated_post_initialize_exits_reach_failed() {
+        let (mut client, _) = RestartableLspClient::start(test_config(INITIALIZE_THEN_EXIT))
+            .await
+            .expect("initial server starts");
+        let mut status_rx = client.take_status_rx().expect("status receiver");
+
+        let failed = tokio::time::timeout(std::time::Duration::from_secs(1), async {
+            while let Some(status) = status_rx.recv().await {
+                if matches!(status, LspSessionStatus::Failed { .. }) {
+                    return true;
+                }
+            }
+            false
+        })
+        .await
+        .expect("restart cap should be reached");
+
+        assert!(failed);
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn stop_during_crash_backoff_returns_promptly() {
+        let (client, _) = RestartableLspClient::start(test_config(INITIALIZE_THEN_EXIT))
+            .await
+            .expect("initial server starts");
+        tokio::time::sleep(std::time::Duration::from_millis(30)).await;
+
+        tokio::time::timeout(std::time::Duration::from_millis(200), client.stop())
+            .await
+            .expect("stop should preempt crash backoff");
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn cancellation_during_initialize_kills_child_promptly() {
+        let (cancel_tx, cancel_rx) = oneshot::channel();
+        let start = tokio::spawn(RestartableLspClient::start_cancellable(
+            test_config(HANG_DURING_INITIALIZE),
+            cancel_rx,
+        ));
+        tokio::time::sleep(std::time::Duration::from_millis(30)).await;
+        cancel_tx.send(()).expect("start still pending");
+
+        let result = tokio::time::timeout(std::time::Duration::from_millis(200), start)
+            .await
+            .expect("cancel should preempt initialize")
+            .expect("start task should finish");
+        assert!(matches!(result, Err(LspClientError::ChannelClosed)));
     }
 }

@@ -17,6 +17,7 @@ use super::types::*;
 pub struct MarkdownLspState {
     clients: Mutex<HashMap<String, RestartableLspClient>>,
     start_generations: Arc<Mutex<HashMap<String, u64>>>,
+    pending_starts: Mutex<HashMap<String, (u64, tokio::sync::oneshot::Sender<()>)>>,
     vault_paths: Mutex<HashMap<String, std::path::PathBuf>>,
     pending_workspace_edit: Arc<Mutex<Option<MarkdownLspWorkspaceEditResult>>>,
 }
@@ -26,6 +27,7 @@ impl Default for MarkdownLspState {
         Self {
             clients: Mutex::new(HashMap::new()),
             start_generations: Arc::new(Mutex::new(HashMap::new())),
+            pending_starts: Mutex::new(HashMap::new()),
             vault_paths: Mutex::new(HashMap::new()),
             pending_workspace_edit: Arc::new(Mutex::new(None)),
         }
@@ -320,11 +322,29 @@ pub async fn markdown_lsp_start(
         *generation
     };
 
+    let (cancel_tx, cancel_rx) = tokio::sync::oneshot::channel();
+    if let Some(previous) = state
+        .pending_starts
+        .lock()
+        .await
+        .insert(vault_id.clone(), (generation, cancel_tx))
+    {
+        let _ = previous.1.send(());
+    }
+
     let spawn_started_at = Instant::now();
-    let (mut client, server_caps_json) =
-        RestartableLspClient::start(RestartableConfig::new(config))
-            .await
-            .map_err(err)?;
+    let start_result = RestartableLspClient::start_cancellable(
+        RestartableConfig::new(config),
+        cancel_rx,
+    )
+    .await;
+    {
+        let mut pending_starts = state.pending_starts.lock().await;
+        if pending_starts.get(&vault_id).map(|pending| pending.0) == Some(generation) {
+            pending_starts.remove(&vault_id);
+        }
+    }
+    let (mut client, server_caps_json) = start_result.map_err(err)?;
     let server_capabilities = MarkdownLspServerCapabilities::from_initialize_result(&server_caps_json);
     log::info!(
         "markdown_lsp_startup phase=lsp_initialize_completed startup_reason={} effective_provider={} duration_ms={}",
@@ -396,6 +416,9 @@ pub async fn markdown_lsp_stop(app: AppHandle, vault_id: String) -> Result<(), S
         let mut generations = state.start_generations.lock().await;
         let generation = generations.entry(vault_id.clone()).or_default();
         *generation += 1;
+    }
+    if let Some((_, pending)) = state.pending_starts.lock().await.remove(&vault_id) {
+        let _ = pending.send(());
     }
     let client = state.clients.lock().await.remove(&vault_id);
     state.vault_paths.lock().await.remove(&vault_id);
@@ -1749,4 +1772,29 @@ pub async fn iwe_config_rewrite_provider(
         config_path.display()
     );
     Ok(())
+}
+
+#[cfg(test)]
+mod lifecycle_tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn notify_fails_fast_while_start_is_pending() {
+        let state = MarkdownLspState::default();
+        let (cancel_tx, _cancel_rx) = tokio::sync::oneshot::channel();
+        state
+            .pending_starts
+            .lock()
+            .await
+            .insert("vault".to_string(), (1, cancel_tx));
+
+        let result = tokio::time::timeout(
+            std::time::Duration::from_millis(100),
+            state.notify("vault", "textDocument/didChange", serde_json::json!({})),
+        )
+        .await
+        .expect("notify must not wait for an in-flight start");
+
+        assert_eq!(result.unwrap_err(), "markdown_lsp:not_started:vault");
+    }
 }
