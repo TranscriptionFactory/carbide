@@ -98,4 +98,18 @@ describe("editor_context_menu block links", () => {
 
     menu.cleanup();
   });
+
+  it("hides block-id actions in read-only mode", () => {
+    const menu = render_editor_context_menu({
+      block_pos: 42,
+      editor_mode: "read_only",
+    });
+
+    menu.right_click();
+
+    expect(has_item("Copy Block Link")).toBe(false);
+    expect(has_item("Copy Block ID")).toBe(false);
+
+    menu.cleanup();
+  });
 });

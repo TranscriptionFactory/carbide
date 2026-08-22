@@ -10,6 +10,7 @@ export type EditorContextMenuState = {
   block_pos: number | null;
   payload: RichClipboardPayload | null;
   supports_block_id: boolean;
+  editor_mode: "visual" | "read_only";
 };
 
 export function render_editor_context_menu(
@@ -20,6 +21,7 @@ export function render_editor_context_menu(
     block_pos: null,
     payload: null,
     supports_block_id: true,
+    editor_mode: "visual",
     ...initial,
   };
 
@@ -43,6 +45,7 @@ export function render_editor_context_menu(
   set_mock_app_context({
     stores: {
       ui: { editor_settings: { markdown_lsp_provider: "none" } },
+      editor: { editor_mode: state.editor_mode },
       markdown_lsp: { status: "idle", transform_actions: [] },
     },
     action_registry: { execute },

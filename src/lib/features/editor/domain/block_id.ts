@@ -2,7 +2,7 @@ import type { EditorState, Transaction } from "prosemirror-state";
 import type { Node as ProseNode } from "prosemirror-model";
 import { format_wiki_display } from "$lib/features/editor/domain/wiki_link";
 
-const BLOCK_ID_PATTERN = /(?:^|\s)\^([a-zA-Z0-9-]+)\s*$/;
+export const BLOCK_ID_PATTERN = /(?:^|\s)\^([a-zA-Z0-9-]+)\s*$/;
 const BLOCK_ID_ALPHABET = "abcdefghijklmnopqrstuvwxyz0123456789";
 const BLOCK_ID_LENGTH = 6;
 
@@ -66,7 +66,12 @@ export function ensure_block_id_at(
 }
 
 function accepts_block_id(node: ProseNode): boolean {
-  return node.isTextblock && !node.isAtom && !node.type.spec.code;
+  return (
+    node.isTextblock &&
+    node.type.name !== "heading" &&
+    !node.isAtom &&
+    !node.type.spec.code
+  );
 }
 
 function resolve_anchor_host(doc: ProseNode, pos: number): AnchorHost | null {
@@ -74,6 +79,13 @@ function resolve_anchor_host(doc: ProseNode, pos: number): AnchorHost | null {
   if (!node) return null;
   if (accepts_block_id(node)) return { node, pos };
   if (node.isAtom || node.type.spec.isolating) return null;
+
+  if (node.type.name === "list_item") {
+    const first = node.firstChild;
+    return first && accepts_block_id(first)
+      ? { node: first, pos: pos + 1 }
+      : null;
+  }
 
   let host: AnchorHost | null = null;
   node.descendants((child, offset) => {

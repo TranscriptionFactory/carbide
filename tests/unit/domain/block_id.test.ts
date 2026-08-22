@@ -17,7 +17,13 @@ import {
 
 const BLOCK_ID_SHAPE = /^[a-z0-9]{6}$/;
 
-const ID_BEARING_NODES = new Set(["paragraph", "callout", "details_block"]);
+const ID_BEARING_NODES = new Set([
+  "paragraph",
+  "bullet_list",
+  "blockquote",
+  "callout",
+  "details_block",
+]);
 
 function make_para(text?: string) {
   return schema.nodes.paragraph.create(
@@ -159,6 +165,16 @@ describe("ensure_block_id_at", () => {
       `callout body ^${block_id}`,
     );
     expect(find_block_anchor_position(state.doc, block_id)).not.toBeNull();
+  });
+
+  it("anchors a nested list item on its own paragraph", () => {
+    const { doc, block_pos } = matrix_doc_for("bullet_list");
+    const list_item_pos = block_pos + 1;
+    const { block_id, state } = mint_or_throw(make_state(doc), list_item_pos);
+    const item = state.doc.child(1).firstChild;
+
+    expect(item?.firstChild?.textContent).toBe(`parent ^${block_id}`);
+    expect(item?.lastChild?.textContent).toBe("nested");
   });
 
   it("omits the separator space when the block is empty", () => {

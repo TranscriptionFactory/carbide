@@ -15,6 +15,25 @@ function ctx(is_vault_mode: boolean): CommandContext {
 }
 
 describe("sidebar view commands", () => {
+  it("registers Copy Block Link for editable open notes", () => {
+    const command = COMMANDS_REGISTRY.find(
+      (item) => item.id === "note.copy_block_link",
+    );
+
+    expect(command?.label).toBe("Copy Block Link");
+    expect(
+      command?.when?.({
+        has_open_note: true,
+        is_editable_document: true,
+      } as CommandContext),
+    ).toBe(true);
+    expect(
+      command?.when?.({
+        has_open_note: true,
+        is_editable_document: false,
+      } as CommandContext),
+    ).toBe(false);
+  });
   it("generates one command per registry view with stable prefixed ids", () => {
     for (const view of SIDEBAR_VIEW_REGISTRY) {
       const id = sidebar_view_command_id(view.id);

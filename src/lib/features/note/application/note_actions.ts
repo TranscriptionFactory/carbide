@@ -568,6 +568,7 @@ export function register_note_actions(input: ActionRegistrationInput) {
       id: ACTION_IDS.note_copy_block_link,
       label: "Copy Block Link",
       execute: async (pos: unknown) => {
+        if (stores.editor.editor_mode === "read_only") return;
         const note_path = stores.editor.open_note?.meta.path;
         if (!note_path) return;
         const block_id = services.editor.ensure_block_id_at(to_block_pos(pos));
@@ -583,6 +584,7 @@ export function register_note_actions(input: ActionRegistrationInput) {
       id: ACTION_IDS.note_copy_block_id,
       label: "Copy Block ID",
       execute: async (pos: unknown) => {
+        if (stores.editor.editor_mode === "read_only") return;
         const block_id = services.editor.ensure_block_id_at(to_block_pos(pos));
         if (!block_id) return;
         await services.clipboard.copy_text(block_id);
