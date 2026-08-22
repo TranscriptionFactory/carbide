@@ -42,7 +42,8 @@ describe("wiki block suggestion acceptance", () => {
       {
         block_id: null,
         text: "target claim",
-        line: 1,
+        end_line: 1,
+        end_offset: 12,
         note_path: "target.md",
       },
     ]);
@@ -59,7 +60,8 @@ describe("wiki block suggestion acceptance", () => {
     expect(on_block_accept).toHaveBeenCalledWith({
       block_id: null,
       text: "target claim",
-      line: 1,
+      end_line: 1,
+      end_offset: 12,
       note_path: "target.md",
     });
     expect(view.state.doc.textContent).toBe("[[target#^mint01]]");
@@ -90,7 +92,8 @@ describe("wiki block suggestion acceptance", () => {
       {
         block_id: "kept01",
         text: "target claim",
-        line: 1,
+        end_line: 1,
+        end_offset: 12,
         note_path: "target.md",
       },
     ]);
@@ -138,7 +141,8 @@ describe("wiki block suggestion acceptance", () => {
       {
         block_id: null,
         text: "target claim",
-        line: 1,
+        end_line: 1,
+        end_offset: 12,
         note_path: "target.md",
       },
     ]);

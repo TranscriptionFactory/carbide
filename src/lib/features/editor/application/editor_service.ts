@@ -51,10 +51,8 @@ import type { AssetsPort, NotesPort, NotesStore } from "$lib/features/note";
 import { collect_recent_notes } from "$lib/features/editor/domain/collect_recent_notes";
 import type { TagPort } from "$lib/features/tags";
 import { normalize_markdown_line_breaks } from "$lib/features/editor/domain/markdown_line_breaks";
-import {
-  BLOCK_ID_PATTERN,
-  generate_block_id,
-} from "$lib/features/editor/domain/block_id";
+import { generate_block_id } from "$lib/features/editor/domain/block_id";
+import { collect_addressable_blocks as collect_blocks } from "$lib/features/editor/domain/addressable_blocks";
 import { rank_tags } from "$lib/features/tags";
 import { is_draft_note_path } from "$lib/features/note";
 import { suggest_query } from "$lib/features/query";
@@ -62,42 +60,16 @@ import { suggest_base_spec } from "$lib/features/smart_blocks";
 import type { DslContext } from "$lib/shared/types/dsl_suggestion";
 import { error_message } from "$lib/shared/utils/error_message";
 import { create_logger } from "$lib/shared/utils/logger";
-import { unified } from "unified";
-import remarkParse from "remark-parse";
-import remarkGfm from "remark-gfm";
-import { visit } from "unist-util-visit";
-import type { Nodes } from "mdast";
 
 const log = create_logger("editor_service");
 
 const AT_PALETTE_RECENTS_LIMIT = 10;
 
-function mdast_text(node: Nodes): string {
-  if ("value" in node && typeof node.value === "string") return node.value;
-  if (!("children" in node)) return "";
-  return node.children.map(mdast_text).join("");
-}
-
 export function collect_addressable_blocks(
   markdown: string,
   note_path: string,
 ): BlockSuggestion[] {
-  const blocks: BlockSuggestion[] = [];
-  const tree = unified().use(remarkParse).use(remarkGfm).parse(markdown);
-
-  visit(tree, "paragraph", (node) => {
-    const line = node.position?.end.line;
-    if (!line) return;
-    const raw_text = mdast_text(node);
-    const text = raw_text.replace(BLOCK_ID_PATTERN, "").trim();
-    blocks.push({
-      block_id: BLOCK_ID_PATTERN.exec(raw_text)?.[1] ?? null,
-      text,
-      line,
-      note_path,
-    });
-  });
-  return blocks;
+  return collect_blocks(markdown).map((block) => ({ ...block, note_path }));
 }
 
 export function mint_block_in_markdown(
@@ -105,19 +77,15 @@ export function mint_block_in_markdown(
   suggestion: BlockSuggestion,
   block_id: string,
 ): string | null {
-  const lines = markdown.split("\n");
-  const index = suggestion.line - 1;
-  const line = lines[index];
   const current = collect_addressable_blocks(
     markdown,
     suggestion.note_path,
-  ).find((block) => block.line === suggestion.line);
-  if (line === undefined || !current || current.text !== suggestion.text) {
+  ).find((block) => block.end_offset === suggestion.end_offset);
+  if (!current || current.text !== suggestion.text) {
     return null;
   }
   if (current.block_id) return null;
-  lines[index] = `${line.replace(/\s+$/, "")} ^${block_id}`;
-  return lines.join("\n");
+  return `${markdown.slice(0, current.end_offset)} ^${block_id}${markdown.slice(current.end_offset)}`;
 }
 
 function resolve_block_mint(
@@ -127,7 +95,7 @@ function resolve_block_mint(
   const current = collect_addressable_blocks(
     markdown,
     suggestion.note_path,
-  ).find((block) => block.line === suggestion.line);
+  ).find((block) => block.end_offset === suggestion.end_offset);
   if (!current || current.text !== suggestion.text) return null;
   if (current.block_id) {
     return { block_id: current.block_id, markdown, changed: false };

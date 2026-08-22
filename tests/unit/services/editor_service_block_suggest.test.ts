@@ -143,7 +143,8 @@ function unminted(): BlockSuggestion {
   return {
     block_id: null,
     text: "target claim",
-    line: 1,
+    end_line: 1,
+    end_offset: 12,
     note_path: "target.md",
   };
 }
@@ -161,11 +162,18 @@ describe("block suggestions", () => {
         "target.md",
       ),
     ).toEqual([
-      { block_id: null, text: "target claim", line: 2, note_path: "target.md" },
+      {
+        block_id: null,
+        text: "target claim",
+        end_line: 2,
+        end_offset: 22,
+        note_path: "target.md",
+      },
       {
         block_id: "kept01",
         text: "list item",
-        line: 3,
+        end_line: 3,
+        end_offset: 42,
         note_path: "target.md",
       },
     ]);
@@ -232,6 +240,7 @@ describe("block suggestions", () => {
       .events.on_block_suggest_accept?.({
         ...unminted(),
         block_id: "kept01",
+        end_offset: 20,
       });
 
     expect(block_id).toBe("kept01");

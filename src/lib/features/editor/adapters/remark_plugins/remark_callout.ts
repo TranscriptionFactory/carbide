@@ -186,6 +186,7 @@ function transform_blockquote_to_callout(bq: Blockquote): MdastNode {
       body_children.push({
         type: "paragraph",
         children: new_inline,
+        position: first_block.position,
       } as Paragraph);
     }
   }

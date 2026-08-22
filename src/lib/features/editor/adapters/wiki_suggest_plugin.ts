@@ -268,7 +268,8 @@ export function create_wiki_suggest_prose_plugin(
         .on_block_accept?.({
           block_id: item.block_id,
           text: item.text,
-          line: item.line,
+          end_line: item.end_line,
+          end_offset: item.end_offset,
           note_path: item.note_path,
         })
         .then((block_id) => {
@@ -400,7 +401,8 @@ export function set_block_suggestions(
     kind: "block" as const,
     block_id: b.block_id,
     text: b.text,
-    line: b.line,
+    end_line: b.end_line,
+    end_offset: b.end_offset,
     note_path: b.note_path,
   }));
   view.dispatch(

@@ -47,7 +47,8 @@ export type InternalLinkSource = "markdown" | "wiki";
 export type BlockSuggestion = {
   block_id: string | null;
   text: string;
-  line: number;
+  end_line: number;
+  end_offset: number;
   note_path: string;
 };
 
