@@ -379,19 +379,15 @@ pub async fn markdown_lsp_start(
         );
     }
 
-    let is_current = state
-        .start_generations
-        .lock()
-        .await
-        .get(&vault_id)
-        .copied()
-        == Some(generation);
-    if !is_current {
-        client.stop().await;
-        return Err("markdown_lsp:start_superseded".to_string());
-    }
-
-    let old = state.clients.lock().await.insert(vault_id, client);
+    let old = {
+        let generations = state.start_generations.lock().await;
+        if generations.get(&vault_id).copied() != Some(generation) {
+            drop(generations);
+            client.stop().await;
+            return Err("markdown_lsp:start_superseded".to_string());
+        }
+        state.clients.lock().await.insert(vault_id, client)
+    };
     if let Some(old) = old {
         old.stop().await;
     }
