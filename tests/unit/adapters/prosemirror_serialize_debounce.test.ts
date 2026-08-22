@@ -159,6 +159,18 @@ describe("prosemirror serialize debounce", () => {
     session.destroy();
   });
 
+  it("set_markdown leaves the editor state unchanged for identical content", async () => {
+    const { session } = await create_session("hello world\n");
+    const view = session.get_view?.();
+    if (!view) throw new Error("missing view");
+    const state = view.state;
+
+    session.set_markdown("hello world\n");
+
+    expect(view.state).toBe(state);
+    session.destroy();
+  });
+
   it("a buffer switch mid-window snapshots the un-serialized keystroke", async () => {
     const on_markdown = vi.fn();
     const { session } = await create_session("note A content\n", {

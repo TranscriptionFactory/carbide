@@ -261,7 +261,11 @@ function convert_wiki_embed(node: AnyMdastNode): PmNode | null {
   const match = WIKI_EMBED_PARSE_RE.exec(raw);
   if (!match || !match[1]) return null;
 
-  const inner = match[1];
+  const collapsed_suffix = "|collapsed";
+  const collapsed = match[1].endsWith(collapsed_suffix);
+  const inner = collapsed
+    ? match[1].slice(0, -collapsed_suffix.length)
+    : match[1];
   const hash_idx = inner.indexOf("#");
   const target = hash_idx >= 0 ? inner.slice(0, hash_idx) : inner;
   const fragment = hash_idx >= 0 ? inner.slice(hash_idx + 1) : "";
@@ -277,6 +281,7 @@ function convert_wiki_embed(node: AnyMdastNode): PmNode | null {
       src,
       fragment: fragment || null,
       display_src,
+      collapsed,
     });
   }
 
