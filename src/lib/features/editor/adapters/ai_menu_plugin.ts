@@ -238,6 +238,7 @@ export function create_ai_menu_plugin(
         svelte_app = mount(AiInlineMenu, {
           target: container,
           props: {
+            view: editor_view,
             mode: state.mode,
             streaming: state.streaming,
             commands,

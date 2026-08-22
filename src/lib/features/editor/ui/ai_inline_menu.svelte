@@ -17,8 +17,10 @@
     type RunId,
     type RunRecord,
   } from "$lib/features/assistant";
+  import type { EditorView } from "prosemirror-view";
 
   interface Props {
+    view: EditorView;
     mode: AiMenuMode;
     streaming: boolean;
     commands: InstructionRecipe[];
@@ -37,6 +39,7 @@
   }
 
   let {
+    view,
     mode,
     streaming,
     commands,
@@ -102,7 +105,7 @@
   role="dialog"
   aria-label="AI inline menu"
   data-testid="ai-inline-menu"
-  use:contain_focus
+  use:contain_focus={() => view.focus()}
 >
   <div class="AiInlineMenu__header">
     <AssistantPresence {runs} on_stop={handle_stop} />
