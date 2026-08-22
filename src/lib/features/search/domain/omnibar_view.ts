@@ -68,7 +68,8 @@ export function apply_file_type_filters(
     if (
       item.kind === "command" ||
       item.kind === "setting" ||
-      item.kind === "planned_note"
+      item.kind === "planned_note" ||
+      item.kind === "folder"
     )
       return true;
     if (
@@ -90,6 +91,7 @@ export function apply_kind_filters(
   return items.filter((item) => {
     if (item.kind === "command") return filters.includes("commands");
     if (item.kind === "setting") return filters.includes("settings");
+    if (item.kind === "folder") return filters.includes("folders");
     return filters.includes("notes");
   });
 }
@@ -106,6 +108,8 @@ function item_title(item: OmnibarItem): string {
       return item.command.label;
     case "setting":
       return item.setting.label;
+    case "folder":
+      return item.path;
   }
 }
 
@@ -122,15 +126,18 @@ export function sort_omnibar_items(
   items: OmnibarItem[],
   mode: OmnibarSortMode,
   context: OmnibarSortContext,
+  ascending: boolean,
 ): OmnibarItem[] {
   if (mode === "relevance") return items;
 
   if (mode === "name") {
-    return [...items].sort((a, b) =>
-      NAME_COLLATOR.compare(item_title(a), item_title(b)),
+    const direction = ascending ? 1 : -1;
+    return [...items].sort(
+      (a, b) => direction * NAME_COLLATOR.compare(item_title(a), item_title(b)),
     );
   }
 
+  const direction = ascending ? 1 : -1;
   const notes: Extract<
     OmnibarItem,
     { kind: "note" | "recent_note" | "cross_vault_note" }
@@ -157,10 +164,13 @@ export function sort_omnibar_items(
       note_recency_ms(item.note, context.access_history),
     ]),
   );
-  notes.sort((a, b) => (recency_keys.get(b) ?? 0) - (recency_keys.get(a) ?? 0));
+  notes.sort(
+    (a, b) =>
+      direction * ((recency_keys.get(a) ?? 0) - (recency_keys.get(b) ?? 0)),
+  );
 
   const by_mru = mru_comparator(context.recent_command_ids);
-  commands.sort((a, b) => by_mru(a.command.id, b.command.id));
+  commands.sort((a, b) => direction * by_mru(a.command.id, b.command.id));
 
   return [...notes, ...commands, ...rest];
 }

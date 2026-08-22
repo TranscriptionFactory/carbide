@@ -57,6 +57,9 @@ describe("VaultService", () => {
     };
 
     const notes_port = {
+      list_folders: vi.fn((vault_id: string) =>
+        Promise.resolve([`${vault_id}/nested/deep`]),
+      ),
       list_folder_contents: vi.fn((vault_id: string) =>
         Promise.resolve({
           notes: [
@@ -141,6 +144,8 @@ describe("VaultService", () => {
     expect(second_result.status).toBe("opened");
     expect(vault_store.vault?.id).toBe(vault_b.id);
     expect(notes_store.starred_paths).toEqual(["vault-b/alpha.md"]);
+    expect(notes_store.folder_paths).toEqual(["vault-b/nested/deep"]);
+    expect(notes_port.list_folders).toHaveBeenCalledWith(vault_b.id);
 
     open_a.resolve(vault_a);
     const first_result = await first;

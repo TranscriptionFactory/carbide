@@ -196,6 +196,7 @@ export const ACTION_IDS = {
   omnibar_toggle_file_type_filter: "omnibar.toggle_file_type_filter",
   omnibar_toggle_kind_filter: "omnibar.toggle_kind_filter",
   omnibar_set_sort_mode: "omnibar.set_sort_mode",
+  omnibar_toggle_sort_order: "omnibar.toggle_sort_order",
   omnibar_clear_filters: "omnibar.clear_filters",
 
   editor_fold_toggle: "editor.fold.toggle",

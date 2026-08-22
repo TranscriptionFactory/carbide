@@ -154,7 +154,9 @@ describe("dedupe_commands_by_id", () => {
 describe("sort_omnibar_items", () => {
   it("preserves input order for relevance", () => {
     const items = [note_item("b.md", "B"), note_item("a.md", "A")];
-    expect(sort_omnibar_items(items, "relevance", NO_SORT_CONTEXT)).toBe(items);
+    expect(sort_omnibar_items(items, "relevance", NO_SORT_CONTEXT, true)).toBe(
+      items,
+    );
   });
 
   it("sorts by name case-insensitively with numeric ordering", () => {
@@ -165,7 +167,7 @@ describe("sort_omnibar_items", () => {
       note_item("a.md", "Apple"),
     ];
     expect(
-      sort_omnibar_items(items, "name", NO_SORT_CONTEXT).map(
+      sort_omnibar_items(items, "name", NO_SORT_CONTEXT, true).map(
         (i) => i.kind === "note" && i.note.title,
       ),
     ).toEqual(["Apple", "banana", "Note 2", "note 10"]);
@@ -177,7 +179,7 @@ describe("sort_omnibar_items", () => {
       note_item("second.md", "same"),
     ];
     expect(
-      sort_omnibar_items(items, "name", NO_SORT_CONTEXT).map(
+      sort_omnibar_items(items, "name", NO_SORT_CONTEXT, true).map(
         (i) => i.kind === "note" && i.note.id,
       ),
     ).toEqual(["first.md", "second.md"]);
@@ -191,10 +193,15 @@ describe("sort_omnibar_items", () => {
     ];
     const access_history = new Map([["accessed.md", [5_000, 10_000]]]);
     expect(
-      sort_omnibar_items(items, "recency", {
-        ...NO_SORT_CONTEXT,
-        access_history,
-      }).map((i) => i.kind === "note" && i.note.id),
+      sort_omnibar_items(
+        items,
+        "recency",
+        {
+          ...NO_SORT_CONTEXT,
+          access_history,
+        },
+        false,
+      ).map((i) => i.kind === "note" && i.note.id),
     ).toEqual(["accessed.md", "edited.md", "stale.md"]);
   });
 
@@ -206,22 +213,87 @@ describe("sort_omnibar_items", () => {
       planned_item("planned.md"),
       note_item("a.md", "A", 1_000),
     ];
-    const sorted = sort_omnibar_items(items, "recency", {
-      recent_command_ids: ["open_settings"],
-    });
+    const sorted = sort_omnibar_items(
+      items,
+      "recency",
+      { recent_command_ids: ["open_settings"] },
+      false,
+    );
     expect(
       sorted.map((i) => {
         if (i.kind === "command") return i.command.id;
         if (i.kind === "setting") return i.setting.key;
         if (i.kind === "planned_note") return i.target_path;
+        if (i.kind === "folder") return i.path;
         return i.note.id as string;
       }),
     ).toEqual([
       "a.md",
-      "open_settings",
       "zoom_in",
+      "open_settings",
       "editor.font",
       "planned.md",
+    ]);
+  });
+});
+
+describe("omnibar sort direction", () => {
+  it("inverts name order without changing relevance", () => {
+    const items = [note_item("b.md", "Beta"), note_item("a.md", "Alpha")];
+    expect(
+      sort_omnibar_items(items, "name", NO_SORT_CONTEXT, false).map(
+        (item) => item.kind === "note" && item.note.title,
+      ),
+    ).toEqual(["Beta", "Alpha"]);
+    expect(sort_omnibar_items(items, "relevance", NO_SORT_CONTEXT, false)).toBe(
+      items,
+    );
+  });
+
+  it("keeps recency tiers stable while reversing within tiers", () => {
+    const items = [
+      command_item("zoom_in", "Zoom In"),
+      note_item("old.md", "Old", 1),
+      command_item("open_settings", "Open Settings"),
+      note_item("new.md", "New", 2),
+    ];
+    const context = { recent_command_ids: ["open_settings", "zoom_in"] };
+    const descending = sort_omnibar_items(items, "recency", context, false);
+    const ascending = sort_omnibar_items(items, "recency", context, true);
+    expect(descending.map((item) => item.kind)).toEqual([
+      "note",
+      "note",
+      "command",
+      "command",
+    ]);
+    expect(ascending.map((item) => item.kind)).toEqual([
+      "note",
+      "note",
+      "command",
+      "command",
+    ]);
+    const labels = (sorted: OmnibarItem[]) =>
+      sorted.map((item) => {
+        if (item.kind === "command") return item.command.id;
+        if (
+          item.kind === "note" ||
+          item.kind === "recent_note" ||
+          item.kind === "cross_vault_note"
+        )
+          return item.note.id;
+        throw new Error(`Unexpected item kind: ${item.kind}`);
+      });
+    expect(labels(descending)).toEqual([
+      "new.md",
+      "old.md",
+      "zoom_in",
+      "open_settings",
+    ]);
+    expect(labels(ascending)).toEqual([
+      "old.md",
+      "new.md",
+      "open_settings",
+      "zoom_in",
     ]);
   });
 });

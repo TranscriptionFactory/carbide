@@ -30,6 +30,8 @@
   import ListChecksIcon from "@lucide/svelte/icons/list-checks";
   import CalendarDaysIcon from "@lucide/svelte/icons/calendar-days";
   import TagsIcon from "@lucide/svelte/icons/tags";
+  import ArrowUpAZIcon from "@lucide/svelte/icons/arrow-up-a-z";
+  import ArrowDownAZIcon from "@lucide/svelte/icons/arrow-down-a-z";
   import type {
     OmnibarItem,
     OmnibarScope,
@@ -40,6 +42,7 @@
   import {
     mru_comparator,
     dedupe_commands_by_id,
+    sort_omnibar_items,
   } from "$lib/features/search/domain/omnibar_view";
   import { build_omnibar_rows } from "$lib/features/search/domain/omnibar_rows";
   import {
@@ -124,6 +127,7 @@
     file_type_filters: OmnibarFileTypeFilter[];
     kind_filters: OmnibarKindFilter[];
     sort_mode: OmnibarSortMode;
+    sort_ascending: boolean;
     items: OmnibarItem[];
     recent_notes: NoteMeta[];
     recent_command_ids: string[];
@@ -137,6 +141,7 @@
     on_toggle_file_type_filter: (filter: OmnibarFileTypeFilter) => void;
     on_toggle_kind_filter: (filter: OmnibarKindFilter) => void;
     on_sort_mode_change: (mode: OmnibarSortMode) => void;
+    on_toggle_sort_order: () => void;
     on_clear_filters: () => void;
     on_confirm: (item: OmnibarItem) => void;
     on_view_as_graph: (query: string) => void;
@@ -152,6 +157,7 @@
     file_type_filters,
     kind_filters,
     sort_mode,
+    sort_ascending,
     items,
     recent_notes,
     recent_command_ids,
@@ -165,6 +171,7 @@
     on_toggle_file_type_filter,
     on_toggle_kind_filter,
     on_sort_mode_change,
+    on_toggle_sort_order,
     on_clear_filters,
     on_confirm,
     on_view_as_graph,
@@ -198,6 +205,7 @@
     { filter: "notes", mnemonic: "n", label: "Notes" },
     { filter: "commands", mnemonic: "o", label: "Commands" },
     { filter: "settings", mnemonic: "s", label: "Settings" },
+    { filter: "folders", mnemonic: "f", label: "Folders" },
   ];
   const SORT_MODES: {
     mode: OmnibarSortMode;
@@ -379,7 +387,13 @@
           score: 0,
         }))
       : [];
-    return [...recent, ...commands];
+    if (kind_filters.includes("folders")) return items;
+    return sort_omnibar_items(
+      [...recent, ...commands],
+      sort_mode,
+      { recent_command_ids },
+      sort_ascending,
+    );
   });
 
   const visible_items: OmnibarRow[] = $derived.by(() => {
@@ -444,6 +458,8 @@
         return `omni-cmd-${item.command.id}`;
       case "setting":
         return `omni-setting-${item.setting.key}`;
+      case "folder":
+        return `omni-folder-${encodeURIComponent(item.path)}`;
     }
   }
 
@@ -725,6 +741,22 @@
                 {sm.label}
               </button>
             {/each}
+            {#if sort_mode !== "relevance"}
+              <button
+                class="Omnibar__filter-chip"
+                onclick={on_toggle_sort_order}
+                aria-label={sort_ascending
+                  ? "Sort descending"
+                  : "Sort ascending"}
+                title={sort_ascending ? "Sort descending" : "Sort ascending"}
+              >
+                {#if sort_ascending}
+                  <ArrowUpAZIcon />
+                {:else}
+                  <ArrowDownAZIcon />
+                {/if}
+              </button>
+            {/if}
           </div>
           <span class="Omnibar__filter-hint"
             >press letter to toggle · X clear all · Tab/Esc to close</span
@@ -928,6 +960,16 @@
                   <div class="Omnibar__item-content">
                     <span class="Omnibar__item-title">{item.note.name}</span>
                     <span class="Omnibar__item-path">{item.note.path}</span>
+                  </div>
+                </div>
+              {:else if item.kind === "folder"}
+                <div class="Omnibar__item-row">
+                  <FolderOpenIcon />
+                  <div class="Omnibar__item-content">
+                    <span class="Omnibar__item-title"
+                      >{item.path || "Vault root"}</span
+                    >
+                    <span class="Omnibar__item-path">Folder</span>
                   </div>
                 </div>
               {:else if item.kind === "command"}
