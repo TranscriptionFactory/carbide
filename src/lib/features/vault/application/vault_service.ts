@@ -49,6 +49,7 @@ const PINNED_VAULT_IDS_KEY = "pinned_vault_ids";
 
 type VaultOpenSnapshot = {
   root_contents: Awaited<ReturnType<NotesPort["list_folder_contents"]>>;
+  folder_paths: string[];
   recent_vaults: Vault[];
   pinned_vault_ids: VaultId[];
   recent_notes: NoteMeta[];
@@ -547,17 +548,20 @@ export class VaultService {
     await this.vault_port.remember_last_vault(vault.id);
     this.throw_if_stale(open_revision);
 
-    const [root_contents, recent_vaults, pinned_vault_ids] = await Promise.all([
-      this.notes_port.list_folder_contents(vault.id, "", 0, PAGE_SIZE, false),
-      this.vault_port.list_vaults(),
-      this.load_pinned_vault_ids(),
-    ]);
+    const [root_contents, folder_paths, recent_vaults, pinned_vault_ids] =
+      await Promise.all([
+        this.notes_port.list_folder_contents(vault.id, "", 0, PAGE_SIZE, false),
+        this.notes_port.list_folders?.(vault.id) ?? Promise.resolve([]),
+        this.vault_port.list_vaults(),
+        this.load_pinned_vault_ids(),
+      ]);
     this.throw_if_stale(open_revision);
 
     if (vault.mode !== "vault") {
       const editor_settings = await this.load_browse_editor_settings();
       return {
         root_contents,
+        folder_paths,
         recent_vaults,
         pinned_vault_ids,
         recent_notes: [],
@@ -574,6 +578,7 @@ export class VaultService {
 
     return {
       root_contents,
+      folder_paths,
       recent_vaults,
       pinned_vault_ids,
       recent_notes,
@@ -590,6 +595,7 @@ export class VaultService {
 
     this.vault_store.set_vault(vault);
     this.notes_store.merge_folder_contents("", snapshot.root_contents);
+    this.notes_store.set_folder_paths(snapshot.folder_paths);
     this.vault_store.set_recent_vaults(snapshot.recent_vaults);
     this.vault_store.set_pinned_vault_ids(snapshot.pinned_vault_ids);
 

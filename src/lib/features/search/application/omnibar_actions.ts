@@ -20,6 +20,7 @@ import {
 } from "$lib/features/search/domain/search_commands";
 import { parse_search_query } from "$lib/features/search/domain/search_query_parser";
 import { as_note_path, type VaultId } from "$lib/shared/types/ids";
+import { filter_folder_paths } from "$lib/shared/utils/filter_folder_paths";
 
 export const COMMAND_TO_ACTION_ID: Record<CommandId, string> = {
   create_new_note: ACTION_IDS.note_create,
@@ -140,18 +141,31 @@ function map_cross_vault_items(
 }
 
 function apply_omnibar_view(input: ActionRegistrationInput) {
-  const { file_type_filters, kind_filters, sort_mode } =
+  const { file_type_filters, kind_filters, sort_mode, sort_ascending, query } =
     input.stores.ui.omnibar;
   const raw = input.stores.search.omnibar_items_raw;
+  const show_folders =
+    input.stores.ui.omnibar.scope === "current_vault" &&
+    (query.trim().endsWith("/") || kind_filters.includes("folders"));
+  const folder_items: OmnibarItem[] = show_folders
+    ? filter_folder_paths(query.trim(), input.stores.notes.folder_paths).map(
+        (path) => ({ kind: "folder", path }),
+      )
+    : [];
   const filtered = apply_kind_filters(
-    apply_file_type_filters(raw, file_type_filters),
+    apply_file_type_filters([...raw, ...folder_items], file_type_filters),
     kind_filters,
   );
   input.stores.search.set_omnibar_items(
-    sort_omnibar_items(filtered, sort_mode, {
-      access_history: input.stores.notes.note_access_history,
-      recent_command_ids: input.stores.ui.recent_command_ids,
-    }),
+    sort_omnibar_items(
+      filtered,
+      sort_mode,
+      {
+        access_history: input.stores.notes.note_access_history,
+        recent_command_ids: input.stores.ui.recent_command_ids,
+      },
+      sort_ascending,
+    ),
   );
 }
 
@@ -383,6 +397,10 @@ async function confirm_item(input: ActionRegistrationInput, item: OmnibarItem) {
         ACTION_IDS.settings_open,
         item.setting.category.toLowerCase(),
       );
+      break;
+    case "folder":
+      close_omnibar(input);
+      await registry.execute(ACTION_IDS.filetree_reveal_folder, item.path);
       break;
     case "planned_note":
       close_omnibar(input);
@@ -630,19 +648,35 @@ export function register_omnibar_actions(input: ActionRegistrationInput) {
   });
 
   registry.register({
+    id: ACTION_IDS.omnibar_toggle_sort_order,
+    label: "Toggle Omnibar Sort Order",
+    execute: () => {
+      if (stores.ui.omnibar.sort_mode === "relevance") return;
+      set_omnibar_state(input, {
+        sort_ascending: !stores.ui.omnibar.sort_ascending,
+        selected_index: 0,
+      });
+      apply_omnibar_view(input);
+    },
+  });
+
+  registry.register({
     id: ACTION_IDS.omnibar_clear_filters,
     label: "Clear Omnibar Filters",
     execute: () => {
-      const { file_type_filters, kind_filters, sort_mode } = stores.ui.omnibar;
+      const { file_type_filters, kind_filters, sort_mode, sort_ascending } =
+        stores.ui.omnibar;
       const has_filters =
         file_type_filters.length > 0 ||
         kind_filters.length > 0 ||
-        sort_mode !== "relevance";
+        sort_mode !== "relevance" ||
+        !sort_ascending;
       if (has_filters) {
         set_omnibar_state(input, {
           file_type_filters: [],
           kind_filters: [],
           sort_mode: "relevance",
+          sort_ascending: true,
           selected_index: 0,
         });
         apply_omnibar_view(input);

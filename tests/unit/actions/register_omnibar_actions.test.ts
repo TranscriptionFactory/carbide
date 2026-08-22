@@ -740,3 +740,58 @@ describe("register_omnibar_actions", () => {
     });
   });
 });
+
+describe("omnibar folders and direction", () => {
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => vi.useRealTimers());
+
+  it("discovers nested folders after a trailing slash and reveals on confirm", async () => {
+    const harness = create_omnibar_actions_harness();
+    harness.stores.notes.set_folder_paths(["projects", "projects/nested"]);
+    const reveal = vi.fn().mockResolvedValue(undefined);
+    harness.registry.register({
+      id: ACTION_IDS.filetree_reveal_folder,
+      label: "Reveal folder",
+      execute: reveal,
+    });
+
+    await harness.registry.execute(ACTION_IDS.omnibar_set_query, "projects/");
+    await vi.advanceTimersByTimeAsync(200);
+
+    expect(harness.stores.search.omnibar_items).toContainEqual({
+      kind: "folder",
+      path: "projects",
+    });
+    expect(harness.stores.search.omnibar_items).toContainEqual({
+      kind: "folder",
+      path: "projects/nested",
+    });
+
+    await harness.registry.execute(ACTION_IDS.omnibar_confirm_item, {
+      kind: "folder",
+      path: "projects/nested",
+    });
+    expect(reveal).toHaveBeenCalledWith("projects/nested");
+    expect(harness.execute_note_open).not.toHaveBeenCalled();
+  });
+
+  it("toggles direction outside relevance and ignores relevance", async () => {
+    const harness = create_omnibar_actions_harness();
+    harness.stores.search.set_omnibar_items_raw([
+      { kind: "note", note: create_test_note("b.md", "Beta"), score: 1 },
+      { kind: "note", note: create_test_note("a.md", "Alpha"), score: 1 },
+    ]);
+
+    await harness.registry.execute(ACTION_IDS.omnibar_toggle_sort_order);
+    expect(harness.stores.ui.omnibar.sort_ascending).toBe(true);
+
+    await harness.registry.execute(ACTION_IDS.omnibar_set_sort_mode, "name");
+    await harness.registry.execute(ACTION_IDS.omnibar_toggle_sort_order);
+    expect(harness.stores.ui.omnibar.sort_ascending).toBe(false);
+    expect(
+      harness.stores.search.omnibar_items.map(
+        (item) => item.kind === "note" && item.note.title,
+      ),
+    ).toEqual(["Beta", "Alpha"]);
+  });
+});

@@ -45,6 +45,7 @@ function render_omnibar(overrides: Partial<OmnibarProps>) {
     file_type_filters: [],
     kind_filters: [],
     sort_mode: "relevance",
+    sort_ascending: true,
     items: [],
     recent_notes: [],
     recent_command_ids: [],
@@ -58,6 +59,7 @@ function render_omnibar(overrides: Partial<OmnibarProps>) {
     on_toggle_file_type_filter: vi.fn(),
     on_toggle_kind_filter: vi.fn(),
     on_sort_mode_change: vi.fn(),
+    on_toggle_sort_order: vi.fn(),
     on_clear_filters: vi.fn(),
     on_confirm: vi.fn(),
     on_view_as_graph: vi.fn(),
@@ -149,5 +151,52 @@ describe("omnibar keeps the selection in view", () => {
       expect(last_scroll_call().element).toBe(selected_item(target));
     }
     expect(scroll_calls).toHaveLength(3);
+  });
+});
+
+describe("omnibar empty-query sorting", () => {
+  it("applies name direction to recent notes without a query", () => {
+    const recent_notes = [
+      create_test_note("alpha.md", "Alpha"),
+      create_test_note("beta.md", "Beta"),
+    ];
+    const { target } = render_omnibar({
+      recent_notes,
+      sort_mode: "name",
+      sort_ascending: false,
+      kind_filters: ["notes"],
+    });
+
+    const titles = [...target.querySelectorAll(".Omnibar__item-title")].map(
+      (element) => element.textContent,
+    );
+    expect(titles).toEqual(["beta.md", "alpha.md"]);
+  });
+});
+
+describe("omnibar sort direction control", () => {
+  it("shows the direction toggle only for sortable modes", () => {
+    const on_toggle_sort_order = vi.fn();
+    const { target, replace } = render_omnibar({
+      sort_mode: "name",
+      on_toggle_sort_order,
+    });
+    target
+      .querySelector("input")
+      ?.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "Tab", bubbles: true }),
+      );
+    flushSync();
+
+    const toggle = target.querySelector<HTMLButtonElement>(
+      '[aria-label="Sort descending"]',
+    );
+    expect(toggle).not.toBeNull();
+    toggle?.click();
+    expect(on_toggle_sort_order).toHaveBeenCalledOnce();
+
+    replace({ sort_mode: "relevance" });
+    flushSync();
+    expect(target.querySelector('[aria-label="Sort descending"]')).toBeNull();
   });
 });

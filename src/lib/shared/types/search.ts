@@ -21,7 +21,7 @@ export type OmnibarFileTypeFilter =
   | "canvas"
   | "image";
 export type OmnibarSortMode = "relevance" | "name" | "recency";
-export type OmnibarKindFilter = "notes" | "commands" | "settings";
+export type OmnibarKindFilter = "notes" | "commands" | "settings" | "folders";
 
 export type SearchQuery = {
   raw: string;
@@ -176,4 +176,5 @@ export type OmnibarItem =
     }
   | { kind: "command"; command: CommandDefinition; score: number }
   | { kind: "setting"; setting: SearchSettingDefinition; score: number }
-  | { kind: "recent_note"; note: NoteMeta };
+  | { kind: "recent_note"; note: NoteMeta }
+  | { kind: "folder"; path: string };

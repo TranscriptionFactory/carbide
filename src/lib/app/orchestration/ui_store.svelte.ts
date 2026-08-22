@@ -115,6 +115,7 @@ const INITIAL_OMNIBAR: {
   file_type_filters: OmnibarFileTypeFilter[];
   kind_filters: OmnibarKindFilter[];
   sort_mode: OmnibarSortMode;
+  sort_ascending: boolean;
 } = {
   open: false,
   query: "",
@@ -124,6 +125,7 @@ const INITIAL_OMNIBAR: {
   file_type_filters: [],
   kind_filters: [],
   sort_mode: "relevance",
+  sort_ascending: true,
 };
 
 const INITIAL_FIND_IN_FILE = {
