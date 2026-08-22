@@ -141,4 +141,16 @@ describe("register_note_actions block link flows", () => {
     expect(editor.ensure_block_id_at).not.toHaveBeenCalled();
     expect(clipboard.copy_text).not.toHaveBeenCalled();
   });
+
+  it("does not mint or copy block ids in read-only mode", async () => {
+    const { registry, stores, editor, clipboard } = create_harness();
+    open_note(stores);
+    stores.editor.set_editor_mode("read_only");
+
+    await registry.execute(ACTION_IDS.note_copy_block_link, 42);
+    await registry.execute(ACTION_IDS.note_copy_block_id, 42);
+
+    expect(editor.ensure_block_id_at).not.toHaveBeenCalled();
+    expect(clipboard.copy_text).not.toHaveBeenCalled();
+  });
 });

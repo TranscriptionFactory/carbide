@@ -128,7 +128,8 @@
   });
 
   const can_copy_block_link = $derived(
-    single_target != null &&
+    stores.editor.editor_mode !== "read_only" &&
+      single_target != null &&
       services.editor.block_supports_id_at(single_target),
   );
 

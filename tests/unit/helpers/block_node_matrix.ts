@@ -38,12 +38,51 @@ function details_block() {
   ]);
 }
 
+function nested_list() {
+  const nested = schema.nodes.bullet_list.create(null, [
+    schema.nodes.list_item.create(null, [
+      schema.nodes.paragraph.create(null, schema.text("nested")),
+    ]),
+  ]);
+  return schema.nodes.bullet_list.create(null, [
+    schema.nodes.list_item.create(null, [
+      schema.nodes.paragraph.create(null, schema.text("parent")),
+      nested,
+    ]),
+  ]);
+}
+
+function table() {
+  const cell = schema.nodes.table_cell.create(null, [
+    schema.nodes.paragraph.create(null, schema.text("value")),
+  ]);
+  return schema.nodes.table.create(null, [
+    schema.nodes.table_row.create(null, [cell]),
+  ]);
+}
+
 export const BLOCK_NODE_MATRIX: BlockNodeCase[] = [
   {
     label: "paragraph",
     node_type: "paragraph",
     build: () => schema.nodes.paragraph.create(null, schema.text("body")),
   },
+  {
+    label: "heading",
+    node_type: "heading",
+    build: () =>
+      schema.nodes.heading.create({ level: 2 }, schema.text("Title")),
+  },
+  { label: "nested list", node_type: "bullet_list", build: nested_list },
+  {
+    label: "blockquote",
+    node_type: "blockquote",
+    build: () =>
+      schema.nodes.blockquote.create(null, [
+        schema.nodes.paragraph.create(null, schema.text("quote")),
+      ]),
+  },
+  { label: "table", node_type: "table", build: table },
   {
     label: "code_block (plain)",
     node_type: "code_block",

@@ -5,6 +5,14 @@ import type { DynamicSidebarView } from "$lib/app/sidebar_views";
 
 const BASE_COMMANDS: CommandDefinition[] = [
   {
+    id: "note.copy_block_link",
+    label: "Copy Block Link",
+    description: "Copy a link to the block at the caret",
+    keywords: ["copy", "block", "link", "reference"],
+    icon: "copy",
+    when: (ctx) => ctx.has_open_note && ctx.is_editable_document,
+  },
+  {
     id: "create_new_note",
     label: "Create new note",
     description: "Create an untitled note in the current folder",
