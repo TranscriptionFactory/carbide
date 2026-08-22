@@ -5,6 +5,7 @@ import type {
   EditorSession,
   FindReplaceResult,
   WikiQueryEvent,
+  BlockSuggestion,
 } from "$lib/features/editor/ports";
 import type {
   FindMatchesListener,
@@ -47,7 +48,6 @@ import type { OpStore } from "$lib/app";
 import type { SearchService } from "$lib/features/search";
 import type { OutlineStore } from "$lib/features/outline";
 import type { AssetsPort, NotesPort, NotesStore } from "$lib/features/note";
-import type { TabStore } from "$lib/features/tab";
 import { collect_recent_notes } from "$lib/features/editor/domain/collect_recent_notes";
 import type { TagPort } from "$lib/features/tags";
 import { normalize_markdown_line_breaks } from "$lib/features/editor/domain/markdown_line_breaks";
@@ -71,13 +71,6 @@ import type { Nodes } from "mdast";
 const log = create_logger("editor_service");
 
 const AT_PALETTE_RECENTS_LIMIT = 10;
-
-export type BlockSuggestion = {
-  block_id: string | null;
-  text: string;
-  line: number;
-  note_path: string;
-};
 
 function mdast_text(node: Nodes): string {
   if ("value" in node && typeof node.value === "string") return node.value;
@@ -150,6 +143,12 @@ function note_name_from_path(path: string): string {
 }
 
 export type EditorServiceCallbacks = {
+  read_note_markdown?: (note_path: NotePath) => Promise<MarkdownText | null>;
+  commit_note_markdown?: (
+    note_path: NotePath,
+    expected: MarkdownText,
+    updated: MarkdownText,
+  ) => Promise<boolean>;
   on_command_execute?: (command_id: string) => void;
   on_internal_link_click: (
     raw_path: string,
@@ -296,8 +295,13 @@ export class EditorService {
     private readonly reference_store?: { library_items: CslItem[] },
     private readonly notes_port?: NotesPort,
     private readonly notes_store?: NotesStore,
-    private readonly tab_store?: TabStore,
   ) {}
+
+  get_live_markdown(): MarkdownText | null {
+    const open_note = this.editor_store.open_note;
+    if (!open_note) return null;
+    return as_markdown_text(this.session?.get_markdown() ?? open_note.markdown);
+  }
 
   is_mounted(): boolean {
     return this.host_root !== null && this.session !== null;
@@ -1073,13 +1077,14 @@ export class EditorService {
     if (!this.is_generation_current(generation)) return;
 
     try {
-      const doc = await this.notes_port.read_note(
-        vault_id,
-        as_note_path(resolved_path),
-      );
+      const note_path = as_note_path(resolved_path);
+      const markdown = this.callbacks.read_note_markdown
+        ? await this.callbacks.read_note_markdown(note_path)
+        : (await this.notes_port.read_note(vault_id, note_path)).markdown;
       if (!this.is_generation_current(generation)) return;
+      if (markdown === null) return;
 
-      const blocks = collect_addressable_blocks(doc.markdown, resolved_path);
+      const blocks = collect_addressable_blocks(markdown, resolved_path);
       const query_lower = block_query.toLowerCase();
       const filtered = blocks.filter(
         (b) =>
@@ -1096,68 +1101,26 @@ export class EditorService {
   private async handle_block_suggest_accept(
     suggestion: BlockSuggestion,
   ): Promise<string | null> {
-    if (suggestion.block_id) return suggestion.block_id;
     const notes_port = this.notes_port;
     const vault_id = this.vault_store.active_vault_id;
     if (!notes_port || !vault_id) return null;
 
     const note_path = as_note_path(suggestion.note_path);
-    const open_note = this.editor_store.open_note;
-    if (open_note?.meta.path === note_path) {
-      const markdown = this.session?.get_markdown() ?? open_note.markdown;
-      const mint = resolve_block_mint(markdown, suggestion);
-      if (!mint) return null;
-      if (!mint.changed) return mint.block_id;
-      this.sync_visual_from_markdown_undoable(mint.markdown);
-      this.editor_store.set_markdown(
-        open_note.meta.id,
-        as_markdown_text(mint.markdown),
-      );
-      this.editor_store.set_dirty(open_note.meta.id, true);
-      return mint.block_id;
-    }
-
-    const tab = this.tab_store?.find_tab_by_path(note_path);
-    const cached = tab ? this.tab_store?.get_cached_note(tab.id) : null;
-    if (tab && cached) {
-      const mint = resolve_block_mint(cached.markdown, suggestion);
-      if (!mint) return null;
-      if (!mint.changed) return mint.block_id;
-
-      if (cached.is_dirty) {
-        this.tab_store?.set_cached_note(tab.id, {
-          ...cached,
-          markdown: as_markdown_text(mint.markdown),
-          is_dirty: true,
-        });
-        this.tab_store?.set_dirty(tab.id, true);
-        return mint.block_id;
-      }
-
-      const mtime_ms = await notes_port.write_note(
-        vault_id,
-        note_path,
-        as_markdown_text(mint.markdown),
-        cached.meta.mtime_ms,
-      );
-      this.tab_store?.set_cached_note(tab.id, {
-        ...cached,
-        markdown: as_markdown_text(mint.markdown),
-        meta: { ...cached.meta, mtime_ms },
-      });
-      return mint.block_id;
-    }
-
-    const doc = await notes_port.read_note(vault_id, note_path);
-    const mint = resolve_block_mint(doc.markdown, suggestion);
+    const markdown = this.callbacks.read_note_markdown
+      ? await this.callbacks.read_note_markdown(note_path)
+      : (await notes_port.read_note(vault_id, note_path)).markdown;
+    if (markdown === null) return null;
+    const mint = resolve_block_mint(markdown, suggestion);
     if (!mint) return null;
     if (!mint.changed) return mint.block_id;
-    await notes_port.write_note(
-      vault_id,
-      note_path,
-      as_markdown_text(mint.markdown),
-      doc.meta.mtime_ms,
-    );
+    const committed = this.callbacks.commit_note_markdown
+      ? await this.callbacks.commit_note_markdown(
+          note_path,
+          as_markdown_text(markdown),
+          as_markdown_text(mint.markdown),
+        )
+      : false;
+    if (!committed) return null;
     return mint.block_id;
   }
 

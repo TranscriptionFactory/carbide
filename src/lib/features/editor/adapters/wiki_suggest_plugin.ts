@@ -7,6 +7,7 @@ import {
 import { format_wiki_display } from "$lib/features/editor/domain/wiki_link";
 import { parent_folder_path } from "$lib/shared/utils/path";
 import { longest_common_prefix } from "$lib/shared/utils/longest_common_prefix";
+import type { BlockSuggestion } from "$lib/features/editor/ports";
 
 export const wiki_suggest_plugin_key = new PluginKey<
   SuggestState<SuggestionItem>
@@ -25,13 +26,7 @@ type HeadingSuggestionItem = {
   level: number;
 };
 
-type BlockSuggestionItem = {
-  kind: "block";
-  block_id: string | null;
-  text: string;
-  line: number;
-  note_path: string;
-};
+type BlockSuggestionItem = BlockSuggestion & { kind: "block" };
 
 type SuggestionItem =
   | NoteSuggestionItem
@@ -261,19 +256,34 @@ export function create_wiki_suggest_prose_plugin(
     },
     render_items,
     accept(view, item, state) {
-      if (item.kind !== "block" || item.block_id) {
+      if (item.kind !== "block") {
         insert_item(view, item, state);
         return;
       }
+      const source_doc = view.state.doc;
+      const source_selection = view.state.selection;
+      const source_path = config.base_note_path;
+      const source_query = state.query;
       void config
         .on_block_accept?.({
-          block_id: null,
+          block_id: item.block_id,
           text: item.text,
           line: item.line,
           note_path: item.note_path,
         })
         .then((block_id) => {
-          if (block_id) insert_item(view, { ...item, block_id }, state);
+          const current = wiki_suggest_plugin_key.getState(view.state);
+          if (
+            block_id &&
+            view.state.doc === source_doc &&
+            view.state.selection.eq(source_selection) &&
+            config.base_note_path === source_path &&
+            current?.active &&
+            current.from === state.from &&
+            current.query === source_query
+          ) {
+            insert_item(view, { ...item, block_id }, state);
+          }
         })
         .catch(() => undefined);
     },
@@ -384,12 +394,7 @@ export function set_heading_suggestions(
 
 export function set_block_suggestions(
   view: EditorView,
-  items: Array<{
-    block_id: string | null;
-    text: string;
-    line: number;
-    note_path: string;
-  }>,
+  items: BlockSuggestion[],
 ) {
   const mapped: BlockSuggestionItem[] = items.map((b) => ({
     kind: "block" as const,

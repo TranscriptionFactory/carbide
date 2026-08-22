@@ -37,7 +37,7 @@ import {
   type LinkRepairService,
 } from "$lib/features/links";
 import type { EditorService } from "$lib/features/editor";
-import type { SecondaryEditorManager } from "$lib/features/tab";
+import type { SecondaryEditorManager, TabStore } from "$lib/features/tab";
 import type { ParsedNoteCache } from "$lib/features/note/state/parsed_note_cache.svelte";
 import type { DiagnosticsStore } from "$lib/features/diagnostics";
 import {
@@ -115,7 +115,112 @@ export class NoteService {
     private readonly parsed_note_cache?: ParsedNoteCache,
     private readonly diagnostics_store?: DiagnosticsStore,
     private readonly format_on_save?: FormatOnSaveHook,
+    private readonly tab_store?: TabStore,
   ) {}
+
+  async read_authoritative_markdown(
+    note_path: NotePath,
+  ): Promise<MarkdownText | null> {
+    const primary = this.editor_store.open_note;
+    if (primary?.meta.path === note_path) {
+      return this.editor_service.get_live_markdown();
+    }
+    const secondary = this.secondary_editor_manager?.get_open_note();
+    if (secondary?.meta.path === note_path) {
+      return (
+        this.secondary_editor_manager?.get_editor()?.get_live_markdown() ?? null
+      );
+    }
+    const tab = this.tab_store?.find_tab_by_path(note_path);
+    const cached = tab ? this.tab_store?.get_cached_note(tab.id) : null;
+    if (cached) return cached.markdown;
+    const vault_id = this.vault_store.active_vault_id;
+    if (!vault_id) return null;
+    return (await this.notes_port.read_note(vault_id, note_path)).markdown;
+  }
+
+  async commit_authoritative_markdown(
+    note_path: NotePath,
+    expected: MarkdownText,
+    updated: MarkdownText,
+  ): Promise<boolean> {
+    const primary = this.editor_store.open_note;
+    if (primary?.meta.path === note_path) {
+      if (this.editor_service.get_live_markdown() !== expected) return false;
+      this.editor_service.sync_visual_from_markdown_undoable(updated);
+      this.editor_store.set_markdown(primary.meta.id, updated);
+      this.editor_store.set_dirty(primary.meta.id, true);
+      return (await this.save_note(null, false, "primary")).status === "saved";
+    }
+
+    const secondary = this.secondary_editor_manager?.get_open_note();
+    const secondary_editor = this.secondary_editor_manager?.get_editor();
+    const secondary_store = this.secondary_editor_manager?.get_editor_store();
+    if (
+      secondary?.meta.path === note_path &&
+      secondary_editor &&
+      secondary_store
+    ) {
+      if (secondary_editor.get_live_markdown() !== expected) return false;
+      secondary_editor.sync_visual_from_markdown_undoable(updated);
+      secondary_store.set_markdown(secondary.meta.id, updated);
+      secondary_store.set_dirty(secondary.meta.id, true);
+      return (
+        (await this.save_note(null, false, "secondary")).status === "saved"
+      );
+    }
+
+    const tab = this.tab_store?.find_tab_by_path(note_path);
+    const cached = tab ? this.tab_store?.get_cached_note(tab.id) : null;
+    if (tab && cached) {
+      if (cached.markdown !== expected) return false;
+      this.tab_store?.set_cached_note(tab.id, {
+        ...cached,
+        markdown: updated,
+        is_dirty: true,
+      });
+      this.tab_store?.set_dirty(tab.id, true);
+      if (cached.is_dirty) return true;
+      const new_mtime = await this.write_note_content(
+        note_path,
+        updated,
+        cached.meta.mtime_ms,
+      );
+      if (new_mtime === null) return false;
+      this.tab_store?.set_cached_note(tab.id, {
+        ...cached,
+        markdown: updated,
+        is_dirty: false,
+        meta: { ...cached.meta, mtime_ms: new_mtime },
+      });
+      this.tab_store?.set_dirty(tab.id, false);
+      return true;
+    }
+
+    const vault_id = this.vault_store.active_vault_id;
+    if (!vault_id) return false;
+    let committed = false;
+    await this.enqueue_write(`note.block-link:${note_path}`, async () => {
+      const doc = await this.notes_port.read_note(vault_id, note_path);
+      if (doc.markdown !== expected) return;
+      this.on_file_written?.(note_path);
+      const result = await this.notes_port.write_and_index_note(
+        vault_id,
+        note_path,
+        updated,
+        doc.meta.mtime_ms,
+      );
+      this.on_file_written?.(note_path, { mtime_ms: result.new_mtime });
+      this.notes_store.update_note_after_save(
+        note_path,
+        result.blurb,
+        result.color ?? undefined,
+        result.icon ?? undefined,
+      );
+      committed = true;
+    });
+    return committed;
+  }
 
   async read_note(vault_id: VaultId, note_id: NoteId): Promise<NoteDoc> {
     return this.notes_port.read_note(vault_id, note_id);

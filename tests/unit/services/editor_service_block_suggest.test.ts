@@ -8,9 +8,9 @@ import {
   collect_addressable_blocks,
   EditorService,
   mint_block_in_markdown,
-  type BlockSuggestion,
   type EditorServiceCallbacks,
 } from "$lib/features/editor/application/editor_service";
+import type { BlockSuggestion } from "$lib/features/editor/ports";
 import { EditorStore } from "$lib/features/editor/state/editor_store.svelte";
 import { VaultStore } from "$lib/features/vault/state/vault_store.svelte";
 import { OpStore } from "$lib/app/orchestration/op_store.svelte";
@@ -82,6 +82,33 @@ function setup(target_markdown: string) {
     on_external_link_click: vi.fn(),
     on_image_paste_requested: vi.fn(),
     on_file_drop_requested: vi.fn(),
+    read_note_markdown: (path) => {
+      const tab = tab_store.find_tab_by_path(path);
+      return Promise.resolve(
+        (tab ? tab_store.get_cached_note(tab.id)?.markdown : null) ??
+          as_markdown_text(target_markdown),
+      );
+    },
+    commit_note_markdown: async (path, expected, updated) => {
+      const tab = tab_store.find_tab_by_path(path);
+      const cached = tab ? tab_store.get_cached_note(tab.id) : null;
+      if (cached) {
+        if (cached.markdown !== expected) return false;
+        tab_store.set_cached_note(tab!.id, {
+          ...cached,
+          markdown: updated,
+          is_dirty: cached.is_dirty,
+        });
+        if (cached.is_dirty) return true;
+      }
+      await notes_port.write_note(
+        vault_store.active_vault_id!,
+        path,
+        updated,
+        cached?.meta.mtime_ms ?? target.meta.mtime_ms,
+      );
+      return true;
+    },
   };
   const service = new EditorService(
     editor_port,
@@ -96,7 +123,6 @@ function setup(target_markdown: string) {
     undefined,
     notes_port,
     undefined,
-    tab_store,
   );
 
   return {
