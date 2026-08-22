@@ -27,8 +27,10 @@ type HeadingSuggestionItem = {
 
 type BlockSuggestionItem = {
   kind: "block";
-  block_id: string;
+  block_id: string | null;
   text: string;
+  line: number;
+  note_path: string;
 };
 
 type SuggestionItem =
@@ -42,6 +44,9 @@ export type WikiSuggestPluginConfig = {
   on_query: (event: WikiQueryEvent) => void;
   on_dismiss: () => void;
   base_note_path: string;
+  on_block_accept?: (
+    item: Omit<BlockSuggestionItem, "kind">,
+  ) => Promise<string | null>;
 };
 
 export function describe_suggestion_location(path: string): string {
@@ -154,7 +159,7 @@ function render_items(
 
       const badge = document.createElement("span");
       badge.className = "WikiSuggest__badge";
-      badge.textContent = `^${item.block_id}`;
+      badge.textContent = item.block_id ? `^${item.block_id}` : "New ID";
       row.appendChild(badge);
     } else {
       if (item.kind === "planned") {
@@ -198,6 +203,49 @@ export function create_wiki_suggest_prose_plugin(
 ) {
   let extracted: ExtractedQuery | null = null;
 
+  function insert_item(
+    view: EditorView,
+    item: SuggestionItem,
+    state: SuggestState<SuggestionItem>,
+  ) {
+    const prefix = extracted?.is_embed ? "!" : "";
+    const note_prefix =
+      extracted && extracted.mode !== "note" ? (extracted.note_name ?? "") : "";
+    let inner: string;
+    if (item.kind === "heading") {
+      inner = `${note_prefix}#${item.text}`;
+    } else if (item.kind === "block") {
+      if (!item.block_id) return;
+      inner = `${note_prefix}#^${item.block_id}`;
+    } else {
+      inner = format_wiki_display(item.path);
+    }
+    const replacement = `${prefix}[[${inner}]]`;
+
+    const selection_from = view.state.selection.from;
+    const replace_to = Math.min(
+      selection_from + 2,
+      view.state.doc.content.size,
+    );
+    const tr = view.state.tr.replaceWith(
+      state.from,
+      replace_to,
+      view.state.schema.text(replacement),
+    );
+    tr.setSelection(
+      TextSelection.create(tr.doc, state.from + replacement.length),
+    );
+    tr.setMeta(wiki_suggest_plugin_key, {
+      active: false,
+      query: "",
+      from: 0,
+      items: [],
+      selected_index: 0,
+    });
+    view.dispatch(tr);
+    view.focus();
+  }
+
   return create_suggest_prose_plugin<SuggestionItem>({
     key: wiki_suggest_plugin_key,
     class_name: "WikiSuggest",
@@ -213,43 +261,21 @@ export function create_wiki_suggest_prose_plugin(
     },
     render_items,
     accept(view, item, state) {
-      const prefix = extracted?.is_embed ? "!" : "";
-      const note_prefix =
-        extracted && extracted.mode !== "note"
-          ? (extracted.note_name ?? "")
-          : "";
-      let inner: string;
-      if (item.kind === "heading") {
-        inner = `${note_prefix}#${item.text}`;
-      } else if (item.kind === "block") {
-        inner = `${note_prefix}#^${item.block_id}`;
-      } else {
-        inner = format_wiki_display(item.path);
+      if (item.kind !== "block" || item.block_id) {
+        insert_item(view, item, state);
+        return;
       }
-      const replacement = `${prefix}[[${inner}]]`;
-
-      const selection_from = view.state.selection.from;
-      const replace_to = Math.min(
-        selection_from + 2,
-        view.state.doc.content.size,
-      );
-      const tr = view.state.tr.replaceWith(
-        state.from,
-        replace_to,
-        view.state.schema.text(replacement),
-      );
-      tr.setSelection(
-        TextSelection.create(tr.doc, state.from + replacement.length),
-      );
-      tr.setMeta(wiki_suggest_plugin_key, {
-        active: false,
-        query: "",
-        from: 0,
-        items: [],
-        selected_index: 0,
-      });
-      view.dispatch(tr);
-      view.focus();
+      void config
+        .on_block_accept?.({
+          block_id: null,
+          text: item.text,
+          line: item.line,
+          note_path: item.note_path,
+        })
+        .then((block_id) => {
+          if (block_id) insert_item(view, { ...item, block_id }, state);
+        })
+        .catch(() => undefined);
     },
     on_query() {
       const result = extracted;
@@ -358,12 +384,19 @@ export function set_heading_suggestions(
 
 export function set_block_suggestions(
   view: EditorView,
-  items: Array<{ block_id: string; text: string }>,
+  items: Array<{
+    block_id: string | null;
+    text: string;
+    line: number;
+    note_path: string;
+  }>,
 ) {
   const mapped: BlockSuggestionItem[] = items.map((b) => ({
     kind: "block" as const,
     block_id: b.block_id,
     text: b.text,
+    line: b.line,
+    note_path: b.note_path,
   }));
   view.dispatch(
     view.state.tr.setMeta(wiki_suggest_plugin_key, { items: mapped }),

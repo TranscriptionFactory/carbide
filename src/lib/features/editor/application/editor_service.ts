@@ -47,10 +47,14 @@ import type { OpStore } from "$lib/app";
 import type { SearchService } from "$lib/features/search";
 import type { OutlineStore } from "$lib/features/outline";
 import type { AssetsPort, NotesPort, NotesStore } from "$lib/features/note";
+import type { TabStore } from "$lib/features/tab";
 import { collect_recent_notes } from "$lib/features/editor/domain/collect_recent_notes";
 import type { TagPort } from "$lib/features/tags";
 import { normalize_markdown_line_breaks } from "$lib/features/editor/domain/markdown_line_breaks";
-import { parse_block_ids } from "$lib/features/editor/domain/block_id";
+import {
+  BLOCK_ID_PATTERN,
+  generate_block_id,
+} from "$lib/features/editor/domain/block_id";
 import { rank_tags } from "$lib/features/tags";
 import { is_draft_note_path } from "$lib/features/note";
 import { suggest_query } from "$lib/features/query";
@@ -58,10 +62,87 @@ import { suggest_base_spec } from "$lib/features/smart_blocks";
 import type { DslContext } from "$lib/shared/types/dsl_suggestion";
 import { error_message } from "$lib/shared/utils/error_message";
 import { create_logger } from "$lib/shared/utils/logger";
+import { unified } from "unified";
+import remarkParse from "remark-parse";
+import remarkGfm from "remark-gfm";
+import { visit } from "unist-util-visit";
+import type { Nodes } from "mdast";
 
 const log = create_logger("editor_service");
 
 const AT_PALETTE_RECENTS_LIMIT = 10;
+
+export type BlockSuggestion = {
+  block_id: string | null;
+  text: string;
+  line: number;
+  note_path: string;
+};
+
+function mdast_text(node: Nodes): string {
+  if ("value" in node && typeof node.value === "string") return node.value;
+  if (!("children" in node)) return "";
+  return node.children.map(mdast_text).join("");
+}
+
+export function collect_addressable_blocks(
+  markdown: string,
+  note_path: string,
+): BlockSuggestion[] {
+  const blocks: BlockSuggestion[] = [];
+  const tree = unified().use(remarkParse).use(remarkGfm).parse(markdown);
+
+  visit(tree, "paragraph", (node) => {
+    const line = node.position?.end.line;
+    if (!line) return;
+    const raw_text = mdast_text(node);
+    const text = raw_text.replace(BLOCK_ID_PATTERN, "").trim();
+    blocks.push({
+      block_id: BLOCK_ID_PATTERN.exec(raw_text)?.[1] ?? null,
+      text,
+      line,
+      note_path,
+    });
+  });
+  return blocks;
+}
+
+export function mint_block_in_markdown(
+  markdown: string,
+  suggestion: BlockSuggestion,
+  block_id: string,
+): string | null {
+  const lines = markdown.split("\n");
+  const index = suggestion.line - 1;
+  const line = lines[index];
+  const current = collect_addressable_blocks(
+    markdown,
+    suggestion.note_path,
+  ).find((block) => block.line === suggestion.line);
+  if (line === undefined || !current || current.text !== suggestion.text) {
+    return null;
+  }
+  if (current.block_id) return null;
+  lines[index] = `${line.replace(/\s+$/, "")} ^${block_id}`;
+  return lines.join("\n");
+}
+
+function resolve_block_mint(
+  markdown: string,
+  suggestion: BlockSuggestion,
+): { block_id: string; markdown: string; changed: boolean } | null {
+  const current = collect_addressable_blocks(
+    markdown,
+    suggestion.note_path,
+  ).find((block) => block.line === suggestion.line);
+  if (!current || current.text !== suggestion.text) return null;
+  if (current.block_id) {
+    return { block_id: current.block_id, markdown, changed: false };
+  }
+  const block_id = generate_block_id();
+  const updated = mint_block_in_markdown(markdown, suggestion, block_id);
+  return updated ? { block_id, markdown: updated, changed: true } : null;
+}
 
 function note_name_from_path(path: string): string {
   const leaf = path.split("/").at(-1) ?? path;
@@ -215,6 +296,7 @@ export class EditorService {
     private readonly reference_store?: { library_items: CslItem[] },
     private readonly notes_port?: NotesPort,
     private readonly notes_store?: NotesStore,
+    private readonly tab_store?: TabStore,
   ) {}
 
   is_mounted(): boolean {
@@ -997,11 +1079,11 @@ export class EditorService {
       );
       if (!this.is_generation_current(generation)) return;
 
-      const blocks = parse_block_ids(doc.markdown);
+      const blocks = collect_addressable_blocks(doc.markdown, resolved_path);
       const query_lower = block_query.toLowerCase();
       const filtered = blocks.filter(
         (b) =>
-          b.block_id.toLowerCase().includes(query_lower) ||
+          b.block_id?.toLowerCase().includes(query_lower) ||
           b.text.toLowerCase().includes(query_lower),
       );
 
@@ -1009,6 +1091,74 @@ export class EditorService {
     } catch {
       this.session?.set_block_suggestions?.([]);
     }
+  }
+
+  private async handle_block_suggest_accept(
+    suggestion: BlockSuggestion,
+  ): Promise<string | null> {
+    if (suggestion.block_id) return suggestion.block_id;
+    const notes_port = this.notes_port;
+    const vault_id = this.vault_store.active_vault_id;
+    if (!notes_port || !vault_id) return null;
+
+    const note_path = as_note_path(suggestion.note_path);
+    const open_note = this.editor_store.open_note;
+    if (open_note?.meta.path === note_path) {
+      const markdown = this.session?.get_markdown() ?? open_note.markdown;
+      const mint = resolve_block_mint(markdown, suggestion);
+      if (!mint) return null;
+      if (!mint.changed) return mint.block_id;
+      this.sync_visual_from_markdown_undoable(mint.markdown);
+      this.editor_store.set_markdown(
+        open_note.meta.id,
+        as_markdown_text(mint.markdown),
+      );
+      this.editor_store.set_dirty(open_note.meta.id, true);
+      return mint.block_id;
+    }
+
+    const tab = this.tab_store?.find_tab_by_path(note_path);
+    const cached = tab ? this.tab_store?.get_cached_note(tab.id) : null;
+    if (tab && cached) {
+      const mint = resolve_block_mint(cached.markdown, suggestion);
+      if (!mint) return null;
+      if (!mint.changed) return mint.block_id;
+
+      if (cached.is_dirty) {
+        this.tab_store?.set_cached_note(tab.id, {
+          ...cached,
+          markdown: as_markdown_text(mint.markdown),
+          is_dirty: true,
+        });
+        this.tab_store?.set_dirty(tab.id, true);
+        return mint.block_id;
+      }
+
+      const mtime_ms = await notes_port.write_note(
+        vault_id,
+        note_path,
+        as_markdown_text(mint.markdown),
+        cached.meta.mtime_ms,
+      );
+      this.tab_store?.set_cached_note(tab.id, {
+        ...cached,
+        markdown: as_markdown_text(mint.markdown),
+        meta: { ...cached.meta, mtime_ms },
+      });
+      return mint.block_id;
+    }
+
+    const doc = await notes_port.read_note(vault_id, note_path);
+    const mint = resolve_block_mint(doc.markdown, suggestion);
+    if (!mint) return null;
+    if (!mint.changed) return mint.block_id;
+    await notes_port.write_note(
+      vault_id,
+      note_path,
+      as_markdown_text(mint.markdown),
+      doc.meta.mtime_ms,
+    );
+    return mint.block_id;
   }
 
   private handle_image_suggest_query(generation: number, query: string): void {
@@ -1307,6 +1457,8 @@ export class EditorService {
       events.on_wiki_suggest_query = (event: WikiQueryEvent) => {
         this.handle_wiki_suggest_query(generation, event);
       };
+      events.on_block_suggest_accept = (item) =>
+        this.handle_block_suggest_accept(item);
     }
 
     if (this.assets_port) {

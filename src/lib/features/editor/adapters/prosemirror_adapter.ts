@@ -1273,7 +1273,12 @@ export function create_prosemirror_editor_port(args?: {
           set_heading_suggestions(view, items);
         },
         set_block_suggestions(
-          items: Array<{ block_id: string; text: string }>,
+          items: Array<{
+            block_id: string | null;
+            text: string;
+            line: number;
+            note_path: string;
+          }>,
         ) {
           if (!view) return;
           set_block_suggestions(view, items);

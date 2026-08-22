@@ -69,7 +69,12 @@ export type EditorSession = {
     items: Array<{ text: string; level: number }>,
   ) => void;
   set_block_suggestions?: (
-    items: Array<{ block_id: string; text: string }>,
+    items: Array<{
+      block_id: string | null;
+      text: string;
+      line: number;
+      note_path: string;
+    }>,
   ) => void;
   set_image_suggestions?: (
     items: Array<{ path: string; name: string }>,
@@ -169,6 +174,12 @@ export type EditorEventHandlers = {
   on_image_paste_requested?: (payload: PastedImagePayload) => void;
   on_file_drop_requested?: (payload: PastedImagePayload) => void;
   on_wiki_suggest_query?: (event: WikiQueryEvent) => void;
+  on_block_suggest_accept?: (item: {
+    block_id: string | null;
+    text: string;
+    line: number;
+    note_path: string;
+  }) => Promise<string | null>;
   on_image_suggest_query?: (query: string) => void;
   on_tag_suggest_query?: (query: string) => void;
   on_dsl_query_suggest?: (query: string) => void;
