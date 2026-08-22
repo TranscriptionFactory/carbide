@@ -65,12 +65,16 @@ describe("upgrading a config stored before stream_args existed", () => {
 
   // Streaming is declared here, never inferred. Grafting the preset's list onto
   // an invocation the user rewrote would run arguments they never wrote.
-  it("leaves a provider whose args were customised alone", () => {
+  it("adds the preset context window without replacing customised args", () => {
     const result = migrate_ai_settings(
       stored_before_stream_args({ args: ["-p", "--model", "opus"] }),
     );
 
-    expect(result).toBeNull();
+    expect(result?.ai_providers[0]?.context_window_tokens).toBe(200_000);
+    const provider = result?.ai_providers[0];
+    expect(
+      provider?.transport.kind === "cli" ? provider.transport.args : [],
+    ).toEqual(["-p", "--model", "opus"]);
   });
 
   it("leaves a provider that is not a builtin preset alone", () => {
@@ -118,8 +122,16 @@ describe("upgrading a config stored before stream_args existed", () => {
     const already = stored_before_stream_args({
       stream_args: ["-p", "--output-format", "stream-json"],
     });
+    const provider = (already["ai_providers"] as Record<string, unknown>[])[0];
+    if (provider) provider["context_window_tokens"] = 200_000;
 
     expect(migrate_ai_settings(already)).toBeNull();
+  });
+
+  it("adds the declared context window to a stored builtin preset", () => {
+    const result = migrate_ai_settings(stored_before_stream_args());
+
+    expect(result?.ai_providers[0]?.context_window_tokens).toBe(200_000);
   });
 });
 

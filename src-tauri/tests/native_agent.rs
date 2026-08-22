@@ -556,6 +556,7 @@ async fn wire_format_real_client_assembles_recorded_sse_fixture() {
             api_key_env: None,
         },
         model: Some("m".into()),
+        context_window_tokens: None,
         install_url: None,
         is_preset: None,
     };

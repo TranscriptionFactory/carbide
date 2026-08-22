@@ -154,6 +154,20 @@ function refresh_preset_stream_args(
   return { ...provider, transport: { ...stored, stream_args } };
 }
 
+function refresh_preset_context_window(
+  provider: AiProviderConfig,
+): AiProviderConfig {
+  if (!provider.is_preset || provider.context_window_tokens !== undefined) {
+    return provider;
+  }
+  const preset = BUILTIN_PROVIDER_PRESETS.find((p) => p.id === provider.id);
+  if (preset?.context_window_tokens === undefined) return provider;
+  return {
+    ...provider,
+    context_window_tokens: preset.context_window_tokens,
+  };
+}
+
 export function migrate_ai_settings(
   raw: Record<string, unknown>,
 ): MigratedAiFields | null {
@@ -169,7 +183,9 @@ export function migrate_ai_settings(
     }
     const providers = raw["ai_providers"] as WithLegacyAgent[];
     const converted = providers.map((provider) =>
-      refresh_preset_stream_args(convert_agent_descriptor(provider)),
+      refresh_preset_context_window(
+        refresh_preset_stream_args(convert_agent_descriptor(provider)),
+      ),
     );
     if (converted.some((p, i) => p !== providers[i])) {
       return {

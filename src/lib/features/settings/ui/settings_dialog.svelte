@@ -358,6 +358,7 @@
 
   const ai_rag_retrieve_options = [5, 10, 15, 25, 40].map(String);
   const ai_rag_budget_options = [4000, 8000, 12000, 16000].map(String);
+  const ai_rag_history_budget_options = [500, 1500, 3000, 6000].map(String);
 
   const transport_kind_options = [
     { value: "cli", label: "CLI" },
@@ -1421,6 +1422,30 @@
                       </div>
                       <div class="flex items-center gap-2">
                         <span class="w-20 text-xs text-muted-foreground"
+                          >Context</span
+                        >
+                        <Input
+                          type="number"
+                          min="1000"
+                          step="1000"
+                          value={provider.context_window_tokens ?? ""}
+                          class="flex-1"
+                          placeholder="Unknown"
+                          disabled={ai_settings_disabled}
+                          oninput={(
+                            e: Event & { currentTarget: HTMLInputElement },
+                          ) =>
+                            update_provider(provider.id, {
+                              context_window_tokens: e.currentTarget.value
+                                ? Number(e.currentTarget.value)
+                                : undefined,
+                            })}
+                        />
+                        <span class="text-xs text-muted-foreground">tokens</span
+                        >
+                      </div>
+                      <div class="flex items-center gap-2">
+                        <span class="w-20 text-xs text-muted-foreground"
                           >Install URL</span
                         >
                         <Input
@@ -2266,18 +2291,28 @@
               <div class="flex items-center gap-3">
                 <Select.Root
                   type="single"
-                  value={String(editor_settings.ai_rag_context_token_budget)}
+                  value={editor_settings.ai_rag_context_token_budget ===
+                  undefined
+                    ? "auto"
+                    : String(editor_settings.ai_rag_context_token_budget)}
                   onValueChange={(v: string | undefined) => {
-                    if (v) update("ai_rag_context_token_budget", Number(v));
+                    if (!v) return;
+                    update(
+                      "ai_rag_context_token_budget",
+                      v === "auto" ? undefined : Number(v),
+                    );
                   }}
                   disabled={ai_settings_disabled}
                 >
                   <Select.Trigger class="w-28">
                     <span data-slot="select-value">
-                      {String(editor_settings.ai_rag_context_token_budget)}
+                      {editor_settings.ai_rag_context_token_budget === undefined
+                        ? "Automatic"
+                        : String(editor_settings.ai_rag_context_token_budget)}
                     </span>
                   </Select.Trigger>
                   <Select.Content>
+                    <Select.Item value="auto">Automatic</Select.Item>
                     {#each ai_rag_budget_options as opt (opt)}
                       <Select.Item value={opt}>{opt} tokens</Select.Item>
                     {/each}
@@ -2287,18 +2322,42 @@
                   type="button"
                   class="SettingsDialog__reset"
                   onclick={() =>
-                    update(
-                      "ai_rag_context_token_budget",
-                      DEFAULT_EDITOR_SETTINGS.ai_rag_context_token_budget,
-                    )}
+                    update("ai_rag_context_token_budget", undefined)}
                   disabled={ai_settings_disabled ||
-                    editor_settings.ai_rag_context_token_budget ===
-                      DEFAULT_EDITOR_SETTINGS.ai_rag_context_token_budget}
-                  title={`Reset to default (${String(DEFAULT_EDITOR_SETTINGS.ai_rag_context_token_budget)})`}
+                    editor_settings.ai_rag_context_token_budget === undefined}
+                  title="Reset to automatic"
                 >
                   <RotateCcw />
                 </button>
               </div>
+            </div>
+
+            <div class="SettingsDialog__row">
+              <div class="SettingsDialog__label-group">
+                <span class="SettingsDialog__label">Chat History Budget</span>
+                <span class="SettingsDialog__description"
+                  >Approximate token budget for prior chat messages</span
+                >
+              </div>
+              <Select.Root
+                type="single"
+                value={String(editor_settings.ai_rag_history_token_budget)}
+                onValueChange={(v: string | undefined) => {
+                  if (v) update("ai_rag_history_token_budget", Number(v));
+                }}
+                disabled={ai_settings_disabled}
+              >
+                <Select.Trigger class="w-28">
+                  <span data-slot="select-value"
+                    >{String(editor_settings.ai_rag_history_token_budget)}</span
+                  >
+                </Select.Trigger>
+                <Select.Content>
+                  {#each ai_rag_history_budget_options as opt (opt)}
+                    <Select.Item value={opt}>{opt} tokens</Select.Item>
+                  {/each}
+                </Select.Content>
+              </Select.Root>
             </div>
 
             <div class="SettingsDialog__row">

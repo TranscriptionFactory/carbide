@@ -215,7 +215,8 @@ describe("register_chat_actions", () => {
     expect(chat_service.query).toHaveBeenCalledWith(
       expect.objectContaining({
         retrieve_limit: 30,
-        assembler_options: { token_budget: 12000 },
+        assembler_options: { token_budget: 12000, reserve_tokens: 3000 },
+        history_token_budget: 1500,
       }),
     );
   });
@@ -230,7 +231,8 @@ describe("register_chat_actions", () => {
     expect(chat_service.query).toHaveBeenCalledWith(
       expect.objectContaining({
         retrieve_limit: 50,
-        assembler_options: { token_budget: 1000 },
+        assembler_options: { token_budget: 1000, reserve_tokens: 250 },
+        history_token_budget: 1500,
       }),
     );
   });
@@ -246,8 +248,10 @@ describe("register_chat_actions", () => {
       expect.objectContaining({
         retrieve_limit: DEFAULT_EDITOR_SETTINGS.ai_rag_retrieve_limit,
         assembler_options: {
-          token_budget: DEFAULT_EDITOR_SETTINGS.ai_rag_context_token_budget,
+          token_budget: 48000,
+          reserve_tokens: 12000,
         },
+        history_token_budget: 1500,
       }),
     );
   });

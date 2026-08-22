@@ -36,6 +36,7 @@ export type AiProviderConfig = {
   name: string;
   transport: AiTransport;
   model?: string;
+  context_window_tokens?: number;
   install_url?: string;
   is_preset?: boolean;
 };
@@ -68,6 +69,7 @@ export const BUILTIN_PROVIDER_PRESETS: AiProviderConfig[] = [
       acp: { kind: "preset", id: "claude" },
     },
     install_url: "https://code.claude.com/docs/en/quickstart",
+    context_window_tokens: 200_000,
     is_preset: true,
   },
   {
@@ -86,6 +88,7 @@ export const BUILTIN_PROVIDER_PRESETS: AiProviderConfig[] = [
       acp: { kind: "preset", id: "codex" },
     },
     install_url: "https://github.com/openai/codex",
+    context_window_tokens: 200_000,
     is_preset: true,
   },
   {
@@ -99,6 +102,7 @@ export const BUILTIN_PROVIDER_PRESETS: AiProviderConfig[] = [
       acp: { kind: "preset", id: "opencode" },
     },
     install_url: "https://opencode.ai/docs",
+    context_window_tokens: 200_000,
     is_preset: true,
   },
   {
@@ -112,6 +116,7 @@ export const BUILTIN_PROVIDER_PRESETS: AiProviderConfig[] = [
       acp: { kind: "preset", id: "pi" },
     },
     install_url: "https://pi.dev",
+    context_window_tokens: 200_000,
     is_preset: true,
   },
   {
