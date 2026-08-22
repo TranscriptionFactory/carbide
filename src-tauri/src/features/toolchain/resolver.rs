@@ -14,7 +14,7 @@ pub async fn resolve(
     if let Some(path) = custom_path {
         let p = PathBuf::from(path);
         if p.exists() {
-            return Ok(ready(p));
+            return ready(p).await;
         }
         return Err(format!(
             "Custom binary path does not exist: {}",
@@ -25,16 +25,16 @@ pub async fn resolve(
     let spec = registry::get(tool_id).ok_or_else(|| format!("Unknown tool: {}", tool_id))?;
 
     if let Some(sidecar) = sidecar_path(app, spec.binary_name) {
-        return Ok(ready(sidecar));
+        return ready(sidecar).await;
     }
 
     let downloaded = downloaded_path(app, tool_id, spec.version, spec.binary_name)?;
     if downloaded.exists() {
-        return Ok(ready(downloaded));
+        return ready(downloaded).await;
     }
 
-    if let Ok(found) = which(spec.binary_name) {
-        return Ok(ready(found));
+    if let Ok(found) = which_async(spec.binary_name.to_string()).await {
+        return ready(found).await;
     }
 
     if spec.downloadable() {
@@ -42,9 +42,8 @@ pub async fn resolve(
             "{} not found locally, attempting auto-download",
             spec.display_name
         );
-        return super::downloader::download_tool(app, tool_id)
-            .await
-            .map(ready);
+        let path = super::downloader::download_tool(app, tool_id).await?;
+        return ready(path).await;
     }
 
     Err(format!(
@@ -53,9 +52,13 @@ pub async fn resolve(
     ))
 }
 
-fn ready(path: PathBuf) -> PathBuf {
-    ensure_macos_executable(&path);
-    path
+async fn ready(path: PathBuf) -> Result<PathBuf, String> {
+    tokio::task::spawn_blocking(move || {
+        ensure_macos_executable(&path);
+        path
+    })
+    .await
+    .map_err(|error| error.to_string())
 }
 
 #[cfg(target_os = "macos")]
@@ -188,4 +191,10 @@ fn which(name: &str) -> Result<PathBuf, String> {
         }
     }
     Err(format!("{} not found on PATH", name))
+}
+
+async fn which_async(name: String) -> Result<PathBuf, String> {
+    tokio::task::spawn_blocking(move || which(&name))
+        .await
+        .map_err(|error| error.to_string())?
 }

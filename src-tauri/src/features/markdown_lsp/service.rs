@@ -16,6 +16,9 @@ use super::types::*;
 
 pub struct MarkdownLspState {
     clients: Mutex<HashMap<String, RestartableLspClient>>,
+    start_generations: Arc<Mutex<HashMap<String, u64>>>,
+    pending_starts: Mutex<HashMap<String, (u64, tokio::sync::oneshot::Sender<()>)>>,
+    vault_paths: Mutex<HashMap<String, std::path::PathBuf>>,
     pending_workspace_edit: Arc<Mutex<Option<MarkdownLspWorkspaceEditResult>>>,
 }
 
@@ -23,6 +26,9 @@ impl Default for MarkdownLspState {
     fn default() -> Self {
         Self {
             clients: Mutex::new(HashMap::new()),
+            start_generations: Arc::new(Mutex::new(HashMap::new())),
+            pending_starts: Mutex::new(HashMap::new()),
+            vault_paths: Mutex::new(HashMap::new()),
             pending_workspace_edit: Arc::new(Mutex::new(None)),
         }
     }
@@ -46,7 +52,7 @@ impl MarkdownLspState {
             let clients = self.clients.lock().await;
             clients
                 .get(vault_id)
-                .ok_or_else(|| format!("Markdown LSP not started for vault {}", vault_id))?
+                .ok_or_else(|| format!("markdown_lsp:not_started:{}", vault_id))?
                 .request_handle()
         };
         handle.send_request(method, params).await.map_err(err)
@@ -62,7 +68,7 @@ impl MarkdownLspState {
             let clients = self.clients.lock().await;
             clients
                 .get(vault_id)
-                .ok_or_else(|| format!("Markdown LSP not started for vault {}", vault_id))?
+                .ok_or_else(|| format!("markdown_lsp:not_started:{}", vault_id))?
                 .request_handle()
         };
         handle.send_notification(method, params).await.map_err(err)
@@ -211,10 +217,15 @@ fn map_lsp_session_status(status: &LspSessionStatus) -> MarkdownLspStatus {
 fn spawn_status_forwarder(
     app: AppHandle,
     vault_id: String,
+    generation: u64,
+    start_generations: Arc<Mutex<HashMap<String, u64>>>,
     mut status_rx: tokio::sync::mpsc::Receiver<LspSessionStatus>,
 ) {
     tokio::spawn(async move {
         while let Some(status) = status_rx.recv().await {
+            if start_generations.lock().await.get(&vault_id).copied() != Some(generation) {
+                return;
+            }
             let _ = app.emit(
                 "markdown_lsp_event",
                 MarkdownLspEvent::StatusChanged {
@@ -299,20 +310,41 @@ pub async fn markdown_lsp_start(
     }
 
     let state = markdown_lsp_state(&app);
-    // Hold the clients lock for the entire start sequence to prevent TOCTOU races.
-    // Requests use LspRequestHandle (clone of mpsc::Sender) and don't hold this lock,
-    // so this only serializes concurrent start/stop calls — which is correct.
-    let mut clients = state.clients.lock().await;
+    state
+        .vault_paths
+        .lock()
+        .await
+        .insert(vault_id.clone(), vault_path.clone());
+    let generation = {
+        let mut generations = state.start_generations.lock().await;
+        let generation = generations.entry(vault_id.clone()).or_default();
+        *generation += 1;
+        *generation
+    };
 
-    if let Some(old) = clients.remove(&vault_id) {
-        old.stop().await;
+    let (cancel_tx, cancel_rx) = tokio::sync::oneshot::channel();
+    if let Some(previous) = state
+        .pending_starts
+        .lock()
+        .await
+        .insert(vault_id.clone(), (generation, cancel_tx))
+    {
+        let _ = previous.1.send(());
     }
 
     let spawn_started_at = Instant::now();
-    let (mut client, server_caps_json) =
-        RestartableLspClient::start(RestartableConfig::new(config))
-            .await
-            .map_err(err)?;
+    let start_result = RestartableLspClient::start_cancellable(
+        RestartableConfig::new(config),
+        cancel_rx,
+    )
+    .await;
+    {
+        let mut pending_starts = state.pending_starts.lock().await;
+        if pending_starts.get(&vault_id).map(|pending| pending.0) == Some(generation) {
+            pending_starts.remove(&vault_id);
+        }
+    }
+    let (mut client, server_caps_json) = start_result.map_err(err)?;
     let server_capabilities = MarkdownLspServerCapabilities::from_initialize_result(&server_caps_json);
     log::info!(
         "markdown_lsp_startup phase=lsp_initialize_completed startup_reason={} effective_provider={} duration_ms={}",
@@ -338,11 +370,27 @@ pub async fn markdown_lsp_start(
     }
 
     if let Some(rx) = client.take_status_rx() {
-        spawn_status_forwarder(app.clone(), vault_id.clone(), rx);
+        spawn_status_forwarder(
+            app.clone(),
+            vault_id.clone(),
+            generation,
+            state.start_generations.clone(),
+            rx,
+        );
     }
 
-    clients.insert(vault_id, client);
-    drop(clients);
+    let old = {
+        let generations = state.start_generations.lock().await;
+        if generations.get(&vault_id).copied() != Some(generation) {
+            drop(generations);
+            client.stop().await;
+            return Err("markdown_lsp:start_superseded".to_string());
+        }
+        state.clients.lock().await.insert(vault_id, client)
+    };
+    if let Some(old) = old {
+        old.stop().await;
+    }
     log::info!(
         "markdown_lsp_startup phase=complete startup_reason={} effective_provider={} total_duration_ms={}",
         startup_reason,
@@ -360,7 +408,17 @@ pub async fn markdown_lsp_start(
 #[specta::specta]
 pub async fn markdown_lsp_stop(app: AppHandle, vault_id: String) -> Result<(), String> {
     let state = markdown_lsp_state(&app);
-    if let Some(client) = state.clients.lock().await.remove(&vault_id) {
+    {
+        let mut generations = state.start_generations.lock().await;
+        let generation = generations.entry(vault_id.clone()).or_default();
+        *generation += 1;
+    }
+    if let Some((_, pending)) = state.pending_starts.lock().await.remove(&vault_id) {
+        let _ = pending.send(());
+    }
+    let client = state.clients.lock().await.remove(&vault_id);
+    state.vault_paths.lock().await.remove(&vault_id);
+    if let Some(client) = client {
         client.stop().await;
     }
     Ok(())
@@ -374,9 +432,16 @@ pub async fn markdown_lsp_did_open(
     file_path: String,
     content: String,
 ) -> Result<(), String> {
-    let vault_path = storage::vault_path(&app, &vault_id)?;
+    let state = markdown_lsp_state(&app);
+    let vault_path = state
+        .vault_paths
+        .lock()
+        .await
+        .get(&vault_id)
+        .cloned()
+        .ok_or_else(|| format!("markdown_lsp:not_started:{}", vault_id))?;
     let uri = file_uri(&vault_path, &file_path);
-    markdown_lsp_state(&app)
+    state
         .notify(
             &vault_id,
             "textDocument/didOpen",
@@ -401,9 +466,16 @@ pub async fn markdown_lsp_did_change(
     version: i32,
     content: String,
 ) -> Result<(), String> {
-    let vault_path = storage::vault_path(&app, &vault_id)?;
+    let state = markdown_lsp_state(&app);
+    let vault_path = state
+        .vault_paths
+        .lock()
+        .await
+        .get(&vault_id)
+        .cloned()
+        .ok_or_else(|| format!("markdown_lsp:not_started:{}", vault_id))?;
     let uri = file_uri(&vault_path, &file_path);
-    markdown_lsp_state(&app)
+    state
         .notify(
             &vault_id,
             "textDocument/didChange",
@@ -423,9 +495,16 @@ pub async fn markdown_lsp_did_save(
     file_path: String,
     content: String,
 ) -> Result<(), String> {
-    let vault_path = storage::vault_path(&app, &vault_id)?;
+    let state = markdown_lsp_state(&app);
+    let vault_path = state
+        .vault_paths
+        .lock()
+        .await
+        .get(&vault_id)
+        .cloned()
+        .ok_or_else(|| format!("markdown_lsp:not_started:{}", vault_id))?;
     let uri = file_uri(&vault_path, &file_path);
-    markdown_lsp_state(&app)
+    state
         .notify(
             &vault_id,
             "textDocument/didSave",
@@ -444,9 +523,16 @@ pub async fn markdown_lsp_did_close(
     vault_id: String,
     file_path: String,
 ) -> Result<(), String> {
-    let vault_path = storage::vault_path(&app, &vault_id)?;
+    let state = markdown_lsp_state(&app);
+    let vault_path = state
+        .vault_paths
+        .lock()
+        .await
+        .get(&vault_id)
+        .cloned()
+        .ok_or_else(|| format!("markdown_lsp:not_started:{}", vault_id))?;
     let uri = file_uri(&vault_path, &file_path);
-    markdown_lsp_state(&app)
+    state
         .notify(
             &vault_id,
             "textDocument/didClose",
@@ -1682,4 +1768,29 @@ pub async fn iwe_config_rewrite_provider(
         config_path.display()
     );
     Ok(())
+}
+
+#[cfg(test)]
+mod lifecycle_tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn notify_fails_fast_while_start_is_pending() {
+        let state = MarkdownLspState::default();
+        let (cancel_tx, _cancel_rx) = tokio::sync::oneshot::channel();
+        state
+            .pending_starts
+            .lock()
+            .await
+            .insert("vault".to_string(), (1, cancel_tx));
+
+        let result = tokio::time::timeout(
+            std::time::Duration::from_millis(100),
+            state.notify("vault", "textDocument/didChange", serde_json::json!({})),
+        )
+        .await
+        .expect("notify must not wait for an in-flight start");
+
+        assert_eq!(result.unwrap_err(), "markdown_lsp:not_started:vault");
+    }
 }

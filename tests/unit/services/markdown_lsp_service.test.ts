@@ -575,9 +575,36 @@ describe("MarkdownLspService", () => {
 
       await service.hover("note.md", 0, 0);
       expect(store.status).toEqual({
-        failed: { message: "Markdown LSP process crashed — restarting..." },
+        failed: { message: "Markdown LSP session is unavailable" },
       });
     });
+
+    it.each(["markdown_lsp:not_started:vault", "RequestTimeout"])(
+      "sets failed status for dead session error %s",
+      async (message) => {
+        const harness = create_mock_port();
+        vi.mocked(harness.port.did_change).mockRejectedValue(
+          new Error(message),
+        );
+        const store = new MarkdownLspStore();
+        const vault_store = new VaultStore();
+        vault_store.set_vault(create_test_vault());
+        const service = new MarkdownLspService(
+          harness.port,
+          store,
+          vault_store,
+        );
+
+        await service.start("marksman");
+        await service.did_change("note.md", "changed");
+        await service.did_change("note.md", "again");
+
+        expect(store.status).toEqual({
+          failed: { message: "Markdown LSP session is unavailable" },
+        });
+        expect(harness.port.did_change).toHaveBeenCalledTimes(1);
+      },
+    );
 
     it("silently ignores channel closed when already stopped", async () => {
       const harness = create_mock_port();

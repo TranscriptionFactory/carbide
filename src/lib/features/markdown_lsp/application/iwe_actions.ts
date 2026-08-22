@@ -152,6 +152,12 @@ export function register_iwe_actions(deps: IweActionDeps): void {
   const execute_iwe_action = make_structural_executor(deps);
   const execute_transform = make_transform_executor(deps);
 
+  registry.register({
+    id: ACTION_IDS.markdown_lsp_restart,
+    label: "Restart Markdown LSP",
+    execute: () => markdown_lsp_service.restart(),
+  });
+
   const structural_commands: Array<{ id: string; label: string }> = [
     { id: ACTION_IDS.iwe_extract_section, label: "IWE: Extract Section" },
     { id: ACTION_IDS.iwe_extract_all, label: "IWE: Extract All Subsections" },

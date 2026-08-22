@@ -16,6 +16,15 @@ import {
 } from "$lib/features/markdown_lsp";
 
 const log = create_logger("markdown_lsp_lifecycle_reactor");
+const START_RETRY_BASE_MS = 1_000;
+const START_RETRY_MAX_MS = 30_000;
+
+export function markdown_lsp_retry_delay(attempt: number): number {
+  return Math.min(
+    START_RETRY_BASE_MS * 2 ** Math.max(0, attempt - 1),
+    START_RETRY_MAX_MS,
+  );
+}
 
 export function should_start_markdown_lsp(
   requested_start_key: string,
@@ -43,6 +52,13 @@ export function create_markdown_lsp_lifecycle_reactor(
   let last_requested_start_key = "";
   let pending_start_key = "";
   let active_vault_id: string | null = null;
+  let failed_start_key = "";
+  let failed_attempts = 0;
+  let retry_ready = $state(true);
+  let retry_timer: ReturnType<typeof setTimeout> | null = null;
+  const has_open_markdown_note = $derived(
+    Boolean(editor_store.open_note?.meta.path.toLowerCase().endsWith(".md")),
+  );
 
   const cleanup_effect = $effect.root(() => {
     $effect(() => {
@@ -54,12 +70,17 @@ export function create_markdown_lsp_lifecycle_reactor(
       const enabled = ui_store.editor_settings.markdown_lsp_enabled;
       const provider = ui_store.editor_settings.markdown_lsp_provider;
       const custom_path = ui_store.editor_settings.markdown_lsp_binary_path;
-      const open_note_path = editor_store.open_note?.meta.path ?? "";
-      const should_defer_iwe_start = provider === "iwes" && !open_note_path;
+      const should_defer_iwe_start =
+        provider === "iwes" && !has_open_markdown_note;
 
       if (!vault_id || !enabled || !is_vault_mode) {
         last_requested_start_key = "";
         pending_start_key = "";
+        failed_start_key = "";
+        failed_attempts = 0;
+        retry_ready = true;
+        if (retry_timer) clearTimeout(retry_timer);
+        retry_timer = null;
         const vault_id_to_stop = active_vault_id;
         active_vault_id = null;
         if (vault_id_to_stop) {
@@ -79,7 +100,9 @@ export function create_markdown_lsp_lifecycle_reactor(
       ) {
         return;
       }
+      if (failed_start_key === requested_start_key && !retry_ready) return;
       pending_start_key = requested_start_key;
+      retry_ready = false;
 
       const settings_snapshot = $state.snapshot(ui_store.editor_settings);
       const initial_iwe_provider_config =
@@ -106,9 +129,19 @@ export function create_markdown_lsp_lifecycle_reactor(
       void markdown_lsp_service
         .start(provider, custom_path || undefined, start_options)
         .then((result) => {
-          if (!result?.effective_provider) return;
-          active_vault_id = vault_id;
-          last_requested_start_key = requested_start_key;
+          if (result?.effective_provider) {
+            active_vault_id = vault_id;
+            last_requested_start_key = requested_start_key;
+            failed_start_key = "";
+            failed_attempts = 0;
+            retry_ready = true;
+            return;
+          }
+          failed_start_key = requested_start_key;
+          failed_attempts += 1;
+          retry_timer = setTimeout(() => {
+            retry_ready = true;
+          }, markdown_lsp_retry_delay(failed_attempts));
         })
         .catch((error: unknown) => {
           log.from_error("Failed to start markdown LSP for vault", error);
@@ -152,6 +185,7 @@ export function create_markdown_lsp_lifecycle_reactor(
   return () => {
     cleanup_effect();
     cleanup_restart_listener();
+    if (retry_timer) clearTimeout(retry_timer);
     const vault_id_to_stop = active_vault_id;
     active_vault_id = null;
     if (vault_id_to_stop) {
