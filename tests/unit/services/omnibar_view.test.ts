@@ -154,7 +154,9 @@ describe("dedupe_commands_by_id", () => {
 describe("sort_omnibar_items", () => {
   it("preserves input order for relevance", () => {
     const items = [note_item("b.md", "B"), note_item("a.md", "A")];
-    expect(sort_omnibar_items(items, "relevance", NO_SORT_CONTEXT)).toBe(items);
+    expect(sort_omnibar_items(items, "relevance", NO_SORT_CONTEXT, true)).toBe(
+      items,
+    );
   });
 
   it("sorts by name case-insensitively with numeric ordering", () => {
@@ -165,7 +167,7 @@ describe("sort_omnibar_items", () => {
       note_item("a.md", "Apple"),
     ];
     expect(
-      sort_omnibar_items(items, "name", NO_SORT_CONTEXT).map(
+      sort_omnibar_items(items, "name", NO_SORT_CONTEXT, true).map(
         (i) => i.kind === "note" && i.note.title,
       ),
     ).toEqual(["Apple", "banana", "Note 2", "note 10"]);
@@ -177,7 +179,7 @@ describe("sort_omnibar_items", () => {
       note_item("second.md", "same"),
     ];
     expect(
-      sort_omnibar_items(items, "name", NO_SORT_CONTEXT).map(
+      sort_omnibar_items(items, "name", NO_SORT_CONTEXT, true).map(
         (i) => i.kind === "note" && i.note.id,
       ),
     ).toEqual(["first.md", "second.md"]);
@@ -191,10 +193,15 @@ describe("sort_omnibar_items", () => {
     ];
     const access_history = new Map([["accessed.md", [5_000, 10_000]]]);
     expect(
-      sort_omnibar_items(items, "recency", {
-        ...NO_SORT_CONTEXT,
-        access_history,
-      }).map((i) => i.kind === "note" && i.note.id),
+      sort_omnibar_items(
+        items,
+        "recency",
+        {
+          ...NO_SORT_CONTEXT,
+          access_history,
+        },
+        false,
+      ).map((i) => i.kind === "note" && i.note.id),
     ).toEqual(["accessed.md", "edited.md", "stale.md"]);
   });
 
@@ -206,9 +213,12 @@ describe("sort_omnibar_items", () => {
       planned_item("planned.md"),
       note_item("a.md", "A", 1_000),
     ];
-    const sorted = sort_omnibar_items(items, "recency", {
-      recent_command_ids: ["open_settings"],
-    });
+    const sorted = sort_omnibar_items(
+      items,
+      "recency",
+      { recent_command_ids: ["open_settings"] },
+      false,
+    );
     expect(
       sorted.map((i) => {
         if (i.kind === "command") return i.command.id;
@@ -219,8 +229,8 @@ describe("sort_omnibar_items", () => {
       }),
     ).toEqual([
       "a.md",
-      "open_settings",
       "zoom_in",
+      "open_settings",
       "editor.font",
       "planned.md",
     ]);

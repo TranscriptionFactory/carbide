@@ -126,18 +126,18 @@ export function sort_omnibar_items(
   items: OmnibarItem[],
   mode: OmnibarSortMode,
   context: OmnibarSortContext,
-  ascending?: boolean,
+  ascending: boolean,
 ): OmnibarItem[] {
   if (mode === "relevance") return items;
 
   if (mode === "name") {
-    const direction = (ascending ?? true) ? 1 : -1;
+    const direction = ascending ? 1 : -1;
     return [...items].sort(
       (a, b) => direction * NAME_COLLATOR.compare(item_title(a), item_title(b)),
     );
   }
 
-  const direction = (ascending ?? false) ? 1 : -1;
+  const direction = ascending ? 1 : -1;
   const notes: Extract<
     OmnibarItem,
     { kind: "note" | "recent_note" | "cross_vault_note" }
@@ -170,10 +170,7 @@ export function sort_omnibar_items(
   );
 
   const by_mru = mru_comparator(context.recent_command_ids);
-  const command_direction = ascending === undefined ? 1 : direction;
-  commands.sort(
-    (a, b) => command_direction * by_mru(a.command.id, b.command.id),
-  );
+  commands.sort((a, b) => direction * by_mru(a.command.id, b.command.id));
 
   return [...notes, ...commands, ...rest];
 }
