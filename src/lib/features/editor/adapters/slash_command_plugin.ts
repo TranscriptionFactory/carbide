@@ -15,6 +15,10 @@ import {
 } from "./suggest_dropdown_utils";
 import { fuzzy_score_fields } from "$lib/shared/utils/fuzzy_score";
 import {
+  HTML_BLANK_SCAFFOLD,
+  HTML_EMBED_STARTERS,
+} from "$lib/shared/html/html_starters";
+import {
   smart_block_body,
   type SmartBlockScaffoldType,
 } from "$lib/features/smart_blocks";
@@ -394,6 +398,26 @@ function make_smart_block_insert(type: SmartBlockScaffoldType) {
     view.dispatch(tr.scrollIntoView());
   };
 }
+function make_html_embed_insert(source: string) {
+  return (view: EditorView, from: number) => {
+    const { state } = view;
+    const code_type = state.schema.nodes["code_block"];
+    const para = state.schema.nodes["paragraph"];
+    if (!code_type || !para) return;
+
+    const node = code_type.create(
+      { language: "html", meta: "preview" },
+      state.schema.text(source),
+    );
+
+    const $pos = state.doc.resolve(from);
+    const start = $pos.before();
+    const tr = state.tr.replaceWith(start, $pos.after(), [node, para.create()]);
+    const sel = TextSelection.findFrom(tr.doc.resolve(start + 1), 1);
+    if (sel) tr.setSelection(sel);
+    view.dispatch(tr.scrollIntoView());
+  };
+}
 
 export function create_commands(): SlashCommand[] {
   const commands: SlashCommand[] = [
@@ -527,6 +551,26 @@ export function create_commands(): SlashCommand[] {
       keywords: ["task", "query", "filter", "search", "tasks"],
       insert: make_smart_block_insert("tasks"),
     },
+    {
+      id: "html-blank",
+      label: "Blank HTML Embed",
+      description: "Empty HTML scaffold rendered as a live preview",
+      icon: "</>",
+      keywords: ["html", "embed", "iframe", "widget", "blank", "scaffold"],
+      insert: make_html_embed_insert(HTML_BLANK_SCAFFOLD),
+    },
+    ...HTML_EMBED_STARTERS.map(
+      (starter): SlashCommand => ({
+        id: starter.id,
+        label: starter.label,
+        description: starter.description,
+        icon: "</>",
+        keywords: [
+          ...new Set(["html", "embed", "iframe", "widget", ...starter.keywords]),
+        ],
+        insert: make_html_embed_insert(starter.source),
+      }),
+    ),
     {
       id: "blockquote",
       label: "Blockquote",

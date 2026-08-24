@@ -6,6 +6,10 @@ import {
   filter_commands,
   create_commands,
 } from "$lib/features/editor/adapters/slash_command_plugin";
+import {
+  HTML_BLANK_SCAFFOLD,
+  HTML_EMBED_STARTERS,
+} from "$lib/shared/html/html_starters";
 
 function create_schema() {
   return new Schema({
@@ -35,6 +39,10 @@ function create_schema() {
         group: "block",
         content: "text*",
         code: true,
+        attrs: {
+          language: { default: "" },
+          meta: { default: "" },
+        },
         toDOM: () => ["pre", ["code", 0]] as const,
         parseDOM: [{ tag: "pre" }],
       },
@@ -240,6 +248,23 @@ describe("filter_commands", () => {
     const results = filter_commands(all, "quote");
     expect(results.some((c) => c.id === "blockquote")).toBe(true);
   });
+  it("finds html embed entries by 'embed'", () => {
+    const results = filter_commands(all, "embed");
+    expect(results.some((c) => c.id === "html-blank")).toBe(true);
+    expect(results.some((c) => c.id === "html-stat-cards")).toBe(true);
+    expect(results.some((c) => c.id === "html-chart")).toBe(true);
+    expect(results.some((c) => c.id === "html-tabs")).toBe(true);
+  });
+
+  it("finds the chart starter by 'chart'", () => {
+    const results = filter_commands(all, "chart");
+    expect(results.some((c) => c.id === "html-chart")).toBe(true);
+  });
+
+  it("finds the blank scaffold by 'html'", () => {
+    const results = filter_commands(all, "html");
+    expect(results.some((c) => c.id === "html-blank")).toBe(true);
+  });
 
   it("finds task list command by todo/task/checkbox", () => {
     expect(filter_commands(all, "todo").some((c) => c.id === "todo")).toBe(
@@ -285,6 +310,10 @@ describe("create_commands", () => {
     expect(ids).toContain("todo");
     expect(ids).toContain("blockquote");
     expect(ids).toContain("divider");
+    expect(ids).toContain("html-blank");
+    expect(ids).toContain("html-stat-cards");
+    expect(ids).toContain("html-chart");
+    expect(ids).toContain("html-tabs");
   });
 
   it("each command has a non-empty label and icon", () => {
@@ -422,6 +451,37 @@ describe("slash command insert", () => {
     const tr = dispatched[0] as import("prosemirror-state").Transaction;
     expect(tr.doc.firstChild?.type.name).toBe("hr");
     expect(tr.doc.childCount).toBe(2);
+    expect(tr.doc.child(1).type.name).toBe("paragraph");
+  });
+  it("html chart insert dispatches an html code_block with preview meta", () => {
+    const { state } = make_slash_state("/chart");
+    const { view, dispatched } = make_mock_view(state);
+
+    find_cmd("html-chart").insert(view, 1);
+    expect(dispatched).toHaveLength(1);
+
+    const starter = HTML_EMBED_STARTERS.find((s) => s.id === "html-chart");
+    const tr = dispatched[0] as import("prosemirror-state").Transaction;
+    const first = tr.doc.firstChild;
+    expect(first?.type.name).toBe("code_block");
+    expect(first?.attrs["language"]).toBe("html");
+    expect(first?.attrs["meta"]).toBe("preview");
+    expect(first?.textContent).toBe(starter?.source);
+  });
+
+  it("html-blank insert dispatches the blank scaffold", () => {
+    const { state } = make_slash_state("/html");
+    const { view, dispatched } = make_mock_view(state);
+
+    find_cmd("html-blank").insert(view, 1);
+    expect(dispatched).toHaveLength(1);
+
+    const tr = dispatched[0] as import("prosemirror-state").Transaction;
+    const first = tr.doc.firstChild;
+    expect(first?.type.name).toBe("code_block");
+    expect(first?.attrs["language"]).toBe("html");
+    expect(first?.attrs["meta"]).toBe("preview");
+    expect(first?.textContent).toBe(HTML_BLANK_SCAFFOLD);
     expect(tr.doc.child(1).type.name).toBe("paragraph");
   });
 });
