@@ -55,10 +55,29 @@ describe("meta token gating", () => {
     expect(meta_has_token("title=preview", "preview")).toBe(false);
   });
 
-  it("requires both a previewable language and the preview token", () => {
-    expect(should_show_preview("html", "preview")).toBe(true);
-    expect(should_show_preview("html", "")).toBe(false);
+  it("still requires the preview token for non-html languages", () => {
+    expect(should_show_preview("xml", "preview")).toBe(true);
+    expect(should_show_preview("css", "preview")).toBe(true);
+    expect(should_show_preview("js", "preview")).toBe(true);
+    expect(should_show_preview("xml", "")).toBe(false);
+    expect(should_show_preview("css", "")).toBe(false);
+    expect(should_show_preview("js", "")).toBe(false);
     expect(should_show_preview("python", "preview")).toBe(false);
+  });
+
+  it("auto-previews html unless nopreview is set", () => {
+    expect(should_show_preview("html", "")).toBe(true);
+    expect(should_show_preview("html", "preview")).toBe(true);
+    expect(should_show_preview("html", "title=Demo")).toBe(true);
+    expect(should_show_preview("html", "nopreview")).toBe(false);
+    expect(should_show_preview("html", "preview nopreview")).toBe(false);
+    expect(should_show_preview("xml", "preview nopreview")).toBe(false);
+  });
+
+  it("auto-previews normalized html variants", () => {
+    expect(should_show_preview("HTML", "")).toBe(true);
+    expect(should_show_preview("htm", "")).toBe(true);
+    expect(should_show_preview("HTML", "nopreview")).toBe(false);
   });
 });
 

@@ -30,4 +30,13 @@ describe("code_block meta serialization", () => {
     expect(doc.child(0).attrs["meta"]).toBe("preview title=Demo");
     expect(serialize_markdown(doc).trim()).toBe(input);
   });
+  it("round-trips the nopreview token on an html fence", () => {
+    const input = "```html nopreview\n<p>hi</p>\n```";
+    const doc = parse_markdown(input);
+    const code = doc.child(0);
+    expect(code.type.name).toBe("code_block");
+    expect(code.attrs["language"]).toBe("html");
+    expect(code.attrs["meta"]).toBe("nopreview");
+    expect(serialize_markdown(doc).trim()).toBe(input);
+  });
 });

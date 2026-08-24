@@ -20,7 +20,8 @@ import {
 import { find_language_label, search_languages } from "./language_registry";
 import {
   is_previewable_language,
-  meta_has_token,
+  should_show_preview,
+  set_meta_token,
   build_code_preview_srcdoc,
   read_preview_theme_tokens,
   clamp_preview_height,
@@ -570,9 +571,9 @@ class CodeBlockView implements NodeView {
     this.toolbar.insertBefore(toggle_btn, copy_btn);
     this.dom.appendChild(container);
 
-    const show = meta_has_token(
+    const show = should_show_preview(
+      this.current_language,
       (this.node.attrs["meta"] as string) ?? "",
-      "preview",
     );
 
     const theme_observer = new MutationObserver(() => {
@@ -624,6 +625,17 @@ class CodeBlockView implements NodeView {
     this.html_preview.is_preview = !this.html_preview.is_preview;
     this.apply_html_preview_state();
     if (this.html_preview.is_preview) this.render_html_preview();
+    const pos = this.get_pos();
+    if (pos === undefined) return;
+    const tr = this.view.state.tr.setNodeMarkup(pos, undefined, {
+      ...this.node.attrs,
+      meta: set_meta_token(
+        (this.node.attrs["meta"] as string) ?? "",
+        "nopreview",
+        !this.html_preview.is_preview,
+      ),
+    });
+    this.view.dispatch(tr);
   }
 
   private schedule_preview_render() {

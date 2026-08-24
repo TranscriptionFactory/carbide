@@ -39,7 +39,10 @@ export function set_meta_token(
 }
 
 export function should_show_preview(language: string, meta: string): boolean {
-  return is_previewable_language(language) && meta_has_token(meta, "preview");
+  if (!is_previewable_language(language)) return false;
+  if (meta_has_token(meta, "nopreview")) return false;
+  if (meta_has_token(meta, "preview")) return true;
+  return normalize_preview_language(language) === "html";
 }
 
 const PREVIEW_LAYOUT_STYLES = `
