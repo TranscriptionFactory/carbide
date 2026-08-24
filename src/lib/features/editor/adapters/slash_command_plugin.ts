@@ -566,7 +566,13 @@ export function create_commands(): SlashCommand[] {
         description: starter.description,
         icon: "</>",
         keywords: [
-          ...new Set(["html", "embed", "iframe", "widget", ...starter.keywords]),
+          ...new Set([
+            "html",
+            "embed",
+            "iframe",
+            "widget",
+            ...starter.keywords,
+          ]),
         ],
         insert: make_html_embed_insert(starter.source),
       }),

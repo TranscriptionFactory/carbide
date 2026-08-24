@@ -126,9 +126,18 @@ An `html` fenced code block in a markdown note doubles as an embed: Carbide rend
 ````
 
 - Bare `html` fences render a preview automatically when the note mounts — no extra token needed.
-- Opt out per fence by adding `nopreview` to the info string (```` ```html nopreview ````). The preview's toggle button persists the same token into the fence meta — toggling a preview off writes `nopreview`, toggling it back on removes it — so a code-first fence survives saving and reopening the note.
+- Opt out per fence by adding the `nopreview` token to the info string:
+
+  ````markdown
+  ```html nopreview
+  <p>Renders as code, not a preview.</p>
+  ```
+  ````
+
+  The preview's toggle button persists the same token into the fence meta — toggling a preview off writes `nopreview`, toggling it back on removes it — so a code-first fence survives saving and reopening the note.
+
 - The preview carries a toggle button and a drag handle for resizing.
-- `xml`, `css`, and `js` fences stay code-first: they render only when the info string carries the explicit `preview` token (```` ```xml preview ````).
+- `xml`, `css`, and `js` fences stay code-first: they render only when the info string carries the explicit `preview` token, e.g. an `xml` fence whose info string is `xml preview`.
 - Previews run under the same locked-down sandbox as Safe mode: `allow-scripts` without `allow-same-origin`, inline scripts and styles only, `connect-src 'none'`. Nothing loads from the network — CDN scripts, fonts, and images fail silently, so author dependency-free markup.
 
 ## Starter templates
@@ -138,6 +147,8 @@ Carbide ships copy-ready starters (`HTML_EMBED_STARTERS`) for common embeds. Pas
 ### Stat cards
 
 Three KPI cards in a row with an accent edge.
+
+<!-- prettier-ignore-start -->
 
 ```html
 <style>
@@ -173,9 +184,13 @@ Three KPI cards in a row with an accent edge.
 </div>
 ```
 
+<!-- prettier-ignore-end -->
+
 ### Bar chart
 
 Inline SVG bar chart themed by chart tokens.
+
+<!-- prettier-ignore-start -->
 
 ```html
 <style>
@@ -207,9 +222,13 @@ Inline SVG bar chart themed by chart tokens.
 </svg>
 ```
 
+<!-- prettier-ignore-end -->
+
 ### Tabs
 
 Three-tab switcher driven by an inline script.
+
+<!-- prettier-ignore-start -->
 
 ```html
 <style>
@@ -253,6 +272,8 @@ Three-tab switcher driven by an inline script.
 })();
 </script>
 ```
+
+<!-- prettier-ignore-end -->
 
 ### Authoring rules for your own embeds
 
