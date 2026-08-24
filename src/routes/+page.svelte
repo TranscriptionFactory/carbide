@@ -32,8 +32,8 @@
     },
   });
 
-  ports.slash_command_provider.set_provider(() =>
-    to_editor_slash_commands(
+  ports.slash_command_provider.set_provider(() => [
+    ...to_editor_slash_commands(
       app.stores.plugin.slash_commands,
       (plugin_id, command_name, context) =>
         app.services.plugin.execute_slash_command(
@@ -44,7 +44,23 @@
       (plugin_id) =>
         app.stores.plugin.plugins.get(plugin_id)?.manifest.name ?? plugin_id,
     ),
-  );
+    {
+      id: "paste_html_artifact",
+      label: "Paste HTML Artifact",
+      description: "Paste clipboard HTML as an embedded artifact",
+      icon: "📋",
+      keywords: ["paste", "html"],
+      insert: (view, slash_from) => {
+        const cursor = view.state.selection.from;
+        const tr = view.state.tr.delete(slash_from, cursor);
+        view.dispatch(tr);
+        view.focus();
+        void app.action_registry.execute(
+          ACTION_IDS.document_paste_html_artifact,
+        );
+      },
+    },
+  ]);
 
   ports.ai_inline_handler.execute = (p) =>
     void app.action_registry.execute(ACTION_IDS.ai_execute_inline, p);
