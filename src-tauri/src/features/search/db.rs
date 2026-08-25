@@ -1179,7 +1179,7 @@ pub fn upsert_note_simple(
     let first_image_path = find_first_image_path(&links);
 
     conn.execute(
-        "REPLACE INTO notes (path, title, mtime_ms, ctime_ms, size_bytes, word_count, char_count, heading_count, reading_time_secs, last_indexed_at, file_type, content_snippet, first_image_path) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
+        "INSERT INTO notes (path, title, mtime_ms, ctime_ms, size_bytes, word_count, char_count, heading_count, reading_time_secs, last_indexed_at, file_type, content_snippet, first_image_path) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13) ON CONFLICT(path) DO UPDATE SET title = ?2, mtime_ms = ?3, ctime_ms = ?4, size_bytes = ?5, word_count = ?6, char_count = ?7, heading_count = ?8, reading_time_secs = ?9, last_indexed_at = ?10, file_type = ?11, content_snippet = ?12, first_image_path = ?13",
         params![meta.path, meta.title, meta.mtime_ms, meta.ctime_ms, meta.size_bytes, word_count, char_count, heading_count, reading_time_secs, now_ms, file_type, content_snippet, first_image_path],
     )
     .map_err(|e| e.to_string())?;

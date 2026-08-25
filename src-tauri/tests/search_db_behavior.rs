@@ -1487,6 +1487,54 @@ fn task_rowids(conn: &rusqlite::Connection, path: &str) -> Vec<i64> {
     rows
 }
 
+fn notes_rowid(conn: &rusqlite::Connection, path: &str) -> Vec<i64> {
+    let mut stmt = conn
+        .prepare("SELECT rowid FROM notes WHERE path = ?1")
+        .expect("statement should prepare");
+    let rows = stmt
+        .query_map([path], |r| r.get(0))
+        .expect("query should run")
+        .collect::<Result<Vec<_>, _>>()
+        .expect("rows should decode");
+    rows
+}
+
+fn inline_tag_rowids(conn: &rusqlite::Connection, path: &str) -> Vec<i64> {
+    let mut stmt = conn
+        .prepare("SELECT rowid FROM note_inline_tags WHERE path = ?1 ORDER BY tag, line")
+        .expect("statement should prepare");
+    let rows = stmt
+        .query_map([path], |r| r.get(0))
+        .expect("query should run")
+        .collect::<Result<Vec<_>, _>>()
+        .expect("rows should decode");
+    rows
+}
+
+fn section_rowids(conn: &rusqlite::Connection, path: &str) -> Vec<i64> {
+    let mut stmt = conn
+        .prepare("SELECT rowid FROM note_sections WHERE path = ?1 ORDER BY heading_id")
+        .expect("statement should prepare");
+    let rows = stmt
+        .query_map([path], |r| r.get(0))
+        .expect("query should run")
+        .collect::<Result<Vec<_>, _>>()
+        .expect("rows should decode");
+    rows
+}
+
+fn code_block_rowids(conn: &rusqlite::Connection, path: &str) -> Vec<i64> {
+    let mut stmt = conn
+        .prepare("SELECT rowid FROM note_code_blocks WHERE path = ?1 ORDER BY line")
+        .expect("statement should prepare");
+    let rows = stmt
+        .query_map([path], |r| r.get(0))
+        .expect("query should run")
+        .collect::<Result<Vec<_>, _>>()
+        .expect("rows should decode");
+    rows
+}
+
 #[test]
 fn saving_a_note_indexes_its_tasks() {
     let tmp = TempDir::new().expect("temp dir should be created");
@@ -1557,15 +1605,14 @@ fn saving_a_removed_task_line_deletes_its_row() {
     );
 }
 
-// Blocked, not flaky: `upsert_note_simple` opens with `REPLACE INTO notes`,
-// and every child table of `notes` — `tasks` included — carries an ON DELETE
-// CASCADE. The replace therefore deletes the note row and wipes its task rows
-// before `sync_tasks` is reached, so the unchanged-rows guard in
-// `tasks::service::save_tasks` always reads an empty table on this path and can
-// never fire. Un-ignoring this needs the notes upsert to stop deleting its own
-// row, which changes what happens to fifteen columns no lane here owns.
+// `upsert_note_simple` upserts the notes row without deleting it. A REPLACE
+// here would fire ON DELETE CASCADE on the four FK'd child tables —
+// `note_inline_tags`, `note_sections`, `note_code_blocks`, `tasks` — wiping the
+// task rows before `sync_tasks` was reached, so the unchanged-rows guard in
+// `tasks::service::save_tasks` always read an empty table and could never fire.
+// The other four child tables of notes carry no foreign key, and the 16 notes
+// columns this path does not write are preserved by the same upsert.
 #[test]
-#[ignore = "blocked on REPLACE INTO notes cascading its child rows away on every save"]
 fn resaving_unchanged_content_does_not_rewrite_task_rows() {
     let tmp = TempDir::new().expect("temp dir should be created");
     let conn = open_search_db_at_path(&tmp.path().join("test.db")).expect("db should open");
@@ -1592,6 +1639,367 @@ fn resaving_unchanged_content_does_not_rewrite_task_rows() {
         task_rowids(&conn, "notes/a.md"),
         before,
         "rowid stability must be able to see a real rewrite, or the check above proves nothing"
+    );
+}
+
+// The notes row is now updated in place. `notes.path` is the TEXT PRIMARY KEY
+// and no query reads the implicit rowid, so the old REPLACE silently churned
+// it on every save — this probes the statement change directly, with no
+// sync-helper interference.
+#[test]
+fn resaving_a_note_keeps_its_notes_rowid() {
+    let tmp = TempDir::new().expect("temp dir should be created");
+    let conn = open_search_db_at_path(&tmp.path().join("test.db")).expect("db should open");
+    let a = task_note_meta("notes/a.md", "A", "a");
+    let b = task_note_meta("notes/b.md", "B", "b");
+
+    upsert_note_simple(&conn, &a, "- [ ] alpha\n").expect("save a should run");
+    // A second note holds the highest rowid, so a delete-and-reinsert of A's
+    // row lands on a fresh rowid instead of silently reclaiming the old one.
+    upsert_note_simple(&conn, &b, "- [ ] beta\n").expect("save b should run");
+
+    let before = notes_rowid(&conn, "notes/a.md");
+    assert_eq!(before.len(), 1);
+
+    upsert_note_simple(&conn, &a, "- [ ] alpha\n").expect("identical resave should run");
+    assert_eq!(
+        notes_rowid(&conn, "notes/a.md"),
+        before,
+        "an identical resave must update the note row in place, not delete and reinsert it"
+    );
+}
+
+// `page_offsets` and `source` belong to the plain-content upsert path. Before
+// this fix the markdown path's REPLACE nulled both on every save, reachable
+// whenever a note crosses between the two upsert paths — e.g. a markdown file
+// that grows past the 50 MB indexing limit and is re-indexed as plain content,
+// then edited back down and saved as markdown.
+#[test]
+fn resaving_a_note_preserves_page_offsets_and_source() {
+    use crate::features::search::db::upsert_linked_content;
+    use crate::features::search::model::LinkedSourceMeta;
+
+    let tmp = TempDir::new().expect("temp dir should be created");
+    let conn = open_search_db_at_path(&tmp.path().join("test.db")).expect("db should open");
+
+    let (meta, _) = upsert_linked_content(
+        &conn,
+        "papers",
+        "/files",
+        "/files/paper.pdf",
+        "Paper",
+        "extracted text",
+        &[1, 5, 9],
+        "pdf",
+        1_000,
+        &LinkedSourceMeta::default(),
+    )
+    .expect("linked upsert should succeed");
+
+    let read_row = |conn: &rusqlite::Connection| {
+        conn.query_row(
+            "SELECT page_offsets, source FROM notes WHERE path = ?1",
+            rusqlite::params![meta.path],
+            |r| Ok((r.get::<_, Option<String>>(0)?, r.get::<_, Option<String>>(1)?)),
+        )
+        .expect("notes row should still exist")
+    };
+
+    let seeded = read_row(&conn);
+    assert_eq!(seeded.0.as_deref(), Some("[1,5,9]"));
+    assert_eq!(seeded.1.as_deref(), Some("linked"));
+
+    upsert_note_simple(&conn, &meta, "markdown body\n").expect("markdown resave should run");
+
+    let after = read_row(&conn);
+    assert_eq!(
+        after.0.as_deref(),
+        Some("[1,5,9]"),
+        "a markdown save must not clear the plain-content path's page offsets"
+    );
+    assert_eq!(
+        after.1.as_deref(),
+        Some("linked"),
+        "a markdown save must not reset the note's source back to the vault default"
+    );
+}
+
+// The four tests below are regression locks on the plain-content upsert path,
+// which runs no sync helper — seeded child rows can only disappear through the
+// notes FK cascade. They seed one child row directly per FK'd table, re-index
+// via `upsert_linked_content`, and assert the rowid survives.
+#[test]
+fn reindexing_plain_content_preserves_inline_tag_rows() {
+    use crate::features::search::db::upsert_linked_content;
+    use crate::features::search::model::LinkedSourceMeta;
+
+    let tmp = TempDir::new().expect("temp dir should be created");
+    let conn = open_search_db_at_path(&tmp.path().join("test.db")).expect("db should open");
+
+    let (meta, _) = upsert_linked_content(
+        &conn,
+        "papers",
+        "/files",
+        "/files/paper.pdf",
+        "Paper",
+        "extracted text",
+        &[],
+        "pdf",
+        1_000,
+        &LinkedSourceMeta::default(),
+    )
+    .expect("linked upsert should succeed");
+
+    conn.execute(
+        "INSERT INTO note_inline_tags (path, tag, line, source) VALUES (?1, ?2, ?3, ?4)",
+        rusqlite::params![meta.path, "imported", 1, "body"],
+    )
+    .expect("seed row should insert");
+
+    let before = inline_tag_rowids(&conn, &meta.path);
+    assert_eq!(before.len(), 1);
+
+    upsert_linked_content(
+        &conn,
+        "papers",
+        "/files",
+        "/files/paper.pdf",
+        "Paper",
+        "extracted text",
+        &[],
+        "pdf",
+        2_000,
+        &LinkedSourceMeta::default(),
+    )
+    .expect("re-index should succeed");
+
+    assert_eq!(
+        inline_tag_rowids(&conn, &meta.path),
+        before,
+        "a linked re-index must not cascade the note's inline tag rows away"
+    );
+}
+
+#[test]
+fn reindexing_plain_content_preserves_section_rows() {
+    use crate::features::search::db::upsert_linked_content;
+    use crate::features::search::model::LinkedSourceMeta;
+
+    let tmp = TempDir::new().expect("temp dir should be created");
+    let conn = open_search_db_at_path(&tmp.path().join("test.db")).expect("db should open");
+
+    let (meta, _) = upsert_linked_content(
+        &conn,
+        "papers",
+        "/files",
+        "/files/paper.pdf",
+        "Paper",
+        "extracted text",
+        &[],
+        "pdf",
+        1_000,
+        &LinkedSourceMeta::default(),
+    )
+    .expect("linked upsert should succeed");
+
+    conn.execute(
+        "INSERT INTO note_sections (path, heading_id, level, title, start_line, end_line, word_count) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+        rusqlite::params![meta.path, "imported-1", 1, "Imported", 0, 3, 10],
+    )
+    .expect("seed row should insert");
+
+    let before = section_rowids(&conn, &meta.path);
+    assert_eq!(before.len(), 1);
+
+    upsert_linked_content(
+        &conn,
+        "papers",
+        "/files",
+        "/files/paper.pdf",
+        "Paper",
+        "extracted text",
+        &[],
+        "pdf",
+        2_000,
+        &LinkedSourceMeta::default(),
+    )
+    .expect("re-index should succeed");
+
+    assert_eq!(
+        section_rowids(&conn, &meta.path),
+        before,
+        "a linked re-index must not cascade the note's section rows away"
+    );
+}
+
+#[test]
+fn reindexing_plain_content_preserves_code_block_rows() {
+    use crate::features::search::db::upsert_linked_content;
+    use crate::features::search::model::LinkedSourceMeta;
+
+    let tmp = TempDir::new().expect("temp dir should be created");
+    let conn = open_search_db_at_path(&tmp.path().join("test.db")).expect("db should open");
+
+    let (meta, _) = upsert_linked_content(
+        &conn,
+        "papers",
+        "/files",
+        "/files/paper.pdf",
+        "Paper",
+        "extracted text",
+        &[],
+        "pdf",
+        1_000,
+        &LinkedSourceMeta::default(),
+    )
+    .expect("linked upsert should succeed");
+
+    conn.execute(
+        "INSERT INTO note_code_blocks (path, line, language, length) VALUES (?1, ?2, ?3, ?4)",
+        rusqlite::params![meta.path, 4, "python", 12],
+    )
+    .expect("seed row should insert");
+
+    let before = code_block_rowids(&conn, &meta.path);
+    assert_eq!(before.len(), 1);
+
+    upsert_linked_content(
+        &conn,
+        "papers",
+        "/files",
+        "/files/paper.pdf",
+        "Paper",
+        "extracted text",
+        &[],
+        "pdf",
+        2_000,
+        &LinkedSourceMeta::default(),
+    )
+    .expect("re-index should succeed");
+
+    assert_eq!(
+        code_block_rowids(&conn, &meta.path),
+        before,
+        "a linked re-index must not cascade the note's code block rows away"
+    );
+}
+
+#[test]
+fn reindexing_plain_content_preserves_task_rows() {
+    use crate::features::search::db::upsert_linked_content;
+    use crate::features::search::model::LinkedSourceMeta;
+
+    let tmp = TempDir::new().expect("temp dir should be created");
+    let conn = open_search_db_at_path(&tmp.path().join("test.db")).expect("db should open");
+
+    let (meta, _) = upsert_linked_content(
+        &conn,
+        "papers",
+        "/files",
+        "/files/paper.pdf",
+        "Paper",
+        "extracted text",
+        &[],
+        "pdf",
+        1_000,
+        &LinkedSourceMeta::default(),
+    )
+    .expect("linked upsert should succeed");
+
+    conn.execute(
+        "INSERT INTO tasks (id, path, text, status, due_date, line_number, section) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+        rusqlite::params!["imported-task-1", meta.path, "imported task", "todo", Option::<String>::None, 1, Option::<String>::None],
+    )
+    .expect("seed row should insert");
+
+    let before = task_rowids(&conn, &meta.path);
+    assert_eq!(before.len(), 1);
+
+    upsert_linked_content(
+        &conn,
+        "papers",
+        "/files",
+        "/files/paper.pdf",
+        "Paper",
+        "extracted text",
+        &[],
+        "pdf",
+        2_000,
+        &LinkedSourceMeta::default(),
+    )
+    .expect("re-index should succeed");
+
+    assert_eq!(
+        task_rowids(&conn, &meta.path),
+        before,
+        "a linked re-index must not cascade the note's task rows away"
+    );
+}
+
+// `content_snippet` and `first_image_path` belong to the markdown upsert
+// path. The plain-content path must not clear them when a note crosses
+// between the two paths — e.g. a markdown file that grows past the 50 MB
+// indexing limit and is re-indexed as plain content.
+#[test]
+fn reindexing_plain_content_preserves_content_snippet_and_first_image_path() {
+    use crate::features::search::db::upsert_linked_content;
+    use crate::features::search::model::LinkedSourceMeta;
+
+    let tmp = TempDir::new().expect("temp dir should be created");
+    let conn = open_search_db_at_path(&tmp.path().join("test.db")).expect("db should open");
+
+    let (meta, _) = upsert_linked_content(
+        &conn,
+        "papers",
+        "/files",
+        "/files/paper.pdf",
+        "Paper",
+        "extracted text",
+        &[],
+        "pdf",
+        1_000,
+        &LinkedSourceMeta::default(),
+    )
+    .expect("linked upsert should succeed");
+
+    upsert_note_simple(&conn, &meta, "markdown body\n").expect("markdown save should run");
+    conn.execute(
+        "UPDATE notes SET content_snippet = ?2, first_image_path = ?3 WHERE path = ?1",
+        rusqlite::params![meta.path, "seeded snippet", "img/pic.png"],
+    )
+    .expect("seed values should stick");
+
+    upsert_linked_content(
+        &conn,
+        "papers",
+        "/files",
+        "/files/paper.pdf",
+        "Paper",
+        "extracted text",
+        &[],
+        "pdf",
+        2_000,
+        &LinkedSourceMeta::default(),
+    )
+    .expect("re-index should succeed");
+
+    let row = conn
+        .query_row(
+            "SELECT content_snippet, first_image_path FROM notes WHERE path = ?1",
+            rusqlite::params![meta.path],
+            |r| Ok((r.get::<_, Option<String>>(0)?, r.get::<_, Option<String>>(1)?)),
+        )
+        .expect("notes row should still exist");
+
+    assert_eq!(
+        row.0.as_deref(),
+        Some("seeded snippet"),
+        "a plain-content re-index must not clear the markdown path's content snippet"
+    );
+    assert_eq!(
+        row.1.as_deref(),
+        Some("img/pic.png"),
+        "a plain-content re-index must not clear the markdown path's first image path"
     );
 }
 
