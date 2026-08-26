@@ -88,7 +88,9 @@ pub fn scan_vault(
             if !is_hidden {
                 folder_count += 1;
             }
-        } else if entry.file_type().is_file() && !is_hidden {
+        } else if entry.file_type().is_file()
+            && is_indexable(root, entry.path(), &ignore_matcher)
+        {
             files.push(entry.path().to_path_buf());
             note_count += 1;
         }
@@ -110,6 +112,39 @@ pub fn scan_vault(
             folder_count,
         },
     })
+}
+
+/// The per-file half of what the index will hold: a visible file that the
+/// vault's ignore rules do not exclude. `scan_vault` and the direct upsert path
+/// both go through this so a save cannot reinstate a row the next sync prunes.
+/// `scan_vault` additionally prunes `constants::is_excluded_folder` directories
+/// while walking, which this does not cover.
+///
+/// `root` and `path` must share a prefix; `is_ignored` returns `false` when
+/// `strip_prefix` fails, so a mismatched pair silently disables the ignore half.
+pub(crate) fn is_indexable(
+    root: &Path,
+    path: &Path,
+    matcher: &vault_ignore::VaultIgnoreMatcher,
+) -> bool {
+    let hidden = path
+        .file_name()
+        .is_none_or(|name| name.to_string_lossy().starts_with('.'));
+    !hidden && !matcher.is_ignored(root, path, false)
+}
+
+/// [`is_indexable`] for callers holding a root from the vault store and a path
+/// from `safe_vault_abs`. The store keeps the root verbatim while
+/// `safe_vault_abs` canonicalizes, so the two disagree on every save under a
+/// symlinked vault path — and permanently on Windows, where `canonicalize`
+/// yields a `\\?\` prefix the stored path never has.
+pub(crate) fn is_indexable_from_stored_root(
+    root: &Path,
+    path: &Path,
+    matcher: &vault_ignore::VaultIgnoreMatcher,
+) -> bool {
+    let root = root.canonicalize().unwrap_or_else(|_| root.to_path_buf());
+    is_indexable(&root, path, matcher)
 }
 
 pub(crate) fn list_indexable_files(

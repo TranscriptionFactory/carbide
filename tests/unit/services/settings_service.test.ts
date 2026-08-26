@@ -9,6 +9,7 @@ import { as_vault_id } from "$lib/shared/types/ids";
 import {
   DEFAULT_EDITOR_SETTINGS,
   GLOBAL_ONLY_SETTING_KEYS,
+  OPTIONAL_GLOBAL_ONLY_TYPES,
 } from "$lib/shared/types/editor_settings";
 import { create_test_vault } from "../helpers/test_fixtures";
 
@@ -16,10 +17,12 @@ const VAULT_ID = as_vault_id("vault-a");
 
 // GLOBAL_ONLY_SETTING_KEYS entries whose EditorSettings default is intentionally
 // absent. Each one must survive the round trip as an explicit null, which the
-// settings adapter is responsible for producing.
-const NULLABLE_GLOBAL_ONLY_KEYS = new Set<string>([
-  "ai_rag_context_token_budget",
-]);
+// settings adapter is responsible for producing. Derived from the type table so
+// that exempting a key here is impossible without also declaring its type —
+// the omission that stopped a stored value from ever loading back.
+const NULLABLE_GLOBAL_ONLY_KEYS = new Set<string>(
+  Object.keys(OPTIONAL_GLOBAL_ONLY_TYPES),
+);
 
 function make_service(overrides: {
   vault_get?: unknown;
@@ -317,6 +320,49 @@ describe("SettingsService", () => {
     );
   });
 
+  it("logs the underlying reason for every key that failed to persist", async () => {
+    const error_spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const reasons = new Map([
+      ["mcp_enabled", "mcp write failed"],
+      ["close_to_tray", "tray write failed"],
+    ]);
+    const { service } = make_service({
+      set_setting_impl: (key) => {
+        const reason = reasons.get(key);
+        return reason
+          ? Promise.reject(new Error(reason))
+          : Promise.resolve(undefined);
+      },
+    });
+
+    const result = await service.save_settings({ ...DEFAULT_EDITOR_SETTINGS });
+
+    expect(result.status).toBe("failed");
+    const logged = error_spy.mock.calls
+      .map((call) => String(call[0]))
+      .join("\n");
+    expect(logged).toContain("mcp write failed");
+    expect(logged).toContain("tray write failed");
+    error_spy.mockRestore();
+  });
+
+  it("keeps the save failure message byte-identical to the shipped string", async () => {
+    const failing = new Set(["mcp_enabled", "close_to_tray"]);
+    const { service } = make_service({
+      set_setting_impl: (key) =>
+        failing.has(key)
+          ? Promise.reject(new Error("write failed"))
+          : Promise.resolve(undefined),
+    });
+
+    const result = await service.save_settings({ ...DEFAULT_EDITOR_SETTINGS });
+
+    if (result.status !== "failed") throw new Error("expected failure");
+    expect(result.error).toContain(
+      "These settings did not save: mcp_enabled, close_to_tray",
+    );
+  });
+
   it("names every key that failed to persist in the save error", async () => {
     const failing = new Set(["mcp_enabled", "close_to_tray"]);
     const { service } = make_service({
@@ -363,6 +409,42 @@ describe("SettingsService", () => {
     const loaded = await service.load_settings({ ...DEFAULT_EDITOR_SETTINGS });
 
     expect(loaded.status).toBe("success");
+    if (loaded.status !== "success") throw new Error("expected success");
+    expect(loaded.settings.ai_rag_context_token_budget).toBeUndefined();
+  });
+
+  it("restores an explicit token budget across a save and reload", async () => {
+    const stored = new Map<string, unknown>();
+    const { service } = make_service({
+      set_setting_impl: (key, value) => {
+        stored.set(key, value ?? null);
+        return Promise.resolve(undefined);
+      },
+      global_get: (key) => (stored.has(key) ? stored.get(key) : null),
+    });
+
+    const saved = await service.save_settings({
+      ...DEFAULT_EDITOR_SETTINGS,
+      ai_rag_context_token_budget: 8000,
+    });
+    expect(saved.status).toBe("success");
+    expect(stored.get("ai_rag_context_token_budget")).toBe(8000);
+
+    const loaded = await service.load_settings({ ...DEFAULT_EDITOR_SETTINGS });
+
+    expect(loaded.status).toBe("success");
+    if (loaded.status !== "success") throw new Error("expected success");
+    expect(loaded.settings.ai_rag_context_token_budget).toBe(8000);
+  });
+
+  it("rejects a stored token budget of the wrong type on load", async () => {
+    const { service } = make_service({
+      global_get: (key) =>
+        key === "ai_rag_context_token_budget" ? "8000" : null,
+    });
+
+    const loaded = await service.load_settings({ ...DEFAULT_EDITOR_SETTINGS });
+
     if (loaded.status !== "success") throw new Error("expected success");
     expect(loaded.settings.ai_rag_context_token_budget).toBeUndefined();
   });

@@ -153,17 +153,27 @@ export class SettingsService {
   private async save_global_only_settings(
     settings: EditorSettings,
   ): Promise<void> {
-    const results = await Promise.allSettled(
-      GLOBAL_ONLY_SETTING_KEYS.map((key) =>
-        this.settings_port.set_setting(key, settings[key]),
-      ),
+    const outcomes = await Promise.all(
+      GLOBAL_ONLY_SETTING_KEYS.map(async (key) => {
+        try {
+          await this.settings_port.set_setting(key, settings[key]);
+          return null;
+        } catch (error) {
+          return { key, reason: error_message(error) };
+        }
+      }),
     );
-    const failed_keys = GLOBAL_ONLY_SETTING_KEYS.filter(
-      (_, index) => results[index]?.status === "rejected",
-    );
-    if (failed_keys.length > 0) {
-      throw new Error(`These settings did not save: ${failed_keys.join(", ")}`);
+    const failures = outcomes.filter((outcome) => outcome !== null);
+    if (failures.length === 0) {
+      return;
     }
+    log.error("Global-only settings failed to save", {
+      failures: failures
+        .map(({ key, reason }) => `${key}: ${reason}`)
+        .join("; "),
+    });
+    const failed_keys = failures.map(({ key }) => key);
+    throw new Error(`These settings did not save: ${failed_keys.join(", ")}`);
   }
 
   async save_settings(settings: EditorSettings): Promise<SettingsSaveResult> {

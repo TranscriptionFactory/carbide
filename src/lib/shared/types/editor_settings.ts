@@ -612,6 +612,15 @@ export const GLOBAL_ONLY_SETTING_KEYS: readonly (keyof EditorSettings)[] = [
 
 const GLOBAL_ONLY_SET = new Set<string>(GLOBAL_ONLY_SETTING_KEYS);
 
+// Global-only keys declared optional on EditorSettings have no
+// DEFAULT_EDITOR_SETTINGS entry, so a load's base value is always undefined and
+// `typeof` cannot recover the type a stored value must match. Declare it here.
+export const OPTIONAL_GLOBAL_ONLY_TYPES: Partial<
+  Record<keyof EditorSettings, string>
+> = {
+  ai_rag_context_token_budget: "number",
+};
+
 export function omit_global_only_keys(
   record: Record<string, unknown>,
 ): Record<string, unknown> {
@@ -636,9 +645,13 @@ export async function apply_global_only_overrides(
     })),
   );
   for (const { key, value } of entries) {
+    const expected_type =
+      base[key] === undefined
+        ? OPTIONAL_GLOBAL_ONLY_TYPES[key]
+        : typeof base[key];
     if (
       value !== null &&
-      typeof value === typeof base[key] &&
+      typeof value === expected_type &&
       Array.isArray(value) === Array.isArray(base[key])
     ) {
       (result as Record<string, unknown>)[key] = value;
