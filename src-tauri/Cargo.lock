@@ -906,7 +906,7 @@ dependencies = [
 
 [[package]]
 name = "carbide"
-version = "2.34.1"
+version = "2.34.2"
 dependencies = [
  "agent-client-protocol",
  "anyhow",
@@ -985,7 +985,7 @@ dependencies = [
 
 [[package]]
 name = "carbide-cli"
-version = "2.34.1"
+version = "2.34.2"
 dependencies = [
  "clap",
  "clap_complete",

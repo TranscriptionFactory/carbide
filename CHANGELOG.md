@@ -1,5 +1,127 @@
 # carbide
 
+## 2.34.2
+
+### Patch Changes
+
+- be3f15c: Separate the chat retrieval settings from the inline-AI ones, and let the
+  provider window size the chat context budget
+
+  Settings → AI ran as one undifferentiated list, so five controls that govern
+  three different surfaces read as five knobs on the same one. Two of them are not
+  chat settings at all: **Similar Notes Limit** and **Similarity Threshold** are
+  read by inline AI and by generated note descriptions, and never by vault chat,
+  which sizes its own retrieval from **Chat Retrieval Sources**. The section now
+  carries headings — _Chat retrieval_, _Inline AI vault context_ and
+  _Conversations_ — and each description in the second group says which surface
+  reads it and that vault chat does not. The **Include Vault Context** toggle at
+  the head of that group is narrower than its position suggests and now says so:
+  it switches context on for generated descriptions only, while inline AI is
+  switched on separately by **Inline AI Vault Context**. The four vault-context
+  settings also join
+  the settings search index, so they are reachable by name; previously a search for
+  "similarity threshold" surfaced only the unrelated Semantic setting that shares
+  that label.
+
+  The automatic chat context budget now lets the share-of-window fraction decide
+  the budget on its own. The Claude, Codex, OpenCode and Pi presets each declare a
+  200k-token context window, and the ceiling that guards against an implausibly
+  large window sat below 30% of that, so it clipped all four — two settings
+  governed one number and the tighter one won silently. Raising the ceiling clear
+  of that point puts the fraction back in charge and leaves the ceiling doing its
+  real job for a future million-token window. In practice the retrieval budget a
+  chat message reports rises from 144,000 to 180,000 characters, so more of the
+  vault reaches the model per question. An explicit **Chat Context Token Budget**
+  still overrides automatic sizing, and providers that declare no window — Ollama
+  among the presets — are unaffected, as are small declared windows.
+  The four constants behind the derivation are now documented in place, including
+  an honest note that the two fractions have no recorded derivation.
+
+  Similar Notes Limit and Similarity Threshold are also range-checked where they
+  are consumed, matching their chat-retrieval siblings. The dropdowns cannot
+  produce an out-of-range value, but a settings import or a plugin write can, and
+  the failure was silent: a negative threshold quietly returned no similar notes at
+  all.
+
+- a4c863d: Open the chat session when a chat run is clicked in the runs popover
+
+  Runs started from the chat panel carried no origin, so the runs popover in the
+  status bar rendered them as inert rows: clicking a live or failed chat run did
+  nothing, even though the transcript it belonged to was a click away. The chat
+  panel now tags each turn with the session it belongs to, and the run records
+  that session, so a chat run opens its session tab like an inline or agent run
+  already does. Runs with no session of their own — one-shot note actions,
+  background work and queries answered over MCP — stay unopenable, which is the
+  correct behaviour for them.
+
+- 2e4be2f: Scroll the vault chat to the newest message when you send a prompt
+
+  Submitting a prompt left the transcript wherever it happened to be, so a new
+  message and the thinking indicator that follows it landed below the fold and had
+  to be scrolled to by hand. The transcript now jumps to the bottom whenever
+  something is appended to it — a sent message, the waiting indicator, or a prompt
+  queued behind a run in flight — in both the sidebar chat and the bottom
+  Assistant tab.
+
+- 4a2cfdb: Fit more of the conversation into the assistant panel
+
+  The assistant tab spent a lot of its height on padding. Messages sat 16px apart,
+  the composer reserved a 64px box for a one-line prompt, body prose was set at a
+  line-height of 1.625, and two stacked horizontal rules separated the transcript
+  from the input. At the panel's default height that left room for very little
+  conversation, and scrolling was the only way to read a reply of any length.
+
+  Spacing across the panel now matches the Problems panel — the densest surface
+  the app already ships — so the same panel height shows noticeably more of the
+  transcript. Message body text stays at its current size: prose here is read at
+  length, so only the line spacing tightened. The header, scroll area, message
+  stack, user bubbles, tool-call chips and composer all draw tighter, the two
+  rules above the composer are now one, and the header and scope-bar buttons drop
+  from 28px to 24px to match.
+
+  The panel's default height is unchanged, and this is not tied to the
+  Compact/Regular/Airy appearance setting — the assistant tab is simply denser
+  than it was.
+
+- c9baad4: Keep the context rail's panel buttons reachable at narrow window widths
+
+  The docked context rail panel declared a 220px minimum width, but the pane it
+  sits in has its minimum capped as a percentage of the workspace, so below about
+  a 489px pane group the pane was allocated fewer pixels than the panel demanded.
+  The pane wrapper hard-clips its overflow, so the trailing controls — the Related
+  panel's insert-link button and the Metadata panel's edit and delete buttons —
+  were cut off rather than shown. The panel no longer claims a floor it cannot be
+  given: its rows keep the action buttons pinned and truncate the note title or
+  property value instead, and long tags and section headings wrap rather than
+  pushing the panel wider than the pane.
+
+- 8f4e8ca: Document the CLI-provider arg placeholders where they are actually typed.
+  - **Settings → AI → Providers** now names all three substituted tokens (`{model}`, `{prompt}`, `{output_file}`) in its section description, and states the non-obvious part: omitting `{prompt}` is not "no prompt", it switches Carbide to piping the prompt on stdin. The same text mirrors into the settings search index, so searching for `prompt`, `output_file` or `stdin` surfaces the Providers entry.
+  - The **add-provider** Args field previously hinted `chat {model}` only — omitting the two tokens at exactly the moment a first-time user needs them. Both the add and edit forms now show the same hint, including `{output_file}`.
+  - `docs/ai_and_chat.md` gains a **Placeholders in CLI args** section: what each token expands to and where it is accepted, the two tokens whose mere presence changes behaviour (`{prompt}` selecting stdin, `{output_file}` opting the provider out of IWE transforms), that unrecognised tokens pass through to argv verbatim, and that the double-braced `{{context}}` in a generated `.iwe/config.toml` is IWE's token — written verbatim and never resolved by Carbide.
+
+  Copy and documentation only; no substitution behaviour changed.
+
+- 7e6a1b5: Keep a chosen retrieval token budget across restarts, and stop saves from
+  re-indexing excluded files
+
+  Picking a specific retrieval context budget in AI settings appeared to save, but
+  the value was dropped the next time settings loaded and the setting reverted to
+  Automatic — so the explicit half of that control had never actually worked.
+  Stored values are now validated against the type the setting declares rather
+  than against a default it does not have, so an explicit budget survives a
+  restart while Automatic still stays Automatic.
+
+  Saving a hidden or ignored file no longer puts it back into the search index.
+  Indexing now applies the same exclusion rule on the save path that a vault scan
+  applies, so a dotfile note edited with hidden files shown does not produce
+  search hits that appear after every save and disappear at the next sync; any row
+  left over from an earlier save is removed.
+
+  When settings fail to persist, the underlying reason for each key is now written
+  to the log instead of being discarded, so a failure is diagnosable from the log
+  rather than only from the list of key names shown in the dialog.
+
 ## 2.34.1
 
 ### Patch Changes
