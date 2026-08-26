@@ -228,6 +228,7 @@
     letter-spacing: 0.05em;
     color: var(--muted-foreground);
     padding: 0 0.5rem;
+    overflow-wrap: anywhere;
   }
   .RelatedPanel__hint {
     color: var(--muted-foreground);

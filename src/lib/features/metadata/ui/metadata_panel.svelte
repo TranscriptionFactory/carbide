@@ -482,6 +482,7 @@
     font-weight: 500;
     color: var(--accent-foreground);
     line-height: 1;
+    overflow-wrap: anywhere;
   }
 
   .MetadataPanel__tag--inline {

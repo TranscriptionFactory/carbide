@@ -16,7 +16,7 @@ describe("px_to_min_size", () => {
     expect(px_to_min_size(220, 400, 12, 30)).toBe(30);
   });
 
-  it("lets the context rail claim up to 45% before clipping its 220px floor", () => {
+  it("caps the context rail at 45% once its 220px floor would exceed that", () => {
     expect(px_to_min_size(220, 489, 12, 45)).toBe(45);
     expect(px_to_min_size(220, 400, 12, 45)).toBe(45);
     expect(px_to_min_size(220, 733, 12, 45)).toBe(30.1);
