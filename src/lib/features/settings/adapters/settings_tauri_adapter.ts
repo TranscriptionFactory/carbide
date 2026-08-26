@@ -13,7 +13,13 @@ export function create_settings_tauri_adapter(): SettingsPort {
     },
 
     async set_setting(key: string, value: unknown): Promise<void> {
-      await tauri_invoke<undefined>("set_setting", { key, value });
+      // Tauri drops undefined keys during serialization and the Rust command
+      // takes a non-Option Value, so an unset optional setting must travel as
+      // an explicit null.
+      await tauri_invoke<undefined>("set_setting", {
+        key,
+        value: value ?? null,
+      });
     },
   };
 }
