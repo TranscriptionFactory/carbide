@@ -31,15 +31,13 @@
 </div>
 
 <style>
-  /* min-width matches RAIL_MIN_PX in workspace_layout.svelte; overflow-x
-     clip (not hidden) so content keeps its layout instead of being
-     squeezed mid-icon when the pane briefly undershoots the floor. */
+  /* No min-width: the pane's minSize is percentage-capped, so a px floor here
+     is a demand paneforge cannot honour and its wrapper hard-clips the excess.
+     Panel content truncates instead. */
   .ContextRailPanel {
     height: 100%;
-    min-width: 220px;
     background-color: var(--background);
     box-shadow: inset 1px 0 0 var(--border);
-    overflow-x: clip;
     overflow-y: auto;
     padding-block-start: var(--space-2);
   }

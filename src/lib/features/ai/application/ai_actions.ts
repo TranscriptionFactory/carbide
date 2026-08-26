@@ -3,7 +3,10 @@ import { create_logger } from "$lib/shared/utils/logger";
 import YAML from "yaml";
 import type { ActionRegistrationInput } from "$lib/app";
 import { ACTION_IDS } from "$lib/app";
-import type { AiVaultContext } from "$lib/features/ai/domain/ai_types";
+import type {
+  AiVaultContext,
+  VaultContextSettings,
+} from "$lib/features/ai/domain/ai_types";
 import { find_provider } from "$lib/features/ai/domain/ai_types";
 import {
   preferred_ai_backend_order,
@@ -36,6 +39,10 @@ import {
   resolve_inline_ai_anchor_coords,
 } from "$lib/features/editor";
 import type { EditorSelectionSnapshot } from "$lib/shared/types/editor";
+import {
+  DEFAULT_EDITOR_SETTINGS,
+  type EditorSettings,
+} from "$lib/shared/types/editor_settings";
 import type {
   AssistantProposalStore,
   AssistantSessionService,
@@ -71,6 +78,52 @@ import type { EditorView } from "prosemirror-view";
 const log = create_logger("ai_actions");
 
 const MAX_INLINE_CONTEXT = 4000;
+
+const SIMILAR_LIMIT_MIN = 1;
+const SIMILAR_LIMIT_MAX = 50;
+const SIMILARITY_THRESHOLD_MIN = 0;
+const SIMILARITY_THRESHOLD_MAX = 1;
+
+// The dropdowns that write these two settings cannot produce an out-of-range
+// value, but settings import/export and plugin writes reach the same keys
+// unmediated, and the failures are silent rather than loud: a negative
+// threshold returns zero similar notes, and a huge limit asks the search port
+// for every note in the vault.
+function vault_context_settings(
+  settings: EditorSettings,
+  enabled: boolean,
+): VaultContextSettings {
+  return {
+    enabled,
+    similar_limit: clamp(
+      settings.ai_vault_context_similar_limit,
+      SIMILAR_LIMIT_MIN,
+      SIMILAR_LIMIT_MAX,
+      DEFAULT_EDITOR_SETTINGS.ai_vault_context_similar_limit,
+      Math.round,
+    ),
+    include_links: settings.ai_vault_context_include_links,
+    similarity_threshold: clamp(
+      settings.ai_vault_context_similarity_threshold,
+      SIMILARITY_THRESHOLD_MIN,
+      SIMILARITY_THRESHOLD_MAX,
+      DEFAULT_EDITOR_SETTINGS.ai_vault_context_similarity_threshold,
+    ),
+  };
+}
+
+// A distance threshold is fractional, so rounding is opt-in rather than the
+// default the sibling chat-retrieval clamp applies.
+function clamp(
+  value: number,
+  min: number,
+  max: number,
+  fallback: number,
+  quantise: (n: number) => number = (n) => n,
+): number {
+  if (!Number.isFinite(value)) return fallback;
+  return Math.min(max, Math.max(min, quantise(value)));
+}
 
 // One object per inline request, captured by the handler that created it. A
 // module-level snapshot shared by every run let an accept in note B diff
@@ -194,12 +247,10 @@ export function register_ai_actions(
     if (!settings.ai_inline_vault_context) return undefined;
     const editor_ctx = services.editor.get_ai_context();
     if (!editor_ctx) return undefined;
-    return await ai_service.fetch_vault_context(editor_ctx.note_path, {
-      enabled: true,
-      similar_limit: settings.ai_vault_context_similar_limit,
-      include_links: settings.ai_vault_context_include_links,
-      similarity_threshold: settings.ai_vault_context_similarity_threshold,
-    });
+    return await ai_service.fetch_vault_context(
+      editor_ctx.note_path,
+      vault_context_settings(settings, true),
+    );
   }
 
   async function resolve_streaming_provider(): Promise<AiProviderConfig | null> {
@@ -923,13 +974,10 @@ export function register_ai_actions(
           },
           mode: "ask",
           timeout_seconds: settings.ai_execution_timeout_seconds,
-          vault_context_settings: {
-            enabled: settings.ai_vault_context_enabled,
-            similar_limit: settings.ai_vault_context_similar_limit,
-            include_links: settings.ai_vault_context_include_links,
-            similarity_threshold:
-              settings.ai_vault_context_similarity_threshold,
-          },
+          vault_context_settings: vault_context_settings(
+            settings,
+            settings.ai_vault_context_enabled,
+          ),
           run: { kind: "background", label: "Generate description" },
           on_run_started: (started) => {
             handle = started;

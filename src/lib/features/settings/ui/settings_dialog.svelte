@@ -1078,7 +1078,9 @@
                   <span class="SettingsDialog__label">Providers</span>
                   <span class="SettingsDialog__description">
                     CLI tools used for AI assistance. Order determines
-                    auto-detection priority.
+                    auto-detection priority. Args accept {"{model}"},
+                    {"{prompt}"} and {"{output_file}"}; omit {"{prompt}"} and Carbide
+                    sends the prompt on stdin instead.
                   </span>
                 </div>
               </div>
@@ -1292,8 +1294,7 @@
                             type="text"
                             value={provider.transport.args.join(" ")}
                             class="flex-1 font-mono text-xs"
-                            placeholder="{'{' + 'model}'} or -p {'{' +
-                              'prompt}'}"
+                            placeholder={"{model} or -p {prompt} or {output_file}"}
                             disabled={ai_settings_disabled}
                             oninput={(
                               e: Event & { currentTarget: HTMLInputElement },
@@ -1641,7 +1642,7 @@
                         type="text"
                         bind:value={new_provider.args}
                         class="flex-1 font-mono text-xs"
-                        placeholder="chat {'{' + 'model}'}"
+                        placeholder={"{model} or -p {prompt} or {output_file}"}
                         disabled={ai_settings_disabled}
                       />
                     </div>
@@ -2230,7 +2231,12 @@
                 </button>
               </div>
             </div>
+          </div>
 
+          <div class="SettingsDialog__section-divider"></div>
+          <h3 class="SettingsDialog__section-subheader">Chat retrieval</h3>
+
+          <div class="SettingsDialog__section-content">
             <div class="SettingsDialog__row">
               <div class="SettingsDialog__label-group">
                 <span class="SettingsDialog__label">Chat Retrieval Sources</span
@@ -2359,13 +2365,22 @@
                 </Select.Content>
               </Select.Root>
             </div>
+          </div>
 
+          <div class="SettingsDialog__section-divider"></div>
+          <h3 class="SettingsDialog__section-subheader">
+            Inline AI vault context
+          </h3>
+
+          <div class="SettingsDialog__section-content">
             <div class="SettingsDialog__row">
               <div class="SettingsDialog__label-group">
                 <span class="SettingsDialog__label">Include Vault Context</span>
                 <span class="SettingsDialog__description"
-                  >Send semantically similar and linked notes as context to the
-                  AI</span
+                  >Send semantically similar and linked notes as context when
+                  Carbide generates a note description. Inline AI is switched on
+                  separately, by Inline AI Vault Context above; vault chat reads
+                  neither.</span
                 >
               </div>
               <Switch.Root
@@ -2381,7 +2396,9 @@
               <div class="SettingsDialog__label-group">
                 <span class="SettingsDialog__label">Similar Notes Limit</span>
                 <span class="SettingsDialog__description"
-                  >Maximum number of similar notes to include</span
+                  >Maximum number of similar notes inline AI and generated
+                  descriptions include. Does not affect vault chat, which sizes
+                  retrieval from Chat Retrieval Sources.</span
                 >
               </div>
               <Select.Root
@@ -2391,7 +2408,8 @@
                   if (v) update("ai_vault_context_similar_limit", Number(v));
                 }}
                 disabled={ai_settings_disabled ||
-                  !editor_settings.ai_vault_context_enabled}
+                  (!editor_settings.ai_vault_context_enabled &&
+                    !editor_settings.ai_inline_vault_context)}
               >
                 <Select.Trigger class="w-28">
                   <span data-slot="select-value">
@@ -2410,7 +2428,9 @@
               <div class="SettingsDialog__label-group">
                 <span class="SettingsDialog__label">Include Linked Notes</span>
                 <span class="SettingsDialog__description"
-                  >Include backlinks and outlinks as additional context</span
+                  >Include backlinks and outlinks as additional context for
+                  inline AI and generated descriptions. Does not affect vault
+                  chat.</span
                 >
               </div>
               <Switch.Root
@@ -2419,7 +2439,8 @@
                   update("ai_vault_context_include_links", v);
                 }}
                 disabled={ai_settings_disabled ||
-                  !editor_settings.ai_vault_context_enabled}
+                  (!editor_settings.ai_vault_context_enabled &&
+                    !editor_settings.ai_inline_vault_context)}
               />
             </div>
 
@@ -2428,7 +2449,8 @@
                 <span class="SettingsDialog__label">Similarity Threshold</span>
                 <span class="SettingsDialog__description"
                   >Only include notes with similarity distance at or below this
-                  value</span
+                  value. Applies to inline AI and generated descriptions, not to
+                  vault chat.</span
                 >
               </div>
               <Select.Root
@@ -2441,7 +2463,8 @@
                     update("ai_vault_context_similarity_threshold", Number(v));
                 }}
                 disabled={ai_settings_disabled ||
-                  !editor_settings.ai_vault_context_enabled}
+                  (!editor_settings.ai_vault_context_enabled &&
+                    !editor_settings.ai_inline_vault_context)}
               >
                 <Select.Trigger class="w-28">
                   <span data-slot="select-value">
@@ -2455,7 +2478,12 @@
                 </Select.Content>
               </Select.Root>
             </div>
+          </div>
 
+          <div class="SettingsDialog__section-divider"></div>
+          <h3 class="SettingsDialog__section-subheader">Conversations</h3>
+
+          <div class="SettingsDialog__section-content">
             <div class="SettingsDialog__row">
               <div class="SettingsDialog__label-group">
                 <span class="SettingsDialog__label">Keep Conversations For</span

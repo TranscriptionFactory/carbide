@@ -1518,3 +1518,56 @@ describe("AssistantChatService.query context assembly", () => {
     expect(request?.mode === "text" ? request.timeout_seconds : null).toBe(45);
   });
 });
+
+// The runs popover opens a run by `origin.session_id`, so a chat run that
+// carries no origin is an unclickable row for the most common path in the app.
+// The service cannot reach the chat store; these pin that the caller's id
+// reaches the RunSpec, and that a caller with no session stays originless.
+describe("AssistantChatService.query run origin", () => {
+  function seam_with(starter: ReturnType<typeof text_stream>) {
+    const search = {
+      search_blocks: vi.fn().mockResolvedValue([]),
+      hybrid_search: vi
+        .fn()
+        .mockResolvedValue([hit("notes/q.md", "Q", "1", 0.9)]),
+    };
+    const notes = {
+      read_note: vi.fn().mockResolvedValue({ markdown: "The answer is 42." }),
+    };
+    return create_chat_seam({
+      search,
+      notes,
+      run_starter: starter as never,
+      tag,
+      bases,
+    }).chat;
+  }
+
+  it("stamps the caller's session id onto the run spec", async () => {
+    const starter = text_stream("42.");
+
+    await collect(
+      seam_with(starter).query({
+        question: "what is it?",
+        provider_config: provider,
+        session_id: "session-9",
+      }),
+    );
+
+    expect(starter.specs[0]?.kind).toBe("chat");
+    expect(starter.specs[0]?.origin).toEqual({ session_id: "session-9" });
+  });
+
+  it("leaves the run originless when the caller has no session", async () => {
+    const starter = text_stream("42.");
+
+    await collect(
+      seam_with(starter).query({
+        question: "what is it?",
+        provider_config: provider,
+      }),
+    );
+
+    expect(starter.specs[0]?.origin).toBeUndefined();
+  });
+});

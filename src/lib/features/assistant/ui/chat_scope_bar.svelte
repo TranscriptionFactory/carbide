@@ -246,8 +246,8 @@
   {#if active_document && attached_document?.path !== active_document.path}
     <Button
       variant="outline"
-      size="sm"
-      class="h-7 self-start px-2 text-xs font-normal text-muted-foreground"
+      size="xs"
+      class="self-start text-xs font-normal text-muted-foreground"
       data-testid="scope-this-document"
       title={`Attach "${active_document.title}" to this chat`}
       onclick={() => on_attach_document?.()}
@@ -258,8 +258,8 @@
   {:else if !active_document && !scoped_to_active}
     <Button
       variant="outline"
-      size="sm"
-      class="h-7 self-start px-2 text-xs font-normal text-muted-foreground"
+      size="xs"
+      class="self-start text-xs font-normal text-muted-foreground"
       data-testid="scope-this-note"
       disabled={active_note_path === null}
       title={active_note_path === null

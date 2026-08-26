@@ -49,6 +49,35 @@ presets (LM Studio, llama.cpp) are treated as always-available, since reachabili
 confirmed by an actual request. You can also add custom providers with your own command/args
 or base URL.
 
+### Placeholders in CLI args
+
+A CLI provider's **Args** (and its optional streaming args) are a template. Carbide substitutes
+three single-braced tokens before spawning the command:
+
+| Token           | Expands to                              | Accepted in             |
+| --------------- | --------------------------------------- | ----------------------- |
+| `{model}`       | the resolved model id                   | args and streaming args |
+| `{prompt}`      | the fully assembled prompt              | args and streaming args |
+| `{output_file}` | a temp path Carbide reads after the run | args only               |
+
+Two of them change behaviour by their presence alone:
+
+- **Omitting `{prompt}` is not "no prompt" — it selects stdin.** When no argument contains
+  `{prompt}`, Carbide pipes the assembled prompt to the command's standard input instead. A CLI
+  that reads a trailing positional prompt needs the token; one that reads stdin must not have it.
+- **`{output_file}` opts the provider out of IWE transforms.** A provider whose args name it is
+  rejected for IWE transforms and does not appear in the **AI Provider** dropdown under
+  **Settings → Tools → IWE Configuration**, because those transforms read the CLI's stdout.
+
+Anything else is left alone. An unrecognised token such as `{foo}` is passed through to the
+command's argv verbatim — Carbide does not validate or warn.
+
+**Two other brace tokens exist and are unrelated.** `{scope}` belongs to chat **Question
+Recipes** and is substituted only there; it does nothing in provider args, and `{prompt}` does
+nothing in a recipe. The double-braced `{{context}}` seen in a generated `.iwe/config.toml` is
+**IWE's** token, not Carbide's: Carbide writes it verbatim and never resolves it. The `{prompt}`
+of an IWE transform is resolved when that config is generated, so it never reaches the file.
+
 ### ACP adapters and the Node runtime
 
 Three of the four ACP presets — `claude`, `codex`, `pi` — do not speak ACP themselves. Carbide

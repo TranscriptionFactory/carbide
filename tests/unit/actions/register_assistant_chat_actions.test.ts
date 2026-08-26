@@ -221,6 +221,20 @@ describe("register_chat_actions", () => {
     );
   });
 
+  // The runs popover opens a run by `origin.session_id`. The ask action is the
+  // only place that knows which session the turn belongs to, so if it does not
+  // hand the id down, every chat run in the app is an unclickable row.
+  it("asks: tags the query with the session the turn belongs to", async () => {
+    const { registry, chat_service, chat_store } = create_harness();
+
+    await registry.execute(ACTION_IDS.rag_ask, "what is it?");
+
+    expect(chat_store.active_id).not.toBeNull();
+    expect(chat_service.query).toHaveBeenCalledWith(
+      expect.objectContaining({ session_id: chat_store.active_id }),
+    );
+  });
+
   it("asks: clamps out-of-range retrieval settings to sane bounds", async () => {
     const { registry, chat_service, stores } = create_harness();
     stores.ui.editor_settings.ai_rag_retrieve_limit = 999;
@@ -248,8 +262,8 @@ describe("register_chat_actions", () => {
       expect.objectContaining({
         retrieve_limit: DEFAULT_EDITOR_SETTINGS.ai_rag_retrieve_limit,
         assembler_options: {
-          token_budget: 48000,
-          reserve_tokens: 12000,
+          token_budget: 60000,
+          reserve_tokens: 15000,
         },
         history_token_budget: 1500,
       }),

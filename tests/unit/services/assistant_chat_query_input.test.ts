@@ -92,7 +92,7 @@ describe("build_chat_query_input", () => {
     });
   });
 
-  it("derives and caps the context budget from a large provider window", () => {
+  it("lets the window fraction, not the ceiling, size a 200k provider window", () => {
     const input = build_chat_query_input({
       question: "what is it?",
       provider_config: { ...provider, context_window_tokens: 200_000 },
@@ -100,8 +100,21 @@ describe("build_chat_query_input", () => {
     });
 
     expect(input.assembler_options).toEqual({
-      token_budget: 48000,
-      reserve_tokens: 12000,
+      token_budget: 60000,
+      reserve_tokens: 15000,
+    });
+  });
+
+  it("caps the context budget when the provider window is oversized", () => {
+    const input = build_chat_query_input({
+      question: "what is it?",
+      provider_config: { ...provider, context_window_tokens: 1_000_000 },
+      settings: settings(),
+    });
+
+    expect(input.assembler_options).toEqual({
+      token_budget: 64000,
+      reserve_tokens: 16000,
     });
   });
 
@@ -190,5 +203,20 @@ describe("build_chat_query_input", () => {
     });
 
     expect(input.attachment).toBe(attachment);
+  });
+
+  it("passes the session id through so the run can be opened from the popover", () => {
+    const input = build_chat_query_input({
+      question: "q",
+      provider_config: provider,
+      settings: settings(),
+      session_id: "session-9",
+    });
+
+    expect(input.session_id).toBe("session-9");
+  });
+
+  it("omits the session id for a caller with no session", () => {
+    expect(build().session_id).toBeUndefined();
   });
 });

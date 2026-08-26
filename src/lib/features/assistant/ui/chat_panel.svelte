@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { tick } from "svelte";
   import {
     MessagesSquare,
     Loader2,
@@ -56,6 +57,29 @@
   const visible_messages = $derived(
     rag.messages.filter((m) => m.role !== "tool"),
   );
+
+  let transcript_element = $state<HTMLElement>();
+
+  // The wait indicator and the queued bubble render after the message loop in
+  // the same container, so a message count alone misses the submit that only
+  // produces one of those.
+  const transcript_signal = $derived(
+    [
+      visible_messages.length,
+      rag.is_loading,
+      rag.streaming_id,
+      rag.queued_prompt !== null,
+    ].join("|"),
+  );
+
+  $effect(() => {
+    void transcript_signal;
+    const element = transcript_element;
+    if (!element) return;
+    void tick().then(() => {
+      element.scrollTop = element.scrollHeight;
+    });
+  });
 
   let show_sessions = $state(false);
 
@@ -276,7 +300,7 @@
 {/snippet}
 
 <div class="flex h-full flex-col" data-assistant-panel-root>
-  <div class="flex items-center justify-between border-b px-3 py-1.5">
+  <div class="flex items-center justify-between border-b px-3 py-1">
     <div class="flex items-center gap-1">
       <span class="text-xs font-medium text-muted-foreground">Vault Chat</span>
       <AssistantPresence
@@ -299,8 +323,8 @@
       {#if sessions.length > 0}
         <Button
           variant="ghost"
-          size="sm"
-          class="h-7 gap-1.5 {show_sessions ? 'bg-accent' : ''}"
+          size="xs"
+          class={show_sessions ? "bg-accent" : ""}
           onclick={() => (show_sessions = !show_sessions)}
         >
           <History class="size-3.5" />
@@ -310,8 +334,7 @@
       {#if pending_proposal_count > 0}
         <Button
           variant="ghost"
-          size="sm"
-          class="h-7 gap-1.5"
+          size="xs"
           title="Review proposals"
           data-testid="chat-panel-review-proposals"
           onclick={open_proposals}
@@ -321,7 +344,7 @@
         </Button>
       {/if}
     </div>
-    <Button variant="ghost" size="sm" class="h-7 gap-1.5" onclick={new_chat}>
+    <Button variant="ghost" size="xs" onclick={new_chat}>
       <SquarePen class="size-3.5" />
       New chat
     </Button>
@@ -356,7 +379,11 @@
       />
     </div>
   {:else}
-    <div class="flex-1 select-text overflow-y-auto p-3">
+    <div
+      class="flex-1 select-text overflow-y-auto p-2"
+      data-testid="chat-transcript"
+      bind:this={transcript_element}
+    >
       {#if visible_messages.length === 0 && !rag.is_loading}
         <div class="flex h-full items-center justify-center">
           <EmptyMessage
@@ -381,7 +408,7 @@
           </EmptyMessage>
         </div>
       {:else}
-        <div class="flex flex-col gap-4">
+        <div class="flex flex-col gap-2.5">
           {#each visible_messages as message (message.id)}
             {#if show_pending_sources && message.id === rag.streaming_id}
               {@render sources_strip()}
