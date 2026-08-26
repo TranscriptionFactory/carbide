@@ -115,6 +115,13 @@ describe("context rail at narrow pane widths", () => {
     expect(getComputedStyle(row as HTMLElement).flexWrap).not.toBe("wrap");
     expect(row?.querySelector(".truncate")).not.toBeNull();
 
+    const heading = rendered.target.querySelector<HTMLElement>(
+      ".RelatedPanel__heading",
+    );
+    expect(getComputedStyle(heading as HTMLElement).overflowWrap).toBe(
+      "anywhere",
+    );
+
     rendered.cleanup();
   });
 
@@ -147,6 +154,17 @@ describe("context rail at narrow pane widths", () => {
     const value_style = getComputedStyle(value as HTMLElement);
     expect(value_style.textOverflow).toBe("ellipsis");
     expect(value_style.whiteSpace).toBe("nowrap");
+
+    stores.metadata.tags = [
+      { tag: "a-tag-name-longer-than-the-pane-is-wide", source: "frontmatter" },
+    ] as never;
+    const tagged = render_narrow(MetadataPanel, {
+      stores,
+      action_registry: stub_registry(),
+    } as unknown as Partial<AppContext>);
+    const tag = tagged.target.querySelector<HTMLElement>(".MetadataPanel__tag");
+    expect(getComputedStyle(tag as HTMLElement).overflowWrap).toBe("anywhere");
+    tagged.cleanup();
 
     rendered.cleanup();
   });
