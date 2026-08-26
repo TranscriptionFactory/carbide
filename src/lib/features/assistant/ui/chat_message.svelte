@@ -179,13 +179,13 @@
 {#if message.role === "user"}
   <div class="flex justify-end">
     <div
-      class="max-w-[85%] select-text whitespace-pre-wrap rounded-lg bg-primary px-3 py-2 text-sm text-primary-foreground"
+      class="max-w-[85%] select-text whitespace-pre-wrap rounded-lg bg-primary px-[9px] py-[5px] text-sm text-primary-foreground"
     >
       {message.content}
     </div>
   </div>
 {:else}
-  <div class="group/message flex flex-col gap-2">
+  <div class="group/message flex flex-col gap-1.5">
     {#if message.reasoning}
       <div class="rounded-md border bg-muted/20">
         <CollapsibleSection
@@ -225,7 +225,7 @@
     {/if}
     <div
       bind:this={content_el}
-      class="rag-markdown text-sm leading-relaxed text-foreground"
+      class="rag-markdown text-sm leading-[1.45] text-foreground"
     >
       {@html rendered_html}{#if is_streaming}<span
           class="ml-0.5 inline-block w-1.5 animate-pulse select-none align-baseline text-foreground"

@@ -279,4 +279,23 @@ describe("chat_input.svelte", () => {
 
     view.cleanup();
   });
+
+  it("does not reserve a 64px composer for a single-line prompt", () => {
+    const view = render_chat_input();
+
+    expect(textarea().className).toContain("min-h-[38px]");
+    expect(textarea().className).not.toContain("min-h-16");
+
+    view.cleanup();
+  });
+
+  it("leaves the divider above the composer to the mode toggle", () => {
+    const view = render_chat_input();
+    const wrapper = textarea().closest("div")?.parentElement;
+
+    expect(wrapper?.className).toContain("p-2");
+    expect(wrapper?.className).not.toContain("border-t");
+
+    view.cleanup();
+  });
 });

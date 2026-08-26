@@ -293,7 +293,7 @@
   }
 </script>
 
-<div class="flex flex-col gap-2 border-t p-2">
+<div class="flex flex-col gap-2 p-2">
   {#if mention_chips.length > 0}
     <div class="ChatInput__chips">
       {#each mention_chips as mention (mention)}
@@ -320,7 +320,7 @@
       onkeydown={on_keydown}
       oninput={() => void refresh_mentions()}
       onblur={() => suggest.close()}
-      class="max-h-48 min-h-16 resize-none text-sm"
+      class="max-h-48 min-h-[38px] resize-none text-sm"
     />
     {#if suggest.open}
       <DslSuggestDropdown

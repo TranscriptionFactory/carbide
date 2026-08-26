@@ -300,7 +300,7 @@
 {/snippet}
 
 <div class="flex h-full flex-col" data-assistant-panel-root>
-  <div class="flex items-center justify-between border-b px-3 py-1.5">
+  <div class="flex items-center justify-between border-b px-3 py-1">
     <div class="flex items-center gap-1">
       <span class="text-xs font-medium text-muted-foreground">Vault Chat</span>
       <AssistantPresence
@@ -381,7 +381,7 @@
     </div>
   {:else}
     <div
-      class="flex-1 select-text overflow-y-auto p-3"
+      class="flex-1 select-text overflow-y-auto p-2"
       data-testid="chat-transcript"
       bind:this={transcript_element}
     >
@@ -409,7 +409,7 @@
           </EmptyMessage>
         </div>
       {:else}
-        <div class="flex flex-col gap-4">
+        <div class="flex flex-col gap-2.5">
           {#each visible_messages as message (message.id)}
             {#if show_pending_sources && message.id === rag.streaming_id}
               {@render sources_strip()}
