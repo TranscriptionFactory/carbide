@@ -324,7 +324,7 @@
         <Button
           variant="ghost"
           size="sm"
-          class="h-7 gap-1.5 {show_sessions ? 'bg-accent' : ''}"
+          class="h-6 gap-1.5 {show_sessions ? 'bg-accent' : ''}"
           onclick={() => (show_sessions = !show_sessions)}
         >
           <History class="size-3.5" />
@@ -335,7 +335,7 @@
         <Button
           variant="ghost"
           size="sm"
-          class="h-7 gap-1.5"
+          class="h-6 gap-1.5"
           title="Review proposals"
           data-testid="chat-panel-review-proposals"
           onclick={open_proposals}
@@ -345,7 +345,7 @@
         </Button>
       {/if}
     </div>
-    <Button variant="ghost" size="sm" class="h-7 gap-1.5" onclick={new_chat}>
+    <Button variant="ghost" size="sm" class="h-6 gap-1.5" onclick={new_chat}>
       <SquarePen class="size-3.5" />
       New chat
     </Button>

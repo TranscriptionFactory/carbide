@@ -247,7 +247,7 @@
     <Button
       variant="outline"
       size="sm"
-      class="h-7 self-start px-2 text-xs font-normal text-muted-foreground"
+      class="h-6 self-start px-2 text-xs font-normal text-muted-foreground"
       data-testid="scope-this-document"
       title={`Attach "${active_document.title}" to this chat`}
       onclick={() => on_attach_document?.()}
@@ -259,7 +259,7 @@
     <Button
       variant="outline"
       size="sm"
-      class="h-7 self-start px-2 text-xs font-normal text-muted-foreground"
+      class="h-6 self-start px-2 text-xs font-normal text-muted-foreground"
       data-testid="scope-this-note"
       disabled={active_note_path === null}
       title={active_note_path === null

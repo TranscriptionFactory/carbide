@@ -161,6 +161,22 @@ describe("assistant panel density", () => {
     expect(container.className).not.toContain("p-3");
   });
 
+  it("draws the header at the compact button height", async () => {
+    const target = render_panel([message("m1", "user")]);
+    await settle();
+
+    const header = panel_root(target).firstElementChild;
+    const buttons = [
+      ...(header?.querySelectorAll('button[data-slot="button"]') ?? []),
+    ];
+
+    expect(buttons.length).toBeGreaterThan(0);
+    for (const button of buttons) {
+      expect(button.className).toContain("h-6");
+      expect(button.className).not.toContain("h-7");
+    }
+  });
+
   it("separates the message list from the composer with exactly one divider", async () => {
     const target = render_panel([message("m1", "user")]);
     await settle();
