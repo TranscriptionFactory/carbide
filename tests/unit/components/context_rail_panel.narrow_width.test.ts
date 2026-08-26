@@ -150,4 +150,32 @@ describe("context rail at narrow pane widths", () => {
 
     rendered.cleanup();
   });
+
+  it("keeps the Metadata panel's confirm and cancel buttons pinned while editing", () => {
+    inject_component_css(PANEL_SOURCES.metadata_panel);
+    const stores = create_app_stores();
+    stores.metadata.properties = [
+      {
+        key: "status",
+        value: "a property value far wider than a narrow context rail",
+      },
+    ] as never;
+    stores.metadata.editing_key = "status";
+
+    const rendered = render_narrow(MetadataPanel, {
+      stores,
+      action_registry: stub_registry(),
+    } as unknown as Partial<AppContext>);
+
+    const actions = rendered.target.querySelector<HTMLElement>(
+      ".MetadataPanel__prop .MetadataPanel__inline-actions",
+    );
+    expect(actions).not.toBeNull();
+    expect(
+      (actions as HTMLElement).querySelectorAll(".MetadataPanel__icon-btn"),
+    ).toHaveLength(2);
+    expect(getComputedStyle(actions as HTMLElement).flexShrink).toBe("0");
+
+    rendered.cleanup();
+  });
 });
