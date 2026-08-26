@@ -330,6 +330,14 @@ describe("register_ai_actions", () => {
         expect(low.similar_limit).toBe(1);
       });
 
+      it("rounds a fractional similar-notes limit rather than passing it on", async () => {
+        const settings = await run_inline(
+          setup_vault_context({ ai_vault_context_similar_limit: 3.6 }),
+        );
+
+        expect(settings.similar_limit).toBe(4);
+      });
+
       it("falls back to the shipped defaults when a setting is not a number", async () => {
         const settings = await run_inline(
           setup_vault_context({

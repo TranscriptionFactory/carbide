@@ -25,14 +25,16 @@ const TOKEN_BUDGET_MAX = 128000;
 //
 // The ceiling is a backstop against a provider declaring an enormous window --
 // a 1M-token model would otherwise claim a 300k-token context budget -- and not
-// a second budget dial. Every builtin CLI preset declares a 200k window
-// (ai_provider_config.ts), so 0.3 of it, 60000, has to clear the ceiling for the
-// fraction to be the sole arbiter of the budget; a ceiling under that clips
-// every provider that ships today and silently governs in the fraction's place,
-// which is two knobs deciding one number with the tighter one winning
-// invisibly. At 64000 the ceiling engages only past a ~213k declared window. The
-// floor covers the opposite end, where a small declared window would leave too
-// little room to answer from.
+// a second budget dial. The four ACP presets -- claude, codex, opencode and pi
+// -- declare a 200k window (ai_provider_config.ts); ollama declares none and
+// takes UNKNOWN_CONTEXT_TOKEN_BUDGET instead, so it is untouched by any of this.
+// For the four that do declare one, 0.3 of 200k is 60000, and that has to clear
+// the ceiling for the fraction to be the sole arbiter of the budget; a ceiling
+// under it clips all four and silently governs in the fraction's place, which is
+// two knobs deciding one number with the tighter one winning invisibly. At 64000
+// the ceiling engages only past a ~213k declared window. The floor covers the
+// opposite end, where a small declared window would leave too little room to
+// answer from.
 const DERIVED_TOKEN_BUDGET_FLOOR = 8000;
 const DERIVED_TOKEN_BUDGET_CEILING = 64000;
 const CONTEXT_WINDOW_FRACTION = 0.3;

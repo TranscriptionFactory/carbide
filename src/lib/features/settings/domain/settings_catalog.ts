@@ -673,7 +673,7 @@ export const SETTINGS_REGISTRY: SettingDefinition[] = [
     key: "ai_vault_context_enabled",
     label: "Include Vault Context",
     description:
-      "Send semantically similar and linked notes as context to inline AI and generated descriptions. Vault chat does not read this setting.",
+      "Send semantically similar and linked notes as context when Carbide generates a note description. Inline AI is switched on separately, by Inline AI Vault Context; vault chat reads neither.",
     category: "AI",
     keywords: [
       "ai",
@@ -706,7 +706,7 @@ export const SETTINGS_REGISTRY: SettingDefinition[] = [
     key: "ai_vault_context_include_links",
     label: "Include Linked Notes",
     description:
-      "Include backlinks and outlinks as additional context for inline AI and generated descriptions",
+      "Include backlinks and outlinks as additional context for inline AI and generated descriptions. Does not affect vault chat.",
     category: "AI",
     keywords: [
       "ai",

@@ -31,16 +31,30 @@ describe("inline-AI vault context settings are findable and scoped", () => {
     expect(entry(key)?.category).toBe("AI");
   });
 
-  // The two settings a reader most often mistakes for chat controls: they are
-  // read by inline AI and by generated descriptions, and never by vault chat.
+  // The three sub-settings route through the same helper on both consuming
+  // paths, so each genuinely governs inline AI as well as generated
+  // descriptions, and neither is read by vault chat.
   it.each([
     "ai_vault_context_similar_limit",
+    "ai_vault_context_include_links",
     "ai_vault_context_similarity_threshold",
   ] as const)("states that %s does not govern vault chat", (key) => {
     const description = entry(key)?.description ?? "";
 
     expect(description).toMatch(/inline AI/i);
     expect(description).toMatch(/not (to )?(affect |apply to )?vault chat/i);
+  });
+
+  // The master toggle is the odd one out: the inline path hardcodes `enabled`
+  // to true and never consults this key, so it reaches only the generated
+  // description. Claiming it governs inline AI would be the same class of wrong
+  // copy this suite exists to catch, one level down.
+  it("scopes the master toggle to generated descriptions, not inline AI", () => {
+    const description = entry("ai_vault_context_enabled")?.description ?? "";
+
+    expect(description).toMatch(/generates a note description/i);
+    expect(description).toMatch(/Inline AI Vault Context/);
+    expect(description).toMatch(/vault chat reads neither/i);
   });
 
   it("keeps the label collision with the Semantic threshold disambiguated by category", () => {
