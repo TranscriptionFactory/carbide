@@ -567,7 +567,8 @@ export const SETTINGS_REGISTRY: SettingDefinition[] = [
   {
     key: "ai_providers",
     label: "AI Providers",
-    description: "Configured AI CLI providers and their commands",
+    description:
+      "Configured AI CLI providers and their commands. Args accept {model}, {prompt} and {output_file}; omit {prompt} and Carbide sends the prompt on stdin instead.",
     category: "AI",
     keywords: [
       "ai",
@@ -579,6 +580,13 @@ export const SETTINGS_REGISTRY: SettingDefinition[] = [
       "claude",
       "codex",
       "lms",
+      "args",
+      "placeholder",
+      "token",
+      "model",
+      "prompt",
+      "output_file",
+      "stdin",
     ],
   },
   {
