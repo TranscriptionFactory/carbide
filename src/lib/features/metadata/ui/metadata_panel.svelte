@@ -367,6 +367,7 @@
     display: flex;
     gap: var(--space-0-5);
     align-items: center;
+    flex-shrink: 0;
   }
 
   .MetadataPanel__icon-btn {
@@ -482,6 +483,7 @@
     font-weight: 500;
     color: var(--accent-foreground);
     line-height: 1;
+    overflow-wrap: anywhere;
   }
 
   .MetadataPanel__tag--inline {
