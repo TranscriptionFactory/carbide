@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { tick } from "svelte";
   import {
     MessagesSquare,
     Loader2,
@@ -56,6 +57,29 @@
   const visible_messages = $derived(
     rag.messages.filter((m) => m.role !== "tool"),
   );
+
+  let transcript_element = $state<HTMLElement>();
+
+  // The wait indicator and the queued bubble render after the message loop in
+  // the same container, so a message count alone misses the submit that only
+  // produces one of those.
+  const transcript_signal = $derived(
+    [
+      visible_messages.length,
+      rag.is_loading,
+      rag.streaming_id,
+      rag.queued_prompt !== null,
+    ].join("|"),
+  );
+
+  $effect(() => {
+    void transcript_signal;
+    const element = transcript_element;
+    if (!element) return;
+    void tick().then(() => {
+      element.scrollTop = element.scrollHeight;
+    });
+  });
 
   let show_sessions = $state(false);
 
@@ -356,7 +380,11 @@
       />
     </div>
   {:else}
-    <div class="flex-1 select-text overflow-y-auto p-3">
+    <div
+      class="flex-1 select-text overflow-y-auto p-3"
+      data-testid="chat-transcript"
+      bind:this={transcript_element}
+    >
       {#if visible_messages.length === 0 && !rag.is_loading}
         <div class="flex h-full items-center justify-center">
           <EmptyMessage
