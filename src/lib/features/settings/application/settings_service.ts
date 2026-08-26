@@ -150,6 +150,22 @@ export class SettingsService {
     }
   }
 
+  private async save_global_only_settings(
+    settings: EditorSettings,
+  ): Promise<void> {
+    const results = await Promise.allSettled(
+      GLOBAL_ONLY_SETTING_KEYS.map((key) =>
+        this.settings_port.set_setting(key, settings[key]),
+      ),
+    );
+    const failed_keys = GLOBAL_ONLY_SETTING_KEYS.filter(
+      (_, index) => results[index]?.status === "rejected",
+    );
+    if (failed_keys.length > 0) {
+      throw new Error(`These settings did not save: ${failed_keys.join(", ")}`);
+    }
+  }
+
   async save_settings(settings: EditorSettings): Promise<SettingsSaveResult> {
     const vault_id = this.get_active_vault_id();
     if (!vault_id) {
@@ -169,9 +185,7 @@ export class SettingsService {
           vault_scoped,
         );
       }
-      for (const key of GLOBAL_ONLY_SETTING_KEYS) {
-        await this.settings_port.set_setting(key, settings[key]);
-      }
+      await this.save_global_only_settings(settings);
       this.succeed_operation("settings.save");
       return { status: "success" };
     } catch (error) {

@@ -6,14 +6,25 @@ import {
 import { VaultStore } from "$lib/features/vault/state/vault_store.svelte";
 import { OpStore } from "$lib/app/orchestration/op_store.svelte";
 import { as_vault_id } from "$lib/shared/types/ids";
-import { DEFAULT_EDITOR_SETTINGS } from "$lib/shared/types/editor_settings";
+import {
+  DEFAULT_EDITOR_SETTINGS,
+  GLOBAL_ONLY_SETTING_KEYS,
+} from "$lib/shared/types/editor_settings";
 import { create_test_vault } from "../helpers/test_fixtures";
 
 const VAULT_ID = as_vault_id("vault-a");
 
+// GLOBAL_ONLY_SETTING_KEYS entries whose EditorSettings default is intentionally
+// absent. Each one must survive the round trip as an explicit null, which the
+// settings adapter is responsible for producing.
+const NULLABLE_GLOBAL_ONLY_KEYS = new Set<string>([
+  "ai_rag_context_token_budget",
+]);
+
 function make_service(overrides: {
   vault_get?: unknown;
   global_get?: (key: string) => unknown;
+  set_setting_impl?: (key: string, value: unknown) => Promise<void>;
   now_ms?: () => number;
 }) {
   const vault_settings_port = {
@@ -25,7 +36,13 @@ function make_service(overrides: {
     get_setting: vi
       .fn()
       .mockImplementation((key: string) => Promise.resolve(global_get(key))),
-    set_setting: vi.fn().mockResolvedValue(undefined),
+    set_setting: vi
+      .fn()
+      .mockImplementation((key: string, value: unknown) =>
+        overrides.set_setting_impl
+          ? overrides.set_setting_impl(key, value)
+          : Promise.resolve(undefined),
+      ),
   };
   const vault_store = new VaultStore();
   vault_store.set_vault(create_test_vault({ id: VAULT_ID }));
@@ -257,6 +274,97 @@ describe("SettingsService", () => {
       "ignored_folders",
       expect.anything(),
     );
+  });
+
+  it("saves every global-only key when the optional token budget is unset", async () => {
+    const { service, settings_port } = make_service({});
+
+    const result = await service.save_settings({ ...DEFAULT_EDITOR_SETTINGS });
+
+    expect(result.status).toBe("success");
+    expect(settings_port.set_setting).toHaveBeenCalledTimes(
+      GLOBAL_ONLY_SETTING_KEYS.length,
+    );
+    // The service forwards the unset value as-is; the adapter is what turns it
+    // into an explicit null on the wire.
+    expect(settings_port.set_setting).toHaveBeenCalledWith(
+      "ai_rag_context_token_budget",
+      undefined,
+    );
+  });
+
+  it("attempts every global-only key even when one write rejects", async () => {
+    const { service, settings_port } = make_service({
+      set_setting_impl: (key) =>
+        key === "ai_rag_context_token_budget"
+          ? Promise.reject(new Error("missing required key value"))
+          : Promise.resolve(undefined),
+    });
+
+    const result = await service.save_settings({ ...DEFAULT_EDITOR_SETTINGS });
+
+    expect(result.status).toBe("failed");
+    expect(settings_port.set_setting).toHaveBeenCalledTimes(
+      GLOBAL_ONLY_SETTING_KEYS.length,
+    );
+    expect(settings_port.set_setting).toHaveBeenCalledWith(
+      "mcp_enabled",
+      DEFAULT_EDITOR_SETTINGS.mcp_enabled,
+    );
+    expect(settings_port.set_setting).toHaveBeenCalledWith(
+      "close_to_tray",
+      DEFAULT_EDITOR_SETTINGS.close_to_tray,
+    );
+  });
+
+  it("names every key that failed to persist in the save error", async () => {
+    const failing = new Set(["mcp_enabled", "close_to_tray"]);
+    const { service } = make_service({
+      set_setting_impl: (key) =>
+        failing.has(key)
+          ? Promise.reject(new Error("write failed"))
+          : Promise.resolve(undefined),
+    });
+
+    const result = await service.save_settings({ ...DEFAULT_EDITOR_SETTINGS });
+
+    expect(result.status).toBe("failed");
+    if (result.status !== "failed") throw new Error("expected failure");
+    expect(result.error).toContain("mcp_enabled");
+    expect(result.error).toContain("close_to_tray");
+    expect(result.error).not.toContain("autosave_enabled");
+  });
+
+  it("keeps every global-only key backed by a default unless allow-listed", () => {
+    const missing = GLOBAL_ONLY_SETTING_KEYS.filter(
+      (key) =>
+        (DEFAULT_EDITOR_SETTINGS as Record<string, unknown>)[key] ===
+          undefined && !NULLABLE_GLOBAL_ONLY_KEYS.has(key),
+    );
+
+    expect(missing).toEqual([]);
+  });
+
+  it("keeps the token budget on automatic across a save and reload", async () => {
+    const stored = new Map<string, unknown>();
+    const { service } = make_service({
+      // Mirrors the adapter contract: undefined travels as an explicit null.
+      set_setting_impl: (key, value) => {
+        stored.set(key, value ?? null);
+        return Promise.resolve(undefined);
+      },
+      global_get: (key) => (stored.has(key) ? stored.get(key) : null),
+    });
+
+    const saved = await service.save_settings({ ...DEFAULT_EDITOR_SETTINGS });
+    expect(saved.status).toBe("success");
+    expect(stored.get("ai_rag_context_token_budget")).toBeNull();
+
+    const loaded = await service.load_settings({ ...DEFAULT_EDITOR_SETTINGS });
+
+    expect(loaded.status).toBe("success");
+    if (loaded.status !== "success") throw new Error("expected success");
+    expect(loaded.settings.ai_rag_context_token_budget).toBeUndefined();
   });
 
   it("loads welcome state with defaults when missing", async () => {
