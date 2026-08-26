@@ -1078,7 +1078,9 @@
                   <span class="SettingsDialog__label">Providers</span>
                   <span class="SettingsDialog__description">
                     CLI tools used for AI assistance. Order determines
-                    auto-detection priority.
+                    auto-detection priority. Args accept {"{model}"},
+                    {"{prompt}"} and {"{output_file}"}; omit {"{prompt}"} and Carbide
+                    sends the prompt on stdin instead.
                   </span>
                 </div>
               </div>
@@ -1292,8 +1294,7 @@
                             type="text"
                             value={provider.transport.args.join(" ")}
                             class="flex-1 font-mono text-xs"
-                            placeholder="{'{' + 'model}'} or -p {'{' +
-                              'prompt}'}"
+                            placeholder={"{model} or -p {prompt} or {output_file}"}
                             disabled={ai_settings_disabled}
                             oninput={(
                               e: Event & { currentTarget: HTMLInputElement },
@@ -1641,7 +1642,7 @@
                         type="text"
                         bind:value={new_provider.args}
                         class="flex-1 font-mono text-xs"
-                        placeholder="chat {'{' + 'model}'}"
+                        placeholder={"{model} or -p {prompt} or {output_file}"}
                         disabled={ai_settings_disabled}
                       />
                     </div>
