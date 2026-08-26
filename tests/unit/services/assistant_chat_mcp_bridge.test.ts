@@ -279,6 +279,18 @@ describe("the MCP bridge honours the assistant kill switch", () => {
     expect(run_starter.specs).toHaveLength(0);
   });
 
+  // An MCP query answers an external client over `rag_query_respond`; it never
+  // opens an assistant session, so there is no transcript for a runs-popover
+  // row to open. Originless here is the correct answer, not an oversight.
+  it("starts an originless run because the MCP path has no session", async () => {
+    const { chat, run_starter } = make_seam(...answer_events);
+
+    await ask_over_mcp(chat, make_settings());
+
+    expect(run_starter.specs[0]?.kind).toBe("chat");
+    expect(run_starter.specs[0]?.origin).toBeUndefined();
+  });
+
   it("reports no provider when the assistant is enabled but none resolves", async () => {
     const { chat } = make_seam(...answer_events);
 

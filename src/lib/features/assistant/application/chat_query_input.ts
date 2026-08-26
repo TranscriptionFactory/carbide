@@ -42,6 +42,7 @@ export type ChatQueryInputRequest = {
   history?: AssistantMessage[];
   image_parts?: AiImagePart[];
   attachment?: ResolvedAttachment;
+  session_id?: string;
   on_run_started?: (handle: RunHandle) => void;
 };
 
@@ -104,6 +105,7 @@ export function build_chat_query_input(
     ...(request.history ? { history: request.history } : {}),
     ...(request.image_parts ? { image_parts: request.image_parts } : {}),
     ...(request.attachment ? { attachment: request.attachment } : {}),
+    ...(request.session_id ? { session_id: request.session_id } : {}),
     ...(request.on_run_started
       ? { on_run_started: request.on_run_started }
       : {}),

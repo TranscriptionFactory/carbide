@@ -124,6 +124,10 @@ export type AssistantChatQueryInput = {
   assembler_options?: Partial<ContextBudget>;
   history_token_budget?: number;
   image_parts?: AiImagePart[];
+  // The chat session the run belongs to. The service cannot reach the chat
+  // store, so the id is threaded in from the caller; a surface with no session
+  // (the MCP bridge) omits it and its run stays unopenable, correctly.
+  session_id?: string;
   // Attached open-tab document (pin 5). Outside the retrieval budget — the
   // legacy panel sent the whole document, and budgeting it here would
   // silently drop the exact content the user pointed at.
@@ -279,6 +283,7 @@ export class AssistantChatService {
         ],
         timeout_seconds: this.execution_timeout_seconds(),
       },
+      ...(input.session_id ? { origin: { session_id: input.session_id } } : {}),
     });
     input.on_run_started?.(handle);
 

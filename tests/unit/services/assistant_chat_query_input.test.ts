@@ -191,4 +191,19 @@ describe("build_chat_query_input", () => {
 
     expect(input.attachment).toBe(attachment);
   });
+
+  it("passes the session id through so the run can be opened from the popover", () => {
+    const input = build_chat_query_input({
+      question: "q",
+      provider_config: provider,
+      settings: settings(),
+      session_id: "session-9",
+    });
+
+    expect(input.session_id).toBe("session-9");
+  });
+
+  it("omits the session id for a caller with no session", () => {
+    expect(build().session_id).toBeUndefined();
+  });
 });
