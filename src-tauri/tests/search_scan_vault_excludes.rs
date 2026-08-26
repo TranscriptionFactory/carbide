@@ -11,17 +11,19 @@ fn write_file(dir: &Path, rel: &str, content: &str) {
     fs::write(&path, content).expect("file should be written");
 }
 
+fn relative_to(root: &Path, path: &Path) -> String {
+    path.strip_prefix(root)
+        .expect("path should be under vault root")
+        .to_string_lossy()
+        .replace('\\', "/")
+}
+
 fn scan(root: &Path) -> Vec<String> {
     scan_vault(None, "vault", root)
         .expect("scan should succeed")
         .indexable_files
         .iter()
-        .map(|p| {
-            p.strip_prefix(root)
-                .unwrap_or(p.as_path())
-                .to_string_lossy()
-                .replace('\\', "/")
-        })
+        .map(|p| relative_to(root, p))
         .collect()
 }
 
@@ -105,4 +107,67 @@ fn removed_dotfiles_are_pruned_by_sync_plan() {
     let plan = compute_sync_plan(dir.path(), &manifest, &disk_files);
 
     assert_eq!(plan.removed, vec![".gitignore", "mcp.json"]);
+}
+
+#[test]
+fn is_indexable_rejects_dotfiles_and_ignored_paths() {
+    use crate::features::search::db::is_indexable;
+    use crate::shared::vault_ignore;
+
+    let dir = seeded_vault();
+    let root = dir.path();
+    let matcher = vault_ignore::builtin_matcher().expect("matcher should build");
+
+    assert!(!is_indexable(root, &root.join(".hidden.md"), &matcher));
+    assert!(!is_indexable(root, &root.join(".gitignore"), &matcher));
+    assert!(!is_indexable(root, &root.join("mcp.json"), &matcher));
+    assert!(!is_indexable(root, &root.join("nested/mcp.json"), &matcher));
+}
+
+#[test]
+fn is_indexable_keeps_ordinary_notes() {
+    use crate::features::search::db::is_indexable;
+    use crate::shared::vault_ignore;
+
+    let dir = seeded_vault();
+    let root = dir.path();
+    let matcher = vault_ignore::builtin_matcher().expect("matcher should build");
+
+    assert!(is_indexable(root, &root.join("note.md"), &matcher));
+    assert!(is_indexable(root, &root.join("nested/paper.md"), &matcher));
+}
+
+#[test]
+fn is_indexable_agrees_with_scan_vault() {
+    use crate::features::search::db::is_indexable;
+    use crate::shared::vault_ignore;
+
+    let dir = seeded_vault();
+    let root = dir.path();
+    let matcher = vault_ignore::builtin_matcher().expect("matcher should build");
+
+    let scanned = scan(root);
+    for candidate in [
+        "note.md",
+        "nested/paper.md",
+        ".gitignore",
+        ".hidden.md",
+        "mcp.json",
+        "nested/mcp.json",
+    ] {
+        assert_eq!(
+            is_indexable(root, &root.join(candidate), &matcher),
+            scanned.iter().any(|p| p == candidate),
+            "{candidate} should be classified the same by both paths"
+        );
+    }
+}
+
+#[test]
+#[should_panic(expected = "path should be under vault root")]
+fn relative_to_panics_outside_the_vault_root() {
+    let vault = seeded_vault();
+    let elsewhere = TempDir::new().expect("temp dir should be created");
+
+    relative_to(vault.path(), &elsewhere.path().join("note.md"));
 }

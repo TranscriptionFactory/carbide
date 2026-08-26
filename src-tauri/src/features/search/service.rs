@@ -13,6 +13,7 @@ use crate::features::search::model::{
 use crate::features::search::{hybrid, vector_db};
 use crate::features::settings::service as settings_service;
 use crate::shared::storage::{self, VaultMode};
+use crate::shared::vault_ignore;
 use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
 use specta::Type;
@@ -247,6 +248,7 @@ pub enum EmbeddingProgressEvent {
 pub(crate) enum DbCommand {
     UpsertNote {
         vault_root: PathBuf,
+        vault_id: String,
         note_id: String,
         app_handle: AppHandle,
         reply: SyncSender<Result<(), String>>,
@@ -912,6 +914,7 @@ fn dispatch_command(
     match cmd {
         DbCommand::UpsertNote {
             vault_root,
+            vault_id,
             note_id,
             app_handle,
             reply,
@@ -919,6 +922,7 @@ fn dispatch_command(
             let result = handle_upsert(
                 conn,
                 &vault_root,
+                &vault_id,
                 &note_id,
                 notes_cache,
                 note_index,
@@ -942,6 +946,7 @@ fn dispatch_command(
             let result = handle_upsert_with_content(
                 conn,
                 &vault_root,
+                &vault_id,
                 &note_id,
                 &markdown,
                 mtime_ms,
@@ -1259,9 +1264,41 @@ fn dispatch_command(
     LoopAction::Continue
 }
 
+/// Excluded notes are removed rather than skipped: the row may predate the
+/// exclusion, and leaving it would let a stale hit outlive the next sync.
+fn drop_excluded_note(
+    conn: &Connection,
+    note_id: &str,
+    notes_cache: &mut BTreeMap<String, IndexNoteMeta>,
+    note_index: &SharedVectorIndex,
+    block_index: &SharedVectorIndex,
+) {
+    let _ = search_db::remove_note(conn, note_id);
+    forget_note(note_id, notes_cache, note_index, block_index);
+}
+
+/// A failure to load the matcher must not drop the note — indexing it is the
+/// recoverable outcome, and the next sync re-applies the exclusion anyway.
+fn is_indexable_note(
+    app_handle: &AppHandle,
+    vault_root: &Path,
+    vault_id: &str,
+    abs: &Path,
+) -> bool {
+    match vault_ignore::load_vault_ignore_matcher(app_handle, vault_id, vault_root) {
+        Ok(matcher) => search_db::is_indexable(vault_root, abs, &matcher),
+        Err(e) => {
+            log::warn!("writer: ignore matcher unavailable, indexing anyway: {e}");
+            true
+        }
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
 fn handle_upsert(
     conn: &Connection,
     vault_root: &Path,
+    vault_id: &str,
     note_id: &str,
     notes_cache: &mut BTreeMap<String, IndexNoteMeta>,
     note_index: &SharedVectorIndex,
@@ -1269,6 +1306,10 @@ fn handle_upsert(
     app_handle: &AppHandle,
 ) -> Result<(), String> {
     let abs = notes_service::safe_vault_abs(vault_root, note_id)?;
+    if !is_indexable_note(app_handle, vault_root, vault_id, &abs) {
+        drop_excluded_note(conn, note_id, notes_cache, note_index, block_index);
+        return Ok(());
+    }
     let markdown = match std::fs::read_to_string(&abs) {
         Ok(content) => content,
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
@@ -1306,6 +1347,7 @@ fn handle_upsert(
 fn handle_upsert_with_content(
     conn: &Connection,
     vault_root: &Path,
+    vault_id: &str,
     note_id: &str,
     markdown: &str,
     mtime_ms: Option<i64>,
@@ -1315,6 +1357,10 @@ fn handle_upsert_with_content(
     app_handle: &AppHandle,
 ) -> Result<(), String> {
     let abs = notes_service::safe_vault_abs(vault_root, note_id)?;
+    if !is_indexable_note(app_handle, vault_root, vault_id, &abs) {
+        drop_excluded_note(conn, note_id, notes_cache, note_index, block_index);
+        return Ok(());
+    }
     let mut meta = search_db::extract_file_meta(&abs, vault_root)?;
     if let Some(mtime_ms) = mtime_ms {
         meta.mtime_ms = mtime_ms;
@@ -3162,6 +3208,7 @@ pub fn index_upsert_note_inner(
     let vault_root = storage::vault_path(&app, &vault_id)?;
     send_write_blocking(&app, &vault_id, |reply| DbCommand::UpsertNote {
         vault_root,
+        vault_id: vault_id.clone(),
         note_id,
         app_handle: app.clone(),
         reply,

@@ -88,7 +88,9 @@ pub fn scan_vault(
             if !is_hidden {
                 folder_count += 1;
             }
-        } else if entry.file_type().is_file() && !is_hidden {
+        } else if entry.file_type().is_file()
+            && is_indexable(root, entry.path(), &ignore_matcher)
+        {
             files.push(entry.path().to_path_buf());
             note_count += 1;
         }
@@ -110,6 +112,20 @@ pub fn scan_vault(
             folder_count,
         },
     })
+}
+
+/// The single definition of what the index will hold: a visible file that the
+/// vault's ignore rules do not exclude. `scan_vault` and the direct upsert path
+/// both go through this so a save cannot reinstate a row the next sync prunes.
+pub(crate) fn is_indexable(
+    root: &Path,
+    path: &Path,
+    matcher: &vault_ignore::VaultIgnoreMatcher,
+) -> bool {
+    let hidden = path
+        .file_name()
+        .is_none_or(|name| name.to_string_lossy().starts_with('.'));
+    !hidden && !matcher.is_ignored(root, path, false)
 }
 
 pub(crate) fn list_indexable_files(
