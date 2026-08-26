@@ -14,6 +14,7 @@ import { ActionRegistry } from "$lib/app/action_registry/action_registry";
 import { ACTION_IDS } from "$lib/app/action_registry/action_ids";
 import { register_ai_actions } from "$lib/features/ai/application/ai_actions";
 import { resolve_instructions } from "$lib/shared/domain/prompt_recipes";
+import { DEFAULT_EDITOR_SETTINGS } from "$lib/shared/types/editor_settings";
 import { UIStore } from "$lib/app/orchestration/ui_store.svelte";
 import { VaultStore } from "$lib/features/vault/state/vault_store.svelte";
 import { NotesStore } from "$lib/features/note/state/note_store.svelte";
@@ -265,6 +266,85 @@ describe("register_ai_actions", () => {
       harness.services.editor.get_editor_view = vi.fn().mockReturnValue(view);
       return { ...harness, view };
     }
+
+    describe("vault context settings reach the service in range", () => {
+      function setup_vault_context(overrides: {
+        ai_vault_context_similar_limit?: number;
+        ai_vault_context_similarity_threshold?: number;
+      }) {
+        const harness = setup_inline();
+        harness.stores.ui.editor_settings.ai_inline_vault_context = true;
+        Object.assign(harness.stores.ui.editor_settings, overrides);
+        harness.ai_service.stream_inline = vi.fn(function* () {
+          yield { type: "text", text: "draft" };
+        });
+        return harness;
+      }
+
+      async function run_inline(harness: ReturnType<typeof setup_inline>) {
+        await harness.registry.execute(ACTION_IDS.ai_open_inline_menu);
+        await harness.registry.execute(ACTION_IDS.ai_execute_inline, {
+          command_id: "continue",
+        });
+        const call = harness.ai_service.fetch_vault_context.mock.calls[0];
+        expect(call).toBeDefined();
+        return call?.[1] as {
+          similar_limit: number;
+          similarity_threshold: number;
+        };
+      }
+
+      it("clamps a similarity threshold above the supported range", async () => {
+        const settings = await run_inline(
+          setup_vault_context({ ai_vault_context_similarity_threshold: 5 }),
+        );
+
+        expect(settings.similarity_threshold).toBe(1);
+      });
+
+      it("clamps a negative similarity threshold to zero", async () => {
+        const settings = await run_inline(
+          setup_vault_context({ ai_vault_context_similarity_threshold: -1 }),
+        );
+
+        expect(settings.similarity_threshold).toBe(0);
+      });
+
+      it("keeps a fractional similarity threshold unrounded", async () => {
+        const settings = await run_inline(
+          setup_vault_context({ ai_vault_context_similarity_threshold: 0.7 }),
+        );
+
+        expect(settings.similarity_threshold).toBe(0.7);
+      });
+
+      it("clamps a similar-notes limit outside the supported range", async () => {
+        const high = await run_inline(
+          setup_vault_context({ ai_vault_context_similar_limit: 999 }),
+        );
+        const low = await run_inline(
+          setup_vault_context({ ai_vault_context_similar_limit: 0 }),
+        );
+
+        expect(high.similar_limit).toBe(50);
+        expect(low.similar_limit).toBe(1);
+      });
+
+      it("falls back to the shipped defaults when a setting is not a number", async () => {
+        const settings = await run_inline(
+          setup_vault_context({
+            ai_vault_context_similar_limit: Number.NaN,
+            ai_vault_context_similarity_threshold: Number.NaN,
+          }),
+        );
+
+        expect(settings).toMatchObject({
+          similar_limit: DEFAULT_EDITOR_SETTINGS.ai_vault_context_similar_limit,
+          similarity_threshold:
+            DEFAULT_EDITOR_SETTINGS.ai_vault_context_similarity_threshold,
+        });
+      });
+    });
 
     it("preserves partial output for review when the stream errors midway", async () => {
       const { registry, view, ai_service } = setup_inline();

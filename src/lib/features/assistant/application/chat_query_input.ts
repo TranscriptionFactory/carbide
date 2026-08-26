@@ -16,8 +16,25 @@ const RETRIEVE_LIMIT_MIN = 1;
 const RETRIEVE_LIMIT_MAX = 50;
 const TOKEN_BUDGET_MIN = 1000;
 const TOKEN_BUDGET_MAX = 128000;
+// Automatic sizing spends CONTEXT_WINDOW_FRACTION of the provider's declared
+// context window on retrieved note context, and holds RESERVE_TOKEN_FRACTION of
+// that budget back for the question, the chat history and the answer itself.
+// Neither fraction has a recorded derivation: no cost, latency or
+// lost-in-the-middle measurement backs 0.3 or 0.25 anywhere in this repo. They
+// are conservative starting points, and evidence should move them.
+//
+// The ceiling is a backstop against a provider declaring an enormous window --
+// a 1M-token model would otherwise claim a 300k-token context budget -- and not
+// a second budget dial. Every builtin CLI preset declares a 200k window
+// (ai_provider_config.ts), so 0.3 of it, 60000, has to clear the ceiling for the
+// fraction to be the sole arbiter of the budget; a ceiling under that clips
+// every provider that ships today and silently governs in the fraction's place,
+// which is two knobs deciding one number with the tighter one winning
+// invisibly. At 64000 the ceiling engages only past a ~213k declared window. The
+// floor covers the opposite end, where a small declared window would leave too
+// little room to answer from.
 const DERIVED_TOKEN_BUDGET_FLOOR = 8000;
-const DERIVED_TOKEN_BUDGET_CEILING = 48000;
+const DERIVED_TOKEN_BUDGET_CEILING = 64000;
 const CONTEXT_WINDOW_FRACTION = 0.3;
 const RESERVE_TOKEN_FRACTION = 0.25;
 const HISTORY_BUDGET_MIN = 0;

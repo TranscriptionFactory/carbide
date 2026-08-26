@@ -262,8 +262,8 @@ describe("register_chat_actions", () => {
       expect.objectContaining({
         retrieve_limit: DEFAULT_EDITOR_SETTINGS.ai_rag_retrieve_limit,
         assembler_options: {
-          token_budget: 48000,
-          reserve_tokens: 12000,
+          token_budget: 60000,
+          reserve_tokens: 15000,
         },
         history_token_budget: 1500,
       }),

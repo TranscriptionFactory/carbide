@@ -2231,7 +2231,12 @@
                 </button>
               </div>
             </div>
+          </div>
 
+          <div class="SettingsDialog__section-divider"></div>
+          <h3 class="SettingsDialog__section-subheader">Chat retrieval</h3>
+
+          <div class="SettingsDialog__section-content">
             <div class="SettingsDialog__row">
               <div class="SettingsDialog__label-group">
                 <span class="SettingsDialog__label">Chat Retrieval Sources</span
@@ -2360,13 +2365,21 @@
                 </Select.Content>
               </Select.Root>
             </div>
+          </div>
 
+          <div class="SettingsDialog__section-divider"></div>
+          <h3 class="SettingsDialog__section-subheader">
+            Inline AI vault context
+          </h3>
+
+          <div class="SettingsDialog__section-content">
             <div class="SettingsDialog__row">
               <div class="SettingsDialog__label-group">
                 <span class="SettingsDialog__label">Include Vault Context</span>
                 <span class="SettingsDialog__description"
-                  >Send semantically similar and linked notes as context to the
-                  AI</span
+                  >Send semantically similar and linked notes as context to
+                  inline AI and generated descriptions. Vault chat does not read
+                  these settings.</span
                 >
               </div>
               <Switch.Root
@@ -2382,7 +2395,9 @@
               <div class="SettingsDialog__label-group">
                 <span class="SettingsDialog__label">Similar Notes Limit</span>
                 <span class="SettingsDialog__description"
-                  >Maximum number of similar notes to include</span
+                  >Maximum number of similar notes inline AI and generated
+                  descriptions include. Does not affect vault chat, which sizes
+                  retrieval from Chat Retrieval Sources.</span
                 >
               </div>
               <Select.Root
@@ -2411,7 +2426,8 @@
               <div class="SettingsDialog__label-group">
                 <span class="SettingsDialog__label">Include Linked Notes</span>
                 <span class="SettingsDialog__description"
-                  >Include backlinks and outlinks as additional context</span
+                  >Include backlinks and outlinks as additional context for
+                  inline AI and generated descriptions</span
                 >
               </div>
               <Switch.Root
@@ -2429,7 +2445,8 @@
                 <span class="SettingsDialog__label">Similarity Threshold</span>
                 <span class="SettingsDialog__description"
                   >Only include notes with similarity distance at or below this
-                  value</span
+                  value. Applies to inline AI and generated descriptions, not to
+                  vault chat.</span
                 >
               </div>
               <Select.Root
@@ -2456,7 +2473,12 @@
                 </Select.Content>
               </Select.Root>
             </div>
+          </div>
 
+          <div class="SettingsDialog__section-divider"></div>
+          <h3 class="SettingsDialog__section-subheader">Conversations</h3>
+
+          <div class="SettingsDialog__section-content">
             <div class="SettingsDialog__row">
               <div class="SettingsDialog__label-group">
                 <span class="SettingsDialog__label">Keep Conversations For</span

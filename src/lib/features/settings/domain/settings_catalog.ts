@@ -658,7 +658,7 @@ export const SETTINGS_REGISTRY: SettingDefinition[] = [
     key: "ai_rag_context_token_budget",
     label: "Chat Context Token Budget",
     description:
-      "Optional absolute note-context budget; automatic sizing uses the provider context window",
+      "Optional absolute note-context budget for vault chat; automatic sizing derives one from the provider context window instead",
     category: "AI",
     keywords: ["ai", "rag", "chat", "vault", "context", "tokens", "budget"],
   },
@@ -668,6 +668,72 @@ export const SETTINGS_REGISTRY: SettingDefinition[] = [
     description: "Approximate token budget for prior vault chat messages",
     category: "AI",
     keywords: ["ai", "rag", "chat", "history", "tokens", "budget"],
+  },
+  {
+    key: "ai_vault_context_enabled",
+    label: "Include Vault Context",
+    description:
+      "Send semantically similar and linked notes as context to inline AI and generated descriptions. Vault chat does not read this setting.",
+    category: "AI",
+    keywords: [
+      "ai",
+      "inline",
+      "vault",
+      "context",
+      "similar",
+      "linked",
+      "description",
+    ],
+  },
+  {
+    key: "ai_vault_context_similar_limit",
+    label: "Similar Notes Limit",
+    description:
+      "Maximum number of similar notes inline AI and generated descriptions include. Does not affect vault chat, which sizes retrieval from Chat Retrieval Sources.",
+    category: "AI",
+    keywords: [
+      "ai",
+      "inline",
+      "vault",
+      "context",
+      "similar",
+      "notes",
+      "limit",
+      "description",
+    ],
+  },
+  {
+    key: "ai_vault_context_include_links",
+    label: "Include Linked Notes",
+    description:
+      "Include backlinks and outlinks as additional context for inline AI and generated descriptions",
+    category: "AI",
+    keywords: [
+      "ai",
+      "inline",
+      "vault",
+      "context",
+      "backlinks",
+      "outlinks",
+      "links",
+    ],
+  },
+  {
+    key: "ai_vault_context_similarity_threshold",
+    label: "Similarity Threshold",
+    description:
+      "Only include notes with similarity distance at or below this value. Applies to inline AI and generated descriptions, not to vault chat.",
+    category: "AI",
+    keywords: [
+      "ai",
+      "inline",
+      "vault",
+      "context",
+      "similarity",
+      "threshold",
+      "distance",
+      "description",
+    ],
   },
   {
     key: "ambient_notices_enabled",
