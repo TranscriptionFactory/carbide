@@ -59,7 +59,7 @@ pub fn scan_vault(
     let ignore_matcher = if let Some(app) = app {
         vault_ignore::load_vault_ignore_matcher(app, vault_id, root)?
     } else {
-        vault_ignore::VaultIgnoreMatcher::default()
+        vault_ignore::builtin_matcher()?
     };
 
     let mut files: Vec<PathBuf> = Vec::new();
@@ -88,11 +88,9 @@ pub fn scan_vault(
             if !is_hidden {
                 folder_count += 1;
             }
-        } else if entry.file_type().is_file() {
+        } else if entry.file_type().is_file() && !is_hidden {
             files.push(entry.path().to_path_buf());
-            if !is_hidden {
-                note_count += 1;
-            }
+            note_count += 1;
         }
     }
 
