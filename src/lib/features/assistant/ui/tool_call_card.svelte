@@ -165,7 +165,7 @@
   {#if has_body}
     <button
       type="button"
-      class="flex w-full items-center gap-1.5 rounded-md px-2 py-[3px] text-left hover:bg-accent/50"
+      class="flex w-full items-center gap-1.5 rounded-md px-2 py-1 text-left hover:bg-accent/50"
       onclick={toggle_open}
       aria-expanded={open}
     >
@@ -174,7 +174,7 @@
   {:else}
     <!-- Nothing to reveal — a row of text, not a control that only ever
          reports itself disabled. -->
-    <div class="flex w-full items-center gap-1.5 px-2 py-[3px]">
+    <div class="flex w-full items-center gap-1.5 px-2 py-1">
       {@render row()}
     </div>
   {/if}

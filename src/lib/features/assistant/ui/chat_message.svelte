@@ -179,7 +179,7 @@
 {#if message.role === "user"}
   <div class="flex justify-end">
     <div
-      class="max-w-[85%] select-text whitespace-pre-wrap rounded-lg bg-primary px-[9px] py-[5px] text-sm text-primary-foreground"
+      class="max-w-[85%] select-text whitespace-pre-wrap rounded-lg bg-primary px-2.5 py-1.5 text-sm text-primary-foreground"
     >
       {message.content}
     </div>

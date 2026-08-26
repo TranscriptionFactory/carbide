@@ -313,6 +313,10 @@
     </div>
   {/if}
   <div class="ChatInput__field relative">
+    <!-- 38px floor: autogrow writes scrollHeight, which excludes the 2px
+         border that preflight's border-box sizing makes the floor absorb --
+         18.57 line + 16 padding + 2 border = 36.57, so min-h-9 clips and
+         min-h-10 overshoots. -->
     <Textarea
       bind:value
       bind:ref={textarea_el}

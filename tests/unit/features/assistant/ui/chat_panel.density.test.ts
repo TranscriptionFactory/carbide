@@ -191,20 +191,24 @@ describe("assistant panel density", () => {
 
     expect(below_transcript.length).toBeGreaterThan(0);
     expect(
-      below_transcript.filter((el) => el.className.includes("border-t")),
+      below_transcript.filter((el) => el.classList.contains("border-t")),
     ).toHaveLength(1);
   });
 });
 
 describe("assistant message density", () => {
-  // The Compact pass declined the 14px -> 13px body-type drop: chat prose is
-  // the one surface in this panel read at length. Pinned so a later density
-  // sweep does not quietly take it.
-  it("keeps the message body at 14px", () => {
+  // `text-sm` is 13px here, not Tailwind's 0.875rem: tokens.css redefines
+  // --text-sm in the `tokens` layer, which app.css sorts after `theme`. The
+  // Compact pass declined shrinking chat prose, so the sizes this pins away
+  // from are text-xs (11px) and --text-chrome (12px). The mirror trap is
+  // worse: --text-base is the token that yields 14px, so anyone "restoring"
+  // the body to 14px would make chat prose larger than it has ever been.
+  it("keeps the message body on text-sm", () => {
     const body = message_body(render_message(message("a1", "assistant")));
 
     expect(body.className).toContain("text-sm");
     expect(body.className).not.toContain("text-xs");
+    expect(body.className).not.toContain("text-chrome");
     expect(body.className).not.toContain("text-[13px]");
   });
 
@@ -219,8 +223,8 @@ describe("assistant message density", () => {
     const target = render_message(message("u1", "user"));
     const bubble = target.querySelector<HTMLElement>(".whitespace-pre-wrap");
 
-    expect(bubble?.className).toContain("px-[9px]");
-    expect(bubble?.className).toContain("py-[5px]");
+    expect(bubble?.className).toContain("px-2.5");
+    expect(bubble?.className).toContain("py-1.5");
     expect(bubble?.className).toContain("text-sm");
   });
 
