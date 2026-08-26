@@ -1286,7 +1286,7 @@ fn is_indexable_note(
     abs: &Path,
 ) -> bool {
     match vault_ignore::load_vault_ignore_matcher(app_handle, vault_id, vault_root) {
-        Ok(matcher) => search_db::is_indexable(vault_root, abs, &matcher),
+        Ok(matcher) => search_db::is_indexable_from_stored_root(vault_root, abs, &matcher),
         Err(e) => {
             log::warn!("writer: ignore matcher unavailable, indexing anyway: {e}");
             true

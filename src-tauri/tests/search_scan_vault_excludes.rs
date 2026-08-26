@@ -171,3 +171,32 @@ fn relative_to_panics_outside_the_vault_root() {
 
     relative_to(vault.path(), &elsewhere.path().join("note.md"));
 }
+
+#[cfg(unix)]
+#[test]
+fn stored_root_gate_survives_a_non_canonical_root() {
+    use crate::features::search::db::{is_indexable, is_indexable_from_stored_root};
+    use crate::shared::vault_ignore;
+
+    let real = seeded_vault();
+    let link_parent = TempDir::new().expect("temp dir should be created");
+    let stored_root = link_parent.path().join("vault-link");
+    std::os::unix::fs::symlink(real.path(), &stored_root).expect("symlink should be created");
+
+    let matcher = vault_ignore::builtin_matcher().expect("matcher should build");
+    // What `safe_vault_abs` hands the writer: canonical, so it does not share a
+    // prefix with the root the vault store kept verbatim.
+    let canonical_abs = stored_root
+        .join("mcp.json")
+        .canonicalize()
+        .expect("path should canonicalize");
+
+    assert!(
+        !is_indexable_from_stored_root(&stored_root, &canonical_abs, &matcher),
+        "an ignored file must stay excluded when the stored root is not canonical"
+    );
+    assert!(
+        !is_indexable(&stored_root, &real.path().join(".hidden.md"), &matcher),
+        "the basename half must keep working regardless of root shape"
+    );
+}

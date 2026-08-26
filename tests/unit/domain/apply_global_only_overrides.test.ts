@@ -46,9 +46,9 @@ describe("apply_global_only_overrides", () => {
     expect(result.ai_rag_context_token_budget).toBe(8000);
   });
 
-  it("leaves an optional key unset when nothing is stored", async () => {
+  it("leaves an optional key unset when the store returns undefined", async () => {
     const base = { ...DEFAULT_EDITOR_SETTINGS };
-    const get_setting = () => Promise.resolve(null);
+    const get_setting = () => Promise.resolve(undefined);
 
     const result = await apply_global_only_overrides(base, get_setting);
 

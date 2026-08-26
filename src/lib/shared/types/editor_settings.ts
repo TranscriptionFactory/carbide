@@ -615,7 +615,9 @@ const GLOBAL_ONLY_SET = new Set<string>(GLOBAL_ONLY_SETTING_KEYS);
 // Global-only keys declared optional on EditorSettings have no
 // DEFAULT_EDITOR_SETTINGS entry, so a load's base value is always undefined and
 // `typeof` cannot recover the type a stored value must match. Declare it here.
-export const OPTIONAL_GLOBAL_ONLY_TYPES: Record<string, string> = {
+export const OPTIONAL_GLOBAL_ONLY_TYPES: Partial<
+  Record<keyof EditorSettings, string>
+> = {
   ai_rag_context_token_budget: "number",
 };
 

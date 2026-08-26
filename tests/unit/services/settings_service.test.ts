@@ -9,6 +9,7 @@ import { as_vault_id } from "$lib/shared/types/ids";
 import {
   DEFAULT_EDITOR_SETTINGS,
   GLOBAL_ONLY_SETTING_KEYS,
+  OPTIONAL_GLOBAL_ONLY_TYPES,
 } from "$lib/shared/types/editor_settings";
 import { create_test_vault } from "../helpers/test_fixtures";
 
@@ -16,10 +17,12 @@ const VAULT_ID = as_vault_id("vault-a");
 
 // GLOBAL_ONLY_SETTING_KEYS entries whose EditorSettings default is intentionally
 // absent. Each one must survive the round trip as an explicit null, which the
-// settings adapter is responsible for producing.
-const NULLABLE_GLOBAL_ONLY_KEYS = new Set<string>([
-  "ai_rag_context_token_budget",
-]);
+// settings adapter is responsible for producing. Derived from the type table so
+// that exempting a key here is impossible without also declaring its type —
+// the omission that stopped a stored value from ever loading back.
+const NULLABLE_GLOBAL_ONLY_KEYS = new Set<string>(
+  Object.keys(OPTIONAL_GLOBAL_ONLY_TYPES),
+);
 
 function make_service(overrides: {
   vault_get?: unknown;
