@@ -9,7 +9,14 @@ use std::time::Instant;
 
 const VAULT_IGNORE_FILE: &str = ".vaultignore";
 const GIT_IGNORE_FILE: &str = ".gitignore";
-const BUILTIN_PATTERNS: &[&str] = &[".git/", ".carbide/", ".DS_Store", "node_modules/", ".llmwiki/"];
+const BUILTIN_PATTERNS: &[&str] = &[
+    ".git/",
+    ".carbide/",
+    ".DS_Store",
+    "node_modules/",
+    ".llmwiki/",
+    "mcp.json",
+];
 
 #[derive(Clone, Debug)]
 struct IgnoreRule {
@@ -129,16 +136,24 @@ pub fn invalidate_vault_ignore_cache(root: &Path) {
     }
 }
 
+pub fn builtin_matcher() -> Result<VaultIgnoreMatcher, String> {
+    Ok(builtin_rule_builder()?.build())
+}
+
+fn builtin_rule_builder() -> Result<RuleBuilder, String> {
+    let mut builder = RuleBuilder::default();
+    for pattern in BUILTIN_PATTERNS {
+        builder.add_pattern(pattern)?;
+    }
+    Ok(builder)
+}
+
 fn build_vault_ignore_matcher(
     app: &tauri::AppHandle,
     vault_id: &str,
     root: &Path,
 ) -> Result<VaultIgnoreMatcher, String> {
-    let mut builder = RuleBuilder::default();
-
-    for pattern in BUILTIN_PATTERNS {
-        builder.add_pattern(pattern)?;
-    }
+    let mut builder = builtin_rule_builder()?;
 
     for line in read_ignore_lines(&root.join(GIT_IGNORE_FILE))? {
         builder.add_pattern(&line)?;
