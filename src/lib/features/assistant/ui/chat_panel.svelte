@@ -323,8 +323,8 @@
       {#if sessions.length > 0}
         <Button
           variant="ghost"
-          size="sm"
-          class="h-6 gap-1.5 {show_sessions ? 'bg-accent' : ''}"
+          size="xs"
+          class={show_sessions ? "bg-accent" : ""}
           onclick={() => (show_sessions = !show_sessions)}
         >
           <History class="size-3.5" />
@@ -334,8 +334,7 @@
       {#if pending_proposal_count > 0}
         <Button
           variant="ghost"
-          size="sm"
-          class="h-6 gap-1.5"
+          size="xs"
           title="Review proposals"
           data-testid="chat-panel-review-proposals"
           onclick={open_proposals}
@@ -345,7 +344,7 @@
         </Button>
       {/if}
     </div>
-    <Button variant="ghost" size="sm" class="h-6 gap-1.5" onclick={new_chat}>
+    <Button variant="ghost" size="xs" onclick={new_chat}>
       <SquarePen class="size-3.5" />
       New chat
     </Button>

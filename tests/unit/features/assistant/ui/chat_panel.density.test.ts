@@ -161,7 +161,10 @@ describe("assistant panel density", () => {
     expect(container.className).not.toContain("p-3");
   });
 
-  it("draws the header at the compact button height", async () => {
+  // The height has to come from the shared size variant, not a class beside
+  // it: tailwind-merge lets a local `h-*` silently win over the variant, which
+  // is how the h-7 one-offs this pass removed got there in the first place.
+  it("takes the header button height from the compact size variant", async () => {
     const target = render_panel([message("m1", "user")]);
     await settle();
 
@@ -172,8 +175,9 @@ describe("assistant panel density", () => {
 
     expect(buttons.length).toBeGreaterThan(0);
     for (const button of buttons) {
-      expect(button.className).toContain("h-6");
-      expect(button.className).not.toContain("h-7");
+      expect(
+        [...button.classList].filter((name) => /^h-\d/.test(name)),
+      ).toEqual(["h-6"]);
     }
   });
 
