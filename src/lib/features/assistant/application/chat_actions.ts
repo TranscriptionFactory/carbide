@@ -256,6 +256,7 @@ export function register_chat_actions(
           scope: chat_store.scope,
           image_parts,
           ...(attachment ? { attachment } : {}),
+          ...(chat_store.active_id ? { session_id: chat_store.active_id } : {}),
           on_run_started: (handle) => {
             ask_handle = handle;
           },
