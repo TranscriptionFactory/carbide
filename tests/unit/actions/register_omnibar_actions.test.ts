@@ -206,6 +206,47 @@ describe("register_omnibar_actions", () => {
     }
   });
 
+  it("passes the linked-source setting to omnibar search", async () => {
+    const { registry, stores, services } = create_omnibar_actions_harness();
+    stores.ui.set_editor_settings({
+      ...stores.ui.editor_settings,
+      reference_include_sources_in_search: false,
+    });
+
+    stores.ui.omnibar = { ...stores.ui.omnibar, open: true, query: "" };
+
+    await registry.execute(ACTION_IDS.omnibar_set_query, "photosynthesis");
+    await vi.advanceTimersByTimeAsync(200);
+
+    expect(services.search.search_omnibar).toHaveBeenCalledWith(
+      "photosynthesis",
+      expect.any(Boolean),
+      false,
+    );
+  });
+
+  it("passes the linked-source setting to cross-vault search", async () => {
+    const { registry, stores, services } = create_omnibar_actions_harness();
+    stores.ui.set_editor_settings({
+      ...stores.ui.editor_settings,
+      reference_include_sources_in_search: false,
+    });
+
+    stores.ui.omnibar = {
+      ...stores.ui.omnibar,
+      open: true,
+      query: "photosynthesis",
+      scope: "current_vault",
+    };
+
+    await registry.execute(ACTION_IDS.omnibar_set_scope, "all_vaults");
+
+    expect(services.search.search_notes_all_vaults).toHaveBeenCalledWith(
+      "photosynthesis",
+      false,
+    );
+  });
+
   it("switches scope and searches across all vaults", async () => {
     const { registry, stores, services } = create_omnibar_actions_harness();
 
@@ -221,6 +262,7 @@ describe("register_omnibar_actions", () => {
     expect(stores.ui.omnibar.scope).toBe("all_vaults");
     expect(services.search.search_notes_all_vaults).toHaveBeenCalledWith(
       "machine learning",
+      true,
     );
   });
 
@@ -298,6 +340,7 @@ describe("register_omnibar_actions", () => {
     expect(services.search.search_notes_all_vaults).not.toHaveBeenCalled();
     expect(services.search.search_omnibar).toHaveBeenCalledWith(
       "#planned docs",
+      true,
       true,
     );
     expect(stores.search.omnibar_items).toEqual([

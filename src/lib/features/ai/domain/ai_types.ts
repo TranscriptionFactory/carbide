@@ -81,4 +81,5 @@ export type VaultContextSettings = {
   similar_limit: number;
   include_links: boolean;
   similarity_threshold: number;
+  include_linked_sources: boolean;
 };

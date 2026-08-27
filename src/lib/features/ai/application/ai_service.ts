@@ -121,7 +121,12 @@ export class AiService {
       }>,
     ] = [
       this.search_port
-        .find_similar_notes(vault.id, note_path, settings.similar_limit, true)
+        .find_similar_notes(
+          vault.id,
+          note_path,
+          settings.similar_limit,
+          !settings.include_linked_sources,
+        )
         .then((hits) =>
           hits
             .filter((h) => h.distance <= settings.similarity_threshold)

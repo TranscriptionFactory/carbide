@@ -116,6 +116,7 @@ const vault_context_settings: VaultContextSettings = {
   similar_limit: 5,
   include_links: true,
   similarity_threshold: 0.5,
+  include_linked_sources: true,
 };
 
 const base_execute_input = {
@@ -207,6 +208,35 @@ describe("AiService", () => {
   });
 
   describe("vault context", () => {
+    it("excludes linked sources from vault context when the setting is off", async () => {
+      const search_port = create_search_port();
+      const vault_store = new VaultStore();
+      vault_store.set_vault(
+        create_test_vault({ path: "/vault/demo" as never }),
+      );
+      const service = new AiService(
+        create_ai_port() as never,
+        vault_store,
+        inert_starter(),
+        search_port as never,
+      );
+
+      await service.execute({
+        ...base_execute_input,
+        vault_context_settings: {
+          ...vault_context_settings,
+          include_linked_sources: false,
+        },
+      });
+
+      expect(search_port.find_similar_notes).toHaveBeenCalledWith(
+        expect.anything(),
+        "docs/demo.md",
+        5,
+        true,
+      );
+    });
+
     it("calls find_similar_notes and get_note_links_snapshot when enabled", async () => {
       const ai_port = create_ai_port();
       const search_port = create_search_port();
@@ -230,7 +260,7 @@ describe("AiService", () => {
         expect.anything(),
         "docs/demo.md",
         5,
-        true,
+        false,
       );
       expect(search_port.get_note_links_snapshot).toHaveBeenCalledWith(
         expect.anything(),

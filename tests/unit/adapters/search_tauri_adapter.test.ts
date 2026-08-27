@@ -33,6 +33,7 @@ describe("search_tauri_adapter.search_notes", () => {
       vaultId: "vault-1",
       query: QUERY,
       limit: 200,
+      includeLinked: true,
     });
   });
 
@@ -45,6 +46,20 @@ describe("search_tauri_adapter.search_notes", () => {
       vaultId: "vault-1",
       query: QUERY,
       limit: 50,
+      includeLinked: true,
+    });
+  });
+
+  it("forwards the linked-source exclusion to the index_search payload", async () => {
+    const adapter = create_search_tauri_adapter();
+
+    await adapter.search_notes(as_vault_id("vault-1"), QUERY, 50, false);
+
+    expect(tauri_invoke_mock).toHaveBeenCalledWith("index_search", {
+      vaultId: "vault-1",
+      query: QUERY,
+      limit: 50,
+      includeLinked: false,
     });
   });
 });

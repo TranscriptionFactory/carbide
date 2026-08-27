@@ -69,6 +69,7 @@ export interface SearchPort {
     vault_id: VaultId,
     query: SearchQuery,
     limit?: number,
+    include_linked?: boolean,
   ): Promise<NoteSearchHit[]>;
   suggest_wiki_links(
     vault_id: VaultId,
@@ -119,6 +120,7 @@ export interface SearchPort {
     query: SearchQueryInput,
     limit?: number,
     date_range?: DateRange | null,
+    include_linked?: boolean,
   ): Promise<HybridSearchHit[]>;
   search_blocks(
     vault_id: VaultId,

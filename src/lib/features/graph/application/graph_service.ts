@@ -369,6 +369,7 @@ export class GraphService {
     tab_id: string,
     query: string,
     similarity_threshold?: number,
+    include_linked_sources = true,
   ): Promise<void> {
     if (!this.search_graph_store) return;
     const vault_id = this.get_active_vault_id();
@@ -381,7 +382,7 @@ export class GraphService {
       const { hits } = await this.search_service.run_search_pipeline(
         vault_id,
         query,
-        { limit: 50 },
+        { limit: 50, include_linked: include_linked_sources },
       );
 
       let vault_snapshot = this.graph_store.vault_snapshot;
@@ -528,6 +529,7 @@ export class GraphService {
   async expand_search_graph_node(
     tab_id: string,
     node_path: string,
+    include_linked_sources = true,
   ): Promise<void> {
     if (!this.search_graph_store) return;
     const vault_id = this.get_active_vault_id();
@@ -541,6 +543,7 @@ export class GraphService {
         vault_id,
         node_path,
         5,
+        !include_linked_sources,
       );
 
       let vault_snapshot = this.graph_store.vault_snapshot;

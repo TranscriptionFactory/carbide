@@ -13,6 +13,7 @@ pub fn hybrid_search(
     query: &SearchQueryInput,
     limit: usize,
     date_range: Option<(i64, i64)>,
+    include_linked: bool,
 ) -> Result<Vec<HybridSearchHit>, String> {
     let query_vec = model.embed_query(&query.text)?;
 
@@ -28,9 +29,22 @@ pub fn hybrid_search(
     };
 
     let mut vector_hits = note_index.search(&query_vec, vector_fetch);
+    if !include_linked {
+        // The vector index holds linked sources alongside vault notes and has no
+        // filter API, so this half thins the over-fetched pool rather than
+        // asking for a filtered one — the FTS half still fills the gap.
+        vector_hits.retain(|(path, _)| !search_db::is_linked_path(path));
+    }
 
-    let fts_hits =
-        search_db::search(conn, &query.text, query.scope, over_fetch, date_range).unwrap_or_default();
+    let fts_hits = search_db::search(
+        conn,
+        &query.text,
+        query.scope,
+        over_fetch,
+        date_range,
+        include_linked,
+    )
+    .unwrap_or_default();
 
     if let Some((start_ms, end_ms)) = date_range {
         let allowed = search_db::paths_in_mtime_range(conn, start_ms, end_ms)?;

@@ -685,7 +685,7 @@ pub fn search_notes_db(
     limit: usize,
 ) -> Result<Vec<crate::features::search::model::SearchHit>, OpError> {
     search_service::with_read_conn(app, vault_id, |conn| {
-        search_db::search(conn, query, SearchScope::All, limit, None)
+        search_db::search(conn, query, SearchScope::All, limit, None, true)
     })
     .map_err(OpError::Internal)
 }
@@ -702,7 +702,13 @@ pub fn search_notes_index(
         scope: SearchScope::All,
     };
 
-    search_service::index_search_inner(app.clone(), vault_id.to_string(), query_input, Some(limit))
+    search_service::index_search_inner(
+        app.clone(),
+        vault_id.to_string(),
+        query_input,
+        Some(limit),
+        Some(true),
+    )
         .map(|hits| {
             hits.into_iter()
                 .take(limit)
