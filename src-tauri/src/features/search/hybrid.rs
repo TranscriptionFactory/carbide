@@ -18,22 +18,22 @@ pub fn hybrid_search(
     let query_vec = model.embed_query(&query.text)?;
 
     let over_fetch = limit * 3;
-    // FTS pushes the date filter into SQL, but the vector index has no filter
-    // API, so we over-fetch and filter afterward. For a narrow window in a
-    // very large vault the in-range notes may fall outside this pool; FTS still
-    // covers those, so retrieval degrades rather than failing.
+    // FTS pushes the date and linked-source filters into SQL, but the vector index
+    // has no filter API, so both over-fetch and filter afterward. In a very large
+    // vault the surviving notes may fall outside this pool; FTS still covers those,
+    // so retrieval degrades rather than failing.
     let vector_fetch = if date_range.is_some() {
         (limit * 20).max(500)
+    } else if !include_linked {
+        (limit * 10).max(200)
     } else {
         over_fetch
     };
 
     let mut vector_hits = note_index.search(&query_vec, vector_fetch);
     if !include_linked {
-        // The vector index holds linked sources alongside vault notes and has no
-        // filter API, so this half thins the over-fetched pool rather than
-        // asking for a filtered one — the FTS half still fills the gap.
         vector_hits.retain(|(path, _)| !search_db::is_linked_path(path));
+        vector_hits.truncate(over_fetch);
     }
 
     let fts_hits = search_db::search(

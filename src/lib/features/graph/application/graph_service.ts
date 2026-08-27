@@ -543,7 +543,8 @@ export class GraphService {
         vault_id,
         node_path,
         5,
-        !include_linked_sources,
+        true,
+        include_linked_sources,
       );
 
       let vault_snapshot = this.graph_store.vault_snapshot;

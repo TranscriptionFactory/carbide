@@ -234,6 +234,7 @@ describe("AiService", () => {
         "docs/demo.md",
         5,
         true,
+        false,
       );
     });
 
@@ -260,7 +261,8 @@ describe("AiService", () => {
         expect.anything(),
         "docs/demo.md",
         5,
-        false,
+        true,
+        true,
       );
       expect(search_port.get_note_links_snapshot).toHaveBeenCalledWith(
         expect.anything(),

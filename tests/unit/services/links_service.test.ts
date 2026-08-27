@@ -533,6 +533,7 @@ describe("LinksService.load_suggested_links", () => {
       "note.md",
       5,
       true,
+      false,
     );
   });
 
@@ -562,7 +563,8 @@ describe("LinksService.load_suggested_links", () => {
       "vault-1",
       "note.md",
       5,
-      false,
+      true,
+      true,
     );
     expect(links_store.suggested_links).toHaveLength(2);
     expect(links_store.suggested_links[0]?.note).toEqual(note("a.md"));

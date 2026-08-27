@@ -1447,7 +1447,7 @@ fn index_sourced_notes_carry_the_blurb() {
 }
 
 
-fn task_note_meta(path: &str, title: &str, name: &str) -> IndexNoteMeta {
+fn note_meta(path: &str, title: &str, name: &str) -> IndexNoteMeta {
     IndexNoteMeta {
         id: path.to_string(),
         path: path.to_string(),
@@ -1540,7 +1540,7 @@ fn code_block_rowids(conn: &rusqlite::Connection, path: &str) -> Vec<i64> {
 fn saving_a_note_indexes_its_tasks() {
     let tmp = TempDir::new().expect("temp dir should be created");
     let conn = open_search_db_at_path(&tmp.path().join("test.db")).expect("db should open");
-    let meta = task_note_meta("notes/a.md", "A", "a");
+    let meta = note_meta("notes/a.md", "A", "a");
 
     upsert_note_simple(&conn, &meta, "# Plan\n- [ ] alpha\n- [x] beta\n").expect("save should run");
 
@@ -1557,7 +1557,7 @@ fn saving_a_note_indexes_its_tasks() {
 fn saving_a_toggled_checkbox_updates_the_task_row() {
     let tmp = TempDir::new().expect("temp dir should be created");
     let conn = open_search_db_at_path(&tmp.path().join("test.db")).expect("db should open");
-    let meta = task_note_meta("notes/a.md", "A", "a");
+    let meta = note_meta("notes/a.md", "A", "a");
 
     upsert_note_simple(&conn, &meta, "- [ ] alpha\n").expect("first save should run");
     assert_eq!(
@@ -1577,7 +1577,7 @@ fn saving_a_toggled_checkbox_updates_the_task_row() {
 fn saving_an_added_task_line_inserts_a_row() {
     let tmp = TempDir::new().expect("temp dir should be created");
     let conn = open_search_db_at_path(&tmp.path().join("test.db")).expect("db should open");
-    let meta = task_note_meta("notes/a.md", "A", "a");
+    let meta = note_meta("notes/a.md", "A", "a");
 
     upsert_note_simple(&conn, &meta, "- [ ] alpha\n").expect("first save should run");
     upsert_note_simple(&conn, &meta, "- [ ] alpha\n- [ ] beta\n").expect("second save should run");
@@ -1595,7 +1595,7 @@ fn saving_an_added_task_line_inserts_a_row() {
 fn saving_a_removed_task_line_deletes_its_row() {
     let tmp = TempDir::new().expect("temp dir should be created");
     let conn = open_search_db_at_path(&tmp.path().join("test.db")).expect("db should open");
-    let meta = task_note_meta("notes/a.md", "A", "a");
+    let meta = note_meta("notes/a.md", "A", "a");
 
     upsert_note_simple(&conn, &meta, "- [ ] alpha\n- [ ] beta\n").expect("first save should run");
     upsert_note_simple(&conn, &meta, "- [ ] alpha\n").expect("second save should run");
@@ -1617,8 +1617,8 @@ fn saving_a_removed_task_line_deletes_its_row() {
 fn resaving_unchanged_content_does_not_rewrite_task_rows() {
     let tmp = TempDir::new().expect("temp dir should be created");
     let conn = open_search_db_at_path(&tmp.path().join("test.db")).expect("db should open");
-    let a = task_note_meta("notes/a.md", "A", "a");
-    let b = task_note_meta("notes/b.md", "B", "b");
+    let a = note_meta("notes/a.md", "A", "a");
+    let b = note_meta("notes/b.md", "B", "b");
 
     upsert_note_simple(&conn, &a, "- [ ] alpha\n").expect("save a should run");
     // A second note holds the highest rowid, so any delete-and-reinsert of A's
@@ -1651,8 +1651,8 @@ fn resaving_unchanged_content_does_not_rewrite_task_rows() {
 fn resaving_a_note_keeps_its_notes_rowid() {
     let tmp = TempDir::new().expect("temp dir should be created");
     let conn = open_search_db_at_path(&tmp.path().join("test.db")).expect("db should open");
-    let a = task_note_meta("notes/a.md", "A", "a");
-    let b = task_note_meta("notes/b.md", "B", "b");
+    let a = note_meta("notes/a.md", "A", "a");
+    let b = note_meta("notes/b.md", "B", "b");
 
     upsert_note_simple(&conn, &a, "- [ ] alpha\n").expect("save a should run");
     // A second note holds the highest rowid, so a delete-and-reinsert of A's
@@ -2008,7 +2008,7 @@ fn reindexing_plain_content_preserves_content_snippet_and_first_image_path() {
 fn saving_a_canvas_note_indexes_no_tasks() {
     let tmp = TempDir::new().expect("temp dir should be created");
     let conn = open_search_db_at_path(&tmp.path().join("test.db")).expect("db should open");
-    let meta = task_note_meta("boards/board.canvas", "Board", "board.canvas");
+    let meta = note_meta("boards/board.canvas", "Board", "board.canvas");
 
     upsert_note_simple(&conn, &meta, "- [ ] alpha\n").expect("save should run");
 
@@ -2022,7 +2022,7 @@ fn saving_a_canvas_note_indexes_no_tasks() {
 fn removing_a_note_evicts_its_task_rows() {
     let tmp = TempDir::new().expect("temp dir should be created");
     let conn = open_search_db_at_path(&tmp.path().join("test.db")).expect("db should open");
-    let meta = task_note_meta("notes/a.md", "A", "a");
+    let meta = note_meta("notes/a.md", "A", "a");
 
     upsert_note_simple(&conn, &meta, "- [ ] alpha\n").expect("save should run");
     assert_eq!(task_rows(&conn, "notes/a.md").len(), 1);
@@ -2035,8 +2035,8 @@ fn removing_a_note_evicts_its_task_rows() {
 fn removing_notes_by_prefix_evicts_task_rows() {
     let tmp = TempDir::new().expect("temp dir should be created");
     let conn = open_search_db_at_path(&tmp.path().join("test.db")).expect("db should open");
-    let inside = task_note_meta("folder/a.md", "A", "a");
-    let outside = task_note_meta("other/b.md", "B", "b");
+    let inside = note_meta("folder/a.md", "A", "a");
+    let outside = note_meta("other/b.md", "B", "b");
 
     upsert_note_simple(&conn, &inside, "- [ ] alpha\n").expect("save inside should run");
     upsert_note_simple(&conn, &outside, "- [ ] beta\n").expect("save outside should run");
@@ -2050,21 +2050,6 @@ fn removing_notes_by_prefix_evicts_task_rows() {
     );
 }
 
-fn linked_search_meta(path: &str, title: &str) -> IndexNoteMeta {
-    IndexNoteMeta {
-        id: path.to_string(),
-        path: path.to_string(),
-        title: title.to_string(),
-        name: title.to_string(),
-        mtime_ms: 100,
-        ctime_ms: 50,
-        size_bytes: 10,
-        blurb: String::new(),
-        file_type: None,
-        source: None,
-    }
-}
-
 #[test]
 fn search_includes_linked_sources_by_default() {
     let tmp = TempDir::new().expect("temp dir should be created");
@@ -2072,13 +2057,13 @@ fn search_includes_linked_sources_by_default() {
 
     upsert_note(
         &conn,
-        &linked_search_meta("notes/vault.md", "Vault"),
+        &note_meta("notes/vault.md", "Vault", "Vault"),
         "photosynthesis in vault",
     )
     .expect("vault upsert should succeed");
     upsert_note(
         &conn,
-        &linked_search_meta("@linked/zotero/paper.pdf", "Paper"),
+        &note_meta("@linked/zotero/paper.pdf", "Paper", "Paper"),
         "photosynthesis in paper",
     )
     .expect("linked upsert should succeed");
@@ -2098,13 +2083,13 @@ fn search_excludes_linked_sources_when_setting_is_off() {
 
     upsert_note(
         &conn,
-        &linked_search_meta("notes/vault.md", "Vault"),
+        &note_meta("notes/vault.md", "Vault", "Vault"),
         "photosynthesis in vault",
     )
     .expect("vault upsert should succeed");
     upsert_note(
         &conn,
-        &linked_search_meta("@linked/zotero/paper.pdf", "Paper"),
+        &note_meta("@linked/zotero/paper.pdf", "Paper", "Paper"),
         "photosynthesis in paper",
     )
     .expect("linked upsert should succeed");
@@ -2124,7 +2109,7 @@ fn excluding_linked_sources_does_not_cost_vault_result_slots() {
     for i in 0..5 {
         upsert_note(
             &conn,
-            &linked_search_meta(&format!("@linked/zotero/paper{i}.pdf"), "Paper"),
+            &note_meta(&format!("@linked/zotero/paper{i}.pdf"), "Paper", "Paper"),
             "photosynthesis",
         )
         .expect("linked upsert should succeed");
@@ -2132,7 +2117,7 @@ fn excluding_linked_sources_does_not_cost_vault_result_slots() {
     for i in 0..3 {
         upsert_note(
             &conn,
-            &linked_search_meta(&format!("notes/vault{i}.md"), "Vault"),
+            &note_meta(&format!("notes/vault{i}.md"), "Vault", "Vault"),
             "photosynthesis",
         )
         .expect("vault upsert should succeed");

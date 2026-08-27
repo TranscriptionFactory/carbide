@@ -302,7 +302,8 @@ export function create_search_tauri_adapter(): SearchPort {
       vault_id: VaultId,
       note_path: string,
       limit = 5,
-      exclude_linked = true,
+      exclude_already_linked = true,
+      include_linked_sources = true,
     ): Promise<SemanticSearchHit[]> {
       const hits = await invoke_search<TauriSemanticSearchHit[]>(
         "find_similar_notes",
@@ -310,7 +311,8 @@ export function create_search_tauri_adapter(): SearchPort {
           vaultId: vault_id,
           notePath: note_path,
           limit,
-          excludeLinked: exclude_linked,
+          excludeAlreadyLinked: exclude_already_linked,
+          includeLinkedSources: include_linked_sources,
         },
       );
       return hits.map((hit) => ({
