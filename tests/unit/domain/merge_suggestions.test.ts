@@ -34,6 +34,7 @@ describe("merge_suggestions", () => {
     expect(result).toHaveLength(1);
     expect(result[0]?.note.path).toBe("a.md");
     expect(result[0]?.similarity).toBeCloseTo(0.8, 5);
+    expect(result[0]?.rank_score).toBeCloseTo(0.8, 5);
     expect(result[0]?.rules).toEqual([
       { ruleId: "semantic_similarity", rawScore: expect.closeTo(0.8, 5) },
     ]);
@@ -83,7 +84,8 @@ describe("merge_suggestions", () => {
 
     expect(result).toHaveLength(1);
     expect(result[0]?.note.path).toBe("tagged.md");
-    expect(result[0]?.similarity).toBe(0.6);
+    expect(result[0]?.similarity).toBeUndefined();
+    expect(result[0]?.rank_score).toBe(0.6);
     expect(result[0]?.rules).toEqual([{ ruleId: "shared_tag", rawScore: 0.6 }]);
   });
 
@@ -134,7 +136,7 @@ describe("merge_suggestions", () => {
     expect(result[0]?.note.path).toBe("shared.md");
   });
 
-  it("takes max similarity when merging duplicate paths", () => {
+  it("ranks by the composite but never reports it as similarity", () => {
     const result = merge_suggestions(
       [{ note: note("shared.md"), distance: 0.3 }],
       [
@@ -149,7 +151,8 @@ describe("merge_suggestions", () => {
       10,
     );
 
-    expect(result[0]?.similarity).toBe(0.9);
+    expect(result[0]?.rank_score).toBe(0.9);
+    expect(result[0]?.similarity).toBeCloseTo(0.7, 5);
   });
 
   it("deduplicates semantic_similarity rule when present in both sources", () => {

@@ -32,6 +32,14 @@ function dedup_rules(rules: SmartLinkRuleMatch[]): SmartLinkRuleMatch[] {
   return [...by_id.values()];
 }
 
+// A smart-link suggestion carries a cosine only when the semantic rule fired;
+// every other rule scores a metadata overlap, which is not a similarity.
+function semantic_rule_similarity(
+  rules: SmartLinkRuleMatch[],
+): number | undefined {
+  return rules.find((rule) => rule.ruleId === "semantic_similarity")?.rawScore;
+}
+
 export function merge_suggestions(
   semantic_hits: { note: NoteMeta; distance: number }[],
   smart_suggestions: SmartLinkSuggestion[],
@@ -46,6 +54,7 @@ export function merge_suggestions(
     by_path.set(hit.note.path, {
       note: hit.note,
       similarity,
+      rank_score: similarity,
       rules: [{ ruleId: "semantic_similarity", rawScore: similarity }],
     });
   }
@@ -53,18 +62,24 @@ export function merge_suggestions(
   for (const s of smart_suggestions) {
     const existing = by_path.get(s.targetPath);
     if (existing) {
-      existing.similarity = Math.max(existing.similarity, s.score);
+      // `s.score` is a weighted sum over enabled rules, so it can exceed 1 and
+      // is not comparable to a cosine. It orders, it does not describe.
+      existing.rank_score = Math.max(existing.rank_score, s.score);
       existing.rules = dedup_rules([...(existing.rules ?? []), ...s.rules]);
+      const semantic = semantic_rule_similarity(existing.rules);
+      if (semantic !== undefined) existing.similarity = semantic;
     } else {
+      const similarity = semantic_rule_similarity(s.rules);
       by_path.set(s.targetPath, {
         note: path_to_note_meta(s.targetPath),
-        similarity: s.score,
+        ...(similarity !== undefined ? { similarity } : {}),
+        rank_score: s.score,
         rules: s.rules,
       });
     }
   }
 
   return [...by_path.values()]
-    .sort((a, b) => b.similarity - a.similarity)
+    .sort((a, b) => b.rank_score - a.rank_score)
     .slice(0, limit);
 }

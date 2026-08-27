@@ -720,9 +720,9 @@ export const SETTINGS_REGISTRY: SettingDefinition[] = [
   },
   {
     key: "ai_vault_context_similarity_threshold",
-    label: "Similarity Threshold",
+    label: "Max Context Distance",
     description:
-      "Only include notes with similarity distance at or below this value. Applies to inline AI and generated descriptions, not to vault chat.",
+      "Only include notes whose embedding distance is at or below this value — lower keeps fewer, closer notes. Applies to inline AI and generated descriptions, not to vault chat.",
     category: "AI",
     keywords: [
       "ai",
@@ -797,9 +797,9 @@ export const SETTINGS_REGISTRY: SettingDefinition[] = [
   },
   {
     key: "semantic_similarity_threshold",
-    label: "Similarity Threshold",
+    label: "Min Semantic Similarity",
     description:
-      "Minimum similarity (0–1) for suggested links and graph edges. Lower values show more connections.",
+      "Minimum cosine similarity (0–1) for semantic suggested links and graph edges. Lower values show more connections. Suggestions from metadata rules are ranked separately and are not filtered by this.",
     category: "Semantic",
     keywords: ["semantic", "similarity", "threshold", "distance", "embedding"],
   },

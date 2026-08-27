@@ -2446,11 +2446,11 @@
 
             <div class="SettingsDialog__row">
               <div class="SettingsDialog__label-group">
-                <span class="SettingsDialog__label">Similarity Threshold</span>
+                <span class="SettingsDialog__label">Max Context Distance</span>
                 <span class="SettingsDialog__description"
-                  >Only include notes with similarity distance at or below this
-                  value. Applies to inline AI and generated descriptions, not to
-                  vault chat.</span
+                  >Only include notes whose embedding distance is at or below
+                  this value — lower keeps fewer, closer notes. Applies to
+                  inline AI and generated descriptions, not to vault chat.</span
                 >
               </div>
               <Select.Root
@@ -5204,10 +5204,13 @@
 
             <div class="SettingsDialog__row">
               <div class="SettingsDialog__label-group">
-                <span class="SettingsDialog__label">Similarity Threshold</span>
+                <span class="SettingsDialog__label"
+                  >Min Semantic Similarity</span
+                >
                 <span class="SettingsDialog__description"
-                  >Minimum similarity for suggestions and graph edges (lower =
-                  more connections)</span
+                  >Minimum cosine similarity for semantic suggestions and graph
+                  edges (lower = more connections). Metadata-rule suggestions
+                  are ranked separately and are not filtered by this.</span
                 >
               </div>
               <div class="flex items-center gap-3">

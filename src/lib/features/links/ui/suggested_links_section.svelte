@@ -60,16 +60,20 @@
           >
             {suggestion.note.title || suggestion.note.name}
           </button>
-          <Tooltip.Root>
-            <Tooltip.Trigger>
-              {#snippet child({ props })}
-                <span {...props} class="SuggestedLinksSection__item-badge">
-                  {similarity_label(suggestion.similarity)}
-                </span>
-              {/snippet}
-            </Tooltip.Trigger>
-            <Tooltip.Content side="left">{SIMILARITY_TOOLTIP}</Tooltip.Content>
-          </Tooltip.Root>
+          {#if suggestion.similarity !== undefined}
+            {@const similarity = suggestion.similarity}
+            <Tooltip.Root>
+              <Tooltip.Trigger>
+                {#snippet child({ props })}
+                  <span {...props} class="SuggestedLinksSection__item-badge">
+                    {similarity_label(similarity)}
+                  </span>
+                {/snippet}
+              </Tooltip.Trigger>
+              <Tooltip.Content side="left">{SIMILARITY_TOOLTIP}</Tooltip.Content
+              >
+            </Tooltip.Root>
+          {/if}
           {#if has_rules(suggestion.rules)}
             {#each suggestion.rules as rule (rule.ruleId)}
               <span

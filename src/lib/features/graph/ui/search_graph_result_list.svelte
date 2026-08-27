@@ -9,6 +9,7 @@
     type SearchGraphSortMode,
   } from "$lib/features/graph/domain/sort_search_graph_nodes";
   import { build_search_graph_result_menu } from "$lib/features/graph/domain/search_graph_result_menu";
+  import { relative_hit_scores } from "$lib/features/graph/domain/relative_hit_scores";
   import * as Select from "$lib/components/ui/select/index.js";
   import * as ContextMenu from "$lib/components/ui/context-menu";
   import { Button } from "$lib/components/ui/button";
@@ -84,6 +85,8 @@
     return node.extension === "markdown" || node.extension == null;
   }
 
+  const relative_scores = $derived(relative_hit_scores(nodes));
+
   const filtered_nodes = $derived(
     nodes.filter((n) => {
       if (n.kind === "neighbor") return show_neighbors;
@@ -92,7 +95,8 @@
       if (!md && !show_non_markdown) return false;
       if (n.source === "vault" && !show_vault) return false;
       if (n.source === "linked" && !show_linked) return false;
-      if (min_score > 0 && (n.score ?? 0) < min_score) return false;
+      if (min_score > 0 && (relative_scores.get(n.path) ?? 0) < min_score)
+        return false;
       return true;
     }),
   );
@@ -159,10 +163,12 @@
     }
   }
 
+  // The input is a percentage of the strongest hit; `min_score` stays a
+  // fraction so the canvas filter reads the same scale.
   function handle_score_input(value: string) {
     score_input = value;
     const parsed = parseFloat(value);
-    on_set_min_score(Number.isNaN(parsed) ? 0 : parsed);
+    on_set_min_score(Number.isNaN(parsed) ? 0 : parsed / 100);
   }
 </script>
 
@@ -249,8 +255,9 @@
     {/if}
     <Input
       value={score_input}
-      placeholder="min"
+      placeholder="min %"
       class="SearchGraphResultList__score-input"
+      title="Minimum match strength, as a percentage of the top hit"
       oninput={(event) => handle_score_input(event.currentTarget.value)}
     />
     {#if selected_node_ids.size > 0}
@@ -301,9 +308,13 @@
             <div class="SearchGraphResultList__header">
               <span class="SearchGraphResultList__title">{node.title}</span>
               <div class="SearchGraphResultList__header-right">
-                {#if node.kind === "hit" && node.score != null}
-                  <span class="SearchGraphResultList__score"
-                    >{node.score.toFixed(2)}</span
+                {#if node.kind === "hit" && relative_scores.has(node.path)}
+                  <span
+                    class="SearchGraphResultList__score"
+                    title="Match strength relative to the top hit"
+                    >{Math.round(
+                      (relative_scores.get(node.path) ?? 0) * 100,
+                    )}%</span
                   >
                 {/if}
                 <span

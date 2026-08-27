@@ -45,12 +45,15 @@ type RetrievalHit = {
   sections?: { start_line: number; end_line: number }[];
 };
 
+// Block hits and note hits never share a list — `search` returns one or the
+// other — so `score` is only ever compared within a scale. Cosine keeps the
+// block scale readable; note hits carry the hybrid RRF score unchanged.
 function block_to_hit(block: BlockSectionHit): RetrievalHit {
   return {
     note_path: block.note.path,
     note_id: block.note.id,
     title: block.note.title,
-    score: 1 / (1 + block.distance),
+    score: 1 - block.distance,
     source: "vector",
     sections: [{ start_line: block.start_line, end_line: block.end_line }],
   };

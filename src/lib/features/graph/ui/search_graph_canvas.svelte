@@ -10,6 +10,7 @@
   } from "$lib/features/graph/ports";
   import type { Theme } from "$lib/shared/types/theme";
   import { folder_from_path } from "$lib/features/graph/domain/graph_grouping";
+  import { relative_hit_scores } from "$lib/features/graph/domain/relative_hit_scores";
   import VaultGraphCanvas from "$lib/features/graph/ui/vault_graph_canvas.svelte";
 
   type Props = {
@@ -54,9 +55,11 @@
   function filter_nodes(
     snap: SearchGraphSnapshot,
   ): SearchGraphSnapshot["nodes"] {
+    const relative = relative_hit_scores(snap.nodes);
     return snap.nodes.filter((n) => {
       if (n.kind === "neighbor") return show_neighbors;
-      if (min_score > 0 && (n.score ?? 0) < min_score) return false;
+      if (min_score > 0 && (relative.get(n.path) ?? 0) < min_score)
+        return false;
       return true;
     });
   }
