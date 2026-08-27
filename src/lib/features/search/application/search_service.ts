@@ -37,6 +37,7 @@ import type { Vault } from "$lib/shared/types/vault";
 import type { VaultId } from "$lib/shared/types/ids";
 import type { CachedHeading } from "$lib/features/metadata";
 import { note_name_from_path } from "$lib/shared/utils/path";
+import { is_linked_note_path } from "$lib/shared/types/note";
 import type { PluginStore } from "$lib/features/plugin";
 import {
   parse_query,
@@ -615,10 +616,20 @@ export class SearchService {
               parse_result.query,
               backends,
             );
-            const items: OmnibarItem[] = result.items.map((item, i) => ({
+            // The DSL composes tag, base, index and full-text resolvers, so the
+            // only place every backend's linked sources meet is the solved set.
+            // Filtering here rather than per resolver keeps the setting from
+            // holding for `photosynthesis` but lapsing for `tag:paper
+            // photosynthesis` in the same dropdown.
+            const solved = include_linked
+              ? result.items
+              : result.items.filter(
+                  (item) => !is_linked_note_path(item.note.path),
+                );
+            const items: OmnibarItem[] = solved.map((item, i) => ({
               kind: "note" as const,
               note: item.note,
-              score: result.items.length - i,
+              score: solved.length - i,
             }));
             return {
               domain: "notes",
