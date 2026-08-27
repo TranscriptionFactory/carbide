@@ -1,5 +1,14 @@
 # carbide
 
+## 2.34.4
+
+### Patch Changes
+
+- 0b7aad6: Stop charging every semantic search for the linked-source filter. With "Include Sources in Search" off, hybrid search used to over-fetch vectors unconditionally — roughly 3x the graph traversal above the exact-search threshold — even in vaults holding a couple of linked PDFs. It now filters the normal sweep first and only re-searches wider when the survivors fall short of the requested limit, so hiding sources costs nothing until it actually thins the results.
+- c87ec8a: Make "Include Sources in Search" do something. The setting shipped declared but unread, so linked reference sources (PDFs, HTML) always appeared in search results and were never filtered anywhere else. It now gates the FTS/hybrid search predicate, structured (DSL) omnibar results, similar-note suggestions, and the search graph, and has a toggle in Settings → Toolchain → Reference Manager. Wiki-link autocomplete and block search are separate surfaces and still list sources.
+
+  `find_similar_notes` gained a distinct `include_linked_sources` parameter; its existing `exclude_linked` flag — which drops notes you have _already wiki-linked_, not linked sources — is now named `exclude_already_linked` so the two filters cannot be confused again.
+
 ## 2.34.3
 
 ### Patch Changes
