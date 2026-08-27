@@ -24,8 +24,6 @@ pub fn hybrid_search(
     // so retrieval degrades rather than failing.
     let vector_fetch = if date_range.is_some() {
         (limit * 20).max(500)
-    } else if !include_linked {
-        (limit * 10).max(200)
     } else {
         over_fetch
     };
@@ -33,6 +31,14 @@ pub fn hybrid_search(
     let mut vector_hits = note_index.search(&query_vec, vector_fetch);
     if !include_linked {
         vector_hits.retain(|(path, _)| !search_db::is_linked_path(path));
+        // Only a pool the filter actually emptied pays for a second, wider sweep:
+        // above EXACT_SEARCH_MAX_POINTS a fetch of 200 costs ~3x the graph
+        // traversal of 60, and a vault with few linked sources loses nothing here.
+        let widened = vector_fetch.max((limit * 10).max(200));
+        if vector_hits.len() < limit && widened > vector_fetch {
+            vector_hits = note_index.search(&query_vec, widened);
+            vector_hits.retain(|(path, _)| !search_db::is_linked_path(path));
+        }
         vector_hits.truncate(over_fetch);
     }
 
