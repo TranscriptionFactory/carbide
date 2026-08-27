@@ -2036,7 +2036,7 @@ pub fn compute_sync_plan(
 
     let removed: Vec<String> = manifest
         .keys()
-        .filter(|p| !seen_paths.contains(p.as_str()) && !p.starts_with("@linked/"))
+        .filter(|p| !seen_paths.contains(p.as_str()) && !is_linked_path(p))
         .cloned()
         .collect();
 

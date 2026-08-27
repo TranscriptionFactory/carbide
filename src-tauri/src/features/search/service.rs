@@ -3707,23 +3707,38 @@ pub async fn find_similar_notes(
     vault_id: String,
     note_path: String,
     limit: Option<usize>,
-    exclude_linked: Option<bool>,
+    exclude_already_linked: Option<bool>,
+    include_linked_sources: Option<bool>,
 ) -> Result<Vec<SemanticSearchHit>, String> {
     crate::shared::blocking::blocking("find_similar_notes", move || {
-        find_similar_notes_inner(app, vault_id, note_path, limit, exclude_linked)
+        find_similar_notes_inner(
+            app,
+            vault_id,
+            note_path,
+            limit,
+            exclude_already_linked,
+            include_linked_sources,
+        )
     })
     .await
 }
 
+/// `exclude_already_linked` drops notes this one already wiki-links to (or from):
+/// a suggestion you have acted on is not a suggestion. `include_linked_sources`
+/// is the separate "Include Sources in Search" setting, and drops `@linked/`
+/// reference sources. The two filters are unrelated — an earlier name of
+/// `exclude_linked` for the first read like the second.
 pub fn find_similar_notes_inner(
     app: AppHandle,
     vault_id: String,
     note_path: String,
     limit: Option<usize>,
-    exclude_linked: Option<bool>,
+    exclude_already_linked: Option<bool>,
+    include_linked_sources: Option<bool>,
 ) -> Result<Vec<SemanticSearchHit>, String> {
     let limit = limit.unwrap_or(5);
-    let exclude = exclude_linked.unwrap_or(false);
+    let exclude = exclude_already_linked.unwrap_or(false);
+    let include_sources = include_linked_sources.unwrap_or(true);
 
     let query_vec = with_note_index(&app, &vault_id, |idx| idx.get_vector(&note_path).cloned())?;
     let query_vec = match query_vec {
@@ -3731,7 +3746,8 @@ pub fn find_similar_notes_inner(
         None => return Ok(vec![]),
     };
 
-    let fetch_limit = if exclude { limit + 20 } else { limit + 1 };
+    let extra = if exclude { 20 } else { 1 };
+    let fetch_limit = if include_sources { limit + extra } else { limit + extra + 20 };
     let hits = with_note_index(&app, &vault_id, |idx| idx.search(&query_vec, fetch_limit))?;
 
     with_read_conn(&app, &vault_id, |conn| {
@@ -3758,6 +3774,9 @@ pub fn find_similar_notes_inner(
                 continue;
             }
             if exclude && linked.contains(path.as_str()) {
+                continue;
+            }
+            if !include_sources && search_db::is_linked_path(path) {
                 continue;
             }
             if let Ok(Some(note)) = search_db::get_note_meta(conn, path) {

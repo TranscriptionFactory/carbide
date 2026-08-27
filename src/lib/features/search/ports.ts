@@ -108,7 +108,8 @@ export interface SearchPort {
     vault_id: VaultId,
     note_path: string,
     limit?: number,
-    exclude_linked?: boolean,
+    exclude_already_linked?: boolean,
+    include_linked_sources?: boolean,
   ): Promise<SemanticSearchHit[]>;
   semantic_search(
     vault_id: VaultId,

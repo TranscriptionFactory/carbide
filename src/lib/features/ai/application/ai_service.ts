@@ -125,7 +125,8 @@ export class AiService {
           vault.id,
           note_path,
           settings.similar_limit,
-          !settings.include_linked_sources,
+          true,
+          settings.include_linked_sources,
         )
         .then((hits) =>
           hits

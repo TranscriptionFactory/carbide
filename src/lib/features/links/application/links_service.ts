@@ -203,7 +203,8 @@ export class LinksService {
           vault_id,
           note_path,
           limit,
-          !include_linked_sources,
+          true,
+          include_linked_sources,
         ),
         this.search_port.compute_smart_link_suggestions(
           vault_id,

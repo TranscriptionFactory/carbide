@@ -609,3 +609,74 @@ describe("GraphService.toggle_semantic_edges", () => {
     ).toBe(call_count);
   });
 });
+
+describe("GraphService.expand_search_graph_node linked sources", () => {
+  function setup_expand() {
+    const graph_store = new GraphStore();
+    const vault_store = new VaultStore();
+    const editor_store = new EditorStore();
+    const graph_port = make_mock_graph_port();
+    const search_port = make_mock_search_port();
+    const search_graph_store = new SearchGraphStore();
+    vault_store.set_vault(create_test_vault({ id: "vault-1" as VaultId }));
+    search_graph_store.create_instance("tab-1", "query");
+    search_graph_store.set_snapshot(
+      "tab-1",
+      {
+        query: "query",
+        nodes: [],
+        edges: [],
+        stats: {
+          hit_count: 0,
+          neighbor_count: 0,
+          wiki_edge_count: 0,
+          semantic_edge_count: 0,
+          smart_link_edge_count: 0,
+        },
+      },
+      new Set<string>(),
+      null,
+    );
+    const search_service = {
+      run_search_pipeline: vi.fn().mockResolvedValue({ hits: [] }),
+    } as unknown as SearchService;
+    const service = new GraphService(
+      graph_port,
+      search_port,
+      search_service,
+      vault_store,
+      editor_store,
+      graph_store,
+      search_graph_store,
+    );
+    return { service, search_port };
+  }
+
+  it("keeps the already-linked filter on and includes sources by default", async () => {
+    const { service, search_port } = setup_expand();
+
+    await service.expand_search_graph_node("tab-1", "a.md");
+
+    expect(search_port.find_similar_notes).toHaveBeenCalledWith(
+      "vault-1",
+      "a.md",
+      5,
+      true,
+      true,
+    );
+  });
+
+  it("excludes linked sources when the setting is off", async () => {
+    const { service, search_port } = setup_expand();
+
+    await service.expand_search_graph_node("tab-1", "a.md", false);
+
+    expect(search_port.find_similar_notes).toHaveBeenCalledWith(
+      "vault-1",
+      "a.md",
+      5,
+      true,
+      false,
+    );
+  });
+});
