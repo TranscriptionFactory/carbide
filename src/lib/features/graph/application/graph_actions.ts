@@ -159,7 +159,7 @@ export function register_graph_actions(
       const s = stores.ui.editor_settings;
       await graph_service.toggle_semantic_edges({
         knn_limit: s.semantic_graph_edges_per_note,
-        distance_threshold: s.semantic_similarity_threshold,
+        similarity_threshold: s.semantic_similarity_threshold,
       });
     },
   });

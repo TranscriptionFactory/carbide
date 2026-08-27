@@ -20,9 +20,8 @@ function entry(key: string) {
 
 describe("inline-AI vault context settings are findable and scoped", () => {
   // Settings search is the surface a user reaches for when a control's label
-  // is ambiguous, and "Similarity Threshold" is ambiguous: the Semantic
-  // category ships a setting under the same label. An entry missing here means
-  // the only way to learn what a control governs is to already know.
+  // is ambiguous. An entry missing here means the only way to learn what a
+  // control governs is to already know.
   it.each(INLINE_AI_KEYS)("registers %s in the catalog", (key) => {
     expect(entry(key)).toBeDefined();
   });
@@ -57,15 +56,17 @@ describe("inline-AI vault context settings are findable and scoped", () => {
     expect(description).toMatch(/vault chat reads neither/i);
   });
 
-  it("keeps the label collision with the Semantic threshold disambiguated by category", () => {
-    const collisions = SETTINGS_REGISTRY.filter(
-      (definition) => definition.label === "Similarity Threshold",
-    );
+  // These two thresholds have opposite polarity — one is a distance, the other
+  // a similarity — so a shared label reads as one control with one meaning.
+  it("does not share a label with the Semantic threshold", () => {
+    const ai = entry("ai_vault_context_similarity_threshold")?.label;
+    const semantic = entry("semantic_similarity_threshold")?.label;
 
-    expect(collisions.map((definition) => definition.category).sort()).toEqual([
-      "AI",
-      "Semantic",
-    ]);
+    expect(ai).toBe("Max Context Distance");
+    expect(semantic).toBe("Min Semantic Similarity");
+    expect(
+      SETTINGS_REGISTRY.filter((definition) => definition.label === ai),
+    ).toHaveLength(1);
   });
 
   it.each(CHAT_RETRIEVAL_KEYS)(

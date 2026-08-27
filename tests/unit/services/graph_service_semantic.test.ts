@@ -195,7 +195,7 @@ describe("GraphService.load_semantic_edges", () => {
 
     await service.load_semantic_edges({
       knn_limit: 5,
-      distance_threshold: 0.8,
+      similarity_threshold: 0.8,
     });
 
     expect(search_port.semantic_search_batch).toHaveBeenCalledWith(
@@ -310,7 +310,7 @@ describe("GraphService.load_vault_graph inferred edges", () => {
     });
     await service.load_semantic_edges({
       knn_limit: 7,
-      distance_threshold: 0.9,
+      similarity_threshold: 0.9,
     });
 
     graph_store.set_semantic_edges([]);

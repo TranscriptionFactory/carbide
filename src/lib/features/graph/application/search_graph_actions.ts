@@ -26,7 +26,11 @@ export function register_search_graph_actions(
       );
       stores.editor.clear_open_note();
       if (query) {
-        await graph_service.execute_search_graph(tab_id, query);
+        await graph_service.execute_search_graph(
+          tab_id,
+          query,
+          stores.ui.editor_settings.semantic_similarity_threshold,
+        );
       }
     },
   });
@@ -40,7 +44,11 @@ export function register_search_graph_actions(
         query?: string;
       };
       if (!tab_id || !query) return;
-      await graph_service.execute_search_graph(tab_id, query);
+      await graph_service.execute_search_graph(
+        tab_id,
+        query,
+        stores.ui.editor_settings.semantic_similarity_threshold,
+      );
     },
   });
 
@@ -85,7 +93,10 @@ export function register_search_graph_actions(
     label: "Toggle Search Graph Semantic Edges",
     execute: async (tab_id: unknown) => {
       if (typeof tab_id !== "string") return;
-      await graph_service.toggle_search_graph_semantic_edges(tab_id);
+      await graph_service.toggle_search_graph_semantic_edges(
+        tab_id,
+        stores.ui.editor_settings.semantic_similarity_threshold,
+      );
     },
   });
 

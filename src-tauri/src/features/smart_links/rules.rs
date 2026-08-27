@@ -79,6 +79,7 @@ fn query_same_day(conn: &Connection, note_path: &str) -> Result<Vec<RuleHit>, St
             date(n2.mtime_ms / 1000, 'unixepoch')
         )
         WHERE n1.path = ?1 AND n2.path != ?1
+        ORDER BY n2.mtime_ms DESC, n2.path
         LIMIT 50
     ";
     let mut stmt = conn.prepare(sql).map_err(|e| e.to_string())?;

@@ -4,6 +4,6 @@ export const SIMILARITY_TOOLTIP =
 
 export function similarity_label(similarity: number): string {
   if (similarity >= 1) return "100%";
-  const percent = Math.min(99, Math.round(similarity * 100));
+  const percent = Math.min(99, Math.max(0, Math.round(similarity * 100)));
   return `${String(percent)}%`;
 }

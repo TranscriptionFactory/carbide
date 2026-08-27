@@ -23,7 +23,11 @@ function setup() {
 
   register_search_graph_actions({
     registry,
-    stores: { tab: {}, editor: {} },
+    stores: {
+      tab: {},
+      editor: {},
+      ui: { editor_settings: { semantic_similarity_threshold: 0.5 } },
+    },
     search_graph_store,
     graph_service,
   } as never);
@@ -43,7 +47,7 @@ describe("register_search_graph_actions semantic toggle", () => {
 
     expect(
       graph_service.toggle_search_graph_semantic_edges,
-    ).toHaveBeenCalledWith("tab-1");
+    ).toHaveBeenCalledWith("tab-1", 0.5);
   });
 
   it("ignores non-string payloads", async () => {

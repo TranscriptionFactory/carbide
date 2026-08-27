@@ -35,7 +35,7 @@ export class GraphService {
   private hierarchy_load_revision = 0;
   private semantic_edge_settings?: {
     knn_limit?: number;
-    distance_threshold?: number;
+    similarity_threshold?: number;
   };
 
   constructor(
@@ -222,9 +222,11 @@ export class GraphService {
     this.graph_store.set_hovered_node(node_id);
   }
 
+  // `similarity_threshold` is a cosine, not a distance: the backend filter is
+  // on distance, so it is inverted here and nowhere else.
   async load_semantic_edges(settings?: {
     knn_limit?: number;
-    distance_threshold?: number;
+    similarity_threshold?: number;
   }): Promise<void> {
     const vault_id = this.get_active_vault_id();
     const snapshot = this.graph_store.vault_snapshot;
@@ -233,7 +235,7 @@ export class GraphService {
     if (settings) this.semantic_edge_settings = settings;
     const effective = settings ?? this.semantic_edge_settings;
     const knn_limit = effective?.knn_limit ?? SEMANTIC_EDGE_KNN_LIMIT;
-    const threshold = effective?.distance_threshold;
+    const threshold = effective?.similarity_threshold;
 
     try {
       const status = await this.search_port.get_embedding_status(vault_id);
@@ -293,7 +295,7 @@ export class GraphService {
 
   async toggle_semantic_edges(settings?: {
     knn_limit?: number;
-    distance_threshold?: number;
+    similarity_threshold?: number;
   }): Promise<void> {
     this.graph_store.toggle_show_semantic_edges();
     if (
@@ -363,7 +365,11 @@ export class GraphService {
     }
   }
 
-  async execute_search_graph(tab_id: string, query: string): Promise<void> {
+  async execute_search_graph(
+    tab_id: string,
+    query: string,
+    similarity_threshold?: number,
+  ): Promise<void> {
     if (!this.search_graph_store) return;
     const vault_id = this.get_active_vault_id();
     if (!vault_id) return;
@@ -405,6 +411,7 @@ export class GraphService {
         ? await this.compute_search_semantic_edges(
             vault_id,
             subgraph_hits.map((h) => h.path),
+            similarity_threshold,
           )
         : null;
 
@@ -439,13 +446,16 @@ export class GraphService {
   private async compute_search_semantic_edges(
     vault_id: VaultId,
     hit_paths: string[],
+    similarity_threshold?: number,
   ): Promise<SemanticEdge[]> {
     try {
       return await this.search_port.semantic_search_batch(
         vault_id,
         hit_paths,
         SEMANTIC_EDGE_KNN_LIMIT,
-        SEMANTIC_EDGE_DISTANCE_THRESHOLD,
+        similarity_threshold !== undefined
+          ? 1 - similarity_threshold
+          : SEMANTIC_EDGE_DISTANCE_THRESHOLD,
       );
     } catch {
       return [];
@@ -472,7 +482,10 @@ export class GraphService {
     }
   }
 
-  async toggle_search_graph_semantic_edges(tab_id: string): Promise<void> {
+  async toggle_search_graph_semantic_edges(
+    tab_id: string,
+    similarity_threshold?: number,
+  ): Promise<void> {
     if (!this.search_graph_store) return;
     this.search_graph_store.toggle_semantic_edges(tab_id);
 
@@ -486,7 +499,11 @@ export class GraphService {
     const hit_paths = instance.snapshot.nodes
       .filter((n) => n.kind === "hit")
       .map((n) => n.path);
-    const edges = await this.compute_search_semantic_edges(vault_id, hit_paths);
+    const edges = await this.compute_search_semantic_edges(
+      vault_id,
+      hit_paths,
+      similarity_threshold,
+    );
     const snapshot = apply_semantic_edges_to_snapshot(instance.snapshot, edges);
     this.search_graph_store.set_snapshot(
       tab_id,

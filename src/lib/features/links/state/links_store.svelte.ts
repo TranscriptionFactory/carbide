@@ -6,9 +6,14 @@ import type {
 } from "$lib/features/links/types/link";
 import type { SmartLinkRuleMatch } from "$lib/features/smart_links";
 
+// `similarity` is a cosine of note embeddings and is absent when nothing
+// semantic produced this suggestion; `rank_score` is the ordering key and may
+// be a weighted rule composite on a different scale. Keeping them apart is what
+// stops the UI badge from claiming a metadata match is an embedding match.
 export type SuggestedLink = {
   note: NoteMeta;
-  similarity: number;
+  similarity?: number;
+  rank_score: number;
   rules?: SmartLinkRuleMatch[];
 };
 
