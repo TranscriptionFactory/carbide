@@ -189,11 +189,13 @@ export function create_search_tauri_adapter(): SearchPort {
       vault_id: VaultId,
       query: SearchQuery,
       limit = 50,
+      include_linked = true,
     ): Promise<NoteSearchHit[]> {
       const hits = await invoke_search<TauriSearchHit[]>("index_search", {
         vaultId: vault_id,
         query,
         limit,
+        includeLinked: include_linked,
       });
       return hits.slice(0, limit).map((hit) => ({
         note: to_note_meta(hit.note),
@@ -341,6 +343,7 @@ export function create_search_tauri_adapter(): SearchPort {
       query: SearchQueryInput,
       limit = 20,
       date_range: DateRange | null = null,
+      include_linked = true,
     ): Promise<HybridSearchHit[]> {
       const hits = await invoke_search<TauriHybridSearchHit[]>(
         "hybrid_search",
@@ -349,6 +352,7 @@ export function create_search_tauri_adapter(): SearchPort {
           query,
           limit,
           dateRange: date_range,
+          includeLinked: include_linked,
         },
       );
       return hits.map((hit) => ({

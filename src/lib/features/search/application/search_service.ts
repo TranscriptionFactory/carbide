@@ -252,7 +252,10 @@ export class SearchService {
     return ordered_vaults;
   }
 
-  async search_notes(query: string): Promise<SearchNotesResult> {
+  async search_notes(
+    query: string,
+    include_linked = true,
+  ): Promise<SearchNotesResult> {
     const trimmed = query.trim();
     if (!trimmed) {
       this.op_store.reset("search.notes");
@@ -273,6 +276,7 @@ export class SearchService {
         vault_id,
         parse_search_query(query),
         20,
+        include_linked,
       );
       if (this.is_search_stale(revision)) {
         return { status: "stale", results: [] };
@@ -375,6 +379,7 @@ export class SearchService {
 
   async search_notes_all_vaults(
     query: string,
+    include_linked = true,
   ): Promise<CrossVaultSearchResult> {
     const trimmed = query.trim();
     if (!trimmed) {
@@ -395,6 +400,7 @@ export class SearchService {
       const settled = await this.run_cross_vault_search(
         searchable_vaults,
         query,
+        include_linked,
       );
       if (this.is_cross_vault_search_stale(revision)) {
         return { status: "stale", groups: [] };
@@ -441,11 +447,17 @@ export class SearchService {
   private async run_cross_vault_search(
     searchable_vaults: Vault[],
     query: string,
+    include_linked: boolean,
   ): Promise<CrossVaultSettledSearch[]> {
     const parsed_query = this.parse_notes_domain_query(query);
     return await Promise.allSettled(
       searchable_vaults.map((vault) =>
-        this.search_port.search_notes(vault.id, parsed_query, 20),
+        this.search_port.search_notes(
+          vault.id,
+          parsed_query,
+          20,
+          include_linked,
+        ),
       ),
     );
   }
@@ -558,13 +570,15 @@ export class SearchService {
   async run_search_pipeline(
     vault_id: VaultId,
     query: string,
-    options?: { limit?: number },
+    options?: { limit?: number; include_linked?: boolean },
   ): Promise<SearchPipelineResult> {
     const parsed = parse_search_query(query);
     const hits = await this.search_port.hybrid_search(
       vault_id,
       { raw: parsed.raw, text: parsed.text, scope: parsed.scope },
       options?.limit ?? 20,
+      null,
+      options?.include_linked ?? true,
     );
     return { hits };
   }
@@ -572,6 +586,7 @@ export class SearchService {
   async search_omnibar(
     raw_query: string,
     semantic_enabled?: boolean,
+    include_linked = true,
   ): Promise<OmnibarSearchResult> {
     const parsed = parse_search_query(raw_query);
 
@@ -620,7 +635,9 @@ export class SearchService {
 
     if ((semantic_enabled ?? true) && vault_id !== null) {
       try {
-        const { hits } = await this.run_search_pipeline(vault_id, raw_query);
+        const { hits } = await this.run_search_pipeline(vault_id, raw_query, {
+          include_linked,
+        });
         const items: OmnibarItem[] = hits.map((hit) => ({
           kind: "note" as const,
           note: hit.note,
@@ -643,7 +660,7 @@ export class SearchService {
       }
     }
 
-    const result = await this.search_notes(raw_query);
+    const result = await this.search_notes(raw_query, include_linked);
     const fts_items: OmnibarItem[] = result.results.map((r) => ({
       kind: "note" as const,
       note: r.note,

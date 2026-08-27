@@ -511,6 +511,31 @@ function make_search_port(
 }
 
 describe("LinksService.load_suggested_links", () => {
+  it("excludes linked sources when the setting is off", async () => {
+    const search_port = make_search_port({
+      find_similar_notes: vi.fn().mockResolvedValue([]),
+    });
+
+    const vault_store = new VaultStore();
+    vault_store.set_vault(create_test_vault());
+    const service = new LinksService(
+      search_port,
+      vault_store,
+      new LinksStore(),
+      make_markdown_lsp_port(),
+      make_markdown_lsp_store(),
+    );
+
+    await service.load_suggested_links("note.md", 5, 0.5, false);
+
+    expect(search_port.find_similar_notes).toHaveBeenCalledWith(
+      "vault-1",
+      "note.md",
+      5,
+      true,
+    );
+  });
+
   it("maps semantic hits to suggested links with provenance", async () => {
     const hits: SemanticSearchHit[] = [
       { note: note("a.md"), distance: 0.2 },
@@ -537,7 +562,7 @@ describe("LinksService.load_suggested_links", () => {
       "vault-1",
       "note.md",
       5,
-      true,
+      false,
     );
     expect(links_store.suggested_links).toHaveLength(2);
     expect(links_store.suggested_links[0]?.note).toEqual(note("a.md"));

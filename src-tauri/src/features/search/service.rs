@@ -3041,9 +3041,10 @@ pub async fn index_search(
     vault_id: String,
     query: SearchQueryInput,
     limit: Option<usize>,
+    include_linked: Option<bool>,
 ) -> Result<Vec<SearchHit>, String> {
     crate::shared::blocking::blocking("index_search", move || {
-        index_search_inner(app, vault_id, query, limit)
+        index_search_inner(app, vault_id, query, limit, include_linked)
     })
     .await
 }
@@ -3053,11 +3054,13 @@ pub fn index_search_inner(
     vault_id: String,
     query: SearchQueryInput,
     limit: Option<usize>,
+    include_linked: Option<bool>,
 ) -> Result<Vec<SearchHit>, String> {
     log::debug!("Searching index vault_id={} query={}", vault_id, query.text);
     let max = limit.unwrap_or(50);
+    let include_linked = include_linked.unwrap_or(true);
     with_read_conn(&app, &vault_id, |conn| {
-        search_db::search(conn, &query.text, query.scope, max, None)
+        search_db::search(conn, &query.text, query.scope, max, None, include_linked)
     })
 }
 
@@ -3943,10 +3946,12 @@ pub async fn hybrid_search(
     query: SearchQueryInput,
     limit: Option<usize>,
     date_range: Option<DateRange>,
+    include_linked: Option<bool>,
 ) -> Result<Vec<HybridSearchHit>, String> {
     let model = query_model(&app)?;
     let limit = limit.unwrap_or(20);
     let date_range = date_range.map(|d| (d.start_ms, d.end_ms));
+    let include_linked = include_linked.unwrap_or(true);
 
     let (read_conn, ni) = {
         ensure_worker(&app, &vault_id)?;
@@ -3962,7 +3967,7 @@ pub async fn hybrid_search(
     tauri::async_runtime::spawn_blocking(move || {
         let conn = read_conn.lock().map_err(|e| e.to_string())?;
         let idx = ni.read().map_err(|e| e.to_string())?;
-        hybrid::hybrid_search(&conn, &idx, &model, &query, limit, date_range)
+        hybrid::hybrid_search(&conn, &idx, &model, &query, limit, date_range, include_linked)
     })
     .await
     .map_err(|e| e.to_string())?
@@ -3993,7 +3998,8 @@ pub(crate) fn hybrid_search_sync(
         scope: SearchScope::All,
     };
 
-    hybrid::hybrid_search(&conn, &idx, &model, &query_input, limit, None)
+    // Agent/MCP-facing search has no user setting to read; linked sources stay in.
+    hybrid::hybrid_search(&conn, &idx, &model, &query_input, limit, None, true)
 }
 
 #[tauri::command]

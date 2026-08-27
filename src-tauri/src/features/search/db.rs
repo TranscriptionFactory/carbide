@@ -1463,6 +1463,10 @@ pub fn linked_note_path(source_name: &str, relative_path: &str) -> String {
     format!("@linked/{source_name}/{relative_path}")
 }
 
+pub fn is_linked_path(path: &str) -> bool {
+    path.starts_with("@linked/")
+}
+
 /// Path of `file_path` relative to its linked source root, with forward slashes.
 /// Files outside the root (or a root that no longer prefixes them) collapse to
 /// the bare file name so they still land directly under the source folder.
@@ -2946,12 +2950,16 @@ fn note_meta_with_stats_from_row(
     Ok((meta, stats))
 }
 
+/// `include_linked` carries the user's "Include Sources in Search" setting.
+/// Excluding is a SQL predicate rather than a post-filter so a `limit` of 20
+/// still returns 20 vault notes when linked sources would have taken the slots.
 pub fn search(
     conn: &Connection,
     query: &str,
     scope: SearchScope,
     limit: usize,
     date_range: Option<(i64, i64)>,
+    include_linked: bool,
 ) -> Result<Vec<SearchHit>, String> {
     let trimmed = query.trim();
     if trimmed.is_empty() {
@@ -2994,6 +3002,11 @@ pub fn search(
     } else {
         ""
     };
+    let linked_clause = if include_linked {
+        ""
+    } else {
+        " AND n.path NOT LIKE '@linked/%'"
+    };
 
     let sql = format!(
         "SELECT n.path, n.title, n.mtime_ms, n.size_bytes,
@@ -3006,7 +3019,7 @@ pub fn search(
                 n.content_snippet
          FROM notes_fts
          JOIN notes n ON n.path = notes_fts.path
-         WHERE notes_fts MATCH ?1{date_clause}
+         WHERE notes_fts MATCH ?1{date_clause}{linked_clause}
          ORDER BY rank
          LIMIT ?2"
     );

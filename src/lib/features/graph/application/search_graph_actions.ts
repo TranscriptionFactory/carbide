@@ -30,6 +30,7 @@ export function register_search_graph_actions(
           tab_id,
           query,
           stores.ui.editor_settings.semantic_similarity_threshold,
+          stores.ui.editor_settings.reference_include_sources_in_search,
         );
       }
     },
@@ -48,6 +49,7 @@ export function register_search_graph_actions(
         tab_id,
         query,
         stores.ui.editor_settings.semantic_similarity_threshold,
+        stores.ui.editor_settings.reference_include_sources_in_search,
       );
     },
   });
@@ -118,7 +120,11 @@ export function register_search_graph_actions(
         node_path?: string;
       };
       if (!tab_id || !node_path) return;
-      await graph_service.expand_search_graph_node(tab_id, node_path);
+      await graph_service.expand_search_graph_node(
+        tab_id,
+        node_path,
+        stores.ui.editor_settings.reference_include_sources_in_search,
+      );
     },
   });
 

@@ -276,9 +276,14 @@ async function search_omnibar_query(
   scope: OmnibarScope,
 ) {
   const parsed_query = parse_search_query(query);
+  const include_linked =
+    input.stores.ui.editor_settings.reference_include_sources_in_search;
 
   if (scope === "all_vaults" && parsed_query.domain === "notes") {
-    const result = await input.services.search.search_notes_all_vaults(query);
+    const result = await input.services.search.search_notes_all_vaults(
+      query,
+      include_linked,
+    );
     if (input.stores.ui.omnibar.query.trim() !== query.trim()) {
       return;
     }
@@ -295,6 +300,7 @@ async function search_omnibar_query(
   const result = await input.services.search.search_omnibar(
     query,
     settings.semantic_omnibar_enabled,
+    include_linked,
   );
   if (input.stores.ui.omnibar.query.trim() !== query.trim()) {
     return;

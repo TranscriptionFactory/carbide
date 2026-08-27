@@ -838,6 +838,66 @@ describe("SearchService", () => {
       });
     });
 
+    it("includes linked sources in hybrid search by default", async () => {
+      const search_port = make_search_port({
+        hybrid_search_results: [make_note_hit("docs/a.md")],
+      });
+
+      const vault_store = new VaultStore();
+      vault_store.set_vault(create_test_vault());
+
+      const service = new SearchService(
+        search_port,
+        vault_store,
+        new OpStore(),
+        () => 1,
+      );
+
+      await service.search_omnibar("photosynthesis");
+
+      expect(search_port.hybrid_search.mock.calls[0]![4]).toBe(true);
+    });
+
+    it("excludes linked sources from hybrid search when the setting is off", async () => {
+      const search_port = make_search_port({
+        hybrid_search_results: [make_note_hit("docs/a.md")],
+      });
+
+      const vault_store = new VaultStore();
+      vault_store.set_vault(create_test_vault());
+
+      const service = new SearchService(
+        search_port,
+        vault_store,
+        new OpStore(),
+        () => 1,
+      );
+
+      await service.search_omnibar("photosynthesis", true, false);
+
+      expect(search_port.hybrid_search.mock.calls[0]![4]).toBe(false);
+    });
+
+    it("carries the linked-source setting into the FTS fallback", async () => {
+      const search_port = make_search_port({
+        hybrid_search_error: new Error("embeddings unavailable"),
+      });
+
+      const vault_store = new VaultStore();
+      vault_store.set_vault(create_test_vault());
+
+      const service = new SearchService(
+        search_port,
+        vault_store,
+        new OpStore(),
+        () => 1,
+      );
+
+      await service.search_omnibar("photosynthesis", true, false);
+
+      expect(search_port.search_notes.mock.calls[0]![3]).toBe(false);
+    });
+
     it("falls back to FTS when hybrid search throws", async () => {
       const fts_results = [
         {

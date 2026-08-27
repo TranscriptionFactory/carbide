@@ -6052,6 +6052,24 @@
                 </button>
               </div>
             </div>
+
+            <div class="SettingsDialog__row">
+              <div class="SettingsDialog__label-group">
+                <span class="SettingsDialog__label"
+                  >Include Sources in Search</span
+                >
+                <span class="SettingsDialog__description"
+                  >Include linked reference sources (PDFs, HTML) in search
+                  results, semantic similarity, and graph edges</span
+                >
+              </div>
+              <Switch.Root
+                checked={editor_settings.reference_include_sources_in_search}
+                onCheckedChange={(v: boolean) => {
+                  update("reference_include_sources_in_search", v);
+                }}
+              />
+            </div>
           </div>
         {:else if active_category === "hotkeys"}
           <h2 class="SettingsDialog__content-header">Hotkeys</h2>

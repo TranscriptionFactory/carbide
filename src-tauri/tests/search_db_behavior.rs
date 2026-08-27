@@ -101,7 +101,7 @@ fn remove_notes_by_prefix_deletes_matching_and_keeps_others() {
     assert_eq!(manifest.len(), 1);
     assert!(manifest.contains_key("misc/c.md"));
 
-    let results = search(&conn, "body", SearchScope::All, 10, None).expect("search should succeed");
+    let results = search(&conn, "body", SearchScope::All, 10, None, true).expect("search should succeed");
     assert_eq!(results.len(), 1);
     assert_eq!(results[0].note.path, "misc/c.md");
 }
@@ -449,7 +449,7 @@ fn search_returns_file_type_from_db() {
     };
     upsert_note(&conn, &meta, "quarterly results revenue growth").expect("upsert should succeed");
 
-    let results = search(&conn, "quarterly", SearchScope::All, 10, None).expect("search should succeed");
+    let results = search(&conn, "quarterly", SearchScope::All, 10, None, true).expect("search should succeed");
     assert_eq!(results.len(), 1);
     assert_eq!(results[0].note.file_type, Some("pdf".to_string()));
 }
@@ -496,7 +496,7 @@ fn search_ranks_verbatim_phrase_above_scattered_terms() {
         "the theme of the offsite. theory. names. the the the of of. game over.",
     );
 
-    let results = search(&conn, "name of the game", SearchScope::All, 10, None)
+    let results = search(&conn, "name of the game", SearchScope::All, 10, None, true)
         .expect("search should succeed");
     assert_eq!(
         results.first().map(|h| h.note.path.as_str()),
@@ -507,7 +507,7 @@ fn search_ranks_verbatim_phrase_above_scattered_terms() {
 
     // Recall is preserved when no exact phrase exists: a note containing all
     // terms (non-adjacent) still matches.
-    let recall = search(&conn, "consistency habits", SearchScope::All, 10, None)
+    let recall = search(&conn, "consistency habits", SearchScope::All, 10, None, true)
         .expect("search should succeed");
     assert_eq!(
         recall.first().map(|h| h.note.path.as_str()),
@@ -1052,7 +1052,7 @@ fn search_date_range_filters_by_mtime() {
         upsert_note(&conn, &meta, "metaboloformer benchmarks").expect("upsert should succeed");
     }
 
-    let all = search(&conn, "metaboloformer", SearchScope::All, 10, None).expect("search");
+    let all = search(&conn, "metaboloformer", SearchScope::All, 10, None, true).expect("search");
     assert_eq!(all.len(), 2);
 
     let windowed = search(
@@ -1061,6 +1061,7 @@ fn search_date_range_filters_by_mtime() {
         SearchScope::All,
         10,
         Some((4_000, 6_000)),
+        true,
     )
     .expect("search");
     assert_eq!(windowed.len(), 1);
@@ -1434,7 +1435,7 @@ fn index_sourced_notes_carry_the_blurb() {
         "Combining BM25 with dense vectors improves recall."
     );
 
-    let hits = search(&conn, "recall", SearchScope::All, 10, None).expect("search should run");
+    let hits = search(&conn, "recall", SearchScope::All, 10, None, true).expect("search should run");
     let hit = hits
         .iter()
         .find(|h| h.note.path == "docs/target.md")
@@ -2047,4 +2048,99 @@ fn removing_notes_by_prefix_evicts_task_rows() {
         1,
         "a sibling folder's tasks must survive"
     );
+}
+
+fn linked_search_meta(path: &str, title: &str) -> IndexNoteMeta {
+    IndexNoteMeta {
+        id: path.to_string(),
+        path: path.to_string(),
+        title: title.to_string(),
+        name: title.to_string(),
+        mtime_ms: 100,
+        ctime_ms: 50,
+        size_bytes: 10,
+        blurb: String::new(),
+        file_type: None,
+        source: None,
+    }
+}
+
+#[test]
+fn search_includes_linked_sources_by_default() {
+    let tmp = TempDir::new().expect("temp dir should be created");
+    let conn = open_search_db_at_path(&tmp.path().join("test.db")).expect("db should open");
+
+    upsert_note(
+        &conn,
+        &linked_search_meta("notes/vault.md", "Vault"),
+        "photosynthesis in vault",
+    )
+    .expect("vault upsert should succeed");
+    upsert_note(
+        &conn,
+        &linked_search_meta("@linked/zotero/paper.pdf", "Paper"),
+        "photosynthesis in paper",
+    )
+    .expect("linked upsert should succeed");
+
+    let hits = search(&conn, "photosynthesis", SearchScope::All, 10, None, true)
+        .expect("search should succeed");
+
+    let paths: Vec<&str> = hits.iter().map(|h| h.note.path.as_str()).collect();
+    assert!(paths.contains(&"@linked/zotero/paper.pdf"));
+    assert!(paths.contains(&"notes/vault.md"));
+}
+
+#[test]
+fn search_excludes_linked_sources_when_setting_is_off() {
+    let tmp = TempDir::new().expect("temp dir should be created");
+    let conn = open_search_db_at_path(&tmp.path().join("test.db")).expect("db should open");
+
+    upsert_note(
+        &conn,
+        &linked_search_meta("notes/vault.md", "Vault"),
+        "photosynthesis in vault",
+    )
+    .expect("vault upsert should succeed");
+    upsert_note(
+        &conn,
+        &linked_search_meta("@linked/zotero/paper.pdf", "Paper"),
+        "photosynthesis in paper",
+    )
+    .expect("linked upsert should succeed");
+
+    let hits = search(&conn, "photosynthesis", SearchScope::All, 10, None, false)
+        .expect("search should succeed");
+
+    let paths: Vec<&str> = hits.iter().map(|h| h.note.path.as_str()).collect();
+    assert_eq!(paths, vec!["notes/vault.md"]);
+}
+
+#[test]
+fn excluding_linked_sources_does_not_cost_vault_result_slots() {
+    let tmp = TempDir::new().expect("temp dir should be created");
+    let conn = open_search_db_at_path(&tmp.path().join("test.db")).expect("db should open");
+
+    for i in 0..5 {
+        upsert_note(
+            &conn,
+            &linked_search_meta(&format!("@linked/zotero/paper{i}.pdf"), "Paper"),
+            "photosynthesis",
+        )
+        .expect("linked upsert should succeed");
+    }
+    for i in 0..3 {
+        upsert_note(
+            &conn,
+            &linked_search_meta(&format!("notes/vault{i}.md"), "Vault"),
+            "photosynthesis",
+        )
+        .expect("vault upsert should succeed");
+    }
+
+    let hits = search(&conn, "photosynthesis", SearchScope::All, 3, None, false)
+        .expect("search should succeed");
+
+    assert_eq!(hits.len(), 3, "the limit must be filled with vault notes");
+    assert!(hits.iter().all(|h| !h.note.path.starts_with("@linked/")));
 }

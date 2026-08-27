@@ -138,6 +138,8 @@ describe("SearchService.run_search_pipeline", () => {
       "vault-1",
       expect.objectContaining({ text: "react", scope: "title" }),
       20,
+      null,
+      true,
     );
   });
 
@@ -156,6 +158,8 @@ describe("SearchService.run_search_pipeline", () => {
       "vault-1",
       expect.objectContaining({ text: "general query", scope: "all" }),
       20,
+      null,
+      true,
     );
   });
 
@@ -176,6 +180,8 @@ describe("SearchService.run_search_pipeline", () => {
       "vault-1",
       expect.any(Object),
       50,
+      null,
+      true,
     );
   });
 
@@ -233,6 +239,7 @@ describe("GraphService uses shared search pipeline", () => {
 
     expect(run_pipeline_spy).toHaveBeenCalledWith("vault-1", "test query", {
       limit: 50,
+      include_linked: true,
     });
     expect(search_port.hybrid_search).toHaveBeenCalledTimes(1);
   });
@@ -271,6 +278,8 @@ describe("GraphService uses shared search pipeline", () => {
       "vault-1",
       expect.objectContaining({ text: "react", scope: "title" }),
       50,
+      null,
+      true,
     );
   });
 });

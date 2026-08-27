@@ -103,6 +103,7 @@ function vault_context_settings(
       Math.round,
     ),
     include_links: settings.ai_vault_context_include_links,
+    include_linked_sources: settings.reference_include_sources_in_search,
     similarity_threshold: clamp(
       settings.ai_vault_context_similarity_threshold,
       SIMILARITY_THRESHOLD_MIN,

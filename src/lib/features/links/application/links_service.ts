@@ -187,6 +187,7 @@ export class LinksService {
     note_path: string,
     limit = 5,
     similarity_threshold = 0.5,
+    include_linked_sources = true,
   ): Promise<void> {
     const vault_id = this.get_active_vault_id();
     if (!vault_id) {
@@ -198,7 +199,12 @@ export class LinksService {
 
     try {
       const [semantic_hits, smart_suggestions] = await Promise.allSettled([
-        this.search_port.find_similar_notes(vault_id, note_path, limit, true),
+        this.search_port.find_similar_notes(
+          vault_id,
+          note_path,
+          limit,
+          !include_linked_sources,
+        ),
         this.search_port.compute_smart_link_suggestions(
           vault_id,
           note_path,
