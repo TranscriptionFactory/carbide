@@ -216,6 +216,33 @@ describe("SearchService.search_omnibar structured queries", () => {
     expect(search_port.hybrid_search).not.toHaveBeenCalled();
   });
 
+  it("drops linked sources from structured results when the setting is off", async () => {
+    const tags_port = make_mock_tag_port({
+      rust: ["docs/rust.md", "@linked/zotero/paper.pdf"],
+    });
+
+    const { service } = make_service_with_backends(
+      make_mock_search_port(),
+      tags_port,
+    );
+
+    const included = await service.search_omnibar("notes with #rust", true);
+    expect(included.items).toHaveLength(2);
+
+    const excluded = await service.search_omnibar(
+      "notes with #rust",
+      true,
+      false,
+    );
+    expect(excluded.items).toHaveLength(1);
+    expect(
+      excluded.items.every(
+        (item) =>
+          item.kind === "note" && !item.note.path.startsWith("@linked/"),
+      ),
+    ).toBe(true);
+  });
+
   it("falls back to hybrid for plain text queries", async () => {
     const hits: HybridSearchHit[] = [
       {
