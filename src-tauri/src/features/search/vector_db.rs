@@ -46,6 +46,30 @@ pub fn init_vector_schema(conn: &Connection) -> Result<(), String> {
     Ok(())
 }
 
+/// Read-only probe for databases whose vector schema is already in place, so
+/// `open_search_db` can skip `init_vector_schema` on every open. The init's
+/// `INSERT OR IGNORE INTO embedding_meta` is a write, and a write per open
+/// queues behind concurrent write transactions until `busy_timeout` expires
+/// (`Failed to init vector schema: database is locked`); in WAL mode this
+/// read never waits for the write lock. Probing the schema (instead of a
+/// process-wide set of initialized paths) also re-inits correctly when a db
+/// file is deleted and recreated at the same path mid-session.
+pub fn vector_schema_initialized(conn: &Connection) -> bool {
+    let meta_seeded = conn
+        .query_row(
+            "SELECT 1 FROM embedding_meta WHERE key = 'model_version'",
+            [],
+            |_| Ok(()),
+        )
+        .is_ok();
+    // Databases created before `content_hash` still need the ALTER migration
+    // in `init_vector_schema`, so a missing column counts as uninitialized.
+    let content_hash_present = conn
+        .prepare("SELECT content_hash FROM block_embeddings LIMIT 0")
+        .is_ok();
+    meta_seeded && content_hash_present
+}
+
 /// SQLite's default `SQLITE_MAX_VARIABLE_NUMBER` is 32766; an unchunked
 /// `IN (?,?,…)` over a whole vault silently fails to prepare above it.
 const SQL_IN_CHUNK: usize = 900;
@@ -618,6 +642,32 @@ mod tests {
             )
             .unwrap();
         assert_eq!(count, 1);
+    }
+
+    #[test]
+    fn vector_schema_initialized_false_on_fresh_database() {
+        let conn = Connection::open_in_memory().expect("in-memory db");
+        assert!(!vector_schema_initialized(&conn));
+        init_vector_schema(&conn).expect("schema");
+        assert!(vector_schema_initialized(&conn));
+    }
+
+    #[test]
+    fn vector_schema_initialized_false_without_content_hash_column() {
+        let conn = Connection::open_in_memory().expect("in-memory db");
+        conn.execute_batch(
+            "CREATE TABLE note_embeddings (path TEXT PRIMARY KEY, embedding BLOB NOT NULL);
+             CREATE TABLE block_embeddings (path TEXT NOT NULL, heading_id TEXT NOT NULL, embedding BLOB NOT NULL, PRIMARY KEY (path, heading_id));
+             CREATE TABLE embedding_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+             INSERT INTO embedding_meta (key, value) VALUES ('model_version', 'pre-hash');",
+        )
+        .expect("legacy schema");
+        assert!(
+            !vector_schema_initialized(&conn),
+            "pre-content_hash db still needs the ALTER migration"
+        );
+        init_vector_schema(&conn).expect("migrate");
+        assert!(vector_schema_initialized(&conn));
     }
 
     #[test]

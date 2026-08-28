@@ -1162,6 +1162,9 @@ pub fn open_search_db(app: &AppHandle, vault_id: &str) -> Result<Connection, Str
 }
 
 fn try_init_vector_tables(conn: &Connection) {
+    if vector_db::vector_schema_initialized(conn) {
+        return;
+    }
     if let Err(e) = vector_db::init_vector_schema(conn) {
         log::warn!("Failed to init vector schema: {e}");
     }
@@ -3671,6 +3674,94 @@ mod tests {
         init_schema(&conn).expect("schema");
         upsert_note(&conn, &note("notes/a.md", "A"), "hello world").expect("upsert");
         assert!(run_pragma_optimize(&conn).is_ok());
+    }
+
+    #[test]
+    fn vector_schema_init_writes_once_per_database() {
+        let tmp = tempfile::TempDir::new().expect("temp dir");
+        let path = tmp.path().join("search.db");
+
+        let first = open_search_db_at_path(&path).expect("first open");
+        try_init_vector_tables(&first);
+        assert!(
+            first.total_changes() >= 1,
+            "first open creates the tables and seeds the meta row"
+        );
+        assert_eq!(
+            vector_db::get_model_version(&first).as_deref(),
+            Some(vector_db::DEFAULT_MODEL_VERSION)
+        );
+
+        let second = open_search_db_at_path(&path).expect("second open");
+        try_init_vector_tables(&second);
+        assert_eq!(
+            second.total_changes(),
+            0,
+            "second open must not write; the schema-init insert is what starved on busy_timeout"
+        );
+    }
+
+    #[test]
+    fn vector_schema_init_reruns_after_db_file_recreation() {
+        let tmp = tempfile::TempDir::new().expect("temp dir");
+        let path = tmp.path().join("search.db");
+
+        {
+            let conn = open_search_db_at_path(&path).expect("open");
+            try_init_vector_tables(&conn);
+        }
+        for suffix in ["", "-wal", "-shm"] {
+            let _ = std::fs::remove_file(tmp.path().join(format!("search.db{suffix}")));
+        }
+
+        let conn = open_search_db_at_path(&path).expect("reopen");
+        try_init_vector_tables(&conn);
+        assert!(
+            vector_db::get_model_version(&conn).is_some(),
+            "a recreated db file (vault removed with delete_data and re-added) is re-initialized"
+        );
+    }
+
+    #[test]
+    fn vector_schema_init_survives_concurrent_write_transaction() {
+        let tmp = tempfile::TempDir::new().expect("temp dir");
+        let path = tmp.path().join("search.db");
+
+        {
+            let setup = open_search_db_at_path(&path).expect("open");
+            try_init_vector_tables(&setup);
+        }
+
+        let writer = Connection::open(&path).expect("writer open");
+        writer
+            .busy_timeout(std::time::Duration::from_millis(5000))
+            .expect("writer busy timeout");
+        writer
+            .execute_batch(
+                "BEGIN IMMEDIATE; INSERT INTO index_meta (key, value) VALUES ('guard_test', 'held');",
+            )
+            .expect("hold write transaction");
+
+        let started = std::time::Instant::now();
+        let guarded = open_search_db_at_path(&path).expect("guarded open under write lock");
+        try_init_vector_tables(&guarded);
+        assert_eq!(guarded.total_changes(), 0, "guarded open performs no write");
+        assert!(vector_db::get_model_version(&guarded).is_some());
+        assert!(
+            started.elapsed() < std::time::Duration::from_secs(4),
+            "guarded open must not wait out the 5s busy timeout"
+        );
+
+        let unguarded = Connection::open(&path).expect("unguarded open");
+        unguarded
+            .busy_timeout(std::time::Duration::from_millis(250))
+            .expect("unguarded busy timeout");
+        assert!(
+            vector_db::init_vector_schema(&unguarded).is_err(),
+            "the unguarded init write genuinely contends with the held transaction"
+        );
+
+        writer.execute_batch("ROLLBACK").expect("rollback");
     }
 
     #[test]
