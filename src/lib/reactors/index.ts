@@ -200,7 +200,7 @@ export function mount_reactors(context: ReactorContext): ReactorHandles {
     [
       {
         is_ready: () => context.markdown_lsp_store.status === "running",
-        debounce_ms: 300,
+        skip_draft: true,
         on_open: (path, content) => {
           void context.markdown_lsp_service
             .did_open(path, content)
@@ -217,6 +217,7 @@ export function mount_reactors(context: ReactorContext): ReactorHandles {
       },
       {
         is_ready: () => context.lint_store.is_running,
+        skip_draft: true,
         debounce_ms: 300,
         on_open: (path, content) =>
           void context.lint_service.notify_file_opened(path, content),

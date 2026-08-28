@@ -55,7 +55,9 @@ function mount_client_effects(
     const current_path = open_note?.meta.path ?? null;
 
     if (current_path && client.skip_draft && is_draft_note_path(current_path)) {
-      previous_path = current_path;
+      // A skipped draft was never opened, so it must never be closed either:
+      // recording it as previous_path would send on_close for a document the
+      // server has never seen.
       return;
     }
 
