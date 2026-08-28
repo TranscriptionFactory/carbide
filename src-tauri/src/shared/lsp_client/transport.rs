@@ -1,9 +1,10 @@
 use std::collections::{HashMap, VecDeque};
-use std::sync::Arc;
+use std::sync::{Arc, LazyLock};
 use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
 use tokio::process::{Child, Command};
 use tokio::sync::{mpsc, oneshot, Mutex};
 
+use regex::Regex;
 use super::types::{LspClientConfig, LspClientError, ServerRequest};
 
 const STDERR_BUF_LINES: usize = 20;
@@ -21,6 +22,69 @@ fn stderr_excerpt(buf: &VecDeque<String>) -> String {
         .cloned()
         .collect::<Vec<_>>()
         .join("\n")
+}
+
+/// Aggregates repeated stderr lines: the first occurrence of a distinct
+/// normalized line logs at WARN, repeats log at DEBUG, and a summary is
+/// emitted when the process's stderr closes.
+#[derive(Default)]
+struct StderrAggregator {
+    seen_counts: HashMap<String, u64>,
+    total_lines: u64,
+}
+
+impl StderrAggregator {
+    fn normalize(line: &str) -> String {
+        static TIMESTAMP_PREFIX: LazyLock<Regex> = LazyLock::new(|| {
+            Regex::new(
+                r"^(?:\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})?|\d{1,2}:\d{2}:\d{2}(?:\.\d+)?)[\s\-]*",
+            )
+            .unwrap()
+        });
+        static LEVEL_PREFIX: LazyLock<Regex> = LazyLock::new(|| {
+            Regex::new(r"(?i)^[\s\-:]*(?:\[(?:warn|error)\]|warn\b|error\b|warning\b)[\s\-:]*")
+                .unwrap()
+        });
+
+        let without_ts = TIMESTAMP_PREFIX.replace(line.trim(), "");
+        LEVEL_PREFIX
+            .replace(&without_ts, "")
+            .trim()
+            .to_string()
+    }
+
+    /// Returns `true` when this normalized line has not been seen before.
+    fn record(&mut self, line: &str) -> bool {
+        self.total_lines += 1;
+        let key = Self::normalize(line);
+        let count = self.seen_counts.entry(key).or_insert(0);
+        *count += 1;
+        *count == 1
+    }
+
+    fn summary(&self) -> String {
+        format!(
+            "LSP stderr summary: {} distinct / {} total lines",
+            self.seen_counts.len(),
+            self.total_lines
+        )
+    }
+}
+
+/// Which level to log a stderr line at, per the aggregation policy. Split from
+/// `record` so the policy is unit-testable without a live stderr stream.
+#[derive(Debug, PartialEq, Eq)]
+enum StderrLogLevel {
+    Warn,
+    Debug,
+}
+
+fn stderr_log_level(aggregator: &mut StderrAggregator, line: &str) -> StderrLogLevel {
+    if aggregator.record(line) {
+        StderrLogLevel::Warn
+    } else {
+        StderrLogLevel::Debug
+    }
 }
 
 enum LspOutgoing {
@@ -208,9 +272,13 @@ async fn lsp_run_loop(
     let stderr_handle = tokio::spawn(async move {
         let mut reader = BufReader::new(stderr);
         let mut line = String::new();
+        let mut aggregator = StderrAggregator::default();
         while reader.read_line(&mut line).await.unwrap_or(0) > 0 {
             let trimmed = line.trim().to_string();
-            log::warn!("[lsp stderr] {}", trimmed);
+            match stderr_log_level(&mut aggregator, &trimmed) {
+                StderrLogLevel::Warn => log::warn!("[lsp stderr] {}", trimmed),
+                StderrLogLevel::Debug => log::debug!("[lsp stderr] {}", trimmed),
+            }
             let mut buf = stderr_buf_clone.lock().await;
             if buf.len() >= STDERR_BUF_LINES {
                 buf.pop_front();
@@ -218,6 +286,7 @@ async fn lsp_run_loop(
             buf.push_back(trimmed);
             line.clear();
         }
+        log::info!("{}", aggregator.summary());
     });
 
     let mut next_id: i64 = 1;
@@ -580,4 +649,68 @@ async fn read_lsp_message(
     reader.read_exact(&mut body).await?;
     let message: serde_json::Value = serde_json::from_slice(&body)?;
     Ok(Some(message))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn repeated_lines_warn_once_then_debug() {
+        let mut aggregator = StderrAggregator::default();
+        let line = "Marksman: Document not found";
+
+        assert_eq!(stderr_log_level(&mut aggregator, line), StderrLogLevel::Warn);
+        for _ in 0..59 {
+            assert_eq!(
+                stderr_log_level(&mut aggregator, line),
+                StderrLogLevel::Debug
+            );
+        }
+        assert_eq!(aggregator.total_lines, 60);
+    }
+
+    #[test]
+    fn distinct_new_line_warns_again() {
+        let mut aggregator = StderrAggregator::default();
+
+        assert_eq!(
+            stderr_log_level(&mut aggregator, "first failure"),
+            StderrLogLevel::Warn
+        );
+        assert_eq!(
+            stderr_log_level(&mut aggregator, "first failure"),
+            StderrLogLevel::Debug
+        );
+        assert_eq!(
+            stderr_log_level(&mut aggregator, "second failure"),
+            StderrLogLevel::Warn
+        );
+    }
+
+    #[test]
+    fn normalization_strips_timestamps_and_level_markers() {
+        assert_eq!(
+            StderrAggregator::normalize("2026-08-27T10:00:00Z - WARN Document not found"),
+            StderrAggregator::normalize("Document not found")
+        );
+        assert_eq!(
+            StderrAggregator::normalize("  12:34:56 ERROR: font panic  "),
+            StderrAggregator::normalize("font panic")
+        );
+        // Lines with no leading noise normalize to themselves.
+        assert_eq!(StderrAggregator::normalize("plain line"), "plain line");
+    }
+
+    #[test]
+    fn summary_counts_distinct_and_total() {
+        let mut aggregator = StderrAggregator::default();
+        let same = "liwe frontmatter warning";
+        for _ in 0..60 {
+            stderr_log_level(&mut aggregator, same);
+        }
+        stderr_log_level(&mut aggregator, "one different line");
+
+        assert_eq!(aggregator.summary(), "LSP stderr summary: 2 distinct / 61 total lines");
+    }
 }
