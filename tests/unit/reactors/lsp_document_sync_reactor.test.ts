@@ -47,6 +47,12 @@ function make_client(
   };
 }
 
+function closed_paths(client: LspSyncClientConfig): string[] {
+  const on_close = client.on_close;
+  if (!on_close) throw new Error("client fixture has no on_close");
+  return vi.mocked(on_close).mock.calls.map(([path]) => path);
+}
+
 describe("lsp_document_sync.reactor", () => {
   it("returns a handle with cleanup and flush", () => {
     const client = make_client();
@@ -166,10 +172,7 @@ describe("lsp_document_sync.reactor skip_draft", () => {
     set_path(DRAFT);
     set_path("notes/b.md");
 
-    const closed_paths = vi.mocked(client.on_close).mock.calls.map(
-      ([path]) => path,
-    );
-    expect(closed_paths).toEqual(["notes/a.md"]);
+    expect(closed_paths(client)).toEqual(["notes/a.md"]);
     expect(client.on_open).toHaveBeenCalledWith("notes/b.md", "# Test");
     handle.cleanup();
   });

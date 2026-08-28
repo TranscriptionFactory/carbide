@@ -201,6 +201,7 @@ export function mount_reactors(context: ReactorContext): ReactorHandles {
       {
         is_ready: () => context.markdown_lsp_store.status === "running",
         skip_draft: true,
+        debounce_ms: 300,
         on_open: (path, content) => {
           void context.markdown_lsp_service
             .did_open(path, content)

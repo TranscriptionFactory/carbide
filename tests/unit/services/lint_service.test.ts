@@ -9,6 +9,29 @@ import type { EditorStore } from "$lib/features/editor";
 import type { OpStore } from "$lib/app/orchestration/op_store.svelte";
 import type { VaultId, VaultPath } from "$lib/shared/types/ids";
 
+// Resolver captured inside a callback: read it through a closure so the
+// declared type survives, instead of a `let` TS narrows to its `null` seed.
+function create_stop_gate() {
+  let release: (() => void) | undefined;
+  const promise = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  return { promise, release: () => release?.() };
+}
+
+function create_event_sink() {
+  let callback: ((event: LintEvent) => void) | undefined;
+  return {
+    capture: (next: (event: LintEvent) => void) => {
+      callback = next;
+    },
+    emit: (event: LintEvent) => {
+      if (!callback) throw new Error("subscribe_events was not called");
+      callback(event);
+    },
+  };
+}
+
 function create_mock_lint_port(overrides: Partial<LintPort> = {}): LintPort {
   return {
     start: vi.fn().mockResolvedValue(undefined),
@@ -256,13 +279,8 @@ describe("LintService", () => {
       const real_lint_store = new LintStore();
       real_lint_store.set_status("running");
 
-      let release_stop: (() => void) | null = null;
-      const stop_mock = vi.fn(
-        () =>
-          new Promise<void>((resolve) => {
-            release_stop = resolve;
-          }),
-      );
+      const stop_gate = create_stop_gate();
+      const stop_mock = vi.fn(() => stop_gate.promise);
       const port = create_mock_lint_port({ stop: stop_mock });
       const stores = create_mock_stores();
       stores.vault_store = {
@@ -285,7 +303,7 @@ describe("LintService", () => {
       expect(real_lint_store.is_running).toBe(false);
       expect(stop_mock).toHaveBeenCalledWith(VAULT_ID);
 
-      release_stop?.();
+      stop_gate.release();
       await stop_promise;
     });
 
@@ -293,13 +311,8 @@ describe("LintService", () => {
       const real_lint_store = new LintStore();
       real_lint_store.set_status("running");
 
-      let release_stop: (() => void) | null = null;
-      const stop_mock = vi.fn(
-        () =>
-          new Promise<void>((resolve) => {
-            release_stop = resolve;
-          }),
-      );
+      const stop_gate = create_stop_gate();
+      const stop_mock = vi.fn(() => stop_gate.promise);
       const open_mock = vi.fn().mockResolvedValue(undefined);
       const update_mock = vi.fn().mockResolvedValue(undefined);
       const port = create_mock_lint_port({
@@ -329,18 +342,18 @@ describe("LintService", () => {
       expect(open_mock).not.toHaveBeenCalled();
       expect(update_mock).not.toHaveBeenCalled();
 
-      release_stop?.();
+      stop_gate.release();
       await stop_promise;
     });
   });
 
   describe("diagnostics after restart", () => {
     it("still forwards diagnostics events after a completed stop/start cycle", async () => {
-      let events_callback: ((event: LintEvent) => void) | null = null;
+      const events = create_event_sink();
       const subscribe_mock = vi
         .fn()
         .mockImplementation((callback: (event: LintEvent) => void) => {
-          events_callback = callback;
+          events.capture(callback);
           return () => {};
         });
       const port = create_mock_lint_port({ subscribe_events: subscribe_mock });
@@ -368,8 +381,7 @@ describe("LintService", () => {
       await service.stop();
       await service.start(VAULT_ID, VAULT_PATH, "", false);
 
-      if (!events_callback) throw new Error("subscribe_events was not called");
-      events_callback({
+      events.emit({
         type: "diagnostics_updated",
         path: "docs/a.md",
         diagnostics: [
