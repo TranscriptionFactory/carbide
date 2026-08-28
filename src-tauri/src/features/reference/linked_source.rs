@@ -2,8 +2,9 @@ use rayon::prelude::*;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use specta::Type;
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
-use std::sync::LazyLock;
+use std::sync::{LazyLock, Mutex};
 use std::time::{Duration, Instant};
 use walkdir::WalkDir;
 
@@ -183,7 +184,9 @@ fn extract_arxiv_id_from_text(text: &str, max_chars: usize) -> Option<String> {
 
 const MAX_INDEXABLE_BYTES: usize = 512 * 1024;
 const MAX_PDF_BYTES: usize = 100 * 1024 * 1024; // 100 MB
-const PDF_EXTRACT_TIMEOUT: Duration = Duration::from_secs(30);
+// 120s: background extraction, not latency-sensitive; font-heavy PDFs can
+// legitimately exceed 30s (the old value) in the OOM-isolated subprocess.
+const PDF_EXTRACT_TIMEOUT: Duration = Duration::from_secs(120);
 
 #[derive(Deserialize)]
 struct PdfTextResult {
@@ -436,7 +439,76 @@ fn file_modified_at(path: &Path) -> u64 {
         .unwrap_or(0)
 }
 
+// Negative cache: an extraction that failed (timeout, malformed fonts) is not
+// retried for the same file identity. Key = path + len + mtime so a changed or
+// replaced file re-extracts. In-memory only: worst case after a restart is one
+// re-paid timeout per stale file.
+#[derive(Clone, PartialEq, Eq, Hash)]
+struct FileIdentity {
+    path: PathBuf,
+    len: u64,
+    modified_at_ms: u64,
+}
+
+fn file_identity(path: &Path) -> Option<FileIdentity> {
+    let meta = std::fs::metadata(path).ok()?;
+    Some(FileIdentity {
+        path: path.to_path_buf(),
+        len: meta.len(),
+        modified_at_ms: meta
+            .modified()
+            .ok()?
+            .duration_since(std::time::UNIX_EPOCH)
+            .ok()?
+            .as_millis() as u64,
+    })
+}
+
+static EXTRACTION_FAILURES: LazyLock<Mutex<HashMap<FileIdentity, ()>>> =
+    LazyLock::new(|| Mutex::new(HashMap::new()));
+
+fn is_known_extraction_failure(path: &Path) -> bool {
+    let Some(identity) = file_identity(path) else {
+        return false;
+    };
+    match EXTRACTION_FAILURES.lock() {
+        Ok(guard) => guard.contains_key(&identity),
+        Err(_) => false,
+    }
+}
+
+fn record_extraction_failure(path: &Path) {
+    if let Some(identity) = file_identity(path) {
+        if let Ok(mut guard) = EXTRACTION_FAILURES.lock() {
+            guard.insert(identity, ());
+        }
+    }
+}
+
+#[cfg(test)]
+fn clear_extraction_failure(path: &Path) {
+    if let Some(identity) = file_identity(path) {
+        if let Ok(mut guard) = EXTRACTION_FAILURES.lock() {
+            guard.remove(&identity);
+        }
+    }
+}
+
+#[cfg(test)]
+fn clear_extraction_failures_for_tests() {
+    if let Ok(mut guard) = EXTRACTION_FAILURES.lock() {
+        guard.clear();
+    }
+}
+
 fn extract_pdf(path: &Path) -> Result<ScanEntry, String> {
+    if is_known_extraction_failure(path) {
+        return Err(format!(
+            "PDF extraction previously failed for {}; skipping until the file changes",
+            path.display()
+        ));
+    }
+
     let file_name = path
         .file_name()
         .and_then(|s| s.to_str())
@@ -448,10 +520,14 @@ fn extract_pdf(path: &Path) -> Result<ScanEntry, String> {
     let meta_ms = t_meta.elapsed().as_millis();
 
     let t_text = Instant::now();
-    let (body_text, page_offsets) = extract_pdf_text_subprocess(path).unwrap_or_else(|e| {
-        log::warn!("PDF extraction failed for {}: {e}", path.display());
-        Default::default()
-    });
+    let (body_text, page_offsets) = match extract_pdf_text_subprocess(path) {
+        Ok(result) => result,
+        Err(e) => {
+            log::warn!("PDF extraction failed for {}: {e}", path.display());
+            record_extraction_failure(path);
+            Default::default()
+        }
+    };
     let text_ms = t_text.elapsed().as_millis();
 
     let t_ids = Instant::now();
@@ -1170,5 +1246,54 @@ mod tests {
         let entries = scan_folder_sync(&dir.path().to_string_lossy(), None).unwrap();
         assert_eq!(entries.len(), 1);
         assert_eq!(entries[0].file_type, "html");
+    }
+
+    #[test]
+    fn pdf_extract_timeout_is_120_seconds() {
+        assert_eq!(PDF_EXTRACT_TIMEOUT, Duration::from_secs(120));
+    }
+
+    #[test]
+    fn failed_extraction_is_negative_cached_until_identity_changes() {
+        clear_extraction_failures_for_tests();
+        let dir = tempfile::tempdir().unwrap();
+        let pdf_path = dir.path().join("font-heavy.pdf");
+        std::fs::write(&pdf_path, b"not a real pdf but stable bytes").unwrap();
+
+        assert!(!is_known_extraction_failure(&pdf_path));
+        record_extraction_failure(&pdf_path);
+        assert!(is_known_extraction_failure(&pdf_path));
+
+        // Same identity -> cached failure.
+        assert!(!is_known_extraction_failure(dir.path().join("other.pdf").as_path()));
+
+        // Changed identity (rewrite changes len) -> cache miss.
+        std::fs::write(&pdf_path, b"not a real pdf but stable bytes v2").unwrap();
+        assert!(!is_known_extraction_failure(&pdf_path));
+
+        // Re-record, then identity removal clears it.
+        record_extraction_failure(&pdf_path);
+        assert!(is_known_extraction_failure(&pdf_path));
+        clear_extraction_failure(&pdf_path);
+        assert!(!is_known_extraction_failure(&pdf_path));
+
+        clear_extraction_failures_for_tests();
+    }
+
+    #[test]
+    fn extract_pdf_short_circuits_on_cached_failure() {
+        clear_extraction_failures_for_tests();
+        let dir = tempfile::tempdir().unwrap();
+        let pdf_path = dir.path().join("doomed.pdf");
+        std::fs::write(&pdf_path, b"pdf bytes that will fail").unwrap();
+
+        record_extraction_failure(&pdf_path);
+        let err = extract_pdf(&pdf_path).unwrap_err();
+        assert!(
+            err.contains("previously failed"),
+            "expected negative-cache short circuit, got: {err}"
+        );
+
+        clear_extraction_failures_for_tests();
     }
 }

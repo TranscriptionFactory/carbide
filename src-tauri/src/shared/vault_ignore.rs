@@ -16,6 +16,7 @@ const BUILTIN_PATTERNS: &[&str] = &[
     "node_modules/",
     ".llmwiki/",
     "mcp.json",
+    ".tmpfiles/",
 ];
 
 #[derive(Clone, Debug)]
@@ -341,5 +342,22 @@ mod tests {
 
         assert!(matcher.is_ignored_relative("docs/skip.pdf", false));
         assert!(!matcher.is_ignored_relative("docs/keep.pdf", false));
+    }
+
+    #[test]
+    fn builtin_matcher_ignores_tmpfiles_scratch_dir() {
+        let matcher = super::builtin_matcher().expect("builtin matcher should build");
+
+        assert!(matcher.is_ignored_relative(".tmpfiles/x/fig.pdf", false));
+        assert!(matcher.is_ignored_relative(".tmpfiles", true));
+        assert!(matcher.is_ignored_relative("vault/.tmpfiles/x/fig.pdf", false));
+    }
+
+    #[test]
+    fn builtin_matcher_keeps_claude_dir_indexed() {
+        let matcher = super::builtin_matcher().expect("builtin matcher should build");
+
+        assert!(!matcher.is_ignored_relative(".claude/notes.md", false));
+        assert!(!matcher.is_ignored_relative(".claude", true));
     }
 }
