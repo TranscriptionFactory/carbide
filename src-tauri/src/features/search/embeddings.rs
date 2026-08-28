@@ -173,7 +173,7 @@ impl EmbeddingService {
             Some(prefix) => format!("{prefix}{text}"),
             None => text.to_string(),
         };
-        let mut results = self.embed_batch(&[prefixed.as_str()], None)?;
+        let mut results = self.embed_batch(&[prefixed.as_str()], None, "query")?;
         let result = results
             .pop()
             .ok_or_else(|| "no embedding result".to_string())?;
@@ -187,7 +187,7 @@ impl EmbeddingService {
         texts: &[&str],
         cancel: Option<&AtomicBool>,
     ) -> Result<Vec<Vec<f32>>, String> {
-        self.embed_batch(texts, cancel)
+        self.embed_batch(texts, cancel, "documents")
     }
 
     /// Splits `text` at token boundaries so no piece exceeds the encoder's
@@ -213,9 +213,14 @@ impl EmbeddingService {
         &self,
         texts: &[&str],
         cancel: Option<&AtomicBool>,
+        caller: &'static str,
     ) -> Result<Vec<Vec<f32>>, String> {
         let pooled = self.encode_pooled(texts, cancel)?;
-        self.warn_unusable_rows(&pooled);
+        if let Some(message) =
+            unusable_rows_log_message(&self.device, self.pooling, caller, texts, &pooled)
+        {
+            log::warn!("{message}");
+        }
         Ok(normalize_rows(pooled))
     }
 
@@ -281,29 +286,6 @@ impl EmbeddingService {
 
         Ok(pooled)
     }
-
-    /// Reports rows the ingest guard will refuse, naming the encoder that
-    /// produced them and how they are degenerate. A batch that pools to
-    /// nothing is otherwise silent: `normalize_rows` zeroes it, the guard
-    /// declines to store it, and the only symptom is a progress counter that
-    /// never leaves zero.
-    fn warn_unusable_rows(&self, pooled: &[Vec<f32>]) {
-        let Some(sample) = pooled.iter().find(|row| !is_usable_vector(row)) else {
-            return;
-        };
-        let unusable = pooled.iter().filter(|row| !is_usable_vector(row)).count();
-        let nan = sample.iter().filter(|x| x.is_nan()).count();
-        let infinite = sample.iter().filter(|x| x.is_infinite()).count();
-        let zero = sample.iter().filter(|x| **x == 0.0).count();
-        log::warn!(
-            "embed: {unusable}/{} pooled rows unusable — device={:?} pooling={:?} dims={} \
-             sample row: nan={nan} inf={infinite} zero={zero}",
-            pooled.len(),
-            self.device,
-            self.pooling,
-            sample.len(),
-        );
-    }
 }
 
 /// Caps whole-note text at [`PRETRUNCATE_BYTES`], cutting on a char boundary.
@@ -335,6 +317,88 @@ pub(crate) fn estimated_chunk_count(text: &str) -> usize {
 /// Callers must stop their loop instead of logging it as a per-item failure.
 pub(crate) fn is_cancellation(error: &str) -> bool {
     error.contains("cancelled")
+}
+
+/// Chars of input text a diagnostic log line carries — enough to recognize
+/// the note or query, short enough to stay a single log line.
+pub(crate) const EXCERPT_CHARS: usize = 80;
+
+/// First [`EXCERPT_CHARS`] chars of `text` with control characters escaped,
+/// so a log line can name the input that triggered it without newlines or
+/// other control bytes breaking the line or hiding in it.
+pub(crate) fn excerpt(text: &str) -> String {
+    let mut out = String::new();
+    for (i, c) in text.chars().enumerate() {
+        if i == EXCERPT_CHARS {
+            out.push('…');
+            break;
+        }
+        match c {
+            '\n' => out.push_str("\\n"),
+            '\r' => out.push_str("\\r"),
+            '\t' => out.push_str("\\t"),
+            c if c.is_control() => out.push_str(&format!("\\u{:04x}", c as u32)),
+            c => out.push(c),
+        }
+    }
+    out
+}
+
+/// Builds the warn for pooled rows the ingest guard will refuse, or `None`
+/// when every row is usable. Names the caller and the first unusable input:
+/// device/pooling/dims alone never identified what the encoder choked on, and
+/// without the input the trigger is unobservable. `texts` must line up with
+/// `pooled` one row per input, as every `embed_batch` call does.
+pub(crate) fn unusable_rows_log_message(
+    device: &Device,
+    pooling: Pooling,
+    caller: &str,
+    texts: &[&str],
+    pooled: &[Vec<f32>],
+) -> Option<String> {
+    let (index, sample) = pooled
+        .iter()
+        .enumerate()
+        .find(|(_, row)| !is_usable_vector(row))?;
+    let unusable = pooled.iter().filter(|row| !is_usable_vector(row)).count();
+    let nan = sample.iter().filter(|x| x.is_nan()).count();
+    let infinite = sample.iter().filter(|x| x.is_infinite()).count();
+    let zero = sample.iter().filter(|x| **x == 0.0).count();
+    Some(format!(
+        "embed: {unusable}/{} pooled rows unusable — caller={caller} device={device:?} \
+         pooling={pooling:?} dims={} input={} sample row: nan={nan} inf={infinite} zero={zero}",
+        pooled.len(),
+        sample.len(),
+        excerpt(texts.get(index).copied().unwrap_or("")),
+    ))
+}
+
+static UNUSABLE_QUERY_WARNED: AtomicBool = AtomicBool::new(false);
+
+/// Filters a query embedding the encoder could not turn into a usable vector.
+/// `normalize_rows` has already zeroed such a row, and a zero query is
+/// cosine-equidistant from every point, so feeding it to the index would
+/// return arbitrary neighbours ranked as confidently as real ones. `None`
+/// means "skip the vector leg" — text search degrades honestly instead. The
+/// encoder fault is input-specific and repeat queries are common, so the warn
+/// fires once per session rather than per query.
+pub(crate) fn usable_query_vector(vector: Vec<f32>, query_text: &str) -> Option<Vec<f32>> {
+    if is_usable_vector(&vector) {
+        return Some(vector);
+    }
+    if !UNUSABLE_QUERY_WARNED.swap(true, Ordering::Relaxed) {
+        log::warn!("{}", unusable_query_log_message(query_text));
+    }
+    None
+}
+
+/// Builds the once-per-session warn for an unusable query embedding, naming
+/// the query so the input that triggered the encoder fault is observable.
+pub(crate) fn unusable_query_log_message(query_text: &str) -> String {
+    format!(
+        "embed: query vector unusable — skipping vector leg; query={}",
+        excerpt(query_text)
+    )
 }
 
 /// Embeds `texts` in one pass, retrying one at a time if the batch fails, so a

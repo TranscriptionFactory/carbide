@@ -1,5 +1,5 @@
 use crate::features::search::db as search_db;
-use crate::features::search::embeddings::EmbeddingService;
+use crate::features::search::embeddings::{usable_query_vector, EmbeddingService};
 use crate::features::search::hnsw_index::VectorIndex;
 use crate::features::search::model::{HitSource, HybridSearchHit, SearchHit};
 use crate::features::search::service::SearchQueryInput;
@@ -28,18 +28,24 @@ pub fn hybrid_search(
         over_fetch
     };
 
-    let mut vector_hits = note_index.search(&query_vec, vector_fetch);
-    if !include_linked {
-        vector_hits.retain(|(path, _)| !search_db::is_linked_path(path));
-        // Only a pool the filter actually emptied pays for a second, wider sweep:
-        // above EXACT_SEARCH_MAX_POINTS a fetch of 200 costs ~3x the graph
-        // traversal of 60, and a vault with few linked sources loses nothing here.
-        let widened = vector_fetch.max((limit * 10).max(200));
-        if vector_hits.len() < limit && widened > vector_fetch {
-            vector_hits = note_index.search(&query_vec, widened);
+    // An unusable query vector (encoder NaN, zeroed by normalization) is
+    // cosine-equidistant from every point: searching with it returns arbitrary
+    // neighbours, so the vector leg is skipped entirely and FTS alone ranks.
+    let mut vector_hits = Vec::new();
+    if let Some(query_vec) = usable_query_vector(query_vec, &query.text) {
+        vector_hits = note_index.search(&query_vec, vector_fetch);
+        if !include_linked {
             vector_hits.retain(|(path, _)| !search_db::is_linked_path(path));
+            // Only a pool the filter actually emptied pays for a second, wider sweep:
+            // above EXACT_SEARCH_MAX_POINTS a fetch of 200 costs ~3x the graph
+            // traversal of 60, and a vault with few linked sources loses nothing here.
+            let widened = vector_fetch.max((limit * 10).max(200));
+            if vector_hits.len() < limit && widened > vector_fetch {
+                vector_hits = note_index.search(&query_vec, widened);
+                vector_hits.retain(|(path, _)| !search_db::is_linked_path(path));
+            }
+            vector_hits.truncate(over_fetch);
         }
-        vector_hits.truncate(over_fetch);
     }
 
     let fts_hits = search_db::search(

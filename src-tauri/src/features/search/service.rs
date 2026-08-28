@@ -2,8 +2,8 @@ use crate::features::notes::service as notes_service;
 use crate::features::search::db::{self as search_db, AttachmentLink, OrphanLink};
 use crate::features::search::embedding_model;
 use crate::features::search::embeddings::{
-    self, embed_with_singles_fallback, estimated_chunk_count, is_cancellation, EmbeddingService,
-    EmbeddingServiceState,
+    self, embed_with_singles_fallback, estimated_chunk_count, is_cancellation,
+    usable_query_vector, EmbeddingService, EmbeddingServiceState,
 };
 use crate::features::search::hnsw_index::{SharedVectorIndex, VectorIndex};
 use crate::features::search::model::{
@@ -3684,7 +3684,10 @@ pub fn semantic_search_inner(
     let query_vec = model.embed_query(&query)?;
     let limit = limit.unwrap_or(20);
 
-    let hits = with_note_index(&app, &vault_id, |idx| idx.search(&query_vec, limit))?;
+    let hits = match usable_query_vector(query_vec, &query) {
+        Some(query_vec) => with_note_index(&app, &vault_id, |idx| idx.search(&query_vec, limit))?,
+        None => Vec::new(),
+    };
 
     with_read_conn(&app, &vault_id, |conn| {
         let mut results = Vec::with_capacity(hits.len());
@@ -3881,7 +3884,10 @@ pub fn search_blocks_inner(
         limit * 3
     };
 
-    let raw = with_block_index(&app, &vault_id, |idx| idx.search(&query_vec, fetch))?;
+    let raw = match usable_query_vector(query_vec, &query) {
+        Some(query_vec) => with_block_index(&app, &vault_id, |idx| idx.search(&query_vec, fetch))?,
+        None => Vec::new(),
+    };
 
     with_read_conn(&app, &vault_id, |conn| {
         let mut results = Vec::with_capacity(limit);

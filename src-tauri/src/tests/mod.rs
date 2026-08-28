@@ -37,6 +37,8 @@ mod embedding_device_probe;
 mod embedding_init_queue;
 #[path = "../../tests/embedding_batch_fallback.rs"]
 mod embedding_batch_fallback;
+#[path = "../../tests/embedding_query_guard.rs"]
+mod embedding_query_guard;
 #[path = "../../tests/vector_ingest_guard.rs"]
 mod vector_ingest_guard;
 
