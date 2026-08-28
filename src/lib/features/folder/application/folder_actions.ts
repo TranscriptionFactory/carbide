@@ -740,7 +740,10 @@ export function register_folder_actions(input: ActionRegistrationInput) {
         // sites (tree select, drill-down enter) mutate expanded_paths before
         // dispatching this, so the post-toggle state distinguishes the two.
         if (!stores.ui.filetree.expanded_paths.has(target.folder_path)) return;
-        await registry.execute(ACTION_IDS.note_open, target.note_path);
+        await registry.execute(ACTION_IDS.note_open, {
+          note_path: target.note_path,
+          cleanup_if_missing: true,
+        });
       },
     });
 

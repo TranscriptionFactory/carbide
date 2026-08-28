@@ -64,7 +64,10 @@ describe("filetree_open_folder_note action", () => {
 
     await registry.execute(ACTION_IDS.filetree_open_folder_note, "Projects");
 
-    expect(note_open).toHaveBeenCalledWith("Projects/Projects.md");
+    expect(note_open).toHaveBeenCalledWith({
+      note_path: "Projects/Projects.md",
+      cleanup_if_missing: true,
+    });
   });
 
   it("does nothing when the folder is collapsed (not expanded)", async () => {
@@ -105,7 +108,10 @@ describe("filetree_open_folder_note action", () => {
 
     await registry.execute(ACTION_IDS.filetree_open_folder_note, "Work/Q2");
 
-    expect(note_open).toHaveBeenCalledWith("Work/Q2/Q2.md");
+    expect(note_open).toHaveBeenCalledWith({
+      note_path: "Work/Q2/Q2.md",
+      cleanup_if_missing: true,
+    });
   });
 });
 

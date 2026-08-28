@@ -1560,6 +1560,68 @@ describe("NoteService", () => {
     expect(result.status).toBe("failed");
     expect(create_note).not.toHaveBeenCalled();
   });
+
+  it("recovers a stale landing note whose file was deleted externally", async () => {
+    const vault_store = new VaultStore();
+    const notes_store = new NotesStore();
+    const editor_store = new EditorStore();
+    const op_store = new OpStore();
+    vault_store.set_vault(create_test_vault());
+
+    const note_meta = {
+      id: as_note_path("4_PROJ/4_PROJ.md"),
+      path: as_note_path("4_PROJ/4_PROJ.md"),
+      name: "4_PROJ",
+      title: "4_PROJ",
+      blurb: "",
+      mtime_ms: 0,
+      ctime_ms: 0,
+      size_bytes: 0,
+      file_type: null,
+    };
+    notes_store.set_notes([note_meta]);
+
+    const notes_port = create_mock_notes_port();
+    notes_port.read_note = vi
+      .fn()
+      .mockRejectedValue(new Error("No such file or directory (os error 2)"));
+    const index_port = create_mock_index_port();
+    const assets_port = {
+      resolve_asset_url: vi.fn(),
+      write_image_asset: vi.fn(),
+    } as unknown as AssetsPort;
+    const editor_service = {
+      flush: vi.fn().mockReturnValue(null),
+      mark_clean: vi.fn(),
+      rename_buffer: vi.fn(),
+    } as unknown as EditorService;
+
+    const service = new NoteService(
+      notes_port,
+      index_port,
+      assets_port,
+      vault_store,
+      notes_store,
+      editor_store,
+      op_store,
+      editor_service,
+      () => 1,
+    );
+
+    const result = await service.open_note("4_PROJ/4_PROJ.md", false, {
+      cleanup_if_missing: true,
+    });
+
+    expect(result).toEqual({ status: "not_found" });
+    expect(op_store.get("note.open:4_PROJ/4_PROJ.md").status).toBe("success");
+    expect(notes_store.notes.some((n) => n.path === note_meta.path)).toBe(
+      false,
+    );
+    expect(
+      notes_store.recent_notes.some((n) => n.path === note_meta.path),
+    ).toBe(false);
+    expect(index_port._calls.remove_note[0]?.note_id).toBe(note_meta.path);
+  });
 });
 
 describe("NoteService rename case-insensitive handling", () => {
