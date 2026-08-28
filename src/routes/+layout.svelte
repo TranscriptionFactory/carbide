@@ -15,60 +15,21 @@
   import "katex/dist/katex.min.css";
   import { Toaster } from "$lib/components/ui/sonner";
   import { toast } from "$lib/shared/ui/toast";
-  import { create_logger } from "$lib/shared/utils/logger";
-  import { error_message } from "$lib/shared/utils/error_message";
   import { install_drop_guard } from "$lib/shared/utils/drop_guard";
+  import { install_unhandled_error_guard } from "$lib/shared/utils/unhandled_error_guard";
   import { onMount } from "svelte";
-
-  const log = create_logger("app");
 
   let { children }: { children: Snippet } = $props();
 
   onMount(() => {
-    let last_toast_time = 0;
-    const TOAST_THROTTLE_MS = 3000;
-
-    function throttled_error_toast(
-      label: string,
-      detail: string,
-      origin?: unknown,
-    ) {
-      console.error(`[${label}]`, origin ?? detail);
-      log.error(label, { error: detail });
-      const now = Date.now();
-      if (now - last_toast_time < TOAST_THROTTLE_MS) return;
-      last_toast_time = now;
-      toast.error(detail || "Something went wrong");
-    }
-
-    const on_error = (event: ErrorEvent) => {
-      event.preventDefault();
-      if (!event.error) return;
-      throttled_error_toast(
-        "Unhandled error",
-        error_message(event.error),
-        event.error,
-      );
-    };
-
-    const on_rejection = (event: PromiseRejectionEvent) => {
-      event.preventDefault();
-      if (!event.reason) return;
-      throttled_error_toast(
-        "Unhandled rejection",
-        error_message(event.reason),
-        event.reason,
-      );
-    };
-
-    window.addEventListener("error", on_error);
-    window.addEventListener("unhandledrejection", on_rejection);
-
+    const dispose_unhandled_error_guard = install_unhandled_error_guard(
+      window,
+      toast.error,
+    );
     const dispose_drop_guard = install_drop_guard(window);
 
     return () => {
-      window.removeEventListener("error", on_error);
-      window.removeEventListener("unhandledrejection", on_rejection);
+      dispose_unhandled_error_guard();
       dispose_drop_guard();
     };
   });

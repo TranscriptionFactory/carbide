@@ -4,8 +4,10 @@ import { Schema } from "prosemirror-model";
 import {
   image_context_menu_plugin_key,
   create_image_context_menu_prose_plugin,
+  image_pos_from_resolved,
   type ImageContextMenuState,
 } from "$lib/features/editor/adapters/image_context_menu_plugin";
+import { schema as editor_schema } from "$lib/features/editor/adapters/schema";
 
 const schema = new Schema({
   nodes: {
@@ -155,5 +157,38 @@ describe("image_context_menu_plugin", () => {
 
   it("plugin key is defined", () => {
     expect(image_context_menu_plugin_key).toBeDefined();
+  });
+});
+
+describe("image_pos_from_resolved", () => {
+  it("returns the click position unchanged when no image ancestor exists", () => {
+    const doc = editor_schema.nodes.doc.create(null, [
+      editor_schema.nodes.paragraph.create(null, [
+        editor_schema.text("a"),
+        editor_schema.nodes.image.create({ src: "inline.png" }),
+        editor_schema.text("b"),
+      ]),
+    ]);
+    const resolved = doc.resolve(2);
+    expect(resolved.depth).toBe(1);
+
+    // Both image kinds in the editor schema are atom nodes, so a resolved
+    // position never sits inside one — the click position itself is the
+    // fallback the handler re-validates with nodeAt().
+    const pos = image_pos_from_resolved(resolved);
+    expect(pos).toBe(2);
+    expect(doc.nodeAt(pos)?.type.name).toBe("image");
+  });
+
+  it("no-ops on a depth-0 resolved position instead of throwing", () => {
+    const doc = editor_schema.nodes.doc.create(null, [
+      editor_schema.nodes["image-block"].create({ src: "block.png" }),
+    ]);
+    const resolved = doc.resolve(0);
+    expect(resolved.depth).toBe(0);
+
+    expect(() => image_pos_from_resolved(resolved)).not.toThrow();
+    expect(image_pos_from_resolved(resolved)).toBe(0);
+    expect(doc.nodeAt(0)?.type.name).toBe("image-block");
   });
 });

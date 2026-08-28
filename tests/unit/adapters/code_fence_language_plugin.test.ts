@@ -1,13 +1,15 @@
 import { describe, it, expect } from "vitest";
 import { Schema } from "prosemirror-model";
-import { EditorState, TextSelection } from "prosemirror-state";
+import { AllSelection, EditorState, TextSelection } from "prosemirror-state";
 import {
   extract_code_fence_query,
   get_filtered_languages,
   create_code_fence_language_prose_plugin,
   code_fence_language_plugin_key,
+  replace_block_with_code_block,
 } from "$lib/features/editor/adapters/code_fence_language_plugin";
 import { POPULAR_LANGUAGES } from "$lib/features/editor/adapters/language_registry";
+import { schema } from "$lib/features/editor/adapters/schema";
 
 describe("extract_code_fence_query", () => {
   it("returns query for triple backticks at line start", () => {
@@ -168,5 +170,39 @@ describe("code_fence_language_plugin state", () => {
     );
     const plugin_state = code_fence_language_plugin_key.getState(state);
     expect(plugin_state?.active).toBe(false);
+  });
+});
+
+describe("replace_block_with_code_block", () => {
+  it("replaces the selected textblock with a code_block and resets the plugin state", () => {
+    const para = schema.nodes.paragraph.create(null, schema.text("```py"));
+    const doc = schema.nodes.doc.create(null, [para]);
+    const state = EditorState.create({
+      schema,
+      doc,
+      plugins: [create_code_fence_language_prose_plugin()],
+      selection: TextSelection.create(doc, 5),
+    });
+
+    const tr = replace_block_with_code_block(state, "python");
+    if (!tr) throw new Error("expected a code block replacement transaction");
+    const next = state.apply(tr);
+
+    expect(next.doc.firstChild?.type.name).toBe("code_block");
+    expect(next.doc.firstChild?.attrs["language"]).toBe("python");
+    expect(code_fence_language_plugin_key.getState(next)?.active).toBe(false);
+  });
+
+  it("no-ops on a depth-0 selection instead of throwing", () => {
+    const para = schema.nodes.paragraph.create(null, schema.text("```py"));
+    const doc = schema.nodes.doc.create(null, [para]);
+    const state = EditorState.create({
+      schema,
+      doc,
+      selection: new AllSelection(doc),
+    });
+    expect(state.selection.$from.depth).toBe(0);
+
+    expect(replace_block_with_code_block(state, "python")).toBeNull();
   });
 });

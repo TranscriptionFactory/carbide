@@ -1,3 +1,4 @@
+import type { ResolvedPos } from "prosemirror-model";
 import { Plugin, PluginKey } from "prosemirror-state";
 
 export type ImageContextMenuState = {
@@ -24,6 +25,18 @@ const INITIAL_STATE: ImageContextMenuState = {
 
 export const image_context_menu_plugin_key =
   new PluginKey<ImageContextMenuState>("image-context-menu");
+
+export function image_pos_from_resolved(resolved: ResolvedPos): number {
+  let image_pos = resolved.pos;
+  for (let d = resolved.depth; d >= 1; d--) {
+    const node = resolved.node(d);
+    if (node.type.name === "image-block" || node.type.name === "image") {
+      image_pos = resolved.before(d);
+      break;
+    }
+  }
+  return image_pos;
+}
 
 export function create_image_context_menu_prose_plugin(): Plugin {
   return new Plugin({
@@ -74,17 +87,7 @@ export function create_image_context_menu_prose_plugin(): Plugin {
           if (!posAtCoords) return false;
 
           const resolved = view.state.doc.resolve(posAtCoords.pos);
-          let image_pos = posAtCoords.pos;
-          for (let d = resolved.depth; d >= 0; d--) {
-            const node = resolved.node(d);
-            if (
-              node.type.name === "image-block" ||
-              node.type.name === "image"
-            ) {
-              image_pos = resolved.before(d);
-              break;
-            }
-          }
+          const image_pos = image_pos_from_resolved(resolved);
 
           const node = view.state.doc.nodeAt(image_pos);
           if (

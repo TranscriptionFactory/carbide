@@ -1,4 +1,5 @@
 import { Plugin, PluginKey } from "prosemirror-state";
+import type { EditorState, Transaction } from "prosemirror-state";
 import type { EditorView } from "prosemirror-view";
 import {
   create_cursor_anchor,
@@ -77,6 +78,21 @@ function render_items(
   }
 }
 
+export function replace_block_with_code_block(
+  state: EditorState,
+  language: string,
+): Transaction | null {
+  const { $from } = state.selection;
+  if (!$from.parent.isTextblock) return null;
+
+  const block_start = $from.before();
+  const block_end = $from.after();
+  const code_block_node = schema.nodes.code_block.create({ language });
+  const tr = state.tr.replaceWith(block_start, block_end, code_block_node);
+  tr.setMeta(code_fence_language_plugin_key, EMPTY_STATE);
+  return tr;
+}
+
 export function create_code_fence_language_prose_plugin(): Plugin<CodeFenceLangState> {
   let dropdown: HTMLElement | null = null;
   let is_visible = false;
@@ -114,18 +130,8 @@ export function create_code_fence_language_prose_plugin(): Plugin<CodeFenceLangS
     const item = cached_items[index];
     if (!item) return;
 
-    const { $from } = view.state.selection;
-    const block_start = $from.before();
-    const block_end = $from.after();
-    const code_block_node = schema.nodes.code_block.create({
-      language: item.id,
-    });
-    const tr = view.state.tr.replaceWith(
-      block_start,
-      block_end,
-      code_block_node,
-    );
-    tr.setMeta(code_fence_language_plugin_key, EMPTY_STATE);
+    const tr = replace_block_with_code_block(view.state, item.id);
+    if (!tr) return;
     view.dispatch(tr);
     view.focus();
     hide_dropdown();
