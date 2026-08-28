@@ -56,20 +56,22 @@ pub async fn lint_stop(state: State<'_, LintState>, vault_id: String) -> Result<
     state.stop_session(&vault_id).await
 }
 
-#[tauri::command]
-#[specta::specta]
-pub async fn lint_open_file(
-    state: State<'_, LintState>,
-    vault_id: String,
-    path: String,
-    content: String,
+async fn send_open_notification(
+    state: &LintState,
+    vault_id: &str,
+    path: &str,
+    content: &str,
     version: i32,
-) -> Result<(), String> {
+) -> Result<Option<()>, String> {
     let sessions = state.inner.lock().await;
-    let session = sessions
-        .get(&vault_id)
-        .ok_or_else(|| format!("No active lint session for vault {}", vault_id))?;
-    let uri = resolve_uri(&session.vault_path, &path);
+    let Some(session) = sessions.get(vault_id) else {
+        log::debug!(
+            "lint_open_file with no active session for vault {} — benign during stop/restart",
+            vault_id
+        );
+        return Ok(None);
+    };
+    let uri = resolve_uri(&session.vault_path, path);
     let params = serde_json::json!({
         "textDocument": {
             "uri": uri,
@@ -81,23 +83,38 @@ pub async fn lint_open_file(
     session
         .client
         .send_notification("textDocument/didOpen", params)
-        .await
+        .await?;
+    Ok(Some(()))
 }
 
 #[tauri::command]
 #[specta::specta]
-pub async fn lint_update_file(
+pub async fn lint_open_file(
     state: State<'_, LintState>,
     vault_id: String,
     path: String,
     content: String,
     version: i32,
-) -> Result<(), String> {
+) -> Result<Option<()>, String> {
+    send_open_notification(&state, &vault_id, &path, &content, version).await
+}
+
+async fn send_update_notification(
+    state: &LintState,
+    vault_id: &str,
+    path: &str,
+    content: &str,
+    version: i32,
+) -> Result<Option<()>, String> {
     let sessions = state.inner.lock().await;
-    let session = sessions
-        .get(&vault_id)
-        .ok_or_else(|| format!("No active lint session for vault {}", vault_id))?;
-    let uri = resolve_uri(&session.vault_path, &path);
+    let Some(session) = sessions.get(vault_id) else {
+        log::debug!(
+            "lint_update_file with no active session for vault {} — benign during stop/restart",
+            vault_id
+        );
+        return Ok(None);
+    };
+    let uri = resolve_uri(&session.vault_path, path);
     let params = serde_json::json!({
         "textDocument": {
             "uri": uri,
@@ -110,7 +127,20 @@ pub async fn lint_update_file(
     session
         .client
         .send_notification("textDocument/didChange", params)
-        .await
+        .await?;
+    Ok(Some(()))
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn lint_update_file(
+    state: State<'_, LintState>,
+    vault_id: String,
+    path: String,
+    content: String,
+    version: i32,
+) -> Result<Option<()>, String> {
+    send_update_notification(&state, &vault_id, &path, &content, version).await
 }
 
 #[tauri::command]
@@ -381,4 +411,23 @@ pub async fn lint_get_status(
     vault_id: String,
 ) -> Result<LintStatus, String> {
     Ok(state.get_status(&vault_id).await)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn open_file_without_session_is_benign_noop() {
+        let state = LintState::default();
+        let outcome = send_open_notification(&state, "vault-1", "docs/a.md", "hello", 1).await;
+        assert_eq!(outcome, Ok(None));
+    }
+
+    #[tokio::test]
+    async fn update_file_without_session_is_benign_noop() {
+        let state = LintState::default();
+        let outcome = send_update_notification(&state, "vault-1", "docs/a.md", "hello", 1).await;
+        assert_eq!(outcome, Ok(None));
+    }
 }

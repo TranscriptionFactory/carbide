@@ -69,6 +69,10 @@ export class LintService {
 
   async stop(): Promise<void> {
     await this.run_lifecycle(async () => {
+      // Flip status + unsubscribe before awaiting the backend stop so file
+      // notifications arriving during the stop window see is_running=false
+      // (mirrors markdown LSP's unsubscribe-first stop ordering).
+      this.teardown_local();
       const vault_id = this.vault_store.vault?.id;
       if (vault_id) {
         try {
@@ -77,7 +81,6 @@ export class LintService {
           log.from_error("Failed to stop lint", error);
         }
       }
-      this.teardown_local();
     });
   }
 
