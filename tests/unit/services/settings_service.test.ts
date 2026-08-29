@@ -381,6 +381,90 @@ describe("SettingsService", () => {
     expect(result.error).not.toContain("autosave_enabled");
   });
 
+  it("writes nothing global when a save changes only vault-scoped keys", async () => {
+    const { service, settings_port, vault_settings_port } = make_service({});
+
+    await service.save_settings({ ...DEFAULT_EDITOR_SETTINGS });
+    settings_port.set_setting.mockClear();
+
+    const result = await service.save_settings({
+      ...DEFAULT_EDITOR_SETTINGS,
+      max_open_tabs: 12,
+    });
+
+    expect(result.status).toBe("success");
+    expect(settings_port.set_setting).not.toHaveBeenCalled();
+    expect(vault_settings_port.set_vault_setting).toHaveBeenCalledTimes(2);
+  });
+
+  it("writes only the global-only keys whose value moved", async () => {
+    const { service, settings_port } = make_service({});
+
+    await service.save_settings({ ...DEFAULT_EDITOR_SETTINGS });
+    settings_port.set_setting.mockClear();
+
+    await service.save_settings({
+      ...DEFAULT_EDITOR_SETTINGS,
+      file_tree_mode: "recents",
+    });
+
+    expect(settings_port.set_setting.mock.calls).toEqual([
+      ["file_tree_mode", "recents"],
+    ]);
+  });
+
+  it("treats a rebuilt but structurally equal value as unchanged", async () => {
+    const { service, settings_port } = make_service({});
+
+    await service.save_settings({ ...DEFAULT_EDITOR_SETTINGS });
+    settings_port.set_setting.mockClear();
+
+    await service.save_settings({
+      ...DEFAULT_EDITOR_SETTINGS,
+      ai_providers: [...DEFAULT_EDITOR_SETTINGS.ai_providers],
+    });
+
+    expect(settings_port.set_setting).not.toHaveBeenCalled();
+  });
+
+  it("retries a key whose previous write rejected", async () => {
+    let fail_mcp = true;
+    const { service, settings_port } = make_service({
+      set_setting_impl: (key) =>
+        key === "mcp_enabled" && fail_mcp
+          ? Promise.reject(new Error("write failed"))
+          : Promise.resolve(undefined),
+    });
+
+    const first = await service.save_settings({ ...DEFAULT_EDITOR_SETTINGS });
+    expect(first.status).toBe("failed");
+
+    fail_mcp = false;
+    settings_port.set_setting.mockClear();
+
+    const second = await service.save_settings({ ...DEFAULT_EDITOR_SETTINGS });
+
+    expect(second.status).toBe("success");
+    expect(settings_port.set_setting.mock.calls).toEqual([
+      ["mcp_enabled", DEFAULT_EDITOR_SETTINGS.mcp_enabled],
+    ]);
+  });
+
+  it("skips global writes for values a load already read back", async () => {
+    const { service, settings_port } = make_service({
+      global_get: (key) =>
+        (DEFAULT_EDITOR_SETTINGS as Record<string, unknown>)[key] ?? null,
+    });
+
+    const loaded = await service.load_settings({ ...DEFAULT_EDITOR_SETTINGS });
+    expect(loaded.status).toBe("success");
+    settings_port.set_setting.mockClear();
+
+    await service.save_settings(loaded.settings);
+
+    expect(settings_port.set_setting).not.toHaveBeenCalled();
+  });
+
   it("keeps every global-only key backed by a default unless allow-listed", () => {
     const missing = GLOBAL_ONLY_SETTING_KEYS.filter(
       (key) =>

@@ -33,6 +33,21 @@ import type {
 import { SvelteMap, SvelteSet } from "svelte/reactivity";
 import type { SidebarView } from "$lib/app/sidebar_views";
 
+// Settings values are JSON-shaped, so a structural compare is what tells an
+// unchanged nested value (a freshly rebuilt `recents_sort`, say) apart from a
+// real edit. Reference equality alone would report every save as a change.
+function settings_field_equal(a: unknown, b: unknown): boolean {
+  if (Object.is(a, b)) return true;
+  if (
+    a === null ||
+    b === null ||
+    typeof a !== "object" ||
+    typeof b !== "object"
+  )
+    return false;
+  return JSON.stringify(a) === JSON.stringify(b);
+}
+
 type AsyncStatus = "idle" | "loading" | "error";
 type ContextRailTab = "links" | "outline" | "metadata" | "related";
 export const BOTTOM_PANEL_TABS = [
@@ -634,7 +649,22 @@ export class UIStore {
       this.outline_docked_open = true;
       this.context_rail_open = false;
     }
-    this.editor_settings = settings;
+    // Reassigning the whole object invalidates every reactor that reads any
+    // editor_settings field, so one unrelated change (a file-tree tab switch)
+    // restarted the LSPs, git timers and terminals. Merge field-wise so only
+    // the fields that actually moved wake their readers.
+    const current = this.editor_settings as unknown as Record<string, unknown>;
+    const next = settings as unknown as Record<string, unknown>;
+    for (const key of Object.keys(next)) {
+      if (!settings_field_equal(current[key], next[key])) {
+        current[key] = next[key];
+      }
+    }
+    for (const key of Object.keys(current)) {
+      if (!(key in next)) {
+        Reflect.deleteProperty(current, key);
+      }
+    }
     this.editor_settings_loaded = true;
   }
 

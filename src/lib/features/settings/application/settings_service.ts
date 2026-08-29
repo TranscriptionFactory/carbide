@@ -65,7 +65,17 @@ function parse_welcome_state(value: unknown): WelcomeState {
   return { seen_version, dismissed_at_ms };
 }
 
+// Each set_setting is a full read-parse-rewrite of settings.json behind one
+// process-wide lock, so writing all 89 global-only keys on every save cost
+// ~1s per unrelated settings change. Only keys whose value actually moved
+// since the last load or successful write are sent.
+function serialize_setting(value: unknown): string {
+  return JSON.stringify(value ?? null);
+}
+
 export class SettingsService {
+  private readonly saved_global_values = new Map<string, string>();
+
   constructor(
     private readonly vault_settings_port: VaultSettingsPort,
     private readonly settings_port: SettingsPort,
@@ -131,6 +141,7 @@ export class SettingsService {
           stored,
         );
       }
+      this.remember_global_values(settings);
       this.succeed_operation("settings.load");
       return {
         status: "success",
@@ -150,15 +161,35 @@ export class SettingsService {
     }
   }
 
+  private remember_global_values(settings: EditorSettings): void {
+    for (const key of GLOBAL_ONLY_SETTING_KEYS) {
+      this.saved_global_values.set(key, serialize_setting(settings[key]));
+    }
+  }
+
   private async save_global_only_settings(
     settings: EditorSettings,
   ): Promise<void> {
+    const changed = GLOBAL_ONLY_SETTING_KEYS.map((key) => ({
+      key,
+      value: settings[key],
+      serialized: serialize_setting(settings[key]),
+    })).filter(
+      ({ key, serialized }) => this.saved_global_values.get(key) !== serialized,
+    );
+
+    if (changed.length === 0) {
+      return;
+    }
+
     const outcomes = await Promise.all(
-      GLOBAL_ONLY_SETTING_KEYS.map(async (key) => {
+      changed.map(async ({ key, value, serialized }) => {
         try {
-          await this.settings_port.set_setting(key, settings[key]);
+          await this.settings_port.set_setting(key, value);
+          this.saved_global_values.set(key, serialized);
           return null;
         } catch (error) {
+          this.saved_global_values.delete(key);
           return { key, reason: error_message(error) };
         }
       }),
