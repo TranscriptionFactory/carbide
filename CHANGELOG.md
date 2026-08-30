@@ -1,5 +1,11 @@
 # carbide
 
+## 2.34.7
+
+### Patch Changes
+
+- 36ffaef: Cap LSP stderr aggregation memory (fold digit runs, 256-key cap) and include lint commands in generated TS bindings
+
 ## 2.34.6
 
 ### Patch Changes
