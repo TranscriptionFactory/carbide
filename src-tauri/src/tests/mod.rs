@@ -291,6 +291,17 @@ mod specta_export {
                 crate::features::code_lsp::code_lsp_stop_vault,
                 crate::features::code_lsp::code_lsp_available_languages,
                 crate::features::code_lsp::code_lsp_get_status,
+                // Lint commands (10)
+                crate::features::lint::lint_start,
+                crate::features::lint::lint_stop,
+                crate::features::lint::lint_open_file,
+                crate::features::lint::lint_update_file,
+                crate::features::lint::lint_close_file,
+                crate::features::lint::lint_format_file,
+                crate::features::lint::lint_fix_all,
+                crate::features::lint::lint_check_vault,
+                crate::features::lint::lint_format_vault,
+                crate::features::lint::lint_get_status,
                 // Smart Links commands (3)
                 crate::features::smart_links::smart_links_load_rules,
                 crate::features::smart_links::smart_links_save_rules,

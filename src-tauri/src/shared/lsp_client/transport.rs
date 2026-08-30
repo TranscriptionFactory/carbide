@@ -9,6 +9,11 @@ use super::types::{LspClientConfig, LspClientError, ServerRequest};
 
 const STDERR_BUF_LINES: usize = 20;
 const STDERR_EXCERPT_LINES: usize = 10;
+/// Upper bound on tracked distinct stderr keys. Past the cap, new distinct
+/// lines still WARN but are no longer recorded, so memory stays bounded; a
+/// server that emits that many genuinely distinct messages falls back to
+/// loud per-line warns (the pre-aggregation behavior) rather than growth.
+const STDERR_MAX_DISTINCT_KEYS: usize = 256;
 
 type StderrBuf = Arc<Mutex<VecDeque<String>>>;
 
@@ -31,6 +36,7 @@ fn stderr_excerpt(buf: &VecDeque<String>) -> String {
 struct StderrAggregator {
     seen_counts: HashMap<String, u64>,
     total_lines: u64,
+    untracked_lines: u64,
 }
 
 impl StderrAggregator {
@@ -47,8 +53,13 @@ impl StderrAggregator {
         });
 
         let without_ts = TIMESTAMP_PREFIX.replace(line.trim(), "");
-        LEVEL_PREFIX
-            .replace(&without_ts, "")
+        let without_level = LEVEL_PREFIX.replace(&without_ts, "");
+        // Fold digit runs so parameterized lines (URIs, `line:col`, counters)
+        // share one key instead of minting a fresh key per occurrence — that
+        // was both a WARN flood and unbounded map growth.
+        static DIGIT_RUN: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\d+").unwrap());
+        DIGIT_RUN
+            .replace_all(&without_level, "#")
             .trim()
             .to_string()
     }
@@ -57,17 +68,38 @@ impl StderrAggregator {
     fn record(&mut self, line: &str) -> bool {
         self.total_lines += 1;
         let key = Self::normalize(line);
-        let count = self.seen_counts.entry(key).or_insert(0);
-        *count += 1;
-        *count == 1
+        match self.seen_counts.get_mut(&key) {
+            Some(count) => {
+                *count += 1;
+                false
+            }
+            None => {
+                if self.seen_counts.len() < STDERR_MAX_DISTINCT_KEYS {
+                    self.seen_counts.insert(key, 1);
+                } else {
+                    self.untracked_lines += 1;
+                }
+                true
+            }
+        }
     }
 
     fn summary(&self) -> String {
-        format!(
-            "LSP stderr summary: {} distinct / {} total lines",
-            self.seen_counts.len(),
-            self.total_lines
-        )
+        if self.untracked_lines > 0 {
+            format!(
+                "LSP stderr summary: {} distinct / {} total lines ({} more lines past the {}-key cap were not tracked)",
+                self.seen_counts.len(),
+                self.total_lines,
+                self.untracked_lines,
+                STDERR_MAX_DISTINCT_KEYS
+            )
+        } else {
+            format!(
+                "LSP stderr summary: {} distinct / {} total lines",
+                self.seen_counts.len(),
+                self.total_lines
+            )
+        }
     }
 }
 
@@ -700,6 +732,53 @@ mod tests {
         );
         // Lines with no leading noise normalize to themselves.
         assert_eq!(StderrAggregator::normalize("plain line"), "plain line");
+    }
+
+    #[test]
+    fn digit_runs_collapse_parameterized_lines() {
+        let mut aggregator = StderrAggregator::default();
+
+        // Same line modulo numbers: one WARN, the rest DEBUG.
+        assert_eq!(
+            stderr_log_level(&mut aggregator, "Document not found: file.md:12:34"),
+            StderrLogLevel::Warn
+        );
+        for line in [
+            "Document not found: file.md:98:76",
+            "Document not found: file.md:12:34",
+        ] {
+            assert_eq!(
+                stderr_log_level(&mut aggregator, line),
+                StderrLogLevel::Debug
+            );
+        }
+        // A different literal (the filename) is still a distinct key.
+        assert_eq!(
+            stderr_log_level(&mut aggregator, "Document not found: other.rs:1:2"),
+            StderrLogLevel::Warn
+        );
+        assert_eq!(
+            StderrAggregator::normalize("attempt 3 of 5 failed"),
+            "attempt # of # failed"
+        );
+        // Two distinct literals (file.md, other.rs) survive digit folding.
+        assert_eq!(aggregator.seen_counts.len(), 2);
+    }
+
+    #[test]
+    fn seen_counts_map_is_capped() {
+        let mut aggregator = StderrAggregator::default();
+        for i in 0..300 {
+            // Unique x-run length per line: stays a distinct key after digit
+            // folding (which only collapses the numeric suffix).
+            let line = format!("distinct failure {}", "x".repeat(i + 1));
+            stderr_log_level(&mut aggregator, &line);
+        }
+
+        assert_eq!(aggregator.seen_counts.len(), 256);
+        assert_eq!(aggregator.total_lines, 300);
+        assert_eq!(aggregator.untracked_lines, 44);
+        assert!(aggregator.summary().contains("44 more lines"));
     }
 
     #[test]
