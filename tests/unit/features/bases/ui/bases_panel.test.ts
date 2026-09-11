@@ -1,7 +1,7 @@
 /**
  * @vitest-environment jsdom
  */
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock(
   "$lib/app/context/app_context.svelte",
@@ -26,7 +26,13 @@ import { flushSync } from "../../../helpers/svelte_client_runtime";
 function render(options: {
   view_mode?: ViewMode;
   sort?: { property: string; descending: boolean };
-  available_properties?: { name: string }[];
+  available_properties?: {
+    name: string;
+    property_type?: string;
+    unique_values?: string[];
+  }[];
+  promoted_tags?: string[];
+  folder_paths?: string[];
   bases_service?: BasesService;
 }) {
   const stores = create_app_stores();
@@ -40,11 +46,19 @@ function render(options: {
   stores.bases.available_properties = (options.available_properties ?? []).map(
     (p) => ({
       name: p.name,
-      property_type: "string",
+      property_type: p.property_type ?? "string",
       count: 1,
-      unique_values: null,
+      unique_values: p.unique_values ?? null,
     }),
   );
+  if (options.promoted_tags) {
+    stores.tag.set_tags(
+      options.promoted_tags.map((tag) => ({ tag, count: 1, promoted: true })),
+    );
+  }
+  if (options.folder_paths) {
+    stores.notes.set_folder_paths(options.folder_paths);
+  }
 
   const bases_service =
     options.bases_service ??
@@ -99,7 +113,75 @@ function sort_select(target: HTMLElement) {
   return select;
 }
 
+function input_by_placeholder(
+  target: HTMLElement,
+  placeholder: string,
+): HTMLInputElement {
+  const input = target.querySelector<HTMLInputElement>(
+    `input[placeholder="${placeholder}"]`,
+  );
+  if (!input)
+    throw new Error(`missing input with placeholder "${placeholder}"`);
+  return input;
+}
+
+function type_into(input: HTMLInputElement, value: string) {
+  input.value = value;
+  input.dispatchEvent(new Event("input", { bubbles: true }));
+  flushSync();
+}
+
+function press_key(input: HTMLInputElement, key: string) {
+  input.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true }));
+  flushSync();
+}
+
+function focus_input(input: HTMLInputElement) {
+  input.dispatchEvent(new FocusEvent("focus"));
+  flushSync();
+}
+
+function combobox_root(target: HTMLElement, placeholder: string): HTMLElement {
+  const root = input_by_placeholder(target, placeholder).closest<HTMLElement>(
+    ".PropertyCombobox",
+  );
+  if (!root) throw new Error(`missing combobox for "${placeholder}"`);
+  return root;
+}
+
+function combobox_item_values(
+  target: HTMLElement,
+  placeholder: string,
+): string[] {
+  const root = combobox_root(target, placeholder);
+  return [...root.querySelectorAll(".PropertyCombobox__item-value")].map(
+    (el) => el.textContent ?? "",
+  );
+}
+
+function select_combobox_item(
+  target: HTMLElement,
+  placeholder: string,
+  value: string,
+) {
+  const root = combobox_root(target, placeholder);
+  const item = [
+    ...root.querySelectorAll<HTMLElement>(".PropertyCombobox__item"),
+  ].find(
+    (el) =>
+      el.querySelector(".PropertyCombobox__item-value")?.textContent === value,
+  );
+  if (!item) throw new Error(`missing combobox item "${value}"`);
+  item.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+  flushSync();
+}
+
+beforeEach(() => {
+  Element.prototype.scrollIntoView = () => undefined;
+});
+
 afterEach(() => {
+  Reflect.deleteProperty(Element.prototype, "scrollIntoView");
   document.body.innerHTML = "";
   vi.restoreAllMocks();
 });
@@ -262,6 +344,104 @@ describe("bases panel refresh", () => {
     button?.click();
 
     expect(execute).toHaveBeenCalledWith(ACTION_IDS.bases_refresh);
+
+    view.cleanup();
+  });
+});
+
+describe("bases panel filter combobox", () => {
+  it("filters the property list as you type", () => {
+    const view = render({
+      available_properties: [{ name: "priority" }, { name: "status" }],
+    });
+    open_filters(view.target);
+
+    const input = input_by_placeholder(view.target, "Property...");
+    type_into(input, "pri");
+
+    expect(combobox_item_values(view.target, "Property...")).toEqual([
+      "priority",
+    ]);
+
+    view.cleanup();
+  });
+
+  it("feeds low-cardinality unique values into the value combobox", () => {
+    const view = render({
+      available_properties: [
+        { name: "status", unique_values: ["todo", "done"] },
+      ],
+    });
+    open_filters(view.target);
+
+    const input = input_by_placeholder(view.target, "Property...");
+    type_into(input, "status");
+    select_combobox_item(view.target, "Property...", "status");
+
+    const value_input = input_by_placeholder(view.target, "Value");
+    focus_input(value_input);
+
+    expect(combobox_item_values(view.target, "Value")).toEqual([
+      "todo",
+      "done",
+    ]);
+
+    view.cleanup();
+  });
+
+  it("autocompletes the value for the tag pseudo-property from promoted tags", () => {
+    const view = render({ promoted_tags: ["work", "home"] });
+    open_filters(view.target);
+
+    const input = input_by_placeholder(view.target, "Property...");
+    type_into(input, "tag");
+    select_combobox_item(view.target, "Property...", "tag");
+
+    const value_input = input_by_placeholder(view.target, "Value");
+    focus_input(value_input);
+
+    expect(combobox_item_values(view.target, "Value")).toEqual([
+      "work",
+      "home",
+    ]);
+
+    type_into(value_input, "ho");
+    expect(combobox_item_values(view.target, "Value")).toEqual(["home"]);
+
+    view.cleanup();
+  });
+
+  it("keeps the value field free-text for content", () => {
+    const view = render({});
+    open_filters(view.target);
+
+    const input = input_by_placeholder(view.target, "Property...");
+    type_into(input, "content");
+    select_combobox_item(view.target, "Property...", "content");
+
+    const value_input = input_by_placeholder(view.target, "Value");
+    focus_input(value_input);
+
+    expect(combobox_item_values(view.target, "Value")).toEqual([]);
+
+    view.cleanup();
+  });
+});
+
+describe("bases panel folder picker", () => {
+  it("keyboard-navigates and commits a folder selection", () => {
+    const view = render({ folder_paths: ["A", "A/B", "C"] });
+
+    const input = input_by_placeholder(view.target, "Folder...");
+    focus_input(input);
+    press_key(input, "ArrowDown");
+    press_key(input, "Enter");
+
+    expect(view.stores.bases.query.filters).toContainEqual({
+      property: "path",
+      operator: "contains",
+      value: "A/",
+    });
 
     view.cleanup();
   });
