@@ -6,12 +6,28 @@
     items: DslSuggestion[];
     selected_index: number;
     on_select: (i: number) => void;
+    on_hover?: (i: number) => void;
   };
 
-  let { items, selected_index, on_select }: Props = $props();
+  let {
+    items,
+    selected_index,
+    on_select,
+    on_hover,
+  }: Props = $props();
+
+  let dropdown_element = $state<HTMLElement>();
+
+  $effect(() => {
+    void selected_index;
+    void items;
+    dropdown_element
+      ?.querySelector(".DslSuggest__item--selected")
+      ?.scrollIntoView({ block: "nearest" });
+  });
 </script>
 
-<div class="DslSuggest__dropdown">
+<div bind:this={dropdown_element} class="DslSuggest__dropdown">
   <!-- Keyed by insert+detail: labels are note titles and can collide across folders. -->
   {#each items as item, i (item.insert + " " + (item.detail ?? ""))}
     <button
@@ -22,6 +38,8 @@
         e.preventDefault();
         on_select(i);
       }}
+      onmouseover={() => on_hover?.(i)}
+      onfocus={() => on_hover?.(i)}
     >
       {#if item.kind === "folder"}
         <FolderTree class="size-4 shrink-0" aria-label="Folder" />

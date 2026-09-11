@@ -2,9 +2,14 @@
  * @vitest-environment jsdom
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { ComponentProps } from "svelte";
 import { flushSync, mount, unmount } from "../helpers/svelte_client_runtime";
+import { create_replaceable_props } from "../helpers/reactive_props.svelte";
 import FolderSuggestInput from "$lib/components/ui/folder_suggest_input.svelte";
 import PropertyCombobox from "$lib/features/metadata/ui/property_combobox.svelte";
+import DslSuggestDropdown from "$lib/components/ui/dsl_suggest_dropdown.svelte";
+
+type DslSuggestDropdownProps = ComponentProps<typeof DslSuggestDropdown>;
 
 type ScrollCall = { element: Element; options: unknown };
 
@@ -120,6 +125,31 @@ describe("property_combobox keeps the selection in view", () => {
       target.querySelector(".PropertyCombobox__item--selected"),
     );
     expect(element?.textContent).toContain("value-4");
+    expect(options).toEqual({ block: "nearest" });
+  });
+});
+
+describe("dsl_suggest_dropdown keeps the selection in view", () => {
+  it("scrolls the highlighted item into view when selected_index moves past the visible window", () => {
+    const items = Array.from({ length: 15 }, (_, i) => ({
+      label: `item-${String(i)}`,
+      insert: `item-${String(i)}`,
+    }));
+    const reactive = create_replaceable_props<DslSuggestDropdownProps>({
+      items,
+      selected_index: 0,
+      on_select: vi.fn(),
+    });
+    const target = make_target();
+    track(mount(DslSuggestDropdown, { target, props: reactive.props }), target);
+    scroll_calls = [];
+
+    reactive.replace({ selected_index: 11 });
+    flushSync();
+
+    const { element, options } = last_scroll_call();
+    expect(element).toBe(target.querySelector(".DslSuggest__item--selected"));
+    expect(element?.textContent).toContain("item-11");
     expect(options).toEqual({ block: "nearest" });
   });
 });
