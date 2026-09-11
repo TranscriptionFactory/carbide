@@ -24,6 +24,7 @@ export type EmbeddingProgress = {
 export class SearchStore {
   omnibar_items = $state<OmnibarItem[]>([]);
   omnibar_items_raw = $state<OmnibarItem[]>([]);
+  folder_scope = $state<string | null>(null);
   in_file_matches = $state<InFileMatch[]>([]);
   find_match_count = $state(0);
   index_progress = $state<IndexProgress>({
@@ -151,6 +152,10 @@ export class SearchStore {
     this.omnibar_items = items;
   }
 
+  set_folder_scope(path: string | null) {
+    this.folder_scope = path;
+  }
+
   set_omnibar_items_raw(items: OmnibarItem[]) {
     this.omnibar_items_raw = items;
   }
@@ -176,8 +181,8 @@ export class SearchStore {
   reset() {
     this.omnibar_items = [];
     this.omnibar_items_raw = [];
+    this.folder_scope = null;
     this.in_file_matches = [];
-    this.find_match_count = 0;
     this.index_progress = { status: "idle", indexed: 0, total: 0, error: null };
     this.embedding_progress = {
       status: "idle",

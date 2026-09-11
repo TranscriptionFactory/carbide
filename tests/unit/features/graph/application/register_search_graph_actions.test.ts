@@ -1,6 +1,9 @@
 /* eslint-disable @typescript-eslint/unbound-method */
 import { describe, expect, it, vi } from "vitest";
-import { register_search_graph_actions } from "$lib/features/graph/application/search_graph_actions";
+import {
+  register_search_graph_actions,
+  SEARCH_GRAPH_SET_FOLDER_SCOPE_ACTION_ID,
+} from "$lib/features/graph/application/search_graph_actions";
 import { ACTION_IDS } from "$lib/app/action_registry/action_ids";
 import { SearchGraphStore } from "$lib/features/graph/state/search_graph_store.svelte";
 import type { GraphService } from "$lib/features/graph/application/graph_service";
@@ -19,6 +22,7 @@ function setup() {
   const search_graph_store = new SearchGraphStore();
   const graph_service = {
     toggle_search_graph_semantic_edges: vi.fn().mockResolvedValue(undefined),
+    execute_search_graph: vi.fn().mockResolvedValue(undefined),
   } as unknown as GraphService;
 
   register_search_graph_actions({
@@ -26,7 +30,12 @@ function setup() {
     stores: {
       tab: {},
       editor: {},
-      ui: { editor_settings: { semantic_similarity_threshold: 0.5 } },
+      ui: {
+        editor_settings: {
+          semantic_similarity_threshold: 0.5,
+          reference_include_sources_in_search: true,
+        },
+      },
     },
     search_graph_store,
     graph_service,
@@ -58,5 +67,40 @@ describe("register_search_graph_actions semantic toggle", () => {
     expect(
       graph_service.toggle_search_graph_semantic_edges,
     ).not.toHaveBeenCalled();
+  });
+});
+
+describe("register_search_graph_actions folder scope", () => {
+  it("sets the per-tab folder scope and re-runs the search", async () => {
+    const { execute, search_graph_store, graph_service } = setup();
+    search_graph_store.create_instance("tab-1", "react");
+
+    await execute(SEARCH_GRAPH_SET_FOLDER_SCOPE_ACTION_ID, {
+      tab_id: "tab-1",
+      folder_path: "Projects",
+    });
+
+    expect(search_graph_store.get_instance("tab-1")?.folder_scope).toBe(
+      "Projects",
+    );
+    expect(graph_service.execute_search_graph).toHaveBeenCalledWith(
+      "tab-1",
+      "react",
+      0.5,
+      true,
+    );
+  });
+
+  it("clears the folder scope and skips re-running without a query", async () => {
+    const { execute, search_graph_store, graph_service } = setup();
+    search_graph_store.create_instance("tab-1", "");
+
+    await execute(SEARCH_GRAPH_SET_FOLDER_SCOPE_ACTION_ID, {
+      tab_id: "tab-1",
+      folder_path: null,
+    });
+
+    expect(search_graph_store.get_instance("tab-1")?.folder_scope).toBeNull();
+    expect(graph_service.execute_search_graph).not.toHaveBeenCalled();
   });
 });

@@ -445,6 +445,61 @@ describe("GraphService.execute_search_graph", () => {
       20,
     );
   });
+
+  it("restricts hits and subgraph nodes to the folder scope", async () => {
+    const hits = [
+      make_pipeline_hit("Projects/a.md", "A"),
+      make_pipeline_hit("Other/b.md", "B"),
+    ];
+    const graph_port = make_mock_graph_port();
+    graph_port.load_vault_graph = vi.fn().mockResolvedValue({
+      nodes: [
+        { path: "Projects/a.md", title: "A" },
+        { path: "Projects/c.md", title: "C" },
+        { path: "Other/b.md", title: "B" },
+      ],
+      edges: [
+        { source: "Projects/a.md", target: "Projects/c.md" },
+        { source: "Projects/a.md", target: "Other/b.md" },
+      ],
+      stats: { node_count: 3, edge_count: 2 },
+    });
+    const list_folder_note_paths = vi
+      .fn()
+      .mockResolvedValue(new Set(["Projects/a.md", "Projects/c.md"]));
+
+    const graph_store = new GraphStore();
+    const vault_store = new VaultStore();
+    vault_store.set_vault(create_test_vault({ id: "vault-1" as VaultId }));
+    const search_graph_store = new SearchGraphStore();
+    const search_service = {
+      run_search_pipeline: vi.fn().mockResolvedValue({ hits }),
+      list_folder_note_paths,
+    } as unknown as SearchService;
+
+    const service = new GraphService(
+      graph_port,
+      make_mock_search_port(),
+      search_service,
+      vault_store,
+      new EditorStore(),
+      graph_store,
+      search_graph_store,
+    );
+
+    search_graph_store.create_instance("tab-1", "");
+    search_graph_store.set_folder_scope("tab-1", "Projects");
+
+    await service.execute_search_graph("tab-1", "query");
+
+    expect(list_folder_note_paths).toHaveBeenCalledWith("vault-1", "Projects");
+    const snapshot = search_graph_store.get_instance("tab-1")?.snapshot;
+    expect(snapshot?.stats.hit_count).toBe(1);
+    expect(snapshot?.nodes.map((n) => n.path).sort()).toEqual([
+      "Projects/a.md",
+      "Projects/c.md",
+    ]);
+  });
 });
 
 describe("GraphService.toggle_search_graph_semantic_edges", () => {

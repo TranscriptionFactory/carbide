@@ -4,6 +4,9 @@ import type { GraphService } from "$lib/features/graph/application/graph_service
 import type { SearchGraphStore } from "$lib/features/graph/state/search_graph_store.svelte";
 import type { SearchGraphSortMode } from "$lib/features/graph/domain/sort_search_graph_nodes";
 
+export const SEARCH_GRAPH_SET_FOLDER_SCOPE_ACTION_ID =
+  "search_graph.set_folder_scope";
+
 export function register_search_graph_actions(
   input: ActionRegistrationInput & {
     search_graph_store: SearchGraphStore;
@@ -184,6 +187,31 @@ export function register_search_graph_actions(
     execute: (tab_id: unknown) => {
       if (typeof tab_id !== "string") return;
       search_graph_store.toggle_sort_order(tab_id);
+    },
+  });
+
+  registry.register({
+    id: SEARCH_GRAPH_SET_FOLDER_SCOPE_ACTION_ID,
+    label: "Set Search Graph Folder Scope",
+    execute: async (payload: unknown) => {
+      const { tab_id, folder_path } = (payload ?? {}) as {
+        tab_id?: string;
+        folder_path?: string | null;
+      };
+      if (!tab_id) return;
+      const normalized =
+        typeof folder_path === "string" && folder_path.trim() !== ""
+          ? folder_path
+          : null;
+      search_graph_store.set_folder_scope(tab_id, normalized);
+      const query = search_graph_store.get_instance(tab_id)?.query;
+      if (!query) return;
+      await graph_service.execute_search_graph(
+        tab_id,
+        query,
+        stores.ui.editor_settings.semantic_similarity_threshold,
+        stores.ui.editor_settings.reference_include_sources_in_search,
+      );
     },
   });
 }

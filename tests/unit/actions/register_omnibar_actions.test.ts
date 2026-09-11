@@ -1,7 +1,10 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import { ActionRegistry } from "$lib/app/action_registry/action_registry";
 import { ACTION_IDS } from "$lib/app/action_registry/action_ids";
-import { register_omnibar_actions } from "$lib/features/search/application/omnibar_actions";
+import {
+  register_omnibar_actions,
+  OMNIBAR_SET_FOLDER_SCOPE_ACTION_ID,
+} from "$lib/features/search/application/omnibar_actions";
 import {
   COMMANDS_REGISTRY,
   sidebar_view_command_id,
@@ -166,7 +169,7 @@ describe("register_omnibar_actions", () => {
     expect(stores.ui.cross_vault_open_confirm.open).toBe(false);
   });
 
-  it("pre-fills omnibar with selected folder when tree is focused", async () => {
+  it("scopes omnibar to selected folder when tree is focused", async () => {
     const { registry, stores } = create_omnibar_actions_harness();
     stores.vault.set_vault(create_test_vault({ id: as_vault_id("vault-a") }));
     stores.ui.set_selected_folder_path("Work/Q2");
@@ -182,7 +185,8 @@ describe("register_omnibar_actions", () => {
     try {
       await registry.execute(ACTION_IDS.omnibar_open);
       expect(stores.ui.omnibar.open).toBe(true);
-      expect(stores.ui.omnibar.query).toBe("Work/Q2/");
+      expect(stores.ui.omnibar.query).toBe("");
+      expect(stores.search.folder_scope).toBe("Work/Q2");
     } finally {
       delete (globalThis as { document?: unknown }).document;
     }
@@ -206,6 +210,47 @@ describe("register_omnibar_actions", () => {
     }
   });
 
+  it("sets a folder scope and re-runs the current query with it", async () => {
+    const { registry, stores, services } = create_omnibar_actions_harness();
+    stores.ui.omnibar = {
+      ...stores.ui.omnibar,
+      open: true,
+      query: "photosynthesis",
+      scope: "current_vault",
+    };
+
+    await registry.execute(OMNIBAR_SET_FOLDER_SCOPE_ACTION_ID, "Projects");
+
+    expect(stores.search.folder_scope).toBe("Projects");
+    expect(services.search.search_omnibar).toHaveBeenCalledWith(
+      "photosynthesis",
+      expect.any(Boolean),
+      expect.any(Boolean),
+      "Projects",
+    );
+  });
+
+  it("clears the folder scope and restores unfiltered search", async () => {
+    const { registry, stores, services } = create_omnibar_actions_harness();
+    stores.search.set_folder_scope("Projects");
+    stores.ui.omnibar = {
+      ...stores.ui.omnibar,
+      open: true,
+      query: "photosynthesis",
+      scope: "current_vault",
+    };
+
+    await registry.execute(OMNIBAR_SET_FOLDER_SCOPE_ACTION_ID, null);
+
+    expect(stores.search.folder_scope).toBeNull();
+    expect(services.search.search_omnibar).toHaveBeenCalledWith(
+      "photosynthesis",
+      expect.any(Boolean),
+      expect.any(Boolean),
+      null,
+    );
+  });
+
   it("passes the linked-source setting to omnibar search", async () => {
     const { registry, stores, services } = create_omnibar_actions_harness();
     stores.ui.set_editor_settings({
@@ -217,11 +262,11 @@ describe("register_omnibar_actions", () => {
 
     await registry.execute(ACTION_IDS.omnibar_set_query, "photosynthesis");
     await vi.advanceTimersByTimeAsync(200);
-
     expect(services.search.search_omnibar).toHaveBeenCalledWith(
       "photosynthesis",
       expect.any(Boolean),
       false,
+      null,
     );
   });
 
@@ -342,6 +387,7 @@ describe("register_omnibar_actions", () => {
       "#planned docs",
       true,
       true,
+      null,
     );
     expect(stores.search.omnibar_items).toEqual([
       {

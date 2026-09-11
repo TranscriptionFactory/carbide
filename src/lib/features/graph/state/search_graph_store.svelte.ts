@@ -8,6 +8,7 @@ export type SearchGraphStatus = "idle" | "loading" | "ready" | "error";
 
 export type SearchGraphInstance = {
   query: string;
+  folder_scope: string | null;
   status: SearchGraphStatus;
   error: string | null;
   snapshot: SearchGraphSnapshot | null;
@@ -26,10 +27,10 @@ export type SearchGraphInstance = {
   sort_ascending: boolean;
   graph_expanded: boolean;
 };
-
 function create_instance(query: string): SearchGraphInstance {
   return {
     query,
+    folder_scope: null,
     status: "idle",
     error: null,
     snapshot: null,
@@ -205,8 +206,11 @@ export class SearchGraphStore {
     if (!inst) return;
     this.update(tab_id, { sort_ascending: !inst.sort_ascending });
   }
-
   update_query(tab_id: string, query: string): void {
     this.update(tab_id, { query });
+  }
+
+  set_folder_scope(tab_id: string, folder_scope: string | null): void {
+    this.update(tab_id, { folder_scope });
   }
 }
