@@ -15,7 +15,6 @@
   import Filter from "@lucide/svelte/icons/filter";
   import Save from "@lucide/svelte/icons/save";
   import FolderOpen from "@lucide/svelte/icons/folder-open";
-  import FolderSearch from "@lucide/svelte/icons/folder-search";
   import Trash2 from "@lucide/svelte/icons/trash-2";
   import Maximize2 from "@lucide/svelte/icons/maximize-2";
   import BasesTable from "./bases_table.svelte";
@@ -26,8 +25,10 @@
   import type { ViewMode } from "$lib/features/bases/ports";
   import { ACTION_IDS } from "$lib/app/action_registry/action_ids";
   import { detect_file_type } from "$lib/features/document";
-  import { filter_folder_paths } from "$lib/shared/utils/filter_folder_paths";
+  import { fuzzy_score } from "$lib/shared/utils/fuzzy_score";
   import type { PropertyInfo } from "$lib/features/bases/ports";
+  import { PropertyCombobox } from "$lib/features/metadata";
+  import FolderSuggestInput from "$lib/components/ui/folder_suggest_input.svelte";
 
   const OPERATORS = [
     { value: "eq", label: "=" },
@@ -103,7 +104,6 @@
   let search_text = $state("");
   let search_timer: ReturnType<typeof setTimeout> | undefined;
   let folder_scope = $state("");
-  let folder_scope_open = $state(false);
 
   const all_properties: PropertyInfo[] = $derived([
     ...BUILT_IN_PROPERTIES,
@@ -112,6 +112,79 @@
 
   const selected_property_info = $derived(
     all_properties.find((p) => p.name === draft_property) ?? null,
+  );
+
+  type ComboItem = {
+    value: string;
+    hint?: string;
+    description?: string | null;
+    indices?: number[];
+  };
+
+  function property_items_for(
+    query: string,
+    props: PropertyInfo[],
+  ): ComboItem[] {
+    const q = query.trim();
+    const seen = new Set<string>();
+    const items: ComboItem[] = [];
+    for (const p of props) {
+      if (seen.has(p.name)) continue;
+      seen.add(p.name);
+      items.push({
+        value: p.name,
+        hint: p.property_type,
+        description:
+          p.count > 0
+            ? `used in ${p.count} ${p.count === 1 ? "note" : "notes"}`
+            : null,
+        indices: [],
+      });
+    }
+
+    if (!q) return items;
+
+    const scored: { item: ComboItem; score: number }[] = [];
+    for (const item of items) {
+      const match = fuzzy_score(q, item.value);
+      if (match) {
+        item.indices = match.indices;
+        scored.push({ item, score: match.score });
+      }
+    }
+    scored.sort(
+      (a, b) => b.score - a.score || a.item.value.localeCompare(b.item.value),
+    );
+    return scored.map((s) => s.item);
+  }
+
+  function value_items_for(query: string, values: string[]): ComboItem[] {
+    const q = query.trim();
+    if (!q) return values.map((value) => ({ value, indices: [] }));
+
+    const scored: { value: string; score: number; indices: number[] }[] = [];
+    for (const value of values) {
+      const match = fuzzy_score(q, value);
+      if (match) {
+        scored.push({ value, score: match.score, indices: match.indices });
+      }
+    }
+    scored.sort((a, b) => b.score - a.score || a.value.localeCompare(b.value));
+    return scored.map(({ value, indices }) => ({ value, indices }));
+  }
+
+  const property_items = $derived(
+    property_items_for(draft_property, all_properties),
+  );
+
+  const draft_value_values = $derived(
+    selected_property_info?.name === "tag"
+      ? stores.tag.promoted_tags.map((t) => t.tag)
+      : (selected_property_info?.unique_values ?? []),
+  );
+
+  const draft_value_items = $derived(
+    value_items_for(draft_value, draft_value_values),
   );
 
   const filtered_operators = $derived.by(() => {
@@ -130,14 +203,6 @@
       draft_operator = filtered_operators[0]?.value ?? "eq";
     }
   });
-
-  const draft_unique_values = $derived(
-    selected_property_info?.unique_values ?? null,
-  );
-
-  const folder_suggestions = $derived(
-    filter_folder_paths(folder_scope, note_store.folder_paths),
-  );
 
   function on_search_input(value: string) {
     search_text = value;
@@ -183,23 +248,6 @@
     upsert_managed_filter("content", "contains", value);
   }
 
-  function on_folder_scope_input(value: string) {
-    folder_scope = value;
-    folder_scope_open = true;
-  }
-
-  function select_folder_scope(path: string) {
-    folder_scope = path;
-    folder_scope_open = false;
-    sync_folder_filter();
-  }
-
-  function clear_folder_scope() {
-    folder_scope = "";
-    folder_scope_open = false;
-    sync_folder_filter();
-  }
-
   function sync_folder_filter() {
     const clean = folder_scope.replace(/\/+$/, "").trim();
     upsert_managed_filter("path", "contains", clean ? clean + "/" : null);
@@ -243,7 +291,7 @@
   }
 
   function add_filter() {
-    if (!draft_property) return;
+    if (!selected_property_info) return;
     bases_store.add_filter({
       property: draft_property,
       operator: draft_operator,
@@ -395,50 +443,15 @@
         {/if}
       </div>
       <div class="relative flex-1 min-w-0">
-        <div class="relative flex items-center">
-          <FolderSearch
-            size={12}
-            class="absolute left-1.5 text-muted-foreground pointer-events-none"
-          />
-          <input
-            type="text"
-            value={folder_scope}
-            oninput={(e) =>
-              on_folder_scope_input(
-                (e.currentTarget as HTMLInputElement).value,
-              )}
-            onfocus={() => (folder_scope_open = true)}
-            onblur={() => setTimeout(() => (folder_scope_open = false), 150)}
-            placeholder="Folder..."
-            class="text-xs pl-6 pr-6 py-1 w-full bg-muted border border-border rounded-md"
-          />
-          {#if folder_scope}
-            <button
-              class="absolute right-1 p-0.5 hover:bg-accent rounded"
-              onclick={clear_folder_scope}
-            >
-              <X size={10} />
-            </button>
-          {/if}
-        </div>
-        {#if folder_scope_open && folder_suggestions.length > 0}
-          <div
-            class="absolute top-full left-0 right-0 mt-1 z-50 bg-popover border border-border rounded-md shadow-lg max-h-40 overflow-y-auto"
-          >
-            {#each folder_suggestions as folder}
-              <button
-                type="button"
-                class="w-full text-left text-xs px-2 py-1.5 hover:bg-accent truncate"
-                onmousedown={(e) => {
-                  e.preventDefault();
-                  select_folder_scope(folder);
-                }}
-              >
-                {folder || "(vault root)"}
-              </button>
-            {/each}
-          </div>
-        {/if}
+        <FolderSuggestInput
+          value={folder_scope}
+          folder_paths={note_store.folder_paths}
+          placeholder="Folder..."
+          on_change={(path) => {
+            folder_scope = path;
+            sync_folder_filter();
+          }}
+        />
       </div>
     </div>
   </div>
@@ -543,22 +556,13 @@
             class="block text-[10px] text-muted-foreground mb-0.5"
             >Property</label
           >
-          <select
-            id="filter-property"
-            bind:value={draft_property}
-            class="w-full text-xs px-2 py-1.5 bg-card border border-border rounded-md"
-          >
-            <option value="">Select...</option>
-            {#each BUILT_IN_PROPERTIES as prop}
-              <option value={prop.name}>{prop.name}</option>
-            {/each}
-            {#if bases_store.available_properties.length > 0}
-              <option disabled>───</option>
-            {/if}
-            {#each bases_store.available_properties as prop}
-              <option value={prop.name}>{prop.name} ({prop.count})</option>
-            {/each}
-          </select>
+          <PropertyCombobox
+            value={draft_property}
+            items={property_items}
+            placeholder="Property..."
+            on_input={(t) => (draft_property = t)}
+            on_select={(v) => (draft_property = v)}
+          />
         </div>
         <div class="w-20">
           <label
@@ -580,32 +584,23 @@
             for="filter-value"
             class="block text-[10px] text-muted-foreground mb-0.5">Value</label
           >
-          <input
-            id="filter-value"
-            type="text"
-            bind:value={draft_value}
-            placeholder="value"
-            list={draft_unique_values ? "filter-value-suggestions" : undefined}
-            class="w-full text-xs px-2 py-1.5 bg-card border border-border rounded-md"
-            onkeydown={(e) => e.key === "Enter" && add_filter()}
+          <PropertyCombobox
+            value={draft_value}
+            items={draft_value_items}
+            placeholder="Value"
+            on_input={(t) => (draft_value = t)}
+            on_select={(v) => (draft_value = v)}
+            on_enter={add_filter}
           />
-          {#if draft_unique_values}
-            <datalist id="filter-value-suggestions">
-              {#each draft_unique_values as v}
-                <option value={v}></option>
-              {/each}
-            </datalist>
-          {/if}
         </div>
         <button
           class="p-1.5 bg-blue-500 hover:bg-blue-600 text-white rounded-md disabled:opacity-50"
-          disabled={!draft_property}
+          disabled={!selected_property_info}
           onclick={add_filter}
         >
           <Plus size={14} />
         </button>
       </div>
-
       {#if bases_store.active_view_mode !== "calendar"}
         <div class="flex items-center gap-2" data-testid="bases-sort-row">
           <ArrowUpDown size={12} class="text-muted-foreground" />
