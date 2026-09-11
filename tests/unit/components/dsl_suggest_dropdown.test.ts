@@ -1,7 +1,7 @@
 /**
  * @vitest-environment jsdom
  */
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import DslSuggestDropdown from "$lib/components/ui/dsl_suggest_dropdown.svelte";
 import type { DslSuggestion } from "$lib/shared/types/dsl_suggestion";
 import { flushSync, mount, unmount } from "../helpers/svelte_client_runtime";
@@ -21,18 +21,28 @@ function duplicate_label_items(): DslSuggestion[] {
   ];
 }
 
-function render_dropdown(items: DslSuggestion[], on_select = vi.fn()) {
+function render_dropdown(
+  items: DslSuggestion[],
+  on_select = vi.fn(),
+  on_hover?: (i: number) => void,
+) {
   const target = document.createElement("div");
   document.body.appendChild(target);
   const app = mount(DslSuggestDropdown, {
     target,
-    props: { items, selected_index: 0, on_select },
+    props: {
+      items,
+      selected_index: 0,
+      on_select,
+      ...(on_hover === undefined ? {} : { on_hover }),
+    },
   });
   flushSync();
   return {
     target,
     on_select,
-    cleanup() {
+    on_hover,
+    cleanup: () => {
       void unmount(app);
       target.remove();
       flushSync();
@@ -40,7 +50,12 @@ function render_dropdown(items: DslSuggestion[], on_select = vi.fn()) {
   };
 }
 
+beforeEach(() => {
+  Element.prototype.scrollIntoView = () => undefined;
+});
+
 afterEach(() => {
+  Reflect.deleteProperty(Element.prototype, "scrollIntoView");
   document.body.innerHTML = "";
 });
 
@@ -69,6 +84,23 @@ describe("dsl_suggest_dropdown.svelte", () => {
     flushSync();
     expect(on_select).toHaveBeenCalledTimes(1);
     expect(on_select).toHaveBeenCalledWith(1);
+    cleanup();
+  });
+
+  it("reports the hovered row index via on_hover without committing", () => {
+    const on_hover = vi.fn();
+    const on_select = vi.fn();
+    const { target, cleanup } = render_dropdown(
+      duplicate_label_items(),
+      on_select,
+      on_hover,
+    );
+    const rows = target.querySelectorAll("button.DslSuggest__item");
+    rows[1]?.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
+    flushSync();
+    expect(on_hover).toHaveBeenCalledTimes(1);
+    expect(on_hover).toHaveBeenCalledWith(1);
+    expect(on_select).not.toHaveBeenCalled();
     cleanup();
   });
 });

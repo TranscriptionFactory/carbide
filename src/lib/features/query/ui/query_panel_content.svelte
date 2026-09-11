@@ -173,6 +173,7 @@
           items={suggest.items}
           selected_index={suggest.selected_index}
           on_select={(i) => suggest.accept(i)}
+          on_hover={(i) => (suggest.selected_index = i)}
         />
       {/if}
     </div>
