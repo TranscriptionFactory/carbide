@@ -1,5 +1,18 @@
 # carbide
 
+## 2.37.0
+
+### Minor Changes
+
+- 0bafcad: The Bases filter builder's property, value, and folder inputs are now type-to-filter and keyboard-navigable, using the app's PropertyCombobox and FolderSuggestInput primitives instead of hand-rolled dropdowns.
+- 0bafcad: The omnibar and search graph gain a first-class folder scope that narrows results to a folder and its descendants, replacing the omnibar's imprecise path-string seed. Folder scope composes with text and structured queries and stays current-vault only.
+
+### Patch Changes
+
+- 0bafcad: The DSL suggest dropdown scrolls the selected row into view when selection moves past the visible window, and hovering a row updates the selected index so hover-then-Enter commits the hovered row.
+- 0bafcad: Editor recomputes on each keystroke are now incremental: cursor word/line counts defer to idle time, only code blocks intersecting the changed range re-highlight, and the outline walk is skipped when a transaction touches no heading.
+- 0bafcad: Semantic search saves upserts in a single transaction, skips re-embedding content refused this session, and skips the full vault walk when git HEAD matches the last indexed commit, cutting redundant writer-thread work on save, embed, and sync.
+
 ## 2.36.0
 
 ### Minor Changes
