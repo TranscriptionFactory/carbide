@@ -1,9 +1,13 @@
 import { describe, it, expect } from "vitest";
 import { Schema } from "prosemirror-model";
+import { EditorState } from "prosemirror-state";
 import type { Node as ProseNode } from "prosemirror-model";
 import {
   active_heading_at,
+  create_outline_prose_plugin,
   extract_headings,
+  map_headings_forward,
+  outline_plugin_key,
 } from "$lib/features/editor/adapters/outline_plugin";
 import type { OutlineHeading } from "$lib/features/outline";
 
@@ -145,5 +149,87 @@ describe("active_heading_at", () => {
 
   it("returns the last heading past the end", () => {
     expect(active_heading_at(headings, 9999)).toBe("h-2-c-0");
+  });
+});
+
+function make_plugin_state(schema: Schema, blocks: ProseNode[]): EditorState {
+  const doc = schema.node("doc", null, blocks);
+  return EditorState.create({ doc, plugins: [create_outline_prose_plugin()] });
+}
+
+function headings_of(state: EditorState): OutlineHeading[] {
+  return outline_plugin_key.getState(state)?.headings ?? [];
+}
+
+describe("outline plugin short-circuit", () => {
+  it("keeps headings identical when editing below all headings", () => {
+    const schema = create_schema_with_headings();
+    const state = make_plugin_state(schema, [
+      make_heading(schema, 1, "Title"),
+      make_paragraph(schema, "body text"),
+    ]);
+    const before = headings_of(state);
+
+    const next = state.apply(state.tr.insertText("x", 12));
+
+    expect(headings_of(next)).toEqual(before);
+  });
+
+  it("shifts heading positions when editing above a heading", () => {
+    const schema = create_schema_with_headings();
+    const state = make_plugin_state(schema, [
+      make_heading(schema, 1, "Title"),
+      make_paragraph(schema, "body"),
+      make_heading(schema, 2, "Section"),
+    ]);
+    const before = headings_of(state);
+
+    const next = state.apply(state.tr.insertText("x", 8));
+
+    const after = headings_of(next);
+    expect(after).toHaveLength(before.length);
+    expect(after[0]).toEqual(before[0]);
+    expect(after[1]?.pos).toBe((before[1]?.pos ?? 0) + 1);
+  });
+
+  it("updates the outline when editing inside a heading", () => {
+    const schema = create_schema_with_headings();
+    const state = make_plugin_state(schema, [make_heading(schema, 1, "Title")]);
+
+    const next = state.apply(state.tr.insertText("!", 3));
+
+    expect(headings_of(next)[0]?.text).toBe("Ti!tle");
+  });
+});
+
+describe("map_headings_forward", () => {
+  it("returns mapped headings without a recompute for a non-heading edit", () => {
+    const schema = create_schema_with_headings();
+    const doc = schema.node("doc", null, [
+      make_heading(schema, 1, "Title"),
+      make_paragraph(schema, "body"),
+    ]);
+    const state = EditorState.create({ doc });
+    const headings = extract_headings(doc);
+
+    const tr = state.tr.insertText("x", 8);
+    const next = state.apply(tr);
+
+    const mapped = map_headings_forward(tr, headings, next.doc);
+    expect(mapped).not.toBeNull();
+    expect(mapped).toHaveLength(headings.length);
+    expect(mapped?.[0]?.pos).toBe(headings[0]?.pos);
+  });
+
+  it("returns null when a heading is edited", () => {
+    const schema = create_schema_with_headings();
+    const doc = schema.node("doc", null, [make_heading(schema, 1, "Title")]);
+    const state = EditorState.create({ doc });
+    const headings = extract_headings(doc);
+
+    const tr = state.tr.insertText("!", 3);
+    const next = state.apply(tr);
+
+    expect(map_headings_forward(tr, headings, next.doc)).toBeNull();
   });
 });
