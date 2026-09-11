@@ -101,8 +101,6 @@ export const COMMAND_TO_ACTION_ID: Record<CommandId, string> = {
   clip_web_page: ACTION_IDS.clip_web_page,
 };
 
-export const OMNIBAR_SET_FOLDER_SCOPE_ACTION_ID = "omnibar.set_folder_scope";
-
 function set_omnibar_state(
   input: ActionRegistrationInput,
   patch: Partial<ActionRegistrationInput["stores"]["ui"]["omnibar"]>,
@@ -566,7 +564,7 @@ export function register_omnibar_actions(input: ActionRegistrationInput) {
   });
 
   registry.register({
-    id: OMNIBAR_SET_FOLDER_SCOPE_ACTION_ID,
+    id: ACTION_IDS.omnibar_set_folder_scope,
     label: "Set Omnibar Folder Scope",
     execute: async (folder_path: unknown) => {
       const normalized =

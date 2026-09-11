@@ -17,7 +17,6 @@
   import FolderSuggestInput from "$lib/components/ui/folder_suggest_input.svelte";
   import * as Resizable from "$lib/components/ui/resizable/index.js";
   import { toast } from "$lib/shared/ui/toast";
-  import { SEARCH_GRAPH_SET_FOLDER_SCOPE_ACTION_ID } from "$lib/features/graph/application/search_graph_actions";
   import SearchGraphCanvas from "$lib/features/graph/ui/search_graph_canvas.svelte";
   import SearchGraphResultList from "$lib/features/graph/ui/search_graph_result_list.svelte";
 
@@ -152,7 +151,7 @@
   }
 
   function handle_set_folder_scope(path: string) {
-    void action_registry.execute(SEARCH_GRAPH_SET_FOLDER_SCOPE_ACTION_ID, {
+    void action_registry.execute(ACTION_IDS.search_graph_set_folder_scope, {
       tab_id,
       folder_path: path,
     });

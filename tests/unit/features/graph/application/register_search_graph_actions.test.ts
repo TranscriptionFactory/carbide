@@ -1,9 +1,6 @@
 /* eslint-disable @typescript-eslint/unbound-method */
 import { describe, expect, it, vi } from "vitest";
-import {
-  register_search_graph_actions,
-  SEARCH_GRAPH_SET_FOLDER_SCOPE_ACTION_ID,
-} from "$lib/features/graph/application/search_graph_actions";
+import { register_search_graph_actions } from "$lib/features/graph/application/search_graph_actions";
 import { ACTION_IDS } from "$lib/app/action_registry/action_ids";
 import { SearchGraphStore } from "$lib/features/graph/state/search_graph_store.svelte";
 import type { GraphService } from "$lib/features/graph/application/graph_service";
@@ -75,7 +72,7 @@ describe("register_search_graph_actions folder scope", () => {
     const { execute, search_graph_store, graph_service } = setup();
     search_graph_store.create_instance("tab-1", "react");
 
-    await execute(SEARCH_GRAPH_SET_FOLDER_SCOPE_ACTION_ID, {
+    await execute(ACTION_IDS.search_graph_set_folder_scope, {
       tab_id: "tab-1",
       folder_path: "Projects",
     });
@@ -95,7 +92,7 @@ describe("register_search_graph_actions folder scope", () => {
     const { execute, search_graph_store, graph_service } = setup();
     search_graph_store.create_instance("tab-1", "");
 
-    await execute(SEARCH_GRAPH_SET_FOLDER_SCOPE_ACTION_ID, {
+    await execute(ACTION_IDS.search_graph_set_folder_scope, {
       tab_id: "tab-1",
       folder_path: null,
     });

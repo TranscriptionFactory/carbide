@@ -4,9 +4,6 @@ import type { GraphService } from "$lib/features/graph/application/graph_service
 import type { SearchGraphStore } from "$lib/features/graph/state/search_graph_store.svelte";
 import type { SearchGraphSortMode } from "$lib/features/graph/domain/sort_search_graph_nodes";
 
-export const SEARCH_GRAPH_SET_FOLDER_SCOPE_ACTION_ID =
-  "search_graph.set_folder_scope";
-
 export function register_search_graph_actions(
   input: ActionRegistrationInput & {
     search_graph_store: SearchGraphStore;
@@ -191,7 +188,7 @@ export function register_search_graph_actions(
   });
 
   registry.register({
-    id: SEARCH_GRAPH_SET_FOLDER_SCOPE_ACTION_ID,
+    id: ACTION_IDS.search_graph_set_folder_scope,
     label: "Set Search Graph Folder Scope",
     execute: async (payload: unknown) => {
       const { tab_id, folder_path } = (payload ?? {}) as {

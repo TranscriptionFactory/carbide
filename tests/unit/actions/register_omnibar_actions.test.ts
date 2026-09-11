@@ -1,10 +1,7 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import { ActionRegistry } from "$lib/app/action_registry/action_registry";
 import { ACTION_IDS } from "$lib/app/action_registry/action_ids";
-import {
-  register_omnibar_actions,
-  OMNIBAR_SET_FOLDER_SCOPE_ACTION_ID,
-} from "$lib/features/search/application/omnibar_actions";
+import { register_omnibar_actions } from "$lib/features/search/application/omnibar_actions";
 import {
   COMMANDS_REGISTRY,
   sidebar_view_command_id,
@@ -219,7 +216,7 @@ describe("register_omnibar_actions", () => {
       scope: "current_vault",
     };
 
-    await registry.execute(OMNIBAR_SET_FOLDER_SCOPE_ACTION_ID, "Projects");
+    await registry.execute(ACTION_IDS.omnibar_set_folder_scope, "Projects");
 
     expect(stores.search.folder_scope).toBe("Projects");
     expect(services.search.search_omnibar).toHaveBeenCalledWith(
@@ -240,7 +237,7 @@ describe("register_omnibar_actions", () => {
       scope: "current_vault",
     };
 
-    await registry.execute(OMNIBAR_SET_FOLDER_SCOPE_ACTION_ID, null);
+    await registry.execute(ACTION_IDS.omnibar_set_folder_scope, null);
 
     expect(stores.search.folder_scope).toBeNull();
     expect(services.search.search_omnibar).toHaveBeenCalledWith(
