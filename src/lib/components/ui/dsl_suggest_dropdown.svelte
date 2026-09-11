@@ -23,7 +23,7 @@
     void items;
     dropdown_element
       ?.querySelector(".DslSuggest__item--selected")
-      ?.scrollIntoView({ block: "nearest" });
+      ?.scrollIntoView?.({ block: "nearest" });
   });
 </script>
 
