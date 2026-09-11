@@ -7,7 +7,7 @@ use hf_hub::api::sync::ApiBuilder;
 use std::collections::HashSet;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Mutex, PoisonError};
+use std::sync::{Arc, LazyLock, Mutex, PoisonError};
 use std::time::{Duration, Instant};
 use tauri::{AppHandle, Emitter, Manager};
 use tokenizers::{PaddingParams, PaddingStrategy, Tokenizer, TruncationParams, TruncationStrategy};
@@ -401,6 +401,55 @@ pub(crate) fn unusable_query_log_message(query_text: &str) -> String {
     )
 }
 
+/// Content hashes the encoder turned into a refused (non-finite or all-zero)
+/// vector this session. Keyed by the input's blake3 hash so an unchanged note
+/// or section is skipped on later passes instead of re-embedded forever, while
+/// an edited body hashes differently and re-arms. The writer thread is the only
+/// producer and consumer, but the set is global so it survives across the
+/// session's separate embed passes.
+static UNUSABLE_CONTENT_HASHES: LazyLock<Mutex<HashSet<String>>> =
+    LazyLock::new(|| Mutex::new(HashSet::new()));
+
+fn content_hash(text: &str) -> String {
+    blake3::hash(text.as_bytes()).to_hex().to_string()
+}
+
+/// Whether `text` produced a refused vector earlier this session and should not
+/// be re-selected for embedding.
+pub(crate) fn is_unusable_content(text: &str) -> bool {
+    let hash = content_hash(text);
+    UNUSABLE_CONTENT_HASHES
+        .lock()
+        .unwrap_or_else(PoisonError::into_inner)
+        .contains(&hash)
+}
+
+/// Records that `text` produced a refused vector. Logs the offending excerpt
+/// once — the first marking, mirroring the query-side once-guard — and returns
+/// whether this marking was the first for the input.
+pub(crate) fn mark_unusable_content(text: &str) -> bool {
+    let hash = content_hash(text);
+    let mut set = UNUSABLE_CONTENT_HASHES
+        .lock()
+        .unwrap_or_else(PoisonError::into_inner);
+    if set.insert(hash) {
+        log::warn!(
+            "embed: refusing to re-embed unusable content; input={}",
+            excerpt(text)
+        );
+        return true;
+    }
+    false
+}
+
+#[cfg(test)]
+pub(crate) fn clear_unusable_content_for_test() {
+    UNUSABLE_CONTENT_HASHES
+        .lock()
+        .unwrap_or_else(PoisonError::into_inner)
+        .clear();
+}
+
 /// Embeds `texts` in one pass, retrying one at a time if the batch fails, so a
 /// single unembeddable input costs only itself rather than its whole batch.
 /// Entries that fail alone come back as `None`. `Err` means cancelled — the
@@ -696,5 +745,30 @@ impl EmbeddingServiceState {
             let state = app.state::<EmbeddingServiceState>();
             let _ = state.get_or_init(cache_dir, &short_id, &app);
         });
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn unusable_content_is_marked_once_and_then_skipped() {
+        clear_unusable_content_for_test();
+        let text = "a note body that poisons the encoder";
+
+        assert!(mark_unusable_content(text), "first marking logs once and returns true");
+        assert!(
+            !mark_unusable_content(text),
+            "re-marking the same input returns false"
+        );
+        assert!(is_unusable_content(text));
+
+        let other = "an unrelated body";
+        assert!(!is_unusable_content(other), "different content is not marked");
+        assert!(mark_unusable_content(other), "a distinct input marks independently");
+
+        clear_unusable_content_for_test();
+        assert!(!is_unusable_content(text), "clearing the set re-arms the input");
     }
 }
