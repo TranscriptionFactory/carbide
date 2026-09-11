@@ -174,6 +174,7 @@ export const ACTION_IDS = {
   search_graph_set_min_score: "search_graph.set_min_score",
   search_graph_set_sort_mode: "search_graph.set_sort_mode",
   search_graph_toggle_sort_order: "search_graph.toggle_sort_order",
+  search_graph_set_folder_scope: "search_graph.set_folder_scope",
 
   help_open: "help.open",
   help_close: "help.close",
@@ -198,6 +199,7 @@ export const ACTION_IDS = {
   omnibar_set_sort_mode: "omnibar.set_sort_mode",
   omnibar_toggle_sort_order: "omnibar.toggle_sort_order",
   omnibar_clear_filters: "omnibar.clear_filters",
+  omnibar_set_folder_scope: "omnibar.set_folder_scope",
 
   editor_fold_toggle: "editor.fold.toggle",
   editor_fold_collapse_all: "editor.fold.collapse_all",

@@ -19,6 +19,7 @@ function setup() {
   const search_graph_store = new SearchGraphStore();
   const graph_service = {
     toggle_search_graph_semantic_edges: vi.fn().mockResolvedValue(undefined),
+    execute_search_graph: vi.fn().mockResolvedValue(undefined),
   } as unknown as GraphService;
 
   register_search_graph_actions({
@@ -26,7 +27,12 @@ function setup() {
     stores: {
       tab: {},
       editor: {},
-      ui: { editor_settings: { semantic_similarity_threshold: 0.5 } },
+      ui: {
+        editor_settings: {
+          semantic_similarity_threshold: 0.5,
+          reference_include_sources_in_search: true,
+        },
+      },
     },
     search_graph_store,
     graph_service,
@@ -58,5 +64,40 @@ describe("register_search_graph_actions semantic toggle", () => {
     expect(
       graph_service.toggle_search_graph_semantic_edges,
     ).not.toHaveBeenCalled();
+  });
+});
+
+describe("register_search_graph_actions folder scope", () => {
+  it("sets the per-tab folder scope and re-runs the search", async () => {
+    const { execute, search_graph_store, graph_service } = setup();
+    search_graph_store.create_instance("tab-1", "react");
+
+    await execute(ACTION_IDS.search_graph_set_folder_scope, {
+      tab_id: "tab-1",
+      folder_path: "Projects",
+    });
+
+    expect(search_graph_store.get_instance("tab-1")?.folder_scope).toBe(
+      "Projects",
+    );
+    expect(graph_service.execute_search_graph).toHaveBeenCalledWith(
+      "tab-1",
+      "react",
+      0.5,
+      true,
+    );
+  });
+
+  it("clears the folder scope and skips re-running without a query", async () => {
+    const { execute, search_graph_store, graph_service } = setup();
+    search_graph_store.create_instance("tab-1", "");
+
+    await execute(ACTION_IDS.search_graph_set_folder_scope, {
+      tab_id: "tab-1",
+      folder_path: null,
+    });
+
+    expect(search_graph_store.get_instance("tab-1")?.folder_scope).toBeNull();
+    expect(graph_service.execute_search_graph).not.toHaveBeenCalled();
   });
 });

@@ -379,17 +379,40 @@ export class GraphService {
     this.search_graph_store.update_query(tab_id, query);
 
     try {
-      const { hits } = await this.search_service.run_search_pipeline(
-        vault_id,
-        query,
-        { limit: 50, include_linked: include_linked_sources },
-      );
+      const { hits: pipeline_hits } =
+        await this.search_service.run_search_pipeline(vault_id, query, {
+          limit: 50,
+          include_linked: include_linked_sources,
+        });
+
+      const folder_scope =
+        this.search_graph_store.get_instance(tab_id)?.folder_scope ?? null;
+      const allowed_paths = folder_scope
+        ? await this.search_service.list_folder_note_paths(
+            vault_id,
+            folder_scope,
+          )
+        : null;
+      const hits = allowed_paths
+        ? pipeline_hits.filter((h) => allowed_paths.has(h.note.path))
+        : pipeline_hits;
 
       let vault_snapshot = this.graph_store.vault_snapshot;
       if (!vault_snapshot) {
         vault_snapshot = await this.graph_port.load_vault_graph(vault_id);
         this.graph_store.set_vault_snapshot(vault_snapshot);
       }
+      const scoped_snapshot = allowed_paths
+        ? {
+            ...vault_snapshot,
+            nodes: vault_snapshot.nodes.filter((n) =>
+              allowed_paths.has(n.path),
+            ),
+            edges: vault_snapshot.edges.filter(
+              (e) => allowed_paths.has(e.source) && allowed_paths.has(e.target),
+            ),
+          }
+        : vault_snapshot;
 
       const subgraph_hits: SearchSubgraphHit[] = hits.map((h) => {
         const hit: SearchSubgraphHit = {
@@ -424,7 +447,7 @@ export class GraphService {
       const smart_link_edges = this.graph_store.smart_link_edges;
       const snapshot = extract_search_subgraph(
         subgraph_hits,
-        vault_snapshot,
+        scoped_snapshot,
         semantic_edges ?? [],
         smart_link_edges,
         semantic_boost_paths ? { semantic_boost_paths } : undefined,

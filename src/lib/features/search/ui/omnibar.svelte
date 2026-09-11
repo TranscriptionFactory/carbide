@@ -143,6 +143,8 @@
     on_sort_mode_change: (mode: OmnibarSortMode) => void;
     on_toggle_sort_order: () => void;
     on_clear_filters: () => void;
+    folder_scope?: string | null;
+    on_clear_folder_scope?: () => void;
     on_confirm: (item: OmnibarItem) => void;
     on_view_as_graph: (query: string) => void;
     ask?: OmnibarAskView;
@@ -173,6 +175,8 @@
     on_sort_mode_change,
     on_toggle_sort_order,
     on_clear_filters,
+    folder_scope = null,
+    on_clear_folder_scope = () => {},
     on_confirm,
     on_view_as_graph,
     ask,
@@ -674,6 +678,17 @@
             onclick={() => on_sort_mode_change("relevance")}
           >
             Sort: {def?.label}
+            <XIcon />
+          </button>
+        {/if}
+        {#if folder_scope}
+          <button
+            class="Omnibar__active-chip"
+            onclick={on_clear_folder_scope}
+            title={folder_scope}
+          >
+            <FolderOpenIcon />
+            {folder_scope}
             <XIcon />
           </button>
         {/if}

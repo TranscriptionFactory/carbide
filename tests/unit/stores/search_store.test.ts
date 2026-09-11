@@ -32,6 +32,17 @@ describe("SearchStore", () => {
     expect(store.omnibar_items).toEqual([]);
   });
 
+  it("sets and clears folder scope", () => {
+    const store = new SearchStore();
+    expect(store.folder_scope).toBeNull();
+
+    store.set_folder_scope("Projects");
+    expect(store.folder_scope).toBe("Projects");
+
+    store.set_folder_scope(null);
+    expect(store.folder_scope).toBeNull();
+  });
+
   it("sets and clears in-file matches", () => {
     const store = new SearchStore();
     const matches: InFileMatch[] = [

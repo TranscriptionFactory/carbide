@@ -136,6 +136,7 @@ function make_service_with_backends(
   search_port = make_mock_search_port(),
   tags_port = make_mock_tag_port(),
   bases_port = make_mock_bases_port(),
+  index_port = make_mock_index_port(),
 ) {
   const vault_store = new VaultStore();
   vault_store.set_vault(create_test_vault({ id: "vault-1" as VaultId }));
@@ -146,14 +147,14 @@ function make_service_with_backends(
     new OpStore(),
     () => 1,
     () => true,
-    make_mock_index_port(),
+    index_port,
     undefined,
     undefined,
     tags_port,
     bases_port,
   );
 
-  return { service, search_port, tags_port, bases_port };
+  return { service, search_port, tags_port, bases_port, index_port };
 }
 
 describe("looks_structured", () => {
@@ -312,5 +313,121 @@ describe("SearchService.search_omnibar structured queries", () => {
 
     expect(result.domain).toBe("commands");
     expect(search_port.hybrid_search).not.toHaveBeenCalled();
+  });
+});
+
+describe("SearchService.search_omnibar folder scope", () => {
+  function folder_index_port(paths_by_prefix: Record<string, string[]>) {
+    const index_port = make_mock_index_port();
+    index_port.list_note_paths_by_prefix = vi
+      .fn()
+      .mockImplementation((_vault_id: string, prefix: string) =>
+        Promise.resolve(paths_by_prefix[prefix] ?? []),
+      );
+    return index_port;
+  }
+
+  function note_paths(items: { kind: string; note?: NoteMeta }[]): string[] {
+    return items
+      .filter(
+        (item): item is { kind: "note"; note: NoteMeta } =>
+          item.kind === "note",
+      )
+      .map((item) => String(item.note.path));
+  }
+
+  it("filters hybrid hits to the folder and descendants", async () => {
+    const hits: HybridSearchHit[] = [
+      { note: make_note("Projects/a.md"), score: 0.9, source: "both" },
+      { note: make_note("Projects/sub/b.md"), score: 0.8, source: "fts" },
+      { note: make_note("Other/c.md"), score: 0.7, source: "fts" },
+    ];
+    const index_port = folder_index_port({
+      "Projects/": ["Projects/a.md", "Projects/sub/b.md"],
+    });
+    const { service } = make_service_with_backends(
+      make_mock_search_port(hits),
+      undefined,
+      undefined,
+      index_port,
+    );
+
+    const result = await service.search_omnibar(
+      "query",
+      true,
+      true,
+      "Projects",
+    );
+
+    expect(note_paths(result.items)).toEqual([
+      "Projects/a.md",
+      "Projects/sub/b.md",
+    ]);
+  });
+
+  it("filters structured solve_query results to the folder", async () => {
+    const tags_port = make_mock_tag_port({
+      rust: ["Projects/a.md", "Other/b.md"],
+    });
+    const index_port = folder_index_port({
+      "Projects/": ["Projects/a.md"],
+    });
+    const { service } = make_service_with_backends(
+      make_mock_search_port(),
+      tags_port,
+      undefined,
+      index_port,
+    );
+
+    const result = await service.search_omnibar(
+      "notes with #rust",
+      true,
+      true,
+      "Projects",
+    );
+
+    expect(note_paths(result.items)).toEqual(["Projects/a.md"]);
+  });
+
+  it("leaves results unfiltered when no folder scope is set", async () => {
+    const hits: HybridSearchHit[] = [
+      { note: make_note("Projects/a.md"), score: 0.9, source: "both" },
+      { note: make_note("Other/c.md"), score: 0.7, source: "fts" },
+    ];
+    const { service } = make_service_with_backends(make_mock_search_port(hits));
+
+    const result = await service.search_omnibar("query");
+
+    expect(note_paths(result.items)).toEqual(["Projects/a.md", "Other/c.md"]);
+  });
+
+  it("filter_hits_to_folder queries the folder prefix with a trailing slash", async () => {
+    const hits: HybridSearchHit[] = [
+      { note: make_note("Projects/a.md"), score: 1, source: "fts" },
+      { note: make_note("Outside/c.md"), score: 1, source: "fts" },
+    ];
+    const index_port = folder_index_port({
+      "Projects/": ["Projects/a.md"],
+    });
+    const { service } = make_service_with_backends(
+      make_mock_search_port(),
+      undefined,
+      undefined,
+      index_port,
+    );
+
+    const filtered = await service.filter_hits_to_folder(
+      hits,
+      "vault-1" as VaultId,
+      "Projects",
+    );
+
+    expect(index_port.list_note_paths_by_prefix).toHaveBeenCalledWith(
+      "vault-1",
+      "Projects/",
+    );
+    expect(filtered.map((hit) => String(hit.note.path))).toEqual([
+      "Projects/a.md",
+    ]);
   });
 });

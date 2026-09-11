@@ -164,6 +164,31 @@ describe("SearchGraphStore", () => {
       const store = make_store_with_instance();
       expect(store.get_instance("tab1")?.graph_expanded).toBe(false);
     });
+
+    it("new instance has folder_scope null", () => {
+      const store = make_store_with_instance();
+      expect(store.get_instance("tab1")?.folder_scope).toBeNull();
+    });
+  });
+
+  describe("folder scope", () => {
+    it("set_folder_scope persists and clears per tab", () => {
+      const store = make_store_with_instance();
+      store.create_instance("tab2", "other");
+
+      store.set_folder_scope("tab1", "Projects");
+      expect(store.get_instance("tab1")?.folder_scope).toBe("Projects");
+      expect(store.get_instance("tab2")?.folder_scope).toBeNull();
+
+      store.set_folder_scope("tab1", null);
+      expect(store.get_instance("tab1")?.folder_scope).toBeNull();
+    });
+
+    it("set_folder_scope on missing tab is a no-op", () => {
+      const store = new SearchGraphStore();
+      store.set_folder_scope("missing", "Projects");
+      expect(store.get_instance("missing")).toBeUndefined();
+    });
   });
 
   describe("graph expansion", () => {

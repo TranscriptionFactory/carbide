@@ -703,6 +703,7 @@
   sort_mode={stores.ui.omnibar.sort_mode}
   sort_ascending={stores.ui.omnibar.sort_ascending}
   items={stores.search.omnibar_items}
+  folder_scope={stores.search.folder_scope}
   ask={{
     draft: ask_draft,
     session: ask_session,
@@ -753,6 +754,8 @@
     void action_registry.execute(ACTION_IDS.omnibar_toggle_sort_order)}
   on_clear_filters={() =>
     void action_registry.execute(ACTION_IDS.omnibar_clear_filters)}
+  on_clear_folder_scope={() =>
+    void action_registry.execute(ACTION_IDS.omnibar_set_folder_scope, null)}
   on_confirm={(item: OmnibarItem) =>
     void action_registry.execute(ACTION_IDS.omnibar_confirm_item, item)}
   on_view_as_graph={(query: string) => {

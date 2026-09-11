@@ -602,6 +602,29 @@ export class SearchService {
     return search_within_text(text, query);
   }
 
+  async list_folder_note_paths(
+    vault_id: VaultId,
+    folder_path: string,
+  ): Promise<Set<string> | null> {
+    if (!this.index_port) return null;
+    const prefix = folder_path.endsWith("/") ? folder_path : `${folder_path}/`;
+    const paths = await this.index_port.list_note_paths_by_prefix(
+      vault_id,
+      prefix,
+    );
+    return new Set(paths);
+  }
+
+  async filter_hits_to_folder<T extends { note: { path: string } }>(
+    hits: T[],
+    vault_id: VaultId,
+    folder_path: string,
+  ): Promise<T[]> {
+    const allowed = await this.list_folder_note_paths(vault_id, folder_path);
+    if (!allowed) return hits;
+    return hits.filter((hit) => allowed.has(hit.note.path));
+  }
+
   async run_search_pipeline(
     vault_id: VaultId,
     query: string,
@@ -622,6 +645,7 @@ export class SearchService {
     raw_query: string,
     semantic_enabled?: boolean,
     include_linked = true,
+    folder_scope?: string | null,
   ): Promise<OmnibarSearchResult> {
     const parsed = parse_search_query(raw_query);
 
@@ -660,10 +684,13 @@ export class SearchService {
               : result.items.filter(
                   (item) => !is_linked_note_path(item.note.path),
                 );
-            const items: OmnibarItem[] = solved.map((item, i) => ({
+            const folder_scoped = folder_scope
+              ? await this.filter_hits_to_folder(solved, vault_id, folder_scope)
+              : solved;
+            const items: OmnibarItem[] = folder_scoped.map((item, i) => ({
               kind: "note" as const,
               note: item.note,
-              score: solved.length - i,
+              score: folder_scoped.length - i,
             }));
             return {
               domain: "notes",
@@ -683,7 +710,10 @@ export class SearchService {
         const { hits } = await this.run_search_pipeline(vault_id, raw_query, {
           include_linked,
         });
-        const items: OmnibarItem[] = hits.map((hit) => ({
+        const folder_scoped = folder_scope
+          ? await this.filter_hits_to_folder(hits, vault_id, folder_scope)
+          : hits;
+        const items: OmnibarItem[] = folder_scoped.map((hit) => ({
           kind: "note" as const,
           note: hit.note,
           score: hit.score,
@@ -706,7 +736,15 @@ export class SearchService {
     }
 
     const result = await this.search_notes(raw_query, include_linked);
-    const fts_items: OmnibarItem[] = result.results.map((r) => ({
+    const scoped_results =
+      vault_id !== null && folder_scope
+        ? await this.filter_hits_to_folder(
+            result.results,
+            vault_id,
+            folder_scope,
+          )
+        : result.results;
+    const fts_items: OmnibarItem[] = scoped_results.map((r) => ({
       kind: "note" as const,
       note: r.note,
       score: r.score,

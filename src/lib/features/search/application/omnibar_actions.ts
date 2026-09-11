@@ -100,6 +100,7 @@ export const COMMAND_TO_ACTION_ID: Record<CommandId, string> = {
   add_frontmatter: ACTION_IDS.note_add_frontmatter,
   clip_web_page: ACTION_IDS.clip_web_page,
 };
+
 function set_omnibar_state(
   input: ActionRegistrationInput,
   patch: Partial<ActionRegistrationInput["stores"]["ui"]["omnibar"]>,
@@ -201,20 +202,15 @@ function open_omnibar(input: ActionRegistrationInput) {
   const folder_path = input.stores.ui.selected_folder_path;
 
   if (!had_query && is_file_tree_focused() && folder_path) {
-    const seed = folder_path.endsWith("/") ? folder_path : `${folder_path}/`;
     set_omnibar_state(input, {
       open: true,
-      query: seed,
+      query: "",
       selected_index: 0,
       is_searching: false,
       scope: "current_vault",
     });
-    void search_omnibar_query(input, seed, "current_vault").then(() => {
-      set_omnibar_state(input, {
-        is_searching: false,
-        selected_index: clamp_selected_index(input),
-      });
-    });
+    input.stores.search.set_folder_scope(folder_path);
+    input.stores.search.clear_omnibar();
     return;
   }
 
@@ -306,16 +302,21 @@ async function search_omnibar_query(
     return;
   }
 
+  const folder_scope = input.stores.search.folder_scope;
   const settings = input.stores.ui.editor_settings;
   const result = await input.services.search.search_omnibar(
     query,
     settings.semantic_omnibar_enabled,
     include_linked,
+    folder_scope,
   );
   if (input.stores.ui.omnibar.query.trim() !== query.trim()) {
     return;
   }
   if (input.stores.ui.omnibar.scope !== scope) {
+    return;
+  }
+  if (input.stores.search.folder_scope !== folder_scope) {
     return;
   }
   input.stores.search.set_omnibar_items_raw(result.items);
@@ -555,6 +556,35 @@ export function register_omnibar_actions(input: ActionRegistrationInput) {
 
       set_omnibar_searching(input, true);
       await search_omnibar_query(input, current_query, new_scope);
+      set_omnibar_state(input, {
+        is_searching: false,
+        selected_index: clamp_selected_index(input),
+      });
+    },
+  });
+
+  registry.register({
+    id: ACTION_IDS.omnibar_set_folder_scope,
+    label: "Set Omnibar Folder Scope",
+    execute: async (folder_path: unknown) => {
+      const normalized =
+        typeof folder_path === "string" && folder_path.trim() !== ""
+          ? folder_path
+          : null;
+      cancel_search_debounce();
+      stores.search.set_folder_scope(normalized);
+      set_omnibar_state(input, { selected_index: 0 });
+      stores.search.clear_omnibar();
+
+      const current_query = stores.ui.omnibar.query.trim();
+      if (!current_query) return;
+
+      set_omnibar_searching(input, true);
+      await search_omnibar_query(
+        input,
+        stores.ui.omnibar.query,
+        stores.ui.omnibar.scope,
+      );
       set_omnibar_state(input, {
         is_searching: false,
         selected_index: clamp_selected_index(input),

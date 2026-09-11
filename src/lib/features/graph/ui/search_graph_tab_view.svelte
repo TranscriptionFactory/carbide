@@ -14,6 +14,7 @@
   import type { SearchGraphSortMode } from "$lib/features/graph/domain/sort_search_graph_nodes";
   import { Button } from "$lib/components/ui/button";
   import { Input } from "$lib/components/ui/input";
+  import FolderSuggestInput from "$lib/components/ui/folder_suggest_input.svelte";
   import * as Resizable from "$lib/components/ui/resizable/index.js";
   import { toast } from "$lib/shared/ui/toast";
   import SearchGraphCanvas from "$lib/features/graph/ui/search_graph_canvas.svelte";
@@ -149,6 +150,13 @@
     );
   }
 
+  function handle_set_folder_scope(path: string) {
+    void action_registry.execute(ACTION_IDS.search_graph_set_folder_scope, {
+      tab_id,
+      folder_path: path,
+    });
+  }
+
   function open_to_side(path: string) {
     void action_registry.execute(ACTION_IDS.tab_open_to_side, path);
   }
@@ -195,6 +203,14 @@
         value={instance?.query ?? initial_query}
         placeholder="Search notes..."
         oninput={(event) => debounced_input(event.currentTarget.value)}
+      />
+    </div>
+    <div class="SearchGraphTabView__folder-scope">
+      <FolderSuggestInput
+        value={instance?.folder_scope ?? ""}
+        folder_paths={stores.notes.folder_paths}
+        placeholder="Scope to folder..."
+        on_change={handle_set_folder_scope}
       />
     </div>
     <div class="SearchGraphTabView__actions">
@@ -385,6 +401,11 @@
     flex: 1;
     min-width: 0;
     color: var(--muted-foreground);
+  }
+
+  .SearchGraphTabView__folder-scope {
+    width: 200px;
+    flex-shrink: 0;
   }
 
   .SearchGraphTabView__actions {
