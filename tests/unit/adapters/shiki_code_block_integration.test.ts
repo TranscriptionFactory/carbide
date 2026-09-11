@@ -1,13 +1,16 @@
 /**
  * @vitest-environment jsdom
  */
-import { describe, it, expect, beforeAll, afterEach } from "vitest";
+import { describe, it, expect, beforeAll, afterEach, vi } from "vitest";
 import { EditorState } from "prosemirror-state";
 import { EditorView } from "prosemirror-view";
 import { schema } from "$lib/features/editor/adapters/schema";
 import { create_code_block_view_prose_plugin } from "$lib/features/editor/adapters/code_block_view_plugin";
 import { create_shiki_prose_plugin } from "$lib/features/editor/adapters/shiki_plugin";
-import { init_highlighter } from "$lib/features/editor/adapters/shiki_highlighter";
+import {
+  get_highlighter_sync,
+  init_highlighter,
+} from "$lib/features/editor/adapters/shiki_highlighter";
 
 beforeAll(() => {
   init_highlighter();
@@ -94,5 +97,51 @@ describe("Shiki + CodeBlockView integration", () => {
 
     const after = code_el.querySelectorAll("span[style]").length;
     expect(after).toBe(before);
+  });
+});
+
+describe("Shiki incremental re-highlighting", () => {
+  function make_state(): EditorState {
+    const block_a = schema.nodes.code_block.create(
+      { language: "javascript" },
+      schema.text("const a = 1;"),
+    );
+    const para = schema.nodes.paragraph.create(
+      null,
+      schema.text("prose between"),
+    );
+    const block_b = schema.nodes.code_block.create(
+      { language: "javascript" },
+      schema.text("const b = 2;"),
+    );
+    const doc = schema.nodes.doc.create(null, [block_a, para, block_b]);
+    return EditorState.create({ doc, plugins: [create_shiki_prose_plugin()] });
+  }
+
+  it("re-highlights only the edited code block", () => {
+    const state = make_state();
+    const highlighter = get_highlighter_sync();
+    if (!highlighter) throw new Error("highlighter not initialized");
+    const spy = vi.spyOn(highlighter, "codeToTokens");
+
+    const block_b_start =
+      state.doc.child(0).nodeSize + state.doc.child(1).nodeSize;
+    state.apply(state.tr.insertText("9", block_b_start + 1));
+
+    expect(spy).toHaveBeenCalledTimes(1);
+    spy.mockRestore();
+  });
+
+  it("does not tokenize when editing outside any fence", () => {
+    const state = make_state();
+    const highlighter = get_highlighter_sync();
+    if (!highlighter) throw new Error("highlighter not initialized");
+    const spy = vi.spyOn(highlighter, "codeToTokens");
+
+    const para_start = state.doc.child(0).nodeSize;
+    state.apply(state.tr.insertText("!", para_start + 2));
+
+    expect(spy).not.toHaveBeenCalled();
+    spy.mockRestore();
   });
 });

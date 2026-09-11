@@ -1,4 +1,5 @@
 import { Plugin, PluginKey } from "prosemirror-state";
+import type { Transaction } from "prosemirror-state";
 import { Decoration, DecorationSet } from "prosemirror-view";
 import type { Node as ProseNode } from "prosemirror-model";
 import type { HighlighterCore } from "shiki/core";
@@ -16,18 +17,60 @@ export const shiki_plugin_key = new PluginKey<ShikiPluginState>(
 type ShikiPluginState = {
   decorations: DecorationSet;
   theme: string;
-  code_fingerprint: string;
 };
 
-function compute_code_fingerprint(doc: ProseNode): string {
-  const parts: string[] = [];
-  doc.descendants((node) => {
-    if (node.type.name === "code_block") {
-      parts.push((node.attrs.language as string) || "");
-      parts.push(node.textContent);
+function build_block_decorations(
+  node: ProseNode,
+  pos: number,
+  highlighter: HighlighterCore,
+  theme: string,
+): Decoration[] {
+  const decorations: Decoration[] = [];
+
+  const code = node.textContent;
+  if (!code) return decorations;
+
+  const raw_lang = node.attrs.language as string | null | undefined;
+  const lang = resolve_language(raw_lang);
+  if (!lang) return decorations;
+
+  try {
+    const { tokens } = highlighter.codeToTokens(code, {
+      lang,
+      theme,
+    });
+
+    let offset = pos + 1;
+
+    for (let line_idx = 0; line_idx < tokens.length; line_idx++) {
+      const line = tokens[line_idx];
+      if (!line) continue;
+      for (const token of line) {
+        const from = offset;
+        const to = from + token.content.length;
+
+        if (token.color) {
+          let style = `color:${token.color}`;
+          if (token.fontStyle !== undefined && token.fontStyle & 1) {
+            style += ";font-style:italic";
+          }
+          if (token.fontStyle !== undefined && token.fontStyle & 2) {
+            style += ";font-weight:bold";
+          }
+          decorations.push(Decoration.inline(from, to, { style }));
+        }
+
+        offset = to;
+      }
+      if (line_idx < tokens.length - 1) {
+        offset += 1;
+      }
     }
-  });
-  return parts.join("\0");
+  } catch {
+    // unsupported language or parse error — fall back to unstyled
+  }
+
+  return decorations;
 }
 
 function build_decorations(
@@ -36,54 +79,54 @@ function build_decorations(
   theme: string,
 ): DecorationSet {
   const decorations: Decoration[] = [];
-
   doc.descendants((node, pos) => {
     if (node.type.name !== "code_block") return;
-
-    const code = node.textContent;
-    if (!code) return;
-
-    const raw_lang = node.attrs.language as string | null | undefined;
-    const lang = resolve_language(raw_lang);
-    if (!lang) return;
-
-    try {
-      const { tokens } = highlighter.codeToTokens(code, {
-        lang,
-        theme,
-      });
-
-      let offset = pos + 1;
-
-      for (let line_idx = 0; line_idx < tokens.length; line_idx++) {
-        const line = tokens[line_idx]!;
-        for (const token of line) {
-          const from = offset;
-          const to = from + token.content.length;
-
-          if (token.color) {
-            let style = `color:${token.color}`;
-            if (token.fontStyle !== undefined && token.fontStyle & 1) {
-              style += ";font-style:italic";
-            }
-            if (token.fontStyle !== undefined && token.fontStyle & 2) {
-              style += ";font-weight:bold";
-            }
-            decorations.push(Decoration.inline(from, to, { style }));
-          }
-
-          offset = to;
-        }
-        if (line_idx < tokens.length - 1) {
-          offset += 1;
-        }
-      }
-    } catch {
-      // unsupported language or parse error — fall back to unstyled
+    for (const d of build_block_decorations(node, pos, highlighter, theme)) {
+      decorations.push(d);
     }
   });
-
   return DecorationSet.create(doc, decorations);
+}
+
+function changed_range(tr: Transaction): { from: number; to: number } | null {
+  let from = Infinity;
+  let to = -Infinity;
+  const maps = tr.mapping.maps;
+
+  for (let i = 0; i < tr.steps.length; i++) {
+    const map = maps[i];
+    if (!map) continue;
+
+    map.forEach((_old_from, _old_to, new_from, new_to) => {
+      let f = new_from;
+      let t = new_to;
+      for (let j = i + 1; j < maps.length; j++) {
+        const next = maps[j];
+        if (!next) continue;
+        f = next.map(f, 1);
+        t = next.map(t, -1);
+      }
+      if (f < from) from = f;
+      if (t > to) to = t;
+    });
+  }
+
+  if (from > to) return null;
+  return { from, to };
+}
+
+function code_blocks_in_range(
+  doc: ProseNode,
+  from: number,
+  to: number,
+): Array<{ pos: number; node: ProseNode }> {
+  const blocks: Array<{ pos: number; node: ProseNode }> = [];
+  doc.nodesBetween(from, to, (node, pos) => {
+    if (node.type.name !== "code_block") return;
+    blocks.push({ pos, node });
+    return false;
+  });
+  return blocks;
 }
 
 export function create_shiki_prose_plugin(): Plugin {
@@ -96,18 +139,12 @@ export function create_shiki_prose_plugin(): Plugin {
       init(_, { doc }): ShikiPluginState {
         const highlighter = get_highlighter_sync();
         const theme = resolve_theme();
-        const fp = compute_code_fingerprint(doc);
         if (!highlighter) {
-          return {
-            decorations: DecorationSet.empty,
-            theme,
-            code_fingerprint: fp,
-          };
+          return { decorations: DecorationSet.empty, theme };
         }
         return {
           theme,
           decorations: build_decorations(doc, highlighter, theme),
-          code_fingerprint: fp,
         };
       },
 
@@ -132,27 +169,35 @@ export function create_shiki_prose_plugin(): Plugin {
         }
 
         if (theme_refreshed) {
-          const fp = compute_code_fingerprint(tr.doc);
           return {
             theme,
             decorations: build_decorations(tr.doc, highlighter, theme),
-            code_fingerprint: fp,
           };
         }
 
-        const new_fp = compute_code_fingerprint(tr.doc);
-        if (new_fp === prev_state.code_fingerprint) {
-          return {
-            ...prev_state,
-            decorations: prev_state.decorations.map(tr.mapping, tr.doc),
-          };
+        let decorations = prev_state.decorations.map(tr.mapping, tr.doc);
+        const range = changed_range(tr);
+        if (range) {
+          for (const block of code_blocks_in_range(
+            tr.doc,
+            range.from,
+            range.to,
+          )) {
+            const stale = decorations.find(
+              block.pos,
+              block.pos + block.node.nodeSize,
+            );
+            const fresh = build_block_decorations(
+              block.node,
+              block.pos,
+              highlighter,
+              theme,
+            );
+            decorations = decorations.remove(stale).add(tr.doc, fresh);
+          }
         }
 
-        return {
-          theme,
-          decorations: build_decorations(tr.doc, highlighter, theme),
-          code_fingerprint: new_fp,
-        };
+        return { theme, decorations };
       },
     },
 

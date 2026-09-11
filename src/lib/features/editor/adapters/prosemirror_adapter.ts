@@ -224,25 +224,32 @@ function create_cursor_plugin(
       let prev_doc: ProseNode | null = null;
       let prev_selection: EditorState["selection"] | null = null;
       let prev_active_heading: string | null = null;
+      let latest_view: EditorView | null = null;
+      const cursor_scheduler = new IdleTaskScheduler();
 
       return {
         update: (view) => {
+          latest_view = view;
           const doc_changed = view.state.doc !== prev_doc;
           const selection_changed =
             doc_changed || view.state.selection !== prev_selection;
           prev_doc = view.state.doc;
           prev_selection = view.state.selection;
 
+          const { doc } = view.state;
+          const $from = view.state.selection?.$from;
+          cached = {
+            ...cached,
+            line: $from ? line_from_pos(doc, $from.pos) : 1,
+            column: $from ? $from.parentOffset + 1 : 1,
+          };
+
           if (doc_changed) {
-            cached = calculate_cursor_info(view);
-          } else {
-            const { doc } = view.state;
-            const $from = view.state.selection?.$from;
-            cached = {
-              ...cached,
-              line: $from ? line_from_pos(doc, $from.pos) : 1,
-              column: $from ? $from.parentOffset + 1 : 1,
-            };
+            cursor_scheduler.schedule(() => {
+              if (!latest_view) return;
+              cached = calculate_cursor_info(latest_view);
+              on_cursor_change(cached);
+            });
           }
 
           on_cursor_change(cached);
@@ -272,6 +279,10 @@ function create_cursor_plugin(
               on_active_heading_change(active);
             }
           }
+        },
+        destroy() {
+          cursor_scheduler.dispose();
+          latest_view = null;
         },
       };
     },
