@@ -1326,6 +1326,34 @@ pub fn upsert_note_simple(
     Ok(targets)
 }
 
+/// Upserts a note and resolves its outlinks inside one write transaction, so
+/// the save path issues a single commit instead of autocommitting per
+/// statement (the batch path wraps the same way). Returns the resolved
+/// wikilink targets.
+pub fn upsert_note_with_links(
+    conn: &Connection,
+    meta: &IndexNoteMeta,
+    body: &str,
+) -> Result<Vec<String>, String> {
+    conn.execute_batch("BEGIN IMMEDIATE")
+        .map_err(|e| e.to_string())?;
+    let result = (|| -> Result<Vec<String>, String> {
+        let targets = upsert_note_simple(conn, meta, body)?;
+        resolve_batch_outlinks(conn, &[(meta.path.clone(), targets.clone())])?;
+        Ok(targets)
+    })();
+    match result {
+        Ok(targets) => {
+            conn.execute_batch("COMMIT").map_err(|e| e.to_string())?;
+            Ok(targets)
+        }
+        Err(e) => {
+            let _ = conn.execute_batch("ROLLBACK");
+            Err(e)
+        }
+    }
+}
+
 pub fn upsert_note(conn: &Connection, meta: &IndexNoteMeta, body: &str) -> Result<(), String> {
     conn.execute_batch("BEGIN IMMEDIATE")
         .map_err(|e| e.to_string())?;
@@ -2543,6 +2571,24 @@ pub fn sync_index(
         manifest.len(),
         vault_root.display()
     );
+    // A git-managed vault whose HEAD has not advanced since the last sync has
+    // nothing new to index: in-app edits reach this thread through the save
+    // path or the filesystem watcher, so an unchanged HEAD means the full walk
+    // would only re-stat an already-indexed tree. (ref: H2)
+    let head = resolve_git_head(vault_root).ok();
+    if vault_unchanged(
+        head.as_deref(),
+        get_index_meta(conn, "last_indexed_commit").as_deref(),
+    ) {
+        log::info!("sync_index: git HEAD unchanged since last sync; skipping full vault walk");
+        on_progress(0, 0);
+        return Ok(IndexResult {
+            total: manifest.len(),
+            indexed: 0,
+            vault_stats: None,
+            cancelled: false,
+        });
+    }
     let scan = scan_vault(app, vault_id, vault_root)?;
     let vault_stats = Some(scan.stats);
     let disk_files = scan.indexable_files;
@@ -2754,6 +2800,18 @@ fn resolve_git_head(vault_root: &Path) -> Result<String, String> {
         return Err("not a git repo".to_string());
     }
     Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
+}
+
+/// Whether a full `scan_vault` walk can be skipped because nothing has changed
+/// since the last recorded sync. A git-managed vault keys on its HEAD commit
+/// (cheap to read via `resolve_git_head`); a non-git vault has no equally cheap
+/// complete signal and always walks. Split from `sync_index` so the decision is
+/// testable without a git checkout.
+fn vault_unchanged(current_head: Option<&str>, stored_head: Option<&str>) -> bool {
+    match (current_head, stored_head) {
+        (Some(current), Some(stored)) => current == stored,
+        _ => false,
+    }
 }
 
 pub fn get_fts_body(conn: &Connection, path: &str) -> Option<String> {
@@ -3781,6 +3839,93 @@ mod tests {
         init_schema(&conn).expect("schema");
         upsert_note(&conn, &note("notes/a.md", "A"), "hello world").expect("upsert");
         assert!(run_pragma_optimize(&conn).is_ok());
+    }
+
+    #[test]
+    fn save_path_upsert_is_a_single_atomic_transaction() {
+        let conn = Connection::open_in_memory().expect("in-memory db");
+        init_schema(&conn).expect("schema");
+        upsert_note_simple(&conn, &note("b.md", "B"), "body b").expect("target note");
+        // Force the outlink_count UPDATE at the tail of the save to fail. If the
+        // save path were still autocommitting per statement, the note INSERT
+        // that ran earlier would survive this; as one transaction it must roll
+        // back with the failing write.
+        conn.execute_batch(
+            "CREATE TRIGGER fail_outlink_count BEFORE UPDATE OF outlink_count ON notes
+             BEGIN SELECT RAISE(ABORT, 'forced outlink_count failure'); END;",
+        )
+        .expect("trigger");
+
+        let result = upsert_note_with_links(&conn, &note("notes/a.md", "A"), "hello [[b]]");
+
+        assert!(result.is_err(), "the forced failure must surface");
+        let present: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM notes WHERE path = 'notes/a.md'",
+                [],
+                |row| row.get(0),
+            )
+            .expect("count");
+        assert_eq!(
+            present, 0,
+            "the note INSERT must be rolled back with the failing outlink write"
+        );
+    }
+
+    #[test]
+    fn vault_unchanged_requires_matching_head() {
+        assert!(vault_unchanged(Some("abc"), Some("abc")));
+        assert!(!vault_unchanged(Some("abc"), Some("def")));
+        assert!(!vault_unchanged(Some("abc"), None));
+        assert!(!vault_unchanged(None, Some("abc")));
+        assert!(!vault_unchanged(None, None));
+    }
+
+    #[test]
+    fn sync_index_skips_full_walk_when_git_head_unchanged() {
+        let git_ok = std::process::Command::new("git")
+            .arg("--version")
+            .output()
+            .is_ok_and(|o| o.status.success());
+        if !git_ok {
+            return;
+        }
+
+        let tmp = tempfile::TempDir::new().expect("temp dir");
+        let root = tmp.path();
+        std::fs::write(root.join("a.md"), "# hello\n\nbody text").expect("note");
+        let run = |args: &[&str]| {
+            assert!(
+                std::process::Command::new("git")
+                    .args(args)
+                    .current_dir(root)
+                    .output()
+                    .expect("git output")
+                    .status
+                    .success(),
+                "git {args:?} failed"
+            );
+        };
+        run(&["init"]);
+        run(&["-c", "user.email=a@b.c", "-c", "user.name=t", "add", "-A"]);
+        run(&["-c", "user.email=a@b.c", "-c", "user.name=t", "commit", "-m", "init"]);
+
+        let db_tmp = tempfile::TempDir::new().expect("db temp dir");
+        let conn = open_search_db_at_path(&db_tmp.path().join("test.db")).expect("db open");
+        let cancel = std::sync::atomic::AtomicBool::new(false);
+
+        let first = sync_index(None, "vault", &conn, root, &cancel, &|_, _| {}, &mut || {})
+            .expect("first sync");
+        assert!(first.vault_stats.is_some(), "first sync performs the full walk");
+        assert!(get_index_meta(&conn, "last_indexed_commit").is_some());
+
+        let second = sync_index(None, "vault", &conn, root, &cancel, &|_, _| {}, &mut || {})
+            .expect("second sync");
+        assert!(
+            second.vault_stats.is_none(),
+            "an unchanged git HEAD must skip the full vault walk"
+        );
+        assert_eq!(second.indexed, 0);
     }
 
     #[test]

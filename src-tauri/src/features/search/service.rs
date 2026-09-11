@@ -1401,8 +1401,7 @@ fn handle_upsert(
     };
     let mut meta = search_db::extract_file_meta(&abs, vault_root)?;
     meta.title = extract_title(&markdown).unwrap_or_else(|| meta.name.clone());
-    let targets = search_db::upsert_note_simple(conn, &meta, &markdown)?;
-    search_db::resolve_batch_outlinks(conn, &[(meta.path.clone(), targets)])?;
+    search_db::upsert_note_with_links(conn, &meta, &markdown)?;
     notes_cache.insert(meta.path.clone(), meta);
 
     embed_note_on_save(
@@ -1440,8 +1439,7 @@ fn handle_upsert_with_content(
         meta.mtime_ms = mtime_ms;
     }
     meta.title = extract_title(markdown).unwrap_or_else(|| meta.name.clone());
-    let targets = search_db::upsert_note_simple(conn, &meta, markdown)?;
-    search_db::resolve_batch_outlinks(conn, &[(meta.path.clone(), targets)])?;
+    search_db::upsert_note_with_links(conn, &meta, markdown)?;
     notes_cache.insert(meta.path.clone(), meta);
 
     embed_note_on_save(conn, note_id, markdown, note_index, block_index, app_handle);
@@ -2430,6 +2428,7 @@ fn handle_embed_batch(
                 let pending: Vec<(&str, String)> = pending
                     .into_iter()
                     .filter_map(|path| embed_text_for_note(conn, path).map(|text| (path, text)))
+                    .filter(|(_, text)| !embeddings::is_unusable_content(text))
                     .collect();
                 if !pending.is_empty() {
                     let text_refs: Vec<&str> = pending.iter().map(|(_, t)| t.as_str()).collect();
@@ -2441,10 +2440,12 @@ fn handle_embed_batch(
                     });
                     match embedded_texts {
                         Ok(vectors) => {
-                            for ((path, _), vector) in pending.iter().zip(vectors) {
+                            for ((path, text), vector) in pending.iter().zip(vectors) {
                                 if let Some(vector) = vector {
                                     if store_note_embedding(conn, note_index, path, vector) {
                                         embedded += 1;
+                                    } else {
+                                        embeddings::mark_unusable_content(text);
                                     }
                                 }
                             }
@@ -2486,6 +2487,7 @@ fn handle_embed_batch(
                     .filter_map(|path| {
                         embed_text_for_note(conn, path).map(|text| (path.as_str(), text))
                     })
+                    .filter(|(_, text)| !embeddings::is_unusable_content(text))
                     .collect();
                 let batch_start = Instant::now();
                 if !pending.is_empty() {
@@ -2495,10 +2497,12 @@ fn handle_embed_batch(
                     });
                     match embedded_texts {
                         Ok(vectors) => {
-                            for ((path, _), vector) in pending.iter().zip(vectors) {
+                            for ((path, text), vector) in pending.iter().zip(vectors) {
                                 if let Some(vector) = vector {
                                     if store_note_embedding(conn, note_index, path, vector) {
                                         embedded += 1;
+                                    } else {
+                                        embeddings::mark_unusable_content(text);
                                     }
                                 }
                             }
@@ -2631,16 +2635,18 @@ impl BlockEmbedPass<'_> {
                 // refuses every row, and one line per section buries the fact
                 // that the whole batch failed under thousands of identical ones.
                 let mut refused: Option<(String, String)> = None;
-                for (((path, heading_id), embedding), hash) in batch
+                for ((((path, heading_id), embedding), hash), text) in batch
                     .keys
                     .iter()
                     .zip(embeddings.iter())
                     .zip(batch.hashes.iter())
+                    .zip(batch.texts.iter())
                 {
                     if let Err(e) = vector_db::upsert_block_embedding(
                         self.conn, path, heading_id, embedding, hash,
                     ) {
                         refused = Some((format!("{path}#{heading_id}"), e));
+                        embeddings::mark_unusable_content(text);
                         continue;
                     }
                     if let Ok(mut bi) = self.block_index.write() {
@@ -2790,6 +2796,9 @@ fn handle_block_embed_batch(
             else {
                 continue;
             };
+            if embeddings::is_unusable_content(&section_text) {
+                continue;
+            }
             pending.push(path, heading_id, section_text);
             if pending.chunks >= EMBED_BATCH_SIZE && !pass.flush(&mut pending) {
                 break 'sections;
