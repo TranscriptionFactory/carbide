@@ -661,6 +661,16 @@ impl Drop for InitClaim {
     }
 }
 
+/// Whether a successful load emits `embedding_model_loaded`. The event exists
+/// so a save that skipped embedding (model cold) gets a bulk pass once the
+/// model is resident; a bulk pass loading the model for itself must stay
+/// silent or it re-arms itself through the frontend reactor.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ModelLoadNotify {
+    Emit,
+    Silent,
+}
+
 #[derive(Default)]
 pub struct EmbeddingServiceState {
     inner: Mutex<Option<(String, Arc<EmbeddingService>)>>,
@@ -677,6 +687,7 @@ impl EmbeddingServiceState {
         cache_dir: PathBuf,
         short_id: &str,
         app_handle: &AppHandle,
+        notify: ModelLoadNotify,
     ) -> Result<Arc<EmbeddingService>, String> {
         if let Some(service) = self.try_get(short_id) {
             return Ok(service);
@@ -707,7 +718,9 @@ impl EmbeddingServiceState {
                 *self.inner.lock().map_err(|e| e.to_string())? =
                     Some((short_id.to_string(), Arc::clone(&arc)));
                 *self.last_failure.lock().map_err(|e| e.to_string())? = None;
-                let _ = app_handle.emit("embedding_model_loaded", ());
+                if notify == ModelLoadNotify::Emit {
+                    let _ = app_handle.emit("embedding_model_loaded", ());
+                }
                 Ok(arc)
             }
             Err(e) => {
@@ -743,7 +756,7 @@ impl EmbeddingServiceState {
         std::thread::spawn(move || {
             let _claim = claim;
             let state = app.state::<EmbeddingServiceState>();
-            let _ = state.get_or_init(cache_dir, &short_id, &app);
+            let _ = state.get_or_init(cache_dir, &short_id, &app, ModelLoadNotify::Emit);
         });
     }
 }

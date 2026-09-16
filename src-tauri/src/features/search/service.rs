@@ -6,7 +6,7 @@ use crate::features::search::embed_scope::{
 use crate::features::search::embedding_model;
 use crate::features::search::embeddings::{
     self, embed_with_singles_fallback, estimated_chunk_count, is_cancellation,
-    usable_query_vector, EmbeddingService, EmbeddingServiceState,
+    usable_query_vector, EmbeddingService, EmbeddingServiceState, ModelLoadNotify,
 };
 use crate::features::search::hnsw_index::{SharedVectorIndex, VectorIndex};
 use crate::features::search::model::{
@@ -2270,7 +2270,12 @@ fn handle_embed_batch(
         return;
     }
 
-    let model = match embedding_state.get_or_init(cache_dir, &short_id, app_handle) {
+    let model = match embedding_state.get_or_init(
+        cache_dir,
+        &short_id,
+        app_handle,
+        ModelLoadNotify::Silent,
+    ) {
         Ok(m) => m,
         Err(e) => {
             log::warn!("embed_batch: model unavailable: {e}");
@@ -2297,7 +2302,11 @@ fn handle_embed_batch(
         }
     }
 
+    // A save that arrived while this pass held `init_lock` skipped embedding
+    // and invalidated its rows. Apply it now, with the model resident so it
+    // embeds inline, before the facts/section snapshot is taken.
     let mut deferred: Vec<DbCommand> = Vec::new();
+    drain_pending_commands(conn, rx, notes_cache, note_index, block_index, &mut deferred);
 
     let scope = resolve_embedding_scope(app_handle, vault_id);
     let facts = search_db::note_embed_facts(conn).unwrap_or_default();
