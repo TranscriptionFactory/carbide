@@ -2571,16 +2571,19 @@ pub fn sync_index(
         manifest.len(),
         vault_root.display()
     );
-    // A git-managed vault whose HEAD has not advanced since the last sync has
-    // nothing new to index: in-app edits reach this thread through the save
-    // path or the filesystem watcher, so an unchanged HEAD means the full walk
-    // would only re-stat an already-indexed tree. (ref: H2)
-    let head = resolve_git_head(vault_root).ok();
+    // A git-managed vault whose HEAD has not advanced since the last sync, and
+    // whose working tree was clean then and is clean now, has nothing new to
+    // index: in-app edits reach this thread through the save path or the
+    // filesystem watcher, so the full walk would only re-stat an
+    // already-indexed tree. A dirty tree on either side means files changed
+    // outside the app without a commit, which HEAD alone cannot see. (ref: H2)
+    let git = GitSnapshot::capture(vault_root);
     if vault_unchanged(
-        head.as_deref(),
+        git.as_ref(),
         get_index_meta(conn, "last_indexed_commit").as_deref(),
+        get_index_meta(conn, "last_indexed_clean").as_deref() == Some("1"),
     ) {
-        log::info!("sync_index: git HEAD unchanged since last sync; skipping full vault walk");
+        log::info!("sync_index: git HEAD unchanged and tree clean since last sync; skipping full vault walk");
         on_progress(0, 0);
         return Ok(IndexResult {
             total: manifest.len(),
@@ -2602,6 +2605,10 @@ pub fn sync_index(
             "sync_index: no changes ({} files unchanged)",
             plan.unchanged
         );
+        // A complete walk that found nothing is exactly the state the fast
+        // path exists to skip next time; without recording it here every
+        // launch after a commit of already-indexed edits walks again.
+        record_git_snapshot(conn, git.as_ref());
         on_progress(0, 0);
         return Ok(IndexResult {
             total: plan.unchanged,
@@ -2674,9 +2681,7 @@ pub fn sync_index(
     // A cancelled sync left files unvisited, so recording the commit would mark
     // an incomplete index as up to date with that revision.
     if !cancelled {
-        if let Ok(head) = resolve_git_head(vault_root) {
-            let _ = set_index_meta(conn, "last_indexed_commit", &head);
-        }
+        record_git_snapshot(conn, git.as_ref());
     }
 
     if let Err(e) = run_pragma_optimize(conn) {
@@ -2790,26 +2795,54 @@ pub fn sync_index_paths(
     })
 }
 
-fn resolve_git_head(vault_root: &Path) -> Result<String, String> {
+/// HEAD plus working-tree cleanliness, read once at the start of a sync so the
+/// values recorded at the end describe the tree that was actually walked.
+struct GitSnapshot {
+    head: String,
+    clean: bool,
+}
+
+impl GitSnapshot {
+    fn capture(vault_root: &Path) -> Option<Self> {
+        let head = git_stdout(vault_root, &["rev-parse", "HEAD"])?;
+        let status = git_stdout(vault_root, &["status", "--porcelain"])?;
+        Some(Self {
+            head,
+            clean: status.is_empty(),
+        })
+    }
+}
+
+fn record_git_snapshot(conn: &Connection, git: Option<&GitSnapshot>) {
+    let Some(git) = git else { return };
+    let _ = set_index_meta(conn, "last_indexed_commit", &git.head);
+    let _ = set_index_meta(conn, "last_indexed_clean", if git.clean { "1" } else { "0" });
+}
+
+fn git_stdout(vault_root: &Path, args: &[&str]) -> Option<String> {
     let output = std::process::Command::new("git")
-        .args(["rev-parse", "HEAD"])
+        .args(args)
         .current_dir(vault_root)
         .output()
-        .map_err(|e| e.to_string())?;
+        .ok()?;
     if !output.status.success() {
-        return Err("not a git repo".to_string());
+        return None;
     }
-    Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
+    Some(String::from_utf8_lossy(&output.stdout).trim().to_string())
 }
 
 /// Whether a full `scan_vault` walk can be skipped because nothing has changed
 /// since the last recorded sync. A git-managed vault keys on its HEAD commit
-/// (cheap to read via `resolve_git_head`); a non-git vault has no equally cheap
-/// complete signal and always walks. Split from `sync_index` so the decision is
-/// testable without a git checkout.
-fn vault_unchanged(current_head: Option<&str>, stored_head: Option<&str>) -> bool {
-    match (current_head, stored_head) {
-        (Some(current), Some(stored)) => current == stored,
+/// plus a clean working tree at both syncs; a non-git vault has no equally
+/// cheap complete signal and always walks. Split from `sync_index` so the
+/// decision is testable without a git checkout.
+fn vault_unchanged(
+    current: Option<&GitSnapshot>,
+    stored_head: Option<&str>,
+    stored_clean: bool,
+) -> bool {
+    match (current, stored_head) {
+        (Some(git), Some(stored)) => git.clean && stored_clean && git.head == stored,
         _ => false,
     }
 }
@@ -3872,13 +3905,22 @@ mod tests {
         );
     }
 
+    fn snapshot(head: &str, clean: bool) -> GitSnapshot {
+        GitSnapshot {
+            head: head.to_string(),
+            clean,
+        }
+    }
+
     #[test]
-    fn vault_unchanged_requires_matching_head() {
-        assert!(vault_unchanged(Some("abc"), Some("abc")));
-        assert!(!vault_unchanged(Some("abc"), Some("def")));
-        assert!(!vault_unchanged(Some("abc"), None));
-        assert!(!vault_unchanged(None, Some("abc")));
-        assert!(!vault_unchanged(None, None));
+    fn vault_unchanged_requires_matching_head_and_clean_trees() {
+        assert!(vault_unchanged(Some(&snapshot("abc", true)), Some("abc"), true));
+        assert!(!vault_unchanged(Some(&snapshot("abc", true)), Some("def"), true));
+        assert!(!vault_unchanged(Some(&snapshot("abc", false)), Some("abc"), true));
+        assert!(!vault_unchanged(Some(&snapshot("abc", true)), Some("abc"), false));
+        assert!(!vault_unchanged(Some(&snapshot("abc", true)), None, true));
+        assert!(!vault_unchanged(None, Some("abc"), true));
+        assert!(!vault_unchanged(None, None, false));
     }
 
     #[test]
@@ -3926,6 +3968,35 @@ mod tests {
             "an unchanged git HEAD must skip the full vault walk"
         );
         assert_eq!(second.indexed, 0);
+
+        // An external edit without a commit dirties the tree; HEAD is unchanged
+        // but the walk must run or the edit is never indexed.
+        std::fs::write(root.join("b.md"), "# added outside the app
+
+more text").expect("note");
+        let third = sync_index(None, "vault", &conn, root, &cancel, &|_, _| {}, &mut || {})
+            .expect("third sync");
+        assert!(
+            third.vault_stats.is_some(),
+            "a dirty working tree must force the full vault walk"
+        );
+        assert_eq!(third.indexed, 1);
+        assert_eq!(get_index_meta(&conn, "last_indexed_clean").as_deref(), Some("0"));
+
+        // Still dirty on the next sync: the last sync recorded a dirty tree, so
+        // even an otherwise-unchanged repo walks again until it is committed.
+        let fourth = sync_index(None, "vault", &conn, root, &cancel, &|_, _| {}, &mut || {})
+            .expect("fourth sync");
+        assert!(fourth.vault_stats.is_some());
+
+        run(&["-c", "user.email=a@b.c", "-c", "user.name=t", "add", "-A"]);
+        run(&["-c", "user.email=a@b.c", "-c", "user.name=t", "commit", "-m", "b"]);
+        let fifth = sync_index(None, "vault", &conn, root, &cancel, &|_, _| {}, &mut || {})
+            .expect("fifth sync");
+        assert!(fifth.vault_stats.is_some(), "a new HEAD walks once");
+        let sixth = sync_index(None, "vault", &conn, root, &cancel, &|_, _| {}, &mut || {})
+            .expect("sixth sync");
+        assert!(sixth.vault_stats.is_none(), "clean and unchanged skips again");
     }
 
     #[test]
