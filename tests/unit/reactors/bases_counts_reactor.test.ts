@@ -37,9 +37,14 @@ describe("bases counts reactor", () => {
     settle();
     expect(refresh_counts).toHaveBeenCalledTimes(1);
 
-    search.set_index_progress({ status: "started", total: 10 });
+    search.set_index_progress({ status: "started", vault_id: "v1", total: 10 });
     settle();
-    search.set_index_progress({ status: "progress", indexed: 5, total: 10 });
+    search.set_index_progress({
+      status: "progress",
+      vault_id: "v1",
+      indexed: 5,
+      total: 10,
+    });
     settle();
     expect(refresh_counts).toHaveBeenCalledTimes(1);
     stop();
@@ -56,9 +61,14 @@ describe("bases counts reactor", () => {
       new BaseCountsStore(),
     );
     settle();
-    search.set_index_progress({ status: "started", total: 10 });
+    search.set_index_progress({ status: "started", vault_id: "v1", total: 10 });
     settle();
-    search.set_index_progress({ status: "completed", indexed: 10 });
+    search.set_index_progress({
+      status: "completed",
+      vault_id: "v1",
+      indexed: 10,
+      elapsed_ms: 1,
+    });
     settle();
 
     expect(refresh_counts).toHaveBeenCalledTimes(2);
@@ -75,9 +85,14 @@ describe("bases counts reactor", () => {
     const stop = create_bases_counts_reactor(vault, search, service, counts);
     settle();
 
-    vault.set_vault(null);
+    vault.clear();
     settle();
-    search.set_index_progress({ status: "completed", indexed: 10 });
+    search.set_index_progress({
+      status: "completed",
+      vault_id: "v1",
+      indexed: 10,
+      elapsed_ms: 1,
+    });
     settle();
 
     expect(clear).toHaveBeenCalled();
