@@ -4,7 +4,7 @@ use tokio::sync::Mutex;
 
 use super::downloader;
 use super::registry;
-use super::resolver;
+use super::resolver::{self, Fallback};
 use super::types::*;
 
 pub struct ToolchainState {
@@ -31,7 +31,7 @@ pub async fn toolchain_list_tools(
     for spec in registry::TOOLS {
         let status = match cached.get(spec.id) {
             Some(s) => s.clone(),
-            None => match resolver::resolve(&app, spec.id, None).await {
+            None => match resolver::resolve(&app, spec.id, None, Fallback::LocalOnly).await {
                 Ok(path) => ToolStatus::Installed {
                     version: spec.version.to_string(),
                     path: path.to_string_lossy().to_string(),
@@ -118,7 +118,13 @@ pub async fn toolchain_resolve(
     tool_id: String,
     custom_path: Option<String>,
 ) -> Result<String, String> {
-    let path = resolver::resolve(&app, &tool_id, custom_path.as_deref()).await?;
+    let path = resolver::resolve(
+        &app,
+        &tool_id,
+        custom_path.as_deref(),
+        Fallback::Download,
+    )
+    .await?;
     let spec = registry::get(&tool_id).unwrap();
     let mut statuses = state.statuses.lock().await;
     statuses.insert(

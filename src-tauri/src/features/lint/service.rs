@@ -43,7 +43,13 @@ impl LintState {
             .and_then(|v| v.as_str().map(|s| s.to_string()))
             .filter(|s| !s.is_empty());
         let binary_path =
-            toolchain::resolver::resolve(&app, "rumdl", custom_path.as_deref()).await?;
+            toolchain::resolver::resolve(
+            &app,
+            "rumdl",
+            custom_path.as_deref(),
+            toolchain::resolver::Fallback::Download,
+        )
+        .await?;
 
         let client = LintLspSession::start(
             vault_id.to_string(),

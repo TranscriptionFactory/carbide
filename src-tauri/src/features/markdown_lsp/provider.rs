@@ -91,7 +91,13 @@ impl LspProvider for IweProvider {
         app: &AppHandle,
         custom_path: Option<&str>,
     ) -> Result<PathBuf, String> {
-        toolchain::resolver::resolve(app, "iwes", custom_path).await
+        toolchain::resolver::resolve(
+            app,
+            "iwes",
+            custom_path,
+            toolchain::resolver::Fallback::Download,
+        )
+        .await
     }
 
     fn build_config(
@@ -215,7 +221,13 @@ impl LspProvider for MarkdownOxideProvider {
         app: &AppHandle,
         custom_path: Option<&str>,
     ) -> Result<PathBuf, String> {
-        toolchain::resolver::resolve(app, "markdown-oxide", custom_path).await
+        toolchain::resolver::resolve(
+            app,
+            "markdown-oxide",
+            custom_path,
+            toolchain::resolver::Fallback::Download,
+        )
+        .await
     }
 
     fn build_config(
@@ -338,7 +350,13 @@ impl LspProvider for MarksmanProvider {
         app: &AppHandle,
         custom_path: Option<&str>,
     ) -> Result<PathBuf, String> {
-        toolchain::resolver::resolve(app, "marksman", custom_path).await
+        toolchain::resolver::resolve(
+            app,
+            "marksman",
+            custom_path,
+            toolchain::resolver::Fallback::Download,
+        )
+        .await
     }
 
     fn build_config(

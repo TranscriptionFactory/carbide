@@ -6,10 +6,20 @@ use super::registry;
 
 const TARGET_TRIPLE: &str = env!("TARGET_TRIPLE");
 
+/// What `resolve` does when a downloadable tool is missing locally. Runtime
+/// callers that need the binary pass `Download`; status listings pass
+/// `LocalOnly` so reading Settings never triggers a network fetch.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Fallback {
+    Download,
+    LocalOnly,
+}
+
 pub async fn resolve(
     app: &AppHandle,
     tool_id: &str,
     custom_path: Option<&str>,
+    fallback: Fallback,
 ) -> Result<PathBuf, String> {
     if let Some(path) = custom_path {
         let p = PathBuf::from(path);
@@ -37,7 +47,7 @@ pub async fn resolve(
         return ready(found).await;
     }
 
-    if spec.downloadable() {
+    if fallback == Fallback::Download && spec.downloadable() {
         log::info!(
             "{} not found locally, attempting auto-download",
             spec.display_name

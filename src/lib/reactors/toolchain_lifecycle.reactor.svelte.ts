@@ -1,21 +1,14 @@
-import type { VaultStore } from "$lib/features/vault";
+import type { UIStore } from "$lib/app/orchestration/ui_store.svelte";
 import type { ToolchainService } from "$lib/features/toolchain";
 
 export function create_toolchain_lifecycle_reactor(
-  vault_store: VaultStore,
+  ui_store: UIStore,
   toolchain_service: ToolchainService,
 ): () => void {
-  let loaded = false;
-
   const stop = $effect.root(() => {
     $effect(() => {
-      const vault = vault_store.vault;
-      if (vault && !loaded) {
-        loaded = true;
+      if (ui_store.settings_dialog.open) {
         void toolchain_service.load();
-      }
-      if (!vault) {
-        loaded = false;
       }
     });
   });

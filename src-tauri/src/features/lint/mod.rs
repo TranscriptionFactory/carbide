@@ -24,7 +24,13 @@ async fn resolve_rumdl_binary(app: &AppHandle) -> Result<std::path::PathBuf, Str
         .and_then(|store| store.settings.get("rumdl_binary_path").cloned())
         .and_then(|v| v.as_str().map(|s| s.to_string()))
         .filter(|s| !s.is_empty());
-    toolchain::resolver::resolve(app, "rumdl", custom_path.as_deref()).await
+    toolchain::resolver::resolve(
+        app,
+        "rumdl",
+        custom_path.as_deref(),
+        toolchain::resolver::Fallback::Download,
+    )
+    .await
 }
 
 #[tauri::command]

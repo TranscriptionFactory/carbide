@@ -466,7 +466,7 @@ export function mount_reactors(context: ReactorContext): ReactorHandles {
       context.code_lsp_service,
     ),
     create_toolchain_lifecycle_reactor(
-      context.vault_store,
+      context.ui_store,
       context.toolchain_service,
     ),
     create_mcp_autostart_reactor(
