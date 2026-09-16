@@ -106,6 +106,10 @@ type PluginRpcMetadataBackend = {
   get_file_cache(note_path: string): Promise<unknown>;
 };
 
+type PluginRpcTasksBackend = {
+  query(query: unknown): Promise<unknown>;
+};
+
 type McpToolDefinition = {
   name: string;
   description: string;
@@ -205,6 +209,7 @@ export type PluginRpcContext = {
   search?: PluginRpcSearchBackend;
   diagnostics?: PluginRpcDiagnosticsBackend;
   metadata?: PluginRpcMetadataBackend;
+  tasks?: PluginRpcTasksBackend;
   network?: PluginRpcNetworkBackend;
   ai?: PluginRpcAiBackend;
   mcp?: PluginRpcMcpBackend;
@@ -319,6 +324,24 @@ function read_sidebar_panel_input(input: unknown): PluginSidebarPanelInput {
     id: read_string(record.id, "sidebar panel id"),
     label: read_string(record.label, "sidebar panel label"),
     icon: read_optional_string(record.icon),
+  };
+}
+
+const TASK_QUERY_DEFAULT_LIMIT = 200;
+const TASK_QUERY_MAX_LIMIT = 500;
+
+function read_task_query(input: unknown): RpcRecord {
+  const query = read_record(input, "task query");
+  const raw_limit = query.limit;
+  const limit =
+    typeof raw_limit === "number" && Number.isFinite(raw_limit)
+      ? Math.min(Math.max(Math.trunc(raw_limit), 1), TASK_QUERY_MAX_LIMIT)
+      : TASK_QUERY_DEFAULT_LIMIT;
+  return {
+    filter: query.filter ?? null,
+    sort: query.sort ?? [],
+    limit,
+    offset: typeof query.offset === "number" ? query.offset : 0,
   };
 }
 
@@ -588,6 +611,8 @@ export class PluginRpcHandler {
         return this.handle_diagnostics(plugin_id, action, params);
       case "metadata":
         return this.handle_metadata(plugin_id, action, params);
+      case "tasks":
+        return this.handle_tasks(plugin_id, action, params);
       case "network":
         return this.handle_network(plugin_id, manifest, action, params);
       case "ai":
@@ -973,6 +998,25 @@ export class PluginRpcHandler {
       }
       default:
         throw new Error(`Unknown metadata action: ${action}`);
+    }
+  }
+
+  private async handle_tasks(
+    plugin_id: string,
+    action: string,
+    params: RpcParams,
+  ): Promise<unknown> {
+    this.require_permission(plugin_id, "tasks:read");
+
+    if (!this.context.tasks) {
+      throw new Error("Task backend not initialized");
+    }
+
+    switch (action) {
+      case "query":
+        return this.context.tasks.query(read_task_query(params[0]));
+      default:
+        throw new Error(`Unknown tasks action: ${action}`);
     }
   }
 

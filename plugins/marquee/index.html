@@ -1,0 +1,331 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Marquee</title>
+    <link rel="stylesheet" href="styles.css" />
+    <script src="carbide-plugin-api.js"></script>
+  </head>
+  <body>
+    <div class="marquee">
+      <div class="marquee__viewport" id="viewport">
+        <div class="marquee__track" id="track"></div>
+      </div>
+      <div class="marquee__footer">
+        <span class="marquee__status" id="status">Loading…</span>
+        <button class="marquee__refresh" id="refresh" type="button">
+          Refresh
+        </button>
+      </div>
+    </div>
+
+    <script type="module">
+      import {
+        BASE_ROW_LIMIT,
+        POOL_LIMIT,
+        build_task_filter,
+        merge_note_sets,
+        normalize_settings,
+        parse_tag_list,
+        select_tasks,
+      } from "./marquee_logic.js";
+
+      const NOTE_SET_TTL_MS = 60000;
+      const MIN_REFRESH_INTERVAL_MS = 5000;
+      const EVENT_DEBOUNCE_MS = 1500;
+      const VAULT_EVENTS = [
+        "file-modified",
+        "note-indexed",
+        "file-deleted",
+        "file-renamed",
+      ];
+      const STATUS_GLYPHS = { todo: "[ ]", doing: "[-]", done: "[x]" };
+
+      const viewport = document.getElementById("viewport");
+      const track = document.getElementById("track");
+      const status_el = document.getElementById("status");
+      const refresh_button = document.getElementById("refresh");
+
+      const dark_query = window.matchMedia("(prefers-color-scheme: dark)");
+      const reduce_motion = window.matchMedia(
+        "(prefers-reduced-motion: reduce)",
+      );
+
+      let settings = normalize_settings(null);
+      let note_paths = null;
+      let note_sets_at = 0;
+      let note_sets_signature = null;
+      let notes_changed = true;
+      let last_refresh_at = 0;
+      let debounce_timer = null;
+      let rendered_signature = null;
+      let poll_timer = null;
+      let poll_seconds = null;
+
+      function note_filter_signature() {
+        return [
+          settings.tags,
+          settings.base_property,
+          settings.base_operator,
+          settings.base_value,
+        ].join("\u0000");
+      }
+
+      function apply_theme() {
+        const theme =
+          settings.theme === "auto"
+            ? dark_query.matches
+              ? "dark"
+              : "light"
+            : settings.theme;
+        document.documentElement.dataset.theme = theme;
+        document.documentElement.style.colorScheme = theme;
+      }
+
+      async function resolve_note_paths() {
+        const sets = [];
+
+        const tags = parse_tag_list(settings.tags);
+        if (tags.length > 0) {
+          sets.push(
+            ...(await Promise.all(tags.map((tag) => carbide.search.tags(tag)))),
+          );
+        }
+
+        if (settings.base_property) {
+          const results = await carbide.metadata.query({
+            filters: [
+              {
+                property: settings.base_property,
+                operator: settings.base_operator,
+                value: settings.base_value,
+              },
+            ],
+            sort: [],
+            limit: BASE_ROW_LIMIT,
+            offset: 0,
+          });
+          sets.push(results.rows.map((row) => row.note.path));
+        }
+
+        return merge_note_sets(sets);
+      }
+
+      function note_basename(note_path) {
+        const name = note_path.split("/").pop() ?? note_path;
+        return name.replace(/\.md$/, "");
+      }
+
+      function today_iso() {
+        const now = new Date();
+        const month = String(now.getMonth() + 1).padStart(2, "0");
+        const day = String(now.getDate()).padStart(2, "0");
+        return `${now.getFullYear()}-${month}-${day}`;
+      }
+
+      function build_meta(task, show_note_name) {
+        const parts = [];
+        if (show_note_name) parts.push(note_basename(task.path));
+        if (task.due_date) parts.push(`due ${task.due_date}`);
+        if (parts.length === 0) return null;
+
+        const meta = document.createElement("span");
+        meta.className = "marquee__meta";
+        if (
+          task.due_date &&
+          task.status !== "done" &&
+          task.due_date < today_iso()
+        ) {
+          meta.classList.add("is-overdue");
+        }
+        meta.textContent = parts.join(" · ");
+        return meta;
+      }
+
+      function build_row(task, show_note_name) {
+        const row = document.createElement("button");
+        row.type = "button";
+        row.className = "marquee__item";
+        row.dataset.path = task.path;
+        row.title = `${note_basename(task.path)} — ${task.text}`;
+
+        const glyph = document.createElement("span");
+        glyph.className = "marquee__glyph";
+        glyph.dataset.status = task.status;
+        glyph.textContent = STATUS_GLYPHS[task.status] ?? STATUS_GLYPHS.todo;
+
+        const text = document.createElement("span");
+        text.className = "marquee__text";
+        text.textContent = task.text;
+
+        row.append(glyph, text);
+        const meta = build_meta(task, show_note_name);
+        if (meta) row.append(meta);
+        return row;
+      }
+
+      function build_group(items) {
+        const group = document.createElement("div");
+        group.className = "marquee__group";
+        for (const task of items) {
+          group.append(build_row(task, settings.show_note_name));
+        }
+        return group;
+      }
+
+      function update_static_state() {
+        const too_short = track.scrollHeight / 2 <= viewport.clientHeight;
+        viewport.classList.toggle(
+          "marquee--static",
+          too_short || reduce_motion.matches,
+        );
+      }
+
+      function update_status(count) {
+        if (count === 0) {
+          status_el.textContent = "No tasks match this filter";
+          return;
+        }
+        const now = new Date();
+        const hours = String(now.getHours()).padStart(2, "0");
+        const minutes = String(now.getMinutes()).padStart(2, "0");
+        status_el.textContent = `${count} task${count === 1 ? "" : "s"} · updated ${hours}:${minutes}`;
+      }
+
+      function render_signature(items) {
+        const rows = items.map(
+          (task) =>
+            `${task.id}|${task.status}|${task.due_date}|${task.text}|${task.path}`,
+        );
+        return [
+          settings.show_note_name,
+          settings.scroll_seconds,
+          rows.join("\n"),
+        ].join("\n");
+      }
+
+      function render(items) {
+        const signature = render_signature(items);
+        if (signature !== rendered_signature) {
+          rendered_signature = signature;
+
+          const group = build_group(items);
+          const clone = group.cloneNode(true);
+          // The clone fills part of the panel for most of every loop, so its
+          // rows must stay clickable; aria-hidden and tabindex keep the
+          // duplicate out of the a11y tree and the tab order.
+          clone.setAttribute("aria-hidden", "true");
+          for (const button of clone.querySelectorAll("button")) {
+            button.tabIndex = -1;
+          }
+
+          track.replaceChildren(group, clone);
+          viewport.style.setProperty(
+            "--marquee-duration",
+            `${settings.scroll_seconds}s`,
+          );
+          requestAnimationFrame(update_static_state);
+        }
+        update_status(items.length);
+      }
+
+      function apply_poll_interval() {
+        if (poll_seconds === settings.poll_seconds) return;
+        if (poll_timer !== null) clearInterval(poll_timer);
+        poll_seconds = settings.poll_seconds;
+        poll_timer = setInterval(tick, poll_seconds * 1000);
+      }
+
+      async function refresh() {
+        last_refresh_at = Date.now();
+        try {
+          settings = normalize_settings(
+            await carbide.settings.getAll().catch(() => ({})),
+          );
+          apply_theme();
+          apply_poll_interval();
+
+          const note_filter = note_filter_signature();
+          if (
+            notes_changed ||
+            note_filter !== note_sets_signature ||
+            last_refresh_at - note_sets_at >= NOTE_SET_TTL_MS
+          ) {
+            note_paths = await resolve_note_paths();
+            note_sets_at = Date.now();
+            note_sets_signature = note_filter;
+            notes_changed = false;
+          }
+
+          const tasks = await carbide.tasks.query({
+            filter: build_task_filter(settings),
+            sort: [],
+            limit: POOL_LIMIT,
+            offset: 0,
+          });
+          render(select_tasks(tasks, note_paths, settings.max_items));
+        } catch (error) {
+          status_el.textContent = `Refresh failed: ${error?.message ?? error}`;
+        }
+      }
+
+      function tick() {
+        if (window.innerWidth === 0) return;
+        if (Date.now() - last_refresh_at < MIN_REFRESH_INTERVAL_MS) return;
+        void refresh();
+      }
+
+      function schedule_refresh() {
+        notes_changed = true;
+        if (debounce_timer !== null) clearTimeout(debounce_timer);
+        debounce_timer = setTimeout(() => {
+          debounce_timer = null;
+          // `tick` keeps a burst of vault events from outrunning the plugin
+          // call rate limit; a skipped event refresh is picked up by the poll.
+          tick();
+        }, EVENT_DEBOUNCE_MS);
+      }
+
+      function open_note(note_path) {
+        // The host reads params[1] as the argument array, so the payload goes
+        // in as a single array element.
+        carbide.actions.execute("note.open", [{ note_path }]);
+      }
+
+      track.addEventListener("click", (event) => {
+        const row = event.target.closest(".marquee__item");
+        if (row) open_note(row.dataset.path);
+      });
+
+      refresh_button.addEventListener("click", () => void refresh());
+
+      dark_query.addEventListener("change", () => {
+        if (settings.theme === "auto") apply_theme();
+      });
+
+      carbide.onload(async () => {
+        settings = normalize_settings(
+          await carbide.settings.getAll().catch(() => ({})),
+        );
+        apply_theme();
+
+        // Registering the panel fails while its permission is still pending;
+        // the poll and event wiring below must survive that. The pending state
+        // is already surfaced by the plugin manager and by the refresh status.
+        await carbide.ui
+          .addSidebarPanel({
+            id: "panel",
+            label: "Marquee",
+            icon: "check-circle",
+          })
+          .catch(() => {});
+
+        for (const event_type of VAULT_EVENTS) {
+          carbide.events.on(event_type, () => schedule_refresh());
+        }
+
+        await refresh();
+      });
+    </script>
+  </body>
+</html>

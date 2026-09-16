@@ -35,6 +35,21 @@
     ]
   },
   {
+    "id": "marquee",
+    "name": "Marquee",
+    "version": "1.0.0",
+    "author": "Carbide",
+    "description": "A scrolling to-do marquee: pools tasks by task query, tag, and Bases filter and loops them in the sidebar.",
+    "files": [
+      "manifest.json",
+      "index.html",
+      "styles.css",
+      "marquee_logic.js",
+      "marquee_logic.d.ts",
+      "README.md"
+    ]
+  },
+  {
     "id": "slides",
     "name": "Slides Export",
     "version": "0.1.0",

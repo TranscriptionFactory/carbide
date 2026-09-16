@@ -1,0 +1,129 @@
+{
+  "id": "marquee",
+  "name": "Marquee",
+  "version": "1.0.0",
+  "author": "Carbide",
+  "description": "A scrolling to-do marquee: pools tasks by task query, tag, and Bases filter and loops them in the sidebar.",
+  "api_version": "1",
+  "permissions": [
+    "ui:panel",
+    "tasks:read",
+    "search:read",
+    "metadata:read",
+    "events:subscribe",
+    "actions:execute"
+  ],
+  "activation_events": ["on_startup"],
+  "contributes": {
+    "settings": [
+      {
+        "key": "task_status",
+        "type": "select",
+        "label": "Status",
+        "description": "Which task states feed the marquee.",
+        "default": "open",
+        "options": [
+          { "label": "All", "value": "all" },
+          { "label": "Open (todo + doing)", "value": "open" },
+          { "label": "Todo only", "value": "todo" },
+          { "label": "Doing only", "value": "doing" },
+          { "label": "Done only", "value": "done" }
+        ]
+      },
+      {
+        "key": "task_text",
+        "type": "string",
+        "label": "Text contains",
+        "description": "Only tasks whose text contains this string. Empty shows every task.",
+        "default": ""
+      },
+      {
+        "key": "task_due",
+        "type": "select",
+        "label": "Due date",
+        "description": "Restrict to a due-date window.",
+        "default": "any",
+        "options": [
+          { "label": "Any", "value": "any" },
+          { "label": "Overdue", "value": "overdue" },
+          { "label": "Due today", "value": "today" },
+          { "label": "Due within 7 days", "value": "next_7_days" }
+        ]
+      },
+      {
+        "key": "tags",
+        "type": "string",
+        "label": "Require tags",
+        "description": "Comma-separated tags. A task is kept only when its note carries every listed tag. Empty disables the filter.",
+        "default": ""
+      },
+      {
+        "key": "base_property",
+        "type": "string",
+        "label": "Bases filter: property",
+        "description": "Frontmatter property (or built-in: title, path, tag, task_count, tasks_todo, next_due_date, word_count...). Empty disables the filter.",
+        "default": ""
+      },
+      {
+        "key": "base_operator",
+        "type": "select",
+        "label": "Bases filter: operator",
+        "default": "eq",
+        "options": [
+          { "label": "=", "value": "eq" },
+          { "label": "≠", "value": "neq" },
+          { "label": "contains", "value": "contains" },
+          { "label": "not contains", "value": "not_contains" },
+          { "label": ">", "value": "gt" },
+          { "label": "<", "value": "lt" },
+          { "label": ">=", "value": "gte" },
+          { "label": "<=", "value": "lte" }
+        ]
+      },
+      {
+        "key": "base_value",
+        "type": "string",
+        "label": "Bases filter: value",
+        "default": ""
+      },
+      {
+        "key": "show_note_name",
+        "type": "boolean",
+        "label": "Show the note name on each row",
+        "default": true
+      },
+      {
+        "key": "max_items",
+        "type": "number",
+        "label": "Maximum rows",
+        "description": "Between 1 and 200.",
+        "default": 40
+      },
+      {
+        "key": "scroll_seconds",
+        "type": "number",
+        "label": "Seconds per scroll loop",
+        "description": "Between 10 and 600.",
+        "default": 45
+      },
+      {
+        "key": "poll_seconds",
+        "type": "number",
+        "label": "Refresh interval (seconds)",
+        "description": "Between 15 and 600.",
+        "default": 20
+      },
+      {
+        "key": "theme",
+        "type": "select",
+        "label": "Panel theme",
+        "default": "auto",
+        "options": [
+          { "label": "Match system", "value": "auto" },
+          { "label": "Light", "value": "light" },
+          { "label": "Dark", "value": "dark" }
+        ]
+      }
+    ]
+  }
+}

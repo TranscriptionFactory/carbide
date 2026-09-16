@@ -1102,6 +1102,149 @@ describe("PluginRpcHandler", () => {
     });
   });
 
+  describe("tasks.*", () => {
+    function make_tasks_backend() {
+      return {
+        query: vi.fn().mockResolvedValue([]),
+      };
+    }
+
+    it("tasks.query fills defaults when the query is empty", async () => {
+      grant_permissions("tasks:read");
+      const tasks = make_tasks_backend();
+      ctx.context.tasks = tasks;
+
+      const manifest = make_manifest(["tasks:read"]);
+      const response = await handler.handle_request(PLUGIN_ID, manifest, {
+        id: "t1",
+        method: "tasks.query",
+        params: [{}],
+      });
+
+      expect(response.error).toBeUndefined();
+      expect(response.result).toEqual([]);
+      expect(tasks.query).toHaveBeenCalledWith({
+        filter: null,
+        sort: [],
+        limit: 200,
+        offset: 0,
+      });
+    });
+
+    it("tasks.query clamps limit to the supported range", async () => {
+      grant_permissions("tasks:read");
+      const tasks = make_tasks_backend();
+      ctx.context.tasks = tasks;
+
+      const manifest = make_manifest(["tasks:read"]);
+      await handler.handle_request(PLUGIN_ID, manifest, {
+        id: "t2",
+        method: "tasks.query",
+        params: [{ limit: 5000 }],
+      });
+      await handler.handle_request(PLUGIN_ID, manifest, {
+        id: "t3",
+        method: "tasks.query",
+        params: [{ limit: 0 }],
+      });
+
+      expect(tasks.query).toHaveBeenNthCalledWith(1, {
+        filter: null,
+        sort: [],
+        limit: 500,
+        offset: 0,
+      });
+      expect(tasks.query).toHaveBeenNthCalledWith(2, {
+        filter: null,
+        sort: [],
+        limit: 1,
+        offset: 0,
+      });
+    });
+
+    it("tasks.query passes a complete query through unchanged", async () => {
+      grant_permissions("tasks:read");
+      const tasks = make_tasks_backend();
+      ctx.context.tasks = tasks;
+
+      const manifest = make_manifest(["tasks:read"]);
+      const query = {
+        filter: {
+          type: "atom",
+          filter: { property: "status", operator: "neq", value: "done" },
+        },
+        sort: [],
+        limit: 10,
+        offset: 5,
+      };
+      const response = await handler.handle_request(PLUGIN_ID, manifest, {
+        id: "t4",
+        method: "tasks.query",
+        params: [query],
+      });
+
+      expect(response.error).toBeUndefined();
+      expect(tasks.query).toHaveBeenCalledWith(query);
+    });
+
+    it("tasks.query rejects a non-object query", async () => {
+      grant_permissions("tasks:read");
+      const tasks = make_tasks_backend();
+      ctx.context.tasks = tasks;
+
+      const manifest = make_manifest(["tasks:read"]);
+      const response = await handler.handle_request(PLUGIN_ID, manifest, {
+        id: "t5",
+        method: "tasks.query",
+        params: [null],
+      });
+
+      expect(response.error).toMatch(/Invalid task query/);
+      expect(tasks.query).not.toHaveBeenCalled();
+    });
+
+    it("tasks.* blocks when tasks:read is not granted", async () => {
+      grant_permissions();
+      ctx.context.tasks = make_tasks_backend();
+
+      const manifest = make_manifest(["tasks:read"]);
+      const response = await handler.handle_request(PLUGIN_ID, manifest, {
+        id: "t6",
+        method: "tasks.query",
+        params: [{}],
+      });
+
+      expect(response.error).toMatch(/Missing tasks:read permission/);
+    });
+
+    it("tasks.* errors on unknown action", async () => {
+      grant_permissions("tasks:read");
+      ctx.context.tasks = make_tasks_backend();
+
+      const manifest = make_manifest(["tasks:read"]);
+      const response = await handler.handle_request(PLUGIN_ID, manifest, {
+        id: "t7",
+        method: "tasks.nope",
+        params: [],
+      });
+
+      expect(response.error).toMatch(/Unknown tasks action: nope/);
+    });
+
+    it("tasks.* errors when the task backend is not initialized", async () => {
+      grant_permissions("tasks:read");
+
+      const manifest = make_manifest(["tasks:read"]);
+      const response = await handler.handle_request(PLUGIN_ID, manifest, {
+        id: "t8",
+        method: "tasks.query",
+        params: [{}],
+      });
+
+      expect(response.error).toMatch(/Task backend not initialized/);
+    });
+  });
+
   describe("diagnostics.*", () => {
     function make_diagnostics_backend() {
       return {

@@ -681,6 +681,60 @@ mod tests {
         (tmp, conn)
     }
 
+    // The marquee plugin builds these exact filters (`plugins/marquee/marquee_logic.js`).
+    // A drift in the wire shape silently empties the panel, so pin the JSON itself.
+    #[test]
+    fn test_plugin_default_query_json_excludes_done_tasks() {
+        let (_tmp, conn) = conn_with_note("notes/alpha.md");
+        let markdown =
+            "# Alpha\n- [ ] pay invoice 📅 2026-09-16\n- [ ] overdue item 📅 2026-09-15\n- [x] done item\n";
+        save_tasks(
+            &conn,
+            "notes/alpha.md",
+            &extract_tasks("notes/alpha.md", markdown),
+        )
+        .expect("seed tasks");
+
+        let query: TaskQuery = serde_json::from_str(
+            r#"{"filter":{"type":"atom","filter":{"property":"status","operator":"neq","value":"done"}},"sort":[],"limit":200,"offset":0}"#,
+        )
+        .expect("plugin default query should deserialize");
+
+        let tasks = query_tasks(&conn, query).expect("query should run");
+        assert_eq!(tasks.len(), 2, "only the open pool");
+        assert!(tasks.iter().all(|task| task.status != TaskStatus::Done));
+    }
+
+    #[test]
+    fn test_plugin_seven_day_query_json_matches_the_due_window() {
+        let (_tmp, conn) = conn_with_note("notes/beta.md");
+        let today: String = conn
+            .query_row("SELECT date('now', 'localtime')", [], |row| row.get(0))
+            .expect("today should resolve");
+        let markdown = format!(
+            "# Beta\n- [ ] invoice due today 📅 {today}\n- [ ] invoice due far away 📅 2999-01-01\n- [ ] unrelated chore 📅 {today}\n"
+        );
+        save_tasks(
+            &conn,
+            "notes/beta.md",
+            &extract_tasks("notes/beta.md", &markdown),
+        )
+        .expect("seed tasks");
+
+        let query: TaskQuery = serde_json::from_str(
+            r#"{"filter":{"type":"and","operands":[{"type":"atom","filter":{"property":"status","operator":"eq","value":"todo"}},{"type":"atom","filter":{"property":"text","operator":"contains","value":"invoice"}},{"type":"and","operands":[{"type":"atom","filter":{"property":"due_date","operator":"gte","value":"__today__"}},{"type":"atom","filter":{"property":"due_date","operator":"lte","value":"__today_plus_7__"}}]}]},"sort":[],"limit":200,"offset":0}"#,
+        )
+        .expect("plugin seven-day query should deserialize");
+
+        let tasks = query_tasks(&conn, query).expect("query should run");
+        assert_eq!(
+            tasks.len(),
+            1,
+            "the text filter and the due window must both bite"
+        );
+        assert_eq!(tasks[0].text, format!("invoice due today 📅 {today}"));
+    }
+
     #[test]
     fn save_tasks_writes_nothing_when_the_stored_rows_already_match() {
         let (_tmp, conn) = conn_with_note("a.md");

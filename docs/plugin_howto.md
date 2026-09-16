@@ -102,6 +102,7 @@ Declare all permissions your plugin needs in `manifest.json`. Users must approve
 | `ui:ribbon`         | Add ribbon icons                                                              |
 | `events:subscribe`  | Receive vault/editor event notifications                                      |
 | `metadata:read`     | Query bases, list properties, get backlinks, get note stats                   |
+| `tasks:read`        | Query tasks (to-do items) from the task index                                 |
 | `diagnostics:write` | Push/clear diagnostics for files                                              |
 | `search:read`       | Full-text search and tag queries                                              |
 | `network:fetch`     | Make HTTP requests to external URLs via host-side proxy (`network.fetch`)     |
@@ -175,6 +176,17 @@ const results = await carbide.metadata.query({
 const props = await carbide.metadata.listProperties();
 const backlinks = await carbide.metadata.getBacklinks("note.md");
 const stats = await carbide.metadata.getStats("note.md");
+
+// Tasks (requires tasks:read permission)
+const tasks = await carbide.tasks.query({
+  filter: {
+    type: "atom",
+    filter: { property: "status", operator: "neq", value: "done" },
+  },
+  sort: [],
+  limit: 200,
+  offset: 0,
+});
 
 // Settings
 const val = await carbide.settings.get("my_key");
@@ -448,6 +460,70 @@ const stats = await rpc.send("metadata.get_stats", "path/to/note.md");
 // stats = { word_count, char_count, heading_count, outlink_count, reading_time_secs, last_indexed_at }
 ```
 
+### tasks.\*
+
+Requires `tasks:read`. Queries the vault's task index — the checkbox items the Tasks panel shows.
+
+```js
+// Every open task
+const tasks = await rpc.send("tasks.query", {
+  filter: {
+    type: "atom",
+    filter: { property: "status", operator: "neq", value: "done" },
+  },
+  sort: [],
+  limit: 200,
+  offset: 0,
+});
+// tasks = [{ id, path, text, status, due_date, line_number, section }, ...]
+```
+
+`filter` is a `FilterExpr` — `null` for everything, or one of:
+
+```js
+{ type: "atom", filter: { property, operator, value } }
+{ type: "and", operands: [ /* FilterExpr */ ] }
+{ type: "or",  operands: [ /* FilterExpr */ ] }
+{ type: "not", operand: /* FilterExpr */ }
+```
+
+Atom properties: `status` (`todo`/`doing`/`done`), `due_date`, `path`, `text`, `section`.
+
+Operators: `eq`, `neq`, `contains`, `under` (property equals the value or sits under it as a path), `gt`, `lt`, `gte`, `lte`, `starts_with`.
+
+`due_date` values may use date sentinels, resolved against the local date:
+
+| Sentinel                                    | Resolves to                              |
+| ------------------------------------------- | ---------------------------------------- |
+| `__today__`                                 | today                                    |
+| `__today_plus_N__`                          | today + N days (e.g. `__today_plus_7__`) |
+| `__week_start__` / `__week_end__`           | Monday / Sunday of the current week      |
+| `__last_week_start__` / `__last_week_end__` | Monday / Sunday of the previous week     |
+
+```js
+// Overdue and due-today tasks
+await rpc.send("tasks.query", {
+  filter: {
+    type: "and",
+    operands: [
+      {
+        type: "atom",
+        filter: { property: "status", operator: "neq", value: "done" },
+      },
+      {
+        type: "atom",
+        filter: { property: "due_date", operator: "lte", value: "__today__" },
+      },
+    ],
+  },
+  sort: [],
+  limit: 50,
+  offset: 0,
+});
+```
+
+Rows are `{ id, path, text, status, due_date, line_number, section }`; `due_date` and `section` are `null` when unset. `limit` is clamped to 500 (default 200) and `offset` defaults to 0. `sort` takes `{ property, descending }` entries and orders server-side — SQLite sorts `NULL` due dates first, so sort client-side if undated rows must sink.
+
 ### network.\*
 
 Requires `network:fetch`. Makes HTTP requests through the host-side proxy (the iframe sandbox blocks direct `fetch`/`XMLHttpRequest`).
@@ -600,15 +676,16 @@ The plugin manager sidebar provides these controls per plugin:
 Carbide ships a set of example and utility plugins you can enable from the plugin
 manager without installing anything:
 
-| Plugin               | What it does                                             |
-| -------------------- | -------------------------------------------------------- |
-| **Auto-Tag**         | Auto-prefix configured words with `#`.                   |
-| **HTML Strip**       | Strip styles, scripts, and metadata from HTML.           |
-| **HTML to Markdown** | Convert HTML to Markdown via Turndown.                   |
-| **PDF Export**       | Export a note to PDF with Mermaid and LaTeX.             |
-| **Slides Export**    | Export a note to a slide-deck PDF, split on `---`.       |
-| **Smart Templates**  | Context-aware Handlebars templates with live preview.    |
-| **Wiki Compiler**    | Compile vault notes into an interlinked wiki via an LLM. |
+| Plugin               | What it does                                                                 |
+| -------------------- | ---------------------------------------------------------------------------- |
+| **Auto-Tag**         | Auto-prefix configured words with `#`.                                       |
+| **HTML Strip**       | Strip styles, scripts, and metadata from HTML.                               |
+| **HTML to Markdown** | Convert HTML to Markdown via Turndown.                                       |
+| **Marquee**          | A scrolling to-do marquee fed by a task query, tag filter, and Bases filter. |
+| **PDF Export**       | Export a note to PDF with Mermaid and LaTeX.                                 |
+| **Slides Export**    | Export a note to a slide-deck PDF, split on `---`.                           |
+| **Smart Templates**  | Context-aware Handlebars templates with live preview.                        |
+| **Wiki Compiler**    | Compile vault notes into an interlinked wiki via an LLM.                     |
 
 ## Plugin Help
 

@@ -29,6 +29,7 @@
     "ui:panel": "Add sidebar panels",
     "ui:ribbon": "Add ribbon icons",
     "events:subscribe": "Subscribe to vault events",
+    "tasks:read": "Read tasks",
     "export:save": "Save files to disk",
     "actions:execute": "Execute app actions",
   };

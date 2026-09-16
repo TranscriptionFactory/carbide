@@ -33,6 +33,7 @@
       "../plugins/auto-tag/**/*",
       "../plugins/html-strip/**/*",
       "../plugins/html-to-markdown/**/*",
+      "../plugins/marquee/**/*",
       "../plugins/md-export/**/*",
       "../plugins/slides/**/*",
       "../plugins/smart-templates/**/*",

@@ -123,6 +123,7 @@ pub const BUNDLED_PLUGIN_IDS: &[&str] = &[
     "auto-tag",
     "html-strip",
     "html-to-markdown",
+    "marquee",
     "md-export",
     "slides",
     "smart-templates",
@@ -251,5 +252,29 @@ mod tests {
             resolve_bundled_dir(resource_dir.path(), BUNDLED_PLUGIN_IDS[0]),
             None,
         );
+    }
+
+    // Bundled plugins are copied from `<repo>/plugins/<id>`; a manifest that
+    // fails `PluginManifest` deserialization is dropped silently at discovery
+    // time, so every listed id must ship one the loader actually accepts.
+    #[test]
+    fn every_bundled_plugin_ships_a_parseable_manifest() {
+        let plugins_dir = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .expect("the crate dir should have a parent")
+            .join("plugins");
+
+        for &plugin_id in BUNDLED_PLUGIN_IDS {
+            let manifest_path = plugins_dir.join(plugin_id).join("manifest.json");
+            let source = fs::read_to_string(&manifest_path)
+                .unwrap_or_else(|e| panic!("read {}: {e}", manifest_path.display()));
+            let manifest: PluginManifest = serde_json::from_str(&source)
+                .unwrap_or_else(|e| panic!("parse {}: {e}", manifest_path.display()));
+
+            assert_eq!(
+                manifest.id, plugin_id,
+                "manifest id must match the directory it is bundled in"
+            );
+        }
     }
 }

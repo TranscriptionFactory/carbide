@@ -144,6 +144,10 @@
       getFileCache: (path) => _rpc("metadata.get_file_cache", path),
     },
 
+    tasks: {
+      query: (query) => _rpc("tasks.query", query),
+    },
+
     diagnostics: {
       push: (file_path, diagnostics) =>
         _rpc("diagnostics.push", file_path, diagnostics),
