@@ -22,7 +22,7 @@ export function create_assistant_sessions_load_reactor(
       if (vault_id === loaded_vault_id) return;
       loaded_vault_id = vault_id;
       if (!vault_id) {
-        sessions.hydrate([]);
+        sessions.hydrate_summaries([]);
         chat_store.reset_view_state();
         return;
       }

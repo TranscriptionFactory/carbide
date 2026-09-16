@@ -685,10 +685,13 @@ impl VectorIndex {
             .filter(|k| !sqlite_vecs.contains_key(*k))
             .cloned()
             .collect();
-        let mut delta = ReconcileDelta {
-            removed: removed.len(),
+        let delta = ReconcileDelta {
+            inserted: sqlite_vecs
+                .keys()
+                .filter(|k| !self.key_to_id.contains_key(*k))
+                .count(),
             changed: changed.len(),
-            inserted: 0,
+            removed: removed.len(),
         };
         for key in removed {
             self.remove(&key);
@@ -698,9 +701,6 @@ impl VectorIndex {
             if self.key_to_id.contains_key(&key) && !changed.contains(&key) {
                 self.vectors.insert(key, vec);
             } else {
-                if !changed.contains(&key) {
-                    delta.inserted += 1;
-                }
                 self.insert(&key, vec);
             }
         }

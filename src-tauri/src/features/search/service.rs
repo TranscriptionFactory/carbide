@@ -435,14 +435,18 @@ impl SearchDbState {
     /// app exit because `Drop` never runs in the shipped app: tao's macOS loop
     /// calls `process::exit` after `RunEvent::Exit`.
     pub fn shutdown_all(&self) {
-        let mut map = match self.workers.lock() {
-            Ok(m) => m,
+        // Drain under the lock, join outside it: a writer finishing an embed
+        // pass calls `rearm_embed_pass`, which takes this same lock, and a
+        // join that holds it would deadlock until the timeout and lose the
+        // dump.
+        let workers: Vec<VaultWorker> = match self.workers.lock() {
+            Ok(mut map) => map.drain().map(|(_, worker)| worker).collect(),
             Err(e) => {
                 log::warn!("SearchDbState::shutdown_all: lock poisoned: {e}");
                 return;
             }
         };
-        for (_vid, mut worker) in map.drain() {
+        for mut worker in workers {
             shutdown_worker(&mut worker);
         }
     }
@@ -1296,7 +1300,7 @@ fn dispatch_command(
             // duplicate pass.
             is_embedding.store(true, Ordering::Relaxed);
             embed_queued.store(false, Ordering::Relaxed);
-            handle_embed_batch(
+            let action = handle_embed_batch(
                 conn,
                 &vault_root,
                 &cancel,
@@ -1309,6 +1313,9 @@ fn dispatch_command(
                 rx,
             );
             is_embedding.store(false, Ordering::Relaxed);
+            if matches!(action, LoopAction::Break) {
+                return LoopAction::Break;
+            }
             rearm_embed_pass(&app_handle, &vault_id);
         }
         DbCommand::RebuildEmbeddings {
@@ -1319,7 +1326,7 @@ fn dispatch_command(
             is_embedding,
         } => {
             is_embedding.store(true, Ordering::Relaxed);
-            handle_embed_batch(
+            let action = handle_embed_batch(
                 conn,
                 &vault_root,
                 &cancel,
@@ -1332,6 +1339,9 @@ fn dispatch_command(
                 rx,
             );
             is_embedding.store(false, Ordering::Relaxed);
+            if matches!(action, LoopAction::Break) {
+                return LoopAction::Break;
+            }
             rearm_embed_pass(&app_handle, &vault_id);
         }
         DbCommand::RebuildIndex => {
@@ -2243,7 +2253,7 @@ fn handle_embed_batch(
     note_index: &SharedVectorIndex,
     block_index: &SharedVectorIndex,
     rx: &Receiver<DbCommand>,
-) {
+) -> LoopAction {
     // Embedding pipeline for a vault. Runs in two ordered phases:
     //
     // 1. Block embedding (handle_block_embed_batch): embeds each qualifying section
@@ -2267,7 +2277,7 @@ fn handle_embed_batch(
     let (note_embed_enabled, block_embed_enabled) = resolve_embedding_flags(app_handle);
     if !note_embed_enabled && !block_embed_enabled {
         log::info!("embed_batch: both note and block embedding disabled for {vault_id}");
-        return;
+        return LoopAction::Continue;
     }
 
     let model = match embedding_state.get_or_init(
@@ -2286,7 +2296,7 @@ fn handle_embed_batch(
                     error: format!("Embedding model unavailable: {e}"),
                 },
             );
-            return;
+            return LoopAction::Continue;
         }
     };
 
@@ -2573,9 +2583,17 @@ fn handle_embed_batch(
 
     compact_indices_if_stale(note_index, block_index);
 
+    // A deferred Shutdown must reach the writer loop, or it blocks on the
+    // channel until the exit join times out and the dump is lost.
     for cmd in deferred {
-        dispatch_command(conn, cmd, notes_cache, rx, note_index, block_index);
+        if matches!(
+            dispatch_command(conn, cmd, notes_cache, rx, note_index, block_index),
+            LoopAction::Break
+        ) {
+            return LoopAction::Break;
+        }
     }
+    LoopAction::Continue
 }
 
 /// Sections buffered for the next encoder batch. Texts are owned so the body

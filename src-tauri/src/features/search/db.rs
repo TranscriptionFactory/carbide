@@ -2576,12 +2576,12 @@ pub fn sync_index(
     // index: in-app edits reach this thread through the save path or the
     // filesystem watcher, so the full walk would only re-stat an
     // already-indexed tree. A dirty tree on either side means files changed
-    // outside the app without a commit, which HEAD alone cannot see. (ref: H2)
+    // outside the app without a commit, which HEAD alone cannot see; a sync
+    // over a dirty tree therefore records no commit at all. (ref: H2)
     let git = GitSnapshot::capture(vault_root);
     if vault_unchanged(
         git.as_ref(),
         get_index_meta(conn, "last_indexed_commit").as_deref(),
-        get_index_meta(conn, "last_indexed_clean").as_deref() == Some("1"),
     ) {
         log::info!("sync_index: git HEAD unchanged and tree clean since last sync; skipping full vault walk");
         on_progress(0, 0);
@@ -2805,7 +2805,13 @@ struct GitSnapshot {
 impl GitSnapshot {
     fn capture(vault_root: &Path) -> Option<Self> {
         let head = git_stdout(vault_root, &["rev-parse", "HEAD"])?;
-        let status = git_stdout(vault_root, &["status", "--porcelain"])?;
+        // Scoped to the vault subtree: a vault nested in a larger repo must
+        // not pay for the whole tree, and the status refresh must not take
+        // the index lock from under the user's own git commands.
+        let status = git_stdout(
+            vault_root,
+            &["--no-optional-locks", "status", "--porcelain", "--", "."],
+        )?;
         Some(Self {
             head,
             clean: status.is_empty(),
@@ -2815,8 +2821,12 @@ impl GitSnapshot {
 
 fn record_git_snapshot(conn: &Connection, git: Option<&GitSnapshot>) {
     let Some(git) = git else { return };
-    let _ = set_index_meta(conn, "last_indexed_commit", &git.head);
-    let _ = set_index_meta(conn, "last_indexed_clean", if git.clean { "1" } else { "0" });
+    if git.clean {
+        let _ = set_index_meta(conn, "last_indexed_commit", &git.head);
+    } else {
+        log::info!("sync_index: working tree dirty; next sync will walk the vault again");
+        let _ = delete_index_meta(conn, "last_indexed_commit");
+    }
 }
 
 fn git_stdout(vault_root: &Path, args: &[&str]) -> Option<String> {
@@ -2833,16 +2843,13 @@ fn git_stdout(vault_root: &Path, args: &[&str]) -> Option<String> {
 
 /// Whether a full `scan_vault` walk can be skipped because nothing has changed
 /// since the last recorded sync. A git-managed vault keys on its HEAD commit
-/// plus a clean working tree at both syncs; a non-git vault has no equally
-/// cheap complete signal and always walks. Split from `sync_index` so the
-/// decision is testable without a git checkout.
-fn vault_unchanged(
-    current: Option<&GitSnapshot>,
-    stored_head: Option<&str>,
-    stored_clean: bool,
-) -> bool {
+/// plus a clean working tree now (the stored commit is only ever written over
+/// a clean tree); a non-git vault has no equally cheap complete signal and
+/// always walks. Split from `sync_index` so the decision is testable without
+/// a git checkout.
+fn vault_unchanged(current: Option<&GitSnapshot>, stored_head: Option<&str>) -> bool {
     match (current, stored_head) {
-        (Some(git), Some(stored)) => git.clean && stored_clean && git.head == stored,
+        (Some(git), Some(stored)) => git.clean && git.head == stored,
         _ => false,
     }
 }
@@ -3766,6 +3773,12 @@ pub fn get_index_meta(conn: &Connection, key: &str) -> Option<String> {
     .ok()
 }
 
+fn delete_index_meta(conn: &Connection, key: &str) -> Result<(), String> {
+    conn.execute("DELETE FROM index_meta WHERE key = ?1", params![key])
+        .map(|_| ())
+        .map_err(|e| e.to_string())
+}
+
 pub fn set_index_meta(conn: &Connection, key: &str, value: &str) -> Result<(), String> {
     conn.execute(
         "REPLACE INTO index_meta (key, value) VALUES (?1, ?2)",
@@ -3913,14 +3926,13 @@ mod tests {
     }
 
     #[test]
-    fn vault_unchanged_requires_matching_head_and_clean_trees() {
-        assert!(vault_unchanged(Some(&snapshot("abc", true)), Some("abc"), true));
-        assert!(!vault_unchanged(Some(&snapshot("abc", true)), Some("def"), true));
-        assert!(!vault_unchanged(Some(&snapshot("abc", false)), Some("abc"), true));
-        assert!(!vault_unchanged(Some(&snapshot("abc", true)), Some("abc"), false));
-        assert!(!vault_unchanged(Some(&snapshot("abc", true)), None, true));
-        assert!(!vault_unchanged(None, Some("abc"), true));
-        assert!(!vault_unchanged(None, None, false));
+    fn vault_unchanged_requires_matching_head_and_a_clean_tree() {
+        assert!(vault_unchanged(Some(&snapshot("abc", true)), Some("abc")));
+        assert!(!vault_unchanged(Some(&snapshot("abc", true)), Some("def")));
+        assert!(!vault_unchanged(Some(&snapshot("abc", false)), Some("abc")));
+        assert!(!vault_unchanged(Some(&snapshot("abc", true)), None));
+        assert!(!vault_unchanged(None, Some("abc")));
+        assert!(!vault_unchanged(None, None));
     }
 
     #[test]
@@ -3981,7 +3993,10 @@ more text").expect("note");
             "a dirty working tree must force the full vault walk"
         );
         assert_eq!(third.indexed, 1);
-        assert_eq!(get_index_meta(&conn, "last_indexed_clean").as_deref(), Some("0"));
+        assert!(
+            get_index_meta(&conn, "last_indexed_commit").is_none(),
+            "a sync over a dirty tree must not record a commit"
+        );
 
         // Still dirty on the next sync: the last sync recorded a dirty tree, so
         // even an otherwise-unchanged repo walks again until it is committed.

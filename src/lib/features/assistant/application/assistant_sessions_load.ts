@@ -29,10 +29,10 @@ export async function load_assistant_sessions(
 export async function ensure_assistant_session_loaded(
   sessions: AssistantSessionStore,
   session_service: AssistantSessionService,
-  vault_id: string,
   id: string,
 ): Promise<void> {
-  if (sessions.is_loaded(id) || !sessions.get(id)) return;
+  const vault_id = sessions.vault_id;
+  if (!vault_id || sessions.is_loaded(id) || !sessions.get(id)) return;
   const loaded = await session_service.load_session(vault_id, id);
   if (!loaded || sessions.vault_id !== vault_id) return;
   sessions.attach_body(loaded);

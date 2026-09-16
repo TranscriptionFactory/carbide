@@ -42,8 +42,7 @@ impl LintState {
             .and_then(|store| store.settings.get("rumdl_binary_path").cloned())
             .and_then(|v| v.as_str().map(|s| s.to_string()))
             .filter(|s| !s.is_empty());
-        let binary_path =
-            toolchain::resolver::resolve(
+        let binary_path = toolchain::resolver::resolve(
             &app,
             "rumdl",
             custom_path.as_deref(),

@@ -137,13 +137,10 @@ export function register_chat_actions(
 
   // Sessions hydrate as summary stubs; anything that reads or saves a body
   // goes through here first so a stub never reaches save_session.
-  async function ensure_loaded(id: string): Promise<void> {
-    const vault_id = stores.vault.active_vault_id;
-    if (!vault_id) return;
-    await ensure_assistant_session_loaded(
+  function ensure_loaded(id: string): Promise<void> {
+    return ensure_assistant_session_loaded(
       assistant_sessions,
       session_service,
-      vault_id,
       id,
     );
   }

@@ -204,15 +204,11 @@ export function register_assistant_actions(
     execute: async (...args: unknown[]) => {
       const session_id = typeof args[0] === "string" ? args[0] : "";
       if (!session_id) return;
-      const vault_id = stores.vault.active_vault_id;
-      if (vault_id) {
-        await ensure_assistant_session_loaded(
-          assistant_sessions,
-          session_service,
-          vault_id,
-          session_id,
-        );
-      }
+      await ensure_assistant_session_loaded(
+        assistant_sessions,
+        session_service,
+        session_id,
+      );
       const session = assistant_sessions.get(session_id);
       if (!session) return;
       stores.tab.open_assistant_session_tab(

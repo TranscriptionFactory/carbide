@@ -63,7 +63,7 @@ describe("assistant session persistence round-trip", () => {
     expect(load_session).not.toHaveBeenCalled();
     expect(sessions.is_loaded("a")).toBe(false);
 
-    await ensure_assistant_session_loaded(sessions, reader, VAULT_ID, "a");
+    await ensure_assistant_session_loaded(sessions, reader, "a");
     store.switch_session("a");
     expect(load_session).toHaveBeenCalledTimes(1);
     expect(sessions.is_loaded("a")).toBe(true);
@@ -91,7 +91,7 @@ describe("assistant session persistence round-trip", () => {
     const reader = make_service(persistence);
     await load_assistant_sessions(sessions, store, reader, VAULT_ID);
 
-    await ensure_assistant_session_loaded(sessions, reader, VAULT_ID, "legacy");
+    await ensure_assistant_session_loaded(sessions, reader, "legacy");
     store.switch_session("legacy");
     expect(store.scope).toEqual({ folders: ["projects"], tags: ["active"] });
   });
@@ -133,7 +133,7 @@ describe("assistant session persistence round-trip", () => {
     const reader = make_service(persistence);
     await load_assistant_sessions(sessions, store, reader, VAULT_ID);
 
-    await ensure_assistant_session_loaded(sessions, reader, VAULT_ID, "agent");
+    await ensure_assistant_session_loaded(sessions, reader, "agent");
     store.switch_session("agent");
     expect(store.messages).toEqual(agent_session.messages);
   });
@@ -156,7 +156,7 @@ describe("assistant session persistence round-trip", () => {
     const reader = make_service(persistence);
     await load_assistant_sessions(sessions, store, reader, VAULT_ID);
     for (const id of ["named", "legacy"]) {
-      await ensure_assistant_session_loaded(sessions, reader, VAULT_ID, id);
+      await ensure_assistant_session_loaded(sessions, reader, id);
     }
 
     expect(store.sessions.find((s) => s.id === "named")?.title_source).toBe(

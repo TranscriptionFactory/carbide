@@ -7,7 +7,8 @@ export function create_toolchain_lifecycle_reactor(
 ): () => void {
   const stop = $effect.root(() => {
     $effect(() => {
-      if (ui_store.settings_dialog.open) {
+      const { open, active_category } = ui_store.settings_dialog;
+      if (open && active_category === "toolchain") {
         void toolchain_service.load();
       }
     });

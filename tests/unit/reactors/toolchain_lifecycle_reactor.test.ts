@@ -11,32 +11,32 @@ function fake_service() {
 }
 
 describe("toolchain lifecycle reactor", () => {
-  it("does not load tools until the settings dialog opens", () => {
+  it("loads tools only when the Tools settings pane is shown", () => {
     const ui = new UIStore();
     const { service, load } = fake_service();
     const stop = create_toolchain_lifecycle_reactor(ui, service);
     flushSync();
-
     expect(load).not.toHaveBeenCalled();
 
     ui.settings_dialog.open = true;
+    ui.settings_dialog.active_category = "editor";
     flushSync();
+    expect(load).not.toHaveBeenCalled();
 
+    ui.settings_dialog.active_category = "toolchain";
+    flushSync();
     expect(load).toHaveBeenCalledTimes(1);
     stop();
   });
 
-  it("reloads each time the dialog is reopened, not while it stays open", () => {
+  it("reloads each time the pane is shown again", () => {
     const ui = new UIStore();
     const { service, load } = fake_service();
     const stop = create_toolchain_lifecycle_reactor(ui, service);
 
     ui.settings_dialog.open = true;
+    ui.settings_dialog.active_category = "toolchain";
     flushSync();
-    ui.settings_dialog.active_category = "editor";
-    flushSync();
-    expect(load).toHaveBeenCalledTimes(1);
-
     ui.settings_dialog.open = false;
     flushSync();
     ui.settings_dialog.open = true;

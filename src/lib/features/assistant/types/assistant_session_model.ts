@@ -83,23 +83,18 @@ export function migrate_stored_session(
   });
 }
 
-// The list entry the store holds until a body is loaded on demand. Every
-// non-summary field carries its default; `attach_body` replaces the whole
-// record, so nothing here is ever persisted.
+// The list entry the store holds until a body is loaded on demand. The
+// migrator owns the body defaults; `attach_body` replaces the whole record,
+// so nothing here is ever persisted.
 export function stub_session_from_summary(
   summary: AssistantSessionSummary,
 ): AssistantSession {
-  return {
+  return migrate_session_fields({
     ...summary,
-    title_source: "derived",
     provider_id: "",
     messages: [],
-    origin: {},
     scope: {},
-    mode: "ask",
-    auto_approve: false,
-    changed_files: [],
-  };
+  });
 }
 
 function to_scope_list(values: unknown, legacy: unknown): string[] {

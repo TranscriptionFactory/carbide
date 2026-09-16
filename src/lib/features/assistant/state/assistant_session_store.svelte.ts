@@ -1,3 +1,4 @@
+import { SvelteSet } from "svelte/reactivity";
 import { stub_session_from_summary } from "$lib/features/assistant/types/assistant_session_model";
 import {
   to_assistant_session_summary,
@@ -44,7 +45,7 @@ export class AssistantSessionStore {
   // Sessions whose body (messages, provider, scope…) is resident rather than a
   // summary stub. A body is never saved unless it was loaded: every mutation
   // path that reaches save_session must ensure_loaded first.
-  loaded_ids = $state<ReadonlySet<string>>(new Set());
+  private loaded_ids = new SvelteSet<string>();
 
   // Injectable clock (AU-005 precedent) — create/touch/prune timestamps come
   // from here so tests never sleep.
@@ -84,7 +85,7 @@ export class AssistantSessionStore {
       changed_files: [],
     };
     this.sessions = [session, ...this.sessions];
-    this.mark_loaded(session.id);
+    this.loaded_ids.add(session.id);
     return session;
   }
 
@@ -145,7 +146,8 @@ export class AssistantSessionStore {
   hydrate(sessions: AssistantSession[], vault_id: string | null = null): void {
     this.vault_id = vault_id;
     this.sessions = [...sessions];
-    this.loaded_ids = new Set(sessions.map((session) => session.id));
+    this.loaded_ids.clear();
+    for (const session of sessions) this.loaded_ids.add(session.id);
   }
 
   // Startup hydration: the index alone fills the list; bodies arrive through
@@ -156,7 +158,7 @@ export class AssistantSessionStore {
   ): void {
     this.vault_id = vault_id;
     this.sessions = summaries.map(stub_session_from_summary);
-    this.loaded_ids = new Set();
+    this.loaded_ids.clear();
   }
 
   // Replaces the stub in place so list order is untouched. Ignores sessions
@@ -167,7 +169,7 @@ export class AssistantSessionStore {
     const sessions = [...this.sessions];
     sessions[index] = session;
     this.sessions = sessions;
-    this.mark_loaded(session.id);
+    this.loaded_ids.add(session.id);
   }
 
   // Returns the pruned ids so the caller can delete their persisted files.
@@ -184,10 +186,6 @@ export class AssistantSessionStore {
     const pruned = new Set(stale.map((session) => session.id));
     this.sessions = this.sessions.filter((session) => !pruned.has(session.id));
     return [...pruned];
-  }
-
-  private mark_loaded(id: string): void {
-    this.loaded_ids = new Set([...this.loaded_ids, id]);
   }
 
   // A transform returning null means "nothing changed", which must not bump

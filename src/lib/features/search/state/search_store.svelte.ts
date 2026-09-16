@@ -33,6 +33,9 @@ export class SearchStore {
     total: 0,
     error: null,
   });
+  // Bumped once per completed index run so consumers that only care that a
+  // run finished (not its progress) can depend on this alone.
+  index_completions = $state(0);
   embedding_progress = $state<EmbeddingProgress>({
     status: "idle",
     phase: null,
@@ -66,6 +69,7 @@ export class SearchStore {
           total: event.indexed,
           error: null,
         };
+        this.index_completions += 1;
         break;
       case "failed":
         this.index_progress = {
