@@ -130,19 +130,21 @@ export function register_chat_actions(
 
   function persist_session(id: string | null) {
     const vault_id = stores.vault.active_vault_id;
-    const session = chat_store.sessions.find((s) => s.id === id);
+    const session = id ? assistant_sessions.get_loaded(id) : null;
     if (!vault_id || !session) return;
     void session_service.save_session(vault_id, session);
   }
 
   // Sessions hydrate as summary stubs; anything that reads or saves a body
-  // goes through here first so a stub never reaches save_session.
-  function ensure_loaded(id: string): Promise<void> {
-    return ensure_assistant_session_loaded(
+  // goes through here first and stops when the body cannot be loaded.
+  async function ensure_loaded(id: string): Promise<boolean> {
+    const loaded = await ensure_assistant_session_loaded(
       assistant_sessions,
       session_service,
       id,
     );
+    if (!loaded) toast.error("Could not load that chat session");
+    return loaded;
   }
 
   // I3: one provider rule. The previous local copy resolved `auto` as
@@ -548,7 +550,7 @@ export function register_chat_actions(
         await registry.execute(ACTION_IDS.assistant_open_session, id);
         return;
       }
-      await ensure_loaded(id);
+      if (!(await ensure_loaded(id))) return;
       chat_store.switch_session(id);
       stores.op.reset(CHAT_OP_KEY);
     },
@@ -560,7 +562,7 @@ export function register_chat_actions(
     execute: async (...args: unknown[]) => {
       const [id, title] = args as [unknown, unknown];
       if (typeof id !== "string" || typeof title !== "string") return;
-      await ensure_loaded(id);
+      if (!(await ensure_loaded(id))) return;
       chat_store.rename_session(id, title);
       persist_session(id);
     },

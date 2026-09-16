@@ -225,7 +225,9 @@
 
   function persist_active_session() {
     const vault_id = stores.vault.vault?.id;
-    const session = rag.active;
+    const session = rag.active_id
+      ? stores.assistant_sessions.get_loaded(rag.active_id)
+      : null;
     if (!vault_id || !session) return;
     void services.assistant_sessions.save_session(vault_id, session);
   }

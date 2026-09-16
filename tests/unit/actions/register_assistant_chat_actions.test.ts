@@ -416,6 +416,28 @@ describe("register_chat_actions", () => {
     });
   });
 
+  it("rename: a failed body load saves nothing and leaves the stub untouched", async () => {
+    const { registry, chat_store, assistant_sessions, session_service } =
+      create_harness();
+    const stub = assistant_sessions.create({
+      kind: "chat",
+      title: "Unreadable",
+      provider_id: PROVIDER_ID,
+    });
+    assistant_sessions.hydrate_summaries(
+      [to_assistant_session_summary(stub)],
+      "v1",
+    );
+    session_service.load_session.mockResolvedValue(null);
+
+    await registry.execute(ACTION_IDS.rag_rename_session, stub.id, "Named");
+    await registry.execute(ACTION_IDS.rag_switch_session, stub.id);
+
+    expect(session_service.save_session).not.toHaveBeenCalled();
+    expect(assistant_sessions.get(stub.id)?.title).toBe("Unreadable");
+    expect(chat_store.active_id).not.toBe(stub.id);
+  });
+
   it("switch: loads the session body so the panel shows its messages", async () => {
     const { registry, chat_store, assistant_sessions, session_service } =
       create_harness();

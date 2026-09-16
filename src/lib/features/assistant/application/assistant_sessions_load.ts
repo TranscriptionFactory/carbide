@@ -25,17 +25,20 @@ export async function load_assistant_sessions(
 
 // Loads a session's body into the store if it is listed but still a stub.
 // Every path that reads or saves a body (switching to it, renaming it,
-// showing a restored tab) awaits this first.
+// showing a restored tab) awaits this first and stops on false: a stub must
+// never become the active session or reach a save.
 export async function ensure_assistant_session_loaded(
   sessions: AssistantSessionStore,
   session_service: AssistantSessionService,
   id: string,
-): Promise<void> {
+): Promise<boolean> {
+  if (sessions.is_loaded(id)) return true;
   const vault_id = sessions.vault_id;
-  if (!vault_id || sessions.is_loaded(id) || !sessions.get(id)) return;
+  if (!vault_id || !sessions.get(id)) return false;
   const loaded = await session_service.load_session(vault_id, id);
-  if (!loaded || sessions.vault_id !== vault_id) return;
+  if (!loaded || sessions.vault_id !== vault_id) return false;
   sessions.attach_body(loaded);
+  return true;
 }
 
 // Pruning rides the one hydration rather than a timer: it is the only moment

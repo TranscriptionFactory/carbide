@@ -42,7 +42,9 @@ describe("assistant session tab bodies reactor", () => {
       service,
     );
     flushSync();
-    await vi.waitFor(() => expect(sessions.is_loaded("a")).toBe(true));
+    await vi.waitFor(() => {
+      expect(sessions.is_loaded("a")).toBe(true);
+    });
     flushSync();
 
     expect(load_session).toHaveBeenCalledTimes(1);
@@ -72,12 +74,16 @@ describe("assistant session tab bodies reactor", () => {
       service,
     );
     flushSync();
-    await vi.waitFor(() => expect(sessions.is_loaded("shown")).toBe(true));
+    await vi.waitFor(() => {
+      expect(sessions.is_loaded("shown")).toBe(true);
+    });
     expect(sessions.is_loaded("hidden")).toBe(false);
 
     tabs.activate_tab("assistant:hidden");
     flushSync();
-    await vi.waitFor(() => expect(sessions.is_loaded("hidden")).toBe(true));
+    await vi.waitFor(() => {
+      expect(sessions.is_loaded("hidden")).toBe(true);
+    });
     expect(load_session).toHaveBeenCalledTimes(2);
     stop();
   });

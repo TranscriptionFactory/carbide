@@ -755,7 +755,7 @@ export function register_ai_actions(
       ),
     );
 
-    const stored = assistant_sessions.get(run.session_id);
+    const stored = assistant_sessions.get_loaded(run.session_id);
     if (stored) void assistant_sessions_service.save_session(vault_id, stored);
     return run.session_id;
   }

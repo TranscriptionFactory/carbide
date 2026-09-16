@@ -463,6 +463,28 @@ describe("AssistantSessionStore", () => {
       expect(store.is_loaded("a")).toBe(false);
     });
 
+    it("attach_body ignores a second read once the session is loaded", () => {
+      const { store } = create_store();
+      const a = make_session({ id: "a", title: "From disk" });
+      store.hydrate_summaries([to_assistant_session_summary(a)]);
+      store.attach_body(a);
+      store.rename("a", "Renamed");
+
+      store.attach_body(a);
+
+      expect(store.get("a")?.title).toBe("Renamed");
+      expect(store.get_loaded("a")?.title).toBe("Renamed");
+    });
+
+    it("get_loaded returns nothing for a stub", () => {
+      const { store } = create_store();
+      const a = make_session({ id: "a" });
+      store.hydrate_summaries([to_assistant_session_summary(a)]);
+
+      expect(store.get("a")).not.toBeNull();
+      expect(store.get_loaded("a")).toBeNull();
+    });
+
     it("attach_body ignores a session that left the list meanwhile", () => {
       const { store } = create_store();
       store.hydrate_summaries([]);

@@ -67,6 +67,12 @@ export class AssistantSessionStore {
     return this.loaded_ids.has(id);
   }
 
+  // The only record a save path may persist: a stub written to disk would
+  // replace the real body with an empty one.
+  get_loaded(id: string): AssistantSession | null {
+    return this.is_loaded(id) ? this.get(id) : null;
+  }
+
   create(input: AssistantSessionCreate): AssistantSession {
     const timestamp = this.now();
     const session: AssistantSession = {
@@ -162,8 +168,10 @@ export class AssistantSessionStore {
   }
 
   // Replaces the stub in place so list order is untouched. Ignores sessions
-  // no longer in the list (deleted while the body was in flight).
+  // no longer in the list (deleted while the body was in flight) and ones
+  // already loaded (a second in-flight read must not revert later patches).
   attach_body(session: AssistantSession): void {
+    if (this.is_loaded(session.id)) return;
     const index = this.sessions.findIndex((s) => s.id === session.id);
     if (index === -1) return;
     const sessions = [...this.sessions];

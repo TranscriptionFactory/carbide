@@ -101,7 +101,11 @@ export function create_assistant_session_persistence_tauri_adapter(): AssistantS
       );
       if (!legacy) return null;
       const session = stamp_kind(legacy);
-      await write_json(vault_id, session_path(id), session);
+      try {
+        await write_json(vault_id, session_path(id), session);
+      } catch {
+        // read-only vault: the body is still good, the copy retries next load
+      }
       return session;
     },
 
