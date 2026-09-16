@@ -429,18 +429,28 @@ pub struct SearchDbState {
     workers: Mutex<HashMap<String, VaultWorker>>,
 }
 
-impl Drop for SearchDbState {
-    fn drop(&mut self) {
+impl SearchDbState {
+    /// Stops every vault worker and joins the writer threads so their
+    /// post-loop `maybe_dump_indices` persists dirty HNSW graphs. Called from
+    /// app exit because `Drop` never runs in the shipped app: tao's macOS loop
+    /// calls `process::exit` after `RunEvent::Exit`.
+    pub fn shutdown_all(&self) {
         let mut map = match self.workers.lock() {
             Ok(m) => m,
             Err(e) => {
-                log::warn!("SearchDbState::drop: lock poisoned: {e}");
+                log::warn!("SearchDbState::shutdown_all: lock poisoned: {e}");
                 return;
             }
         };
         for (_vid, mut worker) in map.drain() {
             shutdown_worker(&mut worker);
         }
+    }
+}
+
+impl Drop for SearchDbState {
+    fn drop(&mut self) {
+        self.shutdown_all();
     }
 }
 

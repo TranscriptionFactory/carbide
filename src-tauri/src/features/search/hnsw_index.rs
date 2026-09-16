@@ -48,6 +48,21 @@ struct IndexMeta {
     id_to_key: Vec<(usize, String)>,
 }
 
+/// Deltas `reconcile_from_sqlite` applied to a loaded dump. All zero means
+/// the dump was fresh.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub struct ReconcileDelta {
+    pub inserted: usize,
+    pub changed: usize,
+    pub removed: usize,
+}
+
+impl ReconcileDelta {
+    pub fn is_empty(&self) -> bool {
+        self.inserted == 0 && self.changed == 0 && self.removed == 0
+    }
+}
+
 pub struct VectorIndex {
     dims: usize,
     hnsw: Hnsw<'static, f32, DistCosine>,
@@ -633,7 +648,11 @@ impl VectorIndex {
     /// (marking the old graph point stale), removes loaded keys no longer in
     /// SQLite. Makes a slightly-stale dump correct and restores `get_vector` /
     /// `compact_from_vectors`. Only flips `dirty` when a delta is applied.
-    pub fn reconcile_from_sqlite(&mut self, conn: &rusqlite::Connection, index_name: &str) {
+    pub fn reconcile_from_sqlite(
+        &mut self,
+        conn: &rusqlite::Connection,
+        index_name: &str,
+    ) -> ReconcileDelta {
         let mut sqlite_vecs: HashMap<String, Vec<f32>> = HashMap::new();
         Self::for_each_embedding(conn, index_name, |key, vec| {
             sqlite_vecs.insert(key, vec);
@@ -666,6 +685,11 @@ impl VectorIndex {
             .filter(|k| !sqlite_vecs.contains_key(*k))
             .cloned()
             .collect();
+        let mut delta = ReconcileDelta {
+            removed: removed.len(),
+            changed: changed.len(),
+            inserted: 0,
+        };
         for key in removed {
             self.remove(&key);
         }
@@ -674,9 +698,13 @@ impl VectorIndex {
             if self.key_to_id.contains_key(&key) && !changed.contains(&key) {
                 self.vectors.insert(key, vec);
             } else {
+                if !changed.contains(&key) {
+                    delta.inserted += 1;
+                }
                 self.insert(&key, vec);
             }
         }
+        delta
     }
 
     /// Startup entry point: load the persisted graph and reconcile against
@@ -694,11 +722,19 @@ impl VectorIndex {
         let expected_dims = Self::peek_dims(conn, index_name).unwrap_or(dims);
         match Self::load_from_dump(dir, basename, model_version, expected_dims) {
             Some(mut idx) => {
-                idx.reconcile_from_sqlite(conn, index_name);
+                let delta = idx.reconcile_from_sqlite(conn, index_name);
                 log::info!(
                     "VectorIndex::load_or_rebuild({index_name}): loaded {} vectors from dump",
                     idx.len()
                 );
+                if !delta.is_empty() {
+                    log::info!(
+                        "VectorIndex::load_or_rebuild({index_name}): reconciled +{} ~{} -{}",
+                        delta.inserted,
+                        delta.changed,
+                        delta.removed
+                    );
+                }
                 idx
             }
             None => Self::rebuild_from_sqlite(conn, index_name, expected_dims),
@@ -1381,8 +1417,16 @@ mod tests {
         let conn = mem_conn(&[("a", va.clone()), ("c", vc.clone())]);
 
         let mut loaded = VectorIndex::load_from_dump(&dir, "notes-test", "m1", 8).unwrap();
-        loaded.reconcile_from_sqlite(&conn, "notes");
+        let delta = loaded.reconcile_from_sqlite(&conn, "notes");
 
+        assert_eq!(
+            delta,
+            ReconcileDelta {
+                inserted: 1,
+                changed: 0,
+                removed: 1
+            }
+        );
         assert_eq!(loaded.len(), 2);
         assert!(loaded.get_vector("c").is_some());
         assert!(loaded.get_vector("b").is_none());
@@ -1470,8 +1514,16 @@ mod tests {
         // SQLite was updated after the dump (save without settle, then crash).
         let conn = mem_conn(&[("a", va_new.clone())]);
         let mut loaded = VectorIndex::load_from_dump(&dir, "notes-test", "m1", 8).unwrap();
-        loaded.reconcile_from_sqlite(&conn, "notes");
+        let delta = loaded.reconcile_from_sqlite(&conn, "notes");
 
+        assert_eq!(
+            delta,
+            ReconcileDelta {
+                inserted: 0,
+                changed: 1,
+                removed: 0
+            }
+        );
         assert_eq!(loaded.get_vector("a"), Some(&va_new));
         assert_eq!(loaded.len(), 1);
         // Search must rank by the fresh vector, not the dumped pre-edit point.

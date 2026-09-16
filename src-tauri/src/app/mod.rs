@@ -59,6 +59,8 @@ async fn shutdown_managed_processes(app: &tauri::AppHandle) {
     app.state::<features::external_mcp::ExternalMcpState>()
         .shutdown()
         .await;
+    app.state::<features::search::service::SearchDbState>()
+        .shutdown_all();
     app.state::<features::watcher::service::WatcherState>()
         .shutdown();
     log::info!("Process cleanup complete");
