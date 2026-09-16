@@ -1,7 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ActionRegistry } from "$lib/app/action_registry/action_registry";
 import { ACTION_IDS } from "$lib/app/action_registry/action_ids";
-import { register_chat_actions } from "$lib/features/assistant";
+import {
+  register_chat_actions,
+  to_assistant_session_summary,
+} from "$lib/features/assistant";
 import {
   AssistantChatStore,
   AssistantProposalStore,
@@ -14,6 +17,7 @@ import { DEFAULT_EDITOR_SETTINGS } from "$lib/shared/types/editor_settings";
 import type {
   AssistantChatSourceInfo,
   AssistantChatStreamEvent,
+  AssistantSession,
 } from "$lib/features/assistant";
 import { collect_open_note_image_parts } from "$lib/features/ai";
 import { toast } from "svelte-sonner";
@@ -81,6 +85,7 @@ function create_harness(events: AssistantChatStreamEvent[] = ANSWERED_EVENTS) {
   const session_service = {
     save_session: vi.fn().mockResolvedValue(undefined),
     delete_session: vi.fn().mockResolvedValue(undefined),
+    load_session: vi.fn().mockResolvedValue(null),
     generate_title: vi.fn().mockResolvedValue(null),
   };
 
@@ -123,6 +128,7 @@ function create_harness(events: AssistantChatStreamEvent[] = ANSWERED_EVENTS) {
       bootstrap_default_vault_path: null,
     },
     chat_store,
+    assistant_sessions,
     documents,
     chat_service: chat_service as never,
     session_service: session_service as never,
@@ -368,6 +374,72 @@ describe("register_chat_actions", () => {
 
       expect(opened).toEqual([]);
     });
+  });
+
+  it("rename: loads an unloaded session's body before saving it", async () => {
+    const { registry, assistant_sessions, session_service } = create_harness();
+    const stored = {
+      ...assistant_sessions.create({
+        kind: "chat",
+        title: "Stub",
+        provider_id: PROVIDER_ID,
+      }),
+      messages: [
+        { id: "m1", role: "user" as const, content: "hi", citations: [] },
+        {
+          id: "m2",
+          role: "assistant" as const,
+          content: "hello",
+          citations: [],
+        },
+      ],
+    };
+    assistant_sessions.hydrate_summaries(
+      [to_assistant_session_summary(stored)],
+      "v1",
+    );
+    session_service.load_session.mockResolvedValue(stored);
+
+    await registry.execute(ACTION_IDS.rag_rename_session, stored.id, "Named");
+
+    expect(session_service.load_session).toHaveBeenCalledWith("v1", stored.id);
+    expect(session_service.save_session).toHaveBeenCalledTimes(1);
+    const [, saved] = (session_service.save_session.mock.calls[0] ?? []) as [
+      string,
+      AssistantSession,
+    ];
+    expect(saved).toMatchObject({
+      id: stored.id,
+      title: "Named",
+      title_source: "manual",
+      messages: stored.messages,
+    });
+  });
+
+  it("switch: loads the session body so the panel shows its messages", async () => {
+    const { registry, chat_store, assistant_sessions, session_service } =
+      create_harness();
+    const stored = {
+      ...assistant_sessions.create({
+        kind: "chat",
+        title: "Old chat",
+        provider_id: PROVIDER_ID,
+      }),
+      messages: [
+        { id: "m1", role: "user" as const, content: "hi", citations: [] },
+      ],
+    };
+    assistant_sessions.hydrate_summaries(
+      [to_assistant_session_summary(stored)],
+      "v1",
+    );
+    session_service.load_session.mockResolvedValue(stored);
+
+    await registry.execute(ACTION_IDS.rag_switch_session, stored.id);
+
+    expect(chat_store.active_id).toBe(stored.id);
+    expect(chat_store.messages).toEqual(stored.messages);
+    expect(chat_store.provider_id).toBe(PROVIDER_ID);
   });
 
   it("switching sessions mid-stream does not let the old turn write into it", async () => {

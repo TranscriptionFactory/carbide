@@ -168,8 +168,10 @@ export {
   derive_session_title,
   migrate_scope,
   migrate_session_fields,
+  migrate_stored_session,
   sanitize_generated_title,
   should_autotitle,
+  stub_session_from_summary,
   type StoredAssistantSession,
 } from "$lib/features/assistant/types/assistant_session_model";
 
@@ -177,7 +179,10 @@ export { AssistantChatStore } from "$lib/features/assistant/state/assistant_chat
 
 export { AssistantSessionService } from "$lib/features/assistant/application/assistant_session_service";
 
-export { load_assistant_sessions } from "$lib/features/assistant/application/assistant_sessions_load";
+export {
+  ensure_assistant_session_loaded,
+  load_assistant_sessions,
+} from "$lib/features/assistant/application/assistant_sessions_load";
 
 export { AssistantRunStore } from "$lib/features/assistant/state/assistant_run_store.svelte";
 

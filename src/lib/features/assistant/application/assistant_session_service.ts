@@ -10,8 +10,7 @@ import type {
   AssistantSessionSummary,
 } from "$lib/features/assistant/types/session";
 import {
-  migrate_scope,
-  migrate_session_fields,
+  migrate_stored_session,
   sanitize_generated_title,
 } from "$lib/features/assistant/types/assistant_session_model";
 
@@ -43,35 +42,21 @@ export class AssistantSessionService {
     }
   }
 
+  // The one hydration boundary (R3/I8). migrate_stored_session fills fields
+  // that predate their own existence and upgrades a legacy single-string
+  // scope; dropping it loses sessions silently, because it migrates optional
+  // fields and the load still typechecks without them.
   async load_session(
     vault_id: string,
     id: string,
   ): Promise<AssistantSession | null> {
     try {
-      return await this.persistence_port.load_session(vault_id, id);
+      const stored = await this.persistence_port.load_session(vault_id, id);
+      return stored ? migrate_stored_session(stored) : null;
     } catch (err) {
       log.warn("Assistant load_session failed", { error: error_message(err) });
       return null;
     }
-  }
-
-  // The one hydration boundary (R3/I8). migrate_session_fields fills fields
-  // that predate their own existence and migrate_scope upgrades a legacy
-  // single-string scope; dropping either loses sessions silently, because both
-  // migrate optional fields and the load still typechecks without them.
-  async load_all_sessions(vault_id: string): Promise<AssistantSession[]> {
-    const summaries = await this.list_sessions(vault_id);
-    const sessions = await Promise.all(
-      summaries.map((summary) => this.load_session(vault_id, summary.id)),
-    );
-    return sessions
-      .filter((session): session is AssistantSession => session !== null)
-      .map((session) =>
-        migrate_session_fields({
-          ...session,
-          scope: migrate_scope(session.scope),
-        }),
-      );
   }
 
   async save_session(

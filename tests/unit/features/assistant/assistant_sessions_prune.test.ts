@@ -8,6 +8,7 @@ import type {
   AssistantSession,
   AssistantSessionService,
 } from "$lib/features/assistant";
+import { to_assistant_session_summary } from "$lib/features/assistant/types/session";
 
 const DAY = 24 * 60 * 60 * 1000;
 const NOW = 1_000 * DAY;
@@ -36,7 +37,9 @@ function fake_service(
   delete_session = vi.fn(() => Promise.resolve()),
 ) {
   return {
-    load_all_sessions: vi.fn(() => Promise.resolve(loaded)),
+    list_sessions: vi.fn(() =>
+      Promise.resolve(loaded.map(to_assistant_session_summary)),
+    ),
     delete_session,
   } as unknown as AssistantSessionService & {
     delete_session: ReturnType<typeof vi.fn>;

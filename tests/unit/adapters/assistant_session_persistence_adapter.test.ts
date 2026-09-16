@@ -35,6 +35,12 @@ type WrittenFiles = Map<string, string>;
 
 function fake_vault(): WrittenFiles {
   const files: WrittenFiles = new Map();
+  fake_vault_reuse(files);
+  return files;
+}
+
+// Re-points the invoke mock at an existing file map after mockClear().
+function fake_vault_reuse(files: WrittenFiles): void {
   invoke.mockImplementation((cmd: string, args: Record<string, unknown>) => {
     const path = args.relativePath as string;
     if (cmd === "read_vault_file") {
@@ -52,7 +58,6 @@ function fake_vault(): WrittenFiles {
     }
     return Promise.reject(new Error(`unexpected command: ${cmd}`));
   });
-  return files;
 }
 
 function read_index(files: WrittenFiles, path = INDEX_PATH): unknown[] {
@@ -257,6 +262,30 @@ describe("assistant_session_persistence_tauri_adapter", () => {
           updated_at: 4,
         },
       ]);
+    });
+
+    it("copies a legacy-only session under assistant/ on first load, so later loads read once", async () => {
+      const files = fake_vault();
+      seed_legacy(files);
+      const adapter = create_assistant_session_persistence_tauri_adapter();
+
+      const first = await adapter.load_session("v1", "old");
+      const reads_for_first = invoke.mock.calls.filter(
+        ([cmd]) => cmd === "read_vault_file",
+      ).length;
+      expect(reads_for_first).toBe(2);
+      expect(
+        JSON.parse(files.get(".carbide/assistant/sessions/old.json") ?? ""),
+      ).toEqual(first);
+      expect(files.has(".carbide/rag/sessions/old.json")).toBe(true);
+
+      invoke.mockClear();
+      fake_vault_reuse(files);
+      const second = await adapter.load_session("v1", "old");
+      expect(second).toEqual(first);
+      expect(
+        invoke.mock.calls.filter(([cmd]) => cmd === "read_vault_file"),
+      ).toHaveLength(1);
     });
 
     it("prefers the new index once it exists and leaves legacy files in place", async () => {

@@ -1,6 +1,7 @@
 import type {
   AssistantScope,
   AssistantSession,
+  AssistantSessionSummary,
 } from "$lib/features/assistant/types/session";
 
 const MAX_TITLE_LENGTH = 60;
@@ -68,6 +69,36 @@ export function migrate_session_fields(
     // the dead key stops being rewritten into every later save.
     auto_approve: session.auto_approve ?? permission_mode === "power",
     changed_files: session.changed_files ?? [],
+  };
+}
+
+// Both halves of the hydration boundary in one call, so every read path
+// (startup list, on-demand body load) migrates identically.
+export function migrate_stored_session(
+  session: StoredAssistantSession,
+): AssistantSession {
+  return migrate_session_fields({
+    ...session,
+    scope: migrate_scope(session.scope),
+  });
+}
+
+// The list entry the store holds until a body is loaded on demand. Every
+// non-summary field carries its default; `attach_body` replaces the whole
+// record, so nothing here is ever persisted.
+export function stub_session_from_summary(
+  summary: AssistantSessionSummary,
+): AssistantSession {
+  return {
+    ...summary,
+    title_source: "derived",
+    provider_id: "",
+    messages: [],
+    origin: {},
+    scope: {},
+    mode: "ask",
+    auto_approve: false,
+    changed_files: [],
   };
 }
 

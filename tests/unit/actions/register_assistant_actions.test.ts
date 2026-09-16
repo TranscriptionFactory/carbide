@@ -109,6 +109,7 @@ function create_harness(options: HarnessOptions = {}) {
     assistant_kernel: { stop: vi.fn(), stop_all: vi.fn() } as never,
     assistant_runs: runs,
     assistant_sessions: sessions,
+    session_service: { load_session: vi.fn() } as never,
     assistant_proposals: proposals,
     proposal_apply: proposal_apply as never,
     proposal_revert: proposal_revert as never,
@@ -636,6 +637,7 @@ describe("assistant.open_panel (pin 5)", () => {
       } as never,
       assistant_runs: new AssistantRunStore(),
       assistant_sessions: sessions,
+      session_service: { load_session: vi.fn() } as never,
       assistant_proposals: new AssistantProposalStore(),
       proposal_apply: {
         apply_batch: vi.fn(),

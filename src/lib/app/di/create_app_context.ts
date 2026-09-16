@@ -1468,6 +1468,7 @@ export function create_app_context(input: {
     assistant_kernel,
     assistant_runs: stores.assistant_runs,
     assistant_sessions: stores.assistant_sessions,
+    session_service: assistant_sessions_service,
     assistant_proposals: stores.assistant_proposals,
     proposal_apply,
     proposal_revert,
@@ -1488,6 +1489,7 @@ export function create_app_context(input: {
   register_chat_actions({
     ...base_action_input,
     chat_store: stores.assistant_chat,
+    assistant_sessions: stores.assistant_sessions,
     chat_service: assistant_chat_service,
     session_service: assistant_sessions_service,
     documents: assistant_documents,

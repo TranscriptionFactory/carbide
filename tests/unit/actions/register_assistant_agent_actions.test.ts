@@ -46,7 +46,8 @@ function create_harness(
   workspace: { open_note?: HarnessOpenNote; background_tab?: HarnessTab } = {},
 ) {
   const registry = new ActionRegistry();
-  const chat_store = new AssistantChatStore(new AssistantSessionStore());
+  const assistant_sessions = new AssistantSessionStore();
+  const chat_store = new AssistantChatStore(assistant_sessions);
   const stores = {
     ui: new UIStore(),
     op: new OpStore(),
@@ -125,6 +126,7 @@ function create_harness(
       bootstrap_default_vault_path: null,
     },
     chat_store,
+    assistant_sessions,
     documents,
     chat_service: {} as never,
     session_service: session_service as never,

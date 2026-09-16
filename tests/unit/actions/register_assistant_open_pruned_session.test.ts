@@ -19,7 +19,7 @@ function create_harness() {
   const tab = new TabStore();
   register_assistant_actions({
     registry,
-    stores: { tab } as never,
+    stores: { tab, vault: { active_vault_id: "v1" } } as never,
     services: {} as never,
     default_mount_config: {
       reset_app_state: true,
@@ -28,6 +28,7 @@ function create_harness() {
     assistant_kernel: { stop: vi.fn(), stop_all: vi.fn() } as never,
     assistant_runs: new AssistantRunStore(),
     assistant_sessions: sessions,
+    session_service: { load_session: vi.fn() } as never,
     assistant_proposals: { set_hunk_selected: vi.fn() } as never,
     proposal_apply: {
       apply_batch: vi.fn(),

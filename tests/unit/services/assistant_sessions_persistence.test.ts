@@ -1,8 +1,9 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   AssistantChatStore,
   AssistantSessionService,
   AssistantSessionStore,
+  ensure_assistant_session_loaded,
   load_assistant_sessions,
 } from "$lib/features/assistant";
 import { create_test_assistant_session_persistence_adapter } from "../../adapters/test_assistant_session_persistence_adapter";
@@ -53,12 +54,20 @@ describe("assistant session persistence round-trip", () => {
     await writer.save_session(VAULT_ID, session({ id: "b", updated_at: 20 }));
 
     const reader = make_service(persistence);
+    const load_session = vi.spyOn(reader, "load_session");
     const { sessions, store } = make_stores();
     await load_assistant_sessions(sessions, store, reader, VAULT_ID);
 
     expect(store.summaries.map((s) => s.id)).toEqual(["b", "a"]);
+    // Startup hydrates from the index alone; bodies stay on disk until opened.
+    expect(load_session).not.toHaveBeenCalled();
+    expect(sessions.is_loaded("a")).toBe(false);
 
+    await ensure_assistant_session_loaded(sessions, reader, VAULT_ID, "a");
     store.switch_session("a");
+    expect(load_session).toHaveBeenCalledTimes(1);
+    expect(sessions.is_loaded("a")).toBe(true);
+    expect(sessions.is_loaded("b")).toBe(false);
     expect(store.messages).toEqual(session({ id: "a" }).messages);
     expect(store.provider_id).toBe("ollama");
     expect(store.scope).toEqual({ folders: ["projects/"] });
@@ -79,13 +88,10 @@ describe("assistant session persistence round-trip", () => {
     );
 
     const { sessions, store } = make_stores();
-    await load_assistant_sessions(
-      sessions,
-      store,
-      make_service(persistence),
-      VAULT_ID,
-    );
+    const reader = make_service(persistence);
+    await load_assistant_sessions(sessions, store, reader, VAULT_ID);
 
+    await ensure_assistant_session_loaded(sessions, reader, VAULT_ID, "legacy");
     store.switch_session("legacy");
     expect(store.scope).toEqual({ folders: ["projects"], tags: ["active"] });
   });
@@ -124,13 +130,10 @@ describe("assistant session persistence round-trip", () => {
     await writer.save_session(VAULT_ID, agent_session);
 
     const { sessions, store } = make_stores();
-    await load_assistant_sessions(
-      sessions,
-      store,
-      make_service(persistence),
-      VAULT_ID,
-    );
+    const reader = make_service(persistence);
+    await load_assistant_sessions(sessions, store, reader, VAULT_ID);
 
+    await ensure_assistant_session_loaded(sessions, reader, VAULT_ID, "agent");
     store.switch_session("agent");
     expect(store.messages).toEqual(agent_session.messages);
   });
@@ -150,12 +153,11 @@ describe("assistant session persistence round-trip", () => {
     await writer.save_session(VAULT_ID, legacy as unknown as AssistantSession);
 
     const { sessions, store } = make_stores();
-    await load_assistant_sessions(
-      sessions,
-      store,
-      make_service(persistence),
-      VAULT_ID,
-    );
+    const reader = make_service(persistence);
+    await load_assistant_sessions(sessions, store, reader, VAULT_ID);
+    for (const id of ["named", "legacy"]) {
+      await ensure_assistant_session_loaded(sessions, reader, VAULT_ID, id);
+    }
 
     expect(store.sessions.find((s) => s.id === "named")?.title_source).toBe(
       "manual",

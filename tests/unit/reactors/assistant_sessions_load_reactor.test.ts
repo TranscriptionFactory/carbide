@@ -10,6 +10,7 @@ import { VaultStore } from "$lib/features/vault";
 import { UIStore } from "$lib/app/orchestration/ui_store.svelte";
 import { create_assistant_sessions_load_reactor } from "$lib/reactors/assistant_sessions_load.reactor.svelte";
 import { create_test_vault, vault_store_for } from "../helpers/test_fixtures";
+import { to_assistant_session_summary } from "$lib/features/assistant/types/session";
 import type { AssistantSessionService } from "$lib/features/assistant";
 import type { AssistantSession } from "$lib/features/assistant";
 import type { VaultId } from "$lib/shared/types/ids";
@@ -35,12 +36,14 @@ function session(overrides: Partial<AssistantSession> = {}): AssistantSession {
 
 function fake_service(by_vault: Record<string, AssistantSession[]>) {
   return {
-    load_all_sessions: vi.fn((vault_id: string) =>
-      Promise.resolve(by_vault[vault_id] ?? []),
+    list_sessions: vi.fn((vault_id: string) =>
+      Promise.resolve(
+        (by_vault[vault_id] ?? []).map(to_assistant_session_summary),
+      ),
     ),
     delete_session: vi.fn(() => Promise.resolve()),
   } as unknown as AssistantSessionService & {
-    load_all_sessions: ReturnType<typeof vi.fn>;
+    list_sessions: ReturnType<typeof vi.fn>;
     delete_session: ReturnType<typeof vi.fn>;
   };
 }
@@ -151,7 +154,7 @@ describe("assistant_sessions_load reactor", () => {
       expect(sessions.sessions.map((s) => s.id)).toEqual(["a"]);
     });
 
-    expect(service.load_all_sessions).toHaveBeenCalledTimes(1);
+    expect(service.list_sessions).toHaveBeenCalledTimes(1);
     cleanup();
   });
 
@@ -169,13 +172,13 @@ describe("assistant_sessions_load reactor", () => {
     );
     flushSync();
     await vi.waitFor(() => {
-      expect(service.load_all_sessions).toHaveBeenCalledTimes(1);
+      expect(service.list_sessions).toHaveBeenCalledTimes(1);
     });
 
     vault_store.set_vault(create_test_vault({ id: "v1" as VaultId }));
     flushSync();
 
-    expect(service.load_all_sessions).toHaveBeenCalledTimes(1);
+    expect(service.list_sessions).toHaveBeenCalledTimes(1);
     cleanup();
   });
 
@@ -200,7 +203,7 @@ describe("assistant_sessions_load reactor", () => {
     flushSync();
 
     expect(sessions.sessions).toEqual([]);
-    expect(service.load_all_sessions).toHaveBeenCalledTimes(1);
+    expect(service.list_sessions).toHaveBeenCalledTimes(1);
     cleanup();
   });
 
@@ -218,7 +221,7 @@ describe("assistant_sessions_load reactor", () => {
     flushSync();
 
     expect(sessions.sessions).toEqual([]);
-    expect(service.load_all_sessions).not.toHaveBeenCalled();
+    expect(service.list_sessions).not.toHaveBeenCalled();
     cleanup();
   });
 

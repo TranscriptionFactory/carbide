@@ -23,6 +23,8 @@ import { describe_turn_revert } from "$lib/features/assistant/domain/proposal_tu
 import type { AssistantProposalStore } from "$lib/features/assistant/state/assistant_proposal_store.svelte";
 import type { AssistantRunStore } from "$lib/features/assistant/state/assistant_run_store.svelte";
 import type { AssistantSessionStore } from "$lib/features/assistant/state/assistant_session_store.svelte";
+import type { AssistantSessionService } from "$lib/features/assistant/application/assistant_session_service";
+import { ensure_assistant_session_loaded } from "$lib/features/assistant/application/assistant_sessions_load";
 import type { RunId } from "$lib/features/assistant/types/run";
 import { UnattendedRunService } from "$lib/features/assistant/application/unattended_run_service";
 
@@ -84,6 +86,7 @@ export function register_assistant_actions(
     assistant_kernel: AssistantKernelService;
     assistant_runs: AssistantRunStore;
     assistant_sessions: AssistantSessionStore;
+    session_service: AssistantSessionService;
     assistant_proposals: AssistantProposalStore;
     proposal_apply: ProposalApplyService;
     proposal_revert: ProposalRevertService;
@@ -97,6 +100,7 @@ export function register_assistant_actions(
     assistant_kernel,
     assistant_runs,
     assistant_sessions,
+    session_service,
     assistant_proposals,
     proposal_apply,
     proposal_revert,
@@ -197,9 +201,18 @@ export function register_assistant_actions(
   registry.register({
     id: ACTION_IDS.assistant_open_session,
     label: "Open Assistant Session",
-    execute: (...args: unknown[]) => {
+    execute: async (...args: unknown[]) => {
       const session_id = typeof args[0] === "string" ? args[0] : "";
       if (!session_id) return;
+      const vault_id = stores.vault.active_vault_id;
+      if (vault_id) {
+        await ensure_assistant_session_loaded(
+          assistant_sessions,
+          session_service,
+          vault_id,
+          session_id,
+        );
+      }
       const session = assistant_sessions.get(session_id);
       if (!session) return;
       stores.tab.open_assistant_session_tab(

@@ -49,6 +49,7 @@ import { create_plugin_metadata_events_reactor } from "$lib/reactors/plugin_meta
 import { create_mcp_autostart_reactor } from "$lib/reactors/mcp_autostart.reactor.svelte";
 import { create_session_links_reactor } from "$lib/reactors/session_links.reactor.svelte";
 import { create_assistant_sessions_load_reactor } from "$lib/reactors/assistant_sessions_load.reactor.svelte";
+import { create_assistant_session_tab_bodies_reactor } from "$lib/reactors/assistant_session_tab_bodies.reactor.svelte";
 import { create_assistant_readiness_reactor } from "$lib/reactors/assistant_readiness.reactor.svelte";
 import { create_assistant_proposals_sync_reactor } from "$lib/reactors/assistant_proposals_sync.reactor.svelte";
 import { create_assistant_chat_mcp_bridge_reactor } from "$lib/reactors/assistant_chat_mcp_bridge.reactor.svelte";
@@ -485,6 +486,11 @@ export function mount_reactors(context: ReactorContext): ReactorHandles {
       context.assistant_sessions_service,
       context.vault_store,
       context.ui_store,
+    ),
+    create_assistant_session_tab_bodies_reactor(
+      context.tab_store,
+      context.assistant_sessions,
+      context.assistant_sessions_service,
     ),
     create_assistant_chat_mcp_bridge_reactor(
       context.assistant_chat_service,

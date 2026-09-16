@@ -12,6 +12,8 @@ import { should_attach_open_note_images } from "$lib/features/assistant/domain/o
 import { should_autotitle } from "$lib/features/assistant";
 import type { AssistantChatService } from "$lib/features/assistant/application/assistant_chat_service";
 import { build_chat_query_input } from "$lib/features/assistant/application/chat_query_input";
+import { ensure_assistant_session_loaded } from "$lib/features/assistant/application/assistant_sessions_load";
+import type { AssistantSessionStore } from "$lib/features/assistant/state/assistant_session_store.svelte";
 import type {
   AssistantChatStore,
   AssistantDocumentPort,
@@ -57,6 +59,7 @@ function payload_field(payload: unknown, field: string): string {
 export function register_chat_actions(
   input: ActionRegistrationInput & {
     chat_store: AssistantChatStore;
+    assistant_sessions: AssistantSessionStore;
     chat_service: AssistantChatService;
     session_service: AssistantSessionService;
     assistant_kernel: AssistantKernelService;
@@ -70,6 +73,7 @@ export function register_chat_actions(
     stores,
     services,
     chat_store,
+    assistant_sessions,
     chat_service,
     session_service,
     assistant_kernel,
@@ -129,6 +133,19 @@ export function register_chat_actions(
     const session = chat_store.sessions.find((s) => s.id === id);
     if (!vault_id || !session) return;
     void session_service.save_session(vault_id, session);
+  }
+
+  // Sessions hydrate as summary stubs; anything that reads or saves a body
+  // goes through here first so a stub never reaches save_session.
+  async function ensure_loaded(id: string): Promise<void> {
+    const vault_id = stores.vault.active_vault_id;
+    if (!vault_id) return;
+    await ensure_assistant_session_loaded(
+      assistant_sessions,
+      session_service,
+      vault_id,
+      id,
+    );
   }
 
   // I3: one provider rule. The previous local copy resolved `auto` as
@@ -534,6 +551,7 @@ export function register_chat_actions(
         await registry.execute(ACTION_IDS.assistant_open_session, id);
         return;
       }
+      await ensure_loaded(id);
       chat_store.switch_session(id);
       stores.op.reset(CHAT_OP_KEY);
     },
@@ -542,9 +560,10 @@ export function register_chat_actions(
   registry.register({
     id: ACTION_IDS.rag_rename_session,
     label: "Rename Vault Chat Session",
-    execute: (...args: unknown[]) => {
+    execute: async (...args: unknown[]) => {
       const [id, title] = args as [unknown, unknown];
       if (typeof id !== "string" || typeof title !== "string") return;
+      await ensure_loaded(id);
       chat_store.rename_session(id, title);
       persist_session(id);
     },

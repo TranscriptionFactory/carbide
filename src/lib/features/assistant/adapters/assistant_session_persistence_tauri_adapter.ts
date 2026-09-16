@@ -16,8 +16,8 @@ const ASSISTANT_DIR = `${APP_DIR}/assistant`;
 const INDEX_PATH = `${ASSISTANT_DIR}/index.json`;
 
 // Pre-C1 sessions lived under rag/ and only ever held chats. Reads fall back
-// here; the next save rewrites everything into ASSISTANT_DIR, so the fallback
-// is a one-way ramp rather than a second home.
+// here and copy the file into ASSISTANT_DIR on the spot, so the fallback is a
+// one-way ramp paid once per session rather than two reads on every launch.
 const LEGACY_DIR = `${APP_DIR}/rag`;
 const LEGACY_INDEX_PATH = `${LEGACY_DIR}/index.json`;
 
@@ -90,10 +90,19 @@ export function create_assistant_session_persistence_tauri_adapter(): AssistantS
     },
 
     async load_session(vault_id, id) {
-      const stored =
-        (await read_json<StoredSession>(vault_id, session_path(id))) ??
-        (await read_json<StoredSession>(vault_id, legacy_session_path(id)));
-      return stored ? stamp_kind(stored) : null;
+      const current = await read_json<StoredSession>(
+        vault_id,
+        session_path(id),
+      );
+      if (current) return stamp_kind(current);
+      const legacy = await read_json<StoredSession>(
+        vault_id,
+        legacy_session_path(id),
+      );
+      if (!legacy) return null;
+      const session = stamp_kind(legacy);
+      await write_json(vault_id, session_path(id), session);
+      return session;
     },
 
     async save_session(vault_id, session) {

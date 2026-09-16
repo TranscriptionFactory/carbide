@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { AssistantSessionStore } from "$lib/features/assistant";
+import {
+  AssistantSessionStore,
+  to_assistant_session_summary,
+} from "$lib/features/assistant";
 import type { AssistantSessionCreate } from "$lib/features/assistant";
 import {
   make_session,
@@ -415,6 +418,69 @@ describe("AssistantSessionStore", () => {
 
       expect(store.prune(30 * DAY_MS)).toEqual(["b"]);
       expect(store.sessions.map((session) => session.id)).toEqual(["a", "c"]);
+    });
+  });
+
+  describe("summary hydration and on-demand bodies", () => {
+    it("hydrate_summaries lists unloaded stubs carrying the summary fields", () => {
+      const { store } = create_store();
+      const a = make_session({ id: "a", title: "A", updated_at: 20 });
+      const b = make_session({ id: "b", title: "B", updated_at: 10 });
+
+      store.hydrate_summaries(
+        [a, b].map(to_assistant_session_summary),
+        "vault-1",
+      );
+
+      expect(store.vault_id).toBe("vault-1");
+      expect(store.sessions.map((s) => s.id)).toEqual(["a", "b"]);
+      expect(store.get("a")).toMatchObject({
+        title: "A",
+        updated_at: 20,
+        messages: [],
+        provider_id: "",
+      });
+      expect(store.is_loaded("a")).toBe(false);
+      expect(store.is_loaded("b")).toBe(false);
+    });
+
+    it("attach_body swaps the stub in place and marks only that session loaded", () => {
+      const { store } = create_store();
+      const a = make_session({ id: "a", updated_at: 20 });
+      const b = make_session({
+        id: "b",
+        updated_at: 10,
+        messages: [make_session_message()],
+        provider_id: "claude",
+      });
+      store.hydrate_summaries([a, b].map(to_assistant_session_summary));
+
+      store.attach_body(b);
+
+      expect(store.sessions.map((s) => s.id)).toEqual(["a", "b"]);
+      expect(store.get("b")).toEqual(b);
+      expect(store.is_loaded("b")).toBe(true);
+      expect(store.is_loaded("a")).toBe(false);
+    });
+
+    it("attach_body ignores a session that left the list meanwhile", () => {
+      const { store } = create_store();
+      store.hydrate_summaries([]);
+
+      store.attach_body(make_session({ id: "gone" }));
+
+      expect(store.sessions).toEqual([]);
+      expect(store.is_loaded("gone")).toBe(false);
+    });
+
+    it("created sessions and fully hydrated sessions are loaded", () => {
+      const { store } = create_store();
+      const created = store.create(chat());
+      expect(store.is_loaded(created.id)).toBe(true);
+
+      store.hydrate([make_session({ id: "full" })]);
+      expect(store.is_loaded("full")).toBe(true);
+      expect(store.is_loaded(created.id)).toBe(false);
     });
   });
 
