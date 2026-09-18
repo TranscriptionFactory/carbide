@@ -167,3 +167,11 @@ export function sort_tasks(tasks) {
 export function select_tasks(tasks, paths, max_items) {
   return sort_tasks(restrict_to_notes(tasks, paths)).slice(0, max_items);
 }
+
+// The track is N copies of the group and the loop shifts by one group, so
+// the copies after the first must still cover the viewport at the end of a
+// pass; otherwise a short list scrolls a blank gap into view every loop.
+export function track_copies(group_height, viewport_height) {
+  if (group_height <= 0) return 2;
+  return Math.max(2, Math.ceil(viewport_height / group_height) + 1);
+}

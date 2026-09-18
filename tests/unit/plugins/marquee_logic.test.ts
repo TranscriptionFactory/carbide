@@ -7,6 +7,7 @@ import {
   restrict_to_notes,
   select_tasks,
   sort_tasks,
+  track_copies,
 } from "../../../plugins/marquee/marquee_logic.js";
 import type {
   MarqueeSettings,
@@ -335,5 +336,21 @@ describe("select_tasks", () => {
 
   it("counts the row cap against the ranked pool", () => {
     expect(select_tasks(tasks, null, 1).map((t) => t.id)).toEqual(["overdue"]);
+  });
+});
+
+describe("track_copies", () => {
+  it("keeps two copies when one group already overflows the viewport", () => {
+    expect(track_copies(600, 400)).toBe(2);
+  });
+
+  it("adds copies until the copies after the first cover the viewport", () => {
+    expect(track_copies(100, 400)).toBe(5);
+    expect(track_copies(100, 401)).toBe(6);
+    expect(track_copies(150, 400)).toBe(4);
+  });
+
+  it("falls back to two copies before the group has a layout height", () => {
+    expect(track_copies(0, 400)).toBe(2);
   });
 });

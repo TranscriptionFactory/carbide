@@ -68,3 +68,8 @@ export function select_tasks(
   paths: Set<string> | null,
   max_items: number,
 ): Task[];
+
+export function track_copies(
+  group_height: number,
+  viewport_height: number,
+): number;

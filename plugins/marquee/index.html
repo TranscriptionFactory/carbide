@@ -28,6 +28,7 @@
         normalize_settings,
         parse_tag_list,
         select_tasks,
+        track_copies,
       } from "./marquee_logic.js";
 
       const NOTE_SET_TTL_MS = 60000;
@@ -59,6 +60,8 @@
       let last_refresh_at = 0;
       let debounce_timer = null;
       let rendered_signature = null;
+      let rendered_group = null;
+      let track_copy_count = 0;
       let poll_timer = null;
       let poll_seconds = null;
 
@@ -173,11 +176,37 @@
         return group;
       }
 
-      function update_static_state() {
-        const too_short = track.scrollHeight / 2 <= viewport.clientHeight;
+      function clone_group(group) {
+        const clone = group.cloneNode(true);
+        // Clones fill part of the panel for most of every loop, so their
+        // rows must stay clickable; aria-hidden and tabindex keep the
+        // duplicates out of the a11y tree and the tab order.
+        clone.setAttribute("aria-hidden", "true");
+        for (const button of clone.querySelectorAll("button")) {
+          button.tabIndex = -1;
+        }
+        return clone;
+      }
+
+      function fill_track() {
+        if (rendered_group === null) return;
+        const copies = track_copies(
+          rendered_group.offsetHeight,
+          viewport.clientHeight,
+        );
+        if (copies === track_copy_count) return;
+        track_copy_count = copies;
+        const clones = Array.from({ length: copies - 1 }, () =>
+          clone_group(rendered_group),
+        );
+        track.replaceChildren(rendered_group, ...clones);
+        track.style.setProperty("--marquee-copies", String(copies));
+      }
+
+      function update_static_state(count) {
         viewport.classList.toggle(
           "marquee--static",
-          too_short || reduce_motion.matches,
+          count === 0 || reduce_motion.matches,
         );
       }
 
@@ -209,22 +238,15 @@
         if (signature !== rendered_signature) {
           rendered_signature = signature;
 
-          const group = build_group(items);
-          const clone = group.cloneNode(true);
-          // The clone fills part of the panel for most of every loop, so its
-          // rows must stay clickable; aria-hidden and tabindex keep the
-          // duplicate out of the a11y tree and the tab order.
-          clone.setAttribute("aria-hidden", "true");
-          for (const button of clone.querySelectorAll("button")) {
-            button.tabIndex = -1;
-          }
-
-          track.replaceChildren(group, clone);
+          rendered_group = build_group(items);
+          track_copy_count = 0;
+          track.replaceChildren(rendered_group);
           viewport.style.setProperty(
             "--marquee-duration",
             `${settings.scroll_seconds}s`,
           );
-          requestAnimationFrame(update_static_state);
+          fill_track();
+          update_static_state(items.length);
         }
         update_status(items.length);
       }
@@ -298,6 +320,11 @@
       });
 
       refresh_button.addEventListener("click", () => void refresh());
+
+      new ResizeObserver(() => fill_track()).observe(viewport);
+      reduce_motion.addEventListener("change", () => {
+        update_static_state(rendered_group?.childElementCount ?? 0);
+      });
 
       dark_query.addEventListener("change", () => {
         if (settings.theme === "auto") apply_theme();
