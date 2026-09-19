@@ -167,6 +167,11 @@ export type EditorEventHandlers = {
   ) => { id: string; title: string } | null;
   on_markdown_change: (markdown: string) => void;
   on_dirty_state_change: (is_dirty: boolean) => void;
+  /**
+   * The live document moved ahead of (or caught up with) the serialized
+   * markdown snapshot at the moment serialization completes.
+   */
+  on_doc_ahead_of_snapshot_change?: (ahead: boolean) => void;
   on_cursor_change?: (info: CursorInfo) => void;
   on_selection_change?: (selection: EditorSelectionSnapshot | null) => void;
   on_internal_link_click?: (

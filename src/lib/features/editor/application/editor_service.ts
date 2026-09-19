@@ -1352,6 +1352,12 @@ export class EditorService {
       on_markdown_change: (markdown: string) => {
         this.with_active_note_id(generation, (id) => {
           this.editor_store.set_markdown(id, as_markdown_text(markdown));
+          this.editor_store.set_doc_ahead_of_snapshot(false);
+        });
+      },
+      on_doc_ahead_of_snapshot_change: (ahead: boolean) => {
+        this.with_active_note_id(generation, () => {
+          this.editor_store.set_doc_ahead_of_snapshot(ahead);
         });
       },
       on_dirty_state_change: (is_dirty: boolean) => {

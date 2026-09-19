@@ -476,6 +476,7 @@ export function create_prosemirror_editor_port(args?: {
         on_selection_change,
         on_outline_change,
         on_active_heading_change,
+        on_doc_ahead_of_snapshot_change,
       } = events;
 
       let current_markdown = normalize_markdown(initial_markdown);
@@ -516,6 +517,9 @@ export function create_prosemirror_editor_port(args?: {
         pending_doc = null;
         if (!doc) return;
         const new_md = normalize_markdown(serialize_markdown(doc));
+        // Serialization ran, with or without a change: the snapshot is no
+        // longer behind the live document either way.
+        on_doc_ahead_of_snapshot_change?.(false);
         if (new_md === current_markdown) {
           reconcile_dirty();
           return;
@@ -662,6 +666,7 @@ export function create_prosemirror_editor_port(args?: {
         create_markdown_change_plugin((doc) => {
           if (suppress_change_echo) return;
           pending_doc = doc;
+          on_doc_ahead_of_snapshot_change?.(true);
           // Optimistic flip: the string compare happens at serialize time,
           // but autosave scheduling and the tab dot must not lag a keystroke.
           // reconcile_dirty clears a wrong flip (e.g. undo back to saved).
