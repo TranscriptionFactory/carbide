@@ -27,7 +27,7 @@ describe("task panel tag suggestions", () => {
       { tag: "idea", count: 1, promoted: false },
     ]);
 
-    const { target, cleanup } = render_with_app_context(TaskPanel, {
+    const view = render_with_app_context(TaskPanel, {
       app_context: {
         stores,
         services: {
@@ -40,18 +40,18 @@ describe("task panel tag suggestions", () => {
       } as unknown as Partial<AppContext>,
     });
 
-    const textarea = target.querySelector("textarea");
+    const textarea = view.target.querySelector("textarea");
     if (!textarea) throw new Error("no DSL textarea rendered");
     textarea.value = "tag includes ";
     textarea.selectionStart = textarea.value.length;
     textarea.dispatchEvent(new Event("input", { bubbles: true }));
     flushSync();
 
-    const labels = [...target.querySelectorAll(".DslSuggest__item")].map((el) =>
-      el.textContent?.trim(),
+    const labels = [...view.target.querySelectorAll(".DslSuggest__item")].map(
+      (el) => el.textContent?.trim(),
     );
     expect(labels).toEqual(["#project/active"]);
 
-    cleanup();
+    view.cleanup();
   });
 });

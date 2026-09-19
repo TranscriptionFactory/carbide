@@ -75,7 +75,7 @@
     </div>
   </div>
 
-  <div class="flex-1 overflow-hidden">
+  <div class="flex-1 min-h-0 flex flex-col">
     {#if tag_store.selected_tag}
       <div class="flex flex-col h-full">
         <div class="flex items-center gap-1 px-2 py-1.5 border-b">
