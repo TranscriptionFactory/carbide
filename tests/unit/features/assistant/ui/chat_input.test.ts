@@ -298,4 +298,19 @@ describe("chat_input.svelte", () => {
 
     view.cleanup();
   });
+
+  /// Coverage the pass cannot finish is not "still indexing": the composer says
+  /// what is missing instead of promising an index that is not coming.
+  it("names the missing coverage in the placeholder when it is partial", () => {
+    const view = render_chat_input({
+      readiness_state: "partial",
+      readiness_detail: "3 of 5 notes embedded (2 skipped)",
+    });
+
+    expect(textarea().placeholder).toBe(
+      "Ask anything — 3 of 5 notes embedded (2 skipped)",
+    );
+
+    view.cleanup();
+  });
 });

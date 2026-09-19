@@ -126,8 +126,25 @@ export type BlockSectionHit = {
 };
 
 export type EmbeddingStatus = {
+  /** Every indexed file, embeddable or not. */
   total_notes: number;
+  /** Raw `note_embeddings` rows, stale and out-of-scope vectors included. */
   embedded_notes: number;
+  /**
+   * The part of `total_notes` the embed pass selects under the resolved scope.
+   * Readiness is measured against this, not against `total_notes`: attachments,
+   * code outside the `all` scope, and empty notes are never embedded.
+   */
+  eligible_notes: number;
+  /** How much of `eligible_notes` has a vector; never exceeds it. */
+  embedded_eligible_notes: number;
+  /** `eligible_notes - embedded_eligible_notes`, plus the pass's counts. */
+  skipped_notes: number;
+  /**
+   * Whether an embedding attempt has ended under the scope resolved now. False
+   * before the first attempt ends, so idle startup is not read as finished.
+   */
+  embed_attempt_completed: boolean;
   model_version: string;
   is_embedding: boolean;
 };

@@ -4,6 +4,7 @@ import type {
   AssistantChatStore,
 } from "$lib/features/assistant";
 import type { BasesStore } from "$lib/features/bases";
+import type { SearchStore } from "$lib/features/search";
 import type { ActionRegistry } from "$lib/app/action_registry/action_registry";
 import { ACTION_IDS } from "$lib/app/action_registry/action_ids";
 
@@ -14,12 +15,25 @@ export function create_assistant_readiness_reactor(
   chat_service: AssistantChatService,
   vault_store: VaultStore,
   bases_store: BasesStore,
+  search_store: SearchStore,
   action_registry: ActionRegistry,
   poll_ms: number = READINESS_POLL_MS,
 ): () => void {
   let listed_views_for: string | null = null;
+  // The work the poll in flight belongs to: a vault or provider change re-arms
+  // it, and a bare embedding-progress nudge must not reset the status to
+  // "checking" for every batch a pass reports.
+  let armed_for: string | null = null;
 
   return $effect.root(() => {
+    // A pass rewrites `embedding_progress` on every batch. Only a status
+    // transition (idle → running → completed/failed) is worth re-reading
+    // readiness for, and a `$derived` is what collapses the per-batch writes
+    // into that: a raw read would re-run the poll below for each batch.
+    const embedding_pass_status = $derived(
+      search_store.embedding_progress.status,
+    );
+
     $effect(() => {
       const vault_id = vault_store.vault?.id;
       if (!vault_id || vault_id === listed_views_for) return;
@@ -32,8 +46,16 @@ export function create_assistant_readiness_reactor(
     $effect(() => {
       const vault_id = vault_store.vault?.id;
       // provider changes re-arm the poll alongside vault switches
-      void chat_store.provider_id;
-      chat_store.set_readiness({ state: "checking" });
+      const provider_id = chat_store.provider_id;
+      // A later attempt must be able to re-arm readiness without a vault or
+      // provider switch, so the pass's progress is a dependency here.
+      void embedding_pass_status;
+      const work = `${vault_id ?? ""}\u0000${provider_id ?? ""}`;
+      const rearmed = work !== armed_for;
+      armed_for = work;
+      // A re-arm for the same work keeps the status it already has: reporting
+      // "checking" for every progress event would blink the banner away.
+      if (rearmed) chat_store.set_readiness({ state: "checking" });
       if (!vault_id) return;
       let cancelled = false;
       let interval: ReturnType<typeof setInterval> | null = null;

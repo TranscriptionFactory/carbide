@@ -11,6 +11,7 @@ import type {
 } from "$lib/features/assistant";
 import { VaultStore } from "$lib/features/vault";
 import { BasesStore } from "$lib/features/bases";
+import { SearchStore } from "$lib/features/search";
 import { ACTION_IDS } from "$lib/app/action_registry/action_ids";
 import type { ActionRegistry } from "$lib/app/action_registry/action_registry";
 import { create_assistant_readiness_reactor } from "$lib/reactors/assistant_readiness.reactor.svelte";
@@ -42,6 +43,7 @@ function mount(overrides: {
   service?: AssistantChatService;
   vault_store?: VaultStore;
   bases_store?: BasesStore;
+  search_store?: SearchStore;
   registry?: ActionRegistry;
 }) {
   const chat_store = overrides.chat_store ?? make_chat_store();
@@ -49,16 +51,26 @@ function mount(overrides: {
     overrides.service ?? fake_chat_service(() => ({ state: "ready" }));
   const vault_store = overrides.vault_store ?? vault_store_for("v1");
   const bases_store = overrides.bases_store ?? new BasesStore();
+  const search_store = overrides.search_store ?? new SearchStore();
   const registry = overrides.registry ?? fake_registry();
   const cleanup = create_assistant_readiness_reactor(
     chat_store,
     service,
     vault_store,
     bases_store,
+    search_store,
     registry,
     POLL_MS,
   );
-  return { chat_store, service, vault_store, bases_store, registry, cleanup };
+  return {
+    chat_store,
+    service,
+    vault_store,
+    bases_store,
+    search_store,
+    registry,
+    cleanup,
+  };
 }
 
 async function drain() {
@@ -159,6 +171,111 @@ describe("assistant_readiness reactor", () => {
     flushSync();
     expect(chat_store.readiness).toEqual({ state: "checking" });
     await drain();
+    expect(service.check_readiness).toHaveBeenCalledTimes(2);
+    cleanup();
+  });
+
+  /// Coverage the pass cannot finish is not the end of the story: a later
+  /// attempt can still complete it, so the poll has to keep asking.
+  it("keeps polling while coverage is only partial", async () => {
+    const service = fake_chat_service(() => ({
+      state: "partial",
+      embedded: 3,
+      total: 5,
+      skipped: 2,
+    }));
+    const { chat_store, cleanup } = mount({ service });
+    flushSync();
+    await drain();
+
+    expect(chat_store.readiness).toEqual({
+      state: "partial",
+      embedded: 3,
+      total: 5,
+      skipped: 2,
+    });
+
+    await vi.advanceTimersByTimeAsync(POLL_MS);
+    expect(service.check_readiness).toHaveBeenCalledTimes(2);
+    cleanup();
+  });
+
+  /// After the poll has stopped at `ready`, an embedding attempt that runs
+  /// later must pull readiness back in — without a vault or provider switch
+  /// re-arming the effect, which is the only thing that did so before.
+  it("re-arms readiness when a later embedding attempt reports progress", async () => {
+    let ready = true;
+    const service = fake_chat_service(() =>
+      ready ? { state: "ready" } : { state: "indexing", embedded: 0, total: 2 },
+    );
+    const { chat_store, search_store, cleanup } = mount({ service });
+    flushSync();
+    await drain();
+    expect(service.check_readiness).toHaveBeenCalledTimes(1);
+    expect(chat_store.readiness).toEqual({ state: "ready" });
+
+    ready = false;
+    search_store.set_embedding_progress({
+      status: "started",
+      vault_id: "v1",
+      total: 2,
+    });
+    flushSync();
+    await drain();
+
+    expect(service.check_readiness).toHaveBeenCalledTimes(2);
+    expect(chat_store.readiness).toEqual({
+      state: "indexing",
+      embedded: 0,
+      total: 2,
+    });
+    cleanup();
+  });
+
+  /// A pass reports every batch. Re-running the effect for each one would put
+  /// the status back to "checking" mid-pass — the banner would blink out and
+  /// back between batches.
+  it("does not blank the status while a pass reports batches", async () => {
+    const service = fake_chat_service(() => ({
+      state: "indexing",
+      embedded: 0,
+      total: 2,
+    }));
+    const { chat_store, search_store, cleanup } = mount({ service });
+    flushSync();
+    await drain();
+    expect(service.check_readiness).toHaveBeenCalledTimes(1);
+
+    // A pass starting is a status change, so it does re-check — but it must not
+    // read as "checking" while its own counts are what the status is about.
+    search_store.set_embedding_progress({
+      status: "started",
+      vault_id: "v1",
+      total: 2,
+    });
+    flushSync();
+    expect(chat_store.readiness).toEqual({
+      state: "indexing",
+      embedded: 0,
+      total: 2,
+    });
+    await drain();
+    expect(service.check_readiness).toHaveBeenCalledTimes(2);
+
+    // Later batches only move the counts, so nothing re-runs at all.
+    search_store.set_embedding_progress({
+      status: "progress",
+      vault_id: "v1",
+      embedded: 1,
+      total: 2,
+    });
+    flushSync();
+
+    expect(chat_store.readiness).toEqual({
+      state: "indexing",
+      embedded: 0,
+      total: 2,
+    });
     expect(service.check_readiness).toHaveBeenCalledTimes(2);
     cleanup();
   });

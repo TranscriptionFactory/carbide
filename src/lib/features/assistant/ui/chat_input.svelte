@@ -40,6 +40,8 @@
     is_loading: boolean;
     is_streaming: boolean;
     readiness_state: RetrievalReadiness["state"];
+    /** Counts for `partial`, whose copy names them. */
+    readiness_detail?: string | null;
     mode: AssistantChatMode;
     suggest_notes: (partial: string) => Promise<MentionSuggestion[]>;
     on_submit: (question: string) => void;
@@ -73,6 +75,7 @@
     is_loading,
     is_streaming,
     readiness_state,
+    readiness_detail = null,
     mode,
     suggest_notes,
     on_submit,
@@ -192,9 +195,11 @@
   const placeholder = $derived(
     readiness_state === "indexing"
       ? "Ask anything — vault is still indexing, answers may be incomplete…"
-      : readiness_state === "checking"
-        ? "Checking vault index…"
-        : "",
+      : readiness_state === "partial" && readiness_detail !== null
+        ? `Ask anything — ${readiness_detail}`
+        : readiness_state === "checking"
+          ? "Checking vault index…"
+          : "",
   );
 
   const EXAMPLE_PROMPTS = [

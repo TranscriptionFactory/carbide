@@ -57,6 +57,10 @@ function make_mock_search_port(
     get_embedding_status: vi.fn().mockResolvedValue({
       total_notes: 0,
       embedded_notes: 0,
+      eligible_notes: 0,
+      embedded_eligible_notes: 0,
+      skipped_notes: 0,
+      embed_attempt_completed: false,
       model_version: "unavailable",
       is_embedding: false,
     }),

@@ -735,6 +735,10 @@ describe("RetrievalService.check_readiness", () => {
         get_embedding_status: vi.fn().mockResolvedValue({
           total_notes: 5,
           embedded_notes: 5,
+          eligible_notes: 5,
+          embedded_eligible_notes: 5,
+          skipped_notes: 0,
+          embed_attempt_completed: true,
           model_version: "v1",
           is_embedding: false,
         }),
