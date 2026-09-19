@@ -25,9 +25,12 @@
   import type { ViewMode } from "$lib/features/bases/ports";
   import { ACTION_IDS } from "$lib/app/action_registry/action_ids";
   import { detect_file_type } from "$lib/features/document";
-  import { fuzzy_score } from "$lib/shared/utils/fuzzy_score";
   import type { PropertyInfo } from "$lib/features/bases/ports";
-  import { PropertyCombobox } from "$lib/features/metadata";
+  import {
+    PropertyCombobox,
+    property_items_for,
+    value_items_for,
+  } from "$lib/features/metadata";
   import FolderSuggestInput from "$lib/components/ui/folder_suggest_input.svelte";
 
   const OPERATORS = [
@@ -113,65 +116,6 @@
   const selected_property_info = $derived(
     all_properties.find((p) => p.name === draft_property) ?? null,
   );
-
-  type ComboItem = {
-    value: string;
-    hint?: string;
-    description?: string | null;
-    indices?: number[];
-  };
-
-  function property_items_for(
-    query: string,
-    props: PropertyInfo[],
-  ): ComboItem[] {
-    const q = query.trim();
-    const seen = new Set<string>();
-    const items: ComboItem[] = [];
-    for (const p of props) {
-      if (seen.has(p.name)) continue;
-      seen.add(p.name);
-      items.push({
-        value: p.name,
-        hint: p.property_type,
-        description:
-          p.count > 0
-            ? `used in ${p.count} ${p.count === 1 ? "note" : "notes"}`
-            : null,
-        indices: [],
-      });
-    }
-
-    if (!q) return items;
-
-    const scored: { item: ComboItem; score: number }[] = [];
-    for (const item of items) {
-      const match = fuzzy_score(q, item.value);
-      if (match) {
-        item.indices = match.indices;
-        scored.push({ item, score: match.score });
-      }
-    }
-    scored.sort(
-      (a, b) => b.score - a.score || a.item.value.localeCompare(b.item.value),
-    );
-    return scored.map((s) => s.item);
-  }
-
-  function value_items_for(query: string, values: string[]): ComboItem[] {
-    const q = query.trim();
-    if (!q) return values.map((value) => ({ value, indices: [] }));
-
-    const scored: { value: string; score: number; indices: number[] }[] = [];
-    for (const value of values) {
-      const match = fuzzy_score(q, value);
-      if (match) {
-        scored.push({ value, score: match.score, indices: match.indices });
-      }
-    }
-    scored.sort((a, b) => b.score - a.score || a.value.localeCompare(b.value));
-    return scored.map(({ value, indices }) => ({ value, indices }));
-  }
 
   const property_items = $derived(
     property_items_for(draft_property, all_properties),
