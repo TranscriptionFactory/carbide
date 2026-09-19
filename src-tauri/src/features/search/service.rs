@@ -281,18 +281,38 @@ fn embed_section_texts(
     Ok(pooled)
 }
 
+/// macOS scheduling classes for `pthread_set_qos_class_self_np`: 0x11 utility,
+/// 0x09 background.
+#[cfg(target_os = "macos")]
+const QOS_CLASS_UTILITY: std::os::raw::c_int = 0x11;
+#[cfg(target_os = "macos")]
+const QOS_CLASS_BACKGROUND: std::os::raw::c_int = 0x09;
+
+#[cfg(target_os = "macos")]
+fn set_current_thread_qos(qos_class: std::os::raw::c_int) {
+    use std::os::raw::c_int;
+    extern "C" {
+        fn pthread_set_qos_class_self_np(qos_class: c_int, relative_priority: c_int) -> c_int;
+    }
+    unsafe {
+        pthread_set_qos_class_self_np(qos_class, 0);
+    }
+}
+
+/// The writer's steady state. Nothing it does is urgent, and the embed pass
+/// yields to the foreground explicitly, so the lowest class is the right floor.
 fn set_current_thread_to_background_qos() {
     #[cfg(target_os = "macos")]
-    {
-        use std::os::raw::c_int;
-        const QOS_CLASS_BACKGROUND: c_int = 0x09;
-        extern "C" {
-            fn pthread_set_qos_class_self_np(qos_class: c_int, relative_priority: c_int) -> c_int;
-        }
-        unsafe {
-            pthread_set_qos_class_self_np(QOS_CLASS_BACKGROUND, 0);
-        }
-    }
+    set_current_thread_qos(QOS_CLASS_BACKGROUND);
+}
+
+/// The startup population runs one class up: a launch's rebuild, first sync and
+/// first embed pass are the only work on this thread with a user waiting on it,
+/// and background QoS stretches them to minutes on a large vault. The loop drops
+/// back to background once that burst finishes. (ref: D7)
+fn set_current_thread_to_utility_qos() {
+    #[cfg(target_os = "macos")]
+    set_current_thread_qos(QOS_CLASS_UTILITY);
 }
 
 #[derive(Debug, Deserialize, Type)]
@@ -889,7 +909,7 @@ pub(crate) fn ensure_worker(app: &AppHandle, vault_id: &str) -> Result<(), Strin
     let bi = Arc::clone(&block_index);
     let vid_for_writer = vault_id.to_string();
     let handle = std::thread::spawn(move || {
-        set_current_thread_to_background_qos();
+        set_current_thread_to_utility_qos();
         writer_thread_loop(vid_for_writer, dump_dir, dims, rx, write_conn, ni, bi);
     });
 
@@ -934,6 +954,8 @@ fn writer_thread_loop(
             }
         };
 
+    let mut startup_qos = true;
+
     for cmd in &rx {
         // RebuildIndex is the startup population step: load the persisted graph
         // (or rebuild from SQLite), then persist a freshly-built graph for the
@@ -958,6 +980,14 @@ fn writer_thread_loop(
 
         if is_settle {
             maybe_dump_indices(&conn, &ctx, &note_index, &block_index);
+        }
+
+        // The startup population is RebuildIndex, the first Sync and the first
+        // EmbedBatch; an embed pass is the last of the three to arrive, so its
+        // completion is where the thread hands its priority back. (ref: D7)
+        if startup_qos && is_settle {
+            startup_qos = false;
+            set_current_thread_to_background_qos();
         }
     }
 
