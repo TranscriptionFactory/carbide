@@ -38,7 +38,7 @@
 
   let dslTextarea = $state<HTMLTextAreaElement | null>(null);
 
-  const suggest_tags = $derived(tagStore.tags.map((t) => t.tag));
+  const suggest_tags = $derived(tagStore.promoted_tags.map((t) => t.tag));
 
   const suggest = new DslSuggestController({
     provider: suggest_task_query,

@@ -76,6 +76,7 @@
 
   .DslSuggest__item {
     all: unset;
+    flex-shrink: 0; /* rows keep their height; the dropdown scrolls instead */
     cursor: pointer; /* all:unset beats the global :where() cursor rule */
     display: flex;
     align-items: baseline;
