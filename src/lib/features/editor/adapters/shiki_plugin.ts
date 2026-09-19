@@ -1,8 +1,8 @@
 import { Plugin, PluginKey } from "prosemirror-state";
-import type { Transaction } from "prosemirror-state";
 import { Decoration, DecorationSet } from "prosemirror-view";
 import type { Node as ProseNode } from "prosemirror-model";
 import type { HighlighterCore } from "shiki/core";
+import { changed_range } from "./incremental_scan";
 import {
   get_highlighter_sync,
   resolve_language,
@@ -86,33 +86,6 @@ function build_decorations(
     }
   });
   return DecorationSet.create(doc, decorations);
-}
-
-function changed_range(tr: Transaction): { from: number; to: number } | null {
-  let from = Infinity;
-  let to = -Infinity;
-  const maps = tr.mapping.maps;
-
-  for (let i = 0; i < tr.steps.length; i++) {
-    const map = maps[i];
-    if (!map) continue;
-
-    map.forEach((_old_from, _old_to, new_from, new_to) => {
-      let f = new_from;
-      let t = new_to;
-      for (let j = i + 1; j < maps.length; j++) {
-        const next = maps[j];
-        if (!next) continue;
-        f = next.map(f, 1);
-        t = next.map(t, -1);
-      }
-      if (f < from) from = f;
-      if (t > to) to = t;
-    });
-  }
-
-  if (from > to) return null;
-  return { from, to };
 }
 
 function code_blocks_in_range(
