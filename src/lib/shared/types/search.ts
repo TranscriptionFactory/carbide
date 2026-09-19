@@ -126,8 +126,35 @@ export type BlockSectionHit = {
 };
 
 export type EmbeddingStatus = {
+  /** Every indexed file, embeddable or not. */
   total_notes: number;
+  /** Raw `note_embeddings` rows, stale and out-of-scope vectors included. */
   embedded_notes: number;
+  /**
+   * The part of `total_notes` the embed pass selects under the resolved scope.
+   * Readiness is measured against this, not against `total_notes`: attachments,
+   * code outside the `all` scope, and empty notes are never embedded.
+   */
+  eligible_notes: number;
+  /** How much of `eligible_notes` has a vector; never exceeds it. */
+  embedded_eligible_notes: number;
+  /**
+   * Notes the pass deliberately skips: attachments, code outside the `all`
+   * scope and empty notes are ineligible by construction. The eligible notes an
+   * ended pass did not reach are the `eligible_notes - embedded_eligible_notes`
+   * deficit instead.
+   */
+  skipped_notes: number;
+  /**
+   * Whether an embedding attempt has ended under the scope resolved now. False
+   * before the first attempt ends, so idle startup is not read as finished.
+   */
+  embed_attempt_completed: boolean;
+  /**
+   * False only when both note and block embedding are switched off, so no pass
+   * can do any work. Readiness has nothing pending to report then.
+   */
+  embedding_enabled: boolean;
   model_version: string;
   is_embedding: boolean;
 };

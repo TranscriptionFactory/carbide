@@ -4,7 +4,8 @@ use crate::features::search::embed_scope::{
 };
 use crate::features::search::hnsw_index::{SharedVectorIndex, VectorIndex};
 use crate::features::search::service::{
-    apply_note_embedding_on_save, embedding_flags, sweep_stale_note_vectors, SaveEncoder,
+    apply_note_embedding_on_save, embed_attempt_completed, embed_coverage, embedding_flags,
+    embedding_scope_code, embedding_work_enabled, sweep_stale_note_vectors, SaveEncoder,
 };
 use crate::features::search::vector_db;
 use crate::features::settings::service::SettingsStore;
@@ -638,4 +639,143 @@ fn sweep_is_idempotent() {
 
     assert_eq!((first, second), (1, 0));
     assert_eq!(embedded_keys(&note_index), vec!["a.md".to_string()]);
+}
+
+/// The vault the readiness denominator exists for: one embeddable note beside
+/// the three kinds of file the pass never selects — an image, a code file
+/// (outside `all`), and an empty markdown note.
+fn mixed_vault_facts() -> BTreeMap<String, NoteEmbedFacts> {
+    [
+        ("note.md".to_string(), vault("markdown")),
+        ("image.png".to_string(), vault("png")),
+        ("script.rs".to_string(), vault("code")),
+        ("empty.md".to_string(), facts(Some("markdown"), "vault", 0)),
+    ]
+    .into_iter()
+    .collect()
+}
+
+/// The defect: readiness compared raw `note_embeddings` rows against every
+/// indexed file, so a vault holding one attachment stayed "indexing" forever.
+/// The denominator is that pair of counts after a pass over a mixed vault — it
+/// has to come out full, with the three unembeddable files counted as skipped
+/// rather than as work the pass left behind.
+#[test]
+fn coverage_over_a_mixed_vault_counts_only_what_the_pass_embeds() {
+    let conn = conn_with_vector_schema();
+    let facts = mixed_vault_facts();
+    vector_db::upsert_embedding(&conn, "note.md", &[0.1_f32; 4]).expect("seed note embedding");
+
+    let coverage = embed_coverage(&conn, &facts, EmbeddingScope::Documents);
+    // `note_embed_facts` reads the same `notes` rows as `get_note_count`, which
+    // is what the status payload reports as `total_notes`.
+    let total_notes = facts.len();
+    let eligible_notes = coverage.eligible_notes;
+    let embedded_eligible_notes = coverage.embedded_eligible_notes;
+
+    assert_eq!(total_notes, 4, "four files are indexed");
+    assert_eq!(
+        (eligible_notes, embedded_eligible_notes),
+        (1, 1),
+        "the pass embeds the markdown note, so its coverage is complete"
+    );
+    assert_eq!(
+        coverage.skipped_notes, 3,
+        "the image, the code file and the empty note are skips, not leftovers"
+    );
+}
+
+/// A vector whose note is no longer eligible under the resolved scope, and one
+/// whose note row is gone, must not inflate the numerator — and the numerator
+/// must never exceed the denominator while the raw count still reports them.
+#[test]
+fn coverage_keeps_stale_and_out_of_scope_vectors_out_of_the_numerator() {
+    let conn = conn_with_vector_schema();
+    let facts = mixed_vault_facts();
+    vector_db::upsert_embedding(&conn, "note.md", &[0.1_f32; 4]).expect("seed note embedding");
+    // Embedded while the scope was `all`, out of scope now.
+    vector_db::upsert_embedding(&conn, "script.rs", &[0.1_f32; 4]).expect("seed stale vector");
+    // Its notes row is gone: deleted while the pass was elsewhere.
+    vector_db::upsert_embedding(&conn, "gone.md", &[0.1_f32; 4]).expect("seed ghost vector");
+
+    let coverage = embed_coverage(&conn, &facts, EmbeddingScope::Documents);
+
+    assert_eq!(
+        (coverage.eligible_notes, coverage.embedded_eligible_notes),
+        (1, 1)
+    );
+    assert!(coverage.embedded_eligible_notes <= coverage.eligible_notes);
+    assert_eq!(
+        vector_db::get_embedding_count(&conn),
+        3,
+        "the raw count keeps every row for the consumers that gate on it"
+    );
+}
+
+/// Scope is what decides every number: the same vectors that are stale under
+/// `documents` are coverage under `all`, and the code file the pass skips under
+/// `documents` becomes eligible work there — while the image and the empty note
+/// stay skips in every scope.
+#[test]
+fn coverage_follows_the_resolved_scope() {
+    let conn = conn_with_vector_schema();
+    let facts = mixed_vault_facts();
+    vector_db::upsert_embedding(&conn, "note.md", &[0.1_f32; 4]).expect("seed note embedding");
+
+    let all = embed_coverage(&conn, &facts, EmbeddingScope::All);
+    assert_eq!((all.eligible_notes, all.embedded_eligible_notes), (2, 1));
+    assert_eq!(all.skipped_notes, 2);
+
+    let markdown = embed_coverage(&conn, &facts, EmbeddingScope::Markdown);
+    assert_eq!(
+        (
+            markdown.eligible_notes,
+            markdown.embedded_eligible_notes,
+            markdown.skipped_notes
+        ),
+        (1, 1, 3)
+    );
+}
+
+/// Both flags off is the one configuration where no pass can do any work, and
+/// readiness has to read it as nothing pending. Either flag on must keep the
+/// coverage visible: a vault with only block embedding switched off still has
+/// note vectors to embed, and hiding its banner would be a silent regression.
+#[test]
+fn only_both_flags_off_leave_no_embedding_work() {
+    assert!(!embedding_work_enabled(false, false));
+    assert!(embedding_work_enabled(true, false));
+    assert!(embedding_work_enabled(false, true));
+    assert!(embedding_work_enabled(true, true));
+}
+
+/// Completion has to be scoped to the work it covers, or an attempt that ended
+/// under a previous scope would mark the current scope's notes finished.
+#[test]
+fn an_ended_attempt_only_vouches_for_its_own_scope() {
+    for scope in ALL_SCOPES {
+        let code = embedding_scope_code(scope);
+        assert!(embed_attempt_completed(1, code, scope));
+        for other in ALL_SCOPES {
+            if other != scope {
+                assert!(
+                    !embed_attempt_completed(1, code, other),
+                    "{code:?} is not {other:?}'s completion signal"
+                );
+            }
+        }
+    }
+}
+
+/// Startup before its first pass has ended nothing, so incomplete coverage must
+/// read as work still to come rather than as a finished, partial index.
+#[test]
+fn no_ended_attempt_never_vouches_for_anything() {
+    for scope in ALL_SCOPES {
+        assert!(!embed_attempt_completed(
+            0,
+            embedding_scope_code(scope),
+            scope
+        ));
+    }
 }

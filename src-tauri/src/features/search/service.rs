@@ -27,7 +27,7 @@ use specta::Type;
 use std::cell::RefCell;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, AtomicU8, Ordering};
 use std::sync::mpsc::{self, Receiver, SyncSender};
 use std::sync::{Arc, Mutex, RwLock};
 use std::thread::JoinHandle;
@@ -102,6 +102,71 @@ pub(crate) fn sweep_stale_note_vectors(
         }
     }
     removed
+}
+
+/// Distinct code per `EmbeddingScope`, so a stored attempt scope can be compared
+/// with the scope resolved now.
+pub(crate) fn embedding_scope_code(scope: EmbeddingScope) -> u8 {
+    match scope {
+        EmbeddingScope::Markdown => 0,
+        EmbeddingScope::Documents => 1,
+        EmbeddingScope::All => 2,
+    }
+}
+
+/// Whether an ended attempt vouches for the scope resolved now. An attempt that
+/// ended under a previous scope says nothing about the notes the current scope
+/// selected, which may never have been candidates.
+pub(crate) fn embed_attempt_completed(
+    attempts: u64,
+    attempt_scope: u8,
+    scope: EmbeddingScope,
+) -> bool {
+    attempts > 0 && attempt_scope == embedding_scope_code(scope)
+}
+
+/// The eligibility-scoped counts: the denominator the embed pass selects against,
+/// how much of it is done, and how much of the index the pass skips by
+/// construction. A vector whose path has no facts row (deleted note, or one an
+/// earlier scope embedded) is in neither count, which is what holds
+/// `embedded_eligible <= eligible`.
+pub(crate) struct EmbedCoverage {
+    pub eligible_notes: usize,
+    pub embedded_eligible_notes: usize,
+    pub skipped_notes: usize,
+}
+
+pub(crate) fn embed_coverage(
+    conn: &Connection,
+    facts: &BTreeMap<String, NoteEmbedFacts>,
+    scope: EmbeddingScope,
+) -> EmbedCoverage {
+    let eligible_notes = facts
+        .values()
+        .filter(|facts| note_embed_eligible(facts, scope))
+        .count();
+    let embedded_eligible_notes = vector_db::get_embedded_paths(conn)
+        .iter()
+        .filter(|path| {
+            facts
+                .get(path.as_str())
+                .is_some_and(|facts| note_embed_eligible(facts, scope))
+        })
+        .count();
+    EmbedCoverage {
+        eligible_notes,
+        embedded_eligible_notes,
+        // `note_embed_facts` reads the same `notes` rows `get_note_count`
+        // counts, so everything not eligible is a note the pass skips.
+        skipped_notes: facts.len() - eligible_notes,
+    }
+}
+
+/// Whether any embedding work can run at all. Both flags off is the one
+/// configuration where no pass has anything to do, so readiness reads it as
+/// nothing pending rather than as coverage that will never arrive.
+pub(crate) fn embedding_work_enabled(note_enabled: bool, block_enabled: bool) -> bool {
+    note_enabled || block_enabled
 }
 
 fn resolve_embedding_flags(app: &AppHandle) -> (bool, bool) {
@@ -419,6 +484,12 @@ struct VaultWorker {
     // took its work snapshot, so it re-enqueues exactly one more batch when it
     // finishes rather than dropping the request.
     embed_rearm: Arc<AtomicBool>,
+    // Ended embedding attempts, and the scope the last one ran under. A
+    // cancelled pass is absent: `is_embedding` going false says a pass stopped,
+    // not that its work finished. The scope tag keeps an attempt from a previous
+    // setting from vouching for the current one.
+    embed_attempts: AtomicU64,
+    embed_attempt_scope: AtomicU8,
     join_handle: Option<JoinHandle<()>>,
     note_index: SharedVectorIndex,
     block_index: SharedVectorIndex,
@@ -830,6 +901,8 @@ pub(crate) fn ensure_worker(app: &AppHandle, vault_id: &str) -> Result<(), Strin
         is_embedding: Arc::new(AtomicBool::new(false)),
         embed_queued: Arc::new(AtomicBool::new(false)),
         embed_rearm: Arc::new(AtomicBool::new(false)),
+        embed_attempts: AtomicU64::new(0),
+        embed_attempt_scope: AtomicU8::new(embedding_scope_code(EmbeddingScope::Markdown)),
         join_handle: Some(handle),
         note_index,
         block_index,
@@ -2272,11 +2345,17 @@ fn handle_embed_batch(
     let cache_dir = resolve_embedding_cache_dir(app_handle);
     let short_id = resolve_embedding_model_id(app_handle);
 
+    // Resolved before the flags and the model: every exit below reports the scope
+    // this attempt ran under, including one that never got past a model that
+    // would not load.
+    let scope = resolve_embedding_scope(app_handle, vault_id);
+
     reconcile_model_version(conn, &short_id, note_index, block_index);
 
     let (note_embed_enabled, block_embed_enabled) = resolve_embedding_flags(app_handle);
-    if !note_embed_enabled && !block_embed_enabled {
+    if !embedding_work_enabled(note_embed_enabled, block_embed_enabled) {
         log::info!("embed_batch: both note and block embedding disabled for {vault_id}");
+        record_embed_attempt(app_handle, vault_id, scope);
         return LoopAction::Continue;
     }
 
@@ -2296,6 +2375,9 @@ fn handle_embed_batch(
                     error: format!("Embedding model unavailable: {e}"),
                 },
             );
+            // A failed attempt is an ended one: readiness must be able to report
+            // incomplete coverage rather than wait for a pass that gave up.
+            record_embed_attempt(app_handle, vault_id, scope);
             return LoopAction::Continue;
         }
     };
@@ -2318,7 +2400,6 @@ fn handle_embed_batch(
     let mut deferred: Vec<DbCommand> = Vec::new();
     drain_pending_commands(conn, rx, notes_cache, note_index, block_index, &mut deferred);
 
-    let scope = resolve_embedding_scope(app_handle, vault_id);
     let facts = search_db::note_embed_facts(conn).unwrap_or_default();
     let swept = sweep_stale_note_vectors(conn, note_index, &facts, scope);
     if swept > 0 {
@@ -2578,6 +2659,11 @@ fn handle_embed_batch(
         embedded,
         pass_start.elapsed().as_millis() as u64,
     ) {
+        // Past this point the attempt has ended, however the loops above left it
+        // — a failed encoder breaks out to here too. `terminal_embed_event`
+        // reports `None` for a cancelled pass: that one stopped rather than
+        // finished, and its notes are re-queued.
+        record_embed_attempt(app_handle, vault_id, scope);
         let _ = app_handle.emit("embedding_progress", event);
     }
 
@@ -3000,6 +3086,32 @@ fn get_worker_is_embedding(app: &AppHandle, vault_id: &str) -> Result<Arc<Atomic
     let map = state.workers.lock().map_err(|e| e.to_string())?;
     let worker = map.get(vault_id).ok_or("vault worker not found")?;
     Ok(Arc::clone(&worker.is_embedding))
+}
+
+/// Records that an embedding attempt reached an end under `scope`: one bump of
+/// the per-vault attempt counter, plus the scope tag readiness compares with the
+/// scope it resolves now. A **cancelled** pass never gets here — it stopped
+/// mid-work rather than finishing it, and its remaining notes are re-queued.
+///
+/// The counter is what marks an attempt as ended; `is_embedding == false` alone
+/// cannot, since startup may not have queued one yet. `Release` pairs with the
+/// `Acquire` load in `get_embedding_status_inner`, so a reader that sees the
+/// bumped count also sees the tag written before it.
+fn record_embed_attempt(app: &AppHandle, vault_id: &str, scope: EmbeddingScope) {
+    let state = app.state::<SearchDbState>();
+    let Ok(map) = state.workers.lock() else {
+        log::warn!("embed attempt: worker map lock poisoned for {vault_id}");
+        return;
+    };
+    let Some(worker) = map.get(vault_id) else {
+        // The worker is gone: the vault was closed or the app is exiting, so
+        // there is no status left to report completion to.
+        return;
+    };
+    worker
+        .embed_attempt_scope
+        .store(embedding_scope_code(scope), Ordering::Relaxed);
+    worker.embed_attempts.fetch_add(1, Ordering::Release);
 }
 
 fn fresh_worker_cancel_token(app: &AppHandle, vault_id: &str) -> Result<Arc<AtomicBool>, String> {
@@ -4308,22 +4420,44 @@ pub fn get_embedding_status_inner(
     app: AppHandle,
     vault_id: String,
 ) -> Result<EmbeddingStatus, String> {
-    let is_embedding = {
+    // The readiness denominator is the set the pass actually selects against, so
+    // it has to be counted under the scope the pass would resolve now.
+    let scope = resolve_embedding_scope(&app, &vault_id);
+    let (note_embed_enabled, block_embed_enabled) = resolve_embedding_flags(&app);
+    let embedding_enabled = embedding_work_enabled(note_embed_enabled, block_embed_enabled);
+    let (is_embedding, embed_attempt_completed) = {
         let state = app.state::<SearchDbState>();
         let map = state.workers.lock().map_err(|e| e.to_string())?;
-        map.get(&vault_id).is_some_and(|worker| {
-            worker.is_embedding.load(Ordering::Relaxed)
-                || worker.embed_queued.load(Ordering::Relaxed)
-        })
+        match map.get(&vault_id) {
+            Some(worker) => (
+                worker.is_embedding.load(Ordering::Relaxed)
+                    || worker.embed_queued.load(Ordering::Relaxed),
+                embed_attempt_completed(
+                    worker.embed_attempts.load(Ordering::Acquire),
+                    worker.embed_attempt_scope.load(Ordering::Relaxed),
+                    scope,
+                ),
+            ),
+            None => (false, false),
+        }
     };
     with_read_conn(&app, &vault_id, |conn| {
         let total_notes = search_db::get_note_count(conn)?;
+        // Raw rows, stale and out-of-scope vectors included: existing consumers
+        // gate on "any vector at all" rather than on coverage.
         let embedded_notes = vector_db::get_embedding_count(conn);
+        let facts = search_db::note_embed_facts(conn)?;
+        let coverage = embed_coverage(conn, &facts, scope);
         let model_version =
             vector_db::get_model_version(conn).unwrap_or_else(|| "unavailable".to_string());
         Ok(EmbeddingStatus {
             total_notes,
             embedded_notes,
+            eligible_notes: coverage.eligible_notes,
+            embedded_eligible_notes: coverage.embedded_eligible_notes,
+            skipped_notes: coverage.skipped_notes,
+            embed_attempt_completed,
+            embedding_enabled,
             model_version,
             is_embedding,
         })

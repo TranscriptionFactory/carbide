@@ -670,6 +670,11 @@ export function create_mock_search_port(): SearchPort {
       Promise.resolve({
         total_notes: 0,
         embedded_notes: 0,
+        eligible_notes: 0,
+        embedded_eligible_notes: 0,
+        skipped_notes: 0,
+        embed_attempt_completed: false,
+        embedding_enabled: true,
         model_version: "unavailable",
         is_embedding: false,
       }),

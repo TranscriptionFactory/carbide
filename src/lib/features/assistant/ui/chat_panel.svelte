@@ -45,6 +45,15 @@
   );
   const sessions = $derived(rag.summaries);
 
+  // Coverage the pass cannot finish, said the same way in the banner above the
+  // transcript and in the composer's placeholder: how much of the embeddable set
+  // is done, and how many indexed files the pass never selects.
+  const partial_coverage = $derived(
+    rag.readiness.state === "partial"
+      ? `${rag.readiness.embedded} of ${rag.readiness.total} notes embedded · ${rag.readiness.skipped} files skipped`
+      : null,
+  );
+
   const active_note_path = $derived(
     stores.editor.open_note ? String(stores.editor.open_note.meta.path) : null,
   );
@@ -360,6 +369,13 @@
       Indexing your vault — answers may be incomplete ({rag.readiness.embedded}
       of {rag.readiness.total} notes)
     </div>
+  {:else if rag.readiness.state === "partial"}
+    <div
+      class="flex items-center gap-2 border-b bg-muted/50 px-3 py-1.5 text-xs text-muted-foreground"
+    >
+      <AlertCircle class="size-3.5 shrink-0" />
+      {partial_coverage}
+    </div>
   {:else if rag.readiness.state === "unavailable"}
     <div
       class="flex items-center gap-2 border-b bg-muted/50 px-3 py-1.5 text-xs text-muted-foreground"
@@ -495,6 +511,7 @@
     is_loading={rag.is_loading}
     is_streaming={rag.streaming_id !== null}
     readiness_state={rag.readiness.state}
+    readiness_detail={partial_coverage}
     mode={rag.mode}
     on_submit={ask}
     on_stop={stop}

@@ -502,6 +502,7 @@ export function mount_reactors(context: ReactorContext): ReactorHandles {
       context.assistant_chat_service,
       context.vault_store,
       context.bases_store,
+      context.search_store,
       context.action_registry,
     ),
     create_assistant_proposals_sync_reactor(

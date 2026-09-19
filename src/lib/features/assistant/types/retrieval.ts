@@ -57,5 +57,6 @@ export type RetrievalOutcome =
 export type RetrievalReadiness =
   | { state: "checking" }
   | { state: "indexing"; embedded: number; total: number }
+  | { state: "partial"; embedded: number; total: number; skipped: number }
   | { state: "ready" }
   | { state: "unavailable"; reason: string };

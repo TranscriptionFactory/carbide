@@ -103,6 +103,11 @@ type TauriBlockSectionHit = {
 type TauriEmbeddingStatus = {
   total_notes: number;
   embedded_notes: number;
+  eligible_notes: number;
+  embedded_eligible_notes: number;
+  skipped_notes: number;
+  embed_attempt_completed: boolean;
+  embedding_enabled: boolean;
   model_version: string;
   is_embedding: boolean;
 };

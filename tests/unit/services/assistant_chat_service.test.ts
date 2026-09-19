@@ -694,6 +694,11 @@ describe("AssistantChatService.query", () => {
       get_embedding_status: vi.fn().mockResolvedValue({
         total_notes: 5,
         embedded_notes: 5,
+        eligible_notes: 5,
+        embedded_eligible_notes: 5,
+        skipped_notes: 0,
+        embed_attempt_completed: true,
+        embedding_enabled: true,
         model_version: "v1",
         is_embedding: false,
       }),
@@ -792,6 +797,12 @@ describe("AssistantChatService.query", () => {
       get_embedding_status: vi.fn().mockResolvedValue({
         total_notes: 20,
         embedded_notes: 3,
+        eligible_notes: 20,
+        embedded_eligible_notes: 3,
+        skipped_notes: 17,
+        // still in progress: no pass has finished for this scope yet
+        embed_attempt_completed: false,
+        embedding_enabled: true,
         model_version: "v1",
         is_embedding: false,
       }),

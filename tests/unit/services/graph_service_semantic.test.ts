@@ -69,6 +69,11 @@ function make_mock_search_port(batch_edges: SemanticEdge[] = []): SearchPort {
     get_embedding_status: vi.fn().mockResolvedValue({
       total_notes: 10,
       embedded_notes: 10,
+      eligible_notes: 10,
+      embedded_eligible_notes: 10,
+      skipped_notes: 0,
+      embed_attempt_completed: true,
+      embedding_enabled: true,
       model_version: "bge-small-en-v1.5-q",
       is_embedding: false,
     }),
@@ -143,6 +148,11 @@ describe("GraphService.load_semantic_edges", () => {
     ).mockResolvedValue({
       total_notes: 5,
       embedded_notes: 0,
+      eligible_notes: 5,
+      embedded_eligible_notes: 0,
+      skipped_notes: 5,
+      embed_attempt_completed: true,
+      embedding_enabled: true,
       model_version: "",
       is_embedding: false,
     });
@@ -234,6 +244,11 @@ describe("GraphService.load_semantic_edges", () => {
     ).mockResolvedValue({
       total_notes: 5,
       embedded_notes: 0,
+      eligible_notes: 5,
+      embedded_eligible_notes: 0,
+      skipped_notes: 5,
+      embed_attempt_completed: true,
+      embedding_enabled: true,
       model_version: "",
       is_embedding: false,
     });

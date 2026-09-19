@@ -8,6 +8,7 @@ import {
   as_vault_path,
 } from "$lib/shared/types/ids";
 import type {
+  EmbeddingStatus,
   HybridSearchHit,
   NoteSearchHit,
   PlannedLinkSuggestion,
@@ -56,6 +57,18 @@ function planned(
   return { target_path, ref_count };
 }
 
+const idle_embedding_status: EmbeddingStatus = {
+  total_notes: 0,
+  embedded_notes: 0,
+  eligible_notes: 0,
+  embedded_eligible_notes: 0,
+  skipped_notes: 0,
+  embed_attempt_completed: false,
+  embedding_enabled: true,
+  model_version: "unavailable",
+  is_embedding: false,
+};
+
 describe("SearchService", () => {
   it("searches notes and returns results", async () => {
     const search_port = {
@@ -96,12 +109,7 @@ describe("SearchService", () => {
       semantic_search: vi.fn().mockResolvedValue([]),
       hybrid_search: vi.fn().mockResolvedValue([]),
       search_blocks: vi.fn().mockResolvedValue([]),
-      get_embedding_status: vi.fn().mockResolvedValue({
-        total_notes: 0,
-        embedded_notes: 0,
-        model_version: "unavailable",
-        is_embedding: false,
-      }),
+      get_embedding_status: vi.fn().mockResolvedValue(idle_embedding_status),
       find_similar_notes: vi.fn().mockResolvedValue([]),
       find_missing_links: vi.fn().mockResolvedValue([]),
       semantic_search_batch: vi.fn().mockResolvedValue([]),
@@ -161,12 +169,7 @@ describe("SearchService", () => {
       semantic_search: vi.fn().mockResolvedValue([]),
       hybrid_search: vi.fn().mockResolvedValue([]),
       search_blocks: vi.fn().mockResolvedValue([]),
-      get_embedding_status: vi.fn().mockResolvedValue({
-        total_notes: 0,
-        embedded_notes: 0,
-        model_version: "unavailable",
-        is_embedding: false,
-      }),
+      get_embedding_status: vi.fn().mockResolvedValue(idle_embedding_status),
       find_similar_notes: vi.fn().mockResolvedValue([]),
       find_missing_links: vi.fn().mockResolvedValue([]),
       semantic_search_batch: vi.fn().mockResolvedValue([]),
@@ -225,12 +228,7 @@ describe("SearchService", () => {
       semantic_search: vi.fn().mockResolvedValue([]),
       hybrid_search: vi.fn().mockResolvedValue([]),
       search_blocks: vi.fn().mockResolvedValue([]),
-      get_embedding_status: vi.fn().mockResolvedValue({
-        total_notes: 0,
-        embedded_notes: 0,
-        model_version: "unavailable",
-        is_embedding: false,
-      }),
+      get_embedding_status: vi.fn().mockResolvedValue(idle_embedding_status),
       find_similar_notes: vi.fn().mockResolvedValue([]),
       find_missing_links: vi.fn().mockResolvedValue([]),
       semantic_search_batch: vi.fn().mockResolvedValue([]),
@@ -286,12 +284,7 @@ describe("SearchService", () => {
       semantic_search: vi.fn().mockResolvedValue([]),
       hybrid_search: vi.fn().mockResolvedValue([]),
       search_blocks: vi.fn().mockResolvedValue([]),
-      get_embedding_status: vi.fn().mockResolvedValue({
-        total_notes: 0,
-        embedded_notes: 0,
-        model_version: "unavailable",
-        is_embedding: false,
-      }),
+      get_embedding_status: vi.fn().mockResolvedValue(idle_embedding_status),
       find_similar_notes: vi.fn().mockResolvedValue([]),
       find_missing_links: vi.fn().mockResolvedValue([]),
       semantic_search_batch: vi.fn().mockResolvedValue([]),
@@ -354,12 +347,7 @@ describe("SearchService", () => {
       semantic_search: vi.fn().mockResolvedValue([]),
       hybrid_search: vi.fn().mockResolvedValue([]),
       search_blocks: vi.fn().mockResolvedValue([]),
-      get_embedding_status: vi.fn().mockResolvedValue({
-        total_notes: 0,
-        embedded_notes: 0,
-        model_version: "unavailable",
-        is_embedding: false,
-      }),
+      get_embedding_status: vi.fn().mockResolvedValue(idle_embedding_status),
       find_similar_notes: vi.fn().mockResolvedValue([]),
       find_missing_links: vi.fn().mockResolvedValue([]),
       semantic_search_batch: vi.fn().mockResolvedValue([]),
@@ -430,12 +418,7 @@ describe("SearchService", () => {
       semantic_search: vi.fn().mockResolvedValue([]),
       hybrid_search: vi.fn().mockResolvedValue([]),
       search_blocks: vi.fn().mockResolvedValue([]),
-      get_embedding_status: vi.fn().mockResolvedValue({
-        total_notes: 0,
-        embedded_notes: 0,
-        model_version: "unavailable",
-        is_embedding: false,
-      }),
+      get_embedding_status: vi.fn().mockResolvedValue(idle_embedding_status),
       find_similar_notes: vi.fn().mockResolvedValue([]),
       find_missing_links: vi.fn().mockResolvedValue([]),
       semantic_search_batch: vi.fn().mockResolvedValue([]),
@@ -507,12 +490,7 @@ describe("SearchService", () => {
       semantic_search: vi.fn().mockResolvedValue([]),
       hybrid_search: vi.fn().mockResolvedValue([]),
       search_blocks: vi.fn().mockResolvedValue([]),
-      get_embedding_status: vi.fn().mockResolvedValue({
-        total_notes: 0,
-        embedded_notes: 0,
-        model_version: "unavailable",
-        is_embedding: false,
-      }),
+      get_embedding_status: vi.fn().mockResolvedValue(idle_embedding_status),
       find_similar_notes: vi.fn().mockResolvedValue([]),
       find_missing_links: vi.fn().mockResolvedValue([]),
       semantic_search_batch: vi.fn().mockResolvedValue([]),
@@ -568,12 +546,7 @@ describe("SearchService", () => {
       semantic_search: vi.fn().mockResolvedValue([]),
       hybrid_search: vi.fn().mockResolvedValue([]),
       search_blocks: vi.fn().mockResolvedValue([]),
-      get_embedding_status: vi.fn().mockResolvedValue({
-        total_notes: 0,
-        embedded_notes: 0,
-        model_version: "unavailable",
-        is_embedding: false,
-      }),
+      get_embedding_status: vi.fn().mockResolvedValue(idle_embedding_status),
       find_similar_notes: vi.fn().mockResolvedValue([]),
       find_missing_links: vi.fn().mockResolvedValue([]),
       semantic_search_batch: vi.fn().mockResolvedValue([]),
@@ -641,12 +614,7 @@ describe("SearchService", () => {
       semantic_search: vi.fn().mockResolvedValue([]),
       hybrid_search: vi.fn().mockResolvedValue([]),
       search_blocks: vi.fn().mockResolvedValue([]),
-      get_embedding_status: vi.fn().mockResolvedValue({
-        total_notes: 0,
-        embedded_notes: 0,
-        model_version: "unavailable",
-        is_embedding: false,
-      }),
+      get_embedding_status: vi.fn().mockResolvedValue(idle_embedding_status),
       find_similar_notes: vi.fn().mockResolvedValue([]),
       find_missing_links: vi.fn().mockResolvedValue([]),
       semantic_search_batch: vi.fn().mockResolvedValue([]),
@@ -745,12 +713,7 @@ describe("SearchService", () => {
           ? vi.fn().mockRejectedValue(overrides.hybrid_search_error)
           : vi.fn().mockResolvedValue(overrides.hybrid_search_results ?? []),
         search_blocks: vi.fn().mockResolvedValue([]),
-        get_embedding_status: vi.fn().mockResolvedValue({
-          total_notes: 0,
-          embedded_notes: 0,
-          model_version: "unavailable",
-          is_embedding: false,
-        }),
+        get_embedding_status: vi.fn().mockResolvedValue(idle_embedding_status),
         find_similar_notes: vi.fn().mockResolvedValue([]),
         find_missing_links: vi.fn().mockResolvedValue([]),
         semantic_search_batch: vi.fn().mockResolvedValue([]),
@@ -1046,12 +1009,7 @@ describe("SearchService", () => {
         semantic_search: vi.fn().mockResolvedValue([]),
         hybrid_search: vi.fn().mockResolvedValue([]),
         search_blocks: vi.fn().mockResolvedValue([]),
-        get_embedding_status: vi.fn().mockResolvedValue({
-          total_notes: 0,
-          embedded_notes: 0,
-          model_version: "unavailable",
-          is_embedding: false,
-        }),
+        get_embedding_status: vi.fn().mockResolvedValue(idle_embedding_status),
         find_similar_notes: vi.fn().mockResolvedValue([]),
         find_missing_links: vi.fn().mockResolvedValue([]),
         semantic_search_batch: vi.fn().mockResolvedValue([]),

@@ -70,8 +70,30 @@ pub struct HybridSearchHit {
 
 #[derive(Debug, Serialize, Clone, Type)]
 pub struct EmbeddingStatus {
+    /// Every non-hidden file the index knows about, embeddable or not.
     pub total_notes: usize,
+    /// Raw `note_embeddings` row count, stale and out-of-scope vectors included.
     pub embedded_notes: usize,
+    /// The part of `total_notes` the embed pass selects under the current scope.
+    /// Attachments, code outside `all`, and empty notes are not in it, which is
+    /// why readiness must be read from this pair rather than from the raw counts.
+    pub eligible_notes: usize,
+    /// How much of `eligible_notes` has a vector. Never exceeds it: a stale or
+    /// out-of-scope vector is in neither count.
+    pub embedded_eligible_notes: usize,
+    /// Notes in the index the pass deliberately skips: an attachment, code
+    /// outside `all`, or an empty body is ineligible by construction, not left
+    /// behind by a failed pass. The eligible notes it did not reach are the
+    /// `eligible_notes - embedded_eligible_notes` deficit instead.
+    pub skipped_notes: usize,
+    /// Whether an embedding attempt has ended under the scope resolved now.
+    /// `is_embedding == false` alone does not mean this: startup may not have
+    /// queued an attempt yet, and a cancelled pass has not finished anything.
+    pub embed_attempt_completed: bool,
+    /// False only when both note and block embedding are switched off, so no
+    /// pass can do any work. Readiness has nothing pending to report then, and
+    /// must not hold a banner over a deliberate configuration.
+    pub embedding_enabled: bool,
     pub model_version: String,
     pub is_embedding: bool,
 }
