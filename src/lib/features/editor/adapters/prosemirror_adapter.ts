@@ -236,15 +236,15 @@ function create_cursor_plugin(
           prev_doc = view.state.doc;
           prev_selection = view.state.selection;
 
-          const { doc } = view.state;
           const $from = view.state.selection?.$from;
+          // The line number needs a document walk, so it is recomputed with
+          // the deferred totals; the status bar may lag one frame behind.
           cached = {
             ...cached,
-            line: $from ? line_from_pos(doc, $from.pos) : 1,
             column: $from ? $from.parentOffset + 1 : 1,
           };
 
-          if (doc_changed) {
+          if (selection_changed) {
             cursor_scheduler.schedule(() => {
               if (!latest_view) return;
               cached = calculate_cursor_info(latest_view);
