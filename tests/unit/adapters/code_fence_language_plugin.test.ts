@@ -94,17 +94,11 @@ function create_test_schema() {
   });
 }
 
-describe("plugin registration order", () => {
-  it("code fence plugin must be registered before baseKeymap so Enter is not stolen", () => {
-    // This test documents the invariant: code_fence_language_plugin must appear
-    // before baseKeymap in the plugin array. Otherwise baseKeymap's Enter handler
-    // (splitBlock) fires first and the language picker can never accept a selection.
-    // See prosemirror_adapter.ts — the plugin is registered alongside slash_command
-    // and date_suggest, all of which need Enter interception before baseKeymap.
-    const plugin = create_code_fence_language_prose_plugin();
-    expect(plugin.props.handleKeyDown).toBeDefined();
-  });
-});
+// The registration-order invariant ("fence language plugin before baseKeymap,
+// or Enter is stolen") has a real regression in
+// tests/unit/adapters/editor_suggest_keys.test.ts — it mounts the assembled
+// editor and presses Enter on an open picker. The test that used to live here
+// only asserted `plugin.props.handleKeyDown` is defined, which cannot fail.
 
 describe("code_fence_language_plugin state", () => {
   it("initializes with inactive state", () => {
