@@ -719,8 +719,9 @@ impl VectorIndex {
         basename: &str,
         model_version: &str,
     ) -> Self {
+        let start = std::time::Instant::now();
         let expected_dims = Self::peek_dims(conn, index_name).unwrap_or(dims);
-        match Self::load_from_dump(dir, basename, model_version, expected_dims) {
+        let idx = match Self::load_from_dump(dir, basename, model_version, expected_dims) {
             Some(mut idx) => {
                 let delta = idx.reconcile_from_sqlite(conn, index_name);
                 log::info!(
@@ -738,7 +739,14 @@ impl VectorIndex {
                 idx
             }
             None => Self::rebuild_from_sqlite(conn, index_name, expected_dims),
-        }
+        };
+        // The dump load's own cost, so a slow vault open can attribute the
+        // startup to the load rather than to the reconcile the line above covers.
+        log::info!(
+            "VectorIndex::load_or_rebuild({index_name}): ready in {:.1}ms",
+            start.elapsed().as_secs_f64() * 1000.0
+        );
+        idx
     }
 }
 

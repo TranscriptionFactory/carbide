@@ -2032,6 +2032,9 @@ fn run_index_op(
                 // run as finished is what masks an interrupted index.
                 log::info!("{label} cancelled after {} files in {elapsed_ms}ms", res.indexed);
             } else {
+                // The pass's wall time is the number a slow-vault report needs:
+                // "scanned N disk files" says the walk ran, not what it cost.
+                log::info!("{label}: indexed {} files in {elapsed_ms}ms", res.indexed);
                 let _ = app_handle.emit(
                     "index_progress",
                     IndexProgressEvent::Completed {
