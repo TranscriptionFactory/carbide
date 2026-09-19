@@ -52,22 +52,29 @@ function skip_list_marker(text: string, idx: number): number {
   return idx;
 }
 
-export function prose_cursor_to_md_offset(
-  doc: ProseNode,
-  cursor_pos: number,
+type OffsetProbe = (text_index: number, md_offset: number) => void;
+
+/**
+ * Aligns `text_before` against `markdown`, one character at a time. When
+ * `probe` is given it reports the markdown offset reached the first time each
+ * text index is included, which is the mapping a truncated walk would return.
+ */
+function walk_text_to_md(
+  text_before: string,
   markdown: string,
+  probe: OffsetProbe | null,
 ): number {
-  if (cursor_pos <= 0 || doc.content.size === 0 || !markdown) return 0;
-
-  const clamped = Math.min(cursor_pos, doc.content.size);
-  const text_before = doc.textBetween(0, clamped, "\n");
-
   let ti = 0;
   let mi = 0;
   let in_code_fence = false;
   let in_frontmatter = false;
+  let probed_ti = -1;
 
   while (ti < text_before.length && mi < markdown.length) {
+    if (probe !== null && ti !== probed_ti) {
+      probed_ti = ti;
+      probe(ti, mi);
+    }
     if (mi === 0 && !in_frontmatter && markdown.startsWith("---", mi)) {
       const after_dashes = mi + 3;
       if (after_dashes >= markdown.length || markdown[after_dashes] === "\n") {
@@ -199,7 +206,159 @@ export function prose_cursor_to_md_offset(
     }
   }
 
+  if (probe !== null && ti !== probed_ti) probe(ti, mi);
   return Math.min(mi, markdown.length);
+}
+
+export function prose_cursor_to_md_offset(
+  doc: ProseNode,
+  cursor_pos: number,
+  markdown: string,
+): number {
+  if (cursor_pos <= 0 || doc.content.size === 0 || !markdown) return 0;
+
+  const clamped = Math.min(cursor_pos, doc.content.size);
+  return walk_text_to_md(doc.textBetween(0, clamped, "\n"), markdown, null);
+}
+
+function leaf_text_for(node: ProseNode): string {
+  if (node.isText) return node.text ?? "";
+  if (!node.isLeaf) return "";
+  const spec = node.type.spec.leafText;
+  if (!spec) return "";
+  return typeof spec === "function" ? spec(node) : spec;
+}
+
+/** Reads an offset the index guarantees is in bounds. */
+function offset_at(values: Int32Array, index: number): number {
+  const value = values[index];
+  if (value === undefined) {
+    throw new RangeError(`offset index ${String(index)} is out of range`);
+  }
+  return value;
+}
+
+/**
+ * A positional index over one (doc, markdown) pair, built by a single document
+ * walk. `md_offsets[t]` is the markdown offset of the walk truncated to the
+ * first `t` characters of the document text, and `prose_positions[t]` is the
+ * smallest ProseMirror position that reaches it — exactly what
+ * `prose_cursor_to_md_offset` returns for that position.
+ *
+ * Mapping a diagnostic used to cost one full document walk per binary-search
+ * probe, per endpoint; with the index every probe is an array read.
+ */
+export type OffsetIndex = {
+  prose_positions: Int32Array;
+  md_offsets: Int32Array;
+  /** Markdown offset of each line start; the last entry is the markdown end. */
+  line_starts: Int32Array;
+  markdown_length: number;
+  doc_size: number;
+};
+
+function build_line_starts(markdown: string): number[] {
+  const starts = [0];
+  for (let i = 0; i < markdown.length; i++) {
+    if (markdown.charCodeAt(i) === 10) starts.push(i + 1);
+  }
+  return starts;
+}
+
+/**
+ * Reassembles `doc.textBetween(0, doc.content.size, "\n")` while recording, for
+ * every character of it, the first ProseMirror position at which the truncated
+ * walk includes that character.
+ */
+function collect_text_breakpoints(doc: ProseNode): {
+  text: string;
+  prose_positions: Int32Array;
+} {
+  const positions: number[] = [0];
+  let text = "";
+  let first_block = true;
+
+  doc.nodesBetween(0, doc.content.size, (node, pos) => {
+    const node_text = leaf_text_for(node);
+    if (
+      node.isBlock &&
+      ((node.isLeaf && node_text !== "") || node.isTextblock)
+    ) {
+      if (first_block) first_block = false;
+      else {
+        text += "\n";
+        positions[text.length] = pos + 1;
+      }
+    }
+    if (node_text === "") return true;
+
+    const start = text.length;
+    text += node_text;
+    for (let i = 1; i <= node_text.length; i++) {
+      positions[start + i] = node.isText ? pos + i : pos + 1;
+    }
+    return true;
+  });
+
+  return { text, prose_positions: Int32Array.from(positions) };
+}
+
+export function build_offset_index(
+  doc: ProseNode,
+  markdown: string,
+): OffsetIndex {
+  const { text, prose_positions } = collect_text_breakpoints(doc);
+  const md_offsets = new Int32Array(text.length + 1);
+  let filled = 0;
+
+  const final_md = walk_text_to_md(text, markdown, (text_index, md_offset) => {
+    for (let i = filled; i <= text_index; i++) md_offsets[i] = md_offset;
+    filled = text_index + 1;
+  });
+  for (let i = filled; i <= text.length; i++) md_offsets[i] = final_md;
+
+  return {
+    prose_positions,
+    md_offsets,
+    line_starts: Int32Array.from(build_line_starts(markdown)),
+    markdown_length: markdown.length,
+    doc_size: doc.content.size,
+  };
+}
+
+/** `md_offset_to_prose_pos` against a prebuilt index. */
+export function md_offset_to_prose_pos_indexed(
+  index: OffsetIndex,
+  md_offset: number,
+): number {
+  if (md_offset <= 0 || index.doc_size === 0) return 0;
+  if (md_offset >= index.markdown_length) return index.doc_size;
+
+  const { md_offsets, prose_positions } = index;
+  let lo = 0;
+  let hi = md_offsets.length - 1;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if (offset_at(md_offsets, mid) < md_offset) lo = mid + 1;
+    else hi = mid;
+  }
+  const mapped = offset_at(md_offsets, lo);
+  return mapped < md_offset ? index.doc_size : offset_at(prose_positions, lo);
+}
+
+/** `line_character_from_md_offset`'s inverse against a prebuilt index. */
+export function md_offset_from_line_character_indexed(
+  index: OffsetIndex,
+  line: number,
+  character: number,
+): number {
+  const start =
+    line <= 0
+      ? 0
+      : line < index.line_starts.length
+        ? offset_at(index.line_starts, line)
+        : index.markdown_length;
+  return Math.min(start + character, index.markdown_length);
 }
 
 export type BlockAnchor = {

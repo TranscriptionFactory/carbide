@@ -452,6 +452,7 @@ export function mount_reactors(context: ReactorContext): ReactorHandles {
       context.diagnostics_store,
       context.editor_service,
       context.ui_store,
+      context.editor_store,
     ),
     create_code_lsp_document_sync_reactor(
       context.document_store,

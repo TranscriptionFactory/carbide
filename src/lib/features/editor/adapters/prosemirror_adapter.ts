@@ -230,21 +230,21 @@ function create_cursor_plugin(
       return {
         update: (view) => {
           latest_view = view;
-          const doc_changed = view.state.doc !== prev_doc;
           const selection_changed =
-            doc_changed || view.state.selection !== prev_selection;
+            view.state.doc !== prev_doc ||
+            view.state.selection !== prev_selection;
           prev_doc = view.state.doc;
           prev_selection = view.state.selection;
 
-          const { doc } = view.state;
           const $from = view.state.selection?.$from;
+          // The line number needs a document walk, so it is recomputed with
+          // the deferred totals; the status bar may lag one frame behind.
           cached = {
             ...cached,
-            line: $from ? line_from_pos(doc, $from.pos) : 1,
             column: $from ? $from.parentOffset + 1 : 1,
           };
 
-          if (doc_changed) {
+          if (selection_changed) {
             cursor_scheduler.schedule(() => {
               if (!latest_view) return;
               cached = calculate_cursor_info(latest_view);
@@ -476,6 +476,7 @@ export function create_prosemirror_editor_port(args?: {
         on_selection_change,
         on_outline_change,
         on_active_heading_change,
+        on_doc_ahead_of_snapshot_change,
       } = events;
 
       let current_markdown = normalize_markdown(initial_markdown);
@@ -516,6 +517,9 @@ export function create_prosemirror_editor_port(args?: {
         pending_doc = null;
         if (!doc) return;
         const new_md = normalize_markdown(serialize_markdown(doc));
+        // Serialization ran, with or without a change: the snapshot is no
+        // longer behind the live document either way.
+        on_doc_ahead_of_snapshot_change?.(false);
         if (new_md === current_markdown) {
           reconcile_dirty();
           return;
@@ -662,6 +666,7 @@ export function create_prosemirror_editor_port(args?: {
         create_markdown_change_plugin((doc) => {
           if (suppress_change_echo) return;
           pending_doc = doc;
+          on_doc_ahead_of_snapshot_change?.(true);
           // Optimistic flip: the string compare happens at serialize time,
           // but autosave scheduling and the tab dot must not lag a keystroke.
           // reconcile_dirty clears a wrong flip (e.g. undo back to saved).

@@ -1,8 +1,12 @@
 import { Plugin, PluginKey } from "prosemirror-state";
-import type { Transaction } from "prosemirror-state";
 import { Decoration, DecorationSet } from "prosemirror-view";
 import type { Node as ProseNode } from "prosemirror-model";
 import type { HighlighterCore } from "shiki/core";
+import {
+  changed_range,
+  nodes_in_ranges,
+  replace_node_decorations,
+} from "./incremental_scan";
 import {
   get_highlighter_sync,
   resolve_language,
@@ -88,47 +92,6 @@ function build_decorations(
   return DecorationSet.create(doc, decorations);
 }
 
-function changed_range(tr: Transaction): { from: number; to: number } | null {
-  let from = Infinity;
-  let to = -Infinity;
-  const maps = tr.mapping.maps;
-
-  for (let i = 0; i < tr.steps.length; i++) {
-    const map = maps[i];
-    if (!map) continue;
-
-    map.forEach((_old_from, _old_to, new_from, new_to) => {
-      let f = new_from;
-      let t = new_to;
-      for (let j = i + 1; j < maps.length; j++) {
-        const next = maps[j];
-        if (!next) continue;
-        f = next.map(f, 1);
-        t = next.map(t, -1);
-      }
-      if (f < from) from = f;
-      if (t > to) to = t;
-    });
-  }
-
-  if (from > to) return null;
-  return { from, to };
-}
-
-function code_blocks_in_range(
-  doc: ProseNode,
-  from: number,
-  to: number,
-): Array<{ pos: number; node: ProseNode }> {
-  const blocks: Array<{ pos: number; node: ProseNode }> = [];
-  doc.nodesBetween(from, to, (node, pos) => {
-    if (node.type.name !== "code_block") return;
-    blocks.push({ pos, node });
-    return false;
-  });
-  return blocks;
-}
-
 export function create_shiki_prose_plugin(): Plugin {
   let theme_observer: MutationObserver | null = null;
 
@@ -175,29 +138,24 @@ export function create_shiki_prose_plugin(): Plugin {
           };
         }
 
-        let decorations = prev_state.decorations.map(tr.mapping, tr.doc);
+        const decorations = prev_state.decorations.map(tr.mapping, tr.doc);
         const range = changed_range(tr);
-        if (range) {
-          for (const block of code_blocks_in_range(
-            tr.doc,
-            range.from,
-            range.to,
-          )) {
-            const stale = decorations.find(
-              block.pos,
-              block.pos + block.node.nodeSize,
-            );
-            const fresh = build_block_decorations(
-              block.node,
-              block.pos,
-              highlighter,
-              theme,
-            );
-            decorations = decorations.remove(stale).add(tr.doc, fresh);
-          }
-        }
+        if (!range) return { theme, decorations };
 
-        return { theme, decorations };
+        return {
+          theme,
+          decorations: replace_node_decorations(
+            decorations,
+            tr.doc,
+            nodes_in_ranges(
+              tr.doc,
+              [range],
+              (node) => node.type.name === "code_block",
+            ),
+            (node, pos) =>
+              build_block_decorations(node, pos, highlighter, theme),
+          ),
+        };
       },
     },
 

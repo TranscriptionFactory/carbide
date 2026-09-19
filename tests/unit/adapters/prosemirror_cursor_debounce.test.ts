@@ -2,12 +2,14 @@
  * @vitest-environment jsdom
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { TextSelection } from "prosemirror-state";
 import { create_prosemirror_editor_port } from "$lib/features/editor/adapters/prosemirror_adapter";
 import type { EditorSession } from "$lib/features/editor/ports";
 import type { CursorInfo } from "$lib/shared/types/editor";
 
 async function create_session(
   on_cursor_change: (info: CursorInfo) => void,
+  initial_markdown = "hello world",
 ): Promise<EditorSession> {
   const root = document.createElement("div");
   document.body.appendChild(root);
@@ -15,7 +17,7 @@ async function create_session(
   const port = create_prosemirror_editor_port();
   return port.start_session({
     root,
-    initial_markdown: "hello world",
+    initial_markdown,
     note_path: "test.md",
     vault_id: null,
     events: {
@@ -82,6 +84,28 @@ describe("prosemirror cursor totals deferral", () => {
 
     vi.runAllTimers();
     expect(last_cursor(on_cursor.mock.calls).total_words).toBe(4);
+
+    session.destroy();
+  });
+
+  it("updates the line number with the deferred recompute, not before", async () => {
+    const on_cursor = vi.fn();
+    const session = await create_session(on_cursor, "first\n\nsecond\n\nthird");
+    const view = session.get_view?.();
+    if (!view) throw new Error("missing view");
+    vi.runAllTimers();
+    on_cursor.mockClear();
+
+    const doc = view.state.doc;
+    const third_block = doc.child(0).nodeSize + doc.child(1).nodeSize;
+    view.dispatch(
+      view.state.tr.setSelection(TextSelection.create(doc, third_block + 1)),
+    );
+
+    expect(last_cursor(on_cursor.mock.calls).line).toBe(1);
+
+    vi.runAllTimers();
+    expect(last_cursor(on_cursor.mock.calls).line).toBe(3);
 
     session.destroy();
   });

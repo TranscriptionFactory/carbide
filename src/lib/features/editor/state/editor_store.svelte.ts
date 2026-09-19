@@ -41,6 +41,13 @@ export class EditorStore {
   // Persisting that is wrong twice over: rejecting would leave it on disk, and
   // saving moves disk out from under the proposal accept diffs against.
   ai_preview_active = $state(false);
+  // The live document is ahead of the serialized markdown snapshot: LSP
+  // diagnostics and other snapshot consumers have to wait for serialization.
+  doc_ahead_of_snapshot = $state(false);
+
+  set_doc_ahead_of_snapshot(ahead: boolean) {
+    this.doc_ahead_of_snapshot = ahead;
+  }
 
   set_width_mode_override(note_path: string, mode: EditorWidthMode) {
     this.width_mode_overrides = {
@@ -96,6 +103,7 @@ export class EditorStore {
     this.selection = null;
     this.cursor_offset = 0;
     this.scroll_fraction = 0;
+    this.doc_ahead_of_snapshot = false;
   }
 
   clear_open_note() {
@@ -107,6 +115,7 @@ export class EditorStore {
     this.selection = null;
     this.pending_cursor_restore = null;
     this.ai_preview_active = false;
+    this.doc_ahead_of_snapshot = false;
   }
 
   set_markdown(note_id: NoteId, markdown: OpenNoteState["markdown"]) {
@@ -268,5 +277,6 @@ export class EditorStore {
     this.source_view_getter = null;
     this.pending_cursor_restore = null;
     this.ai_preview_active = false;
+    this.doc_ahead_of_snapshot = false;
   }
 }

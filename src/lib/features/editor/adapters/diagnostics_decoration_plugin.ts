@@ -2,7 +2,11 @@ import { Plugin, PluginKey } from "prosemirror-state";
 import { Decoration, DecorationSet, type EditorView } from "prosemirror-view";
 import { computePosition, offset, flip, shift } from "@floating-ui/dom";
 import type { Diagnostic, DiagnosticSource } from "$lib/features/diagnostics";
-import { lsp_pos_to_prose_pos } from "./lsp_plugin_utils";
+import {
+  build_offset_index,
+  md_offset_from_line_character_indexed,
+  md_offset_to_prose_pos_indexed,
+} from "./cursor_offset_mapper";
 import { render_lsp_markdown } from "./lsp_tooltip_renderer";
 
 export const diagnostics_decoration_plugin_key = new PluginKey<DecorationSet>(
@@ -25,15 +29,21 @@ function build_decorations(
 
   const doc = view.state.doc;
   const markdown = get_markdown();
+  const index = build_offset_index(doc, markdown);
   const decorations: Decoration[] = [];
 
   for (const diag of diagnostics) {
-    const from = lsp_pos_to_prose_pos(doc, markdown, diag.line, diag.column);
-    const to_raw = lsp_pos_to_prose_pos(
-      doc,
-      markdown,
-      diag.end_line,
-      diag.end_column,
+    const from = md_offset_to_prose_pos_indexed(
+      index,
+      md_offset_from_line_character_indexed(index, diag.line, diag.column),
+    );
+    const to_raw = md_offset_to_prose_pos_indexed(
+      index,
+      md_offset_from_line_character_indexed(
+        index,
+        diag.end_line,
+        diag.end_column,
+      ),
     );
 
     const from_clamped = Math.min(Math.max(from, 1), doc.content.size);

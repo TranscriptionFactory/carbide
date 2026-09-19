@@ -1,7 +1,17 @@
 import { Plugin, PluginKey } from "prosemirror-state";
 import { Decoration, DecorationSet } from "prosemirror-view";
 import type { Node as ProseNode } from "prosemirror-model";
-import { find_inline_tag_ranges } from "$lib/features/editor/domain/tag_ranges";
+import {
+  find_inline_tag_ranges,
+  find_inline_tag_ranges_in_node,
+  is_tag_scan_target,
+  type InlineTagRange,
+} from "$lib/features/editor/domain/tag_ranges";
+import {
+  changed_range,
+  nodes_in_ranges,
+  replace_node_decorations,
+} from "./incremental_scan";
 
 export type TagPillMenuConfig = {
   get_color: (tag: string) => string | null;
@@ -36,18 +46,28 @@ const CLOSED_MENU: TagPillMenuState = {
   clientY: 0,
 };
 
+function tag_pill_decoration(range: InlineTagRange): Decoration {
+  return Decoration.inline(range.from, range.to, {
+    class: "tag-pill",
+    "data-tag": range.tag,
+  });
+}
+
+function tag_decorations_for(
+  doc: ProseNode,
+  node: ProseNode,
+  pos: number,
+): Decoration[] {
+  if (!is_tag_scan_target(doc, node, pos)) return [];
+  return find_inline_tag_ranges_in_node(doc, node, pos).map(
+    tag_pill_decoration,
+  );
+}
+
 function build_decorations(doc: ProseNode): DecorationSet {
   const ranges = find_inline_tag_ranges(doc);
   if (ranges.length === 0) return DecorationSet.empty;
-  return DecorationSet.create(
-    doc,
-    ranges.map((range) =>
-      Decoration.inline(range.from, range.to, {
-        class: "tag-pill",
-        "data-tag": range.tag,
-      }),
-    ),
-  );
+  return DecorationSet.create(doc, ranges.map(tag_pill_decoration));
 }
 
 export const tag_pill_plugin_key = new PluginKey<TagPillState>("tag-pill");
@@ -62,7 +82,27 @@ export function create_tag_pill_prose_plugin(): Plugin<TagPillState> {
       apply(tr, plugin_state, _old_state, new_state) {
         let next = plugin_state;
         if (tr.docChanged) {
-          next = { ...next, decorations: build_decorations(new_state.doc) };
+          const range = changed_range(tr);
+          let decorations = plugin_state.decorations.map(
+            tr.mapping,
+            new_state.doc,
+          );
+          if (range) {
+            decorations = replace_node_decorations(
+              decorations,
+              new_state.doc,
+              nodes_in_ranges(
+                new_state.doc,
+                [range],
+                // Every text node in range, so that decorations of a node that
+                // stopped being scannable (a new inline-code mark) are dropped
+                // as well; the builder reapplies the scan rules.
+                (node) => node.isText,
+              ),
+              (node, pos) => tag_decorations_for(new_state.doc, node, pos),
+            );
+          }
+          next = { ...next, decorations };
         }
         const meta = tr.getMeta(tag_pill_plugin_key) as TagPillMeta | undefined;
         if (meta?.type === "open") {
