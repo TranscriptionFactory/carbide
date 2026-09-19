@@ -127,15 +127,22 @@ pub(crate) fn embed_attempt_completed(
 }
 
 /// The eligibility-scoped half of the embedding status: the denominator the
-/// embed pass selects against, and how much of it is done. Same predicate as the
-/// pass, so the two agree by construction. A vector whose path has no facts row
-/// (deleted note, or one an earlier scope embedded) belongs to neither count,
-/// which is what holds `embedded_eligible <= eligible`.
+/// embed pass selects against, how much of it is done, and how much of the
+/// index the pass skips by construction. Same predicate as the pass, so the
+/// numbers agree with it. A vector whose path has no facts row (deleted note, or
+/// one an earlier scope embedded) belongs to neither count, which is what holds
+/// `embedded_eligible <= eligible`.
+pub(crate) struct EmbedCoverage {
+    pub eligible_notes: usize,
+    pub embedded_eligible_notes: usize,
+    pub skipped_notes: usize,
+}
+
 pub(crate) fn embed_coverage(
     conn: &Connection,
     facts: &BTreeMap<String, NoteEmbedFacts>,
     scope: EmbeddingScope,
-) -> (usize, usize) {
+) -> EmbedCoverage {
     let eligible_notes = facts
         .values()
         .filter(|facts| note_embed_eligible(facts, scope))
@@ -148,7 +155,20 @@ pub(crate) fn embed_coverage(
                 .is_some_and(|facts| note_embed_eligible(facts, scope))
         })
         .count();
-    (eligible_notes, embedded_eligible_notes)
+    EmbedCoverage {
+        eligible_notes,
+        embedded_eligible_notes,
+        // `note_embed_facts` reads the same `notes` rows `get_note_count`
+        // counts, so everything not eligible is a note the pass skips.
+        skipped_notes: facts.len() - eligible_notes,
+    }
+}
+
+/// Whether any embedding work can run at all. Both flags off is the one
+/// configuration where no pass has anything to do, so readiness reads it as
+/// nothing pending rather than as coverage that will never arrive.
+pub(crate) fn embedding_work_enabled(note_enabled: bool, block_enabled: bool) -> bool {
+    note_enabled || block_enabled
 }
 
 fn resolve_embedding_flags(app: &AppHandle) -> (bool, bool) {
@@ -2335,7 +2355,7 @@ fn handle_embed_batch(
     reconcile_model_version(conn, &short_id, note_index, block_index);
 
     let (note_embed_enabled, block_embed_enabled) = resolve_embedding_flags(app_handle);
-    if !note_embed_enabled && !block_embed_enabled {
+    if !embedding_work_enabled(note_embed_enabled, block_embed_enabled) {
         log::info!("embed_batch: both note and block embedding disabled for {vault_id}");
         record_embed_attempt(app_handle, vault_id, scope);
         return LoopAction::Continue;
@@ -4409,6 +4429,8 @@ pub fn get_embedding_status_inner(
     // The readiness denominator is the set the pass actually selects against, so
     // it has to be counted under the scope the pass would resolve now.
     let scope = resolve_embedding_scope(&app, &vault_id);
+    let (note_embed_enabled, block_embed_enabled) = resolve_embedding_flags(&app);
+    let embedding_enabled = embedding_work_enabled(note_embed_enabled, block_embed_enabled);
     let (is_embedding, embed_attempt_completed) = {
         let state = app.state::<SearchDbState>();
         let map = state.workers.lock().map_err(|e| e.to_string())?;
@@ -4437,16 +4459,17 @@ pub fn get_embedding_status_inner(
         // gate on "any vector at all" rather than on coverage.
         let embedded_notes = vector_db::get_embedding_count(conn);
         let facts = search_db::note_embed_facts(conn)?;
-        let (eligible_notes, embedded_eligible_notes) = embed_coverage(conn, &facts, scope);
+        let coverage = embed_coverage(conn, &facts, scope);
         let model_version =
             vector_db::get_model_version(conn).unwrap_or_else(|| "unavailable".to_string());
         Ok(EmbeddingStatus {
             total_notes,
             embedded_notes,
-            eligible_notes,
-            embedded_eligible_notes,
-            skipped_notes: eligible_notes.saturating_sub(embedded_eligible_notes),
+            eligible_notes: coverage.eligible_notes,
+            embedded_eligible_notes: coverage.embedded_eligible_notes,
+            skipped_notes: coverage.skipped_notes,
             embed_attempt_completed,
+            embedding_enabled,
             model_version,
             is_embedding,
         })
