@@ -6,9 +6,7 @@ import { flushSync, mount, unmount } from "../helpers/svelte_client_runtime";
 import RecentsFileView from "$lib/features/folder/ui/recents_file_view.svelte";
 import type { RecentsPeriod } from "$lib/shared/types/editor_settings";
 
-type Props = Parameters<typeof RecentsFileView>[1]["props"];
-
-function render(props: Partial<Props> = {}) {
+function render(period: RecentsPeriod = "all") {
   const target = document.createElement("div");
   document.body.appendChild(target);
   const on_change_period = vi.fn();
@@ -18,22 +16,21 @@ function render(props: Partial<Props> = {}) {
       results: [],
       sort: "modified",
       direction: "desc",
-      period: "all",
+      period,
       show_non_markdown: true,
       on_change_sort: vi.fn(),
       on_change_direction: vi.fn(),
       on_change_period,
       on_change_show_non_markdown: vi.fn(),
       on_open_note: vi.fn(),
-      ...props,
-    } as Props,
+    },
   });
   flushSync();
   return {
     target,
     on_change_period,
-    cleanup() {
-      unmount(app);
+    cleanup: () => {
+      void unmount(app);
       target.remove();
       flushSync();
     },
@@ -55,7 +52,6 @@ describe("recents_file_view — the date range control", () => {
     expect(labels).toContain("Today");
     expect(labels).toContain("Week");
     expect(labels).toContain("Month");
-    expect(labels).not.toContain("Quarter");
     expect(target.textContent).not.toContain("Quarter");
     cleanup();
   });
@@ -85,16 +81,14 @@ describe("recents_file_view — the date range control", () => {
     flushSync();
 
     expect(on_change_period).toHaveBeenCalledTimes(1);
-    const period = on_change_period.mock.calls[0]?.[0] as RecentsPeriod;
-    expect(period.startsWith("custom:")).toBe(true);
-    expect(period).toMatch(/^custom:\d{4}-\d{2}-\d{2}\.\.\d{4}-\d{2}-\d{2}$/);
+    expect(on_change_period.mock.calls[0]?.[0]).toMatch(
+      /^custom:\d{4}-\d{2}-\d{2}\.\.\d{4}-\d{2}-\d{2}$/,
+    );
     cleanup();
   });
 
   it("shows the stored range on the trigger", () => {
-    const { target, cleanup } = render({
-      period: "custom:2026-09-01..2026-09-19",
-    });
+    const { target, cleanup } = render("custom:2026-09-01..2026-09-19");
     const trigger = target.querySelector('button[title="Custom date range"]');
 
     expect(trigger?.textContent).toContain("Sep 1 – Sep 19");
