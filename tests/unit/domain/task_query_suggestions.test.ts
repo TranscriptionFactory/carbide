@@ -78,6 +78,13 @@ describe("suggest_task_query", () => {
       expect(l).toEqual(["#urgent", "#home"]);
     });
 
+    it("prefix-filters nested tags after `tag includes `", () => {
+      const l = labels("tag includes #pro", {
+        tags: ["project/active", "idea"],
+      });
+      expect(l).toEqual(["#project/active"]);
+    });
+
     it("prefix-filters sortable props", () => {
       expect(labels("sort by s")).toEqual(["status", "section"]);
     });
