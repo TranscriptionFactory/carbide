@@ -8,6 +8,10 @@ import { EditorView } from "prosemirror-view";
 import type { Node as ProseNode } from "prosemirror-model";
 import { schema } from "$lib/features/editor/adapters/schema";
 import { create_code_block_view_prose_plugin } from "$lib/features/editor/adapters/code_block_view_plugin";
+import {
+  create_dsl_suggest_prose_plugin,
+  set_dsl_suggestions,
+} from "$lib/features/editor/adapters/dsl_suggest_plugin";
 import { PREVIEW_HEIGHT_MESSAGE } from "$lib/features/editor/adapters/code_preview";
 import type { SmartBlocksConfig } from "$lib/features/editor/adapters/code_block_view_plugin";
 import {
@@ -455,6 +459,91 @@ describe("CodeBlockView", () => {
 
       expect(view.state.doc.childCount).toBe(3);
       expect(view.state.doc.child(1)?.type.name).toBe("paragraph");
+
+      view.destroy();
+    });
+
+    // Sibling of the exit cases above: while a DSL suggest list is showing, the
+    // keys belong to the menu, so nothing inserts or exits.
+    function create_editor_with_dsl_suggest(code: string): EditorView {
+      const code_block = schema.nodes.code_block.create(
+        { language: "query" },
+        schema.text(code),
+      );
+      const doc = schema.nodes.doc.create(null, [code_block]);
+
+      const container_el = document.createElement("div");
+      document.body.appendChild(container_el);
+      container = container_el;
+
+      const plugins = [
+        create_code_block_view_prose_plugin(),
+        create_dsl_suggest_prose_plugin({
+          language: "query",
+          on_query: () => {},
+          on_dismiss: () => {},
+        }),
+      ];
+      const view = new EditorView(container_el, {
+        state: EditorState.create({ doc, plugins }),
+        dispatchTransaction: (tr) => {
+          const new_state = view.state.apply(tr);
+          view.updateState(new_state);
+        },
+      });
+
+      view.dispatch(
+        view.state.tr.setSelection(TextSelection.create(view.state.doc, 1)),
+      );
+      set_dsl_suggestions(
+        view,
+        "query",
+        [{ label: "status", insert: "status" }],
+        0,
+      );
+      return view;
+    }
+
+    it("does not exit on ArrowDown at end while a DSL suggest is active", () => {
+      const view = create_editor_with_dsl_suggest("x");
+      view.dispatch(
+        view.state.tr.setSelection(TextSelection.create(view.state.doc, 2)),
+      );
+
+      view.dom.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }),
+      );
+
+      expect(view.state.doc.childCount).toBe(1);
+      expect(view.state.selection.$from.parent.type.name).toBe("code_block");
+
+      view.destroy();
+    });
+
+    it("does not exit on ArrowUp at start while a DSL suggest is active", () => {
+      const view = create_editor_with_dsl_suggest("x");
+
+      view.dom.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "ArrowUp", bubbles: true }),
+      );
+
+      expect(view.state.doc.childCount).toBe(1);
+      expect(view.state.selection.$from.parent.type.name).toBe("code_block");
+
+      view.destroy();
+    });
+
+    it("accepts instead of indenting on Tab while a DSL suggest is active", () => {
+      const view = create_editor_with_dsl_suggest("x");
+      view.dispatch(
+        view.state.tr.setSelection(TextSelection.create(view.state.doc, 2)),
+      );
+
+      view.dom.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "Tab", bubbles: true }),
+      );
+
+      expect(view.state.doc.firstChild?.textContent).toBe("status");
 
       view.destroy();
     });

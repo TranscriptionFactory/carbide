@@ -30,6 +30,7 @@ import {
 } from "./code_preview";
 import { LruCache } from "$lib/shared/utils/lru_cache";
 import { schema } from "./schema";
+import { has_active_dsl_suggest } from "./dsl_suggest_plugin";
 import { create_logger } from "$lib/shared/utils/logger";
 import { parse_smart_block } from "$lib/features/smart_blocks";
 import type {
@@ -1326,6 +1327,18 @@ export function create_code_block_view_prose_plugin(
 
           const code_block_end = pos + node.nodeSize - 1;
           const code_block_start = pos + 1;
+
+          // These keys belong to an open DSL suggest menu (Tab accepts, arrows
+          // move the highlight). The suggest plugins dismiss themselves as soon
+          // as the cursor leaves their block, so an active one is this block's.
+          if (
+            (event.key === "Tab" ||
+              event.key === "ArrowDown" ||
+              event.key === "ArrowUp") &&
+            has_active_dsl_suggest(view.state)
+          ) {
+            return false;
+          }
 
           if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
             event.preventDefault();
