@@ -15,6 +15,12 @@ const DUE_DATE_PATTERNS = [
   /@(\d{4}-\d{2}-\d{2})/,
 ];
 
+const TASK_STATUS_CLASSES: Record<string, string> = {
+  todo: "task-status-todo",
+  doing: "task-status-doing",
+  done: "task-status-done",
+};
+
 export type ParsedDueDate = {
   date: string;
   format: "\u{1F4C5}" | "due:" | "@";
@@ -53,12 +59,7 @@ function task_decorations_for(node: ProseNode, pos: number): Decoration[] {
   const decorations: Decoration[] = [];
   const task_status: string =
     node.attrs["task_status"] ?? (node.attrs["checked"] ? "done" : "todo");
-  const status_classes: Record<string, string> = {
-    todo: "task-status-todo",
-    doing: "task-status-doing",
-    done: "task-status-done",
-  };
-  const cls = status_classes[task_status];
+  const cls = TASK_STATUS_CLASSES[task_status];
   if (cls) {
     decorations.push(Decoration.node(pos, pos + node.nodeSize, { class: cls }));
   }
@@ -91,9 +92,7 @@ export function build_task_decorations(doc: ProseNode): DecorationSet {
   const decorations: Decoration[] = [];
 
   doc.descendants((node, pos) => {
-    for (const decoration of task_decorations_for(node, pos)) {
-      decorations.push(decoration);
-    }
+    decorations.push(...task_decorations_for(node, pos));
     return true;
   });
 

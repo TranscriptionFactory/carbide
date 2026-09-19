@@ -230,9 +230,9 @@ function create_cursor_plugin(
       return {
         update: (view) => {
           latest_view = view;
-          const doc_changed = view.state.doc !== prev_doc;
           const selection_changed =
-            doc_changed || view.state.selection !== prev_selection;
+            view.state.doc !== prev_doc ||
+            view.state.selection !== prev_selection;
           prev_doc = view.state.doc;
           prev_selection = view.state.selection;
 

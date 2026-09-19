@@ -89,9 +89,7 @@ export function find_inline_tag_ranges(doc: ProseNode): InlineTagRange[] {
   const ranges: InlineTagRange[] = [];
   doc.descendants((node, pos) => {
     if (EXCLUDED_NODE_TYPES.has(node.type.name)) return false;
-    for (const range of find_inline_tag_ranges_in_node(doc, node, pos)) {
-      ranges.push(range);
-    }
+    ranges.push(...find_inline_tag_ranges_in_node(doc, node, pos));
     return true;
   });
   return ranges;

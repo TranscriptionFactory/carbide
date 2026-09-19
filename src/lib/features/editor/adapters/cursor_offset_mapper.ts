@@ -342,9 +342,8 @@ export function md_offset_to_prose_pos_indexed(
     if (offset_at(md_offsets, mid) < md_offset) lo = mid + 1;
     else hi = mid;
   }
-  return offset_at(md_offsets, lo) < md_offset
-    ? index.doc_size
-    : offset_at(prose_positions, lo);
+  const mapped = offset_at(md_offsets, lo);
+  return mapped < md_offset ? index.doc_size : offset_at(prose_positions, lo);
 }
 
 /** `line_character_from_md_offset`'s inverse against a prebuilt index. */

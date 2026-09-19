@@ -85,8 +85,6 @@ export function create_block_id_decoration_plugin(): Plugin<DecorationSet> {
         }
 
         const decorations = prev.map(tr.mapping, new_state.doc);
-        if (ranges.length === 0) return decorations;
-
         const blocks = nodes_in_ranges(
           new_state.doc,
           ranges,

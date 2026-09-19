@@ -2,7 +2,11 @@ import { Plugin, PluginKey } from "prosemirror-state";
 import { Decoration, DecorationSet } from "prosemirror-view";
 import type { Node as ProseNode } from "prosemirror-model";
 import type { HighlighterCore } from "shiki/core";
-import { changed_range } from "./incremental_scan";
+import {
+  changed_range,
+  nodes_in_ranges,
+  replace_node_decorations,
+} from "./incremental_scan";
 import {
   get_highlighter_sync,
   resolve_language,
@@ -88,20 +92,6 @@ function build_decorations(
   return DecorationSet.create(doc, decorations);
 }
 
-function code_blocks_in_range(
-  doc: ProseNode,
-  from: number,
-  to: number,
-): Array<{ pos: number; node: ProseNode }> {
-  const blocks: Array<{ pos: number; node: ProseNode }> = [];
-  doc.nodesBetween(from, to, (node, pos) => {
-    if (node.type.name !== "code_block") return;
-    blocks.push({ pos, node });
-    return false;
-  });
-  return blocks;
-}
-
 export function create_shiki_prose_plugin(): Plugin {
   let theme_observer: MutationObserver | null = null;
 
@@ -148,29 +138,24 @@ export function create_shiki_prose_plugin(): Plugin {
           };
         }
 
-        let decorations = prev_state.decorations.map(tr.mapping, tr.doc);
+        const decorations = prev_state.decorations.map(tr.mapping, tr.doc);
         const range = changed_range(tr);
-        if (range) {
-          for (const block of code_blocks_in_range(
-            tr.doc,
-            range.from,
-            range.to,
-          )) {
-            const stale = decorations.find(
-              block.pos,
-              block.pos + block.node.nodeSize,
-            );
-            const fresh = build_block_decorations(
-              block.node,
-              block.pos,
-              highlighter,
-              theme,
-            );
-            decorations = decorations.remove(stale).add(tr.doc, fresh);
-          }
-        }
+        if (!range) return { theme, decorations };
 
-        return { theme, decorations };
+        return {
+          theme,
+          decorations: replace_node_decorations(
+            decorations,
+            tr.doc,
+            nodes_in_ranges(
+              tr.doc,
+              [range],
+              (node) => node.type.name === "code_block",
+            ),
+            (node, pos) =>
+              build_block_decorations(node, pos, highlighter, theme),
+          ),
+        };
       },
     },
 

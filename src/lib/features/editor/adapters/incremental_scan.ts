@@ -93,8 +93,7 @@ export function nodes_in_ranges(
 
   for (const range of ranges) {
     const from = Math.max(0, Math.min(range.from - 1, doc.content.size - 1));
-    const to = Math.min(Math.max(range.to + 1, from + 1), doc.content.size);
-    if (to <= from) continue;
+    const to = Math.min(range.to + 1, doc.content.size);
     doc.nodesBetween(from, to, (node, pos) => {
       if (seen.has(pos) || !matches(node, pos)) return true;
       seen.add(pos);
