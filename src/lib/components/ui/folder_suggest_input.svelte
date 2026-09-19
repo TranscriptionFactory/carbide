@@ -262,7 +262,6 @@
   .FolderSuggest__item {
     all: unset;
     flex-shrink: 0; /* rows keep their height; the dropdown scrolls instead */
-    min-height: 2.25rem; /* matches the calc(10 * 2.25rem) budget above */
     cursor: pointer; /* all:unset beats the global :where() cursor rule */
     padding: 0.375rem 0.75rem;
     font-size: 0.875rem;
