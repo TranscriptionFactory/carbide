@@ -22,6 +22,7 @@ import type {
 import type { YDocManager } from "./ydoc_manager";
 import type { VaultId } from "$lib/shared/types/ids";
 import { normalize_markdown_line_breaks } from "$lib/features/editor/domain/markdown_line_breaks";
+import type { InlineHtmlTrustConfig } from "$lib/features/editor/domain/inline_html_mode";
 import {
   block_supports_id,
   ensure_block_id_at as ensure_block_id_at_cmd,
@@ -434,6 +435,7 @@ export function create_prosemirror_editor_port(args?: {
   frontmatter_widget?: FrontmatterWidgetConfig;
   tag_pill_menu?: TagPillMenuConfig;
   task_port?: TaskPort;
+  inline_html_trust?: InlineHtmlTrustConfig | undefined;
   run_query?: (text: string) => Promise<QueryResult>;
   get_links?: (
     vault_id: VaultId,
@@ -460,6 +462,7 @@ export function create_prosemirror_editor_port(args?: {
   const frontmatter_widget = args?.frontmatter_widget;
   const tag_pill_menu = args?.tag_pill_menu;
   const task_port = args?.task_port;
+  const inline_html_trust = args?.inline_html_trust;
   const run_query = args?.run_query;
   const get_links = args?.get_links;
   const run_base_query = args?.run_base_query;
@@ -566,6 +569,7 @@ export function create_prosemirror_editor_port(args?: {
           load_svg_preview: load_svg_preview_fn,
           frontmatter_widget,
           tag_pill_menu,
+          inline_html_trust,
           use_yjs: !!ydoc_manager,
           native_link_hover_enabled: config.native_link_hover_enabled ?? true,
           native_wiki_suggest_enabled:

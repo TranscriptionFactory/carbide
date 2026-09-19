@@ -23,6 +23,11 @@ export type { EditorMode } from "$lib/features/editor/domain/editor_mode";
 export type { SlashCommand } from "$lib/features/editor/adapters/slash_command_plugin";
 export type { FrontmatterWidgetConfig } from "$lib/features/editor/adapters/frontmatter_view_plugin";
 export type { TagPillMenuConfig } from "$lib/features/editor/adapters/tag_pill_plugin";
+export {
+  create_inline_html_trust_config,
+  type HtmlRenderMode,
+  type InlineHtmlTrustConfig,
+} from "$lib/features/editor/domain/inline_html_mode";
 export type {
   EditorAiContext,
   EditorSelectionSnapshot,

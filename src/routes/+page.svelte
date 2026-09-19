@@ -125,6 +125,13 @@
   ports.tag_pill_menu.on_demote = (tag) =>
     void app.action_registry.execute(ACTION_IDS.tags_demote, tag);
 
+  // In-note HTML (`![[x.html]]` and ```html fences) reads and requests the same
+  // per-file trust grants the HTML tab viewer uses.
+  ports.inline_html_trust.get_level = (path) =>
+    app.services.document.refresh_trust_level(path);
+  ports.inline_html_trust.request = (path) =>
+    app.services.document.request_trust_grant(path);
+
   provide_app_context(app);
 
   let destroyed = false;

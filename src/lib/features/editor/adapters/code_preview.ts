@@ -1,4 +1,6 @@
+import { sanitize_html_preview } from "$lib/shared/html";
 import { has_author_colors } from "../domain/has_author_colors";
+import type { HtmlRenderMode } from "../domain/inline_html_mode";
 
 const LANGUAGE_ALIASES: Record<string, string> = {
   htm: "html",
@@ -43,6 +45,20 @@ export function should_show_preview(language: string, meta: string): boolean {
   if (meta_has_token(meta, "nopreview")) return false;
   if (meta_has_token(meta, "preview")) return true;
   return normalize_preview_language(language) === "html";
+}
+
+/* Fences carry their requested mode in the info string next to `nopreview`:
+   bare `html` and `html safe` render sanitized, `html live` opts into scripts
+   (still gated by a trust grant at render time). */
+export function fence_mode_from_meta(meta: string): HtmlRenderMode {
+  return meta_has_token(meta, "live") ? "live" : "safe";
+}
+
+export function set_fence_mode_token(
+  meta: string,
+  mode: HtmlRenderMode,
+): string {
+  return set_meta_token(meta, "live", mode === "live");
 }
 
 const PREVIEW_LAYOUT_STYLES = `
@@ -206,4 +222,39 @@ export function build_code_preview_srcdoc(
     ? NEUTRAL_SURFACE_STYLES
     : PREVIEW_THEME_STYLES;
   return `<!DOCTYPE html><html${html_attrs}><head><meta charset="utf-8"><style>${root_block}${PREVIEW_LAYOUT_STYLES}${color_styles}</style></head><body>${body}${HEIGHT_SYNC_SCRIPT}</body></html>`;
+}
+
+/* Safe mode keeps the author's markup and stylesheet, drops scripts, event
+   handlers, frames and forms, and pins the frame to a no-network CSP. */
+const SAFE_PREVIEW_CSP = [
+  "default-src 'none'",
+  "script-src 'unsafe-inline'",
+  "style-src 'unsafe-inline'",
+  "img-src data: blob: carbide-asset:",
+  "font-src data: carbide-asset:",
+  "media-src data: blob: carbide-asset:",
+  "connect-src 'none'",
+  "form-action 'none'",
+  "frame-src 'none'",
+].join("; ");
+
+export function build_safe_code_preview_srcdoc(
+  language: string,
+  source: string,
+  theme: "light" | "dark" = "light",
+  tokens: Record<string, string> = {},
+): string {
+  const { body, styles } = sanitize_html_preview(
+    wrap_preview_body(language, source),
+  );
+  const author_styled = has_author_colors(body);
+  const { html_attrs, root_block } = resolve_preview_surface(
+    author_styled,
+    theme,
+    tokens,
+  );
+  const color_styles = author_styled
+    ? NEUTRAL_SURFACE_STYLES
+    : PREVIEW_THEME_STYLES;
+  return `<!DOCTYPE html><html${html_attrs}><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="${SAFE_PREVIEW_CSP}"><style>${root_block}${PREVIEW_LAYOUT_STYLES}${color_styles}${styles}</style></head><body>${body}${HEIGHT_SYNC_SCRIPT}</body></html>`;
 }

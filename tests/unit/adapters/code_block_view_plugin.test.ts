@@ -892,9 +892,9 @@ describe("CodeBlockView", () => {
       );
       const doc = schema.nodes.doc.create(null, [code_block]);
 
-      const plugin = create_code_block_view_prose_plugin(
-        make_smart_blocks_config(callbacks),
-      );
+      const plugin = create_code_block_view_prose_plugin({
+        smart_blocks: make_smart_blocks_config(callbacks),
+      });
       const state = EditorState.create({ doc, plugins: [plugin] });
 
       const view = new EditorView(container_el, {
@@ -996,9 +996,9 @@ describe("CodeBlockView", () => {
         schema.text("status is todo"),
       );
       const doc = schema.nodes.doc.create(null, [code_block]);
-      const plugin = create_code_block_view_prose_plugin(
-        make_smart_blocks_config(callbacks),
-      );
+      const plugin = create_code_block_view_prose_plugin({
+        smart_blocks: make_smart_blocks_config(callbacks),
+      });
       const state = EditorState.create({ doc, plugins: [plugin] });
       const view = new EditorView(container_el, {
         state,
@@ -1035,9 +1035,9 @@ describe("CodeBlockView", () => {
         schema.text("status is todo"),
       );
       const doc = schema.nodes.doc.create(null, [code_block]);
-      const plugin = create_code_block_view_prose_plugin(
-        make_smart_blocks_config(callbacks),
-      );
+      const plugin = create_code_block_view_prose_plugin({
+        smart_blocks: make_smart_blocks_config(callbacks),
+      });
       const state = EditorState.create({ doc, plugins: [plugin] });
       const view = new EditorView(container_el, {
         state,
@@ -1385,6 +1385,271 @@ describe("CodeBlockView", () => {
     });
   });
 
+  describe("html preview safe/live modes", () => {
+    const NOTE_PATH = "notes/host.md";
+
+    function make_trust(options: {
+      level?: "safe" | "live" | "live+net";
+      granted?: boolean;
+    }) {
+      let level = options.level ?? ("safe" as const);
+      const get_level = vi.fn(() => Promise.resolve(level));
+      const request = vi.fn(() => {
+        if (options.granted) level = "live";
+        return Promise.resolve(options.granted ?? false);
+      });
+      return { config: { get_level, request }, get_level, request };
+    }
+
+    function create_editor_with_preview(options: {
+      meta?: string;
+      source?: string;
+      trust?: { level?: "safe" | "live" | "live+net"; granted?: boolean };
+    }) {
+      const owner_doc = document.createElement("div");
+      document.body.appendChild(owner_doc);
+      const code_block = schema.nodes.code_block.create(
+        { language: "html", meta: options.meta ?? "" },
+        schema.text(options.source ?? "<p>hi</p>"),
+      );
+      const doc = schema.nodes.doc.create(null, [code_block]);
+      const trust = make_trust(options.trust ?? {});
+      const plugin = create_code_block_view_prose_plugin({
+        get_note_path: () => NOTE_PATH,
+        inline_html_trust: trust.config,
+      });
+      const state = EditorState.create({ doc, plugins: [plugin] });
+      const view = new EditorView(owner_doc, {
+        state,
+        dispatchTransaction: (tr) => {
+          view.updateState(view.state.apply(tr));
+        },
+      });
+      return { view, container: owner_doc, trust };
+    }
+
+    type RegisterArgs = { html: string; allowNetwork: boolean };
+
+    function is_register_args(value: unknown): value is RegisterArgs {
+      return (
+        typeof value === "object" &&
+        value !== null &&
+        "html" in value &&
+        typeof value.html === "string" &&
+        "allowNetwork" in value &&
+        typeof value.allowNetwork === "boolean"
+      );
+    }
+
+    function register_calls(): RegisterArgs[] {
+      return vi
+        .mocked(invoke)
+        .mock.calls.filter(([cmd]) => cmd === "html_live_register")
+        .map(([, args]) => args)
+        .filter(is_register_args);
+    }
+
+    function rendered_docs(): string[] {
+      return register_calls().map((args) => args.html);
+    }
+
+    function mode_btn(
+      c: HTMLElement,
+      label: "Safe" | "Live",
+    ): HTMLButtonElement {
+      const buttons = [
+        ...c.querySelectorAll<HTMLButtonElement>(".html-mode-toggle__btn"),
+      ];
+      const button = buttons.find((el) => el.textContent === label);
+      if (!button) throw new Error(`missing ${label} mode button`);
+      return button;
+    }
+
+    function selected_mode(c: HTMLElement): string | undefined {
+      const buttons = [
+        ...c.querySelectorAll<HTMLButtonElement>(".html-mode-toggle__btn"),
+      ];
+      return buttons.find((el) =>
+        el.classList.contains("html-mode-toggle__btn--active"),
+      )?.textContent;
+    }
+
+    beforeEach(() => {
+      vi.mocked(invoke).mockClear();
+      vi.mocked(invoke).mockImplementation((cmd: string) =>
+        Promise.resolve(
+          cmd === "html_live_register" ? "carbide-html://p" : null,
+        ),
+      );
+    });
+
+    afterEach(() => {
+      document.documentElement.removeAttribute("data-color-scheme");
+    });
+
+    it("renders a bare fence in safe mode with Safe selected", async () => {
+      const { view, container: c } = create_editor_with_preview({
+        source: `<p>hi</p><script>window.stolen = 1</script>`,
+      });
+      container = c;
+      await vi.runAllTimersAsync();
+
+      expect(rendered_docs()).toHaveLength(1);
+      expect(rendered_docs()[0]).toContain("<p>hi</p>");
+      expect(rendered_docs()[0]).not.toContain("window.stolen");
+      expect(rendered_docs()[0]).toContain(
+        'http-equiv="Content-Security-Policy"',
+      );
+      expect(rendered_docs()[0]).toContain("connect-src 'none'");
+      expect(selected_mode(c)).toBe("Safe");
+      expect(register_calls()[0]?.allowNetwork).toBe(false);
+
+      view.destroy();
+    });
+
+    it("reads fence trust from the host note path", async () => {
+      const { view, container: c, trust } = create_editor_with_preview({});
+      container = c;
+      await vi.runAllTimersAsync();
+
+      expect(trust.get_level).toHaveBeenCalledWith(NOTE_PATH);
+
+      view.destroy();
+    });
+
+    it("serves the live document once the fence is trusted", async () => {
+      const { view, container: c } = create_editor_with_preview({
+        meta: "live",
+        source: `<p>hi</p><script>window.ran = 1</script>`,
+        trust: { level: "live" },
+      });
+      container = c;
+      await vi.runAllTimersAsync();
+
+      expect(rendered_docs()).toHaveLength(1);
+      expect(rendered_docs()[0]).toContain("window.ran");
+      expect(rendered_docs()[0]).not.toContain("Content-Security-Policy");
+      expect(selected_mode(c)).toBe("Live");
+
+      view.destroy();
+    });
+
+    it("keeps a live token inert while trust is withheld", async () => {
+      const {
+        view,
+        container: c,
+        trust,
+      } = create_editor_with_preview({
+        meta: "live",
+        source: `<p>hi</p><script>window.ran = 1</script>`,
+      });
+      container = c;
+      await vi.runAllTimersAsync();
+
+      expect(rendered_docs()).toHaveLength(1);
+      expect(rendered_docs()[0]).not.toContain("window.ran");
+      expect(selected_mode(c)).toBe("Safe");
+      expect(trust.request).not.toHaveBeenCalled();
+
+      view.destroy();
+    });
+
+    it("prompts for trust and stays safe when the grant is declined", async () => {
+      const { view, container: c, trust } = create_editor_with_preview({});
+      container = c;
+      await vi.runAllTimersAsync();
+
+      mode_btn(c, "Live").click();
+      await vi.runAllTimersAsync();
+
+      expect(trust.request).toHaveBeenCalledWith(NOTE_PATH);
+      expect(rendered_docs()).toHaveLength(1);
+      expect(rendered_docs()[0]).not.toContain("window.ran");
+      expect(view.state.doc.child(0).attrs["meta"]).toBe("");
+      expect(selected_mode(c)).toBe("Safe");
+
+      view.destroy();
+    });
+
+    it("runs the fence in live mode after a granted prompt and stores the token", async () => {
+      const {
+        view,
+        container: c,
+        trust,
+      } = create_editor_with_preview({
+        source: `<p>hi</p><script>window.ran = 1</script>`,
+        trust: { granted: true },
+      });
+      container = c;
+      await vi.runAllTimersAsync();
+      expect(rendered_docs()[0]).not.toContain("window.ran");
+
+      mode_btn(c, "Live").click();
+      await vi.runAllTimersAsync();
+
+      expect(trust.request).toHaveBeenCalledTimes(1);
+      expect(view.state.doc.child(0).attrs["meta"]).toBe("live");
+      expect(rendered_docs()).toHaveLength(2);
+      expect(rendered_docs()[1]).toContain("window.ran");
+      expect(selected_mode(c)).toBe("Live");
+
+      view.destroy();
+    });
+
+    it("returns to safe mode without prompting again", async () => {
+      const {
+        view,
+        container: c,
+        trust,
+      } = create_editor_with_preview({
+        meta: "live",
+        trust: { level: "live" },
+      });
+      container = c;
+      await vi.runAllTimersAsync();
+
+      mode_btn(c, "Safe").click();
+      await vi.runAllTimersAsync();
+
+      expect(trust.request).not.toHaveBeenCalled();
+      expect(view.state.doc.child(0).attrs["meta"]).toBe("");
+      expect(rendered_docs()[1]).not.toContain("window.ran");
+      expect(rendered_docs()[1]).toContain("Content-Security-Policy");
+      expect(selected_mode(c)).toBe("Safe");
+
+      view.destroy();
+    });
+
+    it("tracks a live+net grant without re-prompting", async () => {
+      const { view, container: c } = create_editor_with_preview({
+        meta: "live",
+        trust: { level: "live+net" },
+      });
+      container = c;
+      await vi.runAllTimersAsync();
+
+      expect(register_calls()[0]?.allowNetwork).toBe(true);
+
+      view.destroy();
+    });
+
+    it("removes the mode control when the fence stops being previewable", async () => {
+      const { view, container: c } = create_editor_with_preview({});
+      container = c;
+      await vi.runAllTimersAsync();
+      expect(c.querySelectorAll(".html-mode-toggle__btn")).toHaveLength(2);
+
+      view.dispatch(
+        view.state.tr.setNodeMarkup(0, undefined, { language: "rust" }),
+      );
+      await vi.runAllTimersAsync();
+
+      expect(c.querySelectorAll(".html-mode-toggle__btn")).toHaveLength(0);
+
+      view.destroy();
+    });
+  });
+
   describe("viewport-gated mount", () => {
     type MockObserverEntry = { isIntersecting: boolean; target: Element };
 
@@ -1447,9 +1712,9 @@ describe("CodeBlockView", () => {
         schema.text("notes with:#x"),
       );
       const doc = schema.nodes.doc.create(null, [code_block]);
-      const plugin = create_code_block_view_prose_plugin(
-        make_query_config(run_query),
-      );
+      const plugin = create_code_block_view_prose_plugin({
+        smart_blocks: make_query_config(run_query),
+      });
       const state = EditorState.create({ doc, plugins: [plugin] });
       const view = new EditorView(container_el, {
         state,

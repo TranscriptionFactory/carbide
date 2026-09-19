@@ -7,7 +7,10 @@ import {
   normalize_preview_language,
   meta_has_token,
   should_show_preview,
+  fence_mode_from_meta,
+  set_fence_mode_token,
   build_code_preview_srcdoc,
+  build_safe_code_preview_srcdoc,
   clamp_preview_height,
   read_preview_theme_tokens,
   CODE_PREVIEW_SANDBOX,
@@ -72,6 +75,31 @@ describe("meta token gating", () => {
     expect(should_show_preview("html", "nopreview")).toBe(false);
     expect(should_show_preview("html", "preview nopreview")).toBe(false);
     expect(should_show_preview("xml", "preview nopreview")).toBe(false);
+  });
+
+  // Visibility (above) is independent of the render mode: a bare ```html fence
+  // still shows a preview, it just shows the Safe one.
+  it("defaults every fence to safe mode, including bare html", () => {
+    expect(fence_mode_from_meta("")).toBe("safe");
+    expect(fence_mode_from_meta("preview")).toBe("safe");
+    expect(fence_mode_from_meta("nopreview")).toBe("safe");
+    expect(fence_mode_from_meta("safe")).toBe("safe");
+    expect(fence_mode_from_meta("live")).toBe("live");
+  });
+
+  it("ignores a live token that is only a value, not a key", () => {
+    expect(fence_mode_from_meta("title=live")).toBe("safe");
+  });
+
+  it("round-trips the live token without disturbing the other tokens", () => {
+    const live = set_fence_mode_token("nopreview title=Demo", "live");
+    expect(live).toBe("nopreview title=Demo live");
+    expect(fence_mode_from_meta(live)).toBe("live");
+
+    const back = set_fence_mode_token(live, "safe");
+    expect(back).toBe("nopreview title=Demo");
+    expect(fence_mode_from_meta(back)).toBe("safe");
+    expect(set_fence_mode_token(back, "safe")).toBe("nopreview title=Demo");
   });
 
   it("auto-previews normalized html variants", () => {
@@ -201,6 +229,55 @@ describe("preview srcdoc", () => {
     });
     expect(doc).toContain("color-scheme:dark");
     expect(doc).not.toContain("body { color: #18181b; background: #ffffff; }");
+  });
+});
+
+describe("safe preview srcdoc", () => {
+  it("drops author scripts and their handlers", () => {
+    const doc = build_safe_code_preview_srcdoc(
+      "html",
+      `<p onclick="steal()">hi</p><script>steal()</script>`,
+    );
+    expect(doc).toContain("<p>hi</p>");
+    expect(doc).not.toContain("steal()");
+    expect(doc).not.toContain("onclick");
+  });
+
+  it("drops author javascript: urls and frames", () => {
+    const doc = build_safe_code_preview_srcdoc(
+      "html",
+      `<a href="javascript:steal()">x</a><iframe src="https://evil.test"></iframe>`,
+    );
+    expect(doc).not.toContain("javascript:");
+    expect(doc).not.toContain("evil.test");
+  });
+
+  it("keeps the author stylesheet", () => {
+    const doc = build_safe_code_preview_srcdoc(
+      "html",
+      `<style>.x { color: red; }</style><p class="x">hi</p>`,
+    );
+    expect(doc).toContain(".x { color: red; }");
+    expect(doc).toContain('<p class="x">hi</p>');
+  });
+
+  it("denies network access through a meta CSP", () => {
+    const doc = build_safe_code_preview_srcdoc("html", "<p>hi</p>");
+    expect(doc).toContain('http-equiv="Content-Security-Policy"');
+    expect(doc).toContain("connect-src 'none'");
+    expect(doc).toContain("form-action 'none'");
+    expect(doc).toContain("default-src 'none'");
+  });
+
+  it("keeps the height reporter so the preview can size itself", () => {
+    const doc = build_safe_code_preview_srcdoc("html", "<p>hi</p>");
+    expect(doc).toContain(PREVIEW_HEIGHT_MESSAGE);
+  });
+
+  it("renders a css fence as a stylesheet rather than as markup", () => {
+    const doc = build_safe_code_preview_srcdoc("css", "body { color: red; }");
+    expect(doc).toContain("body { color: red; }");
+    expect(doc).not.toContain("<body>body { color: red; }");
   });
 });
 

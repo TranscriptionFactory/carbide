@@ -152,3 +152,8 @@ export async function build_safe_embed_srcdoc(
 }
 
 export const SAFE_EMBED_SANDBOX = "allow-same-origin";
+
+/* Live embeds never reuse the Safe frame: `allow-scripts` must not meet
+   `allow-same-origin`, and the document is served over `carbide-html:` rather
+   than srcdoc. */
+export const LIVE_EMBED_SANDBOX = "allow-scripts";

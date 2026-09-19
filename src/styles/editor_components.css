@@ -1920,6 +1920,18 @@ body.block-handle-dragging .prosemirror-dropcursor-inline {
   border-radius: 0 0 var(--radius) var(--radius);
 }
 
+.file-embed-html-error {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.75rem;
+  font-size: 0.8125rem;
+  color: var(--muted-foreground);
+  background: var(--muted);
+}
+
 .file-embed-text code {
   font-family: var(--font-mono, monospace);
   white-space: pre;

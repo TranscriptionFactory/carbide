@@ -16,6 +16,7 @@ import {
   create_workspace_index_tauri_adapter,
 } from "$lib/features/search";
 import {
+  create_inline_html_trust_config,
   create_milkdown_editor_port,
   create_ydoc_manager,
   resolve_wiki_link_note_path,
@@ -72,6 +73,7 @@ import type {
   SlashCommand,
   FrontmatterWidgetConfig,
   TagPillMenuConfig,
+  InlineHtmlTrustConfig,
 } from "$lib/features/editor";
 import type { Ports } from "$lib/app/di/app_ports";
 import type { VaultId, NoteId } from "$lib/shared/types/ids";
@@ -124,6 +126,7 @@ export function create_prod_ports(): Ports & {
   query_runner: QueryRunner;
   frontmatter_widget: FrontmatterWidgetConfig;
   tag_pill_menu: TagPillMenuConfig;
+  inline_html_trust: InlineHtmlTrustConfig;
 } {
   const assets = create_assets_tauri_adapter();
   const vault = create_vault_tauri_adapter();
@@ -180,6 +183,8 @@ export function create_prod_ports(): Ports & {
     on_promote: () => {},
     on_demote: () => {},
   };
+  // Filled in `+page.svelte` once the app context owns the document service.
+  const inline_html_trust = create_inline_html_trust_config();
 
   return {
     slash_command_provider,
@@ -187,6 +192,7 @@ export function create_prod_ports(): Ports & {
     query_runner,
     frontmatter_widget,
     tag_pill_menu,
+    inline_html_trust,
     vault,
     notes,
     index,
@@ -232,6 +238,7 @@ export function create_prod_ports(): Ports & {
       },
       frontmatter_widget,
       tag_pill_menu,
+      inline_html_trust,
       task_port: task,
       run_query: (text) =>
         query_runner.run?.(text) ?? Promise.resolve(EMPTY_QUERY_RESULT),
