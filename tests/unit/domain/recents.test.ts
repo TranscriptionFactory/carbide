@@ -1,6 +1,8 @@
 import { describe, it, expect } from "vitest";
 import {
   build_recents_query,
+  coerce_recents_period,
+  custom_recents_period,
   default_direction,
   NOTE_FILE_TYPES,
   type RecentsPeriod,
@@ -13,10 +15,9 @@ const DAY_MS = 86_400_000;
 const HOUR_MS = 3_600_000;
 const LIMIT = 200;
 
-const PERIOD_DAYS: Record<Exclude<RecentsPeriod, "all" | "today">, number> = {
+const PERIOD_DAYS: Record<"week" | "month", number> = {
   week: 7,
   month: 30,
-  quarter: 90,
 };
 
 const SORT_PROPERTY: Record<RecentsSort, string> = {
@@ -25,9 +26,17 @@ const SORT_PROPERTY: Record<RecentsSort, string> = {
   title: "title",
 };
 
+const CUSTOM_PERIOD = custom_recents_period("2026-09-01", "2026-09-19");
+
 const SORTS: RecentsSort[] = ["modified", "created", "title"];
 const DIRECTIONS: SortDirection[] = ["asc", "desc"];
-const PERIODS: RecentsPeriod[] = ["all", "today", "week", "month", "quarter"];
+const PERIODS: RecentsPeriod[] = [
+  "all",
+  "today",
+  "week",
+  "month",
+  CUSTOM_PERIOD,
+];
 
 describe("default_direction", () => {
   it("defaults time-based sorts to descending", () => {
@@ -37,6 +46,25 @@ describe("default_direction", () => {
 
   it("defaults title sort to ascending", () => {
     expect(default_direction("title")).toBe("asc");
+  });
+});
+
+describe("coerce_recents_period", () => {
+  it("keeps every period the current build offers", () => {
+    for (const period of ["all", "today", "week", "month"] as const) {
+      expect(coerce_recents_period(period)).toBe(period);
+    }
+    expect(coerce_recents_period(CUSTOM_PERIOD)).toBe(CUSTOM_PERIOD);
+  });
+
+  it("degrades a preset an older build offered to 'all'", () => {
+    expect(coerce_recents_period("quarter")).toBe("all");
+  });
+
+  it("degrades a value that is not a period string at all to 'all'", () => {
+    for (const value of [undefined, null, 90, {}, ["week"]]) {
+      expect(coerce_recents_period(value)).toBe("all");
+    }
   });
 });
 
@@ -88,7 +116,7 @@ describe("build_recents_query", () => {
   });
 
   it("emits a sorted-column>=cutoff filter with correct window math per period", () => {
-    for (const period of ["week", "month", "quarter"] as const) {
+    for (const period of ["week", "month"] as const) {
       const query = build_recents_query({
         sort: "modified",
         direction: "desc",
@@ -129,7 +157,7 @@ describe("build_recents_query", () => {
   });
 
   it("falls back to modified when sorting by title, never windowing a non-timestamp column", () => {
-    for (const period of ["today", "week", "month", "quarter"] as const) {
+    for (const period of ["today", "week", "month", CUSTOM_PERIOD] as const) {
       const query = build_recents_query({
         sort: "title",
         direction: "asc",
@@ -166,7 +194,7 @@ describe("build_recents_query", () => {
     const a = build_recents_query({
       sort: "created",
       direction: "asc",
-      period: "quarter",
+      period: "month",
       show_non_markdown: true,
       now_ms: NOW_MS,
       limit: 50,
@@ -174,13 +202,13 @@ describe("build_recents_query", () => {
     const b = build_recents_query({
       sort: "created",
       direction: "asc",
-      period: "quarter",
+      period: "month",
       show_non_markdown: true,
       now_ms: NOW_MS,
       limit: 50,
     });
     expect(a).toEqual(b);
-    expect(a.filters[0]?.value).toBe(String(NOW_MS - 90 * DAY_MS));
+    expect(a.filters[0]?.value).toBe(String(NOW_MS - 30 * DAY_MS));
   });
 });
 
@@ -237,6 +265,79 @@ describe("build_recents_query — the 'today' period", () => {
   });
 });
 
+describe("build_recents_query — a custom date range", () => {
+  const START_MIDNIGHT = new Date(2026, 8, 1, 0, 0, 0, 0).getTime();
+  const END_DAY_MIDNIGHT = new Date(2026, 8, 19, 0, 0, 0, 0).getTime();
+  const MIDNIGHT_AFTER_END = new Date(2026, 8, 20, 0, 0, 0, 0).getTime();
+
+  function range_query(
+    sort: RecentsSort = "modified",
+    period: RecentsPeriod = CUSTOM_PERIOD,
+    now_ms = NOW_MS,
+  ) {
+    return build_recents_query({
+      sort,
+      direction: default_direction(sort),
+      period,
+      show_non_markdown: true,
+      now_ms,
+      limit: LIMIT,
+    });
+  }
+
+  it("bounds the sorted column inclusively at the start and exclusively at the following midnight", () => {
+    expect(range_query().filters).toEqual([
+      { property: "modified", operator: "gte", value: String(START_MIDNIGHT) },
+      {
+        property: "modified",
+        operator: "lte",
+        value: String(MIDNIGHT_AFTER_END - 1),
+      },
+    ]);
+  });
+
+  it("includes the whole chosen end day and nothing after it", () => {
+    const end_ms = Number(range_query().filters[1]?.value);
+
+    expect(end_ms).toBe(MIDNIGHT_AFTER_END - 1);
+    expect(end_ms).toBeGreaterThanOrEqual(END_DAY_MIDNIGHT);
+    expect(new Date(end_ms).getDate()).toBe(19);
+  });
+
+  it("windows created when created is the sort", () => {
+    expect(range_query("created").filters.map((f) => f.property)).toEqual([
+      "created",
+      "created",
+    ]);
+  });
+
+  it("reads a range picked in reverse as the same range", () => {
+    const reversed = range_query(
+      "modified",
+      custom_recents_period("2026-09-19", "2026-09-01"),
+    );
+
+    expect(reversed).toEqual(range_query());
+  });
+
+  it("emits no period filter for a range the encoding cannot parse", () => {
+    for (const period of [
+      "custom:",
+      "custom:2026-09-01",
+      "custom:2026-09-01..20th",
+      "custom:2026-02-31..2026-03-02",
+    ] as RecentsPeriod[]) {
+      expect(range_query("modified", period).filters).toEqual([]);
+    }
+  });
+
+  it("ignores the injected now_ms, unlike the rolling presets", () => {
+    expect(range_query("modified", CUSTOM_PERIOD, 0)).toEqual(
+      range_query("modified", CUSTOM_PERIOD, NOW_MS),
+    );
+  });
+});
+
 describe("build_recents_query — the non-markdown toggle", () => {
   it("adds no file_type filter while non-markdown files are shown", () => {
     const query = build_recents_query({
@@ -286,6 +387,31 @@ describe("build_recents_query — the non-markdown toggle", () => {
         property: "modified",
         operator: "gte",
         value: String(NOW_MS - 7 * DAY_MS),
+      },
+      { property: "file_type", operator: "in", value: "markdown,canvas" },
+    ]);
+  });
+
+  it("keeps both range bounds when non-markdown files are hidden", () => {
+    const query = build_recents_query({
+      sort: "modified",
+      direction: "desc",
+      period: CUSTOM_PERIOD,
+      show_non_markdown: false,
+      now_ms: NOW_MS,
+      limit: LIMIT,
+    });
+
+    expect(query.filters).toEqual([
+      {
+        property: "modified",
+        operator: "gte",
+        value: String(new Date(2026, 8, 1).getTime()),
+      },
+      {
+        property: "modified",
+        operator: "lte",
+        value: String(new Date(2026, 8, 20).getTime() - 1),
       },
       { property: "file_type", operator: "in", value: "markdown,canvas" },
     ]);
