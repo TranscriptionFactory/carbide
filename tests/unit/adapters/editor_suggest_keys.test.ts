@@ -37,21 +37,20 @@ import type { PluginContext } from "$lib/features/editor/extensions/types";
 import type { EditorEventHandlers } from "$lib/features/editor/ports";
 import type { DslSuggestion } from "$lib/shared/types/dsl_suggestion";
 
-const DSL_ITEMS: Record<DslLanguage, readonly [DslSuggestion, DslSuggestion]> =
-  {
-    query: [
-      { label: "status", insert: "status" },
-      { label: "section", insert: "section" },
-    ],
-    base: [
-      { label: "table", insert: "table" },
-      { label: "view", insert: "view" },
-    ],
-    tasks: [
-      { label: "is", insert: "is" },
-      { label: "not", insert: "not" },
-    ],
-  };
+const DSL_ITEMS: Record<DslLanguage, [DslSuggestion, DslSuggestion]> = {
+  query: [
+    { label: "status", insert: "status" },
+    { label: "section", insert: "section" },
+  ],
+  base: [
+    { label: "table", insert: "table" },
+    { label: "view", insert: "view" },
+  ],
+  tasks: [
+    { label: "is", insert: "is" },
+    { label: "not", insert: "not" },
+  ],
+};
 
 const DSL_LANGUAGES = Object.keys(DSL_ITEMS) as DslLanguage[];
 

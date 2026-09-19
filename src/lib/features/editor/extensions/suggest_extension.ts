@@ -13,10 +13,7 @@ import {
   create_cite_suggest_prose_plugin,
   type CiteSuggestPluginConfig,
 } from "../adapters/cite_suggest_plugin";
-import {
-  set_dsl_suggestions,
-  create_dsl_suggest_prose_plugin,
-} from "../adapters/dsl_suggest_plugin";
+import { create_dsl_suggest_prose_plugin } from "../adapters/dsl_suggest_plugin";
 import {
   set_image_suggestions,
   create_image_suggest_prose_plugin,

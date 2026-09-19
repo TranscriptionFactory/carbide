@@ -59,13 +59,22 @@ import { suggest_query } from "$lib/features/query";
 import { suggest_base_spec } from "$lib/features/smart_blocks";
 import { suggest_task_query } from "$lib/features/task";
 import type { DslLanguage } from "$lib/features/editor/adapters/dsl_suggest_plugin";
-import type { DslContext } from "$lib/shared/types/dsl_suggestion";
+import type {
+  DslContext,
+  DslSuggestProvider,
+} from "$lib/shared/types/dsl_suggestion";
 import { error_message } from "$lib/shared/utils/error_message";
 import { create_logger } from "$lib/shared/utils/logger";
 
 const log = create_logger("editor_service");
 
 const AT_PALETTE_RECENTS_LIMIT = 10;
+
+const DSL_SUGGESTERS: Record<DslLanguage, DslSuggestProvider> = {
+  query: suggest_query,
+  base: suggest_base_spec,
+  tasks: suggest_task_query,
+};
 
 export function collect_addressable_blocks(
   markdown: string,
@@ -1181,12 +1190,7 @@ export class EditorService {
 
     void this.build_dsl_context(vault_id).then((ctx) => {
       if (!this.is_generation_current(generation)) return;
-      const result =
-        language === "query"
-          ? suggest_query(query, ctx)
-          : language === "base"
-            ? suggest_base_spec(query, ctx)
-            : suggest_task_query(query, ctx);
+      const result = DSL_SUGGESTERS[language](query, ctx);
       this.session?.set_dsl_suggestions?.(
         language,
         result.items.slice(0, 20),
