@@ -544,16 +544,28 @@ describe("SettingsService", () => {
     expect(result.settings.recents_period).toBe("all");
   });
 
-  it("loads a stored custom recents range unchanged", async () => {
-    const stored_period = "custom:2026-09-01..2026-09-19";
+  it("keeps a custom recents range across a save and reload", async () => {
+    const stored = new Map<string, unknown>();
     const { service } = make_service({
-      global_get: (key) => (key === "recents_period" ? stored_period : null),
+      set_setting_impl: (key, value) => {
+        stored.set(key, value ?? null);
+        return Promise.resolve(undefined);
+      },
+      global_get: (key) => (stored.has(key) ? stored.get(key) : null),
     });
 
-    const result = await service.load_settings({ ...DEFAULT_EDITOR_SETTINGS });
+    const saved = await service.save_settings({
+      ...DEFAULT_EDITOR_SETTINGS,
+      recents_period: "custom:2026-09-01..2026-09-19",
+    });
+    expect(saved.status).toBe("success");
 
-    if (result.status !== "success") throw new Error("expected success");
-    expect(result.settings.recents_period).toBe(stored_period);
+    const loaded = await service.load_settings({ ...DEFAULT_EDITOR_SETTINGS });
+
+    if (loaded.status !== "success") throw new Error("expected success");
+    expect(loaded.settings.recents_period).toBe(
+      "custom:2026-09-01..2026-09-19",
+    );
   });
 
   it("loads welcome state with defaults when missing", async () => {
