@@ -17,7 +17,7 @@
   import Rows from "@lucide/svelte/icons/rows-3";
   import NetworkIcon from "@lucide/svelte/icons/network";
 
-  const { stores, services, action_registry } = use_app_context();
+  const { stores, action_registry } = use_app_context();
 
   type ResultViewMode = "list" | "cards" | "feed";
 
@@ -79,7 +79,7 @@
     const vault = stores.vault.vault;
     if (!vault) return;
     void action_registry.execute(ACTION_IDS.tags_refresh);
-    void services.bases.refresh_properties(vault.id);
+    void action_registry.execute(ACTION_IDS.bases_refresh);
   });
 
   async function execute() {

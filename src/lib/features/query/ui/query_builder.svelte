@@ -2,6 +2,11 @@
   import { use_app_context } from "$lib/app/context/app_context.svelte";
   import FolderSuggestInput from "$lib/components/ui/folder_suggest_input.svelte";
   import {
+    PropertyCombobox,
+    property_items_for,
+    value_items_for,
+  } from "$lib/features/metadata";
+  import {
     build_query_text,
     type PropertyOperator,
     type QueryBuilderClause,
@@ -29,6 +34,18 @@
 
   const tag_options = $derived(stores.tag.promoted_tags.map((t) => t.tag));
   const folder_paths = $derived(stores.notes.folder_paths);
+  const available_properties = $derived(stores.bases.available_properties);
+
+  function property_items(query: string) {
+    return property_items_for(query, available_properties);
+  }
+
+  function value_items(property: string, value: string) {
+    const values =
+      available_properties.find((p) => p.name === property)?.unique_values ??
+      [];
+    return value_items_for(value, values);
+  }
 
   let clauses = $state<QueryBuilderClauseEntry[]>([
     { clause: { kind: "named", name: "" } },
@@ -158,12 +175,21 @@
             bind:value={entry.clause.note}
           />
         {:else if entry.clause.kind === "property"}
-          <input
-            class="QueryBuilder__input QueryBuilder__prop"
-            type="text"
-            placeholder="property"
-            bind:value={entry.clause.property}
-          />
+          <div class="QueryBuilder__prop">
+            <PropertyCombobox
+              value={entry.clause.property}
+              items={property_items(entry.clause.property)}
+              placeholder="property"
+              on_input={(text) => {
+                if (entry.clause.kind === "property")
+                  entry.clause.property = text;
+              }}
+              on_select={(value) => {
+                if (entry.clause.kind === "property")
+                  entry.clause.property = value;
+              }}
+            />
+          </div>
           <select
             bind:value={entry.clause.operator}
             class="QueryBuilder__select"
@@ -172,12 +198,20 @@
               <option value={op}>{op}</option>
             {/each}
           </select>
-          <input
-            class="QueryBuilder__input"
-            type="text"
-            placeholder="value"
-            bind:value={entry.clause.value}
-          />
+          <div class="QueryBuilder__grow">
+            <PropertyCombobox
+              value={entry.clause.value}
+              items={value_items(entry.clause.property, entry.clause.value)}
+              placeholder="value"
+              on_input={(text) => {
+                if (entry.clause.kind === "property") entry.clause.value = text;
+              }}
+              on_select={(value) => {
+                if (entry.clause.kind === "property")
+                  entry.clause.value = value;
+              }}
+            />
+          </div>
         {/if}
 
         <button
