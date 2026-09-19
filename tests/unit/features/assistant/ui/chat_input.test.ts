@@ -304,11 +304,11 @@ describe("chat_input.svelte", () => {
   it("names the missing coverage in the placeholder when it is partial", () => {
     const view = render_chat_input({
       readiness_state: "partial",
-      readiness_detail: "3 of 5 notes embedded (2 skipped)",
+      readiness_detail: "3 of 5 notes embedded · 2 files skipped",
     });
 
     expect(textarea().placeholder).toBe(
-      "Ask anything — 3 of 5 notes embedded (2 skipped)",
+      "Ask anything — 3 of 5 notes embedded · 2 files skipped",
     );
 
     view.cleanup();

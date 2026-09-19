@@ -36,6 +36,7 @@ function make_search_port(
       embedded_eligible_notes: 0,
       skipped_notes: 0,
       embed_attempt_completed: false,
+      embedding_enabled: true,
       model_version: "unavailable",
       is_embedding: false,
     }),

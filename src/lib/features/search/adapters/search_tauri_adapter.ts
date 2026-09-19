@@ -107,6 +107,7 @@ type TauriEmbeddingStatus = {
   embedded_eligible_notes: number;
   skipped_notes: number;
   embed_attempt_completed: boolean;
+  embedding_enabled: boolean;
   model_version: string;
   is_embedding: boolean;
 };

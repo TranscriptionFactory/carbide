@@ -12,6 +12,12 @@ import type { RagReadiness } from "$lib/features/rag/types/rag_readiness";
  * gets", and idle startup must not read as a finished, incomplete index.
  */
 export function derive_rag_readiness(status: EmbeddingStatus): RagReadiness {
+  // Checked before the counters: with both embedding flags off no pass can do
+  // any work, so there is nothing to wait for — a deliberate configuration must
+  // not hold a banner, not even while a queued no-op pass clears its atomic.
+  if (!status.embedding_enabled) {
+    return { state: "ready" };
+  }
   if (status.is_embedding) {
     return {
       state: "indexing",

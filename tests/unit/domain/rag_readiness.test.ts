@@ -12,6 +12,7 @@ function status(overrides: Partial<EmbeddingStatus>): EmbeddingStatus {
     embedded_eligible_notes: 0,
     skipped_notes: 0,
     embed_attempt_completed: false,
+    embedding_enabled: true,
     model_version: "v1",
     is_embedding: false,
     ...overrides,
@@ -42,10 +43,48 @@ describe("derive_rag_readiness", () => {
           embedded_notes: 1,
           eligible_notes: 1,
           embedded_eligible_notes: 1,
+          skipped_notes: 3,
           embed_attempt_completed: true,
         }),
       ),
     ).toEqual({ state: "ready" });
+  });
+
+  /** Switching embedding off leaves nothing pending, so it must not warn. */
+  it("is ready with embedding switched off, however much is unembedded", () => {
+    expect(
+      derive_rag_readiness(
+        status({
+          total_notes: 40,
+          embedded_notes: 0,
+          eligible_notes: 14,
+          embedded_eligible_notes: 0,
+          skipped_notes: 26,
+          embed_attempt_completed: true,
+          embedding_enabled: false,
+        }),
+      ),
+    ).toEqual({ state: "ready" });
+  });
+
+  /**
+   * Only *both* flags off means nothing can run. One flag off is still work:
+   * the status reports `embedding_enabled: true` for it, and coverage behaves
+   * exactly as before.
+   */
+  it("keeps reporting incomplete coverage when only one flag is off", () => {
+    expect(
+      derive_rag_readiness(
+        status({
+          total_notes: 40,
+          embedded_notes: 12,
+          eligible_notes: 14,
+          embedded_eligible_notes: 12,
+          skipped_notes: 26,
+          embed_attempt_completed: true,
+        }),
+      ),
+    ).toEqual({ state: "partial", embedded: 12, total: 14, skipped: 26 });
   });
 
   it("is indexing with counts while embeddings lag behind notes", () => {
@@ -110,11 +149,11 @@ describe("derive_rag_readiness", () => {
           embedded_notes: 12,
           eligible_notes: 14,
           embedded_eligible_notes: 12,
-          skipped_notes: 2,
+          skipped_notes: 26,
           embed_attempt_completed: true,
         }),
       ),
-    ).toEqual({ state: "partial", embedded: 12, total: 14, skipped: 2 });
+    ).toEqual({ state: "partial", embedded: 12, total: 14, skipped: 26 });
   });
 
   /** The retry: the same counts after a later attempt finishes are ready. */
@@ -126,6 +165,7 @@ describe("derive_rag_readiness", () => {
           embedded_notes: 14,
           eligible_notes: 14,
           embedded_eligible_notes: 14,
+          skipped_notes: 26,
           embed_attempt_completed: true,
         }),
       ),
@@ -141,6 +181,7 @@ describe("derive_rag_readiness", () => {
           embedded_notes: 9,
           eligible_notes: 2,
           embedded_eligible_notes: 2,
+          skipped_notes: 4,
           embed_attempt_completed: true,
         }),
       ),

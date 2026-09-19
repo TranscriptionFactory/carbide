@@ -698,6 +698,7 @@ describe("AssistantChatService.query", () => {
         embedded_eligible_notes: 5,
         skipped_notes: 0,
         embed_attempt_completed: true,
+        embedding_enabled: true,
         model_version: "v1",
         is_embedding: false,
       }),
@@ -801,6 +802,7 @@ describe("AssistantChatService.query", () => {
         skipped_notes: 17,
         // still in progress: no pass has finished for this scope yet
         embed_attempt_completed: false,
+        embedding_enabled: true,
         model_version: "v1",
         is_embedding: false,
       }),

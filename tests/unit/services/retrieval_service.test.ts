@@ -739,6 +739,7 @@ describe("RetrievalService.check_readiness", () => {
           embedded_eligible_notes: 5,
           skipped_notes: 0,
           embed_attempt_completed: true,
+          embedding_enabled: true,
           model_version: "v1",
           is_embedding: false,
         }),

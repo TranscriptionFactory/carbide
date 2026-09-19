@@ -46,10 +46,11 @@
   const sessions = $derived(rag.summaries);
 
   // Coverage the pass cannot finish, said the same way in the banner above the
-  // transcript and in the composer's placeholder.
+  // transcript and in the composer's placeholder: how much of the embeddable set
+  // is done, and how many indexed files the pass never selects.
   const partial_coverage = $derived(
     rag.readiness.state === "partial"
-      ? `${rag.readiness.embedded} of ${rag.readiness.total} notes embedded (${rag.readiness.skipped} skipped)`
+      ? `${rag.readiness.embedded} of ${rag.readiness.total} notes embedded · ${rag.readiness.skipped} files skipped`
       : null,
   );
 
