@@ -3,9 +3,11 @@ use crate::features::search::embed_scope::{
     embedding_scope_from_editor, note_embed_eligible, EmbeddingScope, NoteEmbedFacts,
 };
 use crate::features::search::hnsw_index::{SharedVectorIndex, VectorIndex};
+use crate::features::search::model::IndexNoteMeta;
 use crate::features::search::service::{
-    apply_note_embedding_on_save, embed_attempt_completed, embed_coverage, embedding_flags,
-    embedding_scope_code, embedding_work_enabled, sweep_stale_note_vectors, SaveEncoder,
+    apply_note_embedding_on_save, block_embed_work_pending, embed_attempt_completed, embed_coverage,
+    embedding_flags, embedding_scope_code, embedding_work_enabled, notes_pending_embedding,
+    sweep_stale_note_vectors, SaveEncoder,
 };
 use crate::features::search::vector_db;
 use crate::features::settings::service::SettingsStore;
@@ -778,4 +780,88 @@ fn no_ended_attempt_never_vouches_for_anything() {
             scope
         ));
     }
+}
+
+fn cached_note(path: &str) -> IndexNoteMeta {
+    IndexNoteMeta {
+        id: path.to_string(),
+        path: path.to_string(),
+        title: path.to_string(),
+        name: path.to_string(),
+        mtime_ms: 0,
+        ctime_ms: 0,
+        size_bytes: 0,
+        blurb: String::new(),
+        file_type: Some("markdown".to_string()),
+        source: None,
+    }
+}
+
+fn markdown_facts(path: &str) -> BTreeMap<String, NoteEmbedFacts> {
+    BTreeMap::from([(
+        path.to_string(),
+        NoteEmbedFacts {
+            file_type: Some("markdown".to_string()),
+            source: None,
+            char_count: 200,
+        },
+    )])
+}
+
+/// A cold model load on every launch, taken before the pass knew whether it had
+/// anything to embed, is what made an up-to-date vault slow to open (R1).
+/// `handle_embed_batch` now asks both halves of that question — pending notes and
+/// pending sections — and returns before `get_or_init` when neither has work.
+#[test]
+fn a_fully_embedded_vault_has_no_embed_work_before_the_model_load() {
+    let tmp = tempfile::TempDir::new().expect("temp dir");
+    let conn =
+        search_db::open_search_db_at_path(&tmp.path().join("search.db")).expect("db open");
+    vector_db::init_vector_schema(&conn).expect("vector schema");
+    vector_db::upsert_embedding(&conn, NOTE, &[0.1_f32; 4]).expect("seed note embedding");
+    let cache = BTreeMap::from([(NOTE.to_string(), cached_note(NOTE))]);
+    let facts = markdown_facts(NOTE);
+
+    let pending = notes_pending_embedding(&conn, &cache, &facts, true, EmbeddingScope::Markdown);
+
+    assert!(
+        pending.is_empty(),
+        "an embedded note with no sections leaves the pass nothing to do"
+    );
+    assert!(
+        !block_embed_work_pending(&conn),
+        "an empty section table must not keep the pass alive"
+    );
+}
+
+/// The gate's dangerous direction is skipping work that exists: a note with no
+/// stored vector is exactly what the pass is for.
+#[test]
+fn a_note_without_a_vector_is_still_planned() {
+    let conn = conn_with_vector_schema();
+    let cache = BTreeMap::from([(NOTE.to_string(), cached_note(NOTE))]);
+    let facts = markdown_facts(NOTE);
+
+    assert_eq!(
+        notes_pending_embedding(&conn, &cache, &facts, true, EmbeddingScope::Markdown),
+        vec![NOTE.to_string()]
+    );
+    assert!(
+        notes_pending_embedding(&conn, &cache, &facts, false, EmbeddingScope::Markdown).is_empty(),
+        "a disabled note pass plans nothing"
+    );
+}
+
+/// A section query that cannot run reports work pending, not an empty plan: the
+/// pass then surfaces its own error. Reading it as "nothing to embed" would drop
+/// a vault's block work silently, because the early return skips the block pass
+/// that would have logged the failure.
+#[test]
+fn an_unreadable_section_table_counts_as_block_work() {
+    let conn = conn_with_vector_schema();
+
+    assert!(
+        block_embed_work_pending(&conn),
+        "a failed section query must not read as an empty plan"
+    );
 }

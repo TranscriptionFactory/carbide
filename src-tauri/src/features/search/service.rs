@@ -2315,6 +2315,75 @@ pub(crate) fn terminal_embed_event(
     })
 }
 
+/// Past this point an attempt has ended, however the pass's loops left it — a
+/// failed encoder breaks out to the same exit. `terminal_embed_event` reports
+/// `None` for a cancelled pass: that one stopped rather than finished, so it
+/// neither reports progress nor vouches for the scope.
+fn finish_embed_pass(
+    app_handle: &AppHandle,
+    vault_id: &str,
+    scope: EmbeddingScope,
+    cancel: &Arc<AtomicBool>,
+    embedded: usize,
+    elapsed: Duration,
+) {
+    if let Some(event) = terminal_embed_event(
+        cancel.load(Ordering::Relaxed),
+        vault_id,
+        embedded,
+        elapsed.as_millis() as u64,
+    ) {
+        record_embed_attempt(app_handle, vault_id, scope);
+        let _ = app_handle.emit("embedding_progress", event);
+    }
+}
+
+/// The notes a pass still has to embed: cached, eligible under `scope`, and with
+/// no stored vector. Model-free by design, so a pass can ask before deciding
+/// whether the encoder is needed at all.
+pub(crate) fn notes_pending_embedding(
+    conn: &Connection,
+    notes_cache: &BTreeMap<String, IndexNoteMeta>,
+    facts: &BTreeMap<String, NoteEmbedFacts>,
+    note_embed_enabled: bool,
+    scope: EmbeddingScope,
+) -> Vec<String> {
+    if !note_embed_enabled {
+        return Vec::new();
+    }
+    let already_embedded = vector_db::get_embedded_paths(conn);
+    notes_cache
+        .keys()
+        .filter(|path| {
+            !already_embedded.contains(path.as_str())
+                && facts
+                    .get(path.as_str())
+                    .is_some_and(|facts| note_embed_eligible(facts, scope))
+        })
+        .cloned()
+        .collect()
+}
+
+/// Whether the block pass has a section row left to embed. Split out of
+/// `handle_block_embed_batch` so the caller can answer that before loading the
+/// model; an unreadable section table reports work pending, so the pass surfaces
+/// its own error rather than being skipped silently.
+pub(crate) fn block_embed_work_pending(conn: &Connection) -> bool {
+    let already_embedded = vector_db::get_block_embedded_keys(conn);
+    match search_db::get_embeddable_sections(
+        conn,
+        search_db::BLOCK_EMBED_MIN_WORDS,
+        search_db::BLOCK_EMBED_MIN_LINES,
+    ) {
+        Ok(sections) => sections
+            .iter()
+            .any(|(path, heading_id, _, _)| {
+                !already_embedded.contains(&format!("{path}\0{heading_id}"))
+            }),
+        Err(_) => true,
+    }
+}
+
 fn handle_embed_batch(
     conn: &Connection,
     _vault_root: &Path,
@@ -2341,6 +2410,7 @@ fn handle_embed_batch(
     // Both phases are gated by global feature flags (embedding_block_enabled,
     // embedding_note_enabled), checked before get_or_init so a disabled
     // setting never loads (or downloads) the model.
+    let started = Instant::now();
     let embedding_state = app_handle.state::<EmbeddingServiceState>();
     let cache_dir = resolve_embedding_cache_dir(app_handle);
     let short_id = resolve_embedding_model_id(app_handle);
@@ -2356,6 +2426,31 @@ fn handle_embed_batch(
     if !embedding_work_enabled(note_embed_enabled, block_embed_enabled) {
         log::info!("embed_batch: both note and block embedding disabled for {vault_id}");
         record_embed_attempt(app_handle, vault_id, scope);
+        return LoopAction::Continue;
+    }
+
+    // What this pass would do is decided before the model is touched: the
+    // encoder is a synchronous cold load, and an up-to-date vault must not pay
+    // it to find out it has nothing to embed. The sweep belongs on this side
+    // too — it is pure SQL, and a pass that ends early still owes the resident
+    // index its stale rows dropped. (ref: R1)
+    let facts = search_db::note_embed_facts(conn).unwrap_or_default();
+    let swept = sweep_stale_note_vectors(conn, note_index, &facts, scope);
+    if swept > 0 {
+        log::info!("embed_batch: swept {swept} stale note vectors for {vault_id}");
+    }
+    let notes_needing_embedding =
+        notes_pending_embedding(conn, notes_cache, &facts, note_embed_enabled, scope);
+
+    // `clear_first` wipes every stored vector below: it is a user-triggered full
+    // rebuild, so the plan above describes a state it is about to destroy and
+    // must not be what it returns early on.
+    if !clear_first
+        && notes_needing_embedding.is_empty()
+        && !(block_embed_enabled && block_embed_work_pending(conn))
+    {
+        log::info!("embed_batch: nothing to embed for {vault_id}; model not loaded");
+        finish_embed_pass(app_handle, vault_id, scope, cancel, 0, started.elapsed());
         return LoopAction::Continue;
     }
 
@@ -2400,27 +2495,12 @@ fn handle_embed_batch(
     let mut deferred: Vec<DbCommand> = Vec::new();
     drain_pending_commands(conn, rx, notes_cache, note_index, block_index, &mut deferred);
 
+    // Re-planned after the drain: the saves applied above (and `clear_first`'s
+    // wipe) moved the work on, and the pass must run against the rows as they
+    // are now rather than against the state the pre-load gate saw.
     let facts = search_db::note_embed_facts(conn).unwrap_or_default();
-    let swept = sweep_stale_note_vectors(conn, note_index, &facts, scope);
-    if swept > 0 {
-        log::info!("embed_batch: swept {swept} stale note vectors for {vault_id}");
-    }
-
-    let already_embedded = vector_db::get_embedded_paths(conn);
-    let notes_needing_embedding: Vec<String> = if note_embed_enabled {
-        notes_cache
-            .keys()
-            .filter(|path| {
-                !already_embedded.contains(path.as_str())
-                    && facts
-                        .get(path.as_str())
-                        .is_some_and(|f| note_embed_eligible(f, scope))
-            })
-            .cloned()
-            .collect()
-    } else {
-        Vec::new()
-    };
+    let notes_needing_embedding =
+        notes_pending_embedding(conn, notes_cache, &facts, note_embed_enabled, scope);
 
     let total = notes_needing_embedding.len();
     let pass_start = Instant::now();
@@ -2653,19 +2733,7 @@ fn handle_embed_batch(
     // "Embedding sections" indicator spinning and `wait_for_embedding_run`
     // unresolved for the rest of the session. The embedded count reflects notes
     // written to note_embeddings, not raw model invocations. (ref: DL-003)
-    if let Some(event) = terminal_embed_event(
-        cancel.load(Ordering::Relaxed),
-        vault_id,
-        embedded,
-        pass_start.elapsed().as_millis() as u64,
-    ) {
-        // Past this point the attempt has ended, however the loops above left it
-        // — a failed encoder breaks out to here too. `terminal_embed_event`
-        // reports `None` for a cancelled pass: that one stopped rather than
-        // finished, and its notes are re-queued.
-        record_embed_attempt(app_handle, vault_id, scope);
-        let _ = app_handle.emit("embedding_progress", event);
-    }
+    finish_embed_pass(app_handle, vault_id, scope, cancel, embedded, pass_start.elapsed());
 
     compact_indices_if_stale(note_index, block_index);
 
