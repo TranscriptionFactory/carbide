@@ -105,6 +105,16 @@ export function create_suggest_extension(
     );
   }
 
+  if (ctx.events.on_dsl_tasks_suggest) {
+    plugins.push(
+      create_dsl_suggest_prose_plugin({
+        language: "tasks",
+        on_query: ctx.events.on_dsl_tasks_suggest,
+        on_dismiss: ctx.events.on_dsl_tasks_dismiss ?? (() => {}),
+      }) as Plugin,
+    );
+  }
+
   if (ctx.events.on_cite_suggest_query) {
     const cite_suggest_config: CiteSuggestPluginConfig = {
       on_query: ctx.events.on_cite_suggest_query,

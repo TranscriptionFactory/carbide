@@ -14,6 +14,7 @@ import { create_link_extension } from "./link_extension";
 import { create_find_extension } from "./find_extension";
 import { create_wiki_link_extension } from "./wiki_link_extension";
 import { create_suggest_extension } from "./suggest_extension";
+import { create_code_fence_language_prose_plugin } from "../adapters/code_fence_language_plugin";
 import type { SlashCommandConfig } from "../adapters/slash_command_plugin";
 import { create_embed_extension } from "./embed_extension";
 import { create_paste_extension } from "./paste_extension";
@@ -50,6 +51,12 @@ export function assemble_extensions(
     { plugins: [create_mark_syntax_reveal_plugin()] },
     { plugins: [create_block_id_decoration_plugin()] },
     create_heading_extension(),
+    // Must also precede core_extension: handleKeyDown stops at the first
+    // handler that returns true, and baseKeymap's Enter (newlineInCode,
+    // createParagraphNear) returns true in every block. Registered after core,
+    // none of these menus could ever accept a suggestion.
+    { plugins: [create_code_fence_language_prose_plugin()] },
+    create_suggest_extension(ctx, slash_config),
     create_core_extension(ctx),
     create_frontmatter_extension(ctx),
     create_code_block_extension(ctx.smart_blocks),
@@ -63,7 +70,6 @@ export function assemble_extensions(
     create_task_list_extension(),
     create_find_extension(),
     create_wiki_link_extension(ctx),
-    create_suggest_extension(ctx, slash_config),
     create_embed_extension(ctx),
     create_paste_extension(ctx),
     create_lsp_extension(ctx),

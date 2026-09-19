@@ -1,4 +1,4 @@
-import { PluginKey, TextSelection } from "prosemirror-state";
+import { PluginKey, TextSelection, type EditorState } from "prosemirror-state";
 import type { EditorView } from "prosemirror-view";
 import {
   create_suggest_prose_plugin,
@@ -6,14 +6,27 @@ import {
 } from "./suggest_plugin_factory";
 import type { DslSuggestion } from "$lib/shared/types/dsl_suggestion";
 
-export type DslLanguage = "query" | "base";
+export type DslLanguage = "query" | "base" | "tasks";
 
 type DslItem = DslSuggestion & { from_offset: number };
 
 const plugin_keys: Record<DslLanguage, PluginKey<SuggestState<DslItem>>> = {
   query: new PluginKey<SuggestState<DslItem>>("dsl-suggest-query"),
   base: new PluginKey<SuggestState<DslItem>>("dsl-suggest-base"),
+  tasks: new PluginKey<SuggestState<DslItem>>("dsl-suggest-tasks"),
 };
+
+// Read by the code-block view: while a suggestion is on screen, Tab and the
+// arrows belong to the menu instead of fence indentation / the exit-paragraph
+// shortcuts. Only a populated list counts — the provider answers through a
+// debounce, and a key no handler claims would fall through to the browser.
+export function has_active_dsl_suggest(state: EditorState): boolean {
+  for (const key of Object.values(plugin_keys)) {
+    const plugin_state = key.getState(state);
+    if (plugin_state?.active && plugin_state.items.length > 0) return true;
+  }
+  return false;
+}
 
 export type DslSuggestPluginConfig = {
   language: DslLanguage;

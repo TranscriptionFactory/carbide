@@ -1,6 +1,7 @@
 export * from "./types";
 export * from "./ports";
 export * from "./parse_task_query";
+export * from "./domain/task_query_suggestions";
 export * from "./domain/group_tasks";
 export * from "./domain/section_label";
 export * from "./adapters/task_tauri_adapter";

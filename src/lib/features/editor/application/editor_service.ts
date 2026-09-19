@@ -57,6 +57,8 @@ import { rank_tags } from "$lib/features/tags";
 import { is_draft_note_path } from "$lib/features/note";
 import { suggest_query } from "$lib/features/query";
 import { suggest_base_spec } from "$lib/features/smart_blocks";
+import { suggest_task_query } from "$lib/features/task";
+import type { DslLanguage } from "$lib/features/editor/adapters/dsl_suggest_plugin";
 import type { DslContext } from "$lib/shared/types/dsl_suggestion";
 import { error_message } from "$lib/shared/utils/error_message";
 import { create_logger } from "$lib/shared/utils/logger";
@@ -1170,7 +1172,7 @@ export class EditorService {
 
   private handle_dsl_suggest_query(
     generation: number,
-    language: "query" | "base",
+    language: DslLanguage,
     query: string,
   ): void {
     if (!this.is_generation_current(generation)) return;
@@ -1182,7 +1184,9 @@ export class EditorService {
       const result =
         language === "query"
           ? suggest_query(query, ctx)
-          : suggest_base_spec(query, ctx);
+          : language === "base"
+            ? suggest_base_spec(query, ctx)
+            : suggest_task_query(query, ctx);
       this.session?.set_dsl_suggestions?.(
         language,
         result.items.slice(0, 20),
@@ -1444,6 +1448,12 @@ export class EditorService {
       };
       events.on_dsl_base_dismiss = () => {
         this.session?.set_dsl_suggestions?.("base", [], 0);
+      };
+      events.on_dsl_tasks_suggest = (query: string) => {
+        this.handle_dsl_suggest_query(generation, "tasks", query);
+      };
+      events.on_dsl_tasks_dismiss = () => {
+        this.session?.set_dsl_suggestions?.("tasks", [], 0);
       };
     }
 
