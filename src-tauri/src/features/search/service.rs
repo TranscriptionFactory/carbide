@@ -104,8 +104,8 @@ pub(crate) fn sweep_stale_note_vectors(
     removed
 }
 
-/// Distinct per-vault code for an `EmbeddingScope`, so a stored attempt scope
-/// can be compared with the scope resolved now.
+/// Distinct code per `EmbeddingScope`, so a stored attempt scope can be compared
+/// with the scope resolved now.
 pub(crate) fn embedding_scope_code(scope: EmbeddingScope) -> u8 {
     match scope {
         EmbeddingScope::Markdown => 0,
@@ -114,10 +114,9 @@ pub(crate) fn embedding_scope_code(scope: EmbeddingScope) -> u8 {
     }
 }
 
-/// Whether an ended attempt vouches for the scope resolved now. The counter
-/// alone is not enough: startup may not have queued an attempt yet (`attempts ==
-/// 0`), and an attempt that ended under a previous scope says nothing about the
-/// notes the current scope selected, which may never have been candidates.
+/// Whether an ended attempt vouches for the scope resolved now. An attempt that
+/// ended under a previous scope says nothing about the notes the current scope
+/// selected, which may never have been candidates.
 pub(crate) fn embed_attempt_completed(
     attempts: u64,
     attempt_scope: u8,
@@ -126,11 +125,10 @@ pub(crate) fn embed_attempt_completed(
     attempts > 0 && attempt_scope == embedding_scope_code(scope)
 }
 
-/// The eligibility-scoped half of the embedding status: the denominator the
-/// embed pass selects against, how much of it is done, and how much of the
-/// index the pass skips by construction. Same predicate as the pass, so the
-/// numbers agree with it. A vector whose path has no facts row (deleted note, or
-/// one an earlier scope embedded) belongs to neither count, which is what holds
+/// The eligibility-scoped counts: the denominator the embed pass selects against,
+/// how much of it is done, and how much of the index the pass skips by
+/// construction. A vector whose path has no facts row (deleted note, or one an
+/// earlier scope embedded) is in neither count, which is what holds
 /// `embedded_eligible <= eligible`.
 pub(crate) struct EmbedCoverage {
     pub eligible_notes: usize,
@@ -486,10 +484,10 @@ struct VaultWorker {
     // took its work snapshot, so it re-enqueues exactly one more batch when it
     // finishes rather than dropping the request.
     embed_rearm: Arc<AtomicBool>,
-    // Ended embedding attempts, and the scope the last one ran under. Counts
-    // attempts that *ended*, so a cancelled pass is absent: `is_embedding` going
-    // false says a pass stopped, not that its work finished. The scope tag keeps
-    // an attempt from a previous setting from vouching for the current one.
+    // Ended embedding attempts, and the scope the last one ran under. A
+    // cancelled pass is absent: `is_embedding` going false says a pass stopped,
+    // not that its work finished. The scope tag keeps an attempt from a previous
+    // setting from vouching for the current one.
     embed_attempts: AtomicU64,
     embed_attempt_scope: AtomicU8,
     join_handle: Option<JoinHandle<()>>,
@@ -2347,9 +2345,9 @@ fn handle_embed_batch(
     let cache_dir = resolve_embedding_cache_dir(app_handle);
     let short_id = resolve_embedding_model_id(app_handle);
 
-    // Resolved before the flags or the model are consulted: every exit below
-    // reports the scope this attempt ran under, including the ones that got no
-    // further than a model that would not load.
+    // Resolved before the flags and the model: every exit below reports the scope
+    // this attempt ran under, including one that never got past a model that
+    // would not load.
     let scope = resolve_embedding_scope(app_handle, vault_id);
 
     reconcile_model_version(conn, &short_id, note_index, block_index);
@@ -2377,9 +2375,8 @@ fn handle_embed_batch(
                     error: format!("Embedding model unavailable: {e}"),
                 },
             );
-            // A failed attempt is an ended one: readiness has to be able to say
-            // the coverage is incomplete rather than wait forever for a pass
-            // that already gave up.
+            // A failed attempt is an ended one: readiness must be able to report
+            // incomplete coverage rather than wait for a pass that gave up.
             record_embed_attempt(app_handle, vault_id, scope);
             return LoopAction::Continue;
         }
@@ -2662,10 +2659,10 @@ fn handle_embed_batch(
         embedded,
         pass_start.elapsed().as_millis() as u64,
     ) {
-        // Past this point the attempt has ended, whichever way the loops above
-        // left it — a failed encoder breaks out to here too. `terminal_embed_event`
-        // reports `None` for a cancelled pass, and a cancelled pass has not ended:
-        // it stopped, and the notes it did not reach are re-queued.
+        // Past this point the attempt has ended, however the loops above left it
+        // — a failed encoder breaks out to here too. `terminal_embed_event`
+        // reports `None` for a cancelled pass: that one stopped rather than
+        // finished, and its notes are re-queued.
         record_embed_attempt(app_handle, vault_id, scope);
         let _ = app_handle.emit("embedding_progress", event);
     }
@@ -3092,17 +3089,14 @@ fn get_worker_is_embedding(app: &AppHandle, vault_id: &str) -> Result<Arc<Atomic
 }
 
 /// Records that an embedding attempt reached an end under `scope`: one bump of
-/// the per-vault attempt counter, plus the tag the readiness check compares with
-/// the scope it resolves now. A **cancelled** pass never gets here — it stopped
+/// the per-vault attempt counter, plus the scope tag readiness compares with the
+/// scope it resolves now. A **cancelled** pass never gets here — it stopped
 /// mid-work rather than finishing it, and its remaining notes are re-queued.
 ///
-/// The counter is the completion signal: `is_embedding == false` alone cannot
-/// stand in for it, because startup has not necessarily queued an attempt yet,
-/// and a pass that failed before doing any work must still read as incomplete
-/// rather than as never having run.
-///
-/// `Release` pairs with the `Acquire` load in `get_embedding_status_inner`: a
-/// reader that sees the bumped count also sees the tag written before it.
+/// The counter is what marks an attempt as ended; `is_embedding == false` alone
+/// cannot, since startup may not have queued one yet. `Release` pairs with the
+/// `Acquire` load in `get_embedding_status_inner`, so a reader that sees the
+/// bumped count also sees the tag written before it.
 fn record_embed_attempt(app: &AppHandle, vault_id: &str, scope: EmbeddingScope) {
     let state = app.state::<SearchDbState>();
     let Ok(map) = state.workers.lock() else {
@@ -4435,21 +4429,15 @@ pub fn get_embedding_status_inner(
         let state = app.state::<SearchDbState>();
         let map = state.workers.lock().map_err(|e| e.to_string())?;
         match map.get(&vault_id) {
-            Some(worker) => {
-                let attempts = worker.embed_attempts.load(Ordering::Acquire);
-                (
-                    worker.is_embedding.load(Ordering::Relaxed)
-                        || worker.embed_queued.load(Ordering::Relaxed),
-                    // An attempt from a previous scope says nothing about the
-                    // work the current scope selected: its notes may never have
-                    // been candidates.
-                    embed_attempt_completed(
-                        attempts,
-                        worker.embed_attempt_scope.load(Ordering::Relaxed),
-                        scope,
-                    ),
-                )
-            }
+            Some(worker) => (
+                worker.is_embedding.load(Ordering::Relaxed)
+                    || worker.embed_queued.load(Ordering::Relaxed),
+                embed_attempt_completed(
+                    worker.embed_attempts.load(Ordering::Acquire),
+                    worker.embed_attempt_scope.load(Ordering::Relaxed),
+                    scope,
+                ),
+            ),
             None => (false, false),
         }
     };

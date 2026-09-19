@@ -51,11 +51,12 @@ export function create_assistant_readiness_reactor(
       // provider switch, so the pass's progress is a dependency here.
       void embedding_pass_status;
       const work = `${vault_id ?? ""}\u0000${provider_id ?? ""}`;
-      const rearmed = work !== armed_for;
-      armed_for = work;
       // A re-arm for the same work keeps the status it already has: reporting
       // "checking" for every progress event would blink the banner away.
-      if (rearmed) chat_store.set_readiness({ state: "checking" });
+      if (work !== armed_for) {
+        armed_for = work;
+        chat_store.set_readiness({ state: "checking" });
+      }
       if (!vault_id) return;
       let cancelled = false;
       let interval: ReturnType<typeof setInterval> | null = null;

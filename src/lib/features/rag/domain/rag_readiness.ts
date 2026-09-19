@@ -18,30 +18,24 @@ export function derive_rag_readiness(status: EmbeddingStatus): RagReadiness {
   if (!status.embedding_enabled) {
     return { state: "ready" };
   }
+  const { eligible_notes: total, embedded_eligible_notes: embedded } = status;
+  // A running pass outranks the counts: its snapshot predates the notes it is
+  // about to embed, and an empty denominator is not proof it has nothing to do.
   if (status.is_embedding) {
-    return {
-      state: "indexing",
-      embedded: status.embedded_eligible_notes,
-      total: status.eligible_notes,
-    };
+    return { state: "indexing", embedded, total };
   }
-  if (
-    status.eligible_notes === 0 ||
-    status.embedded_eligible_notes >= status.eligible_notes
-  ) {
+  if (embedded >= total) {
     return { state: "ready" };
   }
+  // Coverage with notes missing is finished business only once an attempt under
+  // the current scope has ended; until then it is work still to come.
   if (status.embed_attempt_completed) {
     return {
       state: "partial",
-      embedded: status.embedded_eligible_notes,
-      total: status.eligible_notes,
+      embedded,
+      total,
       skipped: status.skipped_notes,
     };
   }
-  return {
-    state: "indexing",
-    embedded: status.embedded_eligible_notes,
-    total: status.eligible_notes,
-  };
+  return { state: "indexing", embedded, total };
 }
