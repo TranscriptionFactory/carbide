@@ -633,6 +633,7 @@ export function create_app_context(input: {
     stores.reference,
     input.ports.notes,
     stores.notes,
+    stores.bases,
   );
 
   const settings_service = new SettingsService(
