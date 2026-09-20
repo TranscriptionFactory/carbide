@@ -3698,6 +3698,19 @@ pub fn query_sections(
             params.len()
         ));
     }
+    if let Some(paths) = filter.paths.as_deref() {
+        if paths.is_empty() {
+            return Ok(Vec::new());
+        }
+        let placeholders: Vec<String> = paths
+            .iter()
+            .map(|path| {
+                params.push(Box::new(path.clone()));
+                format!("?{}", params.len())
+            })
+            .collect();
+        clauses.push(format!("s.path IN ({})", placeholders.join(", ")));
+    }
 
     let where_sql = if clauses.is_empty() {
         String::new()

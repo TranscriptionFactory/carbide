@@ -45,6 +45,8 @@ export type SectionFilter = {
   /** Matches this heading path and everything nested under it. */
   heading_path_under?: string;
   min_words?: number;
+  /** Restricts the scan to these note paths. */
+  paths?: string[];
   limit: number;
 };
 

@@ -297,6 +297,10 @@ pub struct SectionFilter {
     pub heading_path_under: Option<String>,
     #[serde(default)]
     pub min_words: Option<i64>,
+    /// Restricts the scan to these note paths; a solver-side note-level clause
+    /// (`with #tag`) narrows the section scan through here.
+    #[serde(default)]
+    pub paths: Option<Vec<String>>,
     pub limit: usize,
 }
 

@@ -160,6 +160,22 @@ describe("query_parser", () => {
         value: { kind: "text", value: "Roadmap/Q4" },
       });
     });
+
+    it("rejects under outside the sections form", () => {
+      const bare = parse_query('under "Roadmap"');
+      expect(bare.ok).toBe(false);
+      if (!bare.ok) {
+        expect(bare.error.message).toBe("`under` needs the `sections` form");
+        expect(bare.error.position).toBe(0);
+        expect(bare.error.length).toBe(5);
+      }
+
+      const notes = parse_query('notes named "a" and under "Roadmap"');
+      expect(notes.ok).toBe(false);
+      if (!notes.ok) {
+        expect(notes.error.message).toBe("`under` needs the `sections` form");
+      }
+    });
   });
 
   describe("linked from clause", () => {

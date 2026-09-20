@@ -2130,6 +2130,7 @@ fn query_sections_filters_by_title_level_path_and_min_words() {
             path_prefix: Some("Projects/".to_string()),
             heading_path_under: None,
             min_words: None,
+            paths: None,
             limit: 50,
         },
     )
@@ -2160,6 +2161,7 @@ fn query_sections_filters_by_title_level_path_and_min_words() {
             path_prefix: Some("Projects/".to_string()),
             heading_path_under: None,
             min_words: Some(5),
+            paths: None,
             limit: 50,
         },
     )
@@ -2195,6 +2197,7 @@ fn query_sections_title_regex_is_case_insensitive() {
             path_prefix: None,
             heading_path_under: None,
             min_words: None,
+            paths: None,
             limit: 50,
         },
     )
@@ -2226,6 +2229,7 @@ fn query_sections_under_returns_the_heading_and_its_descendants() {
             path_prefix: None,
             heading_path_under: Some("Roadmap/Q4".to_string()),
             min_words: None,
+            paths: None,
             limit: 50,
         },
     )
@@ -2233,6 +2237,44 @@ fn query_sections_under_returns_the_heading_and_its_descendants() {
 
     let paths: Vec<&str> = hits.iter().map(|s| s.heading_path.as_str()).collect();
     assert_eq!(paths, vec!["Roadmap/Q4", "Roadmap/Q4/Deliverables"]);
+}
+
+#[test]
+fn query_sections_paths_restricts_the_scan_to_the_listed_notes() {
+    let tmp = TempDir::new().expect("temp dir should be created");
+    let conn = open_search_db_at_path(&tmp.path().join("test.db")).expect("db should open");
+
+    for path in ["a.md", "b.md", "c.md"] {
+        upsert_note(
+            &conn,
+            &note_meta(path, "Note", "note"),
+            "# Decision\nbody\n## Other\nbody\n",
+        )
+        .expect("upsert should succeed");
+    }
+
+    let filter = |paths: Vec<&str>| SectionFilter {
+        title: Some("Decision".to_string()),
+        title_is_regex: false,
+        level_min: None,
+        level_max: None,
+        path_prefix: None,
+        heading_path_under: None,
+        min_words: None,
+        paths: Some(paths.into_iter().map(str::to_string).collect()),
+        limit: 50,
+    };
+
+    let hits =
+        query_sections(&conn, filter(vec!["a.md", "c.md"])).expect("query should succeed");
+    let rows: Vec<(&str, &str)> = hits
+        .iter()
+        .map(|s| (s.note.path.as_str(), s.heading_path.as_str()))
+        .collect();
+    assert_eq!(rows, vec![("a.md", "Decision"), ("c.md", "Decision")]);
+
+    let none = query_sections(&conn, filter(vec![])).expect("query should succeed");
+    assert!(none.is_empty());
 }
 
 #[test]
@@ -2256,6 +2298,7 @@ fn query_sections_stops_at_the_limit() {
             path_prefix: None,
             heading_path_under: None,
             min_words: None,
+            paths: None,
             limit: 3,
         },
     )
@@ -2287,6 +2330,7 @@ fn query_sections_survive_a_reindex() {
         path_prefix: None,
         heading_path_under: Some("Roadmap/Q4".to_string()),
         min_words: None,
+        paths: None,
         limit: 50,
     };
     let first = query_sections(&conn, filter.clone()).expect("query should succeed");

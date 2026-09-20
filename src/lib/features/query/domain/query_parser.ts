@@ -43,6 +43,7 @@ const OPERATOR_HEAD_CHARS = new Set(
 
 class Parser {
   private pos = 0;
+  private form: QueryForm = "notes";
   private readonly input: string;
 
   constructor(input: string) {
@@ -52,7 +53,7 @@ class Parser {
   parse(): ParseResult {
     try {
       this.skip_whitespace();
-      const form = this.parse_form();
+      this.form = this.parse_form();
       this.skip_whitespace();
 
       if (this.at_end()) {
@@ -80,7 +81,7 @@ class Parser {
         };
       }
 
-      return { ok: true, query: { form, root } };
+      return { ok: true, query: { form: this.form, root } };
     } catch (e) {
       if (e instanceof ParseError) {
         return { ok: false, error: e.to_error() };
@@ -163,6 +164,14 @@ class Parser {
         `Expected clause keyword (named, with, in, under, linked from), got "${word || this.peek_char()}"`,
         pos,
         Math.max(word.length, 1),
+      );
+    }
+
+    if (clause_type === "under" && this.form !== "sections") {
+      throw new ParseError(
+        "`under` needs the `sections` form",
+        pos,
+        word.length,
       );
     }
 

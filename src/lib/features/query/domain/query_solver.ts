@@ -9,6 +9,7 @@ import { rank_tags, type TagPort } from "$lib/features/tags";
 import type { BasesPort } from "$lib/features/bases";
 import type {
   ClauseGroup,
+  ClauseType,
   ParsedQuery,
   QueryClause,
   QueryForm,
@@ -31,7 +32,16 @@ export async function solve_query(
   backends: QueryBackends,
 ): Promise<QueryResult> {
   const start = performance.now();
-  const items = await resolve_node(vault_id, query.form, query.root, backends);
+  const resolved = await resolve_node(
+    vault_id,
+    query.form,
+    query.root,
+    backends,
+  );
+  const items =
+    query.form === "sections"
+      ? await as_section_rows(vault_id, resolved, backends)
+      : resolved;
   const elapsed_ms = Math.round(performance.now() - start);
 
   return {
@@ -42,14 +52,41 @@ export async function solve_query(
   };
 }
 
+// A section row is identified by its note and heading; a note-level row keys on
+// the note alone, which is what every `notes` query keys on.
+export function result_item_key(item: QueryResultItem): string {
+  return item.section
+    ? `${item.note.path}\u0000${item.section.heading_id}`
+    : item.note.path;
+}
+
 // A section row and a note-level row of the same note satisfy each other: the
 // note-level clause is a statement about the note, not about one heading.
 function keys_compatible(a: QueryResultItem, b: QueryResultItem): boolean {
   return (
-    !a.section ||
-    !b.section ||
-    a.section.heading_path === b.section.heading_path
+    !a.section || !b.section || a.section.heading_id === b.section.heading_id
   );
+}
+
+// Under the `sections` form a note-level row (`with #tag`, a negation) stands
+// for every section of its note.
+async function as_section_rows(
+  vault_id: VaultId,
+  items: QueryResultItem[],
+  backends: QueryBackends,
+): Promise<QueryResultItem[]> {
+  const note_rows = items.filter((item) => !item.section);
+  if (note_rows.length === 0) return items;
+  const scanned = await query_section_rows(
+    vault_id,
+    [],
+    intersect_note_paths([note_rows]),
+    backends,
+  );
+  return merge_by_key([
+    ...items.filter((item) => item.section),
+    ...constrain(scanned, note_rows),
+  ]);
 }
 
 async function resolve_node(
@@ -72,10 +109,12 @@ async function resolve_group(
 ): Promise<QueryResultItem[]> {
   if (group.clauses.length === 0) return [];
 
-  if (group.join === "and") {
-    return resolve_and(vault_id, form, group.clauses, backends);
+  if (group.join === "or") {
+    return resolve_or(vault_id, form, group.clauses, backends);
   }
-  return resolve_or(vault_id, form, group.clauses, backends);
+  return form === "sections"
+    ? resolve_section_and(vault_id, group.clauses, backends)
+    : resolve_and(vault_id, form, group.clauses, backends);
 }
 
 async function resolve_and(
@@ -84,37 +123,100 @@ async function resolve_and(
   clauses: QueryNode[],
   backends: QueryBackends,
 ): Promise<QueryResultItem[]> {
-  if (clauses.length === 0) return [];
   let result = await resolve_node(vault_id, form, clauses[0]!, backends);
+  for (const clause of clauses.slice(1)) {
+    const constraint = await resolve_node(vault_id, form, clause, backends);
+    result = constrain(result, constraint);
+  }
+  return result;
+}
 
-  for (let i = 1; i < clauses.length; i++) {
-    const next = await resolve_node(vault_id, form, clauses[i]!, backends);
-    const next_by_path = new Map<string, QueryResultItem[]>();
-    for (const item of next) {
-      const group = next_by_path.get(item.note.path);
-      if (group) {
-        group.push(item);
-      } else {
-        next_by_path.set(item.note.path, [item]);
-      }
-    }
+// Every non-section operand (`with`, properties, links, negations, nested
+// groups) is resolved first and narrows the one section scan by note path, so a
+// clause order never changes the rows and the scan's cap applies after the
+// narrowing rather than per clause.
+async function resolve_section_and(
+  vault_id: VaultId,
+  clauses: QueryNode[],
+  backends: QueryBackends,
+): Promise<QueryResultItem[]> {
+  if (clauses.length === 0) return [];
+  const { merged, rest } = split_section_clauses(clauses);
+  const constraints = await Promise.all(
+    rest.map((node) => resolve_node(vault_id, "sections", node, backends)),
+  );
+  const paths =
+    constraints.length > 0 ? intersect_note_paths(constraints) : undefined;
+  if (paths?.length === 0) return [];
 
-    result = result.filter((item) =>
-      (next_by_path.get(item.note.path) ?? []).some((candidate) =>
-        keys_compatible(item, candidate),
-      ),
-    );
-    for (const item of result) {
-      const match = (next_by_path.get(item.note.path) ?? []).find((candidate) =>
-        keys_compatible(item, candidate),
-      );
-      if (match) {
-        item.matched_clauses.push(...match.matched_clauses);
-      }
+  let result = await query_section_rows(vault_id, merged, paths, backends);
+  for (const constraint of constraints) {
+    result = constrain(result, constraint);
+  }
+  return result;
+}
+
+const SECTION_CLAUSES = new Set<ClauseType>(["named", "in", "under"]);
+
+function is_section_clause(node: QueryNode): node is QueryClause {
+  return (
+    node.kind === "clause" && !node.negated && SECTION_CLAUSES.has(node.type)
+  );
+}
+
+// One clause per filter field folds into the single scan; a repeated type
+// (`named A and named B`) resolves on its own and intersects by heading.
+function split_section_clauses(nodes: QueryNode[]): {
+  merged: QueryClause[];
+  rest: QueryNode[];
+} {
+  const merged: QueryClause[] = [];
+  const rest: QueryNode[] = [];
+  for (const node of nodes) {
+    const mergeable =
+      is_section_clause(node) &&
+      !merged.some((clause) => clause.type === node.type);
+    (mergeable ? merged : rest).push(node);
+  }
+  return { merged, rest };
+}
+
+function intersect_note_paths(results: QueryResultItem[][]): string[] {
+  const path_sets = results.map(
+    (rows) => new Set(rows.map((row) => row.note.path as string)),
+  );
+  const [first = new Set<string>(), ...others] = path_sets;
+  return [...first].filter((path) => others.every((set) => set.has(path)));
+}
+
+// Keeps the rows the constraint agrees with and folds its labels in.
+function constrain(
+  rows: QueryResultItem[],
+  constraint: QueryResultItem[],
+): QueryResultItem[] {
+  const by_path = new Map<string, QueryResultItem[]>();
+  for (const item of constraint) {
+    const group = by_path.get(item.note.path);
+    if (group) {
+      group.push(item);
+    } else {
+      by_path.set(item.note.path, [item]);
     }
   }
 
-  return result;
+  const kept: QueryResultItem[] = [];
+  for (const row of rows) {
+    const match = (by_path.get(row.note.path) ?? []).find((candidate) =>
+      keys_compatible(row, candidate),
+    );
+    if (match) {
+      kept.push({
+        ...row,
+        matched_clauses: [...row.matched_clauses, ...match.matched_clauses],
+      });
+    }
+  }
+  return kept;
 }
 
 async function resolve_or(
@@ -127,24 +229,20 @@ async function resolve_or(
     clauses.map((clause) => resolve_node(vault_id, form, clause, backends)),
   );
 
+  return merge_by_key(all_results.flat());
+}
+
+function merge_by_key(items: QueryResultItem[]): QueryResultItem[] {
   const seen = new Map<string, QueryResultItem>();
-  for (const results of all_results) {
-    for (const item of results) {
-      // A section row is identified by its heading path, so two sections of the
-      // same note stay distinct through an OR; a note-level row keys on the
-      // note alone, which is what every `notes` query keys on.
-      const key = item.section
-        ? `${item.note.path}\u0000${item.section.heading_path}`
-        : item.note.path;
-      const existing = seen.get(key);
-      if (existing) {
-        existing.matched_clauses.push(...item.matched_clauses);
-      } else {
-        seen.set(key, { ...item });
-      }
+  for (const item of items) {
+    const key = result_item_key(item);
+    const existing = seen.get(key);
+    if (existing) {
+      existing.matched_clauses.push(...item.matched_clauses);
+    } else {
+      seen.set(key, { ...item });
     }
   }
-
   return Array.from(seen.values());
 }
 
@@ -163,19 +261,19 @@ async function resolve_clause(
       break;
     case "named":
       results = sections
-        ? await resolve_sections(vault_id, clause.value, "named", backends)
+        ? await query_section_rows(vault_id, [clause], undefined, backends)
         : await resolve_named(vault_id, clause.value, backends);
       break;
     case "in":
       results = sections
-        ? await resolve_sections(vault_id, clause.value, "in", backends)
+        ? await query_section_rows(vault_id, [clause], undefined, backends)
         : await resolve_in(vault_id, clause.value, backends);
       break;
     case "under":
-      results = await resolve_sections(
+      results = await query_section_rows(
         vault_id,
-        clause.value,
-        "under",
+        [clause],
+        undefined,
         backends,
       );
       break;
@@ -267,43 +365,54 @@ async function resolve_with(
   }));
 }
 
-// Section-level resolvers all run through the one `query_sections` command, so
-// an AND of section clauses costs one call per clause and a note-level clause
-// (`with …`) meets them by note path.
 const SECTION_QUERY_LIMIT = 200;
 
-async function resolve_sections(
+async function query_section_rows(
   vault_id: VaultId,
-  value: ValueKind,
-  clause: "named" | "in" | "under",
+  clauses: QueryClause[],
+  paths: string[] | undefined,
   backends: QueryBackends,
 ): Promise<QueryResultItem[]> {
-  const text = extract_text(value);
   const filter: SectionFilter = {
     limit: SECTION_QUERY_LIMIT,
-    ...(clause === "named"
-      ? value.kind === "regex"
-        ? { title: value.pattern, title_is_regex: true }
-        : { title: text }
-      : {}),
-    ...(clause === "in"
-      ? { path_prefix: text.endsWith("/") ? text : `${text}/` }
-      : {}),
-    ...(clause === "under" ? { heading_path_under: text } : {}),
+    ...(paths ? { paths } : {}),
   };
+  for (const clause of clauses) {
+    Object.assign(filter, section_filter_fields(clause));
+  }
+  const labels = clauses.map(section_clause_label);
 
   const hits = await backends.search.query_sections(vault_id, filter);
-  const label =
-    clause === "named"
-      ? value.kind === "regex"
-        ? `named:/${value.pattern}/${value.flags}`
-        : `named:"${text}"`
-      : `${clause}:${text}`;
-
   return hits.map((hit) => {
     const { note, ...section } = hit;
-    return { note, section, matched_clauses: [label] };
+    return { note, section, matched_clauses: [...labels] };
   });
+}
+
+function section_filter_fields(clause: QueryClause): Partial<SectionFilter> {
+  const text = extract_text(clause.value);
+  switch (clause.type) {
+    case "named":
+      return clause.value.kind === "regex"
+        ? { title: clause.value.pattern, title_is_regex: true }
+        : { title: text };
+    case "in":
+      return { path_prefix: text.endsWith("/") ? text : `${text}/` };
+    case "under":
+      return { heading_path_under: text };
+    default:
+      return {};
+  }
+}
+
+function section_clause_label(clause: QueryClause): string {
+  const text = extract_text(clause.value);
+  if (clause.type === "named") {
+    return clause.value.kind === "regex"
+      ? `named:/${clause.value.pattern}/${clause.value.flags}`
+      : `named:"${text}"`;
+  }
+  return `${clause.type}:${text}`;
 }
 
 async function resolve_named(

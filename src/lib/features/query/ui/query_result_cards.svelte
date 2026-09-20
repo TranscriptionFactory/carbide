@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { QueryResultItem } from "../types";
+  import { result_item_key } from "../domain/query_solver";
 
   let {
     items,
@@ -25,7 +26,7 @@
 </script>
 
 <div class="QueryResultCards">
-  {#each items as item (`${item.note.path}\u0000${item.section?.heading_path ?? ""}`)}
+  {#each items as item (result_item_key(item))}
     <button
       type="button"
       class="QueryResultCards__card"

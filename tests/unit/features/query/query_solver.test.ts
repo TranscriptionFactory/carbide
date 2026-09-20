@@ -496,6 +496,241 @@ describe("query_solver", () => {
       expect(result.items[0]?.section?.heading_path).toBe("Meeting");
     });
 
+    it("keeps two same-path sections of one note apart through an OR", async () => {
+      const first = {
+        ...section_hit("notes/a.md", "A/Notes", 2),
+        heading_id: "notes",
+      };
+      const second = {
+        ...section_hit("notes/a.md", "A/Notes", 8),
+        heading_id: "notes-1",
+      };
+      const search = {
+        query_sections: vi.fn(
+          (_vault: unknown, filter: { path_prefix?: string }) =>
+            Promise.resolve(filter.path_prefix ? [first] : [second]),
+        ),
+      };
+      const query: ParsedQuery = {
+        form: "sections",
+        root: {
+          kind: "group",
+          join: "or",
+          clauses: [
+            {
+              kind: "clause",
+              type: "in",
+              negated: false,
+              value: { kind: "text", value: "notes" },
+            },
+            {
+              kind: "clause",
+              type: "named",
+              negated: false,
+              value: { kind: "text", value: "Notes" },
+            },
+          ],
+        },
+      };
+
+      const result = await solve_query(
+        VAULT_ID,
+        query,
+        make_backends({ search: search as never }),
+      );
+
+      const ids = result.items.map((item) => item.section?.heading_id);
+      expect(ids).toEqual(["notes", "notes-1"]);
+    });
+
+    it("issues one call carrying every section clause of an AND", async () => {
+      const search = {
+        query_sections: vi
+          .fn()
+          .mockResolvedValue([section_hit("Projects/a.md", "Meeting", 0)]),
+      };
+      const query: ParsedQuery = {
+        form: "sections",
+        root: {
+          kind: "group",
+          join: "and",
+          clauses: [
+            {
+              kind: "clause",
+              type: "named",
+              negated: false,
+              value: { kind: "text", value: "Meeting" },
+            },
+            {
+              kind: "clause",
+              type: "in",
+              negated: false,
+              value: { kind: "text", value: "Projects" },
+            },
+          ],
+        },
+      };
+
+      const result = await solve_query(
+        VAULT_ID,
+        query,
+        make_backends({ search: search as never }),
+      );
+
+      expect(search.query_sections).toHaveBeenCalledTimes(1);
+      expect(search.query_sections).toHaveBeenCalledWith(VAULT_ID, {
+        limit: 200,
+        title: "Meeting",
+        path_prefix: "Projects/",
+      });
+      expect(result.items).toHaveLength(1);
+      expect(result.items[0]?.matched_clauses).toEqual([
+        'named:"Meeting"',
+        "in:Projects",
+      ]);
+    });
+
+    function tagged_section_backends() {
+      const rows = [
+        section_hit("notes/a.md", "Decision", 0),
+        section_hit("notes/b.md", "Decision", 0),
+        section_hit("notes/a.md", "Other", 4),
+      ];
+      const search = {
+        query_sections: vi.fn(
+          (_vault: unknown, filter: { title?: string; paths?: string[] }) =>
+            Promise.resolve(
+              rows.filter(
+                (row) =>
+                  (!filter.title || row.title === filter.title) &&
+                  (!filter.paths || filter.paths.includes(row.note.path)),
+              ),
+            ),
+        ),
+      };
+      const tags = {
+        get_notes_for_tag_prefix: vi.fn().mockResolvedValue(["notes/a.md"]),
+      };
+      return {
+        search,
+        backends: make_backends({
+          search: search as never,
+          tags: tags as never,
+        }),
+      };
+    }
+
+    const with_project = {
+      kind: "clause",
+      type: "with",
+      negated: false,
+      value: { kind: "tag", tag: "project" },
+    } as const;
+    const named_decision = {
+      kind: "clause",
+      type: "named",
+      negated: false,
+      value: { kind: "text", value: "Decision" },
+    } as const;
+
+    it("restricts the section call to the notes a with clause matched, whichever side it is on", async () => {
+      const first = tagged_section_backends();
+      const with_first = await solve_query(
+        VAULT_ID,
+        {
+          form: "sections",
+          root: {
+            kind: "group",
+            join: "and",
+            clauses: [with_project, named_decision],
+          },
+        },
+        first.backends,
+      );
+      const second = tagged_section_backends();
+      const with_last = await solve_query(
+        VAULT_ID,
+        {
+          form: "sections",
+          root: {
+            kind: "group",
+            join: "and",
+            clauses: [named_decision, with_project],
+          },
+        },
+        second.backends,
+      );
+
+      expect(first.search.query_sections).toHaveBeenCalledWith(VAULT_ID, {
+        limit: 200,
+        title: "Decision",
+        paths: ["notes/a.md"],
+      });
+      expect(with_first.items.map((item) => item.section?.heading_id)).toEqual([
+        "h-0",
+      ]);
+      expect(with_first.items[0]?.note.path).toBe("notes/a.md");
+      expect(with_last.items).toEqual(with_first.items);
+      expect(with_first.items[0]?.matched_clauses).toEqual([
+        'named:"Decision"',
+        "with:#project",
+      ]);
+    });
+
+    it("returns section rows for a lone with clause", async () => {
+      const { search, backends } = tagged_section_backends();
+      const result = await solve_query(
+        VAULT_ID,
+        { form: "sections", root: with_project },
+        backends,
+      );
+
+      expect(search.query_sections).toHaveBeenCalledWith(VAULT_ID, {
+        limit: 200,
+        paths: ["notes/a.md"],
+      });
+      expect(result.items.map((item) => item.section?.heading_path)).toEqual([
+        "Decision",
+        "Other",
+      ]);
+      expect(
+        result.items.every((item) => item.note.path === "notes/a.md"),
+      ).toBe(true);
+      expect(result.items[0]?.matched_clauses).toEqual(["with:#project"]);
+    });
+
+    it("skips the section call when the note-level clauses agree on no note", async () => {
+      const search = { query_sections: vi.fn().mockResolvedValue([]) };
+      const bases = {
+        query: vi.fn().mockResolvedValue({ rows: [], total: 0 }),
+      };
+      const result = await solve_query(
+        VAULT_ID,
+        {
+          form: "sections",
+          root: {
+            kind: "group",
+            join: "and",
+            clauses: [
+              named_decision,
+              {
+                kind: "clause",
+                type: "with_property",
+                negated: false,
+                value: { kind: "text", value: "Smith" },
+                property_name: "author",
+                property_operator: "=",
+              },
+            ],
+          },
+        },
+        make_backends({ search: search as never, bases: bases as never }),
+      );
+
+      expect(search.query_sections).not.toHaveBeenCalled();
+      expect(result.items).toEqual([]);
+    });
+
     it("keeps two sections of one note apart through an OR", async () => {
       const search = {
         query_sections: vi.fn(
