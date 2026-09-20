@@ -140,7 +140,18 @@ pub(crate) fn embed_coverage(
     conn: &Connection,
     facts: &BTreeMap<String, NoteEmbedFacts>,
     scope: EmbeddingScope,
+    note_embed_enabled: bool,
 ) -> EmbedCoverage {
+    // With notes off the pass selects no note however the scope reads, so the
+    // whole index is deliberately skipped work rather than coverage that will
+    // never arrive.
+    if !note_embed_enabled {
+        return EmbedCoverage {
+            eligible_notes: 0,
+            embedded_eligible_notes: 0,
+            skipped_notes: facts.len(),
+        };
+    }
     let eligible_notes = facts
         .values()
         .filter(|facts| note_embed_eligible(facts, scope))
@@ -4569,7 +4580,7 @@ pub fn get_embedding_status_inner(
         // gate on "any vector at all" rather than on coverage.
         let embedded_notes = vector_db::get_embedding_count(conn);
         let facts = search_db::note_embed_facts(conn)?;
-        let coverage = embed_coverage(conn, &facts, scope);
+        let coverage = embed_coverage(conn, &facts, scope, note_embed_enabled);
         let model_version =
             vector_db::get_model_version(conn).unwrap_or_else(|| "unavailable".to_string());
         Ok(EmbeddingStatus {

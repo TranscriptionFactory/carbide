@@ -66,12 +66,13 @@ export function create_assistant_readiness_reactor(
           interval = null;
         }
       };
-      // poll only while not ready; ready is stable until vault/provider change
+      // `ready` and `partial` are both settled until the next attempt, and the
+      // pass status above re-arms the poll when one runs.
       const refresh = () => {
         void chat_service.check_readiness().then((readiness) => {
           if (cancelled) return;
           chat_store.set_readiness(readiness);
-          if (readiness.state === "ready") {
+          if (readiness.state === "ready" || readiness.state === "partial") {
             stop_polling();
           } else if (interval === null) {
             interval = setInterval(refresh, poll_ms);

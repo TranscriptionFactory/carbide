@@ -668,7 +668,7 @@ fn coverage_over_a_mixed_vault_counts_only_what_the_pass_embeds() {
     let facts = mixed_vault_facts();
     vector_db::upsert_embedding(&conn, "note.md", &[0.1_f32; 4]).expect("seed note embedding");
 
-    let coverage = embed_coverage(&conn, &facts, EmbeddingScope::Documents);
+    let coverage = embed_coverage(&conn, &facts, EmbeddingScope::Documents, true);
     // `note_embed_facts` reads the same `notes` rows as `get_note_count`, which
     // is what the status payload reports as `total_notes`.
     let total_notes = facts.len();
@@ -687,6 +687,26 @@ fn coverage_over_a_mixed_vault_counts_only_what_the_pass_embeds() {
     );
 }
 
+/// Notes off with blocks on is embedding work the pass still runs, but none of
+/// it is note-level: the pass selects no note, records an ended attempt, and a
+/// denominator counted as if notes were on would read `partial` forever. Every
+/// note is a skip in that configuration, even one that still holds a vector.
+#[test]
+fn coverage_with_note_embedding_off_reports_every_note_as_skipped() {
+    let conn = conn_with_vector_schema();
+    let facts = mixed_vault_facts();
+    vector_db::upsert_embedding(&conn, "note.md", &[0.1_f32; 4]).expect("seed note embedding");
+
+    let coverage = embed_coverage(&conn, &facts, EmbeddingScope::Documents, false);
+
+    assert_eq!(
+        (coverage.eligible_notes, coverage.embedded_eligible_notes),
+        (0, 0),
+        "no note-level work exists, so none can be pending"
+    );
+    assert_eq!(coverage.skipped_notes, facts.len());
+}
+
 /// A vector whose note is no longer eligible under the resolved scope, and one
 /// whose note row is gone, must not inflate the numerator — and the numerator
 /// must never exceed the denominator while the raw count still reports them.
@@ -700,7 +720,7 @@ fn coverage_keeps_stale_and_out_of_scope_vectors_out_of_the_numerator() {
     // Its notes row is gone: deleted while the pass was elsewhere.
     vector_db::upsert_embedding(&conn, "gone.md", &[0.1_f32; 4]).expect("seed ghost vector");
 
-    let coverage = embed_coverage(&conn, &facts, EmbeddingScope::Documents);
+    let coverage = embed_coverage(&conn, &facts, EmbeddingScope::Documents, true);
 
     assert_eq!(
         (coverage.eligible_notes, coverage.embedded_eligible_notes),
@@ -724,11 +744,11 @@ fn coverage_follows_the_resolved_scope() {
     let facts = mixed_vault_facts();
     vector_db::upsert_embedding(&conn, "note.md", &[0.1_f32; 4]).expect("seed note embedding");
 
-    let all = embed_coverage(&conn, &facts, EmbeddingScope::All);
+    let all = embed_coverage(&conn, &facts, EmbeddingScope::All, true);
     assert_eq!((all.eligible_notes, all.embedded_eligible_notes), (2, 1));
     assert_eq!(all.skipped_notes, 2);
 
-    let markdown = embed_coverage(&conn, &facts, EmbeddingScope::Markdown);
+    let markdown = embed_coverage(&conn, &facts, EmbeddingScope::Markdown, true);
     assert_eq!(
         (
             markdown.eligible_notes,

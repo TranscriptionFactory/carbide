@@ -87,6 +87,26 @@ describe("derive_rag_readiness", () => {
     ).toEqual({ state: "partial", embedded: 12, total: 14, skipped: 26 });
   });
 
+  /**
+   * Notes off with blocks on: the backend reports no eligible note-level work
+   * and every note as skipped, so an ended attempt that embedded nothing at the
+   * note level is complete coverage, not a permanent `partial`.
+   */
+  it("is ready when only block embedding is on and the attempt has ended", () => {
+    expect(
+      derive_rag_readiness(
+        status({
+          total_notes: 4,
+          embedded_notes: 0,
+          eligible_notes: 0,
+          embedded_eligible_notes: 0,
+          skipped_notes: 4,
+          embed_attempt_completed: true,
+        }),
+      ),
+    ).toEqual({ state: "ready" });
+  });
+
   it("is indexing with counts while embeddings lag behind notes", () => {
     expect(
       derive_rag_readiness(

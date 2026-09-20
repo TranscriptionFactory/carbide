@@ -175,16 +175,17 @@ describe("assistant_readiness reactor", () => {
     cleanup();
   });
 
-  /// Coverage the pass cannot finish is not the end of the story: a later
-  /// attempt can still complete it, so the poll has to keep asking.
-  it("keeps polling while coverage is only partial", async () => {
+  /// Coverage the pass cannot finish is as settled as `ready` until another
+  /// attempt runs, and that attempt re-arms the poll through the pass status,
+  /// so polling on at `partial` would only re-read the whole index every tick.
+  it("stops polling once coverage is reported partial", async () => {
     const service = fake_chat_service(() => ({
       state: "partial",
       embedded: 3,
       total: 5,
       skipped: 2,
     }));
-    const { chat_store, cleanup } = mount({ service });
+    const { chat_store, search_store, cleanup } = mount({ service });
     flushSync();
     await drain();
 
@@ -195,13 +196,22 @@ describe("assistant_readiness reactor", () => {
       skipped: 2,
     });
 
-    await vi.advanceTimersByTimeAsync(POLL_MS);
+    await vi.advanceTimersByTimeAsync(POLL_MS * 3);
+    expect(service.check_readiness).toHaveBeenCalledTimes(1);
+
+    search_store.set_embedding_progress({
+      status: "started",
+      vault_id: "v1",
+      total: 5,
+    });
+    flushSync();
+    await drain();
     expect(service.check_readiness).toHaveBeenCalledTimes(2);
     cleanup();
   });
 
-  /// After the poll has stopped at `ready`, an embedding attempt that runs
-  /// later must pull readiness back in — without a vault or provider switch
+  /// After the poll has stopped at `ready` or `partial`, an embedding attempt
+  /// that runs later must pull readiness back in — without a vault or provider switch
   /// re-arming the effect, which is the only thing that did so before.
   it("re-arms readiness when a later embedding attempt reports progress", async () => {
     let ready = true;
