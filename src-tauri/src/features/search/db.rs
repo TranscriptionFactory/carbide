@@ -1084,7 +1084,8 @@ fn tags_schema_needs_migration(conn: &Connection) -> bool {
 /// Schema revision stamped into SQLite's `user_version`. Bump it whenever a
 /// migration below adds a table, column or index: `init_schema` runs its DDL only
 /// while the pragma is behind, so the bump is what makes an addition run once per
-/// database instead of once per connection open. (ref: R5)
+/// database instead of once per connection open. The `*_schema_needs_migration`
+/// content repairs are probed before that guard and need no bump. (ref: R5)
 const SCHEMA_VERSION: i32 = 2;
 
 fn schema_version(conn: &Connection) -> i32 {
@@ -1097,12 +1098,19 @@ fn init_schema(conn: &Connection) -> Result<(), String> {
     // notes ADD COLUMN` attempts that fail one by one once the columns exist,
     // plus the CREATE TABLE/INDEX batch. The pragma makes that a header read on
     // an already-migrated database. A database from an older build (or a fresh
-    // file) reports 0 and takes the full path below.
-    if schema_version(conn) >= SCHEMA_VERSION {
+    // file) reports 0 and takes the full path below. The drift probes are
+    // cheap `sqlite_master` reads and run first: a repair must fire on a
+    // database whose version is current but whose table shape is not.
+    let fts_drifted = fts_schema_needs_migration(conn);
+    let tasks_drifted = tasks_schema_needs_migration(conn);
+    let sections_drifted = sections_schema_needs_migration(conn);
+    let tags_drifted = tags_schema_needs_migration(conn);
+    let drifted = fts_drifted || tasks_drifted || sections_drifted || tags_drifted;
+    if !drifted && schema_version(conn) >= SCHEMA_VERSION {
         return Ok(());
     }
 
-    if fts_schema_needs_migration(conn) {
+    if fts_drifted {
         conn.execute_batch(
             "DROP TABLE IF EXISTS notes_fts;
              DELETE FROM notes;
@@ -1111,12 +1119,12 @@ fn init_schema(conn: &Connection) -> Result<(), String> {
         .map_err(|e| e.to_string())?;
     }
 
-    if tasks_schema_needs_migration(conn) {
+    if tasks_drifted {
         conn.execute("DROP TABLE IF EXISTS tasks", [])
             .map_err(|e| e.to_string())?;
     }
 
-    if sections_schema_needs_migration(conn) {
+    if sections_drifted {
         // `heading_path` is derived per note, and the next scan only revisits
         // changed mtimes — so the table is dropped *and* the note rows cleared,
         // which is what makes that scan refill every section.
@@ -1128,7 +1136,7 @@ fn init_schema(conn: &Connection) -> Result<(), String> {
         .map_err(|e| e.to_string())?;
     }
 
-    if tags_schema_needs_migration(conn) {
+    if tags_drifted {
         conn.execute("DROP TABLE IF EXISTS note_tags", [])
             .map_err(|e| e.to_string())?;
     }
@@ -4252,6 +4260,84 @@ more text").expect("note");
             has_column(&conn, "notes", "citekey"),
             "the linked-source columns come from the same ALTER loop"
         );
+    }
+
+    const LEGACY_SECTIONS_DDL: &str = "CREATE TABLE note_sections (
+            path TEXT NOT NULL,
+            heading_id TEXT NOT NULL,
+            level INTEGER NOT NULL,
+            title TEXT NOT NULL,
+            start_line INTEGER NOT NULL,
+            end_line INTEGER NOT NULL,
+            word_count INTEGER NOT NULL,
+            PRIMARY KEY (path, heading_id)
+        );";
+
+    fn seed_note(conn: &Connection) {
+        conn.execute(
+            "INSERT INTO notes (path, title, mtime_ms, size_bytes) VALUES ('a.md', 'A', 1, 1)",
+            [],
+        )
+        .expect("seed note");
+    }
+
+    fn note_count(conn: &Connection) -> i64 {
+        conn.query_row("SELECT COUNT(*) FROM notes", [], |row| row.get(0))
+            .expect("count notes")
+    }
+
+    #[test]
+    fn init_schema_rebuilds_sections_that_predate_heading_path() {
+        let conn = Connection::open_in_memory().expect("in-memory db");
+        conn.execute_batch(&format!(
+            "CREATE TABLE notes (
+                path TEXT PRIMARY KEY,
+                title TEXT NOT NULL,
+                mtime_ms INTEGER NOT NULL,
+                size_bytes INTEGER NOT NULL
+            );
+            CREATE TABLE outlinks (
+                source_path TEXT NOT NULL,
+                target_path TEXT NOT NULL,
+                PRIMARY KEY (source_path, target_path)
+            );
+            {LEGACY_SECTIONS_DDL}
+            PRAGMA user_version = 1;"
+        ))
+        .expect("legacy schema");
+        seed_note(&conn);
+
+        init_schema(&conn).expect("migrate");
+
+        assert!(has_column(&conn, "note_sections", "heading_path"));
+        assert_eq!(
+            note_count(&conn),
+            0,
+            "clearing notes is what makes the next scan refill every section"
+        );
+        assert_eq!(schema_version(&conn), SCHEMA_VERSION);
+    }
+
+    #[test]
+    fn init_schema_repairs_drift_on_a_current_version_database() {
+        let tmp = tempfile::TempDir::new().expect("temp dir");
+        let path = tmp.path().join("search.db");
+        let conn = open_search_db_at_path(&path).expect("open");
+        assert_eq!(schema_version(&conn), SCHEMA_VERSION);
+        conn.execute_batch(&format!(
+            "DROP TABLE note_sections;
+            {LEGACY_SECTIONS_DDL}"
+        ))
+        .expect("drift the sections table");
+        seed_note(&conn);
+
+        init_schema(&conn).expect("repair");
+
+        assert!(
+            has_column(&conn, "note_sections", "heading_path"),
+            "the drift probes must run before the version guard"
+        );
+        assert_eq!(note_count(&conn), 0);
     }
 
     #[test]
