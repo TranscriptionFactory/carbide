@@ -16,6 +16,12 @@ function create_mock_tab_store() {
 
 type MockAction = { id: string; execute: () => unknown };
 
+function run(actions: Map<string, MockAction>, id: string) {
+  const action = actions.get(id);
+  if (!action) throw new Error(`action ${id} is not registered`);
+  return action.execute();
+}
+
 function create_mock_registry() {
   const actions = new Map<string, MockAction>();
   const registry = {
@@ -86,7 +92,7 @@ describe("register_bases_actions", () => {
       create_mock_tab_store(),
     );
 
-    actions.get(ACTION_IDS.bases_toggle_panel).execute();
+    run(actions, ACTION_IDS.bases_toggle_panel);
 
     expect(ui_store.set_sidebar_view).toHaveBeenCalledWith("bases");
   });
@@ -106,7 +112,7 @@ describe("register_bases_actions", () => {
       create_mock_tab_store(),
     );
 
-    actions.get(ACTION_IDS.bases_toggle_panel).execute();
+    run(actions, ACTION_IDS.bases_toggle_panel);
 
     expect(ui_store.toggle_sidebar).toHaveBeenCalled();
   });
@@ -123,7 +129,7 @@ describe("register_bases_actions", () => {
       create_mock_tab_store(),
     );
 
-    await actions.get(ACTION_IDS.bases_refresh).execute();
+    await run(actions, ACTION_IDS.bases_refresh);
 
     expect(service.refresh_properties).toHaveBeenCalledWith("v1");
     expect(service.run_query).toHaveBeenCalledWith("v1");
@@ -141,7 +147,7 @@ describe("register_bases_actions", () => {
       create_mock_tab_store(),
     );
 
-    await actions.get(ACTION_IDS.bases_refresh_properties).execute();
+    await run(actions, ACTION_IDS.bases_refresh_properties);
 
     expect(service.refresh_properties).toHaveBeenCalledWith("v1");
     expect(service.run_query).not.toHaveBeenCalled();
@@ -159,7 +165,7 @@ describe("register_bases_actions", () => {
       create_mock_tab_store(),
     );
 
-    await actions.get(ACTION_IDS.bases_refresh).execute();
+    await run(actions, ACTION_IDS.bases_refresh);
 
     expect(service.refresh_properties).not.toHaveBeenCalled();
   });
