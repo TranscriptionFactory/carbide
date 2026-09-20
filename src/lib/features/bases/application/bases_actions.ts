@@ -47,6 +47,16 @@ export function register_bases_actions(
   });
 
   registry.register({
+    id: ACTION_IDS.bases_refresh_properties,
+    label: "Refresh Bases Properties",
+    execute: async () => {
+      const vault_id = vault_store.active_vault_id;
+      if (!vault_id) return;
+      await bases_service.refresh_properties(vault_id);
+    },
+  });
+
+  registry.register({
     id: ACTION_IDS.bases_save_view,
     label: "Save Base View",
     execute: async (...args: unknown[]) => {

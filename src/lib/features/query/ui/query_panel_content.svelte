@@ -79,7 +79,7 @@
     const vault = stores.vault.vault;
     if (!vault) return;
     void action_registry.execute(ACTION_IDS.tags_refresh);
-    void action_registry.execute(ACTION_IDS.bases_refresh);
+    void action_registry.execute(ACTION_IDS.bases_refresh_properties);
   });
 
   async function execute() {

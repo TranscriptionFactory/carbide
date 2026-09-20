@@ -126,6 +126,24 @@ describe("register_bases_actions", () => {
     expect(service.run_query).toHaveBeenCalledWith("v1");
   });
 
+  it("refresh_properties reloads properties without running the query", async () => {
+    const { registry, actions } = create_mock_registry();
+    const service = create_mock_bases_service();
+    register_bases_actions(
+      registry,
+      service,
+      new BasesStore(),
+      create_mock_vault_store("v1"),
+      create_mock_ui_store(),
+      create_mock_tab_store(),
+    );
+
+    await actions.get(ACTION_IDS.bases_refresh_properties).execute();
+
+    expect(service.refresh_properties).toHaveBeenCalledWith("v1");
+    expect(service.run_query).not.toHaveBeenCalled();
+  });
+
   it("refresh does nothing when no vault is active", async () => {
     const { registry, actions } = create_mock_registry();
     const service = create_mock_bases_service();

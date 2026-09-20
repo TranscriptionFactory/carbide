@@ -458,6 +458,7 @@ export const ACTION_IDS = {
 
   bases_toggle_panel: "bases.toggle_panel",
   bases_refresh: "bases.refresh",
+  bases_refresh_properties: "bases.refresh_properties",
   bases_save_view: "bases.save_view",
   bases_load_view: "bases.load_view",
   bases_list_views: "bases.list_views",
