@@ -529,6 +529,58 @@ describe("select_rows", () => {
       select_rows(mixed, new Set(["notes/alpha.md"]), 5).map((r) => r.id),
     ).toEqual(["task-keep", "section-keep"]);
   });
+
+  it("reserves slots for sections behind a wall of dated tasks", () => {
+    const tasks = Array.from({ length: 50 }, (_, i) =>
+      make_task({
+        id: `task-${i}`,
+        line_number: i,
+        due_date: `2026-01-${String((i % 28) + 1).padStart(2, "0")}`,
+      }),
+    );
+    const sections = Array.from({ length: 3 }, (_, i) =>
+      make_section({ heading_id: `section-${i}`, start_line: 100 + i }),
+    );
+
+    const selected = select_rows(build_rows(tasks, sections), null, 40);
+
+    expect(selected).toHaveLength(40);
+    expect(
+      selected.filter((r) => r.kind === "section").map((r) => r.id),
+    ).toEqual(["section-0", "section-1", "section-2"]);
+    expect(selected.filter((r) => r.kind === "task")).toHaveLength(37);
+    expect(selected.map((r) => r.id)).toEqual(
+      sort_rows(selected).map((r) => r.id),
+    );
+  });
+
+  it("caps sections at half the row budget", () => {
+    const tasks = Array.from({ length: 10 }, (_, i) =>
+      make_task({ id: `task-${i}`, line_number: i, due_date: "2026-01-02" }),
+    );
+    const sections = Array.from({ length: 10 }, (_, i) =>
+      make_section({ heading_id: `section-${i}`, start_line: 100 + i }),
+    );
+
+    const selected = select_rows(build_rows(tasks, sections), null, 5);
+
+    expect(selected.filter((r) => r.kind === "section")).toHaveLength(2);
+    expect(selected.filter((r) => r.kind === "task")).toHaveLength(3);
+  });
+
+  it("leaves a task-only pool unchanged", () => {
+    const tasks = Array.from({ length: 10 }, (_, i) =>
+      make_task({ id: `task-${i}`, line_number: i, due_date: "2026-01-02" }),
+    );
+
+    expect(
+      select_rows(build_rows(tasks, []), null, 4).map((r) => r.id),
+    ).toEqual(
+      sort_rows(build_rows(tasks, []))
+        .slice(0, 4)
+        .map((r) => r.id),
+    );
+  });
 });
 
 describe("track_copies", () => {

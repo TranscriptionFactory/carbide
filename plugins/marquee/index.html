@@ -61,6 +61,7 @@
       let note_sets_signature = null;
       let notes_changed = true;
       let last_refresh_at = 0;
+      let section_error = null;
       let debounce_timer = null;
       let rendered_signature = null;
       let rendered_group = null;
@@ -241,16 +242,21 @@
         if (rows.length === 0) {
           // A task-only panel keeps its original copy; the sections pool is
           // configured only when a section setting is set.
-          status_el.textContent = build_section_filter(settings)
-            ? "Nothing matches these filters"
-            : "No tasks match this filter";
+          status_el.textContent = section_error
+            ? `No tasks match this filter · sections failed: ${section_error}`
+            : build_section_filter(settings)
+              ? "Nothing matches these filters"
+              : "No tasks match this filter";
           return;
         }
         const now = new Date();
         const hours = String(now.getHours()).padStart(2, "0");
         const minutes = String(now.getMinutes()).padStart(2, "0");
         const label = rows_label(rows);
-        status_el.textContent = `${rows.length} ${label}${rows.length === 1 ? "" : "s"} · updated ${hours}:${minutes}`;
+        const suffix = section_error
+          ? ` · sections failed: ${section_error}`
+          : "";
+        status_el.textContent = `${rows.length} ${label}${rows.length === 1 ? "" : "s"} · updated ${hours}:${minutes}${suffix}`;
       }
 
       function render_signature(rows) {
@@ -313,9 +319,14 @@
 
           // A section filter that is off issues no RPC at all, so a task-only
           // panel behaves exactly as it did before sections existed.
+          // A denied `sections:read` must not take the task rows down with it.
           const section_filter = build_section_filter(settings);
+          section_error = null;
           const sections = section_filter
-            ? await carbide.sections.query(section_filter)
+            ? await carbide.sections.query(section_filter).catch((error) => {
+                section_error = error?.message ?? String(error);
+                return [];
+              })
             : [];
           const tasks = await carbide.tasks.query({
             filter: build_task_filter(settings),

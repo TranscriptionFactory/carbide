@@ -231,8 +231,18 @@ export function sort_rows(rows) {
   return [...rows].sort(compare_rows);
 }
 
+// Dated tasks always sort ahead of sections, so a busy task pool would push
+// every section past the row cap; sections get up to half the slots instead.
 export function select_rows(rows, paths, max_items) {
-  return sort_rows(restrict_rows(rows, paths)).slice(0, max_items);
+  const pool = restrict_rows(rows, paths);
+  const sections = sort_rows(pool.filter((row) => row.kind === "section"));
+  const tasks = sort_rows(pool.filter((row) => row.kind !== "section"));
+  const section_count = Math.min(sections.length, Math.floor(max_items / 2));
+  const selected = [
+    ...sections.slice(0, section_count),
+    ...tasks.slice(0, max_items - section_count),
+  ];
+  return sort_rows(selected);
 }
 
 // The track is N copies of the group and the loop shifts by one group, so
