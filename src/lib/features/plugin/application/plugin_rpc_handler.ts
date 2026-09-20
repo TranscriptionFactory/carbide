@@ -353,6 +353,12 @@ function read_task_query(input: unknown): RpcRecord {
 const SECTION_QUERY_DEFAULT_LIMIT = 200;
 const SECTION_QUERY_MAX_LIMIT = 500;
 
+function read_heading_level(value: unknown, label: string): number | null {
+  const level = read_optional_number(value, label);
+  if (level === undefined) return null;
+  return Math.min(Math.max(Math.trunc(level), 1), 6);
+}
+
 function read_section_filter(input: unknown): RpcRecord {
   const filter = read_record(input, "section filter");
   const raw_limit = filter.limit;
@@ -363,12 +369,8 @@ function read_section_filter(input: unknown): RpcRecord {
   return {
     title: read_optional_string(filter.title) ?? null,
     title_is_regex: filter.title_is_regex === true,
-    level_min:
-      read_optional_number(filter.level_min, "section filter level_min") ??
-      null,
-    level_max:
-      read_optional_number(filter.level_max, "section filter level_max") ??
-      null,
+    level_min: read_heading_level(filter.level_min, "section filter level_min"),
+    level_max: read_heading_level(filter.level_max, "section filter level_max"),
     path_prefix: read_optional_string(filter.path_prefix) ?? null,
     heading_path_under: read_optional_string(filter.heading_path_under) ?? null,
     min_words:

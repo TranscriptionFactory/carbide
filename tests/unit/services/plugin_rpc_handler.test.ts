@@ -1305,6 +1305,23 @@ describe("PluginRpcHandler", () => {
       );
     });
 
+    it("sections.query clamps heading levels to 1..6", async () => {
+      grant_permissions("sections:read");
+      const sections = make_sections_backend();
+      ctx.context.sections = sections;
+
+      const manifest = make_manifest(["sections:read"]);
+      await handler.handle_request(PLUGIN_ID, manifest, {
+        id: "s4",
+        method: "sections.query",
+        params: [{ level_min: 0, level_max: 9 }],
+      });
+
+      expect(sections.query).toHaveBeenCalledWith(
+        expect.objectContaining({ level_min: 1, level_max: 6 }),
+      );
+    });
+
     it("sections.query passes a complete filter through unchanged", async () => {
       grant_permissions("sections:read");
       const sections = make_sections_backend();

@@ -80,7 +80,7 @@ Default is `notes` if omitted.
 | `named`            | Title match (text or regex)    | `named /machine learning/` |
 | `with`             | Content or tag match           | `with #rust`               |
 | `in`               | Folder path                    | `in "Projects"`            |
-| `under`            | Section heading path           | `under "Roadmap/Q4"`       |
+| `under`            | Heading path (`sections` only) | `under "Roadmap/Q4"`       |
 | `linked from`      | Notes that link to this target | `linked from "Research"`   |
 | `with <prop> <op>` | Property filter                | `with author = "Smith"`    |
 

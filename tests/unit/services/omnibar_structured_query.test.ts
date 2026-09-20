@@ -167,8 +167,13 @@ describe("looks_structured", () => {
   it("returns true for form prefixes", () => {
     expect(looks_structured("notes with #tag")).toBe(true);
     expect(looks_structured("note named foo")).toBe(true);
-    expect(looks_structured("files in folder")).toBe(true);
-    expect(looks_structured("folders named test")).toBe(true);
+    expect(looks_structured("sections named Meeting")).toBe(true);
+    expect(looks_structured("section under Roadmap")).toBe(true);
+  });
+
+  it("returns false for prefixes the parser rejects", () => {
+    expect(looks_structured("files in folder")).toBe(false);
+    expect(looks_structured("folders named test")).toBe(false);
   });
 
   it("returns true for clauses carrying value syntax or linked-from", () => {

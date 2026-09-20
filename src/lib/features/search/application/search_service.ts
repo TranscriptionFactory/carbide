@@ -66,7 +66,7 @@ const LIVE_FIND_TIMEOUT_MS = 100;
 const LIVE_FIND_LIMIT = 8;
 const BLENDED_COMMAND_LIMIT = 3;
 
-const STRUCTURED_FORM_PREFIX = /^(?:notes?|files?|folders?)\s/i;
+const STRUCTURED_FORM_PREFIX = /^(?:notes?|sections?)\s/i;
 const STRUCTURED_VALUE_SYNTAX =
   /(?:#\w|\/[^/]*\/|\[\[[^\]]*\]\]|"[^"]*"|(?:^|\s)[\w.][\w.-]*\s*(?:!=|>=|<=|=|>|<)(?:\s|$))/;
 const STRUCTURED_LINKED_FROM = /(?:^|\s)linked\s+from\s/i;

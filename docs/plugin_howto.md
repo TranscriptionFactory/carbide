@@ -549,18 +549,18 @@ const sections = await rpc.send("sections.query", {
 // sections = [{ note: { path, title, ... }, heading_id, title, level, heading_path, start_line, end_line, word_count }, ...]
 ```
 
-`filter` is a `SectionFilter` — a structured object, not a query language. Every field is optional except `limit`:
+`filter` is a `SectionFilter` — a structured object, not a query language. Every field is optional:
 
 | Field                | Meaning                                                  |
 | -------------------- | -------------------------------------------------------- |
 | `title`              | Section title must contain this text (case-insensitive). |
 | `title_is_regex`     | Treat `title` as a regex instead of a literal substring. |
 | `level_min`          | Lowest heading level kept, inclusive (`1`–`6`).          |
-| `level_max`          | Highest heading level kept, inclusive.                   |
+| `level_max`          | Highest heading level kept, inclusive (`1`–`6`).         |
 | `path_prefix`        | Only sections whose note path starts with this prefix.   |
 | `heading_path_under` | This heading path and everything nested under it.        |
 | `min_words`          | Section body must hold at least this many words.         |
-| `limit`              | Required. Clamped to 500, default 200.                   |
+| `limit`              | Optional. Defaults to 200, clamped to 500.               |
 
 Rows come back ordered by note path, then `start_line`. `start_line` and `end_line` are 0-based markdown lines — the coordinate `note.open`'s `line` argument takes, so a section row can be opened directly at its heading.
 
