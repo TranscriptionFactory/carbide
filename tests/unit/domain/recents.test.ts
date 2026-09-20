@@ -66,6 +66,18 @@ describe("coerce_recents_period", () => {
       expect(coerce_recents_period(value)).toBe("all");
     }
   });
+
+  it("degrades a custom period whose encoding is not two ISO days to 'all'", () => {
+    for (const value of [
+      "custom:",
+      "custom:2026-09-01",
+      "custom:2026-09-01..20th",
+      "custom:2026-9-1..2026-09-19",
+      "custom:2026-09-01..2026-09-19..2026-09-20",
+    ]) {
+      expect(coerce_recents_period(value)).toBe("all");
+    }
+  });
 });
 
 describe("build_recents_query", () => {
@@ -320,14 +332,15 @@ describe("build_recents_query — a custom date range", () => {
     expect(reversed).toEqual(range_query());
   });
 
-  it("emits no period filter for a range the encoding cannot parse", () => {
+  it("falls back to the 'all' query for a range the encoding cannot parse", () => {
+    const all_query = range_query("modified", "all");
     for (const period of [
       "custom:",
       "custom:2026-09-01",
       "custom:2026-09-01..20th",
       "custom:2026-02-31..2026-03-02",
     ] as RecentsPeriod[]) {
-      expect(range_query("modified", period).filters).toEqual([]);
+      expect(range_query("modified", period)).toEqual(all_query);
     }
   });
 

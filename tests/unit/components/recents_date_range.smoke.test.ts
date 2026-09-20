@@ -56,33 +56,70 @@ describe("recents_file_view — the date range control", () => {
     cleanup();
   });
 
-  it("opens a range calendar popover and dispatches the picked range", async () => {
-    const { target, on_change_period, cleanup } = render();
+  async function open_calendar(target: HTMLElement) {
     const trigger = target.querySelector<HTMLButtonElement>(
       'button[title="Custom date range"]',
     );
     expect(trigger?.textContent).toContain("Dates");
+    trigger?.click();
+    flushSync();
+    await Promise.resolve();
+    flushSync();
+    const days = document.querySelectorAll<HTMLElement>("[data-bits-day]");
+    expect(days.length).toBeGreaterThan(20);
+    return { trigger, days: [...days] };
+  }
+
+  function click_day(days: HTMLElement[], label: number) {
+    const day = days.find(
+      (d) =>
+        d.getAttribute("data-outside-month") === null &&
+        d.textContent?.trim() === String(label),
+    );
+    expect(day).toBeTruthy();
+    day?.click();
+    flushSync();
+    return day?.getAttribute("data-value");
+  }
+
+  function today_key(): string {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  }
+
+  it("commits the range only once both ends are picked, with the picked end rather than today", async () => {
+    const { target, on_change_period, cleanup } = render();
+    const { days } = await open_calendar(target);
+    const [first, second] = [10, 15, 14].filter(
+      (d) => d !== new Date().getDate(),
+    );
+
+    const start = click_day(days, first!);
+    expect(on_change_period).not.toHaveBeenCalled();
+
+    const end = click_day(days, second!);
+    expect(end).not.toBe(today_key());
+    expect(on_change_period).toHaveBeenCalledTimes(1);
+    expect(on_change_period).toHaveBeenCalledWith(`custom:${start}..${end}`);
+    cleanup();
+  });
+
+  it("commits start..today when the popover closes with only a start picked", async () => {
+    const { target, on_change_period, cleanup } = render();
+    const { trigger, days } = await open_calendar(target);
+    const [first] = [10, 15].filter((d) => d !== new Date().getDate());
+
+    const start = click_day(days, first!);
+    expect(on_change_period).not.toHaveBeenCalled();
 
     trigger?.click();
     flushSync();
     await Promise.resolve();
     flushSync();
 
-    const days = document.querySelectorAll<HTMLElement>("[data-bits-day]");
-    expect(days.length).toBeGreaterThan(20);
-
-    const day = [...days].find(
-      (d) =>
-        d.getAttribute("data-outside-month") === null &&
-        d.textContent?.trim() === "10",
-    );
-    expect(day).toBeTruthy();
-    day?.click();
-    flushSync();
-
     expect(on_change_period).toHaveBeenCalledTimes(1);
-    expect(on_change_period.mock.calls[0]?.[0]).toMatch(
-      /^custom:\d{4}-\d{2}-\d{2}\.\.\d{4}-\d{2}-\d{2}$/,
+    expect(on_change_period).toHaveBeenCalledWith(
+      `custom:${start}..${today_key()}`,
     );
     cleanup();
   });

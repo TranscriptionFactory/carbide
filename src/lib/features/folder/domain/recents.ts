@@ -148,10 +148,11 @@ export function build_recents_query({
   };
 
   const filters: BaseFilter[] = [];
-  if (period !== "all") {
+  const effective_period = coerce_recents_period(period);
+  if (effective_period !== "all") {
     const property = period_filter_property(sort);
-    if (is_custom_period(period)) {
-      const range = parse_custom_date_range(period);
+    if (is_custom_period(effective_period)) {
+      const range = parse_custom_date_range(effective_period);
       if (range) {
         filters.push({
           property,
@@ -168,7 +169,7 @@ export function build_recents_query({
       filters.push({
         property,
         operator: "gte",
-        value: String(period_cutoff_ms(period, now_ms)),
+        value: String(period_cutoff_ms(effective_period, now_ms)),
       });
     }
   }

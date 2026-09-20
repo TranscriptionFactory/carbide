@@ -172,19 +172,34 @@
     return `${String(date.year)}-${String(date.month).padStart(2, "0")}-${String(date.day).padStart(2, "0")}`;
   }
 
-  /* A start day with no end yet reads as "since that day", so the end defaults
-     to today; the popover stays open and the calendar keeps the half-finished
-     selection while the user picks the other end. */
-  function on_custom_range_change(value: {
+  /* bits-ui reports the first click as {start, end: undefined}; committing
+     that would flow back into the calendar and reset the selection on the
+     second click, so the half-finished range lives here until both ends are
+     picked. A start left alone when the popover closes reads as "since that
+     day", so its end defaults to today. */
+  type DraftRange = {
     start: DateValue | undefined;
     end: DateValue | undefined;
-  }) {
-    if (!value.start) return;
-    const start_day = day_key(value.start);
-    const end_day = value.end
-      ? day_key(value.end)
-      : day_key(today(getLocalTimeZone()));
-    on_change_period(custom_recents_period(start_day, end_day));
+  };
+  let draft_range = $state<DraftRange>({ start: undefined, end: undefined });
+
+  function commit_range(start: DateValue, end: DateValue) {
+    on_change_period(custom_recents_period(day_key(start), day_key(end)));
+  }
+
+  function on_popover_open_change(open: boolean) {
+    if (open) {
+      draft_range = { ...calendar_value };
+      return;
+    }
+    if (draft_range.start && !draft_range.end) {
+      commit_range(draft_range.start, today(getLocalTimeZone()));
+    }
+  }
+
+  function on_custom_range_change(value: DraftRange) {
+    draft_range = value;
+    if (value.start && value.end) commit_range(value.start, value.end);
   }
 
   function toggle_direction() {
@@ -259,7 +274,7 @@
         </button>
       {/each}
 
-      <Popover.Root>
+      <Popover.Root onOpenChange={on_popover_open_change}>
         <Popover.Trigger>
           {#snippet child({ props })}
             <button
@@ -278,7 +293,7 @@
         </Popover.Trigger>
         <Popover.Content class="w-auto p-2" align="end">
           <RangeCalendar.Root
-            value={calendar_value}
+            value={draft_range}
             onValueChange={on_custom_range_change}
             weekStartsOn={1}
             fixedWeeks={true}
