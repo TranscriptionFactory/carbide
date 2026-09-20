@@ -110,6 +110,10 @@ type PluginRpcTasksBackend = {
   query(query: unknown): Promise<unknown>;
 };
 
+type PluginRpcSectionsBackend = {
+  query(filter: unknown): Promise<unknown>;
+};
+
 type McpToolDefinition = {
   name: string;
   description: string;
@@ -210,6 +214,7 @@ export type PluginRpcContext = {
   diagnostics?: PluginRpcDiagnosticsBackend;
   metadata?: PluginRpcMetadataBackend;
   tasks?: PluginRpcTasksBackend;
+  sections?: PluginRpcSectionsBackend;
   network?: PluginRpcNetworkBackend;
   ai?: PluginRpcAiBackend;
   mcp?: PluginRpcMcpBackend;
@@ -342,6 +347,34 @@ function read_task_query(input: unknown): RpcRecord {
     sort: query.sort ?? [],
     limit,
     offset: typeof query.offset === "number" ? query.offset : 0,
+  };
+}
+
+const SECTION_QUERY_DEFAULT_LIMIT = 200;
+const SECTION_QUERY_MAX_LIMIT = 500;
+
+function read_section_filter(input: unknown): RpcRecord {
+  const filter = read_record(input, "section filter");
+  const raw_limit = filter.limit;
+  const limit =
+    typeof raw_limit === "number" && Number.isFinite(raw_limit)
+      ? Math.min(Math.max(Math.trunc(raw_limit), 1), SECTION_QUERY_MAX_LIMIT)
+      : SECTION_QUERY_DEFAULT_LIMIT;
+  return {
+    title: read_optional_string(filter.title) ?? null,
+    title_is_regex: filter.title_is_regex === true,
+    level_min:
+      read_optional_number(filter.level_min, "section filter level_min") ??
+      null,
+    level_max:
+      read_optional_number(filter.level_max, "section filter level_max") ??
+      null,
+    path_prefix: read_optional_string(filter.path_prefix) ?? null,
+    heading_path_under: read_optional_string(filter.heading_path_under) ?? null,
+    min_words:
+      read_optional_number(filter.min_words, "section filter min_words") ??
+      null,
+    limit,
   };
 }
 
@@ -613,6 +646,8 @@ export class PluginRpcHandler {
         return this.handle_metadata(plugin_id, action, params);
       case "tasks":
         return this.handle_tasks(plugin_id, action, params);
+      case "sections":
+        return this.handle_sections(plugin_id, action, params);
       case "network":
         return this.handle_network(plugin_id, manifest, action, params);
       case "ai":
@@ -1017,6 +1052,25 @@ export class PluginRpcHandler {
         return this.context.tasks.query(read_task_query(params[0]));
       default:
         throw new Error(`Unknown tasks action: ${action}`);
+    }
+  }
+
+  private async handle_sections(
+    plugin_id: string,
+    action: string,
+    params: RpcParams,
+  ): Promise<unknown> {
+    this.require_permission(plugin_id, "sections:read");
+
+    if (!this.context.sections) {
+      throw new Error("Section backend not initialized");
+    }
+
+    switch (action) {
+      case "query":
+        return this.context.sections.query(read_section_filter(params[0]));
+      default:
+        throw new Error(`Unknown sections action: ${action}`);
     }
   }
 

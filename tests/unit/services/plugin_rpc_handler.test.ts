@@ -1245,6 +1245,150 @@ describe("PluginRpcHandler", () => {
     });
   });
 
+  describe("sections.*", () => {
+    function make_sections_backend() {
+      return {
+        query: vi.fn().mockResolvedValue([]),
+      };
+    }
+
+    it("sections.query fills the limit and the absent fields", async () => {
+      grant_permissions("sections:read");
+      const sections = make_sections_backend();
+      ctx.context.sections = sections;
+
+      const manifest = make_manifest(["sections:read"]);
+      const response = await handler.handle_request(PLUGIN_ID, manifest, {
+        id: "s1",
+        method: "sections.query",
+        params: [{}],
+      });
+
+      expect(response.error).toBeUndefined();
+      expect(response.result).toEqual([]);
+      expect(sections.query).toHaveBeenCalledWith({
+        title: null,
+        title_is_regex: false,
+        level_min: null,
+        level_max: null,
+        path_prefix: null,
+        heading_path_under: null,
+        min_words: null,
+        limit: 200,
+      });
+    });
+
+    it("sections.query clamps limit to the supported range", async () => {
+      grant_permissions("sections:read");
+      const sections = make_sections_backend();
+      ctx.context.sections = sections;
+
+      const manifest = make_manifest(["sections:read"]);
+      await handler.handle_request(PLUGIN_ID, manifest, {
+        id: "s2",
+        method: "sections.query",
+        params: [{ limit: 5000 }],
+      });
+      await handler.handle_request(PLUGIN_ID, manifest, {
+        id: "s3",
+        method: "sections.query",
+        params: [{ limit: 0 }],
+      });
+
+      expect(sections.query).toHaveBeenNthCalledWith(
+        1,
+        expect.objectContaining({ limit: 500 }),
+      );
+      expect(sections.query).toHaveBeenNthCalledWith(
+        2,
+        expect.objectContaining({ limit: 1 }),
+      );
+    });
+
+    it("sections.query passes a complete filter through unchanged", async () => {
+      grant_permissions("sections:read");
+      const sections = make_sections_backend();
+      ctx.context.sections = sections;
+
+      const manifest = make_manifest(["sections:read"]);
+      const filter = {
+        title: "draft",
+        title_is_regex: true,
+        level_min: 2,
+        level_max: 3,
+        path_prefix: "projects/",
+        heading_path_under: "Project A",
+        min_words: 20,
+        limit: 10,
+      };
+      const response = await handler.handle_request(PLUGIN_ID, manifest, {
+        id: "s4",
+        method: "sections.query",
+        params: [filter],
+      });
+
+      expect(response.error).toBeUndefined();
+      expect(sections.query).toHaveBeenCalledWith(filter);
+    });
+
+    it("sections.query rejects a non-object filter", async () => {
+      grant_permissions("sections:read");
+      const sections = make_sections_backend();
+      ctx.context.sections = sections;
+
+      const manifest = make_manifest(["sections:read"]);
+      const response = await handler.handle_request(PLUGIN_ID, manifest, {
+        id: "s5",
+        method: "sections.query",
+        params: [null],
+      });
+
+      expect(response.error).toMatch(/Invalid section filter/);
+      expect(sections.query).not.toHaveBeenCalled();
+    });
+
+    it("sections.* blocks when sections:read is not granted", async () => {
+      grant_permissions();
+      ctx.context.sections = make_sections_backend();
+
+      const manifest = make_manifest(["sections:read"]);
+      const response = await handler.handle_request(PLUGIN_ID, manifest, {
+        id: "s6",
+        method: "sections.query",
+        params: [{}],
+      });
+
+      expect(response.error).toMatch(/Missing sections:read permission/);
+    });
+
+    it("sections.* errors on unknown action", async () => {
+      grant_permissions("sections:read");
+      ctx.context.sections = make_sections_backend();
+
+      const manifest = make_manifest(["sections:read"]);
+      const response = await handler.handle_request(PLUGIN_ID, manifest, {
+        id: "s7",
+        method: "sections.nope",
+        params: [],
+      });
+
+      expect(response.error).toMatch(/Unknown sections action: nope/);
+    });
+
+    it("sections.* errors when the section backend is not initialized", async () => {
+      grant_permissions("sections:read");
+
+      const manifest = make_manifest(["sections:read"]);
+      const response = await handler.handle_request(PLUGIN_ID, manifest, {
+        id: "s8",
+        method: "sections.query",
+        params: [{}],
+      });
+
+      expect(response.error).toMatch(/Section backend not initialized/);
+    });
+  });
+
   describe("diagnostics.*", () => {
     function make_diagnostics_backend() {
       return {

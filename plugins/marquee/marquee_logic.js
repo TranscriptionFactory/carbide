@@ -1,5 +1,6 @@
 export const POOL_LIMIT = 200;
 export const BASE_ROW_LIMIT = 500;
+export const SECTION_POOL_LIMIT = 200;
 
 const SETTING_DEFAULTS = {
   status: "open",
@@ -9,6 +10,9 @@ const SETTING_DEFAULTS = {
   base_property: "",
   base_operator: "eq",
   base_value: "",
+  section_title: "",
+  section_level: "any",
+  section_under: "",
   show_note_name: true,
   max_items: 40,
   scroll_seconds: 45,
@@ -24,6 +28,9 @@ const SETTING_KEYS = {
   base_property: "base_property",
   base_operator: "base_operator",
   base_value: "base_value",
+  section_title: "section_title",
+  section_level: "section_level",
+  section_under: "section_under",
   show_note_name: "show_note_name",
   max_items: "max_items",
   scroll_seconds: "scroll_seconds",
@@ -45,6 +52,7 @@ const SETTING_ENUMS = {
     "lte",
   ],
   theme: ["auto", "light", "dark"],
+  section_level: ["any", "1", "2", "3"],
 };
 
 const SETTING_RANGES = {
@@ -129,6 +137,65 @@ export function build_task_filter(settings) {
   return { type: "and", operands };
 }
 
+// The structured `SectionFilter` the `sections.query` RPC takes. Null when no
+// section setting is on, so the default panel issues no sections call at all.
+export function build_section_filter(settings) {
+  const title = settings.section_title;
+  const level = settings.section_level;
+  const under = settings.section_under;
+  if (!title && level === "any" && !under) return null;
+
+  const filter = { limit: SECTION_POOL_LIMIT };
+  if (title) filter.title = title;
+  if (level !== "any") {
+    const level_number = Number(level);
+    filter.level_min = level_number;
+    filter.level_max = level_number;
+  }
+  if (under) filter.heading_path_under = under;
+  return filter;
+}
+
+// One row shape for both pools; `kind` is the only structural difference, so
+// the restrict step and the comparator stay single.
+export function build_rows(tasks, sections) {
+  const rows = tasks.map((task) => ({
+    kind: "task",
+    id: task.id,
+    path: task.path,
+    text: task.text,
+    status: task.status,
+    due_date: task.due_date,
+    line_number: task.line_number,
+    heading_path: null,
+    level: null,
+  }));
+
+  for (const hit of sections) {
+    rows.push({
+      kind: "section",
+      id: hit.heading_id,
+      path: hit.note.path,
+      text: hit.title,
+      status: null,
+      due_date: null,
+      line_number: hit.start_line,
+      heading_path: hit.heading_path,
+      level: hit.level,
+    });
+  }
+  return rows;
+}
+
+// Only a section row carries a line: `start_line` is the 0-based markdown line
+// `note.open` scrolls to.
+export function row_open_payload(row) {
+  if (row.kind === "section") {
+    return { note_path: row.path, line: row.line_number };
+  }
+  return { note_path: row.path };
+}
+
 export function merge_note_sets(sets) {
   const present = sets.filter((set) => Array.isArray(set));
   if (present.length === 0) return null;
@@ -142,12 +209,12 @@ export function merge_note_sets(sets) {
   return merged;
 }
 
-export function restrict_to_notes(tasks, paths) {
-  if (paths === null) return tasks;
-  return tasks.filter((task) => paths.has(task.path));
+export function restrict_rows(rows, paths) {
+  if (paths === null) return rows;
+  return rows.filter((row) => paths.has(row.path));
 }
 
-function compare_tasks(a, b) {
+function compare_rows(a, b) {
   const a_due = typeof a.due_date === "string" ? a.due_date : null;
   const b_due = typeof b.due_date === "string" ? b.due_date : null;
 
@@ -160,12 +227,12 @@ function compare_tasks(a, b) {
   return a.line_number - b.line_number;
 }
 
-export function sort_tasks(tasks) {
-  return [...tasks].sort(compare_tasks);
+export function sort_rows(rows) {
+  return [...rows].sort(compare_rows);
 }
 
-export function select_tasks(tasks, paths, max_items) {
-  return sort_tasks(restrict_to_notes(tasks, paths)).slice(0, max_items);
+export function select_rows(rows, paths, max_items) {
+  return sort_rows(restrict_rows(rows, paths)).slice(0, max_items);
 }
 
 // The track is N copies of the group and the loop shifts by one group, so

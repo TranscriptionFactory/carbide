@@ -148,6 +148,10 @@
       query: (query) => _rpc("tasks.query", query),
     },
 
+    sections: {
+      query: (filter) => _rpc("sections.query", filter),
+    },
+
     diagnostics: {
       push: (file_path, diagnostics) =>
         _rpc("diagnostics.push", file_path, diagnostics),
