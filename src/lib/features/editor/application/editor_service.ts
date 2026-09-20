@@ -48,6 +48,7 @@ import type { OpStore } from "$lib/app";
 import type { SearchService } from "$lib/features/search";
 import type { OutlineStore } from "$lib/features/outline";
 import type { AssetsPort, NotesPort, NotesStore } from "$lib/features/note";
+import type { BasesStore } from "$lib/features/bases";
 import { collect_recent_notes } from "$lib/features/editor/domain/collect_recent_notes";
 import type { TagPort } from "$lib/features/tags";
 import { normalize_markdown_line_breaks } from "$lib/features/editor/domain/markdown_line_breaks";
@@ -278,6 +279,7 @@ export class EditorService {
     private readonly reference_store?: { library_items: CslItem[] },
     private readonly notes_port?: NotesPort,
     private readonly notes_store?: NotesStore,
+    private readonly bases_store?: BasesStore,
   ) {}
 
   get_live_markdown(): MarkdownText | null {
@@ -1173,9 +1175,9 @@ export class EditorService {
       tags: tags.filter((t) => t.promoted).map((t) => t.tag),
       note_names,
       folder_paths: folders,
-      // ponytail: no bases port here; add optional list_properties dep when
-      // property suggestions matter in-editor
-      property_names: [],
+      // frontmatter keys from the bases property index
+      property_names:
+        this.bases_store?.available_properties.map((p) => p.name) ?? [],
     };
   }
 
