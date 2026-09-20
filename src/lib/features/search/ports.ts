@@ -34,6 +34,32 @@ export type HeadingMatch = {
   score: number;
 };
 
+// Filter for the `sections` query noun. Field names keep the Rust struct's
+// snake_case, like every other command payload in this port.
+export type SectionFilter = {
+  title?: string;
+  title_is_regex?: boolean;
+  level_min?: number;
+  level_max?: number;
+  path_prefix?: string;
+  /** Matches this heading path and everything nested under it. */
+  heading_path_under?: string;
+  min_words?: number;
+  limit: number;
+};
+
+// One heading (or implicit preamble) section, lines 0-based.
+export type SectionHit = {
+  note: NoteMeta;
+  heading_id: string;
+  title: string;
+  level: number;
+  heading_path: string;
+  start_line: number;
+  end_line: number;
+  word_count: number;
+};
+
 export type NoteStats = {
   word_count: number;
   char_count: number;
@@ -164,6 +190,10 @@ export interface SearchPort {
     query: string,
     limit?: number,
   ): Promise<HeadingMatch[]>;
+  query_sections(
+    vault_id: VaultId,
+    filter: SectionFilter,
+  ): Promise<SectionHit[]>;
   load_smart_link_rules(vault_id: VaultId): Promise<SmartLinkRuleGroup[]>;
   save_smart_link_rules(
     vault_id: VaultId,

@@ -15,9 +15,13 @@ describe("query_parser", () => {
       if (result.ok) expect(result.query.form).toBe("notes");
     });
 
-    it("rejects folders and files as forms", () => {
+    it("rejects folders and files as forms, accepts sections", () => {
       expect(parse_query('Folders named "archive"').ok).toBe(false);
       expect(parse_query('files named "archive"').ok).toBe(false);
+
+      const sections = parse_query('sections named "archive"');
+      expect(sections.ok).toBe(true);
+      if (sections.ok) expect(sections.query.form).toBe("sections");
     });
 
     it("is case insensitive for forms", () => {
@@ -130,6 +134,30 @@ describe("query_parser", () => {
       expect(result.query.root).toMatchObject({
         type: "in",
         value: { kind: "text", value: "Archive" },
+      });
+    });
+  });
+
+  describe("under clause", () => {
+    it("parses under with a quoted heading path", () => {
+      const result = parse_query('sections under "Roadmap/Q4"');
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.query.form).toBe("sections");
+      expect(result.query.root).toMatchObject({
+        type: "under",
+        negated: false,
+        value: { kind: "text", value: "Roadmap/Q4" },
+      });
+    });
+
+    it("parses under with a bare heading path", () => {
+      const result = parse_query("sections under Roadmap/Q4");
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.query.root).toMatchObject({
+        type: "under",
+        value: { kind: "text", value: "Roadmap/Q4" },
       });
     });
   });

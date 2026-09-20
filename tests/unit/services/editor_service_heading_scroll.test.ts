@@ -71,17 +71,19 @@ function create_session(initial_markdown: string): EditorSession {
     rename_buffer: vi.fn(),
     close_buffer: vi.fn(),
     scroll_to_position: vi.fn(),
+    set_cursor_from_markdown_offset: vi.fn(),
+    scroll_cursor_into_view: vi.fn(),
   };
 }
 
-async function create_setup() {
+async function create_setup(markdown = "# Alpha") {
   const editor_store = new EditorStore();
   const vault_store = new VaultStore();
   const op_store = new OpStore();
   const outline_store = new OutlineStore();
   vault_store.set_vault(create_test_vault());
 
-  const session = create_session("# Alpha");
+  const session = create_session(markdown);
   const session_configs: EditorSessionConfig[] = [];
   const editor_port: EditorPort = {
     start_session: vi.fn((config: EditorSessionConfig) => {
@@ -107,7 +109,7 @@ async function create_setup() {
     outline_store,
   );
 
-  const note = create_open_note("docs/alpha.md", "# Alpha");
+  const note = create_open_note("docs/alpha.md", markdown);
   editor_store.set_open_note(note);
   await service.mount({ root: {} as HTMLDivElement, note });
 
@@ -169,6 +171,39 @@ describe("EditorService heading fragment scroll", () => {
 
     emit_outline([heading(1, "Beta", 0), heading(2, "Overview", 8)]);
     expect(session.scroll_to_position).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("EditorService line scroll", () => {
+  it("scrolls to the markdown offset of the requested line", async () => {
+    const { service, editor_store, session, emit_outline } = await create_setup(
+      "line one\nline two\n## Target\nbody",
+    );
+    emit_outline([heading(1, "Line one", 0)]);
+
+    service.scroll_to_line(2);
+
+    expect(session.set_cursor_from_markdown_offset).toHaveBeenCalledWith(
+      "line one\nline two\n".length,
+    );
+    expect(session.scroll_cursor_into_view).toHaveBeenCalled();
+    expect(editor_store.pending_line_scroll).toBeNull();
+  });
+
+  it("stashes the line until the target note's outline arrives", async () => {
+    const { service, editor_store, session, emit_outline } = await create_setup(
+      "line one\nline two\n## Target\nbody",
+    );
+
+    service.scroll_to_line(2);
+    expect(session.set_cursor_from_markdown_offset).not.toHaveBeenCalled();
+    expect(editor_store.pending_line_scroll).toBe(2);
+
+    emit_outline([heading(2, "Target", 18)]);
+    expect(session.set_cursor_from_markdown_offset).toHaveBeenCalledWith(
+      "line one\nline two\n".length,
+    );
+    expect(editor_store.pending_line_scroll).toBeNull();
   });
 });
 

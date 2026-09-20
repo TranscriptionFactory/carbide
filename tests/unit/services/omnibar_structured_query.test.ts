@@ -69,6 +69,7 @@ function make_mock_search_port(
     get_indexed_body: vi.fn().mockResolvedValue(null),
     get_file_cache: vi.fn().mockResolvedValue({}),
     search_headings: vi.fn().mockResolvedValue([]),
+    query_sections: vi.fn().mockResolvedValue([]),
     load_smart_link_rules: vi.fn().mockResolvedValue([]),
     save_smart_link_rules: vi.fn().mockResolvedValue(undefined),
     compute_smart_link_suggestions: vi.fn().mockResolvedValue([]),
@@ -220,6 +221,31 @@ describe("SearchService.search_omnibar structured queries", () => {
 
     expect(result.domain).toBe("notes");
     expect(tags_port.get_notes_for_tag_prefix).toHaveBeenCalled();
+    expect(search_port.hybrid_search).not.toHaveBeenCalled();
+  });
+
+  it("returns note rows for a sections query", async () => {
+    const search_port = make_mock_search_port();
+    vi.mocked(search_port.query_sections).mockResolvedValue([
+      {
+        note: make_note("Projects/roadmap.md"),
+        heading_id: "h-2-q4-0",
+        title: "Q4",
+        level: 2,
+        heading_path: "Roadmap/Q4",
+        start_line: 8,
+        end_line: 20,
+        word_count: 30,
+      },
+    ]);
+    const { service } = make_service_with_backends(search_port);
+
+    const result = await service.search_omnibar('sections named "Q4"');
+
+    expect(result.domain).toBe("notes");
+    expect(
+      result.items.map((item) => item.kind === "note" && item.note.path),
+    ).toEqual(["Projects/roadmap.md"]);
     expect(search_port.hybrid_search).not.toHaveBeenCalled();
   });
 

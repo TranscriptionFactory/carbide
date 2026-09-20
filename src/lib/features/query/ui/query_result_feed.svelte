@@ -4,7 +4,10 @@
   let {
     items,
     onopen,
-  }: { items: QueryResultItem[]; onopen: (path: string) => void } = $props();
+  }: {
+    items: QueryResultItem[];
+    onopen: (path: string, line?: number) => void;
+  } = $props();
 
   function format_relative_time(mtime_ms: number): string {
     if (!mtime_ms) return "";
@@ -34,15 +37,18 @@
 </script>
 
 <div class="QueryResultFeed">
-  {#each items as item (item.note.path)}
+  {#each items as item (`${item.note.path}\u0000${item.section?.heading_path ?? ""}`)}
     {@const folder = folder_from_path(item.note.path)}
     <button
       type="button"
       class="QueryResultFeed__item"
-      onclick={() => onopen(item.note.path)}
+      onclick={() => onopen(item.note.path, item.section?.start_line)}
     >
       <div class="QueryResultFeed__header">
-        <span class="QueryResultFeed__title">{item.note.title}</span>
+        <span class="QueryResultFeed__title">
+          {item.note.title}{#if item.section}
+            › {item.section.heading_path}{/if}
+        </span>
         {#if item.note.mtime_ms}
           <span class="QueryResultFeed__time"
             >{format_relative_time(item.note.mtime_ms)}</span

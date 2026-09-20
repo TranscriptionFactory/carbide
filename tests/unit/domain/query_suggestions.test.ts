@@ -19,7 +19,7 @@ function inserts(text: string, c: DslContext = ctx): string[] {
 
 describe("suggest_query positional candidates", () => {
   it("suggests forms on empty input", () => {
-    expect(labels("")).toEqual(["notes", "note"]);
+    expect(labels("")).toEqual(["notes", "note", "sections"]);
   });
 
   it("suggests clause starters after a form", () => {
@@ -27,6 +27,7 @@ describe("suggest_query positional candidates", () => {
       "named",
       "with",
       "in",
+      "under",
       "linked from",
       "not",
       "(",
@@ -38,6 +39,7 @@ describe("suggest_query positional candidates", () => {
       "named",
       "with",
       "in",
+      "under",
       "linked from",
       "not",
       "(",
@@ -49,6 +51,7 @@ describe("suggest_query positional candidates", () => {
       "named",
       "with",
       "in",
+      "under",
       "linked from",
       "not",
       "(",
@@ -193,7 +196,11 @@ describe("suggest_query closers", () => {
 describe("suggest_query subquery recursion", () => {
   it("recurses into an unclosed subquery and offers forms", () => {
     const res = suggest_query("notes linked from {", ctx);
-    expect(res.items.map((i) => i.label)).toEqual(["notes", "note"]);
+    expect(res.items.map((i) => i.label)).toEqual([
+      "notes",
+      "note",
+      "sections",
+    ]);
     expect(res.from).toBe("notes linked from {".length);
   });
 
@@ -215,6 +222,7 @@ describe("suggest_query newline handling", () => {
       "named",
       "with",
       "in",
+      "under",
       "linked from",
       "not",
       "(",

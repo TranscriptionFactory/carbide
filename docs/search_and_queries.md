@@ -64,13 +64,12 @@ A composable query syntax for structured note filtering. Queries can be typed in
 
 ### Forms
 
-Queries target one of three forms:
+Queries target one of two forms:
 
-| Form      | Matches        |
-| --------- | -------------- |
-| `notes`   | Markdown notes |
-| `folders` | Directories    |
-| `files`   | All files      |
+| Form       | Matches                              |
+| ---------- | ------------------------------------ |
+| `notes`    | Markdown notes (the default)         |
+| `sections` | Note sections: headings and preamble |
 
 Default is `notes` if omitted.
 
@@ -81,8 +80,31 @@ Default is `notes` if omitted.
 | `named`            | Title match (text or regex)    | `named /machine learning/` |
 | `with`             | Content or tag match           | `with #rust`               |
 | `in`               | Folder path                    | `in "Projects"`            |
+| `under`            | Section heading path           | `under "Roadmap/Q4"`       |
 | `linked from`      | Notes that link to this target | `linked from "Research"`   |
 | `with <prop> <op>` | Property filter                | `with author = "Smith"`    |
+
+### Section Queries
+
+The `sections` form returns one row per section instead of one per note. A
+section is a heading plus the lines under it, and every note also has an
+implicit leading section covering the text before its first heading.
+
+| Clause                           | Matches                                           |
+| -------------------------------- | ------------------------------------------------- |
+| `named <text>` / `named /regex/` | The heading text (case-insensitive)               |
+| `in "Folder"`                    | Notes under that vault folder                     |
+| `under "Parent/Child"`           | That heading and everything nested under it       |
+| `with …`                         | The note-level clauses above, applied to the note |
+
+```
+sections named /Meeting/ in "Projects"
+sections under "Roadmap/Q4"
+sections named "Decision" with #project
+```
+
+Rows show `note › heading` and open the note scrolled to the section's first
+line.
 
 ### Property Filters
 

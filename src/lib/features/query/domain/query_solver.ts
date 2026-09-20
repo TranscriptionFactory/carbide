@@ -1,12 +1,17 @@
 import { type VaultId, as_note_path } from "$lib/shared/types/ids";
 import type { NoteMeta } from "$lib/shared/types/note";
-import type { SearchPort, WorkspaceIndexPort } from "$lib/features/search";
+import type {
+  SearchPort,
+  SectionFilter,
+  WorkspaceIndexPort,
+} from "$lib/features/search";
 import { rank_tags, type TagPort } from "$lib/features/tags";
 import type { BasesPort } from "$lib/features/bases";
 import type {
   ClauseGroup,
   ParsedQuery,
   QueryClause,
+  QueryForm,
   QueryNode,
   QueryResult,
   QueryResultItem,
@@ -26,7 +31,7 @@ export async function solve_query(
   backends: QueryBackends,
 ): Promise<QueryResult> {
   const start = performance.now();
-  const items = await resolve_node(vault_id, query.root, backends);
+  const items = await resolve_node(vault_id, query.form, query.root, backends);
   const elapsed_ms = Math.round(performance.now() - start);
 
   return {
@@ -37,44 +42,72 @@ export async function solve_query(
   };
 }
 
+// A section row and a note-level row of the same note satisfy each other: the
+// note-level clause is a statement about the note, not about one heading.
+function keys_compatible(a: QueryResultItem, b: QueryResultItem): boolean {
+  return (
+    !a.section ||
+    !b.section ||
+    a.section.heading_path === b.section.heading_path
+  );
+}
+
 async function resolve_node(
   vault_id: VaultId,
+  form: QueryForm,
   node: QueryNode,
   backends: QueryBackends,
 ): Promise<QueryResultItem[]> {
   if (node.kind === "group") {
-    return resolve_group(vault_id, node, backends);
+    return resolve_group(vault_id, form, node, backends);
   }
-  return resolve_clause(vault_id, node, backends);
+  return resolve_clause(vault_id, form, node, backends);
 }
 
 async function resolve_group(
   vault_id: VaultId,
+  form: QueryForm,
   group: ClauseGroup,
   backends: QueryBackends,
 ): Promise<QueryResultItem[]> {
   if (group.clauses.length === 0) return [];
 
   if (group.join === "and") {
-    return resolve_and(vault_id, group.clauses, backends);
+    return resolve_and(vault_id, form, group.clauses, backends);
   }
-  return resolve_or(vault_id, group.clauses, backends);
+  return resolve_or(vault_id, form, group.clauses, backends);
 }
 
 async function resolve_and(
   vault_id: VaultId,
+  form: QueryForm,
   clauses: QueryNode[],
   backends: QueryBackends,
 ): Promise<QueryResultItem[]> {
   if (clauses.length === 0) return [];
-  let result = await resolve_node(vault_id, clauses[0]!, backends);
+  let result = await resolve_node(vault_id, form, clauses[0]!, backends);
 
   for (let i = 1; i < clauses.length; i++) {
-    const next = await resolve_node(vault_id, clauses[i]!, backends);
-    const next_paths = new Set(next.map((item) => item.note.path));
-    result = result.filter((item) => next_paths.has(item.note.path));
+    const next = await resolve_node(vault_id, form, clauses[i]!, backends);
+    const next_by_path = new Map<string, QueryResultItem[]>();
+    for (const item of next) {
+      const group = next_by_path.get(item.note.path);
+      if (group) {
+        group.push(item);
+      } else {
+        next_by_path.set(item.note.path, [item]);
+      }
+    }
+
+    result = result.filter((item) =>
+      (next_by_path.get(item.note.path) ?? []).some((candidate) =>
+        keys_compatible(item, candidate),
+      ),
+    );
     for (const item of result) {
-      const match = next.find((n) => n.note.path === item.note.path);
+      const match = (next_by_path.get(item.note.path) ?? []).find((candidate) =>
+        keys_compatible(item, candidate),
+      );
       if (match) {
         item.matched_clauses.push(...match.matched_clauses);
       }
@@ -86,21 +119,28 @@ async function resolve_and(
 
 async function resolve_or(
   vault_id: VaultId,
+  form: QueryForm,
   clauses: QueryNode[],
   backends: QueryBackends,
 ): Promise<QueryResultItem[]> {
   const all_results = await Promise.all(
-    clauses.map((clause) => resolve_node(vault_id, clause, backends)),
+    clauses.map((clause) => resolve_node(vault_id, form, clause, backends)),
   );
 
   const seen = new Map<string, QueryResultItem>();
   for (const results of all_results) {
     for (const item of results) {
-      const existing = seen.get(item.note.path);
+      // A section row is identified by its heading path, so two sections of the
+      // same note stay distinct through an OR; a note-level row keys on the
+      // note alone, which is what every `notes` query keys on.
+      const key = item.section
+        ? `${item.note.path}\u0000${item.section.heading_path}`
+        : item.note.path;
+      const existing = seen.get(key);
       if (existing) {
         existing.matched_clauses.push(...item.matched_clauses);
       } else {
-        seen.set(item.note.path, { ...item });
+        seen.set(key, { ...item });
       }
     }
   }
@@ -110,9 +150,11 @@ async function resolve_or(
 
 async function resolve_clause(
   vault_id: VaultId,
+  form: QueryForm,
   clause: QueryClause,
   backends: QueryBackends,
 ): Promise<QueryResultItem[]> {
+  const sections = form === "sections";
   let results: QueryResultItem[];
 
   switch (clause.type) {
@@ -120,10 +162,22 @@ async function resolve_clause(
       results = await resolve_with(vault_id, clause.value, backends);
       break;
     case "named":
-      results = await resolve_named(vault_id, clause.value, backends);
+      results = sections
+        ? await resolve_sections(vault_id, clause.value, "named", backends)
+        : await resolve_named(vault_id, clause.value, backends);
       break;
     case "in":
-      results = await resolve_in(vault_id, clause.value, backends);
+      results = sections
+        ? await resolve_sections(vault_id, clause.value, "in", backends)
+        : await resolve_in(vault_id, clause.value, backends);
+      break;
+    case "under":
+      results = await resolve_sections(
+        vault_id,
+        clause.value,
+        "under",
+        backends,
+      );
       break;
     case "linked_from":
       results = await resolve_linked_from(vault_id, clause.value, backends);
@@ -211,6 +265,45 @@ async function resolve_with(
     note: hit.note,
     matched_clauses: [`with:"${text}"`],
   }));
+}
+
+// Section-level resolvers all run through the one `query_sections` command, so
+// an AND of section clauses costs one call per clause and a note-level clause
+// (`with …`) meets them by note path.
+const SECTION_QUERY_LIMIT = 200;
+
+async function resolve_sections(
+  vault_id: VaultId,
+  value: ValueKind,
+  clause: "named" | "in" | "under",
+  backends: QueryBackends,
+): Promise<QueryResultItem[]> {
+  const text = extract_text(value);
+  const filter: SectionFilter = {
+    limit: SECTION_QUERY_LIMIT,
+    ...(clause === "named"
+      ? value.kind === "regex"
+        ? { title: value.pattern, title_is_regex: true }
+        : { title: text }
+      : {}),
+    ...(clause === "in"
+      ? { path_prefix: text.endsWith("/") ? text : `${text}/` }
+      : {}),
+    ...(clause === "under" ? { heading_path_under: text } : {}),
+  };
+
+  const hits = await backends.search.query_sections(vault_id, filter);
+  const label =
+    clause === "named"
+      ? value.kind === "regex"
+        ? `named:/${value.pattern}/${value.flags}`
+        : `named:"${text}"`
+      : `${clause}:${text}`;
+
+  return hits.map((hit) => {
+    const { note, ...section } = hit;
+    return { note, section, matched_clauses: [label] };
+  });
 }
 
 async function resolve_named(

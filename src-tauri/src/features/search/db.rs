@@ -610,10 +610,33 @@ fn sync_sections(
 ) -> Result<(), String> {
     conn.execute("DELETE FROM note_sections WHERE path = ?1", params![path])
         .map_err(|e| e.to_string())?;
+    // Sections arrive in document order, so one pass of a level stack rebuilds
+    // each row's ancestry — the same slash-joined form `search_headings` ranks
+    // against, stored once rather than rebuilt on every search. The implicit
+    // level-0 preamble is never an ancestor: it ends at the first heading.
+    let mut stack: Vec<(i32, &str)> = Vec::new();
+    let mut heading_path = String::new();
     for s in sections {
+        while stack
+            .last()
+            .map(|(level, _)| *level == 0 || *level >= s.level)
+            .unwrap_or(false)
+        {
+            stack.pop();
+        }
+        stack.push((s.level, s.title.as_str()));
+
+        heading_path.clear();
+        for (i, (_, title)) in stack.iter().enumerate() {
+            if i > 0 {
+                heading_path.push('/');
+            }
+            heading_path.push_str(title);
+        }
+
         conn.execute(
-            "INSERT INTO note_sections (path, heading_id, level, title, start_line, end_line, word_count) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
-            params![path, s.heading_id, s.level, s.title, s.start_line, s.end_line, s.word_count],
+            "INSERT INTO note_sections (path, heading_id, level, title, start_line, end_line, word_count, heading_path) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+            params![path, s.heading_id, s.level, s.title, s.start_line, s.end_line, s.word_count, heading_path],
         )
         .map_err(|e| e.to_string())?;
     }
@@ -1032,6 +1055,14 @@ fn tasks_schema_needs_migration(conn: &Connection) -> bool {
     }
 }
 
+fn sections_schema_needs_migration(conn: &Connection) -> bool {
+    let sql = "SELECT sql FROM sqlite_master WHERE type='table' AND name='note_sections'";
+    match conn.query_row(sql, [], |row| row.get::<_, String>(0)) {
+        Ok(ddl) => !ddl.contains("heading_path"),
+        Err(_) => false,
+    }
+}
+
 fn tags_schema_needs_migration(conn: &Connection) -> bool {
     let has_old = conn
         .query_row(
@@ -1054,7 +1085,7 @@ fn tags_schema_needs_migration(conn: &Connection) -> bool {
 /// migration below adds a table, column or index: `init_schema` runs its DDL only
 /// while the pragma is behind, so the bump is what makes an addition run once per
 /// database instead of once per connection open. (ref: R5)
-const SCHEMA_VERSION: i32 = 1;
+const SCHEMA_VERSION: i32 = 2;
 
 fn schema_version(conn: &Connection) -> i32 {
     conn.pragma_query_value(None, "user_version", |row| row.get(0))
@@ -1083,6 +1114,18 @@ fn init_schema(conn: &Connection) -> Result<(), String> {
     if tasks_schema_needs_migration(conn) {
         conn.execute("DROP TABLE IF EXISTS tasks", [])
             .map_err(|e| e.to_string())?;
+    }
+
+    if sections_schema_needs_migration(conn) {
+        // `heading_path` is derived per note, and the next scan only revisits
+        // changed mtimes — so the table is dropped *and* the note rows cleared,
+        // which is what makes that scan refill every section.
+        conn.execute_batch(
+            "DROP TABLE IF EXISTS note_sections;
+             DELETE FROM notes;
+             DELETE FROM outlinks;",
+        )
+        .map_err(|e| e.to_string())?;
     }
 
     if tags_schema_needs_migration(conn) {
@@ -1141,6 +1184,7 @@ fn init_schema(conn: &Connection) -> Result<(), String> {
             start_line INTEGER NOT NULL,
             end_line INTEGER NOT NULL,
             word_count INTEGER NOT NULL,
+            heading_path TEXT NOT NULL,
             PRIMARY KEY (path, heading_id),
             FOREIGN KEY (path) REFERENCES notes(path) ON DELETE CASCADE
         );
@@ -3499,11 +3543,17 @@ pub fn search_headings(
         return Ok(Vec::new());
     }
 
-    // Load every heading once; the table is bounded by total markdown
-    // headings in the vault and stays small relative to the FTS index.
+    // Load every heading once, with the ancestry `sync_sections` stored; the
+    // table is bounded by total markdown headings in the vault and stays small
+    // relative to the FTS index. The join keeps the row set the old
+    // `note_headings`-only scan produced: `note_sections` also holds the
+    // implicit level-0 preamble, which is not a heading.
     let mut stmt = conn
         .prepare(
-            "SELECT note_path, level, text, line FROM note_headings ORDER BY note_path, line",
+            "SELECT h.note_path, h.level, h.text, h.line, s.heading_path \
+             FROM note_headings h \
+             JOIN note_sections s ON s.path = h.note_path AND s.start_line = h.line \
+             ORDER BY h.note_path, h.line",
         )
         .map_err(|e| e.to_string())?;
     let rows = stmt
@@ -3512,13 +3562,12 @@ pub fn search_headings(
             let l: i32 = row.get(1)?;
             let t: String = row.get(2)?;
             let line: i64 = row.get(3)?;
-            Ok((p, l, t, line))
+            let heading_path: String = row.get(4)?;
+            Ok((p, l, t, line, heading_path))
         })
         .map_err(|e| e.to_string())?;
 
     let q_lower = trimmed.to_lowercase();
-    let mut current_note: Option<String> = None;
-    let mut stack: Vec<(i32, String)> = Vec::new();
     let matcher = SkimMatcherV2::default();
 
     // The score table has three values and rows already arrive ordered by
@@ -3531,7 +3580,6 @@ pub fn search_headings(
 
     // Reused across rows: these are inputs to the match decision, so they are
     // built for every heading and only escape into a result on a hit.
-    let mut heading_path = String::new();
     let mut text_lower = String::new();
     let mut path_lower = String::new();
 
@@ -3539,24 +3587,8 @@ pub fn search_headings(
         if exact.len() >= limit {
             break;
         }
-        let (note_path, level, text, line) = row.map_err(|e| e.to_string())?;
-        if current_note.as_deref() != Some(note_path.as_str()) {
-            current_note = Some(note_path.clone());
-            stack.clear();
-        }
-        while stack.last().map(|(lv, _)| *lv >= level).unwrap_or(false) {
-            stack.pop();
-        }
-        stack.push((level, text));
-        let text = stack.last().map(|(_, t)| t.as_str()).unwrap_or_default();
+        let (note_path, level, text, line, heading_path) = row.map_err(|e| e.to_string())?;
 
-        heading_path.clear();
-        for (i, (_, t)) in stack.iter().enumerate() {
-            if i > 0 {
-                heading_path.push('/');
-            }
-            heading_path.push_str(t);
-        }
         text_lower.clear();
         text_lower.extend(text.chars().flat_map(char::to_lowercase));
         path_lower.clear();
@@ -3573,7 +3605,7 @@ pub fn search_headings(
             (0.6, &mut substring)
         } else if matcher
             .fuzzy_match(&heading_path, trimmed)
-            .or_else(|| matcher.fuzzy_match(text, trimmed))
+            .or_else(|| matcher.fuzzy_match(&text, trimmed))
             .is_some()
         {
             (0.3, &mut fuzzy)
@@ -3583,11 +3615,11 @@ pub fn search_headings(
 
         if bucket.len() < limit {
             bucket.push(crate::features::search::model::HeadingMatch {
-                note_path: note_path.clone(),
+                note_path,
                 level,
-                text: text.to_string(),
+                text,
                 line,
-                heading_path: heading_path.clone(),
+                heading_path,
                 score,
             });
         }
@@ -3598,6 +3630,123 @@ pub fn search_headings(
     out.extend(fuzzy);
     out.truncate(limit);
     Ok(out)
+}
+
+/// One plain SQL pass over `note_sections` joined to its note. The title
+/// predicate is the only one not pushed into SQL — SQLite has no REGEXP — so it
+/// is matched per row here and the scan stops once `limit` rows matched.
+pub fn query_sections(
+    conn: &Connection,
+    filter: crate::features::search::model::SectionFilter,
+) -> Result<Vec<crate::features::search::model::SectionHit>, String> {
+    use regex::RegexBuilder;
+
+    if filter.limit == 0 {
+        return Ok(Vec::new());
+    }
+
+    let title_matcher = match filter.title.as_deref() {
+        None => None,
+        Some(title) => {
+            let pattern = if filter.title_is_regex {
+                title.to_string()
+            } else {
+                regex::escape(title)
+            };
+            Some(
+                RegexBuilder::new(&pattern)
+                    .case_insensitive(true)
+                    .build()
+                    .map_err(|e| e.to_string())?,
+            )
+        }
+    };
+
+    let mut clauses: Vec<String> = Vec::new();
+    let mut params: Vec<Box<dyn rusqlite::ToSql>> = Vec::new();
+
+    if let Some(level_min) = filter.level_min {
+        params.push(Box::new(level_min));
+        clauses.push(format!("s.level >= ?{}", params.len()));
+    }
+    if let Some(level_max) = filter.level_max {
+        params.push(Box::new(level_max));
+        clauses.push(format!("s.level <= ?{}", params.len()));
+    }
+    if let Some(min_words) = filter.min_words {
+        params.push(Box::new(min_words));
+        clauses.push(format!("s.word_count >= ?{}", params.len()));
+    }
+    if let Some(prefix) = filter.path_prefix.as_deref() {
+        params.push(Box::new(like_prefix_pattern(prefix)));
+        clauses.push(format!("s.path LIKE ?{} ESCAPE '\\'", params.len()));
+    }
+    if let Some(under) = filter.heading_path_under.as_deref() {
+        params.push(Box::new(like_prefix_pattern(&format!("{under}/"))));
+        let descendants = params.len();
+        params.push(Box::new(under.to_string()));
+        clauses.push(format!(
+            "(s.heading_path LIKE ?{descendants} ESCAPE '\\' OR s.heading_path = ?{})",
+            params.len()
+        ));
+    }
+
+    let where_sql = if clauses.is_empty() {
+        String::new()
+    } else {
+        format!("WHERE {}", clauses.join(" AND "))
+    };
+    let sql = format!(
+        "SELECT notes.path, notes.title, notes.mtime_ms, notes.size_bytes, \
+         s.heading_id, s.title, s.level, s.heading_path, s.start_line, s.end_line, s.word_count, \
+         notes.file_type, notes.content_snippet \
+         FROM note_sections s JOIN notes ON notes.path = s.path \
+         {where_sql} ORDER BY s.path, s.start_line"
+    );
+
+    let mut stmt = conn.prepare(&sql).map_err(|e| e.to_string())?;
+    let param_refs: Vec<&dyn rusqlite::ToSql> = params.iter().map(|b| b.as_ref()).collect();
+    let mut rows = stmt
+        .query(param_refs.as_slice())
+        .map_err(|e| e.to_string())?;
+
+    let mut out: Vec<crate::features::search::model::SectionHit> = Vec::new();
+    while let Some(row) = rows.next().map_err(|e| e.to_string())? {
+        let title: String = row.get(5).map_err(|e| e.to_string())?;
+        if title_matcher
+            .as_ref()
+            .is_some_and(|matcher| !matcher.is_match(&title))
+        {
+            continue;
+        }
+
+        out.push(section_hit_from_row(row).map_err(|e| e.to_string())?);
+        if out.len() >= filter.limit {
+            break;
+        }
+    }
+    Ok(out)
+}
+
+fn section_hit_from_row(
+    row: &rusqlite::Row,
+) -> rusqlite::Result<crate::features::search::model::SectionHit> {
+    Ok(crate::features::search::model::SectionHit {
+        note: note_meta_from_row_cols(
+            row,
+            MetaCols {
+                file_type: Some(11),
+                blurb: Some(12),
+            },
+        )?,
+        heading_id: row.get(4)?,
+        title: row.get(5)?,
+        level: row.get(6)?,
+        heading_path: row.get(7)?,
+        start_line: row.get(8)?,
+        end_line: row.get(9)?,
+        word_count: row.get(10)?,
+    })
 }
 
 pub fn get_note_headings(
@@ -6039,6 +6188,71 @@ more text").expect("note");
         upsert_note(&conn, &n, &body).expect("upsert");
         let hits = search_headings(&conn, "alpha", 5).expect("search");
         assert_eq!(hits.len(), 5);
+    }
+
+    #[test]
+    fn upsert_note_stores_section_heading_paths() {
+        let conn = Connection::open_in_memory().expect("in-memory db");
+        init_schema(&conn).expect("schema");
+
+        let meta = note("p.md", "Preamble title");
+        upsert_note(
+            &conn,
+            &meta,
+            "Leading prose.\n\n# Project DLCM\n## Outcomes\n### Pilot\nbody\n## Tasks\nbody",
+        )
+        .expect("upsert");
+
+        let rows: Vec<(String, String)> = conn
+            .prepare(
+                "SELECT title, heading_path FROM note_sections WHERE path = ?1 ORDER BY start_line",
+            )
+            .unwrap()
+            .query_map(params!["p.md"], |row| Ok((row.get(0)?, row.get(1)?)))
+            .unwrap()
+            .collect::<Result<Vec<_>, _>>()
+            .unwrap();
+
+        // The implicit level-0 section is its own path, and each heading carries
+        // its ancestry including itself.
+        assert_eq!(
+            rows,
+            vec![
+                ("Preamble title".to_string(), "Preamble title".to_string()),
+                ("Project DLCM".to_string(), "Project DLCM".to_string()),
+                (
+                    "Outcomes".to_string(),
+                    "Project DLCM/Outcomes".to_string()
+                ),
+                (
+                    "Pilot".to_string(),
+                    "Project DLCM/Outcomes/Pilot".to_string()
+                ),
+                ("Tasks".to_string(), "Project DLCM/Tasks".to_string()),
+            ]
+        );
+    }
+
+    #[test]
+    fn search_headings_reads_the_stored_heading_path() {
+        let conn = Connection::open_in_memory().expect("in-memory db");
+        init_schema(&conn).expect("schema");
+
+        let meta = note("d.md", "D");
+        upsert_note(&conn, &meta, "# Parent\n## Child\nbody").expect("upsert");
+
+        conn.execute(
+            "UPDATE note_sections SET heading_path = 'Stored/Path' WHERE path = ?1 AND title = 'Child'",
+            params!["d.md"],
+        )
+        .expect("stored path update");
+
+        let hits = search_headings(&conn, "Child", 10).expect("search");
+        let child = hits
+            .iter()
+            .find(|h| h.text == "Child")
+            .expect("Child should be returned");
+        assert_eq!(child.heading_path, "Stored/Path");
     }
 }
 

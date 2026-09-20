@@ -174,10 +174,13 @@ export type EditorEventHandlers = {
   on_doc_ahead_of_snapshot_change?: (ahead: boolean) => void;
   on_cursor_change?: (info: CursorInfo) => void;
   on_selection_change?: (selection: EditorSelectionSnapshot | null) => void;
+  // `line`, when given, is a 0-based markdown line the caller wants scrolled to
+  // after the note opens — the channel smart blocks open section rows through.
   on_internal_link_click?: (
     raw_path: string,
     base_note_path: string,
     source: InternalLinkSource,
+    line?: number,
   ) => void;
   on_open_document?: (file_path: string, base_note_path: string) => void;
   on_external_link_click?: (url: string) => void;
