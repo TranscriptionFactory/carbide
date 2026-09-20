@@ -57,6 +57,7 @@ export function assemble_extensions(
     // none of these menus could ever accept a suggestion.
     { plugins: [create_code_fence_language_prose_plugin()] },
     create_suggest_extension(ctx, slash_config),
+    create_wiki_link_extension(ctx),
     create_core_extension(ctx),
     create_frontmatter_extension(ctx),
     create_code_block_extension({
@@ -73,7 +74,6 @@ export function assemble_extensions(
     create_link_extension(ctx),
     create_task_list_extension(),
     create_find_extension(),
-    create_wiki_link_extension(ctx),
     create_embed_extension(ctx),
     create_paste_extension(ctx),
     create_lsp_extension(ctx),

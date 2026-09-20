@@ -291,6 +291,18 @@ describe.each(DSL_LANGUAGES)("dsl suggest in a ```%s fence", (language) => {
     expect(view.state.doc.firstChild?.textContent).toBe("x  ");
   });
 
+  it("still outdents on Shift+Tab while suggestions are open", () => {
+    const view = mount(doc_of([fence(language, "  x")]));
+    place_cursor(view, 3);
+    flush_suggest_queries();
+
+    expect(open_menus(".DslSuggest")).toBe(1);
+
+    press(view, "Tab", { shiftKey: true });
+
+    expect(view.state.doc.firstChild?.textContent).toBe("x");
+  });
+
   it("keeps Mod-Enter escaping the fence while suggestions are open", () => {
     const view = mount(doc_of([fence(language, "x")]));
     place_cursor(view, 2);
@@ -401,13 +413,7 @@ describe("code fence language picker, hoisted ahead of baseKeymap", () => {
 });
 
 describe("wiki link suggest", () => {
-  // NOT fixed by this lane, and the reorder cannot fix it: the `[[` menu comes
-  // from create_wiki_suggest_prose_plugin inside create_wiki_link_extension,
-  // which still registers after core_extension — baseKeymap's Enter claims the
-  // key before the menu sees it. Written as a known failure (the menu opens, the
-  // accept never runs) so that moving that registration ahead of core flips this
-  // to "passed" and vitest points at the assertion to invert.
-  it.fails("accepts the highlighted note on Enter", () => {
+  it("accepts the highlighted note on Enter", () => {
     const view = mount(doc_of([paragraph("[[ta")]));
     place_cursor(view, 5);
     flush_suggest_queries();
@@ -416,6 +422,12 @@ describe("wiki link suggest", () => {
 
     press(view, "Enter");
 
-    expect(view.state.doc.firstChild?.textContent).toBe("[[target]]");
+    // The converter plugin in the same extension rewrites the inserted
+    // `[[target]]` into a wiki-sourced link mark in the same tick.
+    const link = view.state.doc.firstChild?.firstChild;
+    expect(link?.text).toBe("target");
+    expect(link?.marks.some((m) => m.attrs["link_source"] === "wiki")).toBe(
+      true,
+    );
   });
 });

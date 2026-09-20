@@ -1460,7 +1460,7 @@ export function create_code_block_view_prose_plugin(
           // move the highlight). The suggest plugins dismiss themselves as soon
           // as the cursor leaves their block, so an active one is this block's.
           if (
-            (event.key === "Tab" ||
+            ((event.key === "Tab" && !event.shiftKey) ||
               event.key === "ArrowDown" ||
               event.key === "ArrowUp") &&
             has_active_dsl_suggest(view.state)
