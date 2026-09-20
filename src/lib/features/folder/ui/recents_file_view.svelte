@@ -1,12 +1,27 @@
 <script lang="ts">
   import { createVirtualizer } from "@tanstack/svelte-virtual";
+  import { RangeCalendar } from "bits-ui";
+  import {
+    getLocalTimeZone,
+    parseDate,
+    today,
+    type DateValue,
+  } from "@internationalized/date";
   import * as Select from "$lib/components/ui/select/index.js";
+  import * as Popover from "$lib/components/ui/popover";
   import * as ContextMenu from "$lib/components/ui/context-menu";
   import EntryContextMenu from "./entry_context_menu.svelte";
   import ArrowUp from "@lucide/svelte/icons/arrow-up";
   import ArrowDown from "@lucide/svelte/icons/arrow-down";
+  import CalendarRange from "@lucide/svelte/icons/calendar-range";
+  import ChevronLeft from "@lucide/svelte/icons/chevron-left";
+  import ChevronRight from "@lucide/svelte/icons/chevron-right";
   import Files from "@lucide/svelte/icons/files";
   import { file_icon_for_path } from "$lib/features/folder/ui/file_icons";
+  import {
+    custom_recents_period,
+    parse_custom_date_range,
+  } from "$lib/features/folder/domain/recents";
   import type { BaseNoteRow } from "$lib/features/bases";
   import type { NoteMeta } from "$lib/shared/types/note";
   import type {
@@ -77,8 +92,20 @@
     { value: "today", label: "Today" },
     { value: "week", label: "Week" },
     { value: "month", label: "Month" },
-    { value: "quarter", label: "Quarter" },
   ];
+
+  const custom_range = $derived(parse_custom_date_range(period));
+
+  const calendar_value = $derived({
+    start: custom_range ? parseDate(custom_range.start_day) : undefined,
+    end: custom_range ? parseDate(custom_range.end_day) : undefined,
+  });
+
+  const custom_period_label = $derived(
+    custom_range
+      ? `${format_short_date(custom_range.start_ms)} – ${format_short_date(custom_range.end_ms)}`
+      : "Dates",
+  );
 
   const ROW_HEIGHT = 48;
   const OVERSCAN = 8;
@@ -132,6 +159,32 @@
       month: "short",
       day: "numeric",
     });
+  }
+
+  function format_short_date(ms: number): string {
+    return new Date(ms).toLocaleDateString(undefined, {
+      month: "short",
+      day: "numeric",
+    });
+  }
+
+  function day_key(date: DateValue): string {
+    return `${String(date.year)}-${String(date.month).padStart(2, "0")}-${String(date.day).padStart(2, "0")}`;
+  }
+
+  /* A start day with no end yet reads as "since that day", so the end defaults
+     to today; the popover stays open and the calendar keeps the half-finished
+     selection while the user picks the other end. */
+  function on_custom_range_change(value: {
+    start: DateValue | undefined;
+    end: DateValue | undefined;
+  }) {
+    if (!value.start) return;
+    const start_day = day_key(value.start);
+    const end_day = value.end
+      ? day_key(value.end)
+      : day_key(today(getLocalTimeZone()));
+    on_change_period(custom_recents_period(start_day, end_day));
   }
 
   function toggle_direction() {
@@ -205,6 +258,84 @@
           {option.label}
         </button>
       {/each}
+
+      <Popover.Root>
+        <Popover.Trigger>
+          {#snippet child({ props })}
+            <button
+              {...props}
+              type="button"
+              class="flex items-center gap-1 px-2 py-1 text-xs font-medium rounded transition-colors {custom_range
+                ? 'bg-zinc-100 text-foreground dark:bg-zinc-900'
+                : 'text-zinc-500 hover:text-foreground'}"
+              aria-pressed={custom_range !== null}
+              title="Custom date range"
+            >
+              <CalendarRange class="size-3.5 shrink-0" />
+              <span class="max-w-28 truncate">{custom_period_label}</span>
+            </button>
+          {/snippet}
+        </Popover.Trigger>
+        <Popover.Content class="w-auto p-2" align="end">
+          <RangeCalendar.Root
+            value={calendar_value}
+            onValueChange={on_custom_range_change}
+            weekStartsOn={1}
+            fixedWeeks={true}
+            calendarLabel="Recents date range"
+          >
+            {#snippet children({ months, weekdays })}
+              <RangeCalendar.Header
+                class="flex items-center justify-between pb-2"
+              >
+                <RangeCalendar.PrevButton
+                  class="flex size-7 items-center justify-center rounded text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-900"
+                >
+                  <ChevronLeft class="size-4" />
+                </RangeCalendar.PrevButton>
+                <RangeCalendar.Heading class="text-xs font-medium" />
+                <RangeCalendar.NextButton
+                  class="flex size-7 items-center justify-center rounded text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-900"
+                >
+                  <ChevronRight class="size-4" />
+                </RangeCalendar.NextButton>
+              </RangeCalendar.Header>
+              {#each months as month}
+                <RangeCalendar.Grid class="w-full border-collapse">
+                  <RangeCalendar.GridHead>
+                    <RangeCalendar.GridRow class="flex">
+                      {#each weekdays as weekday}
+                        <RangeCalendar.HeadCell
+                          class="flex-1 pb-1 text-center text-[10px] text-zinc-500"
+                        >
+                          {weekday}
+                        </RangeCalendar.HeadCell>
+                      {/each}
+                    </RangeCalendar.GridRow>
+                  </RangeCalendar.GridHead>
+                  <RangeCalendar.GridBody>
+                    {#each month.weeks as week}
+                      <RangeCalendar.GridRow class="flex">
+                        {#each week as day}
+                          <RangeCalendar.Cell
+                            date={day}
+                            month={month.value}
+                            class="flex flex-1 items-center justify-center p-px"
+                          >
+                            <RangeCalendar.Day
+                              class="flex size-7 items-center justify-center rounded text-xs cursor-pointer text-zinc-600 hover:bg-zinc-100 data-[selected]:bg-blue-500 data-[selected]:text-white data-[selection-start]:rounded-r-none data-[selection-end]:rounded-l-none data-[outside-month]:opacity-40 dark:text-zinc-300 dark:hover:bg-zinc-900"
+                            />
+                          </RangeCalendar.Cell>
+                        {/each}
+                      </RangeCalendar.GridRow>
+                    {/each}
+                  </RangeCalendar.GridBody>
+                </RangeCalendar.Grid>
+              {/each}
+            {/snippet}
+          </RangeCalendar.Root>
+        </Popover.Content>
+      </Popover.Root>
     </div>
   </div>
 

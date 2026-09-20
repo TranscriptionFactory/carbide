@@ -533,6 +533,41 @@ describe("SettingsService", () => {
     expect(loaded.settings.ai_rag_context_token_budget).toBeUndefined();
   });
 
+  it("loads a stored recents period that no longer exists as 'all'", async () => {
+    const { service } = make_service({
+      global_get: (key) => (key === "recents_period" ? "quarter" : null),
+    });
+
+    const result = await service.load_settings({ ...DEFAULT_EDITOR_SETTINGS });
+
+    if (result.status !== "success") throw new Error("expected success");
+    expect(result.settings.recents_period).toBe("all");
+  });
+
+  it("keeps a custom recents range across a save and reload", async () => {
+    const stored = new Map<string, unknown>();
+    const { service } = make_service({
+      set_setting_impl: (key, value) => {
+        stored.set(key, value ?? null);
+        return Promise.resolve(undefined);
+      },
+      global_get: (key) => (stored.has(key) ? stored.get(key) : null),
+    });
+
+    const saved = await service.save_settings({
+      ...DEFAULT_EDITOR_SETTINGS,
+      recents_period: "custom:2026-09-01..2026-09-19",
+    });
+    expect(saved.status).toBe("success");
+
+    const loaded = await service.load_settings({ ...DEFAULT_EDITOR_SETTINGS });
+
+    if (loaded.status !== "success") throw new Error("expected success");
+    expect(loaded.settings.recents_period).toBe(
+      "custom:2026-09-01..2026-09-19",
+    );
+  });
+
   it("loads welcome state with defaults when missing", async () => {
     const { service } = make_service({ global_get: () => null });
 

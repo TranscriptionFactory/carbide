@@ -76,7 +76,33 @@ export type FileTreeBlurbPosition = "caption" | "heading";
 export type FileTreeMode = "tree" | "drilldown" | "recents" | "bases";
 export type RecentsSort = "modified" | "created" | "title";
 export type SortDirection = "asc" | "desc";
-export type RecentsPeriod = "all" | "today" | "week" | "month" | "quarter";
+export const RECENTS_CUSTOM_PREFIX = "custom:";
+export type RecentsPeriod =
+  | "all"
+  | "today"
+  | "week"
+  | "month"
+  | `custom:${string}`;
+
+/* A stored period can name a preset an older build had and this one does not
+   ("quarter"): the `typeof` check in apply_global_only_overrides cannot see
+   that, and the unknown member used to reach the query builder as a NaN cutoff
+   — an empty Recents with no error. */
+export function coerce_recents_period(value: unknown): RecentsPeriod {
+  if (
+    value === "all" ||
+    value === "today" ||
+    value === "week" ||
+    value === "month"
+  ) {
+    return value;
+  }
+  if (typeof value === "string" && value.startsWith(RECENTS_CUSTOM_PREFIX)) {
+    return value as RecentsPeriod;
+  }
+  return "all";
+}
+
 export type GraphGroupMode = "folder" | "cluster" | "tag" | "degree" | "none";
 export type GraphOrderMode = "name" | "date_created" | "date_modified";
 export type LintFormatter = "prettier" | "rumdl";
@@ -665,6 +691,16 @@ export const OPTIONAL_GLOBAL_ONLY_TYPES: Partial<
   ai_rag_context_token_budget: "number",
 };
 
+// A `typeof` match is the whole check apply_global_only_overrides applies, so
+// a stored value that keeps the type but left the union (a preset dropped in a
+// later build) still loads. These sanitize such a value down to one the current
+// build accepts.
+const GLOBAL_ONLY_VALUE_SANITIZERS: Partial<
+  Record<keyof EditorSettings, (value: unknown) => unknown>
+> = {
+  recents_period: coerce_recents_period,
+};
+
 export function omit_global_only_keys(
   record: Record<string, unknown>,
 ): Record<string, unknown> {
@@ -698,7 +734,10 @@ export async function apply_global_only_overrides(
       typeof value === expected_type &&
       Array.isArray(value) === Array.isArray(base[key])
     ) {
-      (result as Record<string, unknown>)[key] = value;
+      const sanitize = GLOBAL_ONLY_VALUE_SANITIZERS[key];
+      (result as Record<string, unknown>)[key] = sanitize
+        ? sanitize(value)
+        : value;
     }
   }
   return result;

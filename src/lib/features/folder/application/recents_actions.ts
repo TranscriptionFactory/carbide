@@ -7,8 +7,8 @@ import type { SettingsService } from "$lib/features/settings";
 import type { EditorSettings } from "$lib/shared/types/editor_settings";
 import {
   build_recents_query,
+  coerce_recents_period,
   default_direction,
-  type RecentsPeriod,
   type RecentsSort,
   type SortDirection,
 } from "$lib/features/folder/domain/recents";
@@ -51,7 +51,9 @@ export function register_recents_actions({
     if (!vault_id) return;
 
     const { option, direction } = ui_store.editor_settings.recents_sort;
-    const period = ui_store.editor_settings.recents_period;
+    const period = coerce_recents_period(
+      ui_store.editor_settings.recents_period,
+    );
     const query = build_recents_query({
       sort: option,
       direction,
@@ -93,7 +95,7 @@ export function register_recents_actions({
     id: ACTION_IDS.recents_set_period,
     label: "Set Recents Period",
     execute: async (...args: unknown[]) => {
-      const period = args[0] as RecentsPeriod;
+      const period = coerce_recents_period(args[0]);
       const updated: EditorSettings = {
         ...ui_store.editor_settings,
         recents_period: period,
