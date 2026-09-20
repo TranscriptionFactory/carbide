@@ -1419,6 +1419,16 @@ export class EditorService {
         line?: number,
       ) => {
         if (!this.is_generation_current(generation)) return;
+        // Positional callback: pass `line` only when a caller supplied one, so
+        // every existing three-argument click keeps the call it always made.
+        if (line === undefined) {
+          this.callbacks.on_internal_link_click(
+            raw_path,
+            base_note_path,
+            source,
+          );
+          return;
+        }
         this.callbacks.on_internal_link_click(
           raw_path,
           base_note_path,
