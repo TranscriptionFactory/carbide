@@ -3702,14 +3702,12 @@ pub fn query_sections(
         if paths.is_empty() {
             return Ok(Vec::new());
         }
-        let placeholders: Vec<String> = paths
-            .iter()
-            .map(|path| {
-                params.push(Box::new(path.clone()));
-                format!("?{}", params.len())
-            })
-            .collect();
-        clauses.push(format!("s.path IN ({})", placeholders.join(", ")));
+        let json = serde_json::to_string(paths).map_err(|e| e.to_string())?;
+        params.push(Box::new(json));
+        clauses.push(format!(
+            "s.path IN (SELECT value FROM json_each(?{}))",
+            params.len()
+        ));
     }
 
     let where_sql = if clauses.is_empty() {

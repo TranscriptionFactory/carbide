@@ -88,7 +88,7 @@ export type RecentsPeriod =
    ("quarter"): the `typeof` check in apply_global_only_overrides cannot see
    that, and the unknown member used to reach the query builder as a NaN cutoff
    — an empty Recents with no error. */
-const RECENTS_CUSTOM_PERIOD = /^custom:\d{4}-\d{2}-\d{2}\.\.\d{4}-\d{2}-\d{2}$/;
+const RECENTS_CUSTOM_RANGE = /^\d{4}-\d{2}-\d{2}\.\.\d{4}-\d{2}-\d{2}$/;
 
 export function coerce_recents_period(value: unknown): RecentsPeriod {
   if (
@@ -99,7 +99,11 @@ export function coerce_recents_period(value: unknown): RecentsPeriod {
   ) {
     return value;
   }
-  if (typeof value === "string" && RECENTS_CUSTOM_PERIOD.test(value)) {
+  if (
+    typeof value === "string" &&
+    value.startsWith(RECENTS_CUSTOM_PREFIX) &&
+    RECENTS_CUSTOM_RANGE.test(value.slice(RECENTS_CUSTOM_PREFIX.length))
+  ) {
     return value as RecentsPeriod;
   }
   return "all";

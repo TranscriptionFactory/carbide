@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { QueryResultItem } from "../types";
-  import { result_item_key } from "../domain/query_solver";
+  import { result_item_key } from "../types";
 
   let {
     items,

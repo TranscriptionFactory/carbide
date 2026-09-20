@@ -82,3 +82,11 @@ export type SavedQueryMeta = {
   mtime_ms: number;
   size_bytes: number;
 };
+
+// A section row is identified by its note and heading; a note-level row keys on
+// the note alone, which is what every `notes` query keys on.
+export function result_item_key(item: QueryResultItem): string {
+  return item.section
+    ? `${item.note.path}\u0000${item.section.heading_id}`
+    : item.note.path;
+}

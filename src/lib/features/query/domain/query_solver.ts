@@ -7,16 +7,17 @@ import type {
 } from "$lib/features/search";
 import { rank_tags, type TagPort } from "$lib/features/tags";
 import type { BasesPort } from "$lib/features/bases";
-import type {
-  ClauseGroup,
-  ClauseType,
-  ParsedQuery,
-  QueryClause,
-  QueryForm,
-  QueryNode,
-  QueryResult,
-  QueryResultItem,
-  ValueKind,
+import {
+  result_item_key,
+  type ClauseGroup,
+  type ClauseType,
+  type ParsedQuery,
+  type QueryClause,
+  type QueryForm,
+  type QueryNode,
+  type QueryResult,
+  type QueryResultItem,
+  type ValueKind,
 } from "../types";
 
 export type QueryBackends = {
@@ -52,14 +53,6 @@ export async function solve_query(
   };
 }
 
-// A section row is identified by its note and heading; a note-level row keys on
-// the note alone, which is what every `notes` query keys on.
-export function result_item_key(item: QueryResultItem): string {
-  return item.section
-    ? `${item.note.path}\u0000${item.section.heading_id}`
-    : item.note.path;
-}
-
 // A section row and a note-level row of the same note satisfy each other: the
 // note-level clause is a statement about the note, not about one heading.
 function keys_compatible(a: QueryResultItem, b: QueryResultItem): boolean {
@@ -77,16 +70,13 @@ async function as_section_rows(
 ): Promise<QueryResultItem[]> {
   const note_rows = items.filter((item) => !item.section);
   if (note_rows.length === 0) return items;
-  const scanned = await query_section_rows(
+  const scanned = await scan_constrained_sections(
     vault_id,
     [],
-    intersect_note_paths([note_rows]),
+    [note_rows],
     backends,
   );
-  return merge_by_key([
-    ...items.filter((item) => item.section),
-    ...constrain(scanned, note_rows),
-  ]);
+  return merge_by_key([...items.filter((item) => item.section), ...scanned]);
 }
 
 async function resolve_node(
@@ -123,12 +113,10 @@ async function resolve_and(
   clauses: QueryNode[],
   backends: QueryBackends,
 ): Promise<QueryResultItem[]> {
-  let result = await resolve_node(vault_id, form, clauses[0]!, backends);
-  for (const clause of clauses.slice(1)) {
-    const constraint = await resolve_node(vault_id, form, clause, backends);
-    result = constrain(result, constraint);
-  }
-  return result;
+  const [first = [], ...rest] = await Promise.all(
+    clauses.map((clause) => resolve_node(vault_id, form, clause, backends)),
+  );
+  return rest.reduce(constrain, first);
 }
 
 // Every non-section operand (`with`, properties, links, negations, nested
@@ -140,20 +128,26 @@ async function resolve_section_and(
   clauses: QueryNode[],
   backends: QueryBackends,
 ): Promise<QueryResultItem[]> {
-  if (clauses.length === 0) return [];
   const { merged, rest } = split_section_clauses(clauses);
   const constraints = await Promise.all(
     rest.map((node) => resolve_node(vault_id, "sections", node, backends)),
   );
+  return scan_constrained_sections(vault_id, merged, constraints, backends);
+}
+
+// One scan narrowed to the notes every constraint agrees on, then constrained
+// row by row so labels fold in and nested section rows meet by heading.
+async function scan_constrained_sections(
+  vault_id: VaultId,
+  clauses: QueryClause[],
+  constraints: QueryResultItem[][],
+  backends: QueryBackends,
+): Promise<QueryResultItem[]> {
   const paths =
     constraints.length > 0 ? intersect_note_paths(constraints) : undefined;
   if (paths?.length === 0) return [];
-
-  let result = await query_section_rows(vault_id, merged, paths, backends);
-  for (const constraint of constraints) {
-    result = constrain(result, constraint);
-  }
-  return result;
+  const rows = await query_section_rows(vault_id, clauses, backends, paths);
+  return constraints.reduce(constrain, rows);
 }
 
 const SECTION_CLAUSES = new Set<ClauseType>(["named", "in", "under"]);
@@ -252,7 +246,31 @@ async function resolve_clause(
   clause: QueryClause,
   backends: QueryBackends,
 ): Promise<QueryResultItem[]> {
-  const sections = form === "sections";
+  const results =
+    form === "sections" && SECTION_CLAUSES.has(clause.type)
+      ? await query_section_rows(vault_id, [clause], backends)
+      : await resolve_note_clause(vault_id, clause, backends);
+
+  if (!clause.negated) return results;
+
+  const all_paths = await backends.index.list_note_paths_by_prefix(
+    vault_id,
+    "",
+  );
+  const excluded = new Set(results.map((r) => r.note.path as string));
+  return all_paths
+    .filter((p) => !excluded.has(p))
+    .map((path) => ({
+      note: path_to_meta(path),
+      matched_clauses: [`not:${clause.type}`],
+    }));
+}
+
+async function resolve_note_clause(
+  vault_id: VaultId,
+  clause: QueryClause,
+  backends: QueryBackends,
+): Promise<QueryResultItem[]> {
   let results: QueryResultItem[];
 
   switch (clause.type) {
@@ -260,22 +278,10 @@ async function resolve_clause(
       results = await resolve_with(vault_id, clause.value, backends);
       break;
     case "named":
-      results = sections
-        ? await query_section_rows(vault_id, [clause], undefined, backends)
-        : await resolve_named(vault_id, clause.value, backends);
+      results = await resolve_named(vault_id, clause.value, backends);
       break;
     case "in":
-      results = sections
-        ? await query_section_rows(vault_id, [clause], undefined, backends)
-        : await resolve_in(vault_id, clause.value, backends);
-      break;
-    case "under":
-      results = await query_section_rows(
-        vault_id,
-        [clause],
-        undefined,
-        backends,
-      );
+      results = await resolve_in(vault_id, clause.value, backends);
       break;
     case "linked_from":
       results = await resolve_linked_from(vault_id, clause.value, backends);
@@ -291,20 +297,6 @@ async function resolve_clause(
       break;
     default:
       results = [];
-  }
-
-  if (clause.negated) {
-    const all_paths = await backends.index.list_note_paths_by_prefix(
-      vault_id,
-      "",
-    );
-    const excluded = new Set(results.map((r) => r.note.path as string));
-    results = all_paths
-      .filter((p) => !excluded.has(p))
-      .map((path) => ({
-        note: path_to_meta(path),
-        matched_clauses: [`not:${clause.type}`],
-      }));
   }
 
   return results;
@@ -370,17 +362,16 @@ const SECTION_QUERY_LIMIT = 200;
 async function query_section_rows(
   vault_id: VaultId,
   clauses: QueryClause[],
-  paths: string[] | undefined,
   backends: QueryBackends,
+  paths?: string[],
 ): Promise<QueryResultItem[]> {
+  const specs = clauses.map(section_clause_spec);
   const filter: SectionFilter = {
     limit: SECTION_QUERY_LIMIT,
     ...(paths ? { paths } : {}),
   };
-  for (const clause of clauses) {
-    Object.assign(filter, section_filter_fields(clause));
-  }
-  const labels = clauses.map(section_clause_label);
+  for (const spec of specs) Object.assign(filter, spec.fields);
+  const labels = specs.map((spec) => spec.label);
 
   const hits = await backends.search.query_sections(vault_id, filter);
   return hits.map((hit) => {
@@ -389,30 +380,29 @@ async function query_section_rows(
   });
 }
 
-function section_filter_fields(clause: QueryClause): Partial<SectionFilter> {
+function section_clause_spec(clause: QueryClause): {
+  fields: Partial<SectionFilter>;
+  label: string;
+} {
   const text = extract_text(clause.value);
   switch (clause.type) {
     case "named":
       return clause.value.kind === "regex"
-        ? { title: clause.value.pattern, title_is_regex: true }
-        : { title: text };
+        ? {
+            fields: { title: clause.value.pattern, title_is_regex: true },
+            label: `named:/${clause.value.pattern}/${clause.value.flags}`,
+          }
+        : { fields: { title: text }, label: `named:"${text}"` };
     case "in":
-      return { path_prefix: text.endsWith("/") ? text : `${text}/` };
+      return {
+        fields: { path_prefix: text.endsWith("/") ? text : `${text}/` },
+        label: `in:${text}`,
+      };
     case "under":
-      return { heading_path_under: text };
+      return { fields: { heading_path_under: text }, label: `under:${text}` };
     default:
-      return {};
+      return { fields: {}, label: `${clause.type}:${text}` };
   }
-}
-
-function section_clause_label(clause: QueryClause): string {
-  const text = extract_text(clause.value);
-  if (clause.type === "named") {
-    return clause.value.kind === "regex"
-      ? `named:/${clause.value.pattern}/${clause.value.flags}`
-      : `named:"${text}"`;
-  }
-  return `${clause.type}:${text}`;
 }
 
 async function resolve_named(

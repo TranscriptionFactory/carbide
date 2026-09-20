@@ -1,6 +1,6 @@
 <script lang="ts">
   import { createVirtualizer } from "@tanstack/svelte-virtual";
-  import { RangeCalendar } from "bits-ui";
+  import { RangeCalendar, type DateRange } from "bits-ui";
   import {
     getLocalTimeZone,
     parseDate,
@@ -96,11 +96,6 @@
 
   const custom_range = $derived(parse_custom_date_range(period));
 
-  const calendar_value = $derived({
-    start: custom_range ? parseDate(custom_range.start_day) : undefined,
-    end: custom_range ? parseDate(custom_range.end_day) : undefined,
-  });
-
   const custom_period_label = $derived(
     custom_range
       ? `${format_short_date(custom_range.start_ms)} – ${format_short_date(custom_range.end_ms)}`
@@ -177,11 +172,7 @@
      second click, so the half-finished range lives here until both ends are
      picked. A start left alone when the popover closes reads as "since that
      day", so its end defaults to today. */
-  type DraftRange = {
-    start: DateValue | undefined;
-    end: DateValue | undefined;
-  };
-  let draft_range = $state<DraftRange>({ start: undefined, end: undefined });
+  let draft_range = $state<DateRange>({ start: undefined, end: undefined });
 
   function commit_range(start: DateValue, end: DateValue) {
     on_change_period(custom_recents_period(day_key(start), day_key(end)));
@@ -189,7 +180,10 @@
 
   function on_popover_open_change(open: boolean) {
     if (open) {
-      draft_range = { ...calendar_value };
+      draft_range = {
+        start: custom_range ? parseDate(custom_range.start_day) : undefined,
+        end: custom_range ? parseDate(custom_range.end_day) : undefined,
+      };
       return;
     }
     if (draft_range.start && !draft_range.end) {
@@ -197,7 +191,7 @@
     }
   }
 
-  function on_custom_range_change(value: DraftRange) {
+  function on_custom_range_change(value: DateRange) {
     draft_range = value;
     if (value.start && value.end) commit_range(value.start, value.end);
   }
