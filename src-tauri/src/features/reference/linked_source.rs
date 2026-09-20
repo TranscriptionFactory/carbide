@@ -1253,8 +1253,15 @@ mod tests {
         assert_eq!(PDF_EXTRACT_TIMEOUT, Duration::from_secs(120));
     }
 
+    // `EXTRACTION_FAILURES` is process-global and both tests below wipe it for
+    // the whole process, so they must not run concurrently.
+    static EXTRACTION_FAILURE_TEST_LOCK: Mutex<()> = Mutex::new(());
+
     #[test]
     fn failed_extraction_is_negative_cached_until_identity_changes() {
+        let _guard = EXTRACTION_FAILURE_TEST_LOCK
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
         clear_extraction_failures_for_tests();
         let dir = tempfile::tempdir().unwrap();
         let pdf_path = dir.path().join("font-heavy.pdf");
@@ -1282,6 +1289,9 @@ mod tests {
 
     #[test]
     fn extract_pdf_short_circuits_on_cached_failure() {
+        let _guard = EXTRACTION_FAILURE_TEST_LOCK
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
         clear_extraction_failures_for_tests();
         let dir = tempfile::tempdir().unwrap();
         let pdf_path = dir.path().join("doomed.pdf");
