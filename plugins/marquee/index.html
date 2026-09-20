@@ -352,20 +352,16 @@
         }, EVENT_DEBOUNCE_MS);
       }
 
-      function row_from_element(element) {
-        const line = element.dataset.line;
-        return {
-          kind: element.dataset.kind,
-          path: element.dataset.path,
-          line_number: line === undefined ? 0 : Number(line),
-        };
-      }
-
       function open_row(element) {
+        const line = element.dataset.line;
         // The host reads params[1] as the argument array, so the payload goes
         // in as a single array element.
         carbide.actions.execute("note.open", [
-          row_open_payload(row_from_element(element)),
+          row_open_payload({
+            kind: element.dataset.kind,
+            path: element.dataset.path,
+            line_number: line === undefined ? 0 : Number(line),
+          }),
         ]);
       }
 

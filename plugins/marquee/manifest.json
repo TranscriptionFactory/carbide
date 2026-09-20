@@ -91,14 +91,14 @@
         "key": "section_title",
         "type": "string",
         "label": "Sections query: title contains",
-        "description": "Adds heading sections to the marquee: keep only sections whose title contains this string. Empty disables the sections pool.",
+        "description": "Adds heading sections to the marquee: keep only sections whose title contains this string. Empty adds no title filter; the sections pool stays off until one of these three settings is set.",
         "default": ""
       },
       {
         "key": "section_level",
         "type": "select",
         "label": "Sections query: level",
-        "description": "Keep only sections at one heading level.",
+        "description": "Keep only sections at one heading level. Any adds no level filter.",
         "default": "any",
         "options": [
           { "label": "Any", "value": "any" },
@@ -111,7 +111,7 @@
         "key": "section_under",
         "type": "string",
         "label": "Sections query: under heading",
-        "description": "Keep only sections under this heading path, e.g. Project A/Tasks. Empty disables it.",
+        "description": "Keep only sections under this heading path, e.g. Project A/Tasks, including that heading's own section. Empty adds no filter.",
         "default": ""
       },
       {

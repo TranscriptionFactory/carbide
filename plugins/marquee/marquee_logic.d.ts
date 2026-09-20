@@ -100,7 +100,9 @@ export function build_section_filter(
 
 export function build_rows(tasks: Task[], sections: SectionHit[]): MarqueeRow[];
 
-export function row_open_payload(row: MarqueeRow): {
+export function row_open_payload(
+  row: Pick<MarqueeRow, "kind" | "path" | "line_number">,
+): {
   note_path: string;
   line?: number;
 };
