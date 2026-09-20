@@ -239,7 +239,11 @@
 
       function update_status(rows) {
         if (rows.length === 0) {
-          status_el.textContent = "No tasks match this filter";
+          // A task-only panel keeps its original copy; the sections pool is
+          // configured only when a section setting is set.
+          status_el.textContent = build_section_filter(settings)
+            ? "Nothing matches these filters"
+            : "No tasks match this filter";
           return;
         }
         const now = new Date();
