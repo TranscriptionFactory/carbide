@@ -8,6 +8,7 @@
   "permissions": [
     "ui:panel",
     "tasks:read",
+    "sections:read",
     "search:read",
     "metadata:read",
     "events:subscribe",
@@ -84,6 +85,33 @@
         "key": "base_value",
         "type": "string",
         "label": "Bases filter: value",
+        "default": ""
+      },
+      {
+        "key": "section_title",
+        "type": "string",
+        "label": "Sections query: title contains",
+        "description": "Adds heading sections to the marquee: keep only sections whose title contains this string. Empty disables the sections pool.",
+        "default": ""
+      },
+      {
+        "key": "section_level",
+        "type": "select",
+        "label": "Sections query: level",
+        "description": "Keep only sections at one heading level.",
+        "default": "any",
+        "options": [
+          { "label": "Any", "value": "any" },
+          { "label": "H1", "value": "1" },
+          { "label": "H2", "value": "2" },
+          { "label": "H3", "value": "3" }
+        ]
+      },
+      {
+        "key": "section_under",
+        "type": "string",
+        "label": "Sections query: under heading",
+        "description": "Keep only sections under this heading path, e.g. Project A/Tasks. Empty disables it.",
         "default": ""
       },
       {

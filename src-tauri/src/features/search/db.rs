@@ -5812,6 +5812,94 @@ more text").expect("note");
         assert_eq!(rows[1].3, 4); // start_line
     }
 
+    // The plugin's own filter JSON, pasted exactly as `build_section_filter`
+    // emits it, must deserialize and pick the rows the panel expects.
+    #[test]
+    fn test_plugin_section_query_json_matches_the_panel_filter() {
+        let conn = Connection::open_in_memory().expect("in-memory db");
+        init_schema(&conn).expect("schema");
+
+        let alpha = "# Project A\n\nIntro line.\n\n## Draft plan\n\nDraft body.\n\n### Nested detail\n\nNested body.\n\n## Other plan\n\nOther body.\n";
+        upsert_note(&conn, &note("notes/alpha.md", "Alpha"), alpha).expect("upsert alpha");
+        upsert_note(&conn, &note("notes/beta.md", "Beta"), "## Draft plan\n\nBody.\n")
+            .expect("upsert beta");
+
+        let filter: crate::features::search::model::SectionFilter = serde_json::from_str(
+            r#"{"limit":200,"title":"draft","level_min":2,"level_max":2,"heading_path_under":"Project A"}"#,
+        )
+        .expect("the panel's section filter should deserialize");
+
+        let hits = query_sections(&conn, filter).expect("query should run");
+        assert_eq!(hits.len(), 1, "only the level-2 draft under Project A");
+        assert_eq!(hits[0].note.path, "notes/alpha.md");
+        assert_eq!(hits[0].title, "Draft plan");
+        assert_eq!(hits[0].level, 2);
+        assert_eq!(hits[0].heading_path, "Project A/Draft plan");
+        // 0-based markdown line of the `## Draft plan` heading: the coordinate
+        // the panel hands to `note.open`'s `line`.
+        assert_eq!(hits[0].start_line, 4);
+    }
+
+    #[test]
+    fn test_plugin_section_under_query_json_returns_the_nested_set() {
+        let conn = Connection::open_in_memory().expect("in-memory db");
+        init_schema(&conn).expect("schema");
+
+        let alpha = "# Project A\n\nIntro line.\n\n## Draft plan\n\nDraft body.\n\n### Nested detail\n\nNested body.\n\n## Other plan\n\nOther body.\n";
+        upsert_note(&conn, &note("notes/alpha.md", "Alpha"), alpha).expect("upsert alpha");
+        upsert_note(&conn, &note("notes/beta.md", "Beta"), "## Draft plan\n\nBody.\n")
+            .expect("upsert beta");
+
+        let filter: crate::features::search::model::SectionFilter = serde_json::from_str(
+            r#"{"limit":200,"heading_path_under":"Project A"}"#,
+        )
+        .expect("the panel's under filter should deserialize");
+
+        let hits = query_sections(&conn, filter).expect("query should run");
+        let outline: Vec<(&str, i32, i64)> = hits
+            .iter()
+            .map(|hit| (hit.title.as_str(), hit.level, hit.start_line))
+            .collect();
+        assert_eq!(
+            outline,
+            vec![
+                ("Project A", 1, 0),
+                ("Draft plan", 2, 4),
+                ("Nested detail", 3, 8),
+                ("Other plan", 2, 12),
+            ],
+            "the heading itself and everything nested under it"
+        );
+        assert!(
+            hits.iter().all(|hit| hit.note.path == "notes/alpha.md"),
+            "beta's identically named section is not under Project A"
+        );
+    }
+
+    #[test]
+    fn test_plugin_section_level_query_json_returns_only_that_level() {
+        let conn = Connection::open_in_memory().expect("in-memory db");
+        init_schema(&conn).expect("schema");
+
+        let alpha = "# Project A\n\nIntro line.\n\n## Draft plan\n\nDraft body.\n\n### Nested detail\n\nNested body.\n\n## Other plan\n\nOther body.\n";
+        upsert_note(&conn, &note("notes/alpha.md", "Alpha"), alpha).expect("upsert alpha");
+        upsert_note(&conn, &note("notes/beta.md", "Beta"), "## Draft plan\n\nBody.\n")
+            .expect("upsert beta");
+
+        let filter: crate::features::search::model::SectionFilter = serde_json::from_str(
+            r#"{"limit":200,"level_min":2,"level_max":2}"#,
+        )
+        .expect("the panel's level filter should deserialize");
+
+        let hits = query_sections(&conn, filter).expect("query should run");
+        assert_eq!(hits.len(), 3, "both notes' level-2 sections");
+        assert!(hits.iter().all(|hit| hit.level == 2));
+        assert_eq!(
+            hits.iter().map(|hit| hit.note.path.as_str()).collect::<Vec<_>>(),
+            vec!["notes/alpha.md", "notes/alpha.md", "notes/beta.md"],
+        );
+    }
+
     #[test]
     fn upsert_note_populates_code_blocks_table() {
         let conn = Connection::open_in_memory().expect("in-memory db");

@@ -23,11 +23,14 @@
       import {
         BASE_ROW_LIMIT,
         POOL_LIMIT,
+        build_rows,
+        build_section_filter,
         build_task_filter,
         merge_note_sets,
         normalize_settings,
         parse_tag_list,
-        select_tasks,
+        row_open_payload,
+        select_rows,
         track_copies,
       } from "./marquee_logic.js";
 
@@ -126,18 +129,23 @@
         return `${now.getFullYear()}-${month}-${day}`;
       }
 
-      function build_meta(task, show_note_name) {
+      function build_meta(row, show_note_name) {
         const parts = [];
-        if (show_note_name) parts.push(note_basename(task.path));
-        if (task.due_date) parts.push(`due ${task.due_date}`);
+        if (show_note_name) parts.push(note_basename(row.path));
+        if (row.kind === "section") {
+          if (row.heading_path) parts.push(row.heading_path);
+        } else if (row.due_date) {
+          parts.push(`due ${row.due_date}`);
+        }
         if (parts.length === 0) return null;
 
         const meta = document.createElement("span");
         meta.className = "marquee__meta";
         if (
-          task.due_date &&
-          task.status !== "done" &&
-          task.due_date < today_iso()
+          row.kind === "task" &&
+          row.due_date &&
+          row.status !== "done" &&
+          row.due_date < today_iso()
         ) {
           meta.classList.add("is-overdue");
         }
@@ -145,33 +153,45 @@
         return meta;
       }
 
-      function build_row(task, show_note_name) {
-        const row = document.createElement("button");
-        row.type = "button";
-        row.className = "marquee__item";
-        row.dataset.path = task.path;
-        row.title = `${note_basename(task.path)} — ${task.text}`;
-
+      function build_glyph(row) {
         const glyph = document.createElement("span");
         glyph.className = "marquee__glyph";
-        glyph.dataset.status = task.status;
-        glyph.textContent = STATUS_GLYPHS[task.status] ?? STATUS_GLYPHS.todo;
+        if (row.kind === "section") {
+          glyph.dataset.kind = "section";
+          glyph.textContent = `H${row.level}`;
+        } else {
+          glyph.dataset.status = row.status;
+          glyph.textContent = STATUS_GLYPHS[row.status] ?? STATUS_GLYPHS.todo;
+        }
+        return glyph;
+      }
+
+      function build_row(row, show_note_name) {
+        const element = document.createElement("button");
+        element.type = "button";
+        element.className = "marquee__item";
+        element.dataset.kind = row.kind;
+        element.dataset.path = row.path;
+        if (row.kind === "section") {
+          element.dataset.line = String(row.line_number);
+        }
+        element.title = `${note_basename(row.path)} — ${row.text}`;
 
         const text = document.createElement("span");
         text.className = "marquee__text";
-        text.textContent = task.text;
+        text.textContent = row.text;
 
-        row.append(glyph, text);
-        const meta = build_meta(task, show_note_name);
-        if (meta) row.append(meta);
-        return row;
+        element.append(build_glyph(row), text);
+        const meta = build_meta(row, show_note_name);
+        if (meta) element.append(meta);
+        return element;
       }
 
-      function build_group(items) {
+      function build_group(rows) {
         const group = document.createElement("div");
         group.className = "marquee__group";
-        for (const task of items) {
-          group.append(build_row(task, settings.show_note_name));
+        for (const row of rows) {
+          group.append(build_row(row, settings.show_note_name));
         }
         return group;
       }
@@ -210,35 +230,43 @@
         );
       }
 
-      function update_status(count) {
-        if (count === 0) {
+      function rows_label(rows) {
+        const sections = rows.filter((row) => row.kind === "section").length;
+        if (sections === 0) return "task";
+        if (sections === rows.length) return "section";
+        return "row";
+      }
+
+      function update_status(rows) {
+        if (rows.length === 0) {
           status_el.textContent = "No tasks match this filter";
           return;
         }
         const now = new Date();
         const hours = String(now.getHours()).padStart(2, "0");
         const minutes = String(now.getMinutes()).padStart(2, "0");
-        status_el.textContent = `${count} task${count === 1 ? "" : "s"} · updated ${hours}:${minutes}`;
+        const label = rows_label(rows);
+        status_el.textContent = `${rows.length} ${label}${rows.length === 1 ? "" : "s"} · updated ${hours}:${minutes}`;
       }
 
-      function render_signature(items) {
-        const rows = items.map(
-          (task) =>
-            `${task.id}|${task.status}|${task.due_date}|${task.text}|${task.path}`,
+      function render_signature(rows) {
+        const items = rows.map(
+          (row) =>
+            `${row.kind}|${row.id}|${row.status}|${row.due_date}|${row.text}|${row.path}|${row.line_number}|${row.heading_path}|${row.level}`,
         );
         return [
           settings.show_note_name,
           settings.scroll_seconds,
-          rows.join("\n"),
+          items.join("\n"),
         ].join("\n");
       }
 
-      function render(items) {
-        const signature = render_signature(items);
+      function render(rows) {
+        const signature = render_signature(rows);
         if (signature !== rendered_signature) {
           rendered_signature = signature;
 
-          rendered_group = build_group(items);
+          rendered_group = build_group(rows);
           track_copy_count = 0;
           track.replaceChildren(rendered_group);
           viewport.style.setProperty(
@@ -246,9 +274,9 @@
             `${settings.scroll_seconds}s`,
           );
           fill_track();
-          update_static_state(items.length);
+          update_static_state(rows.length);
         }
-        update_status(items.length);
+        update_status(rows);
       }
 
       function apply_poll_interval() {
@@ -279,13 +307,25 @@
             notes_changed = false;
           }
 
+          // A section filter that is off issues no RPC at all, so a task-only
+          // panel behaves exactly as it did before sections existed.
+          const section_filter = build_section_filter(settings);
+          const sections = section_filter
+            ? await carbide.sections.query(section_filter)
+            : [];
           const tasks = await carbide.tasks.query({
             filter: build_task_filter(settings),
             sort: [],
             limit: POOL_LIMIT,
             offset: 0,
           });
-          render(select_tasks(tasks, note_paths, settings.max_items));
+          render(
+            select_rows(
+              build_rows(tasks, sections),
+              note_paths,
+              settings.max_items,
+            ),
+          );
         } catch (error) {
           status_el.textContent = `Refresh failed: ${error?.message ?? error}`;
         }
@@ -308,15 +348,26 @@
         }, EVENT_DEBOUNCE_MS);
       }
 
-      function open_note(note_path) {
+      function row_from_element(element) {
+        const line = element.dataset.line;
+        return {
+          kind: element.dataset.kind,
+          path: element.dataset.path,
+          line_number: line === undefined ? 0 : Number(line),
+        };
+      }
+
+      function open_row(element) {
         // The host reads params[1] as the argument array, so the payload goes
         // in as a single array element.
-        carbide.actions.execute("note.open", [{ note_path }]);
+        carbide.actions.execute("note.open", [
+          row_open_payload(row_from_element(element)),
+        ]);
       }
 
       track.addEventListener("click", (event) => {
         const row = event.target.closest(".marquee__item");
-        if (row) open_note(row.dataset.path);
+        if (row) open_row(row);
       });
 
       refresh_button.addEventListener("click", () => void refresh());
