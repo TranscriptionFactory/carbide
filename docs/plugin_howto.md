@@ -103,6 +103,7 @@ Declare all permissions your plugin needs in `manifest.json`. Users must approve
 | `events:subscribe`  | Receive vault/editor event notifications                                      |
 | `metadata:read`     | Query bases, list properties, get backlinks, get note stats                   |
 | `tasks:read`        | Query tasks (to-do items) from the task index                                 |
+| `sections:read`     | Query heading sections from the section index (`sections.query`)              |
 | `diagnostics:write` | Push/clear diagnostics for files                                              |
 | `search:read`       | Full-text search and tag queries                                              |
 | `network:fetch`     | Make HTTP requests to external URLs via host-side proxy (`network.fetch`)     |
@@ -186,6 +187,14 @@ const tasks = await carbide.tasks.query({
   sort: [],
   limit: 200,
   offset: 0,
+});
+
+// Sections (requires sections:read permission) — heading rows with their lines
+const sections = await carbide.sections.query({
+  title: "draft",
+  level_min: 2,
+  level_max: 2,
+  limit: 200,
 });
 
 // Settings
@@ -523,6 +532,37 @@ await rpc.send("tasks.query", {
 ```
 
 Rows are `{ id, path, text, status, due_date, line_number, section }`; `due_date` and `section` are `null` when unset. `limit` is clamped to 500 (default 200) and `offset` defaults to 0. `sort` takes `{ property, descending }` entries and orders server-side — SQLite sorts `NULL` due dates first, so sort client-side if undated rows must sink.
+
+### sections.\*
+
+Requires `sections:read`. Queries the vault's heading index — one row per heading section, with the same 0-based line numbers `note.open` scrolls to.
+
+```js
+// Level-2 sections titled like "draft", under "Project A"
+const sections = await rpc.send("sections.query", {
+  title: "draft",
+  level_min: 2,
+  level_max: 2,
+  heading_path_under: "Project A",
+  limit: 200,
+});
+// sections = [{ note: { path, title, ... }, heading_id, title, level, heading_path, start_line, end_line, word_count }, ...]
+```
+
+`filter` is a `SectionFilter` — a structured object, not a query language. Every field is optional except `limit`:
+
+| Field                | Meaning                                                  |
+| -------------------- | -------------------------------------------------------- |
+| `title`              | Section title must contain this text (case-insensitive). |
+| `title_is_regex`     | Treat `title` as a regex instead of a literal substring. |
+| `level_min`          | Lowest heading level kept, inclusive (`1`–`6`).          |
+| `level_max`          | Highest heading level kept, inclusive.                   |
+| `path_prefix`        | Only sections whose note path starts with this prefix.   |
+| `heading_path_under` | This heading path and everything nested under it.        |
+| `min_words`          | Section body must hold at least this many words.         |
+| `limit`              | Required. Clamped to 500, default 200.                   |
+
+Rows come back ordered by note path, then `start_line`. `start_line` and `end_line` are 0-based markdown lines — the coordinate `note.open`'s `line` argument takes, so a section row can be opened directly at its heading.
 
 ### network.\*
 

@@ -86,6 +86,7 @@ import { TypesService, register_types_actions } from "$lib/features/types";
 import { WatcherService } from "$lib/features/watcher";
 import { TaskService, register_task_actions } from "$lib/features/task";
 import type { TaskQuery } from "$lib/features/task";
+import type { SectionFilter } from "$lib/features/search";
 import {
   PluginService,
   PluginSettingsService,
@@ -1211,6 +1212,11 @@ export function create_app_context(input: {
     tasks: {
       async query(query: TaskQuery) {
         return input.ports.task.queryTasks(require_vault().id, query);
+      },
+    },
+    sections: {
+      async query(filter: SectionFilter) {
+        return input.ports.search.query_sections(require_vault().id, filter);
       },
     },
     mcp: {

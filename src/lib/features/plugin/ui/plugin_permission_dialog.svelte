@@ -30,6 +30,7 @@
     "ui:ribbon": "Add ribbon icons",
     "events:subscribe": "Subscribe to vault events",
     "tasks:read": "Read tasks",
+    "sections:read": "Read sections",
     "export:save": "Save files to disk",
     "actions:execute": "Execute app actions",
   };
