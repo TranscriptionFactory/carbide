@@ -355,7 +355,7 @@ fn version_reconcile_precedes_both_early_returns() {
         .find("reconcile_model_version(")
         .expect("handle_embed_batch no longer calls reconcile_model_version");
     let flags_return = body
-        .find("if !note_embed_enabled && !block_embed_enabled {")
+        .find("if !embedding_work_enabled(")
         .expect("the both-flags-off early return moved or was renamed");
     let model_init = body
         .find(".get_or_init(")
