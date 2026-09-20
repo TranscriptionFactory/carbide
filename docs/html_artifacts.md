@@ -40,9 +40,9 @@ You can embed an artifact directly in a markdown note:
 
 The renderer:
 
-- Always uses **Safe** mode for embeds (regardless of the file's trust grant). Embeds are passive previews — use the "Open in tab" button on the embed toolbar to see Live output.
-- Honours optional `#k=v` fragment parameters, e.g. `![[chart.html#height=240&data=sales.csv]]`. The reserved keys `page` and `height` configure the embed; any other key passes through to the artifact (consumable by Live-mode renderers in future phases).
-- Rewrites vault-relative `src=` / `href=` / `poster=` references inside the embedded HTML so images stored next to the artifact resolve correctly. Absolute URLs (`http(s):`, `//`, `data:`, `blob:`, `mailto:`, `tel:`, `#anchor`) are left untouched.
+- Defaults to **Safe** mode. Live stays available from the embed toolbar and is still subject to the artifact's trust grant — a `live` choice only renders live once the file (or its folder) is trusted. Open in tab to reuse the tab viewer's own mode toggle.
+- Honours optional `#k=v` fragment parameters, e.g. `![[chart.html#height=240&data=sales.csv]]`. The reserved keys `page` and `height` configure the embed; `mode=live` remembers a Live request in the markdown; any other key passes through to the artifact.
+- Rewrites vault-relative `src=` / `href=` / `poster=` references inside the embedded HTML so images stored next to the artifact resolve correctly. Absolute URLs (`http(s):`, `//`, `data:`, `blob:`, `mailto:`, `tel:`, `#anchor`) are left untouched. Rewriting applies to the Safe render; the Live render runs the artifact as authored.
 - Does **not** run `fetch()` from inside the embedded sandbox. Static asset references work; dynamic vault reads are deferred to a future vault-RPC phase.
 
 ## Paste-from-clipboard as artifact
@@ -111,7 +111,8 @@ The block also sets `color-scheme: light | dark` on `:root`. Artifacts that igno
 
 ## Security model
 
-- A single iframe envelope governs every sandboxed render (Safe preview, transclusion embed, Live mode). Sandbox is `allow-scripts` only, no `allow-same-origin`. The default CSP forbids network access and limits asset loading to `data:`, `blob:`, and `carbide-asset:` for the resolver.
+- Two frame envelopes cover every sandboxed render. **Safe** (tab preview, transclusion embed, `html` fence) serves sanitized markup: `allow-scripts` without `allow-same-origin` for the tab and fence frames, and a script-free `allow-same-origin` frame for the embed. **Live** serves the raw document over `carbide-html:` in an `allow-scripts`-only frame — never `allow-same-origin`, and never a `srcdoc` frame.
+- Safe renders carry a CSP that forbids network access and limits asset loading to `data:`, `blob:`, and `carbide-asset:` for the resolver.
 - The "Live + Network" grant opens up `connect-src *`; everything else stays locked.
 - No grant ever exposes `parent.window`, `parent.document`, or the rest of Carbide's runtime to the artifact.
 
@@ -126,6 +127,7 @@ An `html` fenced code block in a markdown note doubles as an embed: Carbide rend
 ````
 
 - Bare `html` fences render a preview automatically when the note mounts — no extra token needed.
+- The preview starts in **Safe** mode: the markup is sanitized (scripts, event handlers, frames and forms dropped) and a no-network CSP is applied. The Safe/Live segmented control next to the preview toggle switches a fence to **Live**, which runs the raw fence source in an `allow-scripts`-only `carbide-html:` frame. Live is default-deny: it prompts for trust on the host note (file or folder scope) before anything executes. The same control exists on the `![[x.html]]` embed toolbar, where trust is keyed to the embedded file instead.
 - Opt out per fence by adding the `nopreview` token to the info string:
 
   ````markdown
@@ -136,9 +138,10 @@ An `html` fenced code block in a markdown note doubles as an embed: Carbide rend
 
   The preview's toggle button persists the same token into the fence meta — toggling a preview off writes `nopreview`, toggling it back on removes it — so a code-first fence survives saving and reopening the note.
 
+- The mode choice persists the same way: switching to Live writes a bare `live` token into the fence info string (`html live`) and switching back removes it. The token is a preference only — trust remains the hard gate, so a `live` token in a shared note still renders Safe until you grant trust locally.
 - The preview carries a toggle button and a drag handle for resizing.
 - `xml`, `css`, and `js` fences stay code-first: they render only when the info string carries the explicit `preview` token, e.g. an `xml` fence whose info string is `xml preview`.
-- Previews run under the same locked-down sandbox as Safe mode: `allow-scripts` without `allow-same-origin`, inline scripts and styles only, `connect-src 'none'`. Nothing loads from the network — CDN scripts, fonts, and images fail silently, so author dependency-free markup.
+- Safe previews keep the author's markup and stylesheet and run under a locked-down layout: inline styles only, `default-src 'none'`, `connect-src 'none'`, so nothing loads from the network. Live previews run through the `carbide-html:` header CSP instead, which allows inline scripts and `unsafe-eval` but still blocks the network unless the grant was Live + Network.
 
 ## Starter templates
 

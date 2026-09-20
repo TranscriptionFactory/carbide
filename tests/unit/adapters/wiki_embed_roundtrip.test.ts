@@ -4,6 +4,10 @@ import {
   serialize_markdown,
 } from "$lib/features/editor/adapters/markdown_pipeline";
 import { schema } from "$lib/features/editor/adapters/schema";
+import {
+  embed_mode_from_params,
+  set_embed_mode_param,
+} from "$lib/features/editor/adapters/file_embed_plugin";
 
 describe("wiki embed markdown roundtrip", () => {
   it("round-trips ![[image.png]]", () => {
@@ -148,5 +152,68 @@ describe("wiki embed PM-level roundtrip", () => {
     const node = reparsed.firstChild;
     expect(node?.type.name).toBe("excalidraw_embed");
     expect(node?.attrs["src"]).toBe("diagram.excalidraw");
+  });
+
+  it("round-trips ![[chart.html#mode=live]] and reads the mode back", () => {
+    const input = "![[chart.html#mode=live]]";
+    const doc = parse_markdown(input);
+    const node = doc.firstChild;
+    expect(node?.type.name).toBe("file_embed");
+    expect(node?.attrs["file_type"]).toBe("html");
+    expect(embed_mode_from_params(node?.attrs["params"])).toBe("live");
+    expect(serialize_markdown(doc).trim()).toBe(input);
+  });
+
+  it("round-trips a mode fragment alongside the reserved keys", () => {
+    const input = "![[chart.html#mode=live&height=300]]";
+    const doc = parse_markdown(input);
+    const node = doc.firstChild;
+    expect(node?.attrs["height"]).toBe(300);
+    expect(embed_mode_from_params(node?.attrs["params"])).toBe("live");
+    // height is a reserved key and serializes before the pass-through params.
+    expect(serialize_markdown(doc).trim()).toBe(
+      "![[chart.html#height=300&mode=live]]",
+    );
+  });
+
+  it("round-trips a live embed written by the toolbar", () => {
+    const embed = schema.nodes.file_embed.create({
+      src: "chart.html",
+      file_type: "html",
+      height: 400,
+      params: set_embed_mode_param({}, "live"),
+    });
+    const md = serialize_markdown(
+      schema.nodes.doc.create(null, [embed]),
+    ).trim();
+    expect(md).toBe("![[chart.html#mode=live]]");
+
+    const reparsed = parse_markdown(md);
+    expect(embed_mode_from_params(reparsed.firstChild?.attrs["params"])).toBe(
+      "live",
+    );
+  });
+
+  it("drops the mode fragment when the toolbar switches back to safe", () => {
+    const embed = schema.nodes.file_embed.create({
+      src: "chart.html",
+      file_type: "html",
+      height: 400,
+      params: set_embed_mode_param({ mode: "live" }, "safe"),
+    });
+    const md = serialize_markdown(
+      schema.nodes.doc.create(null, [embed]),
+    ).trim();
+    expect(md).toBe("![[chart.html]]");
+    expect(
+      embed_mode_from_params(parse_markdown(md).firstChild?.attrs["params"]),
+    ).toBe("safe");
+  });
+
+  it("leaves a bare embed in safe mode", () => {
+    const input = "![[chart.html]]";
+    const node = parse_markdown(input).firstChild;
+    expect(node?.attrs["file_type"]).toBe("html");
+    expect(embed_mode_from_params(node?.attrs["params"])).toBe("safe");
   });
 });

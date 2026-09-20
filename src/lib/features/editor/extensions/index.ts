@@ -59,7 +59,11 @@ export function assemble_extensions(
     create_suggest_extension(ctx, slash_config),
     create_core_extension(ctx),
     create_frontmatter_extension(ctx),
-    create_code_block_extension(ctx.smart_blocks),
+    create_code_block_extension({
+      smart_blocks: ctx.smart_blocks,
+      get_note_path: ctx.get_note_path,
+      inline_html_trust: ctx.inline_html_trust,
+    }),
     create_math_extension(),
     create_details_extension(),
     create_callout_extension(),

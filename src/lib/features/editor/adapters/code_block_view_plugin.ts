@@ -22,12 +22,26 @@ import {
   is_previewable_language,
   should_show_preview,
   set_meta_token,
+  fence_mode_from_meta,
+  set_fence_mode_token,
   build_code_preview_srcdoc,
+  build_safe_code_preview_srcdoc,
   read_preview_theme_tokens,
   clamp_preview_height,
   CODE_PREVIEW_SANDBOX,
   PREVIEW_HEIGHT_MESSAGE,
 } from "./code_preview";
+import {
+  create_html_mode_control,
+  type HtmlModeControl,
+} from "./html_mode_control";
+import {
+  effective_html_mode,
+  trust_allows_live,
+  type HtmlRenderMode,
+  type InlineHtmlTrustConfig,
+} from "../domain/inline_html_mode";
+import type { TrustLevel } from "$lib/features/document";
 import { LruCache } from "$lib/shared/utils/lru_cache";
 import { schema } from "./schema";
 import { has_active_dsl_suggest } from "./dsl_suggest_plugin";
@@ -43,6 +57,12 @@ import type {
 export type SmartBlocksConfig = {
   registry: SmartBlockRegistry;
   make_context: () => SmartBlockContext;
+};
+
+export type CodeBlockViewConfig = {
+  smart_blocks?: SmartBlocksConfig | undefined;
+  get_note_path?: (() => string) | undefined;
+  inline_html_trust?: InlineHtmlTrustConfig | undefined;
 };
 
 const log = create_logger("code_block_view");
@@ -224,8 +244,11 @@ type HtmlPreviewState = {
   iframe: HTMLIFrameElement;
   error_el: HTMLElement;
   toggle_btn: HTMLButtonElement;
+  mode_control: HtmlModeControl;
+  mode: HtmlRenderMode;
   last_rendered_content: string;
   last_rendered_theme: string;
+  last_rendered_mode: HtmlRenderMode;
   live_url: string | null;
   render_seq: number;
   theme_observer: MutationObserver;
@@ -236,6 +259,8 @@ type PreviewRender = {
   doc: string;
   source: string;
   theme: PreviewTheme;
+  mode: HtmlRenderMode;
+  allow_network: boolean;
 };
 
 function current_preview_theme(): PreviewTheme {
@@ -415,6 +440,7 @@ class CodeBlockView implements NodeView {
   private mermaid: MermaidState | null = null;
   private html_preview: HtmlPreviewState | null = null;
   private preview_timer: ReturnType<typeof setTimeout> | undefined;
+  private smart_blocks?: SmartBlocksConfig | undefined;
   private smart_block: SmartBlockState | null = null;
   private smart_block_observer: IntersectionObserver | null = null;
   private pending_handler: SmartBlockHandler | null = null;
@@ -430,9 +456,10 @@ class CodeBlockView implements NodeView {
     private node: ProseNode,
     private view: EditorView,
     private get_pos: () => number | undefined,
-    private smart_blocks?: SmartBlocksConfig,
+    private html_config: CodeBlockViewConfig,
   ) {
     this.current_language = (node.attrs.language as string) ?? "";
+    this.smart_blocks = html_config.smart_blocks;
 
     this.dom = document.createElement("div");
     this.dom.className = "code-block-wrapper";
@@ -568,8 +595,14 @@ class CodeBlockView implements NodeView {
       this.toggle_html_preview();
     });
 
+    const mode_control = create_html_mode_control(
+      fence_mode_from_meta((this.node.attrs["meta"] as string) ?? ""),
+      (mode) => void this.set_html_mode(mode),
+    );
+
     const copy_btn = this.toolbar.lastChild;
     this.toolbar.insertBefore(toggle_btn, copy_btn);
+    this.toolbar.insertBefore(mode_control.el, toggle_btn);
     this.dom.appendChild(container);
 
     const show = should_show_preview(
@@ -600,8 +633,11 @@ class CodeBlockView implements NodeView {
       iframe,
       error_el,
       toggle_btn,
+      mode_control,
+      mode: fence_mode_from_meta((this.node.attrs["meta"] as string) ?? ""),
       last_rendered_content: "",
       last_rendered_theme: "",
+      last_rendered_mode: "safe",
       live_url: null,
       render_seq: 0,
       theme_observer,
@@ -654,23 +690,102 @@ class CodeBlockView implements NodeView {
     if (
       state.live_url &&
       source === state.last_rendered_content &&
-      theme === state.last_rendered_theme
+      theme === state.last_rendered_theme &&
+      state.mode === state.last_rendered_mode
     ) {
       return;
     }
-    const doc = build_code_preview_srcdoc(
-      this.current_language,
-      source,
-      theme,
-      read_preview_theme_tokens(),
-    );
-    // Served via the carbide-html: protocol; srcdoc frames are blocked by the
-    // host CSP frame-src in WebKit.
-    void this.swap_preview_src(
+    void this.render_preview_with_mode(
       state,
-      { doc, source, theme },
+      { source, theme },
       ++state.render_seq,
     );
+  }
+
+  private async render_preview_with_mode(
+    state: HtmlPreviewState,
+    request: { source: string; theme: PreviewTheme },
+    seq: number,
+  ): Promise<void> {
+    const level = await this.preview_trust_level();
+    if (this.html_preview !== state || seq !== state.render_seq) return;
+
+    const mode = effective_html_mode(state.mode, level);
+    // The control shows what actually rendered, so a `live` token whose trust
+    // was revoked reads as Safe until the user grants again.
+    state.mode_control.set_mode(mode);
+    const tokens = read_preview_theme_tokens();
+    const doc =
+      mode === "live"
+        ? build_code_preview_srcdoc(
+            this.current_language,
+            request.source,
+            request.theme,
+            tokens,
+          )
+        : build_safe_code_preview_srcdoc(
+            this.current_language,
+            request.source,
+            request.theme,
+            tokens,
+          );
+    // Served via the carbide-html: protocol; srcdoc frames are blocked by the
+    // host CSP frame-src in WebKit.
+    await this.swap_preview_src(
+      state,
+      {
+        doc,
+        source: request.source,
+        theme: request.theme,
+        mode,
+        allow_network: level === "live+net",
+      },
+      seq,
+    );
+  }
+
+  private async preview_trust_level(): Promise<TrustLevel> {
+    const note_path = this.html_config.get_note_path?.() ?? "";
+    const get_level = this.html_config.inline_html_trust?.get_level;
+    if (!note_path || !get_level) return "safe";
+    try {
+      return await get_level(note_path);
+    } catch (error: unknown) {
+      log.error("Failed to read fence HTML trust level", { error });
+      return "safe";
+    }
+  }
+
+  private async set_html_mode(next: HtmlRenderMode): Promise<void> {
+    const state = this.html_preview;
+    if (!state) return;
+
+    if (
+      next === "live" &&
+      !trust_allows_live(await this.preview_trust_level())
+    ) {
+      const note_path = this.html_config.get_note_path?.() ?? "";
+      const request = this.html_config.inline_html_trust?.request;
+      const granted = request && note_path ? await request(note_path) : false;
+      if (this.html_preview !== state) return;
+      if (!granted) return;
+    }
+
+    state.mode = next;
+    state.mode_control.set_mode(next);
+    const pos = this.get_pos();
+    if (pos !== undefined) {
+      this.view.dispatch(
+        this.view.state.tr.setNodeMarkup(pos, undefined, {
+          ...this.node.attrs,
+          meta: set_fence_mode_token(
+            (this.node.attrs["meta"] as string) ?? "",
+            next,
+          ),
+        }),
+      );
+    }
+    this.render_html_preview();
   }
 
   private async swap_preview_src(
@@ -682,7 +797,7 @@ class CodeBlockView implements NodeView {
       const url = await invoke<string>("html_live_register", {
         html: render.doc,
         assetRoot: null,
-        allowNetwork: false,
+        allowNetwork: render.allow_network,
       });
       if (seq !== state.render_seq) {
         void invoke("html_live_release", { url });
@@ -695,6 +810,7 @@ class CodeBlockView implements NodeView {
       // so a failed swap cannot make the next edit early-return as a no-op.
       state.last_rendered_content = render.source;
       state.last_rendered_theme = render.theme;
+      state.last_rendered_mode = render.mode;
       state.iframe.src = url;
       state.error_el.hidden = true;
       state.iframe.hidden = false;
@@ -717,6 +833,7 @@ class CodeBlockView implements NodeView {
       void invoke("html_live_release", { url: this.html_preview.live_url });
     }
     this.html_preview.toggle_btn.remove();
+    this.html_preview.mode_control.el.remove();
     this.html_preview.container.remove();
     this.html_preview = null;
   }
@@ -1262,6 +1379,17 @@ class CodeBlockView implements NodeView {
       this.schedule_preview_render();
     }
 
+    if (this.html_preview) {
+      const requested = fence_mode_from_meta(
+        (updated.attrs["meta"] as string) ?? "",
+      );
+      if (requested !== this.html_preview.mode) {
+        this.html_preview.mode = requested;
+        this.html_preview.mode_control.set_mode(requested);
+        if (this.html_preview.is_preview) this.render_html_preview();
+      }
+    }
+
     return true;
   }
 
@@ -1305,14 +1433,14 @@ class CodeBlockView implements NodeView {
 export const code_block_view_plugin_key = new PluginKey("code-block-view");
 
 export function create_code_block_view_prose_plugin(
-  smart_blocks?: SmartBlocksConfig,
+  config: CodeBlockViewConfig = {},
 ): Plugin {
   return new Plugin({
     key: code_block_view_plugin_key,
     props: {
       nodeViews: {
         code_block: (node, view, get_pos) =>
-          new CodeBlockView(node, view, get_pos, smart_blocks),
+          new CodeBlockView(node, view, get_pos, config),
       },
       handleDOMEvents: {
         keydown(view, event) {

@@ -25,6 +25,7 @@ export { create_document_tauri_adapter } from "$lib/features/document/adapters/d
 export { create_note_export_tauri_adapter } from "$lib/features/document/adapters/note_export_tauri_adapter";
 export { create_trusted_html_tauri_adapter } from "$lib/features/document/adapters/trusted_html_tauri_adapter";
 export { create_reading_position_tauri_adapter } from "$lib/features/document/adapters/reading_position_tauri_adapter";
+export { build_live_html_document } from "$lib/features/document/domain/html_live_document";
 export {
   slugify_for_filename,
   build_clipboard_provenance,

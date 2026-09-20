@@ -3,7 +3,10 @@ import { describe, it, expect } from "vitest";
 import {
   build_safe_embed_srcdoc,
   rewrite_embed_assets,
+  LIVE_EMBED_SANDBOX,
+  SAFE_EMBED_SANDBOX,
 } from "$lib/features/editor/adapters/html_embed_renderer";
+import { build_live_html_document } from "$lib/features/document";
 
 describe("rewrite_embed_assets", () => {
   it("returns input unchanged when no resolver is given", async () => {
@@ -209,5 +212,40 @@ describe("build_safe_embed_srcdoc", () => {
       tokens: { "--background": "}</style><script>evil()" },
     });
     expect(srcdoc).not.toContain("evil()");
+  });
+});
+
+describe("live embed rendering", () => {
+  it("uses separate sandbox constants for the two frames", () => {
+    expect(SAFE_EMBED_SANDBOX).toBe("allow-same-origin");
+    expect(LIVE_EMBED_SANDBOX).toBe("allow-scripts");
+    expect(LIVE_EMBED_SANDBOX).not.toBe(SAFE_EMBED_SANDBOX);
+  });
+
+  it("serves the artifact as-is, scripts included, with no meta CSP", () => {
+    const doc = build_live_html_document({
+      content: `<p>hi</p><script>window.ran = 1</script>`,
+      theme_style: "",
+    });
+    expect(doc).toContain("window.ran");
+    expect(doc).not.toContain("Content-Security-Policy");
+    expect(doc).toContain("<!DOCTYPE html>");
+  });
+
+  it("wraps a fragment artifact into a full document", () => {
+    const doc = build_live_html_document({
+      content: `<p>fragment</p>`,
+      theme_style: "",
+    });
+    expect(doc).toMatch(
+      /<html><head>.*<\/head><body><p>fragment<\/p><\/body><\/html>/,
+    );
+  });
+
+  it("keeps a complete artifact document intact", () => {
+    const source = `<!DOCTYPE html><html><head><title>t</title></head><body><p>x</p></body></html>`;
+    const doc = build_live_html_document({ content: source, theme_style: "" });
+    expect(doc).toContain("<title>t</title>");
+    expect(doc).toContain("<p>x</p>");
   });
 });

@@ -7,6 +7,7 @@ import {
   insert_leading_paragraph,
   ensure_leading_paragraph,
 } from "./embed_plugin_utils";
+import type { HtmlRenderMode } from "../domain/inline_html_mode";
 
 const AUDIO_EXTENSIONS = ["mp3", "wav", "m4a", "ogg", "flac"];
 const VIDEO_EXTENSIONS = ["mp4", "webm", "ogv", "mkv"];
@@ -58,6 +59,23 @@ export function parse_embed_fragment(fragment: string): EmbedFragment {
     height: search.has("height") ? Number(search.get("height")) : null,
     params,
   };
+}
+
+/* `#mode=` travels in `params`, so `![[x.html#mode=live]]` survives a markdown
+   round-trip like any other fragment key. Live still needs a trust grant. */
+export function embed_mode_from_params(params: unknown): HtmlRenderMode {
+  const mode = (params as Record<string, unknown> | null | undefined)?.["mode"];
+  return mode === "live" ? "live" : "safe";
+}
+
+export function set_embed_mode_param(
+  params: Record<string, string> | null | undefined,
+  mode: HtmlRenderMode,
+): Record<string, string> {
+  const next = { ...params };
+  if (mode === "live") next["mode"] = "live";
+  else delete next["mode"];
+  return next;
 }
 
 export function serialize_embed_fragment(

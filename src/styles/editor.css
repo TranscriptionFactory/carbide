@@ -366,6 +366,38 @@
   color: var(--editor-foreground);
 }
 
+/* Shared by the in-note HTML surfaces: the ```html fence toolbar and the
+   ![[x.html]] embed toolbar. */
+.html-mode-toggle {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius) * 0.35);
+  overflow: hidden;
+}
+
+.html-mode-toggle__btn {
+  font-size: var(--text-xs);
+  color: var(--muted-foreground);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 0.0625rem 0.375rem;
+  transition:
+    background var(--duration-fast) var(--ease-default),
+    color var(--duration-fast) var(--ease-default);
+}
+
+.html-mode-toggle__btn + .html-mode-toggle__btn {
+  border-left: 1px solid var(--border);
+}
+
+.html-mode-toggle__btn:hover,
+.html-mode-toggle__btn--active {
+  background: color-mix(in oklch, var(--editor-foreground) 10%, transparent);
+  color: var(--editor-foreground);
+}
+
 .code-block-preview {
   border: 1px solid var(--editor-code-border);
   border-top: none;

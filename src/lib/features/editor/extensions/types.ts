@@ -3,6 +3,7 @@ import type { Node as ProseNode } from "prosemirror-model";
 import type { EditorEventHandlers } from "$lib/features/editor/ports";
 import type { AssetPath, VaultId } from "$lib/shared/types/ids";
 import type { SmartBlocksConfig } from "../adapters/code_block_view_plugin";
+import type { InlineHtmlTrustConfig } from "../domain/inline_html_mode";
 import type { FrontmatterWidgetConfig } from "../adapters/frontmatter_view_plugin";
 import type { TagPillMenuConfig } from "../adapters/tag_pill_plugin";
 import type { VaultFsEvent } from "$lib/features/watcher";
@@ -38,6 +39,7 @@ export type PluginContext = {
   native_wiki_suggest_enabled?: boolean;
   native_link_click_enabled?: boolean;
   smart_blocks?: SmartBlocksConfig;
+  inline_html_trust?: InlineHtmlTrustConfig | undefined;
   note_embed?: NoteEmbedContext;
   frontmatter_widget?: FrontmatterWidgetConfig | undefined;
   tag_pill_menu?: TagPillMenuConfig | undefined;

@@ -52,6 +52,7 @@ export function create_embed_extension(ctx: PluginContext): EditorExtension {
   plugins.push(
     create_file_embed_view_plugin({
       on_open_file: open_document,
+      inline_html_trust: ctx.inline_html_trust,
       resolve_asset_url: resolve_asset_url_for_vault
         ? async (src) => {
             const vault_id = ctx.get_vault_id();

@@ -11,14 +11,36 @@ import {
   ExternalLink,
   ChevronRight,
 } from "lucide-static";
+import { invoke } from "@tauri-apps/api/core";
 import { create_logger } from "$lib/shared/utils/logger";
 import {
+  build_live_html_document,
+  type TrustLevel,
+} from "$lib/features/document";
+import {
   build_safe_embed_srcdoc,
+  LIVE_EMBED_SANDBOX,
   SAFE_EMBED_SANDBOX,
 } from "./html_embed_renderer";
+import {
+  embed_mode_from_params,
+  set_embed_mode_param,
+} from "./file_embed_plugin";
 import { read_preview_theme_tokens } from "./code_preview";
+import {
+  create_html_mode_control,
+  type HtmlModeControl,
+} from "./html_mode_control";
+import {
+  effective_html_mode,
+  trust_allows_live,
+  type HtmlRenderMode,
+  type InlineHtmlTrustConfig,
+} from "../domain/inline_html_mode";
 
 const log = create_logger("file_embed_view");
+
+type PreviewTheme = "light" | "dark";
 
 function get_icon_for_type(file_type: string): string {
   switch (file_type) {
@@ -42,6 +64,19 @@ function get_icon_for_type(file_type: string): string {
 export type FileEmbedCallbacks = {
   on_open_file: (path: string) => void;
   resolve_asset_url?: ((src: string) => string | Promise<string>) | undefined;
+  inline_html_trust?: InlineHtmlTrustConfig | undefined;
+};
+
+type HtmlEmbedRender = {
+  raw: string | null;
+  safe_frame: HTMLIFrameElement;
+  live_frame: HTMLIFrameElement;
+  error_el: HTMLElement;
+  mode_control: HtmlModeControl;
+  mode: HtmlRenderMode;
+  live_url: string | null;
+  render_seq: number;
+  last_key: string;
 };
 
 class FileEmbedView implements NodeView {
@@ -50,6 +85,7 @@ class FileEmbedView implements NodeView {
   private _media_el: HTMLAudioElement | HTMLVideoElement | null = null;
   private _pdf_doc: { loadingTask: { destroy(): void } } | null = null;
   private _theme_observer: MutationObserver | null = null;
+  private _html_embed: HtmlEmbedRender | null = null;
   private node: ProseNode;
   private view: EditorView;
   private get_pos: () => number | undefined;
@@ -60,7 +96,7 @@ class FileEmbedView implements NodeView {
     node: ProseNode,
     view: EditorView,
     get_pos: () => number | undefined,
-    callbacks: FileEmbedCallbacks,
+    private callbacks: FileEmbedCallbacks,
   ) {
     this.node = node;
     this.view = view;
@@ -188,54 +224,79 @@ class FileEmbedView implements NodeView {
       content.appendChild(img);
       content.style.height = "auto";
     } else if (file_type === "html") {
-      const iframe = document.createElement("iframe");
-      iframe.className = "file-embed-html";
-      iframe.setAttribute("sandbox", SAFE_EMBED_SANDBOX);
-      iframe.title = filename;
-      iframe.style.width = "100%";
-      iframe.style.height = "100%";
-      iframe.style.border = "none";
-      iframe.style.background = "transparent";
-      content.appendChild(iframe);
+      const safe_frame = document.createElement("iframe");
+      safe_frame.className = "file-embed-html";
+      safe_frame.setAttribute("sandbox", SAFE_EMBED_SANDBOX);
+      safe_frame.title = filename;
+
+      const live_frame = document.createElement("iframe");
+      live_frame.className = "file-embed-html";
+      live_frame.setAttribute("sandbox", LIVE_EMBED_SANDBOX);
+      live_frame.title = `${filename} (live)`;
+      live_frame.hidden = true;
+
+      for (const frame of [safe_frame, live_frame]) {
+        frame.style.width = "100%";
+        frame.style.height = "100%";
+        frame.style.border = "none";
+        frame.style.background = "transparent";
+        content.appendChild(frame);
+      }
+
+      const error_el = document.createElement("div");
+      error_el.className = "file-embed-html-error";
+      error_el.hidden = true;
+      content.appendChild(error_el);
+
+      const mode_control = create_html_mode_control(
+        embed_mode_from_params(
+          node.attrs["params"] as Record<string, string> | undefined,
+        ),
+        (mode) => void this._set_html_embed_mode(mode),
+      );
+      toolbar.insertBefore(mode_control.el, this.collapse_btn);
+
+      this._html_embed = {
+        raw: null,
+        safe_frame,
+        live_frame,
+        error_el,
+        mode_control,
+        mode: embed_mode_from_params(
+          node.attrs["params"] as Record<string, string> | undefined,
+        ),
+        live_url: null,
+        render_seq: 0,
+        last_key: "",
+      };
 
       if (callbacks.resolve_asset_url) {
         const result = callbacks.resolve_asset_url(src);
-        const render_embed = async (html_text: string) => {
-          const srcdoc = await build_safe_embed_srcdoc({
-            content: html_text,
-            host_file_path: src,
-            resolve_asset_url: callbacks.resolve_asset_url,
-            theme:
-              document.documentElement.getAttribute("data-color-scheme") ===
-              "dark"
-                ? "dark"
-                : "light",
-            tokens: read_preview_theme_tokens(),
-          });
-          if (this._destroyed) return;
-          iframe.srcdoc = srcdoc;
-        };
         const load_html = (url: string) => {
           void fetch(url)
             .then((r) =>
               r.ok ? r.text() : Promise.reject(new Error(`HTTP ${r.status}`)),
             )
-            .then(async (html_text) => {
-              if (this._destroyed) return;
+            .then((html_text) => {
+              if (this._destroyed || !this._html_embed) return;
+              this._html_embed.raw = html_text;
               this._theme_observer?.disconnect();
               this._theme_observer = new MutationObserver(() => {
-                void render_embed(html_text);
+                void this._render_html_embed();
               });
               this._theme_observer.observe(document.documentElement, {
                 attributes: true,
                 attributeFilter: ["data-color-scheme"],
               });
-              await render_embed(html_text);
+              void this._render_html_embed();
             })
             .catch((error: unknown) => {
               log.error("Failed to load HTML embed", { error });
-              if (!this._destroyed) {
-                iframe.srcdoc = `<!DOCTYPE html><body style="font-family:sans-serif;color:#71717a;padding:12px;">Failed to load HTML embed</body>`;
+              if (!this._destroyed && this._html_embed) {
+                this._html_embed.error_el.textContent =
+                  "Failed to load HTML embed";
+                this._html_embed.error_el.hidden = false;
+                this._html_embed.safe_frame.hidden = true;
               }
             });
         };
@@ -251,7 +312,7 @@ class FileEmbedView implements NodeView {
             });
         }
       } else {
-        iframe.srcdoc = `<!DOCTYPE html><body style="font-family:sans-serif;color:#71717a;padding:12px;">HTML preview unavailable</body>`;
+        safe_frame.srcdoc = `<!DOCTYPE html><body style="font-family:sans-serif;color:#71717a;padding:12px;">HTML preview unavailable</body>`;
       }
     } else if (file_type === "text") {
       const pre = document.createElement("pre");
@@ -307,7 +368,145 @@ class FileEmbedView implements NodeView {
     if (updated.type.name !== "file_embed") return false;
     this.node = updated;
     this.dom.dataset["collapsed"] = String(updated.attrs["collapsed"]);
+
+    const requested = embed_mode_from_params(
+      updated.attrs["params"] as Record<string, string> | undefined,
+    );
+    if (this._html_embed && requested !== this._html_embed.mode) {
+      this._html_embed.mode = requested;
+      void this._render_html_embed();
+    }
     return true;
+  }
+
+  private async _html_trust_level(path: string): Promise<TrustLevel> {
+    const get_level = this.callbacks.inline_html_trust?.get_level;
+    if (!get_level) return "safe";
+    try {
+      return await get_level(path);
+    } catch (error: unknown) {
+      log.error("Failed to read HTML trust level", { error });
+      return "safe";
+    }
+  }
+
+  private async _render_html_embed(): Promise<void> {
+    const state = this._html_embed;
+    if (!state || state.raw === null) return;
+    const seq = ++state.render_seq;
+    const level = await this._html_trust_level(
+      this.node.attrs["src"] as string,
+    );
+    if (this._destroyed || seq !== state.render_seq) return;
+
+    const mode = effective_html_mode(state.mode, level);
+    state.mode_control.set_mode(mode);
+    const theme: PreviewTheme =
+      document.documentElement.getAttribute("data-color-scheme") === "dark"
+        ? "dark"
+        : "light";
+    const key = `${mode}\u0000${theme}`;
+    if (key === state.last_key) return;
+    state.last_key = key;
+    state.error_el.hidden = true;
+
+    if (mode === "live") {
+      state.safe_frame.hidden = true;
+      state.live_frame.hidden = false;
+      await this._render_live_embed(state, level, seq);
+    } else {
+      state.live_frame.hidden = true;
+      state.safe_frame.hidden = false;
+      await this._render_safe_embed(state, theme, seq);
+    }
+  }
+
+  private async _render_safe_embed(
+    state: HtmlEmbedRender,
+    theme: PreviewTheme,
+    seq: number,
+  ): Promise<void> {
+    const srcdoc = await build_safe_embed_srcdoc({
+      content: state.raw ?? "",
+      host_file_path: this.node.attrs["src"] as string,
+      resolve_asset_url: this.callbacks.resolve_asset_url,
+      theme,
+      tokens: read_preview_theme_tokens(),
+    });
+    if (this._destroyed || seq !== state.render_seq) return;
+    state.safe_frame.srcdoc = srcdoc;
+  }
+
+  private async _render_live_embed(
+    state: HtmlEmbedRender,
+    level: TrustLevel,
+    seq: number,
+  ): Promise<void> {
+    try {
+      const doc = build_live_html_document({
+        // Live transclusions run the artifact as authored; the tab viewer owns
+        // theme injection (it holds the resolved Theme object).
+        content: state.raw ?? "",
+        theme_style: "",
+      });
+      const url = await invoke<string>("html_live_register", {
+        html: doc,
+        assetRoot: null,
+        allowNetwork: level === "live+net",
+      });
+      if (this._destroyed || seq !== state.render_seq) {
+        void invoke("html_live_release", { url });
+        return;
+      }
+      if (state.live_url) {
+        void invoke("html_live_release", { url: state.live_url });
+      }
+      state.live_url = url;
+      state.live_frame.src = url;
+    } catch (error: unknown) {
+      log.error("Failed to render live HTML embed", { error });
+      if (this._destroyed || seq !== state.render_seq) return;
+      state.live_url = null;
+      state.live_frame.hidden = true;
+      state.error_el.textContent =
+        "Live preview unavailable — failed to render.";
+      state.error_el.hidden = false;
+    }
+  }
+
+  private async _set_html_embed_mode(next: HtmlRenderMode): Promise<void> {
+    const state = this._html_embed;
+    if (!state) return;
+    const path = this.node.attrs["src"] as string;
+
+    if (
+      next === "live" &&
+      !trust_allows_live(await this._html_trust_level(path))
+    ) {
+      const request = this.callbacks.inline_html_trust?.request;
+      const granted = request ? await request(path) : false;
+      if (this._destroyed) return;
+      if (!granted) return;
+      // The grant only changes what renders, not the node: the stored params
+      // may already say `live`, so update() will not fire for this click.
+      state.last_key = "";
+    }
+
+    state.mode = next;
+    const pos = this.get_pos();
+    if (pos === undefined) return;
+    const current = this.view.state.doc.nodeAt(pos);
+    if (!current || current.type.name !== "file_embed") return;
+    this.view.dispatch(
+      this.view.state.tr.setNodeMarkup(pos, undefined, {
+        ...current.attrs,
+        params: set_embed_mode_param(
+          current.attrs["params"] as Record<string, string> | undefined,
+          next,
+        ),
+      }),
+    );
+    void this._render_html_embed();
   }
 
   private async _render_pdf_canvas(
@@ -424,6 +623,11 @@ class FileEmbedView implements NodeView {
     this._destroyed = true;
     this._theme_observer?.disconnect();
     this._theme_observer = null;
+    if (this._html_embed?.live_url) {
+      void invoke("html_live_release", { url: this._html_embed.live_url });
+      this._html_embed.live_url = null;
+    }
+    this._html_embed = null;
     this.collapse_btn.removeEventListener("click", this.on_collapse);
     if (this._media_el) {
       this._media_el.pause();
