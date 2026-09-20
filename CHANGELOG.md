@@ -1,5 +1,57 @@
 # carbide
 
+## 2.38.0
+
+### Minor Changes
+
+- 9e28bb6: HTML embedded in a note is now Safe by default. A `![[x.html]]` transclusion and a ` ```html ` fence both render with scripts and network access disabled until you ask otherwise, and each carries a Safe/Live switch on its toolbar.
+
+  Switching to Live asks for a trust grant the first time — per embedded file, or per note for a fence (either file or folder scope, the same dialog the HTML tab uses). Once granted, the document runs in an isolated frame with no access to the app. The choice is written into the markdown (` ```html live ` and `![[x.html#mode=live]]`), and it stays gated: revoke the grant and the surface falls back to Safe instead of running.
+
+  This is a behaviour change for existing notes: a fence or transclusion that used to run its scripts on open now renders Safe until you grant trust.
+
+- fd473b1: The Marquee can scroll heading sections alongside your tasks. A **Sections query** group in its settings filters by heading title, heading level, or the heading path to sit under; matching sections join the task rows in the same scroll, showing their level, title and heading path. Clicking a section row opens its note scrolled to that heading. The section pool stays off until one of those three settings is set, so a task-only Marquee behaves exactly as it did.
+
+  Plugins gain `sections.query` behind a new `sections:read` permission, for reading the heading index with the same structured filter the `sections` query noun takes. Its `start_line` values are the 0-based markdown lines `note.open`'s `line` argument accepts, so a plugin can open a note at a heading directly.
+
+- db6b09e: The query Builder's `with <property>` clause now suggests the vault's frontmatter properties as you type, and the value field offers the values the index already knows for the chosen property. Free text still works for a property or value the index has not seen.
+
+  Embedded ` ```query ` fences suggest those property names after `with ` too, so the suggestions in an in-note query match the Builder's.
+
+- 56cb428: Recents gained a date range picker and lost the Quarter preset. The sidebar's Recents header now offers All / Today / Week / Month plus a calendar button: pick two days and the list shows notes whose modified (or created, when that is the sort) timestamp falls inside the range, including both endpoints and nothing after them. Picking only a start day reads as "since that day". The chosen range is remembered across restarts.
+
+  Quarter is gone. Anyone whose saved setting was Quarter sees All on the next launch instead of an empty list.
+
+- 31513dd: Query sections and headings with the new `sections` query noun.
+
+  ```
+  sections named /Meeting/ in "Projects"
+  sections under "Roadmap/Q4"
+  sections named "Decision" with #project
+  ```
+
+  `sections` returns one row per section instead of one per note: `named` matches
+  the heading text (text or `/regex/`), `in` restricts to a vault folder, `under`
+  matches a heading path and everything nested below it, and the note-level
+  clauses (`with …`) filter the note the section lives in. Section rows read
+  `note › heading` in the query panel and in ` ```query ` code blocks, and open
+  the note scrolled to the section's first line.
+
+  The query language docs no longer list `folders` and `files` as forms — they
+  were never accepted by the parser.
+
+### Patch Changes
+
+- 8f4f7ba: Long notes no longer re-scan the whole document on every keystroke for block-id, tag and task decorations: each edit rebuilds only the blocks it touched, and a caret move only revisits the blocks on either side of it. Diagnostics stay responsive while typing, because a publish now builds its markdown-to-document mapping index in a single walk and waits for the serialized snapshot instead of decorating a document that has moved on.
+- d2ed4e4: Opening a vault whose notes are already embedded no longer loads the embedding model. The startup pass checks what is actually left to embed — notes and sections — before the encoder is touched, so an up-to-date vault finishes indexing in the time the database queries take instead of paying a cold model load on every launch. Reopening a connection is cheaper for the same reason: the schema is now stamped and migrated once per database rather than replayed on every open, which matters because several features open their own connection per call. On macOS the launch's rebuild, first index sync and first embedding pass run one scheduling class above background so they are not stretched out for work the user is waiting on, and drop back once that pass finishes. Startup is also easier to measure now: the log carries a duration for the graph load and for a completed index sync.
+- f731ac4: The chat index banner no longer says "indexing" forever. Readiness is now measured against the notes the embedding pass can actually embed, so a vault holding attachments, code files or empty notes reaches ready once the pass completes, instead of waiting on a count it could never satisfy. A pass that ends with eligible notes still unembedded — unembeddable content, a failed encode, an unavailable model — reports `partial` once as "N of M notes embedded · K files skipped" without a spinner, and a later attempt clears it back to ready without switching vault or provider. With both embedding flags switched off in settings nothing is pending, so readiness stays ready instead of holding a banner over a deliberate configuration.
+- 2aa2568: The slash menu, tag and cite suggestions, wiki-link suggestions opened with `[[`, the code-fence language picker, and the `query`, `base`, and `tasks` fence suggestions accept on Enter again. Keydown handlers stop at the first one that claims a key, and these menus were registered after the core keymap, so the core Enter binding ran first: in a fence it inserted a newline, in prose it split the block. Inside a fence, Tab and the arrows now reach an open suggestion list instead of indenting or leaving the block, and Shift+Tab still outdents while a list is open.
+- b64c4ce: Suggestion dropdowns no longer squash their rows to fit the box. Once a list passed ten rows the `notes with ` picker in the Query tab, the task panel's `tag includes ` picker and the folder-path picker each shrank every row until only a partial line of each entry was visible, and neither scrolling nor arrow-key highlighting could reach the rest. Every row now keeps its natural height and the list scrolls.
+
+  The sidebar Tags panel had a separate problem in the same area: its tag list was clipped at the panel edge and could not scroll, so the last children of a long nested tag could not be reached at all. The list now scrolls and every child row is reachable. The tag rows themselves were never squashed.
+
+  The sidebar Task panel's `tag includes ` suggestion now lists the tags you promoted, matching the Query tab, instead of every tag in the vault.
+
 ## 2.37.2
 
 ### Patch Changes
