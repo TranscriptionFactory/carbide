@@ -281,18 +281,38 @@ fn embed_section_texts(
     Ok(pooled)
 }
 
+/// macOS scheduling classes for `pthread_set_qos_class_self_np`: 0x11 utility,
+/// 0x09 background.
+#[cfg(target_os = "macos")]
+const QOS_CLASS_UTILITY: std::os::raw::c_int = 0x11;
+#[cfg(target_os = "macos")]
+const QOS_CLASS_BACKGROUND: std::os::raw::c_int = 0x09;
+
+#[cfg(target_os = "macos")]
+fn set_current_thread_qos(qos_class: std::os::raw::c_int) {
+    use std::os::raw::c_int;
+    extern "C" {
+        fn pthread_set_qos_class_self_np(qos_class: c_int, relative_priority: c_int) -> c_int;
+    }
+    unsafe {
+        pthread_set_qos_class_self_np(qos_class, 0);
+    }
+}
+
+/// The writer's steady state. Nothing it does is urgent, and the embed pass
+/// yields to the foreground explicitly, so the lowest class is the right floor.
 fn set_current_thread_to_background_qos() {
     #[cfg(target_os = "macos")]
-    {
-        use std::os::raw::c_int;
-        const QOS_CLASS_BACKGROUND: c_int = 0x09;
-        extern "C" {
-            fn pthread_set_qos_class_self_np(qos_class: c_int, relative_priority: c_int) -> c_int;
-        }
-        unsafe {
-            pthread_set_qos_class_self_np(QOS_CLASS_BACKGROUND, 0);
-        }
-    }
+    set_current_thread_qos(QOS_CLASS_BACKGROUND);
+}
+
+/// The startup population runs one class up: a launch's rebuild, first sync and
+/// first embed pass are the only work on this thread with a user waiting on it,
+/// and background QoS stretches them to minutes on a large vault. The loop drops
+/// back to background once that burst finishes. (ref: D7)
+fn set_current_thread_to_utility_qos() {
+    #[cfg(target_os = "macos")]
+    set_current_thread_qos(QOS_CLASS_UTILITY);
 }
 
 #[derive(Debug, Deserialize, Type)]
@@ -889,7 +909,7 @@ pub(crate) fn ensure_worker(app: &AppHandle, vault_id: &str) -> Result<(), Strin
     let bi = Arc::clone(&block_index);
     let vid_for_writer = vault_id.to_string();
     let handle = std::thread::spawn(move || {
-        set_current_thread_to_background_qos();
+        set_current_thread_to_utility_qos();
         writer_thread_loop(vid_for_writer, dump_dir, dims, rx, write_conn, ni, bi);
     });
 
@@ -934,6 +954,8 @@ fn writer_thread_loop(
             }
         };
 
+    let mut startup_qos = true;
+
     for cmd in &rx {
         // RebuildIndex is the startup population step: load the persisted graph
         // (or rebuild from SQLite), then persist a freshly-built graph for the
@@ -958,6 +980,14 @@ fn writer_thread_loop(
 
         if is_settle {
             maybe_dump_indices(&conn, &ctx, &note_index, &block_index);
+        }
+
+        // The startup population is RebuildIndex, the first Sync and the first
+        // EmbedBatch; an embed pass is the last of the three to arrive, so its
+        // completion is where the thread hands its priority back. (ref: D7)
+        if startup_qos && is_settle {
+            startup_qos = false;
+            set_current_thread_to_background_qos();
         }
     }
 
@@ -2032,6 +2062,9 @@ fn run_index_op(
                 // run as finished is what masks an interrupted index.
                 log::info!("{label} cancelled after {} files in {elapsed_ms}ms", res.indexed);
             } else {
+                // The pass's wall time is the number a slow-vault report needs:
+                // "scanned N disk files" says the walk ran, not what it cost.
+                log::info!("{label}: indexed {} files in {elapsed_ms}ms", res.indexed);
                 let _ = app_handle.emit(
                     "index_progress",
                     IndexProgressEvent::Completed {
@@ -2315,6 +2348,75 @@ pub(crate) fn terminal_embed_event(
     })
 }
 
+/// Past this point an attempt has ended, however the pass's loops left it — a
+/// failed encoder breaks out to the same exit. `terminal_embed_event` reports
+/// `None` for a cancelled pass: that one stopped rather than finished, so it
+/// neither reports progress nor vouches for the scope.
+fn finish_embed_pass(
+    app_handle: &AppHandle,
+    vault_id: &str,
+    scope: EmbeddingScope,
+    cancel: &Arc<AtomicBool>,
+    embedded: usize,
+    elapsed: Duration,
+) {
+    if let Some(event) = terminal_embed_event(
+        cancel.load(Ordering::Relaxed),
+        vault_id,
+        embedded,
+        elapsed.as_millis() as u64,
+    ) {
+        record_embed_attempt(app_handle, vault_id, scope);
+        let _ = app_handle.emit("embedding_progress", event);
+    }
+}
+
+/// The notes a pass still has to embed: cached, eligible under `scope`, and with
+/// no stored vector. Model-free by design, so a pass can ask before deciding
+/// whether the encoder is needed at all.
+pub(crate) fn notes_pending_embedding(
+    conn: &Connection,
+    notes_cache: &BTreeMap<String, IndexNoteMeta>,
+    facts: &BTreeMap<String, NoteEmbedFacts>,
+    note_embed_enabled: bool,
+    scope: EmbeddingScope,
+) -> Vec<String> {
+    if !note_embed_enabled {
+        return Vec::new();
+    }
+    let already_embedded = vector_db::get_embedded_paths(conn);
+    notes_cache
+        .keys()
+        .filter(|path| {
+            !already_embedded.contains(path.as_str())
+                && facts
+                    .get(path.as_str())
+                    .is_some_and(|facts| note_embed_eligible(facts, scope))
+        })
+        .cloned()
+        .collect()
+}
+
+/// Whether the block pass has a section row left to embed. Split out of
+/// `handle_block_embed_batch` so the caller can answer that before loading the
+/// model; an unreadable section table reports work pending, so the pass surfaces
+/// its own error rather than being skipped silently.
+pub(crate) fn block_embed_work_pending(conn: &Connection) -> bool {
+    let already_embedded = vector_db::get_block_embedded_keys(conn);
+    match search_db::get_embeddable_sections(
+        conn,
+        search_db::BLOCK_EMBED_MIN_WORDS,
+        search_db::BLOCK_EMBED_MIN_LINES,
+    ) {
+        Ok(sections) => sections
+            .iter()
+            .any(|(path, heading_id, _, _)| {
+                !already_embedded.contains(&format!("{path}\0{heading_id}"))
+            }),
+        Err(_) => true,
+    }
+}
+
 fn handle_embed_batch(
     conn: &Connection,
     _vault_root: &Path,
@@ -2341,6 +2443,7 @@ fn handle_embed_batch(
     // Both phases are gated by global feature flags (embedding_block_enabled,
     // embedding_note_enabled), checked before get_or_init so a disabled
     // setting never loads (or downloads) the model.
+    let started = Instant::now();
     let embedding_state = app_handle.state::<EmbeddingServiceState>();
     let cache_dir = resolve_embedding_cache_dir(app_handle);
     let short_id = resolve_embedding_model_id(app_handle);
@@ -2356,6 +2459,31 @@ fn handle_embed_batch(
     if !embedding_work_enabled(note_embed_enabled, block_embed_enabled) {
         log::info!("embed_batch: both note and block embedding disabled for {vault_id}");
         record_embed_attempt(app_handle, vault_id, scope);
+        return LoopAction::Continue;
+    }
+
+    // What this pass would do is decided before the model is touched: the
+    // encoder is a synchronous cold load, and an up-to-date vault must not pay
+    // it to find out it has nothing to embed. The sweep belongs on this side
+    // too — it is pure SQL, and a pass that ends early still owes the resident
+    // index its stale rows dropped. (ref: R1)
+    let facts = search_db::note_embed_facts(conn).unwrap_or_default();
+    let swept = sweep_stale_note_vectors(conn, note_index, &facts, scope);
+    if swept > 0 {
+        log::info!("embed_batch: swept {swept} stale note vectors for {vault_id}");
+    }
+    let notes_needing_embedding =
+        notes_pending_embedding(conn, notes_cache, &facts, note_embed_enabled, scope);
+
+    // `clear_first` wipes every stored vector below: it is a user-triggered full
+    // rebuild, so the plan above describes a state it is about to destroy and
+    // must not be what it returns early on.
+    if !clear_first
+        && notes_needing_embedding.is_empty()
+        && !(block_embed_enabled && block_embed_work_pending(conn))
+    {
+        log::info!("embed_batch: nothing to embed for {vault_id}; model not loaded");
+        finish_embed_pass(app_handle, vault_id, scope, cancel, 0, started.elapsed());
         return LoopAction::Continue;
     }
 
@@ -2400,27 +2528,12 @@ fn handle_embed_batch(
     let mut deferred: Vec<DbCommand> = Vec::new();
     drain_pending_commands(conn, rx, notes_cache, note_index, block_index, &mut deferred);
 
+    // Re-planned after the drain: the saves applied above (and `clear_first`'s
+    // wipe) moved the work on, and the pass must run against the rows as they
+    // are now rather than against the state the pre-load gate saw.
     let facts = search_db::note_embed_facts(conn).unwrap_or_default();
-    let swept = sweep_stale_note_vectors(conn, note_index, &facts, scope);
-    if swept > 0 {
-        log::info!("embed_batch: swept {swept} stale note vectors for {vault_id}");
-    }
-
-    let already_embedded = vector_db::get_embedded_paths(conn);
-    let notes_needing_embedding: Vec<String> = if note_embed_enabled {
-        notes_cache
-            .keys()
-            .filter(|path| {
-                !already_embedded.contains(path.as_str())
-                    && facts
-                        .get(path.as_str())
-                        .is_some_and(|f| note_embed_eligible(f, scope))
-            })
-            .cloned()
-            .collect()
-    } else {
-        Vec::new()
-    };
+    let notes_needing_embedding =
+        notes_pending_embedding(conn, notes_cache, &facts, note_embed_enabled, scope);
 
     let total = notes_needing_embedding.len();
     let pass_start = Instant::now();
@@ -2653,19 +2766,7 @@ fn handle_embed_batch(
     // "Embedding sections" indicator spinning and `wait_for_embedding_run`
     // unresolved for the rest of the session. The embedded count reflects notes
     // written to note_embeddings, not raw model invocations. (ref: DL-003)
-    if let Some(event) = terminal_embed_event(
-        cancel.load(Ordering::Relaxed),
-        vault_id,
-        embedded,
-        pass_start.elapsed().as_millis() as u64,
-    ) {
-        // Past this point the attempt has ended, however the loops above left it
-        // — a failed encoder breaks out to here too. `terminal_embed_event`
-        // reports `None` for a cancelled pass: that one stopped rather than
-        // finished, and its notes are re-queued.
-        record_embed_attempt(app_handle, vault_id, scope);
-        let _ = app_handle.emit("embedding_progress", event);
-    }
+    finish_embed_pass(app_handle, vault_id, scope, cancel, embedded, pass_start.elapsed());
 
     compact_indices_if_stale(note_index, block_index);
 

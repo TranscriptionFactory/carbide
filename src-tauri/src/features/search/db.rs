@@ -1050,7 +1050,27 @@ fn tags_schema_needs_migration(conn: &Connection) -> bool {
     has_old && !has_new
 }
 
+/// Schema revision stamped into SQLite's `user_version`. Bump it whenever a
+/// migration below adds a table, column or index: `init_schema` runs its DDL only
+/// while the pragma is behind, so the bump is what makes an addition run once per
+/// database instead of once per connection open. (ref: R5)
+const SCHEMA_VERSION: i32 = 1;
+
+fn schema_version(conn: &Connection) -> i32 {
+    conn.pragma_query_value(None, "user_version", |row| row.get(0))
+        .unwrap_or(0)
+}
+
 fn init_schema(conn: &Connection) -> Result<(), String> {
+    // Every connection open used to replay the whole schema: ~35 `ALTER TABLE
+    // notes ADD COLUMN` attempts that fail one by one once the columns exist,
+    // plus the CREATE TABLE/INDEX batch. The pragma makes that a header read on
+    // an already-migrated database. A database from an older build (or a fresh
+    // file) reports 0 and takes the full path below.
+    if schema_version(conn) >= SCHEMA_VERSION {
+        return Ok(());
+    }
+
     if fts_schema_needs_migration(conn) {
         conn.execute_batch(
             "DROP TABLE IF EXISTS notes_fts;
@@ -1228,6 +1248,8 @@ fn init_schema(conn: &Connection) -> Result<(), String> {
     }
 
     migrate_linked_paths(conn);
+
+    let _ = conn.pragma_update(None, "user_version", SCHEMA_VERSION);
 
     Ok(())
 }
@@ -4012,6 +4034,75 @@ more text").expect("note");
         let sixth = sync_index(None, "vault", &conn, root, &cancel, &|_, _| {}, &mut || {})
             .expect("sixth sync");
         assert!(sixth.vault_stats.is_none(), "clean and unchanged skips again");
+    }
+
+    fn has_column(conn: &Connection, table: &str, column: &str) -> bool {
+        let mut stmt = conn
+            .prepare(&format!("PRAGMA table_info({table})"))
+            .expect("table_info");
+        let names: Vec<String> = stmt
+            .query_map([], |row| row.get::<_, String>(1))
+            .expect("rows")
+            .filter_map(Result::ok)
+            .collect();
+        names.iter().any(|name| name == column)
+    }
+
+    #[test]
+    fn init_schema_runs_its_ddl_once_per_version() {
+        let tmp = tempfile::TempDir::new().expect("temp dir");
+        let path = tmp.path().join("search.db");
+        let conn = open_search_db_at_path(&path).expect("open");
+        assert_eq!(schema_version(&conn), SCHEMA_VERSION);
+
+        // The guard is what makes a reopened connection cheap. Asserting the
+        // pragma alone would pass with the guard removed and the ~35 ALTER
+        // attempts back on every open, so the check is that the DDL block does
+        // not run: a table it would recreate stays gone.
+        conn.execute_batch("DROP TABLE note_code_blocks")
+            .expect("drop");
+        init_schema(&conn).expect("second init");
+
+        let remaining: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = 'note_code_blocks'",
+                [],
+                |row| row.get(0),
+            )
+            .expect("count");
+        assert_eq!(
+            remaining, 0,
+            "a current schema version must not replay the DDL block"
+        );
+    }
+
+    #[test]
+    fn init_schema_migrates_a_database_that_predates_the_version_stamp() {
+        // Every database written before this build reports 0, and so does a
+        // fresh file: both must still take the full path, or an upgrade loses
+        // the columns the ALTERs add and a new file comes up without them.
+        let conn = Connection::open_in_memory().expect("in-memory db");
+        conn.execute_batch(
+            "CREATE TABLE notes (
+                path TEXT PRIMARY KEY,
+                title TEXT NOT NULL,
+                mtime_ms INTEGER NOT NULL,
+                size_bytes INTEGER NOT NULL
+            );",
+        )
+        .expect("legacy notes table");
+
+        init_schema(&conn).expect("migrate");
+
+        assert_eq!(schema_version(&conn), SCHEMA_VERSION);
+        assert!(
+            has_column(&conn, "notes", "content_hash"),
+            "the metrics columns are added on the unmigrated path"
+        );
+        assert!(
+            has_column(&conn, "notes", "citekey"),
+            "the linked-source columns come from the same ALTER loop"
+        );
     }
 
     #[test]
