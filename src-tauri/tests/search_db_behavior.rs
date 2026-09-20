@@ -2,11 +2,12 @@ use crate::features::notes::service as notes_service;
 use crate::features::search::db::{
     compute_sync_plan, count_bases_many, extract_frontmatter_properties, get_backlinks,
     get_manifest, get_note_meta, get_orphan_outlinks, get_outlinks, list_note_paths_by_prefix,
-    open_search_db_at_path, query_bases, re_resolve_orphan_outlinks, rebuild_index, remove_note,
-    remove_notes_by_prefix, rename_folder_paths, rename_note_path, search, search_headings,
-    set_outlinks, suggest, suggest_planned, sync_index, upsert_note, upsert_note_simple,
+    open_search_db_at_path, query_bases, query_sections, re_resolve_orphan_outlinks,
+    rebuild_index, remove_note, remove_notes_by_prefix, rename_folder_paths, rename_note_path,
+    search, search_headings, set_outlinks, suggest, suggest_planned, sync_index, upsert_note,
+    upsert_note_simple,
 };
-use crate::features::search::model::{BaseFilter, BaseQuery, IndexNoteMeta, SearchScope};
+use crate::features::search::model::{BaseFilter, BaseQuery, IndexNoteMeta, SearchScope, SectionFilter};
 use std::cell::RefCell;
 use std::collections::BTreeMap;
 use std::fs;
@@ -1804,8 +1805,8 @@ fn reindexing_plain_content_preserves_section_rows() {
     .expect("linked upsert should succeed");
 
     conn.execute(
-        "INSERT INTO note_sections (path, heading_id, level, title, start_line, end_line, word_count) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
-        rusqlite::params![meta.path, "imported-1", 1, "Imported", 0, 3, 10],
+        "INSERT INTO note_sections (path, heading_id, level, title, start_line, end_line, word_count, heading_path) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+        rusqlite::params![meta.path, "imported-1", 1, "Imported", 0, 3, 10, "Imported"],
     )
     .expect("seed row should insert");
 
@@ -2099,6 +2100,216 @@ fn search_excludes_linked_sources_when_setting_is_off() {
 
     let paths: Vec<&str> = hits.iter().map(|h| h.note.path.as_str()).collect();
     assert_eq!(paths, vec!["notes/vault.md"]);
+}
+
+#[test]
+fn query_sections_filters_by_title_level_path_and_min_words() {
+    let tmp = TempDir::new().expect("temp dir should be created");
+    let conn = open_search_db_at_path(&tmp.path().join("test.db")).expect("db should open");
+
+    upsert_note(
+        &conn,
+        &note_meta("Projects/meeting.md", "Meeting", "meeting"),
+        "# Meeting\nshort body\n## Meeting Q4\none two three four five six\n",
+    )
+    .expect("project note should upsert");
+    upsert_note(
+        &conn,
+        &note_meta("Archive/meeting.md", "Meeting", "meeting"),
+        "# Meeting\narchive body\n",
+    )
+    .expect("archive note should upsert");
+
+    let limited = query_sections(
+        &conn,
+        SectionFilter {
+            title: Some("meeting".to_string()),
+            title_is_regex: false,
+            level_min: None,
+            level_max: Some(1),
+            path_prefix: Some("Projects/".to_string()),
+            heading_path_under: None,
+            min_words: None,
+            limit: 50,
+        },
+    )
+    .expect("query should succeed");
+
+    let rows: Vec<(&str, &str, i32, i64)> = limited
+        .iter()
+        .map(|s| {
+            (
+                s.note.path.as_str(),
+                s.heading_path.as_str(),
+                s.level,
+                s.start_line,
+            )
+        })
+        .collect();
+    assert_eq!(rows, vec![("Projects/meeting.md", "Meeting", 1, 0)]);
+
+    // The same folder without the level cap returns the nested heading too, and
+    // `min_words` drops the short one above it.
+    let nested = query_sections(
+        &conn,
+        SectionFilter {
+            title: None,
+            title_is_regex: false,
+            level_min: None,
+            level_max: None,
+            path_prefix: Some("Projects/".to_string()),
+            heading_path_under: None,
+            min_words: Some(5),
+            limit: 50,
+        },
+    )
+    .expect("query should succeed");
+
+    assert_eq!(nested.len(), 1);
+    assert_eq!(nested[0].heading_path, "Meeting/Meeting Q4");
+    assert_eq!(nested[0].level, 2);
+    assert_eq!(nested[0].start_line, 2);
+    assert_eq!(nested[0].word_count, 9);
+    assert_eq!(nested[0].note.title, "Meeting");
+}
+
+#[test]
+fn query_sections_title_regex_is_case_insensitive() {
+    let tmp = TempDir::new().expect("temp dir should be created");
+    let conn = open_search_db_at_path(&tmp.path().join("test.db")).expect("db should open");
+
+    upsert_note(
+        &conn,
+        &note_meta("a.md", "A", "a"),
+        "# Meeting Notes\nbody\n## Roadmap\nbody\n",
+    )
+    .expect("upsert should succeed");
+
+    let hits = query_sections(
+        &conn,
+        SectionFilter {
+            title: Some("^meeting".to_string()),
+            title_is_regex: true,
+            level_min: None,
+            level_max: None,
+            path_prefix: None,
+            heading_path_under: None,
+            min_words: None,
+            limit: 50,
+        },
+    )
+    .expect("query should succeed");
+
+    assert_eq!(hits.len(), 1);
+    assert_eq!(hits[0].title, "Meeting Notes");
+}
+
+#[test]
+fn query_sections_under_returns_the_heading_and_its_descendants() {
+    let tmp = TempDir::new().expect("temp dir should be created");
+    let conn = open_search_db_at_path(&tmp.path().join("test.db")).expect("db should open");
+
+    upsert_note(
+        &conn,
+        &note_meta("roadmap.md", "Roadmap", "roadmap"),
+        "# Roadmap\n## Q4\n### Deliverables\nbody\n## Q1\nbody\n# Other\nbody\n",
+    )
+    .expect("upsert should succeed");
+
+    let hits = query_sections(
+        &conn,
+        SectionFilter {
+            title: None,
+            title_is_regex: false,
+            level_min: None,
+            level_max: None,
+            path_prefix: None,
+            heading_path_under: Some("Roadmap/Q4".to_string()),
+            min_words: None,
+            limit: 50,
+        },
+    )
+    .expect("query should succeed");
+
+    let paths: Vec<&str> = hits.iter().map(|s| s.heading_path.as_str()).collect();
+    assert_eq!(paths, vec!["Roadmap/Q4", "Roadmap/Q4/Deliverables"]);
+}
+
+#[test]
+fn query_sections_stops_at_the_limit() {
+    let tmp = TempDir::new().expect("temp dir should be created");
+    let conn = open_search_db_at_path(&tmp.path().join("test.db")).expect("db should open");
+
+    let body = (0..20)
+        .map(|i| format!("## Section {i}\nbody"))
+        .collect::<Vec<_>>()
+        .join("\n");
+    upsert_note(&conn, &note_meta("many.md", "Many", "many"), &body).expect("upsert should succeed");
+
+    let hits = query_sections(
+        &conn,
+        SectionFilter {
+            title: Some("Section".to_string()),
+            title_is_regex: false,
+            level_min: None,
+            level_max: None,
+            path_prefix: None,
+            heading_path_under: None,
+            min_words: None,
+            limit: 3,
+        },
+    )
+    .expect("query should succeed");
+
+    assert_eq!(hits.len(), 3);
+    let start_lines: Vec<i64> = hits.iter().map(|s| s.start_line).collect();
+    assert_eq!(start_lines, vec![0, 2, 4]);
+}
+
+#[test]
+fn query_sections_survive_a_reindex() {
+    let tmp = TempDir::new().expect("temp dir should be created");
+    let db_dir = TempDir::new().expect("db temp dir should be created");
+    let root = tmp.path();
+    let conn = open_search_db_at_path(&db_dir.path().join("test.db")).expect("db should open");
+
+    write_md(root, "notes/plan.md", "# Roadmap\n## Q4\nbody\n");
+
+    let cancel = AtomicBool::new(false);
+    rebuild_index(None, "test-vault", &conn, root, &cancel, &|_, _| {}, &mut || {})
+        .expect("rebuild should succeed");
+
+    let filter = SectionFilter {
+        title: None,
+        title_is_regex: false,
+        level_min: None,
+        level_max: None,
+        path_prefix: None,
+        heading_path_under: Some("Roadmap/Q4".to_string()),
+        min_words: None,
+        limit: 50,
+    };
+    let first = query_sections(&conn, filter.clone()).expect("query should succeed");
+    assert_eq!(first.len(), 1);
+    assert_eq!(first[0].note.path, "notes/plan.md");
+
+    // A second pass sees the file as unchanged; the sections it already indexed
+    // must still be there with their stored ancestry.
+    let second = sync_index(
+        None,
+        "test-vault",
+        &conn,
+        root,
+        &cancel,
+        &|_, _| {},
+        &mut || {},
+    )
+    .expect("sync should succeed");
+    assert_eq!(second.indexed, 0);
+
+    let after = query_sections(&conn, filter).expect("query should succeed");
+    assert_eq!(after.len(), 1);
+    assert_eq!(after[0].heading_path, "Roadmap/Q4");
 }
 
 #[test]

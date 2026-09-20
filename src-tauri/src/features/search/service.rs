@@ -634,6 +634,27 @@ pub fn search_headings_inner(
 
 #[tauri::command]
 #[specta::specta]
+pub async fn index_query_sections(
+    app: AppHandle,
+    vault_id: String,
+    filter: crate::features::search::model::SectionFilter,
+) -> Result<Vec<crate::features::search::model::SectionHit>, String> {
+    crate::shared::blocking::blocking("index_query_sections", move || {
+        index_query_sections_inner(app, vault_id, filter)
+    })
+    .await
+}
+
+pub fn index_query_sections_inner(
+    app: AppHandle,
+    vault_id: String,
+    filter: crate::features::search::model::SectionFilter,
+) -> Result<Vec<crate::features::search::model::SectionHit>, String> {
+    with_read_conn(&app, &vault_id, |conn| search_db::query_sections(conn, filter))
+}
+
+#[tauri::command]
+#[specta::specta]
 pub async fn tags_get_notes_for_tag(
     app: AppHandle,
     vault_id: String,

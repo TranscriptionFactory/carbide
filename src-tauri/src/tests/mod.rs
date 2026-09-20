@@ -157,6 +157,7 @@ mod specta_export {
                 crate::features::search::service::index_cancel,
                 crate::features::search::service::index_rebuild,
                 crate::features::search::service::index_search,
+                crate::features::search::service::index_query_sections,
                 crate::features::search::service::index_suggest,
                 crate::features::search::service::index_suggest_planned,
                 crate::features::search::service::index_list_note_paths_by_prefix,

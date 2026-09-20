@@ -277,6 +277,43 @@ pub struct HeadingMatch {
     pub score: f64,
 }
 
+/// Filter for the section (heading) query noun. Every field is optional except
+/// `limit`; `title_is_regex` selects whether `title` is a regex or a
+/// case-insensitive substring.
+#[derive(Debug, Serialize, Deserialize, Clone, Type)]
+pub struct SectionFilter {
+    #[serde(default)]
+    pub title: Option<String>,
+    #[serde(default)]
+    pub title_is_regex: bool,
+    #[serde(default)]
+    pub level_min: Option<i32>,
+    #[serde(default)]
+    pub level_max: Option<i32>,
+    #[serde(default)]
+    pub path_prefix: Option<String>,
+    /// Matches this heading path and everything nested under it.
+    #[serde(default)]
+    pub heading_path_under: Option<String>,
+    #[serde(default)]
+    pub min_words: Option<i64>,
+    pub limit: usize,
+}
+
+/// One `note_sections` row with its note meta. Lines are 0-based, matching the
+/// index and the `note.open` `line` argument.
+#[derive(Debug, Serialize, Deserialize, Clone, Type)]
+pub struct SectionHit {
+    pub note: IndexNoteMeta,
+    pub heading_id: String,
+    pub title: String,
+    pub level: i32,
+    pub heading_path: String,
+    pub start_line: i64,
+    pub end_line: i64,
+    pub word_count: i64,
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone, Type)]
 pub struct NoteLink {
     pub target_path: String,
