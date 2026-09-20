@@ -14,10 +14,12 @@ function create_mock_tab_store() {
   } as unknown as TabStore;
 }
 
+type MockAction = { id: string; execute: () => unknown };
+
 function create_mock_registry() {
-  const actions = new Map<string, any>();
+  const actions = new Map<string, MockAction>();
   const registry = {
-    register(action: any) {
+    register(action: MockAction) {
       actions.set(action.id, action);
     },
     execute: vi.fn(),
@@ -44,10 +46,11 @@ function create_mock_vault_store(vault_id: string | null = "vault-1") {
 }
 
 function create_mock_bases_service() {
-  return {
+  const mocks = {
     refresh_properties: vi.fn().mockResolvedValue(undefined),
     run_query: vi.fn().mockResolvedValue(undefined),
-  } as unknown as BasesService;
+  };
+  return mocks as unknown as BasesService & typeof mocks;
 }
 
 describe("register_bases_actions", () => {

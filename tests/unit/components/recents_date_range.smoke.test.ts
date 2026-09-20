@@ -82,34 +82,39 @@ describe("recents_file_view — the date range control", () => {
     return day?.getAttribute("data-value");
   }
 
+  function days_other_than_today(): [number, number] {
+    const today = new Date().getDate();
+    return today === 10 ? [15, 14] : today === 15 ? [10, 14] : [10, 15];
+  }
+
   function today_key(): string {
     const now = new Date();
-    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+    return `${String(now.getFullYear())}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
   }
 
   it("commits the range only once both ends are picked, with the picked end rather than today", async () => {
     const { target, on_change_period, cleanup } = render();
     const { days } = await open_calendar(target);
-    const [first, second] = [10, 15, 14].filter(
-      (d) => d !== new Date().getDate(),
-    );
+    const [first, second] = days_other_than_today();
 
-    const start = click_day(days, first!);
+    const start = click_day(days, first);
     expect(on_change_period).not.toHaveBeenCalled();
 
-    const end = click_day(days, second!);
+    const end = click_day(days, second);
     expect(end).not.toBe(today_key());
     expect(on_change_period).toHaveBeenCalledTimes(1);
-    expect(on_change_period).toHaveBeenCalledWith(`custom:${start}..${end}`);
+    expect(on_change_period).toHaveBeenCalledWith(
+      `custom:${String(start)}..${String(end)}`,
+    );
     cleanup();
   });
 
   it("commits start..today when the popover closes with only a start picked", async () => {
     const { target, on_change_period, cleanup } = render();
     const { trigger, days } = await open_calendar(target);
-    const [first] = [10, 15].filter((d) => d !== new Date().getDate());
+    const [first] = days_other_than_today();
 
-    const start = click_day(days, first!);
+    const start = click_day(days, first);
     expect(on_change_period).not.toHaveBeenCalled();
 
     trigger?.click();
@@ -119,7 +124,7 @@ describe("recents_file_view — the date range control", () => {
 
     expect(on_change_period).toHaveBeenCalledTimes(1);
     expect(on_change_period).toHaveBeenCalledWith(
-      `custom:${start}..${today_key()}`,
+      `custom:${String(start)}..${today_key()}`,
     );
     cleanup();
   });

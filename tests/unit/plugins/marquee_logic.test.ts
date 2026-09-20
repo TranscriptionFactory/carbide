@@ -533,13 +533,13 @@ describe("select_rows", () => {
   it("reserves slots for sections behind a wall of dated tasks", () => {
     const tasks = Array.from({ length: 50 }, (_, i) =>
       make_task({
-        id: `task-${i}`,
+        id: `task-${String(i)}`,
         line_number: i,
         due_date: `2026-01-${String((i % 28) + 1).padStart(2, "0")}`,
       }),
     );
     const sections = Array.from({ length: 3 }, (_, i) =>
-      make_section({ heading_id: `section-${i}`, start_line: 100 + i }),
+      make_section({ heading_id: `section-${String(i)}`, start_line: 100 + i }),
     );
 
     const selected = select_rows(build_rows(tasks, sections), null, 40);
@@ -556,10 +556,14 @@ describe("select_rows", () => {
 
   it("caps sections at half the row budget", () => {
     const tasks = Array.from({ length: 10 }, (_, i) =>
-      make_task({ id: `task-${i}`, line_number: i, due_date: "2026-01-02" }),
+      make_task({
+        id: `task-${String(i)}`,
+        line_number: i,
+        due_date: "2026-01-02",
+      }),
     );
     const sections = Array.from({ length: 10 }, (_, i) =>
-      make_section({ heading_id: `section-${i}`, start_line: 100 + i }),
+      make_section({ heading_id: `section-${String(i)}`, start_line: 100 + i }),
     );
 
     const selected = select_rows(build_rows(tasks, sections), null, 5);
@@ -570,7 +574,11 @@ describe("select_rows", () => {
 
   it("leaves a task-only pool unchanged", () => {
     const tasks = Array.from({ length: 10 }, (_, i) =>
-      make_task({ id: `task-${i}`, line_number: i, due_date: "2026-01-02" }),
+      make_task({
+        id: `task-${String(i)}`,
+        line_number: i,
+        due_date: "2026-01-02",
+      }),
     );
 
     expect(

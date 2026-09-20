@@ -478,12 +478,14 @@ class Parser {
   }
 }
 
-class ParseError {
+class ParseError extends Error {
   constructor(
-    readonly message: string,
+    message: string,
     readonly position: number,
     readonly length: number,
-  ) {}
+  ) {
+    super(message);
+  }
 
   to_error() {
     return {
