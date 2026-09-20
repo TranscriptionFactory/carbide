@@ -196,13 +196,16 @@ const STATUS_TO_CHECKED: Record<"todo" | "doing" | "done", boolean | null> = {
   done: true,
 };
 
-function calculate_cursor_info(view: EditorView): CursorInfo {
+function calculate_cursor_info(
+  view: EditorView,
+  totals: Pick<CursorInfo, "total_lines" | "total_words"> | null,
+): CursorInfo {
   const { doc, selection } = view.state;
   const $from = selection?.$from;
   const line = $from ? line_from_pos(doc, $from.pos) : 1;
   const column = $from ? $from.parentOffset + 1 : 1;
-  const total_lines = count_doc_lines(doc);
-  const total_words = count_doc_words(doc);
+  const total_lines = totals ? totals.total_lines : count_doc_lines(doc);
+  const total_words = totals ? totals.total_words : count_doc_words(doc);
   return { line, column, total_lines, total_words };
 }
 
@@ -226,14 +229,16 @@ function create_cursor_plugin(
       let prev_selection: EditorState["selection"] | null = null;
       let prev_active_heading: string | null = null;
       let latest_view: EditorView | null = null;
+      let totals_stale = false;
       const cursor_scheduler = new IdleTaskScheduler();
 
       return {
         update: (view) => {
           latest_view = view;
+          const doc_changed = view.state.doc !== prev_doc;
           const selection_changed =
-            view.state.doc !== prev_doc ||
-            view.state.selection !== prev_selection;
+            doc_changed || view.state.selection !== prev_selection;
+          if (doc_changed) totals_stale = true;
           prev_doc = view.state.doc;
           prev_selection = view.state.selection;
 
@@ -248,7 +253,11 @@ function create_cursor_plugin(
           if (selection_changed) {
             cursor_scheduler.schedule(() => {
               if (!latest_view) return;
-              cached = calculate_cursor_info(latest_view);
+              cached = calculate_cursor_info(
+                latest_view,
+                totals_stale ? null : cached,
+              );
+              totals_stale = false;
               on_cursor_change(cached);
             });
           }

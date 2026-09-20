@@ -7,11 +7,7 @@ import {
   is_tag_scan_target,
   type InlineTagRange,
 } from "$lib/features/editor/domain/tag_ranges";
-import {
-  changed_range,
-  nodes_in_ranges,
-  replace_node_decorations,
-} from "./incremental_scan";
+import { changed_range, rescan_decorations } from "./incremental_scan";
 
 export type TagPillMenuConfig = {
   get_color: (tag: string) => string | null;
@@ -88,17 +84,14 @@ export function create_tag_pill_prose_plugin(): Plugin<TagPillState> {
             new_state.doc,
           );
           if (range) {
-            decorations = replace_node_decorations(
+            decorations = rescan_decorations(
               decorations,
               new_state.doc,
-              nodes_in_ranges(
-                new_state.doc,
-                [range],
-                // Every text node in range, so that decorations of a node that
-                // stopped being scannable (a new inline-code mark) are dropped
-                // as well; the builder reapplies the scan rules.
-                (node) => node.isText,
-              ),
+              [range],
+              // Every text node in range, so that decorations of a node that
+              // stopped being scannable (a new inline-code mark) are dropped
+              // as well; the builder reapplies the scan rules.
+              (node) => node.isText,
               (node, pos) => tag_decorations_for(new_state.doc, node, pos),
             );
           }

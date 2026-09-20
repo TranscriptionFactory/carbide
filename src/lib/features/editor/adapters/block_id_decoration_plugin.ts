@@ -5,8 +5,7 @@ import { Decoration, DecorationSet } from "prosemirror-view";
 import { BLOCK_ID_PATTERN } from "$lib/features/editor/domain/block_id";
 import {
   changed_range,
-  nodes_in_ranges,
-  replace_node_decorations,
+  rescan_decorations,
   type ScanRange,
 } from "./incremental_scan";
 
@@ -85,15 +84,11 @@ export function create_block_id_decoration_plugin(): Plugin<DecorationSet> {
         }
 
         const decorations = prev.map(tr.mapping, new_state.doc);
-        const blocks = nodes_in_ranges(
+        return rescan_decorations(
+          decorations,
           new_state.doc,
           ranges,
           (node) => node.isTextblock,
-        );
-        return replace_node_decorations(
-          decorations,
-          new_state.doc,
-          blocks,
           (node, pos) => block_id_decorations(node, pos, new_state.selection),
         );
       },

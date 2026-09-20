@@ -71,17 +71,19 @@ export function meter_document_work(doc?: ProseNode): {
     },
   });
 
+  // A plain walk over the child arrays: `forEach` would read each child's
+  // `nodeSize`, and so its `text`, through the accessor just installed.
   const harvest = (node: ProseNode) => {
-    node.forEach((child) => {
+    for (const child of node.content.content) {
       if (!child.isText) {
         harvest(child);
-        return;
+        continue;
       }
       if (Object.hasOwn(child, "text")) {
         backing.set(child, child.text ?? "");
         Reflect.deleteProperty(child, "text");
       }
-    });
+    }
   };
   if (doc) harvest(doc);
 

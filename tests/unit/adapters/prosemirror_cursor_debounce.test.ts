@@ -6,6 +6,7 @@ import { TextSelection } from "prosemirror-state";
 import { create_prosemirror_editor_port } from "$lib/features/editor/adapters/prosemirror_adapter";
 import type { EditorSession } from "$lib/features/editor/ports";
 import type { CursorInfo } from "$lib/shared/types/editor";
+import { meter_document_work } from "../helpers/document_work_meter";
 
 async function create_session(
   on_cursor_change: (info: CursorInfo) => void,
@@ -106,6 +107,47 @@ describe("prosemirror cursor totals deferral", () => {
 
     vi.runAllTimers();
     expect(last_cursor(on_cursor.mock.calls).line).toBe(3);
+
+    session.destroy();
+  });
+
+  it("recomputes the totals for a doc change but not for a caret-only move", async () => {
+    const on_cursor = vi.fn();
+    const body = "lorem ipsum ".repeat(500).trim();
+    const session = await create_session(on_cursor, `first\n\n${body}`);
+    const view = session.get_view?.();
+    if (!view) throw new Error("missing view");
+    vi.runAllTimers();
+    expect(last_cursor(on_cursor.mock.calls).total_words).toBe(1001);
+
+    const deferred_chars = (edit: () => void): number => {
+      edit();
+      const meter = meter_document_work(view.state.doc);
+      try {
+        vi.runAllTimers();
+      } finally {
+        meter.stop();
+      }
+      return meter.counters.chars;
+    };
+
+    const edited = deferred_chars(() => {
+      view.dispatch(view.state.tr.insertText("X", 2));
+    });
+    expect(edited).toBeGreaterThan(body.length);
+    expect(last_cursor(on_cursor.mock.calls).total_words).toBe(1001);
+
+    const moved = deferred_chars(() => {
+      view.dispatch(
+        view.state.tr.setSelection(TextSelection.create(view.state.doc, 4)),
+      );
+    });
+    expect(moved).toBeLessThan(64);
+    const last = last_cursor(on_cursor.mock.calls);
+    expect(last.line).toBe(1);
+    expect(last.column).toBe(4);
+    expect(last.total_words).toBe(1001);
+    expect(last.total_lines).toBe(3);
 
     session.destroy();
   });

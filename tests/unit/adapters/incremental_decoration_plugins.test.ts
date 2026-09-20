@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { EditorState, Plugin, TextSelection } from "prosemirror-state";
 import type { Command } from "prosemirror-state";
 import { Fragment, Slice } from "prosemirror-model";
@@ -35,6 +35,7 @@ para one #alpha text ^abc123
 para two plain ^mid789
 
 - [ ] task one @2024-06-20 #beta
+  - [ ] sub task @2024-06-21
 - [x] task two due: 2024-01-01
 
 final para #gamma ^def456
@@ -222,6 +223,13 @@ const SCENARIOS: Scenario[] = [
         marked.tr.removeMark(from, from + 5, mark_type("strong")),
       );
     },
+  },
+  {
+    name: "insert inside a parent task item",
+    run: (state) =>
+      state.apply(
+        state.tr.insertText("X", find_pos(state.doc, "task one") + 4),
+      ),
   },
   {
     name: "toggle a task attribute (empty step map)",
@@ -467,8 +475,29 @@ describe("one-keystroke cost", () => {
       find_pos(big, "task 4999 ") + 5,
     );
 
-    expect(cost.nodes).toBeLessThan(12);
+    // The touched item plus the walk of its own subtree for nested tasks.
+    expect(cost.nodes).toBeLessThan(16);
     expect(cost.chars).toBeLessThan(256);
+  });
+
+  it("removes stale decorations through a bounded find, never a full scan", () => {
+    const find = vi.spyOn(DecorationSet.prototype, "find");
+    try {
+      for (const plugin_case of PLUGIN_CASES) {
+        const state = make_state(plugin_case.plugin());
+        find.mockClear();
+        state.apply(
+          state.tr.insertText("x", find_pos(state.doc, "task one") + 2),
+        );
+        expect(find, plugin_case.name).toHaveBeenCalled();
+        for (const [from, to] of find.mock.calls) {
+          expect(from, plugin_case.name).toBeTypeOf("number");
+          expect(to, plugin_case.name).toBeTypeOf("number");
+        }
+      }
+    } finally {
+      find.mockRestore();
+    }
   });
 
   it("caret-only moves leave the tag and task scans untouched", () => {

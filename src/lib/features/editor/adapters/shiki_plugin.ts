@@ -2,11 +2,7 @@ import { Plugin, PluginKey } from "prosemirror-state";
 import { Decoration, DecorationSet } from "prosemirror-view";
 import type { Node as ProseNode } from "prosemirror-model";
 import type { HighlighterCore } from "shiki/core";
-import {
-  changed_range,
-  nodes_in_ranges,
-  replace_node_decorations,
-} from "./incremental_scan";
+import { changed_range, rescan_decorations } from "./incremental_scan";
 import {
   get_highlighter_sync,
   resolve_language,
@@ -144,14 +140,11 @@ export function create_shiki_prose_plugin(): Plugin {
 
         return {
           theme,
-          decorations: replace_node_decorations(
+          decorations: rescan_decorations(
             decorations,
             tr.doc,
-            nodes_in_ranges(
-              tr.doc,
-              [range],
-              (node) => node.type.name === "code_block",
-            ),
+            [range],
+            (node) => node.type.name === "code_block",
             (node, pos) =>
               build_block_decorations(node, pos, highlighter, theme),
           ),

@@ -78,50 +78,7 @@ export function changed_range(tr: Transaction): ScanRange | null {
   return { from, to };
 }
 
-/**
- * Nodes of the given regions that `matches` accepts. Each range is widened by
- * one character: a pure deletion leaves an empty range, and a point that sits
- * on a block boundary has to reach the block on both sides of it.
- */
-export function nodes_in_ranges(
-  doc: ProseNode,
-  ranges: readonly ScanRange[],
-  matches: (node: ProseNode, pos: number) => boolean,
-): PositionedNode[] {
-  const found: PositionedNode[] = [];
-  const seen = new Set<number>();
-
-  for (const range of ranges) {
-    const from = Math.max(0, Math.min(range.from - 1, doc.content.size - 1));
-    const to = Math.min(range.to + 1, doc.content.size);
-    doc.nodesBetween(from, to, (node, pos) => {
-      if (seen.has(pos) || !matches(node, pos)) return true;
-      seen.add(pos);
-      found.push({ pos, node });
-      return true;
-    });
-  }
-
-  return found;
-}
-
-/**
- * Rebuilds the decorations of the given nodes: everything overlapping their
- * spans is dropped from the mapped set, then `build` re-decorates each node.
- *
- * Removal is by region, not per node, so nested nodes (a task inside a task),
- * coincident spans and decorations a mapping recovered across a node boundary
- * (a split inside a text node) all settle in one pass, and a sibling's node
- * decoration that merely touches the region survives.
- */
-export function replace_node_decorations(
-  decorations: DecorationSet,
-  doc: ProseNode,
-  nodes: readonly PositionedNode[],
-  build: (node: ProseNode, pos: number) => Decoration[],
-): DecorationSet {
-  if (nodes.length === 0) return decorations;
-
+function merge_regions(nodes: readonly PositionedNode[]): ScanRange[] {
   const regions = nodes
     .map(({ pos, node }) => ({ from: pos, to: pos + node.nodeSize }))
     .sort((a, b) => a.from - b.from);
@@ -134,17 +91,76 @@ export function replace_node_decorations(
       merged.push({ ...region });
     }
   }
+  return merged;
+}
 
-  const stale = decorations
-    .find()
-    .filter((decoration) =>
-      merged.some(
-        (region) => decoration.from < region.to && decoration.to > region.from,
-      ),
-    );
+/**
+ * The seeds plus every matching node nested inside one of them, so the walk
+ * stays within the seeds' own subtrees instead of re-entering the document.
+ */
+function with_nested_matches(
+  seeds: readonly PositionedNode[],
+  matches: (node: ProseNode, pos: number) => boolean,
+): PositionedNode[] {
+  const found = new Map<number, PositionedNode>();
+  for (const seed of seeds) {
+    found.set(seed.pos, seed);
+    if (seed.node.isLeaf) continue;
+    seed.node.descendants((node, offset) => {
+      const pos = seed.pos + 1 + offset;
+      if (!found.has(pos) && matches(node, pos)) found.set(pos, { pos, node });
+      return true;
+    });
+  }
+  return [...found.values()];
+}
 
-  let next = decorations.remove(stale);
-  for (const { pos, node } of nodes) {
+/**
+ * Rebuilds the decorations of every `matches` node the given regions reach.
+ * Each range is widened by one character: a pure deletion leaves an empty
+ * range, and a point on a block boundary has to reach the block on both sides.
+ *
+ * The nodes found that way seed the regions to rewrite; every matching node
+ * inside those regions is then rebuilt, not only the seeds, so nested nodes
+ * (a task inside a task) whose decorations the region removal dropped come
+ * back. Removal is by region, not per node, so coincident spans and
+ * decorations a mapping recovered across a node boundary (a split inside a
+ * text node) settle in one pass, and a sibling's node decoration that merely
+ * touches the region survives.
+ */
+export function rescan_decorations(
+  decorations: DecorationSet,
+  doc: ProseNode,
+  ranges: readonly ScanRange[],
+  matches: (node: ProseNode, pos: number) => boolean,
+  build: (node: ProseNode, pos: number) => Decoration[],
+): DecorationSet {
+  const seeds: PositionedNode[] = [];
+  const seen = new Set<number>();
+  for (const range of ranges) {
+    const from = Math.max(0, Math.min(range.from - 1, doc.content.size - 1));
+    const to = Math.min(range.to + 1, doc.content.size);
+    doc.nodesBetween(from, to, (node, pos) => {
+      if (seen.has(pos) || !matches(node, pos)) return true;
+      seen.add(pos);
+      seeds.push({ pos, node });
+      return true;
+    });
+  }
+  if (seeds.length === 0) return decorations;
+
+  const regions = merge_regions(seeds);
+  const stale = new Set<Decoration>();
+  for (const region of regions) {
+    for (const decoration of decorations.find(region.from, region.to)) {
+      if (decoration.from < region.to && decoration.to > region.from) {
+        stale.add(decoration);
+      }
+    }
+  }
+
+  let next = decorations.remove([...stale]);
+  for (const { pos, node } of with_nested_matches(seeds, matches)) {
     next = next.add(doc, build(node, pos));
   }
   return next;

@@ -1,11 +1,7 @@
 import type { Node as ProseNode } from "prosemirror-model";
 import { Plugin, PluginKey } from "prosemirror-state";
 import { Decoration, DecorationSet } from "prosemirror-view";
-import {
-  changed_range,
-  nodes_in_ranges,
-  replace_node_decorations,
-} from "./incremental_scan";
+import { changed_range, rescan_decorations } from "./incremental_scan";
 
 export const task_decoration_plugin_key = new PluginKey("task-decoration");
 
@@ -111,14 +107,11 @@ export function create_task_decoration_plugin(): Plugin {
         const decorations = old_deco.map(tr.mapping, tr.doc);
         const range = changed_range(tr);
         if (!range) return decorations;
-        return replace_node_decorations(
+        return rescan_decorations(
           decorations,
           tr.doc,
-          nodes_in_ranges(
-            tr.doc,
-            [range],
-            (node) => node.type.name === "list_item",
-          ),
+          [range],
+          (node) => node.type.name === "list_item",
           task_decorations_for,
         );
       },
