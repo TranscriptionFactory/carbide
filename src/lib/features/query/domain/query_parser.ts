@@ -13,12 +13,14 @@ import type {
 export const FORMS: Record<string, QueryForm> = {
   notes: "notes",
   note: "notes",
+  sections: "sections",
 };
 
 export const CLAUSE_KEYWORDS: Record<string, ClauseType> = {
   named: "named",
   with: "with",
   in: "in",
+  under: "under",
 };
 
 export const PROPERTY_OPERATORS = ["=", "!=", ">", "<", ">=", "<=", "contains"];
@@ -158,7 +160,7 @@ class Parser {
     const clause_type = CLAUSE_KEYWORDS[word];
     if (!clause_type) {
       throw new ParseError(
-        `Expected clause keyword (named, with, in, linked from), got "${word || this.peek_char()}"`,
+        `Expected clause keyword (named, with, in, under, linked from), got "${word || this.peek_char()}"`,
         pos,
         Math.max(word.length, 1),
       );

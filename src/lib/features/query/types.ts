@@ -1,11 +1,12 @@
 import type { NoteMeta } from "$lib/shared/types/note";
 
-export type QueryForm = "notes" | "folders" | "files";
+export type QueryForm = "notes" | "sections";
 
 export type ClauseType =
   | "named"
   | "with"
   | "in"
+  | "under"
   | "linked_from"
   | "with_property";
 
@@ -40,9 +41,22 @@ export type ParsedQuery = {
   root: QueryNode;
 };
 
+// The section a `sections` result row points at. Absent on `notes` results,
+// which stay note-level and shape-identical to before.
+export type QuerySection = {
+  heading_id: string;
+  title: string;
+  level: number;
+  heading_path: string;
+  start_line: number;
+  end_line: number;
+  word_count: number;
+};
+
 export type QueryResultItem = {
   note: NoteMeta;
   matched_clauses: string[];
+  section?: QuerySection;
 };
 
 export type QueryResult = {

@@ -695,6 +695,7 @@ export function create_mock_search_port(): SearchPort {
     get_indexed_body: () => Promise.resolve(null),
     get_file_cache: () => Promise.resolve({} as FileCache),
     search_headings: () => Promise.resolve([]),
+    query_sections: () => Promise.resolve([]),
     load_smart_link_rules: () => Promise.resolve([]),
     save_smart_link_rules: () => Promise.resolve(),
     compute_smart_link_suggestions: () => Promise.resolve([]),

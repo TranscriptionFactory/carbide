@@ -6,6 +6,8 @@ import type {
   NoteStats,
   RewriteResult,
   SearchPort,
+  SectionFilter,
+  SectionHit,
   SmartLinkVaultEdge,
 } from "$lib/features/search/ports";
 import type { FileCache } from "$lib/features/metadata";
@@ -478,6 +480,16 @@ export function create_search_tauri_adapter(): SearchPort {
         vaultId: vault_id,
         query,
         limit: limit ?? 20,
+      });
+    },
+
+    async query_sections(
+      vault_id: VaultId,
+      filter: SectionFilter,
+    ): Promise<SectionHit[]> {
+      return invoke_search<SectionHit[]>("index_query_sections", {
+        vaultId: vault_id,
+        filter,
       });
     },
 

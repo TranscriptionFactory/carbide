@@ -100,6 +100,44 @@ describe("query smart block handler", () => {
     expect(ctx.open_note).toHaveBeenCalledWith("a/1.md");
   });
 
+  it("renders section rows as note › heading and opens at the section line", async () => {
+    const run_query = vi.fn(() =>
+      Promise.resolve({
+        items: [
+          {
+            note: make_note("notes/plan.md"),
+            matched_clauses: ['named:"Q4"'],
+            section: {
+              heading_id: "h-2-q4-0",
+              title: "Q4",
+              level: 2,
+              heading_path: "Roadmap/Q4",
+              start_line: 12,
+              end_line: 30,
+              word_count: 40,
+            },
+          },
+        ],
+        total: 1,
+        elapsed_ms: 0,
+        query_text: "",
+      }),
+    );
+    const handler = create_query_smart_block_handler({ run_query });
+    const { ctx } = make_ctx();
+    const instance = handler.create(make_spec('sections named "Q4"'), ctx);
+
+    await vi.advanceTimersByTimeAsync(150);
+
+    const row = instance.dom.querySelector<HTMLElement>(".smart-block-row");
+    expect(row?.querySelector(".smart-block-title")?.textContent).toBe(
+      "plan › Roadmap/Q4",
+    );
+
+    row?.dispatchEvent(new MouseEvent("click"));
+    expect(ctx.open_note).toHaveBeenCalledWith("notes/plan.md", undefined, 12);
+  });
+
   it("renders the empty state when there are no results", async () => {
     const run_query = vi.fn(async () => make_result([]));
     const handler = create_query_smart_block_handler({ run_query });

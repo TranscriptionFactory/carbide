@@ -138,6 +138,7 @@ function create_harness() {
       get_scroll_fraction: vi.fn().mockReturnValue(0),
       get_cursor_markdown_offset: vi.fn().mockReturnValue(0),
       scroll_to_heading_fragment: vi.fn(),
+      scroll_to_line: vi.fn(),
     },
     clipboard: {},
     shell: {
@@ -266,6 +267,18 @@ describe("note_open in browse window context", () => {
     expect(services.editor.scroll_to_heading_fragment).toHaveBeenCalledWith(
       "Flags",
     );
+  });
+
+  it("scrolls to a section line after opening a note", async () => {
+    const { registry, stores, services } = create_harness();
+    stores.vault.set_vault(make_vault());
+
+    await registry.execute(ACTION_IDS.note_open, {
+      note_path: "cheatsheets/bash.md",
+      line: 12,
+    });
+
+    expect(services.editor.scroll_to_line).toHaveBeenCalledWith(12);
   });
 
   it("opens multiple notes sequentially in browse window", async () => {

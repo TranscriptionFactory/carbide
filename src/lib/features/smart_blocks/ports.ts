@@ -9,7 +9,8 @@ export type SmartBlockSpec = {
 export type SmartBlockContext = {
   note_path: string | null;
   vault_id: VaultId | null;
-  open_note: (path: string, fragment?: string) => void;
+  /** `line` is a 0-based markdown line to scroll to after opening. */
+  open_note: (path: string, fragment?: string, line?: number) => void;
   subscribe_to_changes: (handler: (event: VaultFsEvent) => void) => () => void;
   update_body?: (text: string) => void;
 };

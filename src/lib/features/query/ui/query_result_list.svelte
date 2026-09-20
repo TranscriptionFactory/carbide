@@ -4,18 +4,24 @@
   let {
     items,
     onopen,
-  }: { items: QueryResultItem[]; onopen: (path: string) => void } = $props();
+  }: {
+    items: QueryResultItem[];
+    onopen: (path: string, line?: number) => void;
+  } = $props();
 </script>
 
 <div class="QueryResultList">
-  {#each items as item (item.note.path)}
+  {#each items as item (`${item.note.path}\u0000${item.section?.heading_path ?? ""}`)}
     <button
       type="button"
       class="QueryResultList__item"
-      onclick={() => onopen(item.note.path)}
+      onclick={() => onopen(item.note.path, item.section?.start_line)}
       title={item.note.path}
     >
-      <span class="QueryResultList__title">{item.note.title}</span>
+      <span class="QueryResultList__title">
+        {item.note.title}{#if item.section}
+          › {item.section.heading_path}{/if}
+      </span>
       <span class="QueryResultList__path">{item.note.path}</span>
     </button>
   {:else}

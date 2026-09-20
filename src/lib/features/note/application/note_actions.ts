@@ -47,6 +47,7 @@ type WikiLinkPayload = {
   raw_path: string;
   base_note_path: string;
   source: InternalLinkSource;
+  line?: number;
 };
 
 type InternalLinkSuffix = {
@@ -77,6 +78,7 @@ function parse_wiki_link_payload(payload: unknown): WikiLinkPayload | null {
     raw_path: record.raw_path,
     base_note_path: record.base_note_path,
     source: record.source === "wiki" ? "wiki" : "markdown",
+    ...(typeof record.line === "number" ? { line: record.line } : {}),
   };
 }
 
@@ -446,6 +448,9 @@ export function register_note_actions(input: ActionRegistrationInput) {
           if (parsed.initial_fragment) {
             services.editor.scroll_to_heading_fragment(parsed.initial_fragment);
           }
+          if (parsed.line !== undefined) {
+            services.editor.scroll_to_line(parsed.line);
+          }
           return;
         }
 
@@ -465,6 +470,9 @@ export function register_note_actions(input: ActionRegistrationInput) {
           cache_open_note_for_tab(tab.id);
           if (parsed.initial_fragment) {
             services.editor.scroll_to_heading_fragment(parsed.initial_fragment);
+          }
+          if (parsed.line !== undefined) {
+            services.editor.scroll_to_line(parsed.line);
           }
         }
         if (result.status === "not_found") {
@@ -559,6 +567,9 @@ export function register_note_actions(input: ActionRegistrationInput) {
           cache_open_note_for_tab(tab.id);
           if (suffix.fragment) {
             services.editor.scroll_to_heading_fragment(suffix.fragment);
+          }
+          if (parsed.line !== undefined) {
+            services.editor.scroll_to_line(parsed.line);
           }
         }
         if (result.status === "failed") {

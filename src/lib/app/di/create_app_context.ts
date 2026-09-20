@@ -312,11 +312,12 @@ export function create_app_context(input: {
         void action_registry.execute(action_id);
       }
     },
-    on_internal_link_click: (raw_path, base_note_path, source) =>
+    on_internal_link_click: (raw_path, base_note_path, source, line) =>
       void action_registry.execute(ACTION_IDS.note_open_wiki_link, {
         raw_path,
         base_note_path,
         source,
+        ...(line === undefined ? {} : { line }),
       }),
     on_open_document: (file_path, base_note_path) => {
       const resolved =

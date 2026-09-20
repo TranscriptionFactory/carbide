@@ -1,7 +1,12 @@
 import { create_logger } from "$lib/shared/utils/logger";
 import type { QueryError, QueryResult } from "$lib/features/query";
 import { create_reactive_block } from "../reactive_block";
-import { render_loading, render_message, render_note_rows } from "../note_rows";
+import {
+  render_loading,
+  render_message,
+  render_rows,
+  type SmartBlockRow,
+} from "../note_rows";
 import type {
   SmartBlockContext,
   SmartBlockHandler,
@@ -39,6 +44,19 @@ function error_text(error: unknown): string {
   return error instanceof Error ? error.message : "Query failed";
 }
 
+function to_smart_block_row(item: QueryResult["items"][number]): SmartBlockRow {
+  const section = item.section;
+  return section
+    ? {
+        note: item.note,
+        section: {
+          heading_path: section.heading_path,
+          start_line: section.start_line,
+        },
+      }
+    : { note: item.note };
+}
+
 export function create_query_smart_block_handler(
   deps: QuerySmartBlockDeps,
 ): SmartBlockHandler {
@@ -58,11 +76,7 @@ export function create_query_smart_block_handler(
           if (result.items.length === 0) {
             render_message(dom, "empty", "No results");
           } else {
-            render_note_rows(
-              dom,
-              result.items.map((item) => item.note),
-              ctx,
-            );
+            render_rows(dom, result.items.map(to_smart_block_row), ctx);
           }
         } catch (error: unknown) {
           if (!is_current()) return;

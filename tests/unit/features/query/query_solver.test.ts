@@ -300,4 +300,246 @@ describe("query_solver", () => {
       });
     }
   });
+
+  describe("sections form", () => {
+    function note_meta(path: string) {
+      return {
+        id: path,
+        path,
+        name: "note.md",
+        title: "Note",
+        blurb: "",
+        mtime_ms: 0,
+        ctime_ms: 0,
+        size_bytes: 0,
+        file_type: null,
+      };
+    }
+
+    function section_hit(
+      path: string,
+      heading_path: string,
+      start_line: number,
+    ) {
+      const segments = heading_path.split("/");
+      return {
+        note: note_meta(path),
+        heading_id: `h-${start_line}`,
+        title: segments[segments.length - 1] ?? heading_path,
+        level: segments.length,
+        heading_path,
+        start_line,
+        end_line: start_line + 2,
+        word_count: 5,
+      };
+    }
+
+    it("maps named to a title filter and returns section rows", async () => {
+      const search = {
+        query_sections: vi
+          .fn()
+          .mockResolvedValue([section_hit("notes/a.md", "Meeting/Q4", 4)]),
+      };
+      const query: ParsedQuery = {
+        form: "sections",
+        root: {
+          kind: "clause",
+          type: "named",
+          negated: false,
+          value: { kind: "text", value: "Q4" },
+        },
+      };
+
+      const result = await solve_query(
+        VAULT_ID,
+        query,
+        make_backends({ search: search as never }),
+      );
+
+      expect(search.query_sections).toHaveBeenCalledWith(VAULT_ID, {
+        limit: 200,
+        title: "Q4",
+      });
+      expect(result.items).toHaveLength(1);
+      expect(result.items[0]?.section).toEqual({
+        heading_id: "h-4",
+        title: "Q4",
+        level: 2,
+        heading_path: "Meeting/Q4",
+        start_line: 4,
+        end_line: 6,
+        word_count: 5,
+      });
+      expect(result.items[0]?.matched_clauses).toEqual(['named:"Q4"']);
+    });
+
+    it("maps a regex named value to a regex title filter", async () => {
+      const search = { query_sections: vi.fn().mockResolvedValue([]) };
+      const query: ParsedQuery = {
+        form: "sections",
+        root: {
+          kind: "clause",
+          type: "named",
+          negated: false,
+          value: { kind: "regex", pattern: "Meet.ng", flags: "i" },
+        },
+      };
+
+      await solve_query(
+        VAULT_ID,
+        query,
+        make_backends({ search: search as never }),
+      );
+
+      expect(search.query_sections).toHaveBeenCalledWith(VAULT_ID, {
+        limit: 200,
+        title: "Meet.ng",
+        title_is_regex: true,
+      });
+    });
+
+    it("maps in to a folder path prefix", async () => {
+      const search = { query_sections: vi.fn().mockResolvedValue([]) };
+      const query: ParsedQuery = {
+        form: "sections",
+        root: {
+          kind: "clause",
+          type: "in",
+          negated: false,
+          value: { kind: "text", value: "Projects" },
+        },
+      };
+
+      await solve_query(
+        VAULT_ID,
+        query,
+        make_backends({ search: search as never }),
+      );
+
+      expect(search.query_sections).toHaveBeenCalledWith(VAULT_ID, {
+        limit: 200,
+        path_prefix: "Projects/",
+      });
+    });
+
+    it("maps under to a heading path filter", async () => {
+      const search = { query_sections: vi.fn().mockResolvedValue([]) };
+      const query: ParsedQuery = {
+        form: "sections",
+        root: {
+          kind: "clause",
+          type: "under",
+          negated: false,
+          value: { kind: "text", value: "Roadmap/Q4" },
+        },
+      };
+
+      await solve_query(
+        VAULT_ID,
+        query,
+        make_backends({ search: search as never }),
+      );
+
+      expect(search.query_sections).toHaveBeenCalledWith(VAULT_ID, {
+        limit: 200,
+        heading_path_under: "Roadmap/Q4",
+      });
+    });
+
+    it("keeps a section row when a note-level clause matches its note", async () => {
+      const search = {
+        query_sections: vi
+          .fn()
+          .mockResolvedValue([
+            section_hit("notes/a.md", "Meeting", 0),
+            section_hit("notes/b.md", "Meeting", 0),
+          ]),
+      };
+      const bases = {
+        query: vi.fn().mockResolvedValue({
+          rows: [{ note: note_meta("notes/a.md") }],
+          total: 1,
+        }),
+      };
+      const query: ParsedQuery = {
+        form: "sections",
+        root: {
+          kind: "group",
+          join: "and",
+          clauses: [
+            {
+              kind: "clause",
+              type: "named",
+              negated: false,
+              value: { kind: "text", value: "Meeting" },
+            },
+            {
+              kind: "clause",
+              type: "with_property",
+              negated: false,
+              value: { kind: "text", value: "Smith" },
+              property_name: "author",
+              property_operator: "=",
+            },
+          ],
+        },
+      };
+
+      const result = await solve_query(
+        VAULT_ID,
+        query,
+        make_backends({ search: search as never, bases: bases as never }),
+      );
+
+      expect(result.items).toHaveLength(1);
+      expect(result.items[0]?.note.path).toBe("notes/a.md");
+      expect(result.items[0]?.section?.heading_path).toBe("Meeting");
+    });
+
+    it("keeps two sections of one note apart through an OR", async () => {
+      const search = {
+        query_sections: vi.fn(
+          (
+            _vault: unknown,
+            filter: { path_prefix?: string; heading_path_under?: string },
+          ) =>
+            Promise.resolve(
+              filter.path_prefix
+                ? [section_hit("notes/a.md", "Meeting", 0)]
+                : [section_hit("notes/a.md", "Meeting/Q4", 4)],
+            ),
+        ),
+      };
+      const query: ParsedQuery = {
+        form: "sections",
+        root: {
+          kind: "group",
+          join: "or",
+          clauses: [
+            {
+              kind: "clause",
+              type: "in",
+              negated: false,
+              value: { kind: "text", value: "Projects" },
+            },
+            {
+              kind: "clause",
+              type: "under",
+              negated: false,
+              value: { kind: "text", value: "Meeting/Q4" },
+            },
+          ],
+        },
+      };
+
+      const result = await solve_query(
+        VAULT_ID,
+        query,
+        make_backends({ search: search as never }),
+      );
+
+      const headings = result.items.map((item) => item.section?.heading_path);
+      expect(headings).toEqual(["Meeting", "Meeting/Q4"]);
+    });
+  });
 });

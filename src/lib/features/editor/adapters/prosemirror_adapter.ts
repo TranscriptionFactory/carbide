@@ -602,11 +602,12 @@ export function create_prosemirror_editor_port(args?: {
               get_note_path: () => current_note_path,
               get_vault_id: () => current_vault_id,
               open_note: events.on_internal_link_click
-                ? (path: string, fragment?: string) => {
+                ? (path: string, fragment?: string, line?: number) => {
                     events.on_internal_link_click?.(
                       fragment ? `${path}#${fragment}` : path,
                       current_note_path,
                       "wiki",
+                      line,
                     );
                   }
                 : undefined,

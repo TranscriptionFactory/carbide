@@ -82,6 +82,7 @@ function make_mock_search_port(batch_edges: SemanticEdge[] = []): SearchPort {
     get_indexed_body: vi.fn().mockResolvedValue(null),
     get_file_cache: vi.fn().mockResolvedValue({}),
     search_headings: vi.fn().mockResolvedValue([]),
+    query_sections: vi.fn().mockResolvedValue([]),
     load_smart_link_rules: vi.fn().mockResolvedValue([]),
     save_smart_link_rules: vi.fn().mockResolvedValue(undefined),
     compute_smart_link_suggestions: vi.fn().mockResolvedValue([]),

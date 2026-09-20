@@ -94,8 +94,11 @@
     }
   }
 
-  function open_note(path: string) {
-    void action_registry.execute(ACTION_IDS.note_open, path);
+  function open_note(path: string, line?: number) {
+    void action_registry.execute(
+      ACTION_IDS.note_open,
+      line === undefined ? path : { note_path: path, line },
+    );
   }
 
   function start_save() {

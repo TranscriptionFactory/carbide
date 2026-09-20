@@ -35,6 +35,9 @@ export class EditorStore {
   source_view_getter: (() => SourceEditorView | null) | null = null;
   zoom = $state(1.0);
   pending_heading_fragment = $state<string | null>(null);
+  // 0-based markdown line to scroll to once the target note is in the session,
+  // the line counterpart of pending_heading_fragment. Sections open this way.
+  pending_line_scroll = $state<number | null>(null);
   pending_cursor_restore = $state<PendingCursorRestore | null>(null);
   width_mode_overrides = $state<Record<string, EditorWidthMode>>({});
   // The buffer is showing streamed AI text the user has not accepted yet.
@@ -68,6 +71,10 @@ export class EditorStore {
 
   set_pending_heading_fragment(fragment: string | null) {
     this.pending_heading_fragment = fragment;
+  }
+
+  set_pending_line_scroll(line: number | null) {
+    this.pending_line_scroll = line;
   }
 
   set_pending_cursor_restore(restore: PendingCursorRestore) {

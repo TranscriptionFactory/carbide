@@ -10,6 +10,8 @@ export type { IndexProgress } from "$lib/features/search/state/search_store.svel
 export type {
   NoteLinksSnapshot,
   SearchPort,
+  SectionFilter,
+  SectionHit,
   SmartLinkVaultEdge,
   WorkspaceIndexPort,
   NoteStats,

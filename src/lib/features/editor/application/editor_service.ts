@@ -13,6 +13,7 @@ import type {
   FindSelection,
 } from "$lib/features/editor/domain/find_types";
 import { find_scroll_container } from "$lib/features/editor/domain/scroll_container";
+import { md_offset_from_line_character } from "$lib/features/editor/adapters/lsp_plugin_utils";
 import type { CiteSuggestionItem } from "$lib/features/editor/adapters/cite_suggest_plugin";
 import type { AtPaletteItem } from "$lib/features/editor/adapters/at_palette_types";
 import { rank_note_suggestions } from "./rank_note_suggestions";
@@ -137,6 +138,7 @@ export type EditorServiceCallbacks = {
     raw_path: string,
     base_note_path: string,
     source: InternalLinkSource,
+    line?: number,
   ) => void;
   on_open_document?: (file_path: string, base_note_path: string) => void;
   on_external_link_click: (url: string) => void;
@@ -710,6 +712,29 @@ export class EditorService {
 
   scroll_to_position(pos: number) {
     this.session?.scroll_to_position?.(pos);
+  }
+
+  /** `line` is a 0-based markdown line, the index's own section coordinate. */
+  scroll_to_line(line: number) {
+    const outline = this.outline_store;
+    if (
+      outline &&
+      this.session &&
+      outline.note_path === this.get_active_note_path()
+    ) {
+      this.scroll_markdown_line_into_view(line);
+      return;
+    }
+    this.editor_store.set_pending_line_scroll(line);
+  }
+
+  private scroll_markdown_line_into_view(line: number) {
+    const markdown = this.session?.get_markdown();
+    if (!markdown) return;
+    this.set_cursor_from_markdown_offset(
+      md_offset_from_line_character(markdown, line, 0),
+    );
+    this.scroll_cursor_into_view();
   }
 
   scroll_to_heading_fragment(fragment: string) {
@@ -1391,9 +1416,15 @@ export class EditorService {
         raw_path: string,
         base_note_path: string,
         source: InternalLinkSource,
+        line?: number,
       ) => {
         if (!this.is_generation_current(generation)) return;
-        this.callbacks.on_internal_link_click(raw_path, base_note_path, source);
+        this.callbacks.on_internal_link_click(
+          raw_path,
+          base_note_path,
+          source,
+          line,
+        );
       },
       on_external_link_click: (url: string) => {
         if (!this.is_generation_current(generation)) return;
@@ -1519,6 +1550,12 @@ export class EditorService {
           if (pos !== null) {
             this.scroll_to_position(pos);
           }
+        }
+
+        const pending_line = this.editor_store.pending_line_scroll;
+        if (pending_line !== null) {
+          this.editor_store.set_pending_line_scroll(null);
+          this.scroll_markdown_line_into_view(pending_line);
         }
       };
       events.on_active_heading_change = (id) => {

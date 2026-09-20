@@ -4,7 +4,10 @@
   let {
     items,
     onopen,
-  }: { items: QueryResultItem[]; onopen: (path: string) => void } = $props();
+  }: {
+    items: QueryResultItem[];
+    onopen: (path: string, line?: number) => void;
+  } = $props();
 
   function format_date(mtime_ms: number): string {
     if (!mtime_ms) return "";
@@ -22,14 +25,17 @@
 </script>
 
 <div class="QueryResultCards">
-  {#each items as item (item.note.path)}
+  {#each items as item (`${item.note.path}\u0000${item.section?.heading_path ?? ""}`)}
     <button
       type="button"
       class="QueryResultCards__card"
-      onclick={() => onopen(item.note.path)}
+      onclick={() => onopen(item.note.path, item.section?.start_line)}
       title={item.note.path}
     >
-      <span class="QueryResultCards__title">{item.note.title}</span>
+      <span class="QueryResultCards__title">
+        {item.note.title}{#if item.section}
+          › {item.section.heading_path}{/if}
+      </span>
       <span class="QueryResultCards__path">{item.note.path}</span>
       <div class="QueryResultCards__meta">
         {#if item.note.mtime_ms}
