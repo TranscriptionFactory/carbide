@@ -324,7 +324,7 @@ describe("query_solver", () => {
       const segments = heading_path.split("/");
       return {
         note: note_meta(path),
-        heading_id: `h-${start_line}`,
+        heading_id: `h-${String(start_line)}`,
         title: segments[segments.length - 1] ?? heading_path,
         level: segments.length,
         heading_path,
