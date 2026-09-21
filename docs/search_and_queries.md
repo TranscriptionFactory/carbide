@@ -173,6 +173,8 @@ A Smart Block is a fenced code block keyed by its language:
 
 > The `tasks` block shipped earlier; `query`, `base`, and `backlinks` are the newer additions.
 
+`query` and `base` run the same query language: reach for `query` when you want a plain list and matching **sections** as their own rows, and for `base` when you want note **properties** and the table/kanban/calendar/tree view modes.
+
 ### Query Block
 
 Lists the notes matching a [query](#query-language), refreshed live as the vault changes. Click a row to open the note.
@@ -224,11 +226,11 @@ See [Bases & References](./bases_and_references.md#embedded-base-blocks) for mor
 
 ### Inserting blocks
 
-From the command palette (`Cmd+P` / `Ctrl+P`):
+From the slash menu (type `/` in the editor):
 
-- **Insert Query Block**
-- **Insert Base View**
-- **Insert Backlinks Block**
+- **Note List** — inserts a `query` block
+- **Base View** — inserts a `base` block
+- **Backlinks** — inserts a `backlinks` block
 
 Each drops a ready-to-edit scaffold at the cursor.
 
