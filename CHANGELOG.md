@@ -1,5 +1,22 @@
 # carbide
 
+## 2.38.1
+
+### Patch Changes
+
+- 843ba01: A ` ```base ` block now shows each matching note once when its query is a
+  `sections` query. Section results collapse to one row per note, in the order the
+  notes first match, and the "Showing N of M" count is the number of distinct
+  notes rather than the number of section rows.
+
+  The slash menu also names the two query-backed blocks for what they render:
+  `query` is now **Note List** ("Plain list of notes or sections matching a
+  query") and **Base View** reads "Table, kanban, calendar or tree of notes
+  matching a query, with properties". Typing `/block` now surfaces Code Block
+  first.
+
+- 1d40944: Vault chat now retrieves at section granularity. The section-level embedding search is fused into the note ranking by Reciprocal Rank Fusion instead of merely decorating notes the keyword search already found, so a note whose one relevant section answers the question surfaces on that section alone, and a note both searches found outranks a bare keyword match. Each retrieved source is also capped to a share of the context budget, so one long note or one PDF body no longer fills the retrieval meter before the other sources are read; `@`-mentioned notes are exempt from the cap. Linked reference sources now follow the "Include Sources in Search" setting in chat, as they already do in search, similarity and graph edges.
+
 ## 2.38.0
 
 ### Minor Changes
