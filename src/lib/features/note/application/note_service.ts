@@ -654,6 +654,12 @@ export class NoteService {
     if (plan_decision.status === "conflict") {
       return { status: "conflict" };
     }
+    if (this.is_already_on_disk(plan_decision.plan)) {
+      return {
+        status: "saved",
+        saved_path: as_note_path(plan_decision.plan.open_note.meta.path),
+      };
+    }
 
     this.begin_save_operation();
 
@@ -888,6 +894,17 @@ export class NoteService {
     session.editor_service.sync_visual_from_markdown(formatted);
     this.sync_split_view_session(session);
     this.format_on_save.on_applied?.(path, formatted);
+  }
+
+  // A clean buffer has nothing to write, and rewriting it only bumps the mtime
+  // and fans out watcher events. The zeroed guard mtime is the one exception:
+  // "keep my changes" must overwrite the disk even when the buffer is clean.
+  private is_already_on_disk(plan: SavePlan): boolean {
+    return (
+      plan.kind === "save_existing" &&
+      !plan.open_note.is_dirty &&
+      this.resolve_expected_mtime(plan.open_note) !== undefined
+    );
   }
 
   private resolve_save_plan(

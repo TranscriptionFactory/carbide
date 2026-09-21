@@ -608,7 +608,7 @@ pub fn read_note_inner(
     note_id: String,
 ) -> Result<NoteDoc, String> {
     let buffer_manager = app.state::<BufferManager>();
-    log::info!("read_note phase=begin vault_id={} note_id={}", vault_id, note_id);
+    log::debug!("read_note phase=begin vault_id={} note_id={}", vault_id, note_id);
     let buffer_id = format!("note_{}", note_id);
     buffer_manager.open_buffer(&app, buffer_id.clone(), vault_id.clone(), note_id.clone())?;
 

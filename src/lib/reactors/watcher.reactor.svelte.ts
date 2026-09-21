@@ -259,7 +259,9 @@ export function create_watcher_reactor(
       const written_path = self_write_path(event);
       if (written_path !== null && is_self_write(event, written_path)) {
         log.info("Suppressed self-triggered event", {
+          event: event.type,
           path: written_path,
+          mtime_ms: "mtime_ms" in event ? event.mtime_ms : null,
         });
         return;
       }
