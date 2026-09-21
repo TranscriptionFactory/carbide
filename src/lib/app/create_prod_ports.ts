@@ -78,6 +78,7 @@ import type {
 import type { Ports } from "$lib/app/di/app_ports";
 import type { VaultId, NoteId } from "$lib/shared/types/ids";
 import type { QueryResult } from "$lib/features/query";
+import { run_base_query } from "$lib/app/base_query";
 
 const EMPTY_QUERY_RESULT: QueryResult = {
   items: [],
@@ -85,8 +86,6 @@ const EMPTY_QUERY_RESULT: QueryResult = {
   elapsed_ms: 0,
   query_text: "",
 };
-
-const BASE_QUERY_ROW_CAP = 1000;
 
 export type QueryRunner = {
   run: ((text: string) => Promise<QueryResult>) | null;
@@ -166,6 +165,8 @@ export function create_prod_ports(): Ports & {
     on_stop: null,
   };
   const query_runner: QueryRunner = { run: null };
+  const run_query = (text: string) =>
+    query_runner.run?.(text) ?? Promise.resolve(EMPTY_QUERY_RESULT);
   const frontmatter_widget: FrontmatterWidgetConfig = {
     metadata_store: null,
     is_enabled: () => false,
@@ -240,32 +241,11 @@ export function create_prod_ports(): Ports & {
       tag_pill_menu,
       inline_html_trust,
       task_port: task,
-      run_query: (text) =>
-        query_runner.run?.(text) ?? Promise.resolve(EMPTY_QUERY_RESULT),
+      run_query,
       get_links: (vault_id, note_path) =>
         search.get_note_links_snapshot(vault_id, note_path),
-      run_base_query: async (vault_id, text) => {
-        const result = query_runner.run
-          ? await query_runner.run(text)
-          : EMPTY_QUERY_RESULT;
-        const [results, available_properties] = await Promise.all([
-          bases.query(vault_id, {
-            filters: [],
-            sort: [],
-            limit: BASE_QUERY_ROW_CAP,
-            offset: 0,
-          }),
-          bases.list_properties(vault_id),
-        ]);
-        const by_path = new Map(
-          results.rows.map((row) => [row.note.path, row]),
-        );
-        const rows = result.items
-          .map((item) => by_path.get(item.note.path))
-          .filter((row): row is NonNullable<typeof row> => row !== undefined)
-          .slice(0, BASE_QUERY_ROW_CAP);
-        return { rows, available_properties, total: result.items.length };
-      },
+      run_base_query: (vault_id, text) =>
+        run_base_query({ run_query, bases }, vault_id, text),
       subscribe_to_changes: (handler) => watcher.subscribe_fs_events(handler),
       note_embed: {
         read_note: async (vault_id, note_path) => {
