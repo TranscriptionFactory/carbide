@@ -28,6 +28,7 @@ export function create_chat_seam(input: {
   memory_index?: MemoryIndexPort;
   vault_path?: string;
   timeout_seconds?: number;
+  include_linked_sources?: () => boolean;
   // Pass a bare VaultStore to exercise the no-vault path.
   vault_store?: VaultStore;
 }): {
@@ -52,6 +53,8 @@ export function create_chat_seam(input: {
       load_view: () => Promise.resolve({}),
       query: () => Promise.resolve({}),
     }) as never,
+    input.include_linked_sources ??
+      (() => DEFAULT_EDITOR_SETTINGS.reference_include_sources_in_search),
   );
 
   const retrieval: RetrievalPort = {

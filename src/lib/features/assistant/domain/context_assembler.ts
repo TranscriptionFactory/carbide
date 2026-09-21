@@ -8,6 +8,7 @@ export type ContextBudget = {
   reserve_tokens: number;
   chars_per_token: number;
   min_block_chars: number;
+  max_block_chars?: number;
 };
 
 export type DropReason =
@@ -141,6 +142,22 @@ function truncate_middle(text: string, keep: number): string {
   );
 }
 
+// A capped block is shortened, never dropped: it still says what it matched
+// on, and the blocks behind it keep their share of the budget. Pinned blocks
+// are exempt — the question named them.
+function cap_blocks(candidates: Candidate[], max_block_chars: number): void {
+  for (const candidate of candidates) {
+    if (candidate.block.pinned || candidate.text.length <= max_block_chars) {
+      continue;
+    }
+    candidate.text = truncate_middle(
+      candidate.text,
+      Math.max(0, max_block_chars - TRUNCATION_MARKER.length),
+    );
+    candidate.truncated = true;
+  }
+}
+
 // One block at most is truncated: the first that crosses the boundary. The
 // budget then counts as spent and every later block is dropped.
 function fill(
@@ -190,6 +207,9 @@ function apply_budget(candidates: Candidate[], budget: ContextBudget): number {
     (budget.token_budget - budget.reserve_tokens) * budget.chars_per_token,
   );
   const live = candidates.filter((c) => c.drop_reason === null);
+  if (budget.max_block_chars !== undefined) {
+    cap_blocks(live, budget.max_block_chars);
+  }
   const used = fill(
     live.filter((c) => c.block.pinned),
     available,

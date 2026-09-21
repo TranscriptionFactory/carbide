@@ -191,15 +191,18 @@ Each question runs through a retrieval pipeline before the model ever sees it:
    context, ranked above retrieved results.
 2. The question is **rewritten** using the conversation history (so follow-ups resolve
    pronouns and dangling references) and **analyzed** for a topic and any date range.
-3. **Hybrid retrieval** runs two searches in parallel — SQLite FTS5 + local embeddings merged
-   via Reciprocal Rank Fusion, plus block-level semantic search for the most relevant
-   sections — and merges them.
+3. **Hybrid retrieval** runs two searches in parallel — SQLite FTS5 + note-level embeddings
+   fused by Reciprocal Rank Fusion, and section-level embeddings fused into the same
+   ranking — so a note found only by one relevant section still surfaces.
 4. **Scope filters** (notes / folders / tags / Bases views) restrict the candidate set. Every
    dimension you add narrows further — they intersect, they do not widen.
 5. Notes already cited earlier in the conversation get a small ranking **boost** for
    continuity.
 6. The top results are assembled into a **token-budgeted context** (deduplicated by note,
-   truncated to fit the budget), then sent to your provider.
+   truncated to fit the budget), then sent to your provider. Each source is capped to a
+   share of the budget, so one long note cannot crowd out the rest; `@`-mentioned notes
+   are exempt. Linked sources (PDFs, HTML) enter chat context only when **Include Sources
+   in Search** is on.
 
 The answer streams back with inline numbered markers (`[1]`, `[2]`, …). Each marker maps to a
 source in the citation list; **click a citation to open that note**.
