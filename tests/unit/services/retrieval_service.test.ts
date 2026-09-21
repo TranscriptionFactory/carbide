@@ -65,6 +65,7 @@ function make_service(input: {
   tag?: unknown;
   bases?: unknown;
   vault_store?: VaultStore;
+  include_linked_sources?: () => boolean;
 }) {
   return new RetrievalService(
     input.search as never,
@@ -72,6 +73,7 @@ function make_service(input: {
     input.vault_store ?? make_vault_store(),
     (input.tag ?? tag) as never,
     (input.bases ?? bases) as never,
+    input.include_linked_sources ?? (() => true),
   );
 }
 
@@ -218,6 +220,61 @@ describe("RetrievalService.retrieve", () => {
     expect(outcome.retrieved.map((n) => n.note_path)).toContain(
       "notes/metaboloformer.md",
     );
+    expect(outcome.retrieved.map((n) => n.note_path)).toContain(
+      "notes/other.md",
+    );
+  });
+
+  it("retrieves a note that only block search found, with its sections", async () => {
+    const search = {
+      hybrid_search: vi
+        .fn()
+        .mockResolvedValue([hit("notes/keyword.md", "Keyword", "1", 0.9)]),
+      search_blocks: vi
+        .fn()
+        .mockResolvedValue([
+          block_hit("notes/section.md", "Section", "2", 12, 20, 0.05),
+        ]),
+    };
+    const service = make_service({
+      search,
+      notes: { read_note: vi.fn().mockResolvedValue({ markdown: "Body." }) },
+    });
+
+    const outcome = await service.retrieve(request({ query: "q" }));
+
+    if (outcome.status !== "hits") throw new Error("expected hits");
+    const found = outcome.retrieved.find(
+      (n) => n.note_path === "notes/section.md",
+    );
+    expect(found?.source_tag).toBe("vector");
+    expect(found?.sections).toEqual([{ start_line: 12, end_line: 20 }]);
+  });
+
+  it("drops linked hits from both legs when sources are excluded from search", async () => {
+    const linked_path = "@linked/papers/clustering.pdf";
+    const search = {
+      hybrid_search: vi.fn().mockResolvedValue([]),
+      search_blocks: vi
+        .fn()
+        .mockResolvedValue([
+          block_hit(linked_path, "Clustering", "linked-1", 0, 4, 0.05),
+          block_hit("notes/a.md", "A", "1", 0, 4, 0.1),
+        ]),
+      get_indexed_body: vi.fn().mockResolvedValue("Linked body."),
+    };
+    const service = make_service({
+      search,
+      notes: { read_note: vi.fn().mockResolvedValue({ markdown: "Body." }) },
+      include_linked_sources: () => false,
+    });
+
+    const outcome = await service.retrieve(request({ query: "clustering" }));
+
+    expect(search.hybrid_search.mock.calls[0]?.[4]).toBe(false);
+    expect(search.get_indexed_body).not.toHaveBeenCalled();
+    if (outcome.status !== "hits") throw new Error("expected hits");
+    expect(outcome.retrieved.map((n) => n.note_path)).toEqual(["notes/a.md"]);
   });
 
   it("restricts retrieved sources to the folder scope", async () => {

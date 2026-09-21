@@ -28,6 +28,11 @@ const log = create_logger("retrieval_service");
 const DEFAULT_RETRIEVE_LIMIT = 15;
 const SCOPE_OVERFETCH = 6;
 const CITED_NOTE_BOOST = 1.25;
+// The note leg already fuses FTS and note-level embeddings by Reciprocal Rank
+// Fusion with this K (hybrid.rs:78). Reusing it makes a block-derived term
+// commensurate with the score a note carries out of hybrid search, so the two
+// lists can be added instead of compared across scales.
+const RRF_K = 60;
 
 class RagScopeError extends Error {
   constructor(readonly label: string) {
@@ -45,20 +50,6 @@ type RetrievalHit = {
   sections?: { start_line: number; end_line: number }[];
 };
 
-// Block hits and note hits never share a list — `search` returns one or the
-// other — so `score` is only ever compared within a scale. Cosine keeps the
-// block scale readable; note hits carry the hybrid RRF score unchanged.
-function block_to_hit(block: BlockSectionHit): RetrievalHit {
-  return {
-    note_path: block.note.path,
-    note_id: block.note.id,
-    title: block.note.title,
-    score: 1 - block.distance,
-    source: "vector",
-    sections: [{ start_line: block.start_line, end_line: block.end_line }],
-  };
-}
-
 function note_to_hit(hit: HybridSearchHit): RetrievalHit {
   return {
     note_path: hit.note.path,
@@ -67,6 +58,37 @@ function note_to_hit(hit: HybridSearchHit): RetrievalHit {
     score: hit.score,
     source: hit.source,
   };
+}
+
+// The block list is a third ranked list over the same vault, fused at note
+// level: a note the note leg missed enters on its best section alone, and a
+// note both legs found rises above one only a keyword matched.
+function fuse_block_ranking(
+  notes: RetrievalHit[],
+  blocks: BlockSectionHit[],
+): RetrievalHit[] {
+  const by_path = new Map<string, RetrievalHit>(
+    notes.map((hit) => [hit.note_path, hit]),
+  );
+
+  const nearest_first = [...blocks].sort((a, b) => a.distance - b.distance);
+  nearest_first.forEach((block, rank) => {
+    const hit = by_path.get(block.note.path) ?? {
+      note_path: block.note.path,
+      note_id: block.note.id,
+      title: block.note.title,
+      score: 0,
+      source: "vector" as HitSource,
+    };
+    hit.score += 1 / (RRF_K + rank + 1);
+    (hit.sections ??= []).push({
+      start_line: block.start_line,
+      end_line: block.end_line,
+    });
+    by_path.set(block.note.path, hit);
+  });
+
+  return [...by_path.values()];
 }
 
 function boost_cited_notes(
@@ -130,6 +152,7 @@ export class RetrievalService {
     private readonly vault_store: VaultStore,
     private readonly tag_port: TagPort,
     private readonly bases_port: BasesPort,
+    private readonly include_linked_sources: () => boolean,
   ) {}
 
   async check_readiness(): Promise<RagReadiness> {
@@ -270,12 +293,14 @@ export class RetrievalService {
     date_range: DateRange | null,
     limit: number,
   ): Promise<RetrievalHit[]> {
+    const include_linked = this.include_linked_sources();
     const [notes, blocks] = await Promise.all([
       this.search_port.hybrid_search(
         vault_id,
         { raw: query, text: query, scope: "all" },
         limit,
         date_range,
+        include_linked,
       ),
       this.search_port
         .search_blocks(vault_id, query, limit, date_range)
@@ -287,29 +312,13 @@ export class RetrievalService {
         }),
     ]);
 
-    if (notes.length === 0) {
-      return blocks.map(block_to_hit);
-    }
+    // The note leg takes `include_linked` as an argument; the block leg has no
+    // such filter, so chat applies the setting to it here.
+    const ranked_blocks = include_linked
+      ? blocks
+      : blocks.filter((block) => !is_linked_note_path(block.note.path));
 
-    const sections_by_path = new Map<
-      string,
-      { start_line: number; end_line: number }[]
-    >();
-    for (const block of blocks) {
-      const sections = sections_by_path.get(block.note.path) ?? [];
-      sections.push({
-        start_line: block.start_line,
-        end_line: block.end_line,
-      });
-      sections_by_path.set(block.note.path, sections);
-    }
-
-    return notes.map((hit) => {
-      const base = note_to_hit(hit);
-      const sections = sections_by_path.get(hit.note.path);
-      if (sections) base.sections = sections;
-      return base;
-    });
+    return fuse_block_ranking(notes.map(note_to_hit), ranked_blocks);
   }
 
   private async apply_scope(

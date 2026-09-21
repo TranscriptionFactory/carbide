@@ -155,6 +155,7 @@ describe("AssistantChatService.query", () => {
       { raw: "what is it?", text: "what is it?", scope: "all" },
       15,
       null,
+      true,
     );
     expect(result.content).toContain("[1]");
     expect(result.citations).toEqual([

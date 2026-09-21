@@ -166,6 +166,55 @@ describe("assemble_context budget arithmetic", () => {
   });
 });
 
+describe("assemble_context per-block cap", () => {
+  it("caps an over-cap block so a later one still fits", () => {
+    const result = assemble_context(
+      [
+        source("s1", [
+          block({
+            id: "big",
+            note_path: "1.md",
+            score: 2,
+            text: "a".repeat(80),
+          }),
+          block({
+            id: "next",
+            note_path: "2.md",
+            score: 1,
+            text: "b".repeat(30),
+          }),
+        ]),
+      ],
+      budget({ max_block_chars: 40 }),
+    );
+
+    expect(ids(result.blocks)).toEqual(["big", "next"]);
+    expect(result.blocks[0]?.text).toHaveLength(40);
+    expect(result.blocks[0]?.truncated).toBe(true);
+    expect(result.blocks[1]?.truncated).toBe(false);
+    expect(result.stats.chars_used).toBe(70);
+  });
+
+  it("exempts a pinned block from the cap", () => {
+    const result = assemble_context(
+      [
+        source("s1", [
+          block({
+            id: "pin",
+            note_path: "1.md",
+            pinned: true,
+            text: "p".repeat(80),
+          }),
+        ]),
+      ],
+      budget({ max_block_chars: 40 }),
+    );
+
+    expect(result.blocks[0]?.text).toHaveLength(80);
+    expect(result.blocks[0]?.truncated).toBe(false);
+  });
+});
+
 describe("assemble_context truncation", () => {
   it("keeps a long head and a short tail around the marker", () => {
     const text = "H".repeat(900) + "T".repeat(100);

@@ -11,6 +11,10 @@ import type {
   AssistantScope,
 } from "$lib/features/assistant/types/session";
 import type { AssistantChatQueryInput } from "$lib/features/assistant/application/assistant_chat_service";
+import {
+  DEFAULT_CONTEXT_BUDGET,
+  available_chars,
+} from "$lib/features/assistant/domain/context_assembler";
 
 const RETRIEVE_LIMIT_MIN = 1;
 const RETRIEVE_LIMIT_MAX = 50;
@@ -42,6 +46,15 @@ const RESERVE_TOKEN_FRACTION = 0.25;
 const HISTORY_BUDGET_MIN = 0;
 const HISTORY_BUDGET_MAX = 32000;
 const UNKNOWN_CONTEXT_TOKEN_BUDGET = 8000;
+// A single block may spend at most its share of the budget, so one long note
+// cannot fill the context before the rest of the retrieved sources are read.
+// Like the fractions above, neither number has a measured derivation. Four
+// blocks is the smallest number that still reads as several sources rather
+// than one, and the ceiling stops a 64000-token budget handing one block
+// 64000 characters -- past a few thousand characters a single section is
+// padding, not evidence. Evidence should move both.
+const MIN_BLOCKS_PER_TURN = 4;
+const MAX_BLOCK_CHARS_CEILING = 8000;
 
 function clamp_setting(
   value: number,
@@ -89,6 +102,18 @@ function context_token_budget(
   );
 }
 
+function max_block_chars(token_budget: number, reserve_tokens: number): number {
+  const available = available_chars({
+    ...DEFAULT_CONTEXT_BUDGET,
+    token_budget,
+    reserve_tokens,
+  });
+  return Math.min(
+    MAX_BLOCK_CHARS_CEILING,
+    Math.floor(available / MIN_BLOCKS_PER_TURN),
+  );
+}
+
 // Every surface that asks the vault a question builds its input here, so the
 // retrieval settings cannot apply to one surface and not another. The MCP
 // bridge used to construct its own input and passed neither, which was
@@ -101,6 +126,7 @@ export function build_chat_query_input(
     request.provider_config,
     settings.ai_rag_context_token_budget,
   );
+  const reserve_tokens = Math.round(token_budget * RESERVE_TOKEN_FRACTION);
   return {
     question: request.question,
     provider_config: request.provider_config,
@@ -112,7 +138,8 @@ export function build_chat_query_input(
     ),
     assembler_options: {
       token_budget,
-      reserve_tokens: Math.round(token_budget * RESERVE_TOKEN_FRACTION),
+      reserve_tokens,
+      max_block_chars: max_block_chars(token_budget, reserve_tokens),
     },
     history_token_budget: clamp_setting(
       settings.ai_rag_history_token_budget,

@@ -60,6 +60,7 @@ describe("build_chat_query_input", () => {
     expect(input.assembler_options).toEqual({
       token_budget: 3000,
       reserve_tokens: 750,
+      max_block_chars: 2250,
     });
   });
 
@@ -71,10 +72,18 @@ describe("build_chat_query_input", () => {
   it("clamps a token budget outside the supported range", () => {
     expect(
       build({ ai_rag_context_token_budget: 10 }).assembler_options,
-    ).toEqual({ token_budget: 1000, reserve_tokens: 250 });
+    ).toEqual({
+      token_budget: 1000,
+      reserve_tokens: 250,
+      max_block_chars: 750,
+    });
     expect(
       build({ ai_rag_context_token_budget: 999999 }).assembler_options,
-    ).toEqual({ token_budget: 128000, reserve_tokens: 32000 });
+    ).toEqual({
+      token_budget: 128000,
+      reserve_tokens: 32000,
+      max_block_chars: 8000,
+    });
   });
 
   it("falls back to the shipped default when a setting is not a number", () => {
@@ -89,6 +98,7 @@ describe("build_chat_query_input", () => {
     expect(input.assembler_options).toEqual({
       token_budget: 8000,
       reserve_tokens: 2000,
+      max_block_chars: 6000,
     });
   });
 
@@ -102,6 +112,7 @@ describe("build_chat_query_input", () => {
     expect(input.assembler_options).toEqual({
       token_budget: 60000,
       reserve_tokens: 15000,
+      max_block_chars: 8000,
     });
   });
 
@@ -115,6 +126,7 @@ describe("build_chat_query_input", () => {
     expect(input.assembler_options).toEqual({
       token_budget: 64000,
       reserve_tokens: 16000,
+      max_block_chars: 8000,
     });
   });
 
@@ -129,10 +141,12 @@ describe("build_chat_query_input", () => {
     expect(small.assembler_options).toEqual({
       token_budget: 8000,
       reserve_tokens: 2000,
+      max_block_chars: 6000,
     });
     expect(unknown.assembler_options).toEqual({
       token_budget: 8000,
       reserve_tokens: 2000,
+      max_block_chars: 6000,
     });
   });
 
@@ -146,6 +160,7 @@ describe("build_chat_query_input", () => {
     expect(input.assembler_options).toEqual({
       token_budget: 12000,
       reserve_tokens: 3000,
+      max_block_chars: 8000,
     });
   });
 

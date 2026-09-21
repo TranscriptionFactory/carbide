@@ -904,6 +904,7 @@ export function create_app_context(input: {
     stores.vault,
     input.ports.tag,
     input.ports.bases,
+    () => stores.ui.editor_settings.reference_include_sources_in_search,
   );
 
   // C3: rag never names RetrievalPort. The adapter is an object literal here,
