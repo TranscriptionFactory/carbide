@@ -81,10 +81,10 @@ function fuse_block_ranking(
       source: "vector" as HitSource,
     };
     hit.score += 1 / (RRF_K + rank + 1);
-    hit.sections = [
-      ...(hit.sections ?? []),
-      { start_line: block.start_line, end_line: block.end_line },
-    ];
+    (hit.sections ??= []).push({
+      start_line: block.start_line,
+      end_line: block.end_line,
+    });
     by_path.set(block.note.path, hit);
   });
 

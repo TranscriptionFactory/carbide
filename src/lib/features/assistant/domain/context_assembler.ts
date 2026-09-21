@@ -56,6 +56,13 @@ const DEFAULT_CHARS_PER_TOKEN = 4;
 const TRUNCATION_MARKER = "\n…[middle truncated]\n";
 const TRUNCATION_HEAD_RATIO = 0.75;
 
+export function available_chars(budget: ContextBudget): number {
+  return Math.max(
+    0,
+    (budget.token_budget - budget.reserve_tokens) * budget.chars_per_token,
+  );
+}
+
 export function estimate_tokens(
   text: string,
   chars_per_token = DEFAULT_CHARS_PER_TOKEN,
@@ -202,10 +209,7 @@ function fill(
 // Pinned blocks reserve budget first so retrieval cannot starve them, but they
 // are still emitted in declared order.
 function apply_budget(candidates: Candidate[], budget: ContextBudget): number {
-  const available = Math.max(
-    0,
-    (budget.token_budget - budget.reserve_tokens) * budget.chars_per_token,
-  );
+  const available = available_chars(budget);
   const live = candidates.filter((c) => c.drop_reason === null);
   if (budget.max_block_chars !== undefined) {
     cap_blocks(live, budget.max_block_chars);

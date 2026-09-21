@@ -11,7 +11,10 @@ import type {
   AssistantScope,
 } from "$lib/features/assistant/types/session";
 import type { AssistantChatQueryInput } from "$lib/features/assistant/application/assistant_chat_service";
-import { DEFAULT_CONTEXT_BUDGET } from "$lib/features/assistant/domain/context_assembler";
+import {
+  DEFAULT_CONTEXT_BUDGET,
+  available_chars,
+} from "$lib/features/assistant/domain/context_assembler";
 
 const RETRIEVE_LIMIT_MIN = 1;
 const RETRIEVE_LIMIT_MAX = 50;
@@ -100,8 +103,11 @@ function context_token_budget(
 }
 
 function max_block_chars(token_budget: number, reserve_tokens: number): number {
-  const available =
-    (token_budget - reserve_tokens) * DEFAULT_CONTEXT_BUDGET.chars_per_token;
+  const available = available_chars({
+    ...DEFAULT_CONTEXT_BUDGET,
+    token_budget,
+    reserve_tokens,
+  });
   return Math.min(
     MAX_BLOCK_CHARS_CEILING,
     Math.floor(available / MIN_BLOCKS_PER_TURN),
