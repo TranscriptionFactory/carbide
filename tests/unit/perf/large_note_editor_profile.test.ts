@@ -20,9 +20,10 @@ import { build_large_markdown } from "../helpers/large_markdown_fixture";
 
 // Records stage timings for a large note; never asserts them. The full
 // ~800KB run is opt-in (CARBIDE_PROFILE=1) so the default suite stays fast.
-const FULL = import.meta.env["CARBIDE_PROFILE"] === "1";
+const FULL = (import.meta.env["CARBIDE_PROFILE"] as string | undefined) === "1";
 const TARGET_CHARS = FULL ? 800_000 : 40_000;
-const LABEL = import.meta.env["CARBIDE_PROFILE_LABEL"] ?? "run";
+const LABEL =
+  (import.meta.env["CARBIDE_PROFILE_LABEL"] as string | undefined) ?? "run";
 const KEYSTROKES = 100;
 
 function time<T>(timings: Record<string, number>, stage: string, fn: () => T) {
@@ -36,7 +37,7 @@ function write_probe(payload: object) {
   const dir = resolve(__dirname, "../../../.tmpfiles/probe");
   mkdirSync(dir, { recursive: true });
   writeFileSync(
-    resolve(dir, `large_note_${LABEL}_${TARGET_CHARS}.json`),
+    resolve(dir, `large_note_${LABEL}_${String(TARGET_CHARS)}.json`),
     JSON.stringify(payload, null, 2),
   );
 }

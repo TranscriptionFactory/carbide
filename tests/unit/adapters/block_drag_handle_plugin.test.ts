@@ -271,7 +271,9 @@ describe("insert_paragraph_at", () => {
 function paragraphs_doc(count: number): ProseNode {
   const blocks: ProseNode[] = [];
   for (let i = 0; i < count; i++) {
-    blocks.push(schema.nodes.paragraph.create(null, schema.text(`p${i}`)));
+    blocks.push(
+      schema.nodes.paragraph.create(null, schema.text(`p${String(i)}`)),
+    );
   }
   return schema.nodes.doc.create(null, blocks);
 }
