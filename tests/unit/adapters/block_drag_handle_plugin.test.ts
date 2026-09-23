@@ -391,9 +391,8 @@ function stub_scrolled_layout(view: EditorView, viewport_px: number) {
   for (let el = view.dom.firstElementChild; el; el = el.nextElementSibling) {
     if (!el.classList.contains("ProseMirror-widget")) rows.set(el, rows.size);
   }
-  const spy = vi
-    .spyOn(HTMLElement.prototype, "getBoundingClientRect")
-    .mockImplementation(function (this: HTMLElement) {
+  vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(
+    function (this: HTMLElement) {
       if (this === view.dom.parentElement) {
         return DOMRect.fromRect({
           x: 0,
@@ -413,12 +412,12 @@ function stub_scrolled_layout(view: EditorView, viewport_px: number) {
       const row = rows.get(this);
       const top = row === undefined ? 0 : row * ROW_PX - offset;
       return DOMRect.fromRect({ x: 0, y: top, width: 100, height: ROW_PX });
-    });
+    },
+  );
   return {
-    scroll_to_row(row: number) {
+    scroll_to_row: (row: number) => {
       offset = row * ROW_PX;
     },
-    restore: () => spy.mockRestore(),
   };
 }
 
@@ -473,7 +472,7 @@ describe("viewport-only drag handles", () => {
     return {
       view,
       host,
-      async scroll_to_row(row: number) {
+      scroll_to_row: async (row: number) => {
         layout.scroll_to_row(row);
         host.dispatchEvent(new Event("scroll"));
         await flush();

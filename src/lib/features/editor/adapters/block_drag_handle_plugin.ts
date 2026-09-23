@@ -792,7 +792,7 @@ export function create_block_drag_handle_prose_plugin(): Plugin {
       let mode_observer: MutationObserver | null = null;
       const host = editor_dom.parentElement;
       if (host && typeof MutationObserver !== "undefined") {
-        mode_observer = new MutationObserver(() => schedule_sync());
+        mode_observer = new MutationObserver(schedule_sync);
         mode_observer.observe(host, {
           attributes: true,
           attributeFilter: ["class"],

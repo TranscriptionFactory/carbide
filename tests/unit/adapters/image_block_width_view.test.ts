@@ -24,7 +24,7 @@ function mount_image_block(width: string): EditorView {
     resolve_asset_url_for_vault: null,
   };
   const doc = schema.nodes.doc.create(null, [
-    schema.nodes["image-block"]!.create({ src: "https://x/a.png", width }),
+    schema.nodes["image-block"].create({ src: "https://x/a.png", width }),
     schema.nodes.paragraph.create(),
   ]);
   const container = document.createElement("div");
@@ -38,6 +38,12 @@ function mount_image_block(width: string): EditorView {
   });
   open_views.push(view);
   return view;
+}
+
+function image_attrs(view: EditorView) {
+  const node = view.state.doc.nodeAt(0);
+  if (!node) throw new Error("image-block missing");
+  return node.attrs;
 }
 
 function wrapper_width(view: EditorView): string {
@@ -55,10 +61,9 @@ describe("image-block node view width", () => {
   it("applies a width attr change without recreating the wrapper", () => {
     const view = mount_image_block("320px");
     const before = view.dom.querySelector(".image-wrapper");
-    const node = view.state.doc.nodeAt(0)!;
     view.dispatch(
       view.state.tr.setNodeMarkup(0, undefined, {
-        ...node.attrs,
+        ...image_attrs(view),
         width: "50%",
       }),
     );
@@ -68,9 +73,11 @@ describe("image-block node view width", () => {
 
   it("clears the wrapper width when the attr is removed", () => {
     const view = mount_image_block("320px");
-    const node = view.state.doc.nodeAt(0)!;
     view.dispatch(
-      view.state.tr.setNodeMarkup(0, undefined, { ...node.attrs, width: "" }),
+      view.state.tr.setNodeMarkup(0, undefined, {
+        ...image_attrs(view),
+        width: "",
+      }),
     );
     expect(wrapper_width(view)).toBe("");
   });
