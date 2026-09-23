@@ -78,6 +78,7 @@ export class VaultGraphRenderer {
   private vp: Viewport | null = null;
   private cluster_gfx: Graphics | null = null;
   private edges_gfx: Graphics | null = null;
+  private edge_labels_layer: Container | null = null;
   private nodes_layer: Container | null = null;
   private node_map = new Map<string, NodeEntry>();
   private edge_defs: EdgeDef[] = [];
@@ -196,6 +197,7 @@ export class VaultGraphRenderer {
 
     this.cluster_gfx = new pixi.Graphics();
     this.edges_gfx = new pixi.Graphics();
+    this.edge_labels_layer = new pixi.Container();
     this.nodes_layer = new pixi.Container();
 
     const g = new pixi.Graphics();
@@ -206,6 +208,7 @@ export class VaultGraphRenderer {
 
     this.vp.addChild(this.cluster_gfx);
     this.vp.addChild(this.edges_gfx);
+    this.vp.addChild(this.edge_labels_layer);
     this.vp.addChild(this.nodes_layer);
 
     this.vp.on("pointermove", (e) => {
@@ -412,7 +415,7 @@ export class VaultGraphRenderer {
     edges: Array<{ source: string; target: string; label: string }>,
   ): void {
     this.clear_edge_labels();
-    if (!this.edges_gfx || !this.pixi) return;
+    if (!this.edge_labels_layer || !this.pixi) return;
     const { Text } = this.pixi;
     for (const edge of edges) {
       const src = this.node_map.get(edge.source);
@@ -430,7 +433,7 @@ export class VaultGraphRenderer {
       text.anchor.set(0.5, 0.5);
       text.position.set((src.x + tgt.x) / 2, (src.y + tgt.y) / 2);
       text.alpha = 0.7;
-      this.edges_gfx.addChild(text);
+      this.edge_labels_layer.addChild(text);
       this.edge_labels.set(key, text);
     }
     this.request_render();
@@ -540,6 +543,7 @@ export class VaultGraphRenderer {
     this.vp = null;
     this.cluster_gfx = null;
     this.edges_gfx = null;
+    this.edge_labels_layer = null;
     this.nodes_layer = null;
     this.node_map.clear();
     this.circle_texture = null;
