@@ -5,6 +5,7 @@ import { describe, it, expect } from "vitest";
 import { schema } from "$lib/features/editor/adapters/markdown_pipeline";
 import { compute_heading_ranges } from "$lib/features/editor/adapters/heading_fold_plugin";
 import { EditorState } from "prosemirror-state";
+import { EditorView } from "prosemirror-view";
 import {
   create_heading_fold_prose_plugin,
   heading_fold_plugin_key,
@@ -323,5 +324,90 @@ describe("heading_fold_plugin state", () => {
     const mapped_pos = [...plugin_state!.folded][0]!;
     const node = state.doc.resolve(mapped_pos).nodeAfter;
     expect(node?.type.name).toBe("heading");
+  });
+});
+
+describe("heading_fold_plugin incremental decorations", () => {
+  function sections_state(count: number) {
+    const blocks = [];
+    for (let i = 0; i < count; i++) {
+      blocks.push(
+        make_heading(2, `H${String(i)}`),
+        make_paragraph(`p${String(i)}`),
+      );
+    }
+    return EditorState.create({
+      doc: make_doc(...blocks),
+      plugins: [create_heading_fold_prose_plugin()],
+    });
+  }
+
+  function widget_specs(state: EditorState) {
+    return heading_fold_plugin_key
+      .getState(state)!
+      .decorations.find()
+      .map((d) => d.spec as object);
+  }
+
+  function first_paragraph_text_pos(state: EditorState) {
+    const heading = state.doc.child(0);
+    return heading.nodeSize + 1;
+  }
+
+  it("keeps the same widgets when typing inside a paragraph", () => {
+    const state = sections_state(5);
+    const before = widget_specs(state);
+    const next = state.apply(
+      state.tr.insertText("x", first_paragraph_text_pos(state)),
+    );
+    const after = widget_specs(next);
+    expect(after).toHaveLength(5);
+    expect(after.every((spec) => before.includes(spec))).toBe(true);
+  });
+
+  it("rebuilds when a heading is added", () => {
+    const state = sections_state(3);
+    const before = widget_specs(state);
+    const next = state.apply(
+      state.tr.insert(state.doc.content.size, [
+        make_heading(2, "new"),
+        make_paragraph("body"),
+      ]),
+    );
+    const after = widget_specs(next);
+    expect(after).toHaveLength(4);
+    expect(after.some((spec) => before.includes(spec))).toBe(false);
+  });
+
+  it("rebuilds when a heading is removed", () => {
+    const state = sections_state(3);
+    const heading = state.doc.child(0);
+    const next = state.apply(state.tr.delete(0, heading.nodeSize));
+    expect(widget_specs(next)).toHaveLength(2);
+  });
+
+  it("toggles the heading under the clicked widget after positions shift", () => {
+    const host = document.createElement("div");
+    document.body.appendChild(host);
+    const view = new EditorView(host, { state: sections_state(2) });
+    view.dispatch(
+      view.state.tr.insertText(
+        "shifted ",
+        first_paragraph_text_pos(view.state),
+      ),
+    );
+
+    const toggles = host.querySelectorAll(".heading-fold-toggle");
+    toggles[1]!.dispatchEvent(
+      new MouseEvent("mousedown", { bubbles: true, cancelable: true }),
+    );
+
+    const second_heading_pos =
+      view.state.doc.child(0).nodeSize + view.state.doc.child(1).nodeSize;
+    expect([...heading_fold_plugin_key.getState(view.state)!.folded]).toEqual([
+      second_heading_pos,
+    ]);
+    view.destroy();
+    host.remove();
   });
 });
