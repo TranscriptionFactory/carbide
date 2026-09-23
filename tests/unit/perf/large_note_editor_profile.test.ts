@@ -6,7 +6,6 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { TextSelection } from "prosemirror-state";
 import { create_prosemirror_editor_port } from "$lib/features/editor/adapters/prosemirror_adapter";
-import { create_ydoc_manager } from "$lib/features/editor/adapters/ydoc_manager";
 import {
   parse_markdown,
   serialize_markdown,
@@ -58,9 +57,7 @@ describe("large note editor profile", () => {
 
     const root = document.createElement("div");
     document.body.appendChild(root);
-    const port = create_prosemirror_editor_port({
-      ydoc_manager: create_ydoc_manager(),
-    });
+    const port = create_prosemirror_editor_port();
     const session = await (async () => {
       const start = performance.now();
       const s = await port.start_session({

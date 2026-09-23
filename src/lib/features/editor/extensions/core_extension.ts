@@ -4,8 +4,7 @@ import {
   type EditorState,
   type Transaction,
 } from "prosemirror-state";
-import { yUndoPlugin, undo as yUndo, redo as yRedo } from "y-prosemirror";
-import { history, undo as pmUndo, redo as pmRedo } from "prosemirror-history";
+import { history, undo, redo } from "prosemirror-history";
 import { keymap } from "prosemirror-keymap";
 import { baseKeymap, chainCommands, toggleMark } from "prosemirror-commands";
 import {
@@ -116,9 +115,6 @@ export function selection_in_table(state: EditorState): boolean {
 
 export function create_core_extension(ctx: PluginContext): EditorExtension {
   const plugins: Plugin[] = [];
-  const use_yjs = ctx.use_yjs ?? false;
-  const undo = use_yjs ? yUndo : pmUndo;
-  const redo = use_yjs ? yRedo : pmRedo;
 
   const strikethrough_mark_type = schema.marks.strikethrough;
   const strong_mark_type = schema.marks.strong;
@@ -234,7 +230,7 @@ export function create_core_extension(ctx: PluginContext): EditorExtension {
 
   plugins.push(keymap({ Backspace: undoInputRule }));
   plugins.push(keymap(baseKeymap));
-  plugins.push(use_yjs ? yUndoPlugin() : history());
+  plugins.push(history());
   plugins.push(dropCursor());
   plugins.push(gapCursor());
   plugins.push(create_trailing_paragraph_plugin());

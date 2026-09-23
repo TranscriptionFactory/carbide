@@ -1,6 +1,5 @@
 import type { AssetPath, VaultId } from "$lib/shared/types/ids";
 import type { EditorPort } from "$lib/features/editor/ports";
-import type { YDocManager } from "./ydoc_manager";
 import type { SlashCommandConfig } from "./slash_command_plugin";
 import type { AiMenuPluginConfig } from "./ai_menu_plugin";
 import type { FrontmatterWidgetConfig } from "./frontmatter_view_plugin";
@@ -28,7 +27,6 @@ export function create_lazy_editor_port(args?: {
   resolve_asset_url_for_vault?: ResolveAssetUrlForVault;
   resolve_vault_file_path?: ResolveVaultFilePath;
   load_svg_preview?: (vault_id: string, path: string) => Promise<string | null>;
-  ydoc_manager?: YDocManager;
   slash_config?: SlashCommandConfig;
   ai_inline_config?: AiMenuPluginConfig;
   frontmatter_widget?: FrontmatterWidgetConfig;

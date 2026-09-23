@@ -34,7 +34,6 @@ export type PluginContext = {
   load_svg_preview?:
     | ((vault_id: string, path: string) => Promise<string | null>)
     | undefined;
-  use_yjs?: boolean;
   native_link_hover_enabled?: boolean;
   native_wiki_suggest_enabled?: boolean;
   native_link_click_enabled?: boolean;
