@@ -5,6 +5,7 @@ import { describe, it, expect, vi } from "vitest";
 import { EditorState } from "prosemirror-state";
 import type { Transaction } from "prosemirror-state";
 import type { Node as ProseNode } from "prosemirror-model";
+import { EditorView as EditorViewImpl } from "prosemirror-view";
 import type { EditorView } from "prosemirror-view";
 import { schema } from "$lib/features/editor/adapters/markdown_pipeline";
 import {
@@ -15,6 +16,7 @@ import {
   compute_drag_range,
   resolve_top_level_block,
   insert_paragraph_at,
+  visible_handles,
 } from "$lib/features/editor/adapters/block_drag_handle_plugin";
 import {
   BLOCK_NODE_MATRIX,
@@ -263,5 +265,94 @@ describe("insert_paragraph_at", () => {
     expect(insert_paragraph_at(view, doc.content.size, "below")).toBeNull();
     expect(get_state().doc.eq(doc)).toBe(true);
     expect(focus).not.toHaveBeenCalled();
+  });
+});
+
+function paragraphs_doc(count: number): ProseNode {
+  const blocks: ProseNode[] = [];
+  for (let i = 0; i < count; i++) {
+    blocks.push(schema.nodes.paragraph.create(null, schema.text(`p${i}`)));
+  }
+  return schema.nodes.doc.create(null, blocks);
+}
+
+function mount_with_handles(doc: ProseNode): EditorView {
+  const host = document.createElement("div");
+  host.className = "show-block-drag-handle";
+  document.body.appendChild(host);
+  return new EditorViewImpl(host, {
+    state: EditorState.create({
+      doc,
+      plugins: [create_block_drag_handle_prose_plugin()],
+    }),
+  });
+}
+
+const ROW_PX = 20;
+
+// jsdom has no layout: every non-widget child of the editor root is laid out
+// as a 20px row, so a viewport band selects a known slice of blocks.
+function stub_row_layout(root: HTMLElement) {
+  const rows = new Map<Element, number>();
+  for (let el = root.firstElementChild; el; el = el.nextElementSibling) {
+    if (!el.classList.contains("ProseMirror-widget")) rows.set(el, rows.size);
+  }
+  return vi
+    .spyOn(HTMLElement.prototype, "getBoundingClientRect")
+    .mockImplementation(function (this: HTMLElement) {
+      const top = (rows.get(this) ?? 0) * ROW_PX;
+      return DOMRect.fromRect({ x: 0, y: top, width: 100, height: ROW_PX });
+    });
+}
+
+describe("visible_handles", () => {
+  const band = { top: 405, bottom: 600 };
+
+  function measure(count: number) {
+    const view = mount_with_handles(paragraphs_doc(count));
+    const rects = stub_row_layout(view.dom);
+    const visible = visible_handles(view.dom, band);
+    const calls = rects.mock.calls.length;
+    rects.mockRestore();
+    view.destroy();
+    return { visible, calls };
+  }
+
+  it("maps each visible handle to the block it precedes", () => {
+    const { visible } = measure(100);
+    expect(visible.map(({ block }) => block.textContent)).toEqual(
+      Array.from({ length: 11 }, (_, i) => `p${String(20 + i)}`),
+    );
+    for (const { handle } of visible) {
+      expect(handle.classList.contains("block-drag-handle")).toBe(true);
+    }
+  });
+
+  it("measures a bounded number of blocks regardless of document size", () => {
+    const small = measure(100);
+    const large = measure(2000);
+    expect(large.visible).toHaveLength(small.visible.length);
+    expect(large.calls).toBeLessThan(small.calls + 10);
+    expect(large.calls).toBeLessThan(40);
+  });
+});
+
+describe("drag handle widget reuse", () => {
+  it("keeps existing handle DOM when an edit rebuilds the handle set", () => {
+    const view = mount_with_handles(paragraphs_doc(20));
+    const before = Array.from(view.dom.querySelectorAll(".block-drag-handle"));
+    expect(before).toHaveLength(20);
+
+    view.dispatch(
+      view.state.tr.insert(
+        view.state.doc.content.size,
+        schema.nodes.paragraph.create(null, schema.text("new")),
+      ),
+    );
+
+    const after = Array.from(view.dom.querySelectorAll(".block-drag-handle"));
+    expect(after).toHaveLength(21);
+    expect(after.filter((el) => before.includes(el))).toHaveLength(20);
+    view.destroy();
   });
 });

@@ -24,8 +24,11 @@ const FOCUS_MODE_KEYSTROKE_THRESHOLD = 4;
 const FOCUS_EXIT_MOVE_THRESHOLD_PX = 5;
 const ALIGN_CULL_MARGIN_PX = 300;
 
+const HANDLE_CLASS = "block-drag-handle";
+const NEAR_CLASS = "block-drag-handle--near";
+const WIDGET_CLASS = "ProseMirror-widget";
+
 type DragHandleState = { set: DecorationSet; starts: number[] };
-type HandleEntry = { el: HTMLElement; get_pos: () => number | undefined };
 type BuildHandle = (
   view: EditorView,
   get_pos: () => number | undefined,
@@ -180,6 +183,10 @@ function arrays_equal(a: number[], b: number[]): boolean {
   return true;
 }
 
+// Shared so a rebuilt widget compares equal to the one it replaces and
+// ProseMirror keeps the existing handle DOM.
+const stop_all_events = () => true;
+
 export function build_drag_handle_decorations(
   doc: ProseNode,
   build_handle: BuildHandle,
@@ -188,10 +195,81 @@ export function build_drag_handle_decorations(
     Decoration.widget(pos, build_handle, {
       side: -1,
       ignoreSelection: true,
-      stopEvent: () => true,
+      stopEvent: stop_all_events,
     }),
   );
   return DecorationSet.create(doc, decorations);
+}
+
+function is_foreign_widget(el: Element): boolean {
+  return (
+    el.classList.contains(WIDGET_CLASS) && !el.classList.contains(HANDLE_CLASS)
+  );
+}
+
+// A handle widget renders immediately before its block, in the same parent.
+export function handle_target(handle: Element): HTMLElement | null {
+  let next = handle.nextElementSibling;
+  while (next && is_foreign_widget(next)) next = next.nextElementSibling;
+  return next instanceof HTMLElement ? next : null;
+}
+
+export function handle_for_block(block: Element): HTMLElement | null {
+  let prev = block.previousElementSibling;
+  while (prev && is_foreign_widget(prev)) prev = prev.previousElementSibling;
+  return prev instanceof HTMLElement && prev.classList.contains(HANDLE_CLASS)
+    ? prev
+    : null;
+}
+
+function top_level_blocks(root: HTMLElement): HTMLElement[] {
+  const blocks: HTMLElement[] = [];
+  for (let el = root.firstElementChild; el; el = el.nextElementSibling) {
+    if (el instanceof HTMLElement && !el.classList.contains(WIDGET_CLASS))
+      blocks.push(el);
+  }
+  return blocks;
+}
+
+function first_block_ending_after(blocks: HTMLElement[], top: number): number {
+  let lo = 0;
+  let hi = blocks.length;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    const block = blocks[mid];
+    if (block && block.getBoundingClientRect().bottom < top) lo = mid + 1;
+    else hi = mid;
+  }
+  return lo;
+}
+
+/**
+ * Handles whose blocks intersect the band, found by binary search over the
+ * top-level blocks so the work scales with what is on screen, not the doc.
+ */
+export function visible_handles(
+  root: HTMLElement,
+  band: { top: number; bottom: number },
+): { handle: HTMLElement; block: HTMLElement }[] {
+  const blocks = top_level_blocks(root);
+  const result: { handle: HTMLElement; block: HTMLElement }[] = [];
+  for (
+    let i = first_block_ending_after(blocks, band.top);
+    i < blocks.length;
+    i++
+  ) {
+    const block = blocks[i];
+    if (!block || block.getBoundingClientRect().top > band.bottom) break;
+    const own = handle_for_block(block);
+    if (own) result.push({ handle: own, block });
+    for (const nested of Array.from(
+      block.querySelectorAll<HTMLElement>(`.${HANDLE_CLASS}`),
+    )) {
+      const target = handle_target(nested);
+      if (target) result.push({ handle: nested, block: target });
+    }
+  }
+  return result;
 }
 
 export function create_block_drag_handle_prose_plugin(): Plugin {
@@ -199,7 +277,6 @@ export function create_block_drag_handle_prose_plugin(): Plugin {
   let source_is_list_item = false;
   let is_dragging = false;
   let insert_menu: BlockInsertMenu | null = null;
-  const handles: HandleEntry[] = [];
 
   let drop_indicator: HTMLElement | null = null;
   let indicator_frame: number | null = null;
@@ -429,7 +506,6 @@ export function create_block_drag_handle_prose_plugin(): Plugin {
       on_insert_click(view, get_pos, insert_btn, event),
     );
 
-    handles.push({ el: handle, get_pos });
     return handle;
   }
 
@@ -515,42 +591,41 @@ export function create_block_drag_handle_prose_plugin(): Plugin {
       let focus_mode_active = false;
       let focus_exit_movement = 0;
       let near_pos: number | null = null;
+      let near_handle: HTMLElement | null = null;
+      let align_skipped = false;
       let align_frame: number | null = null;
       let mouse_frame: number | null = null;
       let last_mouse: { x: number; y: number } | null = null;
 
       function align_handles() {
+        if (!is_feature_enabled()) {
+          align_skipped = true;
+          return;
+        }
+        align_skipped = false;
         const pm_rect = editor_dom.getBoundingClientRect();
         const scroll_top = editor_dom.scrollTop;
         const measured: { el: HTMLElement; top: number }[] = [];
 
-        for (let i = handles.length - 1; i >= 0; i--) {
-          const entry = handles[i];
-          if (!entry) continue;
-          if (!entry.el.isConnected) {
-            handles.splice(i, 1);
-            continue;
-          }
-          const pos = entry.get_pos();
-          if (pos == null) continue;
-          const dom = editor_view.nodeDOM(pos);
-          if (!(dom instanceof HTMLElement)) continue;
-
-          const block_rect = dom.getBoundingClientRect();
+        for (const { handle, block } of visible_handles(editor_dom, {
+          top: pm_rect.top - ALIGN_CULL_MARGIN_PX,
+          bottom: pm_rect.bottom + ALIGN_CULL_MARGIN_PX,
+        })) {
+          const block_rect = block.getBoundingClientRect();
           if (
             block_rect.bottom < pm_rect.top - ALIGN_CULL_MARGIN_PX ||
             block_rect.top > pm_rect.bottom + ALIGN_CULL_MARGIN_PX
           )
             continue;
-          const style = getComputedStyle(dom);
+          const style = getComputedStyle(block);
           const line_height = parseFloat(style.lineHeight) || block_rect.height;
           const padding_top = parseFloat(style.paddingTop) || 0;
-          const handle_height = entry.el.offsetHeight || 24;
+          const handle_height = handle.offsetHeight || 24;
           const baseline_offset =
             padding_top + line_height * 0.9 - handle_height;
           const top =
             block_rect.top - pm_rect.top + scroll_top + baseline_offset;
-          measured.push({ el: entry.el, top });
+          measured.push({ el: handle, top });
         }
 
         for (const m of measured) m.el.style.top = `${String(m.top)}px`;
@@ -604,19 +679,10 @@ export function create_block_drag_handle_prose_plugin(): Plugin {
       function set_near(pos: number | null) {
         if (pos === near_pos) return;
         near_pos = pos;
-        for (let i = handles.length - 1; i >= 0; i--) {
-          const entry = handles[i];
-          if (!entry) continue;
-          if (!entry.el.isConnected) {
-            handles.splice(i, 1);
-            continue;
-          }
-          const p = entry.get_pos();
-          entry.el.classList.toggle(
-            "block-drag-handle--near",
-            p != null && p === pos,
-          );
-        }
+        near_handle?.classList.remove(NEAR_CLASS);
+        const block = pos == null ? null : editor_view.nodeDOM(pos);
+        near_handle = block instanceof Element ? handle_for_block(block) : null;
+        near_handle?.classList.add(NEAR_CLASS);
       }
 
       function on_mousemove(event: MouseEvent) {
@@ -628,6 +694,7 @@ export function create_block_drag_handle_prose_plugin(): Plugin {
         exit_focus_mode();
         if (is_dragging) return;
         if (!is_feature_enabled()) return;
+        if (align_skipped) schedule_align();
 
         last_mouse = { x: event.clientX, y: event.clientY };
         if (mouse_frame !== null) return;
