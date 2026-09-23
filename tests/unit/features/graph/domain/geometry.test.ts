@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   convex_hull,
+  midpoint,
   offset_polygon,
   type Point,
 } from "$lib/features/graph/domain/geometry";
@@ -114,5 +115,21 @@ describe("offset_polygon", () => {
       const neg_dy = neg[i]!.y - orig.y;
       expect(pos_dx * neg_dx + pos_dy * neg_dy).toBeLessThan(0);
     }
+  });
+});
+
+describe("midpoint", () => {
+  it("returns the point halfway between two points", () => {
+    expect(midpoint({ x: 0, y: 0 }, { x: 10, y: -4 })).toEqual({ x: 5, y: -2 });
+  });
+
+  it("is symmetric in its arguments", () => {
+    const a = { x: -3, y: 7 };
+    const b = { x: 5, y: 1 };
+    expect(midpoint(a, b)).toEqual(midpoint(b, a));
+  });
+
+  it("returns the point itself for coincident inputs", () => {
+    expect(midpoint({ x: 2, y: 3 }, { x: 2, y: 3 })).toEqual({ x: 2, y: 3 });
   });
 });

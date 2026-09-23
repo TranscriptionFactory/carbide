@@ -18,6 +18,7 @@ import {
 import { SpatialIndex } from "$lib/features/graph/domain/spatial_index";
 import {
   convex_hull,
+  midpoint,
   offset_polygon,
 } from "$lib/features/graph/domain/geometry";
 import type {
@@ -60,6 +61,7 @@ type NodeEntry = {
 };
 
 type EdgeDef = { source: string; target: string };
+type EdgeLabel = { text: Text; src_id: string; tgt_id: string };
 type SemanticEdgeDef = SemanticEdge;
 type SmartLinkEdgeDef = SmartLinkEdge;
 
@@ -357,6 +359,7 @@ export class VaultGraphRenderer {
       }
     }
     this.spatial.rebuild(spatial_nodes);
+    this.reposition_edge_labels();
     this.edges_dirty = true;
     this.request_render();
   }
@@ -398,6 +401,7 @@ export class VaultGraphRenderer {
         spatial_nodes.push({ id: node_id, x, y });
       }
       this.spatial.rebuild(spatial_nodes);
+      this.reposition_edge_labels();
       this.edges_dirty = true;
       this.render();
 
@@ -409,7 +413,7 @@ export class VaultGraphRenderer {
     requestAnimationFrame(step);
   }
 
-  private edge_labels: Map<string, import("pixi.js").Text> = new Map();
+  private edge_labels: Map<string, EdgeLabel> = new Map();
 
   show_edge_labels(
     edges: Array<{ source: string; target: string; label: string }>,
@@ -431,19 +435,34 @@ export class VaultGraphRenderer {
         },
       });
       text.anchor.set(0.5, 0.5);
-      text.position.set((src.x + tgt.x) / 2, (src.y + tgt.y) / 2);
+      const mid = midpoint(src, tgt);
+      text.position.set(mid.x, mid.y);
       text.alpha = 0.7;
       this.edge_labels_layer.addChild(text);
-      this.edge_labels.set(key, text);
+      this.edge_labels.set(key, {
+        text,
+        src_id: edge.source,
+        tgt_id: edge.target,
+      });
     }
     this.request_render();
   }
 
   clear_edge_labels(): void {
-    for (const text of this.edge_labels.values()) {
+    for (const { text } of this.edge_labels.values()) {
       text.destroy();
     }
     this.edge_labels.clear();
+  }
+
+  private reposition_edge_labels(): void {
+    for (const { text, src_id, tgt_id } of this.edge_labels.values()) {
+      const src = this.node_map.get(src_id);
+      const tgt = this.node_map.get(tgt_id);
+      if (!src || !tgt) continue;
+      const mid = midpoint(src, tgt);
+      text.position.set(mid.x, mid.y);
+    }
   }
 
   set_semantic_edges(edges: SemanticEdgeDef[], visible: boolean): void {
