@@ -30,7 +30,7 @@ const HANDLE_CLASS = "block-drag-handle";
 const NEAR_CLASS = "block-drag-handle--near";
 const WIDGET_CLASS = "ProseMirror-widget";
 
-export type HandleWindow = { from: number; to: number };
+type HandleWindow = { from: number; to: number };
 type DragHandleState = {
   set: DecorationSet;
   starts: number[];
@@ -214,7 +214,7 @@ export function build_drag_handle_decorations(
   return DecorationSet.create(doc, decorations);
 }
 
-export function leading_window(doc: ProseNode, count: number): HandleWindow {
+function leading_window(doc: ProseNode, count: number): HandleWindow {
   let to = 0;
   for (let i = 0; i < Math.min(count, doc.childCount); i++) {
     to += doc.child(i).nodeSize;
@@ -222,7 +222,7 @@ export function leading_window(doc: ProseNode, count: number): HandleWindow {
   return { from: 0, to };
 }
 
-export function window_covers(outer: HandleWindow, inner: HandleWindow) {
+function window_covers(outer: HandleWindow, inner: HandleWindow) {
   return outer.from <= inner.from && inner.to <= outer.to;
 }
 
@@ -286,7 +286,7 @@ function block_span(
  * The top-level blocks intersecting the band (`visible`), and that span widened
  * by `margin` blocks each side (`window`), as doc ranges.
  */
-export function measure_handle_window(
+function measure_handle_window(
   view: EditorView,
   band: { top: number; bottom: number },
   margin = WINDOW_MARGIN_BLOCKS,
@@ -314,18 +314,27 @@ export function measure_handle_window(
   };
 }
 
-// The scroll container is an ancestor of the editor, so the visible part of
-// the editor is its rect clipped to the viewport.
+// The editor scrolls inside an ancestor pane, not on its own element.
+function scroll_parent(el: HTMLElement): HTMLElement | null {
+  for (let p = el.parentElement; p; p = p.parentElement) {
+    const { overflowY } = getComputedStyle(p);
+    if (overflowY === "auto" || overflowY === "scroll") return p;
+  }
+  return null;
+}
+
 function viewport_band(
   editor_dom: HTMLElement,
+  scroller: HTMLElement | null,
   margin: number,
 ): { top: number; bottom: number } {
   const rect = editor_dom.getBoundingClientRect();
-  const viewport_height =
-    window.innerHeight || document.documentElement.clientHeight;
+  const clip = scroller
+    ? scroller.getBoundingClientRect()
+    : { top: 0, bottom: window.innerHeight };
   return {
-    top: Math.max(rect.top, 0) - margin,
-    bottom: Math.min(rect.bottom, viewport_height) + margin,
+    top: Math.max(rect.top, clip.top) - margin,
+    bottom: Math.min(rect.bottom, clip.bottom) + margin,
   };
 }
 
@@ -705,6 +714,8 @@ export function create_block_drag_handle_prose_plugin(): Plugin {
       let near_pos: number | null = null;
       let near_handle: HTMLElement | null = null;
       let sync_frame: number | null = null;
+      const scroller = scroll_parent(editor_dom);
+      const scroll_target: EventTarget = scroller ?? window;
       let mouse_frame: number | null = null;
       let last_mouse: { x: number; y: number } | null = null;
 
@@ -727,7 +738,7 @@ export function create_block_drag_handle_prose_plugin(): Plugin {
         }
         const measured = measure_handle_window(
           editor_view,
-          viewport_band(editor_dom, 0),
+          viewport_band(editor_dom, scroller, 0),
         );
         if (!measured) return;
         if (current && window_covers(current, measured.visible)) return;
@@ -738,7 +749,7 @@ export function create_block_drag_handle_prose_plugin(): Plugin {
         const pm_rect = editor_dom.getBoundingClientRect();
         const scroll_top = editor_dom.scrollTop;
         const measured: { el: HTMLElement; top: number }[] = [];
-        const band = viewport_band(editor_dom, ALIGN_CULL_MARGIN_PX);
+        const band = viewport_band(editor_dom, scroller, ALIGN_CULL_MARGIN_PX);
 
         for (const { handle, block } of visible_handles(editor_dom, band)) {
           const block_rect = block.getBoundingClientRect();
@@ -771,11 +782,6 @@ export function create_block_drag_handle_prose_plugin(): Plugin {
         });
       }
 
-      function on_scroll(event: Event) {
-        if (event.target instanceof Node && event.target.contains(editor_dom))
-          schedule_sync();
-      }
-
       const resize_observer =
         typeof ResizeObserver === "undefined"
           ? null
@@ -783,13 +789,11 @@ export function create_block_drag_handle_prose_plugin(): Plugin {
       resize_observer?.observe(editor_dom);
 
       // The handle mode is a class on the editor host (note_editor.svelte).
+      let mode_observer: MutationObserver | null = null;
       const host = editor_dom.parentElement;
-      const mode_observer =
-        host && typeof MutationObserver !== "undefined"
-          ? new MutationObserver(() => schedule_sync())
-          : null;
-      if (host) {
-        mode_observer?.observe(host, {
+      if (host && typeof MutationObserver !== "undefined") {
+        mode_observer = new MutationObserver(() => schedule_sync());
+        mode_observer.observe(host, {
           attributes: true,
           attributeFilter: ["class"],
         });
@@ -867,8 +871,7 @@ export function create_block_drag_handle_prose_plugin(): Plugin {
       editor_dom.addEventListener("mousemove", on_mousemove);
       editor_dom.addEventListener("mouseleave", on_mouseleave);
       editor_dom.addEventListener("keydown", on_keydown);
-      document.addEventListener("scroll", on_scroll, {
-        capture: true,
+      scroll_target.addEventListener("scroll", schedule_sync, {
         passive: true,
       });
 
@@ -896,7 +899,7 @@ export function create_block_drag_handle_prose_plugin(): Plugin {
           editor_dom.removeEventListener("mousemove", on_mousemove);
           editor_dom.removeEventListener("mouseleave", on_mouseleave);
           editor_dom.removeEventListener("keydown", on_keydown);
-          document.removeEventListener("scroll", on_scroll, { capture: true });
+          scroll_target.removeEventListener("scroll", schedule_sync);
         },
       };
     },

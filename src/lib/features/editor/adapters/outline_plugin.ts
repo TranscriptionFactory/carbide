@@ -3,6 +3,7 @@ import type { Transaction } from "prosemirror-state";
 import type { Node as ProseNode } from "prosemirror-model";
 import type { OutlineHeading } from "$lib/features/outline";
 import { changed_range, type ScanRange } from "./incremental_scan";
+import { assign_heading_ids } from "../domain/extract_headings";
 
 type HeadingEntry = Omit<OutlineHeading, "id">;
 
@@ -13,23 +14,6 @@ type OutlinePluginState = {
 };
 
 export const outline_plugin_key = new PluginKey<OutlinePluginState>("outline");
-
-function heading_slug(level: number, text: string): string {
-  return `h-${String(level)}-${text
-    .toLowerCase()
-    .replace(/[^\w]+/g, "-")
-    .replace(/^-|-$/g, "")}`;
-}
-
-function assign_ids(entries: HeadingEntry[]): OutlineHeading[] {
-  const occurrence_counts = new Map<string, number>();
-  return entries.map((entry) => {
-    const slug = heading_slug(entry.level, entry.text);
-    const count = occurrence_counts.get(slug) ?? 0;
-    occurrence_counts.set(slug, count + 1);
-    return { ...entry, id: `${slug}-${String(count)}` };
-  });
-}
 
 function collect_heading_entries(
   doc: ProseNode,
@@ -50,7 +34,7 @@ function collect_heading_entries(
 }
 
 export function extract_headings(doc: ProseNode): OutlineHeading[] {
-  return assign_ids(collect_heading_entries(doc, 0, doc.content.size));
+  return assign_heading_ids(collect_heading_entries(doc, 0, doc.content.size));
 }
 
 /** Index of the first heading whose position is at or after `pos`. */
@@ -103,7 +87,7 @@ function top_level_span(doc: ProseNode, range: ScanRange): ScanRange {
  * headings before the change are kept, headings after it only shift, and ids
  * are renumbered only when the heading structure changed.
  */
-export function update_headings(
+function update_headings(
   tr: Transaction,
   prev: OutlinePluginState,
 ): OutlinePluginState {
@@ -129,7 +113,7 @@ export function update_headings(
     .map((h) => ({ ...h, pos: h.pos + delta }));
   if (!same) {
     return {
-      headings: assign_ids([...head, ...new_middle, ...tail]),
+      headings: assign_heading_ids([...head, ...new_middle, ...tail]),
       structure_revision: prev.structure_revision + 1,
     };
   }
