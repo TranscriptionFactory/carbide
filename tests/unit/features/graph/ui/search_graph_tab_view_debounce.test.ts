@@ -35,9 +35,9 @@ function type_query(target: Element, value: string) {
   const input = target.querySelector<HTMLInputElement>(
     'input[placeholder="Search notes..."]',
   );
-  expect(input).not.toBeNull();
-  input!.value = value;
-  input!.dispatchEvent(new Event("input", { bubbles: true }));
+  if (!input) throw new Error("search input not rendered");
+  input.value = value;
+  input.dispatchEvent(new Event("input", { bubbles: true }));
   flushSync();
 }
 
