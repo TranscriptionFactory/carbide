@@ -23,10 +23,6 @@ function meta_action(value: unknown): WikiLinkMeta["action"] | null {
     : null;
 }
 
-function is_full_scan_action(value: unknown): boolean {
-  return meta_action(value) === "full_scan";
-}
-
 export const wiki_link_plugin_key = new PluginKey<DecorationSet>(
   "wiki-link-plugin",
 );
@@ -195,8 +191,8 @@ export function create_wiki_link_converter_prose_plugin(input: {
       },
     },
     appendTransaction(transactions, _old_state, new_state) {
-      const force_full_scan = transactions.some((tr) =>
-        is_full_scan_action(tr.getMeta(wiki_link_plugin_key)),
+      const force_full_scan = transactions.some(
+        (tr) => meta_action(tr.getMeta(wiki_link_plugin_key)) === "full_scan",
       );
       const should_scan =
         force_full_scan ||

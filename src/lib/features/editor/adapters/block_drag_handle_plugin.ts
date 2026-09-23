@@ -606,16 +606,14 @@ export function create_block_drag_handle_prose_plugin(): Plugin {
         const pm_rect = editor_dom.getBoundingClientRect();
         const scroll_top = editor_dom.scrollTop;
         const measured: { el: HTMLElement; top: number }[] = [];
-
-        for (const { handle, block } of visible_handles(editor_dom, {
+        const band = {
           top: pm_rect.top - ALIGN_CULL_MARGIN_PX,
           bottom: pm_rect.bottom + ALIGN_CULL_MARGIN_PX,
-        })) {
+        };
+
+        for (const { handle, block } of visible_handles(editor_dom, band)) {
           const block_rect = block.getBoundingClientRect();
-          if (
-            block_rect.bottom < pm_rect.top - ALIGN_CULL_MARGIN_PX ||
-            block_rect.top > pm_rect.bottom + ALIGN_CULL_MARGIN_PX
-          )
+          if (block_rect.bottom < band.top || block_rect.top > band.bottom)
             continue;
           const style = getComputedStyle(block);
           const line_height = parseFloat(style.lineHeight) || block_rect.height;
