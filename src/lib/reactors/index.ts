@@ -24,6 +24,7 @@ import { ConflictToastManager } from "$lib/reactors/conflict_toast";
 import { create_document_cache_reactor } from "$lib/reactors/document_cache.reactor.svelte";
 import { create_terminal_reconcile_reactor } from "$lib/reactors/terminal_reconcile.reactor.svelte";
 import { create_graph_refresh_reactor } from "$lib/reactors/graph_refresh.reactor.svelte";
+import { create_search_graph_release_reactor } from "$lib/reactors/search_graph_release.reactor.svelte";
 import { create_bases_refresh_reactor } from "$lib/reactors/bases_refresh.reactor.svelte";
 import { create_bases_counts_reactor } from "$lib/reactors/bases_counts.reactor.svelte";
 import { create_types_refresh_reactor } from "$lib/reactors/types_refresh.reactor.svelte";
@@ -373,6 +374,10 @@ export function mount_reactors(context: ReactorContext): ReactorHandles {
     create_graph_refresh_reactor(
       context.graph_store,
       context.vault_store,
+      context.graph_service,
+    ),
+    create_search_graph_release_reactor(
+      context.tab_store,
       context.graph_service,
     ),
     create_bases_refresh_reactor(context.vault_store, context.bases_service),
