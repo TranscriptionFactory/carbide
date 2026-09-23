@@ -1,7 +1,6 @@
 import { Plugin, PluginKey } from "prosemirror-state";
 import type { Node as ProseNode } from "prosemirror-model";
 import { create_image_input_rule_prose_plugin } from "../adapters/image_input_rule_plugin";
-import { create_image_width_prose_plugin } from "../adapters/image_width_plugin";
 import { create_image_paste_prose_plugin } from "../adapters/image_paste_plugin";
 import { create_width_resize_handle } from "../adapters/resize_handle";
 import { resolve_relative_asset_path } from "$lib/features/note";
@@ -209,7 +208,6 @@ function create_image_block_view_plugin(ctx: PluginContext): Plugin {
 
 export function create_image_extension(ctx: PluginContext): EditorExtension {
   const plugins: Plugin[] = [
-    create_image_width_prose_plugin(),
     create_image_block_view_plugin(ctx),
     create_image_input_rule_prose_plugin(),
   ];
