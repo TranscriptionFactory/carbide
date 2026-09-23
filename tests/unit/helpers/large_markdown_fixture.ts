@@ -35,12 +35,12 @@ function sentence(rng: () => number, words: number): string {
 
 function paragraph(rng: () => number, index: number): string {
   const extras = [
-    `[[Note ${index % 97}]]`,
-    `#tag${index % 31}`,
-    `[[session:sess-${index % 13}]]`,
+    `[[Note ${String(index % 97)}]]`,
+    `#tag${String(index % 31)}`,
+    `[[session:sess-${String(index % 13)}]]`,
     `**${sentence(rng, 2)}**`,
-    `\`code_${index}\``,
-    `$x_${index % 7}^2$`,
+    `\`code_${String(index)}\``,
+    `$x_${String(index % 7)}^2$`,
   ];
   const parts: string[] = [];
   for (let i = 0; i < 4; i++) {
@@ -54,8 +54,8 @@ function list_block(rng: () => number, index: number): string {
   const lines: string[] = [];
   for (let i = 0; i < 4; i++) {
     const prefix = rng() < 0.4 ? `- [${rng() < 0.5 ? "x" : " "}] ` : "- ";
-    lines.push(`${prefix}${sentence(rng, 6)} [[Item ${index + i}]]`);
-    if (rng() < 0.3) lines.push(`  - ${sentence(rng, 5)} #nested${i}`);
+    lines.push(`${prefix}${sentence(rng, 6)} [[Item ${String(index + i)}]]`);
+    if (rng() < 0.3) lines.push(`  - ${sentence(rng, 5)} #nested${String(i)}`);
   }
   return lines.join("\n");
 }
@@ -63,7 +63,9 @@ function list_block(rng: () => number, index: number): string {
 function code_block(rng: () => number, index: number): string {
   const body: string[] = [];
   for (let i = 0; i < 6; i++) {
-    body.push(`const v${index}_${i} = "${sentence(rng, 3)}"; // #not-a-tag`);
+    body.push(
+      `const v${String(index)}_${String(i)} = "${sentence(rng, 3)}"; // #not-a-tag`,
+    );
   }
   return ["```ts", ...body, "```"].join("\n");
 }
@@ -81,7 +83,7 @@ function table_block(rng: () => number): string {
 function math_block(index: number): string {
   return [
     "$$",
-    `\\sum_{i=0}^{${index}} i^2 = \\frac{n(n+1)(2n+1)}{6}`,
+    `\\sum_{i=0}^{${String(index)}} i^2 = \\frac{n(n+1)(2n+1)}{6}`,
     "$$",
   ].join("\n");
 }
@@ -102,8 +104,8 @@ export function build_large_markdown(target_chars: number, seed = 42): string {
   while (size < target_chars) {
     let block: string;
     const slot = index % 12;
-    if (slot === 0 || slot === 8) block = `## Section ${index}`;
-    else if (slot === 4) block = `### Subsection ${index}`;
+    if (slot === 0 || slot === 8) block = `## Section ${String(index)}`;
+    else if (slot === 4) block = `### Subsection ${String(index)}`;
     else if (slot === 3) block = list_block(rng, index);
     else if (slot === 5) block = code_block(rng, index);
     else if (slot === 9 && index % 24 === 9) block = table_block(rng);
