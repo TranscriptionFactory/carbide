@@ -328,6 +328,39 @@ describe("GraphService search graph stale results", () => {
     expect(hit_paths(search_graph_store, "tab-1")).toEqual(["a.md", "c.md"]);
   });
 
+  async function expand_while_search_lands(landing_paths: string[]) {
+    const { service, search_graph_store, search_port, queue_pipeline } =
+      setup_search_graph();
+    queue_pipeline().resolve(pipeline_result("a.md"));
+    await service.execute_search_graph("tab-1", "first");
+    const pending = queue_pipeline();
+    const search_run = service.execute_search_graph("tab-1", "second");
+    const similar = create_deferred<unknown[]>();
+    vi.mocked(search_port.find_similar_notes).mockReturnValueOnce(
+      similar.promise as never,
+    );
+
+    const expand_run = service.expand_search_graph_node("tab-1", "a.md");
+    pending.resolve(pipeline_result(...landing_paths));
+    await search_run;
+    similar.resolve([{ note: { path: "c.md", title: "C" }, distance: 0.1 }]);
+    await expand_run;
+
+    return hit_paths(search_graph_store, "tab-1");
+  }
+
+  it("drops an expansion whose node is missing from a search that landed during it", async () => {
+    expect(await expand_while_search_lands(["b.md"])).toEqual(["b.md"]);
+  });
+
+  it("merges an expansion whose node survives in a search that landed during it", async () => {
+    expect(await expand_while_search_lands(["a.md", "b.md"])).toEqual([
+      "a.md",
+      "b.md",
+      "c.md",
+    ]);
+  });
+
   it("drops semantic edges computed for a result a new search replaced", async () => {
     const { service, search_graph_store, search_port, queue_pipeline } =
       setup_search_graph();
