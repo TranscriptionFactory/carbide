@@ -3,6 +3,7 @@ import { ACTION_IDS } from "$lib/app/action_registry/action_ids";
 import type { GraphService } from "$lib/features/graph/application/graph_service";
 import type { SearchGraphStore } from "$lib/features/graph/state/search_graph_store.svelte";
 import type { SearchGraphSortMode } from "$lib/features/graph/domain/sort_search_graph_nodes";
+import { search_graph_tab_title } from "$lib/features/graph/domain/graph_tab";
 
 export function register_search_graph_actions(
   input: ActionRegistrationInput & {
@@ -21,7 +22,7 @@ export function register_search_graph_actions(
       search_graph_store.create_instance(tab_id, query);
       stores.tab.open_search_graph_tab(
         tab_id,
-        query ? `Search: ${query}` : "Search Graph",
+        search_graph_tab_title(query),
         query,
       );
       stores.editor.clear_open_note();
@@ -44,7 +45,13 @@ export function register_search_graph_actions(
         tab_id?: string;
         query?: string;
       };
-      if (!tab_id || !query) return;
+      if (!tab_id || query === undefined) return;
+      stores.tab.set_search_graph_query(
+        tab_id,
+        query,
+        search_graph_tab_title(query),
+      );
+      if (!query) return;
       await graph_service.execute_search_graph(
         tab_id,
         query,
