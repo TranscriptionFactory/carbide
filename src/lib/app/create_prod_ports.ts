@@ -18,7 +18,6 @@ import {
 import {
   create_inline_html_trust_config,
   create_milkdown_editor_port,
-  create_ydoc_manager,
   resolve_wiki_link_note_path,
   resolve_wiki_file_target,
 } from "$lib/features/editor";
@@ -222,7 +221,6 @@ export function create_prod_ports(): Ports & {
       },
       load_svg_preview: (vault_id, path) =>
         canvas.read_svg_preview(vault_id, path),
-      ydoc_manager: create_ydoc_manager(),
       slash_config: {
         get_plugin_commands: () => slash_command_provider.get_plugin_commands(),
       },
