@@ -6,6 +6,7 @@ import type {
   GraphNeighborhoodSnapshot,
 } from "$lib/features/graph/ports";
 import { GraphStore } from "$lib/features/graph/state/graph_store.svelte";
+import { SearchGraphStore } from "$lib/features/graph/state/search_graph_store.svelte";
 import type { VaultStore } from "$lib/features/vault";
 import type { EditorStore } from "$lib/features/editor";
 import type { SearchPort } from "$lib/features/search/ports";
@@ -170,5 +171,208 @@ describe("GraphService", () => {
     expect(
       vi.mocked(mock_graph_port.load_note_neighborhood),
     ).toHaveBeenCalledWith("vault-1", "test.md");
+  });
+});
+
+function create_deferred<T>() {
+  let resolve!: (value: T) => void;
+  let reject!: (error: unknown) => void;
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res;
+    reject = rej;
+  });
+  return { promise, resolve, reject };
+}
+
+type PipelineResult = {
+  hits: { note: { path: string; title: string }; score: number }[];
+};
+
+function pipeline_result(...paths: string[]): PipelineResult {
+  return {
+    hits: paths.map((path) => ({ note: { path, title: path }, score: 1 })),
+  };
+}
+
+function hit_paths(store: SearchGraphStore, tab_id: string): string[] {
+  return (
+    store
+      .get_instance(tab_id)
+      ?.snapshot?.nodes.filter((n) => n.kind === "hit")
+      .map((n) => n.path) ?? []
+  );
+}
+
+function setup_search_graph() {
+  const graph_store = new GraphStore();
+  graph_store.set_vault_snapshot({
+    nodes: [],
+    edges: [],
+    stats: { node_count: 0, edge_count: 0 },
+  });
+  const search_graph_store = new SearchGraphStore();
+  search_graph_store.create_instance("tab-1", "");
+  const search_port = {
+    semantic_search: vi.fn().mockResolvedValue([]),
+    semantic_search_batch: vi.fn().mockResolvedValue([]),
+    find_similar_notes: vi.fn().mockResolvedValue([]),
+    compute_smart_link_vault_edges: vi.fn().mockResolvedValue([]),
+  } as unknown as SearchPort;
+  const search_service = {
+    run_search_pipeline: vi.fn(),
+  } as unknown as SearchService;
+  const service = new GraphService(
+    { load_vault_graph: vi.fn() } as unknown as GraphPort,
+    search_port,
+    search_service,
+    { vault: { id: "vault-1" as VaultId } } as unknown as VaultStore,
+    {} as unknown as EditorStore,
+    graph_store,
+    search_graph_store,
+  );
+  const queue_pipeline = () => {
+    const d = create_deferred<PipelineResult>();
+    vi.mocked(search_service.run_search_pipeline).mockReturnValueOnce(
+      d.promise as never,
+    );
+    return d;
+  };
+  return { service, search_graph_store, search_port, queue_pipeline };
+}
+
+describe("GraphService search graph stale results", () => {
+  it("ignores an older search that resolves after a newer one", async () => {
+    const { service, search_graph_store, queue_pipeline } =
+      setup_search_graph();
+    const older = queue_pipeline();
+    const newer = queue_pipeline();
+
+    const older_run = service.execute_search_graph("tab-1", "old");
+    const newer_run = service.execute_search_graph("tab-1", "new");
+    newer.resolve(pipeline_result("new.md"));
+    await newer_run;
+    older.resolve(pipeline_result("old.md"));
+    await older_run;
+
+    expect(hit_paths(search_graph_store, "tab-1")).toEqual(["new.md"]);
+    expect(search_graph_store.get_instance("tab-1")?.query).toBe("new");
+    expect(search_graph_store.get_instance("tab-1")?.status).toBe("ready");
+  });
+
+  it("does not let an older failure clobber a newer result", async () => {
+    const { service, search_graph_store, queue_pipeline } =
+      setup_search_graph();
+    const older = queue_pipeline();
+    const newer = queue_pipeline();
+
+    const older_run = service.execute_search_graph("tab-1", "old");
+    const newer_run = service.execute_search_graph("tab-1", "new");
+    newer.resolve(pipeline_result("new.md"));
+    await newer_run;
+    older.reject(new Error("boom"));
+    await older_run;
+
+    const instance = search_graph_store.get_instance("tab-1");
+    expect(instance?.status).toBe("ready");
+    expect(instance?.error).toBeNull();
+    expect(hit_paths(search_graph_store, "tab-1")).toEqual(["new.md"]);
+  });
+
+  it("keeps searches in different tabs independent", async () => {
+    const { service, search_graph_store, queue_pipeline } =
+      setup_search_graph();
+    search_graph_store.create_instance("tab-2", "");
+    const first = queue_pipeline();
+    const second = queue_pipeline();
+
+    const first_run = service.execute_search_graph("tab-1", "one");
+    const second_run = service.execute_search_graph("tab-2", "two");
+    second.resolve(pipeline_result("two.md"));
+    first.resolve(pipeline_result("one.md"));
+    await Promise.all([first_run, second_run]);
+
+    expect(hit_paths(search_graph_store, "tab-1")).toEqual(["one.md"]);
+    expect(hit_paths(search_graph_store, "tab-2")).toEqual(["two.md"]);
+  });
+
+  it("drops an expansion that finishes after a new search", async () => {
+    const { service, search_graph_store, search_port, queue_pipeline } =
+      setup_search_graph();
+    queue_pipeline().resolve(pipeline_result("a.md"));
+    await service.execute_search_graph("tab-1", "first");
+    const similar = create_deferred<unknown[]>();
+    vi.mocked(search_port.find_similar_notes).mockReturnValueOnce(
+      similar.promise as never,
+    );
+
+    const expand_run = service.expand_search_graph_node("tab-1", "a.md");
+    queue_pipeline().resolve(pipeline_result("b.md"));
+    await service.execute_search_graph("tab-1", "second");
+    similar.resolve([{ note: { path: "c.md", title: "C" }, distance: 0.1 }]);
+    await expand_run;
+
+    expect(hit_paths(search_graph_store, "tab-1")).toEqual(["b.md"]);
+  });
+
+  it("applies an expansion when no newer search was issued", async () => {
+    const { service, search_graph_store, search_port, queue_pipeline } =
+      setup_search_graph();
+    queue_pipeline().resolve(pipeline_result("a.md"));
+    await service.execute_search_graph("tab-1", "first");
+    vi.mocked(search_port.find_similar_notes).mockResolvedValueOnce([
+      { note: { path: "c.md", title: "C" }, distance: 0.1 },
+    ] as never);
+
+    await service.expand_search_graph_node("tab-1", "a.md");
+
+    expect(hit_paths(search_graph_store, "tab-1")).toEqual(["a.md", "c.md"]);
+  });
+
+  it("drops semantic edges computed for a result a new search replaced", async () => {
+    const { service, search_graph_store, search_port, queue_pipeline } =
+      setup_search_graph();
+    queue_pipeline().resolve(pipeline_result("a.md", "b.md"));
+    await service.execute_search_graph("tab-1", "first");
+    const batch = create_deferred<unknown[]>();
+    vi.mocked(search_port.semantic_search_batch).mockReturnValueOnce(
+      batch.promise as never,
+    );
+
+    const toggle_run = service.toggle_search_graph_semantic_edges("tab-1");
+    queue_pipeline().resolve(pipeline_result("c.md"));
+    await service.execute_search_graph("tab-1", "second");
+    batch.resolve([{ source: "a.md", target: "b.md", distance: 0.1 }]);
+    await toggle_run;
+
+    expect(hit_paths(search_graph_store, "tab-1")).toEqual(["c.md"]);
+    expect(
+      search_graph_store.get_instance("tab-1")?.snapshot?.stats
+        .semantic_edge_count,
+    ).toBe(0);
+  });
+
+  it("includes semantic edges toggled on while the search was in flight", async () => {
+    const { service, search_graph_store, search_port, queue_pipeline } =
+      setup_search_graph();
+    vi.mocked(search_port.semantic_search_batch).mockResolvedValue([
+      { source: "a.md", target: "b.md", distance: 0.1 },
+    ]);
+    const boost = create_deferred<unknown[]>();
+    vi.mocked(search_port.semantic_search).mockReturnValueOnce(
+      boost.promise as never,
+    );
+    queue_pipeline().resolve(pipeline_result("a.md", "b.md"));
+
+    const run = service.execute_search_graph("tab-1", "q");
+    await vi.waitFor(() => {
+      expect(search_port.semantic_search).toHaveBeenCalled();
+    });
+    search_graph_store.toggle_semantic_edges("tab-1");
+    boost.resolve([]);
+    await run;
+
+    const instance = search_graph_store.get_instance("tab-1");
+    expect(instance?.semantic_edges).toHaveLength(1);
+    expect(instance?.snapshot?.stats.semantic_edge_count).toBe(1);
   });
 });
