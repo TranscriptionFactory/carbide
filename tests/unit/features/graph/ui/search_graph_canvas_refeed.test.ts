@@ -2,6 +2,16 @@
  * @vitest-environment jsdom
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+vi.mock(
+  "$lib/app/context/app_context.svelte",
+  async () => import("../../../helpers/mock_app_context"),
+);
+
+import { create_app_stores } from "$lib/app/bootstrap/create_app_stores";
+import type { AppContext } from "$lib/app/di/create_app_context";
+import SearchGraphTabView from "$lib/features/graph/ui/search_graph_tab_view.svelte";
+import { render_with_app_context } from "../../../helpers/render_with_app_context";
 import { SearchGraphStore } from "$lib/features/graph/state/search_graph_store.svelte";
 import type { SearchGraphSnapshot } from "$lib/features/graph/ports";
 import Harness from "../../../helpers/search_graph_canvas_harness.svelte";
@@ -11,7 +21,7 @@ import {
   unmount,
 } from "../../../helpers/svelte_client_runtime";
 
-const counters = vi.hoisted(() => ({ set_graph: 0, workers: 0 }));
+const counters = vi.hoisted(() => ({ set_graph: 0, workers: 0, destroyed: 0 }));
 
 vi.mock("$lib/features/graph/domain/vault_graph_renderer", () => ({
   VaultGraphRenderer: class {
@@ -38,7 +48,9 @@ vi.mock("$lib/features/graph/domain/vault_graph_renderer", () => ({
     clear_edge_labels() {}
     fit_to_content() {}
     resize() {}
-    destroy() {}
+    destroy() {
+      counters.destroyed++;
+    }
   },
 }));
 
@@ -105,6 +117,7 @@ async function render_ready() {
 beforeEach(() => {
   counters.set_graph = 0;
   counters.workers = 0;
+  counters.destroyed = 0;
   vi.stubGlobal("ResizeObserver", ResizeObserverStub);
 });
 
@@ -149,6 +162,51 @@ describe("search_graph_canvas layout feeding", () => {
     store.set_snapshot(TAB, make_snapshot(), new Set(), null);
     flushSync();
     expect(counters.set_graph).toBe(3);
+    cleanup();
+  });
+});
+
+describe("search_graph_tab_view across searches", () => {
+  async function render_tab_view() {
+    const stores = create_app_stores();
+    stores.search_graph.create_instance(TAB, "q");
+    stores.search_graph.set_snapshot(TAB, make_snapshot(), new Set(), null);
+    const rendered = render_with_app_context(SearchGraphTabView, {
+      app_context: {
+        stores,
+        action_registry: { execute: vi.fn().mockResolvedValue(undefined) },
+        services: {},
+      } as unknown as Partial<AppContext>,
+      props: { tab_id: TAB, initial_query: "q" },
+    });
+    await Promise.resolve();
+    flushSync();
+    return { stores, ...rendered };
+  }
+
+  it("keeps one renderer through a new search and re-feeds it once", async () => {
+    const { stores, target, cleanup } = await render_tab_view();
+    expect(counters.set_graph).toBe(1);
+
+    stores.search_graph.set_loading(TAB);
+    flushSync();
+    expect(target.querySelector('[role="status"]')?.textContent).toContain(
+      "Searching",
+    );
+
+    stores.search_graph.set_search_result(
+      TAB,
+      make_snapshot(),
+      new Set(),
+      null,
+    );
+    flushSync();
+    await Promise.resolve();
+    flushSync();
+
+    expect(target.querySelector('[role="status"]')).toBeNull();
+    expect(counters.destroyed).toBe(0);
+    expect(counters.set_graph).toBe(2);
     cleanup();
   });
 });

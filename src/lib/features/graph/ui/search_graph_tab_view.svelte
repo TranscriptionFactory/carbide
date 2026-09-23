@@ -307,9 +307,7 @@
   {/if}
 
   <div class="SearchGraphTabView__body">
-    {#if status === "loading"}
-      <p class="SearchGraphTabView__message">Searching...</p>
-    {:else if status === "error"}
+    {#if status === "error"}
       <p class="SearchGraphTabView__message SearchGraphTabView__message--error">
         {instance?.error ?? "Search failed"}
       </p>
@@ -374,6 +372,16 @@
           />
         </Resizable.Pane>
       </Resizable.PaneGroup>
+      {#if status === "loading"}
+        <div
+          role="status"
+          class="pointer-events-none absolute inset-0 flex items-start justify-center bg-background/60 pt-6 text-sm text-muted-foreground"
+        >
+          Searching...
+        </div>
+      {/if}
+    {:else if status === "loading"}
+      <p class="SearchGraphTabView__message">Searching...</p>
     {:else if status === "idle"}
       <p class="SearchGraphTabView__message">
         Enter a query to search and visualize connections
