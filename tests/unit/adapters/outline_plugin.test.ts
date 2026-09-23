@@ -207,7 +207,7 @@ describe("outline plugin short-circuit", () => {
     const state = make_plugin_state(schema, [make_paragraph(schema, "Para")]);
 
     const next = state.apply(
-      state.tr.setBlockType(1, 5, schema.nodes.heading as NodeType, {
+      state.tr.setBlockType(1, 5, schema.nodes.heading, {
         level: 2,
       }),
     );
