@@ -1180,7 +1180,12 @@ export function create_prosemirror_editor_port(args?: {
           view.dispatch(view.state.tr.scrollIntoView());
         },
         refresh_session_links() {
-          if (view) view.dispatch(view.state.tr);
+          if (!view) return;
+          view.dispatch(
+            view.state.tr.setMeta(wiki_link_plugin_key, {
+              action: "refresh_sessions",
+            }),
+          );
         },
         set_wiki_suggestions(
           items: Array<{
