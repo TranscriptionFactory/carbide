@@ -72,3 +72,7 @@ export function offset_polygon(
   }
   return result;
 }
+
+export function midpoint(a: Point, b: Point): Point {
+  return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+}
