@@ -172,6 +172,32 @@ export function apply_semantic_edges_to_snapshot(
   };
 }
 
+export function apply_smart_link_edges_to_snapshot(
+  snapshot: SearchGraphSnapshot,
+  smart_link_edges: SmartLinkEdge[],
+): SearchGraphSnapshot {
+  const node_set = new Set(snapshot.nodes.map((n) => n.path));
+  const edges = snapshot.edges.filter((e) => e.edge_type !== "smart_link");
+
+  let smart_link_edge_count = 0;
+  for (const edge of smart_link_edges) {
+    if (!node_set.has(edge.source) || !node_set.has(edge.target)) continue;
+    edges.push({
+      source: edge.source,
+      target: edge.target,
+      edge_type: "smart_link",
+      score: edge.score,
+    });
+    smart_link_edge_count++;
+  }
+
+  return {
+    ...snapshot,
+    edges,
+    stats: { ...snapshot.stats, smart_link_edge_count },
+  };
+}
+
 export function compute_auto_expanded_ids(
   snapshot: SearchGraphSnapshot,
 ): Set<string> {

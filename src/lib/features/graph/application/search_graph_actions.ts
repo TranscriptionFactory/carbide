@@ -105,9 +105,9 @@ export function register_search_graph_actions(
   registry.register({
     id: ACTION_IDS.search_graph_toggle_smart_links,
     label: "Toggle Search Graph Smart Links",
-    execute: (tab_id: unknown) => {
+    execute: async (tab_id: unknown) => {
       if (typeof tab_id !== "string") return;
-      search_graph_store.toggle_smart_link_edges(tab_id);
+      await graph_service.toggle_search_graph_smart_link_edges(tab_id);
     },
   });
 

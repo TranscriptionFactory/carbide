@@ -423,3 +423,88 @@ describe("GraphService search graph interaction state", () => {
     expect(instance?.user_expanded_ids.has("a.md")).toBe(true);
   });
 });
+
+describe("GraphService.toggle_search_graph_smart_link_edges", () => {
+  const RAW_EDGE = {
+    sourcePath: "a.md",
+    targetPath: "b.md",
+    score: 0.8,
+    rules: [{ ruleId: "same_tag", rawScore: 1 }],
+  };
+
+  async function setup_executed() {
+    const context = setup_search_graph();
+    context.queue_pipeline().resolve(pipeline_result("a.md", "b.md"));
+    await context.service.execute_search_graph("tab-1", "q");
+    return context;
+  }
+
+  it("loads smart link edges on first toggle and applies them to the result", async () => {
+    const { service, search_graph_store, search_port } = await setup_executed();
+    vi.mocked(search_port.compute_smart_link_vault_edges).mockResolvedValueOnce(
+      [RAW_EDGE] as never,
+    );
+
+    await service.toggle_search_graph_smart_link_edges("tab-1");
+
+    const instance = search_graph_store.get_instance("tab-1");
+    expect(instance?.show_smart_link_edges).toBe(true);
+    expect(search_port.compute_smart_link_vault_edges).toHaveBeenCalledTimes(1);
+    expect(instance?.snapshot?.stats.smart_link_edge_count).toBe(1);
+  });
+
+  it("reuses loaded edges when toggled off and on again", async () => {
+    const { service, search_graph_store, search_port } = await setup_executed();
+    vi.mocked(search_port.compute_smart_link_vault_edges).mockResolvedValueOnce(
+      [RAW_EDGE] as never,
+    );
+
+    await service.toggle_search_graph_smart_link_edges("tab-1");
+    await service.toggle_search_graph_smart_link_edges("tab-1");
+    await service.toggle_search_graph_smart_link_edges("tab-1");
+
+    expect(search_port.compute_smart_link_vault_edges).toHaveBeenCalledTimes(1);
+    expect(
+      search_graph_store.get_instance("tab-1")?.snapshot?.stats
+        .smart_link_edge_count,
+    ).toBe(1);
+  });
+
+  it("decorates the result that replaced the one on screen during the load", async () => {
+    const { service, search_graph_store, search_port, queue_pipeline } =
+      await setup_executed();
+    const load = create_deferred<unknown[]>();
+    vi.mocked(search_port.compute_smart_link_vault_edges).mockReturnValueOnce(
+      load.promise as never,
+    );
+
+    const toggle_run = service.toggle_search_graph_smart_link_edges("tab-1");
+    queue_pipeline().resolve(pipeline_result("a.md", "b.md", "c.md"));
+    await service.execute_search_graph("tab-1", "q2");
+    load.resolve([RAW_EDGE]);
+    await toggle_run;
+
+    const snapshot = search_graph_store.get_instance("tab-1")?.snapshot;
+    expect(snapshot?.stats.hit_count).toBe(3);
+    expect(snapshot?.stats.smart_link_edge_count).toBe(1);
+  });
+
+  it("leaves an in-flight search to pick the loaded edges up itself", async () => {
+    const { service, search_graph_store, search_port, queue_pipeline } =
+      await setup_executed();
+    const pending = queue_pipeline();
+    const run = service.execute_search_graph("tab-1", "q2");
+    vi.mocked(search_port.compute_smart_link_vault_edges).mockResolvedValueOnce(
+      [RAW_EDGE] as never,
+    );
+
+    await service.toggle_search_graph_smart_link_edges("tab-1");
+    expect(search_graph_store.get_instance("tab-1")?.status).toBe("loading");
+    pending.resolve(pipeline_result("a.md", "b.md"));
+    await run;
+
+    const instance = search_graph_store.get_instance("tab-1");
+    expect(instance?.status).toBe("ready");
+    expect(instance?.snapshot?.stats.smart_link_edge_count).toBe(1);
+  });
+});

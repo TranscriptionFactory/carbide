@@ -3,6 +3,7 @@ import {
   extract_search_subgraph,
   compute_auto_expanded_ids,
   merge_expansion_into_snapshot,
+  apply_smart_link_edges_to_snapshot,
   type SearchSubgraphHit,
 } from "$lib/features/graph/domain/search_subgraph";
 import type { VaultGraphSnapshot } from "$lib/features/graph/ports";
@@ -534,5 +535,54 @@ describe("merge_expansion_into_snapshot", () => {
     expect(merged.stats.hit_count).toBe(2);
     expect(merged.stats.neighbor_count).toBe(1);
     expect(merged.stats.wiki_edge_count).toBe(2);
+  });
+});
+
+describe("apply_smart_link_edges_to_snapshot", () => {
+  function smart(source: string, target: string, score: number): SmartLinkEdge {
+    return { source, target, score, rules: [] };
+  }
+
+  const base = extract_search_subgraph(
+    [
+      { path: "a.md", title: "A" },
+      { path: "b.md", title: "B" },
+    ],
+    make_vault(
+      [
+        { path: "a.md", title: "A" },
+        { path: "b.md", title: "B" },
+        { path: "z.md", title: "Z" },
+      ],
+      [{ source: "a.md", target: "b.md" }],
+    ),
+  );
+
+  it("adds smart link edges between nodes already in the snapshot", () => {
+    const result = apply_smart_link_edges_to_snapshot(base, [
+      smart("a.md", "b.md", 0.7),
+      smart("a.md", "z.md", 0.9),
+    ]);
+
+    expect(result.edges.filter((e) => e.edge_type === "smart_link")).toEqual([
+      { source: "a.md", target: "b.md", edge_type: "smart_link", score: 0.7 },
+    ]);
+    expect(result.stats.smart_link_edge_count).toBe(1);
+    expect(result.stats.wiki_edge_count).toBe(1);
+    expect(result.nodes).toBe(base.nodes);
+  });
+
+  it("replaces rather than duplicates previously applied smart link edges", () => {
+    const once = apply_smart_link_edges_to_snapshot(base, [
+      smart("a.md", "b.md", 0.7),
+    ]);
+    const twice = apply_smart_link_edges_to_snapshot(once, [
+      smart("b.md", "a.md", 0.4),
+    ]);
+
+    expect(twice.edges.filter((e) => e.edge_type === "smart_link")).toEqual([
+      { source: "b.md", target: "a.md", edge_type: "smart_link", score: 0.4 },
+    ]);
+    expect(twice.stats.smart_link_edge_count).toBe(1);
   });
 });
