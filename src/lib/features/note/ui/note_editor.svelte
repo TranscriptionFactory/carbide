@@ -108,10 +108,12 @@
   style:zoom={zoom !== 1 ? zoom : undefined}
 >
   {#if active_tab?.kind === "search_graph"}
-    <SearchGraphTabView
-      tab_id={active_tab.id}
-      initial_query={active_tab.query}
-    />
+    {#key active_tab.id}
+      <SearchGraphTabView
+        tab_id={active_tab.id}
+        initial_query={active_tab.query}
+      />
+    {/key}
   {:else if active_tab?.kind === "graph"}
     <GraphTabView />
   {:else if is_canvas_tab && active_tab?.kind === "document"}
