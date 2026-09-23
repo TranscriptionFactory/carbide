@@ -537,6 +537,10 @@ export class GraphService {
     );
   }
 
+  release_search_graphs(open_tab_ids: Set<string>): void {
+    this.search_graph_store?.retain_instances(open_tab_ids);
+  }
+
   select_search_graph_node(tab_id: string, node_id: string | null): void {
     this.search_graph_store?.select_node(tab_id, node_id);
   }

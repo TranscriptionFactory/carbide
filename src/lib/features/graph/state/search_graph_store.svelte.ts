@@ -74,6 +74,14 @@ export class SearchGraphStore {
     this.instances = next;
   }
 
+  retain_instances(tab_ids: Set<string>): void {
+    const stale = [...this.instances.keys()].filter((id) => !tab_ids.has(id));
+    if (stale.length === 0) return;
+    const next = new Map(this.instances);
+    for (const id of stale) next.delete(id);
+    this.instances = next;
+  }
+
   get_instance(tab_id: string): SearchGraphInstance | undefined {
     return this.instances.get(tab_id);
   }
