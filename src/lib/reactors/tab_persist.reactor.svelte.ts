@@ -11,6 +11,7 @@ type PersistedTabSnapshot = {
     p: string;
     pin: boolean;
     pane?: string;
+    q?: string;
   }[];
   active: string | null;
   active_pane: string;
@@ -32,7 +33,7 @@ export function create_tab_persist_reactor(
   function current_snapshot(): PersistedTabSnapshot {
     return {
       tabs: tab_store.tabs.map((t) => {
-        const entry: { p: string; pin: boolean; pane?: string } = {
+        const entry: { p: string; pin: boolean; pane?: string; q?: string } = {
           p:
             t.kind === "note"
               ? t.note_path
@@ -42,6 +43,7 @@ export function create_tab_persist_reactor(
           pin: t.is_pinned,
         };
         if (t.pane === "secondary") entry.pane = "secondary";
+        if (t.kind === "search_graph") entry.q = t.query;
         return entry;
       }),
       active: tab_store.active_tab_id,

@@ -508,3 +508,38 @@ describe("GraphService.toggle_search_graph_smart_link_edges", () => {
     expect(instance?.snapshot?.stats.smart_link_edge_count).toBe(1);
   });
 });
+
+describe("GraphService.ensure_search_graph", () => {
+  it("creates the instance and runs the search for a tab that has none", async () => {
+    const { service, search_graph_store, queue_pipeline } =
+      setup_search_graph();
+    queue_pipeline().resolve(pipeline_result("a.md"));
+
+    await service.ensure_search_graph("tab-2", "alpha");
+
+    const instance = search_graph_store.get_instance("tab-2");
+    expect(instance?.query).toBe("alpha");
+    expect(instance?.status).toBe("ready");
+    expect(hit_paths(search_graph_store, "tab-2")).toEqual(["a.md"]);
+  });
+
+  it("creates an idle instance without searching for an empty query", async () => {
+    const { service, search_graph_store } = setup_search_graph();
+
+    await service.ensure_search_graph("tab-2", "");
+
+    expect(search_graph_store.get_instance("tab-2")?.status).toBe("idle");
+  });
+
+  it("leaves an existing instance and its result alone", async () => {
+    const { service, search_graph_store, queue_pipeline } =
+      setup_search_graph();
+    queue_pipeline().resolve(pipeline_result("a.md"));
+    await service.execute_search_graph("tab-1", "first");
+    const before = search_graph_store.get_instance("tab-1");
+
+    await service.ensure_search_graph("tab-1", "other");
+
+    expect(search_graph_store.get_instance("tab-1")).toBe(before);
+  });
+});

@@ -595,6 +595,24 @@ export class GraphService {
     );
   }
 
+  async ensure_search_graph(
+    tab_id: string,
+    query: string,
+    similarity_threshold?: number,
+    include_linked_sources = true,
+  ): Promise<void> {
+    if (!this.search_graph_store) return;
+    if (this.search_graph_store.get_instance(tab_id)) return;
+    this.search_graph_store.create_instance(tab_id, query);
+    if (!query) return;
+    await this.execute_search_graph(
+      tab_id,
+      query,
+      similarity_threshold,
+      include_linked_sources,
+    );
+  }
+
   release_search_graphs(open_tab_ids: Set<string>): void {
     for (const tab_id of this.search_graph_revisions.keys()) {
       if (!open_tab_ids.has(tab_id)) this.search_graph_revisions.delete(tab_id);

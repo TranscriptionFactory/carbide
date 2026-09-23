@@ -32,6 +32,7 @@ export {
 export {
   GRAPH_TAB_ID,
   GRAPH_TAB_TITLE,
+  search_graph_tab_title,
 } from "$lib/features/graph/domain/graph_tab";
 export { default as GraphPanel } from "$lib/features/graph/ui/graph_panel.svelte";
 export { default as VaultGraphCanvas } from "$lib/features/graph/ui/vault_graph_canvas.svelte";

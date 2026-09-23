@@ -8,7 +8,11 @@ import type { NotePath, VaultId } from "$lib/shared/types/ids";
 import { note_name_from_path } from "$lib/shared/utils/path";
 import { to_open_note_state } from "$lib/shared/types/editor";
 import { create_logger } from "$lib/shared/utils/logger";
-import { GRAPH_TAB_ID, GRAPH_TAB_TITLE } from "$lib/features/graph";
+import {
+  GRAPH_TAB_ID,
+  GRAPH_TAB_TITLE,
+  search_graph_tab_title,
+} from "$lib/features/graph";
 import { BASES_TAB_ID, BASES_TAB_TITLE } from "$lib/features/bases";
 import {
   assistant_session_tab_id,
@@ -92,6 +96,7 @@ export class TabService {
           return {
             ...base,
             kind: "search_graph" as const,
+            id: tab.id,
             query: tab.query,
             cursor: null,
           };
@@ -282,13 +287,16 @@ export class TabService {
         ];
       }
       if (t.kind === "search_graph") {
-        const tab_id = `__search_graph__${crypto.randomUUID().slice(0, 8)}__`;
+        const tab_id =
+          typeof t.id === "string" && t.id !== ""
+            ? t.id
+            : `__search_graph__${crypto.randomUUID().slice(0, 8)}__`;
         return [
           {
             kind: "search_graph" as const,
             id: tab_id,
             query: t.query,
-            title: `Search: ${t.query}`,
+            title: search_graph_tab_title(t.query),
             is_pinned: Boolean(t.is_pinned),
             is_dirty: false,
             pane,
