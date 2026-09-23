@@ -474,7 +474,7 @@ export class GraphService {
         semantic_boost_paths ? { semantic_boost_paths } : undefined,
       );
       const auto_expanded = compute_auto_expanded_ids(snapshot);
-      this.search_graph_store.set_snapshot(
+      this.search_graph_store.set_search_result(
         tab_id,
         snapshot,
         auto_expanded,

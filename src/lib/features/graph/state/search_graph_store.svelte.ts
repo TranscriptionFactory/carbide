@@ -105,6 +105,26 @@ export class SearchGraphStore {
     });
   }
 
+  set_search_result(
+    tab_id: string,
+    snapshot: SearchGraphSnapshot,
+    auto_expanded_ids: Set<string>,
+    semantic_edges: SemanticEdge[] | null,
+  ): void {
+    this.update(tab_id, {
+      snapshot,
+      semantic_edges,
+      auto_expanded_ids,
+      status: "ready",
+      error: null,
+      user_expanded_ids: new Set(),
+      selected_node_id: null,
+      selected_node_ids: new Set(),
+      hovered_node_id: null,
+      scroll_to_path: null,
+    });
+  }
+
   set_error(tab_id: string, message: string): void {
     this.update(tab_id, { status: "error", error: message, snapshot: null });
   }
