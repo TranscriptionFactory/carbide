@@ -530,6 +530,7 @@ export function create_prosemirror_editor_port(args?: {
           return;
         }
         current_markdown = new_md;
+        is_large_note = is_large_markdown(new_md);
         reconcile_dirty();
         on_markdown_change(new_md);
       }
@@ -693,11 +694,18 @@ export function create_prosemirror_editor_port(args?: {
       let is_editable = true;
 
       let spellcheck_enabled = config.spellcheck ?? true;
+      // Browser spellcheck re-checks the whole editable on large notes, so it
+      // is off above the large-doc threshold regardless of the setting. The
+      // view re-reads this on every update, so threshold crossings apply on
+      // the next transaction.
+      const spellcheck_attributes = () => ({
+        spellcheck: String(spellcheck_enabled && !is_large_note),
+      });
 
       view = new EditorView(root, {
         state,
         editable: () => is_editable,
-        attributes: { spellcheck: String(spellcheck_enabled) },
+        attributes: spellcheck_attributes,
         dispatchTransaction: (tr) => {
           if (!view) return;
           try {
@@ -1431,11 +1439,7 @@ export function create_prosemirror_editor_port(args?: {
         },
         set_spellcheck(enabled: boolean) {
           spellcheck_enabled = enabled;
-          if (view) {
-            view.setProps({
-              attributes: { spellcheck: String(spellcheck_enabled) },
-            });
-          }
+          view?.setProps({ attributes: spellcheck_attributes });
         },
         toggle_heading_fold(pos?: number) {
           run_view_action((v) => toggle_heading_fold(v, pos));
