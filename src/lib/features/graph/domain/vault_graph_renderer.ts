@@ -8,6 +8,13 @@ import type {
 } from "pixi.js";
 import type { Viewport } from "pixi-viewport";
 import { point_to_segment_distance } from "$lib/features/graph/domain/edge_hit_test";
+import {
+  group_by_kind_alpha,
+  stroke_dashed_lines,
+  stroke_lines,
+  type DashPattern,
+  type Segment,
+} from "$lib/features/graph/domain/edge_strokes";
 import { SpatialIndex } from "$lib/features/graph/domain/spatial_index";
 import {
   convex_hull,
@@ -883,83 +890,32 @@ export class VaultGraphRenderer {
       else normal.push(ep);
     }
 
-    if (this.has_search_meta) {
-      for (const ep of dimmed) {
-        this.edges_gfx.moveTo(ep.x1, ep.y1);
-        this.edges_gfx.lineTo(ep.x2, ep.y2);
-        this.edges_gfx.stroke({
-          width: edge_width,
-          color: this.colors.edge,
-          alpha: 0.08 * ep.kind_alpha,
-        });
-      }
-      for (const ep of normal) {
-        this.edges_gfx.moveTo(ep.x1, ep.y1);
-        this.edges_gfx.lineTo(ep.x2, ep.y2);
-        this.edges_gfx.stroke({
-          width: edge_width,
-          color: this.colors.edge,
-          alpha: edge_alpha * ep.kind_alpha,
-        });
-      }
-      for (const ep of highlighted) {
-        this.edges_gfx.moveTo(ep.x1, ep.y1);
-        this.edges_gfx.lineTo(ep.x2, ep.y2);
-        this.edges_gfx.stroke({
-          width: 1.5,
-          color: this.colors.primary,
-          alpha: 0.9,
-        });
-      }
-    } else {
-      for (const ep of dimmed) {
-        this.edges_gfx.moveTo(ep.x1, ep.y1);
-        this.edges_gfx.lineTo(ep.x2, ep.y2);
-      }
-      if (dimmed.length > 0) {
-        this.edges_gfx.stroke({
-          width: edge_width,
-          color: this.colors.edge,
-          alpha: 0.08,
-        });
-      }
-
-      for (const ep of normal) {
-        this.edges_gfx.moveTo(ep.x1, ep.y1);
-        this.edges_gfx.lineTo(ep.x2, ep.y2);
-      }
-      if (normal.length > 0) {
-        this.edges_gfx.stroke({
-          width: edge_width,
-          color: this.colors.edge,
-          alpha: edge_alpha,
-        });
-      }
-
-      for (const ep of highlighted) {
-        this.edges_gfx.moveTo(ep.x1, ep.y1);
-        this.edges_gfx.lineTo(ep.x2, ep.y2);
-      }
-      if (highlighted.length > 0) {
-        this.edges_gfx.stroke({
-          width: 1.5,
-          color: this.colors.primary,
-          alpha: 0.9,
-        });
-      }
+    const gfx = this.edges_gfx;
+    for (const [kind_alpha, group] of group_by_kind_alpha(dimmed)) {
+      stroke_lines(gfx, group, {
+        width: edge_width,
+        color: this.colors.edge,
+        alpha: 0.08 * kind_alpha,
+      });
     }
+    for (const [kind_alpha, group] of group_by_kind_alpha(normal)) {
+      stroke_lines(gfx, group, {
+        width: edge_width,
+        color: this.colors.edge,
+        alpha: edge_alpha * kind_alpha,
+      });
+    }
+    stroke_lines(gfx, highlighted, {
+      width: 1.5,
+      color: this.colors.primary,
+      alpha: 0.9,
+    });
 
     if (!this.show_semantic) return;
 
-    type SimpleEdgeEndpoints = {
-      x1: number;
-      y1: number;
-      x2: number;
-      y2: number;
-    };
-    const sem_dimmed: SimpleEdgeEndpoints[] = [];
-    const sem_normal: SimpleEdgeEndpoints[] = [];
-    const sem_highlighted: Array<SimpleEdgeEndpoints & { width: number }> = [];
+    const sem_dimmed: Segment[] = [];
+    const sem_normal: Segment[] = [];
+    const sem_highlighted: Segment[] = [];
 
     for (const edge of this.semantic_edge_defs) {
       const src = this.node_map.get(edge.source);
@@ -978,58 +934,33 @@ export class VaultGraphRenderer {
 
       const ep = { x1: src.x, y1: src.y, x2: tgt.x, y2: tgt.y };
       if (is_dimmed) sem_dimmed.push(ep);
-      else if (is_highlighted) sem_highlighted.push({ ...ep, width: 2 });
+      else if (is_highlighted) sem_highlighted.push(ep);
       else sem_normal.push(ep);
     }
 
-    for (const ep of sem_dimmed) {
-      draw_dashed_line(
-        this.edges_gfx,
-        ep.x1,
-        ep.y1,
-        ep.x2,
-        ep.y2,
-        5,
-        4,
-        1.5,
-        this.colors.semantic_edge,
-        0.1,
-      );
-    }
-    for (const ep of sem_normal) {
-      draw_dashed_line(
-        this.edges_gfx,
-        ep.x1,
-        ep.y1,
-        ep.x2,
-        ep.y2,
-        5,
-        4,
-        1.5,
-        this.colors.semantic_edge,
-        0.7,
-      );
-    }
-    for (const ep of sem_highlighted) {
-      draw_dashed_line(
-        this.edges_gfx,
-        ep.x1,
-        ep.y1,
-        ep.x2,
-        ep.y2,
-        5,
-        4,
-        ep.width,
-        this.colors.semantic_edge,
-        1,
-      );
-    }
+    const sem_pattern: DashPattern = { dash: 5, gap: 4 };
+    const sem_color = this.colors.semantic_edge;
+    stroke_dashed_lines(gfx, sem_dimmed, sem_pattern, {
+      width: 1.5,
+      color: sem_color,
+      alpha: 0.1,
+    });
+    stroke_dashed_lines(gfx, sem_normal, sem_pattern, {
+      width: 1.5,
+      color: sem_color,
+      alpha: 0.7,
+    });
+    stroke_dashed_lines(gfx, sem_highlighted, sem_pattern, {
+      width: 2,
+      color: sem_color,
+      alpha: 1,
+    });
 
     if (!this.show_smart_links) return;
 
-    const sl_dimmed: SimpleEdgeEndpoints[] = [];
-    const sl_normal: SimpleEdgeEndpoints[] = [];
-    const sl_highlighted: Array<SimpleEdgeEndpoints & { width: number }> = [];
+    const sl_dimmed: Segment[] = [];
+    const sl_normal: Segment[] = [];
+    const sl_highlighted: Segment[] = [];
 
     for (const edge of this.smart_link_edge_defs) {
       const src = this.node_map.get(edge.source);
@@ -1048,52 +979,27 @@ export class VaultGraphRenderer {
 
       const ep = { x1: src.x, y1: src.y, x2: tgt.x, y2: tgt.y };
       if (is_dimmed) sl_dimmed.push(ep);
-      else if (is_highlighted) sl_highlighted.push({ ...ep, width: 2 });
+      else if (is_highlighted) sl_highlighted.push(ep);
       else sl_normal.push(ep);
     }
 
-    for (const ep of sl_dimmed) {
-      draw_dashed_line(
-        this.edges_gfx,
-        ep.x1,
-        ep.y1,
-        ep.x2,
-        ep.y2,
-        8,
-        5,
-        1.5,
-        this.colors.smart_link_edge,
-        0.1,
-      );
-    }
-    for (const ep of sl_normal) {
-      draw_dashed_line(
-        this.edges_gfx,
-        ep.x1,
-        ep.y1,
-        ep.x2,
-        ep.y2,
-        8,
-        5,
-        1.5,
-        this.colors.smart_link_edge,
-        0.6,
-      );
-    }
-    for (const ep of sl_highlighted) {
-      draw_dashed_line(
-        this.edges_gfx,
-        ep.x1,
-        ep.y1,
-        ep.x2,
-        ep.y2,
-        8,
-        5,
-        ep.width,
-        this.colors.smart_link_edge,
-        1,
-      );
-    }
+    const sl_pattern: DashPattern = { dash: 8, gap: 5 };
+    const sl_color = this.colors.smart_link_edge;
+    stroke_dashed_lines(gfx, sl_dimmed, sl_pattern, {
+      width: 1.5,
+      color: sl_color,
+      alpha: 0.1,
+    });
+    stroke_dashed_lines(gfx, sl_normal, sl_pattern, {
+      width: 1.5,
+      color: sl_color,
+      alpha: 0.6,
+    });
+    stroke_dashed_lines(gfx, sl_highlighted, sl_pattern, {
+      width: 2,
+      color: sl_color,
+      alpha: 1,
+    });
   }
 
   private read_theme_colors(el: HTMLElement): void {
@@ -1170,32 +1076,4 @@ function resolve_css_color(
   const [r = 0, g = 0, b = 0, a = 0] = ctx.getImageData(0, 0, 1, 1).data;
   if (a === 0) return fallback;
   return (r << 16) | (g << 8) | b;
-}
-
-function draw_dashed_line(
-  gfx: Graphics,
-  x1: number,
-  y1: number,
-  x2: number,
-  y2: number,
-  dash: number,
-  gap: number,
-  width: number,
-  color: number,
-  alpha: number,
-): void {
-  const dx = x2 - x1;
-  const dy = y2 - y1;
-  const len = Math.sqrt(dx * dx + dy * dy);
-  if (len === 0) return;
-  const ux = dx / len;
-  const uy = dy / len;
-  let drawn = 0;
-  while (drawn < len) {
-    const seg_end = Math.min(drawn + dash, len);
-    gfx.moveTo(x1 + ux * drawn, y1 + uy * drawn);
-    gfx.lineTo(x1 + ux * seg_end, y1 + uy * seg_end);
-    gfx.stroke({ width, color, alpha });
-    drawn = seg_end + gap;
-  }
 }
