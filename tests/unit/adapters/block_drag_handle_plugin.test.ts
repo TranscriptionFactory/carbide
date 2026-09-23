@@ -304,6 +304,7 @@ function paragraphs_doc(count: number): ProseNode {
 function mount_with_handles(doc: ProseNode): EditorView {
   const host = document.createElement("div");
   host.className = "show-block-drag-handle";
+  host.style.overflowY = "auto";
   document.body.appendChild(host);
   return new EditorViewImpl(host, {
     state: EditorState.create({
@@ -382,9 +383,9 @@ describe("drag handle widget reuse", () => {
   });
 });
 
-// A scrolled viewport over the row layout: the editor root spans every row and
-// sits `offset` px above the viewport top, as it does inside the scroll pane.
-function stub_scrolled_layout(view: EditorView) {
+// A scrolled pane over the row layout: the host pane spans the viewport, and
+// the editor root spans every row, `offset` px above the pane top.
+function stub_scrolled_layout(view: EditorView, viewport_px: number) {
   let offset = 0;
   const rows = new Map<Element, number>();
   for (let el = view.dom.firstElementChild; el; el = el.nextElementSibling) {
@@ -393,6 +394,14 @@ function stub_scrolled_layout(view: EditorView) {
   const spy = vi
     .spyOn(HTMLElement.prototype, "getBoundingClientRect")
     .mockImplementation(function (this: HTMLElement) {
+      if (this === view.dom.parentElement) {
+        return DOMRect.fromRect({
+          x: 0,
+          y: 0,
+          width: 100,
+          height: viewport_px,
+        });
+      }
       if (this === view.dom) {
         return DOMRect.fromRect({
           x: 0,
@@ -456,10 +465,9 @@ describe("viewport-only drag handles", () => {
   });
 
   async function mount_scrolled(count: number) {
-    vi.stubGlobal("innerHeight", VIEWPORT_PX);
     const flush = stub_frames();
     const view = mount_with_handles(paragraphs_doc(count));
-    const layout = stub_scrolled_layout(view);
+    const layout = stub_scrolled_layout(view, VIEWPORT_PX);
     await flush();
     const host = view.dom.parentElement as HTMLElement;
     return {
