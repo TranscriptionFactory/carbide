@@ -6,13 +6,15 @@ import { create_persisted_snapshot_controller } from "$lib/reactors/persisted_sn
 
 const TAB_PERSIST_DELAY_MS = 1000;
 
+type PersistedTabEntry = {
+  p: string;
+  pin: boolean;
+  pane?: string;
+  q?: string;
+};
+
 type PersistedTabSnapshot = {
-  tabs: {
-    p: string;
-    pin: boolean;
-    pane?: string;
-    q?: string;
-  }[];
+  tabs: PersistedTabEntry[];
   active: string | null;
   active_pane: string;
   split_direction: string;
@@ -33,7 +35,7 @@ export function create_tab_persist_reactor(
   function current_snapshot(): PersistedTabSnapshot {
     return {
       tabs: tab_store.tabs.map((t) => {
-        const entry: { p: string; pin: boolean; pane?: string; q?: string } = {
+        const entry: PersistedTabEntry = {
           p:
             t.kind === "note"
               ? t.note_path
