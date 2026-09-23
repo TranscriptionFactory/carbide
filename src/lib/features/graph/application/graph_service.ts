@@ -16,6 +16,7 @@ import { parse_search_query } from "$lib/features/search";
 import {
   extract_search_subgraph,
   apply_semantic_edges_to_snapshot,
+  apply_smart_link_edges_to_snapshot,
   compute_auto_expanded_ids,
   merge_expansion_into_snapshot,
   type SearchSubgraphHit,
@@ -33,6 +34,7 @@ export class GraphService {
   private semantic_load_revision = 0;
   private smart_link_load_revision = 0;
   private hierarchy_load_revision = 0;
+  private search_graph_revisions = new Map<string, number>();
   private semantic_edge_settings?: {
     knn_limit?: number;
     similarity_threshold?: number;
@@ -365,6 +367,16 @@ export class GraphService {
     }
   }
 
+  private next_search_graph_revision(tab_id: string): number {
+    const revision = (this.search_graph_revisions.get(tab_id) ?? 0) + 1;
+    this.search_graph_revisions.set(tab_id, revision);
+    return revision;
+  }
+
+  private is_current_search_graph(tab_id: string, revision: number): boolean {
+    return (this.search_graph_revisions.get(tab_id) ?? 0) === revision;
+  }
+
   async execute_search_graph(
     tab_id: string,
     query: string,
@@ -375,6 +387,8 @@ export class GraphService {
     const vault_id = this.get_active_vault_id();
     if (!vault_id) return;
 
+    const revision = this.next_search_graph_revision(tab_id);
+    const is_current = () => this.is_current_search_graph(tab_id, revision);
     this.search_graph_store.set_loading(tab_id);
     this.search_graph_store.update_query(tab_id, query);
 
@@ -384,6 +398,7 @@ export class GraphService {
           limit: 50,
           include_linked: include_linked_sources,
         });
+      if (!is_current()) return;
 
       const folder_scope =
         this.search_graph_store.get_instance(tab_id)?.folder_scope ?? null;
@@ -393,6 +408,7 @@ export class GraphService {
             folder_scope,
           )
         : null;
+      if (!is_current()) return;
       const hits = allowed_paths
         ? pipeline_hits.filter((h) => allowed_paths.has(h.note.path))
         : pipeline_hits;
@@ -401,6 +417,7 @@ export class GraphService {
       if (!vault_snapshot) {
         vault_snapshot = await this.graph_port.load_vault_graph(vault_id);
         this.graph_store.set_vault_snapshot(vault_snapshot);
+        if (!is_current()) return;
       }
       const scoped_snapshot = allowed_paths
         ? {
@@ -428,6 +445,15 @@ export class GraphService {
         return hit;
       });
 
+      const semantic_boost_paths = await this.compute_semantic_boost_paths(
+        vault_id,
+        query,
+      );
+      if (!is_current()) return;
+
+      // Read the toggle only once every other await has settled: a toggle
+      // flipped mid-search must shape this result, and nothing can flip it
+      // between this read and the write below except the edge fetch it gates.
       const show_semantic_edges =
         this.search_graph_store.get_instance(tab_id)?.show_semantic_edges ??
         false;
@@ -438,11 +464,7 @@ export class GraphService {
             similarity_threshold,
           )
         : null;
-
-      const semantic_boost_paths = await this.compute_semantic_boost_paths(
-        vault_id,
-        query,
-      );
+      if (!is_current()) return;
 
       const smart_link_edges = this.graph_store.smart_link_edges;
       const snapshot = extract_search_subgraph(
@@ -453,13 +475,14 @@ export class GraphService {
         semantic_boost_paths ? { semantic_boost_paths } : undefined,
       );
       const auto_expanded = compute_auto_expanded_ids(snapshot);
-      this.search_graph_store.set_snapshot(
+      this.search_graph_store.set_search_result(
         tab_id,
         snapshot,
         auto_expanded,
         semantic_edges,
       );
     } catch (error) {
+      if (!is_current()) return;
       log.error("Failed to execute search graph", {
         error: error_message(error),
       });
@@ -516,11 +539,16 @@ export class GraphService {
     const instance = this.search_graph_store.get_instance(tab_id);
     if (!instance?.show_semantic_edges) return;
     if (instance.semantic_edges || !instance.snapshot) return;
+    // An in-flight search reads the toggle before writing and fetches the
+    // edges for its own result.
+    if (instance.status === "loading") return;
 
     const vault_id = this.get_active_vault_id();
     if (!vault_id) return;
 
-    const hit_paths = instance.snapshot.nodes
+    const revision = this.search_graph_revisions.get(tab_id) ?? 0;
+    const base_snapshot = instance.snapshot;
+    const hit_paths = base_snapshot.nodes
       .filter((n) => n.kind === "hit")
       .map((n) => n.path);
     const edges = await this.compute_search_semantic_edges(
@@ -528,16 +556,67 @@ export class GraphService {
       hit_paths,
       similarity_threshold,
     );
-    const snapshot = apply_semantic_edges_to_snapshot(instance.snapshot, edges);
+
+    const current = this.search_graph_store.get_instance(tab_id);
+    if (!this.is_current_search_graph(tab_id, revision)) return;
+    if (current?.snapshot !== base_snapshot) return;
+    const snapshot = apply_semantic_edges_to_snapshot(base_snapshot, edges);
     this.search_graph_store.set_snapshot(
       tab_id,
       snapshot,
-      instance.auto_expanded_ids,
+      current.auto_expanded_ids,
       edges,
     );
   }
 
+  async toggle_search_graph_smart_link_edges(tab_id: string): Promise<void> {
+    if (!this.search_graph_store) return;
+    this.search_graph_store.toggle_smart_link_edges(tab_id);
+    if (!this.search_graph_store.get_instance(tab_id)?.show_smart_link_edges) {
+      return;
+    }
+
+    if (this.graph_store.smart_link_edges.length === 0) {
+      await this.load_smart_link_edges();
+    }
+
+    // Re-read after the load: whichever result is on screen now is the one
+    // to decorate, and a search still in flight picks the edges up itself.
+    const current = this.search_graph_store.get_instance(tab_id);
+    const edges = this.graph_store.smart_link_edges;
+    if (!current?.snapshot || current.status === "loading") return;
+    if (current.snapshot.stats.smart_link_edge_count > 0) return;
+    if (edges.length === 0) return;
+    this.search_graph_store.set_snapshot(
+      tab_id,
+      apply_smart_link_edges_to_snapshot(current.snapshot, edges),
+      current.auto_expanded_ids,
+      current.semantic_edges,
+    );
+  }
+
+  async ensure_search_graph(
+    tab_id: string,
+    query: string,
+    similarity_threshold?: number,
+    include_linked_sources = true,
+  ): Promise<void> {
+    if (!this.search_graph_store) return;
+    if (this.search_graph_store.get_instance(tab_id)) return;
+    this.search_graph_store.create_instance(tab_id, query);
+    if (!query) return;
+    await this.execute_search_graph(
+      tab_id,
+      query,
+      similarity_threshold,
+      include_linked_sources,
+    );
+  }
+
   release_search_graphs(open_tab_ids: Set<string>): void {
+    for (const tab_id of this.search_graph_revisions.keys()) {
+      if (!open_tab_ids.has(tab_id)) this.search_graph_revisions.delete(tab_id);
+    }
     this.search_graph_store?.retain_instances(open_tab_ids);
   }
 
@@ -562,8 +641,8 @@ export class GraphService {
     const vault_id = this.get_active_vault_id();
     if (!vault_id) return;
 
-    const instance = this.search_graph_store.get_instance(tab_id);
-    if (!instance?.snapshot) return;
+    if (!this.search_graph_store.get_instance(tab_id)?.snapshot) return;
+    const revision = this.search_graph_revisions.get(tab_id) ?? 0;
 
     try {
       const similar = await this.search_port.find_similar_notes(
@@ -579,6 +658,10 @@ export class GraphService {
         vault_snapshot = await this.graph_port.load_vault_graph(vault_id);
         this.graph_store.set_vault_snapshot(vault_snapshot);
       }
+
+      if (!this.is_current_search_graph(tab_id, revision)) return;
+      const instance = this.search_graph_store.get_instance(tab_id);
+      if (!instance?.snapshot) return;
 
       const new_hits: SearchSubgraphHit[] = similar.map((h) => ({
         path: h.note.path,

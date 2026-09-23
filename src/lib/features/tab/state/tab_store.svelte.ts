@@ -374,6 +374,15 @@ export class TabStore {
     this.mru_order = [];
   }
 
+  set_search_graph_query(tab_id: TabId, query: string, title: string) {
+    const tab = this.tabs.find((t) => t.id === tab_id);
+    if (tab?.kind !== "search_graph") return;
+    if (tab.query === query && tab.title === title) return;
+    this.tabs = this.tabs.map((t) =>
+      t.id === tab_id ? { ...t, query, title } : t,
+    );
+  }
+
   set_dirty(tab_id: TabId, is_dirty: boolean) {
     const tab = this.tabs.find((t) => t.id === tab_id);
     if (!tab) return;

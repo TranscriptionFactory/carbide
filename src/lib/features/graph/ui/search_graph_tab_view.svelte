@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onDestroy } from "svelte";
   import {
     LayoutGrid,
     Maximize2,
@@ -35,18 +36,21 @@
 
   let debounce_timer: ReturnType<typeof setTimeout> | undefined;
 
-  function handle_input(value: string) {
+  function handle_input(target_tab_id: string, value: string) {
     void action_registry.execute(ACTION_IDS.search_graph_execute, {
-      tab_id,
+      tab_id: target_tab_id,
       query: value,
     });
   }
 
   function debounced_input(value: string) {
     clearTimeout(debounce_timer);
-    stores.search_graph.update_query(tab_id, value);
-    debounce_timer = setTimeout(() => handle_input(value), 300);
+    const target_tab_id = tab_id;
+    stores.search_graph.update_query(target_tab_id, value);
+    debounce_timer = setTimeout(() => handle_input(target_tab_id, value), 300);
   }
+
+  onDestroy(() => clearTimeout(debounce_timer));
 
   function select_node(path: string | null) {
     if (!path) return;
@@ -303,9 +307,7 @@
   {/if}
 
   <div class="SearchGraphTabView__body">
-    {#if status === "loading"}
-      <p class="SearchGraphTabView__message">Searching...</p>
-    {:else if status === "error"}
+    {#if status === "error"}
       <p class="SearchGraphTabView__message SearchGraphTabView__message--error">
         {instance?.error ?? "Search failed"}
       </p>
@@ -370,6 +372,16 @@
           />
         </Resizable.Pane>
       </Resizable.PaneGroup>
+      {#if status === "loading"}
+        <div
+          role="status"
+          class="pointer-events-none absolute inset-0 flex items-start justify-center bg-background/60 pt-6 text-sm text-muted-foreground"
+        >
+          Searching...
+        </div>
+      {/if}
+    {:else if status === "loading"}
+      <p class="SearchGraphTabView__message">Searching...</p>
     {:else if status === "idle"}
       <p class="SearchGraphTabView__message">
         Enter a query to search and visualize connections

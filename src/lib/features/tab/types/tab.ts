@@ -46,7 +46,7 @@ export type PersistedTab = {
   | { kind: "note"; note_path: NotePath }
   | { kind: "document"; file_path: string; file_type: string }
   | { kind: "graph"; view_mode: "vault" }
-  | { kind: "search_graph"; query: string }
+  | { kind: "search_graph"; id?: string; query: string }
   | { kind: "bases" }
   | { kind: "assistant_session"; session_id: string }
   | { kind: "assistant_proposals" }
