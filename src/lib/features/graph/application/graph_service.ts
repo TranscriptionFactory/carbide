@@ -662,6 +662,7 @@ export class GraphService {
       if (!this.is_current_search_graph(tab_id, revision)) return;
       const instance = this.search_graph_store.get_instance(tab_id);
       if (!instance?.snapshot) return;
+      if (!instance.snapshot.nodes.some((n) => n.path === node_path)) return;
 
       const new_hits: SearchSubgraphHit[] = similar.map((h) => ({
         path: h.note.path,
