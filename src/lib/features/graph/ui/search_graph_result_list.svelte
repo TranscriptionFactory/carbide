@@ -143,11 +143,10 @@
 
   $effect(() => {
     if (!scroll_to_path) return;
-    const el = card_elements.get(scroll_to_path);
-    if (el) {
-      el.scrollIntoView({ behavior: "smooth", block: "nearest" });
-      on_scroll_done();
-    }
+    card_elements
+      .get(scroll_to_path)
+      ?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    on_scroll_done();
   });
 
   function format_path(path: string): string {

@@ -18,6 +18,7 @@ import {
 import { SpatialIndex } from "$lib/features/graph/domain/spatial_index";
 import {
   convex_hull,
+  midpoint,
   offset_polygon,
 } from "$lib/features/graph/domain/geometry";
 import type {
@@ -60,6 +61,7 @@ type NodeEntry = {
 };
 
 type EdgeDef = { source: string; target: string };
+type EdgeLabel = { text: Text; src_id: string; tgt_id: string };
 type SemanticEdgeDef = SemanticEdge;
 type SmartLinkEdgeDef = SmartLinkEdge;
 
@@ -78,6 +80,7 @@ export class VaultGraphRenderer {
   private vp: Viewport | null = null;
   private cluster_gfx: Graphics | null = null;
   private edges_gfx: Graphics | null = null;
+  private edge_labels_layer: Container | null = null;
   private nodes_layer: Container | null = null;
   private node_map = new Map<string, NodeEntry>();
   private edge_defs: EdgeDef[] = [];
@@ -196,6 +199,7 @@ export class VaultGraphRenderer {
 
     this.cluster_gfx = new pixi.Graphics();
     this.edges_gfx = new pixi.Graphics();
+    this.edge_labels_layer = new pixi.Container();
     this.nodes_layer = new pixi.Container();
 
     const g = new pixi.Graphics();
@@ -206,6 +210,7 @@ export class VaultGraphRenderer {
 
     this.vp.addChild(this.cluster_gfx);
     this.vp.addChild(this.edges_gfx);
+    this.vp.addChild(this.edge_labels_layer);
     this.vp.addChild(this.nodes_layer);
 
     this.vp.on("pointermove", (e) => {
@@ -354,6 +359,7 @@ export class VaultGraphRenderer {
       }
     }
     this.spatial.rebuild(spatial_nodes);
+    this.reposition_edge_labels();
     this.edges_dirty = true;
     this.request_render();
   }
@@ -395,6 +401,7 @@ export class VaultGraphRenderer {
         spatial_nodes.push({ id: node_id, x, y });
       }
       this.spatial.rebuild(spatial_nodes);
+      this.reposition_edge_labels();
       this.edges_dirty = true;
       this.render();
 
@@ -406,13 +413,13 @@ export class VaultGraphRenderer {
     requestAnimationFrame(step);
   }
 
-  private edge_labels: Map<string, import("pixi.js").Text> = new Map();
+  private edge_labels: Map<string, EdgeLabel> = new Map();
 
   show_edge_labels(
     edges: Array<{ source: string; target: string; label: string }>,
   ): void {
     this.clear_edge_labels();
-    if (!this.edges_gfx || !this.pixi) return;
+    if (!this.edge_labels_layer || !this.pixi) return;
     const { Text } = this.pixi;
     for (const edge of edges) {
       const src = this.node_map.get(edge.source);
@@ -428,19 +435,34 @@ export class VaultGraphRenderer {
         },
       });
       text.anchor.set(0.5, 0.5);
-      text.position.set((src.x + tgt.x) / 2, (src.y + tgt.y) / 2);
+      const mid = midpoint(src, tgt);
+      text.position.set(mid.x, mid.y);
       text.alpha = 0.7;
-      this.edges_gfx.addChild(text);
-      this.edge_labels.set(key, text);
+      this.edge_labels_layer.addChild(text);
+      this.edge_labels.set(key, {
+        text,
+        src_id: edge.source,
+        tgt_id: edge.target,
+      });
     }
     this.request_render();
   }
 
   clear_edge_labels(): void {
-    for (const text of this.edge_labels.values()) {
+    for (const { text } of this.edge_labels.values()) {
       text.destroy();
     }
     this.edge_labels.clear();
+  }
+
+  private reposition_edge_labels(): void {
+    for (const { text, src_id, tgt_id } of this.edge_labels.values()) {
+      const src = this.node_map.get(src_id);
+      const tgt = this.node_map.get(tgt_id);
+      if (!src || !tgt) continue;
+      const mid = midpoint(src, tgt);
+      text.position.set(mid.x, mid.y);
+    }
   }
 
   set_semantic_edges(edges: SemanticEdgeDef[], visible: boolean): void {
@@ -540,6 +562,7 @@ export class VaultGraphRenderer {
     this.vp = null;
     this.cluster_gfx = null;
     this.edges_gfx = null;
+    this.edge_labels_layer = null;
     this.nodes_layer = null;
     this.node_map.clear();
     this.circle_texture = null;
