@@ -5,7 +5,7 @@
 // The jsdom pragma is load-bearing: `update_prosemirror_diagnostics` publishes
 // through a real `EditorView`, and the meter below measures the document work
 // that publish performs.
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { EditorState } from "prosemirror-state";
 import type { Node as ProseNode } from "prosemirror-model";
 import { EditorView } from "prosemirror-view";
@@ -63,6 +63,42 @@ afterEach(() => {
 });
 
 describe("diagnostics publish cost", () => {
+  it("skips the dispatch when no diagnostics are published or shown", () => {
+    const editor_view = make_view(parse_markdown("plain text\n"));
+    view = editor_view;
+    const dispatch = vi.spyOn(editor_view, "dispatch");
+
+    update_prosemirror_diagnostics(editor_view, [], () => "plain text\n");
+    expect(dispatch).not.toHaveBeenCalled();
+  });
+
+  it("still clears decorations when diagnostics go from some to none", () => {
+    const markdown = "plain text\n";
+    const editor_view = make_view(parse_markdown(markdown));
+    view = editor_view;
+    update_prosemirror_diagnostics(
+      editor_view,
+      [
+        {
+          source: "markdown_lsp",
+          line: 0,
+          column: 0,
+          end_line: 0,
+          end_column: 5,
+          severity: "error",
+          message: "x",
+          rule_id: null,
+          fixable: false,
+        },
+      ],
+      () => markdown,
+    );
+    update_prosemirror_diagnostics(editor_view, [], () => markdown);
+    expect(diagnostics_decoration_plugin_key.getState(editor_view.state)).toBe(
+      DecorationSet.empty,
+    );
+  });
+
   it("maps 50 diagnostics with a single document walk", () => {
     const markdown = big_markdown();
     const doc = parse_markdown(markdown);

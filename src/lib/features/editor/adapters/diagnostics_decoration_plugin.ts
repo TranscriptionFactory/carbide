@@ -74,6 +74,14 @@ export function update_prosemirror_diagnostics(
   diagnostics: Diagnostic[],
   get_markdown: () => string = () => "",
 ) {
+  // Republished after every serialize; with nothing to show and nothing
+  // shown, a dispatch would only run every plugin for no change.
+  if (
+    diagnostics.length === 0 &&
+    diagnostics_decoration_plugin_key.getState(view.state) ===
+      DecorationSet.empty
+  )
+    return;
   const deco_set = build_decorations(view, diagnostics, get_markdown);
   view.dispatch(
     view.state.tr.setMeta(diagnostics_decoration_plugin_key, deco_set),
