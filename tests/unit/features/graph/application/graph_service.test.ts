@@ -376,3 +376,50 @@ describe("GraphService search graph stale results", () => {
     expect(instance?.snapshot?.stats.semantic_edge_count).toBe(1);
   });
 });
+
+describe("GraphService search graph interaction state", () => {
+  function interact(store: SearchGraphStore) {
+    store.select_node("tab-1", "a.md");
+    store.toggle_selected("tab-1", "a.md");
+    store.set_hovered_node("tab-1", "a.md");
+    store.toggle_user_expanded("tab-1", "a.md");
+  }
+
+  it("resets selection, hover and expansion when a new query lands", async () => {
+    const { service, search_graph_store, queue_pipeline } =
+      setup_search_graph();
+    queue_pipeline().resolve(pipeline_result("a.md"));
+    await service.execute_search_graph("tab-1", "first");
+    interact(search_graph_store);
+
+    queue_pipeline().resolve(pipeline_result("b.md"));
+    await service.execute_search_graph("tab-1", "second");
+
+    const instance = search_graph_store.get_instance("tab-1");
+    expect(instance?.selected_node_id).toBeNull();
+    expect(instance?.selected_node_ids.size).toBe(0);
+    expect(instance?.hovered_node_id).toBeNull();
+    expect(instance?.user_expanded_ids.size).toBe(0);
+    expect(instance?.scroll_to_path).toBeNull();
+  });
+
+  it("keeps selection and expansion across find-similar and semantic toggles", async () => {
+    const { service, search_graph_store, search_port, queue_pipeline } =
+      setup_search_graph();
+    queue_pipeline().resolve(pipeline_result("a.md", "b.md"));
+    await service.execute_search_graph("tab-1", "first");
+    interact(search_graph_store);
+    vi.mocked(search_port.find_similar_notes).mockResolvedValueOnce([
+      { note: { path: "c.md", title: "C" }, distance: 0.1 },
+    ] as never);
+
+    await service.expand_search_graph_node("tab-1", "a.md");
+    await service.toggle_search_graph_semantic_edges("tab-1");
+
+    const instance = search_graph_store.get_instance("tab-1");
+    expect(instance?.selected_node_id).toBe("a.md");
+    expect(instance?.selected_node_ids.has("a.md")).toBe(true);
+    expect(instance?.hovered_node_id).toBe("a.md");
+    expect(instance?.user_expanded_ids.has("a.md")).toBe(true);
+  });
+});

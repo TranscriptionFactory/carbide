@@ -220,4 +220,57 @@ describe("SearchGraphStore", () => {
       expect(store.get_instance("missing")).toBeUndefined();
     });
   });
+
+  describe("search results", () => {
+    const snapshot = {
+      query: "q",
+      nodes: [{ path: "a.md", title: "A", kind: "hit" as const }],
+      edges: [],
+      stats: {
+        hit_count: 1,
+        neighbor_count: 0,
+        wiki_edge_count: 0,
+        semantic_edge_count: 0,
+        smart_link_edge_count: 0,
+      },
+    };
+
+    function interact(store: SearchGraphStore) {
+      store.select_node("tab1", "a.md");
+      store.toggle_selected("tab1", "a.md");
+      store.set_hovered_node("tab1", "a.md");
+      store.toggle_user_expanded("tab1", "a.md");
+    }
+
+    it("set_search_result resets interaction state from the previous query", () => {
+      const store = make_store_with_instance();
+      interact(store);
+
+      store.set_search_result("tab1", snapshot, new Set(["n.md"]), null);
+
+      const inst = store.get_instance("tab1");
+      expect(inst?.snapshot).toBe(snapshot);
+      expect(inst?.status).toBe("ready");
+      expect(inst?.auto_expanded_ids).toEqual(new Set(["n.md"]));
+      expect(inst?.selected_node_id).toBeNull();
+      expect(inst?.selected_node_ids.size).toBe(0);
+      expect(inst?.hovered_node_id).toBeNull();
+      expect(inst?.user_expanded_ids.size).toBe(0);
+      expect(inst?.scroll_to_path).toBeNull();
+    });
+
+    it("set_snapshot keeps interaction state for refinements of the same result", () => {
+      const store = make_store_with_instance();
+      interact(store);
+
+      store.set_snapshot("tab1", snapshot, new Set(), null);
+
+      const inst = store.get_instance("tab1");
+      expect(inst?.selected_node_id).toBe("a.md");
+      expect(inst?.selected_node_ids.has("a.md")).toBe(true);
+      expect(inst?.hovered_node_id).toBe("a.md");
+      expect(inst?.user_expanded_ids.has("a.md")).toBe(true);
+      expect(inst?.scroll_to_path).toBe("a.md");
+    });
+  });
 });
