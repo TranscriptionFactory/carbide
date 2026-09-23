@@ -1,5 +1,13 @@
 # carbide
 
+## 2.38.3
+
+### Patch Changes
+
+- c1b5bac: Large notes (around 800KB) open and type much faster. Undo now uses ProseMirror's own history instead of Yjs, which also fixes undo being lost after switching away from a note and back, and a note inheriting another note's undo stack. Session-link, heading-fold and drag-handle decorations now update only what an edit touched rather than rebuilding for the whole document on every keystroke. Drag handles now exist only for blocks near the screen, and not at all when the handle setting is off. The outline updates from the blocks an edit touched instead of re-reading every heading, and turning a paragraph into a heading now shows up in the outline. A leftover image-width pass that walked the whole document on every update is gone. An empty diagnostics list no longer triggers a redundant editor update after each save. Browser spellcheck turns off above the existing large-document threshold (400K characters or 8,000 lines).
+- c1b5bac: Search graph fixes. A slower, older search can no longer overwrite a newer result, and neither can an expand or semantic-edge toggle that finishes after it. A new query clears the previous selection and expansions. The graph stays on screen with a "Searching…" overlay instead of being torn down on every query. Switching between search tabs no longer carries filters, selection or a pending search from one tab to another. Search tabs restored at startup now run their query, keep their id and active state, and save query edits. The smart-link toggle loads smart links when the vault graph hasn't. Dashed and search-graph edges are drawn with one stroke per style group instead of one per dash. Clicking a node whose card is filtered out no longer leaves a stale scroll target that jumps the list later. Find-similar no longer adds hits to a newer result that doesn't contain the expanded node. In the vault graph, focus-mode edge labels follow their edges while nodes animate.
+- ff9b6cf: Closing a search graph tab now frees its results however the tab was closed. Before, only the tab's own close button released the snapshot. Closing from the tab bar, with a shortcut, or with close others/right/all left every search's nodes, edges and snippets in memory until the app restarted.
+
 ## 2.38.2
 
 ### Patch Changes
