@@ -16,6 +16,7 @@ import { parse_search_query } from "$lib/features/search";
 import {
   extract_search_subgraph,
   apply_semantic_edges_to_snapshot,
+  apply_smart_link_edges_to_snapshot,
   compute_auto_expanded_ids,
   merge_expansion_into_snapshot,
   type SearchSubgraphHit,
@@ -565,6 +566,32 @@ export class GraphService {
       snapshot,
       current.auto_expanded_ids,
       edges,
+    );
+  }
+
+  async toggle_search_graph_smart_link_edges(tab_id: string): Promise<void> {
+    if (!this.search_graph_store) return;
+    this.search_graph_store.toggle_smart_link_edges(tab_id);
+    if (!this.search_graph_store.get_instance(tab_id)?.show_smart_link_edges) {
+      return;
+    }
+
+    if (this.graph_store.smart_link_edges.length === 0) {
+      await this.load_smart_link_edges();
+    }
+
+    // Re-read after the load: whichever result is on screen now is the one
+    // to decorate, and a search still in flight picks the edges up itself.
+    const current = this.search_graph_store.get_instance(tab_id);
+    const edges = this.graph_store.smart_link_edges;
+    if (!current?.snapshot || current.status === "loading") return;
+    if (current.snapshot.stats.smart_link_edge_count > 0) return;
+    if (edges.length === 0) return;
+    this.search_graph_store.set_snapshot(
+      tab_id,
+      apply_smart_link_edges_to_snapshot(current.snapshot, edges),
+      current.auto_expanded_ids,
+      current.semantic_edges,
     );
   }
 

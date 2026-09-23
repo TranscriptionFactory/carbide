@@ -19,6 +19,7 @@ function setup() {
   const search_graph_store = new SearchGraphStore();
   const graph_service = {
     toggle_search_graph_semantic_edges: vi.fn().mockResolvedValue(undefined),
+    toggle_search_graph_smart_link_edges: vi.fn().mockResolvedValue(undefined),
     execute_search_graph: vi.fn().mockResolvedValue(undefined),
   } as unknown as GraphService;
 
@@ -64,6 +65,18 @@ describe("register_search_graph_actions semantic toggle", () => {
     expect(
       graph_service.toggle_search_graph_semantic_edges,
     ).not.toHaveBeenCalled();
+  });
+});
+
+describe("register_search_graph_actions smart link toggle", () => {
+  it("delegates the toggle to the service so edges load on demand", async () => {
+    const { execute, graph_service } = setup();
+
+    await execute(ACTION_IDS.search_graph_toggle_smart_links, "tab-1");
+
+    expect(
+      graph_service.toggle_search_graph_smart_link_edges,
+    ).toHaveBeenCalledWith("tab-1");
   });
 });
 
