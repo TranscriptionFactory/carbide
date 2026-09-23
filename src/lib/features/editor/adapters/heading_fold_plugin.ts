@@ -15,6 +15,7 @@ type HeadingRange = {
 type HeadingFoldState = {
   folded: Set<number>;
   decorations: DecorationSet;
+  toggles: number[];
 };
 
 type FoldMeta =
@@ -70,12 +71,52 @@ export function compute_heading_ranges(doc: ProseNode): HeadingRange[] {
   return ranges;
 }
 
+function build_state(
+  doc: ProseNode,
+  folded: Set<number>,
+  ranges: HeadingRange[] = compute_heading_ranges(doc),
+): HeadingFoldState {
+  return {
+    folded,
+    decorations: build_decorations(doc, folded, ranges),
+    toggles: ranges.map((r) => r.heading_pos),
+  };
+}
+
+function positions_equal(a: number[], b: number[]): boolean {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    if (a[i] !== b[i]) return false;
+  }
+  return true;
+}
+
+// Without folds the decorations are one toggle per foldable heading, so an
+// edit that leaves that set of headings intact only needs them mapped.
+function apply_doc_change(
+  prev: HeadingFoldState,
+  tr: Transaction,
+  doc: ProseNode,
+): HeadingFoldState {
+  const folded = map_folded_set(prev.folded, tr);
+  const ranges = compute_heading_ranges(doc);
+  const toggles = ranges.map((r) => r.heading_pos);
+  const mapped = prev.toggles.map((pos) => tr.mapping.map(pos, 1));
+  if (folded.size === 0 && positions_equal(mapped, toggles)) {
+    return {
+      folded,
+      decorations: prev.decorations.map(tr.mapping, doc),
+      toggles,
+    };
+  }
+  return build_state(doc, folded, ranges);
+}
+
 function build_decorations(
   doc: ProseNode,
   folded: Set<number>,
-  ranges?: HeadingRange[],
+  heading_ranges: HeadingRange[],
 ): DecorationSet {
-  const heading_ranges = ranges ?? compute_heading_ranges(doc);
   if (heading_ranges.length === 0) return DecorationSet.empty;
 
   const decos: Decoration[] = [];
@@ -91,14 +132,10 @@ function build_decorations(
     if (!is_nested_inside_fold) {
       const toggle = document.createElement("span");
       toggle.className = `heading-fold-toggle${is_folded ? " heading-fold-toggle--folded" : ""}`;
-      toggle.dataset["headingPos"] = String(range.heading_pos);
       toggle.contentEditable = "false";
 
       decos.push(
-        Decoration.widget(range.heading_pos + 1, toggle, {
-          side: -1,
-          key: `fold-toggle-${String(range.heading_pos)}`,
-        }),
+        Decoration.widget(range.heading_pos + 1, toggle, { side: -1 }),
       );
     }
 
@@ -113,12 +150,7 @@ function build_decorations(
     widget.textContent = "…";
     widget.setAttribute("aria-label", "Folded content");
 
-    decos.push(
-      Decoration.widget(range.heading_end - 1, widget, {
-        side: 1,
-        key: `fold-indicator-${String(range.heading_pos)}`,
-      }),
-    );
+    decos.push(Decoration.widget(range.heading_end - 1, widget, { side: 1 }));
 
     doc.nodesBetween(range.body_start, range.body_end, (node, pos) => {
       if (pos >= range.body_start && pos < range.body_end) {
@@ -159,10 +191,7 @@ export function create_heading_fold_prose_plugin(): Plugin<HeadingFoldState> {
 
     state: {
       init(_, state) {
-        return {
-          folded: new Set<number>(),
-          decorations: build_decorations(state.doc, new Set<number>()),
-        };
+        return build_state(state.doc, new Set<number>());
       },
 
       apply(tr, prev, _old_state, new_state) {
@@ -189,19 +218,10 @@ export function create_heading_fold_prose_plugin(): Plugin<HeadingFoldState> {
               for (const r of ranges) {
                 folded.add(r.heading_pos);
               }
-              return {
-                folded,
-                decorations: build_decorations(new_state.doc, folded, ranges),
-              };
+              return build_state(new_state.doc, folded, ranges);
             }
             case "expand_all": {
-              return {
-                folded: new Set<number>(),
-                decorations: build_decorations(
-                  new_state.doc,
-                  new Set<number>(),
-                ),
-              };
+              return build_state(new_state.doc, new Set<number>());
             }
             case "restore": {
               const valid = new Set<number>();
@@ -212,22 +232,13 @@ export function create_heading_fold_prose_plugin(): Plugin<HeadingFoldState> {
               for (const pos of meta.folded) {
                 if (heading_positions.has(pos)) valid.add(pos);
               }
-              return {
-                folded: valid,
-                decorations: build_decorations(new_state.doc, valid, ranges),
-              };
+              return build_state(new_state.doc, valid, ranges);
             }
           }
-        } else if (tr.docChanged) {
-          folded = map_folded_set(prev.folded, tr);
-        } else {
-          return prev;
+          return build_state(new_state.doc, folded);
         }
-
-        return {
-          folded,
-          decorations: build_decorations(new_state.doc, folded),
-        };
+        if (!tr.docChanged) return prev;
+        return apply_doc_change(prev, tr, new_state.doc);
       },
     },
 
@@ -244,10 +255,9 @@ export function create_heading_fold_prose_plugin(): Plugin<HeadingFoldState> {
           if (!target) return false;
           event.preventDefault();
           event.stopPropagation();
-          const pos = Number((target as HTMLElement).dataset["headingPos"]);
-          if (!isNaN(pos)) {
-            toggle_heading_fold(view, pos);
-          }
+          // The toggle sits just inside its heading; mapped decorations keep
+          // the DOM, so the position is read from the view, not baked in.
+          toggle_heading_fold(view, view.posAtDOM(target, 0) - 1);
           return true;
         },
       },
