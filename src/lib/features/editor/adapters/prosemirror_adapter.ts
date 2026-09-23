@@ -490,6 +490,7 @@ export function create_prosemirror_editor_port(args?: {
       let suppress_change_echo = false;
       let view: EditorView | null = null;
       const outline_scheduler = new IdleTaskScheduler();
+      let emitted_outline_revision: number | null = null;
       const serialize_scheduler = new IdleTaskScheduler();
       let pending_doc: ProseNode | null = null;
       let doc_at_save: ProseNode | null = null;
@@ -654,7 +655,7 @@ export function create_prosemirror_editor_port(args?: {
           serialize_scheduler.schedule(run_serialize);
 
           if (on_outline_change) {
-            outline_scheduler.schedule(emit_outline_headings);
+            outline_scheduler.schedule(emit_outline_if_restructured);
           }
         }),
       );
@@ -733,8 +734,17 @@ export function create_prosemirror_editor_port(args?: {
         if (!on_outline_change || !view) return;
         const plugin_state = outline_plugin_key.getState(view.state);
         if (plugin_state) {
+          emitted_outline_revision = plugin_state.structure_revision;
           on_outline_change(plugin_state.headings);
         }
+      }
+
+      function emit_outline_if_restructured() {
+        if (!view) return;
+        const revision = outline_plugin_key.getState(
+          view.state,
+        )?.structure_revision;
+        if (revision !== emitted_outline_revision) emit_outline_headings();
       }
 
       function get_buffer_entry_from_view_state(
@@ -1386,6 +1396,11 @@ export function create_prosemirror_editor_port(args?: {
               });
             }
           });
+        },
+        heading_position(heading_id: string) {
+          if (!view) return null;
+          const headings = outline_plugin_key.getState(view.state)?.headings;
+          return headings?.find((h) => h.id === heading_id)?.pos ?? null;
         },
         find_block_anchor_position(block_id: string) {
           if (!view) return null;

@@ -137,6 +137,18 @@ describe("EditorService heading fragment scroll", () => {
     expect(editor_store.pending_heading_fragment).toBeNull();
   });
 
+  it("scrolls to the session's live heading position over the stored one", async () => {
+    const { service, session, emit_outline } = await create_setup();
+    emit_outline([heading(1, "Alpha", 0), heading(2, "Section", 42)]);
+    session.heading_position = vi.fn((id: string) =>
+      id === "h-2-section-0" ? 57 : null,
+    );
+
+    service.scroll_to_heading_fragment("Section");
+
+    expect(session.scroll_to_position).toHaveBeenCalledWith(57);
+  });
+
   it("does not stash a fragment that matches no heading in the current outline", async () => {
     const { service, editor_store, session, emit_outline } =
       await create_setup();

@@ -200,10 +200,7 @@ export function register_vim_nav_actions(input: VimNavActionInput) {
         (h) => h.id === outline_store.active_heading_id,
       );
       if (heading) {
-        void registry.execute(
-          ACTION_IDS.outline_scroll_to_heading,
-          heading.pos,
-        );
+        void registry.execute(ACTION_IDS.outline_scroll_to_heading, heading.id);
       }
     },
   });
