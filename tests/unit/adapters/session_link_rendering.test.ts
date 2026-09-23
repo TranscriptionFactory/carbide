@@ -56,6 +56,14 @@ function render(markdown: string, get_sessions: () => SessionLinkTarget[]) {
   return { mounted, open, host };
 }
 
+function refresh_sessions(mounted: EditorView) {
+  mounted.dispatch(
+    mounted.state.tr.setMeta(wiki_link_plugin_key, {
+      action: "refresh_sessions",
+    }),
+  );
+}
+
 describe("session link rendering", () => {
   it.each(["session-1", "v1.2 #3: https://host/path?x=%23"])(
     "renders, round-trips, and opens %s",
@@ -94,13 +102,50 @@ describe("session link rendering", () => {
     const source = serialize_markdown(mounted.state.doc);
     expect(host.querySelector("[data-session-link-broken]")).not.toBeNull();
     sessions = [{ id: "session-1", title: "Renamed" }];
-    mounted.dispatch(mounted.state.tr);
+    refresh_sessions(mounted);
     expect(host.querySelector("[data-session-link-broken]")).toBeNull();
     expect(host.querySelector('[title="Renamed"]')).not.toBeNull();
     sessions = [];
-    mounted.dispatch(mounted.state.tr);
+    refresh_sessions(mounted);
     expect(host.querySelector('[aria-invalid="true"]')).not.toBeNull();
     expect(serialize_markdown(mounted.state.doc)).toBe(source);
+  });
+
+  it("does not resolve session links on a selection-only transaction", () => {
+    const get_sessions = vi.fn(() => [{ id: "session-1", title: "One" }]);
+    const { mounted } = render("[[◈ session-1]]\n\nplain text", get_sessions);
+    get_sessions.mockClear();
+    mounted.dispatch(
+      mounted.state.tr.setSelection(TextSelection.create(mounted.state.doc, 2)),
+    );
+    expect(get_sessions).not.toHaveBeenCalled();
+  });
+
+  it("resolves only the session links in the edited block when typing", () => {
+    const get_sessions = vi.fn(() => [{ id: "session-1", title: "One" }]);
+    const { mounted } = render(
+      "[[◈ session-1]]\n\n[[◈ session-1]]\n\nplain text",
+      get_sessions,
+    );
+    get_sessions.mockClear();
+    const end = mounted.state.doc.content.size - 1;
+    mounted.dispatch(mounted.state.tr.insertText("x", end));
+    expect(get_sessions).not.toHaveBeenCalled();
+
+    const first_link_end = mounted.state.doc.firstChild!.nodeSize - 2;
+    mounted.dispatch(mounted.state.tr.insertText("y", first_link_end));
+    expect(get_sessions).toHaveBeenCalledTimes(1);
+  });
+
+  it("re-resolves every session link on the refresh meta", () => {
+    const get_sessions = vi.fn(() => [{ id: "session-1", title: "One" }]);
+    const { mounted } = render(
+      "[[◈ session-1]]\n\n[[◈ session-1]]",
+      get_sessions,
+    );
+    get_sessions.mockClear();
+    refresh_sessions(mounted);
+    expect(get_sessions).toHaveBeenCalledTimes(2);
   });
 
   it("marks duplicate titles broken but leaves ordinary note links untouched", () => {

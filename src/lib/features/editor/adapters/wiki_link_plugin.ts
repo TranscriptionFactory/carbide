@@ -1,6 +1,7 @@
 import { Decoration, DecorationSet } from "prosemirror-view";
 import { Plugin, PluginKey, TextSelection } from "prosemirror-state";
 import type { MarkType, Node as ProseNode, Mark } from "prosemirror-model";
+import { changed_range, rescan_decorations } from "./incremental_scan";
 import {
   build_wiki_href,
   format_wiki_target_display,
@@ -12,15 +13,57 @@ import { editor_context_plugin_key } from "./editor_context_plugin";
 const ZERO_WIDTH_SPACE = "\u200B";
 const WIKI_LINK_REGEX = /\[\[([^\]\n]+?)(?:\|([^\]\n]+?))?\]\]/;
 
-type WikiLinkMeta = { action: "full_scan" };
+type WikiLinkMeta = { action: "full_scan" } | { action: "refresh_sessions" };
 
-function is_full_scan_action(value: unknown): value is WikiLinkMeta {
-  if (typeof value !== "object" || value === null) return false;
-  const obj = value as Record<string, unknown>;
-  return obj.action === "full_scan";
+function meta_action(value: unknown): WikiLinkMeta["action"] | null {
+  if (typeof value !== "object" || value === null) return null;
+  const action = (value as Record<string, unknown>).action;
+  return action === "full_scan" || action === "refresh_sessions"
+    ? action
+    : null;
 }
 
-export const wiki_link_plugin_key = new PluginKey("wiki-link-plugin");
+function is_full_scan_action(value: unknown): boolean {
+  return meta_action(value) === "full_scan";
+}
+
+export const wiki_link_plugin_key = new PluginKey<DecorationSet>(
+  "wiki-link-plugin",
+);
+
+type ResolveSessionLink = (
+  target: string,
+) => { id: string; title: string } | null;
+
+function session_link_decorations(
+  node: ProseNode,
+  pos: number,
+  link_type: MarkType,
+  resolve_session_link: ResolveSessionLink | undefined,
+): Decoration[] {
+  if (!node.isText) return [];
+  const mark = node.marks.find((mark) => mark.type === link_type);
+  const href: unknown = mark?.attrs["href"];
+  if (typeof href !== "string" || !is_session_link(href)) return [];
+  const session = resolve_session_link?.(href);
+  return [
+    Decoration.inline(
+      pos,
+      pos + node.nodeSize,
+      session
+        ? {
+            "data-session-id": session.id,
+            title: session.title,
+          }
+        : {
+            "data-session-link-broken": "true",
+            "aria-invalid": "true",
+            title: "Session not found or title is ambiguous",
+            class: "text-muted-foreground underline decoration-dashed",
+          },
+    ),
+  ];
+}
 
 type Segment = {
   text: string;
@@ -107,40 +150,48 @@ function build_replacement(input: {
 
 export function create_wiki_link_converter_prose_plugin(input: {
   link_type: MarkType;
-  resolve_session_link?:
-    | ((target: string) => { id: string; title: string } | null)
-    | undefined;
+  resolve_session_link?: ResolveSessionLink | undefined;
 }) {
-  return new Plugin({
+  const build = (node: ProseNode, pos: number) =>
+    session_link_decorations(
+      node,
+      pos,
+      input.link_type,
+      input.resolve_session_link,
+    );
+  const build_all = (doc: ProseNode) => {
+    const decorations: Decoration[] = [];
+    doc.descendants((node, pos) => {
+      decorations.push(...build(node, pos));
+    });
+    return DecorationSet.create(doc, decorations);
+  };
+
+  return new Plugin<DecorationSet>({
     key: wiki_link_plugin_key,
+    state: {
+      init: (_config, state) => build_all(state.doc),
+      apply(tr, decorations, _old_state, new_state) {
+        if (
+          meta_action(tr.getMeta(wiki_link_plugin_key)) === "refresh_sessions"
+        )
+          return build_all(new_state.doc);
+        if (!tr.docChanged) return decorations;
+        const mapped = decorations.map(tr.mapping, new_state.doc);
+        const range = changed_range(tr);
+        if (!range) return mapped;
+        return rescan_decorations(
+          mapped,
+          new_state.doc,
+          [range],
+          (node) => node.isText,
+          build,
+        );
+      },
+    },
     props: {
       decorations(state) {
-        const decorations: Decoration[] = [];
-        state.doc.descendants((node, pos) => {
-          if (!node.isText) return;
-          const mark = node.marks.find((mark) => mark.type === input.link_type);
-          const href: unknown = mark?.attrs["href"];
-          if (typeof href !== "string" || !is_session_link(href)) return;
-          const session = input.resolve_session_link?.(href);
-          decorations.push(
-            Decoration.inline(
-              pos,
-              pos + node.nodeSize,
-              session
-                ? {
-                    "data-session-id": session.id,
-                    title: session.title,
-                  }
-                : {
-                    "data-session-link-broken": "true",
-                    "aria-invalid": "true",
-                    title: "Session not found or title is ambiguous",
-                    class: "text-muted-foreground underline decoration-dashed",
-                  },
-            ),
-          );
-        });
-        return DecorationSet.create(state.doc, decorations);
+        return wiki_link_plugin_key.getState(state);
       },
     },
     appendTransaction(transactions, _old_state, new_state) {
