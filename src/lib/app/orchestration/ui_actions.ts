@@ -263,20 +263,22 @@ export function register_ui_actions(input: ActionRegistrationInput) {
   registry.register({
     id: ACTION_IDS.outline_scroll_to_heading,
     label: "Scroll to Heading",
-    execute: (pos: unknown) => {
-      if (typeof pos !== "number") return;
+    execute: (heading_id: unknown) => {
+      if (typeof heading_id !== "string") return;
       const active_tab = stores.tab.active_tab;
       if (active_tab?.kind === "document") {
-        const heading = stores.outline.headings[pos];
-        if (heading) {
-          services.document.request_html_outline_heading(
-            active_tab.id,
-            heading.id,
-          );
-        }
+        services.document.request_html_outline_heading(
+          active_tab.id,
+          heading_id,
+        );
         return;
       }
-      services.editor.scroll_to_position(pos);
+      const heading = stores.outline.headings.find((h) => h.id === heading_id);
+      if (heading) {
+        services.editor.scroll_to_position(
+          services.editor.heading_position(heading),
+        );
+      }
     },
   });
 

@@ -109,6 +109,7 @@ export type EditorSession = {
   ) => FindReplaceResult;
   replace_all_matches?: (replacement: string) => FindReplaceResult;
   scroll_to_position?: (pos: number) => void;
+  heading_position?: (heading_id: string) => number | null;
   find_block_anchor_position?: (block_id: string) => number | null;
   get_cursor_markdown_offset?: () => number;
   set_cursor_from_markdown_offset?: (offset: number) => void;

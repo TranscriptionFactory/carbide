@@ -47,7 +47,7 @@ import type { EditorStore } from "$lib/features/editor/state/editor_store.svelte
 import type { VaultStore } from "$lib/features/vault";
 import type { OpStore } from "$lib/app";
 import type { SearchService } from "$lib/features/search";
-import type { OutlineStore } from "$lib/features/outline";
+import type { OutlineHeading, OutlineStore } from "$lib/features/outline";
 import type { AssetsPort, NotesPort, NotesStore } from "$lib/features/note";
 import type { BasesStore } from "$lib/features/bases";
 import { collect_recent_notes } from "$lib/features/editor/domain/collect_recent_notes";
@@ -714,6 +714,12 @@ export class EditorService {
     this.session?.scroll_to_position?.(pos);
   }
 
+  // The outline store refreshes only on structural change, so a stored
+  // position can lag the document; the session resolves the live one.
+  heading_position(heading: OutlineHeading): number {
+    return this.session?.heading_position?.(heading.id) ?? heading.pos;
+  }
+
   /** `line` is a 0-based markdown line, the index's own section coordinate. */
   scroll_to_line(line: number) {
     const outline = this.outline_store;
@@ -759,7 +765,8 @@ export class EditorService {
         this.session?.find_block_anchor_position?.(fragment.slice(1)) ?? null
       );
     }
-    return this.outline_store?.find_heading_by_fragment(fragment)?.pos ?? null;
+    const heading = this.outline_store?.find_heading_by_fragment(fragment);
+    return heading ? this.heading_position(heading) : null;
   }
 
   set_editable(editable: boolean) {

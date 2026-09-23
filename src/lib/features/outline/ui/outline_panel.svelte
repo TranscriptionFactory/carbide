@@ -161,7 +161,7 @@
     if (!scroll_spy_enabled && !document_active) return;
     void action_registry.execute(
       ACTION_IDS.outline_scroll_to_heading,
-      heading.pos,
+      heading.id,
     );
   }
 
@@ -172,7 +172,10 @@
     event.stopPropagation();
     stores.outline.toggle_collapsed(heading.id);
     if (event.altKey && scroll_spy_enabled && !document_active) {
-      void action_registry.execute(ACTION_IDS.editor_fold_toggle, heading.pos);
+      void action_registry.execute(
+        ACTION_IDS.editor_fold_toggle,
+        services.editor.heading_position(heading),
+      );
     }
   }
 </script>
