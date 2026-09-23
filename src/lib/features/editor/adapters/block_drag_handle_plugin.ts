@@ -1,5 +1,5 @@
 import { Plugin, PluginKey, TextSelection } from "prosemirror-state";
-import type { SelectionBookmark } from "prosemirror-state";
+import type { SelectionBookmark, Transaction } from "prosemirror-state";
 import { Decoration, DecorationSet } from "prosemirror-view";
 import type { EditorView } from "prosemirror-view";
 import type { Node as ProseNode } from "prosemirror-model";
@@ -23,12 +23,20 @@ const block_drag_handle_plugin_key = new PluginKey<DragHandleState>(
 const FOCUS_MODE_KEYSTROKE_THRESHOLD = 4;
 const FOCUS_EXIT_MOVE_THRESHOLD_PX = 5;
 const ALIGN_CULL_MARGIN_PX = 300;
+const WINDOW_MARGIN_BLOCKS = 30;
+const INITIAL_WINDOW_BLOCKS = 60;
 
 const HANDLE_CLASS = "block-drag-handle";
 const NEAR_CLASS = "block-drag-handle--near";
 const WIDGET_CLASS = "ProseMirror-widget";
 
-type DragHandleState = { set: DecorationSet; starts: number[] };
+export type HandleWindow = { from: number; to: number };
+type DragHandleState = {
+  set: DecorationSet;
+  starts: number[];
+  window: HandleWindow | null;
+};
+type DragHandleMeta = { window: HandleWindow | null };
 type BuildHandle = (
   view: EditorView,
   get_pos: () => number | undefined,
@@ -160,9 +168,12 @@ export function compute_drag_range(
   return { from: block_pos, to: block_pos + node.nodeSize };
 }
 
-export function collect_handle_positions(doc: ProseNode): number[] {
+export function collect_handle_positions(
+  doc: ProseNode,
+  range: HandleWindow = { from: 0, to: doc.content.size },
+): number[] {
   const positions: number[] = [];
-  doc.descendants((node, pos, parent) => {
+  doc.nodesBetween(range.from, range.to, (node, pos, parent) => {
     const name = node.type.name;
     if (name === "list_item") {
       positions.push(pos);
@@ -190,8 +201,10 @@ const stop_all_events = () => true;
 export function build_drag_handle_decorations(
   doc: ProseNode,
   build_handle: BuildHandle,
+  handle_window: HandleWindow | null,
 ): DecorationSet {
-  const decorations = collect_handle_positions(doc).map((pos) =>
+  if (!handle_window) return DecorationSet.empty;
+  const decorations = collect_handle_positions(doc, handle_window).map((pos) =>
     Decoration.widget(pos, build_handle, {
       side: -1,
       ignoreSelection: true,
@@ -199,6 +212,18 @@ export function build_drag_handle_decorations(
     }),
   );
   return DecorationSet.create(doc, decorations);
+}
+
+export function leading_window(doc: ProseNode, count: number): HandleWindow {
+  let to = 0;
+  for (let i = 0; i < Math.min(count, doc.childCount); i++) {
+    to += doc.child(i).nodeSize;
+  }
+  return { from: 0, to };
+}
+
+export function window_covers(outer: HandleWindow, inner: HandleWindow) {
+  return outer.from <= inner.from && inner.to <= outer.to;
 }
 
 function is_foreign_widget(el: Element): boolean {
@@ -243,6 +268,67 @@ function first_block_ending_after(blocks: HTMLElement[], top: number): number {
   return lo;
 }
 
+function block_start(view: EditorView, el: HTMLElement): number {
+  return view.state.doc.resolve(view.posAtDOM(el, 0)).before(1);
+}
+
+function block_span(
+  view: EditorView,
+  first: HTMLElement,
+  last: HTMLElement,
+): HandleWindow {
+  const last_start = block_start(view, last);
+  const last_size = view.state.doc.nodeAt(last_start)?.nodeSize ?? 0;
+  return { from: block_start(view, first), to: last_start + last_size };
+}
+
+/**
+ * The top-level blocks intersecting the band (`visible`), and that span widened
+ * by `margin` blocks each side (`window`), as doc ranges.
+ */
+export function measure_handle_window(
+  view: EditorView,
+  band: { top: number; bottom: number },
+  margin = WINDOW_MARGIN_BLOCKS,
+): { visible: HandleWindow; window: HandleWindow } | null {
+  const blocks = top_level_blocks(view.dom);
+  const count = blocks.length;
+  if (count === 0) return null;
+  const first = Math.min(first_block_ending_after(blocks, band.top), count - 1);
+  let last = first;
+  while (
+    last + 1 < count &&
+    (blocks[last + 1]?.getBoundingClientRect().top ?? Infinity) <= band.bottom
+  ) {
+    last++;
+  }
+  const span = (from: number, to: number) =>
+    block_span(
+      view,
+      blocks[Math.max(0, from)] as HTMLElement,
+      blocks[Math.min(count - 1, to)] as HTMLElement,
+    );
+  return {
+    visible: span(first, last),
+    window: span(first - margin, last + margin),
+  };
+}
+
+// The scroll container is an ancestor of the editor, so the visible part of
+// the editor is its rect clipped to the viewport.
+function viewport_band(
+  editor_dom: HTMLElement,
+  margin: number,
+): { top: number; bottom: number } {
+  const rect = editor_dom.getBoundingClientRect();
+  const viewport_height =
+    window.innerHeight || document.documentElement.clientHeight;
+  return {
+    top: Math.max(rect.top, 0) - margin,
+    bottom: Math.min(rect.bottom, viewport_height) + margin,
+  };
+}
+
 /**
  * Handles whose blocks intersect the band, found by binary search over the
  * top-level blocks so the work scales with what is on screen, not the doc.
@@ -285,6 +371,7 @@ export function create_block_drag_handle_prose_plugin(): Plugin {
   let drag_prev_selection: SelectionBookmark | null = null;
   let drop_succeeded = false;
   let suppress_click = false;
+  let request_sync = () => {};
 
   function ensure_drop_indicator(): HTMLElement {
     if (!drop_indicator) {
@@ -430,6 +517,7 @@ export function create_block_drag_handle_prose_plugin(): Plugin {
       view.dispatch(view.state.tr.setSelection(sel));
     }
     drag_prev_selection = null;
+    request_sync();
   }
 
   function select_block(view: EditorView, get_pos: () => number | undefined) {
@@ -509,8 +597,24 @@ export function create_block_drag_handle_prose_plugin(): Plugin {
     return handle;
   }
 
-  function build_set(doc: ProseNode): DecorationSet {
-    return build_drag_handle_decorations(doc, build_handle);
+  function build_set(
+    doc: ProseNode,
+    handle_window: HandleWindow | null,
+  ): DecorationSet {
+    return build_drag_handle_decorations(doc, build_handle, handle_window);
+  }
+
+  function map_state(tr: Transaction, prev: DragHandleState): DragHandleState {
+    const starts = collect_handle_positions(tr.doc);
+    const handle_window = prev.window && {
+      from: tr.mapping.map(prev.window.from, -1),
+      to: tr.mapping.map(prev.window.to, 1),
+    };
+    const mapped_starts = prev.starts.map((p) => tr.mapping.map(p, -1));
+    const set = arrays_equal(starts, mapped_starts)
+      ? prev.set.map(tr.mapping, tr.doc)
+      : build_set(tr.doc, handle_window);
+    return { set, starts, window: handle_window };
   }
 
   return new Plugin<DragHandleState>({
@@ -518,16 +622,24 @@ export function create_block_drag_handle_prose_plugin(): Plugin {
 
     state: {
       init(_config, { doc }) {
-        return { set: build_set(doc), starts: collect_handle_positions(doc) };
+        const handle_window = leading_window(doc, INITIAL_WINDOW_BLOCKS);
+        return {
+          set: build_set(doc, handle_window),
+          starts: collect_handle_positions(doc),
+          window: handle_window,
+        };
       },
       apply(tr, prev) {
-        if (!tr.docChanged) return prev;
-        const curr_starts = collect_handle_positions(tr.doc);
-        const mapped_starts = prev.starts.map((p) => tr.mapping.map(p, -1));
-        if (arrays_equal(curr_starts, mapped_starts)) {
-          return { set: prev.set.map(tr.mapping, tr.doc), starts: curr_starts };
-        }
-        return { set: build_set(tr.doc), starts: curr_starts };
+        const next = tr.docChanged ? map_state(tr, prev) : prev;
+        const meta = tr.getMeta(block_drag_handle_plugin_key) as
+          | DragHandleMeta
+          | undefined;
+        if (!meta) return next;
+        return {
+          set: build_set(tr.doc, meta.window),
+          starts: next.starts,
+          window: meta.window,
+        };
       },
     },
 
@@ -592,24 +704,41 @@ export function create_block_drag_handle_prose_plugin(): Plugin {
       let focus_exit_movement = 0;
       let near_pos: number | null = null;
       let near_handle: HTMLElement | null = null;
-      let align_skipped = false;
-      let align_frame: number | null = null;
+      let sync_frame: number | null = null;
       let mouse_frame: number | null = null;
       let last_mouse: { x: number; y: number } | null = null;
 
-      function align_handles() {
+      function dispatch_window(next: HandleWindow | null) {
+        const meta: DragHandleMeta = { window: next };
+        editor_view.dispatch(
+          editor_view.state.tr
+            .setMeta(block_drag_handle_plugin_key, meta)
+            .setMeta("addToHistory", false),
+        );
+      }
+
+      function sync_window() {
+        const current =
+          block_drag_handle_plugin_key.getState(editor_view.state)?.window ??
+          null;
         if (!is_feature_enabled()) {
-          align_skipped = true;
+          if (current) dispatch_window(null);
           return;
         }
-        align_skipped = false;
+        const measured = measure_handle_window(
+          editor_view,
+          viewport_band(editor_dom, 0),
+        );
+        if (!measured) return;
+        if (current && window_covers(current, measured.visible)) return;
+        dispatch_window(measured.window);
+      }
+
+      function align_handles() {
         const pm_rect = editor_dom.getBoundingClientRect();
         const scroll_top = editor_dom.scrollTop;
         const measured: { el: HTMLElement; top: number }[] = [];
-        const band = {
-          top: pm_rect.top - ALIGN_CULL_MARGIN_PX,
-          bottom: pm_rect.bottom + ALIGN_CULL_MARGIN_PX,
-        };
+        const band = viewport_band(editor_dom, ALIGN_CULL_MARGIN_PX);
 
         for (const { handle, block } of visible_handles(editor_dom, band)) {
           const block_rect = block.getBoundingClientRect();
@@ -629,20 +758,42 @@ export function create_block_drag_handle_prose_plugin(): Plugin {
         for (const m of measured) m.el.style.top = `${String(m.top)}px`;
       }
 
-      function schedule_align() {
+      // Frozen mid-drag so the source handle, whose dragend resets the drag
+      // state, stays in the DOM until the drag ends.
+      function schedule_sync() {
         if (typeof requestAnimationFrame === "undefined") return;
-        if (align_frame !== null) return;
-        align_frame = requestAnimationFrame(() => {
-          align_frame = null;
-          align_handles();
+        if (sync_frame !== null || is_dragging) return;
+        sync_frame = requestAnimationFrame(() => {
+          sync_frame = null;
+          if (is_dragging) return;
+          sync_window();
+          if (is_feature_enabled()) align_handles();
         });
+      }
+
+      function on_scroll(event: Event) {
+        if (event.target instanceof Node && event.target.contains(editor_dom))
+          schedule_sync();
       }
 
       const resize_observer =
         typeof ResizeObserver === "undefined"
           ? null
-          : new ResizeObserver(() => schedule_align());
+          : new ResizeObserver(() => schedule_sync());
       resize_observer?.observe(editor_dom);
+
+      // The handle mode is a class on the editor host (note_editor.svelte).
+      const host = editor_dom.parentElement;
+      const mode_observer =
+        host && typeof MutationObserver !== "undefined"
+          ? new MutationObserver(() => schedule_sync())
+          : null;
+      if (host) {
+        mode_observer?.observe(host, {
+          attributes: true,
+          attributeFilter: ["class"],
+        });
+      }
 
       function is_feature_enabled(): boolean {
         return editor_dom.closest(".show-block-drag-handle") !== null;
@@ -692,7 +843,6 @@ export function create_block_drag_handle_prose_plugin(): Plugin {
         exit_focus_mode();
         if (is_dragging) return;
         if (!is_feature_enabled()) return;
-        if (align_skipped) schedule_align();
 
         last_mouse = { x: event.clientX, y: event.clientY };
         if (mouse_frame !== null) return;
@@ -717,18 +867,24 @@ export function create_block_drag_handle_prose_plugin(): Plugin {
       editor_dom.addEventListener("mousemove", on_mousemove);
       editor_dom.addEventListener("mouseleave", on_mouseleave);
       editor_dom.addEventListener("keydown", on_keydown);
-      editor_dom.addEventListener("scroll", schedule_align, { passive: true });
+      document.addEventListener("scroll", on_scroll, {
+        capture: true,
+        passive: true,
+      });
 
-      schedule_align();
+      request_sync = schedule_sync;
+      schedule_sync();
 
       return {
         update(view, prev_state) {
-          if (view.state.doc !== prev_state.doc) schedule_align();
+          if (view.state.doc !== prev_state.doc) schedule_sync();
         },
         destroy() {
-          if (align_frame !== null) cancelAnimationFrame(align_frame);
+          if (sync_frame !== null) cancelAnimationFrame(sync_frame);
           if (mouse_frame !== null) cancelAnimationFrame(mouse_frame);
           resize_observer?.disconnect();
+          mode_observer?.disconnect();
+          request_sync = () => {};
           exit_focus_mode();
           hide_drop_indicator();
           drop_indicator?.remove();
@@ -740,7 +896,7 @@ export function create_block_drag_handle_prose_plugin(): Plugin {
           editor_dom.removeEventListener("mousemove", on_mousemove);
           editor_dom.removeEventListener("mouseleave", on_mouseleave);
           editor_dom.removeEventListener("keydown", on_keydown);
-          editor_dom.removeEventListener("scroll", schedule_align);
+          document.removeEventListener("scroll", on_scroll, { capture: true });
         },
       };
     },

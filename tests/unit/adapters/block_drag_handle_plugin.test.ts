@@ -1,11 +1,11 @@
 /**
  * @vitest-environment jsdom
  */
-import { describe, it, expect, vi } from "vitest";
+import { afterEach, describe, it, expect, vi } from "vitest";
 import { EditorState } from "prosemirror-state";
 import type { Transaction } from "prosemirror-state";
 import type { Node as ProseNode } from "prosemirror-model";
-import { EditorView as EditorViewImpl } from "prosemirror-view";
+import { DecorationSet, EditorView as EditorViewImpl } from "prosemirror-view";
 import type { EditorView } from "prosemirror-view";
 import { schema } from "$lib/features/editor/adapters/markdown_pipeline";
 import {
@@ -38,8 +38,12 @@ function stub_handle(): HTMLElement {
   return document.createElement("div");
 }
 
+function whole_doc(doc: ProseNode) {
+  return { from: 0, to: doc.content.size };
+}
+
 function widget_positions(doc: ProseNode): number[] {
-  return build_drag_handle_decorations(doc, stub_handle)
+  return build_drag_handle_decorations(doc, stub_handle, whole_doc(doc))
     .find()
     .map((deco) => deco.from)
     .sort((a, b) => a - b);
@@ -136,9 +140,9 @@ describe("build_drag_handle_decorations", () => {
       schema.nodes.paragraph.create(null, schema.text("body")),
       schema.nodes.code_block.create({ language: "js" }, schema.text("x")),
     ]);
-    expect(build_drag_handle_decorations(doc, stub_handle).find()).toHaveLength(
-      3,
-    );
+    expect(
+      build_drag_handle_decorations(doc, stub_handle, whole_doc(doc)).find(),
+    ).toHaveLength(3);
   });
 
   it("places each widget at its block's start position", () => {
@@ -156,14 +160,33 @@ describe("build_drag_handle_decorations", () => {
       schema.nodes.frontmatter.create(null),
       schema.nodes.paragraph.create(null, schema.text("body")),
     ]);
-    expect(build_drag_handle_decorations(doc, stub_handle).find()).toHaveLength(
-      1,
-    );
+    expect(
+      build_drag_handle_decorations(doc, stub_handle, whole_doc(doc)).find(),
+    ).toHaveLength(1);
   });
 
   it("emits a widget per list_item and none for list containers", () => {
     const doc = nested_list_doc();
     expect(widget_positions(doc)).toEqual([1, 6, 11, 19]);
+  });
+
+  it("emits only the widgets inside the window", () => {
+    const doc = paragraphs_doc(10);
+    const starts: number[] = [];
+    doc.forEach((_node, offset) => starts.push(offset));
+    const window = { from: starts[3] ?? 0, to: starts[6] ?? 0 };
+    const positions = build_drag_handle_decorations(doc, stub_handle, window)
+      .find()
+      .map((deco) => deco.from)
+      .sort((a, b) => a - b);
+    expect(positions).toEqual(starts.slice(3, 6));
+  });
+
+  it("emits nothing when handles are off", () => {
+    const doc = paragraphs_doc(10);
+    expect(
+      build_drag_handle_decorations(doc, stub_handle, null).find(),
+    ).toHaveLength(0);
   });
 });
 
@@ -355,6 +378,161 @@ describe("drag handle widget reuse", () => {
     const after = Array.from(view.dom.querySelectorAll(".block-drag-handle"));
     expect(after).toHaveLength(21);
     expect(after.filter((el) => before.includes(el))).toHaveLength(20);
+    view.destroy();
+  });
+});
+
+// A scrolled viewport over the row layout: the editor root spans every row and
+// sits `offset` px above the viewport top, as it does inside the scroll pane.
+function stub_scrolled_layout(view: EditorView) {
+  let offset = 0;
+  const rows = new Map<Element, number>();
+  for (let el = view.dom.firstElementChild; el; el = el.nextElementSibling) {
+    if (!el.classList.contains("ProseMirror-widget")) rows.set(el, rows.size);
+  }
+  const spy = vi
+    .spyOn(HTMLElement.prototype, "getBoundingClientRect")
+    .mockImplementation(function (this: HTMLElement) {
+      if (this === view.dom) {
+        return DOMRect.fromRect({
+          x: 0,
+          y: -offset,
+          width: 100,
+          height: rows.size * ROW_PX,
+        });
+      }
+      const row = rows.get(this);
+      const top = row === undefined ? 0 : row * ROW_PX - offset;
+      return DOMRect.fromRect({ x: 0, y: top, width: 100, height: ROW_PX });
+    });
+  return {
+    scroll_to_row(row: number) {
+      offset = row * ROW_PX;
+    },
+    restore: () => spy.mockRestore(),
+  };
+}
+
+function stub_frames() {
+  const queue: FrameRequestCallback[] = [];
+  vi.stubGlobal("requestAnimationFrame", (cb: FrameRequestCallback) => {
+    queue.push(cb);
+    return queue.length;
+  });
+  vi.stubGlobal("cancelAnimationFrame", () => {});
+  return async function flush() {
+    await Promise.resolve();
+    while (queue.length > 0) queue.shift()?.(0);
+  };
+}
+
+function handle_block_texts(view: EditorView): string[] {
+  const state = view.state;
+  const set = state.plugins
+    .map((plugin) => plugin.props.decorations?.call(plugin, state))
+    .find((deco) => deco !== undefined && deco !== null);
+  if (!(set instanceof DecorationSet)) return [];
+  return set
+    .find()
+    .map((deco) => state.doc.nodeAt(deco.from)?.textContent ?? "")
+    .sort((a, b) => Number(a.slice(1)) - Number(b.slice(1)));
+}
+
+function rows_text(from: number, to: number): string[] {
+  return Array.from(
+    { length: to - from + 1 },
+    (_, i) => `p${String(from + i)}`,
+  );
+}
+
+describe("viewport-only drag handles", () => {
+  const VIEWPORT_PX = 400;
+  const VISIBLE_ROWS = VIEWPORT_PX / ROW_PX;
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+    document.body.innerHTML = "";
+  });
+
+  async function mount_scrolled(count: number) {
+    vi.stubGlobal("innerHeight", VIEWPORT_PX);
+    const flush = stub_frames();
+    const view = mount_with_handles(paragraphs_doc(count));
+    const layout = stub_scrolled_layout(view);
+    await flush();
+    const host = view.dom.parentElement as HTMLElement;
+    return {
+      view,
+      host,
+      async scroll_to_row(row: number) {
+        layout.scroll_to_row(row);
+        host.dispatchEvent(new Event("scroll"));
+        await flush();
+      },
+      flush,
+    };
+  }
+
+  it("bounds the widgets to the visible blocks plus a margin", async () => {
+    const { view } = await mount_scrolled(2000);
+    const texts = handle_block_texts(view);
+    expect(texts.length).toBeLessThan(150);
+    expect(texts).toEqual(expect.arrayContaining(rows_text(0, VISIBLE_ROWS)));
+    view.destroy();
+  });
+
+  it("moves the widgets to a far scroll position", async () => {
+    const { view, scroll_to_row } = await mount_scrolled(2000);
+    await scroll_to_row(1500);
+    const texts = handle_block_texts(view);
+    expect(texts.length).toBeLessThan(150);
+    expect(texts).toEqual(
+      expect.arrayContaining(rows_text(1500, 1500 + VISIBLE_ROWS)),
+    );
+    expect(texts).not.toContain("p0");
+    expect(view.dom.querySelectorAll(".block-drag-handle").length).toBe(
+      texts.length,
+    );
+    view.destroy();
+  });
+
+  it("keeps the window when a small scroll stays inside it", async () => {
+    const { view, scroll_to_row } = await mount_scrolled(2000);
+    await scroll_to_row(1500);
+    const before = view.dom.querySelector(".block-drag-handle");
+    await scroll_to_row(1505);
+    expect(view.dom.querySelector(".block-drag-handle")).toBe(before);
+    view.destroy();
+  });
+
+  it("drops every widget when the mode is off and restores them when on", async () => {
+    const { view, host, flush } = await mount_scrolled(2000);
+    host.classList.remove("show-block-drag-handle");
+    await flush();
+    expect(handle_block_texts(view)).toEqual([]);
+    expect(view.dom.querySelectorAll(".block-drag-handle")).toHaveLength(0);
+
+    host.classList.add("show-block-drag-handle");
+    await flush();
+    expect(handle_block_texts(view)).toEqual(
+      expect.arrayContaining(rows_text(0, VISIBLE_ROWS)),
+    );
+    view.destroy();
+  });
+
+  it("holds the window while a handle drag is in flight", async () => {
+    const { view, scroll_to_row, flush } = await mount_scrolled(2000);
+    const handle = view.dom.querySelector(".block-drag-handle") as HTMLElement;
+    handle.dispatchEvent(new Event("dragstart"));
+
+    await scroll_to_row(1500);
+    expect(handle.isConnected).toBe(true);
+    expect(handle_block_texts(view)).not.toContain("p1500");
+
+    handle.dispatchEvent(new Event("dragend"));
+    await flush();
+    expect(handle_block_texts(view)).toContain("p1500");
     view.destroy();
   });
 });
