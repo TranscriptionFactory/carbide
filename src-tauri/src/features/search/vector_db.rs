@@ -20,9 +20,10 @@ pub fn init_vector_schema(conn: &Connection) -> Result<(), String> {
         CREATE TABLE IF NOT EXISTS block_embeddings (
             path TEXT NOT NULL,
             heading_id TEXT NOT NULL,
+            window_index INTEGER NOT NULL,
             embedding BLOB NOT NULL,
             content_hash TEXT NOT NULL DEFAULT '',
-            PRIMARY KEY (path, heading_id)
+            PRIMARY KEY (path, heading_id, window_index)
         );
 
         CREATE TABLE IF NOT EXISTS embedding_meta (
@@ -34,10 +35,22 @@ pub fn init_vector_schema(conn: &Connection) -> Result<(), String> {
     )
     .map_err(|e| e.to_string())?;
 
-    // Migration: add content_hash column if table was created before this column existed
-    let _ = conn.execute_batch(
-        "ALTER TABLE block_embeddings ADD COLUMN content_hash TEXT NOT NULL DEFAULT ''",
-    );
+    if conn.prepare("SELECT window_index FROM block_embeddings LIMIT 0").is_err() {
+        let transaction = conn.unchecked_transaction().map_err(|e| e.to_string())?;
+        transaction.execute_batch(
+            "DROP TABLE block_embeddings;
+             CREATE TABLE block_embeddings (
+                 path TEXT NOT NULL,
+                 heading_id TEXT NOT NULL,
+                 window_index INTEGER NOT NULL,
+                 embedding BLOB NOT NULL,
+                 content_hash TEXT NOT NULL,
+                 PRIMARY KEY (path, heading_id, window_index)
+             );
+             DELETE FROM note_embeddings;",
+        ).map_err(|e| e.to_string())?;
+        transaction.commit().map_err(|e| e.to_string())?;
+    }
 
     conn.execute(
         "INSERT OR IGNORE INTO embedding_meta (key, value) VALUES ('model_version', ?1)",
@@ -64,12 +77,11 @@ pub fn vector_schema_initialized(conn: &Connection) -> bool {
             |_| Ok(()),
         )
         .is_ok();
-    // Databases created before `content_hash` still need the ALTER migration
-    // in `init_vector_schema`, so a missing column counts as uninitialized.
-    let content_hash_present = conn
-        .prepare("SELECT content_hash FROM block_embeddings LIMIT 0")
+    // Legacy caches need migration before readers can address individual windows.
+    let window_schema_present = conn
+        .prepare("SELECT content_hash, window_index FROM block_embeddings LIMIT 0")
         .is_ok();
-    meta_seeded && content_hash_present
+    meta_seeded && window_schema_present
 }
 
 /// SQLite's default `SQLITE_MAX_VARIABLE_NUMBER` is 32766; an unchunked
@@ -239,25 +251,45 @@ pub(crate) fn knn_search_batch_indexed(
 
 // --- Block embeddings (section-level) ---
 
-pub fn upsert_block_embedding(
+pub fn block_window_key(path: &str, heading_id: &str, window_index: usize) -> String {
+    format!("{path}\0{heading_id}\0{window_index}")
+}
+
+pub fn parse_block_window_key(key: &str) -> Option<(&str, &str, usize)> {
+    let (path, rest) = key.split_once('\0')?;
+    let (heading_id, window) = rest.split_once('\0')?;
+    Some((path, heading_id, window.parse().ok()?))
+}
+
+pub fn upsert_block_embeddings(
     conn: &Connection,
     path: &str,
     heading_id: &str,
-    embedding: &[f32],
+    embeddings: &[Vec<f32>],
     content_hash: &str,
 ) -> Result<(), String> {
-    if !is_usable_vector(embedding) {
-        return Err(format!(
-            "refusing to store unusable embedding for {path}#{heading_id}"
-        ));
+    if embeddings.is_empty() || embeddings.iter().any(|v| !is_usable_vector(v)) {
+        return Err(format!("refusing to store unusable embedding for {path}#{heading_id}"));
     }
-    let bytes = floats_to_bytes(embedding);
-    conn.execute(
-        "INSERT OR REPLACE INTO block_embeddings (path, heading_id, embedding, content_hash) VALUES (?1, ?2, ?3, ?4)",
-        params![path, heading_id, bytes, content_hash],
-    )
-    .map_err(|e| e.to_string())?;
-    Ok(())
+    conn.execute_batch("SAVEPOINT block_windows").map_err(|e| e.to_string())?;
+    let result = (|| -> rusqlite::Result<()> {
+        conn.execute(
+            "DELETE FROM block_embeddings WHERE path = ?1 AND heading_id = ?2",
+            params![path, heading_id],
+        )?;
+        for (window_index, embedding) in embeddings.iter().enumerate() {
+            conn.execute(
+                "INSERT INTO block_embeddings (path, heading_id, window_index, embedding, content_hash) VALUES (?1, ?2, ?3, ?4, ?5)",
+                params![path, heading_id, window_index, floats_to_bytes(embedding), content_hash],
+            )?;
+        }
+        conn.execute_batch("RELEASE block_windows")
+    })();
+    if result.is_err() {
+        conn.execute_batch("ROLLBACK TO block_windows; RELEASE block_windows")
+            .map_err(|e| e.to_string())?;
+    }
+    result.map_err(|e| e.to_string())
 }
 
 pub fn remove_block_embeddings(conn: &Connection, path: &str) -> Result<(), String> {
@@ -271,7 +303,7 @@ pub fn remove_block_embeddings(conn: &Connection, path: &str) -> Result<(), Stri
 
 pub fn get_block_hashes(conn: &Connection, path: &str) -> HashMap<String, String> {
     let mut stmt = match conn
-        .prepare("SELECT heading_id, content_hash FROM block_embeddings WHERE path = ?1")
+        .prepare("SELECT DISTINCT heading_id, content_hash FROM block_embeddings WHERE path = ?1")
     {
         Ok(s) => s,
         Err(_) => return HashMap::new(),
@@ -463,7 +495,7 @@ pub fn mean_pool_normalize(vecs: &[Vec<f32>]) -> Vec<f32> {
 }
 
 pub fn get_block_embedded_keys(conn: &Connection) -> HashSet<String> {
-    let mut stmt = match conn.prepare("SELECT path, heading_id FROM block_embeddings") {
+    let mut stmt = match conn.prepare("SELECT DISTINCT path, heading_id FROM block_embeddings") {
         Ok(s) => s,
         Err(e) => {
             log::warn!("get_block_embedded_keys: prepare failed: {e}");
@@ -621,7 +653,7 @@ mod tests {
         let conn = setup();
         let paths: Vec<String> = (0..40_000).map(|i| format!("n{i}.md")).collect();
         for path in paths.iter().take(3) {
-            upsert_block_embedding(&conn, path, "h1", &fake_embedding(0.3), "hash").unwrap();
+            upsert_block_embeddings(&conn, path, "h1", &[fake_embedding(0.3)], "hash").unwrap();
         }
         let refs: Vec<&str> = paths.iter().map(String::as_str).collect();
 
@@ -666,7 +698,7 @@ mod tests {
         .expect("legacy schema");
         assert!(
             !vector_schema_initialized(&conn),
-            "pre-content_hash db still needs the ALTER migration"
+            "pre-content_hash db still needs the window schema migration"
         );
         init_vector_schema(&conn).expect("migrate");
         assert!(vector_schema_initialized(&conn));
@@ -676,8 +708,8 @@ mod tests {
     fn upsert_and_count_block_embeddings() {
         let conn = setup();
         let emb = fake_embedding(0.1);
-        upsert_block_embedding(&conn, "note.md", "h-1-intro-0", &emb, "").unwrap();
-        upsert_block_embedding(&conn, "note.md", "h-2-details-0", &emb, "").unwrap();
+        upsert_block_embeddings(&conn, "note.md", "h-1-intro-0", std::slice::from_ref(&emb), "").unwrap();
+        upsert_block_embeddings(&conn, "note.md", "h-2-details-0", std::slice::from_ref(&emb), "").unwrap();
         assert_eq!(get_block_embedding_count(&conn), 2);
     }
 
@@ -685,9 +717,9 @@ mod tests {
     fn remove_block_embeddings_by_path() {
         let conn = setup();
         let emb = fake_embedding(0.2);
-        upsert_block_embedding(&conn, "a.md", "h-1-a-0", &emb, "").unwrap();
-        upsert_block_embedding(&conn, "a.md", "h-2-b-0", &emb, "").unwrap();
-        upsert_block_embedding(&conn, "b.md", "h-1-c-0", &emb, "").unwrap();
+        upsert_block_embeddings(&conn, "a.md", "h-1-a-0", std::slice::from_ref(&emb), "").unwrap();
+        upsert_block_embeddings(&conn, "a.md", "h-2-b-0", std::slice::from_ref(&emb), "").unwrap();
+        upsert_block_embeddings(&conn, "b.md", "h-1-c-0", std::slice::from_ref(&emb), "").unwrap();
         remove_block_embeddings(&conn, "a.md").unwrap();
         assert_eq!(get_block_embedding_count(&conn), 1);
     }
@@ -696,7 +728,7 @@ mod tests {
     fn rename_block_embedding_path_works() {
         let conn = setup();
         let emb = fake_embedding(0.3);
-        upsert_block_embedding(&conn, "old.md", "h-1-x-0", &emb, "").unwrap();
+        upsert_block_embeddings(&conn, "old.md", "h-1-x-0", std::slice::from_ref(&emb), "").unwrap();
         rename_block_embedding_path(&conn, "old.md", "new.md").unwrap();
         let keys = get_block_embedded_keys(&conn);
         assert!(keys.contains("new.md\0h-1-x-0"));
@@ -708,7 +740,7 @@ mod tests {
         let conn = setup();
         let emb = fake_embedding(0.5);
         upsert_embedding(&conn, "note.md", &emb).unwrap();
-        upsert_block_embedding(&conn, "note.md", "h-1-x-0", &emb, "").unwrap();
+        upsert_block_embeddings(&conn, "note.md", "h-1-x-0", std::slice::from_ref(&emb), "").unwrap();
         clear_all_embeddings(&conn).unwrap();
         assert_eq!(get_embedding_count(&conn), 0);
         assert_eq!(get_block_embedding_count(&conn), 0);
@@ -719,9 +751,9 @@ mod tests {
         let conn = setup();
         let emb_a = fake_embedding(0.1);
         let emb_b = fake_embedding(0.2);
-        upsert_block_embedding(&conn, "note.md", "h-1-intro-0", &emb_a, "").unwrap();
-        upsert_block_embedding(&conn, "note.md", "h-2-details-0", &emb_b, "").unwrap();
-        upsert_block_embedding(&conn, "other.md", "h-1-x-0", &emb_a, "").unwrap();
+        upsert_block_embeddings(&conn, "note.md", "h-1-intro-0", std::slice::from_ref(&emb_a), "").unwrap();
+        upsert_block_embeddings(&conn, "note.md", "h-2-details-0", std::slice::from_ref(&emb_b), "").unwrap();
+        upsert_block_embeddings(&conn, "other.md", "h-1-x-0", std::slice::from_ref(&emb_a), "").unwrap();
 
         let blocks = get_block_embeddings_for_note(&conn, "note.md");
         assert_eq!(blocks.len(), 2);
@@ -735,11 +767,11 @@ mod tests {
         let conn = setup();
         let emb_a = fake_embedding(0.1);
         let emb_c = fake_embedding(0.3);
-        upsert_block_embedding(&conn, "note.md", "h-a", &emb_a, "").unwrap();
-        upsert_block_embedding(&conn, "note.md", "h-b", &emb_a, "").unwrap();
+        upsert_block_embeddings(&conn, "note.md", "h-a", std::slice::from_ref(&emb_a), "").unwrap();
+        upsert_block_embeddings(&conn, "note.md", "h-b", std::slice::from_ref(&emb_a), "").unwrap();
         remove_block_embeddings(&conn, "note.md").unwrap();
-        upsert_block_embedding(&conn, "note.md", "h-a", &emb_a, "").unwrap();
-        upsert_block_embedding(&conn, "note.md", "h-c", &emb_c, "").unwrap();
+        upsert_block_embeddings(&conn, "note.md", "h-a", std::slice::from_ref(&emb_a), "").unwrap();
+        upsert_block_embeddings(&conn, "note.md", "h-c", std::slice::from_ref(&emb_c), "").unwrap();
         let blocks = get_block_embeddings_for_note(&conn, "note.md");
         assert_eq!(blocks.len(), 2);
         let ids: Vec<&str> = blocks.iter().map(|(id, _)| id.as_str()).collect();
@@ -766,9 +798,9 @@ mod tests {
         upsert_embedding(&conn, "close.md", &emb_b).unwrap();
         upsert_embedding(&conn, "far.md", &emb_c).unwrap();
         // Block-level embeddings
-        upsert_block_embedding(&conn, "src.md", "h-1", &emb_a, "").unwrap();
-        upsert_block_embedding(&conn, "close.md", "h-1", &emb_b, "").unwrap();
-        upsert_block_embedding(&conn, "far.md", "h-1", &emb_c, "").unwrap();
+        upsert_block_embeddings(&conn, "src.md", "h-1", std::slice::from_ref(&emb_a), "").unwrap();
+        upsert_block_embeddings(&conn, "close.md", "h-1", std::slice::from_ref(&emb_b), "").unwrap();
+        upsert_block_embeddings(&conn, "far.md", "h-1", std::slice::from_ref(&emb_c), "").unwrap();
         // Note-level KNN should return close.md as candidate
         let candidates = knn_search(&conn, &emb_a, 50).unwrap();
         let candidate_paths: Vec<&str> = candidates.iter().map(|(p, _)| p.as_str()).collect();
@@ -787,7 +819,7 @@ mod tests {
         let conn = setup();
         let emb = fake_embedding(0.1);
         upsert_embedding(&conn, "self.md", &emb).unwrap();
-        upsert_block_embedding(&conn, "self.md", "h-1", &emb, "").unwrap();
+        upsert_block_embeddings(&conn, "self.md", "h-1", std::slice::from_ref(&emb), "").unwrap();
         let results = knn_search(&conn, &emb, 50).unwrap();
         // Filter as the two-tier algorithm does
         let filtered: Vec<_> = results.iter().filter(|(p, _)| p != "self.md").collect();
@@ -802,8 +834,8 @@ mod tests {
         let emb_a = fake_embedding(0.1);
         let emb_b = fake_embedding(0.2);
         // Only block embeddings, no note-level embedding for src
-        upsert_block_embedding(&conn, "src.md", "h-1", &emb_a, "").unwrap();
-        upsert_block_embedding(&conn, "other.md", "h-1", &emb_b, "").unwrap();
+        upsert_block_embeddings(&conn, "src.md", "h-1", std::slice::from_ref(&emb_a), "").unwrap();
+        upsert_block_embeddings(&conn, "other.md", "h-1", std::slice::from_ref(&emb_b), "").unwrap();
         // get_embedding should return None for src
         assert!(get_embedding(&conn, "src.md").is_none());
         // Fallback: query distinct paths from block_embeddings
@@ -829,8 +861,8 @@ mod tests {
     fn invalidate_changed_block_embeddings_only_clears_on_content_change() {
         let conn = setup();
         let emb = fake_embedding(0.3);
-        upsert_block_embedding(&conn, "n.md", "h1", &emb, "hashA").unwrap();
-        upsert_block_embedding(&conn, "n.md", "h2", &emb, "hashB").unwrap();
+        upsert_block_embeddings(&conn, "n.md", "h1", std::slice::from_ref(&emb), "hashA").unwrap();
+        upsert_block_embeddings(&conn, "n.md", "h2", std::slice::from_ref(&emb), "hashB").unwrap();
         upsert_embedding(&conn, "n.md", &emb).unwrap();
 
         // Unchanged: identical hashes -> no-op, embeddings preserved.
@@ -859,8 +891,8 @@ mod tests {
     fn invalidate_leaves_unrelated_notes_untouched() {
         let conn = setup();
         let emb = fake_embedding(0.5);
-        upsert_block_embedding(&conn, "a.md", "h1", &emb, "hashA").unwrap();
-        upsert_block_embedding(&conn, "b.md", "h1", &emb, "hashB").unwrap();
+        upsert_block_embeddings(&conn, "a.md", "h1", std::slice::from_ref(&emb), "hashA").unwrap();
+        upsert_block_embeddings(&conn, "b.md", "h1", std::slice::from_ref(&emb), "hashB").unwrap();
         upsert_embedding(&conn, "b.md", &emb).unwrap();
 
         invalidate_changed_block_embeddings(&conn, "a.md", &hashes(&[("h1", "changed")])).unwrap();
@@ -874,8 +906,8 @@ mod tests {
     fn get_block_embedded_keys_returns_composite_keys() {
         let conn = setup();
         let emb = fake_embedding(0.4);
-        upsert_block_embedding(&conn, "x.md", "h-1-a-0", &emb, "").unwrap();
-        upsert_block_embedding(&conn, "y.md", "h-2-b-0", &emb, "").unwrap();
+        upsert_block_embeddings(&conn, "x.md", "h-1-a-0", std::slice::from_ref(&emb), "").unwrap();
+        upsert_block_embeddings(&conn, "y.md", "h-2-b-0", std::slice::from_ref(&emb), "").unwrap();
         let keys = get_block_embedded_keys(&conn);
         assert_eq!(keys.len(), 2);
         assert!(keys.contains("x.md\0h-1-a-0"));
@@ -900,7 +932,7 @@ mod tests {
         let notes = ["a.md", "b.md", "c.md"];
         for (i, note) in notes.iter().enumerate() {
             let v = fake_embedding(0.1 * (i + 1) as f32);
-            upsert_block_embedding(&conn, note, "h-1", &v, "h").unwrap();
+            upsert_block_embeddings(&conn, note, "h-1", std::slice::from_ref(&v), "h").unwrap();
             let block_vecs = get_block_embeddings_for_note(&conn, note);
             let vecs: Vec<Vec<f32>> = block_vecs.into_iter().map(|(_, v)| v).collect();
             let composed = mean_pool_normalize(&vecs);
@@ -918,8 +950,8 @@ mod tests {
         let conn = setup();
         let v1 = fake_embedding(0.1);
         let v2 = fake_embedding(0.9);
-        upsert_block_embedding(&conn, "multi.md", "h-1", &v1, "a").unwrap();
-        upsert_block_embedding(&conn, "multi.md", "h-2", &v2, "b").unwrap();
+        upsert_block_embeddings(&conn, "multi.md", "h-1", std::slice::from_ref(&v1), "a").unwrap();
+        upsert_block_embeddings(&conn, "multi.md", "h-2", std::slice::from_ref(&v2), "b").unwrap();
         let block_vecs = get_block_embeddings_for_note(&conn, "multi.md");
         let vecs: Vec<Vec<f32>> = block_vecs.into_iter().map(|(_, v)| v).collect();
         let mean = mean_pool_normalize(&vecs);

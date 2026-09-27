@@ -55,13 +55,13 @@ fn upsert_block_embedding_rejects_unusable_vectors() {
 
     for (label, vector) in unusable() {
         assert!(
-            vector_db::upsert_block_embedding(&conn, NOTE, "h1", &vector, "hash").is_err(),
+            vector_db::upsert_block_embeddings(&conn, NOTE, "h1", std::slice::from_ref(&vector), "hash").is_err(),
             "{label} must be refused"
         );
     }
 
     assert!(vector_db::get_block_hashes(&conn, NOTE).is_empty());
-    vector_db::upsert_block_embedding(&conn, NOTE, "h1", &good(), "hash")
+    vector_db::upsert_block_embeddings(&conn, NOTE, "h1", &[good()], "hash")
         .expect("a usable vector is stored");
     assert_eq!(vector_db::get_block_hashes(&conn, NOTE).len(), 1);
 }
@@ -116,13 +116,13 @@ fn reconcile_skips_unusable_rows_already_on_disk() {
 #[test]
 fn block_rebuild_skips_unusable_rows_already_on_disk() {
     let conn = conn_with_vector_schema();
-    vector_db::upsert_block_embedding(&conn, NOTE, "live", &good(), "hash").expect("seed");
+    vector_db::upsert_block_embeddings(&conn, NOTE, "live", &[good()], "hash").expect("seed");
     let bytes: Vec<u8> = vec![0.0f32; DIMS]
         .iter()
         .flat_map(|f| f.to_le_bytes())
         .collect();
     conn.execute(
-        "INSERT INTO block_embeddings (path, heading_id, embedding, content_hash) VALUES (?1, ?2, ?3, ?4)",
+        "INSERT INTO block_embeddings (path, heading_id, window_index, embedding, content_hash) VALUES (?1, ?2, 0, ?3, ?4)",
         rusqlite::params![NOTE, "degenerate", bytes, "hash"],
     )
     .expect("seed unusable row");
@@ -130,6 +130,6 @@ fn block_rebuild_skips_unusable_rows_already_on_disk() {
     let idx = VectorIndex::rebuild_from_sqlite(&conn, "blocks", DIMS);
 
     assert_eq!(idx.len(), 1);
-    assert!(idx.get_vector(&format!("{NOTE}\0live")).is_some());
-    assert!(idx.get_vector(&format!("{NOTE}\0degenerate")).is_none());
+    assert!(idx.get_vector(&vector_db::block_window_key(NOTE, "live", 0)).is_some());
+    assert!(idx.get_vector(&vector_db::block_window_key(NOTE, "degenerate", 0)).is_none());
 }

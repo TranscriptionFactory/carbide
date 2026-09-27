@@ -101,6 +101,7 @@ pub struct EncodingInputs {
     pub pretruncate_bytes: usize,
     pub embed_input_format: u32,
     pub epoch: u32,
+    pub section_windows: &'static str,
 }
 
 pub fn encoding_inputs(model: &EmbeddingModel) -> EncodingInputs {
@@ -112,12 +113,13 @@ pub fn encoding_inputs(model: &EmbeddingModel) -> EncodingInputs {
         pretruncate_bytes: embeddings::PRETRUNCATE_BYTES,
         embed_input_format: EMBED_INPUT_FORMAT_VERSION,
         epoch: ENCODING_VERSION,
+        section_windows: "nonoverlapping-content-budget;per-window-v1;note-flat-window-mean",
     }
 }
 
 pub fn encoding_fingerprint(inputs: &EncodingInputs) -> String {
     let canonical = format!(
-        "pooling={:?};query_prefix={:?};dims={};max_sequence_tokens={};pretruncate_bytes={};embed_input_format={};epoch={}",
+        "pooling={:?};query_prefix={:?};dims={};max_sequence_tokens={};pretruncate_bytes={};embed_input_format={};epoch={};section_windows={}",
         inputs.pooling,
         inputs.query_prefix,
         inputs.dims,
@@ -125,6 +127,7 @@ pub fn encoding_fingerprint(inputs: &EncodingInputs) -> String {
         inputs.pretruncate_bytes,
         inputs.embed_input_format,
         inputs.epoch,
+        inputs.section_windows,
     );
     blake3::hash(canonical.as_bytes()).to_hex()[..8].to_string()
 }

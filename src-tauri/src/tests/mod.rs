@@ -360,3 +360,6 @@ mod proposal_mutations;
 
 #[path = "../../tests/tag_grammar_fixture.rs"]
 mod tag_grammar_fixture;
+
+#[path = "../../tests/section_multi_vector.rs"]
+mod section_multi_vector;

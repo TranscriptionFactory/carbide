@@ -4557,7 +4557,7 @@ more text").expect("note");
         let v1 = embeddable_section_hashes(&raw_v1, "n");
         assert_eq!(v1.len(), 2, "two embeddable sections expected");
         for (heading, hash) in &v1 {
-            vector_db::upsert_block_embedding(&conn, path, heading, &[0.1f32; 384], hash).unwrap();
+            vector_db::upsert_block_embeddings(&conn, path, heading, &[vec![0.1f32; 384]], hash).unwrap();
         }
         vector_db::upsert_embedding(&conn, path, &[0.1f32; 384]).unwrap();
 

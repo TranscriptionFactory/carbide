@@ -110,7 +110,7 @@ impl VectorIndex {
 
     /// Single SQL path shared by rebuild and dump-reconcile: yields every
     /// non-empty embedding as `(key, vector)`. Notes are keyed by `path`; blocks
-    /// by `format!("{path}\0{heading_id}")`.
+    /// by `path\0heading_id\0window_index`.
     fn for_each_embedding(
         conn: &rusqlite::Connection,
         index_name: &str,
@@ -145,7 +145,7 @@ impl VectorIndex {
             }
             "blocks" => {
                 let mut stmt = match conn
-                    .prepare("SELECT path, heading_id, embedding FROM block_embeddings")
+                    .prepare("SELECT path, heading_id, embedding, window_index FROM block_embeddings")
                 {
                     Ok(s) => s,
                     Err(e) => {
@@ -157,7 +157,7 @@ impl VectorIndex {
                     let path: String = row.get(0)?;
                     let heading_id: String = row.get(1)?;
                     let blob: Vec<u8> = row.get(2)?;
-                    Ok((path, heading_id, blob))
+                    Ok((path, heading_id, blob, row.get::<_, usize>(3)?))
                 }) {
                     Ok(r) => r,
                     Err(e) => {
@@ -166,7 +166,7 @@ impl VectorIndex {
                     }
                 };
                 for row in rows.flatten() {
-                    let key = format!("{}\0{}", row.0, row.1);
+                    let key = super::vector_db::block_window_key(&row.0, &row.1, row.3);
                     let vec = super::vector_db::bytes_to_floats(&row.2);
                     if is_usable_vector(&vec) {
                         f(key, vec);
