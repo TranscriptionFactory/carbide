@@ -1,10 +1,41 @@
 use crate::features::search::db as search_db;
 use crate::features::search::embeddings::{usable_query_vector, EmbeddingService};
 use crate::features::search::hnsw_index::VectorIndex;
-use crate::features::search::model::{HitSource, HybridSearchHit, SearchHit};
+use crate::features::search::model::{HitSource, HybridSearchHit, ScopeFilter, SearchHit};
 use crate::features::search::service::SearchQueryInput;
 use rusqlite::Connection;
 use std::collections::{HashMap, HashSet};
+
+/// Above this many allowed keys, an exact scan restricted to the scope costs
+/// more than the existing over-fetch-then-filter pool. The vector index keeps
+/// every vector resident (`hnsw_index.rs`), so a scan bounded by the allowed
+/// set is cheap regardless of the index's own `EXACT_SEARCH_MAX_POINTS`; above
+/// this size the over-fetch path is kept so a very large scope still degrades
+/// rather than paying for a full scan.
+pub(crate) const FILTERED_EXACT_MAX: usize = 20_000;
+
+/// Resolves a date range and/or a path scope to the set of note paths a query
+/// is allowed to return, or `None` when neither restricts anything. The two
+/// are ANDed together: a path must satisfy both to survive.
+pub(crate) fn resolve_allowed_paths(
+    conn: &Connection,
+    date_range: Option<(i64, i64)>,
+    path_scope: Option<&ScopeFilter>,
+) -> Result<Option<HashSet<String>>, String> {
+    let mut allowed = date_range
+        .map(|(start_ms, end_ms)| search_db::paths_in_mtime_range(conn, start_ms, end_ms))
+        .transpose()?;
+
+    if let Some(sf) = path_scope.filter(|s| s.is_active()) {
+        let scoped = search_db::paths_matching_scope(conn, sf)?;
+        allowed = Some(match allowed {
+            Some(existing) => existing.intersection(&scoped).cloned().collect(),
+            None => scoped,
+        });
+    }
+
+    Ok(allowed)
+}
 
 pub fn hybrid_search(
     conn: &Connection,
@@ -14,23 +45,23 @@ pub fn hybrid_search(
     limit: usize,
     date_range: Option<(i64, i64)>,
     include_linked: bool,
+    path_scope: Option<&ScopeFilter>,
 ) -> Result<Vec<HybridSearchHit>, String> {
     let query_vec = model.embed_query(&query.text)?;
 
     let over_fetch = limit * 3;
-    // FTS pushes the date and linked-source filters into SQL, but the vector index
-    // has no filter API, so both over-fetch and filter afterward. In a very large
-    // vault the surviving notes may fall outside this pool; FTS still covers those,
-    // so retrieval degrades rather than failing.
+    // FTS pushes the date and scope filters into SQL, but the vector index has
+    // no filter API below FILTERED_EXACT_MAX, so both over-fetch and filter
+    // afterward. In a very large vault the surviving notes may fall outside
+    // this pool; FTS still covers those, so retrieval degrades rather than
+    // failing.
     let vector_fetch = if date_range.is_some() {
         (limit * 20).max(500)
     } else {
         over_fetch
     };
 
-    let allowed_by_date = date_range
-        .map(|(start_ms, end_ms)| search_db::paths_in_mtime_range(conn, start_ms, end_ms))
-        .transpose()?;
+    let allowed = resolve_allowed_paths(conn, date_range, path_scope)?;
 
     let vector_hits = vector_leg(
         note_index,
@@ -39,7 +70,7 @@ pub fn hybrid_search(
         vector_fetch,
         over_fetch,
         limit,
-        allowed_by_date.as_ref(),
+        allowed.as_ref(),
         include_linked,
     );
 
@@ -50,6 +81,7 @@ pub fn hybrid_search(
         over_fetch,
         date_range,
         include_linked,
+        path_scope,
     )
     .unwrap_or_default();
 
@@ -62,10 +94,13 @@ pub fn hybrid_search(
 // cosine-equidistant from every point: searching with it returns arbitrary
 // neighbours, so the vector leg is skipped entirely and FTS alone ranks.
 //
-// `allowed_by_date` is applied before the final `truncate`, not after: the
-// widened `vector_fetch` pool exists to survive that filter, so cutting the
-// pool down to `over_fetch` ahead of it would throw most of the pool away
-// before the filter ever sees it.
+// A small enough `allowed` set is scanned exactly via `search_within`, so a
+// scope match ranking outside the global top-`over_fetch` is still found. A
+// larger one falls back to the existing over-fetch-then-filter pool, where
+// `allowed` is applied before the final `truncate`, not after: the widened
+// `vector_fetch` pool exists to survive that filter, so cutting the pool down
+// to `over_fetch` ahead of it would throw most of the pool away before the
+// filter ever sees it.
 #[allow(clippy::too_many_arguments)]
 fn vector_leg(
     note_index: &VectorIndex,
@@ -74,15 +109,25 @@ fn vector_leg(
     vector_fetch: usize,
     over_fetch: usize,
     limit: usize,
-    allowed_by_date: Option<&HashSet<String>>,
+    allowed: Option<&HashSet<String>>,
     include_linked: bool,
 ) -> Vec<(String, f32)> {
     let Some(query_vec) = usable_query_vector(query_vec, query_text) else {
         return Vec::new();
     };
 
+    if let Some(allowed) = allowed {
+        if allowed.len() <= FILTERED_EXACT_MAX {
+            let keys = allowed
+                .iter()
+                .filter(|p| include_linked || !search_db::is_linked_path(p))
+                .map(String::as_str);
+            return note_index.search_within(&query_vec, keys, over_fetch);
+        }
+    }
+
     let mut hits = note_index.search(&query_vec, vector_fetch);
-    if let Some(allowed) = allowed_by_date {
+    if let Some(allowed) = allowed {
         hits.retain(|(path, _)| allowed.contains(path));
     }
 
@@ -94,7 +139,7 @@ fn vector_leg(
         let widened = vector_fetch.max((limit * 10).max(200));
         if hits.len() < limit && widened > vector_fetch {
             hits = note_index.search(&query_vec, widened);
-            if let Some(allowed) = allowed_by_date {
+            if let Some(allowed) = allowed {
                 hits.retain(|(path, _)| allowed.contains(path));
             }
             hits.retain(|(path, _)| !search_db::is_linked_path(path));
