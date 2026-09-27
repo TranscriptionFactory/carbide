@@ -1,3 +1,4 @@
+use super::embedding_model;
 use super::hnsw_index::{is_usable_vector, VectorIndex};
 use rusqlite::{params, Connection};
 use std::collections::{HashMap, HashSet};
@@ -5,8 +6,9 @@ use std::collections::{HashMap, HashSet};
 /// Seeded into fresh databases only (`INSERT OR IGNORE`). Databases written by
 /// an earlier encoding keep their old token, so the comparison in the embed
 /// pass sees a mismatch and wipes-and-re-embeds without migration code.
-/// Kept in sync with `embedding_model::model_version_token` by test.
-pub const DEFAULT_MODEL_VERSION: &str = "snowflake-arctic-embed-xs@v3";
+pub fn default_model_version() -> String {
+    embedding_model::model_version_token(embedding_model::DEFAULT_MODEL_SHORT_ID)
+}
 
 pub fn init_vector_schema(conn: &Connection) -> Result<(), String> {
     conn.execute_batch(
@@ -39,7 +41,7 @@ pub fn init_vector_schema(conn: &Connection) -> Result<(), String> {
 
     conn.execute(
         "INSERT OR IGNORE INTO embedding_meta (key, value) VALUES ('model_version', ?1)",
-        params![DEFAULT_MODEL_VERSION],
+        params![default_model_version()],
     )
     .map_err(|e| e.to_string())?;
 

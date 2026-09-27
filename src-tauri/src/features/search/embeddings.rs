@@ -15,7 +15,7 @@ use tokenizers::{PaddingParams, PaddingStrategy, Tokenizer, TruncationParams, Tr
 /// Sequence budget the model is encoded at. Covers >95% of PKM sections;
 /// shorter sequences yield [B,12,256,256] attention tensors, keeping Metal
 /// buffer accumulation below 1 GB at batch_size=16. (ref: DL-001)
-const MAX_SEQUENCE_TOKENS: usize = 256;
+pub(crate) const MAX_SEQUENCE_TOKENS: usize = 256;
 /// Room for the two special tokens the encoder adds around every input.
 const MAX_CONTENT_TOKENS: usize = MAX_SEQUENCE_TOKENS - 2;
 
@@ -30,7 +30,7 @@ const MIN_NORM: f32 = 1e-12;
 /// CJK character (3 bytes), so a naive `budget * k` char slice could drop text
 /// the tokenizer would have kept, and only a ceiling this far past any
 /// plausible boundary is safe to cut blind.
-const PRETRUNCATE_BYTES: usize = MAX_CONTENT_TOKENS * 32;
+pub(crate) const PRETRUNCATE_BYTES: usize = MAX_CONTENT_TOKENS * 32;
 
 /// Bytes of text that typically fill one encoder chunk. Used only to size
 /// batches, never to cut text.

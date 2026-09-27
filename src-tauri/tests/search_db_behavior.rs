@@ -8,6 +8,8 @@ use crate::features::search::db::{
     upsert_note_simple,
 };
 use crate::features::search::model::{BaseFilter, BaseQuery, IndexNoteMeta, SearchScope, SectionFilter};
+use crate::features::search::vector_db;
+use rusqlite::Connection;
 use std::cell::RefCell;
 use std::collections::BTreeMap;
 use std::fs;
@@ -2384,4 +2386,102 @@ fn excluding_linked_sources_does_not_cost_vault_result_slots() {
 
     assert_eq!(hits.len(), 3, "the limit must be filled with vault notes");
     assert!(hits.iter().all(|h| !h.note.path.starts_with("@linked/")));
+}
+
+const SECTION_HASH: &str = "section-hash";
+
+fn embedded_note(conn: &Connection, path: &str, title: &str, body: &str) {
+    let stem = Path::new(path).file_stem().unwrap().to_str().unwrap();
+    let meta = IndexNoteMeta {
+        id: path.to_string(),
+        path: path.to_string(),
+        title: title.to_string(),
+        name: stem.to_string(),
+        mtime_ms: 100,
+        ctime_ms: 50,
+        size_bytes: 10,
+        blurb: String::new(),
+        file_type: None,
+        source: None,
+    };
+    upsert_note(conn, &meta, body).expect("upsert");
+    vector_db::upsert_embedding(conn, path, &[0.5_f32; 4]).expect("note vector");
+    vector_db::upsert_block_embedding(conn, path, "h-1-a-0", &[0.5_f32; 4], SECTION_HASH)
+        .expect("block vector");
+}
+
+fn vector_test_db(tmp: &TempDir) -> Connection {
+    let conn = open_search_db_at_path(&tmp.path().join("test.db")).expect("db should open");
+    vector_db::init_vector_schema(&conn).expect("vector schema");
+    conn
+}
+
+fn stored_title(conn: &Connection, path: &str) -> String {
+    conn.query_row("SELECT title FROM notes WHERE path = ?1", [path], |r| r.get(0))
+        .expect("note row")
+}
+
+fn assert_vectors_rekeyed(conn: &Connection, old_path: &str, new_path: &str) {
+    assert!(vector_db::get_embedding(conn, old_path).is_none());
+    assert!(vector_db::get_embedding(conn, new_path).is_some(), "note vector dropped instead of rekeyed");
+    assert!(vector_db::get_block_hashes(conn, old_path).is_empty());
+    assert_eq!(
+        vector_db::get_block_hashes(conn, new_path).get("h-1-a-0").map(String::as_str),
+        Some(SECTION_HASH),
+        "block vector dropped or its hash changed"
+    );
+}
+
+#[test]
+fn renaming_a_filename_titled_note_retitles_it_and_drops_its_vectors() {
+    let tmp = TempDir::new().expect("temp dir");
+    let conn = vector_test_db(&tmp);
+    embedded_note(&conn, "notes/old.md", "old", "plain body, no heading");
+
+    let retitled = rename_note_path(&conn, "notes/old.md", "notes/new.md").expect("rename");
+
+    assert!(retitled);
+    assert_eq!(stored_title(&conn, "notes/new.md"), "new");
+    for path in ["notes/old.md", "notes/new.md"] {
+        assert!(vector_db::get_embedding(&conn, path).is_none(), "{path} note vector survived");
+        assert!(vector_db::get_block_hashes(&conn, path).is_empty(), "{path} block vector survived");
+    }
+}
+
+#[test]
+fn renaming_an_h1_titled_note_keeps_its_title_and_rekeys_its_vectors() {
+    let tmp = TempDir::new().expect("temp dir");
+    let conn = vector_test_db(&tmp);
+    embedded_note(&conn, "notes/old.md", "Plan", "# Plan\n\nbody");
+
+    let retitled = rename_note_path(&conn, "notes/old.md", "notes/new.md").expect("rename");
+
+    assert!(!retitled);
+    assert_eq!(stored_title(&conn, "notes/new.md"), "Plan");
+    assert_vectors_rekeyed(&conn, "notes/old.md", "notes/new.md");
+}
+
+#[test]
+fn renaming_an_h1_titled_note_to_its_heading_name_still_rekeys() {
+    let tmp = TempDir::new().expect("temp dir");
+    let conn = vector_test_db(&tmp);
+    embedded_note(&conn, "notes/plan.md", "plan", "# plan\n\nbody");
+
+    let retitled = rename_note_path(&conn, "notes/plan.md", "notes/other.md").expect("rename");
+
+    assert!(!retitled, "the H1, not the old stem, is the title");
+    assert_eq!(stored_title(&conn, "notes/other.md"), "plan");
+    assert_vectors_rekeyed(&conn, "notes/plan.md", "notes/other.md");
+}
+
+#[test]
+fn folder_rename_rekeys_vectors_without_re_embedding() {
+    let tmp = TempDir::new().expect("temp dir");
+    let conn = vector_test_db(&tmp);
+    embedded_note(&conn, "folder/a.md", "a", "plain body");
+
+    rename_folder_paths(&conn, "folder/", "archive/").expect("rename");
+
+    assert_eq!(stored_title(&conn, "archive/a.md"), "a");
+    assert_vectors_rekeyed(&conn, "folder/a.md", "archive/a.md");
 }
