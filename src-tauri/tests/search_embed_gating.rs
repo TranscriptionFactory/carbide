@@ -1,4 +1,5 @@
 use crate::features::search::db as search_db;
+use crate::features::search::embedding_model::embed_input;
 use crate::features::search::embed_scope::{
     embedding_scope_from_editor, note_embed_eligible, EmbeddingScope, NoteEmbedFacts,
 };
@@ -13,10 +14,12 @@ use crate::features::search::vector_db;
 use crate::features::settings::service::SettingsStore;
 use rusqlite::Connection;
 use serde_json::json;
+use std::cell::RefCell;
 use std::collections::BTreeMap;
 use std::sync::{Arc, RwLock};
 
 const NOTE: &str = "n.md";
+const TITLE: &str = "n";
 
 /// Encodes notes but never sections, so a save has to decide what to do with a
 /// note whose changed blocks have no vectors.
@@ -54,7 +57,7 @@ fn shared_index() -> SharedVectorIndex {
 }
 
 fn seed_embeddings(conn: &Connection, markdown: &str) {
-    let hashes = search_db::embeddable_section_hashes(markdown);
+    let hashes = search_db::embeddable_section_hashes(markdown, TITLE);
     assert_eq!(hashes.len(), 2, "two embeddable sections expected");
     for (heading_id, hash) in &hashes {
         vector_db::upsert_block_embedding(conn, NOTE, heading_id, &[0.1_f32; 4], hash)
@@ -99,6 +102,7 @@ fn disabled_flags_upsert_writes_no_embedding_rows() {
     apply_note_embedding_on_save(
         &conn,
         NOTE,
+        TITLE,
         &markdown,
         &shared_index(),
         &shared_index(),
@@ -121,6 +125,7 @@ fn disabled_flags_still_invalidate_changed_sections() {
     apply_note_embedding_on_save(
         &conn,
         NOTE,
+        TITLE,
         &v2,
         &shared_index(),
         &shared_index(),
@@ -129,8 +134,8 @@ fn disabled_flags_still_invalidate_changed_sections() {
         None,
     );
 
-    let v1_hashes = search_db::embeddable_section_hashes(&v1);
-    let v2_hashes = search_db::embeddable_section_hashes(&v2);
+    let v1_hashes = search_db::embeddable_section_hashes(&v1, TITLE);
+    let v2_hashes = search_db::embeddable_section_hashes(&v2, TITLE);
     let changed: Vec<&String> = v1_hashes
         .iter()
         .filter(|(k, h)| v2_hashes.get(k.as_str()) != Some(h))
@@ -157,6 +162,7 @@ fn model_unavailable_still_invalidates_changed_sections() {
     apply_note_embedding_on_save(
         &conn,
         NOTE,
+        TITLE,
         &v2,
         &shared_index(),
         &shared_index(),
@@ -192,6 +198,7 @@ fn skip_path_save_drops_the_stale_note_key() {
     apply_note_embedding_on_save(
         &conn,
         NOTE,
+        TITLE,
         &v2,
         &note_index,
         &shared_index(),
@@ -229,7 +236,7 @@ fn skip_path_clears_a_note_with_no_embeddable_sections() {
     // empty and matches the (also empty) stored set.
     let markdown = "just a sentence\n";
     assert!(
-        search_db::embeddable_section_hashes(markdown).is_empty(),
+        search_db::embeddable_section_hashes(markdown, TITLE).is_empty(),
         "fixture must have no embeddable sections"
     );
     vector_db::upsert_embedding(&conn, NOTE, &[0.1_f32; 4]).expect("seed note embedding");
@@ -243,6 +250,7 @@ fn skip_path_clears_a_note_with_no_embeddable_sections() {
     apply_note_embedding_on_save(
         &conn,
         NOTE,
+        TITLE,
         markdown,
         &note_index,
         &shared_index(),
@@ -278,6 +286,7 @@ fn unchanged_save_keeps_the_note_key() {
     apply_note_embedding_on_save(
         &conn,
         NOTE,
+        TITLE,
         &markdown,
         &note_index,
         &shared_index(),
@@ -314,6 +323,7 @@ fn failed_block_encode_leaves_the_note_unembedded() {
     apply_note_embedding_on_save(
         &conn,
         NOTE,
+        TITLE,
         &v2,
         &note_index,
         &shared_index(),
@@ -362,6 +372,7 @@ fn successful_block_encode_recomposes_the_note_vector() {
     apply_note_embedding_on_save(
         &conn,
         NOTE,
+        TITLE,
         &v2,
         &shared_index(),
         &shared_index(),
@@ -378,7 +389,7 @@ fn successful_block_encode_recomposes_the_note_vector() {
 fn save_prunes_stale_block_index_keys() {
     let conn = conn_with_vector_schema();
     let markdown = note_markdown("a", "b");
-    let hashes = search_db::embeddable_section_hashes(&markdown);
+    let hashes = search_db::embeddable_section_hashes(&markdown, TITLE);
     let block_index = shared_index();
     {
         let mut bi = block_index.write().expect("index lock");
@@ -391,6 +402,7 @@ fn save_prunes_stale_block_index_keys() {
     apply_note_embedding_on_save(
         &conn,
         NOTE,
+        TITLE,
         &markdown,
         &shared_index(),
         &block_index,
@@ -403,6 +415,121 @@ fn save_prunes_stale_block_index_keys() {
     let keys = bi.keys_with_prefix(&format!("{NOTE}\0"));
     assert_eq!(keys.len(), 2, "only live section keys survive");
     assert!(!keys.contains(&format!("{NOTE}\0removed-section")));
+}
+
+fn section_text(markdown: &str, title: &str, heading_id: &str) -> String {
+    search_db::embeddable_sections(markdown, title)
+        .into_iter()
+        .find(|s| s.heading_id == heading_id)
+        .map(|s| s.text)
+        .unwrap_or_else(|| panic!("{heading_id} is not an embeddable section"))
+}
+
+fn nested_markdown() -> String {
+    format!("# Guide\n\n## Setup\n\n### Linux\n\n{}\n", body("linux"))
+}
+
+#[test]
+fn embed_text_leads_with_the_title_and_ancestor_path() {
+    let text = section_text(&nested_markdown(), "Handbook", "h-3-linux-0");
+    assert_eq!(
+        text,
+        format!("Handbook › Guide › Setup\n\n### Linux\n\n{}", body("linux"))
+    );
+}
+
+#[test]
+fn embed_text_drops_an_h1_that_repeats_the_title() {
+    let text = section_text(&nested_markdown(), "Guide", "h-3-linux-0");
+    assert!(text.starts_with("Guide › Setup\n\n### Linux\n"), "{text}");
+}
+
+#[test]
+fn preamble_embeds_under_the_title_only() {
+    let markdown = format!("{}\n\n# Later\n\nshort\n", body("intro"));
+    let text = section_text(&markdown, "Handbook", search_db::PREAMBLE_HEADING_ID);
+    assert_eq!(text, format!("Handbook\n\n{}\n", body("intro")));
+}
+
+#[test]
+fn embed_input_drops_empty_parts() {
+    assert_eq!(embed_input("", &[], "body"), "body");
+    assert_eq!(embed_input("  ", &["", "A"], "body"), "A\n\nbody");
+    assert_eq!(embed_input("T", &["", "A", " "], "body"), "T › A\n\nbody");
+}
+
+#[test]
+fn a_title_change_rehashes_every_embeddable_section() {
+    let markdown = note_markdown("a", "b");
+    let before = search_db::embeddable_section_hashes(&markdown, "Before");
+    let after = search_db::embeddable_section_hashes(&markdown, "After");
+    assert_eq!(before.len(), 2);
+    assert_eq!(after.len(), before.len());
+    for (heading_id, hash) in &before {
+        assert_ne!(after.get(heading_id), Some(hash), "{heading_id} kept its hash");
+    }
+}
+
+#[derive(Default)]
+struct RecordingEncoder {
+    sections: RefCell<Vec<String>>,
+}
+
+impl SaveEncoder for RecordingEncoder {
+    fn encode_sections(&self, texts: &[&str]) -> Result<Vec<Vec<f32>>, String> {
+        self.sections
+            .borrow_mut()
+            .extend(texts.iter().map(|t| t.to_string()));
+        Ok(texts.iter().map(|_| vec![0.5_f32; 4]).collect())
+    }
+
+    fn encode_note(&self, _text: &str) -> Result<Vec<f32>, String> {
+        Err("the note has blocks to compose from".to_string())
+    }
+}
+
+fn save_with_title(conn: &Connection, title: &str, markdown: &str, encoder: &RecordingEncoder) {
+    apply_note_embedding_on_save(
+        conn,
+        NOTE,
+        title,
+        markdown,
+        &shared_index(),
+        &shared_index(),
+        true,
+        true,
+        Some(encoder),
+    );
+}
+
+#[test]
+fn a_title_only_change_re_encodes_exactly_that_notes_sections() {
+    let conn = conn_with_vector_schema();
+    let markdown = note_markdown("a", "b");
+    seed_embeddings(&conn, &markdown);
+    vector_db::upsert_block_embedding(&conn, "other.md", "h-1-alpha-0", &[0.1_f32; 4], "other")
+        .expect("seed other note");
+
+    let unchanged = RecordingEncoder::default();
+    save_with_title(&conn, TITLE, &markdown, &unchanged);
+    assert!(unchanged.sections.borrow().is_empty(), "same title re-encoded");
+
+    let retitled = RecordingEncoder::default();
+    save_with_title(&conn, "Renamed", &markdown, &retitled);
+    let encoded = retitled.sections.borrow();
+    assert_eq!(encoded.len(), 2, "every section carries the title");
+    assert!(encoded.iter().all(|t| t.starts_with("Renamed\n\n# ")), "{encoded:?}");
+    assert_eq!(
+        vector_db::get_block_hashes(&conn, NOTE),
+        search_db::embeddable_section_hashes(&markdown, "Renamed")
+    );
+    assert_eq!(
+        vector_db::get_block_hashes(&conn, "other.md")
+            .get("h-1-alpha-0")
+            .map(String::as_str),
+        Some("other"),
+        "another note's block was touched"
+    );
 }
 
 fn facts(file_type: Option<&str>, source: &str, char_count: i64) -> NoteEmbedFacts {

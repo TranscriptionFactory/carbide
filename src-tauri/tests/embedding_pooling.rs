@@ -1,5 +1,6 @@
 use crate::features::search::embedding_model::{
-    self, Pooling, DEFAULT_MODEL_SHORT_ID, EMBEDDING_MODELS,
+    self, encoding_fingerprint, encoding_inputs, EncodingInputs, Pooling, DEFAULT_MODEL_SHORT_ID,
+    EMBEDDING_MODELS,
 };
 use crate::features::search::embeddings::{
     chunk_by_offsets, normalize_rows, pool_and_normalize, pool_on_device,
@@ -276,13 +277,68 @@ fn unknown_model_ids_record_the_model_that_actually_embedded() {
 }
 
 #[test]
-fn seeded_default_matches_the_composite_version_token() {
+fn fresh_databases_are_seeded_with_the_runtime_token() {
+    let conn = Connection::open_in_memory().expect("in-memory db");
+    vector_db::init_vector_schema(&conn).expect("vector schema");
     assert_eq!(
-        vector_db::DEFAULT_MODEL_VERSION,
-        embedding_model::model_version_token(DEFAULT_MODEL_SHORT_ID),
+        vector_db::get_model_version(&conn),
+        Some(embedding_model::model_version_token(DEFAULT_MODEL_SHORT_ID)),
         "the schema seed and the runtime token must agree, or every fresh DB \
          re-embeds itself on first launch"
     );
+}
+
+#[test]
+fn the_token_is_the_model_id_and_its_encoding_fingerprint() {
+    let model = embedding_model::lookup(DEFAULT_MODEL_SHORT_ID);
+    let fingerprint = encoding_fingerprint(&encoding_inputs(model));
+    assert_eq!(fingerprint.len(), 8);
+    assert!(fingerprint.chars().all(|c| c.is_ascii_hexdigit()));
+    assert_eq!(
+        embedding_model::model_version_token(DEFAULT_MODEL_SHORT_ID),
+        format!("{DEFAULT_MODEL_SHORT_ID}@{fingerprint}")
+    );
+}
+
+#[test]
+fn changing_any_encoding_input_changes_the_token() {
+    let base = encoding_inputs(embedding_model::lookup(DEFAULT_MODEL_SHORT_ID));
+    let variants: Vec<(&str, EncodingInputs)> = vec![
+        ("pooling", EncodingInputs { pooling: Pooling::Mean, ..base.clone() }),
+        ("query_prefix", EncodingInputs { query_prefix: None, ..base.clone() }),
+        ("dims", EncodingInputs { dims: base.dims + 1, ..base.clone() }),
+        (
+            "max_sequence_tokens",
+            EncodingInputs { max_sequence_tokens: base.max_sequence_tokens + 1, ..base.clone() },
+        ),
+        (
+            "pretruncate_bytes",
+            EncodingInputs { pretruncate_bytes: base.pretruncate_bytes + 1, ..base.clone() },
+        ),
+        (
+            "embed_input_format",
+            EncodingInputs { embed_input_format: base.embed_input_format + 1, ..base.clone() },
+        ),
+        ("epoch", EncodingInputs { epoch: base.epoch + 1, ..base.clone() }),
+    ];
+    let base_fingerprint = encoding_fingerprint(&base);
+    for (field, inputs) in variants {
+        assert_ne!(
+            encoding_fingerprint(&inputs),
+            base_fingerprint,
+            "changing {field} left the token unchanged"
+        );
+    }
+}
+
+#[test]
+fn the_hand_bumped_v3_token_is_wiped() {
+    let conn = conn_with_stored_version("snowflake-arctic-embed-xs@v3");
+
+    reconcile_model_version(&conn, DEFAULT_MODEL_SHORT_ID, &shared_index(), &shared_index());
+
+    assert!(vector_db::get_embedded_paths(&conn).is_empty());
+    assert!(vector_db::get_block_hashes(&conn, "n.md").is_empty());
 }
 
 fn shared_index() -> SharedVectorIndex {

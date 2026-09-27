@@ -1,6 +1,8 @@
 use crate::features::notes::service as notes_service;
 use crate::features::search::model::{IndexNoteMeta, SearchHit, SearchScope};
 use crate::features::search::embed_scope::NoteEmbedFacts;
+use crate::features::search::embedding_model;
+use crate::features::search::text_extractor::{classify_file, FileCategory};
 use crate::features::search::vector_db;
 use crate::shared::constants;
 use crate::shared::io_utils;
@@ -193,18 +195,21 @@ fn extract_indexable_body(abs: &Path, raw: &str) -> String {
     }
 }
 
-pub(crate) fn extract_file_meta(abs: &Path, vault_root: &Path) -> Result<IndexNoteMeta, String> {
-    let rel = abs.strip_prefix(vault_root).map_err(|e| e.to_string())?;
-    let rel = storage::normalize_relative_path(rel);
-    let ext = abs.extension().and_then(|x| x.to_str()).unwrap_or("");
-    let name = if ext == "md" {
-        file_stem_string(abs)
+fn note_name(path: &Path) -> String {
+    if path.extension().and_then(|x| x.to_str()) == Some("md") {
+        file_stem_string(path)
     } else {
-        abs.file_name()
+        path.file_name()
             .and_then(|s| s.to_str())
             .unwrap_or_default()
             .to_string()
-    };
+    }
+}
+
+pub(crate) fn extract_file_meta(abs: &Path, vault_root: &Path) -> Result<IndexNoteMeta, String> {
+    let rel = abs.strip_prefix(vault_root).map_err(|e| e.to_string())?;
+    let rel = storage::normalize_relative_path(rel);
+    let name = note_name(abs);
     let (mtime_ms, ctime_ms, size_bytes) = notes_service::file_meta(abs)?;
     Ok(IndexNoteMeta {
         id: rel.clone(),
@@ -603,6 +608,27 @@ fn sync_code_blocks(
     Ok(())
 }
 
+/// Each section's strict ancestor titles, outermost first. Sections arrive in
+/// document order, so one pass of a level stack rebuilds every ancestry. The
+/// implicit level-0 preamble is never an ancestor: it ends at the first heading.
+fn section_ancestors(sections: &[ExtractedSection]) -> Vec<Vec<&str>> {
+    let mut stack: Vec<(i32, &str)> = Vec::new();
+    sections
+        .iter()
+        .map(|s| {
+            while stack
+                .last()
+                .is_some_and(|(level, _)| *level == 0 || *level >= s.level)
+            {
+                stack.pop();
+            }
+            let ancestors = stack.iter().map(|(_, title)| *title).collect();
+            stack.push((s.level, s.title.as_str()));
+            ancestors
+        })
+        .collect()
+}
+
 fn sync_sections(
     conn: &Connection,
     path: &str,
@@ -610,29 +636,14 @@ fn sync_sections(
 ) -> Result<(), String> {
     conn.execute("DELETE FROM note_sections WHERE path = ?1", params![path])
         .map_err(|e| e.to_string())?;
-    // Sections arrive in document order, so one pass of a level stack rebuilds
-    // each row's ancestry — the same slash-joined form `search_headings` ranks
-    // against, stored once rather than rebuilt on every search. The implicit
-    // level-0 preamble is never an ancestor: it ends at the first heading.
-    let mut stack: Vec<(i32, &str)> = Vec::new();
-    let mut heading_path = String::new();
-    for s in sections {
-        while stack
-            .last()
-            .map(|(level, _)| *level == 0 || *level >= s.level)
-            .unwrap_or(false)
-        {
-            stack.pop();
-        }
-        stack.push((s.level, s.title.as_str()));
-
-        heading_path.clear();
-        for (i, (_, title)) in stack.iter().enumerate() {
-            if i > 0 {
-                heading_path.push('/');
-            }
-            heading_path.push_str(title);
-        }
+    // The slash-joined form is what `search_headings` ranks against, stored
+    // once rather than rebuilt on every search.
+    for (s, ancestors) in sections.iter().zip(section_ancestors(sections)) {
+        let heading_path = ancestors
+            .into_iter()
+            .chain(std::iter::once(s.title.as_str()))
+            .collect::<Vec<_>>()
+            .join("/");
 
         conn.execute(
             "INSERT INTO note_sections (path, heading_id, level, title, start_line, end_line, word_count, heading_path) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
@@ -2533,7 +2544,7 @@ fn index_single_file_from_disk(
     meta: &mut IndexNoteMeta,
     pending_links: &mut Vec<(String, Vec<String>)>,
 ) -> Result<(), String> {
-    use crate::features::search::text_extractor::{classify_file, extract_content, FileCategory};
+    use crate::features::search::text_extractor::extract_content;
 
     if meta.size_bytes > constants::MAX_INDEXABLE_FILE_SIZE as i64 {
         log::warn!(
@@ -2622,7 +2633,7 @@ fn index_single_file_text(
         pending_links.push((meta.path.clone(), targets));
         let props = extract_frontmatter_properties(raw);
         save_properties(conn, &meta.path, &props)?;
-        invalidate_changed_embeddings(conn, &meta.path, raw)?;
+        invalidate_changed_embeddings(conn, &meta.path, raw, &meta.title)?;
     }
     Ok(())
 }
@@ -3816,34 +3827,66 @@ pub(crate) fn slice_section_text(lines: &[&str], start_line: i64, end_line: i64)
     }
 }
 
-/// Maps `heading_id -> content_hash` for a markdown note's current embeddable
-/// sections, computed the same way the embed passes hash section text. This is
-/// the ground truth the stored block hashes are compared against.
-pub(crate) fn embeddable_section_hashes(raw: &str) -> HashMap<String, String> {
-    let (_, _, sections) = extract_markdown_structure(raw, "");
-    let lines: Vec<&str> = raw.lines().collect();
-    let mut current: HashMap<String, String> = HashMap::new();
-    for s in &sections {
-        if !is_embeddable_section(s.word_count, s.end_line - s.start_line) {
-            continue;
-        }
-        if let Some(text) = slice_section_text(&lines, s.start_line, s.end_line) {
-            current.insert(
-                s.heading_id.clone(),
-                blake3::hash(text.as_bytes()).to_hex().to_string(),
-            );
-        }
-    }
-    current
+pub(crate) struct EmbeddableSection {
+    pub heading_id: String,
+    pub text: String,
+    pub hash: String,
+}
+
+/// A note's embeddable sections as the encoder sees them: each section's text
+/// wrapped by [`embedding_model::embed_input`], and the hash of that text. The
+/// save path, the bulk pass and the staleness check all go through here, so a
+/// stored hash always describes exactly the text its vector was made from.
+pub(crate) fn embeddable_sections(body: &str, title: &str) -> Vec<EmbeddableSection> {
+    let (_, _, sections) = extract_markdown_structure(body, "");
+    let lines: Vec<&str> = body.lines().collect();
+    sections
+        .iter()
+        .zip(section_ancestors(&sections))
+        .filter(|(s, _)| is_embeddable_section(s.word_count, s.end_line - s.start_line))
+        .filter_map(|(s, ancestors)| {
+            let slice = slice_section_text(&lines, s.start_line, s.end_line)?;
+            let text = embedding_model::embed_input(title, &ancestors, &slice);
+            let hash = blake3::hash(text.as_bytes()).to_hex().to_string();
+            Some(EmbeddableSection {
+                heading_id: s.heading_id.clone(),
+                text,
+                hash,
+            })
+        })
+        .collect()
+}
+
+/// Maps `heading_id -> content_hash` for a note's current embeddable sections.
+/// This is the ground truth the stored block hashes are compared against.
+pub(crate) fn embeddable_section_hashes(raw: &str, title: &str) -> HashMap<String, String> {
+    embeddable_sections(raw, title)
+        .into_iter()
+        .map(|s| (s.heading_id, s.hash))
+        .collect()
 }
 
 /// After re-indexing a markdown note, drops embeddings whose section content
 /// changed (or whose section was removed) so the background embed pass recomputes
 /// them. The bulk index path only fills in missing keys, so without this a
 /// rebuild or external edit leaves vectors matching the old content.
-fn invalidate_changed_embeddings(conn: &Connection, path: &str, raw: &str) -> Result<bool, String> {
-    let current = embeddable_section_hashes(raw);
+fn invalidate_changed_embeddings(
+    conn: &Connection,
+    path: &str,
+    raw: &str,
+    title: &str,
+) -> Result<bool, String> {
+    let current = embeddable_section_hashes(raw, title);
     vector_db::invalidate_changed_block_embeddings(conn, path, &current)
+}
+
+pub fn get_note_title(conn: &Connection, path: &str) -> Option<String> {
+    conn.query_row(
+        "SELECT title FROM notes WHERE path = ?1",
+        params![path],
+        |row| row.get(0),
+    )
+    .ok()
 }
 
 pub fn get_embeddable_sections(
@@ -4364,7 +4407,7 @@ more text").expect("note");
         );
         assert_eq!(
             vector_db::get_model_version(&first).as_deref(),
-            Some(vector_db::DEFAULT_MODEL_VERSION)
+            Some(vector_db::default_model_version().as_str())
         );
 
         let second = open_search_db_at_path(&path).expect("second open");
@@ -4455,7 +4498,7 @@ more text").expect("note");
         let raw_v1 = format!("# Alpha\n\n{}\n\n# Beta\n\n{}\n", body("a"), body("b"));
 
         // Seed embeddings exactly as the embed pass would have for v1.
-        let v1 = embeddable_section_hashes(&raw_v1);
+        let v1 = embeddable_section_hashes(&raw_v1, "n");
         assert_eq!(v1.len(), 2, "two embeddable sections expected");
         for (heading, hash) in &v1 {
             vector_db::upsert_block_embedding(&conn, path, heading, &[0.1f32; 384], hash).unwrap();
@@ -4463,16 +4506,16 @@ more text").expect("note");
         vector_db::upsert_embedding(&conn, path, &[0.1f32; 384]).unwrap();
 
         // Convergence: re-indexing identical content invalidates nothing.
-        assert!(!invalidate_changed_embeddings(&conn, path, &raw_v1).unwrap());
+        assert!(!invalidate_changed_embeddings(&conn, path, &raw_v1, "n").unwrap());
         assert_eq!(vector_db::get_block_embedding_count(&conn), 2);
         assert!(vector_db::get_embedding(&conn, path).is_some());
 
         // Only Beta's body changes: Beta's block is dropped, Alpha's kept, the
         // note vector cleared for recomposition.
         let raw_v2 = format!("# Alpha\n\n{}\n\n# Beta\n\n{}\n", body("a"), body("CHANGED"));
-        assert!(invalidate_changed_embeddings(&conn, path, &raw_v2).unwrap());
+        assert!(invalidate_changed_embeddings(&conn, path, &raw_v2, "n").unwrap());
         let remaining = vector_db::get_block_hashes(&conn, path);
-        let v2 = embeddable_section_hashes(&raw_v2);
+        let v2 = embeddable_section_hashes(&raw_v2, "n");
         for (heading, hash) in &v1 {
             if v2.get(heading) == Some(hash) {
                 assert!(remaining.contains_key(heading), "unchanged section dropped");
@@ -6572,7 +6615,10 @@ pub fn rename_folder_paths(
     }
 }
 
-pub fn rename_note_path(conn: &Connection, old_path: &str, new_path: &str) -> Result<(), String> {
+/// Renames a single note. Returns whether its title changed with the name, in
+/// which case its note and block vectors are dropped rather than rekeyed: every
+/// embedded text carries the title.
+pub fn rename_note_path(conn: &Connection, old_path: &str, new_path: &str) -> Result<bool, String> {
     conn.execute_batch("PRAGMA defer_foreign_keys = ON; BEGIN IMMEDIATE")
         .map_err(|e| e.to_string())?;
 
@@ -6630,23 +6676,81 @@ pub fn rename_note_path(conn: &Connection, old_path: &str, new_path: &str) -> Re
             )
         })
         .map(|_| ())
-        .map_err(|e| e.to_string());
+        .map_err(|e| e.to_string())
+        .and_then(|()| retitle_renamed_note(conn, old_path, new_path));
 
     match result {
-        Ok(_) => {
+        Ok(retitled) => {
             conn.execute_batch("COMMIT").map_err(|e| e.to_string())?;
-            if let Err(e) = vector_db::rename_embedding_path(conn, old_path, new_path) {
-                log::debug!("vector_db::rename_embedding_path skipped: {e}");
+            if retitled {
+                drop_note_vectors(conn, old_path);
+            } else {
+                rekey_note_vectors(conn, old_path, new_path);
             }
-            if let Err(e) = vector_db::rename_block_embedding_path(conn, old_path, new_path) {
-                log::debug!("vector_db::rename_block_embedding_path skipped: {e}");
-            }
-            Ok(())
+            Ok(retitled)
         }
         Err(e) => {
             let _ = conn.execute_batch("ROLLBACK");
             Err(e)
         }
+    }
+}
+
+fn retitle_renamed_note(conn: &Connection, old_path: &str, new_path: &str) -> Result<bool, String> {
+    let Some(current) = get_note_title(conn, new_path) else {
+        return Ok(false);
+    };
+    let renamed = renamed_note_title(conn, old_path, new_path, &current);
+    if renamed == current {
+        return Ok(false);
+    }
+    conn.execute(
+        "UPDATE notes SET title = ?1 WHERE path = ?2",
+        params![renamed, new_path],
+    )
+    .and_then(|_| {
+        conn.execute(
+            "UPDATE notes_fts SET title = ?1, name = ?2 WHERE path = ?3",
+            params![renamed, note_name(Path::new(new_path)), new_path],
+        )
+    })
+    .map_err(|e| e.to_string())?;
+    Ok(true)
+}
+
+/// The title the indexer would derive for the note once it lives at
+/// `new_path`. HTML and EPUB titles come from file content the index does not
+/// keep, so theirs only follows the name when it was the name-derived fallback.
+fn renamed_note_title(conn: &Connection, old_path: &str, new_path: &str, current: &str) -> String {
+    let new = Path::new(new_path);
+    if new.extension().and_then(|x| x.to_str()) == Some("md") {
+        return get_fts_body(conn, new_path)
+            .and_then(|body| extract_title_from_markdown(&body))
+            .unwrap_or_else(|| note_name(new));
+    }
+    match classify_file(new) {
+        FileCategory::Html | FileCategory::Epub if current != note_name(Path::new(old_path)) => {
+            current.to_string()
+        }
+        _ => note_name(new),
+    }
+}
+
+fn drop_note_vectors(conn: &Connection, path: &str) {
+    if let Err(e) = vector_db::remove_embedding(conn, path) {
+        log::debug!("vector_db::remove_embedding skipped: {e}");
+    }
+    if let Err(e) = vector_db::remove_block_embeddings(conn, path) {
+        log::debug!("vector_db::remove_block_embeddings skipped: {e}");
+    }
+}
+
+fn rekey_note_vectors(conn: &Connection, old_path: &str, new_path: &str) {
+    if let Err(e) = vector_db::rename_embedding_path(conn, old_path, new_path) {
+        log::debug!("vector_db::rename_embedding_path skipped: {e}");
+    }
+    if let Err(e) = vector_db::rename_block_embedding_path(conn, old_path, new_path) {
+        log::debug!("vector_db::rename_block_embedding_path skipped: {e}");
     }
 }
 

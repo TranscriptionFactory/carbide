@@ -1349,20 +1349,24 @@ fn dispatch_command(
             reply,
         } => {
             let result = search_db::rename_note_path(conn, &old_path, &new_path);
-            if let Ok(()) = &result {
+            if let Ok(retitled) = result {
                 if let Some(mut meta) = notes_cache.remove(&old_path) {
                     meta.id = new_path.clone();
                     meta.path = new_path.clone();
                     notes_cache.insert(new_path.clone(), meta);
                 }
-                if let Ok(mut ni) = note_index.write() {
-                    ni.rename(&old_path, &new_path);
-                }
-                if let Ok(mut bi) = block_index.write() {
-                    bi.rename_by_prefix(&format!("{old_path}\0"), &format!("{new_path}\0"));
+                if retitled {
+                    evict_note_from_indices(note_index, block_index, &[old_path.as_str()]);
+                } else {
+                    if let Ok(mut ni) = note_index.write() {
+                        ni.rename(&old_path, &new_path);
+                    }
+                    if let Ok(mut bi) = block_index.write() {
+                        bi.rename_by_prefix(&format!("{old_path}\0"), &format!("{new_path}\0"));
+                    }
                 }
             }
-            let _ = reply.send(result);
+            let _ = reply.send(result.map(|_| ()));
         }
         DbCommand::Rebuild {
             vault_root,
@@ -1557,11 +1561,13 @@ fn handle_upsert(
     let mut meta = search_db::extract_file_meta(&abs, vault_root)?;
     meta.title = extract_title(&markdown).unwrap_or_else(|| meta.name.clone());
     search_db::upsert_note_with_links(conn, &meta, &markdown)?;
+    let title = meta.title.clone();
     notes_cache.insert(meta.path.clone(), meta);
 
     embed_note_on_save(
         conn,
         note_id,
+        &title,
         &markdown,
         note_index,
         block_index,
@@ -1595,9 +1601,10 @@ fn handle_upsert_with_content(
     }
     meta.title = extract_title(markdown).unwrap_or_else(|| meta.name.clone());
     search_db::upsert_note_with_links(conn, &meta, markdown)?;
+    let title = meta.title.clone();
     notes_cache.insert(meta.path.clone(), meta);
 
-    embed_note_on_save(conn, note_id, markdown, note_index, block_index, app_handle);
+    embed_note_on_save(conn, note_id, &title, markdown, note_index, block_index, app_handle);
 
     Ok(())
 }
@@ -1605,6 +1612,7 @@ fn handle_upsert_with_content(
 fn embed_note_on_save(
     conn: &Connection,
     note_id: &str,
+    title: &str,
     markdown: &str,
     note_index: &SharedVectorIndex,
     block_index: &SharedVectorIndex,
@@ -1633,6 +1641,7 @@ fn embed_note_on_save(
     apply_note_embedding_on_save(
         conn,
         note_id,
+        title,
         markdown,
         note_index,
         block_index,
@@ -1667,6 +1676,7 @@ impl SaveEncoder for EmbeddingService {
 pub(crate) fn apply_note_embedding_on_save(
     conn: &Connection,
     note_id: &str,
+    title: &str,
     markdown: &str,
     note_index: &SharedVectorIndex,
     block_index: &SharedVectorIndex,
@@ -1674,31 +1684,12 @@ pub(crate) fn apply_note_embedding_on_save(
     block_embed_enabled: bool,
     model: Option<&dyn SaveEncoder>,
 ) {
-    let (_, _, sections) = search_db::extract_markdown_structure(markdown, "");
-    let lines: Vec<&str> = markdown.lines().collect();
     let old_hashes = vector_db::get_block_hashes(conn, note_id);
-
-    let mut current_hashes: HashMap<String, String> = HashMap::new();
-    let mut candidates: Vec<(&str, String, String)> = Vec::new();
-
-    for section in &sections {
-        if !search_db::is_embeddable_section(
-            section.word_count,
-            section.end_line - section.start_line,
-        ) {
-            continue;
-        }
-
-        let Some(section_text) =
-            search_db::slice_section_text(&lines, section.start_line, section.end_line)
-        else {
-            continue;
-        };
-
-        let hash = blake3::hash(section_text.as_bytes()).to_hex().to_string();
-        current_hashes.insert(section.heading_id.clone(), hash.clone());
-        candidates.push((&section.heading_id, section_text, hash));
-    }
+    let candidates = search_db::embeddable_sections(markdown, title);
+    let current_hashes: HashMap<String, String> = candidates
+        .iter()
+        .map(|c| (c.heading_id.clone(), c.hash.clone()))
+        .collect();
 
     // Stale-row cleanup is cheap SQL and runs unconditionally — even when
     // embedding is disabled or the model failed to load — so rows for changed
@@ -1757,19 +1748,17 @@ pub(crate) fn apply_note_embedding_on_save(
     // Block embeddings first; the note-level vector is composed from them below. (ref: DL-003)
     let mut blocks_encoded = true;
     if block_embed_enabled {
-        let to_embed: Vec<&(&str, String, String)> = candidates
+        let to_embed: Vec<&search_db::EmbeddableSection> = candidates
             .iter()
-            .filter(|(heading_id, _, hash)| {
-                old_hashes.get(*heading_id).map(|h| h.as_str()) != Some(hash.as_str())
-            })
+            .filter(|c| old_hashes.get(&c.heading_id) != Some(&c.hash))
             .collect();
 
         if !to_embed.is_empty() {
-            let texts: Vec<&str> = to_embed.iter().map(|(_, text, _)| text.as_str()).collect();
+            let texts: Vec<&str> = to_embed.iter().map(|c| c.text.as_str()).collect();
             match model.encode_sections(&texts) {
                 Ok(embeddings) => {
-                    for ((heading_id, _, hash), embedding) in
-                        to_embed.iter().zip(embeddings.iter())
+                    for (search_db::EmbeddableSection { heading_id, hash, .. }, embedding) in
+                        to_embed.iter().copied().zip(embeddings.iter())
                     {
                         let _ = vector_db::upsert_block_embedding(
                             conn, note_id, heading_id, embedding, hash,
@@ -2299,15 +2288,20 @@ fn handle_sync_paths(
 }
 
 /// Text for the whole-note fallback embed, or `None` when the body is missing
-/// or blank — a note is only ever embedded from its content, never its name.
+/// or blank — a note is never embedded from its name alone, though the title
+/// leads the text once there is a body.
 /// Pre-truncated: this is the only embed path fed an unbounded body, and the
 /// encoder discards everything past its token budget anyway — without the
 /// cut, a 50 KB note is WordPiece-tokenized in full to keep 256 tokens of it,
 /// which at batch width 32 is the dominant cost of the fallback pass.
 fn embed_text_for_note(conn: &Connection, path: &str) -> Option<String> {
-    search_db::get_fts_body(conn, path)
-        .filter(|b| !b.trim().is_empty())
-        .map(|body| embeddings::pretruncate(&body).to_string())
+    let body = search_db::get_fts_body(conn, path).filter(|b| !b.trim().is_empty())?;
+    let title = search_db::get_note_title(conn, path).unwrap_or_default();
+    Some(embedding_model::embed_input(
+        &title,
+        &[],
+        embeddings::pretruncate(&body),
+    ))
 }
 
 /// Drains commands that queued up while an embedding pass held the writer
@@ -2830,12 +2824,11 @@ struct PendingSections<'a> {
 }
 
 impl<'a> PendingSections<'a> {
-    fn push(&mut self, path: &'a str, heading_id: &'a str, text: String) {
-        self.chunks += estimated_chunk_count(&text);
+    fn push(&mut self, path: &'a str, heading_id: &'a str, section: search_db::EmbeddableSection) {
+        self.chunks += estimated_chunk_count(&section.text);
         self.keys.push((path, heading_id));
-        self.hashes
-            .push(blake3::hash(text.as_bytes()).to_hex().to_string());
-        self.texts.push(text);
+        self.hashes.push(section.hash);
+        self.texts.push(section.text);
     }
 
     fn take(&mut self) -> Self {
@@ -3045,17 +3038,21 @@ fn handle_block_embed_batch(
         let Some(body) = search_db::get_fts_body(conn, path) else {
             continue;
         };
-        let lines: Vec<&str> = body.lines().collect();
+        let title = search_db::get_note_title(conn, path).unwrap_or_default();
+        let mut sections: HashMap<String, search_db::EmbeddableSection> =
+            search_db::embeddable_sections(&body, &title)
+                .into_iter()
+                .map(|section| (section.heading_id.clone(), section))
+                .collect();
 
-        for (_, heading_id, start_line, end_line) in group.iter().copied() {
-            let Some(section_text) = search_db::slice_section_text(&lines, *start_line, *end_line)
-            else {
+        for (_, heading_id, _, _) in group.iter().copied() {
+            let Some(section) = sections.remove(heading_id) else {
                 continue;
             };
-            if embeddings::is_unusable_content(&section_text) {
+            if embeddings::is_unusable_content(&section.text) {
                 continue;
             }
-            pending.push(path, heading_id, section_text);
+            pending.push(path, heading_id, section);
             if pending.chunks >= EMBED_BATCH_SIZE && !pass.flush(&mut pending) {
                 break 'sections;
             }

@@ -1,3 +1,5 @@
+use super::embeddings;
+
 /// How a model reduces `[batch, seq, dim]` token states to one vector per input.
 /// Getting this wrong is silent: mean-pooling a CLS-trained model still yields
 /// plausible unit vectors, just worse neighbours.
@@ -83,6 +85,50 @@ pub fn lookup(short_id: &str) -> &'static EmbeddingModel {
         })
 }
 
+/// Version of the [`embed_input`] layout. Bump when the text handed to the
+/// encoder changes shape; the fingerprint then forces a re-embed.
+pub const EMBED_INPUT_FORMAT_VERSION: u32 = 1;
+
+const CONTEXT_SEPARATOR: &str = " › ";
+
+/// Everything that decides what a stored vector means for a given model.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct EncodingInputs {
+    pub pooling: Pooling,
+    pub query_prefix: Option<&'static str>,
+    pub dims: usize,
+    pub max_sequence_tokens: usize,
+    pub pretruncate_bytes: usize,
+    pub embed_input_format: u32,
+    pub epoch: u32,
+}
+
+pub fn encoding_inputs(model: &EmbeddingModel) -> EncodingInputs {
+    EncodingInputs {
+        pooling: model.pooling,
+        query_prefix: model.query_prefix,
+        dims: model.dims,
+        max_sequence_tokens: embeddings::MAX_SEQUENCE_TOKENS,
+        pretruncate_bytes: embeddings::PRETRUNCATE_BYTES,
+        embed_input_format: EMBED_INPUT_FORMAT_VERSION,
+        epoch: ENCODING_VERSION,
+    }
+}
+
+pub fn encoding_fingerprint(inputs: &EncodingInputs) -> String {
+    let canonical = format!(
+        "pooling={:?};query_prefix={:?};dims={};max_sequence_tokens={};pretruncate_bytes={};embed_input_format={};epoch={}",
+        inputs.pooling,
+        inputs.query_prefix,
+        inputs.dims,
+        inputs.max_sequence_tokens,
+        inputs.pretruncate_bytes,
+        inputs.embed_input_format,
+        inputs.epoch,
+    );
+    blake3::hash(canonical.as_bytes()).to_hex()[..8].to_string()
+}
+
 /// The token stored in `embedding_meta.model_version`. Comparing against it is
 /// what triggers wipe-and-re-embed, so it must change whenever either the model
 /// or the encoding changes.
@@ -91,5 +137,30 @@ pub fn model_version_token(short_id: &str) -> String {
     // an id this build does not know embeds with the default model, and
     // recording the *requested* id would let a later build that adds that id
     // find a matching token and keep serving vectors another model produced.
-    format!("{}@v{ENCODING_VERSION}", lookup(short_id).short_id)
+    let model = lookup(short_id);
+    format!(
+        "{}@{}",
+        model.short_id,
+        encoding_fingerprint(&encoding_inputs(model))
+    )
+}
+
+/// The text a section or note is embedded as: `title › ancestor › …`, a blank
+/// line, then the body. `ancestors` are the section's strict ancestors; a
+/// leading ancestor equal to the title is the note's own H1 and is dropped so
+/// the title is not repeated.
+pub fn embed_input(title: &str, ancestors: &[&str], body: &str) -> String {
+    let title = title.trim();
+    let ancestors = match ancestors.split_first() {
+        Some((first, rest)) if first.trim() == title => rest,
+        _ => ancestors,
+    };
+    let context: Vec<&str> = std::iter::once(title)
+        .chain(ancestors.iter().map(|a| a.trim()))
+        .filter(|part| !part.is_empty())
+        .collect();
+    if context.is_empty() {
+        return body.to_string();
+    }
+    format!("{}\n\n{body}", context.join(CONTEXT_SEPARATOR))
 }
