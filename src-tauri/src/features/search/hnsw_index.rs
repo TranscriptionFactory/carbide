@@ -889,6 +889,53 @@ mod tests {
         assert_eq!(idx.search(&query, 5), expected);
     }
 
+    #[test]
+    fn search_within_matches_bruteforce_top_k_on_the_given_subset() {
+        let mut idx = VectorIndex::new(8);
+        let vectors: Vec<Vec<f32>> = (0..32)
+            .map(|i| unit_vec(0.03 * (i as f32 + 1.0), 8))
+            .collect();
+        for (i, vector) in vectors.iter().enumerate() {
+            idx.insert(&format!("k{i}"), vector.clone());
+        }
+        let query = unit_vec(0.415, 8);
+
+        // Every third key, so the subset excludes some of the globally
+        // nearest points — search_within must still rank correctly among
+        // exactly the keys it was given, not the whole index.
+        let subset_indices: Vec<usize> = (0..32).step_by(3).collect();
+        let subset: Vec<String> = subset_indices.iter().map(|i| format!("k{i}")).collect();
+
+        let mut expected: Vec<(String, f32)> = subset_indices
+            .iter()
+            .map(|&i| {
+                (
+                    format!("k{i}"),
+                    super::super::vector_db::dot_distance(&query, &vectors[i]),
+                )
+            })
+            .collect();
+        expected.sort_by(|a, b| a.1.total_cmp(&b.1).then_with(|| a.0.cmp(&b.0)));
+        expected.truncate(5);
+
+        let keys = subset.iter().map(String::as_str);
+        assert_eq!(idx.search_within(&query, keys, 5), expected);
+    }
+
+    #[test]
+    fn search_within_skips_keys_absent_from_the_index() {
+        let mut idx = VectorIndex::new(4);
+        idx.insert("a", unit_vec(0.1, 4));
+        idx.insert("b", unit_vec(0.5, 4));
+        let query = unit_vec(0.11, 4);
+
+        let hits = idx.search_within(&query, ["a", "missing", "b"].into_iter(), 5);
+
+        assert_eq!(hits.len(), 2);
+        assert!(hits.iter().any(|(k, _)| k == "a"));
+        assert!(hits.iter().any(|(k, _)| k == "b"));
+    }
+
     /// An index crossing [`EXACT_SEARCH_MAX_POINTS`] silently switches which
     /// path answers it, so the two must rank the same vectors the same way and
     /// score them on the same scale. The exact path uses `1 - dot` rather than

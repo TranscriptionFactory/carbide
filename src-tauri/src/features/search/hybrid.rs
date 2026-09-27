@@ -322,6 +322,40 @@ mod tests {
         assert_eq!(hits[0].0, "n7");
     }
 
+    // The key invariant: a scope whose only match ranks outside the global
+    // over-fetch pool must still be found. n29 is the farthest of 30 points
+    // from the query, so the raw over-fetch pool (size 9) never contains it —
+    // that's the failure mode a plain over-fetch-then-filter search has. With
+    // a small `allowed` set, vector_leg takes the exact-scan branch instead
+    // and finds it regardless of its rank.
+    #[test]
+    fn narrow_scope_match_outside_the_overfetch_pool_is_still_found() {
+        let idx = synth_index(30);
+        let limit = 3;
+        let over_fetch = limit * 3;
+
+        let raw_pool = idx.search(&[1.0, 0.0], over_fetch);
+        assert!(
+            !raw_pool.iter().any(|(k, _)| k == "n29"),
+            "test setup: n29 must rank outside the raw over-fetch pool"
+        );
+
+        let allowed: HashSet<String> = ["n29".to_string()].into_iter().collect();
+        let hits = vector_leg(
+            &idx,
+            vec![1.0, 0.0],
+            "q",
+            over_fetch,
+            over_fetch,
+            limit,
+            Some(&allowed),
+            true,
+        );
+
+        assert_eq!(hits.len(), 1);
+        assert_eq!(hits[0].0, "n29");
+    }
+
     #[test]
     fn stopword_substring_in_title_gets_no_bonus() {
         let fts = vec![hit("a.md", "Theory of Mind"), hit("b.md", "Unrelated")];
