@@ -35,6 +35,8 @@ mod search_worker_scheduling;
 mod embedding_pooling;
 #[path = "../../tests/embedding_device_probe.rs"]
 mod embedding_device_probe;
+#[path = "../../tests/reranker_spike.rs"]
+mod reranker_spike;
 #[path = "../../tests/embedding_init_queue.rs"]
 mod embedding_init_queue;
 #[path = "../../tests/embedding_batch_fallback.rs"]
