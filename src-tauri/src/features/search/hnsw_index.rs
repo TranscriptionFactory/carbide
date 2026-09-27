@@ -388,19 +388,45 @@ impl VectorIndex {
     /// f32 path runs three f64 accumulators and a `sqrt` per vector, two of
     /// which are pure waste once the norms are known to be 1.
     fn exact_search(&self, query: &[f32], limit: usize) -> Vec<(String, f32)> {
+        self.search_within(query, self.vectors.keys().map(String::as_str), limit)
+    }
+
+    /// Exhaustive nearest-neighbour scan restricted to `keys`, for a caller that
+    /// has already resolved a scope (a date range, a folder/tag/note scope) to a
+    /// key subset — a scan bounded by that subset rather than by the index's
+    /// full population, so it stays exact regardless of [`EXACT_SEARCH_MAX_POINTS`].
+    /// Keys absent from the index (stale scope entries) are skipped rather than
+    /// erroring, matching [`Self::get_vector`]'s "unknown key" handling elsewhere.
+    pub fn search_within<'a>(
+        &self,
+        query: &[f32],
+        keys: impl Iterator<Item = &'a str>,
+        limit: usize,
+    ) -> Vec<(String, f32)> {
+        if query.len() != self.dims {
+            log::warn!(
+                "VectorIndex::search_within: query has {} dims, index has {} — returning no hits",
+                query.len(),
+                self.dims
+            );
+            return vec![];
+        }
+
         // Keys stay borrowed through scoring and selection; only the `limit`
         // that survive are ever cloned. The old version allocated a `String`
         // per vector per query.
-        let mut scored: Vec<(f32, &str)> = self
-            .vectors
-            .iter()
-            .map(|(key, vector)| (super::vector_db::dot_distance(query, vector), key.as_str()))
+        let mut scored: Vec<(f32, &str)> = keys
+            .filter_map(|k| {
+                self.vectors
+                    .get(k)
+                    .map(|v| (super::vector_db::dot_distance(query, v), k))
+            })
             .collect();
 
         // `total_cmp` gives a total order without a NaN-capable comparison, and
-        // the key tie-break keeps the answer independent of `HashMap` iteration
-        // order — without it two indexes holding identical vectors could rank
-        // tied entries differently. Because the order is total, selecting the
+        // the key tie-break keeps the answer independent of iteration order —
+        // without it two indexes holding identical vectors could rank tied
+        // entries differently. Because the order is total, selecting the
         // `limit` smallest and sorting only those yields exactly what sorting
         // everything would have.
         let rank =
@@ -435,6 +461,10 @@ impl VectorIndex {
             .filter(|k| k.starts_with(prefix))
             .cloned()
             .collect()
+    }
+
+    pub fn keys(&self) -> impl Iterator<Item = &str> {
+        self.key_to_id.keys().map(String::as_str)
     }
 
     fn stale_count(&self) -> usize {
