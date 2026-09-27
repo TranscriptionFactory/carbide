@@ -15,12 +15,12 @@ use crate::features::search::embedding_model::{self, DEFAULT_MODEL_SHORT_ID};
 use crate::features::search::embeddings::{usable_query_vector, EmbeddingService};
 use crate::features::search::hnsw_index::{SharedVectorIndex, VectorIndex};
 use crate::features::search::hybrid;
-use crate::features::search::model::SearchScope;
+use crate::features::search::model::{ScopeFilter, SearchScope};
 use crate::features::search::service::{apply_note_embedding_on_save, SaveEncoder, SearchQueryInput};
 use crate::features::search::vector_db;
 use rusqlite::Connection;
 use serde::Deserialize;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, RwLock};
@@ -263,6 +263,60 @@ fn apply_mtimes(vault_root: &Path, mtimes_path: &Path) {
     }
 }
 
+/// Mirrors RetrievalService.resolve_scope_filter (retrieval_service.ts):
+/// notes/tags resolve to explicit paths and are ANDed together; folders
+/// become prefixes, gating the resolved path set when one exists or standing
+/// alone as `prefixes` otherwise. `bases` has no eval-harness resolver, so its
+/// presence reports the query unsupported rather than silently unscoping it.
+fn parse_scope(conn: &Connection, scope: &serde_json::Value) -> Option<ScopeFilter> {
+    if scope.get("bases").and_then(|v| v.as_array()).is_some_and(|a| !a.is_empty()) {
+        return None;
+    }
+
+    let as_strings = |key: &str| -> Vec<String> {
+        scope
+            .get(key)
+            .and_then(|v| v.as_array())
+            .map(|arr| arr.iter().filter_map(|v| v.as_str().map(str::to_string)).collect())
+            .unwrap_or_default()
+    };
+    let notes = as_strings("notes");
+    let tags = as_strings("tags");
+    let folders = as_strings("folders");
+
+    let mut candidate: Option<HashSet<String>> =
+        if notes.is_empty() { None } else { Some(notes.into_iter().collect()) };
+
+    if !tags.is_empty() {
+        let mut resolved = HashSet::new();
+        for tag in &tags {
+            if let Ok(paths) = search_db::get_notes_for_tag(conn, tag) {
+                resolved.extend(paths);
+            }
+        }
+        candidate = Some(match candidate {
+            Some(existing) => existing.intersection(&resolved).cloned().collect(),
+            None => resolved,
+        });
+    }
+
+    let prefixes: Vec<String> = folders.iter().map(|f| format!("{f}/")).collect();
+
+    Some(if let Some(candidate) = candidate {
+        let paths = if prefixes.is_empty() {
+            candidate.into_iter().collect()
+        } else {
+            candidate
+                .into_iter()
+                .filter(|p| prefixes.iter().any(|pre| p.starts_with(pre.as_str())))
+                .collect()
+        };
+        ScopeFilter { paths, prefixes: vec![] }
+    } else {
+        ScopeFilter { paths: vec![], prefixes }
+    })
+}
+
 fn model_cache_dir() -> PathBuf {
     if let Ok(dir) = std::env::var("CARBIDE_MODEL_CACHE") {
         return PathBuf::from(dir);
@@ -280,14 +334,18 @@ fn run_fts(
     query: &str,
     limit: usize,
     date_range: Option<(i64, i64)>,
+    scope: Option<&ScopeFilter>,
 ) -> Vec<(String, Option<String>)> {
-    search_db::search(conn, query, SearchScope::All, limit, date_range, true)
+    search_db::search(conn, query, SearchScope::All, limit, date_range, true, scope)
         .unwrap_or_default()
         .into_iter()
         .map(|hit| (hit.note.path, None))
         .collect()
 }
 
+/// Reuses `hybrid::vector_leg` (the same date/scope-aware exact-scan path
+/// `hybrid_search` uses) rather than re-implementing over-fetch-then-filter
+/// here.
 fn run_vector(
     conn: &Connection,
     note_index: &SharedVectorIndex,
@@ -295,23 +353,27 @@ fn run_vector(
     query: &str,
     limit: usize,
     date_range: Option<(i64, i64)>,
+    scope: Option<&ScopeFilter>,
 ) -> Vec<(String, Option<String>)> {
     let Ok(query_vec) = model.embed_query(query) else {
         return Vec::new();
     };
-    let Some(query_vec) = usable_query_vector(query_vec, query) else {
-        return Vec::new();
-    };
-    let fetch = if date_range.is_some() { (limit * 20).max(500) } else { limit * 3 };
-    let mut hits = note_index.read().expect("index lock").search(&query_vec, fetch);
-    if let Some((start_ms, end_ms)) = date_range {
-        let Ok(allowed) = search_db::paths_in_mtime_range(conn, start_ms, end_ms) else {
-            return Vec::new();
-        };
-        hits.retain(|(path, _)| allowed.contains(path));
-    }
-    hits.truncate(limit);
-    hits.into_iter().map(|(path, _)| (path, None)).collect()
+    let over_fetch = limit * 3;
+    let vector_fetch = if date_range.is_some() { (limit * 20).max(500) } else { over_fetch };
+    let allowed = hybrid::resolve_allowed_paths(conn, date_range, scope).unwrap_or(None);
+
+    let idx = note_index.read().expect("index lock");
+    let hits = hybrid::vector_leg(
+        &idx,
+        query_vec,
+        query,
+        vector_fetch,
+        over_fetch,
+        limit,
+        allowed.as_ref(),
+        true,
+    );
+    hits.into_iter().take(limit).map(|(path, _)| (path, None)).collect()
 }
 
 fn run_hybrid(
@@ -321,6 +383,7 @@ fn run_hybrid(
     query: &str,
     limit: usize,
     date_range: Option<(i64, i64)>,
+    scope: Option<&ScopeFilter>,
 ) -> Vec<(String, Option<String>)> {
     let query_input = SearchQueryInput {
         raw: query.to_string(),
@@ -328,15 +391,17 @@ fn run_hybrid(
         scope: SearchScope::All,
     };
     let idx = note_index.read().expect("index lock");
-    hybrid::hybrid_search(conn, &idx, model, &query_input, limit, date_range, true)
+    hybrid::hybrid_search(conn, &idx, model, &query_input, limit, date_range, true, scope)
         .unwrap_or_default()
         .into_iter()
         .map(|hit| (hit.note.path, None))
         .collect()
 }
 
-/// Mirrors `search_blocks_inner` (service.rs:4378-4429) minus the `AppHandle`
-/// plumbing: the harness reaches the DB and the block index directly.
+/// Mirrors `search_blocks_inner` (service.rs:4378-4448) minus the `AppHandle`
+/// plumbing: the harness reaches the DB and the block index directly. A small
+/// enough allowed set is scanned exactly, same threshold as the vector leg;
+/// the scope predicate is re-checked per hit on the over-fetch fallback path.
 fn run_blocks(
     conn: &Connection,
     block_index: &SharedVectorIndex,
@@ -344,6 +409,7 @@ fn run_blocks(
     query: &str,
     limit: usize,
     date_range: Option<(i64, i64)>,
+    scope: Option<&ScopeFilter>,
 ) -> Vec<(String, Option<String>)> {
     let Ok(query_vec) = model.embed_query(query) else {
         return Vec::new();
@@ -352,7 +418,19 @@ fn run_blocks(
         return Vec::new();
     };
     let fetch = if date_range.is_some() { (limit * 20).max(500) } else { limit * 3 };
-    let raw = block_index.read().expect("index lock").search(&query_vec, fetch);
+    let allowed = hybrid::resolve_allowed_paths(conn, date_range, scope).unwrap_or(None);
+
+    let idx = block_index.read().expect("index lock");
+    let raw = match &allowed {
+        Some(allowed) if allowed.len() <= hybrid::FILTERED_EXACT_MAX => {
+            let keys = idx
+                .keys()
+                .filter(|k| k.split_once('\0').is_some_and(|(path, _)| allowed.contains(path)));
+            idx.search_within(&query_vec, keys, fetch)
+        }
+        _ => idx.search(&query_vec, fetch),
+    };
+    drop(idx);
 
     let mut results = Vec::with_capacity(limit);
     for (key, _distance) in &raw {
@@ -362,6 +440,9 @@ fn run_blocks(
         let Some((path, heading_id)) = key.split_once('\0') else {
             continue;
         };
+        if scope.is_some_and(|sf| sf.is_active() && !sf.matches(path)) {
+            continue;
+        }
         if search_db::get_section(conn, path, heading_id).ok().flatten().is_none() {
             continue;
         }
@@ -448,13 +529,20 @@ fn retrieval_eval_report() {
     let mut unsupported = 0usize;
 
     for q in &fixture.queries {
-        if q.scope.is_some() {
-            // Scoped queries need L3's pre-resolved paths/prefixes; report them
-            // as unsupported rather than scoring an unfiltered search against a
-            // scoped expectation.
-            unsupported += 1;
-            continue;
-        }
+        // A folder/tag scope resolves to L3's ScopeFilter and is scored like
+        // any other query; a `bases` scope has no eval-harness resolver and
+        // is reported unsupported rather than silently scored unscoped.
+        let scope_filter: Option<ScopeFilter> = match &q.scope {
+            None => None,
+            Some(raw) => match parse_scope(&conn, raw) {
+                Some(sf) => Some(sf),
+                None => {
+                    unsupported += 1;
+                    continue;
+                }
+            },
+        };
+
         if !types_seen.contains(&q.kind) {
             types_seen.push(q.kind.clone());
         }
@@ -468,20 +556,21 @@ fn retrieval_eval_report() {
             (parse_rfc3339_utc_ms(&d.from), parse_rfc3339_utc_ms(&d.to) + 1000)
         });
         let limit = TOP_N.max(q.k);
+        let scope_ref = scope_filter.as_ref();
 
         let results: [(&'static str, Vec<(String, Option<String>)>); 4] = [
-            ("fts", run_fts(&conn, &q.query, limit, date_range)),
+            ("fts", run_fts(&conn, &q.query, limit, date_range, scope_ref)),
             (
                 "vector",
-                run_vector(&conn, &note_index, &model, &q.query, limit, date_range),
+                run_vector(&conn, &note_index, &model, &q.query, limit, date_range, scope_ref),
             ),
             (
                 "hybrid",
-                run_hybrid(&conn, &note_index, &model, &q.query, limit, date_range),
+                run_hybrid(&conn, &note_index, &model, &q.query, limit, date_range, scope_ref),
             ),
             (
                 "blocks",
-                run_blocks(&conn, &block_index, &model, &q.query, limit, date_range),
+                run_blocks(&conn, &block_index, &model, &q.query, limit, date_range, scope_ref),
             ),
         ];
 
@@ -497,7 +586,7 @@ fn retrieval_eval_report() {
     types_seen.sort();
 
     println!(
-        "\n=== retrieval eval: {} queries, {unsupported} unsupported (scope, pending L3) ===",
+        "\n=== retrieval eval: {} queries, {unsupported} unsupported (bases scope) ===",
         fixture.queries.len()
     );
     for mode in MODES {

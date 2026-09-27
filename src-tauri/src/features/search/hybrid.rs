@@ -102,7 +102,7 @@ pub fn hybrid_search(
 // to `over_fetch` ahead of it would throw most of the pool away before the
 // filter ever sees it.
 #[allow(clippy::too_many_arguments)]
-fn vector_leg(
+pub(crate) fn vector_leg(
     note_index: &VectorIndex,
     query_vec: Vec<f32>,
     query_text: &str,
