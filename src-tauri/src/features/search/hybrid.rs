@@ -28,25 +28,20 @@ pub fn hybrid_search(
         over_fetch
     };
 
-    // An unusable query vector (encoder NaN, zeroed by normalization) is
-    // cosine-equidistant from every point: searching with it returns arbitrary
-    // neighbours, so the vector leg is skipped entirely and FTS alone ranks.
-    let mut vector_hits = Vec::new();
-    if let Some(query_vec) = usable_query_vector(query_vec, &query.text) {
-        vector_hits = note_index.search(&query_vec, vector_fetch);
-        if !include_linked {
-            vector_hits.retain(|(path, _)| !search_db::is_linked_path(path));
-            // Only a pool the filter actually emptied pays for a second, wider sweep:
-            // above EXACT_SEARCH_MAX_POINTS a fetch of 200 costs ~3x the graph
-            // traversal of 60, and a vault with few linked sources loses nothing here.
-            let widened = vector_fetch.max((limit * 10).max(200));
-            if vector_hits.len() < limit && widened > vector_fetch {
-                vector_hits = note_index.search(&query_vec, widened);
-                vector_hits.retain(|(path, _)| !search_db::is_linked_path(path));
-            }
-            vector_hits.truncate(over_fetch);
-        }
-    }
+    let allowed_by_date = date_range
+        .map(|(start_ms, end_ms)| search_db::paths_in_mtime_range(conn, start_ms, end_ms))
+        .transpose()?;
+
+    let vector_hits = vector_leg(
+        note_index,
+        query_vec,
+        &query.text,
+        vector_fetch,
+        over_fetch,
+        limit,
+        allowed_by_date.as_ref(),
+        include_linked,
+    );
 
     let fts_hits = search_db::search(
         conn,
@@ -58,15 +53,56 @@ pub fn hybrid_search(
     )
     .unwrap_or_default();
 
-    if let Some((start_ms, end_ms)) = date_range {
-        let allowed = search_db::paths_in_mtime_range(conn, start_ms, end_ms)?;
-        vector_hits.retain(|(path, _)| allowed.contains(path));
-        vector_hits.truncate(over_fetch);
-    }
-
     let merged = rrf_merge(conn, &fts_hits, &vector_hits, limit, &query.text);
 
     Ok(merged)
+}
+
+// An unusable query vector (encoder NaN, zeroed by normalization) is
+// cosine-equidistant from every point: searching with it returns arbitrary
+// neighbours, so the vector leg is skipped entirely and FTS alone ranks.
+//
+// `allowed_by_date` is applied before the final `truncate`, not after: the
+// widened `vector_fetch` pool exists to survive that filter, so cutting the
+// pool down to `over_fetch` ahead of it would throw most of the pool away
+// before the filter ever sees it.
+#[allow(clippy::too_many_arguments)]
+fn vector_leg(
+    note_index: &VectorIndex,
+    query_vec: Vec<f32>,
+    query_text: &str,
+    vector_fetch: usize,
+    over_fetch: usize,
+    limit: usize,
+    allowed_by_date: Option<&HashSet<String>>,
+    include_linked: bool,
+) -> Vec<(String, f32)> {
+    let Some(query_vec) = usable_query_vector(query_vec, query_text) else {
+        return Vec::new();
+    };
+
+    let mut hits = note_index.search(&query_vec, vector_fetch);
+    if let Some(allowed) = allowed_by_date {
+        hits.retain(|(path, _)| allowed.contains(path));
+    }
+
+    if !include_linked {
+        hits.retain(|(path, _)| !search_db::is_linked_path(path));
+        // Only a pool the filter actually emptied pays for a second, wider sweep:
+        // above EXACT_SEARCH_MAX_POINTS a fetch of 200 costs ~3x the graph
+        // traversal of 60, and a vault with few linked sources loses nothing here.
+        let widened = vector_fetch.max((limit * 10).max(200));
+        if hits.len() < limit && widened > vector_fetch {
+            hits = note_index.search(&query_vec, widened);
+            if let Some(allowed) = allowed_by_date {
+                hits.retain(|(path, _)| allowed.contains(path));
+            }
+            hits.retain(|(path, _)| !search_db::is_linked_path(path));
+        }
+    }
+
+    hits.truncate(over_fetch);
+    hits
 }
 
 fn rrf_merge(
@@ -215,6 +251,30 @@ mod tests {
 
         let results = merge(&fts, &[], "machine learning");
         assert_eq!(results[0].note.path, "b.md");
+    }
+
+    fn synth_index(n: usize) -> VectorIndex {
+        let mut idx = VectorIndex::new(2);
+        for i in 0..n {
+            let theta = i as f32 * 0.1;
+            idx.insert(&format!("n{i}"), vec![theta.cos(), theta.sin()]);
+        }
+        idx
+    }
+
+    // Regression for the bug where `!include_linked` truncated the vector pool
+    // to `over_fetch` before the date-range filter ran: a date-scoped match
+    // ranking outside the raw top-`over_fetch` (n7 is the farthest of 8 points
+    // from the query) was thrown away before `allowed_by_date` ever saw it.
+    #[test]
+    fn date_filter_survives_the_include_linked_truncate() {
+        let idx = synth_index(8);
+        let allowed: HashSet<String> = ["n7".to_string()].into_iter().collect();
+
+        let hits = vector_leg(&idx, vec![1.0, 0.0], "q", 8, 3, 1, Some(&allowed), false);
+
+        assert_eq!(hits.len(), 1);
+        assert_eq!(hits[0].0, "n7");
     }
 
     #[test]
