@@ -1482,7 +1482,7 @@ fn upsert_plain_content(
     };
     let content_hash = blake3::hash(body.as_bytes()).to_hex().to_string();
 
-    if plain_content_changed(conn, &meta.path, body, &content_hash) {
+    if plain_content_changed(conn, &meta.path, &meta.title, body, &content_hash) {
         if let Err(e) = vector_db::remove_embedding(conn, &meta.path) {
             log::debug!("vector_db::remove_embedding skipped: {e}");
         }
@@ -1507,21 +1507,27 @@ fn upsert_plain_content(
 }
 
 /// Plain-content rows have no sections, and the bulk embed pass only fills in
-/// missing keys, so a changed body has to evict its note vector here. Rows
+/// missing keys, so a changed title or body has to evict its note vector here. Rows
 /// indexed before `content_hash` existed fall back to the stored FTS body, so
 /// an upgrade neither re-embeds every document nor misses its first edit.
-fn plain_content_changed(conn: &Connection, path: &str, body: &str, content_hash: &str) -> bool {
-    let stored_hash = conn
+fn plain_content_changed(
+    conn: &Connection,
+    path: &str,
+    title: &str,
+    body: &str,
+    content_hash: &str,
+) -> bool {
+    let stored = conn
         .query_row(
-            "SELECT content_hash FROM notes WHERE path = ?1",
+            "SELECT title, content_hash FROM notes WHERE path = ?1",
             params![path],
-            |row| row.get::<_, Option<String>>(0),
+            |row| Ok((row.get::<_, String>(0)?, row.get::<_, Option<String>>(1)?)),
         )
-        .ok()
-        .flatten();
-    match stored_hash {
-        Some(old) => old != content_hash,
-        None => get_fts_body(conn, path).is_some_and(|old_body| old_body != body),
+        .ok();
+    match stored {
+        Some((old_title, _)) if old_title != title => true,
+        Some((_, Some(old_hash))) => old_hash != content_hash,
+        _ => get_fts_body(conn, path).is_some_and(|old_body| old_body != body),
     }
 }
 

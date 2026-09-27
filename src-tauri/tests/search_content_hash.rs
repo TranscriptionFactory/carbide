@@ -16,13 +16,13 @@ fn setup_db() -> (TempDir, Connection) {
     (tmp, conn)
 }
 
-fn import(conn: &Connection, body: &str, modified_at: u64) -> String {
+fn import(conn: &Connection, title: &str, body: &str, modified_at: u64) -> String {
     let (meta, _) = crate::features::search::db::upsert_linked_content(
         conn,
         SOURCE,
         ROOT,
         FILE,
-        "Paper",
+        title,
         body,
         &[],
         "pdf",
@@ -57,12 +57,12 @@ fn seed_vector(conn: &Connection, path: &str) {
 #[test]
 fn first_write_records_a_hash() {
     let (_tmp, conn) = setup_db();
-    let path = import(&conn, "extracted text v1", 1_000);
+    let path = import(&conn, "Paper", "extracted text v1", 1_000);
 
     let hash = content_hash(&conn, &path).expect("hash written on first upsert");
     assert!(!hash.is_empty());
     assert_eq!(
-        content_hash(&conn, &import(&conn, "extracted text v1", 2_000)),
+        content_hash(&conn, &import(&conn, "Paper", "extracted text v1", 2_000)),
         Some(hash),
         "the hash is a function of the body alone"
     );
@@ -71,11 +71,11 @@ fn first_write_records_a_hash() {
 #[test]
 fn changed_body_drops_the_note_vector() {
     let (_tmp, conn) = setup_db();
-    let path = import(&conn, "extracted text v1", 1_000);
+    let path = import(&conn, "Paper", "extracted text v1", 1_000);
     seed_vector(&conn, &path);
     let before = content_hash(&conn, &path);
 
-    import(&conn, "extracted text v2", 2_000);
+    import(&conn, "Paper", "extracted text v2", 2_000);
 
     assert!(vector_db::get_embedding(&conn, &path).is_none());
     assert_ne!(content_hash(&conn, &path), before, "the new body's hash is stored");
@@ -84,22 +84,49 @@ fn changed_body_drops_the_note_vector() {
 #[test]
 fn same_body_keeps_the_note_vector() {
     let (_tmp, conn) = setup_db();
-    let path = import(&conn, "extracted text v1", 1_000);
+    let path = import(&conn, "Paper", "extracted text v1", 1_000);
     seed_vector(&conn, &path);
 
-    import(&conn, "extracted text v1", 2_000);
+    import(&conn, "Paper", "extracted text v1", 2_000);
 
     assert!(vector_db::get_embedding(&conn, &path).is_some());
 }
 
 #[test]
-fn null_hash_with_changed_body_drops_the_vector() {
+fn changed_title_with_same_body_drops_the_vector_without_changing_the_hash() {
     let (_tmp, conn) = setup_db();
-    let path = import(&conn, "extracted text v1", 1_000);
+    let path = import(&conn, "Paper", "extracted text v1", 1_000);
+    seed_vector(&conn, &path);
+    let before = content_hash(&conn, &path);
+
+    import(&conn, "Renamed paper", "extracted text v1", 2_000);
+
+    assert!(vector_db::get_embedding(&conn, &path).is_none());
+    assert_eq!(content_hash(&conn, &path), before, "the body hash must not include the title");
+}
+
+#[test]
+fn null_hash_with_changed_title_and_same_body_drops_the_vector() {
+    let (_tmp, conn) = setup_db();
+    let path = import(&conn, "Paper", "extracted text v1", 1_000);
+    let before = content_hash(&conn, &path);
     clear_content_hash(&conn, &path);
     seed_vector(&conn, &path);
 
-    import(&conn, "extracted text v2", 2_000);
+    import(&conn, "Renamed paper", "extracted text v1", 2_000);
+
+    assert!(vector_db::get_embedding(&conn, &path).is_none());
+    assert_eq!(content_hash(&conn, &path), before);
+}
+
+#[test]
+fn null_hash_with_changed_body_drops_the_vector() {
+    let (_tmp, conn) = setup_db();
+    let path = import(&conn, "Paper", "extracted text v1", 1_000);
+    clear_content_hash(&conn, &path);
+    seed_vector(&conn, &path);
+
+    import(&conn, "Paper", "extracted text v2", 2_000);
 
     assert!(
         vector_db::get_embedding(&conn, &path).is_none(),
@@ -111,11 +138,11 @@ fn null_hash_with_changed_body_drops_the_vector() {
 #[test]
 fn null_hash_with_same_body_keeps_the_vector_and_writes_the_hash() {
     let (_tmp, conn) = setup_db();
-    let path = import(&conn, "extracted text v1", 1_000);
+    let path = import(&conn, "Paper", "extracted text v1", 1_000);
     clear_content_hash(&conn, &path);
     seed_vector(&conn, &path);
 
-    import(&conn, "extracted text v1", 2_000);
+    import(&conn, "Paper", "extracted text v1", 2_000);
 
     assert!(vector_db::get_embedding(&conn, &path).is_some());
     assert!(content_hash(&conn, &path).is_some());
