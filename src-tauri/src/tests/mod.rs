@@ -43,6 +43,8 @@ mod embedding_batch_fallback;
 mod embedding_query_guard;
 #[path = "../../tests/vector_ingest_guard.rs"]
 mod vector_ingest_guard;
+#[path = "../../tests/retrieval_eval.rs"]
+mod retrieval_eval;
 
 #[path = "../../tests/vault_settings_service_parse.rs"]
 mod vault_settings_service_parse;
