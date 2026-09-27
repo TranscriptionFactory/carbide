@@ -22,8 +22,8 @@ use std::sync::{Arc, RwLock};
 use std::time::{Duration, Instant};
 
 const CANDIDATES: usize = 40;
-const LATENCY_RUNS: usize = 15;
-const SEQUENTIAL_RUNS: usize = 3;
+const LATENCY_RUNS: usize = 5;
+const SEQUENTIAL_RUNS: usize = 1;
 const MODELS: [RerankerModel; 2] = [RerankerModel::MsMarcoMiniLmL6, RerankerModel::BgeRerankerBase];
 
 #[derive(Deserialize)]
@@ -257,8 +257,9 @@ impl Mrr {
     }
 }
 
-fn evaluate(reranker: &Reranker, cases: &[Case]) {
+fn evaluate(reranker: &Reranker, cases: &[Case], with_sections: bool) {
     let modes = ["hybrid", "rerank-note", "blend-note", "rerank-maxsec"];
+    let modes = &modes[..if with_sections { 4 } else { 3 }];
     let mut mrr: Vec<Mrr> = modes.iter().map(|_| Mrr::default()).collect();
 
     for case in cases {
@@ -271,6 +272,7 @@ fn evaluate(reranker: &Reranker, cases: &[Case]) {
             .candidates
             .iter()
             .zip(&note_scores)
+            .filter(|_| with_sections)
             .map(|(c, note_score)| {
                 let texts: Vec<&str> = c.section_texts.iter().map(String::as_str).collect();
                 reranker
@@ -287,6 +289,7 @@ fn evaluate(reranker: &Reranker, cases: &[Case]) {
             sort_by_score(&paths, &blended(&note_scores)),
             sort_by_score(&paths, &max_section_scores),
         ];
+        let orders = &orders[..if with_sections { 4 } else { 3 }];
         let rrs: Vec<f64> = orders.iter().map(|o| reciprocal_rank(o, &q.expected)).collect();
         for (m, rr) in mrr.iter_mut().zip(&rrs) {
             m.add(&q.kind, *rr);
@@ -297,7 +300,7 @@ fn evaluate(reranker: &Reranker, cases: &[Case]) {
     }
 
     let kinds: Vec<String> = mrr[0].by_type.keys().cloned().collect();
-    println!("  {:<20} {}", "type", modes.map(|m| format!("{m:>14}")).join(""));
+    println!("  {:<20} {}", "type", modes.iter().map(|m| format!("{m:>14}")).collect::<String>());
     for kind in kinds {
         let row: String = mrr.iter().map(|m| format!("{:>14.3}", m.get(&kind))).collect();
         println!("  {kind:<20} {row}");
@@ -320,21 +323,19 @@ fn latency_passages(cases: &[Case]) -> Vec<String> {
         .collect()
 }
 
-fn measure_latency(reranker: &mut Reranker, passages: &[&str]) {
+fn measure_latency(reranker: &mut Reranker, passages: &[&str], runs: usize) {
     let query = "which backup tool keeps snapshots that cannot be deleted";
     for max_tokens in [256, 512] {
         reranker.set_max_tokens(max_tokens).expect("set max tokens");
-        for _ in 0..2 {
-            reranker.score(query, passages).expect("warmup");
-        }
-        let mut runs: Vec<Duration> = (0..LATENCY_RUNS)
+        reranker.score(query, passages).expect("warmup");
+        let mut timings: Vec<Duration> = (0..runs)
             .map(|_| {
                 let start = Instant::now();
                 reranker.score(query, passages).expect("batch score");
                 start.elapsed()
             })
             .collect();
-        runs.sort();
+        timings.sort();
 
         let sequential: Duration = (0..SEQUENTIAL_RUNS)
             .map(|_| {
@@ -350,9 +351,9 @@ fn measure_latency(reranker: &mut Reranker, passages: &[&str]) {
         println!(
             "  {max_tokens} tok x{}: batch p50={:.0}ms p95={:.0}ms min={:.0}ms | sequential mean={:.0}ms",
             passages.len(),
-            ms(percentile(&runs, 0.50)),
-            ms(percentile(&runs, 0.95)),
-            ms(runs[0]),
+            ms(percentile(&timings, 0.50)),
+            ms(percentile(&timings, 0.95)),
+            ms(timings[0]),
             ms(sequential),
         );
     }
@@ -381,7 +382,12 @@ fn reranker_spike_report() {
     let passages = latency_passages(&cases);
     let passages: Vec<&str> = passages.iter().map(String::as_str).collect();
 
-    for which in MODELS {
+    // Quick mode exists because bge on CPU needs ~2 min per 40x512 batch: it
+    // evaluates at 256 tokens without the per-section pass and times a single
+    // batch.
+    let quick = std::env::var("CARBIDE_RERANKER_QUICK").is_ok();
+    let only = std::env::var("CARBIDE_RERANKER_MODEL").unwrap_or_default();
+    for which in MODELS.into_iter().filter(|m| m.hf_repo().contains(only.as_str())) {
         println!("== {}", which.hf_repo());
         drop(Reranker::new(cache.clone(), which).expect("download model"));
         println!("  download: {:.0} MB", download_mb(&cache, which));
@@ -400,12 +406,15 @@ fn reranker_spike_report() {
             (rss_warm as f64 - rss_before as f64) / 1024.0,
         );
 
-        measure_latency(&mut reranker, &passages);
+        if quick {
+            reranker.set_max_tokens(256).expect("set max tokens");
+        }
+        evaluate(&reranker, &cases, !quick);
+        measure_latency(&mut reranker, &passages, if quick { 1 } else { LATENCY_RUNS });
         let rss_peak = rss_kb();
         println!(
             "  RSS delta after 40x512 batches {:.0} MB",
             (rss_peak as f64 - rss_before as f64) / 1024.0
         );
-        evaluate(&reranker, &cases);
     }
 }
