@@ -508,9 +508,11 @@ fn retrieval_eval_report() {
         let note_id = search_db::extract_file_meta(abs, vault_tmp.path())
             .expect("extract meta")
             .path;
+        let title = search_db::get_note_title(&conn, &note_id).expect("indexed note title");
         apply_note_embedding_on_save(
             &conn,
             &note_id,
+            &title,
             &markdown,
             &note_index,
             &block_index,
