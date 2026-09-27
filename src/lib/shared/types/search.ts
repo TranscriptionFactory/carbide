@@ -34,6 +34,11 @@ export type SearchQueryInput = Pick<SearchQuery, "raw" | "text" | "scope">;
 
 export type DateRange = { start_ms: number; end_ms: number };
 
+// A note-path restriction resolved by the caller before searching: `paths`
+// exact-matches, `prefixes` matches a leading segment. A note is in scope if
+// it matches either list.
+export type ScopeFilter = { paths: string[]; prefixes: string[] };
+
 export type NoteSearchHit = {
   note: NoteMeta;
   score: number;

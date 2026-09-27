@@ -1,5 +1,5 @@
 use crate::features::notes::service as notes_service;
-use crate::features::search::model::{IndexNoteMeta, SearchHit, SearchScope};
+use crate::features::search::model::{IndexNoteMeta, ScopeFilter, SearchHit, SearchScope};
 use crate::features::search::embed_scope::NoteEmbedFacts;
 use crate::features::search::vector_db;
 use crate::shared::constants;
@@ -3242,6 +3242,7 @@ pub fn search(
     limit: usize,
     date_range: Option<(i64, i64)>,
     include_linked: bool,
+    path_scope: Option<&ScopeFilter>,
 ) -> Result<Vec<SearchHit>, String> {
     let trimmed = query.trim();
     if trimmed.is_empty() {
@@ -3279,16 +3280,28 @@ pub fn search(
         })
     }
 
-    let date_clause = if date_range.is_some() {
-        " AND n.mtime_ms >= ?3 AND n.mtime_ms < ?4"
-    } else {
-        ""
-    };
-    let linked_clause = if include_linked {
-        ""
-    } else {
-        " AND n.path NOT LIKE '@linked/%'"
-    };
+    let mut params: Vec<Box<dyn rusqlite::ToSql>> = vec![Box::new(match_expr)];
+    let mut clauses = String::new();
+
+    if let Some((start_ms, end_ms)) = date_range {
+        params.push(Box::new(start_ms));
+        params.push(Box::new(end_ms));
+        clauses.push_str(&format!(
+            " AND n.mtime_ms >= ?{} AND n.mtime_ms < ?{}",
+            params.len() - 1,
+            params.len()
+        ));
+    }
+    if !include_linked {
+        clauses.push_str(" AND n.path NOT LIKE '@linked/%'");
+    }
+    if let Some(sf) = path_scope.filter(|s| s.is_active()) {
+        let predicate = scope_predicate("n.path", sf, &mut params)?;
+        clauses.push_str(&format!(" AND {predicate}"));
+    }
+
+    params.push(Box::new(limit as i64));
+    let limit_idx = params.len();
 
     let sql = format!(
         "SELECT n.path, n.title, n.mtime_ms, n.size_bytes,
@@ -3301,22 +3314,43 @@ pub fn search(
                 n.content_snippet
          FROM notes_fts
          JOIN notes n ON n.path = notes_fts.path
-         WHERE notes_fts MATCH ?1{date_clause}{linked_clause}
+         WHERE notes_fts MATCH ?1{clauses}
          ORDER BY rank
-         LIMIT ?2"
+         LIMIT ?{limit_idx}"
     );
 
     let mut stmt = conn.prepare(&sql).map_err(|e| e.to_string())?;
-    let rows = match date_range {
-        Some((start_ms, end_ms)) => {
-            stmt.query_map(params![match_expr, limit, start_ms, end_ms], map_search_row)
-        }
-        None => stmt.query_map(params![match_expr, limit], map_search_row),
-    }
-    .map_err(|e| e.to_string())?;
+    let param_refs: Vec<&dyn rusqlite::ToSql> = params.iter().map(|b| b.as_ref()).collect();
+    let rows = stmt
+        .query_map(param_refs.as_slice(), map_search_row)
+        .map_err(|e| e.to_string())?;
 
     rows.collect::<Result<Vec<_>, _>>()
         .map_err(|e| e.to_string())
+}
+
+/// Builds `col IN (paths) OR col LIKE prefix OR ...` for a [`ScopeFilter`],
+/// appending its params to the caller's list so it can share one placeholder
+/// sequence with whatever other clauses the caller has already added.
+fn scope_predicate(
+    col: &str,
+    sf: &ScopeFilter,
+    params: &mut Vec<Box<dyn rusqlite::ToSql>>,
+) -> Result<String, String> {
+    let mut parts = Vec::new();
+    if !sf.paths.is_empty() {
+        let json = serde_json::to_string(&sf.paths).map_err(|e| e.to_string())?;
+        params.push(Box::new(json));
+        parts.push(format!(
+            "{col} IN (SELECT value FROM json_each(?{}))",
+            params.len()
+        ));
+    }
+    for prefix in &sf.prefixes {
+        params.push(Box::new(like_prefix_pattern(prefix)));
+        parts.push(format!("{col} LIKE ?{} ESCAPE '\\'", params.len()));
+    }
+    Ok(format!("({})", parts.join(" OR ")))
 }
 
 pub fn paths_in_mtime_range(
@@ -3329,6 +3363,22 @@ pub fn paths_in_mtime_range(
         .map_err(|e| e.to_string())?;
     let rows = stmt
         .query_map(params![start_ms, end_ms], |row| row.get::<_, String>(0))
+        .map_err(|e| e.to_string())?;
+    rows.collect::<Result<std::collections::HashSet<_>, _>>()
+        .map_err(|e| e.to_string())
+}
+
+pub fn paths_matching_scope(
+    conn: &Connection,
+    sf: &ScopeFilter,
+) -> Result<std::collections::HashSet<String>, String> {
+    let mut params: Vec<Box<dyn rusqlite::ToSql>> = Vec::new();
+    let predicate = scope_predicate("path", sf, &mut params)?;
+    let sql = format!("SELECT path FROM notes WHERE {predicate}");
+    let mut stmt = conn.prepare(&sql).map_err(|e| e.to_string())?;
+    let param_refs: Vec<&dyn rusqlite::ToSql> = params.iter().map(|b| b.as_ref()).collect();
+    let rows = stmt
+        .query_map(param_refs.as_slice(), |row| row.get::<_, String>(0))
         .map_err(|e| e.to_string())?;
     rows.collect::<Result<std::collections::HashSet<_>, _>>()
         .map_err(|e| e.to_string())
