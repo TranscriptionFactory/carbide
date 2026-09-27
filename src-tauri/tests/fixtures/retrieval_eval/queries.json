@@ -1,0 +1,775 @@
+{
+  "version": 1,
+  "queries": [
+    {
+      "id": "exact-01",
+      "query": "sourdough starter feeding ratio",
+      "type": "exact",
+      "expected": [
+        {
+          "path": "recipes/sourdough-starter.md",
+          "heading_id": "h-2-feeding-schedule-0"
+        }
+      ],
+      "k": 5
+    },
+    {
+      "id": "exact-02",
+      "query": "guanciale amatriciana bucatini",
+      "type": "exact",
+      "expected": [
+        {
+          "path": "recipes/amatriciana.md"
+        }
+      ],
+      "k": 5
+    },
+    {
+      "id": "exact-03",
+      "query": "burr alignment shim kit",
+      "type": "exact",
+      "expected": [
+        {
+          "path": "reference/burr-grinder-alignment.md",
+          "heading_id": "h-2-method-0"
+        }
+      ],
+      "k": 5
+    },
+    {
+      "id": "exact-04",
+      "query": "raspberry pi cluster poe hat",
+      "type": "exact",
+      "expected": [
+        {
+          "path": "projects/raspberry-pi-cluster.md",
+          "heading_id": "h-2-setup-0"
+        }
+      ],
+      "k": 5
+    },
+    {
+      "id": "exact-05",
+      "query": "flaxseed oil seasoning cast iron skillet",
+      "type": "exact",
+      "expected": [
+        {
+          "path": "recipes/cast-iron-skillet.md",
+          "heading_id": "h-2-overview-0"
+        }
+      ],
+      "k": 5
+    },
+    {
+      "id": "exact-06",
+      "query": "backup strategy append-only borg repository",
+      "type": "exact",
+      "expected": [
+        {
+          "path": "projects/backup-strategy.md",
+          "heading_id": "h-2-tools-0"
+        }
+      ],
+      "k": 5
+    },
+    {
+      "id": "exact-07",
+      "query": "kyoto kodaiji garden pass",
+      "type": "exact",
+      "expected": [
+        {
+          "path": "travel/kyoto-notes.md",
+          "heading_id": "h-2-gardens-0"
+        }
+      ],
+      "k": 5
+    },
+    {
+      "id": "semantic-01",
+      "query": "why do humans need downtime",
+      "type": "semantic",
+      "expected": [
+        {
+          "path": "reference/sleep-science.md"
+        }
+      ],
+      "k": 5
+    },
+    {
+      "id": "semantic-02",
+      "query": "why does laundry take forever to finish",
+      "type": "semantic",
+      "expected": [
+        {
+          "path": "home/dryer-notes.md"
+        }
+      ],
+      "k": 5
+    },
+    {
+      "id": "semantic-03",
+      "query": "keeping the air clear when machining timber",
+      "type": "semantic",
+      "expected": [
+        {
+          "path": "projects/workshop-dust-collection.md"
+        }
+      ],
+      "k": 5
+    },
+    {
+      "id": "semantic-04",
+      "query": "how do you store a bumper crop of red fruit",
+      "type": "semantic",
+      "expected": [
+        {
+          "path": "recipes/tomato-sauce.md"
+        }
+      ],
+      "k": 5
+    },
+    {
+      "id": "semantic-05",
+      "query": "what did I clear out of my closet",
+      "type": "semantic",
+      "expected": [
+        {
+          "path": "journal/spring-cleaning-log.md"
+        }
+      ],
+      "k": 5
+    },
+    {
+      "id": "semantic-06",
+      "query": "which pastries should I try in Portugal",
+      "type": "semantic",
+      "expected": [
+        {
+          "path": "travel/lisbon-notes.md"
+        }
+      ],
+      "k": 5
+    },
+    {
+      "id": "title-dependent-01",
+      "query": "how to clean the espresso machine",
+      "type": "title-dependent",
+      "expected": [
+        {
+          "path": "home/espresso-machine.md",
+          "heading_id": "h-2-cleaning-0"
+        }
+      ],
+      "k": 5
+    },
+    {
+      "id": "title-dependent-02",
+      "query": "wood stove setup for the first burn",
+      "type": "title-dependent",
+      "expected": [
+        {
+          "path": "home/wood-stove.md",
+          "heading_id": "h-2-setup-0"
+        }
+      ],
+      "k": 5
+    },
+    {
+      "id": "title-dependent-03",
+      "query": "road bike maintenance checklist",
+      "type": "title-dependent",
+      "expected": [
+        {
+          "path": "projects/road-bike.md",
+          "heading_id": "h-2-maintenance-0"
+        }
+      ],
+      "k": 5
+    },
+    {
+      "id": "title-dependent-04",
+      "query": "cast iron skillet troubleshooting seasoning",
+      "type": "title-dependent",
+      "expected": [
+        {
+          "path": "recipes/cast-iron-skillet.md",
+          "heading_id": "h-2-troubleshooting-0"
+        }
+      ],
+      "k": 5
+    },
+    {
+      "id": "title-dependent-05",
+      "query": "darkroom printing steps test strip",
+      "type": "title-dependent",
+      "expected": [
+        {
+          "path": "projects/darkroom-printing.md",
+          "heading_id": "h-2-steps-0"
+        }
+      ],
+      "k": 5
+    },
+    {
+      "id": "long-section-01",
+      "query": "what MTU should a PPPoE connection use",
+      "type": "long-section",
+      "expected": [
+        {
+          "path": "reference/home-networking.md",
+          "heading_id": "h-2-troubleshooting-0"
+        }
+      ],
+      "k": 10
+    },
+    {
+      "id": "long-section-02",
+      "query": "when should I book Shinkansen seats",
+      "type": "long-section",
+      "expected": [
+        {
+          "path": "travel/japan-trip-planning.md",
+          "heading_id": "h-2-two-week-itinerary-0"
+        }
+      ],
+      "k": 10
+    },
+    {
+      "id": "long-section-03",
+      "query": "how to stop voles tunnelling into raised beds",
+      "type": "long-section",
+      "expected": [
+        {
+          "path": "home/raised-beds.md",
+          "heading_id": "h-2-building-the-beds-0"
+        }
+      ],
+      "k": 10
+    },
+    {
+      "id": "long-section-04",
+      "query": "what expense ratio is too high for an index fund",
+      "type": "long-section",
+      "expected": [
+        {
+          "path": "reference/index-fund-basics.md",
+          "heading_id": "h-2-choosing-a-fund-0"
+        }
+      ],
+      "k": 10
+    },
+    {
+      "id": "date-scoped-01",
+      "query": "sourdough feeding ratio hydration",
+      "type": "date-scoped",
+      "date_range": {
+        "from": "2025-01-01T00:00:00Z",
+        "to": "2025-12-31T23:59:59Z"
+      },
+      "expected": [
+        {
+          "path": "recipes/sourdough-starter.md",
+          "heading_id": "h-2-feeding-schedule-0"
+        }
+      ],
+      "k": 5
+    },
+    {
+      "id": "date-scoped-02",
+      "query": "annual budget review savings rate",
+      "type": "date-scoped",
+      "date_range": {
+        "from": "2024-01-01T00:00:00Z",
+        "to": "2024-12-31T23:59:59Z"
+      },
+      "expected": [
+        {
+          "path": "journal/2024-annual-budget-review.md"
+        }
+      ],
+      "k": 5
+    },
+    {
+      "id": "date-scoped-03",
+      "query": "iceland ring road campervan trip",
+      "type": "date-scoped",
+      "date_range": {
+        "from": "2024-01-01T00:00:00Z",
+        "to": "2024-12-31T23:59:59Z"
+      },
+      "expected": [
+        {
+          "path": "travel/iceland-summer-2024.md"
+        }
+      ],
+      "k": 5
+    },
+    {
+      "id": "date-scoped-04",
+      "query": "boiler service flue gas reading",
+      "type": "date-scoped",
+      "date_range": {
+        "from": "2025-01-01T00:00:00Z",
+        "to": "2025-12-31T23:59:59Z"
+      },
+      "expected": [
+        {
+          "path": "home/boiler-service-2025.md",
+          "heading_id": "h-2-findings-0"
+        }
+      ],
+      "k": 5
+    },
+    {
+      "id": "scope-01",
+      "query": "tomato plants watering schedule",
+      "type": "folder-tag-scoped",
+      "scope": {
+        "folders": [
+          "home"
+        ]
+      },
+      "expected": [
+        {
+          "path": "home/balcony-tomatoes.md"
+        }
+      ],
+      "k": 5
+    },
+    {
+      "id": "scope-02",
+      "query": "backup schedule snapshot rotation",
+      "type": "folder-tag-scoped",
+      "scope": {
+        "folders": [
+          "projects"
+        ]
+      },
+      "expected": [
+        {
+          "path": "projects/backup-strategy.md",
+          "heading_id": "h-2-schedule-0"
+        }
+      ],
+      "k": 5
+    },
+    {
+      "id": "scope-03",
+      "query": "tomato seedlings sowing dates",
+      "type": "folder-tag-scoped",
+      "scope": {
+        "tags": [
+          "garden"
+        ]
+      },
+      "expected": [
+        {
+          "path": "home/balcony-tomatoes.md"
+        },
+        {
+          "path": "journal/garden-log-march.md"
+        }
+      ],
+      "k": 5
+    },
+    {
+      "id": "scope-04",
+      "query": "index fund expense ratio fees",
+      "type": "folder-tag-scoped",
+      "scope": {
+        "tags": [
+          "finance"
+        ]
+      },
+      "expected": [
+        {
+          "path": "journal/2025-annual-budget-review.md"
+        }
+      ],
+      "k": 5
+    },
+    {
+      "id": "scope-05",
+      "query": "grinder burr alignment drift shim",
+      "type": "folder-tag-scoped",
+      "scope": {
+        "tags": [
+          "beginner"
+        ]
+      },
+      "expected": [
+        {
+          "path": "home/coffee-grinder.md",
+          "heading_id": "h-2-troubleshooting-0"
+        }
+      ],
+      "k": 5
+    },
+    {
+      "id": "distractor-01",
+      "query": "which backup tool keeps snapshots that cannot be deleted",
+      "type": "distractor",
+      "expected": [
+        {
+          "path": "projects/backup-strategy.md",
+          "heading_id": "h-2-tools-0"
+        }
+      ],
+      "k": 10
+    },
+    {
+      "id": "distractor-02",
+      "query": "which city has the philosopher's path",
+      "type": "distractor",
+      "expected": [
+        {
+          "path": "travel/kyoto-notes.md",
+          "heading_id": "h-2-gardens-0"
+        }
+      ],
+      "k": 10
+    },
+    {
+      "id": "distractor-03",
+      "query": "which recipe uses guanciale with tomato",
+      "type": "distractor",
+      "expected": [
+        {
+          "path": "recipes/amatriciana.md"
+        }
+      ],
+      "k": 10
+    },
+    {
+      "id": "distractor-04",
+      "query": "which appliance needs its lint filter rinsed monthly",
+      "type": "distractor",
+      "expected": [
+        {
+          "path": "home/dryer-notes.md",
+          "heading_id": "h-2-troubleshooting-0"
+        }
+      ],
+      "k": 10
+    },
+    {
+      "id": "exact-08",
+      "query": "gaggia classic opv spring rebuild",
+      "type": "exact",
+      "expected": [
+        {
+          "path": "home/gaggia-classic-notes.md",
+          "heading_id": "h-2-setup-0"
+        }
+      ],
+      "k": 5
+    },
+    {
+      "id": "exact-09",
+      "query": "alla gricia guanciale pecorino rigatoni",
+      "type": "exact",
+      "expected": [
+        {
+          "path": "recipes/alla-gricia.md"
+        }
+      ],
+      "k": 5
+    },
+    {
+      "id": "exact-10",
+      "query": "porto cellar tour francesinha",
+      "type": "exact",
+      "expected": [
+        {
+          "path": "travel/porto-notes.md",
+          "heading_id": "h-2-food-0"
+        }
+      ],
+      "k": 5
+    },
+    {
+      "id": "exact-11",
+      "query": "wheel build spoke tension kgf",
+      "type": "exact",
+      "expected": [
+        {
+          "path": "projects/bike-wheel-build.md",
+          "heading_id": "h-2-steps-0"
+        }
+      ],
+      "k": 5
+    },
+    {
+      "id": "semantic-07",
+      "query": "how much should I park for when everything goes wrong",
+      "type": "semantic",
+      "expected": [
+        {
+          "path": "reference/emergency-fund.md"
+        }
+      ],
+      "k": 5
+    },
+    {
+      "id": "semantic-08",
+      "query": "why bother owning something that barely moves",
+      "type": "semantic",
+      "expected": [
+        {
+          "path": "reference/bond-fund-basics.md"
+        }
+      ],
+      "k": 5
+    },
+    {
+      "id": "semantic-09",
+      "query": "why do adverts vanish here",
+      "type": "semantic",
+      "expected": [
+        {
+          "path": "projects/pi-hole-setup.md"
+        }
+      ],
+      "k": 5
+    },
+    {
+      "id": "semantic-10",
+      "query": "when should I retire an ageing disk",
+      "type": "semantic",
+      "expected": [
+        {
+          "path": "projects/nas-drive-replacement.md"
+        }
+      ],
+      "k": 5
+    },
+    {
+      "id": "title-dependent-06",
+      "query": "why does my hand grinder wobble",
+      "type": "title-dependent",
+      "expected": [
+        {
+          "path": "home/hand-grinder.md",
+          "heading_id": "h-2-troubleshooting-0"
+        }
+      ],
+      "k": 5
+    },
+    {
+      "id": "title-dependent-07",
+      "query": "how do I set up a cold frame",
+      "type": "title-dependent",
+      "expected": [
+        {
+          "path": "home/cold-frame.md",
+          "heading_id": "h-2-setup-0"
+        }
+      ],
+      "k": 5
+    },
+    {
+      "id": "title-dependent-08",
+      "query": "how long should log store timber rest",
+      "type": "title-dependent",
+      "expected": [
+        {
+          "path": "home/log-store.md",
+          "heading_id": "h-2-notes-0"
+        }
+      ],
+      "k": 5
+    },
+    {
+      "id": "title-dependent-09",
+      "query": "sapporo snow festival what to wear",
+      "type": "title-dependent",
+      "expected": [
+        {
+          "path": "travel/sapporo-notes.md",
+          "heading_id": "h-2-notes-0"
+        }
+      ],
+      "k": 5
+    },
+    {
+      "id": "long-section-05",
+      "query": "how long is the pre-infusion on a lever machine",
+      "type": "long-section",
+      "expected": [
+        {
+          "path": "home/lever-espresso-machine.md",
+          "heading_id": "h-2-setup-0"
+        }
+      ],
+      "k": 10
+    },
+    {
+      "id": "long-section-06",
+      "query": "what size flue brush for a 125 mm chimney",
+      "type": "long-section",
+      "expected": [
+        {
+          "path": "home/wood-stove-flue-sweep.md",
+          "heading_id": "h-2-steps-0"
+        }
+      ],
+      "k": 10
+    },
+    {
+      "id": "long-section-07",
+      "query": "which upstream resolver does the pi use",
+      "type": "long-section",
+      "expected": [
+        {
+          "path": "projects/pi-hole-setup.md",
+          "heading_id": "h-2-setup-0"
+        }
+      ],
+      "k": 10
+    },
+    {
+      "id": "long-section-08",
+      "query": "what trowel size for large wall tiles",
+      "type": "long-section",
+      "expected": [
+        {
+          "path": "journal/renovation-log-bathroom.md",
+          "heading_id": "h-2-week-one-0"
+        }
+      ],
+      "k": 10
+    },
+    {
+      "id": "date-scoped-05",
+      "query": "rye loaf covered bake time",
+      "type": "date-scoped",
+      "date_range": {
+        "from": "2025-01-01T00:00:00Z",
+        "to": "2025-12-31T23:59:59Z"
+      },
+      "expected": [
+        {
+          "path": "recipes/rye-sourdough.md",
+          "heading_id": "h-2-method-0"
+        }
+      ],
+      "k": 5
+    },
+    {
+      "id": "date-scoped-06",
+      "query": "gravel bike tubeless tyre width",
+      "type": "date-scoped",
+      "date_range": {
+        "from": "2024-01-01T00:00:00Z",
+        "to": "2024-12-31T23:59:59Z"
+      },
+      "expected": [
+        {
+          "path": "projects/gravel-bike.md",
+          "heading_id": "h-2-setup-0"
+        }
+      ],
+      "k": 5
+    },
+    {
+      "id": "date-scoped-07",
+      "query": "annual budget review savings rate 2026",
+      "type": "date-scoped",
+      "date_range": {
+        "from": "2026-01-01T00:00:00Z",
+        "to": "2026-12-31T23:59:59Z"
+      },
+      "expected": [
+        {
+          "path": "journal/2026-annual-budget-review.md",
+          "heading_id": "h-2-summary-0"
+        }
+      ],
+      "k": 5
+    },
+    {
+      "id": "scope-06",
+      "query": "should I add bonds alongside the shares",
+      "type": "folder-tag-scoped",
+      "scope": {
+        "tags": [
+          "investing"
+        ]
+      },
+      "expected": [
+        {
+          "path": "reference/etf-selection-notes.md"
+        }
+      ],
+      "k": 5
+    },
+    {
+      "id": "scope-07",
+      "query": "how do I stop a sour shot",
+      "type": "folder-tag-scoped",
+      "scope": {
+        "tags": [
+          "coffee"
+        ]
+      },
+      "expected": [
+        {
+          "path": "home/espresso-water-recipes.md"
+        }
+      ],
+      "k": 5
+    },
+    {
+      "id": "scope-08",
+      "query": "how much soot comes off the flue",
+      "type": "folder-tag-scoped",
+      "scope": {
+        "tags": [
+          "heating"
+        ]
+      },
+      "expected": [
+        {
+          "path": "home/log-store.md"
+        }
+      ],
+      "k": 5
+    },
+    {
+      "id": "distractor-05",
+      "query": "which service visit replaced the pressure relief valve",
+      "type": "distractor",
+      "expected": [
+        {
+          "path": "home/boiler-service-2026.md",
+          "heading_id": "h-2-findings-0"
+        }
+      ],
+      "k": 10
+    },
+    {
+      "id": "distractor-06",
+      "query": "which loaf soaks its bran before mixing",
+      "type": "distractor",
+      "expected": [
+        {
+          "path": "recipes/wholemeal-sourdough.md",
+          "heading_id": "h-2-overview-0"
+        }
+      ],
+      "k": 10
+    },
+    {
+      "id": "distractor-07",
+      "query": "which crossing needed a tunnel toll",
+      "type": "distractor",
+      "expected": [
+        {
+          "path": "travel/iceland-westfjords-2026.md",
+          "heading_id": "h-2-route-0"
+        }
+      ],
+      "k": 10
+    }
+  ]
+}

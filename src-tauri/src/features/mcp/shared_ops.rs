@@ -687,7 +687,7 @@ pub fn search_notes_db(
     limit: usize,
 ) -> Result<Vec<crate::features::search::model::SearchHit>, OpError> {
     search_service::with_read_conn(app, vault_id, |conn| {
-        search_db::search(conn, query, SearchScope::All, limit, None, true)
+        search_db::search(conn, query, SearchScope::All, limit, None, true, None)
     })
     .map_err(OpError::Internal)
 }

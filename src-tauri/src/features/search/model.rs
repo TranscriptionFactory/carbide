@@ -21,6 +21,30 @@ pub struct DateRange {
     pub end_ms: i64,
 }
 
+/// A note-path restriction resolved by the caller before searching: `paths`
+/// exact-matches, `prefixes` matches a leading segment. A note is in scope if
+/// it matches either list; an empty list contributes no restriction of its
+/// own. Distinct from [`SearchScope`], which picks *which columns* FTS matches
+/// rather than *which notes* are eligible.
+#[derive(Debug, Deserialize, Clone, Default, Type)]
+pub struct ScopeFilter {
+    #[serde(default)]
+    pub paths: Vec<String>,
+    #[serde(default)]
+    pub prefixes: Vec<String>,
+}
+
+impl ScopeFilter {
+    pub fn is_active(&self) -> bool {
+        !self.paths.is_empty() || !self.prefixes.is_empty()
+    }
+
+    pub fn matches(&self, path: &str) -> bool {
+        self.paths.iter().any(|p| p == path)
+            || self.prefixes.iter().any(|p| path.starts_with(p.as_str()))
+    }
+}
+
 #[derive(Debug, Serialize, Clone, Type)]
 #[serde(rename_all = "camelCase")]
 pub struct BlockSearchHit {

@@ -21,12 +21,12 @@ import type {
   DateRange,
   HitSource,
   HybridSearchHit,
+  ScopeFilter,
 } from "$lib/shared/types/search";
 
 const log = create_logger("retrieval_service");
 
 const DEFAULT_RETRIEVE_LIMIT = 15;
-const SCOPE_OVERFETCH = 6;
 const CITED_NOTE_BOOST = 1.25;
 // The note leg already fuses FTS and note-level embeddings by Reciprocal Rank
 // Fusion with this K (hybrid.rs:78). Reusing it makes a block-derived term
@@ -179,13 +179,38 @@ export class RetrievalService {
     const pinned = await this.resolve_pinned(vault.id, request.pinned_titles);
     const pinned_paths = new Set(pinned.map((hit) => hit.note_path));
 
+    let scope_filter: ScopeFilter | null;
+    try {
+      scope_filter = await this.resolve_scope_filter(vault.id, request.scope);
+    } catch (err) {
+      if (err instanceof RagScopeError) {
+        return { status: "scope_failed", scope_label: err.label };
+      }
+      throw err;
+    }
+
+    // An active scope that resolved to neither an explicit path nor a prefix
+    // (e.g. a tag and a note scope with no note in common) can never match —
+    // sending it to search would be indistinguishable from no scope at all,
+    // since an empty filter is what "unscoped" also looks like on the wire.
+    if (
+      this.scope_is_active(request.scope) &&
+      scope_filter &&
+      scope_filter.paths.length === 0 &&
+      scope_filter.prefixes.length === 0
+    ) {
+      return { status: "scope_filtered" };
+    }
+
+    const retrieve_limit = request.limit ?? DEFAULT_RETRIEVE_LIMIT;
     let hits: RetrievalHit[];
     try {
       hits = await this.search(
         vault.id,
         retrieval_query,
         analysis.date_range,
-        this.effective_retrieve_limit(request),
+        retrieve_limit,
+        scope_filter,
       );
     } catch (err) {
       log.warn("RAG retrieval failed", { error: error_message(err) });
@@ -193,14 +218,7 @@ export class RetrievalService {
     }
 
     const unscoped_hit_count = hits.length;
-    try {
-      hits = await this.apply_scope(vault.id, hits, request.scope);
-    } catch (err) {
-      if (err instanceof RagScopeError) {
-        return { status: "scope_failed", scope_label: err.label };
-      }
-      throw err;
-    }
+    hits = this.apply_scope(hits, scope_filter);
     hits = hits.filter((hit) => !pinned_paths.has(hit.note_path));
 
     if (hits.length === 0 && pinned.length === 0) {
@@ -211,7 +229,6 @@ export class RetrievalService {
     }
 
     const ranked = boost_cited_notes(hits, request.boost_paths);
-    const retrieve_limit = request.limit ?? DEFAULT_RETRIEVE_LIMIT;
     const [pinned_notes, retrieved_notes] = await Promise.all([
       this.read_notes(vault.id, pinned, (_hit, rank) => pinned_block_id(rank)),
       this.read_notes(
@@ -282,16 +299,12 @@ export class RetrievalService {
     );
   }
 
-  private effective_retrieve_limit(request: RetrievalRequest): number {
-    const base = request.limit ?? DEFAULT_RETRIEVE_LIMIT;
-    return this.scope_is_active(request.scope) ? base * SCOPE_OVERFETCH : base;
-  }
-
   private async search(
     vault_id: VaultId,
     query: string,
     date_range: DateRange | null,
     limit: number,
+    scope: ScopeFilter | null,
   ): Promise<RetrievalHit[]> {
     const include_linked = this.include_linked_sources();
     const [notes, blocks] = await Promise.all([
@@ -301,9 +314,10 @@ export class RetrievalService {
         limit,
         date_range,
         include_linked,
+        scope,
       ),
       this.search_port
-        .search_blocks(vault_id, query, limit, date_range)
+        .search_blocks(vault_id, query, limit, date_range, scope)
         .catch((err) => {
           log.warn("RAG block retrieval failed; using whole-note context", {
             error: error_message(err),
@@ -321,33 +335,30 @@ export class RetrievalService {
     return fuse_block_ranking(notes.map(note_to_hit), ranked_blocks);
   }
 
-  private async apply_scope(
+  // Resolves notes/tags/bases to explicit paths, ANDing them together as
+  // `apply_scope` used to by narrowing sequentially. Folders have no such
+  // enumeration (only a prefix), so they either gate the resolved path set
+  // client-side (when one exists) or, alone, become `prefixes` for the server
+  // to match — the reason this returns a single flat filter instead of the
+  // four separate lists `RetrievalScope` carries.
+  private async resolve_scope_filter(
     vault_id: VaultId,
-    hits: RetrievalHit[],
     scope: RetrievalScope | undefined,
-  ): Promise<RetrievalHit[]> {
+  ): Promise<ScopeFilter | null> {
+    if (!this.scope_is_active(scope)) return null;
+
     const notes = scope?.notes ?? [];
-    if (notes.length > 0) {
-      const allowed = new Set(notes);
-      hits = hits.filter((hit) => allowed.has(hit.note_path));
-    }
+    let candidate: Set<string> | null =
+      notes.length > 0 ? new Set(notes) : null;
 
-    const folders = scope?.folders ?? [];
-    if (folders.length > 0) {
-      hits = hits.filter((hit) =>
-        folders.some((folder) => hit.note_path.startsWith(folder)),
-      );
-    }
-
-    hits = await this.keep_in_note_set(
-      hits,
+    candidate = await this.intersect_candidate(
+      candidate,
       scope?.tags ?? [],
       (tag) => this.tag_port.get_notes_for_tag(vault_id, tag),
       "tag",
     );
-
-    return this.keep_in_note_set(
-      hits,
+    candidate = await this.intersect_candidate(
+      candidate,
       scope?.bases ?? [],
       async (path) => {
         const view = await this.bases_port.load_view(vault_id, path);
@@ -360,25 +371,56 @@ export class RetrievalService {
       },
       "base",
     );
+
+    const folders = scope?.folders ?? [];
+    if (candidate) {
+      const paths =
+        folders.length > 0
+          ? [...candidate].filter((path) =>
+              folders.some((folder) => path.startsWith(folder)),
+            )
+          : [...candidate];
+      return { paths, prefixes: [] };
+    }
+    return { paths: [], prefixes: folders };
   }
 
-  private async keep_in_note_set(
-    hits: RetrievalHit[],
+  private async intersect_candidate(
+    candidate: Set<string> | null,
     values: string[],
     resolve: (value: string) => Promise<string[]>,
     label: string,
-  ): Promise<RetrievalHit[]> {
-    if (values.length === 0) return hits;
+  ): Promise<Set<string> | null> {
+    if (values.length === 0) return candidate;
     try {
       const sets = await Promise.all(values.map(resolve));
-      const allowed = new Set<string>(sets.flat());
-      return hits.filter((hit) => allowed.has(hit.note_path));
+      const resolved = new Set<string>(sets.flat());
+      if (candidate === null) return resolved;
+      return new Set([...candidate].filter((path) => resolved.has(path)));
     } catch (err) {
       log.warn(`RAG ${label} scope filter failed`, {
         error: error_message(err),
       });
       throw new RagScopeError(label);
     }
+  }
+
+  // A cheap assert-filter: the server already applied `scope`, this just
+  // re-checks the same predicate in-process at no extra IO cost, as a guard
+  // against a wiring bug rather than as the primary enforcement mechanism.
+  private apply_scope(
+    hits: RetrievalHit[],
+    scope: ScopeFilter | null,
+  ): RetrievalHit[] {
+    if (!scope || (scope.paths.length === 0 && scope.prefixes.length === 0)) {
+      return hits;
+    }
+    const allowed = new Set(scope.paths);
+    return hits.filter(
+      (hit) =>
+        allowed.has(hit.note_path) ||
+        scope.prefixes.some((prefix) => hit.note_path.startsWith(prefix)),
+    );
   }
 
   private async read_hit_markdown(

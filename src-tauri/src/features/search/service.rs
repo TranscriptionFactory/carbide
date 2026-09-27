@@ -11,7 +11,8 @@ use crate::features::search::embeddings::{
 use crate::features::search::hnsw_index::{SharedVectorIndex, VectorIndex};
 use crate::features::search::model::{
     BatchSemanticEdge, BlockSearchHit, BlockSectionHit, DateRange, EmbeddingStatus,
-    HybridSearchHit, IndexNoteMeta, MissingLinkHit, SearchHit, SearchScope, SemanticSearchHit,
+    HybridSearchHit, IndexNoteMeta, MissingLinkHit, ScopeFilter, SearchHit, SearchScope,
+    SemanticSearchHit,
 };
 use crate::features::search::tag_promotion::{
     is_promoted, promoted_set, promoted_setting_from_value,
@@ -3428,7 +3429,7 @@ pub fn index_search_inner(
     let max = limit.unwrap_or(50);
     let include_linked = include_linked.unwrap_or(true);
     with_read_conn(&app, &vault_id, |conn| {
-        search_db::search(conn, &query.text, query.scope, max, None, include_linked)
+        search_db::search(conn, &query.text, query.scope, max, None, include_linked, None)
     })
 }
 
@@ -4365,9 +4366,10 @@ pub async fn search_blocks(
     query: String,
     limit: Option<usize>,
     date_range: Option<DateRange>,
+    scope: Option<ScopeFilter>,
 ) -> Result<Vec<BlockSectionHit>, String> {
     crate::shared::blocking::blocking("search_blocks", move || {
-        search_blocks_inner(app, vault_id, query, limit, date_range)
+        search_blocks_inner(app, vault_id, query, limit, date_range, scope)
     })
     .await
 }
@@ -4378,6 +4380,7 @@ pub fn search_blocks_inner(
     query: String,
     limit: Option<usize>,
     date_range: Option<DateRange>,
+    scope: Option<ScopeFilter>,
 ) -> Result<Vec<BlockSectionHit>, String> {
     let model = query_model(&app)?;
     let query_vec = model.embed_query(&query)?;
@@ -4391,8 +4394,25 @@ pub fn search_blocks_inner(
         limit * 3
     };
 
+    let date_range_tuple = date_range.map(|d| (d.start_ms, d.end_ms));
+    let allowed = with_read_conn(&app, &vault_id, |conn| {
+        hybrid::resolve_allowed_paths(conn, date_range_tuple, scope.as_ref())
+    })?;
+
+    // Block keys are `{path}\0{heading_id}`; a small enough allowed set is
+    // scanned exactly by filtering the resident keys down to the notes it
+    // permits, same threshold and rationale as hybrid_search's vector leg.
     let raw = match usable_query_vector(query_vec, &query) {
-        Some(query_vec) => with_block_index(&app, &vault_id, |idx| idx.search(&query_vec, fetch))?,
+        Some(query_vec) => with_block_index(&app, &vault_id, |idx| match &allowed {
+            Some(allowed) if allowed.len() <= hybrid::FILTERED_EXACT_MAX => {
+                let keys = idx.keys().filter(|k| {
+                    k.split_once('\0')
+                        .is_some_and(|(path, _)| allowed.contains(path))
+                });
+                idx.search_within(&query_vec, keys, fetch)
+            }
+            _ => idx.search(&query_vec, fetch),
+        })?,
         None => Vec::new(),
     };
 
@@ -4405,6 +4425,12 @@ pub fn search_blocks_inner(
             let Some((path, heading_id)) = key.split_once('\0') else {
                 continue;
             };
+            // Only load-bearing on the fallback path above: the exact scan
+            // already restricted `raw` to the scope, but re-checking here is
+            // cheap and keeps both paths correct if that ever changes.
+            if scope.as_ref().is_some_and(|sf| sf.is_active() && !sf.matches(path)) {
+                continue;
+            }
             let Some((heading, start_line, end_line)) =
                 search_db::get_section(conn, path, heading_id)?
             else {
@@ -4479,6 +4505,7 @@ pub async fn hybrid_search(
     limit: Option<usize>,
     date_range: Option<DateRange>,
     include_linked: Option<bool>,
+    scope: Option<ScopeFilter>,
 ) -> Result<Vec<HybridSearchHit>, String> {
     let model = query_model(&app)?;
     let limit = limit.unwrap_or(20);
@@ -4499,7 +4526,16 @@ pub async fn hybrid_search(
     tauri::async_runtime::spawn_blocking(move || {
         let conn = read_conn.lock().map_err(|e| e.to_string())?;
         let idx = ni.read().map_err(|e| e.to_string())?;
-        hybrid::hybrid_search(&conn, &idx, &model, &query, limit, date_range, include_linked)
+        hybrid::hybrid_search(
+            &conn,
+            &idx,
+            &model,
+            &query,
+            limit,
+            date_range,
+            include_linked,
+            scope.as_ref(),
+        )
     })
     .await
     .map_err(|e| e.to_string())?
@@ -4531,7 +4567,7 @@ pub(crate) fn hybrid_search_sync(
     };
 
     // Agent/MCP-facing search has no user setting to read; linked sources stay in.
-    hybrid::hybrid_search(&conn, &idx, &model, &query_input, limit, None, true)
+    hybrid::hybrid_search(&conn, &idx, &model, &query_input, limit, None, true, None)
 }
 
 #[tauri::command]

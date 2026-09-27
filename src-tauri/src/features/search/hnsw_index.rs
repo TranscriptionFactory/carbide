@@ -388,19 +388,45 @@ impl VectorIndex {
     /// f32 path runs three f64 accumulators and a `sqrt` per vector, two of
     /// which are pure waste once the norms are known to be 1.
     fn exact_search(&self, query: &[f32], limit: usize) -> Vec<(String, f32)> {
+        self.search_within(query, self.vectors.keys().map(String::as_str), limit)
+    }
+
+    /// Exhaustive nearest-neighbour scan restricted to `keys`, for a caller that
+    /// has already resolved a scope (a date range, a folder/tag/note scope) to a
+    /// key subset — a scan bounded by that subset rather than by the index's
+    /// full population, so it stays exact regardless of [`EXACT_SEARCH_MAX_POINTS`].
+    /// Keys absent from the index (stale scope entries) are skipped rather than
+    /// erroring, matching [`Self::get_vector`]'s "unknown key" handling elsewhere.
+    pub fn search_within<'a>(
+        &self,
+        query: &[f32],
+        keys: impl Iterator<Item = &'a str>,
+        limit: usize,
+    ) -> Vec<(String, f32)> {
+        if query.len() != self.dims {
+            log::warn!(
+                "VectorIndex::search_within: query has {} dims, index has {} — returning no hits",
+                query.len(),
+                self.dims
+            );
+            return vec![];
+        }
+
         // Keys stay borrowed through scoring and selection; only the `limit`
         // that survive are ever cloned. The old version allocated a `String`
         // per vector per query.
-        let mut scored: Vec<(f32, &str)> = self
-            .vectors
-            .iter()
-            .map(|(key, vector)| (super::vector_db::dot_distance(query, vector), key.as_str()))
+        let mut scored: Vec<(f32, &str)> = keys
+            .filter_map(|k| {
+                self.vectors
+                    .get(k)
+                    .map(|v| (super::vector_db::dot_distance(query, v), k))
+            })
             .collect();
 
         // `total_cmp` gives a total order without a NaN-capable comparison, and
-        // the key tie-break keeps the answer independent of `HashMap` iteration
-        // order — without it two indexes holding identical vectors could rank
-        // tied entries differently. Because the order is total, selecting the
+        // the key tie-break keeps the answer independent of iteration order —
+        // without it two indexes holding identical vectors could rank tied
+        // entries differently. Because the order is total, selecting the
         // `limit` smallest and sorting only those yields exactly what sorting
         // everything would have.
         let rank =
@@ -435,6 +461,10 @@ impl VectorIndex {
             .filter(|k| k.starts_with(prefix))
             .cloned()
             .collect()
+    }
+
+    pub fn keys(&self) -> impl Iterator<Item = &str> {
+        self.key_to_id.keys().map(String::as_str)
     }
 
     fn stale_count(&self) -> usize {
@@ -857,6 +887,53 @@ mod tests {
         expected.truncate(5);
 
         assert_eq!(idx.search(&query, 5), expected);
+    }
+
+    #[test]
+    fn search_within_matches_bruteforce_top_k_on_the_given_subset() {
+        let mut idx = VectorIndex::new(8);
+        let vectors: Vec<Vec<f32>> = (0..32)
+            .map(|i| unit_vec(0.03 * (i as f32 + 1.0), 8))
+            .collect();
+        for (i, vector) in vectors.iter().enumerate() {
+            idx.insert(&format!("k{i}"), vector.clone());
+        }
+        let query = unit_vec(0.415, 8);
+
+        // Every third key, so the subset excludes some of the globally
+        // nearest points — search_within must still rank correctly among
+        // exactly the keys it was given, not the whole index.
+        let subset_indices: Vec<usize> = (0..32).step_by(3).collect();
+        let subset: Vec<String> = subset_indices.iter().map(|i| format!("k{i}")).collect();
+
+        let mut expected: Vec<(String, f32)> = subset_indices
+            .iter()
+            .map(|&i| {
+                (
+                    format!("k{i}"),
+                    super::super::vector_db::dot_distance(&query, &vectors[i]),
+                )
+            })
+            .collect();
+        expected.sort_by(|a, b| a.1.total_cmp(&b.1).then_with(|| a.0.cmp(&b.0)));
+        expected.truncate(5);
+
+        let keys = subset.iter().map(String::as_str);
+        assert_eq!(idx.search_within(&query, keys, 5), expected);
+    }
+
+    #[test]
+    fn search_within_skips_keys_absent_from_the_index() {
+        let mut idx = VectorIndex::new(4);
+        idx.insert("a", unit_vec(0.1, 4));
+        idx.insert("b", unit_vec(0.5, 4));
+        let query = unit_vec(0.11, 4);
+
+        let hits = idx.search_within(&query, ["a", "missing", "b"].into_iter(), 5);
+
+        assert_eq!(hits.len(), 2);
+        assert!(hits.iter().any(|(k, _)| k == "a"));
+        assert!(hits.iter().any(|(k, _)| k == "b"));
     }
 
     /// An index crossing [`EXACT_SEARCH_MAX_POINTS`] silently switches which

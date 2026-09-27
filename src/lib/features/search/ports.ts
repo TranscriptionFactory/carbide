@@ -13,6 +13,7 @@ import type {
   EmbeddingProgressEvent,
   SearchQueryInput,
   DateRange,
+  ScopeFilter,
 } from "$lib/shared/types/search";
 import type { NoteMeta } from "$lib/shared/types/note";
 import type { AttachmentLink } from "$lib/features/links";
@@ -166,12 +167,14 @@ export interface SearchPort {
     limit?: number,
     date_range?: DateRange | null,
     include_linked?: boolean,
+    scope?: ScopeFilter | null,
   ): Promise<HybridSearchHit[]>;
   search_blocks(
     vault_id: VaultId,
     query: string,
     limit?: number,
     date_range?: DateRange | null,
+    scope?: ScopeFilter | null,
   ): Promise<BlockSectionHit[]>;
   semantic_search_batch(
     vault_id: VaultId,

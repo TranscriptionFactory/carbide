@@ -28,6 +28,7 @@ import type {
   HitSource,
   SearchQueryInput,
   DateRange,
+  ScopeFilter,
 } from "$lib/shared/types/search";
 import { tauri_invoke } from "$lib/shared/adapters/tauri_invoke";
 
@@ -368,6 +369,7 @@ export function create_search_tauri_adapter(): SearchPort {
       limit = 20,
       date_range: DateRange | null = null,
       include_linked = true,
+      scope: ScopeFilter | null = null,
     ): Promise<HybridSearchHit[]> {
       const hits = await invoke_search<TauriHybridSearchHit[]>(
         "hybrid_search",
@@ -377,6 +379,7 @@ export function create_search_tauri_adapter(): SearchPort {
           limit,
           dateRange: date_range,
           includeLinked: include_linked,
+          scope,
         },
       );
       return hits.map((hit) => ({
@@ -393,6 +396,7 @@ export function create_search_tauri_adapter(): SearchPort {
       query: string,
       limit = 15,
       date_range: DateRange | null = null,
+      scope: ScopeFilter | null = null,
     ): Promise<BlockSectionHit[]> {
       const hits = await invoke_search<TauriBlockSectionHit[]>(
         "search_blocks",
@@ -401,6 +405,7 @@ export function create_search_tauri_adapter(): SearchPort {
           query,
           limit,
           dateRange: date_range,
+          scope,
         },
       );
       return hits.map((hit) => ({

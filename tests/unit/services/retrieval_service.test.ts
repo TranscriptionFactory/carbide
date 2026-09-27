@@ -123,7 +123,9 @@ describe("RetrievalService.retrieve", () => {
     expect(search.search_blocks.mock.calls[0]?.[1]).toBe("metaboloformer");
   });
 
-  it("over-fetches when a scope is active so filtered hits survive", async () => {
+  // Scoping is now server-side (a resolved path/prefix filter), so a scoped
+  // search no longer needs to over-fetch to survive a client-side narrowing.
+  it("resolves a folder scope to a prefix filter without over-fetching", async () => {
     const search = {
       search_blocks: vi.fn().mockResolvedValue([]),
       hybrid_search: vi
@@ -139,12 +141,18 @@ describe("RetrievalService.retrieve", () => {
       request({ query: "standup notes", scope: { folders: ["journal"] } }),
     );
 
-    expect(search.hybrid_search.mock.calls[0]?.[2]).toBe(15 * 6);
+    expect(search.hybrid_search.mock.calls[0]?.[2]).toBe(15);
+    expect(search.hybrid_search.mock.calls[0]?.[5]).toEqual({
+      paths: [],
+      prefixes: ["journal/"],
+    });
+    expect(search.search_blocks.mock.calls[0]?.[4]).toEqual({
+      paths: [],
+      prefixes: ["journal/"],
+    });
   });
 
-  // A note scope is the narrowest filter there is, so it is the one most
-  // likely to strip the whole page — it has to count as active for over-fetch.
-  it("counts a note-only scope as active for over-fetch", async () => {
+  it("resolves a note-only scope to an explicit path filter", async () => {
     const search = {
       search_blocks: vi.fn().mockResolvedValue([]),
       hybrid_search: vi
@@ -160,7 +168,35 @@ describe("RetrievalService.retrieve", () => {
       request({ query: "standup notes", scope: { notes: ["journal/a.md"] } }),
     );
 
-    expect(search.hybrid_search.mock.calls[0]?.[2]).toBe(15 * 6);
+    expect(search.hybrid_search.mock.calls[0]?.[2]).toBe(15);
+    expect(search.hybrid_search.mock.calls[0]?.[5]).toEqual({
+      paths: ["journal/a.md"],
+      prefixes: [],
+    });
+  });
+
+  // A note scope and a tag scope are each resolved to explicit paths and
+  // ANDed together; when they share nothing, the scope can never match, so
+  // retrieval reports it without spending a search call on it.
+  it("reports scope_filtered without searching when note and tag scopes cannot intersect", async () => {
+    const search = {
+      search_blocks: vi.fn(),
+      hybrid_search: vi.fn(),
+    };
+    const tag_port = {
+      get_notes_for_tag: vi.fn().mockResolvedValue(["other/b.md"]),
+    };
+    const service = make_service({ search, tag: tag_port });
+
+    const outcome = await service.retrieve(
+      request({
+        query: "q",
+        scope: { notes: ["projects/a.md"], tags: ["#active"] },
+      }),
+    );
+
+    expect(outcome).toEqual({ status: "scope_filtered" });
+    expect(search.hybrid_search).not.toHaveBeenCalled();
   });
 
   it("reads linked-source hits from the index instead of the filesystem", async () => {
