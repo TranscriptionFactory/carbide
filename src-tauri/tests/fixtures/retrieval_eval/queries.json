@@ -451,6 +451,325 @@
         }
       ],
       "k": 10
+    },
+    {
+      "id": "exact-08",
+      "query": "gaggia classic opv spring rebuild",
+      "type": "exact",
+      "expected": [
+        {
+          "path": "home/gaggia-classic-notes.md",
+          "heading_id": "h-2-setup-0"
+        }
+      ],
+      "k": 5
+    },
+    {
+      "id": "exact-09",
+      "query": "alla gricia guanciale pecorino rigatoni",
+      "type": "exact",
+      "expected": [
+        {
+          "path": "recipes/alla-gricia.md"
+        }
+      ],
+      "k": 5
+    },
+    {
+      "id": "exact-10",
+      "query": "porto cellar tour francesinha",
+      "type": "exact",
+      "expected": [
+        {
+          "path": "travel/porto-notes.md",
+          "heading_id": "h-2-food-0"
+        }
+      ],
+      "k": 5
+    },
+    {
+      "id": "exact-11",
+      "query": "wheel build spoke tension kgf",
+      "type": "exact",
+      "expected": [
+        {
+          "path": "projects/bike-wheel-build.md",
+          "heading_id": "h-2-steps-0"
+        }
+      ],
+      "k": 5
+    },
+    {
+      "id": "semantic-07",
+      "query": "how much should I park for when everything goes wrong",
+      "type": "semantic",
+      "expected": [
+        {
+          "path": "reference/emergency-fund.md"
+        }
+      ],
+      "k": 5
+    },
+    {
+      "id": "semantic-08",
+      "query": "why bother owning something that barely moves",
+      "type": "semantic",
+      "expected": [
+        {
+          "path": "reference/bond-fund-basics.md"
+        }
+      ],
+      "k": 5
+    },
+    {
+      "id": "semantic-09",
+      "query": "why do adverts vanish here",
+      "type": "semantic",
+      "expected": [
+        {
+          "path": "projects/pi-hole-setup.md"
+        }
+      ],
+      "k": 5
+    },
+    {
+      "id": "semantic-10",
+      "query": "when should I retire an ageing disk",
+      "type": "semantic",
+      "expected": [
+        {
+          "path": "projects/nas-drive-replacement.md"
+        }
+      ],
+      "k": 5
+    },
+    {
+      "id": "title-dependent-06",
+      "query": "why does my hand grinder wobble",
+      "type": "title-dependent",
+      "expected": [
+        {
+          "path": "home/hand-grinder.md",
+          "heading_id": "h-2-troubleshooting-0"
+        }
+      ],
+      "k": 5
+    },
+    {
+      "id": "title-dependent-07",
+      "query": "how do I set up a cold frame",
+      "type": "title-dependent",
+      "expected": [
+        {
+          "path": "home/cold-frame.md",
+          "heading_id": "h-2-setup-0"
+        }
+      ],
+      "k": 5
+    },
+    {
+      "id": "title-dependent-08",
+      "query": "how long should log store timber rest",
+      "type": "title-dependent",
+      "expected": [
+        {
+          "path": "home/log-store.md",
+          "heading_id": "h-2-notes-0"
+        }
+      ],
+      "k": 5
+    },
+    {
+      "id": "title-dependent-09",
+      "query": "sapporo snow festival what to wear",
+      "type": "title-dependent",
+      "expected": [
+        {
+          "path": "travel/sapporo-notes.md",
+          "heading_id": "h-2-notes-0"
+        }
+      ],
+      "k": 5
+    },
+    {
+      "id": "long-section-05",
+      "query": "how long is the pre-infusion on a lever machine",
+      "type": "long-section",
+      "expected": [
+        {
+          "path": "home/lever-espresso-machine.md",
+          "heading_id": "h-2-setup-0"
+        }
+      ],
+      "k": 10
+    },
+    {
+      "id": "long-section-06",
+      "query": "what size flue brush for a 125 mm chimney",
+      "type": "long-section",
+      "expected": [
+        {
+          "path": "home/wood-stove-flue-sweep.md",
+          "heading_id": "h-2-steps-0"
+        }
+      ],
+      "k": 10
+    },
+    {
+      "id": "long-section-07",
+      "query": "which upstream resolver does the pi use",
+      "type": "long-section",
+      "expected": [
+        {
+          "path": "projects/pi-hole-setup.md",
+          "heading_id": "h-2-setup-0"
+        }
+      ],
+      "k": 10
+    },
+    {
+      "id": "long-section-08",
+      "query": "what trowel size for large wall tiles",
+      "type": "long-section",
+      "expected": [
+        {
+          "path": "journal/renovation-log-bathroom.md",
+          "heading_id": "h-2-week-one-0"
+        }
+      ],
+      "k": 10
+    },
+    {
+      "id": "date-scoped-05",
+      "query": "rye loaf covered bake time",
+      "type": "date-scoped",
+      "date_range": {
+        "from": "2025-01-01T00:00:00Z",
+        "to": "2025-12-31T23:59:59Z"
+      },
+      "expected": [
+        {
+          "path": "recipes/rye-sourdough.md",
+          "heading_id": "h-2-method-0"
+        }
+      ],
+      "k": 5
+    },
+    {
+      "id": "date-scoped-06",
+      "query": "gravel bike tubeless tyre width",
+      "type": "date-scoped",
+      "date_range": {
+        "from": "2024-01-01T00:00:00Z",
+        "to": "2024-12-31T23:59:59Z"
+      },
+      "expected": [
+        {
+          "path": "projects/gravel-bike.md",
+          "heading_id": "h-2-setup-0"
+        }
+      ],
+      "k": 5
+    },
+    {
+      "id": "date-scoped-07",
+      "query": "annual budget review savings rate 2026",
+      "type": "date-scoped",
+      "date_range": {
+        "from": "2026-01-01T00:00:00Z",
+        "to": "2026-12-31T23:59:59Z"
+      },
+      "expected": [
+        {
+          "path": "journal/2026-annual-budget-review.md",
+          "heading_id": "h-2-summary-0"
+        }
+      ],
+      "k": 5
+    },
+    {
+      "id": "scope-06",
+      "query": "should I add bonds alongside the shares",
+      "type": "folder-tag-scoped",
+      "scope": {
+        "tags": [
+          "investing"
+        ]
+      },
+      "expected": [
+        {
+          "path": "reference/etf-selection-notes.md"
+        }
+      ],
+      "k": 5
+    },
+    {
+      "id": "scope-07",
+      "query": "how do I stop a sour shot",
+      "type": "folder-tag-scoped",
+      "scope": {
+        "tags": [
+          "coffee"
+        ]
+      },
+      "expected": [
+        {
+          "path": "home/espresso-water-recipes.md"
+        }
+      ],
+      "k": 5
+    },
+    {
+      "id": "scope-08",
+      "query": "how much soot comes off the flue",
+      "type": "folder-tag-scoped",
+      "scope": {
+        "tags": [
+          "heating"
+        ]
+      },
+      "expected": [
+        {
+          "path": "home/log-store.md"
+        }
+      ],
+      "k": 5
+    },
+    {
+      "id": "distractor-05",
+      "query": "which service visit replaced the pressure relief valve",
+      "type": "distractor",
+      "expected": [
+        {
+          "path": "home/boiler-service-2026.md",
+          "heading_id": "h-2-findings-0"
+        }
+      ],
+      "k": 10
+    },
+    {
+      "id": "distractor-06",
+      "query": "which loaf soaks its bran before mixing",
+      "type": "distractor",
+      "expected": [
+        {
+          "path": "recipes/wholemeal-sourdough.md",
+          "heading_id": "h-2-overview-0"
+        }
+      ],
+      "k": 10
+    },
+    {
+      "id": "distractor-07",
+      "query": "which crossing needed a tunnel toll",
+      "type": "distractor",
+      "expected": [
+        {
+          "path": "travel/iceland-westfjords-2026.md",
+          "heading_id": "h-2-route-0"
+        }
+      ],
+      "k": 10
     }
   ]
 }

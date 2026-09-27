@@ -1,0 +1,30 @@
+---
+title: NAS Drive Replacement
+tags: [selfhosted]
+---
+
+# NAS Drive Replacement
+
+## Overview
+
+One member of the pool started logging reallocated sectors, slowly at first and then a handful every week, so I planned the replacement rather than waiting for it to fail outright. The pool is raidz2 with four members, which means it carries on running while a member is out, but two members out at once is a different story and I did not want to be anywhere near that edge. The new member is 12 TB, a little larger than the one it replaces, and the firmware was already at the level I wanted. I ordered it on a Tuesday and had it by the weekend, and I ran the work on a quiet Saturday so the rebuild could finish without anyone asking the box for anything heavy. I had bought the replacement before the member actually failed, which is the only way this job stays calm, and I would make the same call again. Waiting for a member to die turns a planned half-hour into an unplanned evening. The rebuild ran fine, the pool came back to full redundancy, and nothing on the box was ever unavailable for longer than the minute of downtime I chose. The member I pulled is still on the shelf and its serial is still written in the table, so if I ever need to check what the pool looked like before the replacement, the information is a glance away.
+
+## Steps
+
+I began with a SMART long test on the old member, partly to record how bad it had become and partly because I wanted the final figures for my notes. The test takes a few hours, so I started it in the morning. I read the serial number off the label and matched it against my bay list before I touched anything, so I knew exactly which of the four members I was pulling. I pushed the pool into the state where a member can be taken out, waited for the last write to drain, and then powered the unit down rather than pulling a live member. A minute of downtime is cheaper than a mistake, and I would rather explain a short outage than a failed rebuild.
+
+With the unit open I removed the old member, which came out on its rails after I pressed the release, and slotted the new one into the same bay, since the labels and the cabling were already correct for that position. I powered the unit back up and confirmed the new member appeared in the device listing under the name I expected. The serial on the new member went into my note straight away, because forgetting it is how the bay list rots and I have done that once already.
+
+The replacement proper was a zpool replace, which started the rebuild onto the new member and left the old one in place until the write was complete. The resilver took 14 hours. I let it run overnight and checked on it in the morning rather than hovering over it, because the pool was never degraded in a way that mattered and the box was under no user load. When the resilver finished I read the pool state and confirmed there were no checksum errors recorded against the new member.
+
+Then I ran a SMART long test on the new member, the same way I had on the old one, and I compared the two readings. The new member came back clean, as it should on its first day. I ran a second SMART long test later in the week, once the member had some real work behind it, to be sure the first clean reading was not simply the drive being new. That second reading is the one I trust more, because a member can look perfect before it has ever been asked to hold anything.
+
+Once the resilver was done I kicked off a scrub. I wanted the whole pool read end to end so any padding or parity problem surfaced while I still had the box open and the old member on the shelf. The scrub finished in a few hours and reported nothing. I updated the bay labels, wrote the new serial and the new capacity into the table, and logged the date of the replacement alongside the scrub date on the whiteboard by the rack.
+
+## Notes
+
+The resilience of the pool is not a licence to be lazy. A member logging reallocated sectors is a signal, and the cheapest moment to act is while everything still works. The new member is 12 TB against the 8 TB members around it, which gives the pool a little more room and also means the spare on my shelf is now the odd size out. That is fine, because it still fits any bay. What I would do differently is order the replacement a week earlier, since the wait for delivery was the only part of the job I did not control, and it sat in my head for the whole of that week. I keep the old member on the shelf for a fortnight after a replacement like this, in case the new one turns out to be the bad one, and then I wipe it and add it to the pile of spares. The whiteboard is the small thing that keeps this working. Every member replacement and every scrub goes on it with a date, so a glance tells me whether the pool has had a quiet month or a busy one, and a gap in the dates is easier to notice than a date buried in a file.
+
+## Troubleshooting
+
+If the new member does not appear after power-up I reseat it and check the bay before I suspect the drive, because the cheap explanation is usually the right one. A member that shows up with the wrong size or the wrong serial means I have the wrong bay, so I stop and re-read the label rather than accept a mismatch and carry on. If a rebuild stalls, I read the pool state to see whether it is still making progress in small increments; if the figure has not moved in an hour I let it continue rather than restart it, because restarting throws away the work already done and can take longer than waiting. A member that reports errors after the rebuild is replaced at once with the spare, since a fresh member failing that early is a warning I will not ignore, and I would rather use the spare than argue with a brand new drive. One more case is worth writing down. If the pool reports a member as faulted but the member still answers a read, I replace it anyway, because a member that has been faulted once will be faulted again and the pool has already stopped trusting it.
