@@ -1,6 +1,7 @@
 import type { CommandContext } from "$lib/features/search/types/command_context";
 import {
   is_editable_type,
+  supports_source_view,
   type DocumentFileType,
 } from "$lib/features/document";
 import type { EditorStore } from "$lib/features/editor";
@@ -34,6 +35,9 @@ export function build_command_context(stores: ContextStores): CommandContext {
     is_excalidraw_file: note_path.endsWith(".excalidraw"),
     is_html_document:
       active_tab?.kind === "document" && active_tab.file_type === "html",
+    has_source_view:
+      active_tab?.kind === "document" &&
+      supports_source_view(active_tab.file_type as DocumentFileType),
     is_editable_document:
       active_tab?.kind === "document" &&
       is_editable_type(active_tab.file_type as DocumentFileType),

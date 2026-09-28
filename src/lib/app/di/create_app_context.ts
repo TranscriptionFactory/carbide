@@ -1310,6 +1310,7 @@ export function create_app_context(input: {
     ...base_action_input,
     document_service,
     document_store: stores.document,
+    canvas_store: stores.canvas,
   });
 
   register_window_actions({

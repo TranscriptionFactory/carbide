@@ -3,6 +3,7 @@ import { ActionRegistry } from "$lib/app/action_registry/action_registry";
 import { ACTION_IDS } from "$lib/app/action_registry/action_ids";
 import { register_document_actions } from "$lib/features/document/application/document_actions";
 import { DocumentStore } from "$lib/features/document";
+import { CanvasStore } from "$lib/features/canvas";
 import { UIStore } from "$lib/app/orchestration/ui_store.svelte";
 import { VaultStore } from "$lib/features/vault/state/vault_store.svelte";
 import { EditorStore } from "$lib/features/editor/state/editor_store.svelte";
@@ -69,6 +70,7 @@ function create_harness({ with_open_note = true } = {}) {
     },
     document_service: document_service as never,
     document_store: stores.document,
+    canvas_store: new CanvasStore(),
   });
 
   return { registry, stores, services, document_service };

@@ -7,6 +7,7 @@ export type CommandContext = {
   is_canvas_file: boolean;
   is_excalidraw_file: boolean;
   is_html_document: boolean;
+  has_source_view: boolean;
   is_editable_document: boolean;
   is_vault_mode: boolean;
 };
