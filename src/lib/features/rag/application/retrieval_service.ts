@@ -193,25 +193,27 @@ export class RetrievalService {
     // (e.g. a tag and a note scope with no note in common) can never match —
     // sending it to search would be indistinguishable from no scope at all,
     // since an empty filter is what "unscoped" also looks like on the wire.
-    if (
+    const empty_scope =
       this.scope_is_active(request.scope) &&
       scope_filter &&
       scope_filter.paths.length === 0 &&
-      scope_filter.prefixes.length === 0
-    ) {
+      scope_filter.prefixes.length === 0;
+    if (empty_scope && pinned.length === 0) {
       return { status: "scope_filtered" };
     }
 
     const retrieve_limit = request.limit ?? DEFAULT_RETRIEVE_LIMIT;
     let hits: RetrievalHit[];
     try {
-      hits = await this.search(
-        vault.id,
-        retrieval_query,
-        analysis.date_range,
-        retrieve_limit,
-        scope_filter,
-      );
+      hits = empty_scope
+        ? []
+        : await this.search(
+            vault.id,
+            retrieval_query,
+            analysis.date_range,
+            retrieve_limit,
+            scope_filter,
+          );
     } catch (err) {
       log.warn("RAG retrieval failed", { error: error_message(err) });
       return { status: "search_failed" };
