@@ -199,6 +199,58 @@ describe("RetrievalService.retrieve", () => {
     expect(search.hybrid_search).not.toHaveBeenCalled();
   });
 
+  it("preserves pins without ordinary retrieval when note and tag scopes cannot intersect", async () => {
+    const search = {
+      suggest_wiki_links: vi.fn().mockResolvedValue([
+        {
+          kind: "existing",
+          note: note_meta("pinned.md", "Pinned", "pin-id"),
+        },
+      ]),
+      search_blocks: vi.fn(),
+      hybrid_search: vi.fn(),
+    };
+    const notes = {
+      read_note: vi.fn().mockResolvedValue({ markdown: "Pinned context." }),
+    };
+    const service = make_service({
+      search,
+      notes,
+      tag: { get_notes_for_tag: vi.fn().mockResolvedValue(["other/b.md"]) },
+    });
+
+    const outcome = await service.retrieve(
+      request({
+        query: "q",
+        pinned_titles: ["Pinned"],
+        scope: { notes: ["projects/a.md"], tags: ["#active"] },
+      }),
+    );
+
+    expect(outcome).toMatchObject({
+      status: "hits",
+      pinned: [
+        {
+          note_path: "pinned.md",
+          title: "Pinned",
+          markdown: "Pinned context.",
+        },
+      ],
+      retrieved: [],
+    });
+    expect(notes.read_note).toHaveBeenCalledExactlyOnceWith(
+      expect.any(String),
+      "pin-id",
+    );
+    expect(search.suggest_wiki_links).toHaveBeenCalledExactlyOnceWith(
+      expect.any(String),
+      "Pinned",
+      1,
+    );
+    expect(search.hybrid_search).not.toHaveBeenCalled();
+    expect(search.search_blocks).not.toHaveBeenCalled();
+  });
+
   it("reads linked-source hits from the index instead of the filesystem", async () => {
     const linked_path = "@linked/papers/clustering.pdf";
     const search = {

@@ -322,6 +322,30 @@ mod tests {
         assert_eq!(hits[0].0, "n7");
     }
 
+    #[test]
+    fn date_filter_survives_the_include_linked_truncate_in_large_scope_fallback() {
+        let idx = synth_index(8);
+        let mut allowed: HashSet<String> = (0..FILTERED_EXACT_MAX)
+            .map(|i| format!("absent{i}"))
+            .collect();
+        allowed.insert("n7".into());
+        assert!(allowed.len() > FILTERED_EXACT_MAX);
+
+        let over_fetch = 3;
+        let vector_fetch = 500;
+        assert!(!idx.search(&[1.0, 0.0], over_fetch)
+            .iter().any(|(path, _)| path == "n7"));
+        assert!(idx.search(&[1.0, 0.0], vector_fetch)
+            .iter().any(|(path, _)| path == "n7"));
+
+        let hits = vector_leg(
+            &idx, vec![1.0, 0.0], "q", vector_fetch, over_fetch, 1, Some(&allowed), false,
+        );
+
+        assert_eq!(hits.len(), 1);
+        assert_eq!(hits[0].0, "n7");
+    }
+
     // The key invariant: a scope whose only match ranks outside the global
     // over-fetch pool must still be found. n29 is the farthest of 30 points
     // from the query, so the raw over-fetch pool (size 9) never contains it —
