@@ -15,8 +15,9 @@ export type HostMessage =
 
 export type GuestMessage =
   | { type: "scene_changed"; scene: ExcalidrawScene }
-  | { type: "scene_response"; scene: ExcalidrawScene }
+  | { type: "scene_response"; scene: ExcalidrawScene | null }
   | { type: "svg_export_response"; svg: string }
+  | { type: "save_requested" }
   | { type: "ready" };
 
 export type ExcalidrawScene = {

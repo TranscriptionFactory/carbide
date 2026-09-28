@@ -7,9 +7,16 @@
     theme: "light" | "dark";
     view_background_color: string;
     on_change: (scene: ExcalidrawScene) => void;
+    on_save_requested: () => void;
   }
 
-  let { scene, theme, view_background_color, on_change }: Props = $props();
+  let {
+    scene,
+    theme,
+    view_background_color,
+    on_change,
+    on_save_requested,
+  }: Props = $props();
 
   let iframe: SandboxedIframe | undefined = $state();
   let is_ready = $state(false);
@@ -39,9 +46,13 @@
         on_change(msg.scene as ExcalidrawScene);
         break;
 
+      case "save_requested":
+        on_save_requested();
+        break;
+
       case "scene_response":
         if (resolve_scene) {
-          resolve_scene(msg.scene as ExcalidrawScene);
+          resolve_scene((msg.scene as ExcalidrawScene | null) ?? scene);
           resolve_scene = null;
         }
         break;

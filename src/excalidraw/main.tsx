@@ -64,19 +64,31 @@ function content_signature(
   return `${String(hashElementsVersion(elements))}:${String(Object.keys(files).length)}`;
 }
 
-function snapshot_scene(api: ExcalidrawImperativeAPI | null): ExcalidrawScene {
-  const elements = (api?.getSceneElements() ?? []) as SceneElements;
-  const appState = (api?.getAppState() ?? {}) as Partial<SceneAppState>;
+function snapshot_scene(
+  api: ExcalidrawImperativeAPI | null,
+): ExcalidrawScene | null {
+  const appState = api?.getAppState();
+  if (!api || !appState || appState.isLoading) return null;
+  const elements = api.getSceneElements() as SceneElements;
   return {
     type: "excalidraw",
     version: 2,
     source: "carbide",
     elements: structuredClone(elements),
     appState: {
-      viewBackgroundColor: appState.viewBackgroundColor ?? "#ffffff",
+      viewBackgroundColor: appState.viewBackgroundColor,
     },
-    files: api?.getFiles() ?? {},
+    files: api.getFiles(),
   };
+}
+
+function is_save_shortcut(event: KeyboardEvent): boolean {
+  return (
+    (event.metaKey || event.ctrlKey) &&
+    !event.shiftKey &&
+    !event.altKey &&
+    event.key.toLowerCase() === "s"
+  );
 }
 
 function App() {
@@ -154,11 +166,20 @@ function App() {
       }
     }
 
+    function handle_keydown(event: KeyboardEvent) {
+      if (!is_save_shortcut(event)) return;
+      event.preventDefault();
+      event.stopPropagation();
+      post_to_host({ type: "save_requested" });
+    }
+
     window.addEventListener("message", handle_message);
+    window.addEventListener("keydown", handle_keydown, true);
     post_to_host({ type: "ready" });
 
     return () => {
       window.removeEventListener("message", handle_message);
+      window.removeEventListener("keydown", handle_keydown, true);
     };
   }, []);
 
@@ -182,10 +203,8 @@ function App() {
       if (change_timer.current) clearTimeout(change_timer.current);
       change_timer.current = setTimeout(() => {
         change_timer.current = null;
-        post_to_host({
-          type: "scene_changed",
-          scene: snapshot_scene(api_ref.current),
-        });
+        const scene = snapshot_scene(api_ref.current);
+        if (scene) post_to_host({ type: "scene_changed", scene });
       }, SCENE_CHANGE_DEBOUNCE_MS);
     },
     [],
@@ -229,6 +248,7 @@ function App() {
           canvasActions: {
             loadScene: false,
             export: false,
+            saveToActiveFile: false,
           },
         }}
       />

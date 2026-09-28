@@ -91,6 +91,10 @@
     stores.canvas.set_dirty(tab_id, true);
   }
 
+  function handle_save_requested() {
+    void action_registry.execute(ACTION_IDS.canvas_save, tab_id);
+  }
+
   function handle_node_click(file_path: string) {
     void action_registry.execute(ACTION_IDS.note_open, {
       note_path: file_path,
@@ -115,6 +119,7 @@
         theme={app_theme}
         {view_background_color}
         on_change={handle_excalidraw_change}
+        on_save_requested={handle_save_requested}
       />
     {:else if canvas_state.canvas_data}
       <CanvasSurface
