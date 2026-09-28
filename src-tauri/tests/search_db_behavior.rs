@@ -2406,7 +2406,7 @@ fn embedded_note(conn: &Connection, path: &str, title: &str, body: &str) {
     };
     upsert_note(conn, &meta, body).expect("upsert");
     vector_db::upsert_embedding(conn, path, &[0.5_f32; 4]).expect("note vector");
-    vector_db::upsert_block_embedding(conn, path, "h-1-a-0", &[0.5_f32; 4], SECTION_HASH)
+    vector_db::upsert_block_embeddings(conn, path, "h-1-a-0", &[vec![0.5_f32; 4]], SECTION_HASH)
         .expect("block vector");
 }
 

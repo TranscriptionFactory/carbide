@@ -244,31 +244,16 @@ fn embed_in_windows(
     Ok(vectors)
 }
 
-/// Embeds section texts, splitting any section past the encoder's token budget
-/// and mean-pooling its chunk vectors back into one. Keeps the stored row
-/// per-section — the `(path, heading_id)` key and section content hash are
-/// unchanged — while no longer dropping the tail of a long section.
-///
-/// `width` caps how many texts reach the encoder in one forward pass, and
-/// therefore the peak attention tensor.
 fn embed_section_texts(
     model: &EmbeddingService,
     texts: &[&str],
     width: usize,
     cancel: Option<&AtomicBool>,
-) -> Result<Vec<Vec<f32>>, String> {
+) -> Result<Vec<Vec<Vec<f32>>>, String> {
     let chunked: Vec<Vec<String>> = texts
         .iter()
         .map(|text| model.split_to_token_budget(text))
         .collect();
-    // Nothing was split, so the inputs are already the encoder's and the
-    // per-text pooling below would be an identity — but the width cap still
-    // applies: `apply_note_embedding_on_save` passes every changed section of a
-    // note, which is unbounded.
-    if chunked.iter().all(|chunks| chunks.len() == 1) {
-        return embed_in_windows(model, texts, width, cancel);
-    }
-
     let flat: Vec<&str> = chunked.iter().flatten().map(String::as_str).collect();
     let vectors = embed_in_windows(model, &flat, width, cancel)?;
     if vectors.len() != flat.len() {
@@ -278,19 +263,11 @@ fn embed_section_texts(
             flat.len()
         ));
     }
-
-    let mut pooled = Vec::with_capacity(texts.len());
-    let mut cursor = 0usize;
-    for chunks in &chunked {
-        let slice = &vectors[cursor..cursor + chunks.len()];
-        cursor += chunks.len();
-        pooled.push(if slice.len() == 1 {
-            slice[0].clone()
-        } else {
-            vector_db::mean_pool_normalize(slice)
-        });
-    }
-    Ok(pooled)
+    let mut vectors = vectors.into_iter();
+    Ok(chunked
+        .iter()
+        .map(|chunks| vectors.by_ref().take(chunks.len()).collect())
+        .collect())
 }
 
 /// macOS scheduling classes for `pthread_set_qos_class_self_np`: 0x11 utility,
@@ -1657,12 +1634,12 @@ fn embed_note_on_save(
 /// failing encoder — the case the composition ordering below gets wrong — is
 /// otherwise impossible to exercise.
 pub(crate) trait SaveEncoder {
-    fn encode_sections(&self, texts: &[&str]) -> Result<Vec<Vec<f32>>, String>;
+    fn encode_sections(&self, texts: &[&str]) -> Result<Vec<Vec<Vec<f32>>>, String>;
     fn encode_note(&self, text: &str) -> Result<Vec<f32>, String>;
 }
 
 impl SaveEncoder for EmbeddingService {
-    fn encode_sections(&self, texts: &[&str]) -> Result<Vec<Vec<f32>>, String> {
+    fn encode_sections(&self, texts: &[&str]) -> Result<Vec<Vec<Vec<f32>>>, String> {
         embed_section_texts(self, texts, EMBED_BATCH_SIZE, None)
     }
 
@@ -1716,7 +1693,10 @@ pub(crate) fn apply_note_embedding_on_save(
         let orphaned_keys: Vec<String> = bi
             .keys_with_prefix(&prefix)
             .into_iter()
-            .filter(|k| !current_hashes.contains_key(&k[prefix.len()..]))
+            .filter(|k| vector_db::parse_block_window_key(k).is_none_or(|(_, heading, _)| {
+                !current_hashes.contains_key(heading)
+                    || old_hashes.get(heading).is_some_and(|old| current_hashes.get(heading) != Some(old))
+            }))
             .collect();
         for key in orphaned_keys {
             bi.remove(&key);
@@ -1761,12 +1741,15 @@ pub(crate) fn apply_note_embedding_on_save(
                     for (search_db::EmbeddableSection { heading_id, hash, .. }, embedding) in
                         to_embed.iter().copied().zip(embeddings.iter())
                     {
-                        let _ = vector_db::upsert_block_embedding(
+                        if let Err(e) = vector_db::upsert_block_embeddings(
                             conn, note_id, heading_id, embedding, hash,
-                        );
+                        ) {
+                            blocks_encoded = false;
+                            log::warn!("embed_on_save: block storage failed for {note_id}: {e}");
+                            continue;
+                        }
                         if let Ok(mut bi) = block_index.write() {
-                            let composite_key = format!("{note_id}\0{heading_id}");
-                            bi.insert(&composite_key, embedding.clone());
+                            publish_section_windows(&mut bi, note_id, heading_id, embedding);
                         }
                     }
                 }
@@ -1824,9 +1807,46 @@ fn compact_indices_if_stale(note_index: &SharedVectorIndex, block_index: &Shared
     }
 }
 
-/// Drops deleted notes' vectors from both in-memory HNSW indices. The note vector
-/// is keyed by path; block vectors are keyed by `path\0heading`, so the block
-/// index is pruned by prefix.
+pub(crate) fn publish_section_windows(
+    index: &mut VectorIndex,
+    path: &str,
+    heading_id: &str,
+    windows: &[Vec<f32>],
+) {
+    index.remove_by_prefix(&format!("{path}\0{heading_id}\0"));
+    for (window, vector) in windows.iter().enumerate() {
+        index.insert(&vector_db::block_window_key(path, heading_id, window), vector.clone());
+    }
+}
+
+pub(crate) fn prune_note_embedding_indices(
+    conn: &Connection,
+    path: &str,
+    note_index: &SharedVectorIndex,
+    block_index: &SharedVectorIndex,
+) -> Result<(), String> {
+    let mut stmt = conn.prepare(
+        "SELECT heading_id, window_index FROM block_embeddings WHERE path = ?1",
+    ).map_err(|e| e.to_string())?;
+    let keys: HashSet<String> = stmt.query_map([path], |row| {
+        let heading: String = row.get(0)?;
+        let window: usize = row.get(1)?;
+        Ok(vector_db::block_window_key(path, &heading, window))
+    }).map_err(|e| e.to_string())?
+        .collect::<Result<_, _>>().map_err(|e| e.to_string())?;
+    if !vector_db::has_embedding(conn, path) {
+        note_index.write().map_err(|e| e.to_string())?.remove(path);
+    }
+    let mut index = block_index.write().map_err(|e| e.to_string())?;
+    for key in index.keys_with_prefix(&format!("{path}\0")) {
+        if !keys.contains(&key) {
+            index.remove(&key);
+        }
+    }
+    Ok(())
+}
+
+/// Drops deleted notes' vectors from both in-memory HNSW indices by note prefix.
 fn evict_note_from_indices(
     note_index: &SharedVectorIndex,
     block_index: &SharedVectorIndex,
@@ -2060,6 +2080,7 @@ fn run_index_op(
         )
     };
 
+    let reconcile_vectors = label != "sync" || result.as_ref().map_or(true, |res| res.indexed > 0);
     match result {
         Ok(res) => {
             if res.indexed > 0 {
@@ -2106,6 +2127,15 @@ fn run_index_op(
                     error: e,
                 },
             );
+        }
+    }
+
+    if reconcile_vectors {
+        if let Ok(mut index) = note_index.write() {
+            index.reconcile_from_sqlite(conn, "notes");
+        }
+        if let Ok(mut index) = block_index.write() {
+            index.reconcile_from_sqlite(conn, "blocks");
         }
     }
 
@@ -2277,6 +2307,11 @@ fn handle_sync_paths(
     // touches the in-memory HNSW, so it would keep serving vectors for deleted
     // notes until the next full RebuildIndex.
     evict_note_from_indices(note_index, block_index, &evicted);
+    for path in changed_paths {
+        if let Err(e) = prune_note_embedding_indices(conn, path, note_index, block_index) {
+            log::warn!("sync_paths: vector invalidation failed for {path}: {e}");
+        }
+    }
 
     for cmd in deferred.into_inner() {
         if matches!(
@@ -2892,7 +2927,7 @@ impl BlockEmbedPass<'_> {
                     .zip(batch.hashes.iter())
                     .zip(batch.texts.iter())
                 {
-                    if let Err(e) = vector_db::upsert_block_embedding(
+                    if let Err(e) = vector_db::upsert_block_embeddings(
                         self.conn, path, heading_id, embedding, hash,
                     ) {
                         refused = Some((format!("{path}#{heading_id}"), e));
@@ -2900,7 +2935,7 @@ impl BlockEmbedPass<'_> {
                         continue;
                     }
                     if let Ok(mut bi) = self.block_index.write() {
-                        bi.insert(&format!("{path}\0{heading_id}"), embedding.clone());
+                        publish_section_windows(&mut bi, path, heading_id, embedding);
                     }
                     stored += 1;
                 }
@@ -2911,7 +2946,7 @@ impl BlockEmbedPass<'_> {
                         batch.keys.len() - stored,
                     );
                 }
-                // Counts rows actually written, not vectors returned: the ingest
+                // Counts complete sections written, not vectors returned: the ingest
                 // guard can refuse a degenerate one, and a section counted but
                 // not stored is retried by every later pass.
                 self.embedded += stored;
@@ -4189,34 +4224,60 @@ pub fn find_similar_blocks_inner(
 ) -> Result<Vec<BlockSearchHit>, String> {
     let limit = limit.unwrap_or(10).min(50);
 
-    let composite_key = format!("{note_path}\0{heading_id}");
-    let query_vec = with_block_index(&app, &vault_id, |idx| {
-        idx.get_vector(&composite_key).cloned()
-    })?;
-    let query_vec = match query_vec {
-        Some(v) => v,
-        None => return Ok(vec![]),
-    };
+    with_block_index(&app, &vault_id, |idx| {
+        similar_blocks_indexed(idx, &note_path, &heading_id, limit)
+    })
+}
 
-    let raw = with_block_index(&app, &vault_id, |idx| idx.search(&query_vec, limit + 1))?;
-
-    let results: Vec<BlockSearchHit> = raw
-        .into_iter()
-        .filter_map(|(key, distance)| {
-            let (path, hid) = key.split_once('\0')?;
-            if path == note_path && hid == heading_id {
-                return None;
+pub(crate) fn similar_blocks_indexed(
+    idx: &VectorIndex,
+    note_path: &str,
+    heading_id: &str,
+    limit: usize,
+) -> Vec<BlockSearchHit> {
+    if limit == 0 {
+        return Vec::new();
+    }
+    let prefix = format!("{note_path}\0{heading_id}\0");
+    let keys = idx.keys_with_prefix(&prefix);
+    let mut fetch = limit.saturating_mul(3).max(1).min(idx.len());
+    loop {
+        let mut best: HashMap<(String, String), f32> = HashMap::new();
+        let mut each_window_has_enough = true;
+        for source in &keys {
+            let mut seen = HashSet::new();
+            let Some(vector) = idx.get_vector(source) else {
+                continue;
+            };
+            for (key, distance) in idx.search(vector, fetch) {
+                let Some((path, heading, _)) = vector_db::parse_block_window_key(&key) else {
+                    continue;
+                };
+                if path == note_path && heading == heading_id {
+                    continue;
+                }
+                seen.insert((path.to_string(), heading.to_string()));
+                best.entry((path.to_string(), heading.to_string()))
+                    .and_modify(|d| *d = d.min(distance))
+                    .or_insert(distance);
             }
-            Some(BlockSearchHit {
-                path: path.to_string(),
-                heading_id: hid.to_string(),
-                distance,
-            })
-        })
-        .take(limit)
-        .collect();
-
-    Ok(results)
+            each_window_has_enough &= seen.len() >= limit;
+        }
+        let mut hits: Vec<BlockSearchHit> = best
+            .into_iter()
+            .map(|((path, heading_id), distance)| BlockSearchHit { path, heading_id, distance })
+            .collect();
+        hits.sort_by(|a, b| {
+            a.distance.total_cmp(&b.distance)
+                .then_with(|| a.path.cmp(&b.path))
+                .then_with(|| a.heading_id.cmp(&b.heading_id))
+        });
+        if each_window_has_enough || fetch >= idx.len() || keys.is_empty() {
+            hits.truncate(limit);
+            return hits;
+        }
+        fetch = fetch.saturating_mul(2).min(idx.len());
+    }
 }
 
 const MISSING_LINK_DEFAULT_K: usize = 3;
@@ -4274,34 +4335,39 @@ pub fn find_missing_links_inner(
         Ok((linked, sections))
     })?;
 
-    let fetch = k + MISSING_LINK_OVERFETCH;
-    let candidates = with_block_index(&app, &vault_id, |idx| {
+    with_block_index(&app, &vault_id, |idx| {
+        missing_links_indexed(idx, &note_path, &sections, &linked, k, min_score)
+    })
+}
+
+pub(crate) fn missing_links_indexed(
+    idx: &VectorIndex,
+    note_path: &str,
+    sections: &[(String, String, i64, i64)],
+    linked: &HashSet<String>,
+    k: usize,
+    min_score: f32,
+) -> Vec<MissingLinkHit> {
+    let mut fetch = k.saturating_add(MISSING_LINK_OVERFETCH).min(idx.len());
+    loop {
         let mut candidates = Vec::new();
-        for (_, heading_id, start_line, end_line) in &sections {
-            let key = format!("{note_path}\0{heading_id}");
-            let Some(query_vec) = idx.get_vector(&key) else {
-                continue;
-            };
-            for (target_key, distance) in idx.search(query_vec, fetch) {
+        for (_, heading_id, start_line, end_line) in sections {
+            for hit in similar_blocks_indexed(idx, note_path, heading_id, fetch) {
                 candidates.push(MissingLinkCandidate {
                     source_heading_id: heading_id.clone(),
                     source_start_line: *start_line,
                     source_end_line: *end_line,
-                    target_key,
-                    score: 1.0 - distance,
+                    target_key: vector_db::block_window_key(&hit.path, &hit.heading_id, 0),
+                    score: 1.0 - hit.distance,
                 });
             }
         }
-        candidates
-    })?;
-
-    Ok(select_missing_link_hits(
-        candidates,
-        &note_path,
-        &linked,
-        k,
-        min_score,
-    ))
+        let hits = select_missing_link_hits(candidates, note_path, linked, k, min_score);
+        if hits.len() >= k || fetch >= idx.len() {
+            return hits;
+        }
+        fetch = fetch.saturating_mul(2).min(idx.len());
+    }
 }
 
 struct MissingLinkCandidate {
@@ -4384,65 +4450,60 @@ pub fn search_blocks_inner(
 ) -> Result<Vec<BlockSectionHit>, String> {
     let model = query_model(&app)?;
     let query_vec = model.embed_query(&query)?;
-    let limit = limit.unwrap_or(15);
-    let fetch = if date_range.is_some() {
-        (limit * 20).max(500)
-    } else {
-        // Over-fetch so candidates dropped on missed SQLite lookups (stale
-        // index keys during embed/remove windows) don't shrink results below
-        // limit; mirrors hybrid_search's 3x pool.
-        limit * 3
+    let Some(query_vec) = usable_query_vector(query_vec, &query) else {
+        return Ok(Vec::new());
     };
-
-    let date_range_tuple = date_range.map(|d| (d.start_ms, d.end_ms));
-    let allowed = with_read_conn(&app, &vault_id, |conn| {
-        hybrid::resolve_allowed_paths(conn, date_range_tuple, scope.as_ref())
-    })?;
-
-    // Block keys are `{path}\0{heading_id}`; a small enough allowed set is
-    // scanned exactly by filtering the resident keys down to the notes it
-    // permits, same threshold and rationale as hybrid_search's vector leg.
-    let raw = match usable_query_vector(query_vec, &query) {
-        Some(query_vec) => with_block_index(&app, &vault_id, |idx| match &allowed {
-            Some(allowed) if allowed.len() <= hybrid::FILTERED_EXACT_MAX => {
-                let keys = idx.keys().filter(|k| {
-                    k.split_once('\0')
-                        .is_some_and(|(path, _)| allowed.contains(path))
-                });
-                idx.search_within(&query_vec, keys, fetch)
-            }
-            _ => idx.search(&query_vec, fetch),
-        })?,
-        None => Vec::new(),
-    };
-
     with_read_conn(&app, &vault_id, |conn| {
+        with_block_index(&app, &vault_id, |idx| {
+            search_blocks_indexed(conn, idx, &query_vec, limit.unwrap_or(15),
+                date_range.map(|d| (d.start_ms, d.end_ms)), scope.as_ref())
+        })?
+    })
+}
+
+pub(crate) fn search_blocks_indexed(
+    conn: &Connection,
+    idx: &VectorIndex,
+    query: &[f32],
+    limit: usize,
+    date_range: Option<(i64, i64)>,
+    scope: Option<&ScopeFilter>,
+) -> Result<Vec<BlockSectionHit>, String> {
+    if limit == 0 {
+        return Ok(Vec::new());
+    }
+    let allowed = hybrid::resolve_allowed_paths(conn, date_range, scope)?;
+    let scoped_keys: Option<Vec<&str>> = allowed.as_ref().map(|paths| idx.keys().filter(|key| {
+        vector_db::parse_block_window_key(key).is_some_and(|(path, _, _)| paths.contains(path))
+    }).collect());
+    let exact_keys = scoped_keys.as_ref().filter(|keys| keys.len() <= hybrid::FILTERED_EXACT_MAX);
+    let available = exact_keys.map_or(idx.len(), |keys| keys.len());
+    let mut fetch = limit.saturating_mul(3).min(available);
+    loop {
+        let raw = match exact_keys {
+            Some(keys) => idx.search_within(query, keys.iter().copied(), fetch),
+            None => idx.search(query, fetch),
+        };
+        let mut seen = HashSet::new();
         let mut results = Vec::with_capacity(limit);
-        for (key, distance) in &raw {
-            if results.len() >= limit {
-                break;
-            }
-            let Some((path, heading_id)) = key.split_once('\0') else {
+        for (key, distance) in raw {
+            let Some((path, heading_id, _)) = vector_db::parse_block_window_key(&key) else {
                 continue;
             };
-            // Only load-bearing on the fallback path above: the exact scan
-            // already restricted `raw` to the scope, but re-checking here is
-            // cheap and keeps both paths correct if that ever changes.
-            if scope.as_ref().is_some_and(|sf| sf.is_active() && !sf.matches(path)) {
+            if !seen.insert((path.to_string(), heading_id.to_string())) {
                 continue;
             }
-            let Some((heading, start_line, end_line)) =
-                search_db::get_section(conn, path, heading_id)?
-            else {
+            if scope.is_some_and(|sf| sf.is_active() && !sf.matches(path)) {
+                continue;
+            }
+            let Some((heading, start_line, end_line)) = search_db::get_section(conn, path, heading_id)? else {
                 continue;
             };
             let Some(note) = search_db::get_note_meta(conn, path)? else {
                 continue;
             };
-            if let Some(d) = date_range {
-                if note.mtime_ms < d.start_ms || note.mtime_ms >= d.end_ms {
-                    continue;
-                }
+            if date_range.is_some_and(|(start, end)| note.mtime_ms < start || note.mtime_ms >= end) {
+                continue;
             }
             results.push(BlockSectionHit {
                 note,
@@ -4450,11 +4511,17 @@ pub fn search_blocks_inner(
                 heading,
                 start_line: start_line as u32,
                 end_line: end_line as u32,
-                distance: *distance,
+                distance,
             });
+            if results.len() == limit {
+                break;
+            }
         }
-        Ok(results)
-    })
+        if results.len() >= limit || fetch >= available {
+            return Ok(results);
+        }
+        fetch = fetch.saturating_mul(2).min(available);
+    }
 }
 
 #[tauri::command]

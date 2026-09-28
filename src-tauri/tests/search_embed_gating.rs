@@ -26,7 +26,7 @@ const TITLE: &str = "n";
 struct SectionEncodeFails;
 
 impl SaveEncoder for SectionEncodeFails {
-    fn encode_sections(&self, _texts: &[&str]) -> Result<Vec<Vec<f32>>, String> {
+    fn encode_sections(&self, _texts: &[&str]) -> Result<Vec<Vec<Vec<f32>>>, String> {
         Err("encoder unavailable".to_string())
     }
 
@@ -60,7 +60,7 @@ fn seed_embeddings(conn: &Connection, markdown: &str) {
     let hashes = search_db::embeddable_section_hashes(markdown, TITLE);
     assert_eq!(hashes.len(), 2, "two embeddable sections expected");
     for (heading_id, hash) in &hashes {
-        vector_db::upsert_block_embedding(conn, NOTE, heading_id, &[0.1_f32; 4], hash)
+        vector_db::upsert_block_embeddings(conn, NOTE, heading_id, &[vec![0.1_f32; 4]], hash)
             .expect("seed block embedding");
     }
     vector_db::upsert_embedding(conn, NOTE, &[0.1_f32; 4]).expect("seed note embedding");
@@ -356,8 +356,8 @@ fn failed_block_encode_leaves_the_note_unembedded() {
 fn successful_block_encode_recomposes_the_note_vector() {
     struct Encoder;
     impl SaveEncoder for Encoder {
-        fn encode_sections(&self, texts: &[&str]) -> Result<Vec<Vec<f32>>, String> {
-            Ok(texts.iter().map(|_| vec![0.5_f32; 4]).collect())
+        fn encode_sections(&self, texts: &[&str]) -> Result<Vec<Vec<Vec<f32>>>, String> {
+            Ok(texts.iter().map(|_| vec![vec![0.5_f32; 4]]).collect())
         }
         fn encode_note(&self, _text: &str) -> Result<Vec<f32>, String> {
             Err("the note has blocks to compose from".to_string())
@@ -394,9 +394,9 @@ fn save_prunes_stale_block_index_keys() {
     {
         let mut bi = block_index.write().expect("index lock");
         for heading_id in hashes.keys() {
-            bi.insert(&format!("{NOTE}\0{heading_id}"), vec![0.1_f32; 384]);
+            bi.insert(&vector_db::block_window_key(NOTE, heading_id, 0), vec![0.1_f32; 384]);
         }
-        bi.insert(&format!("{NOTE}\0removed-section"), vec![0.1_f32; 384]);
+        bi.insert(&vector_db::block_window_key(NOTE, "removed-section", 0), vec![0.1_f32; 384]);
     }
 
     apply_note_embedding_on_save(
@@ -414,7 +414,7 @@ fn save_prunes_stale_block_index_keys() {
     let bi = block_index.read().expect("index lock");
     let keys = bi.keys_with_prefix(&format!("{NOTE}\0"));
     assert_eq!(keys.len(), 2, "only live section keys survive");
-    assert!(!keys.contains(&format!("{NOTE}\0removed-section")));
+    assert!(!keys.contains(&vector_db::block_window_key(NOTE, "removed-section", 0)));
 }
 
 fn section_text(markdown: &str, title: &str, heading_id: &str) -> String {
@@ -476,11 +476,11 @@ struct RecordingEncoder {
 }
 
 impl SaveEncoder for RecordingEncoder {
-    fn encode_sections(&self, texts: &[&str]) -> Result<Vec<Vec<f32>>, String> {
+    fn encode_sections(&self, texts: &[&str]) -> Result<Vec<Vec<Vec<f32>>>, String> {
         self.sections
             .borrow_mut()
             .extend(texts.iter().map(|t| t.to_string()));
-        Ok(texts.iter().map(|_| vec![0.5_f32; 4]).collect())
+        Ok(texts.iter().map(|_| vec![vec![0.5_f32; 4]]).collect())
     }
 
     fn encode_note(&self, _text: &str) -> Result<Vec<f32>, String> {
@@ -507,7 +507,7 @@ fn a_title_only_change_re_encodes_exactly_that_notes_sections() {
     let conn = conn_with_vector_schema();
     let markdown = note_markdown("a", "b");
     seed_embeddings(&conn, &markdown);
-    vector_db::upsert_block_embedding(&conn, "other.md", "h-1-alpha-0", &[0.1_f32; 4], "other")
+    vector_db::upsert_block_embeddings(&conn, "other.md", "h-1-alpha-0", &[vec![0.1_f32; 4]], "other")
         .expect("seed other note");
 
     let unchanged = RecordingEncoder::default();

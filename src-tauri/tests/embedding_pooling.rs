@@ -319,6 +319,7 @@ fn changing_any_encoding_input_changes_the_token() {
             "embed_input_format",
             EncodingInputs { embed_input_format: base.embed_input_format + 1, ..base.clone() },
         ),
+        ("section_windows", EncodingInputs { section_windows: "different", ..base.clone() }),
         ("epoch", EncodingInputs { epoch: base.epoch + 1, ..base.clone() }),
     ];
     let base_fingerprint = encoding_fingerprint(&base);
@@ -350,7 +351,7 @@ fn conn_with_stored_version(version: &str) -> Connection {
     vector_db::init_vector_schema(&conn).expect("vector schema");
     vector_db::set_model_version(&conn, version).expect("seed version");
     vector_db::upsert_embedding(&conn, "n.md", &[0.5_f32; 4]).expect("seed note embedding");
-    vector_db::upsert_block_embedding(&conn, "n.md", "h-1-a-0", &[0.5_f32; 4], "hash")
+    vector_db::upsert_block_embeddings(&conn, "n.md", "h-1-a-0", &[vec![0.5_f32; 4]], "hash")
         .expect("seed block embedding");
     conn
 }

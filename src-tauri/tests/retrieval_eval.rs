@@ -398,10 +398,6 @@ fn run_hybrid(
         .collect()
 }
 
-/// Mirrors `search_blocks_inner` (service.rs:4378-4448) minus the `AppHandle`
-/// plumbing: the harness reaches the DB and the block index directly. A small
-/// enough allowed set is scanned exactly, same threshold as the vector leg;
-/// the scope predicate is re-checked per hit on the over-fetch fallback path.
 fn run_blocks(
     conn: &Connection,
     block_index: &SharedVectorIndex,
@@ -417,46 +413,11 @@ fn run_blocks(
     let Some(query_vec) = usable_query_vector(query_vec, query) else {
         return Vec::new();
     };
-    let fetch = if date_range.is_some() { (limit * 20).max(500) } else { limit * 3 };
-    let allowed = hybrid::resolve_allowed_paths(conn, date_range, scope).unwrap_or(None);
-
     let idx = block_index.read().expect("index lock");
-    let raw = match &allowed {
-        Some(allowed) if allowed.len() <= hybrid::FILTERED_EXACT_MAX => {
-            let keys = idx
-                .keys()
-                .filter(|k| k.split_once('\0').is_some_and(|(path, _)| allowed.contains(path)));
-            idx.search_within(&query_vec, keys, fetch)
-        }
-        _ => idx.search(&query_vec, fetch),
-    };
-    drop(idx);
-
-    let mut results = Vec::with_capacity(limit);
-    for (key, _distance) in &raw {
-        if results.len() >= limit {
-            break;
-        }
-        let Some((path, heading_id)) = key.split_once('\0') else {
-            continue;
-        };
-        if scope.is_some_and(|sf| sf.is_active() && !sf.matches(path)) {
-            continue;
-        }
-        if search_db::get_section(conn, path, heading_id).ok().flatten().is_none() {
-            continue;
-        }
-        let Some(note) = search_db::get_note_meta(conn, path).ok().flatten() else {
-            continue;
-        };
-        if let Some((start_ms, end_ms)) = date_range {
-            if note.mtime_ms < start_ms || note.mtime_ms >= end_ms {
-                continue;
-            }
-        }
-        results.push((path.to_string(), Some(heading_id.to_string())));
-    }
-    results
+    crate::features::search::service::search_blocks_indexed(
+        conn, &idx, &query_vec, limit, date_range, scope,
+    ).expect("block search")
+        .into_iter().map(|hit| (hit.note.path, Some(hit.heading_id))).collect()
 }
 
 #[test]
