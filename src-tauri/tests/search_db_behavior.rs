@@ -2,12 +2,14 @@ use crate::features::notes::service as notes_service;
 use crate::features::search::db::{
     compute_sync_plan, count_bases_many, extract_frontmatter_properties, get_backlinks,
     get_manifest, get_note_meta, get_orphan_outlinks, get_outlinks, list_note_paths_by_prefix,
-    open_search_db_at_path, query_bases, query_sections, re_resolve_orphan_outlinks,
+    open_search_db_at_path, paths_matching_scope, query_bases, query_sections, re_resolve_orphan_outlinks,
     rebuild_index, remove_note, remove_notes_by_prefix, rename_folder_paths, rename_note_path,
     search, search_headings, set_outlinks, suggest, suggest_planned, sync_index, upsert_note,
     upsert_note_simple,
 };
-use crate::features::search::model::{BaseFilter, BaseQuery, IndexNoteMeta, SearchScope, SectionFilter};
+use crate::features::search::model::{
+    BaseFilter, BaseQuery, IndexNoteMeta, ScopeFilter, SearchScope, SectionFilter,
+};
 use crate::features::search::vector_db;
 use rusqlite::Connection;
 use std::cell::RefCell;
@@ -2484,4 +2486,113 @@ fn folder_rename_rekeys_vectors_without_re_embedding() {
 
     assert_eq!(stored_title(&conn, "archive/a.md"), "a");
     assert_vectors_rekeyed(&conn, "folder/a.md", "archive/a.md");
+}
+
+#[test]
+fn folder_scope_is_case_sensitive_before_the_fts_limit() {
+    let tmp = TempDir::new().expect("temp dir");
+    let conn = open_search_db_at_path(&tmp.path().join("test.db")).expect("db");
+    for (path, title, body) in [
+        ("work/first.md", "needle", "needle"),
+        ("work/second.md", "needle", "needle"),
+        ("Work/valid.md", "Valid", "needle with other words"),
+    ] {
+        upsert_note(&conn, &note_meta(path, title, title), body).expect("note");
+    }
+    let unscoped = search(&conn, "needle", SearchScope::All, 2, None, true, None)
+        .expect("unscoped search");
+    assert_eq!(unscoped.len(), 2);
+    assert!(unscoped.iter().all(|hit| hit.note.path.starts_with("work/")));
+
+    for (prefix, expected) in [
+        ("Work/", vec!["Work/valid.md"]),
+        ("work/", vec!["work/first.md", "work/second.md"]),
+    ] {
+        let scope = ScopeFilter {
+            paths: vec![],
+            prefixes: vec![prefix.into()],
+        };
+        let paths = paths_matching_scope(&conn, &scope).expect("scope");
+        assert_eq!(paths, expected.into_iter().map(String::from).collect());
+        let hits = search(&conn, "needle", SearchScope::All, 1, None, true, Some(&scope))
+            .expect("scoped search");
+        assert_eq!(hits.len(), 1);
+        assert!(scope.matches(&hits[0].note.path));
+    }
+}
+
+#[test]
+fn folder_scope_treats_sql_pattern_characters_literally() {
+    let tmp = TempDir::new().expect("temp dir");
+    let conn = open_search_db_at_path(&tmp.path().join("test.db")).expect("db");
+    let paths = [
+        "percent%/note.md",
+        "percentX/note.md",
+        "under_/note.md",
+        "underX/note.md",
+        r"back\slash/note.md",
+        "backslash/note.md",
+    ];
+    for path in paths {
+        upsert_note(&conn, &note_meta(path, "Needle", "Needle"), "needle").expect("note");
+    }
+    for prefix in ["percent%/", "under_/", r"back\slash/"] {
+        let scope = ScopeFilter {
+            paths: vec![],
+            prefixes: vec![prefix.into()],
+        };
+        let expected = format!("{prefix}note.md");
+        assert_eq!(
+            paths_matching_scope(&conn, &scope).expect("scope"),
+            [expected.clone()].into_iter().collect()
+        );
+        let hits = search(&conn, "needle", SearchScope::All, 10, None, true, Some(&scope))
+            .expect("search");
+        assert_eq!(hits.len(), 1);
+        assert_eq!(hits[0].note.path, expected);
+    }
+}
+
+#[test]
+fn folder_scope_unions_paths_and_prefixes_and_intersects_dates() {
+    let tmp = TempDir::new().expect("temp dir");
+    let conn = open_search_db_at_path(&tmp.path().join("test.db")).expect("db");
+    for (path, mtime) in [
+        ("Work/a.md", 100),
+        ("Home/b.md", 199),
+        ("chosen.md", 150),
+        ("Chosen.md", 150),
+        ("Work/old.md", 99),
+        ("Home/new.md", 200),
+        ("other.md", 150),
+    ] {
+        let mut meta = note_meta(path, "Needle", "Needle");
+        meta.mtime_ms = mtime;
+        upsert_note(&conn, &meta, "needle").expect("note");
+    }
+    let scope = ScopeFilter {
+        paths: vec!["chosen.md".into()],
+        prefixes: vec!["Work/".into(), "Home/".into()],
+    };
+    let all = ["Work/a.md", "Home/b.md", "chosen.md", "Work/old.md", "Home/new.md"]
+        .into_iter()
+        .map(String::from)
+        .collect();
+    assert_eq!(paths_matching_scope(&conn, &scope).expect("scope"), all);
+    let expected = ["Work/a.md", "Home/b.md", "chosen.md"]
+        .into_iter()
+        .map(String::from)
+        .collect();
+    assert_eq!(
+        crate::features::search::hybrid::resolve_allowed_paths(&conn, Some((100, 200)), Some(&scope))
+            .expect("date scope"),
+        Some(expected)
+    );
+    let hits = search(&conn, "needle", SearchScope::All, 10, Some((100, 200)), true, Some(&scope))
+        .expect("search");
+    let actual: std::collections::HashSet<_> = hits.into_iter().map(|hit| hit.note.path).collect();
+    assert_eq!(
+        actual,
+        ["Work/a.md", "Home/b.md", "chosen.md"].into_iter().map(String::from).collect()
+    );
 }

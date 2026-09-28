@@ -3346,7 +3346,7 @@ pub fn search(
         .map_err(|e| e.to_string())
 }
 
-/// Builds `col IN (paths) OR col LIKE prefix OR ...` for a [`ScopeFilter`],
+/// Builds `col IN (paths) OR instr(col, prefix) = 1 OR ...` for a [`ScopeFilter`],
 /// appending its params to the caller's list so it can share one placeholder
 /// sequence with whatever other clauses the caller has already added.
 fn scope_predicate(
@@ -3364,8 +3364,8 @@ fn scope_predicate(
         ));
     }
     for prefix in &sf.prefixes {
-        params.push(Box::new(like_prefix_pattern(prefix)));
-        parts.push(format!("{col} LIKE ?{} ESCAPE '\\'", params.len()));
+        params.push(Box::new(prefix.clone()));
+        parts.push(format!("instr({col}, ?{}) = 1", params.len()));
     }
     Ok(format!("({})", parts.join(" OR ")))
 }
