@@ -190,6 +190,10 @@ export function register_document_actions(
     execute: async () => {
       const active_tab = stores.tab.active_tab;
       if (!active_tab || active_tab.kind !== "document") return;
+      if (canvas_store.get_state(active_tab.id)) {
+        await registry.execute(ACTION_IDS.canvas_save, active_tab.id);
+        return;
+      }
       await document_service.save(active_tab.id);
       stores.tab.set_dirty(active_tab.id, false);
     },

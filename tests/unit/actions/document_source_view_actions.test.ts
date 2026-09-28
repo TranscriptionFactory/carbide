@@ -49,17 +49,23 @@ function create_harness(file_path: string, file_type: string) {
   registry.register({
     id: ACTION_IDS.canvas_save,
     label: "",
-    execute: (id) => canvas_save(id as string),
+    execute: (id) => {
+      canvas_save(id as string);
+    },
   });
   registry.register({
     id: ACTION_IDS.canvas_close,
     label: "",
-    execute: (id) => canvas_close(id as string),
+    execute: (id) => {
+      canvas_close(id as string);
+    },
   });
   registry.register({
     id: ACTION_IDS.canvas_open,
     label: "",
-    execute: () => canvas_open(),
+    execute: () => {
+      canvas_open();
+    },
   });
 
   register_document_actions({
@@ -219,6 +225,17 @@ describe("document source view: excalidraw", () => {
     expect(document_store.get_viewer_state(tab_id)?.source_view).toBe(true);
     expect(document_store.get_current_content(tab_id)).toBe("{broken");
     expect(canvas_open).not.toHaveBeenCalled();
+  });
+});
+
+describe("document save on drawing tabs", () => {
+  it("saves the drawing through the canvas service", async () => {
+    const { registry, canvas_save, port } = open_drawing(true);
+
+    await registry.execute(ACTION_IDS.document_save);
+
+    expect(canvas_save).toHaveBeenCalledWith(DRAWING_PATH);
+    expect(port.write_file).not.toHaveBeenCalled();
   });
 });
 

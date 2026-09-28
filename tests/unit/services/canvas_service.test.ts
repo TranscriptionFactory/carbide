@@ -176,6 +176,65 @@ describe("CanvasService", () => {
     expect(get_state(canvas_store).is_dirty).toBe(false);
   });
 
+  it("keeps an excalidraw tab dirty when the scene changes during the write", async () => {
+    let finish_write: () => void = () => {};
+    const { service, canvas_store, mocks } = make_service({
+      read_file: vi.fn().mockResolvedValue('{"elements":[]}'),
+      write_file: vi.fn(
+        () =>
+          new Promise<void>((resolve) => {
+            finish_write = resolve;
+          }),
+      ),
+    });
+    await service.open_canvas("tab1", "a.excalidraw", "excalidraw");
+    canvas_store.set_excalidraw_scene("tab1", { elements: [{ id: "a" }] });
+    canvas_store.set_dirty("tab1", true);
+
+    const saving = service.save_canvas("tab1");
+    await vi.waitFor(() => {
+      expect(mocks.write_file).toHaveBeenCalled();
+    });
+    canvas_store.set_excalidraw_scene("tab1", { elements: [{ id: "b" }] });
+    finish_write();
+    await saving;
+
+    expect(mocks.write_file.mock.calls[0]?.[2]).toContain('"a"');
+    expect(get_state(canvas_store).is_dirty).toBe(true);
+  });
+
+  it("keeps a canvas tab dirty when nodes change during the write", async () => {
+    let finish_write: () => void = () => {};
+    const { service, canvas_store, mocks } = make_service({
+      write_file: vi.fn(
+        () =>
+          new Promise<void>((resolve) => {
+            finish_write = resolve;
+          }),
+      ),
+    });
+    await service.open_canvas("tab1", "board.canvas");
+    canvas_store.set_dirty("tab1", true);
+
+    const saving = service.save_canvas("tab1");
+    await vi.waitFor(() => {
+      expect(mocks.write_file).toHaveBeenCalled();
+    });
+    canvas_store.add_node("tab1", {
+      id: "n1",
+      type: "text",
+      text: "late",
+      x: 0,
+      y: 0,
+      width: 10,
+      height: 10,
+    });
+    finish_write();
+    await saving;
+
+    expect(get_state(canvas_store).is_dirty).toBe(true);
+  });
+
   it("closes a canvas and removes state", async () => {
     const { service, canvas_store } = make_service();
 

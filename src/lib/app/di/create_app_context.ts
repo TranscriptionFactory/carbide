@@ -1745,6 +1745,8 @@ export function create_app_context(input: {
     metadata_service,
     toolchain_service,
     document_store: stores.document,
+    canvas_store: stores.canvas,
+    canvas_service,
     code_lsp_service,
     theme_service,
     reference_service,

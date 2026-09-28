@@ -1,6 +1,10 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { Excalidraw, exportToSvg } from "@excalidraw/excalidraw";
+import {
+  Excalidraw,
+  exportToSvg,
+  hashElementsVersion,
+} from "@excalidraw/excalidraw";
 import "@excalidraw/excalidraw/index.css";
 import type {
   AppState,
@@ -25,6 +29,7 @@ type ExportSvgOptions = {
 type ExportToSvg = (options: ExportSvgOptions) => Promise<SVGSVGElement>;
 
 const export_to_svg = exportToSvg as unknown as ExportToSvg;
+const SCENE_CHANGE_DEBOUNCE_MS = 250;
 
 function as_scene_elements(
   elements: ExcalidrawScene["elements"],
@@ -49,6 +54,28 @@ function to_scene_update(input: {
   return {
     elements: input.elements ? as_scene_elements(input.elements) : undefined,
     appState: input.appState ? as_scene_app_state(input.appState) : undefined,
+  };
+}
+
+function content_signature(
+  elements: SceneElements,
+  files: BinaryFiles,
+): string {
+  return `${String(hashElementsVersion(elements))}:${String(Object.keys(files).length)}`;
+}
+
+function snapshot_scene(api: ExcalidrawImperativeAPI | null): ExcalidrawScene {
+  const elements = (api?.getSceneElements() ?? []) as SceneElements;
+  const appState = (api?.getAppState() ?? {}) as Partial<SceneAppState>;
+  return {
+    type: "excalidraw",
+    version: 2,
+    source: "carbide",
+    elements: structuredClone(elements),
+    appState: {
+      viewBackgroundColor: appState.viewBackgroundColor ?? "#ffffff",
+    },
+    files: api?.getFiles() ?? {},
   };
 }
 
@@ -78,27 +105,12 @@ function App() {
           );
           break;
 
-        case "get_scene": {
-          const elements = (api_ref.current?.getSceneElements() ??
-            []) as SceneElements;
-          const appState = (api_ref.current?.getAppState() ??
-            {}) as Partial<SceneAppState>;
-          const files = api_ref.current?.getFiles() ?? {};
+        case "get_scene":
           post_to_host({
             type: "scene_response",
-            scene: {
-              type: "excalidraw",
-              version: 2,
-              source: "carbide",
-              elements: structuredClone(elements),
-              appState: {
-                viewBackgroundColor: appState.viewBackgroundColor ?? "#ffffff",
-              },
-              files,
-            },
+            scene: snapshot_scene(api_ref.current),
           });
           break;
-        }
 
         case "export_svg": {
           const export_svg = async () => {
@@ -150,18 +162,31 @@ function App() {
     };
   }, []);
 
+  const last_signature = useRef<string | null>(null);
+  const change_timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const on_change = useCallback(
     (
-      _elements: readonly ExcalidrawElement[],
+      elements: readonly ExcalidrawElement[],
       _appState: AppState,
-      _files: BinaryFiles,
+      files: BinaryFiles,
     ) => {
-      post_to_host({
-        type: "on_change",
-        elements: [],
-        appState: {},
-        dirty: true,
-      });
+      const signature = content_signature(elements, files);
+      if (last_signature.current === null) {
+        last_signature.current = signature;
+        return;
+      }
+      if (signature === last_signature.current) return;
+      last_signature.current = signature;
+
+      if (change_timer.current) clearTimeout(change_timer.current);
+      change_timer.current = setTimeout(() => {
+        change_timer.current = null;
+        post_to_host({
+          type: "scene_changed",
+          scene: snapshot_scene(api_ref.current),
+        });
+      }, SCENE_CHANGE_DEBOUNCE_MS);
     },
     [],
   );

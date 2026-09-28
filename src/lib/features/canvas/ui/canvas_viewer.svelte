@@ -1,7 +1,10 @@
 <script lang="ts">
   import { ACTION_IDS } from "$lib/app";
   import { use_app_context } from "$lib/app/context/app_context.svelte";
-  import type { CanvasTabState } from "$lib/features/canvas/state/canvas_store.svelte";
+  import type {
+    CanvasTabState,
+    ExcalidrawScene,
+  } from "$lib/features/canvas/state/canvas_store.svelte";
   import type { Camera } from "$lib/features/canvas/types/canvas";
   import CanvasSurface from "$lib/features/canvas/ui/canvas_surface.svelte";
   import ExcalidrawHost from "$lib/features/canvas/ui/excalidraw_host.svelte";
@@ -83,14 +86,9 @@
     stores.canvas.set_camera(tab_id, camera);
   }
 
-  function handle_excalidraw_change(
-    _elements: unknown[],
-    _appState: Record<string, unknown>,
-    dirty: boolean,
-  ) {
-    if (dirty) {
-      stores.canvas.set_dirty(tab_id, true);
-    }
+  function handle_excalidraw_change(scene: ExcalidrawScene) {
+    stores.canvas.set_excalidraw_scene(tab_id, scene);
+    stores.canvas.set_dirty(tab_id, true);
   }
 
   function handle_node_click(file_path: string) {
