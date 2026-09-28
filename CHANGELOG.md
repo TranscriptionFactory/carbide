@@ -1,5 +1,15 @@
 # carbide
 
+## 2.39.0
+
+### Minor Changes
+
+- b2103ef: Open Excalidraw drawings, JSON canvases, and CSV files in the source editor via a Source toggle, like HTML. Switching saves pending edits on the side you leave.
+
+### Patch Changes
+
+- f5d5211: Excalidraw drawings and JSON canvases now save. Edits autosave with the note autosave delay, Cmd+S saves canvas tabs, and switching tabs no longer drops unsaved drawing changes.
+
 ## 2.38.4
 
 ### Patch Changes
