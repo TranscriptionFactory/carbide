@@ -201,14 +201,12 @@ describe("RetrievalService.retrieve", () => {
 
   it("preserves pins without ordinary retrieval when note and tag scopes cannot intersect", async () => {
     const search = {
-      suggest_wiki_links: vi
-        .fn()
-        .mockResolvedValue([
-          {
-            kind: "existing",
-            note: note_meta("pinned.md", "Pinned", "pin-id"),
-          },
-        ]),
+      suggest_wiki_links: vi.fn().mockResolvedValue([
+        {
+          kind: "existing",
+          note: note_meta("pinned.md", "Pinned", "pin-id"),
+        },
+      ]),
       search_blocks: vi.fn(),
       hybrid_search: vi.fn(),
     };
