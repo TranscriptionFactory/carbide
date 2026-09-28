@@ -2,7 +2,12 @@ import { ACTION_IDS } from "$lib/app/action_registry/action_ids";
 import type { ActionRegistrationInput } from "$lib/app/action_registry/action_registration_input";
 import type { DocumentService } from "$lib/features/document/application/document_service";
 import type { DocumentStore } from "$lib/features/document/state/document_store.svelte";
+import type { CanvasStore } from "$lib/features/canvas";
 import { detect_file_type } from "$lib/features/document/domain/document_types";
+import {
+  supports_source_view,
+  type DocumentFileType,
+} from "$lib/features/document/types/document";
 import {
   render_note_body_html,
   type ImageResolver,
@@ -117,10 +122,17 @@ export function register_document_actions(
   input: ActionRegistrationInput & {
     document_service: DocumentService;
     document_store: DocumentStore;
+    canvas_store: CanvasStore;
   },
 ) {
-  const { registry, stores, services, document_service, document_store } =
-    input;
+  const {
+    registry,
+    stores,
+    services,
+    document_service,
+    document_store,
+    canvas_store,
+  } = input;
 
   registry.register({
     id: ACTION_IDS.document_open,
@@ -178,6 +190,10 @@ export function register_document_actions(
     execute: async () => {
       const active_tab = stores.tab.active_tab;
       if (!active_tab || active_tab.kind !== "document") return;
+      if (canvas_store.get_state(active_tab.id)) {
+        await registry.execute(ACTION_IDS.canvas_save, active_tab.id);
+        return;
+      }
       await document_service.save(active_tab.id);
       stores.tab.set_dirty(active_tab.id, false);
     },
@@ -194,13 +210,72 @@ export function register_document_actions(
 
   registry.register({
     id: ACTION_IDS.document_toggle_source,
-    label: "Cycle HTML View Mode (Source / Safe / Live)",
-    execute: () => {
+    label: "Toggle Source View",
+    execute: async () => {
       const active_tab = stores.tab.active_tab;
       if (!active_tab || active_tab.kind !== "document") return;
       const viewer = document_store.get_viewer_state(active_tab.id);
-      if (!viewer || viewer.file_type !== "html") return;
-      document_store.cycle_html_view_mode(active_tab.id);
+      if (viewer?.file_type === "html") {
+        document_store.cycle_html_view_mode(active_tab.id);
+        return;
+      }
+      await registry.execute(
+        ACTION_IDS.document_set_source_view,
+        !viewer?.source_view,
+      );
+    },
+  });
+
+  async function enter_drawing_source_view(
+    tab_id: string,
+    file_path: string,
+    file_type: DocumentFileType,
+  ): Promise<void> {
+    if (document_store.get_viewer_state(tab_id)?.source_view) return;
+    if (canvas_store.get_state(tab_id)?.is_dirty) {
+      await registry.execute(ACTION_IDS.canvas_save, tab_id);
+      if (canvas_store.get_state(tab_id)?.is_dirty) return;
+    }
+    await document_service.open_document(tab_id, file_path, file_type);
+    document_store.set_source_view(tab_id, true);
+    await registry.execute(ACTION_IDS.canvas_close, tab_id);
+  }
+
+  async function exit_drawing_source_view(
+    tab_id: string,
+    file_path: string,
+  ): Promise<void> {
+    if (!document_store.get_viewer_state(tab_id)?.source_view) return;
+    if (document_store.get_content_state(tab_id)?.is_dirty) {
+      await document_service.save(tab_id);
+      stores.tab.set_dirty(tab_id, false);
+    }
+    document_service.close_document(tab_id);
+    await registry.execute(ACTION_IDS.canvas_open, file_path);
+  }
+
+  registry.register({
+    id: ACTION_IDS.document_set_source_view,
+    label: "Set Source View",
+    execute: async (...args: unknown[]) => {
+      const source_view = args[0];
+      if (typeof source_view !== "boolean") return;
+      const active_tab = stores.tab.active_tab;
+      if (!active_tab || active_tab.kind !== "document") return;
+      const file_type = active_tab.file_type as DocumentFileType;
+      if (!supports_source_view(file_type)) return;
+
+      if (file_type === "canvas" || file_type === "excalidraw") {
+        await (source_view
+          ? enter_drawing_source_view(
+              active_tab.id,
+              active_tab.file_path,
+              file_type,
+            )
+          : exit_drawing_source_view(active_tab.id, active_tab.file_path));
+        return;
+      }
+      document_store.set_source_view(active_tab.id, source_view);
     },
   });
 

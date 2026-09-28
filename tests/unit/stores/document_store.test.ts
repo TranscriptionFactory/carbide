@@ -15,6 +15,7 @@ function make_state(tab_id: string): DocumentViewerState {
     pdf_page: 1,
     cfi: null,
     html_view_mode: "safe",
+    source_view: false,
     load_status: "idle",
     error_message: null,
   };
@@ -129,6 +130,35 @@ describe("DocumentStore", () => {
       store.update_pdf_page("ghost", 3);
     }).not.toThrow();
     expect(store.viewer_states.size).toBe(0);
+  });
+
+  it("toggles source_view for csv, canvas and excalidraw documents", () => {
+    const store = new DocumentStore();
+    for (const file_type of ["csv", "canvas", "excalidraw"] as const) {
+      store.set_viewer_state(file_type, {
+        ...make_state(file_type),
+        file_type,
+      });
+
+      store.set_source_view(file_type, true);
+      expect(store.get_viewer_state(file_type)?.source_view).toBe(true);
+
+      store.set_source_view(file_type, false);
+      expect(store.get_viewer_state(file_type)?.source_view).toBe(false);
+    }
+  });
+
+  it("ignores source_view for types without a source toggle", () => {
+    const store = new DocumentStore();
+    for (const file_type of ["pdf", "html", "text", "image"] as const) {
+      store.set_viewer_state(file_type, {
+        ...make_state(file_type),
+        file_type,
+      });
+
+      store.set_source_view(file_type, true);
+      expect(store.get_viewer_state(file_type)?.source_view).toBe(false);
+    }
   });
 
   it("cycles html_view_mode through source / safe / live", () => {

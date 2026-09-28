@@ -2,7 +2,10 @@ export {
   type DocumentFileType,
   detect_file_type,
 } from "$lib/features/document/domain/document_types";
-export { is_editable_type } from "$lib/features/document/types/document";
+export {
+  is_editable_type,
+  supports_source_view,
+} from "$lib/features/document/types/document";
 export {
   DocumentStore,
   type DocumentContentState,
@@ -49,3 +52,4 @@ export {
 } from "$lib/features/document/application/document_service";
 export { register_document_actions } from "$lib/features/document/application/document_actions";
 export { default as DocumentViewer } from "$lib/features/document/ui/document_viewer.svelte";
+export { default as SourceViewToggle } from "$lib/features/document/ui/source_view_toggle.svelte";

@@ -6,7 +6,7 @@
   import PlusIcon from "@lucide/svelte/icons/plus";
   import { HotkeyKey } from "$lib/features/hotkey";
   import { Button } from "$lib/components/ui/button";
-  import { DocumentViewer } from "$lib/features/document";
+  import { DocumentViewer, SourceViewToggle } from "$lib/features/document";
   import { CanvasViewer } from "$lib/features/canvas";
   import { SourceEditor, resolve_note_width_mode } from "$lib/features/editor";
   import { GraphTabView, SearchGraphTabView } from "$lib/features/graph";
@@ -116,12 +116,18 @@
     {/key}
   {:else if active_tab?.kind === "graph"}
     <GraphTabView />
-  {:else if is_canvas_tab && active_tab?.kind === "document"}
-    <CanvasViewer
-      tab_id={active_tab.id}
-      file_path={active_tab.file_path}
-      file_type={active_tab.file_type as "canvas" | "excalidraw"}
-    />
+  {:else if is_canvas_tab && active_tab?.kind === "document" && !document_viewer_state?.source_view}
+    {@const file_type = active_tab.file_type as "canvas" | "excalidraw"}
+    <div class="NoteEditor__drawing">
+      <SourceViewToggle {file_type} source_view={false} />
+      <div class="NoteEditor__drawing-body">
+        <CanvasViewer
+          tab_id={active_tab.id}
+          file_path={active_tab.file_path}
+          {file_type}
+        />
+      </div>
+    </div>
   {:else if active_tab?.kind === "bases"}
     <BasesPanel />
   {:else if active_tab?.kind === "assistant_session"}
@@ -322,6 +328,17 @@
        resize near the viewport edge. */
     overflow-anchor: none;
     height: 100%;
+  }
+
+  .NoteEditor__drawing {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+  }
+
+  .NoteEditor__drawing-body {
+    flex: 1;
+    min-height: 0;
   }
 
   /* Row so the margin rail is a sibling column of the prose, inside the

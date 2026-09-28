@@ -13,11 +13,14 @@
   import HtmlViewer from "$lib/features/document/ui/html_viewer.svelte";
   import HtmlLiveRenderer from "$lib/features/document/ui/html_live_renderer.svelte";
   import TrustedHtmlDialog from "$lib/features/document/ui/trusted_html_dialog.svelte";
+  import ViewModeToggle from "$lib/features/document/ui/view_mode_toggle.svelte";
+  import SourceViewToggle from "$lib/features/document/ui/source_view_toggle.svelte";
   import { format_provenance_banner } from "$lib/features/document/domain/html_artifact_paste";
   import { CanvasViewer } from "$lib/features/canvas";
-  import type {
-    HtmlViewMode,
-    PdfMetadata,
+  import {
+    supports_source_view,
+    type HtmlViewMode,
+    type PdfMetadata,
   } from "$lib/features/document/types/document";
   import { format_bytes } from "$lib/shared/utils/format_bytes";
   import { parent_folder_path } from "$lib/shared/utils/path";
@@ -43,6 +46,15 @@
   );
   const is_html = $derived(viewer_state.file_type === "html");
   const html_mode = $derived(viewer_state.html_view_mode);
+  const has_source_view = $derived(
+    supports_source_view(viewer_state.file_type),
+  );
+  const is_drawing = $derived(
+    viewer_state.file_type === "canvas" ||
+      viewer_state.file_type === "excalidraw",
+  );
+  const filename = $derived(viewer_state.file_path.split("/").pop() ?? "");
+  const source_filename = $derived(is_drawing ? `${filename}.json` : filename);
   const trust_level = $derived(
     is_html ? stores.document.get_trust_level(viewer_state.file_path) : "safe",
   );
@@ -50,6 +62,18 @@
     trust_level === "live" || trust_level === "live+net",
   );
   const allow_network = $derived(trust_level === "live+net");
+  const html_mode_options = $derived([
+    { value: "source" as const, label: "Source", icon: CodeIcon },
+    { value: "safe" as const, label: "Safe", icon: EyeIcon },
+    {
+      value: "live" as const,
+      label: "Live",
+      icon: ZapIcon,
+      title: live_allowed
+        ? "Run scripts (sandboxed)"
+        : "Trust file to enable Live mode",
+    },
+  ]);
   const provenance = $derived(
     is_html ? stores.document.get_provenance(viewer_state.file_path) : null,
   );
@@ -164,50 +188,12 @@
 
 <div class="DocumentViewer">
   {#if is_html && current_content !== null}
-    <div class="DocumentViewer__toolbar">
-      <div
-        class="DocumentViewer__mode-toggle"
-        role="radiogroup"
-        aria-label="HTML view mode"
-      >
-        <button
-          type="button"
-          class="DocumentViewer__mode-btn"
-          class:DocumentViewer__mode-btn--active={html_mode === "source"}
-          role="radio"
-          aria-checked={html_mode === "source"}
-          onclick={() => set_html_view_mode("source")}
-        >
-          <CodeIcon />
-          <span>Source</span>
-        </button>
-        <button
-          type="button"
-          class="DocumentViewer__mode-btn"
-          class:DocumentViewer__mode-btn--active={html_mode === "safe"}
-          role="radio"
-          aria-checked={html_mode === "safe"}
-          onclick={() => set_html_view_mode("safe")}
-        >
-          <EyeIcon />
-          <span>Safe</span>
-        </button>
-        <button
-          type="button"
-          class="DocumentViewer__mode-btn"
-          class:DocumentViewer__mode-btn--active={html_mode === "live"}
-          role="radio"
-          aria-checked={html_mode === "live"}
-          title={live_allowed
-            ? "Run scripts (sandboxed)"
-            : "Trust file to enable Live mode"}
-          onclick={() => set_html_view_mode("live")}
-        >
-          <ZapIcon />
-          <span>Live</span>
-        </button>
-      </div>
-    </div>
+    <ViewModeToggle
+      aria_label="HTML view mode"
+      options={html_mode_options}
+      value={html_mode}
+      on_select={(mode) => void set_html_view_mode(mode)}
+    />
     {#if provenance_banner}
       <div class="DocumentViewer__provenance" role="status">
         <span class="DocumentViewer__provenance-text">{provenance_banner}</span>
@@ -222,9 +208,14 @@
         </button>
       </div>
     {/if}
+  {:else if has_source_view}
+    <SourceViewToggle
+      file_type={viewer_state.file_type}
+      source_view={viewer_state.source_view}
+    />
   {/if}
 
-  {#if viewer_state.file_type === "canvas" || viewer_state.file_type === "excalidraw"}
+  {#if (viewer_state.file_type === "canvas" || viewer_state.file_type === "excalidraw") && !viewer_state.source_view}
     <CanvasViewer
       tab_id={viewer_state.tab_id}
       file_path={viewer_state.file_path}
@@ -303,6 +294,18 @@
         on_active_heading_change={(id) => stores.outline.set_active_heading(id)}
       />
     {/if}
+  {:else if has_source_view && viewer_state.source_view && current_content !== null}
+    {#key `${viewer_state.tab_id}:${viewer_state.file_path}:${stores.ui.editor_settings.document_code_wrap ? "wrap" : "nowrap"}`}
+      <DocumentEditor
+        content={current_content}
+        filename={source_filename}
+        on_change={handle_editor_change}
+        wrap_lines={stores.ui.editor_settings.document_code_wrap}
+        theme={stores.ui.active_theme.color_scheme}
+        on_controller_change={(controller) =>
+          services.document.register_editor_controller(controller)}
+      />
+    {/key}
   {:else if viewer_state.file_type === "csv" && current_content !== null}
     <CsvViewer content={current_content} />
   {:else if viewer_state.file_type === "text" && current_content !== null}
@@ -354,53 +357,6 @@
     flex-direction: column;
     height: 100%;
     overflow: hidden;
-  }
-
-  .DocumentViewer__toolbar {
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-    padding: var(--space-1) var(--space-3);
-    border-bottom: 1px solid var(--border);
-    flex-shrink: 0;
-  }
-
-  .DocumentViewer__mode-toggle {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--space-0-5, 2px);
-    padding: 2px;
-    background-color: var(--muted);
-    border-radius: var(--radius-sm);
-  }
-
-  .DocumentViewer__mode-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--space-1);
-    padding: var(--space-1) var(--space-2);
-    font-size: var(--text-xs);
-    font-weight: 500;
-    border-radius: var(--radius-sm);
-    color: var(--muted-foreground);
-    background-color: transparent;
-    transition:
-      background-color var(--duration-fast) var(--ease-default),
-      color var(--duration-fast) var(--ease-default);
-  }
-
-  .DocumentViewer__mode-btn:hover {
-    color: var(--foreground);
-  }
-
-  .DocumentViewer__mode-btn--active {
-    background-color: var(--background);
-    color: var(--foreground);
-  }
-
-  :global(.DocumentViewer__mode-btn svg) {
-    width: var(--size-icon-xs);
-    height: var(--size-icon-xs);
   }
 
   .DocumentViewer__provenance {

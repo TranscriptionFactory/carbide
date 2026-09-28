@@ -378,6 +378,7 @@ export const ACTION_IDS = {
   document_export_html: "document.export_html",
   document_export_epub: "document.export_epub",
   document_toggle_source: "document.toggle_source",
+  document_set_source_view: "document.set_source_view",
   document_paste_html_artifact: "document.paste_html_artifact",
   document_clear_provenance: "document.clear_provenance",
   document_save_reading_position: "document.save_reading_position",

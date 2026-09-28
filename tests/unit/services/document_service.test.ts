@@ -45,6 +45,28 @@ describe("DocumentService", () => {
     );
   });
 
+  it("reads canvas and excalidraw files as text so they can open in source view", async () => {
+    const document_store = new DocumentStore();
+    const vault_store = new VaultStore();
+    vault_store.vault = create_test_vault();
+    const document_port = create_document_port();
+    const service = new DocumentService(
+      document_port,
+      vault_store,
+      document_store,
+    );
+
+    await service.open_document("tab-c", "boards/plan.canvas", "canvas");
+    await service.open_document("tab-e", "drawings/a.excalidraw", "excalidraw");
+
+    for (const tab_id of ["tab-c", "tab-e"]) {
+      const content = document_store.get_content_state(tab_id);
+      expect(content?.content).toBe("file content here");
+      expect(content?.asset_url).toBe(null);
+      expect(document_store.get_viewer_state(tab_id)?.source_view).toBe(false);
+    }
+  });
+
   it("reads file content for all text-type documents (html, code collapsed to text)", async () => {
     const document_store = new DocumentStore();
     const vault_store = new VaultStore();
@@ -641,6 +663,7 @@ describe("DocumentService", () => {
       pdf_page: 1,
       cfi: null,
       html_view_mode,
+      source_view: false,
       load_status: content === null ? "loading" : "ready",
       error_message: null,
     });

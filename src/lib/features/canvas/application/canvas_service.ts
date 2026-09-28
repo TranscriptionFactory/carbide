@@ -87,6 +87,7 @@ export class CanvasService {
 
     try {
       let content: string;
+      let written: unknown;
       if (state.file_type === "excalidraw") {
         const provider = this.canvas_store.get_scene_provider(tab_id);
         const scene = provider ? await provider() : state.excalidraw_scene;
@@ -95,14 +96,18 @@ export class CanvasService {
           this.canvas_store.set_excalidraw_scene(tab_id, scene);
         }
         content = JSON.stringify(scene, null, 2);
+        written = scene;
       } else if (state.canvas_data) {
         content = serialize_canvas(state.canvas_data);
+        written = state.canvas_data;
       } else {
         return;
       }
 
       await this.canvas_port.write_file(vault_id, state.file_path, content);
-      this.canvas_store.set_dirty(tab_id, false);
+      if (this.#current_content(tab_id) === written) {
+        this.canvas_store.set_dirty(tab_id, false);
+      }
 
       if (state.file_type === "excalidraw") {
         this.#export_svg_preview(tab_id, vault_id, state.file_path);
@@ -135,6 +140,13 @@ export class CanvasService {
       state.file_path,
       state.camera,
     );
+  }
+
+  #current_content(tab_id: string): unknown {
+    const state = this.canvas_store.get_state(tab_id);
+    return state?.file_type === "excalidraw"
+      ? state.excalidraw_scene
+      : state?.canvas_data;
   }
 
   close_canvas(tab_id: string): void {

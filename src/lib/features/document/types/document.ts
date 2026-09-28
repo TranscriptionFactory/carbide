@@ -16,6 +16,12 @@ export function is_editable_type(file_type: DocumentFileType): boolean {
   return file_type === "text" || file_type === "html";
 }
 
+export function supports_source_view(file_type: DocumentFileType): boolean {
+  return (
+    file_type === "csv" || file_type === "canvas" || file_type === "excalidraw"
+  );
+}
+
 export type HtmlViewMode = "source" | "safe" | "live";
 
 export const HTML_VIEW_MODES: readonly HtmlViewMode[] = [

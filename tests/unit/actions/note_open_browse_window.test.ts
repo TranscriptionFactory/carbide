@@ -3,6 +3,7 @@ import { ActionRegistry } from "$lib/app/action_registry/action_registry";
 import { ACTION_IDS } from "$lib/app/action_registry/action_ids";
 import { register_note_actions } from "$lib/features/note/application/note_actions";
 import { register_document_actions } from "$lib/features/document/application/document_actions";
+import { CanvasStore } from "$lib/features/canvas";
 import { UIStore } from "$lib/app/orchestration/ui_store.svelte";
 import { VaultStore } from "$lib/features/vault/state/vault_store.svelte";
 import { NotesStore } from "$lib/features/note/state/note_store.svelte";
@@ -170,6 +171,7 @@ function create_harness() {
     stores,
     document_service: services.document as never,
     document_store: new DocumentStore(),
+    canvas_store: new CanvasStore(),
     services: services as never,
     default_mount_config: {
       reset_app_state: false,

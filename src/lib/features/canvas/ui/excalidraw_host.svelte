@@ -6,11 +6,7 @@
     scene: ExcalidrawScene;
     theme: "light" | "dark";
     view_background_color: string;
-    on_change: (
-      elements: unknown[],
-      appState: Record<string, unknown>,
-      dirty: boolean,
-    ) => void;
+    on_change: (scene: ExcalidrawScene) => void;
   }
 
   let { scene, theme, view_background_color, on_change }: Props = $props();
@@ -39,12 +35,8 @@
         pending_scene = null;
         break;
 
-      case "on_change":
-        on_change(
-          msg.elements as unknown[],
-          msg.appState as Record<string, unknown>,
-          msg.dirty as boolean,
-        );
+      case "scene_changed":
+        on_change(msg.scene as ExcalidrawScene);
         break;
 
       case "scene_response":

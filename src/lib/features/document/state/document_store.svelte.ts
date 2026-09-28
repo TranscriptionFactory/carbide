@@ -4,6 +4,7 @@ import {
   type DocumentFileType,
   type HtmlViewMode,
   type PdfMetadata,
+  supports_source_view,
 } from "$lib/features/document/types/document";
 import type { TrustLevel } from "$lib/features/document/ports";
 
@@ -16,6 +17,7 @@ export type DocumentViewerState = {
   pdf_page: number;
   cfi: string | null;
   html_view_mode: HtmlViewMode;
+  source_view: boolean;
   html_fragment?: string | null;
   load_status: "idle" | "loading" | "ready" | "error";
   error_message: string | null;
@@ -135,6 +137,12 @@ export class DocumentStore {
     const state = this.viewer_states.get(tab_id);
     if (!state || state.file_type !== "html") return;
     this.#patch(tab_id, { html_view_mode: mode });
+  }
+
+  set_source_view(tab_id: string, source_view: boolean): void {
+    const state = this.viewer_states.get(tab_id);
+    if (!state || !supports_source_view(state.file_type)) return;
+    this.#patch(tab_id, { source_view });
   }
 
   request_html_outline_heading(tab_id: string, id: string): void {

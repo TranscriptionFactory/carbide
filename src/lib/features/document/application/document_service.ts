@@ -48,7 +48,13 @@ export type DocumentAiContext = {
 };
 
 function needs_text_content(file_type: DocumentFileType): boolean {
-  return file_type === "text" || file_type === "html" || file_type === "csv";
+  return (
+    file_type === "text" ||
+    file_type === "html" ||
+    file_type === "csv" ||
+    file_type === "canvas" ||
+    file_type === "excalidraw"
+  );
 }
 
 function derive_document_title(file_path: string): string {
@@ -275,6 +281,7 @@ export class DocumentService {
         pdf_page: normalized_initial_pdf_page ?? 1,
         cfi,
         html_view_mode: "safe",
+        source_view: false,
         html_fragment:
           file_type === "html" ? (initial_html_fragment ?? null) : null,
         load_status: "idle",

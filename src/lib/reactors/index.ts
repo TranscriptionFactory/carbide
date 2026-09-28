@@ -3,6 +3,7 @@ import { create_editor_appearance_reactor } from "$lib/reactors/editor_appearanc
 import { create_editor_width_reactor } from "$lib/reactors/editor_width.reactor.svelte";
 import { create_theme_reactor } from "$lib/reactors/theme.reactor.svelte";
 import { create_autosave_reactor } from "$lib/reactors/autosave.reactor.svelte";
+import { create_canvas_autosave_reactor } from "$lib/reactors/canvas_autosave.reactor.svelte";
 import { create_op_toast_reactor } from "$lib/reactors/op_toast.reactor.svelte";
 import { create_recent_notes_persist_reactor } from "$lib/reactors/recent_notes_persist.reactor.svelte";
 import { create_starred_persist_reactor } from "$lib/reactors/starred_persist.reactor.svelte";
@@ -105,6 +106,7 @@ import type { DiagnosticsStore } from "$lib/features/diagnostics";
 import type { PluginService } from "$lib/features/plugin";
 import type { ToolchainService } from "$lib/features/toolchain";
 import type { DocumentStore } from "$lib/features/document";
+import type { CanvasService, CanvasStore } from "$lib/features/canvas";
 import type { CodeLspService } from "$lib/features/code_lsp";
 import type { ThemeService } from "$lib/features/theme";
 import type { ReferenceService, ReferenceStore } from "$lib/features/reference";
@@ -171,6 +173,8 @@ export type ReactorContext = {
   metadata_service: MetadataService;
   toolchain_service: ToolchainService;
   document_store: DocumentStore;
+  canvas_store: CanvasStore;
+  canvas_service: CanvasService;
   code_lsp_service: CodeLspService;
   theme_service: ThemeService;
   reference_service: ReferenceService;
@@ -251,6 +255,11 @@ export function mount_reactors(context: ReactorContext): ReactorHandles {
       context.note_service,
       context.tab_service,
       "primary",
+    ),
+    create_canvas_autosave_reactor(
+      context.canvas_store,
+      context.ui_store,
+      context.canvas_service,
     ),
     create_theme_reactor(context.ui_store, context.theme_service),
     create_op_toast_reactor(context.op_store),
