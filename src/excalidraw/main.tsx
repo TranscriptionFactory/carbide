@@ -236,6 +236,7 @@ function App() {
         initialData={{
           elements: as_scene_elements(initial_data.elements),
           appState: {
+            currentItemRoughness: 0,
             ...as_scene_app_state(initial_data.appState),
             viewBackgroundColor: theme === "dark" ? "#121212" : "#ffffff",
             theme,
