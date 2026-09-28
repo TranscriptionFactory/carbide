@@ -1,5 +1,15 @@
 # carbide
 
+## 2.38.4
+
+### Patch Changes
+
+- 91cda81: Semantic search now embeds each section along with its note's title and the headings above it (`Title › Parent › Section`), and whole-note embeddings lead with the title. Sections that only make sense in context become findable. **Updating triggers a full re-embed on every vault**: stored vectors are wiped on first launch and rebuilt in the background, and semantic results stay partial until that finishes. The stored encoding version is now a fingerprint of every input that shapes a vector (pooling, query prefix, dimensions, token budget, text layout), so a future change to any of them re-embeds automatically instead of relying on a manual version bump. Renaming a note whose title comes from its filename now re-embeds that note under the new title, while notes titled by an H1 and folder renames keep their vectors.
+- 37c3610: Fixed a bug where a date-scoped chat/ask retrieval could silently drop notes that should have matched. Folder, tag, base and note scopes on retrieval now filter search results on the index itself instead of over-fetching and filtering afterward, so a narrow scope whose matches would previously rank outside the search window is now found.
+- cc461ee: Match retrieval folder scopes literally and case-sensitively so wrong-case results cannot crowd out valid notes. Preserve pinned context when scope intersections are empty, without running an unscoped search.
+- c1eb61a: Added a retrieval quality eval harness (`cargo test --lib retrieval_eval -- --ignored --nocapture`) that measures recall@1/3/5/10 and MRR, broken down by query type, across fts/vector/hybrid/blocks search over a synthetic 42-note fixture vault. No user-facing change.
+- fa7c8c4: Store separate embedding vectors for every section window so matches near the end of long sections can be retrieved without being diluted by unrelated content. Search and section similarity return each section once using its best window match, and note vectors average all windows. This encoding update triggers a full-vault re-embedding on upgrade.
+
 ## 2.38.3
 
 ### Patch Changes
