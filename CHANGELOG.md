@@ -1,5 +1,12 @@
 # carbide
 
+## 2.39.1
+
+### Patch Changes
+
+- 404da7d: New Excalidraw shapes default to the clean "Architect" stroke instead of the hand-drawn one. Existing shapes keep their style, and the stroke picker still switches per shape.
+- 0dc47ce: Cmd+S now saves an Excalidraw drawing while the drawing has focus. Saving while a drawing is still loading no longer overwrites the file with an empty scene.
+
 ## 2.39.0
 
 ### Minor Changes
