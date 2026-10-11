@@ -675,6 +675,23 @@ body.block-handle-dragging .prosemirror-dropcursor-inline {
   display: none;
 }
 
+/* ── Footnote popover ───────────────────────── */
+
+.footnote-popover {
+  z-index: 50;
+  max-width: 360px;
+  padding: 0.5rem 0.75rem;
+  white-space: pre-wrap;
+  font-size: var(--text-sm);
+  line-height: 1.4;
+  color: var(--popover-foreground);
+  background: var(--popover);
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius) * 0.5);
+  box-shadow: var(--shadow-2);
+  pointer-events: none;
+}
+
 /* ── Preview tooltip ────────────────────────── */
 
 .milkdown-link-preview > .link-preview {

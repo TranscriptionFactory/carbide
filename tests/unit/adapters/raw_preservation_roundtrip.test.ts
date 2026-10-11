@@ -75,11 +75,11 @@ describe("raw block preservation", () => {
     expect(roundtrip(once)).toBe(once);
   });
 
-  it("preserves footnote references and definitions", () => {
+  it("parses footnotes into footnote nodes and preserves their source", () => {
     const input = "A claim.[^1]\n\n[^1]: The footnote body.";
     const doc = parse_markdown(input);
-    expect(inline_types(input)).toContain("raw_inline");
-    expect(doc.child(1).type.name).toBe("raw_block");
+    expect(inline_types(input)).toEqual(["text", "footnote_ref"]);
+    expect(doc.child(1).type.name).toBe("footnote_def");
     expect(doc.child(1).textContent).toBe("[^1]: The footnote body.");
 
     const once = roundtrip(input);

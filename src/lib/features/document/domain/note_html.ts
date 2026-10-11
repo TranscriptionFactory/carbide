@@ -1,4 +1,5 @@
 import MarkdownIt from "markdown-it";
+import markdown_it_footnote from "markdown-it-footnote";
 import type Token from "markdown-it/lib/token.mjs";
 import type StateCore from "markdown-it/lib/rules_core/state_core.mjs";
 import type StateInline from "markdown-it/lib/rules_inline/state_inline.mjs";
@@ -24,7 +25,9 @@ export function create_md(): MarkdownIt {
     html: false,
     linkify: true,
     typographer: false,
-  }).enable(["table", "strikethrough"]);
+  })
+    .enable(["table", "strikethrough"])
+    .use(markdown_it_footnote);
 }
 
 function render_math(source: string, display: boolean): string {

@@ -198,6 +198,20 @@
   color: var(--muted-foreground);
 }
 
+.ProseMirror .footnote-ref--resolved {
+  vertical-align: super;
+  font-size: 0.75em;
+  line-height: 0;
+  color: var(--editor-link);
+  cursor: pointer;
+}
+
+.ProseMirror .footnote-def {
+  white-space: pre-wrap;
+  font-size: var(--text-sm);
+  color: var(--muted-foreground);
+}
+
 /* ── Code block toolbar ── */
 
 .code-block-wrapper .code-block-toolbar {

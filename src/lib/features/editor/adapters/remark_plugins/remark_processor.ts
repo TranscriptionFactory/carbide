@@ -66,11 +66,26 @@ function raw_value_handler(node: { value: string }): string {
   return node.value;
 }
 
+type JoinNode = { type: string; tight?: boolean };
+
+function join_tight_footnote_definitions(
+  left: JoinNode,
+  right: JoinNode,
+): number | undefined {
+  const both_definitions =
+    left.type === "rawFootnoteDefinition" &&
+    right.type === "rawFootnoteDefinition";
+  return both_definitions && left.tight ? 0 : undefined;
+}
+
 const stringify_options: StringifyOptions = {
   bullet: "-",
   emphasis: "*",
   rule: "-",
   listItemIndent: "one",
+  join: [
+    join_tight_footnote_definitions,
+  ] as unknown as StringifyOptions["join"],
   handlers: {
     ...highlight_to_markdown,
     ...details_to_markdown,
@@ -78,6 +93,7 @@ const stringify_options: StringifyOptions = {
     table: table_handler,
     wikiEmbed: raw_value_handler,
     wikiLink: raw_value_handler,
+    rawFootnoteDefinition: raw_value_handler,
     doingCheckbox: () => "[-] ",
     text: (
       node: { value?: string },

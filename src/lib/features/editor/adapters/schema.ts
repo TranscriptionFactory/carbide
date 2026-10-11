@@ -54,6 +54,63 @@ const raw_inline: NodeSpec = {
   },
 };
 
+const footnote_ref: NodeSpec = {
+  inline: true,
+  group: "inline",
+  selectable: true,
+  atom: true,
+  attrs: {
+    label: { default: "" },
+    raw: { default: "" },
+  },
+  parseDOM: [
+    {
+      tag: "span[data-type='footnote_ref']",
+      getAttrs(dom) {
+        if (!(dom instanceof HTMLElement)) return false;
+        return {
+          label: dom.getAttribute("data-label") || "",
+          raw: dom.getAttribute("data-raw") || "",
+        };
+      },
+    },
+  ],
+  toDOM(node) {
+    const label = (node.attrs["label"] as string) || "";
+    const raw = (node.attrs["raw"] as string) || "";
+    return [
+      "span",
+      {
+        "data-type": "footnote_ref",
+        "data-label": label,
+        "data-raw": raw,
+        class: "footnote-ref",
+      },
+      raw,
+    ];
+  },
+};
+
+const footnote_def: NodeSpec = {
+  content: "text*",
+  group: "block",
+  marks: "",
+  code: true,
+  defining: true,
+  attrs: {
+    tight: { default: false },
+  },
+  parseDOM: [
+    {
+      tag: "div[data-type='footnote_def']",
+      preserveWhitespace: "full" as const,
+    },
+  ],
+  toDOM() {
+    return ["div", { "data-type": "footnote_def", class: "footnote-def" }, 0];
+  },
+};
+
 const heading: NodeSpec = {
   attrs: {
     id: { default: "" },
@@ -991,6 +1048,8 @@ export const schema = new Schema({
     paragraph,
     raw_block,
     raw_inline,
+    footnote_ref,
+    footnote_def,
     heading,
     blockquote,
     code_block,
