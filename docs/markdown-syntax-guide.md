@@ -24,7 +24,7 @@
 | 12  | Lists                            | `[x]`  | Bullet, ordered, task lists with checkboxes                                   |
 | 13  | Canvas                           | `[x]`  | Separate canvas feature (Excalidraw-based)                                    |
 | 14  | Obsidian URI Scheme              | `[ ]`  | Not implemented                                                               |
-| 15  | HTML in Obsidian                 | `[~]`  | `<details>` supported; limited other HTML                                     |
+| 15  | HTML in Obsidian                 | `[~]`  | `<details>`, `<br>` and inline formatting tags; no block HTML or tables       |
 | 16  | Queries & Dynamic Content        | `[~]`  | Native Smart Blocks (live query/base/backlinks/tasks embeds); no Dataview/DQL |
 | 17  | Templates                        | `[~]`  | Note name templates with date tokens; no content templates                    |
 | 18  | CSS Customization                | `[~]`  | Theme system exists; no user CSS snippets                                     |
@@ -1605,7 +1605,7 @@ Obsidian allows a subset of HTML for cases where Markdown falls short.
 
 ## 15.1 Allowed and Useful HTML `[~]`
 
-> **Carbide status:** `<details>/<summary>` is fully supported. Other HTML elements (`<sup>`, `<sub>`, `<kbd>`, `<mark>`, etc.) have limited or no rendering in the visual editor.
+> **Carbide status:** `<details>/<summary>` is fully supported. `<br>` (any spelling: `<br/>`, `<br />`, `<BR>`) renders as a line break, including inside table cells. Paired `<u>`, `<s>`, `<sub>`, `<sup>`, `<kbd>`, `<mark>`, `<span>` and `<font>` tags render their formatting in the visual editor and in PDF/HTML/EPUB export. `<font>` keeps `face`, `size` and `color`. Inline `style` keeps only `color`, `background-color`, `font-weight`, `font-style`, `font-size` and `text-decoration`; other properties and event handlers are dropped. Tags save exactly as written. Unmatched or misnested tags, and all other elements in the example below (`<abbr>`, `<center>`, `<div>`, `<iframe>`), show as source.
 
 ```markdown
 <!-- HTML comment (invisible in all modes, unlike %% comments which show in edit mode) -->
@@ -1617,6 +1617,8 @@ Obsidian allows a subset of HTML for cases where Markdown falls short.
 <u>underlined</u> Underline
 <s>strikethrough</s> Strikethrough (alternative to ~~)
 <kbd>Ctrl</kbd> + <kbd>C</kbd> Keyboard keys
+<font color="crimson" face="Georgia">Red serif</font> Font color and face
+<span style="color: teal; font-weight: bold">Styled</span> Inline style
 <abbr title="Explanation">ABBR</abbr> Abbreviation with tooltip
 
 <details>
