@@ -24,6 +24,24 @@ import {
 import { as_asset_path } from "$lib/shared/types/ids";
 import type { EditorExtension, PluginContext } from "./types";
 
+export function create_embed_path_resolver(
+  ctx: Pick<PluginContext, "get_vault_id" | "resolve_vault_file_path">,
+): (src: string) => Promise<string> {
+  return async (src) => {
+    const decoded = decodeURIComponent(src);
+    const vault_id = ctx.get_vault_id();
+    if (
+      !vault_id ||
+      !ctx.resolve_vault_file_path ||
+      decoded.startsWith("/") ||
+      decoded.startsWith("@linked/")
+    ) {
+      return decoded;
+    }
+    return (await ctx.resolve_vault_file_path(vault_id, decoded)) ?? decoded;
+  };
+}
+
 export function create_embed_extension(ctx: PluginContext): EditorExtension {
   const plugins: Plugin[] = [];
 
@@ -48,19 +66,7 @@ export function create_embed_extension(ctx: PluginContext): EditorExtension {
   plugins.push(create_excalidraw_embed_view_plugin(embed_callbacks));
 
   plugins.push(create_file_embed_plugin());
-  const resolve_embed_path = async (src: string): Promise<string> => {
-    const decoded = decodeURIComponent(src);
-    const vault_id = ctx.get_vault_id();
-    if (
-      !vault_id ||
-      !ctx.resolve_vault_file_path ||
-      decoded.startsWith("/") ||
-      decoded.startsWith("@linked/")
-    ) {
-      return decoded;
-    }
-    return (await ctx.resolve_vault_file_path(vault_id, decoded)) ?? decoded;
-  };
+  const resolve_embed_path = create_embed_path_resolver(ctx);
   const resolve_asset_url_for_vault = ctx.resolve_asset_url_for_vault;
   plugins.push(
     create_file_embed_view_plugin({
