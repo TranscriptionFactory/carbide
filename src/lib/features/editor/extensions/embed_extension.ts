@@ -26,7 +26,7 @@ import type { EditorExtension, PluginContext } from "./types";
 
 export function create_embed_path_resolver(
   ctx: Pick<PluginContext, "get_vault_id" | "resolve_vault_file_path">,
-): (src: string) => Promise<string> {
+): (src: string) => Promise<string | null> {
   return async (src) => {
     const decoded = decodeURIComponent(src);
     const vault_id = ctx.get_vault_id();
@@ -38,7 +38,7 @@ export function create_embed_path_resolver(
     ) {
       return decoded;
     }
-    return (await ctx.resolve_vault_file_path(vault_id, decoded)) ?? decoded;
+    return ctx.resolve_vault_file_path(vault_id, decoded);
   };
 }
 
@@ -77,7 +77,8 @@ export function create_embed_extension(ctx: PluginContext): EditorExtension {
         ? async (src) => {
             const vault_id = ctx.get_vault_id();
             if (!vault_id) return src;
-            const target = await resolve_embed_path(src);
+            const target =
+              (await resolve_embed_path(src)) ?? decodeURIComponent(src);
             return resolve_asset_url_for_vault(vault_id, as_asset_path(target));
           }
         : undefined,

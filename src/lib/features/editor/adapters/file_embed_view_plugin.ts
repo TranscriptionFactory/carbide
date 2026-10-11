@@ -64,7 +64,7 @@ function get_icon_for_type(file_type: string): string {
 export type FileEmbedCallbacks = {
   on_open_file: (path: string) => void;
   resolve_asset_url?: ((src: string) => string | Promise<string>) | undefined;
-  resolve_vault_path?: ((src: string) => Promise<string>) | undefined;
+  resolve_vault_path?: ((src: string) => Promise<string | null>) | undefined;
   inline_html_trust?: InlineHtmlTrustConfig | undefined;
 };
 

@@ -46,7 +46,7 @@ function mount(options: {
   params?: Record<string, string>;
   trust?: { level?: TrustLevel; granted?: boolean };
   resolve_asset_url?: boolean;
-  resolve_vault_path?: (src: string) => Promise<string>;
+  resolve_vault_path?: (src: string) => Promise<string | null>;
 }): Harness {
   const container = document.createElement("div");
   document.body.appendChild(container);
@@ -205,6 +205,25 @@ describe("FileEmbedView html modes", () => {
     expect(harness.request).toHaveBeenCalledWith("notes/chart.html");
     expect(harness.request).not.toHaveBeenCalledWith("chart.html");
     expect(selected_mode(harness.container)).toBe("Live");
+
+    harness.view.destroy();
+  });
+
+  it("stays safe without prompting when the embed file is not in the vault", async () => {
+    const harness = mount({
+      resolve_vault_path: () => Promise.resolve(null),
+      trust: { granted: true },
+    });
+    active_container = harness.container;
+    await flush();
+
+    mode_btn(harness.container, "Live").click();
+    await flush();
+
+    expect(harness.get_level).not.toHaveBeenCalled();
+    expect(harness.request).not.toHaveBeenCalled();
+    expect(register_calls()).toHaveLength(0);
+    expect(selected_mode(harness.container)).toBe("Safe");
 
     harness.view.destroy();
   });

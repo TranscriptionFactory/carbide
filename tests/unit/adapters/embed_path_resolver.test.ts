@@ -30,10 +30,11 @@ describe("create_embed_path_resolver", () => {
     expect(await resolve("my%20chart.html")).toBe("notes/my chart.html");
   });
 
-  it("keeps the decoded link when the vault has no match", async () => {
+  it("returns null when a vault-relative link has no match", async () => {
     const { resolve } = create_resolver();
 
-    expect(await resolve("missing.html")).toBe("missing.html");
+    expect(await resolve("missing.html")).toBeNull();
+    expect(await resolve("notes/missing.html")).toBeNull();
   });
 
   it("leaves absolute and linked-source paths unresolved", async () => {
