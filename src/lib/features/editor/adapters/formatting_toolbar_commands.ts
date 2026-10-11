@@ -138,11 +138,17 @@ function execute_command(
       const table = get_node_type("table");
       const row = get_node_type("table_row");
       const cell = get_node_type("table_cell");
-      if (!table || !row || !cell) return false;
+      const paragraph = get_node_type("paragraph");
+      if (!table || !row || !cell || !paragraph) return false;
       const header_cell = get_node_type("table_header") ?? cell;
       const header_row = row.create(
         null,
-        Array.from({ length: 3 }, () => header_cell.create()),
+        Array.from({ length: 3 }, (_, i) =>
+          header_cell.create(
+            null,
+            paragraph.create(null, state.schema.text(`Col ${String(i + 1)}`)),
+          ),
+        ),
       );
       const body_row = row.create(
         null,

@@ -89,3 +89,50 @@ describe("table toolbar focusout dismissal", () => {
     outside.remove();
   });
 });
+
+describe("table toolbar outside dismissal", () => {
+  function press_escape(v: EditorView): boolean {
+    const event = new KeyboardEvent("keydown", { key: "Escape" });
+    return v.someProp("handleKeyDown", (f) => f(v, event)) ?? false;
+  }
+
+  function nudge(v: EditorView) {
+    v.dispatch(v.state.tr.setMeta("unrelated", true));
+  }
+
+  it("stays hidden after an outside pointerdown until the selection changes", () => {
+    const { view: v } = mount_in_table();
+    const outside = document.createElement("div");
+    document.body.appendChild(outside);
+
+    outside.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true }));
+    expect(toolbar()).toBeNull();
+
+    nudge(v);
+    expect(toolbar()).toBeNull();
+
+    v.dispatch(v.state.tr.setSelection(TextSelection.create(v.state.doc, 5)));
+    expect(toolbar()).not.toBeNull();
+    outside.remove();
+  });
+
+  it("hides on Escape and stays hidden until the selection changes", () => {
+    const { view: v } = mount_in_table();
+
+    expect(press_escape(v)).toBe(true);
+    expect(toolbar()).toBeNull();
+
+    nudge(v);
+    expect(toolbar()).toBeNull();
+
+    v.dispatch(v.state.tr.setSelection(TextSelection.create(v.state.doc, 5)));
+    expect(toolbar()).not.toBeNull();
+  });
+
+  it("leaves Escape to other handlers when the toolbar is hidden", () => {
+    const { view: v } = mount_in_table();
+    press_escape(v);
+
+    expect(press_escape(v)).toBe(false);
+  });
+});
