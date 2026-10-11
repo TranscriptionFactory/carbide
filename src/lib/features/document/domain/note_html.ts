@@ -161,6 +161,57 @@ function register_math(md: MarkdownIt): void {
     `${render_math(tokens[idx]?.content ?? "", true)}\n`;
 }
 
+const COMMENT_MARKER = "%%";
+
+function comment_inline_rule(state: StateInline, _silent: boolean): boolean {
+  if (!state.src.startsWith(COMMENT_MARKER, state.pos)) return false;
+  const line_end = state.src.indexOf("\n", state.pos);
+  const limit =
+    line_end === -1 ? state.posMax : Math.min(line_end, state.posMax);
+  const close = state.src.indexOf(
+    COMMENT_MARKER,
+    state.pos + COMMENT_MARKER.length,
+  );
+  if (close === -1 || close + COMMENT_MARKER.length > limit) return false;
+  state.pos = close + COMMENT_MARKER.length;
+  return true;
+}
+
+function line_text(state: StateBlock, line: number): string {
+  const start = (state.bMarks[line] ?? 0) + (state.tShift[line] ?? 0);
+  return state.src.slice(start, state.eMarks[line] ?? start);
+}
+
+// Obsidian block comment: a line starting with `%%` hides everything through
+// the line holding the next `%%`, or to the end when it is never closed.
+function comment_block_rule(
+  state: StateBlock,
+  start_line: number,
+  end_line: number,
+  silent: boolean,
+): boolean {
+  if ((state.sCount[start_line] ?? 0) - state.blkIndent >= 4) return false;
+  const first = line_text(state, start_line);
+  if (!first.startsWith(COMMENT_MARKER)) return false;
+  if (first.includes(COMMENT_MARKER, COMMENT_MARKER.length)) return false;
+  if (silent) return true;
+
+  let close_line = start_line + 1;
+  while (
+    close_line < end_line &&
+    !line_text(state, close_line).includes(COMMENT_MARKER)
+  ) {
+    close_line += 1;
+  }
+  state.line = Math.min(close_line + 1, end_line);
+  return true;
+}
+
+function register_comments(md: MarkdownIt): void {
+  md.inline.ruler.after("escape", "comment_inline", comment_inline_rule);
+  md.block.ruler.before("paragraph", "comment_block", comment_block_rule);
+}
+
 function escape_html(text: string): string {
   return MarkdownIt().utils.escapeHtml(text);
 }
@@ -268,6 +319,12 @@ function embed_token(state: StateCore, parsed: ParsedHtmlEmbed): Token {
   return token;
 }
 
+const HTML_COMMENT_RE = /^<!--[\s\S]*?-->$/;
+
+function is_html_comment(content: string): boolean {
+  return HTML_COMMENT_RE.test(content.trim());
+}
+
 // Raw HTML is parsed (not passed through) purely so the export can show it:
 // promoted embeds become placeholders, everything else becomes highlighted
 // source. No renderer rule here ever emits unsanitized markup.
@@ -278,10 +335,16 @@ function register_raw_html(md: MarkdownIt): void {
     const parsed = tokens[idx]?.meta as ParsedHtmlEmbed | undefined;
     return parsed ? render_embed_placeholder(parsed) : "";
   };
-  md.renderer.rules.html_block = (tokens, idx) =>
-    highlight_code((tokens[idx]?.content ?? "").replace(/\n+$/, ""), "html");
-  md.renderer.rules.html_inline = (tokens, idx) =>
-    `<code class="raw-html">${escape_html(tokens[idx]?.content ?? "")}</code>`;
+  md.renderer.rules.html_block = (tokens, idx) => {
+    const content = tokens[idx]?.content ?? "";
+    if (is_html_comment(content)) return "";
+    return highlight_code(content.replace(/\n+$/, ""), "html");
+  };
+  md.renderer.rules.html_inline = (tokens, idx) => {
+    const content = tokens[idx]?.content ?? "";
+    if (is_html_comment(content)) return "";
+    return `<code class="raw-html">${escape_html(content)}</code>`;
+  };
 }
 
 function collect_mermaid_codes(tokens: Token[]): string[] {
@@ -514,6 +577,7 @@ async function render_markdown_body(
   const body = rewrite_wiki_image_embeds(parse_frontmatter(markdown).body);
   const md = create_md();
   register_math(md);
+  register_comments(md);
   register_raw_html(md);
   md.renderer.rules.fence = render_fence;
 
