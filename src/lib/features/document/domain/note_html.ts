@@ -19,6 +19,10 @@ import {
   DEFAULT_LIGHT_THEME,
   parse_html_embed,
   type ParsedHtmlEmbed,
+  callout_icon_for_type,
+  callout_icon_svg,
+  canonical_callout_type,
+  parse_callout_directive,
 } from "$lib/features/editor";
 import { get_inlined_katex_css } from "$lib/features/document/domain/katex_inline_css";
 import { prerender_mermaid_codes } from "$lib/features/document/domain/mermaid_prerender";
@@ -407,6 +411,93 @@ function register_raw_html(md: MarkdownIt): void {
   };
 }
 
+type CalloutHead = {
+  callout_type: string;
+  title: string;
+  color: string | null;
+  body: string;
+  inline: Token;
+};
+
+function parse_callout_head(tokens: Token[], idx: number): CalloutHead | null {
+  const inline = tokens[idx + 2];
+  if (tokens[idx + 1]?.type !== "paragraph_open" || inline?.type !== "inline")
+    return null;
+  const [directive = "", ...body_lines] = inline.content.split("\n");
+  const data = parse_callout_directive(directive);
+  if (!data) return null;
+  return {
+    callout_type: canonical_callout_type(data.callout_type),
+    title: data.title,
+    color: data.color,
+    body: body_lines.join("\n").trim(),
+    inline,
+  };
+}
+
+function callout_open_tokens(state: StateCore, head: CalloutHead): Token[] {
+  const open = new state.Token("callout_open", "div", 1);
+  open.block = true;
+  open.attrSet("class", "callout");
+  open.attrSet("data-callout", head.callout_type);
+  if (head.color) open.attrSet("style", `--callout-color: ${head.color}`);
+
+  const title_open = new state.Token("callout_title_open", "div", 1);
+  title_open.info = head.callout_type;
+  const title = new state.Token("inline", "", 0);
+  title.content = head.title;
+  title.children = [];
+  const title_close = new state.Token("callout_title_close", "div", -1);
+
+  const content_open = new state.Token("callout_content_open", "div", 1);
+  content_open.block = true;
+  content_open.attrSet("class", "callout-content");
+  return [open, title_open, title, title_close, content_open];
+}
+
+function callout_close_tokens(state: StateCore): Token[] {
+  return ["callout_content_close", "callout_close"].map((type) => {
+    const close = new state.Token(type, "div", -1);
+    close.block = true;
+    return close;
+  });
+}
+
+function promote_callouts(state: StateCore): boolean {
+  const tokens = state.tokens;
+  const out: Token[] = [];
+  const is_callout_stack: boolean[] = [];
+  for (let idx = 0; idx < tokens.length; idx++) {
+    const token = tokens[idx];
+    if (!token) continue;
+    if (token.type === "blockquote_close" && is_callout_stack.pop()) {
+      out.push(...callout_close_tokens(state));
+      continue;
+    }
+    const head =
+      token.type === "blockquote_open" ? parse_callout_head(tokens, idx) : null;
+    if (token.type === "blockquote_open") is_callout_stack.push(head !== null);
+    if (!head) {
+      out.push(token);
+      continue;
+    }
+    out.push(...callout_open_tokens(state, head));
+    if (head.body) head.inline.content = head.body;
+    else idx += 3;
+  }
+  state.tokens = out;
+  return true;
+}
+
+function register_callouts(md: MarkdownIt): void {
+  md.core.ruler.after("block", "callouts", promote_callouts);
+  md.renderer.rules.callout_title_open = (tokens, idx) =>
+    `<div class="callout-title"><span class="callout-icon">${callout_icon_svg(
+      callout_icon_for_type(tokens[idx]?.info ?? ""),
+    )}</span><span class="callout-title-inner">`;
+  md.renderer.rules.callout_title_close = () => "</span></div>\n";
+}
+
 function collect_mermaid_codes(tokens: Token[]): string[] {
   const seen = new Set<string>();
   for (const token of tokens) {
@@ -461,6 +552,40 @@ blockquote {
   color: #57606a;
   border-left: 0.25em solid #d0d7de;
 }
+.callout {
+  --callout-color: #0969da;
+  margin: 0 0 0.8em;
+  padding: 0.6em 1em;
+  border-left: 0.25em solid var(--callout-color);
+  border-radius: 4px;
+  background: #f6f8fa;
+  background: color-mix(in srgb, var(--callout-color) 8%, #ffffff);
+}
+.callout[data-callout="abstract"] { --callout-color: #0e8a9e; }
+.callout[data-callout="tip"],
+.callout[data-callout="important"] { --callout-color: #1a7f6e; }
+.callout[data-callout="success"] { --callout-color: #1a7f37; }
+.callout[data-callout="question"] { --callout-color: #9a6700; }
+.callout[data-callout="warning"] { --callout-color: #bc4c00; }
+.callout[data-callout="failure"],
+.callout[data-callout="danger"],
+.callout[data-callout="bug"] { --callout-color: #cf222e; }
+.callout[data-callout="example"] { --callout-color: #8250df; }
+.callout[data-callout="quote"] { --callout-color: #57606a; }
+.callout-title {
+  display: flex;
+  align-items: center;
+  gap: 0.4em;
+  margin-bottom: 0.3em;
+  color: var(--callout-color);
+  font-weight: 600;
+  break-inside: avoid;
+  break-after: avoid;
+}
+.callout-icon { display: inline-flex; flex-shrink: 0; }
+.callout-icon svg { width: 1.1em; height: 1.1em; }
+.callout-content > :first-child { margin-top: 0; }
+.callout-content > :last-child { margin-bottom: 0; }
 hr {
   height: 1px;
   margin: 1.5em 0;
@@ -639,6 +764,7 @@ async function render_markdown_body(
   register_math(md);
   register_comments(md);
   register_raw_html(md);
+  register_callouts(md);
   md.renderer.rules.fence = render_fence;
 
   const tokens = md.parse(body, {});

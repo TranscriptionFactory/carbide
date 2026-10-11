@@ -58,6 +58,12 @@ export {
 } from "$lib/features/editor/adapters/shiki_highlighter";
 export { resolve_source_shiki_vars } from "$lib/features/editor/adapters/shiki_source_theme";
 export {
+  callout_icon_for_type,
+  callout_icon_svg,
+  canonical_callout_type,
+  parse_callout_directive,
+} from "$lib/features/editor/domain/callout";
+export {
   parse_html_embed,
   type ParsedHtmlEmbed,
 } from "$lib/features/editor/adapters/html_embed";
