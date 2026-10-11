@@ -307,6 +307,7 @@ export type EditorSessionConfig = {
   vault_id: VaultId | null;
   events: EditorEventHandlers;
   spellcheck?: boolean;
+  syntax_reveal_enabled?: boolean;
   native_link_hover_enabled?: boolean;
   native_wiki_suggest_enabled?: boolean;
   native_link_click_enabled?: boolean;

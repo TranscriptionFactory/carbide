@@ -161,6 +161,7 @@ function mount(doc: ProseNode): EditorView {
     get_vault_id: () => null,
     get_markdown: () => "",
     resolve_asset_url_for_vault: null,
+    syntax_reveal_enabled: true,
   };
 
   const container = document.createElement("div");

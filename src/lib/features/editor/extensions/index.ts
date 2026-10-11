@@ -48,7 +48,9 @@ export function assemble_extensions(
   const extensions: EditorExtension[] = [
     // Must precede core_extension so its Backspace handling runs before
     // undoInputRule/baseKeymap.
-    { plugins: [create_mark_syntax_reveal_plugin()] },
+    ...(ctx.syntax_reveal_enabled
+      ? [{ plugins: [create_mark_syntax_reveal_plugin()] }]
+      : []),
     { plugins: [create_block_id_decoration_plugin()] },
     create_heading_extension(),
     // Must also precede core_extension: handleKeyDown stops at the first
