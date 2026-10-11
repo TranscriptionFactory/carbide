@@ -6,8 +6,10 @@ import {
 } from "$lib/features/editor/domain/markdown_line_breaks";
 
 describe("normalize_markdown_line_breaks", () => {
-  it("normalizes html hard breaks to backslash line breaks", () => {
-    expect(normalize_markdown_line_breaks("one<br />\ntwo")).toBe("one\\\ntwo");
+  it("keeps html hard breaks as written", () => {
+    expect(normalize_markdown_line_breaks("one<br />\ntwo")).toBe(
+      "one<br />\ntwo",
+    );
   });
 
   it("normalizes trailing-space hard breaks to backslash line breaks", () => {
@@ -51,7 +53,7 @@ describe("normalize_markdown_line_breaks", () => {
 
   it("strips zero-width spaces while normalizing", () => {
     expect(normalize_markdown_line_breaks("one\u200B<br />\ntwo")).toBe(
-      "one\\\ntwo",
+      "one<br />\ntwo",
     );
   });
 

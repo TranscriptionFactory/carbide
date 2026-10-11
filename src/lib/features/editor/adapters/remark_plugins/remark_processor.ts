@@ -15,6 +15,10 @@ import { remark_wiki_embed } from "./remark_wiki_embed";
 import { remark_html_embed } from "./remark_html_embed";
 import { remark_task_doing } from "./remark_task_doing";
 import { remark_comments } from "./remark_comments";
+import {
+  remark_inline_html,
+  inline_html_to_markdown,
+} from "./remark_inline_html";
 import { safe_text } from "./text_escape";
 
 type StringifyState = {
@@ -91,6 +95,7 @@ const stringify_options: StringifyOptions = {
     ...highlight_to_markdown,
     ...details_to_markdown,
     ...callout_to_markdown,
+    ...inline_html_to_markdown,
     table: table_handler,
     wikiEmbed: raw_value_handler,
     wikiLink: raw_value_handler,
@@ -125,7 +130,8 @@ export const parse_processor = unified()
   .use(remark_highlight)
   .use(remark_table_meta)
   .use(remark_wiki_embed)
-  .use(remark_html_embed);
+  .use(remark_html_embed)
+  .use(remark_inline_html);
 
 export const fallback_parse_processor = unified()
   .use(remarkParse)

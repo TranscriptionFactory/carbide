@@ -94,7 +94,7 @@ describe("NoteService", () => {
     expect(op_store.get("note.open:docs/alpha.md").status).toBe("success");
   });
 
-  it("normalizes legacy hard breaks when opening a note", async () => {
+  it("keeps html hard breaks when opening a note", async () => {
     const vault_store = new VaultStore();
     const notes_store = new NotesStore();
     const editor_store = new EditorStore();
@@ -148,7 +148,7 @@ describe("NoteService", () => {
     await service.open_note("docs/alpha.md", false);
 
     expect(editor_store.open_note?.markdown).toBe(
-      as_markdown_text("one\\\ntwo"),
+      as_markdown_text("one<br />\ntwo"),
     );
   });
 

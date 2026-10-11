@@ -6,6 +6,7 @@ import { format_table_meta_comment } from "./remark_plugins/remark_table_meta";
 import { set_meta_token } from "./code_preview";
 import { format_wiki_source } from "$lib/features/editor/domain/wiki_link";
 import { format_footnote_ref } from "$lib/features/editor/domain/footnotes";
+import { is_inline_html_break } from "$lib/shared/html";
 
 type MdastNode = Record<string, unknown> & { type: string };
 
@@ -32,9 +33,11 @@ function convert_leaf(item: InlineItem): PhrasingContent {
 
 // The stringifier turns a line ending before an `html` node into a space so
 // the tag can't open an HTML block. Raw source that is not a tag can't either,
-// so it keeps its own type and its line ending.
+// nor can `<br>` inside a paragraph, so both keep their own type and their
+// line ending.
 function convert_raw_inline(value: string): PhrasingContent {
-  const type = value.startsWith("<") ? "html" : "rawInline";
+  const is_tag = value.startsWith("<") && !is_inline_html_break(value);
+  const type = is_tag ? "html" : "rawInline";
   return { type, value } as PhrasingContent;
 }
 
@@ -93,6 +96,13 @@ function wrap_in_mdast_mark(
       return { type: "delete", children } as PhrasingContent;
     case "highlight":
       return { type: "highlight", children } as unknown as PhrasingContent;
+    case "html_inline":
+      return {
+        type: "inlineHtml",
+        open: mark.attrs["open"] as string,
+        close: mark.attrs["close"] as string,
+        children,
+      } as unknown as PhrasingContent;
     case "link": {
       const href = (mark.attrs["href"] as string) || "";
       if (mark.attrs["link_source"] === "wiki") {
@@ -120,6 +130,10 @@ function wrap_in_mdast_mark(
   }
 }
 
+function is_inner_html(mark: Mark): boolean {
+  return mark.type.name === "html_inline" && mark.attrs["inner"] === true;
+}
+
 function build_mdast_inline(items: InlineItem[]): PhrasingContent[] {
   if (items.length === 0) return [];
   const result: PhrasingContent[] = [];
@@ -145,7 +159,11 @@ function build_mdast_inline(items: InlineItem[]): PhrasingContent[] {
       ) {
         end++;
       }
-      if (!best_mark || end > best_end) {
+      if (
+        !best_mark ||
+        end > best_end ||
+        (end === best_end && is_inner_html(best_mark) && !is_inner_html(mark))
+      ) {
         best_mark = mark;
         best_end = end;
       }

@@ -8,6 +8,11 @@ import type Renderer from "markdown-it/lib/renderer.mjs";
 import katex from "katex";
 import { parse_frontmatter } from "$lib/shared/domain/frontmatter_parser";
 import {
+  parse_inline_html_tag,
+  sanitize_inline_html_open_tag,
+  type InlineHtmlTag,
+} from "$lib/shared/html";
+import {
   init_highlighter,
   get_highlighter_sync,
   resolve_language,
@@ -325,12 +330,65 @@ function is_html_comment(content: string): boolean {
   return HTML_COMMENT_RE.test(content.trim());
 }
 
+type OpenInlineTag = { token: Token; tag: InlineHtmlTag; depth: number };
+
+// Mirrors the editor's pairing: only a whitelisted open/close pair at the same
+// nesting depth renders; a crossing or mismatched close leaves every pending
+// tag as source.
+function pair_inline_html_tokens(children: Token[]): void {
+  let pending: OpenInlineTag[] = [];
+  let depth = 0;
+  for (const child of children) {
+    const tag =
+      child.type === "html_inline"
+        ? parse_inline_html_tag(child.content)
+        : null;
+    if (!tag) {
+      depth += child.nesting;
+      pending = pending.filter((open) => open.depth <= depth);
+    } else if (tag.kind === "void") {
+      if (tag.name === "br") child.meta = tag;
+    } else if (tag.kind === "open") {
+      pending.push({ token: child, tag, depth });
+    } else {
+      const top = pending.at(-1);
+      if (top?.tag.name === tag.name && top.depth === depth) {
+        top.token.meta = top.tag;
+        child.meta = tag;
+        pending.pop();
+      } else {
+        pending = [];
+      }
+    }
+  }
+}
+
+function pair_inline_html(state: StateCore): boolean {
+  for (const token of state.tokens) {
+    if (token.type === "inline" && token.children) {
+      pair_inline_html_tokens(token.children);
+    }
+  }
+  return true;
+}
+
+function render_inline_html_tag(content: string, tag: InlineHtmlTag): string {
+  if (tag.kind === "close") return `</${tag.name}>`;
+  const element = sanitize_inline_html_open_tag(content);
+  const attrs = Object.entries(element?.attrs ?? {})
+    .map(([name, value]) => ` ${name}="${escape_attr(value)}"`)
+    .join("");
+  return `<${element?.name ?? tag.name}${attrs}>`;
+}
+
 // Raw HTML is parsed (not passed through) purely so the export can show it:
-// promoted embeds become placeholders, everything else becomes highlighted
-// source. No renderer rule here ever emits unsanitized markup.
+// promoted embeds become placeholders, paired whitelisted inline tags render
+// through the sanitizer, everything else becomes highlighted source. No
+// renderer rule here ever emits unsanitized markup.
 function register_raw_html(md: MarkdownIt): void {
   md.set({ html: true });
   md.core.ruler.push("promote_html_embeds", promote_html_embeds);
+  md.core.ruler.push("pair_inline_html", pair_inline_html);
   md.renderer.rules.html_embed = (tokens, idx) => {
     const parsed = tokens[idx]?.meta as ParsedHtmlEmbed | undefined;
     return parsed ? render_embed_placeholder(parsed) : "";
@@ -342,6 +400,8 @@ function register_raw_html(md: MarkdownIt): void {
   };
   md.renderer.rules.html_inline = (tokens, idx) => {
     const content = tokens[idx]?.content ?? "";
+    const tag = tokens[idx]?.meta as InlineHtmlTag | null | undefined;
+    if (tag) return render_inline_html_tag(content, tag);
     if (is_html_comment(content)) return "";
     return `<code class="raw-html">${escape_html(content)}</code>`;
   };

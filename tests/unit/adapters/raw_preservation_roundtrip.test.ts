@@ -89,8 +89,8 @@ describe("raw block preservation", () => {
 });
 
 describe("raw inline preservation", () => {
-  it("preserves inline HTML tags verbatim", () => {
-    const input = "Press <kbd>Ctrl</kbd> to copy.";
+  it("preserves non-whitelisted inline HTML tags verbatim", () => {
+    const input = "Press <abbr>Ctrl</abbr> to copy.";
     expect(inline_types(input)).toContain("raw_inline");
     expect(roundtrip(input).trimEnd()).toBe(input);
   });

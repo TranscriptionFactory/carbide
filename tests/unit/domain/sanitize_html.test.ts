@@ -156,3 +156,28 @@ describe("sanitize_html_preview", () => {
     expect(result.body).toContain("disabled");
   });
 });
+
+describe("sanitize_html allowed_style_properties", () => {
+  const allowed_style_properties = new Set(["color", "font-weight"]);
+
+  it("keeps only the allowed style properties", () => {
+    const result = sanitize_html(
+      '<span style="color: red; position: fixed; font-weight: bold">x</span>',
+      { allowed_style_properties },
+    );
+    expect(result).toBe('<span style="color: red; font-weight: bold">x</span>');
+  });
+
+  it("removes the style attribute when nothing is allowed", () => {
+    const result = sanitize_html(
+      '<span style="background: url(https://evil.test/x)">x</span>',
+      { allowed_style_properties },
+    );
+    expect(result).toBe("<span>x</span>");
+  });
+
+  it("leaves style untouched without the option", () => {
+    const result = sanitize_html('<span style="position: fixed">x</span>');
+    expect(result).toBe('<span style="position: fixed">x</span>');
+  });
+});

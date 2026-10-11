@@ -1,5 +1,9 @@
 import { Schema } from "prosemirror-model";
-import type { NodeSpec, MarkSpec } from "prosemirror-model";
+import type { NodeSpec, MarkSpec, DOMOutputSpec } from "prosemirror-model";
+import {
+  is_inline_html_break,
+  sanitize_inline_html_open_tag,
+} from "$lib/shared/html";
 
 const doc: NodeSpec = {
   content: "block+",
@@ -41,7 +45,7 @@ const raw_inline: NodeSpec = {
   },
   parseDOM: [
     {
-      tag: "span[data-type='raw_inline']",
+      tag: "[data-type='raw_inline']",
       getAttrs(dom) {
         if (!(dom instanceof HTMLElement)) return false;
         return { value: dom.getAttribute("data-value") || "" };
@@ -50,7 +54,9 @@ const raw_inline: NodeSpec = {
   ],
   toDOM(node) {
     const value = (node.attrs["value"] as string) || "";
-    return ["span", { "data-type": "raw_inline", "data-value": value }, value];
+    const attrs = { "data-type": "raw_inline", "data-value": value };
+    if (is_inline_html_break(value)) return ["br", attrs];
+    return ["span", attrs, value];
   },
 };
 
@@ -1050,6 +1056,43 @@ const highlight: MarkSpec = {
   },
 };
 
+const html_inline: MarkSpec = {
+  attrs: {
+    open: { default: "" },
+    close: { default: "" },
+    inner: { default: false },
+    key: { default: 0 },
+  },
+  excludes: "",
+  inclusive: false,
+  parseDOM: [
+    {
+      tag: "[data-html-open]",
+      getAttrs(dom) {
+        if (!(dom instanceof HTMLElement)) return false;
+        return {
+          open: dom.getAttribute("data-html-open") ?? "",
+          close: dom.getAttribute("data-html-close") ?? "",
+          inner: dom.hasAttribute("data-html-inner"),
+          key: Number(dom.getAttribute("data-html-key") ?? 0),
+        };
+      },
+    },
+  ],
+  toDOM(mark): DOMOutputSpec {
+    const open = String(mark.attrs["open"]);
+    const element = sanitize_inline_html_open_tag(open);
+    const attrs: Record<string, string> = {
+      ...element?.attrs,
+      "data-html-open": open,
+      "data-html-close": String(mark.attrs["close"]),
+      "data-html-key": String(mark.attrs["key"]),
+    };
+    if (mark.attrs["inner"] === true) attrs["data-html-inner"] = "";
+    return [element?.name ?? "span", attrs, 0];
+  },
+};
+
 const ai_generated: MarkSpec = {
   inclusive: true,
   parseDOM: [{ tag: "span[data-ai-generated]" }],
@@ -1098,6 +1141,7 @@ export const schema = new Schema({
     table_cell,
   },
   marks: {
+    html_inline,
     strong,
     em,
     code_inline,
