@@ -603,7 +603,7 @@
      [data-width-mode="wide"] --editor-max-width override on descendant
      editors cannot widen zen mode */
   .WorkspaceLayout--zen {
-    --zen-editor-max-width: var(--editor-max-width, 72ch);
+    --zen-editor-max-width: var(--editor-max-width);
   }
 
   .WorkspaceLayout--zen :global(.cm-editor) {

@@ -1,12 +1,12 @@
-function editor_max_width_value(width_ch: number): string {
-  return `min(${String(width_ch)}ch, 90%)`;
-}
-
-export function apply_editor_width(width_ch: number): void {
+export function apply_editor_width(readable_line_length: boolean): void {
   if (typeof document === "undefined") return;
 
-  document.documentElement.style.setProperty(
-    "--editor-max-width",
-    editor_max_width_value(width_ch),
-  );
+  const style = document.documentElement.style;
+  if (readable_line_length) {
+    style.removeProperty("--editor-max-width");
+    style.removeProperty("--source-editor-max-width");
+    return;
+  }
+  style.setProperty("--editor-max-width", "none");
+  style.setProperty("--source-editor-max-width", "none");
 }

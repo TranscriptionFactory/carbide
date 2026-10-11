@@ -1,7 +1,6 @@
 {
   "body": {
-    "lineHeight": 1.85,
-    "maxWidth": "min(85ch, 90%)"
+    "lineHeight": 1.85
   },
   "headings": {
     "h1": {

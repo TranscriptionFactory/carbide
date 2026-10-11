@@ -14,6 +14,9 @@ describe("apply_editor_width", () => {
           setProperty: (name: string, value: string) => {
             properties.set(name, value);
           },
+          removeProperty: (name: string) => {
+            properties.delete(name);
+          },
         },
       },
     } as Document;
@@ -23,17 +26,26 @@ describe("apply_editor_width", () => {
     globalThis.document = original_document;
   });
 
-  it("applies the editor width with the viewport cap", () => {
-    apply_editor_width(110);
+  it("leaves the stylesheet text column token in charge when readable line length is on", () => {
+    apply_editor_width(false);
+    apply_editor_width(true);
 
-    expect(properties.get("--editor-max-width")).toBe("min(110ch, 90%)");
+    expect(properties.has("--editor-max-width")).toBe(false);
+    expect(properties.has("--source-editor-max-width")).toBe(false);
+  });
+
+  it("fills the pane in rich and source modes when readable line length is off", () => {
+    apply_editor_width(false);
+
+    expect(properties.get("--editor-max-width")).toBe("none");
+    expect(properties.get("--source-editor-max-width")).toBe("none");
   });
 
   it("does not throw when document is undefined", () => {
     (globalThis as { document: Document | undefined }).document = undefined;
 
     expect(() => {
-      apply_editor_width(110);
+      apply_editor_width(false);
     }).not.toThrow();
 
     globalThis.document = original_document;

@@ -3,7 +3,6 @@
 
 :root {
   --editor-body-line-height: 1.85;
-  --editor-body-max-width: min(85ch, 90%);
 
   --editor-headings-h1-font-weight: 700;
   --editor-headings-h1-line-height: 1.2;
