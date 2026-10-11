@@ -104,6 +104,42 @@ describe("render_note_to_html", () => {
     expect(html).toContain("@page");
   });
 
+  describe("print layout styles", () => {
+    function rule_body(css: string, selector: string): string {
+      const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const match = new RegExp(`(?:^|\\n)${escaped}\\s*\\{([^}]*)\\}`).exec(
+        css,
+      );
+      return match?.[1] ?? "";
+    }
+
+    it("wraps code blocks instead of clipping them", async () => {
+      const css = await note_export_styles();
+      const pre = rule_body(css, "pre");
+      expect(pre).toContain("white-space: pre-wrap");
+      expect(pre).not.toContain("overflow: auto");
+    });
+
+    it("never forces pre or table to stay on one page", async () => {
+      const css = await note_export_styles();
+      expect(rule_body(css, "pre")).not.toContain("break-inside: avoid");
+      expect(rule_body(css, "table")).not.toContain("break-inside: avoid");
+      expect(css).not.toContain("page-break-inside: avoid");
+    });
+
+    it("caps table width at the page width", async () => {
+      const css = await note_export_styles();
+      expect(rule_body(css, "table")).toContain("max-width: 100%");
+    });
+
+    it("keeps only rows and figures intact across pages", async () => {
+      const css = await note_export_styles();
+      expect(css).toContain(
+        "tr, img, .mermaid-figure, .katex-display { break-inside: avoid; }",
+      );
+    });
+  });
+
   describe("image rendering", () => {
     it("resolves canonical image src via the resolver and inlines as data URI", async () => {
       const calls: Array<{ src: string; kind: string }> = [];

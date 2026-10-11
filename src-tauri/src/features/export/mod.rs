@@ -308,13 +308,20 @@ fn capture_platform(
 }
 
 #[cfg(target_os = "windows")]
+const A4_WIDTH_INCHES: f64 = 210.0 / 25.4;
+#[cfg(target_os = "windows")]
+const A4_HEIGHT_INCHES: f64 = 297.0 / 25.4;
+
+#[cfg(target_os = "windows")]
 fn capture_platform(
     platform: tauri::webview::PlatformWebview,
     save_path: String,
     tx: tokio::sync::oneshot::Sender<Result<(), String>>,
 ) {
     use std::sync::{Arc, Mutex as StdMutex};
-    use webview2_com::Microsoft::Web::WebView2::Win32::ICoreWebView2_7;
+    use webview2_com::Microsoft::Web::WebView2::Win32::{
+        ICoreWebView2Environment6, ICoreWebView2_2, ICoreWebView2_7,
+    };
     use webview2_com::PrintToPdfCompletedHandler;
     use windows::core::{Interface, HSTRING};
 
@@ -327,6 +334,24 @@ fn capture_platform(
         let webview7 = webview2
             .cast::<ICoreWebView2_7>()
             .map_err(|e| format!("cast to ICoreWebView2_7 failed: {e}"))?;
+
+        let environment = webview2
+            .cast::<ICoreWebView2_2>()
+            .and_then(|wv| unsafe { wv.Environment() })
+            .and_then(|env| env.cast::<ICoreWebView2Environment6>())
+            .map_err(|e| format!("WebView2 environment lookup failed: {e}"))?;
+        let print_settings = unsafe { environment.CreatePrintSettings() }
+            .map_err(|e| format!("CreatePrintSettings failed: {e}"))?;
+        unsafe {
+            print_settings
+                .SetPageWidth(A4_WIDTH_INCHES)
+                .and_then(|_| print_settings.SetPageHeight(A4_HEIGHT_INCHES))
+                .and_then(|_| print_settings.SetMarginTop(0.0))
+                .and_then(|_| print_settings.SetMarginBottom(0.0))
+                .and_then(|_| print_settings.SetMarginLeft(0.0))
+                .and_then(|_| print_settings.SetMarginRight(0.0))
+        }
+        .map_err(|e| format!("print settings failed: {e}"))?;
 
         let path_hstring = HSTRING::from(&save_path);
         let sender_cb = Arc::clone(&sender);
@@ -347,7 +372,7 @@ fn capture_platform(
             Ok(())
         }));
 
-        unsafe { webview7.PrintToPdf(&path_hstring, None, &handler) }
+        unsafe { webview7.PrintToPdf(&path_hstring, &print_settings, &handler) }
             .map_err(|e| format!("PrintToPdf call failed: {e}"))
     })();
 
@@ -358,6 +383,18 @@ fn capture_platform(
             }
         }
     }
+}
+
+// The print CSS supplies the page margins, so the page setup zeroes its own.
+#[cfg(all(unix, not(target_os = "macos")))]
+fn a4_page_setup() -> gtk::PageSetup {
+    let page_setup = gtk::PageSetup::new();
+    page_setup.set_paper_size(&gtk::PaperSize::new(Some("iso_a4")));
+    page_setup.set_top_margin(0.0, gtk::Unit::Mm);
+    page_setup.set_bottom_margin(0.0, gtk::Unit::Mm);
+    page_setup.set_left_margin(0.0, gtk::Unit::Mm);
+    page_setup.set_right_margin(0.0, gtk::Unit::Mm);
+    page_setup
 }
 
 #[cfg(all(unix, not(target_os = "macos")))]
@@ -377,6 +414,7 @@ fn capture_platform(
     settings.set("output-uri", Some(&file_uri));
     settings.set("output-file-format", Some("pdf"));
     operation.set_print_settings(&settings);
+    operation.set_page_setup(&a4_page_setup());
 
     let sender = Arc::new(StdMutex::new(Some(tx)));
 

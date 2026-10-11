@@ -294,7 +294,7 @@ function collect_mermaid_codes(tokens: Token[]): string[] {
 
 function document_styles(katex_css: string): string {
   return `${katex_css}
-@page { size: A4; margin: 20mm; }
+@page { size: A4; margin: 18mm 16mm; }
 * { box-sizing: border-box; }
 html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 body {
@@ -303,7 +303,7 @@ body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
   font-size: 11pt;
   line-height: 1.6;
-  word-wrap: break-word;
+  overflow-wrap: anywhere;
 }
 .note-document { max-width: 100%; }
 .doc-title {
@@ -317,7 +317,8 @@ h1, h2, h3, h4, h5, h6 {
   margin: 1.2em 0 0.6em;
   font-weight: 700;
   line-height: 1.25;
-  page-break-after: avoid;
+  break-after: avoid;
+  break-inside: avoid;
 }
 h1 { font-size: 20pt; padding-bottom: 0.3em; border-bottom: 1px solid #d0d7de; }
 h2 { font-size: 16pt; padding-bottom: 0.3em; border-bottom: 1px solid #d0d7de; }
@@ -327,6 +328,7 @@ p { margin: 0 0 0.8em; }
 a { color: #0969da; text-decoration: none; }
 ul, ol { margin: 0 0 0.8em; padding-left: 2em; }
 li { margin: 0.15em 0; }
+p, li, blockquote { orphans: 3; widows: 3; }
 blockquote {
   margin: 0 0 0.8em;
   padding: 0 1em;
@@ -349,22 +351,27 @@ code {
 pre {
   margin: 0 0 0.8em;
   padding: 12px 16px;
-  overflow: auto;
+  white-space: pre-wrap;
+  overflow: visible;
   font-size: 9.5pt;
   line-height: 1.45;
   background: #f6f8fa;
   border-radius: 6px;
-  page-break-inside: avoid;
+  break-inside: auto;
 }
-pre code { padding: 0; font-size: inherit; background: none; }
+pre code { padding: 0; font-size: inherit; white-space: inherit; background: none; }
 table {
   margin: 0 0 0.8em;
+  width: 100%;
+  max-width: 100%;
   border-collapse: collapse;
-  page-break-inside: avoid;
+  break-inside: auto;
 }
-th, td { padding: 6px 13px; border: 1px solid #d0d7de; }
+thead { display: table-header-group; }
+th, td { padding: 6px 13px; overflow-wrap: anywhere; border: 1px solid #d0d7de; }
 th { background: #f6f8fa; font-weight: 600; }
 img { max-width: 100%; }
+tr, img, .mermaid-figure, .katex-display { break-inside: avoid; }
 .image-missing {
   display: inline-block;
   padding: 0.4em 0.8em;
@@ -375,7 +382,7 @@ img { max-width: 100%; }
   border: 1px dashed #d0d7de;
   border-radius: 4px;
 }
-figure { margin: 1em 0; text-align: center; page-break-inside: avoid; }
+figure { margin: 1em 0; text-align: center; }
 .mermaid-figure svg { max-width: 100%; height: auto; }
 .embed-placeholder {
   display: flex;
@@ -400,7 +407,7 @@ figure { margin: 1em 0; text-align: center; page-break-inside: avoid; }
   word-break: break-all;
 }
 code.raw-html { color: #57606a; }
-.katex-display { page-break-inside: avoid; overflow-x: auto; overflow-y: hidden; }
+.katex-display { overflow: visible; }
 .math-error { color: #cf222e; }`;
 }
 
