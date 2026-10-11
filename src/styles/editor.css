@@ -1203,3 +1203,11 @@
   font-style: normal;
   user-select: none;
 }
+
+/* Source-in-place: the run under the caret is real Markdown text; its syntax
+   characters match the pseudo-element delimiters above. */
+.md-source-syntax {
+  color: var(--editor-text-muted);
+  font-weight: 400;
+  font-style: normal;
+}

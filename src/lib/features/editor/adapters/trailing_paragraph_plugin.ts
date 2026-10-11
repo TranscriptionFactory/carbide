@@ -1,5 +1,6 @@
 import { Plugin, PluginKey } from "prosemirror-state";
 import { schema } from "./markdown_pipeline";
+import { PRESENTATION_ONLY_META } from "$lib/features/editor/domain/presentation_only_meta";
 
 export const trailing_paragraph_plugin_key = new PluginKey(
   "trailing_paragraph",
@@ -9,7 +10,10 @@ export function create_trailing_paragraph_plugin(): Plugin {
   return new Plugin({
     key: trailing_paragraph_plugin_key,
     appendTransaction(transactions, _old_state, new_state) {
-      if (!transactions.some((tr) => tr.docChanged)) return null;
+      const edited = transactions.some(
+        (tr) => tr.docChanged && tr.getMeta(PRESENTATION_ONLY_META) !== true,
+      );
+      if (!edited) return null;
       const { doc } = new_state;
       const last_child = doc.lastChild;
 
