@@ -10,15 +10,33 @@ type AnyMdastNode = Record<string, unknown> & { type: string };
 const NEXT_LINE_NOT_BLANK_RE = /\r?\n[ \t]*\S/y;
 
 let current_source = "";
+let current_inline_indent = 0;
 
-function slice_source(node: AnyMdastNode): string {
+function source_indent(node: AnyMdastNode): number {
+  const column = (node.position as { start?: { column?: number } } | undefined)
+    ?.start?.column;
+  return typeof column === "number" ? column - 1 : 0;
+}
+
+// The block's first-line column is the width of its container prefixes
+// (`> `, list indentation); continuation lines repeat them and serialize
+// re-adds them, so keeping them would compound on every save.
+function strip_container_prefixes(raw: string, indent: number): string {
+  if (indent === 0) return raw;
+  return raw.replace(new RegExp(`\\n[ \\t>]{0,${String(indent)}}`, "g"), "\n");
+}
+
+function slice_source(
+  node: AnyMdastNode,
+  indent = source_indent(node),
+): string {
   const position = node.position as
     | { start?: { offset?: number }; end?: { offset?: number } }
     | undefined;
   const start = position?.start?.offset;
   const end = position?.end?.offset;
   if (typeof start !== "number" || typeof end !== "number") return "";
-  return current_source.slice(start, end);
+  return strip_container_prefixes(current_source.slice(start, end), indent);
 }
 
 function create_raw_block(value: string): PmNode | null {
@@ -153,7 +171,7 @@ function flatten_inline(
         result.push(create_footnote_ref(node, marks));
         break;
       default: {
-        const raw = slice_source(node);
+        const raw = slice_source(node, current_inline_indent);
         if (raw) result.push(create_raw_inline(raw, marks));
         break;
       }
@@ -163,6 +181,7 @@ function flatten_inline(
 
 function convert_inline(parent: AnyMdastNode): PmNode[] {
   const result: PmNode[] = [];
+  current_inline_indent = source_indent(parent);
   flatten_inline((parent.children as AnyMdastNode[]) || [], [], result);
   return result;
 }
