@@ -660,11 +660,15 @@ fn uses_stream_json(args: &[String]) -> bool {
 
 // A stream-json line is one JSON object per line. Only the partial-message
 // deltas carry new text; the `assistant` line that follows them repeats the
-// whole message, and emitting both would double every answer.
+// whole message, and emitting both would double every answer. A failed run
+// reports its reason in the closing `result` line on stdout, while stderr
+// holds at most a terse tag.
 fn parse_stream_json_line(line: &str) -> Option<AiStreamEvent> {
     let value: serde_json::Value = serde_json::from_str(line.trim()).ok()?;
-    if value.get("type")?.as_str()? != "stream_event" {
-        return None;
+    match value.get("type")?.as_str()? {
+        "stream_event" => {}
+        "result" => return parse_stream_json_result(&value),
+        _ => return None,
     }
     let event = value.get("event")?;
     if event.get("type")?.as_str()? != "content_block_delta" {
@@ -680,6 +684,19 @@ fn parse_stream_json_line(line: &str) -> Option<AiStreamEvent> {
         }),
         _ => None,
     }
+}
+
+fn parse_stream_json_result(value: &serde_json::Value) -> Option<AiStreamEvent> {
+    if !value.get("is_error")?.as_bool()? {
+        return None;
+    }
+    let text = value.get("result")?.as_str()?.trim();
+    if text.is_empty() {
+        return None;
+    }
+    Some(AiStreamEvent::Error {
+        error: text.to_string(),
+    })
 }
 
 fn line_events(scanner: &mut ThinkScanner, line: &str, stream_json: bool) -> Vec<AiStreamEvent> {
@@ -783,26 +800,37 @@ async fn run_streaming_cli(
     tokio::select! {
         _ = async {
             let mut scanner = ThinkScanner::new();
+            let mut reported_error = None;
             while let Ok(Some(line)) = reader.next_line().await {
                 for event in line_events(&mut scanner, &line, run.stream_json) {
-                    let _ = app.emit(event_name, event);
+                    match event {
+                        AiStreamEvent::Error { error } => reported_error = Some(error),
+                        event => {
+                            let _ = app.emit(event_name, event);
+                        }
+                    }
                 }
             }
 
             let status = child.wait().await;
             match status {
-                Ok(s) if s.success() => {
+                Ok(s) if s.success() && reported_error.is_none() => {
                     let _ = app.emit(event_name, AiStreamEvent::Done);
                 }
                 Ok(s) => {
-                    let code = s.code().unwrap_or(-1);
-                    let detail = collect_stderr_tail(stderr_handle).await;
-                    let error = if detail.is_empty() {
-                        format!(
-                            "`{command}` exited with code {code} with no output — check it is installed, authenticated, and the model is available"
-                        )
-                    } else {
-                        format!("`{command}` exited with code {code}: {detail}")
+                    let error = match reported_error {
+                        Some(error) => error,
+                        None => {
+                            let code = s.code().unwrap_or(-1);
+                            let detail = collect_stderr_tail(stderr_handle).await;
+                            if detail.is_empty() {
+                                format!(
+                                    "`{command}` exited with code {code} with no output — check it is installed, authenticated, and the model is available"
+                                )
+                            } else {
+                                format!("`{command}` exited with code {code}: {detail}")
+                            }
+                        }
                     };
                     let _ = app.emit(event_name, AiStreamEvent::Error { error });
                 }
@@ -1585,6 +1613,27 @@ mod tests {
                 "expected no event from {line}"
             );
         }
+    }
+
+    #[test]
+    fn reports_the_result_text_of_a_failed_stream_json_run() {
+        let event = parse_stream_json_line(
+            r#"{"type":"result","subtype":"success","is_error":true,"api_error_status":404,"result":"There's an issue with the selected model (does-not-exist). It may not exist or you may not have access to it.","num_turns":1}"#,
+        );
+
+        assert!(matches!(
+            event,
+            Some(AiStreamEvent::Error { error })
+                if error.contains("issue with the selected model (does-not-exist)")
+        ));
+    }
+
+    #[test]
+    fn ignores_a_failed_result_line_with_no_text() {
+        assert!(parse_stream_json_line(
+            r#"{"type":"result","is_error":true,"result":"  "}"#
+        )
+        .is_none());
     }
 
     // The assistant line repeats the whole message the deltas already streamed.

@@ -41,4 +41,4 @@ export type AssistantChatStreamEvent =
       sources: AssistantChatSourceInfo[];
     }
   | { type: "done" }
-  | { type: "error"; error: string };
+  | { type: "error"; error: string; detail?: string };

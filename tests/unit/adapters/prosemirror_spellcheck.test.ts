@@ -19,6 +19,7 @@ async function start(
     initial_markdown,
     note_path: "a.md",
     vault_id: null,
+    syntax_reveal_enabled: true,
     spellcheck,
     events: {
       on_markdown_change: vi.fn(),

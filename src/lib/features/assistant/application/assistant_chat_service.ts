@@ -313,10 +313,15 @@ export class AssistantChatService {
           yield* parser.push(event.text);
         } else if (event.type === "reasoning") {
           yield { type: "reasoning", text: event.text };
-        } else if (event.type === "error") {
+        } else if (event.type === "end" && event.outcome.status === "error") {
           // The kernel humanized this already; it is the single choke point.
-          log.warn("Chat stream failed", { error: event.message });
-          yield { type: "error", error: event.message };
+          const { message, detail } = event.outcome.error;
+          log.warn("Chat stream failed", { error: message, detail });
+          yield {
+            type: "error",
+            error: message,
+            ...(detail && detail !== message ? { detail } : {}),
+          };
           return;
         } else if (event.type === "end" && event.outcome.status === "aborted") {
           // Keep what the model said, but never report done: a stopped answer

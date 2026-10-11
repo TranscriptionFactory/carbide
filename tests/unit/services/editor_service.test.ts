@@ -470,7 +470,7 @@ describe("EditorService", () => {
     );
   });
 
-  it("normalizes source-mode hard breaks when flushing", () => {
+  it("keeps source-mode html hard breaks when flushing", () => {
     const { service, editor_store } = create_setup(() =>
       Promise.resolve(create_session("# Alpha")),
     );
@@ -484,10 +484,10 @@ describe("EditorService", () => {
 
     expect(flushed).toEqual({
       note_id: as_note_path("docs/alpha.md"),
-      markdown: as_markdown_text("one\\\ntwo"),
+      markdown: as_markdown_text("one<br />\ntwo"),
     });
     expect(editor_store.open_note?.markdown).toBe(
-      as_markdown_text("one\\\ntwo"),
+      as_markdown_text("one<br />\ntwo"),
     );
   });
 

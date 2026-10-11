@@ -240,6 +240,17 @@ describe("execute_command via toggle_format", () => {
     view.destroy();
   });
 
+  it("seeds the inserted table's headers with Col 1..3", () => {
+    const view = create_test_view("hello");
+    toggle_format("table", view);
+    const headers: string[] = [];
+    view.state.doc.descendants((node) => {
+      if (node.type.name === "table_header") headers.push(node.textContent);
+    });
+    expect(headers).toEqual(["Col 1", "Col 2", "Col 3"]);
+    view.destroy();
+  });
+
   it("applies a link mark to a selection", () => {
     const doc = schema.nodes.doc.create(null, [
       schema.nodes.paragraph.create(null, schema.text("hello world")),

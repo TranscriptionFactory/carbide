@@ -2,6 +2,7 @@ import { PluginKey, TextSelection, type EditorState } from "prosemirror-state";
 import type { EditorView } from "prosemirror-view";
 import {
   create_suggest_prose_plugin,
+  type ExtractResult,
   type SuggestState,
 } from "./suggest_plugin_factory";
 import type { DslSuggestion } from "$lib/shared/types/dsl_suggestion";
@@ -69,6 +70,15 @@ function render_items(
   }
 }
 
+export function extract_dsl_query(text_before: string): ExtractResult {
+  const token = /[^\s]*$/.exec(text_before)?.[0] ?? "";
+  return {
+    query: text_before,
+    from_offset: text_before.length - token.length,
+    dismiss_key: token,
+  };
+}
+
 export function create_dsl_suggest_prose_plugin(
   config: DslSuggestPluginConfig,
 ) {
@@ -77,9 +87,11 @@ export function create_dsl_suggest_prose_plugin(
     key,
     class_name: "DslSuggest",
     code_block_languages: [config.language],
-    // replacement position comes from the provider via per-item from_offset;
-    // the factory's from_offset only keys dismissal dedup, where query suffices
-    extract: (text_before) => ({ query: text_before, from_offset: 0 }),
+    // the provider parses the whole prefix and returns its own replacement
+    // offset; from_offset and dismiss_key only scope the dismissal lock to the
+    // token before the caret
+    extract: extract_dsl_query,
+    exempt_editor: false,
     render_items,
     accept(view, item) {
       const block_start = view.state.selection.$from.start();

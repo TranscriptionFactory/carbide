@@ -2784,43 +2784,17 @@
           <div class="SettingsDialog__section-content">
             <div class="SettingsDialog__row">
               <div class="SettingsDialog__label-group">
-                <span class="SettingsDialog__label">Editor Max Width</span>
+                <span class="SettingsDialog__label">Readable Line Length</span>
                 <span class="SettingsDialog__description"
-                  >Maximum line width for the editor content (in characters)</span
+                  >Limit the editor text column to a comfortable reading width</span
                 >
               </div>
-              <div class="flex items-center gap-3">
-                <Slider
-                  type="single"
-                  value={editor_settings.editor_max_width_ch}
-                  onValueChange={(v: number | undefined) => {
-                    if (v !== undefined) {
-                      update("editor_max_width_ch", v);
-                    }
-                  }}
-                  min={60}
-                  max={140}
-                  step={5}
-                  class="w-32"
-                />
-                <span class="text-sm tabular-nums w-10"
-                  >{editor_settings.editor_max_width_ch}ch</span
-                >
-                <button
-                  type="button"
-                  class="SettingsDialog__reset"
-                  onclick={() =>
-                    update(
-                      "editor_max_width_ch",
-                      DEFAULT_EDITOR_SETTINGS.editor_max_width_ch,
-                    )}
-                  disabled={editor_settings.editor_max_width_ch ===
-                    DEFAULT_EDITOR_SETTINGS.editor_max_width_ch}
-                  title={`Reset to default (${String(DEFAULT_EDITOR_SETTINGS.editor_max_width_ch)}ch)`}
-                >
-                  <RotateCcw />
-                </button>
-              </div>
+              <Switch.Root
+                checked={editor_settings.editor_readable_line_length}
+                onCheckedChange={(v: boolean) => {
+                  update("editor_readable_line_length", v);
+                }}
+              />
             </div>
 
             <div class="SettingsDialog__row">
@@ -2942,6 +2916,23 @@
                   >
                     <RotateCcw />
                   </button>
+                </div>
+              </div>
+
+              <div class="SettingsDialog__row">
+                <div class="SettingsDialog__label-group">
+                  <span class="SettingsDialog__label">Reveal Syntax</span>
+                  <span class="SettingsDialog__description"
+                    >Show bold, italic, strikethrough, highlight and inline code
+                    delimiters while the cursor is inside them</span
+                  >
+                </div>
+                <div class="flex items-center gap-3">
+                  <Switch.Root
+                    checked={editor_settings.editor_syntax_reveal}
+                    onCheckedChange={(v: boolean) =>
+                      update("editor_syntax_reveal", v)}
+                  />
                 </div>
               </div>
 

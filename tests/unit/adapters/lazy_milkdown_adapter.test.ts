@@ -47,6 +47,7 @@ describe("lazy_editor_adapter", () => {
       initial_markdown: "# hello",
       note_path: "note.md",
       vault_id: null,
+      syntax_reveal_enabled: true,
       events: {
         on_markdown_change: vi.fn(),
         on_dirty_state_change: vi.fn(),
@@ -79,6 +80,7 @@ describe("lazy_editor_adapter", () => {
       initial_markdown: "one",
       note_path: "one.md",
       vault_id: null,
+      syntax_reveal_enabled: true,
       events: {
         on_markdown_change: vi.fn(),
         on_dirty_state_change: vi.fn(),
@@ -89,6 +91,7 @@ describe("lazy_editor_adapter", () => {
       initial_markdown: "two",
       note_path: "two.md",
       vault_id: null,
+      syntax_reveal_enabled: true,
       events: {
         on_markdown_change: vi.fn(),
         on_dirty_state_change: vi.fn(),

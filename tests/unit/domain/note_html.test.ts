@@ -98,10 +98,72 @@ describe("render_note_to_html", () => {
     expect(count(html, "<hr")).toBe(1);
   });
 
+  describe("footnotes", () => {
+    it("renders references as numbered links and a footnotes section with back-links", async () => {
+      const html = await render_note_body_html(
+        "Note",
+        "First[^b] then[^a].\n\n[^a]: Alpha body.\n\n[^b]: Beta body.",
+      );
+      expect(html).toContain('<section class="footnotes">');
+      expect(html).toMatch(
+        /<sup class="footnote-ref"><a href="#fn1"[^>]*>\[1\]<\/a><\/sup>/,
+      );
+      expect(html).toMatch(
+        /<sup class="footnote-ref"><a href="#fn2"[^>]*>\[2\]<\/a><\/sup>/,
+      );
+      expect(count(html, 'class="footnote-backref"')).toBe(2);
+      expect(html.indexOf("Beta body.")).toBeLessThan(
+        html.indexOf("Alpha body."),
+      );
+    });
+
+    it("keeps a reference without a definition as literal text", async () => {
+      const html = await render_note_body_html("Note", "Dangling[^x] ref.");
+      expect(html).toContain("Dangling[^x] ref.");
+      expect(html).not.toContain('class="footnotes"');
+    });
+  });
+
   it("inlines the KaTeX stylesheet", async () => {
     const html = await render_note_to_html("Note", "$x$");
     expect(html).toContain(".katex");
     expect(html).toContain("@page");
+  });
+
+  describe("print layout styles", () => {
+    function rule_body(css: string, selector: string): string {
+      const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const match = new RegExp(`(?:^|\\n)${escaped}\\s*\\{([^}]*)\\}`).exec(
+        css,
+      );
+      return match?.[1] ?? "";
+    }
+
+    it("wraps code blocks instead of clipping them", async () => {
+      const css = await note_export_styles();
+      const pre = rule_body(css, "pre");
+      expect(pre).toContain("white-space: pre-wrap");
+      expect(pre).not.toContain("overflow: auto");
+    });
+
+    it("never forces pre or table to stay on one page", async () => {
+      const css = await note_export_styles();
+      expect(rule_body(css, "pre")).not.toContain("break-inside: avoid");
+      expect(rule_body(css, "table")).not.toContain("break-inside: avoid");
+      expect(css).not.toContain("page-break-inside: avoid");
+    });
+
+    it("caps table width at the page width", async () => {
+      const css = await note_export_styles();
+      expect(rule_body(css, "table")).toContain("max-width: 100%");
+    });
+
+    it("keeps only rows and figures intact across pages", async () => {
+      const css = await note_export_styles();
+      expect(css).toContain(
+        "tr, img, .mermaid-figure, .katex-display { break-inside: avoid; }",
+      );
+    });
   });
 
   describe("image rendering", () => {
@@ -181,13 +243,13 @@ describe("render_note_to_html", () => {
       expect(html).not.toContain("<script>");
     });
 
-    it("shows inline raw HTML as code rather than dropping it into the document", async () => {
+    it("shows non-whitelisted inline raw HTML as code rather than dropping it into the document", async () => {
       const html = await render_note_to_html(
         "Note",
-        "Press <kbd>Esc</kbd> to close.",
+        "Press <abbr>Esc</abbr> to close.",
       );
-      expect(html).toContain('<code class="raw-html">&lt;kbd&gt;</code>');
-      expect(html).not.toContain("<kbd>");
+      expect(html).toContain('<code class="raw-html">&lt;abbr&gt;</code>');
+      expect(html).not.toContain("<abbr>");
     });
 
     it("renders a promoted iframe embed as a placeholder carrying its URL", async () => {
@@ -220,6 +282,55 @@ describe("render_note_to_html", () => {
       expect(html).toContain("Before.");
       expect(html).toContain("After.");
       expect(count(html, 'class="embed-placeholder"')).toBe(1);
+    });
+  });
+
+  describe("comments", () => {
+    async function body(markdown: string): Promise<string> {
+      return (await render_note_body_html("Note", markdown)).replace(
+        /^<h1 class="doc-title">Note<\/h1>\n/,
+        "",
+      );
+    }
+
+    it("strips inline comments, including ones spanning emphasis", async () => {
+      const html = await body("keep %%drop%% this %%a *b* c%% too");
+      expect(html).toBe("<p>keep  this  too</p>\n");
+    });
+
+    it("strips a block comment with blank lines and Markdown inside", async () => {
+      const html = await body(
+        "before\n\n%%\nhidden\n\n# Secret\n\n- item\n%%\n\nafter",
+      );
+      expect(html).toBe("<p>before</p>\n<p>after</p>\n");
+    });
+
+    it("hides an unclosed block comment to the end of the note", async () => {
+      const html = await body("intro\n\n%%\nrest\n\n# Heading");
+      expect(html).toBe("<p>intro</p>\n");
+    });
+
+    it("leaves %% inside inline code and fenced code alone", async () => {
+      const html = await body("use `%%x%%` here\n\n```\n%%\ncode\n%%\n```");
+      expect(html).toContain("<code>%%x%%</code>");
+      expect(code_block_text(html)).toBe("%%\ncode\n%%\n");
+    });
+
+    it("shows backslash-escaped markers as literal text", async () => {
+      const html = await body("show \\%%literal\\%% here");
+      expect(html).toBe("<p>show %%literal%% here</p>\n");
+    });
+
+    it("needs both inline markers on one line", async () => {
+      const html = await body("a %%open\nclose%% b");
+      expect(html).toBe("<p>a %%open\nclose%% b</p>\n");
+    });
+
+    it("hides HTML comments, block and inline", async () => {
+      const html = await body(
+        "<!-- block note -->\n\ntext <!-- inline --> end",
+      );
+      expect(html).toBe("<p>text  end</p>\n");
     });
   });
 });

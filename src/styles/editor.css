@@ -8,8 +8,12 @@
   /* Runtime-configurable tokens (modified via settings) */
   --editor-font-size: 1rem;
   --editor-line-height: var(--editor-body-line-height);
-  --editor-max-width: var(--editor-body-max-width);
-  --source-editor-max-width: 48rem;
+  --editor-text-column-width: 700px;
+  --editor-max-width: min(
+    calc(var(--editor-text-column-width) + 2 * var(--editor-gutter-inline)),
+    100%
+  );
+  --source-editor-max-width: var(--editor-text-column-width);
   --editor-spacing: 1.5rem;
   --editor-padding-block: var(--space-12);
   /* In-box gutter hosting block handles / fold toggles; must live inside
@@ -196,6 +200,35 @@
   border-radius: 0;
   padding: 0;
   color: var(--muted-foreground);
+}
+
+.ProseMirror .footnote-ref--resolved {
+  vertical-align: super;
+  font-size: 0.75em;
+  line-height: 0;
+  color: var(--editor-link);
+  cursor: pointer;
+}
+
+.ProseMirror .footnote-def {
+  white-space: pre-wrap;
+  font-size: var(--text-sm);
+  color: var(--muted-foreground);
+}
+
+.ProseMirror .md-comment,
+.ProseMirror .comment-block {
+  color: var(--muted-foreground);
+  opacity: 0.7;
+}
+
+.ProseMirror .comment-block {
+  white-space: pre-wrap;
+}
+
+.NoteEditor__read-only .ProseMirror .md-comment,
+.NoteEditor__read-only .ProseMirror .comment-block {
+  display: none;
 }
 
 /* ── Code block toolbar ── */

@@ -6,6 +6,7 @@
 
   const { stores, services } = use_app_context();
   const request = $derived(stores.document.pending_trust_request);
+  const target = $derived(request?.file_path.endsWith(".md") ? "note" : "file");
   let level = $state<TrustLevel>("live");
 
   $effect(() => {
@@ -29,16 +30,21 @@
 >
   <Dialog.Content class="max-w-md">
     <Dialog.Header>
-      <Dialog.Title>Trust HTML file?</Dialog.Title>
+      <Dialog.Title>Allow Live HTML?</Dialog.Title>
       <Dialog.Description>
         Live mode runs scripts inside a sandbox with no access to Carbide or
         your vault. Network access is opt-in.
+        {#if target === "note"}
+          Trusting the note applies to every HTML block in it.
+        {/if}
       </Dialog.Description>
     </Dialog.Header>
     {#if request}
       <div class="TrustedHtmlDialog__body">
         <div class="TrustedHtmlDialog__path">
-          <span class="TrustedHtmlDialog__label">File</span>
+          <span class="TrustedHtmlDialog__label">
+            {target === "note" ? "Note" : "File"}
+          </span>
           <code>{request.file_path}</code>
         </div>
         {#if request.folder_path}
@@ -83,7 +89,7 @@
           Trust folder
         </Button>
       {/if}
-      <Button onclick={() => grant("file")}>Trust file</Button>
+      <Button onclick={() => grant("file")}>Trust {target}</Button>
     </Dialog.Footer>
   </Dialog.Content>
 </Dialog.Root>

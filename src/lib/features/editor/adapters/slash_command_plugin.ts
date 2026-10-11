@@ -23,6 +23,8 @@ import {
   type SmartBlockScaffoldType,
 } from "$lib/features/smart_blocks";
 import { PREVIEW_BUILDERS, build_preview } from "./slash_command_previews";
+import { pick_image_payload } from "./formatting_toolbar_commands";
+import type { PastedImagePayload } from "$lib/shared/types/editor";
 import {
   detect_intentional_mouse_movement,
   type MouseMovementSnapshot,
@@ -53,6 +55,7 @@ export type SlashCommand = {
 
 export type SlashCommandConfig = {
   get_plugin_commands?: () => SlashCommand[];
+  on_image_payload?: ((payload: PastedImagePayload) => void) | undefined;
 };
 
 const EMPTY_STATE: SlashState = {
@@ -419,7 +422,41 @@ function make_html_embed_insert(source: string) {
   };
 }
 
-export function create_commands(): SlashCommand[] {
+function make_image_pick_insert(
+  on_image_payload: (payload: PastedImagePayload) => void,
+) {
+  return (view: EditorView, from: number) => {
+    const { state } = view;
+    view.dispatch(state.tr.delete(from, state.selection.from));
+    void pick_image_payload().then((payload) => {
+      if (payload) on_image_payload(payload);
+    });
+  };
+}
+
+function make_note_embed_insert() {
+  return (view: EditorView, from: number) => {
+    const { state } = view;
+    view.dispatch(state.tr.insertText("![[", from, state.selection.from));
+  };
+}
+
+function image_command(
+  on_image_payload: (payload: PastedImagePayload) => void,
+): SlashCommand {
+  return {
+    id: "image",
+    label: "Image",
+    description: "Insert an image from disk",
+    icon: "🖼️",
+    keywords: ["image", "picture", "photo", "img", "upload", "file"],
+    insert: make_image_pick_insert(on_image_payload),
+  };
+}
+
+export function create_commands(
+  config: SlashCommandConfig = {},
+): SlashCommand[] {
   const commands: SlashCommand[] = [
     {
       id: "h1",
@@ -558,6 +595,17 @@ export function create_commands(): SlashCommand[] {
       icon: "✅",
       keywords: ["task", "query", "filter", "search", "tasks"],
       insert: make_smart_block_insert("tasks"),
+    },
+    ...(config.on_image_payload
+      ? [image_command(config.on_image_payload)]
+      : []),
+    {
+      id: "embed",
+      label: "Embed Note",
+      description: "Embed another note inline",
+      icon: "📄",
+      keywords: ["embed", "note", "transclude", "wiki", "link"],
+      insert: make_note_embed_insert(),
     },
     {
       id: "html-blank",
@@ -825,7 +873,7 @@ export function render_items(
 export function create_slash_command_prose_plugin(
   config?: SlashCommandConfig,
 ): Plugin {
-  const builtin_commands = create_commands();
+  const builtin_commands = create_commands(config);
   const preview_cache = new Map<string, HTMLElement>();
 
   let slash_state: SlashState = EMPTY_STATE;
@@ -833,6 +881,15 @@ export function create_slash_command_prose_plugin(
   let live_region: HTMLElement | null = null;
   let accept_fn: ((cmd: SlashCommand) => void) | null = null;
   let detach_dismiss: (() => void) | null = null;
+  let dismissed: { query: string; from: number } | null = null;
+
+  function dismiss(): void {
+    if (slash_state.active) {
+      dismissed = { query: slash_state.query, from: slash_state.from };
+    }
+    slash_state = EMPTY_STATE;
+    if (menu) menu.style.display = "none";
+  }
 
   function do_render(): void {
     if (!menu || !live_region) return;
@@ -866,16 +923,14 @@ export function create_slash_command_prose_plugin(
         editor_view.focus();
       };
 
-      detach_dismiss = attach_outside_dismiss(menu, editor_view.dom, () => {
-        slash_state = EMPTY_STATE;
-        if (menu) menu.style.display = "none";
-      });
+      detach_dismiss = attach_outside_dismiss(menu, editor_view.dom, dismiss);
 
       return {
         update(view) {
           const result = extract_slash_query(view);
 
           if (!result) {
+            dismissed = null;
             if (slash_state.active) {
               slash_state = EMPTY_STATE;
               if (menu) menu.style.display = "none";
@@ -884,6 +939,10 @@ export function create_slash_command_prose_plugin(
           }
 
           const query = result.query.trim();
+          if (dismissed?.query === query && dismissed.from === result.from) {
+            return;
+          }
+          dismissed = null;
           const plugin_commands = config?.get_plugin_commands?.() ?? [];
           const all_commands = [...builtin_commands, ...plugin_commands];
           const available = all_commands.filter(
@@ -970,8 +1029,7 @@ export function create_slash_command_prose_plugin(
 
         if (event.key === "Escape") {
           event.preventDefault();
-          slash_state = EMPTY_STATE;
-          if (menu) menu.style.display = "none";
+          dismiss();
           return true;
         }
 

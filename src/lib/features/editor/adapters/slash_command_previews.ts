@@ -32,6 +32,82 @@ function code_preview(): HTMLElement {
   );
 }
 
+function html_blank_preview(): HTMLElement {
+  return el(
+    "pre",
+    {},
+    el(
+      "code",
+      {},
+      "<!DOCTYPE html>\n<html>\n  <body>\n    <!-- your markup -->\n  </body>\n</html>",
+    ),
+  );
+}
+
+function html_stat_cards_preview(): HTMLElement {
+  const card = (value: string, label: string) =>
+    el(
+      "div",
+      { class: "SlashMenu__stat" },
+      el("span", { class: "SlashMenu__stat-value" }, value),
+      el("span", { class: "SlashMenu__stat-label" }, label),
+    );
+  return el(
+    "div",
+    { class: "SlashMenu__stats" },
+    card("128", "Notes"),
+    card("42", "Tasks"),
+    card("7", "Projects"),
+  );
+}
+
+function html_chart_preview(): HTMLElement {
+  const heights = [45, 80, 60, 95, 35];
+  return el(
+    "div",
+    { class: "SlashMenu__chart" },
+    ...heights.map((height) =>
+      el("div", {
+        class: "SlashMenu__chart-bar",
+        style: `height: ${String(height)}%`,
+      }),
+    ),
+  );
+}
+
+function html_tabs_preview(): HTMLElement {
+  return el(
+    "div",
+    { class: "SlashMenu__tabs" },
+    el(
+      "div",
+      { class: "SlashMenu__tab-strip" },
+      el(
+        "span",
+        { class: "SlashMenu__tab SlashMenu__tab--active" },
+        "Overview",
+      ),
+      el("span", { class: "SlashMenu__tab" }, "Details"),
+      el("span", { class: "SlashMenu__tab" }, "Notes"),
+    ),
+    el(
+      "div",
+      { class: "SlashMenu__tab-panel" },
+      el("div", { class: "SlashMenu__mock-row" }),
+      el("div", { class: "SlashMenu__mock-row" }),
+    ),
+  );
+}
+
+function image_preview(): HTMLElement {
+  return el(
+    "div",
+    { class: "SlashMenu__image" },
+    el("span", { class: "SlashMenu__image-icon" }, "🖼️"),
+    "Choose an image from disk",
+  );
+}
+
 function table_preview(): HTMLElement {
   return el(
     "table",
@@ -182,10 +258,12 @@ export const PREVIEW_BUILDERS: Record<string, () => HTMLElement> = {
   h5: heading_preview(5),
   h6: heading_preview(6),
   code: code_preview,
-  "html-blank": code_preview,
-  "html-stat-cards": code_preview,
-  "html-chart": code_preview,
-  "html-tabs": code_preview,
+  "html-blank": html_blank_preview,
+  "html-stat-cards": html_stat_cards_preview,
+  "html-chart": html_chart_preview,
+  "html-tabs": html_tabs_preview,
+  image: image_preview,
+  embed: mock_preview("Embedded note", "📄"),
   table: table_preview,
   bullet: bullet_list_preview,
   ordered: ordered_list_preview,

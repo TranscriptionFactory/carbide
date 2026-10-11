@@ -304,6 +304,7 @@ export const ACTION_IDS = {
   theme_save: "theme.save",
   theme_revert: "theme.revert",
   theme_set_color_scheme_preference: "theme.set_color_scheme_preference",
+  theme_commit_color_scheme_preference: "theme.commit_color_scheme_preference",
   theme_set_system_themes: "theme.set_system_themes",
 
   hotkey_open_editor: "hotkey.open_editor",
@@ -360,6 +361,7 @@ export const ACTION_IDS = {
   rag_rename_session: "rag.rename_session",
   rag_delete_session: "rag.delete_session",
   rag_copy_message: "rag.copy_message",
+  rag_copy_error_detail: "rag.copy_error_detail",
   rag_regenerate: "rag.regenerate",
   rag_fork: "rag.fork",
   rag_set_mode: "rag.set_mode",

@@ -25,6 +25,12 @@ export function create_editor_appearance_reactor(
       });
 
       $effect(() => {
+        void editor_service.set_syntax_reveal(
+          ui_store.editor_settings.editor_syntax_reveal,
+        );
+      });
+
+      $effect(() => {
         void editor_service.set_native_feature_flags({
           native_link_hover_enabled:
             ui_store.editor_settings.native_link_hover_enabled,

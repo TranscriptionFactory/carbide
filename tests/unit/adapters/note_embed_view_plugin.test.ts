@@ -43,6 +43,7 @@ describe("note embed collapse", () => {
       initial_markdown: "![[note]]\n",
       note_path: "host.md",
       vault_id: null,
+      syntax_reveal_enabled: true,
       events: {
         on_markdown_change: vi.fn(),
         on_dirty_state_change: vi.fn(),

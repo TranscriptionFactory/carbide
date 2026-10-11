@@ -33,6 +33,8 @@ import { create_frontmatter_extension } from "./frontmatter_extension";
 import { create_tag_pill_extension } from "./tag_pill_extension";
 import { create_mark_syntax_reveal_plugin } from "../adapters/mark_syntax_reveal_plugin";
 import { create_block_id_decoration_plugin } from "../adapters/block_id_decoration_plugin";
+import { create_footnote_plugin } from "../adapters/footnote_plugin";
+import { create_comment_decoration_plugin } from "../adapters/comment_decoration_plugin";
 
 export type AssembledExtensions = {
   plugins: Plugin[];
@@ -48,7 +50,9 @@ export function assemble_extensions(
   const extensions: EditorExtension[] = [
     // Must precede core_extension so its Backspace handling runs before
     // undoInputRule/baseKeymap.
-    { plugins: [create_mark_syntax_reveal_plugin()] },
+    ...(ctx.syntax_reveal_enabled
+      ? [{ plugins: [create_mark_syntax_reveal_plugin()] }]
+      : []),
     { plugins: [create_block_id_decoration_plugin()] },
     create_heading_extension(),
     // Must also precede core_extension: handleKeyDown stops at the first
@@ -82,9 +86,13 @@ export function assemble_extensions(
       ctx.events.on_image_paste_requested,
     ),
     create_image_context_menu_extension(),
-    create_block_drag_handle_extension(),
+    create_block_drag_handle_extension({
+      on_image_payload: ctx.events.on_image_paste_requested,
+    }),
     create_ai_inline_extension(ai_inline_config),
     create_tag_pill_extension(ctx.tag_pill_menu),
+    { plugins: [create_footnote_plugin()] },
+    { plugins: [create_comment_decoration_plugin()] },
     { plugins: [create_block_selection_plugin()] },
     { plugins: [create_diagnostics_decoration_plugin(ctx.get_markdown)] },
     { plugins: [create_ambient_anchor_plugin()] },

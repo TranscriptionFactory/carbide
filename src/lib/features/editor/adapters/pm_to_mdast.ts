@@ -5,6 +5,8 @@ import { serialize_web_embed, serialize_video } from "./html_embed";
 import { format_table_meta_comment } from "./remark_plugins/remark_table_meta";
 import { set_meta_token } from "./code_preview";
 import { format_wiki_source } from "$lib/features/editor/domain/wiki_link";
+import { format_footnote_ref } from "$lib/features/editor/domain/footnotes";
+import { is_inline_html_break } from "$lib/shared/html";
 
 type MdastNode = Record<string, unknown> & { type: string };
 
@@ -29,6 +31,16 @@ function convert_leaf(item: InlineItem): PhrasingContent {
   return convert_inline_pm_node(item.pm_node);
 }
 
+// The stringifier turns a line ending before an `html` node into a space so
+// the tag can't open an HTML block. Raw source that is not a tag can't either,
+// nor can `<br>` inside a paragraph, so both keep their own type and their
+// line ending.
+function convert_raw_inline(value: string): PhrasingContent {
+  const is_tag = value.startsWith("<") && !is_inline_html_break(value);
+  const type = is_tag ? "html" : "rawInline";
+  return { type, value } as PhrasingContent;
+}
+
 function convert_inline_pm_node(node: PmNode): PhrasingContent {
   switch (node.type.name) {
     case "hardbreak":
@@ -46,9 +58,13 @@ function convert_inline_pm_node(node: PmNode): PhrasingContent {
         title: (node.attrs["title"] as string) || null,
       } as PhrasingContent;
     case "raw_inline":
+      return convert_raw_inline((node.attrs["value"] as string) || "");
+    case "footnote_ref":
       return {
         type: "html",
-        value: (node.attrs["value"] as string) || "",
+        value:
+          (node.attrs["raw"] as string) ||
+          format_footnote_ref((node.attrs["label"] as string) || ""),
       } as PhrasingContent;
     default:
       return { type: "text", value: node.textContent } as PhrasingContent;
@@ -80,6 +96,13 @@ function wrap_in_mdast_mark(
       return { type: "delete", children } as PhrasingContent;
     case "highlight":
       return { type: "highlight", children } as unknown as PhrasingContent;
+    case "html_inline":
+      return {
+        type: "inlineHtml",
+        open: mark.attrs["open"] as string,
+        close: mark.attrs["close"] as string,
+        children,
+      } as unknown as PhrasingContent;
     case "link": {
       const href = (mark.attrs["href"] as string) || "";
       if (mark.attrs["link_source"] === "wiki") {
@@ -107,6 +130,10 @@ function wrap_in_mdast_mark(
   }
 }
 
+function is_inner_html(mark: Mark): boolean {
+  return mark.type.name === "html_inline" && mark.attrs["inner"] === true;
+}
+
 function build_mdast_inline(items: InlineItem[]): PhrasingContent[] {
   if (items.length === 0) return [];
   const result: PhrasingContent[] = [];
@@ -132,7 +159,11 @@ function build_mdast_inline(items: InlineItem[]): PhrasingContent[] {
       ) {
         end++;
       }
-      if (!best_mark || end > best_end) {
+      if (
+        !best_mark ||
+        end > best_end ||
+        (end === best_end && is_inner_html(best_mark) && !is_inner_html(mark))
+      ) {
         best_mark = mark;
         best_end = end;
       }
@@ -261,6 +292,22 @@ function convert_block_node(node: PmNode): MdastNode | MdastNode[] | null {
     case "raw_block": {
       return node.textContent
         ? { type: "html", value: node.textContent }
+        : null;
+    }
+
+    case "footnote_def": {
+      return node.textContent
+        ? {
+            type: "rawFootnoteDefinition",
+            value: node.textContent,
+            tight: Boolean(node.attrs["tight"]),
+          }
+        : null;
+    }
+
+    case "comment_block": {
+      return node.textContent
+        ? { type: "commentBlock", value: node.textContent }
         : null;
     }
 
@@ -433,12 +480,22 @@ function convert_block_node(node: PmNode): MdastNode | MdastNode[] | null {
   }
 }
 
+function has_placeholder_paragraph(node: PmNode): boolean {
+  const first = node.firstChild;
+  return (
+    node.childCount > 1 &&
+    first?.type.name === "paragraph" &&
+    first.childCount === 0
+  );
+}
+
 function convert_list_item(node: PmNode): MdastNode {
   const checked = node.attrs["checked"] as boolean | null;
   const task_status = node.attrs["task_status"] as string | null;
   const is_doing = task_status === "doing";
   const is_task = checked !== null || task_status !== null;
   const children = convert_children(node);
+  if (!is_task && has_placeholder_paragraph(node)) children.shift();
 
   if (is_doing) {
     const para = children[0];

@@ -64,6 +64,7 @@ function get_icon_for_type(file_type: string): string {
 export type FileEmbedCallbacks = {
   on_open_file: (path: string) => void;
   resolve_asset_url?: ((src: string) => string | Promise<string>) | undefined;
+  resolve_vault_path?: ((src: string) => Promise<string | null>) | undefined;
   inline_html_trust?: InlineHtmlTrustConfig | undefined;
 };
 
@@ -379,9 +380,21 @@ class FileEmbedView implements NodeView {
     return true;
   }
 
-  private async _html_trust_level(path: string): Promise<TrustLevel> {
+  private async _html_trust_path(): Promise<string | null> {
+    const src = this.node.attrs["src"] as string;
+    const resolve = this.callbacks.resolve_vault_path;
+    if (!resolve) return src;
+    try {
+      return await resolve(src);
+    } catch (error: unknown) {
+      log.error("Failed to resolve HTML embed trust path", { error });
+      return null;
+    }
+  }
+
+  private async _html_trust_level(path: string | null): Promise<TrustLevel> {
     const get_level = this.callbacks.inline_html_trust?.get_level;
-    if (!get_level) return "safe";
+    if (!path || !get_level) return "safe";
     try {
       return await get_level(path);
     } catch (error: unknown) {
@@ -394,9 +407,7 @@ class FileEmbedView implements NodeView {
     const state = this._html_embed;
     if (!state || state.raw === null) return;
     const seq = ++state.render_seq;
-    const level = await this._html_trust_level(
-      this.node.attrs["src"] as string,
-    );
+    const level = await this._html_trust_level(await this._html_trust_path());
     if (this._destroyed || seq !== state.render_seq) return;
 
     const mode = effective_html_mode(state.mode, level);
@@ -477,14 +488,14 @@ class FileEmbedView implements NodeView {
   private async _set_html_embed_mode(next: HtmlRenderMode): Promise<void> {
     const state = this._html_embed;
     if (!state) return;
-    const path = this.node.attrs["src"] as string;
+    const path = await this._html_trust_path();
 
     if (
       next === "live" &&
       !trust_allows_live(await this._html_trust_level(path))
     ) {
       const request = this.callbacks.inline_html_trust?.request;
-      const granted = request ? await request(path) : false;
+      const granted = request && path ? await request(path) : false;
       if (this._destroyed) return;
       if (!granted) return;
       // The grant only changes what renders, not the node: the stored params

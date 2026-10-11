@@ -5,6 +5,7 @@ import {
   create_menu_el,
   render_items,
   type SlashCommand,
+  type SlashCommandConfig,
   type SlashState,
 } from "./slash_command_plugin";
 import {
@@ -20,13 +21,19 @@ export type BlockInsertMenu = {
   destroy: () => void;
 };
 
-export function block_insert_commands(state: EditorState): SlashCommand[] {
-  return create_commands().filter(
+export function block_insert_commands(
+  state: EditorState,
+  config?: SlashCommandConfig,
+): SlashCommand[] {
+  return create_commands(config).filter(
     (cmd) => !cmd.is_available || cmd.is_available(state),
   );
 }
 
-export function create_block_insert_menu(view: EditorView): BlockInsertMenu {
+export function create_block_insert_menu(
+  view: EditorView,
+  config?: SlashCommandConfig,
+): BlockInsertMenu {
   const { menu, live_region } = create_menu_el();
   const preview_cache = new Map<string, HTMLElement>();
   mount_dropdown(menu);
@@ -120,7 +127,7 @@ export function create_block_insert_menu(view: EditorView): BlockInsertMenu {
   ): void {
     from = insert_from;
     selected_index = 0;
-    commands = block_insert_commands(view.state);
+    commands = block_insert_commands(view.state, config);
     if (commands.length === 0) return;
 
     on_dismiss = dismiss ?? null;
@@ -131,7 +138,9 @@ export function create_block_insert_menu(view: EditorView): BlockInsertMenu {
     position_suggest_dropdown(menu, {
       getBoundingClientRect: () => anchor,
     } as Element);
-    detach_dismiss = attach_outside_dismiss(menu, view.dom, close);
+    detach_dismiss = attach_outside_dismiss(menu, view.dom, close, {
+      exempt_editor: false,
+    });
     document.addEventListener("keydown", on_keydown, true);
   }
 

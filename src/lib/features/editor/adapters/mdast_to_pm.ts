@@ -3,19 +3,41 @@ import type { Node as PmNode, Mark } from "prosemirror-model";
 import { schema } from "./schema";
 import { detect_embed_type, parse_embed_fragment } from "./file_embed_plugin";
 import { meta_has_token, set_meta_token } from "./code_preview";
+import { format_footnote_ref } from "$lib/features/editor/domain/footnotes";
 
 type AnyMdastNode = Record<string, unknown> & { type: string };
 
-let current_source = "";
+const NEXT_LINE_NOT_BLANK_RE = /\r?\n[ \t]*\S/y;
 
-function slice_source(node: AnyMdastNode): string {
+let current_source = "";
+let current_inline_indent = 0;
+let next_html_pair_key = 0;
+
+function source_indent(node: AnyMdastNode): number {
+  const column = (node.position as { start?: { column?: number } } | undefined)
+    ?.start?.column;
+  return typeof column === "number" ? column - 1 : 0;
+}
+
+// The block's first-line column is the width of its container prefixes
+// (`> `, list indentation); continuation lines repeat them and serialize
+// re-adds them, so keeping them would compound on every save.
+function strip_container_prefixes(raw: string, indent: number): string {
+  if (indent === 0) return raw;
+  return raw.replace(new RegExp(`\\n[ \\t>]{0,${String(indent)}}`, "g"), "\n");
+}
+
+function slice_source(
+  node: AnyMdastNode,
+  indent = source_indent(node),
+): string {
   const position = node.position as
     | { start?: { offset?: number }; end?: { offset?: number } }
     | undefined;
   const start = position?.start?.offset;
   const end = position?.end?.offset;
   if (typeof start !== "number" || typeof end !== "number") return "";
-  return current_source.slice(start, end);
+  return strip_container_prefixes(current_source.slice(start, end), indent);
 }
 
 function create_raw_block(value: string): PmNode | null {
@@ -29,6 +51,42 @@ function create_raw_inline(value: string, marks: Mark[]): PmNode {
     null,
     marks.length > 0 ? marks : undefined,
   );
+}
+
+function create_footnote_ref(node: AnyMdastNode, marks: Mark[]): PmNode {
+  const label = (node.label as string) || (node.identifier as string) || "";
+  return schema.nodes.footnote_ref.create(
+    { label, raw: slice_source(node) || format_footnote_ref(label) },
+    null,
+    marks.length > 0 ? marks : undefined,
+  );
+}
+
+function is_followed_by_line(node: AnyMdastNode): boolean {
+  const end = (node.position as { end?: { offset?: number } } | undefined)?.end
+    ?.offset;
+  if (typeof end !== "number") return false;
+  NEXT_LINE_NOT_BLANK_RE.lastIndex = end;
+  return NEXT_LINE_NOT_BLANK_RE.test(current_source);
+}
+
+function create_footnote_def(node: AnyMdastNode): PmNode | null {
+  const raw = slice_source(node);
+  if (!raw) return null;
+  return schema.nodes.footnote_def.create(
+    { tight: is_followed_by_line(node) },
+    schema.text(raw),
+  );
+}
+
+// `key` keeps adjacent pairs with identical tags from merging into one.
+function create_html_inline_mark(node: AnyMdastNode): Mark {
+  return schema.marks.html_inline.create({
+    open: node.open as string,
+    close: node.close as string,
+    inner: node.inner === true,
+    key: next_html_pair_key++,
+  });
 }
 
 function flatten_inline(
@@ -96,7 +154,13 @@ function flatten_inline(
         );
         break;
       case "break":
-        result.push(schema.nodes.hardbreak.create());
+        result.push(
+          schema.nodes.hardbreak.create(
+            null,
+            null,
+            marks.length > 0 ? marks : undefined,
+          ),
+        );
         break;
       case "inlineMath": {
         const val = node.value as string;
@@ -120,8 +184,18 @@ function flatten_inline(
         if (html_val) result.push(create_raw_inline(html_val, marks));
         break;
       }
+      case "footnoteReference":
+        result.push(create_footnote_ref(node, marks));
+        break;
+      case "inlineHtml":
+        flatten_inline(
+          (node.children as AnyMdastNode[]) || [],
+          [...marks, create_html_inline_mark(node)],
+          result,
+        );
+        break;
       default: {
-        const raw = slice_source(node);
+        const raw = slice_source(node, current_inline_indent);
         if (raw) result.push(create_raw_inline(raw, marks));
         break;
       }
@@ -131,6 +205,8 @@ function flatten_inline(
 
 function convert_inline(parent: AnyMdastNode): PmNode[] {
   const result: PmNode[] = [];
+  current_inline_indent = source_indent(parent);
+  next_html_pair_key = 0;
   flatten_inline((parent.children as AnyMdastNode[]) || [], [], result);
   return result;
 }
@@ -266,6 +342,18 @@ function build_block(
       return create_raw_block((node.value as string) || "");
     }
 
+    case "footnoteDefinition": {
+      return create_footnote_def(node);
+    }
+
+    case "commentBlock": {
+      const val = (node.value as string) || "";
+      return schema.nodes.comment_block.create(
+        null,
+        val ? schema.text(val) : undefined,
+      );
+    }
+
     default:
       return create_raw_block(slice_source(node));
   }
@@ -316,6 +404,13 @@ function convert_wiki_embed(node: AnyMdastNode): PmNode | null {
   });
 }
 
+// Schema `list_item` is `paragraph block*`; an item led by another block gets
+// an empty paragraph that pm_to_mdast drops again.
+function starts_with_paragraph(children: AnyMdastNode[]): boolean {
+  const type = children[0]?.type;
+  return type === "paragraph" || type === "wikiEmbed";
+}
+
 function convert_list_item(
   node: AnyMdastNode,
   source_blocks?: Map<number, PmNode>,
@@ -326,45 +421,9 @@ function convert_list_item(
       : null;
 
   const children_nodes = node.children as AnyMdastNode[];
-
-  let pm_children: PmNode[] = [];
-
-  if (children_nodes.length === 0) {
-    pm_children = [schema.nodes.paragraph.create()];
-  } else {
-    const first = children_nodes[0];
-    if (!first) {
-      pm_children = [schema.nodes.paragraph.create()];
-    } else if (first.type === "paragraph" || first.type === "wikiEmbed") {
-      const first_pm = convert_block(first, source_blocks);
-      if (first_pm) pm_children.push(first_pm);
-      for (let i = 1; i < children_nodes.length; i++) {
-        const child_node = children_nodes[i];
-        if (child_node) {
-          const child = convert_block(child_node, source_blocks);
-          if (child) pm_children.push(child);
-        }
-      }
-    } else {
-      const inline = convert_inline(first);
-      pm_children.push(
-        schema.nodes.paragraph.create(
-          null,
-          inline.length > 0 ? inline : undefined,
-        ),
-      );
-      for (let i = 1; i < children_nodes.length; i++) {
-        const child_node = children_nodes[i];
-        if (child_node) {
-          const child = convert_block(child_node, source_blocks);
-          if (child) pm_children.push(child);
-        }
-      }
-    }
-  }
-
-  if (pm_children.length === 0) {
-    pm_children = [schema.nodes.paragraph.create()];
+  const pm_children = convert_blocks(children_nodes, source_blocks);
+  if (pm_children.length === 0 || !starts_with_paragraph(children_nodes)) {
+    pm_children.unshift(schema.nodes.paragraph.create());
   }
 
   const doing_from_data =

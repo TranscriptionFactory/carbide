@@ -12,7 +12,6 @@
   import DocumentEditor from "$lib/features/document/ui/document_editor.svelte";
   import HtmlViewer from "$lib/features/document/ui/html_viewer.svelte";
   import HtmlLiveRenderer from "$lib/features/document/ui/html_live_renderer.svelte";
-  import TrustedHtmlDialog from "$lib/features/document/ui/trusted_html_dialog.svelte";
   import ViewModeToggle from "$lib/features/document/ui/view_mode_toggle.svelte";
   import SourceViewToggle from "$lib/features/document/ui/source_view_toggle.svelte";
   import { format_provenance_banner } from "$lib/features/document/domain/html_artifact_paste";
@@ -348,8 +347,6 @@
     </div>
   {/if}
 </div>
-
-<TrustedHtmlDialog />
 
 <style>
   .DocumentViewer {

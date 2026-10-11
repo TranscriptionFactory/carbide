@@ -188,7 +188,7 @@ export type EditorSettings = {
   git_auto_fetch_interval_minutes: number;
   show_vault_dashboard_on_open: boolean;
   max_open_tabs: number;
-  editor_max_width_ch: number;
+  editor_readable_line_length: boolean;
   editor_width_mode: EditorWidthMode;
   layout_preset: LayoutPreset;
   editor_selection_color: string;
@@ -209,6 +209,7 @@ export type EditorSettings = {
   source_editor_line_numbers: boolean;
   editor_spellcheck: boolean;
   editor_heading_markers: boolean;
+  editor_syntax_reveal: boolean;
   terminal_shell_path: string;
   terminal_font_size_px: number;
   terminal_cursor_blink: boolean;
@@ -344,7 +345,7 @@ export const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
   git_auto_fetch_interval_minutes: 0,
   show_vault_dashboard_on_open: false,
   max_open_tabs: 5,
-  editor_max_width_ch: 90,
+  editor_readable_line_length: true,
   editor_width_mode: "normal",
   layout_preset: "auto",
   editor_selection_color: "",
@@ -365,6 +366,7 @@ export const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
   source_editor_line_numbers: false,
   editor_spellcheck: true,
   editor_heading_markers: false,
+  editor_syntax_reveal: true,
   terminal_shell_path: "/bin/zsh",
   terminal_font_size_px: 13,
   terminal_cursor_blink: true,
@@ -590,7 +592,7 @@ export const GLOBAL_ONLY_SETTING_KEYS: readonly (keyof EditorSettings)[] = [
   "git_auto_fetch_interval_minutes",
   "autosave_enabled",
   "autosave_delay_ms",
-  "editor_max_width_ch",
+  "editor_readable_line_length",
   "editor_width_mode",
   "layout_preset",
   "editor_selection_color",
@@ -611,6 +613,7 @@ export const GLOBAL_ONLY_SETTING_KEYS: readonly (keyof EditorSettings)[] = [
   "source_editor_line_numbers",
   "editor_spellcheck",
   "editor_heading_markers",
+  "editor_syntax_reveal",
   "terminal_shell_path",
   "terminal_font_size_px",
   "terminal_cursor_blink",

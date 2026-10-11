@@ -113,7 +113,7 @@
             {#each tag_store.notes_for_tag as note_path (note_path)}
               <button
                 type="button"
-                class="w-full text-left px-2 py-1.5 rounded text-xs hover:bg-muted truncate"
+                class="w-full shrink-0 text-left px-2 py-1.5 rounded text-xs hover:bg-muted truncate"
                 onclick={() =>
                   void action_registry.execute(
                     ACTION_IDS.tags_open_note,

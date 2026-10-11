@@ -1,4 +1,5 @@
 import MarkdownIt from "markdown-it";
+import markdown_it_footnote from "markdown-it-footnote";
 import type Token from "markdown-it/lib/token.mjs";
 import type StateCore from "markdown-it/lib/rules_core/state_core.mjs";
 import type StateInline from "markdown-it/lib/rules_inline/state_inline.mjs";
@@ -6,6 +7,11 @@ import type StateBlock from "markdown-it/lib/rules_block/state_block.mjs";
 import type Renderer from "markdown-it/lib/renderer.mjs";
 import katex from "katex";
 import { parse_frontmatter } from "$lib/shared/domain/frontmatter_parser";
+import {
+  parse_inline_html_tag,
+  sanitize_inline_html_open_tag,
+  type InlineHtmlTag,
+} from "$lib/shared/html";
 import {
   init_highlighter,
   get_highlighter_sync,
@@ -24,7 +30,9 @@ export function create_md(): MarkdownIt {
     html: false,
     linkify: true,
     typographer: false,
-  }).enable(["table", "strikethrough"]);
+  })
+    .enable(["table", "strikethrough"])
+    .use(markdown_it_footnote);
 }
 
 function render_math(source: string, display: boolean): string {
@@ -158,6 +166,57 @@ function register_math(md: MarkdownIt): void {
     `${render_math(tokens[idx]?.content ?? "", true)}\n`;
 }
 
+const COMMENT_MARKER = "%%";
+
+function comment_inline_rule(state: StateInline, _silent: boolean): boolean {
+  if (!state.src.startsWith(COMMENT_MARKER, state.pos)) return false;
+  const line_end = state.src.indexOf("\n", state.pos);
+  const limit =
+    line_end === -1 ? state.posMax : Math.min(line_end, state.posMax);
+  const close = state.src.indexOf(
+    COMMENT_MARKER,
+    state.pos + COMMENT_MARKER.length,
+  );
+  if (close === -1 || close + COMMENT_MARKER.length > limit) return false;
+  state.pos = close + COMMENT_MARKER.length;
+  return true;
+}
+
+function line_text(state: StateBlock, line: number): string {
+  const start = (state.bMarks[line] ?? 0) + (state.tShift[line] ?? 0);
+  return state.src.slice(start, state.eMarks[line] ?? start);
+}
+
+// Obsidian block comment: a line starting with `%%` hides everything through
+// the line holding the next `%%`, or to the end when it is never closed.
+function comment_block_rule(
+  state: StateBlock,
+  start_line: number,
+  end_line: number,
+  silent: boolean,
+): boolean {
+  if ((state.sCount[start_line] ?? 0) - state.blkIndent >= 4) return false;
+  const first = line_text(state, start_line);
+  if (!first.startsWith(COMMENT_MARKER)) return false;
+  if (first.includes(COMMENT_MARKER, COMMENT_MARKER.length)) return false;
+  if (silent) return true;
+
+  let close_line = start_line + 1;
+  while (
+    close_line < end_line &&
+    !line_text(state, close_line).includes(COMMENT_MARKER)
+  ) {
+    close_line += 1;
+  }
+  state.line = Math.min(close_line + 1, end_line);
+  return true;
+}
+
+function register_comments(md: MarkdownIt): void {
+  md.inline.ruler.after("escape", "comment_inline", comment_inline_rule);
+  md.block.ruler.before("paragraph", "comment_block", comment_block_rule);
+}
+
 function escape_html(text: string): string {
   return MarkdownIt().utils.escapeHtml(text);
 }
@@ -265,20 +324,87 @@ function embed_token(state: StateCore, parsed: ParsedHtmlEmbed): Token {
   return token;
 }
 
+const HTML_COMMENT_RE = /^<!--[\s\S]*?-->$/;
+
+function is_html_comment(content: string): boolean {
+  return HTML_COMMENT_RE.test(content.trim());
+}
+
+type OpenInlineTag = { token: Token; tag: InlineHtmlTag; depth: number };
+
+// Mirrors the editor's pairing: only a whitelisted open/close pair at the same
+// nesting depth renders; a crossing or mismatched close leaves every pending
+// tag as source.
+function pair_inline_html_tokens(children: Token[]): void {
+  let pending: OpenInlineTag[] = [];
+  let depth = 0;
+  for (const child of children) {
+    const tag =
+      child.type === "html_inline"
+        ? parse_inline_html_tag(child.content)
+        : null;
+    if (!tag) {
+      depth += child.nesting;
+      pending = pending.filter((open) => open.depth <= depth);
+    } else if (tag.kind === "void") {
+      if (tag.name === "br") child.meta = tag;
+    } else if (tag.kind === "open") {
+      pending.push({ token: child, tag, depth });
+    } else {
+      const top = pending.at(-1);
+      if (top?.tag.name === tag.name && top.depth === depth) {
+        top.token.meta = top.tag;
+        child.meta = tag;
+        pending.pop();
+      } else {
+        pending = [];
+      }
+    }
+  }
+}
+
+function pair_inline_html(state: StateCore): boolean {
+  for (const token of state.tokens) {
+    if (token.type === "inline" && token.children) {
+      pair_inline_html_tokens(token.children);
+    }
+  }
+  return true;
+}
+
+function render_inline_html_tag(content: string, tag: InlineHtmlTag): string {
+  if (tag.kind === "close") return `</${tag.name}>`;
+  const element = sanitize_inline_html_open_tag(content);
+  const attrs = Object.entries(element?.attrs ?? {})
+    .map(([name, value]) => ` ${name}="${escape_attr(value)}"`)
+    .join("");
+  return `<${element?.name ?? tag.name}${attrs}>`;
+}
+
 // Raw HTML is parsed (not passed through) purely so the export can show it:
-// promoted embeds become placeholders, everything else becomes highlighted
-// source. No renderer rule here ever emits unsanitized markup.
+// promoted embeds become placeholders, paired whitelisted inline tags render
+// through the sanitizer, everything else becomes highlighted source. No
+// renderer rule here ever emits unsanitized markup.
 function register_raw_html(md: MarkdownIt): void {
   md.set({ html: true });
   md.core.ruler.push("promote_html_embeds", promote_html_embeds);
+  md.core.ruler.push("pair_inline_html", pair_inline_html);
   md.renderer.rules.html_embed = (tokens, idx) => {
     const parsed = tokens[idx]?.meta as ParsedHtmlEmbed | undefined;
     return parsed ? render_embed_placeholder(parsed) : "";
   };
-  md.renderer.rules.html_block = (tokens, idx) =>
-    highlight_code((tokens[idx]?.content ?? "").replace(/\n+$/, ""), "html");
-  md.renderer.rules.html_inline = (tokens, idx) =>
-    `<code class="raw-html">${escape_html(tokens[idx]?.content ?? "")}</code>`;
+  md.renderer.rules.html_block = (tokens, idx) => {
+    const content = tokens[idx]?.content ?? "";
+    if (is_html_comment(content)) return "";
+    return highlight_code(content.replace(/\n+$/, ""), "html");
+  };
+  md.renderer.rules.html_inline = (tokens, idx) => {
+    const content = tokens[idx]?.content ?? "";
+    const tag = tokens[idx]?.meta as InlineHtmlTag | null | undefined;
+    if (tag) return render_inline_html_tag(content, tag);
+    if (is_html_comment(content)) return "";
+    return `<code class="raw-html">${escape_html(content)}</code>`;
+  };
 }
 
 function collect_mermaid_codes(tokens: Token[]): string[] {
@@ -294,7 +420,7 @@ function collect_mermaid_codes(tokens: Token[]): string[] {
 
 function document_styles(katex_css: string): string {
   return `${katex_css}
-@page { size: A4; margin: 20mm; }
+@page { size: A4; margin: 18mm 16mm; }
 * { box-sizing: border-box; }
 html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 body {
@@ -303,7 +429,7 @@ body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
   font-size: 11pt;
   line-height: 1.6;
-  word-wrap: break-word;
+  overflow-wrap: anywhere;
 }
 .note-document { max-width: 100%; }
 .doc-title {
@@ -317,7 +443,8 @@ h1, h2, h3, h4, h5, h6 {
   margin: 1.2em 0 0.6em;
   font-weight: 700;
   line-height: 1.25;
-  page-break-after: avoid;
+  break-after: avoid;
+  break-inside: avoid;
 }
 h1 { font-size: 20pt; padding-bottom: 0.3em; border-bottom: 1px solid #d0d7de; }
 h2 { font-size: 16pt; padding-bottom: 0.3em; border-bottom: 1px solid #d0d7de; }
@@ -327,6 +454,7 @@ p { margin: 0 0 0.8em; }
 a { color: #0969da; text-decoration: none; }
 ul, ol { margin: 0 0 0.8em; padding-left: 2em; }
 li { margin: 0.15em 0; }
+p, li, blockquote { orphans: 3; widows: 3; }
 blockquote {
   margin: 0 0 0.8em;
   padding: 0 1em;
@@ -349,22 +477,27 @@ code {
 pre {
   margin: 0 0 0.8em;
   padding: 12px 16px;
-  overflow: auto;
+  white-space: pre-wrap;
+  overflow: visible;
   font-size: 9.5pt;
   line-height: 1.45;
   background: #f6f8fa;
   border-radius: 6px;
-  page-break-inside: avoid;
+  break-inside: auto;
 }
-pre code { padding: 0; font-size: inherit; background: none; }
+pre code { padding: 0; font-size: inherit; white-space: inherit; background: none; }
 table {
   margin: 0 0 0.8em;
+  width: 100%;
+  max-width: 100%;
   border-collapse: collapse;
-  page-break-inside: avoid;
+  break-inside: auto;
 }
-th, td { padding: 6px 13px; border: 1px solid #d0d7de; }
+thead { display: table-header-group; }
+th, td { padding: 6px 13px; overflow-wrap: anywhere; border: 1px solid #d0d7de; }
 th { background: #f6f8fa; font-weight: 600; }
 img { max-width: 100%; }
+tr, img, .mermaid-figure, .katex-display { break-inside: avoid; }
 .image-missing {
   display: inline-block;
   padding: 0.4em 0.8em;
@@ -375,7 +508,7 @@ img { max-width: 100%; }
   border: 1px dashed #d0d7de;
   border-radius: 4px;
 }
-figure { margin: 1em 0; text-align: center; page-break-inside: avoid; }
+figure { margin: 1em 0; text-align: center; }
 .mermaid-figure svg { max-width: 100%; height: auto; }
 .embed-placeholder {
   display: flex;
@@ -400,7 +533,7 @@ figure { margin: 1em 0; text-align: center; page-break-inside: avoid; }
   word-break: break-all;
 }
 code.raw-html { color: #57606a; }
-.katex-display { page-break-inside: avoid; overflow-x: auto; overflow-y: hidden; }
+.katex-display { overflow: visible; }
 .math-error { color: #cf222e; }`;
 }
 
@@ -504,6 +637,7 @@ async function render_markdown_body(
   const body = rewrite_wiki_image_embeds(parse_frontmatter(markdown).body);
   const md = create_md();
   register_math(md);
+  register_comments(md);
   register_raw_html(md);
   md.renderer.rules.fence = render_fence;
 

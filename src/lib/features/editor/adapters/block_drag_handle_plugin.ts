@@ -15,6 +15,7 @@ import {
   create_block_insert_menu,
   type BlockInsertMenu,
 } from "./block_insert_menu";
+import type { SlashCommandConfig } from "./slash_command_plugin";
 
 const block_drag_handle_plugin_key = new PluginKey<DragHandleState>(
   "block_drag_handle",
@@ -367,7 +368,9 @@ export function visible_handles(
   return result;
 }
 
-export function create_block_drag_handle_prose_plugin(): Plugin {
+export function create_block_drag_handle_prose_plugin(
+  insert_menu_config?: SlashCommandConfig,
+): Plugin {
   let dragging_range: { from: number; to: number } | null = null;
   let source_is_list_item = false;
   let is_dragging = false;
@@ -707,7 +710,7 @@ export function create_block_drag_handle_prose_plugin(): Plugin {
 
     view(editor_view: EditorView) {
       const editor_dom = editor_view.dom;
-      insert_menu = create_block_insert_menu(editor_view);
+      insert_menu = create_block_insert_menu(editor_view, insert_menu_config);
       let keystroke_count = 0;
       let focus_mode_active = false;
       let focus_exit_movement = 0;

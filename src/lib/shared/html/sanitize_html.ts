@@ -1,6 +1,7 @@
 export interface SanitizeHtmlOptions {
   allowed_elements?: Map<string, Set<string>>;
   strip_disallowed?: boolean;
+  allowed_style_properties?: Set<string>;
 }
 
 const ALWAYS_REMOVE = new Set([
@@ -173,12 +174,13 @@ export function sanitize_html(
 ): string {
   const allowed = options.allowed_elements ?? DEFAULT_ALLOWED;
   const strip = options.strip_disallowed ?? true;
+  const styles = options.allowed_style_properties ?? null;
 
   const parser = new DOMParser();
   const doc = parser.parseFromString(html, "text/html");
   const body = doc.body;
 
-  sanitize_node(body, allowed, strip);
+  sanitize_node(body, allowed, strip, styles);
 
   return body.innerHTML;
 }
@@ -255,10 +257,26 @@ export function sanitize_html_preview(html: string): {
   return { body: preview.body.innerHTML, styles };
 }
 
+function filter_style(el: Element, properties: Set<string>): void {
+  const style = el.getAttribute("style");
+  if (style === null) return;
+  const kept = style
+    .split(";")
+    .map((declaration) => declaration.trim())
+    .filter((declaration) => {
+      const colon = declaration.indexOf(":");
+      const property = declaration.slice(0, colon).trim().toLowerCase();
+      return colon > 0 && properties.has(property);
+    });
+  if (kept.length === 0) el.removeAttribute("style");
+  else el.setAttribute("style", kept.join("; "));
+}
+
 function sanitize_node(
   node: Node,
   allowed: Map<string, Set<string>>,
   strip: boolean,
+  styles: Set<string> | null,
 ): void {
   const children = [...node.childNodes];
 
@@ -285,7 +303,7 @@ function sanitize_node(
       } else if (strip) {
         const fragment = el.ownerDocument.createDocumentFragment();
         while (el.firstChild) fragment.appendChild(el.firstChild);
-        sanitize_node(fragment, allowed, strip);
+        sanitize_node(fragment, allowed, strip, styles);
         node.replaceChild(fragment, el);
       } else {
         node.removeChild(el);
@@ -307,6 +325,8 @@ function sanitize_node(
       }
     }
 
-    sanitize_node(el, allowed, strip);
+    if (styles) filter_style(el, styles);
+
+    sanitize_node(el, allowed, strip, styles);
   }
 }

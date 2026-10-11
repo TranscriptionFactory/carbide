@@ -23,6 +23,7 @@ function create_session(
     initial_markdown,
     note_path: "test.md",
     vault_id: null,
+    syntax_reveal_enabled: true,
     events: {
       on_markdown_change: callbacks?.on_markdown_change ?? vi.fn(),
       on_dirty_state_change: callbacks?.on_dirty_state_change ?? vi.fn(),
@@ -65,6 +66,7 @@ describe("prosemirror dirty state with ephemeral attrs", () => {
       initial_markdown: "```js\nconst x = 1;\n```\n",
       note_path: "test.md",
       vault_id: null,
+      syntax_reveal_enabled: true,
       events: {
         on_markdown_change: vi.fn(),
         on_dirty_state_change: on_dirty,
@@ -94,6 +96,7 @@ describe("prosemirror dirty state with ephemeral attrs", () => {
       initial_markdown: "```js\nconst x = 1;\n```\n",
       note_path: "test.md",
       vault_id: null,
+      syntax_reveal_enabled: true,
       events: {
         on_markdown_change: vi.fn(),
         on_dirty_state_change: on_dirty,
@@ -133,6 +136,7 @@ describe("prosemirror dirty state with ephemeral attrs", () => {
       initial_markdown: "hello world\n",
       note_path: "test.md",
       vault_id: null,
+      syntax_reveal_enabled: true,
       events: {
         on_markdown_change: vi.fn(),
         on_dirty_state_change: on_dirty,
@@ -166,6 +170,7 @@ describe("prosemirror dirty state with ephemeral attrs", () => {
       initial_markdown: "note A content\n",
       note_path: "a.md",
       vault_id: null,
+      syntax_reveal_enabled: true,
       events: {
         on_markdown_change: on_markdown,
         on_dirty_state_change: on_dirty,
@@ -219,6 +224,7 @@ describe("prosemirror dirty state with ephemeral attrs", () => {
       initial_markdown: "note A content\n",
       note_path: "a.md",
       vault_id: null,
+      syntax_reveal_enabled: true,
       events: {
         on_markdown_change: on_markdown,
         on_dirty_state_change: on_dirty,
@@ -271,6 +277,7 @@ describe("prosemirror dirty state with ephemeral attrs", () => {
       initial_markdown: "original content\n",
       note_path: "a.md",
       vault_id: null,
+      syntax_reveal_enabled: true,
       events: {
         on_markdown_change: on_markdown,
         on_dirty_state_change: on_dirty,

@@ -675,6 +675,23 @@ body.block-handle-dragging .prosemirror-dropcursor-inline {
   display: none;
 }
 
+/* ── Footnote popover ───────────────────────── */
+
+.footnote-popover {
+  z-index: 50;
+  max-width: 360px;
+  padding: 0.5rem 0.75rem;
+  white-space: pre-wrap;
+  font-size: var(--text-sm);
+  line-height: 1.4;
+  color: var(--popover-foreground);
+  background: var(--popover);
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius) * 0.5);
+  box-shadow: var(--shadow-2);
+  pointer-events: none;
+}
+
 /* ── Preview tooltip ────────────────────────── */
 
 .milkdown-link-preview > .link-preview {
@@ -1453,6 +1470,96 @@ body.block-handle-dragging .prosemirror-dropcursor-inline {
 
 .SlashMenu__mock-row:nth-child(4) {
   width: 60%;
+}
+
+.SlashMenu__stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-2);
+}
+
+.SlashMenu__stat {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-0-5);
+  padding: var(--space-2);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--primary);
+  border-radius: calc(var(--radius) * 0.5);
+}
+
+.SlashMenu__stat-value {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--editor-foreground);
+}
+
+.SlashMenu__stat-label {
+  font-size: var(--text-xs);
+  color: var(--muted-foreground);
+}
+
+.SlashMenu__chart {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-2);
+  height: 6rem;
+  padding-bottom: var(--space-1);
+  border-bottom: 1px solid var(--border);
+}
+
+.SlashMenu__chart-bar {
+  flex: 1;
+  border-radius: calc(var(--radius) * 0.4) calc(var(--radius) * 0.4) 0 0;
+  background: color-mix(in oklch, var(--primary) 70%, transparent);
+}
+
+.SlashMenu__tabs {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.SlashMenu__tab-strip {
+  display: flex;
+  gap: var(--space-3);
+  border-bottom: 1px solid var(--border);
+}
+
+.SlashMenu__tab {
+  padding-bottom: var(--space-1);
+  font-size: var(--text-xs);
+  color: var(--muted-foreground);
+}
+
+.SlashMenu__tab--active {
+  color: var(--editor-foreground);
+  font-weight: 600;
+  border-bottom: 2px solid var(--primary);
+}
+
+.SlashMenu__tab-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1-5);
+}
+
+.SlashMenu__image {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1-5);
+  height: 6rem;
+  border: 1px dashed var(--border);
+  border-radius: calc(var(--radius) * 0.5);
+  font-size: var(--text-xs);
+  color: var(--muted-foreground);
+}
+
+.SlashMenu__image-icon {
+  font-size: 1.75rem;
+  line-height: 1;
 }
 
 @media (max-width: 640px) {

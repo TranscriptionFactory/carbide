@@ -19,7 +19,7 @@ export function build_source_editor_base_theme_spec(): CodeMirrorThemeSpec {
       padding: "var(--editor-padding-block) var(--editor-gutter-inline)",
     },
     ".cm-content": {
-      maxWidth: "var(--source-editor-max-width, 48rem)",
+      maxWidth: "var(--source-editor-max-width)",
       margin: "0 auto",
       caretColor: "var(--editor-foreground)",
     },
