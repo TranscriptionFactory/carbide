@@ -40,7 +40,10 @@ export function create_suggest_extension(
       create_slash_command_prose_plugin as (
         config?: SlashCommandConfig,
       ) => Plugin
-    )(slash_config),
+    )({
+      ...slash_config,
+      on_image_payload: ctx.events.on_image_paste_requested,
+    }),
   );
 
   const at_palette_config: AtPalettePluginConfig = {
