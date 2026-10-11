@@ -338,6 +338,35 @@ describe("AssistantChatStore", () => {
     expect(store.error).toBe("rate limited");
   });
 
+  it("fail_streaming keeps the raw detail on the failed turn and the banner", () => {
+    const store = new AssistantChatStore(new AssistantSessionStore());
+    store.add_user_message("q");
+    store.start_streaming();
+    store.append_streaming_text("partial answer");
+
+    store.fail_streaming("request failed", "model_not_found");
+
+    expect(store.messages.at(-1)).toMatchObject({
+      error: "request failed",
+      error_detail: "model_not_found",
+    });
+    expect(store.error_detail).toBe("model_not_found");
+  });
+
+  it("fail_streaming without detail leaves no stale detail behind", () => {
+    const store = new AssistantChatStore(new AssistantSessionStore());
+    store.set_error("first", "raw first");
+
+    store.add_user_message("q");
+    store.start_streaming();
+    store.append_streaming_text("partial answer");
+    store.fail_streaming("second");
+
+    expect(store.messages.at(-1)?.error_detail).toBeUndefined();
+    expect(store.error).toBe("second");
+    expect(store.error_detail).toBeNull();
+  });
+
   it("fail_streaming drops an empty streaming placeholder", () => {
     const store = new AssistantChatStore(new AssistantSessionStore());
     store.add_user_message("q");

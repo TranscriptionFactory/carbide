@@ -13,6 +13,7 @@
   import CollapsibleSection from "$lib/components/ui/collapsible_section.svelte";
   import ToolCallCard from "$lib/features/assistant/ui/tool_call_card.svelte";
   import AssistantMarkdown from "$lib/features/assistant/ui/assistant_markdown.svelte";
+  import ChatErrorDetail from "$lib/features/assistant/ui/chat_error_detail.svelte";
   import type {
     AssistantCitation,
     AssistantMessage,
@@ -196,6 +197,9 @@
         <AlertCircle class="mt-px size-3.5 shrink-0" aria-hidden="true" />
         <span>Failed: {message.error}</span>
       </div>
+      {#if message.error_detail}
+        <ChatErrorDetail detail={message.error_detail} />
+      {/if}
     {/if}
 
     {#if !is_streaming}

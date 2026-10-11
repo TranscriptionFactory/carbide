@@ -53,6 +53,7 @@ export class AssistantChatStore {
   is_loading = $state(false);
   loading_stage = $state<"searching" | "generating">("searching");
   error = $state<string | null>(null);
+  error_detail = $state<string | null>(null);
   provider_id = $state("");
   scope = $state<AssistantScope>({});
   streaming_id = $state<string | null>(null);
@@ -239,7 +240,7 @@ export class AssistantChatStore {
     this.pending_sources = null;
   }
 
-  fail_streaming(error: string) {
+  fail_streaming(error: string, detail?: string) {
     const session_id = this.active_id;
     const sid = this.streaming_id;
     if (session_id && sid) {
@@ -247,7 +248,10 @@ export class AssistantChatStore {
       if (partial && has_turn_evidence(partial)) {
         // keep the partial turn and record why it failed, so the trail survives
         // persistence; the transient error banner renders beneath it
-        this.store.update_message(session_id, sid, { error });
+        this.store.update_message(session_id, sid, {
+          error,
+          ...(detail ? { error_detail: detail } : {}),
+        });
       } else {
         this.store.replace_messages(
           session_id,
@@ -257,13 +261,14 @@ export class AssistantChatStore {
       this.streaming_id = null;
     }
     this.pending_sources = null;
-    this.set_error(error);
+    this.set_error(error, detail);
   }
 
   start_loading() {
     this.is_loading = true;
     this.loading_stage = "searching";
     this.error = null;
+    this.error_detail = null;
   }
 
   set_loading_stage(stage: "searching" | "generating") {
@@ -274,8 +279,9 @@ export class AssistantChatStore {
     this.is_loading = false;
   }
 
-  set_error(error: string | null) {
+  set_error(error: string | null, detail?: string) {
     this.error = error;
+    this.error_detail = detail ?? null;
     this.is_loading = false;
   }
 
@@ -366,6 +372,7 @@ export class AssistantChatStore {
       this.streaming_id = null;
       this.is_loading = false;
       this.error = null;
+      this.error_detail = null;
       this.queued_prompt = null;
     }
     this.revision += 1;
@@ -379,6 +386,7 @@ export class AssistantChatStore {
     this.streaming_id = null;
     this.is_loading = false;
     this.error = null;
+    this.error_detail = null;
     this.attached_document = null;
     this.queued_prompt = null;
     this.composer_restore = null;
@@ -430,6 +438,7 @@ export class AssistantChatStore {
 
   private reset_turn_state() {
     this.error = null;
+    this.error_detail = null;
     this.is_loading = false;
     this.streaming_id = null;
     this.pending_sources = null;
