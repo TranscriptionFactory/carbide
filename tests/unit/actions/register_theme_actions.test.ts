@@ -184,4 +184,73 @@ describe("register_theme_actions", () => {
     );
     expect(ui.theme_has_draft).toBe(false);
   });
+
+  it("restores the color scheme and active theme when a scheme change is cancelled", async () => {
+    const { registry, ui } = create_harness();
+    await registry.execute(ACTION_IDS.theme_load);
+
+    await registry.execute(
+      ACTION_IDS.theme_set_color_scheme_preference,
+      "light",
+    );
+    expect(ui.active_theme_id).toBe("carbide-light");
+    await registry.execute(ACTION_IDS.theme_revert);
+
+    expect(ui.color_scheme_preference).toBe("dark");
+    expect(ui.active_theme_id).toBe(BUILTIN_CARBIDE_DARK.id);
+    expect(ui.theme_has_draft).toBe(false);
+  });
+
+  it("restores the system theme pair when cancelled", async () => {
+    const { registry, ui } = create_harness();
+    await registry.execute(ACTION_IDS.theme_load);
+
+    await registry.execute(ACTION_IDS.theme_set_system_themes, {
+      light_id: "other-light",
+      dark_id: "other-dark",
+    });
+    await registry.execute(ACTION_IDS.theme_revert);
+
+    expect(ui.system_light_theme_id).toBe("carbide-light");
+    expect(ui.system_dark_theme_id).toBe("carbide-dark");
+  });
+
+  it("persists a committed color scheme toggle without opening a draft", async () => {
+    const { registry, ui, theme_service } = create_harness();
+    ui.set_active_theme_id("carbide-light");
+    ui.set_color_scheme_preference("light");
+
+    await registry.execute(
+      ACTION_IDS.theme_commit_color_scheme_preference,
+      "dark",
+    );
+
+    expect(ui.color_scheme_preference).toBe("dark");
+    expect(ui.active_theme.color_scheme).toBe("dark");
+    expect(ui.theme_has_draft).toBe(false);
+    expect(theme_service.save_color_scheme_preference).toHaveBeenCalledWith(
+      "dark",
+    );
+    expect(theme_service.save_active_theme_id).toHaveBeenCalledWith(
+      ui.active_theme_id,
+    );
+  });
+
+  it("keeps a committed toggle when an open settings draft is cancelled", async () => {
+    const { registry, ui } = create_harness();
+    await registry.execute(ACTION_IDS.theme_load);
+    await registry.execute(
+      ACTION_IDS.theme_set_color_scheme_preference,
+      "system",
+    );
+
+    await registry.execute(
+      ACTION_IDS.theme_commit_color_scheme_preference,
+      "light",
+    );
+    await registry.execute(ACTION_IDS.theme_revert);
+
+    expect(ui.color_scheme_preference).toBe("light");
+    expect(ui.active_theme.color_scheme).toBe("light");
+  });
 });

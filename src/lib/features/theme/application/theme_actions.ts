@@ -8,11 +8,18 @@ import {
   find_paired_theme_id,
 } from "$lib/shared/types/theme";
 
+type ThemeSelection = {
+  active_theme_id: string;
+  color_scheme_preference: ColorSchemePreference;
+  system_light_theme_id: string;
+  system_dark_theme_id: string;
+};
+
 export function register_theme_actions(input: ActionRegistrationInput) {
   const { registry, stores, services } = input;
 
   let persisted_user_themes_snapshot: Theme[] | null = null;
-  let persisted_active_theme_id: string | null = null;
+  let persisted_selection: ThemeSelection | null = null;
 
   async function persist_themes() {
     await services.theme.save_user_themes(stores.ui.user_themes);
@@ -42,12 +49,21 @@ export function register_theme_actions(input: ActionRegistrationInput) {
     stores.ui.set_active_theme_id(active_theme_id);
   }
 
+  function current_selection(): ThemeSelection {
+    return {
+      active_theme_id: stores.ui.active_theme_id,
+      color_scheme_preference: stores.ui.color_scheme_preference,
+      system_light_theme_id: stores.ui.system_light_theme_id,
+      system_dark_theme_id: stores.ui.system_dark_theme_id,
+    };
+  }
+
   function capture_draft_snapshot() {
     if (persisted_user_themes_snapshot === null) {
       persisted_user_themes_snapshot = clone_themes(stores.ui.user_themes);
     }
-    if (persisted_active_theme_id === null) {
-      persisted_active_theme_id = stores.ui.active_theme_id;
+    if (persisted_selection === null) {
+      persisted_selection = current_selection();
     }
   }
 
@@ -58,8 +74,32 @@ export function register_theme_actions(input: ActionRegistrationInput) {
 
   function reset_theme_draft_state() {
     persisted_user_themes_snapshot = null;
-    persisted_active_theme_id = null;
+    persisted_selection = null;
     stores.ui.theme_has_draft = false;
+  }
+
+  function apply_color_scheme_preference(pref: ColorSchemePreference) {
+    stores.ui.set_color_scheme_preference(pref);
+    if (pref === "system") {
+      const all = get_all_themes(stores.ui.user_themes);
+      const current = stores.ui.active_theme;
+      if (current.color_scheme === "dark") {
+        stores.ui.set_system_dark_theme_id(current.id);
+        const light_id = find_paired_theme_id(current.id, all);
+        if (light_id) stores.ui.set_system_light_theme_id(light_id);
+      } else {
+        stores.ui.set_system_light_theme_id(current.id);
+        const dark_id = find_paired_theme_id(current.id, all);
+        if (dark_id) stores.ui.set_system_dark_theme_id(dark_id);
+      }
+    } else if (pref === "light" || pref === "dark") {
+      const current = stores.ui.active_theme;
+      if (current.color_scheme !== pref) {
+        const all = get_all_themes(stores.ui.user_themes);
+        const paired = find_paired_theme_id(current.id, all);
+        if (paired) stores.ui.set_active_theme_id(paired);
+      }
+    }
   }
 
   function find_theme(theme_id: string) {
@@ -182,8 +222,17 @@ export function register_theme_actions(input: ActionRegistrationInput) {
       if (persisted_user_themes_snapshot !== null) {
         stores.ui.set_user_themes(clone_themes(persisted_user_themes_snapshot));
       }
-      if (persisted_active_theme_id !== null) {
-        stores.ui.set_active_theme_id(persisted_active_theme_id);
+      if (persisted_selection !== null) {
+        stores.ui.set_active_theme_id(persisted_selection.active_theme_id);
+        stores.ui.set_color_scheme_preference(
+          persisted_selection.color_scheme_preference,
+        );
+        stores.ui.set_system_light_theme_id(
+          persisted_selection.system_light_theme_id,
+        );
+        stores.ui.set_system_dark_theme_id(
+          persisted_selection.system_dark_theme_id,
+        );
       }
       reset_theme_draft_state();
     },
@@ -195,26 +244,26 @@ export function register_theme_actions(input: ActionRegistrationInput) {
     execute: (pref: unknown) => {
       if (pref !== "light" && pref !== "dark" && pref !== "system") return;
       mark_theme_draft();
-      stores.ui.set_color_scheme_preference(pref);
-      if (pref === "system") {
-        const all = get_all_themes(stores.ui.user_themes);
-        const current = stores.ui.active_theme;
-        if (current.color_scheme === "dark") {
-          stores.ui.set_system_dark_theme_id(current.id);
-          const light_id = find_paired_theme_id(current.id, all);
-          if (light_id) stores.ui.set_system_light_theme_id(light_id);
-        } else {
-          stores.ui.set_system_light_theme_id(current.id);
-          const dark_id = find_paired_theme_id(current.id, all);
-          if (dark_id) stores.ui.set_system_dark_theme_id(dark_id);
-        }
-      } else if (pref === "light" || pref === "dark") {
-        const current = stores.ui.active_theme;
-        if (current.color_scheme !== pref) {
-          const all = get_all_themes(stores.ui.user_themes);
-          const paired = find_paired_theme_id(current.id, all);
-          if (paired) stores.ui.set_active_theme_id(paired);
-        }
+      apply_color_scheme_preference(pref);
+    },
+  });
+
+  registry.register({
+    id: ACTION_IDS.theme_commit_color_scheme_preference,
+    label: "Commit Color Scheme Preference",
+    execute: async (pref: unknown) => {
+      if (pref !== "light" && pref !== "dark" && pref !== "system") return;
+      apply_color_scheme_preference(pref);
+      await services.theme.save_active_theme_id(stores.ui.active_theme_id);
+      await services.theme.save_color_scheme_preference(
+        stores.ui.color_scheme_preference,
+      );
+      await services.theme.save_system_theme_ids(
+        stores.ui.system_light_theme_id,
+        stores.ui.system_dark_theme_id,
+      );
+      if (persisted_selection !== null) {
+        persisted_selection = current_selection();
       }
     },
   });

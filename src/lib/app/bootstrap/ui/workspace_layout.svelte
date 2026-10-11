@@ -521,7 +521,7 @@
         color_scheme={stores.ui.active_theme.color_scheme}
         on_theme_toggle={() =>
           void action_registry.execute(
-            ACTION_IDS.theme_set_color_scheme_preference,
+            ACTION_IDS.theme_commit_color_scheme_preference,
             stores.ui.active_theme.color_scheme === "dark" ? "light" : "dark",
           )}
         is_repairing_links={is_vault_mode &&
