@@ -1,5 +1,30 @@
 # carbide
 
+## 2.40.0
+
+### Minor Changes
+
+- a446eab: Replace the editor max width slider with a "Readable line length" toggle (default on) that limits the rich editor, source mode, zen and layout presets to one 700px text column. Per-note `_width: wide` still widens a note.
+- 6706a6c: Add footnotes: `[^label]` references render as superscript numbers in order of first reference, hovering one shows its definition and clicking jumps to it. Definitions stay in place and save byte-for-byte, including 2-space continuation lines and consecutive definitions. PDF/HTML export renders a footnotes section with back-links.
+- ceb3875: Render inline HTML the way Obsidian does. `<br>` in any spelling (`<br/>`, `<br />`, `<BR>`) shows as a line break, also inside table cells. Paired `<u>`, `<s>`, `<sub>`, `<sup>`, `<kbd>`, `<mark>`, `<span>` and `<font>` tags render their formatting, and inline `style` keeps only `color`, `background-color`, `font-weight`, `font-style`, `font-size` and `text-decoration`. Tags save exactly as written. Unmatched or misnested tags and other tags such as `<script>` still show as source. A `<br>` at the end of a line is no longer rewritten to `\` on load and save, so existing notes keep it. PDF/HTML export renders the same tags.
+- c9a9f1b: Support Obsidian comments. `%%inline%%` comments (also across bold or italic text) and block comments that start on a line beginning with `%%` show dimmed in the editor and are hidden in read-only mode and in PDF/HTML export; an unclosed block comment hides the rest of the note. Comments save byte-for-byte, and backslash-escaped `\%%` markers keep their backslash on save. Export also hides `<!-- -->` HTML comments. `%%` inside inline code and code blocks is left alone.
+- c585d66: Slash and block-insert menus gain `/image` (pick an image from disk, same as the toolbar button) and `/embed` (start a `![[` note embed with the note suggester open). Each HTML starter now shows its own preview instead of the `/code` sample.
+- 111cd33: Add a "Reveal Syntax" editor setting that turns off the bold, italic, strikethrough, highlight and inline code delimiter reveal around the caret
+
+### Patch Changes
+
+- 959df45: Failed chat requests now show the provider's own error text. A "Details" disclosure under the error banner and under a failed reply holds the raw message, which you can select or copy, and the webview log records it too. Claude Code errors such as an unknown model or a usage limit now report the reason Claude Code gave, instead of only an exit code.
+- e0442dd: Callouts now survive PDF, HTML and EPUB export. A `> [!type] Title` block exports as a coloured box with the type's icon and title instead of a plain quote showing the literal `[!type]` marker. Aliases, unknown types, custom colours and nested callouts render as they do in the editor, and folded callouts export expanded. In PDFs the callout title stays on the same page as the first line of its body.
+- 790b6b7: Fix Cancel in Settings reverting dark mode to light: the theme draft now restores the color scheme and system theme pair, and the status-bar toggle saves immediately.
+- 839e41f: Clicking Live on an HTML fence or `![[x.html]]` embed in a note now shows the trust prompt. The prompt was only mounted inside the HTML document viewer, so with a note open the click did nothing and the request popped up later on the next HTML tab. Embed trust now uses the file's vault path, so a bare `![[chart.html]]` shares grants with the HTML tab viewer.
+- 8627f35: Inline AI edits now run with any configured provider, including CLIs that cannot stream such as Codex, instead of rejecting them.
+- c665219: Saving a note no longer damages list items that start with something other than plain text. Before this fix, a code block, heading, quote, table, HTML block, horizontal rule, reference definition or footnote definition at the start of a list item was flattened into plain text or deleted. These blocks now stay intact through repeated saves.
+- feed731: Typing `~` or `=` over a selection that spans several blocks now toggles strikethrough or highlight on every block instead of replacing the selection. Other wrapping delimiters no longer delete a cross-block selection.
+- 99bbec6: PDF export wraps long code lines and table cells instead of cutting them off, lets tall code blocks and tables split across pages instead of leaving gaps, and pins A4 paper with zero printer margins on Linux and Windows.
+- 57c3e49: Editor popups now close when you click away from them. The block-insert menu closes on any click outside it and stops taking over Enter and Tab. The slash menu, link suggestions and query/base/tasks suggestions stay closed after Escape or an outside click until you type more. The table toolbar hides on Escape or an outside click until the selection moves. New table columns get a "Col N" header, and the toolbar's Table button seeds "Col 1–3".
+- 2e40efd: Saving a note no longer adds an extra `> ` or list indent to multi-line footnotes, reference definitions and reference links inside blockquotes, callouts and list items. Before, each save doubled the prefix on their continuation lines.
+- a2b64b6: Notes listed under a selected tag in the Tags panel no longer render squashed or overlapping when a tag has many notes. Each row keeps its full height and the list scrolls.
+
 ## 2.39.1
 
 ### Patch Changes
