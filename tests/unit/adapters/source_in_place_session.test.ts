@@ -18,7 +18,7 @@ type Harness = {
 
 let root: HTMLElement | null = null;
 
-async function start(): Promise<Harness> {
+async function start(syntax_reveal_enabled = true): Promise<Harness> {
   root = document.createElement("div");
   document.body.appendChild(root);
   const on_dirty = vi.fn();
@@ -28,7 +28,7 @@ async function start(): Promise<Harness> {
     initial_markdown: MARKDOWN,
     note_path: "test.md",
     vault_id: null,
-    syntax_reveal_enabled: true,
+    syntax_reveal_enabled,
     events: {
       on_markdown_change: on_markdown,
       on_dirty_state_change: on_dirty,
@@ -88,13 +88,29 @@ describe("source-in-place inside an editor session", () => {
   });
 
   it("still marks the note dirty for an edit typed into the source", async () => {
-    const { session, view, on_dirty } = await start();
+    const { session, view, on_dirty, on_markdown } = await start();
     place_caret(view, 7);
     view.dispatch(view.state.tr.insertText("X", 7));
     vi.runAllTimers();
 
     expect(on_dirty).toHaveBeenCalledWith(true);
+    expect(on_markdown).toHaveBeenCalledWith(
+      "a **boXld** b and *em* c\n\ntail\n",
+    );
     expect(session.get_markdown()).toBe("a **boXld** b and *em* c\n\ntail\n");
+    session.destroy();
+  });
+
+  it("leaves the document and its Markdown untouched with reveal off", async () => {
+    const { session, view, on_dirty, on_markdown } = await start(false);
+    const before = view.state.doc;
+    place_caret(view, 7);
+    vi.runAllTimers();
+
+    expect(view.state.doc).toBe(before);
+    expect(on_dirty).not.toHaveBeenCalled();
+    expect(on_markdown).not.toHaveBeenCalled();
+    expect(session.get_markdown()).toBe(MARKDOWN);
     session.destroy();
   });
 });
