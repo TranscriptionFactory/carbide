@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { Schema } from "prosemirror-model";
+import { toggleMark } from "prosemirror-commands";
 import { EditorState, TextSelection } from "prosemirror-state";
 import type { EditorView } from "prosemirror-view";
 import { create_paired_delimiter_prose_plugin } from "$lib/features/editor/adapters/paired_delimiter_plugin";
@@ -307,6 +308,99 @@ describe("create_paired_delimiter_prose_plugin", () => {
       view.state.doc.textBetween(1, view.state.doc.content.size, "\n"),
     ).toBe("");
   });
+});
+
+describe("cross-block selections", () => {
+  function create_cross_block_view(last_block: "paragraph" | "code_block") {
+    const plugin = create_paired_delimiter_prose_plugin();
+    const schema = editor_schema;
+    const state = EditorState.create({
+      schema,
+      doc: schema.node("doc", null, [
+        schema.node("paragraph", null, [schema.text("line one")]),
+        schema.node(last_block, null, [schema.text("line two")]),
+      ]),
+      plugins: [plugin],
+    });
+    const end = state.doc.content.size - 1;
+    const view = create_view(
+      state.apply(
+        state.tr.setSelection(TextSelection.create(state.doc, 1, end)),
+      ),
+    );
+    return { plugin, view };
+  }
+
+  function type_over_selection(
+    ctx: ReturnType<typeof create_cross_block_view>,
+    text: string,
+  ) {
+    const { from, to } = ctx.view.state.selection;
+    return call_handle_text_input(ctx.plugin, ctx.view, from, to, text);
+  }
+
+  function marked_texts(view: EditorView, mark_name: string) {
+    const found: string[] = [];
+    view.state.doc.descendants((node) => {
+      if (node.isText && node.marks.some((m) => m.type.name === mark_name)) {
+        found.push(node.text ?? "");
+      }
+    });
+    return found;
+  }
+
+  it("strikes through both paragraphs when typing ~", () => {
+    const ctx = create_cross_block_view("paragraph");
+
+    expect(type_over_selection(ctx, "~")).toBe(true);
+    expect(ctx.view.state.doc.textContent).toBe("line oneline two");
+    expect(marked_texts(ctx.view, "strikethrough")).toEqual([
+      "line one",
+      "line two",
+    ]);
+  });
+
+  it("highlights both paragraphs when typing =", () => {
+    const ctx = create_cross_block_view("paragraph");
+
+    expect(type_over_selection(ctx, "=")).toBe(true);
+    expect(ctx.view.state.doc.textContent).toBe("line oneline two");
+    expect(marked_texts(ctx.view, "highlight")).toEqual([
+      "line one",
+      "line two",
+    ]);
+  });
+
+  it("matches the Mod-Shift-X toggleMark result", () => {
+    const typed = create_cross_block_view("paragraph");
+    const hotkey = create_cross_block_view("paragraph");
+
+    type_over_selection(typed, "~");
+    toggleMark(editor_schema.marks.strikethrough)(hotkey.view.state, (tr) => {
+      hotkey.view.dispatch(tr);
+    });
+
+    expect(typed.view.state.doc.eq(hotkey.view.state.doc)).toBe(true);
+  });
+
+  it("leaves code block text unmarked", () => {
+    const ctx = create_cross_block_view("code_block");
+
+    expect(type_over_selection(ctx, "~")).toBe(true);
+    expect(marked_texts(ctx.view, "strikethrough")).toEqual(["line one"]);
+    expect(ctx.view.state.doc.lastChild?.textContent).toBe("line two");
+  });
+
+  it.each(["*", '"', "'", "[", "(", "{"])(
+    "does not delete the selection when typing %s",
+    (delimiter) => {
+      const ctx = create_cross_block_view("paragraph");
+      const before = ctx.view.state.doc;
+
+      expect(type_over_selection(ctx, delimiter)).toBe(true);
+      expect(ctx.view.state.doc.eq(before)).toBe(true);
+    },
+  );
 });
 
 describe("describe_suggestion_location", () => {

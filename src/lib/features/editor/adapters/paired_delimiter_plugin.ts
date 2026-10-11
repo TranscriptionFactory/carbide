@@ -1,4 +1,5 @@
 import { Plugin, PluginKey, TextSelection } from "prosemirror-state";
+import { toggleMark } from "prosemirror-commands";
 import type { MarkType } from "prosemirror-model";
 import type { EditorView } from "prosemirror-view";
 import { schema } from "./schema";
@@ -17,6 +18,11 @@ const CLOSING_DELIMITERS = new Set<string>(
 
 const SELF_PAIRING_DELIMITERS = new Set<string>(["`", "*", '"', "'"]);
 
+const WRAPPING_DELIMITERS = new Set<string>([
+  ...SELF_PAIRING_DELIMITERS,
+  ...OPENING_DELIMITERS.keys(),
+]);
+
 const MARK_TOGGLE_DELIMITERS = new Map<string, MarkType>([
   ["~", schema.marks.strikethrough],
   ["=", schema.marks.highlight],
@@ -34,6 +40,22 @@ function can_handle_text_input(
   if ($from.parent !== $to.parent) return false;
 
   return $from.parent.type.name !== "code_block";
+}
+
+function is_cross_block(view: EditorView, from: number, to: number): boolean {
+  const $from = view.state.doc.resolve(from);
+  const $to = view.state.doc.resolve(to);
+  return $from.parent !== $to.parent;
+}
+
+function handle_cross_block_input(view: EditorView, text: string): boolean {
+  const mark_type = MARK_TOGGLE_DELIMITERS.get(text);
+  if (mark_type) {
+    return toggleMark(mark_type)(view.state, (tr) => {
+      view.dispatch(tr);
+    });
+  }
+  return WRAPPING_DELIMITERS.has(text);
 }
 
 function surrounding_text(view: EditorView, from: number) {
@@ -159,6 +181,10 @@ export function create_paired_delimiter_prose_plugin(): Plugin {
           if ($from.parent !== $to.parent) {
             return wrap_selection_in_code_block(view, from, to);
           }
+        }
+
+        if (from !== to && is_cross_block(view, from, to)) {
+          return handle_cross_block_input(view, text);
         }
 
         if (!can_handle_text_input(view, from, to)) return false;
