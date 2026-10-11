@@ -14,6 +14,7 @@ import { remark_table_meta } from "./remark_table_meta";
 import { remark_wiki_embed } from "./remark_wiki_embed";
 import { remark_html_embed } from "./remark_html_embed";
 import { remark_task_doing } from "./remark_task_doing";
+import { remark_comments } from "./remark_comments";
 import { safe_text } from "./text_escape";
 
 type StringifyState = {
@@ -94,6 +95,8 @@ const stringify_options: StringifyOptions = {
     wikiEmbed: raw_value_handler,
     wikiLink: raw_value_handler,
     rawFootnoteDefinition: raw_value_handler,
+    commentBlock: raw_value_handler,
+    rawInline: raw_value_handler,
     doingCheckbox: () => "[-] ",
     text: (
       node: { value?: string },
@@ -111,6 +114,9 @@ export const parse_processor = unified()
   .use(remarkMath)
   .use(remarkFrontmatter, ["yaml"])
   .use(remarkGemoji)
+  // First of the custom transforms: it slices the source by node offsets, and
+  // the block transformers below build nodes without positions.
+  .use(remark_comments)
   .use(remark_details)
   .use(remark_callout)
   // After the block transformers: a self-contained `<details>` body is still a

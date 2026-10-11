@@ -111,6 +111,23 @@ const footnote_def: NodeSpec = {
   },
 };
 
+const comment_block: NodeSpec = {
+  content: "text*",
+  group: "block",
+  marks: "",
+  code: true,
+  defining: true,
+  parseDOM: [
+    {
+      tag: "div[data-type='comment_block']",
+      preserveWhitespace: "full" as const,
+    },
+  ],
+  toDOM() {
+    return ["div", { "data-type": "comment_block", class: "comment-block" }, 0];
+  },
+};
+
 const heading: NodeSpec = {
   attrs: {
     id: { default: "" },
@@ -1050,6 +1067,7 @@ export const schema = new Schema({
     raw_inline,
     footnote_ref,
     footnote_def,
+    comment_block,
     heading,
     blockquote,
     code_block,

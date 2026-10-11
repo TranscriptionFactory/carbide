@@ -302,6 +302,14 @@ function build_block(
       return create_footnote_def(node);
     }
 
+    case "commentBlock": {
+      const val = (node.value as string) || "";
+      return schema.nodes.comment_block.create(
+        null,
+        val ? schema.text(val) : undefined,
+      );
+    }
+
     default:
       return create_raw_block(slice_source(node));
   }

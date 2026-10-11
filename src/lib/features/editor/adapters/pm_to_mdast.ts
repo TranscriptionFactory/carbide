@@ -30,6 +30,14 @@ function convert_leaf(item: InlineItem): PhrasingContent {
   return convert_inline_pm_node(item.pm_node);
 }
 
+// The stringifier turns a line ending before an `html` node into a space so
+// the tag can't open an HTML block. Raw source that is not a tag can't either,
+// so it keeps its own type and its line ending.
+function convert_raw_inline(value: string): PhrasingContent {
+  const type = value.startsWith("<") ? "html" : "rawInline";
+  return { type, value } as PhrasingContent;
+}
+
 function convert_inline_pm_node(node: PmNode): PhrasingContent {
   switch (node.type.name) {
     case "hardbreak":
@@ -47,10 +55,7 @@ function convert_inline_pm_node(node: PmNode): PhrasingContent {
         title: (node.attrs["title"] as string) || null,
       } as PhrasingContent;
     case "raw_inline":
-      return {
-        type: "html",
-        value: (node.attrs["value"] as string) || "",
-      } as PhrasingContent;
+      return convert_raw_inline((node.attrs["value"] as string) || "");
     case "footnote_ref":
       return {
         type: "html",
@@ -279,6 +284,12 @@ function convert_block_node(node: PmNode): MdastNode | MdastNode[] | null {
             value: node.textContent,
             tight: Boolean(node.attrs["tight"]),
           }
+        : null;
+    }
+
+    case "comment_block": {
+      return node.textContent
+        ? { type: "commentBlock", value: node.textContent }
         : null;
     }
 

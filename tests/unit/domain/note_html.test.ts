@@ -284,6 +284,55 @@ describe("render_note_to_html", () => {
       expect(count(html, 'class="embed-placeholder"')).toBe(1);
     });
   });
+
+  describe("comments", () => {
+    async function body(markdown: string): Promise<string> {
+      return (await render_note_body_html("Note", markdown)).replace(
+        /^<h1 class="doc-title">Note<\/h1>\n/,
+        "",
+      );
+    }
+
+    it("strips inline comments, including ones spanning emphasis", async () => {
+      const html = await body("keep %%drop%% this %%a *b* c%% too");
+      expect(html).toBe("<p>keep  this  too</p>\n");
+    });
+
+    it("strips a block comment with blank lines and Markdown inside", async () => {
+      const html = await body(
+        "before\n\n%%\nhidden\n\n# Secret\n\n- item\n%%\n\nafter",
+      );
+      expect(html).toBe("<p>before</p>\n<p>after</p>\n");
+    });
+
+    it("hides an unclosed block comment to the end of the note", async () => {
+      const html = await body("intro\n\n%%\nrest\n\n# Heading");
+      expect(html).toBe("<p>intro</p>\n");
+    });
+
+    it("leaves %% inside inline code and fenced code alone", async () => {
+      const html = await body("use `%%x%%` here\n\n```\n%%\ncode\n%%\n```");
+      expect(html).toContain("<code>%%x%%</code>");
+      expect(code_block_text(html)).toBe("%%\ncode\n%%\n");
+    });
+
+    it("shows backslash-escaped markers as literal text", async () => {
+      const html = await body("show \\%%literal\\%% here");
+      expect(html).toBe("<p>show %%literal%% here</p>\n");
+    });
+
+    it("needs both inline markers on one line", async () => {
+      const html = await body("a %%open\nclose%% b");
+      expect(html).toBe("<p>a %%open\nclose%% b</p>\n");
+    });
+
+    it("hides HTML comments, block and inline", async () => {
+      const html = await body(
+        "<!-- block note -->\n\ntext <!-- inline --> end",
+      );
+      expect(html).toBe("<p>text  end</p>\n");
+    });
+  });
 });
 
 describe("render_note_body_html", () => {

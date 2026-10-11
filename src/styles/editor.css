@@ -212,6 +212,21 @@
   color: var(--muted-foreground);
 }
 
+.ProseMirror .md-comment,
+.ProseMirror .comment-block {
+  color: var(--muted-foreground);
+  opacity: 0.7;
+}
+
+.ProseMirror .comment-block {
+  white-space: pre-wrap;
+}
+
+.NoteEditor__read-only .ProseMirror .md-comment,
+.NoteEditor__read-only .ProseMirror .comment-block {
+  display: none;
+}
+
 /* ── Code block toolbar ── */
 
 .code-block-wrapper .code-block-toolbar {

@@ -10,7 +10,10 @@ import { mdast_to_pm } from "./mdast_to_pm";
 import { pm_to_mdast } from "./pm_to_mdast";
 
 export function parse_to_mdast(markdown: string): Root {
-  return parse_processor.runSync(parse_processor.parse(markdown)) as Root;
+  return parse_processor.runSync(
+    parse_processor.parse(markdown),
+    markdown,
+  ) as Root;
 }
 
 function create_empty_doc(): PmNode {

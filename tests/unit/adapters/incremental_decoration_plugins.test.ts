@@ -24,6 +24,11 @@ import {
   task_decoration_plugin_key,
 } from "$lib/features/editor/adapters/task_decoration_plugin";
 import {
+  build_comment_decorations,
+  comment_decoration_plugin_key,
+  create_comment_decoration_plugin,
+} from "$lib/features/editor/adapters/comment_decoration_plugin";
+import {
   meter_document_work,
   type WorkCounters,
 } from "../helpers/document_work_meter";
@@ -33,6 +38,8 @@ const MARKDOWN = `# Heading ^head1
 para one #alpha text ^abc123
 
 para two plain ^mid789
+
+side %%secret *bold* note%% end
 
 - [ ] task one @2024-06-20 #beta
   - [ ] sub task @2024-06-21
@@ -123,6 +130,13 @@ const PLUGIN_CASES: PluginCase[] = [
     decorations: (state) =>
       task_decoration_plugin_key.getState(state) as DecorationSet,
     expected: (state) => build_task_decorations(state.doc),
+  },
+  {
+    name: "comment decoration",
+    plugin: create_comment_decoration_plugin,
+    decorations: (state) =>
+      comment_decoration_plugin_key.getState(state) as DecorationSet,
+    expected: (state) => build_comment_decorations(state.doc),
   },
 ];
 
@@ -243,6 +257,30 @@ const SCENARIOS: Scenario[] = [
           checked: true,
           task_status: "done",
         }),
+      );
+    },
+  },
+  {
+    name: "type a comment's closing marker",
+    run: (state) => {
+      const pos = find_pos(state.doc, "plain") + 5;
+      const opened = state.apply(state.tr.insertText(" %%x", pos));
+      return opened.apply(opened.tr.insertText("%%", pos + 4));
+    },
+  },
+  {
+    name: "break a comment marker",
+    run: (state) => {
+      const from = find_pos(state.doc, "%%secret");
+      return state.apply(state.tr.delete(from, from + 1));
+    },
+  },
+  {
+    name: "add a code_inline mark over a comment marker",
+    run: (state) => {
+      const from = find_pos(state.doc, "note%%") + 4;
+      return state.apply(
+        state.tr.addMark(from, from + 2, mark_type("code_inline").create()),
       );
     },
   },
@@ -477,6 +515,18 @@ describe("one-keystroke cost", () => {
 
     // The touched item plus the walk of its own subtree for nested tasks.
     expect(cost.nodes).toBeLessThan(16);
+    expect(cost.chars).toBeLessThan(256);
+  });
+
+  it("comment decoration: scans only the touched block of a 5k-block note", () => {
+    const big = note_doc(5000);
+    const cost = keystroke(
+      big,
+      create_comment_decoration_plugin(),
+      find_pos(big, "note 4999 ") + 8,
+    );
+
+    expect(cost.nodes).toBeLessThan(12);
     expect(cost.chars).toBeLessThan(256);
   });
 
