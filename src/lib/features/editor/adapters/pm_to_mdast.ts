@@ -462,12 +462,22 @@ function convert_block_node(node: PmNode): MdastNode | MdastNode[] | null {
   }
 }
 
+function has_placeholder_paragraph(node: PmNode): boolean {
+  const first = node.firstChild;
+  return (
+    node.childCount > 1 &&
+    first?.type.name === "paragraph" &&
+    first.childCount === 0
+  );
+}
+
 function convert_list_item(node: PmNode): MdastNode {
   const checked = node.attrs["checked"] as boolean | null;
   const task_status = node.attrs["task_status"] as string | null;
   const is_doing = task_status === "doing";
   const is_task = checked !== null || task_status !== null;
   const children = convert_children(node);
+  if (!is_task && has_placeholder_paragraph(node)) children.shift();
 
   if (is_doing) {
     const para = children[0];
