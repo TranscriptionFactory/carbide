@@ -26,7 +26,7 @@ describe("tag_panel note rows", () => {
       (_, i) => `notes/note_${String(i)}.md`,
     );
     const action_registry = { execute: () => Promise.resolve() };
-    const { target, cleanup } = render_with_app_context(TagPanel, {
+    const view = render_with_app_context(TagPanel, {
       app_context: {
         stores,
         action_registry,
@@ -34,12 +34,12 @@ describe("tag_panel note rows", () => {
     });
 
     const rows = Array.from(
-      target.querySelectorAll<HTMLButtonElement>("button.truncate"),
+      view.target.querySelectorAll<HTMLButtonElement>("button.truncate"),
     );
     expect(rows).toHaveLength(50);
     for (const row of rows) {
       expect(row.classList.contains("shrink-0")).toBe(true);
     }
-    cleanup();
+    view.cleanup();
   });
 });
