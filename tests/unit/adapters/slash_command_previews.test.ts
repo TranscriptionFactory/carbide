@@ -51,6 +51,32 @@ describe("built-in slash command previews", () => {
     );
   });
 
+  it("each HTML starter renders a distinct preview, different from /code", () => {
+    const html_ids = [
+      "html-blank",
+      "html-stat-cards",
+      "html-chart",
+      "html-tabs",
+    ];
+    const render = (id: string) => find_cmd(id).preview?.().outerHTML;
+    const code = render("code");
+    const html_previews = html_ids.map(render);
+
+    expect(new Set(html_previews).size).toBe(html_ids.length);
+    expect(html_previews).not.toContain(code);
+  });
+
+  it("image and embed commands expose their own previews", () => {
+    const image = create_commands({ on_image_payload: () => undefined }).find(
+      (c) => c.id === "image",
+    );
+    const image_el = image?.preview?.();
+    const embed_el = find_cmd("embed").preview?.();
+
+    expect(image_el?.classList.contains("SlashMenu__image")).toBe(true);
+    expect(embed_el?.textContent).toContain("Embedded note");
+  });
+
   it("code preview renders a pre > code block", () => {
     const el = find_cmd("code").preview?.();
     expect(el?.tagName).toBe("PRE");

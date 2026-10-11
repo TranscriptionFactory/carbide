@@ -82,7 +82,9 @@ export function assemble_extensions(
       ctx.events.on_image_paste_requested,
     ),
     create_image_context_menu_extension(),
-    create_block_drag_handle_extension(),
+    create_block_drag_handle_extension({
+      on_image_payload: ctx.events.on_image_paste_requested,
+    }),
     create_ai_inline_extension(ai_inline_config),
     create_tag_pill_extension(ctx.tag_pill_menu),
     { plugins: [create_block_selection_plugin()] },
