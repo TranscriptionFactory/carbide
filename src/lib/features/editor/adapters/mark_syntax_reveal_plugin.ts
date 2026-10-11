@@ -33,7 +33,7 @@ export type MarkSyntaxRevealState = {
   decorations: DecorationSet;
 };
 
-function collect_block_spans(
+export function collect_block_spans(
   block: ProseNode,
   content_start: number,
   schema_marks: EditorState["schema"]["marks"],

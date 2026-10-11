@@ -1093,6 +1093,16 @@ const html_inline: MarkSpec = {
   },
 };
 
+// Literal Markdown standing in for a formatted run while the caret is on it.
+// The serializer emits its text verbatim, so the note's bytes do not change.
+const md_source: MarkSpec = {
+  excludes: "md_source strong em code_inline strikethrough highlight",
+  inclusive: false,
+  toDOM() {
+    return ["span", { class: "md-source" }, 0];
+  },
+};
+
 const ai_generated: MarkSpec = {
   inclusive: true,
   parseDOM: [{ tag: "span[data-ai-generated]" }],
@@ -1149,5 +1159,6 @@ export const schema = new Schema({
     strikethrough,
     highlight,
     ai_generated,
+    md_source,
   },
 });

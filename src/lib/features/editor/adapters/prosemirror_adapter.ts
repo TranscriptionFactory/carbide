@@ -139,6 +139,7 @@ import type { Diagnostic } from "$lib/features/diagnostics";
 import { update_prosemirror_diagnostics } from "./diagnostics_decoration_plugin";
 import type { AmbientNotice } from "$lib/features/assistant";
 import { update_prosemirror_ambient_anchors } from "./ambient_anchor_plugin";
+import { PRESENTATION_ONLY_META } from "$lib/features/editor/domain/presentation_only_meta";
 
 const log = create_logger("prosemirror_adapter");
 
@@ -294,19 +295,34 @@ function create_cursor_plugin(
   });
 }
 
+const markdown_change_plugin_key = new PluginKey<object>("markdown-change");
+
+// The plugin state is a fresh token per content change; transactions that
+// only reshape the document's presentation keep the token, so the session
+// skips their (byte-identical) re-serialization and dirty flip.
 function create_markdown_change_plugin(
   on_change: (doc: ProseNode) => void,
-): Plugin {
-  return new Plugin({
-    key: new PluginKey("markdown-change"),
-    view: () => {
+): Plugin<object> {
+  return new Plugin<object>({
+    key: markdown_change_plugin_key,
+    state: {
+      init: () => ({}),
+      apply: (tr, token) =>
+        tr.docChanged && tr.getMeta(PRESENTATION_ONLY_META) !== true
+          ? {}
+          : token,
+    },
+    view: (view) => {
       let prev_doc: ProseNode | null = null;
+      let prev_token = markdown_change_plugin_key.getState(view.state);
       return {
         update: (view) => {
-          if (view.state.doc !== prev_doc) {
-            prev_doc = view.state.doc;
-            on_change(view.state.doc);
-          }
+          if (view.state.doc === prev_doc) return;
+          prev_doc = view.state.doc;
+          const token = markdown_change_plugin_key.getState(view.state);
+          if (token === prev_token) return;
+          prev_token = token;
+          on_change(view.state.doc);
         },
       };
     },
