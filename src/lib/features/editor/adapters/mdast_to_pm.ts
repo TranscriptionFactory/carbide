@@ -379,6 +379,13 @@ function convert_wiki_embed(node: AnyMdastNode): PmNode | null {
   });
 }
 
+// Schema `list_item` is `paragraph block*`; an item led by another block gets
+// an empty paragraph that pm_to_mdast drops again.
+function starts_with_paragraph(children: AnyMdastNode[]): boolean {
+  const type = children[0]?.type;
+  return type === "paragraph" || type === "wikiEmbed";
+}
+
 function convert_list_item(
   node: AnyMdastNode,
   source_blocks?: Map<number, PmNode>,
@@ -389,45 +396,9 @@ function convert_list_item(
       : null;
 
   const children_nodes = node.children as AnyMdastNode[];
-
-  let pm_children: PmNode[] = [];
-
-  if (children_nodes.length === 0) {
-    pm_children = [schema.nodes.paragraph.create()];
-  } else {
-    const first = children_nodes[0];
-    if (!first) {
-      pm_children = [schema.nodes.paragraph.create()];
-    } else if (first.type === "paragraph" || first.type === "wikiEmbed") {
-      const first_pm = convert_block(first, source_blocks);
-      if (first_pm) pm_children.push(first_pm);
-      for (let i = 1; i < children_nodes.length; i++) {
-        const child_node = children_nodes[i];
-        if (child_node) {
-          const child = convert_block(child_node, source_blocks);
-          if (child) pm_children.push(child);
-        }
-      }
-    } else {
-      const inline = convert_inline(first);
-      pm_children.push(
-        schema.nodes.paragraph.create(
-          null,
-          inline.length > 0 ? inline : undefined,
-        ),
-      );
-      for (let i = 1; i < children_nodes.length; i++) {
-        const child_node = children_nodes[i];
-        if (child_node) {
-          const child = convert_block(child_node, source_blocks);
-          if (child) pm_children.push(child);
-        }
-      }
-    }
-  }
-
-  if (pm_children.length === 0) {
-    pm_children = [schema.nodes.paragraph.create()];
+  const pm_children = convert_blocks(children_nodes, source_blocks);
+  if (pm_children.length === 0 || !starts_with_paragraph(children_nodes)) {
+    pm_children.unshift(schema.nodes.paragraph.create());
   }
 
   const doing_from_data =
