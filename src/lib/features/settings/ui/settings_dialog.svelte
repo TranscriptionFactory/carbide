@@ -2947,6 +2947,23 @@
 
               <div class="SettingsDialog__row">
                 <div class="SettingsDialog__label-group">
+                  <span class="SettingsDialog__label">Reveal Syntax</span>
+                  <span class="SettingsDialog__description"
+                    >Show bold, italic, strikethrough, highlight and inline code
+                    delimiters while the cursor is inside them</span
+                  >
+                </div>
+                <div class="flex items-center gap-3">
+                  <Switch.Root
+                    checked={editor_settings.editor_syntax_reveal}
+                    onCheckedChange={(v: boolean) =>
+                      update("editor_syntax_reveal", v)}
+                  />
+                </div>
+              </div>
+
+              <div class="SettingsDialog__row">
+                <div class="SettingsDialog__label-group">
                   <span class="SettingsDialog__label">Heading Markers</span>
                   <span class="SettingsDialog__description"
                     >Show heading level markers (e.g. ##) in the visual editor</span

@@ -264,6 +264,7 @@ export class EditorService {
   private session_generation = 0;
   private transition: Promise<void> = Promise.resolve();
   private transition_depth = 0;
+  private syntax_reveal_enabled = true;
   private native_link_hover_enabled = true;
   private native_wiki_suggest_enabled = true;
   private native_link_click_enabled = true;
@@ -775,6 +776,15 @@ export class EditorService {
 
   set_spellcheck(enabled: boolean) {
     this.session?.set_spellcheck?.(enabled);
+  }
+
+  async set_syntax_reveal(enabled: boolean) {
+    if (this.syntax_reveal_enabled === enabled) return;
+    this.syntax_reveal_enabled = enabled;
+
+    if (this.is_mounted()) {
+      await this.recreate_session();
+    }
   }
 
   async set_native_feature_flags(flags: {
@@ -1779,6 +1789,7 @@ export class EditorService {
       note_path: active_note.meta.path,
       vault_id: this.vault_store.vault?.id ?? null,
       events: this.create_session_events(generation),
+      syntax_reveal_enabled: this.syntax_reveal_enabled,
       native_link_hover_enabled: this.native_link_hover_enabled,
       native_wiki_suggest_enabled: this.native_wiki_suggest_enabled,
       native_link_click_enabled: this.native_link_click_enabled,

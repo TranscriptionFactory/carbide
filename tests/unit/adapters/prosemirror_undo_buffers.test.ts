@@ -14,6 +14,7 @@ async function start(initial_markdown: string): Promise<EditorSession> {
     initial_markdown,
     note_path: "a.md",
     vault_id: null,
+    syntax_reveal_enabled: true,
     events: {
       on_markdown_change: vi.fn(),
       on_dirty_state_change: vi.fn(),

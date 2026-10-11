@@ -19,6 +19,7 @@ async function create_session(events: {
     initial_markdown: "hello world\n",
     note_path: "test.md",
     vault_id: null,
+    syntax_reveal_enabled: true,
     events: {
       on_markdown_change: events.on_markdown_change ?? vi.fn(),
       on_dirty_state_change: vi.fn(),

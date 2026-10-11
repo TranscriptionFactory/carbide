@@ -209,6 +209,7 @@ export type EditorSettings = {
   source_editor_line_numbers: boolean;
   editor_spellcheck: boolean;
   editor_heading_markers: boolean;
+  editor_syntax_reveal: boolean;
   terminal_shell_path: string;
   terminal_font_size_px: number;
   terminal_cursor_blink: boolean;
@@ -365,6 +366,7 @@ export const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
   source_editor_line_numbers: false,
   editor_spellcheck: true,
   editor_heading_markers: false,
+  editor_syntax_reveal: true,
   terminal_shell_path: "/bin/zsh",
   terminal_font_size_px: 13,
   terminal_cursor_blink: true,
@@ -611,6 +613,7 @@ export const GLOBAL_ONLY_SETTING_KEYS: readonly (keyof EditorSettings)[] = [
   "source_editor_line_numbers",
   "editor_spellcheck",
   "editor_heading_markers",
+  "editor_syntax_reveal",
   "terminal_shell_path",
   "terminal_font_size_px",
   "terminal_cursor_blink",

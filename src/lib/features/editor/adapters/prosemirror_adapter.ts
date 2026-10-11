@@ -574,6 +574,7 @@ export function create_prosemirror_editor_port(args?: {
           frontmatter_widget,
           tag_pill_menu,
           inline_html_trust,
+          syntax_reveal_enabled: config.syntax_reveal_enabled,
           native_link_hover_enabled: config.native_link_hover_enabled ?? true,
           native_wiki_suggest_enabled:
             config.native_wiki_suggest_enabled ?? true,

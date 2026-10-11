@@ -390,6 +390,27 @@ export const SETTINGS_REGISTRY: SettingDefinition[] = [
     keywords: ["toolbar", "formatting", "visibility", "sticky", "hide", "show"],
   },
   {
+    key: "editor_syntax_reveal",
+    label: "Reveal Syntax",
+    description:
+      "Show bold, italic, strikethrough, highlight and inline code delimiters while the cursor is inside them",
+    category: "Editor",
+    keywords: [
+      "syntax",
+      "reveal",
+      "delimiter",
+      "markdown",
+      "bold",
+      "italic",
+      "strikethrough",
+      "highlight",
+      "formatting",
+      "characters",
+      "hide",
+      "obsidian",
+    ],
+  },
+  {
     key: "editor_heading_markers",
     label: "Heading Markers",
     description:

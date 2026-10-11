@@ -22,6 +22,7 @@ function mount_image_block(width: string): EditorView {
     get_vault_id: () => null,
     get_markdown: () => "",
     resolve_asset_url_for_vault: null,
+    syntax_reveal_enabled: true,
   };
   const doc = schema.nodes.doc.create(null, [
     schema.nodes["image-block"].create({ src: "https://x/a.png", width }),
