@@ -467,6 +467,15 @@ describe("register_ai_actions", () => {
       );
     });
 
+    function called_provider_id(stream_inline: unknown): string | undefined {
+      const calls = (
+        stream_inline as {
+          mock: { calls: { provider_config: { id: string } }[][] };
+        }
+      ).mock.calls;
+      return calls[0]?.[0]?.provider_config.id;
+    }
+
     const NO_PROVIDER_TOAST =
       "No AI provider available — add or select one in Settings.";
 
@@ -482,11 +491,7 @@ describe("register_ai_actions", () => {
         command_id: "continue",
       });
 
-      expect(ai_service.stream_inline).toHaveBeenCalledWith(
-        expect.objectContaining({
-          provider_config: expect.objectContaining({ id: "codex" }),
-        }),
-      );
+      expect(called_provider_id(ai_service.stream_inline)).toBe("codex");
       expect(view.state.doc.textContent).toContain("whole answer");
       expect(toast.error).not.toHaveBeenCalledWith(NO_PROVIDER_TOAST);
     });
@@ -512,11 +517,7 @@ describe("register_ai_actions", () => {
         command_id: "continue",
       });
 
-      expect(ai_service.stream_inline).toHaveBeenCalledWith(
-        expect.objectContaining({
-          provider_config: expect.objectContaining({ id: "claude" }),
-        }),
-      );
+      expect(called_provider_id(ai_service.stream_inline)).toBe("claude");
       expect(toast.error).not.toHaveBeenCalledWith(NO_PROVIDER_TOAST);
     });
 
