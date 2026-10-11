@@ -32,6 +32,7 @@ import type { AiMenuPluginConfig } from "../adapters/ai_menu_plugin";
 import { create_frontmatter_extension } from "./frontmatter_extension";
 import { create_tag_pill_extension } from "./tag_pill_extension";
 import { create_mark_syntax_reveal_plugin } from "../adapters/mark_syntax_reveal_plugin";
+import { create_source_in_place_plugin } from "../adapters/source_in_place_plugin";
 import { create_block_id_decoration_plugin } from "../adapters/block_id_decoration_plugin";
 import { create_footnote_plugin } from "../adapters/footnote_plugin";
 import { create_comment_decoration_plugin } from "../adapters/comment_decoration_plugin";
@@ -51,7 +52,14 @@ export function assemble_extensions(
     // Must precede core_extension so its Backspace handling runs before
     // undoInputRule/baseKeymap.
     ...(ctx.syntax_reveal_enabled
-      ? [{ plugins: [create_mark_syntax_reveal_plugin()] }]
+      ? [
+          {
+            plugins: [
+              create_source_in_place_plugin(),
+              create_mark_syntax_reveal_plugin(),
+            ],
+          },
+        ]
       : []),
     { plugins: [create_block_id_decoration_plugin()] },
     create_heading_extension(),

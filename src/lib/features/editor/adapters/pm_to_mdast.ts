@@ -96,6 +96,11 @@ function wrap_in_mdast_mark(
       return { type: "delete", children } as PhrasingContent;
     case "highlight":
       return { type: "highlight", children } as unknown as PhrasingContent;
+    case "md_source":
+      return {
+        type: "rawInline",
+        value: phrasing_text(children),
+      } as unknown as PhrasingContent;
     case "html_inline":
       return {
         type: "inlineHtml",
