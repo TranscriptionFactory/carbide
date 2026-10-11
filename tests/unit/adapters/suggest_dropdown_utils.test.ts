@@ -171,7 +171,7 @@ describe("attach_outside_dismiss", () => {
   it("calls on_dismiss for clicks outside both elements", () => {
     const outside = document.createElement("div");
     document.body.appendChild(outside);
-    outside.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+    outside.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true }));
     expect(on_dismiss).toHaveBeenCalledOnce();
     outside.remove();
   });
@@ -179,14 +179,14 @@ describe("attach_outside_dismiss", () => {
   it("does not dismiss for clicks inside floating", () => {
     const child = document.createElement("span");
     floating.appendChild(child);
-    child.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+    child.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true }));
     expect(on_dismiss).not.toHaveBeenCalled();
   });
 
   it("does not dismiss for clicks inside editor_dom", () => {
     const child = document.createElement("span");
     editor_dom.appendChild(child);
-    child.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+    child.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true }));
     expect(on_dismiss).not.toHaveBeenCalled();
   });
 
@@ -198,11 +198,33 @@ describe("attach_outside_dismiss", () => {
     outside.remove();
   });
 
+  it("dismisses for clicks inside editor_dom when exempt_editor is false", () => {
+    detach();
+    detach = attach_outside_dismiss(floating, editor_dom, on_dismiss, {
+      exempt_editor: false,
+    });
+    const child = document.createElement("span");
+    editor_dom.appendChild(child);
+    child.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true }));
+    expect(on_dismiss).toHaveBeenCalledOnce();
+  });
+
+  it("still ignores clicks inside floating when exempt_editor is false", () => {
+    detach();
+    detach = attach_outside_dismiss(floating, editor_dom, on_dismiss, {
+      exempt_editor: false,
+    });
+    const child = document.createElement("span");
+    floating.appendChild(child);
+    child.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true }));
+    expect(on_dismiss).not.toHaveBeenCalled();
+  });
+
   it("stops listening after detach", () => {
     detach();
     const outside = document.createElement("div");
     document.body.appendChild(outside);
-    outside.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+    outside.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true }));
     expect(on_dismiss).not.toHaveBeenCalled();
     outside.remove();
   });

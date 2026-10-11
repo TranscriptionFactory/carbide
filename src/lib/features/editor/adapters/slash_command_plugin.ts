@@ -833,6 +833,15 @@ export function create_slash_command_prose_plugin(
   let live_region: HTMLElement | null = null;
   let accept_fn: ((cmd: SlashCommand) => void) | null = null;
   let detach_dismiss: (() => void) | null = null;
+  let dismissed: { query: string; from: number } | null = null;
+
+  function dismiss(): void {
+    if (slash_state.active) {
+      dismissed = { query: slash_state.query, from: slash_state.from };
+    }
+    slash_state = EMPTY_STATE;
+    if (menu) menu.style.display = "none";
+  }
 
   function do_render(): void {
     if (!menu || !live_region) return;
@@ -866,16 +875,14 @@ export function create_slash_command_prose_plugin(
         editor_view.focus();
       };
 
-      detach_dismiss = attach_outside_dismiss(menu, editor_view.dom, () => {
-        slash_state = EMPTY_STATE;
-        if (menu) menu.style.display = "none";
-      });
+      detach_dismiss = attach_outside_dismiss(menu, editor_view.dom, dismiss);
 
       return {
         update(view) {
           const result = extract_slash_query(view);
 
           if (!result) {
+            dismissed = null;
             if (slash_state.active) {
               slash_state = EMPTY_STATE;
               if (menu) menu.style.display = "none";
@@ -884,6 +891,10 @@ export function create_slash_command_prose_plugin(
           }
 
           const query = result.query.trim();
+          if (dismissed?.query === query && dismissed.from === result.from) {
+            return;
+          }
+          dismissed = null;
           const plugin_commands = config?.get_plugin_commands?.() ?? [];
           const all_commands = [...builtin_commands, ...plugin_commands];
           const available = all_commands.filter(
@@ -970,8 +981,7 @@ export function create_slash_command_prose_plugin(
 
         if (event.key === "Escape") {
           event.preventDefault();
-          slash_state = EMPTY_STATE;
-          if (menu) menu.style.display = "none";
+          dismiss();
           return true;
         }
 

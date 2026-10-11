@@ -1,6 +1,11 @@
-import { Plugin, PluginKey } from "prosemirror-state";
+import {
+  Plugin,
+  PluginKey,
+  type Selection,
+  type Transaction,
+} from "prosemirror-state";
 import type { EditorView } from "prosemirror-view";
-import type { ResolvedPos } from "prosemirror-model";
+import type { Node as PmNode, ResolvedPos } from "prosemirror-model";
 import {
   addColumnAfter,
   addColumnBefore,
@@ -9,7 +14,9 @@ import {
   deleteColumn,
   deleteRow,
   findTable,
+  isInTable,
   TableMap,
+  selectedRect,
   selectionCell,
 } from "prosemirror-tables";
 import { autoUpdate } from "@floating-ui/dom";
@@ -131,6 +138,55 @@ type ToolbarButton = {
 
 const SEPARATOR = "---";
 
+function header_labels(table: PmNode, map: TableMap): Set<string> {
+  const positions = new Set(map.map.slice(0, map.width));
+  return new Set(
+    [...positions].map((pos) => table.nodeAt(pos)?.textContent.trim() ?? ""),
+  );
+}
+
+function next_column_label(taken: Set<string>): string {
+  let n = 1;
+  while (taken.has(`Col ${String(n)}`)) n++;
+  return `Col ${String(n)}`;
+}
+
+function label_new_header(
+  tr: Transaction,
+  table_start: number,
+  column: number,
+): void {
+  const table = tr.doc.nodeAt(table_start - 1);
+  if (!table) return;
+  const map = TableMap.get(table);
+  const cell_offset = map.map[column];
+  if (cell_offset === undefined) return;
+  const cell = table.nodeAt(cell_offset);
+  if (
+    cell?.type.name !== "table_header" ||
+    cell.textContent !== "" ||
+    cell.attrs["colspan"] !== 1
+  ) {
+    return;
+  }
+  const label = next_column_label(header_labels(table, map));
+  tr.insertText(label, table_start + cell_offset + 2);
+}
+
+export function add_labelled_column(
+  view: EditorView,
+  side: "before" | "after",
+): boolean {
+  if (!isInTable(view.state)) return false;
+  const rect = selectedRect(view.state);
+  const column = side === "before" ? rect.left : rect.right;
+  const add_column = side === "before" ? addColumnBefore : addColumnAfter;
+  return add_column(view.state, (tr) => {
+    label_new_header(tr, rect.tableStart, column);
+    view.dispatch(tr);
+  });
+}
+
 function toolbar_config(): Array<ToolbarButton | typeof SEPARATOR> {
   return [
     {
@@ -147,12 +203,12 @@ function toolbar_config(): Array<ToolbarButton | typeof SEPARATOR> {
     {
       label: "Add column before",
       icon: "←+",
-      action: (view) => addColumnBefore(view.state, view.dispatch),
+      action: (view) => add_labelled_column(view, "before"),
     },
     {
       label: "Add column after",
       icon: "→+",
-      action: (view) => addColumnAfter(view.state, view.dispatch),
+      action: (view) => add_labelled_column(view, "after"),
     },
     SEPARATOR,
     {
@@ -282,6 +338,7 @@ export function create_table_toolbar_prose_plugin(): Plugin {
   let layout_btn_refs: LayoutButtonRefs | null = null;
   let stop_auto_update: (() => void) | null = null;
   let anchored_table: HTMLElement | null = null;
+  let suppressed_selection: Selection | null = null;
 
   function remove_toolbar() {
     stop_auto_update?.();
@@ -291,6 +348,11 @@ export function create_table_toolbar_prose_plugin(): Plugin {
     align_btn_refs = null;
     layout_btn_refs = null;
     anchored_table = null;
+  }
+
+  function dismiss_toolbar(view: EditorView) {
+    remove_toolbar();
+    suppressed_selection = view.state.selection;
   }
 
   function bind_position(table_dom: HTMLElement) {
@@ -331,7 +393,7 @@ export function create_table_toolbar_prose_plugin(): Plugin {
         if (toolbar_el.contains(target)) return;
         const table_dom = find_table_dom(view);
         if (table_dom?.contains(target)) return;
-        remove_toolbar();
+        dismiss_toolbar(view);
       }
       view.dom.addEventListener("focusout", on_blur);
       document.addEventListener("pointerdown", on_pointerdown, true);
@@ -354,6 +416,9 @@ export function create_table_toolbar_prose_plugin(): Plugin {
             remove_toolbar();
             return;
           }
+
+          if (suppressed_selection?.eq(view.state.selection)) return;
+          suppressed_selection = null;
 
           if (!toolbar_el) {
             const { el, align_btns, layout_btns } = create_toolbar_dom(view);
@@ -383,6 +448,14 @@ export function create_table_toolbar_prose_plugin(): Plugin {
           remove_toolbar();
         },
       };
+    },
+
+    props: {
+      handleKeyDown(view, event) {
+        if (event.key !== "Escape" || !toolbar_el) return false;
+        dismiss_toolbar(view);
+        return true;
+      },
     },
   });
 }

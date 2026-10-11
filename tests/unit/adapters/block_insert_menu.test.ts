@@ -195,3 +195,73 @@ describe("block insert flow", () => {
     expect(parent.attrs["level"]).toBe(1);
   });
 });
+
+describe("block insert menu outside dismissal", () => {
+  function open_with_placeholder() {
+    const doc = schema.nodes.doc.create(null, [
+      schema.nodes.heading.create({ level: 1 }, schema.text("Title")),
+      schema.nodes.paragraph.create(null, schema.text("body")),
+    ]);
+    const { view, get_state } = make_mock_view(EditorState.create({ doc }));
+    const prev_selection = view.state.selection.getBookmark();
+    const from = insert_paragraph_below(view, paragraph_start(doc));
+    if (from == null) throw new Error("expected an inserted paragraph");
+    const menu = create_block_insert_menu(view);
+    menu.open(new DOMRect(0, 0, 10, 10), from, () => {
+      remove_empty_placeholder(view, from, prev_selection);
+    });
+    return { view, get_state, menu, original: doc };
+  }
+
+  function menu_el(): HTMLElement {
+    const els = document.querySelectorAll<HTMLElement>(".SlashMenu");
+    const el = els.item(els.length - 1);
+    if (!el) throw new Error("expected a mounted menu");
+    return el;
+  }
+
+  function press_enter(): KeyboardEvent {
+    const event = new KeyboardEvent("keydown", {
+      key: "Enter",
+      cancelable: true,
+    });
+    document.dispatchEvent(event);
+    return event;
+  }
+
+  it("closes and removes the placeholder on a click inside the editor", () => {
+    const { view, get_state, menu, original } = open_with_placeholder();
+    expect(menu_el().style.display).toBe("block");
+
+    const text = document.createElement("span");
+    view.dom.appendChild(text);
+    text.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true }));
+
+    expect(menu_el().style.display).toBe("none");
+    expect(get_state().doc.eq(original)).toBe(true);
+    menu.destroy();
+  });
+
+  it("releases Enter to the editor once closed by an outside click", () => {
+    const { view, get_state, menu, original } = open_with_placeholder();
+    view.dom.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true }));
+
+    const enter = press_enter();
+
+    expect(enter.defaultPrevented).toBe(false);
+    expect(get_state().doc.eq(original)).toBe(true);
+    menu.destroy();
+  });
+
+  it("closes on Escape and releases Enter", () => {
+    const { get_state, menu, original } = open_with_placeholder();
+
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+    const enter = press_enter();
+
+    expect(menu_el().style.display).toBe("none");
+    expect(enter.defaultPrevented).toBe(false);
+    expect(get_state().doc.eq(original)).toBe(true);
+    menu.destroy();
+  });
+});

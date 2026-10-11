@@ -46,6 +46,7 @@ type SuggestConfig<TItem> = {
     accept_fn: (view: EditorView, index: number) => void,
   ) => boolean;
   query_changed?: (prev: SuggestState<TItem>, result: ExtractResult) => boolean;
+  exempt_editor?: boolean;
 };
 
 function create_empty_state<TItem>(): SuggestState<TItem> {
@@ -71,7 +72,8 @@ export function create_suggest_prose_plugin<TItem>(
   let position_raf: number | null = null;
   let debounce_timer: ReturnType<typeof setTimeout> | null = null;
   let suppress_next_activation = false;
-  let dismissed_query: string | null = null;
+  let active_dismiss_key: string | null = null;
+  let dismissed_key: string | null = null;
   let dismissed_from: number | null = null;
   let detach_dismiss: (() => void) | null = null;
 
@@ -139,10 +141,10 @@ export function create_suggest_prose_plugin<TItem>(
     if (!current.active && current.items.length === 0) return;
 
     if (lock_query && current.active) {
-      dismissed_query = current.query;
+      dismissed_key = active_dismiss_key ?? current.query;
       dismissed_from = current.from;
     } else {
-      dismissed_query = null;
+      dismissed_key = null;
       dismissed_from = null;
     }
 
@@ -162,7 +164,7 @@ export function create_suggest_prose_plugin<TItem>(
     config.accept(view, item, state);
 
     suppress_next_activation = true;
-    dismissed_query = null;
+    dismissed_key = null;
     dismissed_from = null;
     config.on_accepted?.();
     config.on_dismiss();
@@ -213,9 +215,14 @@ export function create_suggest_prose_plugin<TItem>(
       dropdown = document.createElement("div");
       dropdown.className = config.class_name;
       mount_dropdown(dropdown);
-      detach_dismiss = attach_outside_dismiss(dropdown, editor_view.dom, () => {
-        dismiss(editor_view, true);
-      });
+      detach_dismiss = attach_outside_dismiss(
+        dropdown,
+        editor_view.dom,
+        () => {
+          dismiss(editor_view, true);
+        },
+        { exempt_editor: config.exempt_editor ?? true },
+      );
 
       return {
         update(view) {
@@ -238,7 +245,7 @@ export function create_suggest_prose_plugin<TItem>(
             : !in_code_block;
           if (!$from.parent.isTextblock || !scope_ok) {
             if (plugin_state.active) dismiss(view, false);
-            dismissed_query = null;
+            dismissed_key = null;
             dismissed_from = null;
             sync_dropdown(view, EMPTY);
             return;
@@ -249,7 +256,7 @@ export function create_suggest_prose_plugin<TItem>(
 
           if (!result) {
             if (plugin_state.active) dismiss(view, false);
-            dismissed_query = null;
+            dismissed_key = null;
             dismissed_from = null;
             sync_dropdown(view, EMPTY);
             return;
@@ -259,9 +266,9 @@ export function create_suggest_prose_plugin<TItem>(
           const dismiss_key = result.dismiss_key ?? result.query;
 
           if (
-            dismissed_query !== null &&
+            dismissed_key !== null &&
             dismissed_from !== null &&
-            dismiss_key === dismissed_query &&
+            dismiss_key === dismissed_key &&
             prose_from === dismissed_from
           ) {
             if (plugin_state.active) dismiss(view, false);
@@ -269,8 +276,9 @@ export function create_suggest_prose_plugin<TItem>(
             return;
           }
 
-          dismissed_query = null;
+          dismissed_key = null;
           dismissed_from = null;
+          active_dismiss_key = dismiss_key;
 
           if (suppress_next_activation) {
             suppress_next_activation = false;

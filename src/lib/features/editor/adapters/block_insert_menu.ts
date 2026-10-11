@@ -131,7 +131,9 @@ export function create_block_insert_menu(view: EditorView): BlockInsertMenu {
     position_suggest_dropdown(menu, {
       getBoundingClientRect: () => anchor,
     } as Element);
-    detach_dismiss = attach_outside_dismiss(menu, view.dom, close);
+    detach_dismiss = attach_outside_dismiss(menu, view.dom, close, {
+      exempt_editor: false,
+    });
     document.addEventListener("keydown", on_keydown, true);
   }
 

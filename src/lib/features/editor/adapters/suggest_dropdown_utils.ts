@@ -65,30 +65,35 @@ export function scroll_selected_into_view(
   }
 }
 
+export type OutsideDismissOptions = {
+  exempt_editor?: boolean;
+};
+
 export function attach_outside_dismiss(
   floating: HTMLElement,
   editor_dom: Element,
   on_dismiss: () => void,
+  { exempt_editor = true }: OutsideDismissOptions = {},
 ): () => void {
   function should_dismiss(target: EventTarget | null): boolean {
     if (!(target instanceof Node)) return false;
     if (floating.contains(target)) return false;
-    if (editor_dom.contains(target)) return false;
+    if (exempt_editor && editor_dom.contains(target)) return false;
     return true;
   }
 
-  const on_mousedown = (e: MouseEvent) => {
+  const on_pointerdown = (e: PointerEvent) => {
     if (should_dismiss(e.target)) on_dismiss();
   };
   const on_focusin = (e: FocusEvent) => {
     if (should_dismiss(e.target)) on_dismiss();
   };
 
-  document.addEventListener("mousedown", on_mousedown, true);
+  document.addEventListener("pointerdown", on_pointerdown, true);
   document.addEventListener("focusin", on_focusin, true);
 
   return () => {
-    document.removeEventListener("mousedown", on_mousedown, true);
+    document.removeEventListener("pointerdown", on_pointerdown, true);
     document.removeEventListener("focusin", on_focusin, true);
   };
 }
