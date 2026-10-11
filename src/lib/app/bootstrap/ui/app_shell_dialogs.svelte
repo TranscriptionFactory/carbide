@@ -37,6 +37,7 @@
   import { VimNavCheatsheet } from "$lib/features/vim_nav";
   import { QuickCaptureDialog } from "$lib/features/task";
   import { MissingLinkedSourceDialog } from "$lib/features/reference";
+  import { TrustedHtmlDialog } from "$lib/features/document";
   import { use_app_context } from "$lib/app/context/app_context.svelte";
   import SidebarViewSwitcher from "$lib/app/bootstrap/ui/sidebar_view_switcher.svelte";
   import { ACTION_IDS, combined_sidebar_view_registry } from "$lib/app";
@@ -926,6 +927,8 @@
 />
 
 <MissingLinkedSourceDialog />
+
+<TrustedHtmlDialog />
 
 <HotkeyRecorderDialog
   open={stores.ui.hotkey_recorder.open}

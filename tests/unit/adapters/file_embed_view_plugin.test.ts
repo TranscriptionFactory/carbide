@@ -46,6 +46,7 @@ function mount(options: {
   params?: Record<string, string>;
   trust?: { level?: TrustLevel; granted?: boolean };
   resolve_asset_url?: boolean;
+  resolve_vault_path?: (src: string) => Promise<string>;
 }): Harness {
   const container = document.createElement("div");
   document.body.appendChild(container);
@@ -64,6 +65,7 @@ function mount(options: {
     ...(with_resolver
       ? { resolve_asset_url: () => "carbide-asset://vault/chart.html" }
       : {}),
+    resolve_vault_path: options.resolve_vault_path,
     inline_html_trust: trust.config,
   });
   const state = EditorState.create({ doc, plugins: [plugin] });
@@ -182,6 +184,46 @@ describe("FileEmbedView html modes", () => {
     await flush();
 
     expect(harness.get_level).toHaveBeenCalledWith("artifacts/chart.html");
+
+    harness.view.destroy();
+  });
+
+  it("keys trust to the resolved vault path of a bare-name embed", async () => {
+    const harness = mount({
+      src: "chart.html",
+      resolve_vault_path: (src) => Promise.resolve(`notes/${src}`),
+      trust: { granted: true },
+    });
+    active_container = harness.container;
+    await flush();
+
+    expect(harness.get_level).toHaveBeenCalledWith("notes/chart.html");
+
+    mode_btn(harness.container, "Live").click();
+    await flush();
+
+    expect(harness.request).toHaveBeenCalledWith("notes/chart.html");
+    expect(harness.request).not.toHaveBeenCalledWith("chart.html");
+    expect(selected_mode(harness.container)).toBe("Live");
+
+    harness.view.destroy();
+  });
+
+  it("stays safe without prompting when the embed path cannot be resolved", async () => {
+    const harness = mount({
+      resolve_vault_path: () => Promise.reject(new Error("lookup failed")),
+      trust: { granted: true },
+    });
+    active_container = harness.container;
+    await flush();
+
+    mode_btn(harness.container, "Live").click();
+    await flush();
+
+    expect(harness.get_level).not.toHaveBeenCalled();
+    expect(harness.request).not.toHaveBeenCalled();
+    expect(register_calls()).toHaveLength(0);
+    expect(selected_mode(harness.container)).toBe("Safe");
 
     harness.view.destroy();
   });

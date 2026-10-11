@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { DocumentViewer } from "$lib/features/document";
+  import { DocumentViewer, TrustedHtmlDialog } from "$lib/features/document";
   import { use_app_context } from "$lib/app/context/app_context.svelte";
   import { ACTION_IDS } from "$lib/app";
   import { make_close_window_handler } from "$lib/hooks/use_close_window.svelte";
@@ -37,6 +37,8 @@
     </div>
   {/if}
 </div>
+
+<TrustedHtmlDialog />
 
 <style>
   .ViewerShell {
