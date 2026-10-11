@@ -467,9 +467,84 @@ describe("register_ai_actions", () => {
       );
     });
 
-    it("rejects inline AI when the only provider cannot stream", async () => {
-      const { registry, stores, ai_service } = setup_inline();
+    const NO_PROVIDER_TOAST =
+      "No AI provider available — add or select one in Settings.";
+
+    it("runs inline AI through a provider that cannot stream", async () => {
+      const { registry, stores, ai_service, view } = setup_inline();
       stores.ui.editor_settings.ai_default_provider_id = "codex";
+      ai_service.stream_inline = vi.fn(function* () {
+        yield { type: "text", text: "whole answer" };
+      });
+
+      await registry.execute(ACTION_IDS.ai_open_inline_menu);
+      await registry.execute(ACTION_IDS.ai_execute_inline, {
+        command_id: "continue",
+      });
+
+      expect(ai_service.stream_inline).toHaveBeenCalledWith(
+        expect.objectContaining({
+          provider_config: expect.objectContaining({ id: "codex" }),
+        }),
+      );
+      expect(view.state.doc.textContent).toContain("whole answer");
+      expect(toast.error).not.toHaveBeenCalledWith(NO_PROVIDER_TOAST);
+    });
+
+    it("runs inline AI through a Claude provider with customised args and no stream_args", async () => {
+      const { registry, stores, ai_service } = setup_inline();
+      const claude = BUILTIN_PROVIDER_PRESETS.find((p) => p.id === "claude");
+      if (claude?.transport.kind !== "cli") throw new Error("claude preset");
+      const { stream_args: _unused, ...transport } = claude.transport;
+      stores.ui.editor_settings.ai_providers = [
+        {
+          ...claude,
+          transport: { ...transport, args: ["-p", "--model", "opus"] },
+        },
+      ];
+      stores.ui.editor_settings.ai_default_provider_id = "claude";
+      ai_service.stream_inline = vi.fn(function* () {
+        yield { type: "text", text: "ok" };
+      });
+
+      await registry.execute(ACTION_IDS.ai_open_inline_menu);
+      await registry.execute(ACTION_IDS.ai_execute_inline, {
+        command_id: "continue",
+      });
+
+      expect(ai_service.stream_inline).toHaveBeenCalledWith(
+        expect.objectContaining({
+          provider_config: expect.objectContaining({ id: "claude" }),
+        }),
+      );
+      expect(toast.error).not.toHaveBeenCalledWith(NO_PROVIDER_TOAST);
+    });
+
+    it("inserts nothing when a one-shot run is aborted before its result arrives", async () => {
+      const { registry, stores, view, ai_service } = setup_inline();
+      stores.ui.editor_settings.ai_default_provider_id = "codex";
+      let release!: () => void;
+      const gate = new Promise<void>((resolve) => (release = resolve));
+      ai_service.stream_inline = vi.fn(async function* () {
+        await gate;
+        yield { type: "text", text: "late answer" };
+      });
+
+      await registry.execute(ACTION_IDS.ai_open_inline_menu);
+      const exec = registry.execute(ACTION_IDS.ai_execute_inline, {
+        command_id: "continue",
+      });
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      await registry.execute(ACTION_IDS.ai_close_inline_menu);
+      release();
+      await exec;
+
+      expect(view.state.doc.textContent).not.toContain("late answer");
+    });
+
+    it("toasts when no provider is configured", async () => {
+      const { registry, stores, ai_service } = setup_inline();
+      stores.ui.editor_settings.ai_providers = [];
 
       await registry.execute(ACTION_IDS.ai_open_inline_menu);
       await registry.execute(ACTION_IDS.ai_execute_inline, {
@@ -477,9 +552,7 @@ describe("register_ai_actions", () => {
       });
 
       expect(ai_service.stream_inline).not.toHaveBeenCalled();
-      expect(toast.error).toHaveBeenCalledWith(
-        "No streaming-capable AI provider — inline edits need a Claude/Ollama CLI or API provider (Codex is agent-only). Add or select one in Settings.",
-      );
+      expect(toast.error).toHaveBeenCalledWith(NO_PROVIDER_TOAST);
     });
 
     it("bails with a toast instead of opening when the cursor has no coords", async () => {
