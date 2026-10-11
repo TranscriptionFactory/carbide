@@ -3,7 +3,7 @@
 For adding/updating any feature, always refer to decision tree in `docs/architecture.md` FIRST and adhere to it RELIGIOUSLY.
 This repo is implementation base for Carbide project. For Carbide-facing product work, also consult `private/carbide/README.md` (index of product/design docs) `private/carbide/TODO.md` (live backlog) `docs/plugin_howto.md` (plugin authoring) when they apply.
 
-`private/` is a gitignored symlink to the separate **private** repo (`TranscriptionFactory/carbide-private`), which holds all product planning (`private/carbide/`) and session logs (`private/devlog/`). This repo is public — nothing under `private/` may be committed here, quoted in PRs/issues/changesets, or referenced from public docs.
+`private/` is gitignored symlink to separate **private** repo (`TranscriptionFactory/carbide-private`), which holds all product planning (`private/carbide/`) and session logs (`private/devlog/`). This repo is public — nothing under `private/` may be committed here, quoted in PRs/issues/changesets, or referenced from public docs.
 
 ## Persona
 
@@ -49,8 +49,8 @@ This repo is implementation base for Carbide project. For Carbide-facing product
 - Keep related things together, but don't "fatten" modules
 - Code should be readable like prose, w/ clear flow
 - Use `gh` CLI for GitHub interaction
-- Do not version control anything under `private/` (incl. `private/devlog/`) or refer to it in PRs/issues; commit those changes in the `carbide-private` repo instead
-- When a plan's work ships, move it to `private/carbide/archive/completed_plans/`; `private/carbide/plans/` holds only plans with remaining work
+- Do not version control anything under `private/` (incl. `private/devlog/`) or refer to it in PRs/issues; commit those changes in `carbide-private` repo instead
+- When plan's work ships, move it to `private/carbide/archive/completed_plans/` `private/carbide/plans/` holds only plans w/ remaining work
 - Keep code testable: non-trivial functions/classes must be easy to test
 - For UI, always use shadcn semantic utilities. Use custom utilities only when shadcn lacks specific token
 - Store tests in top-level `tests/` dir, separate from logic
