@@ -9,7 +9,7 @@ import {
   format_callout_directive,
   normalize_callout_type,
   canonical_callout_type,
-} from "$lib/features/editor/adapters/remark_plugins/remark_callout";
+} from "$lib/features/editor/domain/callout";
 
 describe("callout directive parsing", () => {
   it("parses basic note callout", () => {

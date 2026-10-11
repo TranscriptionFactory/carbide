@@ -7,143 +7,13 @@ import type {
   Text,
 } from "mdast";
 import type { Plugin } from "unified";
-
-export const CALLOUT_TYPES = [
-  "note",
-  "abstract",
-  "summary",
-  "tldr",
-  "info",
-  "todo",
-  "tip",
-  "hint",
-  "important",
-  "success",
-  "check",
-  "done",
-  "question",
-  "help",
-  "faq",
-  "warning",
-  "caution",
-  "attention",
-  "failure",
-  "fail",
-  "missing",
-  "danger",
-  "error",
-  "bug",
-  "example",
-  "quote",
-  "cite",
-] as const;
-
-export type CalloutType = (typeof CALLOUT_TYPES)[number];
-
-const CALLOUT_TYPE_SET = new Set<string>(CALLOUT_TYPES);
-
-const CALLOUT_DIRECTIVE_RE =
-  /^\[!(?<type>[^\]|]+)(?:\|(?<color>[^\]]*))?\](?<fold>[+-])?(?:\s+(?<title>.*))?$/;
-
-export const CALLOUT_COLORS = [
-  "red",
-  "orange",
-  "yellow",
-  "green",
-  "teal",
-  "blue",
-  "indigo",
-  "purple",
-  "pink",
-  "brown",
-  "gray",
-  "black",
-  "white",
-] as const;
-
-const CALLOUT_COLOR_SET = new Set<string>([...CALLOUT_COLORS, "grey"]);
-const HEX_COLOR_RE =
-  /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/;
-
-export function sanitize_callout_color(
-  raw: string | null | undefined,
-): string | null {
-  if (!raw) return null;
-  const trimmed = raw.trim();
-  if (!trimmed) return null;
-  if (HEX_COLOR_RE.test(trimmed)) return trimmed;
-  const lower = trimmed.toLowerCase();
-  if (CALLOUT_COLOR_SET.has(lower)) return lower;
-  return null;
-}
-
-export type CalloutData = {
-  callout_type: CalloutType;
-  title: string;
-  color: string | null;
-  foldable: boolean;
-  default_folded: boolean;
-};
-
-const CANONICAL_TYPE: Record<string, CalloutType> = {
-  summary: "abstract",
-  tldr: "abstract",
-  hint: "tip",
-  check: "success",
-  done: "success",
-  help: "question",
-  faq: "question",
-  caution: "warning",
-  attention: "warning",
-  fail: "failure",
-  missing: "failure",
-  error: "danger",
-  cite: "quote",
-};
-
-export function normalize_callout_type(raw: string): CalloutType {
-  const lower = raw.trim().toLowerCase();
-  if (CALLOUT_TYPE_SET.has(lower)) return lower as CalloutType;
-  return "note";
-}
-
-export function canonical_callout_type(raw: string): CalloutType {
-  const normalized = normalize_callout_type(raw);
-  return CANONICAL_TYPE[normalized] ?? normalized;
-}
-
-function capitalize(s: string): string {
-  if (!s) return s;
-  return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
-}
-
-export function parse_callout_directive(text: string): CalloutData | null {
-  const match = CALLOUT_DIRECTIVE_RE.exec(text.trim());
-  if (!match?.groups) return null;
-
-  const raw_type = match.groups["type"] ?? "";
-  const fold = match.groups["fold"];
-  const explicit_title = match.groups["title"]?.trim();
-
-  const callout_type = normalize_callout_type(raw_type);
-
-  return {
-    callout_type,
-    title: explicit_title || capitalize(raw_type),
-    color: sanitize_callout_color(match.groups["color"]),
-    foldable: fold === "+" || fold === "-",
-    default_folded: fold === "-",
-  };
-}
-
-export function format_callout_directive(data: CalloutData): string {
-  const fold_marker = data.foldable ? (data.default_folded ? "-" : "+") : "";
-  const default_title = capitalize(data.callout_type);
-  const title_part =
-    data.title && data.title !== default_title ? ` ${data.title}` : "";
-  const color_part = data.color ? `|${data.color}` : "";
-  return `[!${data.callout_type}${color_part}]${fold_marker}${title_part}`;
-}
+import {
+  CALLOUT_DIRECTIVE_RE,
+  default_callout_title,
+  format_callout_directive,
+  parse_callout_directive,
+  type CalloutType,
+} from "$lib/features/editor/domain/callout";
 
 function is_blockquote_callout(node: RootContent): node is Blockquote {
   if (node.type !== "blockquote") return false;
@@ -302,7 +172,7 @@ export const callout_to_markdown = {
   ): string {
     const d = node.data ?? {};
     const callout_type = d.callout_type || "note";
-    const title = d.title || capitalize(callout_type);
+    const title = d.title || default_callout_title(callout_type);
     const foldable = d.foldable ?? false;
     const default_folded = d.default_folded ?? false;
 

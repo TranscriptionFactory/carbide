@@ -8,7 +8,7 @@ import {
   parse_callout_directive,
   format_callout_directive,
   sanitize_callout_color,
-} from "$lib/features/editor/adapters/remark_plugins/remark_callout";
+} from "$lib/features/editor/domain/callout";
 
 describe("callout color directive parsing", () => {
   it("parses directive without color to null", () => {

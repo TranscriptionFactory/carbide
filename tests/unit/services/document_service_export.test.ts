@@ -115,6 +115,22 @@ describe("DocumentService EPUB export", () => {
     expect(input.created_at).toBe(new Date(1_770_000_000_000).toISOString());
   });
 
+  it("carries callouts and their styles through the shared renderer", async () => {
+    const export_port = create_export_port("/out/My Note.epub");
+    const [, input] = await export_epub(export_port, "> [!tip] Hint\n> Body");
+
+    const doc = new DOMParser().parseFromString(
+      input.xhtml,
+      "application/xhtml+xml",
+    );
+    expect(doc.querySelector("parsererror")).toBeNull();
+    expect(
+      doc.querySelector('[data-callout="tip"] .callout-title-inner')
+        ?.textContent,
+    ).toBe("Hint");
+    expect(input.css).toContain(".callout-title");
+  });
+
   it("emits well-formed XHTML that links the bundled stylesheet", async () => {
     const export_port = create_export_port("/out/My Note.epub");
     const [, input] = await export_epub(export_port);
