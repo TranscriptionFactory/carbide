@@ -52,4 +52,5 @@ export {
 } from "$lib/features/document/application/document_service";
 export { register_document_actions } from "$lib/features/document/application/document_actions";
 export { default as DocumentViewer } from "$lib/features/document/ui/document_viewer.svelte";
+export { default as TrustedHtmlDialog } from "$lib/features/document/ui/trusted_html_dialog.svelte";
 export { default as SourceViewToggle } from "$lib/features/document/ui/source_view_toggle.svelte";
