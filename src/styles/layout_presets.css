@@ -32,13 +32,6 @@
   --tab-active-indicator-fg: var(--tab-active-fg);
 }
 
-/* Transitional until Phase 2 settings-driven width presets: the scoped custom
-   property beats the apply_editor_width inline root style without !important. */
-[data-layout-variant="spotlight"] .WorkspaceLayout,
-[data-layout-variant="theater"] .WorkspaceLayout {
-  --editor-max-width: 80ch;
-}
-
 [data-layout-variant="spotlight"] .WorkspaceLayout .NoteEditor,
 [data-layout-variant="theater"] .WorkspaceLayout .NoteEditor {
   max-width: var(--editor-max-width);

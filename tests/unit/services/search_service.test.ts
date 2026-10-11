@@ -259,7 +259,7 @@ describe("SearchService", () => {
       results.some(
         (result) =>
           result.kind === "setting" &&
-          result.setting.key === "editor_max_width_ch",
+          result.setting.key === "editor_readable_line_length",
       ),
     ).toBe(true);
   });

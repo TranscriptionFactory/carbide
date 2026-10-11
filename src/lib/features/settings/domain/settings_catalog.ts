@@ -295,9 +295,9 @@ export const SETTINGS_REGISTRY: SettingDefinition[] = [
     keywords: ["tabs", "limit", "max", "open", "performance", "editor"],
   },
   {
-    key: "editor_max_width_ch",
-    label: "Editor Max Width",
-    description: "Maximum line width for the editor content in characters",
+    key: "editor_readable_line_length",
+    label: "Readable Line Length",
+    description: "Limit the editor text column to a comfortable reading width",
     category: "Editor",
     keywords: ["editor", "width", "line length", "layout", "readability"],
   },
