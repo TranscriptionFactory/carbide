@@ -77,6 +77,19 @@ describe("upgrading a config stored before stream_args existed", () => {
     ).toEqual(["-p", "--model", "opus"]);
   });
 
+  it("does not graft stream_args onto a preset whose args were customised", () => {
+    const result = migrate_ai_settings(
+      stored_before_stream_args({ args: ["-p", "--model", "opus"] }),
+    );
+
+    const provider = result?.ai_providers[0];
+    expect(
+      provider?.transport.kind === "cli"
+        ? provider.transport.stream_args
+        : "not cli",
+    ).toBeUndefined();
+  });
+
   it("leaves a provider that is not a builtin preset alone", () => {
     const result = migrate_ai_settings({
       ai_providers: [

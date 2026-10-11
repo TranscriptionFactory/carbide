@@ -8,13 +8,9 @@ import type {
   VaultContextSettings,
 } from "$lib/features/ai/domain/ai_types";
 import { find_provider } from "$lib/features/ai/domain/ai_types";
-import {
-  preferred_ai_backend_order,
-  resolve_auto_ai_backend,
-} from "$lib/features/ai/domain/ai_backend_selection";
+import { resolve_auto_ai_backend } from "$lib/features/ai/domain/ai_backend_selection";
 import {
   agent_capability,
-  provider_supports_streaming,
   supports_vault_handoff,
 } from "$lib/features/ai/domain/ai_provider_capabilities";
 import type { AiService } from "$lib/features/ai/application/ai_service";
@@ -252,18 +248,6 @@ export function register_ai_actions(
       editor_ctx.note_path,
       vault_context_settings(settings, true),
     );
-  }
-
-  async function resolve_streaming_provider(): Promise<AiProviderConfig | null> {
-    const resolved = await resolve_provider();
-    if (resolved && provider_supports_streaming(resolved)) {
-      return resolved;
-    }
-    const order = preferred_ai_backend_order(
-      input.stores.ui.editor_settings.ai_default_provider_id,
-      get_providers(),
-    );
-    return order.find(provider_supports_streaming) ?? null;
   }
 
   function get_inline_view(): EditorView | null {
@@ -559,10 +543,10 @@ export function register_ai_actions(
 
       const p = payload as InlineRequestPayload | undefined;
 
-      const config = await resolve_streaming_provider();
+      const config = await resolve_provider();
       if (!config) {
         toast.error(
-          "No streaming-capable AI provider — inline edits need a Claude/Ollama CLI or API provider (Codex is agent-only). Add or select one in Settings.",
+          "No AI provider available — add or select one in Settings.",
         );
         return;
       }
