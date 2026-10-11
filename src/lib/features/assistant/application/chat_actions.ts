@@ -300,7 +300,7 @@ export function register_chat_actions(
         } else if (event.type === "citation") {
           chat_store.add_streaming_citation(event.citation);
         } else if (event.type === "error") {
-          chat_store.fail_streaming(event.error);
+          chat_store.fail_streaming(event.error, event.detail);
           stores.op.fail(CHAT_OP_KEY, event.error);
           errored = true;
         } else if (event.type === "done") {
@@ -487,6 +487,20 @@ export function register_chat_actions(
         await services.clipboard.copy_text(message.content);
       } catch {
         toast.error("Failed to copy message");
+      }
+    },
+  });
+
+  registry.register({
+    id: ACTION_IDS.rag_copy_error_detail,
+    label: "Copy Vault Chat Error Details",
+    execute: async (...args: unknown[]) => {
+      const detail = typeof args[0] === "string" ? args[0] : "";
+      if (!detail) return;
+      try {
+        await services.clipboard.copy_text(detail);
+      } catch {
+        toast.error("Failed to copy error details");
       }
     },
   });

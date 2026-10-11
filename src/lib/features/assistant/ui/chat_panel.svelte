@@ -18,6 +18,7 @@
   import ChatInput from "$lib/features/assistant/ui/chat_input.svelte";
   import ChatModeToggle from "$lib/features/assistant/ui/chat_mode_toggle.svelte";
   import ChatWaitIndicator from "$lib/features/assistant/ui/chat_wait_indicator.svelte";
+  import ChatErrorDetail from "$lib/features/assistant/ui/chat_error_detail.svelte";
   import { agent_capability, agent_scope_copy } from "$lib/features/ai";
   import {
     AssistantPresence,
@@ -473,6 +474,9 @@
                 <AlertCircle class="size-4" />
                 {rag.error}
               </div>
+              {#if rag.error_detail}
+                <ChatErrorDetail detail={rag.error_detail} />
+              {/if}
               {#if last_question}
                 <Button
                   variant="outline"
