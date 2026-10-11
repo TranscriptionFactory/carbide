@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   DEFAULT_EDITOR_SETTINGS,
   GLOBAL_ONLY_SETTING_KEYS,
+  apply_global_only_overrides,
   omit_global_only_keys,
 } from "$lib/shared/types/editor_settings";
 import { SETTINGS_REGISTRY } from "$lib/features/settings/domain/settings_catalog";
@@ -27,5 +28,14 @@ describe("syntax reveal setting", () => {
     expect(entry?.category).toBe("Editor");
     expect(entry?.keywords).toContain("syntax");
     expect(entry?.keywords).toContain("delimiter");
+  });
+
+  it("loads a persisted global value over the default", async () => {
+    const loaded = await apply_global_only_overrides(
+      DEFAULT_EDITOR_SETTINGS,
+      (key) => Promise.resolve(key === KEY ? false : null),
+    );
+
+    expect(loaded[KEY]).toBe(false);
   });
 });
