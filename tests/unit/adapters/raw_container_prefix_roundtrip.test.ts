@@ -62,7 +62,8 @@ describe("raw nodes inside containers", () => {
   });
 
   it("never grows blockquote prefixes over repeated saves", () => {
-    const input = "> > [^1]: first\n> >     second\n>\n> > [b]: https://x\n> >   \"t\"\n";
+    const input =
+      '> > [^1]: first\n> >     second\n>\n> > [b]: https://x\n> >   "t"\n';
     let current = input;
     for (let i = 0; i < 5; i++) current = roundtrip(current);
     expect(current).toBe(input);
