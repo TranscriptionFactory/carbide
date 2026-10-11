@@ -11,6 +11,7 @@ const NEXT_LINE_NOT_BLANK_RE = /\r?\n[ \t]*\S/y;
 
 let current_source = "";
 let current_inline_indent = 0;
+let next_html_pair_key = 0;
 
 function source_indent(node: AnyMdastNode): number {
   const column = (node.position as { start?: { column?: number } } | undefined)
@@ -78,6 +79,16 @@ function create_footnote_def(node: AnyMdastNode): PmNode | null {
   );
 }
 
+// `key` keeps adjacent pairs with identical tags from merging into one.
+function create_html_inline_mark(node: AnyMdastNode): Mark {
+  return schema.marks.html_inline.create({
+    open: node.open as string,
+    close: node.close as string,
+    inner: node.inner === true,
+    key: next_html_pair_key++,
+  });
+}
+
 function flatten_inline(
   nodes: AnyMdastNode[],
   marks: Mark[],
@@ -143,7 +154,13 @@ function flatten_inline(
         );
         break;
       case "break":
-        result.push(schema.nodes.hardbreak.create());
+        result.push(
+          schema.nodes.hardbreak.create(
+            null,
+            null,
+            marks.length > 0 ? marks : undefined,
+          ),
+        );
         break;
       case "inlineMath": {
         const val = node.value as string;
@@ -170,6 +187,13 @@ function flatten_inline(
       case "footnoteReference":
         result.push(create_footnote_ref(node, marks));
         break;
+      case "inlineHtml":
+        flatten_inline(
+          (node.children as AnyMdastNode[]) || [],
+          [...marks, create_html_inline_mark(node)],
+          result,
+        );
+        break;
       default: {
         const raw = slice_source(node, current_inline_indent);
         if (raw) result.push(create_raw_inline(raw, marks));
@@ -182,6 +206,7 @@ function flatten_inline(
 function convert_inline(parent: AnyMdastNode): PmNode[] {
   const result: PmNode[] = [];
   current_inline_indent = source_indent(parent);
+  next_html_pair_key = 0;
   flatten_inline((parent.children as AnyMdastNode[]) || [], [], result);
   return result;
 }

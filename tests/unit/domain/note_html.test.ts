@@ -243,13 +243,13 @@ describe("render_note_to_html", () => {
       expect(html).not.toContain("<script>");
     });
 
-    it("shows inline raw HTML as code rather than dropping it into the document", async () => {
+    it("shows non-whitelisted inline raw HTML as code rather than dropping it into the document", async () => {
       const html = await render_note_to_html(
         "Note",
-        "Press <kbd>Esc</kbd> to close.",
+        "Press <abbr>Esc</abbr> to close.",
       );
-      expect(html).toContain('<code class="raw-html">&lt;kbd&gt;</code>');
-      expect(html).not.toContain("<kbd>");
+      expect(html).toContain('<code class="raw-html">&lt;abbr&gt;</code>');
+      expect(html).not.toContain("<abbr>");
     });
 
     it("renders a promoted iframe embed as a placeholder carrying its URL", async () => {

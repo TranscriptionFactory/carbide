@@ -4,6 +4,12 @@ export {
   get_default_allowlist,
 } from "./sanitize_html";
 export type { SanitizeHtmlOptions } from "./sanitize_html";
+export {
+  parse_inline_html_tag,
+  is_inline_html_break,
+  sanitize_inline_html_open_tag,
+} from "./inline_html";
+export type { InlineHtmlTag, InlineHtmlElement } from "./inline_html";
 export { parse_html_metadata } from "./parse_html_metadata";
 export type {
   HtmlMetadata,

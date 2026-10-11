@@ -103,78 +103,12 @@ function normalize_line_break_line(line: string): string {
     return line;
   }
 
-  const break_tag_start = find_break_tag_start(trimmed);
-  if (break_tag_start !== null) {
-    return `${trimmed.slice(0, break_tag_start)}\\`;
-  }
-
   const trailing_whitespace = line.slice(trimmed.length);
   if (trailing_whitespace.length >= 2) {
     return `${trimmed}\\`;
   }
 
   return line;
-}
-
-function find_break_tag_start(line: string): number | null {
-  const match = line.match(/<br\s*\/?>$/i);
-  if (!match || match.index === undefined) {
-    return null;
-  }
-  if (is_range_inside_code_span(line, match.index, line.length)) {
-    return null;
-  }
-  return match.index;
-}
-
-function is_range_inside_code_span(
-  line: string,
-  start: number,
-  end: number,
-): boolean {
-  for (const span of get_closed_code_spans(line)) {
-    if (start >= span.start && end <= span.end) {
-      return true;
-    }
-  }
-  return false;
-}
-
-function get_closed_code_spans(
-  line: string,
-): Array<{ start: number; end: number }> {
-  const spans: Array<{ start: number; end: number }> = [];
-  let active_start: number | null = null;
-  let active_length = 0;
-
-  for (let index = 0; index < line.length; ) {
-    if (line[index] !== "`") {
-      index += 1;
-      continue;
-    }
-
-    let run_length = 1;
-    while (line[index + run_length] === "`") {
-      run_length += 1;
-    }
-
-    if (active_start === null) {
-      active_start = index;
-      active_length = run_length;
-      index += run_length;
-      continue;
-    }
-
-    if (run_length === active_length) {
-      spans.push({ start: active_start, end: index + run_length });
-      active_start = null;
-      active_length = 0;
-    }
-
-    index += run_length;
-  }
-
-  return spans;
 }
 
 function trim_trailing_whitespace(line: string): string {
