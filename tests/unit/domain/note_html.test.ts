@@ -98,6 +98,32 @@ describe("render_note_to_html", () => {
     expect(count(html, "<hr")).toBe(1);
   });
 
+  describe("footnotes", () => {
+    it("renders references as numbered links and a footnotes section with back-links", async () => {
+      const html = await render_note_body_html(
+        "Note",
+        "First[^b] then[^a].\n\n[^a]: Alpha body.\n\n[^b]: Beta body.",
+      );
+      expect(html).toContain('<section class="footnotes">');
+      expect(html).toMatch(
+        /<sup class="footnote-ref"><a href="#fn1"[^>]*>\[1\]<\/a><\/sup>/,
+      );
+      expect(html).toMatch(
+        /<sup class="footnote-ref"><a href="#fn2"[^>]*>\[2\]<\/a><\/sup>/,
+      );
+      expect(count(html, 'class="footnote-backref"')).toBe(2);
+      expect(html.indexOf("Beta body.")).toBeLessThan(
+        html.indexOf("Alpha body."),
+      );
+    });
+
+    it("keeps a reference without a definition as literal text", async () => {
+      const html = await render_note_body_html("Note", "Dangling[^x] ref.");
+      expect(html).toContain("Dangling[^x] ref.");
+      expect(html).not.toContain('class="footnotes"');
+    });
+  });
+
   it("inlines the KaTeX stylesheet", async () => {
     const html = await render_note_to_html("Note", "$x$");
     expect(html).toContain(".katex");

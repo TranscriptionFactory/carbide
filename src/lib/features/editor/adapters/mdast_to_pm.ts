@@ -3,8 +3,11 @@ import type { Node as PmNode, Mark } from "prosemirror-model";
 import { schema } from "./schema";
 import { detect_embed_type, parse_embed_fragment } from "./file_embed_plugin";
 import { meta_has_token, set_meta_token } from "./code_preview";
+import { format_footnote_ref } from "$lib/features/editor/domain/footnotes";
 
 type AnyMdastNode = Record<string, unknown> & { type: string };
+
+const NEXT_LINE_NOT_BLANK_RE = /\r?\n[ \t]*\S/y;
 
 let current_source = "";
 
@@ -28,6 +31,32 @@ function create_raw_inline(value: string, marks: Mark[]): PmNode {
     { value },
     null,
     marks.length > 0 ? marks : undefined,
+  );
+}
+
+function create_footnote_ref(node: AnyMdastNode, marks: Mark[]): PmNode {
+  const label = (node.label as string) || (node.identifier as string) || "";
+  return schema.nodes.footnote_ref.create(
+    { label, raw: slice_source(node) || format_footnote_ref(label) },
+    null,
+    marks.length > 0 ? marks : undefined,
+  );
+}
+
+function is_followed_by_line(node: AnyMdastNode): boolean {
+  const end = (node.position as { end?: { offset?: number } } | undefined)?.end
+    ?.offset;
+  if (typeof end !== "number") return false;
+  NEXT_LINE_NOT_BLANK_RE.lastIndex = end;
+  return NEXT_LINE_NOT_BLANK_RE.test(current_source);
+}
+
+function create_footnote_def(node: AnyMdastNode): PmNode | null {
+  const raw = slice_source(node);
+  if (!raw) return null;
+  return schema.nodes.footnote_def.create(
+    { tight: is_followed_by_line(node) },
+    schema.text(raw),
   );
 }
 
@@ -120,6 +149,9 @@ function flatten_inline(
         if (html_val) result.push(create_raw_inline(html_val, marks));
         break;
       }
+      case "footnoteReference":
+        result.push(create_footnote_ref(node, marks));
+        break;
       default: {
         const raw = slice_source(node);
         if (raw) result.push(create_raw_inline(raw, marks));
@@ -264,6 +296,10 @@ function build_block(
 
     case "html": {
       return create_raw_block((node.value as string) || "");
+    }
+
+    case "footnoteDefinition": {
+      return create_footnote_def(node);
     }
 
     default:

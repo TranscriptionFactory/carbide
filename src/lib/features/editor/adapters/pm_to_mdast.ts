@@ -5,6 +5,7 @@ import { serialize_web_embed, serialize_video } from "./html_embed";
 import { format_table_meta_comment } from "./remark_plugins/remark_table_meta";
 import { set_meta_token } from "./code_preview";
 import { format_wiki_source } from "$lib/features/editor/domain/wiki_link";
+import { format_footnote_ref } from "$lib/features/editor/domain/footnotes";
 
 type MdastNode = Record<string, unknown> & { type: string };
 
@@ -49,6 +50,13 @@ function convert_inline_pm_node(node: PmNode): PhrasingContent {
       return {
         type: "html",
         value: (node.attrs["value"] as string) || "",
+      } as PhrasingContent;
+    case "footnote_ref":
+      return {
+        type: "html",
+        value:
+          (node.attrs["raw"] as string) ||
+          format_footnote_ref((node.attrs["label"] as string) || ""),
       } as PhrasingContent;
     default:
       return { type: "text", value: node.textContent } as PhrasingContent;
@@ -261,6 +269,16 @@ function convert_block_node(node: PmNode): MdastNode | MdastNode[] | null {
     case "raw_block": {
       return node.textContent
         ? { type: "html", value: node.textContent }
+        : null;
+    }
+
+    case "footnote_def": {
+      return node.textContent
+        ? {
+            type: "rawFootnoteDefinition",
+            value: node.textContent,
+            tight: Boolean(node.attrs["tight"]),
+          }
         : null;
     }
 
