@@ -181,7 +181,7 @@ describe("ClipService.clip_page", () => {
     expect(markdown).toContain("https://example.com/images/figure.png");
   });
 
-  it("downloads images in parallel but writes them one at a time", async () => {
+  it("downloads and saves images in parallel", async () => {
     const harness = create_harness();
     const images = ["a", "b", "c", "d"]
       .map((name) => `<img src="/images/${name}.png" alt="${name}">`)
@@ -191,25 +191,19 @@ describe("ClipService.clip_page", () => {
       html: PAGE_HTML.replace("</article>", `${images}</article>`),
       content_type: "text/html",
     });
-    let fetching = 0;
-    let max_fetching = 0;
+    let in_flight = 0;
+    let max_in_flight = 0;
     harness.clip_port.fetch_asset.mockImplementation(async () => {
-      fetching += 1;
-      max_fetching = Math.max(max_fetching, fetching);
+      in_flight += 1;
+      max_in_flight = Math.max(max_in_flight, in_flight);
       await new Promise((resolve) => setTimeout(resolve, 5));
-      fetching -= 1;
+      in_flight -= 1;
       return { bytes: new Uint8Array([1]), content_type: "image/png" };
     });
-    let writing = 0;
-    let max_writing = 0;
     let written = 0;
-    harness.assets_port.write_image_asset.mockImplementation(async () => {
-      writing += 1;
-      max_writing = Math.max(max_writing, writing);
-      await new Promise((resolve) => setTimeout(resolve, 1));
-      writing -= 1;
+    harness.assets_port.write_image_asset.mockImplementation(() => {
       written += 1;
-      return `.assets/image-${String(written)}.png`;
+      return Promise.resolve(`.assets/image-${String(written)}.png`);
     });
 
     const result = await harness.service.clip_page({
@@ -224,8 +218,8 @@ describe("ClipService.clip_page", () => {
     expect(result.images_total).toBe(5);
     expect(result.images_failed).toBe(0);
     expect(result.images_skipped).toBe(0);
-    expect(max_fetching).toBeGreaterThan(1);
-    expect(max_writing).toBe(1);
+    expect(written).toBe(5);
+    expect(max_in_flight).toBeGreaterThan(1);
   });
 
   it("keeps inline svg diagrams and localizes their images in the html artifact", async () => {

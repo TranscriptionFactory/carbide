@@ -2,7 +2,7 @@
 use crate::features::notes::service::safe_vault_abs_for_write;
 use crate::features::notes::service::{
     get_or_scan_folder_entries, invalidate_folder_cache, rename_with_temp_path, safe_vault_abs,
-    safe_vault_rename_target_abs, scan_folder_entries, uniquify_filename,
+    reserve_unique_filename, safe_vault_rename_target_abs, scan_folder_entries,
 };
 use crate::shared::storage;
 use crate::shared::vault_ignore::VaultIgnoreMatcher;
@@ -188,26 +188,69 @@ fn folder_note_candidate_ignores_bare_and_mismatched_folders() {
 }
 
 #[test]
-fn uniquify_filename_returns_original_when_free() {
+fn reserve_unique_filename_claims_original_when_free() {
     let dir = mk_temp_dir();
-    assert_eq!(uniquify_filename(&dir, "photo.png"), "photo.png");
+    assert_eq!(
+        reserve_unique_filename(&dir, "photo.png").unwrap(),
+        "photo.png"
+    );
+    assert!(dir.join("photo.png").exists());
     let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
-fn uniquify_filename_appends_counter_on_collision() {
+fn reserve_unique_filename_appends_counter_on_collision() {
     let dir = mk_temp_dir();
     std::fs::write(dir.join("photo.png"), b"a").unwrap();
-    assert_eq!(uniquify_filename(&dir, "photo.png"), "photo-2.png");
-    std::fs::write(dir.join("photo-2.png"), b"b").unwrap();
-    assert_eq!(uniquify_filename(&dir, "photo.png"), "photo-3.png");
+    assert_eq!(
+        reserve_unique_filename(&dir, "photo.png").unwrap(),
+        "photo-2.png"
+    );
+    assert_eq!(
+        reserve_unique_filename(&dir, "photo.png").unwrap(),
+        "photo-3.png"
+    );
+    assert_eq!(std::fs::read(dir.join("photo.png")).unwrap(), b"a");
     let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
-fn uniquify_filename_handles_missing_extension() {
+fn reserve_unique_filename_handles_missing_extension() {
     let dir = mk_temp_dir();
     std::fs::write(dir.join("photo"), b"a").unwrap();
-    assert_eq!(uniquify_filename(&dir, "photo"), "photo-2");
+    assert_eq!(reserve_unique_filename(&dir, "photo").unwrap(), "photo-2");
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn reserve_unique_filename_creates_missing_directory() {
+    let root = mk_temp_dir();
+    let dir = root.join("nested").join(".assets");
+    assert_eq!(
+        reserve_unique_filename(&dir, "photo.png").unwrap(),
+        "photo.png"
+    );
+    assert!(dir.join("photo.png").exists());
+    let _ = std::fs::remove_dir_all(&root);
+}
+
+#[test]
+fn reserve_unique_filename_gives_concurrent_writers_distinct_names() {
+    let dir = mk_temp_dir();
+    let writers = 16;
+    let barrier = std::sync::Arc::new(std::sync::Barrier::new(writers));
+    let handles: Vec<_> = (0..writers)
+        .map(|_| {
+            let dir = dir.clone();
+            let barrier = barrier.clone();
+            std::thread::spawn(move || {
+                barrier.wait();
+                reserve_unique_filename(&dir, "photo.png").unwrap()
+            })
+        })
+        .collect();
+    let names: std::collections::HashSet<String> =
+        handles.into_iter().map(|h| h.join().unwrap()).collect();
+    assert_eq!(names.len(), writers);
     let _ = std::fs::remove_dir_all(&dir);
 }
