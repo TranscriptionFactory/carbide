@@ -1,4 +1,8 @@
 import { Readability } from "@mozilla/readability";
+import {
+  restore_figures,
+  stash_figures,
+} from "$lib/features/clip/domain/protect_figures";
 
 export type ReadableContent = {
   title: string | null;
@@ -19,6 +23,7 @@ export function extract_readable_content(
 ): ReadableContent {
   const doc = parse_with_base(html, base_url);
   const doc_title = doc.title.trim() || null;
+  const figures = stash_figures(doc);
 
   let article: {
     title?: string | null | undefined;
@@ -32,7 +37,7 @@ export function extract_readable_content(
   if (article?.content) {
     return {
       title: (article.title ?? "").trim() || doc_title,
-      content_html: article.content,
+      content_html: restore_figures(article.content, figures, base_url),
     };
   }
 

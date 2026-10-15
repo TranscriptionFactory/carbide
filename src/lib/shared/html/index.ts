@@ -1,6 +1,7 @@
 export {
   sanitize_html,
   sanitize_html_preview,
+  get_preview_allowlist,
   get_default_allowlist,
 } from "./sanitize_html";
 export type { SanitizeHtmlOptions } from "./sanitize_html";

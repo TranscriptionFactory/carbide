@@ -181,6 +181,81 @@ describe("ClipService.clip_page", () => {
     expect(markdown).toContain("https://example.com/images/figure.png");
   });
 
+  it("downloads images in parallel but writes them one at a time", async () => {
+    const harness = create_harness();
+    const images = ["a", "b", "c", "d"]
+      .map((name) => `<img src="/images/${name}.png" alt="${name}">`)
+      .join("");
+    harness.clip_port.fetch_page.mockResolvedValue({
+      final_url: FINAL_URL,
+      html: PAGE_HTML.replace("</article>", `${images}</article>`),
+      content_type: "text/html",
+    });
+    let fetching = 0;
+    let max_fetching = 0;
+    harness.clip_port.fetch_asset.mockImplementation(async () => {
+      fetching += 1;
+      max_fetching = Math.max(max_fetching, fetching);
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      fetching -= 1;
+      return { bytes: new Uint8Array([1]), content_type: "image/png" };
+    });
+    let writing = 0;
+    let max_writing = 0;
+    let written = 0;
+    harness.assets_port.write_image_asset.mockImplementation(async () => {
+      writing += 1;
+      max_writing = Math.max(max_writing, writing);
+      await new Promise((resolve) => setTimeout(resolve, 1));
+      writing -= 1;
+      written += 1;
+      return `.assets/image-${String(written)}.png`;
+    });
+
+    const result = await harness.service.clip_page({
+      url: FINAL_URL,
+      folder_path: "",
+      formats: MARKDOWN_ONLY,
+      attachment_folder: ".assets",
+    });
+
+    expect(result.status).toBe("clipped");
+    if (result.status !== "clipped") return;
+    expect(result.images_total).toBe(5);
+    expect(result.images_failed).toBe(0);
+    expect(result.images_skipped).toBe(0);
+    expect(max_fetching).toBeGreaterThan(1);
+    expect(max_writing).toBe(1);
+  });
+
+  it("keeps inline svg diagrams and localizes their images in the html artifact", async () => {
+    const harness = create_harness();
+    const diagram =
+      '<figure><svg viewBox="0 0 100 50"><image href="/images/node.webp" width="20" height="20"></image><path d="M0 0 L10 10" stroke="tan"></path></svg><figcaption>Circuit</figcaption></figure>';
+    harness.clip_port.fetch_page.mockResolvedValue({
+      final_url: FINAL_URL,
+      html: PAGE_HTML.replace("</article>", `${diagram}</article>`),
+      content_type: "text/html",
+    });
+
+    await harness.service.clip_page({
+      url: FINAL_URL,
+      folder_path: "clips",
+      formats: { markdown: false, html: true, epub: false },
+      attachment_folder: ".assets",
+    });
+
+    expect(harness.clip_port.fetch_asset).toHaveBeenCalledWith(
+      "https://example.com/images/node.webp",
+    );
+    const [, html] = harness.document_service.save_html_artifact.mock
+      .calls[0] as [string, string];
+    expect(html).toContain('<svg viewBox="0 0 100 50">');
+    expect(html).toContain('<path d="M0 0 L10 10" stroke="tan">');
+    expect(html).toContain('<image href="../.assets/figure-123.png"');
+    expect(html).toContain("<figcaption>Circuit</figcaption>");
+  });
+
   it("emits only the epub when it is the sole selected format", async () => {
     const harness = create_harness();
     const result = await harness.service.clip_page({

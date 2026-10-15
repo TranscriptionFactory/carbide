@@ -13,12 +13,14 @@ function success_message(result: ClipResult & { status: "clipped" }): string {
     result.outputs.length > 1
       ? `Clipped page (${String(result.outputs.length)} formats)`
       : "Clipped page";
-  if (result.images_failed > 0) {
-    return `${base} — ${String(result.images_failed)} image${
-      result.images_failed === 1 ? "" : "s"
-    } could not be saved`;
-  }
-  return base;
+  const { images_failed: failed, images_skipped: skipped } = result;
+  const problems = [
+    failed > 0 &&
+      `${String(failed)} image${failed === 1 ? "" : "s"} could not be saved`,
+    skipped > 0 &&
+      `${String(skipped)} over the image limit left as remote links`,
+  ].filter(Boolean);
+  return problems.length > 0 ? `${base} — ${problems.join(", ")}` : base;
 }
 
 export function register_clip_actions(input: ActionRegistrationInput) {

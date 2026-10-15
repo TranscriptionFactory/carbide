@@ -13,6 +13,7 @@ const ALWAYS_REMOVE = new Set([
   "applet",
   "iframe",
   "foreignobject",
+  "svg",
 ]);
 
 const GLOBAL_ATTRS = new Set(["id", "class", "style", "title", "dir", "lang"]);
@@ -218,16 +219,157 @@ const PREVIEW_ELEMENTS: Record<string, string[]> = {
   select: ["name", "disabled"],
   option: ["value", "selected"],
   textarea: ["placeholder", "disabled"],
-  svg: ["viewbox", "width", "height", "fill", "stroke", "role"],
-  g: ["fill", "stroke", "transform"],
-  path: ["d", "fill", "stroke", "stroke-width"],
-  circle: ["cx", "cy", "r", "fill", "stroke"],
-  rect: ["x", "y", "width", "height", "rx", "fill", "stroke"],
-  line: ["x1", "y1", "x2", "y2", "stroke"],
-  polyline: ["points", "fill", "stroke"],
-  polygon: ["points", "fill", "stroke"],
-  text: ["x", "y", "fill", "text-anchor"],
 };
+
+// Keys are lowercase (sanitize_node lowercases tag names); attribute names
+// keep the camelCase the HTML parser gives SVG attributes (viewBox, refX, ...).
+const SVG_TAGS = [
+  "svg",
+  "g",
+  "defs",
+  "symbol",
+  "use",
+  "path",
+  "circle",
+  "ellipse",
+  "line",
+  "polyline",
+  "polygon",
+  "rect",
+  "text",
+  "tspan",
+  "textpath",
+  "title",
+  "desc",
+  "image",
+  "clippath",
+  "mask",
+  "pattern",
+  "marker",
+  "lineargradient",
+  "radialgradient",
+  "stop",
+  "filter",
+  "feblend",
+  "fecolormatrix",
+  "fecomposite",
+  "fedropshadow",
+  "feflood",
+  "fegaussianblur",
+  "femerge",
+  "femergenode",
+  "feoffset",
+];
+
+const SVG_ATTRS = [
+  "xmlns",
+  "viewBox",
+  "preserveAspectRatio",
+  "href",
+  "xlink:href",
+  "role",
+  "aria-label",
+  "x",
+  "y",
+  "x1",
+  "y1",
+  "x2",
+  "y2",
+  "cx",
+  "cy",
+  "r",
+  "rx",
+  "ry",
+  "fx",
+  "fy",
+  "dx",
+  "dy",
+  "width",
+  "height",
+  "d",
+  "points",
+  "pathLength",
+  "transform",
+  "offset",
+  "rotate",
+  "textLength",
+  "lengthAdjust",
+  "startOffset",
+  "fill",
+  "fill-opacity",
+  "fill-rule",
+  "stroke",
+  "stroke-width",
+  "stroke-opacity",
+  "stroke-dasharray",
+  "stroke-dashoffset",
+  "stroke-linecap",
+  "stroke-linejoin",
+  "stroke-miterlimit",
+  "opacity",
+  "color",
+  "visibility",
+  "display",
+  "paint-order",
+  "vector-effect",
+  "shape-rendering",
+  "clip-path",
+  "clip-rule",
+  "mask",
+  "filter",
+  "marker-start",
+  "marker-mid",
+  "marker-end",
+  "font-family",
+  "font-size",
+  "font-style",
+  "font-weight",
+  "letter-spacing",
+  "text-anchor",
+  "dominant-baseline",
+  "alignment-baseline",
+  "stop-color",
+  "stop-opacity",
+  "flood-color",
+  "flood-opacity",
+  "gradientUnits",
+  "gradientTransform",
+  "spreadMethod",
+  "clipPathUnits",
+  "maskUnits",
+  "maskContentUnits",
+  "patternUnits",
+  "patternContentUnits",
+  "patternTransform",
+  "markerWidth",
+  "markerHeight",
+  "markerUnits",
+  "refX",
+  "refY",
+  "orient",
+  "filterUnits",
+  "primitiveUnits",
+  "stdDeviation",
+  "in",
+  "in2",
+  "result",
+  "mode",
+  "operator",
+  "type",
+  "values",
+];
+
+export function get_preview_allowlist(): Map<string, Set<string>> {
+  const allowed = get_default_allowlist();
+  for (const [tag, attrs] of Object.entries(PREVIEW_ELEMENTS)) {
+    allowed.set(tag, new Set(attrs));
+  }
+  const svg_attrs = new Set(SVG_ATTRS);
+  for (const tag of SVG_TAGS) {
+    allowed.set(tag, svg_attrs);
+  }
+  return allowed;
+}
 
 export function sanitize_html_preview(html: string): {
   body: string;
@@ -237,12 +379,8 @@ export function sanitize_html_preview(html: string): {
   const styles = Array.from(source.querySelectorAll("style"))
     .map((style) => style.textContent ?? "")
     .join("\n");
-  const allowed = get_default_allowlist();
-  for (const [tag, attrs] of Object.entries(PREVIEW_ELEMENTS)) {
-    allowed.set(tag, new Set(attrs));
-  }
   const clean = sanitize_html(source.body.innerHTML, {
-    allowed_elements: allowed,
+    allowed_elements: get_preview_allowlist(),
   });
   const preview = new DOMParser().parseFromString(clean, "text/html");
   for (const form of preview.querySelectorAll("form")) {
@@ -255,6 +393,23 @@ export function sanitize_html_preview(html: string): {
     control.setAttribute("disabled", "");
   }
   return { body: preview.body.innerHTML, styles };
+}
+
+const LINK_ATTRS = ["href", "xlink:href"];
+const EXTERNAL_LINK_TAGS = new Set(["a", "image"]);
+
+function is_unsafe_link(value: string, tag: string): boolean {
+  if (/^\s*javascript\s*:/i.test(value)) return true;
+  return !EXTERNAL_LINK_TAGS.has(tag) && !value.trim().startsWith("#");
+}
+
+function strip_unsafe_links(el: Element, tag: string): void {
+  for (const attr of LINK_ATTRS) {
+    const value = el.getAttribute(attr);
+    if (value !== null && is_unsafe_link(value, tag)) {
+      el.removeAttribute(attr);
+    }
+  }
 }
 
 function filter_style(el: Element, properties: Set<string>): void {
@@ -318,12 +473,7 @@ function sanitize_node(
       }
     }
 
-    if (tag === "a") {
-      const href = el.getAttribute("href");
-      if (href && /^\s*javascript\s*:/i.test(href)) {
-        el.removeAttribute("href");
-      }
-    }
+    strip_unsafe_links(el, tag);
 
     if (styles) filter_style(el, styles);
 

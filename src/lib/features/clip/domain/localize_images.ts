@@ -3,9 +3,18 @@
 // and Tier-3 self-contained export
 // (private/carbide/plans/2026-05-29_html_doc_parity_plan.md).
 
-export const DEFAULT_MAX_IMAGES = 20;
+export const DEFAULT_MAX_IMAGES = 500;
 
-function absolutize(src: string, base_url: string): string | null {
+export type ImageLocalizationPlan = {
+  urls: string[];
+  skipped: number;
+};
+
+type ImageRef = { element: Element; attr: string };
+
+const SVG_IMAGE_ATTRS = ["href", "xlink:href"];
+
+export function absolutize(src: string, base_url: string): string | null {
   try {
     const url = new URL(src, base_url);
     if (url.protocol !== "http:" && url.protocol !== "https:") return null;
@@ -15,24 +24,31 @@ function absolutize(src: string, base_url: string): string | null {
   }
 }
 
+function collect_image_refs(doc: Document): ImageRef[] {
+  const refs: ImageRef[] = [];
+  for (const element of doc.body.querySelectorAll("img[src], svg image")) {
+    const attrs =
+      element.tagName.toLowerCase() === "img" ? ["src"] : SVG_IMAGE_ATTRS;
+    for (const attr of attrs) {
+      if (element.getAttribute(attr)) refs.push({ element, attr });
+    }
+  }
+  return refs;
+}
+
 export function plan_image_localization(
   html: string,
   base_url: string,
   max: number = DEFAULT_MAX_IMAGES,
-): string[] {
+): ImageLocalizationPlan {
   const doc = new DOMParser().parseFromString(html, "text/html");
-  const urls: string[] = [];
-  const seen = new Set<string>();
-  for (const img of doc.body.querySelectorAll("img[src]")) {
-    const src = img.getAttribute("src");
-    if (!src) continue;
-    const absolute = absolutize(src, base_url);
-    if (!absolute || seen.has(absolute)) continue;
-    seen.add(absolute);
-    urls.push(absolute);
-    if (urls.length >= max) break;
+  const unique = new Set<string>();
+  for (const { element, attr } of collect_image_refs(doc)) {
+    const absolute = absolutize(element.getAttribute(attr) ?? "", base_url);
+    if (absolute) unique.add(absolute);
   }
-  return urls;
+  const urls = [...unique];
+  return { urls: urls.slice(0, max), skipped: Math.max(0, urls.length - max) };
 }
 
 export function rewrite_image_srcs(
@@ -41,17 +57,15 @@ export function rewrite_image_srcs(
   mapping: ReadonlyMap<string, string>,
 ): string {
   const doc = new DOMParser().parseFromString(html, "text/html");
-  for (const img of doc.body.querySelectorAll("img[src]")) {
-    const src = img.getAttribute("src");
-    if (!src) continue;
-    const absolute = absolutize(src, base_url);
+  for (const { element, attr } of collect_image_refs(doc)) {
+    const absolute = absolutize(element.getAttribute(attr) ?? "", base_url);
     const local = absolute ? mapping.get(absolute) : undefined;
     if (local === undefined) continue;
-    img.setAttribute("src", local);
+    element.setAttribute(attr, local);
     // ponytail: srcset variants dropped in favor of the localized src;
     // add hi-dpi variant selection if fuzzy images become a complaint.
-    img.removeAttribute("srcset");
-    img.removeAttribute("sizes");
+    element.removeAttribute("srcset");
+    element.removeAttribute("sizes");
   }
   return doc.body.innerHTML;
 }
