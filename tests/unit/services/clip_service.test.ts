@@ -31,6 +31,13 @@ function create_harness() {
       final_url: FINAL_URL,
       html: PAGE_HTML,
       content_type: "text/html",
+      figure_snapshots: [],
+    }),
+    render_page: vi.fn().mockResolvedValue({
+      final_url: FINAL_URL,
+      html: PAGE_HTML,
+      content_type: "text/html",
+      figure_snapshots: [],
     }),
     fetch_asset: vi.fn().mockResolvedValue({
       bytes: new Uint8Array([1, 2, 3]),
@@ -42,6 +49,7 @@ function create_harness() {
       final_url: FINAL_URL,
       html: PAGE_HTML,
       content_type: "text/html",
+      figure_snapshots: [],
     }),
     capture_cancel: vi.fn().mockResolvedValue(undefined),
     on_capture_closed: vi.fn().mockResolvedValue(() => undefined),
@@ -190,6 +198,7 @@ describe("ClipService.clip_page", () => {
       final_url: FINAL_URL,
       html: PAGE_HTML.replace("</article>", `${images}</article>`),
       content_type: "text/html",
+      figure_snapshots: [],
     });
     let in_flight = 0;
     let max_in_flight = 0;
@@ -230,6 +239,7 @@ describe("ClipService.clip_page", () => {
       final_url: FINAL_URL,
       html: PAGE_HTML.replace("</article>", `${diagram}</article>`),
       content_type: "text/html",
+      figure_snapshots: [],
     });
 
     await harness.service.clip_page({
@@ -248,6 +258,134 @@ describe("ClipService.clip_page", () => {
     expect(html).toContain('<path d="M0 0 L10 10" stroke="tan">');
     expect(html).toContain('<image href="../.assets/figure-123.png"');
     expect(html).toContain("<figcaption>Circuit</figcaption>");
+  });
+
+  describe("figure snapshots", () => {
+    const COMPOSITE =
+      '<figure data-carbide-snapshot="0"><div class="stage"><canvas></canvas><img src="/images/node.png" alt="node"></div><figcaption>Circuit</figcaption></figure>';
+    const RENDERED = {
+      final_url: FINAL_URL,
+      html: PAGE_HTML.replace("</article>", `${COMPOSITE}</article>`),
+      content_type: "text/html",
+      figure_snapshots: [{ index: 0, png: new Uint8Array([9, 9]) }],
+    };
+    const HTML_ONLY = { markdown: false, html: true, epub: false };
+
+    function saved_html(harness: ReturnType<typeof create_harness>): string {
+      const [, html] = harness.document_service.save_html_artifact.mock
+        .calls[0] as [string, string];
+      return html;
+    }
+
+    it("shows composite figures from the rendered page as saved snapshots", async () => {
+      const harness = create_harness();
+      harness.clip_port.render_page.mockResolvedValue(RENDERED);
+      harness.assets_port.write_image_asset.mockImplementation(
+        (_vault: unknown, input: { image: { file_name: string | null } }) =>
+          Promise.resolve(`.assets/${input.image.file_name ?? "image"}`),
+      );
+
+      await harness.service.clip_page({
+        url: FINAL_URL,
+        folder_path: "clips",
+        formats: HTML_ONLY,
+        attachment_folder: ".assets",
+      });
+
+      expect(harness.clip_port.render_page).toHaveBeenCalledWith(FINAL_URL);
+      expect(harness.assets_port.write_image_asset).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          image: {
+            bytes: new Uint8Array([9, 9]),
+            mime_type: "image/png",
+            file_name: "figure-snapshot-0.png",
+          },
+        }),
+      );
+      const html = saved_html(harness);
+      expect(html).toContain(
+        '<img src="../.assets/figure-snapshot-0.png" alt="Circuit">',
+      );
+      expect(html).toContain("<details><summary>Figure elements</summary>");
+      expect(html).toContain('src="../.assets/node.png"');
+      expect(html).not.toContain("snapshot.carbide.invalid");
+    });
+
+    it("keeps the fetched page when rendering fails", async () => {
+      const harness = create_harness();
+      harness.clip_port.render_page.mockRejectedValue(
+        new Error("render timed out"),
+      );
+
+      const result = await harness.service.clip_page({
+        url: FINAL_URL,
+        folder_path: "clips",
+        formats: HTML_ONLY,
+        attachment_folder: ".assets",
+      });
+
+      expect(result.status).toBe("clipped");
+      expect(saved_html(harness)).toContain("quick brown fox");
+    });
+
+    it("keeps the fetched page when the render found no composite figures", async () => {
+      const harness = create_harness();
+      harness.clip_port.render_page.mockResolvedValue({
+        ...RENDERED,
+        html: PAGE_HTML.replace("Test Article</h1>", "Rendered Variant</h1>"),
+        figure_snapshots: [],
+      });
+
+      await harness.service.clip_page({
+        url: FINAL_URL,
+        folder_path: "clips",
+        formats: HTML_ONLY,
+        attachment_folder: ".assets",
+      });
+
+      expect(saved_html(harness)).not.toContain("Rendered Variant");
+    });
+
+    it("leaves the figure intact when its snapshot cannot be saved", async () => {
+      const harness = create_harness();
+      harness.clip_port.render_page.mockResolvedValue(RENDERED);
+      harness.assets_port.write_image_asset.mockImplementation(
+        (_vault: unknown, input: { image: { file_name: string | null } }) =>
+          input.image.file_name === "figure-snapshot-0.png"
+            ? Promise.reject(new Error("disk full"))
+            : Promise.resolve(".assets/node.png"),
+      );
+
+      await harness.service.clip_page({
+        url: FINAL_URL,
+        folder_path: "clips",
+        formats: HTML_ONLY,
+        attachment_folder: ".assets",
+      });
+
+      const html = saved_html(harness);
+      expect(html).not.toContain("<details>");
+      expect(html).toContain("<figcaption>Circuit</figcaption>");
+    });
+
+    it("uses the capture window's snapshots without rendering again", async () => {
+      const harness = create_harness();
+      harness.clip_port.capture_finish.mockResolvedValue(RENDERED);
+
+      await harness.service.clip_page({
+        url: FINAL_URL,
+        folder_path: "clips",
+        formats: HTML_ONLY,
+        attachment_folder: ".assets",
+        source: "capture",
+      });
+
+      expect(harness.clip_port.render_page).not.toHaveBeenCalled();
+      expect(saved_html(harness)).toContain(
+        "<details><summary>Figure elements</summary>",
+      );
+    });
   });
 
   it("emits only the epub when it is the sole selected format", async () => {

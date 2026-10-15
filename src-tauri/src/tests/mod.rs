@@ -13,6 +13,9 @@ mod pipeline_node_runtime;
 #[path = "../../tests/notes_service_safety.rs"]
 mod notes_service_safety;
 
+#[path = "../../tests/clip_figure_snapshots.rs"]
+mod clip_figure_snapshots;
+
 #[path = "../../tests/notes_listing_index_meta.rs"]
 mod notes_listing_index_meta;
 
@@ -340,6 +343,7 @@ mod specta_export {
 crate::features::clip::capture::clip_capture_start,
 crate::features::clip::capture::clip_capture_finish,
 crate::features::clip::capture::clip_capture_cancel,
+crate::features::clip::capture::clip_render_page,
                 // Note: settings and vault_settings commands are excluded because they use
                 // serde_json::Value which cannot be statically typed in TypeScript
             ])

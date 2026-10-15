@@ -35,6 +35,13 @@ pub struct ClipPage {
     pub final_url: String,
     pub html: String,
     pub content_type: String,
+    pub figure_snapshots: Vec<FigureSnapshot>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Type)]
+pub struct FigureSnapshot {
+    pub index: u32,
+    pub png: Vec<u8>,
 }
 
 // "blocked" marks bot-protection rejections (403/429) that a webview capture
@@ -111,6 +118,7 @@ pub async fn clip_fetch_page(url: String) -> Result<ClipPage, ClipFetchError> {
         final_url,
         html: decode_page(&bytes, &content_type),
         content_type: mime,
+        figure_snapshots: Vec::new(),
     })
 }
 

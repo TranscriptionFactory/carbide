@@ -95,6 +95,7 @@ objc2-foundation = "0.3"
 objc2-web-kit = { version = "0.3", features = ["WKWebView", "objc2-app-kit", "block2"] }
 block2 = "0.6"
 objc2-app-kit = { version = "0.3", features = ["NSPrintInfo", "NSPrintOperation", "NSView", "NSWindow"] }
+objc2-core-foundation = "0.3"
 candle-core = { version = "0.9", default-features = false, features = ["accelerate", "metal"] }
 candle-nn = { version = "0.9", default-features = false, features = ["accelerate", "metal"] }
 candle-transformers = { version = "0.9", default-features = false, features = ["accelerate", "metal"] }
@@ -107,6 +108,8 @@ windows-core = "=0.61.2"
 [target.'cfg(all(unix, not(target_os = "macos")))'.dependencies]
 webkit2gtk = { version = "=2.0.2", features = ["v2_38"] }
 gtk = "=0.18.2"
+cairo-rs = { version = "0.18", features = ["png"] }
+javascriptcore-rs = "=1.1.2"
 
 [dev-dependencies]
 filetime = "0.2"

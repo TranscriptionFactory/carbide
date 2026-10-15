@@ -8,6 +8,7 @@ import { create_test_search_adapter } from "./test_search_adapter";
 import type { Ports } from "$lib/app/di/app_ports";
 import { create_milkdown_editor_port } from "$lib/features/editor";
 import { create_test_clipboard_adapter } from "./test_clipboard_adapter";
+import type { ClipPage } from "$lib/features/clip";
 import { create_test_shell_adapter } from "./test_shell_adapter";
 import { create_test_git_adapter } from "./test_git_adapter";
 import { create_test_document_adapter } from "./test_document_adapter";
@@ -43,6 +44,15 @@ function create_test_ai_adapter(): AiPort {
   };
 }
 
+function empty_clip_page(): ClipPage {
+  return {
+    final_url: "https://example.com/",
+    html: "<html><body></body></html>",
+    content_type: "text/html",
+    figure_snapshots: [],
+  };
+}
+
 export function create_test_ports(): Ports {
   const assets = create_test_assets_adapter();
 
@@ -73,22 +83,13 @@ export function create_test_ports(): Ports {
     }),
     clipboard: create_test_clipboard_adapter(),
     clip: {
-      fetch_page: () =>
-        Promise.resolve({
-          final_url: "https://example.com/",
-          html: "<html><body></body></html>",
-          content_type: "text/html",
-        }),
+      fetch_page: () => Promise.resolve(empty_clip_page()),
+      render_page: () => Promise.resolve(empty_clip_page()),
       fetch_asset: () =>
         Promise.resolve({ bytes: new Uint8Array(), content_type: "image/png" }),
       write_epub: () => Promise.resolve(),
       capture_start: () => Promise.resolve(),
-      capture_finish: () =>
-        Promise.resolve({
-          final_url: "https://example.com/",
-          html: "<html><body></body></html>",
-          content_type: "text/html",
-        }),
+      capture_finish: () => Promise.resolve(empty_clip_page()),
       capture_cancel: () => Promise.resolve(),
       on_capture_closed: () => Promise.resolve(() => undefined),
     },

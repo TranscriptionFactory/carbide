@@ -4,6 +4,7 @@ export {
   type ClipPort,
   type ClipPage,
   type ClipAsset,
+  type FigureSnapshot,
 } from "$lib/features/clip/ports";
 export { create_clip_tauri_adapter } from "$lib/features/clip/adapters/clip_tauri_adapter";
 export {

@@ -25,14 +25,35 @@ function to_clip_fetch_error(error: unknown): ClipFetchError {
   return new ClipFetchError(String(error), "other");
 }
 
+type RawClipPage = Omit<ClipPage, "figure_snapshots"> & {
+  figure_snapshots: Array<{ index: number; png: number[] }>;
+};
+
+function to_clip_page(raw: RawClipPage): ClipPage {
+  return {
+    ...raw,
+    figure_snapshots: raw.figure_snapshots.map(({ index, png }) => ({
+      index,
+      png: new Uint8Array(png),
+    })),
+  };
+}
+
 export function create_clip_tauri_adapter(): ClipPort {
   return {
     async fetch_page(url: string): Promise<ClipPage> {
       try {
-        return await tauri_invoke<ClipPage>("clip_fetch_page", { url });
+        return to_clip_page(
+          await tauri_invoke<RawClipPage>("clip_fetch_page", { url }),
+        );
       } catch (error) {
         throw to_clip_fetch_error(error);
       }
+    },
+    async render_page(url: string): Promise<ClipPage> {
+      return to_clip_page(
+        await tauri_invoke<RawClipPage>("clip_render_page", { url }),
+      );
     },
     async fetch_asset(url: string): Promise<ClipAsset> {
       const asset = await tauri_invoke<{
@@ -59,7 +80,9 @@ export function create_clip_tauri_adapter(): ClipPort {
       return tauri_invoke<void>("clip_capture_start", { url });
     },
     async capture_finish(): Promise<ClipPage> {
-      return tauri_invoke<ClipPage>("clip_capture_finish");
+      return to_clip_page(
+        await tauri_invoke<RawClipPage>("clip_capture_finish"),
+      );
     },
     async capture_cancel(): Promise<void> {
       return tauri_invoke<void>("clip_capture_cancel");

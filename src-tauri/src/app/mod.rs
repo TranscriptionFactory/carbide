@@ -373,6 +373,7 @@ pub fn run() {
             features::clip::capture::clip_capture_start,
             features::clip::capture::clip_capture_finish,
             features::clip::capture::clip_capture_cancel,
+            features::clip::capture::clip_render_page,
             features::plugin::marketplace::marketplace_fetch_index,
             features::plugin::marketplace::marketplace_install_plugin,
             shared::buffer::open_buffer,
