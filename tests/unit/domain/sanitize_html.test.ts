@@ -51,6 +51,13 @@ describe("sanitize_html", () => {
       expect(sanitize_html(html)).toBe("<p>content</p>");
     });
 
+    it("removes disallowed svg whole instead of leaking its labels as text", () => {
+      const result = sanitize_html(
+        "<p>Before</p><svg><text>4e:55</text><title>Circuit</title></svg><p>After</p>",
+      );
+      expect(result).toBe("<p>Before</p><p>After</p>");
+    });
+
     it("removes iframe elements", () => {
       const html = '<iframe src="evil.html"></iframe><p>ok</p>';
       expect(sanitize_html(html)).toBe("<p>ok</p>");
@@ -154,6 +161,58 @@ describe("sanitize_html_preview", () => {
     expect(result.body).not.toContain("foreignObject");
     expect(result.body).not.toContain("action=");
     expect(result.body).toContain("disabled");
+  });
+});
+
+describe("sanitize_html_preview inline svg", () => {
+  const preview = (svg_body: string) =>
+    sanitize_html_preview(`<svg viewBox="0 0 10 10">${svg_body}</svg>`).body;
+
+  it("keeps viewBox with its camelCase name", () => {
+    expect(preview("")).toContain('viewBox="0 0 10 10"');
+  });
+
+  it("keeps diagram structure: defs, gradients, clip paths, text, images", () => {
+    const body = preview(
+      '<defs><linearGradient id="g"><stop offset="0" stop-color="red"></stop></linearGradient><clipPath id="c"><circle r="4"></circle></clipPath></defs>' +
+        '<g clip-path="url(#c)"><image href="https://example.com/a.webp" width="4" height="4" preserveAspectRatio="xMidYMid slice"></image></g>' +
+        '<text x="1" y="2" text-anchor="middle">4e:55<tspan dx="1">pointed</tspan></text><title>Circuit</title>',
+    );
+    expect(body).toContain('<linearGradient id="g">');
+    expect(body).toContain('stop-color="red"');
+    expect(body).toContain('<clipPath id="c">');
+    expect(body).toContain('clip-path="url(#c)"');
+    expect(body).toContain('<image href="https://example.com/a.webp"');
+    expect(body).toContain('preserveAspectRatio="xMidYMid slice"');
+    expect(body).toContain("<tspan");
+    expect(body).toContain("<title>Circuit</title>");
+  });
+
+  it("removes scripts, event handlers, and animation elements", () => {
+    const body = preview(
+      '<script>alert(1)</script><circle r="1" onload="alert(1)"></circle><a href="#x"><set attributeName="href" to="javascript:alert(1)"></set></a><animate attributeName="x"></animate>',
+    );
+    expect(body).not.toContain("script");
+    expect(body).not.toContain("onload");
+    expect(body).not.toContain("<set");
+    expect(body).not.toContain("<animate");
+    expect(body).not.toContain("javascript:");
+  });
+
+  it("only lets use and gradients reference same-document fragments", () => {
+    const body = preview(
+      '<use href="#shape"></use><use href="https://evil.test/sprite.svg#x"></use><use xlink:href="data:image/svg+xml,x"></use>',
+    );
+    expect(body).toContain('<use href="#shape">');
+    expect(body).not.toContain("evil.test");
+    expect(body).not.toContain("data:image/svg+xml");
+  });
+
+  it("strips javascript: from svg links and images", () => {
+    const body = preview(
+      '<a href="javascript:alert(1)"><text>x</text></a><a xlink:href="javascript:alert(2)"></a><image href=" javascript:alert(3)"></image>',
+    );
+    expect(body).not.toContain("javascript:");
   });
 });
 

@@ -13,6 +13,7 @@ import {
 import {
   plan_image_localization,
   rewrite_image_srcs,
+  type ImageLocalizationPlan,
 } from "$lib/features/clip/domain/localize_images";
 import {
   build_clip_frontmatter,
@@ -27,10 +28,13 @@ import { uniquify_note_path } from "$lib/features/folder";
 import type { VaultStore } from "$lib/features/vault";
 import type { OpStore } from "$lib/app/orchestration/op_store.svelte";
 import {
+  get_preview_allowlist,
   html_to_markdown,
   sanitize_html,
   to_xhtml_document,
 } from "$lib/shared/html";
+import { map_with_concurrency } from "$lib/shared/utils/concurrent";
+import { create_write_queue } from "$lib/shared/utils/write_queue";
 import {
   as_markdown_text,
   as_note_path,
@@ -65,14 +69,17 @@ export type ClipResult =
       primary: ClipOutput;
       images_total: number;
       images_failed: number;
+      images_skipped: number;
     }
   | { status: "skipped" }
   | { status: "failed"; error: string; kind: ClipFetchErrorKind };
 
 type LocalizedImages = {
   asset_paths: Map<string, AssetPath>;
-  failed: number;
+  plan: ImageLocalizationPlan;
 };
+
+const IMAGE_FETCH_CONCURRENCY = 6;
 
 function image_filename_from_url(url: string): string | null {
   try {
@@ -212,8 +219,9 @@ export class ClipService {
       status: "clipped",
       outputs,
       primary,
-      images_total: localized.asset_paths.size + localized.failed,
-      images_failed: localized.failed,
+      images_total: localized.plan.urls.length + localized.plan.skipped,
+      images_failed: localized.plan.urls.length - localized.asset_paths.size,
+      images_skipped: localized.plan.skipped,
     };
   }
 
@@ -224,27 +232,38 @@ export class ClipService {
     attachment_folder: string,
     vault_id: VaultId,
   ): Promise<LocalizedImages> {
-    const urls = plan_image_localization(readable.content_html, base_url);
+    const plan = plan_image_localization(readable.content_html, base_url);
     const asset_paths = new Map<string, AssetPath>();
-    let failed = 0;
-    for (const url of urls) {
-      try {
-        const asset = await this.clip_port.fetch_asset(url);
-        const asset_path = await this.assets_port.write_image_asset(vault_id, {
-          note_path: as_note_path(note_path),
-          image: {
-            bytes: asset.bytes,
-            mime_type: asset.content_type,
-            file_name: image_filename_from_url(url),
-          },
-          attachment_folder,
-        });
-        asset_paths.set(url, asset_path);
-      } catch {
-        failed += 1;
-      }
-    }
-    return { asset_paths, failed };
+    // Writes stay serialized: the backend picks a free filename and then
+    // writes, so concurrent writes of same-named images can collide.
+    const enqueue_write = create_write_queue();
+    await map_with_concurrency(
+      plan.urls,
+      IMAGE_FETCH_CONCURRENCY,
+      async (url) => {
+        try {
+          const asset = await this.clip_port.fetch_asset(url);
+          await enqueue_write("assets", async () => {
+            const asset_path = await this.assets_port.write_image_asset(
+              vault_id,
+              {
+                note_path: as_note_path(note_path),
+                image: {
+                  bytes: asset.bytes,
+                  mime_type: asset.content_type,
+                  file_name: image_filename_from_url(url),
+                },
+                attachment_folder,
+              },
+            );
+            asset_paths.set(url, asset_path);
+          });
+        } catch {
+          // counted as failed via asset_paths.size
+        }
+      },
+    );
+    return { asset_paths, plan };
   }
 
   private relative_mapping(
@@ -304,7 +323,9 @@ export class ClipService {
       base_url,
       this.relative_mapping(artifact_anchor, localized),
     );
-    const sanitized = sanitize_html(rewritten);
+    const sanitized = sanitize_html(rewritten, {
+      allowed_elements: get_preview_allowlist(),
+    });
     const safe_title = title.replace(/&/g, "&amp;").replace(/</g, "&lt;");
     const html = `<title>${safe_title}</title>\n${sanitized}`;
     const saved = await this.document_service.save_html_artifact(

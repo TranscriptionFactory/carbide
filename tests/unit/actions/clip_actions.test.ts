@@ -51,6 +51,7 @@ function create_harness({
       primary: { kind: "markdown", path: "clips/a.md" },
       images_total: 0,
       images_failed: 0,
+      images_skipped: 0,
     }),
     capture_start: vi.fn().mockResolvedValue(undefined),
     capture_cancel: vi.fn().mockResolvedValue(undefined),
@@ -183,6 +184,23 @@ describe("clip actions capture flow", () => {
     );
     expect(harness.clip_service.capture_start).not.toHaveBeenCalled();
     expect(mocked_toast.success).toHaveBeenCalled();
+  });
+
+  it("reports images that failed or stayed remote over the limit", async () => {
+    const harness = create_harness();
+    harness.clip_service.clip_page.mockResolvedValueOnce({
+      status: "clipped",
+      outputs: [{ kind: "markdown", path: "clips/a.md" }],
+      primary: { kind: "markdown", path: "clips/a.md" },
+      images_total: 520,
+      images_failed: 1,
+      images_skipped: 20,
+    });
+    await confirm(harness);
+
+    expect(mocked_toast.success).toHaveBeenCalledWith(
+      "Clipped page — 1 image could not be saved, 20 over the image limit left as remote links",
+    );
   });
 
   it("offers the capture window on a blocked fetch error", async () => {
