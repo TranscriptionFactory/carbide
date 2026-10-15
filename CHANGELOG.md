@@ -1,5 +1,13 @@
 # carbide
 
+## 2.40.2
+
+### Patch Changes
+
+- 07294ac: Saving several images at once can no longer overwrite one with another. Image assets (paste, drop, web clips) now claim their filename atomically before writing, so two images with the same name saved in the same millisecond get distinct files. Web clips download and save images fully in parallel as a result.
+- 8c67cbc: Web clips now keep figures whose look depends on the page's own styling, such as thumbnails positioned over a diagram, canvas charts and CSS sprites. Carbide renders the page in a hidden window, snapshots each of these figures, and shows the snapshot with its caption; the figure's original images and text stay in a collapsed "Figure elements" section beneath it. Works on macOS and Linux; clips of pages without such figures are unchanged.
+- 0b52133: Web clipping keeps far more of a page's images and diagrams. Images are downloaded six at a time, up to 500 per page (was 20); any over the limit are listed in the clip toast. Inline SVG diagrams, including their embedded and lazy-loaded thumbnails, now survive in clipped HTML and in the HTML viewer, which also stops dropping `viewBox` from every inline SVG. Figures are no longer gutted by Readability's cleanup, so thumbnail grids and click-to-select galleries inside `<figure>` come through. Markdown clips no longer collect stray SVG label text.
+
 ## 2.40.1
 
 ### Patch Changes
