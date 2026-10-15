@@ -1,10 +1,16 @@
 import type { VaultId } from "$lib/shared/types/ids";
 import type { EpubInput } from "$lib/shared/types/epub";
 
+export type FigureSnapshot = {
+  index: number;
+  png: Uint8Array;
+};
+
 export type ClipPage = {
   final_url: string;
   html: string;
   content_type: string;
+  figure_snapshots: FigureSnapshot[];
 };
 
 export type ClipAsset = {
@@ -26,6 +32,7 @@ export class ClipFetchError extends Error {
 
 export interface ClipPort {
   fetch_page(url: string): Promise<ClipPage>;
+  render_page(url: string): Promise<ClipPage>;
   fetch_asset(url: string): Promise<ClipAsset>;
   write_epub(
     vault_id: VaultId,

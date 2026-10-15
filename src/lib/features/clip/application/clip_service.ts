@@ -3,7 +3,12 @@ import {
   type ClipFetchErrorKind,
   type ClipPage,
   type ClipPort,
+  type FigureSnapshot,
 } from "$lib/features/clip/ports";
+import {
+  apply_figure_snapshots,
+  snapshot_url,
+} from "$lib/features/clip/domain/apply_figure_snapshots";
 import type { EpubImage } from "$lib/shared/types/epub";
 import { epub_media_type } from "$lib/shared/domain/epub_media_type";
 import {
@@ -135,7 +140,19 @@ export class ClipService {
     if (request.source === "capture") {
       return this.clip_port.capture_finish();
     }
-    return this.clip_port.fetch_page(request.url);
+    const page = await this.clip_port.fetch_page(request.url);
+    return this.prefer_rendered_figures(page);
+  }
+
+  // The rendered page is used only when it snapshotted composite figures;
+  // otherwise the fetched HTML stays the source, as it always was.
+  private async prefer_rendered_figures(page: ClipPage): Promise<ClipPage> {
+    try {
+      const rendered = await this.clip_port.render_page(page.final_url);
+      return rendered.figure_snapshots.length > 0 ? rendered : page;
+    } catch {
+      return page;
+    }
   }
 
   private async run_clip(
@@ -143,10 +160,10 @@ export class ClipService {
     vault_id: VaultId,
   ): Promise<ClipResult> {
     const page = await this.fetch_page(request);
-    const readable = extract_readable_content(page.html, page.final_url);
+    const extracted = extract_readable_content(page.html, page.final_url);
     const now = new Date(this.now_ms());
     const custom_name = request.name?.trim() || null;
-    const title_source = custom_name ?? readable.title;
+    const title_source = custom_name ?? extracted.title;
     const stem = clip_stem(title_source, page.final_url);
     const title = title_source ?? stem;
 
@@ -158,11 +175,19 @@ export class ClipService {
     );
 
     const localized = await this.localize_images(
-      readable,
+      extracted,
       page.final_url,
       note_path,
       request.attachment_folder,
       vault_id,
+    );
+    const readable = await this.show_figure_snapshots(
+      extracted,
+      page.figure_snapshots,
+      note_path,
+      request.attachment_folder,
+      vault_id,
+      localized,
     );
 
     const outputs: ClipOutput[] = [];
@@ -219,7 +244,9 @@ export class ClipService {
       outputs,
       primary,
       images_total: localized.plan.urls.length + localized.plan.skipped,
-      images_failed: localized.plan.urls.length - localized.asset_paths.size,
+      images_failed: localized.plan.urls.filter(
+        (url) => !localized.asset_paths.has(url),
+      ).length,
       images_skipped: localized.plan.skipped,
     };
   }
@@ -239,25 +266,72 @@ export class ClipService {
       async (url) => {
         try {
           const asset = await this.clip_port.fetch_asset(url);
-          const asset_path = await this.assets_port.write_image_asset(
+          const asset_path = await this.save_image(
+            asset.bytes,
+            asset.content_type,
+            image_filename_from_url(url),
+            note_path,
+            attachment_folder,
             vault_id,
-            {
-              note_path: as_note_path(note_path),
-              image: {
-                bytes: asset.bytes,
-                mime_type: asset.content_type,
-                file_name: image_filename_from_url(url),
-              },
-              attachment_folder,
-            },
           );
           asset_paths.set(url, asset_path);
         } catch {
-          // counted as failed via asset_paths.size
+          // counted as failed: the url has no asset path
         }
       },
     );
     return { asset_paths, plan };
+  }
+
+  private async show_figure_snapshots(
+    readable: ReadableContent,
+    snapshots: FigureSnapshot[],
+    note_path: string,
+    attachment_folder: string,
+    vault_id: VaultId,
+    localized: LocalizedImages,
+  ): Promise<ReadableContent> {
+    if (snapshots.length === 0) return readable;
+    const sources = new Map<number, string>();
+    await map_with_concurrency(
+      snapshots,
+      IMAGE_FETCH_CONCURRENCY,
+      async ({ index, png }) => {
+        try {
+          const asset_path = await this.save_image(
+            png,
+            "image/png",
+            `figure-snapshot-${String(index)}.png`,
+            note_path,
+            attachment_folder,
+            vault_id,
+          );
+          localized.asset_paths.set(snapshot_url(index), asset_path);
+          sources.set(index, snapshot_url(index));
+        } catch {
+          // the figure keeps its original elements
+        }
+      },
+    );
+    return {
+      ...readable,
+      content_html: apply_figure_snapshots(readable.content_html, sources),
+    };
+  }
+
+  private save_image(
+    bytes: Uint8Array,
+    mime_type: string,
+    file_name: string | null,
+    note_path: string,
+    attachment_folder: string,
+    vault_id: VaultId,
+  ): Promise<AssetPath> {
+    return this.assets_port.write_image_asset(vault_id, {
+      note_path: as_note_path(note_path),
+      image: { bytes, mime_type, file_name },
+      attachment_folder,
+    });
   }
 
   private relative_mapping(
