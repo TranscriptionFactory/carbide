@@ -34,7 +34,6 @@ import {
   to_xhtml_document,
 } from "$lib/shared/html";
 import { map_with_concurrency } from "$lib/shared/utils/concurrent";
-import { create_write_queue } from "$lib/shared/utils/write_queue";
 import {
   as_markdown_text,
   as_note_path,
@@ -234,30 +233,25 @@ export class ClipService {
   ): Promise<LocalizedImages> {
     const plan = plan_image_localization(readable.content_html, base_url);
     const asset_paths = new Map<string, AssetPath>();
-    // Writes stay serialized: the backend picks a free filename and then
-    // writes, so concurrent writes of same-named images can collide.
-    const enqueue_write = create_write_queue();
     await map_with_concurrency(
       plan.urls,
       IMAGE_FETCH_CONCURRENCY,
       async (url) => {
         try {
           const asset = await this.clip_port.fetch_asset(url);
-          await enqueue_write("assets", async () => {
-            const asset_path = await this.assets_port.write_image_asset(
-              vault_id,
-              {
-                note_path: as_note_path(note_path),
-                image: {
-                  bytes: asset.bytes,
-                  mime_type: asset.content_type,
-                  file_name: image_filename_from_url(url),
-                },
-                attachment_folder,
+          const asset_path = await this.assets_port.write_image_asset(
+            vault_id,
+            {
+              note_path: as_note_path(note_path),
+              image: {
+                bytes: asset.bytes,
+                mime_type: asset.content_type,
+                file_name: image_filename_from_url(url),
               },
-            );
-            asset_paths.set(url, asset_path);
-          });
+              attachment_folder,
+            },
+          );
+          asset_paths.set(url, asset_path);
         } catch {
           // counted as failed via asset_paths.size
         }

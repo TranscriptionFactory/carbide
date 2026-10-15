@@ -876,32 +876,41 @@ fn sanitize_stem(value: &str) -> String {
 }
 
 // Checked-then-written without a lock (TOCTOU): acceptable for a single-user desktop app.
-pub(crate) fn uniquify_filename(dir: &Path, filename: &str) -> String {
-    if !dir.join(filename).exists() {
-        return filename.to_string();
-    }
-
+fn filename_candidates(filename: &str) -> impl Iterator<Item = String> + '_ {
     let path = Path::new(filename);
     let stem = path
         .file_stem()
         .and_then(|s| s.to_str())
         .unwrap_or(filename);
     let ext = path.extension().and_then(|e| e.to_str());
+    let with_suffix = move |suffix: String| match ext {
+        Some(ext) => format!("{stem}-{suffix}.{ext}"),
+        None => format!("{stem}-{suffix}"),
+    };
+    std::iter::once(filename.to_string())
+        .chain((2..10_000u32).map(move |counter| with_suffix(counter.to_string())))
+        .chain(std::iter::once_with(move || {
+            with_suffix(storage::now_ms().to_string())
+        }))
+}
 
-    for counter in 2..10_000u32 {
-        let candidate = match ext {
-            Some(ext) => format!("{stem}-{counter}.{ext}"),
-            None => format!("{stem}-{counter}"),
-        };
-        if !dir.join(&candidate).exists() {
-            return candidate;
+/// Claims a free name in `dir` by creating it with O_EXCL, so concurrent
+/// writers can never be handed the same name. The caller overwrites the
+/// empty placeholder and must remove it if that write fails.
+pub(crate) fn reserve_unique_filename(dir: &Path, filename: &str) -> Result<String, String> {
+    std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
+    for candidate in filename_candidates(filename) {
+        match std::fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(dir.join(&candidate))
+        {
+            Ok(_) => return Ok(candidate),
+            Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => continue,
+            Err(e) => return Err(e.to_string()),
         }
     }
-
-    match ext {
-        Some(ext) => format!("{stem}-{}.{ext}", storage::now_ms()),
-        None => format!("{stem}-{}", storage::now_ms()),
-    }
+    Err(format!("no free filename for {filename}"))
 }
 
 #[tauri::command]
@@ -984,15 +993,18 @@ pub fn write_image_asset_inner(
         None => PathBuf::from(attachment_folder),
     };
 
-    let filename = uniquify_filename(&root.join(&asset_dir), &filename);
+    let probe = storage::normalize_relative_path(&asset_dir.join(&filename));
+    let probe_abs = safe_vault_abs_for_write(&root, &probe)?;
+    let dir_abs = probe_abs.parent().ok_or("invalid asset path")?;
+    let filename = reserve_unique_filename(dir_abs, &filename)?;
+    let abs = dir_abs.join(&filename);
 
-    let rel_path = asset_dir.join(filename);
-    let rel = storage::normalize_relative_path(&rel_path);
-    let abs = safe_vault_abs_for_write(&root, &rel)?;
+    if let Err(error) = io_utils::atomic_write(&abs, args.bytes) {
+        let _ = std::fs::remove_file(&abs);
+        return Err(error);
+    }
 
-    io_utils::atomic_write(&abs, args.bytes)?;
-
-    Ok(rel)
+    Ok(storage::normalize_relative_path(&asset_dir.join(filename)))
 }
 
 #[derive(Debug, Deserialize, Type)]
