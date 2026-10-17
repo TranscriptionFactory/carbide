@@ -20,6 +20,7 @@ export class DailyNotesService {
     private vault_store: VaultStore,
     private notes_store: NotesStore,
     private now_ms: () => number,
+    private on_file_written: (path: string) => void,
   ) {}
 
   async ensure_daily_note(
@@ -74,6 +75,7 @@ export class DailyNotesService {
     const title = path.replace(/\.md$/, "").split("/").pop() ?? "";
     const markdown = build_daily_frontmatter(title, this.now_ms());
     try {
+      this.on_file_written(path);
       const note = await this.notes_port.create_note(
         vault.id,
         as_note_path(path),

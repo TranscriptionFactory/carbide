@@ -997,6 +997,9 @@ export function create_app_context(input: {
     stores.vault,
     stores.notes,
     now_ms,
+    (path) => {
+      watcher_service.suppress_next(path);
+    },
   );
 
   const reference_service = new ReferenceService(

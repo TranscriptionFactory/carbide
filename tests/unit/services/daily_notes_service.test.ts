@@ -40,15 +40,17 @@ function make_service() {
   const notes_store = new NotesStore();
   const notes_port = make_notes_port_mock();
   const now_ms = () => 1745452800000;
+  const on_file_written = vi.fn();
 
   const service = new DailyNotesService(
     notes_port,
     vault_store,
     notes_store,
     now_ms,
+    on_file_written,
   );
 
-  return { service, vault_store, notes_store, notes_port };
+  return { service, vault_store, notes_store, notes_port, on_file_written };
 }
 
 describe("DailyNotesService", () => {
@@ -73,6 +75,46 @@ describe("DailyNotesService", () => {
     );
 
     expect(result).toBe("Journal/2026-04-23.md");
+  });
+
+  // The watcher sees the create as an external change unless it is armed
+  // first; on a slow (iCloud) vault that raised a false conflict card.
+  it("arms the watcher before creating the note", async () => {
+    const { service, vault_store, notes_port, on_file_written } =
+      make_service();
+    vault_store.vault = create_test_vault();
+
+    await service.ensure_daily_note(
+      "Journal",
+      "%Y-%m-%d",
+      new Date(2026, 3, 23),
+    );
+
+    expect(on_file_written).toHaveBeenCalledWith("Journal/2026-04-23.md");
+    expect(on_file_written.mock.invocationCallOrder[0]).toBeLessThan(
+      vi.mocked(notes_port.create_note).mock.invocationCallOrder[0]!,
+    );
+  });
+
+  it("does not arm the watcher for a note already in the store", async () => {
+    const { service, vault_store, notes_store, on_file_written } =
+      make_service();
+    vault_store.vault = create_test_vault();
+    await service.ensure_daily_note(
+      "Journal",
+      "%Y-%m-%d",
+      new Date(2026, 3, 23),
+    );
+    on_file_written.mockClear();
+
+    await service.ensure_daily_note(
+      "Journal",
+      "%Y-%m-%d",
+      new Date(2026, 3, 23),
+    );
+
+    expect(notes_store.notes).toHaveLength(1);
+    expect(on_file_written).not.toHaveBeenCalled();
   });
 
   it("creates note with year subfolder", async () => {
