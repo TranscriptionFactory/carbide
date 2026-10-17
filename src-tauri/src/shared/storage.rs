@@ -223,6 +223,10 @@ pub fn internal_error_response(scheme: &str, reason: impl AsRef<str>) -> Respons
     build_response(500, "text/plain; charset=utf-8", reason.as_bytes().to_vec())
 }
 
+fn strip_query(path: &str) -> &str {
+    path.split_once('?').map_or(path, |(before, _)| before)
+}
+
 fn try_url_decode(input: &str) -> Result<String, String> {
     let mut bytes = Vec::with_capacity(input.len());
     let mut iter = input.bytes();
@@ -512,6 +516,7 @@ pub fn handle_asset_request(app: &AppHandle, req: Request<Vec<u8>>) -> Response<
         .trim_start_matches("carbide-asset://")
         .trim_start_matches("carbide-asset:")
         .trim_start_matches('/');
+    let rel = strip_query(rel);
 
     let parts: Vec<&str> = rel.splitn(3, '/').collect();
     if parts.len() < 2 {
@@ -618,6 +623,19 @@ pub fn handle_asset_request(app: &AppHandle, req: Request<Vec<u8>>) -> Response<
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn strip_query_drops_cache_busting_suffix() {
+        assert_eq!(
+            strip_query("vault/abc/assets/fv-pos.webp?v=7"),
+            "vault/abc/assets/fv-pos.webp"
+        );
+    }
+
+    #[test]
+    fn strip_query_keeps_encoded_question_mark_in_file_name() {
+        assert_eq!(strip_query("vault/abc/what%3F.png"), "vault/abc/what%3F.png");
+    }
 
     #[test]
     fn url_decode_ascii_space() {
