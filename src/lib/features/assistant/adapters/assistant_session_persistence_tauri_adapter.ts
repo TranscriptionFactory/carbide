@@ -84,6 +84,24 @@ export function create_assistant_session_persistence_tauri_adapter(): AssistantS
     return stored.map(stamp_kind);
   }
 
+  // Index updates are read-modify-write over one file; run them one at a time
+  // so a burst (hydration pruning) cannot drop another call's change.
+  let index_tail: Promise<unknown> = Promise.resolve();
+  function update_index(
+    vault_id: string,
+    change: (index: AssistantSessionSummary[]) => AssistantSessionSummary[],
+  ): Promise<void> {
+    const run = index_tail.then(async () => {
+      await write_json(
+        vault_id,
+        INDEX_PATH,
+        change(await read_index(vault_id)),
+      );
+    });
+    index_tail = run.catch(() => undefined);
+    return run;
+  }
+
   return {
     async list_sessions(vault_id) {
       return sort_by_recency(await read_index(vault_id));
@@ -111,21 +129,16 @@ export function create_assistant_session_persistence_tauri_adapter(): AssistantS
 
     async save_session(vault_id, session) {
       await write_json(vault_id, session_path(session.id), session);
-      const index = await read_index(vault_id);
-      const next = sort_by_recency([
-        to_assistant_session_summary(session),
-        ...index.filter((s) => s.id !== session.id),
-      ]);
-      await write_json(vault_id, INDEX_PATH, next);
+      await update_index(vault_id, (index) =>
+        sort_by_recency([
+          to_assistant_session_summary(session),
+          ...index.filter((s) => s.id !== session.id),
+        ]),
+      );
     },
 
     async delete_session(vault_id, id) {
-      const index = await read_index(vault_id);
-      await write_json(
-        vault_id,
-        INDEX_PATH,
-        index.filter((s) => s.id !== id),
-      );
+      await update_index(vault_id, (index) => index.filter((s) => s.id !== id));
       await delete_file(vault_id, session_path(id));
       await delete_file(vault_id, legacy_session_path(id));
     },

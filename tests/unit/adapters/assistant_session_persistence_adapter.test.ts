@@ -127,6 +127,34 @@ describe("assistant_session_persistence_tauri_adapter", () => {
     expect(await adapter.list_sessions("v1")).toEqual([]);
   });
 
+  // Hydration prunes every stale session at once without awaiting; each
+  // delete rewrites the shared index, so none may clobber another's removal.
+  it("applies every concurrent delete to the index", async () => {
+    fake_vault();
+    const adapter = create_assistant_session_persistence_tauri_adapter();
+    for (const id of ["a", "b", "c", "d"]) {
+      await adapter.save_session("v1", session({ id }));
+    }
+
+    await Promise.all(
+      ["a", "b", "c"].map((id) => adapter.delete_session("v1", id)),
+    );
+
+    expect((await adapter.list_sessions("v1")).map((s) => s.id)).toEqual(["d"]);
+  });
+
+  it("keeps every concurrently saved session in the index", async () => {
+    fake_vault();
+    const adapter = create_assistant_session_persistence_tauri_adapter();
+
+    await Promise.all(
+      ["a", "b", "c"].map((id) => adapter.save_session("v1", session({ id }))),
+    );
+
+    const ids = (await adapter.list_sessions("v1")).map((s) => s.id);
+    expect(ids.sort()).toEqual(["a", "b", "c"]);
+  });
+
   it("returns an empty list and null when nothing is persisted", async () => {
     fake_vault();
     const adapter = create_assistant_session_persistence_tauri_adapter();
