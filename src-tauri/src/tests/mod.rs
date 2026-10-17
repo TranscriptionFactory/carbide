@@ -10,6 +10,8 @@ mod agent_permissions;
 #[path = "../../tests/pipeline_node_runtime.rs"]
 mod pipeline_node_runtime;
 
+#[path = "../../tests/atomic_write_concurrency.rs"]
+mod atomic_write_concurrency;
 #[path = "../../tests/notes_service_safety.rs"]
 mod notes_service_safety;
 

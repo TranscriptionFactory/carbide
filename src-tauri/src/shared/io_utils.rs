@@ -1,6 +1,27 @@
+use std::collections::hash_map::DefaultHasher;
 use std::fs::OpenOptions;
+use std::hash::{Hash, Hasher};
 use std::io::Write;
 use std::path::Path;
+use std::sync::{LazyLock, Mutex, MutexGuard};
+
+const WRITE_LOCK_STRIPES: usize = 64;
+
+// Every write to a path stages through the same "<file>.tmp" (the watcher keys
+// self-write suppression on that name), so concurrent writers to one path
+// would truncate and rename each other's staging file. Striped by path hash to
+// stay bounded without per-path bookkeeping.
+static WRITE_LOCKS: LazyLock<[Mutex<()>; WRITE_LOCK_STRIPES]> =
+    LazyLock::new(|| std::array::from_fn(|_| Mutex::new(())));
+
+fn lock_path(path: &Path) -> MutexGuard<'static, ()> {
+    let mut hasher = DefaultHasher::new();
+    path.hash(&mut hasher);
+    let stripe = (hasher.finish() as usize) % WRITE_LOCK_STRIPES;
+    WRITE_LOCKS[stripe]
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+}
 
 /// Atomically writes content to a file by writing to a temporary file first,
 /// syncing it to disk, and then renaming it to the target path.
@@ -9,6 +30,7 @@ pub fn atomic_write<P: AsRef<Path>, C: AsRef<[u8]>>(path: P, content: C) -> Resu
     let dir = path
         .parent()
         .ok_or_else(|| format!("Invalid path: {}", path.display()))?;
+    let _guard = lock_path(path);
 
     // Ensure parent directory exists
     std::fs::create_dir_all(dir).map_err(|e| {
