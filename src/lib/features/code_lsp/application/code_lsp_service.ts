@@ -9,6 +9,7 @@ import type {
   CodeLspEvent,
   CodeLspHoverResult,
   CodeLspLocation,
+  CodeLspStatus,
 } from "$lib/features/code_lsp/types/code_lsp";
 
 export const EXT_TO_LANGUAGE: Record<string, string> = {
@@ -181,15 +182,13 @@ export class CodeLspService {
     this.diagnostics_store.push("code_lsp", path, diagnostics);
   }
 
-  private handle_status(language: string, status: unknown) {
+  private handle_status(language: string, status: CodeLspStatus) {
     if (typeof status === "string") {
       this.store.set_status(language, status);
-    } else if (status && typeof status === "object") {
-      if ("error" in status) {
-        this.store.set_status(language, "error");
-      } else if ("unavailable" in status) {
-        this.store.set_status(language, "unavailable");
-      }
+    } else if ("error" in status) {
+      this.store.set_status(language, "error");
+    } else {
+      this.store.set_unavailable(language, status.unavailable.reason);
     }
   }
 }

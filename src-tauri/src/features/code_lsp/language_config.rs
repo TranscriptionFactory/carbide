@@ -1,7 +1,8 @@
 use std::collections::HashMap;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::{LazyLock, Mutex};
 
+use crate::features::pipeline::service::{get_expanded_path, resolve_cli};
 use crate::shared::lsp_client::LspClientConfig;
 
 #[derive(Debug, Clone)]
@@ -9,6 +10,7 @@ pub struct LanguageServerSpec {
     pub language_id: &'static str,
     pub binary_name: &'static str,
     pub args: &'static [&'static str],
+    pub install_hint: &'static str,
 }
 
 const KNOWN_SERVERS: &[LanguageServerSpec] = &[
@@ -16,36 +18,43 @@ const KNOWN_SERVERS: &[LanguageServerSpec] = &[
         language_id: "python",
         binary_name: "pyright-langserver",
         args: &["--stdio"],
+        install_hint: "npm install -g pyright",
     },
     LanguageServerSpec {
         language_id: "rust",
         binary_name: "rust-analyzer",
         args: &[],
+        install_hint: "rustup component add rust-analyzer",
     },
     LanguageServerSpec {
         language_id: "typescript",
         binary_name: "typescript-language-server",
         args: &["--stdio"],
+        install_hint: "npm install -g typescript-language-server typescript",
     },
     LanguageServerSpec {
         language_id: "javascript",
         binary_name: "typescript-language-server",
         args: &["--stdio"],
+        install_hint: "npm install -g typescript-language-server typescript",
     },
     LanguageServerSpec {
         language_id: "go",
         binary_name: "gopls",
         args: &[],
+        install_hint: "go install golang.org/x/tools/gopls@latest",
     },
     LanguageServerSpec {
         language_id: "json",
         binary_name: "vscode-json-language-server",
         args: &["--stdio"],
+        install_hint: "npm install -g vscode-langservers-extracted",
     },
     LanguageServerSpec {
         language_id: "yaml",
         binary_name: "yaml-language-server",
         args: &["--stdio"],
+        install_hint: "npm install -g yaml-language-server",
     },
 ];
 
@@ -84,15 +93,17 @@ pub fn find_binary(binary_name: &str) -> Option<PathBuf> {
     resolved
 }
 
+/// Searches the expanded PATH, not the process's own: a Finder-launched app
+/// inherits launchd's minimal PATH, which misses Homebrew and npm installs.
 fn resolve_binary_on_path(binary_name: &str) -> Option<PathBuf> {
-    std::process::Command::new("which")
-        .arg(binary_name)
-        .output()
-        .ok()
-        .filter(|o| o.status.success())
-        .and_then(|o| String::from_utf8(o.stdout).ok())
-        .map(|s| PathBuf::from(s.trim()))
-        .filter(|p| p.exists())
+    resolve_cli(binary_name).resolved_path.map(PathBuf::from)
+}
+
+pub fn missing_server_reason(spec: &LanguageServerSpec) -> String {
+    format!(
+        "{} not found on PATH; install it with `{}`, then restart Carbide",
+        spec.binary_name, spec.install_hint
+    )
 }
 
 #[cfg(test)]
@@ -105,7 +116,7 @@ pub fn _reset_binary_cache_for_tests() {
 
 pub fn build_lsp_config(
     spec: &LanguageServerSpec,
-    binary_path: &PathBuf,
+    binary_path: &Path,
     root_uri: &str,
     working_dir: &str,
 ) -> LspClientConfig {
@@ -147,6 +158,7 @@ pub fn build_lsp_config(
             }
         }),
         working_dir: Some(working_dir.to_string()),
+        path_env: Some(get_expanded_path()),
         request_timeout_ms: 30_000,
         init_timeout_ms: 30_000,
     }

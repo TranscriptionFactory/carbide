@@ -21,6 +21,9 @@
   const effective_provider = $derived(stores.markdown_lsp.effective_provider);
   const capabilities = $derived(stores.markdown_lsp.capabilities);
   const code_lsp_statuses = $derived(stores.code_lsp.server_statuses);
+  const code_lsp_unavailable_reasons = $derived(
+    stores.code_lsp.unavailable_reasons,
+  );
 
   const active_tab = $derived(stores.lsp.active_lsp_tab);
 
@@ -257,7 +260,11 @@
                 ? "var(--destructive)"
                 : "var(--muted-foreground)"}
         ></span>
-        <span class="LspResults__status-text">{lang} &middot; {status}</span>
+        <span
+          class="LspResults__status-text"
+          title={code_lsp_unavailable_reasons.get(lang)}
+          >{lang} &middot; {status}</span
+        >
       {/each}
     {/if}
   </div>

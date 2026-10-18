@@ -50,6 +50,8 @@ mod embedding_query_guard;
 mod vector_ingest_guard;
 #[path = "../../tests/hnsw_compaction.rs"]
 mod hnsw_compaction;
+#[path = "../../tests/code_lsp_missing_server.rs"]
+mod code_lsp_missing_server;
 #[path = "../../tests/retrieval_eval.rs"]
 mod retrieval_eval;
 

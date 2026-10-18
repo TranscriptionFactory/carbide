@@ -50,11 +50,23 @@ in the background to flag style and formatting issues. Related settings:
 ## Code LSP
 
 Open a source file and Carbide starts the matching language server for its
-extension — Rust, TypeScript/JavaScript, Python, Go, C/C++, Java, C#, Ruby,
-shell, JSON/TOML/YAML, HTML/CSS/SCSS, Svelte, Vue, Lua, Kotlin, Swift, and Zig.
-Servers are discovered from your environment; when none is installed for a
-language, that language's status shows **unavailable** and the file opens without
-intelligence.
+extension. Servers are not bundled; install the ones you want:
+
+| Language                | Server                        | Install                                                |
+| ----------------------- | ----------------------------- | ------------------------------------------------------ |
+| Python                  | `pyright-langserver`          | `npm install -g pyright`                               |
+| Rust                    | `rust-analyzer`               | `rustup component add rust-analyzer`                   |
+| TypeScript / JavaScript | `typescript-language-server`  | `npm install -g typescript-language-server typescript` |
+| Go                      | `gopls`                       | `go install golang.org/x/tools/gopls@latest`           |
+| JSON                    | `vscode-json-language-server` | `npm install -g vscode-langservers-extracted`          |
+| YAML                    | `yaml-language-server`        | `npm install -g yaml-language-server`                  |
+
+Carbide searches your `PATH` plus the usual Homebrew, npm, nvm, fnm, mise,
+Volta and asdf locations, so servers installed from a terminal are found even
+when Carbide is launched from the Dock. When a server is missing, the file opens
+without intelligence and the language's status in the LSP panel shows
+**unavailable**; hover it for the install command. Restart Carbide after
+installing.
 
 ## Where binaries and config live
 

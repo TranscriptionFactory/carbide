@@ -10,18 +10,23 @@ use crate::shared::lsp_client::{
     LspRequestHandle, LspSessionStatus, RestartableConfig, RestartableLspClient, ServerNotification,
 };
 
-use super::language_config::{build_lsp_config, ext_to_language_id, find_binary, find_server_spec};
+use super::language_config::{
+    build_lsp_config, ext_to_language_id, find_binary, find_server_spec, missing_server_reason,
+    LanguageServerSpec,
+};
 use super::types::*;
 
 static WARNED_MISSING_SERVERS: LazyLock<Mutex<HashSet<String>>> =
     LazyLock::new(|| Mutex::new(HashSet::new()));
 
-fn warn_missing_server_once(language_id: &str, reason: &str) {
+/// Info, not warn: every code server is optional and user-installed, so a
+/// missing one is a normal configuration the UI already reports.
+fn log_missing_server_once(language_id: &str, reason: &str) {
     let mut warned = WARNED_MISSING_SERVERS
         .lock()
         .expect("warned-servers set poisoned");
     if warned.insert(language_id.to_string()) {
-        log::warn!("code_lsp: server unavailable for {language_id}: {reason}");
+        log::info!("code_lsp: server unavailable for {language_id}: {reason}");
     }
 }
 
@@ -91,8 +96,15 @@ impl CodeLspManager {
             if !is_language_enabled(&self.app, language_id) {
                 return Ok(());
             }
-            if let Err(e) = self.start_server(language_id).await {
-                warn_missing_server_once(language_id, &e);
+            let Some(spec) = find_server_spec(language_id) else {
+                return Ok(());
+            };
+            let Some(binary_path) = find_binary(spec.binary_name) else {
+                self.report_unavailable(spec);
+                return Ok(());
+            };
+            if let Err(e) = self.start_server(spec, &binary_path).await {
+                log::warn!("code_lsp: failed to start {language_id} server: {e}");
                 return Ok(());
             }
         }
@@ -215,12 +227,28 @@ impl CodeLspManager {
         Ok(())
     }
 
-    async fn start_server(&mut self, language_id: &str) -> Result<(), String> {
-        let spec = find_server_spec(language_id)
-            .ok_or_else(|| format!("No server config for {language_id}"))?;
+    fn report_unavailable(&self, spec: &LanguageServerSpec) {
+        let reason = missing_server_reason(spec);
+        log_missing_server_once(spec.language_id, &reason);
+        let _ = self.app.emit(
+            "code_lsp_event",
+            CodeLspEvent::ServerStatusChanged {
+                vault_id: self.vault_id.clone(),
+                language: spec.language_id.to_string(),
+                status: CodeLspStatus::Unavailable {
+                    language: spec.language_id.to_string(),
+                    reason,
+                },
+            },
+        );
+    }
 
-        let binary_path = find_binary(spec.binary_name)
-            .ok_or_else(|| format!("{} not found on PATH", spec.binary_name))?;
+    async fn start_server(
+        &mut self,
+        spec: &LanguageServerSpec,
+        binary_path: &Path,
+    ) -> Result<(), String> {
+        let language_id = spec.language_id;
 
         log::info!(
             "code_lsp: starting {} ({}) for vault {}",
@@ -234,7 +262,7 @@ impl CodeLspManager {
             .unwrap_or_else(|_| format!("file://{}", self.vault_path.display()));
         let lsp_config = build_lsp_config(
             spec,
-            &binary_path,
+            binary_path,
             &root_uri,
             &self.vault_path.to_string_lossy(),
         );

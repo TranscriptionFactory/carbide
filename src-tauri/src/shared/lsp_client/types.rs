@@ -15,6 +15,10 @@ pub struct LspClientConfig {
     pub root_uri: String,
     pub capabilities: serde_json::Value,
     pub working_dir: Option<String>,
+    // Overrides the child's PATH. A Finder-launched app inherits launchd's
+    // minimal PATH, under which an npm-installed server's `env node` shebang
+    // cannot find node.
+    pub path_env: Option<String>,
     pub request_timeout_ms: u64,
     pub init_timeout_ms: u64,
 }

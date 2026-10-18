@@ -28,7 +28,7 @@ pub enum CodeLspStatus {
     Running,
     Stopped,
     Starting,
-    Unavailable { language: String },
+    Unavailable { language: String, reason: String },
     Error { message: String },
 }
 

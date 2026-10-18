@@ -282,6 +282,9 @@ async fn lsp_run_loop(
     if let Some(dir) = &config.working_dir {
         cmd.current_dir(dir);
     }
+    if let Some(path) = &config.path_env {
+        cmd.env("PATH", path);
+    }
     let child_result = cmd.spawn();
 
     let mut child: Child = match child_result {

@@ -44,7 +44,7 @@ export type CodeLspStatus =
   | "running"
   | "stopped"
   | "starting"
-  | { unavailable: { language: string } }
+  | { unavailable: { language: string; reason: string } }
   | { error: { message: string } };
 
 export type CodeLspEvent =

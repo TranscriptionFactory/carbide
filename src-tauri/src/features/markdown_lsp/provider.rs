@@ -155,6 +155,7 @@ impl LspProvider for IweProvider {
                 }
             }),
             working_dir: Some(working_dir.to_string()),
+            path_env: None,
             request_timeout_ms: 30_000,
             init_timeout_ms: 30_000,
         }
@@ -273,6 +274,7 @@ impl LspProvider for MarkdownOxideProvider {
                 }
             }),
             working_dir: Some(working_dir.to_string()),
+            path_env: None,
             request_timeout_ms: 30_000,
             init_timeout_ms: 30_000,
         }
@@ -393,6 +395,7 @@ impl LspProvider for MarksmanProvider {
                 }
             }),
             working_dir: Some(working_dir.to_string()),
+            path_env: None,
             request_timeout_ms: 30_000,
             init_timeout_ms: 30_000,
         }

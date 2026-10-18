@@ -448,6 +448,7 @@ mod tests {
                 root_uri: "file:///vault".to_string(),
                 capabilities: serde_json::json!({}),
                 working_dir: None,
+                path_env: None,
                 request_timeout_ms: 100,
                 init_timeout_ms: 30_000,
             },
