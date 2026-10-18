@@ -484,6 +484,10 @@ struct VaultWorker {
     // embedding pass, whose remaining sections were then never re-scheduled.
     cancel: Arc<AtomicBool>,
     embed_cancel: Arc<AtomicBool>,
+    // Raised once, by `shutdown_worker`. Unlike the per-job tokens above it is
+    // never replaced, so writer-level work outside any job (compaction) can
+    // watch it for the worker's whole life.
+    shutdown: Arc<AtomicBool>,
     is_embedding: Arc<AtomicBool>,
     // Set when an EmbedBatch is enqueued, cleared when the worker dequeues it.
     // Closes the window between enqueue and dequeue where is_embedding is still
@@ -539,6 +543,7 @@ impl Drop for SearchDbState {
 }
 
 fn shutdown_worker(worker: &mut VaultWorker) {
+    worker.shutdown.store(true, Ordering::Relaxed);
     worker.cancel.store(true, Ordering::Relaxed);
     worker.embed_cancel.store(true, Ordering::Relaxed);
     let _ = worker.write_tx.send(DbCommand::Shutdown);
@@ -713,8 +718,14 @@ pub fn get_indexed_body_inner(
 
 pub(crate) fn shutdown_worker_internal(app: &AppHandle, vault_id: &str) -> Result<(), String> {
     let state = app.state::<SearchDbState>();
-    let mut map = state.workers.lock().map_err(|e| e.to_string())?;
-    if let Some(mut worker) = map.remove(vault_id) {
+    // Removed under the lock, joined outside it, for the reason `shutdown_all`
+    // gives: the writer takes this lock in `rearm_embed_pass`.
+    let worker = state
+        .workers
+        .lock()
+        .map_err(|e| e.to_string())?
+        .remove(vault_id);
+    if let Some(mut worker) = worker {
         shutdown_worker(&mut worker);
     }
     Ok(())
@@ -918,9 +929,20 @@ pub(crate) fn ensure_worker(app: &AppHandle, vault_id: &str) -> Result<(), Strin
     let ni = Arc::clone(&note_index);
     let bi = Arc::clone(&block_index);
     let vid_for_writer = vault_id.to_string();
+    let shutdown = Arc::new(AtomicBool::new(false));
+    let shutdown_for_writer = Arc::clone(&shutdown);
     let handle = std::thread::spawn(move || {
         set_current_thread_to_utility_qos();
-        writer_thread_loop(vid_for_writer, dump_dir, dims, rx, write_conn, ni, bi);
+        writer_thread_loop(
+            vid_for_writer,
+            dump_dir,
+            dims,
+            rx,
+            write_conn,
+            ni,
+            bi,
+            &shutdown_for_writer,
+        );
     });
 
     let worker = VaultWorker {
@@ -928,6 +950,7 @@ pub(crate) fn ensure_worker(app: &AppHandle, vault_id: &str) -> Result<(), Strin
         read_conn: Arc::new(Mutex::new(read_conn)),
         cancel: Arc::new(AtomicBool::new(false)),
         embed_cancel: Arc::new(AtomicBool::new(false)),
+        shutdown,
         is_embedding: Arc::new(AtomicBool::new(false)),
         embed_queued: Arc::new(AtomicBool::new(false)),
         embed_rearm: Arc::new(AtomicBool::new(false)),
@@ -941,6 +964,7 @@ pub(crate) fn ensure_worker(app: &AppHandle, vault_id: &str) -> Result<(), Strin
     Ok(())
 }
 
+#[allow(clippy::too_many_arguments)]
 fn writer_thread_loop(
     vault_id: String,
     dump_dir: PathBuf,
@@ -949,6 +973,7 @@ fn writer_thread_loop(
     conn: Connection,
     note_index: SharedVectorIndex,
     block_index: SharedVectorIndex,
+    shutdown: &AtomicBool,
 ) {
     let ctx = PersistCtx {
         dir: dump_dir,
@@ -987,6 +1012,11 @@ fn writer_thread_loop(
             LoopAction::Continue => {}
             LoopAction::Break => break,
         }
+
+        // Between commands rather than inside them, so the stale nodes that
+        // saves and embed passes leave behind are reclaimed before the settle
+        // dump persists them.
+        compact_indices_if_stale(&note_index, &block_index, shutdown);
 
         if is_settle {
             maybe_dump_indices(&conn, &ctx, &note_index, &block_index);
@@ -1787,23 +1817,35 @@ pub(crate) fn apply_note_embedding_on_save(
             }
         }
     }
-
-    compact_indices_if_stale(note_index, block_index);
 }
 
 /// Reclaims accumulated stale HNSW nodes once they exceed the rebuild threshold.
 /// Every re-embed overwrites a key, leaving a dead node `hnsw_rs` cannot delete;
 /// without this, the graph grows unbounded across edits until the next restart.
-fn compact_indices_if_stale(note_index: &SharedVectorIndex, block_index: &SharedVectorIndex) {
-    if let Ok(mut ni) = note_index.write() {
-        if ni.compact_if_stale() {
-            log::info!("note_index compacted: stale nodes reclaimed");
-        }
-    }
-    if let Ok(mut bi) = block_index.write() {
-        if bi.compact_if_stale() {
-            log::info!("block_index compacted: stale nodes reclaimed");
-        }
+fn compact_indices_if_stale(
+    note_index: &SharedVectorIndex,
+    block_index: &SharedVectorIndex,
+    shutdown: &AtomicBool,
+) {
+    compact_index_if_stale("note_index", note_index, shutdown);
+    compact_index_if_stale("block_index", block_index, shutdown);
+}
+
+/// Builds under the read lock so searches keep answering from the old graph,
+/// then swaps under the write lock. Nothing can mutate the index in between:
+/// the writer thread, which runs this, is its only mutator.
+fn compact_index_if_stale(name: &str, index: &SharedVectorIndex, shutdown: &AtomicBool) {
+    let compacted = match index.read() {
+        Ok(idx) if idx.needs_rebuild() => idx.build_compacted(shutdown),
+        _ => return,
+    };
+    let Some(compacted) = compacted else {
+        log::info!("{name} compaction abandoned for shutdown; stale nodes kept");
+        return;
+    };
+    if let Ok(mut idx) = index.write() {
+        idx.apply_compacted(compacted);
+        log::info!("{name} compacted: stale nodes reclaimed");
     }
 }
 
@@ -2829,8 +2871,6 @@ fn handle_embed_batch(
     // unresolved for the rest of the session. The embedded count reflects notes
     // written to note_embeddings, not raw model invocations. (ref: DL-003)
     finish_embed_pass(app_handle, vault_id, scope, cancel, embedded, pass_start.elapsed());
-
-    compact_indices_if_stale(note_index, block_index);
 
     // A deferred Shutdown must reach the writer loop, or it blocks on the
     // channel until the exit join times out and the dump is lost.

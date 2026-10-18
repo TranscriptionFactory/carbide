@@ -48,6 +48,8 @@ mod embedding_batch_fallback;
 mod embedding_query_guard;
 #[path = "../../tests/vector_ingest_guard.rs"]
 mod vector_ingest_guard;
+#[path = "../../tests/hnsw_compaction.rs"]
+mod hnsw_compaction;
 #[path = "../../tests/retrieval_eval.rs"]
 mod retrieval_eval;
 
