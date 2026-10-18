@@ -50,6 +50,11 @@ pub struct EmbeddingService {
     // second call skip a redundant BERT forward pass. Scoped to queries so a
     // concurrent document batch cannot evict it between those two calls.
     last_query: Mutex<Option<(String, Vec<f32>)>>,
+    // candle's Metal backend is not safe for concurrent forward passes on one
+    // device: overlapping passes return NaN or finite garbage, and the garbage
+    // passes `is_usable_vector`. Queries run on the blocking pool while the
+    // writer embeds documents, so every pass takes this lock.
+    forward_lock: Mutex<()>,
 }
 
 impl EmbeddingService {
@@ -138,6 +143,7 @@ impl EmbeddingService {
             pooling: spec.pooling,
             query_prefix: spec.query_prefix,
             last_query: Mutex::new(None),
+            forward_lock: Mutex::new(()),
         };
         service.check_encoder()?;
         Ok(service)
@@ -177,7 +183,10 @@ impl EmbeddingService {
         let result = results
             .pop()
             .ok_or_else(|| "no embedding result".to_string())?;
-        *self.last_query.lock().map_err(|e| e.to_string())? = Some((text.to_string(), result.clone()));
+        if is_usable_vector(&result) {
+            *self.last_query.lock().map_err(|e| e.to_string())? =
+                Some((text.to_string(), result.clone()));
+        }
         Ok(result)
     }
 
@@ -256,6 +265,10 @@ impl EmbeddingService {
             .map(|e| e.get_type_ids().to_vec())
             .collect();
 
+        let _forward = self
+            .forward_lock
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner);
         let token_ids = Tensor::new(token_ids, &self.device).map_err(|e| e.to_string())?;
         let attention_mask =
             Tensor::new(attention_masks, &self.device).map_err(|e| e.to_string())?;
