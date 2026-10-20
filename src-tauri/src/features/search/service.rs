@@ -26,7 +26,7 @@ use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use std::cell::RefCell;
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicU64, AtomicU8, Ordering};
 use std::sync::mpsc::{self, Receiver, SyncSender};
@@ -103,6 +103,40 @@ pub(crate) fn sweep_stale_note_vectors(
         }
     }
     removed
+}
+
+/// Drops every section vector whose note has no `notes` row, from the DB and
+/// the resident index. Unlike the note sweep this ignores scope: the block pass
+/// selects sections without consulting it, so dropping an out-of-scope note's
+/// sections would only have the next pass re-embed them.
+pub(crate) fn sweep_orphan_block_vectors(
+    conn: &Connection,
+    block_index: &SharedVectorIndex,
+    facts: &BTreeMap<String, NoteEmbedFacts>,
+) -> usize {
+    let mut orphans: BTreeSet<String> = vector_db::get_block_embedded_paths(conn)
+        .into_iter()
+        .filter(|path| !facts.contains_key(path))
+        .collect();
+    if let Ok(bi) = block_index.read() {
+        orphans.extend(
+            bi.keys_with_prefix("")
+                .into_iter()
+                .filter_map(|key| key.split('\0').next().map(str::to_string))
+                .filter(|path| !facts.contains_key(path)),
+        );
+    }
+    for path in &orphans {
+        if let Err(e) = vector_db::remove_block_embeddings(conn, path) {
+            log::warn!("embed_sweep: block remove failed for {path}: {e}");
+        }
+    }
+    if let Ok(mut bi) = block_index.write() {
+        for path in &orphans {
+            bi.remove_by_prefix(&format!("{path}\0"));
+        }
+    }
+    orphans.len()
 }
 
 /// Distinct code per `EmbeddingScope`, so a stored attempt scope can be compared
@@ -2575,6 +2609,10 @@ fn handle_embed_batch(
     let swept = sweep_stale_note_vectors(conn, note_index, &facts, scope);
     if swept > 0 {
         log::info!("embed_batch: swept {swept} stale note vectors for {vault_id}");
+    }
+    let swept_blocks = sweep_orphan_block_vectors(conn, block_index, &facts);
+    if swept_blocks > 0 {
+        log::info!("embed_batch: swept block vectors of {swept_blocks} orphaned paths for {vault_id}");
     }
     let notes_needing_embedding =
         notes_pending_embedding(conn, notes_cache, &facts, note_embed_enabled, scope);

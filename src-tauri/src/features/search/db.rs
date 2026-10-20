@@ -14,7 +14,7 @@ use regex::Regex;
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::Serialize;
 use specta::Type;
-use std::collections::{BTreeMap, BTreeSet, HashMap};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::LazyLock;
@@ -3127,20 +3127,7 @@ fn escape_fts_query(query: &str) -> String {
 /// ranks arbitrarily. The prefix-AND arm preserves recall when the exact phrase
 /// is absent. Single-word queries keep the original prefix behavior.
 fn build_fts_match(query: &str, scope: SearchScope) -> String {
-    let terms: Vec<String> = query
-        .split_whitespace()
-        .filter_map(|term| {
-            let clean: String = term
-                .chars()
-                .filter(|c| c.is_alphanumeric() || *c == '_' || *c == '-')
-                .collect();
-            if clean.is_empty() {
-                None
-            } else {
-                Some(clean)
-            }
-        })
-        .collect();
+    let terms = fts_terms(query);
 
     if terms.is_empty() {
         return String::new();
@@ -3159,12 +3146,67 @@ fn build_fts_match(query: &str, scope: SearchScope) -> String {
         prefix_and
     };
 
+    scope_fts_expr(expr, scope)
+}
+
+fn fts_terms(query: &str) -> Vec<String> {
+    query
+        .split_whitespace()
+        .filter_map(|term| {
+            let clean: String = term
+                .chars()
+                .filter(|c| c.is_alphanumeric() || *c == '_' || *c == '-')
+                .collect();
+            if clean.is_empty() {
+                None
+            } else {
+                Some(clean)
+            }
+        })
+        .collect()
+}
+
+fn scope_fts_expr(expr: String, scope: SearchScope) -> String {
     match scope {
         SearchScope::All => expr,
         SearchScope::Title => format!("title : ({expr})"),
         SearchScope::Path => format!("path : ({expr})"),
         SearchScope::Content => format!("body : ({expr})"),
     }
+}
+
+/// The subset of `candidates` containing the query as a verbatim phrase. Empty
+/// for single-term queries, where the phrase is the term and would only repeat
+/// the FTS ranking.
+pub fn paths_matching_phrase(
+    conn: &Connection,
+    query: &str,
+    scope: SearchScope,
+    candidates: &[&str],
+) -> Result<HashSet<String>, String> {
+    let terms = fts_terms(query);
+    if terms.len() < 2 || candidates.is_empty() {
+        return Ok(HashSet::new());
+    }
+
+    let match_expr = scope_fts_expr(format!("\"{}\"", terms.join(" ")), scope);
+    let placeholders = (2..=candidates.len() + 1)
+        .map(|i| format!("?{i}"))
+        .collect::<Vec<_>>()
+        .join(", ");
+    let sql = format!(
+        "SELECT path FROM notes_fts WHERE notes_fts MATCH ?1 AND path IN ({placeholders})"
+    );
+
+    let mut params: Vec<&dyn rusqlite::ToSql> = vec![&match_expr];
+    params.extend(candidates.iter().map(|p| p as &dyn rusqlite::ToSql));
+
+    let mut stmt = conn.prepare(&sql).map_err(|e| e.to_string())?;
+    let rows = stmt
+        .query_map(params.as_slice(), |row| row.get::<_, String>(0))
+        .map_err(|e| e.to_string())?;
+    rows.collect::<Result<HashSet<_>, _>>()
+        .map_err(|e| e.to_string())
 }
 
 fn like_contains_pattern(query: &str) -> String {

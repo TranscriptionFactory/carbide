@@ -8,7 +8,7 @@ use crate::features::search::model::IndexNoteMeta;
 use crate::features::search::service::{
     apply_note_embedding_on_save, block_embed_work_pending, embed_attempt_completed, embed_coverage,
     embedding_flags, embedding_scope_code, embedding_work_enabled, notes_pending_embedding,
-    sweep_stale_note_vectors, SaveEncoder,
+    sweep_orphan_block_vectors, sweep_stale_note_vectors, SaveEncoder,
 };
 use crate::features::search::vector_db;
 use crate::features::settings::service::SettingsStore;
@@ -768,6 +768,82 @@ fn sweep_is_idempotent() {
 
     assert_eq!((first, second), (1, 0));
     assert_eq!(embedded_keys(&note_index), vec!["a.md".to_string()]);
+}
+
+fn seed_block_vector(conn: &Connection, block_index: &SharedVectorIndex, path: &str) {
+    vector_db::upsert_block_embeddings(conn, path, "h1", &[vec![0.1_f32; 4]], "hash")
+        .expect("seed block embedding");
+    block_index
+        .write()
+        .expect("index lock")
+        .insert(&vector_db::block_window_key(path, "h1", 0), vec![0.1_f32; 4]);
+}
+
+fn block_paths(block_index: &SharedVectorIndex) -> Vec<String> {
+    let mut paths: Vec<String> = embedded_keys(block_index)
+        .into_iter()
+        .filter_map(|key| key.split('\0').next().map(str::to_string))
+        .collect();
+    paths.dedup();
+    paths
+}
+
+// The reported failure: an excluded folder's notes rows were deleted and its
+// note vectors swept, but its section vectors stayed resident indefinitely.
+#[test]
+fn block_sweep_drops_sections_of_paths_with_no_notes_row() {
+    let conn = conn_with_vector_schema();
+    let block_index = shared_index();
+    seed_block_vector(&conn, &block_index, ".reflect/copy.md");
+    seed_block_vector(&conn, &block_index, "kept.md");
+    let facts: BTreeMap<String, NoteEmbedFacts> =
+        [("kept.md".to_string(), vault("markdown"))].into_iter().collect();
+
+    let swept = sweep_orphan_block_vectors(&conn, &block_index, &facts);
+
+    assert_eq!(swept, 1);
+    let db_paths: Vec<String> = vector_db::get_block_embedded_paths(&conn).into_iter().collect();
+    assert_eq!(db_paths, vec!["kept.md".to_string()]);
+    assert_eq!(block_paths(&block_index), vec!["kept.md".to_string()]);
+}
+
+#[test]
+fn block_sweep_drops_index_keys_without_a_db_row() {
+    let conn = conn_with_vector_schema();
+    let block_index = shared_index();
+    seed_block_vector(&conn, &block_index, "kept.md");
+    block_index
+        .write()
+        .expect("index lock")
+        .insert(&vector_db::block_window_key("ghost.md", "h1", 0), vec![0.2_f32; 4]);
+    let facts: BTreeMap<String, NoteEmbedFacts> =
+        [("kept.md".to_string(), vault("markdown"))].into_iter().collect();
+
+    let swept = sweep_orphan_block_vectors(&conn, &block_index, &facts);
+
+    assert_eq!(swept, 1);
+    assert_eq!(block_paths(&block_index), vec!["kept.md".to_string()]);
+}
+
+#[test]
+fn block_sweep_keeps_out_of_scope_notes_and_is_idempotent() {
+    let conn = conn_with_vector_schema();
+    let block_index = shared_index();
+    seed_block_vector(&conn, &block_index, "a.md");
+    seed_block_vector(&conn, &block_index, "b.py");
+    seed_block_vector(&conn, &block_index, "gone.md");
+    let facts: BTreeMap<String, NoteEmbedFacts> = [
+        ("a.md".to_string(), vault("markdown")),
+        ("b.py".to_string(), vault("code")),
+    ]
+    .into_iter()
+    .collect();
+
+    let first = sweep_orphan_block_vectors(&conn, &block_index, &facts);
+    let second = sweep_orphan_block_vectors(&conn, &block_index, &facts);
+
+    assert_eq!((first, second), (1, 0));
+    assert_eq!(block_paths(&block_index), vec!["a.md".to_string(), "b.py".to_string()]);
 }
 
 /// The vault the readiness denominator exists for: one embeddable note beside

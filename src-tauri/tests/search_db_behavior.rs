@@ -2,7 +2,7 @@ use crate::features::notes::service as notes_service;
 use crate::features::search::db::{
     compute_sync_plan, count_bases_many, extract_frontmatter_properties, get_backlinks,
     get_manifest, get_note_meta, get_orphan_outlinks, get_outlinks, list_note_paths_by_prefix,
-    open_search_db_at_path, paths_matching_scope, query_bases, query_sections, re_resolve_orphan_outlinks,
+    open_search_db_at_path, paths_matching_phrase, paths_matching_scope, query_bases, query_sections, re_resolve_orphan_outlinks,
     rebuild_index, remove_note, remove_notes_by_prefix, rename_folder_paths, rename_note_path,
     search, search_headings, set_outlinks, suggest, suggest_planned, sync_index, upsert_note,
     upsert_note_simple,
@@ -518,6 +518,46 @@ fn search_ranks_verbatim_phrase_above_scattered_terms() {
         recall.first().map(|h| h.note.path.as_str()),
         Some("2026-06-08.md")
     );
+}
+
+#[test]
+fn paths_matching_phrase_keeps_only_verbatim_candidates() {
+    let tmp = TempDir::new().expect("temp dir");
+    let conn = open_search_db_at_path(&tmp.path().join("test.db")).expect("db should open");
+
+    let insert = |path: &str, body: &str| {
+        let meta = IndexNoteMeta {
+            id: path.to_string(),
+            path: path.to_string(),
+            title: path.trim_end_matches(".md").to_string(),
+            name: path.trim_end_matches(".md").to_string(),
+            mtime_ms: 100,
+            ctime_ms: 50,
+            size_bytes: body.len() as i64,
+            blurb: String::new(),
+            file_type: None,
+            source: None,
+        };
+        upsert_note(&conn, &meta, body).expect("upsert should succeed");
+    };
+
+    insert("exact.md", "## Example Invocation and Outcome\n\nRan it.");
+    insert("scattered.md", "An outcome. One invocation. And an example.");
+    insert("uncandidate.md", "Example invocation and outcome, again.");
+
+    let candidates = ["exact.md", "scattered.md"];
+    let matched = paths_matching_phrase(
+        &conn,
+        "## Example Invocation and Outcome",
+        SearchScope::All,
+        &candidates,
+    )
+    .expect("phrase lookup should succeed");
+    assert_eq!(matched, ["exact.md".to_string()].into_iter().collect());
+
+    let single = paths_matching_phrase(&conn, "example", SearchScope::All, &candidates)
+        .expect("phrase lookup should succeed");
+    assert!(single.is_empty(), "a single term is not a phrase");
 }
 
 #[test]

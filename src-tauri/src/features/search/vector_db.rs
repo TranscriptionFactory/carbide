@@ -494,6 +494,24 @@ pub fn mean_pool_normalize(vecs: &[Vec<f32>]) -> Vec<f32> {
     mean
 }
 
+pub fn get_block_embedded_paths(conn: &Connection) -> HashSet<String> {
+    let mut stmt = match conn.prepare("SELECT DISTINCT path FROM block_embeddings") {
+        Ok(s) => s,
+        Err(e) => {
+            log::warn!("get_block_embedded_paths: prepare failed: {e}");
+            return HashSet::new();
+        }
+    };
+    let rows = match stmt.query_map([], |row| row.get::<_, String>(0)) {
+        Ok(r) => r,
+        Err(e) => {
+            log::warn!("get_block_embedded_paths: query failed: {e}");
+            return HashSet::new();
+        }
+    };
+    rows.filter_map(|r| r.ok()).collect()
+}
+
 pub fn get_block_embedded_keys(conn: &Connection) -> HashSet<String> {
     let mut stmt = match conn.prepare("SELECT DISTINCT path, heading_id FROM block_embeddings") {
         Ok(s) => s,

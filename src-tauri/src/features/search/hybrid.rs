@@ -85,7 +85,19 @@ pub fn hybrid_search(
     )
     .unwrap_or_default();
 
-    let merged = rrf_merge(conn, &fts_hits, &vector_hits, limit, &query.text);
+    let fts_paths: Vec<&str> = fts_hits.iter().map(|h| h.note.path.as_str()).collect();
+    let phrase_paths =
+        search_db::paths_matching_phrase(conn, &query.text, query.scope, &fts_paths)
+            .unwrap_or_default();
+
+    let merged = rrf_merge(
+        conn,
+        &fts_hits,
+        &vector_hits,
+        &phrase_paths,
+        limit,
+        &query.text,
+    );
 
     Ok(merged)
 }
@@ -150,10 +162,14 @@ pub(crate) fn vector_leg(
     hits
 }
 
+// Verbatim phrase matches form a third ranked list, in FTS order. Without it a
+// note that is the only exact match ranks behind long notes that merely
+// contain every term and sit mid-pack in both the FTS and vector lists.
 fn rrf_merge(
     conn: &Connection,
     fts_hits: &[SearchHit],
     vector_hits: &[(String, f32)],
+    phrase_paths: &HashSet<String>,
     limit: usize,
     query: &str,
 ) -> Vec<HybridSearchHit> {
@@ -182,6 +198,15 @@ fn rrf_merge(
             entry.1 = HitSource::Both;
         }
         entry.0 += rrf_score;
+    }
+
+    let phrase_ranked = fts_hits
+        .iter()
+        .filter(|h| phrase_paths.contains(&h.note.path));
+    for (rank, hit) in phrase_ranked.enumerate() {
+        if let Some(entry) = scores.get_mut(&hit.note.path) {
+            entry.0 += 1.0 / (K + rank as f64 + 1.0);
+        }
     }
 
     let fts_map: HashMap<&str, &SearchHit> =
@@ -273,8 +298,39 @@ mod tests {
 
     // All candidates appear in fts_hits, so rrf_merge never touches the conn.
     fn merge(fts: &[SearchHit], vector: &[(String, f32)], query: &str) -> Vec<HybridSearchHit> {
+        merge_with_phrase(fts, vector, &[], query)
+    }
+
+    fn merge_with_phrase(
+        fts: &[SearchHit],
+        vector: &[(String, f32)],
+        phrase: &[&str],
+        query: &str,
+    ) -> Vec<HybridSearchHit> {
         let conn = Connection::open_in_memory().expect("in-memory db");
-        rrf_merge(&conn, fts, vector, 10, query)
+        let phrase: HashSet<String> = phrase.iter().map(|p| p.to_string()).collect();
+        rrf_merge(&conn, fts, vector, &phrase, 10, query)
+    }
+
+    // The reported failure: the only verbatim match ranks first in FTS but is
+    // absent from the vector list, while long digests that contain every term
+    // sit mid-pack in both lists and outscore it on two contributions.
+    #[test]
+    fn sole_phrase_match_outranks_notes_in_both_lists() {
+        let mut fts = vec![hit("exact.md", "Overlap Registry")];
+        let mut vector = Vec::new();
+        for i in 0..10 {
+            let digest = format!("digest{i}.md");
+            fts.push(hit(&digest, "Digest"));
+            vector.push((digest, 0.4f32));
+        }
+        let query = "Example Invocation and Outcome";
+
+        let without = merge(&fts, &vector, query);
+        assert_ne!(without[0].note.path, "exact.md", "test setup: dual-list hits must win without the phrase list");
+
+        let with = merge_with_phrase(&fts, &vector, &["exact.md"], query);
+        assert_eq!(with[0].note.path, "exact.md");
     }
 
     #[test]
