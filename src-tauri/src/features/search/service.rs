@@ -6,9 +6,12 @@ use crate::features::search::embed_scope::{
 use crate::features::search::embedding_model;
 use crate::features::search::embeddings::{
     self, embed_with_singles_fallback, estimated_chunk_count, is_cancellation,
-    usable_query_vector, EmbeddingService, EmbeddingServiceState, ModelLoadNotify,
+    usable_query_vector, EmbeddingService, EmbeddingServiceState,
 };
 use crate::features::search::hnsw_index::{SharedVectorIndex, VectorIndex};
+use crate::features::search::cross_encoder::{CrossEncoder, RerankerState, RERANKER_ID};
+use crate::features::search::model_slot::ModelLoadNotify;
+use crate::features::search::rerank;
 use crate::features::search::model::{
     BatchSemanticEdge, BlockSearchHit, BlockSectionHit, DateRange, EmbeddingStatus,
     HybridSearchHit, IndexNoteMeta, MissingLinkHit, ScopeFilter, SearchHit, SearchScope,
@@ -57,6 +60,12 @@ pub(crate) fn embedding_flags(store: &settings_service::SettingsStore) -> (bool,
         flag("embedding_note_enabled"),
         flag("embedding_block_enabled"),
     )
+}
+
+/// Global-only like the embedding flags. Off by default: it adds ~1 s to each
+/// retrieval it applies to (ref: DL-007).
+pub(crate) fn rerank_enabled(store: &settings_service::SettingsStore) -> bool {
+    settings_service::read_bool(store, "search_rerank_enabled")
 }
 
 fn resolve_embedding_scope(app: &AppHandle, vault_id: &str) -> EmbeddingScope {
@@ -2407,13 +2416,14 @@ fn handle_sync_paths(
 /// cut, a 50 KB note is WordPiece-tokenized in full to keep 256 tokens of it,
 /// which at batch width 32 is the dominant cost of the fallback pass.
 fn embed_text_for_note(conn: &Connection, path: &str) -> Option<String> {
-    let body = search_db::get_fts_body(conn, path).filter(|b| !b.trim().is_empty())?;
+    let body = search_db::get_fts_body(conn, path)?;
     let title = search_db::get_note_title(conn, path).unwrap_or_default();
-    Some(embedding_model::embed_input(
-        &title,
-        &[],
-        embeddings::pretruncate(&body),
-    ))
+    note_embed_text(&title, &body)
+}
+
+pub(crate) fn note_embed_text(title: &str, body: &str) -> Option<String> {
+    (!body.trim().is_empty())
+        .then(|| embedding_model::embed_input(title, &[], embeddings::pretruncate(body)))
 }
 
 /// Drains commands that queued up while an embedding pass held the writer
@@ -4651,60 +4661,35 @@ pub async fn hybrid_search(
     date_range: Option<DateRange>,
     include_linked: Option<bool>,
     scope: Option<ScopeFilter>,
+    rerank: Option<bool>,
 ) -> Result<Vec<HybridSearchHit>, String> {
-    let model = query_model(&app)?;
     let limit = limit.unwrap_or(20);
+    let rerank = rerank.unwrap_or(false);
     let date_range = date_range.map(|d| (d.start_ms, d.end_ms));
     let include_linked = include_linked.unwrap_or(true);
 
-    let (read_conn, ni) = {
-        ensure_worker(&app, &vault_id)?;
-        let state = app.state::<SearchDbState>();
-        let map = state.workers.lock().map_err(|e| e.to_string())?;
-        let worker = map.get(vault_id.as_str()).ok_or("vault worker not found")?;
-        (
-            Arc::clone(&worker.read_conn),
-            Arc::clone(&worker.note_index),
-        )
-    };
-
     tauri::async_runtime::spawn_blocking(move || {
-        let conn = read_conn.lock().map_err(|e| e.to_string())?;
-        let idx = ni.read().map_err(|e| e.to_string())?;
-        hybrid::hybrid_search(
-            &conn,
-            &idx,
-            &model,
+        run_hybrid_search(
+            &app,
+            &vault_id,
             &query,
             limit,
             date_range,
             include_linked,
             scope.as_ref(),
+            rerank,
         )
     })
     .await
     .map_err(|e| e.to_string())?
 }
 
-pub(crate) fn hybrid_search_sync(
+pub(crate) fn context_search_sync(
     app: &AppHandle,
     vault_id: &str,
     query: &str,
     limit: usize,
 ) -> Result<Vec<HybridSearchHit>, String> {
-    let model = query_model(app)?;
-
-    ensure_worker(app, vault_id)?;
-    let state = app.state::<SearchDbState>();
-    let (read_conn, ni) = {
-        let map = state.workers.lock().map_err(|e| e.to_string())?;
-        let worker = map.get(vault_id).ok_or("vault worker not found")?;
-        (Arc::clone(&worker.read_conn), Arc::clone(&worker.note_index))
-    };
-
-    let conn = read_conn.lock().map_err(|e| e.to_string())?;
-    let idx = ni.read().map_err(|e| e.to_string())?;
-
     let query_input = SearchQueryInput {
         raw: query.to_string(),
         text: query.to_string(),
@@ -4712,7 +4697,80 @@ pub(crate) fn hybrid_search_sync(
     };
 
     // Agent/MCP-facing search has no user setting to read; linked sources stay in.
-    hybrid::hybrid_search(&conn, &idx, &model, &query_input, limit, None, true, None)
+    run_hybrid_search(app, vault_id, &query_input, limit, None, true, None, true)
+}
+
+/// Hybrid search for every caller: fused hits, reordered by the cross-encoder
+/// when the caller asks for it (`rerank`: context retrieval for the assistant
+/// and MCP, never the per-keystroke omnibar) and the setting is on and the
+/// model resident. Locks are held for fusion and passage selection only;
+/// scoring runs after they are released so a rerank never blocks other reads
+/// on the vault. Without a reranker the result is exactly the fused list at
+/// `limit`.
+#[allow(clippy::too_many_arguments)]
+fn run_hybrid_search(
+    app: &AppHandle,
+    vault_id: &str,
+    query: &SearchQueryInput,
+    limit: usize,
+    date_range: Option<(i64, i64)>,
+    include_linked: bool,
+    scope: Option<&ScopeFilter>,
+    rerank: bool,
+) -> Result<Vec<HybridSearchHit>, String> {
+    let model = query_model(app)?;
+    let reranker = rerank.then(|| query_reranker(app)).flatten();
+    let read_conn = get_read_conn_arc(app, vault_id)?;
+    let (note_index, block_index) = get_index_arcs(app, vault_id)?;
+    let conn = read_conn.lock().map_err(|e| e.to_string())?;
+    let notes = note_index.read().map_err(|e| e.to_string())?;
+
+    let Some(reranker) = reranker else {
+        return hybrid::hybrid_search(
+            &conn,
+            &notes,
+            &model,
+            query,
+            limit,
+            date_range,
+            include_linked,
+            scope,
+        );
+    };
+
+    let blocks = block_index.read().map_err(|e| e.to_string())?;
+    let candidates = rerank::rerank_candidates(
+        &conn,
+        &notes,
+        &blocks,
+        &model,
+        query,
+        limit,
+        date_range,
+        include_linked,
+        scope,
+    )?;
+    drop((blocks, notes, conn));
+    Ok(candidates.rerank(
+        &query.text,
+        reranker.as_ref(),
+        |text| model.split_to_token_budget(text),
+        limit,
+    ))
+}
+
+/// The resident reranker, or `None` — disabled, or still loading. A cold
+/// model starts loading in the background and this query ranks by fusion.
+fn query_reranker(app: &AppHandle) -> Option<Arc<CrossEncoder>> {
+    if !rerank_enabled(&settings_service::load_settings(app).unwrap_or_default()) {
+        return None;
+    }
+    let state = app.state::<RerankerState>();
+    if let Some(reranker) = state.try_get(RERANKER_ID) {
+        return Some(reranker);
+    }
+    state.init_in_background(resolve_embedding_cache_dir(app), RERANKER_ID.to_string(), app);
+    None
 }
 
 #[tauri::command]

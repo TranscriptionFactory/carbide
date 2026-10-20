@@ -1,4 +1,4 @@
-use crate::features::search::embeddings::InitQueue;
+use crate::features::search::model_slot::InitQueue;
 
 const MODEL: &str = "snowflake-arctic-embed-xs";
 const OTHER: &str = "bge-small-en-v1.5";

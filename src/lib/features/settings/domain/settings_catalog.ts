@@ -917,6 +917,14 @@ export const SETTINGS_REGISTRY: SettingDefinition[] = [
     keywords: ["omnibar", "hybrid", "search", "semantic", "vector"],
   },
   {
+    key: "search_rerank_enabled",
+    label: "Rerank AI Context Retrieval",
+    description:
+      "Re-score notes retrieved for the assistant and MCP with a local cross-encoder model (downloads ~90 MB on first use, adds about a second per retrieval)",
+    category: "Semantic",
+    keywords: ["rerank", "cross-encoder", "relevance", "search", "semantic"],
+  },
+  {
     key: "graph_force_link_distance",
     label: "Link Distance",
     description:

@@ -1,3 +1,4 @@
+pub mod cross_encoder;
 pub mod db;
 pub mod embed_scope;
 pub mod embedding_model;
@@ -7,6 +8,8 @@ pub mod hnsw_index;
 pub mod html_extractor;
 pub mod hybrid;
 pub mod model;
+pub mod model_slot;
+pub mod rerank;
 pub mod service;
 pub mod tag_promotion;
 pub mod text_extractor;

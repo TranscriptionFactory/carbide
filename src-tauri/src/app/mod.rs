@@ -122,6 +122,7 @@ pub fn run() {
         .manage(features::watcher::service::WatcherState::default())
         .manage(features::search::service::SearchDbState::default())
         .manage(features::search::embeddings::EmbeddingServiceState::default())
+        .manage(features::search::cross_encoder::RerankerState::default())
         .manage(features::plugin::service::PluginService::new())
         .manage(features::plugin::watcher::PluginWatcherState::default())
         .manage(shared::buffer::BufferManager::new())

@@ -322,6 +322,7 @@ export type EditorSettings = {
   embedding_scope: EmbeddingScope;
   embedding_note_enabled: boolean;
   embedding_block_enabled: boolean;
+  search_rerank_enabled: boolean;
   native_link_hover_enabled: boolean;
   native_wiki_suggest_enabled: boolean;
   native_link_click_enabled: boolean;
@@ -463,6 +464,7 @@ export const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
   embedding_scope: "documents",
   embedding_note_enabled: true,
   embedding_block_enabled: true,
+  search_rerank_enabled: false,
   native_link_hover_enabled: true,
   native_wiki_suggest_enabled: true,
   native_link_click_enabled: true,
@@ -687,6 +689,7 @@ export const GLOBAL_ONLY_SETTING_KEYS: readonly (keyof EditorSettings)[] = [
   "embedding_model_id",
   "embedding_note_enabled",
   "embedding_block_enabled",
+  "search_rerank_enabled",
 ] as const;
 
 const GLOBAL_ONLY_SET = new Set<string>(GLOBAL_ONLY_SETTING_KEYS);

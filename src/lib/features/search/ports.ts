@@ -168,6 +168,7 @@ export interface SearchPort {
     date_range?: DateRange | null,
     include_linked?: boolean,
     scope?: ScopeFilter | null,
+    rerank?: boolean,
   ): Promise<HybridSearchHit[]>;
   search_blocks(
     vault_id: VaultId,

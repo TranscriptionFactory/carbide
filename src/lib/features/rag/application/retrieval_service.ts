@@ -317,6 +317,7 @@ export class RetrievalService {
         date_range,
         include_linked,
         scope,
+        true,
       ),
       this.search_port
         .search_blocks(vault_id, query, limit, date_range, scope)

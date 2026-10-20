@@ -10,12 +10,14 @@
 //! `CARBIDE_MODEL_CACHE` overrides the model cache dir, following the
 //! convention in `embedding_device_probe.rs`.
 
+use crate::features::search::cross_encoder::CrossEncoder;
 use crate::features::search::db as search_db;
 use crate::features::search::embedding_model::{self, DEFAULT_MODEL_SHORT_ID};
 use crate::features::search::embeddings::{usable_query_vector, EmbeddingService};
 use crate::features::search::hnsw_index::{SharedVectorIndex, VectorIndex};
 use crate::features::search::hybrid;
 use crate::features::search::model::{ScopeFilter, SearchScope};
+use crate::features::search::rerank::{self, PassageScorer};
 use crate::features::search::service::{apply_note_embedding_on_save, SaveEncoder, SearchQueryInput};
 use crate::features::search::vector_db;
 use rusqlite::Connection;
@@ -24,11 +26,12 @@ use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, RwLock};
+use std::time::Instant;
 use tempfile::TempDir;
 
 const RECALL_CUTOFFS: [usize; 4] = [1, 3, 5, 10];
 const TOP_N: usize = 10;
-const MODES: [&str; 4] = ["fts", "vector", "hybrid", "blocks"];
+const MODES: [&str; 5] = ["fts", "vector", "hybrid", "hybrid+rerank", "blocks"];
 
 #[derive(Debug, Clone)]
 struct ExpectedHit {
@@ -317,7 +320,7 @@ fn parse_scope(conn: &Connection, scope: &serde_json::Value) -> Option<ScopeFilt
     })
 }
 
-fn model_cache_dir() -> PathBuf {
+pub(crate) fn model_cache_dir() -> PathBuf {
     if let Ok(dir) = std::env::var("CARBIDE_MODEL_CACHE") {
         return PathBuf::from(dir);
     }
@@ -398,6 +401,46 @@ fn run_hybrid(
         .collect()
 }
 
+#[allow(clippy::too_many_arguments)]
+fn run_hybrid_rerank(
+    conn: &Connection,
+    note_index: &SharedVectorIndex,
+    block_index: &SharedVectorIndex,
+    model: &EmbeddingService,
+    reranker: &dyn PassageScorer,
+    query: &str,
+    limit: usize,
+    date_range: Option<(i64, i64)>,
+    scope: Option<&ScopeFilter>,
+) -> Vec<(String, Option<String>)> {
+    let query_input = SearchQueryInput {
+        raw: query.to_string(),
+        text: query.to_string(),
+        scope: SearchScope::All,
+    };
+    let candidates = {
+        let notes = note_index.read().expect("index lock");
+        let blocks = block_index.read().expect("index lock");
+        rerank::rerank_candidates(conn, &notes, &blocks, model, &query_input, limit, date_range, true, scope)
+    };
+    let Ok(candidates) = candidates else {
+        return Vec::new();
+    };
+    candidates
+        .rerank(query, reranker, |text| model.split_to_token_budget(text), limit)
+        .into_iter()
+        .map(|hit| (hit.note.path, None))
+        .collect()
+}
+
+fn percentile_ms(samples: &mut [u128], p: f64) -> u128 {
+    if samples.is_empty() {
+        return 0;
+    }
+    samples.sort_unstable();
+    samples[((samples.len() - 1) as f64 * p).round() as usize]
+}
+
 fn run_blocks(
     conn: &Connection,
     block_index: &SharedVectorIndex,
@@ -456,6 +499,7 @@ fn retrieval_eval_report() {
 
     let model =
         EmbeddingService::new(model_cache_dir(), DEFAULT_MODEL_SHORT_ID).expect("load embedding model");
+    let reranker = CrossEncoder::new(model_cache_dir()).expect("load reranker");
     let dims = embedding_model::lookup(DEFAULT_MODEL_SHORT_ID).dims;
     let note_index: SharedVectorIndex = Arc::new(RwLock::new(VectorIndex::new(dims)));
     let block_index: SharedVectorIndex = Arc::new(RwLock::new(VectorIndex::new(dims)));
@@ -490,6 +534,8 @@ fn retrieval_eval_report() {
     let mut by_mode_type: HashMap<(&'static str, String), MetricAcc> = HashMap::new();
     let mut types_seen: Vec<String> = Vec::new();
     let mut unsupported = 0usize;
+    let mut hybrid_ms: Vec<u128> = Vec::new();
+    let mut rerank_ms: Vec<u128> = Vec::new();
 
     for q in &fixture.queries {
         // A folder/tag scope resolves to L3's ScopeFilter and is scored like
@@ -521,16 +567,23 @@ fn retrieval_eval_report() {
         let limit = TOP_N.max(q.k);
         let scope_ref = scope_filter.as_ref();
 
-        let results: [(&'static str, Vec<(String, Option<String>)>); 4] = [
+        let started = Instant::now();
+        let hybrid_hits = run_hybrid(&conn, &note_index, &model, &q.query, limit, date_range, scope_ref);
+        hybrid_ms.push(started.elapsed().as_millis());
+        let started = Instant::now();
+        let reranked_hits = run_hybrid_rerank(
+            &conn, &note_index, &block_index, &model, &reranker, &q.query, limit, date_range, scope_ref,
+        );
+        rerank_ms.push(started.elapsed().as_millis());
+
+        let results: [(&'static str, Vec<(String, Option<String>)>); 5] = [
             ("fts", run_fts(&conn, &q.query, limit, date_range, scope_ref)),
             (
                 "vector",
                 run_vector(&conn, &note_index, &model, &q.query, limit, date_range, scope_ref),
             ),
-            (
-                "hybrid",
-                run_hybrid(&conn, &note_index, &model, &q.query, limit, date_range, scope_ref),
-            ),
+            ("hybrid", hybrid_hits),
+            ("hybrid+rerank", reranked_hits),
             (
                 "blocks",
                 run_blocks(&conn, &block_index, &model, &q.query, limit, date_range, scope_ref),
@@ -564,6 +617,14 @@ fn retrieval_eval_report() {
         }
     }
 
+    println!(
+        "-- latency (ms) -- hybrid p50={} p95={} | hybrid+rerank p50={} p95={}",
+        percentile_ms(&mut hybrid_ms, 0.5),
+        percentile_ms(&mut hybrid_ms, 0.95),
+        percentile_ms(&mut rerank_ms, 0.5),
+        percentile_ms(&mut rerank_ms, 0.95),
+    );
+
     if let Ok(out_path) = std::env::var("CARBIDE_EVAL_OUT") {
         let mut report = serde_json::Map::new();
         for mode in MODES {
@@ -586,5 +647,55 @@ fn retrieval_eval_report() {
             serde_json::to_string_pretty(&serde_json::Value::Object(report)).expect("serialize report"),
         )
         .expect("write eval report");
+    }
+}
+
+/// Real-vault spot check on a snapshot of the app's search cache: prints the
+/// fused and the reranked top 10 per query, with latency. `CARBIDE_PROBE_DIR`
+/// holds `<vault_id>.db` and its HNSW dumps (copy them; the probe may migrate
+/// the DB); `CARBIDE_PROBE_QUERIES` is one query per line.
+#[test]
+#[ignore]
+fn rerank_real_vault_probe() {
+    let dir = PathBuf::from(std::env::var("CARBIDE_PROBE_DIR").expect("CARBIDE_PROBE_DIR"));
+    let queries = std::env::var("CARBIDE_PROBE_QUERIES").expect("CARBIDE_PROBE_QUERIES");
+    let db_path = std::fs::read_dir(&dir)
+        .expect("probe dir")
+        .filter_map(Result::ok)
+        .map(|e| e.path())
+        .find(|p| p.extension().is_some_and(|ext| ext == "db"))
+        .expect("a .db file in CARBIDE_PROBE_DIR");
+    let vault_id = db_path.file_stem().and_then(|s| s.to_str()).expect("db stem").to_string();
+    let conn = search_db::open_search_db_at_path(&db_path).expect("open db");
+    let token = vector_db::get_model_version(&conn).expect("stored model version");
+    let short_id = token.split('@').next().expect("model id in token");
+    let dims = embedding_model::lookup(short_id).dims;
+    let load = |name: &str| -> SharedVectorIndex {
+        let basename = format!("{vault_id}-{name}");
+        Arc::new(RwLock::new(VectorIndex::load_or_rebuild(&conn, name, dims, &dir, &basename, &token)))
+    };
+    let note_index = load("notes");
+    let block_index = load("blocks");
+    let model = EmbeddingService::new(model_cache_dir(), short_id).expect("load embedding model");
+    let reranker = CrossEncoder::new(model_cache_dir()).expect("load reranker");
+
+    for query in queries.lines().map(str::trim).filter(|q| !q.is_empty()) {
+        let started = Instant::now();
+        let fused = run_hybrid(&conn, &note_index, &model, query, TOP_N, None, None);
+        let fused_ms = started.elapsed().as_millis();
+        let started = Instant::now();
+        let reranked =
+            run_hybrid_rerank(&conn, &note_index, &block_index, &model, &reranker, query, TOP_N, None, None);
+        let reranked_ms = started.elapsed().as_millis();
+
+        println!("\n=== {query:?} ===");
+        println!("-- hybrid ({fused_ms} ms)");
+        for (i, (path, _)) in fused.iter().enumerate() {
+            println!("  {:>2}. {path}", i + 1);
+        }
+        println!("-- hybrid+rerank ({reranked_ms} ms)");
+        for (i, (path, _)) in reranked.iter().enumerate() {
+            println!("  {:>2}. {path}", i + 1);
+        }
     }
 }

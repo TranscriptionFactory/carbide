@@ -54,6 +54,8 @@ mod hnsw_compaction;
 mod code_lsp_missing_server;
 #[path = "../../tests/retrieval_eval.rs"]
 mod retrieval_eval;
+#[path = "../../tests/search_rerank.rs"]
+mod search_rerank;
 
 #[path = "../../tests/vault_settings_service_parse.rs"]
 mod vault_settings_service_parse;

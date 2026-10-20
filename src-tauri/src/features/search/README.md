@@ -61,6 +61,40 @@ vectors from the DB. `handle_block_embed_batch` must complete before the
 composition pass begins; `handle_embed_batch` enforces this ordering
 unconditionally.
 
+**Cross-encoder rerank for context retrieval only** (DL-007): when the
+caller asks for it and `search_rerank_enabled` is on (default off),
+`run_hybrid_search` fuses `max(limit, 20)` candidates, scores each one's
+best-matching section window with `cross-encoder/ms-marco-MiniLM-L6-v2`
+(`cross_encoder.rs`), and reorders the top 20 by RRF (K=10) of fused rank and
+reranker rank. The assistant's RAG retrieval and MCP ask for it. The omnibar
+and search graph do not. Measured on the 60-query fixture (MRR; hybrid
+0.808–0.816 across runs):
+
+| Variant                       | MRR   | r@3  | semantic | long-section | added p50 |
+| ----------------------------- | ----- | ---- | -------- | ------------ | --------- |
+| 128 tokens, reranker order    | 0.773 | 0.85 | 0.312    | 0.660        | ~310 ms   |
+| 256 tokens, reranker order    | 0.811 | 0.88 | 0.318    | 0.812        | ~835 ms   |
+| 128 tokens, blended           | 0.807 | 0.88 | 0.398    | 0.792        | ~310 ms   |
+| 256 tokens, blended (shipped) | 0.853 | 0.90 | 0.528    | 0.917        | ~835 ms   |
+
+- 256 tokens: section windows are embedded at 256, and at 128 the answer
+  in a long section is often cut off before the scorer sees it.
+- Blending: on paraphrase queries the cross-encoder alone is worse than the
+  bi-encoder. Pure reranker order threw away the fusion signal that got
+  those right.
+- CPU: one pair costs ~34 ms on CPU at 256 tokens, and Metal is only ~1.3x
+  faster at this size. On Metal it would also wait behind background embed
+  batches on the encoder's forward lock.
+- Not in the omnibar: ~0.8–1.3 s per query does not fit a per-keystroke
+  search.
+- Bodies and the matched window keys are read while the DB and index locks
+  are held. Passage text is built (from `embeddable_sections`, the exact text
+  each window was embedded from) and scored after the locks are released.
+- Any scorer failure returns the fused order unchanged.
+- The window's own RRF scores are reassigned in the new order, so `score`
+  stays monotone with list order and on the scale RAG fuses it at: RAG adds
+  block-search RRF to it and re-sorts.
+
 ## Invariants
 
 - `MODEL_VERSION` must be bumped whenever `max_length`, model weights, or
@@ -84,3 +118,14 @@ unconditionally.
 - **Keep separate note embed pass**: Embeds truncated FTS body (drops content
   beyond ~400 words) and adds a redundant GPU pass; does not fix the memory
   spike.
+- **Bi-encoder fixes for hub notes** (DL-007 context): long multi-topic notes
+  sit near the corpus centroid of mean-pooled note vectors. Max-sim over
+  section vectors made this worse (hubs were 70% of a generic query's
+  vector top-30, up from 57%). A centroid penalty (λ=0.2) cut hubs to 3% but
+  cost 2% self-retrieval MRR.
+- **Reranking every hybrid search, including the omnibar**: adds ~0.8 s per
+  keystroke-driven query. The motivating hub case is already fixed by the
+  exact-phrase fusion list, and the real vault did not show hub
+  suppression from reranking.
+- **`bge-reranker-base` / `-v2-m3`** (XLM-RoBERTa, 278M / 568M params):
+  1.9 s / 5.4 s for 30 pairs at 256 tokens on Metal.

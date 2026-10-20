@@ -5452,6 +5452,25 @@
                 }}
               />
             </div>
+
+            <div class="SettingsDialog__row">
+              <div class="SettingsDialog__label-group">
+                <span class="SettingsDialog__label"
+                  >Rerank AI Context Retrieval</span
+                >
+                <span class="SettingsDialog__description"
+                  >Re-score notes retrieved for the assistant and MCP with a
+                  local cross-encoder model (downloads ~90 MB on first use, adds
+                  about a second per retrieval)</span
+                >
+              </div>
+              <Switch.Root
+                checked={editor_settings.search_rerank_enabled}
+                onCheckedChange={(v: boolean) => {
+                  update("search_rerank_enabled", v);
+                }}
+              />
+            </div>
           </div>
           <div class="SettingsDialog__section-divider"></div>
           <h3 class="SettingsDialog__section-subheader">Smart Link Rules</h3>

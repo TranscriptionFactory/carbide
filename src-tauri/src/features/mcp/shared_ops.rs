@@ -733,7 +733,7 @@ pub fn search_notes_hybrid(
     query: &str,
     limit: usize,
 ) -> Result<(Vec<crate::features::search::model::HybridSearchHit>, Option<String>), OpError> {
-    match search_service::hybrid_search_sync(app, vault_id, query, limit) {
+    match search_service::context_search_sync(app, vault_id, query, limit) {
         Ok(hits) => Ok((hits, None)),
         Err(err) => {
             log::warn!("semantic search unavailable, falling back to FTS: {err}");

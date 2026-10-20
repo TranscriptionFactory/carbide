@@ -1,15 +1,14 @@
 use crate::features::search::embedding_model::{self, Pooling};
 use crate::features::search::hnsw_index::is_usable_vector;
+use crate::features::search::model_slot::{fetch_model_files, LoadableModel, ModelLoadNotify, ModelSlot};
 use candle_core::{DType, Device, Tensor};
 use candle_nn::VarBuilder;
 use candle_transformers::models::bert::{BertModel, Config};
-use hf_hub::api::sync::ApiBuilder;
 use std::collections::HashSet;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, LazyLock, Mutex, PoisonError};
-use std::time::{Duration, Instant};
-use tauri::{AppHandle, Emitter, Manager};
+use std::sync::{LazyLock, Mutex, PoisonError};
+use tauri::{AppHandle, Emitter};
 use tokenizers::{PaddingParams, PaddingStrategy, Tokenizer, TruncationParams, TruncationStrategy};
 
 /// Sequence budget the model is encoded at. Covers >95% of PKM sections;
@@ -90,37 +89,22 @@ impl EmbeddingService {
         // choose. (ref: DL-002)
         let model_dtype = DType::F32;
 
-        let api = ApiBuilder::new()
-            .with_cache_dir(cache_dir)
-            .with_progress(false)
-            .build()
-            .map_err(|e| format!("HF API init failed: {e}"))?;
-        let repo = api.model(model_id.to_string());
-
-        let config_path = repo
-            .get("config.json")
-            .map_err(|e| format!("config download: {e}"))?;
-        let weights_path = repo
-            .get("model.safetensors")
-            .map_err(|e| format!("weights download: {e}"))?;
-        let tokenizer_path = repo
-            .get("tokenizer.json")
-            .map_err(|e| format!("tokenizer download: {e}"))?;
+        let files = fetch_model_files(cache_dir, model_id)?;
 
         let config: Config = serde_json::from_str(
-            &std::fs::read_to_string(&config_path).map_err(|e| format!("read config: {e}"))?,
+            &std::fs::read_to_string(&files.config).map_err(|e| format!("read config: {e}"))?,
         )
         .map_err(|e| format!("parse config: {e}"))?;
 
         let vb = unsafe {
-            VarBuilder::from_mmaped_safetensors(&[weights_path], model_dtype, &device)
+            VarBuilder::from_mmaped_safetensors(&[files.weights], model_dtype, &device)
                 .map_err(|e| format!("load weights: {e}"))?
         };
 
         let model = BertModel::load(vb, &config).map_err(|e| format!("load model: {e}"))?;
 
         let splitter =
-            Tokenizer::from_file(&tokenizer_path).map_err(|e| format!("load tokenizer: {e}"))?;
+            Tokenizer::from_file(&files.tokenizer).map_err(|e| format!("load tokenizer: {e}"))?;
         let mut tokenizer = splitter.clone();
 
         tokenizer
@@ -620,157 +604,19 @@ pub(crate) fn pool_and_normalize(
     normalize_rows(pooled)
 }
 
-// After a load failure (offline machine, corrupt cache), skip retries for this
-// long so every note save doesn't re-run HF network round-trips.
-const LOAD_FAILURE_COOLDOWN: Duration = Duration::from_secs(60);
+pub type EmbeddingServiceState = ModelSlot<EmbeddingService>;
 
-fn cooldown_error(short_id: &str) -> String {
-    format!("embedding model {short_id} failed to load recently; retry deferred")
-}
+impl LoadableModel for EmbeddingService {
+    const KIND: &'static str = "embedding";
 
-/// Tracks which models have a background load in flight, so a second request
-/// for the *same* model is dropped while a request for a *different* one still
-/// starts. A bare flag would swallow a mid-flight model switch entirely.
-///
-/// Claims are released by [`InitClaim`]'s `Drop`, which also covers an unwind:
-/// the release profile deliberately does not set `panic = "abort"` (the HNSW
-/// `catch_unwind` needs unwind), so a panicking load thread would otherwise
-/// leak its claim and make [`EmbeddingServiceState::init_in_background`] a
-/// permanent no-op for that model — with no retry path anywhere.
-#[derive(Clone, Default)]
-pub(crate) struct InitQueue(Arc<Mutex<HashSet<String>>>);
-
-impl InitQueue {
-    /// Claims `model_id` unless a load for it is already running.
-    pub(crate) fn claim(&self, model_id: &str) -> Option<InitClaim> {
-        let mut in_flight = self.0.lock().unwrap_or_else(PoisonError::into_inner);
-        in_flight.insert(model_id.to_string()).then(|| InitClaim {
-            queue: self.clone(),
-            model_id: model_id.to_string(),
-        })
+    fn load(cache_dir: PathBuf, id: &str) -> Result<Self, String> {
+        EmbeddingService::new(cache_dir, id)
     }
 
-    #[cfg(test)]
-    pub(crate) fn is_in_flight(&self, model_id: &str) -> bool {
-        self.0
-            .lock()
-            .unwrap_or_else(PoisonError::into_inner)
-            .contains(model_id)
-    }
-}
-
-pub(crate) struct InitClaim {
-    queue: InitQueue,
-    model_id: String,
-}
-
-impl Drop for InitClaim {
-    fn drop(&mut self) {
-        self.queue
-            .0
-            .lock()
-            .unwrap_or_else(PoisonError::into_inner)
-            .remove(&self.model_id);
-    }
-}
-
-/// Whether a successful load emits `embedding_model_loaded`. The event exists
-/// so a save that skipped embedding (model cold) gets a bulk pass once the
-/// model is resident; a bulk pass loading the model for itself must stay
-/// silent or it re-arms itself through the frontend reactor.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ModelLoadNotify {
-    Emit,
-    Silent,
-}
-
-#[derive(Default)]
-pub struct EmbeddingServiceState {
-    inner: Mutex<Option<(String, Arc<EmbeddingService>)>>,
-    // Serializes model loads so `inner` is never held across an HF download;
-    // try_get stays non-blocking while a load is in flight.
-    init_lock: Mutex<()>,
-    last_failure: Mutex<Option<(String, Instant)>>,
-    init_queue: InitQueue,
-}
-
-impl EmbeddingServiceState {
-    pub fn get_or_init(
-        &self,
-        cache_dir: PathBuf,
-        short_id: &str,
-        app_handle: &AppHandle,
-        notify: ModelLoadNotify,
-    ) -> Result<Arc<EmbeddingService>, String> {
-        if let Some(service) = self.try_get(short_id) {
-            return Ok(service);
+    fn on_loaded(app: &AppHandle, notify: ModelLoadNotify) {
+        if notify == ModelLoadNotify::Emit {
+            let _ = app.emit("embedding_model_loaded", ());
         }
-        if self.in_cooldown(short_id)? {
-            return Err(cooldown_error(short_id));
-        }
-
-        let _init_guard = self.init_lock.lock().map_err(|e| e.to_string())?;
-        if let Some(service) = self.try_get(short_id) {
-            return Ok(service);
-        }
-        // Re-read the cooldown now that we hold the lock: the thread that just
-        // released it may have been the failing load. Without this, N threads
-        // that all passed the pre-lock check each run a full failing network
-        // round-trip, serially.
-        if self.in_cooldown(short_id)? {
-            return Err(cooldown_error(short_id));
-        }
-        if let Ok(guard) = self.inner.lock() {
-            if let Some((loaded_id, _)) = guard.as_ref() {
-                log::info!("Embedding model changed: {loaded_id} -> {short_id}, reinitializing");
-            }
-        }
-        match EmbeddingService::new(cache_dir, short_id) {
-            Ok(service) => {
-                let arc = Arc::new(service);
-                *self.inner.lock().map_err(|e| e.to_string())? =
-                    Some((short_id.to_string(), Arc::clone(&arc)));
-                *self.last_failure.lock().map_err(|e| e.to_string())? = None;
-                if notify == ModelLoadNotify::Emit {
-                    let _ = app_handle.emit("embedding_model_loaded", ());
-                }
-                Ok(arc)
-            }
-            Err(e) => {
-                log::error!("Failed to load embedding model {short_id}: {e}");
-                *self.last_failure.lock().map_err(|e| e.to_string())? =
-                    Some((short_id.to_string(), Instant::now()));
-                Err(e)
-            }
-        }
-    }
-
-    fn in_cooldown(&self, short_id: &str) -> Result<bool, String> {
-        let failure = self.last_failure.lock().map_err(|e| e.to_string())?;
-        Ok(failure.as_ref().is_some_and(|(failed_id, at)| {
-            failed_id == short_id && at.elapsed() < LOAD_FAILURE_COOLDOWN
-        }))
-    }
-
-    pub fn try_get(&self, short_id: &str) -> Option<Arc<EmbeddingService>> {
-        self.inner.lock().ok().and_then(|g| {
-            g.as_ref()
-                .and_then(|(id, s)| (id == short_id).then(|| Arc::clone(s)))
-        })
-    }
-
-    /// Kicks off a model load off the calling thread. Query and save paths use
-    /// this so a cold cache never blocks on a synchronous HF download.
-    pub fn init_in_background(&self, cache_dir: PathBuf, short_id: String, app_handle: &AppHandle) {
-        let Some(claim) = self.init_queue.claim(&short_id) else {
-            return;
-        };
-        let app = app_handle.clone();
-        std::thread::spawn(move || {
-            let _claim = claim;
-            let state = app.state::<EmbeddingServiceState>();
-            let _ = state.get_or_init(cache_dir, &short_id, &app, ModelLoadNotify::Emit);
-        });
     }
 }
 

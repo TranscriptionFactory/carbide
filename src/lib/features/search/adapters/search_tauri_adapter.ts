@@ -370,6 +370,7 @@ export function create_search_tauri_adapter(): SearchPort {
       date_range: DateRange | null = null,
       include_linked = true,
       scope: ScopeFilter | null = null,
+      rerank = false,
     ): Promise<HybridSearchHit[]> {
       const hits = await invoke_search<TauriHybridSearchHit[]>(
         "hybrid_search",
@@ -380,6 +381,7 @@ export function create_search_tauri_adapter(): SearchPort {
           dateRange: date_range,
           includeLinked: include_linked,
           scope,
+          rerank,
         },
       );
       return hits.map((hit) => ({

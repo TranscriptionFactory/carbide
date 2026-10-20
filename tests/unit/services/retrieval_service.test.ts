@@ -123,6 +123,23 @@ describe("RetrievalService.retrieve", () => {
     expect(search.search_blocks.mock.calls[0]?.[1]).toBe("metaboloformer");
   });
 
+  it("asks the backend to rerank context retrieval", async () => {
+    const search = {
+      search_blocks: vi.fn().mockResolvedValue([]),
+      hybrid_search: vi
+        .fn()
+        .mockResolvedValue([hit("notes/m.md", "M", "1", 0.9)]),
+    };
+    const service = make_service({
+      search,
+      notes: { read_note: vi.fn().mockResolvedValue({ markdown: "M." }) },
+    });
+
+    await service.retrieve(request({ query: "metaboloformer" }));
+
+    expect(search.hybrid_search.mock.calls[0]?.[6]).toBe(true);
+  });
+
   // Scoping is now server-side (a resolved path/prefix filter), so a scoped
   // search no longer needs to over-fetch to survive a client-side narrowing.
   it("resolves a folder scope to a prefix filter without over-fetching", async () => {
