@@ -1,5 +1,22 @@
 # carbide
 
+## 2.41.0
+
+### Minor Changes
+
+- 8e6552c: New opt-in setting, Settings → Semantic → Rerank AI Context Retrieval, re-scores the notes the assistant and MCP tools retrieve with a small local cross-encoder model, so the notes handed to the AI answer the question more often. It downloads a ~90 MB model on first use and adds about a second per retrieval; until the model is ready, retrieval uses the existing ranking. Omnibar and search graph results are unchanged.
+
+### Patch Changes
+
+- 1c7f072: Images referenced with a cache-busting query (such as `figure.webp?v=7` in clipped pages) now load instead of failing as missing files.
+- c1dcee5: Assistant session retention now actually removes expired sessions. Pruning fired every delete at once and each rewrite of the session index dropped the others' removals, so the same stale sessions came back on every launch.
+- 3e8da60: Two writes to the same file at the same moment can no longer fail with "No such file or directory". Concurrent writers used to share one staging file and rename it out from under each other; writes to a path now take turns.
+- cff7a7e: Code language servers installed with Homebrew or npm are now found when Carbide is launched from the Dock. A missing server shows as "unavailable" in the LSP panel with the command to install it, instead of only a warning in the log.
+- f70d308: Creating today's daily note no longer shows a false "Note has been modified externally" card, which was common on iCloud vaults where file events arrive late.
+- 6d2a7af: Semantic search no longer returns or stores corrupted embeddings when two searches, or a search and background indexing, run at the same time on Apple Silicon. Overlapping GPU passes produced vectors that were NaN or effectively random; encoder passes now run one at a time.
+- 6d2a7af: Quitting right after a large batch of notes was removed no longer leaves the search worker running past shutdown. Reclaiming the search index's dead entries ran for minutes with no way to stop it; it now runs in parallel, about five times faster, and stops promptly when the app quits.
+- e6fc120: Search no longer buries the only note containing your exact phrase beneath long notes that merely mention each word. Section embeddings left behind by folders removed from the index (for example after adding them to ignored folders) are now cleaned up on the next embedding pass instead of lingering in semantic results.
+
 ## 2.40.2
 
 ### Patch Changes
