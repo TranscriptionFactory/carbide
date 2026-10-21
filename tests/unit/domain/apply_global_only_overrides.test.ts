@@ -89,4 +89,29 @@ describe("apply_global_only_overrides", () => {
 
     expect(result.ai_enabled).toBeUndefined();
   });
+
+  it("sanitizes stored PDF export options field by field", async () => {
+    const stored = {
+      page_size: "letter",
+      landscape: "yes",
+      margin: "huge",
+      downscale_percent: 250,
+      include_title: false,
+    };
+    const get_setting = (key: string) =>
+      Promise.resolve(key === "pdf_export" ? stored : null);
+
+    const result = await apply_global_only_overrides(
+      { ...DEFAULT_EDITOR_SETTINGS },
+      get_setting,
+    );
+
+    expect(result.pdf_export).toEqual({
+      page_size: "letter",
+      landscape: false,
+      margin: "default",
+      downscale_percent: 100,
+      include_title: false,
+    });
+  });
 });

@@ -29,6 +29,10 @@ import {
 } from "$lib/features/document/domain/note_epub";
 import { to_xhtml_document } from "$lib/shared/html";
 import {
+  pdf_page_dimensions,
+  type PdfExportOptions,
+} from "$lib/shared/types/pdf_export";
+import {
   build_clipboard_provenance,
   derive_artifact_filename,
   join_vault_path,
@@ -461,6 +465,7 @@ export class DocumentService {
   async export_note_pdf(
     title: string,
     markdown: string,
+    pdf: PdfExportOptions,
     image_resolver?: ImageResolver,
   ): Promise<void> {
     if (!this.note_export_port) return;
@@ -470,8 +475,13 @@ export class DocumentService {
       title,
       markdown,
       image_resolver,
+      pdf,
     );
-    await this.note_export_port.export_html_to_pdf(html, path);
+    await this.note_export_port.export_html_to_pdf(
+      html,
+      path,
+      pdf_page_dimensions(pdf),
+    );
   }
 
   async export_note_html(
@@ -526,9 +536,11 @@ export class DocumentService {
     title: string,
     markdown: string,
     image_resolver?: ImageResolver,
+    pdf?: PdfExportOptions,
   ): Promise<string> {
     return render_note_to_html(title, markdown, {
       ...(image_resolver ? { image_resolver } : {}),
+      ...(pdf ? { pdf } : {}),
     });
   }
 

@@ -6,6 +6,11 @@ import type {
   AiInlineCommand,
   AiQuestionRecipe,
 } from "$lib/shared/types/prompt_recipe";
+import {
+  DEFAULT_PDF_EXPORT_OPTIONS,
+  coerce_pdf_export_options,
+  type PdfExportOptions,
+} from "$lib/shared/types/pdf_export";
 
 // STT removed — archived on archive/stt-main
 // export type SttInsertMode = "cursor" | "new_line" | "new_block";
@@ -268,6 +273,7 @@ export type EditorSettings = {
   document_epub_font_scale: number;
   document_epub_line_height: number;
   document_inactive_cache_limit: number;
+  pdf_export: PdfExportOptions;
   semantic_similarity_threshold: number;
   semantic_suggested_links_limit: number;
   semantic_graph_edges_per_note: number;
@@ -409,6 +415,7 @@ export const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
   document_epub_font_scale: 100,
   document_epub_line_height: 1.6,
   document_inactive_cache_limit: 3,
+  pdf_export: { ...DEFAULT_PDF_EXPORT_OPTIONS },
   semantic_similarity_threshold: 0.5,
   semantic_suggested_links_limit: 5,
   semantic_graph_edges_per_note: 3,
@@ -654,6 +661,7 @@ export const GLOBAL_ONLY_SETTING_KEYS: readonly (keyof EditorSettings)[] = [
   "document_epub_font_scale",
   "document_epub_line_height",
   "document_inactive_cache_limit",
+  "pdf_export",
   "graph_force_link_distance",
   "graph_force_charge_strength",
   "graph_force_collision_radius",
@@ -711,6 +719,7 @@ const GLOBAL_ONLY_VALUE_SANITIZERS: Partial<
   Record<keyof EditorSettings, (value: unknown) => unknown>
 > = {
   recents_period: coerce_recents_period,
+  pdf_export: coerce_pdf_export_options,
 };
 
 export function omit_global_only_keys(

@@ -17,6 +17,8 @@ import { resolve_note_asset_path } from "$lib/features/document/domain/note_expo
 import { carbide_asset_url, carbide_file_asset_url } from "$lib/features/note";
 import { parent_folder_path } from "$lib/shared/utils/path";
 import { toast } from "$lib/shared/ui/toast";
+import type { EditorSettings } from "$lib/shared/types/editor_settings";
+import type { PdfExportOptions } from "$lib/shared/types/pdf_export";
 
 type DocumentOpenPayload = {
   file_path: string;
@@ -297,16 +299,58 @@ export function register_document_actions(
     };
   }
 
+  function close_pdf_export_dialog() {
+    stores.ui.pdf_export_dialog = {
+      ...stores.ui.pdf_export_dialog,
+      open: false,
+    };
+  }
+
+  async function remember_pdf_export_options(options: PdfExportOptions) {
+    const updated: EditorSettings = {
+      ...stores.ui.editor_settings,
+      pdf_export: options,
+    };
+    const result = await services.settings.save_settings(updated);
+    if (result.status === "success") {
+      stores.ui.set_editor_settings(updated);
+    }
+  }
+
   registry.register({
     id: ACTION_IDS.document_export_pdf,
     label: "Export as PDF",
+    execute: () => {
+      if (!export_target()) return;
+      stores.ui.pdf_export_dialog = {
+        open: true,
+        options: { ...stores.ui.editor_settings.pdf_export },
+      };
+    },
+  });
+
+  registry.register({
+    id: ACTION_IDS.document_export_pdf_cancel,
+    label: "Cancel PDF Export",
+    execute: () => {
+      close_pdf_export_dialog();
+    },
+  });
+
+  registry.register({
+    id: ACTION_IDS.document_export_pdf_confirm,
+    label: "Confirm PDF Export",
     execute: async () => {
+      const options = { ...stores.ui.pdf_export_dialog.options };
+      close_pdf_export_dialog();
       const target = export_target();
       if (!target) return;
+      void remember_pdf_export_options(options);
       await run_export("PDF", () =>
         document_service.export_note_pdf(
           target.title,
           target.markdown,
+          options,
           target.image_resolver,
         ),
       );

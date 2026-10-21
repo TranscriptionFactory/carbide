@@ -11,6 +11,10 @@ import type {
   SettingsCategory,
 } from "$lib/shared/types/editor_settings";
 import { DEFAULT_EDITOR_SETTINGS } from "$lib/shared/types/editor_settings";
+import {
+  DEFAULT_PDF_EXPORT_OPTIONS,
+  type PdfExportOptions,
+} from "$lib/shared/types/pdf_export";
 import type { NoteMeta } from "$lib/shared/types/note";
 import type { NoteId, NotePath, VaultId } from "$lib/shared/types/ids";
 import type {
@@ -218,6 +222,11 @@ const INITIAL_ADD_REMOTE_DIALOG = {
 const INITIAL_DIFF_VIEWER_DIALOG = {
   open: false,
   file_path: null as string | null,
+} as const;
+
+const INITIAL_PDF_EXPORT_DIALOG = {
+  open: false,
+  options: DEFAULT_PDF_EXPORT_OPTIONS,
 } as const;
 
 const INITIAL_DISCARD_CHANGES_DIALOG = {
@@ -475,6 +484,11 @@ export class UIStore {
     file_path: string | null;
   }>({ ...INITIAL_DIFF_VIEWER_DIALOG });
 
+  pdf_export_dialog = $state<{
+    open: boolean;
+    options: PdfExportOptions;
+  }>({ ...INITIAL_PDF_EXPORT_DIALOG });
+
   discard_changes_dialog = $state<{
     open: boolean;
     paths: string[];
@@ -719,6 +733,7 @@ export class UIStore {
     this.checkpoint_dialog = { ...INITIAL_CHECKPOINT_DIALOG };
     this.add_remote_dialog = { ...INITIAL_ADD_REMOTE_DIALOG };
     this.diff_viewer_dialog = { ...INITIAL_DIFF_VIEWER_DIALOG };
+    this.pdf_export_dialog = { ...INITIAL_PDF_EXPORT_DIALOG };
     this.discard_changes_dialog = {
       ...INITIAL_DISCARD_CHANGES_DIALOG,
       paths: [],

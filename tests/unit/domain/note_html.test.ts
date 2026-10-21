@@ -350,6 +350,34 @@ describe("render_note_body_html", () => {
   });
 });
 
+describe("PDF page layout", () => {
+  const options = {
+    page_size: "letter",
+    landscape: true,
+    margin: "none",
+    downscale_percent: 80,
+    include_title: false,
+  } as const;
+
+  it("defaults to A4 portrait with the standard margins", async () => {
+    const styles = await note_export_styles();
+    expect(styles).toContain("@page { size: 210mm 297mm; margin: 18mm 16mm; }");
+    expect(styles).not.toContain("zoom");
+  });
+
+  it("sizes the page, margin and zoom from the options", async () => {
+    const html = await render_note_to_html("Note", "Body.", { pdf: options });
+    expect(html).toContain("@page { size: 279.4mm 215.9mm; margin: 0; }");
+    expect(html).toContain("body { zoom: 0.8; }");
+  });
+
+  it("omits the title when include_title is off", async () => {
+    const html = await render_note_to_html("Note", "Body.", { pdf: options });
+    expect(html).not.toContain('class="doc-title"');
+    expect(html).toContain("<title>Note</title>");
+  });
+});
+
 describe("note_export_styles", () => {
   it("bundles the KaTeX stylesheet with the print styles", async () => {
     const styles = await note_export_styles();

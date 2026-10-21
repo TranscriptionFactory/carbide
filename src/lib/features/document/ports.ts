@@ -1,4 +1,5 @@
 import type { EpubInput } from "$lib/shared/types/epub";
+import type { PdfPageDimensions } from "$lib/shared/types/pdf_export";
 
 export interface DocumentPort {
   read_file(
@@ -64,7 +65,11 @@ export interface NoteExportPort {
     default_name: string,
     format: NoteExportFormat,
   ): Promise<string | null>;
-  export_html_to_pdf(html: string, save_path: string): Promise<void>;
+  export_html_to_pdf(
+    html: string,
+    save_path: string,
+    page: PdfPageDimensions,
+  ): Promise<void>;
   write_html(html: string, save_path: string): Promise<void>;
   write_epub(
     vault_id: string,

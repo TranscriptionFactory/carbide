@@ -5,6 +5,7 @@ import type {
   NoteExportPort,
 } from "$lib/features/document/ports";
 import type { EpubInput } from "$lib/shared/types/epub";
+import type { PdfPageDimensions } from "$lib/shared/types/pdf_export";
 
 const FORMAT_LABELS: Record<NoteExportFormat, string> = {
   pdf: "PDF",
@@ -25,8 +26,12 @@ export function create_note_export_tauri_adapter(): NoteExportPort {
         filters: [{ name: label, extensions: [format] }],
       });
     },
-    async export_html_to_pdf(html: string, save_path: string): Promise<void> {
-      await invoke("export_html_to_pdf", { html, savePath: save_path });
+    async export_html_to_pdf(
+      html: string,
+      save_path: string,
+      page: PdfPageDimensions,
+    ): Promise<void> {
+      await invoke("export_html_to_pdf", { html, savePath: save_path, page });
     },
     async write_html(html: string, save_path: string): Promise<void> {
       await invoke("export_write_html", { html, savePath: save_path });

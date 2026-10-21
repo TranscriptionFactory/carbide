@@ -26,6 +26,12 @@ import {
 } from "$lib/features/editor";
 import { get_inlined_katex_css } from "$lib/features/document/domain/katex_inline_css";
 import { prerender_mermaid_codes } from "$lib/features/document/domain/mermaid_prerender";
+import {
+  DEFAULT_PDF_EXPORT_OPTIONS,
+  PDF_MARGINS,
+  pdf_page_dimensions,
+  type PdfExportOptions,
+} from "$lib/shared/types/pdf_export";
 
 type RenderEnv = { mermaid_svgs?: Map<string, string> };
 
@@ -509,9 +515,16 @@ function collect_mermaid_codes(tokens: Token[]): string[] {
   return [...seen];
 }
 
-function document_styles(katex_css: string): string {
+function page_styles(pdf: PdfExportOptions): string {
+  const { width_mm, height_mm } = pdf_page_dimensions(pdf);
+  const page = `@page { size: ${String(width_mm)}mm ${String(height_mm)}mm; margin: ${PDF_MARGINS[pdf.margin].css}; }`;
+  if (pdf.downscale_percent >= 100) return page;
+  return `${page}\nbody { zoom: ${String(pdf.downscale_percent / 100)}; }`;
+}
+
+function document_styles(katex_css: string, pdf: PdfExportOptions): string {
   return `${katex_css}
-@page { size: A4; margin: 18mm 16mm; }
+${page_styles(pdf)}
 * { box-sizing: border-box; }
 html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 body {
@@ -670,6 +683,7 @@ export type ImageResolver = (
 
 export type RenderNoteOptions = {
   image_resolver?: ImageResolver;
+  pdf?: PdfExportOptions;
 };
 
 const IMAGE_EXT_REGEX = /\.(png|jpe?g|gif|svg|webp|bmp|ico|avif)$/i;
@@ -783,8 +797,10 @@ async function render_markdown_body(
   return md.renderer.render(tokens, md.options, env);
 }
 
-export async function note_export_styles(): Promise<string> {
-  return document_styles(await get_inlined_katex_css());
+export async function note_export_styles(
+  pdf: PdfExportOptions = DEFAULT_PDF_EXPORT_OPTIONS,
+): Promise<string> {
+  return document_styles(await get_inlined_katex_css(), pdf);
 }
 
 export async function render_note_body_html(
@@ -793,6 +809,7 @@ export async function render_note_body_html(
   options?: RenderNoteOptions,
 ): Promise<string> {
   const body_html = await render_markdown_body(markdown, options);
+  if (options?.pdf?.include_title === false) return body_html;
   return `<h1 class="doc-title">${escape_html(title)}</h1>\n${body_html}`;
 }
 
@@ -802,7 +819,7 @@ export async function render_note_to_html(
   options?: RenderNoteOptions,
 ): Promise<string> {
   const content = await render_note_body_html(title, markdown, options);
-  const styles = await note_export_styles();
+  const styles = await note_export_styles(options?.pdf);
 
   return `<!doctype html>
 <html lang="en">

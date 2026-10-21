@@ -6,6 +6,7 @@ import { DocumentService, DocumentStore } from "$lib/features/document";
 import type { NoteExportPort } from "$lib/features/document";
 import { VaultStore } from "$lib/features/vault";
 import type { EpubInput } from "$lib/shared/types/epub";
+import { DEFAULT_PDF_EXPORT_OPTIONS } from "$lib/shared/types/pdf_export";
 import { create_test_vault } from "../helpers/test_fixtures";
 
 vi.mock("mermaid", () => ({
@@ -189,7 +190,11 @@ describe("DocumentService PDF export", () => {
     const export_port = create_export_port("/out/My Note.pdf");
     const service = create_service(export_port);
 
-    await service.export_note_pdf("My Note", NOTE_MARKDOWN);
+    await service.export_note_pdf(
+      "My Note",
+      NOTE_MARKDOWN,
+      DEFAULT_PDF_EXPORT_OPTIONS,
+    );
 
     expect(export_port.pick_save_path).toHaveBeenCalledWith("My Note", "pdf");
     const [html, path] = export_port.export_html_to_pdf.mock.calls[0] as [
@@ -198,5 +203,24 @@ describe("DocumentService PDF export", () => {
     ];
     expect(path).toBe("/out/My Note.pdf");
     expect(html.startsWith("<!doctype html>")).toBe(true);
+  });
+
+  it("sends the oriented paper size matching the page CSS", async () => {
+    const export_port = create_export_port("/out/My Note.pdf");
+    const service = create_service(export_port);
+
+    await service.export_note_pdf("My Note", NOTE_MARKDOWN, {
+      ...DEFAULT_PDF_EXPORT_OPTIONS,
+      page_size: "a5",
+      landscape: true,
+    });
+
+    const [html, , page] = export_port.export_html_to_pdf.mock.calls[0] as [
+      string,
+      string,
+      unknown,
+    ];
+    expect(page).toEqual({ width_mm: 210, height_mm: 148 });
+    expect(html).toContain("size: 210mm 148mm");
   });
 });

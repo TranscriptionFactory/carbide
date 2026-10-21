@@ -3,6 +3,8 @@ use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use std::time::Duration;
 
+use serde::Deserialize;
+use specta::Type;
 use tauri::webview::PageLoadEvent;
 use tauri::{AppHandle, Manager, Runtime, WebviewUrl, WebviewWindow, WebviewWindowBuilder};
 
@@ -14,6 +16,30 @@ const EXPORT_URL: &str = "pdfexport://localhost/";
 const LOAD_TIMEOUT: Duration = Duration::from_secs(20);
 const CAPTURE_TIMEOUT: Duration = Duration::from_secs(30);
 const SETTLE_DELAY: Duration = Duration::from_millis(300);
+const PAGE_SIDE_MIN_MM: f64 = 50.0;
+const PAGE_SIDE_MAX_MM: f64 = 1000.0;
+
+// Paper dimensions with orientation already applied. The print CSS `@page`
+// rule carries the same size, so the native paper and the CSS page agree.
+#[derive(Debug, Clone, Copy, Deserialize, Type)]
+pub struct PdfPageSize {
+    pub width_mm: f64,
+    pub height_mm: f64,
+}
+
+impl PdfPageSize {
+    pub fn validated(self) -> Result<Self, String> {
+        let in_range = |side: f64| (PAGE_SIDE_MIN_MM..=PAGE_SIDE_MAX_MM).contains(&side);
+        if in_range(self.width_mm) && in_range(self.height_mm) {
+            Ok(self)
+        } else {
+            Err(format!(
+                "PDF page size {}x{}mm is outside {PAGE_SIDE_MIN_MM}-{PAGE_SIDE_MAX_MM}mm",
+                self.width_mm, self.height_mm
+            ))
+        }
+    }
+}
 
 #[derive(Default)]
 pub struct ExportHtmlState(Mutex<Option<String>>);
@@ -62,9 +88,11 @@ pub async fn export_html_to_pdf(
     app: AppHandle,
     html: String,
     save_path: String,
+    page: PdfPageSize,
 ) -> Result<(), String> {
+    let page = page.validated()?;
     app.state::<ExportHtmlState>().set(html);
-    let result = run_export(&app, save_path).await;
+    let result = run_export(&app, save_path, page).await;
     cleanup(&app);
     result
 }
@@ -126,7 +154,11 @@ fn cleanup<R: Runtime>(app: &AppHandle<R>) {
     }
 }
 
-async fn run_export<R: Runtime>(app: &AppHandle<R>, save_path: String) -> Result<(), String> {
+async fn run_export<R: Runtime>(
+    app: &AppHandle<R>,
+    save_path: String,
+    page: PdfPageSize,
+) -> Result<(), String> {
     if let Some(stale) = app.get_webview_window(EXPORT_WINDOW_LABEL) {
         let _ = stale.close();
     }
@@ -163,17 +195,18 @@ async fn run_export<R: Runtime>(app: &AppHandle<R>, save_path: String) -> Result
     // Content is pre-rendered (no async JS); a short settle lets KaTeX/mermaid paint.
     tokio::time::sleep(SETTLE_DELAY).await;
 
-    capture_pdf(&window, save_path).await
+    capture_pdf(&window, save_path, page).await
 }
 
 async fn capture_pdf<R: Runtime>(
     window: &WebviewWindow<R>,
     save_path: String,
+    page: PdfPageSize,
 ) -> Result<(), String> {
     let (tx, rx) = tokio::sync::oneshot::channel::<Result<(), String>>();
 
     window
-        .with_webview(move |platform| capture_platform(platform, save_path, tx))
+        .with_webview(move |platform| capture_platform(platform, save_path, page, tx))
         .map_err(|err| err.to_string())?;
 
     match tokio::time::timeout(CAPTURE_TIMEOUT, rx).await {
@@ -183,13 +216,19 @@ async fn capture_pdf<R: Runtime>(
     }
 }
 
-// A4 at 72pt/inch (210mm x 297mm). The print CSS supplies the inner page
-// margins, so the print info margins are zeroed to avoid doubling them.
+#[cfg(any(target_os = "macos", target_os = "windows"))]
+const MM_PER_INCH: f64 = 25.4;
+
+// AppKit paper sizes are in points (72 per inch). The print CSS supplies the
+// inner page margins, so the print info margins are zeroed to avoid doubling them.
 #[cfg(target_os = "macos")]
-const A4_POINTS: objc2_foundation::NSSize = objc2_foundation::NSSize {
-    width: 595.28,
-    height: 841.89,
-};
+fn paper_size_points(page: PdfPageSize) -> objc2_foundation::NSSize {
+    let to_points = |mm: f64| mm / MM_PER_INCH * 72.0;
+    objc2_foundation::NSSize {
+        width: to_points(page.width_mm),
+        height: to_points(page.height_mm),
+    }
+}
 
 #[cfg(target_os = "macos")]
 use objc2::runtime::{NSObject, NSObjectProtocol};
@@ -247,12 +286,13 @@ fn pdf_print_delegate() -> objc2::rc::Retained<PdfPrintDelegate> {
 }
 
 // macOS uses the AppKit print pipeline (like WebView2 PrintToPdf on Windows and
-// WebKitPrintOperation on Linux) so the page is paginated to A4 honoring the
+// WebKitPrintOperation on Linux) so the page is paginated to the paper size honoring the
 // print CSS. WKWebView's createPDF API only snapshots content as one tall page.
 #[cfg(target_os = "macos")]
 fn capture_platform(
     platform: tauri::webview::PlatformWebview,
     save_path: String,
+    page: PdfPageSize,
     tx: tokio::sync::oneshot::Sender<Result<(), String>>,
 ) {
     use objc2::runtime::ProtocolObject;
@@ -274,7 +314,7 @@ fn capture_platform(
     };
 
     let print_info = NSPrintInfo::new();
-    print_info.setPaperSize(A4_POINTS);
+    print_info.setPaperSize(paper_size_points(page));
     print_info.setTopMargin(0.0);
     print_info.setBottomMargin(0.0);
     print_info.setLeftMargin(0.0);
@@ -308,14 +348,10 @@ fn capture_platform(
 }
 
 #[cfg(target_os = "windows")]
-const A4_WIDTH_INCHES: f64 = 210.0 / 25.4;
-#[cfg(target_os = "windows")]
-const A4_HEIGHT_INCHES: f64 = 297.0 / 25.4;
-
-#[cfg(target_os = "windows")]
 fn capture_platform(
     platform: tauri::webview::PlatformWebview,
     save_path: String,
+    page: PdfPageSize,
     tx: tokio::sync::oneshot::Sender<Result<(), String>>,
 ) {
     use std::sync::{Arc, Mutex as StdMutex};
@@ -344,8 +380,8 @@ fn capture_platform(
             .map_err(|e| format!("CreatePrintSettings failed: {e}"))?;
         unsafe {
             print_settings
-                .SetPageWidth(A4_WIDTH_INCHES)
-                .and_then(|_| print_settings.SetPageHeight(A4_HEIGHT_INCHES))
+                .SetPageWidth(page.width_mm / MM_PER_INCH)
+                .and_then(|_| print_settings.SetPageHeight(page.height_mm / MM_PER_INCH))
                 .and_then(|_| print_settings.SetMarginTop(0.0))
                 .and_then(|_| print_settings.SetMarginBottom(0.0))
                 .and_then(|_| print_settings.SetMarginLeft(0.0))
@@ -387,9 +423,15 @@ fn capture_platform(
 
 // The print CSS supplies the page margins, so the page setup zeroes its own.
 #[cfg(all(unix, not(target_os = "macos")))]
-fn a4_page_setup() -> gtk::PageSetup {
+fn page_setup(page: PdfPageSize) -> gtk::PageSetup {
     let page_setup = gtk::PageSetup::new();
-    page_setup.set_paper_size(&gtk::PaperSize::new(Some("iso_a4")));
+    page_setup.set_paper_size(&gtk::PaperSize::new_custom(
+        "carbide_export",
+        "Carbide export",
+        page.width_mm,
+        page.height_mm,
+        gtk::Unit::Mm,
+    ));
     page_setup.set_top_margin(0.0, gtk::Unit::Mm);
     page_setup.set_bottom_margin(0.0, gtk::Unit::Mm);
     page_setup.set_left_margin(0.0, gtk::Unit::Mm);
@@ -401,6 +443,7 @@ fn a4_page_setup() -> gtk::PageSetup {
 fn capture_platform(
     platform: tauri::webview::PlatformWebview,
     save_path: String,
+    page: PdfPageSize,
     tx: tokio::sync::oneshot::Sender<Result<(), String>>,
 ) {
     use std::sync::{Arc, Mutex as StdMutex};
@@ -414,7 +457,7 @@ fn capture_platform(
     settings.set("output-uri", Some(&file_uri));
     settings.set("output-file-format", Some("pdf"));
     operation.set_print_settings(&settings);
-    operation.set_page_setup(&a4_page_setup());
+    operation.set_page_setup(&page_setup(page));
 
     let sender = Arc::new(StdMutex::new(Some(tx)));
 

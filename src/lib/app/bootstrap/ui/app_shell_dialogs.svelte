@@ -37,7 +37,8 @@
   import { VimNavCheatsheet } from "$lib/features/vim_nav";
   import { QuickCaptureDialog } from "$lib/features/task";
   import { MissingLinkedSourceDialog } from "$lib/features/reference";
-  import { TrustedHtmlDialog } from "$lib/features/document";
+  import { PdfExportDialog, TrustedHtmlDialog } from "$lib/features/document";
+  import type { PdfExportOptions } from "$lib/shared/types/pdf_export";
   import { use_app_context } from "$lib/app/context/app_context.svelte";
   import SidebarViewSwitcher from "$lib/app/bootstrap/ui/sidebar_view_switcher.svelte";
   import { ACTION_IDS, combined_sidebar_view_registry } from "$lib/app";
@@ -509,6 +510,18 @@
     void action_registry.execute(ACTION_IDS.clip_web_page_confirm)}
   on_cancel={() =>
     void action_registry.execute(ACTION_IDS.clip_web_page_cancel)}
+/>
+
+<PdfExportDialog
+  open={stores.ui.pdf_export_dialog.open}
+  options={stores.ui.pdf_export_dialog.options}
+  on_update={(options: PdfExportOptions) => {
+    stores.ui.pdf_export_dialog.options = options;
+  }}
+  on_confirm={() =>
+    void action_registry.execute(ACTION_IDS.document_export_pdf_confirm)}
+  on_cancel={() =>
+    void action_registry.execute(ACTION_IDS.document_export_pdf_cancel)}
 />
 
 <SettingsDialog
