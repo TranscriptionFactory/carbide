@@ -6,6 +6,7 @@ import type { EditorState } from "prosemirror-state";
 import type { Transaction } from "prosemirror-state";
 import type { Mark, MarkType, NodeType } from "prosemirror-model";
 import type { PastedImagePayload } from "$lib/shared/types/editor";
+import { normalize_source_in_place } from "./source_in_place_plugin";
 import { schema } from "./markdown_pipeline";
 
 export type FormattingCommand =
@@ -105,6 +106,7 @@ function execute_command(
   command: FormattingCommand,
   view: EditorView,
 ): boolean {
+  normalize_source_in_place(view);
   const { state, dispatch } = view;
 
   switch (command) {

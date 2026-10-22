@@ -6,10 +6,13 @@ import { EditorState, TextSelection } from "prosemirror-state";
 import { EditorView } from "prosemirror-view";
 import { history, undo } from "prosemirror-history";
 import { keymap } from "prosemirror-keymap";
+import { DOMParser } from "prosemirror-model";
+import { toggle_format } from "$lib/features/editor/adapters/formatting_toolbar_commands";
 import { toggleMark } from "prosemirror-commands";
 import {
   parse_markdown,
   schema,
+  serialize_markdown,
 } from "$lib/features/editor/adapters/markdown_pipeline";
 import { create_source_in_place_plugin } from "$lib/features/editor/adapters/source_in_place_plugin";
 import { create_mark_syntax_reveal_plugin } from "$lib/features/editor/adapters/mark_syntax_reveal_plugin";
@@ -29,7 +32,7 @@ function mount(markdown: string): EditorView {
       create_source_in_place_plugin(),
       create_mark_syntax_reveal_plugin(),
       create_inline_mark_input_rules_prose_plugin(),
-      keymap({ "Mod-z": undo }),
+      keymap({ "Mod-z": undo, "Mod-b": toggleMark(schema.marks.strong) }),
       history(),
     ],
   });
@@ -135,6 +138,95 @@ describe("source-in-place in a view", () => {
       if (schema.marks.strong.isInSet(node.marks)) has_strong = true;
     });
     expect(has_strong).toBe(false);
+  });
+
+  it("normalizes revealed source before toolbar undo and redo", () => {
+    const view = mount("a bold b\n\ntail\n");
+    view.dispatch(
+      view.state.tr.setSelection(TextSelection.create(view.state.doc, 3, 7)),
+    );
+    toggle_format("bold", view);
+    place_caret(view, 7);
+    expect(view.state.doc.child(0).textContent).toBe("a **bold** b");
+    expect(toggle_format("undo", view)).toBe(true);
+    expect(serialize_markdown(view.state.doc)).toBe("a bold b\n\ntail\n");
+    expect(toggle_format("redo", view)).toBe(true);
+    expect(serialize_markdown(view.state.doc)).toBe("a **bold** b\n\ntail\n");
+  });
+
+  it("toggles formatting on selected revealed content", () => {
+    const view = mount("a **bold** b\n\ntail\n");
+    place_caret(view, 7);
+    view.dispatch(
+      view.state.tr.setSelection(TextSelection.create(view.state.doc, 5, 9)),
+    );
+    expect(toggle_format("bold", view)).toBe(true);
+    expect(serialize_markdown(view.state.doc)).toBe("a bold b\n\ntail\n");
+  });
+
+  it("preserves formatting when converting revealed paragraphs to headings", () => {
+    const view = mount("a **bold** b\n\ntail\n");
+    place_caret(view, 7);
+    expect(toggle_format("heading1", view)).toBe(true);
+    expect(serialize_markdown(view.state.doc)).toBe("# a **bold** b\n\ntail\n");
+    expect(view.state.doc.child(0).textContent).toBe("a bold b");
+  });
+
+  it.each([
+    [3, 11, "<strong>bold</strong>", "**bold**"],
+    [5, 9, "bold", "bold"],
+    [3, 4, "*", "*"],
+  ])(
+    "copies revealed source %i..%i without leaking presentation marks",
+    (from, to, html, text) => {
+      const view = mount("a **bold** b\n\ntail\n");
+      place_caret(view, 7);
+      view.dispatch(
+        view.state.tr.setSelection(
+          TextSelection.create(view.state.doc, from, to),
+        ),
+      );
+      const copied = view.serializeForClipboard(view.state.selection.content());
+      expect(copied.dom.innerHTML).toContain(html);
+      const parsed = DOMParser.fromSchema(schema).parseSlice(copied.dom);
+      expect(parsed.content.textBetween(0, parsed.content.size)).toBe(
+        text === "**bold**" ? "bold" : text,
+      );
+      parsed.content.descendants((node) => {
+        expect(schema.marks.md_source.isInSet(node.marks)).toBeUndefined();
+      });
+    },
+  );
+
+  it("normalizes source before keyboard formatting", () => {
+    const view = mount("a **bold** b\n\ntail\n");
+    place_caret(view, 7);
+    view.dispatch(
+      view.state.tr.setSelection(TextSelection.create(view.state.doc, 5, 9)),
+    );
+    view.dom.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "b", ctrlKey: true, bubbles: true }),
+    );
+    expect(serialize_markdown(view.state.doc)).toBe("a bold b\n\ntail\n");
+  });
+
+  it("pastes inline Markdown into source as literal editable text", () => {
+    const view = mount("a **bold** b\n\ntail\n");
+    place_caret(view, 5);
+    const event = new Event("paste", { bubbles: true, cancelable: true });
+    Object.defineProperty(event, "clipboardData", {
+      value: {
+        getData: (type: string) => (type === "text/plain" ? "**x**" : ""),
+      },
+    });
+    view.dom.dispatchEvent(event);
+    expect(view.state.doc.child(0).textContent).toBe("a **bo**x**ld** b");
+    expect(
+      view.state.doc
+        .child(0)
+        .child(1)
+        .marks.map((mark) => mark.type.name),
+    ).toEqual(["md_source"]);
   });
 
   it("holds conversions while an IME composition is open", () => {

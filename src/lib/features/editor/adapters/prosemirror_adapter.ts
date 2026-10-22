@@ -139,6 +139,7 @@ import type { Diagnostic } from "$lib/features/diagnostics";
 import { update_prosemirror_diagnostics } from "./diagnostics_decoration_plugin";
 import type { AmbientNotice } from "$lib/features/assistant";
 import { update_prosemirror_ambient_anchors } from "./ambient_anchor_plugin";
+import { normalize_source_in_place } from "./source_in_place_plugin";
 import { PRESENTATION_ONLY_META } from "$lib/features/editor/domain/presentation_only_meta";
 
 const log = create_logger("prosemirror_adapter");
@@ -1485,6 +1486,7 @@ export function create_prosemirror_editor_port(args?: {
         turn_into(target: string, attrs?: Record<string, unknown>) {
           const v = view;
           if (!v) return;
+          normalize_source_in_place(v);
           const cmd = create_turn_into_command(target as TurnIntoTarget, attrs);
           cmd(v.state, v.dispatch);
         },
@@ -1495,10 +1497,11 @@ export function create_prosemirror_editor_port(args?: {
         ) {
           const v = view;
           if (!v) return;
+          const normalization = normalize_source_in_place(v);
           turn_into_at_cmd(
             target as TurnIntoTarget,
             attrs,
-            pos,
+            normalization?.mapping.map(pos) ?? pos,
             v.state,
             v.dispatch,
           );
@@ -1511,6 +1514,7 @@ export function create_prosemirror_editor_port(args?: {
         duplicate_block() {
           const v = view;
           if (!v) return;
+          normalize_source_in_place(v);
           duplicate_block_cmd(v.state, v.dispatch);
         },
         delete_block() {
@@ -1521,7 +1525,12 @@ export function create_prosemirror_editor_port(args?: {
         duplicate_block_at(pos: number) {
           const v = view;
           if (!v) return;
-          duplicate_block_at_cmd(pos, v.state, v.dispatch);
+          const normalization = normalize_source_in_place(v);
+          duplicate_block_at_cmd(
+            normalization?.mapping.map(pos) ?? pos,
+            v.state,
+            v.dispatch,
+          );
         },
         delete_block_at(pos: number) {
           const v = view;
@@ -1561,10 +1570,15 @@ export function create_prosemirror_editor_port(args?: {
         ) {
           const v = view;
           if (!v) return;
+          const normalization = normalize_source_in_place(v);
           batch_turn_into_cmd(
             target as TurnIntoTarget,
             attrs,
-            positions,
+            new Set(
+              [...positions].map(
+                (pos) => normalization?.mapping.map(pos) ?? pos,
+              ),
+            ),
             v.state,
             v.dispatch,
           );
@@ -1577,7 +1591,16 @@ export function create_prosemirror_editor_port(args?: {
         batch_duplicate(positions: Set<number>) {
           const v = view;
           if (!v) return;
-          batch_duplicate_cmd(positions, v.state, v.dispatch);
+          const normalization = normalize_source_in_place(v);
+          batch_duplicate_cmd(
+            new Set(
+              [...positions].map(
+                (pos) => normalization?.mapping.map(pos) ?? pos,
+              ),
+            ),
+            v.state,
+            v.dispatch,
+          );
         },
         batch_delete(positions: Set<number>) {
           const v = view;

@@ -1,7 +1,8 @@
 import { Plugin, PluginKey, TextSelection } from "prosemirror-state";
 import type { EditorState, Transaction } from "prosemirror-state";
-import { Fragment, Mark } from "prosemirror-model";
+import { Fragment, Mark, Slice } from "prosemirror-model";
 import type { Node as ProseNode } from "prosemirror-model";
+import type { EditorView } from "prosemirror-view";
 import { Decoration, DecorationSet } from "prosemirror-view";
 import { isHistoryTransaction } from "prosemirror-history";
 import { PRESENTATION_ONLY_META } from "$lib/features/editor/domain/presentation_only_meta";
@@ -183,6 +184,16 @@ function reparse_source(nodes: ProseNode[]): Fragment {
 // whose definitions live elsewhere in the note (footnote references,
 // reference-style links).
 function plan_block_exit(block: ProseNode, block_pos: number): ExitPlan {
+  const target = normalize_source_fragment(block.content);
+  return {
+    block_pos,
+    target,
+    byte_identical:
+      serialize_block(block, target) === serialize_block(block, block.content),
+  };
+}
+
+function normalize_source_fragment(content: Fragment): Fragment {
   const parts: ProseNode[] = [];
   let run: ProseNode[] = [];
   const flush = () => {
@@ -190,22 +201,18 @@ function plan_block_exit(block: ProseNode, block_pos: number): ExitPlan {
     reparse_source(run).forEach((node) => parts.push(node));
     run = [];
   };
-  block.forEach((child) => {
-    if (child.isText && md_source.isInSet(child.marks)) {
-      run.push(child);
+  content.forEach((node) => {
+    if (node.isText && md_source.isInSet(node.marks)) {
+      run.push(node);
       return;
     }
     flush();
-    parts.push(child);
+    parts.push(
+      node.isLeaf ? node : node.copy(normalize_source_fragment(node.content)),
+    );
   });
   flush();
-  const target = Fragment.from(parts);
-  return {
-    block_pos,
-    target,
-    byte_identical:
-      serialize_block(block, target) === serialize_block(block, block.content),
-  };
+  return Fragment.from(parts);
 }
 
 function has_source_text(block: ProseNode): boolean {
@@ -361,15 +368,24 @@ function map_region(
   });
 }
 
-function is_undo_key(event: KeyboardEvent): boolean {
-  if (!(event.metaKey || event.ctrlKey) || event.altKey) return false;
-  const key = event.key.toLowerCase();
-  return key === "z" || key === "y";
+export function normalize_source_in_place(
+  view: EditorView,
+): Transaction | null {
+  const tr = build_source_transition(view.state, true);
+  if (tr) view.dispatch(tr);
+  return tr;
 }
 
-// Paragraph-only prototype of Obsidian-style source reveal: the formatted run
-// under the caret is swapped for its literal Markdown (real, selectable text),
-// and that source is re-parsed to marks once the caret leaves it.
+function is_source_command_key(event: KeyboardEvent): boolean {
+  if (!(event.metaKey || event.ctrlKey)) return false;
+  const key = event.key.toLowerCase();
+  if (event.altKey) return key === "h";
+  return (
+    ["z", "y", "b", "i", "e"].includes(key) ||
+    (event.shiftKey && ["x", "d", "0", "1", "2", "3"].includes(key))
+  );
+}
+
 export function create_source_in_place_plugin(): Plugin<SourceInPlaceState> {
   // A transaction that reshapes the text under an active IME composition
   // aborts it, so conversions wait for compositionend.
@@ -423,11 +439,17 @@ export function create_source_in_place_plugin(): Plugin<SourceInPlaceState> {
           DecorationSet.empty
         );
       },
-      // Undo must see the marks the history recorded, not the stand-in text.
+      transformCopied(slice) {
+        return new Slice(
+          normalize_source_fragment(slice.content),
+          slice.openStart,
+          slice.openEnd,
+        );
+      },
+      // Commands must see formatting, not its stand-in source text.
       handleKeyDown(view, event) {
-        if (!is_undo_key(event)) return false;
-        const tr = build_source_transition(view.state, true);
-        if (tr) view.dispatch(tr);
+        if (!is_source_command_key(event)) return false;
+        normalize_source_in_place(view);
         return false;
       },
       // Source is typed verbatim: no input rules, auto-pairing or run exits.
@@ -437,6 +459,18 @@ export function create_source_in_place_plugin(): Plugin<SourceInPlaceState> {
         if (!region || !touches({ from, to }, region)) return false;
         view.dispatch(view.state.tr.insertText(text, from, to));
         return true;
+      },
+      handlePaste(view, event) {
+        const region = source_in_place_plugin_key.getState(view.state)?.region;
+        const { from, to } = view.state.selection;
+        if (!region || from < region.from || to > region.to) return false;
+        const text = event.clipboardData?.getData("text/plain");
+        if (text && !/[\r\n]/.test(text)) {
+          view.dispatch(view.state.tr.insertText(text, from, to));
+          return true;
+        }
+        normalize_source_in_place(view);
+        return false;
       },
       handleDOMEvents: {
         compositionstart() {
