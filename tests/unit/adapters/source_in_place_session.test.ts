@@ -20,6 +20,7 @@ let root: HTMLElement | null = null;
 
 async function start(syntax_reveal_enabled = true): Promise<Harness> {
   root = document.createElement("div");
+  root.className = "show-block-drag-handle";
   document.body.appendChild(root);
   const on_dirty = vi.fn();
   const on_markdown = vi.fn();
@@ -98,6 +99,70 @@ describe("source-in-place inside an editor session", () => {
       "a **boXld** b and *em* c\n\ntail\n",
     );
     expect(session.get_markdown()).toBe("a **boXld** b and *em* c\n\ntail\n");
+    session.destroy();
+  });
+
+  it.each(["turn_into", "turn_into_at", "batch_turn_into"] as const)(
+    "normalizes source before %s converts it to code",
+    async (command) => {
+      const { session, view } = await start();
+      place_caret(view, 7);
+      if (command === "turn_into") session.turn_into?.("code_block");
+      if (command === "turn_into_at")
+        session.turn_into_at?.("code_block", undefined, 0);
+      if (command === "batch_turn_into")
+        session.batch_turn_into?.("code_block", undefined, new Set([0]));
+      expect(view.state.doc.child(0).type.name).toBe("code_block");
+      expect(view.state.doc.child(0).textContent).toBe("a bold b and em c");
+      session.destroy();
+    },
+  );
+
+  it.each([
+    "duplicate_block",
+    "duplicate_block_at",
+    "batch_duplicate",
+  ] as const)("does not leave orphan source after %s", async (command) => {
+    const { session, view } = await start();
+    place_caret(view, 7);
+    if (command === "duplicate_block") session.duplicate_block?.();
+    if (command === "duplicate_block_at") session.duplicate_block_at?.(0);
+    if (command === "batch_duplicate") session.batch_duplicate?.(new Set([0]));
+    place_caret(view, view.state.doc.content.size - 1);
+    const paragraphs: string[] = [];
+    view.state.doc.forEach((node) => {
+      if (node.textContent) paragraphs.push(node.textContent);
+    });
+    expect(paragraphs).toEqual([
+      "a bold b and em c",
+      "a bold b and em c",
+      "tail",
+    ]);
+    for (const index of [0, 1]) {
+      expect(view.state.doc.child(index).textContent).toBe("a bold b and em c");
+      view.state.doc.child(index).descendants((node) => {
+        expect(node.marks.some((mark) => mark.type.name === "md_source")).toBe(
+          false,
+        );
+      });
+    }
+    session.destroy();
+  });
+
+  it("normalizes source before a block drag captures its slice", async () => {
+    const { session, view } = await start();
+    place_caret(view, 7);
+    const handle = view.dom.querySelector(".block-drag-handle");
+    if (!handle) throw new Error("missing block drag handle");
+    handle.dispatchEvent(new Event("dragstart", { cancelable: true }));
+    const slice = view.dragging?.slice;
+    expect(slice).toBeDefined();
+    expect(slice?.content.firstChild?.textContent).toBe("a bold b and em c");
+    slice?.content.descendants((node) => {
+      expect(node.marks.some((mark) => mark.type.name === "md_source")).toBe(
+        false,
+      );
+    });
     session.destroy();
   });
 

@@ -3,6 +3,7 @@ import type { SelectionBookmark, Transaction } from "prosemirror-state";
 import { Decoration, DecorationSet } from "prosemirror-view";
 import type { EditorView } from "prosemirror-view";
 import type { Node as ProseNode } from "prosemirror-model";
+import { normalize_source_in_place } from "./source_in_place_plugin";
 import { dropPoint } from "prosemirror-transform";
 import { is_draggable_node_type } from "../domain/detect_draggable_blocks";
 import { insert_block_at, type BlockPlacement } from "./block_transforms";
@@ -478,8 +479,10 @@ export function create_block_drag_handle_prose_plugin(
     handle: HTMLElement,
     event: DragEvent,
   ) {
-    const block_pos = get_pos();
-    if (block_pos == null) return;
+    const original_pos = get_pos();
+    if (original_pos == null) return;
+    const normalization = normalize_source_in_place(view);
+    const block_pos = normalization?.mapping.map(original_pos) ?? original_pos;
 
     const range = compute_drag_range(view, block_pos);
     if (!range) return;
