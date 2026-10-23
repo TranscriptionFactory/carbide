@@ -27,6 +27,7 @@ import {
   set_embed_mode_param,
 } from "./file_embed_plugin";
 import { read_preview_theme_tokens } from "./code_preview";
+import { create_resize_handle, type ResizeHandle } from "./resize_handle";
 import {
   create_html_mode_control,
   type HtmlModeControl,
@@ -80,6 +81,10 @@ type HtmlEmbedRender = {
   last_key: string;
 };
 
+const DEFAULT_EMBED_HEIGHT = 400;
+const MIN_EMBED_HEIGHT = 80;
+const AUTO_HEIGHT_TYPES = new Set(["audio", "image"]);
+
 class FileEmbedView implements NodeView {
   dom: HTMLElement;
   private _destroyed = false;
@@ -92,6 +97,8 @@ class FileEmbedView implements NodeView {
   private get_pos: () => number | undefined;
   private collapse_btn: HTMLButtonElement;
   private on_collapse: (e: MouseEvent) => void;
+  private content: HTMLElement;
+  private resize_handle: ResizeHandle | null = null;
 
   constructor(
     node: ProseNode,
@@ -363,12 +370,48 @@ class FileEmbedView implements NodeView {
     }
 
     this.dom.appendChild(content);
+    this.content = content;
+
+    if (!AUTO_HEIGHT_TYPES.has(file_type)) {
+      this.resize_handle = create_resize_handle(
+        content,
+        "y",
+        (next) => {
+          this.commit_height(next ?? DEFAULT_EMBED_HEIGHT);
+        },
+        {
+          class_name: "embed-resize-handle",
+          min_size: MIN_EMBED_HEIGHT,
+          apply: (next) => {
+            this.apply_height(next ?? DEFAULT_EMBED_HEIGHT);
+          },
+        },
+      );
+      this.dom.appendChild(this.resize_handle.el);
+    }
+  }
+
+  private apply_height(height: number): void {
+    if (this.resize_handle === null) return;
+    this.content.style.height = `${String(height)}px`;
+  }
+
+  private commit_height(height: number): void {
+    const pos = this.get_pos();
+    if (pos == null) return;
+    this.view.dispatch(
+      this.view.state.tr.setNodeMarkup(pos, undefined, {
+        ...this.node.attrs,
+        height,
+      }),
+    );
   }
 
   update(updated: ProseNode): boolean {
     if (updated.type.name !== "file_embed") return false;
     this.node = updated;
     this.dom.dataset["collapsed"] = String(updated.attrs["collapsed"]);
+    this.apply_height(updated.attrs["height"] as number);
 
     const requested = embed_mode_from_params(
       updated.attrs["params"] as Record<string, string> | undefined,
@@ -623,7 +666,11 @@ class FileEmbedView implements NodeView {
   stopEvent(event: Event): boolean {
     const target = event.target;
     if (!(target instanceof HTMLElement)) return false;
-    return target.closest("button") !== null || target.closest("a") !== null;
+    return (
+      target.closest("button") !== null ||
+      target.closest("a") !== null ||
+      target.closest(".embed-resize-handle") !== null
+    );
   }
 
   ignoreMutation(): boolean {
@@ -632,6 +679,7 @@ class FileEmbedView implements NodeView {
 
   destroy(): void {
     this._destroyed = true;
+    this.resize_handle?.cancel();
     this._theme_observer?.disconnect();
     this._theme_observer = null;
     if (this._html_embed?.live_url) {

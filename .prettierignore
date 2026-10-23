@@ -13,3 +13,5 @@ src-tauri/tauri.conf.json
 
 # Symlink to the separate carbide-private repo. A public-repo formatter must never write there.
 private
+# Retrieval evaluation fixtures retain their source formatting.
+src-tauri/tests/fixtures/retrieval_eval

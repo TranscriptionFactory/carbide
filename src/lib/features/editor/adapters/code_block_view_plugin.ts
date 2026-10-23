@@ -43,6 +43,7 @@ import {
 } from "../domain/inline_html_mode";
 import type { TrustLevel } from "$lib/features/document";
 import { LruCache } from "$lib/shared/utils/lru_cache";
+import { create_resize_handle } from "./resize_handle";
 import { schema } from "./schema";
 import { has_active_dsl_suggest } from "./dsl_suggest_plugin";
 import { create_logger } from "$lib/shared/utils/logger";
@@ -253,6 +254,7 @@ type HtmlPreviewState = {
   render_seq: number;
   theme_observer: MutationObserver;
   height_listener: (event: MessageEvent) => void;
+  auto_height: number | null;
 };
 
 type PreviewRender = {
@@ -326,107 +328,36 @@ async function render_mermaid_preview(
 
 const MIN_CODE_BLOCK_HEIGHT = 48;
 
-function apply_height(pre: HTMLElement, height: number | null) {
+function apply_height(pane: HTMLElement, height: number | null) {
   if (height !== null && height > 0) {
-    pre.style.height = `${String(height)}px`;
-    pre.style.maxHeight = "none";
+    pane.style.height = `${String(height)}px`;
+    pane.style.maxHeight = "none";
     // Stylesheet no longer caps code blocks; a user-resized block is the
     // one case that still needs its own vertical scroller.
-    pre.style.overflowY = "auto";
-    pre.style.overscrollBehavior = "contain";
+    pane.style.overflowY = "auto";
+    pane.style.overscrollBehavior = "contain";
   } else {
-    pre.style.removeProperty("height");
-    pre.style.removeProperty("max-height");
-    pre.style.removeProperty("overflow-y");
-    pre.style.removeProperty("overscroll-behavior");
+    pane.style.removeProperty("height");
+    pane.style.removeProperty("max-height");
+    pane.style.removeProperty("overflow-y");
+    pane.style.removeProperty("overscroll-behavior");
   }
 }
 
-type ResizeHandle = {
-  el: HTMLElement;
-  cancel: () => void;
-};
+function apply_frame_height(
+  iframe: HTMLIFrameElement,
+  height: number | null,
+  auto_height: number | null,
+) {
+  if (height !== null) iframe.style.height = `${String(height)}px`;
+  else if (auto_height !== null)
+    iframe.style.height = `${String(auto_height)}px`;
+  else iframe.style.removeProperty("height");
+}
 
-function create_resize_handle(
-  pre: HTMLElement,
-  on_resize_start: () => void,
-  on_commit: (height: number | null) => void,
-): ResizeHandle {
-  const handle = document.createElement("div");
-  handle.className = "code-block-resize-handle";
-  handle.contentEditable = "false";
-
-  let start_y = 0;
-  let start_height = 0;
-  let current_height = 0;
-  let active_pointer_id: number | null = null;
-
-  function finish_drag() {
-    if (
-      active_pointer_id !== null &&
-      typeof handle.releasePointerCapture === "function" &&
-      handle.hasPointerCapture(active_pointer_id)
-    ) {
-      handle.releasePointerCapture(active_pointer_id);
-    }
-    active_pointer_id = null;
-    handle.removeEventListener("pointermove", on_pointer_move);
-    handle.removeEventListener("pointerup", on_pointer_up);
-    handle.removeEventListener("pointercancel", on_pointer_cancel);
-    document.body.style.removeProperty("cursor");
-    document.body.style.removeProperty("user-select");
-  }
-
-  function on_pointer_move(e: PointerEvent) {
-    const delta = e.clientY - start_y;
-    current_height = Math.max(MIN_CODE_BLOCK_HEIGHT, start_height + delta);
-    apply_height(pre, current_height);
-  }
-
-  function on_pointer_up() {
-    finish_drag();
-    on_commit(current_height);
-  }
-
-  function on_pointer_cancel() {
-    finish_drag();
-    on_commit(current_height);
-  }
-
-  handle.addEventListener("pointerdown", (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    start_y = e.clientY;
-    start_height = pre.getBoundingClientRect().height;
-    current_height = start_height;
-    active_pointer_id = e.pointerId;
-    if (typeof handle.setPointerCapture === "function") {
-      handle.setPointerCapture(e.pointerId);
-    }
-    handle.addEventListener("pointermove", on_pointer_move);
-    handle.addEventListener("pointerup", on_pointer_up);
-    handle.addEventListener("pointercancel", on_pointer_cancel);
-    document.body.style.cursor = "row-resize";
-    document.body.style.userSelect = "none";
-    on_resize_start();
-  });
-
-  handle.addEventListener("dblclick", (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    apply_height(pre, null);
-    on_commit(null);
-  });
-
-  return {
-    el: handle,
-    cancel() {
-      if (active_pointer_id !== null) {
-        finish_drag();
-        on_commit(current_height);
-      }
-    },
-  };
+function apply_mermaid_height(container: HTMLElement, height: number | null) {
+  if (height !== null) container.style.height = `${String(height)}px`;
+  else container.style.removeProperty("height");
 }
 
 class CodeBlockView implements NodeView {
@@ -449,6 +380,7 @@ class CodeBlockView implements NodeView {
   private line_count_el: HTMLSpanElement;
   private on_collapse: (e: MouseEvent) => void;
   private is_resizing = false;
+  private resize_el: HTMLElement;
   private cancel_resize: () => void;
   private applied_height: number | null = null;
 
@@ -520,22 +452,31 @@ class CodeBlockView implements NodeView {
 
     this.set_height(node.attrs.height as number | null);
 
-    const { el: resize_el, cancel } = create_resize_handle(
-      this.pre,
-      () => {
-        this.is_resizing = true;
-      },
+    const resize_handle = create_resize_handle(
+      () => this.resize_target(),
+      "y",
       (height) => {
         this.is_resizing = false;
         this.commit_height(height);
       },
+      {
+        class_name: "code-block-resize-handle",
+        min_size: MIN_CODE_BLOCK_HEIGHT,
+        apply: (height) => {
+          this.apply_size(height);
+        },
+        on_start: () => {
+          this.is_resizing = true;
+        },
+      },
     );
-    this.cancel_resize = cancel;
+    this.resize_el = resize_handle.el;
+    this.cancel_resize = resize_handle.cancel;
 
     this.dom.dataset["collapsed"] = String(node.attrs["collapsed"]);
     this.dom.appendChild(this.toolbar);
     this.dom.appendChild(this.pre);
-    this.dom.appendChild(resize_el);
+    this.dom.appendChild(this.resize_el);
 
     if (this.current_language === "mermaid") {
       this.setup_mermaid();
@@ -555,7 +496,39 @@ class CodeBlockView implements NodeView {
   private set_height(height: number | null) {
     if (height === this.applied_height) return;
     this.applied_height = height;
-    apply_height(this.pre, height);
+    this.apply_size(height);
+  }
+
+  private resize_target(): HTMLElement {
+    if (this.mermaid?.is_preview) return this.mermaid.preview_container;
+    if (this.smart_block?.is_preview) return this.smart_block.instance.dom;
+    if (this.html_preview?.is_preview) return this.html_preview.iframe;
+    return this.pre;
+  }
+
+  private apply_size(height: number | null) {
+    const target = this.resize_target();
+    apply_height(this.pre, target === this.pre ? height : null);
+    if (this.smart_block) {
+      const pane = this.smart_block.instance.dom;
+      apply_height(pane, target === pane ? height : null);
+    }
+    if (this.mermaid) {
+      const pane = this.mermaid.preview_container;
+      apply_mermaid_height(pane, target === pane ? height : null);
+    }
+    if (this.html_preview) {
+      const { iframe, auto_height } = this.html_preview;
+      apply_frame_height(
+        iframe,
+        target === iframe ? height : null,
+        auto_height,
+      );
+    }
+  }
+
+  private add_preview_pane(pane: HTMLElement) {
+    this.dom.insertBefore(pane, this.resize_el);
   }
 
   private commit_height(height: number | null) {
@@ -603,7 +576,7 @@ class CodeBlockView implements NodeView {
     const copy_btn = this.toolbar.lastChild;
     this.toolbar.insertBefore(toggle_btn, copy_btn);
     this.toolbar.insertBefore(mode_control.el, toggle_btn);
-    this.dom.appendChild(container);
+    this.add_preview_pane(container);
 
     const show = should_show_preview(
       this.current_language,
@@ -622,8 +595,15 @@ class CodeBlockView implements NodeView {
       if (event.source !== iframe.contentWindow) return;
       const data = event.data as { type?: unknown; height?: unknown };
       if (data?.type !== PREVIEW_HEIGHT_MESSAGE) return;
-      if (typeof data.height !== "number") return;
-      iframe.style.height = `${String(clamp_preview_height(data.height))}px`;
+      if (typeof data.height !== "number" || !this.html_preview) return;
+      const auto_height = clamp_preview_height(data.height);
+      this.html_preview.auto_height = auto_height;
+      if (
+        this.html_preview.is_preview &&
+        (this.is_resizing || this.applied_height !== null)
+      )
+        return;
+      iframe.style.height = `${String(auto_height)}px`;
     };
     window.addEventListener("message", height_listener);
 
@@ -642,6 +622,7 @@ class CodeBlockView implements NodeView {
       render_seq: 0,
       theme_observer,
       height_listener,
+      auto_height: null,
     };
     this.apply_html_preview_state();
     if (show) this.render_html_preview();
@@ -655,6 +636,7 @@ class CodeBlockView implements NodeView {
       "code-block-preview-toggle--active",
       on,
     );
+    this.apply_size(this.applied_height);
   }
 
   private toggle_html_preview() {
@@ -836,6 +818,7 @@ class CodeBlockView implements NodeView {
     this.html_preview.mode_control.el.remove();
     this.html_preview.container.remove();
     this.html_preview = null;
+    this.apply_size(this.applied_height);
   }
 
   private setup_mermaid() {
@@ -893,7 +876,7 @@ class CodeBlockView implements NodeView {
     this.toolbar.insertBefore(zoom_out_btn, copy_btn);
     this.toolbar.insertBefore(export_btn, copy_btn);
     this.toolbar.insertBefore(expand_btn, copy_btn);
-    this.dom.appendChild(preview_container);
+    this.add_preview_pane(preview_container);
 
     this.mermaid = {
       is_preview: true,
@@ -914,6 +897,7 @@ class CodeBlockView implements NodeView {
     };
 
     this.pre.style.display = "none";
+    this.apply_size(this.applied_height);
     this.schedule_mermaid_render();
   }
 
@@ -1051,6 +1035,7 @@ class CodeBlockView implements NodeView {
     this.mermaid.zoom_out_btn.style.display = show ? "" : "none";
     this.mermaid.export_btn.style.display = show ? "" : "none";
     this.mermaid.expand_btn.style.display = show ? "" : "none";
+    this.apply_size(this.applied_height);
     if (show) this.schedule_mermaid_render();
   }
 
@@ -1169,6 +1154,7 @@ class CodeBlockView implements NodeView {
     this.mermaid.expand_btn.remove();
     this.mermaid = null;
     this.pre.style.display = "";
+    this.apply_size(this.applied_height);
   }
 
   private current_smart_block_spec() {
@@ -1235,7 +1221,7 @@ class CodeBlockView implements NodeView {
     });
 
     this.toolbar.insertBefore(toggle_btn, this.toolbar.lastChild);
-    this.dom.appendChild(instance.dom);
+    this.add_preview_pane(instance.dom);
 
     this.smart_block = {
       instance,
@@ -1245,6 +1231,7 @@ class CodeBlockView implements NodeView {
     };
 
     this.pre.style.display = "none";
+    this.apply_size(this.applied_height);
   }
 
   private toggle_smart_block_preview() {
@@ -1261,6 +1248,7 @@ class CodeBlockView implements NodeView {
       this.smart_block.instance.dom.style.display = "none";
       this.smart_block.toggle_btn.textContent = "Preview";
     }
+    this.apply_size(this.applied_height);
   }
 
   private teardown_smart_block() {
@@ -1270,6 +1258,7 @@ class CodeBlockView implements NodeView {
     this.smart_block.toggle_btn.remove();
     this.smart_block = null;
     this.pre.style.display = "";
+    this.apply_size(this.applied_height);
   }
 
   private toggle_picker() {

@@ -2,7 +2,7 @@ import { Plugin, PluginKey } from "prosemirror-state";
 import type { Node as ProseNode } from "prosemirror-model";
 import { create_image_input_rule_prose_plugin } from "../adapters/image_input_rule_plugin";
 import { create_image_paste_prose_plugin } from "../adapters/image_paste_plugin";
-import { create_width_resize_handle } from "../adapters/resize_handle";
+import { create_resize_handle } from "../adapters/resize_handle";
 import { resolve_relative_asset_path } from "$lib/features/note";
 import { as_asset_path } from "$lib/shared/types/ids";
 import { create_logger } from "$lib/shared/utils/logger";
@@ -39,6 +39,11 @@ const IMAGE_LOAD_ERROR_PLACEHOLDER = create_icon_placeholder_data_uri(
 );
 
 const RESOLVED_URL_CACHE_MAX = 2000;
+const MIN_IMAGE_WIDTH = 50;
+
+function width_attr(node: ProseNode): string {
+  return typeof node.attrs["width"] === "string" ? node.attrs["width"] : "";
+}
 
 function create_image_block_view_plugin(ctx: PluginContext): Plugin {
   const resolved_url_cache = new Map<string, string>();
@@ -110,14 +115,13 @@ function create_image_block_view_plugin(ctx: PluginContext): Plugin {
           img.alt = String(node.attrs["alt"] || node.attrs["caption"] || "");
           wrapper.appendChild(img);
 
-          const width =
-            typeof node.attrs["width"] === "string" ? node.attrs["width"] : "";
-          if (width) wrapper.style.width = width;
+          wrapper.style.width = width_attr(node);
 
           img.src = resolve_src(String(node.attrs["src"] || ""), img);
 
-          const resize_handle = create_width_resize_handle(
+          const resize_handle = create_resize_handle(
             wrapper,
+            "x",
             (new_width) => {
               const pos = get_pos();
               if (pos === undefined) return;
@@ -126,10 +130,11 @@ function create_image_block_view_plugin(ctx: PluginContext): Plugin {
               view.dispatch(
                 view.state.tr.setNodeMarkup(pos, undefined, {
                   ...current.attrs,
-                  width: new_width,
+                  width: new_width === null ? "" : `${String(new_width)}px`,
                 }),
               );
             },
+            { class_name: "image-resize-handle", min_size: MIN_IMAGE_WIDTH },
           );
           wrapper.appendChild(resize_handle.el);
 
@@ -151,11 +156,7 @@ function create_image_block_view_plugin(ctx: PluginContext): Plugin {
               img.alt = String(
                 updated.attrs["alt"] || updated.attrs["caption"] || "",
               );
-              const new_width =
-                typeof updated.attrs["width"] === "string"
-                  ? updated.attrs["width"]
-                  : "";
-              wrapper.style.width = new_width || "";
+              wrapper.style.width = width_attr(updated);
               return true;
             },
             destroy() {
@@ -178,6 +179,7 @@ function create_image_block_view_plugin(ctx: PluginContext): Plugin {
           const img = document.createElement("img");
           img.alt = String(node.attrs["alt"] || "");
           if (node.attrs["title"]) img.title = String(node.attrs["title"]);
+          img.style.width = width_attr(node);
           img.src = resolve_src(String(node.attrs["src"] || ""), img);
 
           return {
@@ -188,6 +190,7 @@ function create_image_block_view_plugin(ctx: PluginContext): Plugin {
               const resolved = resolve_src(new_src, img);
               if (img.src !== resolved) img.src = resolved;
               img.alt = String(updated.attrs["alt"] || "");
+              img.style.width = width_attr(updated);
               return true;
             },
             destroy() {

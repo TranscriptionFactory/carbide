@@ -40,6 +40,25 @@ export function set_meta_token(
   return tokens.join(" ");
 }
 
+const FENCE_HEIGHT_RE = /^height=([1-9]\d*)$/;
+
+export function fence_height_from_meta(meta: string): number | null {
+  for (const token of meta.split(/\s+/)) {
+    const match = FENCE_HEIGHT_RE.exec(token);
+    if (match) return Number(match[1]);
+  }
+  return null;
+}
+
+export function set_fence_height_token(
+  meta: string,
+  height: number | null,
+): string {
+  const without = set_meta_token(meta, "height", false);
+  if (height === null) return without;
+  return [without, `height=${String(height)}`].filter(Boolean).join(" ");
+}
+
 export function should_show_preview(language: string, meta: string): boolean {
   if (!is_previewable_language(language)) return false;
   if (meta_has_token(meta, "nopreview")) return false;

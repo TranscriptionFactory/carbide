@@ -351,6 +351,8 @@ body.block-handle-dragging .prosemirror-dropcursor-inline {
   border: none;
   resize: none;
   min-height: unset;
+  /* Beats the inline height a user-resized preview carries. */
+  height: auto !important;
 }
 
 .mermaid-fullscreen .mermaid-viewport svg {
@@ -426,6 +428,55 @@ body.block-handle-dragging .prosemirror-dropcursor-inline {
 .code-block-resize-handle:hover::after,
 .code-block-resize-handle:active::after {
   background: color-mix(in oklch, var(--editor-foreground) 50%, transparent);
+}
+
+/* ── Embed resize handle (file, note, drawing embeds) ── */
+
+.embed-resize-handle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 0.5rem;
+  cursor: row-resize;
+  user-select: none;
+  touch-action: none;
+  opacity: 0;
+  transition: opacity var(--duration-normal) var(--ease-default);
+}
+
+.embed-resize-handle::after {
+  content: "";
+  width: 2rem;
+  height: 3px;
+  border-radius: 1.5px;
+  background: color-mix(in oklch, var(--editor-foreground) 25%, transparent);
+}
+
+.file-embed:hover > .embed-resize-handle,
+.note-embed:hover > .embed-resize-handle,
+.excalidraw-embed:hover > .embed-resize-handle,
+.embed-resize-handle:active {
+  opacity: 1;
+}
+
+.embed-resize-handle:hover::after,
+.embed-resize-handle:active::after {
+  background: color-mix(in oklch, var(--editor-foreground) 50%, transparent);
+}
+
+.file-embed[data-collapsed="true"] > .embed-resize-handle,
+.note-embed[data-collapsed="true"] > .embed-resize-handle {
+  display: none;
+}
+
+/* ── Empty-text link `[](url)`, kept as source ── */
+
+.ProseMirror [data-empty-link] {
+  color: var(--muted-foreground);
+  font-family: var(--font-mono, monospace);
+  font-size: 0.875em;
+  cursor: default;
+  user-select: all;
 }
 
 /* ============================================

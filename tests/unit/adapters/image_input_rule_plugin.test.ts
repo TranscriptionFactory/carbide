@@ -51,6 +51,33 @@ describe("image_input_rule_plugin", () => {
     expect(next.doc.firstChild?.attrs.src).toBe("photo.png");
   });
 
+  it("preserves image width, alt, and title when promoting a solo image", () => {
+    const state = make_state(para(""));
+    const image = schema.nodes.image.create({
+      src: "photo.png",
+      alt: "Photo",
+      title: "Title",
+      width: "300px",
+    });
+    const next = state.apply(state.tr.replaceWith(1, 1, image));
+    expect(next.doc.firstChild?.attrs).toMatchObject({
+      src: "photo.png",
+      alt: "Photo",
+      title: "Title",
+      width: "300px",
+    });
+  });
+
+  it("decodes a typed standalone image width before promotion", () => {
+    const state = make_state(para(""));
+    const next = state.apply(state.tr.insertText("![Photo|300](photo.png)", 1));
+    expect(next.doc.firstChild?.attrs).toMatchObject({
+      src: "photo.png",
+      alt: "Photo",
+      width: "300px",
+    });
+  });
+
   it("promotes image even when cursor is in a different paragraph", () => {
     // This is the key regression test: cursor in paragraph 2,
     // but image paragraph 1 should still get promoted.
