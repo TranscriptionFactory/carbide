@@ -831,6 +831,8 @@ pub struct WriteImageAssetArgs {
     pub attachment_folder: Option<String>,
     #[serde(default)]
     pub target_folder: Option<String>,
+    #[serde(default)]
+    pub subfolder: Option<String>,
 }
 
 fn image_extension(mime_type: &str, file_name: Option<&str>) -> String {
@@ -925,6 +927,40 @@ pub async fn write_image_asset(
     .await
 }
 
+pub(crate) fn asset_dir(args: &WriteImageAssetArgs) -> Result<PathBuf, String> {
+    let attachment_folder = args.attachment_folder.as_deref().unwrap_or(".assets");
+    if attachment_folder.contains('/')
+        || attachment_folder.contains('\\')
+        || attachment_folder.starts_with("..")
+    {
+        return Err("invalid attachment folder name".to_string());
+    }
+
+    let mut dir = match args
+        .target_folder
+        .as_deref()
+        .map(str::trim)
+        .filter(|folder| !folder.is_empty())
+    {
+        Some(target_folder) => PathBuf::from(target_folder).join(attachment_folder),
+        None => PathBuf::from(attachment_folder),
+    };
+
+    if let Some(subfolder) = args.subfolder.as_deref() {
+        let subfolder = subfolder.trim();
+        if subfolder.is_empty()
+            || subfolder == "."
+            || subfolder == ".."
+            || subfolder.contains('/')
+            || subfolder.contains('\\')
+        {
+            return Err("invalid asset subfolder name".to_string());
+        }
+        dir = dir.join(subfolder);
+    }
+    Ok(dir)
+}
+
 pub fn write_image_asset_inner(
     args: WriteImageAssetArgs,
     app: AppHandle,
@@ -943,13 +979,7 @@ pub fn write_image_asset_inner(
         .and_then(|stem| stem.to_str())
         .unwrap_or("image");
 
-    let attachment_folder = args.attachment_folder.as_deref().unwrap_or(".assets");
-    if attachment_folder.contains('/')
-        || attachment_folder.contains('\\')
-        || attachment_folder.starts_with("..")
-    {
-        return Err("invalid attachment folder name".to_string());
-    }
+    let asset_dir = asset_dir(&args)?;
 
     let filename = if let Some(custom_filename) = args.custom_filename {
         let sanitized = custom_filename.replace('/', "").replace('\\', "");
@@ -975,22 +1005,16 @@ pub fn write_image_asset_inner(
             .and_then(|stem| stem.to_str())
             .unwrap_or(note_stem);
         let ext = image_extension(&args.mime_type, args.file_name.as_deref());
-        format!(
-            "{}-{}.{}",
-            sanitize_stem(source_stem),
-            storage::now_ms(),
-            ext
-        )
-    };
-
-    let asset_dir = match args
-        .target_folder
-        .as_deref()
-        .map(str::trim)
-        .filter(|folder| !folder.is_empty())
-    {
-        Some(target_folder) => PathBuf::from(target_folder).join(attachment_folder),
-        None => PathBuf::from(attachment_folder),
+        if args.subfolder.is_some() {
+            format!("{}.{}", sanitize_stem(source_stem), ext)
+        } else {
+            format!(
+                "{}-{}.{}",
+                sanitize_stem(source_stem),
+                storage::now_ms(),
+                ext
+            )
+        }
     };
 
     let probe = storage::normalize_relative_path(&asset_dir.join(&filename));

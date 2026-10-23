@@ -20,6 +20,7 @@ function build_write_image_asset_args(
     custom_filename: input.custom_filename,
     attachment_folder: input.attachment_folder,
     target_folder: input.target_folder,
+    subfolder: input.subfolder,
   };
 }
 

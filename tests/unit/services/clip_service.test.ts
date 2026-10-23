@@ -422,6 +422,60 @@ describe("ClipService.clip_page", () => {
     expect(note_path).toBe("clips/test-article-2.md");
   });
 
+  it("saves clip images into a subfolder named after the note", async () => {
+    const harness = create_harness();
+
+    await harness.service.clip_page({
+      url: FINAL_URL,
+      folder_path: "clips",
+      formats: MARKDOWN_ONLY,
+      attachment_folder: ".assets",
+    });
+
+    expect(harness.assets_port.write_image_asset).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        attachment_folder: ".assets",
+        subfolder: "test-article",
+      }),
+    );
+  });
+
+  it("names the image subfolder after the uniquified note stem", async () => {
+    const harness = create_harness();
+    harness.notes_store.set_notes([
+      create_test_note("clips/test-article", "Test Article"),
+    ]);
+
+    await harness.service.clip_page({
+      url: FINAL_URL,
+      folder_path: "clips",
+      formats: MARKDOWN_ONLY,
+      attachment_folder: ".assets",
+    });
+
+    expect(harness.assets_port.write_image_asset).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ subfolder: "test-article-2" }),
+    );
+  });
+
+  it("uses the note stem as image subfolder for html-only clips", async () => {
+    const harness = create_harness();
+
+    await harness.service.clip_page({
+      url: FINAL_URL,
+      folder_path: "clips",
+      formats: { markdown: false, html: true, epub: false },
+      attachment_folder: ".assets",
+    });
+
+    expect(harness.assets_port.write_image_asset).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ subfolder: "test-article" }),
+    );
+  });
+
   it("uses a custom name for the note filename and title", async () => {
     const harness = create_harness();
 

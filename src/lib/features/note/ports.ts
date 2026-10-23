@@ -23,6 +23,7 @@ export type WriteImageAssetInput = {
   custom_filename?: string;
   attachment_folder?: string;
   target_folder?: string;
+  subfolder?: string;
 };
 
 export interface AssetsPort {
