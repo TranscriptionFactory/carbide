@@ -3,11 +3,21 @@ import type { Transaction } from "prosemirror-state";
 import type { Node as ProseNode, NodeType } from "prosemirror-model";
 
 const IMAGE_MARKDOWN_REGEX = /!\[([^\]]*)\]\(([^)\s]+)\)/;
+const IMAGE_MARKDOWN_GLOBAL_REGEX = new RegExp(IMAGE_MARKDOWN_REGEX, "g");
+
+type ChangedRange = { from: number; to: number };
 
 interface PromotionCandidate {
   pos: number;
   size: number;
   src: string;
+}
+
+interface InlineImageCandidate {
+  from: number;
+  to: number;
+  src: string;
+  alt: string;
 }
 
 export function create_image_input_rule_prose_plugin(): Plugin {
@@ -29,6 +39,7 @@ export function create_image_input_rule_prose_plugin(): Plugin {
       );
 
       const candidates: PromotionCandidate[] = [];
+      const inline_candidates: InlineImageCandidate[] = [];
       newState.doc.nodesBetween(from, to, (node, pos): boolean | void => {
         if (node.type.name !== "paragraph") return;
 
@@ -47,11 +58,21 @@ export function create_image_input_rule_prose_plugin(): Plugin {
           candidates.push({ pos, size: node.nodeSize, src: text_match.src });
           return false;
         }
+
+        inline_candidates.push(
+          ...find_inline_image_texts(node, pos, changed_ranges),
+        );
+        return false;
       });
 
-      if (candidates.length === 0) return null;
+      if (candidates.length === 0 && inline_candidates.length === 0) {
+        return null;
+      }
 
       const tr = newState.tr;
+      replace_inline_image_texts(tr, inline_candidates);
+      if (candidates.length === 0) return tr;
+
       for (let i = candidates.length - 1; i >= 0; i--) {
         const c = candidates[i]!;
         const mapped_pos = tr.mapping.map(c.pos);
@@ -81,8 +102,8 @@ export function create_image_input_rule_prose_plugin(): Plugin {
 
 function collect_changed_ranges(
   transactions: readonly Transaction[],
-): Array<{ from: number; to: number }> {
-  const ranges: Array<{ from: number; to: number }> = [];
+): ChangedRange[] {
+  const ranges: ChangedRange[] = [];
   for (const t of transactions) {
     t.steps.forEach((_step, i) => {
       const map = t.mapping.maps[i];
@@ -94,6 +115,47 @@ function collect_changed_ranges(
     });
   }
   return ranges;
+}
+
+function is_convertible_text(node: ProseNode): boolean {
+  return (
+    node.isText &&
+    !node.marks.some(
+      (mark) => mark.type.spec.code || mark.type.name === "md_source",
+    )
+  );
+}
+
+function find_inline_image_texts(
+  paragraph: ProseNode,
+  paragraph_pos: number,
+  changed_ranges: ChangedRange[],
+): InlineImageCandidate[] {
+  const found: InlineImageCandidate[] = [];
+  paragraph.forEach((child, offset) => {
+    if (!is_convertible_text(child) || !child.text) return;
+    const text_start = paragraph_pos + 1 + offset;
+    for (const match of child.text.matchAll(IMAGE_MARKDOWN_GLOBAL_REGEX)) {
+      const from = text_start + match.index;
+      const to = from + match[0].length;
+      const touched = changed_ranges.some((r) => r.from <= to && r.to >= from);
+      if (touched) {
+        found.push({ from, to, alt: match[1] ?? "", src: match[2] ?? "" });
+      }
+    }
+  });
+  return found;
+}
+
+function replace_inline_image_texts(
+  tr: Transaction,
+  inline_candidates: InlineImageCandidate[],
+): void {
+  const image_type = tr.doc.type.schema.nodes.image;
+  if (!image_type) return;
+  for (const c of [...inline_candidates].reverse()) {
+    tr.replaceWith(c.from, c.to, image_type.create({ src: c.src, alt: c.alt }));
+  }
 }
 
 function find_solo_inline_image(parent: ProseNode): ProseNode | null {
