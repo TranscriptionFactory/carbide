@@ -94,6 +94,11 @@ function image_filename_from_url(url: string): string | null {
   }
 }
 
+function note_stem(note_path: string): string {
+  const name = note_path.split("/").pop() ?? note_path;
+  return name.replace(/\.md$/i, "");
+}
+
 export class ClipService {
   constructor(
     private clip_port: ClipPort,
@@ -331,6 +336,7 @@ export class ClipService {
       note_path: as_note_path(note_path),
       image: { bytes, mime_type, file_name },
       attachment_folder,
+      subfolder: note_stem(note_path),
     });
   }
 

@@ -37,8 +37,10 @@ navigation, ads, and boilerplate down to the article body before conversion.
 ## Localized images
 
 Images referenced by the extracted content are downloaded and rewritten to point
-at local copies inside your attachment folder (the editor's **Attachment
-folder** setting, default `.assets`). Images that fail to download are skipped
+at local copies inside a per-clip subfolder of your attachment folder (the
+editor's **Attachment folder** setting, default `.assets`), named after the clip's
+note: a clip saved as `Foo.md` writes to `.assets/Foo/`, and a second clip with the
+same title (`Foo-2.md`) writes to `.assets/Foo-2/`. Images that fail to download are skipped
 and reported in the success toast (`N images could not be saved`); the clip still
 succeeds.
 

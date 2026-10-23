@@ -2,7 +2,7 @@
 use crate::features::notes::service::safe_vault_abs_for_write;
 use crate::features::notes::service::{
     get_or_scan_folder_entries, invalidate_folder_cache, rename_with_temp_path, safe_vault_abs,
-    reserve_unique_filename, safe_vault_rename_target_abs, scan_folder_entries,
+    asset_dir, reserve_unique_filename, safe_vault_rename_target_abs, WriteImageAssetArgs, scan_folder_entries,
 };
 use crate::shared::storage;
 use crate::shared::vault_ignore::VaultIgnoreMatcher;
@@ -253,4 +253,56 @@ fn reserve_unique_filename_gives_concurrent_writers_distinct_names() {
         handles.into_iter().map(|h| h.join().unwrap()).collect();
     assert_eq!(names.len(), writers);
     let _ = std::fs::remove_dir_all(&dir);
+}
+
+fn image_args(
+    attachment_folder: Option<&str>,
+    target_folder: Option<&str>,
+    subfolder: Option<&str>,
+) -> WriteImageAssetArgs {
+    WriteImageAssetArgs {
+        vault_id: "v".to_string(),
+        note_path: "clips/Foo.md".to_string(),
+        mime_type: "image/png".to_string(),
+        file_name: None,
+        bytes: Vec::new(),
+        custom_filename: None,
+        attachment_folder: attachment_folder.map(str::to_string),
+        target_folder: target_folder.map(str::to_string),
+        subfolder: subfolder.map(str::to_string),
+    }
+}
+
+#[test]
+fn asset_dir_without_subfolder_is_the_attachment_folder() {
+    assert_eq!(asset_dir(&image_args(None, None, None)).unwrap(), PathBuf::from(".assets"));
+    assert_eq!(
+        asset_dir(&image_args(Some("6_BLOB"), Some("notes"), None)).unwrap(),
+        PathBuf::from("notes/6_BLOB")
+    );
+}
+
+#[test]
+fn asset_dir_joins_subfolder_after_the_attachment_folder() {
+    assert_eq!(
+        asset_dir(&image_args(Some(".assets"), None, Some("Foo-2"))).unwrap(),
+        PathBuf::from(".assets/Foo-2")
+    );
+    assert_eq!(
+        asset_dir(&image_args(Some(".assets"), Some("notes"), Some("Foo"))).unwrap(),
+        PathBuf::from("notes/.assets/Foo")
+    );
+}
+
+#[test]
+fn asset_dir_rejects_unsafe_subfolders() {
+    for bad in ["a/b", "a\\b", "..", ".", "", "  ", "../x"] {
+        assert!(asset_dir(&image_args(None, None, Some(bad))).is_err(), "{bad:?}");
+    }
+}
+
+#[test]
+fn asset_dir_still_rejects_nested_attachment_folder() {
+    assert!(asset_dir(&image_args(Some("a/b"), None, None)).is_err());
+    assert!(asset_dir(&image_args(Some("..x"), None, None)).is_err());
 }
