@@ -262,7 +262,24 @@
 }
 
 .ProseMirror ol {
-  list-style-type: decimal;
+  list-style-type: none;
+}
+
+.ProseMirror ol > li:not([data-item-type="task"]) {
+  position: relative;
+}
+
+.ProseMirror ol > li:not([data-item-type="task"])::before {
+  content: counter(list-item) ".";
+  position: absolute;
+  right: 100%;
+  margin-right: 0.4em;
+  white-space: nowrap;
+  color: var(--editor-text-muted);
+  font-feature-settings: "tnum" 1;
+  font-size: 0.88em;
+  font-weight: 500;
+  line-height: calc(1.75em / 0.88);
 }
 
 .ProseMirror ul ul {
@@ -275,12 +292,6 @@
 
 .ProseMirror li::marker {
   color: var(--editor-text-muted);
-}
-
-.ProseMirror ol > li::marker {
-  font-feature-settings: "tnum" 1;
-  font-size: 0.88em;
-  font-weight: 500;
 }
 
 .ProseMirror li {
