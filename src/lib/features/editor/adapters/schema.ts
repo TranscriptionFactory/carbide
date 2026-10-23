@@ -4,6 +4,7 @@ import {
   is_inline_html_break,
   sanitize_inline_html_open_tag,
 } from "$lib/shared/html";
+import { is_web_embed_src } from "./html_embed";
 
 const doc: NodeSpec = {
   content: "block+",
@@ -691,8 +692,10 @@ const web_embed: NodeSpec = {
       tag: "iframe[src]",
       getAttrs(dom) {
         if (!(dom instanceof HTMLElement)) return false;
+        const src = dom.getAttribute("src") ?? "";
+        if (!is_web_embed_src(src)) return false;
         return {
-          src: dom.getAttribute("src") ?? "",
+          src,
           title: dom.getAttribute("title") ?? "",
           width: dom.getAttribute("width") ?? "",
           height: dom.getAttribute("height") ?? "",
