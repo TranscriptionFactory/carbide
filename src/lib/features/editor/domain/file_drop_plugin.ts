@@ -1,5 +1,6 @@
 import { Plugin, PluginKey } from "prosemirror-state";
 import { editor_context_plugin_key } from "$lib/features/editor/adapters/editor_context_plugin";
+import { parse_markdown } from "$lib/features/editor/adapters/markdown_pipeline";
 import { detect_file_type } from "$lib/features/document";
 import { to_markdown_asset_target } from "$lib/features/note";
 import { as_note_path, as_asset_path } from "$lib/shared/types/ids";
@@ -115,7 +116,9 @@ export function create_file_drop_prose_plugin(
           ? drop_pos.pos
           : view.state.doc.content.size;
 
-        const tr = view.state.tr.insertText(insertion, insert_pos);
+        const parsed = parse_markdown(insertion).firstChild;
+        if (!parsed) return false;
+        const tr = view.state.tr.insert(insert_pos, parsed.content);
         view.dispatch(tr.scrollIntoView());
         view.focus();
 

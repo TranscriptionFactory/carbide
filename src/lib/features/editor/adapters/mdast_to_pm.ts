@@ -53,6 +53,11 @@ function create_raw_inline(value: string, marks: Mark[]): PmNode {
   );
 }
 
+function is_empty_link(node: AnyMdastNode): boolean {
+  const children = node.children as AnyMdastNode[] | undefined;
+  return !children || children.length === 0;
+}
+
 function create_footnote_ref(node: AnyMdastNode, marks: Mark[]): PmNode {
   const label = (node.label as string) || (node.identifier as string) || "";
   return schema.nodes.footnote_ref.create(
@@ -123,6 +128,11 @@ function flatten_inline(
         );
         break;
       case "link":
+        if (is_empty_link(node)) {
+          const raw = slice_source(node, current_inline_indent);
+          if (raw) result.push(create_raw_inline(raw, marks));
+          break;
+        }
         flatten_inline(
           (node.children as AnyMdastNode[]) || [],
           [
