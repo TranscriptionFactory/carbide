@@ -5,6 +5,13 @@ import {
   create_file_drop_prose_plugin,
 } from "$lib/features/editor/domain/file_drop_plugin";
 import type { PastedImagePayload } from "$lib/shared/types/editor";
+import { EditorState } from "prosemirror-state";
+import type { Transaction } from "prosemirror-state";
+import type { EditorView } from "prosemirror-view";
+import {
+  parse_markdown,
+  serialize_markdown,
+} from "$lib/features/editor/adapters/markdown_pipeline";
 
 describe("build_file_link", () => {
   describe("non-image files", () => {
@@ -287,5 +294,63 @@ describe("create_file_drop_prose_plugin — external file drop", () => {
     await new Promise((r) => setTimeout(r, 0));
 
     expect(received[0]!.mime_type).toBe("application/octet-stream");
+  });
+});
+
+describe("create_file_drop_prose_plugin — file tree drop", () => {
+  function drop_paths(markdown: string, paths: string[], drop_pos: number) {
+    let state = EditorState.create({ doc: parse_markdown(markdown) });
+    const view = {
+      props: { editable: () => true },
+      get state() {
+        return state;
+      },
+      posAtCoords: () => ({ pos: drop_pos, inside: -1 }),
+      dispatch: (tr: Transaction) => {
+        state = state.apply(tr);
+      },
+      focus: vi.fn(),
+    } as unknown as EditorView;
+    const event = {
+      dataTransfer: {
+        files: [],
+        getData: (key: string) =>
+          key === "application/x-carbide-filetree-count"
+            ? String(paths.length)
+            : key === "text/plain"
+              ? paths.join("\n")
+              : "",
+      },
+      preventDefault: vi.fn(),
+      clientX: 0,
+      clientY: 0,
+    } as unknown as DragEvent;
+
+    const plugin = create_file_drop_prose_plugin();
+    plugin.props.handleDrop?.call(plugin, view, event, null as never, false);
+    return state;
+  }
+
+  it("inserts an image node into a paragraph with text", () => {
+    const state = drop_paths("hello world\n", ["assets/photo.png"], 7);
+    const names: string[] = [];
+    state.doc.firstChild?.forEach((node) => names.push(node.type.name));
+
+    expect(names).toEqual(["text", "image", "text"]);
+    expect(serialize_markdown(state.doc)).toBe(
+      "hello ![photo](assets/photo.png)world\n",
+    );
+  });
+
+  it("inserts a markdown link for a non-image file", () => {
+    const state = drop_paths("hello\n", ["docs/report.pdf"], 6);
+    expect(serialize_markdown(state.doc)).toBe(
+      "hello[report.pdf](docs/report.pdf)\n",
+    );
+  });
+
+  it("inserts a wiki link for a markdown note", () => {
+    const state = drop_paths("see it\n", ["notes/release.md"], 5);
+    expect(serialize_markdown(state.doc)).toBe("see [[release]]it\n");
   });
 });

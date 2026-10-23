@@ -1,15 +1,19 @@
 import { PluginKey, TextSelection } from "prosemirror-state";
+import type { EditorState } from "prosemirror-state";
 import type { EditorView } from "prosemirror-view";
 import {
   create_suggest_prose_plugin,
   type SuggestState,
 } from "./suggest_plugin_factory";
+import { schema } from "./schema";
 import { to_markdown_asset_target } from "$lib/features/note";
 import type { AssetPath, NotePath } from "$lib/shared/types/ids";
 
 export const image_suggest_plugin_key = new PluginKey<
   SuggestState<SuggestionItem>
 >("image-suggest");
+
+const IMAGE_OPENER_REGEX = /!\[([^\]]*)\]\($/;
 
 type SuggestionItem = {
   path: string;
@@ -31,6 +35,25 @@ function extract_image_path_query(
   return {
     query: match[1],
     paren_offset: match.index + match[0].length - match[1].length,
+  };
+}
+
+// The typed `![alt](query` plus an auto-paired `)` after the caret.
+function image_markdown_range(
+  state: EditorState,
+  paren_pos: number,
+): { from: number; to: number; alt: string } | null {
+  const $paren = state.doc.resolve(paren_pos);
+  const opener = IMAGE_OPENER_REGEX.exec(
+    $paren.parent.textBetween(0, $paren.parentOffset),
+  );
+  if (!opener) return null;
+  const caret = state.selection.from;
+  const after = state.doc.textBetween(caret, Math.min(caret + 1, $paren.end()));
+  return {
+    from: paren_pos - opener[0].length,
+    to: after === ")" ? caret + 1 : caret,
+    alt: opener[1] ?? "",
   };
 }
 
@@ -92,13 +115,15 @@ export function create_image_suggest_prose_plugin(
         config.base_note_path as NotePath,
         item.path as AssetPath,
       );
-      const tr = view.state.tr.insertText(
-        relative_path,
-        state.from,
-        view.state.selection.from,
-      );
+      const range = image_markdown_range(view.state, state.from);
+      if (!range) return;
+      const image = schema.nodes.image.create({
+        src: relative_path,
+        alt: range.alt,
+      });
+      const tr = view.state.tr.replaceWith(range.from, range.to, image);
       tr.setSelection(
-        TextSelection.create(tr.doc, state.from + relative_path.length),
+        TextSelection.create(tr.doc, range.from + image.nodeSize),
       );
       tr.setMeta(image_suggest_plugin_key, {
         active: false,

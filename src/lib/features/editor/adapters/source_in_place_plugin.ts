@@ -376,6 +376,22 @@ export function normalize_source_in_place(
   return tr;
 }
 
+// `md_source` is not inclusive, so text pasted at a run's edge would fall
+// outside the run and skip the re-parse on exit.
+function insert_source_text(
+  state: EditorState,
+  text: string,
+  from: number,
+  to: number,
+): Transaction {
+  const $from = state.doc.resolve(from);
+  const source_node = [$from.nodeBefore, $from.nodeAfter].find(
+    (node) => node?.isText && md_source.isInSet(node.marks),
+  );
+  const marks = source_node?.marks ?? [md_source.create()];
+  return state.tr.replaceWith(from, to, schema.text(text, marks));
+}
+
 function is_source_command_key(event: KeyboardEvent): boolean {
   if (!(event.metaKey || event.ctrlKey)) return false;
   const key = event.key.toLowerCase();
@@ -466,7 +482,7 @@ export function create_source_in_place_plugin(): Plugin<SourceInPlaceState> {
         if (!region || from < region.from || to > region.to) return false;
         const text = event.clipboardData?.getData("text/plain");
         if (text && !/[\r\n]/.test(text)) {
-          view.dispatch(view.state.tr.insertText(text, from, to));
+          view.dispatch(insert_source_text(view.state, text, from, to));
           return true;
         }
         normalize_source_in_place(view);
