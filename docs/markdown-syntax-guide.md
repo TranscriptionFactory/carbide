@@ -17,9 +17,9 @@
 | 5   | Properties (Frontmatter)         | `[~]`  | Parsed and preserved; no visual property editor                               |
 | 6   | Math & Equations                 | `[x]`  | Inline and block LaTeX via KaTeX                                              |
 | 7   | Mermaid Diagrams                 | `[x]`  | Rendered in code blocks with caching                                          |
-| 8   | Highlights, Comments, Formatting | `[~]`  | Highlights and strikethrough; no `%%` comments                                |
+| 8   | Highlights, Comments, Formatting | `[x]`  | Highlights, strikethrough, and `%%` comments                                  |
 | 9   | Code Blocks                      | `[x]`  | 50+ languages, Shiki highlighting                                             |
-| 10  | Footnotes                        | `[ ]`  | Not implemented                                                               |
+| 10  | Footnotes                        | `[~]`  | `[^label]` references and definitions; no inline `^[...]` in the editor       |
 | 11  | Tables                           | `[x]`  | GFM tables with alignment, keyboard nav                                       |
 | 12  | Lists                            | `[x]`  | Bullet, ordered, task lists with checkboxes                                   |
 | 13  | Canvas                           | `[x]`  | Separate canvas feature (Excalidraw-based)                                    |
@@ -1151,9 +1151,9 @@ Renders with a yellow/marker-style background. The exact color depends on your t
 
 ---
 
-## 8.2 Comments `[ ]`
+## 8.2 Comments `[x]`
 
-> **Carbide status:** Not implemented. `%%` comment syntax is not parsed or hidden.
+> **Carbide status:** Implemented. `%%` comments stay in the file and render dimmed in the editor (`comment_decoration_plugin.ts` for inline, `comment-block` node for block comments); they are hidden in read-only mode and omitted from HTML export.
 
 ```markdown
 %% This is a comment — invisible in reading view. %%
@@ -1287,13 +1287,13 @@ Not natively supported, but some community themes and CSS snippets add line numb
 
 ---
 
-# 10 — Footnotes `[ ]`
+# 10 — Footnotes `[~]`
 
-> **Carbide status:** Not implemented. No footnote syntax parsing or rendering.
+> **Carbide status:** Reference-style footnotes (`[^label]` plus `[^label]: ...`) are implemented. Inline `^[...]` footnotes are not supported in the editor.
 
 ---
 
-## 10.1 Basic Footnotes `[ ]`
+## 10.1 Basic Footnotes `[x]`
 
 ```markdown
 This statement needs a citation.[^1]
@@ -1305,9 +1305,11 @@ Another claim with a named footnote.[^source-name]
 [^source-name]: Smith, J. (2024). "Article Title." Journal, 42(1), 15-30.
 ```
 
-- Footnote definitions can be placed anywhere in the document; they always render at the bottom.
-- Footnote identifiers are case-sensitive.
-- Clicking a footnote reference scrolls to the definition and vice versa.
+- References are numbered in order of first reference to a defined label. A reference with no matching definition shows its raw `[^label]` text.
+- Labels match case-insensitively: `[^Note]` and `[^note]` are the same footnote.
+- Hovering a reference shows the definition in a popover. Clicking a reference jumps to its definition; there is no jump back from the definition to the reference.
+- In the editor, definitions stay where you wrote them and are saved unchanged; they are not moved to the bottom.
+- In HTML export, definitions are collected into a footnotes section at the bottom, each with a back-link to its reference.
 
 ---
 
@@ -1319,9 +1321,11 @@ This has an inline footnote.^[The footnote content is written right here.]
 
 No separate definition block needed. Useful for quick, short annotations.
 
+> **Carbide status:** Not supported in the editor. HTML export does render it (`markdown-it-footnote` handles inline footnotes; covered by a `note_html` test), as a numbered entry in the footnotes section.
+
 ---
 
-## 10.3 Multi-Paragraph Footnotes `[ ]`
+## 10.3 Multi-Paragraph Footnotes `[~]`
 
 ```markdown
 [^long]: This is the first paragraph of a long footnote.
@@ -1331,6 +1335,8 @@ No separate definition block needed. Useful for quick, short annotations.
     - Even lists work inside footnotes.
     - Like this.
 ```
+
+Carbide strips 1 to 4 spaces of indentation from each continuation line of a definition when it reads the footnote body for the popover.
 
 ---
 

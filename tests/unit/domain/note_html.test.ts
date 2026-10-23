@@ -122,6 +122,15 @@ describe("render_note_to_html", () => {
       expect(html).toContain("Dangling[^x] ref.");
       expect(html).not.toContain('class="footnotes"');
     });
+
+    it("renders an inline footnote in export", async () => {
+      const html = await render_note_body_html(
+        "Note",
+        "Text.^[Inline body.] More.",
+      );
+      expect(html).toContain('<section class="footnotes">');
+      expect(html).toContain("Inline body.");
+    });
   });
 
   it("inlines the KaTeX stylesheet", async () => {
