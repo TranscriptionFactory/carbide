@@ -39,6 +39,16 @@ function parse_attrs(source: string): Map<string, string | true> {
   return attrs;
 }
 
+const WEB_EMBED_PROTOCOLS = new Set(["http:", "https:"]);
+
+export function is_web_embed_src(src: string): boolean {
+  try {
+    return WEB_EMBED_PROTOCOLS.has(new URL(src).protocol);
+  } catch {
+    return false;
+  }
+}
+
 function str(value: string | true | undefined): string {
   return typeof value === "string" ? value : "";
 }
@@ -50,7 +60,7 @@ export function parse_html_embed(raw_in: string): ParsedHtmlEmbed | null {
   if (iframe) {
     const attrs = parse_attrs(iframe[1] ?? "");
     const src = str(attrs.get("src"));
-    if (!src) return null;
+    if (!is_web_embed_src(src)) return null;
     return {
       kind: "web_embed",
       src,
