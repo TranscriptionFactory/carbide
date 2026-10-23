@@ -1,5 +1,19 @@
 # carbide
 
+## 2.44.0
+
+### Minor Changes
+
+- 580f0a0: Web clips now save their images in a folder named after the clip inside the attachment folder (for example `.assets/Foo/` for `Foo.md`) instead of dumping them flat into `.assets/`. Pasted and dropped images are unchanged.
+
+### Patch Changes
+
+- 743eedf: Links with no text, such as `[](https://example.com)`, now survive opening and saving a note instead of being deleted. Images dropped from the file tree, completed through image suggest, or pasted next to revealed Markdown source are inserted as real images rather than as text that saved as `\![](…)`.
+- ec07e62: Typing or pasting `![alt](path)` next to other text in a paragraph now inserts a real image instead of leaving text that saved as `\![alt](path)`. Image Markdown inside inline code stays as text, and existing lines are not rewritten when you edit elsewhere in the paragraph.
+- 401973b: Fix the next number in an ordered list not showing on an empty item in WebKit by drawing ordered-list numbers with CSS counters.
+- 2f53f10: Add drag resizing and double-click size reset for file, note, and drawing embeds and code previews. Preserve embed heights and image widths when saving and reopening notes, and show empty-text links in a muted source style.
+- 04d9ef7: Web embeds now accept only `http:` and `https:` iframe sources. An `<iframe>` that points at a vault file or uses another scheme (`carbide-asset:`, `javascript:`, `data:`, `blob:`) stays as raw HTML source and is saved unchanged. Pasted iframes with these schemes are no longer embedded.
+
 ## 2.43.0
 
 ### Minor Changes
