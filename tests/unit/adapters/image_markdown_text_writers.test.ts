@@ -217,6 +217,17 @@ describe("typed image markdown", () => {
     expect(serialize_markdown(view.state.doc)).toBe(`hello ${IMAGE}\n`);
   });
 
+  it("decodes a typed inline image width without waiting for reload", () => {
+    const view = mount("hello\n", [create_image_input_rule_prose_plugin()]);
+    place_caret(view, 1 + "hello".length);
+    type_text(view, " ![Photo|300](photo.png)");
+    const image = view.state.doc.firstChild?.lastChild;
+    expect(image?.attrs).toMatchObject({ alt: "Photo", width: "300px" });
+    expect(serialize_markdown(view.state.doc)).toBe(
+      "hello ![Photo|300](photo.png)\n",
+    );
+  });
+
   it("becomes an inline image when typed before text in a paragraph", () => {
     const view = mount("hello\n", [create_image_input_rule_prose_plugin()]);
     place_caret(view, 1);

@@ -155,7 +155,11 @@ function replace_inline_image_texts(
   const image_type = tr.doc.type.schema.nodes.image;
   if (!image_type) return;
   for (const c of [...inline_candidates].reverse()) {
-    tr.replaceWith(c.from, c.to, image_type.create({ src: c.src, alt: c.alt }));
+    tr.replaceWith(
+      c.from,
+      c.to,
+      image_type.create({ src: c.src, ...split_image_alt_width(c.alt) }),
+    );
   }
 }
 
