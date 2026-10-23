@@ -36,6 +36,8 @@ const raw_block: NodeSpec = {
   },
 };
 
+const EMPTY_LINK_SOURCE_RE = /^\[\]\(/;
+
 const raw_inline: NodeSpec = {
   inline: true,
   group: "inline",
@@ -55,7 +57,11 @@ const raw_inline: NodeSpec = {
   ],
   toDOM(node) {
     const value = (node.attrs["value"] as string) || "";
-    const attrs = { "data-type": "raw_inline", "data-value": value };
+    const attrs = {
+      "data-type": "raw_inline",
+      "data-value": value,
+      ...(EMPTY_LINK_SOURCE_RE.test(value) ? { "data-empty-link": "" } : {}),
+    };
     if (is_inline_html_break(value)) return ["br", attrs];
     return ["span", attrs, value];
   },
@@ -323,13 +329,17 @@ const excalidraw_embed: NodeSpec = {
   marks: "",
   attrs: {
     src: { default: "" },
+    height: { default: null },
   },
   parseDOM: [
     {
       tag: 'div[data-type="excalidraw-embed"]',
       getAttrs(dom) {
         if (!(dom instanceof HTMLElement)) return false;
-        return { src: dom.getAttribute("data-src") ?? "" };
+        return {
+          src: dom.getAttribute("data-src") ?? "",
+          height: Number(dom.getAttribute("data-height")) || null,
+        };
       },
     },
   ],
@@ -339,6 +349,7 @@ const excalidraw_embed: NodeSpec = {
       {
         "data-type": "excalidraw-embed",
         "data-src": node.attrs["src"] as string,
+        "data-height": node.attrs["height"] as number | null,
       },
     ];
   },
@@ -405,6 +416,7 @@ const image: NodeSpec = {
     src: { default: "" },
     alt: { default: "" },
     title: { default: "" },
+    width: { default: "" },
   },
   parseDOM: [
     {
@@ -415,17 +427,20 @@ const image: NodeSpec = {
           src: dom.getAttribute("src") || "",
           alt: dom.getAttribute("alt") || "",
           title: dom.getAttribute("title") || dom.getAttribute("alt") || "",
+          width: dom.getAttribute("data-width") ?? "",
         };
       },
     },
   ],
   toDOM(node) {
+    const width = (node.attrs["width"] as string) || "";
     return [
       "img",
       {
         src: node.attrs["src"] as string,
         alt: node.attrs["alt"] as string,
         title: node.attrs["title"] as string,
+        ...(width ? { "data-width": width } : {}),
       },
     ];
   },
@@ -575,6 +590,7 @@ const note_embed: NodeSpec = {
     fragment: { default: null },
     display_src: { default: "" },
     collapsed: { default: false },
+    height: { default: null },
   },
   parseDOM: [
     {
@@ -585,6 +601,7 @@ const note_embed: NodeSpec = {
           src: dom.getAttribute("data-src") ?? "",
           fragment: dom.getAttribute("data-fragment") || null,
           display_src: dom.getAttribute("data-display-src") ?? "",
+          height: Number(dom.getAttribute("data-height")) || null,
         };
       },
     },
@@ -599,6 +616,7 @@ const note_embed: NodeSpec = {
           ? { "data-fragment": node.attrs["fragment"] as string }
           : {}),
         "data-display-src": node.attrs["display_src"] as string,
+        "data-height": node.attrs["height"] as number | null,
       },
     ];
   },

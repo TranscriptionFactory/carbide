@@ -61,6 +61,45 @@ export function parse_embed_fragment(fragment: string): EmbedFragment {
   };
 }
 
+export type WikiEmbedOptions = {
+  inner: string;
+  collapsed: boolean;
+  height: number | null;
+};
+
+const COLLAPSED_OPTION = "|collapsed";
+const HEIGHT_OPTION_RE = /\|height=([1-9]\d*)$/;
+
+/* Trailing `|collapsed` and `|height=N` on a note/drawing embed, either order,
+   each at most once. Obsidian reads any `|…` on an embed as display text. */
+export function split_wiki_embed_options(raw: string): WikiEmbedOptions {
+  let inner = raw;
+  let collapsed = false;
+  let height: number | null = null;
+  for (let i = 0; i < 2; i++) {
+    if (!collapsed && inner.endsWith(COLLAPSED_OPTION)) {
+      collapsed = true;
+      inner = inner.slice(0, -COLLAPSED_OPTION.length);
+      continue;
+    }
+    const match: RegExpExecArray | null =
+      height === null ? HEIGHT_OPTION_RE.exec(inner) : null;
+    if (!match) break;
+    height = Number(match[1]);
+    inner = inner.slice(0, match.index);
+  }
+  return { inner, collapsed, height };
+}
+
+export function format_wiki_embed_options(
+  collapsed: boolean,
+  height: number | null,
+): string {
+  const collapsed_part = collapsed ? COLLAPSED_OPTION : "";
+  const height_part = height === null ? "" : `|height=${String(height)}`;
+  return `${collapsed_part}${height_part}`;
+}
+
 /* `#mode=` travels in `params`, so `![[x.html#mode=live]]` survives a markdown
    round-trip like any other fragment key. Live still needs a trust grant. */
 export function embed_mode_from_params(params: unknown): HtmlRenderMode {

@@ -45,6 +45,24 @@ The renderer:
 - Rewrites vault-relative `src=` / `href=` / `poster=` references inside the embedded HTML so images stored next to the artifact resolve correctly. Absolute URLs (`http(s):`, `//`, `data:`, `blob:`, `mailto:`, `tel:`, `#anchor`) are left untouched. Rewriting applies to the Safe render; the Live render runs the artifact as authored.
 - Does **not** run `fetch()` from inside the embedded sandbox. Static asset references work; dynamic vault reads are deferred to a future vault-RPC phase.
 
+## Resize embedded content
+
+Drag the bottom handle on a file, note, or drawing embed to change its height.
+Double-click the handle to restore the default height. Sized notes scroll inside
+the embed. Audio and image file embeds keep their automatic height.
+
+Carbide saves sizes in Markdown, so reopening the note restores them:
+
+- File embed: `![[chart.html#height=240]]`
+- Note embed: `![[note|height=300]]` or `![[note|collapsed|height=300]]`
+- Drawing embed: `![[drawing.excalidraw|height=320]]`
+- Image width: `![Photo|300](photo.png)`
+
+Code blocks use `height=N` in the fence info string, for example
+`html height=240`. The bottom handle resizes the visible pane: the preview when
+shown, or the source otherwise. This applies to HTML, Mermaid, query, and base
+previews. Double-click removes the saved size.
+
 ## Paste-from-clipboard as artifact
 
 When an LLM hands you a complete HTML page, drop it into the vault in one step:

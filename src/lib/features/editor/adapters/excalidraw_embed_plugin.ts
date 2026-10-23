@@ -8,7 +8,12 @@ import {
   ensure_leading_paragraph,
 } from "./embed_plugin_utils";
 
-const EXCALIDRAW_EMBED_REGEX = /^!\[\[([^\]\n]+\.(?:excalidraw|canvas))\]\]$/;
+const EXCALIDRAW_EMBED_REGEX =
+  /^!\[\[([^\]\n]+\.(?:excalidraw|canvas))(?:\|height=([1-9]\d*))?\]\]$/;
+
+function match_height(match: RegExpExecArray): number | null {
+  return match[2] ? Number(match[2]) : null;
+}
 
 export const excalidraw_embed_plugin_key = new PluginKey(
   "excalidraw-embed-plugin",
@@ -19,11 +24,12 @@ function replace_paragraph_with_embed(
   para_pos: number,
   para_size: number,
   src: string,
+  height: number | null,
   embed_type: NodeType,
 ): Transaction {
   const tr = state.tr;
   const para_end = para_pos + para_size;
-  const new_node = embed_type.create({ src });
+  const new_node = embed_type.create({ src, height });
 
   tr.replaceWith(para_pos, para_end, new_node);
 
@@ -73,7 +79,10 @@ export function create_excalidraw_embed_plugin(): Plugin {
           const match = EXCALIDRAW_EMBED_REGEX.exec(text);
           if (!match || !match[1]) continue;
 
-          const new_node = embed_type.create({ src: match[1] });
+          const new_node = embed_type.create({
+            src: match[1],
+            height: match_height(match),
+          });
           tr.replaceWith(block.pos, block.pos + block.node.nodeSize, new_node);
         }
 
@@ -99,6 +108,7 @@ export function create_excalidraw_embed_plugin(): Plugin {
         $from.before(),
         parent.nodeSize,
         match[1],
+        match_height(match),
         embed_type,
       );
     },

@@ -7,8 +7,10 @@ import {
   insert_leading_paragraph,
   ensure_leading_paragraph,
 } from "./embed_plugin_utils";
+import { split_wiki_embed_options } from "./file_embed_plugin";
+
 const NOTE_EMBED_REGEX =
-  /^!\[\[([^\]#|\n]+?)(?:#([^\]|]*))?(\|collapsed)?\]\]$/;
+  /^!\[\[([^\]#|\n]+?)(?:#([^\]|]*))?((?:\|[^\]|]+){0,2})\]\]$/;
 
 const FILE_EXTENSION_REGEX = /\.[a-zA-Z0-9]+$/;
 const MD_EXTENSION_REGEX = /\.md$/i;
@@ -28,6 +30,7 @@ function replace_paragraph_with_note_embed(
   target: string,
   fragment: string | null,
   collapsed: boolean,
+  height: number | null,
   embed_type: NodeType,
 ): Transaction {
   const tr = state.tr;
@@ -41,6 +44,7 @@ function replace_paragraph_with_note_embed(
     fragment,
     display_src,
     collapsed,
+    height,
   });
 
   tr.replaceWith(para_pos, para_end, new_node);
@@ -59,6 +63,7 @@ function try_convert_paragraph(node: ProseNode): {
   target: string;
   fragment: string | null;
   collapsed: boolean;
+  height: number | null;
 } | null {
   const text = collect_paragraph_text(node);
   if (!text) return null;
@@ -69,8 +74,16 @@ function try_convert_paragraph(node: ProseNode): {
   const target = match[1];
   if (!is_note_target(target)) return null;
 
+  const options = split_wiki_embed_options(match[3] ?? "");
+  if (options.inner !== "") return null;
+
   const fragment = match[2] ?? null;
-  return { target, fragment, collapsed: match[3] !== undefined };
+  return {
+    target,
+    fragment,
+    collapsed: options.collapsed,
+    height: options.height,
+  };
 }
 
 export function create_note_embed_plugin(): Plugin {
@@ -119,6 +132,7 @@ export function create_note_embed_plugin(): Plugin {
             fragment: result.fragment,
             display_src,
             collapsed: result.collapsed,
+            height: result.height,
           });
           tr.replaceWith(block.pos, block.pos + block.node.nodeSize, new_node);
         }
@@ -151,6 +165,7 @@ export function create_note_embed_plugin(): Plugin {
         result.target,
         result.fragment,
         result.collapsed,
+        result.height,
         embed_type,
       );
     },

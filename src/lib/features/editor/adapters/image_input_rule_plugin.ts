@@ -1,3 +1,4 @@
+import { split_image_alt_width } from "../domain/image_size";
 import { Plugin, PluginKey, TextSelection } from "prosemirror-state";
 import type { Transaction } from "prosemirror-state";
 import type { Node as ProseNode, NodeType } from "prosemirror-model";
@@ -10,7 +11,7 @@ type ChangedRange = { from: number; to: number };
 interface PromotionCandidate {
   pos: number;
   size: number;
-  src: string;
+  attrs: ProseNode["attrs"];
 }
 
 interface InlineImageCandidate {
@@ -48,14 +49,14 @@ export function create_image_input_rule_prose_plugin(): Plugin {
           candidates.push({
             pos,
             size: node.nodeSize,
-            src: String(inline_image.attrs.src),
+            attrs: inline_image.attrs,
           });
           return false;
         }
 
         const text_match = find_solo_image_text(node, node.content.size);
         if (text_match) {
-          candidates.push({ pos, size: node.nodeSize, src: text_match.src });
+          candidates.push({ pos, size: node.nodeSize, attrs: text_match });
           return false;
         }
 
@@ -78,7 +79,7 @@ export function create_image_input_rule_prose_plugin(): Plugin {
         const mapped_pos = tr.mapping.map(c.pos);
         const mapped_end = tr.mapping.map(c.pos + c.size);
         const new_node = image_block_type.create({
-          src: c.src,
+          ...c.attrs,
           caption: "",
           ratio: 1,
         });
@@ -186,7 +187,7 @@ function collect_text(parent: ProseNode): string | null {
 function find_solo_image_text(
   parent: ProseNode,
   anchor_offset: number,
-): { src: string } | null {
+): { src: string; alt: string; width: string } | null {
   const combined = collect_text(parent);
   if (!combined) return null;
 
@@ -197,7 +198,7 @@ function find_solo_image_text(
   const match = IMAGE_MARKDOWN_REGEX.exec(window_text);
   if (!match) return null;
 
-  const [full_match, , src] = match;
+  const [full_match, alt, src] = match;
   if (!src) return null;
 
   const match_start = window_start + match.index;
@@ -207,5 +208,5 @@ function find_solo_image_text(
   const has_text_after = combined.slice(match_end).trim() !== "";
   if (has_text_before || has_text_after) return null;
 
-  return { src };
+  return { src, ...split_image_alt_width(alt ?? "") };
 }

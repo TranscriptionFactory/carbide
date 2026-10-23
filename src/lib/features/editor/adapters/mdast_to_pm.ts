@@ -1,8 +1,19 @@
+import { split_image_alt_width } from "../domain/image_size";
 import type { Root } from "mdast";
 import type { Node as PmNode, Mark } from "prosemirror-model";
 import { schema } from "./schema";
-import { detect_embed_type, parse_embed_fragment } from "./file_embed_plugin";
-import { meta_has_token, set_meta_token } from "./code_preview";
+import {
+  detect_embed_type,
+  parse_embed_fragment,
+  split_wiki_embed_options,
+  type WikiEmbedOptions,
+} from "./file_embed_plugin";
+import {
+  fence_height_from_meta,
+  meta_has_token,
+  set_fence_height_token,
+  set_meta_token,
+} from "./code_preview";
 import { format_footnote_ref } from "$lib/features/editor/domain/footnotes";
 
 type AnyMdastNode = Record<string, unknown> & { type: string };
@@ -158,7 +169,7 @@ function flatten_inline(
         result.push(
           schema.nodes.image.create({
             src: (node.url as string) || "",
-            alt: (node.alt as string) || "",
+            ...split_image_alt_width((node.alt as string) || ""),
             title: (node.title as string) || "",
           }),
         );
@@ -272,10 +283,15 @@ function build_block(
         collapsed = true;
         lang = "";
       }
-      const meta = set_meta_token(raw_meta, "collapsed", false);
+      const height = fence_height_from_meta(raw_meta);
+      const without_collapsed = set_meta_token(raw_meta, "collapsed", false);
+      const meta =
+        height === null
+          ? without_collapsed
+          : set_fence_height_token(without_collapsed, null);
       const val = (node.value as string) || "";
       return schema.nodes.code_block.create(
-        { language: lang, meta, collapsed },
+        { language: lang, meta, collapsed, height },
         val ? schema.text(val) : undefined,
       );
     }
@@ -374,25 +390,41 @@ const EXCALIDRAW_EXT_RE = /\.(?:excalidraw|canvas)$/i;
 const MD_EXT_RE = /\.md$/i;
 const FILE_EXT_RE = /\.[a-zA-Z0-9]+$/;
 
+function embed_target(inner: string): string {
+  const hash_idx = inner.indexOf("#");
+  return hash_idx >= 0 ? inner.slice(0, hash_idx) : inner;
+}
+
+function is_note_target(target: string): boolean {
+  return MD_EXT_RE.test(target) || !FILE_EXT_RE.test(target);
+}
+
+// `|height=N` belongs to note and drawing embeds only; on a file embed the
+// whole `|…` tail stays part of the target, as it always has.
+function read_embed_options(raw: string): WikiEmbedOptions {
+  const options = split_wiki_embed_options(raw);
+  if (options.height === null) return options;
+  const target = embed_target(options.inner);
+  if (EXCALIDRAW_EXT_RE.test(target) || is_note_target(target)) return options;
+  const collapsed = raw.endsWith("|collapsed");
+  const inner = collapsed ? raw.slice(0, -"|collapsed".length) : raw;
+  return { inner, collapsed, height: null };
+}
+
 function convert_wiki_embed(node: AnyMdastNode): PmNode | null {
   const raw = (node.value as string) || "";
   const match = WIKI_EMBED_PARSE_RE.exec(raw);
   if (!match || !match[1]) return null;
 
-  const collapsed_suffix = "|collapsed";
-  const collapsed = match[1].endsWith(collapsed_suffix);
-  const inner = collapsed
-    ? match[1].slice(0, -collapsed_suffix.length)
-    : match[1];
-  const hash_idx = inner.indexOf("#");
-  const target = hash_idx >= 0 ? inner.slice(0, hash_idx) : inner;
-  const fragment = hash_idx >= 0 ? inner.slice(hash_idx + 1) : "";
+  const { inner, collapsed, height } = read_embed_options(match[1]);
+  const target = embed_target(inner);
+  const fragment = inner.slice(target.length + 1);
 
   if (EXCALIDRAW_EXT_RE.test(target)) {
-    return schema.nodes.excalidraw_embed.create({ src: target });
+    return schema.nodes.excalidraw_embed.create({ src: target, height });
   }
 
-  if (MD_EXT_RE.test(target) || !FILE_EXT_RE.test(target)) {
+  if (is_note_target(target)) {
     const src = MD_EXT_RE.test(target) ? target : `${target}.md`;
     const display_src = fragment ? `${target}#${fragment}` : target;
     return schema.nodes.note_embed.create({
@@ -400,6 +432,7 @@ function convert_wiki_embed(node: AnyMdastNode): PmNode | null {
       fragment: fragment || null,
       display_src,
       collapsed,
+      height,
     });
   }
 

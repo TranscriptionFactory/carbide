@@ -6,6 +6,8 @@ import type { EditorView, NodeView } from "prosemirror-view";
 import { FileText, ExternalLink, ChevronRight, Pencil } from "lucide-static";
 import type { VaultFsEvent } from "$lib/features/watcher";
 import { create_logger } from "$lib/shared/utils/logger";
+import { format_wiki_embed_options } from "./file_embed_plugin";
+import { create_resize_handle, type ResizeHandle } from "./resize_handle";
 
 const log = create_logger("note_embed_view");
 
@@ -72,8 +74,11 @@ export function build_embed_edit_transaction(
   // does not immediately re-render the embed. The user closes the syntax
   // (typing `]]` or accepting a wiki_suggest entry) when their edit is
   // complete; that re-triggers the embed conversion.
-  const collapsed = node.attrs["collapsed"] ? "|collapsed" : "";
-  const edit_text = `![[${display_src}${collapsed}`;
+  const options = format_wiki_embed_options(
+    Boolean(node.attrs["collapsed"]),
+    node.attrs["height"] as number | null,
+  );
+  const edit_text = `![[${display_src}${options}`;
   const para_type = state.schema.nodes["paragraph"];
   if (!para_type) return null;
   const text_node = state.schema.text(edit_text);
@@ -96,6 +101,20 @@ function extract_block_by_id(markdown: string, block_id: string): string {
   return "";
 }
 
+const MIN_NOTE_EMBED_HEIGHT = 60;
+
+function apply_note_embed_height(content: HTMLElement, height: unknown): void {
+  if (typeof height === "number") {
+    content.style.height = `${String(height)}px`;
+    content.style.overflowY = "auto";
+    content.style.overscrollBehavior = "contain";
+  } else {
+    content.style.removeProperty("height");
+    content.style.removeProperty("overflow-y");
+    content.style.removeProperty("overscroll-behavior");
+  }
+}
+
 class NoteEmbedView implements NodeView {
   dom: HTMLElement;
   private _destroyed = false;
@@ -111,6 +130,7 @@ class NoteEmbedView implements NodeView {
   private on_collapse: (e: MouseEvent) => void;
   private edit_btn: HTMLButtonElement;
   private on_edit: (e: MouseEvent) => void;
+  private resize_handle: ResizeHandle;
 
   constructor(
     node: ProseNode,
@@ -194,6 +214,23 @@ class NoteEmbedView implements NodeView {
     this._content_el.className = "note-embed__content";
     this._content_el.contentEditable = "false";
     this.dom.appendChild(this._content_el);
+    apply_note_embed_height(this._content_el, node.attrs["height"]);
+
+    this.resize_handle = create_resize_handle(
+      this._content_el,
+      "y",
+      (height) => {
+        this.commit_height(height);
+      },
+      {
+        class_name: "embed-resize-handle",
+        min_size: MIN_NOTE_EMBED_HEIGHT,
+        apply: (height) => {
+          apply_note_embed_height(this._content_el, height);
+        },
+      },
+    );
+    this.dom.appendChild(this.resize_handle.el);
 
     void this._render_content();
 
@@ -214,7 +251,19 @@ class NoteEmbedView implements NodeView {
     if (updated.type.name !== "note_embed") return false;
     this.node = updated;
     this.dom.dataset["collapsed"] = String(updated.attrs["collapsed"]);
+    apply_note_embed_height(this._content_el, updated.attrs["height"]);
     return true;
+  }
+
+  private commit_height(height: number | null): void {
+    const pos = this.get_pos();
+    if (pos == null) return;
+    this.view.dispatch(
+      this.view.state.tr.setNodeMarkup(pos, undefined, {
+        ...this.node.attrs,
+        height,
+      }),
+    );
   }
 
   private start_edit_in_place(): void {
@@ -269,7 +318,11 @@ class NoteEmbedView implements NodeView {
   stopEvent(event: Event): boolean {
     const target = event.target;
     if (!(target instanceof HTMLElement)) return false;
-    return target.closest("button") !== null || target.closest("a") !== null;
+    return (
+      target.closest("button") !== null ||
+      target.closest("a") !== null ||
+      target.closest(".embed-resize-handle") !== null
+    );
   }
 
   ignoreMutation(): boolean {
@@ -278,6 +331,7 @@ class NoteEmbedView implements NodeView {
 
   destroy(): void {
     this._destroyed = true;
+    this.resize_handle.cancel();
     this.collapse_btn.removeEventListener("click", this.on_collapse);
     this.edit_btn.removeEventListener("click", this.on_edit);
     if (this._unsubscribe) {

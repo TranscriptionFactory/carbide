@@ -1,6 +1,7 @@
 import { Plugin, PluginKey } from "prosemirror-state";
 import type { Node as ProseNode } from "prosemirror-model";
 import type { EditorView, NodeView } from "prosemirror-view";
+import { create_resize_handle, type ResizeHandle } from "./resize_handle";
 
 const CANVAS_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/><path d="M7 9l3 3 4-4 3 3"/></svg>`;
 
@@ -9,14 +10,33 @@ export type ExcalidrawEmbedCallbacks = {
   load_svg_preview?: (path: string) => Promise<string | null>;
 };
 
+const MIN_PREVIEW_HEIGHT = 60;
+
+function apply_preview_height(preview: HTMLElement, height: unknown): void {
+  const svg_el = preview.querySelector("svg");
+  if (typeof height === "number") {
+    preview.style.height = `${String(height)}px`;
+    preview.style.maxHeight = "none";
+    svg_el?.style.setProperty("height", "100%");
+    svg_el?.style.setProperty("max-height", "none");
+  } else {
+    preview.style.removeProperty("height");
+    preview.style.removeProperty("max-height");
+    svg_el?.style.setProperty("height", "auto");
+    svg_el?.style.removeProperty("max-height");
+  }
+}
+
 class ExcalidrawEmbedView implements NodeView {
   dom: HTMLElement;
   private src: string;
+  private preview: HTMLElement | null = null;
+  private resize_handle: ResizeHandle | null = null;
 
   constructor(
-    node: ProseNode,
-    _view: EditorView,
-    _getPos: () => number | undefined,
+    private node: ProseNode,
+    private view: EditorView,
+    private get_pos: () => number | undefined,
     callbacks: ExcalidrawEmbedCallbacks,
   ) {
     this.src = node.attrs["src"] as string;
@@ -88,8 +108,46 @@ class ExcalidrawEmbedView implements NodeView {
     label_bar.appendChild(icon);
     label_bar.appendChild(label);
 
+    this.preview = preview;
+    apply_preview_height(preview, this.node.attrs["height"]);
+    this.resize_handle = create_resize_handle(
+      preview,
+      "y",
+      (height) => {
+        this.commit_height(height);
+      },
+      {
+        class_name: "embed-resize-handle",
+        min_size: MIN_PREVIEW_HEIGHT,
+        apply: (height) => {
+          apply_preview_height(preview, height);
+        },
+      },
+    );
+
     this.dom.appendChild(preview);
+    this.dom.appendChild(this.resize_handle.el);
     this.dom.appendChild(label_bar);
+  }
+
+  private commit_height(height: number | null): void {
+    const pos = this.get_pos();
+    if (pos === undefined) return;
+    this.view.dispatch(
+      this.view.state.tr.setNodeMarkup(pos, undefined, {
+        ...this.node.attrs,
+        height,
+      }),
+    );
+  }
+
+  update(updated: ProseNode): boolean {
+    if (updated.type.name !== "excalidraw_embed") return false;
+    if (updated.attrs["src"] !== this.src) return false;
+    this.node = updated;
+    if (this.preview)
+      apply_preview_height(this.preview, updated.attrs["height"]);
+    return true;
   }
 
   stopEvent(): boolean {
@@ -98,6 +156,10 @@ class ExcalidrawEmbedView implements NodeView {
 
   ignoreMutation(): boolean {
     return true;
+  }
+
+  destroy(): void {
+    this.resize_handle?.cancel();
   }
 }
 

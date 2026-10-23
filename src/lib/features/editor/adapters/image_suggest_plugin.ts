@@ -1,3 +1,4 @@
+import { split_image_alt_width } from "../domain/image_size";
 import { PluginKey, TextSelection } from "prosemirror-state";
 import type { EditorState } from "prosemirror-state";
 import type { EditorView } from "prosemirror-view";
@@ -119,7 +120,7 @@ export function create_image_suggest_prose_plugin(
       if (!range) return;
       const image = schema.nodes.image.create({
         src: relative_path,
-        alt: range.alt,
+        ...split_image_alt_width(range.alt),
       });
       const tr = view.state.tr.replaceWith(range.from, range.to, image);
       tr.setSelection(

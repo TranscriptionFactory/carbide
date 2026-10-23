@@ -1,9 +1,13 @@
+import { join_image_alt_width } from "../domain/image_size";
 import type { Node as PmNode, Mark } from "prosemirror-model";
 import type { Root, RootContent, PhrasingContent } from "mdast";
-import { serialize_embed_fragment } from "./file_embed_plugin";
+import {
+  format_wiki_embed_options,
+  serialize_embed_fragment,
+} from "./file_embed_plugin";
 import { serialize_web_embed, serialize_video } from "./html_embed";
 import { format_table_meta_comment } from "./remark_plugins/remark_table_meta";
-import { set_meta_token } from "./code_preview";
+import { set_fence_height_token, set_meta_token } from "./code_preview";
 import { format_wiki_source } from "$lib/features/editor/domain/wiki_link";
 import { format_footnote_ref } from "$lib/features/editor/domain/footnotes";
 import { is_inline_html_break } from "$lib/shared/html";
@@ -54,7 +58,10 @@ function convert_inline_pm_node(node: PmNode): PhrasingContent {
       return {
         type: "image",
         url: (node.attrs["src"] as string) || "",
-        alt: (node.attrs["alt"] as string) || "",
+        alt: join_image_alt_width(
+          (node.attrs["alt"] as string) || "",
+          node.attrs["width"],
+        ),
         title: (node.attrs["title"] as string) || null,
       } as PhrasingContent;
     case "raw_inline":
@@ -281,11 +288,16 @@ function convert_block_node(node: PmNode): MdastNode | MdastNode[] | null {
           value: node.textContent,
         };
       }
-      const meta = set_meta_token(
+      const height = node.attrs["height"] as number | null;
+      const with_collapsed = set_meta_token(
         (node.attrs["meta"] as string) || "",
         "collapsed",
         collapsed,
       );
+      const meta =
+        height === null
+          ? with_collapsed
+          : set_fence_height_token(with_collapsed, height);
       return {
         type: "code",
         lang: language,
@@ -412,13 +424,20 @@ function convert_block_node(node: PmNode): MdastNode | MdastNode[] | null {
 
     case "excalidraw_embed": {
       const src = (node.attrs["src"] as string) || "";
-      return { type: "wikiEmbed", value: `![[${src}]]` };
+      const options = format_wiki_embed_options(
+        false,
+        node.attrs["height"] as number | null,
+      );
+      return { type: "wikiEmbed", value: `![[${src}${options}]]` };
     }
 
     case "note_embed": {
       const display_src = (node.attrs["display_src"] as string) || "";
-      const collapsed = node.attrs["collapsed"] ? "|collapsed" : "";
-      return { type: "wikiEmbed", value: `![[${display_src}${collapsed}]]` };
+      const options = format_wiki_embed_options(
+        Boolean(node.attrs["collapsed"]),
+        node.attrs["height"] as number | null,
+      );
+      return { type: "wikiEmbed", value: `![[${display_src}${options}]]` };
     }
 
     case "file_embed": {
@@ -473,7 +492,7 @@ function convert_block_node(node: PmNode): MdastNode | MdastNode[] | null {
           {
             type: "image",
             url: (node.attrs["src"] as string) || "",
-            alt,
+            alt: join_image_alt_width(alt, node.attrs["width"]),
             title: (node.attrs["title"] as string) || null,
           },
         ],
