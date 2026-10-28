@@ -682,6 +682,7 @@ describe("DocumentService", () => {
         asset_url: null,
         last_accessed_at: 0,
         pdf_metadata: null,
+        revision: 0,
       });
     }
     return { service, document_store };
@@ -934,6 +935,116 @@ describe("DocumentService", () => {
       await service.save_reading_position("tab-pdf", "epubcfi(x)");
 
       expect(port.set).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("external reload and conflict", () => {
+    async function open_dirty(edited: string | null) {
+      const document_store = new DocumentStore();
+      const vault_store = new VaultStore();
+      vault_store.vault = create_test_vault();
+      const document_port = create_document_port();
+      const on_file_written = vi.fn();
+      const service = new DocumentService(
+        document_port,
+        vault_store,
+        document_store,
+        () => 10,
+        3,
+        undefined,
+        undefined,
+        undefined,
+        on_file_written,
+      );
+      await service.open_document("tab-1", "data/a.csv", "csv");
+      if (edited !== null) document_store.set_edited_content("tab-1", edited);
+      return { service, document_store, document_port, on_file_written };
+    }
+
+    it("replaces content, clears edits and bumps revision on discard", async () => {
+      const { service, document_store, document_port } =
+        await open_dirty("mine");
+      document_port.read_file.mockResolvedValue("theirs");
+
+      await service.reload_document("tab-1", true);
+
+      const state = document_store.get_content_state("tab-1");
+      expect(state).toMatchObject({
+        content: "theirs",
+        edited_content: null,
+        is_dirty: false,
+        revision: 1,
+      });
+    });
+
+    it("does not clobber edits made while the read was in flight", async () => {
+      const { service, document_store, document_port } = await open_dirty(null);
+      document_port.read_file.mockImplementation(async () => {
+        document_store.set_edited_content("tab-1", "typed");
+        return "theirs";
+      });
+
+      await service.reload_document("tab-1");
+
+      expect(document_store.get_current_content("tab-1")).toBe("typed");
+      expect(document_store.has_conflict("tab-1")).toBe(true);
+    });
+
+    it("treats a dirty tab whose disk matches persisted content as an echo", async () => {
+      const { service, document_store } = await open_dirty("mine");
+
+      await service.reload_document("tab-1");
+
+      expect(document_store.has_conflict("tab-1")).toBe(false);
+      expect(document_store.get_current_content("tab-1")).toBe("mine");
+    });
+
+    it("keeps the revision when disk content is unchanged", async () => {
+      const { service, document_store } = await open_dirty(null);
+
+      await service.reload_document("tab-1");
+
+      expect(document_store.get_content_state("tab-1")?.revision).toBe(0);
+    });
+
+    it("finds open documents case-insensitively, with dirtiness", async () => {
+      const { service } = await open_dirty("mine");
+
+      expect(service.find_open_document("DATA/A.csv")).toEqual({
+        tab_id: "tab-1",
+      });
+      expect(service.find_open_document("data/b.csv")).toBeNull();
+    });
+
+    it("only finds tabs whose text the document store owns", async () => {
+      const { service } = await open_dirty(null);
+      await service.open_document("tab-text", "notes/a.txt", "text");
+      await service.open_document("tab-html", "pages/a.html", "html");
+      await service.open_document("tab-pdf", "docs/a.pdf", "pdf");
+      await service.open_document("tab-draw", "art/a.excalidraw", "excalidraw");
+      await service.open_document("tab-canvas", "art/b.canvas", "canvas");
+
+      expect(service.find_open_document("notes/a.txt")).toEqual({
+        tab_id: "tab-text",
+      });
+      expect(service.find_open_document("pages/a.html")).toEqual({
+        tab_id: "tab-html",
+      });
+      expect(service.find_open_document("docs/a.pdf")).toBeNull();
+      expect(service.find_open_document("art/a.excalidraw")).toBeNull();
+      expect(service.find_open_document("art/b.canvas")).toBeNull();
+    });
+
+    it("arms self-write suppression before writing", async () => {
+      const { service, document_port, on_file_written } =
+        await open_dirty("mine");
+      on_file_written.mockImplementation(() => {
+        expect(document_port.write_file).not.toHaveBeenCalled();
+      });
+
+      await service.save("tab-1");
+
+      expect(on_file_written).toHaveBeenCalledWith("data/a.csv");
     });
   });
 });

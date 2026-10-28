@@ -563,6 +563,22 @@ pub fn run() {
                 responder.respond(response);
             });
         })
+        .register_asynchronous_uri_scheme_protocol("carbide-sheet", |ctx, req, responder| {
+            let app = ctx.app_handle().clone();
+            tauri::async_runtime::spawn_blocking(move || {
+                let uri = req.uri().to_string();
+                let response = catch_unwind(AssertUnwindSafe(|| {
+                    shared::storage::handle_sheet_request(&app, req)
+                }))
+                .unwrap_or_else(|_| {
+                    shared::storage::internal_error_response(
+                        "carbide-sheet",
+                        format!("panic while handling {}", uri),
+                    )
+                });
+                responder.respond(response);
+            });
+        })
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
         .run(|app, event| {

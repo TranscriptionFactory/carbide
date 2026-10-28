@@ -2,6 +2,8 @@ import { describe, expect, it, vi } from "vitest";
 import {
   create_conflict_toast_callbacks,
   create_conflict_toast_reactor,
+  create_document_conflict_toast_callbacks,
+  resolve_document_conflict_toast_target,
   resolve_conflict_toast_target,
 } from "$lib/reactors/conflict_toast.reactor.svelte";
 import { as_markdown_text, as_note_path } from "$lib/shared/types/ids";
@@ -211,5 +213,47 @@ describe("conflict_toast.reactor", () => {
 
     expect(typeof unmount).toBe("function");
     unmount();
+  });
+});
+
+describe("document conflict toast", () => {
+  const doc_tab = {
+    kind: "document",
+    id: "t1",
+    file_path: "data/a.csv",
+    file_type: "csv",
+    title: "a",
+    is_pinned: false,
+    is_dirty: false,
+    pane: "primary",
+  } as Tab;
+
+  it("targets the active conflicted document tab", () => {
+    expect(
+      resolve_document_conflict_toast_target(doc_tab, (id) => id === "t1"),
+    ).toEqual({ tab_id: "t1", file_path: "data/a.csv" });
+    expect(
+      resolve_document_conflict_toast_target(doc_tab, () => false),
+    ).toBeNull();
+    expect(
+      resolve_document_conflict_toast_target(mock_tab("a.md"), () => true),
+    ).toBeNull();
+  });
+
+  it("load theirs discards edits; keep mine clears the conflict only", () => {
+    const document_service = {
+      clear_conflict: vi.fn(),
+      reload_document: vi.fn().mockResolvedValue(undefined),
+    };
+    const callbacks = create_document_conflict_toast_callbacks(
+      { tab_id: "t1", file_path: "data/a.csv" },
+      document_service,
+    );
+
+    callbacks.on_reload();
+    expect(document_service.reload_document).toHaveBeenCalledWith("t1", true);
+
+    callbacks.on_keep();
+    expect(document_service.clear_conflict).toHaveBeenCalledWith("t1");
   });
 });

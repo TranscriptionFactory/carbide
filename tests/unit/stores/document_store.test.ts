@@ -36,6 +36,7 @@ function make_content_state(tab_id: string): DocumentContentState {
     asset_url: `asset://${tab_id}`,
     last_accessed_at: 1,
     pdf_metadata: null,
+    revision: 0,
   };
 }
 
@@ -212,5 +213,32 @@ describe("DocumentStore", () => {
       store.cycle_html_view_mode("ghost");
     }).not.toThrow();
     expect(store.viewer_states.size).toBe(0);
+  });
+
+  it("apply_reloaded_content replaces content, clears edits and conflict, bumps revision", () => {
+    const store = new DocumentStore();
+    store.set_content_state("t", make_content_state("t"));
+    store.set_edited_content("t", "mine");
+    store.mark_conflict("t");
+
+    store.apply_reloaded_content("t", "theirs");
+
+    expect(store.get_content_state("t")).toMatchObject({
+      content: "theirs",
+      edited_content: null,
+      is_dirty: false,
+      revision: 1,
+    });
+    expect(store.has_conflict("t")).toBe(false);
+  });
+
+  it("clearing content state drops its conflict", () => {
+    const store = new DocumentStore();
+    store.set_content_state("t", make_content_state("t"));
+    store.mark_conflict("t");
+
+    store.clear_content_state("t");
+
+    expect(store.has_conflict("t")).toBe(false);
   });
 });

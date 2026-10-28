@@ -11,12 +11,16 @@ export class ConflictToastManager {
     toast_id: string | number;
   } | null = null;
 
-  show(note_path: string, callbacks: ConflictCallbacks): void {
+  show(
+    note_path: string,
+    callbacks: ConflictCallbacks,
+    message = "Note has been modified externally",
+  ): void {
     if (this.active?.note_path === note_path) return;
 
     this.dismiss();
 
-    const toast_id = toast.warning("Note has been modified externally", {
+    const toast_id = toast.warning(message, {
       classes: { toast: "toast--stacked-actions" },
       duration: Infinity,
       action: {

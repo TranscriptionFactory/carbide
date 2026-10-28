@@ -52,6 +52,11 @@ describe("detect_file_type", () => {
       expect(detect_file_type("data.csv")).toBe("csv");
     });
 
+    it("maps .tsv to csv", () => {
+      expect(detect_file_type("data.tsv")).toBe("csv");
+      expect(detect_file_type("data.TSV")).toBe("csv");
+    });
+
     it("is case-insensitive for csv", () => {
       expect(detect_file_type("data.CSV")).toBe("csv");
     });
@@ -59,7 +64,6 @@ describe("detect_file_type", () => {
 
   describe("text type (text-by-default)", () => {
     it.each([
-      ".tsv",
       ".py",
       ".r",
       ".rs",

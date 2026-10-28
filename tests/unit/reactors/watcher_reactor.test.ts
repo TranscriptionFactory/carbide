@@ -20,6 +20,11 @@ import { flush_effects } from "../helpers/tauri_event_mock";
 
 const VAULT_ID = "vault-1";
 const NO_BG_TAB = () => null;
+const NO_DOC = () => null;
+const NO_DOC_SERVICE = {
+  find_open_document: () => null,
+  reload_document: vi.fn(),
+};
 
 function changed_event(
   note_path: string,
@@ -115,6 +120,7 @@ function mount_reactor(options: { is_dirty: boolean; note_path?: string }) {
     action_registry as never,
     graph_service as never,
     workspace_reconcile,
+    NO_DOC_SERVICE,
   );
 
   return {
@@ -138,6 +144,7 @@ describe("watcher_reactor", () => {
         "notes/a.md",
         false,
         NO_BG_TAB,
+        NO_DOC,
       );
       expect(decision).toEqual({
         action: "reload",
@@ -154,6 +161,7 @@ describe("watcher_reactor", () => {
         "notes/a.md",
         true,
         NO_BG_TAB,
+        NO_DOC,
       );
       expect(decision).toEqual({
         action: "mark_conflict",
@@ -170,6 +178,7 @@ describe("watcher_reactor", () => {
         null,
         false,
         NO_BG_TAB,
+        NO_DOC,
       );
       expect(decision).toEqual({
         action: "ignore",
@@ -185,6 +194,7 @@ describe("watcher_reactor", () => {
         "notes/b.md",
         false,
         NO_BG_TAB,
+        NO_DOC,
       );
       expect(decision).toEqual({
         action: "ignore",
@@ -200,6 +210,7 @@ describe("watcher_reactor", () => {
         "notes/a.md",
         false,
         NO_BG_TAB,
+        NO_DOC,
       );
       expect(decision).toEqual({
         action: "reload",
@@ -218,6 +229,7 @@ describe("watcher_reactor", () => {
         "notes/active.md",
         false,
         bg_tab(false),
+        NO_DOC,
       );
       expect(decision).toEqual({
         action: "invalidate_tab_cache",
@@ -234,6 +246,7 @@ describe("watcher_reactor", () => {
         "notes/active.md",
         false,
         bg_tab(true),
+        NO_DOC,
       );
       expect(decision).toEqual({
         action: "mark_conflict",
@@ -250,6 +263,7 @@ describe("watcher_reactor", () => {
         "notes/a.md",
         false,
         bg_tab(true),
+        NO_DOC,
       );
       expect(decision).toEqual({
         action: "reload",
@@ -266,6 +280,7 @@ describe("watcher_reactor", () => {
         null,
         false,
         NO_BG_TAB,
+        NO_DOC,
       );
       expect(decision).toEqual({
         action: "ignore",
@@ -283,6 +298,7 @@ describe("watcher_reactor", () => {
         "notes/a.md",
         false,
         NO_BG_TAB,
+        NO_DOC,
       );
       expect(decision).toEqual({
         action: "refresh_tree",
@@ -300,6 +316,7 @@ describe("watcher_reactor", () => {
         "notes/a.md",
         false,
         NO_BG_TAB,
+        NO_DOC,
       );
       expect(decision).toEqual({
         action: "clear_and_refresh",
@@ -315,6 +332,7 @@ describe("watcher_reactor", () => {
         "notes/a.md",
         false,
         NO_BG_TAB,
+        NO_DOC,
       );
       expect(decision).toEqual({
         action: "refresh_tree",
@@ -330,6 +348,7 @@ describe("watcher_reactor", () => {
         "notes/active.md",
         false,
         bg_tab(false),
+        NO_DOC,
       );
       expect(decision).toEqual({
         action: "remove_background_tab_and_refresh",
@@ -345,6 +364,7 @@ describe("watcher_reactor", () => {
         "notes/a.md",
         true,
         NO_BG_TAB,
+        NO_DOC,
       );
       expect(decision).toEqual({
         action: "mark_conflict",
@@ -359,6 +379,7 @@ describe("watcher_reactor", () => {
         "notes/active.md",
         false,
         bg_tab(true),
+        NO_DOC,
       );
       expect(decision).toEqual({
         action: "mark_conflict",
@@ -375,11 +396,48 @@ describe("watcher_reactor", () => {
         null,
         false,
         NO_BG_TAB,
+        NO_DOC,
       );
       expect(decision).toEqual({
         action: "log_only",
         path: ".assets/img.png",
       });
+    });
+
+    it("reloads a clean document tab open on the changed path", () => {
+      const decision = resolve_watcher_event_decision(
+        asset_event("data/Sheet.csv"),
+        VAULT_ID,
+        null,
+        false,
+        NO_BG_TAB,
+        (path) => (path === "data/Sheet.csv" ? { tab_id: "t1" } : null),
+      );
+      expect(decision).toEqual({ action: "reload_document", tab_id: "t1" });
+    });
+
+    it("checks a dirty document tab against disk instead of flagging blindly", () => {
+      const decision = resolve_watcher_event_decision(
+        asset_event("data/sheet.csv"),
+        VAULT_ID,
+        null,
+        false,
+        NO_BG_TAB,
+        () => ({ tab_id: "t1" }),
+      );
+      expect(decision).toEqual({ action: "reload_document", tab_id: "t1" });
+    });
+
+    it("stays log_only when no document tab is open on the path", () => {
+      const decision = resolve_watcher_event_decision(
+        asset_event("data/other.csv"),
+        VAULT_ID,
+        null,
+        false,
+        NO_BG_TAB,
+        () => null,
+      );
+      expect(decision).toEqual({ action: "log_only", path: "data/other.csv" });
     });
 
     it("refreshes the tree for ignore file changes", () => {
@@ -389,6 +447,7 @@ describe("watcher_reactor", () => {
         null,
         false,
         NO_BG_TAB,
+        NO_DOC,
       );
       expect(decision).toEqual({
         action: "refresh_tree",
@@ -405,6 +464,7 @@ describe("watcher_reactor", () => {
         "notes/a.md",
         false,
         NO_BG_TAB,
+        NO_DOC,
       );
       expect(decision).toEqual({
         action: "refresh_tree",
@@ -421,6 +481,7 @@ describe("watcher_reactor", () => {
         "notes/a.md",
         false,
         NO_BG_TAB,
+        NO_DOC,
       );
       expect(decision).toEqual({
         action: "refresh_tree",
@@ -437,6 +498,7 @@ describe("watcher_reactor", () => {
         "notes/a.md",
         false,
         NO_BG_TAB,
+        NO_DOC,
       );
       expect(decision).toEqual({ action: "ignore" });
     });
@@ -448,6 +510,7 @@ describe("watcher_reactor", () => {
         "notes/a.md",
         false,
         NO_BG_TAB,
+        NO_DOC,
       );
       expect(decision).toEqual({ action: "ignore" });
     });
@@ -511,6 +574,7 @@ describe("watcher_reactor", () => {
       action_registry as never,
       graph_service as never,
       workspace_reconcile,
+      NO_DOC_SERVICE,
     );
 
     await flush_effects();
@@ -706,6 +770,7 @@ describe("watcher_reactor", () => {
       action_registry as never,
       graph_service as never,
       workspace_reconcile,
+      NO_DOC_SERVICE,
     );
 
     await flush_effects();
@@ -768,6 +833,7 @@ describe("watcher_reactor", () => {
       action_registry as never,
       graph_service as never,
       workspace_reconcile,
+      NO_DOC_SERVICE,
     );
 
     await flush_effects();
@@ -795,6 +861,7 @@ describe("watcher_reactor", () => {
         null,
         false,
         NO_BG_TAB,
+        NO_DOC,
       );
       expect(decision).toEqual({
         action: "refresh_tree",
@@ -809,6 +876,7 @@ describe("watcher_reactor", () => {
         null,
         false,
         NO_BG_TAB,
+        NO_DOC,
       );
       expect(decision).toEqual({
         action: "refresh_tree",
@@ -823,6 +891,7 @@ describe("watcher_reactor", () => {
         null,
         false,
         NO_BG_TAB,
+        NO_DOC,
       );
       expect(decision).toEqual({
         action: "refresh_tree",
@@ -838,6 +907,7 @@ describe("watcher_reactor", () => {
         "notes/a.md",
         false,
         NO_BG_TAB,
+        NO_DOC,
       );
       expect(decision).toEqual({
         action: "clear_and_refresh",
@@ -853,6 +923,7 @@ describe("watcher_reactor", () => {
         "notes/a.md",
         false,
         bg_tab(false),
+        NO_DOC,
       );
       expect(decision).toEqual({
         action: "remove_background_tab_and_refresh",

@@ -25,6 +25,7 @@ dist/
 src-tauri/gen/
 src-tauri/target/
 src-tauri/excalidraw-dist/
+src-tauri/sheet-dist/
 .eslintcache
 
 # Local OS/cache files

@@ -8,7 +8,7 @@
   import PdfViewer from "$lib/features/document/ui/pdf_viewer.svelte";
   import EpubViewer from "$lib/features/document/ui/epub_viewer.svelte";
   import ImageViewer from "$lib/features/document/ui/image_viewer.svelte";
-  import CsvViewer from "$lib/features/document/ui/csv_viewer.svelte";
+  import SheetHost from "$lib/features/document/ui/sheet_host.svelte";
   import DocumentEditor from "$lib/features/document/ui/document_editor.svelte";
   import HtmlViewer from "$lib/features/document/ui/html_viewer.svelte";
   import HtmlLiveRenderer from "$lib/features/document/ui/html_live_renderer.svelte";
@@ -306,7 +306,16 @@
       />
     {/key}
   {:else if viewer_state.file_type === "csv" && current_content !== null}
-    <CsvViewer content={current_content} />
+    {#key `${viewer_state.tab_id}:${viewer_state.file_path}:${String(content_state?.revision ?? 0)}`}
+      <SheetHost
+        content={current_content}
+        file_path={viewer_state.file_path}
+        theme={stores.ui.active_theme.color_scheme}
+        on_change={handle_editor_change}
+        on_save_requested={() =>
+          void action_registry.execute(ACTION_IDS.document_save)}
+      />
+    {/key}
   {:else if viewer_state.file_type === "text" && current_content !== null}
     {#key `${viewer_state.tab_id}:${viewer_state.file_path}:${stores.ui.editor_settings.document_code_wrap ? "wrap" : "nowrap"}`}
       <DocumentEditor

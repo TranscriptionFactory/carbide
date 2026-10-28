@@ -16,6 +16,10 @@ export function is_editable_type(file_type: DocumentFileType): boolean {
   return file_type === "text" || file_type === "html";
 }
 
+export function reloads_from_disk(file_type: DocumentFileType): boolean {
+  return is_editable_type(file_type) || file_type === "csv";
+}
+
 export function supports_source_view(file_type: DocumentFileType): boolean {
   return (
     file_type === "csv" || file_type === "canvas" || file_type === "excalidraw"

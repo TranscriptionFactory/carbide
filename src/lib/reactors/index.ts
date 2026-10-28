@@ -284,6 +284,8 @@ export function mount_reactors(context: ReactorContext): ReactorHandles {
       context.tab_service,
       context.note_service,
       conflict_toast_manager,
+      context.document_store,
+      context.document_service,
     ),
     create_ambient_reactor(
       context.ui_store,
@@ -368,6 +370,7 @@ export function mount_reactors(context: ReactorContext): ReactorHandles {
       context.action_registry,
       context.graph_service,
       context.workspace_reconcile,
+      context.document_service,
     ),
     create_document_cache_reactor(
       context.tab_store,
