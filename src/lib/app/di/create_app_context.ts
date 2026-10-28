@@ -814,6 +814,9 @@ export function create_app_context(input: {
     create_note_export_tauri_adapter(),
     input.ports.trusted_html,
     input.ports.reading_position,
+    (path) => {
+      watcher_service.suppress_next(path);
+    },
   );
 
   const clip_service = new ClipService(

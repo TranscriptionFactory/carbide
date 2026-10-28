@@ -382,6 +382,46 @@ describe("watcher_reactor", () => {
       });
     });
 
+    it("reloads a clean document tab open on the changed path", () => {
+      const decision = resolve_watcher_event_decision(
+        asset_event("data/Sheet.csv"),
+        VAULT_ID,
+        null,
+        false,
+        NO_BG_TAB,
+        (path) =>
+          path === "data/Sheet.csv" ? { tab_id: "t1", is_dirty: false } : null,
+      );
+      expect(decision).toEqual({ action: "reload_document", tab_id: "t1" });
+    });
+
+    it("raises the conflict card for a dirty document tab", () => {
+      const decision = resolve_watcher_event_decision(
+        asset_event("data/sheet.csv"),
+        VAULT_ID,
+        null,
+        false,
+        NO_BG_TAB,
+        () => ({ tab_id: "t1", is_dirty: true }),
+      );
+      expect(decision).toEqual({
+        action: "mark_document_conflict",
+        tab_id: "t1",
+      });
+    });
+
+    it("stays log_only when no document tab is open on the path", () => {
+      const decision = resolve_watcher_event_decision(
+        asset_event("data/other.csv"),
+        VAULT_ID,
+        null,
+        false,
+        NO_BG_TAB,
+        () => null,
+      );
+      expect(decision).toEqual({ action: "log_only", path: "data/other.csv" });
+    });
+
     it("refreshes the tree for ignore file changes", () => {
       const decision = resolve_watcher_event_decision(
         asset_event(".vaultignore"),

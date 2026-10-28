@@ -5,6 +5,7 @@ import type { TabService } from "$lib/features/tab";
 import type { NoteService } from "$lib/features/note";
 import type { WatcherService } from "$lib/features/watcher";
 import type { GraphService } from "$lib/features/graph";
+import type { DocumentService } from "$lib/features/document";
 import type { ActionRegistry } from "$lib/app/action_registry/action_registry";
 import type { VaultFsEvent } from "$lib/features/watcher";
 import type { WorkspaceReconcile } from "$lib/app/orchestration/workspace_reconcile";
@@ -23,12 +24,16 @@ function is_ignore_config_path(path: string): boolean {
 
 export type BackgroundTabInfo = { is_dirty: boolean } | null;
 
+export type OpenDocumentInfo = { tab_id: string; is_dirty: boolean } | null;
+
 export type WatcherIndexHint = { changed?: string; removed?: string };
 
 type WatcherEventAction =
   | { action: "reload"; note_path: NotePath }
   | { action: "mark_conflict"; note_path: NotePath }
   | { action: "invalidate_tab_cache"; note_path: NotePath }
+  | { action: "reload_document"; tab_id: string }
+  | { action: "mark_document_conflict"; tab_id: string }
   | { action: "refresh_tree" }
   | { action: "clear_and_refresh"; note_path: NotePath }
   | { action: "remove_background_tab_and_refresh"; note_path: NotePath }
@@ -51,12 +56,24 @@ function refreshes_tree(action: WatcherEventDecision["action"]): boolean {
   );
 }
 
+function resolve_asset_decision(
+  asset_path: string,
+  find_open_document: (path: string) => OpenDocumentInfo,
+): WatcherEventDecision {
+  const doc = find_open_document(asset_path);
+  if (!doc) return { action: "log_only", path: asset_path };
+  return doc.is_dirty
+    ? { action: "mark_document_conflict", tab_id: doc.tab_id }
+    : { action: "reload_document", tab_id: doc.tab_id };
+}
+
 export function resolve_watcher_event_decision(
   event: VaultFsEvent,
   current_vault_id: string | null,
   open_note_path: string | null,
   is_dirty: boolean,
   find_background_tab: (path: string) => BackgroundTabInfo,
+  find_open_document: (path: string) => OpenDocumentInfo = () => null,
 ): WatcherEventDecision {
   if (event.vault_id !== current_vault_id) {
     return { action: "ignore" };
@@ -124,7 +141,7 @@ export function resolve_watcher_event_decision(
       if (is_ignore_config_path(event.asset_path)) {
         return { action: "refresh_tree", affects_index: true };
       }
-      return { action: "log_only", path: event.asset_path };
+      return resolve_asset_decision(event.asset_path, find_open_document);
     case "folder_created":
       return { action: "refresh_tree", affects_index: false };
     case "folder_removed":
@@ -163,6 +180,10 @@ export function create_watcher_reactor(
   action_registry: ActionRegistry,
   graph_service: GraphService,
   workspace_reconcile?: WorkspaceReconcile,
+  document_service?: Pick<
+    DocumentService,
+    "find_open_document" | "reload_document" | "mark_conflict"
+  >,
 ): () => void {
   return $effect.root(() => {
     let pending_tree_refresh = false;
@@ -286,6 +307,7 @@ export function create_watcher_reactor(
         editor_store.open_note?.meta.path ?? null,
         editor_store.open_note?.is_dirty ?? false,
         find_background_tab,
+        (path) => document_service?.find_open_document(path) ?? null,
       );
 
       switch (decision.action) {
@@ -311,6 +333,25 @@ export function create_watcher_reactor(
           break;
         case "remove_background_tab_and_refresh":
           tab_service.remove_tab(decision.note_path);
+          break;
+        case "reload_document":
+          log.info("Reloading document changed on disk", {
+            tab_id: decision.tab_id,
+          });
+          void document_service
+            ?.reload_document(decision.tab_id)
+            .catch((error: unknown) => {
+              log.error("Document reload failed", {
+                tab_id: decision.tab_id,
+                error,
+              });
+            });
+          break;
+        case "mark_document_conflict":
+          log.info("Raised the external-modification card for a document", {
+            tab_id: decision.tab_id,
+          });
+          document_service?.mark_conflict(decision.tab_id);
           break;
         case "log_only": {
           log.info("Asset changed externally", { path: decision.path });

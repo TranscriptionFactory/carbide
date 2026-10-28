@@ -28,6 +28,7 @@ import {
   type NoteAssetPathResolver,
 } from "$lib/features/document/domain/note_epub";
 import { to_xhtml_document } from "$lib/shared/html";
+import { paths_equal_ignore_case } from "$lib/shared/utils/path";
 import {
   pdf_page_dimensions,
   type PdfExportOptions,
@@ -80,6 +81,7 @@ export class DocumentService {
     private readonly note_export_port?: NoteExportPort,
     private readonly trusted_html_port?: TrustedHtmlPort,
     private readonly reading_position_port?: ReadingPositionPort,
+    private readonly on_file_written?: (path: string) => void,
   ) {
     this.document_store.set_inactive_content_limit(inactive_content_limit);
   }
@@ -351,6 +353,7 @@ export class DocumentService {
       asset_url: null,
       last_accessed_at: this.now_ms(),
       pdf_metadata: null,
+      revision: existing?.revision ?? 0,
     };
 
     this.document_store.set_content_state(tab_id, loading_state);
@@ -454,12 +457,56 @@ export class DocumentService {
     const content = content_state.edited_content ?? content_state.content;
     if (content === null) return;
 
+    this.on_file_written?.(content_state.file_path);
     await this.document_port.write_file(
       vault_id,
       content_state.file_path,
       content,
     );
     this.document_store.mark_clean(tab_id, content);
+  }
+
+  find_open_document(
+    file_path: string,
+  ): { tab_id: string; is_dirty: boolean } | null {
+    for (const viewer of this.document_store.viewer_states.values()) {
+      if (!paths_equal_ignore_case(viewer.file_path, file_path)) continue;
+      const content_state = this.document_store.get_content_state(
+        viewer.tab_id,
+      );
+      if (content_state?.status !== "ready") continue;
+      return { tab_id: viewer.tab_id, is_dirty: content_state.is_dirty };
+    }
+    return null;
+  }
+
+  async reload_document(tab_id: string, discard_edits = false): Promise<void> {
+    const before = this.document_store.get_content_state(tab_id);
+    const vault_id = this.vault_store.vault?.id;
+    if (!before || before.status !== "ready" || !vault_id) return;
+
+    const content = await this.document_port.read_file(
+      vault_id,
+      before.file_path,
+      true,
+    );
+
+    const current = this.document_store.get_content_state(tab_id);
+    if (!current || current.file_path !== before.file_path) return;
+    if (current.is_dirty && !discard_edits) {
+      this.document_store.mark_conflict(tab_id);
+      return;
+    }
+    if (!current.is_dirty && current.content === content) return;
+    this.document_store.apply_reloaded_content(tab_id, content);
+  }
+
+  mark_conflict(tab_id: string): void {
+    this.document_store.mark_conflict(tab_id);
+  }
+
+  clear_conflict(tab_id: string): void {
+    this.document_store.clear_conflict(tab_id);
   }
 
   async export_note_pdf(
