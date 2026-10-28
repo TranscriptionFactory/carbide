@@ -2,7 +2,10 @@ import React, { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { IronCalc, darkThemeVariables, init } from "@ironcalc/workbook";
 import "@ironcalc/workbook/style.css";
-import type { HostMessage } from "./bridge";
+import type {
+  SheetHostMessage,
+  SheetTheme,
+} from "../lib/features/document/domain/sheet_bridge";
 import { post_to_host } from "./bridge";
 import {
   load_sheet,
@@ -14,20 +17,18 @@ import {
 
 const DIRTY_POLL_MS = 300;
 
-type Theme = "light" | "dark";
-
 function is_save_shortcut(event: KeyboardEvent): boolean {
   return (event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "s";
 }
 
 function App() {
   const [sheet, set_sheet] = useState<LoadedSheet | null>(null);
-  const [theme, set_theme] = useState<Theme>("light");
+  const [theme, set_theme] = useState<SheetTheme>("light");
   const sheet_ref = useRef<LoadedSheet | null>(null);
   sheet_ref.current = sheet;
 
   useEffect(() => {
-    function handle_message(event: MessageEvent<HostMessage>) {
+    function handle_message(event: MessageEvent<SheetHostMessage>) {
       const message = event.data;
       if (message.type === "init_sheet") {
         try {

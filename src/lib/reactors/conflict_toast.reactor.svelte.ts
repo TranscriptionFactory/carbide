@@ -35,6 +35,11 @@ export function resolve_conflict_toast_target(
   };
 }
 
+type DocumentConflictService = Pick<
+  DocumentService,
+  "clear_conflict" | "reload_document"
+>;
+
 export type DocumentConflictToastTarget = {
   tab_id: string;
   file_path: string;
@@ -51,7 +56,7 @@ export function resolve_document_conflict_toast_target(
 
 export function create_document_conflict_toast_callbacks(
   target: NonNullable<DocumentConflictToastTarget>,
-  document_service: Pick<DocumentService, "clear_conflict" | "reload_document">,
+  document_service: DocumentConflictService,
 ): ConflictToastCallbacks {
   return {
     on_reload: () => {
@@ -90,10 +95,7 @@ export function create_conflict_toast_reactor(
   note_service: NoteService,
   conflict_toast_manager: ConflictToastManager,
   document_store?: DocumentStore,
-  document_service?: Pick<
-    DocumentService,
-    "clear_conflict" | "reload_document"
-  >,
+  document_service?: DocumentConflictService,
 ): () => void {
   return $effect.root(() => {
     $effect(() => {
