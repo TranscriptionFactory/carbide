@@ -175,6 +175,18 @@ export function register_document_actions(
   });
 
   registry.register({
+    id: ACTION_IDS.document_create_spreadsheet,
+    label: "New Spreadsheet",
+    execute: async (...args: unknown[]) => {
+      const folder_path =
+        typeof args[0] === "string" ? args[0] : stores.ui.selected_folder_path;
+      const file_path = await document_service.create_spreadsheet(folder_path);
+      if (!file_path) return;
+      await registry.execute(ACTION_IDS.document_open, file_path);
+    },
+  });
+
+  registry.register({
     id: ACTION_IDS.document_save_reading_position,
     label: "Save Reading Position",
     execute: async (...args: unknown[]) => {

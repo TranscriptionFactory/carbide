@@ -309,7 +309,8 @@
     {#key `${viewer_state.tab_id}:${viewer_state.file_path}`}
       <SheetHost
         content={current_content}
-        delimiter=""
+        file_path={viewer_state.file_path}
+        theme={stores.ui.active_theme.color_scheme}
         on_change={handle_editor_change}
         on_save_requested={() =>
           void action_registry.execute(ACTION_IDS.document_save)}
