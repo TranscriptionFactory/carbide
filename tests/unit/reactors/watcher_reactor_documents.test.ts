@@ -131,7 +131,6 @@ describe("watcher_reactor document tabs", () => {
     expect(t.document_store.has_conflict(TAB_ID)).toBe(true);
     expect(state?.edited_content).toBe("mine\n");
     expect(state?.revision).toBe(0);
-    expect(t.document_port.read_file).not.toHaveBeenCalled();
   });
 
   it("swallows the echo of its own save", async () => {
@@ -162,6 +161,24 @@ describe("watcher_reactor document tabs", () => {
 
     expect(t.document_store.get_content_state(TAB_ID)?.revision).toBe(0);
     expect(t.document_store.has_conflict(TAB_ID)).toBe(false);
+  });
+
+  it("ignores an echo of persisted content on a dirty tab, however many arrive", async () => {
+    const t = (current = mount());
+    await flush_effects();
+    await open_csv(t);
+    t.document_store.set_edited_content(TAB_ID, "saved\n");
+    await t.document_service.save(TAB_ID);
+    t.document_store.set_edited_content(TAB_ID, "saved\nmore typing\n");
+
+    t.watcher_port._emit(asset_event(t.vault_id, FILE_PATH));
+    t.watcher_port._emit(asset_event(t.vault_id, FILE_PATH));
+    await flush_effects();
+
+    expect(t.document_store.has_conflict(TAB_ID)).toBe(false);
+    expect(t.document_store.get_current_content(TAB_ID)).toBe(
+      "saved\nmore typing\n",
+    );
   });
 
   it("ignores changes to unrelated paths", async () => {

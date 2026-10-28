@@ -990,6 +990,15 @@ describe("DocumentService", () => {
       expect(document_store.has_conflict("tab-1")).toBe(true);
     });
 
+    it("treats a dirty tab whose disk matches persisted content as an echo", async () => {
+      const { service, document_store } = await open_dirty("mine");
+
+      await service.reload_document("tab-1");
+
+      expect(document_store.has_conflict("tab-1")).toBe(false);
+      expect(document_store.get_current_content("tab-1")).toBe("mine");
+    });
+
     it("keeps the revision when disk content is unchanged", async () => {
       const { service, document_store } = await open_dirty(null);
 
@@ -1003,7 +1012,6 @@ describe("DocumentService", () => {
 
       expect(service.find_open_document("DATA/A.csv")).toEqual({
         tab_id: "tab-1",
-        is_dirty: true,
       });
       expect(service.find_open_document("data/b.csv")).toBeNull();
     });

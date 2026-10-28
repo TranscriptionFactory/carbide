@@ -24,7 +24,7 @@ function is_ignore_config_path(path: string): boolean {
 
 export type BackgroundTabInfo = { is_dirty: boolean } | null;
 
-export type OpenDocumentInfo = { tab_id: string; is_dirty: boolean } | null;
+export type OpenDocumentInfo = { tab_id: string } | null;
 
 export type WatcherIndexHint = { changed?: string; removed?: string };
 
@@ -33,7 +33,6 @@ type WatcherEventAction =
   | { action: "mark_conflict"; note_path: NotePath }
   | { action: "invalidate_tab_cache"; note_path: NotePath }
   | { action: "reload_document"; tab_id: string }
-  | { action: "mark_document_conflict"; tab_id: string }
   | { action: "refresh_tree" }
   | { action: "clear_and_refresh"; note_path: NotePath }
   | { action: "remove_background_tab_and_refresh"; note_path: NotePath }
@@ -62,9 +61,7 @@ function resolve_asset_decision(
 ): WatcherEventDecision {
   const doc = find_open_document(asset_path);
   if (!doc) return { action: "log_only", path: asset_path };
-  return doc.is_dirty
-    ? { action: "mark_document_conflict", tab_id: doc.tab_id }
-    : { action: "reload_document", tab_id: doc.tab_id };
+  return { action: "reload_document", tab_id: doc.tab_id };
 }
 
 export function resolve_watcher_event_decision(
@@ -73,7 +70,7 @@ export function resolve_watcher_event_decision(
   open_note_path: string | null,
   is_dirty: boolean,
   find_background_tab: (path: string) => BackgroundTabInfo,
-  find_open_document: (path: string) => OpenDocumentInfo = () => null,
+  find_open_document: (path: string) => OpenDocumentInfo,
 ): WatcherEventDecision {
   if (event.vault_id !== current_vault_id) {
     return { action: "ignore" };
@@ -179,10 +176,10 @@ export function create_watcher_reactor(
   watcher_service: WatcherService,
   action_registry: ActionRegistry,
   graph_service: GraphService,
-  workspace_reconcile?: WorkspaceReconcile,
-  document_service?: Pick<
+  workspace_reconcile: WorkspaceReconcile | undefined,
+  document_service: Pick<
     DocumentService,
-    "find_open_document" | "reload_document" | "mark_conflict"
+    "find_open_document" | "reload_document"
   >,
 ): () => void {
   return $effect.root(() => {
@@ -307,7 +304,7 @@ export function create_watcher_reactor(
         editor_store.open_note?.meta.path ?? null,
         editor_store.open_note?.is_dirty ?? false,
         find_background_tab,
-        (path) => document_service?.find_open_document(path) ?? null,
+        (path) => document_service.find_open_document(path),
       );
 
       switch (decision.action) {
@@ -339,19 +336,13 @@ export function create_watcher_reactor(
             tab_id: decision.tab_id,
           });
           void document_service
-            ?.reload_document(decision.tab_id)
+            .reload_document(decision.tab_id)
             .catch((error: unknown) => {
               log.error("Document reload failed", {
                 tab_id: decision.tab_id,
                 error,
               });
             });
-          break;
-        case "mark_document_conflict":
-          log.info("Raised the external-modification card for a document", {
-            tab_id: decision.tab_id,
-          });
-          document_service?.mark_conflict(decision.tab_id);
           break;
         case "log_only": {
           log.info("Asset changed externally", { path: decision.path });

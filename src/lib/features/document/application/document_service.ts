@@ -466,16 +466,14 @@ export class DocumentService {
     this.document_store.mark_clean(tab_id, content);
   }
 
-  find_open_document(
-    file_path: string,
-  ): { tab_id: string; is_dirty: boolean } | null {
+  find_open_document(file_path: string): { tab_id: string } | null {
     for (const viewer of this.document_store.viewer_states.values()) {
       if (!paths_equal_ignore_case(viewer.file_path, file_path)) continue;
       const content_state = this.document_store.get_content_state(
         viewer.tab_id,
       );
       if (content_state?.status !== "ready") continue;
-      return { tab_id: viewer.tab_id, is_dirty: content_state.is_dirty };
+      return { tab_id: viewer.tab_id };
     }
     return null;
   }
@@ -493,16 +491,12 @@ export class DocumentService {
 
     const current = this.document_store.get_content_state(tab_id);
     if (!current || current.file_path !== before.file_path) return;
+    if (current.content === content && !discard_edits) return;
     if (current.is_dirty && !discard_edits) {
       this.document_store.mark_conflict(tab_id);
       return;
     }
-    if (!current.is_dirty && current.content === content) return;
     this.document_store.apply_reloaded_content(tab_id, content);
-  }
-
-  mark_conflict(tab_id: string): void {
-    this.document_store.mark_conflict(tab_id);
   }
 
   clear_conflict(tab_id: string): void {
