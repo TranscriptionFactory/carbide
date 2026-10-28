@@ -1,5 +1,5 @@
 export type HostMessage =
-  | { type: "init_sheet"; text: string; delimiter: string }
+  | { type: "init_sheet"; text: string; delimiter: string | null }
   | { type: "get_text" }
   | { type: "theme_sync"; theme: "light" | "dark" };
 
