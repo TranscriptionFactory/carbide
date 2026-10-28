@@ -138,6 +138,12 @@ describe("sheet_csv delimiter handling", () => {
     expect(parse_csv('a,b\n"1;5",2\n', null).dialect.delimiter).toBe(",");
   });
 
+  it("detects from the leading rows only, ignoring the tail", () => {
+    const head = "a;b;c\n".repeat(20);
+    const tail = "x,y\n1,2,3,4,5\n".repeat(5000);
+    expect(parse_csv(head + tail, null).dialect.delimiter).toBe(";");
+  });
+
   it("honours an explicit tab over detection", () => {
     const source = parse_csv("a,b\tc\n", "\t");
     expect(row_at(source.rows, 0)).toEqual(["a,b", "c"]);

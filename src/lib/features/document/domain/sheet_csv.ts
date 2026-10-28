@@ -20,7 +20,11 @@ type Tokenized = {
 const DETECT_CANDIDATES = [",", ";", "\t", "|"];
 const DETECT_SAMPLE_ROWS = 20;
 
-function tokenize(text: string, delimiter: string): Tokenized {
+function tokenize(
+  text: string,
+  delimiter: string,
+  max_records = Infinity,
+): Tokenized {
   const rows: string[][] = [];
   const raw_rows: string[] = [];
   let eol: Tokenized["eol"] = null;
@@ -43,7 +47,7 @@ function tokenize(text: string, delimiter: string): Tokenized {
   };
 
   let i = 0;
-  while (i < text.length) {
+  while (i < text.length && rows.length < max_records) {
     const ch = text.charAt(i);
     if (in_quotes) {
       if (ch === '"') {
@@ -78,7 +82,7 @@ function tokenize(text: string, delimiter: string): Tokenized {
     }
     i++;
   }
-  if (record_start < text.length) {
+  if (rows.length < max_records && record_start < text.length) {
     end_record(text.length, 0);
     trailing_eol = false;
   }
@@ -86,7 +90,7 @@ function tokenize(text: string, delimiter: string): Tokenized {
 }
 
 function consistency_score(text: string, delimiter: string): number {
-  const sample = tokenize(text, delimiter).rows.slice(0, DETECT_SAMPLE_ROWS);
+  const sample = tokenize(text, delimiter, DETECT_SAMPLE_ROWS).rows;
   const counts = new Map<number, number>();
   for (const row of sample) {
     counts.set(row.length, (counts.get(row.length) ?? 0) + 1);
