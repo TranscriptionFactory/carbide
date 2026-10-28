@@ -37,6 +37,7 @@ export type DocumentContentState = {
   asset_url: string | null;
   last_accessed_at: number;
   pdf_metadata: PdfMetadata | null;
+  revision: number;
 };
 
 export type TrustGrantRequest = {
@@ -50,6 +51,7 @@ export class DocumentStore {
   content_states = $state<Map<string, DocumentContentState>>(new Map());
   trust_levels = $state<Map<string, TrustLevel>>(new Map());
   provenance = $state<Map<string, ArtifactProvenance | null>>(new Map());
+  conflicted_tab_ids = $state<Set<string>>(new Set());
   pending_trust_request = $state<TrustGrantRequest | null>(null);
   html_outline_request = $state<{
     tab_id: string;
@@ -208,6 +210,35 @@ export class DocumentStore {
     });
   }
 
+  apply_reloaded_content(tab_id: string, content: string): void {
+    const state = this.content_states.get(tab_id);
+    if (!state) return;
+    this.content_states = new Map(this.content_states).set(tab_id, {
+      ...state,
+      content,
+      edited_content: null,
+      is_dirty: false,
+      revision: state.revision + 1,
+    });
+    this.clear_conflict(tab_id);
+  }
+
+  mark_conflict(tab_id: string): void {
+    if (this.conflicted_tab_ids.has(tab_id)) return;
+    this.conflicted_tab_ids = new Set(this.conflicted_tab_ids).add(tab_id);
+  }
+
+  clear_conflict(tab_id: string): void {
+    if (!this.conflicted_tab_ids.has(tab_id)) return;
+    const next = new Set(this.conflicted_tab_ids);
+    next.delete(tab_id);
+    this.conflicted_tab_ids = next;
+  }
+
+  has_conflict(tab_id: string): boolean {
+    return this.conflicted_tab_ids.has(tab_id);
+  }
+
   touch_content_state(tab_id: string, now_ms: number): void {
     const state = this.content_states.get(tab_id);
     if (!state) return;
@@ -221,6 +252,7 @@ export class DocumentStore {
     const next = new Map(this.content_states);
     next.delete(tab_id);
     this.content_states = next;
+    this.clear_conflict(tab_id);
   }
 
   #evict_inactive_content(protected_tab_id?: string): void {

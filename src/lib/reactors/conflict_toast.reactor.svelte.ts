@@ -1,3 +1,4 @@
+import type { DocumentService, DocumentStore } from "$lib/features/document";
 import type { EditorStore } from "$lib/features/editor";
 import type { NoteService } from "$lib/features/note";
 import type { TabService, TabStore } from "$lib/features/tab";
@@ -34,6 +35,34 @@ export function resolve_conflict_toast_target(
   };
 }
 
+export type DocumentConflictToastTarget = {
+  tab_id: string;
+  file_path: string;
+} | null;
+
+export function resolve_document_conflict_toast_target(
+  active_tab: TabStore["active_tab"],
+  has_conflict: (tab_id: string) => boolean,
+): DocumentConflictToastTarget {
+  if (!active_tab || active_tab.kind !== "document") return null;
+  if (!has_conflict(active_tab.id)) return null;
+  return { tab_id: active_tab.id, file_path: active_tab.file_path };
+}
+
+export function create_document_conflict_toast_callbacks(
+  target: NonNullable<DocumentConflictToastTarget>,
+  document_service: Pick<DocumentService, "clear_conflict" | "reload_document">,
+): ConflictToastCallbacks {
+  return {
+    on_reload: () => {
+      void document_service.reload_document(target.tab_id, true);
+    },
+    on_keep: () => {
+      document_service.clear_conflict(target.tab_id);
+    },
+  };
+}
+
 export function create_conflict_toast_callbacks(
   target: NonNullable<ConflictToastTarget>,
   tab_service: Pick<TabService, "clear_conflict" | "invalidate_cache">,
@@ -60,12 +89,35 @@ export function create_conflict_toast_reactor(
   tab_service: TabService,
   note_service: NoteService,
   conflict_toast_manager: ConflictToastManager,
+  document_store?: DocumentStore,
+  document_service?: Pick<
+    DocumentService,
+    "clear_conflict" | "reload_document"
+  >,
 ): () => void {
   return $effect.root(() => {
     $effect(() => {
       const active_tab = tab_store.active_tab;
       const open_note = editor_store.open_note;
       const _conflicts = tab_store.conflicted_note_paths;
+      const _document_conflicts = document_store?.conflicted_tab_ids;
+
+      const document_target = document_store
+        ? resolve_document_conflict_toast_target(active_tab, (tab_id) =>
+            document_store.has_conflict(tab_id),
+          )
+        : null;
+      if (document_target && document_service) {
+        conflict_toast_manager.show(
+          document_target.file_path,
+          create_document_conflict_toast_callbacks(
+            document_target,
+            document_service,
+          ),
+          "File has been modified externally",
+        );
+        return;
+      }
 
       const target = resolve_conflict_toast_target(
         active_tab,
