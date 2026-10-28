@@ -56,6 +56,12 @@ jobs:
           touch src-tauri/excalidraw-dist/index.html
           touch src-tauri/excalidraw-dist/assets/.gitkeep
 
+      - name: Stub sheet-dist for build
+        run: |
+          mkdir -p src-tauri/sheet-dist/assets
+          touch src-tauri/sheet-dist/index.html
+          touch src-tauri/sheet-dist/assets/.gitkeep
+
       - name: Stub sidecar binaries for build
         run: |
           triple="aarch64-apple-darwin"

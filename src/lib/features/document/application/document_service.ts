@@ -43,6 +43,7 @@ import {
 } from "$lib/features/document/domain/html_artifact_paste";
 
 const DEFAULT_INACTIVE_CONTENT_LIMIT = 3;
+const MAX_SPREADSHEET_NAME_ATTEMPTS = 1000;
 
 export type DocumentAiContext = {
   tab_id: string;
@@ -200,6 +201,31 @@ export class DocumentService {
     await this.refresh_trust_level(req.file_path);
     this.document_store.close_trust_request();
     req.resolve(true);
+  }
+
+  async create_spreadsheet(folder_path: string): Promise<string | null> {
+    const vault_id = this.vault_store.vault?.id;
+    if (!vault_id) return null;
+    for (let n = 1; n <= MAX_SPREADSHEET_NAME_ATTEMPTS; n++) {
+      const name = n === 1 ? "Untitled.csv" : `Untitled ${n}.csv`;
+      const file_path = join_vault_path(folder_path, name);
+      if (await this.file_exists(vault_id, file_path)) continue;
+      await this.document_port.write_file(vault_id, file_path, "");
+      return file_path;
+    }
+    return null;
+  }
+
+  private async file_exists(
+    vault_id: string,
+    file_path: string,
+  ): Promise<boolean> {
+    try {
+      await this.document_port.read_file(vault_id, file_path);
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   async save_html_artifact(

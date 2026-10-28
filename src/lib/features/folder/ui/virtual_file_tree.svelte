@@ -44,6 +44,7 @@
     on_request_rename_folder?: ((folder_path: string) => void) | undefined;
     on_request_create_note?: (() => void) | undefined;
     on_request_create_canvas?: (() => void) | undefined;
+    on_request_create_spreadsheet?: ((folder_path: string) => void) | undefined;
     on_request_create_folder?: ((folder_path: string) => void) | undefined;
     on_request_folder_note?: ((folder_path: string) => void) | undefined;
     on_set_note_property?:
@@ -92,6 +93,7 @@
     on_request_rename_folder,
     on_request_create_note,
     on_request_create_canvas,
+    on_request_create_spreadsheet,
     on_request_create_folder,
     on_request_folder_note,
     on_set_note_property,
@@ -592,6 +594,7 @@
             {on_request_rename_folder}
             {on_request_create_note}
             {on_request_create_canvas}
+            {on_request_create_spreadsheet}
             {on_request_create_folder}
             {on_request_folder_note}
             {on_set_note_property}
