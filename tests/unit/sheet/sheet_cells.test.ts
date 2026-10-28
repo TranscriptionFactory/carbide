@@ -118,4 +118,34 @@ describe("grid_rows", () => {
     const grid = grid_of({ "1:1": "z" });
     expect(grid_rows(grid, sources)).toEqual([["z"]]);
   });
+
+  it("keeps untouched cells' originals in an edited row", () => {
+    const sources = [
+      {
+        originals: ["A", "50%", "$1,250.50", "=sum(c1:c1)"],
+        loaded: ["A", "0.5", "1250.5", "=SUM(C1:C1)"],
+      },
+    ];
+    const grid = grid_of({
+      "1:1": "B",
+      "1:2": "0.5",
+      "1:3": "1250.5",
+      "1:4": "=SUM(C1:C1)",
+    });
+    expect(grid_rows(grid, sources)).toEqual([
+      ["B", "50%", "$1,250.50", "=sum(c1:c1)"],
+    ]);
+  });
+
+  it("trims trailing empty cells of an edited row", () => {
+    const sources = [{ originals: ["1.0", "x", ""], loaded: ["1", "x", ""] }];
+    const grid = grid_of({ "1:1": "1", "1:2": "y" });
+    expect(grid_rows(grid, sources)).toEqual([["1.0", "y"]]);
+  });
+
+  it("drops a cleared trailing row instead of writing empty cells", () => {
+    const sources = unchanged([["a"], ["b", "c"]]);
+    const grid = grid_of({ "1:1": "a" });
+    expect(grid_rows(grid, sources)).toEqual([["a"]]);
+  });
 });

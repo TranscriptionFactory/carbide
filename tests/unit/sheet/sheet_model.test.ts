@@ -67,6 +67,17 @@ describe("sheet_model edits", () => {
     expect(serialize_sheet(sheet)).toBe('a;"b"\r\n1;"x;y"\r\n');
   });
 
+  it("keeps untouched cells' original text in the edited row", () => {
+    const sheet = load_sheet(
+      'item,rate,price,total\nA,50%,"$1,250.50",=sum(c2:c2)\n',
+      null,
+    );
+    sheet.model.setUserInput(SHEET, 2, 1, "B");
+    expect(serialize_sheet(sheet)).toBe(
+      'item,rate,price,total\nB,50%,"$1,250.50",=sum(c2:c2)\n',
+    );
+  });
+
   it("includes a cell typed outside the loaded range", () => {
     const sheet = load_sheet("a,b\n", null);
     sheet.model.setSelectedCell(5, 40);

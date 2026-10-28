@@ -52,16 +52,22 @@ function nearest_unused(
   return best;
 }
 
+type RowMatch = { source: number; edited: boolean };
+
+const EMPTY_SIGNATURE = row_signature([]);
+
 function match_rows(
   grid_signatures: string[],
   source_signatures: string[],
-): (number | undefined)[] {
+): (RowMatch | undefined)[] {
   const used = new Set<number>();
-  const matches = grid_signatures.map((signature, index) => {
-    if (source_signatures[index] !== signature) return undefined;
-    used.add(index);
-    return index;
-  });
+  const matches: (RowMatch | undefined)[] = grid_signatures.map(
+    (signature, index) => {
+      if (source_signatures[index] !== signature) return undefined;
+      used.add(index);
+      return { source: index, edited: false };
+    },
+  );
   const by_signature = new Map<string, number[]>();
   source_signatures.forEach((signature, index) => {
     const indices = by_signature.get(signature);
@@ -77,7 +83,13 @@ function match_rows(
     );
     if (match === undefined) return;
     used.add(match);
-    matches[index] = match;
+    matches[index] = { source: match, edited: false };
+  });
+  grid_signatures.forEach((signature, index) => {
+    if (matches[index] !== undefined || signature === EMPTY_SIGNATURE) return;
+    if (index >= source_signatures.length || used.has(index)) return;
+    used.add(index);
+    matches[index] = { source: index, edited: true };
   });
   return matches;
 }
@@ -85,8 +97,8 @@ function match_rows(
 function row_texts(
   contents: string[],
   source: SourceRow | undefined,
+  width: number,
 ): string[] {
-  const width = Math.max(contents.length, source?.originals.length ?? 0);
   return Array.from({ length: width }, (_, c) =>
     saved_text(
       contents[c] ?? "",
@@ -117,6 +129,11 @@ export function grid_rows(grid: GridView, sources: SourceRow[]): string[][] {
   }
   return contents.map((row, r) => {
     const match = matches[r];
-    return row_texts(row, match === undefined ? undefined : sources[match]);
+    if (match === undefined) return row_texts(row, undefined, row.length);
+    const source = sources[match.source];
+    const width = match.edited
+      ? row.length
+      : Math.max(row.length, source?.originals.length ?? 0);
+    return row_texts(row, source, width);
   });
 }
