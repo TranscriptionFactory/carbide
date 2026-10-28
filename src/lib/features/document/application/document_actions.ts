@@ -183,6 +183,7 @@ export function register_document_actions(
       const file_path = await document_service.create_spreadsheet(folder_path);
       if (!file_path) return;
       await registry.execute(ACTION_IDS.document_open, file_path);
+      await registry.execute(ACTION_IDS.document_set_sheet_edit, true);
     },
   });
 
@@ -290,6 +291,18 @@ export function register_document_actions(
         return;
       }
       document_store.set_source_view(active_tab.id, source_view);
+    },
+  });
+
+  registry.register({
+    id: ACTION_IDS.document_set_sheet_edit,
+    label: "Set Spreadsheet Editing",
+    execute: (...args: unknown[]) => {
+      const sheet_edit = args[0];
+      if (typeof sheet_edit !== "boolean") return;
+      const active_tab = stores.tab.active_tab;
+      if (!active_tab || active_tab.kind !== "document") return;
+      document_store.set_sheet_edit(active_tab.id, sheet_edit);
     },
   });
 

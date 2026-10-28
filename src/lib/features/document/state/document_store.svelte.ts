@@ -18,6 +18,7 @@ export type DocumentViewerState = {
   cfi: string | null;
   html_view_mode: HtmlViewMode;
   source_view: boolean;
+  sheet_edit: boolean;
   html_fragment?: string | null;
   load_status: "idle" | "loading" | "ready" | "error";
   error_message: string | null;
@@ -145,6 +146,12 @@ export class DocumentStore {
     const state = this.viewer_states.get(tab_id);
     if (!state || !supports_source_view(state.file_type)) return;
     this.#patch(tab_id, { source_view });
+  }
+
+  set_sheet_edit(tab_id: string, sheet_edit: boolean): void {
+    const state = this.viewer_states.get(tab_id);
+    if (!state || state.file_type !== "csv") return;
+    this.#patch(tab_id, { sheet_edit, source_view: false });
   }
 
   request_html_outline_heading(tab_id: string, id: string): void {

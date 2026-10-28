@@ -16,6 +16,7 @@ function make_state(tab_id: string): DocumentViewerState {
     cfi: null,
     html_view_mode: "safe",
     source_view: false,
+    sheet_edit: false,
     load_status: "idle",
     error_message: null,
   };
@@ -159,6 +160,33 @@ describe("DocumentStore", () => {
 
       store.set_source_view(file_type, true);
       expect(store.get_viewer_state(file_type)?.source_view).toBe(false);
+    }
+  });
+
+  it("opens csv in the read-only table and switches to the spreadsheet editor on request", () => {
+    const store = new DocumentStore();
+    store.set_viewer_state("csv", { ...make_state("csv"), file_type: "csv" });
+    store.set_source_view("csv", true);
+
+    store.set_sheet_edit("csv", true);
+    expect(store.get_viewer_state("csv")).toMatchObject({
+      sheet_edit: true,
+      source_view: false,
+    });
+
+    store.set_sheet_edit("csv", false);
+    expect(store.get_viewer_state("csv")?.sheet_edit).toBe(false);
+  });
+
+  it("ignores sheet_edit for non-csv documents", () => {
+    const store = new DocumentStore();
+    for (const file_type of ["text", "excalidraw", "html"] as const) {
+      store.set_viewer_state(file_type, {
+        ...make_state(file_type),
+        file_type,
+      });
+      store.set_sheet_edit(file_type, true);
+      expect(store.get_viewer_state(file_type)?.sheet_edit).toBe(false);
     }
   });
 

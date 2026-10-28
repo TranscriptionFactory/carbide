@@ -9,6 +9,7 @@
   import EpubViewer from "$lib/features/document/ui/epub_viewer.svelte";
   import ImageViewer from "$lib/features/document/ui/image_viewer.svelte";
   import SheetHost from "$lib/features/document/ui/sheet_host.svelte";
+  import CsvViewer from "$lib/features/document/ui/csv_viewer.svelte";
   import DocumentEditor from "$lib/features/document/ui/document_editor.svelte";
   import HtmlViewer from "$lib/features/document/ui/html_viewer.svelte";
   import HtmlLiveRenderer from "$lib/features/document/ui/html_live_renderer.svelte";
@@ -25,6 +26,7 @@
   import { parent_folder_path } from "$lib/shared/utils/path";
   import { classify_html_link } from "$lib/features/document/domain/html_link";
   import { detect_file_type } from "$lib/features/document/domain/document_types";
+  import { sheet_delimiter_for_path } from "$lib/features/document/domain/sheet_bridge";
   import type { HtmlFrameHeading } from "$lib/features/document/domain/html_frame_bridge";
   import { extract_html_headings } from "$lib/features/document/domain/html_outline";
   import CodeIcon from "@lucide/svelte/icons/code";
@@ -211,6 +213,7 @@
     <SourceViewToggle
       file_type={viewer_state.file_type}
       source_view={viewer_state.source_view}
+      sheet_edit={viewer_state.sheet_edit}
     />
   {/if}
 
@@ -305,7 +308,7 @@
           services.document.register_editor_controller(controller)}
       />
     {/key}
-  {:else if viewer_state.file_type === "csv" && current_content !== null}
+  {:else if viewer_state.file_type === "csv" && viewer_state.sheet_edit && current_content !== null}
     {#key `${viewer_state.tab_id}:${viewer_state.file_path}:${String(content_state?.revision ?? 0)}`}
       <SheetHost
         content={current_content}
@@ -316,6 +319,11 @@
           void action_registry.execute(ACTION_IDS.document_save)}
       />
     {/key}
+  {:else if viewer_state.file_type === "csv" && current_content !== null}
+    <CsvViewer
+      content={current_content}
+      delimiter={sheet_delimiter_for_path(viewer_state.file_path) ?? ""}
+    />
   {:else if viewer_state.file_type === "text" && current_content !== null}
     {#key `${viewer_state.tab_id}:${viewer_state.file_path}:${stores.ui.editor_settings.document_code_wrap ? "wrap" : "nowrap"}`}
       <DocumentEditor

@@ -13,6 +13,7 @@ describe("html document scroll persistence", () => {
       cfi: null,
       html_view_mode: "safe",
       source_view: false,
+      sheet_edit: false,
       load_status: "idle",
       error_message: null,
     });

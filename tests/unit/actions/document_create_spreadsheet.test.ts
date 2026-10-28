@@ -55,7 +55,7 @@ function create_harness(existing: string[], selected_folder_path = "") {
     document_store,
     canvas_store: new CanvasStore(),
   });
-  return { registry, tab, port };
+  return { registry, tab, port, document_store };
 }
 
 describe("document.create_spreadsheet", () => {
@@ -71,6 +71,13 @@ describe("document.create_spreadsheet", () => {
       kind: "document",
       title: "Untitled.csv",
     });
+  });
+
+  it("opens the new file in the spreadsheet editor", async () => {
+    const { registry, tab, document_store } = create_harness([]);
+    await registry.execute(ACTION_IDS.document_create_spreadsheet, "data");
+    const tab_id = tab.active_tab?.id ?? "";
+    expect(document_store.get_viewer_state(tab_id)?.sheet_edit).toBe(true);
   });
 
   it("picks the next free name when Untitled.csv exists", async () => {

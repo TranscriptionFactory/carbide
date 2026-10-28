@@ -315,6 +315,7 @@ export class DocumentService {
         cfi,
         html_view_mode: "safe",
         source_view: false,
+        sheet_edit: false,
         html_fragment:
           file_type === "html" ? (initial_html_fragment ?? null) : null,
         load_status: "idle",

@@ -120,6 +120,7 @@ describe("document source view: csv", () => {
       cfi: null,
       html_view_mode: "safe",
       source_view: false,
+      sheet_edit: false,
       load_status: "ready",
       error_message: null,
     });

@@ -664,6 +664,7 @@ describe("DocumentService", () => {
       cfi: null,
       html_view_mode,
       source_view: false,
+      sheet_edit: false,
       load_status: content === null ? "loading" : "ready",
       error_message: null,
     });
