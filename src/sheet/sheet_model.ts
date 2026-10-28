@@ -4,20 +4,14 @@ import {
   serialize_csv,
   type CsvSource,
 } from "../lib/features/document/domain/sheet_csv";
-import {
-  cell_key,
-  grid_rows,
-  saved_text,
-  to_model_input,
-  type LoadedCell,
-} from "./sheet_cells";
+import { grid_rows, to_model_input, type SourceRow } from "./sheet_cells";
 
 const SHEET = 0;
 
 export type LoadedSheet = {
   model: Model;
   source: CsvSource;
-  cells: Map<string, LoadedCell>;
+  rows: SourceRow[];
   column_bound: number;
 };
 
@@ -49,19 +43,18 @@ export function load_sheet(
     model.setUserInput(SHEET, row, column, to_model_input(value));
   });
   model.evaluate();
-  const cells = new Map<string, LoadedCell>();
-  for_each_value(source.rows, (row, column, value) => {
-    cells.set(cell_key(row, column), {
-      original: value,
-      loaded: model.getCellContent(SHEET, row, column),
-    });
-  });
+  const rows = source.rows.map((originals, r) => ({
+    originals,
+    loaded: originals.map((value, c) =>
+      value === "" ? "" : model.getCellContent(SHEET, r + 1, c + 1),
+    ),
+  }));
   model.flushSendQueue();
   keep_leading_zeros_as_text(model);
   return {
     model,
     source,
-    cells,
+    rows,
     column_bound: source.rows.reduce(
       (widest, row) => Math.max(widest, row.length),
       0,
@@ -107,18 +100,14 @@ function last_data_row(model: Model, column_bound: number): number {
 }
 
 export function sheet_rows(sheet: LoadedSheet): string[][] {
-  const { model, cells } = sheet;
+  const { model } = sheet;
   return grid_rows(
     {
       last_row: last_data_row(model, sheet.column_bound),
       last_column: (row) => last_data_column(model, row),
-      text: (row, column) =>
-        saved_text(
-          model.getCellContent(SHEET, row, column),
-          cells.get(cell_key(row, column)),
-        ),
+      content: (row, column) => model.getCellContent(SHEET, row, column),
     },
-    sheet.source.rows,
+    sheet.rows,
   );
 }
 

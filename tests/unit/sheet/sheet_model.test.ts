@@ -93,3 +93,41 @@ describe("sheet_model edits", () => {
     expect(take_dirty(sheet.model)).toBe(false);
   });
 });
+
+describe("sheet_model structural edits", () => {
+  const formatted = 'item,rate,price,total\nA,50%,"$1,250.50",=sum(c2:c2)\n';
+
+  it("keeps original text of rows shifted by an inserted row", () => {
+    const sheet = load_sheet(formatted, null);
+    sheet.model.insertRows(SHEET, 1, 1);
+    expect(serialize_sheet(sheet)).toBe(
+      '\nitem,rate,price,total\nA,50%,"$1,250.50",=SUM(C3:C3)\n',
+    );
+  });
+
+  it("keeps original text after deleting a middle row", () => {
+    const sheet = load_sheet("h,v\na,50%\nb,1.0\n", null);
+    sheet.model.deleteRows(SHEET, 2, 1);
+    expect(serialize_sheet(sheet)).toBe("h,v\nb,1.0\n");
+  });
+
+  it("restores byte-identical output after undoing a row insert", () => {
+    const sheet = load_sheet(formatted, null);
+    sheet.model.insertRows(SHEET, 1, 1);
+    sheet.model.undo();
+    expect(serialize_sheet(sheet)).toBe(formatted);
+  });
+
+  it("matches duplicate identical rows one to one", () => {
+    const text = "50%,1.0\n50%,1.0\n50%,1.0\n";
+    const sheet = load_sheet(text, null);
+    sheet.model.deleteRows(SHEET, 2, 1);
+    expect(serialize_sheet(sheet)).toBe("50%,1.0\n50%,1.0\n");
+  });
+
+  it("falls back to cell content for rows shifted by an inserted column", () => {
+    const sheet = load_sheet("a,50%\n", null);
+    sheet.model.insertColumns(SHEET, 1, 1);
+    expect(serialize_sheet(sheet)).toBe(",a,0.5\n");
+  });
+});
