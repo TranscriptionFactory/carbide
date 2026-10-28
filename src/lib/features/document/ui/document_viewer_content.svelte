@@ -306,7 +306,7 @@
       />
     {/key}
   {:else if viewer_state.file_type === "csv" && current_content !== null}
-    {#key `${viewer_state.tab_id}:${viewer_state.file_path}`}
+    {#key `${viewer_state.tab_id}:${viewer_state.file_path}:${String(content_state?.revision ?? 0)}`}
       <SheetHost
         content={current_content}
         file_path={viewer_state.file_path}

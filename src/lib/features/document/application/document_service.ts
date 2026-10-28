@@ -14,6 +14,7 @@ import type { DocumentStore } from "$lib/features/document/state/document_store.
 import type { DocumentContentState } from "$lib/features/document/state/document_store.svelte";
 import {
   is_editable_type,
+  reloads_from_disk,
   type DocumentFileType,
 } from "$lib/features/document/types/document";
 import type { VaultStore } from "$lib/features/vault";
@@ -495,6 +496,7 @@ export class DocumentService {
   find_open_document(file_path: string): { tab_id: string } | null {
     for (const viewer of this.document_store.viewer_states.values()) {
       if (!paths_equal_ignore_case(viewer.file_path, file_path)) continue;
+      if (!reloads_from_disk(viewer.file_type)) continue;
       const content_state = this.document_store.get_content_state(
         viewer.tab_id,
       );
