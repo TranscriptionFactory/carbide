@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { IronCalc, init } from "@ironcalc/workbook";
+import { IronCalc, darkThemeVariables, init } from "@ironcalc/workbook";
 import "@ironcalc/workbook/style.css";
 import type { HostMessage } from "./bridge";
 import { post_to_host } from "./bridge";
@@ -8,10 +8,13 @@ import {
   load_sheet,
   serialize_sheet,
   take_dirty,
+  track_selection,
   type LoadedSheet,
-} from "./sheet_csv_model";
+} from "./sheet_model";
 
 const DIRTY_POLL_MS = 300;
+
+type Theme = "light" | "dark";
 
 function is_save_shortcut(event: KeyboardEvent): boolean {
   return (event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "s";
@@ -19,6 +22,7 @@ function is_save_shortcut(event: KeyboardEvent): boolean {
 
 function App() {
   const [sheet, set_sheet] = useState<LoadedSheet | null>(null);
+  const [theme, set_theme] = useState<Theme>("light");
   const sheet_ref = useRef<LoadedSheet | null>(null);
   sheet_ref.current = sheet;
 
@@ -32,10 +36,13 @@ function App() {
           post_to_host({ type: "load_failed", reason: String(error) });
         }
       } else if (message.type === "get_text" && sheet_ref.current) {
+        track_selection(sheet_ref.current);
         post_to_host({
           type: "text_response",
           text: serialize_sheet(sheet_ref.current),
         });
+      } else if (message.type === "theme_sync") {
+        set_theme(message.theme);
       }
     }
 
@@ -56,8 +63,13 @@ function App() {
   }, []);
 
   useEffect(() => {
+    document.documentElement.style.colorScheme = theme;
+  }, [theme]);
+
+  useEffect(() => {
     if (!sheet) return;
     const timer = setInterval(() => {
+      track_selection(sheet);
       if (take_dirty(sheet.model)) post_to_host({ type: "sheet_changed" });
     }, DIRTY_POLL_MS);
     return () => {
@@ -65,7 +77,13 @@ function App() {
     };
   }, [sheet]);
 
-  return sheet ? <IronCalc model={sheet.model} /> : null;
+  if (!sheet) return null;
+  return (
+    <IronCalc
+      model={sheet.model}
+      {...(theme === "dark" ? { themeVariables: darkThemeVariables } : {})}
+    />
+  );
 }
 
 init()
