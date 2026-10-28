@@ -5,7 +5,7 @@
   "identifier": "com.carbide.desktop",
   "build": {
     "beforeDevCommand": "pnpm dev",
-    "beforeBuildCommand": "bash scripts/build-cli.sh && svelte-kit sync && pnpm build:excalidraw && pnpm codegen && pnpm build",
+    "beforeBuildCommand": "bash scripts/build-cli.sh && svelte-kit sync && pnpm build:excalidraw && pnpm build:sheet && pnpm codegen && pnpm build",
     "devUrl": "http://127.0.0.1:5173",
     "frontendDist": "../build"
   },
@@ -26,6 +26,8 @@
     "resources": [
       "excalidraw-dist/*",
       "excalidraw-dist/assets/*",
+      "sheet-dist/*",
+      "sheet-dist/assets/*",
       "resources/models/**/*",
       "resources/iwe-default-config.toml",
       "resources/markdown-oxide-default-config.toml",
@@ -113,7 +115,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; img-src 'self' data: blob: carbide-asset: carbide-plugin:; style-src 'self' 'unsafe-inline'; script-src 'self' blob: carbide-plugin:; worker-src 'self' blob:; connect-src 'self' ipc: http://ipc.localhost carbide-asset:; frame-src carbide-plugin: carbide-excalidraw: carbide-asset: carbide-html: blob:"
+      "csp": "default-src 'self'; img-src 'self' data: blob: carbide-asset: carbide-plugin:; style-src 'self' 'unsafe-inline'; script-src 'self' blob: carbide-plugin:; worker-src 'self' blob:; connect-src 'self' ipc: http://ipc.localhost carbide-asset:; frame-src carbide-plugin: carbide-excalidraw: carbide-sheet: carbide-asset: carbide-html: blob:"
     }
   }
 }

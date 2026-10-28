@@ -412,11 +412,24 @@ pub fn handle_excalidraw_request(
     app: &tauri::AppHandle,
     req: Request<Vec<u8>>,
 ) -> Response<Vec<u8>> {
+    handle_island_request(app, req, "carbide-excalidraw", "excalidraw-dist")
+}
+
+pub fn handle_sheet_request(app: &tauri::AppHandle, req: Request<Vec<u8>>) -> Response<Vec<u8>> {
+    handle_island_request(app, req, "carbide-sheet", "sheet-dist")
+}
+
+fn handle_island_request(
+    app: &tauri::AppHandle,
+    req: Request<Vec<u8>>,
+    scheme: &str,
+    dist_name: &str,
+) -> Response<Vec<u8>> {
     let uri = req.uri().to_string();
 
     let without_scheme = uri
-        .trim_start_matches("carbide-excalidraw://")
-        .trim_start_matches("carbide-excalidraw:");
+        .trim_start_matches(&format!("{scheme}://"))
+        .trim_start_matches(&format!("{scheme}:"));
 
     let query_start = without_scheme.find('?');
     let path_part = if let Some(pos) = query_start {
@@ -438,54 +451,54 @@ pub fn handle_excalidraw_request(
         .path()
         .resource_dir()
         .unwrap_or_default()
-        .join("excalidraw-dist");
+        .join(dist_name);
 
-    let excalidraw_dir = if resource_dir.exists() {
+    let dist_dir = if resource_dir.exists() {
         resource_dir
     } else {
         let manifest_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-        manifest_dir.join("excalidraw-dist")
+        manifest_dir.join(dist_name)
     };
 
-    let target = excalidraw_dir.join(file_rel);
+    let target = dist_dir.join(file_rel);
 
-    let canonical_base = match excalidraw_dir.canonicalize() {
+    let canonical_base = match dist_dir.canonicalize() {
         Ok(p) => p,
         Err(_) => {
-            log::warn!("Excalidraw dist not found at {:?}", excalidraw_dir);
-            return error_response("carbide-excalidraw", &uri, 404, "excalidraw dist not found");
+            log::warn!("{} dist not found at {:?}", scheme, dist_dir);
+            return error_response(scheme, &uri, 404, "island dist not found");
         }
     };
     let canonical_target = match target.canonicalize() {
         Ok(p) => p,
         Err(error) => {
             return error_response(
-                "carbide-excalidraw",
+                scheme,
                 &uri,
                 404,
-                format!("excalidraw asset not found: {}", error),
+                format!("island asset not found: {}", error),
             );
         }
     };
 
     if !canonical_target.starts_with(&canonical_base) {
         return error_response(
-            "carbide-excalidraw",
+            scheme,
             &uri,
             403,
             format!(
-                "excalidraw asset escaped root: {}",
+                "island asset escaped root: {}",
                 canonical_target.display()
             ),
         );
     }
 
     let cache_state = app.state::<AssetCacheState>();
-    let cache_key = file_rel.to_string();
+    let cache_key = format!("{scheme}/{file_rel}");
     let target_path = canonical_target.clone();
 
     serve_with_cache(
-        &cache_state.excalidraw,
+        &cache_state.islands,
         cache_key,
         CachePolicy::Immutable,
         &req,
@@ -494,7 +507,7 @@ pub fn handle_excalidraw_request(
                 Ok(bytes) => bytes,
                 Err(error) => {
                     log::error!(
-                        "Excalidraw asset read failed: uri={} path={} error={}",
+                        "Island asset read failed: uri={} path={} error={}",
                         uri,
                         target_path.display(),
                         error

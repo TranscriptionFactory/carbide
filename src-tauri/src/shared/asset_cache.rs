@@ -36,7 +36,7 @@ impl CachePolicy {
 pub struct AssetCacheState {
     pub vault: Mutex<ObservableCache<String, CachedAsset>>,
     pub plugin: Mutex<ObservableCache<String, CachedAsset>>,
-    pub excalidraw: Mutex<ObservableCache<String, CachedAsset>>,
+    pub islands: Mutex<ObservableCache<String, CachedAsset>>,
 }
 
 impl AssetCacheState {
@@ -44,7 +44,7 @@ impl AssetCacheState {
         Self {
             vault: Mutex::new(ObservableCache::new_with_byte_limit(64, 128 * 1024 * 1024)),
             plugin: Mutex::new(ObservableCache::new_with_byte_limit(32, 64 * 1024 * 1024)),
-            excalidraw: Mutex::new(ObservableCache::new_with_byte_limit(32, 32 * 1024 * 1024)),
+            islands: Mutex::new(ObservableCache::new_with_byte_limit(32, 32 * 1024 * 1024)),
         }
     }
 }
@@ -193,8 +193,8 @@ pub fn purge_all_asset_caches_inner(app: tauri::AppHandle) -> Result<(), String>
     vault.clear();
     let mut plugin = state.plugin.lock().map_err(|e| e.to_string())?;
     plugin.clear();
-    let mut excalidraw = state.excalidraw.lock().map_err(|e| e.to_string())?;
-    excalidraw.clear();
+    let mut islands = state.islands.lock().map_err(|e| e.to_string())?;
+    islands.clear();
     Ok(())
 }
 
