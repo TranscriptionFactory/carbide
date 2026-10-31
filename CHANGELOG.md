@@ -1,5 +1,16 @@
 # carbide
 
+## 2.45.1
+
+### Patch Changes
+
+- d7d779e: Fix links whose text is inline code, such as [`model-name`](https://…), being replaced by an empty `` on save. The link, its URL, and its text are now kept.
+- 30db0a4: Fix four ways saving a note changed its markdown:
+  - A `#tag` at the start of a line is no longer saved as `\#tag`.
+  - A linked image such as a README badge, `[![badge](img.svg)](https://ci)`, keeps its link.
+  - A callout title with bold, code, or a link, such as `> [!note] **Bold** title`, stays the title instead of moving into the body. Formatting added to a title in the editor is now saved.
+  - Escaped text stays literal: `\[a](b)`, `` \`a\` ``, `\==a==`, `\<b>` and `&lt;div&gt;` no longer turn into a link, code, highlight, or HTML.
+
 ## 2.45.0
 
 ### Minor Changes
