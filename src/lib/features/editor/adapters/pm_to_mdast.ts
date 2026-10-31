@@ -146,6 +146,13 @@ function is_inner_html(mark: Mark): boolean {
   return mark.type.name === "html_inline" && mark.attrs["inner"] === true;
 }
 
+// inlineCode is an mdast leaf: wrapping any other mark inside it drops that
+// mark's node, so code_inline is only chosen once no other mark is left.
+function wrappable_marks(marks: readonly Mark[]): readonly Mark[] {
+  const outer = marks.filter((mark) => mark.type.name !== "code_inline");
+  return outer.length > 0 ? outer : marks;
+}
+
 function build_mdast_inline(items: InlineItem[]): PhrasingContent[] {
   if (items.length === 0) return [];
   const result: PhrasingContent[] = [];
@@ -163,7 +170,7 @@ function build_mdast_inline(items: InlineItem[]): PhrasingContent[] {
     let best_mark: Mark | null = null;
     let best_end = i + 1;
 
-    for (const mark of item.marks) {
+    for (const mark of wrappable_marks(item.marks)) {
       let end = i + 1;
       while (
         end < items.length &&
