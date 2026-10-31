@@ -408,7 +408,7 @@ const image: NodeSpec = {
   group: "inline",
   selectable: true,
   draggable: true,
-  marks: "",
+  marks: "link",
   atom: true,
   defining: true,
   isolating: true,

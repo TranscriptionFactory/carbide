@@ -4,6 +4,7 @@ import type {
   Blockquote,
   Paragraph,
   Heading,
+  PhrasingContent,
   Text,
 } from "mdast";
 import type { Plugin } from "unified";
@@ -41,8 +42,14 @@ function transform_blockquote_to_callout(bq: Blockquote): MdastNode {
   const data = parse_callout_directive(directive_line);
   if (!data) return bq as unknown as MdastNode;
 
+  const after_directive = first_block.children.slice(1);
+  const title_line =
+    lines.length === 1
+      ? split_first_line(after_directive)
+      : { line: [], rest: after_directive };
+
   const remaining_first_line = lines.slice(1).join("\n").trim();
-  const remaining_para_children = first_block.children.slice(1);
+  const remaining_para_children = title_line.rest;
 
   const body_children: RootContent[] = [];
 
@@ -91,7 +98,13 @@ function transform_blockquote_to_callout(bq: Blockquote): MdastNode {
     children: [
       {
         type: "calloutTitle",
-        children: [{ type: "text", value: data.title }],
+        children:
+          title_line.line.length > 0
+            ? [
+                ...text_if_present(directive_title_head(directive_line)),
+                ...title_line.line,
+              ]
+            : [{ type: "text", value: data.title }],
       },
       {
         type: "calloutBody",
@@ -99,6 +112,44 @@ function transform_blockquote_to_callout(bq: Blockquote): MdastNode {
       },
     ],
   };
+}
+
+// Obsidian reads everything up to the first line end as the title, so inline
+// nodes after the directive's own text (bold, code, links) belong to it too.
+function split_first_line(nodes: PhrasingContent[]): {
+  line: PhrasingContent[];
+  rest: PhrasingContent[];
+} {
+  for (const [i, node] of nodes.entries()) {
+    if (node.type === "break") {
+      return { line: nodes.slice(0, i), rest: nodes.slice(i + 1) };
+    }
+    const newline = node.type === "text" ? node.value.indexOf("\n") : -1;
+    if (node.type === "text" && newline !== -1) {
+      return {
+        line: [
+          ...nodes.slice(0, i),
+          ...text_if_present(node.value.slice(0, newline)),
+        ],
+        rest: [
+          ...text_if_present(node.value.slice(newline + 1)),
+          ...nodes.slice(i + 1),
+        ],
+      };
+    }
+  }
+  return { line: nodes, rest: [] };
+}
+
+function directive_title_head(directive_line: string): string {
+  return (
+    CALLOUT_DIRECTIVE_RE.exec(directive_line.trimStart())?.groups?.["title"] ??
+    ""
+  );
+}
+
+function text_if_present(value: string): Text[] {
+  return value ? [{ type: "text", value }] : [];
 }
 
 // Only these mdast types hold block children we recurse through. A blanket
@@ -168,11 +219,18 @@ export const callout_to_markdown = {
     },
     _parent: unknown,
     state: StringifyState,
-    info: unknown,
+    info: object,
   ): string {
     const d = node.data ?? {};
     const callout_type = d.callout_type || "note";
-    const title = d.title || default_callout_title(callout_type);
+    const title_node = node.children[0];
+    const title_markdown = title_node
+      ? state
+          .containerPhrasing(title_node, { ...info, before: " ", after: "\n" })
+          .trim()
+      : "";
+    const title =
+      title_markdown || d.title || default_callout_title(callout_type);
     const foldable = d.foldable ?? false;
     const default_folded = d.default_folded ?? false;
 

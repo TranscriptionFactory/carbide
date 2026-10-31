@@ -1,10 +1,16 @@
-import type { Info, State } from "mdast-util-to-markdown";
+import type { Info, State, Unsafe } from "mdast-util-to-markdown";
 import { classifyCharacter } from "micromark-util-classify-character";
 
 const CHARACTER_GROUP_WHITESPACE = 1;
 const CHARACTER_GROUP_PUNCTUATION = 2;
 
 type FlankClass = "ws" | "punct" | "other";
+
+const HEADING_HASH_UNSAFE: Unsafe = {
+  atBreak: true,
+  character: "#",
+  after: "#{0,5}(?:[\\t \\r\\n]|$)",
+};
 
 export function safe_text(state: State, value: string, info: Info): string {
   const original_unsafe = state.unsafe;
@@ -21,6 +27,7 @@ export function safe_text(state: State, value: string, info: Info): string {
       return false;
     }
     if (u.character === "=" && u.atBreak === true) return false;
+    if (u.character === "#" && u.atBreak === true) return false;
     if (
       (u.character === " " || u.character === "\t") &&
       u.inConstruct === "phrasing" &&
@@ -30,6 +37,7 @@ export function safe_text(state: State, value: string, info: Info): string {
     }
     return true;
   });
+  state.unsafe.push(HEADING_HASH_UNSAFE);
 
   let result: string;
   try {
@@ -38,7 +46,34 @@ export function safe_text(state: State, value: string, info: Info): string {
     state.unsafe = original_unsafe;
   }
 
-  return escape_entity_ampersands(escape_active_delimiter_runs(result, info));
+  return escape_parsed_openers(
+    escape_entity_ampersands(escape_active_delimiter_runs(result, info)),
+  );
+}
+
+const LINK_OPENER = /(?<!\\)\[(?=[^\]]*\]\()/g;
+const HTML_OPENER =
+  /(?<!\\)<(?=[A-Za-z][A-Za-z0-9-]*(?:\s[^<>]*)?\/?>|\/[A-Za-z][A-Za-z0-9-]*\s*>|!--|[A-Za-z][A-Za-z0-9+.-]{1,31}:[^\s<>]*>|[^\s<>@]+@[^\s<>]+>)/g;
+const HIGHLIGHT_SPAN = /(?<!\\)==[\s\S]+?==/g;
+const BACKTICK_RUN = /(?<!\\)`+/g;
+
+// `[`, `<`, `` ` `` and `=` are left bare by the narrowed escaper, so they
+// are escaped here only where the text would otherwise parse as a link,
+// HTML, autolink, code span or highlight. `[[` stays bare: wikilinks are
+// still text at this stage.
+function escape_parsed_openers(s: string): string {
+  return escape_code_span_backticks(
+    s
+      .replace(LINK_OPENER, "\\[")
+      .replace(HTML_OPENER, "\\<")
+      .replace(HIGHLIGHT_SPAN, (span) => `\\${span}`),
+  );
+}
+
+function escape_code_span_backticks(s: string): string {
+  const runs = [...s.matchAll(BACKTICK_RUN)].map((m) => m[0].length);
+  const forms_span = runs.some((n, i) => runs.indexOf(n, i + 1) !== -1);
+  return forms_span ? s.replace(/(?<!\\)`/g, "\\`") : s;
 }
 
 function escape_entity_ampersands(s: string): string {

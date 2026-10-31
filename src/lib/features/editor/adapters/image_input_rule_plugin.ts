@@ -166,7 +166,7 @@ function replace_inline_image_texts(
 function find_solo_inline_image(parent: ProseNode): ProseNode | null {
   if (parent.childCount !== 1) return null;
   const child = parent.child(0);
-  return child.type.name === "image" ? child : null;
+  return child.type.name === "image" && child.marks.length === 0 ? child : null;
 }
 
 function collect_text(parent: ProseNode): string | null {

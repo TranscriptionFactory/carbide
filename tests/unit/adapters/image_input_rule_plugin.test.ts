@@ -51,6 +51,15 @@ describe("image_input_rule_plugin", () => {
     expect(next.doc.firstChild?.attrs.src).toBe("photo.png");
   });
 
+  it("keeps a linked solo image inline so the link survives", () => {
+    const state = make_state(para(""));
+    const link = schema.marks.link.create({ href: "https://ci" });
+    const image = schema.nodes.image.create({ src: "badge.svg" }, null, [link]);
+    const next = state.apply(state.tr.replaceWith(1, 1, image));
+    expect(next.doc.firstChild?.type.name).toBe("paragraph");
+    expect(next.doc.firstChild?.firstChild?.marks).toEqual([link]);
+  });
+
   it("preserves image width, alt, and title when promoting a solo image", () => {
     const state = make_state(para(""));
     const image = schema.nodes.image.create({

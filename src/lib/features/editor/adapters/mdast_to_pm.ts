@@ -167,11 +167,15 @@ function flatten_inline(
         break;
       case "image":
         result.push(
-          schema.nodes.image.create({
-            src: (node.url as string) || "",
-            ...split_image_alt_width((node.alt as string) || ""),
-            title: (node.title as string) || "",
-          }),
+          schema.nodes.image.create(
+            {
+              src: (node.url as string) || "",
+              ...split_image_alt_width((node.alt as string) || ""),
+              title: (node.title as string) || "",
+            },
+            null,
+            schema.nodes.image.allowedMarks(marks),
+          ),
         );
         break;
       case "break":

@@ -38,6 +38,7 @@ export function parse_markdown(markdown: string): PmNode {
     try {
       const tree = fallback_parse_processor.runSync(
         fallback_parse_processor.parse(markdown),
+        markdown,
       ) as Root;
       return mdast_to_pm(tree, markdown);
     } catch (fallback_err) {

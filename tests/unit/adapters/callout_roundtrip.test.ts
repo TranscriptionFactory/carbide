@@ -280,6 +280,44 @@ describe("callout markdown roundtrip", () => {
     expect(output).not.toContain("[!note] Note");
   });
 
+  it.each([
+    "> [!note] **Bold** title\n> body\n",
+    "> [!tip]- `code` title\n> body\n",
+    "> [!note] see [docs](https://x) now\n> body\n",
+    "> [!note] plain then *em*\n> body\n",
+    "> [!note] **Title only**\n>\n",
+  ])("keeps a formatted title in the directive: %j", (input) => {
+    expect(serialize_markdown(parse_markdown(input))).toBe(input);
+  });
+
+  it("puts formatted title content in the title node, not the body", () => {
+    const callout = parse_markdown("> [!note] **Bold** title\n> body\n").child(
+      0,
+    );
+    const title = callout.child(0);
+    expect(title.textContent).toBe("Bold title");
+    expect(title.firstChild?.marks.map((m) => m.type.name)).toEqual(["strong"]);
+    expect(callout.child(1).textContent).toBe("body");
+  });
+
+  it("serializes title marks edited in the editor", () => {
+    const strong = schema.marks.strong.create();
+    const callout = schema.nodes.callout.create(
+      { callout_type: "note", foldable: false, default_folded: false },
+      [
+        schema.nodes.callout_title.create(null, [
+          schema.text("Bold", [strong]),
+          schema.text(" title"),
+        ]),
+        schema.nodes.callout_body.create(null, [
+          schema.nodes.paragraph.create(null, schema.text("Body")),
+        ]),
+      ],
+    );
+    const doc = schema.nodes.doc.create(null, [callout]);
+    expect(serialize_markdown(doc)).toContain("> [!note] **Bold** title\n");
+  });
+
   it("plain [!note] callout stays markerless through roundtrip", () => {
     const input = "> [!note]\n> Simple note.";
     const doc = parse_markdown(input);

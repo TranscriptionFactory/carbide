@@ -6,7 +6,7 @@ import {
 } from "$lib/features/editor/adapters/remark_plugins/remark_processor";
 
 function parse(md: string): Root {
-  return parse_processor.runSync(parse_processor.parse(md)) as Root;
+  return parse_processor.runSync(parse_processor.parse(md), md) as Root;
 }
 
 function serialize(tree: Root): string {
@@ -83,6 +83,60 @@ describe("markdown text escaping (Layer-3 narrowed escaper)", () => {
           { type: "text", value: " c" },
         ],
       });
+    });
+  });
+
+  describe("hashes at line start", () => {
+    it.each(["#tag", "#tag text", "a\n#tag", "- #tag", "> #tag", "#a/b-c"])(
+      "keeps a tag unescaped: %j",
+      (input) => {
+        expect(roundtrip(input)).toBe(input);
+      },
+    );
+
+    it.each(["\\# not a heading", "\\#", "\\### h", "a\n\\# b"])(
+      "escapes a hash that would open a heading: %j",
+      (input) => {
+        const out = roundtrip(input);
+        expect(out).toBe(input);
+        expect(parse(out).children[0]).toMatchObject({ type: "paragraph" });
+      },
+    );
+  });
+
+  describe("escaped literals stay literal", () => {
+    const cases: Array<[string, string]> = [
+      ["\\[a](b)", "[a](b)"],
+      ["\\[a][b]", "[a][b]"],
+      ["\\!\\[a](b)", "![a](b)"],
+      ["\\`a\\`", "`a`"],
+      ["a \\`\\`b\\`\\` c", "a ``b`` c"],
+      ["\\==a==", "==a=="],
+      ["\\==a== and \\==b==", "==a== and ==b=="],
+      ["\\<b>x", "<b>x"],
+      ["&lt;div&gt;hi&lt;/div&gt;", "<div>hi</div>"],
+      ["\\<ab:cd>", "<ab:cd>"],
+      ["\\<!-- c -->", "<!-- c -->"],
+    ];
+
+    it.each(cases)("%j stays the text %j", (input, literal) => {
+      const out = roundtrip(input);
+      expect(parse(out).children[0]).toMatchObject({
+        type: "paragraph",
+        children: [{ type: "text", value: literal }],
+      });
+      expect(roundtrip(out)).toBe(out);
+    });
+
+    it.each([
+      "a < b",
+      "x<y",
+      "a == b",
+      "the ` char",
+      "see [the docs]",
+      "[[note]] and [[a|b]]",
+    ])("leaves %j unescaped", (input) => {
+      expect(roundtrip(input)).toBe(input);
     });
   });
 
