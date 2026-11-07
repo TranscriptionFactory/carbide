@@ -65,10 +65,17 @@
   {
     "id": "smart-templates",
     "name": "Smart Templates",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "author": "Carbide Community",
     "description": "Context-aware dynamic templates with Handlebars, live preview, and one-click insertion.",
-    "files": ["manifest.json", "index.html"]
+    "files": [
+      "manifest.json",
+      "index.html",
+      "smart_templates_logic.js",
+      "smart_templates_logic.d.ts",
+      "vendor/handlebars.min.js",
+      "vendor/LICENSE"
+    ]
   },
   {
     "id": "md-export",

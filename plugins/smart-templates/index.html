@@ -3,254 +3,175 @@
   <head>
     <meta charset="utf-8" />
     <script src="carbide-plugin-api.js"></script>
+    <script src="vendor/handlebars.min.js"></script>
     <style>
       * {
-        margin: 0;
-        padding: 0;
         box-sizing: border-box;
       }
       body {
-        font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-        font-size: 13px;
-        color: var(--foreground, #ccc);
-        background: var(--background, #1e1e1e);
-        display: flex;
-        flex-direction: column;
+        margin: 0;
         height: 100vh;
-        overflow: hidden;
-      }
-
-      .toolbar {
-        display: flex;
-        align-items: center;
-        gap: 4px;
-        padding: 6px 8px;
-        border-bottom: 1px solid rgba(128, 128, 128, 0.2);
-        flex-wrap: wrap;
-        flex-shrink: 0;
-      }
-      .toolbar select {
-        padding: 4px 6px;
-        border: 1px solid rgba(128, 128, 128, 0.3);
-        border-radius: 4px;
-        background: rgba(128, 128, 128, 0.1);
-        color: inherit;
-        font-size: 12px;
-        cursor: pointer;
-      }
-      .toolbar button {
-        padding: 4px 8px;
-        border: 1px solid rgba(128, 128, 128, 0.2);
-        border-radius: 4px;
-        background: transparent;
-        color: inherit;
-        font-size: 11px;
-        cursor: pointer;
-        transition: background 0.1s;
-        white-space: nowrap;
-      }
-      .toolbar button:hover {
-        background: rgba(128, 128, 128, 0.15);
-      }
-      .toolbar button.active {
-        background: rgba(100, 140, 255, 0.2);
-        border-color: rgba(100, 140, 255, 0.4);
-      }
-
-      .view-container {
-        flex: 1;
         display: flex;
         flex-direction: column;
-        min-height: 0;
+        color: var(--foreground, #222);
+        background: var(--background, #fff);
+        font:
+          13px/1.5 system-ui,
+          sans-serif;
       }
-
-      .split-pane {
-        display: flex;
-        flex: 1;
-        min-height: 0;
-      }
-      .pane {
-        flex: 1;
-        display: flex;
-        flex-direction: column;
-        min-width: 0;
-      }
-      .pane + .pane {
-        border-left: 1px solid rgba(128, 128, 128, 0.2);
-      }
-      .pane-header {
-        padding: 4px 8px;
-        font-size: 10px;
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-        opacity: 0.5;
-        border-bottom: 1px solid rgba(128, 128, 128, 0.1);
-        flex-shrink: 0;
-      }
-
-      #template-editor {
-        flex: 1;
-        width: 100%;
-        resize: none;
-        border: none;
-        background: transparent;
+      button,
+      input,
+      select,
+      textarea {
+        font: inherit;
         color: inherit;
-        font-family: "SF Mono", "Fira Code", "Cascadia Code", monospace;
-        font-size: 12px;
-        line-height: 1.5;
-        padding: 8px;
-        outline: none;
-        tab-size: 2;
       }
-
-      #preview-output {
-        flex: 1;
-        padding: 8px;
-        font-family: "SF Mono", "Fira Code", "Cascadia Code", monospace;
-        font-size: 12px;
-        line-height: 1.5;
-        white-space: pre-wrap;
-        word-wrap: break-word;
-        overflow-y: auto;
+      button,
+      select,
+      input {
+        border: 1px solid var(--border, #ccc);
+        border-radius: 5px;
+        background: var(--background, #fff);
+        padding: 6px 9px;
       }
-      #preview-output.error {
-        color: #f87171;
-        font-style: italic;
+      button {
+        cursor: pointer;
       }
-
+      button:hover,
+      button.active,
+      .picker-item[aria-selected="true"] {
+        background: var(--accent, #eee);
+        color: var(--accent-foreground, #222);
+      }
+      :focus-visible {
+        outline: 2px solid var(--ring, #555);
+        outline-offset: -2px;
+      }
+      .toolbar,
       .bottom-bar {
         display: flex;
-        align-items: center;
         gap: 6px;
-        padding: 6px 8px;
-        border-top: 1px solid rgba(128, 128, 128, 0.2);
-        flex-shrink: 0;
+        padding: 8px;
+        border-bottom: 1px solid var(--border, #ccc);
+        flex-wrap: wrap;
       }
-      .bottom-bar button {
-        padding: 5px 12px;
-        border: 1px solid rgba(100, 140, 255, 0.4);
-        border-radius: 4px;
-        background: rgba(100, 140, 255, 0.15);
-        color: inherit;
-        font-size: 12px;
-        cursor: pointer;
-        transition: background 0.1s;
+      .bottom-bar {
+        border-top: 1px solid var(--border, #ccc);
+        border-bottom: 0;
       }
-      .bottom-bar button:hover {
-        background: rgba(100, 140, 255, 0.25);
+      #btn-insert {
+        background: var(--primary, #222);
+        color: var(--primary-foreground, #fff);
       }
-      .status {
-        font-size: 11px;
-        opacity: 0.5;
-        margin-left: auto;
-      }
-
-      /* ─── Picker view ─────────────────────────────────── */
-
-      .picker-view {
-        flex: 1;
+      .view-container,
+      .picker-view,
+      .split-pane,
+      .pane {
         display: flex;
         flex-direction: column;
+        flex: 1;
         min-height: 0;
+        min-width: 0;
+      }
+      .pane-header {
+        padding: 6px 10px;
+        color: var(--muted-foreground, #666);
+        font-size: 12px;
+      }
+      #template-editor {
+        flex: 1;
+        resize: none;
+        width: 100%;
+        border: 0;
+        background: transparent;
+        padding: 12px;
+        line-height: 1.6;
+        font-family: ui-monospace, monospace;
+        tab-size: 2;
+      }
+      #preview-output {
+        margin: 0;
+        padding: 12px;
+        white-space: pre-wrap;
+        overflow: auto;
+        font:
+          12px/1.6 ui-monospace,
+          monospace;
+      }
+      .error {
+        color: var(--destructive, #b91c1c);
+      }
+      .status {
+        width: 100%;
+        color: var(--muted-foreground, #666);
+        font-size: 12px;
+        overflow-wrap: anywhere;
       }
       .picker-search {
-        padding: 6px 8px;
-        border-bottom: 1px solid rgba(128, 128, 128, 0.2);
-        flex-shrink: 0;
+        padding: 8px;
       }
       .picker-search input {
         width: 100%;
-        padding: 5px 8px;
-        border: 1px solid rgba(128, 128, 128, 0.3);
-        border-radius: 4px;
-        background: rgba(128, 128, 128, 0.1);
-        color: inherit;
-        font-size: 12px;
-        outline: none;
-      }
-      .picker-search input:focus {
-        border-color: rgba(100, 140, 255, 0.5);
       }
       .picker-list {
-        flex: 1;
-        overflow-y: auto;
-        padding: 4px 0;
+        overflow: auto;
+        padding: 0 8px;
       }
       .picker-item {
-        padding: 8px 12px;
+        padding: 10px;
+        border: 1px solid var(--border, #ccc);
+        border-radius: 5px;
+        margin-bottom: 6px;
         cursor: pointer;
-        border-bottom: 1px solid rgba(128, 128, 128, 0.08);
-        transition: background 0.1s;
-      }
-      .picker-item:hover {
-        background: rgba(128, 128, 128, 0.1);
       }
       .picker-item-name {
-        font-size: 13px;
-        font-weight: 500;
+        font-weight: 600;
       }
-      .picker-item-meta {
-        font-size: 11px;
-        opacity: 0.5;
-        margin-top: 2px;
+      .picker-item-meta,
+      .picker-item-category,
+      .picker-empty {
+        color: var(--muted-foreground, #666);
+        font-size: 12px;
       }
       .picker-item-category {
-        display: inline-block;
-        padding: 1px 5px;
-        border-radius: 3px;
-        background: rgba(100, 140, 255, 0.15);
-        font-size: 10px;
-        margin-right: 6px;
+        margin-right: 8px;
+      }
+      .picker-item-actions {
+        display: flex;
+        gap: 6px;
+        margin-top: 8px;
       }
       .picker-empty {
         padding: 20px;
-        text-align: center;
-        opacity: 0.4;
-        font-size: 12px;
       }
-
-      /* ─── Save dialog ─────────────────────────────────── */
-
       .save-dialog {
         display: none;
         padding: 8px;
-        border-bottom: 1px solid rgba(128, 128, 128, 0.2);
-        background: rgba(128, 128, 128, 0.05);
-        flex-shrink: 0;
+        border-bottom: 1px solid var(--border, #ccc);
+        gap: 6px;
+        flex-wrap: wrap;
       }
       .save-dialog.visible {
         display: flex;
-        gap: 6px;
-        align-items: center;
-        flex-wrap: wrap;
       }
       .save-dialog input {
-        flex: 1;
-        min-width: 120px;
-        padding: 4px 8px;
-        border: 1px solid rgba(128, 128, 128, 0.3);
-        border-radius: 4px;
-        background: rgba(128, 128, 128, 0.1);
-        color: inherit;
-        font-size: 12px;
-        outline: none;
+        width: 100%;
       }
-      .save-dialog input:focus {
-        border-color: rgba(100, 140, 255, 0.5);
+      details {
+        padding: 6px 10px;
+        border-bottom: 1px solid var(--border, #ccc);
       }
-      .save-dialog button {
-        padding: 4px 10px;
-        border: 1px solid rgba(128, 128, 128, 0.3);
-        border-radius: 4px;
-        background: rgba(100, 140, 255, 0.15);
-        color: inherit;
-        font-size: 11px;
+      details .toolbar {
+        padding: 6px 0;
+        border: 0;
+      }
+      summary {
         cursor: pointer;
+        color: var(--muted-foreground, #666);
       }
-      .save-dialog .save-cancel {
-        background: transparent;
+      code {
+        overflow-wrap: anywhere;
       }
-
       .hidden {
         display: none !important;
       }
@@ -262,32 +183,59 @@
       <button id="btn-editor-view" class="active" title="Template editor">
         Editor
       </button>
-      <span
-        style="
-          width: 1px;
-          height: 16px;
-          background: rgba(128, 128, 128, 0.2);
-          margin: 0 2px;
-        "
-      ></span>
-      <select id="example-select">
-        <option value="">— Examples —</option>
-        <option value="meeting">Meeting Notes</option>
-        <option value="journal">Daily Journal</option>
-        <option value="literature">Literature Note</option>
-      </select>
-      <button data-insert="{{current_note.name}}">Title</button>
-      <button data-insert='{{date "YYYY-MM-DD"}}'>Date</button>
-      <button data-insert='{{time "HH:mm"}}'>Time</button>
-      <button data-insert="{{selection.text}}">Selection</button>
-      <button data-insert="{{#if condition}}\n\n{{/if}}">If</button>
-      <button data-insert="{{#each items}}\n  {{this}}\n{{/each}}">Each</button>
-      <button data-insert="{{#unless condition}}\n\n{{/unless}}">Unless</button>
+      <button id="btn-preview">Preview</button>
     </div>
-
+    <details>
+      <summary>Snippets and examples</summary>
+      <div class="toolbar">
+        <select id="example-select">
+          <option value="">— Examples —</option>
+          <option value="meeting">Meeting Notes</option>
+          <option value="journal">Daily Journal</option>
+          <option value="literature">Literature Note</option>
+        </select>
+        <button data-insert="{{current_note.name}}">Title</button>
+        <button data-insert='{{date "YYYY-MM-DD"}}'>Date</button>
+        <button data-insert='{{time "HH:mm"}}'>Time</button>
+        <button data-insert="{{selection.text}}">Selection</button>
+        <button data-insert="{{#if condition}}\n\n{{/if}}">If</button>
+        <button data-insert="{{#each items}}\n  {{this}}\n{{/each}}">
+          Each
+        </button>
+        <button data-insert="{{#unless condition}}\n\n{{/unless}}">
+          Unless
+        </button>
+      </div>
+    </details>
+    <details>
+      <summary>Variable reference</summary>
+      <p>
+        <code>{{current_note.name}}</code> ·
+        <code>{{current_note.path}}</code> · <code>{{selection.text}}</code>
+      </p>
+      <p>
+        <code>{{fileCache.frontmatter.author}}</code> ·
+        <code>{{#each backlinks}}{{this.path}}{{/each}}</code>
+      </p>
+      <p>
+        Use <code>{{default missing "fallback"}}</code>,
+        <code>{{#if (eq value "x")}}…{{else}}…{{/if}}</code>, and
+        <code>{{date "YYYY-MM-DD"}}</code>.
+      </p>
+    </details>
     <div class="save-dialog" id="save-dialog">
-      <input id="save-name" type="text" placeholder="Template name" />
-      <input id="save-category" type="text" placeholder="Category (optional)" />
+      <input
+        aria-label="Template name"
+        id="save-name"
+        type="text"
+        placeholder="Template name"
+      />
+      <input
+        aria-label="Template category"
+        id="save-category"
+        type="text"
+        placeholder="Category (optional)"
+      />
       <button id="save-confirm">Save</button>
       <button id="save-cancel" class="save-cancel">Cancel</button>
     </div>
@@ -297,23 +245,33 @@
       <div id="picker-view" class="picker-view hidden">
         <div class="picker-search">
           <input
+            aria-label="Search templates"
             id="picker-search-input"
             type="text"
             placeholder="Search templates..."
           />
         </div>
-        <div class="picker-list" id="picker-list"></div>
+        <div
+          class="picker-list"
+          id="picker-list"
+          role="listbox"
+          aria-label="Templates"
+        ></div>
       </div>
 
       <!-- Editor view -->
       <div id="editor-view" class="split-pane">
         <div class="pane">
           <div class="pane-header">Template</div>
-          <textarea id="template-editor" spellcheck="false"></textarea>
+          <textarea
+            aria-label="Template source"
+            id="template-editor"
+            spellcheck="false"
+          ></textarea>
         </div>
-        <div class="pane">
+        <div class="pane hidden" id="preview-pane">
           <div class="pane-header">Preview</div>
-          <div id="preview-output"></div>
+          <pre id="preview-output" tabindex="0"></pre>
         </div>
       </div>
     </div>
@@ -321,430 +279,24 @@
     <div class="bottom-bar">
       <button id="btn-insert">Insert into Note</button>
       <button id="btn-save">Save Template</button>
-      <span class="status" id="status-text">Ready</span>
+      <button id="btn-new-note">New Note</button>
+      <span class="status" id="status-text" role="status" aria-live="polite"
+        >Ready</span
+      >
     </div>
 
-    <script>
-      // ─── Lightweight Handlebars-compatible template engine ───────────────
-      const TemplateEngine = (() => {
-        const helpers = {};
-        const partials = {};
-
-        function register_helper(name, fn) {
-          helpers[name] = fn;
-        }
-        function register_partial(name, text) {
-          partials[name] = text;
-        }
-
-        function resolve(path, ctx, root) {
-          if (path === "this" || path === ".") return ctx;
-          if (path === "@index") return ctx["@index"];
-          if (path === "@key") return ctx["@key"];
-          const parts = path.split(".");
-          let val = ctx;
-          for (const p of parts) {
-            if (val == null) return undefined;
-            val = val[p];
-          }
-          if (val === undefined && ctx !== root) {
-            val = root;
-            for (const p of parts) {
-              if (val == null) return undefined;
-              val = val[p];
-            }
-          }
-          return val;
-        }
-
-        function parse_args(raw, ctx, root) {
-          const args = [];
-          const re = /"([^"]*)"|'([^']*)'|(\S+)/g;
-          let m;
-          while ((m = re.exec(raw)) !== null) {
-            if (m[1] !== undefined) args.push(m[1]);
-            else if (m[2] !== undefined) args.push(m[2]);
-            else {
-              const token = m[3];
-              if (token === "true") args.push(true);
-              else if (token === "false") args.push(false);
-              else if (/^-?\d+(\.\d+)?$/.test(token)) args.push(Number(token));
-              else args.push(resolve(token, ctx, root));
-            }
-          }
-          return args;
-        }
-
-        function find_block_end(tokens, i, open_tag) {
-          let depth = 1;
-          for (let j = i; j < tokens.length; j++) {
-            const t = tokens[j];
-            if (t.type === "block_open" && t.name === open_tag) depth++;
-            else if (t.type === "block_close" && t.name === open_tag) {
-              depth--;
-              if (depth === 0) return j;
-            }
-          }
-          return tokens.length;
-        }
-
-        function find_else(tokens, start, end, block_name) {
-          let depth = 0;
-          for (let j = start; j < end; j++) {
-            const t = tokens[j];
-            if (t.type === "block_open" && t.name === block_name) depth++;
-            else if (t.type === "block_close" && t.name === block_name) depth--;
-            else if (t.type === "else" && depth === 0) return j;
-          }
-          return -1;
-        }
-
-        function tokenize(template) {
-          const tokens = [];
-          const re = /\{\{(.*?)\}\}/gs;
-          let last = 0;
-          let m;
-          while ((m = re.exec(template)) !== null) {
-            if (m.index > last) {
-              tokens.push({
-                type: "text",
-                value: template.slice(last, m.index),
-              });
-            }
-            const content = m[1].trim();
-            if (content.startsWith("#if ")) {
-              tokens.push({
-                type: "block_open",
-                name: "if",
-                expr: content.slice(4).trim(),
-              });
-            } else if (content.startsWith("#unless ")) {
-              tokens.push({
-                type: "block_open",
-                name: "unless",
-                expr: content.slice(8).trim(),
-              });
-            } else if (content.startsWith("#each ")) {
-              tokens.push({
-                type: "block_open",
-                name: "each",
-                expr: content.slice(6).trim(),
-              });
-            } else if (content === "else") {
-              tokens.push({ type: "else" });
-            } else if (content === "/if") {
-              tokens.push({ type: "block_close", name: "if" });
-            } else if (content === "/unless") {
-              tokens.push({ type: "block_close", name: "unless" });
-            } else if (content === "/each") {
-              tokens.push({ type: "block_close", name: "each" });
-            } else if (content.startsWith("> ")) {
-              tokens.push({ type: "partial", name: content.slice(2).trim() });
-            } else {
-              tokens.push({ type: "expr", value: content });
-            }
-            last = m.index + m[0].length;
-          }
-          if (last < template.length) {
-            tokens.push({ type: "text", value: template.slice(last) });
-          }
-          return tokens;
-        }
-
-        function render_tokens(tokens, start, end, ctx, root) {
-          let out = "";
-          let i = start;
-          while (i < end) {
-            const t = tokens[i];
-            if (t.type === "text") {
-              out += t.value;
-              i++;
-            } else if (t.type === "expr") {
-              out += render_expr(t.value, ctx, root);
-              i++;
-            } else if (t.type === "partial") {
-              const src = partials[t.name];
-              if (src) out += render(src, ctx, root);
-              i++;
-            } else if (t.type === "block_open") {
-              const close_idx = find_block_end(tokens, i + 1, t.name);
-              const else_idx = find_else(tokens, i + 1, close_idx, t.name);
-              const body_end = else_idx >= 0 ? else_idx : close_idx;
-              const alt_start = else_idx >= 0 ? else_idx + 1 : close_idx;
-
-              if (t.name === "if") {
-                const val = resolve(t.expr, ctx, root);
-                if (is_truthy(val)) {
-                  out += render_tokens(tokens, i + 1, body_end, ctx, root);
-                } else {
-                  out += render_tokens(tokens, alt_start, close_idx, ctx, root);
-                }
-              } else if (t.name === "unless") {
-                const val = resolve(t.expr, ctx, root);
-                if (!is_truthy(val)) {
-                  out += render_tokens(tokens, i + 1, body_end, ctx, root);
-                } else {
-                  out += render_tokens(tokens, alt_start, close_idx, ctx, root);
-                }
-              } else if (t.name === "each") {
-                const collection = resolve(t.expr, ctx, root);
-                if (Array.isArray(collection)) {
-                  collection.forEach((item, idx) => {
-                    const child =
-                      typeof item === "object" && item !== null
-                        ? { ...item, "@index": idx }
-                        : { ".": item, this: item, "@index": idx };
-                    out += render_tokens(tokens, i + 1, body_end, child, root);
-                  });
-                } else if (collection && typeof collection === "object") {
-                  for (const [key, val] of Object.entries(collection)) {
-                    const child =
-                      typeof val === "object" && val !== null
-                        ? { ...val, "@key": key }
-                        : { ".": val, this: val, "@key": key };
-                    out += render_tokens(tokens, i + 1, body_end, child, root);
-                  }
-                } else {
-                  out += render_tokens(tokens, alt_start, close_idx, ctx, root);
-                }
-              }
-              i = close_idx + 1;
-            } else {
-              i++;
-            }
-          }
-          return out;
-        }
-
-        function render_expr(expr, ctx, root) {
-          const parts = [];
-          const re = /"([^"]*)"|'([^']*)'|(\S+)/g;
-          let m;
-          while ((m = re.exec(expr)) !== null) {
-            if (m[1] !== undefined) parts.push({ type: "string", value: m[1] });
-            else if (m[2] !== undefined)
-              parts.push({ type: "string", value: m[2] });
-            else parts.push({ type: "token", value: m[3] });
-          }
-          if (parts.length === 0) return "";
-
-          const first = parts[0];
-          if (first.type === "token" && helpers[first.value]) {
-            const args = parts
-              .slice(1)
-              .map((p) =>
-                p.type === "string"
-                  ? p.value
-                  : (resolve(p.value, ctx, root) ?? p.value),
-              );
-            const result = helpers[first.value](...args);
-            return result == null ? "" : String(result);
-          }
-
-          if (parts.length === 1 && first.type === "token") {
-            const val = resolve(first.value, ctx, root);
-            return val == null ? "" : escape_html(String(val));
-          }
-
-          return escape_html(String(resolve(expr.trim(), ctx, root) ?? ""));
-        }
-
-        function is_truthy(val) {
-          if (Array.isArray(val)) return val.length > 0;
-          return !!val;
-        }
-
-        function escape_html(str) {
-          return str
-            .replace(/&/g, "&amp;")
-            .replace(/</g, "&lt;")
-            .replace(/>/g, "&gt;");
-        }
-
-        function render(template, ctx, root) {
-          root = root || ctx;
-          const tokens = tokenize(template);
-          return render_tokens(tokens, 0, tokens.length, ctx, root);
-        }
-
-        function compile(template) {
-          const tokens = tokenize(template);
-          return function (ctx) {
-            return render_tokens(tokens, 0, tokens.length, ctx, ctx);
-          };
-        }
-
-        return { register_helper, register_partial, render, compile };
-      })();
-
-      // ─── Custom helpers ─────────────────────────────────────────────────
-
-      const DATE_TOKENS = {
-        YYYY: (d) => String(d.getFullYear()),
-        YY: (d) => String(d.getFullYear()).slice(-2),
-        MM: (d) => String(d.getMonth() + 1).padStart(2, "0"),
-        DD: (d) => String(d.getDate()).padStart(2, "0"),
-        HH: (d) => String(d.getHours()).padStart(2, "0"),
-        mm: (d) => String(d.getMinutes()).padStart(2, "0"),
-        ss: (d) => String(d.getSeconds()).padStart(2, "0"),
-        ddd: (d) =>
-          ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][d.getDay()],
-        dddd: (d) =>
-          [
-            "Sunday",
-            "Monday",
-            "Tuesday",
-            "Wednesday",
-            "Thursday",
-            "Friday",
-            "Saturday",
-          ][d.getDay()],
-        MMMM: (d) =>
-          [
-            "January",
-            "February",
-            "March",
-            "April",
-            "May",
-            "June",
-            "July",
-            "August",
-            "September",
-            "October",
-            "November",
-            "December",
-          ][d.getMonth()],
-        MMM: (d) =>
-          [
-            "Jan",
-            "Feb",
-            "Mar",
-            "Apr",
-            "May",
-            "Jun",
-            "Jul",
-            "Aug",
-            "Sep",
-            "Oct",
-            "Nov",
-            "Dec",
-          ][d.getMonth()],
-      };
-
-      const DATE_TOKEN_KEYS = Object.keys(DATE_TOKENS).sort(
-        (a, b) => b.length - a.length,
-      );
-
-      function format_date(fmt) {
-        const now = new Date();
-        let result = fmt || "YYYY-MM-DD";
-        for (const key of DATE_TOKEN_KEYS) {
-          result = result.replaceAll(key, DATE_TOKENS[key](now));
-        }
-        return result;
-      }
-
-      // Date & time
-      let default_date_format = "YYYY-MM-DD";
-      TemplateEngine.register_helper("date", (fmt) =>
-        format_date(fmt || default_date_format),
-      );
-      TemplateEngine.register_helper("time", (fmt) =>
-        format_date(fmt || "HH:mm"),
-      );
-
-      // Comparison
-      TemplateEngine.register_helper("eq", (a, b) => (a == b ? "true" : ""));
-      TemplateEngine.register_helper("ne", (a, b) => (a != b ? "true" : ""));
-      TemplateEngine.register_helper("gt", (a, b) => (a > b ? "true" : ""));
-      TemplateEngine.register_helper("gte", (a, b) => (a >= b ? "true" : ""));
-      TemplateEngine.register_helper("lt", (a, b) => (a < b ? "true" : ""));
-      TemplateEngine.register_helper("lte", (a, b) => (a <= b ? "true" : ""));
-
-      // String operations
-      TemplateEngine.register_helper("uppercase", (s) =>
-        s ? String(s).toUpperCase() : "",
-      );
-      TemplateEngine.register_helper("lowercase", (s) =>
-        s ? String(s).toLowerCase() : "",
-      );
-      TemplateEngine.register_helper("truncate", (s, len) => {
-        if (!s) return "";
-        const str = String(s);
-        const n = Number(len) || 50;
-        return str.length > n ? str.slice(0, n) + "..." : str;
-      });
-      function slugify(s) {
-        if (!s) return "";
-        return String(s)
-          .toLowerCase()
-          .replace(/[^a-z0-9]+/g, "-")
-          .replace(/^-|-$/g, "");
-      }
-      TemplateEngine.register_helper("slugify", slugify);
-      TemplateEngine.register_helper("default", (val, fallback) =>
-        val != null && val !== "" ? val : fallback,
-      );
-      TemplateEngine.register_helper("trim", (s) =>
-        s ? String(s).trim() : "",
-      );
-      TemplateEngine.register_helper("replace", (s, find, rep) =>
-        s ? String(s).replaceAll(String(find || ""), String(rep || "")) : "",
-      );
-      TemplateEngine.register_helper("concat", (...args) =>
-        args.map((a) => (a == null ? "" : String(a))).join(""),
-      );
-      TemplateEngine.register_helper("contains", (s, substr) =>
-        s && substr && String(s).includes(String(substr)) ? "true" : "",
-      );
-
-      // Array/collection helpers
-      TemplateEngine.register_helper("split", (s, delim) =>
-        s ? String(s).split(String(delim || ",")) : [],
-      );
-      TemplateEngine.register_helper("join", (arr, delim) =>
-        Array.isArray(arr) ? arr.join(String(delim ?? ", ")) : "",
-      );
-      TemplateEngine.register_helper("first", (arr) =>
-        Array.isArray(arr) && arr.length > 0 ? arr[0] : "",
-      );
-      TemplateEngine.register_helper("last", (arr) =>
-        Array.isArray(arr) && arr.length > 0 ? arr[arr.length - 1] : "",
-      );
-      TemplateEngine.register_helper("length", (val) => {
-        if (Array.isArray(val)) return val.length;
-        if (typeof val === "string") return val.length;
-        return 0;
-      });
-      TemplateEngine.register_helper("reverse", (arr) =>
-        Array.isArray(arr) ? [...arr].reverse() : [],
-      );
-      TemplateEngine.register_helper("sort", (arr) =>
-        Array.isArray(arr) ? [...arr].sort() : [],
-      );
-      TemplateEngine.register_helper("uniq", (arr) =>
-        Array.isArray(arr) ? [...new Set(arr)] : [],
-      );
-
-      // Math helpers
-      TemplateEngine.register_helper("add", (a, b) => Number(a) + Number(b));
-      TemplateEngine.register_helper("sub", (a, b) => Number(a) - Number(b));
-      TemplateEngine.register_helper("mul", (a, b) => Number(a) * Number(b));
-      TemplateEngine.register_helper("div", (a, b) => {
-        const divisor = Number(b);
-        return divisor === 0 ? 0 : Number(a) / divisor;
-      });
-      TemplateEngine.register_helper("mod", (a, b) => {
-        const divisor = Number(b);
-        return divisor === 0 ? 0 : Number(a) % divisor;
-      });
-      TemplateEngine.register_helper("round", (num, dec) => {
-        const n = Number(num);
-        const d = Number(dec) || 0;
-        const factor = Math.pow(10, d);
-        return Math.round(n * factor) / factor;
-      });
-
+    <script type="module">
+      import {
+        create_renderer,
+        parse_frontmatter,
+        gather_context,
+        insert_template,
+        save_template as persist_template,
+        create_note,
+        COMMANDS,
+        open_command,
+      } from "./smart_templates_logic.js";
+      let render = create_renderer(window.Handlebars);
       // ─── Built-in example templates ─────────────────────────────────────
 
       const EXAMPLES = {
@@ -826,53 +378,6 @@
 `,
       };
 
-      // ─── Template frontmatter parsing ─────────────────────────────────
-
-      function parse_frontmatter(content) {
-        if (!content.startsWith("---")) {
-          return { frontmatter: {}, body: content };
-        }
-        const end_idx = content.indexOf("\n---", 3);
-        if (end_idx < 0) {
-          return { frontmatter: {}, body: content };
-        }
-        const raw = content.slice(4, end_idx).trim();
-        const fm = {};
-        for (const line of raw.split("\n")) {
-          const colon = line.indexOf(":");
-          if (colon < 0) continue;
-          const key = line.slice(0, colon).trim();
-          let val = line.slice(colon + 1).trim();
-          if (
-            (val.startsWith('"') && val.endsWith('"')) ||
-            (val.startsWith("'") && val.endsWith("'"))
-          ) {
-            val = val.slice(1, -1);
-          }
-          if (key.startsWith("template.")) {
-            const sub_key = key.slice(9);
-            if (!fm.template) fm.template = {};
-            fm.template[sub_key] = val;
-          } else {
-            fm[key] = val;
-          }
-        }
-        const body = content.slice(end_idx + 4).replace(/^\n/, "");
-        return { frontmatter: fm, body };
-      }
-
-      function build_frontmatter(meta) {
-        const lines = ["---"];
-        if (meta.name) lines.push(`template.name: ${meta.name}`);
-        if (meta.description)
-          lines.push(`template.description: ${meta.description}`);
-        if (meta.category) lines.push(`template.category: ${meta.category}`);
-        if (meta.insert_mode)
-          lines.push(`template.insert_mode: ${meta.insert_mode}`);
-        lines.push("---");
-        return lines.join("\n");
-      }
-
       // ─── Template library (vault-backed) ──────────────────────────────
 
       let template_index = [];
@@ -901,7 +406,10 @@
           const entries = [];
           for (let i = 0; i < template_paths.length; i++) {
             const r = results[i];
-            if (r.status !== "fulfilled") continue;
+            if (r.status !== "fulfilled") {
+              status_el.textContent = "Some saved templates could not be read";
+              continue;
+            }
             const { frontmatter, body } = parse_frontmatter(r.value);
             const tpl = frontmatter.template || {};
             const filename = template_paths[i]
@@ -913,96 +421,17 @@
               name: tpl.name || filename,
               description: tpl.description || "",
               category: tpl.category || "",
-              insert_mode: tpl.insert_mode || "replace",
               body,
             });
           }
           template_index = entries;
           return entries;
-        } catch {
+        } catch (error) {
           template_index = [];
+          status_el.textContent =
+            "Could not load saved templates: " + error.message;
           return [];
         }
-      }
-
-      async function load_template(path) {
-        const content = await carbide.vault.read(path);
-        const { frontmatter, body } = parse_frontmatter(content);
-        return { frontmatter, body, path };
-      }
-
-      async function save_template(name, category, body) {
-        const folder = await get_template_folder();
-        const path = `${folder}/${slugify(name)}.md`;
-        const meta = { name, category };
-        const content = build_frontmatter(meta) + "\n" + body;
-        try {
-          await carbide.vault.create(path, content);
-        } catch {
-          await carbide.vault.modify(path, content);
-        }
-        await list_templates();
-        return path;
-      }
-
-      // ─── Context management ───────────────────────────────────────────
-
-      let cached_context = null;
-      let context_stale = true;
-
-      async function gather_context() {
-        if (cached_context && !context_stale) return cached_context;
-
-        const ctx = {
-          current_note: { path: "", name: "Untitled" },
-          selection: { text: "" },
-          fileCache: { frontmatter: {}, tags: [], headings: [], links: [] },
-          backlinks: [],
-          date: format_date("YYYY-MM-DD"),
-          time: format_date("HH:mm"),
-        };
-
-        try {
-          const [info, selection] = await Promise.all([
-            carbide.editor.getInfo().catch(() => null),
-            carbide.editor.getSelection().catch(() => ""),
-          ]);
-
-          if (info) {
-            ctx.current_note = {
-              path: info.path,
-              name: info.name.replace(/\.md$/, ""),
-            };
-          }
-          ctx.selection = { text: selection || "" };
-
-          if (info?.path) {
-            const [fc, bl] = await Promise.all([
-              carbide.metadata.getFileCache(info.path).catch(() => null),
-              carbide.metadata.getBacklinks(info.path).catch(() => []),
-            ]);
-            if (fc) {
-              ctx.fileCache = {
-                frontmatter: fc.frontmatter || {},
-                tags: fc.tags || [],
-                headings: fc.headings || [],
-                links: fc.links || [],
-                stats: fc.stats || {},
-              };
-            }
-            ctx.backlinks = bl || [];
-          }
-        } catch (e) {
-          console.warn("[smart-templates] context gather error:", e);
-        }
-
-        cached_context = ctx;
-        context_stale = false;
-        return ctx;
-      }
-
-      function mark_context_stale() {
-        context_stale = true;
       }
 
       // ─── Preview rendering ────────────────────────────────────────────
@@ -1012,37 +441,37 @@
       const status_el = document.getElementById("status-text");
       let debounce_timer = null;
       let preview_debounce_ms = 1000;
-      let last_rendered = "";
 
       function schedule_preview() {
+        preview_generation++;
         clearTimeout(debounce_timer);
         status_el.textContent = "Typing...";
         debounce_timer = setTimeout(render_preview, preview_debounce_ms);
       }
 
       async function render_preview() {
+        const generation = ++preview_generation;
         const source = editor_el.value;
         if (!source.trim()) {
           preview_el.textContent = "";
           preview_el.classList.remove("error");
           status_el.textContent = "Ready";
-          last_rendered = "";
           return;
         }
 
         try {
           status_el.textContent = "Rendering...";
-          const ctx = await gather_context();
-          const result = TemplateEngine.render(source, ctx);
+          const ctx = await gather_context(carbide);
+          const result = render(source, ctx);
+          if (generation !== preview_generation) return;
           preview_el.textContent = result;
           preview_el.classList.remove("error");
-          last_rendered = result;
           status_el.textContent = "Preview updated";
         } catch (e) {
+          if (generation !== preview_generation) return;
           preview_el.textContent = "Template error: " + e.message;
           preview_el.classList.add("error");
           status_el.textContent = "Error";
-          last_rendered = "";
         }
       }
 
@@ -1054,24 +483,37 @@
       const editor_view_el = document.getElementById("editor-view");
       const btn_picker = document.getElementById("btn-picker");
       const btn_editor_view = document.getElementById("btn-editor-view");
-      let current_view = "editor";
+      let selected_template = { name: "", category: "" };
+      let preview_generation = 0;
 
       function show_view(view) {
-        current_view = view;
+        const preview = view === "preview";
+        document
+          .getElementById("preview-pane")
+          .classList.toggle("hidden", !preview);
+        editor_el.parentElement.classList.toggle("hidden", preview);
+        document
+          .getElementById("btn-preview")
+          .classList.toggle("active", preview);
+        if (preview) void render_preview();
         if (view === "picker") {
           picker_view_el.classList.remove("hidden");
           editor_view_el.classList.add("hidden");
           btn_picker.classList.add("active");
           btn_editor_view.classList.remove("active");
-          render_picker();
+          void refresh_picker();
+          picker_search_el.focus();
         } else {
           picker_view_el.classList.add("hidden");
           editor_view_el.classList.remove("hidden");
           btn_picker.classList.remove("active");
-          btn_editor_view.classList.add("active");
+          btn_editor_view.classList.toggle("active", !preview);
         }
       }
 
+      document
+        .getElementById("btn-preview")
+        .addEventListener("click", () => show_view("preview"));
       btn_picker.addEventListener("click", () => show_view("picker"));
       btn_editor_view.addEventListener("click", () => show_view("editor"));
 
@@ -1101,6 +543,53 @@
       }
 
       let picker_items_snapshot = [];
+      let picker_index = 0;
+
+      async function refresh_picker() {
+        await list_templates();
+        picker_index = 0;
+        render_picker();
+      }
+
+      function select_picker(index) {
+        picker_index = index;
+        picker_list_el
+          .querySelectorAll(".picker-item")
+          .forEach((element, i) =>
+            element.setAttribute("aria-selected", String(i === index)),
+          );
+        picker_list_el.children[index]?.scrollIntoView?.({ block: "nearest" });
+      }
+
+      function load_picker_item(item) {
+        selected_template = { name: item.name, category: item.category };
+        editor_el.value = item.body;
+        show_view("editor");
+        schedule_preview();
+        status_el.textContent = `Loaded: ${item.name}`;
+      }
+
+      picker_search_el.addEventListener("keydown", (event) => {
+        if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+          event.preventDefault();
+          const delta = event.key === "ArrowDown" ? 1 : -1;
+          select_picker(
+            Math.max(
+              0,
+              Math.min(picker_items_snapshot.length - 1, picker_index + delta),
+            ),
+          );
+        } else if (
+          event.key === "Enter" &&
+          picker_items_snapshot[picker_index]
+        ) {
+          event.preventDefault();
+          load_picker_item(picker_items_snapshot[picker_index]);
+        } else if (event.key === "Escape") {
+          show_view("editor");
+          editor_el.focus();
+        }
+      });
 
       function render_picker() {
         const items = get_picker_items();
@@ -1113,27 +602,54 @@
         picker_list_el.innerHTML = items
           .map(
             (t, i) => `
-          <div class="picker-item" data-idx="${i}">
+          <div class="picker-item" data-idx="${i}" role="option" aria-selected="${i === picker_index}" tabindex="0">
             <div class="picker-item-name">
               ${t.category ? `<span class="picker-item-category">${esc(t.category)}</span>` : ""}
               ${esc(t.name)}
             </div>
             ${t.description ? `<div class="picker-item-meta">${esc(t.description)}</div>` : ""}
+            <div class="picker-item-actions"><button data-action="insert">Insert</button><button data-action="edit">Edit</button></div>
           </div>`,
           )
           .join("");
       }
 
-      picker_list_el.addEventListener("click", (e) => {
-        const item_el = e.target.closest(".picker-item");
+      async function activate_picker(event) {
+        const item_el = event.target.closest(".picker-item");
         if (!item_el) return;
-        const idx = Number(item_el.dataset.idx);
-        const item = picker_items_snapshot[idx];
+        const item = picker_items_snapshot[Number(item_el.dataset.idx)];
         if (!item) return;
-        editor_el.value = item.body || "";
-        show_view("editor");
-        schedule_preview();
-        status_el.textContent = `Loaded: ${item.name}`;
+        if (event.target.dataset.action === "insert") {
+          try {
+            await insert_template(carbide, render, item.body);
+            status_el.textContent = `Inserted: ${item.name}`;
+          } catch (error) {
+            status_el.textContent = "Insert failed: " + error.message;
+          }
+        } else load_picker_item(item);
+      }
+      picker_list_el.addEventListener("click", activate_picker);
+      picker_list_el.addEventListener("keydown", (event) => {
+        if (event.target.tagName === "BUTTON") return;
+        if (event.key === "Enter") {
+          event.preventDefault();
+          void activate_picker(event);
+        } else if (event.key === "Escape") {
+          show_view("editor");
+          editor_el.focus();
+        } else if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+          event.preventDefault();
+          const next = Math.max(
+            0,
+            Math.min(
+              picker_items_snapshot.length - 1,
+              Number(event.target.dataset.idx) +
+                (event.key === "ArrowDown" ? 1 : -1),
+            ),
+          );
+          select_picker(next);
+          picker_list_el.children[next]?.focus();
+        }
       });
 
       function esc(s) {
@@ -1144,17 +660,16 @@
           .replace(/"/g, "&quot;");
       }
 
-      let picker_search_timer = null;
       picker_search_el.addEventListener("input", () => {
-        clearTimeout(picker_search_timer);
-        picker_search_timer = setTimeout(render_picker, 100);
+        picker_index = 0;
+        render_picker();
       });
 
       // ─── Toolbar: snippet insertion ───────────────────────────────────
 
       document.querySelectorAll("[data-insert]").forEach((btn) => {
         btn.addEventListener("click", () => {
-          const snippet = btn.dataset.insert;
+          const snippet = btn.dataset.insert.replaceAll("\\n", "\n");
           const start = editor_el.selectionStart;
           const end = editor_el.selectionEnd;
           const val = editor_el.value;
@@ -1184,16 +699,11 @@
       document
         .getElementById("btn-insert")
         .addEventListener("click", async () => {
-          if (!last_rendered) {
-            await render_preview();
-          }
-          if (last_rendered) {
-            try {
-              await carbide.editor.replaceSelection(last_rendered);
-              status_el.textContent = "Inserted!";
-            } catch (e) {
-              status_el.textContent = "Insert failed: " + e.message;
-            }
+          try {
+            await insert_template(carbide, render, editor_el.value);
+            status_el.textContent = "Inserted into note";
+          } catch (error) {
+            status_el.textContent = "Insert failed: " + error.message;
           }
         });
 
@@ -1203,15 +713,55 @@
       const save_name_el = document.getElementById("save-name");
       const save_category_el = document.getElementById("save-category");
 
+      let save_mode = "template";
+      let overwrite_request = "";
+
       function close_save_dialog() {
         save_dialog_el.classList.remove("visible");
+        overwrite_request = "";
+        document.getElementById("save-confirm").textContent = "Save";
         save_name_el.value = "";
         save_category_el.value = "";
       }
 
-      document.getElementById("btn-save").addEventListener("click", () => {
+      function show_save_dialog(mode) {
+        save_mode = mode;
+        overwrite_request = "";
+        document.getElementById("save-confirm").textContent =
+          mode === "note" ? "Create Note" : "Save";
+        save_name_el.value = mode === "note" ? "" : selected_template.name;
+        save_category_el.value = selected_template.category;
+        save_category_el.classList.toggle("hidden", mode === "note");
+        save_name_el.setAttribute(
+          "aria-label",
+          mode === "note" ? "New note name" : "Template name",
+        );
         save_dialog_el.classList.add("visible");
         save_name_el.focus();
+      }
+      document
+        .getElementById("btn-save")
+        .addEventListener("click", () => show_save_dialog("template"));
+      document
+        .getElementById("btn-new-note")
+        .addEventListener("click", () => show_save_dialog("note"));
+      save_dialog_el.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") close_save_dialog();
+        else if (event.key === "Enter") {
+          event.preventDefault();
+          document.getElementById("save-confirm").click();
+        }
+      });
+      editor_el.addEventListener("keydown", (event) => {
+        if (event.key !== "Tab") return;
+        event.preventDefault();
+        editor_el.setRangeText(
+          "  ",
+          editor_el.selectionStart,
+          editor_el.selectionEnd,
+          "end",
+        );
+        schedule_preview();
       });
 
       document
@@ -1229,23 +779,84 @@
           const category = save_category_el.value.trim();
           const body = editor_el.value;
           try {
-            const path = await save_template(name, category, body);
-            status_el.textContent = `Saved: ${path}`;
+            if (save_mode === "note") {
+              const path = await create_note(carbide, render, body, name);
+              status_el.textContent = `Created: ${path}`;
+            } else {
+              const request = JSON.stringify([name, category, body]);
+              const result = await persist_template(
+                carbide,
+                await get_template_folder(),
+                name,
+                category,
+                body,
+                overwrite_request === request,
+              );
+              if (result.needs_confirmation) {
+                overwrite_request = request;
+                document.getElementById("save-confirm").textContent =
+                  "Replace existing template";
+                status_el.textContent = `A template exists at ${result.path}. Choose Replace to overwrite it, or Cancel.`;
+                return;
+              }
+              selected_template = { name, category };
+              await list_templates();
+              status_el.textContent = `Saved: ${result.path}`;
+            }
             close_save_dialog();
           } catch (e) {
             status_el.textContent = "Save failed: " + e.message;
           }
         });
 
-      // ─── Command IDs ────────────────────────────────────────────────
-
-      const CMD_INSERT = "smart-templates:insert-template";
-      const CMD_CREATE = "smart-templates:create-template";
-      const CMD_FROM_NOTE = "smart-templates:create-from-note";
+      const is_panel =
+        new URLSearchParams(location.search).get("surface") === "panel";
+      let initialization;
+      async function apply_command(command) {
+        if (command === "insert-template") show_view("picker");
+        else if (command === "create-template") {
+          selected_template = { name: "", category: "" };
+          editor_el.value = "";
+          show_view("editor");
+          schedule_preview();
+          editor_el.focus();
+        } else if (command === "create-from-note")
+          await create_template_from_note();
+        else show_view("editor");
+      }
+      window.addEventListener("message", async (event) => {
+        if (event.source !== window.parent) return;
+        const message = event.data;
+        if (message?.method === "theme.update") {
+          const [tokens, scheme] = message.params;
+          for (const [key, value] of Object.entries(tokens))
+            document.documentElement.style.setProperty(key, value);
+          document.documentElement.style.colorScheme = scheme;
+        }
+        if (message?.method !== "command.execute") return;
+        try {
+          await initialization;
+          if (is_panel)
+            await apply_command(
+              message.params[0].replace(/^smart-templates:/, ""),
+            );
+          else
+            await open_command(
+              carbide,
+              message.params[0],
+              message.params[1]?.panel_ready === true,
+            );
+        } catch (error) {
+          status_el.textContent = error.message;
+        }
+      });
 
       // ─── Plugin lifecycle ─────────────────────────────────────────────
 
-      carbide.onload(async () => {
+      carbide.onload(() => {
+        initialization = initialize();
+      });
+      async function initialize() {
         // Load settings
         try {
           const [debounce_val, date_fmt] = await Promise.all([
@@ -1253,120 +864,64 @@
             carbide.settings.get("default_date_format").catch(() => null),
           ]);
           if (debounce_val) preview_debounce_ms = Number(debounce_val);
-          if (date_fmt) default_date_format = date_fmt;
+          if (date_fmt) render = create_renderer(window.Handlebars, date_fmt);
         } catch {}
 
-        // Register commands
-        carbide.commands.register({
-          id: "smart-templates:open-panel",
-          label: "Open Smart Templates",
-          description: "Open the template editor panel",
-          keywords: ["template", "handlebars", "snippet", "dynamic"],
-        });
+        if (!is_panel) {
+          for (const command of COMMANDS)
+            await carbide.commands.register(command);
 
-        carbide.commands.register({
-          id: CMD_INSERT,
-          label: "Insert Template",
-          description: "Browse and insert a template into the current note",
-          keywords: ["template", "insert", "picker"],
-        });
+          // Register sidebar panel
+          await carbide.ui.addSidebarPanel({
+            id: "panel",
+            label: "Smart Templates",
+            icon: "file-text",
+          });
 
-        carbide.commands.register({
-          id: CMD_CREATE,
-          label: "Create Template",
-          description: "Open the template editor with a blank template",
-          keywords: ["template", "create", "new"],
-        });
-
-        carbide.commands.register({
-          id: CMD_FROM_NOTE,
-          label: "Create Template from Note",
-          description: "Use the current note content as a template",
-          keywords: ["template", "from", "note", "current"],
-        });
-
-        // Register sidebar panel
-        carbide.ui.addSidebarPanel({
-          id: "smart-templates:panel",
-          label: "Smart Templates",
-          icon: "file-text",
-        });
-
-        // Register settings tab
-        carbide.settings.registerTab({
-          label: "Smart Templates",
-          settings: [
-            {
-              key: "template_folder",
-              type: "string",
-              label: "Template folder",
-              description: "Vault folder path for saved templates",
-              default: "templates",
-              placeholder: "templates",
-            },
-            {
-              key: "default_date_format",
-              type: "string",
-              label: "Default date format",
-              description: "Date format string used by the date helper",
-              default: "YYYY-MM-DD",
-              placeholder: "YYYY-MM-DD",
-            },
-            {
-              key: "preview_debounce",
-              type: "number",
-              label: "Preview debounce (ms)",
-              description: "Delay before preview updates after typing",
-              default: 1000,
-              min: 200,
-              max: 5000,
-            },
-          ],
-        });
-
-        // Event listeners
-        carbide.events.on("active-file-changed", () => {
-          mark_context_stale();
-          schedule_preview();
-        });
-
-        carbide.events.on("editor-selection-changed", () => {
-          mark_context_stale();
-          if (editor_el.value.includes("selection")) {
-            schedule_preview();
-          }
-        });
-
-        // Refresh template index on vault file changes in template folder
-        const on_template_file_change = (data) => {
-          if (data?.path && is_template_path(data.path)) list_templates();
-        };
-        for (const evt of ["file-created", "file-modified", "file-deleted"]) {
-          carbide.events.on(evt, on_template_file_change);
+          // Register settings tab
+          await carbide.settings.registerTab({
+            label: "Smart Templates",
+            settings: [
+              {
+                key: "template_folder",
+                type: "string",
+                label: "Template folder",
+                description: "Vault folder path for saved templates",
+                default: "templates",
+                placeholder: "templates",
+              },
+              {
+                key: "default_date_format",
+                type: "string",
+                label: "Default date format",
+                description: "Date format string used by the date helper",
+                default: "YYYY-MM-DD",
+                placeholder: "YYYY-MM-DD",
+              },
+              {
+                key: "preview_debounce",
+                type: "number",
+                label: "Preview debounce (ms)",
+                description: "Delay before preview updates after typing",
+                default: 1000,
+                min: 200,
+                max: 5000,
+              },
+            ],
+          });
         }
-
-        // Handle commands from palette via raw message (command.execute is not routed through the event bus)
-        window.addEventListener("message", (event) => {
-          const msg = event.data;
-          if (!msg || msg.method !== "command.execute") return;
-          const cmd = msg.params?.[0];
-          if (cmd === CMD_INSERT) {
-            show_view("picker");
-          } else if (cmd === CMD_CREATE) {
-            editor_el.value = "";
-            show_view("editor");
-            editor_el.focus();
-            status_el.textContent = "New template";
-          } else if (cmd === CMD_FROM_NOTE) {
-            create_template_from_note();
-          }
-        });
-
         // Initial load
         await list_templates();
         editor_el.value = EXAMPLES.meeting;
         schedule_preview();
-      });
+        if (is_panel) {
+          const requested = await carbide.settings.get("requested_view");
+          if (requested) {
+            await carbide.settings.set("requested_view", "");
+            await apply_command(requested);
+          }
+        }
+      }
 
       async function create_template_from_note() {
         try {
