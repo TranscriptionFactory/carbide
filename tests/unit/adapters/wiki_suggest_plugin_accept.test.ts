@@ -1,6 +1,7 @@
 /** @vitest-environment jsdom */
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { EditorState, TextSelection } from "prosemirror-state";
+import type { Node as ProseNode } from "prosemirror-model";
 import { EditorView } from "prosemirror-view";
 import { schema } from "$lib/features/editor/adapters/schema";
 import {
@@ -166,7 +167,7 @@ describe("wiki block suggestion acceptance", () => {
 });
 
 describe("wiki heading suggestion acceptance", () => {
-  function accept_heading(markdown: string, caret_after: string): EditorView {
+  function accept_heading(markdown: string, caret_after: string): ProseNode {
     const doc = parse_markdown(markdown);
     const target = document.createElement("div");
     document.body.appendChild(target);
@@ -198,7 +199,7 @@ describe("wiki heading suggestion acceptance", () => {
     mounted_view.someProp("handleKeyDown", (handler) =>
       handler(mounted_view, new KeyboardEvent("keydown", { key: "Enter" })),
     );
-    return mounted_view;
+    return mounted_view.state.doc;
   }
 
   it.each([
@@ -213,7 +214,7 @@ describe("wiki heading suggestion acceptance", () => {
       "![[Other#",
     );
 
-    expect(serialize_markdown(accepted.state.doc)).toBe(
+    expect(serialize_markdown(accepted)).toBe(
       `intro\n\n![[Other#Target]]\n\n${next}`,
     );
   });
@@ -221,26 +222,26 @@ describe("wiki heading suggestion acceptance", () => {
   it("accepts at the end of the document without a closer", () => {
     const accepted = accept_heading("intro\n\n![[Other#\n", "![[Other#");
 
-    expect(serialize_markdown(accepted.state.doc)).toBe(
-      "intro\n\n![[Other#Target]]\n",
-    );
+    expect(serialize_markdown(accepted)).toBe("intro\n\n![[Other#Target]]\n");
   });
 
-  it("consumes exactly an auto-paired closer", () => {
-    const accepted = accept_heading("[[Other#]] tail\n", "[[Other#");
-
-    expect(accepted.state.doc.textContent).toBe("[[Other#Target]] tail");
-  });
-
-  it("consumes no following characters mid-line without a closer", () => {
-    const accepted = accept_heading("[[Other#tail\n", "[[Other#");
-
-    expect(accepted.state.doc.textContent).toBe("[[Other#Target]]tail");
-  });
-
-  it("keeps a lone closing bracket after the caret", () => {
-    const accepted = accept_heading("[[Other#] tail\n", "[[Other#");
-
-    expect(accepted.state.doc.textContent).toBe("[[Other#Target]]] tail");
+  it.each([
+    [
+      "exactly an auto-paired closer",
+      "[[Other#]] tail\n",
+      "[[Other#Target]] tail",
+    ],
+    [
+      "nothing mid-line without a closer",
+      "[[Other#tail\n",
+      "[[Other#Target]]tail",
+    ],
+    [
+      "nothing before a lone bracket",
+      "[[Other#] tail\n",
+      "[[Other#Target]]] tail",
+    ],
+  ])("consumes %s", (_name, markdown, text) => {
+    expect(accept_heading(markdown, "[[Other#").textContent).toBe(text);
   });
 });

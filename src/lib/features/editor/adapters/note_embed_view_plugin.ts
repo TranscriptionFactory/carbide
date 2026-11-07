@@ -1,6 +1,7 @@
 import { Plugin, PluginKey, TextSelection } from "prosemirror-state";
 import type { EditorState, Transaction } from "prosemirror-state";
 import { DOMSerializer } from "prosemirror-model";
+import type { Heading } from "mdast";
 import type { Node as ProseNode } from "prosemirror-model";
 import type { EditorView, NodeView } from "prosemirror-view";
 import { FileText, ExternalLink, ChevronRight, Pencil } from "lucide-static";
@@ -29,12 +30,10 @@ export function embed_src_matches_path(
   return path_norm === src_norm || path_norm.endsWith(`/${src_norm}`);
 }
 
-function heading_source_text(source: string): string {
-  return source
-    .replace(/\n\s*[=-]+\s*$/, "")
-    .replace(/^ {0,3}#{1,6}[ \t]+/, "")
-    .replace(/[\s#]+$/, "")
-    .trim();
+function heading_source_text(markdown: string, heading: Heading): string {
+  const start = heading.children[0]?.position?.start.offset ?? 0;
+  const end = heading.children.at(-1)?.position?.end.offset ?? 0;
+  return markdown.slice(start, end).replace(/[\s#]+$/, "");
 }
 
 export function extract_heading_section(
@@ -46,10 +45,8 @@ export function extract_heading_section(
     .parse(markdown)
     .children.filter((node) => node.type === "heading");
   const start_idx = headings.findIndex(
-    ({ position }) =>
-      heading_source_text(
-        markdown.slice(position?.start.offset, position?.end.offset),
-      ).toLowerCase() === heading_lower,
+    (heading) =>
+      heading_source_text(markdown, heading).toLowerCase() === heading_lower,
   );
   const start = headings[start_idx];
   if (!start) return "";
