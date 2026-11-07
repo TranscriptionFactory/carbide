@@ -39,6 +39,26 @@ describe("footnote parsing", () => {
 });
 
 describe("footnote round-trip", () => {
+  it("keeps an escaped reference literal when a definition exists", () => {
+    expect_byte_identical("A\\[^1]\n\n[^1]: Body.");
+  });
+
+  it("keeps a literal backslash before an escaped reference", () => {
+    expect_byte_identical("A\\\\\\[^1]\n\n[^1]: Body.");
+  });
+
+  it("matches the escaped label case-insensitively", () => {
+    expect_byte_identical("A\\[^Note] and real[^NOTE]\n\n[^note]: Body.");
+  });
+
+  it("does not add an escape to a dangling literal reference", () => {
+    expect_byte_identical("Dangling[^x] ref.\n\n[^1]: Body.");
+  });
+
+  it("keeps an escaped reference literal inside emphasis", () => {
+    expect_byte_identical("*A\\[^1]*\n\n[^1]: Body.");
+  });
+
   it("is byte-identical for a numeric reference and single-line definition", () => {
     expect_byte_identical("A claim.[^1]\n\n[^1]: The footnote body.");
   });

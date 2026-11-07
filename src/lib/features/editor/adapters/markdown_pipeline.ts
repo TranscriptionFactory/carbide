@@ -6,6 +6,7 @@ import {
   fallback_parse_processor,
   stringify_processor,
 } from "./remark_plugins/remark_processor";
+import { mark_literal_footnote_refs } from "./remark_plugins/text_escape";
 import { mdast_to_pm } from "./mdast_to_pm";
 import { pm_to_mdast } from "./pm_to_mdast";
 
@@ -53,6 +54,7 @@ export function parse_markdown(markdown: string): PmNode {
 
 export function serialize_markdown(doc: PmNode): string {
   const tree = pm_to_mdast(doc);
+  mark_literal_footnote_refs(tree);
   return stringify_processor.stringify(tree) as string;
 }
 

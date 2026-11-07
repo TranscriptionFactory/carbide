@@ -104,11 +104,11 @@ const stringify_options: StringifyOptions = {
     rawInline: raw_value_handler,
     doingCheckbox: () => "[-] ",
     text: (
-      node: { value?: string },
+      node: { value?: string; data?: { defined?: Set<string> } },
       _parent: unknown,
       state: State,
       info: Info,
-    ) => safe_text(state, node.value ?? "", info),
+    ) => safe_text(state, node.value ?? "", info, node.data?.defined),
   } as unknown as StringifyOptions["handlers"],
 };
 
