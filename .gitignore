@@ -66,3 +66,5 @@ src-tauri/binaries/carbide-cli*
 
 # Git bundles are backup artifacts and exceed GitHub's 100MB blob limit
 *.bundle
+.commandcode
+devlog
