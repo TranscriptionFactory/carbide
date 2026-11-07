@@ -1,5 +1,21 @@
 # carbide
 
+## 2.46.0
+
+### Minor Changes
+
+- bb86ac1: Live HTML previews and documents now provide bundled Alpine and theme-aware Tailwind when needed, without requiring network access.
+- bace147: Refresh Smart Templates with reliable context-aware rendering, keyboard browsing, overwrite confirmation, new-note creation, and app-themed panels.
+- c975967: Add raw-byte Save As copies and Rename, Delete, and Duplicate actions for document files. Preserve open document edits when renaming and prevent note-only copy and export actions on document tabs.
+
+### Patch Changes
+
+- d7dd13a: Accepting a heading suggestion while editing an embed no longer damages the block after it, and embedded heading sections now end at setext headings and ignore `#` lines in code fences.
+- 8730b07: Find files by full or partial filename in the omnibar, keep exact filename matches first, and include more document types in search and Recent.
+- 5f9a190: Saving a note no longer turns an escaped `\[^1]` into a live footnote reference when a matching definition exists.
+- 56b1d12: Omnibar `path:` searches now stay inside the matching folder, `path:FOLDER text` searches for the text in that folder, and `title:` and `content:` no longer return semantic matches outside those fields.
+- c0336b2: Dropped files now save directly into the selected folder without creating an attachment subfolder.
+
 ## 2.45.1
 
 ### Patch Changes
