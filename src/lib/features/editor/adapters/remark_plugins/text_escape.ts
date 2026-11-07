@@ -1,5 +1,10 @@
 import type { Info, State, Unsafe } from "mdast-util-to-markdown";
+import type { Root } from "mdast";
 import { classifyCharacter } from "micromark-util-classify-character";
+import {
+  normalize_footnote_label,
+  parse_footnote_definition,
+} from "$lib/features/editor/domain/footnotes";
 
 const CHARACTER_GROUP_WHITESPACE = 1;
 const CHARACTER_GROUP_PUNCTUATION = 2;
@@ -12,7 +17,49 @@ const HEADING_HASH_UNSAFE: Unsafe = {
   after: "#{0,5}(?:[\\t \\r\\n]|$)",
 };
 
-export function safe_text(state: State, value: string, info: Info): string {
+const FOOTNOTE_REF_TEXT = /(?<!\\)\[\^([^\]\s]+)\]/g;
+
+type TextNode = {
+  type: "text";
+  value: string;
+  data?: { defined?: Set<string> };
+};
+type ParentNode = { children?: unknown[] };
+
+export function mark_literal_footnote_refs(tree: Root): void {
+  const defined = new Set<string>();
+  const texts: TextNode[] = [];
+  const visit = (node: unknown) => {
+    const n = node as { type: string; value?: string } & ParentNode;
+    if (n.type === "rawFootnoteDefinition") {
+      const label = parse_footnote_definition(n.value ?? "")?.label;
+      if (label) defined.add(normalize_footnote_label(label));
+    } else if (n.type === "text") {
+      texts.push(n as TextNode);
+    }
+    n.children?.forEach(visit);
+  };
+  visit(tree);
+  if (defined.size === 0) return;
+  for (const text of texts) text.data = { defined };
+}
+
+function escape_literal_footnote_refs(
+  s: string,
+  defined: Set<string> | undefined,
+): string {
+  if (!defined) return s;
+  return s.replace(FOOTNOTE_REF_TEXT, (match, label: string) =>
+    defined.has(normalize_footnote_label(label)) ? `\\${match}` : match,
+  );
+}
+
+export function safe_text(
+  state: State,
+  value: string,
+  info: Info,
+  defined_footnotes?: Set<string>,
+): string {
   const original_unsafe = state.unsafe;
   state.unsafe = original_unsafe.filter((u) => {
     if (u.character === "&" && u.after === "[#A-Za-z]") return false;
@@ -46,8 +93,11 @@ export function safe_text(state: State, value: string, info: Info): string {
     state.unsafe = original_unsafe;
   }
 
-  return escape_parsed_openers(
-    escape_entity_ampersands(escape_active_delimiter_runs(result, info)),
+  return escape_literal_footnote_refs(
+    escape_parsed_openers(
+      escape_entity_ampersands(escape_active_delimiter_runs(result, info)),
+    ),
+    defined_footnotes,
   );
 }
 

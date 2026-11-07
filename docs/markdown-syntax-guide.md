@@ -232,16 +232,10 @@ Embeds only that single block.
 ### Resizing Images
 
 ```markdown
-![[image.png|400]]
+![Photo|300](photo.png)
 ```
 
-Sets the width to 400 pixels. Height scales proportionally.
-
-```markdown
-![[image.png|400x300]]
-```
-
-Sets both width (400px) and height (300px) explicitly.
+Sets the width to 300 pixels after the `|` in the alt text. Height scales proportionally. Only a pixel width is supported; there is no `WxH` form, and `![[image.png|400]]` is not a resize (it is read as a note embed).
 
 ### External Images
 
@@ -251,11 +245,20 @@ Standard Markdown image syntax for external URLs:
 ![Alt text](https://example.com/image.png)
 ```
 
-Resize external images with HTML:
+Resize external images the same way, with a width in the alt text:
 
 ```markdown
-<img src="https://example.com/image.png" width="400">
+![Alt text|400](https://example.com/image.png)
 ```
+
+A block-level `<img width="400">` is not rendered; it shows as source.
+
+### Referencing Images from HTML
+
+Pasted and dropped images are saved to the attachment folder (`.assets` by default) and inserted as `![alt](note-relative-path)`. Right-click an image and choose **Copy Image URL** to copy that path.
+
+- In an `.html` file opened in a tab (Safe or Live), relative paths such as `<img src="a.png">` or `../.assets/a.png` resolve from the HTML file's own folder.
+- In an HTML code fence, relative paths do not load. Use a `data:` URI.
 
 ### Supported Image Formats
 
@@ -1310,6 +1313,9 @@ Another claim with a named footnote.[^source-name]
 - Hovering a reference shows the definition in a popover. Clicking a reference jumps to its definition; there is no jump back from the definition to the reference.
 - In the editor, definitions stay where you wrote them and are saved unchanged; they are not moved to the bottom.
 - In HTML export, definitions are collected into a footnotes section at the bottom, each with a back-link to its reference.
+- A footnote reference you type becomes active after the note is reopened; until then it shows as plain text.
+- Note embeds (`![[Note]]`) show references as raw `[^label]` text, and section embeds (`![[Note#Heading]]`) omit definitions.
+- An escaped `\[^label]` stays literal on save, even when a definition with that label exists.
 
 ---
 
