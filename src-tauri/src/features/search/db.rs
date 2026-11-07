@@ -3100,18 +3100,9 @@ pub fn get_all_graph_edges_chunked(
 }
 
 fn escape_fts_query(query: &str) -> String {
-    query
-        .split_whitespace()
-        .filter_map(|term| {
-            let clean: String = term
-                .chars()
-                .filter(|c| c.is_alphanumeric() || *c == '_' || *c == '-')
-                .collect();
-            if clean.is_empty() {
-                return None;
-            }
-            Some(format!("\"{clean}\"*"))
-        })
+    fts_terms(query)
+        .iter()
+        .map(|term| format!("\"{term}\"*"))
         .collect::<Vec<_>>()
         .join(" ")
 }
@@ -3151,18 +3142,9 @@ fn build_fts_match(query: &str, scope: SearchScope) -> String {
 
 fn fts_terms(query: &str) -> Vec<String> {
     query
-        .split_whitespace()
-        .filter_map(|term| {
-            let clean: String = term
-                .chars()
-                .filter(|c| c.is_alphanumeric() || *c == '_' || *c == '-')
-                .collect();
-            if clean.is_empty() {
-                None
-            } else {
-                Some(clean)
-            }
-        })
+        .split(|c: char| !c.is_alphanumeric())
+        .filter(|term| !term.is_empty())
+        .map(String::from)
         .collect()
 }
 
@@ -4207,6 +4189,62 @@ mod tests {
             blurb: String::new(),
             file_type: None,
             source: None,
+        }
+    }
+
+    #[test]
+    fn newly_supported_extensions_are_content_searchable_after_indexing() {
+        let dir = tempfile::tempdir().expect("vault");
+        let conn = Connection::open_in_memory().expect("db");
+        init_schema(&conn).expect("schema");
+        for ext in ["zsh", "fish", "ps1", "mjs", "cjs", "markdown"] {
+            let filename = format!("document.{ext}");
+            let path = dir.path().join(&filename);
+            std::fs::write(&path, "searchable needle").expect("write");
+            let mut meta = note(&filename, "Different title");
+            index_single_file_from_disk(&conn, &path, &mut meta, &mut Vec::new()).expect("index");
+            assert_eq!(
+                meta.file_type.as_deref(),
+                Some(if ext == "markdown" { "text" } else { "code" })
+            );
+        }
+        assert_eq!(
+            search(
+                &conn,
+                "searchable needle",
+                SearchScope::Content,
+                20,
+                None,
+                true,
+                None
+            )
+            .expect("content search")
+            .len(),
+            6
+        );
+    }
+
+    #[test]
+    fn dotted_and_folder_queries_split_punctuation_for_search_and_suggest() {
+        let conn = Connection::open_in_memory().expect("db");
+        init_schema(&conn).expect("schema");
+        upsert_note(
+            &conn,
+            &note("2_REFS/report.pdf", "Other title"),
+            "unrelated",
+        )
+        .expect("upsert");
+        for query in ["report.pdf", "2_REFS/report", "report"] {
+            assert_eq!(
+                search(&conn, query, SearchScope::All, 20, None, true, None).expect("search")[0]
+                    .note
+                    .path,
+                "2_REFS/report.pdf"
+            );
+            assert_eq!(
+                suggest(&conn, query, 20).expect("suggest")[0].note.path,
+                "2_REFS/report.pdf"
+            );
         }
     }
 

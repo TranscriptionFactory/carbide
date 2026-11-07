@@ -431,10 +431,28 @@ export function register_note_actions(input: ActionRegistrationInput) {
           return;
         }
 
-        if (detect_file_type(filename_from_path(note_path))) {
+        const filename = filename_from_path(note_path);
+        const document_type = detect_file_type(filename);
+        if (document_type) {
           await registry.execute(ACTION_IDS.document_open, {
             file_path: note_path,
           });
+          const meta = stores.notes.notes.find(
+            (note) => note.path === note_path,
+          );
+          stores.notes.add_recent_note(
+            meta ?? {
+              id: note_path as NoteId,
+              path: note_path as NotePath,
+              name: filename,
+              title: filename,
+              blurb: "",
+              mtime_ms: 0,
+              ctime_ms: 0,
+              size_bytes: 0,
+              file_type: document_type,
+            },
+          );
           return;
         }
 
