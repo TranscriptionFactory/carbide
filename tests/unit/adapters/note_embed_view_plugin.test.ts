@@ -86,6 +86,19 @@ describe("extract_heading_section", () => {
     expect(extract_heading_section(markdown, "**Bold** title")).toBe(markdown);
   });
 
+  it.each(["C#", "c#"])("matches literal trailing hashes in %j", (target) => {
+    const markdown = "## C#\na\n\n## Next\nb\n";
+
+    expect(extract_heading_section(markdown, target)).toBe("## C#\na\n\n");
+  });
+
+  it("preserves stripped matching for formatted headings with trailing hashes", () => {
+    const markdown = "## **Bold** title#\na\n";
+
+    expect(extract_heading_section(markdown, "**Bold** title")).toBe(markdown);
+    expect(extract_heading_section(markdown, "**Bold** title#")).toBe(markdown);
+  });
+
   it("returns nothing for a missing heading", () => {
     expect(extract_heading_section("## A\n", "B")).toBe("");
   });

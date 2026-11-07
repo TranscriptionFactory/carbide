@@ -33,7 +33,7 @@ export function embed_src_matches_path(
 function heading_source_text(markdown: string, heading: Heading): string {
   const start = heading.children[0]?.position?.start.offset ?? 0;
   const end = heading.children.at(-1)?.position?.end.offset ?? 0;
-  return markdown.slice(start, end).replace(/[\s#]+$/, "");
+  return markdown.slice(start, end);
 }
 
 export function extract_heading_section(
@@ -44,10 +44,13 @@ export function extract_heading_section(
   const headings = parse_processor
     .parse(markdown)
     .children.filter((node) => node.type === "heading");
-  const start_idx = headings.findIndex(
-    (heading) =>
-      heading_source_text(markdown, heading).toLowerCase() === heading_lower,
-  );
+  const start_idx = headings.findIndex((heading) => {
+    const source = heading_source_text(markdown, heading).toLowerCase();
+    return (
+      source === heading_lower ||
+      source.replace(/[\s#]+$/, "") === heading_lower
+    );
+  });
   const start = headings[start_idx];
   if (!start) return "";
 
