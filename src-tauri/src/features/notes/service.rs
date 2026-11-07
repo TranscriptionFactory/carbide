@@ -832,6 +832,8 @@ pub struct WriteImageAssetArgs {
     #[serde(default)]
     pub target_folder: Option<String>,
     #[serde(default)]
+    pub save_to_target_folder: bool,
+    #[serde(default)]
     pub subfolder: Option<String>,
 }
 
@@ -936,14 +938,23 @@ pub(crate) fn asset_dir(args: &WriteImageAssetArgs) -> Result<PathBuf, String> {
         return Err("invalid attachment folder name".to_string());
     }
 
-    let mut dir = match args
-        .target_folder
-        .as_deref()
-        .map(str::trim)
-        .filter(|folder| !folder.is_empty())
-    {
-        Some(target_folder) => PathBuf::from(target_folder).join(attachment_folder),
-        None => PathBuf::from(attachment_folder),
+    let mut dir = if args.save_to_target_folder {
+        args.target_folder
+            .as_deref()
+            .map(str::trim)
+            .filter(|folder| !folder.is_empty())
+            .map(PathBuf::from)
+            .unwrap_or_default()
+    } else {
+        match args
+            .target_folder
+            .as_deref()
+            .map(str::trim)
+            .filter(|folder| !folder.is_empty())
+        {
+            Some(target_folder) => PathBuf::from(target_folder).join(attachment_folder),
+            None => PathBuf::from(attachment_folder),
+        }
     };
 
     if let Some(subfolder) = args.subfolder.as_deref() {
@@ -959,6 +970,40 @@ pub(crate) fn asset_dir(args: &WriteImageAssetArgs) -> Result<PathBuf, String> {
         dir = dir.join(subfolder);
     }
     Ok(dir)
+}
+
+pub(crate) fn custom_asset_filename(
+    args: &WriteImageAssetArgs,
+    custom_filename: &str,
+) -> Result<String, String> {
+    if args.save_to_target_folder {
+        if custom_filename.trim().is_empty()
+            || custom_filename == "."
+            || custom_filename == ".."
+            || custom_filename.contains('/')
+            || custom_filename.contains('\\')
+            || custom_filename.contains('\0')
+        {
+            return Err("invalid custom filename".to_string());
+        }
+        return Ok(custom_filename.to_string());
+    }
+
+    let sanitized = custom_filename.replace('/', "").replace('\\', "");
+    let sanitized = sanitized.trim_start_matches('.');
+    if sanitized.is_empty() {
+        return Err("invalid custom filename".to_string());
+    }
+    let has_extension = Path::new(sanitized)
+        .extension()
+        .and_then(|e| e.to_str())
+        .is_some_and(|e| !e.is_empty());
+    if has_extension {
+        Ok(sanitized.to_string())
+    } else {
+        let ext = image_extension(&args.mime_type, args.file_name.as_deref());
+        Ok(format!("{}.{}", sanitized, ext))
+    }
 }
 
 pub fn write_image_asset_inner(
@@ -981,22 +1026,8 @@ pub fn write_image_asset_inner(
 
     let asset_dir = asset_dir(&args)?;
 
-    let filename = if let Some(custom_filename) = args.custom_filename {
-        let sanitized = custom_filename.replace('/', "").replace('\\', "");
-        let sanitized = sanitized.trim_start_matches('.');
-        if sanitized.is_empty() {
-            return Err("invalid custom filename".to_string());
-        }
-        let has_extension = Path::new(sanitized)
-            .extension()
-            .and_then(|e| e.to_str())
-            .is_some_and(|e| !e.is_empty());
-        if has_extension {
-            sanitized.to_string()
-        } else {
-            let ext = image_extension(&args.mime_type, args.file_name.as_deref());
-            format!("{}.{}", sanitized, ext)
-        }
+    let filename = if let Some(custom_filename) = args.custom_filename.as_deref() {
+        custom_asset_filename(&args, custom_filename)?
     } else {
         let source_stem = args
             .file_name

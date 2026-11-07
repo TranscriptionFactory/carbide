@@ -442,6 +442,7 @@ export class NoteService {
       custom_filename?: string;
       attachment_folder?: string;
       target_folder?: string;
+      save_to_target_folder?: boolean;
     },
   ): Promise<
     | { status: "saved"; asset_path: AssetPath }
@@ -468,6 +469,9 @@ export class NoteService {
       }
       if (options?.target_folder) {
         input.target_folder = options.target_folder;
+      }
+      if (options?.save_to_target_folder) {
+        input.save_to_target_folder = true;
       }
       const asset_path = await this.assets_port.write_image_asset(
         vault_id,

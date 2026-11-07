@@ -569,8 +569,6 @@ export function register_folder_actions(input: ActionRegistrationInput) {
       return { imported, skipped };
     }
 
-    const attachment_folder =
-      stores.ui.editor_settings.attachment_folder || ".assets";
     const anchor_note_path = as_note_path(
       target_folder ? `${target_folder}/import.md` : "import.md",
     );
@@ -591,7 +589,11 @@ export function register_folder_actions(input: ActionRegistrationInput) {
             mime_type: file.type || "application/octet-stream",
             file_name: file.name,
           },
-          { custom_filename: file.name, attachment_folder, target_folder },
+          {
+            custom_filename: file.name,
+            target_folder,
+            save_to_target_folder: true,
+          },
         );
         if (result.status === "saved") {
           imported += 1;
