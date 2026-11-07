@@ -224,14 +224,14 @@ export function create_wiki_suggest_prose_plugin(
     }
     const replacement = `${prefix}[[${inner}]]`;
 
-    const selection_from = view.state.selection.from;
-    const replace_to = Math.min(
-      selection_from + 2,
-      view.state.doc.content.size,
+    const { from: caret, $from } = view.state.selection;
+    const after_caret = view.state.doc.textBetween(
+      caret,
+      Math.min(caret + 2, $from.end()),
     );
     const tr = view.state.tr.replaceWith(
       state.from,
-      replace_to,
+      after_caret === "]]" ? caret + 2 : caret,
       view.state.schema.text(replacement),
     );
     tr.setSelection(
