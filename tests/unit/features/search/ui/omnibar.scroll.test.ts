@@ -200,3 +200,25 @@ describe("omnibar sort direction control", () => {
     expect(target.querySelector('[aria-label="Sort descending"]')).toBeNull();
   });
 });
+
+describe("omnibar document type chips", () => {
+  it.each(["html", "epub"] as const)(
+    "shows a clickable %s filter",
+    (file_type) => {
+      const on_toggle_file_type_filter = vi.fn();
+      const { target } = render_omnibar({ on_toggle_file_type_filter });
+      document.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "Tab", bubbles: true }),
+      );
+      flushSync();
+      const chip = [
+        ...target.querySelectorAll<HTMLButtonElement>(".Omnibar__filter-chip"),
+      ].find((button) =>
+        button.textContent?.trim().endsWith(file_type.toUpperCase()),
+      );
+      expect(chip).toBeDefined();
+      chip?.click();
+      expect(on_toggle_file_type_filter).toHaveBeenCalledWith(file_type);
+    },
+  );
+});

@@ -12,6 +12,7 @@ import { type VaultId, as_vault_id, as_note_path } from "$lib/shared/types/ids";
 import { create_test_vault } from "../helpers/test_fixtures";
 import type { HybridSearchHit } from "$lib/shared/types/search";
 import type { NoteMeta } from "$lib/shared/types/note";
+import { sort_omnibar_items } from "$lib/features/search/domain/omnibar_view";
 
 function make_note(path: string, title?: string): NoteMeta {
   return {
@@ -479,5 +480,38 @@ describe("SearchService.search_omnibar folder scope", () => {
     expect(filtered.map((hit) => String(hit.note.path))).toEqual([
       "Projects/a.md",
     ]);
+  });
+});
+
+describe("filename relevance through omnibar rendering", () => {
+  it("keeps the exact filename above matching titles after frontend reranking and view sorting", async () => {
+    const hits: HybridSearchHit[] = [
+      {
+        note: make_note("archive/report.pdf", "Unrelated title"),
+        score: 0.1,
+        source: "fts",
+      },
+      {
+        note: make_note("digest.md", "report.pdf"),
+        score: 0.2,
+        source: "both",
+      },
+    ];
+    const { service } = make_service_with_backends(
+      make_mock_search_port([...hits].reverse()),
+    );
+    const result = await service.search_omnibar("report.pdf");
+    const sorted = sort_omnibar_items(
+      result.items,
+      "relevance",
+      {
+        recent_command_ids: [],
+      },
+      false,
+    );
+    expect(sorted[0]?.kind).toBe("note");
+    expect(sorted[0] && "note" in sorted[0] ? sorted[0].note.path : null).toBe(
+      "archive/report.pdf",
+    );
   });
 });

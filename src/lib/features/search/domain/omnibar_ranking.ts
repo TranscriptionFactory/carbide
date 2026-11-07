@@ -1,6 +1,7 @@
 import type { NoteMeta } from "$lib/shared/types/note";
 
 export const OMNIBAR_SCORES = {
+  exact_filename: 2.0,
   exact_prefix: 1.0,
   substring: 0.6,
   fuzzy: 0.3,
@@ -104,13 +105,22 @@ export function recency_boost(
   return Math.min(boost, OMNIBAR_SCORES.recency_boost_max);
 }
 
+function normalize_filename(value: string): string {
+  return value.toLowerCase().replace(/[ _-]/g, "");
+}
+
 export function score_note(
   note: NoteMeta,
   context: RankingContext,
   relevance = 0,
 ): RankedScore {
   const kind = classify_match(context.query, targets_for(note));
-  const ms = match_score(kind);
+  const query = normalize_filename(context.query.trim());
+  const filename = normalize_filename(note.path.split("/").at(-1) ?? note.name);
+  const ms =
+    query !== "" && filename === query
+      ? OMNIBAR_SCORES.exact_filename
+      : match_score(kind);
   const rb = kind === "none" ? 0 : recency_boost(note.id, context);
   const clamped = relevance < 0 ? 0 : relevance > 1 ? 1 : relevance;
   const rel = clamped * OMNIBAR_SCORES.relevance_weight;

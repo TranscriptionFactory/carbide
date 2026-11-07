@@ -51,13 +51,14 @@ pub fn classify_file(path: &Path) -> FileCategory {
         "html" | "htm" => FileCategory::Html,
         "epub" => FileCategory::Epub,
         "py" | "r" | "rs" | "ts" | "js" | "jsx" | "tsx" | "json" | "yaml" | "yml" | "toml"
-        | "sh" | "bash" | "css" | "scss" | "xml" | "sql" | "go" | "java" | "kt" | "c"
-        | "cpp" | "h" | "hpp" | "cs" | "rb" | "lua" | "zig" | "swift" | "dart" | "ex" | "exs"
-        | "erl" | "hs" | "ml" | "clj" | "scala" | "php" | "pl" | "vim" | "el" | "nix" | "dhall"
-        | "tf" | "hcl" | "graphql" | "proto" | "svelte" | "vue" | "astro" => FileCategory::Code,
-        "txt" | "log" | "ini" | "cfg" | "conf" | "env" | "csv" | "tsv" | "rst" | "adoc" | "org"
-        | "diff" | "patch" | "properties" | "dockerfile" | "makefile" | "cmake" | "gitignore"
-        | "gitattributes" | "editorconfig" => FileCategory::Text,
+        | "sh" | "bash" | "zsh" | "fish" | "ps1" | "mjs" | "cjs" | "css" | "scss" | "xml"
+        | "sql" | "go" | "java" | "kt" | "c" | "cpp" | "h" | "hpp" | "cs" | "rb" | "lua"
+        | "zig" | "swift" | "dart" | "ex" | "exs" | "erl" | "hs" | "ml" | "clj" | "scala"
+        | "php" | "pl" | "vim" | "el" | "nix" | "dhall" | "tf" | "hcl" | "graphql" | "proto"
+        | "svelte" | "vue" | "astro" => FileCategory::Code,
+        "markdown" | "txt" | "log" | "ini" | "cfg" | "conf" | "env" | "csv" | "tsv" | "rst"
+        | "adoc" | "org" | "diff" | "patch" | "properties" | "dockerfile" | "makefile"
+        | "cmake" | "gitignore" | "gitattributes" | "editorconfig" => FileCategory::Text,
         _ => {
             if is_known_text_filename(path) {
                 FileCategory::Text
@@ -453,5 +454,21 @@ mod tests {
         // i.e. the hook was restored rather than left as the silent no-op.
         let caught = catch_unwind(AssertUnwindSafe(|| panic!("post-salvage")));
         assert!(caught.is_err());
+    }
+    #[test]
+    fn newly_supported_extensions_extract_searchable_text() {
+        for ext in ["zsh", "fish", "ps1", "mjs", "cjs", "markdown"] {
+            let path = PathBuf::from(format!("file.{ext}"));
+            let expected = if ext == "markdown" {
+                FileCategory::Text
+            } else {
+                FileCategory::Code
+            };
+            assert_eq!(classify_file(&path), expected);
+            assert_eq!(
+                extract_content(&path, b"searchable needle").body,
+                "searchable needle"
+            );
+        }
     }
 }

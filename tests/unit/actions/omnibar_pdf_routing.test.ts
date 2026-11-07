@@ -234,3 +234,30 @@ describe("omnibar confirm_item routing through note_open", () => {
     expect(document_open).not.toHaveBeenCalled();
   });
 });
+
+describe("document recents", () => {
+  it("records an opened PDF so Recent is produced by a real open", async () => {
+    const { registry, stores } = create_harness();
+    const pdf = { ...make_note("archive/notes.pdf"), file_type: "pdf" };
+    stores.notes.set_notes([pdf]);
+    await registry.execute(ACTION_IDS.note_open, pdf.path);
+    expect(stores.notes.recent_notes).toEqual([pdf]);
+    expect(stores.notes.note_access_history.get(pdf.id)).toHaveLength(1);
+  });
+  it("records a document not yet loaded into the note list", async () => {
+    const { registry, stores } = create_harness();
+    await registry.execute(ACTION_IDS.note_open, "archive/new.pdf");
+    expect(stores.notes.recent_notes[0]).toMatchObject({
+      path: "archive/new.pdf",
+      file_type: "pdf",
+    });
+  });
+  it("does not record a document when opening fails", async () => {
+    const { registry, stores, document_open } = create_harness();
+    document_open.mockRejectedValueOnce(new Error("open failed"));
+    await expect(
+      registry.execute(ACTION_IDS.note_open, "archive/failed.pdf"),
+    ).rejects.toThrow("open failed");
+    expect(stores.notes.recent_notes).toEqual([]);
+  });
+});

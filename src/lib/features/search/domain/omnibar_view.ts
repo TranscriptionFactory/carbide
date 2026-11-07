@@ -48,6 +48,10 @@ function file_type_matches(
       );
     case "pdf":
       return file_type === "pdf";
+    case "html":
+      return file_type === "html";
+    case "epub":
+      return file_type === "epub";
     case "code":
       return file_type === "code";
     case "canvas":
