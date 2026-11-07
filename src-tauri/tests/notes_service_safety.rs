@@ -1,8 +1,9 @@
 #[cfg(unix)]
 use crate::features::notes::service::safe_vault_abs_for_write;
 use crate::features::notes::service::{
-    get_or_scan_folder_entries, invalidate_folder_cache, rename_with_temp_path, safe_vault_abs,
-    asset_dir, reserve_unique_filename, safe_vault_rename_target_abs, WriteImageAssetArgs, scan_folder_entries,
+    asset_dir, custom_asset_filename, get_or_scan_folder_entries, invalidate_folder_cache,
+    rename_with_temp_path, reserve_unique_filename, safe_vault_abs, safe_vault_rename_target_abs,
+    scan_folder_entries, WriteImageAssetArgs,
 };
 use crate::shared::storage;
 use crate::shared::vault_ignore::VaultIgnoreMatcher;
@@ -323,4 +324,53 @@ fn asset_dir_rejects_unsafe_subfolders() {
 fn asset_dir_still_rejects_nested_attachment_folder() {
     assert!(asset_dir(&image_args(Some("a/b"), None, None)).is_err());
     assert!(asset_dir(&image_args(Some("..x"), None, None)).is_err());
+}
+
+#[test]
+fn direct_target_custom_filenames_preserve_original_names_and_reserve_collisions() {
+    let dir = mk_temp_dir();
+    let mut args = image_args(None, None, None);
+    args.save_to_target_folder = true;
+    for (original, collision) in [
+        ("LICENSE", "LICENSE-2"),
+        (".env", ".env-2"),
+        ("a.pdf", "a-2.pdf"),
+    ] {
+        let filename = custom_asset_filename(&args, original).unwrap();
+        assert_eq!(filename, original);
+        assert_eq!(reserve_unique_filename(&dir, &filename).unwrap(), original);
+        assert_eq!(reserve_unique_filename(&dir, &filename).unwrap(), collision);
+    }
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn direct_target_custom_filenames_reject_unsafe_names() {
+    let mut args = image_args(None, None, None);
+    args.save_to_target_folder = true;
+    for bad in [
+        "",
+        "  ",
+        ".",
+        "..",
+        "../outside",
+        "nested/file",
+        "nested\\file",
+        "/absolute",
+        "file\0name",
+    ] {
+        assert!(custom_asset_filename(&args, bad).is_err(), "{bad:?}");
+    }
+}
+
+#[test]
+fn editor_custom_filenames_keep_sanitizing_and_inferring_extensions() {
+    let args = image_args(None, None, None);
+    for (custom, expected) in [
+        ("LICENSE", "LICENSE.png"),
+        (".env", "env.png"),
+        ("a/b.pdf", "ab.pdf"),
+    ] {
+        assert_eq!(custom_asset_filename(&args, custom).unwrap(), expected);
+    }
 }

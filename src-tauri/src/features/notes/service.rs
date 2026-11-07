@@ -972,6 +972,40 @@ pub(crate) fn asset_dir(args: &WriteImageAssetArgs) -> Result<PathBuf, String> {
     Ok(dir)
 }
 
+pub(crate) fn custom_asset_filename(
+    args: &WriteImageAssetArgs,
+    custom_filename: &str,
+) -> Result<String, String> {
+    if args.save_to_target_folder {
+        if custom_filename.trim().is_empty()
+            || custom_filename == "."
+            || custom_filename == ".."
+            || custom_filename.contains('/')
+            || custom_filename.contains('\\')
+            || custom_filename.contains('\0')
+        {
+            return Err("invalid custom filename".to_string());
+        }
+        return Ok(custom_filename.to_string());
+    }
+
+    let sanitized = custom_filename.replace('/', "").replace('\\', "");
+    let sanitized = sanitized.trim_start_matches('.');
+    if sanitized.is_empty() {
+        return Err("invalid custom filename".to_string());
+    }
+    let has_extension = Path::new(sanitized)
+        .extension()
+        .and_then(|e| e.to_str())
+        .is_some_and(|e| !e.is_empty());
+    if has_extension {
+        Ok(sanitized.to_string())
+    } else {
+        let ext = image_extension(&args.mime_type, args.file_name.as_deref());
+        Ok(format!("{}.{}", sanitized, ext))
+    }
+}
+
 pub fn write_image_asset_inner(
     args: WriteImageAssetArgs,
     app: AppHandle,
@@ -992,22 +1026,8 @@ pub fn write_image_asset_inner(
 
     let asset_dir = asset_dir(&args)?;
 
-    let filename = if let Some(custom_filename) = args.custom_filename {
-        let sanitized = custom_filename.replace('/', "").replace('\\', "");
-        let sanitized = sanitized.trim_start_matches('.');
-        if sanitized.is_empty() {
-            return Err("invalid custom filename".to_string());
-        }
-        let has_extension = Path::new(sanitized)
-            .extension()
-            .and_then(|e| e.to_str())
-            .is_some_and(|e| !e.is_empty());
-        if has_extension {
-            sanitized.to_string()
-        } else {
-            let ext = image_extension(&args.mime_type, args.file_name.as_deref());
-            format!("{}.{}", sanitized, ext)
-        }
+    let filename = if let Some(custom_filename) = args.custom_filename.as_deref() {
+        custom_asset_filename(&args, custom_filename)?
     } else {
         let source_stem = args
             .file_name
