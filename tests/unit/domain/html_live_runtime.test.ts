@@ -9,7 +9,12 @@ const component = `<div x-data="review"><button @click="tab = 'days'">Days</butt
 <script>document.addEventListener('alpine:init', () => Alpine.data('review', () => ({tab: 'digest'})), {once: true});</script>`;
 
 afterEach(() => {
-  const alpine = Reflect.get(window, "Alpine");
+  const alpine = Reflect.get(window, "Alpine") as
+    | {
+        stopObservingMutations(): void;
+        destroyTree(root: Element): void;
+      }
+    | undefined;
   alpine?.stopObservingMutations();
   alpine?.destroyTree(document.body);
   document.body.innerHTML = "";
@@ -151,15 +156,15 @@ describe("detected Live HTML runtimes", () => {
         window.eval(author.textContent ?? "");
         document.dispatchEvent(new Event("DOMContentLoaded"));
       }
-      await vi.waitFor(() =>
-        expect(document.querySelector("p")?.textContent).toBe("digest"),
-      );
+      await vi.waitFor(() => {
+        expect(document.querySelector("p")?.textContent).toBe("digest");
+      });
       const button = document.querySelector("button");
       assert(button);
       button.click();
-      await vi.waitFor(() =>
-        expect(document.querySelector("p")?.textContent).toBe("days"),
-      );
+      await vi.waitFor(() => {
+        expect(document.querySelector("p")?.textContent).toBe("days");
+      });
     },
   );
 });
@@ -179,8 +184,8 @@ it("starts author-supplied Alpine exactly once", async () => {
   )) {
     window.eval(script.textContent ?? "");
   }
-  await vi.waitFor(() =>
-    expect(document.querySelector("p")?.textContent).toBe("digest"),
-  );
+  await vi.waitFor(() => {
+    expect(document.querySelector("p")?.textContent).toBe("digest");
+  });
   expect(initialized).toHaveBeenCalledTimes(1);
 });
