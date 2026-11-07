@@ -29,7 +29,9 @@ function make_api() {
         .fn()
         .mockResolvedValue({ name: "First.md", path: "First.md" }),
       getSelection: vi.fn().mockResolvedValue("first selection"),
-      replaceSelection: vi.fn().mockResolvedValue(undefined),
+      replaceSelection: vi
+        .fn<(content: string) => Promise<void>>()
+        .mockResolvedValue(undefined),
       getValue: vi.fn().mockResolvedValue("From current note"),
     },
     metadata: {
@@ -39,24 +41,31 @@ function make_api() {
       getBacklinks: vi.fn().mockResolvedValue([{ path: "R&D.md" }]),
     },
     vault: {
-      list: vi.fn(async () => [...files.keys()]),
-      read: vi.fn(async (path: string) => files.get(path)),
-      create: vi.fn(async (path: string, content: string) => {
+      list: vi.fn(() => Promise.resolve([...files.keys()])),
+      read: vi.fn((path: string) => Promise.resolve(files.get(path))),
+      create: vi.fn((path: string, content: string) => {
         files.set(path, content);
+        return Promise.resolve();
       }),
-      modify: vi.fn(async (path: string, content: string) => {
+      modify: vi.fn((path: string, content: string) => {
         files.set(path, content);
+        return Promise.resolve();
       }),
     },
     actions: { execute: vi.fn().mockResolvedValue(undefined) },
     settings: {
-      get: vi.fn(async (key: string) => settings.get(key)),
-      set: vi.fn(async (key: string, value: unknown) => {
+      get: vi.fn((key: string) => Promise.resolve(settings.get(key))),
+      set: vi.fn((key: string, value: unknown) => {
         settings.set(key, value);
+        return Promise.resolve();
       }),
       registerTab: vi.fn().mockResolvedValue(undefined),
     },
-    commands: { register: vi.fn().mockResolvedValue(undefined) },
+    commands: {
+      register: vi
+        .fn<(command: { id: string; label: string }) => Promise<void>>()
+        .mockResolvedValue(undefined),
+    },
     ui: { addSidebarPanel: vi.fn().mockResolvedValue(undefined) },
     onload: vi.fn(),
   };
@@ -108,7 +117,10 @@ async function load_panel(api = make_api(), surface = "panel") {
     "",
   );
   const bindings = { ...logic, persist_template: logic.save_template };
-  window.Function(...Object.keys(bindings), source)(...Object.values(bindings));
+  const run = window.eval(
+    `(function(${Object.keys(bindings).join(",")}) {${source}\n})`,
+  ) as (...args: unknown[]) => void;
+  run(...Object.values(bindings));
   spy.mockRestore();
   const initialize = api.onload.mock.calls.at(-1)?.[0] as unknown as () => void;
   initialize();

@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import PluginIframeHost from "$lib/features/plugin/ui/plugin_iframe_host.svelte";
 import { flushSync, mount, unmount } from "../helpers/svelte_client_runtime";
 
-const cleanups: Array<() => void> = [];
+const cleanups: Array<() => Promise<void>> = [];
 
 function render_host(visible: boolean) {
   const target = document.createElement("div");
@@ -19,8 +19,8 @@ function render_host(visible: boolean) {
     },
   });
   flushSync();
-  cleanups.push(() => {
-    unmount(component);
+  cleanups.push(async () => {
+    await unmount(component);
     flushSync();
     target.remove();
   });
@@ -31,8 +31,8 @@ function render_host(visible: boolean) {
   return { iframe, post_message, on_message };
 }
 
-afterEach(() => {
-  for (const cleanup of cleanups.splice(0)) cleanup();
+afterEach(async () => {
+  for (const cleanup of cleanups.splice(0)) await cleanup();
   document.documentElement.removeAttribute("style");
   vi.restoreAllMocks();
 });
