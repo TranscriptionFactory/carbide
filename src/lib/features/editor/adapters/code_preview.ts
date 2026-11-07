@@ -1,3 +1,4 @@
+import { build_live_html_document } from "$lib/features/document";
 import { sanitize_html_preview } from "$lib/shared/html";
 import { has_author_colors } from "../domain/has_author_colors";
 import type { HtmlRenderMode } from "../domain/inline_html_mode";
@@ -240,7 +241,10 @@ export function build_code_preview_srcdoc(
   const color_styles = author_styled
     ? NEUTRAL_SURFACE_STYLES
     : PREVIEW_THEME_STYLES;
-  return `<!DOCTYPE html><html${html_attrs}><head><meta charset="utf-8"><style>${root_block}${PREVIEW_LAYOUT_STYLES}${color_styles}</style></head><body>${body}${HEIGHT_SYNC_SCRIPT}</body></html>`;
+  return build_live_html_document({
+    content: `<!DOCTYPE html><html${html_attrs}><head><meta charset="utf-8"><style>${root_block}${PREVIEW_LAYOUT_STYLES}${color_styles}</style></head><body>${body}${HEIGHT_SYNC_SCRIPT}</body></html>`,
+    theme_style: "",
+  });
 }
 
 /* Safe mode keeps the author's markup and stylesheet, drops scripts, event
