@@ -17,6 +17,8 @@ export type OmnibarScope = "current_vault" | "all_vaults";
 export type OmnibarFileTypeFilter =
   | "markdown"
   | "pdf"
+  | "html"
+  | "epub"
   | "code"
   | "canvas"
   | "image";

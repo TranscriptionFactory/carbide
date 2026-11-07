@@ -249,3 +249,42 @@ describe("backend relevance integration", () => {
     expect(ranked[0]?.note).toBe(title);
   });
 });
+
+describe("exact filename ranking", () => {
+  it.each(["report.pdf", " REPORT.PDF ", "re_port-.pdf"])(
+    "pins %s above a recent, top-relevance title match",
+    (query) => {
+      const exact = {
+        ...make_note("report"),
+        id: "archive/report.pdf" as NoteId,
+        path: "archive/report.pdf" as NotePath,
+        title: "Unrelated title",
+      };
+      const competitor = { ...make_note("digest"), title: query.trim() };
+      const now_ms = 1000;
+      const ranked = rank_notes(
+        [
+          { note: competitor, relevance: 1 },
+          { note: exact, relevance: 0 },
+        ],
+        {
+          query,
+          now_ms,
+          access_history: new Map([[competitor.id, [now_ms, now_ms, now_ms]]]),
+        },
+      );
+      expect(ranked[0]?.note.path).toBe(exact.path);
+      const [first, second] = ranked;
+      if (!first || !second)
+        throw new Error("Expected both filename candidates");
+      expect(first.ranked.total).toBeGreaterThan(second.ranked.total);
+    },
+  );
+  it("does not treat a containing folder as an exact filename", () => {
+    const ranked = score_note(make_note("other", "report.pdf"), {
+      query: "report.pdf",
+      now_ms: 0,
+    });
+    expect(ranked.match_score).toBeLessThan(OMNIBAR_SCORES.exact_filename);
+  });
+});

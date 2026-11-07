@@ -189,6 +189,8 @@
   }[] = [
     { filter: "markdown", mnemonic: "m", label: "Markdown" },
     { filter: "pdf", mnemonic: "p", label: "PDF" },
+    { filter: "html", mnemonic: "h", label: "HTML" },
+    { filter: "epub", mnemonic: "e", label: "EPUB" },
     { filter: "code", mnemonic: "c", label: "Code" },
     { filter: "canvas", mnemonic: "d", label: "Drawing" },
     { filter: "image", mnemonic: "i", label: "Images" },

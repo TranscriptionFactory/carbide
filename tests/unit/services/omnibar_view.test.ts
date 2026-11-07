@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  apply_file_type_filters,
   apply_kind_filters,
   dedupe_commands_by_id,
   sort_omnibar_items,
@@ -296,4 +297,24 @@ describe("omnibar sort direction", () => {
       "zoom_in",
     ]);
   });
+});
+
+describe("HTML and EPUB file-type filters", () => {
+  it.each(["html", "epub"] as const)(
+    "keeps %s notes and recents visible when its chip is selected",
+    (file_type) => {
+      const note = { ...note_meta(`file.${file_type}`, "Document"), file_type };
+      const items: OmnibarItem[] = [
+        { kind: "note", note, score: 1 },
+        { kind: "recent_note", note },
+        note_item("other.md", "Markdown"),
+      ];
+      expect(apply_file_type_filters(items, [file_type])).toEqual(
+        items.slice(0, 2),
+      );
+      expect(apply_file_type_filters(items, ["markdown", file_type])).toEqual(
+        items,
+      );
+    },
+  );
 });
