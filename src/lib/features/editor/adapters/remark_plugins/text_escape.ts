@@ -41,35 +41,13 @@ export function safe_text(state: State, value: string, info: Info): string {
 
   let result: string;
   try {
-    result = unescape_standalone_embeds(state.safe(value, info), info);
+    result = state.safe(value, info);
   } finally {
     state.unsafe = original_unsafe;
   }
 
   return escape_parsed_openers(
     escape_entity_ampersands(escape_active_delimiter_runs(result, info)),
-  );
-}
-
-const ESCAPED_EMBED_LINE = /^\\(!\[\[[^\]\n]+\]\])$/gm;
-
-function is_line_boundary(char: string): boolean {
-  return char === "" || char === "\n" || char === "\r";
-}
-
-// `!` before `[` only starts an image when `(` or `[` follows the `]]`, which
-// a line holding nothing but the embed rules out. `info` covers the line's
-// edges when the text node starts or ends mid-line beside a sibling.
-function unescape_standalone_embeds(s: string, info: Info): string {
-  return s.replace(
-    ESCAPED_EMBED_LINE,
-    (match, embed: string, offset: number) => {
-      const starts_line = offset > 0 || is_line_boundary(info.before.slice(-1));
-      const ends_line =
-        offset + match.length < s.length ||
-        is_line_boundary(info.after.charAt(0));
-      return starts_line && ends_line ? embed : match;
-    },
   );
 }
 
