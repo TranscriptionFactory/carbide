@@ -48,7 +48,29 @@ pub fn hybrid_search(
     path_scope: Option<&ScopeFilter>,
 ) -> Result<Vec<HybridSearchHit>, String> {
     let query_vec = model.embed_query(&query.text)?;
+    search_with_vector(
+        conn,
+        note_index,
+        query_vec,
+        query,
+        limit,
+        date_range,
+        include_linked,
+        path_scope,
+    )
+}
 
+#[allow(clippy::too_many_arguments)]
+fn search_with_vector(
+    conn: &Connection,
+    note_index: &VectorIndex,
+    query_vec: Vec<f32>,
+    query: &SearchQueryInput,
+    limit: usize,
+    date_range: Option<(i64, i64)>,
+    include_linked: bool,
+    path_scope: Option<&ScopeFilter>,
+) -> Result<Vec<HybridSearchHit>, String> {
     let over_fetch = limit * 3;
     // FTS pushes the date and scope filters into SQL, but the vector index has
     // no filter API below FILTERED_EXACT_MAX, so both over-fetch and filter
@@ -274,7 +296,7 @@ fn rrf_merge(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::features::search::model::IndexNoteMeta;
+    use crate::features::search::model::{IndexNoteMeta, SearchScope};
 
     fn hit(path: &str, title: &str) -> SearchHit {
         SearchHit {
@@ -434,6 +456,39 @@ mod tests {
 
         assert_eq!(hits.len(), 1);
         assert_eq!(hits[0].0, "n29");
+    }
+
+    fn indexed_vault(notes: &[(&str, &str)]) -> (tempfile::TempDir, Connection, VectorIndex) {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let conn = search_db::open_search_db_at_path(&dir.path().join("search.db")).expect("db");
+        let mut index = VectorIndex::new(2);
+        for (path, body) in notes {
+            let meta = hit(path, path).note;
+            search_db::upsert_note(&conn, &meta, body).expect("upsert");
+            index.insert(path, vec![1.0, 0.0]);
+        }
+        (dir, conn, index)
+    }
+
+    fn result_paths(hits: &[HybridSearchHit]) -> Vec<&str> {
+        hits.iter().map(|h| h.note.path.as_str()).collect()
+    }
+
+    #[test]
+    fn path_operator_excludes_vector_hits_outside_the_scoped_folder() {
+        let (_dir, conn, index) =
+            indexed_vault(&[("2_REFS/a.md", "text in refs"), ("1_LOGS/b.md", "text in logs")]);
+        let query = SearchQueryInput {
+            raw: "path:2_REFS text".into(),
+            text: "2_REFS text".into(),
+            scope: SearchScope::Path,
+        };
+
+        let hits =
+            search_with_vector(&conn, &index, vec![1.0, 0.0], &query, 20, None, true, None)
+                .expect("search");
+
+        assert_eq!(result_paths(&hits), vec!["2_REFS/a.md"]);
     }
 
     #[test]
