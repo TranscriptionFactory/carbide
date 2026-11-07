@@ -124,6 +124,9 @@ export function create_mock_notes_port(): NotesPort & {
   };
 } {
   const mock = {
+    pick_save_file_path: () => Promise.resolve(null),
+    confirm_file_overwrite: () => Promise.resolve(false),
+    copy_file: () => Promise.resolve(),
     _mock_notes: new Map<VaultId, NoteMeta[]>(),
     _mock_folders: new Map<VaultId, string[]>(),
     _calls: {

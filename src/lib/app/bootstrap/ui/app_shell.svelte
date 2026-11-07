@@ -43,6 +43,7 @@
     stores.ui.system_dialog_open ||
       stores.ui.change_vault.open ||
       stores.ui.change_vault.confirm_discard_open ||
+      stores.ui.file_dialog.mode !== null ||
       stores.ui.delete_note_dialog.open ||
       stores.ui.rename_note_dialog.open ||
       stores.ui.save_note_dialog.open ||

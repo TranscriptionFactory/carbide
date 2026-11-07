@@ -1,3 +1,4 @@
+import { parent_folder_path } from "$lib/shared/utils/path";
 import type { ActionRegistrationInput } from "$lib/app/action_registry/action_registration_input";
 import {
   as_note_path,
@@ -208,4 +209,21 @@ export async function save_and_insert_image(
   const target = to_markdown_asset_target(note_path, write_result.asset_path);
   const alt = image_alt_text(image.file_name);
   services.editor.insert_text(`![${alt}](${target})`);
+}
+
+export function build_file_path_from_name(path: string, name: string): string {
+  if (
+    !name ||
+    name === "." ||
+    name === ".." ||
+    /[<>:"/\\|?*]/.test(name) ||
+    name.split("").some((character) => character.charCodeAt(0) < 32) ||
+    /[. ]$/.test(name)
+  ) {
+    throw new Error(
+      "Enter a filename without path separators or reserved characters",
+    );
+  }
+  const parent = parent_folder_path(path);
+  return parent ? `${parent}/${name}` : name;
 }

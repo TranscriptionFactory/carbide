@@ -1,3 +1,4 @@
+export { register_file_actions } from "$lib/features/note/application/file_actions";
 export { register_note_actions } from "$lib/features/note/application/note_actions";
 export { NoteService } from "$lib/features/note/application/note_service";
 export { NotesStore } from "$lib/features/note/state/note_store.svelte";

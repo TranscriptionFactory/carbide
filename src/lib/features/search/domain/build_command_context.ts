@@ -24,6 +24,7 @@ export function build_command_context(stores: ContextStores): CommandContext {
   const active_tab = stores.tab.active_tab;
 
   return {
+    has_open_document: active_tab?.kind === "document",
     has_open_note: open_note !== null && active_tab?.kind === "note",
     has_git_repo: stores.git.enabled,
     has_git_remote: stores.git.has_remote,

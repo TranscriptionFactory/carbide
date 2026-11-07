@@ -410,6 +410,34 @@
               {/if}
               <ContextMenu.Separator />
               {@const note_meta = find_note_meta(tab)}
+              {@const file_path =
+                tab.kind === "document"
+                  ? tab.file_path
+                  : tab.kind === "note"
+                    ? tab.note_path
+                    : null}
+              <ContextMenu.Item
+                data-testid="tab-menu-save-as"
+                disabled={!file_path}
+                onSelect={() => {
+                  if (file_path)
+                    void action_registry.execute(
+                      ACTION_IDS.file_save_as,
+                      file_path,
+                    );
+                }}>Save As</ContextMenu.Item
+              >
+              <ContextMenu.Item
+                data-testid="tab-menu-duplicate"
+                disabled={!file_path}
+                onSelect={() => {
+                  if (file_path)
+                    void action_registry.execute(
+                      ACTION_IDS.file_duplicate,
+                      file_path,
+                    );
+                }}>Duplicate</ContextMenu.Item
+              >
               <ContextMenu.Item
                 data-testid="tab-menu-star"
                 disabled={!note_meta}
@@ -426,12 +454,17 @@
               </ContextMenu.Item>
               <ContextMenu.Item
                 data-testid="tab-menu-rename"
-                disabled={!note_meta}
+                disabled={!note_meta && tab.kind !== "document"}
                 onSelect={() => {
                   if (note_meta) {
                     void action_registry.execute(
                       ACTION_IDS.note_request_rename,
                       note_meta,
+                    );
+                  } else if (tab.kind === "document") {
+                    void action_registry.execute(
+                      ACTION_IDS.file_request_rename,
+                      tab.file_path,
                     );
                   }
                 }}
@@ -440,12 +473,17 @@
               </ContextMenu.Item>
               <ContextMenu.Item
                 data-testid="tab-menu-delete"
-                disabled={!note_meta}
+                disabled={!note_meta && tab.kind !== "document"}
                 onSelect={() => {
                   if (note_meta) {
                     void action_registry.execute(
                       ACTION_IDS.note_request_delete,
                       note_meta,
+                    );
+                  } else if (tab.kind === "document") {
+                    void action_registry.execute(
+                      ACTION_IDS.file_request_delete,
+                      tab.file_path,
                     );
                   }
                 }}
@@ -454,9 +492,9 @@
               </ContextMenu.Item>
               <ContextMenu.Item
                 data-testid="tab-menu-copy-markdown"
-                disabled={!is_active}
+                disabled={!is_active || tab.kind !== "note"}
                 onSelect={() => {
-                  if (is_active) {
+                  if (is_active && tab.kind === "note") {
                     void action_registry.execute(ACTION_IDS.note_copy_markdown);
                   }
                 }}

@@ -49,6 +49,14 @@ export interface AssetsPort {
 }
 
 export interface NotesPort {
+  pick_save_file_path(default_name: string): Promise<string | null>;
+  confirm_file_overwrite(path: string): Promise<boolean>;
+  copy_file(
+    vault_id: VaultId,
+    from: string,
+    to: string,
+    overwrite: boolean,
+  ): Promise<void>;
   list_notes(vault_id: VaultId): Promise<NoteMeta[]>;
   list_folders(vault_id: VaultId): Promise<string[]>;
   read_note(vault_id: VaultId, note_id: NoteId): Promise<NoteDoc>;

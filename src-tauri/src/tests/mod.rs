@@ -154,6 +154,7 @@ mod specta_export {
                 crate::features::notes::service::create_note,
                 crate::features::notes::service::create_folder,
                 crate::features::notes::service::write_image_asset,
+                crate::features::notes::service::copy_file,
                 crate::features::notes::service::rename_note,
                 crate::features::notes::service::delete_note,
                 crate::features::notes::service::rename_folder,

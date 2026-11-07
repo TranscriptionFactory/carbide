@@ -16,6 +16,14 @@ export const ACTION_IDS = {
   app_handle_file_open: "app.handle_file_open",
   app_close_requested: "app.close_requested",
 
+  file_save_as: "file.save_as",
+  file_duplicate: "file.duplicate",
+  file_request_rename: "file.request_rename",
+  file_request_delete: "file.request_delete",
+  file_update_name: "file.update_name",
+  file_confirm: "file.confirm",
+  file_cancel: "file.cancel",
+
   note_create: "note.create",
   note_open: "note.open",
   note_open_wiki_link: "note.open_wiki_link",

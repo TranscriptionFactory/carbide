@@ -310,6 +310,7 @@ pub fn run() {
             features::notes::service::create_note,
             features::notes::service::create_folder,
             features::notes::service::write_image_asset,
+            features::notes::service::copy_file,
             features::notes::service::rename_note,
             features::notes::service::delete_note,
             features::notes::service::rename_folder,
