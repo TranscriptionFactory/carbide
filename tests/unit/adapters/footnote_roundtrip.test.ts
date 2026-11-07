@@ -43,6 +43,10 @@ describe("footnote round-trip", () => {
     expect_byte_identical("A\\[^1]\n\n[^1]: Body.");
   });
 
+  it("keeps a literal backslash before an escaped reference", () => {
+    expect_byte_identical("A\\\\\\[^1]\n\n[^1]: Body.");
+  });
+
   it("matches the escaped label case-insensitively", () => {
     expect_byte_identical("A\\[^Note] and real[^NOTE]\n\n[^note]: Body.");
   });

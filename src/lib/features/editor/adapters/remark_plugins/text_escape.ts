@@ -1,5 +1,6 @@
 import type { Info, State, Unsafe } from "mdast-util-to-markdown";
-import type { Root } from "mdast";
+import type { Root, Text } from "mdast";
+import { visit } from "unist-util-visit";
 import { classifyCharacter } from "micromark-util-classify-character";
 import {
   normalize_footnote_label,
@@ -17,31 +18,23 @@ const HEADING_HASH_UNSAFE: Unsafe = {
   after: "#{0,5}(?:[\\t \\r\\n]|$)",
 };
 
-const FOOTNOTE_REF_TEXT = /(?<!\\)\[\^([^\]\s]+)\]/g;
-
-type TextNode = {
-  type: "text";
-  value: string;
-  data?: { defined?: Set<string> };
-};
-type ParentNode = { children?: unknown[] };
+const FOOTNOTE_REF_TEXT = /(\\*)\[\^([^\]\s]+)\]/g;
 
 export function mark_literal_footnote_refs(tree: Root): void {
   const defined = new Set<string>();
-  const texts: TextNode[] = [];
-  const visit = (node: unknown) => {
-    const n = node as { type: string; value?: string } & ParentNode;
-    if (n.type === "rawFootnoteDefinition") {
-      const label = parse_footnote_definition(n.value ?? "")?.label;
+  const texts: Text[] = [];
+  visit(tree, (node) => {
+    if (node.type === "text") texts.push(node);
+    else if (node.type === ("rawFootnoteDefinition" as string)) {
+      const source = (node as unknown as { value: string }).value;
+      const label = parse_footnote_definition(source)?.label;
       if (label) defined.add(normalize_footnote_label(label));
-    } else if (n.type === "text") {
-      texts.push(n as TextNode);
     }
-    n.children?.forEach(visit);
-  };
-  visit(tree);
+  });
   if (defined.size === 0) return;
-  for (const text of texts) text.data = { defined };
+  for (const text of texts) {
+    text.data = { defined } as Text["data"];
+  }
 }
 
 function escape_literal_footnote_refs(
@@ -49,8 +42,12 @@ function escape_literal_footnote_refs(
   defined: Set<string> | undefined,
 ): string {
   if (!defined) return s;
-  return s.replace(FOOTNOTE_REF_TEXT, (match, label: string) =>
-    defined.has(normalize_footnote_label(label)) ? `\\${match}` : match,
+  return s.replace(
+    FOOTNOTE_REF_TEXT,
+    (match, slashes: string, label: string) =>
+      slashes.length % 2 === 0 && defined.has(normalize_footnote_label(label))
+        ? `${slashes}\\[^${label}]`
+        : match,
   );
 }
 
