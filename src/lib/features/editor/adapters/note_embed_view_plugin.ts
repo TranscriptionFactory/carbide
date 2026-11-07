@@ -1,12 +1,14 @@
 import { Plugin, PluginKey, TextSelection } from "prosemirror-state";
 import type { EditorState, Transaction } from "prosemirror-state";
 import { DOMSerializer } from "prosemirror-model";
+import type { Heading } from "mdast";
 import type { Node as ProseNode } from "prosemirror-model";
 import type { EditorView, NodeView } from "prosemirror-view";
 import { FileText, ExternalLink, ChevronRight, Pencil } from "lucide-static";
 import type { VaultFsEvent } from "$lib/features/watcher";
 import { create_logger } from "$lib/shared/utils/logger";
 import { format_wiki_embed_options } from "./file_embed_plugin";
+import { parse_processor } from "./remark_plugins/remark_processor";
 import { create_resize_handle, type ResizeHandle } from "./resize_handle";
 
 const log = create_logger("note_embed_view");
@@ -28,38 +30,37 @@ export function embed_src_matches_path(
   return path_norm === src_norm || path_norm.endsWith(`/${src_norm}`);
 }
 
-function extract_heading_section(
+function heading_source_text(markdown: string, heading: Heading): string {
+  const start = heading.children[0]?.position?.start.offset ?? 0;
+  const end = heading.children.at(-1)?.position?.end.offset ?? 0;
+  return markdown.slice(start, end);
+}
+
+export function extract_heading_section(
   markdown: string,
   heading_name: string,
 ): string {
-  const lines = markdown.split("\n");
   const heading_lower = heading_name.toLowerCase();
-  let start_idx = -1;
-  let start_level = 0;
+  const headings = parse_processor
+    .parse(markdown)
+    .children.filter((node) => node.type === "heading");
+  const start_idx = headings.findIndex((heading) => {
+    const source = heading_source_text(markdown, heading).toLowerCase();
+    return (
+      source === heading_lower ||
+      source.replace(/[\s#]+$/, "") === heading_lower
+    );
+  });
+  const start = headings[start_idx];
+  if (!start) return "";
 
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i]!;
-    const heading_match = /^(#{1,6})\s+(.+)$/.exec(line);
-    if (!heading_match) continue;
-    const level = heading_match[1]!.length;
-    const text = heading_match[2]!.trim();
-
-    if (start_idx === -1) {
-      if (text.toLowerCase() === heading_lower) {
-        start_idx = i;
-        start_level = level;
-      }
-    } else {
-      if (level <= start_level) {
-        return lines.slice(start_idx, i).join("\n");
-      }
-    }
-  }
-
-  if (start_idx !== -1) {
-    return lines.slice(start_idx).join("\n");
-  }
-  return "";
+  const end = headings
+    .slice(start_idx + 1)
+    .find((heading) => heading.depth <= start.depth);
+  return markdown.slice(
+    start.position?.start.offset,
+    end?.position?.start.offset,
+  );
 }
 
 export function build_embed_edit_transaction(

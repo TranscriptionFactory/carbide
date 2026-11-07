@@ -1,11 +1,18 @@
 /** @vitest-environment jsdom */
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { EditorState, TextSelection } from "prosemirror-state";
+import type { Node as ProseNode } from "prosemirror-model";
 import { EditorView } from "prosemirror-view";
 import { schema } from "$lib/features/editor/adapters/schema";
 import {
+  parse_markdown,
+  serialize_markdown,
+} from "$lib/features/editor/adapters/markdown_pipeline";
+import { create_note_embed_plugin } from "$lib/features/editor/adapters/note_embed_plugin";
+import {
   create_wiki_suggest_prose_plugin,
   set_block_suggestions,
+  set_heading_suggestions,
 } from "$lib/features/editor/adapters/wiki_suggest_plugin";
 
 let view: EditorView | null = null;
@@ -156,5 +163,85 @@ describe("wiki block suggestion acceptance", () => {
     await Promise.resolve();
 
     expect(view.state.doc.textContent).toBe("changed[[target#^");
+  });
+});
+
+describe("wiki heading suggestion acceptance", () => {
+  function accept_heading(markdown: string, caret_after: string): ProseNode {
+    const doc = parse_markdown(markdown);
+    const target = document.createElement("div");
+    document.body.appendChild(target);
+    const mounted_view = new EditorView(target, {
+      state: EditorState.create({
+        schema,
+        doc,
+        plugins: [
+          create_wiki_suggest_prose_plugin({
+            on_query: vi.fn(),
+            on_dismiss: vi.fn(),
+            base_note_path: "source.md",
+          }),
+          create_note_embed_plugin(),
+        ],
+      }),
+    });
+    view = mounted_view;
+    let caret = -1;
+    doc.descendants((node, pos) => {
+      if (node.isText && node.text?.startsWith(caret_after)) {
+        caret = pos + caret_after.length;
+      }
+    });
+    mounted_view.dispatch(
+      mounted_view.state.tr.setSelection(TextSelection.create(doc, caret)),
+    );
+    set_heading_suggestions(mounted_view, [{ text: "Target", level: 2 }]);
+    mounted_view.someProp("handleKeyDown", (handler) =>
+      handler(mounted_view, new KeyboardEvent("keydown", { key: "Enter" })),
+    );
+    return mounted_view.state.doc;
+  }
+
+  it.each([
+    ["heading", "## Next heading\n\nbody\n"],
+    ["paragraph", "next paragraph\n"],
+    ["code fence", "```ts\nconst a = 1;\n```\n"],
+    ["thematic break", "---\n\nafter\n"],
+    ["list", "- item\n"],
+  ])("leaves a following %s intact when no closer exists", (_name, next) => {
+    const accepted = accept_heading(
+      `intro\n\n![[Other#\n\n${next}`,
+      "![[Other#",
+    );
+
+    expect(serialize_markdown(accepted)).toBe(
+      `intro\n\n![[Other#Target]]\n\n${next}`,
+    );
+  });
+
+  it("accepts at the end of the document without a closer", () => {
+    const accepted = accept_heading("intro\n\n![[Other#\n", "![[Other#");
+
+    expect(serialize_markdown(accepted)).toBe("intro\n\n![[Other#Target]]\n");
+  });
+
+  it.each([
+    [
+      "exactly an auto-paired closer",
+      "[[Other#]] tail\n",
+      "[[Other#Target]] tail",
+    ],
+    [
+      "nothing mid-line without a closer",
+      "[[Other#tail\n",
+      "[[Other#Target]]tail",
+    ],
+    [
+      "nothing before a lone bracket",
+      "[[Other#] tail\n",
+      "[[Other#Target]]] tail",
+    ],
+  ])("consumes %s", (_name, markdown, text) => {
+    expect(accept_heading(markdown, "[[Other#").textContent).toBe(text);
   });
 });

@@ -1,6 +1,9 @@
 /** @vitest-environment jsdom */
 import { describe, expect, it, vi } from "vitest";
-import { embed_src_matches_path } from "$lib/features/editor/adapters/note_embed_view_plugin";
+import {
+  embed_src_matches_path,
+  extract_heading_section,
+} from "$lib/features/editor/adapters/note_embed_view_plugin";
 import { create_prosemirror_editor_port } from "$lib/features/editor/adapters/prosemirror_adapter";
 import { undoDepth } from "prosemirror-history";
 
@@ -25,6 +28,79 @@ describe("embed_src_matches_path", () => {
 
   it("rejects unrelated paths", () => {
     expect(embed_src_matches_path("alpha", "beta.md")).toBe(false);
+  });
+});
+
+describe("extract_heading_section", () => {
+  it("ends a section at the next heading of the same or higher level", () => {
+    const markdown = "# Top\n\n## A\na\n\n### Sub\ns\n\n## B\nb\n";
+
+    expect(extract_heading_section(markdown, "A")).toBe(
+      "## A\na\n\n### Sub\ns\n\n",
+    );
+  });
+
+  it("runs to the end of the note when no heading follows", () => {
+    expect(extract_heading_section("## A\na\n", "a")).toBe("## A\na\n");
+  });
+
+  it("ends a section at a setext heading", () => {
+    const markdown = "## A\na\n\nNext\n---\nb\n";
+
+    expect(extract_heading_section(markdown, "A")).toBe("## A\na\n\n");
+  });
+
+  it("finds a setext heading as the target", () => {
+    const markdown = "Title\n=====\nt\n\n# Next\n";
+
+    expect(extract_heading_section(markdown, "Title")).toBe(
+      "Title\n=====\nt\n\n",
+    );
+  });
+
+  it("does not end a section at a hash line inside a fence", () => {
+    const markdown = "## A\n\n```sh\n# comment\n```\n\nafter\n\n## B\n";
+
+    expect(extract_heading_section(markdown, "A")).toBe(
+      "## A\n\n```sh\n# comment\n```\n\nafter\n\n",
+    );
+  });
+
+  it("does not take a hash line inside a fence as the target", () => {
+    expect(extract_heading_section("```\n# A\n```\n", "A")).toBe("");
+  });
+
+  it("does not end a section at a thematic break", () => {
+    const markdown = "## A\na\n\n---\n\nb\n";
+
+    expect(extract_heading_section(markdown, "A")).toBe(markdown);
+  });
+
+  it("matches a heading with a closing hash sequence", () => {
+    expect(extract_heading_section("## A ##\na\n", "A")).toBe("## A ##\na\n");
+  });
+
+  it("matches the source text of a heading with inline formatting", () => {
+    const markdown = "## **Bold** title\na\n";
+
+    expect(extract_heading_section(markdown, "**Bold** title")).toBe(markdown);
+  });
+
+  it.each(["C#", "c#"])("matches literal trailing hashes in %j", (target) => {
+    const markdown = "## C#\na\n\n## Next\nb\n";
+
+    expect(extract_heading_section(markdown, target)).toBe("## C#\na\n\n");
+  });
+
+  it("preserves stripped matching for formatted headings with trailing hashes", () => {
+    const markdown = "## **Bold** title#\na\n";
+
+    expect(extract_heading_section(markdown, "**Bold** title")).toBe(markdown);
+    expect(extract_heading_section(markdown, "**Bold** title#")).toBe(markdown);
+  });
+
+  it("returns nothing for a missing heading", () => {
+    expect(extract_heading_section("## A\n", "B")).toBe("");
   });
 });
 
