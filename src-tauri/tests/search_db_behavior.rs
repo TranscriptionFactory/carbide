@@ -2624,7 +2624,7 @@ fn folder_scope_unions_paths_and_prefixes_and_intersects_dates() {
         .map(String::from)
         .collect();
     assert_eq!(
-        crate::features::search::hybrid::resolve_allowed_paths(&conn, Some((100, 200)), Some(&scope))
+        crate::features::search::hybrid::resolve_allowed_paths(&conn, Some((100, 200)), Some(&scope), None)
             .expect("date scope"),
         Some(expected)
     );

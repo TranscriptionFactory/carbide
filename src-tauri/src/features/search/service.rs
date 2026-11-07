@@ -353,6 +353,7 @@ pub struct SearchQueryInput {
     pub raw: String,
     pub text: String,
     pub scope: SearchScope,
+    pub path_filter: Option<String>,
 }
 
 #[derive(Clone, Serialize, Type)]
@@ -3552,7 +3553,7 @@ pub fn index_search_inner(
     let max = limit.unwrap_or(50);
     let include_linked = include_linked.unwrap_or(true);
     with_read_conn(&app, &vault_id, |conn| {
-        search_db::search(conn, &query.text, query.scope, max, None, include_linked, None)
+        hybrid::fts_search(conn, &query, max, include_linked)
     })
 }
 
@@ -4560,7 +4561,7 @@ pub(crate) fn search_blocks_indexed(
     if limit == 0 {
         return Ok(Vec::new());
     }
-    let allowed = hybrid::resolve_allowed_paths(conn, date_range, scope)?;
+    let allowed = hybrid::resolve_allowed_paths(conn, date_range, scope, None)?;
     let scoped_keys: Option<Vec<&str>> = allowed.as_ref().map(|paths| idx.keys().filter(|key| {
         vector_db::parse_block_window_key(key).is_some_and(|(path, _, _)| paths.contains(path))
     }).collect());
@@ -4694,6 +4695,7 @@ pub(crate) fn context_search_sync(
         raw: query.to_string(),
         text: query.to_string(),
         scope: SearchScope::All,
+        path_filter: None,
     };
 
     // Agent/MCP-facing search has no user setting to read; linked sources stay in.

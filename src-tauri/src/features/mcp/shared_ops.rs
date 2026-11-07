@@ -702,6 +702,7 @@ pub fn search_notes_index(
         raw: query.to_string(),
         text: query.to_string(),
         scope: SearchScope::All,
+        path_filter: None,
     };
 
     search_service::index_search_inner(

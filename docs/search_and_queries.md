@@ -19,6 +19,22 @@ The omnibar is the unified entry point for search, commands, and navigation. It 
 
 Cross-vault search is supported — results aggregate across all open vaults.
 
+### Search Operators
+
+An operator at the start of the input narrows a plain search. Operators are recognised only in that leading position.
+
+| Operator        | Example              | Effect                                                    |
+| --------------- | -------------------- | --------------------------------------------------------- |
+| `path:FOLDER`   | `path:2_REFS text`   | Searches for `text` only in notes under a matching folder |
+| `title:TERMS`   | `title:project plan` | Returns only notes whose title matches the terms          |
+| `content:TERMS` | `content:budget`     | Returns only notes whose body matches the terms           |
+
+`path:` takes one value, and everything after it is the search text. Quote a value that contains spaces: `path:"My Folder" text`. With no search text, `path:2_REFS` lists the notes in that folder, up to the result limit.
+
+The value matches any part of a folder path, ignoring case, so `path:refs` finds `2_REFS/`, `a/2_REFS/` and also `prefs/`. File names are not matched, and neither are notes at the vault root. End the value with a slash to anchor the end of a folder name: `path:refs/` finds `2_REFS/` but not `refs_old/`.
+
+With `title:` and `content:`, semantic search can raise a matching note in the results but cannot add a note that does not match.
+
 **Shortcut**: `Cmd+O` / `Ctrl+O` opens the omnibar in note-search mode directly.
 
 ## @ Palette (Inline Mentions)

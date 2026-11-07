@@ -229,6 +229,20 @@ describe("SearchService.search_omnibar structured queries", () => {
     expect(search_port.hybrid_search).not.toHaveBeenCalled();
   });
 
+  it("keeps a quoted path: operator out of the query solver", async () => {
+    const search_port = make_mock_search_port();
+    const hybrid_search = vi.spyOn(search_port, "hybrid_search");
+    const { service } = make_service_with_backends(search_port);
+
+    await service.search_omnibar('path:"My Folder" text');
+
+    expect(hybrid_search).toHaveBeenCalledTimes(1);
+    expect(hybrid_search.mock.calls[0]?.[1]).toMatchObject({
+      text: "text",
+      path_filter: "My Folder",
+    });
+  });
+
   it("returns note rows for a sections query", async () => {
     const search_port = make_mock_search_port();
     vi.mocked(search_port.query_sections).mockResolvedValue([
