@@ -324,3 +324,22 @@ describe("preview theme token reads", () => {
     expect(computed).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("Live HTML runtime integration", () => {
+  const source = '<div x-data="{}" class="bg-background">Live</div>';
+
+  it("provides the same detected runtime to Live fences", () => {
+    const doc = build_code_preview_srcdoc("html", source);
+    expect(doc).toContain('data-carbide-live-runtime="tailwind"');
+    expect(doc).toContain('data-carbide-live-runtime="alpine"');
+  });
+
+  it("does not add runtime to Safe fences or plain Live content", () => {
+    expect(build_safe_code_preview_srcdoc("html", source)).not.toContain(
+      "data-carbide-live",
+    );
+    expect(build_code_preview_srcdoc("html", "<p>Plain</p>")).not.toContain(
+      "data-carbide-live",
+    );
+  });
+});
