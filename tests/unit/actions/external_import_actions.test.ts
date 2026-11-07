@@ -124,7 +124,7 @@ describe("filetree_import_external_files action", () => {
     expect(created_paths).toEqual(["docs/spec-2.md"]);
   });
 
-  it("anchors dropped assets to the target folder", async () => {
+  it("writes dropped assets directly into the target folder", async () => {
     const { registry, write_image_asset } = build_harness();
 
     await import_files(
@@ -137,8 +137,8 @@ describe("filetree_import_external_files action", () => {
     expect(write_image_asset.mock.calls[0]?.[1]).toMatchObject({
       note_path: as_note_path("projects/active/import.md"),
       custom_filename: "report.pdf",
-      attachment_folder: ".assets",
       target_folder: "projects/active",
+      save_to_target_folder: true,
     });
   });
 

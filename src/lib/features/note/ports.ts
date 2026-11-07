@@ -23,6 +23,7 @@ export type WriteImageAssetInput = {
   custom_filename?: string;
   attachment_folder?: string;
   target_folder?: string;
+  save_to_target_folder?: boolean;
   subfolder?: string;
 };
 

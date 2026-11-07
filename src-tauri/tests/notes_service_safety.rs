@@ -269,6 +269,7 @@ fn image_args(
         custom_filename: None,
         attachment_folder: attachment_folder.map(str::to_string),
         target_folder: target_folder.map(str::to_string),
+        save_to_target_folder: false,
         subfolder: subfolder.map(str::to_string),
     }
 }
@@ -292,6 +293,23 @@ fn asset_dir_joins_subfolder_after_the_attachment_folder() {
         asset_dir(&image_args(Some(".assets"), Some("notes"), Some("Foo"))).unwrap(),
         PathBuf::from("notes/.assets/Foo")
     );
+}
+
+#[test]
+fn asset_dir_can_write_directly_to_the_target_folder() {
+    let mut args = image_args(Some(".assets"), Some("2_REFS"), None);
+    args.save_to_target_folder = true;
+    assert_eq!(asset_dir(&args).unwrap(), PathBuf::from("2_REFS"));
+}
+
+#[test]
+fn direct_target_write_still_rejects_traversal() {
+    let root = mk_temp_dir();
+    let mut args = image_args(None, Some("../outside"), None);
+    args.save_to_target_folder = true;
+    let path = storage::normalize_relative_path(&asset_dir(&args).unwrap().join("a.pdf"));
+    assert!(safe_vault_abs(&root, &path).is_err());
+    let _ = std::fs::remove_dir_all(&root);
 }
 
 #[test]

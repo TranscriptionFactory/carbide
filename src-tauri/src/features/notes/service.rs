@@ -832,6 +832,8 @@ pub struct WriteImageAssetArgs {
     #[serde(default)]
     pub target_folder: Option<String>,
     #[serde(default)]
+    pub save_to_target_folder: bool,
+    #[serde(default)]
     pub subfolder: Option<String>,
 }
 
@@ -936,14 +938,23 @@ pub(crate) fn asset_dir(args: &WriteImageAssetArgs) -> Result<PathBuf, String> {
         return Err("invalid attachment folder name".to_string());
     }
 
-    let mut dir = match args
-        .target_folder
-        .as_deref()
-        .map(str::trim)
-        .filter(|folder| !folder.is_empty())
-    {
-        Some(target_folder) => PathBuf::from(target_folder).join(attachment_folder),
-        None => PathBuf::from(attachment_folder),
+    let mut dir = if args.save_to_target_folder {
+        args.target_folder
+            .as_deref()
+            .map(str::trim)
+            .filter(|folder| !folder.is_empty())
+            .map(PathBuf::from)
+            .unwrap_or_default()
+    } else {
+        match args
+            .target_folder
+            .as_deref()
+            .map(str::trim)
+            .filter(|folder| !folder.is_empty())
+        {
+            Some(target_folder) => PathBuf::from(target_folder).join(attachment_folder),
+            None => PathBuf::from(attachment_folder),
+        }
     };
 
     if let Some(subfolder) = args.subfolder.as_deref() {
