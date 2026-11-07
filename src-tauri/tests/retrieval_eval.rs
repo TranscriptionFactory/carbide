@@ -363,7 +363,7 @@ fn run_vector(
     };
     let over_fetch = limit * 3;
     let vector_fetch = if date_range.is_some() { (limit * 20).max(500) } else { over_fetch };
-    let allowed = hybrid::resolve_allowed_paths(conn, date_range, scope).unwrap_or(None);
+    let allowed = hybrid::resolve_allowed_paths(conn, date_range, scope, None).unwrap_or(None);
 
     let idx = note_index.read().expect("index lock");
     let hits = hybrid::vector_leg(
@@ -392,6 +392,7 @@ fn run_hybrid(
         raw: query.to_string(),
         text: query.to_string(),
         scope: SearchScope::All,
+        path_filter: None,
     };
     let idx = note_index.read().expect("index lock");
     hybrid::hybrid_search(conn, &idx, model, &query_input, limit, date_range, true, scope)
@@ -417,6 +418,7 @@ fn run_hybrid_rerank(
         raw: query.to_string(),
         text: query.to_string(),
         scope: SearchScope::All,
+        path_filter: None,
     };
     let candidates = {
         let notes = note_index.read().expect("index lock");

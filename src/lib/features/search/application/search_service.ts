@@ -633,7 +633,7 @@ export class SearchService {
     const parsed = parse_search_query(query);
     const hits = await this.search_port.hybrid_search(
       vault_id,
-      { raw: parsed.raw, text: parsed.text, scope: parsed.scope },
+      parsed,
       options?.limit ?? 20,
       null,
       options?.include_linked ?? true,
@@ -724,7 +724,7 @@ export class SearchService {
         return {
           domain: "notes",
           items: this.blend_top_commands(
-            this.rank_note_items(items, raw_query),
+            this.rank_note_items(items, parsed.text),
             parsed,
           ),
         };
@@ -754,7 +754,7 @@ export class SearchService {
     return {
       domain: "notes",
       items: this.blend_top_commands(
-        this.rank_note_items(fts_items, raw_query),
+        this.rank_note_items(fts_items, parsed.text),
         parsed,
       ),
       status: result.status,
@@ -765,7 +765,9 @@ export class SearchService {
     items: OmnibarItem[],
     parsed: SearchQuery,
   ): OmnibarItem[] {
-    if (parsed.scope !== "all" || !parsed.text.trim()) return items;
+    if (parsed.scope !== "all" || parsed.path_filter || !parsed.text.trim()) {
+      return items;
+    }
     const commands = this.search_commands(parsed.text).slice(
       0,
       BLENDED_COMMAND_LIMIT,

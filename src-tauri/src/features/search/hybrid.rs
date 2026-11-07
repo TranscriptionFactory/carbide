@@ -1,7 +1,9 @@
 use crate::features::search::db as search_db;
 use crate::features::search::embeddings::{usable_query_vector, EmbeddingService};
 use crate::features::search::hnsw_index::VectorIndex;
-use crate::features::search::model::{HitSource, HybridSearchHit, ScopeFilter, SearchHit};
+use crate::features::search::model::{
+    HitSource, HybridSearchHit, ScopeFilter, SearchHit, SearchScope,
+};
 use crate::features::search::service::SearchQueryInput;
 use rusqlite::Connection;
 use std::collections::{HashMap, HashSet};
@@ -14,13 +16,15 @@ use std::collections::{HashMap, HashSet};
 /// rather than paying for a full scan.
 pub(crate) const FILTERED_EXACT_MAX: usize = 20_000;
 
-/// Resolves a date range and/or a path scope to the set of note paths a query
-/// is allowed to return, or `None` when neither restricts anything. The two
-/// are ANDed together: a path must satisfy both to survive.
+/// Resolves a date range, a path scope and/or a `path:` folder filter to the
+/// set of note paths a query is allowed to return, or `None` when none of them
+/// restricts anything. They are ANDed together: a path must satisfy all of
+/// them to survive. An empty set means nothing is eligible, not "unrestricted".
 pub(crate) fn resolve_allowed_paths(
     conn: &Connection,
     date_range: Option<(i64, i64)>,
     path_scope: Option<&ScopeFilter>,
+    path_filter: Option<&str>,
 ) -> Result<Option<HashSet<String>>, String> {
     let mut allowed = date_range
         .map(|(start_ms, end_ms)| search_db::paths_in_mtime_range(conn, start_ms, end_ms))
@@ -28,13 +32,119 @@ pub(crate) fn resolve_allowed_paths(
 
     if let Some(sf) = path_scope.filter(|s| s.is_active()) {
         let scoped = search_db::paths_matching_scope(conn, sf)?;
-        allowed = Some(match allowed {
-            Some(existing) => existing.intersection(&scoped).cloned().collect(),
-            None => scoped,
-        });
+        allowed = Some(intersect_allowed(allowed, scoped));
+    }
+
+    if let Some(value) = path_filter {
+        let in_folder = paths_in_matching_folder(conn, value)?;
+        allowed = Some(intersect_allowed(allowed, in_folder));
     }
 
     Ok(allowed)
+}
+
+fn intersect_allowed(
+    allowed: Option<HashSet<String>>,
+    paths: HashSet<String>,
+) -> HashSet<String> {
+    match allowed {
+        Some(existing) => existing.intersection(&paths).cloned().collect(),
+        None => paths,
+    }
+}
+
+fn paths_in_matching_folder(conn: &Connection, value: &str) -> Result<HashSet<String>, String> {
+    let needle = value.to_lowercase();
+    let paths = search_db::list_note_paths_by_prefix(conn, "")?;
+    Ok(paths
+        .into_iter()
+        .filter(|path| folder_contains(path, &needle))
+        .collect())
+}
+
+// Only the folders count: `1_LOGS/2_REFS notes.md` is not under `2_REFS`. The
+// trailing slash stays in the haystack so `path:2_REFS/` matches too.
+fn folder_contains(path: &str, lowercase_needle: &str) -> bool {
+    path.rfind('/').is_some_and(|slash| {
+        path[..=slash].to_lowercase().contains(lowercase_needle)
+    })
+}
+
+/// FTS-only search honouring the query's `path:` filter, for callers without
+/// the vector index.
+pub(crate) fn fts_search(
+    conn: &Connection,
+    query: &SearchQueryInput,
+    limit: usize,
+    include_linked: bool,
+) -> Result<Vec<SearchHit>, String> {
+    let allowed = resolve_allowed_paths(conn, None, None, query.path_filter.as_deref())?;
+    if let Some(hits) = folder_listing(conn, query, allowed.as_ref(), limit, include_linked)? {
+        return Ok(hits);
+    }
+
+    let scope = allowed.as_ref().map(exact_paths_scope);
+    search_db::search(
+        conn,
+        &query.text,
+        query.scope,
+        limit,
+        None,
+        include_linked,
+        scope.as_ref(),
+    )
+}
+
+// The `path:` outcomes no ranked search can give: an empty `ScopeFilter` is
+// inactive, so a folder that matched nothing must stop here or FTS would search
+// the whole vault, and blank text has nothing to rank on.
+fn folder_listing(
+    conn: &Connection,
+    query: &SearchQueryInput,
+    allowed: Option<&HashSet<String>>,
+    limit: usize,
+    include_linked: bool,
+) -> Result<Option<Vec<SearchHit>>, String> {
+    let needs_listing = |allowed: &&HashSet<String>| {
+        query.path_filter.is_some() && (allowed.is_empty() || query.text.trim().is_empty())
+    };
+    allowed
+        .filter(needs_listing)
+        .map(|allowed| list_allowed_notes(conn, allowed, limit, include_linked))
+        .transpose()
+}
+
+fn exact_paths_scope(allowed: &HashSet<String>) -> ScopeFilter {
+    ScopeFilter {
+        paths: allowed.iter().cloned().collect(),
+        prefixes: Vec::new(),
+    }
+}
+
+fn list_allowed_notes(
+    conn: &Connection,
+    allowed: &HashSet<String>,
+    limit: usize,
+    include_linked: bool,
+) -> Result<Vec<SearchHit>, String> {
+    let mut paths: Vec<&String> = allowed
+        .iter()
+        .filter(|path| include_linked || !search_db::is_linked_path(path))
+        .collect();
+    paths.sort();
+
+    let mut hits = Vec::new();
+    for path in paths.into_iter().take(limit) {
+        if let Some(note) = search_db::get_note_meta(conn, path)? {
+            hits.push(SearchHit {
+                note,
+                score: 0.0,
+                snippet: None,
+                snippet_page: None,
+            });
+        }
+    }
+    Ok(hits)
 }
 
 pub fn hybrid_search(
@@ -47,11 +157,10 @@ pub fn hybrid_search(
     include_linked: bool,
     path_scope: Option<&ScopeFilter>,
 ) -> Result<Vec<HybridSearchHit>, String> {
-    let query_vec = model.embed_query(&query.text)?;
-    search_with_vector(
+    search_with_embedder(
         conn,
         note_index,
-        query_vec,
+        || model.embed_query(&query.text),
         query,
         limit,
         date_range,
@@ -61,10 +170,10 @@ pub fn hybrid_search(
 }
 
 #[allow(clippy::too_many_arguments)]
-fn search_with_vector(
+fn search_with_embedder(
     conn: &Connection,
     note_index: &VectorIndex,
-    query_vec: Vec<f32>,
+    embed_query: impl FnOnce() -> Result<Vec<f32>, String>,
     query: &SearchQueryInput,
     limit: usize,
     date_range: Option<(i64, i64)>,
@@ -83,9 +192,24 @@ fn search_with_vector(
         over_fetch
     };
 
-    let allowed = resolve_allowed_paths(conn, date_range, path_scope)?;
+    let allowed = resolve_allowed_paths(
+        conn,
+        date_range,
+        path_scope,
+        query.path_filter.as_deref(),
+    )?;
 
-    let vector_hits = vector_leg(
+    if let Some(hits) = folder_listing(conn, query, allowed.as_ref(), limit, include_linked)? {
+        return Ok(hits.into_iter().map(listed_hybrid_hit).collect());
+    }
+
+    let query_vec = embed_query()?;
+    let folder_scope = allowed
+        .as_ref()
+        .filter(|_| query.path_filter.is_some())
+        .map(exact_paths_scope);
+
+    let mut vector_hits = vector_leg(
         note_index,
         query_vec,
         &query.text,
@@ -103,11 +227,18 @@ fn search_with_vector(
         over_fetch,
         date_range,
         include_linked,
-        path_scope,
+        folder_scope.as_ref().or(path_scope),
     )
     .unwrap_or_default();
 
     let fts_paths: Vec<&str> = fts_hits.iter().map(|h| h.note.path.as_str()).collect();
+
+    // A column operator asks for matches in that column, which only FTS can
+    // tell: the vector leg may rerank those notes but not add to them.
+    if !matches!(query.scope, SearchScope::All) {
+        vector_hits.retain(|(path, _)| fts_paths.contains(&path.as_str()));
+    }
+
     let phrase_paths =
         search_db::paths_matching_phrase(conn, &query.text, query.scope, &fts_paths)
             .unwrap_or_default();
@@ -122,6 +253,16 @@ fn search_with_vector(
     );
 
     Ok(merged)
+}
+
+fn listed_hybrid_hit(hit: SearchHit) -> HybridSearchHit {
+    HybridSearchHit {
+        note: hit.note,
+        score: hit.score,
+        snippet: hit.snippet,
+        snippet_page: hit.snippet_page,
+        source: HitSource::Fts,
+    }
 }
 
 // An unusable query vector (encoder NaN, zeroed by normalization) is
@@ -296,7 +437,7 @@ fn rrf_merge(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::features::search::model::{IndexNoteMeta, SearchScope};
+    use crate::features::search::model::IndexNoteMeta;
 
     fn hit(path: &str, title: &str) -> SearchHit {
         SearchHit {
@@ -474,21 +615,222 @@ mod tests {
         hits.iter().map(|h| h.note.path.as_str()).collect()
     }
 
+    fn query(text: &str, scope: SearchScope, path_filter: Option<&str>) -> SearchQueryInput {
+        SearchQueryInput {
+            raw: text.into(),
+            text: text.into(),
+            scope,
+            path_filter: path_filter.map(String::from),
+        }
+    }
+
+    fn unit_vector() -> Result<Vec<f32>, String> {
+        Ok(vec![1.0, 0.0])
+    }
+
+    fn search(
+        conn: &Connection,
+        index: &VectorIndex,
+        query: &SearchQueryInput,
+    ) -> Vec<HybridSearchHit> {
+        search_with_embedder(conn, index, unit_vector, query, 20, None, true, None)
+            .expect("search")
+    }
+
+    fn sorted_paths(hits: &[HybridSearchHit]) -> Vec<&str> {
+        let mut paths = result_paths(hits);
+        paths.sort();
+        paths
+    }
+
     #[test]
     fn path_operator_excludes_vector_hits_outside_the_scoped_folder() {
         let (_dir, conn, index) =
             indexed_vault(&[("2_REFS/a.md", "text in refs"), ("1_LOGS/b.md", "text in logs")]);
-        let query = SearchQueryInput {
-            raw: "path:2_REFS text".into(),
-            text: "2_REFS text".into(),
-            scope: SearchScope::Path,
-        };
 
-        let hits =
-            search_with_vector(&conn, &index, vec![1.0, 0.0], &query, 20, None, true, None)
-                .expect("search");
+        let hits = search(&conn, &index, &query("text", SearchScope::All, Some("2_REFS")));
 
         assert_eq!(result_paths(&hits), vec!["2_REFS/a.md"]);
+        assert_eq!(hits[0].source, HitSource::Both);
+    }
+
+    #[test]
+    fn path_operator_ranks_on_the_free_text_not_the_folder_name() {
+        let (_dir, conn, index) =
+            indexed_vault(&[("2_REFS/a.md", "unrelated"), ("2_REFS/b.md", "needle")]);
+
+        let hits = search(&conn, &index, &query("needle", SearchScope::All, Some("2_REFS")));
+
+        assert_eq!(hits[0].note.path, "2_REFS/b.md");
+    }
+
+    #[test]
+    fn path_operator_alone_lists_only_that_folders_notes() {
+        let (_dir, conn, index) = indexed_vault(&[
+            ("2_REFS/b.md", "one"),
+            ("2_REFS/a.md", "two"),
+            ("1_LOGS/c.md", "three"),
+        ]);
+
+        let hits = search(&conn, &index, &query("", SearchScope::All, Some("2_REFS")));
+
+        assert_eq!(result_paths(&hits), vec!["2_REFS/a.md", "2_REFS/b.md"]);
+    }
+
+    #[test]
+    fn path_operator_matches_any_folder_segment_case_insensitively() {
+        let (_dir, conn, index) = indexed_vault(&[
+            ("2_REFS/a.md", "text"),
+            ("a/2_REFS/b.md", "text"),
+            ("a/2_REFS/deep/c.md", "text"),
+            ("1_LOGS/d.md", "text"),
+        ]);
+
+        let hits = search(&conn, &index, &query("text", SearchScope::All, Some("refs")));
+
+        assert_eq!(
+            sorted_paths(&hits),
+            vec!["2_REFS/a.md", "a/2_REFS/b.md", "a/2_REFS/deep/c.md"]
+        );
+    }
+
+    #[test]
+    fn path_operator_matches_a_folder_name_containing_a_space() {
+        let (_dir, conn, index) =
+            indexed_vault(&[("My Folder/a.md", "text"), ("Other/b.md", "text")]);
+
+        let hits = search(&conn, &index, &query("text", SearchScope::All, Some("My Folder")));
+
+        assert_eq!(result_paths(&hits), vec!["My Folder/a.md"]);
+    }
+
+    #[test]
+    fn path_operator_ignores_file_names_and_vault_root_notes() {
+        let (_dir, conn, index) = indexed_vault(&[
+            ("2_REFS/a.md", "text"),
+            ("1_LOGS/2_REFS notes.md", "text"),
+            ("2_REFS.md", "text"),
+        ]);
+
+        let hits = search(&conn, &index, &query("text", SearchScope::All, Some("2_REFS")));
+
+        assert_eq!(result_paths(&hits), vec!["2_REFS/a.md"]);
+    }
+
+    #[test]
+    fn path_operator_accepts_a_trailing_slash() {
+        let (_dir, conn, index) =
+            indexed_vault(&[("2_REFS/a.md", "text"), ("2_REFS_old/b.md", "text")]);
+
+        let hits = search(&conn, &index, &query("text", SearchScope::All, Some("2_REFS/")));
+
+        assert_eq!(result_paths(&hits), vec!["2_REFS/a.md"]);
+    }
+
+    #[test]
+    fn path_operator_matching_no_folder_returns_nothing() {
+        let (_dir, conn, index) = indexed_vault(&[("2_REFS/a.md", "text")]);
+
+        let with_text = query("text", SearchScope::All, Some("missing"));
+        let alone = query("", SearchScope::All, Some("missing"));
+
+        assert!(search(&conn, &index, &with_text).is_empty());
+        assert!(search(&conn, &index, &alone).is_empty());
+        assert!(fts_search(&conn, &with_text, 20, true).expect("fts").is_empty());
+        assert!(fts_search(&conn, &alone, 20, true).expect("fts").is_empty());
+    }
+
+    #[test]
+    fn path_operator_listing_never_embeds_the_query() {
+        let (_dir, conn, index) = indexed_vault(&[("2_REFS/a.md", "text")]);
+        let alone = query("", SearchScope::All, Some("2_REFS"));
+
+        let hits = search_with_embedder(
+            &conn,
+            &index,
+            || Err("embedder unavailable".to_string()),
+            &alone,
+            20,
+            None,
+            true,
+            None,
+        )
+        .expect("search");
+
+        assert_eq!(result_paths(&hits), vec!["2_REFS/a.md"]);
+    }
+
+    #[test]
+    fn path_operator_listing_respects_the_linked_source_setting() {
+        let (_dir, conn, index) =
+            indexed_vault(&[("@linked/refs/a.md", "text"), ("refs/b.md", "text")]);
+        let alone = query("", SearchScope::All, Some("refs"));
+
+        let hits =
+            search_with_embedder(&conn, &index, unit_vector, &alone, 20, None, false, None)
+                .expect("search");
+
+        assert_eq!(result_paths(&hits), vec!["refs/b.md"]);
+    }
+
+    #[test]
+    fn fts_search_applies_the_path_operator_without_the_vector_index() {
+        let (_dir, conn, _index) =
+            indexed_vault(&[("2_REFS/a.md", "text"), ("1_LOGS/b.md", "text")]);
+
+        let with_text = query("text", SearchScope::All, Some("2_REFS"));
+        let alone = query("", SearchScope::All, Some("2_REFS"));
+
+        for hits in [
+            fts_search(&conn, &with_text, 20, true).expect("fts"),
+            fts_search(&conn, &alone, 20, true).expect("fts"),
+        ] {
+            let paths: Vec<&str> = hits.iter().map(|h| h.note.path.as_str()).collect();
+            assert_eq!(paths, vec!["2_REFS/a.md"]);
+        }
+    }
+
+    #[test]
+    fn allowed_paths_intersect_the_folder_filter_with_the_path_scope() {
+        let (_dir, conn, _index) =
+            indexed_vault(&[("2_REFS/a.md", "text"), ("2_REFS/b.md", "text")]);
+        let scope = ScopeFilter {
+            paths: vec!["2_REFS/a.md".into()],
+            prefixes: Vec::new(),
+        };
+
+        let allowed = resolve_allowed_paths(&conn, None, Some(&scope), Some("refs"))
+            .expect("resolve")
+            .expect("restricted");
+
+        assert_eq!(allowed, HashSet::from(["2_REFS/a.md".to_string()]));
+    }
+
+    #[test]
+    fn title_operator_returns_no_vector_only_hits() {
+        let (_dir, conn, index) = indexed_vault(&[("foo.md", "body"), ("other.md", "foo")]);
+
+        let hits = search(&conn, &index, &query("foo", SearchScope::Title, None));
+
+        assert_eq!(result_paths(&hits), vec!["foo.md"]);
+    }
+
+    #[test]
+    fn content_operator_returns_no_vector_only_hits() {
+        let (_dir, conn, index) = indexed_vault(&[("a.md", "foo here"), ("b.md", "nothing")]);
+
+        let hits = search(&conn, &index, &query("foo", SearchScope::Content, None));
+
+        assert_eq!(result_paths(&hits), vec!["a.md"]);
+    }
+
+    #[test]
+    fn unscoped_query_keeps_vector_only_hits() {
+        let (_dir, conn, index) = indexed_vault(&[("a.md", "foo here"), ("b.md", "nothing")]);
+
+        let hits = search(&conn, &index, &query("foo", SearchScope::All, None));
+
+        assert_eq!(sorted_paths(&hits), vec!["a.md", "b.md"]);
     }
 
     #[test]

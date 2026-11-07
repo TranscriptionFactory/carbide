@@ -28,9 +28,13 @@ export type SearchQuery = {
   text: string;
   scope: SearchScope;
   domain: SearchDomain;
+  path_filter?: string;
 };
 
-export type SearchQueryInput = Pick<SearchQuery, "raw" | "text" | "scope">;
+export type SearchQueryInput = Pick<
+  SearchQuery,
+  "raw" | "text" | "scope" | "path_filter"
+>;
 
 export type DateRange = { start_ms: number; end_ms: number };
 

@@ -795,6 +795,77 @@ describe("SearchService", () => {
       });
     });
 
+    function make_omnibar_service(
+      search_port: ReturnType<typeof make_search_port>,
+    ) {
+      const vault_store = new VaultStore();
+      vault_store.set_vault(create_test_vault());
+      return new SearchService(
+        search_port,
+        vault_store,
+        new OpStore(),
+        () => 1,
+      );
+    }
+
+    it("sends the path: folder and operator-free text to hybrid_search", async () => {
+      const search_port = make_search_port({});
+
+      await make_omnibar_service(search_port).search_omnibar(
+        "path:2_REFS text",
+      );
+
+      expect(search_port.hybrid_search.mock.calls[0]?.[1]).toMatchObject({
+        text: "text",
+        scope: "all",
+        path_filter: "2_REFS",
+      });
+    });
+
+    it("sends the path: folder to the FTS search when semantic is off", async () => {
+      const search_port = make_search_port({});
+
+      await make_omnibar_service(search_port).search_omnibar(
+        "path:2_REFS text",
+        false,
+      );
+
+      expect(search_port.search_notes.mock.calls[0]?.[1]).toMatchObject({
+        text: "text",
+        path_filter: "2_REFS",
+      });
+    });
+
+    it("ranks path: results on the operator-free text", async () => {
+      const search_port = make_search_port({
+        hybrid_search_results: [
+          make_note_hit("2_REFS/first.md", 0.9),
+          make_note_hit("2_REFS/needle.md", 0.8),
+        ],
+      });
+
+      const result =
+        await make_omnibar_service(search_port).search_omnibar(
+          "path:2_REFS needle",
+        );
+
+      expect(result.items[0]).toMatchObject({
+        note: { path: "2_REFS/needle.md" },
+      });
+    });
+
+    it("blends no commands into a path: query", async () => {
+      const search_port = make_search_port({
+        hybrid_search_results: [make_note_hit("2_REFS/a.md", 0.9)],
+      });
+
+      const result = await make_omnibar_service(search_port).search_omnibar(
+        "path:2_REFS settings",
+      );
+
+      expect(result.items.every((item) => item.kind === "note")).toBe(true);
+    });
+
     it("passes scope 'all' for unscoped queries", async () => {
       const hybrid_hit = make_note_hit("docs/notes.md", 0.9);
       const search_port = make_search_port({

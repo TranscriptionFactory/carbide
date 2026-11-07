@@ -1,10 +1,22 @@
 import type { SearchQuery, SearchScope } from "$lib/shared/types/search";
 
+const PATH_TOKEN = "path:";
+const PATH_VALUE_AND_TEXT = /^(?:"([^"]*)"?|(\S*))\s*(.*)$/s;
+
 const scope_tokens: Array<{ token: string; scope: SearchScope }> = [
-  { token: "path:", scope: "path" },
   { token: "content:", scope: "content" },
   { token: "title:", scope: "title" },
 ];
+
+function parse_path_operator(raw: string, remainder: string): SearchQuery {
+  const [, quoted, bare, text = ""] =
+    PATH_VALUE_AND_TEXT.exec(remainder.trim()) ?? [];
+  const path_filter = (quoted ?? bare ?? "").trim();
+  if (!path_filter) {
+    return { raw, text, scope: "path", domain: "notes" };
+  }
+  return { raw, text, scope: "all", domain: "notes", path_filter };
+}
 
 export function parse_search_query(raw: string): SearchQuery {
   const trimmed = raw.trim();
@@ -30,6 +42,10 @@ export function parse_search_query(raw: string): SearchQuery {
       scope: "all",
       domain: "planned",
     };
+  }
+
+  if (lower.startsWith(PATH_TOKEN)) {
+    return parse_path_operator(raw, trimmed.slice(PATH_TOKEN.length));
   }
 
   for (const { token, scope } of scope_tokens) {
