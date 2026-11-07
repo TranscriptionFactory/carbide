@@ -477,7 +477,29 @@ export class TabStore {
     this.tabs = [...pinned, updated, ...unpinned];
   }
 
-  update_tab_path(old_path: NotePath, new_path: NotePath) {
+  update_tab_path(old_path: NotePath, new_path: NotePath, file_type?: string) {
+    const document = this.tabs.find(
+      (tab) => tab.kind === "document" && tab.file_path === old_path,
+    );
+    if (document?.kind === "document") {
+      this.tabs = this.tabs.map((tab) =>
+        tab.id === document.id && tab.kind === "document"
+          ? {
+              ...tab,
+              id: new_path,
+              file_path: new_path,
+              title: note_name_from_path(new_path),
+              file_type: file_type ?? document.file_type,
+            }
+          : tab,
+      );
+      if (this.active_tab_id === document.id) this.active_tab_id = new_path;
+      this.mru_order = this.mru_order.map((id) =>
+        id === document.id ? new_path : id,
+      );
+
+      return;
+    }
     const tab = this.find_tab_by_path(old_path);
     if (!tab || tab.kind !== "note") return;
 

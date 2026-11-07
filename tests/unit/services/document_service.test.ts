@@ -101,6 +101,34 @@ describe("DocumentService", () => {
     );
   });
 
+  it("does not recreate the old path when an in-flight read rejects after Rename", async () => {
+    const document_store = new DocumentStore();
+    const vault_store = new VaultStore();
+    vault_store.set_vault(create_test_vault());
+    const document_port = create_document_port();
+    const pending = Promise.withResolvers<string>();
+    document_port.read_file.mockImplementationOnce(() => pending.promise);
+    const service = new DocumentService(
+      document_port,
+      vault_store,
+      document_store,
+    );
+    const loading = service.open_document("a.csv", "a.csv", "csv");
+    expect(document_store.get_content_state("a.csv")?.status).toBe("loading");
+    service.rename_document("a.csv", "b.tsv");
+    await vi.waitFor(() => {
+      expect(document_store.get_content_state("b.tsv")?.status).toBe("ready");
+    });
+    pending.reject(new Error("old path disappeared"));
+    await loading;
+    expect(document_store.get_content_state("a.csv")).toBeUndefined();
+    expect(document_store.get_viewer_state("a.csv")).toBeUndefined();
+    expect(document_store.get_content_state("b.tsv")).toMatchObject({
+      status: "ready",
+      content: "file content here",
+    });
+  });
+
   it("surfaces error message from string rejections", async () => {
     const document_store = new DocumentStore();
     const vault_store = new VaultStore();

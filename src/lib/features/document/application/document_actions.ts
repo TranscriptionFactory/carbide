@@ -344,6 +344,7 @@ export function register_document_actions(
 
   registry.register({
     id: ACTION_IDS.document_export_pdf,
+    when: () => stores.tab.active_tab?.kind === "note",
     label: "Export as PDF",
     execute: () => {
       if (!export_target()) return;
@@ -384,6 +385,7 @@ export function register_document_actions(
 
   registry.register({
     id: ACTION_IDS.document_export_html,
+    when: () => stores.tab.active_tab?.kind === "note",
     label: "Export as HTML",
     execute: async () => {
       const target = export_target();
@@ -400,6 +402,7 @@ export function register_document_actions(
 
   registry.register({
     id: ACTION_IDS.document_export_epub,
+    when: () => stores.tab.active_tab?.kind === "note",
     label: "Export as EPUB",
     execute: async () => {
       const target = export_target();
@@ -418,6 +421,7 @@ export function register_document_actions(
 
   registry.register({
     id: ACTION_IDS.note_copy_html,
+    when: () => stores.tab.active_tab?.kind === "note",
     label: "Copy as HTML",
     execute: async () => {
       const target = export_target();

@@ -61,6 +61,47 @@ export class DocumentStore {
   } | null>(null);
   inactive_content_limit = $state(3);
 
+  rename_document(
+    old_path: string,
+    new_path: string,
+    file_type: DocumentFileType,
+    asset_url: string,
+  ): void {
+    for (const viewer of [...this.viewer_states.values()]) {
+      if (viewer.file_path !== old_path) continue;
+      const old_id = viewer.tab_id;
+      const content = this.content_states.get(old_id);
+      const had_conflict = this.conflicted_tab_ids.has(old_id);
+      this.remove_viewer_state(old_id);
+      this.clear_content_state(old_id);
+      this.set_viewer_state(new_path, {
+        ...viewer,
+        tab_id: new_path,
+        file_path: new_path,
+        file_type,
+      });
+      if (content)
+        this.set_content_state(new_path, {
+          ...content,
+          tab_id: new_path,
+          file_path: new_path,
+          file_type,
+          asset_url,
+          buffer_id: null,
+          status: content.status === "loading" ? "error" : content.status,
+          error_message:
+            content.status === "loading"
+              ? "File renamed while loading. Reload the file."
+              : content.error_message,
+          revision: content.revision + 1,
+        });
+      if (had_conflict) {
+        this.clear_conflict(old_id);
+        this.mark_conflict(new_path);
+      }
+    }
+  }
+
   get_provenance(file_path: string): ArtifactProvenance | null {
     return this.provenance.get(file_path) ?? null;
   }

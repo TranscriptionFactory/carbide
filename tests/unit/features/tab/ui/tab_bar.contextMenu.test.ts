@@ -41,6 +41,40 @@ function is_disabled(element: HTMLElement | null): boolean {
 }
 
 describe("tab_bar.svelte context menu", () => {
+  it("dispatches document file actions and disables Copy Markdown", () => {
+    const view = render_tab_bar({
+      tabs: [
+        {
+          kind: "document",
+          id: "a.csv",
+          file_path: "a.csv",
+          file_type: "csv",
+          title: "a.csv",
+          is_pinned: false,
+          is_dirty: false,
+          pane: "primary",
+        },
+      ],
+    });
+    expect(is_disabled(get_by_testid("tab-menu-rename"))).toBe(false);
+    expect(is_disabled(get_by_testid("tab-menu-delete"))).toBe(false);
+    expect(is_disabled(get_by_testid("tab-menu-copy-markdown"))).toBe(true);
+    for (const [suffix, action] of [
+      ["rename", ACTION_IDS.file_request_rename],
+      ["delete", ACTION_IDS.file_request_delete],
+      ["duplicate", ACTION_IDS.file_duplicate],
+      ["save-as", ACTION_IDS.file_save_as],
+    ] as const) {
+      get_by_testid(`tab-menu-${suffix}`)?.click();
+      expect(view.execute).toHaveBeenCalledWith(action, "a.csv");
+    }
+    get_by_testid("tab-menu-copy-markdown")?.click();
+    expect(view.execute).not.toHaveBeenCalledWith(
+      ACTION_IDS.note_copy_markdown,
+    );
+    view.cleanup();
+  });
+
   it("dispatches the close-family actions", () => {
     const view = render_tab_bar({
       tabs: [make_note_tab("a"), make_note_tab("b")],

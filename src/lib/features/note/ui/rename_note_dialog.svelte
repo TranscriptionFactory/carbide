@@ -2,13 +2,13 @@
   import * as Dialog from "$lib/components/ui/dialog/index.js";
   import { Button } from "$lib/components/ui/button";
   import { Input } from "$lib/components/ui/input";
-  import type { NoteMeta } from "$lib/shared/types/note";
   import { parent_folder_path } from "$lib/shared/utils/path";
   import { tick } from "svelte";
 
   interface Props {
     open: boolean;
-    note: NoteMeta | null;
+    note: { path: string; title: string } | null;
+    is_file?: boolean;
     new_name: string;
     is_renaming: boolean;
     is_checking_conflict: boolean;
@@ -24,6 +24,7 @@
   let {
     open,
     note,
+    is_file = false,
     new_name,
     is_renaming,
     is_checking_conflict,
@@ -46,7 +47,9 @@
   const current_name = $derived.by(() => {
     if (!note) return "";
     const filename = note.path.split("/").pop() ?? "";
-    return filename.endsWith(".md") ? filename.slice(0, -3) : filename;
+    return !is_file && filename.endsWith(".md")
+      ? filename.slice(0, -3)
+      : filename;
   });
 
   const is_busy = $derived(is_renaming || is_checking_conflict);
@@ -61,7 +64,7 @@
   function get_display_title() {
     if (error) return "Rename Failed";
     if (show_overwrite_confirm) return "File Already Exists";
-    return "Rename Note";
+    return is_file ? "Rename File" : "Rename Note";
   }
 
   function get_display_description() {

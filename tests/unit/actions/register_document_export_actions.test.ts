@@ -217,3 +217,26 @@ describe("note.copy_html", () => {
     expect(services.clipboard.copy_rich).not.toHaveBeenCalled();
   });
 });
+
+describe("document tab export guards", () => {
+  it("disables native exports and Copy HTML even while a previous note remains loaded", async () => {
+    const { registry, stores, services, document_service } = create_harness();
+    stores.tab.open_document_tab("a.pdf", "a.pdf", "pdf");
+    for (const id of [
+      ACTION_IDS.document_export_pdf,
+      ACTION_IDS.document_export_html,
+      ACTION_IDS.document_export_epub,
+      ACTION_IDS.note_copy_html,
+    ]) {
+      expect(registry.get_available().some((action) => action.id === id)).toBe(
+        false,
+      );
+      await registry.execute(id);
+    }
+    expect(stores.ui.pdf_export_dialog.open).toBe(false);
+    expect(document_service.export_note_pdf).not.toHaveBeenCalled();
+    expect(document_service.export_note_html).not.toHaveBeenCalled();
+    expect(document_service.export_note_epub).not.toHaveBeenCalled();
+    expect(services.clipboard.copy_rich).not.toHaveBeenCalled();
+  });
+});

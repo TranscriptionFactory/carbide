@@ -1,5 +1,6 @@
 export type CommandContext = {
   has_open_note: boolean;
+  has_open_document?: boolean;
   has_git_repo: boolean;
   has_git_remote: boolean;
   is_split_view: boolean;

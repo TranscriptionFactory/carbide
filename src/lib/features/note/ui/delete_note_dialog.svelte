@@ -1,11 +1,11 @@
 <script lang="ts">
   import * as Dialog from "$lib/components/ui/dialog/index.js";
   import { Button } from "$lib/components/ui/button";
-  import type { NoteMeta } from "$lib/shared/types/note";
 
   interface Props {
     open: boolean;
-    note: NoteMeta | null;
+    note: { path: string; title: string } | null;
+    is_file?: boolean;
     is_deleting: boolean;
     error: string | null;
     on_confirm: () => void;
@@ -16,6 +16,7 @@
   let {
     open,
     note,
+    is_file = false,
     is_deleting,
     error,
     on_confirm,
@@ -32,7 +33,13 @@
 >
   <Dialog.Content class="max-w-md">
     <Dialog.Header>
-      <Dialog.Title>{error ? "Delete Failed" : "Delete Note"}</Dialog.Title>
+      <Dialog.Title
+        >{error
+          ? "Delete Failed"
+          : is_file
+            ? "Delete File"
+            : "Delete Note"}</Dialog.Title
+      >
       <Dialog.Description>
         {#if error}
           Failed to delete <span class="font-medium"

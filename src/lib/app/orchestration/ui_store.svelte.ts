@@ -320,6 +320,14 @@ export class UIStore {
     error: null,
   });
 
+  file_dialog = $state<{
+    mode: "rename" | "delete" | null;
+    path: string;
+    new_name: string;
+    pending: boolean;
+    error: string | null;
+  }>({ mode: null, path: "", new_name: "", pending: false, error: null });
+
   delete_note_dialog = $state<{ open: boolean; note: NoteMeta | null }>({
     ...INITIAL_DELETE_NOTE_DIALOG,
   });
@@ -702,6 +710,13 @@ export class UIStore {
   reset_for_new_vault() {
     this.selected_folder_path = "";
     this.filetree_revealed_note_path = "";
+    this.file_dialog = {
+      mode: null,
+      path: "",
+      new_name: "",
+      pending: false,
+      error: null,
+    };
     this.delete_note_dialog = { ...INITIAL_DELETE_NOTE_DIALOG };
     this.rename_note_dialog = { ...INITIAL_RENAME_NOTE_DIALOG };
     this.save_note_dialog = { ...INITIAL_SAVE_NOTE_DIALOG };

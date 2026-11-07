@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { use_app_context } from "$lib/app/context/app_context.svelte";
+  import { ACTION_IDS } from "$lib/app";
   import type { FlatTreeNode } from "$lib/shared/types/filetree";
   import type { NoteMeta } from "$lib/shared/types/note";
   import { is_linked_note_path } from "$lib/shared/types/note";
@@ -136,6 +138,8 @@
   }: Props = $props();
 
   const is_linked = $derived(is_linked_note_path(node.path));
+  const { action_registry } = use_app_context();
+
   const visual_note = $derived(node.note ?? node.folder_note);
   const note_color = $derived(
     visual_note ? sanitize_note_color(visual_note.color) : null,
@@ -542,6 +546,35 @@
     </ContextMenu.Trigger>
     <ContextMenu.Portal>
       <ContextMenu.Content>
+        <ContextMenu.Item
+          data-testid="file-menu-save-as"
+          onSelect={() =>
+            void action_registry.execute(ACTION_IDS.file_save_as, node.path)}
+          >Save As</ContextMenu.Item
+        >
+        <ContextMenu.Item
+          data-testid="file-menu-rename"
+          onSelect={() =>
+            void action_registry.execute(
+              ACTION_IDS.file_request_rename,
+              node.path,
+            )}>Rename</ContextMenu.Item
+        >
+        <ContextMenu.Item
+          data-testid="file-menu-duplicate"
+          onSelect={() =>
+            void action_registry.execute(ACTION_IDS.file_duplicate, node.path)}
+          >Duplicate</ContextMenu.Item
+        >
+        <ContextMenu.Item
+          data-testid="file-menu-delete"
+          onSelect={() =>
+            void action_registry.execute(
+              ACTION_IDS.file_request_delete,
+              node.path,
+            )}>Delete</ContextMenu.Item
+        >
+        <ContextMenu.Separator />
         {#if on_open_to_side}
           <ContextMenu.Item onSelect={() => on_open_to_side(node.path)}>
             <Columns2 class="mr-2 h-4 w-4" />
@@ -593,6 +626,12 @@
     </ContextMenu.Trigger>
     <ContextMenu.Portal>
       <ContextMenu.Content>
+        <ContextMenu.Item
+          data-testid="note-menu-save-as"
+          onSelect={() =>
+            void action_registry.execute(ACTION_IDS.file_save_as, node.path)}
+          >Save As</ContextMenu.Item
+        >
         {#if selection_count > 1 && is_multi_selected}
           <ContextMenu.Item onSelect={() => on_toggle_star?.(node.path)}>
             {#if all_selected_starred}

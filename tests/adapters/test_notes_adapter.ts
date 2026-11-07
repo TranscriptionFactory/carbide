@@ -68,6 +68,20 @@ export function create_test_notes_adapter(): NotesPort {
   >();
 
   return {
+    pick_save_file_path: () => Promise.resolve(null),
+    confirm_file_overwrite: () => Promise.resolve(false),
+    async copy_file(_vault_id, from, to, overwrite) {
+      const base = await load_base_files();
+      const source =
+        user_notes.get(as_note_path(from)) ?? base.get(as_note_path(from));
+      if (!source) throw new Error("source not found");
+      if (
+        !overwrite &&
+        (user_notes.has(as_note_path(to)) || base.has(as_note_path(to)))
+      )
+        throw new Error("file already exists");
+      user_notes.set(as_note_path(to), { ...source });
+    },
     async list_notes(_vault_id: VaultId): Promise<NoteMeta[]> {
       const notes = await load_base_files();
       for (const [note_path, data] of user_notes.entries()) {

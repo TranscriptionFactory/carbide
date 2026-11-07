@@ -1108,6 +1108,70 @@ pub(crate) fn rename_with_temp_path(from_abs: &Path, to_abs: &Path) -> Result<()
     Ok(())
 }
 
+pub fn copy_file_bytes(from: &Path, to: &Path, overwrite: bool) -> Result<(), String> {
+    let source = from.canonicalize().map_err(|e| e.to_string())?;
+    if to.canonicalize().ok().as_ref() == Some(&source) {
+        return Err("source and destination are the same file".to_string());
+    }
+    if to.exists() && !overwrite {
+        return Err("file already exists".to_string());
+    }
+    let parent = to.parent().ok_or("invalid destination path")?;
+    std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+    let mut input = std::fs::File::open(&source).map_err(|e| e.to_string())?;
+    let mut staged = tempfile::NamedTempFile::new_in(parent).map_err(|e| e.to_string())?;
+    std::io::copy(&mut input, &mut staged).map_err(|e| e.to_string())?;
+    let permissions = std::fs::metadata(to)
+        .or_else(|_| std::fs::metadata(&source))
+        .map_err(|e| e.to_string())?
+        .permissions();
+    staged
+        .as_file()
+        .set_permissions(permissions)
+        .map_err(|e| e.to_string())?;
+    staged.as_file().sync_all().map_err(|e| e.to_string())?;
+    if overwrite {
+        staged.persist(to).map_err(|e| e.error.to_string())?;
+    } else {
+        staged.persist_noclobber(to).map_err(|e| {
+            if e.error.kind() == std::io::ErrorKind::AlreadyExists {
+                "file already exists".to_string()
+            } else {
+                e.error.to_string()
+            }
+        })?;
+    }
+    Ok(())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn copy_file(
+    app: AppHandle,
+    vault_id: String,
+    from: String,
+    to: String,
+    overwrite: bool,
+) -> Result<(), String> {
+    crate::shared::blocking::blocking("copy_file", move || {
+        let root = storage::vault_path(&app, &vault_id)?;
+        let source = if Path::new(&from).is_absolute() {
+            PathBuf::from(&from)
+        } else {
+            safe_vault_abs(&root, &from)?
+        };
+        let target = if Path::new(&to).is_absolute() {
+            PathBuf::from(&to)
+        } else {
+            safe_vault_abs_for_write(&root, &to)?
+        };
+        copy_file_bytes(&source, &target, overwrite)?;
+        invalidate_note_parent_folder_cache(&vault_id, &to);
+        Ok(())
+    })
+    .await
+}
+
 #[tauri::command]
 #[specta::specta]
 pub async fn rename_note(args: NoteRenameArgs, app: AppHandle) -> Result<(), String> {

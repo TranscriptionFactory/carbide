@@ -374,3 +374,133 @@ fn editor_custom_filenames_keep_sanitizing_and_inferring_extensions() {
         assert_eq!(custom_asset_filename(&args, custom).unwrap(), expected);
     }
 }
+
+fn file_copy_dir() -> tempfile::TempDir {
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../.tmpfiles");
+    std::fs::create_dir_all(&root).unwrap();
+    tempfile::tempdir_in(root).unwrap()
+}
+
+#[test]
+fn file_copy_preserves_raw_bytes_and_source() {
+    let dir = file_copy_dir();
+    let source = dir.path().join("note.md");
+    let target = dir.path().join("note.txt");
+    let bytes = b"\xef\xbb\xbf[[a]]\r\n\x00\xff";
+    std::fs::write(&source, bytes).unwrap();
+    crate::features::notes::service::copy_file_bytes(&source, &target, false).unwrap();
+    assert_eq!(std::fs::read(&source).unwrap(), bytes);
+    assert_eq!(std::fs::read(&target).unwrap(), bytes);
+}
+
+#[test]
+fn file_copy_requires_overwrite_permission_and_keeps_both_files_on_error() {
+    let dir = file_copy_dir();
+    let source = dir.path().join("source.pdf");
+    let target = dir.path().join("target.pdf");
+    std::fs::write(&source, b"source").unwrap();
+    std::fs::write(&target, b"target").unwrap();
+    let error =
+        crate::features::notes::service::copy_file_bytes(&source, &target, false).unwrap_err();
+    assert_eq!(error, "file already exists");
+    assert_eq!(std::fs::read(&source).unwrap(), b"source");
+    assert_eq!(std::fs::read(&target).unwrap(), b"target");
+    crate::features::notes::service::copy_file_bytes(&source, &target, true).unwrap();
+    assert_eq!(std::fs::read(&source).unwrap(), b"source");
+    assert_eq!(std::fs::read(&target).unwrap(), b"source");
+}
+
+#[test]
+fn file_copy_failed_install_and_missing_source_preserve_existing_data() {
+    let dir = file_copy_dir();
+    let source = dir.path().join("source");
+    let target = dir.path().join("target");
+    std::fs::write(&source, b"source").unwrap();
+    std::fs::create_dir(&target).unwrap();
+    std::fs::write(target.join("child"), b"target").unwrap();
+    assert!(crate::features::notes::service::copy_file_bytes(&source, &target, true).is_err());
+    assert_eq!(std::fs::read(&source).unwrap(), b"source");
+    assert_eq!(std::fs::read(target.join("child")).unwrap(), b"target");
+    assert!(crate::features::notes::service::copy_file_bytes(
+        &dir.path().join("missing"),
+        &source,
+        true
+    )
+    .is_err());
+    assert_eq!(std::fs::read(&source).unwrap(), b"source");
+}
+
+#[test]
+fn file_copy_rejects_same_file_and_does_not_use_source_as_staging() {
+    let dir = file_copy_dir();
+    let source = dir.path().join("file.tmp");
+    let target = dir.path().join("file");
+    std::fs::write(&source, b"source").unwrap();
+    assert!(crate::features::notes::service::copy_file_bytes(&source, &source, true).is_err());
+    crate::features::notes::service::copy_file_bytes(&source, &target, false).unwrap();
+    assert_eq!(std::fs::read(&source).unwrap(), b"source");
+    assert_eq!(std::fs::read(&target).unwrap(), b"source");
+}
+
+#[cfg(unix)]
+#[test]
+fn file_copy_preserves_executable_and_existing_destination_permissions() {
+    use std::os::unix::fs::PermissionsExt;
+    let dir = file_copy_dir();
+    let source = dir.path().join("source.sh");
+    let target = dir.path().join("target.sh");
+    std::fs::write(&source, b"source").unwrap();
+    std::fs::set_permissions(&source, std::fs::Permissions::from_mode(0o755)).unwrap();
+    crate::features::notes::service::copy_file_bytes(&source, &target, false).unwrap();
+    assert_eq!(
+        std::fs::metadata(&target).unwrap().permissions().mode() & 0o777,
+        0o755
+    );
+    std::fs::set_permissions(&target, std::fs::Permissions::from_mode(0o640)).unwrap();
+    crate::features::notes::service::copy_file_bytes(&source, &target, true).unwrap();
+    assert_eq!(
+        std::fs::metadata(&target).unwrap().permissions().mode() & 0o777,
+        0o640
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn file_copy_rejects_symlink_to_source() {
+    let dir = file_copy_dir();
+    let source = dir.path().join("source");
+    let target = dir.path().join("alias");
+    std::fs::write(&source, b"source").unwrap();
+    unix_fs::symlink(&source, &target).unwrap();
+    assert!(crate::features::notes::service::copy_file_bytes(&source, &target, true).is_err());
+    assert_eq!(std::fs::read(&source).unwrap(), b"source");
+}
+
+#[test]
+fn file_copy_competing_writers_never_clobber_the_winner() {
+    let dir = file_copy_dir();
+    let first = dir.path().join("first");
+    let second = dir.path().join("second");
+    let target = dir.path().join("target");
+    std::fs::write(&first, b"first").unwrap();
+    std::fs::write(&second, b"second").unwrap();
+    let barrier = std::sync::Barrier::new(2);
+    let run = |source: &std::path::Path| {
+        barrier.wait();
+        crate::features::notes::service::copy_file_bytes(source, &target, false)
+    };
+    let results = std::thread::scope(|scope| {
+        let a = scope.spawn(|| run(&first));
+        let b = scope.spawn(|| run(&second));
+        (a.join().unwrap(), b.join().unwrap())
+    });
+    assert_ne!(results.0.is_ok(), results.1.is_ok());
+    let winner = if results.0.is_ok() {
+        b"first".as_slice()
+    } else {
+        b"second".as_slice()
+    };
+    assert_eq!(std::fs::read(&target).unwrap(), winner);
+    assert_eq!(std::fs::read(&first).unwrap(), b"first");
+    assert_eq!(std::fs::read(&second).unwrap(), b"second");
+}

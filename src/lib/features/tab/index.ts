@@ -3,6 +3,7 @@ export { TabService } from "$lib/features/tab/application/tab_service";
 export { SecondaryEditorManager } from "$lib/features/tab/application/secondary_editor_manager";
 export {
   capture_active_tab_snapshot,
+  open_active_tab_note,
   ensure_tab_capacity,
   try_open_tab,
 } from "$lib/features/tab/application/tab_action_helpers";

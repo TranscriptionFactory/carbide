@@ -532,6 +532,78 @@ export class NoteService {
     }
   }
 
+  async save_file_as(path: string): Promise<void> {
+    const vault_id = this.get_active_vault_id();
+    if (!vault_id) return;
+    const target = await this.notes_port.pick_save_file_path(
+      path.split("/").pop() ?? path,
+    );
+    if (!target) return;
+    try {
+      await this.notes_port.copy_file(vault_id, path, target, false);
+    } catch (error) {
+      if (!this.is_note_exists_error(error)) throw error;
+      if (!(await this.notes_port.confirm_file_overwrite(target))) return;
+      await this.notes_port.copy_file(vault_id, path, target, true);
+    }
+    this.on_file_written?.(target);
+  }
+
+  async duplicate_file(path: string): Promise<void> {
+    const vault_id = this.get_active_vault_id();
+    if (!vault_id) return;
+    const slash = path.lastIndexOf("/");
+    const dot = path.lastIndexOf(".");
+    const split = dot > slash + 1 ? dot : path.length;
+    for (let n = 1; n <= 1000; n++) {
+      const target = `${path.slice(0, split)} copy${n === 1 ? "" : ` ${String(n)}`}${path.slice(split)}`;
+      try {
+        await this.notes_port.copy_file(vault_id, path, target, false);
+        this.on_file_written?.(target);
+        return;
+      } catch (error) {
+        if (!this.is_note_exists_error(error)) throw error;
+      }
+    }
+    throw new Error("No available duplicate filename");
+  }
+
+  async rename_file(from: string, to: string): Promise<void> {
+    const vault_id = this.get_active_vault_id();
+    if (!vault_id) return;
+    if (/\.md$/i.test(from))
+      throw new Error("Use Rename Note for Markdown notes");
+    if (/\.md$/i.test(to))
+      throw new Error("Use Save As to create a Markdown copy");
+    this.on_file_written?.(from, { kind: "removal" });
+    this.on_file_written?.(to);
+    await this.notes_port.rename_note(
+      vault_id,
+      as_note_path(from),
+      as_note_path(to),
+    );
+    await this.run_index_update(() =>
+      this.index_port.rename_note_path(
+        vault_id,
+        as_note_path(from),
+        as_note_path(to),
+      ),
+    );
+  }
+
+  async delete_file(path: string): Promise<void> {
+    const vault_id = this.get_active_vault_id();
+    if (!vault_id) return;
+    if (/\.md$/i.test(path))
+      throw new Error("Use Delete Note for Markdown notes");
+    this.on_file_written?.(path, { kind: "removal" });
+    await this.notes_port.delete_note(vault_id, as_note_path(path));
+    await this.run_index_update(() =>
+      this.index_port.remove_note(vault_id, as_note_path(path)),
+    );
+    this.notes_store.remove_recent_note(as_note_path(path));
+  }
+
   async delete_note(note: NoteMeta): Promise<NoteDeleteResult> {
     const vault_id = this.get_active_vault_id();
     if (!vault_id) {

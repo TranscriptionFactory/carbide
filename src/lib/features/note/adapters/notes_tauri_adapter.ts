@@ -1,3 +1,4 @@
+import { save, confirm } from "@tauri-apps/plugin-dialog";
 import type { NotesPort } from "$lib/features/note/ports";
 import type {
   MarkdownText,
@@ -58,6 +59,24 @@ function to_note_meta(meta: {
 
 export function create_notes_tauri_adapter(): NotesPort {
   return {
+    pick_save_file_path(default_name) {
+      return save({ title: "Save As", defaultPath: default_name });
+    },
+    confirm_file_overwrite(path) {
+      return confirm(
+        `Replace "${path}"? The existing file will be overwritten.`,
+        {
+          title: "File Already Exists",
+          kind: "warning",
+          okLabel: "Overwrite",
+          cancelLabel: "Cancel",
+        },
+      );
+    },
+    async copy_file(vault_id, from, to, overwrite) {
+      assert_tauri();
+      unwrap_result(await commands.copyFile(vault_id, from, to, overwrite));
+    },
     async list_notes(vault_id: VaultId) {
       assert_tauri();
       const result = await commands.listNotes(vault_id);

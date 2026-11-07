@@ -23,6 +23,10 @@ import { as_note_path, type VaultId } from "$lib/shared/types/ids";
 import { filter_folder_paths } from "$lib/shared/utils/filter_folder_paths";
 
 export const COMMAND_TO_ACTION_ID: Record<CommandId, string> = {
+  save_file_as: ACTION_IDS.file_save_as,
+  rename_file: ACTION_IDS.file_request_rename,
+  delete_file: ACTION_IDS.file_request_delete,
+  duplicate_file: ACTION_IDS.file_duplicate,
   create_new_note: ACTION_IDS.note_create,
   create_new_canvas: ACTION_IDS.canvas_create,
   change_vault: ACTION_IDS.vault_request_change,

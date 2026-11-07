@@ -393,6 +393,44 @@
 />
 
 <DeleteNoteDialog
+  open={stores.ui.file_dialog.mode === "delete"}
+  note={{
+    path: stores.ui.file_dialog.path,
+    title: stores.ui.file_dialog.path.split("/").pop() ?? "",
+  }}
+  is_file
+  is_deleting={stores.ui.file_dialog.pending}
+  error={stores.ui.file_dialog.error}
+  on_confirm={() => void action_registry.execute(ACTION_IDS.file_confirm)}
+  on_cancel={() => void action_registry.execute(ACTION_IDS.file_cancel)}
+  on_retry={() => void action_registry.execute(ACTION_IDS.file_confirm)}
+/>
+<RenameNoteDialog
+  open={stores.ui.file_dialog.mode === "rename"}
+  note={{
+    path: stores.ui.file_dialog.path,
+    title: stores.ui.file_dialog.path.split("/").pop() ?? "",
+  }}
+  is_file
+  new_name={stores.ui.file_dialog.new_name}
+  is_renaming={stores.ui.file_dialog.pending}
+  is_checking_conflict={false}
+  error={stores.ui.file_dialog.error}
+  show_overwrite_confirm={false}
+  on_update_name={(name) =>
+    void action_registry.execute(ACTION_IDS.file_update_name, name)}
+  on_confirm={() => void action_registry.execute(ACTION_IDS.file_confirm)}
+  on_confirm_overwrite={() =>
+    void action_registry.execute(ACTION_IDS.file_confirm)}
+  on_cancel={() => void action_registry.execute(ACTION_IDS.file_cancel)}
+  on_retry={() =>
+    void action_registry.execute(
+      ACTION_IDS.file_update_name,
+      stores.ui.file_dialog.new_name,
+    )}
+/>
+
+<DeleteNoteDialog
   open={stores.ui.delete_note_dialog.open}
   note={stores.ui.delete_note_dialog.note}
   is_deleting={stores.op.is_pending("note.delete")}

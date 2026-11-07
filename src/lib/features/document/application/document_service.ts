@@ -1,3 +1,4 @@
+import { detect_file_type } from "$lib/features/document/domain/document_types";
 import type {
   DocumentPort,
   DocumentEditorController,
@@ -422,6 +423,8 @@ export class DocumentService {
       });
       this.document_store.set_load_status(tab_id, "ready");
     } catch (error) {
+      const current_viewer = this.document_store.get_viewer_state(tab_id);
+      if (current_viewer?.file_path !== viewer_state.file_path) return;
       const error_message =
         typeof error === "string"
           ? error
@@ -612,6 +615,36 @@ export class DocumentService {
       ...(image_resolver ? { image_resolver } : {}),
       ...(pdf ? { pdf } : {}),
     });
+  }
+
+  rename_document(old_path: string, new_path: string): void {
+    const vault_id = this.vault_store.vault?.id;
+    if (!vault_id) return;
+    for (const entry of this.document_store.content_states.values()) {
+      if (entry.file_path === old_path && entry.buffer_id) {
+        void this.document_port.close_buffer(entry.buffer_id).catch(() => {});
+      }
+    }
+    const viewer = [...this.document_store.viewer_states.values()].find(
+      (entry) => entry.file_path === old_path,
+    );
+    const content = viewer
+      ? this.document_store.get_content_state(viewer.tab_id)
+      : undefined;
+    const file_type = detect_file_type(new_path) ?? viewer?.file_type ?? "text";
+    this.document_store.rename_document(
+      old_path,
+      new_path,
+      file_type,
+      this.document_port.resolve_asset_url(vault_id, new_path),
+    );
+    if (
+      viewer &&
+      !content?.is_dirty &&
+      (content?.status === "loading" || viewer.file_type !== file_type)
+    ) {
+      void this.ensure_content(new_path, true);
+    }
   }
 
   close_document(tab_id: string): void {
