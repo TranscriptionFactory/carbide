@@ -194,10 +194,10 @@ jobs:
         shell: bash
         run: |
           target="${{ matrix.triple }}"
-          cargo build --release --manifest-path src-tauri/Cargo.toml --package carbide-cli --target "$target" ${{ matrix.cargo_args }}
+          cargo build --release --manifest-path src-tauri/Cargo.toml --package carbide-cli --target "$target" --target-dir src-tauri/target-sidecar ${{ matrix.cargo_args }}
           ext=""
           if [[ "$target" == *"windows"* ]]; then ext=".exe"; fi
-          cp "src-tauri/target/${target}/release/carbide-cli${ext}" "src-tauri/binaries/carbide-cli-${target}${ext}"
+          cp "src-tauri/target-sidecar/${target}/release/carbide-cli${ext}" "src-tauri/binaries/carbide-cli-${target}${ext}"
 
       - uses: tauri-apps/tauri-action@v0.6.2
         with:
