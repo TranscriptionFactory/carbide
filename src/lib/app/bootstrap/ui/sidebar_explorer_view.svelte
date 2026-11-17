@@ -85,7 +85,7 @@
 </script>
 
 <div
-  class="flex items-center border-b border-zinc-200 dark:border-zinc-800 px-1 shrink-0"
+  class="flex items-center border-b border-sidebar-border px-1 shrink-0"
   role="group"
   aria-label="File tree mode"
 >
@@ -94,10 +94,10 @@
       type="button"
       aria-pressed={(stores.ui.editor_settings.file_tree_mode ?? "tree") ===
         mode_tab.mode}
-      class="px-2.5 py-1.5 text-xs font-medium border-b-2 -mb-px transition-colors {(stores
+      class="flex-1 px-1.5 py-1.5 text-xs font-medium focus-visible:outline-2 focus-visible:outline-sidebar-ring focus-visible:-outline-offset-2 border-b-2 -mb-px transition-colors {(stores
         .ui.editor_settings.file_tree_mode ?? 'tree') === mode_tab.mode
-        ? 'border-blue-500 text-foreground'
-        : 'border-transparent text-zinc-500 hover:text-foreground'}"
+        ? 'border-sidebar-accent-foreground text-sidebar-accent-foreground'
+        : 'border-transparent text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground'}"
       onclick={() =>
         void action_registry.execute(
           ACTION_IDS.filetree_set_mode,

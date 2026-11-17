@@ -940,7 +940,7 @@
   /* ── Variant: default ── */
 
   :global([data-tree-style="default"]) .TreeRow {
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-sm);
     color: var(--sidebar-foreground);
     transition:
       background-color var(--duration-fast) var(--ease-default),
@@ -966,11 +966,16 @@
   }
 
   :global([data-tree-style="default"]) .TreeRow:hover {
-    background-color: var(--sidebar-accent);
+    background-color: color-mix(
+      in oklch,
+      var(--sidebar-accent) 50%,
+      transparent
+    );
   }
 
   :global([data-tree-style="default"]) .TreeRow--selected {
-    background-color: var(--muted);
+    background-color: var(--sidebar-accent);
+    color: var(--sidebar-accent-foreground);
   }
 
   :global([data-tree-style="default"]) .TreeRow--selected:hover {
@@ -1260,7 +1265,7 @@
 
   :global([data-show-blurb][data-tree-style="default"])
     .TreeRow--folder.TreeRow--selected {
-    background-color: color-mix(in oklch, var(--muted) 55%, transparent);
+    background-color: var(--sidebar-accent);
   }
 
   :global([data-show-blurb][data-tree-style="airy_minimal"])

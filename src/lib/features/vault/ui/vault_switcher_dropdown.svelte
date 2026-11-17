@@ -334,7 +334,8 @@
   .VaultSwitcher__trigger {
     display: flex;
     align-items: center;
-    gap: var(--space-1);
+    gap: var(--space-2);
+    width: 100%;
     min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -344,16 +345,26 @@
     font-size: var(--text-sm);
     background: transparent;
     border: none;
-    color: inherit;
-    padding: 0;
+    color: var(--sidebar-foreground);
+    min-height: var(--size-touch-sm);
+    border-radius: var(--radius-sm);
+    padding: var(--space-1);
     transition: color var(--duration-fast) var(--ease-default);
   }
 
   .VaultSwitcher__trigger:hover {
-    color: var(--foreground);
+    background-color: var(--sidebar-accent);
+    color: var(--sidebar-accent-foreground);
+  }
+
+  .VaultSwitcher__trigger:focus-visible {
+    outline: 2px solid var(--sidebar-ring);
+    outline-offset: 2px;
   }
 
   .VaultSwitcher__trigger-name {
+    flex: 1;
+    min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;

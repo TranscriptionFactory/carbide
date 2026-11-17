@@ -172,7 +172,8 @@
                   {...props}
                   variant="ghost"
                   size="icon"
-                  class="SidebarHeaderButton"
+                  class="SidebarHeaderButton text-muted-foreground hover:bg-sidebar-accent dark:hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-sidebar-ring"
+                  aria-label={action.label}
                   onclick={action.onclick}
                 >
                   <action.icon class="SidebarHeaderIcon" />
@@ -234,13 +235,13 @@
   .SidebarHeader {
     display: flex;
     flex-direction: column;
-    border-block-end: 1px solid var(--border);
+    border-block-end: 1px solid var(--sidebar-border);
   }
 
   .SidebarHeader__top {
     display: flex;
     align-items: center;
-    height: var(--size-touch-lg);
+    height: var(--size-touch-md);
     padding-inline: var(--space-3);
   }
 
@@ -250,8 +251,9 @@
     text-overflow: ellipsis;
     white-space: nowrap;
     text-align: left;
-    font-weight: 600;
-    font-size: var(--text-sm);
+    font-weight: 500;
+    font-size: var(--text-xs);
+    color: var(--muted-foreground);
   }
 
   .SidebarHeader__actions {
@@ -264,12 +266,7 @@
   :global(.SidebarHeaderButton) {
     width: var(--size-touch-sm);
     height: var(--size-touch-sm);
-    color: var(--muted-foreground);
     transition: color var(--duration-fast) var(--ease-default);
-  }
-
-  :global(.SidebarHeaderButton:hover) {
-    color: var(--foreground);
   }
 
   :global(.SidebarHeaderIcon) {

@@ -90,8 +90,12 @@
     place-items: center;
     width: var(--size-touch-xs);
     height: var(--size-touch-xs);
-    border-radius: var(--radius-md);
-    color: var(--muted-foreground);
+    border-radius: var(--radius-sm);
+    color: color-mix(
+      in oklch,
+      var(--activity-bar-fg) 65%,
+      var(--activity-bar-bg)
+    );
     transition:
       background-color var(--duration-normal) var(--ease-default),
       color var(--duration-normal) var(--ease-default);
@@ -108,7 +112,7 @@
 
   .ActivityBar__button:focus-visible {
     color: var(--activity-bar-fg);
-    outline: 2px solid var(--focus-ring);
+    outline: 2px solid var(--sidebar-ring);
     outline-offset: -2px;
   }
 
@@ -137,7 +141,7 @@
   }
   :global([data-sidebar-active="fill"]) .ActivityBar__button--active {
     background-color: var(--sidebar-accent);
-    color: var(--interactive);
+    color: var(--sidebar-accent-foreground);
   }
 
   :global([data-sidebar-active="weight"]) .ActivityBar__button--active::before {
